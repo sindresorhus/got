@@ -1,0 +1,36 @@
+{
+  "name": "got",
+  "version": "0.0.0",
+  "description": "Simplified HTTP/HTTPS GET requests",
+  "license": "MIT",
+  "repository": "sindresorhus/got",
+  "author": {
+    "name": "Sindre Sorhus",
+    "email": "sindresorhus@gmail.com",
+    "url": "http://sindresorhus.com"
+  },
+  "engines": {
+    "node": ">=0.10.0"
+  },
+  "scripts": {
+    "test": "mocha"
+  },
+  "files": [
+    "index.js"
+  ],
+  "keywords": [
+    "http",
+    "https",
+    "get",
+    "got",
+    "url",
+    "uri",
+    "request",
+    "util",
+    "utility",
+    "simple"
+  ],
+  "devDependencies": {
+    "mocha": "*"
+  }
+}
