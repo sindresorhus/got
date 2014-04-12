@@ -14,6 +14,8 @@ module.exports = function (url, cb) {
 
 			// redirect
 			if (res.statusCode < 400 && res.statusCode >= 300 && res.headers.location) {
+				res.destroy();
+
 				if (++redirectCount > 10) {
 					cb(new Error('Redirected 10 times. Aborting.'));
 					return;
@@ -24,6 +26,7 @@ module.exports = function (url, cb) {
 			}
 
 			if (res.statusCode !== 200) {
+				res.destroy();
 				cb(res.statusCode);
 				return;
 			}

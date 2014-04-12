@@ -24,4 +24,9 @@ it('should request', function (done) {
 		assert(/google/.test(data));
 		done();
 	});
+
+	got('http://sindresorhus.com/sfsadfasdfadsga', function (err, data) {
+		assert.strictEqual(err, 404);
+		done();
+	});
 });
