@@ -2,14 +2,24 @@
 var urlLib = require('url');
 var http = require('http');
 var https = require('https');
+var assign = require('object-assign');
 
-module.exports = function (url, cb) {
+module.exports = function (url, opts, cb) {
 	var redirectCount = 0;
 
-	var get = function (url, cb) {
-		var fn = urlLib.parse(url).protocol === 'https:' ? https : http;
+	var get = function (url, opts, cb) {
+		if (typeof opts === 'function') {
+			cb = opts;
+			opts = {};
+		}
 
-		fn.get(url, function (res) {
+		cb = cb || function () {};
+
+		var parsedUrl = urlLib.parse(url);
+		var fn = parsedUrl.protocol === 'https:' ? https : http;
+		var arg = assign({}, parsedUrl, opts);
+
+		fn.get(arg, function (res) {
 			var ret = '';
 
 			// redirect
@@ -43,5 +53,5 @@ module.exports = function (url, cb) {
 		}).on('error', cb);
 	};
 
-	get(url, cb);
+	get(url, opts, cb);
 };

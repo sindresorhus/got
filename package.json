@@ -1,7 +1,7 @@
 {
   "name": "got",
   "version": "0.1.1",
-  "description": "Simplified HTTP/HTTPS GET requests",
+  "description": "Simplified HTTP/HTTPS requests",
   "license": "MIT",
   "repository": "sindresorhus/got",
   "author": {
@@ -30,6 +30,9 @@
     "utility",
     "simple"
   ],
+  "dependencies": {
+    "object-assign": "^0.3.0"
+  },
   "devDependencies": {
     "mocha": "*"
   }
