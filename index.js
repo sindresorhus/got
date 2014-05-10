@@ -14,6 +14,8 @@ module.exports = function (url, opts, cb) {
 		}
 
 		cb = cb || function () {};
+		opts = opts || {};
+		opts.headers = opts.headers || {'user-agent': 'https://github.com/sindresorhus/got'};
 
 		var parsedUrl = urlLib.parse(url);
 		var fn = parsedUrl.protocol === 'https:' ? https : http;
