@@ -42,3 +42,11 @@ it('should support optional options', function (done) {
 		done();
 	});
 });
+
+it('should support gzip', function (done) {
+	got('http://sindresorhus.com', function (err, data) {
+		assert(!err, err);
+		assert(/^<!doctype html>/.test(data));
+		done();
+	});
+});

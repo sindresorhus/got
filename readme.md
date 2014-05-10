@@ -2,12 +2,16 @@
 
 > Simplified HTTP/HTTPS requests
 
-A nicer interface to the built-in [`http`](http://nodejs.org/api/http.html) module that also follows redirects. Use [request](https://github.com/mikeal/request) if you need more.
+A nicer interface to the built-in [`http`](http://nodejs.org/api/http.html) module.
+
+It also supports following redirects and automagically handling gzip/deflate.
+
+Use [request](https://github.com/mikeal/request) if you need more.
 
 
 ## Install
 
-```bash
+```sh
 $ npm install --save got
 ```
 
@@ -48,4 +52,4 @@ Any of the [`http.request`](http://nodejs.org/api/http.html#http_http_request_op
 
 ## License
 
-[MIT](http://opensource.org/licenses/MIT) © [Sindre Sorhus](http://sindresorhus.com)
+MIT © [Sindre Sorhus](http://sindresorhus.com)

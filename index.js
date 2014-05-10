@@ -2,6 +2,7 @@
 var urlLib = require('url');
 var http = require('http');
 var https = require('https');
+var zlib = require('zlib');
 var assign = require('object-assign');
 
 module.exports = function (url, opts, cb) {
@@ -15,7 +16,11 @@ module.exports = function (url, opts, cb) {
 
 		cb = cb || function () {};
 		opts = opts || {};
-		opts.headers = opts.headers || {'user-agent': 'https://github.com/sindresorhus/got'};
+
+		opts.headers = assign({
+			'user-agent': 'https://github.com/sindresorhus/got',
+			'accept-encoding': 'gzip,deflate'
+		}, opts.headers || {});
 
 		var parsedUrl = urlLib.parse(url);
 		var fn = parsedUrl.protocol === 'https:' ? https : http;
@@ -41,6 +46,12 @@ module.exports = function (url, opts, cb) {
 				res.destroy();
 				cb(res.statusCode);
 				return;
+			}
+
+			if (['gzip', 'deflate'].indexOf(res.headers['content-encoding']) !== -1) {
+				var unzip = zlib.createUnzip();
+				res.pipe(unzip);
+				res = unzip;
 			}
 
 			res.setEncoding('utf8');
