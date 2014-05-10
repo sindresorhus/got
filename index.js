@@ -49,10 +49,12 @@ module.exports = function (url, opts, cb) {
 				ret += data;
 			});
 
-			res.on('end', function () {
+			res.once('error', cb);
+
+			res.once('end', function () {
 				cb(null, ret);
 			});
-		}).on('error', cb);
+		}).once('error', cb);
 	};
 
 	get(url, opts, cb);

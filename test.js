@@ -42,4 +42,3 @@ it('should support optional options', function (done) {
 		done();
 	});
 });
-
