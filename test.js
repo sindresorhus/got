@@ -43,6 +43,14 @@ it('should support optional options', function (done) {
 	});
 });
 
+it('should get headers only with HEAD method', function (done) {
+	got('http://google.com', {method: 'HEAD'}, function (err, data, res) {
+		assert(!data, data);
+		assert.ok(res.headers);
+		done();
+	});
+});
+
 it('should support gzip', function (done) {
 	got('http://sindresorhus.com', function (err, data) {
 		assert(!err, err);

@@ -38,7 +38,7 @@ module.exports = function (url, opts, cb) {
 					return;
 				}
 
-				get(urlLib.resolve(url, res.headers.location), cb);
+				get(urlLib.resolve(url, res.headers.location), opts, cb);
 				return;
 			}
 
@@ -63,7 +63,7 @@ module.exports = function (url, opts, cb) {
 			res.once('error', cb);
 
 			res.once('end', function () {
-				cb(null, ret);
+				cb(null, ret, res);
 			});
 		}).once('error', cb);
 	};
