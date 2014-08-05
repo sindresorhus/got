@@ -47,7 +47,7 @@ Type: `object`
 
 Any of the [`http.request`](http://nodejs.org/api/http.html#http_http_request_options_callback) options.
 
-##### callback(err, data)
+##### callback(err, data, res)
 
 
 ## License
