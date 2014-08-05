@@ -21,7 +21,7 @@ $ npm install --save got
 ```js
 var got = require('got');
 
-got('http://todomvc.com', function (err, data) {
+got('http://todomvc.com', function (err, data, res) {
 	console.log(data);
 	//=> <!doctype html> ...
 });
@@ -47,7 +47,15 @@ Type: `object`
 
 Any of the [`http.request`](http://nodejs.org/api/http.html#http_http_request_options_callback) options.
 
-##### callback(err, data, res)
+##### callback(err, data, response)
+
+###### data
+
+The data you requested.
+
+###### response
+
+The [response object](http://nodejs.org/api/http.html#http_http_incomingmessage).
 
 
 ## License
