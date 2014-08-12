@@ -42,7 +42,7 @@ module.exports = function (url, opts, cb) {
 				return;
 			}
 
-			if (res.statusCode !== 200) {
+			if (res.statusCode < 200 || res.statusCode > 299) {
 				res.destroy();
 				cb(res.statusCode);
 				return;
