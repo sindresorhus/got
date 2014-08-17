@@ -58,3 +58,11 @@ it('should support gzip', function (done) {
 		done();
 	});
 });
+
+it('should return a buffer if encoding is set to null', function (done) {
+	got('http://google.com', {encoding: null}, function (err, data) {
+		assert(!err, err);
+		assert.ok(Buffer.isBuffer(data));
+		done();
+	});
+});

@@ -47,6 +47,12 @@ Type: `object`
 
 Any of the [`http.request`](http://nodejs.org/api/http.html#http_http_request_options_callback) options.
 
+##### options.encoding
+
+Type: `string` or `null`
+
+Encoding to be used on setEncoding of response data. If null, the body is returned as a Buffer.
+
 ##### callback(err, data, response)
 
 ###### data

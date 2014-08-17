@@ -8,6 +8,10 @@ var assign = require('object-assign');
 module.exports = function (url, opts, cb) {
 	var redirectCount = 0;
 
+	// Extract got options.
+	var encoding = opts.encoding;
+	delete opts.encoding;
+
 	var get = function (url, opts, cb) {
 		if (typeof opts === 'function') {
 			cb = opts;
@@ -27,8 +31,6 @@ module.exports = function (url, opts, cb) {
 		var arg = assign({}, parsedUrl, opts);
 
 		fn.get(arg, function (res) {
-			var ret = '';
-
 			// redirect
 			if (res.statusCode < 400 && res.statusCode >= 300 && res.headers.location) {
 				res.destroy();
@@ -54,16 +56,29 @@ module.exports = function (url, opts, cb) {
 				res = unzip;
 			}
 
-			res.setEncoding('utf8');
-
-			res.on('data', function (data) {
-				ret += data;
-			});
-
 			res.once('error', cb);
 
+			var chunks = [];
+			var n = 0;
+
+			res.on('data', function (chunk) {
+				// Add the new chunk to the list.
+				chunks.push(chunk);
+				n += chunk.length;
+			});
+
 			res.once('end', function () {
-				cb(null, ret, res);
+				// Concatenate all chunks into a single buffer.
+				var data = Buffer.concat(chunks, n);
+
+				// Unless the encoding has been explicitely set to `null`,
+				// convert the buffer to a string.
+				if (encoding !== null) {
+					data = data.toString(encoding || 'utf8');
+				}
+
+				// Return the result.
+				cb(null, data, res);
 			});
 		}).once('error', cb);
 	};
