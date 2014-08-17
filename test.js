@@ -66,3 +66,25 @@ it('should return a buffer if encoding is set to null', function (done) {
 		done();
 	});
 });
+
+it('should return a readable stream without a callback', function (done) {
+	var stream = got('http://google.com');
+
+	var data = '';
+	stream.on('data', function (chunk) {
+		data += chunk;
+	});
+	stream.on('end', function () {
+		assert.ok(/google/.test(data));
+		done();
+	});
+});
+
+it('should proxy errors to the stream', function (done) {
+	var stream = got('http://sindresorhus.com/sfsadfasdfadsga');
+
+	stream.on('error', function (error) {
+		assert.strictEqual(error, 404);
+		done();
+	});
+});
