@@ -21,12 +21,15 @@ $ npm install --save got
 ```js
 var got = require('got');
 
+// Callback mode.
 got('http://todomvc.com', function (err, data, res) {
 	console.log(data);
 	//=> <!doctype html> ...
 });
-```
 
+// Stream mode.
+got('http://todomvc.com').pipe(fs.createWriteStream('index.html'));
+```
 
 ### API
 
