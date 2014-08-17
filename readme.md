@@ -68,6 +68,11 @@ The data you requested.
 The [response object](http://nodejs.org/api/http.html#http_http_incomingmessage).
 
 
+## Related
+
+See [sent](https://github.com/floatdrop/sent) if you need to upload something.
+
+
 ## License
 
 MIT © [Sindre Sorhus](http://sindresorhus.com)
