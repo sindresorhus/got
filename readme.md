@@ -49,9 +49,10 @@ Any of the [`http.request`](http://nodejs.org/api/http.html#http_http_request_op
 
 ##### options.encoding
 
-Type: `string` or `null`
+Type: `string`, `null`  
+Default: `'utf8'`
 
-Encoding to be used on setEncoding of response data. If null, the body is returned as a Buffer.
+Encoding to be used on `setEncoding` of the response data. If null, the body is returned as a Buffer.
 
 ##### callback(err, data, response)
 
