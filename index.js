@@ -1,20 +1,18 @@
 'use strict';
-
 var http = require('http');
 var https = require('https');
 var urlLib = require('url');
 var zlib = require('zlib');
 var PassThrough = require('stream').PassThrough;
-
 var assign = require('object-assign');
 
 module.exports = function (url, opts, cb) {
 	if (typeof opts === 'function') {
-		// If `cb` has been specified but `opts` has not.
+		// if `cb` has been specified but `opts` has not
 		cb = opts;
 		opts = {};
 	} else if (!opts) {
-		// opts has not been specified.
+		// opts has not been specified
 		opts = {};
 	}
 
@@ -22,25 +20,26 @@ module.exports = function (url, opts, cb) {
 	var encoding = opts.encoding;
 	delete opts.encoding;
 
-	// If no callback has been provided, returns a proxy stream to the
-	// response.
+	// returns a proxy stream to the response
+	// if no callback has been provided
 	var proxy;
 	if (!cb) {
 		proxy = new PassThrough();
 
-		// Forward errors on the stream.
+		// forward errors on the stream
 		cb = function (err) {
 			proxy.emit('error', err);
 		};
 	}
 
-	// Merge additional headers.
+	// merge additional headers
 	opts.headers = assign({
 		'user-agent': 'https://github.com/sindresorhus/got',
 		'accept-encoding': 'gzip,deflate'
 	}, opts.headers || {});
 
 	var redirectCount = 0;
+
 	var get = function (url, opts, cb) {
 		var parsedUrl = urlLib.parse(url);
 		var fn = parsedUrl.protocol === 'https:' ? https : http;
@@ -72,7 +71,7 @@ module.exports = function (url, opts, cb) {
 				res = unzip;
 			}
 
-			// If in proxy mode, simply pipe the response to the proxy.
+			// pipe the response to the proxy if in proxy mode
 			if (proxy) {
 				res.pipe(proxy);
 				return;
@@ -101,5 +100,6 @@ module.exports = function (url, opts, cb) {
 	};
 
 	get(url, opts, cb);
+
 	return proxy;
 };
