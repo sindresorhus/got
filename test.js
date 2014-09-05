@@ -1,6 +1,6 @@
 'use strict';
 var assert = require('assert');
-var got = require('./index');
+var got = require('./');
 
 it('should do HTTP request', function (done) {
 	got('http://google.com', function (err, data) {
