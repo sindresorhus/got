@@ -31,7 +31,7 @@
     "simple"
   ],
   "dependencies": {
-    "object-assign": "^0.3.0"
+    "object-assign": "^1.0.0"
   },
   "devDependencies": {
     "mocha": "*"
