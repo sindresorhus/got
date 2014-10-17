@@ -28,9 +28,9 @@ it('should do HTTPS request', function (done) {
 	});
 });
 
-it('should should return status code as error when not 200', function (done) {
+it('should should return status code as error code when not 200', function (done) {
 	got('http://sindresorhus.com/sfsadfasdfadsga', function (err, data) {
-		assert.strictEqual(err, 404);
+		assert.strictEqual(err.code, 404);
 		done();
 	});
 });
@@ -84,7 +84,7 @@ it('should proxy errors to the stream', function (done) {
 	var stream = got('http://sindresorhus.com/sfsadfasdfadsga');
 
 	stream.on('error', function (error) {
-		assert.strictEqual(error, 404);
+		assert.strictEqual(error.code, 404);
 		done();
 	});
 });
