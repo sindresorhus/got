@@ -6,7 +6,32 @@ var zlib = require('zlib');
 var PassThrough = require('stream').PassThrough;
 var assign = require('object-assign');
 
-module.exports = function (url, opts, cb) {
+function read(res, encoding, cb) {
+	if (!cb) {
+		cb = encoding;
+		encoding = undefined;
+	}
+
+	var chunks = [];
+	var len = 0;
+
+	res.on('data', function (chunk) {
+		chunks.push(chunk);
+		len += chunk.length;
+	});
+
+	res.once('end', function () {
+		var data = Buffer.concat(chunks, len);
+
+		if (encoding !== null) {
+			data = data.toString(encoding || 'utf8');
+		}
+
+		cb(null, data, res);
+	});
+}
+
+function got (url, opts, cb) {
 	if (typeof opts === 'function') {
 		// if `cb` has been specified but `opts` has not
 		cb = opts;
@@ -48,10 +73,8 @@ module.exports = function (url, opts, cb) {
 		fn.get(arg, function (res) {
 			// redirect
 			if (res.statusCode < 400 && res.statusCode >= 300 && res.headers.location) {
-				res.destroy();
-
 				if (++redirectCount > 10) {
-					cb(new Error('Redirected 10 times. Aborting.'));
+					cb(new Error('Redirected 10 times. Aborting.'), undefined, res);
 					return;
 				}
 
@@ -60,10 +83,9 @@ module.exports = function (url, opts, cb) {
 			}
 
 			if (res.statusCode < 200 || res.statusCode > 299) {
-				res.destroy();
 				var err = new Error('Couldn\'t connect to ' + url + '.');
 				err.code = res.statusCode;
-				cb(err);
+				cb(err, undefined, res);
 				return;
 			}
 
@@ -81,27 +103,16 @@ module.exports = function (url, opts, cb) {
 
 			res.once('error', cb);
 
-			var chunks = [];
-			var len = 0;
+			read(res, encoding, cb);
 
-			res.on('data', function (chunk) {
-				chunks.push(chunk);
-				len += chunk.length;
-			});
-
-			res.once('end', function () {
-				var data = Buffer.concat(chunks, len);
-
-				if (encoding !== null) {
-					data = data.toString(encoding || 'utf8');
-				}
-
-				cb(null, data, res);
-			});
 		}).once('error', cb);
 	};
 
 	get(url, opts, cb);
 
 	return proxy;
-};
+}
+
+got.read = read;
+
+module.exports = got;

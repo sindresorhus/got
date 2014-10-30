@@ -28,8 +28,9 @@ it('should do HTTPS request', function (done) {
 	});
 });
 
-it('should should return status code as error code when not 200', function (done) {
-	got('http://sindresorhus.com/sfsadfasdfadsga', function (err, data) {
+it('should should return status code as error code and response object when not 200', function (done) {
+	got('http://sindresorhus.com/sfsadfasdfadsga', function (err, data, res) {
+		assert.ok(res.headers);
 		assert.strictEqual(err.code, 404);
 		done();
 	});
