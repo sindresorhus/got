@@ -61,7 +61,9 @@ module.exports = function (url, opts, cb) {
 
 			if (res.statusCode < 200 || res.statusCode > 299) {
 				res.destroy();
-				cb(res.statusCode);
+				var err = new Error('Couldn\'t connect to ' + url + '.');
+				err.code = res.statusCode;
+				cb(err);
 				return;
 			}
 
