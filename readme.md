@@ -59,6 +59,10 @@ Encoding to be used on `setEncoding` of the response data. If null, the body is 
 
 ##### callback(err, data, response)
 
+###### err
+
+`Error` object with `code` property. If error happens, callback will receive `undefined` as `data` and bare [response](http://nodejs.org/api/http.html#http_http_incomingmessage) object, which can be destroyed or queried for data.
+
 ###### data
 
 The data you requested.
@@ -66,7 +70,6 @@ The data you requested.
 ###### response
 
 The [response object](http://nodejs.org/api/http.html#http_http_incomingmessage).
-
 
 ## Related
 
