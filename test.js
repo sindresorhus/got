@@ -32,6 +32,7 @@ it('should should return status code as error code and response object when not 
 	got('http://sindresorhus.com/sfsadfasdfadsga', function (err, data, res) {
 		assert.ok(res.headers);
 		assert.strictEqual(err.code, 404);
+		assert.ok(/<!DOCTYPE html>/.test(data));
 		done();
 	});
 });
