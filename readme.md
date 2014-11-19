@@ -57,6 +57,12 @@ Default: `'utf8'`
 
 Encoding to be used on `setEncoding` of the response data. If null, the body is returned as a Buffer.
 
+##### options.timeout
+
+Type: `number`  
+
+Time in ms, after which request will be aborted and error event with `ETIMEDOUT` code will be emitted.
+
 ##### callback(err, data, response)
 
 ###### err

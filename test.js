@@ -90,3 +90,12 @@ it('should proxy errors to the stream', function (done) {
 		done();
 	});
 });
+
+it('should support timeout option', function (done) {
+	var stream = got('http://sindresorhus.com/', { timeout: 1 });
+
+	stream.on('error', function (error) {
+		assert.strictEqual(error.code, 'ETIMEDOUT');
+		done();
+	});
+});

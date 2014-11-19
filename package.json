@@ -13,8 +13,7 @@
     "node": ">=0.10.0"
   },
   "scripts": {
-    "test": "mocha",
-    "coverage": "istanbul cover _mocha -- -R spec"
+    "test": "mocha"
   },
   "files": [
     "index.js"
@@ -33,10 +32,10 @@
   ],
   "dependencies": {
     "object-assign": "^1.0.0",
-    "read-all-stream": "^0.1.0"
+    "read-all-stream": "^0.1.0",
+    "timed-out": "^1.0.0"
   },
   "devDependencies": {
-    "istanbul": "^0.3.2",
     "mocha": "*"
   }
 }
