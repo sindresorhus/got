@@ -6,6 +6,7 @@ var zlib = require('zlib');
 var PassThrough = require('stream').PassThrough;
 var assign = require('object-assign');
 var read = require('read-all-stream');
+var timeout = require('timed-out');
 
 module.exports = function (url, opts, cb) {
 	if (typeof opts === 'function') {
@@ -46,7 +47,7 @@ module.exports = function (url, opts, cb) {
 		var fn = parsedUrl.protocol === 'https:' ? https : http;
 		var arg = assign({}, parsedUrl, opts);
 
-		fn.get(arg, function (response) {
+		var req = fn.get(arg, function (response) {
 			var statusCode = response.statusCode;
 			var res = response;
 
@@ -84,6 +85,10 @@ module.exports = function (url, opts, cb) {
 
 			read(res, encoding, cb, response);
 		}).once('error', cb);
+
+		if (opts.timeout) {
+			timeout(req, opts.timeout);
+		}
 	};
 
 	get(url, opts, cb);
