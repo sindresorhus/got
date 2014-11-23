@@ -31,7 +31,7 @@
     "simple"
   ],
   "dependencies": {
-    "object-assign": "^1.0.0",
+    "object-assign": "^2.0.0",
     "read-all-stream": "^0.1.0",
     "timed-out": "^1.0.0"
   },
