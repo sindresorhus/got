@@ -59,15 +59,15 @@ Encoding to be used on `setEncoding` of the response data. If null, the body is 
 
 ##### options.timeout
 
-Type: `number`  
+Type: `number`
 
-Time in ms, after which request will be aborted and error event with `ETIMEDOUT` code will be emitted.
+Milliseconds after which the request will be aborted and an error event with `ETIMEDOUT` code will be emitted.
 
 ##### callback(err, data, response)
 
 ###### err
 
-`Error` object with `code` property.
+`Error` object with HTTP status code as `code` property.
 
 ###### data
 
@@ -76,6 +76,7 @@ The data you requested.
 ###### response
 
 The [response object](http://nodejs.org/api/http.html#http_http_incomingmessage).
+
 
 ## Related
 
