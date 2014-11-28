@@ -36,6 +36,7 @@
     "timed-out": "^1.0.0"
   },
   "devDependencies": {
+    "from2-array": "0.0.3",
     "mocha": "*"
   }
 }
