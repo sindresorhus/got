@@ -22,6 +22,13 @@ module.exports = function (url, opts, cb) {
 	var encoding = opts.encoding;
 	delete opts.encoding;
 
+	var body = opts.body;
+	delete opts.body;
+
+	if (body && opts.method === undefined) {
+		opts.method = 'POST';
+	}
+
 	// returns a proxy stream to the response
 	// if no callback has been provided
 	var proxy;
@@ -47,7 +54,7 @@ module.exports = function (url, opts, cb) {
 		var fn = parsedUrl.protocol === 'https:' ? https : http;
 		var arg = assign({}, parsedUrl, opts);
 
-		var req = fn.get(arg, function (response) {
+		var req = fn.request(arg, function (response) {
 			var statusCode = response.statusCode;
 			var res = response;
 
@@ -89,6 +96,14 @@ module.exports = function (url, opts, cb) {
 		if (opts.timeout) {
 			timeout(req, opts.timeout);
 		}
+
+		if (!body) {
+			req.end();
+			return;
+		}
+
+		req.write(body);
+		req.end();
 	};
 
 	get(url, opts, cb);

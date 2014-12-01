@@ -1,6 +1,10 @@
+/* global describe, it, before, after */
+
 'use strict';
+
 var assert = require('assert');
 var got = require('./');
+var http = require('http');
 
 it('should do HTTP request', function (done) {
 	got('http://google.com', function (err, data) {
@@ -97,5 +101,36 @@ it('should support timeout option', function (done) {
 	stream.on('error', function (error) {
 		assert.strictEqual(error.code, 'ETIMEDOUT');
 		done();
+	});
+});
+
+describe('with POST ', function () {
+	var server;
+
+	before(function (done) {
+		server = http.createServer(function (req, res) {
+			req.pipe(res);
+		});
+		server.listen(8081, done);
+	});
+
+	after(function (done) {
+		server.close(done);
+	});
+
+	it('should support string as body option', function (done) {
+		got('http://0.0.0.0:8081', { body: 'string' }, function (err, data) {
+			assert.ifError(err);
+			assert.equal(data, 'string');
+			done();
+		});
+	});
+
+	it('should support Buffer as body option', function (done) {
+		got('http://0.0.0.0:8081', { body: new Buffer('string') }, function (err, data) {
+			assert.ifError(err);
+			assert.equal(data, 'string');
+			done();
+		});
 	});
 });

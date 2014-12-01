@@ -57,6 +57,12 @@ Default: `'utf8'`
 
 Encoding to be used on `setEncoding` of the response data. If null, the body is returned as a Buffer.
 
+##### options.body
+
+Type: `string`, `Buffer`  
+
+Body, that will be sent with `POST` request. If present in `options` and `options.method` is not set - `options.method` will be set to `POST`.
+
 ##### options.timeout
 
 Type: `number`
