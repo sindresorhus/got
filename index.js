@@ -102,12 +102,8 @@ module.exports = function (url, opts, cb) {
 			return;
 		}
 
-		if (body.pipe) {
-			body.pipe(req);
-		} else {
-			req.write(body);
-			req.end();
-		}
+		req.write(body);
+		req.end();
 	};
 
 	get(url, opts, cb);

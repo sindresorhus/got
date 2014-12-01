@@ -4,7 +4,6 @@
 
 var assert = require('assert');
 var got = require('./');
-var from = require('from2-array');
 var http = require('http');
 
 it('should do HTTP request', function (done) {
@@ -129,14 +128,6 @@ describe('with POST ', function () {
 
 	it('should support Buffer as body option', function (done) {
 		got('http://0.0.0.0:8081', { body: new Buffer('string') }, function (err, data) {
-			assert.ifError(err);
-			assert.equal(data, 'string');
-			done();
-		});
-	});
-
-	it('should support ReadableStream as body option', function (done) {
-		got('http://0.0.0.0:8081', { body: from(['string']) }, function (err, data) {
 			assert.ifError(err);
 			assert.equal(data, 'string');
 			done();
