@@ -22,10 +22,10 @@ module.exports = function (url, opts, cb) {
 	var encoding = opts.encoding;
 	delete opts.encoding;
 
-	var content = opts.content;
-	delete opts.content;
+	var body = opts.body;
+	delete opts.body;
 
-	if (content && opts.method === undefined) {
+	if (body && opts.method === undefined) {
 		opts.method = 'POST';
 	}
 
@@ -97,15 +97,15 @@ module.exports = function (url, opts, cb) {
 			timeout(req, opts.timeout);
 		}
 
-		if (!content) {
+		if (!body) {
 			req.end();
 			return;
 		}
 
-		if (content.pipe) {
-			content.pipe(req);
+		if (body.pipe) {
+			body.pipe(req);
 		} else {
-			req.write(content);
+			req.write(body);
 			req.end();
 		}
 	};

@@ -119,24 +119,24 @@ describe('with POST ', function () {
 		server.close(done);
 	});
 
-	it('should support string as content option', function (done) {
-		got('http://0.0.0.0:8081', { content: 'string' }, function (err, data) {
+	it('should support string as body option', function (done) {
+		got('http://0.0.0.0:8081', { body: 'string' }, function (err, data) {
 			assert.ifError(err);
 			assert.equal(data, 'string');
 			done();
 		});
 	});
 
-	it('should support Buffer as content option', function (done) {
-		got('http://0.0.0.0:8081', { content: new Buffer('string') }, function (err, data) {
+	it('should support Buffer as body option', function (done) {
+		got('http://0.0.0.0:8081', { body: new Buffer('string') }, function (err, data) {
 			assert.ifError(err);
 			assert.equal(data, 'string');
 			done();
 		});
 	});
 
-	it('should support ReadableStream as content option', function (done) {
-		got('http://0.0.0.0:8081', { content: from(['string']) }, function (err, data) {
+	it('should support ReadableStream as body option', function (done) {
+		got('http://0.0.0.0:8081', { body: from(['string']) }, function (err, data) {
 			assert.ifError(err);
 			assert.equal(data, 'string');
 			done();
