@@ -33,7 +33,7 @@
   "dependencies": {
     "object-assign": "^2.0.0",
     "read-all-stream": "^0.1.0",
-    "timed-out": "^1.0.0"
+    "timed-out": "^2.0.0"
   },
   "devDependencies": {
     "mocha": "*"
