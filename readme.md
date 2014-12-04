@@ -27,8 +27,12 @@ got('http://todomvc.com', function (err, data, res) {
 	//=> <!doctype html> ...
 });
 
+
 // Stream mode.
 got('http://todomvc.com').pipe(fs.createWriteStream('index.html'));
+
+// For POST and PUT methods got returns WritableStream
+fs.createReadStream('index.html').pipe(got.post('http://todomvc.com'));
 ```
 
 ### API
@@ -63,6 +67,8 @@ Type: `string`, `Buffer`
 
 Body, that will be sent with `POST` request. If present in `options` and `options.method` is not set - `options.method` will be set to `POST`.
 
+This option and stream mode are mutually exclusive.
+
 ##### options.timeout
 
 Type: `number`
@@ -83,6 +89,13 @@ The data you requested.
 
 The [response object](http://nodejs.org/api/http.html#http_http_incomingmessage).
 
+#### got.post(url, [options], [callback])
+
+Sets options.method to POST and makes a request.
+
+#### got.put(url, [options], [callback])
+
+Sets options.method to PUT and makes a request.
 
 ## Related
 

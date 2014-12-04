@@ -3,12 +3,12 @@ var http = require('http');
 var https = require('https');
 var urlLib = require('url');
 var zlib = require('zlib');
-var PassThrough = require('stream').PassThrough;
+var duplexify = require('duplexify');
 var assign = require('object-assign');
 var read = require('read-all-stream');
 var timeout = require('timed-out');
 
-module.exports = function (url, opts, cb) {
+function got (url, opts, cb) {
 	if (typeof opts === 'function') {
 		// if `cb` has been specified but `opts` has not
 		cb = opts;
@@ -25,15 +25,15 @@ module.exports = function (url, opts, cb) {
 	var body = opts.body;
 	delete opts.body;
 
-	if (body && opts.method === undefined) {
-		opts.method = 'POST';
+	if (body) {
+		opts.method = opts.method || 'POST';
 	}
 
 	// returns a proxy stream to the response
 	// if no callback has been provided
 	var proxy;
 	if (!cb) {
-		proxy = new PassThrough();
+		proxy = duplexify();
 
 		// forward errors on the stream
 		cb = function (err) {
@@ -86,7 +86,7 @@ module.exports = function (url, opts, cb) {
 
 			// pipe the response to the proxy if in proxy mode
 			if (proxy) {
-				res.on('error', proxy.emit.bind(proxy, 'error')).pipe(proxy);
+				proxy.setReadable(res);
 				return;
 			}
 
@@ -97,16 +97,42 @@ module.exports = function (url, opts, cb) {
 			timeout(req, opts.timeout);
 		}
 
-		if (!body) {
-			req.end();
+		if (!proxy) {
+			req.end(body);
 			return;
 		}
 
-		req.write(body);
+		if (body) {
+			proxy.write = function () {
+				throw new Error('got\'s stream is not writable when options.body is used');
+			};
+			req.end(body);
+			return;
+		}
+
+		if (opts.method === 'POST' || opts.method === 'PUT') {
+			proxy.setWritable(req);
+			return;
+		}
+
 		req.end();
 	};
 
 	get(url, opts, cb);
 
 	return proxy;
+}
+
+got.post = function (url, opts, cb) {
+	opts = opts || {};
+	opts.method = 'POST';
+	return got(url, opts, cb);
 };
+
+got.put = function (url, opts, cb) {
+	opts = opts || {};
+	opts.method = 'PUT';
+	return got(url, opts, cb);
+};
+
+module.exports = got;
