@@ -31,7 +31,7 @@ got('http://todomvc.com', function (err, data, res) {
 // Stream mode.
 got('http://todomvc.com').pipe(fs.createWriteStream('index.html'));
 
-// For POST and PUT methods got returns WritableStream
+// For POST, PUT and PATCH methods got returns WritableStream
 fs.createReadStream('index.html').pipe(got.post('http://todomvc.com'));
 ```
 
@@ -97,11 +97,6 @@ The [response object](http://nodejs.org/api/http.html#http_http_incomingmessage)
 #### got.delete(url, [options], [callback])
 
 Sets `options.method` to the method name and makes a request.
-
-
-## Related
-
-See [sent](https://github.com/floatdrop/sent) if you need to upload something.
 
 
 ## License
