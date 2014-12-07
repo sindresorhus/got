@@ -174,4 +174,14 @@ describe('POST', function () {
 			})
 			.end('Hello');
 	});
+
+	it('should be a writeable stream on PATCH', function (done) {
+		got.patch('http://0.0.0.0:8081')
+			.on('error', done)
+			.on('data', function (chunk) {
+				assert.equal(chunk, 'Hello');
+				done();
+			})
+			.end('Hello');
+	});
 });

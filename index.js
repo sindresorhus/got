@@ -110,7 +110,7 @@ function got(url, opts, cb) {
 			return;
 		}
 
-		if (opts.method === 'POST' || opts.method === 'PUT') {
+		if (opts.method === 'POST' || opts.method === 'PUT' || opts.method === 'PATCH') {
 			proxy.setWritable(req);
 			return;
 		}
