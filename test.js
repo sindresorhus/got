@@ -133,4 +133,47 @@ describe('with POST ', function () {
 			done();
 		});
 	});
+
+	it('should take data from options.body in stream mode', function (done) {
+		got.post('http://0.0.0.0:8081', { body: 'Hello' })
+			.on('error', done)
+			.on('data', function (chunk) {
+				assert.equal(chunk, 'Hello');
+				done();
+			});
+	});
+
+	it('should throw an error on options.body and write operations', function (done) {
+		assert.throws(function () {
+			got.post('http://0.0.0.0:8081', { body: 'Hello' })
+				.end('Hello');
+		}, 'got\'s stream is not writable when options.body is used');
+
+		assert.throws(function () {
+			got.post('http://0.0.0.0:8081', { body: 'Hello' })
+				.write('Hello');
+		}, 'got\'s stream is not writable when options.body is used');
+
+		done();
+	});
+
+	it('should be a writeable stream on POST', function (done) {
+		got.post('http://0.0.0.0:8081')
+			.on('error', done)
+			.on('data', function (chunk) {
+				assert.equal(chunk, 'Hello');
+				done();
+			})
+			.end('Hello');
+	});
+
+	it('should be a writeable stream on PUT', function (done) {
+		got.put('http://0.0.0.0:8081')
+			.on('error', done)
+			.on('data', function (chunk) {
+				assert.equal(chunk, 'Hello');
+				done();
+			})
+			.end('Hello');
+	});
 });
