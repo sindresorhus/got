@@ -1,10 +1,8 @@
 /* global describe, it, before, after */
-
 'use strict';
-
 var assert = require('assert');
-var got = require('./');
 var http = require('http');
+var got = require('./');
 
 it('should do HTTP request', function (done) {
 	got('http://google.com', function (err, data) {
@@ -96,7 +94,7 @@ it('should proxy errors to the stream', function (done) {
 });
 
 it('should support timeout option', function (done) {
-	var stream = got('http://sindresorhus.com/', { timeout: 1 });
+	var stream = got('http://sindresorhus.com/', {timeout: 1});
 
 	stream.on('error', function (error) {
 		assert.strictEqual(error.code, 'ETIMEDOUT');
@@ -104,7 +102,7 @@ it('should support timeout option', function (done) {
 	});
 });
 
-describe('with POST ', function () {
+describe('POST', function () {
 	var server;
 
 	before(function (done) {
@@ -119,7 +117,7 @@ describe('with POST ', function () {
 	});
 
 	it('should support string as body option', function (done) {
-		got('http://0.0.0.0:8081', { body: 'string' }, function (err, data) {
+		got('http://0.0.0.0:8081', {body: 'string'}, function (err, data) {
 			assert.ifError(err);
 			assert.equal(data, 'string');
 			done();
@@ -127,7 +125,7 @@ describe('with POST ', function () {
 	});
 
 	it('should support Buffer as body option', function (done) {
-		got('http://0.0.0.0:8081', { body: new Buffer('string') }, function (err, data) {
+		got('http://0.0.0.0:8081', {body: new Buffer('string')}, function (err, data) {
 			assert.ifError(err);
 			assert.equal(data, 'string');
 			done();
@@ -135,7 +133,7 @@ describe('with POST ', function () {
 	});
 
 	it('should take data from options.body in stream mode', function (done) {
-		got.post('http://0.0.0.0:8081', { body: 'Hello' })
+		got.post('http://0.0.0.0:8081', {body: 'Hello'})
 			.on('error', done)
 			.on('data', function (chunk) {
 				assert.equal(chunk, 'Hello');
@@ -145,12 +143,12 @@ describe('with POST ', function () {
 
 	it('should throw an error on options.body and write operations', function (done) {
 		assert.throws(function () {
-			got.post('http://0.0.0.0:8081', { body: 'Hello' })
+			got.post('http://0.0.0.0:8081', {body: 'Hello'})
 				.end('Hello');
 		}, 'got\'s stream is not writable when options.body is used');
 
 		assert.throws(function () {
-			got.post('http://0.0.0.0:8081', { body: 'Hello' })
+			got.post('http://0.0.0.0:8081', {body: 'Hello'})
 				.write('Hello');
 		}, 'got\'s stream is not writable when options.body is used');
 

@@ -8,7 +8,7 @@ var assign = require('object-assign');
 var read = require('read-all-stream');
 var timeout = require('timed-out');
 
-function got (url, opts, cb) {
+function got(url, opts, cb) {
 	if (typeof opts === 'function') {
 		// if `cb` has been specified but `opts` has not
 		cb = opts;
@@ -123,16 +123,19 @@ function got (url, opts, cb) {
 	return proxy;
 }
 
-got.post = function (url, opts, cb) {
-	opts = opts || {};
-	opts.method = 'POST';
-	return got(url, opts, cb);
-};
-
-got.put = function (url, opts, cb) {
-	opts = opts || {};
-	opts.method = 'PUT';
-	return got(url, opts, cb);
-};
+[
+	'get',
+	'post',
+	'put',
+	'patch',
+	'head',
+	'delete'
+].forEach(function (el) {
+	got[el] = function (url, opts, cb) {
+		opts = opts || {};
+		opts.method = el.toUpperCase();
+		return got(url, opts, cb);
+	};
+});
 
 module.exports = got;

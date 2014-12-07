@@ -89,13 +89,15 @@ The data you requested.
 
 The [response object](http://nodejs.org/api/http.html#http_http_incomingmessage).
 
+#### got.get(url, [options], [callback])
 #### got.post(url, [options], [callback])
-
-Sets options.method to POST and makes a request.
-
 #### got.put(url, [options], [callback])
+#### got.patch(url, [options], [callback])
+#### got.head(url, [options], [callback])
+#### got.delete(url, [options], [callback])
 
-Sets options.method to PUT and makes a request.
+Sets `options.method` to the method name and makes a request.
+
 
 ## Related
 
