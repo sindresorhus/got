@@ -13,7 +13,7 @@
     "node": ">=0.10.0"
   },
   "scripts": {
-    "test": "mocha --timeout 50000"
+    "test": "taper test/test-*.js"
   },
   "files": [
     "index.js"
@@ -37,6 +37,7 @@
     "timed-out": "^2.0.0"
   },
   "devDependencies": {
-    "mocha": "*"
+    "tape": "^3.0.3",
+    "taper": "^0.3.0"
   }
 }
