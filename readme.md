@@ -75,6 +75,13 @@ Type: `number`
 
 Milliseconds after which the request will be aborted and an error event with `ETIMEDOUT` code will be emitted.
 
+##### options.maxRedirects
+
+Type: `number`
+Default: `10`
+
+Maxinum number of redirects to follow.
+
 ##### callback(err, data, response)
 
 ###### err
