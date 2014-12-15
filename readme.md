@@ -4,7 +4,7 @@
 
 A nicer interface to the built-in [`http`](http://nodejs.org/api/http.html) module.
 
-It also supports following redirects and automagically handling gzip/deflate.
+It also supports following redirects, streams, and automagically handling gzip/deflate.
 
 Use [request](https://github.com/mikeal/request) if you need more.
 
@@ -21,17 +21,17 @@ $ npm install --save got
 ```js
 var got = require('got');
 
-// Callback mode.
+// Callback mode
 got('http://todomvc.com', function (err, data, res) {
 	console.log(data);
 	//=> <!doctype html> ...
 });
 
 
-// Stream mode.
+// Stream mode
 got('http://todomvc.com').pipe(fs.createWriteStream('index.html'));
 
-// For POST, PUT and PATCH methods got returns WritableStream
+// For POST, PUT and PATCH methods got returns a WritableStream
 fs.createReadStream('index.html').pipe(got.post('http://todomvc.com'));
 ```
 
@@ -46,7 +46,7 @@ It's a `GET` request by default, but can be changed in `options`.
 *Required*  
 Type: `string`
 
-The url to request.
+The URL to request.
 
 ##### options
 
