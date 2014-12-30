@@ -3,6 +3,7 @@
 var tape = require('tape');
 var got = require('../');
 var server = require('./server.js');
+var from = require('from2-array');
 
 var s = server.createServer();
 
@@ -17,13 +18,17 @@ tape('setup', function (t) {
 });
 
 tape('send data from options with post request', function (t) {
-	t.plan(2);
+	t.plan(3);
 
 	got(s.url, {body: 'wow'}, function (err, data) {
 		t.equal(data, 'wow');
 	});
 
 	got(s.url, {body: new Buffer('wow')}, function (err, data) {
+		t.equal(data, 'wow');
+	});
+
+	got(s.url, {body: from(['wow'])}, function (err, data) {
 		t.equal(data, 'wow');
 	});
 });
