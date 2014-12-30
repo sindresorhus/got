@@ -20,6 +20,13 @@ s.on('/endless', function (req, res) {
 	res.end();
 });
 
+s.on('/relative', function (req, res) {
+	res.writeHead(302, {
+		location : '/'
+	});
+	res.end();
+});
+
 s.on('/', function (req, res) {
 	res.end('reached');
 });
@@ -32,6 +39,14 @@ tape('setup', function (t) {
 
 tape('follows redirect', function (t) {
 	got(s.url + '/finite', {agent: false}, function (err, data) {
+		t.error(err);
+		t.equal(data, 'reached');
+		t.end();
+	});
+});
+
+tape('follows relative redirect', function (t) {
+	got(s.url + '/relative', {agent: false}, function (err, data) {
 		t.error(err);
 		t.equal(data, 'reached');
 		t.end();
