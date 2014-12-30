@@ -7,6 +7,7 @@ var duplexify = require('duplexify');
 var assign = require('object-assign');
 var read = require('read-all-stream');
 var timeout = require('timed-out');
+var isReadableStream = require('isstream').isReadable;
 
 function got(url, opts, cb) {
 	if (typeof opts === 'function') {
@@ -98,7 +99,7 @@ function got(url, opts, cb) {
 		}
 
 		if (!proxy) {
-			req.end(body);
+			isReadableStream(body) ? body.pipe(req) : req.end(body);
 			return;
 		}
 
@@ -106,7 +107,8 @@ function got(url, opts, cb) {
 			proxy.write = function () {
 				throw new Error('got\'s stream is not writable when options.body is used');
 			};
-			req.end(body);
+
+			isReadableStream(body) ? body.pipe(req) : req.end(body);
 			return;
 		}
 

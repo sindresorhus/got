@@ -32,11 +32,13 @@
   ],
   "dependencies": {
     "duplexify": "^3.2.0",
+    "isstream": "^0.1.1",
     "object-assign": "^2.0.0",
     "read-all-stream": "^0.1.0",
     "timed-out": "^2.0.0"
   },
   "devDependencies": {
+    "from2-array": "0.0.3",
     "tape": "^3.0.3",
     "taper": "^0.3.0"
   }
