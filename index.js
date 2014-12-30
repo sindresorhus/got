@@ -66,6 +66,8 @@ function got(url, opts, cb) {
 					return;
 				}
 
+				res.resume(); // Discard response
+
 				get(urlLib.resolve(url, res.headers.location), opts, cb);
 				return;
 			}
