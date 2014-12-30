@@ -38,7 +38,7 @@ tape('setup', function (t) {
 });
 
 tape('follows redirect', function (t) {
-	got(s.url + '/finite', {agent: false}, function (err, data) {
+	got(s.url + '/finite', function (err, data) {
 		t.error(err);
 		t.equal(data, 'reached');
 		t.end();
@@ -46,7 +46,7 @@ tape('follows redirect', function (t) {
 });
 
 tape('follows relative redirect', function (t) {
-	got(s.url + '/relative', {agent: false}, function (err, data) {
+	got(s.url + '/relative', function (err, data) {
 		t.error(err);
 		t.equal(data, 'reached');
 		t.end();
