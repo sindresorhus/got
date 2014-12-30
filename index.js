@@ -59,7 +59,7 @@ function got(url, opts, cb) {
 			var res = response;
 
 			// redirect
-			if (statusCode < 400 && statusCode >= 300 && res.headers.location) {
+			if (statusCode >= 300 && statusCode < 400 && 'location' in res.headers) {
 				if (++redirectCount > 10) {
 					cb(new Error('Redirected 10 times. Aborting.'), undefined, res);
 					return;
