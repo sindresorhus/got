@@ -51,6 +51,16 @@ tape('setup', function (t) {
 });
 
 tape('make request to https server', function (t) {
+	got('https://google.com', {
+		strictSSL: true
+	}, function (err, data) {
+		t.error(err);
+		t.ok(data);
+		t.end();
+	});
+});
+
+tape('make request to https server with ca', function (t) {
 	got(s.url, {
 		strictSSL: true,
 		ca: caRootCert,

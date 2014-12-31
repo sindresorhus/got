@@ -1,13 +1,15 @@
 'use strict';
+
+var assign = require('object-assign');
+var agent = require('infinity-agent');
+var duplexify = require('duplexify');
 var http = require('http');
 var https = require('https');
-var urlLib = require('url');
-var zlib = require('zlib');
-var duplexify = require('duplexify');
-var assign = require('object-assign');
+var isReadableStream = require('isstream').isReadable;
 var read = require('read-all-stream');
 var timeout = require('timed-out');
-var isReadableStream = require('isstream').isReadable;
+var urlLib = require('url');
+var zlib = require('zlib');
 
 function got(url, opts, cb) {
 	if (typeof opts === 'function') {
@@ -54,6 +56,11 @@ function got(url, opts, cb) {
 		var parsedUrl = urlLib.parse(url);
 		var fn = parsedUrl.protocol === 'https:' ? https : http;
 		var arg = assign({}, parsedUrl, opts);
+
+		// TODO: remove this when Node 0.10 will be deprecated
+		if (arg.agent === undefined) {
+			arg.agent = agent(arg);
+		}
 
 		var req = fn.request(arg, function (response) {
 			var statusCode = response.statusCode;

@@ -75,6 +75,16 @@ Type: `number`
 
 Milliseconds after which the request will be aborted and an error event with `ETIMEDOUT` code will be emitted.
 
+##### options.agent
+
+[http.Agent](http://nodejs.org/api/http.html#http_class_http_agent) instance.
+
+Node HTTP/HTTPS [Agent in 0.10.35](https://github.com/joyent/node/blob/v0.10.35-release/lib/http.js#L1261) by default limits number of open sockets to 5 — which is a little low. By default got will use `new Agent({maxSockets: Infinity})` like new [Agent in 0.11.14](https://github.com/joyent/node/blob/v0.11.14-release/lib/_http_agent.js#L110).
+
+You can read more about in [why pooling is evil](https://github.com/substack/hyperquest#pooling-is-evil).
+
+To use default [globalAgent](http://nodejs.org/api/http.html#http_http_globalagent) just pass `null` to this option.
+
 ##### callback(err, data, response)
 
 ###### err
