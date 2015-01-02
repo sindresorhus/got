@@ -26,6 +26,9 @@ function got(url, opts, cb) {
 	var body = opts.body;
 	delete opts.body;
 
+	var maxRedirects = opts.maxRedirects || 10;
+	delete opts.maxRedirects;
+
 	if (body) {
 		opts.method = opts.method || 'POST';
 	}
@@ -61,8 +64,8 @@ function got(url, opts, cb) {
 
 			// redirect
 			if (statusCode >= 300 && statusCode < 400 && 'location' in res.headers) {
-				if (++redirectCount > 10) {
-					cb(new Error('Redirected 10 times. Aborting.'), undefined, res);
+				if (++redirectCount > maxRedirects) {
+					cb(new Error('Redirected ' + maxRedirects + ' times. Aborting.'), undefined, res);
 					return;
 				}
 
