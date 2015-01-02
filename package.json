@@ -39,6 +39,7 @@
   },
   "devDependencies": {
     "from2-array": "0.0.3",
+    "pem": "^1.4.4",
     "tape": "^3.0.3",
     "taper": "^0.3.0"
   }

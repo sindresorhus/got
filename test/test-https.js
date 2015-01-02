@@ -4,21 +4,47 @@ var tape = require('tape');
 var got = require('../');
 var server = require('./server.js');
 
-var fs = require('fs');
-var path = require('path');
+var pem = require('pem');
 
-var s = server.createSSLServer(server.portSSL + 1, {
-	key: path.resolve(__dirname, 'ssl/ca/server.key'),
-	cert: path.resolve(__dirname, 'ssl/ca/server.crt')
+var s, key, cert, caRootKey, caRootCert;
+
+tape('root pem', function (t) {
+	pem.createCertificate({days:1, selfSigned:true}, function (err, keys) {
+		caRootKey = keys.serviceKey;
+		caRootCert = keys.certificate;
+		t.end();
+	});
 });
-var caFile = path.resolve(__dirname, 'ssl/ca/ca.crt');
-var ca = fs.readFileSync(caFile);
 
-s.on('/', function (req, res) {
-	res.end('ok');
+tape('pem', function (t) {
+	pem.createCertificate({
+		serviceCertificate: caRootCert,
+		serviceKey: caRootKey,
+		serial: Date.now(),
+		days: 500,
+		country: '',
+		state: '',
+		locality: '',
+		organization: '',
+		organizationUnit: '',
+		commonName: 'sindresorhus.com'
+	}, function (err, keys) {
+		key = keys.clientKey;
+		cert = keys.certificate;
+		t.end();
+	});
 });
 
 tape('setup', function (t) {
+	s = server.createSSLServer(server.portSSL + 1, {
+		key: key,
+		cert: cert
+	});
+
+	s.on('/', function (req, res) {
+		res.end('ok');
+	});
+
 	s.listen(s.port, function () {
 		t.end();
 	});
@@ -27,8 +53,8 @@ tape('setup', function (t) {
 tape('make request to https server', function (t) {
 	got(s.url, {
 		strictSSL: true,
-		ca: ca,
-		headers: { host: 'testing.request.mikealrogers.com' }
+		ca: caRootCert,
+		headers: { host: 'sindresorhus.com' }
 	}, function (err, data) {
 		t.error(err);
 		t.equal(data, 'ok');
