@@ -54,7 +54,7 @@ tape('follows relative redirect', function (t) {
 });
 
 tape('throws on endless redirect', function (t) {
-	got(s.url + '/endless', {agent: false}, function (err) {
+	got(s.url + '/endless', function (err) {
 		t.ok(err, 'should get error');
 		t.equal(err.message, 'Redirected 10 times. Aborting.');
 		t.end();
