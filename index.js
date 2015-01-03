@@ -61,12 +61,12 @@ function got(url, opts, cb) {
 
 			// redirect
 			if (statusCode >= 300 && statusCode < 400 && 'location' in res.headers) {
+				res.resume(); // Discard response
+
 				if (++redirectCount > 10) {
 					cb(new Error('Redirected 10 times. Aborting.'), undefined, res);
 					return;
 				}
-
-				res.resume(); // Discard response
 
 				get(urlLib.resolve(url, res.headers.location), opts, cb);
 				return;
