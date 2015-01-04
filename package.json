@@ -4,11 +4,18 @@
   "description": "Simplified HTTP/HTTPS requests",
   "license": "MIT",
   "repository": "sindresorhus/got",
-  "author": {
-    "name": "Sindre Sorhus",
-    "email": "sindresorhus@gmail.com",
-    "url": "http://sindresorhus.com"
-  },
+  "maintainers": [
+    {
+      "name": "Sindre Sorhus",
+      "email": "sindresorhus@gmail.com",
+      "url": "sindresorhus.com"
+    },
+    {
+      "name": "Vsevolod Strukchinsky",
+      "email": "floatdrop@gmail.com",
+      "url": "github.com/floatdrop"
+    }
+  ],
   "engines": {
     "node": ">=0.10.0"
   },
