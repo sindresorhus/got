@@ -1,9 +1,7 @@
 'use strict';
-
 var tape = require('tape');
 var got = require('../');
 var server = require('./server.js');
-
 var s = server.createServer();
 
 s.on('/finite', function (req, res) {

@@ -1,15 +1,20 @@
 'use strict';
-
 var tape = require('tape');
+var pem = require('pem');
 var got = require('../');
 var server = require('./server.js');
 
-var pem = require('pem');
-
-var s, key, cert, caRootKey, caRootCert;
+var s;
+var key;
+var cert;
+var caRootKey;
+var caRootCert;
 
 tape('root pem', function (t) {
-	pem.createCertificate({days:1, selfSigned:true}, function (err, keys) {
+	pem.createCertificate({
+		days:1,
+		selfSigned:true
+	}, function (err, keys) {
 		caRootKey = keys.serviceKey;
 		caRootCert = keys.certificate;
 		t.end();
@@ -64,7 +69,7 @@ tape('make request to https server with ca', function (t) {
 	got(s.url, {
 		strictSSL: true,
 		ca: caRootCert,
-		headers: { host: 'sindresorhus.com' }
+		headers: {host: 'sindresorhus.com'}
 	}, function (err, data) {
 		t.error(err);
 		t.equal(data, 'ok');

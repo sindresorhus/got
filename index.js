@@ -1,15 +1,14 @@
 'use strict';
-
+var http = require('http');
+var https = require('https');
+var urlLib = require('url');
+var zlib = require('zlib');
 var assign = require('object-assign');
 var agent = require('infinity-agent');
 var duplexify = require('duplexify');
-var http = require('http');
-var https = require('https');
 var isReadableStream = require('isstream').isReadable;
 var read = require('read-all-stream');
 var timeout = require('timed-out');
-var urlLib = require('url');
-var zlib = require('zlib');
 var prependHttp = require('prepend-http');
 
 function got(url, opts, cb) {

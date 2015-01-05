@@ -1,10 +1,8 @@
 'use strict';
-
 var tape = require('tape');
+var from = require('from2-array');
 var got = require('../');
 var server = require('./server.js');
-var from = require('from2-array');
-
 var s = server.createServer();
 
 s.on('/', function (req, res) {
@@ -57,7 +55,7 @@ tape('throws on write to stream with body specified', function (t) {
 	t.throws(function () {
 		got(s.url, {body: 'wow'}).write('wow');
 	});
-	setTimeout(t.end.bind(t), 10); // Wait for request to end
+	setTimeout(t.end.bind(t), 10); // wait for request to end
 });
 
 tape('cleanup', function (t) {

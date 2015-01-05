@@ -1,10 +1,8 @@
 'use strict';
-
+var zlib = require('zlib');
 var tape = require('tape');
 var got = require('../');
 var server = require('./server.js');
-var zlib = require('zlib');
-
 var s = server.createServer();
 var testContent = 'Compressible response content.\n';
 
