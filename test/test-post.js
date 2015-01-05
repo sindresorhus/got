@@ -11,6 +11,10 @@ s.on('/', function (req, res) {
 	req.pipe(res);
 });
 
+s.on('/empty', function (req, res) {
+	res.end();
+});
+
 tape('setup', function (t) {
 	s.listen(s.port, function () {
 		t.end();
@@ -30,6 +34,13 @@ tape('send data from options with post request', function (t) {
 
 	got(s.url, {body: from(['wow'])}, function (err, data) {
 		t.equal(data, 'wow');
+	});
+});
+
+tape('works with empty post response', function (t) {
+	got(s.url + '/empty', {body: 'wow'}, function (err, data) {
+		t.equal(data, '');
+		t.end();
 	});
 });
 
