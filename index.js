@@ -10,6 +10,7 @@ var read = require('read-all-stream');
 var timeout = require('timed-out');
 var urlLib = require('url');
 var zlib = require('zlib');
+var prependHttp = require('prepend-http');
 
 function got(url, opts, cb) {
 	if (typeof opts === 'function') {
@@ -53,7 +54,7 @@ function got(url, opts, cb) {
 	var redirectCount = 0;
 
 	var get = function (url, opts, cb) {
-		var parsedUrl = urlLib.parse(url);
+		var parsedUrl = urlLib.parse(prependHttp(url));
 		var fn = parsedUrl.protocol === 'https:' ? https : http;
 		var arg = assign({}, parsedUrl, opts);
 

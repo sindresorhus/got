@@ -33,6 +33,14 @@ tape('callback mode', function (t) {
 	});
 });
 
+tape('protocol-less URLs', function (t) {
+	got(s.url.replace(/^http:\/\//, ''), function (err, data) {
+		t.error(err);
+		t.equal(data, 'ok');
+		t.end();
+	});
+});
+
 tape('empty response', function (t) {
 	got(s.url + '/empty', function (err, data) {
 		t.error(err);

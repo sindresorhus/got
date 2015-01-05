@@ -22,17 +22,17 @@ $ npm install --save got
 var got = require('got');
 
 // Callback mode
-got('http://todomvc.com', function (err, data, res) {
+got('todomvc.com', function (err, data, res) {
 	console.log(data);
 	//=> <!doctype html> ...
 });
 
 
 // Stream mode
-got('http://todomvc.com').pipe(fs.createWriteStream('index.html'));
+got('todomvc.com').pipe(fs.createWriteStream('index.html'));
 
 // For POST, PUT and PATCH methods got returns a WritableStream
-fs.createReadStream('index.html').pipe(got.post('http://todomvc.com'));
+fs.createReadStream('index.html').pipe(got.post('todomvc.com'));
 ```
 
 ### API
@@ -117,7 +117,7 @@ You can use the [`tunnel`](https://github.com/koichik/node-tunnel) module with t
 var got = require('got');
 var tunnel = require('tunnel');
 
-got('http://todomvc.com', {
+got('todomvc.com', {
 	agent: tunnel.httpsOverHttp({
 		proxy: {
 			host: 'localhost'
