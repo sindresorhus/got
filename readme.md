@@ -109,6 +109,24 @@ The [response object](http://nodejs.org/api/http.html#http_http_incomingmessage)
 Sets `options.method` to the method name and makes a request.
 
 
+## Proxy
+
+You can use the [`tunnel`](https://github.com/koichik/node-tunnel) module with the `agent` option to work with proxies:
+
+```js
+var got = require('got');
+var tunnel = require('tunnel');
+
+got('http://todomvc.com', {
+	agent: tunnel.httpsOverHttp({
+		proxy: {
+			host: 'localhost'
+		}
+	})
+}, function (err, data, res) {});
+```
+
+
 ## License
 
 MIT © [Sindre Sorhus](http://sindresorhus.com)
