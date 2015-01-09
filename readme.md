@@ -79,7 +79,7 @@ Milliseconds after which the request will be aborted and an error event with `ET
 
 [http.Agent](http://nodejs.org/api/http.html#http_class_http_agent) instance.
 
-Node HTTP/HTTPS Agent in [0.10](https://github.com/joyent/node/blob/v0.10.35-release/lib/http.js#L1261) by default limits number of open sockets to 5 — which is a too low. If `options.agent` is not defined `got` will use [infinity-agent](https://github.com/floatdrop/infinity-agent) to backport `defaultMaxSockets` from [0.11](https://github.com/joyent/node/blob/v0.11.14-release/lib/_http_agent.js#L110).
+Node HTTP/HTTPS Agent in [0.10](https://github.com/joyent/node/blob/v0.10.35-release/lib/http.js#L1261) by default limits number of open sockets to 5 — which is too low. If `options.agent` is not defined `got` will use [infinity-agent](https://github.com/floatdrop/infinity-agent) to backport `defaultMaxSockets` from [0.11](https://github.com/joyent/node/blob/v0.11.14-release/lib/_http_agent.js#L110).
 
 [Why pooling is evil](https://github.com/substack/hyperquest#pooling-is-evil).
 
