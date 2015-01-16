@@ -13,19 +13,18 @@ var prependHttp = require('prepend-http');
 
 function got(url, opts, cb) {
 	if (typeof opts === 'function') {
-		// if `cb` has been specified but `opts` has not
 		cb = opts;
 		opts = {};
 	} else if (!opts) {
-		// opts has not been specified
 		opts = {};
 	}
 
-	// extract own options
 	var encoding = opts.encoding;
-	delete opts.encoding;
-
 	var body = opts.body;
+	var proxy;
+	var redirectCount = 0;
+
+	delete opts.encoding;
 	delete opts.body;
 
 	if (body) {
@@ -34,7 +33,6 @@ function got(url, opts, cb) {
 
 	// returns a proxy stream to the response
 	// if no callback has been provided
-	var proxy;
 	if (!cb) {
 		proxy = duplexify();
 
@@ -44,15 +42,12 @@ function got(url, opts, cb) {
 		};
 	}
 
-	// merge additional headers
 	opts.headers = assign({
 		'user-agent': 'https://github.com/sindresorhus/got',
 		'accept-encoding': 'gzip,deflate'
 	}, opts.headers || {});
 
-	var redirectCount = 0;
-
-	var get = function (url, opts, cb) {
+	function get(url, opts, cb) {
 		var parsedUrl = urlLib.parse(prependHttp(url));
 		var fn = parsedUrl.protocol === 'https:' ? https : http;
 		var arg = assign({}, parsedUrl, opts);
@@ -127,10 +122,9 @@ function got(url, opts, cb) {
 		}
 
 		req.end();
-	};
+	}
 
 	get(url, opts, cb);
-
 	return proxy;
 }
 
