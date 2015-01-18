@@ -6,7 +6,7 @@ var zlib = require('zlib');
 var assign = require('object-assign');
 var agent = require('infinity-agent');
 var duplexify = require('duplexify');
-var isReadableStream = require('isstream').isReadable;
+var isStream = require('is-stream');
 var read = require('read-all-stream');
 var timeout = require('timed-out');
 var prependHttp = require('prepend-http');
@@ -103,7 +103,12 @@ function got(url, opts, cb) {
 		}
 
 		if (!proxy) {
-			isReadableStream(body) ? body.pipe(req) : req.end(body);
+			if (isStream.readable(body)) {
+				body.pipe(req);
+			} else {
+				req.end(body);
+			}
+
 			return;
 		}
 
@@ -112,7 +117,12 @@ function got(url, opts, cb) {
 				throw new Error('got\'s stream is not writable when options.body is used');
 			};
 
-			isReadableStream(body) ? body.pipe(req) : req.end(body);
+			if (isStream.readable(body)) {
+				body.pipe(req);
+			} else {
+				req.end(body);
+			}
+
 			return;
 		}
 
