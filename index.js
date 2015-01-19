@@ -95,7 +95,9 @@ function got(url, opts, cb) {
 				return;
 			}
 
-			read(res, encoding, cb, response);
+			read(res, encoding, function (err, data) {
+				 cb.call(null, err, data, response);
+			});
 		}).once('error', cb);
 
 		if (opts.timeout) {
