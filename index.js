@@ -3,13 +3,29 @@ var http = require('http');
 var https = require('https');
 var urlLib = require('url');
 var zlib = require('zlib');
-var assign = require('object-assign');
+var objectAssign = require('object-assign');
 var agent = require('infinity-agent');
 var duplexify = require('duplexify');
 var isStream = require('is-stream');
 var read = require('read-all-stream');
 var timeout = require('timed-out');
 var prependHttp = require('prepend-http');
+
+// prevent duplicates of different casing
+function assignHeaders(val) {
+	val = val || {};
+
+	var ret = {
+		'user-agent': 'https://github.com/sindresorhus/got',
+		'accept-encoding': 'gzip,deflate'
+	};
+
+	Object.keys(val).forEach(function (el) {
+		ret[el.toLowerCase()] = val[el];
+	});
+
+	return ret;
+}
 
 function got(url, opts, cb) {
 	if (typeof opts === 'function') {
@@ -18,6 +34,9 @@ function got(url, opts, cb) {
 	} else if (!opts) {
 		opts = {};
 	}
+
+	opts = objectAssign({}, opts);
+	opts.headers = assignHeaders(opts.headers);
 
 	var encoding = opts.encoding;
 	var body = opts.body;
@@ -42,15 +61,10 @@ function got(url, opts, cb) {
 		};
 	}
 
-	opts.headers = assign({
-		'user-agent': 'https://github.com/sindresorhus/got',
-		'accept-encoding': 'gzip,deflate'
-	}, opts.headers || {});
-
 	function get(url, opts, cb) {
 		var parsedUrl = urlLib.parse(prependHttp(url));
 		var fn = parsedUrl.protocol === 'https:' ? https : http;
-		var arg = assign({}, parsedUrl, opts);
+		var arg = objectAssign({}, parsedUrl, opts);
 
 		// TODO: remove this when Node 0.10 will be deprecated
 		if (arg.agent === undefined) {
