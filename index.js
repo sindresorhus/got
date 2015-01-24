@@ -10,22 +10,7 @@ var isStream = require('is-stream');
 var read = require('read-all-stream');
 var timeout = require('timed-out');
 var prependHttp = require('prepend-http');
-
-// prevent duplicates of different casing
-function assignHeaders(val) {
-	val = val || {};
-
-	var ret = {
-		'user-agent': 'https://github.com/sindresorhus/got',
-		'accept-encoding': 'gzip,deflate'
-	};
-
-	Object.keys(val).forEach(function (el) {
-		ret[el.toLowerCase()] = val[el];
-	});
-
-	return ret;
-}
+var lowercaseKeys = require('lowercase-keys');
 
 function got(url, opts, cb) {
 	if (typeof opts === 'function') {
@@ -36,7 +21,11 @@ function got(url, opts, cb) {
 	}
 
 	opts = objectAssign({}, opts);
-	opts.headers = assignHeaders(opts.headers);
+
+	opts.headers = objectAssign({
+		'user-agent': 'https://github.com/sindresorhus/got',
+		'accept-encoding': 'gzip,deflate'
+	}, lowercaseKeys(opts.headers));
 
 	var encoding = opts.encoding;
 	var body = opts.body;
