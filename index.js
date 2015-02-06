@@ -11,6 +11,7 @@ var read = require('read-all-stream');
 var timeout = require('timed-out');
 var prependHttp = require('prepend-http');
 var lowercaseKeys = require('lowercase-keys');
+var status = require('statuses');
 
 function got(url, opts, cb) {
 	if (typeof opts === 'function') {
@@ -65,7 +66,7 @@ function got(url, opts, cb) {
 			var res = response;
 
 			// redirect
-			if (statusCode >= 300 && statusCode < 400 && 'location' in res.headers) {
+			if (status.redirect[statusCode] && 'location' in res.headers) {
 				res.resume(); // Discard response
 
 				if (++redirectCount > 10) {
@@ -85,7 +86,7 @@ function got(url, opts, cb) {
 
 			if (statusCode < 200 || statusCode > 299) {
 				read(res, encoding, function (error, data) {
-					var err = error || new Error('Couldn\'t connect to ' + url + '.');
+					var err = error || new Error(url + ' response code is ' + statusCode + ' (' + status[statusCode] + ')');
 					err.code = statusCode;
 					cb(err, data, response);
 				});
