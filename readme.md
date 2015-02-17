@@ -6,7 +6,7 @@ A nicer interface to the built-in [`http`](http://nodejs.org/api/http.html) modu
 
 It also supports following redirects, streams, and automagically handling gzip/deflate.
 
-Use [request](https://github.com/mikeal/request) if you need more.
+Created because [`request`](https://github.com/mikeal/request) is bloated *(several megabytes!)* and slow.
 
 
 ## Install
