@@ -123,7 +123,22 @@ got('todomvc.com', {
 			host: 'localhost'
 		}
 	})
-}, function (err, data, res) {});
+}, function () {});
+```
+
+
+## Tip
+
+It's a good idea to set the `'user-agent'` header so the provider can more easily see how their resource is used. By default it's the URL to this repo.
+
+```js
+var got = require('got');
+
+got('todomvc.com', {
+	headers: {
+		'user-agent': 'https://github.com/your-username/repo-name'
+	}
+}, function () {});
 ```
 
 
