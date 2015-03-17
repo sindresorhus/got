@@ -100,7 +100,7 @@ function got(url, opts, cb) {
 			}
 
 			read(res, encoding, function (err, data) {
-				 cb.call(null, err, data, response);
+				cb.call(null, err, data, response);
 			});
 		}).once('error', cb);
 
