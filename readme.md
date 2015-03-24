@@ -99,6 +99,14 @@ The data you requested.
 
 The [response object](http://nodejs.org/api/http.html#http_http_incomingmessage).
 
+##### .on('response', response)
+
+When in stream mode, you can listen for the `response` event to get the response object.
+
+###### response
+
+The [response object](http://nodejs.org/api/http.html#http_http_incomingmessage).
+
 #### got.get(url, [options], [callback])
 #### got.post(url, [options], [callback])
 #### got.put(url, [options], [callback])

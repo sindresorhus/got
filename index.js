@@ -65,6 +65,10 @@ function got(url, opts, cb) {
 			var statusCode = response.statusCode;
 			var res = response;
 
+			if (proxy) {
+				proxy.emit('response', res);
+			}
+
 			// redirect
 			if (status.redirect[statusCode] && 'location' in res.headers) {
 				res.resume(); // Discard response

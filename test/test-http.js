@@ -72,6 +72,15 @@ tape('stream mode', function (t) {
 		});
 });
 
+tape('emit response object to stream', function (t) {
+	got(s.url)
+		.on('response', function (res) {
+			t.ok(res);
+			t.ok(res.headers);
+			t.end();
+		});
+});
+
 tape('proxy errors to the stream', function (t) {
 	got(s.url + '/404')
 		.on('error', function (err) {
