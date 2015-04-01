@@ -42,6 +42,14 @@ tape('works with empty post response', function (t) {
 	});
 });
 
+tape('return readable stream', function (t) {
+	got.post(s.url, {body: from(['wow'])})
+		.on('data', function (data) {
+			t.equal(data.toString(), 'wow');
+			t.end();
+		});
+});
+
 tape('return writeable stream', function (t) {
 	got.post(s.url)
 		.on('data', function (data) {
