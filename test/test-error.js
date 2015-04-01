@@ -23,6 +23,14 @@ tape('error message', function (t) {
 	});
 });
 
+tape('dns error message', function (t) {
+	got('.com', function (err) {
+		t.ok(err);
+		t.equal(err.message, 'Request to .com failed');
+		t.end();
+	});
+});
+
 tape('cleanup', function (t) {
 	s.close();
 	t.end();

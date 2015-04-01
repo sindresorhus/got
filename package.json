@@ -43,6 +43,7 @@
     "infinity-agent": "^1.0.0",
     "is-stream": "^1.0.0",
     "lowercase-keys": "^1.0.0",
+    "nested-error-stacks": "^1.0.0",
     "object-assign": "^2.0.0",
     "prepend-http": "^1.0.0",
     "read-all-stream": "^2.0.0",
