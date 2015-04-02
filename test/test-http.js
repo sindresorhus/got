@@ -13,8 +13,10 @@ s.on('/empty', function (req, res) {
 });
 
 s.on('/404', function (req, res) {
-	res.statusCode = 404;
-	res.end('not');
+	setTimeout(function () {
+		res.statusCode = 404;
+		res.end('not');
+	}, 10);
 });
 
 tape('setup', function (t) {
