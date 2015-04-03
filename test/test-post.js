@@ -9,6 +9,11 @@ s.on('/', function (req, res) {
 	req.pipe(res);
 });
 
+s.on('/method', function (req, res) {
+	res.setHeader('method', req.method);
+	res.end();
+});
+
 s.on('/empty', function (req, res) {
 	res.end();
 });
@@ -16,6 +21,20 @@ s.on('/empty', function (req, res) {
 tape('setup', function (t) {
 	s.listen(s.port, function () {
 		t.end();
+	});
+});
+
+tape('GET can have body', function (t) {
+	t.plan(3);
+
+	var stream = from(['wow']);
+	stream.on('end', function () {
+		t.ok(true); // Ensure, that stream was dumped
+	});
+
+	got.get(s.url + '/method', {body: stream}, function (err, data, res) {
+		t.error(err);
+		t.equal(res.headers.method, 'GET');
 	});
 });
 
