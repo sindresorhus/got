@@ -9,15 +9,17 @@ var testContent = 'Compressible response content.\n';
 s.on('/', function (req, res) {
 	res.statusCode = 200;
 	res.setHeader('Content-Type', 'text/plain');
+	res.setHeader('Content-Encoding', 'gzip');
+	zlib.gzip(testContent, function (err, data) {
+		res.end(data);
+	});
+});
 
-	if (/\bgzip\b/i.test(req.headers['accept-encoding'])) {
-		res.setHeader('Content-Encoding', 'gzip');
-		zlib.gzip(testContent, function (err, data) {
-			res.end(data);
-		});
-	} else {
-		res.end(testContent);
-	}
+s.on('/corrupted', function (req, res) {
+	res.statusCode = 200;
+	res.setHeader('Content-Type', 'text/plain');
+	res.setHeader('Content-Encoding', 'gzip');
+	res.end('Not gzipped content');
 });
 
 tape('setup', function (t) {
@@ -30,6 +32,14 @@ tape('ungzip content', function (t) {
 	got(s.url, function (err, data) {
 		t.error(err);
 		t.equal(data, testContent);
+		t.end();
+	});
+});
+
+tape('ungzip error', function (t) {
+	got(s.url + '/corrupted', function (err) {
+		t.ok(err);
+		t.equal(err.message, 'Reading ' + s.url + '/corrupted response failed');
 		t.end();
 	});
 });

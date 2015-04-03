@@ -2,6 +2,7 @@
 var http = require('http');
 var https = require('https');
 var urlLib = require('url');
+var util = require('util');
 var zlib = require('zlib');
 var objectAssign = require('object-assign');
 var agent = require('infinity-agent');
@@ -12,6 +13,15 @@ var timeout = require('timed-out');
 var prependHttp = require('prepend-http');
 var lowercaseKeys = require('lowercase-keys');
 var status = require('statuses');
+var NestedError = require('nested-error-stacks');
+
+function GotError(message, nested) {
+	NestedError.call(this, message, nested);
+	objectAssign(this, nested);
+}
+
+util.inherits(GotError, NestedError);
+GotError.prototype.name = 'GotError';
 
 function got(url, opts, cb) {
 	if (typeof opts === 'function') {
@@ -74,7 +84,7 @@ function got(url, opts, cb) {
 				res.resume(); // Discard response
 
 				if (++redirectCount > 10) {
-					cb(new Error('Redirected 10 times. Aborting.'), undefined, res);
+					cb(new GotError('Redirected 10 times. Aborting.'), undefined, res);
 					return;
 				}
 
@@ -89,8 +99,8 @@ function got(url, opts, cb) {
 			}
 
 			if (statusCode < 200 || statusCode > 299) {
-				read(res, encoding, function (error, data) {
-					var err = error || new Error(url + ' response code is ' + statusCode + ' (' + status[statusCode] + ')');
+				read(res, encoding, function (err, data) {
+					err = new GotError(url + ' response code is ' + statusCode + ' (' + status[statusCode] + ')', err);
 					err.code = statusCode;
 					cb(err, data, response);
 				});
@@ -104,9 +114,15 @@ function got(url, opts, cb) {
 			}
 
 			read(res, encoding, function (err, data) {
+				if (err) {
+					err = new GotError('Reading ' + url + ' response failed', err);
+				}
+
 				cb(err, data, response);
 			});
-		}).once('error', cb);
+		}).once('error', function (err) {
+			cb(new GotError('Request to ' + url + ' failed', err));
+		});
 
 		if (opts.timeout) {
 			timeout(req, opts.timeout);
