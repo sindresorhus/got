@@ -65,9 +65,9 @@ Encoding to be used on `setEncoding` of the response data. If null, the body is 
 
 Type: `string`, `Buffer`, `ReadableStream`  
 
-Body, that will be sent with `POST` request. If present in `options` and `options.method` is not set - `options.method` will be set to `POST`.
+_This option and stream mode are mutually exclusive._
 
-This option and stream mode are mutually exclusive.
+Body, that will be sent with `POST` request. If present in `options` and `options.method` is not set - `options.method` will be set to `POST`.
 
 ##### options.timeout
 
