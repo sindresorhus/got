@@ -69,6 +69,15 @@ _This option and stream mode are mutually exclusive._
 
 Body, that will be sent with `POST` request. If present in `options` and `options.method` is not set - `options.method` will be set to `POST`.
 
+##### options.json
+
+Type: `Boolean`  
+Default: `false`
+
+_This option and stream mode are mutually exclusive._
+
+If enabled, response body will be parsed with `JSON.parse`.
+
 ##### options.timeout
 
 Type: `number`

@@ -40,11 +40,13 @@ function got(url, opts, cb) {
 
 	var encoding = opts.encoding;
 	var body = opts.body;
+	var json = opts.json;
 	var proxy;
 	var redirectCount = 0;
 
 	delete opts.encoding;
 	delete opts.body;
+	delete opts.json;
 
 	if (body) {
 		opts.method = opts.method || 'POST';
@@ -59,6 +61,10 @@ function got(url, opts, cb) {
 		cb = function (err) {
 			proxy.emit('error', err);
 		};
+	}
+
+	if (proxy && json) {
+		throw new GotError('got can not be used as stream when options.json is used');
 	}
 
 	function get(url, opts, cb) {
@@ -116,6 +122,12 @@ function got(url, opts, cb) {
 			read(res, encoding, function (err, data) {
 				if (err) {
 					err = new GotError('Reading ' + url + ' response failed', err);
+				} else if (json) {
+					try {
+						data = JSON.parse(data);
+					} catch (e) {
+						err = new GotError('Parsing ' + url + ' response failed', err);
+					}
 				}
 
 				cb(err, data, response);
