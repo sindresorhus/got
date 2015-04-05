@@ -63,11 +63,13 @@ Encoding to be used on `setEncoding` of the response data. If null, the body is 
 
 ##### options.body
 
-Type: `string`, `Buffer`, `ReadableStream`  
+Type: `string`, `Buffer`, `ReadableStream`, `Object`
 
 _This option and stream mode are mutually exclusive._
 
 Body, that will be sent with `POST` request. If present in `options` and `options.method` is not set - `options.method` will be set to `POST`.
+
+If `body` is `Object`, then it will be serialized to JSON and `Content-Type` header will be set to `application/json` (if not set explicitly).
 
 ##### options.timeout
 

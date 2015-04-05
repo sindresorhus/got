@@ -23,6 +23,10 @@ function GotError(message, nested) {
 util.inherits(GotError, NestedError);
 GotError.prototype.name = 'GotError';
 
+function isSendable(body) {
+	return Buffer.isBuffer(body) || typeof body === 'string' || body instanceof String;
+}
+
 function got(url, opts, cb) {
 	if (typeof opts === 'function') {
 		cb = opts;
@@ -33,10 +37,16 @@ function got(url, opts, cb) {
 
 	opts = objectAssign({}, opts);
 
-	opts.headers = objectAssign({
+	var defaultHeaders = {
 		'user-agent': 'https://github.com/sindresorhus/got',
 		'accept-encoding': 'gzip,deflate'
-	}, lowercaseKeys(opts.headers));
+	};
+
+	if (!isSendable(opts.body)) {
+		defaultHeaders['content-type'] = 'application/json';
+	}
+
+	opts.headers = objectAssign(defaultHeaders, lowercaseKeys(opts.headers));
 
 	var encoding = opts.encoding;
 	var body = opts.body;
@@ -128,13 +138,20 @@ function got(url, opts, cb) {
 			timeout(req, opts.timeout);
 		}
 
-		if (!proxy) {
+		function send(req, body) {
 			if (isStream.readable(body)) {
 				body.pipe(req);
-			} else {
+			} else if (isSendable(body)) {
 				req.end(body);
+			} else if (body) {
+				req.end(JSON.stringify(body));
+			} else {
+				req.end();
 			}
+		}
 
+		if (!proxy) {
+			send(req, body);
 			return;
 		}
 
@@ -143,12 +160,7 @@ function got(url, opts, cb) {
 				throw new Error('got\'s stream is not writable when options.body is used');
 			};
 
-			if (isStream.readable(body)) {
-				body.pipe(req);
-			} else {
-				req.end(body);
-			}
-
+			send(req, body);
 			return;
 		}
 
