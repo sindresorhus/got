@@ -135,7 +135,7 @@ function got(url, opts, cb) {
 					try {
 						data = JSON.parse(data);
 					} catch (e) {
-						err = new GotError('Parsing ' + url + ' response failed', err);
+						err = new GotError('Parsing ' + url + ' response failed', e);
 					}
 				}
 
