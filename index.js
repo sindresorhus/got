@@ -17,7 +17,7 @@ var NestedError = require('nested-error-stacks');
 
 function GotError(message, nested) {
 	NestedError.call(this, message, nested);
-	objectAssign(this, nested);
+	objectAssign(this, nested, {nested: this.nested});
 }
 
 util.inherits(GotError, NestedError);
@@ -108,6 +108,15 @@ function got(url, opts, cb) {
 				read(res, encoding, function (err, data) {
 					err = new GotError(url + ' response code is ' + statusCode + ' (' + status[statusCode] + ')', err);
 					err.code = statusCode;
+
+					if (data && json) {
+						try {
+							data = JSON.parse(data);
+						} catch (e) {
+							err = new GotError('Parsing ' + url + ' response failed', new GotError(e.message, err));
+						}
+					}
+
 					cb(err, data, response);
 				});
 				return;
