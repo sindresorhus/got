@@ -47,6 +47,8 @@ tape('json option wrap parsing errors', function (t) {
 	got(s.url + '/invalid', {json: true}, function (err) {
 		t.ok(err);
 		t.equal(err.message, 'Parsing ' + s.url + '/invalid response failed');
+		t.ok(err.nested);
+		t.equal(err.nested.message, 'Unexpected token /');
 		t.end();
 	});
 });
