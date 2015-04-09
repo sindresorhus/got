@@ -8,19 +8,19 @@ var objectAssign = require('object-assign');
 var agent = require('infinity-agent');
 var duplexify = require('duplexify');
 var isStream = require('is-stream');
-var read = require('read-all-stream');
-var timeout = require('timed-out');
+var readAllStream = require('read-all-stream');
+var timedOut = require('timed-out');
 var prependHttp = require('prepend-http');
 var lowercaseKeys = require('lowercase-keys');
-var status = require('statuses');
-var NestedError = require('nested-error-stacks');
+var statuses = require('statuses');
+var NestedErrorStacks = require('nested-error-stacks');
 
 function GotError(message, nested) {
-	NestedError.call(this, message, nested);
+	NestedErrorStacks.call(this, message, nested);
 	objectAssign(this, nested, {nested: this.nested});
 }
 
-util.inherits(GotError, NestedError);
+util.inherits(GotError, NestedErrorStacks);
 GotError.prototype.name = 'GotError';
 
 function got(url, opts, cb) {
@@ -86,7 +86,7 @@ function got(url, opts, cb) {
 			}
 
 			// redirect
-			if (status.redirect[statusCode] && 'location' in res.headers) {
+			if (statuses.redirect[statusCode] && 'location' in res.headers) {
 				res.resume(); // Discard response
 
 				if (++redirectCount > 10) {
@@ -105,8 +105,8 @@ function got(url, opts, cb) {
 			}
 
 			if (statusCode < 200 || statusCode > 299) {
-				read(res, encoding, function (err, data) {
-					err = new GotError(url + ' response code is ' + statusCode + ' (' + status[statusCode] + ')', err);
+				readAllStream(res, encoding, function (err, data) {
+					err = new GotError(url + ' response code is ' + statusCode + ' (' + statuses[statusCode] + ')', err);
 					err.code = statusCode;
 
 					if (data && json) {
@@ -128,7 +128,7 @@ function got(url, opts, cb) {
 				return;
 			}
 
-			read(res, encoding, function (err, data) {
+			readAllStream(res, encoding, function (err, data) {
 				if (err) {
 					err = new GotError('Reading ' + url + ' response failed', err);
 				} else if (json) {
@@ -146,7 +146,7 @@ function got(url, opts, cb) {
 		});
 
 		if (opts.timeout) {
-			timeout(req, opts.timeout);
+			timedOut(req, opts.timeout);
 		}
 
 		if (!proxy) {

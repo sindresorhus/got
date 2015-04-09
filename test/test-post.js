@@ -1,6 +1,6 @@
 'use strict';
 var tape = require('tape');
-var from = require('from2-array');
+var from2Array = require('from2-array');
 var got = require('../');
 var server = require('./server.js');
 var s = server.createServer();
@@ -27,7 +27,7 @@ tape('setup', function (t) {
 tape('GET can have body', function (t) {
 	t.plan(3);
 
-	var stream = from(['wow']);
+	var stream = from2Array(['wow']);
 	stream.on('end', function () {
 		t.ok(true); // Ensure, that stream was dumped
 	});
@@ -49,7 +49,7 @@ tape('send data from options with post request', function (t) {
 		t.equal(data, 'wow');
 	});
 
-	got(s.url, {body: from(['wow'])}, function (err, data) {
+	got(s.url, {body: from2Array(['wow'])}, function (err, data) {
 		t.equal(data, 'wow');
 	});
 });
@@ -62,7 +62,7 @@ tape('works with empty post response', function (t) {
 });
 
 tape('return readable stream', function (t) {
-	got.post(s.url, {body: from(['wow'])})
+	got.post(s.url, {body: from2Array(['wow'])})
 		.on('data', function (data) {
 			t.equal(data.toString(), 'wow');
 			t.end();

@@ -6,21 +6,21 @@ var s = server.createServer();
 
 s.on('/finite', function (req, res) {
 	res.writeHead(302, {
-		location : s.url + '/'
+		location: s.url + '/'
 	});
 	res.end();
 });
 
 s.on('/endless', function (req, res) {
 	res.writeHead(302, {
-		location : s.url + '/endless'
+		location: s.url + '/endless'
 	});
 	res.end();
 });
 
 s.on('/relative', function (req, res) {
 	res.writeHead(302, {
-		location : '/'
+		location: '/'
 	});
 	res.end();
 });
