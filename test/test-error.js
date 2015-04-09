@@ -28,7 +28,7 @@ tape('dns error message', function (t) {
 		t.ok(err);
 		t.equal(err.message, 'Request to .com failed');
 		t.ok(err.nested);
-		t.equal(err.nested.message, 'getaddrinfo ENOTFOUND');
+		t.ok(/getaddrinfo ENOTFOUND/.test(err.nested.message));
 		t.end();
 	});
 });
