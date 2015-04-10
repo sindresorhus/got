@@ -65,6 +65,11 @@ tape('json option should catch errors on invalid non-200 responses', function (t
 	got(s.url + '/non200-invalid', {json: true}, function (err, json) {
 		t.ok(err);
 		t.deepEqual(json, 'Internal error');
+		t.equal(err.message, 'Parsing http://localhost:6767/non200-invalid response failed');
+		t.ok(err.nested);
+		t.equal(err.nested.message, 'Unexpected token I');
+		t.ok(err.nested.nested);
+		t.equal(err.nested.nested.message, 'http://localhost:6767/non200-invalid response code is 500 (Internal Server Error)');
 		t.end();
 	});
 });
