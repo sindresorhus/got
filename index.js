@@ -194,9 +194,7 @@ function got(url, opts, cb) {
 	'delete'
 ].forEach(function (el) {
 	got[el] = function (url, opts, cb) {
-		opts = opts || {};
-		opts.method = el.toUpperCase();
-		return got(url, opts, cb);
+		return got(url, objectAssign({}, opts, {method: el.toUpperCase()}), cb);
 	};
 });
 
