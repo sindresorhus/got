@@ -159,6 +159,11 @@ got('todomvc.com', {
 ```
 
 
+## Related
+
+[`gh-got`](https://github.com/sindresorhus/gh-got) - Convenience wrapper for interacting with the GitHub API
+
+
 ## License
 
 MIT © [Sindre Sorhus](http://sindresorhus.com)
