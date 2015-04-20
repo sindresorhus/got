@@ -5,7 +5,7 @@ var urlLib = require('url');
 var util = require('util');
 var zlib = require('zlib');
 var objectAssign = require('object-assign');
-var agent = require('infinity-agent');
+var infinityAgent = require('infinity-agent');
 var duplexify = require('duplexify');
 var isStream = require('is-stream');
 var readAllStream = require('read-all-stream');
@@ -72,9 +72,20 @@ function got(url, opts, cb) {
 		var fn = parsedUrl.protocol === 'https:' ? https : http;
 		var arg = objectAssign({}, parsedUrl, opts);
 
-		// TODO: remove this when Node 0.10 will be deprecated
 		if (arg.agent === undefined) {
-			arg.agent = agent(arg);
+			arg.agent = infinityAgent[fn === https ? 'https' : 'http'].globalAgent;
+
+			// TODO: remove this when Node 0.10 will be deprecated
+			if (process.version.indexOf('v0.10') === 0 && fn === https && (
+				typeof opts.ca !== 'undefined' ||
+				typeof opts.cert !== 'undefined' ||
+				typeof opts.ciphers !== 'undefined' ||
+				typeof opts.key !== 'undefined' ||
+				typeof opts.passphrase !== 'undefined' ||
+				typeof opts.pfx !== 'undefined' ||
+				typeof opts.rejectUnauthorized !== 'undefined')) {
+				arg.agent = new (infinityAgent.https.Agent)(opts);
+			}
 		}
 
 		var req = fn.request(arg, function (response) {
