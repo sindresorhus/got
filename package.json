@@ -1,6 +1,6 @@
 {
   "name": "got",
-  "version": "2.7.2",
+  "version": "2.8.0",
   "description": "Simplified HTTP/HTTPS requests",
   "license": "MIT",
   "repository": "sindresorhus/got",
