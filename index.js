@@ -205,6 +205,11 @@ function got(url, opts, cb) {
 	'delete'
 ].forEach(function (el) {
 	got[el] = function (url, opts, cb) {
+		if (typeof opts === 'function') {
+			cb = opts;
+			opts = undefined;
+		}
+
 		return got(url, objectAssign({}, opts, {method: el.toUpperCase()}), cb);
 	};
 });
