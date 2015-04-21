@@ -18,7 +18,7 @@ tape('setup', function (t) {
 tape('error message', function (t) {
 	got(s.url, function (err) {
 		t.ok(err);
-		t.equal(err.message, 'http://localhost:6767 response code is 404 (Not Found)');
+		t.equal(err.message, 'http://localhost:6767/ response code is 404 (Not Found)');
 		t.end();
 	});
 });
@@ -26,7 +26,7 @@ tape('error message', function (t) {
 tape('dns error message', function (t) {
 	got('.com', function (err) {
 		t.ok(err);
-		t.equal(err.message, 'Request to .com failed');
+		t.equal(err.message, 'Request to http://.com/ failed');
 		t.ok(err.nested);
 		t.ok(/getaddrinfo ENOTFOUND/.test(err.nested.message));
 		t.end();
