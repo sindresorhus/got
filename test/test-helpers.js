@@ -8,17 +8,6 @@ s.on('/', function (req, res) {
 	res.end('ok');
 });
 
-s.on('/empty', function (req, res) {
-	res.end();
-});
-
-s.on('/404', function (req, res) {
-	setTimeout(function () {
-		res.statusCode = 404;
-		res.end('not');
-	}, 10);
-});
-
 tape('setup', function (t) {
 	s.listen(s.port, function () {
 		t.end();
@@ -31,6 +20,14 @@ tape('callback mode', {timeout: 1000}, function (t) {
 		t.equal(data, 'ok');
 		t.end();
 	});
+});
+
+tape('stream mode', {timeout: 1000}, function (t) {
+	got.get(s.url)
+		.on('data', function (data) {
+			t.equal(data.toString(), 'ok');
+			t.end();
+		});
 });
 
 tape('cleanup', function (t) {
