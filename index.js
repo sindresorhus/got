@@ -67,6 +67,10 @@ function got(url, opts, cb) {
 		throw new GotError('got can not be used as stream when options.json is used');
 	}
 
+	if (body && !(typeof body === 'string' || body instanceof Buffer || isStream.readable(body))) {
+		throw new GotError('options.body must be a ReadableStream, string or Buffer');
+	}
+
 	function get(url, opts, cb) {
 		var parsedUrl = urlLib.parse(prependHttp(url));
 		var fn = parsedUrl.protocol === 'https:' ? https : http;

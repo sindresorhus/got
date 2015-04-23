@@ -33,6 +33,14 @@ tape('dns error message', function (t) {
 	});
 });
 
+tape('options.body error message', function (t) {
+	t.throws(function () {
+		got(s.url, {body: {}});
+	}, /options.body must be a ReadableStream, string or Buffer/);
+	t.end();
+});
+
+
 tape('cleanup', function (t) {
 	s.close();
 	t.end();
