@@ -27,8 +27,6 @@ function got(url, opts, cb) {
 	if (typeof opts === 'function') {
 		cb = opts;
 		opts = {};
-	} else if (!opts) {
-		opts = {};
 	}
 
 	opts = objectAssign({}, opts);
