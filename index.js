@@ -112,9 +112,7 @@ function got(url, opts, cb) {
 			}
 
 			if (['gzip', 'deflate'].indexOf(res.headers['content-encoding']) !== -1) {
-				var unzip = zlib.createUnzip();
-				res.pipe(unzip);
-				res = unzip;
+				res = res.pipe(zlib.createUnzip());
 			}
 
 			if (statusCode < 200 || statusCode > 299) {
