@@ -44,6 +44,14 @@ tape('ungzip error', function (t) {
 	});
 });
 
+tape('preserve headers property', function (t) {
+	got(s.url, function (err, data, res) {
+		t.error(err);
+		t.ok(res.headers);
+		t.end();
+	});
+});
+
 tape('cleanup', function (t) {
 	s.close();
 	t.end();
