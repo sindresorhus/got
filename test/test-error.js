@@ -40,7 +40,6 @@ tape('options.body error message', function (t) {
 	t.end();
 });
 
-
 tape('cleanup', function (t) {
 	s.close();
 	t.end();
