@@ -11,7 +11,6 @@ var isStream = require('is-stream');
 var readAllStream = require('read-all-stream');
 var timedOut = require('timed-out');
 var prependHttp = require('prepend-http');
-var lowercaseKeys = require('lowercase-keys');
 var statuses = require('statuses');
 var NestedErrorStacks = require('nested-error-stacks');
 
@@ -32,9 +31,9 @@ function got(url, opts, cb) {
 	opts = objectAssign({}, opts);
 
 	opts.headers = objectAssign({
-		'user-agent': 'https://github.com/sindresorhus/got',
-		'accept-encoding': 'gzip,deflate'
-	}, lowercaseKeys(opts.headers));
+		'User-Agent': 'https://github.com/sindresorhus/got',
+		'Accept-Encoding': 'gzip, deflate'
+	}, opts.headers);
 
 	var encoding = opts.encoding;
 	var body = opts.body;
