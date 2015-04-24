@@ -207,7 +207,7 @@ function got(url, opts, cb) {
 	got[el] = function (url, opts, cb) {
 		if (typeof opts === 'function') {
 			cb = opts;
-			opts = undefined;
+			opts = {};
 		}
 
 		return got(url, objectAssign({}, opts, {method: el.toUpperCase()}), cb);
