@@ -4,6 +4,7 @@ var https = require('https');
 var urlLib = require('url');
 var util = require('util');
 var zlib = require('zlib');
+var querystring = require('querystring');
 var objectAssign = require('object-assign');
 var infinityAgent = require('infinity-agent');
 var duplexify = require('duplexify');
@@ -88,6 +89,10 @@ function got(url, opts, cb) {
 				typeof opts.rejectUnauthorized !== 'undefined')) {
 				arg.agent = new (infinityAgent.https.Agent)(opts);
 			}
+		}
+
+		if (opts.query) {
+			arg.path = (arg.path ? arg.path.split('?')[0] : '') + '?' + (typeof opts.query === 'string' ? opts.query : querystring.stringify(opts.query));
 		}
 
 		var req = fn.request(arg, function (response) {
