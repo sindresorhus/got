@@ -39,11 +39,10 @@ fs.createReadStream('index.html').pipe(got.post('todomvc.com'));
 
 It's a `GET` request by default, but can be changed in `options`.
 
-#### got(url, [options], [callback])
+#### got([url][, options][, callback])
 
 ##### url
 
-*Required*  
 Type: `string`
 
 The URL to request.
@@ -114,12 +113,12 @@ When in stream mode, you can listen for the `response` event to get the response
 
 The [response object](http://nodejs.org/api/http.html#http_http_incomingmessage).
 
-#### got.get(url, [options], [callback])
-#### got.post(url, [options], [callback])
-#### got.put(url, [options], [callback])
-#### got.patch(url, [options], [callback])
-#### got.head(url, [options], [callback])
-#### got.delete(url, [options], [callback])
+#### got.get([url][, options][, callback])
+#### got.post([url][, options][, callback])
+#### got.put([url][, options][, callback])
+#### got.patch([url][, options][, callback])
+#### got.head([url][, options][, callback])
+#### got.delete([url][, options][, callback])
 
 Sets `options.method` to the method name and makes a request.
 
