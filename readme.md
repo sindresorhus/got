@@ -4,14 +4,14 @@
 
 A nicer interface to the built-in [`http`](http://nodejs.org/api/http.html) module.
 
-It also supports following redirects, streams, and automagically handling gzip/deflate.
+It supports following redirects, streams, automagically handling gzip/deflate and some convenience options.
 
 Created because [`request`](https://github.com/mikeal/request) is bloated *(several megabytes!)* and slow.
 
 
 ## Install
 
-```sh
+```
 $ npm install --save got
 ```
 
@@ -54,14 +54,14 @@ Type: `object`
 
 Any of the [`http.request`](http://nodejs.org/api/http.html#http_http_request_options_callback) options.
 
-##### options.encoding
+###### encoding
 
 Type: `string`, `null`  
 Default: `'utf8'`
 
 Encoding to be used on `setEncoding` of the response data. If null, the body is returned as a Buffer.
 
-##### options.body
+###### body
 
 Type: `string`, `Buffer`, `ReadableStream`  
 
@@ -69,7 +69,7 @@ _This option and stream mode are mutually exclusive._
 
 Body, that will be sent with `POST` request. If present in `options` and `options.method` is not set - `options.method` will be set to `POST`.
 
-##### options.json
+###### json
 
 Type: `Boolean`  
 Default: `false`
@@ -78,19 +78,19 @@ _This option and stream mode are mutually exclusive._
 
 If enabled, response body will be parsed with `JSON.parse`.
 
-##### options.query
+###### query
 
 Type: `string`, `Object`  
 
 Query string object, that will be added to request url. This will override query string in `url`.
 
-##### options.timeout
+###### timeout
 
 Type: `number`
 
 Milliseconds after which the request will be aborted and an error event with `ETIMEDOUT` code will be emitted.
 
-##### options.agent
+###### agent
 
 [http.Agent](http://nodejs.org/api/http.html#http_class_http_agent) instance.
 
@@ -167,6 +167,7 @@ got('todomvc.com', {
 
  * [`gh-got`](https://github.com/sindresorhus/gh-got) - Convenience wrapper for interacting with the GitHub API
  * [`got-promise`](https://github.com/floatdrop/got-promise) - Promise wrapper
+
 
 ## License
 

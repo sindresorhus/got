@@ -36,7 +36,10 @@
     "request",
     "util",
     "utility",
-    "simple"
+    "simple",
+    "curl",
+    "wget",
+    "fetch"
   ],
   "dependencies": {
     "duplexify": "^3.2.0",
