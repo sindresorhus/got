@@ -25,6 +25,10 @@ util.inherits(GotError, NestedErrorStacks);
 GotError.prototype.name = 'GotError';
 
 function got(url, opts, cb) {
+	if (typeof url !== 'string' && !(url instanceof Object)) {
+		throw new GotError('Parameter \'url\' must be a string or object, not ' + typeof url);
+	}
+
 	if (typeof opts === 'function') {
 		cb = opts;
 		opts = {};
