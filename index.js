@@ -123,6 +123,11 @@ function got(url, opts, cb) {
 					return;
 				}
 
+				delete opts.host;
+				delete opts.hostname;
+				delete opts.port;
+				delete opts.path;
+
 				get(urlLib.resolve(url, res.headers.location), opts, cb);
 				return;
 			}
