@@ -78,6 +78,12 @@ _This option and stream mode are mutually exclusive._
 
 If enabled, response body will be parsed with `JSON.parse`.
 
+##### options.query
+
+Type: `string`, `Object`  
+
+Query string object, that will be added to request url. This will override query string in `url`.
+
 ##### options.timeout
 
 Type: `number`

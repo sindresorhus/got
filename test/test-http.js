@@ -19,6 +19,10 @@ s.on('/404', function (req, res) {
 	}, 10);
 });
 
+s.on('/?recent=true', function (req, res) {
+	res.end('recent');
+});
+
 tape('setup', function (t) {
 	s.listen(s.port, function () {
 		t.end();
@@ -97,6 +101,18 @@ tape('timeout option', function (t) {
 			t.equal(err.code, 'ETIMEDOUT');
 			t.end();
 		});
+});
+
+tape('query option', function (t) {
+	t.plan(2);
+
+	got(s.url, {query: {recent: true}}, function (err, data) {
+		t.equal(data, 'recent');
+	});
+
+	got(s.url, {query: 'recent=true'}, function (err, data) {
+		t.equal(data, 'recent');
+	});
 });
 
 tape('cleanup', function (t) {
