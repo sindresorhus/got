@@ -44,12 +44,16 @@ function got(url, opts, cb) {
 	var encoding = opts.encoding;
 	var body = opts.body;
 	var json = opts.json;
+	var timeout = opts.timeout;
+	var query = opts.query;
 	var proxy;
 	var redirectCount = 0;
 
 	delete opts.encoding;
 	delete opts.body;
 	delete opts.json;
+	delete opts.timeout;
+	delete opts.query;
 
 	if (body) {
 		opts.method = opts.method || 'POST';
@@ -97,7 +101,7 @@ function got(url, opts, cb) {
 			}
 		}
 
-		if (opts.query) {
+		if (query) {
 			arg.path = (arg.path ? arg.path.split('?')[0] : '') + '?' + (typeof opts.query === 'string' ? opts.query : querystring.stringify(opts.query));
 		}
 
@@ -167,8 +171,8 @@ function got(url, opts, cb) {
 			cb(new GotError('Request to ' + url + ' failed', err));
 		});
 
-		if (opts.timeout) {
-			timedOut(req, opts.timeout);
+		if (timeout) {
+			timedOut(req, timeout);
 		}
 
 		if (!proxy) {
