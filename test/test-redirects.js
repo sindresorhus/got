@@ -59,6 +59,14 @@ tape('throws on endless redirect', function (t) {
 	});
 });
 
+tape('host+path in options are not breaking redirects', function (t) {
+	got(s.url + '/relative', {host: s.url, path: '/relative'}, function (err, data) {
+		t.error(err);
+		t.equal(data, 'reached');
+		t.end();
+	});
+});
+
 tape('cleanup', function (t) {
 	s.close();
 	t.end();
