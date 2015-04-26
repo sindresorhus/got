@@ -70,9 +70,11 @@ function got(url, opts, cb) {
 	}
 
 	function get(url, opts, cb) {
-		var parsedUrl = urlLib.parse(prependHttp(url));
+		var parsedUrl = typeof url === 'string' ? urlLib.parse(prependHttp(url)) : url;
 		var fn = parsedUrl.protocol === 'https:' ? https : http;
 		var arg = objectAssign({}, parsedUrl, opts);
+
+		url = typeof url === 'string' ? prependHttp(url) : urlLib.format(url);
 
 		if (arg.agent === undefined) {
 			arg.agent = infinityAgent[fn === https ? 'https' : 'http'].globalAgent;

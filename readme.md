@@ -44,9 +44,9 @@ It's a `GET` request by default, but can be changed in `options`.
 ##### url
 
 *Required*  
-Type: `string`
+Type: `string`, `Object`
 
-The URL to request.
+The URL to request or bare [http.request options](https://nodejs.org/api/http.html#http_http_request_options_callback) object.
 
 ##### options
 
