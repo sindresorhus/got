@@ -54,13 +54,6 @@ Type: `object`
 
 Any of the [`http.request`](http://nodejs.org/api/http.html#http_http_request_options_callback) options.
 
-###### encoding
-
-Type: `string`, `null`  
-Default: `'utf8'`
-
-Encoding to be used on `setEncoding` of the response data. If null, the body is returned as a Buffer.
-
 ###### body
 
 Type: `string`, `Buffer`, `ReadableStream`  
@@ -68,6 +61,13 @@ Type: `string`, `Buffer`, `ReadableStream`
 _This option and stream mode are mutually exclusive._
 
 Body, that will be sent with `POST` request. If present in `options` and `options.method` is not set - `options.method` will be set to `POST`.
+
+###### encoding
+
+Type: `string`, `null`  
+Default: `'utf8'`
+
+Encoding to be used on `setEncoding` of the response data. If null, the body is returned as a Buffer.
 
 ###### json
 
