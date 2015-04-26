@@ -81,7 +81,7 @@ function got(url, opts, cb) {
 	function get(url, opts, cb) {
 		var parsedUrl = typeof url === 'string' ? urlLib.parse(prependHttp(url)) : url;
 		var fn = parsedUrl.protocol === 'https:' ? https : http;
-		var arg = objectAssign({}, parsedUrl, opts);
+		var arg = objectAssign({}, opts, parsedUrl);
 
 		url = typeof url === 'string' ? prependHttp(url) : urlLib.format(url);
 
