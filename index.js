@@ -103,6 +103,7 @@ function got(url, opts, cb) {
 
 		if (query) {
 			arg.path = (arg.path ? arg.path.split('?')[0] : '') + '?' + (typeof query === 'string' ? query : querystring.stringify(query));
+			query = undefined;
 		}
 
 		var req = fn.request(arg, function (response) {

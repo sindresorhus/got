@@ -25,6 +25,13 @@ s.on('/relative', function (req, res) {
 	res.end();
 });
 
+s.on('/relativeQuery?bang', function (req, res) {
+	res.writeHead(302, {
+		location: '/'
+	});
+	res.end();
+});
+
 s.on('/', function (req, res) {
 	res.end('reached');
 });
@@ -55,6 +62,14 @@ tape('throws on endless redirect', function (t) {
 	got(s.url + '/endless', function (err) {
 		t.ok(err, 'should get error');
 		t.equal(err.message, 'Redirected 10 times. Aborting.');
+		t.end();
+	});
+});
+
+tape('query in options are not breaking redirects', function (t) {
+	got(s.url + '/relativeQuery', {query: 'bang'}, function (err, data) {
+		t.error(err);
+		t.equal(data, 'reached');
 		t.end();
 	});
 });
