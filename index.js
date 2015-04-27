@@ -25,8 +25,8 @@ util.inherits(GotError, NestedErrorStacks);
 GotError.prototype.name = 'GotError';
 
 function got(url, opts, cb) {
-	if (typeof url !== 'string' && !(url instanceof Object)) {
-		throw new GotError('Parameter \'url\' must be a string or object, not ' + typeof url);
+	if (typeof url !== 'string' && typeof url !== 'object') {
+		throw new GotError('Parameter `url` must be a string or object, not ' + typeof url);
 	}
 
 	if (typeof opts === 'function') {
@@ -74,7 +74,7 @@ function got(url, opts, cb) {
 		throw new GotError('got can not be used as stream when options.json is used');
 	}
 
-	if (body && !(typeof body === 'string' || body instanceof Buffer || isStream.readable(body))) {
+	if (body && !(typeof body === 'string' || Buffer.isBuffer(body) || isStream.readable(body))) {
 		throw new GotError('options.body must be a ReadableStream, string or Buffer');
 	}
 

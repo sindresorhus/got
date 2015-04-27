@@ -21,7 +21,7 @@ tape('setup', function (t) {
 tape('url argument is required', function (t) {
 	t.throws(function () {
 		got();
-	}, /Parameter 'url' must be a string or object, not undefined/);
+	}, /Parameter `url` must be a string or object, not undefined/);
 	t.end();
 });
 
@@ -33,15 +33,7 @@ tape('accepts url.parse object as first argument', function (t) {
 	});
 });
 
-tape('extends parsed string with opts', function (t) {
-	got(s.url, {path: '/test'}, function (err, data) {
-		t.error(err);
-		t.equal(data, '/test');
-		t.end();
-	});
-});
-
-tape('extends parsed string with opts', function (t) {
+tape('overrides querystring from opts', function (t) {
 	got(s.url + '/?test=doge', {query: {test: 'wow'}}, function (err, data) {
 		t.error(err);
 		t.equal(data, '/?test=wow');
