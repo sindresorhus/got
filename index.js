@@ -59,6 +59,8 @@ function got(url, opts, cb) {
 		opts.method = opts.method || 'POST';
 	}
 
+	opts.method = opts.method || 'GET';
+
 	// returns a proxy stream to the response
 	// if no callback has been provided
 	if (!cb) {
@@ -114,8 +116,8 @@ function got(url, opts, cb) {
 				proxy.emit('response', res);
 			}
 
-			// redirect
-			if (statuses.redirect[statusCode] && 'location' in res.headers) {
+			// auto-redirect only for GET and HEAD methods
+			if (statuses.redirect[statusCode] && 'location' in res.headers && (opts.method === 'GET' || opts.method === 'HEAD')) {
 				res.resume(); // Discard response
 
 				if (++redirectCount > 10) {
@@ -138,7 +140,7 @@ function got(url, opts, cb) {
 
 			if (statusCode < 200 || statusCode > 299) {
 				readAllStream(res, encoding, function (err, data) {
-					err = new GotError(url + ' response code is ' + statusCode + ' (' + statuses[statusCode] + ')', err);
+					err = new GotError(opts.method + ' ' + url + ' response code is ' + statusCode + ' (' + statuses[statusCode] + ')', err);
 					err.code = statusCode;
 
 					if (data && json) {
