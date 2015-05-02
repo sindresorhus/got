@@ -1,6 +1,6 @@
 'use strict';
 var zlib = require('zlib');
-var tape = require('tape');
+var test = require('tap').test;
 var got = require('../');
 var server = require('./server.js');
 var s = server.createServer();
@@ -22,13 +22,13 @@ s.on('/corrupted', function (req, res) {
 	res.end('Not gzipped content');
 });
 
-tape('setup', function (t) {
+test('setup', function (t) {
 	s.listen(s.port, function () {
 		t.end();
 	});
 });
 
-tape('ungzip content', function (t) {
+test('ungzip content', function (t) {
 	got(s.url, function (err, data) {
 		t.error(err);
 		t.equal(data, testContent);
@@ -36,7 +36,7 @@ tape('ungzip content', function (t) {
 	});
 });
 
-tape('ungzip error', function (t) {
+test('ungzip error', function (t) {
 	got(s.url + '/corrupted', function (err) {
 		t.ok(err);
 		t.equal(err.message, 'Reading ' + s.url + '/corrupted response failed');
@@ -44,7 +44,7 @@ tape('ungzip error', function (t) {
 	});
 });
 
-tape('preserve headers property', function (t) {
+test('preserve headers property', function (t) {
 	got(s.url, function (err, data, res) {
 		t.error(err);
 		t.ok(res.headers);
@@ -52,7 +52,7 @@ tape('preserve headers property', function (t) {
 	});
 });
 
-tape('cleanup', function (t) {
+test('cleanup', function (t) {
 	s.close();
 	t.end();
 });

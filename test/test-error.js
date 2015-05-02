@@ -1,5 +1,5 @@
 'use strict';
-var tape = require('tape');
+var test = require('tap').test;
 var got = require('../');
 var server = require('./server.js');
 var s = server.createServer();
@@ -9,13 +9,13 @@ s.on('/', function (req, res) {
 	res.end('not');
 });
 
-tape('setup', function (t) {
+test('setup', function (t) {
 	s.listen(s.port, function () {
 		t.end();
 	});
 });
 
-tape('error message', function (t) {
+test('error message', function (t) {
 	got(s.url, function (err) {
 		t.ok(err);
 		t.equal(err.message, 'GET http://localhost:6767 response code is 404 (Not Found)');
@@ -23,7 +23,7 @@ tape('error message', function (t) {
 	});
 });
 
-tape('dns error message', function (t) {
+test('dns error message', function (t) {
 	got('.com', function (err) {
 		t.ok(err);
 		t.equal(err.message, 'Request to http://.com failed');
@@ -33,14 +33,14 @@ tape('dns error message', function (t) {
 	});
 });
 
-tape('options.body error message', function (t) {
+test('options.body error message', function (t) {
 	t.throws(function () {
 		got(s.url, {body: {}});
 	}, /options.body must be a ReadableStream, string or Buffer/);
 	t.end();
 });
 
-tape('cleanup', function (t) {
+test('cleanup', function (t) {
 	s.close();
 	t.end();
 });

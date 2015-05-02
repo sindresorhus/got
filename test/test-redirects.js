@@ -1,5 +1,5 @@
 'use strict';
-var tape = require('tape');
+var test = require('tap').test;
 var got = require('../');
 var server = require('./server.js');
 var s = server.createServer();
@@ -36,13 +36,13 @@ s.on('/', function (req, res) {
 	res.end('reached');
 });
 
-tape('setup', function (t) {
+test('setup', function (t) {
 	s.listen(s.port, function () {
 		t.end();
 	});
 });
 
-tape('follows redirect', function (t) {
+test('follows redirect', function (t) {
 	got(s.url + '/finite', function (err, data) {
 		t.error(err);
 		t.equal(data, 'reached');
@@ -50,7 +50,7 @@ tape('follows redirect', function (t) {
 	});
 });
 
-tape('follows relative redirect', function (t) {
+test('follows relative redirect', function (t) {
 	got(s.url + '/relative', function (err, data) {
 		t.error(err);
 		t.equal(data, 'reached');
@@ -58,7 +58,7 @@ tape('follows relative redirect', function (t) {
 	});
 });
 
-tape('throws on endless redirect', function (t) {
+test('throws on endless redirect', function (t) {
 	got(s.url + '/endless', function (err) {
 		t.ok(err, 'should get error');
 		t.equal(err.message, 'Redirected 10 times. Aborting.');
@@ -66,7 +66,7 @@ tape('throws on endless redirect', function (t) {
 	});
 });
 
-tape('query in options are not breaking redirects', function (t) {
+test('query in options are not breaking redirects', function (t) {
 	got(s.url + '/relativeQuery', {query: 'bang'}, function (err, data) {
 		t.error(err);
 		t.equal(data, 'reached');
@@ -74,7 +74,7 @@ tape('query in options are not breaking redirects', function (t) {
 	});
 });
 
-tape('host+path in options are not breaking redirects', function (t) {
+test('host+path in options are not breaking redirects', function (t) {
 	got(s.url + '/relative', {host: s.url, path: '/relative'}, function (err, data) {
 		t.error(err);
 		t.equal(data, 'reached');
@@ -82,7 +82,7 @@ tape('host+path in options are not breaking redirects', function (t) {
 	});
 });
 
-tape('redirect only GET and HEAD requests', function (t) {
+test('redirect only GET and HEAD requests', function (t) {
 	got(s.url + '/relative', {body: 'wow'}, function (err, data) {
 		t.equal(err.message, 'POST http://localhost:6767/relative response code is 302 (Found)');
 		t.equal(err.code, 302);
@@ -90,7 +90,7 @@ tape('redirect only GET and HEAD requests', function (t) {
 	});
 });
 
-tape('redirect event', function (t) {
+test('redirect event', function (t) {
 	got(s.url + '/endless')
 		.on('redirect', function (res, opts) {
 			t.equal(res.headers.location, s.url + '/endless');
@@ -102,7 +102,7 @@ tape('redirect event', function (t) {
 		});
 });
 
-tape('cleanup', function (t) {
+test('cleanup', function (t) {
 	s.close();
 	t.end();
 });
