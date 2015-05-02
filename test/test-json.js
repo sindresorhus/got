@@ -69,7 +69,7 @@ tape('json option should catch errors on invalid non-200 responses', function (t
 		t.ok(err.nested);
 		t.equal(err.nested.message, 'Unexpected token I');
 		t.ok(err.nested.nested);
-		t.equal(err.nested.nested.message, 'http://localhost:6767/non200-invalid response code is 500 (Internal Server Error)');
+		t.equal(err.nested.nested.message, 'GET http://localhost:6767/non200-invalid response code is 500 (Internal Server Error)');
 		t.end();
 	});
 });

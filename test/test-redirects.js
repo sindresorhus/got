@@ -82,6 +82,14 @@ tape('host+path in options are not breaking redirects', function (t) {
 	});
 });
 
+tape('redirect only GET and HEAD requests', function (t) {
+	got(s.url + '/relative', {body: 'wow'}, function (err, data) {
+		t.equal(err.message, 'POST http://localhost:6767/relative response code is 302 (Found)');
+		t.equal(err.code, 302);
+		t.end();
+	});
+});
+
 tape('cleanup', function (t) {
 	s.close();
 	t.end();
