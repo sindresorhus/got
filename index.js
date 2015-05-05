@@ -130,6 +130,10 @@ function got(url, opts, cb) {
 				delete opts.port;
 				delete opts.path;
 
+				if (proxy) {
+					proxy.emit('redirect', res, opts);
+				}
+
 				get(urlLib.resolve(url, res.headers.location), opts, cb);
 				return;
 			}

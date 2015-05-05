@@ -90,6 +90,18 @@ tape('redirect only GET and HEAD requests', function (t) {
 	});
 });
 
+tape('redirect event', function (t) {
+	got(s.url + '/endless')
+		.on('redirect', function (res, opts) {
+			t.equal(res.headers.location, s.url + '/endless');
+			opts.path = '/';
+		})
+		.on('data', function (data) {
+			t.equal(data.toString(),'reached');
+			t.end();
+		});
+});
+
 tape('cleanup', function (t) {
 	s.close();
 	t.end();

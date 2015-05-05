@@ -112,9 +112,17 @@ The data you requested.
 
 The [response object](http://nodejs.org/api/http.html#http_http_incomingmessage).
 
+
+When in stream mode, you can listen for events:
+
 ##### .on('response', response)
 
-When in stream mode, you can listen for the `response` event to get the response object.
+`response` event to get the response object.
+
+##### .on('redirect', response, nextOpts)
+
+`redirect` event to get the response object of redirect. Second argument is options for next request to redirect location.
+
 
 ###### response
 
