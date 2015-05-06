@@ -12,8 +12,8 @@ var caRootCert;
 
 tape('root pem', function (t) {
 	pem.createCertificate({
-		days:1,
-		selfSigned:true
+		days: 1,
+		selfSigned: true
 	}, function (err, keys) {
 		caRootKey = keys.serviceKey;
 		caRootCert = keys.certificate;

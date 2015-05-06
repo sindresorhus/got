@@ -6,8 +6,9 @@ exports.host = 'localhost';
 exports.port = 6767;
 exports.portSSL = 16167;
 
-exports.createServer =  function (port) {
+exports.createServer = function (port) {
 	var host = exports.host;
+
 	port = port || exports.port;
 
 	var s = http.createServer(function (req, resp) {
@@ -24,6 +25,7 @@ exports.createServer =  function (port) {
 
 exports.createSSLServer = function (port, opts) {
 	var host = exports.host;
+
 	port = port || exports.portSSL;
 
 	var s = https.createServer(opts, function (req, resp) {

@@ -28,6 +28,7 @@ tape('GET can have body', function (t) {
 	t.plan(3);
 
 	var stream = from2Array(['wow']);
+
 	stream.on('end', function () {
 		t.ok(true); // Ensure, that stream was dumped
 	});

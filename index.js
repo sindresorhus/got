@@ -60,12 +60,10 @@ function got(url, opts, cb) {
 	}
 
 	opts.method = opts.method || 'GET';
-
 	// returns a proxy stream to the response
 	// if no callback has been provided
 	if (!cb) {
 		proxy = duplexify();
-
 		// forward errors on the stream
 		cb = function (err) {
 			proxy.emit('error', err);
@@ -114,10 +112,9 @@ function got(url, opts, cb) {
 			if (proxy) {
 				proxy.emit('response', res);
 			}
-
 			// auto-redirect only for GET and HEAD methods
 			if (statuses.redirect[statusCode] && 'location' in res.headers && (opts.method === 'GET' || opts.method === 'HEAD')) {
-				res.resume(); // Discard response
+				res.resume(); // discard response
 
 				if (++redirectCount > 10) {
 					cb(new GotError('Redirected 10 times. Aborting.'), undefined, res);
@@ -156,9 +153,9 @@ function got(url, opts, cb) {
 
 					cb(err, data, response);
 				});
+
 				return;
 			}
-
 			// pipe the response to the proxy if in proxy mode
 			if (proxy) {
 				proxy.setReadable(res);
