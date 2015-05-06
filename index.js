@@ -90,7 +90,6 @@ function got(url, opts, cb) {
 		if (arg.agent === undefined) {
 			arg.agent = infinityAgent[fn === https ? 'https' : 'http'].globalAgent;
 
-			// TODO: remove this when Node 0.10 will be deprecated
 			if (process.version.indexOf('v0.10') === 0 && fn === https && (
 				typeof opts.ca !== 'undefined' ||
 				typeof opts.cert !== 'undefined' ||
