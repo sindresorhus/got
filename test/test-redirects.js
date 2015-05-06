@@ -97,7 +97,7 @@ tape('redirect event', function (t) {
 			opts.path = '/';
 		})
 		.on('data', function (data) {
-			t.equal(data.toString(),'reached');
+			t.equal(data.toString(), 'reached');
 			t.end();
 		});
 });
