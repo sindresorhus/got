@@ -65,8 +65,8 @@ function got(url, opts, cb) {
 	if (!cb) {
 		proxy = duplexify();
 		// forward errors on the stream
-		cb = function (err) {
-			proxy.emit('error', err);
+		cb = function (err, data, response) {
+			proxy.emit('error', err, data, response);
 		};
 	}
 
