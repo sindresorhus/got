@@ -55,6 +55,10 @@ function got(url, opts, cb) {
 	delete opts.timeout;
 	delete opts.query;
 
+	if (json) {
+		opts.headers.accept = opts.headers.accept || 'application/json';
+	}
+
 	if (body) {
 		opts.method = opts.method || 'POST';
 	}

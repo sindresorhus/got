@@ -32,6 +32,13 @@ tape('send accept-encoding header by default', function (t) {
 	});
 });
 
+tape('send accept header with json option', function (t) {
+	got(s.url, {json: true}, function (err, headers) {
+		t.equal(headers.accept, 'application/json');
+		t.end();
+	});
+});
+
 tape('send host header by default', function (t) {
 	got(s.url, function (err, data) {
 		var headers = JSON.parse(data);
