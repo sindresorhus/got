@@ -76,7 +76,7 @@ Default: `false`
 
 _This option and stream mode are mutually exclusive._
 
-If enabled, response body will be parsed with `JSON.parse`.
+If enabled, response body will be parsed with `JSON.parse` and `accept` header will be set to `application/json` by default.
 
 ###### query
 
