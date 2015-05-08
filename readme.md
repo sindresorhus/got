@@ -1,6 +1,14 @@
-# got [![Build Status](https://travis-ci.org/sindresorhus/got.svg?branch=master)](https://travis-ci.org/sindresorhus/got)
+<h1 align="center">
+	<br>
+	<img width="360" src="https://rawgit.com/sindresorhus/got/master/media/logo.svg" alt="got">
+	<br>
+	<br>
+	<br>
+</h1>
 
 > Simplified HTTP/HTTPS requests
+
+[![Build Status](https://travis-ci.org/sindresorhus/got.svg?branch=master)](https://travis-ci.org/sindresorhus/got)
 
 A nicer interface to the built-in [`http`](http://nodejs.org/api/http.html) module.
 
