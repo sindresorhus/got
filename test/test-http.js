@@ -89,8 +89,10 @@ tape('emit response object to stream', function (t) {
 
 tape('proxy errors to the stream', function (t) {
 	got(s.url + '/404')
-		.on('error', function (err) {
+		.on('error', function (err, data, res) {
 			t.equal(err.code, 404);
+			t.equal(data, 'not');
+			t.ok(res);
 			t.end();
 		});
 });
