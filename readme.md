@@ -182,6 +182,7 @@ got('todomvc.com', {
 
  * [`gh-got`](https://github.com/sindresorhus/gh-got) - Convenience wrapper for interacting with the GitHub API
  * [`got-promise`](https://github.com/floatdrop/got-promise) - Promise wrapper
+ * [`co-got`](https://github.com/dotcypress/co-got) - Co-like interface wrapper
 
 
 ## License
