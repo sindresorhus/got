@@ -1,5 +1,5 @@
 'use strict';
-var tape = require('tape');
+var test = require('tap').test;
 var pem = require('pem');
 var got = require('../');
 var server = require('./server.js');
@@ -10,7 +10,7 @@ var cert;
 var caRootKey;
 var caRootCert;
 
-tape('root pem', function (t) {
+test('root pem', function (t) {
 	pem.createCertificate({
 		days: 1,
 		selfSigned: true
@@ -21,7 +21,7 @@ tape('root pem', function (t) {
 	});
 });
 
-tape('pem', function (t) {
+test('pem', function (t) {
 	pem.createCertificate({
 		serviceCertificate: caRootCert,
 		serviceKey: caRootKey,
@@ -40,7 +40,7 @@ tape('pem', function (t) {
 	});
 });
 
-tape('setup', function (t) {
+test('setup', function (t) {
 	s = server.createSSLServer(server.portSSL + 1, {
 		key: key,
 		cert: cert
@@ -55,7 +55,7 @@ tape('setup', function (t) {
 	});
 });
 
-tape('make request to https server', function (t) {
+test('make request to https server', function (t) {
 	got('https://google.com', {
 		strictSSL: true
 	}, function (err, data) {
@@ -65,7 +65,7 @@ tape('make request to https server', function (t) {
 	});
 });
 
-tape('make request to https server with ca', function (t) {
+test('make request to https server with ca', function (t) {
 	got(s.url, {
 		strictSSL: true,
 		ca: caRootCert,
@@ -77,7 +77,7 @@ tape('make request to https server with ca', function (t) {
 	});
 });
 
-tape('cleanup', function (t) {
+test('cleanup', function (t) {
 	s.close();
 	t.end();
 });

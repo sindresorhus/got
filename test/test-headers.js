@@ -1,5 +1,5 @@
 'use strict';
-var tape = require('tape');
+var test = require('tap').test;
 var got = require('../');
 var server = require('./server.js');
 var s = server.createServer();
@@ -8,13 +8,13 @@ s.on('/', function (req, res) {
 	res.end(JSON.stringify(req.headers));
 });
 
-tape('setup', function (t) {
+test('setup', function (t) {
 	s.listen(s.port, function () {
 		t.end();
 	});
 });
 
-tape('send user-agent header by default', function (t) {
+test('send user-agent header by default', function (t) {
 	got(s.url, function (err, data) {
 		var headers = JSON.parse(data);
 
@@ -23,7 +23,7 @@ tape('send user-agent header by default', function (t) {
 	});
 });
 
-tape('send accept-encoding header by default', function (t) {
+test('send accept-encoding header by default', function (t) {
 	got(s.url, function (err, data) {
 		var headers = JSON.parse(data);
 
@@ -32,14 +32,14 @@ tape('send accept-encoding header by default', function (t) {
 	});
 });
 
-tape('send accept header with json option', function (t) {
+test('send accept header with json option', function (t) {
 	got(s.url, {json: true}, function (err, headers) {
 		t.equal(headers.accept, 'application/json');
 		t.end();
 	});
 });
 
-tape('send host header by default', function (t) {
+test('send host header by default', function (t) {
 	got(s.url, function (err, data) {
 		var headers = JSON.parse(data);
 
@@ -48,7 +48,7 @@ tape('send host header by default', function (t) {
 	});
 });
 
-tape('transform headers names to lowercase', function (t) {
+test('transform headers names to lowercase', function (t) {
 	got(s.url, {headers: {'USER-AGENT': 'test'}}, function (err, data) {
 		var headers = JSON.parse(data);
 
@@ -57,7 +57,7 @@ tape('transform headers names to lowercase', function (t) {
 	});
 });
 
-tape('cleanup', function (t) {
+test('cleanup', function (t) {
 	s.close();
 	t.end();
 });

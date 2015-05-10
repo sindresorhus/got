@@ -1,5 +1,5 @@
 'use strict';
-var tape = require('tape');
+var test = require('tap').test;
 var got = require('../');
 var server = require('./server.js');
 var s = server.createServer();
@@ -22,20 +22,20 @@ s.on('/non200-invalid', function (req, res) {
 	res.end('Internal error');
 });
 
-tape('setup', function (t) {
+test('setup', function (t) {
 	s.listen(s.port, function () {
 		t.end();
 	});
 });
 
-tape('json option can not be used in stream mode', function (t) {
+test('json option can not be used in stream mode', function (t) {
 	t.throws(function () {
 		got(s.url, {json: true});
 	}, 'got can not be used as stream when options.json is used');
 	t.end();
 });
 
-tape('json option should parse response', function (t) {
+test('json option should parse response', function (t) {
 	got(s.url, {json: true}, function (err, json) {
 		t.error(err);
 		t.deepEqual(json, {data: 'dog'});
@@ -43,7 +43,7 @@ tape('json option should parse response', function (t) {
 	});
 });
 
-tape('json option wrap parsing errors', function (t) {
+test('json option wrap parsing errors', function (t) {
 	got(s.url + '/invalid', {json: true}, function (err) {
 		t.ok(err);
 		t.equal(err.message, 'Parsing ' + s.url + '/invalid response failed');
@@ -53,7 +53,7 @@ tape('json option wrap parsing errors', function (t) {
 	});
 });
 
-tape('json option should parse non-200 responses', function (t) {
+test('json option should parse non-200 responses', function (t) {
 	got(s.url + '/non200', {json: true}, function (err, json) {
 		t.ok(err);
 		t.deepEqual(json, {data: 'dog'});
@@ -61,7 +61,7 @@ tape('json option should parse non-200 responses', function (t) {
 	});
 });
 
-tape('json option should catch errors on invalid non-200 responses', function (t) {
+test('json option should catch errors on invalid non-200 responses', function (t) {
 	got(s.url + '/non200-invalid', {json: true}, function (err, json) {
 		t.ok(err);
 		t.deepEqual(json, 'Internal error');
@@ -74,7 +74,7 @@ tape('json option should catch errors on invalid non-200 responses', function (t
 	});
 });
 
-tape('cleanup', function (t) {
+test('cleanup', function (t) {
 	s.close();
 	t.end();
 });

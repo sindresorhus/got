@@ -1,5 +1,5 @@
 'use strict';
-var tape = require('tape');
+var test = require('tap').test;
 var from2Array = require('from2-array');
 var got = require('../');
 var server = require('./server.js');
@@ -18,13 +18,13 @@ s.on('/empty', function (req, res) {
 	res.end();
 });
 
-tape('setup', function (t) {
+test('setup', function (t) {
 	s.listen(s.port, function () {
 		t.end();
 	});
 });
 
-tape('GET can have body', function (t) {
+test('GET can have body', function (t) {
 	t.plan(3);
 
 	var stream = from2Array(['wow']);
@@ -39,7 +39,7 @@ tape('GET can have body', function (t) {
 	});
 });
 
-tape('send data from options with post request', function (t) {
+test('send data from options with post request', function (t) {
 	t.plan(3);
 
 	got(s.url, {body: 'wow'}, function (err, data) {
@@ -55,14 +55,14 @@ tape('send data from options with post request', function (t) {
 	});
 });
 
-tape('works with empty post response', function (t) {
+test('works with empty post response', function (t) {
 	got(s.url + '/empty', {body: 'wow'}, function (err, data) {
 		t.equal(data, '');
 		t.end();
 	});
 });
 
-tape('return readable stream', function (t) {
+test('return readable stream', function (t) {
 	got.post(s.url, {body: from2Array(['wow'])})
 		.on('data', function (data) {
 			t.equal(data.toString(), 'wow');
@@ -70,7 +70,7 @@ tape('return readable stream', function (t) {
 		});
 });
 
-tape('return writeable stream', function (t) {
+test('return writeable stream', function (t) {
 	got.post(s.url)
 		.on('data', function (data) {
 			t.equal(data.toString(), 'wow');
@@ -79,14 +79,14 @@ tape('return writeable stream', function (t) {
 		.end('wow');
 });
 
-tape('throws on write to stream with body specified', function (t) {
+test('throws on write to stream with body specified', function (t) {
 	t.throws(function () {
 		got(s.url, {body: 'wow'}).write('wow');
 	});
 	setTimeout(t.end.bind(t), 10); // wait for request to end
 });
 
-tape('cleanup', function (t) {
+test('cleanup', function (t) {
 	s.close();
 	t.end();
 });

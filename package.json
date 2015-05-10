@@ -20,7 +20,7 @@
     "node": ">=0.10.0"
   },
   "scripts": {
-    "test": "tape test/test-*.js | tap-dot",
+    "test": "tap test/test-*.js",
     "coverage": "istanbul cover tape --report html -- test/test-*.js"
   },
   "files": [
@@ -57,7 +57,6 @@
     "from2-array": "0.0.3",
     "istanbul": "^0.3.13",
     "pem": "^1.4.4",
-    "tap-dot": "^1.0.0",
-    "tape": "^3.5.0"
+    "tap": "^1.0.0"
   }
 }
