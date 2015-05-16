@@ -184,6 +184,13 @@ got('todomvc.com', {
  * [`got-promise`](https://github.com/floatdrop/got-promise) - Promise wrapper
 
 
+## Created by
+
+[![Sindre Sorhus](https://avatars.githubusercontent.com/u/170270?v=3&s=100)](http://sindresorhus.com) | [![Vsevolod Strukchinsky](https://avatars.githubusercontent.com/u/365089?v=3&s=100)](https://github.com/floatdrop)
+---|---
+[Sindre Sorhus](http://sindresorhus.com) | [Vsevolod Strukchinsky](https://github.com/floatdrop)
+
+
 ## License
 
 MIT © [Sindre Sorhus](http://sindresorhus.com)
