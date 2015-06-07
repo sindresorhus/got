@@ -14,6 +14,7 @@ var timedOut = require('timed-out');
 var prependHttp = require('prepend-http');
 var lowercaseKeys = require('lowercase-keys');
 var statuses = require('statuses');
+var isRedirect = require('is-redirect');
 var NestedErrorStacks = require('nested-error-stacks');
 
 function GotError(message, nested) {
@@ -117,7 +118,7 @@ function got(url, opts, cb) {
 				proxy.emit('response', res);
 			}
 			// auto-redirect only for GET and HEAD methods
-			if (statuses.redirect[statusCode] && 'location' in res.headers && (opts.method === 'GET' || opts.method === 'HEAD')) {
+			if (isRedirect(statusCode) && 'location' in res.headers && (opts.method === 'GET' || opts.method === 'HEAD')) {
 				res.resume(); // discard response
 
 				if (++redirectCount > 10) {
