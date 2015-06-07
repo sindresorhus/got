@@ -65,10 +65,12 @@ function got(url, opts, cb) {
 	}
 
 	opts.method = opts.method || 'GET';
+
 	// returns a proxy stream to the response
 	// if no callback has been provided
 	if (!cb) {
 		proxy = duplexify();
+
 		// forward errors on the stream
 		cb = function (err, data, response) {
 			proxy.emit('error', err, data, response);
@@ -101,7 +103,7 @@ function got(url, opts, cb) {
 				typeof opts.passphrase !== 'undefined' ||
 				typeof opts.pfx !== 'undefined' ||
 				typeof opts.rejectUnauthorized !== 'undefined')) {
-				arg.agent = new (infinityAgent.https.Agent)(opts);
+				arg.agent = new infinityAgent.https.Agent(opts);
 			}
 		}
 
@@ -117,9 +119,11 @@ function got(url, opts, cb) {
 			if (proxy) {
 				proxy.emit('response', res);
 			}
+
 			// auto-redirect only for GET and HEAD methods
 			if (isRedirect(statusCode) && 'location' in res.headers && (opts.method === 'GET' || opts.method === 'HEAD')) {
-				res.resume(); // discard response
+				// discard response
+				res.resume();
 
 				if (++redirectCount > 10) {
 					cb(new GotError('Redirected 10 times. Aborting.'), undefined, res);
@@ -161,6 +165,7 @@ function got(url, opts, cb) {
 
 				return;
 			}
+
 			// pipe the response to the proxy if in proxy mode
 			if (proxy) {
 				proxy.setReadable(res);
@@ -221,6 +226,7 @@ function got(url, opts, cb) {
 	}
 
 	get(url, opts, cb);
+
 	return proxy;
 }
 

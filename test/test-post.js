@@ -30,7 +30,8 @@ test('GET can have body', function (t) {
 	var stream = from2Array(['wow']);
 
 	stream.on('end', function () {
-		t.ok(true); // Ensure, that stream was dumped
+		// ensure that stream was dumped
+		t.ok(true);
 	});
 
 	got.get(s.url + '/method', {body: stream}, function (err, data, res) {
@@ -83,7 +84,9 @@ test('throws on write to stream with body specified', function (t) {
 	t.throws(function () {
 		got(s.url, {body: 'wow'}).write('wow');
 	});
-	setTimeout(t.end.bind(t), 10); // wait for request to end
+
+	// wait for request to end
+	setTimeout(t.end.bind(t), 10);
 });
 
 test('cleanup', function (t) {

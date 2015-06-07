@@ -83,7 +83,7 @@ test('host+path in options are not breaking redirects', function (t) {
 });
 
 test('redirect only GET and HEAD requests', function (t) {
-	got(s.url + '/relative', {body: 'wow'}, function (err, data) {
+	got(s.url + '/relative', {body: 'wow'}, function (err) {
 		t.equal(err.message, 'POST http://localhost:6767/relative response code is 302 (Found)');
 		t.equal(err.code, 302);
 		t.end();
