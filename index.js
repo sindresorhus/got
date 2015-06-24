@@ -62,6 +62,11 @@ function got(url, opts, cb) {
 
 	if (body) {
 		opts.method = opts.method || 'POST';
+
+		if (!opts.headers['content-length'] && !opts.headers['transfer-encoding'] && !isStream.readable(body)) {
+			var length = typeof body === 'string' ? Buffer.byteLength(body) : body.length;
+			opts.headers['content-length'] = length;
+		}
 	}
 
 	opts.method = opts.method || 'GET';
