@@ -130,6 +130,9 @@ When in stream mode, you can listen for events:
 
 `redirect` event to get the response object of redirect. Second argument is options for next request to the redirect location.
 
+##### .on('error', error, body, response)
+
+`error` event emitted in case of protocol error (like ENOTFOUND etc.) or status error (4xx or 5xx). Second argument is body of server response in case of status error. Third argument is response object.
 
 ###### response
 
