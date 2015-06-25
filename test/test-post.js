@@ -9,6 +9,10 @@ s.on('/', function (req, res) {
 	req.pipe(res);
 });
 
+s.on('/headers', function (req, res) {
+	res.end(JSON.stringify(req.headers));
+});
+
 s.on('/method', function (req, res) {
 	res.setHeader('method', req.method);
 	res.end();
@@ -87,6 +91,30 @@ test('throws on write to stream with body specified', function (t) {
 
 	// wait for request to end
 	setTimeout(t.end.bind(t), 10);
+});
+
+test('post have content-length header to string', function (t) {
+	t.plan(5);
+
+	got(s.url + '/headers', {body: 'wow', json: true}, function (err, headers) {
+		t.equal(headers['content-length'], '3');
+	});
+
+	got(s.url + '/headers', {body: new Buffer('wow'), json: true}, function (err, headers) {
+		t.equal(headers['content-length'], '3');
+	});
+
+	got(s.url + '/headers', {body: from2Array(['wow']), json: true}, function (err, headers) {
+		t.equal(headers['content-length'], undefined);
+	});
+
+	got(s.url + '/headers', {body: 'wow', json: true, headers: {'content-length': '10'}}, function (err, headers) {
+		t.equal(headers['content-length'], '10');
+	});
+
+	got(s.url + '/headers', {body: '3\r\nwow\r\n0\r\n', json: true, headers: {'transfer-encoding': 'chunked'}}, function (err, headers) {
+		t.equal(headers['content-length'], undefined);
+	});
 });
 
 test('cleanup', function (t) {

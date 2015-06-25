@@ -70,6 +70,8 @@ _This option and stream mode are mutually exclusive._
 
 Body, that will be sent with `POST` request. If present in `options` and `options.method` is not set - `options.method` will be set to `POST`.
 
+If `content-length` or `transfer-encoding` is not set in `options.headers` and body is String or Buffer - `content-length` will be set to body length.
+
 ###### encoding
 
 Type: `string`, `null`  
