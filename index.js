@@ -61,6 +61,10 @@ function got(url, opts, cb) {
 	}
 
 	if (body) {
+		if (typeof body !== 'string' && !Buffer.isBuffer(body) && !isStream.readable(body)) {
+			throw new GotError('options.body must be a ReadableStream, string or Buffer');
+		}
+
 		opts.method = opts.method || 'POST';
 
 		if (!opts.headers['content-length'] && !opts.headers['transfer-encoding'] && !isStream.readable(body)) {
@@ -84,10 +88,6 @@ function got(url, opts, cb) {
 
 	if (proxy && json) {
 		throw new GotError('got can not be used as stream when options.json is used');
-	}
-
-	if (body && !(typeof body === 'string' || Buffer.isBuffer(body) || isStream.readable(body))) {
-		throw new GotError('options.body must be a ReadableStream, string or Buffer');
 	}
 
 	function get(url, opts, cb) {
