@@ -48,6 +48,10 @@ function got(url, opts, cb) {
 		'accept-encoding': 'gzip,deflate'
 	}, lowercaseKeys(opts.headers));
 
+	if (opts.pathname) {
+		opts.path = opts.pathname;
+	}
+
 	if (opts.query) {
 		if (typeof opts.query !== 'string') {
 			opts.query = querystring.stringify(opts.query);
