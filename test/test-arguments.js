@@ -46,10 +46,9 @@ test('overrides querystring from opts', function (t) {
 	});
 });
 
-// Error says http://localhost:6767/test, but request was to http://localhost:6767/
 test('pathname confusion', function (t) {
 	got({protocol: 'http:', hostname: s.host, port: s.port, pathname: '/test'}, function (err) {
-		t.ok(/http:\/\/localhost:6767\/ response code/.test(err));
+		t.ok(/http:\/\/localhost:6767\/test response code/.test(err));
 		t.end();
 	});
 });
