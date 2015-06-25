@@ -4,6 +4,11 @@ var got = require('../');
 var server = require('./server.js');
 var s = server.createServer();
 
+s.on('/', function (req, res) {
+	res.statusCode = 404;
+	res.end();
+});
+
 s.on('/test', function (req, res) {
 	res.end(req.url);
 });
@@ -26,7 +31,7 @@ test('url argument is required', function (t) {
 });
 
 test('accepts url.parse object as first argument', function (t) {
-	got({host: s.host, port: s.port, path: '/test'}, function (err, data) {
+	got({hostname: s.host, port: s.port, path: '/test'}, function (err, data) {
 		t.error(err);
 		t.equal(data, '/test');
 		t.end();
@@ -37,6 +42,14 @@ test('overrides querystring from opts', function (t) {
 	got(s.url + '/?test=doge', {query: {test: 'wow'}}, function (err, data) {
 		t.error(err);
 		t.equal(data, '/?test=wow');
+		t.end();
+	});
+});
+
+// Error says http://localhost:6767/test, but request was to http://localhost:6767/
+test('pathname confusion', function (t) {
+	got({protocol: 'http:', hostname: s.host, port: s.port, pathname: '/test'}, function (err) {
+		t.ok(/http:\/\/localhost:6767\/ response code/.test(err));
 		t.end();
 	});
 });
