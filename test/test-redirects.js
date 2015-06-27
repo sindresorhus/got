@@ -74,8 +74,8 @@ test('query in options are not breaking redirects', function (t) {
 	});
 });
 
-test('host+path in options are not breaking redirects', function (t) {
-	got(s.url + '/relative', {host: s.url, path: '/relative'}, function (err, data) {
+test('hostname+path in options are not breaking redirects', function (t) {
+	got(s.url + '/relative', {hostname: s.host, path: '/relative'}, function (err, data) {
 		t.error(err);
 		t.equal(data, 'reached');
 		t.end();

@@ -35,18 +35,36 @@ function got(url, opts, cb) {
 		opts = {};
 	}
 
-	opts = objectAssign({}, opts);
+	opts = objectAssign(
+		{
+			protocol: 'http:'
+		},
+		typeof url === 'string' ? urlLib.parse(prependHttp(url)) : url,
+		opts
+	);
 
 	opts.headers = objectAssign({
 		'user-agent': 'https://github.com/sindresorhus/got',
 		'accept-encoding': 'gzip,deflate'
 	}, lowercaseKeys(opts.headers));
 
+	if (opts.pathname) {
+		opts.path = opts.pathname;
+	}
+
+	if (opts.query) {
+		if (typeof opts.query !== 'string') {
+			opts.query = querystring.stringify(opts.query);
+		}
+
+		opts.path = opts.pathname + '?' + opts.query;
+		delete opts.query;
+	}
+
 	var encoding = opts.encoding;
 	var body = opts.body;
 	var json = opts.json;
 	var timeout = opts.timeout;
-	var query = opts.query;
 	var proxy;
 	var redirectCount = 0;
 
@@ -54,7 +72,6 @@ function got(url, opts, cb) {
 	delete opts.body;
 	delete opts.json;
 	delete opts.timeout;
-	delete opts.query;
 
 	if (json) {
 		opts.headers.accept = opts.headers.accept || 'application/json';
@@ -90,15 +107,12 @@ function got(url, opts, cb) {
 		throw new GotError('got can not be used as stream when options.json is used');
 	}
 
-	function get(url, opts, cb) {
-		var parsedUrl = typeof url === 'string' ? urlLib.parse(prependHttp(url)) : url;
-		var fn = parsedUrl.protocol === 'https:' ? https : http;
-		var arg = objectAssign({}, parsedUrl, opts);
+	function get(opts, cb) {
+		var fn = opts.protocol === 'https:' ? https : http;
+		var url = urlLib.format(opts);
 
-		url = typeof url === 'string' ? prependHttp(url) : urlLib.format(url);
-
-		if (arg.agent === undefined) {
-			arg.agent = infinityAgent[fn === https ? 'https' : 'http'].globalAgent;
+		if (opts.agent === undefined) {
+			opts.agent = infinityAgent[fn === https ? 'https' : 'http'].globalAgent;
 
 			if (process.version.indexOf('v0.10') === 0 && fn === https && (
 				typeof opts.ca !== 'undefined' ||
@@ -108,16 +122,19 @@ function got(url, opts, cb) {
 				typeof opts.passphrase !== 'undefined' ||
 				typeof opts.pfx !== 'undefined' ||
 				typeof opts.rejectUnauthorized !== 'undefined')) {
-				arg.agent = new infinityAgent.https.Agent(opts);
+				opts.agent = new infinityAgent.https.Agent({
+					ca: opts.ca,
+					cert: opts.cert,
+					ciphers: opts.ciphers,
+					key: opts.key,
+					passphrase: opts.passphrase,
+					pfx: opts.pfx,
+					rejectUnauthorized: opts.rejectUnauthorized
+				});
 			}
 		}
 
-		if (query) {
-			arg.path = (arg.path ? arg.path.split('?')[0] : '') + '?' + (typeof query === 'string' ? query : querystring.stringify(query));
-			query = undefined;
-		}
-
-		var req = fn.request(arg, function (response) {
+		var req = fn.request(opts, function (response) {
 			var statusCode = response.statusCode;
 			var res = response;
 
@@ -135,16 +152,14 @@ function got(url, opts, cb) {
 					return;
 				}
 
-				delete opts.host;
-				delete opts.hostname;
-				delete opts.port;
-				delete opts.path;
+				var redirectUrl = urlLib.resolve(url, res.headers.location);
+				var redirectOpts = objectAssign(opts, urlLib.parse(redirectUrl));
 
 				if (proxy) {
-					proxy.emit('redirect', res, opts);
+					proxy.emit('redirect', res, redirectOpts);
 				}
 
-				get(urlLib.resolve(url, res.headers.location), opts, cb);
+				get(redirectOpts, cb);
 				return;
 			}
 
@@ -230,7 +245,7 @@ function got(url, opts, cb) {
 		req.end();
 	}
 
-	get(url, opts, cb);
+	get(opts, cb);
 
 	return proxy;
 }
