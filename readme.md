@@ -56,6 +56,8 @@ Type: `string`, `Object`
 
 The URL to request or bare [http.request options](https://nodejs.org/api/http.html#http_http_request_options_callback) object.
 
+Properties from `options` will override properties in parsed `url`.
+
 ##### options
 
 Type: `object`
