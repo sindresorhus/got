@@ -128,7 +128,7 @@ When in stream mode, you can listen for events:
 
 ##### .on('response', response)
 
-`response` event to get the response object.
+`response` event to get the response object of the final request.
 
 ##### .on('redirect', response, nextOptions)
 

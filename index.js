@@ -138,10 +138,6 @@ function got(url, opts, cb) {
 			var statusCode = response.statusCode;
 			var res = response;
 
-			if (proxy) {
-				proxy.emit('response', res);
-			}
-
 			// auto-redirect only for GET and HEAD methods
 			if (isRedirect(statusCode) && 'location' in res.headers && (opts.method === 'GET' || opts.method === 'HEAD')) {
 				// discard response
@@ -161,6 +157,10 @@ function got(url, opts, cb) {
 
 				get(redirectOpts, cb);
 				return;
+			}
+
+			if (proxy) {
+				proxy.emit('response', res);
 			}
 
 			if (['gzip', 'deflate'].indexOf(res.headers['content-encoding']) !== -1) {
