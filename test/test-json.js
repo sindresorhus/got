@@ -12,6 +12,11 @@ s.on('/invalid', function (req, res) {
 	res.end('/');
 });
 
+s.on('/204', function (req, res) {
+	res.statusCode = 204;
+	res.end();
+});
+
 s.on('/non200', function (req, res) {
 	res.statusCode = 500;
 	res.end('{"data":"dog"}');
@@ -39,6 +44,13 @@ test('json option should parse response', function (t) {
 	got(s.url, {json: true}, function (err, json) {
 		t.error(err);
 		t.deepEqual(json, {data: 'dog'});
+		t.end();
+	});
+});
+
+test('json option should not parse responses without a body', function (t) {
+	got(s.url + '/204', {json: true}, function (err) {
+		t.error(err);
 		t.end();
 	});
 });

@@ -195,7 +195,9 @@ function got(url, opts, cb) {
 			readAllStream(res, encoding, function (err, data) {
 				if (err) {
 					err = new GotError('Reading ' + url + ' response failed', err);
-				} else if (json) {
+				} else if (json && statusCode !== 204) {
+					// only parse json if the option is enabled, and the response
+					// is not a 204 (empty reponse)
 					try {
 						data = JSON.parse(data);
 					} catch (e) {
