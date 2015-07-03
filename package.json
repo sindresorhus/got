@@ -51,7 +51,6 @@
     "object-assign": "^2.0.0",
     "prepend-http": "^1.0.0",
     "read-all-stream": "^2.0.0",
-    "statuses": "^1.2.1",
     "timed-out": "^2.0.0"
   },
   "devDependencies": {

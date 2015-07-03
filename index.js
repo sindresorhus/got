@@ -13,7 +13,6 @@ var readAllStream = require('read-all-stream');
 var timedOut = require('timed-out');
 var prependHttp = require('prepend-http');
 var lowercaseKeys = require('lowercase-keys');
-var statuses = require('statuses');
 var isRedirect = require('is-redirect');
 var NestedErrorStacks = require('nested-error-stacks');
 
@@ -169,7 +168,7 @@ function got(url, opts, cb) {
 
 			if (statusCode < 200 || statusCode > 299) {
 				readAllStream(res, encoding, function (err, data) {
-					err = new GotError(opts.method + ' ' + url + ' response code is ' + statusCode + ' (' + statuses[statusCode] + ')', err);
+					err = new GotError(opts.method + ' ' + url + ' response code is ' + statusCode + ' (' + http.STATUS_CODES[statusCode] + ')', err);
 					err.code = statusCode;
 
 					if (data && json) {
