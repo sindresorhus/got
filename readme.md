@@ -52,11 +52,11 @@ It's a `GET` request by default, but can be changed in `options`.
 ##### url
 
 *Required*  
-Type: `string`, `Object`
+Type: `string`, `object`
 
 The URL to request or bare [http.request options](https://nodejs.org/api/http.html#http_http_request_options_callback) object.
 
-Properties from `options` will override properties in parsed `url`.
+Properties from `options` will override properties in the parsed `url`.
 
 ##### options
 
@@ -68,33 +68,33 @@ Any of the [`http.request`](http://nodejs.org/api/http.html#http_http_request_op
 
 Type: `string`, `Buffer`, `ReadableStream`  
 
-_This option and stream mode are mutually exclusive._
+*This option and stream mode are mutually exclusive.*
 
-Body, that will be sent with `POST` request. If present in `options` and `options.method` is not set - `options.method` will be set to `POST`.
+Body that will be sent with a `POST` request. If present in `options` and `options.method` is not set - `options.method` will be set to `POST`.
 
-If `content-length` or `transfer-encoding` is not set in `options.headers` and body is String or Buffer - `content-length` will be set to body length.
+If `content-length` or `transfer-encoding` is not set in `options.headers` and `body` is a string or buffer, `content-length` will be set to the body length.
 
 ###### encoding
 
 Type: `string`, `null`  
 Default: `'utf8'`
 
-Encoding to be used on `setEncoding` of the response data. If null, the body is returned as a Buffer.
+Encoding to be used on `setEncoding` of the response data. If `null`, the body is returned as a Buffer.
 
 ###### json
 
-Type: `Boolean`  
+Type: `boolean`  
 Default: `false`
 
-_This option and stream mode are mutually exclusive._
+*This option and stream mode are mutually exclusive.*
 
-If enabled, response body will be parsed with `JSON.parse` and `accept` header will be set to `application/json` by default.
+Parse response body with `JSON.parse` and set `accept` header to `application/json`.
 
 ###### query
 
-Type: `string`, `Object`  
+Type: `string`, `object`  
 
-Query string object, that will be added to request url. This will override query string in `url`.
+Query string object that will be added to the request URL. This will override the query string in `url`.
 
 ###### timeout
 
@@ -106,13 +106,13 @@ Milliseconds after which the request will be aborted and an error event with `ET
 
 [http.Agent](http://nodejs.org/api/http.html#http_class_http_agent) instance.
 
-If `undefined` - [`infinity-agent`](https://github.com/floatdrop/infinity-agent) will be used to backport Agent class from Node core.
+If `undefined` - [`infinity-agent`](https://github.com/floatdrop/infinity-agent) will be used to backport Agent class from Node.js core.
 
-To use default [globalAgent](http://nodejs.org/api/http.html#http_http_globalagent) just pass `null` to this option.
+To use default [globalAgent](http://nodejs.org/api/http.html#http_http_globalagent) just pass `null`.
 
-##### callback(err, data, response)
+##### callback(error, data, response)
 
-###### err
+###### error
 
 `Error` object with HTTP status code as `code` property.
 
@@ -132,11 +132,11 @@ When in stream mode, you can listen for events:
 
 ##### .on('redirect', response, nextOptions)
 
-`redirect` event to get the response object of redirect. Second argument is options for next request to the redirect location.
+`redirect` event to get the response object of a redirect. Second argument is options for the next request to the redirect location.
 
 ##### .on('error', error, body, response)
 
-`error` event emitted in case of protocol error (like ENOTFOUND etc.) or status error (4xx or 5xx). Second argument is body of server response in case of status error. Third argument is response object.
+`error` event emitted in case of protocol error (like `ENOTFOUND` etc.) or status error (4xx or 5xx). Second argument is body of server response in case of status error. Third argument is response object.
 
 ###### response
 
@@ -187,8 +187,8 @@ got('todomvc.com', {
 
 ## Related
 
- * [`gh-got`](https://github.com/sindresorhus/gh-got) - Convenience wrapper for interacting with the GitHub API
- * [`got-promise`](https://github.com/floatdrop/got-promise) - Promise wrapper
+- [gh-got](https://github.com/sindresorhus/gh-got) - Convenience wrapper for interacting with the GitHub API
+- [got-promise](https://github.com/floatdrop/got-promise) - Promise wrapper
 
 
 ## Created by
