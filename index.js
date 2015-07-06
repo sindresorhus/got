@@ -6,7 +6,6 @@ var util = require('util');
 var zlib = require('zlib');
 var querystring = require('querystring');
 var objectAssign = require('object-assign');
-var infinityAgent = require('infinity-agent');
 var duplexify = require('duplexify');
 var isStream = require('is-stream');
 var readAllStream = require('read-all-stream');
@@ -35,9 +34,7 @@ function got(url, opts, cb) {
 	}
 
 	opts = objectAssign(
-		{
-			protocol: 'http:'
-		},
+		{protocol: 'http:'},
 		typeof url === 'string' ? urlLib.parse(prependHttp(url)) : url,
 		opts
 	);
@@ -109,29 +106,6 @@ function got(url, opts, cb) {
 	function get(opts, cb) {
 		var fn = opts.protocol === 'https:' ? https : http;
 		var url = urlLib.format(opts);
-
-		if (opts.agent === undefined) {
-			opts.agent = infinityAgent[fn === https ? 'https' : 'http'].globalAgent;
-
-			if (process.version.indexOf('v0.10') === 0 && fn === https && (
-				typeof opts.ca !== 'undefined' ||
-				typeof opts.cert !== 'undefined' ||
-				typeof opts.ciphers !== 'undefined' ||
-				typeof opts.key !== 'undefined' ||
-				typeof opts.passphrase !== 'undefined' ||
-				typeof opts.pfx !== 'undefined' ||
-				typeof opts.rejectUnauthorized !== 'undefined')) {
-				opts.agent = new infinityAgent.https.Agent({
-					ca: opts.ca,
-					cert: opts.cert,
-					ciphers: opts.ciphers,
-					key: opts.key,
-					passphrase: opts.passphrase,
-					pfx: opts.pfx,
-					rejectUnauthorized: opts.rejectUnauthorized
-				});
-			}
-		}
 
 		var req = fn.request(opts, function (response) {
 			var statusCode = response.statusCode;

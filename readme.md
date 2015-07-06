@@ -102,14 +102,6 @@ Type: `number`
 
 Milliseconds after which the request will be aborted and an error event with `ETIMEDOUT` code will be emitted.
 
-###### agent
-
-[http.Agent](http://nodejs.org/api/http.html#http_class_http_agent) instance.
-
-If `undefined` - [`infinity-agent`](https://github.com/floatdrop/infinity-agent) will be used to backport Agent class from Node.js core.
-
-To use default [globalAgent](http://nodejs.org/api/http.html#http_http_globalagent) just pass `null`.
-
 ##### callback(error, data, response)
 
 ###### error
@@ -183,6 +175,18 @@ got('todomvc.com', {
 	}
 }, function () {});
 ```
+
+
+## Node 0.10
+
+It is a known issue with Node [http.Agent](https://nodejs.org/docs/v0.10.39/api/http.html#http_class_http_agent) and `agent.maxSockets`, which is set to `5`. This can cause low performance of application and (in rare cases) deadlocks. To avoid this you can set it manually:
+
+```js
+require('http').globalAgent.maxSockets = Infinity;
+require('https').globalAgent.maxSockets = Infinity;
+```
+
+This should only ever be done at the top-level application layer.
 
 
 ## Related
