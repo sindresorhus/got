@@ -70,39 +70,11 @@ test('buffer on encoding === null', function (t) {
 	});
 });
 
-test('stream mode', function (t) {
-	got(s.url)
-		.on('data', function (data) {
-			t.equal(data.toString(), 'ok');
-			t.end();
-		});
-});
-
-test('emit response object to stream', function (t) {
-	got(s.url)
-		.on('response', function (res) {
-			t.ok(res);
-			t.ok(res.headers);
-			t.end();
-		});
-});
-
-test('proxy errors to the stream', function (t) {
-	got(s.url + '/404')
-		.on('error', function (err, data, res) {
-			t.equal(err.code, 404);
-			t.equal(data, 'not');
-			t.ok(res);
-			t.end();
-		});
-});
-
 test('timeout option', function (t) {
-	got(s.url + '/404', {timeout: 1})
-		.on('error', function (err) {
-			t.equal(err.code, 'ETIMEDOUT');
-			t.end();
-		});
+	got(s.url + '/404', {timeout: 1}, function (err) {
+		t.equal(err.code, 'ETIMEDOUT');
+		t.end();
+	});
 });
 
 test('query option', function (t) {
