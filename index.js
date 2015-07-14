@@ -148,7 +148,11 @@ function got(url, opts, cb) {
 				}
 
 				var redirectUrl = urlLib.resolve(url, res.headers.location);
-				var redirectOpts = objectAssign(opts, urlLib.parse(redirectUrl));
+				var redirectOpts = objectAssign({}, opts, urlLib.parse(redirectUrl));
+
+				if (opts.agent === infinityAgent.http.globalAgent && redirectOpts.protocol === 'https:' && opts.protocol === 'http:') {
+					redirectOpts.agent = undefined;
+				}
 
 				if (proxy) {
 					proxy.emit('redirect', res, redirectOpts);
