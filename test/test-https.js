@@ -55,6 +55,14 @@ test('setup', function (t) {
 	});
 });
 
+test('redirects from http to https works', function (t) {
+	got('http://github.com', function (err, data) {
+		t.error(err);
+		t.ok(data);
+		t.end();
+	});
+});
+
 test('make request to https server', function (t) {
 	got('https://google.com', {
 		strictSSL: true
