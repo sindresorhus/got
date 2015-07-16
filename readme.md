@@ -46,7 +46,7 @@ got('todomvc.com')
 got.stream('todomvc.com').pipe(fs.createWriteStream('index.html'));
 
 // For POST, PUT and PATCH methods got.stream returns a WritableStream
-fs.createReadStream('index.html').pipe(got.stream('todomvc.com', {method: 'POST'}));
+fs.createReadStream('index.html').pipe(got.stream.post('todomvc.com'));
 ```
 
 ### API

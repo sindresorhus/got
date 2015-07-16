@@ -44,7 +44,7 @@ test('return readable stream', function (t) {
 
 test('return writeable stream', function (t) {
 	t.plan(1);
-	got.stream(s.url + '/post', {method: 'POST'})
+	got.stream.post(s.url + '/post')
 		.on('data', function (data) {
 			t.equal(data.toString(), 'wow');
 		})

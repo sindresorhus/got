@@ -260,14 +260,16 @@ function got(url, opts, cb) {
 	return asPromise(opts);
 }
 
-[
+var helpers = [
 	'get',
 	'post',
 	'put',
 	'patch',
 	'head',
 	'delete'
-].forEach(function (el) {
+];
+
+helpers.forEach(function (el) {
 	got[el] = function (url, opts, cb) {
 		if (typeof opts === 'function') {
 			cb = opts;
@@ -281,5 +283,11 @@ function got(url, opts, cb) {
 got.stream = function (url, opts) {
 	return asStream(normalizeArguments(url, opts));
 };
+
+helpers.forEach(function (el) {
+	got.stream[el] = function (url, opts) {
+		return got.stream(url, objectAssign({}, opts, {method: el.toUpperCase()}));
+	};
+});
 
 module.exports = got;
