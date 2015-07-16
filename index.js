@@ -128,26 +128,20 @@ function asCallback(opts, cb) {
 }
 
 function asPromise(opts) {
-	var resolve, reject;
+	var promise = new pinkiePromise(function (resolve, reject) {
+		asCallback(opts, function (err, data, response) {
+			response.body = data;
 
-	var promise = new pinkiePromise(function (_resolve, _reject) {
-		resolve = _resolve;
-		reject = _reject;
+			if (err) {
+				err.response = response;
+				reject(err);
+				return;
+			}
+
+			resolve(response);
+		});
 	});
 
-	var cb = function (err, data, response) {
-		response.body = data;
-
-		if (err) {
-			err.response = response;
-			reject(err);
-			return;
-		}
-
-		resolve(response);
-	};
-
-	asCallback(opts, cb);
 	return promise;
 }
 
@@ -203,9 +197,7 @@ function normalizeArguments(url, opts) {
 	}
 
 	opts = objectAssign(
-		{
-			protocol: 'http:'
-		},
+		{protocol: 'http:'},
 		typeof url === 'string' ? urlLib.parse(prependHttp(url)) : url,
 		opts
 	);
@@ -261,7 +253,8 @@ function got(url, opts, cb) {
 	opts = normalizeArguments(url, opts);
 
 	if (cb) {
-		return asCallback(opts, cb);
+		asCallback(opts, cb);
+		return;
 	}
 
 	return asPromise(opts);
