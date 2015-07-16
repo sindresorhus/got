@@ -77,10 +77,10 @@ function requestAsEventEmitter(opts) {
 			timedOut(req, opts.timeout);
 		}
 
-		ee.emit('request', req);
+		setImmediate(ee.emit.bind(ee), 'request', req);
 	}
 
-	setImmediate(get, opts); // quirk to attach event listeners
+	get(opts);
 	return ee;
 }
 
