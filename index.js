@@ -4,7 +4,6 @@ var http = require('http');
 var https = require('https');
 var urlLib = require('url');
 var util = require('util');
-var zlib = require('zlib');
 var querystring = require('querystring');
 var objectAssign = require('object-assign');
 var duplexify = require('duplexify');
@@ -16,6 +15,7 @@ var lowercaseKeys = require('lowercase-keys');
 var isRedirect = require('is-redirect');
 var NestedErrorStacks = require('nested-error-stacks');
 var pinkiePromise = require('pinkie-promise');
+var unzipResponse = require('unzip-response');
 
 function GotError(message, nested) {
 	NestedErrorStacks.call(this, message, nested);
@@ -54,19 +54,7 @@ function requestAsEventEmitter(opts) {
 				return;
 			}
 
-			if (['gzip', 'deflate'].indexOf(res.headers['content-encoding']) !== -1) {
-				var unzip = zlib.createUnzip();
-				unzip.httpVersion = res.httpVersion;
-				unzip.headers = res.headers;
-				unzip.rawHeaders = res.rawHeaders;
-				unzip.trailers = res.trailers;
-				unzip.rawTrailers = res.rawTrailers;
-				unzip.setTimeout = res.setTimeout.bind(res);
-				unzip.statusCode = res.statusCode;
-				unzip.statusMessage = res.statusMessage;
-				unzip.socket = res.socket;
-				res = res.pipe(unzip);
-			}
+			res = unzipResponse(res);
 
 			ee.emit('response', res);
 		}).once('error', function (err) {

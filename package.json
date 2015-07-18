@@ -50,7 +50,8 @@
     "pinkie-promise": "^1.0.0",
     "prepend-http": "^1.0.0",
     "read-all-stream": "^3.0.0",
-    "timed-out": "^2.0.0"
+    "timed-out": "^2.0.0",
+    "unzip-response": "^1.0.0"
   },
   "devDependencies": {
     "from2-array": "0.0.3",
