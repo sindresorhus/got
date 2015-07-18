@@ -40,6 +40,23 @@ test('options.body error message', function (t) {
 	t.end();
 });
 
+test('throwing errors inside callback', function (t) {
+	got(s.url, function (err) {
+		t.pass('Callback was called');
+		throw new Error('wut');
+	})
+
+	var timeout = setTimeout(end, 2000);
+	process.on('uncaughtException', end);
+
+	function end(err) {
+		clearTimeout(timeout);
+		process.removeListener('uncaughtException', end);
+		t.ok(err, 'Should receive an error');
+		t.end();
+	}
+});
+
 test('cleanup', function (t) {
 	s.close();
 	t.end();
