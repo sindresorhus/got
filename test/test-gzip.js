@@ -39,7 +39,9 @@ test('ungzip content', function (t) {
 test('ungzip error', function (t) {
 	got(s.url + '/corrupted', function (err) {
 		t.ok(err);
-		t.equal(err.message, 'Reading ' + s.url + '/corrupted response failed');
+		t.equal(err.message, 'incorrect header check');
+		t.equal(err.path, '/corrupted');
+		t.equal(err.name, 'ReadError');
 		t.end();
 	});
 });

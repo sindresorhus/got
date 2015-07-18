@@ -152,6 +152,29 @@ When in stream mode, you can listen for events:
 
 Sets `options.method` to the method name and makes a request.
 
+## Errors
+
+Each Error contains (if available) `host`, `hostname`, `method` and `path` properties to make debug easier.
+
+#### got.RequestError
+
+Happens, when making request failed. Should contain `code` property with error class code (like `ECONNREFUSED`).
+
+#### got.ReadError
+
+Happens, when reading from response stream failed.
+
+#### got.ParseError
+
+Happens, when `json` option is enabled and `JSON.parse` failed.
+
+#### got.HTTPError
+
+Happens, when server response code is not 2xx. Contains `statusCode` and `statusMessage`.
+
+#### got.MaxRedirectsError
+
+Happens, when server redirects you more than 10 times.
 
 ## Proxy
 
@@ -201,8 +224,6 @@ This should only ever be done if you have Node version 0.10.x and at the top-lev
 ## Related
 
 - [gh-got](https://github.com/sindresorhus/gh-got) - Convenience wrapper for interacting with the GitHub API
-- [got-promise](https://github.com/floatdrop/got-promise) - Promise wrapper
-
 
 ## Created by
 

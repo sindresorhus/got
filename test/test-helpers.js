@@ -37,7 +37,6 @@ test('promise mode', function (t) {
 
 	got.get(s.url + '/404')
 		.catch(function (err) {
-			t.equal(err.message, 'GET http://localhost:6767/404 response code is 404 (Not Found)');
 			t.equal(err.response.body, 'not found');
 		});
 });

@@ -3,7 +3,6 @@ var EventEmitter = require('events').EventEmitter;
 var http = require('http');
 var https = require('https');
 var urlLib = require('url');
-var util = require('util');
 var querystring = require('querystring');
 var objectAssign = require('object-assign');
 var duplexify = require('duplexify');
@@ -13,17 +12,9 @@ var timedOut = require('timed-out');
 var prependHttp = require('prepend-http');
 var lowercaseKeys = require('lowercase-keys');
 var isRedirect = require('is-redirect');
-var NestedErrorStacks = require('nested-error-stacks');
 var pinkiePromise = require('pinkie-promise');
 var unzipResponse = require('unzip-response');
-
-function GotError(message, nested) {
-	NestedErrorStacks.call(this, message, nested);
-	objectAssign(this, nested, {nested: this.nested});
-}
-
-util.inherits(GotError, NestedErrorStacks);
-GotError.prototype.name = 'GotError';
+var createErrorClass = require('create-error-class');
 
 function requestAsEventEmitter(opts) {
 	opts = opts || {};
@@ -33,7 +24,6 @@ function requestAsEventEmitter(opts) {
 
 	var get = function (opts) {
 		var fn = opts.protocol === 'https:' ? https : http;
-		var url = urlLib.format(opts);
 
 		var req = fn.request(opts, function (res) {
 			var statusCode = res.statusCode;
@@ -41,11 +31,11 @@ function requestAsEventEmitter(opts) {
 				res.resume();
 
 				if (++redirectCount > 10) {
-					ee.emit('error', new GotError('Redirected 10 times. Aborting.'), undefined, res);
+					ee.emit('error', new got.MaxRedirectsError(statusCode, opts), null, res);
 					return;
 				}
 
-				var redirectUrl = urlLib.resolve(url, res.headers.location);
+				var redirectUrl = urlLib.resolve(urlLib.format(opts), res.headers.location);
 				var redirectOpts = objectAssign({}, opts, urlLib.parse(redirectUrl));
 
 				ee.emit('redirect', res, redirectOpts);
@@ -56,7 +46,7 @@ function requestAsEventEmitter(opts) {
 
 			ee.emit('response', unzipResponse(res));
 		}).once('error', function (err) {
-			ee.emit('error', new GotError('Request to ' + url + ' failed', err));
+			ee.emit('error', new got.RequestError(err, opts));
 		});
 
 		if (opts.timeout) {
@@ -72,7 +62,6 @@ function requestAsEventEmitter(opts) {
 
 function asCallback(opts, cb) {
 	var ee = requestAsEventEmitter(opts);
-	var url = urlLib.format(opts);
 
 	ee.on('request', function (req) {
 		if (isStream.readable(opts.body)) {
@@ -87,22 +76,21 @@ function asCallback(opts, cb) {
 	ee.on('response', function (res) {
 		readAllStream(res, opts.encoding, function (err, data) {
 			if (err) {
-				cb(new GotError('Reading ' + url + ' response failed', err), null, res);
+				cb(new got.ReadError(err, opts), null, res);
 				return;
 			}
 
 			var statusCode = res.statusCode;
 
 			if (statusCode < 200 || statusCode > 299) {
-				err = new GotError(opts.method + ' ' + url + ' response code is ' + statusCode + ' (' + http.STATUS_CODES[statusCode] + ')', err);
-				err.code = statusCode;
+				err = new got.HTTPError(statusCode, opts);
 			}
 
 			if (opts.json && statusCode !== 204) {
 				try {
 					data = JSON.parse(data);
 				} catch (e) {
-					err = new GotError('Parsing ' + url + ' response failed', new GotError(e.message, err));
+					err = new got.ParseError(e, opts);
 				}
 			}
 
@@ -135,7 +123,7 @@ function asStream(opts) {
 	var proxy = duplexify();
 
 	if (opts.json) {
-		throw new GotError('got can not be used as stream when options.json is used');
+		throw new Error('got can not be used as stream when options.json is used');
 	}
 
 	if (opts.body) {
@@ -179,11 +167,11 @@ function asStream(opts) {
 
 function normalizeArguments(url, opts) {
 	if (typeof url !== 'string' && typeof url !== 'object') {
-		throw new GotError('Parameter `url` must be a string or object, not ' + typeof url);
+		throw new Error('Parameter `url` must be a string or object, not ' + typeof url);
 	}
 
 	opts = objectAssign(
-		{protocol: 'http:'},
+		{protocol: 'http:', path: ''},
 		typeof url === 'string' ? urlLib.parse(prependHttp(url)) : url,
 		opts
 	);
@@ -193,17 +181,13 @@ function normalizeArguments(url, opts) {
 		'accept-encoding': 'gzip,deflate'
 	}, lowercaseKeys(opts.headers));
 
-	if (opts.pathname) {
-		opts.path = opts.pathname;
-	}
-
 	var query = opts.query;
 	if (query) {
 		if (typeof query !== 'string') {
 			opts.query = querystring.stringify(query);
 		}
 
-		opts.path = opts.pathname + '?' + opts.query;
+		opts.path = opts.path.split('?')[0] + '?' + opts.query;
 		delete opts.query;
 	}
 
@@ -214,7 +198,7 @@ function normalizeArguments(url, opts) {
 	var body = opts.body;
 	if (body) {
 		if (typeof body !== 'string' && !Buffer.isBuffer(body) && !isStream.readable(body)) {
-			throw new GotError('options.body must be a ReadableStream, string or Buffer');
+			throw new Error('options.body must be a ReadableStream, string or Buffer');
 		}
 
 		opts.method = opts.method || 'POST';
@@ -274,6 +258,35 @@ helpers.forEach(function (el) {
 	got.stream[el] = function (url, opts) {
 		return got.stream(url, objectAssign({}, opts, {method: el.toUpperCase()}));
 	};
+});
+
+function stdError(error, opts) {
+	objectAssign(this, {
+		message: error.message,
+		code: error.code,
+		host: opts.host,
+		hostname: opts.hostname,
+		method: opts.method,
+		path: opts.path
+	});
+}
+
+got.RequestError = createErrorClass('RequestError', stdError);
+got.ReadError = createErrorClass('ReadError', stdError);
+got.ParseError = createErrorClass('ParseError', stdError);
+
+got.HTTPError = createErrorClass('HTTPError', function (statusCode, opts) {
+	stdError.call(this, {}, opts);
+	this.statusCode = statusCode;
+	this.statusMessage = http.STATUS_CODES[this.statusCode];
+	this.message = 'Response code ' + this.statusCode + ' (' + this.statusMessage + ')';
+});
+
+got.MaxRedirectsError = createErrorClass('MaxRedirectsError', function (statusCode, opts) {
+	stdError.call(this, {}, opts);
+	this.statusCode = statusCode;
+	this.statusMessage = http.STATUS_CODES[this.statusCode];
+	this.message = 'Redirected 10 times. Aborting.';
 });
 
 module.exports = got;

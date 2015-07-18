@@ -46,13 +46,6 @@ test('overrides querystring from opts', function (t) {
 	});
 });
 
-test('pathname confusion', function (t) {
-	got({protocol: 'http:', hostname: s.host, port: s.port, pathname: '/test'}, function (err) {
-		t.error(err);
-		t.end();
-	});
-});
-
 test('cleanup', function (t) {
 	s.close();
 	t.end();

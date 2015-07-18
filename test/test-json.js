@@ -51,9 +51,8 @@ test('json option should not parse responses without a body', function (t) {
 test('json option wrap parsing errors', function (t) {
 	got(s.url + '/invalid', {json: true}, function (err) {
 		t.ok(err);
-		t.equal(err.message, 'Parsing ' + s.url + '/invalid response failed');
-		t.ok(err.nested);
-		t.equal(err.nested.message, 'Unexpected token /');
+		t.equal(err.message, 'Unexpected token /');
+		t.equal(err.path, '/invalid');
 		t.end();
 	});
 });
@@ -70,11 +69,8 @@ test('json option should catch errors on invalid non-200 responses', function (t
 	got(s.url + '/non200-invalid', {json: true}, function (err, json) {
 		t.ok(err);
 		t.deepEqual(json, 'Internal error');
-		t.equal(err.message, 'Parsing http://localhost:6767/non200-invalid response failed');
-		t.ok(err.nested);
-		t.equal(err.nested.message, 'Unexpected token I');
-		t.ok(err.nested.nested);
-		t.equal(err.nested.nested.message, 'GET http://localhost:6767/non200-invalid response code is 500 (Internal Server Error)');
+		t.equal(err.message, 'Unexpected token I');
+		t.equal(err.path, '/non200-invalid');
 		t.end();
 	});
 });
