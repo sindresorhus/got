@@ -31,7 +31,7 @@ function requestAsEventEmitter(opts) {
 	var ee = new EventEmitter();
 	var redirectCount = 0;
 
-	function get(opts) {
+	var get = function (opts) {
 		var fn = opts.protocol === 'https:' ? https : http;
 		var url = urlLib.format(opts);
 
@@ -54,9 +54,7 @@ function requestAsEventEmitter(opts) {
 				return;
 			}
 
-			res = unzipResponse(res);
-
-			ee.emit('response', res);
+			ee.emit('response', unzipResponse(res));
 		}).once('error', function (err) {
 			ee.emit('error', new GotError('Request to ' + url + ' failed', err));
 		});
@@ -66,7 +64,7 @@ function requestAsEventEmitter(opts) {
 		}
 
 		setImmediate(ee.emit.bind(ee), 'request', req);
-	}
+	};
 
 	get(opts);
 	return ee;
