@@ -4,6 +4,10 @@ var got = require('../');
 var server = require('./server.js');
 var s = server.createServer();
 
+s.on('/', function (req, res) {
+	res.end('reached');
+});
+
 s.on('/finite', function (req, res) {
 	res.writeHead(302, {
 		location: s.url + '/'
@@ -30,10 +34,6 @@ s.on('/relativeQuery?bang', function (req, res) {
 		location: '/'
 	});
 	res.end();
-});
-
-s.on('/', function (req, res) {
-	res.end('reached');
 });
 
 test('setup', function (t) {
@@ -88,18 +88,6 @@ test('redirect only GET and HEAD requests', function (t) {
 		t.equal(err.code, 302);
 		t.end();
 	});
-});
-
-test('redirect event', function (t) {
-	got(s.url + '/endless')
-		.on('redirect', function (res, opts) {
-			t.equal(res.headers.location, s.url + '/endless');
-			opts.path = '/';
-		})
-		.on('data', function (data) {
-			t.equal(data.toString(), 'reached');
-			t.end();
-		});
 });
 
 test('cleanup', function (t) {

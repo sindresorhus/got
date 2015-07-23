@@ -33,13 +33,6 @@ test('setup', function (t) {
 	});
 });
 
-test('json option can not be used in stream mode', function (t) {
-	t.throws(function () {
-		got(s.url, {json: true});
-	}, 'got can not be used as stream when options.json is used');
-	t.end();
-});
-
 test('json option should parse response', function (t) {
 	got(s.url, {json: true}, function (err, json) {
 		t.error(err);

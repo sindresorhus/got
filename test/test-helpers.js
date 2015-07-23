@@ -8,13 +8,18 @@ s.on('/', function (req, res) {
 	res.end('ok');
 });
 
+s.on('/404', function (req, res) {
+	res.statusCode = 404;
+	res.end('not found');
+});
+
 test('setup', function (t) {
 	s.listen(s.port, function () {
 		t.end();
 	});
 });
 
-test('callback mode', {timeout: 1000}, function (t) {
+test('callback mode', function (t) {
 	got.get(s.url, function (err, data) {
 		t.error(err);
 		t.equal(data, 'ok');
@@ -22,11 +27,18 @@ test('callback mode', {timeout: 1000}, function (t) {
 	});
 });
 
-test('stream mode', {timeout: 1000}, function (t) {
+test('promise mode', function (t) {
+	t.plan(2);
+
 	got.get(s.url)
-		.on('data', function (data) {
-			t.equal(data.toString(), 'ok');
-			t.end();
+		.then(function (res) {
+			t.equal(res.body, 'ok');
+		});
+
+	got.get(s.url + '/404')
+		.catch(function (err) {
+			t.equal(err.message, 'GET http://localhost:6767/404 response code is 404 (Not Found)');
+			t.equal(err.response.body, 'not found');
 		});
 });
 

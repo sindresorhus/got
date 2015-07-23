@@ -35,12 +35,18 @@ got('todomvc.com', function (err, data, res) {
 	//=> <!doctype html> ...
 });
 
+// Promise mode
+got('todomvc.com')
+	.then(function (res) {
+		console.log(res.body);
+	})
+	.catch(console.error);
 
 // Stream mode
-got('todomvc.com').pipe(fs.createWriteStream('index.html'));
+got.stream('todomvc.com').pipe(fs.createWriteStream('index.html'));
 
-// For POST, PUT and PATCH methods got returns a WritableStream
-fs.createReadStream('index.html').pipe(got.post('todomvc.com'));
+// For POST, PUT and PATCH methods got.stream returns a WritableStream
+fs.createReadStream('index.html').pipe(got.stream.post('todomvc.com'));
 ```
 
 ### API
@@ -102,15 +108,9 @@ Type: `number`
 
 Milliseconds after which the request will be aborted and an error event with `ETIMEDOUT` code will be emitted.
 
-###### agent
-
-[http.Agent](http://nodejs.org/api/http.html#http_class_http_agent) instance.
-
-If `undefined` - [`infinity-agent`](https://github.com/floatdrop/infinity-agent) will be used to backport Agent class from Node.js core.
-
-To use default [globalAgent](http://nodejs.org/api/http.html#http_http_globalagent) just pass `null`.
-
 ##### callback(error, data, response)
+
+Function to be called, when error or data recieved. If omitted - Promise will be returned.
 
 ###### error
 
@@ -126,6 +126,10 @@ The [response object](http://nodejs.org/api/http.html#http_http_incomingmessage)
 
 When in stream mode, you can listen for events:
 
+##### .on('request', request)
+
+`request` event to get the request object of the request.
+
 ##### .on('response', response)
 
 `response` event to get the response object of the final request.
@@ -138,9 +142,6 @@ When in stream mode, you can listen for events:
 
 `error` event emitted in case of protocol error (like `ENOTFOUND` etc.) or status error (4xx or 5xx). Second argument is body of server response in case of status error. Third argument is response object.
 
-###### response
-
-The [response object](http://nodejs.org/api/http.html#http_http_incomingmessage).
 
 #### got.get(url, [options], [callback])
 #### got.post(url, [options], [callback])
@@ -183,6 +184,18 @@ got('todomvc.com', {
 	}
 }, function () {});
 ```
+
+
+## Node 0.10.x
+
+It is a known issue with old good Node 0.10.x [http.Agent](https://nodejs.org/docs/v0.10.39/api/http.html#http_class_http_agent) and `agent.maxSockets`, which is set to `5`. This can cause low performance of application and (in rare cases) deadlocks. To avoid this you can set it manually:
+
+```js
+require('http').globalAgent.maxSockets = Infinity;
+require('https').globalAgent.maxSockets = Infinity;
+```
+
+This should only ever be done if you have Node version 0.10.x and at the top-level application layer.
 
 
 ## Related

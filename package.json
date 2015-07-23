@@ -20,8 +20,7 @@
     "node": ">=0.10.0"
   },
   "scripts": {
-    "test": "tap test/test-*.js",
-    "coverage": "istanbul cover tape --report html -- test/test-*.js"
+    "test": "tap test/test-*.js"
   },
   "files": [
     "index.js"
@@ -43,15 +42,16 @@
   ],
   "dependencies": {
     "duplexify": "^3.2.0",
-    "infinity-agent": "^2.0.0",
     "is-redirect": "^1.0.0",
     "is-stream": "^1.0.0",
     "lowercase-keys": "^1.0.0",
     "nested-error-stacks": "^1.0.0",
     "object-assign": "^3.0.0",
+    "pinkie-promise": "^1.0.0",
     "prepend-http": "^1.0.0",
     "read-all-stream": "^3.0.0",
-    "timed-out": "^2.0.0"
+    "timed-out": "^2.0.0",
+    "unzip-response": "^1.0.0"
   },
   "devDependencies": {
     "from2-array": "0.0.3",

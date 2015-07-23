@@ -67,32 +67,6 @@ test('works with empty post response', function (t) {
 	});
 });
 
-test('return readable stream', function (t) {
-	got.post(s.url, {body: from2Array(['wow'])})
-		.on('data', function (data) {
-			t.equal(data.toString(), 'wow');
-			t.end();
-		});
-});
-
-test('return writeable stream', function (t) {
-	got.post(s.url)
-		.on('data', function (data) {
-			t.equal(data.toString(), 'wow');
-			t.end();
-		})
-		.end('wow');
-});
-
-test('throws on write to stream with body specified', function (t) {
-	t.throws(function () {
-		got(s.url, {body: 'wow'}).write('wow');
-	});
-
-	// wait for request to end
-	setTimeout(t.end.bind(t), 10);
-});
-
 test('post have content-length header to string', function (t) {
 	t.plan(5);
 
