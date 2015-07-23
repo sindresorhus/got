@@ -114,7 +114,7 @@ function asCallback(opts, cb) {
 }
 
 function asPromise(opts) {
-	var promise = new pinkiePromise(function (resolve, reject) {
+	return new pinkiePromise(function (resolve, reject) {
 		asCallback(opts, function (err, data, response) {
 			response.body = data;
 
@@ -127,8 +127,6 @@ function asPromise(opts) {
 			resolve(response);
 		});
 	});
-
-	return promise;
 }
 
 function asStream(opts) {
