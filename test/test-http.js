@@ -78,13 +78,15 @@ test('timeout option', function (t) {
 });
 
 test('query option', function (t) {
-	t.plan(2);
+	t.plan(4);
 
 	got(s.url, {query: {recent: true}}, function (err, data) {
+		t.error(err);
 		t.equal(data, 'recent');
 	});
 
 	got(s.url, {query: 'recent=true'}, function (err, data) {
+		t.error(err);
 		t.equal(data, 'recent');
 	});
 });

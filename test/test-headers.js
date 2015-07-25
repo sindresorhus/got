@@ -16,6 +16,8 @@ test('setup', function (t) {
 
 test('send user-agent header by default', function (t) {
 	got(s.url, function (err, data) {
+		t.error(err);
+
 		var headers = JSON.parse(data);
 
 		t.equal(headers['user-agent'], 'https://github.com/sindresorhus/got');
@@ -25,6 +27,8 @@ test('send user-agent header by default', function (t) {
 
 test('send accept-encoding header by default', function (t) {
 	got(s.url, function (err, data) {
+		t.error(err);
+
 		var headers = JSON.parse(data);
 
 		t.equal(headers['accept-encoding'], 'gzip,deflate');
@@ -34,6 +38,7 @@ test('send accept-encoding header by default', function (t) {
 
 test('send accept header with json option', function (t) {
 	got(s.url, {json: true}, function (err, headers) {
+		t.error(err);
 		t.equal(headers.accept, 'application/json');
 		t.end();
 	});
@@ -41,6 +46,8 @@ test('send accept header with json option', function (t) {
 
 test('send host header by default', function (t) {
 	got(s.url, function (err, data) {
+		t.error(err);
+
 		var headers = JSON.parse(data);
 
 		t.equal(headers.host, 'localhost:' + s.port);
@@ -50,6 +57,8 @@ test('send host header by default', function (t) {
 
 test('transform headers names to lowercase', function (t) {
 	got(s.url, {headers: {'USER-AGENT': 'test'}}, function (err, data) {
+		t.error(err);
+
 		var headers = JSON.parse(data);
 
 		t.equal(headers['user-agent'], 'test');

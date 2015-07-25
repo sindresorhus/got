@@ -45,48 +45,57 @@ test('GET can have body', function (t) {
 });
 
 test('send data from options with post request', function (t) {
-	t.plan(3);
+	t.plan(6);
 
 	got(s.url, {body: 'wow'}, function (err, data) {
+		t.error(err);
 		t.equal(data, 'wow');
 	});
 
 	got(s.url, {body: new Buffer('wow')}, function (err, data) {
+		t.error(err);
 		t.equal(data, 'wow');
 	});
 
 	got(s.url, {body: from2Array(['wow'])}, function (err, data) {
+		t.error(err);
 		t.equal(data, 'wow');
 	});
 });
 
 test('works with empty post response', function (t) {
 	got(s.url + '/empty', {body: 'wow'}, function (err, data) {
+		t.error(err);
 		t.equal(data, '');
 		t.end();
 	});
 });
 
 test('post have content-length header to string', function (t) {
-	t.plan(5);
+	t.plan(10);
 
 	got(s.url + '/headers', {body: 'wow', json: true}, function (err, headers) {
+		t.error(err);
 		t.equal(headers['content-length'], '3');
 	});
 
 	got(s.url + '/headers', {body: new Buffer('wow'), json: true}, function (err, headers) {
+		t.error(err);
 		t.equal(headers['content-length'], '3');
 	});
 
 	got(s.url + '/headers', {body: from2Array(['wow']), json: true}, function (err, headers) {
+		t.error(err);
 		t.equal(headers['content-length'], undefined);
 	});
 
 	got(s.url + '/headers', {body: 'wow', json: true, headers: {'content-length': '10'}}, function (err, headers) {
+		t.error(err);
 		t.equal(headers['content-length'], '10');
 	});
 
 	got(s.url + '/headers', {body: '3\r\nwow\r\n0\r\n', json: true, headers: {'transfer-encoding': 'chunked'}}, function (err, headers) {
+		t.error(err);
 		t.equal(headers['content-length'], undefined);
 	});
 });

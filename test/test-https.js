@@ -15,6 +15,7 @@ test('root pem', function (t) {
 		days: 1,
 		selfSigned: true
 	}, function (err, keys) {
+		t.error(err);
 		caRootKey = keys.serviceKey;
 		caRootCert = keys.certificate;
 		t.end();
@@ -34,6 +35,7 @@ test('pem', function (t) {
 		organizationUnit: '',
 		commonName: 'sindresorhus.com'
 	}, function (err, keys) {
+		t.error(err);
 		key = keys.clientKey;
 		cert = keys.certificate;
 		t.end();
