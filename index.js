@@ -12,7 +12,7 @@ var timedOut = require('timed-out');
 var prependHttp = require('prepend-http');
 var lowercaseKeys = require('lowercase-keys');
 var isRedirect = require('is-redirect');
-var pinkiePromise = require('pinkie-promise');
+var PinkiePromise = require('pinkie-promise');
 var unzipResponse = require('unzip-response');
 var createErrorClass = require('create-error-class');
 
@@ -102,7 +102,7 @@ function asCallback(opts, cb) {
 }
 
 function asPromise(opts) {
-	return new pinkiePromise(function (resolve, reject) {
+	return new PinkiePromise(function (resolve, reject) {
 		asCallback(opts, function (err, data, response) {
 			response.body = data;
 
@@ -180,6 +180,7 @@ function normalizeArguments(url, opts) {
 	}, lowercaseKeys(opts.headers));
 
 	var query = opts.query;
+
 	if (query) {
 		if (typeof query !== 'string') {
 			opts.query = querystring.stringify(query);
@@ -194,6 +195,7 @@ function normalizeArguments(url, opts) {
 	}
 
 	var body = opts.body;
+
 	if (body) {
 		if (typeof body !== 'string' && !Buffer.isBuffer(body) && !isStream.readable(body)) {
 			throw new Error('options.body must be a ReadableStream, string or Buffer');

@@ -1,5 +1,4 @@
 'use strict';
-
 var test = require('tap').test;
 var got = require('../');
 var server = require('./server.js');
@@ -69,7 +68,7 @@ test('request event', function (t) {
 
 test('redirect event', function (t) {
 	got.stream(s.url + '/redirect')
-		.on('redirect', function (res, opts) {
+		.on('redirect', function (res) {
 			t.equal(res.headers.location, s.url);
 			t.end();
 		});
