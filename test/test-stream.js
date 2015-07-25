@@ -1,7 +1,6 @@
 'use strict';
 
 var test = require('tap').test;
-var from2Array = require('from2-array');
 var got = require('../');
 var server = require('./server.js');
 var s = server.createServer();

@@ -56,7 +56,7 @@ test('empty response', function (t) {
 test('error with code', function (t) {
 	got(s.url + '/404', function (err, data) {
 		t.ok(err);
-		t.equal(err.code, 404);
+		t.equal(err.statusCode, 404);
 		t.equal(data, 'not');
 		t.end();
 	});

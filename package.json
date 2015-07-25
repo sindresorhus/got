@@ -41,11 +41,11 @@
     "fetch"
   ],
   "dependencies": {
+    "create-error-class": "^2.0.0",
     "duplexify": "^3.2.0",
     "is-redirect": "^1.0.0",
     "is-stream": "^1.0.0",
     "lowercase-keys": "^1.0.0",
-    "nested-error-stacks": "^1.0.0",
     "object-assign": "^3.0.0",
     "pinkie-promise": "^1.0.0",
     "prepend-http": "^1.0.0",
