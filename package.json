@@ -54,7 +54,7 @@
     "unzip-response": "^1.0.0"
   },
   "devDependencies": {
-    "from2-array": "0.0.3",
+    "into-stream": "^2.0.0",
     "istanbul": "^0.3.13",
     "pem": "^1.4.4",
     "tap": "^1.0.0"

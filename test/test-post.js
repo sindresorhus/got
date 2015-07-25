@@ -1,6 +1,6 @@
 'use strict';
 var test = require('tap').test;
-var from2Array = require('from2-array');
+var intoStream = require('into-stream');
 var got = require('../');
 var server = require('./server.js');
 var s = server.createServer();
@@ -31,7 +31,7 @@ test('setup', function (t) {
 test('GET can have body', function (t) {
 	t.plan(3);
 
-	var stream = from2Array(['wow']);
+	var stream = intoStream(['wow']);
 
 	stream.on('end', function () {
 		// ensure that stream was dumped
@@ -57,7 +57,7 @@ test('send data from options with post request', function (t) {
 		t.equal(data, 'wow');
 	});
 
-	got(s.url, {body: from2Array(['wow'])}, function (err, data) {
+	got(s.url, {body: intoStream(['wow'])}, function (err, data) {
 		t.error(err);
 		t.equal(data, 'wow');
 	});
@@ -84,7 +84,7 @@ test('post have content-length header to string', function (t) {
 		t.equal(headers['content-length'], '3');
 	});
 
-	got(s.url + '/headers', {body: from2Array(['wow']), json: true}, function (err, headers) {
+	got(s.url + '/headers', {body: intoStream(['wow']), json: true}, function (err, headers) {
 		t.error(err);
 		t.equal(headers['content-length'], undefined);
 	});
