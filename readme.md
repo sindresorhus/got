@@ -12,9 +12,10 @@
 
 A nicer interface to the built-in [`http`](http://nodejs.org/api/http.html) module.
 
-It supports following redirects, Promises, streams, automagically handling gzip/deflate and some convenience options.
+It supports following redirects, promises, streams, automagically handling gzip/deflate and some convenience options.
 
 Created because [`request`](https://github.com/mikeal/request) is bloated *(several megabytes!)*.
+
 
 ## Install
 
@@ -31,7 +32,7 @@ var got = require('got');
 // Callback mode
 got('todomvc.com', function (err, data, res) {
 	console.log(data);
-	//=> <!doctype html> ...
+	//=> '<!doctype html> ...'
 });
 
 // Promise mode
@@ -59,7 +60,7 @@ It's a `GET` request by default, but can be changed in `options`.
 *Required*  
 Type: `string`, `object`
 
-The URL to request or bare [http.request options](https://nodejs.org/api/http.html#http_http_request_options_callback) object.
+The URL to request or a [`http.request` options](https://nodejs.org/api/http.html#http_http_request_options_callback) object.
 
 Properties from `options` will override properties in the parsed `url`.
 
@@ -73,9 +74,11 @@ Any of the [`http.request`](http://nodejs.org/api/http.html#http_http_request_op
 
 Type: `string`, `Buffer`, `ReadableStream`  
 
-*This option and stream mode are mutually exclusive.*
+*This is mutually exclusive with stream mode.*
 
-Body that will be sent with a `POST` request. If present in `options` and `options.method` is not set - `options.method` will be set to `POST`.
+Body that will be sent with a `POST` request.
+
+If present in `options` and `options.method` is not set, `options.method` will be set to `POST`.
 
 If `content-length` or `transfer-encoding` is not set in `options.headers` and `body` is a string or buffer, `content-length` will be set to the body length.
 
@@ -91,7 +94,7 @@ Encoding to be used on `setEncoding` of the response data. If `null`, the body i
 Type: `boolean`  
 Default: `false`
 
-*This option and stream mode are mutually exclusive.*
+*This is mutually exclusive with stream mode.*
 
 Parse response body with `JSON.parse` and set `accept` header to `application/json`.
 
@@ -109,11 +112,11 @@ Milliseconds after which the request will be aborted and an error event with `ET
 
 ##### callback(error, data, response)
 
-Function to be called, when error or data recieved. If omitted - Promise will be returned.
+Function to be called, when error or data received. If omitted, a promise will be returned.
 
 ###### error
 
-`Error` object with HTTP status code as `code` property.
+`Error` object with HTTP status code as `statusCode` property.
 
 ###### data
 
@@ -153,27 +156,28 @@ Sets `options.method` to the method name and makes a request.
 
 ## Errors
 
-Each Error contains (if available) `host`, `hostname`, `method` and `path` properties to make debug easier.
+Each error contains (if available) `host`, `hostname`, `method` and `path` properties to make debug easier.
 
 #### got.RequestError
 
-Happens, when making request failed. Should contain `code` property with error class code (like `ECONNREFUSED`).
+When a request fails. Contains a `code` property with error class code, like `ECONNREFUSED`.
 
 #### got.ReadError
 
-Happens, when reading from response stream failed.
+When reading from response stream fails.
 
 #### got.ParseError
 
-Happens, when `json` option is enabled and `JSON.parse` failed.
+When `json` option is enabled and `JSON.parse` fails.
 
 #### got.HTTPError
 
-Happens, when server response code is not 2xx. Contains `statusCode` and `statusMessage`.
+When server response code is not 2xx. Contains `statusCode` and `statusMessage`.
 
 #### got.MaxRedirectsError
 
-Happens, when server redirects you more than 10 times.
+When server redirects you more than 10 times.
+
 
 ## Proxy
 
@@ -210,19 +214,20 @@ got('todomvc.com', {
 
 ## Node 0.10.x
 
-It is a known issue with old good Node 0.10.x [http.Agent](https://nodejs.org/docs/v0.10.39/api/http.html#http_class_http_agent) and `agent.maxSockets`, which is set to `5`. This can cause low performance of application and (in rare cases) deadlocks. To avoid this you can set it manually:
+It is a known issue with old good Node 0.10.x [`http.Agent`](https://nodejs.org/docs/v0.10.39/api/http.html#http_class_http_agent) and `agent.maxSockets`, which is set to `5`. This can cause low performance and in rare cases deadlocks. To avoid this you can set it manually:
 
 ```js
 require('http').globalAgent.maxSockets = Infinity;
 require('https').globalAgent.maxSockets = Infinity;
 ```
 
-This should only ever be done if you have Node version 0.10.x and at the top-level application layer.
+This should only ever be done if you have Node version 0.10.x and at the top-level app layer.
 
 
 ## Related
 
 - [gh-got](https://github.com/sindresorhus/gh-got) - Convenience wrapper for interacting with the GitHub API
+
 
 ## Created by
 
