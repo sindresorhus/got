@@ -12,10 +12,9 @@
 
 A nicer interface to the built-in [`http`](http://nodejs.org/api/http.html) module.
 
-It supports following redirects, streams, automagically handling gzip/deflate and some convenience options.
+It supports following redirects, Promises, streams, automagically handling gzip/deflate and some convenience options.
 
-Created because [`request`](https://github.com/mikeal/request) is bloated *(several megabytes!)* and slow.
-
+Created because [`request`](https://github.com/mikeal/request) is bloated *(several megabytes!)*.
 
 ## Install
 
