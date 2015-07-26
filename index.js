@@ -15,6 +15,7 @@ var isRedirect = require('is-redirect');
 var PinkiePromise = require('pinkie-promise');
 var unzipResponse = require('unzip-response');
 var createErrorClass = require('create-error-class');
+var nodeStatusCodes = require('node-status-codes');
 
 function requestAsEventEmitter(opts) {
 	opts = opts || {};
@@ -278,14 +279,14 @@ got.ParseError = createErrorClass('ParseError', stdError);
 got.HTTPError = createErrorClass('HTTPError', function (statusCode, opts) {
 	stdError.call(this, {}, opts);
 	this.statusCode = statusCode;
-	this.statusMessage = http.STATUS_CODES[this.statusCode];
+	this.statusMessage = nodeStatusCodes[this.statusCode];
 	this.message = 'Response code ' + this.statusCode + ' (' + this.statusMessage + ')';
 });
 
 got.MaxRedirectsError = createErrorClass('MaxRedirectsError', function (statusCode, opts) {
 	stdError.call(this, {}, opts);
 	this.statusCode = statusCode;
-	this.statusMessage = http.STATUS_CODES[this.statusCode];
+	this.statusMessage = nodeStatusCodes[this.statusCode];
 	this.message = 'Redirected 10 times. Aborting.';
 });
 
