@@ -72,7 +72,7 @@ Any of the [`http.request`](http://nodejs.org/api/http.html#http_http_request_op
 
 ###### body
 
-Type: `string`, `Buffer`, `ReadableStream`  
+Type: `string`, `Buffer`, `ReadableStream`, `Object`  
 
 *This is mutually exclusive with stream mode.*
 
@@ -81,6 +81,8 @@ Body that will be sent with a `POST` request.
 If present in `options` and `options.method` is not set, `options.method` will be set to `POST`.
 
 If `content-length` or `transfer-encoding` is not set in `options.headers` and `body` is a string or buffer, `content-length` will be set to the body length.
+
+If `body` is a plain Object, it will be stringified and sent as `application/x-www-form-urlencoded`.
 
 ###### encoding
 

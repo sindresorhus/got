@@ -37,8 +37,8 @@ test('dns error message', function (t) {
 
 test('options.body error message', function (t) {
 	t.throws(function () {
-		got(s.url, {body: {}});
-	}, /options.body must be a ReadableStream, string or Buffer/);
+		got(s.url, {body: function () {}});
+	}, /options.body must be a ReadableStream, string, Buffer or plain Object/);
 	t.end();
 });
 

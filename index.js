@@ -16,6 +16,7 @@ var PinkiePromise = require('pinkie-promise');
 var unzipResponse = require('unzip-response');
 var createErrorClass = require('create-error-class');
 var nodeStatusCodes = require('node-status-codes');
+var isPlainObj = require('is-plain-obj');
 
 function requestAsEventEmitter(opts) {
 	opts = opts || {};
@@ -198,11 +199,16 @@ function normalizeArguments(url, opts) {
 	var body = opts.body;
 
 	if (body) {
-		if (typeof body !== 'string' && !Buffer.isBuffer(body) && !isStream.readable(body)) {
-			throw new Error('options.body must be a ReadableStream, string or Buffer');
+		if (typeof body !== 'string' && !Buffer.isBuffer(body) && !isStream.readable(body) && !isPlainObj(body)) {
+			throw new Error('options.body must be a ReadableStream, string, Buffer or plain Object');
 		}
 
 		opts.method = opts.method || 'POST';
+
+		if (isPlainObj(body)) {
+			opts.headers['content-type'] = 'application/x-www-form-urlencoded';
+			body = opts.body = querystring.stringify(body);
+		}
 
 		if (!opts.headers['content-length'] && !opts.headers['transfer-encoding'] && !isStream.readable(body)) {
 			var length = typeof body === 'string' ? Buffer.byteLength(body) : body.length;
