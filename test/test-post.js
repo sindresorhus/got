@@ -100,6 +100,14 @@ test('post have content-length header to string', function (t) {
 	});
 });
 
+test('works with plain object in body', function (t) {
+	got(s.url, {body: {such: 'wow'}}, function (err, data) {
+		t.error(err);
+		t.equal(data, 'such=wow');
+		t.end();
+	});
+});
+
 test('cleanup', function (t) {
 	s.close();
 	t.end();
