@@ -101,10 +101,16 @@ test('post have content-length header to string', function (t) {
 });
 
 test('works with plain object in body', function (t) {
+	t.plan(4);
+
 	got(s.url, {body: {such: 'wow'}}, function (err, data) {
 		t.error(err);
 		t.equal(data, 'such=wow');
-		t.end();
+	});
+
+	got(s.url + '/headers', {headers: {'content-type': 'doge'}, body: {such: 'wow'}, json: true}, function (err, headers) {
+		t.error(err);
+		t.equal(headers['content-type'], 'doge');
 	});
 });
 

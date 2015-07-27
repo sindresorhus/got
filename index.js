@@ -206,7 +206,7 @@ function normalizeArguments(url, opts) {
 		opts.method = opts.method || 'POST';
 
 		if (isPlainObj(body)) {
-			opts.headers['content-type'] = 'application/x-www-form-urlencoded';
+			opts.headers['content-type'] = opts.headers['content-type'] || 'application/x-www-form-urlencoded';
 			body = opts.body = querystring.stringify(body);
 		}
 
