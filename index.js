@@ -106,7 +106,9 @@ function asCallback(opts, cb) {
 function asPromise(opts) {
 	return new PinkiePromise(function (resolve, reject) {
 		asCallback(opts, function (err, data, response) {
-			response.body = data;
+			if (response) {
+				response.body = data;
+			}
 
 			if (err) {
 				err.response = response;

@@ -28,7 +28,7 @@ test('callback mode', function (t) {
 });
 
 test('promise mode', function (t) {
-	t.plan(2);
+	t.plan(3);
 
 	got.get(s.url)
 		.then(function (res) {
@@ -38,6 +38,11 @@ test('promise mode', function (t) {
 	got.get(s.url + '/404')
 		.catch(function (err) {
 			t.equal(err.response.body, 'not found');
+		});
+
+	got.get('.com')
+		.catch(function (err) {
+			t.ok(err);
 		});
 });
 
