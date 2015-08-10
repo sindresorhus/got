@@ -82,7 +82,7 @@ If present in `options` and `options.method` is not set, `options.method` will b
 
 If `content-length` or `transfer-encoding` is not set in `options.headers` and `body` is a string or buffer, `content-length` will be set to the body length.
 
-If `body` is a plain Object, it will be stringified and sent as `application/x-www-form-urlencoded`.
+If `body` is a plain Object, it will be stringified with [`querystring.stringify`](https://nodejs.org/api/querystring.html#querystring_querystring_stringify_obj_sep_eq_options) and sent as `application/x-www-form-urlencoded`.
 
 ###### encoding
 
