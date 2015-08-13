@@ -92,7 +92,7 @@ function asCallback(opts, cb) {
 				try {
 					data = JSON.parse(data);
 				} catch (e) {
-					err = new got.ParseError(e, opts);
+					err = err || new got.ParseError(e, opts);
 				}
 			}
 
