@@ -69,7 +69,8 @@ test('json option should catch errors on invalid non-200 responses', function (t
 	got(s.url + '/non200-invalid', {json: true}, function (err, json) {
 		t.ok(err);
 		t.deepEqual(json, 'Internal error');
-		t.equal(err.message, 'Unexpected token I');
+		t.equal(err.statusCode, 500);
+		t.equal(err.message, 'Response code 500 (Internal Server Error)');
 		t.equal(err.path, '/non200-invalid');
 		t.end();
 	});
