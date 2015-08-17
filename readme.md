@@ -40,7 +40,10 @@ got('todomvc.com')
 	.then(function (res) {
 		console.log(res.body);
 	})
-	.catch(console.error);
+	.catch(function (err) {
+		console.error(err);
+		console.error(err.response && err.response.body);
+	});
 
 // Stream mode
 got.stream('todomvc.com').pipe(fs.createWriteStream('index.html'));
