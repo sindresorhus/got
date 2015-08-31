@@ -17,6 +17,7 @@ var unzipResponse = require('unzip-response');
 var createErrorClass = require('create-error-class');
 var nodeStatusCodes = require('node-status-codes');
 var isPlainObj = require('is-plain-obj');
+var parseJson = require('parse-json');
 
 function requestAsEventEmitter(opts) {
 	opts = opts || {};
@@ -90,8 +91,9 @@ function asCallback(opts, cb) {
 
 			if (opts.json && statusCode !== 204) {
 				try {
-					data = JSON.parse(data);
+					data = parseJson(data);
 				} catch (e) {
+					e.fileName = urlLib.format(opts);
 					err = new got.ParseError(e, opts);
 				}
 			}
