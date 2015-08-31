@@ -20,7 +20,7 @@
     "node": ">=0.10.0"
   },
   "scripts": {
-    "test": "tap test/test-*.js"
+    "test": "xo && tap test/test-*.js"
   },
   "files": [
     "index.js"
@@ -60,6 +60,7 @@
     "into-stream": "^2.0.0",
     "istanbul": "^0.3.13",
     "pem": "^1.4.4",
-    "tap": "^1.0.0"
+    "tap": "^1.0.0",
+    "xo": "*"
   }
 }

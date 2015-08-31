@@ -235,7 +235,7 @@ function got(url, opts, cb) {
 
 	if (cb) {
 		asCallback(opts, cb);
-		return;
+		return null;
 	}
 
 	return asPromise(opts);

@@ -10,7 +10,7 @@ s.on('/', function (req, res) {
 	res.statusCode = 200;
 	res.setHeader('Content-Type', 'text/plain');
 	res.setHeader('Content-Encoding', 'gzip');
-	zlib.gzip(testContent, function (err, data) {
+	zlib.gzip(testContent, function (_, data) {
 		res.end(data);
 	});
 });
