@@ -28,6 +28,23 @@ function requestAsEventEmitter(opts) {
 	var get = function (opts) {
 		var fn = opts.protocol === 'https:' ? https : http;
 
+		// check for unix domain socket
+		if (opts.hostname === 'unix') {
+			// extract socket path and request path
+			var matches = /(.+)\:(.+)/.exec(opts.path);
+
+			if (matches) {
+				var socketPath = matches[1];
+				var path = matches[2];
+
+				// make http.request use unix domain socket
+				// instead of host:port combination
+				opts.socketPath = socketPath;
+				opts.path = path;
+				opts.host = null;
+			}
+		}
+
 		var req = fn.request(opts, function (res) {
 			var statusCode = res.statusCode;
 			if (isRedirect(statusCode) && 'location' in res.headers && (opts.method === 'GET' || opts.method === 'HEAD')) {
