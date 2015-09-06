@@ -29,6 +29,16 @@ test('request via unix socket', function (t) {
 	});
 });
 
+test('protocol-less request', function (t) {
+	var url = format('unix:%s:%s', socketPath, '/');
+
+	got(url, function (err, data) {
+		t.error(err);
+		t.equal(data, 'ok');
+		t.end();
+	});
+});
+
 test('cleanup', function (t) {
 	s.close();
 	t.end();
