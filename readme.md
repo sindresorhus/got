@@ -201,6 +201,25 @@ got('todomvc.com', {
 }, function () {});
 ```
 
+### Unix Domain Sockets
+
+Requests can also be sent via unix domain sockets. Use the following URL scheme: `PROTOCOL://unix:SOCKET:PATH`.
+
+- `PROTOCOL` - `http` or `https`
+- `SOCKET` - absolute path to a unix domain socket, e.g. `/var/run/docker.sock`
+- `PATH` - request path, e.g. `/v2/keys`
+
+Example:
+
+```js
+got('http://unix:/var/run/docker.sock:/containers/json');
+```
+
+Use-cases:
+
+- Docker API (/var/run/docker.sock)
+- fleet API  (/var/run/fleet.sock)
+
 
 ## Tip
 
