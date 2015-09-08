@@ -161,10 +161,18 @@ function asStream(opts) {
 
 	ee.on('response', function (res) {
 		proxy.setReadable(res);
+
+		var statusCode = res.statusCode;
+		if (statusCode < 200 || statusCode > 299) {
+			proxy.emit('error', new got.HTTPError(statusCode, opts), null, res);
+		}
+
 		proxy.emit('response', res);
 	});
 
 	ee.on('redirect', proxy.emit.bind(proxy, 'redirect'));
+
+	ee.on('error', proxy.emit.bind(proxy, 'error'));
 
 	return proxy;
 }

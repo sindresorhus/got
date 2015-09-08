@@ -19,6 +19,11 @@ s.on('/redirect', function (req, res) {
 	res.end();
 });
 
+s.on('/error', function (req, res) {
+	res.statusCode = 404;
+	res.end();
+});
+
 test('setup', function (t) {
 	s.listen(s.port, function () {
 		t.end();
@@ -79,6 +84,22 @@ test('response event', function (t) {
 		.on('response', function (res) {
 			t.equal(res.statusCode, 200);
 			t.end();
+		});
+});
+
+test('error event', function (t) {
+	t.plan(4);
+
+	got.stream(s.url + '/error')
+		.on('error', function (err, data, res) {
+			t.equal(err.message, 'Response code 404 (Not Found)');
+			t.equal(null, data);
+			t.ok(res);
+		});
+
+	got.stream('.com')
+		.on('error', function (err) {
+			t.ok(/getaddrinfo ENOTFOUND/.test(err.message));
 		});
 });
 
