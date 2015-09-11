@@ -36,10 +36,15 @@ test('dns error message', function (t) {
 });
 
 test('options.body error message', function (t) {
+	t.plan(2);
 	t.throws(function () {
-		got(s.url, {body: function () {}});
+		got(s.url, {body: function () {}}, function () {});
 	}, /options.body must be a ReadableStream, string, Buffer or plain Object/);
-	t.end();
+
+	got(s.url, {body: function () {}})
+		.catch(function (err) {
+			t.ok(/options.body must be a ReadableStream, string, Buffer or plain Object/.test(err.message));
+		});
 });
 
 test('cleanup', function (t) {

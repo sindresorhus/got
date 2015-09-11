@@ -24,10 +24,15 @@ test('setup', function (t) {
 });
 
 test('url argument is required', function (t) {
+	t.plan(2);
 	t.throws(function () {
-		got();
+		got(undefined, function () {});
 	}, /Parameter `url` must be a string or object, not undefined/);
-	t.end();
+
+	got()
+		.catch(function (err) {
+			t.ok(/Parameter `url` must be a string or object, not undefined/.test(err.message));
+		});
 });
 
 test('accepts url.parse object as first argument', function (t) {
