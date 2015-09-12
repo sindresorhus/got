@@ -256,14 +256,16 @@ function got(url, opts, cb) {
 		opts = {};
 	}
 
-	opts = normalizeArguments(url, opts);
-
 	if (cb) {
-		asCallback(opts, cb);
+		asCallback(normalizeArguments(url, opts), cb);
 		return null;
 	}
 
-	return asPromise(opts);
+	try {
+		return asPromise(normalizeArguments(url, opts));
+	} catch (error) {
+		return PinkiePromise.reject(error);
+	}
 }
 
 var helpers = [
