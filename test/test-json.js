@@ -1,5 +1,5 @@
 'use strict';
-var test = require('tap').test;
+var test = require('ava');
 var got = require('../');
 var server = require('./server.js');
 var s = server.createServer();
@@ -27,56 +27,56 @@ s.on('/non200-invalid', function (req, res) {
 	res.end('Internal error');
 });
 
-test('setup', function (t) {
+test.before('json - setup', function (t) {
 	s.listen(s.port, function () {
 		t.end();
 	});
 });
 
-test('json option should parse response', function (t) {
+test('json - json option should parse response', function (t) {
 	got(s.url, {json: true}, function (err, json) {
-		t.error(err);
-		t.deepEqual(json, {data: 'dog'});
+		t.ifError(err);
+		t.same(json, {data: 'dog'});
 		t.end();
 	});
 });
 
-test('json option should not parse responses without a body', function (t) {
+test('json - json option should not parse responses without a body', function (t) {
 	got(s.url + '/204', {json: true}, function (err) {
-		t.error(err);
+		t.ifError(err);
 		t.end();
 	});
 });
 
-test('json option wrap parsing errors', function (t) {
+test('json - json option wrap parsing errors', function (t) {
 	got(s.url + '/invalid', {json: true}, function (err) {
 		t.ok(err);
-		t.ok(/Unexpected token/.test(err.message), err.message);
+		t.regexTest(/Unexpected token/, err.message);
 		t.ok(err.message.indexOf(err.hostname) !== -1, err.message);
-		t.equal(err.path, '/invalid');
+		t.is(err.path, '/invalid');
 		t.end();
 	});
 });
 
-test('json option should parse non-200 responses', function (t) {
+test('json - json option should parse non-200 responses', function (t) {
 	got(s.url + '/non200', {json: true}, function (err, json) {
 		t.ok(err);
-		t.deepEqual(json, {data: 'dog'});
+		t.same(json, {data: 'dog'});
 		t.end();
 	});
 });
 
-test('json option should catch errors on invalid non-200 responses', function (t) {
+test('json - json option should catch errors on invalid non-200 responses', function (t) {
 	got(s.url + '/non200-invalid', {json: true}, function (err, json) {
 		t.ok(err);
-		t.ok(/Unexpected token/.test(err.message), err.message);
-		t.deepEqual(json, 'Internal error');
-		t.equal(err.path, '/non200-invalid');
+		t.regexTest(/Unexpected token/, err.message);
+		t.is(json, 'Internal error');
+		t.is(err.path, '/non200-invalid');
 		t.end();
 	});
 });
 
-test('cleanup', function (t) {
+test.after('json - cleanup', function (t) {
 	s.close();
 	t.end();
 });

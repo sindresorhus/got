@@ -1,6 +1,6 @@
 'use strict';
 var zlib = require('zlib');
-var test = require('tap').test;
+var test = require('ava');
 var got = require('../');
 var server = require('./server.js');
 var s = server.createServer();
@@ -22,39 +22,39 @@ s.on('/corrupted', function (req, res) {
 	res.end('Not gzipped content');
 });
 
-test('setup', function (t) {
+test.before('gzip - setup', function (t) {
 	s.listen(s.port, function () {
 		t.end();
 	});
 });
 
-test('ungzip content', function (t) {
+test('gzip - ungzip content', function (t) {
 	got(s.url, function (err, data) {
-		t.error(err);
-		t.equal(data, testContent);
+		t.ifError(err);
+		t.is(data, testContent);
 		t.end();
 	});
 });
 
-test('ungzip error', function (t) {
+test('gzip - ungzip error', function (t) {
 	got(s.url + '/corrupted', function (err) {
 		t.ok(err);
-		t.equal(err.message, 'incorrect header check');
-		t.equal(err.path, '/corrupted');
-		t.equal(err.name, 'ReadError');
+		t.is(err.message, 'incorrect header check');
+		t.is(err.path, '/corrupted');
+		t.is(err.name, 'ReadError');
 		t.end();
 	});
 });
 
-test('preserve headers property', function (t) {
+test('gzip - preserve headers property', function (t) {
 	got(s.url, function (err, data, res) {
-		t.error(err);
+		t.ifError(err);
 		t.ok(res.headers);
 		t.end();
 	});
 });
 
-test('cleanup', function (t) {
+test.after('gzip - cleanup', function (t) {
 	s.close();
 	t.end();
 });

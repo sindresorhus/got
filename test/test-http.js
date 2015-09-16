@@ -1,5 +1,5 @@
 'use strict';
-var test = require('tap').test;
+var test = require('ava');
 var got = require('../');
 var server = require('./server.js');
 var s = server.createServer();
@@ -23,75 +23,75 @@ s.on('/?recent=true', function (req, res) {
 	res.end('recent');
 });
 
-test('setup', function (t) {
+test.before('http - setup', function (t) {
 	s.listen(s.port, function () {
 		t.end();
 	});
 });
 
-test('callback mode', function (t) {
+test('http - callback mode', function (t) {
 	got(s.url, function (err, data) {
-		t.error(err);
-		t.equal(data, 'ok');
+		t.ifError(err);
+		t.is(data, 'ok');
 		t.end();
 	});
 });
 
-test('protocol-less URLs', function (t) {
+test('http - protocol-less URLs', function (t) {
 	got(s.url.replace(/^http:\/\//, ''), function (err, data) {
-		t.error(err);
-		t.equal(data, 'ok');
+		t.ifError(err);
+		t.is(data, 'ok');
 		t.end();
 	});
 });
 
-test('empty response', function (t) {
+test('http - empty response', function (t) {
 	got(s.url + '/empty', function (err, data) {
-		t.error(err);
-		t.equal(data, '');
+		t.ifError(err);
+		t.is(data, '');
 		t.end();
 	});
 });
 
-test('error with code', function (t) {
+test('http - error with code', function (t) {
 	got(s.url + '/404', function (err, data) {
 		t.ok(err);
-		t.equal(err.statusCode, 404);
-		t.equal(data, 'not');
+		t.is(err.statusCode, 404);
+		t.is(data, 'not');
 		t.end();
 	});
 });
 
-test('buffer on encoding === null', function (t) {
+test('http - buffer on encoding === null', function (t) {
 	got(s.url, {encoding: null}, function (err, data) {
-		t.error(err);
+		t.ifError(err);
 		t.ok(Buffer.isBuffer(data));
 		t.end();
 	});
 });
 
-test('timeout option', function (t) {
+test('http - timeout option', function (t) {
 	got(s.url + '/404', {timeout: 1}, function (err) {
-		t.equal(err.code, 'ETIMEDOUT');
+		t.is(err.code, 'ETIMEDOUT');
 		t.end();
 	});
 });
 
-test('query option', function (t) {
+test('http - query option', function (t) {
 	t.plan(4);
 
 	got(s.url, {query: {recent: true}}, function (err, data) {
-		t.error(err);
-		t.equal(data, 'recent');
+		t.ifError(err);
+		t.is(data, 'recent');
 	});
 
 	got(s.url, {query: 'recent=true'}, function (err, data) {
-		t.error(err);
-		t.equal(data, 'recent');
+		t.ifError(err);
+		t.is(data, 'recent');
 	});
 });
 
-test('cleanup', function (t) {
+test.after('http - cleanup', function (t) {
 	s.close();
 	t.end();
 });
