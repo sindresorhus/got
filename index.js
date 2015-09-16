@@ -288,7 +288,11 @@ helpers.forEach(function (el) {
 	};
 });
 
-got.stream = function (url, opts) {
+got.stream = function (url, opts, cb) {
+	if (cb || typeof opts === 'function') {
+		throw new Error('callback can not be used with stream mode');
+	}
+
 	return asStream(normalizeArguments(url, opts));
 };
 
