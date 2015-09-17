@@ -1,5 +1,5 @@
 'use strict';
-var test = require('tap').test;
+var test = require('ava');
 var got = require('../');
 var server = require('./server.js');
 var s = server.createServer();
@@ -13,31 +13,31 @@ s.on('/404', function (req, res) {
 	res.end('not found');
 });
 
-test('setup', function (t) {
+test.before('helpers - setup', function (t) {
 	s.listen(s.port, function () {
 		t.end();
 	});
 });
 
-test('callback mode', function (t) {
+test('helpers - callback mode', function (t) {
 	got.get(s.url, function (err, data) {
-		t.error(err);
-		t.equal(data, 'ok');
+		t.ifError(err);
+		t.is(data, 'ok');
 		t.end();
 	});
 });
 
-test('promise mode', function (t) {
+test('helpers - promise mode', function (t) {
 	t.plan(3);
 
 	got.get(s.url)
 		.then(function (res) {
-			t.equal(res.body, 'ok');
+			t.is(res.body, 'ok');
 		});
 
 	got.get(s.url + '/404')
 		.catch(function (err) {
-			t.equal(err.response.body, 'not found');
+			t.is(err.response.body, 'not found');
 		});
 
 	got.get('.com')
@@ -46,7 +46,7 @@ test('promise mode', function (t) {
 		});
 });
 
-test('cleanup', function (t) {
+test.after('helpers - cleanup', function (t) {
 	s.close();
 	t.end();
 });

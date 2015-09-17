@@ -1,5 +1,5 @@
 'use strict';
-var test = require('tap').test;
+var test = require('ava');
 var got = require('../');
 var server = require('./server.js');
 var s = server.createServer();
@@ -9,33 +9,33 @@ s.on('/', function (req, res) {
 	res.end('not');
 });
 
-test('setup', function (t) {
+test.before('error - setup', function (t) {
 	s.listen(s.port, function () {
 		t.end();
 	});
 });
 
-test('error message', function (t) {
+test('error - error message', function (t) {
 	got(s.url, function (err) {
 		t.ok(err);
-		t.equal(err.message, 'Response code 404 (Not Found)');
-		t.equal(err.host, 'localhost:6767');
-		t.equal(err.method, 'GET');
+		t.is(err.message, 'Response code 404 (Not Found)');
+		t.is(err.host, s.host + ':' + s.port);
+		t.is(err.method, 'GET');
 		t.end();
 	});
 });
 
-test('dns error message', function (t) {
+test('error - dns error message', function (t) {
 	got('.com', function (err) {
 		t.ok(err);
-		t.ok(/getaddrinfo ENOTFOUND/.test(err.message));
-		t.equal(err.host, '.com');
-		t.equal(err.method, 'GET');
+		t.regexTest(/getaddrinfo ENOTFOUND/, err.message);
+		t.is(err.host, '.com');
+		t.is(err.method, 'GET');
 		t.end();
 	});
 });
 
-test('options.body error message', function (t) {
+test('error - options.body error message', function (t) {
 	t.plan(2);
 	t.throws(function () {
 		got(s.url, {body: function () {}}, function () {});
@@ -43,11 +43,11 @@ test('options.body error message', function (t) {
 
 	got(s.url, {body: function () {}})
 		.catch(function (err) {
-			t.ok(/options.body must be a ReadableStream, string, Buffer or plain Object/.test(err.message));
+			t.regexTest(/options.body must be a ReadableStream, string, Buffer or plain Object/, err.message);
 		});
 });
 
-test('cleanup', function (t) {
+test.after('error - cleanup', function (t) {
 	s.close();
 	t.end();
 });

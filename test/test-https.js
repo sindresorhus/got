@@ -1,5 +1,5 @@
 'use strict';
-var test = require('tap').test;
+var test = require('ava');
 var pem = require('pem');
 var got = require('../');
 var server = require('./server.js');
@@ -10,19 +10,19 @@ var cert;
 var caRootKey;
 var caRootCert;
 
-test('root pem', function (t) {
+test.before('https - create root pem', function (t) {
 	pem.createCertificate({
 		days: 1,
 		selfSigned: true
 	}, function (err, keys) {
-		t.error(err);
+		t.ifError(err);
 		caRootKey = keys.serviceKey;
 		caRootCert = keys.certificate;
 		t.end();
 	});
 });
 
-test('pem', function (t) {
+test.before('https - create pem', function (t) {
 	pem.createCertificate({
 		serviceCertificate: caRootCert,
 		serviceKey: caRootKey,
@@ -35,14 +35,14 @@ test('pem', function (t) {
 		organizationUnit: '',
 		commonName: 'sindresorhus.com'
 	}, function (err, keys) {
-		t.error(err);
+		t.ifError(err);
 		key = keys.clientKey;
 		cert = keys.certificate;
 		t.end();
 	});
 });
 
-test('setup', function (t) {
+test.before('https - setup', function (t) {
 	s = server.createSSLServer(server.portSSL + 1, {
 		key: key,
 		cert: cert
@@ -57,37 +57,37 @@ test('setup', function (t) {
 	});
 });
 
-test('redirects from http to https works', function (t) {
+test('https - redirects from http to https works', function (t) {
 	got('http://github.com', function (err, data) {
-		t.error(err);
+		t.ifError(err);
 		t.ok(data);
 		t.end();
 	});
 });
 
-test('make request to https server', function (t) {
+test('https - make request to https server', function (t) {
 	got('https://google.com', {
 		strictSSL: true
 	}, function (err, data) {
-		t.error(err);
+		t.ifError(err);
 		t.ok(data);
 		t.end();
 	});
 });
 
-test('make request to https server with ca', function (t) {
+test('https - make request to https server with ca', function (t) {
 	got(s.url, {
 		strictSSL: true,
 		ca: caRootCert,
 		headers: {host: 'sindresorhus.com'}
 	}, function (err, data) {
-		t.error(err);
-		t.equal(data, 'ok');
+		t.ifError(err);
+		t.is(data, 'ok');
 		t.end();
 	});
 });
 
-test('cleanup', function (t) {
+test.after('https - cleanup', function (t) {
 	s.close();
 	t.end();
 });

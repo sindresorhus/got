@@ -11,6 +11,8 @@ exports.createServer = function (port) {
 
 	port = port || exports.port;
 
+	exports.port += 1;
+
 	var s = http.createServer(function (req, resp) {
 		s.emit(req.url, req, resp);
 	});
@@ -27,6 +29,8 @@ exports.createSSLServer = function (port, opts) {
 	var host = exports.host;
 
 	port = port || exports.portSSL;
+
+	exports.portSSL += 1;
 
 	var s = https.createServer(opts, function (req, resp) {
 		s.emit(req.url, req, resp);
