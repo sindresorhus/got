@@ -37,6 +37,18 @@ test('json option can not be used in stream mode', function (t) {
 	t.end();
 });
 
+test('callback can not be used in stream mode', function (t) {
+	t.throws(function () {
+		got.stream(s.url, {json: true}, function () {});
+	}, 'callback can not be used in stream mode');
+
+	t.throws(function () {
+		got.stream(s.url, function () {});
+	}, 'callback can not be used in stream mode');
+
+	t.end();
+});
+
 test('return readable stream', function (t) {
 	got.stream(s.url)
 		.on('data', function (data) {
