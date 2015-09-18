@@ -48,7 +48,7 @@
     "is-stream": "^1.0.0",
     "lowercase-keys": "^1.0.0",
     "node-status-codes": "^1.0.0",
-    "object-assign": "^3.0.0",
+    "object-assign": "^4.0.1",
     "parse-json": "^2.1.0",
     "pinkie-promise": "^1.0.0",
     "prepend-http": "^1.0.0",
