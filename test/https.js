@@ -1,7 +1,7 @@
 import test from 'ava';
 import pem from 'pem';
 import got from '../';
-import {createSSLServer, portSSL} from './server.js';
+import {createSSLServer, portSSL} from './_server';
 
 let s;
 let key;
