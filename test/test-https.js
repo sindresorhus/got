@@ -1,20 +1,19 @@
-'use strict';
-var test = require('ava');
-var pem = require('pem');
-var got = require('../');
-var server = require('./server.js');
+import test from 'ava';
+import pem from 'pem';
+import got from '../';
+import {createSSLServer, portSSL} from './server.js';
 
-var s;
-var key;
-var cert;
-var caRootKey;
-var caRootCert;
+let s;
+let key;
+let cert;
+let caRootKey;
+let caRootCert;
 
-test.before('https - create root pem', function (t) {
+test.before('https - create root pem', t => {
 	pem.createCertificate({
 		days: 1,
 		selfSigned: true
-	}, function (err, keys) {
+	}, (err, keys) => {
 		t.ifError(err);
 		caRootKey = keys.serviceKey;
 		caRootCert = keys.certificate;
@@ -22,7 +21,7 @@ test.before('https - create root pem', function (t) {
 	});
 });
 
-test.before('https - create pem', function (t) {
+test.before('https - create pem', t => {
 	pem.createCertificate({
 		serviceCertificate: caRootCert,
 		serviceKey: caRootKey,
@@ -34,7 +33,7 @@ test.before('https - create pem', function (t) {
 		organization: '',
 		organizationUnit: '',
 		commonName: 'sindresorhus.com'
-	}, function (err, keys) {
+	}, (err, keys) => {
 		t.ifError(err);
 		key = keys.clientKey;
 		cert = keys.certificate;
@@ -42,52 +41,43 @@ test.before('https - create pem', function (t) {
 	});
 });
 
-test.before('https - setup', function (t) {
-	s = server.createSSLServer(server.portSSL + 1, {
-		key: key,
-		cert: cert
-	});
-
-	s.on('/', function (req, res) {
-		res.end('ok');
-	});
-
-	s.listen(s.port, function () {
-		t.end();
-	});
+test.before('https - setup', t => {
+	s = createSSLServer(portSSL + 1, {key, cert});
+	s.on('/', (req, res) => res.end('ok'));
+	s.listen(s.port, () => t.end());
 });
 
-test('https - redirects from http to https works', function (t) {
-	got('http://github.com', function (err, data) {
+test('https - redirects from http to https works', t => {
+	got('http://github.com', (err, data) => {
 		t.ifError(err);
 		t.ok(data);
 		t.end();
 	});
 });
 
-test('https - make request to https server', function (t) {
+test('https - make request to https server', t => {
 	got('https://google.com', {
 		strictSSL: true
-	}, function (err, data) {
+	}, (err, data) => {
 		t.ifError(err);
 		t.ok(data);
 		t.end();
 	});
 });
 
-test('https - make request to https server with ca', function (t) {
+test('https - make request to https server with ca', t => {
 	got(s.url, {
 		strictSSL: true,
 		ca: caRootCert,
 		headers: {host: 'sindresorhus.com'}
-	}, function (err, data) {
+	}, (err, data) => {
 		t.ifError(err);
 		t.is(data, 'ok');
 		t.end();
 	});
 });
 
-test.after('https - cleanup', function (t) {
+test.after('https - cleanup', t => {
 	s.close();
 	t.end();
 });

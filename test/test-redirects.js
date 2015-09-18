@@ -1,89 +1,90 @@
-'use strict';
-var test = require('ava');
-var got = require('../');
-var server = require('./server.js');
-var s = server.createServer();
+import test from 'ava';
+import got from '../';
+import {createServer} from './server.js';
 
-s.on('/', function (req, res) {
+const s = createServer();
+
+s.on('/', (req, res) => {
 	res.end('reached');
 });
 
-s.on('/finite', function (req, res) {
+s.on('/finite', (req, res) => {
 	res.writeHead(302, {
-		location: s.url + '/'
+		location: `${s.url}/`
 	});
 	res.end();
 });
 
-s.on('/endless', function (req, res) {
+s.on('/endless', (req, res) => {
 	res.writeHead(302, {
-		location: s.url + '/endless'
+		location: `${s.url}/endless`
 	});
 	res.end();
 });
 
-s.on('/relative', function (req, res) {
-	res.writeHead(302, {
-		location: '/'
-	});
-	res.end();
-});
-
-s.on('/relativeQuery?bang', function (req, res) {
+s.on('/relative', (req, res) => {
 	res.writeHead(302, {
 		location: '/'
 	});
 	res.end();
 });
 
-test.before('redirects - setup', function (t) {
-	s.listen(s.port, function () {
-		t.end();
+s.on('/relativeQuery?bang', (req, res) => {
+	res.writeHead(302, {
+		location: '/'
 	});
+	res.end();
 });
 
-test('redirects - follows redirect', function (t) {
-	got(s.url + '/finite', function (err, data) {
+test.before('redirects - setup', t => {
+	s.listen(s.port, () => t.end());
+});
+
+test('redirects - follows redirect', t => {
+	got(`${s.url}/finite`, (err, data) => {
 		t.ifError(err);
 		t.is(data, 'reached');
 		t.end();
 	});
 });
 
-test('redirects - follows relative redirect', function (t) {
-	got(s.url + '/relative', function (err, data) {
+test('redirects - follows relative redirect', t => {
+	got(`${s.url}/relative`, (err, data) => {
 		t.ifError(err);
 		t.is(data, 'reached');
 		t.end();
 	});
 });
 
-test('redirects - throws on endless redirect', function (t) {
-	got(s.url + '/endless', function (err) {
+test('redirects - throws on endless redirect', t => {
+	got(`${s.url}/endless`, err => {
 		t.ok(err, 'should get error');
 		t.is(err.message, 'Redirected 10 times. Aborting.');
 		t.end();
 	});
 });
 
-test('redirects - query in options are not breaking redirects', function (t) {
-	got(s.url + '/relativeQuery', {query: 'bang'}, function (err, data) {
+test('redirects - query in options are not breaking redirects', t => {
+	got(`${s.url}/relativeQuery`, {query: 'bang'}, (err, data) => {
 		t.ifError(err);
 		t.is(data, 'reached');
 		t.end();
 	});
 });
 
-test('redirects - hostname+path in options are not breaking redirects', function (t) {
-	got(s.url + '/relative', {hostname: s.host, path: '/relative'}, function (err, data) {
+test('redirects - hostname+path in options are not breaking redirects', t => {
+	got(`${s.url}/relative`, {
+		hostname: s.host,
+		path: '/relative'
+	}, (err, data) => {
 		t.ifError(err);
 		t.is(data, 'reached');
 		t.end();
 	});
 });
 
-test('redirects - redirect only GET and HEAD requests', function (t) {
-	got(s.url + '/relative', {body: 'wow'}, function (err) {
+test('redirects - redirect only GET and HEAD requests', t => {
+	got(`${s.url}/relative`, {body: 'wow'}, err => {
 		t.is(err.message, 'Response code 302 (Moved Temporarily)');
 		t.is(err.path, '/relative');
 		t.is(err.statusCode, 302);
@@ -91,7 +92,7 @@ test('redirects - redirect only GET and HEAD requests', function (t) {
 	});
 });
 
-test.after('redirect - cleanup', function (t) {
+test.after('redirect - cleanup', t => {
 	s.close();
 	t.end();
 });

@@ -1,73 +1,71 @@
-'use strict';
-var test = require('ava');
-var got = require('../');
-var server = require('./server.js');
-var s = server.createServer();
+import test from 'ava';
+import got from '../';
+import {createServer} from './server.js';
 
-s.on('/', function (req, res) {
+const s = createServer();
+
+s.on('/', (req, res) => {
 	res.end('ok');
 });
 
-s.on('/post', function (req, res) {
+s.on('/post', (req, res) => {
 	req.pipe(res);
 });
 
-s.on('/redirect', function (req, res) {
+s.on('/redirect', (req, res) => {
 	res.writeHead(302, {
 		location: s.url
 	});
 	res.end();
 });
 
-s.on('/error', function (req, res) {
+s.on('/error', (req, res) => {
 	res.statusCode = 404;
 	res.end();
 });
 
-test.before('stream - setup', function (t) {
-	s.listen(s.port, function () {
-		t.end();
-	});
+test.before('stream - setup', t => {
+	s.listen(s.port, () => t.end());
 });
 
-test('stream - json option can not be used in stream mode', function (t) {
-	t.throws(function () {
+test('stream - json option can not be used in stream mode', t => {
+	t.throws(() => {
 		got.stream(s.url, {json: true});
 	}, 'got can not be used as stream when options.json is used');
 	t.end();
 });
 
-test('stream - callback can not be used in stream mode', function (t) {
-	t.throws(function () {
-		got.stream(s.url, {json: true}, function () {});
+test('stream - callback can not be used in stream mode', t => {
+	t.throws(() => {
+		got.stream(s.url, {json: true}, () => {});
 	}, 'callback can not be used in stream mode');
 
-	t.throws(function () {
-		got.stream(s.url, function () {});
+	t.throws(() => {
+		got.stream(s.url, () => {});
 	}, 'callback can not be used in stream mode');
 
 	t.end();
 });
 
-test('stream - return readable stream', function (t) {
+test('stream - return readable stream', t => {
 	got.stream(s.url)
-		.on('data', function (data) {
+		.on('data', data => {
 			t.is(data.toString(), 'ok');
 			t.end();
 		});
 });
 
-test('stream - return writeable stream', function (t) {
+test('stream - return writeable stream', t => {
 	t.plan(1);
-	got.stream.post(s.url + '/post')
-		.on('data', function (data) {
+	got.stream.post(`${s.url}/post`)
+		.on('data', data => {
 			t.is(data.toString(), 'wow');
 		})
 		.end('wow');
 });
 
-test('stream - throws on write to stream with body specified', function (t) {
-	t.throws(function () {
+test('stream - throws on write to stream with body specified', t => {
+	t.throws(() => {
 		got.stream(s.url, {body: 'wow'}).write('wow');
 	}, 'got\'s stream is not writable when options.body is used');
 
@@ -75,47 +73,47 @@ test('stream - throws on write to stream with body specified', function (t) {
 	setTimeout(t.end.bind(t), 10);
 });
 
-test('stream - request event', function (t) {
+test('stream - request event', t => {
 	got.stream(s.url)
-		.on('request', function (req) {
+		.on('request', req => {
 			t.ok(req);
 			t.end();
 		});
 });
 
-test('stream - redirect event', function (t) {
-	got.stream(s.url + '/redirect')
-		.on('redirect', function (res) {
+test('stream - redirect event', t => {
+	got.stream(`${s.url}/redirect`)
+		.on('redirect', res => {
 			t.is(res.headers.location, s.url);
 			t.end();
 		});
 });
 
-test('stream - response event', function (t) {
+test('stream - response event', t => {
 	got.stream(s.url)
-		.on('response', function (res) {
+		.on('response', res => {
 			t.is(res.statusCode, 200);
 			t.end();
 		});
 });
 
-test('stream - error event', function (t) {
+test('stream - error event', t => {
 	t.plan(4);
 
-	got.stream(s.url + '/error')
-		.on('error', function (err, data, res) {
+	got.stream(`${s.url}/error`)
+		.on('error', (err, data, res) => {
 			t.is(err.message, 'Response code 404 (Not Found)');
 			t.is(null, data);
 			t.ok(res);
 		});
 
 	got.stream('.com')
-		.on('error', function (err) {
+		.on('error', err => {
 			t.regexTest(/getaddrinfo ENOTFOUND/, err.message);
 		});
 });
 
-test.after('stream - cleanup', function (t) {
+test.after('stream - cleanup', t => {
 	s.close();
 	t.end();
 });

@@ -1,60 +1,58 @@
-'use strict';
-var test = require('ava');
-var got = require('../');
-var server = require('./server.js');
-var s = server.createServer();
+import test from 'ava';
+import got from '../';
+import {createServer} from './server.js';
 
-s.on('/', function (req, res) {
+const s = createServer();
+
+s.on('/', (req, res) => {
 	res.end('ok');
 });
 
-s.on('/empty', function (req, res) {
+s.on('/empty', (req, res) => {
 	res.end();
 });
 
-s.on('/404', function (req, res) {
-	setTimeout(function () {
+s.on('/404', (req, res) => {
+	setTimeout(() => {
 		res.statusCode = 404;
 		res.end('not');
 	}, 10);
 });
 
-s.on('/?recent=true', function (req, res) {
+s.on('/?recent=true', (req, res) => {
 	res.end('recent');
 });
 
-test.before('http - setup', function (t) {
-	s.listen(s.port, function () {
-		t.end();
-	});
+test.before('http - setup', t => {
+	s.listen(s.port, () => t.end());
 });
 
-test('http - callback mode', function (t) {
-	got(s.url, function (err, data) {
+test('http - callback mode', t => {
+	got(s.url, (err, data) => {
 		t.ifError(err);
 		t.is(data, 'ok');
 		t.end();
 	});
 });
 
-test('http - protocol-less URLs', function (t) {
-	got(s.url.replace(/^http:\/\//, ''), function (err, data) {
+test('http - protocol-less URLs', t => {
+	got(s.url.replace(/^http:\/\//, ''), (err, data) => {
 		t.ifError(err);
 		t.is(data, 'ok');
 		t.end();
 	});
 });
 
-test('http - empty response', function (t) {
-	got(s.url + '/empty', function (err, data) {
+test('http - empty response', t => {
+	got(`${s.url}/empty`, (err, data) => {
 		t.ifError(err);
 		t.is(data, '');
 		t.end();
 	});
 });
 
-test('http - error with code', function (t) {
-	got(s.url + '/404', function (err, data) {
+test('http - error with code', t => {
+	got(`${s.url}/404`, (err, data) => {
 		t.ok(err);
 		t.is(err.statusCode, 404);
 		t.is(data, 'not');
@@ -62,36 +60,36 @@ test('http - error with code', function (t) {
 	});
 });
 
-test('http - buffer on encoding === null', function (t) {
-	got(s.url, {encoding: null}, function (err, data) {
+test('http - buffer on encoding === null', t => {
+	got(s.url, {encoding: null}, (err, data) => {
 		t.ifError(err);
 		t.ok(Buffer.isBuffer(data));
 		t.end();
 	});
 });
 
-test('http - timeout option', function (t) {
-	got(s.url + '/404', {timeout: 1}, function (err) {
+test('http - timeout option', t => {
+	got(`${s.url}/404`, {timeout: 1}, err => {
 		t.is(err.code, 'ETIMEDOUT');
 		t.end();
 	});
 });
 
-test('http - query option', function (t) {
+test('http - query option', t => {
 	t.plan(4);
 
-	got(s.url, {query: {recent: true}}, function (err, data) {
+	got(s.url, {query: {recent: true}}, (err, data) => {
 		t.ifError(err);
 		t.is(data, 'recent');
 	});
 
-	got(s.url, {query: 'recent=true'}, function (err, data) {
+	got(s.url, {query: 'recent=true'}, (err, data) => {
 		t.ifError(err);
 		t.is(data, 'recent');
 	});
 });
 
-test.after('http - cleanup', function (t) {
+test.after('http - cleanup', t => {
 	s.close();
 	t.end();
 });

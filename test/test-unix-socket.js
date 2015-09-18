@@ -1,45 +1,42 @@
-'use strict';
-var tempfile = require('tempfile');
-var format = require('util').format;
-var test = require('ava');
-var got = require('../');
-var server = require('./server.js');
-var s = server.createServer();
+import {format} from 'util';
+import tempfile from 'tempfile';
+import test from 'ava';
+import got from '../';
+import {createServer} from './server.js';
 
-var socketPath = tempfile('.socket');
+const s = createServer();
+const socketPath = tempfile('.socket');
 
-s.on('/', function (req, res) {
+s.on('/', (req, res) => {
 	res.end('ok');
 });
 
-test.before('unix-socket - setup', function (t) {
-	s.listen(socketPath, function () {
-		t.end();
-	});
+test.before('unix-socket - setup', t => {
+	s.listen(socketPath, () => t.end());
 });
 
-test('unix-socket - request via unix socket', function (t) {
+test('unix-socket - request via unix socket', t => {
 	// borrow unix domain socket url format from request module
-	var url = format('http://unix:%s:%s', socketPath, '/');
+	const url = format('http://unix:%s:%s', socketPath, '/');
 
-	got(url, function (err, data) {
+	got(url, (err, data) => {
 		t.ifError(err);
 		t.is(data, 'ok');
 		t.end();
 	});
 });
 
-test('unix-socket - protocol-less request', function (t) {
-	var url = format('unix:%s:%s', socketPath, '/');
+test('unix-socket - protocol-less request', t => {
+	const url = format('unix:%s:%s', socketPath, '/');
 
-	got(url, function (err, data) {
+	got(url, (err, data) => {
 		t.ifError(err);
 		t.is(data, 'ok');
 		t.end();
 	});
 });
 
-test.after('unix-socket - cleanup', function (t) {
+test.after('unix-socket - cleanup', t => {
 	s.close();
 	t.end();
 });

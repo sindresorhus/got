@@ -1,43 +1,39 @@
-'use strict';
-var zlib = require('zlib');
-var test = require('ava');
-var got = require('../');
-var server = require('./server.js');
-var s = server.createServer();
-var testContent = 'Compressible response content.\n';
+import zlib from 'zlib';
+import test from 'ava';
+import got from '../';
+import {createServer} from './server.js';
 
-s.on('/', function (req, res) {
+const s = createServer();
+const testContent = 'Compressible response content.\n';
+
+s.on('/', (req, res) => {
 	res.statusCode = 200;
 	res.setHeader('Content-Type', 'text/plain');
 	res.setHeader('Content-Encoding', 'gzip');
-	zlib.gzip(testContent, function (_, data) {
-		res.end(data);
-	});
+	zlib.gzip(testContent, (_, data) => res.end(data));
 });
 
-s.on('/corrupted', function (req, res) {
+s.on('/corrupted', (req, res) => {
 	res.statusCode = 200;
 	res.setHeader('Content-Type', 'text/plain');
 	res.setHeader('Content-Encoding', 'gzip');
 	res.end('Not gzipped content');
 });
 
-test.before('gzip - setup', function (t) {
-	s.listen(s.port, function () {
-		t.end();
-	});
+test.before('gzip - setup', t => {
+	s.listen(s.port, () => t.end());
 });
 
-test('gzip - ungzip content', function (t) {
-	got(s.url, function (err, data) {
+test('gzip - ungzip content', t => {
+	got(s.url, (err, data) => {
 		t.ifError(err);
 		t.is(data, testContent);
 		t.end();
 	});
 });
 
-test('gzip - ungzip error', function (t) {
-	got(s.url + '/corrupted', function (err) {
+test('gzip - ungzip error', t => {
+	got(`${s.url}/corrupted`, err => {
 		t.ok(err);
 		t.is(err.message, 'incorrect header check');
 		t.is(err.path, '/corrupted');
@@ -46,15 +42,15 @@ test('gzip - ungzip error', function (t) {
 	});
 });
 
-test('gzip - preserve headers property', function (t) {
-	got(s.url, function (err, data, res) {
+test('gzip - preserve headers property', t => {
+	got(s.url, (err, data, res) => {
 		t.ifError(err);
 		t.ok(res.headers);
 		t.end();
 	});
 });
 
-test.after('gzip - cleanup', function (t) {
+test.after('gzip - cleanup', t => {
 	s.close();
 	t.end();
 });
