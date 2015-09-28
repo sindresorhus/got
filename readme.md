@@ -201,6 +201,22 @@ got('todomvc.com', {
 ```
 
 
+## Cookies
+
+You can use the [`cookie`](https://github.com/jshttp/cookie) module to include cookies in a request:
+
+```js
+const got = require('got');
+const cookie = require('cookie');
+
+got('google.com', {
+	headers: {
+		cookie: cookie.serialize('foo', 'bar')
+	}
+});
+```
+
+
 ## Unix Domain Sockets
 
 Requests can also be sent via [unix domain sockets](http://serverfault.com/questions/124517/whats-the-difference-between-unix-socket-and-tcp-ip-socket). Use the following URL scheme: `PROTOCOL://unix:SOCKET:PATH`.
