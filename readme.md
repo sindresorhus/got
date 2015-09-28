@@ -27,23 +27,19 @@ $ npm install --save got
 ## Usage
 
 ```js
-var got = require('got');
+const got = require('got');
 
 // Callback mode
-got('todomvc.com', function (err, data, res) {
-	console.log(data);
+got('todomvc.com', (error, body, response) => {
+	console.log(body);
 	//=> '<!doctype html> ...'
 });
 
 // Promise mode
-got('todomvc.com')
-	.then(function (res) {
-		console.log(res.body);
-	})
-	.catch(function (err) {
-		console.error(err);
-		console.error(err.response && err.response.body);
-	});
+got('todomvc.com').then(response => {
+	console.log(response.body);
+	//=> '<!doctype html> ...'
+});
 
 // Stream mode
 got.stream('todomvc.com').pipe(fs.createWriteStream('index.html'));
@@ -51,6 +47,7 @@ got.stream('todomvc.com').pipe(fs.createWriteStream('index.html'));
 // For POST, PUT and PATCH methods got.stream returns a WritableStream
 fs.createReadStream('index.html').pipe(got.stream.post('todomvc.com'));
 ```
+
 
 ### API
 
@@ -60,7 +57,6 @@ It's a `GET` request by default, but can be changed in `options`.
 
 ##### url
 
-*Required*  
 Type: `string`, `object`
 
 The URL to request or a [`http.request` options](https://nodejs.org/api/http.html#http_http_request_options_callback) object.
@@ -85,7 +81,7 @@ If present in `options` and `options.method` is not set, `options.method` will b
 
 If `content-length` or `transfer-encoding` is not set in `options.headers` and `body` is a string or buffer, `content-length` will be set to the body length.
 
-If `body` is a plain Object, it will be stringified with [`querystring.stringify`](https://nodejs.org/api/querystring.html#querystring_querystring_stringify_obj_sep_eq_options) and sent as `application/x-www-form-urlencoded`.
+If `body` is a plain object, it will be stringified with [`querystring.stringify`](https://nodejs.org/api/querystring.html#querystring_querystring_stringify_obj_sep_eq_options) and sent as `application/x-www-form-urlencoded`.
 
 ###### encoding
 
@@ -117,7 +113,7 @@ Milliseconds after which the request will be aborted and an error event with `ET
 
 ##### callback(error, data, response)
 
-Function to be called, when error or data received. If omitted, a promise will be returned.
+Function to be called when error or data are received. If omitted, a promise will be returned.
 
 ###### error
 
@@ -143,11 +139,11 @@ When in stream mode, you can listen for events:
 
 ##### .on('redirect', response, nextOptions)
 
-`redirect` event to get the response object of a redirect. Second argument is options for the next request to the redirect location.
+`redirect` event to get the response object of a redirect. The second argument is options for the next request to the redirect location.
 
 ##### .on('error', error, body, response)
 
-`error` event emitted in case of protocol error (like `ENOTFOUND` etc.) or status error (4xx or 5xx). Second argument is body of server response in case of status error. Third argument is response object.
+`error` event emitted in case of protocol error (like `ENOTFOUND` etc.) or status error (4xx or 5xx). The second argument is the body of the server response in case of status error. The third argument is response object.
 
 
 #### got.get(url, [options], [callback])
@@ -159,9 +155,12 @@ When in stream mode, you can listen for events:
 
 Sets `options.method` to the method name and makes a request.
 
+
 ## Errors
 
-Each error contains (if available) `host`, `hostname`, `method` and `path` properties to make debug easier.
+Each error contains (if available) `host`, `hostname`, `method` and `path` properties to make debugging easier.
+
+In Promise mode, the `response` is attached to the error.
 
 #### got.RequestError
 
@@ -184,13 +183,13 @@ When server response code is not 2xx. Contains `statusCode` and `statusMessage`.
 When server redirects you more than 10 times.
 
 
-## Proxy
+## Proxies
 
 You can use the [`tunnel`](https://github.com/koichik/node-tunnel) module with the `agent` option to work with proxies:
 
 ```js
-var got = require('got');
-var tunnel = require('tunnel');
+const got = require('got');
+const tunnel = require('tunnel');
 
 got('todomvc.com', {
 	agent: tunnel.httpOverHttp({
@@ -198,10 +197,11 @@ got('todomvc.com', {
 			host: 'localhost'
 		}
 	})
-}, function () {});
+}, () => {});
 ```
 
-### Unix Domain Sockets
+
+## Unix Domain Sockets
 
 Requests can also be sent via [unix domain sockets](http://serverfault.com/questions/124517/whats-the-difference-between-unix-socket-and-tcp-ip-socket). Use the following URL scheme: `PROTOCOL://unix:SOCKET:PATH`.
 
@@ -226,7 +226,7 @@ Use-cases:
 
 ## Tip
 
-It's a good idea to set the `'user-agent'` header so the provider can more easily see how their resource is used. By default it's the URL to this repo.
+It's a good idea to set the `'user-agent'` header so the provider can more easily see how their resource is used. By default, it's the URL to this repo.
 
 ```js
 var got = require('got');
@@ -239,7 +239,7 @@ got('todomvc.com', {
 ```
 
 
-## Node 0.10.x
+## Node.js 0.10.x
 
 It is a known issue with old good Node 0.10.x [`http.Agent`](https://nodejs.org/docs/v0.10.39/api/http.html#http_class_http_agent) and `agent.maxSockets`, which is set to `5`. This can cause low performance and in rare cases deadlocks. To avoid this you can set it manually:
 
