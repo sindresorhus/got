@@ -19,6 +19,9 @@
   "engines": {
     "node": ">=0.10.0"
   },
+  "browser": {
+    "unzip-response": false
+  },
   "scripts": {
     "test": "xo && ava"
   },

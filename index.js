@@ -47,7 +47,7 @@ function requestAsEventEmitter(opts) {
 				return;
 			}
 
-			ee.emit('response', unzipResponse(res));
+			ee.emit('response', typeof unzipResponse === 'function' ? unzipResponse(res) : res);
 		}).once('error', function (err) {
 			ee.emit('error', new got.RequestError(err, opts));
 		});
