@@ -182,9 +182,17 @@ function normalizeArguments(url, opts) {
 		throw new Error('Parameter `url` must be a string or object, not ' + typeof url);
 	}
 
+	if (typeof url === 'string') {
+		url = urlLib.parse(prependHttp(url));
+
+		if (url.auth) {
+			throw new Error('Basic authentication must be done with auth option');
+		}
+	}
+
 	opts = objectAssign(
 		{protocol: 'http:', path: ''},
-		typeof url === 'string' ? urlLib.parse(prependHttp(url)) : url,
+		url,
 		opts
 	);
 

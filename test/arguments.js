@@ -52,6 +52,13 @@ test('arguments - overrides querystring from opts', t => {
 	});
 });
 
+test('arguments - should throw with auth in url', t => {
+	t.throws(() => {
+		got(`https://test:45d3ps453@account.myservice.com/api/token`, () => {});
+	}, /Basic authentication must be done with auth option/);
+	t.end();
+});
+
 test.after('arguments - cleanup', t => {
 	s.close();
 	t.end();
