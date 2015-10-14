@@ -98,18 +98,26 @@ test('stream - response event', t => {
 });
 
 test('stream - error event', t => {
-	t.plan(4);
-
 	got.stream(`${s.url}/error`)
+		.on('response', () => {
+			t.fail('response event should not be emitted');
+		})
 		.on('error', (err, data, res) => {
 			t.is(err.message, 'Response code 404 (Not Found)');
 			t.is(null, data);
 			t.ok(res);
+			t.end();
 		});
+});
 
+test('stream - error event', t => {
 	got.stream('.com')
+		.on('response', () => {
+			t.fail('response event should not be emitted');
+		})
 		.on('error', err => {
 			t.regexTest(/getaddrinfo ENOTFOUND/, err.message);
+			t.end();
 		});
 });
 
