@@ -69,7 +69,7 @@ test('http - buffer on encoding === null', t => {
 });
 
 test('http - timeout option', t => {
-	got(`${s.url}/404`, {timeout: 1, retries: 1}, err => {
+	got(`${s.url}/404`, {timeout: 1, retries: 0}, err => {
 		t.is(err.code, 'ETIMEDOUT');
 		t.end();
 	});

@@ -24,7 +24,7 @@ test('error - error message', t => {
 });
 
 test('error - dns error message', t => {
-	got('.com', err => {
+	got('.com', {retries: 0}, err => {
 		t.ok(err);
 		t.regexTest(/getaddrinfo ENOTFOUND/, err.message);
 		t.is(err.host, '.com');

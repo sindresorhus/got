@@ -98,7 +98,7 @@ test('stream - response event', t => {
 });
 
 test('stream - error event', t => {
-	got.stream(`${s.url}/error`)
+	got.stream(`${s.url}/error`, {retries: 0})
 		.on('response', () => {
 			t.fail('response event should not be emitted');
 		})
@@ -111,7 +111,7 @@ test('stream - error event', t => {
 });
 
 test('stream - error event', t => {
-	got.stream('.com')
+	got.stream('.com', {retries: 0})
 		.on('response', () => {
 			t.fail('response event should not be emitted');
 		})

@@ -36,7 +36,7 @@ test('helpers - promise mode', t => {
 		t.is(err.response.body, 'not found');
 	});
 
-	got.get('.com').catch(err => {
+	got.get('.com', {retries: 0}).catch(err => {
 		t.ok(err);
 	});
 });
