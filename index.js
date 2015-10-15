@@ -165,6 +165,7 @@ function asStream(opts) {
 		var statusCode = res.statusCode;
 		if (statusCode < 200 || statusCode > 299) {
 			proxy.emit('error', new got.HTTPError(statusCode, opts), null, res);
+			return;
 		}
 
 		proxy.emit('response', res);
