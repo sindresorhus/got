@@ -12,7 +12,7 @@
 
 A nicer interface to the built-in [`http`](http://nodejs.org/api/http.html) module.
 
-It supports following redirects, promises, streams, automagically handling gzip/deflate and some convenience options.
+It supports following redirects, promises, streams, retries, automagically handling gzip/deflate and some convenience options.
 
 Created because [`request`](https://github.com/mikeal/request) is bloated *(several megabytes!)*.
 
@@ -110,6 +110,14 @@ Query string object that will be added to the request URL. This will override th
 Type: `number`
 
 Milliseconds after which the request will be aborted and an error event with `ETIMEDOUT` code will be emitted.
+
+###### retries
+
+Type: `number`  
+Default: `5`
+
+Number of request retries when network errors happens.
+
 
 ##### callback(error, data, response)
 

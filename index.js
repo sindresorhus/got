@@ -19,11 +19,17 @@ var nodeStatusCodes = require('node-status-codes');
 var isPlainObj = require('is-plain-obj');
 var parseJson = require('parse-json');
 
+function backoff(iter) {
+	var noise = Math.random() * 1000;
+	return (1 << iter) * 1000 + noise;
+}
+
 function requestAsEventEmitter(opts) {
 	opts = opts || {};
 
 	var ee = new EventEmitter();
 	var redirectCount = 0;
+	var retryCount = 0;
 
 	var get = function (opts) {
 		var fn = opts.protocol === 'https:' ? https : http;
@@ -49,6 +55,11 @@ function requestAsEventEmitter(opts) {
 
 			ee.emit('response', typeof unzipResponse === 'function' ? unzipResponse(res) : res);
 		}).once('error', function (err) {
+			if (retryCount < opts.retries) {
+				setTimeout(get, backoff(retryCount++), opts);
+				return;
+			}
+
 			ee.emit('error', new got.RequestError(err, opts));
 		});
 
@@ -194,6 +205,7 @@ function normalizeArguments(url, opts) {
 	opts = objectAssign(
 		{protocol: 'http:', path: ''},
 		url,
+		{retries: 5},
 		opts
 	);
 
