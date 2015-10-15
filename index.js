@@ -53,7 +53,9 @@ function requestAsEventEmitter(opts) {
 				return;
 			}
 
-			ee.emit('response', typeof unzipResponse === 'function' ? unzipResponse(res) : res);
+			setImmediate(function () {
+				ee.emit('response', typeof unzipResponse === 'function' ? unzipResponse(res) : res);
+			});
 		}).once('error', function (err) {
 			if (retryCount < opts.retries) {
 				setTimeout(get, backoff(retryCount++), opts);
