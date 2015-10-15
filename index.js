@@ -9,7 +9,7 @@ var duplexify = require('duplexify');
 var isStream = require('is-stream');
 var readAllStream = require('read-all-stream');
 var timedOut = require('timed-out');
-var prependHttp = require('prepend-http');
+var urlParseLax = require('url-parse-lax');
 var lowercaseKeys = require('lowercase-keys');
 var isRedirect = require('is-redirect');
 var PinkiePromise = require('pinkie-promise');
@@ -195,7 +195,7 @@ function normalizeArguments(url, opts) {
 	}
 
 	if (typeof url === 'string') {
-		url = urlLib.parse(prependHttp(url));
+		url = urlParseLax(url);
 
 		if (url.auth) {
 			throw new Error('Basic authentication must be done with auth option');
