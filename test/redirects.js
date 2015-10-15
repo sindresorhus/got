@@ -92,7 +92,7 @@ test('redirects - redirect only GET and HEAD requests', t => {
 	});
 });
 
-test.after('redirect - cleanup', t => {
+test.after('redirects - cleanup', t => {
 	s.close();
 	t.end();
 });
