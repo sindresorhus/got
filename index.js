@@ -203,9 +203,8 @@ function normalizeArguments(url, opts) {
 	}
 
 	opts = objectAssign(
-		{protocol: 'http:', path: ''},
+		{protocol: 'http:', path: '', retries: 5},
 		url,
-		{retries: 5},
 		opts
 	);
 
