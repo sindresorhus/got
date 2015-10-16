@@ -233,20 +233,12 @@ Requests can also be sent via [unix domain sockets](http://serverfault.com/quest
 - `SOCKET` - absolute path to a unix domain socket, e.g. `/var/run/docker.sock`
 - `PATH` - request path, e.g. `/v2/keys`
 
-Example:
-
 ```js
 got('http://unix:/var/run/docker.sock:/containers/json');
 
 // or without protocol (http by default)
 got('unix:/var/run/docker.sock:/containers/json');
 ```
-
-Use-cases:
-
-- [Docker API](https://docs.docker.com/articles/basics/#bind-docker-to-another-host-port-or-a-unix-socket) (/var/run/docker.sock)
-- [fleet API](https://coreos.com/fleet/docs/latest/deployment-and-configuration.html#api)  (/var/run/fleet.sock)
-
 
 ## Tip
 
