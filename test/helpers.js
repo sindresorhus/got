@@ -17,28 +17,26 @@ test.before('helpers - setup', t => {
 	s.listen(s.port, () => t.end());
 });
 
-test('helpers - callback mode', t => {
-	got.get(s.url, (err, data) => {
-		t.ifError(err);
-		t.is(data, 'ok');
-		t.end();
-	});
+test('helpers - callback mode', async t => {
+	t.is((await got.get(s.url)).body, 'ok');
 });
 
-test('helpers - promise mode', t => {
-	t.plan(3);
+test('helpers - promise mode', async t => {
+	t.is((await got.get(s.url)).body, 'ok');
 
-	got.get(s.url).then(res => {
-		t.is(res.body, 'ok');
-	});
-
-	got.get(`${s.url}/404`).catch(err => {
+	try {
+		await got.get(`${s.url}/404`);
+		t.fail('Exception is not thrown');
+	} catch (err) {
 		t.is(err.response.body, 'not found');
-	});
+	}
 
-	got.get('.com', {retries: 0}).catch(err => {
+	try {
+		await got.get('.com', {retries: 0});
+		t.fail('Exception is not thrown');
+	} catch (err) {
 		t.ok(err);
-	});
+	}
 });
 
 test.after('helpers - cleanup', t => {

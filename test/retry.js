@@ -22,19 +22,17 @@ test.before('retry - setup', t => {
 	s.listen(s.port, () => t.end());
 });
 
-test('retry - timeout errors', t => {
-	got(`${s.url}/knock-twice`, {timeout: 1000}, (err, data) => {
-		t.ifError(err);
-		t.is(data, 'who`s there?');
-		t.end();
-	});
+test('retry - timeout errors', async t => {
+	t.is((await got(`${s.url}/knock-twice`, {timeout: 1000})).body, 'who`s there?');
 });
 
-test('retry - can be disabled with option', t => {
-	got(`${s.url}/try-me`, {timeout: 1000, retries: 0}, () => {
-		t.is(trys, 1);
-		t.end();
-	});
+test('retry - can be disabled with option', async t => {
+	try {
+		await got(`${s.url}/try-me`, {timeout: 1000, retries: 0});
+	} catch (err) {
+		t.ok(err);
+	}
+	t.is(trys, 1);
 });
 
 test.after('error - cleanup', t => {

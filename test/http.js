@@ -27,66 +27,45 @@ test.before('http - setup', t => {
 	s.listen(s.port, () => t.end());
 });
 
-test('http - callback mode', t => {
-	got(s.url, (err, data) => {
-		t.ifError(err);
-		t.is(data, 'ok');
-		t.end();
-	});
+test('http - simple request', async t => {
+	t.is((await got(s.url)).body, 'ok');
 });
 
-test('http - protocol-less URLs', t => {
-	got(s.url.replace(/^http:\/\//, ''), (err, data) => {
-		t.ifError(err);
-		t.is(data, 'ok');
-		t.end();
-	});
+test('http - protocol-less URLs', async t => {
+	t.is((await got(s.url.replace(/^http:\/\//, ''))).body, 'ok');
 });
 
-test('http - empty response', t => {
-	got(`${s.url}/empty`, (err, data) => {
-		t.ifError(err);
-		t.is(data, '');
-		t.end();
-	});
+test('http - empty response', async t => {
+	t.is((await got(`${s.url}/empty`)).body, '');
 });
 
-test('http - error with code', t => {
-	got(`${s.url}/404`, (err, data) => {
-		t.ok(err);
+test('http - error with code', async t => {
+	try {
+		await got(`${s.url}/404`);
+		t.fail('Exception was not thrown');
+	} catch (err) {
 		t.is(err.statusCode, 404);
-		t.is(data, 'not');
-		t.end();
-	});
+		t.is(err.response.body, 'not');
+	}
 });
 
-test('http - buffer on encoding === null', t => {
-	got(s.url, {encoding: null}, (err, data) => {
-		t.ifError(err);
-		t.ok(Buffer.isBuffer(data));
-		t.end();
-	});
+test('http - buffer on encoding === null', async t => {
+	const data = (await got(s.url, {encoding: null})).body;
+	t.ok(Buffer.isBuffer(data));
 });
 
-test('http - timeout option', t => {
-	got(`${s.url}/404`, {timeout: 1, retries: 0}, err => {
+test('http - timeout option', async t => {
+	try {
+		await got(`${s.url}/404`, {timeout: 1, retries: 0});
+		t.fail('Exception was not thrown');
+	} catch (err) {
 		t.is(err.code, 'ETIMEDOUT');
-		t.end();
-	});
+	}
 });
 
-test('http - query option', t => {
-	t.plan(4);
-
-	got(s.url, {query: {recent: true}}, (err, data) => {
-		t.ifError(err);
-		t.is(data, 'recent');
-	});
-
-	got(s.url, {query: 'recent=true'}, (err, data) => {
-		t.ifError(err);
-		t.is(data, 'recent');
-	});
+test('http - query option', async t => {
+	t.is((await got(s.url, {query: {recent: true}})).body, 'recent');
+	t.is((await got(s.url, {query: 'recent=true'})).body, 'recent');
 });
 
 test.after('http - cleanup', t => {

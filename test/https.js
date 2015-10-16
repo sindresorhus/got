@@ -47,34 +47,21 @@ test.before('https - setup', t => {
 	s.listen(s.port, () => t.end());
 });
 
-test('https - redirects from http to https works', t => {
-	got('http://github.com', (err, data) => {
-		t.ifError(err);
-		t.ok(data);
-		t.end();
-	});
+test('https - redirects from http to https works', async t => {
+	t.ok((await got('http://github.com')).body);
 });
 
-test('https - make request to https server', t => {
-	got('https://google.com', {
-		strictSSL: true
-	}, (err, data) => {
-		t.ifError(err);
-		t.ok(data);
-		t.end();
-	});
+test('https - make request to https server', async t => {
+	t.ok((await got('https://google.com', {strictSSL: true})).body);
 });
 
-test('https - make request to https server with ca', t => {
-	got(s.url, {
+test('https - make request to https server with ca', async t => {
+	const {body} = await got(s.url, {
 		strictSSL: true,
 		ca: caRootCert,
 		headers: {host: 'sindresorhus.com'}
-	}, (err, data) => {
-		t.ifError(err);
-		t.is(data, 'ok');
-		t.end();
 	});
+	t.is(body, 'ok');
 });
 
 test.after('https - cleanup', t => {
