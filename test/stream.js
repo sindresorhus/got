@@ -24,8 +24,8 @@ s.on('/error', (req, res) => {
 	res.end();
 });
 
-test.before('stream - setup', t => {
-	s.listen(s.port, () => t.end());
+test.before('stream - setup', async t => {
+	await s.listen(s.port);
 });
 
 test('stream - json option can not be used in stream mode', t => {
@@ -121,7 +121,6 @@ test('stream - error event', t => {
 		});
 });
 
-test.after('stream - cleanup', t => {
-	s.close();
-	t.end();
+test.after('stream - cleanup', async t => {
+	await s.close();
 });

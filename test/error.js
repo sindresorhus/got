@@ -9,8 +9,8 @@ s.on('/', (req, res) => {
 	res.end('not');
 });
 
-test.before('error - setup', t => {
-	s.listen(s.port, () => t.end());
+test.before('error - setup', async t => {
+	await s.listen(s.port);
 });
 
 test('error - error message', async t => {
@@ -53,7 +53,6 @@ test('error - options.body error message', async t => {
 	}
 });
 
-test.after('error - cleanup', t => {
-	s.close();
-	t.end();
+test.after('error - cleanup', async t => {
+	await s.close();
 });

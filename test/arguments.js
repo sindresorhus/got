@@ -1,4 +1,5 @@
 import test from 'ava';
+import pify from 'pify';
 import got from '../';
 import {createServer} from './_server';
 
@@ -17,8 +18,8 @@ s.on('/?test=wow', (req, res) => {
 	res.end(req.url);
 });
 
-test.before('arguments - setup', t => {
-	s.listen(s.port, () => t.end());
+test.before('arguments - setup', async t => {
+	await s.listen(s.port);
 });
 
 test('arguments - url argument is required', async t => {
@@ -47,7 +48,6 @@ test('arguments - should throw with auth in url', async t => {
 	}
 });
 
-test.after('arguments - cleanup', t => {
-	s.close();
-	t.end();
+test.after('arguments - cleanup', async t => {
+	await s.close();
 });

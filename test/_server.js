@@ -1,5 +1,6 @@
 import http from 'http';
 import https from 'https';
+import pify from 'pify';
 
 export const host = 'localhost';
 export let port = 6767;
@@ -15,6 +16,9 @@ export const createServer = port2 => {
 	s.url = `http://${host}:${port}`;
 	s.protocol = 'http';
 
+	s.listen = pify(s.listen);
+	s.close = pify(s.close);
+
 	return s;
 };
 
@@ -27,6 +31,9 @@ export const createSSLServer = (portSSL2, opts) => {
 	s.port = portSSL;
 	s.url = `https://${host}:${portSSL}`;
 	s.protocol = 'https';
+
+	s.listen = pify(s.listen);
+	s.close = pify(s.close);
 
 	return s;
 };

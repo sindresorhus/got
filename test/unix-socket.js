@@ -11,8 +11,8 @@ s.on('/', (req, res) => {
 	res.end('ok');
 });
 
-test.before('unix-socket - setup', t => {
-	s.listen(socketPath, () => t.end());
+test.before('unix-socket - setup', async t => {
+	await s.listen(socketPath);
 });
 
 test('unix-socket - request via unix socket', async t => {
@@ -25,7 +25,6 @@ test('unix-socket - protocol-less request', async t => {
 	t.is((await got(url)).body, 'ok');
 });
 
-test.after('unix-socket - cleanup', t => {
-	s.close();
-	t.end();
+test.after('unix-socket - cleanup', async t => {
+	await s.close();
 });

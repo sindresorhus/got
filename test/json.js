@@ -27,8 +27,8 @@ s.on('/non200-invalid', (req, res) => {
 	res.end('Internal error');
 });
 
-test.before('json - setup', t => {
-	s.listen(s.port, () => t.end());
+test.before('json - setup', async t => {
+	await s.listen(s.port);
 });
 
 test('json - json option should parse response', async t => {
@@ -71,7 +71,6 @@ test('json - json option should catch errors on invalid non-200 responses', asyn
 	}
 });
 
-test.after('json - cleanup', t => {
-	s.close();
-	t.end();
+test.after('json - cleanup', async t => {
+	await s.close();
 });

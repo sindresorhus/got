@@ -8,8 +8,8 @@ s.on('/', (req, res) => {
 	res.end(JSON.stringify(req.headers));
 });
 
-test.before('headers - setup', t => {
-	s.listen(s.port, () => t.end());
+test.before('headers - setup', async t => {
+	await s.listen(s.port);
 });
 
 test('headers - send user-agent header by default', async t => {
@@ -37,7 +37,6 @@ test('headers - transform headers names to lowercase', async t => {
 	t.is(headers['user-agent'], 'test');
 });
 
-test.after('headers - cleanup', t => {
-	s.close();
-	t.end();
+test.after('headers - cleanup', async t => {
+	await s.close();
 });

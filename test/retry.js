@@ -18,8 +18,8 @@ s.on('/try-me', () => {
 	trys++;
 });
 
-test.before('retry - setup', t => {
-	s.listen(s.port, () => t.end());
+test.before('retry - setup', async t => {
+	await s.listen(s.port);
 });
 
 test('retry - timeout errors', async t => {
@@ -35,7 +35,6 @@ test('retry - can be disabled with option', async t => {
 	t.is(trys, 1);
 });
 
-test.after('error - cleanup', t => {
-	s.close();
-	t.end();
+test.after('error - cleanup', async t => {
+	await s.close();
 });

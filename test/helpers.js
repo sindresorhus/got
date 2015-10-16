@@ -13,8 +13,8 @@ s.on('/404', (req, res) => {
 	res.end('not found');
 });
 
-test.before('helpers - setup', t => {
-	s.listen(s.port, () => t.end());
+test.before('helpers - setup', async t => {
+	await s.listen(s.port);
 });
 
 test('helpers - callback mode', t => {
@@ -43,7 +43,6 @@ test('helpers - promise mode', async t => {
 	}
 });
 
-test.after('helpers - cleanup', t => {
-	s.close();
-	t.end();
+test.after('helpers - cleanup', async t => {
+	await s.close();
 });

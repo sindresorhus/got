@@ -23,8 +23,8 @@ s.on('/?recent=true', (req, res) => {
 	res.end('recent');
 });
 
-test.before('http - setup', t => {
-	s.listen(s.port, () => t.end());
+test.before('http - setup', async t => {
+	await s.listen(s.port);
 });
 
 test('http - simple request', async t => {
@@ -68,7 +68,6 @@ test('http - query option', async t => {
 	t.is((await got(s.url, {query: 'recent=true'})).body, 'recent');
 });
 
-test.after('http - cleanup', t => {
-	s.close();
-	t.end();
+test.after('http - cleanup', async t => {
+	await s.close();
 });

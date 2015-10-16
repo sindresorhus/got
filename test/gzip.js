@@ -20,8 +20,8 @@ s.on('/corrupted', (req, res) => {
 	res.end('Not gzipped content');
 });
 
-test.before('gzip - setup', t => {
-	s.listen(s.port, () => t.end());
+test.before('gzip - setup', async t => {
+	await s.listen(s.port);
 });
 
 test('gzip - ungzip content', async t => {
@@ -43,7 +43,6 @@ test('gzip - preserve headers property', async t => {
 	t.ok((await got(s.url)).headers);
 });
 
-test.after('gzip - cleanup', t => {
-	s.close();
-	t.end();
+test.after('gzip - cleanup', async t => {
+	await s.close();
 });

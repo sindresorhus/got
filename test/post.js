@@ -20,8 +20,8 @@ s.on('/empty', (req, res) => {
 	res.end();
 });
 
-test.before('post - setup', t => {
-	s.listen(s.port, () => t.end());
+test.before('post - setup', async t => {
+	await s.listen(s.port);
 });
 
 test('post - GET can have body', async t => {
@@ -109,7 +109,6 @@ test('post - works with plain object in body', async t => {
 	t.is(body['content-type'], 'doge');
 });
 
-test.after('post - cleanup', t => {
-	s.close();
-	t.end();
+test.after('post - cleanup', async t => {
+	await s.close();
 });

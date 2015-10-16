@@ -36,8 +36,8 @@ s.on('/relativeQuery?bang', (req, res) => {
 	res.end();
 });
 
-test.before('redirects - setup', t => {
-	s.listen(s.port, () => t.end());
+test.before('redirects - setup', async t => {
+	await s.listen(s.port);
 });
 
 test('redirects - follows redirect', async t => {
@@ -76,7 +76,6 @@ test('redirects - redirect only GET and HEAD requests', async t => {
 	}
 });
 
-test.after('redirects - cleanup', t => {
-	s.close();
-	t.end();
+test.after('redirects - cleanup', async t => {
+	await s.close();
 });

@@ -37,10 +37,10 @@ test.before('https - create pem', async t => {
 	cert = keys.certificate;
 });
 
-test.before('https - setup', t => {
+test.before('https - setup', async t => {
 	s = createSSLServer(portSSL + 1, {key, cert});
 	s.on('/', (req, res) => res.end('ok'));
-	s.listen(s.port, () => t.end());
+	await s.listen(s.port);
 });
 
 test('https - redirects from http to https works', async t => {
@@ -60,7 +60,6 @@ test('https - make request to https server with ca', async t => {
 	t.is(body, 'ok');
 });
 
-test.after('https - cleanup', t => {
-	s.close();
-	t.end();
+test.after('https - cleanup', async t => {
+	await s.close();
 });
