@@ -17,8 +17,12 @@ test.before('helpers - setup', t => {
 	s.listen(s.port, () => t.end());
 });
 
-test('helpers - callback mode', async t => {
-	t.is((await got.get(s.url)).body, 'ok');
+test('helpers - callback mode', t => {
+	got.get(s.url, function (err, body) {
+		t.ifError(err);
+		t.is(body, 'ok');
+		t.end();
+	});
 });
 
 test('helpers - promise mode', async t => {
