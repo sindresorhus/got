@@ -24,30 +24,23 @@ test.before('gzip - setup', t => {
 	s.listen(s.port, () => t.end());
 });
 
-test('gzip - ungzip content', t => {
-	got(s.url, (err, data) => {
-		t.ifError(err);
-		t.is(data, testContent);
-		t.end();
-	});
+test('gzip - ungzip content', async t => {
+	t.is((await got(s.url)).body, testContent);
 });
 
-test('gzip - ungzip error', t => {
-	got(`${s.url}/corrupted`, err => {
-		t.ok(err);
+test('gzip - ungzip error', async t => {
+	try {
+		await got(`${s.url}/corrupted`);
+		t.fail('Exception was not thrown');
+	} catch (err) {
 		t.is(err.message, 'incorrect header check');
 		t.is(err.path, '/corrupted');
 		t.is(err.name, 'ReadError');
-		t.end();
-	});
+	}
 });
 
-test('gzip - preserve headers property', t => {
-	got(s.url, (err, data, res) => {
-		t.ifError(err);
-		t.ok(res.headers);
-		t.end();
-	});
+test('gzip - preserve headers property', async t => {
+	t.ok((await got(s.url)).headers);
 });
 
 test.after('gzip - cleanup', t => {

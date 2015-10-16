@@ -1,3 +1,5 @@
+/**/
+
 import test from 'ava';
 import intoStream from 'into-stream';
 import got from '../';
@@ -22,106 +24,80 @@ test.before('post - setup', t => {
 	s.listen(s.port, () => t.end());
 });
 
-test('post - GET can have body', t => {
-	t.plan(3);
-
-	got.get(s.url, {body: 'hi'}, (err, data, res) => {
-		t.ifError(err);
-		t.is(data, 'hi');
-		t.is(res.headers.method, 'GET');
-	});
+test('post - GET can have body', async t => {
+	const {body, headers} = await got.get(s.url, {body: 'hi'});
+	t.is(body, 'hi');
+	t.is(headers.method, 'GET');
 });
 
-test('post - send data from options with post request', t => {
-	t.plan(6);
-
-	got(s.url, {body: 'wow'}, (err, data) => {
-		t.ifError(err);
-		t.is(data, 'wow');
-	});
-
-	got(s.url, {body: new Buffer('wow')}, (err, data) => {
-		t.ifError(err);
-		t.is(data, 'wow');
-	});
-
-	got(s.url, {body: intoStream(['wow'])}, (err, data) => {
-		t.ifError(err);
-		t.is(data, 'wow');
-	});
+test('post - send data from options with post request', async t => {
+	const {body} = await got(s.url, {body: 'wow'});
+	t.is(body, 'wow');
 });
 
-test('post - works with empty post response', t => {
-	got(`${s.url}/empty`, {body: 'wow'}, (err, data) => {
-		t.ifError(err);
-		t.is(data, '');
-		t.end();
-	});
+test('post - send data from options with post request', async t => {
+	const {body} = await got(s.url, {body: new Buffer('wow')});
+	t.is(body, 'wow');
 });
 
-test('post - post have content-length header to string', t => {
-	t.plan(10);
+test('post - send data from options with post request', async t => {
+	const {body} = await got(s.url, {body: intoStream(['wow'])});
+	t.is(body, 'wow');
+});
 
-	got(`${s.url}/headers`, {
-		body: 'wow',
-		json: true
-	}, (err, headers) => {
-		t.ifError(err);
-		t.is(headers['content-length'], '3');
-	});
+test('post - works with empty post response', async t => {
+	const {body} = await got(`${s.url}/empty`, {body: 'wow'});
+	t.is(body, '');
+});
 
-	got(`${s.url}/headers`, {
-		body: new Buffer('wow'),
-		json: true
-	}, (err, headers) => {
-		t.ifError(err);
-		t.is(headers['content-length'], '3');
-	});
+test('post - post have content-length header to string', async t => {
+	const {body} = await got(`${s.url}/headers`, {body: 'wow', json: true});
+	t.is(body['content-length'], '3');
+});
 
-	got(`${s.url}/headers`, {
-		body: intoStream(['wow']),
-		json: true
-	}, (err, headers) => {
-		t.ifError(err);
-		t.is(headers['content-length'], undefined);
-	});
+test('post - post have content-length header to string', async t => {
+	const {body} = await got(`${s.url}/headers`, {body: new Buffer('wow'), json: true});
+	t.is(body['content-length'], '3');
+});
 
-	got(`${s.url}/headers`, {
+test('post - post have content-length header to string', async t => {
+	const {body} = await got(`${s.url}/headers`, {body: intoStream(['wow']), json: true});
+	t.is(body['content-length'], undefined);
+});
+
+test('post - post have content-length header to string', async t => {
+	const {body} = await got(`${s.url}/headers`, {
 		body: 'wow',
 		json: true,
 		headers: {
 			'content-length': '10'
 		}
-	}, (err, headers) => {
-		t.ifError(err);
-		t.is(headers['content-length'], '10');
 	});
+	t.is(body['content-length'], '10');
+});
 
-	got(`${s.url}/headers`, {
+test('post - post have content-length header to string', async t => {
+	const {body} = await got(`${s.url}/headers`, {
 		body: '3\r\nwow\r\n0\r\n',
 		json: true,
 		headers: {
 			'transfer-encoding': 'chunked'
 		}
-	}, (err, headers) => {
-		t.ifError(err);
-		t.is(headers['content-length'], undefined);
 	});
+	t.is(body['content-length'], undefined);
 });
 
-test('post - works with plain object in body', t => {
-	t.plan(4);
-
-	got(s.url, {
+test('post - works with plain object in body', async t => {
+	const {body} = await got(s.url, {
 		body: {
 			such: 'wow'
 		}
-	}, (err, data) => {
-		t.ifError(err);
-		t.is(data, 'such=wow');
 	});
+	t.is(body, 'such=wow');
+});
 
-	got(`${s.url}/headers`, {
+test('post - works with plain object in body', async t => {
+	const {body} = await got(`${s.url}/headers`, {
 		headers: {
 			'content-type': 'doge'
 		},
@@ -129,10 +105,8 @@ test('post - works with plain object in body', t => {
 			such: 'wow'
 		},
 		json: true
-	}, (err, headers) => {
-		t.ifError(err);
-		t.is(headers['content-type'], 'doge');
 	});
+	t.is(body['content-type'], 'doge');
 });
 
 test.after('post - cleanup', t => {

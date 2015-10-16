@@ -15,25 +15,14 @@ test.before('unix-socket - setup', t => {
 	s.listen(socketPath, () => t.end());
 });
 
-test('unix-socket - request via unix socket', t => {
-	// borrow unix domain socket url format from request module
+test('unix-socket - request via unix socket', async t => {
 	const url = format('http://unix:%s:%s', socketPath, '/');
-
-	got(url, (err, data) => {
-		t.ifError(err);
-		t.is(data, 'ok');
-		t.end();
-	});
+	t.is((await got(url)).body, 'ok');
 });
 
-test('unix-socket - protocol-less request', t => {
+test('unix-socket - protocol-less request', async t => {
 	const url = format('unix:%s:%s', socketPath, '/');
-
-	got(url, (err, data) => {
-		t.ifError(err);
-		t.is(data, 'ok');
-		t.end();
-	});
+	t.is((await got(url)).body, 'ok');
 });
 
 test.after('unix-socket - cleanup', t => {

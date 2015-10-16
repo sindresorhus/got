@@ -12,56 +12,29 @@ test.before('headers - setup', t => {
 	s.listen(s.port, () => t.end());
 });
 
-test('headers - send user-agent header by default', t => {
-	got(s.url, (err, data) => {
-		t.ifError(err);
-
-		const headers = JSON.parse(data);
-
-		t.is(headers['user-agent'], 'https://github.com/sindresorhus/got');
-		t.end();
-	});
+test('headers - send user-agent header by default', async t => {
+	const headers = (await got(s.url, {json: true})).body;
+	t.is(headers['user-agent'], 'https://github.com/sindresorhus/got');
 });
 
-test('headers - send accept-encoding header by default', t => {
-	got(s.url, (err, data) => {
-		t.ifError(err);
-
-		const headers = JSON.parse(data);
-
-		t.is(headers['accept-encoding'], 'gzip,deflate');
-		t.end();
-	});
+test('headers - send accept-encoding header by default', async t => {
+	const headers = (await got(s.url, {json: true})).body;
+	t.is(headers['accept-encoding'], 'gzip,deflate');
 });
 
-test('headers - send accept header with json option', t => {
-	got(s.url, {json: true}, (err, headers) => {
-		t.ifError(err);
-		t.is(headers.accept, 'application/json');
-		t.end();
-	});
+test('headers - send accept header with json option', async t => {
+	const headers = (await got(s.url, {json: true})).body;
+	t.is(headers.accept, 'application/json');
 });
 
-test('headers - send host header by default', t => {
-	got(s.url, (err, data) => {
-		t.ifError(err);
-
-		const headers = JSON.parse(data);
-
-		t.is(headers.host, `localhost:${s.port}`);
-		t.end();
-	});
+test('headers - send host header by default', async t => {
+	const headers = (await got(s.url, {json: true})).body;
+	t.is(headers.host, `localhost:${s.port}`);
 });
 
-test('headers - transform headers names to lowercase', t => {
-	got(s.url, {headers: {'USER-AGENT': 'test'}}, (err, data) => {
-		t.ifError(err);
-
-		const headers = JSON.parse(data);
-
-		t.is(headers['user-agent'], 'test');
-		t.end();
-	});
+test('headers - transform headers names to lowercase', async t => {
+	const headers = (await got(s.url, {headers: {'USER-AGENT': 'test'}, json: true})).body;
+	t.is(headers['user-agent'], 'test');
 });
 
 test.after('headers - cleanup', t => {
