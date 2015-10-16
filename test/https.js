@@ -1,5 +1,6 @@
 import test from 'ava';
 import pem from 'pem';
+import pify from 'pify';
 import got from '../';
 import {createSSLServer, portSSL} from './_server';
 
@@ -9,20 +10,17 @@ let cert;
 let caRootKey;
 let caRootCert;
 
-test.before('https - create root pem', t => {
-	pem.createCertificate({
-		days: 1,
-		selfSigned: true
-	}, (err, keys) => {
-		t.ifError(err);
-		caRootKey = keys.serviceKey;
-		caRootCert = keys.certificate;
-		t.end();
-	});
+let pemify = pify.all(pem);
+
+test.before('https - create root pem', async t => {
+	const keys = await pemify.createCertificate({days: 1, selfSigned: true});
+
+	caRootKey = keys.serviceKey;
+	caRootCert = keys.certificate;
 });
 
-test.before('https - create pem', t => {
-	pem.createCertificate({
+test.before('https - create pem', async t => {
+	const keys = await pemify.createCertificate({
 		serviceCertificate: caRootCert,
 		serviceKey: caRootKey,
 		serial: Date.now(),
@@ -33,12 +31,10 @@ test.before('https - create pem', t => {
 		organization: '',
 		organizationUnit: '',
 		commonName: 'sindresorhus.com'
-	}, (err, keys) => {
-		t.ifError(err);
-		key = keys.clientKey;
-		cert = keys.certificate;
-		t.end();
 	});
+
+	key = keys.clientKey;
+	cert = keys.certificate;
 });
 
 test.before('https - setup', t => {
