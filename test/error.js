@@ -2,18 +2,20 @@ import test from 'ava';
 import got from '../';
 import {createServer} from './_server';
 
-const s = createServer();
+let s;
 
-s.on('/', (req, res) => {
-	res.statusCode = 404;
-	res.end('not');
-});
+test.before('setup', async t => {
+	s = await createServer();
 
-test.before('error - setup', async t => {
+	s.on('/', (req, res) => {
+		res.statusCode = 404;
+		res.end('not');
+	});
+
 	await s.listen(s.port);
 });
 
-test('error - error message', async t => {
+test('message', async t => {
 	try {
 		await got(s.url);
 		t.fail('Exception was not thrown');
@@ -25,7 +27,7 @@ test('error - error message', async t => {
 	}
 });
 
-test('error - dns error message', async t => {
+test('dns message', async t => {
 	try {
 		await got('.com', {retries: 0});
 		t.fail('Exception was not thrown');
@@ -37,7 +39,7 @@ test('error - dns error message', async t => {
 	}
 });
 
-test('error - options.body error message', async t => {
+test('options.body error message', async t => {
 	try {
 		got(s.url, {body: () => {}}, () => {});
 		t.fail('Exception was not thrown');
@@ -53,6 +55,6 @@ test('error - options.body error message', async t => {
 	}
 });
 
-test.after('error - cleanup', async t => {
+test.after('cleanup', async t => {
 	await s.close();
 });

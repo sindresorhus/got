@@ -2,53 +2,55 @@ import test from 'ava';
 import got from '../';
 import {createServer} from './_server';
 
-const s = createServer();
+let s;
 
-s.on('/', (req, res) => {
-	res.end('reached');
-});
+test.before('setup', async t => {
+	s = await createServer();
 
-s.on('/finite', (req, res) => {
-	res.writeHead(302, {
-		location: `${s.url}/`
+	s.on('/', (req, res) => {
+		res.end('reached');
 	});
-	res.end();
-});
 
-s.on('/endless', (req, res) => {
-	res.writeHead(302, {
-		location: `${s.url}/endless`
+	s.on('/finite', (req, res) => {
+		res.writeHead(302, {
+			location: `${s.url}/`
+		});
+		res.end();
 	});
-	res.end();
-});
 
-s.on('/relative', (req, res) => {
-	res.writeHead(302, {
-		location: '/'
+	s.on('/endless', (req, res) => {
+		res.writeHead(302, {
+			location: `${s.url}/endless`
+		});
+		res.end();
 	});
-	res.end();
-});
 
-s.on('/relativeQuery?bang', (req, res) => {
-	res.writeHead(302, {
-		location: '/'
+	s.on('/relative', (req, res) => {
+		res.writeHead(302, {
+			location: '/'
+		});
+		res.end();
 	});
-	res.end();
-});
 
-test.before('redirects - setup', async t => {
+	s.on('/relativeQuery?bang', (req, res) => {
+		res.writeHead(302, {
+			location: '/'
+		});
+		res.end();
+	});
+
 	await s.listen(s.port);
 });
 
-test('redirects - follows redirect', async t => {
+test('follows redirect', async t => {
 	t.is((await got(`${s.url}/finite`)).body, 'reached');
 });
 
-test('redirects - follows relative redirect', async t => {
+test('relative redirect works', async t => {
 	t.is((await got(`${s.url}/relative`)).body, 'reached');
 });
 
-test('redirects - throws on endless redirect', async t => {
+test('throws on endless redirect', async t => {
 	try {
 		await got(`${s.url}/endless`);
 		t.fail('Exception was not thrown');
@@ -57,15 +59,15 @@ test('redirects - throws on endless redirect', async t => {
 	}
 });
 
-test('redirects - query in options are not breaking redirects', async t => {
+test('query in options are not breaking redirects', async t => {
 	t.is((await got(`${s.url}/relativeQuery`, {query: 'bang'})).body, 'reached');
 });
 
-test('redirects - hostname+path in options are not breaking redirects', async t => {
+test('hostname+path in options are not breaking redirects', async t => {
 	t.is((await got(`${s.url}/relative`, {hostname: s.host, path: '/relative'})).body, 'reached');
 });
 
-test('redirects - redirect only GET and HEAD requests', async t => {
+test('redirect only GET and HEAD requests', async t => {
 	try {
 		await got(`${s.url}/relative`, {body: 'wow'});
 		t.fail('Exception was not thrown');
@@ -76,6 +78,6 @@ test('redirects - redirect only GET and HEAD requests', async t => {
 	}
 });
 
-test.after('redirects - cleanup', async t => {
+test.after('cleanup', async t => {
 	await s.close();
 });

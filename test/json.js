@@ -2,45 +2,47 @@ import test from 'ava';
 import got from '../';
 import {createServer} from './_server';
 
-const s = createServer();
+let s;
 
-s.on('/', (req, res) => {
-	res.end('{"data":"dog"}');
-});
+test.before('setup', async t => {
+	s = await createServer();
 
-s.on('/invalid', (req, res) => {
-	res.end('/');
-});
+	s.on('/', (req, res) => {
+		res.end('{"data":"dog"}');
+	});
 
-s.on('/204', (req, res) => {
-	res.statusCode = 204;
-	res.end();
-});
+	s.on('/invalid', (req, res) => {
+		res.end('/');
+	});
 
-s.on('/non200', (req, res) => {
-	res.statusCode = 500;
-	res.end('{"data":"dog"}');
-});
+	s.on('/204', (req, res) => {
+		res.statusCode = 204;
+		res.end();
+	});
 
-s.on('/non200-invalid', (req, res) => {
-	res.statusCode = 500;
-	res.end('Internal error');
-});
+	s.on('/non200', (req, res) => {
+		res.statusCode = 500;
+		res.end('{"data":"dog"}');
+	});
 
-test.before('json - setup', async t => {
+	s.on('/non200-invalid', (req, res) => {
+		res.statusCode = 500;
+		res.end('Internal error');
+	});
+
 	await s.listen(s.port);
 });
 
-test('json - json option should parse response', async t => {
+test('parses response', async t => {
 	t.same((await got(s.url, {json: true})).body, {data: 'dog'});
 });
 
-test('json - json option should not parse responses without a body', async t => {
+test('not parses responses without a body', async t => {
 	const {body} = await got(`${s.url}/204`, {json: true});
 	t.is(body, '');
 });
 
-test('json - json option wrap parsing errors', async t => {
+test('wraps parsing errors', async t => {
 	try {
 		await got(`${s.url}/invalid`, {json: true});
 		t.fail('Exception was not thrown');
@@ -51,7 +53,7 @@ test('json - json option wrap parsing errors', async t => {
 	}
 });
 
-test('json - json option should parse non-200 responses', async t => {
+test('parses non-200 responses', async t => {
 	try {
 		await got(`${s.url}/non200`, {json: true});
 		t.fail('Exception was not thrown');
@@ -60,7 +62,7 @@ test('json - json option should parse non-200 responses', async t => {
 	}
 });
 
-test('json - json option should catch errors on invalid non-200 responses', async t => {
+test('catches errors on invalid non-200 responses', async t => {
 	try {
 		await got(`${s.url}/non200-invalid`, {json: true});
 		t.fail('Exception was not thrown');
@@ -71,6 +73,6 @@ test('json - json option should catch errors on invalid non-200 responses', asyn
 	}
 });
 
-test.after('json - cleanup', async t => {
+test.after('cleanup', async t => {
 	await s.close();
 });

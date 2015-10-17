@@ -5,67 +5,69 @@ import intoStream from 'into-stream';
 import got from '../';
 import {createServer} from './_server';
 
-const s = createServer();
+let s;
 
-s.on('/', (req, res) => {
-	res.setHeader('method', req.method);
-	req.pipe(res);
-});
+test.before('setup', async t => {
+	s = await createServer();
 
-s.on('/headers', (req, res) => {
-	res.end(JSON.stringify(req.headers));
-});
+	s.on('/', (req, res) => {
+		res.setHeader('method', req.method);
+		req.pipe(res);
+	});
 
-s.on('/empty', (req, res) => {
-	res.end();
-});
+	s.on('/headers', (req, res) => {
+		res.end(JSON.stringify(req.headers));
+	});
 
-test.before('post - setup', async t => {
+	s.on('/empty', (req, res) => {
+		res.end();
+	});
+
 	await s.listen(s.port);
 });
 
-test('post - GET can have body', async t => {
+test('GET can have body', async t => {
 	const {body, headers} = await got.get(s.url, {body: 'hi'});
 	t.is(body, 'hi');
 	t.is(headers.method, 'GET');
 });
 
-test('post - send data from options with post request', async t => {
+test('sends strings', async t => {
 	const {body} = await got(s.url, {body: 'wow'});
 	t.is(body, 'wow');
 });
 
-test('post - send data from options with post request', async t => {
+test('sends Buffers', async t => {
 	const {body} = await got(s.url, {body: new Buffer('wow')});
 	t.is(body, 'wow');
 });
 
-test('post - send data from options with post request', async t => {
+test('sends Streams', async t => {
 	const {body} = await got(s.url, {body: intoStream(['wow'])});
 	t.is(body, 'wow');
 });
 
-test('post - works with empty post response', async t => {
+test('works with empty post response', async t => {
 	const {body} = await got(`${s.url}/empty`, {body: 'wow'});
 	t.is(body, '');
 });
 
-test('post - post have content-length header to string', async t => {
+test('content-length header with string body', async t => {
 	const {body} = await got(`${s.url}/headers`, {body: 'wow', json: true});
 	t.is(body['content-length'], '3');
 });
 
-test('post - post have content-length header to string', async t => {
+test('content-length header with Buffer body', async t => {
 	const {body} = await got(`${s.url}/headers`, {body: new Buffer('wow'), json: true});
 	t.is(body['content-length'], '3');
 });
 
-test('post - post have content-length header to string', async t => {
+test('content-length header with Stream body', async t => {
 	const {body} = await got(`${s.url}/headers`, {body: intoStream(['wow']), json: true});
 	t.is(body['content-length'], undefined);
 });
 
-test('post - post have content-length header to string', async t => {
+test('content-length header is not overriden', async t => {
 	const {body} = await got(`${s.url}/headers`, {
 		body: 'wow',
 		json: true,
@@ -76,7 +78,7 @@ test('post - post have content-length header to string', async t => {
 	t.is(body['content-length'], '10');
 });
 
-test('post - post have content-length header to string', async t => {
+test('content-length header disabled for chunked transfer-encoding', async t => {
 	const {body} = await got(`${s.url}/headers`, {
 		body: '3\r\nwow\r\n0\r\n',
 		json: true,
@@ -87,7 +89,7 @@ test('post - post have content-length header to string', async t => {
 	t.is(body['content-length'], undefined);
 });
 
-test('post - works with plain object in body', async t => {
+test('object in options.body treated as querystring', async t => {
 	const {body} = await got(s.url, {
 		body: {
 			such: 'wow'
@@ -96,7 +98,7 @@ test('post - works with plain object in body', async t => {
 	t.is(body, 'such=wow');
 });
 
-test('post - works with plain object in body', async t => {
+test('content-type header is not overriden when object in options.body', async t => {
 	const {body} = await got(`${s.url}/headers`, {
 		headers: {
 			'content-type': 'doge'
@@ -109,6 +111,6 @@ test('post - works with plain object in body', async t => {
 	t.is(body['content-type'], 'doge');
 });
 
-test.after('post - cleanup', async t => {
+test.after('cleanup', async t => {
 	await s.close();
 });
