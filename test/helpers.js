@@ -32,14 +32,14 @@ test('promise mode', async t => {
 
 	try {
 		await got.get(`${s.url}/404`);
-		t.fail('Exception is not thrown');
+		t.fail('Exception was not thrown');
 	} catch (err) {
 		t.is(err.response.body, 'not found');
 	}
 
 	try {
 		await got.get('.com', {retries: 0});
-		t.fail('Exception is not thrown');
+		t.fail('Exception was not thrown');
 	} catch (err) {
 		t.ok(err);
 	}
