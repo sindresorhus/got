@@ -61,8 +61,9 @@
     "url-parse-lax": "^1.0.0"
   },
   "devDependencies": {
-    "ava": "^0.2.0",
+    "ava": "git+https://github.com/sindresorhus/ava.git",
     "coveralls": "^2.11.4",
+    "get-port": "^1.0.0",
     "into-stream": "^2.0.0",
     "nyc": "^3.2.2",
     "pem": "^1.4.4",

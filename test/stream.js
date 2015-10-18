@@ -2,40 +2,42 @@ import test from 'ava';
 import got from '../';
 import {createServer} from './_server';
 
-const s = createServer();
+let s;
 
-s.on('/', (req, res) => {
-	res.end('ok');
-});
+test.before('setup', async t => {
+	s = await createServer();
 
-s.on('/post', (req, res) => {
-	req.pipe(res);
-});
-
-s.on('/redirect', (req, res) => {
-	res.writeHead(302, {
-		location: s.url
+	s.on('/', (req, res) => {
+		res.end('ok');
 	});
-	res.end();
-});
 
-s.on('/error', (req, res) => {
-	res.statusCode = 404;
-	res.end();
-});
+	s.on('/post', (req, res) => {
+		req.pipe(res);
+	});
 
-test.before('stream - setup', async t => {
+	s.on('/redirect', (req, res) => {
+		res.writeHead(302, {
+			location: s.url
+		});
+		res.end();
+	});
+
+	s.on('/error', (req, res) => {
+		res.statusCode = 404;
+		res.end();
+	});
+
 	await s.listen(s.port);
 });
 
-test('stream - json option can not be used in stream mode', t => {
+test('option.json can not be used', t => {
 	t.throws(() => {
 		got.stream(s.url, {json: true});
 	}, 'got can not be used as stream when options.json is used');
 	t.end();
 });
 
-test('stream - callback can not be used in stream mode', t => {
+test('callback can not be used', t => {
 	t.throws(() => {
 		got.stream(s.url, {json: true}, () => {});
 	}, 'callback can not be used in stream mode');
@@ -47,7 +49,7 @@ test('stream - callback can not be used in stream mode', t => {
 	t.end();
 });
 
-test('stream - return readable stream', t => {
+test('returns readable stream', t => {
 	got.stream(s.url)
 		.on('data', data => {
 			t.is(data.toString(), 'ok');
@@ -55,7 +57,7 @@ test('stream - return readable stream', t => {
 		});
 });
 
-test('stream - return writeable stream', t => {
+test('returns writeable stream', t => {
 	t.plan(1);
 	got.stream.post(`${s.url}/post`)
 		.on('data', data => {
@@ -64,7 +66,7 @@ test('stream - return writeable stream', t => {
 		.end('wow');
 });
 
-test('stream - throws on write to stream with body specified', t => {
+test('throws on write to stream with body specified', t => {
 	t.throws(() => {
 		got.stream(s.url, {body: 'wow'}).write('wow');
 	}, 'got\'s stream is not writable when options.body is used');
@@ -73,7 +75,7 @@ test('stream - throws on write to stream with body specified', t => {
 	setTimeout(t.end.bind(t), 10);
 });
 
-test('stream - request event', t => {
+test('have request event', t => {
 	got.stream(s.url)
 		.on('request', req => {
 			t.ok(req);
@@ -81,7 +83,7 @@ test('stream - request event', t => {
 		});
 });
 
-test('stream - redirect event', t => {
+test('have redirect event', t => {
 	got.stream(`${s.url}/redirect`)
 		.on('redirect', res => {
 			t.is(res.headers.location, s.url);
@@ -89,7 +91,7 @@ test('stream - redirect event', t => {
 		});
 });
 
-test('stream - response event', t => {
+test('have response event', t => {
 	got.stream(s.url)
 		.on('response', res => {
 			t.is(res.statusCode, 200);
@@ -97,7 +99,7 @@ test('stream - response event', t => {
 		});
 });
 
-test('stream - error event', t => {
+test('have error event', t => {
 	got.stream(`${s.url}/error`, {retries: 0})
 		.on('response', () => {
 			t.fail('response event should not be emitted');
@@ -110,7 +112,7 @@ test('stream - error event', t => {
 		});
 });
 
-test('stream - error event', t => {
+test('have error event', t => {
 	got.stream('.com', {retries: 0})
 		.on('response', () => {
 			t.fail('response event should not be emitted');
@@ -121,6 +123,6 @@ test('stream - error event', t => {
 		});
 });
 
-test.after('stream - cleanup', async t => {
+test.after('cleanup', async t => {
 	await s.close();
 });

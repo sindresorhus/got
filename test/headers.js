@@ -2,41 +2,43 @@ import test from 'ava';
 import got from '../';
 import {createServer} from './_server';
 
-const s = createServer();
+let s;
 
-s.on('/', (req, res) => {
-	res.end(JSON.stringify(req.headers));
-});
+test.before('setup', async t => {
+	s = await createServer();
 
-test.before('headers - setup', async t => {
+	s.on('/', (req, res) => {
+		res.end(JSON.stringify(req.headers));
+	});
+
 	await s.listen(s.port);
 });
 
-test('headers - send user-agent header by default', async t => {
+test('user-agent', async t => {
 	const headers = (await got(s.url, {json: true})).body;
 	t.is(headers['user-agent'], 'https://github.com/sindresorhus/got');
 });
 
-test('headers - send accept-encoding header by default', async t => {
+test('accept-encoding', async t => {
 	const headers = (await got(s.url, {json: true})).body;
 	t.is(headers['accept-encoding'], 'gzip,deflate');
 });
 
-test('headers - send accept header with json option', async t => {
+test('accept header with json option', async t => {
 	const headers = (await got(s.url, {json: true})).body;
 	t.is(headers.accept, 'application/json');
 });
 
-test('headers - send host header by default', async t => {
+test('host', async t => {
 	const headers = (await got(s.url, {json: true})).body;
 	t.is(headers.host, `localhost:${s.port}`);
 });
 
-test('headers - transform headers names to lowercase', async t => {
+test('transform names to lowercase', async t => {
 	const headers = (await got(s.url, {headers: {'USER-AGENT': 'test'}, json: true})).body;
 	t.is(headers['user-agent'], 'test');
 });
 
-test.after('headers - cleanup', async t => {
+test.after('cleanup', async t => {
 	await s.close();
 });

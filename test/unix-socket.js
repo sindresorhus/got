@@ -4,27 +4,30 @@ import test from 'ava';
 import got from '../';
 import {createServer} from './_server';
 
-const s = createServer();
 const socketPath = tempfile('.socket');
 
-s.on('/', (req, res) => {
-	res.end('ok');
-});
+let s;
 
-test.before('unix-socket - setup', async t => {
+test.before('setup', async t => {
+	s = await createServer();
+
+	s.on('/', (req, res) => {
+		res.end('ok');
+	});
+
 	await s.listen(socketPath);
 });
 
-test('unix-socket - request via unix socket', async t => {
+test('works', async t => {
 	const url = format('http://unix:%s:%s', socketPath, '/');
 	t.is((await got(url)).body, 'ok');
 });
 
-test('unix-socket - protocol-less request', async t => {
+test('protocol-less works', async t => {
 	const url = format('unix:%s:%s', socketPath, '/');
 	t.is((await got(url)).body, 'ok');
 });
 
-test.after('unix-socket - cleanup', async t => {
+test.after('cleanup', async t => {
 	await s.close();
 });

@@ -2,22 +2,24 @@ import test from 'ava';
 import got from '../';
 import {createServer} from './_server';
 
-const s = createServer();
+let s;
 
-s.on('/', (req, res) => {
-	res.end('ok');
-});
+test.before('setup', async t => {
+	s = await createServer();
 
-s.on('/404', (req, res) => {
-	res.statusCode = 404;
-	res.end('not found');
-});
+	s.on('/', (req, res) => {
+		res.end('ok');
+	});
 
-test.before('helpers - setup', async t => {
+	s.on('/404', (req, res) => {
+		res.statusCode = 404;
+		res.end('not found');
+	});
+
 	await s.listen(s.port);
 });
 
-test('helpers - callback mode', t => {
+test('callback mode', t => {
 	got.get(s.url, function (err, body) {
 		t.ifError(err);
 		t.is(body, 'ok');
@@ -25,7 +27,7 @@ test('helpers - callback mode', t => {
 	});
 });
 
-test('helpers - promise mode', async t => {
+test('promise mode', async t => {
 	t.is((await got.get(s.url)).body, 'ok');
 
 	try {
@@ -43,6 +45,6 @@ test('helpers - promise mode', async t => {
 	}
 });
 
-test.after('helpers - cleanup', async t => {
+test.after('cleanup', async t => {
 	await s.close();
 });

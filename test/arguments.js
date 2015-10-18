@@ -3,26 +3,28 @@ import pify from 'pify';
 import got from '../';
 import {createServer} from './_server';
 
-const s = createServer();
+let s;
 
-s.on('/', (req, res) => {
-	res.statusCode = 404;
-	res.end();
-});
+test.before('setup', async t => {
+	s = await createServer();
 
-s.on('/test', (req, res) => {
-	res.end(req.url);
-});
+	s.on('/', (req, res) => {
+		res.statusCode = 404;
+		res.end();
+	});
 
-s.on('/?test=wow', (req, res) => {
-	res.end(req.url);
-});
+	s.on('/test', (req, res) => {
+		res.end(req.url);
+	});
 
-test.before('arguments - setup', async t => {
+	s.on('/?test=wow', (req, res) => {
+		res.end(req.url);
+	});
+
 	await s.listen(s.port);
 });
 
-test('arguments - url argument is required', async t => {
+test('url is required', async t => {
 	try {
 		await got();
 		t.fail('Exception is not thrown');
@@ -31,15 +33,15 @@ test('arguments - url argument is required', async t => {
 	}
 });
 
-test('arguments - accepts url.parse object as first argument', async t => {
+test('accepts url.parse object as first argument', async t => {
 	t.is((await got({hostname: s.host, port: s.port, path: '/test'})).body, '/test');
 });
 
-test('arguments - overrides querystring from opts', async t => {
+test('overrides querystring from opts', async t => {
 	t.is((await got(`${s.url}/?test=doge`, {query: {test: 'wow'}})).body, '/?test=wow');
 });
 
-test('arguments - should throw with auth in url', async t => {
+test('should throw with auth in url', async t => {
 	try {
 		await got(`https://test:45d3ps453@account.myservice.com/api/token`);
 		t.fail('Exception is not thrown');
@@ -48,6 +50,6 @@ test('arguments - should throw with auth in url', async t => {
 	}
 });
 
-test.after('arguments - cleanup', async t => {
+test.after('cleanup', async t => {
 	await s.close();
 });

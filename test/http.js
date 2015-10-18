@@ -2,44 +2,46 @@ import test from 'ava';
 import got from '../';
 import {createServer} from './_server';
 
-const s = createServer();
+let s;
 
-s.on('/', (req, res) => {
-	res.end('ok');
-});
+test.before('setup', async t => {
+	s = await createServer();
 
-s.on('/empty', (req, res) => {
-	res.end();
-});
+	s.on('/', (req, res) => {
+		res.end('ok');
+	});
 
-s.on('/404', (req, res) => {
-	setTimeout(() => {
-		res.statusCode = 404;
-		res.end('not');
-	}, 10);
-});
+	s.on('/empty', (req, res) => {
+		res.end();
+	});
 
-s.on('/?recent=true', (req, res) => {
-	res.end('recent');
-});
+	s.on('/404', (req, res) => {
+		setTimeout(() => {
+			res.statusCode = 404;
+			res.end('not');
+		}, 10);
+	});
 
-test.before('http - setup', async t => {
+	s.on('/?recent=true', (req, res) => {
+		res.end('recent');
+	});
+
 	await s.listen(s.port);
 });
 
-test('http - simple request', async t => {
+test('simple request', async t => {
 	t.is((await got(s.url)).body, 'ok');
 });
 
-test('http - protocol-less URLs', async t => {
+test('protocol-less URLs', async t => {
 	t.is((await got(s.url.replace(/^http:\/\//, ''))).body, 'ok');
 });
 
-test('http - empty response', async t => {
+test('empty response', async t => {
 	t.is((await got(`${s.url}/empty`)).body, '');
 });
 
-test('http - error with code', async t => {
+test('error with code', async t => {
 	try {
 		await got(`${s.url}/404`);
 		t.fail('Exception was not thrown');
@@ -49,12 +51,12 @@ test('http - error with code', async t => {
 	}
 });
 
-test('http - buffer on encoding === null', async t => {
+test('buffer on encoding === null', async t => {
 	const data = (await got(s.url, {encoding: null})).body;
 	t.ok(Buffer.isBuffer(data));
 });
 
-test('http - timeout option', async t => {
+test('timeout option', async t => {
 	try {
 		await got(`${s.url}/404`, {timeout: 1, retries: 0});
 		t.fail('Exception was not thrown');
@@ -63,11 +65,11 @@ test('http - timeout option', async t => {
 	}
 });
 
-test('http - query option', async t => {
+test('query option', async t => {
 	t.is((await got(s.url, {query: {recent: true}})).body, 'recent');
 	t.is((await got(s.url, {query: 'recent=true'})).body, 'recent');
 });
 
-test.after('http - cleanup', async t => {
+test.after('cleanup', async t => {
 	await s.close();
 });
