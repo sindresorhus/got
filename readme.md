@@ -8,7 +8,7 @@
 
 > Simplified HTTP/HTTPS requests
 
-[![Build Status](https://travis-ci.org/sindresorhus/got.svg?branch=master)](https://travis-ci.org/sindresorhus/got)
+[![Build Status](https://travis-ci.org/sindresorhus/got.svg?branch=master)](https://travis-ci.org/sindresorhus/got) [![Coverage Status](https://coveralls.io/repos/sindresorhus/got/badge.svg?branch=master&service=github)](https://coveralls.io/github/sindresorhus/got?branch=master)
 
 A nicer interface to the built-in [`http`](http://nodejs.org/api/http.html) module.
 

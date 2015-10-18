@@ -23,7 +23,8 @@
     "unzip-response": false
   },
   "scripts": {
-    "test": "xo && ava"
+    "test": "xo && ava",
+    "coveralls": "nyc report --reporter=text-lcov | coveralls"
   },
   "files": [
     "index.js"
@@ -61,7 +62,9 @@
   },
   "devDependencies": {
     "ava": "^0.2.0",
+    "coveralls": "^2.11.4",
     "into-stream": "^2.0.0",
+    "nyc": "^3.2.2",
     "pem": "^1.4.4",
     "pify": "^2.2.0",
     "tempfile": "^1.1.1",
