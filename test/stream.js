@@ -1,5 +1,6 @@
 import test from 'ava';
 import got from '../';
+import intoStream from 'into-stream';
 import {createServer} from './_server';
 
 let s;
@@ -121,6 +122,15 @@ test('have error event', t => {
 			t.regexTest(/getaddrinfo ENOTFOUND/, err.message);
 			t.end();
 		});
+});
+
+test('accepts option.body as Stream', t => {
+	got.stream(`${s.url}/post`, {body: intoStream(['wow'])})
+		.on('data', chunk => {
+			t.is(chunk.toString(), 'wow');
+			t.end();
+		});
+
 });
 
 test.after('cleanup', async t => {
