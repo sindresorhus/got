@@ -36,10 +36,15 @@ got('todomvc.com', (error, body, response) => {
 });
 
 // Promise mode
-got('todomvc.com').then(response => {
-	console.log(response.body);
-	//=> '<!doctype html> ...'
-});
+got('todomvc.com')
+	.then(response => {
+		console.log(response.body);
+		//=> '<!doctype html> ...'
+	})
+	.catch(error => {
+		console.log(error.response.body);
+		//=> 'Internal server error ...'
+	});
 
 // Stream mode
 got.stream('todomvc.com').pipe(fs.createWriteStream('index.html'));
