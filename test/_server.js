@@ -1,41 +1,43 @@
-import http from 'http';
-import https from 'https';
-import pify from 'pify';
-import getPort from 'get-port';
+'use strict';
+var http = require('http');
+var https = require('https');
+var pify = require('pify');
+var getPort = require('get-port');
+var getPortP = pify(getPort);
+var host = exports.host = 'localhost';
 
-export const host = 'localhost';
-const getPortify = pify(getPort);
-
-export const createServer = () => {
-	return getPortify()
-		.then(port => {
-			const s = http.createServer((req, resp) => s.emit(req.url, req, resp));
-
-			s.host = host;
-			s.port = port;
-			s.url = `http://${host}:${port}`;
-			s.protocol = 'http';
-
-			s.listen = pify(s.listen);
-			s.close = pify(s.close);
-
-			return s;
+exports.createServer = function () {
+	return getPortP().then(function (port) {
+		var s = http.createServer(function (req, resp) {
+			s.emit(req.url, req, resp);
 		});
+
+		s.host = host;
+		s.port = port;
+		s.url = 'http://' + host + ':' + port;
+		s.protocol = 'http';
+
+		s.listen = pify(s.listen);
+		s.close = pify(s.close);
+
+		return s;
+	});
 };
 
-export const createSSLServer = (opts) => {
-	return getPortify()
-		.then(port => {
-			const s = https.createServer(opts, (req, resp) => s.emit(req.url, req, resp));
-
-			s.host = host;
-			s.port = port;
-			s.url = `https://${host}:${port}`;
-			s.protocol = 'https';
-
-			s.listen = pify(s.listen);
-			s.close = pify(s.close);
-
-			return s;
+exports.createSSLServer = function (opts) {
+	return getPortP().then(function (port) {
+		var s = https.createServer(opts, function (req, resp) {
+			s.emit(req.url, req, resp);
 		});
+
+		s.host = host;
+		s.port = port;
+		s.url = 'https://' + host + ':' + port;
+		s.protocol = 'https';
+
+		s.listen = pify(s.listen);
+		s.close = pify(s.close);
+
+		return s;
+	});
 };

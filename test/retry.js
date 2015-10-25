@@ -34,6 +34,7 @@ test('can be disabled with option', async t => {
 	} catch (err) {
 		t.ok(err);
 	}
+
 	t.is(trys, 1);
 });
 
