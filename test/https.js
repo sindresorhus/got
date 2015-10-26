@@ -10,15 +10,15 @@ let cert;
 let caRootKey;
 let caRootCert;
 
-let pemify = pify.all(pem);
+const pemP = pify(pem);
 
 test.before('setup', async t => {
-	const caKeys = await pemify.createCertificate({days: 1, selfSigned: true});
+	const caKeys = await pemP.createCertificate({days: 1, selfSigned: true});
 
 	caRootKey = caKeys.serviceKey;
 	caRootCert = caKeys.certificate;
 
-	const keys = await pemify.createCertificate({
+	const keys = await pemP.createCertificate({
 		serviceCertificate: caRootCert,
 		serviceKey: caRootKey,
 		serial: Date.now(),
