@@ -63,7 +63,7 @@
   "devDependencies": {
     "ava": "^0.3.0",
     "coveralls": "^2.11.4",
-    "get-port": "^1.0.0",
+    "get-port": "^2.0.0",
     "into-stream": "^2.0.0",
     "nyc": "^3.2.2",
     "pem": "^1.4.4",

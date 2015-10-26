@@ -3,11 +3,10 @@ var http = require('http');
 var https = require('https');
 var pify = require('pify');
 var getPort = require('get-port');
-var getPortP = pify(getPort);
 var host = exports.host = 'localhost';
 
 exports.createServer = function () {
-	return getPortP().then(function (port) {
+	return getPort().then(function (port) {
 		var s = http.createServer(function (req, resp) {
 			s.emit(req.url, req, resp);
 		});
@@ -25,7 +24,7 @@ exports.createServer = function () {
 };
 
 exports.createSSLServer = function (opts) {
-	return getPortP().then(function (port) {
+	return getPort().then(function (port) {
 		var s = https.createServer(opts, function (req, resp) {
 			s.emit(req.url, req, resp);
 		});
