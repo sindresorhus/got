@@ -84,7 +84,7 @@ function asCallback(opts, cb) {
 	var ee = requestAsEventEmitter(opts);
 
 	ee.on('request', function (req) {
-		if (isStream.readable(opts.body)) {
+		if (isStream(opts.body)) {
 			opts.body.pipe(req);
 			opts.body = undefined;
 			return;
