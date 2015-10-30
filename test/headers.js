@@ -39,6 +39,18 @@ test('transform names to lowercase', async t => {
 	t.is(headers['user-agent'], 'test');
 });
 
+test('explicitly remove headers', async t => {
+	const headers = await got.put(s.url, {
+		body: '',
+		headers: {
+			'content-length': null,
+			'transfer-encoding': null
+		}
+	});
+
+	t.is(headers['content-length'], undefined);
+});
+
 test.after('cleanup', async t => {
 	await s.close();
 });

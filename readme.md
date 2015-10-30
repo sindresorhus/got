@@ -74,6 +74,14 @@ Type: `object`
 
 Any of the [`http.request`](http://nodejs.org/api/http.html#http_http_request_options_callback) options.
 
+###### headers
+
+Type: `object`
+
+Headers that will be sent with a request.
+
+Any header can be set to `null` to explicitly omit them, even if they are implicit headers that would be added by Node.js (i.e. `tranfer-encoding` if `content-length` is not present).
+
 ###### body
 
 Type: `string`, `Buffer`, `ReadableStream`, `Object`  
