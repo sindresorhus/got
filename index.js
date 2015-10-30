@@ -60,6 +60,23 @@ function requestAsEventEmitter(opts) {
 			});
 		});
 
+		// this method is not documented, prints a warning if used while
+		// not available
+		if (!req.removeHeader) {
+			req.removeHeader = function (headerName) {
+				console.error('could not remove', headerName, 'header');
+			};
+		}
+
+		// provide the ability to explicitly not send a header by setting
+		// it to `null`
+		var headerName;
+		for (headerName in opts.headers) {
+			if (opts.headers[headerName] === null) {
+				req.removeHeader(headerName);
+			}
+		}
+
 		req.once('error', function (err) {
 			if (retryCount < opts.retries) {
 				setTimeout(get, backoff(retryCount++), opts);
@@ -231,8 +248,8 @@ function normalizeArguments(url, opts) {
 		delete opts.query;
 	}
 
-	if (opts.json) {
-		opts.headers.accept = opts.headers.accept || 'application/json';
+	if (opts.json && opts.headers.accept === undefined) {
+		opts.headers.accept = 'application/json';
 	}
 
 	var body = opts.body;
@@ -245,11 +262,13 @@ function normalizeArguments(url, opts) {
 		opts.method = opts.method || 'POST';
 
 		if (isPlainObj(body)) {
-			opts.headers['content-type'] = opts.headers['content-type'] || 'application/x-www-form-urlencoded';
+			if (opts.headers['content-type'] === undefined) {
+				opts.headers['content-type'] = 'application/x-www-form-urlencoded';
+			}
 			body = opts.body = querystring.stringify(body);
 		}
 
-		if (!opts.headers['content-length'] && !opts.headers['transfer-encoding'] && !isStream.readable(body)) {
+		if (opts.headers['content-length'] === undefined && !opts.headers['transfer-encoding'] && !isStream.readable(body)) {
 			var length = typeof body === 'string' ? Buffer.byteLength(body) : body.length;
 			opts.headers['content-length'] = length;
 		}
