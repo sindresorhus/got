@@ -60,14 +60,6 @@ function requestAsEventEmitter(opts) {
 			});
 		});
 
-		// this method is not documented, prints a warning if used while
-		// not available
-		if (!req.removeHeader) {
-			req.removeHeader = function (headerName) {
-				console.error('could not remove', headerName, 'header');
-			};
-		}
-
 		// provide the ability to explicitly not send a header by setting
 		// it to `null`
 		var headerName;
