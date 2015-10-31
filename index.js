@@ -231,8 +231,8 @@ function normalizeArguments(url, opts) {
 		delete opts.query;
 	}
 
-	if (opts.json) {
-		opts.headers.accept = opts.headers.accept || 'application/json';
+	if (opts.json && opts.headers.accept === undefined) {
+		opts.headers.accept = 'application/json';
 	}
 
 	var body = opts.body;
@@ -249,7 +249,7 @@ function normalizeArguments(url, opts) {
 			body = opts.body = querystring.stringify(body);
 		}
 
-		if (!opts.headers['content-length'] && !opts.headers['transfer-encoding'] && !isStream.readable(body)) {
+		if (opts.headers['content-length'] === undefined && opts.headers['transfer-encoding'] === undefined && !isStream.readable(body)) {
 			var length = typeof body === 'string' ? Buffer.byteLength(body) : body.length;
 			opts.headers['content-length'] = length;
 		}
