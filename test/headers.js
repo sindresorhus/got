@@ -8,6 +8,7 @@ test.before('setup', async t => {
 	s = await createServer();
 
 	s.on('/', (req, res) => {
+		req.resume();
 		res.end(JSON.stringify(req.headers));
 	});
 
@@ -25,8 +26,11 @@ test('accept-encoding', async t => {
 });
 
 test('accept header with json option', async t => {
-	const headers = (await got(s.url, {json: true})).body;
+	let headers = (await got(s.url, {json: true})).body;
 	t.is(headers.accept, 'application/json');
+
+	headers = (await got(s.url, {headers: {'accept': ''}, json: true})).body;
+	t.is(headers.accept, '');
 });
 
 test('host', async t => {
@@ -37,6 +41,11 @@ test('host', async t => {
 test('transform names to lowercase', async t => {
 	const headers = (await got(s.url, {headers: {'USER-AGENT': 'test'}, json: true})).body;
 	t.is(headers['user-agent'], 'test');
+});
+
+test('zero content-length', async t => {
+	const headers = (await got(s.url, {headers: {'content-length': 0}, body: 'sup', json: true})).body;
+	t.is(headers['content-length'], '0');
 });
 
 test.after('cleanup', async t => {
