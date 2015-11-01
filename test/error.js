@@ -23,6 +23,7 @@ test('properties', async t => {
 		t.ok(err);
 		t.ok(err.response);
 		t.ok(!err.propertyIsEnumerable('response'));
+		t.ok(!err.hasOwnProperty('code'));
 		t.is(err.message, 'Response code 404 (Not Found)');
 		t.is(err.host, `${s.host}:${s.port}`);
 		t.is(err.method, 'GET');

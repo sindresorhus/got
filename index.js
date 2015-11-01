@@ -326,9 +326,12 @@ helpers.forEach(function (el) {
 });
 
 function stdError(error, opts) {
+	if (error.code !== undefined) {
+		this.code = error.code;
+	}
+
 	objectAssign(this, {
 		message: error.message,
-		code: error.code,
 		host: opts.host,
 		hostname: opts.hostname,
 		method: opts.method,
