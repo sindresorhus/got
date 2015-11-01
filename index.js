@@ -130,7 +130,10 @@ function asPromise(opts) {
 			}
 
 			if (err) {
-				err.response = response;
+				Object.defineProperty(err, 'response', {
+					value: response,
+					enumerable: false
+				});
 				reject(err);
 				return;
 			}
