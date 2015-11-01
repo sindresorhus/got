@@ -15,12 +15,14 @@ test.before('setup', async t => {
 	await s.listen(s.port);
 });
 
-test('message', async t => {
+test('properties', async t => {
 	try {
 		await got(s.url);
 		t.fail('Exception was not thrown');
 	} catch (err) {
 		t.ok(err);
+		t.ok(err.response);
+		t.ok(!err.propertyIsEnumerable('response'));
 		t.is(err.message, 'Response code 404 (Not Found)');
 		t.is(err.host, `${s.host}:${s.port}`);
 		t.is(err.method, 'GET');
