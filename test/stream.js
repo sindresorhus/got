@@ -41,11 +41,11 @@ test('option.json can not be used', t => {
 test('callback can not be used', t => {
 	t.throws(() => {
 		got.stream(s.url, {json: true}, () => {});
-	}, 'callback can not be used in stream mode');
+	}, 'callback can not be used with stream mode');
 
 	t.throws(() => {
 		got.stream(s.url, () => {});
-	}, 'callback can not be used in stream mode');
+	}, 'callback can not be used with stream mode');
 
 	t.end();
 });
