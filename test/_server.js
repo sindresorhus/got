@@ -3,6 +3,7 @@ var http = require('http');
 var https = require('https');
 var pify = require('pify');
 var getPort = require('get-port');
+var Promise = require('pinkie-promise');
 var host = exports.host = 'localhost';
 
 exports.createServer = function () {
@@ -16,8 +17,8 @@ exports.createServer = function () {
 		s.url = 'http://' + host + ':' + port;
 		s.protocol = 'http';
 
-		s.listen = pify(s.listen);
-		s.close = pify(s.close);
+		s.listen = pify(s.listen, Promise);
+		s.close = pify(s.close, Promise);
 
 		return s;
 	});
@@ -34,8 +35,8 @@ exports.createSSLServer = function (opts) {
 		s.url = 'https://' + host + ':' + port;
 		s.protocol = 'https';
 
-		s.listen = pify(s.listen);
-		s.close = pify(s.close);
+		s.listen = pify(s.listen, Promise);
+		s.close = pify(s.close, Promise);
 
 		return s;
 	});

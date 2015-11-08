@@ -10,7 +10,7 @@ let cert;
 let caRootKey;
 let caRootCert;
 
-const pemP = pify(pem);
+const pemP = pify(pem, Promise);
 
 test.before('setup', async t => {
 	const caKeys = await pemP.createCertificate({days: 1, selfSigned: true});

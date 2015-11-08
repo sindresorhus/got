@@ -1,5 +1,4 @@
 import test from 'ava';
-import pify from 'pify';
 import got from '../';
 import {createServer} from './_server';
 
