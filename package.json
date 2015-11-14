@@ -54,7 +54,7 @@
     "node-status-codes": "^1.0.0",
     "object-assign": "^4.0.1",
     "parse-json": "^2.1.0",
-    "pinkie-promise": "^1.0.0",
+    "pinkie-promise": "^2.0.0",
     "read-all-stream": "^3.0.0",
     "timed-out": "^2.0.0",
     "unzip-response": "^1.0.0",
