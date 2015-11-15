@@ -71,6 +71,7 @@
     "xo": "*"
   },
   "xo": {
+    "esnext": true,
     "ignores": [
       "test/**"
     ]
