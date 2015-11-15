@@ -12,7 +12,6 @@ var timedOut = require('timed-out');
 var urlParseLax = require('url-parse-lax');
 var lowercaseKeys = require('lowercase-keys');
 var isRedirect = require('is-redirect');
-var PinkiePromise = require('pinkie-promise');
 var unzipResponse = require('unzip-response');
 var createErrorClass = require('create-error-class');
 var nodeStatusCodes = require('node-status-codes');
@@ -119,7 +118,7 @@ function asCallback(opts, cb) {
 }
 
 function asPromise(opts) {
-	return new PinkiePromise(function (resolve, reject) {
+	return new Promise(function (resolve, reject) {
 		asCallback(opts, function (err, data, response) {
 			if (response) {
 				response.body = data;
@@ -295,7 +294,7 @@ function got(url, opts, cb) {
 	try {
 		return asPromise(normalizeArguments(url, opts));
 	} catch (error) {
-		return PinkiePromise.reject(error);
+		return Promise.reject(error);
 	}
 }
 
