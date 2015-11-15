@@ -1,22 +1,21 @@
-'use strict';
-var EventEmitter = require('events').EventEmitter;
-var http = require('http');
-var https = require('https');
-var urlLib = require('url');
-var querystring = require('querystring');
-var objectAssign = require('object-assign');
-var duplexify = require('duplexify');
-var isStream = require('is-stream');
-var readAllStream = require('read-all-stream');
-var timedOut = require('timed-out');
-var urlParseLax = require('url-parse-lax');
-var lowercaseKeys = require('lowercase-keys');
-var isRedirect = require('is-redirect');
-var unzipResponse = require('unzip-response');
-var createErrorClass = require('create-error-class');
-var nodeStatusCodes = require('node-status-codes');
-var isPlainObj = require('is-plain-obj');
-var parseJson = require('parse-json');
+const EventEmitter = require('events').EventEmitter;
+const http = require('http');
+const https = require('https');
+const urlLib = require('url');
+const querystring = require('querystring');
+const objectAssign = require('object-assign');
+const duplexify = require('duplexify');
+const isStream = require('is-stream');
+const readAllStream = require('read-all-stream');
+const timedOut = require('timed-out');
+const urlParseLax = require('url-parse-lax');
+const lowercaseKeys = require('lowercase-keys');
+const isRedirect = require('is-redirect');
+const unzipResponse = require('unzip-response');
+const createErrorClass = require('create-error-class');
+const nodeStatusCodes = require('node-status-codes');
+const isPlainObj = require('is-plain-obj');
+const parseJson = require('parse-json');
 
 function requestAsEventEmitter(opts) {
 	opts = opts || {};
@@ -25,10 +24,10 @@ function requestAsEventEmitter(opts) {
 	var redirectCount = 0;
 	var retryCount = 0;
 
-	var get = function (opts) {
+	var get = opts => {
 		var fn = opts.protocol === 'https:' ? https : http;
 
-		var req = fn.request(opts, function (res) {
+		var req = fn.request(opts, res => {
 			var statusCode = res.statusCode;
 
 			if (isRedirect(statusCode) && 'location' in res.headers && (opts.method === 'GET' || opts.method === 'HEAD')) {
@@ -48,14 +47,14 @@ function requestAsEventEmitter(opts) {
 				return;
 			}
 
-			// do not write ee.bind(...) instead of function - it will break gzip in Node.js 0.10
 			setImmediate(function () {
 				ee.emit('response', typeof unzipResponse === 'function' && req.method !== 'HEAD' ? unzipResponse(res) : res);
 			});
 		});
 
-		req.once('error', function (err) {
-			var backoff = opts.retries(++retryCount, err);
+		req.once('error', err => {
+			const backoff = opts.retries(++retryCount, err);
+
 			if (backoff) {
 				setTimeout(get, backoff, opts);
 				return;
@@ -68,7 +67,7 @@ function requestAsEventEmitter(opts) {
 			timedOut(req, opts.timeout);
 		}
 
-		setImmediate(ee.emit.bind(ee), 'request', req);
+		setImmediate(() => ee.emit('request', req));
 	};
 
 	get(opts);
@@ -78,7 +77,7 @@ function requestAsEventEmitter(opts) {
 function asCallback(opts, cb) {
 	var ee = requestAsEventEmitter(opts);
 
-	ee.on('request', function (req) {
+	ee.on('request', req => {
 		if (isStream(opts.body)) {
 			opts.body.pipe(req);
 			opts.body = undefined;
@@ -88,8 +87,8 @@ function asCallback(opts, cb) {
 		req.end(opts.body);
 	});
 
-	ee.on('response', function (res) {
-		readAllStream(res, opts.encoding, function (err, data) {
+	ee.on('response', res =>
+		readAllStream(res, opts.encoding, (err, data) => {
 			var statusCode = res.statusCode;
 
 			if (err) {
@@ -111,31 +110,28 @@ function asCallback(opts, cb) {
 			}
 
 			cb(err, data, res);
-		});
-	});
+		})
+	);
 
 	ee.on('error', cb);
 }
 
 function asPromise(opts) {
-	return new Promise(function (resolve, reject) {
-		asCallback(opts, function (err, data, response) {
+	return new Promise((resolve, reject) =>
+		asCallback(opts, (err, data, response) => {
 			if (response) {
 				response.body = data;
 			}
 
 			if (err) {
-				Object.defineProperty(err, 'response', {
-					value: response,
-					enumerable: false
-				});
+				Object.defineProperty(err, 'response', {value: response});
 				reject(err);
 				return;
 			}
 
 			resolve(response);
-		});
-	});
+		})
+	);
 }
 
 function asStream(opts) {
@@ -146,14 +142,14 @@ function asStream(opts) {
 	}
 
 	if (opts.body) {
-		proxy.write = function () {
+		proxy.write = () => {
 			throw new Error('got\'s stream is not writable when options.body is used');
 		};
 	}
 
 	var ee = requestAsEventEmitter(opts);
 
-	ee.on('request', function (req) {
+	ee.on('request', req => {
 		proxy.emit('request', req);
 
 		if (isStream.readable(opts.body)) {
@@ -174,7 +170,7 @@ function asStream(opts) {
 		req.end();
 	});
 
-	ee.on('response', function (res) {
+	ee.on('response', res => {
 		var statusCode = res.statusCode;
 
 		proxy.setReadable(res);
@@ -307,8 +303,8 @@ var helpers = [
 	'delete'
 ];
 
-helpers.forEach(function (el) {
-	got[el] = function (url, opts, cb) {
+helpers.forEach(el => {
+	got[el] = (url, opts, cb) => {
 		if (typeof opts === 'function') {
 			cb = opts;
 			opts = {};
@@ -326,7 +322,7 @@ got.stream = function (url, opts, cb) {
 	return asStream(normalizeArguments(url, opts));
 };
 
-helpers.forEach(function (el) {
+helpers.forEach(el => {
 	got.stream[el] = function (url, opts) {
 		return got.stream(url, objectAssign({}, opts, {method: el.toUpperCase()}));
 	};
