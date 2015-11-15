@@ -3,7 +3,6 @@ var http = require('http');
 var https = require('https');
 var pify = require('pify');
 var getPort = require('get-port');
-var Promise = require('pinkie-promise');
 var host = exports.host = 'localhost';
 
 exports.createServer = function () {
