@@ -17,7 +17,7 @@
     }
   ],
   "engines": {
-    "node": ">=0.10.0"
+    "node": ">=4"
   },
   "browser": {
     "unzip-response": false
