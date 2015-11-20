@@ -17,7 +17,6 @@ const unzipResponse = require('unzip-response');
 const createErrorClass = require('create-error-class');
 const nodeStatusCodes = require('node-status-codes');
 const isPlainObj = require('is-plain-obj');
-const parseJson = require('parse-json');
 
 function requestAsEventEmitter(opts) {
 	opts = opts || {};
@@ -103,10 +102,9 @@ function asCallback(opts, cb) {
 
 				if (opts.json && statusCode !== 204) {
 					try {
-						data = parseJson(data);
+						data = JSON.parse(data);
 					} catch (e) {
-						e.fileName = urlLib.format(opts);
-						err = new got.ParseError(e, opts);
+						err = new got.ParseError(e, opts, data);
 					}
 				}
 
@@ -346,7 +344,10 @@ function stdError(error, opts) {
 
 got.RequestError = createErrorClass('RequestError', stdError);
 got.ReadError = createErrorClass('ReadError', stdError);
-got.ParseError = createErrorClass('ParseError', stdError);
+got.ParseError = createErrorClass('ParseError', function (e, opts, data) {
+	stdError.call(this, e, opts);
+	this.message = `${e.message} in "${urlLib.format(opts)}": \n${data.slice(0, 77)}...`;
+});
 
 got.HTTPError = createErrorClass('HTTPError', function (statusCode, opts) {
 	stdError.call(this, {}, opts);
