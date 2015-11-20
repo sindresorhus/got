@@ -47,6 +47,7 @@
   "dependencies": {
     "create-error-class": "^2.0.0",
     "duplexify": "^3.2.0",
+    "get-stream": "^1.1.0",
     "is-plain-obj": "^1.0.0",
     "is-redirect": "^1.0.0",
     "is-stream": "^1.0.0",
@@ -54,7 +55,6 @@
     "node-status-codes": "^1.0.0",
     "object-assign": "^4.0.1",
     "parse-json": "^2.1.0",
-    "read-all-stream": "^3.0.0",
     "timed-out": "^2.0.0",
     "unzip-response": "^1.0.0",
     "url-parse-lax": "^1.0.0"
@@ -71,7 +71,7 @@
     "xo": "*"
   },
   "xo": {
-    "esnext": true,
+    "esnext": false,
     "ignores": [
       "test/**"
     ]

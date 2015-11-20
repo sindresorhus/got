@@ -6,7 +6,7 @@ const querystring = require('querystring');
 const objectAssign = require('object-assign');
 const duplexify = require('duplexify');
 const isStream = require('is-stream');
-const readAllStream = require('read-all-stream');
+const getStream = require('get-stream');
 const timedOut = require('timed-out');
 const urlParseLax = require('url-parse-lax');
 const lowercaseKeys = require('lowercase-keys');
@@ -87,31 +87,31 @@ function asCallback(opts, cb) {
 		req.end(opts.body);
 	});
 
-	ee.on('response', res =>
-		readAllStream(res, opts.encoding, (err, data) => {
-			var statusCode = res.statusCode;
+	ee.on('response', res => {
+		var stream = opts.encoding === null ? getStream.buffer(res) : getStream(res, opts);
 
-			if (err) {
-				cb(new got.ReadError(err, opts), null, res);
-				return;
-			}
+		stream
+			.then(data => {
+				var err;
+				var statusCode = res.statusCode;
 
-			if (statusCode < 200 || statusCode > 299) {
-				err = new got.HTTPError(statusCode, opts);
-			}
-
-			if (opts.json && statusCode !== 204) {
-				try {
-					data = parseJson(data);
-				} catch (e) {
-					e.fileName = urlLib.format(opts);
-					err = new got.ParseError(e, opts);
+				if (statusCode < 200 || statusCode > 299) {
+					err = new got.HTTPError(statusCode, opts);
 				}
-			}
 
-			cb(err, data, res);
-		})
-	);
+				if (opts.json && statusCode !== 204) {
+					try {
+						data = parseJson(data);
+					} catch (e) {
+						e.fileName = urlLib.format(opts);
+						err = new got.ParseError(e, opts);
+					}
+				}
+
+				cb(err, data, res);
+			})
+			.catch(err => cb(new got.ReadError(err, opts), null, res));
+	});
 
 	ee.on('error', cb);
 }
