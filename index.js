@@ -192,7 +192,7 @@ function asStream(opts) {
 
 function normalizeArguments(url, opts) {
 	if (typeof url !== 'string' && typeof url !== 'object') {
-		throw new Error('Parameter `url` must be a string or object, not ' + typeof url);
+		throw new Error(`Parameter \`url\` must be a string or object, not ${typeof url}`);
 	}
 
 	if (typeof url === 'string') {
@@ -350,7 +350,7 @@ got.HTTPError = createErrorClass('HTTPError', function (statusCode, opts) {
 	stdError.call(this, {}, opts);
 	this.statusCode = statusCode;
 	this.statusMessage = nodeStatusCodes[this.statusCode];
-	this.message = 'Response code ' + this.statusCode + ' (' + this.statusMessage + ')';
+	this.message = `Response code ${this.statusCode} (${this.statusMessage})`;
 });
 
 got.MaxRedirectsError = createErrorClass('MaxRedirectsError', function (statusCode, opts) {
