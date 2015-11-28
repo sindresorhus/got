@@ -46,7 +46,7 @@
   ],
   "dependencies": {
     "create-error-class": "^2.0.0",
-    "duplexify": "^3.2.0",
+    "duplexer2": "floatdrop/duplexer2#f770b34",
     "get-stream": "^1.1.0",
     "is-plain-obj": "^1.0.0",
     "is-redirect": "^1.0.0",
