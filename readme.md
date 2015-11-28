@@ -267,18 +267,6 @@ got('todomvc.com', {
 ```
 
 
-## Node.js 0.10.x
-
-It is a known issue with old good Node 0.10.x [`http.Agent`](https://nodejs.org/docs/v0.10.39/api/http.html#http_class_http_agent) and `agent.maxSockets`, which is set to `5`. This can cause low performance and in rare cases deadlocks. To avoid this you can set it manually:
-
-```js
-require('http').globalAgent.maxSockets = Infinity;
-require('https').globalAgent.maxSockets = Infinity;
-```
-
-This should only ever be done if you have Node version 0.10.x and at the top-level app layer.
-
-
 ## Related
 
 - [gh-got](https://github.com/sindresorhus/gh-got) - Convenience wrapper for interacting with the GitHub API
