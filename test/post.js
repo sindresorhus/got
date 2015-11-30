@@ -1,5 +1,3 @@
-/**/
-
 import test from 'ava';
 import intoStream from 'into-stream';
 import got from '../';
