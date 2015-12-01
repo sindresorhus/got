@@ -20,7 +20,7 @@ var isPlainObj = require('is-plain-obj');
 var parseJson = require('parse-json');
 
 function backoff(iter) {
-	var noise = Math.random() * 1000;
+	var noise = Math.random() * 100;
 	return (1 << iter) * 1000 + noise;
 }
 
@@ -62,7 +62,7 @@ function requestAsEventEmitter(opts) {
 
 		req.once('error', function (err) {
 			if (retryCount < opts.retries) {
-				setTimeout(get, backoff(retryCount++), opts);
+				setTimeout(get, backoff(++retryCount), opts);
 				return;
 			}
 
