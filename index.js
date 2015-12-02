@@ -76,63 +76,59 @@ function requestAsEventEmitter(opts) {
 	return ee;
 }
 
-function asCallback(opts, cb) {
-	const ee = requestAsEventEmitter(opts);
-
-	ee.on('request', req => {
-		if (isStream(opts.body)) {
-			opts.body.pipe(req);
-			opts.body = undefined;
-			return;
-		}
-
-		req.end(opts.body);
-	});
-
-	ee.on('response', res => {
-		const stream = opts.encoding === null ? getStream.buffer(res) : getStream(res, opts);
-
-		stream
-			.then(data => {
-				let err;
-				const statusCode = res.statusCode;
-
-				if (statusCode < 200 || statusCode > 299) {
-					err = new got.HTTPError(statusCode, opts);
-				}
-
-				if (opts.json && statusCode !== 204) {
-					try {
-						data = JSON.parse(data);
-					} catch (e) {
-						err = new got.ParseError(e, opts, data);
-					}
-				}
-
-				cb(err, data, res);
-			})
-			.catch(err => cb(new got.ReadError(err, opts), null, res));
-	});
-
-	ee.on('error', cb);
-}
-
 function asPromise(opts) {
-	return new Promise((resolve, reject) =>
-		asCallback(opts, (err, data, response) => {
-			if (response) {
-				response.body = data;
-			}
+	return new Promise((resolve, reject) => {
+		const ee = requestAsEventEmitter(opts);
 
-			if (err) {
-				Object.defineProperty(err, 'response', {value: response});
-				reject(err);
+		ee.on('request', req => {
+			if (isStream(opts.body)) {
+				opts.body.pipe(req);
+				opts.body = undefined;
 				return;
 			}
 
-			resolve(response);
-		})
-	);
+			req.end(opts.body);
+		});
+
+		ee.on('response', res => {
+			const stream = opts.encoding === null ? getStream.buffer(res) : getStream(res, opts);
+
+			stream
+				.then(data => {
+					let err;
+					const statusCode = res.statusCode;
+
+					res.body = data;
+
+					if (statusCode < 200 || statusCode > 299) {
+						err = new got.HTTPError(statusCode, opts);
+					}
+
+					if (opts.json && statusCode !== 204) {
+						try {
+							res.body = JSON.parse(res.body);
+						} catch (e) {
+							err = new got.ParseError(e, opts, data);
+						}
+					}
+
+					if (err) {
+						Object.defineProperty(err, 'response', {value: res});
+						reject(err);
+						return;
+					}
+
+					resolve(res);
+				})
+				.catch(err => {
+					err = new got.ReadError(err, opts);
+					Object.defineProperty(err, 'response', {value: res});
+					reject(err);
+				});
+		});
+
+		ee.on('error', reject);
+	});
 }
 
 function asStream(opts) {
