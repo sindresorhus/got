@@ -19,11 +19,6 @@ var nodeStatusCodes = require('node-status-codes');
 var isPlainObj = require('is-plain-obj');
 var parseJson = require('parse-json');
 
-function backoff(iter) {
-	var noise = Math.random() * 100;
-	return (1 << iter) * 1000 + noise;
-}
-
 function requestAsEventEmitter(opts) {
 	opts = opts || {};
 
@@ -61,8 +56,9 @@ function requestAsEventEmitter(opts) {
 		});
 
 		req.once('error', function (err) {
-			if (retryCount < opts.retries) {
-				setTimeout(get, backoff(++retryCount), opts);
+			var backoff = opts.retries(++retryCount);
+			if (backoff) {
+				setTimeout(get, backoff, opts);
 				return;
 			}
 
@@ -268,6 +264,18 @@ function normalizeArguments(url, opts) {
 			opts.path = matches[2];
 			opts.host = null;
 		}
+	}
+
+	if (typeof opts.retries !== 'function') {
+		var retries = opts.retries;
+		opts.retries = function backoff(iter) {
+			if (iter > retries) {
+				return 0;
+			}
+
+			var noise = Math.random() * 100;
+			return (1 << iter) * 1000 + noise;
+		};
 	}
 
 	return opts;

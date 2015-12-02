@@ -118,11 +118,12 @@ Milliseconds after which the request will be aborted and an error event with `ET
 
 ###### retries
 
-Type: `number`  
+Type: `number`, `function`  
 Default: `5`
 
-Number of request retries when network errors happens.
+Number of request retries when network errors happens. Delays between retries counts with function `Math.pow(2, retry) + Math.random() * 100`, where `retry` is attempt number (starts from 0).
 
+Option accepts `function` with `retry` argument that must return delay in milliseconds (`0` return value cancels retry).
 
 ##### callback(error, data, response)
 

@@ -5,6 +5,7 @@ import {createServer} from './_server';
 let s;
 let trys = 0;
 let knocks = 0;
+let fifth = 0;
 
 test.before('setup', async t => {
 	s = await createServer();
@@ -19,6 +20,12 @@ test.before('setup', async t => {
 
 	s.on('/try-me', () => {
 		trys++;
+	});
+
+	s.on('/fifth', (req, res) => {
+		if (fifth++ === 5) {
+			res.end('who`s there?');
+		}
 	});
 
 	await s.listen(s.port);
@@ -36,6 +43,19 @@ test('can be disabled with option', async t => {
 	}
 
 	t.is(trys, 1);
+});
+
+test('funcion gets iter count', async t => {
+	await got(`${s.url}/fifth`, {timeout: 100, retries: iter => iter < 10});
+	t.is(fifth, 6);
+});
+
+test('falsy value prevent retries', async t => {
+	try {
+		await got(`${s.url}/long`, {timeout: 1000, retries: () => 0});
+	} catch (err) {
+		t.ok(err);
+	}
 });
 
 test.after('cleanup', async t => {
