@@ -265,13 +265,13 @@ function normalizeArguments(url, opts) {
 	}
 
 	if (typeof opts.retries !== 'function') {
-		var retries = opts.retries;
+		const retries = opts.retries;
 		opts.retries = function backoff(iter) {
 			if (iter > retries) {
 				return 0;
 			}
 
-			var noise = Math.random() * 100;
+			const noise = Math.random() * 100;
 			return (1 << iter) * 1000 + noise;
 		};
 	}
