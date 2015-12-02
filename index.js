@@ -7,7 +7,6 @@ const PassThrough = require('stream').PassThrough;
 const duplexer2 = require('duplexer2');
 const urlLib = require('url');
 const querystring = require('querystring');
-const objectAssign = require('object-assign');
 const isStream = require('is-stream');
 const getStream = require('get-stream');
 const timedOut = require('timed-out');
@@ -41,7 +40,7 @@ function requestAsEventEmitter(opts) {
 				}
 
 				const redirectUrl = urlLib.resolve(urlLib.format(opts), res.headers.location);
-				const redirectOpts = objectAssign({}, opts, urlLib.parse(redirectUrl));
+				const redirectOpts = Object.assign({}, opts, urlLib.parse(redirectUrl));
 
 				ee.emit('redirect', res, redirectOpts);
 
@@ -195,13 +194,13 @@ function normalizeArguments(url, opts) {
 		}
 	}
 
-	opts = objectAssign(
+	opts = Object.assign(
 		{protocol: 'http:', path: '', retries: 5},
 		url,
 		opts
 	);
 
-	opts.headers = objectAssign({
+	opts.headers = Object.assign({
 		'user-agent': 'https://github.com/sindresorhus/got',
 		'accept-encoding': 'gzip,deflate'
 	}, lowercaseKeys(opts.headers));
@@ -286,7 +285,7 @@ const helpers = [
 ];
 
 helpers.forEach(el => {
-	got[el] = (url, opts) => got(url, objectAssign({}, opts, {method: el.toUpperCase()}));
+	got[el] = (url, opts) => got(url, Object.assign({}, opts, {method: el.toUpperCase()}));
 });
 
 got.stream = function (url, opts) {
@@ -295,7 +294,7 @@ got.stream = function (url, opts) {
 
 helpers.forEach(el => {
 	got.stream[el] = function (url, opts) {
-		return got.stream(url, objectAssign({}, opts, {method: el.toUpperCase()}));
+		return got.stream(url, Object.assign({}, opts, {method: el.toUpperCase()}));
 	};
 });
 
@@ -304,7 +303,7 @@ function stdError(error, opts) {
 		this.code = error.code;
 	}
 
-	objectAssign(this, {
+	Object.assign(this, {
 		message: error.message,
 		host: opts.host,
 		hostname: opts.hostname,
