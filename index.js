@@ -1,3 +1,5 @@
+'use strict';
+
 const EventEmitter = require('events').EventEmitter;
 const http = require('http');
 const https = require('https');
@@ -20,15 +22,15 @@ const parseJson = require('parse-json');
 function requestAsEventEmitter(opts) {
 	opts = opts || {};
 
-	var ee = new EventEmitter();
-	var redirectCount = 0;
-	var retryCount = 0;
+	const ee = new EventEmitter();
+	let redirectCount = 0;
+	let retryCount = 0;
 
-	var get = opts => {
-		var fn = opts.protocol === 'https:' ? https : http;
+	const get = opts => {
+		const fn = opts.protocol === 'https:' ? https : http;
 
-		var req = fn.request(opts, res => {
-			var statusCode = res.statusCode;
+		const req = fn.request(opts, res => {
+			const statusCode = res.statusCode;
 
 			if (isRedirect(statusCode) && 'location' in res.headers && (opts.method === 'GET' || opts.method === 'HEAD')) {
 				res.resume();
@@ -38,8 +40,8 @@ function requestAsEventEmitter(opts) {
 					return;
 				}
 
-				var redirectUrl = urlLib.resolve(urlLib.format(opts), res.headers.location);
-				var redirectOpts = objectAssign({}, opts, urlLib.parse(redirectUrl));
+				const redirectUrl = urlLib.resolve(urlLib.format(opts), res.headers.location);
+				const redirectOpts = objectAssign({}, opts, urlLib.parse(redirectUrl));
 
 				ee.emit('redirect', res, redirectOpts);
 
@@ -75,7 +77,7 @@ function requestAsEventEmitter(opts) {
 }
 
 function asCallback(opts, cb) {
-	var ee = requestAsEventEmitter(opts);
+	const ee = requestAsEventEmitter(opts);
 
 	ee.on('request', req => {
 		if (isStream(opts.body)) {
@@ -88,12 +90,12 @@ function asCallback(opts, cb) {
 	});
 
 	ee.on('response', res => {
-		var stream = opts.encoding === null ? getStream.buffer(res) : getStream(res, opts);
+		const stream = opts.encoding === null ? getStream.buffer(res) : getStream(res, opts);
 
 		stream
 			.then(data => {
-				var err;
-				var statusCode = res.statusCode;
+				let err;
+				const statusCode = res.statusCode;
 
 				if (statusCode < 200 || statusCode > 299) {
 					err = new got.HTTPError(statusCode, opts);
@@ -135,7 +137,7 @@ function asPromise(opts) {
 }
 
 function asStream(opts) {
-	var proxy = duplexify();
+	const proxy = duplexify();
 
 	if (opts.json) {
 		throw new Error('got can not be used as stream when options.json is used');
@@ -147,7 +149,7 @@ function asStream(opts) {
 		};
 	}
 
-	var ee = requestAsEventEmitter(opts);
+	const ee = requestAsEventEmitter(opts);
 
 	ee.on('request', req => {
 		proxy.emit('request', req);
@@ -171,7 +173,7 @@ function asStream(opts) {
 	});
 
 	ee.on('response', res => {
-		var statusCode = res.statusCode;
+		const statusCode = res.statusCode;
 
 		proxy.setReadable(res);
 
@@ -214,14 +216,14 @@ function normalizeArguments(url, opts) {
 		'accept-encoding': 'gzip,deflate'
 	}, lowercaseKeys(opts.headers));
 
-	var query = opts.query;
+	const query = opts.query;
 
 	if (query) {
 		if (typeof query !== 'string') {
 			opts.query = querystring.stringify(query);
 		}
 
-		opts.path = opts.path.split('?')[0] + '?' + opts.query;
+		opts.path = `${opts.path.split('?')[0]}?${opts.query}`;
 		delete opts.query;
 	}
 
@@ -229,7 +231,7 @@ function normalizeArguments(url, opts) {
 		opts.headers.accept = 'application/json';
 	}
 
-	var body = opts.body;
+	let body = opts.body;
 
 	if (body) {
 		if (typeof body !== 'string' && !Buffer.isBuffer(body) && !isStream.readable(body) && !isPlainObj(body)) {
@@ -244,7 +246,7 @@ function normalizeArguments(url, opts) {
 		}
 
 		if (opts.headers['content-length'] === undefined && opts.headers['transfer-encoding'] === undefined && !isStream.readable(body)) {
-			var length = typeof body === 'string' ? Buffer.byteLength(body) : body.length;
+			const length = typeof body === 'string' ? Buffer.byteLength(body) : body.length;
 			opts.headers['content-length'] = length;
 		}
 	}
@@ -252,7 +254,7 @@ function normalizeArguments(url, opts) {
 	opts.method = opts.method || 'GET';
 
 	if (opts.hostname === 'unix') {
-		var matches = /(.+)\:(.+)/.exec(opts.path);
+		const matches = /(.+)\:(.+)/.exec(opts.path);
 
 		if (matches) {
 			opts.socketPath = matches[1];
@@ -294,7 +296,7 @@ function got(url, opts, cb) {
 	}
 }
 
-var helpers = [
+const helpers = [
 	'get',
 	'post',
 	'put',
