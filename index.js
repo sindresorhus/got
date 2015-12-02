@@ -279,17 +279,7 @@ function normalizeArguments(url, opts) {
 	return opts;
 }
 
-function got(url, opts, cb) {
-	if (typeof opts === 'function') {
-		cb = opts;
-		opts = {};
-	}
-
-	if (cb) {
-		asCallback(normalizeArguments(url, opts), cb);
-		return null;
-	}
-
+function got(url, opts) {
 	try {
 		return asPromise(normalizeArguments(url, opts));
 	} catch (error) {
@@ -307,21 +297,10 @@ const helpers = [
 ];
 
 helpers.forEach(el => {
-	got[el] = (url, opts, cb) => {
-		if (typeof opts === 'function') {
-			cb = opts;
-			opts = {};
-		}
-
-		return got(url, objectAssign({}, opts, {method: el.toUpperCase()}), cb);
-	};
+	got[el] = (url, opts) => got(url, objectAssign({}, opts, {method: el.toUpperCase()}));
 });
 
-got.stream = function (url, opts, cb) {
-	if (cb || typeof opts === 'function') {
-		throw new Error('callback can not be used with stream mode');
-	}
-
+got.stream = function (url, opts) {
 	return asStream(normalizeArguments(url, opts));
 };
 

@@ -36,13 +36,6 @@ test('options are optional', async t => {
 	t.is((await got(`${s.url}/test`)).body, '/test');
 });
 
-test.cb('options are optional', t => {
-	got(`${s.url}/test`, (err, data) => {
-		t.is(data, '/test');
-		t.end();
-	});
-});
-
 test('accepts url.parse object as first argument', async t => {
 	t.is((await got({hostname: s.host, port: s.port, path: '/test'})).body, '/test');
 });
