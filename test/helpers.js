@@ -19,14 +19,6 @@ test.before('setup', async t => {
 	await s.listen(s.port);
 });
 
-test.cb('callback mode', t => {
-	got.get(s.url, (err, body) => {
-		t.ifError(err);
-		t.is(body, 'ok');
-		t.end();
-	});
-});
-
 test('promise mode', async t => {
 	t.is((await got.get(s.url)).body, 'ok');
 

@@ -37,16 +37,6 @@ test('option.json can not be used', t => {
 	}, 'got can not be used as stream when options.json is used');
 });
 
-test('callback can not be used', t => {
-	t.throws(() => {
-		got.stream(s.url, {json: true}, () => {});
-	}, 'callback can not be used with stream mode');
-
-	t.throws(() => {
-		got.stream(s.url, () => {});
-	}, 'callback can not be used with stream mode');
-});
-
 test.cb('returns readable stream', t => {
 	got.stream(s.url)
 		.on('data', data => {
