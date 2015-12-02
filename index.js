@@ -94,34 +94,27 @@ function asPromise(opts) {
 			const stream = opts.encoding === null ? getStream.buffer(res) : getStream(res, opts);
 
 			stream
+				.catch(err => reject(new got.ReadError(err, opts)))
 				.then(data => {
-					let err;
 					const statusCode = res.statusCode;
 
 					res.body = data;
-
-					if (statusCode < 200 || statusCode > 299) {
-						err = new got.HTTPError(statusCode, opts);
-					}
 
 					if (opts.json && statusCode !== 204) {
 						try {
 							res.body = JSON.parse(res.body);
 						} catch (e) {
-							err = new got.ParseError(e, opts, data);
+							throw new got.ParseError(e, opts, data);
 						}
 					}
 
-					if (err) {
-						Object.defineProperty(err, 'response', {value: res});
-						reject(err);
-						return;
+					if (statusCode < 200 || statusCode > 299) {
+						throw new got.HTTPError(statusCode, opts);
 					}
 
 					resolve(res);
 				})
 				.catch(err => {
-					err = new got.ReadError(err, opts);
 					Object.defineProperty(err, 'response', {value: res});
 					reject(err);
 				});
