@@ -69,9 +69,12 @@
     "xo": "*"
   },
   "xo": {
-    "esnext": false,
+    "esnext": true,
     "ignores": [
       "test/**"
-    ]
+    ],
+    "rules": {
+      "prefer-reflect": 1
+    }
   }
 }
