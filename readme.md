@@ -276,6 +276,7 @@ This should only ever be done if you have Node version 0.10.x and at the top-lev
 ## Related
 
 - [gh-got](https://github.com/sindresorhus/gh-got) - Convenience wrapper for interacting with the GitHub API
+- [travis-got](https://github.com/samverschueren/travis-got) - Convenience wrapper for interacting with the Travis API
 
 
 ## Created by
