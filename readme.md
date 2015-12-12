@@ -147,6 +147,13 @@ When in stream mode, you can listen for events:
 
 `request` event to get the request object of the request.
 
+__Tip__: You can use `request` event to abort request:
+
+```js
+got.stream('github.com')
+	.on('request', req => setTimeout(() => req.abort(), 50));
+```
+
 ##### .on('response', response)
 
 `response` event to get the response object of the final request.
@@ -158,7 +165,6 @@ When in stream mode, you can listen for events:
 ##### .on('error', error, body, response)
 
 `error` event emitted in case of protocol error (like `ENOTFOUND` etc.) or status error (4xx or 5xx). The second argument is the body of the server response in case of status error. The third argument is response object.
-
 
 #### got.get(url, [options], [callback])
 #### got.post(url, [options], [callback])
