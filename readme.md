@@ -76,7 +76,7 @@ Any of the [`http.request`](http://nodejs.org/api/http.html#http_http_request_op
 
 ###### body
 
-Type: `string`, `Buffer`, `ReadableStream`, `Object`  
+Type: `string`, `buffer`, `readableStream`, `object`  
 
 *This is mutually exclusive with stream mode.*
 
