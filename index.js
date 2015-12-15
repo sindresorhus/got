@@ -51,7 +51,7 @@ function requestAsEventEmitter(opts) {
 
 			// do not write ee.bind(...) instead of function - it will break gzip in Node.js 0.10
 			setImmediate(function () {
-				ee.emit('response', typeof unzipResponse === 'function' ? unzipResponse(res) : res);
+				ee.emit('response', typeof unzipResponse === 'function' && req.method !== 'HEAD' ? unzipResponse(res) : res);
 			});
 		});
 
