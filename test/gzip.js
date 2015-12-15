@@ -14,6 +14,12 @@ test.before('setup', async t => {
 		res.statusCode = 200;
 		res.setHeader('Content-Type', 'text/plain');
 		res.setHeader('Content-Encoding', 'gzip');
+
+		if (req.method === 'HEAD') {
+			res.end();
+			return;
+		}
+
 		zlib.gzip(testContent, (_, data) => res.end(data));
 	});
 
@@ -44,6 +50,10 @@ test('handles gzip error', async t => {
 
 test('preserve headers property', async t => {
 	t.ok((await got(s.url)).headers);
+});
+
+test('do not break HEAD responses', async t => {
+	t.is((await got.head(s.url)).body, '');
 });
 
 test.after('cleanup', async t => {
