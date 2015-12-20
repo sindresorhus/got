@@ -123,7 +123,7 @@ Default: `5`
 
 Number of request retries when network errors happens. Delays between retries counts with function `Math.pow(2, retry) + Math.random() * 100`, where `retry` is attempt number (starts from 0).
 
-Option accepts `function` with `retry` argument that must return delay in milliseconds (`0` return value cancels retry).
+Option accepts `function` with `retry` and `error` arguments. Function must return delay in milliseconds (`0` return value cancels retry).
 
 ##### callback(error, data, response)
 

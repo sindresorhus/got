@@ -58,6 +58,17 @@ test('falsy value prevent retries', async t => {
 	}
 });
 
+test('falsy value prevent retries', async t => {
+	try {
+		await got(`${s.url}/long`, {timeout: 100, retries: (iter, err) => {
+			t.ok(err);
+			return false;
+		}});
+	} catch (err) {
+		t.ok(err);
+	}
+});
+
 test.after('cleanup', async t => {
 	await s.close();
 });

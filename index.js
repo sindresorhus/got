@@ -56,7 +56,7 @@ function requestAsEventEmitter(opts) {
 		});
 
 		req.once('error', function (err) {
-			var backoff = opts.retries(++retryCount);
+			var backoff = opts.retries(++retryCount, err);
 			if (backoff) {
 				setTimeout(get, backoff, opts);
 				return;
