@@ -58,11 +58,11 @@
     "url-parse-lax": "^1.0.0"
   },
   "devDependencies": {
-    "ava": "^0.7.0",
+    "ava": "^0.8.0",
     "coveralls": "^2.11.4",
     "get-port": "^2.0.0",
     "into-stream": "^2.0.0",
-    "nyc": "^4.0.1",
+    "nyc": "^5.0.1",
     "pem": "^1.4.4",
     "pify": "^2.3.0",
     "tempfile": "^1.1.1",
@@ -71,10 +71,7 @@
   "xo": {
     "esnext": true,
     "ignores": [
-      "test/**"
-    ],
-    "rules": {
-      "prefer-reflect": 1
-    }
+      "test/_*"
+    ]
   }
 }

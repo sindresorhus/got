@@ -5,7 +5,7 @@ import {createServer} from './_server';
 
 let s;
 
-test.before('setup', async t => {
+test.before('setup', async () => {
 	s = await createServer();
 
 	s.on('/', (req, res) => {
@@ -109,6 +109,6 @@ test('content-type header is not overriden when object in options.body', async t
 	t.is(body['content-type'], 'doge');
 });
 
-test.after('cleanup', async t => {
+test.after('cleanup', async () => {
 	await s.close();
 });

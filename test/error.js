@@ -4,7 +4,7 @@ import {createServer} from './_server';
 
 let s;
 
-test.before('setup', async t => {
+test.before('setup', async () => {
 	s = await createServer();
 
 	s.on('/', (req, res) => {
@@ -51,6 +51,6 @@ test('options.body error message', async t => {
 	}
 });
 
-test.after('cleanup', async t => {
+test.after('cleanup', async () => {
 	await s.close();
 });

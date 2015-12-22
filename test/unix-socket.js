@@ -8,7 +8,7 @@ const socketPath = tempfile('.socket');
 
 let s;
 
-test.before('setup', async t => {
+test.before('setup', async () => {
 	s = await createServer();
 
 	s.on('/', (req, res) => {
@@ -28,6 +28,6 @@ test('protocol-less works', async t => {
 	t.is((await got(url)).body, 'ok');
 });
 
-test.after('cleanup', async t => {
+test.after('cleanup', async () => {
 	await s.close();
 });

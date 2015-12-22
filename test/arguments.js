@@ -4,7 +4,7 @@ import {createServer} from './_server';
 
 let s;
 
-test.before('setup', async t => {
+test.before('setup', async () => {
 	s = await createServer();
 
 	s.on('/', (req, res) => {
@@ -57,6 +57,6 @@ test('accepts url.parse object as first argument', async t => {
 	t.is((await got({hostname: s.host, port: s.port, path: '/test'})).body, '/test');
 });
 
-test.after('cleanup', async t => {
+test.after('cleanup', async () => {
 	await s.close();
 });

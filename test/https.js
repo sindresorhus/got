@@ -12,7 +12,7 @@ let caRootCert;
 
 const pemP = pify(pem, Promise);
 
-test.before('setup', async t => {
+test.before('setup', async () => {
 	const caKeys = await pemP.createCertificate({days: 1, selfSigned: true});
 
 	caRootKey = caKeys.serviceKey;
@@ -58,6 +58,6 @@ test('make request to https server with ca', async t => {
 	t.is(body, 'ok');
 });
 
-test.after('cleanup', async t => {
+test.after('cleanup', async () => {
 	await s.close();
 });

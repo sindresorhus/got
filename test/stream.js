@@ -5,7 +5,7 @@ import {createServer} from './_server';
 
 let s;
 
-test.before('setup', async t => {
+test.before('setup', async () => {
 	s = await createServer();
 
 	s.on('/', (req, res) => {
@@ -117,9 +117,8 @@ test.cb('accepts option.body as Stream', t => {
 			t.is(chunk.toString(), 'wow');
 			t.end();
 		});
-
 });
 
-test.after('cleanup', async t => {
+test.after('cleanup', async () => {
 	await s.close();
 });

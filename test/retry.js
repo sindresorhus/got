@@ -7,7 +7,7 @@ let trys = 0;
 let knocks = 0;
 let fifth = 0;
 
-test.before('setup', async t => {
+test.before('setup', async () => {
 	s = await createServer();
 
 	s.on('/long', () => {});
@@ -69,6 +69,6 @@ test('falsy value prevent retries', async t => {
 	}
 });
 
-test.after('cleanup', async t => {
+test.after('cleanup', async () => {
 	await s.close();
 });
