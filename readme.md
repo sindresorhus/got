@@ -8,7 +8,7 @@
 
 > Simplified HTTP/HTTPS requests
 
-[![Build Status](https://travis-ci.org/sindresorhus/got.svg?branch=master)](https://travis-ci.org/sindresorhus/got) [![Coverage Status](https://coveralls.io/repos/sindresorhus/got/badge.svg?service=github&branch=master)](https://coveralls.io/github/sindresorhus/got?branch=master) [![Downloads](https://img.shields.io/npm/dm/got.svg?style=flat)](https://npmjs.com/got)
+[![Build Status](https://travis-ci.org/sindresorhus/got.svg?branch=master)](https://travis-ci.org/sindresorhus/got) [![Coverage Status](https://coveralls.io/repos/sindresorhus/got/badge.svg?service=github&branch=master)](https://coveralls.io/github/sindresorhus/got?branch=master) [![Downloads](https://img.shields.io/npm/dm/got.svg)](https://npmjs.com/got)
 
 A nicer interface to the built-in [`http`](http://nodejs.org/api/http.html) module.
 
@@ -19,7 +19,7 @@ Created because [`request`](https://github.com/mikeal/request) is bloated *(seve
 
 ## Install
 
-**WARNING: Node.JS 4.x or higher required for got@6.0.0 and above.** For older Node.JS versions use got@5.
+**WARNING: Node.js 4 or higher required for got@6 and above.** For older Node.js versions use got@5.
 
 ```
 $ npm install --save got
@@ -73,7 +73,7 @@ Any of the [`http.request`](http://nodejs.org/api/http.html#http_http_request_op
 
 ###### body
 
-Type: `string`, `buffer`, `readableStream`, `object`  
+Type: `string`, `buffer`, `readableStream`, `object`
 
 *This is mutually exclusive with stream mode.*
 
@@ -131,7 +131,7 @@ Option accepts `function` with `retry` and `error` arguments. Function must retu
 
 `request` event to get the request object of the request.
 
-__Tip__: You can use `request` event to abort request:
+**Tip**: You can use `request` event to abort request:
 
 ```js
 got.stream('github.com')
@@ -201,7 +201,7 @@ got('todomvc.com', {
 			host: 'localhost'
 		}
 	})
-}, () => {});
+});
 ```
 
 
@@ -241,13 +241,13 @@ got('unix:/var/run/docker.sock:/containers/json');
 It's a good idea to set the `'user-agent'` header so the provider can more easily see how their resource is used. By default, it's the URL to this repo.
 
 ```js
-var got = require('got');
+const got = require('got');
 
 got('todomvc.com', {
 	headers: {
 		'user-agent': 'https://github.com/your-username/repo-name'
 	}
-}, function () {});
+});
 ```
 
 
