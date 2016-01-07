@@ -72,7 +72,7 @@ test('redirect only GET and HEAD requests', async t => {
 		await got(`${s.url}/relative`, {body: 'wow'});
 		t.fail('Exception was not thrown');
 	} catch (err) {
-		t.is(err.message, 'Response code 302 (Moved Temporarily)');
+		t.is(err.message, 'Response code 302 (Found)');
 		t.is(err.path, '/relative');
 		t.is(err.statusCode, 302);
 	}

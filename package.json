@@ -45,14 +45,14 @@
     "fetch"
   ],
   "dependencies": {
-    "create-error-class": "^3.0.0",
     "@floatdrop/duplexer2": "^0.1.4",
+    "create-error-class": "^3.0.0",
     "get-stream": "^1.1.0",
     "is-plain-obj": "^1.0.0",
     "is-redirect": "^1.0.0",
     "is-stream": "^1.0.0",
     "lowercase-keys": "^1.0.0",
-    "node-status-codes": "^1.0.0",
+    "node-status-codes": "^2.0.0",
     "timed-out": "^2.0.0",
     "unzip-response": "^1.0.0",
     "url-parse-lax": "^1.0.0"
