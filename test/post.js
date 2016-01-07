@@ -1,7 +1,7 @@
 import test from 'ava';
 import intoStream from 'into-stream';
 import got from '../';
-import {createServer} from './_server';
+import {createServer} from './helpers/server';
 
 let s;
 

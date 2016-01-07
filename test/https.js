@@ -2,7 +2,7 @@ import test from 'ava';
 import pem from 'pem';
 import pify from 'pify';
 import got from '../';
-import {createSSLServer} from './_server';
+import {createSSLServer} from './helpers/server';
 
 let s;
 let key;

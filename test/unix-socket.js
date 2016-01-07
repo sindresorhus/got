@@ -2,7 +2,7 @@ import {format} from 'util';
 import tempfile from 'tempfile';
 import test from 'ava';
 import got from '../';
-import {createServer} from './_server';
+import {createServer} from './helpers/server';
 
 const socketPath = tempfile('.socket');
 

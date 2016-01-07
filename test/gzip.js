@@ -1,7 +1,7 @@
 import zlib from 'zlib';
 import test from 'ava';
 import got from '../';
-import {createServer} from './_server';
+import {createServer} from './helpers/server';
 
 const testContent = 'Compressible response content.\n';
 
