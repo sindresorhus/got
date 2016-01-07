@@ -1,10 +1,10 @@
 import test from 'ava';
 import got from '../';
-import {createServer} from './_server';
+import {createServer} from './helpers/server';
 
 let s;
 
-test.before('setup', async t => {
+test.before('setup', async () => {
 	s = await createServer();
 
 	s.on('/', (req, res) => {
@@ -29,7 +29,7 @@ test('accept header with json option', async t => {
 	let headers = (await got(s.url, {json: true})).body;
 	t.is(headers.accept, 'application/json');
 
-	headers = (await got(s.url, {headers: {'accept': ''}, json: true})).body;
+	headers = (await got(s.url, {headers: {accept: ''}, json: true})).body;
 	t.is(headers.accept, '');
 });
 
@@ -48,6 +48,6 @@ test('zero content-length', async t => {
 	t.is(headers['content-length'], '0');
 });
 
-test.after('cleanup', async t => {
+test.after('cleanup', async () => {
 	await s.close();
 });

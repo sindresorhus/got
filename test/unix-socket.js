@@ -2,13 +2,13 @@ import {format} from 'util';
 import tempfile from 'tempfile';
 import test from 'ava';
 import got from '../';
-import {createServer} from './_server';
+import {createServer} from './helpers/server';
 
 const socketPath = tempfile('.socket');
 
 let s;
 
-test.before('setup', async t => {
+test.before('setup', async () => {
 	s = await createServer();
 
 	s.on('/', (req, res) => {
@@ -28,6 +28,6 @@ test('protocol-less works', async t => {
 	t.is((await got(url)).body, 'ok');
 });
 
-test.after('cleanup', async t => {
+test.after('cleanup', async () => {
 	await s.close();
 });

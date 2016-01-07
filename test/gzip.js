@@ -1,13 +1,13 @@
 import zlib from 'zlib';
 import test from 'ava';
 import got from '../';
-import {createServer} from './_server';
+import {createServer} from './helpers/server';
 
 const testContent = 'Compressible response content.\n';
 
 let s;
 
-test.before('setup', async t => {
+test.before('setup', async () => {
 	s = await createServer();
 
 	s.on('/', (req, res) => {
@@ -56,6 +56,6 @@ test('do not break HEAD responses', async t => {
 	t.is((await got.head(s.url)).body, '');
 });
 
-test.after('cleanup', async t => {
+test.after('cleanup', async () => {
 	await s.close();
 });

@@ -1,10 +1,10 @@
 import test from 'ava';
 import got from '../';
-import {createServer} from './_server';
+import {createServer} from './helpers/server';
 
 let s;
 
-test.before('setup', async t => {
+test.before('setup', async () => {
 	s = await createServer();
 
 	s.on('/', (req, res) => {
@@ -17,14 +17,6 @@ test.before('setup', async t => {
 	});
 
 	await s.listen(s.port);
-});
-
-test('callback mode', t => {
-	got.get(s.url, function (err, body) {
-		t.ifError(err);
-		t.is(body, 'ok');
-		t.end();
-	});
 });
 
 test('promise mode', async t => {
@@ -45,6 +37,6 @@ test('promise mode', async t => {
 	}
 });
 
-test.after('cleanup', async t => {
+test.after('cleanup', async () => {
 	await s.close();
 });

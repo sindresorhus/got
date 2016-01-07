@@ -1,10 +1,10 @@
 import test from 'ava';
 import got from '../';
-import {createServer} from './_server';
+import {createServer} from './helpers/server';
 
 let s;
 
-test.before('setup', async t => {
+test.before('setup', async () => {
 	s = await createServer();
 
 	s.on('/', (req, res) => {
@@ -44,13 +44,6 @@ test('dns message', async t => {
 
 test('options.body error message', async t => {
 	try {
-		got(s.url, {body: () => {}}, () => {});
-		t.fail('Exception was not thrown');
-	} catch (err) {
-		t.regexTest(/options.body must be a ReadableStream, string, Buffer or plain Object/, err.message);
-	}
-
-	try {
 		await got(s.url, {body: () => {}});
 		t.fail('Exception was not thrown');
 	} catch (err) {
@@ -58,6 +51,6 @@ test('options.body error message', async t => {
 	}
 });
 
-test.after('cleanup', async t => {
+test.after('cleanup', async () => {
 	await s.close();
 });

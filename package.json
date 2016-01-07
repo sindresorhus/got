@@ -1,6 +1,6 @@
 {
   "name": "got",
-  "version": "5.3.0",
+  "version": "6.0.0-rc1",
   "description": "Simplified HTTP/HTTPS requests",
   "license": "MIT",
   "repository": "sindresorhus/got",
@@ -17,7 +17,7 @@
     }
   ],
   "engines": {
-    "node": ">=0.10.0"
+    "node": ">=4"
   },
   "browser": {
     "unzip-response": false
@@ -45,35 +45,30 @@
     "fetch"
   ],
   "dependencies": {
-    "create-error-class": "^2.0.0",
-    "duplexify": "^3.2.0",
+    "create-error-class": "^3.0.0",
+    "@floatdrop/duplexer2": "^0.1.4",
+    "get-stream": "^1.1.0",
     "is-plain-obj": "^1.0.0",
     "is-redirect": "^1.0.0",
     "is-stream": "^1.0.0",
     "lowercase-keys": "^1.0.0",
     "node-status-codes": "^1.0.0",
-    "object-assign": "^4.0.1",
-    "parse-json": "^2.1.0",
-    "pinkie-promise": "^2.0.0",
-    "read-all-stream": "^3.0.0",
     "timed-out": "^2.0.0",
     "unzip-response": "^1.0.0",
     "url-parse-lax": "^1.0.0"
   },
   "devDependencies": {
-    "ava": "^0.5.0",
+    "ava": "^0.9.0",
     "coveralls": "^2.11.4",
     "get-port": "^2.0.0",
     "into-stream": "^2.0.0",
-    "nyc": "^3.2.2",
+    "nyc": "^5.0.1",
     "pem": "^1.4.4",
     "pify": "^2.3.0",
     "tempfile": "^1.1.1",
     "xo": "*"
   },
   "xo": {
-    "ignores": [
-      "test/**"
-    ]
+    "esnext": true
   }
 }

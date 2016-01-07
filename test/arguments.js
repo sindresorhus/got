@@ -1,10 +1,10 @@
 import test from 'ava';
 import got from '../';
-import {createServer} from './_server';
+import {createServer} from './helpers/server';
 
 let s;
 
-test.before('setup', async t => {
+test.before('setup', async () => {
 	s = await createServer();
 
 	s.on('/', (req, res) => {
@@ -36,13 +36,6 @@ test('options are optional', async t => {
 	t.is((await got(`${s.url}/test`)).body, '/test');
 });
 
-test('options are optional', t => {
-	got(`${s.url}/test`, function (err, data) {
-		t.is(data, '/test');
-		t.end();
-	});
-});
-
 test('accepts url.parse object as first argument', async t => {
 	t.is((await got({hostname: s.host, port: s.port, path: '/test'})).body, '/test');
 });
@@ -64,6 +57,6 @@ test('accepts url.parse object as first argument', async t => {
 	t.is((await got({hostname: s.host, port: s.port, path: '/test'})).body, '/test');
 });
 
-test.after('cleanup', async t => {
+test.after('cleanup', async () => {
 	await s.close();
 });

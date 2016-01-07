@@ -19,6 +19,8 @@ Created because [`request`](https://github.com/mikeal/request) is bloated *(seve
 
 ## Install
 
+**WARNING: Node.JS 4.x or higher required for got@6.0.0 and above.** For older Node.JS versions use got@5.
+
 ```
 $ npm install --save got
 ```
@@ -29,13 +31,6 @@ $ npm install --save got
 ```js
 const got = require('got');
 
-// Callback mode
-got('todomvc.com', (error, body, response) => {
-	console.log(body);
-	//=> '<!doctype html> ...'
-});
-
-// Promise mode
 got('todomvc.com')
 	.then(response => {
 		console.log(response.body);
@@ -46,7 +41,7 @@ got('todomvc.com')
 		//=> 'Internal server error ...'
 	});
 
-// Stream mode
+// Streams
 got.stream('todomvc.com').pipe(fs.createWriteStream('index.html'));
 
 // For POST, PUT and PATCH methods got.stream returns a WritableStream
@@ -58,7 +53,9 @@ fs.createReadStream('index.html').pipe(got.stream.post('todomvc.com'));
 
 It's a `GET` request by default, but can be changed in `options`.
 
-#### got(url, [options], [callback])
+#### got(url, [options])
+
+Return a Promise, that resolves to `response` object with `body` property.
 
 ##### url
 
@@ -125,23 +122,10 @@ Number of request retries when network errors happens. Delays between retries co
 
 Option accepts `function` with `retry` and `error` arguments. Function must return delay in milliseconds (`0` return value cancels retry).
 
-##### callback(error, data, response)
 
-Function to be called when error or data are received. If omitted, a promise will be returned.
+#### Streams
 
-###### error
-
-`Error` object with HTTP status code as `statusCode` property.
-
-###### data
-
-The data you requested.
-
-###### response
-
-The [response object](http://nodejs.org/api/http.html#http_http_incomingmessage).
-
-When in stream mode, you can listen for events:
+`stream` method will return Duplex stream with additional events:
 
 ##### .on('request', request)
 
@@ -265,18 +249,6 @@ got('todomvc.com', {
 	}
 }, function () {});
 ```
-
-
-## Node.js 0.10.x
-
-It is a known issue with old good Node 0.10.x [`http.Agent`](https://nodejs.org/docs/v0.10.39/api/http.html#http_class_http_agent) and `agent.maxSockets`, which is set to `5`. This can cause low performance and in rare cases deadlocks. To avoid this you can set it manually:
-
-```js
-require('http').globalAgent.maxSockets = Infinity;
-require('https').globalAgent.maxSockets = Infinity;
-```
-
-This should only ever be done if you have Node version 0.10.x and at the top-level app layer.
 
 
 ## Related
