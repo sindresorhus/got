@@ -19,6 +19,8 @@ Created because [`request`](https://github.com/mikeal/request) is bloated *(seve
 
 ## Install
 
+**WARNING: Node.JS 4.x or higher required for got@6.0.0 and above.** For older Node.JS versions use got@5.
+
 ```
 $ npm install --save got
 ```
