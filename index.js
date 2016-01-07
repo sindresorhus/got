@@ -48,7 +48,7 @@ function requestAsEventEmitter(opts) {
 				return;
 			}
 
-			setImmediate(function () {
+			setImmediate(() => {
 				ee.emit('response', typeof unzipResponse === 'function' && req.method !== 'HEAD' ? unzipResponse(res) : res);
 			});
 		});
