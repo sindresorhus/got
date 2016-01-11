@@ -45,7 +45,7 @@
     "fetch"
   ],
   "dependencies": {
-    "@floatdrop/duplexer2": "^0.1.4",
+    "duplexer3": "^0.1.4",
     "create-error-class": "^3.0.0",
     "get-stream": "^1.1.0",
     "is-plain-obj": "^1.0.0",
