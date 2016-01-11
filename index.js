@@ -4,7 +4,7 @@ const EventEmitter = require('events').EventEmitter;
 const http = require('http');
 const https = require('https');
 const PassThrough = require('stream').PassThrough;
-const duplexer2 = require('@floatdrop/duplexer2');
+const duplexer3 = require('duplexer3');
 const urlLib = require('url');
 const querystring = require('querystring');
 const isStream = require('is-stream');
@@ -126,7 +126,7 @@ function asPromise(opts) {
 function asStream(opts) {
 	const input = new PassThrough();
 	const output = new PassThrough();
-	const proxy = duplexer2(input, output);
+	const proxy = duplexer3(input, output);
 
 	if (opts.json) {
 		throw new Error('got can not be used as stream when options.json is used');
