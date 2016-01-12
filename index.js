@@ -328,8 +328,13 @@ got.stream = function (url, opts, cb) {
 };
 
 helpers.forEach(function (el) {
-	got.stream[el] = function (url, opts) {
-		return got.stream(url, objectAssign({}, opts, {method: el.toUpperCase()}));
+	got.stream[el] = function (url, opts, cb) {
+		if (typeof opts === 'function') {
+			cb = opts;
+			opts = {};
+		}
+
+		return got.stream(url, objectAssign({}, opts, {method: el.toUpperCase()}), cb);
 	};
 });
 

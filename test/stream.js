@@ -47,6 +47,10 @@ test('callback can not be used', t => {
 		got.stream(s.url, () => {});
 	}, 'callback can not be used with stream mode');
 
+	t.throws(() => {
+		got.stream.get(s.url, () => {});
+	}, 'callback can not be used with stream mode');
+
 	t.end();
 });
 
