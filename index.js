@@ -5,7 +5,8 @@ var https = require('https');
 var urlLib = require('url');
 var querystring = require('querystring');
 var objectAssign = require('object-assign');
-var duplexify = require('duplexify');
+var PassThrough = require('readable-stream').PassThrough;
+var duplexer2 = require('duplexer2');
 var isStream = require('is-stream');
 var readAllStream = require('read-all-stream');
 var timedOut = require('timed-out');
@@ -140,7 +141,9 @@ function asPromise(opts) {
 }
 
 function asStream(opts) {
-	var proxy = duplexify();
+	var input = new PassThrough();
+	var output = new PassThrough();
+	var proxy = duplexer2(input, output);
 
 	if (opts.json) {
 		throw new Error('got can not be used as stream when options.json is used');
@@ -168,7 +171,7 @@ function asStream(opts) {
 		}
 
 		if (opts.method === 'POST' || opts.method === 'PUT' || opts.method === 'PATCH') {
-			proxy.setWritable(req);
+			input.pipe(req);
 			return;
 		}
 
@@ -178,7 +181,7 @@ function asStream(opts) {
 	ee.on('response', function (res) {
 		var statusCode = res.statusCode;
 
-		proxy.setReadable(res);
+		res.pipe(output);
 
 		if (statusCode < 200 || statusCode > 299) {
 			proxy.emit('error', new got.HTTPError(statusCode, opts), null, res);
