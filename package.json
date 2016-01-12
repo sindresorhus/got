@@ -46,7 +46,7 @@
   ],
   "dependencies": {
     "create-error-class": "^2.0.0",
-    "duplexify": "^3.2.0",
+    "duplexer2": "^0.1.4",
     "is-plain-obj": "^1.0.0",
     "is-redirect": "^1.0.0",
     "is-stream": "^1.0.0",
@@ -56,6 +56,7 @@
     "parse-json": "^2.1.0",
     "pinkie-promise": "^2.0.0",
     "read-all-stream": "^3.0.0",
+    "readable-stream": "^2.0.5",
     "timed-out": "^2.0.0",
     "unzip-response": "^1.0.0",
     "url-parse-lax": "^1.0.0"
