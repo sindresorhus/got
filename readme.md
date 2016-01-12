@@ -150,12 +150,12 @@ got.stream('github.com')
 
 `error` event emitted in case of protocol error (like `ENOTFOUND` etc.) or status error (4xx or 5xx). The second argument is the body of the server response in case of status error. The third argument is response object.
 
-#### got.get(url, [options], [callback])
-#### got.post(url, [options], [callback])
-#### got.put(url, [options], [callback])
-#### got.patch(url, [options], [callback])
-#### got.head(url, [options], [callback])
-#### got.delete(url, [options], [callback])
+#### got.get(url, [options])
+#### got.post(url, [options])
+#### got.put(url, [options])
+#### got.patch(url, [options])
+#### got.head(url, [options])
+#### got.delete(url, [options])
 
 Sets `options.method` to the method name and makes a request.
 
