@@ -143,7 +143,7 @@ function asStream(opts) {
 	ee.on('request', req => {
 		proxy.emit('request', req);
 
-		if (isStream.readable(opts.body)) {
+		if (isStream(opts.body)) {
 			opts.body.pipe(req);
 			return;
 		}
@@ -223,7 +223,7 @@ function normalizeArguments(url, opts) {
 	let body = opts.body;
 
 	if (body) {
-		if (typeof body !== 'string' && !Buffer.isBuffer(body) && !isStream.readable(body) && !isPlainObj(body)) {
+		if (typeof body !== 'string' && !Buffer.isBuffer(body) && !isStream(body) && !isPlainObj(body)) {
 			throw new Error('options.body must be a ReadableStream, string, Buffer or plain Object');
 		}
 
@@ -234,7 +234,7 @@ function normalizeArguments(url, opts) {
 			body = opts.body = querystring.stringify(body);
 		}
 
-		if (opts.headers['content-length'] === undefined && opts.headers['transfer-encoding'] === undefined && !isStream.readable(body)) {
+		if (opts.headers['content-length'] === undefined && opts.headers['transfer-encoding'] === undefined && !isStream(body)) {
 			const length = typeof body === 'string' ? Buffer.byteLength(body) : body.length;
 			opts.headers['content-length'] = length;
 		}
