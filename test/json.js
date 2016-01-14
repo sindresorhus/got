@@ -38,7 +38,7 @@ test('parses response', async t => {
 });
 
 test('not parses responses without a body', async t => {
-	const {body} = await got(`${s.url}/204`, {json: true});
+	let {body} = await got(`${s.url}/204`, {json: true});
 	t.is(body, '');
 });
 

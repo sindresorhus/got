@@ -10,15 +10,15 @@ let cert;
 let caRootKey;
 let caRootCert;
 
-const pemP = pify(pem, Promise);
+let pemP = pify(pem, Promise);
 
 test.before('setup', async () => {
-	const caKeys = await pemP.createCertificate({days: 1, selfSigned: true});
+	let caKeys = await pemP.createCertificate({days: 1, selfSigned: true});
 
 	caRootKey = caKeys.serviceKey;
 	caRootCert = caKeys.certificate;
 
-	const keys = await pemP.createCertificate({
+	let keys = await pemP.createCertificate({
 		serviceCertificate: caRootCert,
 		serviceKey: caRootKey,
 		serial: Date.now(),
@@ -50,7 +50,7 @@ test('make request to https server', async t => {
 });
 
 test('make request to https server with ca', async t => {
-	const {body} = await got(s.url, {
+	let {body} = await got(s.url, {
 		strictSSL: true,
 		ca: caRootCert,
 		headers: {host: 'sindresorhus.com'}

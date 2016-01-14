@@ -4,7 +4,7 @@ import test from 'ava';
 import got from '../';
 import {createServer} from './helpers/server';
 
-const socketPath = tempfile('.socket');
+let socketPath = tempfile('.socket');
 
 let s;
 
@@ -19,12 +19,12 @@ test.before('setup', async () => {
 });
 
 test('works', async t => {
-	const url = format('http://unix:%s:%s', socketPath, '/');
+	let url = format('http://unix:%s:%s', socketPath, '/');
 	t.is((await got(url)).body, 'ok');
 });
 
 test('protocol-less works', async t => {
-	const url = format('unix:%s:%s', socketPath, '/');
+	let url = format('unix:%s:%s', socketPath, '/');
 	t.is((await got(url)).body, 'ok');
 });
 

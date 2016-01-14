@@ -52,7 +52,7 @@ test('error with code', async t => {
 });
 
 test('buffer on encoding === null', async t => {
-	const data = (await got(s.url, {encoding: null})).body;
+	let data = (await got(s.url, {encoding: null})).body;
 	t.ok(Buffer.isBuffer(data));
 });
 

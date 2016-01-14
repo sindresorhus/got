@@ -3,7 +3,7 @@ import test from 'ava';
 import got from '../';
 import {createServer} from './helpers/server';
 
-const testContent = 'Compressible response content.\n';
+let testContent = 'Compressible response content.\n';
 
 let s;
 
