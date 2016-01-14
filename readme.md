@@ -221,6 +221,25 @@ got('google.com', {
 ```
 
 
+## Form data
+
+You can use the [`form-data`](https://www.npmjs.com/package/form-data) module to create POST request with form data:
+
+```js
+const fs = require('fs');
+const got = require('got');
+const FormData = require('form-data');
+const form = new FormData();
+
+form.append('my_file', fs.createReadStream('/foo/bar.jpg'));
+
+got.post('google.com', {
+	headers: form.getHeaders(),
+	body: form
+});
+```
+
+
 ## Unix Domain Sockets
 
 Requests can also be sent via [unix domain sockets](http://serverfault.com/questions/124517/whats-the-difference-between-unix-socket-and-tcp-ip-socket). Use the following URL scheme: `PROTOCOL://unix:SOCKET:PATH`.
