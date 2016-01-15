@@ -41,8 +41,8 @@ test.before('setup', async () => {
 	await s.listen(s.port);
 });
 
-test('make request to https server', async t => {
-	t.ok((await got('https://google.com', {strictSSL: true})).body);
+test('make request to https server without ca', async t => {
+	t.ok((await got(s.url, {rejectUnauthorized: false})).body);
 });
 
 test('make request to https server with ca', async t => {
