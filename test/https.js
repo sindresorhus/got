@@ -41,10 +41,6 @@ test.before('setup', async () => {
 	await s.listen(s.port);
 });
 
-test('redirects from http to https works', async t => {
-	t.ok((await got('http://github.com')).body);
-});
-
 test('make request to https server', async t => {
 	t.ok((await got('https://google.com', {strictSSL: true})).body);
 });

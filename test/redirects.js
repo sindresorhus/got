@@ -1,58 +1,102 @@
 import test from 'ava';
+import pem from 'pem';
+import pify from 'pify';
 import got from '../';
-import {createServer} from './helpers/server';
+import {createServer, createSSLServer} from './helpers/server';
 
-let s;
+let http;
+let https;
+let key;
+let cert;
+let caRootKey;
+let caRootCert;
+
+const pemP = pify(pem, Promise);
 
 test.before('setup', async () => {
-	s = await createServer();
+	const caKeys = await pemP.createCertificate({days: 1, selfSigned: true});
 
-	s.on('/', (req, res) => {
+	caRootKey = caKeys.serviceKey;
+	caRootCert = caKeys.certificate;
+
+	const keys = await pemP.createCertificate({
+		serviceCertificate: caRootCert,
+		serviceKey: caRootKey,
+		serial: Date.now(),
+		days: 500,
+		country: '',
+		state: '',
+		locality: '',
+		organization: '',
+		organizationUnit: '',
+		commonName: 'sindresorhus.com'
+	});
+
+	key = keys.clientKey;
+	cert = keys.certificate;
+
+	https = await createSSLServer({key, cert});
+
+	https.on('/', (req, res) => {
+		res.end('https');
+	});
+
+	http = await createServer();
+
+	http.on('/', (req, res) => {
 		res.end('reached');
 	});
 
-	s.on('/finite', (req, res) => {
+	http.on('/finite', (req, res) => {
 		res.writeHead(302, {
-			location: `${s.url}/`
+			location: `${http.url}/`
 		});
 		res.end();
 	});
 
-	s.on('/endless', (req, res) => {
+	http.on('/endless', (req, res) => {
 		res.writeHead(302, {
-			location: `${s.url}/endless`
+			location: `${http.url}/endless`
 		});
 		res.end();
 	});
 
-	s.on('/relative', (req, res) => {
-		res.writeHead(302, {
-			location: '/'
-		});
-		res.end();
-	});
-
-	s.on('/relativeQuery?bang', (req, res) => {
+	http.on('/relative', (req, res) => {
 		res.writeHead(302, {
 			location: '/'
 		});
 		res.end();
 	});
 
-	await s.listen(s.port);
+	http.on('/relativeQuery?bang', (req, res) => {
+		res.writeHead(302, {
+			location: '/'
+		});
+		res.end();
+	});
+
+	http.on('/httpToHttps', (req, res) => {
+		res.writeHead(302, {
+			location: https.url
+		});
+		res.end();
+	});
+
+	await http.listen(http.port);
+	await https.listen(https.port);
 });
 
 test('follows redirect', async t => {
-	t.is((await got(`${s.url}/finite`)).body, 'reached');
+	t.is((await got(`${http.url}/finite`)).body, 'reached');
 });
 
 test('relative redirect works', async t => {
-	t.is((await got(`${s.url}/relative`)).body, 'reached');
+	t.is((await got(`${http.url}/relative`)).body, 'reached');
 });
 
 test('throws on endless redirect', async t => {
 	try {
-		await got(`${s.url}/endless`);
+		await got(`${http.url}/endless`);
 		t.fail('Exception was not thrown');
 	} catch (err) {
 		t.is(err.message, 'Redirected 10 times. Aborting.');
@@ -60,16 +104,16 @@ test('throws on endless redirect', async t => {
 });
 
 test('query in options are not breaking redirects', async t => {
-	t.is((await got(`${s.url}/relativeQuery`, {query: 'bang'})).body, 'reached');
+	t.is((await got(`${http.url}/relativeQuery`, {query: 'bang'})).body, 'reached');
 });
 
 test('hostname+path in options are not breaking redirects', async t => {
-	t.is((await got(`${s.url}/relative`, {hostname: s.host, path: '/relative'})).body, 'reached');
+	t.is((await got(`${http.url}/relative`, {hostname: http.host, path: '/relative'})).body, 'reached');
 });
 
 test('redirect only GET and HEAD requests', async t => {
 	try {
-		await got(`${s.url}/relative`, {body: 'wow'});
+		await got(`${http.url}/relative`, {body: 'wow'});
 		t.fail('Exception was not thrown');
 	} catch (err) {
 		t.is(err.message, 'Response code 302 (Found)');
@@ -78,6 +122,11 @@ test('redirect only GET and HEAD requests', async t => {
 	}
 });
 
+test('redirects from http to https works', async t => {
+	t.ok((await got(`${http.url}/httpToHttps`, {rejectUnauthorized: false})).body);
+});
+
 test.after('cleanup', async () => {
-	await s.close();
+	await http.close();
+	await https.close();
 });
