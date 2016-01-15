@@ -69,9 +69,6 @@
     "xo": "*"
   },
   "xo": {
-    "esnext": true,
-    "rules": {
-      "prefer-const": 0
-    }
+    "esnext": true
   }
 }

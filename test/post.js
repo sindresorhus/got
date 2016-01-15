@@ -25,48 +25,48 @@ test.before('setup', async () => {
 });
 
 test('GET can have body', async t => {
-	let {body, headers} = await got.get(s.url, {body: 'hi'});
+	const {body, headers} = await got.get(s.url, {body: 'hi'});
 	t.is(body, 'hi');
 	t.is(headers.method, 'GET');
 });
 
 test('sends strings', async t => {
-	let {body} = await got(s.url, {body: 'wow'});
+	const {body} = await got(s.url, {body: 'wow'});
 	t.is(body, 'wow');
 });
 
 test('sends Buffers', async t => {
-	let {body} = await got(s.url, {body: new Buffer('wow')});
+	const {body} = await got(s.url, {body: new Buffer('wow')});
 	t.is(body, 'wow');
 });
 
 test('sends Streams', async t => {
-	let {body} = await got(s.url, {body: intoStream(['wow'])});
+	const {body} = await got(s.url, {body: intoStream(['wow'])});
 	t.is(body, 'wow');
 });
 
 test('works with empty post response', async t => {
-	let {body} = await got(`${s.url}/empty`, {body: 'wow'});
+	const {body} = await got(`${s.url}/empty`, {body: 'wow'});
 	t.is(body, '');
 });
 
 test('content-length header with string body', async t => {
-	let {body} = await got(`${s.url}/headers`, {body: 'wow', json: true});
+	const {body} = await got(`${s.url}/headers`, {body: 'wow', json: true});
 	t.is(body['content-length'], '3');
 });
 
 test('content-length header with Buffer body', async t => {
-	let {body} = await got(`${s.url}/headers`, {body: new Buffer('wow'), json: true});
+	const {body} = await got(`${s.url}/headers`, {body: new Buffer('wow'), json: true});
 	t.is(body['content-length'], '3');
 });
 
 test('content-length header with Stream body', async t => {
-	let {body} = await got(`${s.url}/headers`, {body: intoStream(['wow']), json: true});
+	const {body} = await got(`${s.url}/headers`, {body: intoStream(['wow']), json: true});
 	t.is(body['content-length'], undefined);
 });
 
 test('content-length header is not overriden', async t => {
-	let {body} = await got(`${s.url}/headers`, {
+	const {body} = await got(`${s.url}/headers`, {
 		body: 'wow',
 		json: true,
 		headers: {
@@ -77,7 +77,7 @@ test('content-length header is not overriden', async t => {
 });
 
 test('content-length header disabled for chunked transfer-encoding', async t => {
-	let {body} = await got(`${s.url}/headers`, {
+	const {body} = await got(`${s.url}/headers`, {
 		body: '3\r\nwow\r\n0\r\n',
 		json: true,
 		headers: {
@@ -88,7 +88,7 @@ test('content-length header disabled for chunked transfer-encoding', async t => 
 });
 
 test('object in options.body treated as querystring', async t => {
-	let {body} = await got(s.url, {
+	const {body} = await got(s.url, {
 		body: {
 			such: 'wow'
 		}
@@ -97,7 +97,7 @@ test('object in options.body treated as querystring', async t => {
 });
 
 test('content-type header is not overriden when object in options.body', async t => {
-	let {body} = await got(`${s.url}/headers`, {
+	const {body} = await got(`${s.url}/headers`, {
 		headers: {
 			'content-type': 'doge'
 		},
