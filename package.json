@@ -45,11 +45,12 @@
     "fetch"
   ],
   "dependencies": {
-    "duplexer3": "^0.1.4",
     "create-error-class": "^3.0.0",
+    "duplexer3": "^0.1.4",
     "get-stream": "^1.1.0",
     "is-plain-obj": "^1.0.0",
     "is-redirect": "^1.0.0",
+    "is-retry-allowed": "^1.0.0",
     "is-stream": "^1.0.0",
     "lowercase-keys": "^1.0.0",
     "node-status-codes": "^2.0.0",

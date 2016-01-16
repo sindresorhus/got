@@ -17,6 +17,7 @@ const unzipResponse = require('unzip-response');
 const createErrorClass = require('create-error-class');
 const nodeStatusCodes = require('node-status-codes');
 const isPlainObj = require('is-plain-obj');
+const isRetryAllowed = require('is-retry-allowed');
 
 function requestAsEventEmitter(opts) {
 	opts = opts || {};
@@ -254,8 +255,8 @@ function normalizeArguments(url, opts) {
 
 	if (typeof opts.retries !== 'function') {
 		const retries = opts.retries;
-		opts.retries = function backoff(iter) {
-			if (iter > retries) {
+		opts.retries = function backoff(iter, err) {
+			if (iter > retries || !isRetryAllowed(err)) {
 				return 0;
 			}
 
