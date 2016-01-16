@@ -49,6 +49,7 @@
     "duplexer2": "^0.1.4",
     "is-plain-obj": "^1.0.0",
     "is-redirect": "^1.0.0",
+    "is-retry-allowed": "^1.0.0",
     "is-stream": "^1.0.0",
     "lowercase-keys": "^1.0.0",
     "node-status-codes": "^1.0.0",

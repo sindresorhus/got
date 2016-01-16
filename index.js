@@ -1,4 +1,5 @@
 'use strict';
+
 var EventEmitter = require('events').EventEmitter;
 var http = require('http');
 var https = require('https');
@@ -19,6 +20,7 @@ var createErrorClass = require('create-error-class');
 var nodeStatusCodes = require('node-status-codes');
 var isPlainObj = require('is-plain-obj');
 var parseJson = require('parse-json');
+var isRetryAllowed = require('is-retry-allowed');
 
 function requestAsEventEmitter(opts) {
 	opts = opts || {};
@@ -271,8 +273,8 @@ function normalizeArguments(url, opts) {
 
 	if (typeof opts.retries !== 'function') {
 		var retries = opts.retries;
-		opts.retries = function backoff(iter) {
-			if (iter > retries) {
+		opts.retries = function backoff(iter, err) {
+			if (iter > retries || !isRetryAllowed(err)) {
 				return 0;
 			}
 
