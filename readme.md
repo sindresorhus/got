@@ -111,7 +111,7 @@ Query string object that will be added to the request URL. This will override th
 
 Type: `number`
 
-Milliseconds after which the request will be aborted and an error event with `ETIMEDOUT` code will be emitted.
+Milliseconds to wait for a server to send response headers before aborting request with `ETIMEDOUT` error.
 
 ###### retries
 
