@@ -126,6 +126,11 @@ test('redirects from http to https works', async t => {
 	t.ok((await got(`${http.url}/httpToHttps`, {rejectUnauthorized: false})).body);
 });
 
+test('redirects works with lowercase method', async t => {
+	const body = (await got(`${s.url}/relative`, {method: 'head'})).body;
+	t.is(body, '');
+});
+
 test.after('cleanup', async () => {
 	await http.close();
 	await https.close();
