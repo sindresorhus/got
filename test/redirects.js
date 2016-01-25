@@ -78,6 +78,11 @@ test('redirect only GET and HEAD requests', async t => {
 	}
 });
 
+test('redirects works with lowercase method', async t => {
+	const body = (await got(`${s.url}/relative`, {method: 'head'})).body;
+	t.is(body, '');
+});
+
 test.after('cleanup', async t => {
 	await s.close();
 });

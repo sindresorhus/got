@@ -261,6 +261,8 @@ function normalizeArguments(url, opts) {
 
 	opts.method = opts.method || 'GET';
 
+	opts.method = opts.method.toUpperCase();
+
 	if (opts.hostname === 'unix') {
 		var matches = /(.+)\:(.+)/.exec(opts.path);
 
@@ -320,7 +322,7 @@ helpers.forEach(function (el) {
 			opts = {};
 		}
 
-		return got(url, objectAssign({}, opts, {method: el.toUpperCase()}), cb);
+		return got(url, objectAssign({}, opts, {method: el}), cb);
 	};
 });
 
@@ -339,7 +341,7 @@ helpers.forEach(function (el) {
 			opts = {};
 		}
 
-		return got.stream(url, objectAssign({}, opts, {method: el.toUpperCase()}), cb);
+		return got.stream(url, objectAssign({}, opts, {method: el}), cb);
 	};
 });
 
