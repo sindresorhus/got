@@ -109,6 +109,11 @@ test('content-type header is not overriden when object in options.body', async t
 	t.is(body['content-type'], 'doge');
 });
 
+test('transforms method to uppercase', async t => {
+	const headers = (await got(s.url, {method: 'get'})).headers;
+	t.is(headers.method, 'GET');
+});
+
 test.after('cleanup', async () => {
 	await s.close();
 });
