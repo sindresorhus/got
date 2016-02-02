@@ -36,7 +36,7 @@ function requestAsEventEmitter(opts) {
 		var req = fn.request(opts, function (res) {
 			var statusCode = res.statusCode;
 
-			if (isRedirect(statusCode) && 'location' in res.headers && (opts.method === 'GET' || opts.method === 'HEAD')) {
+			if (isRedirect(statusCode) && opts.followRedirect && 'location' in res.headers && (opts.method === 'GET' || opts.method === 'HEAD')) {
 				res.resume();
 
 				if (++redirectCount > 10) {
@@ -96,13 +96,14 @@ function asCallback(opts, cb) {
 	ee.on('response', function (res) {
 		readAllStream(res, opts.encoding, function (err, data) {
 			var statusCode = res.statusCode;
+			var limitStatusCode = opts.followRedirect ? 299 : 399;
 
 			if (err) {
 				cb(new got.ReadError(err, opts), null, res);
 				return;
 			}
 
-			if (statusCode < 200 || statusCode > 299) {
+			if (statusCode < 200 || statusCode > limitStatusCode) {
 				err = new got.HTTPError(statusCode, opts);
 			}
 
@@ -183,10 +184,11 @@ function asStream(opts) {
 
 	ee.on('response', function (res) {
 		var statusCode = res.statusCode;
+		var limitStatusCode = opts.followRedirect ? 299 : 399;
 
 		res.pipe(output);
 
-		if (statusCode < 200 || statusCode > 299) {
+		if (statusCode < 200 || statusCode > limitStatusCode) {
 			proxy.emit('error', new got.HTTPError(statusCode, opts), null, res);
 			return;
 		}
@@ -284,6 +286,10 @@ function normalizeArguments(url, opts) {
 			var noise = Math.random() * 100;
 			return (1 << iter) * 1000 + noise;
 		};
+	}
+
+	if (opts.followRedirect === undefined) {
+		opts.followRedirect = true;
 	}
 
 	return opts;

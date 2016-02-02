@@ -135,7 +135,17 @@ Function to be called when error or data are received. If omitted, a promise wil
 
 `Error` object with HTTP status code as `statusCode` property.
 
+<<<<<<< HEAD
 ###### data
+=======
+###### followRedirect
+
+Type: `boolean`  
+Default: `true`
+
+Defines if redirect responses should be followed automatically.
+
+>>>>>>> b3cd961... Added option to toggle automatic following redirects
 
 The data you requested.
 
