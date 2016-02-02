@@ -86,6 +86,10 @@ test('follows redirect', async t => {
 	t.is((await got(`${http.url}/finite`)).body, 'reached');
 });
 
+test('does not follow redirect when disabled', async t => {
+	t.is((await got(`${http.url}/finite`, {followRedirect: false})).statusCode, 302);
+});
+
 test('relative redirect works', async t => {
 	t.is((await got(`${http.url}/relative`)).body, 'reached');
 });

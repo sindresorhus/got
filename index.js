@@ -33,7 +33,7 @@ function requestAsEventEmitter(opts) {
 		const req = fn.request(opts, res => {
 			const statusCode = res.statusCode;
 
-			if (isRedirect(statusCode) && 'location' in res.headers && (opts.method === 'GET' || opts.method === 'HEAD')) {
+			if (isRedirect(statusCode) && opts.followRedirect && 'location' in res.headers && (opts.method === 'GET' || opts.method === 'HEAD')) {
 				res.resume();
 
 				if (++redirectCount > 10) {
@@ -98,6 +98,7 @@ function asPromise(opts) {
 				.catch(err => reject(new got.ReadError(err, opts)))
 				.then(data => {
 					const statusCode = res.statusCode;
+					const limitStatusCode = opts.followRedirect ? 299 : 399;
 
 					res.body = data;
 
@@ -109,7 +110,7 @@ function asPromise(opts) {
 						}
 					}
 
-					if (statusCode < 200 || statusCode > 299) {
+					if (statusCode < 200 || statusCode > limitStatusCode) {
 						throw new got.HTTPError(statusCode, opts);
 					}
 
@@ -266,6 +267,10 @@ function normalizeArguments(url, opts) {
 			const noise = Math.random() * 100;
 			return (1 << iter) * 1000 + noise;
 		};
+	}
+
+	if (opts.followRedirect === undefined) {
+		opts.followRedirect = true;
 	}
 
 	return opts;
