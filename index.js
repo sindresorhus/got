@@ -207,7 +207,7 @@ function normalizeArguments(url, opts) {
 		opts
 	);
 
-	if (!Number.isInteger(opts.port)) {
+	if (opts.port === null) {
 		opts.port = opts.protocol === 'http' ? 80 : 443;
 	}
 
