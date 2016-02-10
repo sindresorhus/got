@@ -97,10 +97,11 @@ function asPromise(opts) {
 				.catch(err => reject(new got.ReadError(err, opts)))
 				.then(data => {
 					const statusCode = res.statusCode;
+					const contentType = res.headers['content-type'];
 
 					res.body = data;
 
-					if (opts.json && statusCode !== 204) {
+					if (statusCode !== 204 && (opts.json || (contentType && contentType.indexOf('application/json') > -1))) {
 						try {
 							res.body = JSON.parse(res.body);
 						} catch (e) {
