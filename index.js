@@ -18,7 +18,12 @@ const createErrorClass = require('create-error-class');
 const nodeStatusCodes = require('node-status-codes');
 const isPlainObj = require('is-plain-obj');
 const isRetryAllowed = require('is-retry-allowed');
-const spdy = require('spdy');
+
+let spdy;
+try {
+	spdy = require('spdy');
+} catch (e) {
+}
 
 function requestAsEventEmitter(opts) {
 	opts = opts || {};
@@ -272,7 +277,7 @@ function normalizeArguments(url, opts) {
 		};
 	}
 
-	if (opts.agent === undefined) {
+	if (spdy && opts.agent === undefined) {
 		opts.agent = spdy.createAgent({
 			host: opts.host,
 			port: opts.port
