@@ -202,6 +202,10 @@ function normalizeArguments(url, opts) {
 		opts
 	);
 
+	if (!Number.isInteger(opts.port)) {
+		opts.port = opts.protocol === 'http' ? 80 : 443;
+	}
+
 	opts.headers = Object.assign({
 		'user-agent': 'https://github.com/sindresorhus/got',
 		'accept-encoding': 'gzip,deflate'
