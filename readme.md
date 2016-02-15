@@ -266,7 +266,7 @@ const got = require('got');
 
 got('todomvc.com', {
 	headers: {
-		'user-agent': 'https://github.com/your-username/repo-name'
+		'user-agent': 'got/${version} (https://github.com/sindresorhus/got)'
 	}
 });
 ```

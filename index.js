@@ -18,6 +18,7 @@ const createErrorClass = require('create-error-class');
 const nodeStatusCodes = require('node-status-codes');
 const isPlainObj = require('is-plain-obj');
 const isRetryAllowed = require('is-retry-allowed');
+const pkg = require('./package.json');
 
 function requestAsEventEmitter(opts) {
 	opts = opts || {};
@@ -202,7 +203,7 @@ function normalizeArguments(url, opts) {
 	);
 
 	opts.headers = Object.assign({
-		'user-agent': 'https://github.com/sindresorhus/got',
+		'user-agent': `${pkg.name}/${pkg.version} (https://github.com/sindresorhus/got)`,
 		'accept-encoding': 'gzip,deflate'
 	}, lowercaseKeys(opts.headers));
 
