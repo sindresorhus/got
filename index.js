@@ -106,7 +106,7 @@ function asCallback(opts, cb) {
 				err = new got.HTTPError(statusCode, opts);
 			}
 
-			if (opts.json && statusCode !== 204) {
+			if (opts.json && data) {
 				try {
 					data = parseJson(data);
 				} catch (e) {
