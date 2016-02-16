@@ -101,7 +101,7 @@ function asPromise(opts) {
 
 					res.body = data;
 
-					if (opts.json && statusCode !== 204) {
+					if (opts.json && res.body) {
 						try {
 							res.body = JSON.parse(res.body);
 						} catch (e) {
