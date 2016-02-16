@@ -1,5 +1,6 @@
 import test from 'ava';
 import got from '../';
+import pkg from '../package.json';
 import {createServer} from './helpers/server';
 
 let s;
@@ -17,7 +18,7 @@ test.before('setup', async () => {
 
 test('user-agent', async t => {
 	const headers = (await got(s.url, {json: true})).body;
-	t.is(headers['user-agent'], 'https://github.com/sindresorhus/got');
+	t.is(headers['user-agent'], `${pkg.name}/${pkg.version} (https://github.com/sindresorhus/got)`);
 });
 
 test('accept-encoding', async t => {
