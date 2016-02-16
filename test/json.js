@@ -15,8 +15,8 @@ test.before('setup', async () => {
 		res.end('/');
 	});
 
-	s.on('/204', (req, res) => {
-		res.statusCode = 204;
+	s.on('/no-body', (req, res) => {
+		res.statusCode = 200;
 		res.end();
 	});
 
@@ -38,7 +38,7 @@ test('parses response', async t => {
 });
 
 test('not parses responses without a body', async t => {
-	const {body} = await got(`${s.url}/204`, {json: true});
+	const {body} = await got(`${s.url}/no-body`, {json: true});
 	t.is(body, '');
 });
 
