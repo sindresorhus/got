@@ -21,6 +21,7 @@ var nodeStatusCodes = require('node-status-codes');
 var isPlainObj = require('is-plain-obj');
 var parseJson = require('parse-json');
 var isRetryAllowed = require('is-retry-allowed');
+var pkg = require('./package.json');
 
 function requestAsEventEmitter(opts) {
 	opts = opts || {};
@@ -220,7 +221,7 @@ function normalizeArguments(url, opts) {
 	);
 
 	opts.headers = objectAssign({
-		'user-agent': 'https://github.com/sindresorhus/got',
+		'user-agent': pkg.name + '/' + pkg.version + ' (https://github.com/sindresorhus/got)',
 		'accept-encoding': 'gzip,deflate'
 	}, lowercaseKeys(opts.headers));
 

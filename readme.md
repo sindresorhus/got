@@ -260,10 +260,11 @@ It's a good idea to set the `'user-agent'` header so the provider can more easil
 
 ```js
 var got = require('got');
+var pkg = require('./package.json');
 
 got('todomvc.com', {
 	headers: {
-		'user-agent': 'https://github.com/your-username/repo-name'
+		'user-agent': 'my-module/' + pkg.version + ' (https://github.com/username/my-module)'
 	}
 }, function () {});
 ```
