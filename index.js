@@ -18,6 +18,7 @@ const createErrorClass = require('create-error-class');
 const nodeStatusCodes = require('node-status-codes');
 const isPlainObj = require('is-plain-obj');
 const isRetryAllowed = require('is-retry-allowed');
+const ProxyAgent = require('proxy-agent');
 const pkg = require('./package.json');
 
 function requestAsEventEmitter(opts) {
@@ -206,6 +207,16 @@ function normalizeArguments(url, opts) {
 		'user-agent': `${pkg.name}/${pkg.version} (https://github.com/sindresorhus/got)`,
 		'accept-encoding': 'gzip,deflate'
 	}, lowercaseKeys(opts.headers));
+
+	if (!opts.agent) {
+		const httpProxy = process.env.http_proxy || process.env.HTTP_PROXY || process.env.https_proxy || process.env.HTTPS_PROXY;
+		const noProxy = process.env.no_proxy.split(',');
+		// console.log(httpProxy);
+		// httpProxy = null;
+		if (!noProxy.find(value => url.hostname === value) && url.hostname !== 'unix') {
+			opts.agent = new ProxyAgent(httpProxy);
+		}
+	}
 
 	const query = opts.query;
 
