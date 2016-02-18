@@ -36,7 +36,7 @@ test('dns message', async t => {
 		t.fail('Exception was not thrown');
 	} catch (err) {
 		t.ok(err);
-		t.regexTest(/getaddrinfo ENOTFOUND/, err.message);
+		t.regex(err.message, /getaddrinfo ENOTFOUND/);
 		t.is(err.host, '.com');
 		t.is(err.method, 'GET');
 	}
@@ -47,7 +47,7 @@ test('options.body error message', async t => {
 		await got(s.url, {body: () => {}});
 		t.fail('Exception was not thrown');
 	} catch (err) {
-		t.regexTest(/options.body must be a ReadableStream, string, Buffer or plain Object/, err.message);
+		t.regex(err.message, /options.body must be a ReadableStream, string, Buffer or plain Object/);
 	}
 });
 

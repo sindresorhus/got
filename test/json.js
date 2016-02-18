@@ -47,7 +47,7 @@ test('wraps parsing errors', async t => {
 		await got(`${s.url}/invalid`, {json: true});
 		t.fail('Exception was not thrown');
 	} catch (err) {
-		t.regexTest(/Unexpected token/, err.message);
+		t.regex(err.message, /Unexpected token/);
 		t.ok(err.message.indexOf(err.hostname) !== -1, err.message);
 		t.is(err.path, '/invalid');
 	}
@@ -67,7 +67,7 @@ test('catches errors on invalid non-200 responses', async t => {
 		await got(`${s.url}/non200-invalid`, {json: true});
 		t.fail('Exception was not thrown');
 	} catch (err) {
-		t.regexTest(/Unexpected token/, err.message);
+		t.regex(err.message, /Unexpected token/);
 		t.is(err.response.body, 'Internal error');
 		t.is(err.path, '/non200-invalid');
 	}

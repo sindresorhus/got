@@ -28,7 +28,7 @@ test('url is required', async t => {
 		await got();
 		t.fail('Exception was not thrown');
 	} catch (err) {
-		t.regexTest(/Parameter `url` must be a string or object, not undefined/, err.message);
+		t.regex(err.message, /Parameter `url` must be a string or object, not undefined/);
 	}
 });
 
@@ -49,7 +49,7 @@ test('should throw with auth in url', async t => {
 		await got('https://test:45d3ps453@account.myservice.com/api/token');
 		t.fail('Exception was not thrown');
 	} catch (err) {
-		t.regexTest(/Basic authentication must be done with auth option/, err.message);
+		t.regex(err.message, /Basic authentication must be done with auth option/);
 	}
 });
 
