@@ -118,7 +118,7 @@ Milliseconds to wait for a server to send response headers before aborting reque
 Type: `number`, `function`  
 Default: `5`
 
-Number of request retries when network errors happens. Delays between retries counts with function `Math.pow(2, retry) + Math.random() * 100`, where `retry` is attempt number (starts from 0).
+Number of request retries when network errors happens. Delays between retries counts with function `1000 * Math.pow(2, retry) + Math.random() * 100`, where `retry` is attempt number (starts from 0).
 
 **Note:** `ENOTFOUND` and `ENETUNREACH` error will not be retried (see full list in [`is-retry-allowed`](https://github.com/floatdrop/is-retry-allowed/blob/master/index.js#L12) module).
 
