@@ -3,7 +3,7 @@
   "version": "6.1.1",
   "description": "Simplified HTTP/HTTPS requests",
   "license": "MIT",
-  "repository": "sindresorhus/got",
+  "repository": "alexsantos/got",
   "maintainers": [
     {
       "name": "Sindre Sorhus",
@@ -67,6 +67,7 @@
     "nyc": "^5.0.1",
     "pem": "^1.4.4",
     "pify": "^2.3.0",
+    "proxy": "^0.2.4",
     "tempfile": "^1.1.1",
     "xo": "*"
   },
