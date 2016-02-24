@@ -48,6 +48,7 @@
     "create-error-class": "^3.0.0",
     "duplexer3": "^0.1.4",
     "get-stream": "^1.1.0",
+    "ip": "^1.1.0",
     "is-plain-obj": "^1.0.0",
     "is-redirect": "^1.0.0",
     "is-retry-allowed": "^1.0.0",
@@ -72,6 +73,13 @@
     "xo": "*"
   },
   "xo": {
-    "esnext": true
+    "esnext": true,
+    "rules": {"camelcase": [1, {"properties": "always"}]},
+    "overrides": [
+      {
+        "files": "test/proxy.js",
+        "rules": {"camelcase": [2, {"properties": "always"}]}
+      }
+    ]
   }
 }

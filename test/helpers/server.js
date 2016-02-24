@@ -52,18 +52,3 @@ exports.createProxy = function () {
 		return p;
 	});
 };
-
-exports.createSSLProxy = function () {
-	return getPort().then(port => {
-		const p = setup(http.createServer());
-
-		p.host = host;
-		p.port = port;
-		p.protocol = 'https';
-
-		p.listen = pify(p.listen, Promise);
-		p.close = pify(p.close, Promise);
-
-		return p;
-	});
-};
