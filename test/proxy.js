@@ -168,6 +168,13 @@ test.serial(`simple request to http://localhost using http_proxy and no_proxy=lo
 	delete process.env.no_proxy;
 });
 
+test.serial('simple request to http://::1 using http_proxy', async t => {
+	process.env.http_proxy = `http://localhost:${p.port}`;
+	t.is((await got(`http://[::1]:${sipv6.port}`)).body, 'ok');
+	t.is((await got(`http://[::1]:${sipv6.port}`)).req.agent.proxyUri, process.env.http_proxy);
+	delete process.env.http_proxy;
+});
+
 test.serial('simple request to http://::1 using http_proxy and no_proxy=::1', async t => {
 	process.env.http_proxy = `http://localhost:${p.port}`;
 	process.env.no_proxy = `::1`;
