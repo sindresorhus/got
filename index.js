@@ -18,6 +18,7 @@ const createErrorClass = require('create-error-class');
 const nodeStatusCodes = require('node-status-codes');
 const isPlainObj = require('is-plain-obj');
 const isRetryAllowed = require('is-retry-allowed');
+const tunnel = require('./lib/proxy');
 const pkg = require('./package.json');
 
 function requestAsEventEmitter(opts) {
@@ -206,6 +207,13 @@ function normalizeArguments(url, opts) {
 		'user-agent': `${pkg.name}/${pkg.version} (https://github.com/sindresorhus/got)`,
 		'accept-encoding': 'gzip,deflate'
 	}, lowercaseKeys(opts.headers));
+
+	if (!opts.agent) {
+		const agent = tunnel(url);
+		if (agent) {
+			opts.agent = agent;
+		}
+	}
 
 	const query = opts.query;
 
