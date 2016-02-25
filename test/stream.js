@@ -106,7 +106,7 @@ test.cb('have error event', t => {
 			t.fail('response event should not be emitted');
 		})
 		.on('error', err => {
-			t.regex(err.message, /getaddrinfo ENOTFOUND|Bad Request/);
+			t.regex(err.message, /getaddrinfo ENOTFOUND/);
 			t.end();
 		});
 });

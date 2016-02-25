@@ -36,7 +36,7 @@ test('dns message', async t => {
 		t.fail('Exception was not thrown');
 	} catch (err) {
 		t.ok(err);
-		t.regex(err.message, /getaddrinfo ENOTFOUND|Bad Request/);
+		t.regex(err.message, /getaddrinfo ENOTFOUND/);
 		t.is(err.host, '.com');
 		t.is(err.method, 'GET');
 	}
