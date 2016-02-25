@@ -77,8 +77,8 @@
     "rules": {"camelcase": [1, {"properties": "always"}]},
     "overrides": [
       {
-        "files": "test/proxy.js",
-        "rules": {"camelcase": [2, {"properties": "always"}]}
+        "files": "proxy.js",
+        "rules": {"camelcase": [2, {"properties": "never"}]}
       }
     ]
   }
