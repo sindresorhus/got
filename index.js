@@ -14,7 +14,7 @@ const urlParseLax = require('url-parse-lax');
 const lowercaseKeys = require('lowercase-keys');
 const isRedirect = require('is-redirect');
 const unzipResponse = require('unzip-response');
-const createErrorClass = require('create-error-class');
+const makeError = require('make-error');
 const nodeStatusCodes = require('node-status-codes');
 const isPlainObj = require('is-plain-obj');
 const isRetryAllowed = require('is-retry-allowed');
@@ -303,38 +303,40 @@ helpers.forEach(el => {
 });
 
 function stdError(error, opts) {
+	stdError.super_.call(this, error.message);
+
 	if (error.code !== undefined) {
 		this.code = error.code;
 	}
 
 	Object.assign(this, {
-		message: error.message,
 		host: opts.host,
 		hostname: opts.hostname,
 		method: opts.method,
 		path: opts.path
 	});
 }
+makeError(stdError);
 
-got.RequestError = createErrorClass('RequestError', stdError);
-got.ReadError = createErrorClass('ReadError', stdError);
-got.ParseError = createErrorClass('ParseError', function (e, opts, data) {
-	stdError.call(this, e, opts);
+got.RequestError = makeError('RequestError', stdError);
+got.ReadError = makeError('ReadError', stdError);
+got.ParseError = makeError(function ParseError(e, opts, data) {
+	ParseError.super_.call(this, e, opts);
 	this.message = `${e.message} in "${urlLib.format(opts)}": \n${data.slice(0, 77)}...`;
-});
+}, stdError);
 
-got.HTTPError = createErrorClass('HTTPError', function (statusCode, opts) {
-	stdError.call(this, {}, opts);
+got.HTTPError = makeError(function HTTPError(statusCode, opts) {
+	HTTPError.super_.call(this, {}, opts);
 	this.statusCode = statusCode;
 	this.statusMessage = nodeStatusCodes[this.statusCode];
 	this.message = `Response code ${this.statusCode} (${this.statusMessage})`;
-});
+}, stdError);
 
-got.MaxRedirectsError = createErrorClass('MaxRedirectsError', function (statusCode, opts) {
-	stdError.call(this, {}, opts);
+got.MaxRedirectsError = makeError(function MaxRedirectsError(statusCode, opts) {
+	MaxRedirectsError.super_.call(this, {}, opts);
 	this.statusCode = statusCode;
 	this.statusMessage = nodeStatusCodes[this.statusCode];
 	this.message = 'Redirected 10 times. Aborting.';
-});
+}, stdError);
 
 module.exports = got;
