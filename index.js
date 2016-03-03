@@ -111,7 +111,7 @@ function asCallback(opts, cb) {
 					data = parseJson(data);
 				} catch (e) {
 					e.fileName = urlLib.format(opts);
-					err = new got.ParseError(e, opts);
+					err = new got.ParseError(e, statusCode, opts);
 				}
 			}
 
@@ -362,7 +362,12 @@ function stdError(error, opts) {
 
 got.RequestError = createErrorClass('RequestError', stdError);
 got.ReadError = createErrorClass('ReadError', stdError);
-got.ParseError = createErrorClass('ParseError', stdError);
+
+got.ParseError = createErrorClass('ParseError', function (e, statusCode, opts) {
+	stdError.call(this, e, opts);
+	this.statusCode = statusCode;
+	this.statusMessage = nodeStatusCodes[this.statusCode];
+});
 
 got.HTTPError = createErrorClass('HTTPError', function (statusCode, opts) {
 	stdError.call(this, {}, opts);
