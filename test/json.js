@@ -73,6 +73,15 @@ test('catches errors on invalid non-200 responses', async t => {
 	}
 });
 
+test('should have statusCode in err', async t => {
+	try {
+		await got(`${s.url}/non200-invalid`, {json: true});
+		t.fail('Exception was not thrown');
+	} catch (err) {
+		t.is(err.statusCode, 500);
+	}
+});
+
 test.after('cleanup', async () => {
 	await s.close();
 });
