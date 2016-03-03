@@ -164,7 +164,7 @@ Sets `options.method` to the method name and makes a request.
 
 ## Errors
 
-Each error contains (if available) `host`, `hostname`, `method` and `path` properties to make debugging easier.
+Each error contains (if available) `statusCode`, `statusMessage`, `host`, `hostname`, `method` and `path` properties to make debugging easier.
 
 In Promise mode, the `response` is attached to the error.
 
