@@ -105,7 +105,7 @@ function asPromise(opts) {
 						try {
 							res.body = JSON.parse(res.body);
 						} catch (e) {
-							throw new got.ParseError(e, opts, data);
+							throw new got.ParseError(e, statusCode, opts, data);
 						}
 					}
 
@@ -318,8 +318,10 @@ function stdError(error, opts) {
 
 got.RequestError = createErrorClass('RequestError', stdError);
 got.ReadError = createErrorClass('ReadError', stdError);
-got.ParseError = createErrorClass('ParseError', function (e, opts, data) {
+got.ParseError = createErrorClass('ParseError', function (e, statusCode, opts, data) {
 	stdError.call(this, e, opts);
+	this.statusCode = statusCode;
+	this.statusMessage = nodeStatusCodes[this.statusCode];
 	this.message = `${e.message} in "${urlLib.format(opts)}": \n${data.slice(0, 77)}...`;
 });
 
