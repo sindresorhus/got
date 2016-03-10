@@ -6,18 +6,14 @@ import {createServer, createSSLServer} from './helpers/server';
 
 let http;
 let https;
-let key;
-let cert;
-let caRootKey;
-let caRootCert;
 
 const pemP = pify(pem, Promise);
 
 test.before('setup', async () => {
 	const caKeys = await pemP.createCertificate({days: 1, selfSigned: true});
 
-	caRootKey = caKeys.serviceKey;
-	caRootCert = caKeys.certificate;
+	const caRootKey = caKeys.serviceKey;
+	const caRootCert = caKeys.certificate;
 
 	const keys = await pemP.createCertificate({
 		serviceCertificate: caRootCert,
@@ -32,8 +28,8 @@ test.before('setup', async () => {
 		commonName: 'sindresorhus.com'
 	});
 
-	key = keys.clientKey;
-	cert = keys.certificate;
+	const key = keys.clientKey;
+	const cert = keys.certificate;
 
 	https = await createSSLServer({key, cert});
 
