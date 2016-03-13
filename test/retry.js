@@ -45,7 +45,7 @@ test('can be disabled with option', async t => {
 	}
 });
 
-test('funcion gets iter count', async t => {
+test('function gets iter count', async t => {
 	await got(`${s.url}/fifth`, {timeout: 100, retries: iter => iter < 10});
 	t.is(fifth, 6);
 });
