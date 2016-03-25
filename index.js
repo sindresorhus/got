@@ -100,6 +100,7 @@ function asPromise(opts) {
 					const statusCode = res.statusCode;
 
 					res.body = data;
+					res.request = opts;
 
 					if (opts.json && res.body) {
 						try {
