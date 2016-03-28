@@ -247,7 +247,7 @@ function normalizeArguments(url, opts) {
 	opts.method = opts.method.toUpperCase();
 
 	if (opts.hostname === 'unix') {
-		const matches = /(.+)\:(.+)/.exec(opts.path);
+		const matches = /(.+):(.+)/.exec(opts.path);
 
 		if (matches) {
 			opts.socketPath = matches[1];
