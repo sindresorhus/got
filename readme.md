@@ -113,6 +113,13 @@ Type: `number`
 
 Milliseconds to wait for a server to send response headers before aborting request with `ETIMEDOUT` error.
 
+###### followRedirect
+
+Type: `boolean`
+Default: `true`
+
+Follow HTTP 3xx responses as redirects.
+
 ###### retries
 
 Type: `number`, `function`  
