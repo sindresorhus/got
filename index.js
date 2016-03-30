@@ -33,7 +33,7 @@ function requestAsEventEmitter(opts) {
 		const req = fn.request(opts, res => {
 			const statusCode = res.statusCode;
 
-			if (isRedirect(statusCode) && 'location' in res.headers && (opts.method === 'GET' || opts.method === 'HEAD')) {
+			if (isRedirect(statusCode) && opts.followRedirect && 'location' in res.headers && (opts.method === 'GET' || opts.method === 'HEAD')) {
 				res.resume();
 
 				if (++redirectCount > 10) {
@@ -266,6 +266,10 @@ function normalizeArguments(url, opts) {
 			const noise = Math.random() * 100;
 			return (1 << iter) * 1000 + noise;
 		};
+	}
+
+	if (opts.followRedirect === undefined) {
+		opts.followRedirect = true;
 	}
 
 	return opts;
