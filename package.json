@@ -45,7 +45,7 @@
     "fetch"
   ],
   "dependencies": {
-    "create-error-class": "^2.0.0",
+    "create-error-class": "^3.0.1",
     "duplexer2": "^0.1.4",
     "is-plain-obj": "^1.0.0",
     "is-redirect": "^1.0.0",
