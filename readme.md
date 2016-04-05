@@ -257,7 +257,7 @@ got('http://unix:/var/run/docker.sock:/containers/json');
 got('unix:/var/run/docker.sock:/containers/json');
 ```
 
-## Tip
+## Tips
 
 It's a good idea to set the `'user-agent'` header so the provider can more easily see how their resource is used. By default, it's the URL to this repo.
 
@@ -271,7 +271,18 @@ got('todomvc.com', {
 	}
 });
 ```
+##### Using got version 6 and above in the browser
 
+Got version 6 and above uses some es2015 features (e.g. const declarations), which means you will need to use babel if you want it to work in older browsers. If you are using [browserify](https://github.com/substack/node-browserify) with the [babelify](https://github.com/babel/babelify) transform, you will need to explicitly tell it to transform the got module in the node_modules folder as they are [not transformed by default](https://github.com/babel/babelify#why-arent-files-in-node_modules-being-transformed).
+
+You will need to alter the package.json in the got folder in your node_modules folder and add: 
+```json
+  "browserify": {
+    "transform": [["babelify", { "presets": ["es2015"] }]]
+  }
+```
+
+Note: as mentioned at the top of the page, got version 5 will work in the browser without needing babel.
 
 ## Related
 
