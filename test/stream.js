@@ -100,7 +100,7 @@ test.cb('have error event', t => {
 		});
 });
 
-test.cb('have error event', t => {
+test.cb('have error event #2', t => {
 	got.stream('.com', {retries: 0})
 		.on('response', () => {
 			t.fail('response event should not be emitted');

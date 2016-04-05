@@ -6,15 +6,15 @@
 	<br>
 </h1>
 
-> Simplified HTTP/HTTPS requests
+> Simplified HTTP requests
 
-[![Build Status](https://travis-ci.org/sindresorhus/got.svg?branch=master)](https://travis-ci.org/sindresorhus/got) [![Coverage Status](https://coveralls.io/repos/sindresorhus/got/badge.svg?service=github&branch=master)](https://coveralls.io/github/sindresorhus/got?branch=master) [![Downloads](https://img.shields.io/npm/dm/got.svg)](https://npmjs.com/got)
+[![Build Status](https://travis-ci.org/sindresorhus/got.svg?branch=master)](https://travis-ci.org/sindresorhus/got) [![Coverage Status](https://coveralls.io/repos/github/sindresorhus/got/badge.svg?branch=master)](https://coveralls.io/github/sindresorhus/got?branch=master) [![Downloads](https://img.shields.io/npm/dm/got.svg)](https://npmjs.com/got)
 
 A nicer interface to the built-in [`http`](http://nodejs.org/api/http.html) module.
 
 It supports following redirects, promises, streams, retries, automagically handling gzip/deflate and some convenience options.
 
-Created because [`request`](https://github.com/mikeal/request) is bloated *(several megabytes!)*.
+Created because [`request`](https://github.com/request/request) is bloated *(several megabytes!)*.
 
 
 ## Install
@@ -87,14 +87,14 @@ If `body` is a plain object, it will be stringified with [`querystring.stringify
 
 ###### encoding
 
-Type: `string`, `null`  
+Type: `string`, `null`<br>
 Default: `'utf8'`
 
 Encoding to be used on `setEncoding` of the response data. If `null`, the body is returned as a Buffer.
 
 ###### json
 
-Type: `boolean`  
+Type: `boolean`<br>
 Default: `false`
 
 *This is mutually exclusive with stream mode.*
@@ -103,7 +103,7 @@ Parse response body with `JSON.parse` and set `accept` header to `application/js
 
 ###### query
 
-Type: `string`, `object`  
+Type: `string`, `object`<br>
 
 Query string object that will be added to the request URL. This will override the query string in `url`.
 
@@ -115,7 +115,7 @@ Milliseconds to wait for a server to send response headers before aborting reque
 
 ###### retries
 
-Type: `number`, `function`  
+Type: `number`, `function`<br>
 Default: `5`
 
 Number of request retries when network errors happens. Delays between retries counts with function `1000 * Math.pow(2, retry) + Math.random() * 100`, where `retry` is attempt number (starts from 0).
@@ -257,6 +257,7 @@ got('http://unix:/var/run/docker.sock:/containers/json');
 got('unix:/var/run/docker.sock:/containers/json');
 ```
 
+
 ## Tip
 
 It's a good idea to set the `'user-agent'` header so the provider can more easily see how their resource is used. By default, it's the URL to this repo.
@@ -281,11 +282,11 @@ got('todomvc.com', {
 
 ## Created by
 
-[![Sindre Sorhus](https://avatars.githubusercontent.com/u/170270?v=3&s=100)](http://sindresorhus.com) | [![Vsevolod Strukchinsky](https://avatars.githubusercontent.com/u/365089?v=3&s=100)](https://github.com/floatdrop)
+[![Sindre Sorhus](https://avatars.githubusercontent.com/u/170270?v=3&s=100)](https://sindresorhus.com) | [![Vsevolod Strukchinsky](https://avatars.githubusercontent.com/u/365089?v=3&s=100)](https://github.com/floatdrop)
 ---|---
-[Sindre Sorhus](http://sindresorhus.com) | [Vsevolod Strukchinsky](https://github.com/floatdrop)
+[Sindre Sorhus](https://sindresorhus.com) | [Vsevolod Strukchinsky](https://github.com/floatdrop)
 
 
 ## License
 
-MIT © [Sindre Sorhus](http://sindresorhus.com)
+MIT © [Sindre Sorhus](https://sindresorhus.com)

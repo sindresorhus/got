@@ -50,7 +50,7 @@ test('function gets iter count', async t => {
 	t.is(fifth, 6);
 });
 
-test('falsy value prevent retries', async t => {
+test('falsy value prevents retries', async t => {
 	try {
 		await got(`${s.url}/long`, {timeout: 100, retries: () => 0});
 	} catch (err) {
@@ -58,7 +58,7 @@ test('falsy value prevent retries', async t => {
 	}
 });
 
-test('falsy value prevent retries', async t => {
+test('falsy value prevents retries #2', async t => {
 	try {
 		await got(`${s.url}/long`, {timeout: 100, retries: (iter, err) => {
 			t.ok(err);

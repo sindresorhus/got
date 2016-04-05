@@ -1,5 +1,4 @@
 'use strict';
-
 const EventEmitter = require('events').EventEmitter;
 const http = require('http');
 const https = require('https');
@@ -47,6 +46,7 @@ function requestAsEventEmitter(opts) {
 				ee.emit('redirect', res, redirectOpts);
 
 				get(redirectOpts);
+
 				return;
 			}
 
@@ -177,7 +177,6 @@ function asStream(opts) {
 	});
 
 	ee.on('redirect', proxy.emit.bind(proxy, 'redirect'));
-
 	ee.on('error', proxy.emit.bind(proxy, 'error'));
 
 	return proxy;
@@ -242,9 +241,7 @@ function normalizeArguments(url, opts) {
 		}
 	}
 
-	opts.method = opts.method || 'GET';
-
-	opts.method = opts.method.toUpperCase();
+	opts.method = (opts.method || 'GET').toUpperCase();
 
 	if (opts.hostname === 'unix') {
 		const matches = /(.+):(.+)/.exec(opts.path);
@@ -258,12 +255,14 @@ function normalizeArguments(url, opts) {
 
 	if (typeof opts.retries !== 'function') {
 		const retries = opts.retries;
+
 		opts.retries = function backoff(iter, err) {
 			if (iter > retries || !isRetryAllowed(err)) {
 				return 0;
 			}
 
 			const noise = Math.random() * 100;
+
 			return (1 << iter) * 1000 + noise;
 		};
 	}
