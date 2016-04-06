@@ -86,6 +86,15 @@ test('follows redirect', async t => {
 	t.is((await got(`${http.url}/finite`)).body, 'reached');
 });
 
+test('do not follows redirect', async t => {
+	try {
+		await got(`${http.url}/finite`, {followRedirect: false});
+		t.fail('Exception was not thrown');
+	} catch (err) {
+		t.is(err.statusCode, 302);
+	}
+});
+
 test('relative redirect works', async t => {
 	t.is((await got(`${http.url}/relative`)).body, 'reached');
 });
