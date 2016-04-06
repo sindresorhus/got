@@ -121,11 +121,18 @@ Milliseconds after which the request will be aborted and an error event with `ET
 Type: `number`, `function`  
 Default: `5`
 
-Number of request retries when network errors happens. Delays between retries counts with function `Math.pow(2, retry) + Math.random() * 100`, where `retry` is attempt number (starts from 0).
-
-**Note:** `ENOTFOUND` and `ENETUNREACH` error will not be retried (see full list in [`is-retry-allowed`](https://github.com/floatdrop/is-retry-allowed/blob/master/index.js#L12) module).
+Number of request retries when network errors happens. Delays between retries counts with function `1000 * Math.pow(2, retry) + Math.random() * 100`, where `retry` is attempt number (starts from 0).
 
 Option accepts `function` with `retry` and `error` arguments. Function must return delay in milliseconds (`0` return value cancels retry).
+
+**Note:** if `retries` is `number`, `ENOTFOUND` and `ENETUNREACH` error will not be retried (see full list in [`is-retry-allowed`](https://github.com/floatdrop/is-retry-allowed/blob/master/index.js#L12) module).
+
+###### followRedirect
+
+Type: `boolean`  
+Default: `true`
+
+Defines if redirect responses should be followed automatically.
 
 ##### callback(error, data, response)
 
@@ -134,18 +141,6 @@ Function to be called when error or data are received. If omitted, a promise wil
 ###### error
 
 `Error` object with HTTP status code as `statusCode` property.
-
-<<<<<<< HEAD
-###### data
-=======
-###### followRedirect
-
-Type: `boolean`  
-Default: `true`
-
-Defines if redirect responses should be followed automatically.
-
->>>>>>> b3cd961... Added option to toggle automatic following redirects
 
 The data you requested.
 
