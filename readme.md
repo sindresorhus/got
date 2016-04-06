@@ -124,6 +124,13 @@ Option accepts `function` with `retry` and `error` arguments. Function must retu
 
 **Note:** if `retries` is `number`, `ENOTFOUND` and `ENETUNREACH` error will not be retried (see full list in [`is-retry-allowed`](https://github.com/floatdrop/is-retry-allowed/blob/master/index.js#L12) module).
 
+###### followRedirect
+
+Type: `boolean`  
+Default: `true`
+
+Defines if redirect responses should be followed automatically.
+
 
 #### Streams
 
