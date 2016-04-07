@@ -33,7 +33,7 @@ test('promise mode', async t => {
 		await got.get('.com', {retries: 0});
 		t.fail('Exception was not thrown');
 	} catch (err) {
-		t.ok(err);
+		t.truthy(err);
 	}
 });
 

@@ -39,7 +39,7 @@ test.before('setup', async () => {
 });
 
 test('make request to https server without ca', async t => {
-	t.ok((await got(s.url, {rejectUnauthorized: false})).body);
+	t.truthy((await got(s.url, {rejectUnauthorized: false})).body);
 });
 
 test('make request to https server with ca', async t => {

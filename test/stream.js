@@ -66,7 +66,7 @@ test.cb('throws on write to stream with body specified', t => {
 test.cb('have request event', t => {
 	got.stream(s.url)
 		.on('request', req => {
-			t.ok(req);
+			t.truthy(req);
 			t.end();
 		});
 });
@@ -95,7 +95,7 @@ test.cb('have error event', t => {
 		.on('error', (err, data, res) => {
 			t.is(err.message, 'Response code 404 (Not Found)');
 			t.is(null, data);
-			t.ok(res);
+			t.truthy(res);
 			t.end();
 		});
 });

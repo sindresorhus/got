@@ -40,7 +40,7 @@ test('can be disabled with option', async t => {
 		await got(`${s.url}/try-me`, {timeout: 500, retries: 0});
 		t.fail();
 	} catch (err) {
-		t.ok(err);
+		t.truthy(err);
 		t.is(trys, 1);
 	}
 });
@@ -54,18 +54,18 @@ test('falsy value prevents retries', async t => {
 	try {
 		await got(`${s.url}/long`, {timeout: 100, retries: () => 0});
 	} catch (err) {
-		t.ok(err);
+		t.truthy(err);
 	}
 });
 
 test('falsy value prevents retries #2', async t => {
 	try {
 		await got(`${s.url}/long`, {timeout: 100, retries: (iter, err) => {
-			t.ok(err);
+			t.truthy(err);
 			return false;
 		}});
 	} catch (err) {
-		t.ok(err);
+		t.truthy(err);
 	}
 });
 

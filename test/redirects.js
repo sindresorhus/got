@@ -123,7 +123,7 @@ test('redirect only GET and HEAD requests', async t => {
 });
 
 test('redirects from http to https works', async t => {
-	t.ok((await got(`${http.url}/httpToHttps`, {rejectUnauthorized: false})).body);
+	t.truthy((await got(`${http.url}/httpToHttps`, {rejectUnauthorized: false})).body);
 });
 
 test('redirects works with lowercase method', async t => {
