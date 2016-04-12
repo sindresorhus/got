@@ -48,7 +48,7 @@ test('wraps parsing errors', async t => {
 		t.fail('Exception was not thrown');
 	} catch (err) {
 		t.regex(err.message, /Unexpected token/);
-		t.truthy(err.message.indexOf(err.hostname) !== -1, err.message);
+		t.true(err.message.indexOf(err.hostname) !== -1, err.message);
 		t.is(err.path, '/invalid');
 	}
 });
