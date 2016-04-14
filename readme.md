@@ -29,6 +29,7 @@ $ npm install --save got
 ## Usage
 
 ```js
+const fs = require('fs');
 const got = require('got');
 
 got('todomvc.com')
