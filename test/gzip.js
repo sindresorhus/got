@@ -1,5 +1,6 @@
 import zlib from 'zlib';
 import test from 'ava';
+import getStream from 'get-stream';
 import got from '../';
 import {createServer} from './helpers/server';
 
@@ -35,6 +36,10 @@ test.before('setup', async () => {
 
 test('decompress content', async t => {
 	t.is((await got(s.url)).body, testContent);
+});
+
+test('decompress content - stream', async t => {
+	t.is(await getStream(got.stream(s.url)), testContent);
 });
 
 test('handles gzip error', async t => {
