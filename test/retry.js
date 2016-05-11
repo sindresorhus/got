@@ -32,7 +32,7 @@ test.before('setup', async () => {
 });
 
 test('works on timeout error', async t => {
-	t.is((await got(`${s.url}/knock-twice`, {timeout: 100})).body, 'who`s there?');
+	t.is((await got(`${s.url}/knock-twice`, {timeout: 100, retries: 2})).body, 'who`s there?');
 });
 
 test('can be disabled with option', async t => {

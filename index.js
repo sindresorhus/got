@@ -19,6 +19,8 @@ const isPlainObj = require('is-plain-obj');
 const isRetryAllowed = require('is-retry-allowed');
 const pkg = require('./package.json');
 
+const DEFAULT_RETRIES = 5;
+
 function requestAsEventEmitter(opts) {
 	opts = opts || {};
 
@@ -197,8 +199,13 @@ function normalizeArguments(url, opts) {
 		}
 	}
 
+	let retries = DEFAULT_RETRIES;
+	if (typeof opts !== 'undefined') {
+		retries = opts.timeout ? (opts.retries || 0) : retries;
+	}
+
 	opts = Object.assign(
-		{protocol: 'http:', path: '', retries: 5},
+		{protocol: 'http:', path: '', retries},
 		url,
 		opts
 	);
