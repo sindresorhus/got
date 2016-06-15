@@ -30,7 +30,12 @@ test('accept header with json option', async t => {
 	let headers = (await got(s.url, {json: true})).body;
 	t.is(headers.accept, 'application/json');
 
-	headers = (await got(s.url, {headers: {accept: ''}, json: true})).body;
+	headers = (await got(s.url, {
+		headers: {
+			accept: ''
+		},
+		json: true
+	})).body;
 	t.is(headers.accept, '');
 });
 
@@ -40,12 +45,23 @@ test('host', async t => {
 });
 
 test('transform names to lowercase', async t => {
-	const headers = (await got(s.url, {headers: {'USER-AGENT': 'test'}, json: true})).body;
+	const headers = (await got(s.url, {
+		headers: {
+			'USER-AGENT': 'test'
+		},
+		json: true
+	})).body;
 	t.is(headers['user-agent'], 'test');
 });
 
 test('zero content-length', async t => {
-	const headers = (await got(s.url, {headers: {'content-length': 0}, body: 'sup', json: true})).body;
+	const headers = (await got(s.url, {
+		headers: {
+			'content-length': 0
+		},
+		body: 'sup',
+		json: true
+	})).body;
 	t.is(headers['content-length'], '0');
 });
 

@@ -51,17 +51,26 @@ test('works with empty post response', async t => {
 });
 
 test('content-length header with string body', async t => {
-	const {body} = await got(`${s.url}/headers`, {body: 'wow', json: true});
+	const {body} = await got(`${s.url}/headers`, {
+		body: 'wow',
+		json: true
+	});
 	t.is(body['content-length'], '3');
 });
 
 test('content-length header with Buffer body', async t => {
-	const {body} = await got(`${s.url}/headers`, {body: new Buffer('wow'), json: true});
+	const {body} = await got(`${s.url}/headers`, {
+		body: new Buffer('wow'),
+		json: true
+	});
 	t.is(body['content-length'], '3');
 });
 
 test('content-length header with Stream body', async t => {
-	const {body} = await got(`${s.url}/headers`, {body: intoStream(['wow']), json: true});
+	const {body} = await got(`${s.url}/headers`, {
+		body: intoStream(['wow']),
+		json: true
+	});
 	t.is(body['content-length'], undefined);
 });
 

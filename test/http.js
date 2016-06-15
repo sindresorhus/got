@@ -58,7 +58,10 @@ test('buffer on encoding === null', async t => {
 
 test('timeout option', async t => {
 	try {
-		await got(`${s.url}/404`, {timeout: 1, retries: 0});
+		await got(`${s.url}/404`, {
+			timeout: 1,
+			retries: 0
+		});
 		t.fail('Exception was not thrown');
 	} catch (err) {
 		t.is(err.code, 'ETIMEDOUT');

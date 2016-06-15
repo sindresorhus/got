@@ -10,7 +10,10 @@ let https;
 const pemP = pify(pem, Promise);
 
 test.before('setup', async () => {
-	const caKeys = await pemP.createCertificate({days: 1, selfSigned: true});
+	const caKeys = await pemP.createCertificate({
+		days: 1,
+		selfSigned: true
+	});
 
 	const caRootKey = caKeys.serviceKey;
 	const caRootCert = caKeys.certificate;
@@ -31,7 +34,7 @@ test.before('setup', async () => {
 	const key = keys.clientKey;
 	const cert = keys.certificate;
 
-	https = await createSSLServer({key, cert});
+	https = await createSSLServer({key, cert}); // eslint-disable-line object-property-newline
 
 	https.on('/', (req, res) => {
 		res.end('https');
@@ -108,7 +111,10 @@ test('query in options are not breaking redirects', async t => {
 });
 
 test('hostname+path in options are not breaking redirects', async t => {
-	t.is((await got(`${http.url}/relative`, {hostname: http.host, path: '/relative'})).body, 'reached');
+	t.is((await got(`${http.url}/relative`, {
+		hostname: http.host,
+		path: '/relative'
+	})).body, 'reached');
 });
 
 test('redirect only GET and HEAD requests', async t => {

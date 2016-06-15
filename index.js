@@ -198,7 +198,11 @@ function normalizeArguments(url, opts) {
 	}
 
 	opts = Object.assign(
-		{protocol: 'http:', path: '', retries: 5},
+		{
+			protocol: 'http:',
+			path: '',
+			retries: 5
+		},
 		url,
 		opts
 	);
@@ -265,7 +269,7 @@ function normalizeArguments(url, opts) {
 
 			const noise = Math.random() * 100;
 
-			return (1 << iter) * 1000 + noise;
+			return ((1 << iter) * 1000) + noise;
 		};
 	}
 
@@ -279,8 +283,8 @@ function normalizeArguments(url, opts) {
 function got(url, opts) {
 	try {
 		return asPromise(normalizeArguments(url, opts));
-	} catch (error) {
-		return Promise.reject(error);
+	} catch (err) {
+		return Promise.reject(err);
 	}
 }
 

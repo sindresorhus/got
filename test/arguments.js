@@ -37,7 +37,11 @@ test('options are optional', async t => {
 });
 
 test('accepts url.parse object as first argument', async t => {
-	t.is((await got({hostname: s.host, port: s.port, path: '/test'})).body, '/test');
+	t.is((await got({
+		hostname: s.host,
+		port: s.port,
+		path: '/test'
+	})).body, '/test');
 });
 
 test('overrides querystring from opts', async t => {

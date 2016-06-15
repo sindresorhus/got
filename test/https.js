@@ -10,7 +10,10 @@ let caRootCert;
 const pemP = pify(pem, Promise);
 
 test.before('setup', async () => {
-	const caKeys = await pemP.createCertificate({days: 1, selfSigned: true});
+	const caKeys = await pemP.createCertificate({
+		days: 1,
+		selfSigned: true
+	});
 
 	const caRootKey = caKeys.serviceKey;
 	caRootCert = caKeys.certificate;
@@ -31,7 +34,7 @@ test.before('setup', async () => {
 	const key = keys.clientKey;
 	const cert = keys.certificate;
 
-	s = await createSSLServer({key, cert});
+	s = await createSSLServer({key, cert}); // eslint-disable-line object-property-newline
 
 	s.on('/', (req, res) => res.end('ok'));
 
