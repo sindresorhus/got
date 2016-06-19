@@ -25,12 +25,17 @@ function requestAsEventEmitter(opts) {
 	const ee = new EventEmitter();
 	let redirectCount = 0;
 	let retryCount = 0;
+	let redirectUrl;
 
 	const get = opts => {
 		const fn = opts.protocol === 'https:' ? https : http;
 
 		const req = fn.request(opts, res => {
 			const statusCode = res.statusCode;
+
+			if (redirectUrl) {
+				res.url = redirectUrl;
+			}
 
 			if (isRedirect(statusCode) && opts.followRedirect && 'location' in res.headers && (opts.method === 'GET' || opts.method === 'HEAD')) {
 				res.resume();
@@ -40,7 +45,7 @@ function requestAsEventEmitter(opts) {
 					return;
 				}
 
-				const redirectUrl = urlLib.resolve(urlLib.format(opts), res.headers.location);
+				redirectUrl = urlLib.resolve(urlLib.format(opts), res.headers.location);
 				const redirectOpts = Object.assign({}, opts, urlLib.parse(redirectUrl));
 
 				ee.emit('redirect', res, redirectOpts);

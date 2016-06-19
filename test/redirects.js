@@ -137,6 +137,11 @@ test('redirects works with lowercase method', async t => {
 	t.is(body, '');
 });
 
+test('redirect response contains new url', async t => {
+	const url = (await got(`${http.url}/finite`)).url;
+	t.is(url, `${http.url}/`);
+});
+
 test.after('cleanup', async () => {
 	await http.close();
 	await https.close();
