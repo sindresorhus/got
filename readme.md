@@ -60,6 +60,10 @@ It's a `GET` request by default, but can be changed in `options`.
 
 #### got(url, [options], [callback])
 
+Without `callback` argument returns a Promise, that resolves to `response` object with `body` property and a `url` property (which contains the final URL after redirects).
+
+Otherwise calls callback with `response` object (same as in previous case).
+
 ##### url
 
 Type: `string`, `object`

@@ -29,12 +29,17 @@ function requestAsEventEmitter(opts) {
 	var ee = new EventEmitter();
 	var redirectCount = 0;
 	var retryCount = 0;
+	var redirectUrl;
 
 	var get = function (opts) {
 		var fn = opts.protocol === 'https:' ? https : http;
 
 		var req = fn.request(opts, function (res) {
 			var statusCode = res.statusCode;
+
+			if (redirectUrl) {
+				res.url = redirectUrl;
+			}
 
 			if (isRedirect(statusCode) && opts.followRedirect && 'location' in res.headers && (opts.method === 'GET' || opts.method === 'HEAD')) {
 				res.resume();
@@ -44,7 +49,7 @@ function requestAsEventEmitter(opts) {
 					return;
 				}
 
-				var redirectUrl = urlLib.resolve(urlLib.format(opts), res.headers.location);
+				redirectUrl = urlLib.resolve(urlLib.format(opts), res.headers.location);
 				var redirectOpts = objectAssign({}, opts, urlLib.parse(redirectUrl));
 
 				ee.emit('redirect', res, redirectOpts);
@@ -94,29 +99,29 @@ function asCallback(opts, cb) {
 	});
 
 	ee.on('response', function (res) {
-		readAllStream(res, opts.encoding, function (err, data) {
+		readAllStream(res, opts.encoding, function (error, data) {
 			var statusCode = res.statusCode;
 			var limitStatusCode = opts.followRedirect ? 299 : 399;
 
-			if (err) {
-				cb(new got.ReadError(err, opts), null, res);
+			if (error) {
+				cb(new got.ReadError(error, opts), null, res);
 				return;
 			}
 
 			if (statusCode < 200 || statusCode > limitStatusCode) {
-				err = new got.HTTPError(statusCode, opts);
+				error = new got.HTTPError(statusCode, opts);
 			}
 
 			if (opts.json && data) {
 				try {
 					data = parseJson(data);
-				} catch (e) {
-					e.fileName = urlLib.format(opts);
-					err = new got.ParseError(e, statusCode, opts);
+				} catch (err) {
+					err.fileName = urlLib.format(opts);
+					error = new got.ParseError(err, statusCode, opts);
 				}
 			}
 
-			cb(err, data, res);
+			cb(error, data, res);
 		});
 	});
 
@@ -268,7 +273,7 @@ function normalizeArguments(url, opts) {
 	opts.method = opts.method.toUpperCase();
 
 	if (opts.hostname === 'unix') {
-		var matches = /(.+)\:(.+)/.exec(opts.path);
+		var matches = /(.+):(.+)/.exec(opts.path);
 
 		if (matches) {
 			opts.socketPath = matches[1];
@@ -285,7 +290,7 @@ function normalizeArguments(url, opts) {
 			}
 
 			var noise = Math.random() * 100;
-			return (1 << iter) * 1000 + noise;
+			return ((1 << iter) * 1000) + noise;
 		};
 	}
 
@@ -309,8 +314,8 @@ function got(url, opts, cb) {
 
 	try {
 		return asPromise(normalizeArguments(url, opts));
-	} catch (error) {
-		return PinkiePromise.reject(error);
+	} catch (err) {
+		return PinkiePromise.reject(err);
 	}
 }
 
