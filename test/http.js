@@ -41,6 +41,10 @@ test('empty response', async t => {
 	t.is((await got(`${s.url}/empty`)).body, '');
 });
 
+test('requestUrl response', async t => {
+	t.is((await got(s.url)).requestUrl, `${s.url}/`);
+});
+
 test('error with code', async t => {
 	try {
 		await got(`${s.url}/404`);
