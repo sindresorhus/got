@@ -44,6 +44,14 @@ test('accepts url.parse object as first argument', async t => {
 	})).body, '/test');
 });
 
+test('requestUrl with url.parse object as first argument', async t => {
+	t.is((await got({
+		hostname: s.host,
+		port: s.port,
+		path: '/test'
+	})).requestUrl, `${s.url}/test`);
+});
+
 test('overrides querystring from opts', async t => {
 	t.is((await got(`${s.url}/?test=doge`, {query: {test: 'wow'}})).body, '/?test=wow');
 });

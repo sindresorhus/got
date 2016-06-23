@@ -43,6 +43,7 @@ test('empty response', async t => {
 
 test('requestUrl response', async t => {
 	t.is((await got(s.url)).requestUrl, `${s.url}/`);
+	t.is((await got(`${s.url}/empty`)).requestUrl, `${s.url}/empty`);
 });
 
 test('error with code', async t => {
@@ -75,6 +76,11 @@ test('timeout option', async t => {
 test('query option', async t => {
 	t.is((await got(s.url, {query: {recent: true}})).body, 'recent');
 	t.is((await got(s.url, {query: 'recent=true'})).body, 'recent');
+});
+
+test('requestUrl response when sending url as param', async t => {
+	t.is((await got(s.url, {hostname: s.host, port: s.port})).requestUrl, `${s.url}/`);
+	t.is((await got({hostname: s.host, port: s.port})).requestUrl, `${s.url}/`);
 });
 
 test.after('cleanup', async () => {
