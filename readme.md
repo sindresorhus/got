@@ -127,7 +127,7 @@ Option accepts `function` with `retry` and `error` arguments. Function must retu
 
 ###### followRedirect
 
-Type: `boolean`
+Type: `boolean`<br>
 Default: `true`
 
 Defines if redirect responses should be followed automatically.
