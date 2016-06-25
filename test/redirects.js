@@ -142,6 +142,11 @@ test('redirect response contains new url', async t => {
 	t.is(url, `${http.url}/`);
 });
 
+test('redirect response contains old url', async t => {
+	const requestUrl = (await got(`${http.url}/finite`)).requestUrl;
+	t.is(requestUrl, `${http.url}/finite`);
+});
+
 test.after('cleanup', async () => {
 	await http.close();
 	await https.close();

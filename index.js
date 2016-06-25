@@ -106,6 +106,7 @@ function asPromise(opts) {
 					const limitStatusCode = opts.followRedirect ? 299 : 399;
 
 					res.body = data;
+					res.requestUrl = opts.href || urlLib.resolve(urlLib.format(opts), opts.path);
 
 					if (opts.json && res.body) {
 						try {

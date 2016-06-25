@@ -56,7 +56,7 @@ It's a `GET` request by default, but can be changed in `options`.
 
 #### got(url, [options])
 
-Returns a Promise, that resolves to `response` object with `body` property and a `url` property (which contains the final URL after redirects).
+Returns a Promise for a `response` object with a `body` property, a `url` property with the final URL after redirects, and a `requestUrl` property with the original request URL.
 
 ##### url
 
@@ -127,7 +127,7 @@ Option accepts `function` with `retry` and `error` arguments. Function must retu
 
 ###### followRedirect
 
-Type: `boolean`  
+Type: `boolean`<br>
 Default: `true`
 
 Defines if redirect responses should be followed automatically.
