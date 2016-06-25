@@ -103,6 +103,8 @@ function asCallback(opts, cb) {
 			var statusCode = res.statusCode;
 			var limitStatusCode = opts.followRedirect ? 299 : 399;
 
+			res.requestUrl = opts.href || urlLib.resolve(urlLib.format(opts), opts.path);
+
 			if (error) {
 				cb(new got.ReadError(error, opts), null, res);
 				return;
