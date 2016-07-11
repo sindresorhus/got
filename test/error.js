@@ -51,6 +51,15 @@ test('options.body error message', async t => {
 	}
 });
 
+test('invalid url', async t => {
+	try {
+		await got('htttp://google.com');
+		t.fail('Exception was not thrown');
+	} catch (err) {
+		t.regex(err.message, /Protocol .+ not supported/);
+	}
+});
+
 test.after('cleanup', async () => {
 	await s.close();
 });
