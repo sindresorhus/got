@@ -29,36 +29,41 @@ function requestAsEventEmitter(opts) {
 
 	const get = opts => {
 		const fn = opts.protocol === 'https:' ? https : http;
+		let req;
 
-		const req = fn.request(opts, res => {
-			const statusCode = res.statusCode;
+		try {
+			req = fn.request(opts, res => {
+				const statusCode = res.statusCode;
 
-			if (redirectUrl) {
-				res.url = redirectUrl;
-			}
+				if (redirectUrl) {
+					res.url = redirectUrl;
+				}
 
-			if (isRedirect(statusCode) && opts.followRedirect && 'location' in res.headers && (opts.method === 'GET' || opts.method === 'HEAD')) {
-				res.resume();
+				if (isRedirect(statusCode) && opts.followRedirect && 'location' in res.headers && (opts.method === 'GET' || opts.method === 'HEAD')) {
+					res.resume();
 
-				if (++redirectCount > 10) {
-					ee.emit('error', new got.MaxRedirectsError(statusCode, opts), null, res);
+					if (++redirectCount > 10) {
+						ee.emit('error', new got.MaxRedirectsError(statusCode, opts), null, res);
+						return;
+					}
+
+					redirectUrl = urlLib.resolve(urlLib.format(opts), res.headers.location);
+					const redirectOpts = Object.assign({}, opts, urlLib.parse(redirectUrl));
+
+					ee.emit('redirect', res, redirectOpts);
+
+					get(redirectOpts);
+
 					return;
 				}
 
-				redirectUrl = urlLib.resolve(urlLib.format(opts), res.headers.location);
-				const redirectOpts = Object.assign({}, opts, urlLib.parse(redirectUrl));
-
-				ee.emit('redirect', res, redirectOpts);
-
-				get(redirectOpts);
-
-				return;
-			}
-
-			setImmediate(() => {
-				ee.emit('response', typeof unzipResponse === 'function' && req.method !== 'HEAD' ? unzipResponse(res) : res);
+				setImmediate(() => {
+					ee.emit('response', typeof unzipResponse === 'function' && req.method !== 'HEAD' ? unzipResponse(res) : res);
+				});
 			});
-		});
+		} catch (err) {
+			return ee.emit('error', new got.RequestError(err, opts));
+		}
 
 		req.once('error', err => {
 			const backoff = opts.retries(++retryCount, err);
