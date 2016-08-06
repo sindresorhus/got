@@ -28,7 +28,7 @@ test('url is required', async t => {
 		await got();
 		t.fail('Exception was not thrown');
 	} catch (err) {
-		t.regexTest(/Parameter `url` must be a string or object, not undefined/, err.message);
+		t.regex(err.message, /Parameter `url` must be a string or object, not undefined/);
 	}
 });
 
@@ -36,7 +36,7 @@ test('options are optional', async t => {
 	t.is((await got(`${s.url}/test`)).body, '/test');
 });
 
-test('options are optional', t => {
+test.cb('options are optional with callback', t => {
 	got(`${s.url}/test`, function (err, data) {
 		t.is(data, '/test');
 		t.end();
@@ -64,14 +64,10 @@ test('should throw with auth in url', async t => {
 		await got(`https://test:45d3ps453@account.myservice.com/api/token`);
 		t.fail('Exception was not thrown');
 	} catch (err) {
-		t.regexTest(/Basic authentication must be done with auth option/, err.message);
+		t.regex(err.message, /Basic authentication must be done with auth option/);
 	}
 });
 
-test('accepts url.parse object as first argument', async t => {
-	t.is((await got({hostname: s.host, port: s.port, path: '/test'})).body, '/test');
-});
-
-test.after('cleanup', async t => {
+test.after('cleanup', async () => {
 	await s.close();
 });

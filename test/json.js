@@ -34,7 +34,7 @@ test.before('setup', async t => {
 });
 
 test('parses response', async t => {
-	t.same((await got(s.url, {json: true})).body, {data: 'dog'});
+	t.deepEqual((await got(s.url, {json: true})).body, {data: 'dog'});
 });
 
 test('not parses responses without a body', async t => {
@@ -47,8 +47,8 @@ test('wraps parsing errors', async t => {
 		await got(`${s.url}/invalid`, {json: true});
 		t.fail('Exception was not thrown');
 	} catch (err) {
-		t.regexTest(/Unexpected token/, err.message);
-		t.ok(err.message.indexOf(err.hostname) !== -1, err.message);
+		t.regex(err.message, /Unexpected token/);
+		t.true(err.message.indexOf(err.hostname) !== -1, err.message);
 		t.is(err.path, '/invalid');
 	}
 });
@@ -58,7 +58,7 @@ test('parses non-200 responses', async t => {
 		await got(`${s.url}/non200`, {json: true});
 		t.fail('Exception was not thrown');
 	} catch (err) {
-		t.same(err.response.body, {data: 'dog'});
+		t.deepEqual(err.response.body, {data: 'dog'});
 	}
 });
 
@@ -67,7 +67,7 @@ test('catches errors on invalid non-200 responses', async t => {
 		await got(`${s.url}/non200-invalid`, {json: true});
 		t.fail('Exception was not thrown');
 	} catch (err) {
-		t.regexTest(/Unexpected token/, err.message);
+		t.regex(err.message, /Unexpected token/);
 		t.is(err.response.body, 'Internal error');
 		t.is(err.path, '/non200-invalid');
 	}

@@ -49,7 +49,7 @@ test('handles gzip error', async t => {
 });
 
 test('preserve headers property', async t => {
-	t.ok((await got(s.url)).headers);
+	t.truthy((await got(s.url)).headers);
 });
 
 test('do not break HEAD responses', async t => {

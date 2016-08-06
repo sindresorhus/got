@@ -4,7 +4,7 @@ import {createServer} from './_server';
 
 let s;
 
-test.before('setup', async t => {
+test.before('setup', async () => {
 	s = await createServer();
 
 	s.on('/', (req, res) => {
@@ -19,7 +19,7 @@ test.before('setup', async t => {
 	await s.listen(s.port);
 });
 
-test('callback mode', t => {
+test.cb('callback mode', t => {
 	got.get(s.url, function (err, body) {
 		t.ifError(err);
 		t.is(body, 'ok');
@@ -41,10 +41,10 @@ test('promise mode', async t => {
 		await got.get('.com', {retries: 0});
 		t.fail('Exception was not thrown');
 	} catch (err) {
-		t.ok(err);
+		t.truthy(err);
 	}
 });
 
-test.after('cleanup', async t => {
+test.after('cleanup', async () => {
 	await s.close();
 });
