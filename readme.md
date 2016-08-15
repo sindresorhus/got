@@ -250,6 +250,39 @@ got.post('google.com', {
 ```
 
 
+## OAuth
+
+You can use the [`oauth-1.0a`](https://www.npmjs.com/package/oauth-1.0a) module to create a signed OAuth request:
+
+```js
+const got = require('got');
+const OAuth = require('oauth-1.0a');
+
+
+const oauth = OAuth({
+  consumer: {
+    public: CONSUMER_KEY,
+    secret: CONSUMER_SECRET
+  },
+  signature_method: 'HMAC-SHA1'
+});
+
+const token = {
+  public: ACCESS_TOKEN,
+  secret: ACCESS_TOKEN_SECRET
+};
+
+const request_data = {
+	url: 'https://api.twitter.com/1.1/statuses/home_timeline.json',
+	method: 'GET'
+};
+
+got(request_data.url, {
+  headers: oauth.toHeader(oauth.authorize(request_data, token))
+});
+```
+
+
 ## Unix Domain Sockets
 
 Requests can also be sent via [unix domain sockets](http://serverfault.com/questions/124517/whats-the-difference-between-unix-socket-and-tcp-ip-socket). Use the following URL scheme: `PROTOCOL://unix:SOCKET:PATH`.
