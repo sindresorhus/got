@@ -259,25 +259,25 @@ const got = require('got');
 const OAuth = require('oauth-1.0a');
 
 const oauth = OAuth({
-  consumer: {
-    public: process.env.CONSUMER_KEY,
-    secret: process.env.CONSUMER_SECRET
-  },
-  signature_method: 'HMAC-SHA1'
+	consumer: {
+		public: process.env.CONSUMER_KEY,
+		secret: process.env.CONSUMER_SECRET
+	},
+	signature_method: 'HMAC-SHA1'
 });
 
 const token = {
-  public: process.env.ACCESS_TOKEN,
-  secret: process.env.ACCESS_TOKEN_SECRET
+	public: process.env.ACCESS_TOKEN,
+	secret: process.env.ACCESS_TOKEN_SECRET
 };
 
 const requestData = {
 	url: 'https://api.twitter.com/1.1/statuses/home_timeline.json',
-  method: 'GET'
+	method: 'GET'
 };
 
 got(requestData.url, {
-  headers: oauth.toHeader(oauth.authorize(requestData, token)),
+	headers: oauth.toHeader(oauth.authorize(requestData, token)),
 	json: true
 });
 ```
