@@ -233,7 +233,7 @@ got('google.com', {
 
 ## Form data
 
-You can use the [`form-data`](https://www.npmjs.com/package/form-data) module to create POST request with form data:
+You can use the [`form-data`](https://github.com/form-data/form-data) module to create POST request with form data:
 
 ```js
 const fs = require('fs');
@@ -252,33 +252,33 @@ got.post('google.com', {
 
 ## OAuth
 
-You can use the [`oauth-1.0a`](https://www.npmjs.com/package/oauth-1.0a) module to create a signed OAuth request:
+You can use the [`oauth-1.0a`](https://github.com/ddo/oauth-1.0a) module to create a signed OAuth request:
 
 ```js
 const got = require('got');
 const OAuth = require('oauth-1.0a');
 
-
 const oauth = OAuth({
   consumer: {
-    public: CONSUMER_KEY,
-    secret: CONSUMER_SECRET
+    public: process.env.CONSUMER_KEY,
+    secret: process.env.CONSUMER_SECRET
   },
   signature_method: 'HMAC-SHA1'
 });
 
 const token = {
-  public: ACCESS_TOKEN,
-  secret: ACCESS_TOKEN_SECRET
+  public: process.env.ACCESS_TOKEN,
+  secret: process.env.ACCESS_TOKEN_SECRET
 };
 
-const request_data = {
+const requestData = {
 	url: 'https://api.twitter.com/1.1/statuses/home_timeline.json',
-	method: 'GET'
+  method: 'GET'
 };
 
-got(request_data.url, {
-  headers: oauth.toHeader(oauth.authorize(request_data, token))
+got(requestData.url, {
+  headers: oauth.toHeader(oauth.authorize(requestData, token)),
+	json: true
 });
 ```
 
