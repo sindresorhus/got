@@ -271,13 +271,10 @@ const token = {
 	secret: process.env.ACCESS_TOKEN_SECRET
 };
 
-const requestData = {
-	url: 'https://api.twitter.com/1.1/statuses/home_timeline.json',
-	method: 'GET'
-};
+const url = 'https://api.twitter.com/1.1/statuses/home_timeline.json';
 
-got(requestData.url, {
-	headers: oauth.toHeader(oauth.authorize(requestData, token)),
+got(url, {
+	headers: oauth.toHeader(oauth.authorize({ url, method: 'GET' }, token)),
 	json: true
 });
 ```
