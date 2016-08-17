@@ -274,7 +274,7 @@ const token = {
 const url = 'https://api.twitter.com/1.1/statuses/home_timeline.json';
 
 got(url, {
-	headers: oauth.toHeader(oauth.authorize({ url, method: 'GET' }, token)),
+	headers: oauth.toHeader(oauth.authorize({url, method: 'GET'}, token)),
 	json: true
 });
 ```
