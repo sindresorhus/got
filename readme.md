@@ -233,7 +233,7 @@ got('google.com', {
 
 ## Form data
 
-You can use the [`form-data`](https://www.npmjs.com/package/form-data) module to create POST request with form data:
+You can use the [`form-data`](https://github.com/form-data/form-data) module to create POST request with form data:
 
 ```js
 const fs = require('fs');
@@ -246,6 +246,36 @@ form.append('my_file', fs.createReadStream('/foo/bar.jpg'));
 got.post('google.com', {
 	headers: form.getHeaders(),
 	body: form
+});
+```
+
+
+## OAuth
+
+You can use the [`oauth-1.0a`](https://github.com/ddo/oauth-1.0a) module to create a signed OAuth request:
+
+```js
+const got = require('got');
+const OAuth = require('oauth-1.0a');
+
+const oauth = OAuth({
+	consumer: {
+		public: process.env.CONSUMER_KEY,
+		secret: process.env.CONSUMER_SECRET
+	},
+	signature_method: 'HMAC-SHA1'
+});
+
+const token = {
+	public: process.env.ACCESS_TOKEN,
+	secret: process.env.ACCESS_TOKEN_SECRET
+};
+
+const url = 'https://api.twitter.com/1.1/statuses/home_timeline.json';
+
+got(url, {
+	headers: oauth.toHeader(oauth.authorize({url, method: 'GET'}, token)),
+	json: true
 });
 ```
 
