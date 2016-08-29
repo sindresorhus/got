@@ -61,6 +61,7 @@
   "devDependencies": {
     "ava": "^0.16.0",
     "coveralls": "^2.11.4",
+    "form-data": "^1.0.1",
     "get-port": "^2.0.0",
     "get-stream": "^2.3.0",
     "into-stream": "^2.0.0",
