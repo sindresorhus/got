@@ -45,7 +45,7 @@ function requestAsEventEmitter(opts) {
 					return;
 				}
 
-				redirectUrl = urlLib.resolve(urlLib.format(opts), res.headers.location);
+				redirectUrl = urlLib.resolve(urlLib.format(opts), new Buffer(res.headers.location, 'binary').toString());
 				const redirectOpts = Object.assign({}, opts, urlLib.parse(redirectUrl));
 
 				ee.emit('redirect', res, redirectOpts);

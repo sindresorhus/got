@@ -53,6 +53,17 @@ test.before('setup', async () => {
 		res.end();
 	});
 
+	http.on('/utf8-url-áé', (req, res) => {
+		res.end('reached');
+	});
+
+	http.on('/redirect-with-utf8-binary', (req, res) => {
+		res.writeHead(302, {
+			location: new Buffer(`${http.url}/utf8-url-áé`, 'utf8').toString('binary')
+		});
+		res.end();
+	});
+
 	http.on('/endless', (req, res) => {
 		res.writeHead(302, {
 			location: `${http.url}/endless`
@@ -145,6 +156,10 @@ test('redirect response contains new url', async t => {
 test('redirect response contains old url', async t => {
 	const requestUrl = (await got(`${http.url}/finite`)).requestUrl;
 	t.is(requestUrl, `${http.url}/finite`);
+});
+
+test('redirect response contains utf8 with binary encoding', async t => {
+	t.is((await got(`${http.url}/redirect-with-utf8-binary`)).body, 'reached');
 });
 
 test.after('cleanup', async () => {
