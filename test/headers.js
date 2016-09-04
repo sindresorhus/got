@@ -1,4 +1,5 @@
 import test from 'ava';
+import FormData from 'form-data';
 import got from '../';
 import pkg from '../package.json';
 import {createServer} from './_server';
@@ -49,6 +50,29 @@ test('zero content-length', async t => {
 	t.is(headers['content-length'], '0');
 });
 
-test.after('cleanup', async t => {
+test('form-data manual content-type', async t => {
+	const form = new FormData();
+	form.append('a', 'b');
+	const headers = (await got(s.url, {
+		headers: {
+			'content-type': 'custom'
+		},
+		body: form,
+		json: true
+	})).body;
+	t.is(headers['content-type'], 'custom');
+});
+
+test('form-data automatic content-type', async t => {
+	const form = new FormData();
+	form.append('a', 'b');
+	const headers = (await got(s.url, {
+		body: form,
+		json: true
+	})).body;
+	t.is(headers['content-type'], `multipart/form-data; boundary=${form.getBoundary()}`);
+});
+
+test.after('cleanup', async () => {
 	await s.close();
 });
