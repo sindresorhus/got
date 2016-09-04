@@ -242,7 +242,10 @@ function normalizeArguments(url, opts) {
 
 		opts.method = opts.method || 'POST';
 
-		if (isPlainObj(body)) {
+		if (isStream(body) && typeof body.getBoundary === 'function') {
+			// Special case for https://github.com/form-data/form-data
+			opts.headers['content-type'] = opts.headers['content-type'] || `multipart/form-data; boundary=${body.getBoundary()}`;
+		} else if (isPlainObj(body)) {
 			opts.headers['content-type'] = opts.headers['content-type'] || 'application/x-www-form-urlencoded';
 			body = opts.body = querystring.stringify(body);
 		}

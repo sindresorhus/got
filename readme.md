@@ -244,7 +244,6 @@ const form = new FormData();
 form.append('my_file', fs.createReadStream('/foo/bar.jpg'));
 
 got.post('google.com', {
-	headers: form.getHeaders(),
 	body: form
 });
 ```
