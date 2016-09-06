@@ -55,7 +55,7 @@
     "lowercase-keys": "^1.0.0",
     "node-status-codes": "^2.0.0",
     "timed-out": "^2.0.0",
-    "unzip-response": "^1.0.0",
+    "unzip-response": "^2.0.1",
     "url-parse-lax": "^1.0.0"
   },
   "devDependencies": {
@@ -64,8 +64,8 @@
     "form-data": "^1.0.1",
     "get-port": "^2.0.0",
     "get-stream": "^2.3.0",
-    "into-stream": "^2.0.0",
-    "nyc": "^7.1.0",
+    "into-stream": "^3.0.0",
+    "nyc": "^8.1.0",
     "pem": "^1.4.4",
     "pify": "^2.3.0",
     "tempfile": "^1.1.1",
