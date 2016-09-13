@@ -112,11 +112,17 @@ test('content-length header disabled for chunked transfer-encoding', async t => 
 });
 
 test('object in options.body treated as querystring', async t => {
-	const {body} = await got(s.url, {
-		body: {
-			such: 'wow'
+	const obj = new class {
+		constructor() {
+			this.such = 'wow';
 		}
-	});
+
+		get ouch() {
+			return 'yay';
+		}
+	};
+
+	const {body} = await got(s.url, {body: obj});
 	t.is(body, 'such=wow');
 });
 
