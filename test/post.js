@@ -41,7 +41,9 @@ test('sends plain objects', async t => {
 });
 
 test('sends non-plain objects', async t => {
-	const {body} = await got(s.url, {body: new class {}});
+	class Obj {}
+
+	const {body} = await got(s.url, {body: new Obj()});
 	t.is(body, '');
 });
 
@@ -112,7 +114,7 @@ test('content-length header disabled for chunked transfer-encoding', async t => 
 });
 
 test('object in options.body treated as querystring', async t => {
-	const obj = new class {
+	class Obj {
 		constructor() {
 			this.such = 'wow';
 		}
@@ -120,9 +122,9 @@ test('object in options.body treated as querystring', async t => {
 		get ouch() {
 			return 'yay';
 		}
-	};
+	}
 
-	const {body} = await got(s.url, {body: obj});
+	const {body} = await got(s.url, {body: new Obj()});
 	t.is(body, 'such=wow');
 });
 
