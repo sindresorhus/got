@@ -31,6 +31,13 @@ test.before('setup', async () => {
 		res.end('Not gzipped content');
 	});
 
+	s.on('/missing-data', (req, res) => {
+		res.statusCode = 200;
+		res.setHeader('Content-Type', 'text/plain');
+		res.setHeader('Content-Encoding', 'gzip');
+		zlib.gzip(testContent, (_, data) => res.end(data.slice(0, -1)));
+	});
+
 	await s.listen(s.port);
 });
 
@@ -59,6 +66,10 @@ test('preserve headers property', async t => {
 
 test('do not break HEAD responses', async t => {
 	t.is((await got.head(s.url)).body, '');
+});
+
+test('ignore missing data', async t => {
+	t.is((await got(`${s.url}/missing-data`)).body, testContent);
 });
 
 test.after('cleanup', async () => {

@@ -44,7 +44,7 @@ function requestAsEventEmitter(opts) {
 					return;
 				}
 
-				redirectUrl = urlLib.resolve(urlLib.format(opts), res.headers.location);
+				redirectUrl = urlLib.resolve(urlLib.format(opts), new Buffer(res.headers.location, 'binary').toString());
 				const redirectOpts = Object.assign({}, opts, urlLib.parse(redirectUrl));
 
 				ee.emit('redirect', res, redirectOpts);
@@ -241,7 +241,10 @@ function normalizeArguments(url, opts) {
 
 		opts.method = opts.method || 'POST';
 
-		if (body !== null && typeof body === 'object' && !Buffer.isBuffer(body) && !isStream(body)) {
+		if (isStream(body) && typeof body.getBoundary === 'function') {
+			// Special case for https://github.com/form-data/form-data
+			opts.headers['content-type'] = opts.headers['content-type'] || `multipart/form-data; boundary=${body.getBoundary()}`;
+		} else if (body !== null && typeof body === 'object' && !Buffer.isBuffer(body) && !isStream(body)) {
 			opts.headers['content-type'] = opts.headers['content-type'] || 'application/x-www-form-urlencoded';
 			body = opts.body = querystring.stringify(body);
 		}
