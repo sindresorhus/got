@@ -15,7 +15,6 @@ const isRedirect = require('is-redirect');
 const unzipResponse = require('unzip-response');
 const createErrorClass = require('create-error-class');
 const nodeStatusCodes = require('node-status-codes');
-const isPlainObj = require('is-plain-obj');
 const isRetryAllowed = require('is-retry-allowed');
 const pkg = require('./package.json');
 
@@ -236,7 +235,7 @@ function normalizeArguments(url, opts) {
 	let body = opts.body;
 
 	if (body) {
-		if (typeof body !== 'string' && !Buffer.isBuffer(body) && !isStream(body) && !isPlainObj(body)) {
+		if (typeof body !== 'string' && !(body !== null && typeof body === 'object')) {
 			throw new Error('options.body must be a ReadableStream, string, Buffer or plain Object');
 		}
 
@@ -245,7 +244,7 @@ function normalizeArguments(url, opts) {
 		if (isStream(body) && typeof body.getBoundary === 'function') {
 			// Special case for https://github.com/form-data/form-data
 			opts.headers['content-type'] = opts.headers['content-type'] || `multipart/form-data; boundary=${body.getBoundary()}`;
-		} else if (isPlainObj(body)) {
+		} else if (body !== null && typeof body === 'object' && !Buffer.isBuffer(body) && !isStream(body)) {
 			opts.headers['content-type'] = opts.headers['content-type'] || 'application/x-www-form-urlencoded';
 			body = opts.body = querystring.stringify(body);
 		}

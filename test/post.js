@@ -30,6 +30,23 @@ test('GET can have body', async t => {
 	t.is(headers.method, 'GET');
 });
 
+test('sends null-prototype objects', async t => {
+	const {body} = await got(s.url, {body: Object.create(null)});
+	t.is(body, '');
+});
+
+test('sends plain objects', async t => {
+	const {body} = await got(s.url, {body: {}});
+	t.is(body, '');
+});
+
+test('sends non-plain objects', async t => {
+	class Obj {}
+
+	const {body} = await got(s.url, {body: new Obj()});
+	t.is(body, '');
+});
+
 test('sends strings', async t => {
 	const {body} = await got(s.url, {body: 'wow'});
 	t.is(body, 'wow');
@@ -97,11 +114,17 @@ test('content-length header disabled for chunked transfer-encoding', async t => 
 });
 
 test('object in options.body treated as querystring', async t => {
-	const {body} = await got(s.url, {
-		body: {
-			such: 'wow'
+	class Obj {
+		constructor() {
+			this.such = 'wow';
 		}
-	});
+
+		get ouch() {
+			return 'yay';
+		}
+	}
+
+	const {body} = await got(s.url, {body: new Obj()});
 	t.is(body, 'such=wow');
 });
 
