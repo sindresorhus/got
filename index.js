@@ -270,7 +270,7 @@ function normalizeArguments(url, opts) {
 	if (typeof opts.retries !== 'function') {
 		const retries = opts.retries;
 
-		opts.retries = function backoff(iter, err) {
+		opts.retries = (iter, err) => {
 			if (iter > retries || !isRetryAllowed(err)) {
 				return 0;
 			}
@@ -309,14 +309,10 @@ helpers.forEach(el => {
 	got[el] = (url, opts) => got(url, Object.assign({}, opts, {method: el}));
 });
 
-got.stream = function (url, opts) {
-	return asStream(normalizeArguments(url, opts));
-};
+got.stream = (url, opts) => asStream(normalizeArguments(url, opts));
 
 helpers.forEach(el => {
-	got.stream[el] = function (url, opts) {
-		return got.stream(url, Object.assign({}, opts, {method: el}));
-	};
+	got.stream[el] = (url, opts) => got.stream(url, Object.assign({}, opts, {method: el}));
 });
 
 function stdError(error, opts) {
