@@ -53,14 +53,14 @@
     "is-stream": "^1.0.0",
     "lowercase-keys": "^1.0.0",
     "node-status-codes": "^2.0.0",
-    "timed-out": "^2.0.0",
+    "timed-out": "^3.0.0",
     "unzip-response": "^2.0.1",
     "url-parse-lax": "^1.0.0"
   },
   "devDependencies": {
     "ava": "^0.16.0",
     "coveralls": "^2.11.4",
-    "form-data": "^1.0.1",
+    "form-data": "^2.1.1",
     "get-port": "^2.0.0",
     "get-stream": "^2.3.0",
     "into-stream": "^3.0.0",
