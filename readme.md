@@ -255,18 +255,20 @@ You can use the [`oauth-1.0a`](https://github.com/ddo/oauth-1.0a) module to crea
 
 ```js
 const got = require('got');
+const crypto  = require('crypto');
 const OAuth = require('oauth-1.0a');
 
 const oauth = OAuth({
 	consumer: {
-		public: process.env.CONSUMER_KEY,
+		key: process.env.CONSUMER_KEY,
 		secret: process.env.CONSUMER_SECRET
 	},
-	signature_method: 'HMAC-SHA1'
+	signature_method: 'HMAC-SHA1',
+	hash_function: (baseString, key) => crypto.createHmac('sha1', key).update(baseString).digest('base64')
 });
 
 const token = {
-	public: process.env.ACCESS_TOKEN,
+	key: process.env.ACCESS_TOKEN,
 	secret: process.env.ACCESS_TOKEN_SECRET
 };
 
