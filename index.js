@@ -173,6 +173,7 @@ function asStream(opts) {
 		const statusCode = res.statusCode;
 
 		res.pipe(output);
+		res.requestUrl = opts.href || urlLib.resolve(urlLib.format(opts), opts.path);
 
 		if (statusCode < 200 || statusCode > 299) {
 			proxy.emit('error', new got.HTTPError(statusCode, opts), null, res);
