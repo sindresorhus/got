@@ -26,6 +26,7 @@ function requestAsEventEmitter(opts) {
 	opts = opts || {};
 
 	var ee = new EventEmitter();
+	var requestUrl = opts.href || urlLib.resolve(urlLib.format(opts), opts.path);
 	var redirectCount = 0;
 	var retryCount = 0;
 	var redirectUrl;
@@ -39,6 +40,8 @@ function requestAsEventEmitter(opts) {
 			if (redirectUrl) {
 				res.url = redirectUrl;
 			}
+
+			res.requestUrl = requestUrl;
 
 			if (isRedirect(statusCode) && opts.followRedirect && 'location' in res.headers && (opts.method === 'GET' || opts.method === 'HEAD')) {
 				res.resume();
@@ -101,8 +104,6 @@ function asCallback(opts, cb) {
 		readAllStream(res, opts.encoding, function (error, data) {
 			var statusCode = res.statusCode;
 			var limitStatusCode = opts.followRedirect ? 299 : 399;
-
-			res.requestUrl = opts.href || urlLib.resolve(urlLib.format(opts), opts.path);
 
 			if (error) {
 				cb(new got.ReadError(error, opts), null, res);
