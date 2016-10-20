@@ -119,6 +119,14 @@ test.cb('accepts option.body as Stream', t => {
 		});
 });
 
+test.cb('redirect response contains old url', t => {
+	got.stream(`${s.url}/redirect`)
+		.on('response', res => {
+			t.is(res.requestUrl, `${s.url}/redirect`);
+			t.end();
+		});
+});
+
 test.after('cleanup', async () => {
 	await s.close();
 });

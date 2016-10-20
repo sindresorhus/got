@@ -22,6 +22,7 @@ function requestAsEventEmitter(opts) {
 	opts = opts || {};
 
 	const ee = new EventEmitter();
+	const requestUrl = opts.href || urlLib.resolve(urlLib.format(opts), opts.path);
 	let redirectCount = 0;
 	let retryCount = 0;
 	let redirectUrl;
@@ -35,6 +36,8 @@ function requestAsEventEmitter(opts) {
 			if (redirectUrl) {
 				res.url = redirectUrl;
 			}
+
+			res.requestUrl = requestUrl;
 
 			if (isRedirect(statusCode) && opts.followRedirect && 'location' in res.headers && (opts.method === 'GET' || opts.method === 'HEAD')) {
 				res.resume();
@@ -105,7 +108,6 @@ function asPromise(opts) {
 					const limitStatusCode = opts.followRedirect ? 299 : 399;
 
 					res.body = data;
-					res.requestUrl = opts.href || urlLib.resolve(urlLib.format(opts), opts.path);
 
 					if (opts.json && res.body) {
 						try {
