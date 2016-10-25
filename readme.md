@@ -135,6 +135,8 @@ Defines if redirect responses should be followed automatically.
 
 #### Streams
 
+#### got.stream(url, [options])
+
 `stream` method will return Duplex stream with additional events:
 
 ##### .on('request', request)
