@@ -83,6 +83,10 @@ test('requestUrl response when sending url as param', async t => {
 	t.is((await got({hostname: s.host, port: s.port})).requestUrl, `${s.url}/`);
 });
 
+test('response contains url', async t => {
+	t.is((await got(s.url)).url, `${s.url}/`);
+});
+
 test.after('cleanup', async () => {
 	await s.close();
 });
