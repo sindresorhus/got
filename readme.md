@@ -56,7 +56,7 @@ It's a `GET` request by default, but can be changed in `options`.
 
 #### got(url, [options])
 
-Returns a Promise for a `response` object with a `body` property, a `url` property with the final URL after redirects, and a `requestUrl` property with the original request URL.
+Returns a Promise for a `response` object with a `body` property, a `url` property with the request URL or the final URL after redirects, and a `requestUrl` property with the original request URL.
 
 ##### url
 
