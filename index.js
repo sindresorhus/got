@@ -37,10 +37,7 @@ function requestAsEventEmitter(opts) {
 		var req = fn.request(opts, function (res) {
 			var statusCode = res.statusCode;
 
-			if (redirectUrl) {
-				res.url = redirectUrl;
-			}
-
+			res.url = redirectUrl || requestUrl;
 			res.requestUrl = requestUrl;
 
 			if (isRedirect(statusCode) && opts.followRedirect && 'location' in res.headers && (opts.method === 'GET' || opts.method === 'HEAD')) {
