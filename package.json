@@ -58,7 +58,7 @@
     "read-all-stream": "^3.0.0",
     "readable-stream": "^2.0.5",
     "timed-out": "^3.0.0",
-    "unzip-response": "^1.0.0",
+    "unzip-response": "^1.0.2",
     "url-parse-lax": "^1.0.0"
   },
   "devDependencies": {
