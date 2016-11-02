@@ -72,6 +72,12 @@ test('ignore missing data', async t => {
 	t.is((await got(`${s.url}/missing-data`)).body, testContent);
 });
 
+test('has url and requestUrl properties', async t => {
+	const res = await got(s.url);
+	t.truthy(res.url);
+	t.truthy(res.requestUrl);
+});
+
 test.after('cleanup', async () => {
 	await s.close();
 });
