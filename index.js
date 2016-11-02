@@ -37,9 +37,6 @@ function requestAsEventEmitter(opts) {
 		var req = fn.request(opts, function (res) {
 			var statusCode = res.statusCode;
 
-			res.url = redirectUrl || requestUrl;
-			res.requestUrl = requestUrl;
-
 			if (isRedirect(statusCode) && opts.followRedirect && 'location' in res.headers && (opts.method === 'GET' || opts.method === 'HEAD')) {
 				res.resume();
 
@@ -59,7 +56,11 @@ function requestAsEventEmitter(opts) {
 
 			// do not write ee.bind(...) instead of function - it will break gzip in Node.js 0.10
 			setImmediate(function () {
-				ee.emit('response', typeof unzipResponse === 'function' && req.method !== 'HEAD' ? unzipResponse(res) : res);
+				var response = typeof unzipResponse === 'function' && req.method !== 'HEAD' ? unzipResponse(res) : res;
+				response.url = redirectUrl || requestUrl;
+				response.requestUrl = requestUrl;
+
+				ee.emit('response', response);
 			});
 		});
 
