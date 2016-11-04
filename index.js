@@ -40,7 +40,7 @@ function requestAsEventEmitter(opts) {
 					ee.emit('error', new got.MaxRedirectsError(statusCode, opts), null, res);
 					return;
 				}
-				const isNode4 = process.version? process.version.indexOf('v4.') === 0 : true;
+				const isNode4 = process.version ? process.version.indexOf('v4.') === 0 : true;
 				const bufferString = isNode4 ? new Buffer(res.headers.location, 'binary').toString() : Buffer.from(res.headers.location, 'binary').toString();
 				redirectUrl = urlLib.resolve(urlLib.format(opts), bufferString);
 				const redirectOpts = Object.assign({}, opts, urlLib.parse(redirectUrl));
