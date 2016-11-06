@@ -18,6 +18,12 @@ const nodeStatusCodes = require('node-status-codes');
 const isRetryAllowed = require('is-retry-allowed');
 const pkg = require('./package.json');
 
+const isModernBuffer = (
+	typeof Buffer.alloc === 'function' &&
+	typeof Buffer.allocUnsafe === 'function' &&
+	typeof Buffer.from === 'function'
+);
+
 function requestAsEventEmitter(opts) {
 	opts = opts || {};
 
@@ -41,7 +47,11 @@ function requestAsEventEmitter(opts) {
 					return;
 				}
 
-				redirectUrl = urlLib.resolve(urlLib.format(opts), Buffer.from(res.headers.location, 'binary').toString());
+				const bufferString = isModernBuffer ?
+					Buffer.from(res.headers.location, 'binary').toString() :
+					new Buffer(res.headers.location, 'binary').toString();
+
+				redirectUrl = urlLib.resolve(urlLib.format(opts), bufferString);
 				const redirectOpts = Object.assign({}, opts, urlLib.parse(redirectUrl));
 
 				ee.emit('redirect', res, redirectOpts);
