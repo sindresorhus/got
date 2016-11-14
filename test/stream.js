@@ -1,5 +1,6 @@
 import test from 'ava';
 import intoStream from 'into-stream';
+import getStream from 'get-stream';
 import got from '../';
 import {createServer} from './helpers/server';
 
@@ -131,6 +132,11 @@ test('check for pipe method', t => {
 	const stream = got.stream(`${s.url}/`);
 	t.is(typeof stream.pipe, 'function');
 	t.is(typeof stream.on('error', () => {}).pipe, 'function');
+});
+
+test('piping works', async t => {
+	t.is(await getStream(got.stream(`${s.url}/`)), 'ok');
+	t.is(await getStream(got.stream(`${s.url}/`).on('error', () => {})), 'ok');
 });
 
 test.after('cleanup', async () => {
