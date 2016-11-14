@@ -127,6 +127,12 @@ test.cb('redirect response contains old url', t => {
 		});
 });
 
+test('check for pipe method', t => {
+	const stream = got.stream(`${s.url}/`);
+	t.is(typeof stream.pipe, 'function');
+	t.is(typeof stream.on('error', () => {}).pipe, 'function');
+});
+
 test.after('cleanup', async () => {
 	await s.close();
 });
