@@ -72,5 +72,8 @@
   },
   "xo": {
     "esnext": true
+  },
+  "ava": {
+    "concurrency": 4
   }
 }
