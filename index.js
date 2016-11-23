@@ -1,5 +1,5 @@
 'use strict';
-const EventEmitter = require('events').EventEmitter;
+const EventEmitter = require('events');
 const http = require('http');
 const https = require('https');
 const PassThrough = require('stream').PassThrough;
@@ -16,7 +16,7 @@ const unzipResponse = require('unzip-response');
 const createErrorClass = require('create-error-class');
 const nodeStatusCodes = require('node-status-codes');
 const isRetryAllowed = require('is-retry-allowed');
-const pkg = require('./package.json');
+const pkg = require('./package');
 
 const isModernBuffer = (
 	typeof Buffer.alloc === 'function' &&
@@ -85,7 +85,9 @@ function requestAsEventEmitter(opts) {
 			timedOut(req, opts.timeout);
 		}
 
-		setImmediate(() => ee.emit('request', req));
+		setImmediate(() => {
+			ee.emit('request', req);
+		});
 	};
 
 	get(opts);
@@ -321,9 +323,9 @@ helpers.forEach(el => {
 
 got.stream = (url, opts) => asStream(normalizeArguments(url, opts));
 
-helpers.forEach(el => {
+for (const el of helpers) {
 	got.stream[el] = (url, opts) => got.stream(url, Object.assign({}, opts, {method: el}));
-});
+}
 
 function stdError(error, opts) {
 	if (error.code !== undefined) {
