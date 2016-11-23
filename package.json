@@ -47,7 +47,7 @@
   "dependencies": {
     "create-error-class": "^3.0.0",
     "duplexer3": "^0.1.4",
-    "get-stream": "^2.3.0",
+    "get-stream": "^3.0.0",
     "is-redirect": "^1.0.0",
     "is-retry-allowed": "^1.0.0",
     "is-stream": "^1.0.0",
@@ -62,9 +62,8 @@
     "coveralls": "^2.11.4",
     "form-data": "^2.1.1",
     "get-port": "^2.0.0",
-    "get-stream": "^2.3.0",
     "into-stream": "^3.0.0",
-    "nyc": "^8.1.0",
+    "nyc": "^9.0.1",
     "pem": "^1.4.4",
     "pify": "^2.3.0",
     "tempfile": "^1.1.1",
@@ -75,5 +74,8 @@
   },
   "ava": {
     "concurrency": 4
+  },
+  "nyc": {
+    "cache": true
   }
 }
