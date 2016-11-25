@@ -62,7 +62,7 @@
     "form-data": "^2.1.1",
     "get-port": "^2.0.0",
     "into-stream": "^3.0.0",
-    "nyc": "^9.0.1",
+    "nyc": "^10.0.0",
     "pem": "^1.4.4",
     "pify": "^2.3.0",
     "tempfile": "^1.1.1",
@@ -73,8 +73,5 @@
   },
   "ava": {
     "concurrency": 4
-  },
-  "nyc": {
-    "cache": true
   }
 }
