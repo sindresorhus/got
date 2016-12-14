@@ -110,9 +110,11 @@ Query string object that will be added to the request URL. This will override th
 
 ###### timeout
 
-Type: `number`
+Type: `number`, `object`
 
 Milliseconds to wait for a server to send response headers before aborting request with `ETIMEDOUT` error.
+
+Option accepts `object` with separate `connect` and `socket` fields for connection and socket inactivity timeouts.
 
 ###### retries
 
