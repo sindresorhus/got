@@ -111,14 +111,6 @@ function asPromise(opts) {
 
 					res.body = data;
 
-					if (opts.json && res.body) {
-						try {
-							res.body = JSON.parse(res.body);
-						} catch (e) {
-							throw new got.ParseError(e, statusCode, opts, data);
-						}
-					}
-
 					if (statusCode < 200 || statusCode > limitStatusCode) {
 						throw new got.HTTPError(statusCode, opts);
 					}
@@ -139,10 +131,6 @@ function asStream(opts) {
 	const input = new PassThrough();
 	const output = new PassThrough();
 	const proxy = duplexer3(input, output);
-
-	if (opts.json) {
-		throw new Error('got can not be used as stream when options.json is used');
-	}
 
 	if (opts.body) {
 		proxy.write = () => {
@@ -232,15 +220,11 @@ function normalizeArguments(url, opts) {
 		delete opts.query;
 	}
 
-	if (opts.json && opts.headers.accept === undefined) {
-		opts.headers.accept = 'application/json';
-	}
-
 	let body = opts.body;
 
 	if (body) {
 		if (typeof body !== 'string' && !(body !== null && typeof body === 'object')) {
-			throw new Error('options.body must be a ReadableStream, string, Buffer or plain Object');
+			throw new Error('options.body must be a ReadableStream, string or Buffer');
 		}
 
 		opts.method = opts.method || 'POST';
