@@ -52,6 +52,7 @@
     "is-retry-allowed": "^1.0.0",
     "is-stream": "^1.0.0",
     "lowercase-keys": "^1.0.0",
+    "safe-buffer": "^5.0.1",
     "timed-out": "^3.0.0",
     "unzip-response": "^2.0.1",
     "url-parse-lax": "^1.0.0"

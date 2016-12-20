@@ -15,13 +15,8 @@ const isRedirect = require('is-redirect');
 const unzipResponse = require('unzip-response');
 const createErrorClass = require('create-error-class');
 const isRetryAllowed = require('is-retry-allowed');
+const Buffer = require('safe-buffer').Buffer;
 const pkg = require('./package');
-
-const isModernBuffer = (
-	typeof Buffer.alloc === 'function' &&
-	typeof Buffer.allocUnsafe === 'function' &&
-	typeof Buffer.from === 'function'
-);
 
 function requestAsEventEmitter(opts) {
 	opts = opts || {};
@@ -46,9 +41,7 @@ function requestAsEventEmitter(opts) {
 					return;
 				}
 
-				const bufferString = isModernBuffer ?
-					Buffer.from(res.headers.location, 'binary').toString() :
-					new Buffer(res.headers.location, 'binary').toString();
+				const bufferString = Buffer.from(res.headers.location, 'binary').toString();
 
 				redirectUrl = urlLib.resolve(urlLib.format(opts), bufferString);
 				const redirectOpts = Object.assign({}, opts, urlLib.parse(redirectUrl));
