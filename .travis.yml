@@ -4,4 +4,5 @@ node_js:
   - '6'
   - '5'
   - '4'
+  - '4.4.4'
 after_success: npm run coveralls
