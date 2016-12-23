@@ -88,6 +88,7 @@ test('content-length header with Stream body', async t => {
 		body: intoStream(['wow']),
 		json: true
 	});
+	t.is(body['transfer-encoding'], 'chunked', 'likely failed to get headers at all');
 	t.is(body['content-length'], undefined);
 });
 
@@ -110,6 +111,7 @@ test('content-length header disabled for chunked transfer-encoding', async t => 
 			'transfer-encoding': 'chunked'
 		}
 	});
+	t.is(body['transfer-encoding'], 'chunked', 'likely failed to get headers at all');
 	t.is(body['content-length'], undefined);
 });
 
