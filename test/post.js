@@ -88,9 +88,7 @@ test('content-length header with Stream body', async t => {
 		body: intoStream(['wow']),
 		json: true
 	});
-	// since we're checking for undefined, let's make sure the rest of the
-	// reponse is there by checking another prop we expect to be there
-	t.is(body['transfer-encoding'], 'chunked', 'likely failed to get headers');
+	t.is(body['transfer-encoding'], 'chunked', 'likely failed to get headers at all');
 	t.is(body['content-length'], undefined);
 });
 
@@ -113,9 +111,7 @@ test('content-length header disabled for chunked transfer-encoding', async t => 
 			'transfer-encoding': 'chunked'
 		}
 	});
-	// since we're checking for undefined, let's make sure the rest of the
-	// reponse is there by checking another prop we expect to be there
-	t.is(body['transfer-encoding'], 'chunked', 'likely failed to get headers');
+	t.is(body['transfer-encoding'], 'chunked', 'likely failed to get headers at all');
 	t.is(body['content-length'], undefined);
 });
 
