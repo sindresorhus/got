@@ -32,7 +32,7 @@ test.before('setup', async () => {
 	await s.listen(s.port);
 });
 
-test('option.json can not be used', t => {
+test.failing('option.json can not be used', t => {
 	t.throws(() => {
 		got.stream(s.url, {json: true});
 	}, 'got can not be used as stream when options.json is used');

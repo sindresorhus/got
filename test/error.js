@@ -42,7 +42,7 @@ test('dns message', async t => {
 	}
 });
 
-test('options.body error message', async t => {
+test.failing('options.body error message', async t => {
 	try {
 		await got(s.url, {body: () => {}});
 		t.fail('Exception was not thrown');

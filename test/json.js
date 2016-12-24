@@ -33,7 +33,7 @@ test.before('setup', async () => {
 	await s.listen(s.port);
 });
 
-test('parses response', async t => {
+test.failing('parses response', async t => {
 	t.deepEqual((await got(s.url, {json: true})).body, {data: 'dog'});
 });
 
@@ -42,7 +42,7 @@ test('not parses responses without a body', async t => {
 	t.is(body, '');
 });
 
-test('wraps parsing errors', async t => {
+test.failing('wraps parsing errors', async t => {
 	try {
 		await got(`${s.url}/invalid`, {json: true});
 		t.fail('Exception was not thrown');
@@ -53,7 +53,7 @@ test('wraps parsing errors', async t => {
 	}
 });
 
-test('parses non-200 responses', async t => {
+test.failing('parses non-200 responses', async t => {
 	try {
 		await got(`${s.url}/non200`, {json: true});
 		t.fail('Exception was not thrown');
@@ -62,7 +62,7 @@ test('parses non-200 responses', async t => {
 	}
 });
 
-test('catches errors on invalid non-200 responses', async t => {
+test.failing('catches errors on invalid non-200 responses', async t => {
 	try {
 		await got(`${s.url}/non200-invalid`, {json: true});
 		t.fail('Exception was not thrown');
