@@ -34,7 +34,7 @@ test.before('setup', async () => {
 
 test.failing('option.json can not be used', t => {
 	t.throws(() => {
-		got.stream(s.url, {json: true});
+		got.stream(s.url, {parse: JSON.parse});
 	}, 'got can not be used as stream when options.json is used');
 });
 

@@ -18,30 +18,30 @@ test.before('setup', async () => {
 });
 
 test.failing('user-agent', async t => {
-	const headers = (await got(s.url, {json: true})).body;
+	const headers = (await got(s.url, {parse: JSON.parse})).body;
 	t.is(headers['user-agent'], `${pkg.name}/${pkg.version} (https://github.com/sindresorhus/got)`);
 });
 
 test.failing('accept-encoding', async t => {
-	const headers = (await got(s.url, {json: true})).body;
+	const headers = (await got(s.url, {parse: JSON.parse})).body;
 	t.is(headers['accept-encoding'], 'gzip,deflate');
 });
 
 test.failing('accept header with json option', async t => {
-	let headers = (await got(s.url, {json: true})).body;
+	let headers = (await got(s.url, {parse: JSON.parse})).body;
 	t.is(headers.accept, 'application/json');
 
 	headers = (await got(s.url, {
 		headers: {
 			accept: ''
 		},
-		json: true
+		parse: JSON.parse
 	})).body;
 	t.is(headers.accept, '');
 });
 
 test.failing('host', async t => {
-	const headers = (await got(s.url, {json: true})).body;
+	const headers = (await got(s.url, {parse: JSON.parse})).body;
 	t.is(headers.host, `localhost:${s.port}`);
 });
 
@@ -50,7 +50,7 @@ test.failing('transform names to lowercase', async t => {
 		headers: {
 			'USER-AGENT': 'test'
 		},
-		json: true
+		parse: JSON.parse
 	})).body;
 	t.is(headers['user-agent'], 'test');
 });
@@ -61,7 +61,7 @@ test.failing('zero content-length', async t => {
 			'content-length': 0
 		},
 		body: 'sup',
-		json: true
+		parse: JSON.parse
 	})).body;
 	t.is(headers['content-length'], '0');
 });
@@ -74,7 +74,7 @@ test.failing('form-data manual content-type', async t => {
 			'content-type': 'custom'
 		},
 		body: form,
-		json: true
+		parse: JSON.parse
 	})).body;
 	t.is(headers['content-type'], 'custom');
 });
@@ -84,7 +84,7 @@ test.failing('form-data automatic content-type', async t => {
 	form.append('a', 'b');
 	const headers = (await got(s.url, {
 		body: form,
-		json: true
+		parse: JSON.parse
 	})).body;
 	t.is(headers['content-type'], `multipart/form-data; boundary=${form.getBoundary()}`);
 });
