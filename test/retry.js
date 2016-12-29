@@ -32,13 +32,13 @@ test.before('setup', async () => {
 });
 
 test('works on timeout error', async t => {
-	t.is((await got(`${s.url}/knock-twice`, {timeout: 100})).body, 'who`s there?');
+	t.is((await got(`${s.url}/knock-twice`, {timeout: {connect: 100, socket: 100}})).body, 'who`s there?');
 });
 
 test('can be disabled with option', async t => {
 	try {
 		await got(`${s.url}/try-me`, {
-			timeout: 500,
+			timeout: {connect: 500, socket: 500},
 			retries: 0
 		});
 		t.fail();
@@ -50,7 +50,7 @@ test('can be disabled with option', async t => {
 
 test('function gets iter count', async t => {
 	await got(`${s.url}/fifth`, {
-		timeout: 100,
+		timeout: {connect: 500, socket: 500},
 		retries: iter => iter < 10
 	});
 	t.is(fifth, 6);
@@ -59,7 +59,7 @@ test('function gets iter count', async t => {
 test('falsy value prevents retries', async t => {
 	try {
 		await got(`${s.url}/long`, {
-			timeout: 100,
+			timeout: {connect: 100, socket: 100},
 			retries: () => 0
 		});
 	} catch (err) {
@@ -70,7 +70,7 @@ test('falsy value prevents retries', async t => {
 test('falsy value prevents retries #2', async t => {
 	try {
 		await got(`${s.url}/long`, {
-			timeout: 100,
+			timeout: {connect: 100, socket: 100},
 			retries: (iter, err) => {
 				t.truthy(err);
 				return false;
