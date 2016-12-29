@@ -73,8 +73,8 @@ function requestAsEventEmitter(opts) {
 			ee.emit('error', new got.RequestError(err, opts));
 		});
 
-		if (opts.timeout) {
-			timedOut(req, opts.timeout);
+		if (opts.gotTimeout) {
+			timedOut(req, opts.gotTimeout);
 		}
 
 		setImmediate(() => {
@@ -287,6 +287,11 @@ function normalizeArguments(url, opts) {
 
 	if (opts.followRedirect === undefined) {
 		opts.followRedirect = true;
+	}
+
+	if (opts.timeout) {
+		opts.gotTimeout = opts.timeout;
+		delete opts.timeout;
 	}
 
 	return opts;
