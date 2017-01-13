@@ -300,6 +300,45 @@ got('http://unix:/var/run/docker.sock:/containers/json');
 got('unix:/var/run/docker.sock:/containers/json');
 ```
 
+## AWS
+
+Requests to AWS services need to have their headers signed. This can be accomplished by using the [`aws4`](https://www.npmjs.com/package/aws4) package. This is an example for querying an ["Elasticsearch Service"](https://aws.amazon.com/elasticsearch-service/) host with a signed request.
+
+```js
+const url = require('url');
+const AWS = require('aws-sdk');
+const aws4 = require('aws4');
+const got = require('got');
+const config = require('./config');
+
+// Reads keys from the environment or `~/.aws/credentials`. Could be a plain object.
+const awsConfig = new AWS.Config({ region: config.region });
+
+function request(uri, options) {
+	const awsOpts = {
+		region: awsConfig.region,
+		headers: {
+			accept: 'application/json',
+			'content-type': 'application/json'
+		},
+		method: 'GET',
+		json: true
+	};
+
+	// We need to parse the URL before passing it to `got` so `aws4` can sign the request
+	const opts = Object.assign(url.parse(uri), awsOpts, options);
+	aws4.sign(opts, awsConfig.credentials);
+
+	return got(opts);
+}
+
+request(`https://${config.host}/production/users/1`);
+
+request(`https://${config.host}/production/`, {
+	// All usual `got` options
+});
+```
+
 
 ## Tip
 
