@@ -310,12 +310,12 @@ const got = require('got');
 const aws4 = require('aws4');
 const config = require('./config');
 
-// reads keys from the environment or `~/.aws/credentials` could be a plain javascript object
+// Reads keys from the environment or `~/.aws/credentials`. Could be a plain object.
 const awsConfig = new AWS.Config({ region: config.region });
 
 function request (uri, options) {
   const opts = Object.assign(
-    // we need to parse the uri before parsing to got so aws4 can sign the request
+    // We need to parse the URL before passing it to `got` so `aws4` can sign the request
     url.parse(uri),
     {
       region: awsConfig.region,
@@ -326,15 +326,15 @@ function request (uri, options) {
       method: 'GET',
       json: true
     },
-    options)
-  aws4.sign(opts, awsConfig.credentials)
-  return got(opts)
+    options);
+  aws4.sign(opts, awsConfig.credentials);
+  return got(opts);
 }
 
 request(`https://${config.host}/production/users/1`)
 request(`https://${config.host}/production/`, {
-  // all usual got options
-})
+  // All usual got options
+});
 ```
 
 ## Tip
