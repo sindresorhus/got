@@ -111,6 +111,14 @@ function asPromise(opts) {
 
 					res.body = data;
 
+					if (typeof opts.parse === 'function' && res.body !== '') {
+						try {
+							res.body = opts.parse(res.body);
+						} catch (e) {
+							throw new got.ParseError(e, statusCode, opts, data);
+						}
+					}
+
 					if (statusCode < 200 || statusCode > limitStatusCode) {
 						throw new got.HTTPError(statusCode, opts);
 					}
@@ -131,6 +139,10 @@ function asStream(opts) {
 	const input = new PassThrough();
 	const output = new PassThrough();
 	const proxy = duplexer3(input, output);
+
+	if (opts.parse) {
+		throw new Error('got can not be used as stream when options.parse is used');
+	}
 
 	if (opts.body) {
 		proxy.write = () => {

@@ -38,11 +38,11 @@ test.before('setup', async () => {
 	await s.listen(s.port);
 });
 
-test.failing('parses JSON response', async t => {
+test('parses JSON response', async t => {
 	t.deepEqual((await got(`${s.url}/json`, {parse: JSON.parse})).body, {data: 'dog'});
 });
 
-test.failing('parses urlencoded response', async t => {
+test('parses urlencoded response', async t => {
 	t.deepEqual((await got(`${s.url}/urlencoded`, {parse: querystring.parse})).body, {data: 'dog'});
 });
 
@@ -51,7 +51,7 @@ test('not parses responses without a body', async t => {
 	t.is(body, '');
 });
 
-test.failing('wraps parsing errors', async t => {
+test('wraps parsing errors', async t => {
 	try {
 		await got(`${s.url}/invalid`, {parse: JSON.parse});
 		t.fail('Exception was not thrown');
@@ -62,7 +62,7 @@ test.failing('wraps parsing errors', async t => {
 	}
 });
 
-test.failing('parses non-200 responses', async t => {
+test('parses non-200 responses', async t => {
 	try {
 		await got(`${s.url}/non200`, {parse: JSON.parse});
 		t.fail('Exception was not thrown');
@@ -71,7 +71,7 @@ test.failing('parses non-200 responses', async t => {
 	}
 });
 
-test.failing('catches errors on invalid non-200 responses', async t => {
+test('catches errors on invalid non-200 responses', async t => {
 	try {
 		await got(`${s.url}/non200-invalid`, {parse: JSON.parse});
 		t.fail('Exception was not thrown');

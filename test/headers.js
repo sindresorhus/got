@@ -17,22 +17,22 @@ test.before('setup', async () => {
 	await s.listen(s.port);
 });
 
-test.failing('user-agent', async t => {
+test('user-agent', async t => {
 	const headers = (await got(s.url, {parse: JSON.parse})).body;
 	t.is(headers['user-agent'], `${pkg.name}/${pkg.version} (https://github.com/sindresorhus/got)`);
 });
 
-test.failing('accept-encoding', async t => {
+test('accept-encoding', async t => {
 	const headers = (await got(s.url, {parse: JSON.parse})).body;
 	t.is(headers['accept-encoding'], 'gzip,deflate');
 });
 
-test.failing('host', async t => {
+test('host', async t => {
 	const headers = (await got(s.url, {parse: JSON.parse})).body;
 	t.is(headers.host, `localhost:${s.port}`);
 });
 
-test.failing('transform names to lowercase', async t => {
+test('transform names to lowercase', async t => {
 	const headers = (await got(s.url, {
 		headers: {
 			'USER-AGENT': 'test'
@@ -42,7 +42,7 @@ test.failing('transform names to lowercase', async t => {
 	t.is(headers['user-agent'], 'test');
 });
 
-test.failing('zero content-length', async t => {
+test('zero content-length', async t => {
 	const headers = (await got(s.url, {
 		headers: {
 			'content-length': 0
@@ -53,7 +53,7 @@ test.failing('zero content-length', async t => {
 	t.is(headers['content-length'], '0');
 });
 
-test.failing('form-data manual content-type', async t => {
+test('form-data manual content-type', async t => {
 	const form = new FormData();
 	form.append('a', 'b');
 	const headers = (await got(s.url, {
@@ -66,7 +66,7 @@ test.failing('form-data manual content-type', async t => {
 	t.is(headers['content-type'], 'custom');
 });
 
-test.failing('form-data automatic content-type', async t => {
+test('form-data automatic content-type', async t => {
 	const form = new FormData();
 	form.append('a', 'b');
 	const headers = (await got(s.url, {
