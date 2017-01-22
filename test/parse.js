@@ -1,3 +1,4 @@
+import querystring from 'querystring';
 import test from 'ava';
 import got from '../';
 import {createServer} from './helpers/server';
@@ -7,8 +8,12 @@ let s;
 test.before('setup', async () => {
 	s = await createServer();
 
-	s.on('/', (req, res) => {
+	s.on('/json', (req, res) => {
 		res.end('{"data":"dog"}');
+	});
+
+	s.on('/urlencoded', (req, res) => {
+		res.end('data=dog');
 	});
 
 	s.on('/invalid', (req, res) => {
@@ -34,7 +39,11 @@ test.before('setup', async () => {
 });
 
 test.failing('parses JSON response', async t => {
-	t.deepEqual((await got(s.url, {parse: JSON.parse})).body, {data: 'dog'});
+	t.deepEqual((await got(`${s.url}/json`, {parse: JSON.parse})).body, {data: 'dog'});
+});
+
+test.failing('parses urlencoded response', async t => {
+	t.deepEqual((await got(`${s.url}/urlencoded`, {parse: querystring.parse})).body, {data: 'dog'});
 });
 
 test('not parses responses without a body', async t => {
