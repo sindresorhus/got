@@ -27,19 +27,6 @@ test.failing('accept-encoding', async t => {
 	t.is(headers['accept-encoding'], 'gzip,deflate');
 });
 
-test.failing('accept header with json option', async t => {
-	let headers = (await got(s.url, {parse: JSON.parse})).body;
-	t.is(headers.accept, 'application/json');
-
-	headers = (await got(s.url, {
-		headers: {
-			accept: ''
-		},
-		parse: JSON.parse
-	})).body;
-	t.is(headers.accept, '');
-});
-
 test.failing('host', async t => {
 	const headers = (await got(s.url, {parse: JSON.parse})).body;
 	t.is(headers.host, `localhost:${s.port}`);
