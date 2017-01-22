@@ -93,6 +93,14 @@ Default: `'utf8'`
 
 Encoding to be used on `setEncoding` of the response data. If `null`, the body is returned as a Buffer.
 
+###### parse
+
+Type: `function`
+
+*This is mutually exclusive with stream mode.*
+
+Parse the response body with the given function.
+
 ###### query
 
 Type: `string`, `object`<br>
