@@ -78,6 +78,7 @@ test('should have statusCode in err', async t => {
 		await got(`${s.url}/non200-invalid`, {json: true});
 		t.fail('Exception was not thrown');
 	} catch (err) {
+		t.true(err instanceof got.ParseError);
 		t.is(err.statusCode, 500);
 	}
 });
