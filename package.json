@@ -58,7 +58,7 @@
     "url-parse-lax": "^1.0.0"
   },
   "devDependencies": {
-    "ava": "^0.17.0",
+    "ava": "^0.18.0",
     "coveralls": "^2.11.4",
     "form-data": "^2.1.1",
     "get-port": "^2.0.0",
