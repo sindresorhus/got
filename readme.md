@@ -93,14 +93,13 @@ Default: `'utf8'`
 
 Encoding to be used on `setEncoding` of the response data. If `null`, the body is returned as a Buffer.
 
-###### json
+###### parse
 
-Type: `boolean`<br>
-Default: `false`
+Type: `function`
 
 *This is mutually exclusive with stream mode.*
 
-Parse response body with `JSON.parse` and set `accept` header to `application/json`.
+Parse the response body with the given function.
 
 ###### query
 
@@ -187,10 +186,6 @@ When a request fails. Contains a `code` property with error class code, like `EC
 #### got.ReadError
 
 When reading from response stream fails.
-
-#### got.ParseError
-
-When `json` option is enabled and `JSON.parse` fails.
 
 #### got.HTTPError
 
@@ -279,8 +274,7 @@ const token = {
 const url = 'https://api.twitter.com/1.1/statuses/home_timeline.json';
 
 got(url, {
-	headers: oauth.toHeader(oauth.authorize({url, method: 'GET'}, token)),
-	json: true
+	headers: oauth.toHeader(oauth.authorize({url, method: 'GET'}, token))
 });
 ```
 

@@ -18,30 +18,17 @@ test.before('setup', async () => {
 });
 
 test('user-agent', async t => {
-	const headers = (await got(s.url, {json: true})).body;
+	const headers = (await got(s.url, {parse: JSON.parse})).body;
 	t.is(headers['user-agent'], `${pkg.name}/${pkg.version} (https://github.com/sindresorhus/got)`);
 });
 
 test('accept-encoding', async t => {
-	const headers = (await got(s.url, {json: true})).body;
+	const headers = (await got(s.url, {parse: JSON.parse})).body;
 	t.is(headers['accept-encoding'], 'gzip,deflate');
 });
 
-test('accept header with json option', async t => {
-	let headers = (await got(s.url, {json: true})).body;
-	t.is(headers.accept, 'application/json');
-
-	headers = (await got(s.url, {
-		headers: {
-			accept: ''
-		},
-		json: true
-	})).body;
-	t.is(headers.accept, '');
-});
-
 test('host', async t => {
-	const headers = (await got(s.url, {json: true})).body;
+	const headers = (await got(s.url, {parse: JSON.parse})).body;
 	t.is(headers.host, `localhost:${s.port}`);
 });
 
@@ -50,7 +37,7 @@ test('transform names to lowercase', async t => {
 		headers: {
 			'USER-AGENT': 'test'
 		},
-		json: true
+		parse: JSON.parse
 	})).body;
 	t.is(headers['user-agent'], 'test');
 });
@@ -61,7 +48,7 @@ test('zero content-length', async t => {
 			'content-length': 0
 		},
 		body: 'sup',
-		json: true
+		parse: JSON.parse
 	})).body;
 	t.is(headers['content-length'], '0');
 });
@@ -74,7 +61,7 @@ test('form-data manual content-type', async t => {
 			'content-type': 'custom'
 		},
 		body: form,
-		json: true
+		parse: JSON.parse
 	})).body;
 	t.is(headers['content-type'], 'custom');
 });
@@ -84,7 +71,7 @@ test('form-data automatic content-type', async t => {
 	form.append('a', 'b');
 	const headers = (await got(s.url, {
 		body: form,
-		json: true
+		parse: JSON.parse
 	})).body;
 	t.is(headers['content-type'], `multipart/form-data; boundary=${form.getBoundary()}`);
 });

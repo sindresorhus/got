@@ -47,7 +47,7 @@ test('options.body error message', async t => {
 		await got(s.url, {body: () => {}});
 		t.fail('Exception was not thrown');
 	} catch (err) {
-		t.regex(err.message, /options.body must be a ReadableStream, string, Buffer or plain Object/);
+		t.regex(err.message, /options.body must be a ReadableStream, string or Buffer/);
 	}
 });
 
