@@ -74,7 +74,8 @@ test('catches errors on invalid non-200 responses', async t => {
 });
 
 test('should have statusCode in err', async t => {
-	const err = await t.throws(got(`${s.url}/non200-invalid`, {json: true}), got.ParseError);
+	const err = await t.throws(got(`${s.url}/non200-invalid`, {json: true}));
+	t.is(err.constructor, got.ParseError);
 	t.is(err.statusCode, 500);
 });
 
