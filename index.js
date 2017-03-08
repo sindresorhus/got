@@ -334,7 +334,8 @@ function stdError(error, opts) {
 		host: opts.host,
 		hostname: opts.hostname,
 		method: opts.method,
-		path: opts.path
+		path: opts.path,
+		protocol: opts.protocol
 	});
 }
 
