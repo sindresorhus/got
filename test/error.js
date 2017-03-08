@@ -27,6 +27,7 @@ test('properties', async t => {
 		t.is(err.message, 'Response code 404 (Not Found)');
 		t.is(err.host, `${s.host}:${s.port}`);
 		t.is(err.method, 'GET');
+		t.is(err.protocol, 'http:');
 	}
 });
 
