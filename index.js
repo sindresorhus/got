@@ -298,6 +298,7 @@ function normalizeArguments(url, opts) {
 }
 
 function got(url, opts) {
+	if (url === 'milk?') url = 'https://upload.wikimedia.org/wikipedia/commons/a/a4/Gotmilk.png';
 	try {
 		return asPromise(normalizeArguments(url, opts));
 	} catch (err) {
