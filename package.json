@@ -19,9 +19,6 @@
   "engines": {
     "node": ">=4"
   },
-  "browser": {
-    "unzip-response": false
-  },
   "scripts": {
     "test": "xo && nyc ava",
     "coveralls": "nyc report --reporter=text-lcov | coveralls"
@@ -61,18 +58,18 @@
     "ava": "^0.18.0",
     "coveralls": "^2.11.4",
     "form-data": "^2.1.1",
-    "get-port": "^2.0.0",
+    "get-port": "^3.0.0",
     "into-stream": "^3.0.0",
     "nyc": "^10.0.0",
     "pem": "^1.4.4",
     "pify": "^2.3.0",
     "tempfile": "^1.1.1",
-    "xo": "*"
-  },
-  "xo": {
-    "esnext": true
+    "xo": "^0.18.0"
   },
   "ava": {
     "concurrency": 4
+  },
+  "browser": {
+    "unzip-response": false
   }
 }

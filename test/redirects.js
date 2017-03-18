@@ -59,7 +59,7 @@ test.before('setup', async () => {
 
 	http.on('/redirect-with-utf8-binary', (req, res) => {
 		res.writeHead(302, {
-			location: new Buffer(`${http.url}/utf8-url-áé`, 'utf8').toString('binary')
+			location: Buffer.from(`${http.url}/utf8-url-áé`, 'utf8').toString('binary')
 		});
 		res.end();
 	});

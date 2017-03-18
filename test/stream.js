@@ -60,7 +60,7 @@ test.cb('throws on write to stream with body specified', t => {
 		got.stream(s.url, {body: 'wow'}).write('wow');
 	}, 'got\'s stream is not writable when options.body is used');
 
-	// wait for request to end
+	// Wait for request to end
 	setTimeout(t.end, 10);
 });
 

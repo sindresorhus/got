@@ -194,7 +194,7 @@ function asStream(opts) {
 
 function normalizeArguments(url, opts) {
 	if (typeof url !== 'string' && typeof url !== 'object') {
-		throw new Error(`Parameter \`url\` must be a string or object, not ${typeof url}`);
+		throw new TypeError(`Parameter \`url\` must be a string or object, not ${typeof url}`);
 	}
 
 	if (typeof url === 'string') {
@@ -250,7 +250,8 @@ function normalizeArguments(url, opts) {
 			opts.headers['content-type'] = opts.headers['content-type'] || `multipart/form-data; boundary=${body.getBoundary()}`;
 		} else if (body !== null && typeof body === 'object' && !Buffer.isBuffer(body) && !isStream(body)) {
 			opts.headers['content-type'] = opts.headers['content-type'] || 'application/x-www-form-urlencoded';
-			body = opts.body = querystring.stringify(body);
+			body = querystring.stringify(body);
+			opts.body = body;
 		}
 
 		if (opts.headers['content-length'] === undefined && opts.headers['transfer-encoding'] === undefined && !isStream(body)) {

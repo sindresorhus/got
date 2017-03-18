@@ -4,7 +4,8 @@ const https = require('https');
 const pify = require('pify');
 const getPort = require('get-port');
 
-const host = exports.host = 'localhost';
+exports.host = 'localhost';
+const host = exports.host;
 
 exports.createServer = function () {
 	return getPort().then(port => {

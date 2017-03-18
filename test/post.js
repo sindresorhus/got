@@ -53,7 +53,7 @@ test('sends strings', async t => {
 });
 
 test('sends Buffers', async t => {
-	const {body} = await got(s.url, {body: new Buffer('wow')});
+	const {body} = await got(s.url, {body: Buffer.from('wow')});
 	t.is(body, 'wow');
 });
 
@@ -77,7 +77,7 @@ test('content-length header with string body', async t => {
 
 test('content-length header with Buffer body', async t => {
 	const {body} = await got(`${s.url}/headers`, {
-		body: new Buffer('wow'),
+		body: Buffer.from('wow'),
 		json: true
 	});
 	t.is(body['content-length'], '3');
