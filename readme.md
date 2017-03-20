@@ -301,7 +301,9 @@ got('unix:/var/run/docker.sock:/containers/json');
 ```
 
 
-## Tip
+## Tips
+
+### User Agent
 
 It's a good idea to set the `'user-agent'` header so the provider can more easily see how their resource is used. By default, it's the URL to this repo.
 
@@ -315,6 +317,10 @@ got('todomvc.com', {
 	}
 });
 ```
+
+### 304 Responses
+
+Bear in mind, if you send an `if-modified-since` header and receive a `304 Not Modified` response, the body will be empty. It's your responsibility to cache and retrieve the body contents.
 
 
 ## Related
