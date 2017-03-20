@@ -16,10 +16,8 @@ test.before('setup', async () => {
 	});
 
 	s.on('/404', (req, res) => {
-		setTimeout(() => {
-			res.statusCode = 404;
-			res.end('not');
-		}, 10);
+		res.statusCode = 404;
+		res.end('not');
 	});
 
 	s.on('/?recent=true', (req, res) => {
