@@ -18,6 +18,7 @@ const isRetryAllowed = require('is-retry-allowed');
 const Buffer = require('safe-buffer').Buffer;
 const expired = require('expired');
 const normalizeUrl = require('normalize-url');
+const Response = require('responselike');
 const pkg = require('./package');
 
 function requestAsEventEmitter(opts) {
@@ -99,7 +100,22 @@ function requestAsEventEmitter(opts) {
 		});
 	};
 
-	get(opts);
+	if (opts.cache && opts.method === 'GET') {
+		const key = normalizeUrl(requestUrl);
+		opts.cache.get(key, (err, value) => {
+			if (err) {
+				return get(opts);
+			}
+			const cachedResponse = JSON.parse(value);
+			if (expired(cachedResponse.headers) === false) {
+				const response = responseFromCache(requestUrl, cachedResponse);
+				ee.emit('response', response);
+			}
+		});
+	} else {
+		get(opts);
+	}
+
 	return ee;
 }
 
@@ -313,6 +329,10 @@ function normalizeArguments(url, opts) {
 	}
 
 	return opts;
+}
+
+function responseFromCache(url, cachedResponse) {
+	return new Response(200, cachedResponse.headers, Buffer.from(cachedResponse.body), url);
 }
 
 function got(url, opts) {
