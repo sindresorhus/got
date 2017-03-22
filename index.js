@@ -16,6 +16,8 @@ const unzipResponse = require('unzip-response');
 const createErrorClass = require('create-error-class');
 const isRetryAllowed = require('is-retry-allowed');
 const Buffer = require('safe-buffer').Buffer;
+const expired = require('expired');
+const normalizeUrl = require('normalize-url');
 const pkg = require('./package');
 
 function requestAsEventEmitter(opts) {
@@ -57,6 +59,21 @@ function requestAsEventEmitter(opts) {
 				const response = typeof unzipResponse === 'function' && req.method !== 'HEAD' ? unzipResponse(res) : res;
 				response.url = redirectUrl || requestUrl;
 				response.requestUrl = requestUrl;
+
+				if (opts.cache && statusCode === 200 && req.method === 'GET' && (expired(response.headers) === false || 'etag' in response.headers)) {
+					const encoding = opts.encoding === null ? 'buffer' : opts.encoding;
+					const stream = getStream(response, {encoding});
+
+					stream
+						.then(data => {
+							const key = normalizeUrl(response.url);
+							const value = JSON.stringify({
+								headers: response.headers,
+								body: data
+							});
+							opts.cache.put(key, value);
+						});
+				}
 
 				ee.emit('response', response);
 			});
