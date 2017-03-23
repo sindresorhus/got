@@ -28,6 +28,7 @@ test('properties', async t => {
 		t.is(err.host, `${s.host}:${s.port}`);
 		t.is(err.method, 'GET');
 		t.is(err.protocol, 'http:');
+		t.is(err.url, err.response.requestUrl);
 	}
 });
 
