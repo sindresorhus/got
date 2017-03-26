@@ -1,3 +1,4 @@
+import {URL} from 'whatwg-url';
 import test from 'ava';
 import got from '../';
 import {createServer} from './helpers/server';
@@ -63,6 +64,11 @@ test('should throw with auth in url', async t => {
 	} catch (err) {
 		t.regex(err.message, /Basic authentication must be done with auth option/);
 	}
+});
+
+test('whatwg-url support', async () => {
+	const wURL = new URL(`${s.url}/test`);
+	await got(wURL);
 });
 
 test.after('cleanup', async () => {
