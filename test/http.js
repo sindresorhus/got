@@ -15,6 +15,11 @@ test.before('setup', async () => {
 		res.end();
 	});
 
+	s.on('/304', (req, res) => {
+		res.statusCode = 304;
+		res.end();
+	});
+
 	s.on('/404', (req, res) => {
 		res.statusCode = 404;
 		res.end('not');
@@ -52,6 +57,14 @@ test('error with code', async t => {
 		t.is(err.statusCode, 404);
 		t.is(err.response.body, 'not');
 	}
+});
+
+test('status code 304 doesn\'t throw', async t => {
+	const p = got(`${s.url}/304`);
+	await t.notThrows(p);
+	const response = await p;
+	t.is(response.statusCode, 304);
+	t.is(response.body, '');
 });
 
 test('buffer on encoding === null', async t => {

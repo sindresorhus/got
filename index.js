@@ -119,7 +119,7 @@ function asPromise(opts) {
 						}
 					}
 
-					if (statusCode < 200 || statusCode > limitStatusCode) {
+					if (statusCode !== 304 && (statusCode < 200 || statusCode > limitStatusCode)) {
 						throw new got.HTTPError(statusCode, opts);
 					}
 
@@ -178,7 +178,7 @@ function asStream(opts) {
 
 		res.pipe(output);
 
-		if (statusCode < 200 || statusCode > 299) {
+		if (statusCode !== 304 && (statusCode < 200 || statusCode > 299)) {
 			proxy.emit('error', new got.HTTPError(statusCode, opts), null, res);
 			return;
 		}
