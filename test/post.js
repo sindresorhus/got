@@ -121,6 +121,14 @@ test('content-type header is not overriden when object in options.body', async t
 	t.is(headers['content-type'], 'doge');
 });
 
+test('throws when json body is not a plain object', async t => {
+	await t.throws(got(`${s.url}`, {body: '{}', json: true}), TypeError);
+});
+
+test('throws when form body is not a plain object', async t => {
+	await t.throws(got(`${s.url}`, {body: 'such=wow', form: true}), TypeError);
+});
+
 test.after('cleanup', async () => {
 	await s.close();
 });
