@@ -106,20 +106,6 @@ test('content-length header disabled for chunked transfer-encoding', async t => 
 	const headers = JSON.parse(body);
 	t.is(headers['transfer-encoding'], 'chunked', 'likely failed to get headers at all');
 	t.is(headers['content-length'], undefined);
-
-test('object in options.body treated as querystring', async t => {
-	class Obj {
-		constructor() {
-			this.such = 'wow';
-		}
-
-		get ouch() {
-			return 'yay';
-		}
-	}
-
-	const {body} = await got(s.url, {body: new Obj()});
-	t.is(body, 'such=wow');
 });
 
 test('content-type header is not overriden when object in options.body', async t => {
