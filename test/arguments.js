@@ -24,12 +24,8 @@ test.before('setup', async () => {
 });
 
 test('url is required', async t => {
-	try {
-		await got();
-		t.fail('Exception was not thrown');
-	} catch (err) {
-		t.regex(err.message, /Parameter `url` must be a string or object, not undefined/);
-	}
+	const err = await t.throws(got());
+	t.regex(err.message, /Parameter `url` must be a string or object, not undefined/);
 });
 
 test('options are optional', async t => {
