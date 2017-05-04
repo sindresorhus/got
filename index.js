@@ -16,7 +16,7 @@ const unzipResponse = require('unzip-response');
 const createErrorClass = require('create-error-class');
 const isRetryAllowed = require('is-retry-allowed');
 const Buffer = require('safe-buffer').Buffer;
-const pkg = require('./package');
+const pkg = require('./package.json');
 
 function requestAsEventEmitter(opts) {
 	opts = opts || {};
