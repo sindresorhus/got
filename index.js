@@ -28,6 +28,11 @@ function requestAsEventEmitter(opts) {
 	let redirectUrl;
 
 	const get = opts => {
+		if (opts.protocol !== 'http:' && opts.protocol !== 'https:') {
+			ee.emit('error', new got.UnsupportedProtocolError(opts));
+			return;
+		}
+
 		const fn = opts.protocol === 'https:' ? https : http;
 
 		const req = fn.request(opts, res => {
@@ -208,11 +213,13 @@ function normalizeArguments(url, opts) {
 
 	opts = Object.assign(
 		{
-			protocol: 'http:',
 			path: '',
 			retries: 5
 		},
 		url,
+		{
+			protocol: url.protocol || 'http:' // Override both null/undefined with default protocol
+		},
 		opts
 	);
 
@@ -362,6 +369,11 @@ got.MaxRedirectsError = createErrorClass('MaxRedirectsError', function (statusCo
 	this.statusCode = statusCode;
 	this.statusMessage = http.STATUS_CODES[this.statusCode];
 	this.message = 'Redirected 10 times. Aborting.';
+});
+
+got.UnsupportedProtocolError = createErrorClass('UnsupportedProtocolError', function (opts) {
+	stdError.call(this, {}, opts);
+	this.message = `Unsupported protocol "${opts.protocol}"`;
 });
 
 module.exports = got;

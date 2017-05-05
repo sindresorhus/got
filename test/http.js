@@ -67,6 +67,11 @@ test('status code 304 doesn\'t throw', async t => {
 	t.is(response.body, '');
 });
 
+test('invalid protocol throws', async t => {
+	const err = await t.throws(got('c:/nope.com', {json: true}));
+	t.is(err.constructor, got.UnsupportedProtocolError);
+});
+
 test('buffer on encoding === null', async t => {
 	const data = (await got(s.url, {encoding: null})).body;
 	t.truthy(Buffer.isBuffer(data));
