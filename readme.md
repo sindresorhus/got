@@ -98,9 +98,9 @@ Default: `false`
 
 *This is mutually exclusive with stream mode.*
 
-If set to true and Content-Type is not set it will be set to 'application/x-www-form-urlencoded'
+If set to `true` and `Content-Type` header is not set, it will be set to `application/x-www-form-urlencoded`.
 
-`body` has to be a plain object and will be stringified.
+`body` must be a plain object and will be stringified.
 
 ###### json
 
@@ -109,11 +109,11 @@ Default: `false`
 
 *This is mutually exclusive with stream mode.*
 
-If set to true and Content-Type is not set it will be set to 'application/json'.
+If set to `true` and `Content-Type` header is not set, it will be set to `application/json`.
 
-`body` has to be a plain object and will be stringified.
+Parse response body with `JSON.parse` and set `accept` header to `application/json`. If used in conjunction with the `form` option, the `body` will the stringified as querystring and the response parsed as JSON.
 
-Parse response body with `JSON.parse` and set `accept` header to `application/json`. If used in conjunction with `form`, the body will the stringified as querystring and the response parsed as json.
+`body` must be a plain object and will be stringified.
 
 ###### query
 
