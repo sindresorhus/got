@@ -371,7 +371,6 @@ function stdError(error, opts) {
 
 got.RequestError = createErrorClass('RequestError', stdError);
 got.ReadError = createErrorClass('ReadError', stdError);
-got.InvalidCancelError = createErrorClass('InvalidCancelError', stdError);
 got.ParseError = createErrorClass('ParseError', function (e, statusCode, opts, data) {
 	stdError.call(this, e, opts);
 	this.statusCode = statusCode;
