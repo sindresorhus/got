@@ -217,9 +217,11 @@ When server redirects you more than 10 times.
 
 When given an unsupported protocol.
 
+
 ## Aborting the request
 
 The promise returned by Got has a `.cancel()` function which, when called, aborts the request.
+
 
 ## Proxies
 
