@@ -147,7 +147,7 @@ test.serial('cancel in-progress request', async t => {
 	});
 
 	await t.throws(p, PCancelable.CancelError);
-	await t.notThrows(cancelPromise);
+	await t.notThrows(() => cancelPromise);
 });
 
 test.serial('cancel immediately', async t => {
@@ -155,7 +155,7 @@ test.serial('cancel immediately', async t => {
 	p.cancel();
 
 	await t.throws(p, PCancelable.CancelError);
-	await t.notThrows(cancelPromise);
+	await t.notThrows(() => cancelPromise);
 });
 
 test.after('cleanup', async () => {
