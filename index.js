@@ -245,7 +245,7 @@ function normalizeArguments(url, opts) {
 		}
 
 		if ((opts.form || opts.json) && !(isObj(body) && typeof body !== 'function')) {
-			throw new TypeError('options.body must be a plain Object');
+			throw new TypeError('options.body must be a plain Object when options.form or options.json is used');
 		}
 
 		if (isStream(body) && typeof body.getBoundary === 'function') {
