@@ -387,11 +387,11 @@ Bear in mind, if you send an `if-modified-since` header and receive a `304 Not M
 
 ## Created by
 
-[![Sindre Sorhus](https://avatars.githubusercontent.com/u/170270?v=3&s=100)](https://sindresorhus.com) | [![Vsevolod Strukchinsky](https://avatars.githubusercontent.com/u/365089?v=3&s=100)](https://github.com/floatdrop)
----|---
-[Sindre Sorhus](https://sindresorhus.com) | [Vsevolod Strukchinsky](https://github.com/floatdrop)
+[![Sindre Sorhus](https://avatars.githubusercontent.com/u/170270?v=3&s=100)](https://sindresorhus.com) | [![Vsevolod Strukchinsky](https://avatars.githubusercontent.com/u/365089?v=3&s=100)](https://github.com/floatdrop) | [![Alexander Tesfamichael](https://avatars.githubusercontent.com/u/2011351?v=3&s=100)](https://alextes.me)
+---|---|---
+[Sindre Sorhus](https://sindresorhus.com) | [Vsevolod Strukchinsky](https://github.com/floatdrop) | [Alexander Tesfamichael](https://alextes.me)
 
 
 ## License
 
-MIT © [Sindre Sorhus](https://sindresorhus.com)
+MIT
