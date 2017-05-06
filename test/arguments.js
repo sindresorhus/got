@@ -61,6 +61,10 @@ test('should throw with auth in url', async t => {
 	}
 });
 
+test('should throw when body is set to object', async t => {
+	await t.throws(got(`${s.url}/`, {body: {}}), TypeError);
+});
+
 test.after('cleanup', async () => {
 	await s.close();
 });

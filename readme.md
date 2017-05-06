@@ -74,7 +74,7 @@ Any of the [`http.request`](http://nodejs.org/api/http.html#http_http_request_op
 
 ###### body
 
-Type: `string`, `buffer`, `readableStream`, `object`
+Type: `string`, `buffer`, `readableStream`
 
 *This is mutually exclusive with stream mode.*
 
@@ -84,14 +84,23 @@ If present in `options` and `options.method` is not set, `options.method` will b
 
 If `content-length` or `transfer-encoding` is not set in `options.headers` and `body` is a string or buffer, `content-length` will be set to the body length.
 
-If `body` is a plain object, it will be stringified with [`querystring.stringify`](https://nodejs.org/api/querystring.html#querystring_querystring_stringify_obj_sep_eq_options) and sent as `application/x-www-form-urlencoded`.
-
 ###### encoding
 
 Type: `string`, `null`<br>
 Default: `'utf8'`
 
 Encoding to be used on `setEncoding` of the response data. If `null`, the body is returned as a Buffer.
+
+###### form
+
+Type: `boolean`<br>
+Default: `false`
+
+*This is mutually exclusive with stream mode.*
+
+If set to `true` and `Content-Type` header is not set, it will be set to `application/x-www-form-urlencoded`.
+
+`body` must be a plain object and will be stringified.
 
 ###### json
 
@@ -100,7 +109,11 @@ Default: `false`
 
 *This is mutually exclusive with stream mode.*
 
-Parse response body with `JSON.parse` and set `accept` header to `application/json`.
+If set to `true` and `Content-Type` header is not set, it will be set to `application/json`.
+
+Parse response body with `JSON.parse` and set `accept` header to `application/json`. If used in conjunction with the `form` option, the `body` will the stringified as querystring and the response parsed as JSON.
+
+`body` must be a plain object and will be stringified.
 
 ###### query
 

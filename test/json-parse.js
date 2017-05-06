@@ -30,6 +30,10 @@ test.before('setup', async () => {
 		res.end('Internal error');
 	});
 
+	s.on('/headers', (req, res) => {
+		res.end(JSON.stringify(req.headers));
+	});
+
 	await s.listen(s.port);
 });
 
@@ -77,6 +81,12 @@ test('should have statusCode in err', async t => {
 	const err = await t.throws(got(`${s.url}/non200-invalid`, {json: true}));
 	t.is(err.constructor, got.ParseError);
 	t.is(err.statusCode, 500);
+});
+
+test('should set correct headers', async t => {
+	const {body: headers} = await got(`${s.url}/headers`, {json: true, body: {}});
+	t.is(headers['content-type'], 'application/json');
+	t.is(headers.accept, 'application/json');
 });
 
 test.after('cleanup', async () => {

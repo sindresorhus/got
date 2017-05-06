@@ -16,6 +16,7 @@ const unzipResponse = require('unzip-response');
 const createErrorClass = require('create-error-class');
 const isRetryAllowed = require('is-retry-allowed');
 const Buffer = require('safe-buffer').Buffer;
+const isPlainObj = require('is-plain-obj');
 const pkg = require('./package');
 
 function requestAsEventEmitter(opts) {
@@ -243,31 +244,37 @@ function normalizeArguments(url, opts) {
 		opts.headers.accept = 'application/json';
 	}
 
-	let body = opts.body;
-
-	if (body) {
-		if (typeof body !== 'string' && !(body !== null && typeof body === 'object')) {
-			throw new Error('options.body must be a ReadableStream, string, Buffer or plain Object');
+	const body = opts.body;
+	if (body !== null && body !== undefined) {
+		const headers = opts.headers;
+		if (!isStream(body) && typeof body !== 'string' && !Buffer.isBuffer(body) && !(opts.form || opts.json)) {
+			throw new TypeError('options.body must be a ReadableStream, string, Buffer or plain Object');
 		}
 
-		opts.method = opts.method || 'POST';
+		if ((opts.form || opts.json) && !isPlainObj(body)) {
+			throw new TypeError('options.body must be a plain Object when options.form or options.json is used');
+		}
 
 		if (isStream(body) && typeof body.getBoundary === 'function') {
 			// Special case for https://github.com/form-data/form-data
-			opts.headers['content-type'] = opts.headers['content-type'] || `multipart/form-data; boundary=${body.getBoundary()}`;
-		} else if (body !== null && typeof body === 'object' && !Buffer.isBuffer(body) && !isStream(body)) {
-			opts.headers['content-type'] = opts.headers['content-type'] || 'application/x-www-form-urlencoded';
-			body = querystring.stringify(body);
-			opts.body = body;
+			headers['content-type'] = headers['content-type'] || `multipart/form-data; boundary=${body.getBoundary()}`;
+		} else if (opts.form && isPlainObj(body)) {
+			headers['content-type'] = headers['content-type'] || 'application/x-www-form-urlencoded';
+			opts.body = querystring.stringify(body);
+		} else if (opts.json && isPlainObj(body)) {
+			headers['content-type'] = headers['content-type'] || 'application/json';
+			opts.body = JSON.stringify(body);
 		}
 
-		if (opts.headers['content-length'] === undefined && opts.headers['transfer-encoding'] === undefined && !isStream(body)) {
-			const length = typeof body === 'string' ? Buffer.byteLength(body) : body.length;
-			opts.headers['content-length'] = length;
+		if (headers['content-length'] === undefined && headers['transfer-encoding'] === undefined && !isStream(body)) {
+			const length = typeof opts.body === 'string' ? Buffer.byteLength(opts.body) : opts.body.length;
+			headers['content-length'] = length;
 		}
+
+		opts.method = (opts.method || 'POST').toUpperCase();
+	} else {
+		opts.method = (opts.method || 'GET').toUpperCase();
 	}
-
-	opts.method = (opts.method || 'GET').toUpperCase();
 
 	if (opts.hostname === 'unix') {
 		const matches = /(.+):(.+)/.exec(opts.path);
