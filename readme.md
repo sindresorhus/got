@@ -200,6 +200,10 @@ When server response code is not 2xx. Contains `statusCode` and `statusMessage`.
 
 When server redirects you more than 10 times.
 
+#### got.UnsupportedProtocolError
+
+When given an unsupported protocol.
+
 
 ## Proxies
 
