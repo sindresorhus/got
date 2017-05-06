@@ -16,7 +16,7 @@ const unzipResponse = require('unzip-response');
 const createErrorClass = require('create-error-class');
 const isRetryAllowed = require('is-retry-allowed');
 const Buffer = require('safe-buffer').Buffer;
-const isObj = require('is-plain-obj');
+const isPlainObj = require('is-plain-obj');
 const pkg = require('./package');
 
 function requestAsEventEmitter(opts) {
@@ -244,17 +244,17 @@ function normalizeArguments(url, opts) {
 			throw new TypeError('options.body must be a ReadableStream, string, Buffer or plain Object');
 		}
 
-		if ((opts.form || opts.json) && !(isObj(body) && typeof body !== 'function')) {
+		if ((opts.form || opts.json) && !isPlainObj(body)) {
 			throw new TypeError('options.body must be a plain Object when options.form or options.json is used');
 		}
 
 		if (isStream(body) && typeof body.getBoundary === 'function') {
 			// Special case for https://github.com/form-data/form-data
 			headers['content-type'] = headers['content-type'] || `multipart/form-data; boundary=${body.getBoundary()}`;
-		} else if (opts.form && isObj(body)) {
+		} else if (opts.form && isPlainObj(body)) {
 			headers['content-type'] = headers['content-type'] || 'application/x-www-form-urlencoded';
 			opts.body = querystring.stringify(body);
-		} else if (opts.json && isObj(body)) {
+		} else if (opts.json && isPlainObj(body)) {
 			headers['content-type'] = headers['content-type'] || 'application/json';
 			opts.body = JSON.stringify(body);
 		}
