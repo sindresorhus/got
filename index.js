@@ -264,7 +264,7 @@ function normalizeArguments(url, opts) {
 			headers['content-length'] = length;
 		}
 
-		opts.method = opts.method || 'POST';
+		opts.method = (opts.method || 'POST').toUpperCase();
 	} else {
 		opts.method = (opts.method || 'GET').toUpperCase();
 	}
