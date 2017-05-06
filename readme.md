@@ -12,7 +12,7 @@
 
 A nicer interface to the built-in [`http`](http://nodejs.org/api/http.html) module.
 
-It supports following redirects, promises, streams, retries, automagically handling gzip/deflate and some convenience options.
+It supports following redirects, promises, streams, retries, automagically handling gzip/deflate, canceling of requests, and some convenience options.
 
 Created because [`request`](https://github.com/request/request) is bloated *(several megabytes!)*.
 
@@ -217,6 +217,9 @@ When server redirects you more than 10 times.
 
 When given an unsupported protocol.
 
+## Aborting the request
+
+The promise returned by Got has a `.cancel()` function which, when called, aborts the request.
 
 ## Proxies
 
@@ -355,7 +358,6 @@ request(`https://${config.host}/production/`, {
 	// All usual `got` options
 });
 ```
-
 
 ## Tips
 
