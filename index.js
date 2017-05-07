@@ -113,7 +113,9 @@ function requestAsEventEmitter(opts) {
 			const cachedValue = JSON.parse(value);
 			const policy = CachePolicy.fromObject(cachedValue.policy);
 			if (!policy.satisfiesWithoutRevalidation(opts)) {
-				return get(opts);
+				get(opts);
+				opts.cache.del(key);
+				return;
 			}
 			cachedValue.response.headers = policy.responseHeaders();
 			const response = responseFromCache(requestUrl, cachedValue.response);
