@@ -132,7 +132,7 @@ Option accepts `object` with separate `connect` and `socket` fields for connecti
 ###### retries
 
 Type: `number`, `function`<br>
-Default: `5`
+Default: `2`
 
 Number of request retries when network errors happens. Delays between retries counts with function `1000 * Math.pow(2, retry) + Math.random() * 100`, where `retry` is attempt number (starts from 0).
 
