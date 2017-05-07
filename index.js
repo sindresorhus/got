@@ -16,7 +16,7 @@ const unzipResponse = require('unzip-response');
 const createErrorClass = require('create-error-class');
 const isRetryAllowed = require('is-retry-allowed');
 const Buffer = require('safe-buffer').Buffer;
-const expired = require('expired');
+const CachePolicy = require('http-cache-semantics');
 const normalizeUrl = require('normalize-url');
 const Response = require('responselike');
 const pkg = require('./package');
@@ -61,7 +61,8 @@ function requestAsEventEmitter(opts) {
 				response.url = redirectUrl || requestUrl;
 				response.requestUrl = requestUrl;
 
-				if (opts.cache && statusCode === 200 && req.method === 'GET' && (expired(response.headers) === false || 'etag' in response.headers)) {
+				const policy = new CachePolicy(opts, response);
+				if (opts.cache && policy.storable()) {
 					const encoding = opts.encoding === null ? 'buffer' : opts.encoding;
 					const stream = getStream(response, {encoding});
 
@@ -69,8 +70,11 @@ function requestAsEventEmitter(opts) {
 						.then(data => {
 							const key = normalizeUrl(response.url);
 							const value = JSON.stringify({
-								headers: response.headers,
-								body: data
+								policy: policy.toObject(),
+								response: {
+									headers: response.headers,
+									body: data
+								}
 							});
 							opts.cache.put(key, value);
 						});
@@ -100,17 +104,20 @@ function requestAsEventEmitter(opts) {
 		});
 	};
 
-	if (opts.cache && opts.method === 'GET') {
+	if (opts.cache) {
 		const key = normalizeUrl(requestUrl);
 		opts.cache.get(key, (err, value) => {
 			if (err) {
 				return get(opts);
 			}
-			const cachedResponse = JSON.parse(value);
-			if (expired(cachedResponse.headers) === false) {
-				const response = responseFromCache(requestUrl, cachedResponse);
-				ee.emit('response', response);
+			const cachedValue = JSON.parse(value);
+			const policy = CachePolicy.fromObject(cachedValue.policy);
+			if (!policy.satisfiesWithoutRevalidation(opts)) {
+				return get(opts);
 			}
+			cachedValue.response.headers = policy.responseHeaders();
+			const response = responseFromCache(requestUrl, cachedValue.response);
+			ee.emit('response', response);
 		});
 	} else {
 		get(opts);
