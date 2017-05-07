@@ -12,7 +12,7 @@ const timedOut = require('timed-out');
 const urlParseLax = require('url-parse-lax');
 const lowercaseKeys = require('lowercase-keys');
 const isRedirect = require('is-redirect');
-const unzipResponse = require('unzip-response');
+const decompressResponse = require('decompress-response');
 const createErrorClass = require('create-error-class');
 const isRetryAllowed = require('is-retry-allowed');
 const Buffer = require('safe-buffer').Buffer;
@@ -39,6 +39,9 @@ function requestAsEventEmitter(opts) {
 		const req = fn.request(opts, res => {
 			const statusCode = res.statusCode;
 
+			res.url = redirectUrl || requestUrl;
+			res.requestUrl = requestUrl;
+
 			if (isRedirect(statusCode) && opts.followRedirect && 'location' in res.headers && (opts.method === 'GET' || opts.method === 'HEAD')) {
 				res.resume();
 
@@ -60,10 +63,8 @@ function requestAsEventEmitter(opts) {
 			}
 
 			setImmediate(() => {
-				const response = typeof unzipResponse === 'function' && req.method !== 'HEAD' ? unzipResponse(res) : res;
-				response.url = redirectUrl || requestUrl;
-				response.requestUrl = requestUrl;
-
+				const response = typeof decompressResponse === 'function' &&
+					req.method !== 'HEAD' ? decompressResponse(res) : res;
 				ee.emit('response', response);
 			});
 		});

@@ -48,6 +48,7 @@
   ],
   "dependencies": {
     "create-error-class": "^3.0.0",
+    "decompress-response": "^3.2.0",
     "duplexer3": "^0.1.4",
     "get-stream": "^3.0.0",
     "is-plain-obj": "^1.1.0",
@@ -57,7 +58,6 @@
     "lowercase-keys": "^1.0.0",
     "safe-buffer": "^5.0.1",
     "timed-out": "^4.0.0",
-    "unzip-response": "^2.0.1",
     "url-parse-lax": "^1.0.0"
   },
   "devDependencies": {
@@ -76,6 +76,6 @@
     "concurrency": 4
   },
   "browser": {
-    "unzip-response": false
+    "decompress-response": false
   }
 }
