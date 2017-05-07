@@ -215,7 +215,7 @@ function normalizeArguments(url, opts) {
 	opts = Object.assign(
 		{
 			path: '',
-			retries: 5
+			retries: 2
 		},
 		url,
 		{
