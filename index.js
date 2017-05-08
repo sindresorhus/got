@@ -68,7 +68,7 @@ function requestAsEventEmitter(opts) {
 
 					stream
 						.then(data => {
-							const key = normalizeUrl(response.url);
+							const key = cacheKey(opts);
 							const value = JSON.stringify({
 								policy: policy.toObject(),
 								response: {
@@ -105,7 +105,7 @@ function requestAsEventEmitter(opts) {
 	};
 
 	if (opts.cache) {
-		const key = normalizeUrl(requestUrl);
+		const key = cacheKey(opts);
 		opts.cache.get(key, (err, value) => {
 			if (err) {
 				return get(opts);
@@ -338,6 +338,11 @@ function normalizeArguments(url, opts) {
 	}
 
 	return opts;
+}
+
+function cacheKey(opts) {
+	const url = normalizeUrl(urlLib.format(opts));
+	return `${opts.method}:${url}`;
 }
 
 function responseFromCache(url, cachedResponse) {
