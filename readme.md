@@ -203,7 +203,7 @@ When reading from response stream fails.
 
 #### got.ParseError
 
-When `json` option is enabled and `JSON.parse` fails.
+When `json` option is enabled, server response code is 2xx, and `JSON.parse` fails.
 
 #### got.HTTPError
 
