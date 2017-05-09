@@ -105,6 +105,9 @@ function requestAsEventEmitter(opts) {
 	};
 
 	const getFromCache = opts => {
+		if (!opts.cache) {
+			return Promise.reject(new Error('Cache isn\'t enabled'));
+		}
 		const key = cacheKey(opts);
 		return Promise.resolve(opts.cache.get(key))
 			.then(value => {
@@ -123,12 +126,7 @@ function requestAsEventEmitter(opts) {
 			});
 	};
 
-	if (opts.cache) {
-		getFromCache(opts)
-			.catch(() => get(opts));
-	} else {
-		get(opts);
-	}
+	getFromCache(opts).catch(() => get(opts));
 
 	return ee;
 }
