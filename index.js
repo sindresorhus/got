@@ -104,9 +104,9 @@ function requestAsEventEmitter(opts) {
 		});
 	};
 
-	if (opts.cache) {
+	const getFromCache = opts => {
 		const key = cacheKey(opts);
-		Promise.resolve(opts.cache.get(key))
+		return Promise.resolve(opts.cache.get(key))
 			.then(value => {
 				if (typeof value === 'undefined') {
 					throw new TypeError('Cached value is undefined');
@@ -120,7 +120,11 @@ function requestAsEventEmitter(opts) {
 				cachedValue.response.headers = policy.responseHeaders();
 				const response = responseFromCache(requestUrl, cachedValue.response);
 				ee.emit('response', response);
-			})
+			});
+	};
+
+	if (opts.cache) {
+		getFromCache(opts)
 			.catch(() => get(opts));
 	} else {
 		get(opts);
