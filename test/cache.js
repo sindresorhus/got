@@ -1,5 +1,4 @@
 import test from 'ava';
-import levelup from 'levelup';
 import got from '../';
 import {createServer} from './helpers/server';
 
@@ -25,7 +24,7 @@ test.before('setup', async () => {
 });
 
 test('Non cacheable requests are not cached', async t => {
-	const cache = levelup('/no-cache', {db: require('memdown')});
+	const cache = new Map();
 
 	const firstResponse = parseInt((await got(`${s.url}/no-cache`, {cache})).body, 10);
 	const secondResponse = parseInt((await got(`${s.url}/no-cache`, {cache})).body, 10);
@@ -34,7 +33,7 @@ test('Non cacheable requests are not cached', async t => {
 });
 
 test('Cacheable requests are cached', async t => {
-	const cache = levelup('/cache', {db: require('memdown')});
+	const cache = new Map();
 
 	const firstResponse = await got(`${s.url}/cache`, {cache});
 	const secondResponse = await got(`${s.url}/cache`, {cache});
