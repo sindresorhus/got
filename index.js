@@ -76,7 +76,7 @@ function requestAsEventEmitter(opts) {
 									body: data
 								}
 							});
-							opts.cache.put(key, value);
+							opts.cache.set(key, value);
 						});
 				}
 
@@ -114,7 +114,7 @@ function requestAsEventEmitter(opts) {
 				const cachedValue = JSON.parse(value);
 				const policy = CachePolicy.fromObject(cachedValue.policy);
 				if (!policy.satisfiesWithoutRevalidation(opts)) {
-					opts.cache.del(key);
+					opts.cache.delete(key);
 					throw new Error('Cached value is stale');
 				}
 				cachedValue.response.headers = policy.responseHeaders();
