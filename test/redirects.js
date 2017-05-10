@@ -116,8 +116,7 @@ test('throws on endless redirect', async t => {
 		t.fail('Exception was not thrown');
 	} catch (err) {
 		t.is(err.message, 'Redirected 10 times. Aborting.');
-		t.is(err.urls.length, 10);
-		err.urls.map(url => t.is(url, `${http.url}/endless`));
+		t.deepEqual(err.urls, Array(10).fill(`${http.url}/endless`));
 	}
 });
 
