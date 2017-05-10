@@ -72,7 +72,8 @@ function requestAsEventEmitter(opts) {
 							const value = JSON.stringify({
 								policy: policy.toObject(),
 								response: {
-									headers: response.headers,
+									url: response.url,
+									statusCode: response.statusCode,
 									body: data
 								}
 							});
@@ -120,8 +121,13 @@ function requestAsEventEmitter(opts) {
 					opts.cache.delete(key);
 					throw new Error('Cached value is stale');
 				}
-				cachedValue.response.headers = policy.responseHeaders();
-				const response = responseFromCache(requestUrl, cachedValue.response);
+				const {
+					statusCode,
+					body,
+					url
+				} = cachedValue.response;
+				const headers = policy.responseHeaders();
+				const response = new Response(statusCode, headers, Buffer.from(body), url);
 				ee.emit('response', response);
 			});
 	};
@@ -346,10 +352,6 @@ function normalizeArguments(url, opts) {
 function cacheKey(opts) {
 	const url = normalizeUrl(urlLib.format(opts));
 	return `${opts.method}:${url}`;
-}
-
-function responseFromCache(url, cachedResponse) {
-	return new Response(200, cachedResponse.headers, Buffer.from(cachedResponse.body), url);
 }
 
 function got(url, opts) {
