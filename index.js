@@ -119,11 +119,7 @@ function requestAsEventEmitter(opts) {
 					opts.cache.delete(key);
 					throw new Error('Cached value is stale');
 				}
-				const {
-					statusCode,
-					body,
-					url
-				} = cachedValue.response;
+				const {statusCode, body, url} = cachedValue.response;
 				const headers = policy.responseHeaders();
 				const response = new Response(statusCode, headers, Buffer.from(body), url);
 				ee.emit('response', response);
