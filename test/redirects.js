@@ -97,7 +97,9 @@ test.before('setup', async () => {
 });
 
 test('follows redirect', async t => {
-	t.is((await got(`${http.url}/finite`)).body, 'reached');
+	const response = await got(`${http.url}/finite`);
+	t.is(response.body, 'reached');
+	t.deepEqual(response.redirectUrls, [`${http.url}/`]);
 });
 
 test('does not follow redirect when disabled', async t => {
@@ -114,6 +116,8 @@ test('throws on endless redirect', async t => {
 		t.fail('Exception was not thrown');
 	} catch (err) {
 		t.is(err.message, 'Redirected 10 times. Aborting.');
+		t.is(err.urls.length, 10);
+		err.urls.map(url => t.is(url, `${http.url}/endless`));
 	}
 });
 
