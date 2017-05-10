@@ -379,12 +379,12 @@ got.HTTPError = createErrorClass('HTTPError', function (statusCode, headers, opt
 	this.headers = headers;
 });
 
-got.MaxRedirectsError = createErrorClass('MaxRedirectsError', function (statusCode, opts, urls) {
+got.MaxRedirectsError = createErrorClass('MaxRedirectsError', function (statusCode, opts, redirectUrls) {
 	stdError.call(this, {}, opts);
 	this.statusCode = statusCode;
 	this.statusMessage = http.STATUS_CODES[this.statusCode];
 	this.message = 'Redirected 10 times. Aborting.';
-	this.urls = urls;
+	this.redirectUrls = redirectUrls;
 });
 
 got.UnsupportedProtocolError = createErrorClass('UnsupportedProtocolError', function (opts) {

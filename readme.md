@@ -57,6 +57,7 @@ It's a `GET` request by default, but can be changed in `options`.
 #### got(url, [options])
 
 Returns a Promise for a `response` object with a `body` property, a `url` property with the request URL or the final URL after redirects, and a `requestUrl` property with the original request URL.
+- `body` property, a `url` property with the request URL or the final URL after redirects, and a `requestUrl` property with the original request URL.
 
 ##### url
 
@@ -207,11 +208,11 @@ When `json` option is enabled and `JSON.parse` fails.
 
 #### got.HTTPError
 
-When server response code is not 2xx. Contains `statusCode` and `statusMessage`.
+When server response code is not 2xx. Contains `statusCode`, `statusMessage`, and `redirectUrls`.
 
 #### got.MaxRedirectsError
 
-When server redirects you more than 10 times.
+When server redirects you more than 10 times. Has `redirectUrls` property, which is an array of the URLs got was redirected to before giving up.
 
 #### got.UnsupportedProtocolError
 
