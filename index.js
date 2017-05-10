@@ -64,9 +64,7 @@ function requestAsEventEmitter(opts) {
 				const policy = new CachePolicy(opts, response);
 				if (opts.cache && policy.storable()) {
 					const encoding = opts.encoding === null ? 'buffer' : opts.encoding;
-					const stream = getStream(response, {encoding});
-
-					stream
+					getStream(response, {encoding})
 						.then(data => {
 							const key = cacheKey(opts);
 							const value = JSON.stringify({
