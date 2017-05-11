@@ -50,6 +50,7 @@ test('Binary responses are cached', async t => {
 	const firstResponse = await got(s.url + endpoint, {cache, encoding});
 	const secondResponse = await got(s.url + endpoint, {cache, encoding});
 
+	t.true(firstResponse.body instanceof Buffer);
 	t.is(firstResponse.body.toString(), secondResponse.body.toString());
 });
 
