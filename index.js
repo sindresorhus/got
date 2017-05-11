@@ -67,14 +67,14 @@ function requestAsEventEmitter(opts) {
 					getStream(response, {encoding})
 						.then(data => {
 							const key = cacheKey(opts);
-							const value = JSON.stringify({
+							const value = {
 								policy: policy.toObject(),
 								response: {
 									url: response.url,
 									statusCode: response.statusCode,
 									body: data
 								}
-							});
+							};
 							opts.cache.set(key, value);
 						});
 				}
@@ -113,13 +113,12 @@ function requestAsEventEmitter(opts) {
 				if (typeof value === 'undefined') {
 					throw new TypeError('Cached value is undefined');
 				}
-				const cachedValue = JSON.parse(value);
-				const policy = CachePolicy.fromObject(cachedValue.policy);
+				const policy = CachePolicy.fromObject(value.policy);
 				if (!policy.satisfiesWithoutRevalidation(opts)) {
 					opts.cache.delete(key);
 					throw new Error('Cached value is stale');
 				}
-				const {statusCode, body, url} = cachedValue.response;
+				const {statusCode, body, url} = value.response;
 				const headers = policy.responseHeaders();
 				const response = new Response(statusCode, headers, Buffer.from(body), url);
 				ee.emit('response', response);
