@@ -42,6 +42,24 @@ test('Cacheable requests are cached', async t => {
 	t.is(firstResponse.body, secondResponse.body);
 });
 
+test('Binary responses are cached', async t => {
+	const endpoint = '/cache-bin';
+	let cacheIndex = 0;
+	s.on(endpoint, (req, res) => {
+		cacheIndex++;
+		res.setHeader('Cache-Control', 'public, max-age=60');
+		res.end(cacheIndex.toString());
+	});
+
+	const cache = new Map();
+	const encoding = null;
+
+	const firstResponse = await got(s.url + endpoint, {cache, encoding});
+	const secondResponse = await got(s.url + endpoint, {cache, encoding});
+
+	t.is(firstResponse.body.toString(), secondResponse.body.toString());
+});
+
 test.after('cleanup', async () => {
 	await s.close();
 });
