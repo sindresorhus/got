@@ -46,7 +46,7 @@ function requestAsEventEmitter(opts) {
 				res.resume();
 
 				if (redirects.length >= 10) {
-					ee.emit('error', new got.MaxRedirectsError(statusCode, opts, redirects), null, res);
+					ee.emit('error', new got.MaxRedirectsError(statusCode, redirects, opts), null, res);
 					return;
 				}
 
@@ -379,7 +379,7 @@ got.HTTPError = createErrorClass('HTTPError', function (statusCode, headers, opt
 	this.headers = headers;
 });
 
-got.MaxRedirectsError = createErrorClass('MaxRedirectsError', function (statusCode, opts, redirectUrls) {
+got.MaxRedirectsError = createErrorClass('MaxRedirectsError', function (statusCode, redirectUrls, opts) {
 	stdError.call(this, {}, opts);
 	this.statusCode = statusCode;
 	this.statusMessage = http.STATUS_CODES[this.statusCode];
