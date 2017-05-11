@@ -72,7 +72,10 @@ function requestAsEventEmitter(opts) {
 								response: {
 									url: response.url,
 									statusCode: response.statusCode,
-									body: data
+									body: {
+										encoding,
+										data
+									}
 								}
 							};
 							opts.cache.set(key, value);
@@ -120,7 +123,8 @@ function requestAsEventEmitter(opts) {
 				}
 				const {statusCode, body, url} = value.response;
 				const headers = policy.responseHeaders();
-				const response = new Response(statusCode, headers, Buffer.from(body), url);
+				const bodyBuffer = Buffer.from(body.data, body.encoding);
+				const response = new Response(statusCode, headers, bodyBuffer, url);
 				ee.emit('response', response);
 			});
 	};
