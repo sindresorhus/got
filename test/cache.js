@@ -6,37 +6,38 @@ let s;
 
 test.before('setup', async () => {
 	s = await createServer();
-
-	let noCacheIndex = 0;
-	s.on('/no-cache', (req, res) => {
-		noCacheIndex++;
-		res.end(noCacheIndex.toString());
-	});
-
-	let cacheIndex = 0;
-	s.on('/cache', (req, res) => {
-		cacheIndex++;
-		res.setHeader('Cache-Control', 'public, max-age=60');
-		res.end(cacheIndex.toString());
-	});
-
 	await s.listen(s.port);
 });
 
 test('Non cacheable requests are not cached', async t => {
+	const endpoint = '/no-cache';
+	let noCacheIndex = 0;
+	s.on(endpoint, (req, res) => {
+		noCacheIndex++;
+		res.end(noCacheIndex.toString());
+	});
+
 	const cache = new Map();
 
-	const firstResponse = parseInt((await got(`${s.url}/no-cache`, {cache})).body, 10);
-	const secondResponse = parseInt((await got(`${s.url}/no-cache`, {cache})).body, 10);
+	const firstResponse = parseInt((await got(s.url + endpoint, {cache})).body, 10);
+	const secondResponse = parseInt((await got(s.url + endpoint, {cache})).body, 10);
 
 	t.is(secondResponse, (firstResponse + 1));
 });
 
 test('Cacheable requests are cached', async t => {
+	const endpoint = '/cache';
+	let cacheIndex = 0;
+	s.on(endpoint, (req, res) => {
+		cacheIndex++;
+		res.setHeader('Cache-Control', 'public, max-age=60');
+		res.end(cacheIndex.toString());
+	});
+
 	const cache = new Map();
 
-	const firstResponse = await got(`${s.url}/cache`, {cache});
-	const secondResponse = await got(`${s.url}/cache`, {cache});
+	const firstResponse = await got(s.url + endpoint, {cache});
+	const secondResponse = await got(s.url + endpoint, {cache});
 
 	t.is(firstResponse.body, secondResponse.body);
 });
