@@ -6,17 +6,24 @@ let s;
 
 test.before('setup', async () => {
 	s = await createServer();
+
+	let noCacheIndex = 0;
+	s.on('/no-cache', (req, res) => {
+		noCacheIndex++;
+		res.end(noCacheIndex.toString());
+	});
+
+	let cacheIndex = 0;
+	s.on('/cache', (req, res) => {
+		cacheIndex++;
+		res.setHeader('Cache-Control', 'public, max-age=60');
+		res.end(cacheIndex.toString());
+	});
 	await s.listen(s.port);
 });
 
 test('Non cacheable requests are not cached', async t => {
 	const endpoint = '/no-cache';
-	let noCacheIndex = 0;
-	s.on(endpoint, (req, res) => {
-		noCacheIndex++;
-		res.end(noCacheIndex.toString());
-	});
-
 	const cache = new Map();
 
 	const firstResponse = parseInt((await got(s.url + endpoint, {cache})).body, 10);
@@ -27,13 +34,6 @@ test('Non cacheable requests are not cached', async t => {
 
 test('Cacheable requests are cached', async t => {
 	const endpoint = '/cache';
-	let cacheIndex = 0;
-	s.on(endpoint, (req, res) => {
-		cacheIndex++;
-		res.setHeader('Cache-Control', 'public, max-age=60');
-		res.end(cacheIndex.toString());
-	});
-
 	const cache = new Map();
 
 	const firstResponse = await got(s.url + endpoint, {cache});
@@ -43,14 +43,7 @@ test('Cacheable requests are cached', async t => {
 });
 
 test('Binary responses are cached', async t => {
-	const endpoint = '/cache-bin';
-	let cacheIndex = 0;
-	s.on(endpoint, (req, res) => {
-		cacheIndex++;
-		res.setHeader('Cache-Control', 'public, max-age=60');
-		res.end(cacheIndex.toString());
-	});
-
+	const endpoint = '/cache';
 	const cache = new Map();
 	const encoding = null;
 
@@ -61,14 +54,7 @@ test('Binary responses are cached', async t => {
 });
 
 test('Cached response is re-encoded to current encoding option', async t => {
-	const endpoint = '/cache-encoding';
-	let cacheIndex = 0;
-	s.on(endpoint, (req, res) => {
-		cacheIndex++;
-		res.setHeader('Cache-Control', 'public, max-age=60');
-		res.end(cacheIndex.toString());
-	});
-
+	const endpoint = '/cache';
 	const cache = new Map();
 	const firstEncoding = 'base64';
 	const secondEncoding = 'hex';
