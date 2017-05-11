@@ -60,6 +60,27 @@ test('Binary responses are cached', async t => {
 	t.is(firstResponse.body.toString(), secondResponse.body.toString());
 });
 
+test('Cached response is re-encoded to current encoding option', async t => {
+	const endpoint = '/cache-encoding';
+	let cacheIndex = 0;
+	s.on(endpoint, (req, res) => {
+		cacheIndex++;
+		res.setHeader('Cache-Control', 'public, max-age=60');
+		res.end(cacheIndex.toString());
+	});
+
+	const cache = new Map();
+	const firstEncoding = 'base64';
+	const secondEncoding = 'hex';
+
+	const firstResponse = await got(s.url + endpoint, {cache, encoding: firstEncoding});
+	const secondResponse = await got(s.url + endpoint, {cache, encoding: secondEncoding});
+
+	const expectedSecondResponseBody = Buffer.from(firstResponse.body, firstEncoding).toString(secondEncoding);
+
+	t.is(secondResponse.body, expectedSecondResponseBody);
+});
+
 test.after('cleanup', async () => {
 	await s.close();
 });
