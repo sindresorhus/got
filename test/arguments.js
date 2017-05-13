@@ -71,6 +71,13 @@ test('whatwg-url support', async () => {
 	await got(wURL);
 });
 
+test('throws on WHATWG URL with auth', async t => {
+	const wURL = new URL(`${s.url}/test`);
+	wURL.username = 'alex';
+	wURL.password = 'secret';
+	await t.throws(got(wURL));
+});
+
 test.after('cleanup', async () => {
 	await s.close();
 });

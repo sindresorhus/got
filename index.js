@@ -209,6 +209,10 @@ function normalizeArguments(url, opts) {
 
 	if (isURL.lenient(url)) {
 		url = urlParseLax(url.href);
+
+		if (url.auth) {
+			throw new Error('Basic authentication must be done with auth option');
+		}
 	}
 
 	opts = Object.assign(
