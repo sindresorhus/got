@@ -47,4 +47,22 @@ test('cancel in-progress request', async t => {
 	await t.notThrows(helper.aborted, 'Request finished instead of aborting.');
 });
 
-test.todo('cancel immediately');
+test('cancel immediately', async t => {
+	const s = await createServer();
+	const aborted = new Promise((resolve, reject) => {
+    // We won't get an abort or even a connection
+    // We assume no request within 1000ms equals a (client side) aborted request
+		setTimeout(resolve, 1000);
+		s.on('/abort', (req, res) => {
+			res.on('finish', reject.bind(this, new Error('Request finished instead of aborting.')));
+			res.end();
+		});
+	});
+
+	await s.listen(s.port);
+
+	const p = got(`${s.url}/abort`);
+	p.cancel();
+	await t.throws(p);
+	await t.notThrows(aborted, 'Request finished instead of aborting.');
+});
