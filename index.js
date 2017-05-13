@@ -12,11 +12,12 @@ const timedOut = require('timed-out');
 const urlParseLax = require('url-parse-lax');
 const lowercaseKeys = require('lowercase-keys');
 const isRedirect = require('is-redirect');
-const unzipResponse = require('unzip-response');
+const decompressResponse = require('decompress-response');
 const createErrorClass = require('create-error-class');
 const isRetryAllowed = require('is-retry-allowed');
 const Buffer = require('safe-buffer').Buffer;
 const isURL = require('isurl');
+const isPlainObj = require('is-plain-obj');
 const pkg = require('./package');
 
 function requestAsEventEmitter(opts) {
@@ -24,27 +25,38 @@ function requestAsEventEmitter(opts) {
 
 	const ee = new EventEmitter();
 	const requestUrl = opts.href || urlLib.resolve(urlLib.format(opts), opts.path);
-	let redirectCount = 0;
+	const redirects = [];
 	let retryCount = 0;
 	let redirectUrl;
 
 	const get = opts => {
+		if (opts.protocol !== 'http:' && opts.protocol !== 'https:') {
+			ee.emit('error', new got.UnsupportedProtocolError(opts));
+			return;
+		}
+
 		const fn = opts.protocol === 'https:' ? https : http;
 
 		const req = fn.request(opts, res => {
 			const statusCode = res.statusCode;
 
+			res.url = redirectUrl || requestUrl;
+			res.requestUrl = requestUrl;
+
 			if (isRedirect(statusCode) && opts.followRedirect && 'location' in res.headers && (opts.method === 'GET' || opts.method === 'HEAD')) {
 				res.resume();
 
-				if (++redirectCount > 10) {
-					ee.emit('error', new got.MaxRedirectsError(statusCode, opts), null, res);
+				if (redirects.length >= 10) {
+					ee.emit('error', new got.MaxRedirectsError(statusCode, redirects, opts), null, res);
 					return;
 				}
 
 				const bufferString = Buffer.from(res.headers.location, 'binary').toString();
 
 				redirectUrl = urlLib.resolve(urlLib.format(opts), bufferString);
+
+				redirects.push(redirectUrl);
+
 				const redirectOpts = Object.assign({}, opts, urlLib.parse(redirectUrl));
 
 				ee.emit('redirect', res, redirectOpts);
@@ -55,9 +67,10 @@ function requestAsEventEmitter(opts) {
 			}
 
 			setImmediate(() => {
-				const response = typeof unzipResponse === 'function' && req.method !== 'HEAD' ? unzipResponse(res) : res;
-				response.url = redirectUrl || requestUrl;
-				response.requestUrl = requestUrl;
+				const response = typeof decompressResponse === 'function' &&
+					req.method !== 'HEAD' ? decompressResponse(res) : res;
+
+				response.redirectUrls = redirects;
 
 				ee.emit('response', response);
 			});
@@ -116,12 +129,14 @@ function asPromise(opts) {
 						try {
 							res.body = JSON.parse(res.body);
 						} catch (e) {
-							throw new got.ParseError(e, statusCode, opts, data);
+							if (statusCode >= 200 && statusCode < 300) {
+								throw new got.ParseError(e, statusCode, opts, data);
+							}
 						}
 					}
 
 					if (statusCode !== 304 && (statusCode < 200 || statusCode > limitStatusCode)) {
-						throw new got.HTTPError(statusCode, opts);
+						throw new got.HTTPError(statusCode, res.headers, opts);
 					}
 
 					resolve(res);
@@ -180,7 +195,7 @@ function asStream(opts) {
 		res.pipe(output);
 
 		if (statusCode !== 304 && (statusCode < 200 || statusCode > 299)) {
-			proxy.emit('error', new got.HTTPError(statusCode, opts), null, res);
+			proxy.emit('error', new got.HTTPError(statusCode, res.headers, opts), null, res);
 			return;
 		}
 
@@ -217,11 +232,13 @@ function normalizeArguments(url, opts) {
 
 	opts = Object.assign(
 		{
-			protocol: 'http:',
 			path: '',
-			retries: 5
+			retries: 2
 		},
 		url,
+		{
+			protocol: url.protocol || 'http:' // Override both null/undefined with default protocol
+		},
 		opts
 	);
 
@@ -245,31 +262,37 @@ function normalizeArguments(url, opts) {
 		opts.headers.accept = 'application/json';
 	}
 
-	let body = opts.body;
-
-	if (body) {
-		if (typeof body !== 'string' && !(body !== null && typeof body === 'object')) {
-			throw new Error('options.body must be a ReadableStream, string, Buffer or plain Object');
+	const body = opts.body;
+	if (body !== null && body !== undefined) {
+		const headers = opts.headers;
+		if (!isStream(body) && typeof body !== 'string' && !Buffer.isBuffer(body) && !(opts.form || opts.json)) {
+			throw new TypeError('options.body must be a ReadableStream, string, Buffer or plain Object');
 		}
 
-		opts.method = opts.method || 'POST';
+		if ((opts.form || opts.json) && !isPlainObj(body)) {
+			throw new TypeError('options.body must be a plain Object when options.form or options.json is used');
+		}
 
 		if (isStream(body) && typeof body.getBoundary === 'function') {
 			// Special case for https://github.com/form-data/form-data
-			opts.headers['content-type'] = opts.headers['content-type'] || `multipart/form-data; boundary=${body.getBoundary()}`;
-		} else if (body !== null && typeof body === 'object' && !Buffer.isBuffer(body) && !isStream(body)) {
-			opts.headers['content-type'] = opts.headers['content-type'] || 'application/x-www-form-urlencoded';
-			body = querystring.stringify(body);
-			opts.body = body;
+			headers['content-type'] = headers['content-type'] || `multipart/form-data; boundary=${body.getBoundary()}`;
+		} else if (opts.form && isPlainObj(body)) {
+			headers['content-type'] = headers['content-type'] || 'application/x-www-form-urlencoded';
+			opts.body = querystring.stringify(body);
+		} else if (opts.json && isPlainObj(body)) {
+			headers['content-type'] = headers['content-type'] || 'application/json';
+			opts.body = JSON.stringify(body);
 		}
 
-		if (opts.headers['content-length'] === undefined && opts.headers['transfer-encoding'] === undefined && !isStream(body)) {
-			const length = typeof body === 'string' ? Buffer.byteLength(body) : body.length;
-			opts.headers['content-length'] = length;
+		if (headers['content-length'] === undefined && headers['transfer-encoding'] === undefined && !isStream(body)) {
+			const length = typeof opts.body === 'string' ? Buffer.byteLength(opts.body) : opts.body.length;
+			headers['content-length'] = length;
 		}
+
+		opts.method = (opts.method || 'POST').toUpperCase();
+	} else {
+		opts.method = (opts.method || 'GET').toUpperCase();
 	}
-
-	opts.method = (opts.method || 'GET').toUpperCase();
 
 	if (opts.hostname === 'unix') {
 		const matches = /(.+):(.+)/.exec(opts.path);
@@ -359,18 +382,25 @@ got.ParseError = createErrorClass('ParseError', function (e, statusCode, opts, d
 	this.message = `${e.message} in "${urlLib.format(opts)}": \n${data.slice(0, 77)}...`;
 });
 
-got.HTTPError = createErrorClass('HTTPError', function (statusCode, opts) {
+got.HTTPError = createErrorClass('HTTPError', function (statusCode, headers, opts) {
 	stdError.call(this, {}, opts);
 	this.statusCode = statusCode;
 	this.statusMessage = http.STATUS_CODES[this.statusCode];
 	this.message = `Response code ${this.statusCode} (${this.statusMessage})`;
+	this.headers = headers;
 });
 
-got.MaxRedirectsError = createErrorClass('MaxRedirectsError', function (statusCode, opts) {
+got.MaxRedirectsError = createErrorClass('MaxRedirectsError', function (statusCode, redirectUrls, opts) {
 	stdError.call(this, {}, opts);
 	this.statusCode = statusCode;
 	this.statusMessage = http.STATUS_CODES[this.statusCode];
 	this.message = 'Redirected 10 times. Aborting.';
+	this.redirectUrls = redirectUrls;
+});
+
+got.UnsupportedProtocolError = createErrorClass('UnsupportedProtocolError', function (opts) {
+	stdError.call(this, {}, opts);
+	this.message = `Unsupported protocol "${opts.protocol}"`;
 });
 
 module.exports = got;

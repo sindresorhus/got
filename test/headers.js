@@ -56,36 +56,36 @@ test('transform names to lowercase', async t => {
 });
 
 test('zero content-length', async t => {
-	const headers = (await got(s.url, {
+	const body = (await got(s.url, {
 		headers: {
 			'content-length': 0
 		},
-		body: 'sup',
-		json: true
+		body: 'sup'
 	})).body;
+	const headers = JSON.parse(body);
 	t.is(headers['content-length'], '0');
 });
 
 test('form-data manual content-type', async t => {
 	const form = new FormData();
 	form.append('a', 'b');
-	const headers = (await got(s.url, {
+	const body = (await got(s.url, {
 		headers: {
 			'content-type': 'custom'
 		},
-		body: form,
-		json: true
+		body: form
 	})).body;
+	const headers = JSON.parse(body);
 	t.is(headers['content-type'], 'custom');
 });
 
 test('form-data automatic content-type', async t => {
 	const form = new FormData();
 	form.append('a', 'b');
-	const headers = (await got(s.url, {
-		body: form,
-		json: true
+	const body = (await got(s.url, {
+		body: form
 	})).body;
+	const headers = JSON.parse(body);
 	t.is(headers['content-type'], `multipart/form-data; boundary=${form.getBoundary()}`);
 });
 

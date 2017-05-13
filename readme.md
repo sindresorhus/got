@@ -74,7 +74,7 @@ Any of the [`http.request`](http://nodejs.org/api/http.html#http_http_request_op
 
 ###### body
 
-Type: `string`, `buffer`, `readableStream`, `object`
+Type: `string`, `buffer`, `readableStream`
 
 *This is mutually exclusive with stream mode.*
 
@@ -84,14 +84,23 @@ If present in `options` and `options.method` is not set, `options.method` will b
 
 If `content-length` or `transfer-encoding` is not set in `options.headers` and `body` is a string or buffer, `content-length` will be set to the body length.
 
-If `body` is a plain object, it will be stringified with [`querystring.stringify`](https://nodejs.org/api/querystring.html#querystring_querystring_stringify_obj_sep_eq_options) and sent as `application/x-www-form-urlencoded`.
-
 ###### encoding
 
 Type: `string`, `null`<br>
 Default: `'utf8'`
 
 Encoding to be used on `setEncoding` of the response data. If `null`, the body is returned as a Buffer.
+
+###### form
+
+Type: `boolean`<br>
+Default: `false`
+
+*This is mutually exclusive with stream mode.*
+
+If set to `true` and `Content-Type` header is not set, it will be set to `application/x-www-form-urlencoded`.
+
+`body` must be a plain object and will be stringified.
 
 ###### json
 
@@ -100,7 +109,11 @@ Default: `false`
 
 *This is mutually exclusive with stream mode.*
 
-Parse response body with `JSON.parse` and set `accept` header to `application/json`.
+If set to `true` and `Content-Type` header is not set, it will be set to `application/json`.
+
+Parse response body with `JSON.parse` and set `accept` header to `application/json`. If used in conjunction with the `form` option, the `body` will the stringified as querystring and the response parsed as JSON.
+
+`body` must be a plain object and will be stringified.
 
 ###### query
 
@@ -119,7 +132,7 @@ Option accepts `object` with separate `connect` and `socket` fields for connecti
 ###### retries
 
 Type: `number`, `function`<br>
-Default: `5`
+Default: `2`
 
 Number of request retries when network errors happens. Delays between retries counts with function `1000 * Math.pow(2, retry) + Math.random() * 100`, where `retry` is attempt number (starts from 0).
 
@@ -190,15 +203,19 @@ When reading from response stream fails.
 
 #### got.ParseError
 
-When `json` option is enabled and `JSON.parse` fails.
+When `json` option is enabled, server response code is 2xx, and `JSON.parse` fails.
 
 #### got.HTTPError
 
-When server response code is not 2xx. Contains `statusCode` and `statusMessage`.
+When server response code is not 2xx. Includes `statusCode`, `statusMessage`, and `redirectUrls` properties.
 
 #### got.MaxRedirectsError
 
-When server redirects you more than 10 times.
+When server redirects you more than 10 times. Includes a `redirectUrls` property, which is an array of the URLs Got was redirected to before giving up.
+
+#### got.UnsupportedProtocolError
+
+When given an unsupported protocol.
 
 
 ## Proxies
@@ -370,11 +387,11 @@ Bear in mind, if you send an `if-modified-since` header and receive a `304 Not M
 
 ## Created by
 
-[![Sindre Sorhus](https://avatars.githubusercontent.com/u/170270?v=3&s=100)](https://sindresorhus.com) | [![Vsevolod Strukchinsky](https://avatars.githubusercontent.com/u/365089?v=3&s=100)](https://github.com/floatdrop)
----|---
-[Sindre Sorhus](https://sindresorhus.com) | [Vsevolod Strukchinsky](https://github.com/floatdrop)
+[![Sindre Sorhus](https://avatars.githubusercontent.com/u/170270?v=3&s=100)](https://sindresorhus.com) | [![Vsevolod Strukchinsky](https://avatars.githubusercontent.com/u/365089?v=3&s=100)](https://github.com/floatdrop) | [![Alexander Tesfamichael](https://avatars.githubusercontent.com/u/2011351?v=3&s=100)](https://alextes.me)
+---|---|---
+[Sindre Sorhus](https://sindresorhus.com) | [Vsevolod Strukchinsky](https://github.com/floatdrop) | [Alexander Tesfamichael](https://alextes.me)
 
 
 ## License
 
-MIT © [Sindre Sorhus](https://sindresorhus.com)
+MIT

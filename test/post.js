@@ -30,23 +30,6 @@ test('GET can have body', async t => {
 	t.is(headers.method, 'GET');
 });
 
-test('sends null-prototype objects', async t => {
-	const {body} = await got(s.url, {body: Object.create(null)});
-	t.is(body, '');
-});
-
-test('sends plain objects', async t => {
-	const {body} = await got(s.url, {body: {}});
-	t.is(body, '');
-});
-
-test('sends non-plain objects', async t => {
-	class Obj {}
-
-	const {body} = await got(s.url, {body: new Obj()});
-	t.is(body, '');
-});
-
 test('sends strings', async t => {
 	const {body} = await got(s.url, {body: 'wow'});
 	t.is(body, 'wow');
@@ -62,76 +45,71 @@ test('sends Streams', async t => {
 	t.is(body, 'wow');
 });
 
+test('sends plain objects as forms', async t => {
+	const {body} = await got(s.url, {
+		body: {such: 'wow'},
+		form: true
+	});
+	t.is(body, 'such=wow');
+});
+
+test('sends plain objects as JSON', async t => {
+	const {body} = await got(s.url, {
+		body: {such: 'wow'},
+		json: true
+	});
+	t.deepEqual(body, {such: 'wow'});
+});
+
 test('works with empty post response', async t => {
 	const {body} = await got(`${s.url}/empty`, {body: 'wow'});
 	t.is(body, '');
 });
 
 test('content-length header with string body', async t => {
-	const {body} = await got(`${s.url}/headers`, {
-		body: 'wow',
-		json: true
-	});
-	t.is(body['content-length'], '3');
+	const {body} = await got(`${s.url}/headers`, {body: 'wow'});
+	const headers = JSON.parse(body);
+	t.is(headers['content-length'], '3');
 });
 
 test('content-length header with Buffer body', async t => {
-	const {body} = await got(`${s.url}/headers`, {
-		body: Buffer.from('wow'),
-		json: true
-	});
-	t.is(body['content-length'], '3');
+	const {body} = await got(`${s.url}/headers`, {body: Buffer.from('wow')});
+	const headers = JSON.parse(body);
+	t.is(headers['content-length'], '3');
 });
 
 test('content-length header with Stream body', async t => {
-	const {body} = await got(`${s.url}/headers`, {
-		body: intoStream(['wow']),
-		json: true
-	});
-	t.is(body['transfer-encoding'], 'chunked', 'likely failed to get headers at all');
-	t.is(body['content-length'], undefined);
+	const {body} = await got(`${s.url}/headers`, {body: intoStream(['wow'])});
+	const headers = JSON.parse(body);
+	t.is(headers['transfer-encoding'], 'chunked', 'likely failed to get headers at all');
+	t.is(headers['content-length'], undefined);
 });
 
 test('content-length header is not overriden', async t => {
 	const {body} = await got(`${s.url}/headers`, {
 		body: 'wow',
-		json: true,
 		headers: {
 			'content-length': '10'
 		}
 	});
-	t.is(body['content-length'], '10');
+	const headers = JSON.parse(body);
+	t.is(headers['content-length'], '10');
 });
 
 test('content-length header disabled for chunked transfer-encoding', async t => {
 	const {body} = await got(`${s.url}/headers`, {
 		body: '3\r\nwow\r\n0\r\n',
-		json: true,
 		headers: {
 			'transfer-encoding': 'chunked'
 		}
 	});
-	t.is(body['transfer-encoding'], 'chunked', 'likely failed to get headers at all');
-	t.is(body['content-length'], undefined);
-});
-
-test('object in options.body treated as querystring', async t => {
-	class Obj {
-		constructor() {
-			this.such = 'wow';
-		}
-
-		get ouch() {
-			return 'yay';
-		}
-	}
-
-	const {body} = await got(s.url, {body: new Obj()});
-	t.is(body, 'such=wow');
+	const headers = JSON.parse(body);
+	t.is(headers['transfer-encoding'], 'chunked', 'likely failed to get headers at all');
+	t.is(headers['content-length'], undefined);
 });
 
 test('content-type header is not overriden when object in options.body', async t => {
-	const {body} = await got(`${s.url}/headers`, {
+	const {body: headers} = await got(`${s.url}/headers`, {
 		headers: {
 			'content-type': 'doge'
 		},
@@ -140,7 +118,15 @@ test('content-type header is not overriden when object in options.body', async t
 		},
 		json: true
 	});
-	t.is(body['content-type'], 'doge');
+	t.is(headers['content-type'], 'doge');
+});
+
+test('throws when json body is not a plain object', async t => {
+	await t.throws(got(`${s.url}`, {body: '{}', json: true}), TypeError);
+});
+
+test('throws when form body is not a plain object', async t => {
+	await t.throws(got(`${s.url}`, {body: 'such=wow', form: true}), TypeError);
 });
 
 test.after('cleanup', async () => {

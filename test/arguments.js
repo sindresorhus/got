@@ -25,12 +25,8 @@ test.before('setup', async () => {
 });
 
 test('url is required', async t => {
-	try {
-		await got();
-		t.fail('Exception was not thrown');
-	} catch (err) {
-		t.regex(err.message, /Parameter `url` must be a string or object, not undefined/);
-	}
+	const err = await t.throws(got());
+	t.regex(err.message, /Parameter `url` must be a string or object, not undefined/);
 });
 
 test('options are optional', async t => {
@@ -64,6 +60,10 @@ test('should throw with auth in url', async t => {
 	} catch (err) {
 		t.regex(err.message, /Basic authentication must be done with auth option/);
 	}
+});
+
+test('should throw when body is set to object', async t => {
+	await t.throws(got(`${s.url}/`, {body: {}}), TypeError);
 });
 
 test('WHATWG URL support', async t => {
