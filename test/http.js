@@ -1,13 +1,8 @@
-import stream from 'stream';
 import test from 'ava';
-import getStream from 'get-stream';
-import PCancelable from 'p-cancelable';
 import got from '../';
 import {createServer} from './helpers/server';
 
-const Readable = stream.Readable;
 let s;
-let cancelPromise = null;
 
 test.before('setup', async () => {
 	s = await createServer();
@@ -32,19 +27,6 @@ test.before('setup', async () => {
 
 	s.on('/?recent=true', (req, res) => {
 		res.end('recent');
-	});
-
-	s.on('/no-res-store-id', (req, res) => {
-		cancelPromise = new Promise((resolve, reject) => {
-			req.on('aborted', resolve);
-			res.on('finish', () => {
-				reject(new Error('Request finished instead of aborting'));
-			});
-		});
-
-		getStream(req).then(() => {
-			res.end();
-		});
 	});
 
 	await s.listen(s.port);
@@ -131,31 +113,6 @@ test('requestUrl response when sending url as param', async t => {
 
 test('response contains url', async t => {
 	t.is((await got(s.url)).url, `${s.url}/`);
-});
-
-test.serial('cancel in-progress request', async t => {
-	const body = new Readable({
-		read() {}
-	});
-	body.push('1');
-
-	const p = got(`${s.url}/no-res-store-id`, {body});
-
-	setImmediate(() => {
-		p.cancel();
-		body.push(null); // Complete the request that should now be canceled
-	});
-
-	await t.throws(p, PCancelable.CancelError);
-	await t.notThrows(() => cancelPromise);
-});
-
-test.serial('cancel immediately', async t => {
-	const p = got(`${s.url}/no-res-store-id`, {body: '', retries: 0});
-	p.cancel();
-
-	await t.throws(p, PCancelable.CancelError);
-	await t.notThrows(() => cancelPromise);
 });
 
 test.after('cleanup', async () => {
