@@ -24,7 +24,7 @@ function requestAsEventEmitter(opts) {
 
 	const ee = new EventEmitter();
 	const requestUrl = opts.href || urlLib.resolve(urlLib.format(opts), opts.path);
-	let redirectCount = 0;
+	const redirects = [];
 	let retryCount = 0;
 	let redirectUrl;
 
@@ -45,14 +45,17 @@ function requestAsEventEmitter(opts) {
 			if (isRedirect(statusCode) && opts.followRedirect && 'location' in res.headers && (opts.method === 'GET' || opts.method === 'HEAD')) {
 				res.resume();
 
-				if (++redirectCount > 10) {
-					ee.emit('error', new got.MaxRedirectsError(statusCode, opts), null, res);
+				if (redirects.length >= 10) {
+					ee.emit('error', new got.MaxRedirectsError(statusCode, redirects, opts), null, res);
 					return;
 				}
 
 				const bufferString = Buffer.from(res.headers.location, 'binary').toString();
 
 				redirectUrl = urlLib.resolve(urlLib.format(opts), bufferString);
+
+				redirects.push(redirectUrl);
+
 				const redirectOpts = Object.assign({}, opts, urlLib.parse(redirectUrl));
 
 				ee.emit('redirect', res, redirectOpts);
@@ -65,6 +68,9 @@ function requestAsEventEmitter(opts) {
 			setImmediate(() => {
 				const response = typeof decompressResponse === 'function' &&
 					req.method !== 'HEAD' ? decompressResponse(res) : res;
+
+				response.redirectUrls = redirects;
+
 				ee.emit('response', response);
 			});
 		});
@@ -127,7 +133,7 @@ function asPromise(opts) {
 					}
 
 					if (statusCode !== 304 && (statusCode < 200 || statusCode > limitStatusCode)) {
-						throw new got.HTTPError(statusCode, opts);
+						throw new got.HTTPError(statusCode, res.headers, opts);
 					}
 
 					resolve(res);
@@ -186,7 +192,7 @@ function asStream(opts) {
 		res.pipe(output);
 
 		if (statusCode !== 304 && (statusCode < 200 || statusCode > 299)) {
-			proxy.emit('error', new got.HTTPError(statusCode, opts), null, res);
+			proxy.emit('error', new got.HTTPError(statusCode, res.headers, opts), null, res);
 			return;
 		}
 
@@ -365,18 +371,20 @@ got.ParseError = createErrorClass('ParseError', function (e, statusCode, opts, d
 	this.message = `${e.message} in "${urlLib.format(opts)}": \n${data.slice(0, 77)}...`;
 });
 
-got.HTTPError = createErrorClass('HTTPError', function (statusCode, opts) {
+got.HTTPError = createErrorClass('HTTPError', function (statusCode, headers, opts) {
 	stdError.call(this, {}, opts);
 	this.statusCode = statusCode;
 	this.statusMessage = http.STATUS_CODES[this.statusCode];
 	this.message = `Response code ${this.statusCode} (${this.statusMessage})`;
+	this.headers = headers;
 });
 
-got.MaxRedirectsError = createErrorClass('MaxRedirectsError', function (statusCode, opts) {
+got.MaxRedirectsError = createErrorClass('MaxRedirectsError', function (statusCode, redirectUrls, opts) {
 	stdError.call(this, {}, opts);
 	this.statusCode = statusCode;
 	this.statusMessage = http.STATUS_CODES[this.statusCode];
 	this.message = 'Redirected 10 times. Aborting.';
+	this.redirectUrls = redirectUrls;
 });
 
 got.UnsupportedProtocolError = createErrorClass('UnsupportedProtocolError', function (opts) {

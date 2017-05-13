@@ -207,11 +207,11 @@ When `json` option is enabled and `JSON.parse` fails.
 
 #### got.HTTPError
 
-When server response code is not 2xx. Contains `statusCode` and `statusMessage`.
+When server response code is not 2xx. Includes `statusCode`, `statusMessage`, and `redirectUrls` properties.
 
 #### got.MaxRedirectsError
 
-When server redirects you more than 10 times.
+When server redirects you more than 10 times. Includes a `redirectUrls` property, which is an array of the URLs Got was redirected to before giving up.
 
 #### got.UnsupportedProtocolError
 
