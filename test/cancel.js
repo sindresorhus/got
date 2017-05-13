@@ -1,34 +1,31 @@
+import stream from 'stream';
 import test from 'ava';
-import getPort from 'get-port';
 import getStream from 'get-stream';
 import PCancelable from 'p-cancelable';
-import stream from 'stream';
 import got from '../';
 import {createServer} from './helpers/server';
 
 const Readable = stream.Readable;
 
 async function createAbortServer() {
-  const t = await createServer();
-  const aborted = new Promise((resolve, reject) => {
-    t.on('/abort', (req, res) => {
-      req.on('aborted', () => {
-        resolve();
-      });
-      res.on('finish', reject.bind(this, new Error('Request finished instead of aborting')));
+	const s = await createServer();
+	const aborted = new Promise((resolve, reject) => {
+		s.on('/abort', (req, res) => {
+			req.on('aborted', resolve);
+			res.on('finish', reject.bind(null, new Error('Request finished instead of aborting.')));
 
-      getStream(req).then(() => {
-        res.end();
-      });
-    });
-  });
+			getStream(req).then(() => {
+				res.end();
+			});
+		});
+	});
 
-  await t.listen(t.port);
+	await s.listen(s.port);
 
-  return {
-    aborted,
-    url: `${t.url}/abort`
-  };
+	return {
+		aborted,
+		url: `${s.url}/abort`
+	};
 }
 
 test('cancel in-progress request', async t => {
