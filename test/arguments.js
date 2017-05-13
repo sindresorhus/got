@@ -66,9 +66,9 @@ test('should throw with auth in url', async t => {
 	}
 });
 
-test('whatwg-url support', async () => {
+test('WHATWG URL support', async t => {
 	const wURL = new URL(`${s.url}/test`);
-	await got(wURL);
+	await t.notThrows(got(wURL));
 });
 
 test('throws on WHATWG URL with auth', async t => {
