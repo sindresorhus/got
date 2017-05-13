@@ -66,21 +66,21 @@ test('parses non-200 responses', async t => {
 	}
 });
 
-test('catches errors on invalid non-200 responses', async t => {
+test('ignores errors on invalid non-200 responses', async t => {
 	try {
 		await got(`${s.url}/non200-invalid`, {json: true});
 		t.fail('Exception was not thrown');
 	} catch (err) {
-		t.regex(err.message, /Unexpected token/);
+		t.is(err.message, 'Response code 500 (Internal Server Error)');
 		t.is(err.response.body, 'Internal error');
 		t.is(err.path, '/non200-invalid');
 	}
 });
 
 test('should have statusCode in err', async t => {
-	const err = await t.throws(got(`${s.url}/non200-invalid`, {json: true}));
+	const err = await t.throws(got(`${s.url}/invalid`, {json: true}));
 	t.is(err.constructor, got.ParseError);
-	t.is(err.statusCode, 500);
+	t.is(err.statusCode, 200);
 });
 
 test('should set correct headers', async t => {
