@@ -65,7 +65,7 @@
     "pem": "^1.4.4",
     "pify": "^2.3.0",
     "tempfile": "^1.1.1",
-    "whatwg-url": "^4.7.1",
+    "universal-url": "^1.0.0-alpha",
     "xo": "^0.18.0"
   },
   "ava": {

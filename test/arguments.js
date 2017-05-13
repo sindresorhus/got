@@ -1,4 +1,4 @@
-import {URL} from 'whatwg-url';
+import {URL} from 'universal-url';
 import test from 'ava';
 import got from '../';
 import {createServer} from './helpers/server';
