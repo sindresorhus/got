@@ -52,11 +52,11 @@ test('cancel immediately', async t => {
 	const aborted = new Promise((resolve, reject) => {
     // We won't get an abort or even a connection
     // We assume no request within 1000ms equals a (client side) aborted request
-		setTimeout(resolve, 1000);
 		s.on('/abort', (req, res) => {
 			res.on('finish', reject.bind(this, new Error('Request finished instead of aborting.')));
 			res.end();
 		});
+		setTimeout(resolve, 1000);
 	});
 
 	await s.listen(s.port);
