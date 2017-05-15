@@ -16,6 +16,7 @@ const decompressResponse = require('decompress-response');
 const createErrorClass = require('create-error-class');
 const isRetryAllowed = require('is-retry-allowed');
 const Buffer = require('safe-buffer').Buffer;
+const isURL = require('isurl');
 const isPlainObj = require('is-plain-obj');
 const PCancelable = require('p-cancelable');
 const pkg = require('./package');
@@ -229,6 +230,14 @@ function normalizeArguments(url, opts) {
 	if (typeof url === 'string') {
 		url = url.replace(/^unix:/, 'http://$&');
 		url = urlParseLax(url);
+
+		if (url.auth) {
+			throw new Error('Basic authentication must be done with auth option');
+		}
+	}
+
+	if (isURL.lenient(url)) {
+		url = urlParseLax(url.href);
 
 		if (url.auth) {
 			throw new Error('Basic authentication must be done with auth option');

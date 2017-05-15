@@ -62,7 +62,7 @@ Returns a Promise for a `response` object with a `body` property, a `url` proper
 
 Type: `string`, `object`
 
-The URL to request or a [`http.request` options](https://nodejs.org/api/http.html#http_http_request_options_callback) object.
+The URL to request as simple string, a [`http.request` options](https://nodejs.org/api/http.html#http_http_request_options_callback), or a [WHATWG `URL`](https://nodejs.org/api/url.html#url_class_url).
 
 Properties from `options` will override properties in the parsed `url`.
 

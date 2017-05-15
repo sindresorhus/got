@@ -55,6 +55,7 @@
     "is-redirect": "^1.0.0",
     "is-retry-allowed": "^1.0.0",
     "is-stream": "^1.0.0",
+    "isurl": "^1.0.0-alpha5",
     "lowercase-keys": "^1.0.0",
     "p-cancelable": "^0.2.0",
     "safe-buffer": "^5.0.1",
@@ -70,7 +71,9 @@
     "nyc": "^10.0.0",
     "pem": "^1.4.4",
     "pify": "^2.3.0",
+    "tempfile": "^1.1.1",
     "tempy": "^0.1.0",
+    "universal-url": "^1.0.0-alpha",
     "xo": "^0.18.0"
   },
   "ava": {

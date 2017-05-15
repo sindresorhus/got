@@ -1,3 +1,4 @@
+import {URL} from 'universal-url';
 import test from 'ava';
 import got from '..';
 import {createServer} from './helpers/server';
@@ -63,6 +64,18 @@ test('should throw with auth in url', async t => {
 
 test('should throw when body is set to object', async t => {
 	await t.throws(got(`${s.url}/`, {body: {}}), TypeError);
+});
+
+test('WHATWG URL support', async t => {
+	const wURL = new URL(`${s.url}/test`);
+	await t.notThrows(got(wURL));
+});
+
+test('throws on WHATWG URL with auth', async t => {
+	const wURL = new URL(`${s.url}/test`);
+	wURL.username = 'alex';
+	wURL.password = 'secret';
+	await t.throws(got(wURL));
 });
 
 test.after('cleanup', async () => {
