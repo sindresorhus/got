@@ -1,6 +1,6 @@
 import test from 'ava';
 import FormData from 'form-data';
-import got from '../';
+import got from '..';
 import pkg from '../package';
 import {createServer} from './helpers/server';
 

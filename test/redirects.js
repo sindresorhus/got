@@ -1,7 +1,7 @@
 import test from 'ava';
 import pem from 'pem';
 import pify from 'pify';
-import got from '../';
+import got from '..';
 import {createServer, createSSLServer} from './helpers/server';
 
 let http;

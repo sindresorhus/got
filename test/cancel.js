@@ -2,7 +2,7 @@ import stream from 'stream';
 import test from 'ava';
 import getStream from 'get-stream';
 import PCancelable from 'p-cancelable';
-import got from '../';
+import got from '..';
 import {createServer} from './helpers/server';
 
 const Readable = stream.Readable;
@@ -50,8 +50,8 @@ test('cancel in-progress request', async t => {
 test('cancel immediately', async t => {
 	const s = await createServer();
 	const aborted = new Promise((resolve, reject) => {
-    // We won't get an abort or even a connection
-    // We assume no request within 1000ms equals a (client side) aborted request
+		// We won't get an abort or even a connection
+		// We assume no request within 1000ms equals a (client side) aborted request
 		s.on('/abort', (req, res) => {
 			res.on('finish', reject.bind(this, new Error('Request finished instead of aborting.')));
 			res.end();
