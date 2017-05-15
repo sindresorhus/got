@@ -17,6 +17,7 @@ const createErrorClass = require('create-error-class');
 const isRetryAllowed = require('is-retry-allowed');
 const Buffer = require('safe-buffer').Buffer;
 const isPlainObj = require('is-plain-obj');
+const PCancelable = require('p-cancelable');
 const pkg = require('./package');
 
 function requestAsEventEmitter(opts) {
@@ -100,10 +101,23 @@ function requestAsEventEmitter(opts) {
 }
 
 function asPromise(opts) {
-	return new Promise((resolve, reject) => {
+	return new PCancelable((onCancel, resolve, reject) => {
 		const ee = requestAsEventEmitter(opts);
+		let cancelOnRequest = false;
+
+		onCancel(() => {
+			cancelOnRequest = true;
+		});
 
 		ee.on('request', req => {
+			if (cancelOnRequest) {
+				req.abort();
+			}
+
+			onCancel(() => {
+				req.abort();
+			});
+
 			if (isStream(opts.body)) {
 				opts.body.pipe(req);
 				opts.body = undefined;

@@ -56,6 +56,7 @@
     "is-retry-allowed": "^1.0.0",
     "is-stream": "^1.0.0",
     "lowercase-keys": "^1.0.0",
+    "p-cancelable": "^0.2.0",
     "safe-buffer": "^5.0.1",
     "timed-out": "^4.0.0",
     "url-parse-lax": "^1.0.0"
