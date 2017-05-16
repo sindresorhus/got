@@ -210,17 +210,12 @@ function asStream(opts) {
 
 		const policy = new CachePolicy(opts, res);
 		if (opts.cache && policy.storable()) {
-			const bodyChunks = [];
-			res.on('data', chunk => {
-				bodyChunks.push(chunk);
-			});
-			res.on('end', () => {
-				res.body = Buffer.concat(bodyChunks);
-				if (opts.encoding !== null) {
-					res.body = res.body.toString(opts.encoding);
-				}
-				cacheResponse(res, policy, opts);
-			});
+			const encoding = opts.encoding === null ? 'buffer' : opts.encoding;
+			getStream(res, {encoding})
+				.then(body => {
+					res.body = body;
+					cacheResponse(res, policy, opts);
+				});
 		}
 
 		res.pipe(output);
