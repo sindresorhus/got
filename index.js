@@ -212,20 +212,18 @@ function asStream(opts) {
 		if (opts.cache && policy.storable()) {
 			const bodyChunks = [];
 			res.on('data', chunk => {
-				output.push(chunk);
 				bodyChunks.push(chunk);
 			});
 			res.on('end', () => {
-				output.push(null);
 				res.body = Buffer.concat(bodyChunks);
 				if (opts.encoding !== null) {
 					res.body = res.body.toString(opts.encoding);
 				}
 				cacheResponse(res, policy, opts);
 			});
-		} else {
-			res.pipe(output);
 		}
+
+		res.pipe(output);
 
 		if (statusCode !== 304 && (statusCode < 200 || statusCode > 299)) {
 			proxy.emit('error', new got.HTTPError(statusCode, opts), null, res);
