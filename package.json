@@ -62,6 +62,7 @@
     "coveralls": "^2.11.4",
     "form-data": "^2.1.1",
     "get-port": "^3.0.0",
+    "get-stream": "^3.0.0",
     "into-stream": "^3.0.0",
     "nyc": "^10.0.0",
     "pem": "^1.4.4",

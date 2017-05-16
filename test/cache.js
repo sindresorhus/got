@@ -1,4 +1,5 @@
 import test from 'ava';
+import getStream from 'get-stream';
 import got from '../';
 import {createServer} from './helpers/server';
 
@@ -40,6 +41,16 @@ test('Cacheable requests are cached', async t => {
 	const secondResponse = await got(s.url + endpoint, {cache});
 
 	t.is(firstResponse.body, secondResponse.body);
+});
+
+test('Stream responses are cached', async t => {
+	const endpoint = '/cache';
+	const cache = new Map();
+
+	const firstResponseBody = await getStream(got.stream(s.url + endpoint, {cache}));
+	const secondResponseBody = await getStream(got.stream(s.url + endpoint, {cache}));
+
+	t.is(firstResponseBody, secondResponseBody);
 });
 
 test('Binary responses are cached', async t => {
