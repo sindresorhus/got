@@ -61,27 +61,6 @@ function requestAsEventEmitter(opts) {
 				response.url = redirectUrl || requestUrl;
 				response.requestUrl = requestUrl;
 
-				const policy = new CachePolicy(opts, response);
-				if (opts.cache && policy.storable()) {
-					const encoding = opts.encoding === null ? 'buffer' : opts.encoding;
-					getStream(response, {encoding})
-						.then(data => {
-							const key = cacheKey(opts);
-							const value = {
-								policy: policy.toObject(),
-								response: {
-									url: response.url,
-									statusCode: response.statusCode,
-									body: {
-										encoding,
-										data
-									}
-								}
-							};
-							opts.cache.set(key, value);
-						});
-				}
-
 				ee.emit('response', response);
 			});
 		});
@@ -169,6 +148,11 @@ function asPromise(opts) {
 
 					if (statusCode !== 304 && (statusCode < 200 || statusCode > limitStatusCode)) {
 						throw new got.HTTPError(statusCode, opts);
+					}
+
+					const policy = new CachePolicy(opts, res);
+					if (opts.cache && policy.storable()) {
+						cacheResponse(res, policy, opts);
 					}
 
 					resolve(res);
@@ -344,6 +328,23 @@ function normalizeArguments(url, opts) {
 	}
 
 	return opts;
+}
+
+function cacheResponse(response, policy, opts) {
+	const encoding = opts.encoding === null ? 'buffer' : opts.encoding;
+	const key = cacheKey(opts);
+	const value = {
+		policy: policy.toObject(),
+		response: {
+			url: response.url,
+			statusCode: response.statusCode,
+			body: {
+				encoding,
+				data: response.body
+			}
+		}
+	};
+	opts.cache.set(key, value);
 }
 
 function cacheKey(opts) {
