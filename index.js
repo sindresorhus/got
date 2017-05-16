@@ -348,7 +348,6 @@ function normalizeArguments(url, opts) {
 }
 
 function cacheResponse(response, policy, opts) {
-	const encoding = opts.encoding === null ? 'buffer' : opts.encoding;
 	const key = cacheKey(opts);
 	const value = {
 		policy: policy.toObject(),
@@ -356,7 +355,7 @@ function cacheResponse(response, policy, opts) {
 			url: response.url,
 			statusCode: response.statusCode,
 			body: {
-				encoding,
+				encoding: opts.encoding,
 				data: response.body
 			}
 		}
