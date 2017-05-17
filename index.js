@@ -61,6 +61,16 @@ function requestAsEventEmitter(opts) {
 				response.url = redirectUrl || requestUrl;
 				response.requestUrl = requestUrl;
 
+				const policy = new CachePolicy(opts, response);
+				if (opts.cache && policy.storable()) {
+					const encoding = opts.encoding === null ? 'buffer' : opts.encoding;
+					getStream(response, {encoding})
+						.then(body => {
+							response.body = body;
+							cacheResponse(response, policy, opts);
+						});
+				}
+
 				ee.emit('response', response);
 			});
 		});
@@ -150,11 +160,6 @@ function asPromise(opts) {
 						throw new got.HTTPError(statusCode, opts);
 					}
 
-					const policy = new CachePolicy(opts, res);
-					if (opts.cache && policy.storable()) {
-						cacheResponse(res, policy, opts);
-					}
-
 					resolve(res);
 				})
 				.catch(err => {
@@ -207,16 +212,6 @@ function asStream(opts) {
 
 	ee.on('response', res => {
 		const statusCode = res.statusCode;
-
-		const policy = new CachePolicy(opts, res);
-		if (opts.cache && policy.storable()) {
-			const encoding = opts.encoding === null ? 'buffer' : opts.encoding;
-			getStream(res, {encoding})
-				.then(body => {
-					res.body = body;
-					cacheResponse(res, policy, opts);
-				});
-		}
 
 		res.pipe(output);
 
