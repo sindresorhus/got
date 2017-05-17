@@ -115,7 +115,7 @@ function asPromise(opts) {
 		if (timeoutDuration) {
 			timeout = setTimeout(() => {
 				reject(new got.RequestError({message: 'Request timed out', code: 'ETIMEDOUT'}, opts));
-			});
+			}, timeoutDuration);
 		}
 
 		onCancel(() => {
