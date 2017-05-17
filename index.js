@@ -20,8 +20,8 @@ const isPlainObj = require('is-plain-obj');
 const PCancelable = require('p-cancelable');
 const pkg = require('./package');
 
-const getMethodRedirectCodes = [300, 301, 302, 303, 304, 305, 307, 308];
-const allMethodRedirectCodes = [300, 303, 307, 308];
+const getMethodRedirectCodes = new Set([300, 301, 302, 303, 304, 305, 307, 308]);
+const allMethodRedirectCodes = new Set([300, 303, 307, 308]);
 
 function requestAsEventEmitter(opts) {
 	opts = opts || {};
@@ -47,10 +47,10 @@ function requestAsEventEmitter(opts) {
 			res.requestUrl = requestUrl;
 
 			const followRedirect = opts.followRedirect && 'location' in res.headers;
-			const redirectGet = followRedirect && getMethodRedirectCodes.includes(statusCode);
-			const redirectAll = followRedirect && allMethodRedirectCodes.includes(statusCode);
+			const redirectGet = followRedirect && getMethodRedirectCodes.has(statusCode);
+			const redirectAll = followRedirect && allMethodRedirectCodes.has(statusCode);
 
-			if (redirectAll || (redirectGet && ['GET', 'HEAD'].includes(opts.method))) {
+			if (redirectAll || (redirectGet && (opts.method === 'GET' || opts.method === 'HEAD'))) {
 				res.resume();
 
 				if (statusCode === 303) {
