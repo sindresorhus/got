@@ -77,30 +77,6 @@ test('buffer on encoding === null', async t => {
 	t.truthy(Buffer.isBuffer(data));
 });
 
-test('timeout option', async t => {
-	try {
-		await got(`${s.url}/404`, {
-			timeout: 1,
-			retries: 0
-		});
-		t.fail('Exception was not thrown');
-	} catch (err) {
-		t.is(err.code, 'ETIMEDOUT');
-	}
-});
-
-test('timeout option as object', async t => {
-	try {
-		await got(`${s.url}/404`, {
-			timeout: {connect: 1},
-			retries: 0
-		});
-		t.fail('Exception was not thrown');
-	} catch (err) {
-		t.is(err.code, 'ETIMEDOUT');
-	}
-});
-
 test('query option', async t => {
 	t.is((await got(s.url, {query: {recent: true}})).body, 'recent');
 	t.is((await got(s.url, {query: 'recent=true'})).body, 'recent');

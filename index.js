@@ -87,7 +87,7 @@ function requestAsEventEmitter(opts) {
 			ee.emit('error', new got.RequestError(err, opts));
 		});
 
-		if (opts.gotTimeout) {
+		if (opts.gotTimeout && typeof opts.gotTimeout === 'object') {
 			timedOut(req, opts.gotTimeout);
 		}
 
@@ -104,6 +104,19 @@ function asPromise(opts) {
 	return new PCancelable((onCancel, resolve, reject) => {
 		const ee = requestAsEventEmitter(opts);
 		let cancelOnRequest = false;
+		let timeout;
+
+		const timeoutDuration = opts.gotTimeout && typeof opts.gotTimeout.request === 'number' ?
+			opts.gotTimeout.request :
+			typeof opts.gotTimeout === 'number' ?
+				opts.gotTimeout :
+				false;
+
+		if (timeoutDuration) {
+			timeout = setTimeout(() => {
+				reject(new got.RequestError({message: 'Request timed out', code: 'ETIMEDOUT'}, opts));
+			});
+		}
 
 		onCancel(() => {
 			cancelOnRequest = true;
@@ -152,6 +165,7 @@ function asPromise(opts) {
 						throw new got.HTTPError(statusCode, res.headers, opts);
 					}
 
+					clearTimeout(timeout);
 					resolve(res);
 				})
 				.catch(err => {
