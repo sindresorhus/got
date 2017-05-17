@@ -31,6 +31,7 @@ test('Non cacheable responses are not cached', async t => {
 	const firstResponse = parseInt((await got(s.url + endpoint, {cache})).body, 10);
 	const secondResponse = parseInt((await got(s.url + endpoint, {cache})).body, 10);
 
+	t.is(cache.size, 0);
 	t.is(secondResponse, (firstResponse + 1));
 });
 
@@ -41,6 +42,7 @@ test('Cacheable responses are cached', async t => {
 	const firstResponse = await got(s.url + endpoint, {cache});
 	const secondResponse = await got(s.url + endpoint, {cache});
 
+	t.is(cache.size, 1);
 	t.is(firstResponse.body, secondResponse.body);
 });
 
@@ -51,6 +53,7 @@ test('Stream responses are cached', async t => {
 	const firstResponseBody = await getStream(got.stream(s.url + endpoint, {cache}));
 	const secondResponseBody = await getStream(got.stream(s.url + endpoint, {cache}));
 
+	t.is(cache.size, 1);
 	t.is(firstResponseBody, secondResponseBody);
 });
 
@@ -62,6 +65,7 @@ test('Binary responses are cached', async t => {
 	const firstResponse = await got(s.url + endpoint, {cache, encoding});
 	const secondResponse = await got(s.url + endpoint, {cache, encoding});
 
+	t.is(cache.size, 1);
 	t.true(firstResponse.body instanceof Buffer);
 	t.is(firstResponse.body.toString(), secondResponse.body.toString());
 });
@@ -77,6 +81,7 @@ test('Cached response is re-encoded to current encoding option', async t => {
 
 	const expectedSecondResponseBody = Buffer.from(firstResponse.body, firstEncoding).toString(secondEncoding);
 
+	t.is(cache.size, 1);
 	t.is(secondResponse.body, expectedSecondResponseBody);
 });
 
