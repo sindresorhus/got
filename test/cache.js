@@ -28,11 +28,11 @@ test('Non cacheable responses are not cached', async t => {
 	const endpoint = '/no-cache';
 	const cache = new Map();
 
-	const firstResponse = parseInt((await got(s.url + endpoint, {cache})).body, 10);
-	const secondResponse = parseInt((await got(s.url + endpoint, {cache})).body, 10);
+	const firstResponseInt = parseInt((await got(s.url + endpoint, {cache})).body, 10);
+	const secondResponseInt = parseInt((await got(s.url + endpoint, {cache})).body, 10);
 
 	t.is(cache.size, 0);
-	t.is(secondResponse, (firstResponse + 1));
+	t.true(firstResponseInt < secondResponseInt);
 });
 
 test('Cacheable responses are cached', async t => {
