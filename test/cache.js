@@ -23,7 +23,7 @@ test.before('setup', async () => {
 	await s.listen(s.port);
 });
 
-test('Non cacheable requests are not cached', async t => {
+test('Non cacheable responses are not cached', async t => {
 	const endpoint = '/no-cache';
 	const cache = new Map();
 
@@ -33,7 +33,7 @@ test('Non cacheable requests are not cached', async t => {
 	t.is(secondResponse, (firstResponse + 1));
 });
 
-test('Cacheable requests are cached', async t => {
+test('Cacheable responses are cached', async t => {
 	const endpoint = '/cache';
 	const cache = new Map();
 
