@@ -11,6 +11,7 @@ test.before('setup', async () => {
 	let noCacheIndex = 0;
 	s.on('/no-cache', (req, res) => {
 		noCacheIndex++;
+		res.setHeader('Cache-Control', 'public, no-cache, no-store');
 		res.end(noCacheIndex.toString());
 	});
 
