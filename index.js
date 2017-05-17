@@ -13,7 +13,6 @@ const urlParseLax = require('url-parse-lax');
 const lowercaseKeys = require('lowercase-keys');
 const isRedirect = require('is-redirect');
 const decompressResponse = require('decompress-response');
-const createErrorClass = require('create-error-class');
 const isRetryAllowed = require('is-retry-allowed');
 const Buffer = require('safe-buffer').Buffer;
 const isURL = require('isurl');
@@ -371,50 +370,75 @@ for (const el of helpers) {
 	got.stream[el] = (url, opts) => got.stream(url, Object.assign({}, opts, {method: el}));
 }
 
-function stdError(error, opts) {
-	if (error.code !== undefined) {
-		this.code = error.code;
-	}
+class StdError extends Error {
+	constructor(message, error, opts) {
+		super(message);
+		this.name = 'StdError';
 
-	Object.assign(this, {
-		message: error.message,
-		host: opts.host,
-		hostname: opts.hostname,
-		method: opts.method,
-		path: opts.path,
-		protocol: opts.protocol,
-		url: opts.href
-	});
+		if (error.code !== undefined) {
+			this.code = error.code;
+		}
+
+		Object.assign(this, {
+			host: opts.host,
+			hostname: opts.hostname,
+			method: opts.method,
+			path: opts.path,
+			protocol: opts.protocol,
+			url: opts.href
+		});
+	}
 }
 
-got.RequestError = createErrorClass('RequestError', stdError);
-got.ReadError = createErrorClass('ReadError', stdError);
-got.ParseError = createErrorClass('ParseError', function (e, statusCode, opts, data) {
-	stdError.call(this, e, opts);
-	this.statusCode = statusCode;
-	this.statusMessage = http.STATUS_CODES[this.statusCode];
-	this.message = `${e.message} in "${urlLib.format(opts)}": \n${data.slice(0, 77)}...`;
-});
+got.RequestError = class extends StdError {
+	constructor(error, opts) {
+		super(error.message, error, opts);
+		this.name = 'RequestError';
+	}
+};
 
-got.HTTPError = createErrorClass('HTTPError', function (statusCode, headers, opts) {
-	stdError.call(this, {}, opts);
-	this.statusCode = statusCode;
-	this.statusMessage = http.STATUS_CODES[this.statusCode];
-	this.message = `Response code ${this.statusCode} (${this.statusMessage})`;
-	this.headers = headers;
-});
+got.ReadError = class extends StdError {
+	constructor(error, opts) {
+		super(error.message, error, opts);
+		this.name = 'ReadError';
+	}
+};
 
-got.MaxRedirectsError = createErrorClass('MaxRedirectsError', function (statusCode, redirectUrls, opts) {
-	stdError.call(this, {}, opts);
-	this.statusCode = statusCode;
-	this.statusMessage = http.STATUS_CODES[this.statusCode];
-	this.message = 'Redirected 10 times. Aborting.';
-	this.redirectUrls = redirectUrls;
-});
+got.ParseError = class extends StdError {
+	constructor(error, statusCode, opts, data) {
+		super(`${error.message} in "${urlLib.format(opts)}": \n${data.slice(0, 77)}...`, error, opts);
+		this.name = 'ParseError';
+		this.statusCode = statusCode;
+		this.statusMessage = http.STATUS_CODES[this.statusCode];
+	}
+};
 
-got.UnsupportedProtocolError = createErrorClass('UnsupportedProtocolError', function (opts) {
-	stdError.call(this, {}, opts);
-	this.message = `Unsupported protocol "${opts.protocol}"`;
-});
+got.HTTPError = class extends StdError {
+	constructor(statusCode, headers, opts) {
+		const statusMessage = http.STATUS_CODES[statusCode];
+		super(`Response code ${statusCode} (${statusMessage})`, {}, opts);
+		this.name = 'HTTPError';
+		this.statusCode = statusCode;
+		this.statusMessage = statusMessage;
+		this.headers = headers;
+	}
+};
+
+got.MaxRedirectsError = class extends StdError {
+	constructor(statusCode, redirectUrls, opts) {
+		super('Redirected 10 times. Aborting.', {}, opts);
+		this.name = 'MaxRedirectsError';
+		this.statusCode = statusCode;
+		this.statusMessage = http.STATUS_CODES[this.statusCode];
+		this.redirectUrls = redirectUrls;
+	}
+};
+
+got.UnsupportedProtocolError = class extends StdError {
+	constructor(opts) {
+		super(`Unsupported protocol "${opts.protocol}"`, {}, opts);
+		this.name = 'UnsupportedProtocolError';
+	}
+};
 
 module.exports = got;

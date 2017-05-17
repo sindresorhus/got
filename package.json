@@ -47,7 +47,6 @@
     "fetch"
   ],
   "dependencies": {
-    "create-error-class": "^3.0.0",
     "decompress-response": "^3.2.0",
     "duplexer3": "^0.1.4",
     "get-stream": "^3.0.0",
