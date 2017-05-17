@@ -61,7 +61,27 @@ function requestAsEventEmitter(opts) {
 				response.url = redirectUrl || requestUrl;
 				response.requestUrl = requestUrl;
 
-				maybeCacheResponse(response, opts);
+				const policy = new CachePolicy(opts, response);
+				if (opts.cache && policy.storable()) {
+					const encoding = opts.encoding === null ? 'buffer' : opts.encoding;
+					getStream(response, {encoding})
+						.then(body => {
+							response.body = body;
+							const key = cacheKey(opts);
+							const value = {
+								policy: policy.toObject(),
+								response: {
+									url: response.url,
+									statusCode: response.statusCode,
+									body: {
+										encoding: opts.encoding,
+										data: response.body
+									}
+								}
+							};
+							opts.cache.set(key, value);
+						});
+				}
 
 				ee.emit('response', response);
 			});
@@ -325,31 +345,6 @@ function normalizeArguments(url, opts) {
 	}
 
 	return opts;
-}
-
-function maybeCacheResponse(response, opts) {
-	const policy = new CachePolicy(opts, response);
-	if (!(opts.cache && policy.storable())) {
-		return;
-	}
-	const encoding = opts.encoding === null ? 'buffer' : opts.encoding;
-	getStream(response, {encoding})
-		.then(body => {
-			response.body = body;
-			const key = cacheKey(opts);
-			const value = {
-				policy: policy.toObject(),
-				response: {
-					url: response.url,
-					statusCode: response.statusCode,
-					body: {
-						encoding: opts.encoding,
-						data: response.body
-					}
-				}
-			};
-			opts.cache.set(key, value);
-		});
 }
 
 function cacheKey(opts) {
