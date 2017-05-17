@@ -390,21 +390,21 @@ class StdError extends Error {
 	}
 }
 
-got.RequestError = class RequestError extends StdError {
+got.RequestError = class extends StdError {
 	constructor(error, opts) {
 		super(error.message, error, opts);
 		this.name = 'RequestError';
 	}
 };
 
-got.ReadError = class ReadError extends StdError {
+got.ReadError = class extends StdError {
 	constructor(error, opts) {
 		super(error.message, error, opts);
 		this.name = 'ReadError';
 	}
 };
 
-got.ParseError = class ParseError extends StdError {
+got.ParseError = class extends StdError {
 	constructor(error, statusCode, opts, data) {
 		super(`${error.message} in "${urlLib.format(opts)}": \n${data.slice(0, 77)}...`, error, opts);
 		this.name = 'ParseError';
@@ -413,7 +413,7 @@ got.ParseError = class ParseError extends StdError {
 	}
 };
 
-got.HTTPError = class HTTPError extends StdError {
+got.HTTPError = class extends StdError {
 	constructor(statusCode, headers, opts) {
 		const statusMessage = http.STATUS_CODES[statusCode];
 		super(`Response code ${statusCode} (${statusMessage})`, {}, opts);
@@ -424,7 +424,7 @@ got.HTTPError = class HTTPError extends StdError {
 	}
 };
 
-got.MaxRedirectsError = class MaxRedirectsError extends StdError {
+got.MaxRedirectsError = class extends StdError {
 	constructor(statusCode, redirectUrls, opts) {
 		super('Redirected 10 times. Aborting.', {}, opts);
 		this.name = 'MaxRedirectsError';
@@ -434,7 +434,7 @@ got.MaxRedirectsError = class MaxRedirectsError extends StdError {
 	}
 };
 
-got.UnsupportedProtocolError = class UnsupportedProtocolError extends StdError {
+got.UnsupportedProtocolError = class extends StdError {
 	constructor(opts) {
 		super(`Unsupported protocol "${opts.protocol}"`, {}, opts);
 		this.name = 'UnsupportedProtocolError';
