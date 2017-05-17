@@ -373,8 +373,7 @@ for (const el of helpers) {
 class StdError extends Error {
 	constructor(message, error, opts) {
 		super(message);
-		// eslint-disable-next-line unicorn/custom-error-definition
-		this.name = this.constructor.name;
+		this.name = 'StdError';
 
 		if (error.code !== undefined) {
 			this.code = error.code;
@@ -394,18 +393,21 @@ class StdError extends Error {
 got.RequestError = class RequestError extends StdError {
 	constructor(error, opts) {
 		super(error.message, error, opts);
+		this.name = 'RequestError';
 	}
 };
 
 got.ReadError = class ReadError extends StdError {
 	constructor(error, opts) {
 		super(error.message, error, opts);
+		this.name = 'ReadError';
 	}
 };
 
 got.ParseError = class ParseError extends StdError {
 	constructor(error, statusCode, opts, data) {
 		super(`${error.message} in "${urlLib.format(opts)}": \n${data.slice(0, 77)}...`, error, opts);
+		this.name = 'ParseError';
 		this.statusCode = statusCode;
 		this.statusMessage = http.STATUS_CODES[this.statusCode];
 	}
@@ -415,6 +417,7 @@ got.HTTPError = class HTTPError extends StdError {
 	constructor(statusCode, headers, opts) {
 		const statusMessage = http.STATUS_CODES[statusCode];
 		super(`Response code ${statusCode} (${statusMessage})`, {}, opts);
+		this.name = 'HTTPError';
 		this.statusCode = statusCode;
 		this.statusMessage = statusMessage;
 		this.headers = headers;
@@ -424,6 +427,7 @@ got.HTTPError = class HTTPError extends StdError {
 got.MaxRedirectsError = class MaxRedirectsError extends StdError {
 	constructor(statusCode, redirectUrls, opts) {
 		super('Redirected 10 times. Aborting.', {}, opts);
+		this.name = 'MaxRedirectsError';
 		this.statusCode = statusCode;
 		this.statusMessage = http.STATUS_CODES[this.statusCode];
 		this.redirectUrls = redirectUrls;
@@ -433,6 +437,7 @@ got.MaxRedirectsError = class MaxRedirectsError extends StdError {
 got.UnsupportedProtocolError = class UnsupportedProtocolError extends StdError {
 	constructor(opts) {
 		super(`Unsupported protocol "${opts.protocol}"`, {}, opts);
+		this.name = 'UnsupportedProtocolError';
 	}
 };
 
