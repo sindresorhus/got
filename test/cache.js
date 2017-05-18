@@ -21,6 +21,20 @@ test.before('setup', async () => {
 		res.setHeader('Cache-Control', 'public, max-age=60');
 		res.end(cacheIndex.toString());
 	});
+
+	s.on('/last-modified', (req, res) => {
+		res.setHeader('Cache-Control', 'public, no-cache');
+		res.setHeader('Last-Modified', 'Wed, 21 Oct 2015 07:28:00 GMT');
+		let responseBody = 'last-modified';
+
+		if (req.headers['if-modified-since'] === 'Wed, 21 Oct 2015 07:28:00 GMT') {
+			res.statusCode = 304;
+			responseBody = null;
+		}
+
+		res.end(responseBody);
+	});
+
 	await s.listen(s.port);
 });
 
@@ -84,6 +98,22 @@ test('Cached response is re-encoded to current encoding option', async t => {
 	t.is(cache.size, 1);
 	t.is(secondResponse.body, expectedSecondResponseBody);
 });
+
+test('Stale cache entries with Last-Modified headers are revalidated', async t => {
+	const endpoint = '/last-modified';
+	const cache = new Map();
+
+	const firstResponse = await got(s.url + endpoint, {cache});
+	const secondResponse = await got(s.url + endpoint, {cache});
+
+	t.is(cache.size, 1);
+	t.is(firstResponse.statusCode, 200);
+	t.is(secondResponse.statusCode, 304);
+	t.is(firstResponse.body, 'last-modified');
+	t.is(firstResponse.body, secondResponse.body);
+});
+
+
 
 test.after('cleanup', async () => {
 	await s.close();
