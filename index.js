@@ -102,21 +102,16 @@ function requestAsEventEmitter(opts) {
 }
 
 function asPromise(opts) {
-	let timeoutFn;
-
 	const timeout = opts.gotTimeout && typeof opts.gotTimeout.request === 'number' ?
 		opts.gotTimeout.request :
 		typeof opts.gotTimeout === 'number' ?
 			opts.gotTimeout :
 			false;
 
-	if (timeout) {
-		timeoutFn = p => pTimeout(p, timeout, new got.RequestError({message: 'Request timed out', code: 'ETIMEDOUT'}, opts));
-	} else {
-		timeoutFn = p => p;
-	}
-
-	return timeoutFn(new PCancelable((onCancel, resolve, reject) => {
+	return (requestPromise => timeout ?
+		pTimeout(requestPromise, timeout, new got.RequestError({message: 'Request timed out', code: 'ETIMEDOUT'}, opts)) :
+		requestPromise
+	)(new PCancelable((onCancel, resolve, reject) => {
 		const ee = requestAsEventEmitter(opts);
 		let cancelOnRequest = false;
 
