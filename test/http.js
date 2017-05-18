@@ -50,13 +50,9 @@ test('requestUrl response', async t => {
 });
 
 test('error with code', async t => {
-	try {
-		await got(`${s.url}/404`);
-		t.fail('Exception was not thrown');
-	} catch (err) {
-		t.is(err.statusCode, 404);
-		t.is(err.response.body, 'not');
-	}
+	const err = await t.throws(got(`${s.url}/404`));
+	t.is(err.statusCode, 404);
+	t.is(err.response.body, 'not');
 });
 
 test('status code 304 doesn\'t throw', async t => {

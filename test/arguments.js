@@ -54,12 +54,8 @@ test('overrides querystring from opts', async t => {
 });
 
 test('should throw with auth in url', async t => {
-	try {
-		await got('https://test:45d3ps453@account.myservice.com/api/token');
-		t.fail('Exception was not thrown');
-	} catch (err) {
-		t.regex(err.message, /Basic authentication must be done with auth option/);
-	}
+	const err = await t.throws(got('https://test:45d3ps453@account.myservice.com/api/token'));
+	t.regex(err.message, /Basic authentication must be done with auth option/);
 });
 
 test('should throw when body is set to object', async t => {

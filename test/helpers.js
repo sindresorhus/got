@@ -22,19 +22,11 @@ test.before('setup', async () => {
 test('promise mode', async t => {
 	t.is((await got.get(s.url)).body, 'ok');
 
-	try {
-		await got.get(`${s.url}/404`);
-		t.fail('Exception was not thrown');
-	} catch (err) {
-		t.is(err.response.body, 'not found');
-	}
+	const err = await t.throws(got.get(`${s.url}/404`));
+	t.is(err.response.body, 'not found');
 
-	try {
-		await got.get('.com', {retries: 0});
-		t.fail('Exception was not thrown');
-	} catch (err) {
-		t.truthy(err);
-	}
+	const err2 = await t.throws(got.get('.com', {retries: 0}));
+	t.truthy(err2);
 });
 
 test.after('cleanup', async () => {
