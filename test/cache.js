@@ -35,6 +35,19 @@ test.before('setup', async () => {
 		res.end(responseBody);
 	});
 
+	s.on('/etag', (req, res) => {
+		res.setHeader('Cache-Control', 'public, no-cache');
+		res.setHeader('ETag', '33a64df551425fcc55e4d42a148795d9f25f89d4');
+		let responseBody = 'etag';
+
+		if (req.headers['if-none-match'] === '33a64df551425fcc55e4d42a148795d9f25f89d4') {
+			res.statusCode = 304;
+			responseBody = null;
+		}
+
+		res.end(responseBody);
+	});
+
 	await s.listen(s.port);
 });
 
@@ -113,7 +126,19 @@ test('Stale cache entries with Last-Modified headers are revalidated', async t =
 	t.is(firstResponse.body, secondResponse.body);
 });
 
+test('Stale cache entries with ETag headers are revalidated', async t => {
+	const endpoint = '/etag';
+	const cache = new Map();
 
+	const firstResponse = await got(s.url + endpoint, {cache});
+	const secondResponse = await got(s.url + endpoint, {cache});
+
+	t.is(cache.size, 1);
+	t.is(firstResponse.statusCode, 200);
+	t.is(secondResponse.statusCode, 304);
+	t.is(firstResponse.body, 'etag');
+	t.is(firstResponse.body, secondResponse.body);
+});
 
 test.after('cleanup', async () => {
 	await s.close();
