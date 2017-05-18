@@ -8,11 +8,11 @@ let s;
 test.before('setup', async () => {
 	s = await createServer();
 
-	let noCacheIndex = 0;
-	s.on('/no-cache', (req, res) => {
-		noCacheIndex++;
+	let noStoreIndex = 0;
+	s.on('/no-store', (req, res) => {
+		noStoreIndex++;
 		res.setHeader('Cache-Control', 'public, no-cache, no-store');
-		res.end(noCacheIndex.toString());
+		res.end(noStoreIndex.toString());
 	});
 
 	let cacheIndex = 0;
@@ -25,7 +25,7 @@ test.before('setup', async () => {
 });
 
 test('Non cacheable responses are not cached', async t => {
-	const endpoint = '/no-cache';
+	const endpoint = '/no-store';
 	const cache = new Map();
 
 	const firstResponseInt = parseInt((await got(s.url + endpoint, {cache})).body, 10);
