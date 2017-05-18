@@ -18,6 +18,7 @@ const Buffer = require('safe-buffer').Buffer;
 const isURL = require('isurl');
 const isPlainObj = require('is-plain-obj');
 const PCancelable = require('p-cancelable');
+const pTimeout = require('p-timeout');
 const pkg = require('./package');
 
 function requestAsEventEmitter(opts) {
@@ -101,22 +102,23 @@ function requestAsEventEmitter(opts) {
 }
 
 function asPromise(opts) {
-	return new PCancelable((onCancel, resolve, reject) => {
+	let timeoutFn;
+
+	const timeout = opts.gotTimeout && typeof opts.gotTimeout.request === 'number' ?
+		opts.gotTimeout.request :
+		typeof opts.gotTimeout === 'number' ?
+			opts.gotTimeout :
+			false;
+
+	if (timeout) {
+		timeoutFn = p => pTimeout(p, timeout, new got.RequestError({message: 'Request timed out', code: 'ETIMEDOUT'}, opts));
+	} else {
+		timeoutFn = p => p;
+	}
+
+	return timeoutFn(new PCancelable((onCancel, resolve, reject) => {
 		const ee = requestAsEventEmitter(opts);
 		let cancelOnRequest = false;
-		let timeout;
-
-		const timeoutDuration = opts.gotTimeout && typeof opts.gotTimeout.request === 'number' ?
-			opts.gotTimeout.request :
-			typeof opts.gotTimeout === 'number' ?
-				opts.gotTimeout :
-				false;
-
-		if (timeoutDuration) {
-			timeout = setTimeout(() => {
-				reject(new got.RequestError({message: 'Request timed out', code: 'ETIMEDOUT'}, opts));
-			}, timeoutDuration);
-		}
 
 		onCancel(() => {
 			cancelOnRequest = true;
@@ -175,7 +177,7 @@ function asPromise(opts) {
 		});
 
 		ee.on('error', reject);
-	});
+	}));
 }
 
 function asStream(opts) {
