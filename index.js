@@ -26,6 +26,7 @@ function requestAsEventEmitter(opts) {
 
 	const ee = new EventEmitter();
 	const requestUrl = opts.href || urlLib.resolve(urlLib.format(opts), opts.path);
+	let revalidateCache = false;
 	let redirectCount = 0;
 	let retryCount = 0;
 	let redirectUrl;
@@ -57,19 +58,31 @@ function requestAsEventEmitter(opts) {
 			}
 
 			setImmediate(() => {
-				const response = typeof unzipResponse === 'function' && req.method !== 'HEAD' ? unzipResponse(res) : res;
-				response.url = redirectUrl || requestUrl;
-				response.requestUrl = requestUrl;
+				let response = typeof unzipResponse === 'function' && req.method !== 'HEAD' ? unzipResponse(res) : res;
 
-				const policy = new CachePolicy(opts, response);
-				if (opts.cache && policy.storable()) {
+				if (revalidateCache) {
+					const cachedResponse = revalidateCache.response;
+					const {policy, modified} = CachePolicy.fromObject(revalidateCache.policy).revalidatedPolicy(opts, response);
+					if (!modified) {
+						const {statusCode, url} = response;
+						const headers = policy.responseHeaders();
+						const bodyBuffer = Buffer.from(cachedResponse.body.data, cachedResponse.body.encoding);
+						response = new Response(statusCode, headers, bodyBuffer, url);
+						response.cachePolicy = policy;
+					}
+				}
+
+				if (typeof response.cachePolicy === 'undefined') {
+					response.cachePolicy = new CachePolicy(opts, response);
+				}
+				if (opts.cache && response.cachePolicy.storable()) {
 					const encoding = opts.encoding === null ? 'buffer' : opts.encoding;
 					getStream(response, {encoding})
 						.then(body => {
 							response.body = body;
 							const key = cacheKey(opts);
 							const value = {
-								policy: policy.toObject(),
+								policy: response.cachePolicy.toObject(),
 								response: {
 									url: response.url,
 									statusCode: response.statusCode,
@@ -82,6 +95,9 @@ function requestAsEventEmitter(opts) {
 							opts.cache.set(key, value);
 						});
 				}
+
+				response.url = redirectUrl || requestUrl;
+				response.requestUrl = requestUrl;
 
 				ee.emit('response', response);
 			});
@@ -118,15 +134,18 @@ function requestAsEventEmitter(opts) {
 					throw new TypeError('Cached value is undefined');
 				}
 				const policy = CachePolicy.fromObject(value.policy);
-				if (!policy.satisfiesWithoutRevalidation(opts)) {
-					opts.cache.delete(key);
-					throw new Error('Cached value is stale');
+				if (policy.satisfiesWithoutRevalidation(opts)) {
+					const {statusCode, body, url} = value.response;
+					const headers = policy.responseHeaders();
+					const bodyBuffer = Buffer.from(body.data, body.encoding);
+					const response = new Response(statusCode, headers, bodyBuffer, url);
+					response.cachePolicy = policy;
+					ee.emit('response', response);
+				} else {
+					revalidateCache = value;
+					opts.headers = policy.revalidationHeaders(opts);
+					get(opts);
 				}
-				const {statusCode, body, url} = value.response;
-				const headers = policy.responseHeaders();
-				const bodyBuffer = Buffer.from(body.data, body.encoding);
-				const response = new Response(statusCode, headers, bodyBuffer, url);
-				ee.emit('response', response);
 			});
 	};
 
