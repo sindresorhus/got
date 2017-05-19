@@ -94,6 +94,9 @@ function requestAsEventEmitter(opts) {
 							};
 							opts.cache.set(key, value);
 						});
+				} else if (revalidateCache) {
+					const key = cacheKey(opts);
+					opts.cache.delete(key);
 				}
 
 				response.url = redirectUrl || requestUrl;
