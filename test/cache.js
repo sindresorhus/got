@@ -48,6 +48,14 @@ test.before('setup', async () => {
 		res.end(responseBody);
 	});
 
+	let cacheThenNoStoreIndex = 0;
+	s.on('/cache-then-no-store-on-revalidate', (req, res) => {
+		const cc = cacheThenNoStoreIndex === 0 ? 'public, max-age=0' : 'public, no-cache, no-store';
+		cacheThenNoStoreIndex++;
+		res.setHeader('Cache-Control', cc);
+		res.end('cache-then-no-store-on-revalidate');
+	});
+
 	await s.listen(s.port);
 });
 
@@ -137,6 +145,21 @@ test('Stale cache entries with ETag headers are revalidated', async t => {
 	t.is(firstResponse.statusCode, 200);
 	t.is(secondResponse.statusCode, 304);
 	t.is(firstResponse.body, 'etag');
+	t.is(firstResponse.body, secondResponse.body);
+});
+
+test('Stale cache entries that can\'t be revalidate are deleted from cache', async t => {
+	const endpoint = '/cache-then-no-store-on-revalidate';
+	const cache = new Map();
+
+	const firstResponse = await got(s.url + endpoint, {cache});
+	t.is(cache.size, 1);
+	const secondResponse = await got(s.url + endpoint, {cache, log: true});
+
+	t.is(cache.size, 0);
+	t.is(firstResponse.statusCode, 200);
+	t.is(secondResponse.statusCode, 200);
+	t.is(firstResponse.body, 'cache-then-no-store-on-revalidate');
 	t.is(firstResponse.body, secondResponse.body);
 });
 
