@@ -35,7 +35,11 @@ function requestAsEventEmitter(opts) {
 			return;
 		}
 
-		const fn = opts.protocol === 'https:' ? https : http;
+		let fn = opts.protocol === 'https:' ? https : http;
+
+		if (process.versions.electron) {
+			fn = require('electron').net;
+		}
 
 		const req = fn.request(opts, res => {
 			const statusCode = res.statusCode;

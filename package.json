@@ -44,7 +44,10 @@
     "simple",
     "curl",
     "wget",
-    "fetch"
+    "fetch",
+    "net",
+    "network",
+    "electron"
   ],
   "dependencies": {
     "decompress-response": "^3.2.0",
