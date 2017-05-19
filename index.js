@@ -100,7 +100,9 @@ function requestAsEventEmitter(opts) {
 		});
 	};
 
-	get(opts);
+	setImmediate(() => {
+		get(opts);
+	});
 	return ee;
 }
 
