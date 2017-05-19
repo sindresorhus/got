@@ -23,7 +23,7 @@ test.before('setup', async () => {
 	});
 
 	s.on('/last-modified', (req, res) => {
-		res.setHeader('Cache-Control', 'public, no-cache');
+		res.setHeader('Cache-Control', 'public, max-age=0');
 		res.setHeader('Last-Modified', 'Wed, 21 Oct 2015 07:28:00 GMT');
 		let responseBody = 'last-modified';
 
@@ -36,7 +36,7 @@ test.before('setup', async () => {
 	});
 
 	s.on('/etag', (req, res) => {
-		res.setHeader('Cache-Control', 'public, no-cache');
+		res.setHeader('Cache-Control', 'public, max-age=0');
 		res.setHeader('ETag', '33a64df551425fcc55e4d42a148795d9f25f89d4');
 		let responseBody = 'etag';
 
