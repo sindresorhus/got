@@ -11,7 +11,6 @@ const getStream = require('get-stream');
 const timedOut = require('timed-out');
 const urlParseLax = require('url-parse-lax');
 const lowercaseKeys = require('lowercase-keys');
-const isRedirect = require('is-redirect');
 const decompressResponse = require('decompress-response');
 const isRetryAllowed = require('is-retry-allowed');
 const Buffer = require('safe-buffer').Buffer;
@@ -19,6 +18,9 @@ const isURL = require('isurl');
 const isPlainObj = require('is-plain-obj');
 const PCancelable = require('p-cancelable');
 const pkg = require('./package');
+
+const getMethodRedirectCodes = new Set([300, 301, 302, 303, 304, 305, 307, 308]);
+const allMethodRedirectCodes = new Set([300, 303, 307, 308]);
 
 function requestAsEventEmitter(opts) {
 	opts = opts || {};
@@ -47,8 +49,18 @@ function requestAsEventEmitter(opts) {
 			res.url = redirectUrl || requestUrl;
 			res.requestUrl = requestUrl;
 
-			if (isRedirect(statusCode) && opts.followRedirect && 'location' in res.headers && (opts.method === 'GET' || opts.method === 'HEAD')) {
+			const followRedirect = opts.followRedirect && 'location' in res.headers;
+			const redirectGet = followRedirect && getMethodRedirectCodes.has(statusCode);
+			const redirectAll = followRedirect && allMethodRedirectCodes.has(statusCode);
+
+			if (redirectAll || (redirectGet && (opts.method === 'GET' || opts.method === 'HEAD'))) {
 				res.resume();
+
+				if (statusCode === 303) {
+					// Server responded with "see other", indicating that the resource exists at another location,
+					// and the client should request it from that location via GET or HEAD.
+					opts.method = 'GET';
+				}
 
 				if (redirects.length >= 10) {
 					ee.emit('error', new got.MaxRedirectsError(statusCode, redirects, opts), null, res);
