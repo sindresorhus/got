@@ -16,6 +16,8 @@ It supports following redirects, promises, streams, retries, automagically handl
 
 Created because [`request`](https://github.com/request/request) is bloated *(several megabytes!)*.
 
+When used with Electron, it takes advantage of [`electron.net`](https://electron.atom.io/docs/api/net/).
+
 
 ## Install
 
