@@ -50,3 +50,12 @@ test('connection, request timeout', async t => {
 
 	t.is(err.code, 'ETIMEDOUT');
 });
+
+test.cb('timeout with streams', t => {
+	got.stream(s.url, {timeout: 1, retries: 0})
+		.on('error', err => {
+			t.is(err.code, 'ETIMEDOUT');
+			t.end();
+		})
+		.on('data', t.end);
+});

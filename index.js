@@ -88,7 +88,7 @@ function requestAsEventEmitter(opts) {
 			ee.emit('error', new got.RequestError(err, opts));
 		});
 
-		if (opts.gotTimeout && typeof opts.gotTimeout === 'object') {
+		if (opts.gotTimeout) {
 			timedOut(req, opts.gotTimeout);
 		}
 
@@ -102,16 +102,11 @@ function requestAsEventEmitter(opts) {
 }
 
 function asPromise(opts) {
-	const timeout = opts.gotTimeout && typeof opts.gotTimeout.request === 'number' ?
-		opts.gotTimeout.request :
-		typeof opts.gotTimeout === 'number' ?
-			opts.gotTimeout :
-			false;
+	const timeoutFn = requestPromise => opts.gotTimeout && opts.gotTimeout.request ?
+		pTimeout(requestPromise, opts.gotTimeout.request, new got.RequestError({message: 'Request timed out', code: 'ETIMEDOUT'}, opts)) :
+		requestPromise;
 
-	return (requestPromise => timeout ?
-		pTimeout(requestPromise, timeout, new got.RequestError({message: 'Request timed out', code: 'ETIMEDOUT'}, opts)) :
-		requestPromise
-	)(new PCancelable((onCancel, resolve, reject) => {
+	return timeoutFn(new PCancelable((onCancel, resolve, reject) => {
 		const ee = requestAsEventEmitter(opts);
 		let cancelOnRequest = false;
 
@@ -162,7 +157,6 @@ function asPromise(opts) {
 						throw new got.HTTPError(statusCode, res.headers, opts);
 					}
 
-					clearTimeout(timeout);
 					resolve(res);
 				})
 				.catch(err => {
@@ -179,6 +173,13 @@ function asStream(opts) {
 	const input = new PassThrough();
 	const output = new PassThrough();
 	const proxy = duplexer3(input, output);
+	let timeout;
+
+	if (opts.gotTimeout && opts.gotTimeout.request) {
+		timeout = setTimeout(() => {
+			proxy.emit('error', new got.RequestError({message: 'Request timed out', code: 'ETIMEDOUT'}, opts));
+		}, opts.gotTimeout.request);
+	}
 
 	if (opts.json) {
 		throw new Error('got can not be used as stream when options.json is used');
@@ -214,6 +215,8 @@ function asStream(opts) {
 	});
 
 	ee.on('response', res => {
+		clearTimeout(timeout);
+
 		const statusCode = res.statusCode;
 
 		res.pipe(output);
@@ -347,7 +350,11 @@ function normalizeArguments(url, opts) {
 	}
 
 	if (opts.timeout) {
-		opts.gotTimeout = opts.timeout;
+		if (typeof opts.timeout === 'number') {
+			opts.gotTimeout = {request: opts.timeout};
+		} else {
+			opts.gotTimeout = opts.timeout;
+		}
 		delete opts.timeout;
 	}
 

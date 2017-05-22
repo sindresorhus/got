@@ -127,7 +127,7 @@ Type: `number`, `object`
 
 Milliseconds to wait for the server to end the response before aborting request with `ETIMEDOUT` error.
 
-Option accepts `object` with separate `connect`, `socket`, and `request` fields for connection, socket, and entire request timeouts.
+This also accepts an object with separate `connect`, `socket`, and `request` fields for connection, socket, and entire request timeouts.
 
 ###### retries
 
