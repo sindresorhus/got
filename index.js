@@ -92,7 +92,8 @@ function requestAsEventEmitter(opts) {
 									}
 								}
 							};
-							opts.cache.set(key, value);
+							const ttl = response.cachePolicy.timeToLive();
+							opts.cache.set(key, value, ttl);
 						});
 				} else if (revalidateCache) {
 					const key = cacheKey(opts);
