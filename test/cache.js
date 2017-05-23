@@ -105,6 +105,24 @@ test('Binary responses are cached', async t => {
 	t.is(firstResponse.body.toString(), secondResponse.body.toString());
 });
 
+test('TTL is passed to cache', async t => {
+	const endpoint = '/cache';
+	const store = new Map();
+	const cache = {
+		get: store.get.bind(store),
+		set: (key, val, ttl) => {
+			t.true(typeof ttl === 'number');
+			t.true(ttl > 0);
+			return store.set(key, val, ttl);
+		},
+		delete: store.delete.bind(store)
+	};
+
+	t.plan(2);
+
+	await got(s.url + endpoint, {cache});
+});
+
 test('Cached response is re-encoded to current encoding option', async t => {
 	const endpoint = '/cache';
 	const cache = new Map();
