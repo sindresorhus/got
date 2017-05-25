@@ -140,13 +140,9 @@ test('relative redirect works', async t => {
 });
 
 test('throws on endless redirect', async t => {
-	try {
-		await got(`${http.url}/endless`);
-		t.fail('Exception was not thrown');
-	} catch (err) {
-		t.is(err.message, 'Redirected 10 times. Aborting.');
-		t.deepEqual(err.redirectUrls, Array(10).fill(`${http.url}/endless`));
-	}
+	const err = await t.throws(got(`${http.url}/endless`));
+	t.is(err.message, 'Redirected 10 times. Aborting.');
+	t.deepEqual(err.redirectUrls, Array(10).fill(`${http.url}/endless`));
 });
 
 test('query in options are not breaking redirects', async t => {
@@ -161,14 +157,10 @@ test('hostname+path in options are not breaking redirects', async t => {
 });
 
 test('redirect only GET and HEAD requests', async t => {
-	try {
-		await got(`${http.url}/relative`, {body: 'wow'});
-		t.fail('Exception was not thrown');
-	} catch (err) {
-		t.is(err.message, 'Response code 302 (Found)');
-		t.is(err.path, '/relative');
-		t.is(err.statusCode, 302);
-	}
+	const err = await t.throws(got(`${http.url}/relative`, {body: 'wow'}));
+	t.is(err.message, 'Response code 302 (Found)');
+	t.is(err.path, '/relative');
+	t.is(err.statusCode, 302);
 });
 
 test('redirect on 303 response even with post, put, delete', async t => {

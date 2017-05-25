@@ -50,14 +50,10 @@ test('decompress content - stream', async t => {
 });
 
 test('handles gzip error', async t => {
-	try {
-		await got(`${s.url}/corrupted`);
-		t.fail('Exception was not thrown');
-	} catch (err) {
-		t.is(err.message, 'incorrect header check');
-		t.is(err.path, '/corrupted');
-		t.is(err.name, 'ReadError');
-	}
+	const err = await t.throws(got(`${s.url}/corrupted`));
+	t.is(err.message, 'incorrect header check');
+	t.is(err.path, '/corrupted');
+	t.is(err.name, 'ReadError');
 });
 
 test('preserve headers property', async t => {

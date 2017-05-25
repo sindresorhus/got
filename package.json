@@ -59,6 +59,7 @@
     "isurl": "^1.0.0-alpha5",
     "lowercase-keys": "^1.0.0",
     "p-cancelable": "^0.2.0",
+    "p-timeout": "^1.1.1",
     "safe-buffer": "^5.0.1",
     "timed-out": "^4.0.0",
     "url-parse-lax": "^1.0.0"

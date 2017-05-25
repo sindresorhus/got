@@ -16,42 +16,30 @@ test.before('setup', async () => {
 });
 
 test('properties', async t => {
-	try {
-		await got(s.url);
-		t.fail('Exception was not thrown');
-	} catch (err) {
-		t.truthy(err);
-		t.truthy(err.response);
-		t.false({}.propertyIsEnumerable.call(err, 'response'));
-		t.false({}.hasOwnProperty.call(err, 'code'));
-		t.is(err.message, 'Response code 404 (Not Found)');
-		t.is(err.host, `${s.host}:${s.port}`);
-		t.is(err.method, 'GET');
-		t.is(err.protocol, 'http:');
-		t.is(err.url, err.response.requestUrl);
-		t.is(err.headers.connection, 'close');
-	}
+	const err = await t.throws(got(s.url));
+	t.truthy(err);
+	t.truthy(err.response);
+	t.false({}.propertyIsEnumerable.call(err, 'response'));
+	t.false({}.hasOwnProperty.call(err, 'code'));
+	t.is(err.message, 'Response code 404 (Not Found)');
+	t.is(err.host, `${s.host}:${s.port}`);
+	t.is(err.method, 'GET');
+	t.is(err.protocol, 'http:');
+	t.is(err.url, err.response.requestUrl);
+	t.is(err.headers.connection, 'close');
 });
 
 test('dns message', async t => {
-	try {
-		await got('.com', {retries: 0});
-		t.fail('Exception was not thrown');
-	} catch (err) {
-		t.truthy(err);
-		t.regex(err.message, /getaddrinfo ENOTFOUND/);
-		t.is(err.host, '.com');
-		t.is(err.method, 'GET');
-	}
+	const err = await t.throws(got('.com', {retries: 0}));
+	t.truthy(err);
+	t.regex(err.message, /getaddrinfo ENOTFOUND/);
+	t.is(err.host, '.com');
+	t.is(err.method, 'GET');
 });
 
 test('options.body error message', async t => {
-	try {
-		await got(s.url, {body: () => {}});
-		t.fail('Exception was not thrown');
-	} catch (err) {
-		t.regex(err.message, /options.body must be a ReadableStream, string, Buffer or plain Object/);
-	}
+	const err = await t.throws(got(s.url, {body: () => {}}));
+	t.regex(err.message, /options.body must be a ReadableStream, string, Buffer or plain Object/);
 });
 
 test.after('cleanup', async () => {

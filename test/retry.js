@@ -36,16 +36,12 @@ test('works on timeout error', async t => {
 });
 
 test('can be disabled with option', async t => {
-	try {
-		await got(`${s.url}/try-me`, {
-			timeout: {connect: 500, socket: 500},
-			retries: 0
-		});
-		t.fail();
-	} catch (err) {
-		t.truthy(err);
-		t.is(trys, 1);
-	}
+	const err = await t.throws(got(`${s.url}/try-me`, {
+		timeout: {connect: 500, socket: 500},
+		retries: 0
+	}));
+	t.truthy(err);
+	t.is(trys, 1);
 });
 
 test('function gets iter count', async t => {
@@ -57,28 +53,22 @@ test('function gets iter count', async t => {
 });
 
 test('falsy value prevents retries', async t => {
-	try {
-		await got(`${s.url}/long`, {
-			timeout: {connect: 100, socket: 100},
-			retries: () => 0
-		});
-	} catch (err) {
-		t.truthy(err);
-	}
+	const err = await t.throws(got(`${s.url}/long`, {
+		timeout: {connect: 100, socket: 100},
+		retries: () => 0
+	}));
+	t.truthy(err);
 });
 
 test('falsy value prevents retries #2', async t => {
-	try {
-		await got(`${s.url}/long`, {
-			timeout: {connect: 100, socket: 100},
-			retries: (iter, err) => {
-				t.truthy(err);
-				return false;
-			}
-		});
-	} catch (err) {
-		t.truthy(err);
-	}
+	const err = await t.throws(got(`${s.url}/long`, {
+		timeout: {connect: 100, socket: 100},
+		retries: (iter, err) => {
+			t.truthy(err);
+			return false;
+		}
+	}));
+	t.truthy(err);
 });
 
 test.after('cleanup', async () => {

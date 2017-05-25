@@ -17,6 +17,7 @@ const Buffer = require('safe-buffer').Buffer;
 const isURL = require('isurl');
 const isPlainObj = require('is-plain-obj');
 const PCancelable = require('p-cancelable');
+const pTimeout = require('p-timeout');
 const pkg = require('./package');
 
 const getMethodRedirectCodes = new Set([300, 301, 302, 303, 304, 305, 307, 308]);
@@ -119,7 +120,11 @@ function requestAsEventEmitter(opts) {
 }
 
 function asPromise(opts) {
-	return new PCancelable((onCancel, resolve, reject) => {
+	const timeoutFn = requestPromise => opts.gotTimeout && opts.gotTimeout.request ?
+		pTimeout(requestPromise, opts.gotTimeout.request, new got.RequestError({message: 'Request timed out', code: 'ETIMEDOUT'}, opts)) :
+		requestPromise;
+
+	return timeoutFn(new PCancelable((onCancel, resolve, reject) => {
 		const ee = requestAsEventEmitter(opts);
 		let cancelOnRequest = false;
 
@@ -179,13 +184,20 @@ function asPromise(opts) {
 		});
 
 		ee.on('error', reject);
-	});
+	}));
 }
 
 function asStream(opts) {
 	const input = new PassThrough();
 	const output = new PassThrough();
 	const proxy = duplexer3(input, output);
+	let timeout;
+
+	if (opts.gotTimeout && opts.gotTimeout.request) {
+		timeout = setTimeout(() => {
+			proxy.emit('error', new got.RequestError({message: 'Request timed out', code: 'ETIMEDOUT'}, opts));
+		}, opts.gotTimeout.request);
+	}
 
 	if (opts.json) {
 		throw new Error('got can not be used as stream when options.json is used');
@@ -221,6 +233,8 @@ function asStream(opts) {
 	});
 
 	ee.on('response', res => {
+		clearTimeout(timeout);
+
 		const statusCode = res.statusCode;
 
 		res.pipe(output);
@@ -354,7 +368,11 @@ function normalizeArguments(url, opts) {
 	}
 
 	if (opts.timeout) {
-		opts.gotTimeout = opts.timeout;
+		if (typeof opts.timeout === 'number') {
+			opts.gotTimeout = {request: opts.timeout};
+		} else {
+			opts.gotTimeout = opts.timeout;
+		}
 		delete opts.timeout;
 	}
 
