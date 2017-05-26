@@ -152,6 +152,14 @@ Defines if redirect responses should be followed automatically.
 Note that if a `303` is sent by the server in response to any request type (`POST`, `DELETE`, etc.), got will automatically
 request the resource pointed to in the location header via `GET`. This is in accordance with [the spec](https://tools.ietf.org/html/rfc7231#section-6.4.4).
 
+###### useElectronNet
+
+Type: `boolean`<br>
+Default: `true`
+
+When used in Electron, Got will automatically use [`electron.net`](https://electron.atom.io/docs/api/net/) instead of the Node.js `http` module. It should be fully compatible, but you can turn it off here if you encounter a problem. Please open an issue if you do!
+
+
 #### Streams
 
 #### got.stream(url, [options])

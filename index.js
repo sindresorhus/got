@@ -40,8 +40,9 @@ function requestAsEventEmitter(opts) {
 
 		let fn = opts.protocol === 'https:' ? https : http;
 
-		if (process.versions.electron) {
-			fn = require('electron').net;
+		if (opts.useElectronNet && process.versions.electron) {
+			const electron = require('electron');
+			fn = electron.net || electron.remote.net;
 		}
 
 		const req = fn.request(opts, res => {
@@ -278,7 +279,8 @@ function normalizeArguments(url, opts) {
 	opts = Object.assign(
 		{
 			path: '',
-			retries: 2
+			retries: 2,
+			useElectronNet: true
 		},
 		url,
 		{
