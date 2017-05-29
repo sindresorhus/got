@@ -3,9 +3,12 @@ const EventEmitter = require('events');
 const http = require('http');
 const https = require('https');
 const PassThrough = require('stream').PassThrough;
+const Transform = require('stream').Transform;
 const urlLib = require('url');
+const fs = require('fs');
 const querystring = require('querystring');
 const duplexer3 = require('duplexer3');
+const intoStream = require('into-stream');
 const isStream = require('is-stream');
 const getStream = require('get-stream');
 const timedOut = require('timed-out');
@@ -24,6 +27,50 @@ const pkg = require('./package');
 const getMethodRedirectCodes = new Set([300, 301, 302, 303, 304, 305, 307, 308]);
 const allMethodRedirectCodes = new Set([300, 303, 307, 308]);
 
+const isFormData = body => isStream(body) && typeof body.getBoundary === 'function';
+
+const getBodySize = body => {
+	return new Promise((resolve, reject) => {
+		if (typeof body === 'string') {
+			resolve(Buffer.byteLength(body));
+			return;
+		}
+
+		if (isFormData(body)) {
+			body.getLength((err, size) => {
+				if (err) {
+					reject(err);
+					return;
+				}
+
+				resolve(size);
+			});
+
+			return;
+		}
+
+		if (body instanceof fs.ReadStream) {
+			fs.stat(body.path, (err, stat) => {
+				if (err) {
+					reject(err);
+					return;
+				}
+
+				resolve(stat.size);
+			});
+
+			return;
+		}
+
+		if (body && Buffer.isBuffer(body._buffer)) {
+			resolve(body._buffer.length);
+			return;
+		}
+
+		resolve(0);
+	});
+};
+
 function requestAsEventEmitter(opts) {
 	opts = opts || {};
 
@@ -32,6 +79,7 @@ function requestAsEventEmitter(opts) {
 	const redirects = [];
 	let retryCount = 0;
 	let redirectUrl;
+	let uploadBodySize;
 
 	const get = opts => {
 		if (opts.protocol !== 'http:' && opts.protocol !== 'https:') {
@@ -46,7 +94,19 @@ function requestAsEventEmitter(opts) {
 			fn = electron.net || electron.remote.net;
 		}
 
+		let progressInterval;
+
 		const req = fn.request(opts, res => {
+			clearInterval(progressInterval);
+
+			ee.emit('uploadProgress', {
+				percent: 1,
+				size: {
+					transferred: uploadBodySize,
+					total: uploadBodySize
+				}
+			});
+
 			const statusCode = res.statusCode;
 
 			res.url = redirectUrl || requestUrl;
@@ -85,7 +145,34 @@ function requestAsEventEmitter(opts) {
 				return;
 			}
 
+			const downloadBodySize = Number(res.headers['content-length']) || null;
+			let downloaded = 0;
+
 			setImmediate(() => {
+				const progressStream = new Transform({
+					transform(chunk, encoding, callback) {
+						downloaded += chunk.length;
+
+						ee.emit('downloadProgress', {
+							percent: downloadBodySize ? downloaded / downloadBodySize : null,
+							size: {
+								transferred: downloaded,
+								total: downloadBodySize
+							}
+						});
+
+						callback(null, chunk);
+					}
+				});
+
+				progressStream.redirectUrls = redirects;
+
+				Object.keys(res).forEach(key => {
+					if (!key.startsWith('_')) {
+						progressStream[key] = res[key];
+					}
+				});
+
 				const response = opts.decompress === true &&
 					typeof decompressResponse === 'function' &&
 					req.method !== 'HEAD' ? decompressResponse(res) : res;
@@ -94,13 +181,23 @@ function requestAsEventEmitter(opts) {
 					opts.encoding = null;
 				}
 
-				response.redirectUrls = redirects;
-
 				ee.emit('response', response);
+
+				ee.emit('downloadProgress', {
+					percent: downloadBodySize ? 0 : null,
+					size: {
+						transferred: 0,
+						total: downloadBodySize
+					}
+				});
+
+				res.pipe(progressStream);
 			});
 		});
 
 		req.once('error', err => {
+			clearInterval(progressInterval);
+
 			const backoff = opts.retries(++retryCount, err);
 
 			if (backoff) {
@@ -111,7 +208,40 @@ function requestAsEventEmitter(opts) {
 			ee.emit('error', new got.RequestError(err, opts));
 		});
 
+		ee.on('request', req => {
+			ee.emit('uploadProgress', {
+				percent: 0,
+				size: {
+					transferred: 0,
+					total: uploadBodySize
+				}
+			});
+
+			req.connection.on('connect', () => {
+				let uploaded = 0;
+
+				progressInterval = setInterval(() => {
+					const lastUploaded = uploaded;
+					const headersSize = Buffer.byteLength(req._header);
+					uploaded = req.connection.bytesWritten - headersSize;
+
+					if (uploaded === lastUploaded || uploaded >= uploadBodySize) {
+						return;
+					}
+
+					ee.emit('uploadProgress', {
+						percent: uploadBodySize ? uploaded / uploadBodySize : null,
+						size: {
+							transferred: uploaded,
+							total: uploadBodySize
+						}
+					});
+				}, 150);
+			});
+		});
+
 		if (opts.gotTimeout) {
+			clearInterval(progressInterval);
 			timedOut(req, opts.gotTimeout);
 		}
 
@@ -120,9 +250,18 @@ function requestAsEventEmitter(opts) {
 		});
 	};
 
-	setImmediate(() => {
-		get(opts);
-	});
+	getBodySize(opts.body)
+		.then(size => {
+			uploadBodySize = size;
+
+			setImmediate(() => {
+				get(opts);
+			});
+		})
+		.catch(err => {
+			ee.emit('error', err);
+		});
+
 	return ee;
 }
 
@@ -131,7 +270,9 @@ function asPromise(opts) {
 		pTimeout(requestPromise, opts.gotTimeout.request, new got.RequestError({message: 'Request timed out', code: 'ETIMEDOUT'}, opts)) :
 		requestPromise;
 
-	return timeoutFn(new PCancelable((onCancel, resolve, reject) => {
+	const proxyEmitter = new EventEmitter();
+
+	const promise = timeoutFn(new PCancelable((onCancel, resolve, reject) => {
 		const ee = requestAsEventEmitter(opts);
 		let cancelOnRequest = false;
 
@@ -191,7 +332,23 @@ function asPromise(opts) {
 		});
 
 		ee.on('error', reject);
+
+		ee.on('downloadProgress', progress => {
+			proxyEmitter.emit('downloadProgress', progress);
+		});
+
+		ee.on('uploadProgress', progress => {
+			proxyEmitter.emit('uploadProgress', progress);
+		});
 	}));
+
+	promise.on = (name, fn) => {
+		proxyEmitter.on(name, fn);
+
+		return promise;
+	};
+
+	return promise;
 }
 
 function asStream(opts) {
@@ -320,7 +477,7 @@ function normalizeArguments(url, opts) {
 			throw new TypeError('options.body must be a plain Object or Array when options.form or options.json is used');
 		}
 
-		if (isStream(body) && typeof body.getBoundary === 'function') {
+		if (isFormData(body)) {
 			// Special case for https://github.com/form-data/form-data
 			headers['content-type'] = headers['content-type'] || `multipart/form-data; boundary=${body.getBoundary()}`;
 		} else if (opts.form && canBodyBeStringified) {
@@ -334,6 +491,11 @@ function normalizeArguments(url, opts) {
 		if (headers['content-length'] === undefined && headers['transfer-encoding'] === undefined && !isStream(body)) {
 			const length = typeof opts.body === 'string' ? Buffer.byteLength(opts.body) : opts.body.length;
 			headers['content-length'] = length;
+		}
+
+		if (Buffer.isBuffer(body)) {
+			opts.body = intoStream(body);
+			opts.body._buffer = body;
 		}
 
 		opts.method = (opts.method || 'POST').toUpperCase();
