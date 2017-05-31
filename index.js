@@ -102,6 +102,7 @@ function requestAsEventEmitter(opts) {
 
 				response.url = redirectUrl || requestUrl;
 				response.requestUrl = requestUrl;
+				response.fromCache = false;
 
 				ee.emit('response', response);
 			});
@@ -144,6 +145,7 @@ function requestAsEventEmitter(opts) {
 					const bodyBuffer = Buffer.from(body.data, body.encoding);
 					const response = new Response(statusCode, headers, bodyBuffer, url);
 					response.cachePolicy = policy;
+					response.fromCache = true;
 					ee.emit('response', response);
 				} else {
 					revalidateCache = value;
