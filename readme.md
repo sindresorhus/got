@@ -152,6 +152,15 @@ Defines if redirect responses should be followed automatically.
 Note that if a `303` is sent by the server in response to any request type (`POST`, `DELETE`, etc.), got will automatically
 request the resource pointed to in the location header via `GET`. This is in accordance with [the spec](https://tools.ietf.org/html/rfc7231#section-6.4.4).
 
+###### decompress
+
+Type: `boolean`<br>
+Default: `true`
+
+Defines if compressed responses should be decompressed automatically.
+
+If this is disabled the body is returned as a compressed Buffer. This may be useful if you want to handle decompression yourself or stream the raw compressed data.
+
 ###### useElectronNet
 
 Type: `boolean`<br>
