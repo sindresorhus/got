@@ -85,7 +85,8 @@ function requestAsEventEmitter(opts) {
 			}
 
 			setImmediate(() => {
-				const response = typeof decompressResponse === 'function' &&
+				const response = opts.decompress === true &&
+					typeof decompressResponse === 'function' &&
 					req.method !== 'HEAD' ? decompressResponse(res) : res;
 
 				response.redirectUrls = redirects;
@@ -280,6 +281,7 @@ function normalizeArguments(url, opts) {
 		{
 			path: '',
 			retries: 2,
+			decompress: true,
 			useElectronNet: true
 		},
 		url,
