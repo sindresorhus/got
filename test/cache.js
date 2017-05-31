@@ -181,6 +181,17 @@ test('Stale cache entries that can\'t be revalidate are deleted from cache', asy
 	t.is(firstResponse.body, secondResponse.body);
 });
 
+test('Response objects have fromCache property set correctly', async t => {
+	const endpoint = '/cache';
+	const cache = new Map();
+
+	const response = await got(s.url + endpoint, {cache});
+	const cachedResponse = await got(s.url + endpoint, {cache});
+
+	t.false(response.fromCache);
+	t.true(cachedResponse.fromCache);
+});
+
 test.after('cleanup', async () => {
 	await s.close();
 });
