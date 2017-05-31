@@ -6,6 +6,7 @@ import got from '..';
 import {createServer} from './helpers/server';
 
 const testContent = 'Compressible response content.\n';
+const testContentUncompressed = 'Uncompressed response content.\n';
 
 let s;
 let gzipData;
@@ -41,6 +42,12 @@ test.before('setup', async () => {
 		res.end(gzipData.slice(0, -1));
 	});
 
+	s.on('/uncompressed', (req, res) => {
+		res.statusCode = 200;
+		res.setHeader('Content-Type', 'text/plain');
+		res.end(testContentUncompressed);
+	});
+
 	await s.listen(s.port);
 });
 
@@ -62,6 +69,11 @@ test('handles gzip error', async t => {
 test('decompress option opts out of decompressing', async t => {
 	const response = await got(s.url, {decompress: false});
 	t.true(Buffer.compare(response.body, gzipData) === 0);
+});
+
+test('decompress option doesn\'t alter encoding of uncompressed responses', async t => {
+	const response = await got(`${s.url}/uncompressed`, {decompress: false});
+	t.is(response.body, testContentUncompressed);
 });
 
 test('preserve headers property', async t => {
