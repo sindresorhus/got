@@ -60,7 +60,7 @@ test('handles gzip error', async t => {
 });
 
 test('decompress option opts out of decompressing', async t => {
-	const response = await got(s.url, {decompress: false, encoding: null});
+	const response = await got(s.url, {decompress: false});
 	t.true(Buffer.compare(response.body, gzipData) === 0);
 });
 
