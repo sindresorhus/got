@@ -157,9 +157,9 @@ request the resource pointed to in the location header via `GET`. This is in acc
 Type: `boolean`<br>
 Default: `true`
 
-Defines if compressed responses should be decompressed automatically.
+Decompress the response automatically.
 
-If this is disabled the body is returned as a compressed Buffer. This may be useful if you want to handle decompression yourself or stream the raw compressed data.
+If this is disabled, a compressed response is returned as a `Buffer`. This may be useful if you want to handle decompression yourself or stream the raw compressed data.
 
 ###### useElectronNet
 
