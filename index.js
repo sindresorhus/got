@@ -200,7 +200,7 @@ function requestAsEventEmitter(opts) {
 
 				const response = opts.decompress === true &&
 					typeof decompressResponse === 'function' &&
-					req.method !== 'HEAD' ? decompressResponse(res) : res;
+					req.method !== 'HEAD' ? decompressResponse(progressStream) : progressStream;
 
 				if (!opts.decompress && ['gzip', 'deflate'].indexOf(res.headers['content-encoding']) !== -1) {
 					opts.encoding = null;
