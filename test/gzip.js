@@ -1,15 +1,19 @@
 import zlib from 'zlib';
 import test from 'ava';
 import getStream from 'get-stream';
+import pify from 'pify';
 import got from '..';
 import {createServer} from './helpers/server';
 
 const testContent = 'Compressible response content.\n';
+const testContentUncompressed = 'Uncompressed response content.\n';
 
 let s;
+let gzipData;
 
 test.before('setup', async () => {
 	s = await createServer();
+	gzipData = await pify(zlib.gzip)(testContent);
 
 	s.on('/', (req, res) => {
 		res.statusCode = 200;
@@ -21,7 +25,7 @@ test.before('setup', async () => {
 			return;
 		}
 
-		zlib.gzip(testContent, (_, data) => res.end(data));
+		res.end(gzipData);
 	});
 
 	s.on('/corrupted', (req, res) => {
@@ -35,7 +39,13 @@ test.before('setup', async () => {
 		res.statusCode = 200;
 		res.setHeader('Content-Type', 'text/plain');
 		res.setHeader('Content-Encoding', 'gzip');
-		zlib.gzip(testContent, (_, data) => res.end(data.slice(0, -1)));
+		res.end(gzipData.slice(0, -1));
+	});
+
+	s.on('/uncompressed', (req, res) => {
+		res.statusCode = 200;
+		res.setHeader('Content-Type', 'text/plain');
+		res.end(testContentUncompressed);
 	});
 
 	await s.listen(s.port);
@@ -54,6 +64,16 @@ test('handles gzip error', async t => {
 	t.is(err.message, 'incorrect header check');
 	t.is(err.path, '/corrupted');
 	t.is(err.name, 'ReadError');
+});
+
+test('decompress option opts out of decompressing', async t => {
+	const response = await got(s.url, {decompress: false});
+	t.true(Buffer.compare(response.body, gzipData) === 0);
+});
+
+test('decompress option doesn\'t alter encoding of uncompressed responses', async t => {
+	const response = await got(`${s.url}/uncompressed`, {decompress: false});
+	t.is(response.body, testContentUncompressed);
 });
 
 test('preserve headers property', async t => {

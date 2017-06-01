@@ -85,8 +85,13 @@ function requestAsEventEmitter(opts) {
 			}
 
 			setImmediate(() => {
-				const response = typeof decompressResponse === 'function' &&
+				const response = opts.decompress === true &&
+					typeof decompressResponse === 'function' &&
 					req.method !== 'HEAD' ? decompressResponse(res) : res;
+
+				if (!opts.decompress && ['gzip', 'deflate'].indexOf(res.headers['content-encoding']) !== -1) {
+					opts.encoding = null;
+				}
 
 				response.redirectUrls = redirects;
 
@@ -280,6 +285,7 @@ function normalizeArguments(url, opts) {
 		{
 			path: '',
 			retries: 2,
+			decompress: true,
 			useElectronNet: true
 		},
 		url,
