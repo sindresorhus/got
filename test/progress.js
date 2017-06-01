@@ -20,15 +20,15 @@ const checkEvents = (t, events, bodySize = null) => {
 
 	events.forEach((event, index) => {
 		if (hasBodySize) {
-			t.is(event.percent, event.size.transferred / bodySize);
+			t.is(event.percent, event.transferred / bodySize);
 			t.true(event.percent > lastEvent.percent);
 		} else {
 			const isLastEvent = index === events.length - 1;
 			t.is(event.percent, isLastEvent ? 1 : 0);
 		}
 
-		t.true(event.size.transferred >= lastEvent.size.transferred);
-		t.is(event.size.total, bodySize);
+		t.true(event.transferred >= lastEvent.transferred);
+		t.is(event.total, bodySize);
 
 		lastEvent = event;
 	});
@@ -181,17 +181,13 @@ test('upload progress - no body', async t => {
 	t.deepEqual(events, [
 		{
 			percent: 0,
-			size: {
-				transferred: 0,
-				total: 0
-			}
+			transferred: 0,
+			total: 0
 		},
 		{
 			percent: 1,
-			size: {
-				transferred: 0,
-				total: 0
-			}
+			transferred: 0,
+			total: 0
 		}
 	]);
 });

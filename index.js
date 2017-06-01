@@ -114,10 +114,8 @@ function requestAsEventEmitter(opts) {
 
 			ee.emit('uploadProgress', {
 				percent: 1,
-				size: {
-					transferred: uploaded,
-					total: uploadBodySize
-				}
+				transferred: uploaded,
+				total: uploadBodySize
 			});
 
 			const statusCode = res.statusCode;
@@ -171,10 +169,8 @@ function requestAsEventEmitter(opts) {
 						if (percent < 1) {
 							ee.emit('downloadProgress', {
 								percent,
-								size: {
-									transferred: downloaded,
-									total: downloadBodySize
-								}
+								transferred: downloaded,
+								total: downloadBodySize
 							});
 						}
 
@@ -184,10 +180,8 @@ function requestAsEventEmitter(opts) {
 					flush(callback) {
 						ee.emit('downloadProgress', {
 							percent: 1,
-							size: {
-								transferred: downloaded,
-								total: downloadBodySize
-							}
+							transferred: downloaded,
+							total: downloadBodySize
 						});
 
 						callback();
@@ -214,10 +208,8 @@ function requestAsEventEmitter(opts) {
 
 				ee.emit('downloadProgress', {
 					percent: 0,
-					size: {
-						transferred: 0,
-						total: downloadBodySize
-					}
+					transferred: 0,
+					total: downloadBodySize
 				});
 
 				res.pipe(progressStream);
@@ -240,10 +232,8 @@ function requestAsEventEmitter(opts) {
 		ee.on('request', req => {
 			ee.emit('uploadProgress', {
 				percent: 0,
-				size: {
-					transferred: 0,
-					total: uploadBodySize
-				}
+				transferred: 0,
+				total: uploadBodySize
 			});
 
 			req.connection.on('connect', () => {
@@ -262,10 +252,8 @@ function requestAsEventEmitter(opts) {
 
 					ee.emit('uploadProgress', {
 						percent: uploadBodySize ? uploaded / uploadBodySize : 0,
-						size: {
-							transferred: uploaded,
-							total: uploadBodySize
-						}
+						transferred: uploaded,
+						total: uploadBodySize
 					});
 				}, 150);
 			});
