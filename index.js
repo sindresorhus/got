@@ -34,7 +34,7 @@ const getBodySize = opts => {
 
 	return new Promise((resolve, reject) => {
 		if (opts.headers['content-length']) {
-			resolve(opts.headers['content-length']);
+			resolve(Number(opts.headers['content-length']));
 			return;
 		}
 
@@ -74,7 +74,7 @@ const getBodySize = opts => {
 			return;
 		}
 
-		if (body && Buffer.isBuffer(body._buffer)) {
+		if (isStream(body) && Buffer.isBuffer(body._buffer)) {
 			resolve(body._buffer.length);
 			return;
 		}
@@ -166,6 +166,7 @@ function requestAsEventEmitter(opts) {
 
 						const percent = downloadBodySize ? downloaded / downloadBodySize : 0;
 
+						// Let flush() be responsible for emitting the last event
 						if (percent < 1) {
 							ee.emit('downloadProgress', {
 								percent,
@@ -190,6 +191,7 @@ function requestAsEventEmitter(opts) {
 
 				progressStream.redirectUrls = redirects;
 
+				// Simulate response stream by copying its props
 				Object.keys(res).forEach(key => {
 					if (!key.startsWith('_')) {
 						progressStream[key] = res[key];
@@ -242,10 +244,14 @@ function requestAsEventEmitter(opts) {
 					const headersSize = Buffer.byteLength(req._header);
 					uploaded = req.connection.bytesWritten - headersSize;
 
+					// Prevent the known issue of `bytesWritten` being larger than body size
 					if (uploadBodySize && uploaded > uploadBodySize) {
 						uploaded = uploadBodySize;
 					}
 
+					// Don't emit events with unchanged progress and
+					// prevent last event from being emitted, because
+					// it's emitted when `response` is emitted
 					if (uploaded === lastUploaded || uploaded === uploadBodySize) {
 						return;
 					}
@@ -269,17 +275,17 @@ function requestAsEventEmitter(opts) {
 		});
 	};
 
-	getBodySize(opts)
-		.then(size => {
-			uploadBodySize = size;
+	setImmediate(() => {
+		getBodySize(opts)
+			.then(size => {
+				uploadBodySize = size;
 
-			setImmediate(() => {
 				get(opts);
+			})
+			.catch(err => {
+				ee.emit('error', err);
 			});
-		})
-		.catch(err => {
-			ee.emit('error', err);
-		});
+	});
 
 	return ee;
 }
@@ -508,6 +514,8 @@ function normalizeArguments(url, opts) {
 			headers['content-length'] = length;
 		}
 
+		// Convert buffer to stream to receive upload progress events
+		// see https://github.com/sindresorhus/got/pull/322
 		if (Buffer.isBuffer(body)) {
 			opts.body = intoStream(body);
 			opts.body._buffer = body;
