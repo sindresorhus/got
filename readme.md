@@ -202,6 +202,21 @@ got.stream('github.com')
 
 `redirect` event to get the response object of a redirect. The second argument is options for the next request to the redirect location.
 
+##### .on('uploadProgress', progress)
+##### .on('downloadProgress', progress)
+
+Progress events for uploading (sending request) and downloading (receiving response). `progress` argument is an object like:
+
+```js
+{
+	percent: 0.24,
+	transferred: 1024,
+	total: 10240
+}
+```
+
+If it's not possible to retrieve body size (e.g. when streaming), `total` equals to `null`.
+
 ##### .on('error', error, body, response)
 
 `error` event emitted in case of protocol error (like `ENOTFOUND` etc.) or status error (4xx or 5xx). The second argument is the body of the server response in case of status error. The third argument is response object.
