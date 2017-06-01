@@ -2,6 +2,6 @@ sudo: false
 language: node_js
 node_js:
   - '8'
-  - '7'
   - '6'
+  - '4'
 after_success: npm run coveralls
