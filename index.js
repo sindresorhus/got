@@ -29,8 +29,20 @@ const allMethodRedirectCodes = new Set([300, 303, 307, 308]);
 
 const isFormData = body => isStream(body) && typeof body.getBoundary === 'function';
 
-const getBodySize = body => {
+const getBodySize = opts => {
+	const body = opts.body;
+
 	return new Promise((resolve, reject) => {
+		if (opts.headers['content-length']) {
+			resolve(opts.headers['content-length']);
+			return;
+		}
+
+		if (!body && !opts.stream) {
+			resolve(0);
+			return;
+		}
+
 		if (typeof body === 'string') {
 			resolve(Buffer.byteLength(body));
 			return;
@@ -67,7 +79,7 @@ const getBodySize = body => {
 			return;
 		}
 
-		resolve(0);
+		resolve(null);
 	});
 };
 
@@ -80,6 +92,7 @@ function requestAsEventEmitter(opts) {
 	let retryCount = 0;
 	let redirectUrl;
 	let uploadBodySize;
+	let uploaded = 0;
 
 	const get = opts => {
 		if (opts.protocol !== 'http:' && opts.protocol !== 'https:') {
@@ -102,7 +115,7 @@ function requestAsEventEmitter(opts) {
 			ee.emit('uploadProgress', {
 				percent: 1,
 				size: {
-					transferred: uploadBodySize,
+					transferred: uploaded,
 					total: uploadBodySize
 				}
 			});
@@ -153,15 +166,31 @@ function requestAsEventEmitter(opts) {
 					transform(chunk, encoding, callback) {
 						downloaded += chunk.length;
 
+						const percent = downloadBodySize ? downloaded / downloadBodySize : 0;
+
+						if (percent < 1) {
+							ee.emit('downloadProgress', {
+								percent,
+								size: {
+									transferred: downloaded,
+									total: downloadBodySize
+								}
+							});
+						}
+
+						callback(null, chunk);
+					},
+
+					flush(callback) {
 						ee.emit('downloadProgress', {
-							percent: downloadBodySize ? downloaded / downloadBodySize : null,
+							percent: 1,
 							size: {
 								transferred: downloaded,
 								total: downloadBodySize
 							}
 						});
 
-						callback(null, chunk);
+						callback();
 					}
 				});
 
@@ -184,7 +213,7 @@ function requestAsEventEmitter(opts) {
 				ee.emit('response', response);
 
 				ee.emit('downloadProgress', {
-					percent: downloadBodySize ? 0 : null,
+					percent: 0,
 					size: {
 						transferred: 0,
 						total: downloadBodySize
@@ -218,19 +247,21 @@ function requestAsEventEmitter(opts) {
 			});
 
 			req.connection.on('connect', () => {
-				let uploaded = 0;
-
 				progressInterval = setInterval(() => {
 					const lastUploaded = uploaded;
 					const headersSize = Buffer.byteLength(req._header);
 					uploaded = req.connection.bytesWritten - headersSize;
 
-					if (uploaded === lastUploaded || uploaded >= uploadBodySize) {
+					if (uploadBodySize && uploaded > uploadBodySize) {
+						uploaded = uploadBodySize;
+					}
+
+					if (uploaded === lastUploaded || uploaded === uploadBodySize) {
 						return;
 					}
 
 					ee.emit('uploadProgress', {
-						percent: uploadBodySize ? uploaded / uploadBodySize : null,
+						percent: uploadBodySize ? uploaded / uploadBodySize : 0,
 						size: {
 							transferred: uploaded,
 							total: uploadBodySize
@@ -250,7 +281,7 @@ function requestAsEventEmitter(opts) {
 		});
 	};
 
-	getBodySize(opts.body)
+	getBodySize(opts)
 		.then(size => {
 			uploadBodySize = size;
 
@@ -270,7 +301,7 @@ function asPromise(opts) {
 		pTimeout(requestPromise, opts.gotTimeout.request, new got.RequestError({message: 'Request timed out', code: 'ETIMEDOUT'}, opts)) :
 		requestPromise;
 
-	const proxyEmitter = new EventEmitter();
+	const proxy = new EventEmitter();
 
 	const promise = timeoutFn(new PCancelable((onCancel, resolve, reject) => {
 		const ee = requestAsEventEmitter(opts);
@@ -332,18 +363,12 @@ function asPromise(opts) {
 		});
 
 		ee.on('error', reject);
-
-		ee.on('downloadProgress', progress => {
-			proxyEmitter.emit('downloadProgress', progress);
-		});
-
-		ee.on('uploadProgress', progress => {
-			proxyEmitter.emit('uploadProgress', progress);
-		});
+		ee.on('uploadProgress', proxy.emit.bind(proxy, 'uploadProgress'));
+		ee.on('downloadProgress', proxy.emit.bind(proxy, 'downloadProgress'));
 	}));
 
 	promise.on = (name, fn) => {
-		proxyEmitter.on(name, fn);
+		proxy.on(name, fn);
 
 		return promise;
 	};
@@ -413,6 +438,8 @@ function asStream(opts) {
 
 	ee.on('redirect', proxy.emit.bind(proxy, 'redirect'));
 	ee.on('error', proxy.emit.bind(proxy, 'error'));
+	ee.on('uploadProgress', proxy.emit.bind(proxy, 'uploadProgress'));
+	ee.on('downloadProgress', proxy.emit.bind(proxy, 'downloadProgress'));
 
 	return proxy;
 }
@@ -551,7 +578,7 @@ function got(url, opts) {
 	}
 }
 
-got.stream = (url, opts) => asStream(normalizeArguments(url, opts));
+got.stream = (url, opts) => asStream(Object.assign({}, normalizeArguments(url, opts), {stream: true}));
 
 const methods = [
 	'get',

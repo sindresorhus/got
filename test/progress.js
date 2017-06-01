@@ -8,15 +8,26 @@ import test from 'ava';
 import got from '..';
 import {createServer} from './helpers/server';
 
-const checkEvents = (t, events, bodySize) => {
+const checkEvents = (t, events, bodySize = null) => {
 	t.true(events.length >= 2);
 
+	const hasBodySize = typeof bodySize === 'number';
 	let lastEvent = events.shift();
 
-	events.forEach(event => {
-		t.is(event.percent, event.size.transferred / bodySize);
-		t.true(event.percent > lastEvent.percent);
-		t.true(event.size.transferred > lastEvent.size.transferred);
+	if (!hasBodySize) {
+		t.is(lastEvent.percent, 0);
+	}
+
+	events.forEach((event, index) => {
+		if (hasBodySize) {
+			t.is(event.percent, event.size.transferred / bodySize);
+			t.true(event.percent > lastEvent.percent);
+		} else {
+			const isLastEvent = index === events.length - 1;
+			t.is(event.percent, isLastEvent ? 1 : 0);
+		}
+
+		t.true(event.size.transferred >= lastEvent.size.transferred);
 		t.is(event.size.total, bodySize);
 
 		lastEvent = event;
@@ -66,22 +77,19 @@ test('download progress - missing total size', async t => {
 	await got(`${s.url}/download/no-total`)
 		.on('downloadProgress', e => events.push(e));
 
-	t.deepEqual(events, [
-		{
-			percent: null,
-			size: {
-				transferred: 0,
-				total: null
-			}
-		},
-		{
-			percent: null,
-			size: {
-				transferred: Buffer.byteLength('hello'),
-				total: null
-			}
-		}
-	]);
+	checkEvents(t, events);
+});
+
+test.cb('download progress - stream', t => {
+	const events = [];
+
+	got.stream(`${s.url}/download`, {encoding: null})
+		.on('downloadProgress', e => events.push(e))
+		.on('data', () => {})
+		.on('end', () => {
+			checkEvents(t, events, file.length);
+			t.end();
+		});
 });
 
 test('upload progress - file', async t => {
@@ -129,6 +137,39 @@ test('upload progress - json', async t => {
 		.on('uploadProgress', e => events.push(e));
 
 	checkEvents(t, events, size);
+});
+
+test.cb('upload progress - stream with known body size', t => {
+	const events = [];
+	const options = {
+		headers: {'content-length': file.length}
+	};
+
+	const req = got.stream.post(`${s.url}/upload`, options)
+		.on('uploadProgress', e => events.push(e));
+
+	intoStream(file)
+		.pipe(req)
+		.on('data', () => {})
+		.on('end', () => {
+			checkEvents(t, events, file.length);
+			t.end();
+		});
+});
+
+test.cb('upload progress - stream with unknown body size', t => {
+	const events = [];
+
+	const req = got.stream.post(`${s.url}/upload`)
+		.on('uploadProgress', e => events.push(e));
+
+	intoStream(file)
+		.pipe(req)
+		.on('data', () => {})
+		.on('end', () => {
+			checkEvents(t, events);
+			t.end();
+		});
 });
 
 test('upload progress - no body', async t => {
