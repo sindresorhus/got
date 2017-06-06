@@ -12,16 +12,24 @@
 
 A nicer interface to the built-in [`http`](http://nodejs.org/api/http.html) module.
 
-It supports following redirects, promises, streams, retries, automagically handling gzip/deflate, canceling of requests, and some convenience options.
-
 Created because [`request`](https://github.com/request/request) is bloated *(several megabytes!)*.
 
-When used with Electron, it takes advantage of [`electron.net`](https://electron.atom.io/docs/api/net/).
+
+## Highlights
+
+- [Promise & stream API](#api)
+- [Request cancelation](#aborting-the-request)
+- [Follows redirects](#followredirect)
+- [Retries on network failure](#retries)
+- [Handles gzip/deflate](#decompress)
+- [Timeout handling](#timeout)
+- [Errors with metadata](#errors)
+- [JSON mode](#json)
+- [WHATWG URL support](#url)
+- [Electron support](#useElectronNet)
 
 
 ## Install
-
-**WARNING: Node.js 4 or higher is required for got@6 and above.** For older Node.js versions use [got@5](https://github.com/sindresorhus/got/tree/v5.x).
 
 ```
 $ npm install --save got
@@ -62,7 +70,7 @@ Returns a Promise for a `response` object with a `body` property, a `url` proper
 
 ##### url
 
-Type: `string`, `object`
+Type: `string` `Object`
 
 The URL to request as simple string, a [`http.request` options](https://nodejs.org/api/http.html#http_http_request_options_callback), or a [WHATWG `URL`](https://nodejs.org/api/url.html#url_class_url).
 
@@ -70,13 +78,13 @@ Properties from `options` will override properties in the parsed `url`.
 
 ##### options
 
-Type: `object`
+Type: `Object`
 
 Any of the [`http.request`](http://nodejs.org/api/http.html#http_http_request_options_callback) options.
 
 ###### body
 
-Type: `string`, `buffer`, `readableStream`
+Type: `string` `Buffer` `stream.Readable`
 
 *This is mutually exclusive with stream mode.*
 
@@ -88,10 +96,10 @@ If `content-length` or `transfer-encoding` is not set in `options.headers` and `
 
 ###### encoding
 
-Type: `string`, `null`<br>
+Type: `string` `null`<br>
 Default: `'utf8'`
 
-Encoding to be used on `setEncoding` of the response data. If `null`, the body is returned as a Buffer.
+[Encoding](https://nodejs.org/api/buffer.html#buffer_buffers_and_character_encodings) to be used on `setEncoding` of the response data. If `null`, the body is returned as a Buffer.
 
 ###### form
 
@@ -119,13 +127,13 @@ Parse response body with `JSON.parse` and set `accept` header to `application/js
 
 ###### query
 
-Type: `string`, `object`<br>
+Type: `string` `Object`<br>
 
 Query string object that will be added to the request URL. This will override the query string in `url`.
 
 ###### timeout
 
-Type: `number`, `object`
+Type: `number` `Object`
 
 Milliseconds to wait for the server to end the response before aborting request with `ETIMEDOUT` error.
 
@@ -133,7 +141,7 @@ This also accepts an object with separate `connect`, `socket`, and `request` fie
 
 ###### retries
 
-Type: `number`, `function`<br>
+Type: `number` `Function`<br>
 Default: `2`
 
 Number of request retries when network errors happens. Delays between retries counts with function `1000 * Math.pow(2, retry) + Math.random() * 100`, where `retry` is attempt number (starts from 0).
