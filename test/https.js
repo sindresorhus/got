@@ -47,7 +47,6 @@ test('make request to https server without ca', async t => {
 
 test('make request to https server with ca', async t => {
 	const {body} = await got(s.url, {
-		strictSSL: true,
 		ca: caRootCert,
 		headers: {host: 'sindresorhus.com'}
 	});
