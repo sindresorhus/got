@@ -1,0 +1,60 @@
+/* @flow */
+
+/* eslint-disable */
+
+import { IncomingMessage } from 'http';
+import { Duplex } from 'stream';
+
+declare class got$HttpResponse extends IncomingMessage {
+    url: string,
+    requestUrl: string,
+    body: string,
+}
+declare class got$DuplexStream extends Duplex {}
+
+declare class got$stdError extends Error {
+    message: string,
+    host: string,
+    hostname: string,
+    method: string,
+    path: string,
+}
+
+declare class got$stdErrorHttpRelated extends got$stdError {
+    statusCode: number,
+    statusMessage: string,
+    message: string,
+}
+
+declare class got$RequestError extends got$stdError {}
+declare class got$ReadError extends got$stdError {}
+
+declare class got$ParseError extends got$stdErrorHttpRelated {}
+declare class got$HTTPError extends got$stdErrorHttpRelated {}
+declare class got$MaxRedirectsError extends got$stdErrorHttpRelated {}
+
+type got$url = Object | string;
+type got$options = Object | string;
+
+declare module got {
+    declare type HttpResponse = got$HttpResponse;
+
+    declare class RequestError extends got$RequestError {}
+    declare class ReadError extends got$ReadError {}
+    declare class ParseError extends got$ParseError {}
+    declare class HTTPError extends got$HTTPError {}
+    declare class MaxRedirectsError extends got$MaxRedirectsError {}
+
+    declare class Got {
+        static get(url: got$url, options: got$options): Promise<HttpResponse>;
+        static post(url: got$url, options: got$options): Promise<HttpResponse>;
+        static put(url: got$url, options: got$options): Promise<HttpResponse>;
+        static patch(url: got$url, options: got$options): Promise<HttpResponse>;
+        static head(url: got$url, options: got$options): Promise<HttpResponse>;
+        static delete(url: got$url, options: got$options): Promise<HttpResponse>;
+
+        static stream(url: got$url, options: got$options): got$DuplexStream;
+    }
+
+    declare var exports: typeof Got;
+}
