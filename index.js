@@ -262,23 +262,15 @@ function asStream(opts) {
 function normalizeArguments(url, opts) {
 	if (typeof url !== 'string' && typeof url !== 'object') {
 		throw new TypeError(`Parameter \`url\` must be a string or object, not ${typeof url}`);
-	}
-
-	if (typeof url === 'string') {
+	} else if (typeof url === 'string') {
 		url = url.replace(/^unix:/, 'http://$&');
 		url = urlParseLax(url);
-
-		if (url.auth) {
-			throw new Error('Basic authentication must be done with auth option');
-		}
+	} else if (isURL.lenient(url)) {
+		url = urlParseLax(url.href);
 	}
 
-	if (isURL.lenient(url)) {
-		url = urlParseLax(url.href);
-
-		if (url.auth) {
-			throw new Error('Basic authentication must be done with auth option');
-		}
+	if (url.auth) {
+		throw new Error('Basic authentication must be done with auth option');
 	}
 
 	opts = Object.assign(
