@@ -62,7 +62,8 @@
     "p-timeout": "^1.1.1",
     "safe-buffer": "^5.0.1",
     "timed-out": "^4.0.0",
-    "url-parse-lax": "^1.0.0"
+    "url-parse-lax": "^1.0.0",
+    "url-to-options": "^1.0.1"
   },
   "devDependencies": {
     "ava": "^0.19.1",

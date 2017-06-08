@@ -10,6 +10,7 @@ const isStream = require('is-stream');
 const getStream = require('get-stream');
 const timedOut = require('timed-out');
 const urlParseLax = require('url-parse-lax');
+const urlToOptions = require('url-to-options');
 const lowercaseKeys = require('lowercase-keys');
 const decompressResponse = require('decompress-response');
 const isRetryAllowed = require('is-retry-allowed');
@@ -266,7 +267,7 @@ function normalizeArguments(url, opts) {
 		url = url.replace(/^unix:/, 'http://$&');
 		url = urlParseLax(url);
 	} else if (isURL.lenient(url)) {
-		url = urlParseLax(url.href);
+		url = urlToOptions(url);
 	}
 
 	if (url.auth) {
