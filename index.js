@@ -410,7 +410,7 @@ helpers.forEach(el => {
 
 got.stream = (url, opts) => asStream(normalizeArguments(url, opts));
 
-for (const el of helpers) {
+for (let el of helpers) {
 	got.stream[el] = (url, opts) => got.stream(url, Object.assign({}, opts, {method: el}));
 }
 
