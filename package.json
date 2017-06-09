@@ -70,10 +70,10 @@
     "form-data": "^2.1.1",
     "get-port": "^3.0.0",
     "into-stream": "^3.0.0",
-    "nyc": "^10.0.0",
+    "nyc": "^11.0.2",
     "pem": "^1.4.4",
-    "pify": "^2.3.0",
-    "tempfile": "^1.1.1",
+    "pify": "^3.0.0",
+    "tempfile": "^2.0.0",
     "tempy": "^0.1.0",
     "universal-url": "^1.0.0-alpha",
     "xo": "^0.18.0"
