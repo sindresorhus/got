@@ -29,12 +29,9 @@ function requestAsEventEmitter(opts) {
 	let redirectUrl;
 
 	const get = opts => {
-		let request = opts.protocol === 'https:' ? https.request : http.request;
-		if (opts.cache) {
-			request = cacheableRequest(request, opts.cache);
-		}
+		const fn = opts.protocol === 'https:' ? https : http;
 
-		const req = request(opts, res => {
+		const cacheReq = cacheableRequest(fn.request, opts, res => {
 			const statusCode = res.statusCode;
 
 			if (isRedirect(statusCode) && opts.followRedirect && 'location' in res.headers && (opts.method === 'GET' || opts.method === 'HEAD')) {
@@ -58,7 +55,7 @@ function requestAsEventEmitter(opts) {
 			}
 
 			setImmediate(() => {
-				const response = typeof unzipResponse === 'function' && req.method !== 'HEAD' ? unzipResponse(res) : res;
+				const response = typeof unzipResponse === 'function' && opts.method !== 'HEAD' ? unzipResponse(res) : res;
 				response.url = redirectUrl || requestUrl;
 				response.requestUrl = requestUrl;
 
@@ -66,27 +63,23 @@ function requestAsEventEmitter(opts) {
 			});
 		});
 
-		req.once('error', err => {
-			const backoff = opts.retries(++retryCount, err);
+		cacheReq.on('request', req => {
+			req.once('error', err => {
+				const backoff = opts.retries(++retryCount, err);
 
-			if (backoff) {
-				setTimeout(get, backoff, opts);
-				return;
+				if (backoff) {
+					setTimeout(get, backoff, opts);
+					return;
+				}
+
+				ee.emit('error', new got.RequestError(err, opts));
+			});
+
+			if (opts.gotTimeout) {
+				timedOut(req, opts.gotTimeout);
 			}
 
-			ee.emit('error', new got.RequestError(err, opts));
-		});
-
-		if (opts.gotTimeout) {
-			timedOut(req, opts.gotTimeout);
-		}
-
-		req.on('request', reqs => ee.emit('request', reqs));
-
-		setImmediate(() => {
-			if (!opts.cache) {
-				ee.emit('request', req);
-			}
+			ee.emit('request', req);
 		});
 	};
 

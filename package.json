@@ -42,7 +42,7 @@
     "fetch"
   ],
   "dependencies": {
-    "cacheable-request": "^0.2.0",
+    "cacheable-request": "^0.3.0",
     "create-error-class": "^3.0.0",
     "duplexer3": "^0.1.4",
     "get-stream": "^3.0.0",
