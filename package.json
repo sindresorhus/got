@@ -42,16 +42,14 @@
     "fetch"
   ],
   "dependencies": {
+    "cacheable-request": "^0.2.0",
     "create-error-class": "^3.0.0",
     "duplexer3": "^0.1.4",
     "get-stream": "^3.0.0",
-    "http-cache-semantics": "^3.7.3",
     "is-redirect": "^1.0.0",
     "is-retry-allowed": "^1.0.0",
     "is-stream": "^1.0.0",
     "lowercase-keys": "^1.0.0",
-    "normalize-url": "^1.9.1",
-    "responselike": "^0.1.0",
     "safe-buffer": "^5.0.1",
     "timed-out": "^4.0.0",
     "unzip-response": "^2.0.1",

@@ -16,9 +16,7 @@ const unzipResponse = require('unzip-response');
 const createErrorClass = require('create-error-class');
 const isRetryAllowed = require('is-retry-allowed');
 const Buffer = require('safe-buffer').Buffer;
-const CachePolicy = require('http-cache-semantics');
-const normalizeUrl = require('normalize-url');
-const Response = require('responselike');
+const cacheableRequest = require('cacheable-request');
 const pkg = require('./package');
 
 function requestAsEventEmitter(opts) {
@@ -26,15 +24,17 @@ function requestAsEventEmitter(opts) {
 
 	const ee = new EventEmitter();
 	const requestUrl = opts.href || urlLib.resolve(urlLib.format(opts), opts.path);
-	let revalidateCache = false;
 	let redirectCount = 0;
 	let retryCount = 0;
 	let redirectUrl;
 
 	const get = opts => {
-		const fn = opts.protocol === 'https:' ? https : http;
+		let request = opts.protocol === 'https:' ? https.request : http.request;
+		if (opts.cache) {
+			request = cacheableRequest(request, opts.cache);
+		}
 
-		const req = fn.request(opts, res => {
+		const req = request(opts, res => {
 			const statusCode = res.statusCode;
 
 			if (isRedirect(statusCode) && opts.followRedirect && 'location' in res.headers && (opts.method === 'GET' || opts.method === 'HEAD')) {
@@ -58,51 +58,9 @@ function requestAsEventEmitter(opts) {
 			}
 
 			setImmediate(() => {
-				let response = typeof unzipResponse === 'function' && req.method !== 'HEAD' ? unzipResponse(res) : res;
-
-				if (revalidateCache) {
-					const cachedResponse = revalidateCache.response;
-					const {policy, modified} = CachePolicy.fromObject(revalidateCache.policy).revalidatedPolicy(opts, response);
-					if (!modified) {
-						const {statusCode, url} = response;
-						const headers = policy.responseHeaders();
-						const bodyBuffer = Buffer.from(cachedResponse.body.data, cachedResponse.body.encoding);
-						response = new Response(statusCode, headers, bodyBuffer, url);
-						response.cachePolicy = policy;
-					}
-				}
-
-				if (typeof response.cachePolicy === 'undefined') {
-					response.cachePolicy = new CachePolicy(opts, response);
-				}
-				if (opts.cache && response.cachePolicy.storable()) {
-					const encoding = opts.encoding === null ? 'buffer' : opts.encoding;
-					getStream(response, {encoding})
-						.then(body => {
-							response.body = body;
-							const key = cacheKey(opts);
-							const value = {
-								policy: response.cachePolicy.toObject(),
-								response: {
-									url: response.url,
-									statusCode: response.statusCode,
-									body: {
-										encoding: opts.encoding,
-										data: response.body
-									}
-								}
-							};
-							const ttl = response.cachePolicy.timeToLive();
-							opts.cache.set(key, value, ttl);
-						});
-				} else if (revalidateCache) {
-					const key = cacheKey(opts);
-					opts.cache.delete(key);
-				}
-
+				const response = typeof unzipResponse === 'function' && req.method !== 'HEAD' ? unzipResponse(res) : res;
 				response.url = redirectUrl || requestUrl;
 				response.requestUrl = requestUrl;
-				response.fromCache = false;
 
 				ee.emit('response', response);
 			});
@@ -123,40 +81,16 @@ function requestAsEventEmitter(opts) {
 			timedOut(req, opts.gotTimeout);
 		}
 
+		req.on('request', reqs => ee.emit('request', reqs));
+
 		setImmediate(() => {
-			ee.emit('request', req);
+			if (!opts.cache) {
+				ee.emit('request', req);
+			}
 		});
 	};
 
-	const getFromCache = opts => {
-		if (!opts.cache) {
-			return Promise.reject(new Error('Cache isn\'t enabled'));
-		}
-		const key = cacheKey(opts);
-		return Promise.resolve(opts.cache.get(key))
-			.then(value => {
-				if (typeof value === 'undefined') {
-					throw new TypeError('Cached value is undefined');
-				}
-				const policy = CachePolicy.fromObject(value.policy);
-				if (policy.satisfiesWithoutRevalidation(opts)) {
-					const {statusCode, body, url} = value.response;
-					const headers = policy.responseHeaders();
-					const bodyBuffer = Buffer.from(body.data, body.encoding);
-					const response = new Response(statusCode, headers, bodyBuffer, url);
-					response.cachePolicy = policy;
-					response.fromCache = true;
-					ee.emit('response', response);
-				} else {
-					revalidateCache = value;
-					opts.headers = policy.revalidationHeaders(opts);
-					get(opts);
-				}
-			});
-	};
-
-	getFromCache(opts).catch(() => get(opts));
-
+	get(opts);
 	return ee;
 }
 
@@ -370,11 +304,6 @@ function normalizeArguments(url, opts) {
 	}
 
 	return opts;
-}
-
-function cacheKey(opts) {
-	const url = normalizeUrl(urlLib.format(opts));
-	return `${opts.method}:${url}`;
 }
 
 function got(url, opts) {
