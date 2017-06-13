@@ -89,7 +89,8 @@ function requestAsEventEmitter(opts) {
 					typeof decompressResponse === 'function' &&
 					req.method !== 'HEAD' ? decompressResponse(res) : res;
 
-				if (!opts.decompress && ['gzip', 'deflate'].indexOf(res.headers['content-encoding']) !== -1) {
+				const encodings = ['br', 'deflate', 'gzip'];
+				if (!opts.decompress && encodings.indexOf(res.headers['content-encoding']) !== -1) {
 					opts.encoding = null;
 				}
 
