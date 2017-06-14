@@ -26,7 +26,7 @@ Created because [`request`](https://github.com/request/request) is bloated *(sev
 - [Errors with metadata](#errors)
 - [JSON mode](#json)
 - [WHATWG URL support](#url)
-- [Electron support](#useElectronNet)
+- [Electron support](#useelectronnet)
 
 
 ## Install
