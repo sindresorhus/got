@@ -27,6 +27,7 @@ test('properties', async t => {
 	t.is(err.protocol, 'http:');
 	t.is(err.url, err.response.requestUrl);
 	t.is(err.headers.connection, 'close');
+	t.is(err.response.body, 'not');
 });
 
 test('dns message', async t => {
