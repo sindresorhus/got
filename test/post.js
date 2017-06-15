@@ -61,6 +61,14 @@ test('sends plain objects as JSON', async t => {
 	t.deepEqual(body, {such: 'wow'});
 });
 
+test('sends arrays as JSON', async t => {
+	const {body} = await got(s.url, {
+		body: ['such', 'wow'],
+		json: true
+	});
+	t.deepEqual(body, ['such', 'wow']);
+});
+
 test('works with empty post response', async t => {
 	const {body} = await got(`${s.url}/empty`, {body: 'wow'});
 	t.is(body, '');
@@ -121,7 +129,7 @@ test('content-type header is not overriden when object in options.body', async t
 	t.is(headers['content-type'], 'doge');
 });
 
-test('throws when json body is not a plain object', async t => {
+test('throws when json body is not a plain object or array', async t => {
 	await t.throws(got(`${s.url}`, {body: '{}', json: true}), TypeError);
 });
 

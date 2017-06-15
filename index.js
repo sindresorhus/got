@@ -315,8 +315,12 @@ function normalizeArguments(url, opts) {
 			throw new TypeError('options.body must be a ReadableStream, string, Buffer or plain Object');
 		}
 
-		if ((opts.form || opts.json) && !isPlainObj(body)) {
-			throw new TypeError('options.body must be a plain Object when options.form or options.json is used');
+		if (opts.form && !isPlainObj(body)) {
+			throw new TypeError('options.body must be a plain Object when options.form is used');
+		}
+
+		if (opts.json && !(isPlainObj(body) || Array.isArray(body))) {
+			throw new TypeError('options.body must be a plain Object or Array when options.json is used');
 		}
 
 		if (isStream(body) && typeof body.getBoundary === 'function') {
@@ -325,7 +329,7 @@ function normalizeArguments(url, opts) {
 		} else if (opts.form && isPlainObj(body)) {
 			headers['content-type'] = headers['content-type'] || 'application/x-www-form-urlencoded';
 			opts.body = querystring.stringify(body);
-		} else if (opts.json && isPlainObj(body)) {
+		} else if (opts.json && (isPlainObj(body) || Array.isArray(body))) {
 			headers['content-type'] = headers['content-type'] || 'application/json';
 			opts.body = JSON.stringify(body);
 		}
