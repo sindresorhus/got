@@ -388,7 +388,9 @@ function got(url, opts) {
 	}
 }
 
-const helpers = [
+got.stream = (url, opts) => asStream(normalizeArguments(url, opts));
+
+const methods = [
 	'get',
 	'post',
 	'put',
@@ -397,14 +399,9 @@ const helpers = [
 	'delete'
 ];
 
-helpers.forEach(el => {
-	got[el] = (url, opts) => got(url, Object.assign({}, opts, {method: el}));
-});
-
-got.stream = (url, opts) => asStream(normalizeArguments(url, opts));
-
-for (const el of helpers) {
-	got.stream[el] = (url, opts) => got.stream(url, Object.assign({}, opts, {method: el}));
+for (const method of methods) {
+	got[method] = (url, opts) => got(url, Object.assign({}, opts, {method}));
+	got.stream[method] = (url, opts) => got.stream(url, Object.assign({}, opts, {method}));
 }
 
 class StdError extends Error {
