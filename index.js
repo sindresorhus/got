@@ -16,6 +16,7 @@ const urlParseLax = require('url-parse-lax');
 const urlToOptions = require('url-to-options');
 const lowercaseKeys = require('lowercase-keys');
 const decompressResponse = require('decompress-response');
+const mimicResponse = require('mimic-response');
 const isRetryAllowed = require('is-retry-allowed');
 const Buffer = require('safe-buffer').Buffer;
 const isURL = require('isurl');
@@ -189,14 +190,8 @@ function requestAsEventEmitter(opts) {
 					}
 				});
 
+				mimicResponse(res, progressStream);
 				progressStream.redirectUrls = redirects;
-
-				// Simulate response stream by copying its props
-				Object.keys(res).forEach(key => {
-					if (!key.startsWith('_')) {
-						progressStream[key] = res[key];
-					}
-				});
 
 				const response = opts.decompress === true &&
 					typeof decompressResponse === 'function' &&
