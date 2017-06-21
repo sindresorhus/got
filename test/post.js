@@ -53,6 +53,14 @@ test('sends plain objects as forms', async t => {
 	t.is(body, 'such=wow');
 });
 
+test('sends arrays as forms', async t => {
+	const {body} = await got(s.url, {
+		body: ['such', 'wow'],
+		form: true
+	});
+	t.is(body, '0=such&1=wow');
+});
+
 test('sends plain objects as JSON', async t => {
 	const {body} = await got(s.url, {
 		body: {such: 'wow'},
@@ -133,7 +141,7 @@ test('throws when json body is not a plain object or array', async t => {
 	await t.throws(got(`${s.url}`, {body: '{}', json: true}), TypeError);
 });
 
-test('throws when form body is not a plain object', async t => {
+test('throws when form body is not a plain object or array', async t => {
 	await t.throws(got(`${s.url}`, {body: 'such=wow', form: true}), TypeError);
 });
 
