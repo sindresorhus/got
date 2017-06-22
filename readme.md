@@ -110,7 +110,7 @@ Default: `false`
 
 If set to `true` and `Content-Type` header is not set, it will be set to `application/x-www-form-urlencoded`.
 
-`body` must be a plain object and will be stringified.
+`body` must be a plain object or array and will be stringified.
 
 ###### json
 
@@ -123,7 +123,7 @@ If set to `true` and `Content-Type` header is not set, it will be set to `applic
 
 Parse response body with `JSON.parse` and set `accept` header to `application/json`. If used in conjunction with the `form` option, the `body` will the stringified as querystring and the response parsed as JSON.
 
-`body` must be a plain object and will be stringified.
+`body` must be a plain object or array and will be stringified.
 
 ###### query
 

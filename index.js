@@ -315,17 +315,18 @@ function normalizeArguments(url, opts) {
 			throw new TypeError('options.body must be a ReadableStream, string, Buffer or plain Object');
 		}
 
-		if ((opts.form || opts.json) && !isPlainObj(body)) {
-			throw new TypeError('options.body must be a plain Object when options.form or options.json is used');
+		const canBodyBeStringified = isPlainObj(body) || Array.isArray(body);
+		if ((opts.form || opts.json) && !canBodyBeStringified) {
+			throw new TypeError('options.body must be a plain Object or Array when options.form or options.json is used');
 		}
 
 		if (isStream(body) && typeof body.getBoundary === 'function') {
 			// Special case for https://github.com/form-data/form-data
 			headers['content-type'] = headers['content-type'] || `multipart/form-data; boundary=${body.getBoundary()}`;
-		} else if (opts.form && isPlainObj(body)) {
+		} else if (opts.form && canBodyBeStringified) {
 			headers['content-type'] = headers['content-type'] || 'application/x-www-form-urlencoded';
 			opts.body = querystring.stringify(body);
-		} else if (opts.json && isPlainObj(body)) {
+		} else if (opts.json && canBodyBeStringified) {
 			headers['content-type'] = headers['content-type'] || 'application/json';
 			opts.body = JSON.stringify(body);
 		}
