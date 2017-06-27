@@ -15,6 +15,10 @@ test.before('setup', async () => {
 		res.end('ok');
 	});
 
+	s.on('/foo:bar', (req, res) => {
+		res.end('ok');
+	});
+
 	await s.listen(socketPath);
 });
 
@@ -25,6 +29,11 @@ test('works', async t => {
 
 test('protocol-less works', async t => {
 	const url = format('unix:%s:%s', socketPath, '/');
+	t.is((await got(url)).body, 'ok');
+});
+
+test('address with : works', async t => {
+	const url = format('unix:%s:%s', socketPath, '/foo:bar');
 	t.is((await got(url)).body, 'ok');
 });
 
