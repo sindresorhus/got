@@ -32,7 +32,7 @@ Created because [`request`](https://github.com/request/request) is bloated *(sev
 ## Install
 
 ```
-$ npm install --save got
+$ npm install got
 ```
 
 
