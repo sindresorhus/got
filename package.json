@@ -76,7 +76,7 @@
     "pify": "^3.0.0",
     "tempfile": "^2.0.0",
     "tempy": "^0.1.0",
-    "universal-url": "^1.0.0-alpha",
+    "universal-url": "1.0.0-alpha",
     "xo": "^0.18.0"
   },
   "ava": {
