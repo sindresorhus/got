@@ -21,6 +21,7 @@ Created because [`request`](https://github.com/request/request) is bloated *(sev
 - [Request cancelation](#aborting-the-request)
 - [Follows redirects](#followredirect)
 - [Retries on network failure](#retries)
+- [Progress events](#onuploadprogress-progress)
 - [Handles gzip/deflate](#decompress)
 - [Timeout handling](#timeout)
 - [Errors with metadata](#errors)
@@ -205,7 +206,7 @@ got.stream('github.com')
 ##### .on('uploadProgress', progress)
 ##### .on('downloadProgress', progress)
 
-Progress events for uploading (sending request) and downloading (receiving response). `progress` argument is an object like:
+Progress events for uploading (sending request) and downloading (receiving response). The `progress` argument is an object like:
 
 ```js
 {
@@ -215,7 +216,7 @@ Progress events for uploading (sending request) and downloading (receiving respo
 }
 ```
 
-If it's not possible to retrieve body size (e.g. when streaming), `total` equals to `null`.
+If it's not possible to retrieve body size (can happen when streaming), `total` will be `null`.
 
 ##### .on('error', error, body, response)
 
