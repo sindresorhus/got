@@ -216,7 +216,7 @@ Progress events for uploading (sending request) and downloading (receiving respo
 }
 ```
 
-If it's not possible to retrieve body size (can happen when streaming), `total` will be `null`.
+If it's not possible to retrieve the body size (can happen when streaming), `total` will be `null`.
 
 ##### .on('error', error, body, response)
 
