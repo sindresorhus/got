@@ -81,16 +81,15 @@ test('download progress - missing total size', async t => {
 	checkEvents(t, events);
 });
 
-test.cb('download progress - stream', t => {
+test('download progress - stream', async t => {
 	const events = [];
 
-	got.stream(`${s.url}/download`, {encoding: null})
-		.on('downloadProgress', e => events.push(e))
-		.on('data', () => {})
-		.on('end', () => {
-			checkEvents(t, events, file.length);
-			t.end();
-		});
+	const stream = got.stream(`${s.url}/download`, {encoding: null})
+		.on('downloadProgress', e => events.push(e));
+
+	await getStream(stream);
+
+	checkEvents(t, events, file.length);
 });
 
 test('upload progress - file', async t => {
@@ -140,7 +139,7 @@ test('upload progress - json', async t => {
 	checkEvents(t, events, size);
 });
 
-test.cb('upload progress - stream with known body size', t => {
+test('upload progress - stream with known body size', async t => {
 	const events = [];
 	const options = {
 		headers: {'content-length': file.length}
@@ -149,13 +148,9 @@ test.cb('upload progress - stream with known body size', t => {
 	const req = got.stream.post(`${s.url}/upload`, options)
 		.on('uploadProgress', e => events.push(e));
 
-	intoStream(file)
-		.pipe(req)
-		.on('data', () => {})
-		.on('end', () => {
-			checkEvents(t, events, file.length);
-			t.end();
-		});
+	await getStream(intoStream(file).pipe(req));
+
+	checkEvents(t, events, file.length);
 });
 
 test('upload progress - stream with unknown body size', async t => {
