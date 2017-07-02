@@ -35,15 +35,15 @@ const getBodySize = opts => {
 	const body = opts.body;
 
 	if (opts.headers['content-length']) {
-		return Promise.resolve(Number(opts.headers['content-length']));
+		return Number(opts.headers['content-length']);
 	}
 
 	if (!body && !opts.stream) {
-		return Promise.resolve(0);
+		return 0;
 	}
 
 	if (typeof body === 'string') {
-		return Promise.resolve(Buffer.byteLength(body));
+		return Buffer.byteLength(body);
 	}
 
 	if (isFormData(body)) {
@@ -55,10 +55,10 @@ const getBodySize = opts => {
 	}
 
 	if (isStream(body) && Buffer.isBuffer(body._buffer)) {
-		return Promise.resolve(body._buffer.length);
+		return body._buffer.length;
 	}
 
-	return Promise.resolve(null);
+	return null;
 };
 
 function requestAsEventEmitter(opts) {
@@ -250,7 +250,7 @@ function requestAsEventEmitter(opts) {
 	};
 
 	setImmediate(() => {
-		getBodySize(opts)
+		Promise.resolve(getBodySize(opts))
 			.then(size => {
 				uploadBodySize = size;
 				get(opts);
