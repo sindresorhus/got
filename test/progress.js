@@ -1,6 +1,7 @@
 import fs from 'fs';
 import SlowStream from 'slow-stream';
 import intoStream from 'into-stream';
+import getStream from 'get-stream';
 import FormData from 'form-data';
 import tempfile from 'tempfile';
 import pify from 'pify';
@@ -18,7 +19,7 @@ const checkEvents = (t, events, bodySize = null) => {
 		t.is(lastEvent.percent, 0);
 	}
 
-	events.forEach((event, index) => {
+	for (const [index, event] of events.entries()) {
 		if (hasBodySize) {
 			t.is(event.percent, event.transferred / bodySize);
 			t.true(event.percent > lastEvent.percent);
@@ -31,7 +32,7 @@ const checkEvents = (t, events, bodySize = null) => {
 		t.is(event.total, bodySize);
 
 		lastEvent = event;
-	});
+	}
 };
 
 const file = Buffer.alloc(1024 * 1024 * 2);
@@ -157,19 +158,15 @@ test.cb('upload progress - stream with known body size', t => {
 		});
 });
 
-test.cb('upload progress - stream with unknown body size', t => {
+test('upload progress - stream with unknown body size', async t => {
 	const events = [];
 
 	const req = got.stream.post(`${s.url}/upload`)
 		.on('uploadProgress', e => events.push(e));
 
-	intoStream(file)
-		.pipe(req)
-		.on('data', () => {})
-		.on('end', () => {
-			checkEvents(t, events);
-			t.end();
-		});
+	await getStream(intoStream(file).pipe(req));
+
+	checkEvents(t, events);
 });
 
 test('upload progress - no body', async t => {

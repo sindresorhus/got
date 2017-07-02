@@ -23,6 +23,7 @@ const isURL = require('isurl');
 const isPlainObj = require('is-plain-obj');
 const PCancelable = require('p-cancelable');
 const pTimeout = require('p-timeout');
+const pify = require('pify');
 const pkg = require('./package');
 
 const getMethodRedirectCodes = new Set([300, 301, 302, 303, 304, 305, 307, 308]);
@@ -33,55 +34,31 @@ const isFormData = body => isStream(body) && typeof body.getBoundary === 'functi
 const getBodySize = opts => {
 	const body = opts.body;
 
-	return new Promise((resolve, reject) => {
-		if (opts.headers['content-length']) {
-			resolve(Number(opts.headers['content-length']));
-			return;
-		}
+	if (opts.headers['content-length']) {
+		return Promise.resolve(Number(opts.headers['content-length']));
+	}
 
-		if (!body && !opts.stream) {
-			resolve(0);
-			return;
-		}
+	if (!body && !opts.stream) {
+		return Promise.resolve(0);
+	}
 
-		if (typeof body === 'string') {
-			resolve(Buffer.byteLength(body));
-			return;
-		}
+	if (typeof body === 'string') {
+		return Promise.resolve(Buffer.byteLength(body));
+	}
 
-		if (isFormData(body)) {
-			body.getLength((err, size) => {
-				if (err) {
-					reject(err);
-					return;
-				}
+	if (isFormData(body)) {
+		return pify(body.getLength.bind(body))();
+	}
 
-				resolve(size);
-			});
+	if (body instanceof fs.ReadStream) {
+		return pify(fs.stat)(body.path).then(stat => stat.size);
+	}
 
-			return;
-		}
+	if (isStream(body) && Buffer.isBuffer(body._buffer)) {
+		return Promise.resolve(body._buffer.length);
+	}
 
-		if (body instanceof fs.ReadStream) {
-			fs.stat(body.path, (err, stat) => {
-				if (err) {
-					reject(err);
-					return;
-				}
-
-				resolve(stat.size);
-			});
-
-			return;
-		}
-
-		if (isStream(body) && Buffer.isBuffer(body._buffer)) {
-			resolve(body._buffer.length);
-			return;
-		}
-
-		resolve(null);
-	});
+	return Promise.resolve(null);
 };
 
 function requestAsEventEmitter(opts) {
@@ -234,6 +211,8 @@ function requestAsEventEmitter(opts) {
 			});
 
 			req.connection.on('connect', () => {
+				const uploadEventFrequency = 150;
+
 				progressInterval = setInterval(() => {
 					const lastUploaded = uploaded;
 					const headersSize = Buffer.byteLength(req._header);
@@ -256,7 +235,7 @@ function requestAsEventEmitter(opts) {
 						transferred: uploaded,
 						total: uploadBodySize
 					});
-				}, 150);
+				}, uploadEventFrequency);
 			});
 		});
 
@@ -274,7 +253,6 @@ function requestAsEventEmitter(opts) {
 		getBodySize(opts)
 			.then(size => {
 				uploadBodySize = size;
-
 				get(opts);
 			})
 			.catch(err => {
@@ -358,7 +336,6 @@ function asPromise(opts) {
 
 	promise.on = (name, fn) => {
 		proxy.on(name, fn);
-
 		return promise;
 	};
 
@@ -366,6 +343,8 @@ function asPromise(opts) {
 }
 
 function asStream(opts) {
+	opts.stream = true;
+
 	const input = new PassThrough();
 	const output = new PassThrough();
 	const proxy = duplexer3(input, output);
@@ -569,7 +548,7 @@ function got(url, opts) {
 	}
 }
 
-got.stream = (url, opts) => asStream(Object.assign({}, normalizeArguments(url, opts), {stream: true}));
+got.stream = (url, opts) => asStream(normalizeArguments(url, opts));
 
 const methods = [
 	'get',
