@@ -9,38 +9,38 @@ test.before('setup', async () => {
 
 	let noStoreIndex = 0;
 	s.on('/no-store', (req, res) => {
-		noStoreIndex++;
 		res.setHeader('Cache-Control', 'public, no-cache, no-store');
 		res.end(noStoreIndex.toString());
+		noStoreIndex++;
 	});
 
 	let cacheIndex = 0;
 	s.on('/cache', (req, res) => {
-		cacheIndex++;
 		res.setHeader('Cache-Control', 'public, max-age=60');
 		res.end(cacheIndex.toString());
+		cacheIndex++;
 	});
 
 	let status301Index = 0;
 	s.on('/301', (req, res) => {
-		status301Index++;
-		if (status301Index === 1) {
+		if (status301Index === 0) {
 			res.setHeader('Cache-Control', 'public, max-age=60');
 			res.setHeader('Location', s.url + '/302');
 			res.statusCode = 301;
 		}
 		res.end();
+		status301Index++;
 	});
 
 	let status302Index = 0;
 	s.on('/302', (req, res) => {
-		status302Index++;
-		if (status302Index === 1) {
+		if (status302Index === 0) {
 			res.setHeader('Cache-Control', 'public, max-age=60');
 			res.setHeader('Location', s.url + '/cache');
 			res.statusCode = 302;
 		}
 		res.end();
+		status302Index++;
 	});
 
 	await s.listen(s.port);
