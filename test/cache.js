@@ -21,6 +21,28 @@ test.before('setup', async () => {
 		res.end(cacheIndex.toString());
 	});
 
+	let status301Index = 0;
+	s.on('/301', (req, res) => {
+		status301Index++;
+		if (status301Index === 1) {
+			res.setHeader('Cache-Control', 'public, max-age=60');
+			res.setHeader('Location', s.url + '/302');
+			res.statusCode = 301;
+		}
+		res.end();
+	});
+
+	let status302Index = 0;
+	s.on('/302', (req, res) => {
+		status302Index++;
+		if (status302Index === 1) {
+			res.setHeader('Cache-Control', 'public, max-age=60');
+			res.setHeader('Location', s.url + '/cache');
+			res.statusCode = 302;
+		}
+		res.end();
+	});
+
 	await s.listen(s.port);
 });
 
@@ -59,6 +81,17 @@ test('Cached response is re-encoded to current encoding option', async t => {
 
 	t.is(cache.size, 1);
 	t.is(secondResponse.body, expectedSecondResponseBody);
+});
+
+test('Redirects are cached and re-used internally', async t => {
+	const endpoint = '/301';
+	const cache = new Map();
+
+	const firstResponse = await got(s.url + endpoint, {cache});
+	const secondResponse = await got(s.url + endpoint, {cache});
+
+	t.is(cache.size, 3);
+	t.is(firstResponse.body, secondResponse.body);
 });
 
 test.after('cleanup', async () => {
