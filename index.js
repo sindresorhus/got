@@ -165,21 +165,26 @@ function asPromise(opts) {
 				.then(data => {
 					const statusCode = res.statusCode;
 					const limitStatusCode = opts.followRedirect ? 299 : 399;
+					let error;
 
 					res.body = data;
+
+					if (statusCode !== 304 && (statusCode < 200 || statusCode > limitStatusCode)) {
+						error = new got.HTTPError(statusCode, res.headers, opts);
+					}
 
 					if (opts.json && res.body) {
 						try {
 							res.body = JSON.parse(res.body);
 						} catch (e) {
-							if (statusCode >= 200 && statusCode < 300) {
-								throw new got.ParseError(e, statusCode, opts, data);
+							if (!error) {
+								error = new got.ParseError(e, statusCode, opts, data);
 							}
 						}
 					}
 
-					if (statusCode !== 304 && (statusCode < 200 || statusCode > limitStatusCode)) {
-						throw new got.HTTPError(statusCode, res.headers, opts);
+					if (error) {
+						throw error;
 					}
 
 					resolve(res);
