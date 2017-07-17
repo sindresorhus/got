@@ -83,6 +83,7 @@
 		"concurrency": 4
 	},
 	"browser": {
-		"decompress-response": false
+		"decompress-response": false,
+		"electron": false
 	}
 }
