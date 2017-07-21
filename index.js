@@ -171,9 +171,9 @@ function asPromise(opts) {
 					if (opts.json && res.body) {
 						try {
 							res.body = JSON.parse(res.body);
-						} catch (e) {
+						} catch (err) {
 							if (statusCode >= 200 && statusCode < 300) {
-								throw new got.ParseError(e, statusCode, opts, data);
+								throw new got.ParseError(err, statusCode, opts, data);
 							}
 						}
 					}
