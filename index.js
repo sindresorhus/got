@@ -3,9 +3,12 @@ const EventEmitter = require('events');
 const http = require('http');
 const https = require('https');
 const PassThrough = require('stream').PassThrough;
+const Transform = require('stream').Transform;
 const urlLib = require('url');
+const fs = require('fs');
 const querystring = require('querystring');
 const duplexer3 = require('duplexer3');
+const intoStream = require('into-stream');
 const isStream = require('is-stream');
 const getStream = require('get-stream');
 const timedOut = require('timed-out');
@@ -13,16 +16,50 @@ const urlParseLax = require('url-parse-lax');
 const urlToOptions = require('url-to-options');
 const lowercaseKeys = require('lowercase-keys');
 const decompressResponse = require('decompress-response');
+const mimicResponse = require('mimic-response');
 const isRetryAllowed = require('is-retry-allowed');
 const Buffer = require('safe-buffer').Buffer;
 const isURL = require('isurl');
 const isPlainObj = require('is-plain-obj');
 const PCancelable = require('p-cancelable');
 const pTimeout = require('p-timeout');
+const pify = require('pify');
 const pkg = require('./package');
 
 const getMethodRedirectCodes = new Set([300, 301, 302, 303, 304, 305, 307, 308]);
 const allMethodRedirectCodes = new Set([300, 303, 307, 308]);
+
+const isFormData = body => isStream(body) && typeof body.getBoundary === 'function';
+
+const getBodySize = opts => {
+	const body = opts.body;
+
+	if (opts.headers['content-length']) {
+		return Number(opts.headers['content-length']);
+	}
+
+	if (!body && !opts.stream) {
+		return 0;
+	}
+
+	if (typeof body === 'string') {
+		return Buffer.byteLength(body);
+	}
+
+	if (isFormData(body)) {
+		return pify(body.getLength.bind(body))();
+	}
+
+	if (body instanceof fs.ReadStream) {
+		return pify(fs.stat)(body.path).then(stat => stat.size);
+	}
+
+	if (isStream(body) && Buffer.isBuffer(body._buffer)) {
+		return body._buffer.length;
+	}
+
+	return null;
+};
 
 function requestAsEventEmitter(opts) {
 	opts = opts || {};
@@ -32,6 +69,8 @@ function requestAsEventEmitter(opts) {
 	const redirects = [];
 	let retryCount = 0;
 	let redirectUrl;
+	let uploadBodySize;
+	let uploaded = 0;
 
 	const get = opts => {
 		if (opts.protocol !== 'http:' && opts.protocol !== 'https:') {
@@ -46,7 +85,17 @@ function requestAsEventEmitter(opts) {
 			fn = electron.net || electron.remote.net;
 		}
 
+		let progressInterval;
+
 		const req = fn.request(opts, res => {
+			clearInterval(progressInterval);
+
+			ee.emit('uploadProgress', {
+				percent: 1,
+				transferred: uploaded,
+				total: uploadBodySize
+			});
+
 			const statusCode = res.statusCode;
 
 			res.url = redirectUrl || requestUrl;
@@ -85,22 +134,65 @@ function requestAsEventEmitter(opts) {
 				return;
 			}
 
+			const downloadBodySize = Number(res.headers['content-length']) || null;
+			let downloaded = 0;
+
 			setImmediate(() => {
+				const progressStream = new Transform({
+					transform(chunk, encoding, callback) {
+						downloaded += chunk.length;
+
+						const percent = downloadBodySize ? downloaded / downloadBodySize : 0;
+
+						// Let flush() be responsible for emitting the last event
+						if (percent < 1) {
+							ee.emit('downloadProgress', {
+								percent,
+								transferred: downloaded,
+								total: downloadBodySize
+							});
+						}
+
+						callback(null, chunk);
+					},
+
+					flush(callback) {
+						ee.emit('downloadProgress', {
+							percent: 1,
+							transferred: downloaded,
+							total: downloadBodySize
+						});
+
+						callback();
+					}
+				});
+
+				mimicResponse(res, progressStream);
+				progressStream.redirectUrls = redirects;
+
 				const response = opts.decompress === true &&
 					typeof decompressResponse === 'function' &&
-					req.method !== 'HEAD' ? decompressResponse(res) : res;
+					req.method !== 'HEAD' ? decompressResponse(progressStream) : progressStream;
 
 				if (!opts.decompress && ['gzip', 'deflate'].indexOf(res.headers['content-encoding']) !== -1) {
 					opts.encoding = null;
 				}
 
-				response.redirectUrls = redirects;
-
 				ee.emit('response', response);
+
+				ee.emit('downloadProgress', {
+					percent: 0,
+					transferred: 0,
+					total: downloadBodySize
+				});
+
+				res.pipe(progressStream);
 			});
 		});
 
 		req.once('error', err => {
+			clearInterval(progressInterval);
+
 			const backoff = opts.retries(++retryCount, err);
 
 			if (backoff) {
@@ -111,7 +203,44 @@ function requestAsEventEmitter(opts) {
 			ee.emit('error', new got.RequestError(err, opts));
 		});
 
+		ee.on('request', req => {
+			ee.emit('uploadProgress', {
+				percent: 0,
+				transferred: 0,
+				total: uploadBodySize
+			});
+
+			req.connection.on('connect', () => {
+				const uploadEventFrequency = 150;
+
+				progressInterval = setInterval(() => {
+					const lastUploaded = uploaded;
+					const headersSize = Buffer.byteLength(req._header);
+					uploaded = req.connection.bytesWritten - headersSize;
+
+					// Prevent the known issue of `bytesWritten` being larger than body size
+					if (uploadBodySize && uploaded > uploadBodySize) {
+						uploaded = uploadBodySize;
+					}
+
+					// Don't emit events with unchanged progress and
+					// prevent last event from being emitted, because
+					// it's emitted when `response` is emitted
+					if (uploaded === lastUploaded || uploaded === uploadBodySize) {
+						return;
+					}
+
+					ee.emit('uploadProgress', {
+						percent: uploadBodySize ? uploaded / uploadBodySize : 0,
+						transferred: uploaded,
+						total: uploadBodySize
+					});
+				}, uploadEventFrequency);
+			});
+		});
+
 		if (opts.gotTimeout) {
+			clearInterval(progressInterval);
 			timedOut(req, opts.gotTimeout);
 		}
 
@@ -121,8 +250,16 @@ function requestAsEventEmitter(opts) {
 	};
 
 	setImmediate(() => {
-		get(opts);
+		Promise.resolve(getBodySize(opts))
+			.then(size => {
+				uploadBodySize = size;
+				get(opts);
+			})
+			.catch(err => {
+				ee.emit('error', err);
+			});
 	});
+
 	return ee;
 }
 
@@ -131,7 +268,9 @@ function asPromise(opts) {
 		pTimeout(requestPromise, opts.gotTimeout.request, new got.RequestError({message: 'Request timed out', code: 'ETIMEDOUT'}, opts)) :
 		requestPromise;
 
-	return timeoutFn(new PCancelable((onCancel, resolve, reject) => {
+	const proxy = new EventEmitter();
+
+	const promise = timeoutFn(new PCancelable((onCancel, resolve, reject) => {
 		const ee = requestAsEventEmitter(opts);
 		let cancelOnRequest = false;
 
@@ -191,10 +330,21 @@ function asPromise(opts) {
 		});
 
 		ee.on('error', reject);
+		ee.on('uploadProgress', proxy.emit.bind(proxy, 'uploadProgress'));
+		ee.on('downloadProgress', proxy.emit.bind(proxy, 'downloadProgress'));
 	}));
+
+	promise.on = (name, fn) => {
+		proxy.on(name, fn);
+		return promise;
+	};
+
+	return promise;
 }
 
 function asStream(opts) {
+	opts.stream = true;
+
 	const input = new PassThrough();
 	const output = new PassThrough();
 	const proxy = duplexer3(input, output);
@@ -256,6 +406,8 @@ function asStream(opts) {
 
 	ee.on('redirect', proxy.emit.bind(proxy, 'redirect'));
 	ee.on('error', proxy.emit.bind(proxy, 'error'));
+	ee.on('uploadProgress', proxy.emit.bind(proxy, 'uploadProgress'));
+	ee.on('downloadProgress', proxy.emit.bind(proxy, 'downloadProgress'));
 
 	return proxy;
 }
@@ -320,7 +472,7 @@ function normalizeArguments(url, opts) {
 			throw new TypeError('options.body must be a plain Object or Array when options.form or options.json is used');
 		}
 
-		if (isStream(body) && typeof body.getBoundary === 'function') {
+		if (isFormData(body)) {
 			// Special case for https://github.com/form-data/form-data
 			headers['content-type'] = headers['content-type'] || `multipart/form-data; boundary=${body.getBoundary()}`;
 		} else if (opts.form && canBodyBeStringified) {
@@ -334,6 +486,13 @@ function normalizeArguments(url, opts) {
 		if (headers['content-length'] === undefined && headers['transfer-encoding'] === undefined && !isStream(body)) {
 			const length = typeof opts.body === 'string' ? Buffer.byteLength(opts.body) : opts.body.length;
 			headers['content-length'] = length;
+		}
+
+		// Convert buffer to stream to receive upload progress events
+		// see https://github.com/sindresorhus/got/pull/322
+		if (Buffer.isBuffer(body)) {
+			opts.body = intoStream(body);
+			opts.body._buffer = body;
 		}
 
 		opts.method = (opts.method || 'POST').toUpperCase();

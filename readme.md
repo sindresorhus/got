@@ -21,6 +21,7 @@ Created because [`request`](https://github.com/request/request) is bloated *(sev
 - [Request cancelation](#aborting-the-request)
 - [Follows redirects](#followredirect)
 - [Retries on network failure](#retries)
+- [Progress events](#onuploadprogress-progress)
 - [Handles gzip/deflate](#decompress)
 - [Timeout handling](#timeout)
 - [Errors with metadata](#errors)
@@ -201,6 +202,36 @@ got.stream('github.com')
 ##### .on('redirect', response, nextOptions)
 
 `redirect` event to get the response object of a redirect. The second argument is options for the next request to the redirect location.
+
+##### .on('uploadProgress', progress)
+##### .on('downloadProgress', progress)
+
+Progress events for uploading (sending request) and downloading (receiving response). The `progress` argument is an object like:
+
+```js
+{
+	percent: 0.1,
+	transferred: 1024,
+	total: 10240
+}
+```
+
+If it's not possible to retrieve the body size (can happen when streaming), `total` will be `null`.
+
+**Note**: Progress events can also be used with promises.
+
+```js
+got('todomvc.com')
+	.on('downloadProgress', progress => {
+		// Report download progress
+	})
+	.on('uploadProgress', progress => {
+		// Report upload progress
+	})
+	.then(response => {
+		// Done
+	});
+```
 
 ##### .on('error', error, body, response)
 
