@@ -218,18 +218,18 @@ Progress events for uploading (sending request) and downloading (receiving respo
 
 If it's not possible to retrieve the body size (can happen when streaming), `total` will be `null`.
 
-**Note**: progress events can also be used with Promises.
+**Note**: Progress events can also be used with promises.
 
 ```js
 got('todomvc.com')
 	.on('downloadProgress', progress => {
-		// report download progress
+		// Report download progress
 	})
 	.on('uploadProgress', progress => {
-		// report upload progress
+		// Report upload progress
 	})
 	.then(response => {
-		// done
+		// Done
 	});
 ```
 
