@@ -18,7 +18,7 @@ Created because [`request`](https://github.com/request/request) is bloated *(sev
 ## Highlights
 
 - [Promise & stream API](#api)
-- [Request cancelation](#aborting-the-request)
+- [Request cancellation](#aborting-the-request)
 - [Follows redirects](#followredirect)
 - [Retries on network failure](#retries)
 - [Progress events](#onuploadprogress-progress)
