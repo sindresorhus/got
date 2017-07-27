@@ -24,7 +24,7 @@ const isPlainObj = require('is-plain-obj');
 const PCancelable = require('p-cancelable');
 const pTimeout = require('p-timeout');
 const pify = require('pify');
-const pkg = require('./package');
+const pkg = require('./package.json');
 
 const getMethodRedirectCodes = new Set([300, 301, 302, 303, 304, 305, 307, 308]);
 const allMethodRedirectCodes = new Set([300, 303, 307, 308]);
