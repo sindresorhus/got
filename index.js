@@ -303,7 +303,7 @@ function asPromise(opts) {
 					requestPromise,
 					opts.gotTimeout.request,
 					new got.RequestError(
-						{ message: 'Request timed out', code: 'ETIMEDOUT' },
+						{message: 'Request timed out', code: 'ETIMEDOUT'},
 						opts
 					)
 				)
@@ -370,7 +370,7 @@ function asPromise(opts) {
 						resolve(res);
 					})
 					.catch(err => {
-						Object.defineProperty(err, 'response', { value: res });
+						Object.defineProperty(err, 'response', {value: res});
 						reject(err);
 					});
 			});
@@ -402,7 +402,7 @@ function asStream(opts) {
 			proxy.emit(
 				'error',
 				new got.RequestError(
-					{ message: 'Request timed out', code: 'ETIMEDOUT' },
+					{message: 'Request timed out', code: 'ETIMEDOUT'},
 					opts
 				)
 			);
@@ -616,7 +616,7 @@ function normalizeArguments(url, opts) {
 
 	if (opts.timeout) {
 		if (typeof opts.timeout === 'number') {
-			opts.gotTimeout = { request: opts.timeout };
+			opts.gotTimeout = {request: opts.timeout};
 		} else {
 			opts.gotTimeout = opts.timeout;
 		}
@@ -639,9 +639,9 @@ got.stream = (url, opts) => asStream(normalizeArguments(url, opts));
 const methods = ['get', 'post', 'put', 'patch', 'head', 'delete'];
 
 for (const method of methods) {
-	got[method] = (url, opts) => got(url, Object.assign({}, opts, { method }));
+	got[method] = (url, opts) => got(url, Object.assign({}, opts, {method}));
 	got.stream[method] = (url, opts) =>
-		got.stream(url, Object.assign({}, opts, { method }));
+		got.stream(url, Object.assign({}, opts, {method}));
 }
 
 class StdError extends Error {
