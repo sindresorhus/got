@@ -69,6 +69,12 @@
     "wget"
   ],
   "license": "MIT",
+  "lint-staged": {
+    "*.js": [
+      "prettier --write --single-quote true --trailing-comma all --print-width 80",
+      "git add"
+    ]
+  },
   "maintainers": [
     {
       "name": "Sindre Sorhus",
@@ -89,6 +95,7 @@
   "repository": "sindresorhus/got",
   "scripts": {
     "coveralls": "nyc report --reporter=text-lcov | coveralls",
+    "precommit": "lint-staged",
     "test": "xo && nyc ava"
   }
 }
