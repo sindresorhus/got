@@ -1,31 +1,31 @@
-'use strict';
+"use strict";
 
-const EventEmitter = require('events');
-const http = require('http');
-const https = require('https');
-const PassThrough = require('stream').PassThrough;
-const Transform = require('stream').Transform;
-const urlLib = require('url');
-const fs = require('fs');
-const querystring = require('querystring');
-const duplexer3 = require('duplexer3');
-const intoStream = require('into-stream');
-const isStream = require('is-stream');
-const getStream = require('get-stream');
-const timedOut = require('timed-out');
-const urlParseLax = require('url-parse-lax');
-const urlToOptions = require('url-to-options');
-const lowercaseKeys = require('lowercase-keys');
-const decompressResponse = require('decompress-response');
-const mimicResponse = require('mimic-response');
-const isRetryAllowed = require('is-retry-allowed');
-const Buffer = require('safe-buffer').Buffer;
-const isURL = require('isurl');
-const isPlainObj = require('is-plain-obj');
-const PCancelable = require('p-cancelable');
-const pTimeout = require('p-timeout');
-const pify = require('pify');
-const pkg = require('./package');
+const EventEmitter = require("events");
+const http = require("http");
+const https = require("https");
+const PassThrough = require("stream").PassThrough;
+const Transform = require("stream").Transform;
+const urlLib = require("url");
+const fs = require("fs");
+const querystring = require("querystring");
+const duplexer3 = require("duplexer3");
+const intoStream = require("into-stream");
+const isStream = require("is-stream");
+const getStream = require("get-stream");
+const timedOut = require("timed-out");
+const urlParseLax = require("url-parse-lax");
+const urlToOptions = require("url-to-options");
+const lowercaseKeys = require("lowercase-keys");
+const decompressResponse = require("decompress-response");
+const mimicResponse = require("mimic-response");
+const isRetryAllowed = require("is-retry-allowed");
+const Buffer = require("safe-buffer").Buffer;
+const isURL = require("isurl");
+const isPlainObj = require("is-plain-obj");
+const PCancelable = require("p-cancelable");
+const pTimeout = require("p-timeout");
+const pify = require("pify");
+const pkg = require("./package");
 
 const getMethodRedirectCodes = new Set([
 	300,
@@ -35,25 +35,25 @@ const getMethodRedirectCodes = new Set([
 	304,
 	305,
 	307,
-	308,
+	308
 ]);
 const allMethodRedirectCodes = new Set([300, 303, 307, 308]);
 
 const isFormData = body =>
-	isStream(body) && typeof body.getBoundary === 'function';
+	isStream(body) && typeof body.getBoundary === "function";
 
 const getBodySize = opts => {
 	const body = opts.body;
 
-	if (opts.headers['content-length']) {
-		return Number(opts.headers['content-length']);
+	if (opts.headers["content-length"]) {
+		return Number(opts.headers["content-length"]);
 	}
 
 	if (!body && !opts.stream) {
 		return 0;
 	}
 
-	if (typeof body === 'string') {
+	if (typeof body === "string") {
 		return Buffer.byteLength(body);
 	}
 
@@ -85,15 +85,15 @@ function requestAsEventEmitter(opts) {
 	let uploaded = 0;
 
 	const get = opts => {
-		if (opts.protocol !== 'http:' && opts.protocol !== 'https:') {
-			ee.emit('error', new got.UnsupportedProtocolError(opts));
+		if (opts.protocol !== "http:" && opts.protocol !== "https:") {
+			ee.emit("error", new got.UnsupportedProtocolError(opts));
 			return;
 		}
 
-		let fn = opts.protocol === 'https:' ? https : http;
+		let fn = opts.protocol === "https:" ? https : http;
 
 		if (opts.useElectronNet && process.versions.electron) {
-			const electron = require('electron');
+			const electron = require("electron");
 			fn = electron.net || electron.remote.net;
 		}
 
@@ -102,10 +102,10 @@ function requestAsEventEmitter(opts) {
 		const req = fn.request(opts, res => {
 			clearInterval(progressInterval);
 
-			ee.emit('uploadProgress', {
+			ee.emit("uploadProgress", {
 				percent: 1,
 				transferred: uploaded,
-				total: uploadBodySize,
+				total: uploadBodySize
 			});
 
 			const statusCode = res.statusCode;
@@ -113,7 +113,7 @@ function requestAsEventEmitter(opts) {
 			res.url = redirectUrl || requestUrl;
 			res.requestUrl = requestUrl;
 
-			const followRedirect = opts.followRedirect && 'location' in res.headers;
+			const followRedirect = opts.followRedirect && "location" in res.headers;
 			const redirectGet =
 				followRedirect && getMethodRedirectCodes.has(statusCode);
 			const redirectAll =
@@ -121,19 +121,19 @@ function requestAsEventEmitter(opts) {
 
 			if (
 				redirectAll ||
-				(redirectGet && (opts.method === 'GET' || opts.method === 'HEAD'))
+				(redirectGet && (opts.method === "GET" || opts.method === "HEAD"))
 			) {
 				res.resume();
 
 				if (statusCode === 303) {
 					// Server responded with "see other", indicating that the resource exists at another location,
 					// and the client should request it from that location via GET or HEAD.
-					opts.method = 'GET';
+					opts.method = "GET";
 				}
 
 				if (redirects.length >= 10) {
 					ee.emit(
-						'error',
+						"error",
 						new got.MaxRedirectsError(statusCode, redirects, opts),
 						null,
 						res
@@ -143,7 +143,7 @@ function requestAsEventEmitter(opts) {
 
 				const bufferString = Buffer.from(
 					res.headers.location,
-					'binary'
+					"binary"
 				).toString();
 
 				redirectUrl = urlLib.resolve(urlLib.format(opts), bufferString);
@@ -152,14 +152,14 @@ function requestAsEventEmitter(opts) {
 
 				const redirectOpts = Object.assign({}, opts, urlLib.parse(redirectUrl));
 
-				ee.emit('redirect', res, redirectOpts);
+				ee.emit("redirect", res, redirectOpts);
 
 				get(redirectOpts);
 
 				return;
 			}
 
-			const downloadBodySize = Number(res.headers['content-length']) || null;
+			const downloadBodySize = Number(res.headers["content-length"]) || null;
 			let downloaded = 0;
 
 			setImmediate(() => {
@@ -173,10 +173,10 @@ function requestAsEventEmitter(opts) {
 
 						// Let flush() be responsible for emitting the last event
 						if (percent < 1) {
-							ee.emit('downloadProgress', {
+							ee.emit("downloadProgress", {
 								percent,
 								transferred: downloaded,
-								total: downloadBodySize,
+								total: downloadBodySize
 							});
 						}
 
@@ -184,14 +184,14 @@ function requestAsEventEmitter(opts) {
 					},
 
 					flush(callback) {
-						ee.emit('downloadProgress', {
+						ee.emit("downloadProgress", {
 							percent: 1,
 							transferred: downloaded,
-							total: downloadBodySize,
+							total: downloadBodySize
 						});
 
 						callback();
-					},
+					}
 				});
 
 				mimicResponse(res, progressStream);
@@ -199,31 +199,31 @@ function requestAsEventEmitter(opts) {
 
 				const response =
 					opts.decompress === true &&
-					typeof decompressResponse === 'function' &&
-					req.method !== 'HEAD'
+					typeof decompressResponse === "function" &&
+					req.method !== "HEAD"
 						? decompressResponse(progressStream)
 						: progressStream;
 
 				if (
 					!opts.decompress &&
-					['gzip', 'deflate'].indexOf(res.headers['content-encoding']) !== -1
+					["gzip", "deflate"].indexOf(res.headers["content-encoding"]) !== -1
 				) {
 					opts.encoding = null;
 				}
 
-				ee.emit('response', response);
+				ee.emit("response", response);
 
-				ee.emit('downloadProgress', {
+				ee.emit("downloadProgress", {
 					percent: 0,
 					transferred: 0,
-					total: downloadBodySize,
+					total: downloadBodySize
 				});
 
 				res.pipe(progressStream);
 			});
 		});
 
-		req.once('error', err => {
+		req.once("error", err => {
 			clearInterval(progressInterval);
 
 			const backoff = opts.retries(++retryCount, err);
@@ -233,17 +233,17 @@ function requestAsEventEmitter(opts) {
 				return;
 			}
 
-			ee.emit('error', new got.RequestError(err, opts));
+			ee.emit("error", new got.RequestError(err, opts));
 		});
 
-		ee.on('request', req => {
-			ee.emit('uploadProgress', {
+		ee.on("request", req => {
+			ee.emit("uploadProgress", {
 				percent: 0,
 				transferred: 0,
-				total: uploadBodySize,
+				total: uploadBodySize
 			});
 
-			req.connection.on('connect', () => {
+			req.connection.on("connect", () => {
 				const uploadEventFrequency = 150;
 
 				progressInterval = setInterval(() => {
@@ -263,10 +263,10 @@ function requestAsEventEmitter(opts) {
 						return;
 					}
 
-					ee.emit('uploadProgress', {
+					ee.emit("uploadProgress", {
 						percent: uploadBodySize ? uploaded / uploadBodySize : 0,
 						transferred: uploaded,
-						total: uploadBodySize,
+						total: uploadBodySize
 					});
 				}, uploadEventFrequency);
 			});
@@ -278,7 +278,7 @@ function requestAsEventEmitter(opts) {
 		}
 
 		setImmediate(() => {
-			ee.emit('request', req);
+			ee.emit("request", req);
 		});
 	};
 
@@ -289,7 +289,7 @@ function requestAsEventEmitter(opts) {
 				get(opts);
 			})
 			.catch(err => {
-				ee.emit('error', err);
+				ee.emit("error", err);
 			});
 	});
 
@@ -303,7 +303,7 @@ function asPromise(opts) {
 					requestPromise,
 					opts.gotTimeout.request,
 					new got.RequestError(
-						{ message: 'Request timed out', code: 'ETIMEDOUT' },
+						{ message: "Request timed out", code: "ETIMEDOUT" },
 						opts
 					)
 				)
@@ -320,7 +320,7 @@ function asPromise(opts) {
 				cancelOnRequest = true;
 			});
 
-			ee.on('request', req => {
+			ee.on("request", req => {
 				if (cancelOnRequest) {
 					req.abort();
 				}
@@ -338,7 +338,7 @@ function asPromise(opts) {
 				req.end(opts.body);
 			});
 
-			ee.on('response', res => {
+			ee.on("response", res => {
 				const stream =
 					opts.encoding === null ? getStream.buffer(res) : getStream(res, opts);
 
@@ -370,14 +370,14 @@ function asPromise(opts) {
 						resolve(res);
 					})
 					.catch(err => {
-						Object.defineProperty(err, 'response', { value: res });
+						Object.defineProperty(err, "response", { value: res });
 						reject(err);
 					});
 			});
 
-			ee.on('error', reject);
-			ee.on('uploadProgress', proxy.emit.bind(proxy, 'uploadProgress'));
-			ee.on('downloadProgress', proxy.emit.bind(proxy, 'downloadProgress'));
+			ee.on("error", reject);
+			ee.on("uploadProgress", proxy.emit.bind(proxy, "uploadProgress"));
+			ee.on("downloadProgress", proxy.emit.bind(proxy, "downloadProgress"));
 		})
 	);
 
@@ -400,9 +400,9 @@ function asStream(opts) {
 	if (opts.gotTimeout && opts.gotTimeout.request) {
 		timeout = setTimeout(() => {
 			proxy.emit(
-				'error',
+				"error",
 				new got.RequestError(
-					{ message: 'Request timed out', code: 'ETIMEDOUT' },
+					{ message: "Request timed out", code: "ETIMEDOUT" },
 					opts
 				)
 			);
@@ -410,7 +410,7 @@ function asStream(opts) {
 	}
 
 	if (opts.json) {
-		throw new Error('got can not be used as stream when options.json is used');
+		throw new Error("got can not be used as stream when options.json is used");
 	}
 
 	if (opts.body) {
@@ -421,8 +421,8 @@ function asStream(opts) {
 
 	const ee = requestAsEventEmitter(opts);
 
-	ee.on('request', req => {
-		proxy.emit('request', req);
+	ee.on("request", req => {
+		proxy.emit("request", req);
 
 		if (isStream(opts.body)) {
 			opts.body.pipe(req);
@@ -435,9 +435,9 @@ function asStream(opts) {
 		}
 
 		if (
-			opts.method === 'POST' ||
-			opts.method === 'PUT' ||
-			opts.method === 'PATCH'
+			opts.method === "POST" ||
+			opts.method === "PUT" ||
+			opts.method === "PATCH"
 		) {
 			input.pipe(req);
 			return;
@@ -446,7 +446,7 @@ function asStream(opts) {
 		req.end();
 	});
 
-	ee.on('response', res => {
+	ee.on("response", res => {
 		clearTimeout(timeout);
 
 		const statusCode = res.statusCode;
@@ -455,7 +455,7 @@ function asStream(opts) {
 
 		if (statusCode !== 304 && (statusCode < 200 || statusCode > 299)) {
 			proxy.emit(
-				'error',
+				"error",
 				new got.HTTPError(statusCode, res.headers, opts),
 				null,
 				res
@@ -463,51 +463,51 @@ function asStream(opts) {
 			return;
 		}
 
-		proxy.emit('response', res);
+		proxy.emit("response", res);
 	});
 
-	ee.on('redirect', proxy.emit.bind(proxy, 'redirect'));
-	ee.on('error', proxy.emit.bind(proxy, 'error'));
-	ee.on('uploadProgress', proxy.emit.bind(proxy, 'uploadProgress'));
-	ee.on('downloadProgress', proxy.emit.bind(proxy, 'downloadProgress'));
+	ee.on("redirect", proxy.emit.bind(proxy, "redirect"));
+	ee.on("error", proxy.emit.bind(proxy, "error"));
+	ee.on("uploadProgress", proxy.emit.bind(proxy, "uploadProgress"));
+	ee.on("downloadProgress", proxy.emit.bind(proxy, "downloadProgress"));
 
 	return proxy;
 }
 
 function normalizeArguments(url, opts) {
-	if (typeof url !== 'string' && typeof url !== 'object') {
+	if (typeof url !== "string" && typeof url !== "object") {
 		throw new TypeError(
 			`Parameter \`url\` must be a string or object, not ${typeof url}`
 		);
-	} else if (typeof url === 'string') {
-		url = url.replace(/^unix:/, 'http://$&');
+	} else if (typeof url === "string") {
+		url = url.replace(/^unix:/, "http://$&");
 		url = urlParseLax(url);
 	} else if (isURL.lenient(url)) {
 		url = urlToOptions(url);
 	}
 
 	if (url.auth) {
-		throw new Error('Basic authentication must be done with auth option');
+		throw new Error("Basic authentication must be done with auth option");
 	}
 
 	opts = Object.assign(
 		{
-			path: '',
+			path: "",
 			retries: 2,
 			decompress: true,
-			useElectronNet: true,
+			useElectronNet: true
 		},
 		url,
 		{
-			protocol: url.protocol || 'http:', // Override both null/undefined with default protocol
+			protocol: url.protocol || "http:" // Override both null/undefined with default protocol
 		},
 		opts
 	);
 
 	opts.headers = Object.assign(
 		{
-			'user-agent': `${pkg.name}/${pkg.version} (https://github.com/sindresorhus/got)`,
-			'accept-encoding': 'gzip,deflate',
+			"user-agent": `${pkg.name}/${pkg.version} (https://github.com/sindresorhus/got)`,
+			"accept-encoding": "gzip,deflate"
 		},
 		lowercaseKeys(opts.headers)
 	);
@@ -515,16 +515,16 @@ function normalizeArguments(url, opts) {
 	const query = opts.query;
 
 	if (query) {
-		if (typeof query !== 'string') {
+		if (typeof query !== "string") {
 			opts.query = querystring.stringify(query);
 		}
 
-		opts.path = `${opts.path.split('?')[0]}?${opts.query}`;
+		opts.path = `${opts.path.split("?")[0]}?${opts.query}`;
 		delete opts.query;
 	}
 
 	if (opts.json && opts.headers.accept === undefined) {
-		opts.headers.accept = 'application/json';
+		opts.headers.accept = "application/json";
 	}
 
 	const body = opts.body;
@@ -532,46 +532,46 @@ function normalizeArguments(url, opts) {
 		const headers = opts.headers;
 		if (
 			!isStream(body) &&
-			typeof body !== 'string' &&
+			typeof body !== "string" &&
 			!Buffer.isBuffer(body) &&
 			!(opts.form || opts.json)
 		) {
 			throw new TypeError(
-				'options.body must be a ReadableStream, string, Buffer or plain Object'
+				"options.body must be a ReadableStream, string, Buffer or plain Object"
 			);
 		}
 
 		const canBodyBeStringified = isPlainObj(body) || Array.isArray(body);
 		if ((opts.form || opts.json) && !canBodyBeStringified) {
 			throw new TypeError(
-				'options.body must be a plain Object or Array when options.form or options.json is used'
+				"options.body must be a plain Object or Array when options.form or options.json is used"
 			);
 		}
 
 		if (isFormData(body)) {
 			// Special case for https://github.com/form-data/form-data
-			headers['content-type'] =
-				headers['content-type'] ||
+			headers["content-type"] =
+				headers["content-type"] ||
 				`multipart/form-data; boundary=${body.getBoundary()}`;
 		} else if (opts.form && canBodyBeStringified) {
-			headers['content-type'] =
-				headers['content-type'] || 'application/x-www-form-urlencoded';
+			headers["content-type"] =
+				headers["content-type"] || "application/x-www-form-urlencoded";
 			opts.body = querystring.stringify(body);
 		} else if (opts.json && canBodyBeStringified) {
-			headers['content-type'] = headers['content-type'] || 'application/json';
+			headers["content-type"] = headers["content-type"] || "application/json";
 			opts.body = JSON.stringify(body);
 		}
 
 		if (
-			headers['content-length'] === undefined &&
-			headers['transfer-encoding'] === undefined &&
+			headers["content-length"] === undefined &&
+			headers["transfer-encoding"] === undefined &&
 			!isStream(body)
 		) {
 			const length =
-				typeof opts.body === 'string'
+				typeof opts.body === "string"
 					? Buffer.byteLength(opts.body)
 					: opts.body.length;
-			headers['content-length'] = length;
+			headers["content-length"] = length;
 		}
 
 		// Convert buffer to stream to receive upload progress events
@@ -581,12 +581,12 @@ function normalizeArguments(url, opts) {
 			opts.body._buffer = body;
 		}
 
-		opts.method = (opts.method || 'POST').toUpperCase();
+		opts.method = (opts.method || "POST").toUpperCase();
 	} else {
-		opts.method = (opts.method || 'GET').toUpperCase();
+		opts.method = (opts.method || "GET").toUpperCase();
 	}
 
-	if (opts.hostname === 'unix') {
+	if (opts.hostname === "unix") {
 		const matches = /(.+?):(.+)/.exec(opts.path);
 
 		if (matches) {
@@ -596,7 +596,7 @@ function normalizeArguments(url, opts) {
 		}
 	}
 
-	if (typeof opts.retries !== 'function') {
+	if (typeof opts.retries !== "function") {
 		const retries = opts.retries;
 
 		opts.retries = (iter, err) => {
@@ -615,7 +615,7 @@ function normalizeArguments(url, opts) {
 	}
 
 	if (opts.timeout) {
-		if (typeof opts.timeout === 'number') {
+		if (typeof opts.timeout === "number") {
 			opts.gotTimeout = { request: opts.timeout };
 		} else {
 			opts.gotTimeout = opts.timeout;
@@ -636,7 +636,7 @@ function got(url, opts) {
 
 got.stream = (url, opts) => asStream(normalizeArguments(url, opts));
 
-const methods = ['get', 'post', 'put', 'patch', 'head', 'delete'];
+const methods = ["get", "post", "put", "patch", "head", "delete"];
 
 for (const method of methods) {
 	got[method] = (url, opts) => got(url, Object.assign({}, opts, { method }));
@@ -647,7 +647,7 @@ for (const method of methods) {
 class StdError extends Error {
 	constructor(message, error, opts) {
 		super(message);
-		this.name = 'StdError';
+		this.name = "StdError";
 
 		if (error.code !== undefined) {
 			this.code = error.code;
@@ -659,7 +659,7 @@ class StdError extends Error {
 			method: opts.method,
 			path: opts.path,
 			protocol: opts.protocol,
-			url: opts.href,
+			url: opts.href
 		});
 	}
 }
@@ -667,14 +667,14 @@ class StdError extends Error {
 got.RequestError = class extends StdError {
 	constructor(error, opts) {
 		super(error.message, error, opts);
-		this.name = 'RequestError';
+		this.name = "RequestError";
 	}
 };
 
 got.ReadError = class extends StdError {
 	constructor(error, opts) {
 		super(error.message, error, opts);
-		this.name = 'ReadError';
+		this.name = "ReadError";
 	}
 };
 
@@ -685,7 +685,7 @@ got.ParseError = class extends StdError {
 			error,
 			opts
 		);
-		this.name = 'ParseError';
+		this.name = "ParseError";
 		this.statusCode = statusCode;
 		this.statusMessage = http.STATUS_CODES[this.statusCode];
 	}
@@ -695,7 +695,7 @@ got.HTTPError = class extends StdError {
 	constructor(statusCode, headers, opts) {
 		const statusMessage = http.STATUS_CODES[statusCode];
 		super(`Response code ${statusCode} (${statusMessage})`, {}, opts);
-		this.name = 'HTTPError';
+		this.name = "HTTPError";
 		this.statusCode = statusCode;
 		this.statusMessage = statusMessage;
 		this.headers = headers;
@@ -704,8 +704,8 @@ got.HTTPError = class extends StdError {
 
 got.MaxRedirectsError = class extends StdError {
 	constructor(statusCode, redirectUrls, opts) {
-		super('Redirected 10 times. Aborting.', {}, opts);
-		this.name = 'MaxRedirectsError';
+		super("Redirected 10 times. Aborting.", {}, opts);
+		this.name = "MaxRedirectsError";
 		this.statusCode = statusCode;
 		this.statusMessage = http.STATUS_CODES[this.statusCode];
 		this.redirectUrls = redirectUrls;
@@ -715,7 +715,7 @@ got.MaxRedirectsError = class extends StdError {
 got.UnsupportedProtocolError = class extends StdError {
 	constructor(opts) {
 		super(`Unsupported protocol "${opts.protocol}"`, {}, opts);
-		this.name = 'UnsupportedProtocolError';
+		this.name = "UnsupportedProtocolError";
 	}
 };
 
