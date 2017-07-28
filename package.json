@@ -1,101 +1,99 @@
 {
-  "name": "got",
-  "description": "Simplified HTTP requests",
-  "version": "7.1.0",
-  "ava": {
-    "concurrency": 4
-  },
-  "browser": {
-    "decompress-response": false,
-    "electron": false
-  },
-  "dependencies": {
-    "decompress-response": "^3.2.0",
-    "duplexer3": "^0.1.4",
-    "get-stream": "^3.0.0",
-    "into-stream": "^3.1.0",
-    "is-plain-obj": "^1.1.0",
-    "is-retry-allowed": "^1.0.0",
-    "is-stream": "^1.0.0",
-    "isurl": "^1.0.0-alpha5",
-    "lowercase-keys": "^1.0.0",
-    "mimic-response": "^1.0.0",
-    "p-cancelable": "^0.3.0",
-    "p-timeout": "^1.1.1",
-    "pify": "^3.0.0",
-    "safe-buffer": "^5.0.1",
-    "timed-out": "^4.0.0",
-    "url-parse-lax": "^1.0.0",
-    "url-to-options": "^1.0.1"
-  },
-  "devDependencies": {
-    "ava": "^0.21.0",
-    "coveralls": "^2.11.4",
-    "form-data": "^2.1.1",
-    "get-port": "^3.0.0",
-    "husky": "^0.14.3",
-    "lint-staged": "^4.0.2",
-    "nyc": "^11.0.2",
-    "pem": "^1.4.4",
-    "prettier": "^1.5.3",
-    "slow-stream": "0.0.4",
-    "tempfile": "^2.0.0",
-    "tempy": "^0.1.0",
-    "universal-url": "1.0.0-alpha",
-    "xo": "^0.18.0"
-  },
-  "engines": {
-    "node": ">=4"
-  },
-  "files": [
-    "index.js"
-  ],
-  "keywords": [
-    "curl",
-    "electron",
-    "fetch",
-    "get",
-    "got",
-    "http",
-    "https",
-    "net",
-    "network",
-    "request",
-    "simple",
-    "uri",
-    "url",
-    "util",
-    "utility",
-    "wget"
-  ],
-  "license": "MIT",
-  "lint-staged": {
-    "*.js": [
-      "prettier --write --single-quote true --trailing-comma all --print-width 80",
-      "git add"
-    ]
-  },
-  "maintainers": [
-    {
-      "name": "Sindre Sorhus",
-      "email": "sindresorhus@gmail.com",
-      "url": "sindresorhus.com"
-    },
-    {
-      "name": "Vsevolod Strukchinsky",
-      "email": "floatdrop@gmail.com",
-      "url": "github.com/floatdrop"
-    },
-    {
-      "name": "Alexander Tesfamichael",
-      "email": "alex.tesfamichael@gmail.com",
-      "url": "alextes.me"
-    }
-  ],
-  "repository": "sindresorhus/got",
-  "scripts": {
-    "coveralls": "nyc report --reporter=text-lcov | coveralls",
-    "precommit": "lint-staged",
-    "test": "xo && nyc ava"
-  }
+	"name": "got",
+	"description": "Simplified HTTP requests",
+	"version": "7.1.0",
+	"ava": {
+		"concurrency": 4
+	},
+	"browser": {
+		"decompress-response": false,
+		"electron": false
+	},
+	"dependencies": {
+		"decompress-response": "^3.2.0",
+		"duplexer3": "^0.1.4",
+		"get-stream": "^3.0.0",
+		"into-stream": "^3.1.0",
+		"is-plain-obj": "^1.1.0",
+		"is-retry-allowed": "^1.0.0",
+		"is-stream": "^1.0.0",
+		"isurl": "^1.0.0-alpha5",
+		"lowercase-keys": "^1.0.0",
+		"mimic-response": "^1.0.0",
+		"p-cancelable": "^0.3.0",
+		"p-timeout": "^1.1.1",
+		"pify": "^3.0.0",
+		"safe-buffer": "^5.0.1",
+		"timed-out": "^4.0.0",
+		"url-parse-lax": "^1.0.0",
+		"url-to-options": "^1.0.1"
+	},
+	"devDependencies": {
+		"ava": "^0.21.0",
+		"coveralls": "^2.11.4",
+		"form-data": "^2.1.1",
+		"get-port": "^3.0.0",
+		"husky": "^0.14.3",
+		"lint-staged": "^4.0.2",
+		"nyc": "^11.0.2",
+		"pem": "^1.4.4",
+		"prettier": "^1.5.3",
+		"slow-stream": "0.0.4",
+		"tempfile": "^2.0.0",
+		"tempy": "^0.1.0",
+		"universal-url": "1.0.0-alpha",
+		"xo": "^0.18.0"
+	},
+	"engines": {
+		"node": ">=4"
+	},
+	"files": ["index.js"],
+	"keywords": [
+		"curl",
+		"electron",
+		"fetch",
+		"get",
+		"got",
+		"http",
+		"https",
+		"net",
+		"network",
+		"request",
+		"simple",
+		"uri",
+		"url",
+		"util",
+		"utility",
+		"wget"
+	],
+	"license": "MIT",
+	"lint-staged": {
+		"*.js": [
+			"prettier --write --use-tabs --single-quote true --trailing-comma all --print-width 80",
+			"git add"
+		]
+	},
+	"maintainers": [
+		{
+			"name": "Sindre Sorhus",
+			"email": "sindresorhus@gmail.com",
+			"url": "sindresorhus.com"
+		},
+		{
+			"name": "Vsevolod Strukchinsky",
+			"email": "floatdrop@gmail.com",
+			"url": "github.com/floatdrop"
+		},
+		{
+			"name": "Alexander Tesfamichael",
+			"email": "alex.tesfamichael@gmail.com",
+			"url": "alextes.me"
+		}
+	],
+	"repository": "sindresorhus/got",
+	"scripts": {
+		"coveralls": "nyc report --reporter=text-lcov | coveralls",
+		"precommit": "lint-staged",
+		"test": "xo && nyc ava"
+	}
 }
