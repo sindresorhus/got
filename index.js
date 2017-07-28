@@ -136,14 +136,14 @@ function requestAsEventEmitter(opts) {
 						'error',
 						new got.MaxRedirectsError(statusCode, redirects, opts),
 						null,
-						res,
+						res
 					);
 					return;
 				}
 
 				const bufferString = Buffer.from(
 					res.headers.location,
-					'binary',
+					'binary'
 				).toString();
 
 				redirectUrl = urlLib.resolve(urlLib.format(opts), bufferString);
@@ -304,8 +304,8 @@ function asPromise(opts) {
 					opts.gotTimeout.request,
 					new got.RequestError(
 						{ message: 'Request timed out', code: 'ETIMEDOUT' },
-						opts,
-					),
+						opts
+					)
 				)
 			: requestPromise;
 
@@ -378,7 +378,7 @@ function asPromise(opts) {
 			ee.on('error', reject);
 			ee.on('uploadProgress', proxy.emit.bind(proxy, 'uploadProgress'));
 			ee.on('downloadProgress', proxy.emit.bind(proxy, 'downloadProgress'));
-		}),
+		})
 	);
 
 	promise.on = (name, fn) => {
@@ -403,8 +403,8 @@ function asStream(opts) {
 				'error',
 				new got.RequestError(
 					{ message: 'Request timed out', code: 'ETIMEDOUT' },
-					opts,
-				),
+					opts
+				)
 			);
 		}, opts.gotTimeout.request);
 	}
@@ -458,7 +458,7 @@ function asStream(opts) {
 				'error',
 				new got.HTTPError(statusCode, res.headers, opts),
 				null,
-				res,
+				res
 			);
 			return;
 		}
@@ -477,7 +477,7 @@ function asStream(opts) {
 function normalizeArguments(url, opts) {
 	if (typeof url !== 'string' && typeof url !== 'object') {
 		throw new TypeError(
-			`Parameter \`url\` must be a string or object, not ${typeof url}`,
+			`Parameter \`url\` must be a string or object, not ${typeof url}`
 		);
 	} else if (typeof url === 'string') {
 		url = url.replace(/^unix:/, 'http://$&');
@@ -501,7 +501,7 @@ function normalizeArguments(url, opts) {
 		{
 			protocol: url.protocol || 'http:', // Override both null/undefined with default protocol
 		},
-		opts,
+		opts
 	);
 
 	opts.headers = Object.assign(
@@ -509,7 +509,7 @@ function normalizeArguments(url, opts) {
 			'user-agent': `${pkg.name}/${pkg.version} (https://github.com/sindresorhus/got)`,
 			'accept-encoding': 'gzip,deflate',
 		},
-		lowercaseKeys(opts.headers),
+		lowercaseKeys(opts.headers)
 	);
 
 	const query = opts.query;
@@ -537,14 +537,14 @@ function normalizeArguments(url, opts) {
 			!(opts.form || opts.json)
 		) {
 			throw new TypeError(
-				'options.body must be a ReadableStream, string, Buffer or plain Object',
+				'options.body must be a ReadableStream, string, Buffer or plain Object'
 			);
 		}
 
 		const canBodyBeStringified = isPlainObj(body) || Array.isArray(body);
 		if ((opts.form || opts.json) && !canBodyBeStringified) {
 			throw new TypeError(
-				'options.body must be a plain Object or Array when options.form or options.json is used',
+				'options.body must be a plain Object or Array when options.form or options.json is used'
 			);
 		}
 
@@ -683,7 +683,7 @@ got.ParseError = class extends StdError {
 		super(
 			`${error.message} in "${urlLib.format(opts)}": \n${data.slice(0, 77)}...`,
 			error,
-			opts,
+			opts
 		);
 		this.name = 'ParseError';
 		this.statusCode = statusCode;
