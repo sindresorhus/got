@@ -1,54 +1,14 @@
 {
 	"name": "got",
-	"version": "7.1.0",
 	"description": "Simplified HTTP requests",
-	"license": "MIT",
-	"repository": "sindresorhus/got",
-	"maintainers": [
-		{
-			"name": "Sindre Sorhus",
-			"email": "sindresorhus@gmail.com",
-			"url": "sindresorhus.com"
-		},
-		{
-			"name": "Vsevolod Strukchinsky",
-			"email": "floatdrop@gmail.com",
-			"url": "github.com/floatdrop"
-		},
-		{
-			"name": "Alexander Tesfamichael",
-			"email": "alex.tesfamichael@gmail.com",
-			"url": "alextes.me"
-		}
-	],
-	"engines": {
-		"node": ">=4"
+	"version": "7.1.0",
+	"ava": {
+		"concurrency": 4
 	},
-	"scripts": {
-		"test": "xo && nyc ava",
-		"coveralls": "nyc report --reporter=text-lcov | coveralls"
+	"browser": {
+		"decompress-response": false,
+		"electron": false
 	},
-	"files": [
-		"index.js"
-	],
-	"keywords": [
-		"http",
-		"https",
-		"get",
-		"got",
-		"url",
-		"uri",
-		"request",
-		"util",
-		"utility",
-		"simple",
-		"curl",
-		"wget",
-		"fetch",
-		"net",
-		"network",
-		"electron"
-	],
 	"dependencies": {
 		"decompress-response": "^3.2.0",
 		"duplexer3": "^0.1.4",
@@ -73,19 +33,67 @@
 		"coveralls": "^2.11.4",
 		"form-data": "^2.1.1",
 		"get-port": "^3.0.0",
+		"husky": "^0.14.3",
+		"lint-staged": "^4.0.2",
 		"nyc": "^11.0.2",
 		"pem": "^1.4.4",
+		"prettier": "^1.5.3",
 		"slow-stream": "0.0.4",
 		"tempfile": "^2.0.0",
 		"tempy": "^0.1.0",
 		"universal-url": "1.0.0-alpha",
 		"xo": "^0.18.0"
 	},
-	"ava": {
-		"concurrency": 4
+	"engines": {
+		"node": ">=4"
 	},
-	"browser": {
-		"decompress-response": false,
-		"electron": false
+	"files": ["index.js"],
+	"keywords": [
+		"curl",
+		"electron",
+		"fetch",
+		"get",
+		"got",
+		"http",
+		"https",
+		"net",
+		"network",
+		"request",
+		"simple",
+		"uri",
+		"url",
+		"util",
+		"utility",
+		"wget"
+	],
+	"license": "MIT",
+	"lint-staged": {
+		"*.js": [
+			"prettier --write --use-tabs --single-quote true --trailing-comma none --no-bracket-spacing --jsx-bracket-same-line --print-width 80",
+			"git add"
+		]
+	},
+	"maintainers": [
+		{
+			"name": "Sindre Sorhus",
+			"email": "sindresorhus@gmail.com",
+			"url": "sindresorhus.com"
+		},
+		{
+			"name": "Vsevolod Strukchinsky",
+			"email": "floatdrop@gmail.com",
+			"url": "github.com/floatdrop"
+		},
+		{
+			"name": "Alexander Tesfamichael",
+			"email": "alex.tesfamichael@gmail.com",
+			"url": "alextes.me"
+		}
+	],
+	"repository": "sindresorhus/got",
+	"scripts": {
+		"coveralls": "nyc report --reporter=text-lcov | coveralls",
+		"precommit": "lint-staged",
+		"test": "xo && nyc ava"
 	}
 }

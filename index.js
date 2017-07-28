@@ -1,4 +1,5 @@
 'use strict';
+
 const EventEmitter = require('events');
 const http = require('http');
 const https = require('https');
@@ -26,10 +27,20 @@ const pTimeout = require('p-timeout');
 const pify = require('pify');
 const pkg = require('./package');
 
-const getMethodRedirectCodes = new Set([300, 301, 302, 303, 304, 305, 307, 308]);
+const getMethodRedirectCodes = new Set([
+	300,
+	301,
+	302,
+	303,
+	304,
+	305,
+	307,
+	308
+]);
 const allMethodRedirectCodes = new Set([300, 303, 307, 308]);
 
-const isFormData = body => isStream(body) && typeof body.getBoundary === 'function';
+const isFormData = body =>
+	isStream(body) && typeof body.getBoundary === 'function';
 
 const getBodySize = opts => {
 	const body = opts.body;
@@ -65,7 +76,8 @@ function requestAsEventEmitter(opts) {
 	opts = opts || {};
 
 	const ee = new EventEmitter();
-	const requestUrl = opts.href || urlLib.resolve(urlLib.format(opts), opts.path);
+	const requestUrl =
+		opts.href || urlLib.resolve(urlLib.format(opts), opts.path);
 	const redirects = [];
 	let retryCount = 0;
 	let redirectUrl;
@@ -102,10 +114,15 @@ function requestAsEventEmitter(opts) {
 			res.requestUrl = requestUrl;
 
 			const followRedirect = opts.followRedirect && 'location' in res.headers;
-			const redirectGet = followRedirect && getMethodRedirectCodes.has(statusCode);
-			const redirectAll = followRedirect && allMethodRedirectCodes.has(statusCode);
+			const redirectGet =
+				followRedirect && getMethodRedirectCodes.has(statusCode);
+			const redirectAll =
+				followRedirect && allMethodRedirectCodes.has(statusCode);
 
-			if (redirectAll || (redirectGet && (opts.method === 'GET' || opts.method === 'HEAD'))) {
+			if (
+				redirectAll ||
+				(redirectGet && (opts.method === 'GET' || opts.method === 'HEAD'))
+			) {
 				res.resume();
 
 				if (statusCode === 303) {
@@ -115,11 +132,19 @@ function requestAsEventEmitter(opts) {
 				}
 
 				if (redirects.length >= 10) {
-					ee.emit('error', new got.MaxRedirectsError(statusCode, redirects, opts), null, res);
+					ee.emit(
+						'error',
+						new got.MaxRedirectsError(statusCode, redirects, opts),
+						null,
+						res
+					);
 					return;
 				}
 
-				const bufferString = Buffer.from(res.headers.location, 'binary').toString();
+				const bufferString = Buffer.from(
+					res.headers.location,
+					'binary'
+				).toString();
 
 				redirectUrl = urlLib.resolve(urlLib.format(opts), bufferString);
 
@@ -142,7 +167,9 @@ function requestAsEventEmitter(opts) {
 					transform(chunk, encoding, callback) {
 						downloaded += chunk.length;
 
-						const percent = downloadBodySize ? downloaded / downloadBodySize : 0;
+						const percent = downloadBodySize
+							? downloaded / downloadBodySize
+							: 0;
 
 						// Let flush() be responsible for emitting the last event
 						if (percent < 1) {
@@ -170,11 +197,17 @@ function requestAsEventEmitter(opts) {
 				mimicResponse(res, progressStream);
 				progressStream.redirectUrls = redirects;
 
-				const response = opts.decompress === true &&
+				const response =
+					opts.decompress === true &&
 					typeof decompressResponse === 'function' &&
-					req.method !== 'HEAD' ? decompressResponse(progressStream) : progressStream;
+					req.method !== 'HEAD'
+						? decompressResponse(progressStream)
+						: progressStream;
 
-				if (!opts.decompress && ['gzip', 'deflate'].indexOf(res.headers['content-encoding']) !== -1) {
+				if (
+					!opts.decompress &&
+					['gzip', 'deflate'].indexOf(res.headers['content-encoding']) !== -1
+				) {
 					opts.encoding = null;
 				}
 
@@ -264,75 +297,89 @@ function requestAsEventEmitter(opts) {
 }
 
 function asPromise(opts) {
-	const timeoutFn = requestPromise => opts.gotTimeout && opts.gotTimeout.request ?
-		pTimeout(requestPromise, opts.gotTimeout.request, new got.RequestError({message: 'Request timed out', code: 'ETIMEDOUT'}, opts)) :
-		requestPromise;
+	const timeoutFn = requestPromise =>
+		opts.gotTimeout && opts.gotTimeout.request
+			? pTimeout(
+					requestPromise,
+					opts.gotTimeout.request,
+					new got.RequestError(
+						{message: 'Request timed out', code: 'ETIMEDOUT'},
+						opts
+					)
+				)
+			: requestPromise;
 
 	const proxy = new EventEmitter();
 
-	const promise = timeoutFn(new PCancelable((onCancel, resolve, reject) => {
-		const ee = requestAsEventEmitter(opts);
-		let cancelOnRequest = false;
-
-		onCancel(() => {
-			cancelOnRequest = true;
-		});
-
-		ee.on('request', req => {
-			if (cancelOnRequest) {
-				req.abort();
-			}
+	const promise = timeoutFn(
+		new PCancelable((onCancel, resolve, reject) => {
+			const ee = requestAsEventEmitter(opts);
+			let cancelOnRequest = false;
 
 			onCancel(() => {
-				req.abort();
+				cancelOnRequest = true;
 			});
 
-			if (isStream(opts.body)) {
-				opts.body.pipe(req);
-				opts.body = undefined;
-				return;
-			}
+			ee.on('request', req => {
+				if (cancelOnRequest) {
+					req.abort();
+				}
 
-			req.end(opts.body);
-		});
+				onCancel(() => {
+					req.abort();
+				});
 
-		ee.on('response', res => {
-			const stream = opts.encoding === null ? getStream.buffer(res) : getStream(res, opts);
+				if (isStream(opts.body)) {
+					opts.body.pipe(req);
+					opts.body = undefined;
+					return;
+				}
 
-			stream
-				.catch(err => reject(new got.ReadError(err, opts)))
-				.then(data => {
-					const statusCode = res.statusCode;
-					const limitStatusCode = opts.followRedirect ? 299 : 399;
+				req.end(opts.body);
+			});
 
-					res.body = data;
+			ee.on('response', res => {
+				const stream =
+					opts.encoding === null ? getStream.buffer(res) : getStream(res, opts);
 
-					if (opts.json && res.body) {
-						try {
-							res.body = JSON.parse(res.body);
-						} catch (err) {
-							if (statusCode >= 200 && statusCode < 300) {
-								throw new got.ParseError(err, statusCode, opts, data);
+				stream
+					.catch(err => reject(new got.ReadError(err, opts)))
+					.then(data => {
+						const statusCode = res.statusCode;
+						const limitStatusCode = opts.followRedirect ? 299 : 399;
+
+						res.body = data;
+
+						if (opts.json && res.body) {
+							try {
+								res.body = JSON.parse(res.body);
+							} catch (err) {
+								if (statusCode >= 200 && statusCode < 300) {
+									throw new got.ParseError(err, statusCode, opts, data);
+								}
 							}
 						}
-					}
 
-					if (statusCode !== 304 && (statusCode < 200 || statusCode > limitStatusCode)) {
-						throw new got.HTTPError(statusCode, res.headers, opts);
-					}
+						if (
+							statusCode !== 304 &&
+							(statusCode < 200 || statusCode > limitStatusCode)
+						) {
+							throw new got.HTTPError(statusCode, res.headers, opts);
+						}
 
-					resolve(res);
-				})
-				.catch(err => {
-					Object.defineProperty(err, 'response', {value: res});
-					reject(err);
-				});
-		});
+						resolve(res);
+					})
+					.catch(err => {
+						Object.defineProperty(err, 'response', {value: res});
+						reject(err);
+					});
+			});
 
-		ee.on('error', reject);
-		ee.on('uploadProgress', proxy.emit.bind(proxy, 'uploadProgress'));
-		ee.on('downloadProgress', proxy.emit.bind(proxy, 'downloadProgress'));
-	}));
+			ee.on('error', reject);
+			ee.on('uploadProgress', proxy.emit.bind(proxy, 'uploadProgress'));
+			ee.on('downloadProgress', proxy.emit.bind(proxy, 'downloadProgress'));
+		})
+	);
 
 	promise.on = (name, fn) => {
 		proxy.on(name, fn);
@@ -352,7 +399,13 @@ function asStream(opts) {
 
 	if (opts.gotTimeout && opts.gotTimeout.request) {
 		timeout = setTimeout(() => {
-			proxy.emit('error', new got.RequestError({message: 'Request timed out', code: 'ETIMEDOUT'}, opts));
+			proxy.emit(
+				'error',
+				new got.RequestError(
+					{message: 'Request timed out', code: 'ETIMEDOUT'},
+					opts
+				)
+			);
 		}, opts.gotTimeout.request);
 	}
 
@@ -362,7 +415,7 @@ function asStream(opts) {
 
 	if (opts.body) {
 		proxy.write = () => {
-			throw new Error('got\'s stream is not writable when options.body is used');
+			throw new Error("got's stream is not writable when options.body is used");
 		};
 	}
 
@@ -381,7 +434,11 @@ function asStream(opts) {
 			return;
 		}
 
-		if (opts.method === 'POST' || opts.method === 'PUT' || opts.method === 'PATCH') {
+		if (
+			opts.method === 'POST' ||
+			opts.method === 'PUT' ||
+			opts.method === 'PATCH'
+		) {
 			input.pipe(req);
 			return;
 		}
@@ -397,7 +454,12 @@ function asStream(opts) {
 		res.pipe(output);
 
 		if (statusCode !== 304 && (statusCode < 200 || statusCode > 299)) {
-			proxy.emit('error', new got.HTTPError(statusCode, res.headers, opts), null, res);
+			proxy.emit(
+				'error',
+				new got.HTTPError(statusCode, res.headers, opts),
+				null,
+				res
+			);
 			return;
 		}
 
@@ -414,7 +476,9 @@ function asStream(opts) {
 
 function normalizeArguments(url, opts) {
 	if (typeof url !== 'string' && typeof url !== 'object') {
-		throw new TypeError(`Parameter \`url\` must be a string or object, not ${typeof url}`);
+		throw new TypeError(
+			`Parameter \`url\` must be a string or object, not ${typeof url}`
+		);
 	} else if (typeof url === 'string') {
 		url = url.replace(/^unix:/, 'http://$&');
 		url = urlParseLax(url);
@@ -440,10 +504,13 @@ function normalizeArguments(url, opts) {
 		opts
 	);
 
-	opts.headers = Object.assign({
-		'user-agent': `${pkg.name}/${pkg.version} (https://github.com/sindresorhus/got)`,
-		'accept-encoding': 'gzip,deflate'
-	}, lowercaseKeys(opts.headers));
+	opts.headers = Object.assign(
+		{
+			'user-agent': `${pkg.name}/${pkg.version} (https://github.com/sindresorhus/got)`,
+			'accept-encoding': 'gzip,deflate'
+		},
+		lowercaseKeys(opts.headers)
+	);
 
 	const query = opts.query;
 
@@ -463,28 +530,47 @@ function normalizeArguments(url, opts) {
 	const body = opts.body;
 	if (body !== null && body !== undefined) {
 		const headers = opts.headers;
-		if (!isStream(body) && typeof body !== 'string' && !Buffer.isBuffer(body) && !(opts.form || opts.json)) {
-			throw new TypeError('options.body must be a ReadableStream, string, Buffer or plain Object');
+		if (
+			!isStream(body) &&
+			typeof body !== 'string' &&
+			!Buffer.isBuffer(body) &&
+			!(opts.form || opts.json)
+		) {
+			throw new TypeError(
+				'options.body must be a ReadableStream, string, Buffer or plain Object'
+			);
 		}
 
 		const canBodyBeStringified = isPlainObj(body) || Array.isArray(body);
 		if ((opts.form || opts.json) && !canBodyBeStringified) {
-			throw new TypeError('options.body must be a plain Object or Array when options.form or options.json is used');
+			throw new TypeError(
+				'options.body must be a plain Object or Array when options.form or options.json is used'
+			);
 		}
 
 		if (isFormData(body)) {
 			// Special case for https://github.com/form-data/form-data
-			headers['content-type'] = headers['content-type'] || `multipart/form-data; boundary=${body.getBoundary()}`;
+			headers['content-type'] =
+				headers['content-type'] ||
+				`multipart/form-data; boundary=${body.getBoundary()}`;
 		} else if (opts.form && canBodyBeStringified) {
-			headers['content-type'] = headers['content-type'] || 'application/x-www-form-urlencoded';
+			headers['content-type'] =
+				headers['content-type'] || 'application/x-www-form-urlencoded';
 			opts.body = querystring.stringify(body);
 		} else if (opts.json && canBodyBeStringified) {
 			headers['content-type'] = headers['content-type'] || 'application/json';
 			opts.body = JSON.stringify(body);
 		}
 
-		if (headers['content-length'] === undefined && headers['transfer-encoding'] === undefined && !isStream(body)) {
-			const length = typeof opts.body === 'string' ? Buffer.byteLength(opts.body) : opts.body.length;
+		if (
+			headers['content-length'] === undefined &&
+			headers['transfer-encoding'] === undefined &&
+			!isStream(body)
+		) {
+			const length =
+				typeof opts.body === 'string'
+					? Buffer.byteLength(opts.body)
+					: opts.body.length;
 			headers['content-length'] = length;
 		}
 
@@ -520,7 +606,7 @@ function normalizeArguments(url, opts) {
 
 			const noise = Math.random() * 100;
 
-			return ((1 << iter) * 1000) + noise;
+			return (1 << iter) * 1000 + noise;
 		};
 	}
 
@@ -550,18 +636,12 @@ function got(url, opts) {
 
 got.stream = (url, opts) => asStream(normalizeArguments(url, opts));
 
-const methods = [
-	'get',
-	'post',
-	'put',
-	'patch',
-	'head',
-	'delete'
-];
+const methods = ['get', 'post', 'put', 'patch', 'head', 'delete'];
 
 for (const method of methods) {
 	got[method] = (url, opts) => got(url, Object.assign({}, opts, {method}));
-	got.stream[method] = (url, opts) => got.stream(url, Object.assign({}, opts, {method}));
+	got.stream[method] = (url, opts) =>
+		got.stream(url, Object.assign({}, opts, {method}));
 }
 
 class StdError extends Error {
@@ -600,7 +680,11 @@ got.ReadError = class extends StdError {
 
 got.ParseError = class extends StdError {
 	constructor(error, statusCode, opts, data) {
-		super(`${error.message} in "${urlLib.format(opts)}": \n${data.slice(0, 77)}...`, error, opts);
+		super(
+			`${error.message} in "${urlLib.format(opts)}": \n${data.slice(0, 77)}...`,
+			error,
+			opts
+		);
 		this.name = 'ParseError';
 		this.statusCode = statusCode;
 		this.statusMessage = http.STATUS_CODES[this.statusCode];
