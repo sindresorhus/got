@@ -69,7 +69,7 @@
 	"license": "MIT",
 	"lint-staged": {
 		"*.js": [
-			"prettier --write --use-tabs --single-quote false --trailing-comma none --print-width 80",
+			"prettier --write --use-tabs --single-quote true --trailing-comma none --print-width 80",
 			"git add"
 		]
 	},
