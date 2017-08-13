@@ -46,8 +46,8 @@ function requestAsEventEmitter(opts) {
 			const electron = require('electron');
 			fn = electron.net || electron.remote.net;
 		}
-		const cacheableRequest = new CacheableRequest(fn.request);
 
+		const cacheableRequest = new CacheableRequest(fn.request, opts.cache);
 		const cacheReq = cacheableRequest(opts, res => {
 			const statusCode = res.statusCode;
 
