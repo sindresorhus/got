@@ -1,4 +1,4 @@
-import test from 'ava';
+import {skip as test} from 'ava';
 import got from '../';
 import {createServer} from './helpers/server';
 
