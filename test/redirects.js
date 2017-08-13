@@ -1,7 +1,7 @@
 import test from 'ava';
 import pem from 'pem';
 import pify from 'pify';
-import got from '../';
+import got from '..';
 import {createServer, createSSLServer} from './helpers/server';
 
 let http;
@@ -78,6 +78,27 @@ test.before('setup', async () => {
 		res.end();
 	});
 
+	http.on('/seeOther', (req, res) => {
+		res.writeHead(303, {
+			location: '/'
+		});
+		res.end();
+	});
+
+	http.on('/temporary', (req, res) => {
+		res.writeHead(307, {
+			location: '/'
+		});
+		res.end();
+	});
+
+	http.on('/permanent', (req, res) => {
+		res.writeHead(308, {
+			location: '/'
+		});
+		res.end();
+	});
+
 	http.on('/relativeQuery?bang', (req, res) => {
 		res.writeHead(302, {
 			location: '/'
@@ -97,7 +118,17 @@ test.before('setup', async () => {
 });
 
 test('follows redirect', async t => {
-	t.is((await got(`${http.url}/finite`)).body, 'reached');
+	const {body, redirectUrls} = await got(`${http.url}/finite`);
+	t.is(body, 'reached');
+	t.deepEqual(redirectUrls, [`${http.url}/`]);
+});
+
+test('follows 307, 308 redirect', async t => {
+	const tempBody = (await got(`${http.url}/temporary`)).body;
+	t.is(tempBody, 'reached');
+
+	const permBody = (await got(`${http.url}/permanent`)).body;
+	t.is(permBody, 'reached');
 });
 
 test('does not follow redirect when disabled', async t => {
@@ -109,12 +140,9 @@ test('relative redirect works', async t => {
 });
 
 test('throws on endless redirect', async t => {
-	try {
-		await got(`${http.url}/endless`);
-		t.fail('Exception was not thrown');
-	} catch (err) {
-		t.is(err.message, 'Redirected 10 times. Aborting.');
-	}
+	const err = await t.throws(got(`${http.url}/endless`));
+	t.is(err.message, 'Redirected 10 times. Aborting.');
+	t.deepEqual(err.redirectUrls, Array(10).fill(`${http.url}/endless`));
 });
 
 test('query in options are not breaking redirects', async t => {
@@ -129,14 +157,16 @@ test('hostname+path in options are not breaking redirects', async t => {
 });
 
 test('redirect only GET and HEAD requests', async t => {
-	try {
-		await got(`${http.url}/relative`, {body: 'wow'});
-		t.fail('Exception was not thrown');
-	} catch (err) {
-		t.is(err.message, 'Response code 302 (Found)');
-		t.is(err.path, '/relative');
-		t.is(err.statusCode, 302);
-	}
+	const err = await t.throws(got(`${http.url}/relative`, {body: 'wow'}));
+	t.is(err.message, 'Response code 302 (Found)');
+	t.is(err.path, '/relative');
+	t.is(err.statusCode, 302);
+});
+
+test('redirect on 303 response even with post, put, delete', async t => {
+	const {url, body} = await got(`${http.url}/seeOther`, {body: 'wow'});
+	t.is(url, `${http.url}/`);
+	t.is(body, 'reached');
 });
 
 test('redirects from http to https works', async t => {

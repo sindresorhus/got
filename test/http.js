@@ -1,5 +1,5 @@
 import test from 'ava';
-import got from '../';
+import got from '..';
 import {createServer} from './helpers/server';
 
 let s;
@@ -50,13 +50,9 @@ test('requestUrl response', async t => {
 });
 
 test('error with code', async t => {
-	try {
-		await got(`${s.url}/404`);
-		t.fail('Exception was not thrown');
-	} catch (err) {
-		t.is(err.statusCode, 404);
-		t.is(err.response.body, 'not');
-	}
+	const err = await t.throws(got(`${s.url}/404`));
+	t.is(err.statusCode, 404);
+	t.is(err.response.body, 'not');
 });
 
 test('status code 304 doesn\'t throw', async t => {
@@ -67,33 +63,14 @@ test('status code 304 doesn\'t throw', async t => {
 	t.is(response.body, '');
 });
 
+test('invalid protocol throws', async t => {
+	const err = await t.throws(got('c:/nope.com', {json: true}));
+	t.is(err.constructor, got.UnsupportedProtocolError);
+});
+
 test('buffer on encoding === null', async t => {
 	const data = (await got(s.url, {encoding: null})).body;
 	t.truthy(Buffer.isBuffer(data));
-});
-
-test('timeout option', async t => {
-	try {
-		await got(`${s.url}/404`, {
-			timeout: 1,
-			retries: 0
-		});
-		t.fail('Exception was not thrown');
-	} catch (err) {
-		t.is(err.code, 'ETIMEDOUT');
-	}
-});
-
-test('timeout option as object', async t => {
-	try {
-		await got(`${s.url}/404`, {
-			timeout: {connect: 1},
-			retries: 0
-		});
-		t.fail('Exception was not thrown');
-	} catch (err) {
-		t.is(err.code, 'ETIMEDOUT');
-	}
 });
 
 test('query option', async t => {

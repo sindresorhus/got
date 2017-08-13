@@ -1,5 +1,6 @@
+import {URL} from 'universal-url';
 import test from 'ava';
-import got from '../';
+import got from '..';
 import {createServer} from './helpers/server';
 
 let s;
@@ -53,12 +54,24 @@ test('overrides querystring from opts', async t => {
 });
 
 test('should throw with auth in url', async t => {
-	try {
-		await got('https://test:45d3ps453@account.myservice.com/api/token');
-		t.fail('Exception was not thrown');
-	} catch (err) {
-		t.regex(err.message, /Basic authentication must be done with auth option/);
-	}
+	const err = await t.throws(got('https://test:45d3ps453@account.myservice.com/api/token'));
+	t.regex(err.message, /Basic authentication must be done with auth option/);
+});
+
+test('should throw when body is set to object', async t => {
+	await t.throws(got(`${s.url}/`, {body: {}}), TypeError);
+});
+
+test('WHATWG URL support', async t => {
+	const wURL = new URL(`${s.url}/test`);
+	await t.notThrows(got(wURL));
+});
+
+test('throws on WHATWG URL with auth', async t => {
+	const wURL = new URL(`${s.url}/test`);
+	wURL.username = 'alex';
+	wURL.password = 'secret';
+	await t.throws(got(wURL));
 });
 
 test.after('cleanup', async () => {

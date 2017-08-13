@@ -12,17 +12,27 @@
 
 A nicer interface to the built-in [`http`](http://nodejs.org/api/http.html) module.
 
-It supports following redirects, promises, streams, retries, automagically handling gzip/deflate and some convenience options.
-
 Created because [`request`](https://github.com/request/request) is bloated *(several megabytes!)*.
+
+
+## Highlights
+
+- [Promise & stream API](#api)
+- [Request cancelation](#aborting-the-request)
+- [Follows redirects](#followredirect)
+- [Retries on network failure](#retries)
+- [Handles gzip/deflate](#decompress)
+- [Timeout handling](#timeout)
+- [Errors with metadata](#errors)
+- [JSON mode](#json)
+- [WHATWG URL support](#url)
+- [Electron support](#useelectronnet)
 
 
 ## Install
 
-**WARNING: Node.js 4 or higher is required for got@6 and above.** For older Node.js versions use [got@5](https://github.com/sindresorhus/got/tree/v5.x).
-
 ```
-$ npm install --save got
+$ npm install got
 ```
 
 
@@ -60,21 +70,21 @@ Returns a Promise for a `response` object with a `body` property, a `url` proper
 
 ##### url
 
-Type: `string`, `object`
+Type: `string` `Object`
 
-The URL to request or a [`http.request` options](https://nodejs.org/api/http.html#http_http_request_options_callback) object.
+The URL to request as simple string, a [`http.request` options](https://nodejs.org/api/http.html#http_http_request_options_callback), or a [WHATWG `URL`](https://nodejs.org/api/url.html#url_class_url).
 
 Properties from `options` will override properties in the parsed `url`.
 
 ##### options
 
-Type: `object`
+Type: `Object`
 
 Any of the [`http.request`](http://nodejs.org/api/http.html#http_http_request_options_callback) options.
 
 ###### body
 
-Type: `string`, `buffer`, `readableStream`, `object`
+Type: `string` `Buffer` `stream.Readable`
 
 *This is mutually exclusive with stream mode.*
 
@@ -84,14 +94,23 @@ If present in `options` and `options.method` is not set, `options.method` will b
 
 If `content-length` or `transfer-encoding` is not set in `options.headers` and `body` is a string or buffer, `content-length` will be set to the body length.
 
-If `body` is a plain object, it will be stringified with [`querystring.stringify`](https://nodejs.org/api/querystring.html#querystring_querystring_stringify_obj_sep_eq_options) and sent as `application/x-www-form-urlencoded`.
-
 ###### encoding
 
-Type: `string`, `null`<br>
+Type: `string` `null`<br>
 Default: `'utf8'`
 
-Encoding to be used on `setEncoding` of the response data. If `null`, the body is returned as a Buffer.
+[Encoding](https://nodejs.org/api/buffer.html#buffer_buffers_and_character_encodings) to be used on `setEncoding` of the response data. If `null`, the body is returned as a Buffer.
+
+###### form
+
+Type: `boolean`<br>
+Default: `false`
+
+*This is mutually exclusive with stream mode.*
+
+If set to `true` and `Content-Type` header is not set, it will be set to `application/x-www-form-urlencoded`.
+
+`body` must be a plain object or array and will be stringified.
 
 ###### json
 
@@ -100,26 +119,30 @@ Default: `false`
 
 *This is mutually exclusive with stream mode.*
 
-Parse response body with `JSON.parse` and set `accept` header to `application/json`.
+If set to `true` and `Content-Type` header is not set, it will be set to `application/json`.
+
+Parse response body with `JSON.parse` and set `accept` header to `application/json`. If used in conjunction with the `form` option, the `body` will the stringified as querystring and the response parsed as JSON.
+
+`body` must be a plain object or array and will be stringified.
 
 ###### query
 
-Type: `string`, `object`<br>
+Type: `string` `Object`<br>
 
 Query string object that will be added to the request URL. This will override the query string in `url`.
 
 ###### timeout
 
-Type: `number`, `object`
+Type: `number` `Object`
 
-Milliseconds to wait for a server to send response headers before aborting request with `ETIMEDOUT` error.
+Milliseconds to wait for the server to end the response before aborting request with `ETIMEDOUT` error.
 
-Option accepts `object` with separate `connect` and `socket` fields for connection and socket inactivity timeouts.
+This also accepts an object with separate `connect`, `socket`, and `request` fields for connection, socket, and entire request timeouts.
 
 ###### retries
 
-Type: `number`, `function`<br>
-Default: `5`
+Type: `number` `Function`<br>
+Default: `2`
 
 Number of request retries when network errors happens. Delays between retries counts with function `1000 * Math.pow(2, retry) + Math.random() * 100`, where `retry` is attempt number (starts from 0).
 
@@ -133,6 +156,25 @@ Type: `boolean`<br>
 Default: `true`
 
 Defines if redirect responses should be followed automatically.
+
+Note that if a `303` is sent by the server in response to any request type (`POST`, `DELETE`, etc.), got will automatically
+request the resource pointed to in the location header via `GET`. This is in accordance with [the spec](https://tools.ietf.org/html/rfc7231#section-6.4.4).
+
+###### decompress
+
+Type: `boolean`<br>
+Default: `true`
+
+Decompress the response automatically.
+
+If this is disabled, a compressed response is returned as a `Buffer`. This may be useful if you want to handle decompression yourself or stream the raw compressed data.
+
+###### useElectronNet
+
+Type: `boolean`<br>
+Default: `true`
+
+When used in Electron, Got will automatically use [`electron.net`](https://electron.atom.io/docs/api/net/) instead of the Node.js `http` module. It should be fully compatible, but you can turn it off here if you encounter a problem. Please open an issue if you do!
 
 
 #### Streams
@@ -190,15 +232,24 @@ When reading from response stream fails.
 
 #### got.ParseError
 
-When `json` option is enabled and `JSON.parse` fails.
+When `json` option is enabled, server response code is 2xx, and `JSON.parse` fails.
 
 #### got.HTTPError
 
-When server response code is not 2xx. Contains `statusCode` and `statusMessage`.
+When server response code is not 2xx. Includes `statusCode`, `statusMessage`, and `redirectUrls` properties.
 
 #### got.MaxRedirectsError
 
-When server redirects you more than 10 times.
+When server redirects you more than 10 times. Includes a `redirectUrls` property, which is an array of the URLs Got was redirected to before giving up.
+
+#### got.UnsupportedProtocolError
+
+When given an unsupported protocol.
+
+
+## Aborting the request
+
+The promise returned by Got has a `.cancel()` function which, when called, aborts the request.
 
 
 ## Proxies
@@ -370,11 +421,11 @@ Bear in mind, if you send an `if-modified-since` header and receive a `304 Not M
 
 ## Created by
 
-[![Sindre Sorhus](https://avatars.githubusercontent.com/u/170270?v=3&s=100)](https://sindresorhus.com) | [![Vsevolod Strukchinsky](https://avatars.githubusercontent.com/u/365089?v=3&s=100)](https://github.com/floatdrop)
----|---
-[Sindre Sorhus](https://sindresorhus.com) | [Vsevolod Strukchinsky](https://github.com/floatdrop)
+[![Sindre Sorhus](https://avatars.githubusercontent.com/u/170270?v=3&s=100)](https://sindresorhus.com) | [![Vsevolod Strukchinsky](https://avatars.githubusercontent.com/u/365089?v=3&s=100)](https://github.com/floatdrop) | [![Alexander Tesfamichael](https://avatars.githubusercontent.com/u/2011351?v=3&s=100)](https://alextes.me)
+---|---|---
+[Sindre Sorhus](https://sindresorhus.com) | [Vsevolod Strukchinsky](https://github.com/floatdrop) | [Alexander Tesfamichael](https://alextes.me)
 
 
 ## License
 
-MIT © [Sindre Sorhus](https://sindresorhus.com)
+MIT

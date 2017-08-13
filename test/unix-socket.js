@@ -1,10 +1,10 @@
 import {format} from 'util';
-import tempfile from 'tempfile';
+import tempy from 'tempy';
 import test from 'ava';
-import got from '../';
+import got from '..';
 import {createServer} from './helpers/server';
 
-const socketPath = tempfile('.socket');
+const socketPath = tempy.file({extension: 'socket'});
 
 let s;
 
@@ -12,6 +12,10 @@ test.before('setup', async () => {
 	s = await createServer();
 
 	s.on('/', (req, res) => {
+		res.end('ok');
+	});
+
+	s.on('/foo:bar', (req, res) => {
 		res.end('ok');
 	});
 
@@ -25,6 +29,11 @@ test('works', async t => {
 
 test('protocol-less works', async t => {
 	const url = format('unix:%s:%s', socketPath, '/');
+	t.is((await got(url)).body, 'ok');
+});
+
+test('address with : works', async t => {
+	const url = format('unix:%s:%s', socketPath, '/foo:bar');
 	t.is((await got(url)).body, 'ok');
 });
 

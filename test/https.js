@@ -1,7 +1,7 @@
 import test from 'ava';
 import pem from 'pem';
 import pify from 'pify';
-import got from '../';
+import got from '..';
 import {createSSLServer} from './helpers/server';
 
 let s;
@@ -47,7 +47,6 @@ test('make request to https server without ca', async t => {
 
 test('make request to https server with ca', async t => {
 	const {body} = await got(s.url, {
-		strictSSL: true,
 		ca: caRootCert,
 		headers: {host: 'sindresorhus.com'}
 	});
