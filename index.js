@@ -5,6 +5,7 @@ const https = require('https');
 const PassThrough = require('stream').PassThrough;
 const urlLib = require('url');
 const querystring = require('querystring');
+const CacheableRequest = require('cacheable-request');
 const duplexer3 = require('duplexer3');
 const isStream = require('is-stream');
 const getStream = require('get-stream');
@@ -45,8 +46,9 @@ function requestAsEventEmitter(opts) {
 			const electron = require('electron');
 			fn = electron.net || electron.remote.net;
 		}
+		const cacheableRequest = new CacheableRequest(fn.request);
 
-		const req = fn.request(opts, res => {
+		const cacheReq = cacheableRequest(opts, res => {
 			const statusCode = res.statusCode;
 
 			res.url = redirectUrl || requestUrl;
@@ -88,7 +90,7 @@ function requestAsEventEmitter(opts) {
 			setImmediate(() => {
 				const response = opts.decompress === true &&
 					typeof decompressResponse === 'function' &&
-					req.method !== 'HEAD' ? decompressResponse(res) : res;
+					opts.method !== 'HEAD' ? decompressResponse(res) : res;
 
 				if (!opts.decompress && ['gzip', 'deflate'].indexOf(res.headers['content-encoding']) !== -1) {
 					opts.encoding = null;
@@ -100,23 +102,25 @@ function requestAsEventEmitter(opts) {
 			});
 		});
 
-		req.once('error', err => {
-			const backoff = opts.retries(++retryCount, err);
+		cacheReq.on('request', req => {
+			req.once('error', err => {
+				const backoff = opts.retries(++retryCount, err);
 
-			if (backoff) {
-				setTimeout(get, backoff, opts);
-				return;
+				if (backoff) {
+					setTimeout(get, backoff, opts);
+					return;
+				}
+
+				ee.emit('error', new got.RequestError(err, opts));
+			});
+
+			if (opts.gotTimeout) {
+				timedOut(req, opts.gotTimeout);
 			}
 
-			ee.emit('error', new got.RequestError(err, opts));
-		});
-
-		if (opts.gotTimeout) {
-			timedOut(req, opts.gotTimeout);
-		}
-
-		setImmediate(() => {
-			ee.emit('request', req);
+			setImmediate(() => {
+				ee.emit('request', req);
+			});
 		});
 	};
 
