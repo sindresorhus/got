@@ -282,6 +282,7 @@ function normalizeArguments(url, opts) {
 		{
 			path: '',
 			retries: 2,
+			cache: false,
 			decompress: true,
 			useElectronNet: true
 		},
