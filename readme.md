@@ -21,6 +21,7 @@ Created because [`request`](https://github.com/request/request) is bloated *(sev
 - [Request cancelation](#aborting-the-request)
 - [Follows redirects](#followredirect)
 - [Retries on network failure](#retries)
+- [Progress events](#onuploadprogress-progress)
 - [Handles gzip/deflate](#decompress)
 - [Timeout handling](#timeout)
 - [Errors with metadata](#errors)
@@ -201,6 +202,36 @@ got.stream('github.com')
 ##### .on('redirect', response, nextOptions)
 
 `redirect` event to get the response object of a redirect. The second argument is options for the next request to the redirect location.
+
+##### .on('uploadProgress', progress)
+##### .on('downloadProgress', progress)
+
+Progress events for uploading (sending request) and downloading (receiving response). The `progress` argument is an object like:
+
+```js
+{
+	percent: 0.1,
+	transferred: 1024,
+	total: 10240
+}
+```
+
+If it's not possible to retrieve the body size (can happen when streaming), `total` will be `null`.
+
+**Note**: Progress events can also be used with promises.
+
+```js
+got('todomvc.com')
+	.on('downloadProgress', progress => {
+		// Report download progress
+	})
+	.on('uploadProgress', progress => {
+		// Report upload progress
+	})
+	.then(response => {
+		// Done
+	});
+```
 
 ##### .on('error', error, body, response)
 
@@ -421,7 +452,7 @@ Bear in mind, if you send an `if-modified-since` header and receive a `304 Not M
 
 ## Created by
 
-[![Sindre Sorhus](https://avatars.githubusercontent.com/u/170270?v=3&s=100)](https://sindresorhus.com) | [![Vsevolod Strukchinsky](https://avatars.githubusercontent.com/u/365089?v=3&s=100)](https://github.com/floatdrop) | [![Alexander Tesfamichael](https://avatars.githubusercontent.com/u/2011351?v=3&s=100)](https://alextes.me)
+[![Sindre Sorhus](https://github.com/sindresorhus.png?size=100)](https://sindresorhus.com) | [![Vsevolod Strukchinsky](https://github.com/floatdrop.png?size=100)](https://github.com/floatdrop) | [![Alexander Tesfamichael](https://github.com/AlexTes.png?size=100)](https://github.com/AlexTes)
 ---|---|---
 [Sindre Sorhus](https://sindresorhus.com) | [Vsevolod Strukchinsky](https://github.com/floatdrop) | [Alexander Tesfamichael](https://alextes.me)
 
