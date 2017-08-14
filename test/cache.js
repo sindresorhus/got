@@ -94,6 +94,14 @@ test('Redirects are cached and re-used internally', async t => {
 	t.is(firstResponse.body, secondResponse.body);
 });
 
+test('Cache error throws got.CacheError', async t => {
+	const endpoint = '/no-store';
+	const cache = {};
+
+	const err = await t.throws(got(s.url + endpoint, {cache}));
+	t.is(err.name, 'CacheError');
+});
+
 test.after('cleanup', async () => {
 	await s.close();
 });
