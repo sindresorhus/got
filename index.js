@@ -192,6 +192,8 @@ function requestAsEventEmitter(opts) {
 			});
 		});
 
+		cacheReq.on('error', err => ee.emit('error', new got.CacheError(err, opts)));
+
 		cacheReq.on('request', req => {
 			req.once('error', err => {
 				clearInterval(progressInterval);
@@ -588,6 +590,13 @@ class StdError extends Error {
 		});
 	}
 }
+
+got.CacheError = class extends StdError {
+	constructor(error, opts) {
+		super(error.message, error, opts);
+		this.name = 'CacheError';
+	}
+};
 
 got.RequestError = class extends StdError {
 	constructor(error, opts) {
