@@ -282,6 +282,59 @@ When given an unsupported protocol.
 
 The promise returned by Got has a `.cancel()` function which, when called, aborts the request.
 
+## Cache
+
+You can use the JavaScript `Map` type as an in memory cache:
+
+```js
+const got = require('got');
+const map = new Map();
+
+got('todomvc.com', { cache: map })
+	.then(response => {
+		console.log(response.fromCache);
+		//=> false
+
+		return got('todomvc.com', { cache: map })
+	})
+	.then(response => {
+		console.log(response.fromCache);
+		//=> true
+	});
+```
+
+Got uses [Keyv](https://github.com/lukechilds/keyv) internally to support a wide range of storage adapters. For something more scaleable you could use an [official Keyv storage adapter](https://github.com/lukechilds/keyv#official-storage-adapters):
+
+```
+npm install --save @keyv/redis
+```
+
+```js
+const got = require('got');
+const KeyvRedis = require('@keyv/redis');
+
+const redis = new KeyvRedis('redis://user:pass@localhost:6379');
+
+got('todomvc.com', { cache: redis });
+```
+
+Got supports anything that follows the Map API so it's easy to write your own storage adapter or use a third-party solution.
+
+e.g The following are all valid storage adapters
+
+```js
+const storageAdapter = new Map();
+// or
+const storageAdapter = require('./my-storage-adapter');
+// or
+const QuickLRU = require('quick-lru');
+const storageAdapter = new QuickLRU({ maxSize: 1000 });
+
+got('todomvc.com', { cache: storageAdapter });
+```
+
+View the [Keyv docs](https://github.com/lukechilds/keyv) for more information on how to use storage adapters.
+
 
 ## Proxies
 
