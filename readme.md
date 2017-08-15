@@ -292,16 +292,12 @@ const got = require('got');
 const map = new Map();
 
 got('todomvc.com', { cache: map })
-	.then(response => {
-		console.log(response.fromCache);
-		//=> false
+	.then(response => response.fromCache);
+	//=> false
 
-		return got('todomvc.com', { cache: map })
-	})
-	.then(response => {
-		console.log(response.fromCache);
-		//=> true
-	});
+got('todomvc.com', { cache: map })
+	.then(response => response.fromCache);
+	//=> true
 ```
 
 Got uses [Keyv](https://github.com/lukechilds/keyv) internally to support a wide range of storage adapters. For something more scaleable you could use an [official Keyv storage adapter](https://github.com/lukechilds/keyv#official-storage-adapters):
