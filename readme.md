@@ -171,6 +171,13 @@ Decompress the response automatically.
 
 If this is disabled, a compressed response is returned as a `Buffer`. This may be useful if you want to handle decompression yourself or stream the raw compressed data.
 
+###### cache
+
+Type: `object`<br>
+Default: `false`
+
+Cache adapter instance for storing cached data.
+
 ###### useElectronNet
 
 Type: `boolean`<br>
