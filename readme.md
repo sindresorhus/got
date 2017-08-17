@@ -291,13 +291,15 @@ You can use the JavaScript `Map` type as an in memory cache:
 const got = require('got');
 const map = new Map();
 
-got('todomvc.com', { cache: map })
-	.then(response => response.fromCache);
-	//=> false
+(async () => {
+    let response = await got('todomvc.com', { cache: map });
+    console.log(response.fromCache);
+    //=> false
 
-got('todomvc.com', { cache: map })
-	.then(response => response.fromCache);
-	//=> true
+    response = await got('todomvc.com', { cache: map });
+    console.log(response.fromCache);
+    //=> true
+})();
 ```
 
 Got uses [Keyv](https://github.com/lukechilds/keyv) internally to support a wide range of storage adapters. For something more scalable you could use an [official Keyv storage adapter](https://github.com/lukechilds/keyv#official-storage-adapters):
