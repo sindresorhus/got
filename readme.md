@@ -292,11 +292,11 @@ const got = require('got');
 const map = new Map();
 
 (async () => {
-    let response = await got('todomvc.com', { cache: map });
+    let response = await got('todomvc.com', {cache: map});
     console.log(response.fromCache);
     //=> false
 
-    response = await got('todomvc.com', { cache: map });
+    response = await got('todomvc.com', {cache: map});
     console.log(response.fromCache);
     //=> true
 })();
@@ -314,7 +314,7 @@ const KeyvRedis = require('@keyv/redis');
 
 const redis = new KeyvRedis('redis://user:pass@localhost:6379');
 
-got('todomvc.com', { cache: redis });
+got('todomvc.com', {cache: redis});
 ```
 
 Got supports anything that follows the Map API so it's easy to write your own storage adapter or use a third-party solution.
@@ -327,9 +327,9 @@ const storageAdapter = new Map();
 const storageAdapter = require('./my-storage-adapter');
 // or
 const QuickLRU = require('quick-lru');
-const storageAdapter = new QuickLRU({ maxSize: 1000 });
+const storageAdapter = new QuickLRU({maxSize: 1000});
 
-got('todomvc.com', { cache: storageAdapter });
+got('todomvc.com', {cache: storageAdapter});
 ```
 
 View the [Keyv docs](https://github.com/lukechilds/keyv) for more information on how to use storage adapters.
