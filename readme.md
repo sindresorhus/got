@@ -254,6 +254,10 @@ Each error contains (if available) `statusCode`, `statusMessage`, `host`, `hostn
 
 In Promise mode, the `response` is attached to the error.
 
+#### got.CacheError
+
+When a cache method fails.
+
 #### got.RequestError
 
 When a request fails. Contains a `code` property with error class code, like `ECONNREFUSED`.
