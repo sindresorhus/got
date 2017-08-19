@@ -47,6 +47,25 @@ test('cancel in-progress request', async t => {
 	await t.notThrows(helper.aborted, 'Request finished instead of aborting.');
 });
 
+test('cancel in-progress request with timeout', async t => {
+	const helper = await createAbortServer();
+	const body = new Readable({
+		read() {}
+	});
+	body.push('1');
+
+	const p = got(helper.url, {body, timeout: 10000});
+
+	// Wait for the stream to be established before canceling
+	setTimeout(() => {
+		p.cancel();
+		body.push(null);
+	}, 100);
+
+	await t.throws(p, PCancelable.CancelError);
+	await t.notThrows(helper.aborted, 'Request finished instead of aborting.');
+});
+
 test('cancel immediately', async t => {
 	const s = await createServer();
 	const aborted = new Promise((resolve, reject) => {
