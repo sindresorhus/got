@@ -87,108 +87,114 @@ function requestAsEventEmitter(opts) {
 
 		let progressInterval;
 
-		const req = fn.request(opts, res => {
-			clearInterval(progressInterval);
+		let req;
 
-			ee.emit('uploadProgress', {
-				percent: 1,
-				transferred: uploaded,
-				total: uploadBodySize
-			});
+		try {
+			req = fn.request(opts, res => {
+				clearInterval(progressInterval);
 
-			const statusCode = res.statusCode;
+				ee.emit('uploadProgress', {
+					percent: 1,
+					transferred: uploaded,
+					total: uploadBodySize
+				});
 
-			res.url = redirectUrl || requestUrl;
-			res.requestUrl = requestUrl;
+				const statusCode = res.statusCode;
 
-			const followRedirect = opts.followRedirect && 'location' in res.headers;
-			const redirectGet = followRedirect && getMethodRedirectCodes.has(statusCode);
-			const redirectAll = followRedirect && allMethodRedirectCodes.has(statusCode);
+				res.url = redirectUrl || requestUrl;
+				res.requestUrl = requestUrl;
 
-			if (redirectAll || (redirectGet && (opts.method === 'GET' || opts.method === 'HEAD'))) {
-				res.resume();
+				const followRedirect = opts.followRedirect && 'location' in res.headers;
+				const redirectGet = followRedirect && getMethodRedirectCodes.has(statusCode);
+				const redirectAll = followRedirect && allMethodRedirectCodes.has(statusCode);
 
-				if (statusCode === 303) {
-					// Server responded with "see other", indicating that the resource exists at another location,
-					// and the client should request it from that location via GET or HEAD.
-					opts.method = 'GET';
-				}
+				if (redirectAll || (redirectGet && (opts.method === 'GET' || opts.method === 'HEAD'))) {
+					res.resume();
 
-				if (redirects.length >= 10) {
-					ee.emit('error', new got.MaxRedirectsError(statusCode, redirects, opts), null, res);
+					if (statusCode === 303) {
+						// Server responded with "see other", indicating that the resource exists at another location,
+						// and the client should request it from that location via GET or HEAD.
+						opts.method = 'GET';
+					}
+
+					if (redirects.length >= 10) {
+						ee.emit('error', new got.MaxRedirectsError(statusCode, redirects, opts), null, res);
+						return;
+					}
+
+					const bufferString = Buffer.from(res.headers.location, 'binary').toString();
+
+					redirectUrl = urlLib.resolve(urlLib.format(opts), bufferString);
+
+					redirects.push(redirectUrl);
+
+					const redirectOpts = Object.assign({}, opts, urlLib.parse(redirectUrl));
+
+					ee.emit('redirect', res, redirectOpts);
+
+					get(redirectOpts);
+
 					return;
 				}
 
-				const bufferString = Buffer.from(res.headers.location, 'binary').toString();
+				const downloadBodySize = Number(res.headers['content-length']) || null;
+				let downloaded = 0;
 
-				redirectUrl = urlLib.resolve(urlLib.format(opts), bufferString);
+				setImmediate(() => {
+					const progressStream = new Transform({
+						transform(chunk, encoding, callback) {
+							downloaded += chunk.length;
 
-				redirects.push(redirectUrl);
+							const percent = downloadBodySize ? downloaded / downloadBodySize : 0;
 
-				const redirectOpts = Object.assign({}, opts, urlLib.parse(redirectUrl));
+							// Let flush() be responsible for emitting the last event
+							if (percent < 1) {
+								ee.emit('downloadProgress', {
+									percent,
+									transferred: downloaded,
+									total: downloadBodySize
+								});
+							}
 
-				ee.emit('redirect', res, redirectOpts);
+							callback(null, chunk);
+						},
 
-				get(redirectOpts);
-
-				return;
-			}
-
-			const downloadBodySize = Number(res.headers['content-length']) || null;
-			let downloaded = 0;
-
-			setImmediate(() => {
-				const progressStream = new Transform({
-					transform(chunk, encoding, callback) {
-						downloaded += chunk.length;
-
-						const percent = downloadBodySize ? downloaded / downloadBodySize : 0;
-
-						// Let flush() be responsible for emitting the last event
-						if (percent < 1) {
+						flush(callback) {
 							ee.emit('downloadProgress', {
-								percent,
+								percent: 1,
 								transferred: downloaded,
 								total: downloadBodySize
 							});
+
+							callback();
 						}
+					});
 
-						callback(null, chunk);
-					},
+					mimicResponse(res, progressStream);
+					progressStream.redirectUrls = redirects;
 
-					flush(callback) {
-						ee.emit('downloadProgress', {
-							percent: 1,
-							transferred: downloaded,
-							total: downloadBodySize
-						});
+					const response = opts.decompress === true &&
+						typeof decompressResponse === 'function' &&
+						req.method !== 'HEAD' ? decompressResponse(progressStream) : progressStream;
 
-						callback();
+					if (!opts.decompress && ['gzip', 'deflate'].indexOf(res.headers['content-encoding']) !== -1) {
+						opts.encoding = null;
 					}
+
+					ee.emit('response', response);
+
+					ee.emit('downloadProgress', {
+						percent: 0,
+						transferred: 0,
+						total: downloadBodySize
+					});
+
+					res.pipe(progressStream);
 				});
-
-				mimicResponse(res, progressStream);
-				progressStream.redirectUrls = redirects;
-
-				const response = opts.decompress === true &&
-					typeof decompressResponse === 'function' &&
-					req.method !== 'HEAD' ? decompressResponse(progressStream) : progressStream;
-
-				if (!opts.decompress && ['gzip', 'deflate'].indexOf(res.headers['content-encoding']) !== -1) {
-					opts.encoding = null;
-				}
-
-				ee.emit('response', response);
-
-				ee.emit('downloadProgress', {
-					percent: 0,
-					transferred: 0,
-					total: downloadBodySize
-				});
-
-				res.pipe(progressStream);
 			});
-		});
+		} catch (err) {
+			return ee.emit('error', err);
+		}
 
 		req.once('error', err => {
 			clearInterval(progressInterval);
