@@ -567,6 +567,7 @@ for (const method of methods) {
 class StdError extends Error {
 	constructor(message, error, opts) {
 		super(message);
+		Error.captureStackTrace(this, this.constructor);
 		this.name = 'StdError';
 
 		if (error.code !== undefined) {
