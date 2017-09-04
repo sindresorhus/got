@@ -270,7 +270,7 @@ function asPromise(opts) {
 
 	const proxy = new EventEmitter();
 
-	const promise = timeoutFn(new PCancelable((onCancel, resolve, reject) => {
+	const cancelable = new PCancelable((onCancel, resolve, reject) => {
 		const ee = requestAsEventEmitter(opts);
 		let cancelOnRequest = false;
 
@@ -332,7 +332,11 @@ function asPromise(opts) {
 		ee.on('error', reject);
 		ee.on('uploadProgress', proxy.emit.bind(proxy, 'uploadProgress'));
 		ee.on('downloadProgress', proxy.emit.bind(proxy, 'downloadProgress'));
-	}));
+	});
+
+	const promise = timeoutFn(cancelable);
+
+	promise.cancel = cancelable.cancel.bind(cancelable);
 
 	promise.on = (name, fn) => {
 		proxy.on(name, fn);
