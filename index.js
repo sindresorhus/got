@@ -318,7 +318,7 @@ function asPromise(opts) {
 					}
 
 					if (statusCode !== 304 && (statusCode < 200 || statusCode > limitStatusCode)) {
-						throw new got.HTTPError(statusCode, res.headers, opts);
+						throw new got.HTTPError(statusCode, res, opts);
 					}
 
 					resolve(res);
@@ -401,7 +401,7 @@ function asStream(opts) {
 		res.pipe(output);
 
 		if (statusCode !== 304 && (statusCode < 200 || statusCode > 299)) {
-			proxy.emit('error', new got.HTTPError(statusCode, res.headers, opts), null, res);
+			proxy.emit('error', new got.HTTPError(statusCode, res, opts), null, res);
 			return;
 		}
 
@@ -613,13 +613,14 @@ got.ParseError = class extends StdError {
 };
 
 got.HTTPError = class extends StdError {
-	constructor(statusCode, headers, opts) {
+	constructor(statusCode, response, opts) {
 		const statusMessage = http.STATUS_CODES[statusCode];
 		super(`Response code ${statusCode} (${statusMessage})`, {}, opts);
 		this.name = 'HTTPError';
 		this.statusCode = statusCode;
 		this.statusMessage = statusMessage;
-		this.headers = headers;
+		this.headers = response.headers;
+		this.body = response.body;
 	}
 };
 
