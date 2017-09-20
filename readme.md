@@ -282,6 +282,20 @@ When given an unsupported protocol.
 
 The promise returned by Got has a `.cancel()` function which, when called, aborts the request.
 
+```js
+const request = got(url, options);
+
+request.cancel();
+
+request.catch(err => {
+  if (request.canceled) {
+    // handle cancellation
+  }
+  
+  // handle other errors
+});
+```
+
 
 ## Proxies
 
