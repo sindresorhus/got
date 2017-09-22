@@ -280,20 +280,20 @@ When given an unsupported protocol.
 
 ## Aborting the request
 
-The promise returned by Got has a `.cancel()` function which, when called, aborts the request.
+The promise returned by Got has a [`.cancel()`](https://github.com/sindresorhus/p-cancelable) method which, when called, aborts the request.
 
 ```js
 const request = got(url, options);
 
-request.cancel();
-
 request.catch(err => {
   if (request.canceled) {
-    // handle cancellation
+    // Handle cancelation
   }
   
-  // handle other errors
+  // Handle other errors
 });
+
+request.cancel();
 ```
 
 
