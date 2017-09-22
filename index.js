@@ -640,4 +640,6 @@ got.UnsupportedProtocolError = class extends StdError {
 	}
 };
 
+got.CancelError = PCancelable.CancelError;
+
 module.exports = got;
