@@ -289,7 +289,7 @@ request.catch(err => {
   if (request.canceled) {
     // Handle cancelation
   }
-  
+
   // Handle other errors
 });
 
@@ -462,6 +462,7 @@ Bear in mind, if you send an `if-modified-since` header and receive a `304 Not M
 
 - [gh-got](https://github.com/sindresorhus/gh-got) - Convenience wrapper for interacting with the GitHub API
 - [travis-got](https://github.com/samverschueren/travis-got) - Convenience wrapper for interacting with the Travis API
+- [graphql-got](https://github.com/kevva/graphql-got) - Convenience wrapper for got to interact with GraphQL
 
 
 ## Created by
