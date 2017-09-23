@@ -279,7 +279,7 @@ When given an unsupported protocol.
 
 #### got.CancelError
 
-When the request is aborted.
+When the request is aborted with `.cancel()`.
 
 
 ## Aborting the request
