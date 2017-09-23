@@ -86,8 +86,8 @@ test('cancel immediately', async t => {
 	await t.notThrows(aborted, 'Request finished instead of aborting.');
 });
 
-test('recover from cancellation using cancelable promise attribute', async t => {
-	// Cancelled before connection started
+test('recover from cancelation using cancelable promise attribute', async t => {
+	// Canceled before connection started
 	const p = got('http://example.com');
 	const recover = p.catch(err => {
 		if (p.canceled) {
@@ -103,7 +103,7 @@ test('recover from cancellation using cancelable promise attribute', async t => 
 });
 
 test('recover from cancellation using error instance', async t => {
-	// Cancelled before connection started
+	// Canceled before connection started
 	const p = got('http://example.com');
 	const recover = p.catch(err => {
 		if (err instanceof got.CancelError) {
