@@ -277,6 +277,10 @@ When server redirects you more than 10 times. Includes a `redirectUrls` property
 
 When given an unsupported protocol.
 
+#### got.CancelError
+
+When the request is aborted with `.cancel()`.
+
 
 ## Aborting the request
 
@@ -287,6 +291,22 @@ const request = got(url, options);
 
 request.catch(err => {
   if (request.canceled) {
+    // Handle cancelation
+  }
+
+  // Handle other errors
+});
+
+request.cancel();
+```
+
+Or
+
+```js
+const request = got(url, options);
+
+request.catch(err => {
+  if (err instanceof got.CancelError) {
     // Handle cancelation
   }
 
