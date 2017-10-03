@@ -19,7 +19,7 @@ Created because [`request`](https://github.com/request/request) is bloated *(sev
 
 - [Promise & stream API](#api)
 - [Request cancelation](#aborting-the-request)
-- [RFC compliant caching](#cache)
+- [RFC compliant caching](#cache-1)
 - [Follows redirects](#followredirect)
 - [Retries on network failure](#retries)
 - [Progress events](#onuploadprogress-progress)
@@ -176,7 +176,7 @@ If this is disabled, a compressed response is returned as a `Buffer`. This may b
 Type: `Object`<br>
 Default: `false`
 
-[Cache adapter instance](#cache) for storing cached data.
+[Cache adapter instance](#cache-1) for storing cached data.
 
 ###### useElectronNet
 
