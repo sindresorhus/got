@@ -70,6 +70,8 @@ It's a `GET` request by default, but can be changed in `options`.
 
 Returns a Promise for a `response` object with a `body` property, a `url` property with the request URL or the final URL after redirects, and a `requestUrl` property with the original request URL.
 
+The response object can be either a [Node.js HTTP response stream](https://nodejs.org/api/http.html#http_class_http_incomingmessage) or a [responselike object](https://github.com/lukechilds/responselike). The response will also have a `fromCache` property set with a boolean value.
+
 ##### url
 
 Type: `string` `Object`
