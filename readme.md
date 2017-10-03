@@ -263,7 +263,7 @@ In Promise mode, the `response` is attached to the error.
 
 #### got.CacheError
 
-When a cache method fails. e.g Database goes down, filesystem error.
+When a cache method fails, for example if the database goes down, or there's a filesystem error.
 
 #### got.RequestError
 
@@ -330,7 +330,7 @@ got('todomvc.com', {cache: redis});
 
 Got supports anything that follows the Map API so it's easy to write your own storage adapter or use a third-party solution.
 
-e.g The following are all valid storage adapters
+For example, the following are all valid storage adapters
 
 ```js
 const storageAdapter = new Map();
