@@ -263,7 +263,7 @@ In Promise mode, the `response` is attached to the error.
 
 #### got.CacheError
 
-When a cache method fails.
+When a cache method fails. e.g Database goes down, filesystem error.
 
 #### got.RequestError
 
