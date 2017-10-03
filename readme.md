@@ -173,9 +173,9 @@ If this is disabled, a compressed response is returned as a `Buffer`. This may b
 ###### useElectronNet
 
 Type: `boolean`<br>
-Default: `true`
+Default: `false`
 
-When used in Electron, Got will automatically use [`electron.net`](https://electron.atom.io/docs/api/net/) instead of the Node.js `http` module. It should be fully compatible, but you can turn it off here if you encounter a problem. Please open an issue if you do!
+When used in Electron, Got will use [`electron.net`](https://electron.atom.io/docs/api/net/) instead of the Node.js `http` module. According to the Electron docs, it should be fully compatible, but it's not entirely. See [#315](https://github.com/sindresorhus/got/issues/315).
 
 
 #### Streams

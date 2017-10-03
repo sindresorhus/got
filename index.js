@@ -435,7 +435,7 @@ function normalizeArguments(url, opts) {
 			path: '',
 			retries: 2,
 			decompress: true,
-			useElectronNet: true
+			useElectronNet: false
 		},
 		url,
 		{
