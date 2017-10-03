@@ -19,7 +19,7 @@ Created because [`request`](https://github.com/request/request) is bloated *(sev
 
 - [Promise & stream API](#api)
 - [Request cancelation](#aborting-the-request)
-- [RFC compliant caching](#cache-1)
+- [RFC compliant caching](#cache-adapters)
 - [Follows redirects](#followredirect)
 - [Retries on network failure](#retries)
 - [Progress events](#onuploadprogress-progress)
@@ -180,7 +180,7 @@ If this is disabled, a compressed response is returned as a `Buffer`. This may b
 Type: `Object`<br>
 Default: `false`
 
-[Cache adapter instance](#cache-1) for storing cached data.
+[Cache adapter instance](#cache-adapters) for storing cached data.
 
 ###### useElectronNet
 
@@ -298,6 +298,7 @@ When given an unsupported protocol.
 
 The promise returned by Got has a `.cancel()` function which, when called, aborts the request.
 
+<a name="cache-adapters"></a>
 ## Cache
 
 You can use the JavaScript `Map` type as an in memory cache:
