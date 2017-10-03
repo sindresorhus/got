@@ -173,7 +173,7 @@ If this is disabled, a compressed response is returned as a `Buffer`. This may b
 
 ###### cache
 
-Type: `object`<br>
+Type: `Object`<br>
 Default: `false`
 
 Cache adapter instance for storing cached data.
