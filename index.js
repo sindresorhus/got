@@ -223,14 +223,14 @@ function requestAsEventEmitter(opts) {
 						const headersSize = Buffer.byteLength(req._header);
 						uploaded = req.connection.bytesWritten - headersSize;
 
-            // Prevent the known issue of `bytesWritten` being larger than body size
+						// Prevent the known issue of `bytesWritten` being larger than body size
 						if (uploadBodySize && uploaded > uploadBodySize) {
 							uploaded = uploadBodySize;
 						}
 
-            // Don't emit events with unchanged progress and
-            // prevent last event from being emitted, because
-            // it's emitted when `response` is emitted
+						// Don't emit events with unchanged progress and
+						// prevent last event from being emitted, because
+						// it's emitted when `response` is emitted
 						if (uploaded === lastUploaded || uploaded === uploadBodySize) {
 							return;
 						}
