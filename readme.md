@@ -176,7 +176,7 @@ If this is disabled, a compressed response is returned as a `Buffer`. This may b
 Type: `Object`<br>
 Default: `false`
 
-Cache adapter instance for storing cached data.
+[Cache adapter instance](#cache) for storing cached data.
 
 ###### useElectronNet
 
