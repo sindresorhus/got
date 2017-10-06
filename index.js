@@ -81,6 +81,10 @@ function requestAsEventEmitter(opts) {
 
 		let fn = opts.protocol === 'https:' ? https : http;
 
+		if (opts.agents) {
+			opts.agent = opts.agents[opts.protocol] || opts.agent;
+		}
+
 		if (opts.useElectronNet && process.versions.electron) {
 			const electron = require('electron');
 			fn = electron.net || electron.remote.net;
