@@ -342,6 +342,7 @@ function asPromise(opts) {
 		ee.on('error', reject);
 		ee.on('uploadProgress', proxy.emit.bind(proxy, 'uploadProgress'));
 		ee.on('downloadProgress', proxy.emit.bind(proxy, 'downloadProgress'));
+		ee.on('redirect', proxy.emit.bind(proxy, 'redirect'));
 	});
 
 	const promise = timeoutFn(cancelable);
