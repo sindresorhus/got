@@ -1,27 +1,21 @@
 import {URL} from 'universal-url';
 import test from 'ava';
 import got from '..';
-import {createServer} from './helpers/server';
+import createTestServer from 'create-test-server';
 
 let s;
 
 test.before('setup', async () => {
-	s = await createServer();
+	s = await createTestServer();
 
-	s.on('/', (req, res) => {
+	s.get('/', (req, res) => {
 		res.statusCode = 404;
 		res.end();
 	});
 
-	s.on('/test', (req, res) => {
+	s.get('/test', (req, res) => {
 		res.end(req.url);
 	});
-
-	s.on('/?test=wow', (req, res) => {
-		res.end(req.url);
-	});
-
-	await s.listen(s.port);
 });
 
 test('url is required', async t => {
@@ -35,7 +29,7 @@ test('options are optional', async t => {
 
 test('accepts url.parse object as first argument', async t => {
 	t.is((await got({
-		hostname: s.host,
+		hostname: 'localhost',
 		port: s.port,
 		path: '/test'
 	})).body, '/test');
@@ -43,14 +37,14 @@ test('accepts url.parse object as first argument', async t => {
 
 test('requestUrl with url.parse object as first argument', async t => {
 	t.is((await got({
-		hostname: s.host,
+		hostname: 'localhost',
 		port: s.port,
 		path: '/test'
 	})).requestUrl, `${s.url}/test`);
 });
 
 test('overrides querystring from opts', async t => {
-	t.is((await got(`${s.url}/?test=doge`, {query: {test: 'wow'}})).body, '/?test=wow');
+	t.is((await got(`${s.url}/test?q=doge`, {query: {q: 'wow'}})).body, '/test?q=wow');
 });
 
 test('should throw with auth in url', async t => {
