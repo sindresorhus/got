@@ -1,40 +1,38 @@
 import test from 'ava';
 import got from '..';
-import {createServer} from './helpers/server';
+import createTestServer from 'create-test-server';
 
 let s;
 
 test.before('setup', async () => {
-	s = await createServer();
+	s = await createTestServer();
 
-	s.on('/', (req, res) => {
+	s.get('/', (req, res) => {
 		res.end('{"data":"dog"}');
 	});
 
-	s.on('/invalid', (req, res) => {
+	s.get('/invalid', (req, res) => {
 		res.end('/');
 	});
 
-	s.on('/no-body', (req, res) => {
+	s.get('/no-body', (req, res) => {
 		res.statusCode = 200;
 		res.end();
 	});
 
-	s.on('/non200', (req, res) => {
+	s.get('/non200', (req, res) => {
 		res.statusCode = 500;
 		res.end('{"data":"dog"}');
 	});
 
-	s.on('/non200-invalid', (req, res) => {
+	s.get('/non200-invalid', (req, res) => {
 		res.statusCode = 500;
 		res.end('Internal error');
 	});
 
-	s.on('/headers', (req, res) => {
+	s.post('/headers', (req, res) => {
 		res.end(JSON.stringify(req.headers));
 	});
-
-	await s.listen(s.port);
 });
 
 test('parses response', async t => {
