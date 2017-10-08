@@ -2,34 +2,32 @@ import test from 'ava';
 import intoStream from 'into-stream';
 import getStream from 'get-stream';
 import got from '..';
-import {createServer} from './helpers/server';
+import createTestServer from 'create-test-server';
 
 let s;
 
 test.before('setup', async () => {
-	s = await createServer();
+	s = await createTestServer();
 
-	s.on('/', (req, res) => {
+	s.get('/', (req, res) => {
 		res.end('ok');
 	});
 
-	s.on('/post', (req, res) => {
+	s.post('/', (req, res) => {
 		req.pipe(res);
 	});
 
-	s.on('/redirect', (req, res) => {
+	s.get('/redirect', (req, res) => {
 		res.writeHead(302, {
 			location: s.url
 		});
 		res.end();
 	});
 
-	s.on('/error', (req, res) => {
+	s.get('/error', (req, res) => {
 		res.statusCode = 404;
 		res.end();
 	});
-
-	await s.listen(s.port);
 });
 
 test('option.json can not be used', t => {
@@ -47,7 +45,7 @@ test.cb('returns readable stream', t => {
 });
 
 test.cb('returns writeable stream', t => {
-	got.stream.post(`${s.url}/post`)
+	got.stream.post(s.url)
 		.on('data', data => {
 			t.is(data.toString(), 'wow');
 			t.end();
@@ -113,7 +111,7 @@ test.cb('have error event #2', t => {
 });
 
 test.cb('accepts option.body as Stream', t => {
-	got.stream(`${s.url}/post`, {body: intoStream(['wow'])})
+	got.stream(s.url, {body: intoStream(['wow'])})
 		.on('data', chunk => {
 			t.is(chunk.toString(), 'wow');
 			t.end();
