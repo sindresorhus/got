@@ -20,10 +20,6 @@ test.before('setup', async () => {
 	s.get('/redirect', (req, res) => {
 		res.redirect(302, s.url);
 	});
-
-	s.get('/error', (req, res) => {
-		res.status(404).end();
-	});
 });
 
 test('option.json can not be used', t => {
@@ -83,12 +79,12 @@ test.cb('have response event', t => {
 });
 
 test.cb('have error event', t => {
-	got.stream(`${s.url}/error`, {retries: 0})
+	got.stream(`${s.url}/404`, {retries: 0})
 		.on('response', () => {
 			t.fail('response event should not be emitted');
 		})
 		.on('error', (err, data, res) => {
-			t.is(err.message, 'Response code 404 (Not Found)');
+			t.is(err.statusCode, 404);
 			t.is(null, data);
 			t.truthy(res);
 			t.end();

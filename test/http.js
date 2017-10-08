@@ -21,10 +21,6 @@ test.before('setup', async () => {
 	s.get('/304', (req, res) => {
 		res.status(304).end();
 	});
-
-	s.get('/404', (req, res) => {
-		res.status(404).end('not');
-	});
 });
 
 test('simple request', async t => {
@@ -47,7 +43,6 @@ test('requestUrl response', async t => {
 test('error with code', async t => {
 	const err = await t.throws(got(`${s.url}/404`));
 	t.is(err.statusCode, 404);
-	t.is(err.response.body, 'not');
 });
 
 test('status code 304 doesn\'t throw', async t => {
