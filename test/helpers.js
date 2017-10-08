@@ -1,22 +1,20 @@
 import test from 'ava';
 import got from '..';
-import {createServer} from './helpers/server';
+import createTestServer from 'create-test-server';
 
 let s;
 
 test.before('setup', async () => {
-	s = await createServer();
+	s = await createTestServer();
 
-	s.on('/', (req, res) => {
+	s.get('/', (req, res) => {
 		res.end('ok');
 	});
 
-	s.on('/404', (req, res) => {
+	s.get('/404', (req, res) => {
 		res.statusCode = 404;
 		res.end('not found');
 	});
-
-	await s.listen(s.port);
 });
 
 test('promise mode', async t => {
