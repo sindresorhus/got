@@ -3,14 +3,14 @@ import test from 'ava';
 import getStream from 'get-stream';
 import PCancelable from 'p-cancelable';
 import got from '..';
-import {createServer} from './helpers/server';
+import createTestServer from 'create-test-server';
 
 const Readable = stream.Readable;
 
 async function createAbortServer() {
-	const s = await createServer();
+	const s = await createTestServer();
 	const aborted = new Promise((resolve, reject) => {
-		s.on('/abort', (req, res) => {
+		s.post('/', (req, res) => {
 			req.on('aborted', resolve);
 			res.on('finish', reject.bind(null, new Error('Request finished instead of aborting.')));
 
@@ -20,11 +20,9 @@ async function createAbortServer() {
 		});
 	});
 
-	await s.listen(s.port);
-
 	return {
 		aborted,
-		url: `${s.url}/abort`
+		url: s.url
 	};
 }
 
@@ -67,18 +65,16 @@ test('cancel in-progress request with timeout', async t => {
 });
 
 test('cancel immediately', async t => {
-	const s = await createServer();
+	const s = await createTestServer();
 	const aborted = new Promise((resolve, reject) => {
 		// We won't get an abort or even a connection
 		// We assume no request within 1000ms equals a (client side) aborted request
-		s.on('/abort', (req, res) => {
+		s.get('/abort', (req, res) => {
 			res.on('finish', reject.bind(this, new Error('Request finished instead of aborting.')));
 			res.end();
 		});
 		setTimeout(resolve, 1000);
 	});
-
-	await s.listen(s.port);
 
 	const p = got(`${s.url}/abort`);
 	p.cancel();
