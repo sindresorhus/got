@@ -1,8 +1,8 @@
 import test from 'ava';
 import FormData from 'form-data';
-import got from '..';
 import createTestServer from 'create-test-server';
 import pkg from '../package';
+import got from '..';
 
 let s;
 

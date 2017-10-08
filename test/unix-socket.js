@@ -2,9 +2,9 @@ import {format} from 'util';
 import http from 'http';
 import tempy from 'tempy';
 import test from 'ava';
-import got from '..';
 import createTestServer from 'create-test-server';
 import pify from 'pify';
+import got from '..';
 
 const socketPath = tempy.file({extension: 'socket'});
 

@@ -2,8 +2,8 @@ import stream from 'stream';
 import test from 'ava';
 import getStream from 'get-stream';
 import PCancelable from 'p-cancelable';
-import got from '..';
 import createTestServer from 'create-test-server';
+import got from '..';
 
 const Readable = stream.Readable;
 

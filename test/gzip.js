@@ -2,8 +2,8 @@ import zlib from 'zlib';
 import test from 'ava';
 import getStream from 'get-stream';
 import pify from 'pify';
-import got from '..';
 import createTestServer from 'create-test-server';
+import got from '..';
 
 const testContent = 'Compressible response content.\n';
 const testContentUncompressed = 'Uncompressed response content.\n';

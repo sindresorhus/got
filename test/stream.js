@@ -1,8 +1,8 @@
 import test from 'ava';
 import intoStream from 'into-stream';
 import getStream from 'get-stream';
-import got from '..';
 import createTestServer from 'create-test-server';
+import got from '..';
 
 let s;
 

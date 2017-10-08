@@ -6,8 +6,8 @@ import FormData from 'form-data';
 import tempfile from 'tempfile';
 import pify from 'pify';
 import test from 'ava';
-import got from '..';
 import createTestServer from 'create-test-server';
+import got from '..';
 
 const checkEvents = (t, events, bodySize = null) => {
 	t.true(events.length >= 2);

@@ -1,7 +1,7 @@
 import {URL} from 'universal-url';
 import test from 'ava';
-import got from '..';
 import createTestServer from 'create-test-server';
+import got from '..';
 
 let s;
 
