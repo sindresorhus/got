@@ -1,18 +1,16 @@
 import test from 'ava';
 import got from '..';
-import {createServer} from './helpers/server';
+import createTestServer from 'create-test-server';
 
 let s;
 
 test.before('setup', async () => {
-	s = await createServer();
+	s = await createTestServer();
 
-	s.on('/', (req, res) => {
+	s.get('/', (req, res) => {
 		res.statusCode = 404;
 		res.end('not');
 	});
-
-	await s.listen(s.port);
 });
 
 test('properties', async t => {
@@ -22,7 +20,7 @@ test('properties', async t => {
 	t.false({}.propertyIsEnumerable.call(err, 'response'));
 	t.false({}.hasOwnProperty.call(err, 'code'));
 	t.is(err.message, 'Response code 404 (Not Found)');
-	t.is(err.host, `${s.host}:${s.port}`);
+	t.is(err.host, `localhost:${s.port}`);
 	t.is(err.method, 'GET');
 	t.is(err.protocol, 'http:');
 	t.is(err.url, err.response.requestUrl);
