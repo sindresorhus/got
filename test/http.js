@@ -1,35 +1,33 @@
 import test from 'ava';
 import got from '..';
-import {createServer} from './helpers/server';
+import createTestServer from 'create-test-server';
 
 let s;
 
 test.before('setup', async () => {
-	s = await createServer();
+	s = await createTestServer();
 
-	s.on('/', (req, res) => {
-		res.end('ok');
+	s.get('/', (req, res) => {
+		if (req.query.recent) {
+			res.end('recent');
+		} else {
+			res.end('ok');
+		}
 	});
 
-	s.on('/empty', (req, res) => {
+	s.get('/empty', (req, res) => {
 		res.end();
 	});
 
-	s.on('/304', (req, res) => {
+	s.get('/304', (req, res) => {
 		res.statusCode = 304;
 		res.end();
 	});
 
-	s.on('/404', (req, res) => {
+	s.get('/404', (req, res) => {
 		res.statusCode = 404;
 		res.end('not');
 	});
-
-	s.on('/?recent=true', (req, res) => {
-		res.end('recent');
-	});
-
-	await s.listen(s.port);
 });
 
 test('simple request', async t => {
@@ -79,8 +77,8 @@ test('query option', async t => {
 });
 
 test('requestUrl response when sending url as param', async t => {
-	t.is((await got(s.url, {hostname: s.host, port: s.port})).requestUrl, `${s.url}/`);
-	t.is((await got({hostname: s.host, port: s.port})).requestUrl, `${s.url}/`);
+	t.is((await got(s.url, {hostname: 'localhost', port: s.port})).requestUrl, `${s.url}/`);
+	t.is((await got({hostname: 'localhost', port: s.port})).requestUrl, `${s.url}/`);
 });
 
 test('response contains url', async t => {
