@@ -7,7 +7,7 @@ import tempfile from 'tempfile';
 import pify from 'pify';
 import test from 'ava';
 import got from '..';
-import {createServer} from './helpers/server';
+import createTestServer from 'create-test-server';
 
 const checkEvents = (t, events, bodySize = null) => {
 	t.true(events.length >= 2);
@@ -39,9 +39,9 @@ const file = Buffer.alloc(1024 * 1024 * 2);
 let s;
 
 test.before('setup', async () => {
-	s = await createServer();
+	s = await createTestServer();
 
-	s.on('/download', (req, res) => {
+	s.get('/download', (req, res) => {
 		res.setHeader('content-length', file.length);
 
 		intoStream(file)
@@ -49,18 +49,16 @@ test.before('setup', async () => {
 			.pipe(res);
 	});
 
-	s.on('/download/no-total', (req, res) => {
+	s.get('/download/no-total', (req, res) => {
 		res.write('hello');
 		res.end();
 	});
 
-	s.on('/upload', (req, res) => {
+	s.post('/upload', (req, res) => {
 		req
 			.pipe(new SlowStream({maxWriteInterval: 100}))
 			.on('end', () => res.end());
 	});
-
-	await s.listen(s.port);
 });
 
 test('download progress', async t => {
