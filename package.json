@@ -71,6 +71,7 @@
 	"devDependencies": {
 		"ava": "^0.21.0",
 		"coveralls": "^2.11.4",
+		"create-test-server": "^2.1.0",
 		"form-data": "^2.1.1",
 		"get-port": "^3.0.0",
 		"nyc": "^11.0.2",
