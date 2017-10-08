@@ -8,11 +8,6 @@ let s;
 test.before('setup', async () => {
 	s = await createTestServer();
 
-	s.get('/', (req, res) => {
-		res.statusCode = 404;
-		res.end();
-	});
-
 	s.get('/test', (req, res) => {
 		res.end(req.url);
 	});
