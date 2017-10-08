@@ -14,11 +14,11 @@ test.before('setup', async () => {
 	const handler = await createTestServer();
 
 	handler.get('/', (req, res) => {
-		res.end('ok');
+		res.send('ok');
 	});
 
 	handler.get('/foo:bar', (req, res) => {
-		res.end('ok');
+		res.send('ok');
 	});
 
 	s = http.createServer(handler);

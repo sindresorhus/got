@@ -14,7 +14,7 @@ test.before('setup', async () => {
 	});
 
 	s.post('/headers', (req, res) => {
-		res.end(JSON.stringify(req.headers));
+		res.send(req.headers);
 	});
 
 	s.post('/empty', (req, res) => {

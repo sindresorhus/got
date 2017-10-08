@@ -9,7 +9,7 @@ test.before('setup', async () => {
 	s = await createTestServer();
 
 	s.get('/test', (req, res) => {
-		res.end(req.url);
+		res.send(req.url);
 	});
 });
 

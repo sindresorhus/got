@@ -11,7 +11,7 @@ test.before('setup', async () => {
 
 	s.all('/', (req, res) => {
 		req.resume();
-		res.end(JSON.stringify(req.headers));
+		res.send(req.headers);
 	});
 });
 

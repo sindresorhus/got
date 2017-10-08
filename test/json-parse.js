@@ -8,7 +8,7 @@ test.before('setup', async () => {
 	s = await createTestServer();
 
 	s.get('/', (req, res) => {
-		res.end('{"data":"dog"}');
+		res.json({data: 'dog'});
 	});
 
 	s.get('/invalid', (req, res) => {
@@ -16,22 +16,19 @@ test.before('setup', async () => {
 	});
 
 	s.get('/no-body', (req, res) => {
-		res.statusCode = 200;
-		res.end();
+		res.status(200).end();
 	});
 
 	s.get('/non200', (req, res) => {
-		res.statusCode = 500;
-		res.end('{"data":"dog"}');
+		res.status(500).json({data: 'dog'});
 	});
 
 	s.get('/non200-invalid', (req, res) => {
-		res.statusCode = 500;
-		res.end('Internal error');
+		res.status(500).end('Internal error');
 	});
 
 	s.post('/headers', (req, res) => {
-		res.end(JSON.stringify(req.headers));
+		res.json(req.headers);
 	});
 });
 

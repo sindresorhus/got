@@ -14,7 +14,7 @@ test.before('setup', async () => {
 
 	s.get('/knock-twice', (req, res) => {
 		if (knocks++ === 1) {
-			res.end('who`s there?');
+			res.send('who`s there?');
 		}
 	});
 
@@ -24,7 +24,7 @@ test.before('setup', async () => {
 
 	s.get('/fifth', (req, res) => {
 		if (fifth++ === 5) {
-			res.end('who`s there?');
+			res.send('who`s there?');
 		}
 	});
 });

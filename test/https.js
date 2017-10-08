@@ -6,7 +6,7 @@ let s;
 
 test.before('setup', async () => {
 	s = await createTestServer({certificate: 'sindresorhus.com'});
-	s.get('/', (req, res) => res.end('ok'));
+	s.get('/', (req, res) => res.send('ok'));
 });
 
 test('make request to https server without ca', async t => {

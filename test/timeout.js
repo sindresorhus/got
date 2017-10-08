@@ -8,8 +8,7 @@ test.before('setup', async () => {
 	s = await createTestServer();
 
 	s.get('/', (req, res) => {
-		res.statusCode = 200;
-		res.end('OK');
+		res.send('OK');
 	});
 });
 

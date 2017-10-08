@@ -9,20 +9,17 @@ test.before('setup', async () => {
 
 	s.get('/', (req, res) => {
 		if (req.secure) {
-			res.end('https');
+			return res.send('https');
 		}
-		res.end('reached');
+		res.send('reached');
 	});
 
 	s.get('/finite', (req, res) => {
-		res.writeHead(302, {
-			location: `${s.url}/`
-		});
-		res.end();
+		res.redirect(302, s.url);
 	});
 
 	s.get('/utf8-url-áé', (req, res) => {
-		res.end('reached');
+		res.send('reached');
 	});
 
 	s.get('/redirect-with-utf8-binary', (req, res) => {
@@ -33,51 +30,31 @@ test.before('setup', async () => {
 	});
 
 	s.get('/endless', (req, res) => {
-		res.writeHead(302, {
-			location: `${s.url}/endless`
-		});
-		res.end();
+		res.redirect(302, `${s.url}/endless`);
 	});
 
 	s.all('/relative', (req, res) => {
-		res.writeHead(302, {
-			location: '/'
-		});
-		res.end();
+		res.redirect(302, '/');
 	});
 
 	s.all('/seeOther', (req, res) => {
-		res.writeHead(303, {
-			location: '/'
-		});
-		res.end();
+		res.redirect(303, '/');
 	});
 
 	s.get('/temporary', (req, res) => {
-		res.writeHead(307, {
-			location: '/'
-		});
-		res.end();
+		res.redirect(307, '/');
 	});
 
 	s.get('/permanent', (req, res) => {
-		res.writeHead(308, {
-			location: '/'
-		});
-		res.end();
+		res.redirect(308, '/');
 	});
 
 	s.get('/relativeQuery', (req, res) => {
-		res.writeHead(302, {
-			location: '/'
-		});
-		res.end();
+		res.redirect(302, '/');
 	});
 
 	s.get('/httpToHttps', (req, res) => {
-		res.writeHead(302, {
-			location: s.sslUrl
-		});
+		res.redirect(302, s.sslUrl);
 		res.end();
 	});
 });

@@ -10,7 +10,7 @@ test.before('setup', async () => {
 	s = await createTestServer();
 
 	s.get('/', (req, res) => {
-		res.end('ok');
+		res.send('ok');
 	});
 
 	s.post('/', (req, res) => {
@@ -18,15 +18,11 @@ test.before('setup', async () => {
 	});
 
 	s.get('/redirect', (req, res) => {
-		res.writeHead(302, {
-			location: s.url
-		});
-		res.end();
+		res.redirect(302, s.url);
 	});
 
 	s.get('/error', (req, res) => {
-		res.statusCode = 404;
-		res.end();
+		res.status(404).end();
 	});
 });
 

@@ -8,8 +8,7 @@ test.before('setup', async () => {
 	s = await createTestServer();
 
 	s.get('/', (req, res) => {
-		res.statusCode = 404;
-		res.end('not');
+		res.status(500).send('Error');
 	});
 });
 
@@ -19,13 +18,13 @@ test('properties', async t => {
 	t.truthy(err.response);
 	t.false({}.propertyIsEnumerable.call(err, 'response'));
 	t.false({}.hasOwnProperty.call(err, 'code'));
-	t.is(err.message, 'Response code 404 (Not Found)');
+	t.is(err.message, 'Response code 500 (Internal Server Error)');
 	t.is(err.host, `localhost:${s.port}`);
 	t.is(err.method, 'GET');
 	t.is(err.protocol, 'http:');
 	t.is(err.url, err.response.requestUrl);
 	t.is(err.headers.connection, 'close');
-	t.is(err.response.body, 'not');
+	t.is(err.response.body, 'Error');
 });
 
 test('dns message', async t => {

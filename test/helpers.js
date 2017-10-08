@@ -8,12 +8,11 @@ test.before('setup', async () => {
 	s = await createTestServer();
 
 	s.get('/', (req, res) => {
-		res.end('ok');
+		res.send('ok');
 	});
 
 	s.get('/404', (req, res) => {
-		res.statusCode = 404;
-		res.end('not found');
+		res.status(404).send('not found');
 	});
 });
 

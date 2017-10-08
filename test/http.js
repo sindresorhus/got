@@ -9,10 +9,9 @@ test.before('setup', async () => {
 
 	s.get('/', (req, res) => {
 		if (req.query.recent) {
-			res.end('recent');
-		} else {
-			res.end('ok');
+			return res.send('recent');
 		}
+		res.send('ok');
 	});
 
 	s.get('/empty', (req, res) => {
@@ -20,13 +19,11 @@ test.before('setup', async () => {
 	});
 
 	s.get('/304', (req, res) => {
-		res.statusCode = 304;
-		res.end();
+		res.status(304).end();
 	});
 
 	s.get('/404', (req, res) => {
-		res.statusCode = 404;
-		res.end('not');
+		res.status(404).end('not');
 	});
 });
 
