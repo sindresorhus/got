@@ -1,20 +1,18 @@
 import test from 'ava';
 import FormData from 'form-data';
 import got from '..';
+import createTestServer from 'create-test-server';
 import pkg from '../package';
-import {createServer} from './helpers/server';
 
 let s;
 
 test.before('setup', async () => {
-	s = await createServer();
+	s = await createTestServer();
 
-	s.on('/', (req, res) => {
+	s.all('/', (req, res) => {
 		req.resume();
 		res.end(JSON.stringify(req.headers));
 	});
-
-	await s.listen(s.port);
 });
 
 test('user-agent', async t => {
