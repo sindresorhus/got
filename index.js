@@ -7,6 +7,7 @@ const Transform = require('stream').Transform;
 const urlLib = require('url');
 const fs = require('fs');
 const querystring = require('querystring');
+const CacheableRequest = require('cacheable-request');
 const duplexer3 = require('duplexer3');
 const intoStream = require('into-stream');
 const isStream = require('is-stream');
@@ -87,7 +88,8 @@ function requestAsEventEmitter(opts) {
 
 		let progressInterval;
 
-		const req = fn.request(opts, res => {
+		const cacheableRequest = new CacheableRequest(fn.request, opts.cache);
+		const cacheReq = cacheableRequest(opts, res => {
 			clearInterval(progressInterval);
 
 			ee.emit('uploadProgress', {
@@ -172,7 +174,7 @@ function requestAsEventEmitter(opts) {
 
 				const response = opts.decompress === true &&
 					typeof decompressResponse === 'function' &&
-					req.method !== 'HEAD' ? decompressResponse(progressStream) : progressStream;
+					opts.method !== 'HEAD' ? decompressResponse(progressStream) : progressStream;
 
 				if (!opts.decompress && ['gzip', 'deflate'].indexOf(res.headers['content-encoding']) !== -1) {
 					opts.encoding = null;
@@ -190,62 +192,66 @@ function requestAsEventEmitter(opts) {
 			});
 		});
 
-		req.once('error', err => {
-			clearInterval(progressInterval);
+		cacheReq.on('error', err => ee.emit('error', new got.CacheError(err, opts)));
 
-			const backoff = opts.retries(++retryCount, err);
+		cacheReq.on('request', req => {
+			req.once('error', err => {
+				clearInterval(progressInterval);
 
-			if (backoff) {
-				setTimeout(get, backoff, opts);
-				return;
+				const backoff = opts.retries(++retryCount, err);
+
+				if (backoff) {
+					setTimeout(get, backoff, opts);
+					return;
+				}
+
+				ee.emit('error', new got.RequestError(err, opts));
+			});
+
+			ee.on('request', req => {
+				ee.emit('uploadProgress', {
+					percent: 0,
+					transferred: 0,
+					total: uploadBodySize
+				});
+
+				req.connection.on('connect', () => {
+					const uploadEventFrequency = 150;
+
+					progressInterval = setInterval(() => {
+						const lastUploaded = uploaded;
+						const headersSize = Buffer.byteLength(req._header);
+						uploaded = req.connection.bytesWritten - headersSize;
+
+						// Prevent the known issue of `bytesWritten` being larger than body size
+						if (uploadBodySize && uploaded > uploadBodySize) {
+							uploaded = uploadBodySize;
+						}
+
+						// Don't emit events with unchanged progress and
+						// prevent last event from being emitted, because
+						// it's emitted when `response` is emitted
+						if (uploaded === lastUploaded || uploaded === uploadBodySize) {
+							return;
+						}
+
+						ee.emit('uploadProgress', {
+							percent: uploadBodySize ? uploaded / uploadBodySize : 0,
+							transferred: uploaded,
+							total: uploadBodySize
+						});
+					}, uploadEventFrequency);
+				});
+			});
+
+			if (opts.gotTimeout) {
+				clearInterval(progressInterval);
+				timedOut(req, opts.gotTimeout);
 			}
 
-			ee.emit('error', new got.RequestError(err, opts));
-		});
-
-		ee.on('request', req => {
-			ee.emit('uploadProgress', {
-				percent: 0,
-				transferred: 0,
-				total: uploadBodySize
+			setImmediate(() => {
+				ee.emit('request', req);
 			});
-
-			req.connection.on('connect', () => {
-				const uploadEventFrequency = 150;
-
-				progressInterval = setInterval(() => {
-					const lastUploaded = uploaded;
-					const headersSize = Buffer.byteLength(req._header);
-					uploaded = req.connection.bytesWritten - headersSize;
-
-					// Prevent the known issue of `bytesWritten` being larger than body size
-					if (uploadBodySize && uploaded > uploadBodySize) {
-						uploaded = uploadBodySize;
-					}
-
-					// Don't emit events with unchanged progress and
-					// prevent last event from being emitted, because
-					// it's emitted when `response` is emitted
-					if (uploaded === lastUploaded || uploaded === uploadBodySize) {
-						return;
-					}
-
-					ee.emit('uploadProgress', {
-						percent: uploadBodySize ? uploaded / uploadBodySize : 0,
-						transferred: uploaded,
-						total: uploadBodySize
-					});
-				}, uploadEventFrequency);
-			});
-		});
-
-		if (opts.gotTimeout) {
-			clearInterval(progressInterval);
-			timedOut(req, opts.gotTimeout);
-		}
-
-		setImmediate(() => {
-			ee.emit('request', req);
 		});
 	};
 
@@ -434,6 +440,7 @@ function normalizeArguments(url, opts) {
 		{
 			path: '',
 			retries: 2,
+			cache: false,
 			decompress: true,
 			useElectronNet: false
 		},
@@ -588,6 +595,13 @@ class StdError extends Error {
 		});
 	}
 }
+
+got.CacheError = class extends StdError {
+	constructor(error, opts) {
+		super(error.message, error, opts);
+		this.name = 'CacheError';
+	}
+};
 
 got.RequestError = class extends StdError {
 	constructor(error, opts) {

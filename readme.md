@@ -19,6 +19,7 @@ Created because [`request`](https://github.com/request/request) is bloated *(sev
 
 - [Promise & stream API](#api)
 - [Request cancelation](#aborting-the-request)
+- [RFC compliant caching](#cache-adapters)
 - [Follows redirects](#followredirect)
 - [Retries on network failure](#retries)
 - [Progress events](#onuploadprogress-progress)
@@ -68,6 +69,10 @@ It's a `GET` request by default, but can be changed in `options`.
 #### got(url, [options])
 
 Returns a Promise for a `response` object with a `body` property, a `url` property with the request URL or the final URL after redirects, and a `requestUrl` property with the original request URL.
+
+The response object will normally be a [Node.js HTTP response stream](https://nodejs.org/api/http.html#http_class_http_incomingmessage), however if returned from the cache it will be a [responselike object](https://github.com/lukechilds/responselike) which behaves in the same way.
+
+The response will also have a `fromCache` property set with a boolean value.
 
 ##### url
 
@@ -170,6 +175,13 @@ Decompress the response automatically.
 
 If this is disabled, a compressed response is returned as a `Buffer`. This may be useful if you want to handle decompression yourself or stream the raw compressed data.
 
+###### cache
+
+Type: `Object`<br>
+Default: `false`
+
+[Cache adapter instance](#cache-adapters) for storing cached data.
+
 ###### useElectronNet
 
 Type: `boolean`<br>
@@ -253,6 +265,10 @@ Each error contains (if available) `statusCode`, `statusMessage`, `host`, `hostn
 
 In Promise mode, the `response` is attached to the error.
 
+#### got.CacheError
+
+When a cache method fails, for example if the database goes down, or there's a filesystem error.
+
 #### got.RequestError
 
 When a request fails. Contains a `code` property with error class code, like `ECONNREFUSED`.
@@ -315,6 +331,58 @@ request.catch(err => {
 
 request.cancel();
 ```
+
+<a name="cache-adapters"></a>
+## Cache
+
+You can use the JavaScript `Map` type as an in memory cache:
+
+```js
+const got = require('got');
+const map = new Map();
+
+(async () => {
+    let response = await got('todomvc.com', {cache: map});
+    console.log(response.fromCache);
+    //=> false
+
+    response = await got('todomvc.com', {cache: map});
+    console.log(response.fromCache);
+    //=> true
+})();
+```
+
+Got uses [Keyv](https://github.com/lukechilds/keyv) internally to support a wide range of storage adapters. For something more scalable you could use an [official Keyv storage adapter](https://github.com/lukechilds/keyv#official-storage-adapters):
+
+```
+npm install @keyv/redis
+```
+
+```js
+const got = require('got');
+const KeyvRedis = require('@keyv/redis');
+
+const redis = new KeyvRedis('redis://user:pass@localhost:6379');
+
+got('todomvc.com', {cache: redis});
+```
+
+Got supports anything that follows the Map API so it's easy to write your own storage adapter or use a third-party solution.
+
+For example, the following are all valid storage adapters
+
+```js
+const storageAdapter = new Map();
+// or
+const storageAdapter = require('./my-storage-adapter');
+// or
+const QuickLRU = require('quick-lru');
+const storageAdapter = new QuickLRU({maxSize: 1000});
+
+got('todomvc.com', {cache: storageAdapter});
+```
+
+View the [Keyv docs](https://github.com/lukechilds/keyv) for more information on how to use storage adapters.
 
 
 ## Proxies
