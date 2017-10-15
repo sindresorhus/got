@@ -293,6 +293,8 @@ function asPromise(opts) {
 				req.abort();
 			});
 
+			proxy.emit('request', req);
+
 			if (isStream(opts.body)) {
 				opts.body.pipe(req);
 				opts.body = undefined;
@@ -327,6 +329,7 @@ function asPromise(opts) {
 						throw new got.HTTPError(statusCode, res.headers, opts);
 					}
 
+					proxy.emit('response', res);
 					resolve(res);
 				})
 				.catch(err => {
