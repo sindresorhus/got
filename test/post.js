@@ -1,27 +1,25 @@
 import test from 'ava';
 import intoStream from 'into-stream';
+import createTestServer from 'create-test-server';
 import got from '..';
-import {createServer} from './helpers/server';
 
 let s;
 
 test.before('setup', async () => {
-	s = await createServer();
+	s = await createTestServer();
 
-	s.on('/', (req, res) => {
+	s.all('/', (req, res) => {
 		res.setHeader('method', req.method);
 		req.pipe(res);
 	});
 
-	s.on('/headers', (req, res) => {
-		res.end(JSON.stringify(req.headers));
+	s.post('/headers', (req, res) => {
+		res.send(req.headers);
 	});
 
-	s.on('/empty', (req, res) => {
+	s.post('/empty', (req, res) => {
 		res.end();
 	});
-
-	await s.listen(s.port);
 });
 
 test('GET can have body', async t => {

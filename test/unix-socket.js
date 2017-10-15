@@ -1,25 +1,28 @@
 import {format} from 'util';
+import http from 'http';
 import tempy from 'tempy';
 import test from 'ava';
+import createTestServer from 'create-test-server';
+import pify from 'pify';
 import got from '..';
-import {createServer} from './helpers/server';
 
 const socketPath = tempy.file({extension: 'socket'});
 
 let s;
 
 test.before('setup', async () => {
-	s = await createServer();
+	const handler = await createTestServer();
 
-	s.on('/', (req, res) => {
-		res.end('ok');
+	handler.get('/', (req, res) => {
+		res.send('ok');
 	});
 
-	s.on('/foo:bar', (req, res) => {
-		res.end('ok');
+	handler.get('/foo:bar', (req, res) => {
+		res.send('ok');
 	});
 
-	await s.listen(socketPath);
+	s = http.createServer(handler);
+	await pify(s.listen.bind(s))(socketPath);
 });
 
 test('works', async t => {

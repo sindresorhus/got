@@ -1,6 +1,6 @@
 import test from 'ava';
+import createTestServer from 'create-test-server';
 import got from '..';
-import {createServer} from './helpers/server';
 
 let s;
 let trys = 0;
@@ -8,27 +8,25 @@ let knocks = 0;
 let fifth = 0;
 
 test.before('setup', async () => {
-	s = await createServer();
+	s = await createTestServer();
 
-	s.on('/long', () => {});
+	s.get('/long', () => {});
 
-	s.on('/knock-twice', (req, res) => {
+	s.get('/knock-twice', (req, res) => {
 		if (knocks++ === 1) {
-			res.end('who`s there?');
+			res.send('who`s there?');
 		}
 	});
 
-	s.on('/try-me', () => {
+	s.get('/try-me', () => {
 		trys++;
 	});
 
-	s.on('/fifth', (req, res) => {
+	s.get('/fifth', (req, res) => {
 		if (fifth++ === 5) {
-			res.end('who`s there?');
+			res.send('who`s there?');
 		}
 	});
-
-	await s.listen(s.port);
 });
 
 test('works on timeout error', async t => {

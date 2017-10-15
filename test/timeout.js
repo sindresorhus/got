@@ -1,22 +1,19 @@
 import test from 'ava';
+import createTestServer from 'create-test-server';
 import got from '..';
-import {createServer} from './helpers/server';
 
 let s;
 
 test.before('setup', async () => {
-	s = await createServer();
+	s = await createTestServer();
 
-	s.on('/', (req, res) => {
-		res.statusCode = 200;
-		res.end('OK');
+	s.get('/', (req, res) => {
+		res.send('OK');
 	});
-
-	await s.listen(s.port);
 });
 
 test('timeout option', async t => {
-	const err = await t.throws(got(`${s.url}/`, {
+	const err = await t.throws(got(s.url, {
 		timeout: 1,
 		retries: 0
 	}));
@@ -25,7 +22,7 @@ test('timeout option', async t => {
 });
 
 test('timeout option as object', async t => {
-	const err = await t.throws(got(`${s.url}/404`, {
+	const err = await t.throws(got(s.url, {
 		timeout: {socket: 50, request: 1},
 		retries: 0
 	}));
@@ -34,7 +31,7 @@ test('timeout option as object', async t => {
 });
 
 test('socket timeout', async t => {
-	const err = await t.throws(got(`${s.url}/404`, {
+	const err = await t.throws(got(s.url, {
 		timeout: {socket: 1},
 		retries: 0
 	}));
@@ -43,7 +40,7 @@ test('socket timeout', async t => {
 });
 
 test('connection, request timeout', async t => {
-	const err = await t.throws(got(`${s.url}/404`, {
+	const err = await t.throws(got(s.url, {
 		timeout: {socket: 50, request: 1},
 		retries: 0
 	}));

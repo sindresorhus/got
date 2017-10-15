@@ -2,8 +2,8 @@ import zlib from 'zlib';
 import test from 'ava';
 import getStream from 'get-stream';
 import pify from 'pify';
+import createTestServer from 'create-test-server';
 import got from '..';
-import {createServer} from './helpers/server';
 
 const testContent = 'Compressible response content.\n';
 const testContentUncompressed = 'Uncompressed response content.\n';
@@ -12,10 +12,10 @@ let s;
 let gzipData;
 
 test.before('setup', async () => {
-	s = await createServer();
+	s = await createTestServer();
 	gzipData = await pify(zlib.gzip)(testContent);
 
-	s.on('/', (req, res) => {
+	s.get('/', (req, res) => {
 		res.statusCode = 200;
 		res.setHeader('Content-Type', 'text/plain');
 		res.setHeader('Content-Encoding', 'gzip');
@@ -28,27 +28,25 @@ test.before('setup', async () => {
 		res.end(gzipData);
 	});
 
-	s.on('/corrupted', (req, res) => {
+	s.get('/corrupted', (req, res) => {
 		res.statusCode = 200;
 		res.setHeader('Content-Type', 'text/plain');
 		res.setHeader('Content-Encoding', 'gzip');
 		res.end('Not gzipped content');
 	});
 
-	s.on('/missing-data', (req, res) => {
+	s.get('/missing-data', (req, res) => {
 		res.statusCode = 200;
 		res.setHeader('Content-Type', 'text/plain');
 		res.setHeader('Content-Encoding', 'gzip');
 		res.end(gzipData.slice(0, -1));
 	});
 
-	s.on('/uncompressed', (req, res) => {
+	s.get('/uncompressed', (req, res) => {
 		res.statusCode = 200;
 		res.setHeader('Content-Type', 'text/plain');
 		res.end(testContentUncompressed);
 	});
-
-	await s.listen(s.port);
 });
 
 test('decompress content', async t => {
