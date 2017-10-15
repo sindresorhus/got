@@ -1,4 +1,6 @@
+import http from 'http';
 import test from 'ava';
+import sinon from 'sinon';
 import got from '..';
 import {createServer} from './helpers/server';
 
@@ -41,6 +43,16 @@ test('dns message', async t => {
 test('options.body error message', async t => {
 	const err = await t.throws(got(s.url, {body: () => {}}));
 	t.regex(err.message, /options\.body must be a ReadableStream, string, Buffer or plain Object/);
+});
+
+test.serial('http.request error', async t => {
+	const stub = sinon.stub(http, 'request').callsFake(() => {
+		throw new TypeError('The header content contains invalid characters');
+	});
+	const err = await t.throws(got(s.url));
+	t.truthy(err instanceof TypeError);
+	t.regex(err.message, /The header content contains invalid characters/);
+	stub.restore();
 });
 
 test.after('cleanup', async () => {
