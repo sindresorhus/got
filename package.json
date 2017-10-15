@@ -70,8 +70,8 @@
 		"url-to-options": "^1.0.1"
 	},
 	"devDependencies": {
-		"ava": "^0.21.0",
-		"coveralls": "^2.11.4",
+		"ava": "^0.22.0",
+		"coveralls": "^3.0.0",
 		"form-data": "^2.1.1",
 		"get-port": "^3.0.0",
 		"nyc": "^11.0.2",
@@ -79,12 +79,9 @@
 		"sinon": "^4.0.0",
 		"slow-stream": "0.0.4",
 		"tempfile": "^2.0.0",
-		"tempy": "^0.1.0",
+		"tempy": "^0.2.1",
 		"universal-url": "1.0.0-alpha",
 		"xo": "^0.18.0"
-	},
-	"ava": {
-		"concurrency": 4
 	},
 	"browser": {
 		"decompress-response": false,
