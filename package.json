@@ -83,6 +83,9 @@
 		"universal-url": "1.0.0-alpha",
 		"xo": "^0.18.0"
 	},
+	"ava": {
+		"concurrency": 4
+	},
 	"browser": {
 		"decompress-response": false,
 		"electron": false
