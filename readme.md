@@ -403,17 +403,17 @@ got('todomvc.com', {
 });
 ```
 
-If you require different agents for different protocols, you can pass in all of them through the `agents` option. This is necessary because a request to one protocol might redirect to another. In such a scenario, `got` will switch over to the right protocol agent for you.
+If you require different agents for different protocols, you can pass a map of agents to the `agent` option. This is necessary because a request to one protocol might redirect to another. In such a scenario, `got` will switch over to the right protocol agent for you.
 
 ```js
 const got = require('got');
-const HttpAgent = require('agentkeepalive')
-const HttpsAgent = HttpAgent.HttpsAgent
+const HttpAgent = require('agentkeepalive');
+const HttpsAgent = HttpAgent.HttpsAgent;
 
 got('todomvc.com', {
 	agents: {
-		'http:': new HttpAgent(),
-		'https:': new HttpsAgent()
+		http: new HttpAgent(),
+		https: new HttpsAgent()
 	}
 });
 ```
