@@ -306,11 +306,11 @@ The promise returned by Got has a [`.cancel()`](https://github.com/sindresorhus/
 const request = got(url, options);
 
 request.catch(err => {
-  if (request.canceled) {
-    // Handle cancelation
-  }
+	if (request.canceled) {
+		// Handle cancelation
+	}
 
-  // Handle other errors
+	// Handle other errors
 });
 
 request.cancel();
@@ -322,15 +322,16 @@ Or
 const request = got(url, options);
 
 request.catch(err => {
-  if (err instanceof got.CancelError) {
-    // Handle cancelation
-  }
+	if (err instanceof got.CancelError) {
+		// Handle cancelation
+	}
 
-  // Handle other errors
+	// Handle other errors
 });
 
 request.cancel();
 ```
+
 
 <a name="cache-adapters"></a>
 ## Cache
@@ -342,20 +343,20 @@ const got = require('got');
 const map = new Map();
 
 (async () => {
-    let response = await got('todomvc.com', {cache: map});
-    console.log(response.fromCache);
-    //=> false
+		let response = await got('todomvc.com', {cache: map});
+		console.log(response.fromCache);
+		//=> false
 
-    response = await got('todomvc.com', {cache: map});
-    console.log(response.fromCache);
-    //=> true
+		response = await got('todomvc.com', {cache: map});
+		console.log(response.fromCache);
+		//=> true
 })();
 ```
 
 Got uses [Keyv](https://github.com/lukechilds/keyv) internally to support a wide range of storage adapters. For something more scalable you could use an [official Keyv storage adapter](https://github.com/lukechilds/keyv#official-storage-adapters):
 
 ```
-npm install @keyv/redis
+$ npm install @keyv/redis
 ```
 
 ```js
@@ -367,9 +368,9 @@ const redis = new KeyvRedis('redis://user:pass@localhost:6379');
 got('todomvc.com', {cache: redis});
 ```
 
-Got supports anything that follows the Map API so it's easy to write your own storage adapter or use a third-party solution.
+Got supports anything that follows the Map API, so it's easy to write your own storage adapter or use a third-party solution.
 
-For example, the following are all valid storage adapters
+For example, the following are all valid storage adapters:
 
 ```js
 const storageAdapter = new Map();
