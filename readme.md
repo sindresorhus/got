@@ -411,7 +411,7 @@ const HttpAgent = require('agentkeepalive');
 const HttpsAgent = HttpAgent.HttpsAgent;
 
 got('todomvc.com', {
-	agents: {
+	agent: {
 		http: new HttpAgent(),
 		https: new HttpsAgent()
 	}
