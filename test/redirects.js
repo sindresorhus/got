@@ -204,6 +204,9 @@ test('redirects from https to http works with an agent object', async t => {
 	})).body);
 	t.true(httpSpy.calledOnce);
 	t.true(httpsSpy.calledOnce);
+	// Make sure to close all open sockets
+	httpAgent.destroy();
+	httpsAgent.destroy();
 });
 
 test('redirects works with lowercase method', async t => {
