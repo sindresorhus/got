@@ -629,7 +629,7 @@ got.ParseError = class extends StdError {
 got.HTTPError = class extends StdError {
 	constructor(statusCode, statusMessage, headers, opts) {
 		if (statusMessage) {
-			statusMessage = statusMessage.replace(/\n|\r/gm, ' ');
+			statusMessage = statusMessage.replace(/\r?\n/g, ' ').trim();
 		} else {
 			statusMessage = http.STATUS_CODES[statusCode];
 		}
