@@ -630,8 +630,7 @@ got.HTTPError = class extends StdError {
 	constructor(statusCode, statusMessage, headers, opts) {
 		if (statusMessage) {
 			statusMessage = statusMessage.replace(/\n|\r/gm, ' ');
-		}
-		else {
+		} else {
 			statusMessage = http.STATUS_CODES[statusCode];
 		}
 		super(`Response code ${statusCode} (${statusMessage})`, {}, opts);
