@@ -529,7 +529,7 @@ request(`https://${config.host}/production/`, {
 
 ### User Agent
 
-It's a good idea to set the `'user-agent'` header so the provider can more easily see how their resource is used. By default, it's the URL to this repo.
+It's a good idea to set the `'User-Agent'` header so the provider can more easily see how their resource is used. By default, it's the URL to this repo.
 
 ```js
 const got = require('got');
@@ -537,7 +537,7 @@ const pkg = require('./package.json');
 
 got('todomvc.com', {
 	headers: {
-		'user-agent': `my-module/${pkg.version} (https://github.com/username/my-module)`
+		'User-Agent': `my-module/${pkg.version} (https://github.com/username/my-module)`
 	}
 });
 ```
