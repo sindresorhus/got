@@ -68,6 +68,7 @@ function requestAsEventEmitter(opts) {
 	const ee = new EventEmitter();
 	const requestUrl = opts.href || urlLib.resolve(urlLib.format(opts), opts.path);
 	const redirects = [];
+	const agents = typeof opts.agent === 'object' ? opts.agent : null;
 	let retryCount = 0;
 	let redirectUrl;
 	let uploadBodySize;
@@ -80,6 +81,11 @@ function requestAsEventEmitter(opts) {
 		}
 
 		let fn = opts.protocol === 'https:' ? https : http;
+
+		if (agents) {
+			const protocolName = opts.protocol === 'https:' ? 'https' : 'http';
+			opts.agent = agents[protocolName] || opts.agent;
+		}
 
 		if (opts.useElectronNet && process.versions.electron) {
 			const electron = require('electron');
@@ -338,6 +344,7 @@ function asPromise(opts) {
 		ee.on('error', reject);
 		ee.on('uploadProgress', proxy.emit.bind(proxy, 'uploadProgress'));
 		ee.on('downloadProgress', proxy.emit.bind(proxy, 'downloadProgress'));
+		ee.on('redirect', proxy.emit.bind(proxy, 'redirect'));
 	});
 
 	const promise = timeoutFn(cancelable);

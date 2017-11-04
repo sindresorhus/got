@@ -1,6 +1,9 @@
+import {Agent as HttpAgent} from 'http';
+import {Agent as HttpsAgent} from 'https';
 import test from 'ava';
 import pem from 'pem';
 import pify from 'pify';
+import sinon from 'sinon';
 import got from '..';
 import {createServer, createSSLServer} from './helpers/server';
 
@@ -35,12 +38,22 @@ test.before('setup', async () => {
 	const cert = keys.certificate;
 
 	https = await createSSLServer({key, cert}); // eslint-disable-line object-property-newline
+	http = await createServer();
+
+	// HTTPS Handlers
 
 	https.on('/', (req, res) => {
 		res.end('https');
 	});
 
-	http = await createServer();
+	https.on('/httpsToHttp', (req, res) => {
+		res.writeHead(302, {
+			location: http.url
+		});
+		res.end();
+	});
+
+	// HTTP Handlers
 
 	http.on('/', (req, res) => {
 		res.end('reached');
@@ -171,6 +184,29 @@ test('redirect on 303 response even with post, put, delete', async t => {
 
 test('redirects from http to https works', async t => {
 	t.truthy((await got(`${http.url}/httpToHttps`, {rejectUnauthorized: false})).body);
+});
+
+test('redirects from https to http works', async t => {
+	t.truthy((await got(`${https.url}/httpsToHttp`, {rejectUnauthorized: false})).body);
+});
+
+test('redirects from https to http works with an agent object', async t => {
+	const httpAgent = new HttpAgent({keepAlive: true});
+	const httpsAgent = new HttpsAgent({keepAlive: true});
+	const httpSpy = sinon.spy(httpAgent, 'addRequest');
+	const httpsSpy = sinon.spy(httpsAgent, 'addRequest');
+	t.truthy((await got(`${https.url}/httpsToHttp`, {
+		rejectUnauthorized: false,
+		agent: {
+			http: httpAgent,
+			https: httpsAgent
+		}
+	})).body);
+	t.true(httpSpy.calledOnce);
+	t.true(httpsSpy.calledOnce);
+	// Make sure to close all open sockets
+	httpAgent.destroy();
+	httpsAgent.destroy();
 });
 
 test('redirects works with lowercase method', async t => {
