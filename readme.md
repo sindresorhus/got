@@ -410,7 +410,7 @@ const got = require('got');
 const HttpAgent = require('agentkeepalive');
 const HttpsAgent = HttpAgent.HttpsAgent;
 
-got('todomvc.com', {
+got('sindresorhus.com', {
 	agent: {
 		http: new HttpAgent(),
 		https: new HttpsAgent()
