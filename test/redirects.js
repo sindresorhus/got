@@ -190,25 +190,6 @@ test('redirects from https to http works', async t => {
 	t.truthy((await got(`${https.url}/httpsToHttp`, {rejectUnauthorized: false})).body);
 });
 
-test('redirects from https to http works with an agent object', async t => {
-	const httpAgent = new HttpAgent({keepAlive: true});
-	const httpsAgent = new HttpsAgent({keepAlive: true});
-	const httpSpy = sinon.spy(httpAgent, 'addRequest');
-	const httpsSpy = sinon.spy(httpsAgent, 'addRequest');
-	t.truthy((await got(`${https.url}/httpsToHttp`, {
-		rejectUnauthorized: false,
-		agent: {
-			http: httpAgent,
-			https: httpsAgent
-		}
-	})).body);
-	t.true(httpSpy.calledOnce);
-	t.true(httpsSpy.calledOnce);
-	// Make sure to close all open sockets
-	httpAgent.destroy();
-	httpsAgent.destroy();
-});
-
 test('redirects works with lowercase method', async t => {
 	const body = (await got(`${http.url}/relative`, {method: 'head'})).body;
 	t.is(body, '');
