@@ -1,9 +1,6 @@
-import {Agent as HttpAgent} from 'http';
-import {Agent as HttpsAgent} from 'https';
 import test from 'ava';
 import pem from 'pem';
 import pify from 'pify';
-import sinon from 'sinon';
 import got from '..';
 import {createServer, createSSLServer} from './helpers/server';
 

@@ -70,11 +70,11 @@ test.before('setup', async () => {
 	await https.listen(https.port);
 });
 
-const createAgentSpy = (Cls) => {
+const createAgentSpy = Cls => {
 	const agent = new Cls({keepAlive: true});
 	const spy = sinon.spy(agent, 'addRequest');
 	return {agent, spy};
-}
+};
 
 test('non-object agent option works with http', async t => {
 	const {agent, spy} = createAgentSpy(HttpAgent);
@@ -133,11 +133,11 @@ test('redirects from https to http work with an agent object', async t => {
 });
 
 test('socket connect listener cleaned up after request', async t => {
-	const {agent} = createAgentSpy(HttpsAgent)
+	const {agent} = createAgentSpy(HttpsAgent);
 	await got(`${https.url}`, {
 		rejectUnauthorized: false,
 		agent
-	})
+	});
 	Object.keys(agent.freeSockets).forEach(k => agent.freeSockets[k]
 		.forEach(sock => t.is(sock.listenerCount('connect'), 0)));
 	// Make sure to close all open sockets
