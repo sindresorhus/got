@@ -53,6 +53,15 @@ test('make request to https server with ca', async t => {
 	t.is(body, 'ok');
 });
 
+test('protocol-less URLs default to HTTPS', async t => {
+	const {body, requestUrl} = await got(s.url.replace(/^https:\/\//, ''), {
+		ca: caRootCert,
+		headers: {host: 'sindresorhus.com'}
+	});
+	t.is(body, 'ok');
+	t.true(requestUrl.startsWith('https://'));
+});
+
 test.after('cleanup', async () => {
 	await s.close();
 });

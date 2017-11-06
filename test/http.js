@@ -36,10 +36,6 @@ test('simple request', async t => {
 	t.is((await got(s.url)).body, 'ok');
 });
 
-test('protocol-less URLs', async t => {
-	t.is((await got(s.url.replace(/^http:\/\//, ''))).body, 'ok');
-});
-
 test('empty response', async t => {
 	t.is((await got(`${s.url}/empty`)).body, '');
 });

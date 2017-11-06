@@ -66,7 +66,7 @@
 		"pify": "^3.0.0",
 		"safe-buffer": "^5.0.1",
 		"timed-out": "^4.0.0",
-		"url-parse-lax": "^1.0.0",
+		"url-parse-lax": "^3.0.0",
 		"url-to-options": "^1.0.1"
 	},
 	"devDependencies": {

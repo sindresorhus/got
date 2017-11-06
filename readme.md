@@ -44,7 +44,7 @@ $ npm install got
 const fs = require('fs');
 const got = require('got');
 
-got('todomvc.com')
+got('sindresorhus.com')
 	.then(response => {
 		console.log(response.body);
 		//=> '<!doctype html> ...'
@@ -55,10 +55,10 @@ got('todomvc.com')
 	});
 
 // Streams
-got.stream('todomvc.com').pipe(fs.createWriteStream('index.html'));
+got.stream('sindresorhus.com').pipe(fs.createWriteStream('index.html'));
 
 // For POST, PUT and PATCH methods got.stream returns a WritableStream
-fs.createReadStream('index.html').pipe(got.stream.post('todomvc.com'));
+fs.createReadStream('index.html').pipe(got.stream.post('sindresorhus.com'));
 ```
 
 
@@ -81,6 +81,8 @@ Type: `string` `Object`
 The URL to request as simple string, a [`http.request` options](https://nodejs.org/api/http.html#http_http_request_options_callback), or a [WHATWG `URL`](https://nodejs.org/api/url.html#url_class_url).
 
 Properties from `options` will override properties in the parsed `url`.
+
+If no protocol is specified, it will default to `https`.
 
 ##### options
 
@@ -233,7 +235,7 @@ If it's not possible to retrieve the body size (can happen when streaming), `tot
 **Note**: Progress events can also be used with promises.
 
 ```js
-got('todomvc.com')
+got('sindresorhus.com')
 	.on('downloadProgress', progress => {
 		// Report download progress
 	})
@@ -343,11 +345,11 @@ const got = require('got');
 const map = new Map();
 
 (async () => {
-		let response = await got('todomvc.com', {cache: map});
+		let response = await got('sindresorhus.com', {cache: map});
 		console.log(response.fromCache);
 		//=> false
 
-		response = await got('todomvc.com', {cache: map});
+		response = await got('sindresorhus.com', {cache: map});
 		console.log(response.fromCache);
 		//=> true
 })();
@@ -365,7 +367,7 @@ const KeyvRedis = require('@keyv/redis');
 
 const redis = new KeyvRedis('redis://user:pass@localhost:6379');
 
-got('todomvc.com', {cache: redis});
+got('sindresorhus.com', {cache: redis});
 ```
 
 Got supports anything that follows the Map API, so it's easy to write your own storage adapter or use a third-party solution.
@@ -380,7 +382,7 @@ const storageAdapter = require('./my-storage-adapter');
 const QuickLRU = require('quick-lru');
 const storageAdapter = new QuickLRU({maxSize: 1000});
 
-got('todomvc.com', {cache: storageAdapter});
+got('sindresorhus.com', {cache: storageAdapter});
 ```
 
 View the [Keyv docs](https://github.com/lukechilds/keyv) for more information on how to use storage adapters.
@@ -394,7 +396,7 @@ You can use the [`tunnel`](https://github.com/koichik/node-tunnel) module with t
 const got = require('got');
 const tunnel = require('tunnel');
 
-got('todomvc.com', {
+got('sindresorhus.com', {
 	agent: tunnel.httpOverHttp({
 		proxy: {
 			host: 'localhost'
@@ -550,7 +552,7 @@ It's a good idea to set the `'user-agent'` header so the provider can more easil
 const got = require('got');
 const pkg = require('./package.json');
 
-got('todomvc.com', {
+got('sindresorhus.com', {
 	headers: {
 		'user-agent': `my-module/${pkg.version} (https://github.com/username/my-module)`
 	}
