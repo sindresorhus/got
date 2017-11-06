@@ -139,7 +139,7 @@ test('socket connect listener cleaned up after request', async t => {
 		agent
 	})
 	Object.keys(agent.freeSockets).forEach(k => agent.freeSockets[k]
-		.forEach(sock => t.deepEqual(sock.listenerCount('connect'), 0)));
+		.forEach(sock => t.is(sock.listenerCount('connect'), 0)));
 	// Make sure to close all open sockets
 	agent.destroy();
 });
