@@ -221,7 +221,7 @@ function requestAsEventEmitter(opts) {
 					total: uploadBodySize
 				});
 
-				req.connection.on('connect', () => {
+				req.connection.once('connect', () => {
 					const uploadEventFrequency = 150;
 
 					progressInterval = setInterval(() => {
