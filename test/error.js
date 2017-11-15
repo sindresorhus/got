@@ -73,7 +73,8 @@ test.serial('http.request error', async t => {
 		throw new TypeError('The header content contains invalid characters');
 	});
 	const err = await t.throws(got(s.url));
-	t.regex(err.message, /The header content contains invalid characters/);
+	t.true(err instanceof got.RequestError);
+	t.is(err.message, 'The header content contains invalid characters');
 	stub.restore();
 });
 

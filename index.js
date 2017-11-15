@@ -198,7 +198,13 @@ function requestAsEventEmitter(opts) {
 			});
 		});
 
-		cacheReq.on('error', err => ee.emit('error', new got.CacheError(err, opts)));
+		cacheReq.on('error', err => {
+			if (err instanceof CacheableRequest.RequestError) {
+				ee.emit('error', new got.RequestError(err, opts));
+			} else {
+				ee.emit('error', new got.CacheError(err, opts));
+			}
+		});
 
 		cacheReq.on('request', req => {
 			req.once('error', err => {
