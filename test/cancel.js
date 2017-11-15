@@ -41,7 +41,7 @@ test('cancel in-progress request', async t => {
 	setTimeout(() => {
 		p.cancel();
 		body.push(null);
-	}, 100);
+	}, 10);
 
 	await t.throws(p, PCancelable.CancelError);
 	await t.notThrows(helper.aborted, 'Request finished instead of aborting.');
@@ -60,7 +60,7 @@ test('cancel in-progress request with timeout', async t => {
 	setTimeout(() => {
 		p.cancel();
 		body.push(null);
-	}, 100);
+	}, 10);
 
 	await t.throws(p, PCancelable.CancelError);
 	await t.notThrows(helper.aborted, 'Request finished instead of aborting.');
