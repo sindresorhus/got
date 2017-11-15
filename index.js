@@ -458,10 +458,17 @@ function normalizeArguments(url, opts) {
 		opts
 	);
 
+	const headers = lowercaseKeys(opts.headers);
+	for (const key of Object.keys(headers)) {
+		if (headers[key] === null || headers[key] === undefined) {
+			delete headers[key];
+		}
+	}
+
 	opts.headers = Object.assign({
 		'user-agent': `${pkg.name}/${pkg.version} (https://github.com/sindresorhus/got)`,
 		'accept-encoding': 'gzip,deflate'
-	}, lowercaseKeys(opts.headers));
+	}, headers);
 
 	const query = opts.query;
 
