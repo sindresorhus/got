@@ -1,4 +1,5 @@
 import test from 'ava';
+import pEvent from 'p-event';
 import got from '..';
 import {createServer} from './helpers/server';
 
@@ -51,11 +52,8 @@ test('connection, request timeout', async t => {
 	t.is(err.code, 'ETIMEDOUT');
 });
 
-test.cb('timeout with streams', t => {
-	got.stream(s.url, {timeout: 1, retries: 0})
-		.on('error', err => {
-			t.is(err.code, 'ETIMEDOUT');
-			t.end();
-		})
-		.on('data', t.end);
+test('timeout with streams', async t => {
+	const stream = got.stream(s.url, {timeout: 1, retries: 0});
+	const err = await t.throws(pEvent(stream, 'response'));
+	t.is(err.code, 'ETIMEDOUT');
 });

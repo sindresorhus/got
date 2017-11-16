@@ -1,6 +1,7 @@
 import test from 'ava';
 import intoStream from 'into-stream';
 import getStream from 'get-stream';
+import pEvent from 'p-event';
 import got from '..';
 import {createServer} from './helpers/server';
 
@@ -38,94 +39,59 @@ test('option.json can not be used', t => {
 	}, 'Got can not be used as a stream when the `json` option is used');
 });
 
-test.cb('returns readable stream', t => {
-	got.stream(s.url)
-		.on('data', data => {
-			t.is(data.toString(), 'ok');
-			t.end();
-		});
+test('returns readable stream', async t => {
+	const data = await pEvent(got.stream(s.url), 'data');
+	t.is(data.toString(), 'ok');
 });
 
-test.cb('returns writeable stream', t => {
-	got.stream.post(`${s.url}/post`)
-		.on('data', data => {
-			t.is(data.toString(), 'wow');
-			t.end();
-		})
-		.end('wow');
+test('returns writeable stream', async t => {
+	const stream = got.stream.post(`${s.url}/post`);
+	const promise = pEvent(stream, 'data');
+	stream.end('wow');
+	t.is((await promise).toString(), 'wow');
 });
 
-test.cb('throws on write to stream with body specified', t => {
+test('throws on write to stream with body specified', t => {
 	t.throws(() => {
-		got.stream(s.url, {body: 'wow'}).write('wow');
+		got.stream(s.url, {body: 'wow'}).end('wow');
 	}, 'Got\'s stream is not writable when the `body` option is used');
-
-	// Wait for request to end
-	setTimeout(t.end, 10);
 });
 
-test.cb('have request event', t => {
-	got.stream(s.url)
-		.on('request', req => {
-			t.truthy(req);
-			t.end();
-		});
+test('have request event', async t => {
+	const request = await pEvent(got.stream(s.url), 'request');
+	t.truthy(request);
+	t.is(request.method, 'GET');
 });
 
-test.cb('have redirect event', t => {
-	got.stream(`${s.url}/redirect`)
-		.on('redirect', res => {
-			t.is(res.headers.location, s.url);
-			t.end();
-		});
+test('have redirect event', async t => {
+	const response = await pEvent(got.stream(`${s.url}/redirect`), 'redirect');
+	t.is(response.headers.location, s.url);
 });
 
-test.cb('have response event', t => {
-	got.stream(s.url)
-		.on('response', res => {
-			t.is(res.statusCode, 200);
-			t.end();
-		});
+test('have response event', async t => {
+	const response = await pEvent(got.stream(s.url), 'response');
+	t.is(response.statusCode, 200);
 });
 
-test.cb('have error event', t => {
-	got.stream(`${s.url}/error`, {retries: 0})
-		.on('response', () => {
-			t.fail('response event should not be emitted');
-		})
-		.on('error', (err, data, res) => {
-			t.is(err.message, 'Response code 404 (Not Found)');
-			t.is(null, data);
-			t.truthy(res);
-			t.end();
-		});
+test('have error event', async t => {
+	const stream = got.stream(`${s.url}/error`, {retries: 0});
+	await t.throws(pEvent(stream, 'response'), /Response code 404 \(Not Found\)/);
 });
 
-test.cb('have error event #2', t => {
-	got.stream('.com', {retries: 0})
-		.on('response', () => {
-			t.fail('response event should not be emitted');
-		})
-		.on('error', err => {
-			t.regex(err.message, /getaddrinfo ENOTFOUND/);
-			t.end();
-		});
+test('have error event #2', async t => {
+	const stream = got.stream('.com', {retries: 0});
+	await t.throws(pEvent(stream, 'response'), /getaddrinfo ENOTFOUND/);
 });
 
-test.cb('accepts option.body as Stream', t => {
-	got.stream(`${s.url}/post`, {body: intoStream(['wow'])})
-		.on('data', chunk => {
-			t.is(chunk.toString(), 'wow');
-			t.end();
-		});
+test('accepts option.body as Stream', async t => {
+	const stream = got.stream(`${s.url}/post`, {body: intoStream(['wow'])});
+	const data = await pEvent(stream, 'data');
+	t.is(data.toString(), 'wow');
 });
 
-test.cb('redirect response contains old url', t => {
-	got.stream(`${s.url}/redirect`)
-		.on('response', res => {
-			t.is(res.requestUrl, `${s.url}/redirect`);
-			t.end();
-		});
+test('redirect response contains old url', async t => {
+	const response = await pEvent(got.stream(`${s.url}/redirect`), 'response');
+	t.is(response.requestUrl, `${s.url}/redirect`);
 });
 
 test('check for pipe method', t => {
