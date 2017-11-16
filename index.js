@@ -198,7 +198,7 @@ function requestAsEventEmitter(opts) {
 			});
 		});
 
-		cacheReq.once('error', err => {
+		cacheReq.on('error', err => {
 			if (err instanceof CacheableRequest.RequestError) {
 				ee.emit('error', new got.RequestError(err, opts));
 			} else {
@@ -427,7 +427,7 @@ function asStream(opts) {
 		proxy.emit('response', res);
 	});
 
-	ee.once('error', proxy.emit.bind(proxy, 'error'));
+	ee.on('error', proxy.emit.bind(proxy, 'error'));
 	ee.on('redirect', proxy.emit.bind(proxy, 'redirect'));
 	ee.on('uploadProgress', proxy.emit.bind(proxy, 'uploadProgress'));
 	ee.on('downloadProgress', proxy.emit.bind(proxy, 'downloadProgress'));
