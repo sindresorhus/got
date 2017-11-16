@@ -53,7 +53,7 @@ test('dns message', async t => {
 
 test('options.body error message', async t => {
 	const err = await t.throws(got(s.url, {body: () => {}}));
-	t.regex(err.message, /options\.body must be a ReadableStream, string, Buffer or plain Object/);
+	t.regex(err.message, /The `body` option must be a stream\.Readable, string, Buffer or plain Object/);
 });
 
 test('default status message', async t => {

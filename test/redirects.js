@@ -152,7 +152,7 @@ test('relative redirect works', async t => {
 test('throws on endless redirect', async t => {
 	const err = await t.throws(got(`${http.url}/endless`));
 	t.is(err.message, 'Redirected 10 times. Aborting.');
-	t.deepEqual(err.redirectUrls, Array(10).fill(`${http.url}/endless`));
+	t.deepEqual(err.redirectUrls, new Array(10).fill(`${http.url}/endless`));
 });
 
 test('query in options are not breaking redirects', async t => {

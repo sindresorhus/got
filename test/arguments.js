@@ -55,7 +55,7 @@ test('overrides querystring from opts', async t => {
 
 test('should throw with auth in url string', async t => {
 	const err = await t.throws(got('https://test:45d3ps453@account.myservice.com/api/token'));
-	t.regex(err.message, /Basic authentication must be done with auth option/);
+	t.regex(err.message, /Basic authentication must be done with the `auth` option/);
 });
 
 test('does not throw with auth in url object', async t => {

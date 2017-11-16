@@ -41,30 +41,36 @@ $ npm install got
 ## Usage
 
 ```js
+const got = require('got');
+
+(async () => {
+	try {
+		const response = await got('sindresorhus.com');
+		console.log(response.body);
+		//=> '<!doctype html> ...'
+	} catch (error) {
+		console.log(error.response.body);
+		//=> 'Internal server error ...'
+	}
+})();
+```
+
+###### Streams
+
+```js
 const fs = require('fs');
 const got = require('got');
 
-got('sindresorhus.com')
-	.then(response => {
-		console.log(response.body);
-		//=> '<!doctype html> ...'
-	})
-	.catch(error => {
-		console.log(error.response.body);
-		//=> 'Internal server error ...'
-	});
-
-// Streams
 got.stream('sindresorhus.com').pipe(fs.createWriteStream('index.html'));
 
-// For POST, PUT and PATCH methods got.stream returns a WritableStream
+// For POST, PUT, and PATCH methods `got.stream` returns a `stream.Writable`
 fs.createReadStream('index.html').pipe(got.stream.post('sindresorhus.com'));
 ```
 
 
 ### API
 
-It's a `GET` request by default, but can be changed in `options`.
+It's a `GET` request by default, but can be changed by using different methods or in the `options`.
 
 #### got(url, [options])
 
@@ -235,16 +241,17 @@ If it's not possible to retrieve the body size (can happen when streaming), `tot
 **Note**: Progress events can also be used with promises.
 
 ```js
-got('sindresorhus.com')
-	.on('downloadProgress', progress => {
-		// Report download progress
-	})
-	.on('uploadProgress', progress => {
-		// Report upload progress
-	})
-	.then(response => {
-		// Done
-	});
+(async () => {
+	const response = await got('sindresorhus.com')
+		.on('downloadProgress', progress => {
+			// Report download progress
+		})
+		.on('uploadProgress', progress => {
+			// Report upload progress
+		});
+
+	console.log(response);
+})();
 ```
 
 ##### .on('error', error, body, response)
@@ -305,35 +312,29 @@ When the request is aborted with `.cancel()`.
 The promise returned by Got has a [`.cancel()`](https://github.com/sindresorhus/p-cancelable) method which, when called, aborts the request.
 
 ```js
-const request = got(url, options);
+(async () => {
+	const request = got(url, options);
 
-request.catch(err => {
-	if (request.canceled) {
-		// Handle cancelation
+	…
+
+	// In another part of the code
+	if (something) {
+		request.cancel();
 	}
 
-	// Handle other errors
-});
+	…
 
-request.cancel();
-```
+	try {
+		await request;
+	} catch (error) {
+		if (request.canceled) { // Or `error instanceof got.CancelError`
+			// Handle cancelation
+		}
 
-Or
-
-```js
-const request = got(url, options);
-
-request.catch(err => {
-	if (err instanceof got.CancelError) {
-		// Handle cancelation
+		// Handle other errors
 	}
-
-	// Handle other errors
-});
-
-request.cancel();
+})();
 ```
-
 
 <a name="cache-adapters"></a>
 ## Cache

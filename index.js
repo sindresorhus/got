@@ -19,13 +19,13 @@ const lowercaseKeys = require('lowercase-keys');
 const decompressResponse = require('decompress-response');
 const mimicResponse = require('mimic-response');
 const isRetryAllowed = require('is-retry-allowed');
-const Buffer = require('safe-buffer').Buffer;
 const isURL = require('isurl');
 const isPlainObj = require('is-plain-obj');
 const PCancelable = require('p-cancelable');
 const pTimeout = require('p-timeout');
 const pify = require('pify');
-const pkg = require('./package');
+const Buffer = require('safe-buffer').Buffer;
+const pkg = require('./package.json');
 
 const getMethodRedirectCodes = new Set([300, 301, 302, 303, 304, 305, 307, 308]);
 const allMethodRedirectCodes = new Set([300, 303, 307, 308]);
@@ -380,12 +380,12 @@ function asStream(opts) {
 	}
 
 	if (opts.json) {
-		throw new Error('got can not be used as stream when options.json is used');
+		throw new Error('Got can not be used as a stream when the `json` option is used');
 	}
 
 	if (opts.body) {
 		proxy.write = () => {
-			throw new Error('got\'s stream is not writable when options.body is used');
+			throw new Error('Got\'s stream is not writable when the `body` option is used');
 		};
 	}
 
@@ -442,7 +442,7 @@ function normalizeArguments(url, opts) {
 		url = url.replace(/^unix:/, 'http://$&');
 		url = urlParseLax(url);
 		if (url.auth) {
-			throw new Error('Basic authentication must be done with auth option');
+			throw new Error('Basic authentication must be done with the `auth` option');
 		}
 	} else if (isURL.lenient(url)) {
 		url = urlToOptions(url);
@@ -494,12 +494,12 @@ function normalizeArguments(url, opts) {
 	if (body !== null && body !== undefined) {
 		const headers = opts.headers;
 		if (!isStream(body) && typeof body !== 'string' && !Buffer.isBuffer(body) && !(opts.form || opts.json)) {
-			throw new TypeError('options.body must be a ReadableStream, string, Buffer or plain Object');
+			throw new TypeError('The `body` option must be a stream.Readable, string, Buffer or plain Object');
 		}
 
 		const canBodyBeStringified = isPlainObj(body) || Array.isArray(body);
 		if ((opts.form || opts.json) && !canBodyBeStringified) {
-			throw new TypeError('options.body must be a plain Object or Array when options.form or options.json is used');
+			throw new TypeError('The `body` option must be a plain Object or Array when the `form` or `json` option is used');
 		}
 
 		if (isFormData(body)) {

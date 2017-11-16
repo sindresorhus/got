@@ -35,7 +35,7 @@ test.before('setup', async () => {
 test('option.json can not be used', t => {
 	t.throws(() => {
 		got.stream(s.url, {json: true});
-	}, 'got can not be used as stream when options.json is used');
+	}, 'Got can not be used as a stream when the `json` option is used');
 });
 
 test.cb('returns readable stream', t => {
@@ -58,7 +58,7 @@ test.cb('returns writeable stream', t => {
 test.cb('throws on write to stream with body specified', t => {
 	t.throws(() => {
 		got.stream(s.url, {body: 'wow'}).write('wow');
-	}, 'got\'s stream is not writable when options.body is used');
+	}, 'Got\'s stream is not writable when the `body` option is used');
 
 	// Wait for request to end
 	setTimeout(t.end, 10);
