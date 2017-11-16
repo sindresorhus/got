@@ -1,3 +1,4 @@
+import EventEmitter from 'events';
 import stream from 'stream';
 import test from 'ava';
 import getStream from 'get-stream';
@@ -9,8 +10,10 @@ const Readable = stream.Readable;
 
 async function createAbortServer() {
 	const s = await createServer();
-	const aborted = new Promise((resolve, reject) => {
+	const ee = new EventEmitter();
+	ee.aborted = new Promise((resolve, reject) => {
 		s.on('/abort', (req, res) => {
+			ee.emit('connection');
 			req.on('aborted', resolve);
 			res.on('finish', reject.bind(null, new Error('Request finished instead of aborting.')));
 
@@ -21,11 +24,9 @@ async function createAbortServer() {
 	});
 
 	await s.listen(s.port);
+	ee.url = `${s.url}/abort`;
 
-	return {
-		aborted,
-		url: `${s.url}/abort`
-	};
+	return ee;
 }
 
 test('cancel in-progress request', async t => {
@@ -37,11 +38,11 @@ test('cancel in-progress request', async t => {
 
 	const p = got(helper.url, {body});
 
-	// Wait for the stream to be established before canceling
-	setTimeout(() => {
+	// Wait for the connection to be established before canceling
+	helper.on('connection', () => {
 		p.cancel();
 		body.push(null);
-	}, 100);
+	});
 
 	await t.throws(p, PCancelable.CancelError);
 	await t.notThrows(helper.aborted, 'Request finished instead of aborting.');
@@ -56,11 +57,11 @@ test('cancel in-progress request with timeout', async t => {
 
 	const p = got(helper.url, {body, timeout: 10000});
 
-	// Wait for the stream to be established before canceling
-	setTimeout(() => {
+	// Wait for the connection to be established before canceling
+	helper.on('connection', () => {
 		p.cancel();
 		body.push(null);
-	}, 100);
+	});
 
 	await t.throws(p, PCancelable.CancelError);
 	await t.notThrows(helper.aborted, 'Request finished instead of aborting.');
