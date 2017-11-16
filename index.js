@@ -206,7 +206,7 @@ function requestAsEventEmitter(opts) {
 			}
 		});
 
-		cacheReq.on('request', req => {
+		cacheReq.once('request', req => {
 			req.once('error', err => {
 				clearInterval(progressInterval);
 
@@ -220,7 +220,7 @@ function requestAsEventEmitter(opts) {
 				ee.emit('error', new got.RequestError(err, opts));
 			});
 
-			ee.on('request', req => {
+			ee.once('request', req => {
 				ee.emit('uploadProgress', {
 					percent: 0,
 					transferred: 0,
@@ -347,10 +347,10 @@ function asPromise(opts) {
 				});
 		});
 
-		ee.on('error', reject);
+		ee.once('error', reject);
+		ee.on('redirect', proxy.emit.bind(proxy, 'redirect'));
 		ee.on('uploadProgress', proxy.emit.bind(proxy, 'uploadProgress'));
 		ee.on('downloadProgress', proxy.emit.bind(proxy, 'downloadProgress'));
-		ee.on('redirect', proxy.emit.bind(proxy, 'redirect'));
 	});
 
 	const promise = timeoutFn(cancelable);
@@ -427,8 +427,8 @@ function asStream(opts) {
 		proxy.emit('response', res);
 	});
 
-	ee.on('redirect', proxy.emit.bind(proxy, 'redirect'));
 	ee.on('error', proxy.emit.bind(proxy, 'error'));
+	ee.on('redirect', proxy.emit.bind(proxy, 'redirect'));
 	ee.on('uploadProgress', proxy.emit.bind(proxy, 'uploadProgress'));
 	ee.on('downloadProgress', proxy.emit.bind(proxy, 'downloadProgress'));
 
