@@ -441,12 +441,11 @@ function normalizeArguments(url, opts) {
 	} else if (typeof url === 'string') {
 		url = url.replace(/^unix:/, 'http://$&');
 		url = urlParseLax(url);
+		if (url.auth) {
+			throw new Error('Basic authentication must be done with auth option');
+		}
 	} else if (isURL.lenient(url)) {
 		url = urlToOptions(url);
-	}
-
-	if (url.auth) {
-		throw new Error('Basic authentication must be done with auth option');
 	}
 
 	opts = Object.assign(
