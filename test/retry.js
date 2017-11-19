@@ -6,6 +6,7 @@ let s;
 let trys = 0;
 let knocks = 0;
 let fifth = 0;
+let fifthPOST = 0;
 
 test.before('setup', async () => {
 	s = await createServer();
@@ -28,11 +29,21 @@ test.before('setup', async () => {
 		}
 	});
 
-	await s.listen(s.port);
-});
+	s.on('request', (req, res) => {
+		if (req.method === 'POST' && req.url.includes('fifthPOST')) {
+			console.log(`Sending back HTTP 503 Service Unavailable ...`);
+			fifthPOST++;
+			if (fifthPOST === 5) {
+				res.end(`All is well now, calm down.`);
+			} else {
+				res.statusCode = 503;
+				res.statusMessage = 'Service Unavailable';
+				res.end('You are cool, just make sure you retry this request....');
+			}
+		}
+	});
 
-test('works on timeout error', async t => {
-	t.is((await got(`${s.url}/knock-twice`, {timeout: {connect: 100, socket: 100}})).body, 'who`s there?');
+	await s.listen(s.port);
 });
 
 test('can be disabled with option', async t => {
@@ -50,6 +61,14 @@ test('function gets iter count', async t => {
 		retries: iter => iter < 10
 	});
 	t.is(fifth, 6);
+});
+
+test('function gets iter count for POST verb also', async t => {
+	await got(`${s.url}/fifthPOST`, {
+		method: 'POST',
+		retries: iter => iter < 10
+	});
+	t.is(fifthPOST, 6);
 });
 
 test('falsy value prevents retries', async t => {
