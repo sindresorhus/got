@@ -50,14 +50,13 @@
 		"electron"
 	],
 	"dependencies": {
+		"@sindresorhus/is": "^0.6.0",
 		"cacheable-request": "^2.1.1",
 		"decompress-response": "^3.3.0",
 		"duplexer3": "^0.1.4",
 		"get-stream": "^3.0.0",
 		"into-stream": "^3.1.0",
-		"is-plain-obj": "^1.1.0",
 		"is-retry-allowed": "^1.1.0",
-		"is-stream": "^1.1.0",
 		"isurl": "^1.0.0-alpha5",
 		"lowercase-keys": "^1.0.0",
 		"mimic-response": "^1.0.0",
