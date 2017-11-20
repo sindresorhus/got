@@ -2,6 +2,7 @@ import test from 'ava';
 import intoStream from 'into-stream';
 import getStream from 'get-stream';
 import pEvent from 'p-event';
+import is from '@sindresorhus/is';
 import got from '..';
 import {createServer} from './helpers/server';
 
@@ -96,8 +97,8 @@ test('redirect response contains old url', async t => {
 
 test('check for pipe method', t => {
 	const stream = got.stream(`${s.url}/`);
-	t.is(typeof stream.pipe, 'function');
-	t.is(typeof stream.on('error', () => {}).pipe, 'function');
+	t.true(is.function(stream.pipe));
+	t.true(is.function(stream.on('error', () => {}).pipe));
 });
 
 test('piping works', async t => {

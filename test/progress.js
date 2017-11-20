@@ -5,6 +5,7 @@ import getStream from 'get-stream';
 import FormData from 'form-data';
 import tempfile from 'tempfile';
 import pify from 'pify';
+import is from '@sindresorhus/is';
 import test from 'ava';
 import got from '..';
 import {createServer} from './helpers/server';
@@ -12,7 +13,7 @@ import {createServer} from './helpers/server';
 const checkEvents = (t, events, bodySize = null) => {
 	t.true(events.length >= 2);
 
-	const hasBodySize = typeof bodySize === 'number';
+	const hasBodySize = is.number(bodySize);
 	let lastEvent = events.shift();
 
 	if (!hasBodySize) {

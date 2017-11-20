@@ -10,7 +10,7 @@ const querystring = require('querystring');
 const CacheableRequest = require('cacheable-request');
 const duplexer3 = require('duplexer3');
 const intoStream = require('into-stream');
-const isStream = require('is-stream');
+const is = require('@sindresorhus/is');
 const getStream = require('get-stream');
 const timedOut = require('timed-out');
 const urlParseLax = require('url-parse-lax');
@@ -20,7 +20,6 @@ const decompressResponse = require('decompress-response');
 const mimicResponse = require('mimic-response');
 const isRetryAllowed = require('is-retry-allowed');
 const isURL = require('isurl');
-const isPlainObj = require('is-plain-obj');
 const PCancelable = require('p-cancelable');
 const pTimeout = require('p-timeout');
 const pify = require('pify');
@@ -30,7 +29,7 @@ const pkg = require('./package.json');
 const getMethodRedirectCodes = new Set([300, 301, 302, 303, 304, 305, 307, 308]);
 const allMethodRedirectCodes = new Set([300, 303, 307, 308]);
 
-const isFormData = body => isStream(body) && typeof body.getBoundary === 'function';
+const isFormData = body => is.nodeStream(body) && is.function(body.getBoundary);
 
 const getBodySize = opts => {
 	const body = opts.body;
@@ -43,7 +42,7 @@ const getBodySize = opts => {
 		return 0;
 	}
 
-	if (typeof body === 'string') {
+	if (is.string(body)) {
 		return Buffer.byteLength(body);
 	}
 
@@ -55,7 +54,7 @@ const getBodySize = opts => {
 		return pify(fs.stat)(body.path).then(stat => stat.size);
 	}
 
-	if (isStream(body) && Buffer.isBuffer(body._buffer)) {
+	if (is.nodeStream(body) && is.buffer(body._buffer)) {
 		return body._buffer.length;
 	}
 
@@ -68,7 +67,7 @@ function requestAsEventEmitter(opts) {
 	const ee = new EventEmitter();
 	const requestUrl = opts.href || urlLib.resolve(urlLib.format(opts), opts.path);
 	const redirects = [];
-	const agents = typeof opts.agent === 'object' ? opts.agent : null;
+	const agents = is.object(opts.agent) ? opts.agent : null;
 	let retryCount = 0;
 	let redirectUrl;
 	let uploadBodySize;
@@ -179,7 +178,7 @@ function requestAsEventEmitter(opts) {
 				progressStream.redirectUrls = redirects;
 
 				const response = opts.decompress === true &&
-					typeof decompressResponse === 'function' &&
+					is.function(decompressResponse) &&
 					opts.method !== 'HEAD' ? decompressResponse(progressStream) : progressStream;
 
 				if (!opts.decompress && ['gzip', 'deflate'].indexOf(res.headers['content-encoding']) !== -1) {
@@ -305,7 +304,7 @@ function asPromise(opts) {
 				req.abort();
 			});
 
-			if (isStream(opts.body)) {
+			if (is.nodeStream(opts.body)) {
 				opts.body.pipe(req);
 				opts.body = undefined;
 				return;
@@ -315,7 +314,7 @@ function asPromise(opts) {
 		});
 
 		ee.on('response', res => {
-			const stream = opts.encoding === null ? getStream.buffer(res) : getStream(res, opts);
+			const stream = is.null(opts.encoding) ? getStream.buffer(res) : getStream(res, opts);
 
 			stream
 				.catch(err => reject(new got.ReadError(err, opts)))
@@ -394,7 +393,7 @@ function asStream(opts) {
 	ee.on('request', req => {
 		proxy.emit('request', req);
 
-		if (isStream(opts.body)) {
+		if (is.nodeStream(opts.body)) {
 			opts.body.pipe(req);
 			return;
 		}
@@ -436,9 +435,9 @@ function asStream(opts) {
 }
 
 function normalizeArguments(url, opts) {
-	if (typeof url !== 'string' && typeof url !== 'object') {
-		throw new TypeError(`Parameter \`url\` must be a string or object, not ${typeof url}`);
-	} else if (typeof url === 'string') {
+	if (!is.string(url) && !is.object(url)) {
+		throw new TypeError(`Parameter \`url\` must be a string or object, not ${is(url)}`);
+	} else if (is.string(url)) {
 		url = url.replace(/^unix:/, 'http://$&');
 		url = urlParseLax(url);
 		if (url.auth) {
@@ -465,7 +464,7 @@ function normalizeArguments(url, opts) {
 
 	const headers = lowercaseKeys(opts.headers);
 	for (const key of Object.keys(headers)) {
-		if (headers[key] === null || headers[key] === undefined) {
+		if (is.nullOrUndefined(headers[key])) {
 			delete headers[key];
 		}
 	}
@@ -478,7 +477,7 @@ function normalizeArguments(url, opts) {
 	const query = opts.query;
 
 	if (query) {
-		if (typeof query !== 'string') {
+		if (!is.string(query)) {
 			opts.query = querystring.stringify(query);
 		}
 
@@ -486,18 +485,20 @@ function normalizeArguments(url, opts) {
 		delete opts.query;
 	}
 
-	if (opts.json && opts.headers.accept === undefined) {
+	if (opts.json && is.undefined(opts.headers.accept)) {
 		opts.headers.accept = 'application/json';
 	}
 
 	const body = opts.body;
-	if (body !== null && body !== undefined) {
+	if (is.nullOrUndefined(body)) {
+		opts.method = (opts.method || 'GET').toUpperCase();
+	} else {
 		const headers = opts.headers;
-		if (!isStream(body) && typeof body !== 'string' && !Buffer.isBuffer(body) && !(opts.form || opts.json)) {
+		if (!is.nodeStream(body) && !is.string(body) && !is.buffer(body) && !(opts.form || opts.json)) {
 			throw new TypeError('The `body` option must be a stream.Readable, string, Buffer or plain Object');
 		}
 
-		const canBodyBeStringified = isPlainObj(body) || Array.isArray(body);
+		const canBodyBeStringified = is.plainObject(body) || is.array(body);
 		if ((opts.form || opts.json) && !canBodyBeStringified) {
 			throw new TypeError('The `body` option must be a plain Object or Array when the `form` or `json` option is used');
 		}
@@ -513,21 +514,19 @@ function normalizeArguments(url, opts) {
 			opts.body = JSON.stringify(body);
 		}
 
-		if (headers['content-length'] === undefined && headers['transfer-encoding'] === undefined && !isStream(body)) {
-			const length = typeof opts.body === 'string' ? Buffer.byteLength(opts.body) : opts.body.length;
+		if (is.undefined(headers['content-length']) && is.undefined(headers['transfer-encoding']) && !is.nodeStream(body)) {
+			const length = is.string(opts.body) ? Buffer.byteLength(opts.body) : opts.body.length;
 			headers['content-length'] = length;
 		}
 
 		// Convert buffer to stream to receive upload progress events
 		// see https://github.com/sindresorhus/got/pull/322
-		if (Buffer.isBuffer(body)) {
+		if (is.buffer(body)) {
 			opts.body = intoStream(body);
 			opts.body._buffer = body;
 		}
 
 		opts.method = (opts.method || 'POST').toUpperCase();
-	} else {
-		opts.method = (opts.method || 'GET').toUpperCase();
 	}
 
 	if (opts.hostname === 'unix') {
@@ -540,7 +539,7 @@ function normalizeArguments(url, opts) {
 		}
 	}
 
-	if (typeof opts.retries !== 'function') {
+	if (!is.function(opts.retries)) {
 		const retries = opts.retries;
 
 		opts.retries = (iter, err) => {
@@ -554,12 +553,12 @@ function normalizeArguments(url, opts) {
 		};
 	}
 
-	if (opts.followRedirect === undefined) {
+	if (is.undefined(opts.followRedirect)) {
 		opts.followRedirect = true;
 	}
 
 	if (opts.timeout) {
-		if (typeof opts.timeout === 'number') {
+		if (is.number(opts.timeout)) {
 			opts.gotTimeout = {request: opts.timeout};
 		} else {
 			opts.gotTimeout = opts.timeout;
@@ -600,7 +599,7 @@ class StdError extends Error {
 		Error.captureStackTrace(this, this.constructor);
 		this.name = 'StdError';
 
-		if (error.code !== undefined) {
+		if (!is.undefined(error.code)) {
 			this.code = error.code;
 		}
 
