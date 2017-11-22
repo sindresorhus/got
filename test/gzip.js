@@ -66,6 +66,13 @@ test('handles gzip error', async t => {
 	t.is(err.name, 'ReadError');
 });
 
+test('handles gzip error - stream', async t => {
+	const err = await t.throws(getStream(got.stream(`${s.url}/corrupted`)));
+	t.is(err.message, 'incorrect header check');
+	t.is(err.path, '/corrupted');
+	t.is(err.name, 'ReadError');
+});
+
 test('decompress option opts out of decompressing', async t => {
 	const response = await got(s.url, {decompress: false});
 	t.true(Buffer.compare(response.body, gzipData) === 0);

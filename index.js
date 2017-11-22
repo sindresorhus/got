@@ -416,6 +416,10 @@ function asStream(opts) {
 
 		const statusCode = res.statusCode;
 
+		res.on('error', err => {
+			proxy.emit('error', new got.ReadError(err, opts));
+		});
+
 		res.pipe(output);
 
 		if (statusCode !== 304 && (statusCode < 200 || statusCode > 299)) {
