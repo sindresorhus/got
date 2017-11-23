@@ -18,7 +18,7 @@ Created because [`request`](https://github.com/request/request) is bloated *(sev
 ## Highlights
 
 - [Promise & stream API](#api)
-- [Request cancelation](#aborting-the-request)
+- [Request cancellation](#aborting-the-request)
 - [RFC compliant caching](#cache-adapters)
 - [Follows redirects](#followredirect)
 - [Retries on network failure](#retries)
@@ -328,7 +328,7 @@ The promise returned by Got has a [`.cancel()`](https://github.com/sindresorhus/
 		await request;
 	} catch (error) {
 		if (request.canceled) { // Or `error instanceof got.CancelError`
-			// Handle cancelation
+			// Handle cancellation
 		}
 
 		// Handle other errors
