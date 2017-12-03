@@ -96,6 +96,11 @@ Type: `Object`
 
 Any of the [`http.request`](http://nodejs.org/api/http.html#http_http_request_options_callback) options.
 
+###### headers
+Type `Object`
+
+An object containing request headers.
+
 ###### body
 
 Type: `string` `Buffer` `stream.Readable`
