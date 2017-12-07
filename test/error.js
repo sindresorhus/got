@@ -14,6 +14,17 @@ test.before('setup', async () => {
 		res.end('not');
 	});
 
+	s.on('/default-status-message', (req, res) => {
+		res.statusCode = 400;
+		res.end('body');
+	});
+
+	s.on('/custom-status-message', (req, res) => {
+		res.statusCode = 400;
+		res.statusMessage = 'Something Exploded';
+		res.end('body');
+	});
+
 	await s.listen(s.port);
 });
 
@@ -42,7 +53,19 @@ test('dns message', async t => {
 
 test('options.body error message', async t => {
 	const err = await t.throws(got(s.url, {body: () => {}}));
-	t.regex(err.message, /options\.body must be a ReadableStream, string, Buffer or plain Object/);
+	t.regex(err.message, /The `body` option must be a stream\.Readable, string, Buffer or plain Object/);
+});
+
+test('default status message', async t => {
+	const err = await t.throws(got(`${s.url}/default-status-message`));
+	t.is(err.statusCode, 400);
+	t.is(err.statusMessage, 'Bad Request');
+});
+
+test('custom status message', async t => {
+	const err = await t.throws(got(`${s.url}/custom-status-message`));
+	t.is(err.statusCode, 400);
+	t.is(err.statusMessage, 'Something Exploded');
 });
 
 test.serial('http.request error', async t => {
@@ -50,7 +73,8 @@ test.serial('http.request error', async t => {
 		throw new TypeError('The header content contains invalid characters');
 	});
 	const err = await t.throws(got(s.url));
-	t.regex(err.message, /The header content contains invalid characters/);
+	t.true(err instanceof got.RequestError);
+	t.is(err.message, 'The header content contains invalid characters');
 	stub.restore();
 });
 

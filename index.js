@@ -10,7 +10,7 @@ const querystring = require('querystring');
 const CacheableRequest = require('cacheable-request');
 const duplexer3 = require('duplexer3');
 const intoStream = require('into-stream');
-const isStream = require('is-stream');
+const is = require('@sindresorhus/is');
 const getStream = require('get-stream');
 const timedOut = require('timed-out');
 const urlParseLax = require('url-parse-lax');
@@ -19,18 +19,17 @@ const lowercaseKeys = require('lowercase-keys');
 const decompressResponse = require('decompress-response');
 const mimicResponse = require('mimic-response');
 const isRetryAllowed = require('is-retry-allowed');
-const Buffer = require('safe-buffer').Buffer;
 const isURL = require('isurl');
-const isPlainObj = require('is-plain-obj');
 const PCancelable = require('p-cancelable');
 const pTimeout = require('p-timeout');
 const pify = require('pify');
-const pkg = require('./package');
+const Buffer = require('safe-buffer').Buffer;
+const pkg = require('./package.json');
 
 const getMethodRedirectCodes = new Set([300, 301, 302, 303, 304, 305, 307, 308]);
 const allMethodRedirectCodes = new Set([300, 303, 307, 308]);
 
-const isFormData = body => isStream(body) && typeof body.getBoundary === 'function';
+const isFormData = body => is.nodeStream(body) && is.function(body.getBoundary);
 
 const getBodySize = opts => {
 	const body = opts.body;
@@ -43,7 +42,7 @@ const getBodySize = opts => {
 		return 0;
 	}
 
-	if (typeof body === 'string') {
+	if (is.string(body)) {
 		return Buffer.byteLength(body);
 	}
 
@@ -55,7 +54,7 @@ const getBodySize = opts => {
 		return pify(fs.stat)(body.path).then(stat => stat.size);
 	}
 
-	if (isStream(body) && Buffer.isBuffer(body._buffer)) {
+	if (is.nodeStream(body) && is.buffer(body._buffer)) {
 		return body._buffer.length;
 	}
 
@@ -68,6 +67,7 @@ function requestAsEventEmitter(opts) {
 	const ee = new EventEmitter();
 	const requestUrl = opts.href || urlLib.resolve(urlLib.format(opts), opts.path);
 	const redirects = [];
+	const agents = is.object(opts.agent) ? opts.agent : null;
 	let retryCount = 0;
 	let redirectUrl;
 	let uploadBodySize;
@@ -80,6 +80,11 @@ function requestAsEventEmitter(opts) {
 		}
 
 		let fn = opts.protocol === 'https:' ? https : http;
+
+		if (agents) {
+			const protocolName = opts.protocol === 'https:' ? 'https' : 'http';
+			opts.agent = agents[protocolName] || opts.agent;
+		}
 
 		if (opts.useElectronNet && process.versions.electron) {
 			const electron = require('electron');
@@ -173,7 +178,7 @@ function requestAsEventEmitter(opts) {
 				progressStream.redirectUrls = redirects;
 
 				const response = opts.decompress === true &&
-					typeof decompressResponse === 'function' &&
+					is.function(decompressResponse) &&
 					opts.method !== 'HEAD' ? decompressResponse(progressStream) : progressStream;
 
 				if (!opts.decompress && ['gzip', 'deflate'].indexOf(res.headers['content-encoding']) !== -1) {
@@ -192,9 +197,15 @@ function requestAsEventEmitter(opts) {
 			});
 		});
 
-		cacheReq.on('error', err => ee.emit('error', new got.CacheError(err, opts)));
+		cacheReq.on('error', err => {
+			if (err instanceof CacheableRequest.RequestError) {
+				ee.emit('error', new got.RequestError(err, opts));
+			} else {
+				ee.emit('error', new got.CacheError(err, opts));
+			}
+		});
 
-		cacheReq.on('request', req => {
+		cacheReq.once('request', req => {
 			req.once('error', err => {
 				clearInterval(progressInterval);
 
@@ -208,14 +219,14 @@ function requestAsEventEmitter(opts) {
 				ee.emit('error', new got.RequestError(err, opts));
 			});
 
-			ee.on('request', req => {
+			ee.once('request', req => {
 				ee.emit('uploadProgress', {
 					percent: 0,
 					transferred: 0,
 					total: uploadBodySize
 				});
 
-				req.connection.on('connect', () => {
+				req.connection.once('connect', () => {
 					const uploadEventFrequency = 150;
 
 					progressInterval = setInterval(() => {
@@ -293,9 +304,7 @@ function asPromise(opts) {
 				req.abort();
 			});
 
-			proxy.emit('request', req);
-
-			if (isStream(opts.body)) {
+			if (is.nodeStream(opts.body)) {
 				opts.body.pipe(req);
 				opts.body = undefined;
 				return;
@@ -305,7 +314,7 @@ function asPromise(opts) {
 		});
 
 		ee.on('response', res => {
-			const stream = opts.encoding === null ? getStream.buffer(res) : getStream(res, opts);
+			const stream = is.null(opts.encoding) ? getStream.buffer(res) : getStream(res, opts);
 
 			stream
 				.catch(err => reject(new got.ReadError(err, opts)))
@@ -326,7 +335,7 @@ function asPromise(opts) {
 					}
 
 					if (statusCode !== 304 && (statusCode < 200 || statusCode > limitStatusCode)) {
-						throw new got.HTTPError(statusCode, res.headers, opts);
+						throw new got.HTTPError(statusCode, res.statusMessage, res.headers, opts);
 					}
 
 					proxy.emit('response', res);
@@ -338,7 +347,8 @@ function asPromise(opts) {
 				});
 		});
 
-		ee.on('error', reject);
+		ee.once('error', reject);
+		ee.on('redirect', proxy.emit.bind(proxy, 'redirect'));
 		ee.on('uploadProgress', proxy.emit.bind(proxy, 'uploadProgress'));
 		ee.on('downloadProgress', proxy.emit.bind(proxy, 'downloadProgress'));
 	});
@@ -370,12 +380,12 @@ function asStream(opts) {
 	}
 
 	if (opts.json) {
-		throw new Error('got can not be used as stream when options.json is used');
+		throw new Error('Got can not be used as a stream when the `json` option is used');
 	}
 
 	if (opts.body) {
 		proxy.write = () => {
-			throw new Error('got\'s stream is not writable when options.body is used');
+			throw new Error('Got\'s stream is not writable when the `body` option is used');
 		};
 	}
 
@@ -384,7 +394,7 @@ function asStream(opts) {
 	ee.on('request', req => {
 		proxy.emit('request', req);
 
-		if (isStream(opts.body)) {
+		if (is.nodeStream(opts.body)) {
 			opts.body.pipe(req);
 			return;
 		}
@@ -407,18 +417,22 @@ function asStream(opts) {
 
 		const statusCode = res.statusCode;
 
+		res.on('error', err => {
+			proxy.emit('error', new got.ReadError(err, opts));
+		});
+
 		res.pipe(output);
 
 		if (statusCode !== 304 && (statusCode < 200 || statusCode > 299)) {
-			proxy.emit('error', new got.HTTPError(statusCode, res.headers, opts), null, res);
+			proxy.emit('error', new got.HTTPError(statusCode, res.statusMessage, res.headers, opts), null, res);
 			return;
 		}
 
 		proxy.emit('response', res);
 	});
 
-	ee.on('redirect', proxy.emit.bind(proxy, 'redirect'));
 	ee.on('error', proxy.emit.bind(proxy, 'error'));
+	ee.on('redirect', proxy.emit.bind(proxy, 'redirect'));
 	ee.on('uploadProgress', proxy.emit.bind(proxy, 'uploadProgress'));
 	ee.on('downloadProgress', proxy.emit.bind(proxy, 'downloadProgress'));
 
@@ -426,17 +440,16 @@ function asStream(opts) {
 }
 
 function normalizeArguments(url, opts) {
-	if (typeof url !== 'string' && typeof url !== 'object') {
-		throw new TypeError(`Parameter \`url\` must be a string or object, not ${typeof url}`);
-	} else if (typeof url === 'string') {
+	if (!is.string(url) && !is.object(url)) {
+		throw new TypeError(`Parameter \`url\` must be a string or object, not ${is(url)}`);
+	} else if (is.string(url)) {
 		url = url.replace(/^unix:/, 'http://$&');
 		url = urlParseLax(url);
+		if (url.auth) {
+			throw new Error('Basic authentication must be done with the `auth` option');
+		}
 	} else if (isURL.lenient(url)) {
 		url = urlToOptions(url);
-	}
-
-	if (url.auth) {
-		throw new Error('Basic authentication must be done with auth option');
 	}
 
 	opts = Object.assign(
@@ -454,15 +467,22 @@ function normalizeArguments(url, opts) {
 		opts
 	);
 
+	const headers = lowercaseKeys(opts.headers);
+	for (const key of Object.keys(headers)) {
+		if (is.nullOrUndefined(headers[key])) {
+			delete headers[key];
+		}
+	}
+
 	opts.headers = Object.assign({
 		'user-agent': `${pkg.name}/${pkg.version} (https://github.com/sindresorhus/got)`,
 		'accept-encoding': 'gzip,deflate'
-	}, lowercaseKeys(opts.headers));
+	}, headers);
 
 	const query = opts.query;
 
 	if (query) {
-		if (typeof query !== 'string') {
+		if (!is.string(query)) {
 			opts.query = querystring.stringify(query);
 		}
 
@@ -470,20 +490,22 @@ function normalizeArguments(url, opts) {
 		delete opts.query;
 	}
 
-	if (opts.json && opts.headers.accept === undefined) {
+	if (opts.json && is.undefined(opts.headers.accept)) {
 		opts.headers.accept = 'application/json';
 	}
 
 	const body = opts.body;
-	if (body !== null && body !== undefined) {
+	if (is.nullOrUndefined(body)) {
+		opts.method = (opts.method || 'GET').toUpperCase();
+	} else {
 		const headers = opts.headers;
-		if (!isStream(body) && typeof body !== 'string' && !Buffer.isBuffer(body) && !(opts.form || opts.json)) {
-			throw new TypeError('options.body must be a ReadableStream, string, Buffer or plain Object');
+		if (!is.nodeStream(body) && !is.string(body) && !is.buffer(body) && !(opts.form || opts.json)) {
+			throw new TypeError('The `body` option must be a stream.Readable, string, Buffer or plain Object');
 		}
 
-		const canBodyBeStringified = isPlainObj(body) || Array.isArray(body);
+		const canBodyBeStringified = is.plainObject(body) || is.array(body);
 		if ((opts.form || opts.json) && !canBodyBeStringified) {
-			throw new TypeError('options.body must be a plain Object or Array when options.form or options.json is used');
+			throw new TypeError('The `body` option must be a plain Object or Array when the `form` or `json` option is used');
 		}
 
 		if (isFormData(body)) {
@@ -497,21 +519,19 @@ function normalizeArguments(url, opts) {
 			opts.body = JSON.stringify(body);
 		}
 
-		if (headers['content-length'] === undefined && headers['transfer-encoding'] === undefined && !isStream(body)) {
-			const length = typeof opts.body === 'string' ? Buffer.byteLength(opts.body) : opts.body.length;
+		if (is.undefined(headers['content-length']) && is.undefined(headers['transfer-encoding']) && !is.nodeStream(body)) {
+			const length = is.string(opts.body) ? Buffer.byteLength(opts.body) : opts.body.length;
 			headers['content-length'] = length;
 		}
 
 		// Convert buffer to stream to receive upload progress events
 		// see https://github.com/sindresorhus/got/pull/322
-		if (Buffer.isBuffer(body)) {
+		if (is.buffer(body)) {
 			opts.body = intoStream(body);
 			opts.body._buffer = body;
 		}
 
 		opts.method = (opts.method || 'POST').toUpperCase();
-	} else {
-		opts.method = (opts.method || 'GET').toUpperCase();
 	}
 
 	if (opts.hostname === 'unix') {
@@ -524,7 +544,7 @@ function normalizeArguments(url, opts) {
 		}
 	}
 
-	if (typeof opts.retries !== 'function') {
+	if (!is.function(opts.retries)) {
 		const retries = opts.retries;
 
 		opts.retries = (iter, err) => {
@@ -538,12 +558,12 @@ function normalizeArguments(url, opts) {
 		};
 	}
 
-	if (opts.followRedirect === undefined) {
+	if (is.undefined(opts.followRedirect)) {
 		opts.followRedirect = true;
 	}
 
 	if (opts.timeout) {
-		if (typeof opts.timeout === 'number') {
+		if (is.number(opts.timeout)) {
 			opts.gotTimeout = {request: opts.timeout};
 		} else {
 			opts.gotTimeout = opts.timeout;
@@ -584,7 +604,7 @@ class StdError extends Error {
 		Error.captureStackTrace(this, this.constructor);
 		this.name = 'StdError';
 
-		if (error.code !== undefined) {
+		if (!is.undefined(error.code)) {
 			this.code = error.code;
 		}
 
@@ -630,8 +650,12 @@ got.ParseError = class extends StdError {
 };
 
 got.HTTPError = class extends StdError {
-	constructor(statusCode, headers, opts) {
-		const statusMessage = http.STATUS_CODES[statusCode];
+	constructor(statusCode, statusMessage, headers, opts) {
+		if (statusMessage) {
+			statusMessage = statusMessage.replace(/\r?\n/g, ' ').trim();
+		} else {
+			statusMessage = http.STATUS_CODES[statusCode];
+		}
 		super(`Response code ${statusCode} (${statusMessage})`, {}, opts);
 		this.name = 'HTTPError';
 		this.statusCode = statusCode;

@@ -41,30 +41,36 @@ $ npm install got
 ## Usage
 
 ```js
+const got = require('got');
+
+(async () => {
+	try {
+		const response = await got('sindresorhus.com');
+		console.log(response.body);
+		//=> '<!doctype html> ...'
+	} catch (error) {
+		console.log(error.response.body);
+		//=> 'Internal server error ...'
+	}
+})();
+```
+
+###### Streams
+
+```js
 const fs = require('fs');
 const got = require('got');
 
-got('todomvc.com')
-	.then(response => {
-		console.log(response.body);
-		//=> '<!doctype html> ...'
-	})
-	.catch(error => {
-		console.log(error.response.body);
-		//=> 'Internal server error ...'
-	});
+got.stream('sindresorhus.com').pipe(fs.createWriteStream('index.html'));
 
-// Streams
-got.stream('todomvc.com').pipe(fs.createWriteStream('index.html'));
-
-// For POST, PUT and PATCH methods got.stream returns a WritableStream
-fs.createReadStream('index.html').pipe(got.stream.post('todomvc.com'));
+// For POST, PUT, and PATCH methods `got.stream` returns a `stream.Writable`
+fs.createReadStream('index.html').pipe(got.stream.post('sindresorhus.com'));
 ```
 
 
 ### API
 
-It's a `GET` request by default, but can be changed in `options`.
+It's a `GET` request by default, but can be changed by using different methods or in the `options`.
 
 #### got(url, [options])
 
@@ -81,6 +87,8 @@ Type: `string` `Object`
 The URL to request as simple string, a [`http.request` options](https://nodejs.org/api/http.html#http_http_request_options_callback), or a [WHATWG `URL`](https://nodejs.org/api/url.html#url_class_url).
 
 Properties from `options` will override properties in the parsed `url`.
+
+If no protocol is specified, it will default to `https`.
 
 ##### options
 
@@ -233,16 +241,17 @@ If it's not possible to retrieve the body size (can happen when streaming), `tot
 **Note**: Progress events can also be used with promises.
 
 ```js
-got('todomvc.com')
-	.on('downloadProgress', progress => {
-		// Report download progress
-	})
-	.on('uploadProgress', progress => {
-		// Report upload progress
-	})
-	.then(response => {
-		// Done
-	});
+(async () => {
+	const response = await got('sindresorhus.com')
+		.on('downloadProgress', progress => {
+			// Report download progress
+		})
+		.on('uploadProgress', progress => {
+			// Report upload progress
+		});
+
+	console.log(response);
+})();
 ```
 
 ##### .on('error', error, body, response)
@@ -303,33 +312,28 @@ When the request is aborted with `.cancel()`.
 The promise returned by Got has a [`.cancel()`](https://github.com/sindresorhus/p-cancelable) method which, when called, aborts the request.
 
 ```js
-const request = got(url, options);
+(async () => {
+	const request = got(url, options);
 
-request.catch(err => {
-  if (request.canceled) {
-    // Handle cancelation
-  }
+	…
 
-  // Handle other errors
-});
+	// In another part of the code
+	if (something) {
+		request.cancel();
+	}
 
-request.cancel();
-```
+	…
 
-Or
+	try {
+		await request;
+	} catch (error) {
+		if (request.canceled) { // Or `error instanceof got.CancelError`
+			// Handle cancelation
+		}
 
-```js
-const request = got(url, options);
-
-request.catch(err => {
-  if (err instanceof got.CancelError) {
-    // Handle cancelation
-  }
-
-  // Handle other errors
-});
-
-request.cancel();
+		// Handle other errors
+	}
+})();
 ```
 
 <a name="cache-adapters"></a>
@@ -342,20 +346,20 @@ const got = require('got');
 const map = new Map();
 
 (async () => {
-    let response = await got('todomvc.com', {cache: map});
-    console.log(response.fromCache);
-    //=> false
+		let response = await got('sindresorhus.com', {cache: map});
+		console.log(response.fromCache);
+		//=> false
 
-    response = await got('todomvc.com', {cache: map});
-    console.log(response.fromCache);
-    //=> true
+		response = await got('sindresorhus.com', {cache: map});
+		console.log(response.fromCache);
+		//=> true
 })();
 ```
 
 Got uses [Keyv](https://github.com/lukechilds/keyv) internally to support a wide range of storage adapters. For something more scalable you could use an [official Keyv storage adapter](https://github.com/lukechilds/keyv#official-storage-adapters):
 
 ```
-npm install @keyv/redis
+$ npm install @keyv/redis
 ```
 
 ```js
@@ -364,12 +368,12 @@ const KeyvRedis = require('@keyv/redis');
 
 const redis = new KeyvRedis('redis://user:pass@localhost:6379');
 
-got('todomvc.com', {cache: redis});
+got('sindresorhus.com', {cache: redis});
 ```
 
-Got supports anything that follows the Map API so it's easy to write your own storage adapter or use a third-party solution.
+Got supports anything that follows the Map API, so it's easy to write your own storage adapter or use a third-party solution.
 
-For example, the following are all valid storage adapters
+For example, the following are all valid storage adapters:
 
 ```js
 const storageAdapter = new Map();
@@ -379,7 +383,7 @@ const storageAdapter = require('./my-storage-adapter');
 const QuickLRU = require('quick-lru');
 const storageAdapter = new QuickLRU({maxSize: 1000});
 
-got('todomvc.com', {cache: storageAdapter});
+got('sindresorhus.com', {cache: storageAdapter});
 ```
 
 View the [Keyv docs](https://github.com/lukechilds/keyv) for more information on how to use storage adapters.
@@ -393,12 +397,27 @@ You can use the [`tunnel`](https://github.com/koichik/node-tunnel) module with t
 const got = require('got');
 const tunnel = require('tunnel');
 
-got('todomvc.com', {
+got('sindresorhus.com', {
 	agent: tunnel.httpOverHttp({
 		proxy: {
 			host: 'localhost'
 		}
 	})
+});
+```
+
+If you require different agents for different protocols, you can pass a map of agents to the `agent` option. This is necessary because a request to one protocol might redirect to another. In such a scenario, `got` will switch over to the right protocol agent for you.
+
+```js
+const got = require('got');
+const HttpAgent = require('agentkeepalive');
+const HttpsAgent = HttpAgent.HttpsAgent;
+
+got('sindresorhus.com', {
+	agent: {
+		http: new HttpAgent(),
+		https: new HttpsAgent()
+	}
 });
 ```
 
@@ -534,7 +553,7 @@ It's a good idea to set the `'user-agent'` header so the provider can more easil
 const got = require('got');
 const pkg = require('./package.json');
 
-got('todomvc.com', {
+got('sindresorhus.com', {
 	headers: {
 		'user-agent': `my-module/${pkg.version} (https://github.com/username/my-module)`
 	}
@@ -549,15 +568,16 @@ Bear in mind, if you send an `if-modified-since` header and receive a `304 Not M
 ## Related
 
 - [gh-got](https://github.com/sindresorhus/gh-got) - Convenience wrapper for interacting with the GitHub API
+- [gl-got](https://github.com/singapore/gl-got) - Convenience wrapper for interacting with the GitLab API
 - [travis-got](https://github.com/samverschueren/travis-got) - Convenience wrapper for interacting with the Travis API
 - [graphql-got](https://github.com/kevva/graphql-got) - Convenience wrapper for got to interact with GraphQL
 
 
 ## Created by
 
-[![Sindre Sorhus](https://github.com/sindresorhus.png?size=100)](https://sindresorhus.com) | [![Vsevolod Strukchinsky](https://github.com/floatdrop.png?size=100)](https://github.com/floatdrop) | [![Alexander Tesfamichael](https://github.com/AlexTes.png?size=100)](https://github.com/AlexTes)
----|---|---
-[Sindre Sorhus](https://sindresorhus.com) | [Vsevolod Strukchinsky](https://github.com/floatdrop) | [Alexander Tesfamichael](https://alextes.me)
+[![Sindre Sorhus](https://github.com/sindresorhus.png?size=100)](https://sindresorhus.com) | [![Vsevolod Strukchinsky](https://github.com/floatdrop.png?size=100)](https://github.com/floatdrop) | [![Alexander Tesfamichael](https://github.com/AlexTes.png?size=100)](https://github.com/AlexTes) | [![Luke Childs](https://github.com/lukechilds.png?size=100)](https://github.com/lukechilds)
+---|---|---|---
+[Sindre Sorhus](https://sindresorhus.com) | [Vsevolod Strukchinsky](https://github.com/floatdrop) | [Alexander Tesfamichael](https://alextes.me) | [Luke Childs](https://github.com/lukechilds)
 
 
 ## License

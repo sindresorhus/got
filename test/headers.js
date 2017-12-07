@@ -89,6 +89,24 @@ test('form-data automatic content-type', async t => {
 	t.is(headers['content-type'], `multipart/form-data; boundary=${form.getBoundary()}`);
 });
 
+test('remove null value headers', async t => {
+	const headers = (await got(s.url, {
+		headers: {
+			unicorns: null
+		}
+	})).body;
+	t.false(Object.prototype.hasOwnProperty.call(headers, 'unicorns'));
+});
+
+test('remove undefined value headers', async t => {
+	const headers = (await got(s.url, {
+		headers: {
+			unicorns: undefined
+		}
+	})).body;
+	t.false(Object.prototype.hasOwnProperty.call(headers, 'unicorns'));
+});
+
 test.after('cleanup', async () => {
 	await s.close();
 });

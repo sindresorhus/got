@@ -1,3 +1,4 @@
+import is from '@sindresorhus/is';
 import test from 'ava';
 import got from '..';
 import {createServer} from './helpers/server';
@@ -36,10 +37,6 @@ test('simple request', async t => {
 	t.is((await got(s.url)).body, 'ok');
 });
 
-test('protocol-less URLs', async t => {
-	t.is((await got(s.url.replace(/^http:\/\//, ''))).body, 'ok');
-});
-
 test('empty response', async t => {
 	t.is((await got(`${s.url}/empty`)).body, '');
 });
@@ -70,7 +67,7 @@ test('invalid protocol throws', async t => {
 
 test('buffer on encoding === null', async t => {
 	const data = (await got(s.url, {encoding: null})).body;
-	t.truthy(Buffer.isBuffer(data));
+	t.true(is.buffer(data));
 });
 
 test('query option', async t => {

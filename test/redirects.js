@@ -35,12 +35,22 @@ test.before('setup', async () => {
 	const cert = keys.certificate;
 
 	https = await createSSLServer({key, cert}); // eslint-disable-line object-property-newline
+	http = await createServer();
+
+	// HTTPS Handlers
 
 	https.on('/', (req, res) => {
 		res.end('https');
 	});
 
-	http = await createServer();
+	https.on('/httpsToHttp', (req, res) => {
+		res.writeHead(302, {
+			location: http.url
+		});
+		res.end();
+	});
+
+	// HTTP Handlers
 
 	http.on('/', (req, res) => {
 		res.end('reached');
@@ -142,7 +152,7 @@ test('relative redirect works', async t => {
 test('throws on endless redirect', async t => {
 	const err = await t.throws(got(`${http.url}/endless`));
 	t.is(err.message, 'Redirected 10 times. Aborting.');
-	t.deepEqual(err.redirectUrls, Array(10).fill(`${http.url}/endless`));
+	t.deepEqual(err.redirectUrls, new Array(10).fill(`${http.url}/endless`));
 });
 
 test('query in options are not breaking redirects', async t => {
@@ -171,6 +181,10 @@ test('redirect on 303 response even with post, put, delete', async t => {
 
 test('redirects from http to https works', async t => {
 	t.truthy((await got(`${http.url}/httpToHttps`, {rejectUnauthorized: false})).body);
+});
+
+test('redirects from https to http works', async t => {
+	t.truthy((await got(`${https.url}/httpsToHttp`, {rejectUnauthorized: false})).body);
 });
 
 test('redirects works with lowercase method', async t => {
