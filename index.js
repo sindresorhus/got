@@ -304,6 +304,8 @@ function asPromise(opts) {
 				req.abort();
 			});
 
+			proxy.emit('request', req);
+
 			if (is.nodeStream(opts.body)) {
 				opts.body.pipe(req);
 				opts.body = undefined;
