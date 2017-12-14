@@ -572,6 +572,7 @@ Bear in mind, if you send an `if-modified-since` header and receive a `304 Not M
 - [gh-got](https://github.com/sindresorhus/gh-got) - Convenience wrapper for interacting with the GitHub API
 - [gl-got](https://github.com/singapore/gl-got) - Convenience wrapper for interacting with the GitLab API
 - [travis-got](https://github.com/samverschueren/travis-got) - Convenience wrapper for interacting with the Travis API
+- [GotQL](https://github.com/khaosdoctor/gotql) - Convenience wrapper for got to interact with GraphQL using JSON parsed queries instead of strings
 - [graphql-got](https://github.com/kevva/graphql-got) - Convenience wrapper for got to interact with GraphQL
 
 
