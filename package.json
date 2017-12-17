@@ -51,7 +51,7 @@
 		"electron"
 	],
 	"dependencies": {
-		"@sindresorhus/is": "^0.6.0",
+		"@sindresorhus/is": "^0.7.0",
 		"cacheable-request": "^2.1.1",
 		"decompress-response": "^3.3.0",
 		"duplexer3": "^0.1.4",
@@ -70,7 +70,7 @@
 		"url-to-options": "^1.0.1"
 	},
 	"devDependencies": {
-		"ava": "^0.23.0",
+		"ava": "^0.24.0",
 		"coveralls": "^3.0.0",
 		"form-data": "^2.1.1",
 		"get-port": "^3.0.0",
