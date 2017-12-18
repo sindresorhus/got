@@ -444,6 +444,13 @@ function normalizeArguments(url, opts) {
 		throw new TypeError(`Parameter \`url\` must be a string or object, not ${is(url)}`);
 	} else if (is.string(url)) {
 		url = url.replace(/^unix:/, 'http://$&');
+
+		try {
+			decodeURI(url);
+		} catch (err) {
+			throw new Error('Parameter `url` must contain valid UTF-8 character sequences');
+		}
+
 		url = urlParseLax(url);
 		if (url.auth) {
 			throw new Error('Basic authentication must be done with the `auth` option');
