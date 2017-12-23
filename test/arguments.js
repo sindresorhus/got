@@ -29,6 +29,11 @@ test('url is required', async t => {
 	t.regex(err.message, /Parameter `url` must be a string or object, not undefined/);
 });
 
+test('url should be utf-8 encoded', async t => {
+	const err = await t.throws(got(`${s.url}/%D2%E0%EB%EB%E8%ED`));
+	t.regex(err.message, /Parameter `url` must contain valid UTF-8 character sequences/);
+});
+
 test('options are optional', async t => {
 	t.is((await got(`${s.url}/test`)).body, '/test');
 });
