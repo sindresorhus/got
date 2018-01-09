@@ -227,33 +227,35 @@ function requestAsEventEmitter(opts) {
 					total: uploadBodySize
 				});
 
-				req.connection.once('connect', () => {
-					const uploadEventFrequency = 150;
+				if (req.connection) {
+					req.connection.once('connect', () => {
+						const uploadEventFrequency = 150;
 
-					progressInterval = setInterval(() => {
-						const lastUploaded = uploaded;
-						const headersSize = Buffer.byteLength(req._header);
-						uploaded = req.connection.bytesWritten - headersSize;
+						progressInterval = setInterval(() => {
+							const lastUploaded = uploaded;
+							const headersSize = Buffer.byteLength(req._header);
+							uploaded = req.connection.bytesWritten - headersSize;
 
-						// Prevent the known issue of `bytesWritten` being larger than body size
-						if (uploadBodySize && uploaded > uploadBodySize) {
-							uploaded = uploadBodySize;
-						}
+							// Prevent the known issue of `bytesWritten` being larger than body size
+							if (uploadBodySize && uploaded > uploadBodySize) {
+								uploaded = uploadBodySize;
+							}
 
-						// Don't emit events with unchanged progress and
-						// prevent last event from being emitted, because
-						// it's emitted when `response` is emitted
-						if (uploaded === lastUploaded || uploaded === uploadBodySize) {
-							return;
-						}
+							// Don't emit events with unchanged progress and
+							// prevent last event from being emitted, because
+							// it's emitted when `response` is emitted
+							if (uploaded === lastUploaded || uploaded === uploadBodySize) {
+								return;
+							}
 
-						ee.emit('uploadProgress', {
-							percent: uploadBodySize ? uploaded / uploadBodySize : 0,
-							transferred: uploaded,
-							total: uploadBodySize
-						});
-					}, uploadEventFrequency);
-				});
+							ee.emit('uploadProgress', {
+								percent: uploadBodySize ? uploaded / uploadBodySize : 0,
+								transferred: uploaded,
+								total: uploadBodySize
+							});
+						}, uploadEventFrequency);
+					});
+				}
 			});
 
 			if (opts.gotTimeout) {
