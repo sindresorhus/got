@@ -1,10 +1,15 @@
-<h1 align="center">
+<div align="center">
+	<br>
 	<br>
 	<img width="360" src="https://rawgit.com/sindresorhus/got/master/media/logo.svg" alt="got">
 	<br>
 	<br>
 	<br>
-</h1>
+	<p align="center">Huge thanks to <a href="https://moxy.studio"><img src="https://sindresorhus.com/assets/thanks/moxy-logo.svg" width="150"></a> for sponsoring me!
+	</p>
+	<br>
+	<br>
+</div>
 
 > Simplified HTTP requests
 
@@ -36,6 +41,10 @@ Created because [`request`](https://github.com/request/request) is bloated *(sev
 ```
 $ npm install got
 ```
+
+<a href="https://www.patreon.com/sindresorhus">
+	<img src="https://c5.patreon.com/external/logo/become_a_patron_button@2x.png" width="160">
+</a>
 
 
 ## Usage
