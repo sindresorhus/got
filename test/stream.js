@@ -84,6 +84,11 @@ test('have error event #2', async t => {
 	await t.throws(pEvent(stream, 'response'), /getaddrinfo ENOTFOUND/);
 });
 
+test('have response event on throwHttpErrors === false', async t => {
+	const response = await pEvent(got.stream(`${s.url}/error`, {throwHttpErrors: false}), 'response');
+	t.is(response.statusCode, 404);
+});
+
 test('accepts option.body as Stream', async t => {
 	const stream = got.stream(`${s.url}/post`, {body: intoStream(['wow'])});
 	const data = await pEvent(stream, 'data');

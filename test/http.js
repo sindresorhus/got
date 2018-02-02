@@ -60,6 +60,10 @@ test('status code 304 doesn\'t throw', async t => {
 	t.is(response.body, '');
 });
 
+test('doesn\'t throw on throwHttpErrors === false', async t => {
+	t.is((await got(`${s.url}/404`, {throwHttpErrors: false})).body, 'not');
+});
+
 test('invalid protocol throws', async t => {
 	const err = await t.throws(got('c:/nope.com', {json: true}));
 	t.is(err.constructor, got.UnsupportedProtocolError);

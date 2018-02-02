@@ -337,7 +337,7 @@ function asPromise(opts) {
 						}
 					}
 
-					if (statusCode !== 304 && (statusCode < 200 || statusCode > limitStatusCode)) {
+					if (opts.throwHttpErrors && statusCode !== 304 && (statusCode < 200 || statusCode > limitStatusCode)) {
 						throw new got.HTTPError(statusCode, res.statusMessage, res.headers, opts);
 					}
 
@@ -425,7 +425,7 @@ function asStream(opts) {
 
 		res.pipe(output);
 
-		if (statusCode !== 304 && (statusCode < 200 || statusCode > 299)) {
+		if (opts.throwHttpErrors && statusCode !== 304 && (statusCode < 200 || statusCode > 299)) {
 			proxy.emit('error', new got.HTTPError(statusCode, res.statusMessage, res.headers, opts), null, res);
 			return;
 		}
@@ -467,7 +467,8 @@ function normalizeArguments(url, opts) {
 			retries: 2,
 			cache: false,
 			decompress: true,
-			useElectronNet: false
+			useElectronNet: false,
+			throwHttpErrors: true
 		},
 		url,
 		{
