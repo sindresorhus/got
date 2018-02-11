@@ -206,6 +206,14 @@ Default: `false`
 
 When used in Electron, Got will use [`electron.net`](https://electronjs.org/docs/api/net/) instead of the Node.js `http` module. According to the Electron docs, it should be fully compatible, but it's not entirely. See [#315](https://github.com/sindresorhus/got/issues/315).
 
+###### throwHttpErrors
+
+Type: `boolean`<br>
+Default: `true`
+
+Determines if a `got.HTTPError` is thrown for error responses (non-2xx status codes).
+
+If this is disabled, requests that encounter an error status code will be resolved with the `response` instead of throwing. This may be useful if you are checking for resource availability and are expecting error responses.
 
 #### Streams
 
