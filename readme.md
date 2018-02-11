@@ -211,7 +211,7 @@ When used in Electron, Got will use [`electron.net`](https://electronjs.org/docs
 Type: `boolean`<br>
 Default: `true`
 
-Determines if a `got.HTTPError` is thrown for error responses.
+Determines if a `got.HTTPError` is thrown for error responses (non-2xx status codes).
 
 If this is disabled, requests that encounter an error status code will be resolved with the `response` instead of throwing. This may be useful if you are checking for resource availability and are expecting error responses.
 
