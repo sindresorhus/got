@@ -105,6 +105,13 @@ Type: `Object`
 
 Any of the [`http.request`](http://nodejs.org/api/http.html#http_http_request_options_callback) options.
 
+###### stream
+
+Type: `boolean`<br>
+Default: `false`
+
+Returns a `Stream` instead of a `Promise`. This is equivalent to calling `got.stream(url, [options])`.
+
 ###### body
 
 Type: `string` `Buffer` `stream.Readable`

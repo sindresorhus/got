@@ -586,7 +586,13 @@ function normalizeArguments(url, opts) {
 
 function got(url, opts) {
 	try {
-		return asPromise(normalizeArguments(url, opts));
+		const normalizedArgs = normalizeArguments(url, opts);
+
+		if (normalizedArgs.stream) {
+			return asStream(normalizedArgs);
+		}
+
+		return asPromise(normalizedArgs);
 	} catch (err) {
 		return Promise.reject(err);
 	}
