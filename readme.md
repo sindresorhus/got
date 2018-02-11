@@ -110,7 +110,7 @@ Any of the [`http.request`](http://nodejs.org/api/http.html#http_http_request_op
 Type: `boolean`<br>
 Default: `false`
 
-Returns a `stream` instead of a Promise. This is equivalent to calling `got.stream(url, [options])`.
+Returns a `Stream` instead of a `Promise`. This is equivalent to calling `got.stream(url, [options])`.
 
 ###### body
 
