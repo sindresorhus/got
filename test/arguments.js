@@ -93,7 +93,6 @@ test('should return streams when using stream option', async t => {
 
 test('should not allow stream and JSON option at the same time', async t => {
 	const error = await t.throws(got(`${s.url}/stream`, {stream: true, json: true}));
-
 	t.is(error.message, 'Got can not be used as a stream when the `json` option is used');
 });
 
