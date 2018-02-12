@@ -569,6 +569,26 @@ request(`https://${config.host}/production/`, {
 ```
 
 
+## Testing
+
+You can test your requests by using the [`nock`](https://github.com/node-nock/nock) module to mock an endpoint:
+
+```js
+const got = require('got');
+const nock = require('nock');
+
+nock('https://sindresorhus.com')
+	.get('/')
+	.reply(200, 'Hello world!');
+
+(async () => {
+	const response = await got('sindresorhus.com');
+	console.log(response.body);
+	//=> 'Hello world!'
+})();
+```
+
+
 ## Tips
 
 ### User Agent
