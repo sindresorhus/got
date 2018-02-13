@@ -27,6 +27,11 @@ test('accept-encoding', async t => {
 	t.is(headers['accept-encoding'], 'gzip,deflate');
 });
 
+test('do not set accept-encoding if decompress not enabled', async t => {
+	const headers = (await got(s.url, {json: true, decompress: false})).body;
+	t.false(Object.prototype.hasOwnProperty.call(headers, 'accept-encoding'));
+});
+
 test('accept header with json option', async t => {
 	let headers = (await got(s.url, {json: true})).body;
 	t.is(headers.accept, 'application/json');
