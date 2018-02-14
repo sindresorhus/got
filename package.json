@@ -70,7 +70,7 @@
 		"url-to-options": "^1.0.1"
 	},
 	"devDependencies": {
-		"ava": "^0.24.0",
+		"ava": "^0.25.0",
 		"coveralls": "^3.0.0",
 		"form-data": "^2.1.1",
 		"get-port": "^3.0.0",
@@ -82,7 +82,7 @@
 		"tempfile": "^2.0.0",
 		"tempy": "^0.2.1",
 		"universal-url": "1.0.0-alpha",
-		"xo": "^0.18.0"
+		"xo": "^0.20.0"
 	},
 	"ava": {
 		"concurrency": 4
