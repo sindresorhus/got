@@ -29,7 +29,7 @@ test('accept-encoding', async t => {
 
 test('do not set accept-encoding header when decompress options is false', async t => {
 	const headers = (await got(s.url, {json: true, decompress: false})).body;
-	t.false(Reflect.has(headers, 'accept-encoding'));
+	t.false(Object.prototype.hasOwnProperty.call(headers, 'accept-encoding'));
 });
 
 test('accept header with json option', async t => {
