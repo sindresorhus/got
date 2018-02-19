@@ -109,6 +109,7 @@ test('remove undefined value headers', async t => {
 			unicorns: undefined
 		}
 	})).body;
+	// TODO: Use `Reflect.has()` when we target Node.js 6
 	t.false(Object.prototype.hasOwnProperty.call(headers, 'unicorns'));
 });
 
