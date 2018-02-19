@@ -588,6 +588,24 @@ nock('https://sindresorhus.com')
 })();
 ```
 
+If you need real integration tests you can use [`create-test-server`](https://github.com/lukechilds/create-test-server):
+
+```js
+const got = require('got');
+const createTestServer = require('create-test-server');
+
+(async () => {
+	const server = await createTestServer();
+	server.get('/', 'Hello world!');
+
+	const response = await got(server.url);
+	console.log(response.body);
+	//=> 'Hello world!'
+
+	await server.close();
+})();
+```
+
 
 ## Tips
 
