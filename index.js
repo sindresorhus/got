@@ -485,9 +485,12 @@ function normalizeArguments(url, opts) {
 	}
 
 	opts.headers = Object.assign({
-		'user-agent': `${pkg.name}/${pkg.version} (https://github.com/sindresorhus/got)`,
-		'accept-encoding': 'gzip,deflate'
+		'user-agent': `${pkg.name}/${pkg.version} (https://github.com/sindresorhus/got)`
 	}, headers);
+
+	if (opts.decompress) {
+		opts.headers['accept-encoding'] = 'gzip,deflate';
+	}
 
 	const query = opts.query;
 
