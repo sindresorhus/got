@@ -29,6 +29,7 @@ test('accept-encoding', async t => {
 
 test('do not set accept-encoding header when decompress options is false', async t => {
 	const headers = (await got(s.url, {json: true, decompress: false})).body;
+	// TODO: Use `Reflect.has()` when we target Node.js 6
 	t.false(Object.prototype.hasOwnProperty.call(headers, 'accept-encoding'));
 });
 
@@ -100,6 +101,7 @@ test('remove null value headers', async t => {
 			unicorns: null
 		}
 	})).body;
+	// TODO: Use `Reflect.has()` when we target Node.js 6
 	t.false(Object.prototype.hasOwnProperty.call(headers, 'unicorns'));
 });
 
