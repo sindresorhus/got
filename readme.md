@@ -569,6 +569,44 @@ request(`https://${config.host}/production/`, {
 ```
 
 
+## Testing
+
+You can test your requests by using the [`nock`](https://github.com/node-nock/nock) module to mock an endpoint:
+
+```js
+const got = require('got');
+const nock = require('nock');
+
+nock('https://sindresorhus.com')
+	.get('/')
+	.reply(200, 'Hello world!');
+
+(async () => {
+	const response = await got('sindresorhus.com');
+	console.log(response.body);
+	//=> 'Hello world!'
+})();
+```
+
+If you need real integration tests you can use [`create-test-server`](https://github.com/lukechilds/create-test-server):
+
+```js
+const got = require('got');
+const createTestServer = require('create-test-server');
+
+(async () => {
+	const server = await createTestServer();
+	server.get('/', 'Hello world!');
+
+	const response = await got(server.url);
+	console.log(response.body);
+	//=> 'Hello world!'
+
+	await server.close();
+})();
+```
+
+
 ## Tips
 
 ### User Agent
