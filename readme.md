@@ -129,7 +129,7 @@ If `content-length` or `transfer-encoding` is not set in `options.headers` and `
 Type: `string` `null`<br>
 Default: `'utf8'`
 
-[Encoding](https://nodejs.org/api/buffer.html#buffer_buffers_and_character_encodings) to be used on `setEncoding` of the response data. If `null`, the body is returned as a Buffer.
+[Encoding](https://nodejs.org/api/buffer.html#buffer_buffers_and_character_encodings) to be used on `setEncoding` of the response data. If `null`, the body is returned as a [`Buffer`](https://nodejs.org/api/buffer.html) (binary data).
 
 ###### form
 
