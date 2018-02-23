@@ -196,10 +196,10 @@ function requestAsEventEmitter(opts) {
 					});
 
 					res.pipe(progressStream);
-				});
-			} catch (e) {
-				ee.emit('error', e);
-			}
+				} catch (e) {
+					ee.emit('error', e);
+				}
+			});
 		});
 
 		cacheReq.on('error', err => {
