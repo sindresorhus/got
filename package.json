@@ -26,6 +26,7 @@
 	},
 	"scripts": {
 		"test": "xo && nyc ava",
+		"xo:fix": "xo --fix",
 		"coveralls": "nyc report --reporter=text-lcov | coveralls"
 	},
 	"files": [
@@ -77,6 +78,7 @@
 		"nyc": "^11.0.2",
 		"p-event": "^1.3.0",
 		"pem": "^1.4.4",
+		"proxyquire": "^1.8.0",
 		"sinon": "^4.0.0",
 		"slow-stream": "0.0.4",
 		"tempfile": "^2.0.0",
