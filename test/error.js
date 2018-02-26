@@ -2,8 +2,8 @@ import http from 'http';
 import test from 'ava';
 import sinon from 'sinon';
 import proxyquire from 'proxyquire';
-import {createServer} from './helpers/server';
 import got from '..';
+import {createServer} from './helpers/server';
 
 let s;
 
