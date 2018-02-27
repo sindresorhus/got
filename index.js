@@ -303,6 +303,7 @@ function asPromise(opts) {
 
 		onCancel(() => {
 			cancelOnRequest = true;
+			opts.retries = false;
 		});
 
 		ee.on('request', req => {
