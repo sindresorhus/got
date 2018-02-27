@@ -207,7 +207,14 @@ function requestAsEventEmitter(opts) {
 		});
 
 		cacheReq.once('request', req => {
+			let aborted = false;
+			req.once('abort', _ => {
+				aborted = true;
+			});
+
 			req.once('error', err => {
+				if (aborted) return;
+
 				clearInterval(progressInterval);
 
 				const backoff = opts.retries(++retryCount, err);
@@ -305,7 +312,12 @@ function asPromise(opts) {
 
 			onCancel(() => {
 				req.abort();
+				cancelOnRequest = true;
 			});
+
+			if (cancelOnRequest) {
+				return;
+			}
 
 			if (is.nodeStream(opts.body)) {
 				opts.body.pipe(req);
