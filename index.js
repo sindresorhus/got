@@ -227,14 +227,18 @@ function requestAsEventEmitter(opts) {
 					total: uploadBodySize
 				});
 
-				if (req.connection) {
-					req.connection.once('connect', () => {
+				const socket = req.connection;
+				if (socket) {
+					// `._connecting` was the old property which was made public in node v6.1.0
+					const isConnecting = socket.connecting === undefined ? socket._connecting : socket.connecting;
+
+					const onSocketConnect = () => {
 						const uploadEventFrequency = 150;
 
 						progressInterval = setInterval(() => {
 							const lastUploaded = uploaded;
 							const headersSize = Buffer.byteLength(req._header);
-							uploaded = req.connection.bytesWritten - headersSize;
+							uploaded = socket.bytesWritten - headersSize;
 
 							// Prevent the known issue of `bytesWritten` being larger than body size
 							if (uploadBodySize && uploaded > uploadBodySize) {
@@ -254,7 +258,17 @@ function requestAsEventEmitter(opts) {
 								total: uploadBodySize
 							});
 						}, uploadEventFrequency);
-					});
+					};
+
+					// Only subscribe to 'connect' event if we're actually connecting a new
+					// socket, otherwise if we're already connected (because this is a
+					// keep-alive connection) do not bother. This is important since we won't
+					// get a 'connect' event for an already connected socket.
+					if (isConnecting) {
+						socket.once('connect', onSocketConnect);
+					} else {
+						onSocketConnect();
+					}
 				}
 			});
 
