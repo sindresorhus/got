@@ -134,10 +134,14 @@ test('redirects from https to http work with an agent object', async t => {
 
 test('socket connect listener cleaned up after request', async t => {
 	const {agent} = createAgentSpy(HttpsAgent);
-	await got(`${https.url}`, {
-		rejectUnauthorized: false,
-		agent
-	});
+	// Make sure there are no memory leaks when reusing keep-alive sockets
+	for (let i = 0; i < 20; i++) {
+		// eslint-disable-next-line no-await-in-loop
+		await got(`${https.url}`, {
+			rejectUnauthorized: false,
+			agent
+		});
+	}
 	Object.keys(agent.freeSockets).forEach(k => agent.freeSockets[k]
 		.forEach(sock => t.is(sock.listenerCount('connect'), 0)));
 	// Make sure to close all open sockets
