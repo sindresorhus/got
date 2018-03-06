@@ -91,7 +91,7 @@ test('recover from cancelation using cancelable promise attribute', async t => {
 	// Canceled before connection started
 	const p = got('http://example.com');
 	const recover = p.catch(err => {
-		if (p.canceled) {
+		if (p.isCanceled) {
 			return;
 		}
 

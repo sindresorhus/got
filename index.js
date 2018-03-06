@@ -312,7 +312,7 @@ function asPromise(opts) {
 
 	const proxy = new EventEmitter();
 
-	const cancelable = new PCancelable((onCancel, resolve, reject) => {
+	const cancelable = new PCancelable((resolve, reject, onCancel) => {
 		const ee = requestAsEventEmitter(opts);
 		let cancelOnRequest = false;
 
@@ -375,6 +375,14 @@ function asPromise(opts) {
 		ee.on('redirect', proxy.emit.bind(proxy, 'redirect'));
 		ee.on('uploadProgress', proxy.emit.bind(proxy, 'uploadProgress'));
 		ee.on('downloadProgress', proxy.emit.bind(proxy, 'downloadProgress'));
+	});
+
+	// Preserve backwards-compatibility
+	// TODO: Remove this in the next major version
+	Object.defineProperty(cancelable, 'canceled', {
+		get() {
+			return cancelable.isCanceled;
+		}
 	});
 
 	const promise = timeoutFn(cancelable);

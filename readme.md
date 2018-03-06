@@ -351,7 +351,7 @@ The promise returned by Got has a [`.cancel()`](https://github.com/sindresorhus/
 	try {
 		await request;
 	} catch (error) {
-		if (request.canceled) { // Or `error instanceof got.CancelError`
+		if (request.isCanceled) { // Or `error instanceof got.CancelError`
 			// Handle cancelation
 		}
 

@@ -61,7 +61,7 @@
 		"isurl": "^1.0.0-alpha5",
 		"lowercase-keys": "^1.0.0",
 		"mimic-response": "^1.0.0",
-		"p-cancelable": "^0.3.0",
+		"p-cancelable": "^0.4.0",
 		"p-timeout": "^2.0.1",
 		"pify": "^3.0.0",
 		"safe-buffer": "^5.1.1",
