@@ -1,6 +1,7 @@
 import http from 'http';
 import test from 'ava';
 import sinon from 'sinon';
+import proxyquire from 'proxyquire';
 import got from '..';
 import {createServer} from './helpers/server';
 
@@ -52,7 +53,7 @@ test('dns message', async t => {
 });
 
 test('options.body error message', async t => {
-	const err = await t.throws(got(s.url, {body: () => {}}));
+	const err = await t.throws(got(s.url, {body: () => { }}));
 	t.regex(err.message, /The `body` option must be a stream\.Readable, string, Buffer or plain Object/);
 });
 
@@ -76,6 +77,17 @@ test.serial('http.request error', async t => {
 	t.true(err instanceof got.RequestError);
 	t.is(err.message, 'The header content contains invalid characters');
 	stub.restore();
+});
+
+test.serial('catch error in mimicResponse', async t => {
+	const proxiedGot = proxyquire('..', {
+		'mimic-response'() {
+			throw new Error('Error in mimic-response');
+		}
+	});
+
+	const err = await t.throws(proxiedGot(s.url));
+	t.is(err.message, 'Error in mimic-response');
 });
 
 test.after('cleanup', async () => {

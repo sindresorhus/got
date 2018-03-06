@@ -142,59 +142,12 @@ function requestAsEventEmitter(opts) {
 				return;
 			}
 
-			const downloadBodySize = Number(res.headers['content-length']) || null;
-			let downloaded = 0;
-
 			setImmediate(() => {
-				const progressStream = new Transform({
-					transform(chunk, encoding, callback) {
-						downloaded += chunk.length;
-
-						const percent = downloadBodySize ? downloaded / downloadBodySize : 0;
-
-						// Let flush() be responsible for emitting the last event
-						if (percent < 1) {
-							ee.emit('downloadProgress', {
-								percent,
-								transferred: downloaded,
-								total: downloadBodySize
-							});
-						}
-
-						callback(null, chunk);
-					},
-
-					flush(callback) {
-						ee.emit('downloadProgress', {
-							percent: 1,
-							transferred: downloaded,
-							total: downloadBodySize
-						});
-
-						callback();
-					}
-				});
-
-				mimicResponse(res, progressStream);
-				progressStream.redirectUrls = redirects;
-
-				const response = opts.decompress === true &&
-					is.function(decompressResponse) &&
-					opts.method !== 'HEAD' ? decompressResponse(progressStream) : progressStream;
-
-				if (!opts.decompress && ['gzip', 'deflate'].indexOf(res.headers['content-encoding']) !== -1) {
-					opts.encoding = null;
+				try {
+					getResponse(res, opts, ee, redirects);
+				} catch (e) {
+					ee.emit('error', e);
 				}
-
-				ee.emit('response', response);
-
-				ee.emit('downloadProgress', {
-					percent: 0,
-					transferred: 0,
-					total: downloadBodySize
-				});
-
-				res.pipe(progressStream);
 			});
 		});
 
@@ -295,6 +248,61 @@ function requestAsEventEmitter(opts) {
 	});
 
 	return ee;
+}
+
+function getResponse(res, opts, ee, redirects) {
+	const downloadBodySize = Number(res.headers['content-length']) || null;
+	let downloaded = 0;
+
+	const progressStream = new Transform({
+		transform(chunk, encoding, callback) {
+			downloaded += chunk.length;
+
+			const percent = downloadBodySize ? downloaded / downloadBodySize : 0;
+
+			// Let flush() be responsible for emitting the last event
+			if (percent < 1) {
+				ee.emit('downloadProgress', {
+					percent,
+					transferred: downloaded,
+					total: downloadBodySize
+				});
+			}
+
+			callback(null, chunk);
+		},
+
+		flush(callback) {
+			ee.emit('downloadProgress', {
+				percent: 1,
+				transferred: downloaded,
+				total: downloadBodySize
+			});
+
+			callback();
+		}
+	});
+
+	mimicResponse(res, progressStream);
+	progressStream.redirectUrls = redirects;
+
+	const response = opts.decompress === true &&
+		is.function(decompressResponse) &&
+		opts.method !== 'HEAD' ? decompressResponse(progressStream) : progressStream;
+
+	if (!opts.decompress && ['gzip', 'deflate'].indexOf(res.headers['content-encoding']) !== -1) {
+		opts.encoding = null;
+	}
+
+	ee.emit('response', response);
+
+	ee.emit('downloadProgress', {
+		percent: 0,
+		transferred: 0,
+		total: downloadBodySize
+	});
+
+	res.pipe(progressStream);
 }
 
 function asPromise(opts) {
