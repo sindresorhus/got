@@ -240,6 +240,9 @@ function requestAsEventEmitter(opts) {
 		Promise.resolve(getBodySize(opts))
 			.then(size => {
 				uploadBodySize = size;
+				if (isFormData(opts.body)) {
+					opts.headers['content-length'] = size;
+				}
 				get(opts);
 			})
 			.catch(err => {
