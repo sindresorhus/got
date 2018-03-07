@@ -27,6 +27,12 @@ test('accept-encoding', async t => {
 	t.is(headers['accept-encoding'], 'gzip,deflate');
 });
 
+test('do not set accept-encoding header when decompress options is false', async t => {
+	const headers = (await got(s.url, {json: true, decompress: false})).body;
+	// TODO: Use `Reflect.has()` when we target Node.js 6
+	t.false(Object.prototype.hasOwnProperty.call(headers, 'accept-encoding'));
+});
+
 test('accept header with json option', async t => {
 	let headers = (await got(s.url, {json: true})).body;
 	t.is(headers.accept, 'application/json');
@@ -95,6 +101,7 @@ test('remove null value headers', async t => {
 			unicorns: null
 		}
 	})).body;
+	// TODO: Use `Reflect.has()` when we target Node.js 6
 	t.false(Object.prototype.hasOwnProperty.call(headers, 'unicorns'));
 });
 
@@ -104,6 +111,7 @@ test('remove undefined value headers', async t => {
 			unicorns: undefined
 		}
 	})).body;
+	// TODO: Use `Reflect.has()` when we target Node.js 6
 	t.false(Object.prototype.hasOwnProperty.call(headers, 'unicorns'));
 });
 

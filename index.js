@@ -142,59 +142,12 @@ function requestAsEventEmitter(opts) {
 				return;
 			}
 
-			const downloadBodySize = Number(res.headers['content-length']) || null;
-			let downloaded = 0;
-
 			setImmediate(() => {
-				const progressStream = new Transform({
-					transform(chunk, encoding, callback) {
-						downloaded += chunk.length;
-
-						const percent = downloadBodySize ? downloaded / downloadBodySize : 0;
-
-						// Let flush() be responsible for emitting the last event
-						if (percent < 1) {
-							ee.emit('downloadProgress', {
-								percent,
-								transferred: downloaded,
-								total: downloadBodySize
-							});
-						}
-
-						callback(null, chunk);
-					},
-
-					flush(callback) {
-						ee.emit('downloadProgress', {
-							percent: 1,
-							transferred: downloaded,
-							total: downloadBodySize
-						});
-
-						callback();
-					}
-				});
-
-				mimicResponse(res, progressStream);
-				progressStream.redirectUrls = redirects;
-
-				const response = opts.decompress === true &&
-					is.function(decompressResponse) &&
-					opts.method !== 'HEAD' ? decompressResponse(progressStream) : progressStream;
-
-				if (!opts.decompress && ['gzip', 'deflate'].indexOf(res.headers['content-encoding']) !== -1) {
-					opts.encoding = null;
+				try {
+					getResponse(res, opts, ee, redirects);
+				} catch (e) {
+					ee.emit('error', e);
 				}
-
-				ee.emit('response', response);
-
-				ee.emit('downloadProgress', {
-					percent: 0,
-					transferred: 0,
-					total: downloadBodySize
-				});
-
-				res.pipe(progressStream);
 			});
 		});
 
@@ -207,8 +160,17 @@ function requestAsEventEmitter(opts) {
 		});
 
 		cacheReq.once('request', req => {
+			let aborted = false;
+			req.once('abort', _ => {
+				aborted = true;
+			});
+
 			req.once('error', err => {
 				clearInterval(progressInterval);
+
+				if (aborted) {
+					return;
+				}
 
 				const backoff = opts.retries(++retryCount, err);
 
@@ -227,14 +189,18 @@ function requestAsEventEmitter(opts) {
 					total: uploadBodySize
 				});
 
-				if (req.connection) {
-					req.connection.once('connect', () => {
+				const socket = req.connection;
+				if (socket) {
+					// `._connecting` was the old property which was made public in node v6.1.0
+					const isConnecting = socket.connecting === undefined ? socket._connecting : socket.connecting;
+
+					const onSocketConnect = () => {
 						const uploadEventFrequency = 150;
 
 						progressInterval = setInterval(() => {
 							const lastUploaded = uploaded;
 							const headersSize = Buffer.byteLength(req._header);
-							uploaded = req.connection.bytesWritten - headersSize;
+							uploaded = socket.bytesWritten - headersSize;
 
 							// Prevent the known issue of `bytesWritten` being larger than body size
 							if (uploadBodySize && uploaded > uploadBodySize) {
@@ -254,7 +220,17 @@ function requestAsEventEmitter(opts) {
 								total: uploadBodySize
 							});
 						}, uploadEventFrequency);
-					});
+					};
+
+					// Only subscribe to 'connect' event if we're actually connecting a new
+					// socket, otherwise if we're already connected (because this is a
+					// keep-alive connection) do not bother. This is important since we won't
+					// get a 'connect' event for an already connected socket.
+					if (isConnecting) {
+						socket.once('connect', onSocketConnect);
+					} else {
+						onSocketConnect();
+					}
 				}
 			});
 
@@ -283,6 +259,61 @@ function requestAsEventEmitter(opts) {
 	return ee;
 }
 
+function getResponse(res, opts, ee, redirects) {
+	const downloadBodySize = Number(res.headers['content-length']) || null;
+	let downloaded = 0;
+
+	const progressStream = new Transform({
+		transform(chunk, encoding, callback) {
+			downloaded += chunk.length;
+
+			const percent = downloadBodySize ? downloaded / downloadBodySize : 0;
+
+			// Let flush() be responsible for emitting the last event
+			if (percent < 1) {
+				ee.emit('downloadProgress', {
+					percent,
+					transferred: downloaded,
+					total: downloadBodySize
+				});
+			}
+
+			callback(null, chunk);
+		},
+
+		flush(callback) {
+			ee.emit('downloadProgress', {
+				percent: 1,
+				transferred: downloaded,
+				total: downloadBodySize
+			});
+
+			callback();
+		}
+	});
+
+	mimicResponse(res, progressStream);
+	progressStream.redirectUrls = redirects;
+
+	const response = opts.decompress === true &&
+		is.function(decompressResponse) &&
+		opts.method !== 'HEAD' ? decompressResponse(progressStream) : progressStream;
+
+	if (!opts.decompress && ['gzip', 'deflate'].indexOf(res.headers['content-encoding']) !== -1) {
+		opts.encoding = null;
+	}
+
+	ee.emit('response', response);
+
+	ee.emit('downloadProgress', {
+		percent: 0,
+		transferred: 0,
+		total: downloadBodySize
+	});
+
+	res.pipe(progressStream);
+}
+
 function asPromise(opts) {
 	const timeoutFn = requestPromise => opts.gotTimeout && opts.gotTimeout.request ?
 		pTimeout(requestPromise, opts.gotTimeout.request, new got.RequestError({message: 'Request timed out', code: 'ETIMEDOUT'}, opts)) :
@@ -290,7 +321,7 @@ function asPromise(opts) {
 
 	const proxy = new EventEmitter();
 
-	const cancelable = new PCancelable((onCancel, resolve, reject) => {
+	const cancelable = new PCancelable((resolve, reject, onCancel) => {
 		const ee = requestAsEventEmitter(opts);
 		let cancelOnRequest = false;
 
@@ -353,6 +384,14 @@ function asPromise(opts) {
 		ee.on('redirect', proxy.emit.bind(proxy, 'redirect'));
 		ee.on('uploadProgress', proxy.emit.bind(proxy, 'uploadProgress'));
 		ee.on('downloadProgress', proxy.emit.bind(proxy, 'downloadProgress'));
+	});
+
+	// Preserve backwards-compatibility
+	// TODO: Remove this in the next major version
+	Object.defineProperty(cancelable, 'canceled', {
+		get() {
+			return cancelable.isCanceled;
+		}
 	});
 
 	const promise = timeoutFn(cancelable);
@@ -485,9 +524,12 @@ function normalizeArguments(url, opts) {
 	}
 
 	opts.headers = Object.assign({
-		'user-agent': `${pkg.name}/${pkg.version} (https://github.com/sindresorhus/got)`,
-		'accept-encoding': 'gzip,deflate'
+		'user-agent': `${pkg.name}/${pkg.version} (https://github.com/sindresorhus/got)`
 	}, headers);
+
+	if (opts.decompress) {
+		opts.headers['accept-encoding'] = 'gzip,deflate';
+	}
 
 	const query = opts.query;
 

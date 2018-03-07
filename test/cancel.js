@@ -21,13 +21,38 @@ async function createAbortServer() {
 				res.end();
 			});
 		});
+
+		s.on('/redirect', (req, res) => {
+			res.writeHead(302, {
+				location: `${s.url}/abort`
+			});
+			res.end();
+
+			ee.emit('sentRedirect');
+
+			setTimeout(resolve, 3000);
+		});
 	});
 
 	await s.listen(s.port);
 	ee.url = `${s.url}/abort`;
+	ee.redirectUrl = `${s.url}/redirect`;
 
 	return ee;
 }
+
+test('cancel do not retry after aborting', async t => {
+	const helper = await createAbortServer();
+
+	const p = got(helper.redirectUrl);
+
+	helper.on('sentRedirect', () => {
+		p.cancel();
+	});
+
+	await t.throws(p, PCancelable.CancelError);
+	await t.notThrows(helper.aborted, 'Request finished instead of aborting.');
+});
 
 test('cancel in-progress request', async t => {
 	const helper = await createAbortServer();
@@ -91,7 +116,7 @@ test('recover from cancelation using cancelable promise attribute', async t => {
 	// Canceled before connection started
 	const p = got('http://example.com');
 	const recover = p.catch(err => {
-		if (p.canceled) {
+		if (p.isCanceled) {
 			return;
 		}
 
