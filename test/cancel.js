@@ -41,10 +41,14 @@ async function createAbortServer() {
 	return ee;
 }
 
-test('cancel do not retry after aborting', async t => {
+test('cancel do not retry after cancelation', async t => {
 	const helper = await createAbortServer();
 
-	const p = got(helper.redirectUrl);
+	const p = got(helper.redirectUrl, {
+		retries: _ => {
+			t.fail('Makes a new try after cancelation');
+		}
+	});
 
 	helper.on('sentRedirect', () => {
 		p.cancel();
