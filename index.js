@@ -160,8 +160,17 @@ function requestAsEventEmitter(opts) {
 		});
 
 		cacheReq.once('request', req => {
+			let aborted = false;
+			req.once('abort', _ => {
+				aborted = true;
+			});
+
 			req.once('error', err => {
 				clearInterval(progressInterval);
+
+				if (aborted) {
+					return;
+				}
 
 				const backoff = opts.retries(++retryCount, err);
 
