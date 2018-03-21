@@ -6,7 +6,7 @@ const PassThrough = require('stream').PassThrough;
 const Transform = require('stream').Transform;
 const urlLib = require('url');
 const fs = require('fs');
-const querystring = require('querystring');
+const queryString = require('query-string');
 const CacheableRequest = require('cacheable-request');
 const duplexer3 = require('duplexer3');
 const intoStream = require('into-stream');
@@ -535,7 +535,7 @@ function normalizeArguments(url, opts) {
 
 	if (query) {
 		if (!is.string(query)) {
-			opts.query = querystring.stringify(query);
+			opts.query = queryString.stringify(query);
 		}
 
 		opts.path = `${opts.path.split('?')[0]}?${opts.query}`;
@@ -565,7 +565,7 @@ function normalizeArguments(url, opts) {
 			headers['content-type'] = headers['content-type'] || `multipart/form-data; boundary=${body.getBoundary()}`;
 		} else if (opts.form && canBodyBeStringified) {
 			headers['content-type'] = headers['content-type'] || 'application/x-www-form-urlencoded';
-			opts.body = querystring.stringify(body);
+			opts.body = queryString.stringify(body);
 		} else if (opts.json && canBodyBeStringified) {
 			headers['content-type'] = headers['content-type'] || 'application/json';
 			opts.body = JSON.stringify(body);
