@@ -64,7 +64,7 @@
 		"p-cancelable": "^0.4.0",
 		"p-timeout": "^2.0.1",
 		"pify": "^3.0.0",
-		"query-string": "^6.0.0",
+		"query-string": "^5.1.1",
 		"safe-buffer": "^5.1.1",
 		"timed-out": "^4.0.1",
 		"url-parse-lax": "^3.0.0",
