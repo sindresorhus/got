@@ -195,7 +195,7 @@ request the resource pointed to in the location header via `GET`. This is in acc
 Type: `boolean`<br>
 Default: `true`
 
-Decompress the response automatically.
+Decompress the response automatically. This will set the `accept-encoding` header to `gzip, deflate` unless you set it yourself.
 
 If this is disabled, a compressed response is returned as a `Buffer`. This may be useful if you want to handle decompression yourself or stream the raw compressed data.
 
