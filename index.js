@@ -527,7 +527,7 @@ function normalizeArguments(url, opts) {
 		'user-agent': `${pkg.name}/${pkg.version} (https://github.com/sindresorhus/got)`
 	}, headers);
 
-	if (opts.decompress && opts.headers['accept-encoding'] == null) {
+	if (opts.decompress && !is.undefined(opts.headers['accept-encoding'])) {
 		opts.headers['accept-encoding'] = 'gzip, deflate';
 	}
 
