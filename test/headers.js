@@ -27,6 +27,16 @@ test('accept-encoding', async t => {
 	t.is(headers['accept-encoding'], 'gzip, deflate');
 });
 
+test('do not override accept-encoding', async t => {
+	const headers = (await got(s.url, {
+		json: true,
+		headers: {
+			'accept-encoding': 'gzip'
+		}
+	})).body;
+	t.is(headers['accept-encoding'], 'gzip');
+});
+
 test('do not set accept-encoding header when decompress options is false', async t => {
 	const headers = (await got(s.url, {json: true, decompress: false})).body;
 	// TODO: Use `Reflect.has()` when we target Node.js 6
