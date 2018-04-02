@@ -2,8 +2,8 @@
 const EventEmitter = require('events');
 const http = require('http');
 const https = require('https');
-const PassThrough = require('stream').PassThrough;
-const Transform = require('stream').Transform;
+const {PassThrough} = require('stream');
+const {Transform} = require('stream');
 const urlLib = require('url');
 const fs = require('fs');
 const querystring = require('querystring');
@@ -23,7 +23,7 @@ const isURL = require('isurl');
 const PCancelable = require('p-cancelable');
 const pTimeout = require('p-timeout');
 const pify = require('pify');
-const Buffer = require('safe-buffer').Buffer;
+const {Buffer} = require('safe-buffer');
 const pkg = require('./package.json');
 const errors = require('./errors');
 
@@ -33,7 +33,7 @@ const allMethodRedirectCodes = new Set([300, 303, 307, 308]);
 const isFormData = body => is.nodeStream(body) && is.function(body.getBoundary);
 
 const getBodySize = opts => {
-	const body = opts.body;
+	const {body} = opts;
 
 	if (opts.headers['content-length']) {
 		return Number(opts.headers['content-length']);
@@ -104,7 +104,7 @@ function requestAsEventEmitter(opts) {
 				total: uploadBodySize
 			});
 
-			const statusCode = res.statusCode;
+			const {statusCode} = res;
 
 			res.url = redirectUrl || requestUrl;
 			res.requestUrl = requestUrl;
@@ -133,7 +133,10 @@ function requestAsEventEmitter(opts) {
 
 				redirects.push(redirectUrl);
 
-				const redirectOpts = Object.assign({}, opts, urlLib.parse(redirectUrl));
+				const redirectOpts = {
+					...opts,
+					...urlLib.parse(redirectUrl)
+				};
 
 				ee.emit('redirect', res, redirectOpts);
 
@@ -353,7 +356,7 @@ function asPromise(opts) {
 			stream
 				.catch(err => reject(new got.ReadError(err, opts)))
 				.then(data => {
-					const statusCode = res.statusCode;
+					const {statusCode} = res;
 					const limitStatusCode = opts.followRedirect ? 299 : 399;
 
 					res.body = data;
@@ -456,7 +459,7 @@ function asStream(opts) {
 	ee.on('response', res => {
 		clearTimeout(timeout);
 
-		const statusCode = res.statusCode;
+		const {statusCode} = res;
 
 		res.on('error', err => {
 			proxy.emit('error', new got.ReadError(err, opts));
@@ -500,21 +503,17 @@ function normalizeArguments(url, opts) {
 		url = urlToOptions(url);
 	}
 
-	opts = Object.assign(
-		{
-			path: '',
-			retries: 2,
-			cache: false,
-			decompress: true,
-			useElectronNet: false,
-			throwHttpErrors: true
-		},
-		url,
-		{
-			protocol: url.protocol || 'http:' // Override both null/undefined with default protocol
-		},
-		opts
-	);
+	opts = {
+		path: '',
+		retries: 2,
+		cache: false,
+		decompress: true,
+		useElectronNet: false,
+		throwHttpErrors: true,
+		...url,
+		protocol: url.protocol || 'http:', // Override both null/undefined with default protocol
+		...opts
+	};
 
 	const headers = lowercaseKeys(opts.headers);
 	for (const key of Object.keys(headers)) {
@@ -523,15 +522,16 @@ function normalizeArguments(url, opts) {
 		}
 	}
 
-	opts.headers = Object.assign({
-		'user-agent': `${pkg.name}/${pkg.version} (https://github.com/sindresorhus/got)`
-	}, headers);
+	opts.headers = {
+		'user-agent': `${pkg.name}/${pkg.version} (https://github.com/sindresorhus/got)`,
+		...headers
+	};
 
 	if (opts.decompress) {
 		opts.headers['accept-encoding'] = 'gzip,deflate';
 	}
 
-	const query = opts.query;
+	const {query} = opts;
 
 	if (query) {
 		if (!is.string(query)) {
@@ -546,11 +546,11 @@ function normalizeArguments(url, opts) {
 		opts.headers.accept = 'application/json';
 	}
 
-	const body = opts.body;
+	const {body} = opts;
 	if (is.nullOrUndefined(body)) {
 		opts.method = (opts.method || 'GET').toUpperCase();
 	} else {
-		const headers = opts.headers;
+		const {headers} = opts;
 		if (!is.nodeStream(body) && !is.string(body) && !is.buffer(body) && !(opts.form || opts.json)) {
 			throw new TypeError('The `body` option must be a stream.Readable, string, Buffer or plain Object');
 		}
@@ -597,7 +597,7 @@ function normalizeArguments(url, opts) {
 	}
 
 	if (!is.function(opts.retries)) {
-		const retries = opts.retries;
+		const {retries} = opts;
 
 		opts.retries = (iter, err) => {
 			if (iter > retries || !isRetryAllowed(err)) {
@@ -652,8 +652,8 @@ const methods = [
 ];
 
 for (const method of methods) {
-	got[method] = (url, opts) => got(url, Object.assign({}, opts, {method}));
-	got.stream[method] = (url, opts) => got.stream(url, Object.assign({}, opts, {method}));
+	got[method] = (url, opts) => got(url, {...opts, method});
+	got.stream[method] = (url, opts) => got.stream(url, {...opts, method});
 }
 
 Object.assign(got, errors);
