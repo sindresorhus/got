@@ -24,7 +24,17 @@ test('user-agent', async t => {
 
 test('accept-encoding', async t => {
 	const headers = (await got(s.url, {json: true})).body;
-	t.is(headers['accept-encoding'], 'gzip,deflate');
+	t.is(headers['accept-encoding'], 'gzip, deflate');
+});
+
+test('do not override accept-encoding', async t => {
+	const headers = (await got(s.url, {
+		json: true,
+		headers: {
+			'accept-encoding': 'gzip'
+		}
+	})).body;
+	t.is(headers['accept-encoding'], 'gzip');
 });
 
 test('do not set accept-encoding header when decompress options is false', async t => {
