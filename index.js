@@ -200,6 +200,7 @@ function requestAsEventEmitter(opts) {
 						progressInterval = setInterval(() => {
 							if (socket.destroyed) {
 								clearInterval(progressInterval);
+								return;
 							}
 							const lastUploaded = uploaded;
 							const headersSize = Buffer.byteLength(req._header);
