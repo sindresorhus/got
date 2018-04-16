@@ -369,7 +369,7 @@ function asPromise(opts) {
 					}
 
 					if (opts.throwHttpErrors && statusCode !== 304 && (statusCode < 200 || statusCode > limitStatusCode)) {
-						throw new got.HTTPError(statusCode, res.statusMessage, res.headers, opts);
+						throw new got.HTTPError(statusCode, res.statusMessage, res.headers, res.body, opts);
 					}
 
 					resolve(res);
@@ -465,7 +465,7 @@ function asStream(opts) {
 		res.pipe(output);
 
 		if (opts.throwHttpErrors && statusCode !== 304 && (statusCode < 200 || statusCode > 299)) {
-			proxy.emit('error', new got.HTTPError(statusCode, res.statusMessage, res.headers, opts), null, res);
+			proxy.emit('error', new got.HTTPError(statusCode, res.statusMessage, res.headers, null, opts), null, res);
 			return;
 		}
 
