@@ -58,7 +58,7 @@ module.exports.ParseError = class extends GotError {
 };
 
 module.exports.HTTPError = class extends GotError {
-	constructor(statusCode, statusMessage, headers, opts) {
+	constructor(statusCode, statusMessage, headers, body, opts) {
 		if (statusMessage) {
 			statusMessage = statusMessage.replace(/\r?\n/g, ' ').trim();
 		} else {
@@ -69,6 +69,7 @@ module.exports.HTTPError = class extends GotError {
 		this.statusCode = statusCode;
 		this.statusMessage = statusMessage;
 		this.headers = headers;
+		this.responseBody = body;
 	}
 };
 
