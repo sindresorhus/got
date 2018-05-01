@@ -114,7 +114,7 @@ Returns a `Stream` instead of a `Promise`. This is equivalent to calling `got.st
 
 ###### body
 
-Type: `string` `Buffer` `stream.Readable`
+Type: `string` `Buffer` `stream.Readable` [`form-data` instance](https://github.com/form-data/form-data)
 
 *This is mutually exclusive with stream mode.*
 
@@ -122,7 +122,7 @@ Body that will be sent with a `POST` request.
 
 If present in `options` and `options.method` is not set, `options.method` will be set to `POST`.
 
-If `content-length` or `transfer-encoding` is not set in `options.headers` and `body` is a string or buffer, `content-length` will be set to the body length.
+The `content-length` header will be automatically set if `body` is a `string` / `Buffer` / `fs.createReadStream` instance / [`form-data` instance](https://github.com/form-data/form-data), and `content-length` and `transfer-encoding` are not manually set in `options.headers`.
 
 ###### encoding
 

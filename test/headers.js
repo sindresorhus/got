@@ -1,3 +1,5 @@
+import fs from 'fs';
+import path from 'path';
 import test from 'ava';
 import FormData from 'form-data';
 import got from '..';
@@ -113,6 +115,14 @@ test('form-data sets content-length', async t => {
 	const {body} = await got(s.url, {body: form});
 	const headers = JSON.parse(body);
 	t.is(headers['content-length'], '157');
+});
+
+test('stream as options.body sets content-length', async t => {
+	const {body} = await got(s.url, {
+		body: fs.createReadStream(path.join(__dirname, 'fixtures/stream-content-length'))
+	});
+	const headers = JSON.parse(body);
+	t.is(headers['content-length'], '9');
 });
 
 test('remove null value headers', async t => {
