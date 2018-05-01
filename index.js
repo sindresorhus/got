@@ -254,6 +254,15 @@ function requestAsEventEmitter(opts) {
 		Promise.resolve(getBodySize(opts))
 			.then(size => {
 				uploadBodySize = size;
+
+				if (
+					is.undefined(opts.headers['content-length']) &&
+					is.undefined(opts.headers['transfer-encoding']) &&
+					isFormData(opts.body)
+				) {
+					opts.headers['content-length'] = size;
+				}
+
 				get(opts);
 			})
 			.catch(err => {

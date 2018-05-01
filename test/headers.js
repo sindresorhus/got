@@ -105,6 +105,14 @@ test('form-data automatic content-type', async t => {
 	t.is(headers['content-type'], `multipart/form-data; boundary=${form.getBoundary()}`);
 });
 
+test('form-data sets content-length', async t => {
+	const form = new FormData();
+	form.append('a', 'b');
+	const {body} = await got(s.url, {body: form});
+	const headers = JSON.parse(body);
+	t.is(headers['content-length'], '157');
+});
+
 test('remove null value headers', async t => {
 	const headers = (await got(s.url, {
 		headers: {
