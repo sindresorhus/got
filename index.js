@@ -401,14 +401,6 @@ function asPromise(opts) {
 		ee.on('downloadProgress', proxy.emit.bind(proxy, 'downloadProgress'));
 	});
 
-	// Preserve backwards-compatibility
-	// TODO: Remove this in the next major version
-	Object.defineProperty(cancelable, 'canceled', {
-		get() {
-			return cancelable.isCanceled;
-		}
-	});
-
 	const promise = timeoutFn(cancelable);
 
 	promise.cancel = cancelable.cancel.bind(cancelable);
