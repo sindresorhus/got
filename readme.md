@@ -93,7 +93,7 @@ The response will also have a `fromCache` property set with a boolean value.
 
 Type: `string` `Object`
 
-The URL to request as simple string, a [`http.request` options](https://nodejs.org/api/http.html#http_http_request_options_callback), or a [WHATWG `URL`](https://nodejs.org/api/url.html#url_class_url).
+The URL to request as simple string, a [`https.request` options](https://nodejs.org/api/https.html#https_https_request_options_callback), or a [WHATWG `URL`](https://nodejs.org/api/url.html#url_class_url).
 
 Properties from `options` will override properties in the parsed `url`.
 
@@ -103,7 +103,7 @@ If no protocol is specified, it will default to `https`.
 
 Type: `Object`
 
-Any of the [`http.request`](http://nodejs.org/api/http.html#http_http_request_options_callback) options.
+Any of the [`https.request`](https://nodejs.org/api/https.html#https_https_request_options_callbackk) options.
 
 ###### stream
 
