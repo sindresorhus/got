@@ -202,6 +202,7 @@ function requestAsEventEmitter(opts) {
 								clearInterval(progressInterval);
 								return;
 							}
+
 							const lastUploaded = uploaded;
 							const headersSize = Buffer.byteLength(req._header);
 							uploaded = socket.bytesWritten - headersSize;
