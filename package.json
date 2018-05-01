@@ -39,7 +39,6 @@
 		"decompress-response": "^3.3.0",
 		"duplexer3": "^0.1.4",
 		"get-stream": "^3.0.0",
-		"into-stream": "^3.1.0",
 		"is-retry-allowed": "^1.1.0",
 		"isurl": "^1.0.0-alpha5",
 		"lowercase-keys": "^1.0.0",
@@ -47,6 +46,7 @@
 		"p-cancelable": "^0.4.0",
 		"p-timeout": "^2.0.1",
 		"timed-out": "^4.0.1",
+		"to-readable-stream": "^1.0.0",
 		"url-parse-lax": "^3.0.0",
 		"url-to-options": "^1.0.1"
 	},

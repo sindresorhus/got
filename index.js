@@ -9,7 +9,7 @@ const fs = require('fs');
 const querystring = require('querystring');
 const CacheableRequest = require('cacheable-request');
 const duplexer3 = require('duplexer3');
-const intoStream = require('into-stream');
+const toReadableStream = require('to-readable-stream');
 const is = require('@sindresorhus/is');
 const getStream = require('get-stream');
 const timedOut = require('timed-out');
@@ -590,7 +590,7 @@ function normalizeArguments(url, opts) {
 
 		// Convert buffer to stream to receive upload progress events (#322)
 		if (is.buffer(body)) {
-			opts.body = intoStream(body);
+			opts.body = toReadableStream(body);
 			opts.body._buffer = body;
 		}
 

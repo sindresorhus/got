@@ -1,5 +1,5 @@
 import test from 'ava';
-import intoStream from 'into-stream';
+import toReadableStream from 'to-readable-stream';
 import got from '..';
 import {createServer} from './helpers/server';
 
@@ -41,7 +41,7 @@ test('sends Buffers', async t => {
 });
 
 test('sends Streams', async t => {
-	const {body} = await got(s.url, {body: intoStream(['wow'])});
+	const {body} = await got(s.url, {body: toReadableStream('wow')});
 	t.is(body, 'wow');
 });
 
@@ -95,7 +95,7 @@ test('content-length header with Buffer body', async t => {
 });
 
 test('content-length header with Stream body', async t => {
-	const {body} = await got(`${s.url}/headers`, {body: intoStream(['wow'])});
+	const {body} = await got(`${s.url}/headers`, {body: toReadableStream('wow')});
 	const headers = JSON.parse(body);
 	t.is(headers['transfer-encoding'], 'chunked', 'likely failed to get headers at all');
 	t.is(headers['content-length'], undefined);

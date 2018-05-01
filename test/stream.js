@@ -1,5 +1,5 @@
 import test from 'ava';
-import intoStream from 'into-stream';
+import toReadableStream from 'to-readable-stream';
 import getStream from 'get-stream';
 import pEvent from 'p-event';
 import is from '@sindresorhus/is';
@@ -90,7 +90,7 @@ test('have response event on throwHttpErrors === false', async t => {
 });
 
 test('accepts option.body as Stream', async t => {
-	const stream = got.stream(`${s.url}/post`, {body: intoStream(['wow'])});
+	const stream = got.stream(`${s.url}/post`, {body: toReadableStream('wow')});
 	const data = await pEvent(stream, 'data');
 	t.is(data.toString(), 'wow');
 });
