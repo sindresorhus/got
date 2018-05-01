@@ -1,9 +1,9 @@
 'use strict';
+const util = require('util');
 const EventEmitter = require('events');
 const http = require('http');
 const https = require('https');
-const PassThrough = require('stream').PassThrough;
-const Transform = require('stream').Transform;
+const {PassThrough, Transform} = require('stream');
 const urlLib = require('url');
 const fs = require('fs');
 const querystring = require('querystring');
@@ -22,8 +22,6 @@ const isRetryAllowed = require('is-retry-allowed');
 const isURL = require('isurl');
 const PCancelable = require('p-cancelable');
 const pTimeout = require('p-timeout');
-const pify = require('pify');
-const Buffer = require('safe-buffer').Buffer;
 const pkg = require('./package.json');
 const errors = require('./errors');
 
@@ -32,8 +30,8 @@ const allMethodRedirectCodes = new Set([300, 303, 307, 308]);
 
 const isFormData = body => is.nodeStream(body) && is.function(body.getBoundary);
 
-const getBodySize = opts => {
-	const body = opts.body;
+const getBodySize = async opts => {
+	const {body} = opts;
 
 	if (opts.headers['content-length']) {
 		return Number(opts.headers['content-length']);
@@ -48,11 +46,12 @@ const getBodySize = opts => {
 	}
 
 	if (isFormData(body)) {
-		return pify(body.getLength.bind(body))();
+		return util.promisify(body.getLength.bind(body))();
 	}
 
 	if (body instanceof fs.ReadStream) {
-		return pify(fs.stat)(body.path).then(stat => stat.size);
+		const {size} = await util.promisify(fs.stat)(body.path);
+		return size;
 	}
 
 	if (is.nodeStream(body) && is.buffer(body._buffer)) {
@@ -104,7 +103,7 @@ function requestAsEventEmitter(opts) {
 				total: uploadBodySize
 			});
 
-			const statusCode = res.statusCode;
+			const {statusCode} = res;
 
 			res.url = redirectUrl || requestUrl;
 			res.requestUrl = requestUrl;
@@ -133,7 +132,10 @@ function requestAsEventEmitter(opts) {
 
 				redirects.push(redirectUrl);
 
-				const redirectOpts = Object.assign({}, opts, urlLib.parse(redirectUrl));
+				const redirectOpts = {
+					...opts,
+					...urlLib.parse(redirectUrl)
+				};
 
 				ee.emit('redirect', res, redirectOpts);
 
@@ -191,9 +193,6 @@ function requestAsEventEmitter(opts) {
 
 				const socket = req.connection;
 				if (socket) {
-					// `._connecting` was the old property which was made public in node v6.1.0
-					const isConnecting = socket.connecting === undefined ? socket._connecting : socket.connecting;
-
 					const onSocketConnect = () => {
 						const uploadEventFrequency = 150;
 
@@ -227,11 +226,11 @@ function requestAsEventEmitter(opts) {
 						}, uploadEventFrequency);
 					};
 
-					// Only subscribe to 'connect' event if we're actually connecting a new
+					// Only subscribe to `connect` event if we're actually connecting a new
 					// socket, otherwise if we're already connected (because this is a
 					// keep-alive connection) do not bother. This is important since we won't
-					// get a 'connect' event for an already connected socket.
-					if (isConnecting) {
+					// get a `connect` event for an already connected socket.
+					if (socket.connecting) {
 						socket.once('connect', onSocketConnect);
 					} else {
 						onSocketConnect();
@@ -250,24 +249,22 @@ function requestAsEventEmitter(opts) {
 		});
 	};
 
-	setImmediate(() => {
-		Promise.resolve(getBodySize(opts))
-			.then(size => {
-				uploadBodySize = size;
+	setImmediate(async () => {
+		try {
+			uploadBodySize = await getBodySize(opts);
 
-				if (
-					is.undefined(opts.headers['content-length']) &&
-					is.undefined(opts.headers['transfer-encoding']) &&
-					isFormData(opts.body)
-				) {
-					opts.headers['content-length'] = size;
-				}
+			if (
+				is.undefined(opts.headers['content-length']) &&
+				is.undefined(opts.headers['transfer-encoding']) &&
+				isFormData(opts.body)
+			) {
+				opts.headers['content-length'] = uploadBodySize;
+			}
 
-				get(opts);
-			})
-			.catch(err => {
-				ee.emit('error', err);
-			});
+			get(opts);
+		} catch (err) {
+			ee.emit('error', err);
+		}
 	});
 
 	return ee;
@@ -313,7 +310,7 @@ function getResponse(res, opts, ee, redirects) {
 		is.function(decompressResponse) &&
 		opts.method !== 'HEAD' ? decompressResponse(progressStream) : progressStream;
 
-	if (!opts.decompress && ['gzip', 'deflate'].indexOf(res.headers['content-encoding']) !== -1) {
+	if (!opts.decompress && ['gzip', 'deflate'].includes(res.headers['content-encoding'])) {
 		opts.encoding = null;
 	}
 
@@ -361,37 +358,41 @@ function asPromise(opts) {
 			req.end(opts.body);
 		});
 
-		ee.on('response', res => {
+		ee.on('response', async res => {
 			const stream = is.null(opts.encoding) ? getStream.buffer(res) : getStream(res, opts);
 
-			stream
-				.catch(err => reject(new got.ReadError(err, opts)))
-				.then(data => {
-					const statusCode = res.statusCode;
-					const limitStatusCode = opts.followRedirect ? 299 : 399;
+			let data;
+			try {
+				data = await stream;
+			} catch (err) {
+				reject(new got.ReadError(err, opts));
+				return;
+			}
 
-					res.body = data;
+			const {statusCode} = res;
+			const limitStatusCode = opts.followRedirect ? 299 : 399;
 
-					if (opts.json && res.body) {
-						try {
-							res.body = JSON.parse(res.body);
-						} catch (err) {
-							if (statusCode >= 200 && statusCode < 300) {
-								throw new got.ParseError(err, statusCode, opts, data);
-							}
-						}
+			res.body = data;
+
+			if (opts.json && res.body) {
+				try {
+					res.body = JSON.parse(res.body);
+				} catch (err) {
+					if (statusCode >= 200 && statusCode < 300) {
+						const parseError = new got.ParseError(err, statusCode, opts, data);
+						Object.defineProperty(parseError, 'response', {value: res});
+						reject(parseError);
 					}
+				}
+			}
 
-					if (opts.throwHttpErrors && statusCode !== 304 && (statusCode < 200 || statusCode > limitStatusCode)) {
-						throw new got.HTTPError(statusCode, res.statusMessage, res.headers, opts);
-					}
+			if (opts.throwHttpErrors && statusCode !== 304 && (statusCode < 200 || statusCode > limitStatusCode)) {
+				const err = new got.HTTPError(statusCode, res.statusMessage, res.headers, opts);
+				Object.defineProperty(err, 'response', {value: res});
+				reject(err);
+			}
 
-					resolve(res);
-				})
-				.catch(err => {
-					Object.defineProperty(err, 'response', {value: res});
-					reject(err);
-				});
+			resolve(res);
 		});
 
 		ee.once('error', reject);
@@ -470,7 +471,7 @@ function asStream(opts) {
 	ee.on('response', res => {
 		clearTimeout(timeout);
 
-		const statusCode = res.statusCode;
+		const {statusCode} = res;
 
 		res.on('error', err => {
 			proxy.emit('error', new got.ReadError(err, opts));
@@ -514,38 +515,39 @@ function normalizeArguments(url, opts) {
 		url = urlToOptions(url);
 	}
 
-	opts = Object.assign(
-		{
-			path: '',
-			retries: 2,
-			cache: false,
-			decompress: true,
-			useElectronNet: false,
-			throwHttpErrors: true
-		},
-		url,
-		{
-			protocol: url.protocol || 'http:' // Override both null/undefined with default protocol
-		},
-		opts
-	);
+	const defaults = {
+		path: '',
+		retries: 2,
+		cache: false,
+		decompress: true,
+		useElectronNet: false,
+		throwHttpErrors: true
+	};
+
+	opts = {
+		...defaults,
+		...url,
+		protocol: url.protocol || 'http:', // Override both null/undefined with default protocol
+		...opts
+	};
 
 	const headers = lowercaseKeys(opts.headers);
-	for (const key of Object.keys(headers)) {
-		if (is.nullOrUndefined(headers[key])) {
+	for (const [key, value] of Object.entries(headers)) {
+		if (is.nullOrUndefined(value)) {
 			delete headers[key];
 		}
 	}
 
-	opts.headers = Object.assign({
-		'user-agent': `${pkg.name}/${pkg.version} (https://github.com/sindresorhus/got)`
-	}, headers);
+	opts.headers = {
+		'user-agent': `${pkg.name}/${pkg.version} (https://github.com/sindresorhus/got)`,
+		...headers
+	};
 
 	if (opts.decompress && is.undefined(opts.headers['accept-encoding'])) {
 		opts.headers['accept-encoding'] = 'gzip, deflate';
 	}
 
-	const query = opts.query;
+	const {query} = opts;
 
 	if (query) {
 		if (!is.string(query)) {
@@ -560,11 +562,11 @@ function normalizeArguments(url, opts) {
 		opts.headers.accept = 'application/json';
 	}
 
-	const body = opts.body;
+	const {body} = opts;
 	if (is.nullOrUndefined(body)) {
 		opts.method = (opts.method || 'GET').toUpperCase();
 	} else {
-		const headers = opts.headers;
+		const {headers} = opts;
 		if (!is.nodeStream(body) && !is.string(body) && !is.buffer(body) && !(opts.form || opts.json)) {
 			throw new TypeError('The `body` option must be a stream.Readable, string, Buffer or plain Object');
 		}
@@ -590,8 +592,7 @@ function normalizeArguments(url, opts) {
 			headers['content-length'] = length;
 		}
 
-		// Convert buffer to stream to receive upload progress events
-		// see https://github.com/sindresorhus/got/pull/322
+		// Convert buffer to stream to receive upload progress events (#322)
 		if (is.buffer(body)) {
 			opts.body = intoStream(body);
 			opts.body._buffer = body;
@@ -604,14 +605,18 @@ function normalizeArguments(url, opts) {
 		const matches = /(.+?):(.+)/.exec(opts.path);
 
 		if (matches) {
-			opts.socketPath = matches[1];
-			opts.path = matches[2];
-			opts.host = null;
+			const [, socketPath, path] = matches;
+			opts = {
+				...opts,
+				socketPath,
+				path,
+				host: null
+			};
 		}
 	}
 
 	if (!is.function(opts.retries)) {
-		const retries = opts.retries;
+		const {retries} = opts;
 
 		opts.retries = (iter, err) => {
 			if (iter > retries || !isRetryAllowed(err)) {
@@ -666,8 +671,8 @@ const methods = [
 ];
 
 for (const method of methods) {
-	got[method] = (url, opts) => got(url, Object.assign({}, opts, {method}));
-	got.stream[method] = (url, opts) => got.stream(url, Object.assign({}, opts, {method}));
+	got[method] = (url, options) => got(url, {...options, method});
+	got.stream[method] = (url, options) => got.stream(url, {...options, method});
 }
 
 Object.assign(got, errors);

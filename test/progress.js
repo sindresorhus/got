@@ -1,10 +1,10 @@
+import util from 'util';
 import fs from 'fs';
 import SlowStream from 'slow-stream';
 import intoStream from 'into-stream';
 import getStream from 'get-stream';
 import FormData from 'form-data';
 import tempfile from 'tempfile';
-import pify from 'pify';
 import is from '@sindresorhus/is';
 import test from 'ava';
 import got from '..';
@@ -121,7 +121,7 @@ test('upload progress - form data', async t => {
 	body.append('key', 'value');
 	body.append('file', file);
 
-	const size = await pify(body.getLength.bind(body))();
+	const size = await util.promisify(body.getLength.bind(body))();
 
 	await got.post(`${s.url}/upload`, {body})
 		.on('uploadProgress', e => events.push(e));

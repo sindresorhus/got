@@ -1,4 +1,4 @@
-import {URL} from 'universal-url';
+import {URL} from 'url';
 import test from 'ava';
 import pEvent from 'p-event';
 import got from '..';

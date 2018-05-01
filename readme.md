@@ -543,7 +543,7 @@ const config = require('./config');
 // Reads keys from the environment or `~/.aws/credentials`. Could be a plain object.
 const awsConfig = new AWS.Config({ region: config.region });
 
-function request(uri, options) {
+function request(url, options) {
 	const awsOpts = {
 		region: awsConfig.region,
 		headers: {
@@ -555,10 +555,15 @@ function request(uri, options) {
 	};
 
 	// We need to parse the URL before passing it to `got` so `aws4` can sign the request
-	const opts = Object.assign(url.parse(uri), awsOpts, options);
-	aws4.sign(opts, awsConfig.credentials);
+	options = {
+		...url.parse(url),
+		...awsOpts,
+		...options
+	};
 
-	return got(opts);
+	aws4.sign(options, awsConfig.credentials);
+
+	return got(options);
 }
 
 request(`https://${config.host}/production/users/1`);

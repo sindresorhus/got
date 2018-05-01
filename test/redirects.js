@@ -1,16 +1,16 @@
+import util from 'util';
 import test from 'ava';
 import pem from 'pem';
-import pify from 'pify';
 import got from '..';
 import {createServer, createSSLServer} from './helpers/server';
 
 let http;
 let https;
 
-const pemP = pify(pem, Promise);
+const createCertificate = util.promisify(pem.createCertificate);
 
 test.before('setup', async () => {
-	const caKeys = await pemP.createCertificate({
+	const caKeys = await createCertificate({
 		days: 1,
 		selfSigned: true
 	});
@@ -18,7 +18,7 @@ test.before('setup', async () => {
 	const caRootKey = caKeys.serviceKey;
 	const caRootCert = caKeys.certificate;
 
-	const keys = await pemP.createCertificate({
+	const keys = await createCertificate({
 		serviceCertificate: caRootCert,
 		serviceKey: caRootKey,
 		serial: Date.now(),
@@ -34,7 +34,7 @@ test.before('setup', async () => {
 	const key = keys.clientKey;
 	const cert = keys.certificate;
 
-	https = await createSSLServer({key, cert}); // eslint-disable-line object-property-newline
+	https = await createSSLServer({key, cert});
 	http = await createServer();
 
 	// HTTPS Handlers
@@ -127,6 +127,11 @@ test.before('setup', async () => {
 	await https.listen(https.port);
 });
 
+test.after('cleanup', async () => {
+	await http.close();
+	await https.close();
+});
+
 test('follows redirect', async t => {
 	const {body, redirectUrls} = await got(`${http.url}/finite`);
 	t.is(body, 'reached');
@@ -188,25 +193,20 @@ test('redirects from https to http works', async t => {
 });
 
 test('redirects works with lowercase method', async t => {
-	const body = (await got(`${http.url}/relative`, {method: 'head'})).body;
+	const {body} = (await got(`${http.url}/relative`, {method: 'head'}));
 	t.is(body, '');
 });
 
 test('redirect response contains new url', async t => {
-	const url = (await got(`${http.url}/finite`)).url;
+	const {url} = (await got(`${http.url}/finite`));
 	t.is(url, `${http.url}/`);
 });
 
 test('redirect response contains old url', async t => {
-	const requestUrl = (await got(`${http.url}/finite`)).requestUrl;
+	const {requestUrl} = (await got(`${http.url}/finite`));
 	t.is(requestUrl, `${http.url}/finite`);
 });
 
 test('redirect response contains utf8 with binary encoding', async t => {
 	t.is((await got(`${http.url}/redirect-with-utf8-binary`)).body, 'reached');
-});
-
-test.after('cleanup', async () => {
-	await http.close();
-	await https.close();
 });

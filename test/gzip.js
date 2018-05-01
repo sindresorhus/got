@@ -1,7 +1,7 @@
+import util from 'util';
 import zlib from 'zlib';
 import test from 'ava';
 import getStream from 'get-stream';
-import pify from 'pify';
 import got from '..';
 import {createServer} from './helpers/server';
 
@@ -13,7 +13,7 @@ let gzipData;
 
 test.before('setup', async () => {
 	s = await createServer();
-	gzipData = await pify(zlib.gzip)(testContent);
+	gzipData = await util.promisify(zlib.gzip)(testContent);
 
 	s.on('/', (req, res) => {
 		res.statusCode = 200;

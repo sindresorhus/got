@@ -49,7 +49,7 @@ test('not parses responses without a body', async t => {
 test('wraps parsing errors', async t => {
 	const err = await t.throws(got(`${s.url}/invalid`, {json: true}));
 	t.regex(err.message, /Unexpected token/);
-	t.true(err.message.indexOf(err.hostname) !== -1, err.message);
+	t.true(err.message.includes(err.hostname), err.message);
 	t.is(err.path, '/invalid');
 });
 

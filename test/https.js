@@ -1,16 +1,16 @@
+import util from 'util';
 import test from 'ava';
 import pem from 'pem';
-import pify from 'pify';
 import got from '..';
 import {createSSLServer} from './helpers/server';
 
 let s;
 let caRootCert;
 
-const pemP = pify(pem, Promise);
+const createCertificate = util.promisify(pem.createCertificate);
 
 test.before('setup', async () => {
-	const caKeys = await pemP.createCertificate({
+	const caKeys = await createCertificate({
 		days: 1,
 		selfSigned: true
 	});
@@ -18,7 +18,7 @@ test.before('setup', async () => {
 	const caRootKey = caKeys.serviceKey;
 	caRootCert = caKeys.certificate;
 
-	const keys = await pemP.createCertificate({
+	const keys = await createCertificate({
 		serviceCertificate: caRootCert,
 		serviceKey: caRootKey,
 		serial: Date.now(),
@@ -34,7 +34,7 @@ test.before('setup', async () => {
 	const key = keys.clientKey;
 	const cert = keys.certificate;
 
-	s = await createSSLServer({key, cert}); // eslint-disable-line object-property-newline
+	s = await createSSLServer({key, cert});
 
 	s.on('/', (req, res) => res.end('ok'));
 
