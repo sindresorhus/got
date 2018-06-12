@@ -103,7 +103,7 @@ If no protocol is specified, it will default to `https`.
 
 Type: `Object`
 
-Any of the [`https.request`](https://nodejs.org/api/https.html#https_https_request_options_callbackk) options.
+Any of the [`https.request`](https://nodejs.org/api/https.html#https_https_request_options_callback) options.
 
 ###### stream
 
