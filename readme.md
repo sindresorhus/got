@@ -291,6 +291,24 @@ If it's not possible to retrieve the body size (can happen when streaming), `tot
 
 Sets `options.method` to the method name and makes a request.
 
+#### Instances
+
+#### got.create([options])
+
+Configure a new `got` instance with default `options`:
+
+```js
+(async () => {
+	const client = got.create({headers: {'X-Foo': 'bar'}})
+	let {body: {headers}} = await client.get('httpbin.org/headers', {json: true})
+	// ==> headers['X-Foo'] === 'bar'
+
+	const jsonClient = client.create({json: true, headers: {'X-Baz': 'qux'}})
+	let {body: {headers: h2}} = await jsonClient.get('httpbin.org/headers')
+	// ==> h2['X-Foo'] === 'bar'
+	// ==> h2['X-Baz'] === 'qux'
+})();
+```
 
 ## Errors
 

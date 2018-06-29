@@ -7,6 +7,7 @@ const {PassThrough, Transform} = require('stream');
 const urlLib = require('url');
 const fs = require('fs');
 const querystring = require('querystring');
+const extend = require('extend');
 const CacheableRequest = require('cacheable-request');
 const duplexer3 = require('duplexer3');
 const toReadableStream = require('to-readable-stream');
@@ -27,6 +28,19 @@ const errors = require('./errors');
 
 const getMethodRedirectCodes = new Set([300, 301, 302, 303, 304, 305, 307, 308]);
 const allMethodRedirectCodes = new Set([300, 303, 307, 308]);
+
+const defaults = {
+	retries: 2,
+	cache: false,
+	decompress: true,
+	useElectronNet: false,
+	throwHttpErrors: true,
+	headers: {
+		'user-agent': `${pkg.name}/${pkg.version} (https://github.com/sindresorhus/got)`
+	}
+};
+
+const got = create(defaults);
 
 const isFormData = body => is.nodeStream(body) && is.function(body.getBoundary);
 
@@ -511,17 +525,8 @@ function normalizeArguments(url, opts) {
 		url = urlToOptions(url);
 	}
 
-	const defaults = {
-		path: '',
-		retries: 2,
-		cache: false,
-		decompress: true,
-		useElectronNet: false,
-		throwHttpErrors: true
-	};
-
 	opts = {
-		...defaults,
+		path: '',
 		...url,
 		protocol: url.protocol || 'http:', // Override both null/undefined with default protocol
 		...opts
@@ -534,10 +539,7 @@ function normalizeArguments(url, opts) {
 		}
 	}
 
-	opts.headers = {
-		'user-agent': `${pkg.name}/${pkg.version} (https://github.com/sindresorhus/got)`,
-		...headers
-	};
+	opts.headers = headers;
 
 	if (opts.decompress && is.undefined(opts.headers['accept-encoding'])) {
 		opts.headers['accept-encoding'] = 'gzip, deflate';
@@ -641,36 +643,46 @@ function normalizeArguments(url, opts) {
 	return opts;
 }
 
-function got(url, opts) {
-	try {
-		const normalizedArgs = normalizeArguments(url, opts);
+function create(defaults = {}) {
+	function got(url, opts) {
+		try {
+			opts = extend(true, {}, defaults, opts);
+			const normalizedArgs = normalizeArguments(url, opts);
 
-		if (normalizedArgs.stream) {
-			return asStream(normalizedArgs);
+			if (normalizedArgs.stream) {
+				return asStream(normalizedArgs);
+			}
+
+			return asPromise(normalizedArgs);
+		} catch (err) {
+			return Promise.reject(err);
 		}
-
-		return asPromise(normalizedArgs);
-	} catch (err) {
-		return Promise.reject(err);
 	}
+
+	got.create = (opts = {}) => create(extend(true, {}, defaults, opts));
+
+	got.stream = (url, opts) => {
+		opts = extend(true, {}, defaults, opts);
+		return asStream(normalizeArguments(url, opts));
+	};
+
+	const methods = [
+		'get',
+		'post',
+		'put',
+		'patch',
+		'head',
+		'delete'
+	];
+
+	for (const method of methods) {
+		got[method] = (url, options) => got(url, {...options, method});
+		got.stream[method] = (url, options) => got.stream(url, {...options, method});
+	}
+
+	Object.assign(got, errors);
+
+	return got;
 }
-
-got.stream = (url, opts) => asStream(normalizeArguments(url, opts));
-
-const methods = [
-	'get',
-	'post',
-	'put',
-	'patch',
-	'head',
-	'delete'
-];
-
-for (const method of methods) {
-	got[method] = (url, options) => got(url, {...options, method});
-	got.stream[method] = (url, options) => got.stream(url, {...options, method});
-}
-
-Object.assign(got, errors);
 
 module.exports = got;
