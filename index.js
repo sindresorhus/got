@@ -528,16 +528,17 @@ function normalizeArguments(url, opts) {
 	};
 
 	const headers = lowercaseKeys(opts.headers);
+	if (!headers.hasOwnProperty('user-agent')) { // eslint-disable-line no-prototype-builtins
+		headers['user-agent'] = `${pkg.name}/${pkg.version} (https://github.com/sindresorhus/got)`;
+	}
+
 	for (const [key, value] of Object.entries(headers)) {
 		if (is.nullOrUndefined(value)) {
 			delete headers[key];
 		}
 	}
 
-	opts.headers = {
-		'user-agent': `${pkg.name}/${pkg.version} (https://github.com/sindresorhus/got)`,
-		...headers
-	};
+	opts.headers = headers;
 
 	if (opts.decompress && is.undefined(opts.headers['accept-encoding'])) {
 		opts.headers['accept-encoding'] = 'gzip, deflate';

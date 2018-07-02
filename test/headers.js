@@ -128,21 +128,21 @@ test('stream as options.body sets content-length', async t => {
 test('remove null value headers', async t => {
 	const {body} = await got(s.url, {
 		headers: {
-			unicorns: null
+			'user-agent': null
 		}
 	});
 	const headers = JSON.parse(body);
-	t.false(Reflect.has(headers, 'unicorns'));
+	t.false(Reflect.has(headers, 'user-agent'));
 });
 
 test('remove undefined value headers', async t => {
 	const {body} = await got(s.url, {
 		headers: {
-			unicorns: undefined
+			'user-agent': undefined
 		}
 	});
 	const headers = JSON.parse(body);
-	t.false(Reflect.has(headers, 'unicorns'));
+	t.false(Reflect.has(headers, 'user-agent'));
 });
 
 test.after('cleanup', async () => {
