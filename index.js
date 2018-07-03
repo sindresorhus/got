@@ -139,7 +139,11 @@ function requestAsEventEmitter(opts) {
 
 				ee.emit('redirect', res, redirectOpts);
 
-				get(redirectOpts);
+				try {
+					get(redirectOpts);
+				} catch (e) {
+					ee.emit('error', e);
+				}
 
 				return;
 			}
@@ -177,7 +181,13 @@ function requestAsEventEmitter(opts) {
 				const backoff = opts.retries(++retryCount, err);
 
 				if (backoff) {
-					setTimeout(get, backoff, opts);
+					setTimeout(opts => {
+						try {
+							get(opts);
+						} catch (e) {
+							ee.emit('error', e);
+						}
+					}, backoff, opts);
 					return;
 				}
 
