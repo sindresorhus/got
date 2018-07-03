@@ -127,6 +127,7 @@ test.before('setup', async () => {
 		res.writeHead(302, {
 			location: '/%D8'
 		});
+		res.end();
 	});
 
 	await http.listen(http.port);
@@ -218,5 +219,6 @@ test('redirect response contains utf8 with binary encoding', async t => {
 });
 
 test('throws on malformed redirect URI', async t => {
-	await t.throws(got(`${http.url}/malformedRedirect`));
+	const err = await t.throws(got(`${http.url}/malformedRedirect`));
+	t.is(err.name, 'URIError');
 });
