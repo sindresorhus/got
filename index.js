@@ -204,7 +204,7 @@ function requestAsEventEmitter(opts) {
 							}
 
 							const lastUploaded = uploaded;
-							const headersSize = Buffer.byteLength(req._header);
+							const headersSize = req._header ? Buffer.byteLength(req._header) : 0;
 							uploaded = socket.bytesWritten - headersSize;
 
 							// Prevent the known issue of `bytesWritten` being larger than body size
