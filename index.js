@@ -129,6 +129,13 @@ function requestAsEventEmitter(opts) {
 				const bufferString = Buffer.from(res.headers.location, 'binary').toString();
 
 				redirectUrl = urlLib.resolve(urlLib.format(opts), bufferString);
+				
+				try {
+					decodeURI(redirectUrl);
+				} catch (e) {
+					ee.emit('error', e);
+					return;
+				}
 
 				redirects.push(redirectUrl);
 
@@ -139,11 +146,7 @@ function requestAsEventEmitter(opts) {
 
 				ee.emit('redirect', res, redirectOpts);
 
-				try {
-					get(redirectOpts);
-				} catch (e) {
-					ee.emit('error', e);
-				}
+				get(redirectOpts);
 
 				return;
 			}
