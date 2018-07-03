@@ -528,7 +528,7 @@ function normalizeArguments(url, opts) {
 	};
 
 	const headers = lowercaseKeys(opts.headers);
-	if (!headers.hasOwnProperty('user-agent')) { // eslint-disable-line no-prototype-builtins
+	if (!Object.keys(headers).includes('user-agent')) {
 		headers['user-agent'] = `${pkg.name}/${pkg.version} (https://github.com/sindresorhus/got)`;
 	}
 
