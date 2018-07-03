@@ -129,7 +129,7 @@ function requestAsEventEmitter(opts) {
 				const bufferString = Buffer.from(res.headers.location, 'binary').toString();
 
 				redirectUrl = urlLib.resolve(urlLib.format(opts), bufferString);
-				
+
 				try {
 					decodeURI(redirectUrl);
 				} catch (e) {
