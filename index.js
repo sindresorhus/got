@@ -132,8 +132,8 @@ function requestAsEventEmitter(opts) {
 
 				try {
 					decodeURI(redirectUrl);
-				} catch (e) {
-					ee.emit('error', e);
+				} catch (err) {
+					ee.emit('error', err);
 					return;
 				}
 
@@ -154,8 +154,8 @@ function requestAsEventEmitter(opts) {
 			setImmediate(() => {
 				try {
 					getResponse(res, opts, ee, redirects);
-				} catch (e) {
-					ee.emit('error', e);
+				} catch (err) {
+					ee.emit('error', err);
 				}
 			});
 		});
