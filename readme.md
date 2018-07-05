@@ -299,16 +299,17 @@ Configure a new `got` instance with default `options`:
 
 ```js
 (async () => {
-	const client = got.create({headers: {'X-Foo': 'bar'}})
-	let {body: {headers}} = await client.get('httpbin.org/headers', {json: true})
-	// ==> headers['X-Foo'] === 'bar'
+	const client = got.create({headers: {'x-foo': 'bar'}});
+	const {headers} = await client.get('httpbin.org/headers', {json: true}).body;
+	//=> headers['x-foo'] === 'bar'
 
-	const jsonClient = client.create({json: true, headers: {'X-Baz': 'qux'}})
-	let {body: {headers: h2}} = await jsonClient.get('httpbin.org/headers')
-	// ==> h2['X-Foo'] === 'bar'
-	// ==> h2['X-Baz'] === 'qux'
+	const jsonClient = client.create({json: true, headers: {'x-baz': 'qux'}});
+	const {headers: headers2} = await jsonClient.get('httpbin.org/headers').body;
+	//=> headers2['x-foo'] === 'bar'
+	//=> headers2['x-baz'] === 'qux'
 })();
 ```
+
 
 ## Errors
 
