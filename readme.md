@@ -489,6 +489,15 @@ got('google.com', {
 		cookie: cookie.serialize('foo', 'bar')
 	}
 });
+
+got('google.com', {
+	headers: {
+		cookie: [
+			cookie.serialize('foo', 'bar'),
+			cookie.serialize('fizz', 'buzz')
+		].join(';')
+	}
+});
 ```
 
 
