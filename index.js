@@ -7,6 +7,7 @@ const {PassThrough, Transform} = require('stream');
 const urlLib = require('url');
 const fs = require('fs');
 const querystring = require('querystring');
+const URLSearchParamsGlobal = typeof URLSearchParams === 'undefined' ? require('url').URLSearchParams : URLSearchParams; // TODO: Use the `URL` global when targeting Node.js 10
 const extend = require('extend');
 const CacheableRequest = require('cacheable-request');
 const duplexer3 = require('duplexer3');
@@ -16,11 +17,9 @@ const getStream = require('get-stream');
 const timedOut = require('timed-out');
 const urlParseLax = require('url-parse-lax');
 const urlToOptions = require('url-to-options');
-const lowercaseKeys = require('lowercase-keys');
 const decompressResponse = require('decompress-response');
 const mimicResponse = require('mimic-response');
 const isRetryAllowed = require('is-retry-allowed');
-const isURL = require('isurl');
 const PCancelable = require('p-cancelable');
 const pTimeout = require('p-timeout');
 const pkg = require('./package.json');
@@ -526,7 +525,7 @@ function normalizeArguments(url, opts) {
 
 		try {
 			decodeURI(url);
-		} catch (err) {
+		} catch (_) {
 			throw new Error('Parameter `url` must contain valid UTF-8 character sequences');
 		}
 
@@ -534,7 +533,7 @@ function normalizeArguments(url, opts) {
 		if (url.auth) {
 			throw new Error('Basic authentication must be done with the `auth` option');
 		}
-	} else if (isURL.lenient(url)) {
+	} else if (is(url) === 'URL') {
 		url = urlToOptions(url);
 	}
 
@@ -545,28 +544,23 @@ function normalizeArguments(url, opts) {
 		...opts
 	};
 
-	const headers = lowercaseKeys(opts.headers);
-	if (!Object.keys(headers).includes('user-agent')) {
-		headers['user-agent'] = `${pkg.name}/${pkg.version} (https://github.com/sindresorhus/got)`;
-	}
-
-	for (const [key, value] of Object.entries(headers)) {
+	for (const [key, value] of Object.entries(opts.headers)) {
 		if (is.nullOrUndefined(value)) {
-			delete headers[key];
+			delete opts.headers[key];
+			continue;
 		}
-	}
 
-	opts.headers = headers;
+		opts.headers[key.toLowerCase()] = value;
+	}
 
 	if (opts.decompress && is.undefined(opts.headers['accept-encoding'])) {
 		opts.headers['accept-encoding'] = 'gzip, deflate';
 	}
 
 	const {query} = opts;
-
 	if (query) {
 		if (!is.string(query)) {
-			opts.query = querystring.stringify(query);
+			opts.query = (new URLSearchParamsGlobal(query)).toString();
 		}
 
 		opts.path = `${opts.path.split('?')[0]}?${opts.query}`;
