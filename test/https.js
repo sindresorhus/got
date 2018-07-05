@@ -1,7 +1,7 @@
 import util from 'util';
 import test from 'ava';
 import pem from 'pem';
-import got from '..';
+import got from '../source';
 import {createSSLServer} from './helpers/server';
 
 let s;

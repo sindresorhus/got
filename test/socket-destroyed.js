@@ -1,5 +1,5 @@
 import test from 'ava';
-import got from '..';
+import got from '../source';
 
 test.serial('clear the progressInterval if the socket has been destroyed', async t => {
 	const handlesComingFromAVA = 2;

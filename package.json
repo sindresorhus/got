@@ -4,6 +4,7 @@
 	"description": "Simplified HTTP requests",
 	"license": "MIT",
 	"repository": "sindresorhus/got",
+	"main": "source",
 	"engines": {
 		"node": ">=8.6"
 	},
@@ -12,8 +13,7 @@
 		"coveralls": "nyc report --reporter=text-lcov | coveralls"
 	},
 	"files": [
-		"index.js",
-		"errors.js"
+		"source"
 	],
 	"keywords": [
 		"http",

@@ -22,7 +22,7 @@ const mimicResponse = require('mimic-response');
 const isRetryAllowed = require('is-retry-allowed');
 const PCancelable = require('p-cancelable');
 const pTimeout = require('p-timeout');
-const pkg = require('./package.json');
+const pkg = require('../package.json');
 const errors = require('./errors');
 
 const getMethodRedirectCodes = new Set([300, 301, 302, 303, 304, 305, 307, 308]);

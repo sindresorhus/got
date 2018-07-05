@@ -1,7 +1,7 @@
 import {format} from 'util';
 import tempy from 'tempy';
 import test from 'ava';
-import got from '..';
+import got from '../source';
 import {createServer} from './helpers/server';
 
 const socketPath = tempy.file({extension: 'socket'});

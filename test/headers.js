@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import test from 'ava';
 import FormData from 'form-data';
-import got from '..';
+import got from '../source';
 import pkg from '../package';
 import {createServer} from './helpers/server';
 

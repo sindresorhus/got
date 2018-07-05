@@ -2,7 +2,7 @@ import util from 'util';
 import {URL} from 'url';
 import test from 'ava';
 import pem from 'pem';
-import got from '..';
+import got from '../source';
 import {createServer, createSSLServer} from './helpers/server';
 
 let http;
