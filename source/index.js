@@ -16,7 +16,6 @@ const is = require('@sindresorhus/is');
 const getStream = require('get-stream');
 const timedOut = require('timed-out');
 const urlParseLax = require('url-parse-lax');
-const urlToOptions = require('url-to-options');
 const decompressResponse = require('decompress-response');
 const mimicResponse = require('mimic-response');
 const isRetryAllowed = require('is-retry-allowed');
@@ -24,6 +23,7 @@ const PCancelable = require('p-cancelable');
 const pTimeout = require('p-timeout');
 const pkg = require('../package.json');
 const errors = require('./errors');
+const urlToOptions = require('./url-to-options');
 
 const getMethodRedirectCodes = new Set([300, 301, 302, 303, 304, 305, 307, 308]);
 const allMethodRedirectCodes = new Set([300, 303, 307, 308]);

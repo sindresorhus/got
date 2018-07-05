@@ -46,8 +46,7 @@
 		"p-timeout": "^2.0.1",
 		"timed-out": "^4.0.1",
 		"to-readable-stream": "^1.0.0",
-		"url-parse-lax": "^3.0.0",
-		"url-to-options": "^1.0.1"
+		"url-parse-lax": "^3.0.0"
 	},
 	"devDependencies": {
 		"ava": "^1.0.0-beta.6",
