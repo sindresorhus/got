@@ -6,6 +6,7 @@ const https = require('https');
 const {PassThrough, Transform} = require('stream');
 const urlLib = require('url');
 const fs = require('fs');
+const URLGlobal = typeof URL === 'undefined' ? require('url').URL : URL; // TODO: Use the `URL` global when targeting Node.js 10
 const URLSearchParamsGlobal = typeof URLSearchParams === 'undefined' ? require('url').URLSearchParams : URLSearchParams; // TODO: Use the `URL` global when targeting Node.js 10
 const extend = require('extend');
 const CacheableRequest = require('cacheable-request');
@@ -73,11 +74,9 @@ const getBodySize = async opts => {
 	return null;
 };
 
-function requestAsEventEmitter(opts) {
-	opts = opts || {};
-
+function requestAsEventEmitter(opts = {}) {
 	const ee = new EventEmitter();
-	const requestUrl = opts.href || urlLib.resolve(urlLib.format(opts), opts.path);
+	const requestUrl = opts.href || (new URLGlobal(opts.path, urlLib.format(opts))).toString();
 	const redirects = [];
 	const agents = is.object(opts.agent) ? opts.agent : null;
 	let retryCount = 0;
@@ -139,11 +138,10 @@ function requestAsEventEmitter(opts) {
 				}
 
 				const bufferString = Buffer.from(res.headers.location, 'binary').toString();
-
-				redirectUrl = urlLib.resolve(urlLib.format(opts), bufferString);
+				redirectUrl = (new URLGlobal(bufferString, urlLib.format(opts))).toString();
 
 				try {
-					decodeURI(redirectUrl);
+					redirectUrl = decodeURI(redirectUrl);
 				} catch (err) {
 					ee.emit('error', err);
 					return;
