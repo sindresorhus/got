@@ -110,9 +110,9 @@ Any of the [`https.request`](https://nodejs.org/api/https.html#https_https_reque
 Type: `Object`<br>
 Default: `{}`
 
-Specify this property to set HTTP headers. If already existing header is specified, the old one will be overwritten.
+Request headers.
 
-Headers set to `null` or `undefined` are omitted.
+Existing headers will be overwritten. Headers set to `null` or `undefined` will be omitted.
 
 ###### stream
 
