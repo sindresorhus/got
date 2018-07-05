@@ -144,6 +144,13 @@ function requestAsEventEmitter(opts) {
 
 				redirectUrl = urlLib.resolve(urlLib.format(opts), bufferString);
 
+				try {
+					decodeURI(redirectUrl);
+				} catch (err) {
+					ee.emit('error', err);
+					return;
+				}
+
 				redirects.push(redirectUrl);
 
 				const redirectOpts = {
@@ -161,8 +168,8 @@ function requestAsEventEmitter(opts) {
 			setImmediate(() => {
 				try {
 					getResponse(res, opts, ee, redirects);
-				} catch (e) {
-					ee.emit('error', e);
+				} catch (err) {
+					ee.emit('error', err);
 				}
 			});
 		});
@@ -191,7 +198,13 @@ function requestAsEventEmitter(opts) {
 				const backoff = opts.retries(++retryCount, err);
 
 				if (backoff) {
-					setTimeout(get, backoff, opts);
+					setTimeout(opts => {
+						try {
+							get(opts);
+						} catch (e) {
+							ee.emit('error', e);
+						}
+					}, backoff, opts);
 					return;
 				}
 
