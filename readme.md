@@ -449,7 +449,7 @@ You can use the [`tunnel`](https://github.com/koichik/node-tunnel) module with t
 
 ```js
 const got = require('got');
-const tunnel = require('tunnel');
+const tunnel = require('tunnel-agent');
 
 got('sindresorhus.com', {
 	agent: tunnel.httpOverHttp({
