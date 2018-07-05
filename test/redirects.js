@@ -1,4 +1,5 @@
 import util from 'util';
+import {URL} from 'url';
 import test from 'ava';
 import pem from 'pem';
 import got from '..';
@@ -69,7 +70,7 @@ test.before('setup', async () => {
 
 	http.on('/redirect-with-utf8-binary', (req, res) => {
 		res.writeHead(302, {
-			location: Buffer.from(`${http.url}/utf8-url-áé`, 'utf8').toString('binary')
+			location: Buffer.from((new URL('/utf8-url-áé', http.url)).toString(), 'utf8').toString('binary')
 		});
 		res.end();
 	});
