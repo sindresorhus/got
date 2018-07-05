@@ -15,6 +15,10 @@ test.before('setup', async () => {
 	await s.listen(s.port);
 });
 
+test.after('cleanup', async () => {
+	await s.close();
+});
+
 test('preserve global defaults', async t => {
 	const globalHeaders = (await got(s.url, {json: true})).body;
 	const instanceHeaders = (await got.create()(s.url, {json: true})).body;
@@ -60,8 +64,4 @@ test('curry previous instance defaults', async t => {
 	const headers = (await instanceB(s.url, {json: true})).body;
 	t.is(headers['x-foo'], 'foo');
 	t.is(headers['x-bar'], 'bar');
-});
-
-test.after('cleanup', async () => {
-	await s.close();
 });
