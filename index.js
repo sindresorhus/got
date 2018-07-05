@@ -583,7 +583,7 @@ function normalizeArguments(url, opts) {
 	} else {
 		const {headers} = opts;
 		if (!is.nodeStream(body) && !is.string(body) && !is.buffer(body) && !(opts.form || opts.json)) {
-			throw new TypeError('The `body` option must be a stream.Readable, string, Buffer or plain Object');
+			throw new TypeError('The `body` option must be a stream.Readable, string or Buffer');
 		}
 
 		const canBodyBeStringified = is.plainObject(body) || is.array(body);

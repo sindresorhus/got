@@ -53,8 +53,18 @@ test('dns message', async t => {
 });
 
 test('options.body error message', async t => {
-	const err = await t.throws(got(s.url, {body: () => { }}));
-	t.regex(err.message, /The `body` option must be a stream\.Readable, string, Buffer or plain Object/);
+	const err = await t.throws(got(s.url, {body: {}}));
+	t.regex(err.message, /The `body` option must be a stream\.Readable, string or Buffer/);
+});
+
+test('options.body json error message', async t => {
+	const err = await t.throws(got(s.url, {body: Buffer.from('test'), json: true}));
+	t.regex(err.message, /The `body` option must be a plain Object or Array when the `form` or `json` option is used/);
+});
+
+test('options.body form error message', async t => {
+	const err = await t.throws(got(s.url, {body: Buffer.from('test'), form: true}));
+	t.regex(err.message, /The `body` option must be a plain Object or Array when the `form` or `json` option is used/);
 });
 
 test('default status message', async t => {
