@@ -645,7 +645,7 @@ function normalizeArguments(url, options) {
 	return options;
 }
 
-function assignOptions(defaults, options) {
+function assignOptions(defaults, options = {}) {
 	const opts = extend(true, {}, defaults, options);
 
 	if (Reflect.has(options, 'headers')) {
