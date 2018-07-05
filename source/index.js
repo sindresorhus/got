@@ -98,7 +98,7 @@ function requestAsEventEmitter(options = {}) {
 		}
 
 		if (options.useElectronNet && process.versions.electron) {
-			const electron = require('electron');
+			const electron = global['require']('electron'); // eslint-disable-line dot-notation
 			fn = electron.net || electron.remote.net;
 		}
 
