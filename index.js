@@ -6,7 +6,6 @@ const https = require('https');
 const {PassThrough, Transform} = require('stream');
 const urlLib = require('url');
 const fs = require('fs');
-const querystring = require('querystring');
 const URLSearchParamsGlobal = typeof URLSearchParams === 'undefined' ? require('url').URLSearchParams : URLSearchParams; // TODO: Use the `URL` global when targeting Node.js 10
 const extend = require('extend');
 const CacheableRequest = require('cacheable-request');
@@ -580,18 +579,21 @@ function normalizeArguments(url, opts) {
 			throw new TypeError('The `body` option must be a stream.Readable, string or Buffer');
 		}
 
-		const canBodyBeStringified = is.plainObject(body) || is.array(body);
-		if ((opts.form || opts.json) && !canBodyBeStringified) {
-			throw new TypeError('The `body` option must be a plain Object or Array when the `form` or `json` option is used');
+		if (opts.json && !(is.plainObject(body) || is.array(body))) {
+			throw new TypeError('The `body` option must be a plain Object or Array when the `json` option is used');
+		}
+
+		if (opts.form && !is.plainObject(body)) {
+			throw new TypeError('The `body` option must be a plain Object when the `form` option is used');
 		}
 
 		if (isFormData(body)) {
 			// Special case for https://github.com/form-data/form-data
 			headers['content-type'] = headers['content-type'] || `multipart/form-data; boundary=${body.getBoundary()}`;
-		} else if (opts.form && canBodyBeStringified) {
+		} else if (opts.form && is.plainObject(body)) {
 			headers['content-type'] = headers['content-type'] || 'application/x-www-form-urlencoded';
-			opts.body = querystring.stringify(body);
-		} else if (opts.json && canBodyBeStringified) {
+			opts.body = (new URLSearchParamsGlobal(body)).toString();
+		} else if (opts.json && (is.plainObject(body) || is.array(body))) {
 			headers['content-type'] = headers['content-type'] || 'application/json';
 			opts.body = JSON.stringify(body);
 		}

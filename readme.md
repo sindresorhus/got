@@ -149,7 +149,7 @@ Default: `false`
 
 If set to `true` and `Content-Type` header is not set, it will be set to `application/x-www-form-urlencoded`.
 
-`body` must be a plain object or array and will be stringified.
+`body` must be a plain object. It will be converted to a query string using [`(new URLSearchParams(object)).toString()`](https://nodejs.org/api/url.html#url_constructor_new_urlsearchparams_obj).
 
 ###### json
 

@@ -53,12 +53,11 @@ test('sends plain objects as forms', async t => {
 	t.is(body, 'such=wow');
 });
 
-test('sends arrays as forms', async t => {
-	const {body} = await got(s.url, {
+test('does NOT support sending arrays as forms', async t => {
+	await t.throws(got(s.url, {
 		body: ['such', 'wow'],
 		form: true
-	});
-	t.is(body, '0=such&1=wow');
+	}), TypeError);
 });
 
 test('sends plain objects as JSON', async t => {
