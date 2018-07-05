@@ -4,7 +4,7 @@ import {Agent as HttpsAgent} from 'https';
 import test from 'ava';
 import pem from 'pem';
 import sinon from 'sinon';
-import got from '..';
+import got from '../source';
 import {createServer, createSSLServer} from './helpers/server';
 
 let http;

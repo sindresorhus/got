@@ -3,7 +3,7 @@ import toReadableStream from 'to-readable-stream';
 import getStream from 'get-stream';
 import pEvent from 'p-event';
 import is from '@sindresorhus/is';
-import got from '..';
+import got from '../source';
 import {createServer} from './helpers/server';
 
 let s;
