@@ -135,7 +135,7 @@ test('remove null value headers', async t => {
 	t.false(Reflect.has(headers, 'user-agent'));
 });
 
-test.failing('remove undefined value headers', async t => {
+test('remove undefined value headers', async t => {
 	const {body} = await got(s.url, {
 		headers: {
 			'user-agent': undefined

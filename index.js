@@ -543,15 +543,6 @@ function normalizeArguments(url, opts) {
 		...opts
 	};
 
-	for (const [key, value] of Object.entries(opts.headers)) {
-		if (is.nullOrUndefined(value)) {
-			delete opts.headers[key];
-			continue;
-		}
-
-		opts.headers[key.toLowerCase()] = value;
-	}
-
 	if (opts.decompress && is.undefined(opts.headers['accept-encoding'])) {
 		opts.headers['accept-encoding'] = 'gzip, deflate';
 	}
@@ -656,10 +647,25 @@ function normalizeArguments(url, opts) {
 	return opts;
 }
 
+function assignOpts(defaults, options = {}) {
+	const opts = extend(true, {}, defaults, options);
+
+	if (Reflect.has(options, 'headers')) {
+		for (const [key, value] of Object.entries(options.headers)) {
+			if (is.nullOrUndefined(value)) {
+				delete opts.headers[key];
+				continue;
+			}
+		}
+	}
+
+	return opts;
+}
+
 function create(defaults = {}) {
 	function got(url, opts) {
 		try {
-			opts = extend(true, {}, defaults, opts);
+			opts = assignOpts(defaults, opts);
 			const normalizedArgs = normalizeArguments(url, opts);
 
 			if (normalizedArgs.stream) {
@@ -672,10 +678,10 @@ function create(defaults = {}) {
 		}
 	}
 
-	got.create = (opts = {}) => create(extend(true, {}, defaults, opts));
+	got.create = (opts = {}) => create(assignOpts(defaults, opts));
 
 	got.stream = (url, opts) => {
-		opts = extend(true, {}, defaults, opts);
+		opts = assignOpts(defaults, opts);
 		return asStream(normalizeArguments(url, opts));
 	};
 
