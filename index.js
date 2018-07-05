@@ -43,14 +43,14 @@ const got = create(defaults);
 
 const isFormData = body => is.nodeStream(body) && is.function(body.getBoundary);
 
-const getBodySize = async opts => {
-	const {body} = opts;
+const getBodySize = async options => {
+	const {body} = options;
 
-	if (opts.headers['content-length']) {
-		return Number(opts.headers['content-length']);
+	if (options.headers['content-length']) {
+		return Number(options.headers['content-length']);
 	}
 
-	if (!body && !opts.stream) {
+	if (!body && !options.stream) {
 		return 0;
 	}
 
@@ -74,87 +74,87 @@ const getBodySize = async opts => {
 	return null;
 };
 
-function requestAsEventEmitter(opts = {}) {
-	const ee = new EventEmitter();
-	const requestUrl = opts.href || (new URLGlobal(opts.path, urlLib.format(opts))).toString();
+function requestAsEventEmitter(options = {}) {
+	const emitter = new EventEmitter();
+	const requestUrl = options.href || (new URLGlobal(options.path, urlLib.format(options))).toString();
 	const redirects = [];
-	const agents = is.object(opts.agent) ? opts.agent : null;
+	const agents = is.object(options.agent) ? options.agent : null;
 	let retryCount = 0;
 	let redirectUrl;
 	let uploadBodySize;
 	let uploaded = 0;
 
-	const get = opts => {
-		if (opts.protocol !== 'http:' && opts.protocol !== 'https:') {
-			ee.emit('error', new got.UnsupportedProtocolError(opts));
+	const get = options => {
+		if (options.protocol !== 'http:' && options.protocol !== 'https:') {
+			emitter.emit('error', new got.UnsupportedProtocolError(options));
 			return;
 		}
 
-		let fn = opts.protocol === 'https:' ? https : http;
+		let fn = options.protocol === 'https:' ? https : http;
 
 		if (agents) {
-			const protocolName = opts.protocol === 'https:' ? 'https' : 'http';
-			opts.agent = agents[protocolName] || opts.agent;
+			const protocolName = options.protocol === 'https:' ? 'https' : 'http';
+			options.agent = agents[protocolName] || options.agent;
 		}
 
-		if (opts.useElectronNet && process.versions.electron) {
+		if (options.useElectronNet && process.versions.electron) {
 			const electron = require('electron');
 			fn = electron.net || electron.remote.net;
 		}
 
 		let progressInterval;
 
-		const cacheableRequest = new CacheableRequest(fn.request, opts.cache);
-		const cacheReq = cacheableRequest(opts, res => {
+		const cacheableRequest = new CacheableRequest(fn.request, options.cache);
+		const cacheReq = cacheableRequest(options, response => {
 			clearInterval(progressInterval);
 
-			ee.emit('uploadProgress', {
+			emitter.emit('uploadProgress', {
 				percent: 1,
 				transferred: uploaded,
 				total: uploadBodySize
 			});
 
-			const {statusCode} = res;
+			const {statusCode} = response;
 
-			res.url = redirectUrl || requestUrl;
-			res.requestUrl = requestUrl;
+			response.url = redirectUrl || requestUrl;
+			response.requestUrl = requestUrl;
 
-			const followRedirect = opts.followRedirect && 'location' in res.headers;
+			const followRedirect = options.followRedirect && 'location' in response.headers;
 			const redirectGet = followRedirect && getMethodRedirectCodes.has(statusCode);
 			const redirectAll = followRedirect && allMethodRedirectCodes.has(statusCode);
 
-			if (redirectAll || (redirectGet && (opts.method === 'GET' || opts.method === 'HEAD'))) {
-				res.resume();
+			if (redirectAll || (redirectGet && (options.method === 'GET' || options.method === 'HEAD'))) {
+				response.resume();
 
 				if (statusCode === 303) {
 					// Server responded with "see other", indicating that the resource exists at another location,
 					// and the client should request it from that location via GET or HEAD.
-					opts.method = 'GET';
+					options.method = 'GET';
 				}
 
 				if (redirects.length >= 10) {
-					ee.emit('error', new got.MaxRedirectsError(statusCode, redirects, opts), null, res);
+					emitter.emit('error', new got.MaxRedirectsError(statusCode, redirects, options), null, response);
 					return;
 				}
 
-				const bufferString = Buffer.from(res.headers.location, 'binary').toString();
-				redirectUrl = (new URLGlobal(bufferString, urlLib.format(opts))).toString();
+				const bufferString = Buffer.from(response.headers.location, 'binary').toString();
+				redirectUrl = (new URLGlobal(bufferString, urlLib.format(options))).toString();
 
 				try {
 					redirectUrl = decodeURI(redirectUrl);
-				} catch (err) {
-					ee.emit('error', err);
+				} catch (error) {
+					emitter.emit('error', error);
 					return;
 				}
 
 				redirects.push(redirectUrl);
 
 				const redirectOpts = {
-					...opts,
+					...options,
 					...urlLib.parse(redirectUrl)
 				};
 
-				ee.emit('redirect', res, redirectOpts);
+				emitter.emit('redirect', response, redirectOpts);
 
 				get(redirectOpts);
 
@@ -163,18 +163,18 @@ function requestAsEventEmitter(opts = {}) {
 
 			setImmediate(() => {
 				try {
-					getResponse(res, opts, ee, redirects);
-				} catch (err) {
-					ee.emit('error', err);
+					getResponse(response, options, emitter, redirects);
+				} catch (error) {
+					emitter.emit('error', error);
 				}
 			});
 		});
 
-		cacheReq.on('error', err => {
-			if (err instanceof CacheableRequest.RequestError) {
-				ee.emit('error', new got.RequestError(err, opts));
+		cacheReq.on('error', error => {
+			if (error instanceof CacheableRequest.RequestError) {
+				emitter.emit('error', new got.RequestError(error, options));
 			} else {
-				ee.emit('error', new got.CacheError(err, opts));
+				emitter.emit('error', new got.CacheError(error, options));
 			}
 		});
 
@@ -184,31 +184,31 @@ function requestAsEventEmitter(opts = {}) {
 				aborted = true;
 			});
 
-			req.once('error', err => {
+			req.once('error', error => {
 				clearInterval(progressInterval);
 
 				if (aborted) {
 					return;
 				}
 
-				const backoff = opts.retries(++retryCount, err);
+				const backoff = options.retries(++retryCount, error);
 
 				if (backoff) {
-					setTimeout(opts => {
+					setTimeout(options => {
 						try {
-							get(opts);
-						} catch (e) {
-							ee.emit('error', e);
+							get(options);
+						} catch (error2) {
+							emitter.emit('error', error2);
 						}
-					}, backoff, opts);
+					}, backoff, options);
 					return;
 				}
 
-				ee.emit('error', new got.RequestError(err, opts));
+				emitter.emit('error', new got.RequestError(error, options));
 			});
 
-			ee.once('request', req => {
-				ee.emit('uploadProgress', {
+			emitter.once('request', req => {
+				emitter.emit('uploadProgress', {
 					percent: 0,
 					transferred: 0,
 					total: uploadBodySize
@@ -241,7 +241,7 @@ function requestAsEventEmitter(opts = {}) {
 								return;
 							}
 
-							ee.emit('uploadProgress', {
+							emitter.emit('uploadProgress', {
 								percent: uploadBodySize ? uploaded / uploadBodySize : 0,
 								transferred: uploaded,
 								total: uploadBodySize
@@ -261,20 +261,20 @@ function requestAsEventEmitter(opts = {}) {
 				}
 			});
 
-			if (opts.gotTimeout) {
+			if (options.gotTimeout) {
 				clearInterval(progressInterval);
-				timedOut(req, opts.gotTimeout);
+				timedOut(req, options.gotTimeout);
 			}
 
 			setImmediate(() => {
-				ee.emit('request', req);
+				emitter.emit('request', req);
 			});
 		});
 	};
 
 	setImmediate(async () => {
 		try {
-			uploadBodySize = await getBodySize(opts);
+			uploadBodySize = await getBodySize(options);
 
 			// This is the second try at setting a `content-length` header.
 			// This supports getting the size async, in contrast to
@@ -282,23 +282,23 @@ function requestAsEventEmitter(opts = {}) {
 			// TODO: We should unify these two at some point
 			if (
 				uploadBodySize > 0 &&
-				is.undefined(opts.headers['content-length']) &&
-				is.undefined(opts.headers['transfer-encoding'])
+				is.undefined(options.headers['content-length']) &&
+				is.undefined(options.headers['transfer-encoding'])
 			) {
-				opts.headers['content-length'] = uploadBodySize;
+				options.headers['content-length'] = uploadBodySize;
 			}
 
-			get(opts);
-		} catch (err) {
-			ee.emit('error', err);
+			get(options);
+		} catch (error) {
+			emitter.emit('error', error);
 		}
 	});
 
-	return ee;
+	return emitter;
 }
 
-function getResponse(res, opts, ee, redirects) {
-	const downloadBodySize = Number(res.headers['content-length']) || null;
+function getResponse(response, options, emitter, redirects) {
+	const downloadBodySize = Number(response.headers['content-length']) || null;
 	let downloaded = 0;
 
 	const progressStream = new Transform({
@@ -309,7 +309,7 @@ function getResponse(res, opts, ee, redirects) {
 
 			// Let flush() be responsible for emitting the last event
 			if (percent < 1) {
-				ee.emit('downloadProgress', {
+				emitter.emit('downloadProgress', {
 					percent,
 					transferred: downloaded,
 					total: downloadBodySize
@@ -320,7 +320,7 @@ function getResponse(res, opts, ee, redirects) {
 		},
 
 		flush(callback) {
-			ee.emit('downloadProgress', {
+			emitter.emit('downloadProgress', {
 				percent: 1,
 				transferred: downloaded,
 				total: downloadBodySize
@@ -330,44 +330,44 @@ function getResponse(res, opts, ee, redirects) {
 		}
 	});
 
-	mimicResponse(res, progressStream);
+	mimicResponse(response, progressStream);
 	progressStream.redirectUrls = redirects;
 
-	const response = opts.decompress === true &&
+	const newResponse = options.decompress === true &&
 		is.function(decompressResponse) &&
-		opts.method !== 'HEAD' ? decompressResponse(progressStream) : progressStream;
+		options.method !== 'HEAD' ? decompressResponse(progressStream) : progressStream;
 
-	if (!opts.decompress && ['gzip', 'deflate'].includes(res.headers['content-encoding'])) {
-		opts.encoding = null;
+	if (!options.decompress && ['gzip', 'deflate'].includes(response.headers['content-encoding'])) {
+		options.encoding = null;
 	}
 
-	ee.emit('response', response);
+	emitter.emit('response', newResponse);
 
-	ee.emit('downloadProgress', {
+	emitter.emit('downloadProgress', {
 		percent: 0,
 		transferred: 0,
 		total: downloadBodySize
 	});
 
-	res.pipe(progressStream);
+	response.pipe(progressStream);
 }
 
-function asPromise(opts) {
-	const timeoutFn = requestPromise => opts.gotTimeout && opts.gotTimeout.request ?
-		pTimeout(requestPromise, opts.gotTimeout.request, new got.RequestError({message: 'Request timed out', code: 'ETIMEDOUT'}, opts)) :
+function asPromise(options) {
+	const timeoutFn = requestPromise => options.gotTimeout && options.gotTimeout.request ?
+		pTimeout(requestPromise, options.gotTimeout.request, new got.RequestError({message: 'Request timed out', code: 'ETIMEDOUT'}, options)) :
 		requestPromise;
 
 	const proxy = new EventEmitter();
 
 	const cancelable = new PCancelable((resolve, reject, onCancel) => {
-		const ee = requestAsEventEmitter(opts);
+		const emitter = requestAsEventEmitter(options);
 		let cancelOnRequest = false;
 
 		onCancel(() => {
 			cancelOnRequest = true;
 		});
 
-		ee.on('request', req => {
+		emitter.on('request', req => {
 			if (cancelOnRequest) {
 				req.abort();
 			}
@@ -376,56 +376,56 @@ function asPromise(opts) {
 				req.abort();
 			});
 
-			if (is.nodeStream(opts.body)) {
-				opts.body.pipe(req);
-				opts.body = undefined;
+			if (is.nodeStream(options.body)) {
+				options.body.pipe(req);
+				options.body = undefined;
 				return;
 			}
 
-			req.end(opts.body);
+			req.end(options.body);
 		});
 
-		ee.on('response', async res => {
-			const stream = is.null(opts.encoding) ? getStream.buffer(res) : getStream(res, opts);
+		emitter.on('response', async response => {
+			const stream = is.null(options.encoding) ? getStream.buffer(response) : getStream(response, options);
 
 			let data;
 			try {
 				data = await stream;
-			} catch (err) {
-				reject(new got.ReadError(err, opts));
+			} catch (error) {
+				reject(new got.ReadError(error, options));
 				return;
 			}
 
-			const {statusCode} = res;
-			const limitStatusCode = opts.followRedirect ? 299 : 399;
+			const {statusCode} = response;
+			const limitStatusCode = options.followRedirect ? 299 : 399;
 
-			res.body = data;
+			response.body = data;
 
-			if (opts.json && res.body) {
+			if (options.json && response.body) {
 				try {
-					res.body = JSON.parse(res.body);
-				} catch (err) {
+					response.body = JSON.parse(response.body);
+				} catch (error) {
 					if (statusCode >= 200 && statusCode < 300) {
-						const parseError = new got.ParseError(err, statusCode, opts, data);
-						Object.defineProperty(parseError, 'response', {value: res});
+						const parseError = new got.ParseError(error, statusCode, options, data);
+						Object.defineProperty(parseError, 'response', {value: response});
 						reject(parseError);
 					}
 				}
 			}
 
-			if (opts.throwHttpErrors && statusCode !== 304 && (statusCode < 200 || statusCode > limitStatusCode)) {
-				const err = new got.HTTPError(statusCode, res.statusMessage, res.headers, opts);
-				Object.defineProperty(err, 'response', {value: res});
-				reject(err);
+			if (options.throwHttpErrors && statusCode !== 304 && (statusCode < 200 || statusCode > limitStatusCode)) {
+				const error = new got.HTTPError(statusCode, response.statusMessage, response.headers, options);
+				Object.defineProperty(error, 'response', {value: response});
+				reject(error);
 			}
 
-			resolve(res);
+			resolve(response);
 		});
 
-		ee.once('error', reject);
-		ee.on('redirect', proxy.emit.bind(proxy, 'redirect'));
-		ee.on('uploadProgress', proxy.emit.bind(proxy, 'uploadProgress'));
-		ee.on('downloadProgress', proxy.emit.bind(proxy, 'downloadProgress'));
+		emitter.once('error', reject);
+		emitter.on('redirect', proxy.emit.bind(proxy, 'redirect'));
+		emitter.on('uploadProgress', proxy.emit.bind(proxy, 'uploadProgress'));
+		emitter.on('downloadProgress', proxy.emit.bind(proxy, 'downloadProgress'));
 	});
 
 	const promise = timeoutFn(cancelable);
@@ -440,46 +440,46 @@ function asPromise(opts) {
 	return promise;
 }
 
-function asStream(opts) {
-	opts.stream = true;
+function asStream(options) {
+	options.stream = true;
 
 	const input = new PassThrough();
 	const output = new PassThrough();
 	const proxy = duplexer3(input, output);
 	let timeout;
 
-	if (opts.gotTimeout && opts.gotTimeout.request) {
+	if (options.gotTimeout && options.gotTimeout.request) {
 		timeout = setTimeout(() => {
-			proxy.emit('error', new got.RequestError({message: 'Request timed out', code: 'ETIMEDOUT'}, opts));
-		}, opts.gotTimeout.request);
+			proxy.emit('error', new got.RequestError({message: 'Request timed out', code: 'ETIMEDOUT'}, options));
+		}, options.gotTimeout.request);
 	}
 
-	if (opts.json) {
+	if (options.json) {
 		throw new Error('Got can not be used as a stream when the `json` option is used');
 	}
 
-	if (opts.body) {
+	if (options.body) {
 		proxy.write = () => {
 			throw new Error('Got\'s stream is not writable when the `body` option is used');
 		};
 	}
 
-	const ee = requestAsEventEmitter(opts);
+	const emitter = requestAsEventEmitter(options);
 
-	ee.on('request', req => {
+	emitter.on('request', req => {
 		proxy.emit('request', req);
 
-		if (is.nodeStream(opts.body)) {
-			opts.body.pipe(req);
+		if (is.nodeStream(options.body)) {
+			options.body.pipe(req);
 			return;
 		}
 
-		if (opts.body) {
-			req.end(opts.body);
+		if (options.body) {
+			req.end(options.body);
 			return;
 		}
 
-		if (opts.method === 'POST' || opts.method === 'PUT' || opts.method === 'PATCH') {
+		if (options.method === 'POST' || options.method === 'PUT' || options.method === 'PATCH') {
 			input.pipe(req);
 			return;
 		}
@@ -487,34 +487,34 @@ function asStream(opts) {
 		req.end();
 	});
 
-	ee.on('response', res => {
+	emitter.on('response', response => {
 		clearTimeout(timeout);
 
-		const {statusCode} = res;
+		const {statusCode} = response;
 
-		res.on('error', err => {
-			proxy.emit('error', new got.ReadError(err, opts));
+		response.on('error', error => {
+			proxy.emit('error', new got.ReadError(error, options));
 		});
 
-		res.pipe(output);
+		response.pipe(output);
 
-		if (opts.throwHttpErrors && statusCode !== 304 && (statusCode < 200 || statusCode > 299)) {
-			proxy.emit('error', new got.HTTPError(statusCode, res.statusMessage, res.headers, opts), null, res);
+		if (options.throwHttpErrors && statusCode !== 304 && (statusCode < 200 || statusCode > 299)) {
+			proxy.emit('error', new got.HTTPError(statusCode, response.statusMessage, response.headers, options), null, response);
 			return;
 		}
 
-		proxy.emit('response', res);
+		proxy.emit('response', response);
 	});
 
-	ee.on('error', proxy.emit.bind(proxy, 'error'));
-	ee.on('redirect', proxy.emit.bind(proxy, 'redirect'));
-	ee.on('uploadProgress', proxy.emit.bind(proxy, 'uploadProgress'));
-	ee.on('downloadProgress', proxy.emit.bind(proxy, 'downloadProgress'));
+	emitter.on('error', proxy.emit.bind(proxy, 'error'));
+	emitter.on('redirect', proxy.emit.bind(proxy, 'redirect'));
+	emitter.on('uploadProgress', proxy.emit.bind(proxy, 'uploadProgress'));
+	emitter.on('downloadProgress', proxy.emit.bind(proxy, 'downloadProgress'));
 
 	return proxy;
 }
 
-function normalizeArguments(url, opts) {
+function normalizeArguments(url, options) {
 	if (!is.string(url) && !is.object(url)) {
 		throw new TypeError(`Parameter \`url\` must be a string or object, not ${is(url)}`);
 	} else if (is.string(url)) {
@@ -534,89 +534,89 @@ function normalizeArguments(url, opts) {
 		url = urlToOptions(url);
 	}
 
-	opts = {
+	options = {
 		path: '',
 		...url,
 		protocol: url.protocol || 'http:', // Override both null/undefined with default protocol
-		...opts
+		...options
 	};
 
-	for (const [key, value] of Object.entries(opts.headers)) {
+	for (const [key, value] of Object.entries(options.headers)) {
 		if (is.nullOrUndefined(value)) {
-			delete opts.headers[key];
+			delete options.headers[key];
 			continue;
 		}
 
-		opts.headers[key.toLowerCase()] = value;
+		options.headers[key.toLowerCase()] = value;
 	}
 
-	if (opts.decompress && is.undefined(opts.headers['accept-encoding'])) {
-		opts.headers['accept-encoding'] = 'gzip, deflate';
+	if (options.decompress && is.undefined(options.headers['accept-encoding'])) {
+		options.headers['accept-encoding'] = 'gzip, deflate';
 	}
 
-	const {query} = opts;
+	const {query} = options;
 	if (query) {
 		if (!is.string(query)) {
-			opts.query = (new URLSearchParamsGlobal(query)).toString();
+			options.query = (new URLSearchParamsGlobal(query)).toString();
 		}
 
-		opts.path = `${opts.path.split('?')[0]}?${opts.query}`;
-		delete opts.query;
+		options.path = `${options.path.split('?')[0]}?${options.query}`;
+		delete options.query;
 	}
 
-	if (opts.json && is.undefined(opts.headers.accept)) {
-		opts.headers.accept = 'application/json';
+	if (options.json && is.undefined(options.headers.accept)) {
+		options.headers.accept = 'application/json';
 	}
 
-	const {body} = opts;
+	const {body} = options;
 	if (is.nullOrUndefined(body)) {
-		opts.method = (opts.method || 'GET').toUpperCase();
+		options.method = (options.method || 'GET').toUpperCase();
 	} else {
-		const {headers} = opts;
-		if (!is.nodeStream(body) && !is.string(body) && !is.buffer(body) && !(opts.form || opts.json)) {
+		const {headers} = options;
+		if (!is.nodeStream(body) && !is.string(body) && !is.buffer(body) && !(options.form || options.json)) {
 			throw new TypeError('The `body` option must be a stream.Readable, string or Buffer');
 		}
 
-		if (opts.json && !(is.plainObject(body) || is.array(body))) {
+		if (options.json && !(is.plainObject(body) || is.array(body))) {
 			throw new TypeError('The `body` option must be a plain Object or Array when the `json` option is used');
 		}
 
-		if (opts.form && !is.plainObject(body)) {
+		if (options.form && !is.plainObject(body)) {
 			throw new TypeError('The `body` option must be a plain Object when the `form` option is used');
 		}
 
 		if (isFormData(body)) {
 			// Special case for https://github.com/form-data/form-data
 			headers['content-type'] = headers['content-type'] || `multipart/form-data; boundary=${body.getBoundary()}`;
-		} else if (opts.form && is.plainObject(body)) {
+		} else if (options.form && is.plainObject(body)) {
 			headers['content-type'] = headers['content-type'] || 'application/x-www-form-urlencoded';
-			opts.body = (new URLSearchParamsGlobal(body)).toString();
-		} else if (opts.json && (is.plainObject(body) || is.array(body))) {
+			options.body = (new URLSearchParamsGlobal(body)).toString();
+		} else if (options.json && (is.plainObject(body) || is.array(body))) {
 			headers['content-type'] = headers['content-type'] || 'application/json';
-			opts.body = JSON.stringify(body);
+			options.body = JSON.stringify(body);
 		}
 
 		if (is.undefined(headers['content-length']) && is.undefined(headers['transfer-encoding']) && !is.nodeStream(body)) {
-			const length = is.string(opts.body) ? Buffer.byteLength(opts.body) : opts.body.length;
+			const length = is.string(options.body) ? Buffer.byteLength(options.body) : options.body.length;
 			headers['content-length'] = length;
 		}
 
 		// Convert buffer to stream to receive upload progress events (#322)
 		if (is.buffer(body)) {
-			opts.body = toReadableStream(body);
-			opts.body._buffer = body;
+			options.body = toReadableStream(body);
+			options.body._buffer = body;
 		}
 
-		opts.method = (opts.method || 'POST').toUpperCase();
+		options.method = (options.method || 'POST').toUpperCase();
 	}
 
-	if (opts.hostname === 'unix') {
-		const matches = /(.+?):(.+)/.exec(opts.path);
+	if (options.hostname === 'unix') {
+		const matches = /(.+?):(.+)/.exec(options.path);
 
 		if (matches) {
 			const [, socketPath, path] = matches;
-			opts = {
-				...opts,
+			options = {
+				...options,
 				socketPath,
 				path,
 				host: null
@@ -624,11 +624,11 @@ function normalizeArguments(url, opts) {
 		}
 	}
 
-	if (!is.function(opts.retries)) {
-		const {retries} = opts;
+	if (!is.function(options.retries)) {
+		const {retries} = options;
 
-		opts.retries = (iter, err) => {
-			if (iter > retries || !isRetryAllowed(err)) {
+		options.retries = (iter, error) => {
+			if (iter > retries || !isRetryAllowed(error)) {
 				return 0;
 			}
 
@@ -638,43 +638,43 @@ function normalizeArguments(url, opts) {
 		};
 	}
 
-	if (is.undefined(opts.followRedirect)) {
-		opts.followRedirect = true;
+	if (is.undefined(options.followRedirect)) {
+		options.followRedirect = true;
 	}
 
-	if (opts.timeout) {
-		if (is.number(opts.timeout)) {
-			opts.gotTimeout = {request: opts.timeout};
+	if (options.timeout) {
+		if (is.number(options.timeout)) {
+			options.gotTimeout = {request: options.timeout};
 		} else {
-			opts.gotTimeout = opts.timeout;
+			options.gotTimeout = options.timeout;
 		}
-		delete opts.timeout;
+		delete options.timeout;
 	}
 
-	return opts;
+	return options;
 }
 
 function create(defaults = {}) {
-	function got(url, opts) {
+	function got(url, options) {
 		try {
-			opts = extend(true, {}, defaults, opts);
-			const normalizedArgs = normalizeArguments(url, opts);
+			options = extend(true, {}, defaults, options);
+			const normalizedArgs = normalizeArguments(url, options);
 
 			if (normalizedArgs.stream) {
 				return asStream(normalizedArgs);
 			}
 
 			return asPromise(normalizedArgs);
-		} catch (err) {
-			return Promise.reject(err);
+		} catch (error) {
+			return Promise.reject(error);
 		}
 	}
 
-	got.create = (opts = {}) => create(extend(true, {}, defaults, opts));
+	got.create = (options = {}) => create(extend(true, {}, defaults, options));
 
-	got.stream = (url, opts) => {
-		opts = extend(true, {}, defaults, opts);
-		return asStream(normalizeArguments(url, opts));
+	got.stream = (url, options) => {
+		options = extend(true, {}, defaults, options);
+		return asStream(normalizeArguments(url, options));
 	};
 
 	const methods = [
