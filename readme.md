@@ -302,23 +302,88 @@ Sets `options.method` to the method name and makes a request.
 
 #### Instances
 
-#### got.create([options])
+#### got.create(settings)
+
+Configure a new `got` instance with provided settings:
+
+##### [options](#options)
+
+##### methods
+
+Array of supported methods.
+
+##### handler
+
+Function making additional changes to the request.
+
+```js
+const defaults = {
+	handler: (url, options, isStream) => {
+		const normalizedArgs = normalizeArguments(url, options);
+
+		if (isStream || normalizedArgs.stream) {
+			return asStream(normalizedArgs);
+		}
+
+		return asPromise(normalizedArgs);
+	},
+	methods: [
+		'get',
+		'post',
+		'put',
+		'patch',
+		'head',
+		'delete'
+	],
+	options: {
+		retries: 2,
+		cache: false,
+		decompress: true,
+		useElectronNet: false,
+		throwHttpErrors: true,
+		headers: {
+			'user-agent': `${pkg.name}/${pkg.version} (https://github.com/sindresorhus/got)`
+		}
+	}
+};
+
+const unchangedGot = got.create(defaults);
+```
+
+#### got.fork([options])
 
 Configure a new `got` instance with default `options`:
 
 ```js
 (async () => {
-	const client = got.create({headers: {'x-foo': 'bar'}});
+	const client = got.fork({headers: {'x-foo': 'bar'}});
 	const {headers} = await client.get('httpbin.org/headers', {json: true}).body;
 	//=> headers['x-foo'] === 'bar'
 
-	const jsonClient = client.create({json: true, headers: {'x-baz': 'qux'}});
+	const jsonClient = client.fork({json: true, headers: {'x-baz': 'qux'}});
 	const {headers: headers2} = await jsonClient.get('httpbin.org/headers').body;
 	//=> headers2['x-foo'] === 'bar'
 	//=> headers2['x-baz'] === 'qux'
 })();
 ```
 
+#### got.fork(settings)
+
+Configure a new `got` instance with default `settings`.
+
+```js
+(async () => {
+	const client = got.fork({options: headers: {'x-foo': 'bar'}});
+	const {headers} = await client.get('httpbin.org/headers', {json: true}).body;
+	//=> headers['x-foo'] === 'bar'
+
+	const jsonClient = client.fork({json: true, headers: {'x-baz': 'qux'}});
+	const {headers: headers2} = await jsonClient.get('httpbin.org/headers').body;
+	//=> headers2['x-foo'] === 'bar'
+	//=> headers2['x-baz'] === 'qux'
+})();
+```
+Settings aren't required to have `options` or `methods` or `handler`. If provided empty, it'll use the parent's one.
 
 ## Errors
 
