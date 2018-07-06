@@ -302,6 +302,23 @@ Sets `options.method` to the method name and makes a request.
 
 #### Instances
 
+#### got.extend([options])
+
+Configure a new `got` instance with default `options`:
+
+```js
+(async () => {
+	const client = got.extend({headers: {'x-foo': 'bar'}});
+	const {headers} = await client.get('httpbin.org/headers', {json: true}).body;
+	//=> headers['x-foo'] === 'bar'
+
+	const jsonClient = client.extend({json: true, headers: {'x-baz': 'qux'}});
+	const {headers: headers2} = await jsonClient.get('httpbin.org/headers').body;
+	//=> headers2['x-foo'] === 'bar'
+	//=> headers2['x-baz'] === 'qux'
+})();
+```
+
 #### got.create(settings)
 
 Configure a new `got` instance with provided settings:
@@ -346,23 +363,6 @@ const defaults = {
 };
 
 const unchangedGot = got.create(defaults);
-```
-
-#### got.extend([options])
-
-Configure a new `got` instance with default `options`:
-
-```js
-(async () => {
-	const client = got.extend({headers: {'x-foo': 'bar'}});
-	const {headers} = await client.get('httpbin.org/headers', {json: true}).body;
-	//=> headers['x-foo'] === 'bar'
-
-	const jsonClient = client.extend({json: true, headers: {'x-baz': 'qux'}});
-	const {headers: headers2} = await jsonClient.get('httpbin.org/headers').body;
-	//=> headers2['x-foo'] === 'bar'
-	//=> headers2['x-baz'] === 'qux'
-})();
 ```
 
 ## Errors
