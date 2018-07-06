@@ -34,7 +34,7 @@ const create = defaults => {
 	}
 
 	Object.assign(got, errors);
-	Object.assign(got, {normalizeArguments, asStream, asPromise, defaults});
+	Object.assign(got, {asStream, asPromise, defaults});
 
 	return got;
 };
