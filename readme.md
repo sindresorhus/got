@@ -318,14 +318,12 @@ Function making additional changes to the request.
 
 ```js
 const defaults = {
-	handler: (url, options, isStream) => {
-		const normalizedArgs = normalizeArguments(url, options);
-
-		if (isStream || normalizedArgs.stream) {
-			return asStream(normalizedArgs);
+	handler: (url, options) => {
+		if (options.stream) {
+			return got.asStream(url, options);
 		}
 
-		return asPromise(normalizedArgs);
+		return got.asPromise(url, options);
 	},
 	methods: [
 		'get',
@@ -350,40 +348,22 @@ const defaults = {
 const unchangedGot = got.create(defaults);
 ```
 
-#### got.fork([options])
+#### got.extend([options])
 
 Configure a new `got` instance with default `options`:
 
 ```js
 (async () => {
-	const client = got.fork({headers: {'x-foo': 'bar'}});
+	const client = got.extend({headers: {'x-foo': 'bar'}});
 	const {headers} = await client.get('httpbin.org/headers', {json: true}).body;
 	//=> headers['x-foo'] === 'bar'
 
-	const jsonClient = client.fork({json: true, headers: {'x-baz': 'qux'}});
+	const jsonClient = client.extend({json: true, headers: {'x-baz': 'qux'}});
 	const {headers: headers2} = await jsonClient.get('httpbin.org/headers').body;
 	//=> headers2['x-foo'] === 'bar'
 	//=> headers2['x-baz'] === 'qux'
 })();
 ```
-
-#### got.fork(settings)
-
-Configure a new `got` instance with default `settings`.
-
-```js
-(async () => {
-	const client = got.fork({options: headers: {'x-foo': 'bar'}});
-	const {headers} = await client.get('httpbin.org/headers', {json: true}).body;
-	//=> headers['x-foo'] === 'bar'
-
-	const jsonClient = client.fork({json: true, headers: {'x-baz': 'qux'}});
-	const {headers: headers2} = await jsonClient.get('httpbin.org/headers').body;
-	//=> headers2['x-foo'] === 'bar'
-	//=> headers2['x-baz'] === 'qux'
-})();
-```
-Settings aren't required to have `options` or `methods` or `handler`. If provided empty, it'll use the parent's one.
 
 ## Errors
 
