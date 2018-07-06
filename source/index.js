@@ -3,17 +3,14 @@ const pkg = require('../package.json');
 const create = require('./create');
 const asStream = require('./as-stream');
 const asPromise = require('./as-promise');
-const normalizeArguments = require('./normalize-arguments');
 
 const defaults = {
-	handler: (url, options, isStream) => {
-		const normalizedArgs = normalizeArguments(url, options);
-
-		if (isStream || normalizedArgs.stream) {
-			return asStream(normalizedArgs);
+	handler: (url, options) => {
+		if (options.stream) {
+			return asStream(url, options);
 		}
 
-		return asPromise(normalizedArgs);
+		return asPromise(url, options);
 	},
 	methods: [
 		'get',

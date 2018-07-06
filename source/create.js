@@ -16,25 +16,16 @@ const create = defaults => {
 	}
 
 	got.create = newDefaults => create(newDefaults);
-	got.fork = (newDefaults = {}) => {
-		if (Reflect.has(newDefaults, 'options')) {
-			return create({
-				options: assignOptions(defaults.options, newDefaults.options),
-				methods: newDefaults.methods || defaults.methods,
-				handler: newDefaults.handler || defaults.handler
-			});
-		}
-
-		return create({
-			options: assignOptions(defaults.options, newDefaults),
-			methods: defaults.methods,
-			handler: defaults.handler
-		});
-	};
+	got.extend = (options = {}) => create({
+		options: assignOptions(defaults.options, options),
+		methods: defaults.methods,
+		handler: defaults.handler
+	});
 
 	got.stream = (url, options) => {
 		options = assignOptions(defaults.options, options);
-		return defaults.handler(url, options, true);
+		options.stream = true;
+		return defaults.handler(url, options);
 	};
 
 	for (const method of defaults.methods) {
