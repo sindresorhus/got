@@ -5,51 +5,45 @@ const normalizeArguments = require('./normalize-arguments');
 const asStream = require('./as-stream');
 const asPromise = require('./as-promise');
 
-const handler = (url, options, isStream) => {
-	const normalizedArgs = normalizeArguments(url, options);
-
-	if (isStream || normalizedArgs.stream) {
-		return asStream(normalizedArgs);
-	}
-
-	return asPromise(normalizedArgs);
-};
-
-const defaultMethods = [
-	'get',
-	'post',
-	'put',
-	'patch',
-	'head',
-	'delete'
-];
-
-const create = (defaults = {}, methods = defaultMethods, handle = handler) => {
+const create = defaults => {
 	function got(url, options) {
 		try {
-			options = assignOptions(defaults, options);
-			return handle(url, options);
+			options = assignOptions(defaults.options, options);
+			return defaults.handler(url, options);
 		} catch (error) {
 			return Promise.reject(error);
 		}
 	}
 
-	got.create = (options = {}, newMethods = [], newHandle = handle) => create(assignOptions(defaults, options), methods.concat(newMethods), newHandle);
-	got.create.normalizeArguments = normalizeArguments;
-	got.create.asStream = asStream;
-	got.create.asPromise = asPromise;
+	got.create = newDefaults => create(newDefaults);
+	got.fork = (newDefaults = {}) => {
+		if (Reflect.has(newDefaults, 'options')) {
+			return create({
+				options: assignOptions(defaults.options, newDefaults.options),
+				methods: newDefaults.methods || defaults.methods,
+				handler: newDefaults.handler || defaults.handler
+			});
+		}
 
-	got.stream = (url, options) => {
-		options = assignOptions(defaults, options);
-		return handle(url, options, true);
+		return create({
+			options: assignOptions(defaults.options, newDefaults),
+			methods: defaults.methods,
+			handler: defaults.handler
+		});
 	};
 
-	for (const method of methods) {
+	got.stream = (url, options) => {
+		options = assignOptions(defaults.options, options);
+		return defaults.handler(url, options, true);
+	};
+
+	for (const method of defaults.methods) {
 		got[method] = (url, options) => got(url, {...options, method});
 		got.stream[method] = (url, options) => got.stream(url, {...options, method});
 	}
 
 	Object.assign(got, errors);
+	Object.assign(got, {normalizeArguments, asStream, asPromise, defaults});
 
 	return got;
 };
