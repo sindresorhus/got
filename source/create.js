@@ -1,7 +1,6 @@
 'use strict';
 const errors = require('./errors');
 const assignOptions = require('./assign-options');
-const normalizeArguments = require('./normalize-arguments');
 const asStream = require('./as-stream');
 const asPromise = require('./as-promise');
 
