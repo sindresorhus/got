@@ -81,7 +81,7 @@ test('custom endpoint with custom headers', async t => {
 	};
 
 	const instance = got.create(options, got.defaults.methods, handler);
-	const headers = (await instance(s.url, {
+	const headers = (await instance('/', {
 		json: true
 	})).body;
 	t.is(headers.unicorn, 'rainbow');
