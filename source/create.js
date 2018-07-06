@@ -5,7 +5,26 @@ const normalizeArguments = require('./normalize-arguments');
 const asStream = require('./as-stream');
 const asPromise = require('./as-promise');
 
-const create = (defaults = {}, methods = [], handle) => {
+const handler = (url, options, isStream) => {
+	const normalizedArgs = normalizeArguments(url, options);
+
+	if (isStream || normalizedArgs.stream) {
+		return asStream(normalizedArgs);
+	}
+
+	return asPromise(normalizedArgs);
+};
+
+const defaultMethods = [
+	'get',
+	'post',
+	'put',
+	'patch',
+	'head',
+	'delete'
+];
+
+const create = (defaults = {}, methods = defaultMethods, handle = handler) => {
 	function got(url, options) {
 		try {
 			options = assignOptions(defaults, options);
@@ -15,7 +34,10 @@ const create = (defaults = {}, methods = [], handle) => {
 		}
 	}
 
-	got.create = (options = {}) => create(assignOptions(defaults, options), methods, handle);
+	got.create = (options = {}, newMethods = [], newHandle = handle) => create(assignOptions(defaults, options), methods.concat(newMethods), newHandle);
+	got.create.normalizeArguments = normalizeArguments;
+	got.create.asStream = asStream;
+	got.create.asPromise = asPromise;
 
 	got.stream = (url, options) => {
 		options = assignOptions(defaults, options);
@@ -33,6 +55,3 @@ const create = (defaults = {}, methods = [], handle) => {
 };
 
 module.exports = create;
-module.exports.normalizeArguments = normalizeArguments;
-module.exports.asStream = asStream;
-module.exports.asPromise = asPromise;

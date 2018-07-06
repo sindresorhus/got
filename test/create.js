@@ -67,7 +67,7 @@ test('curry previous instance defaults', async t => {
 });
 
 test('custom endpoint with custom headers', async t => {
-	const options = {...got.defaults.options, headers: {unicorn: 'rainbow'}};
+	const options = {headers: {unicorn: 'rainbow'}};
 	const handler = (url, options, isStream) => {
 		url = `${s.url}` + url;
 
@@ -80,7 +80,7 @@ test('custom endpoint with custom headers', async t => {
 		return got.create.asPromise(normalizedArgs);
 	};
 
-	const instance = got.create(options, got.defaults.methods, handler);
+	const instance = got.create(options, [], handler);
 	const headers = (await instance('/', {
 		json: true
 	})).body;
