@@ -1,57 +1,26 @@
 'use strict';
-const extend = require('extend');
-const is = require('@sindresorhus/is');
+const errors = require('./errors');
+const assignOptions = require('./assign-options');
+const normalizeArguments = require('./normalize-arguments');
 const asStream = require('./as-stream');
 const asPromise = require('./as-promise');
-const errors = require('./errors');
-const normalizeArguments = require('./normalize-arguments');
 
-const assignOptions = (defaults, options = {}) => {
-	const opts = extend(true, {}, defaults, options);
-
-	if (Reflect.has(options, 'headers')) {
-		for (const [key, value] of Object.entries(options.headers)) {
-			if (is.nullOrUndefined(value)) {
-				delete opts.headers[key];
-				continue;
-			}
-		}
-	}
-
-	return opts;
-};
-
-const create = (defaults = {}) => {
+const create = (defaults = {}, methods = [], handle) => {
 	function got(url, options) {
 		try {
 			options = assignOptions(defaults, options);
-			const normalizedArgs = normalizeArguments(url, options);
-
-			if (normalizedArgs.stream) {
-				return asStream(normalizedArgs);
-			}
-
-			return asPromise(normalizedArgs);
+			return handle(url, options);
 		} catch (error) {
 			return Promise.reject(error);
 		}
 	}
 
-	got.create = (options = {}) => create(assignOptions(defaults, options));
+	got.create = (options = {}) => create(assignOptions(defaults, options), methods, handle);
 
 	got.stream = (url, options) => {
 		options = assignOptions(defaults, options);
-		return asStream(normalizeArguments(url, options));
+		return handle(url, options, true);
 	};
-
-	const methods = [
-		'get',
-		'post',
-		'put',
-		'patch',
-		'head',
-		'delete'
-	];
 
 	for (const method of methods) {
 		got[method] = (url, options) => got(url, {...options, method});
@@ -64,3 +33,6 @@ const create = (defaults = {}) => {
 };
 
 module.exports = create;
+module.exports.normalizeArguments = normalizeArguments;
+module.exports.asStream = asStream;
+module.exports.asPromise = asPromise;

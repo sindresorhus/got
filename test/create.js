@@ -65,3 +65,24 @@ test('curry previous instance defaults', async t => {
 	t.is(headers['x-foo'], 'foo');
 	t.is(headers['x-bar'], 'bar');
 });
+
+test('custom endpoint with custom headers', async t => {
+	const options = {...got.defaults.options, headers: {unicorn: 'rainbow'}};
+	const handler = (url, options, isStream) => {
+		url = `${s.url}` + url;
+
+		const normalizedArgs = got.create.normalizeArguments(url, options);
+
+		if (isStream || normalizedArgs.stream) {
+			return got.create.asStream(normalizedArgs);
+		}
+
+		return got.create.asPromise(normalizedArgs);
+	};
+
+	const instance = got.create(options, got.defaults.methods, handler);
+	const headers = (await instance(s.url, {
+		json: true
+	})).body;
+	t.is(headers.unicorn, 'rainbow');
+});
