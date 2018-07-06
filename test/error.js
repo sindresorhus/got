@@ -90,10 +90,13 @@ test.serial('http.request error', async t => {
 });
 
 test.serial('catch error in mimicResponse', async t => {
+	const mimicResponse = () => {
+		throw new Error('Error in mimic-response');
+	};
+	mimicResponse['@global'] = true;
+
 	const proxiedGot = proxyquire('..', {
-		'mimic-response'() {
-			throw new Error('Error in mimic-response');
-		}
+		'mimic-response': mimicResponse
 	});
 
 	const err = await t.throws(proxiedGot(s.url));
