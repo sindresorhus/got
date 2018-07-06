@@ -16,3 +16,4 @@ const defaults = {
 const got = create(defaults);
 
 module.exports = got;
+module.exports.defaults = defaults;
