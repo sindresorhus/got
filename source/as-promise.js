@@ -3,15 +3,10 @@ const EventEmitter = require('events');
 const getStream = require('get-stream');
 const is = require('@sindresorhus/is');
 const PCancelable = require('p-cancelable');
-const pTimeout = require('p-timeout');
 const requestAsEventEmitter = require('./request-as-event-emitter');
-const {HTTPError, ParseError, ReadError, RequestError} = require('./errors');
+const {HTTPError, ParseError, ReadError} = require('./errors');
 
 module.exports = options => {
-	const timeoutFn = requestPromise => options.gotTimeout && options.gotTimeout.request ?
-		pTimeout(requestPromise, options.gotTimeout.request, new RequestError({message: 'Request timed out', code: 'ETIMEDOUT'}, options)) :
-		requestPromise;
-
 	const proxy = new EventEmitter();
 
 	const cancelable = new PCancelable((resolve, reject, onCancel) => {
@@ -83,7 +78,7 @@ module.exports = options => {
 		emitter.on('downloadProgress', proxy.emit.bind(proxy, 'downloadProgress'));
 	});
 
-	const promise = timeoutFn(cancelable);
+	const promise = cancelable;
 
 	promise.cancel = cancelable.cancel.bind(cancelable);
 
