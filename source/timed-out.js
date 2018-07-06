@@ -1,5 +1,7 @@
 'use strict';
 
+// Forked from https://github.com/floatdrop/timed-out
+
 module.exports = function (req, time) {
 	if (req.timeoutTimer) {
 		return req;
