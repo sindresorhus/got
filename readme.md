@@ -110,9 +110,9 @@ Any of the [`https.request`](https://nodejs.org/api/https.html#https_https_reque
 Type: `string` `Object`
 
 When specified, `url` will be prepended by `baseUrl`.<br>
-If you specify an absolute URL it will skip the baseUrl.
+If you specify an absolute URL, it will skip the `baseUrl`.
 
-Very useful when using with `got.extend()` to create niche specific `got` instances.
+Very useful when used with `got.extend()` to create niche-specific `got` instances.
 
 Can be a string or a [WHATWG `URL`](https://nodejs.org/api/url.html#url_class_url).
 
