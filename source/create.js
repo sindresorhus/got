@@ -1,4 +1,5 @@
 'use strict';
+const URLGlobal = typeof URL === 'undefined' ? require('url').URL : URL; // TODO: Use the `URL` global when targeting Node.js 10
 const errors = require('./errors');
 const assignOptions = require('./assign-options');
 const asStream = require('./as-stream');
@@ -8,8 +9,8 @@ const normalizeArguments = require('./normalize-arguments');
 const next = (path, options) => {
 	let url = path;
 
-	if (options.endpoint && !/^https?/.test(path)) {
-		url = options.endpoint + path;
+	if (options.baseUrl) {
+		url = new URLGlobal(path, options.baseUrl);
 	}
 
 	options = normalizeArguments(url, options);

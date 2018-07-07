@@ -99,11 +99,12 @@ Properties from `options` will override properties in the parsed `url`.
 
 If no protocol is specified, it will default to `https`.
 
-##### endpoint
+##### baseUrl
 
 Type: `string` `Object`
 
-When specified, `url` will be preceded by `endpoint`.
+When specified, `url` will be preceded by `baseUrl`.<br>
+Very useful when using with `got.extend()` to create niche specific `got` instances.
 
 Can be a string or a [WHATWG `URL`](https://nodejs.org/api/url.html#url_class_url).
 
@@ -314,11 +315,11 @@ Sets `options.method` to the method name and makes a request.
 
 #### got.extend([options])
 
-Configure a new `got` instance with default `options` and custom `endpoint` (optional):
+Configure a new `got` instance with default `options` and custom `baseUrl` (optional):
 
 ```js
 (async () => {
-	const client = got.extend({headers: {'x-foo': 'bar'}, endpoint: 'httpbin.org/'});
+	const client = got.extend({headers: {'x-foo': 'bar'}, baseUrl: 'httpbin.org/'});
 	const {headers} = (await client.get('headers', {json: true})).body;
 	//=> headers['x-foo'] === 'bar'
 
@@ -333,15 +334,16 @@ Configure a new `got` instance with default `options` and custom `endpoint` (opt
 
 Example: [gh-got](https://github.com/sindresorhus/gh-got/blob/master/index.js)
 
-Configure a new `got` instance with provided settings:
+Configure a new `got` instance with provided settings.<br>
+In contrast to `got.extend()` this function has no defaults.
 
 ##### [options](#options)
 
-To inherit from parent, set it as `got.defaults.options` or use [destructuring assignment](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Destructuring_assignment).
+To inherit from parent, set it as `got.defaults.options` or use [object spread](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Spread_syntax#Spread_in_object_literals).
 
 ##### methods
 
-Type: `object`
+Type: `Object`
 
 Array of supported request methods.
 
@@ -349,19 +351,19 @@ To inherit from parent, set it as `got.defaults.methods`.
 
 ##### handler
 
-Type: `function`<br>
+Type: `Function`<br>
 Default: `undefined`
 
 Function making additional changes to the request.
 
 To inherit from parent, set it as `got.defaults.handler`.<br>
-To use the default handler, set it as `null` or `undefined`.
+To use the default handler, just omit specifying this.
 
 ###### [url](#url)
 
 ###### [options](#options)
 
-###### next
+###### next()
 
 Normalizes arguments and returns a `Promise` or a `Stream` depending on [`options.stream`](#stream).
 
@@ -797,6 +799,27 @@ got('sindresorhus.com', {
 
 Bear in mind, if you send an `if-modified-since` header and receive a `304 Not Modified` response, the body will be empty. It's your responsibility to cache and retrieve the body contents.
 
+### Custom endpoints
+
+To make using REST APIs easier, `got.extend()` comes with help. Especially when option `baseUrl` is provided.
+
+```js
+const got = require('got');
+const pkg = require('./package.json');
+
+const custom = got.extend({
+	baseUrl: 'example.com',
+	json: true,
+	headers: {
+		'user-agent': `my-module/${pkg.version} (https://github.com/username/my-module)`
+	}
+});
+
+// Use `custom` exactly how you use `got`
+(async () => {
+	const list = await custom('v1/users/list');
+})();
+```
 
 ## Related
 
