@@ -101,3 +101,28 @@ test('custom endpoint with custom headers (extend)', async t => {
 	t.is(headers.unicorn, 'rainbow');
 	t.is(headers['user-agent'] === undefined, false);
 });
+
+test('no tampering with defaults', t => {
+	const instance = got.create({
+		handler: got.defaults.handler,
+		methods: got.defaults.methods,
+		options: {
+			...got.defaults.options,
+			baseUrl: 'example'
+		}
+	});
+
+	const instance2 = instance.create({
+		handler: instance.defaults.handler,
+		methods: instance.defaults.methods,
+		options: instance.defaults.options
+	});
+
+	// Tamper Time
+	t.throws(() => {
+		instance.defaults.options.baseUrl = 'http://google.com';
+	});
+
+	t.is(instance.defaults.options.baseUrl, 'example');
+	t.is(instance2.defaults.options.baseUrl, 'example');
+});

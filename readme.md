@@ -99,20 +99,22 @@ Properties from `options` will override properties in the parsed `url`.
 
 If no protocol is specified, it will default to `https`.
 
-##### baseUrl
-
-Type: `string` `Object`
-
-When specified, `url` will be preceded by `baseUrl`.<br>
-Very useful when using with `got.extend()` to create niche specific `got` instances.
-
-Can be a string or a [WHATWG `URL`](https://nodejs.org/api/url.html#url_class_url).
-
 ##### options
 
 Type: `Object`
 
 Any of the [`https.request`](https://nodejs.org/api/https.html#https_https_request_options_callback) options.
+
+###### baseUrl
+
+Type: `string` `Object`
+
+When specified, `url` will be prepended by `baseUrl`.<br>
+If you specify an absolute URL it will skip the baseUrl.
+
+Very useful when using with `got.extend()` to create niche specific `got` instances.
+
+Can be a string or a [WHATWG `URL`](https://nodejs.org/api/url.html#url_class_url).
 
 ###### headers
 
@@ -315,7 +317,24 @@ Sets `options.method` to the method name and makes a request.
 
 #### got.extend([options])
 
-Configure a new `got` instance with default `options` and custom `baseUrl` (optional):
+Configure a new `got` instance with default `options` and custom `baseUrl`:
+
+```js
+const client = got.extend({
+	baseUrl: 'https://example.com',
+	headers: {
+		'x-unicorn': 'rainbow'
+	}
+});
+
+client.get('/demo')
+
+/* HTTP Request =>
+ * GET /demo HTTP/1.1
+ * Host: example.com
+ * x-unicorn: rainbow
+ */
+ ```
 
 ```js
 (async () => {
