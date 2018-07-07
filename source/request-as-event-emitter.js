@@ -6,7 +6,7 @@ const URLGlobal = typeof URL === 'undefined' ? require('url').URL : URL; // TODO
 const urlLib = require('url');
 const CacheableRequest = require('cacheable-request');
 const is = require('@sindresorhus/is');
-const timedOut = require('timed-out');
+const timedOut = require('./timed-out');
 const getBodySize = require('./get-body-size');
 const getResponse = require('./get-response');
 const {CacheError, UnsupportedProtocolError, MaxRedirectsError, RequestError} = require('./errors');
