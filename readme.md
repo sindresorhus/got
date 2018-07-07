@@ -317,7 +317,7 @@ Sets `options.method` to the method name and makes a request.
 
 #### got.extend([options])
 
-Configure a new `got` instance with default `options` and custom `baseUrl`:
+Configure a new `got` instance with default `options` and a custom `baseUrl`:
 
 ```js
 const client = got.extend({
@@ -327,7 +327,7 @@ const client = got.extend({
 	}
 });
 
-client.get('/demo')
+client.get('/demo');
 
 /* HTTP Request =>
  * GET /demo HTTP/1.1
@@ -338,11 +338,21 @@ client.get('/demo')
 
 ```js
 (async () => {
-	const client = got.extend({headers: {'x-foo': 'bar'}, baseUrl: 'httpbin.org/'});
+	const client = got.extend({
+		baseUrl: 'httpbin.org',
+		headers: {
+			'x-foo': 'bar'
+		}
+	});
 	const {headers} = (await client.get('headers', {json: true})).body;
 	//=> headers['x-foo'] === 'bar'
 
-	const jsonClient = client.extend({json: true, headers: {'x-baz': 'qux'}});
+	const jsonClient = client.extend({
+		json: true,
+		headers: {
+			'x-baz': 'qux'
+		}
+	});
 	const {headers: headers2} = (await jsonClient.get('headers')).body;
 	//=> headers2['x-foo'] === 'bar'
 	//=> headers2['x-baz'] === 'qux'
@@ -353,8 +363,8 @@ client.get('/demo')
 
 Example: [gh-got](https://github.com/sindresorhus/gh-got/blob/master/index.js)
 
-Configure a new `got` instance with provided settings.<br>
-In contrast to `got.extend()` this function has no defaults.
+Configure a new `got` instance with the provided settings.<br>
+In contrast to `got.extend()`, this method has no defaults.
 
 ##### [options](#options)
 
@@ -393,7 +403,7 @@ const settings = {
 			// It's a Stream
 			// We can perform stream-specific actions on it
 			return next(url, options)
-					.on('request', req => setTimeout(() => req.abort(), 50));
+				.on('request', request => setTimeout(() => request.abort(), 50));
 		}
 
 		// It's a Promise
@@ -836,7 +846,7 @@ const custom = got.extend({
 
 // Use `custom` exactly how you use `got`
 (async () => {
-	const list = await custom('v1/users/list');
+	const list = await custom('/v1/users/list');
 })();
 ```
 
