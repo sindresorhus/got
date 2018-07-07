@@ -44,7 +44,6 @@
 		"mimic-response": "^1.0.0",
 		"p-cancelable": "^0.5.0",
 		"p-timeout": "^2.0.1",
-		"timed-out": "^4.0.1",
 		"to-readable-stream": "^1.0.0",
 		"url-parse-lax": "^3.0.0"
 	},
