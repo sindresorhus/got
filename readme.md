@@ -820,7 +820,7 @@ Bear in mind, if you send an `if-modified-since` header and receive a `304 Not M
 
 ### Custom endpoints
 
-To make using REST APIs easier, `got.extend()` comes with help. Especially when option `baseUrl` is provided.
+Use `got.extend()` to make it nicer to work with REST APIs. Especially if you use the `baseUrl` option.
 
 ```js
 const got = require('got');
@@ -839,6 +839,7 @@ const custom = got.extend({
 	const list = await custom('v1/users/list');
 })();
 ```
+
 
 ## Related
 
