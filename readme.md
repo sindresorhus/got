@@ -103,9 +103,9 @@ If no protocol is specified, it will default to `https`.
 
 Type: `string` `Object`
 
-Can be a simple string or a [WHATWG `URL`](https://nodejs.org/api/url.html#url_class_url).
-
 When specified, `url` will be preceded by `endpoint`.
+
+Can be a string or a [WHATWG `URL`](https://nodejs.org/api/url.html#url_class_url).
 
 ##### options
 
