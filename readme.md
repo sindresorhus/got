@@ -335,12 +335,9 @@ Function making additional changes to the request.
 
 ```js
 const defaults = {
-	handler: (url, options) => {
-		if (options.stream) {
-			return got.asStream(url, options);
-		}
-
-		return got.asPromise(url, options);
+	handler: (url, options, next) => {
+		// `next(...)` gives either a Promise or a Stream; see `options.stream`
+		return next(url, options);
 	},
 	methods: [
 		'get',
