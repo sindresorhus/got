@@ -69,7 +69,7 @@ test('retries on timeout, ESOCKETTIMEDOUT', async t => {
 		}
 	}));
 
-	t.is(tried, true);
+	t.true(tried);
 	t.is(err.code, 'ESOCKETTIMEDOUT');
 });
 
@@ -88,7 +88,7 @@ test('retries on timeout, ETIMEDOUT', async t => {
 		}
 	}));
 
-	t.is(tried, true);
+	t.true(tried);
 	t.is(err.code, 'ETIMEDOUT');
 });
 
