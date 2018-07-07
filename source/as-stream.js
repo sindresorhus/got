@@ -4,49 +4,45 @@ const duplexer3 = require('duplexer3');
 const is = require('@sindresorhus/is');
 const requestAsEventEmitter = require('./request-as-event-emitter');
 const {HTTPError, ReadError, RequestError} = require('./errors');
-const normalizeArguments = require('./normalize-arguments');
 
-module.exports = (url, options) => {
-	const normalizedArgs = normalizeArguments(url, options);
-	normalizedArgs.stream = true;
-
+module.exports = options => {
 	const input = new PassThrough();
 	const output = new PassThrough();
 	const proxy = duplexer3(input, output);
 	let timeout;
 
-	if (normalizedArgs.gotTimeout && normalizedArgs.gotTimeout.request) {
+	if (options.gotTimeout && options.gotTimeout.request) {
 		timeout = setTimeout(() => {
-			proxy.emit('error', new RequestError({message: 'Request timed out', code: 'ETIMEDOUT'}, normalizedArgs));
-		}, normalizedArgs.gotTimeout.request);
+			proxy.emit('error', new RequestError({message: 'Request timed out', code: 'ETIMEDOUT'}, options));
+		}, options.gotTimeout.request);
 	}
 
-	if (normalizedArgs.json) {
+	if (options.json) {
 		throw new Error('Got can not be used as a stream when the `json` option is used');
 	}
 
-	if (normalizedArgs.body) {
+	if (options.body) {
 		proxy.write = () => {
 			throw new Error('Got\'s stream is not writable when the `body` option is used');
 		};
 	}
 
-	const emitter = requestAsEventEmitter(normalizedArgs);
+	const emitter = requestAsEventEmitter(options);
 
 	emitter.on('request', req => {
 		proxy.emit('request', req);
 
-		if (is.nodeStream(normalizedArgs.body)) {
-			normalizedArgs.body.pipe(req);
+		if (is.nodeStream(options.body)) {
+			options.body.pipe(req);
 			return;
 		}
 
-		if (normalizedArgs.body) {
-			req.end(normalizedArgs.body);
+		if (options.body) {
+			req.end(options.body);
 			return;
 		}
 
-		if (normalizedArgs.method === 'POST' || normalizedArgs.method === 'PUT' || normalizedArgs.method === 'PATCH') {
+		if (options.method === 'POST' || options.method === 'PUT' || options.method === 'PATCH') {
 			input.pipe(req);
 			return;
 		}
@@ -60,13 +56,13 @@ module.exports = (url, options) => {
 		const {statusCode} = response;
 
 		response.on('error', error => {
-			proxy.emit('error', new ReadError(error, normalizedArgs));
+			proxy.emit('error', new ReadError(error, options));
 		});
 
 		response.pipe(output);
 
-		if (normalizedArgs.throwHttpErrors && statusCode !== 304 && (statusCode < 200 || statusCode > 299)) {
-			proxy.emit('error', new HTTPError(statusCode, response.statusMessage, response.headers, normalizedArgs), null, response);
+		if (options.throwHttpErrors && statusCode !== 304 && (statusCode < 200 || statusCode > 299)) {
+			proxy.emit('error', new HTTPError(statusCode, response.statusMessage, response.headers, options), null, response);
 			return;
 		}
 

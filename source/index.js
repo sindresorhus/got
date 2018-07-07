@@ -1,16 +1,10 @@
 'use strict';
 const pkg = require('../package.json');
 const create = require('./create');
-const asStream = require('./as-stream');
-const asPromise = require('./as-promise');
 
 const defaults = {
-	handler: (url, options) => {
-		if (options.stream) {
-			return asStream(url, options);
-		}
-
-		return asPromise(url, options);
+	handler: (url, options, next) => {
+		return next(url, options);
 	},
 	methods: [
 		'get',

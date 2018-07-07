@@ -78,14 +78,10 @@ test('custom endpoint with custom headers (extend)', async t => {
 
 test('custom endpoint with custom headers (create)', async t => {
 	const options = {headers: {unicorn: 'rainbow'}};
-	const handler = (url, options) => {
+	const handler = (url, options, next) => {
 		url = `${s.url}` + url;
 
-		if (options.stream) {
-			return got.asStream(url, options);
-		}
-
-		return got.asPromise(url, options);
+		return next(url, options);
 	};
 	const methods = ['get'];
 
