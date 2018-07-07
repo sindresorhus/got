@@ -99,6 +99,14 @@ Properties from `options` will override properties in the parsed `url`.
 
 If no protocol is specified, it will default to `https`.
 
+##### endpoint
+
+Type: `string` `Object`
+
+Can be a simple string or a [WHATWG `URL`](https://nodejs.org/api/url.html#url_class_url).
+
+When specified, `url` will be preceded by `endpoint`.
+
 ##### options
 
 Type: `Object`
@@ -304,18 +312,18 @@ Sets `options.method` to the method name and makes a request.
 
 #### Instances
 
-#### got.extend([options], [endpoint])
+#### got.extend([options])
 
 Configure a new `got` instance with default `options` and custom `endpoint` (optional):
 
 ```js
 (async () => {
-	const client = got.extend({headers: {'x-foo': 'bar'}}, 'httpbin.org/');
-	const {headers} = await client.get('httpbin.org/headers', {json: true}).body;
+	const client = got.extend({headers: {'x-foo': 'bar'}, endpoint: 'httpbin.org/'});
+	const {headers} = (await client.get('headers', {json: true})).body;
 	//=> headers['x-foo'] === 'bar'
 
 	const jsonClient = client.extend({json: true, headers: {'x-baz': 'qux'}});
-	const {headers: headers2} = await jsonClient.get('headers').body;
+	const {headers: headers2} = (await jsonClient.get('headers')).body;
 	//=> headers2['x-foo'] === 'bar'
 	//=> headers2['x-baz'] === 'qux'
 })();

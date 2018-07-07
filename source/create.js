@@ -5,7 +5,13 @@ const asStream = require('./as-stream');
 const asPromise = require('./as-promise');
 const normalizeArguments = require('./normalize-arguments');
 
-const next = (url, options) => {
+const next = (path, options) => {
+	let url = path;
+
+	if (options.endpoint) {
+		url = /^https?/.test(path) ? path : options.endpoint + path;
+	}
+
 	options = normalizeArguments(url, options);
 
 	if (options.stream) {
@@ -26,13 +32,10 @@ const create = defaults => {
 	}
 
 	got.create = newDefaults => create(newDefaults);
-	got.extend = (options = {}, endpoint) => create({
+	got.extend = (options = {}) => create({
 		options: assignOptions(defaults.options, options),
 		methods: defaults.methods,
-		handler: (path, options, next) => {
-			const url = /^https?/.test(path) ? path : endpoint + path;
-			return next(url, options);
-		}
+		handler: defaults.handler
 	});
 
 	got.stream = (url, options) => {
