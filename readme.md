@@ -13,7 +13,7 @@
 
 > Simplified HTTP requests
 
-[![Build Status](https://travis-ci.org/sindresorhus/got.svg?branch=master)](https://travis-ci.org/sindresorhus/got) [![Coverage Status](https://coveralls.io/repos/github/sindresorhus/got/badge.svg?branch=master)](https://coveralls.io/github/sindresorhus/got?branch=master) [![Downloads](https://img.shields.io/npm/dm/got.svg)](https://npmjs.com/got)
+[![Build Status: Linux](https://travis-ci.org/sindresorhus/got.svg?branch=master)](https://travis-ci.org/sindresorhus/got) [![Build status: Windows](https://ci.appveyor.com/api/projects/status/a9fgfqojj8mf5upf/branch/master?svg=true)](https://ci.appveyor.com/project/sindresorhus/got/branch/master) [![Coverage Status](https://coveralls.io/repos/github/sindresorhus/got/badge.svg?branch=master)](https://coveralls.io/github/sindresorhus/got?branch=master) [![Downloads](https://img.shields.io/npm/dm/got.svg)](https://npmjs.com/got)
 
 A nicer interface to the built-in [`http`](http://nodejs.org/api/http.html) module.
 
