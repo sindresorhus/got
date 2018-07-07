@@ -337,19 +337,29 @@ Configure a new `got` instance with provided settings:
 
 ##### [options](#options)
 
-To use the default options, set it as `got.defaults.options` or use [destructuring assignment](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Destructuring_assignment).
+To inherit from parent, set it as `got.defaults.options` or use [destructuring assignment](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Destructuring_assignment).
 
 ##### methods
 
+Type: `object`
+
 Array of supported request methods.
 
-To use the default methods, set it as `got.defaults.methods`.
+To inherit from parent, set it as `got.defaults.methods`.
 
 ##### handler
 
+Type: `function`<br>
+Default: `undefined`
+
 Function making additional changes to the request.
 
-To use the default handler, set it as `got.defaults.handler`.
+To inherit from parent, set it as `got.defaults.handler`.<br>
+To use the default handler, set it as `null` or `undefined`.
+
+###### [url](#url)
+
+###### [options](#options)
 
 ###### next
 

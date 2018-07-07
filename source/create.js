@@ -8,8 +8,8 @@ const normalizeArguments = require('./normalize-arguments');
 const next = (path, options) => {
 	let url = path;
 
-	if (options.endpoint) {
-		url = /^https?/.test(path) ? path : options.endpoint + path;
+	if (options.endpoint && !/^https?/.test(path)) {
+		url = options.endpoint + path;
 	}
 
 	options = normalizeArguments(url, options);
@@ -22,6 +22,10 @@ const next = (path, options) => {
 };
 
 const create = defaults => {
+	if (!defaults.handler) {
+		defaults.handler = next;
+	}
+
 	function got(url, options) {
 		try {
 			options = assignOptions(defaults.options, options);
@@ -31,7 +35,7 @@ const create = defaults => {
 		}
 	}
 
-	got.create = newDefaults => create(newDefaults);
+	got.create = create;
 	got.extend = (options = {}) => create({
 		options: assignOptions(defaults.options, options),
 		methods: defaults.methods,

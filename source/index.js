@@ -3,9 +3,6 @@ const pkg = require('../package.json');
 const create = require('./create');
 
 const defaults = {
-	handler: (url, options, next) => {
-		return next(url, options);
-	},
 	methods: [
 		'get',
 		'post',
