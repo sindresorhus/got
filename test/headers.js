@@ -1,4 +1,5 @@
 import fs from 'fs';
+import util from 'util';
 import path from 'path';
 import test from 'ava';
 import FormData from 'form-data';
@@ -118,11 +119,13 @@ test('form-data sets content-length', async t => {
 });
 
 test('stream as options.body sets content-length', async t => {
+	const fixture = path.join(__dirname, 'fixtures/stream-content-length');
+	const {size} = await util.promisify(fs.stat)(fixture);
 	const {body} = await got(s.url, {
-		body: fs.createReadStream(path.join(__dirname, 'fixtures/stream-content-length'))
+		body: fs.createReadStream(fixture)
 	});
 	const headers = JSON.parse(body);
-	t.is(headers['content-length'], '9');
+	t.is(Number(headers['content-length']), size);
 });
 
 test('remove null value headers', async t => {
