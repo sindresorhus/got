@@ -125,7 +125,7 @@ test('stream as options.body sets content-length', async t => {
 		body: fs.createReadStream(fixture)
 	});
 	const headers = JSON.parse(body);
-	t.is(headers['content-length'], String(size));
+	t.is(Number(headers['content-length']), size);
 });
 
 test('remove null value headers', async t => {
