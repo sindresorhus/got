@@ -26,10 +26,13 @@ const create = defaults => {
 	}
 
 	got.create = newDefaults => create(newDefaults);
-	got.extend = (options = {}) => create({
+	got.extend = (options = {}, endpoint) => create({
 		options: assignOptions(defaults.options, options),
 		methods: defaults.methods,
-		handler: defaults.handler
+		handler: (path, options, next) => {
+			const url = /^https?/.test(path) ? path : endpoint + path;
+			return next(url, options);
+		}
 	});
 
 	got.stream = (url, options) => {

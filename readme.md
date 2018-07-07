@@ -235,6 +235,8 @@ If this is disabled, requests that encounter an error status code will be resolv
 
 #### got.stream(url, [options])
 
+Sets `options.stream` to `true`.
+
 `stream` method will return Duplex stream with additional events:
 
 ##### .on('request', request)
@@ -302,18 +304,18 @@ Sets `options.method` to the method name and makes a request.
 
 #### Instances
 
-#### got.extend([options])
+#### got.extend([options], [endpoint])
 
-Configure a new `got` instance with default `options`:
+Configure a new `got` instance with default `options` and custom `endpoint` (optional):
 
 ```js
 (async () => {
-	const client = got.extend({headers: {'x-foo': 'bar'}});
+	const client = got.extend({headers: {'x-foo': 'bar'}}, 'httpbin.org/');
 	const {headers} = await client.get('httpbin.org/headers', {json: true}).body;
 	//=> headers['x-foo'] === 'bar'
 
 	const jsonClient = client.extend({json: true, headers: {'x-baz': 'qux'}});
-	const {headers: headers2} = await jsonClient.get('httpbin.org/headers').body;
+	const {headers: headers2} = await jsonClient.get('headers').body;
 	//=> headers2['x-foo'] === 'bar'
 	//=> headers2['x-baz'] === 'qux'
 })();
@@ -321,22 +323,56 @@ Configure a new `got` instance with default `options`:
 
 #### got.create(settings)
 
+Example: [gh-got](https://github.com/sindresorhus/gh-got/blob/master/index.js)
+
 Configure a new `got` instance with provided settings:
 
 ##### [options](#options)
 
+To use the default options, set it as `got.defaults.options` or use [destructuring assignment](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Destructuring_assignment).
+
 ##### methods
 
-Array of supported methods.
+Array of supported request methods.
+
+To use the default methods, set it as `got.defaults.methods`.
 
 ##### handler
 
 Function making additional changes to the request.
 
+To use the default handler, set it as `got.defaults.handler`.
+
+###### next
+
+Normalizes arguments and returns a `Promise` or a `Stream` depending on [`options.stream`](#stream).
+
+```js
+const settings = {
+	handler: (url, options, next) => {
+		if (options.stream) {
+			// It's a Stream
+			// We can perform stream-specific actions on it
+			return next(url, options)
+					.on('request', req => setTimeout(() => req.abort(), 50));
+		}
+
+		// It's a Promise
+		return next(url, options);
+	},
+	methods: got.defaults.methods,
+	options: {
+		...got.defaults.options,
+		json: true
+	}
+};
+
+const jsonGot = got.create(settings);
+```
+
 ```js
 const defaults = {
 	handler: (url, options, next) => {
-		// `next(...)` gives either a Promise or a Stream; see `options.stream`
 		return next(url, options);
 	},
 	methods: [
@@ -359,7 +395,32 @@ const defaults = {
 	}
 };
 
+// Same as:
+const defaults = {
+	handler: got.defaults.handler,
+	methods: got.defaults.methods,
+	options: got.defaults.options
+};
+
 const unchangedGot = got.create(defaults);
+```
+
+```js
+const settings = {
+	handler: got.defaults.handler,
+	methods: got.defaults.methods,
+	options: {
+		...got.defaults.options,
+		headers: {
+			unicorn: 'rainbow'
+		}
+	}
+};
+
+const unicorn = got.create(settings);
+
+// Same as:
+const unicorn = got.extend({headers: {unicorn: 'rainbow'}});
 ```
 
 ## Errors

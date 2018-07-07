@@ -66,7 +66,7 @@ test('curry previous instance defaults', async t => {
 	t.is(headers['x-bar'], 'bar');
 });
 
-test('custom endpoint with custom headers (extend)', async t => {
+test('custom headers (extend)', async t => {
 	const options = {headers: {unicorn: 'rainbow'}};
 
 	const instance = got.extend(options);
@@ -91,4 +91,13 @@ test('custom endpoint with custom headers (create)', async t => {
 	})).body;
 	t.is(headers.unicorn, 'rainbow');
 	t.is(headers['user-agent'], undefined);
+});
+
+test('custom endpoint with custom headers (extend)', async t => {
+	const instance = got.extend({headers: {unicorn: 'rainbow'}}, s.url);
+	const headers = (await instance(`/`, {
+		json: true
+	})).body;
+	t.is(headers.unicorn, 'rainbow');
+	t.is(headers['user-agent'] === undefined, false);
 });
