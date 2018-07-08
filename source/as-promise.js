@@ -22,6 +22,8 @@ module.exports = options => {
 				req.abort();
 			}
 
+			proxy.emit('request', req);
+
 			onCancel(() => {
 				req.abort();
 			});
@@ -36,6 +38,8 @@ module.exports = options => {
 		});
 
 		emitter.on('response', async response => {
+			proxy.emit('response', response);
+
 			const stream = is.null(options.encoding) ? getStream.buffer(response) : getStream(response, options);
 
 			let data;
