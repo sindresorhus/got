@@ -1,14 +1,19 @@
-<h1 align="center">
-	<br>
-	<img width="360" src="https://rawgit.com/sindresorhus/got/master/media/logo.svg" alt="got">
+<div align="center">
 	<br>
 	<br>
+	<img width="360" src="media/logo.svg" alt="Got">
 	<br>
-</h1>
+	<br>
+	<br>
+	<p align="center">Huge thanks to <a href="https://moxy.studio"><img src="https://sindresorhus.com/assets/thanks/moxy-logo.svg" width="150"></a> for sponsoring me!
+	</p>
+	<br>
+	<br>
+</div>
 
 > Simplified HTTP requests
 
-[![Build Status](https://travis-ci.org/sindresorhus/got.svg?branch=master)](https://travis-ci.org/sindresorhus/got) [![Coverage Status](https://coveralls.io/repos/github/sindresorhus/got/badge.svg?branch=master)](https://coveralls.io/github/sindresorhus/got?branch=master) [![Downloads](https://img.shields.io/npm/dm/got.svg)](https://npmjs.com/got)
+[![Build Status: Linux](https://travis-ci.org/sindresorhus/got.svg?branch=master)](https://travis-ci.org/sindresorhus/got) [![Build status: Windows](https://ci.appveyor.com/api/projects/status/a9fgfqojj8mf5upf/branch/master?svg=true)](https://ci.appveyor.com/project/sindresorhus/got/branch/master) [![Coverage Status](https://coveralls.io/repos/github/sindresorhus/got/badge.svg?branch=master)](https://coveralls.io/github/sindresorhus/got?branch=master) [![Downloads](https://img.shields.io/npm/dm/got.svg)](https://npmjs.com/got)
 
 A nicer interface to the built-in [`http`](http://nodejs.org/api/http.html) module.
 
@@ -29,6 +34,7 @@ Created because [`request`](https://github.com/request/request) is bloated *(sev
 - [JSON mode](#json)
 - [WHATWG URL support](#url)
 - [Electron support](#useelectronnet)
+- [Advanced creation](advanced-creation.md)
 
 
 ## Install
@@ -36,6 +42,10 @@ Created because [`request`](https://github.com/request/request) is bloated *(sev
 ```
 $ npm install got
 ```
+
+<a href="https://www.patreon.com/sindresorhus">
+	<img src="https://c5.patreon.com/external/logo/become_a_patron_button@2x.png" width="160">
+</a>
 
 
 ## Usage
@@ -84,7 +94,7 @@ The response will also have a `fromCache` property set with a boolean value.
 
 Type: `string` `Object`
 
-The URL to request as simple string, a [`http.request` options](https://nodejs.org/api/http.html#http_http_request_options_callback), or a [WHATWG `URL`](https://nodejs.org/api/url.html#url_class_url).
+The URL to request as simple string, a [`https.request` options](https://nodejs.org/api/https.html#https_https_request_options_callback), or a [WHATWG `URL`](https://nodejs.org/api/url.html#url_class_url).
 
 Properties from `options` will override properties in the parsed `url`.
 
@@ -94,11 +104,38 @@ If no protocol is specified, it will default to `https`.
 
 Type: `Object`
 
-Any of the [`http.request`](http://nodejs.org/api/http.html#http_http_request_options_callback) options.
+Any of the [`https.request`](https://nodejs.org/api/https.html#https_https_request_options_callback) options.
+
+###### baseUrl
+
+Type: `string` `Object`
+
+When specified, `url` will be prepended by `baseUrl`.<br>
+If you specify an absolute URL, it will skip the `baseUrl`.
+
+Very useful when used with `got.extend()` to create niche-specific `got` instances.
+
+Can be a string or a [WHATWG `URL`](https://nodejs.org/api/url.html#url_class_url).
+
+###### headers
+
+Type: `Object`<br>
+Default: `{}`
+
+Request headers.
+
+Existing headers will be overwritten. Headers set to `null` or `undefined` will be omitted.
+
+###### stream
+
+Type: `boolean`<br>
+Default: `false`
+
+Returns a `Stream` instead of a `Promise`. This is equivalent to calling `got.stream(url, [options])`.
 
 ###### body
 
-Type: `string` `Buffer` `stream.Readable`
+Type: `string` `Buffer` `stream.Readable` [`form-data` instance](https://github.com/form-data/form-data)
 
 *This is mutually exclusive with stream mode.*
 
@@ -106,14 +143,14 @@ Body that will be sent with a `POST` request.
 
 If present in `options` and `options.method` is not set, `options.method` will be set to `POST`.
 
-If `content-length` or `transfer-encoding` is not set in `options.headers` and `body` is a string or buffer, `content-length` will be set to the body length.
+The `content-length` header will be automatically set if `body` is a `string` / `Buffer` / `fs.createReadStream` instance / [`form-data` instance](https://github.com/form-data/form-data), and `content-length` and `transfer-encoding` are not manually set in `options.headers`.
 
 ###### encoding
 
 Type: `string` `null`<br>
 Default: `'utf8'`
 
-[Encoding](https://nodejs.org/api/buffer.html#buffer_buffers_and_character_encodings) to be used on `setEncoding` of the response data. If `null`, the body is returned as a Buffer.
+[Encoding](https://nodejs.org/api/buffer.html#buffer_buffers_and_character_encodings) to be used on `setEncoding` of the response data. If `null`, the body is returned as a [`Buffer`](https://nodejs.org/api/buffer.html) (binary data).
 
 ###### form
 
@@ -124,7 +161,7 @@ Default: `false`
 
 If set to `true` and `Content-Type` header is not set, it will be set to `application/x-www-form-urlencoded`.
 
-`body` must be a plain object or array and will be stringified.
+`body` must be a plain object. It will be converted to a query string using [`(new URLSearchParams(object)).toString()`](https://nodejs.org/api/url.html#url_constructor_new_urlsearchparams_obj).
 
 ###### json
 
@@ -149,7 +186,7 @@ Query string object that will be added to the request URL. This will override th
 
 Type: `number` `Object`
 
-Milliseconds to wait for the server to end the response before aborting request with `ETIMEDOUT` error.
+Milliseconds to wait for the server to end the response before aborting request with `ETIMEDOUT` error (a.k.a. `request` property). By default there's no timeout.
 
 This also accepts an object with separate `connect`, `socket`, and `request` fields for connection, socket, and entire request timeouts.
 
@@ -179,7 +216,7 @@ request the resource pointed to in the location header via `GET`. This is in acc
 Type: `boolean`<br>
 Default: `true`
 
-Decompress the response automatically.
+Decompress the response automatically. This will set the `accept-encoding` header to `gzip, deflate` unless you set it yourself.
 
 If this is disabled, a compressed response is returned as a `Buffer`. This may be useful if you want to handle decompression yourself or stream the raw compressed data.
 
@@ -195,12 +232,22 @@ Default: `false`
 Type: `boolean`<br>
 Default: `false`
 
-When used in Electron, Got will use [`electron.net`](https://electron.atom.io/docs/api/net/) instead of the Node.js `http` module. According to the Electron docs, it should be fully compatible, but it's not entirely. See [#315](https://github.com/sindresorhus/got/issues/315).
+When used in Electron, Got will use [`electron.net`](https://electronjs.org/docs/api/net/) instead of the Node.js `http` module. According to the Electron docs, it should be fully compatible, but it's not entirely. See [#315](https://github.com/sindresorhus/got/issues/315).
 
+###### throwHttpErrors
+
+Type: `boolean`<br>
+Default: `true`
+
+Determines if a `got.HTTPError` is thrown for error responses (non-2xx status codes).
+
+If this is disabled, requests that encounter an error status code will be resolved with the `response` instead of throwing. This may be useful if you are checking for resource availability and are expecting error responses.
 
 #### Streams
 
 #### got.stream(url, [options])
+
+Sets `options.stream` to `true`.
 
 `stream` method will return Duplex stream with additional events:
 
@@ -267,6 +314,56 @@ If it's not possible to retrieve the body size (can happen when streaming), `tot
 
 Sets `options.method` to the method name and makes a request.
 
+### Instances
+
+#### got.extend([options])
+
+Configure a new `got` instance with default `options` and (optionally) a custom `baseUrl`:
+
+**Note:** You can extend another extended instance. `got.defaults` provides settings used by that instance.<br>
+Check out the [unchanged default values](source/index.js).
+
+```js
+const client = got.extend({
+	baseUrl: 'https://example.com',
+	headers: {
+		'x-unicorn': 'rainbow'
+	}
+});
+
+client.get('/demo');
+
+/* HTTP Request =>
+ * GET /demo HTTP/1.1
+ * Host: example.com
+ * x-unicorn: rainbow
+ */
+ ```
+
+```js
+(async () => {
+	const client = got.extend({
+		baseUrl: 'httpbin.org',
+		headers: {
+			'x-foo': 'bar'
+		}
+	});
+	const {headers} = (await client.get('/headers', {json: true})).body;
+	//=> headers['x-foo'] === 'bar'
+
+	const jsonClient = client.extend({
+		json: true,
+		headers: {
+			'x-baz': 'qux'
+		}
+	});
+	const {headers: headers2} = (await jsonClient.get('/headers')).body;
+	//=> headers2['x-foo'] === 'bar'
+	//=> headers2['x-baz'] === 'qux'
+})();
+```
+
+*Need more control over the behavior of Got? Check out the [`got.create()`](advanced-creation.md).*
 
 ## Errors
 
@@ -327,7 +424,7 @@ The promise returned by Got has a [`.cancel()`](https://github.com/sindresorhus/
 	try {
 		await request;
 	} catch (error) {
-		if (request.canceled) { // Or `error instanceof got.CancelError`
+		if (request.isCanceled) { // Or `error instanceof got.CancelError`
 			// Handle cancelation
 		}
 
@@ -338,6 +435,8 @@ The promise returned by Got has a [`.cancel()`](https://github.com/sindresorhus/
 
 <a name="cache-adapters"></a>
 ## Cache
+
+Got implements [RFC 7234](http://httpwg.org/specs/rfc7234.html) compliant HTTP caching which works out of the box in memory or is easily pluggable with a wide range of storage adapters. Fresh cache entries are served directly from cache and stale cache entries are revalidated with `If-None-Match`/`If-Modified-Since` headers. You can read more about the underlying cache behaviour in the `cacheable-request` [documentation](https://github.com/lukechilds/cacheable-request).
 
 You can use the JavaScript `Map` type as an in memory cache:
 
@@ -395,7 +494,7 @@ You can use the [`tunnel`](https://github.com/koichik/node-tunnel) module with t
 
 ```js
 const got = require('got');
-const tunnel = require('tunnel');
+const tunnel = require('tunnel-agent');
 
 got('sindresorhus.com', {
 	agent: tunnel.httpOverHttp({
@@ -433,6 +532,15 @@ const cookie = require('cookie');
 got('google.com', {
 	headers: {
 		cookie: cookie.serialize('foo', 'bar')
+	}
+});
+
+got('google.com', {
+	headers: {
+		cookie: [
+			cookie.serialize('foo', 'bar'),
+			cookie.serialize('fizz', 'buzz')
+		].join(';')
 	}
 });
 ```
@@ -517,7 +625,7 @@ const config = require('./config');
 // Reads keys from the environment or `~/.aws/credentials`. Could be a plain object.
 const awsConfig = new AWS.Config({ region: config.region });
 
-function request(uri, options) {
+function request(url, options) {
 	const awsOpts = {
 		region: awsConfig.region,
 		headers: {
@@ -529,10 +637,15 @@ function request(uri, options) {
 	};
 
 	// We need to parse the URL before passing it to `got` so `aws4` can sign the request
-	const opts = Object.assign(url.parse(uri), awsOpts, options);
-	aws4.sign(opts, awsConfig.credentials);
+	options = {
+		...url.parse(url),
+		...awsOpts,
+		...options
+	};
 
-	return got(opts);
+	aws4.sign(options, awsConfig.credentials);
+
+	return got(options);
 }
 
 request(`https://${config.host}/production/users/1`);
@@ -543,11 +656,49 @@ request(`https://${config.host}/production/`, {
 ```
 
 
+## Testing
+
+You can test your requests by using the [`nock`](https://github.com/node-nock/nock) module to mock an endpoint:
+
+```js
+const got = require('got');
+const nock = require('nock');
+
+nock('https://sindresorhus.com')
+	.get('/')
+	.reply(200, 'Hello world!');
+
+(async () => {
+	const response = await got('sindresorhus.com');
+	console.log(response.body);
+	//=> 'Hello world!'
+})();
+```
+
+If you need real integration tests you can use [`create-test-server`](https://github.com/lukechilds/create-test-server):
+
+```js
+const got = require('got');
+const createTestServer = require('create-test-server');
+
+(async () => {
+	const server = await createTestServer();
+	server.get('/', 'Hello world!');
+
+	const response = await got(server.url);
+	console.log(response.body);
+	//=> 'Hello world!'
+
+	await server.close();
+})();
+```
+
+
 ## Tips
 
 ### User Agent
 
-It's a good idea to set the `'user-agent'` header so the provider can more easily see how their resource is used. By default, it's the URL to this repo.
+It's a good idea to set the `'user-agent'` header so the provider can more easily see how their resource is used. By default, it's the URL to this repo. You can omit this header by setting it to `null` or `undefined`.
 
 ```js
 const got = require('got');
@@ -558,26 +709,57 @@ got('sindresorhus.com', {
 		'user-agent': `my-module/${pkg.version} (https://github.com/username/my-module)`
 	}
 });
+
+got('sindresorhus.com', {
+	headers: {
+		'user-agent': null
+	}
+});
 ```
 
 ### 304 Responses
 
 Bear in mind, if you send an `if-modified-since` header and receive a `304 Not Modified` response, the body will be empty. It's your responsibility to cache and retrieve the body contents.
 
+### Custom endpoints
+
+Use `got.extend()` to make it nicer to work with REST APIs. Especially if you use the `baseUrl` option.
+
+**Note:** Not to be confused with [`got.create()`](advanced-creation.md), which has no defaults.
+
+```js
+const got = require('got');
+const pkg = require('./package.json');
+
+const custom = got.extend({
+	baseUrl: 'example.com',
+	json: true,
+	headers: {
+		'user-agent': `my-module/${pkg.version} (https://github.com/username/my-module)`
+	}
+});
+
+// Use `custom` exactly how you use `got`
+(async () => {
+	const list = await custom('/v1/users/list');
+})();
+```
+
 
 ## Related
 
-- [gh-got](https://github.com/sindresorhus/gh-got) - Convenience wrapper for interacting with the GitHub API
-- [gl-got](https://github.com/singapore/gl-got) - Convenience wrapper for interacting with the GitLab API
-- [travis-got](https://github.com/samverschueren/travis-got) - Convenience wrapper for interacting with the Travis API
-- [graphql-got](https://github.com/kevva/graphql-got) - Convenience wrapper for got to interact with GraphQL
+- [gh-got](https://github.com/sindresorhus/gh-got) - Got convenience wrapper to interact with the GitHub API
+- [gl-got](https://github.com/singapore/gl-got) - Got convenience wrapper to interact with the GitLab API
+- [travis-got](https://github.com/samverschueren/travis-got) - Got convenience wrapper to interact with the Travis API
+- [graphql-got](https://github.com/kevva/graphql-got) - Got convenience wrapper to interact with GraphQL
+- [GotQL](https://github.com/khaosdoctor/gotql) - Got convenience wrapper to interact with GraphQL using JSON-parsed queries instead of strings
 
 
-## Created by
+## Maintainers
 
-[![Sindre Sorhus](https://github.com/sindresorhus.png?size=100)](https://sindresorhus.com) | [![Vsevolod Strukchinsky](https://github.com/floatdrop.png?size=100)](https://github.com/floatdrop) | [![Alexander Tesfamichael](https://github.com/AlexTes.png?size=100)](https://github.com/AlexTes) | [![Luke Childs](https://github.com/lukechilds.png?size=100)](https://github.com/lukechilds)
----|---|---|---
-[Sindre Sorhus](https://sindresorhus.com) | [Vsevolod Strukchinsky](https://github.com/floatdrop) | [Alexander Tesfamichael](https://alextes.me) | [Luke Childs](https://github.com/lukechilds)
+[![Sindre Sorhus](https://github.com/sindresorhus.png?size=100)](https://sindresorhus.com) | [![Vsevolod Strukchinsky](https://github.com/floatdrop.png?size=100)](https://github.com/floatdrop) | [![Alexander Tesfamichael](https://github.com/AlexTes.png?size=100)](https://github.com/AlexTes) | [![Luke Childs](https://github.com/lukechilds.png?size=100)](https://github.com/lukechilds) | [![Szymon Marczak](https://github.com/szmarczak.png?size=100)](https://github.com/szmarczak) | [![Brandon Smith](https://github.com/brandon93s.png?size=100)](https://github.com/brandon93s)
+---|---|---|---|---|---
+[Sindre Sorhus](https://sindresorhus.com) | [Vsevolod Strukchinsky](https://github.com/floatdrop) | [Alexander Tesfamichael](https://alextes.me) | [Luke Childs](https://github.com/lukechilds) | [Szymon Marczak](https://github.com/szmarczak) | [Brandon Smith](https://github.com/brandon93s)
 
 
 ## License

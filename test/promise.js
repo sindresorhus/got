@@ -14,17 +14,15 @@ test.before('setup', async () => {
 });
 
 test('should emit request event as promise', async t => {
-	await got(s.url, {json: true})
-		.on('request', () => {
-			t.pass();
-		});
+	await got(s.url, {json: true}).on('request', () => {
+		t.pass();
+	});
 });
 
 test('should emit response event as promise', async t => {
-	await got(s.url, {json: true})
-		.on('response', () => {
-			t.pass();
-		});
+	await got(s.url, {json: true}).on('response', () => {
+		t.pass();
+	});
 });
 
 test.after('cleanup', async () => {

@@ -1,9 +1,9 @@
 import test from 'ava';
-import intoStream from 'into-stream';
+import toReadableStream from 'to-readable-stream';
 import getStream from 'get-stream';
 import pEvent from 'p-event';
 import is from '@sindresorhus/is';
-import got from '..';
+import got from '../source';
 import {createServer} from './helpers/server';
 
 let s;
@@ -84,8 +84,13 @@ test('have error event #2', async t => {
 	await t.throws(pEvent(stream, 'response'), /getaddrinfo ENOTFOUND/);
 });
 
+test('have response event on throwHttpErrors === false', async t => {
+	const response = await pEvent(got.stream(`${s.url}/error`, {throwHttpErrors: false}), 'response');
+	t.is(response.statusCode, 404);
+});
+
 test('accepts option.body as Stream', async t => {
-	const stream = got.stream(`${s.url}/post`, {body: intoStream(['wow'])});
+	const stream = got.stream(`${s.url}/post`, {body: toReadableStream('wow')});
 	const data = await pEvent(stream, 'data');
 	t.is(data.toString(), 'wow');
 });

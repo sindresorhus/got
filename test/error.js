@@ -1,7 +1,8 @@
 import http from 'http';
 import test from 'ava';
 import sinon from 'sinon';
-import got from '..';
+import proxyquire from 'proxyquire';
+import got from '../source';
 import {createServer} from './helpers/server';
 
 let s;
@@ -52,8 +53,18 @@ test('dns message', async t => {
 });
 
 test('options.body error message', async t => {
-	const err = await t.throws(got(s.url, {body: () => {}}));
-	t.regex(err.message, /The `body` option must be a stream\.Readable, string, Buffer or plain Object/);
+	const err = await t.throws(got(s.url, {body: {}}));
+	t.regex(err.message, /The `body` option must be a stream\.Readable, string or Buffer/);
+});
+
+test('options.body json error message', async t => {
+	const err = await t.throws(got(s.url, {body: Buffer.from('test'), json: true}));
+	t.regex(err.message, /The `body` option must be a plain Object or Array when the `json` option is used/);
+});
+
+test('options.body form error message', async t => {
+	const err = await t.throws(got(s.url, {body: Buffer.from('test'), form: true}));
+	t.regex(err.message, /The `body` option must be a plain Object when the `form` option is used/);
 });
 
 test('default status message', async t => {
@@ -76,6 +87,20 @@ test.serial('http.request error', async t => {
 	t.true(err instanceof got.RequestError);
 	t.is(err.message, 'The header content contains invalid characters');
 	stub.restore();
+});
+
+test.serial('catch error in mimicResponse', async t => {
+	const mimicResponse = () => {
+		throw new Error('Error in mimic-response');
+	};
+	mimicResponse['@global'] = true;
+
+	const proxiedGot = proxyquire('..', {
+		'mimic-response': mimicResponse
+	});
+
+	const err = await t.throws(proxiedGot(s.url));
+	t.is(err.message, 'Error in mimic-response');
 });
 
 test.after('cleanup', async () => {

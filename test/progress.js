@@ -1,13 +1,13 @@
+import util from 'util';
 import fs from 'fs';
 import SlowStream from 'slow-stream';
-import intoStream from 'into-stream';
+import toReadableStream from 'to-readable-stream';
 import getStream from 'get-stream';
 import FormData from 'form-data';
 import tempfile from 'tempfile';
-import pify from 'pify';
 import is from '@sindresorhus/is';
 import test from 'ava';
-import got from '..';
+import got from '../source';
 import {createServer} from './helpers/server';
 
 const checkEvents = (t, events, bodySize = null) => {
@@ -45,7 +45,7 @@ test.before('setup', async () => {
 	s.on('/download', (req, res) => {
 		res.setHeader('content-length', file.length);
 
-		intoStream(file)
+		toReadableStream(file)
 			.pipe(new SlowStream({maxWriteInterval: 50}))
 			.pipe(res);
 	});
@@ -121,7 +121,7 @@ test('upload progress - form data', async t => {
 	body.append('key', 'value');
 	body.append('file', file);
 
-	const size = await pify(body.getLength.bind(body))();
+	const size = await util.promisify(body.getLength.bind(body))();
 
 	await got.post(`${s.url}/upload`, {body})
 		.on('uploadProgress', e => events.push(e));
@@ -149,7 +149,7 @@ test('upload progress - stream with known body size', async t => {
 	const req = got.stream.post(`${s.url}/upload`, options)
 		.on('uploadProgress', e => events.push(e));
 
-	await getStream(intoStream(file).pipe(req));
+	await getStream(toReadableStream(file).pipe(req));
 
 	checkEvents(t, events, file.length);
 });
@@ -160,7 +160,7 @@ test('upload progress - stream with unknown body size', async t => {
 	const req = got.stream.post(`${s.url}/upload`)
 		.on('uploadProgress', e => events.push(e));
 
-	await getStream(intoStream(file).pipe(req));
+	await getStream(toReadableStream(file).pipe(req));
 
 	checkEvents(t, events);
 });

@@ -1,6 +1,6 @@
 import test from 'ava';
-import intoStream from 'into-stream';
-import got from '..';
+import toReadableStream from 'to-readable-stream';
+import got from '../source';
 import {createServer} from './helpers/server';
 
 let s;
@@ -41,7 +41,7 @@ test('sends Buffers', async t => {
 });
 
 test('sends Streams', async t => {
-	const {body} = await got(s.url, {body: intoStream(['wow'])});
+	const {body} = await got(s.url, {body: toReadableStream('wow')});
 	t.is(body, 'wow');
 });
 
@@ -53,12 +53,11 @@ test('sends plain objects as forms', async t => {
 	t.is(body, 'such=wow');
 });
 
-test('sends arrays as forms', async t => {
-	const {body} = await got(s.url, {
+test('does NOT support sending arrays as forms', async t => {
+	await t.throws(got(s.url, {
 		body: ['such', 'wow'],
 		form: true
-	});
-	t.is(body, '0=such&1=wow');
+	}), TypeError);
 });
 
 test('sends plain objects as JSON', async t => {
@@ -95,7 +94,7 @@ test('content-length header with Buffer body', async t => {
 });
 
 test('content-length header with Stream body', async t => {
-	const {body} = await got(`${s.url}/headers`, {body: intoStream(['wow'])});
+	const {body} = await got(`${s.url}/headers`, {body: toReadableStream('wow')});
 	const headers = JSON.parse(body);
 	t.is(headers['transfer-encoding'], 'chunked', 'likely failed to get headers at all');
 	t.is(headers['content-length'], undefined);

@@ -1,19 +1,19 @@
+import util from 'util';
 import {Agent as HttpAgent} from 'http';
 import {Agent as HttpsAgent} from 'https';
 import test from 'ava';
 import pem from 'pem';
-import pify from 'pify';
 import sinon from 'sinon';
-import got from '..';
+import got from '../source';
 import {createServer, createSSLServer} from './helpers/server';
 
 let http;
 let https;
 
-const pemP = pify(pem, Promise);
+const createCertificate = util.promisify(pem.createCertificate);
 
 test.before('setup', async () => {
-	const caKeys = await pemP.createCertificate({
+	const caKeys = await createCertificate({
 		days: 1,
 		selfSigned: true
 	});
@@ -21,7 +21,7 @@ test.before('setup', async () => {
 	const caRootKey = caKeys.serviceKey;
 	const caRootCert = caKeys.certificate;
 
-	const keys = await pemP.createCertificate({
+	const keys = await createCertificate({
 		serviceCertificate: caRootCert,
 		serviceKey: caRootKey,
 		serial: Date.now(),
@@ -78,22 +78,26 @@ const createAgentSpy = Cls => {
 
 test('non-object agent option works with http', async t => {
 	const {agent, spy} = createAgentSpy(HttpAgent);
+
 	t.truthy((await got(`${http.url}/`, {
 		rejectUnauthorized: false,
 		agent
 	})).body);
 	t.true(spy.calledOnce);
+
 	// Make sure to close all open sockets
 	agent.destroy();
 });
 
 test('non-object agent option works with https', async t => {
 	const {agent, spy} = createAgentSpy(HttpsAgent);
+
 	t.truthy((await got(`${https.url}/`, {
 		rejectUnauthorized: false,
 		agent
 	})).body);
 	t.true(spy.calledOnce);
+
 	// Make sure to close all open sockets
 	agent.destroy();
 });
@@ -101,6 +105,7 @@ test('non-object agent option works with https', async t => {
 test('redirects from http to https work with an agent object', async t => {
 	const {agent: httpAgent, spy: httpSpy} = createAgentSpy(HttpAgent);
 	const {agent: httpsAgent, spy: httpsSpy} = createAgentSpy(HttpsAgent);
+
 	t.truthy((await got(`${http.url}/httpToHttps`, {
 		rejectUnauthorized: false,
 		agent: {
@@ -110,6 +115,7 @@ test('redirects from http to https work with an agent object', async t => {
 	})).body);
 	t.true(httpSpy.calledOnce);
 	t.true(httpsSpy.calledOnce);
+
 	// Make sure to close all open sockets
 	httpAgent.destroy();
 	httpsAgent.destroy();
@@ -118,6 +124,7 @@ test('redirects from http to https work with an agent object', async t => {
 test('redirects from https to http work with an agent object', async t => {
 	const {agent: httpAgent, spy: httpSpy} = createAgentSpy(HttpAgent);
 	const {agent: httpsAgent, spy: httpsSpy} = createAgentSpy(HttpsAgent);
+
 	t.truthy((await got(`${https.url}/httpsToHttp`, {
 		rejectUnauthorized: false,
 		agent: {
@@ -127,6 +134,7 @@ test('redirects from https to http work with an agent object', async t => {
 	})).body);
 	t.true(httpSpy.calledOnce);
 	t.true(httpsSpy.calledOnce);
+
 	// Make sure to close all open sockets
 	httpAgent.destroy();
 	httpsAgent.destroy();
@@ -134,12 +142,22 @@ test('redirects from https to http work with an agent object', async t => {
 
 test('socket connect listener cleaned up after request', async t => {
 	const {agent} = createAgentSpy(HttpsAgent);
-	await got(`${https.url}`, {
-		rejectUnauthorized: false,
-		agent
-	});
-	Object.keys(agent.freeSockets).forEach(k => agent.freeSockets[k]
-		.forEach(sock => t.is(sock.listenerCount('connect'), 0)));
+
+	// Make sure there are no memory leaks when reusing keep-alive sockets
+	for (let i = 0; i < 20; i++) {
+		// eslint-disable-next-line no-await-in-loop
+		await got(`${https.url}`, {
+			rejectUnauthorized: false,
+			agent
+		});
+	}
+
+	for (const value of Object.values(agent.freeSockets)) {
+		for (const sock of value) {
+			t.is(sock.listenerCount('connect'), 0);
+		}
+	}
+
 	// Make sure to close all open sockets
 	agent.destroy();
 });

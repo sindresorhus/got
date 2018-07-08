@@ -1,33 +1,59 @@
 import EventEmitter from 'events';
-import stream from 'stream';
+import {Readable} from 'stream';
 import test from 'ava';
 import getStream from 'get-stream';
 import PCancelable from 'p-cancelable';
-import got from '..';
+import got from '../source';
 import {createServer} from './helpers/server';
-
-const Readable = stream.Readable;
 
 async function createAbortServer() {
 	const s = await createServer();
 	const ee = new EventEmitter();
 	ee.aborted = new Promise((resolve, reject) => {
-		s.on('/abort', (req, res) => {
+		s.on('/abort', async (req, res) => {
 			ee.emit('connection');
 			req.on('aborted', resolve);
 			res.on('finish', reject.bind(null, new Error('Request finished instead of aborting.')));
 
-			getStream(req).then(() => {
-				res.end();
+			await getStream(req);
+			res.end();
+		});
+
+		s.on('/redirect', (req, res) => {
+			res.writeHead(302, {
+				location: `${s.url}/abort`
 			});
+			res.end();
+
+			ee.emit('sentRedirect');
+
+			setTimeout(resolve, 3000);
 		});
 	});
 
 	await s.listen(s.port);
 	ee.url = `${s.url}/abort`;
+	ee.redirectUrl = `${s.url}/redirect`;
 
 	return ee;
 }
+
+test('cancel do not retry after cancelation', async t => {
+	const helper = await createAbortServer();
+
+	const p = got(helper.redirectUrl, {
+		retries: _ => {
+			t.fail('Makes a new try after cancelation');
+		}
+	});
+
+	helper.on('sentRedirect', () => {
+		p.cancel();
+	});
+
+	await t.throws(p, PCancelable.CancelError);
+	await t.notThrows(helper.aborted, 'Request finished instead of aborting.');
+});
 
 test('cancel in-progress request', async t => {
 	const helper = await createAbortServer();
@@ -91,7 +117,7 @@ test('recover from cancelation using cancelable promise attribute', async t => {
 	// Canceled before connection started
 	const p = got('http://example.com');
 	const recover = p.catch(err => {
-		if (p.canceled) {
+		if (p.isCanceled) {
 			return;
 		}
 

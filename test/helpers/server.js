@@ -1,40 +1,44 @@
 'use strict';
+const util = require('util');
 const http = require('http');
 const https = require('https');
-const pify = require('pify');
 const getPort = require('get-port');
 
 exports.host = 'localhost';
-const host = exports.host;
+const {host} = exports;
 
-exports.createServer = function () {
-	return getPort().then(port => {
-		const s = http.createServer((req, resp) => s.emit(req.url, req, resp));
+exports.createServer = async () => {
+	const port = await getPort();
 
-		s.host = host;
-		s.port = port;
-		s.url = `http://${host}:${port}`;
-		s.protocol = 'http';
-
-		s.listen = pify(s.listen, Promise);
-		s.close = pify(s.close, Promise);
-
-		return s;
+	const s = http.createServer((request, response) => {
+		s.emit(request.url, request, response);
 	});
+
+	s.host = host;
+	s.port = port;
+	s.url = `http://${host}:${port}`;
+	s.protocol = 'http';
+
+	s.listen = util.promisify(s.listen);
+	s.close = util.promisify(s.close);
+
+	return s;
 };
 
-exports.createSSLServer = function (opts) {
-	return getPort().then(port => {
-		const s = https.createServer(opts, (req, resp) => s.emit(req.url, req, resp));
+exports.createSSLServer = async options => {
+	const port = await getPort();
 
-		s.host = host;
-		s.port = port;
-		s.url = `https://${host}:${port}`;
-		s.protocol = 'https';
-
-		s.listen = pify(s.listen, Promise);
-		s.close = pify(s.close, Promise);
-
-		return s;
+	const s = https.createServer(options, (request, response) => {
+		s.emit(request.url, request, response);
 	});
+
+	s.host = host;
+	s.port = port;
+	s.url = `https://${host}:${port}`;
+	s.protocol = 'https';
+
+	s.listen = util.promisify(s.listen);
+	s.close = util.promisify(s.close);
+
+	return s;
 };

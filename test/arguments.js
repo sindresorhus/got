@@ -1,6 +1,7 @@
-import {URL} from 'universal-url';
+import {URL} from 'url';
 import test from 'ava';
-import got from '..';
+import pEvent from 'p-event';
+import got from '../source';
 import {createServer} from './helpers/server';
 
 let s;
@@ -21,12 +22,21 @@ test.before('setup', async () => {
 		res.end(req.url);
 	});
 
+	s.on('/stream', (req, res) => {
+		res.end('ok');
+	});
+
 	await s.listen(s.port);
 });
 
 test('url is required', async t => {
 	const err = await t.throws(got());
 	t.regex(err.message, /Parameter `url` must be a string or object, not undefined/);
+});
+
+test('url should be utf-8 encoded', async t => {
+	const err = await t.throws(got(`${s.url}/%D2%E0%EB%EB%E8%ED`));
+	t.regex(err.message, /Parameter `url` must contain valid UTF-8 character sequences/);
 });
 
 test('options are optional', async t => {
@@ -74,6 +84,16 @@ test('should throw when body is set to object', async t => {
 test('WHATWG URL support', async t => {
 	const wURL = new URL(`${s.url}/test`);
 	await t.notThrows(got(wURL));
+});
+
+test('should return streams when using stream option', async t => {
+	const data = await pEvent(got(`${s.url}/stream`, {stream: true}), 'data');
+	t.is(data.toString(), 'ok');
+});
+
+test('should not allow stream and JSON option at the same time', async t => {
+	const error = await t.throws(got(`${s.url}/stream`, {stream: true, json: true}));
+	t.is(error.message, 'Got can not be used as a stream when the `json` option is used');
 });
 
 test.after('cleanup', async () => {

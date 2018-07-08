@@ -1,6 +1,6 @@
 import is from '@sindresorhus/is';
 import test from 'ava';
-import got from '..';
+import got from '../source';
 import {createServer} from './helpers/server';
 
 let s;
@@ -58,6 +58,10 @@ test('status code 304 doesn\'t throw', async t => {
 	const response = await p;
 	t.is(response.statusCode, 304);
 	t.is(response.body, '');
+});
+
+test('doesn\'t throw on throwHttpErrors === false', async t => {
+	t.is((await got(`${s.url}/404`, {throwHttpErrors: false})).body, 'not');
 });
 
 test('invalid protocol throws', async t => {
