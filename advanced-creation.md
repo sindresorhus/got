@@ -2,8 +2,6 @@
 
 > Make calling REST APIs easier by creating niche-specific `got` instances.
 
-#### [got.extend([options])](readme.md#)
-
 #### got.create(settings)
 
 Example: [gh-got](https://github.com/sindresorhus/gh-got/blob/master/index.js)
