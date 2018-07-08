@@ -174,7 +174,7 @@ Query string object that will be added to the request URL. This will override th
 
 Type: `number` `Object`
 
-Milliseconds to wait for the server to end the response before aborting request with `ETIMEDOUT` error.
+Milliseconds to wait for the server to end the response before aborting request with `ETIMEDOUT` error (a.k.a. `request` property). By default there's no timeout.
 
 This also accepts an object with separate `connect`, `socket`, and `request` fields for connection, socket, and entire request timeouts.
 
