@@ -34,6 +34,7 @@ Created because [`request`](https://github.com/request/request) is bloated *(sev
 - [JSON mode](#json)
 - [WHATWG URL support](#url)
 - [Electron support](#useelectronnet)
+- [Advanced creation](advanced-creation.md)
 
 
 ## Install
@@ -104,6 +105,17 @@ If no protocol is specified, it will default to `https`.
 Type: `Object`
 
 Any of the [`https.request`](https://nodejs.org/api/https.html#https_https_request_options_callback) options.
+
+###### baseUrl
+
+Type: `string` `Object`
+
+When specified, `url` will be prepended by `baseUrl`.<br>
+If you specify an absolute URL, it will skip the `baseUrl`.
+
+Very useful when used with `got.extend()` to create niche-specific `got` instances.
+
+Can be a string or a [WHATWG `URL`](https://nodejs.org/api/url.html#url_class_url).
 
 ###### headers
 
@@ -235,6 +247,8 @@ If this is disabled, requests that encounter an error status code will be resolv
 
 #### got.stream(url, [options])
 
+Sets `options.stream` to `true`.
+
 `stream` method will return Duplex stream with additional events:
 
 ##### .on('request', request)
@@ -300,25 +314,56 @@ If it's not possible to retrieve the body size (can happen when streaming), `tot
 
 Sets `options.method` to the method name and makes a request.
 
-#### Instances
+### Instances
 
-#### got.create([options])
+#### got.extend([options])
 
-Configure a new `got` instance with default `options`:
+Configure a new `got` instance with default `options` and (optionally) a custom `baseUrl`:
+
+**Note:** You can extend another extended instance. `got.defaults` provides settings used by that instance.<br>
+Check out the [unchanged default values](source/index.js).
+
+```js
+const client = got.extend({
+	baseUrl: 'https://example.com',
+	headers: {
+		'x-unicorn': 'rainbow'
+	}
+});
+
+client.get('/demo');
+
+/* HTTP Request =>
+ * GET /demo HTTP/1.1
+ * Host: example.com
+ * x-unicorn: rainbow
+ */
+ ```
 
 ```js
 (async () => {
-	const client = got.create({headers: {'x-foo': 'bar'}});
-	const {headers} = await client.get('httpbin.org/headers', {json: true}).body;
+	const client = got.extend({
+		baseUrl: 'httpbin.org',
+		headers: {
+			'x-foo': 'bar'
+		}
+	});
+	const {headers} = (await client.get('/headers', {json: true})).body;
 	//=> headers['x-foo'] === 'bar'
 
-	const jsonClient = client.create({json: true, headers: {'x-baz': 'qux'}});
-	const {headers: headers2} = await jsonClient.get('httpbin.org/headers').body;
+	const jsonClient = client.extend({
+		json: true,
+		headers: {
+			'x-baz': 'qux'
+		}
+	});
+	const {headers: headers2} = (await jsonClient.get('/headers')).body;
 	//=> headers2['x-foo'] === 'bar'
 	//=> headers2['x-baz'] === 'qux'
 })();
 ```
 
+*Need more control over the behavior of Got? Check out the [`got.create()`](advanced-creation.md).*
 
 ## Errors
 
@@ -675,6 +720,30 @@ got('sindresorhus.com', {
 ### 304 Responses
 
 Bear in mind, if you send an `if-modified-since` header and receive a `304 Not Modified` response, the body will be empty. It's your responsibility to cache and retrieve the body contents.
+
+### Custom endpoints
+
+Use `got.extend()` to make it nicer to work with REST APIs. Especially if you use the `baseUrl` option.
+
+**Note:** Not to be confused with [`got.create()`](advanced-creation.md), which has no defaults.
+
+```js
+const got = require('got');
+const pkg = require('./package.json');
+
+const custom = got.extend({
+	baseUrl: 'example.com',
+	json: true,
+	headers: {
+		'user-agent': `my-module/${pkg.version} (https://github.com/username/my-module)`
+	}
+});
+
+// Use `custom` exactly how you use `got`
+(async () => {
+	const list = await custom('/v1/users/list');
+})();
+```
 
 
 ## Related

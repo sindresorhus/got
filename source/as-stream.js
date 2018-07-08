@@ -6,8 +6,6 @@ const requestAsEventEmitter = require('./request-as-event-emitter');
 const {HTTPError, ReadError} = require('./errors');
 
 module.exports = options => {
-	options.stream = true;
-
 	const input = new PassThrough();
 	const output = new PassThrough();
 	const proxy = duplexer3(input, output);
