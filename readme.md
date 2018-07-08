@@ -674,11 +674,9 @@ Bear in mind, if you send an `if-modified-since` header and receive a `304 Not M
 
 ### Custom endpoints
 
-*For full documentation about advanced creation, [click here](advanced-creation.md).*
-
 Use `got.extend()` to make it nicer to work with REST APIs. Especially if you use the `baseUrl` option.
 
-**Note:** Not to confuse with `got.create()`, where are no defaults provided.
+**Note:** Not to be confused with [`got.create()`](advanced-creation.md), which has no defaults.
 
 ```js
 const got = require('got');
