@@ -314,6 +314,55 @@ If it's not possible to retrieve the body size (can happen when streaming), `tot
 
 Sets `options.method` to the method name and makes a request.
 
+### Instances
+
+#### got.extend([options])
+
+Configure a new `got` instance with default `options` and a custom `baseUrl`:
+
+**Note:** You can extend another extended instance. `got.defaults` provides settings used by that instance.<br>
+Check out the unchanged default values [here](source/index.js).
+
+```js
+const client = got.extend({
+	baseUrl: 'https://example.com',
+	headers: {
+		'x-unicorn': 'rainbow'
+	}
+});
+
+client.get('/demo');
+
+/* HTTP Request =>
+ * GET /demo HTTP/1.1
+ * Host: example.com
+ * x-unicorn: rainbow
+ */
+ ```
+
+```js
+(async () => {
+	const client = got.extend({
+		baseUrl: 'httpbin.org',
+		headers: {
+			'x-foo': 'bar'
+		}
+	});
+	const {headers} = (await client.get('headers', {json: true})).body;
+	//=> headers['x-foo'] === 'bar'
+
+	const jsonClient = client.extend({
+		json: true,
+		headers: {
+			'x-baz': 'qux'
+		}
+	});
+	const {headers: headers2} = (await jsonClient.get('headers')).body;
+	//=> headers2['x-foo'] === 'bar'
+	//=> headers2['x-baz'] === 'qux'
+})();
+```
+
 *Need more control over the behavior of got? Check out the **[advanced creation](advanced-creation.md)** options.*
 
 ## Errors
