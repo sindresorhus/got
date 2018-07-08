@@ -318,10 +318,10 @@ Sets `options.method` to the method name and makes a request.
 
 #### got.extend([options])
 
-Configure a new `got` instance with default `options` and a custom `baseUrl`:
+Configure a new `got` instance with default `options` and (optionally) a custom `baseUrl`:
 
 **Note:** You can extend another extended instance. `got.defaults` provides settings used by that instance.<br>
-Check out the unchanged default values [here](source/index.js).
+Check out the [unchanged default values](source/index.js).
 
 ```js
 const client = got.extend({
@@ -348,7 +348,7 @@ client.get('/demo');
 			'x-foo': 'bar'
 		}
 	});
-	const {headers} = (await client.get('headers', {json: true})).body;
+	const {headers} = (await client.get('/headers', {json: true})).body;
 	//=> headers['x-foo'] === 'bar'
 
 	const jsonClient = client.extend({
@@ -357,13 +357,13 @@ client.get('/demo');
 			'x-baz': 'qux'
 		}
 	});
-	const {headers: headers2} = (await jsonClient.get('headers')).body;
+	const {headers: headers2} = (await jsonClient.get('/headers')).body;
 	//=> headers2['x-foo'] === 'bar'
 	//=> headers2['x-baz'] === 'qux'
 })();
 ```
 
-*Need more control over the behavior of got? Check out the **[advanced creation](advanced-creation.md)** options.*
+*Need more control over the behavior of Got? Check out the [`got.create()`](advanced-creation.md).*
 
 ## Errors
 
