@@ -5,18 +5,7 @@ const assignOptions = require('./assign-options');
 const asStream = require('./as-stream');
 const asPromise = require('./as-promise');
 const normalizeArguments = require('./normalize-arguments');
-
-const deepFreeze = obj => {
-	const keys = Object.keys(obj);
-
-	for (let i = 0; i < keys.length; i++) {
-		if (typeof obj[keys[i]] === 'object' && obj[keys[i]] !== null) {
-			deepFreeze(obj[keys[i]]);
-		}
-	}
-
-	return Object.freeze(obj);
-};
+const deepFreeze = require('./deep-freeze');
 
 const next = (path, options) => {
 	let url = path;
