@@ -6,6 +6,7 @@ let s;
 let trys = 0;
 let knocks = 0;
 let fifth = 0;
+let lastTried = Date.now();
 
 test.before('setup', async () => {
 	s = await createServer();
@@ -26,6 +27,20 @@ test.before('setup', async () => {
 		if (fifth++ === 5) {
 			res.end('who`s there?');
 		}
+	});
+
+	s.on('/500', (req, res) => {
+		res.statusCode = 500;
+		res.end();
+	});
+
+	s.on('/413', (req, res) => {
+		res.writeHead(413, {
+			'Retry-After': 2
+		});
+		res.end((Date.now() - lastTried).toString());
+
+		lastTried = Date.now();
 	});
 
 	await s.listen(s.port);
@@ -69,6 +84,38 @@ test('falsy value prevents retries #2', async t => {
 		}
 	}));
 	t.truthy(err);
+});
+
+test('custom retries', async t => {
+	let tried = false;
+	const err = await t.throws(got(`${s.url}/500`, {
+		throwHttpErrors: true,
+		retries: {
+			retry: iter => {
+				if (iter === 1) {
+					tried = true;
+					return 1;
+				}
+
+				return 0;
+			}, methods: [
+				'GET'
+			], statusCodes: [
+				500
+			]
+		}
+	}));
+	t.is(err.statusCode, 500);
+	t.true(tried);
+});
+
+test('respect 413 Retry-After', async t => {
+	const err = await got(`${s.url}/413`, {
+		throwHttpErrors: false,
+		retries: 1
+	});
+	t.is(err.statusCode, 413);
+	t.true(Number(err.body) >= 2000);
 });
 
 test.after('cleanup', async () => {

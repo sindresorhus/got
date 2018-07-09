@@ -108,12 +108,29 @@ module.exports = (url, options) => {
 		}
 	}
 
-	if (!is.function(options.retries)) {
-		const {retries} = options;
+	options.gotRetries = {retry: 0, methods: [], statusCodes: []};
+	if (is.function(options.retries) || is.number(options.retries)) {
+		options.gotRetries.retry = options.retries;
+	} else if (is.object(options.retries)) {
+		options.gotRetries = {...options.gotRetries, ...options.retries};
+	}
+	delete options.retries;
 
-		options.retries = (iter, error) => {
-			if (iter > retries || !isRetryAllowed(error)) {
+	if (!is.function(options.gotRetries.retry)) {
+		const {retry} = options.gotRetries;
+
+		options.gotRetries.retry = (iter, error) => {
+			if (iter > retry || (!isRetryAllowed(error) && !options.gotRetries.methods.includes(error.method) && !options.gotRetries.statusCodes.includes(error.statusCode))) {
 				return 0;
+			}
+
+			if (error.statusCode === 413 && Reflect.has(error.headers, 'retry-after')) {
+				const after = Number(error.headers['retry-after']);
+				if (is.number(after)) {
+					return after * 1000;
+				}
+
+				return Math.max((new Date(error.headers['retry-after'])).getTime() - Date.now(), 0);
 			}
 
 			const noise = Math.random() * 100;

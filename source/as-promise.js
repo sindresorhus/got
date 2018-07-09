@@ -67,10 +67,20 @@ module.exports = options => {
 				}
 			}
 
-			if (options.throwHttpErrors && statusCode !== 304 && (statusCode < 200 || statusCode > limitStatusCode)) {
+			if (statusCode !== 304 && (statusCode < 200 || statusCode > limitStatusCode)) {
 				const error = new HTTPError(statusCode, response.statusMessage, response.headers, options);
 				Object.defineProperty(error, 'response', {value: response});
-				reject(error);
+				emitter.emit('retry', error, retried => {
+					if (!retried) {
+						if (options.throwHttpErrors) {
+							reject(error);
+							return;
+						}
+
+						resolve(response);
+					}
+				});
+				return;
 			}
 
 			resolve(response);
