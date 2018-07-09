@@ -32,7 +32,7 @@ module.exports = function (req, time) {
 		req.requestTimeoutTimer = setTimeout(() => {
 			clear();
 
-			if (req.connection.connecting || req.connection._connecting) {
+			if (req.connection.connecting) {
 				throwETIMEDOUT();
 			} else {
 				throwESOCKETTIMEDOUT();
@@ -44,7 +44,7 @@ module.exports = function (req, time) {
 	// request and is connected.
 	req.on('socket', socket => {
 		// Socket may come from Agent pool and may be already connected.
-		if (!(socket.connecting || socket._connecting)) {
+		if (!socket.connecting) {
 			connect();
 			return;
 		}
