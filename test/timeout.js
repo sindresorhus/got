@@ -10,7 +10,7 @@ test.before('setup', async () => {
 	s = await createServer();
 
 	s.on('/', async (req, res) => {
-		await delay(40);
+		await delay(80);
 		res.statusCode = 200;
 		res.end('OK');
 	});
@@ -29,7 +29,7 @@ test('timeout option (ETIMEDOUT)', async t => {
 
 test('timeout option (ESOCKETTIMEDOUT)', async t => {
 	const err = await t.throws(got(`${s.url}`, {
-		timeout: 20,
+		timeout: 40,
 		retries: 0
 	}));
 
@@ -38,7 +38,7 @@ test('timeout option (ESOCKETTIMEDOUT)', async t => {
 
 test('timeout option as object (ETIMEDOUT)', async t => {
 	const err = await t.throws(got(`${s.url}`, {
-		timeout: {socket: 100, request: 0},
+		timeout: {socket: 200, request: 0},
 		retries: 0
 	}));
 
@@ -47,7 +47,7 @@ test('timeout option as object (ETIMEDOUT)', async t => {
 
 test('timeout option as object (ESOCKETTIMEDOUT)', async t => {
 	const err = await t.throws(got(`${s.url}`, {
-		timeout: {socket: 60, request: 20},
+		timeout: {socket: 120, request: 40},
 		retries: 0
 	}));
 
@@ -56,7 +56,7 @@ test('timeout option as object (ESOCKETTIMEDOUT)', async t => {
 
 test('socket timeout', async t => {
 	const err = await t.throws(got(`${s.url}`, {
-		timeout: {socket: 2},
+		timeout: {socket: 4},
 		retries: 0
 	}));
 
@@ -67,7 +67,7 @@ test.todo('connection timeout');
 
 test('request timeout', async t => {
 	const err = await t.throws(got(`${s.url}`, {
-		timeout: {request: 20},
+		timeout: {request: 40},
 		retries: 0
 	}));
 
@@ -78,7 +78,7 @@ test('retries on timeout (ESOCKETTIMEDOUT)', async t => {
 	let tried = false;
 
 	const err = await t.throws(got(`${s.url}`, {
-		timeout: 20,
+		timeout: 40,
 		retries: () => {
 			if (tried) {
 				return 0;
