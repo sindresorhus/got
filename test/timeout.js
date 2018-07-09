@@ -18,18 +18,36 @@ test.before('setup', async () => {
 	await s.listen(s.port);
 });
 
-test('timeout option', async t => {
+test('timeout option (ETIMEDOUT)', async t => {
 	const err = await t.throws(got(`${s.url}/`, {
-		timeout: 1,
+		timeout: 0,
+		retries: 0
+	}));
+
+	t.is(err.code, 'ETIMEDOUT');
+});
+
+test('timeout option (ESOCKETTIMEDOUT)', async t => {
+	const err = await t.throws(got(`${s.url}/`, {
+		timeout: 10,
 		retries: 0
 	}));
 
 	t.is(err.code, 'ESOCKETTIMEDOUT');
 });
 
-test('timeout option as object', async t => {
+test('timeout option as object (ETIMEDOUT)', async t => {
 	const err = await t.throws(got(`${s.url}`, {
-		timeout: {socket: 50, request: 1},
+		timeout: {socket: 50, connection: 50, request: 0},
+		retries: 0
+	}));
+
+	t.is(err.code, 'ETIMEDOUT');
+});
+
+test('timeout option as object (ESOCKETTIMEDOUT)', async t => {
+	const err = await t.throws(got(`${s.url}`, {
+		timeout: {socket: 30, request: 10},
 		retries: 0
 	}));
 
@@ -45,20 +63,22 @@ test('socket timeout', async t => {
 	t.is(err.code, 'ESOCKETTIMEDOUT');
 });
 
-test('connection, request timeout', async t => {
+test.todo('connection timeout');
+
+test('request timeout', async t => {
 	const err = await t.throws(got(`${s.url}`, {
-		timeout: {socket: 50, request: 1},
+		timeout: {request: 10},
 		retries: 0
 	}));
 
 	t.is(err.code, 'ESOCKETTIMEDOUT');
 });
 
-test('retries on timeout, ESOCKETTIMEDOUT', async t => {
+test('retries on timeout (ESOCKETTIMEDOUT)', async t => {
 	let tried = false;
 
 	const err = await t.throws(got(`${s.url}`, {
-		timeout: 1,
+		timeout: 10,
 		retries: () => {
 			if (tried) {
 				return 0;
@@ -73,11 +93,11 @@ test('retries on timeout, ESOCKETTIMEDOUT', async t => {
 	t.is(err.code, 'ESOCKETTIMEDOUT');
 });
 
-test('retries on timeout, ETIMEDOUT', async t => {
+test('retries on timeout (ETIMEDOUT)', async t => {
 	let tried = false;
 
 	const err = await t.throws(got(`${s.url}`, {
-		timeout: 15,
+		timeout: 0,
 		retries: () => {
 			if (tried) {
 				return 0;
@@ -93,7 +113,7 @@ test('retries on timeout, ETIMEDOUT', async t => {
 });
 
 test('timeout with streams', async t => {
-	const stream = got.stream(s.url, {timeout: 1, retries: 0});
+	const stream = got.stream(s.url, {timeout: 0, retries: 0});
 	const err = await t.throws(pEvent(stream, 'response'));
-	t.is(err.code, 'ESOCKETTIMEDOUT');
+	t.is(err.code, 'ETIMEDOUT');
 });

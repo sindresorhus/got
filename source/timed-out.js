@@ -7,7 +7,7 @@ module.exports = function (req, time) {
 		return req;
 	}
 
-	const delays = isNaN(time) ? time : {socket: time, connect: time};
+	const delays = isNaN(time) ? time : {request: time};
 	const host = req._headers ? (' to ' + req._headers.host) : '';
 
 	function throwESOCKETTIMEDOUT() {
@@ -32,10 +32,10 @@ module.exports = function (req, time) {
 		req.requestTimeoutTimer = setTimeout(() => {
 			clear();
 
-			if (req.connection.connecting) {
-				throwESOCKETTIMEDOUT();
-			} else {
+			if (req.connection.connecting || req.connection._connecting) {
 				throwETIMEDOUT();
+			} else {
+				throwESOCKETTIMEDOUT();
 			}
 		}, delays.request);
 	}
