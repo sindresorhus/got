@@ -245,6 +245,8 @@ If this is disabled, requests that encounter an error status code will be resolv
 
 #### Streams
 
+**Note**: Progress events, redirect events and request/response events can also be used with promises.
+
 #### got.stream(url, [options])
 
 Sets `options.stream` to `true`.
@@ -284,8 +286,6 @@ Progress events for uploading (sending request) and downloading (receiving respo
 ```
 
 If it's not possible to retrieve the body size (can happen when streaming), `total` will be `null`.
-
-**Note**: Progress events can also be used with promises.
 
 ```js
 (async () => {
