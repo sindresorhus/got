@@ -1,4 +1,5 @@
 import test from 'ava';
+import pEvent from 'p-event';
 import got from '../source';
 import {createServer} from './helpers/server';
 
@@ -6,7 +7,8 @@ let s;
 let trys = 0;
 let knocks = 0;
 let fifth = 0;
-let lastTried = Date.now();
+const RETRY_AFTER_ON_413 = 2;
+let lastTried413access = Date.now();
 
 test.before('setup', async () => {
 	s = await createServer();
@@ -36,11 +38,11 @@ test.before('setup', async () => {
 
 	s.on('/413', (req, res) => {
 		res.writeHead(413, {
-			'Retry-After': 2
+			'Retry-After': RETRY_AFTER_ON_413
 		});
-		res.end((Date.now() - lastTried).toString());
+		res.end((Date.now() - lastTried413access).toString());
 
-		lastTried = Date.now();
+		lastTried413access = Date.now();
 	});
 
 	await s.listen(s.port);
@@ -62,7 +64,7 @@ test('can be disabled with option', async t => {
 test('function gets iter count', async t => {
 	await got(`${s.url}/fifth`, {
 		timeout: {connect: 500, socket: 500},
-		retries: iter => iter < 10
+		retries: iteration => iteration < 10
 	});
 	t.is(fifth, 6);
 });
@@ -110,12 +112,22 @@ test('custom retries', async t => {
 });
 
 test('respect 413 Retry-After', async t => {
-	const err = await got(`${s.url}/413`, {
+	const {statusCode, body} = await got(`${s.url}/413`, {
 		throwHttpErrors: false,
 		retries: 1
 	});
-	t.is(err.statusCode, 413);
-	t.true(Number(err.body) >= 2000);
+	t.is(statusCode, 413);
+	t.true(Number(body) >= RETRY_AFTER_ON_413 * 1000);
+});
+
+test('doesn\'t retry on streams', async t => {
+	const stream = got.stream(s.url, {
+		timeout: 1,
+		retries: () => {
+			t.fail('Retries on streams');
+		}
+	});
+	await t.throws(pEvent(stream, 'response'));
 });
 
 test.after('cleanup', async () => {

@@ -116,6 +116,8 @@ module.exports = (url, options) => {
 	}
 	delete options.retries;
 
+	options.gotRetries.methods = options.gotRetries.methods.map(method => method.toUpperCase());
+
 	if (!is.function(options.gotRetries.retry)) {
 		const {retry} = options.gotRetries;
 
@@ -130,7 +132,7 @@ module.exports = (url, options) => {
 					return after * 1000;
 				}
 
-				return Math.max((new Date(error.headers['retry-after'])).getTime() - Date.now(), 0);
+				return Math.max(Date.parse(error.headers['retry-after']) - Date.now(), 0);
 			}
 
 			const noise = Math.random() * 100;
