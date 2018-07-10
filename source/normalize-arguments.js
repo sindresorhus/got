@@ -1,9 +1,9 @@
 'use strict';
 const URLSearchParamsGlobal = typeof URLSearchParams === 'undefined' ? require('url').URLSearchParams : URLSearchParams; // TODO: Use the `URL` global when targeting Node.js 10
 const is = require('@sindresorhus/is');
-const isRetryAllowed = require('is-retry-allowed');
 const toReadableStream = require('to-readable-stream');
 const urlParseLax = require('url-parse-lax');
+const isRetryAllowed = require('./is-retry-allowed');
 const urlToOptions = require('./url-to-options');
 const isFormData = require('./is-form-data');
 
@@ -108,21 +108,19 @@ module.exports = (url, options) => {
 		}
 	}
 
-	options.gotRetries = {retry: 0, methods: [], statusCodes: []};
-	if (is.function(options.retries) || is.number(options.retries)) {
-		options.gotRetries.retry = options.retries;
-	} else if (is.object(options.retries)) {
-		options.gotRetries = {...options.gotRetries, ...options.retries};
+	options.gotRetry = {retry: 0, methods: [], statusCodes: []};
+	if (options.retry !== false) {
+		options.gotRetry = {...options.gotRetry, ...options.retry};
 	}
-	delete options.retries;
+	delete options.retry;
 
-	options.gotRetries.methods = options.gotRetries.methods.map(method => method.toUpperCase());
+	options.gotRetry.methods = options.gotRetry.methods.map(method => method.toUpperCase());
 
-	if (!is.function(options.gotRetries.retry)) {
-		const {retry} = options.gotRetries;
+	if (!is.function(options.gotRetry.retries)) {
+		const {retries} = options.gotRetry;
 
-		options.gotRetries.retry = (iter, error) => {
-			if (iter > retry || (!isRetryAllowed(error) && !options.gotRetries.methods.includes(error.method) && !options.gotRetries.statusCodes.includes(error.statusCode))) {
+		options.gotRetry.retries = (iter, error) => {
+			if (iter > retries || (!isRetryAllowed(error) && (!options.gotRetry.methods.includes(error.method) || !options.gotRetry.statusCodes.includes(error.statusCode)))) {
 				return 0;
 			}
 

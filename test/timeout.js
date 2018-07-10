@@ -23,7 +23,9 @@ test('timeout option (ETIMEDOUT)', async t => {
 	await t.throws(
 		got(s.url, {
 			timeout: 0,
-			retries: 0
+			retry: {
+				retries: 0
+			}
 		}),
 		{
 			code: 'ETIMEDOUT'
@@ -35,7 +37,9 @@ test('timeout option (ESOCKETTIMEDOUT)', async t => {
 	await t.throws(
 		got(s.url, {
 			timeout: reqDelay,
-			retries: 0
+			retry: {
+				retries: 0
+			}
 		}),
 		{
 			code: 'ESOCKETTIMEDOUT'
@@ -47,7 +51,9 @@ test('timeout option as object (ETIMEDOUT)', async t => {
 	await t.throws(
 		got(s.url, {
 			timeout: {socket: reqDelay * 2.5, request: 0},
-			retries: 0
+			retry: {
+				retries: 0
+			}
 		}),
 		{
 			code: 'ETIMEDOUT'
@@ -59,7 +65,9 @@ test('timeout option as object (ESOCKETTIMEDOUT)', async t => {
 	await t.throws(
 		got(s.url, {
 			timeout: {socket: reqDelay * 1.5, request: reqDelay},
-			retries: 0
+			retry: {
+				retries: 0
+			}
 		}),
 		{
 			code: 'ESOCKETTIMEDOUT'
@@ -71,7 +79,9 @@ test('socket timeout', async t => {
 	await t.throws(
 		got(s.url, {
 			timeout: {socket: reqDelay / 20},
-			retries: 0
+			retry: {
+				retries: 0
+			}
 		}),
 		{
 			code: 'ESOCKETTIMEDOUT'
@@ -85,7 +95,9 @@ test('request timeout', async t => {
 	await t.throws(
 		got(s.url, {
 			timeout: {request: reqDelay},
-			retries: 0
+			retry: {
+				retries: 0
+			}
 		}),
 		{
 			code: 'ESOCKETTIMEDOUT'
@@ -98,13 +110,15 @@ test('retries on timeout (ESOCKETTIMEDOUT)', async t => {
 
 	await t.throws(got(s.url, {
 		timeout: reqDelay,
-		retries: () => {
-			if (tried) {
-				return 0;
-			}
+		retry: {
+			retries: () => {
+				if (tried) {
+					return 0;
+				}
 
-			tried = true;
-			return 1;
+				tried = true;
+				return 1;
+			}
 		}
 	}), {
 		code: 'ESOCKETTIMEDOUT'
@@ -118,13 +132,15 @@ test('retries on timeout (ETIMEDOUT)', async t => {
 
 	await t.throws(got(s.url, {
 		timeout: 0,
-		retries: () => {
-			if (tried) {
-				return 0;
-			}
+		retry: {
+			retries: () => {
+				if (tried) {
+					return 0;
+				}
 
-			tried = true;
-			return 1;
+				tried = true;
+				return 1;
+			}
 		}
 	}), {code: 'ETIMEDOUT'});
 

@@ -13,5 +13,16 @@ module.exports = (defaults, options = {}) => {
 		}
 	}
 
+	// Override these arrays because we don't want to extend them
+	if (Reflect.has(options, 'retry')) {
+		if (Reflect.has(options.retry, 'methods')) {
+			opts.retry.methods = options.retry.methods;
+		}
+
+		if (Reflect.has(options.retry, 'statusCodes')) {
+			opts.retry.statusCodes = options.retry.statusCodes;
+		}
+	}
+
 	return opts;
 };

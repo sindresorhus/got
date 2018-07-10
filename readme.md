@@ -190,11 +190,11 @@ Milliseconds to wait for the server to end the response before aborting request 
 
 This also accepts an object with separate `connect`, `socket`, and `request` fields for connection, socket, and entire request timeouts.
 
-###### retries
+###### retry
 
-Type: `number` `Function` `Object`<br>
+Type: `Object`<br>
 Default:
-- retry: `2`
+- retries: `2`
 - methods: `GET` `PUT` `HEAD` `DELETE` `OPTIONS` `TRACE`
 - statusCodes: [`408`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/408) [`413`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/413) [`429`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429) [`502`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/502) [`503`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/503) [`504`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/504)
 

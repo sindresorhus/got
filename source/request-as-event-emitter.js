@@ -20,6 +20,7 @@ module.exports = (options = {}) => {
 	const redirects = [];
 	const agents = is.object(options.agent) ? options.agent : null;
 	let retryCount = 0;
+	let retryTries = 0;
 	let redirectUrl;
 	let uploadBodySize;
 	let uploaded = 0;
@@ -56,6 +57,7 @@ module.exports = (options = {}) => {
 
 			const {statusCode} = response;
 
+			response.retryCount = retryCount;
 			response.url = redirectUrl || requestUrl;
 			response.requestUrl = requestUrl;
 
@@ -205,9 +207,10 @@ module.exports = (options = {}) => {
 	};
 
 	emitter.on('retry', (error, cb) => {
-		const backoff = options.gotRetries.retry(++retryCount, error);
+		const backoff = options.gotRetry.retries(++retryTries, error);
 
 		if (backoff) {
+			retryCount++;
 			setTimeout(options => {
 				try {
 					get(options);

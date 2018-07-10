@@ -12,8 +12,8 @@ const defaults = {
 		'delete'
 	],
 	options: {
-		retries: {
-			retry: 2,
+		retry: {
+			retries: 2,
 			methods: ['GET', 'PUT', 'HEAD', 'DELETE', 'OPTIONS', 'TRACE'],
 			statusCodes: [408, 413, 429, 502, 503, 504]
 		},
