@@ -5,7 +5,7 @@ const assignOptions = require('./assign-options');
 const asStream = require('./as-stream');
 const asPromise = require('./as-promise');
 const normalizeArguments = require('./normalize-arguments');
-const deepFreeze = require('./deep-freeze');
+const defineConstProperty = require('./define-const-property');
 
 const next = (path, options) => {
 	let url = path;
@@ -55,13 +55,7 @@ const create = defaults => {
 		got.stream[method] = (url, options) => got.stream(url, {...options, method});
 	}
 
-	Object.assign(got, errors);
-	Object.defineProperty(got, 'defaults', {
-		value: deepFreeze(defaults),
-		writable: false,
-		enumerable: true,
-		configurable: true
-	});
+	defineConstProperty(got, {...errors, defaults, assignOptions});
 
 	return got;
 };
