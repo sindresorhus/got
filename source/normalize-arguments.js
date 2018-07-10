@@ -126,7 +126,7 @@ module.exports = (url, options) => {
 		options.followRedirect = true;
 	}
 
-	if (options.timeout) {
+	if (is.number(options.timeout) || is.object(options.timeout)) {
 		if (is.number(options.timeout)) {
 			options.gotTimeout = {request: options.timeout};
 		} else {

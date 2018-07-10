@@ -7,7 +7,7 @@ module.exports = function (req, time) {
 		return req;
 	}
 
-	const delays = isNaN(time) ? time : {socket: time, connect: time};
+	const delays = isNaN(time) ? time : {request: time};
 	const host = req._headers ? (' to ' + req._headers.host) : '';
 
 	function throwESOCKETTIMEDOUT() {
@@ -33,9 +33,9 @@ module.exports = function (req, time) {
 			clear();
 
 			if (req.connection.connecting) {
-				throwESOCKETTIMEDOUT();
-			} else {
 				throwETIMEDOUT();
+			} else {
+				throwESOCKETTIMEDOUT();
 			}
 		}, delays.request);
 	}
@@ -44,7 +44,7 @@ module.exports = function (req, time) {
 	// request and is connected.
 	req.on('socket', socket => {
 		// Socket may come from Agent pool and may be already connected.
-		if (!(socket.connecting || socket._connecting)) {
+		if (!socket.connecting) {
 			connect();
 			return;
 		}
