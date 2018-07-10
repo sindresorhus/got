@@ -133,10 +133,10 @@ test('retries on timeout (ETIMEDOUT)', async t => {
 
 test('timeout with streams', async t => {
 	const stream = got.stream(s.url, {
-    timeout: 0,
-    retries: () => {
+		timeout: 0,
+		retries: () => {
 			t.fail('Retries on streams');
 		}
-  });
+	});
 	await t.throws(pEvent(stream, 'response'), {code: 'ETIMEDOUT'});
 });
