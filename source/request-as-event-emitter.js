@@ -244,6 +244,7 @@ module.exports = (options = {}) => {
 			if (is.function(options.beforeRequest)) {
 				await options.beforeRequest(options);
 			}
+
 			get(options);
 		} catch (error) {
 			emitter.emit('error', error);
