@@ -1,4 +1,5 @@
 import test from 'ava';
+import delay from 'delay';
 import {createServer} from './helpers/server';
 import got from '..';
 
@@ -47,17 +48,8 @@ test('awaits async function', async t => {
 		{
 			json: true,
 			beforeRequest: async options => {
-				return new Promise(
-					resolve => {
-						setTimeout(
-							() => {
-								options.headers.foo = 'bar';
-								resolve();
-							},
-							100
-						);
-					}
-				);
+				await delay(100);
+				options.headers.foo = 'bar';
 			}
 		}
 	);
