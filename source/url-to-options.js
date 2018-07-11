@@ -8,7 +8,6 @@ module.exports = url => {
 		hash: url.hash,
 		search: url.search,
 		pathname: url.pathname,
-		path: `${url.pathname}${url.search}`,
 		href: url.href
 	};
 
@@ -18,6 +17,12 @@ module.exports = url => {
 
 	if (url.username || url.password) {
 		options.auth = `${url.username}:${url.password}`;
+	}
+
+	if (url.search === null) {
+		options.path = url.pathname;
+	} else {
+		options.path = `${url.pathname}${url.search}`;
 	}
 
 	return options;
