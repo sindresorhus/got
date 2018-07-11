@@ -49,7 +49,9 @@ test.before('setup', async () => {
 	});
 
 	s.on('/413', (req, res) => {
-		res.statusCode = 413;
+		res.writeHead(413, {
+			'Retry-After': RETRY_AFTER_ON_413
+		});
 		res.end();
 	});
 
@@ -172,6 +174,10 @@ test('doesn\'t retry on streams', async t => {
 		}
 	});
 	await t.throws(pEvent(stream, 'response'));
+});
+
+test('throws if Retry-After header is greater than maxRetryAfter', async t => {
+	await t.throws(got(`${s.url}/413`, {retry: {maxRetryAfter: 1000}}), {instanceOf: got.HTTPError});
 });
 
 test.after('cleanup', async () => {

@@ -7,6 +7,8 @@ const isRetryOnNetworkErrorAllowed = require('./is-retry-allowed');
 const urlToOptions = require('./url-to-options');
 const isFormData = require('./is-form-data');
 
+const RetryAfterStatusCodes = new Set([413, 429, 503]);
+
 module.exports = (url, options) => {
 	if (!is.string(url) && !is.object(url)) {
 		throw new TypeError(`Parameter \`url\` must be a string or object, not ${is(url)}`);
@@ -117,6 +119,12 @@ module.exports = (url, options) => {
 	options.gotRetry.methods = new Set(options.gotRetry.methods.map(method => method.toUpperCase()));
 	options.gotRetry.statusCodes = new Set(options.gotRetry.statusCodes);
 
+	if (Reflect.has(options.gotRetry, 'maxRetryAfter')) {
+		options.gotRetry.maxRetryAfter = options.maxRetryAfter;
+	} else {
+		options.gotRetry.maxRetryAfter = Math.min(options.gotRetry.request, options.gotRetry.connection);
+	}
+
 	if (!is.function(options.gotRetry.retries)) {
 		const {retries} = options.gotRetry;
 
@@ -125,13 +133,19 @@ module.exports = (url, options) => {
 				return 0;
 			}
 
-			if (error.statusCode === 413 && Reflect.has(error.headers, 'retry-after')) {
-				const after = Number(error.headers['retry-after']);
+			if (Reflect.has(error, 'headers') && Reflect.has(error.headers, 'retry-after') && RetryAfterStatusCodes.has(error.statusCode)) {
+				let after = Number(error.headers['retry-after']);
 				if (is.number(after)) {
-					return after * 1000;
+					after *= 1000;
+				} else {
+					after = Math.max(Date.parse(error.headers['retry-after']) - Date.now(), 0);
 				}
 
-				return Math.max(Date.parse(error.headers['retry-after']) - Date.now(), 0);
+				if (after > options.gotRetry.maxRetryAfter) {
+					return 0;
+				}
+
+				return after;
 			}
 
 			const noise = Math.random() * 100;
