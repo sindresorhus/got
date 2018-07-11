@@ -635,6 +635,7 @@ got('http://unix:/var/run/docker.sock:/containers/json');
 got('unix:/var/run/docker.sock:/containers/json');
 ```
 
+
 ## AWS
 
 Requests to AWS services need to have their headers signed. This can be accomplished by using the [`aws4`](https://www.npmjs.com/package/aws4) package. This is an example for querying an ["API Gateway"](https://docs.aws.amazon.com/apigateway/api-reference/signing-requests/) with a signed request.
@@ -644,19 +645,21 @@ const AWS = require('aws-sdk');
 const aws4 = require('aws4');
 const got = require('got');
 
-const creds = await new AWS.CredentialProviderChain().resolvePromise();
-// create got instance to use relative paths and sign all request
-const client = got.extend(
+const credentials = await new AWS.CredentialProviderChain().resolvePromise();
+
+// Create a Got instance to use relative paths and signed requests
+const awsClient = got.extend(
 	{
 		baseUrl: 'https://<api-id>.execute-api.<api-region>.amazonaws.com/<stage>/',
 		beforeRequest: async options => {
-			await creds.getPromise()
-			aws4.sign(options, creds)
+			await credentials.getPromise();
+			aws4.sign(options, credentials);
 		}
 	}
 );
-const resp = await client('endpoint/path', {
-	// request-specific options
+
+const response = await awsClient('/endpoint/path', {
+	// Request-specific options
 });
 ```
 
