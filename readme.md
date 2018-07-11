@@ -260,12 +260,12 @@ If this is disabled, requests that encounter an error status code will be resolv
 
 ###### beforeRequest
 
-Type: `function`<br>
+Type: `Function`<br>
 Default: `undefined`
 
-Called with the normalized request options just before the request is sent. This is especially useful in conjunction with `got.create` and `got.extend` when you want to create an API client that uses HMAC signing.
+Called with the normalized request options just before the request is sent. You can modify the object. This is especially useful in conjunction with [`got.extend()`](#instances) and [`got.create()`](advanced-creation.md) when you want to create an API client that uses HMAC-signing.
 
-See the AWS section below for an example.
+See the [AWS section](#aws) for an example.
 
 #### Streams
 
