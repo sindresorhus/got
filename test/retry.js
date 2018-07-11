@@ -54,7 +54,7 @@ test.before('setup', async () => {
 });
 
 test('works on timeout error', async t => {
-	t.is((await got(`${s.url}/knock-twice`, {timeout: {connect: 100, socket: 100}})).body, 'who`s there?');
+	t.is((await got(`${s.url}/knock-twice`, {timeout: {connect: 500, socket: 100}})).body, 'who`s there?');
 });
 
 test('can be disabled with option', async t => {
@@ -80,7 +80,7 @@ test('function gets iter count', async t => {
 
 test('falsy value prevents retries', async t => {
 	const err = await t.throws(got(`${s.url}/long`, {
-		timeout: {connect: 100, socket: 100},
+		timeout: {connect: 500, socket: 100},
 		retry: {
 			retries: () => 0
 		}
@@ -90,7 +90,7 @@ test('falsy value prevents retries', async t => {
 
 test('falsy value prevents retries #2', async t => {
 	const err = await t.throws(got(`${s.url}/long`, {
-		timeout: {connect: 100, socket: 100},
+		timeout: {connect: 500, socket: 100},
 		retry: {
 			retries: (iter, err) => {
 				t.truthy(err);
