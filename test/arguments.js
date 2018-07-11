@@ -97,8 +97,8 @@ test('should not allow stream and JSON option at the same time', async t => {
 });
 
 test('throws TypeError when `url` is passed as an option', async t => {
-	await t.throws(got('', {url: 'example.com'}), {name: 'TypeError'});
-	await t.throws(got({url: 'example.com'}), {name: 'TypeError'});
+	await t.throws(got('', {url: 'example.com'}), {instanceof: TypeError});
+	await t.throws(got({url: 'example.com'}), {instanceof: TypeError});
 });
 
 test.after('cleanup', async () => {
