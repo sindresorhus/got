@@ -65,5 +65,21 @@ module.exports = options => {
 	emitter.on('uploadProgress', proxy.emit.bind(proxy, 'uploadProgress'));
 	emitter.on('downloadProgress', proxy.emit.bind(proxy, 'downloadProgress'));
 
+	const pipe = proxy.pipe.bind(proxy);
+	proxy.pipe = (destination, options) => {
+		// TODO: what if pipe gets called after it receives response?
+		if (Reflect.has(destination, 'setHeader')) {
+			proxy.on('response', response => {
+				for (const [key, value] of Object.entries(response.headers)) {
+					if (key.toLowerCase() !== 'content-encoding') {
+						destination.setHeader(key, value);
+					}
+				}
+			});
+		}
+
+		return pipe(destination, options);
+	};
+
 	return proxy;
 };
