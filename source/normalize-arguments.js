@@ -115,7 +115,7 @@ module.exports = (url, options) => {
 	delete options.retry;
 
 	options.gotRetry.methods = new Set(options.gotRetry.methods.map(method => method.toUpperCase()));
-	options.gotRetry.statusCodes = new Set(options.gotRetry.status);
+	options.gotRetry.statusCodes = new Set(options.gotRetry.statusCodes);
 
 	if (!is.function(options.gotRetry.retries)) {
 		const {retries} = options.gotRetry;
