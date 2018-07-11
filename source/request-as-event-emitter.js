@@ -241,6 +241,9 @@ module.exports = (options = {}) => {
 				options.headers['content-length'] = uploadBodySize;
 			}
 
+			if (is.function(options.finalize)) {
+				await options.finalize(options);
+			}
 			get(options);
 		} catch (error) {
 			emitter.emit('error', error);
