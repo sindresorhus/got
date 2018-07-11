@@ -1,3 +1,5 @@
+import {ClientRequest} from 'http';
+import {Transform} from 'stream';
 import test from 'ava';
 import {createServer} from './helpers/server';
 import got from '..';
@@ -14,14 +16,16 @@ test.before('setup', async () => {
 });
 
 test('should emit request event as promise', async t => {
-	await got(s.url, {json: true}).on('request', () => {
-		t.pass();
+	await got(s.url, {json: true}).on('request', req => {
+		t.true(req instanceof ClientRequest);
 	});
 });
 
 test('should emit response event as promise', async t => {
-	await got(s.url, {json: true}).on('response', () => {
-		t.pass();
+	await got(s.url, {json: true}).on('response', res => {
+		t.true(res instanceof Transform);
+		t.true(res.readable);
+		t.is(res.statusCode, 200);
 	});
 });
 
