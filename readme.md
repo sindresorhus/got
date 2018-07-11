@@ -267,6 +267,8 @@ Called with the normalized request options just before the request is sent. You 
 
 See the [AWS section](#aws) for an example.
 
+**Note**: Modifying the `body` is not recommended because the `content-length` header has already been computed and assigned.
+
 #### Streams
 
 **Note**: Progress events, redirect events and request/response events can also be used with promises.
