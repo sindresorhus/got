@@ -11,7 +11,7 @@ module.exports = url => {
 		href: url.href
 	};
 
-	if (url.port !== '') {
+	if (typeof url.port === 'string' && url.port.length > 0) {
 		options.port = Number(url.port);
 	}
 
