@@ -89,7 +89,26 @@ test('does not concat null search to path', t => {
 		href: 'https://github.com/',
 		path: '/',
 		pathname: '/',
-		port: 0,
+		protocol: 'https:',
+		search: null
+	};
+
+	t.deepEqual(options, expected);
+});
+
+test('does not add null port to options', t => {
+	const exampleURL = 'https://github.com/';
+	const parsedURL = url.parse(exampleURL);
+
+	t.is(parsedURL.port, null);
+
+	const options = urlToOptions(parsedURL);
+	const expected = {
+		hash: null,
+		hostname: 'github.com',
+		href: 'https://github.com/',
+		path: '/',
+		pathname: '/',
 		protocol: 'https:',
 		search: null
 	};
