@@ -3,7 +3,7 @@ const URLSearchParamsGlobal = typeof URLSearchParams === 'undefined' ? require('
 const is = require('@sindresorhus/is');
 const toReadableStream = require('to-readable-stream');
 const urlParseLax = require('url-parse-lax');
-const isRetryAllowed = require('./is-retry-allowed');
+const isRetryOnNetworkErrorAllowed = require('./is-retry-allowed');
 const urlToOptions = require('./url-to-options');
 const isFormData = require('./is-form-data');
 
@@ -114,13 +114,14 @@ module.exports = (url, options) => {
 	}
 	delete options.retry;
 
-	options.gotRetry.methods = options.gotRetry.methods.map(method => method.toUpperCase());
+	options.gotRetry.methods = new Set(options.gotRetry.methods.map(method => method.toUpperCase()));
+	options.gotRetry.statusCodes = new Set(options.gotRetry.status);
 
 	if (!is.function(options.gotRetry.retries)) {
 		const {retries} = options.gotRetry;
 
-		options.gotRetry.retries = (iter, error) => {
-			if (iter > retries || (!isRetryAllowed(error) && (!options.gotRetry.methods.includes(error.method) || !options.gotRetry.statusCodes.includes(error.statusCode)))) {
+		options.gotRetry.retries = (iteration, error) => {
+			if (iteration > retries || (!isRetryOnNetworkErrorAllowed(error) && (!options.gotRetry.methods.has(error.method) || !options.gotRetry.statusCodes.has(error.statusCode)))) {
 				return 0;
 			}
 
@@ -135,7 +136,7 @@ module.exports = (url, options) => {
 
 			const noise = Math.random() * 100;
 
-			return ((1 << iter) * 1000) + noise;
+			return ((1 << iteration) * 1000) + noise;
 		};
 	}
 

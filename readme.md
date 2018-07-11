@@ -198,13 +198,19 @@ Default:
 - methods: `GET` `PUT` `HEAD` `DELETE` `OPTIONS` `TRACE`
 - statusCodes: [`408`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/408) [`413`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/413) [`429`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429) [`502`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/502) [`503`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/503) [`504`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/504)
 
-Number of request retries when network errors happens or receives specified status code and method. Delays between retries counts with function `1000 * Math.pow(2, retry) + Math.random() * 100`, where `retry` is attempt number (starts from 0).
+Object representing `retry`, `methods` and `statusCodes` fields for time until retry, allowed methods, and allowed status codes.
 
-Option accepts `function` with `retry` and `error` arguments. Function must return delay in milliseconds (`0` return value cancels retry).
+Delays between retries counts with function `1000 * Math.pow(2, retry) + Math.random() * 100`, where `retry` is attempt number (starts from 0).
 
-It accepts `object` with optional `retry`, `methods`, `statusCodes` fields for time until retry, allowed methods, and allowed status codes.
+Option `retries` can be a `number`, but also accepts a `function` with `retry` and `error` arguments. Function must return delay in milliseconds (`0` return value cancels retry).
 
-**Note:** if `retries` is `number`, `ENOTFOUND` and `ENETUNREACH` error will not be retried (see full list in [`is-retry-allowed`](https://github.com/floatdrop/is-retry-allowed/blob/master/index.js#L12) module).
+**Note:** if `retries` is a `number`, `ENOTFOUND` and `ENETUNREACH` error will not be retried. Allowed network errors:
+- `ETIMEDOUT`: Connection was not estabilished after a period of time.
+- `ECONNRESET`: Connection was forcibly closed by a peer.
+- `EADDRINUSE`: Could not bind to any free port.
+- `ESOCKETTIMEDOUT`: Connected, but received no response after a period of time.
+- `ECONNREFUSED`: Connection was refused by the server.
+- `EPIPE`: The remote side of the stream being written has been closed.
 
 ###### followRedirect
 

@@ -1,16 +1,16 @@
 'use strict';
 
-const WHITELIST = [
+const WHITELIST = new Set([
 	'ETIMEDOUT',
 	'ECONNRESET',
 	'EADDRINUSE',
 	'ESOCKETTIMEDOUT',
 	'ECONNREFUSED',
 	'EPIPE'
-];
+]);
 
 module.exports = err => {
-	if (err && WHITELIST.includes(err.code)) {
+	if (err && WHITELIST.has(err.code)) {
 		return true;
 	}
 
