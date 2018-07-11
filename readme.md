@@ -258,7 +258,7 @@ Determines if a `got.HTTPError` is thrown for error responses (non-2xx status co
 
 If this is disabled, requests that encounter an error status code will be resolved with the `response` instead of throwing. This may be useful if you are checking for resource availability and are expecting error responses.
 
-###### finalize
+###### beforeRequest
 
 Type: `function`<br>
 Default: `undefined`
@@ -649,7 +649,7 @@ const creds = await new AWS.CredentialProviderChain().resolvePromise();
 const client = got.extend(
 	{
 		baseUrl: 'https://<api-id>.execute-api.<api-region>.amazonaws.com/<stage>/',
-		finalize: async options => {
+		beforeRequest: async options => {
 			await creds.getPromise()
 			aws4.sign(options, creds)
 		}

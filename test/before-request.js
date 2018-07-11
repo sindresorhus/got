@@ -15,12 +15,12 @@ test.before('setup', async () => {
 	await s.listen(s.port);
 });
 
-test('receives finalized options', async t => {
+test('receives normalized options', async t => {
 	await got(
 		s.url,
 		{
 			json: true,
-			finalize: options => {
+			beforeRequest: options => {
 				t.is(options.path, '/');
 				t.is(options.hostname, 'localhost');
 			}
@@ -33,7 +33,7 @@ test('allows modifications', async t => {
 		s.url,
 		{
 			json: true,
-			finalize: options => {
+			beforeRequest: options => {
 				options.headers.foo = 'bar';
 			}
 		}
@@ -46,7 +46,7 @@ test('awaits async function', async t => {
 		s.url,
 		{
 			json: true,
-			finalize: async options => {
+			beforeRequest: async options => {
 				return new Promise(
 					resolve => {
 						setTimeout(
@@ -64,9 +64,9 @@ test('awaits async function', async t => {
 	t.is(res.body.foo, 'bar');
 });
 
-test('rejects when finalize throws', async t => {
+test('rejects when beforeRequest throws', async t => {
 	await t.throws(
-		() => got(s.url, {finalize: () => {
+		() => got(s.url, {beforeRequest: () => {
 			throw new Error('oops');
 		}}),
 		{
@@ -76,9 +76,9 @@ test('rejects when finalize throws', async t => {
 	);
 });
 
-test('rejects when finalize rejects', async t => {
+test('rejects when beforeRequest rejects', async t => {
 	await t.throws(
-		() => got(s.url, {finalize: () => Promise.reject(new Error('oops'))}),
+		() => got(s.url, {beforeRequest: () => Promise.reject(new Error('oops'))}),
 		{
 			instanceOf: Error,
 			message: 'oops'
