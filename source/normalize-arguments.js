@@ -8,6 +8,10 @@ const urlToOptions = require('./url-to-options');
 const isFormData = require('./is-form-data');
 
 module.exports = (url, options) => {
+	if (Reflect.has(options, 'url') || (is.object(url) && Reflect.has(url, 'url'))) {
+		throw new TypeError('Parameter `url` is not an option. Use got(url, options)');
+	}
+
 	if (!is.string(url) && !is.object(url)) {
 		throw new TypeError(`Parameter \`url\` must be a string or object, not ${is(url)}`);
 	} else if (is.string(url)) {
