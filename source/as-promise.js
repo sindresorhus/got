@@ -77,9 +77,11 @@ module.exports = options => {
 		});
 
 		emitter.once('error', reject);
-		emitter.on('redirect', proxy.emit.bind(proxy, 'redirect'));
-		emitter.on('uploadProgress', proxy.emit.bind(proxy, 'uploadProgress'));
-		emitter.on('downloadProgress', proxy.emit.bind(proxy, 'downloadProgress'));
+		[
+			'redirect',
+			'uploadProgress',
+			'downloadProgress'
+		].forEach(event => emitter.on(event, (...args) => proxy.emit(event, ...args)));
 	});
 
 	const promise = cancelable;

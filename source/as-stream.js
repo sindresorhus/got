@@ -60,10 +60,12 @@ module.exports = options => {
 		proxy.emit('response', response);
 	});
 
-	emitter.on('error', proxy.emit.bind(proxy, 'error'));
-	emitter.on('redirect', proxy.emit.bind(proxy, 'redirect'));
-	emitter.on('uploadProgress', proxy.emit.bind(proxy, 'uploadProgress'));
-	emitter.on('downloadProgress', proxy.emit.bind(proxy, 'downloadProgress'));
+	[
+		'error',
+		'redirect',
+		'uploadProgress',
+		'downloadProgress'
+	].forEach(event => emitter.on(event, (...args) => proxy.emit(event, ...args)));
 
 	return proxy;
 };

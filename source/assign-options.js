@@ -8,7 +8,6 @@ module.exports = (defaults, options = {}) => {
 		for (const [key, value] of Object.entries(options.headers)) {
 			if (is.nullOrUndefined(value)) {
 				delete opts.headers[key];
-				continue;
 			}
 		}
 	}
