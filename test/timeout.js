@@ -5,7 +5,7 @@ import got from '../source';
 import {createServer} from './helpers/server';
 
 let s;
-const reqDelay = 80;
+const reqDelay = 160;
 
 test.before('setup', async () => {
 	s = await createServer();

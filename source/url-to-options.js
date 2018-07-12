@@ -1,6 +1,6 @@
 'use strict';
+const is = require('@sindresorhus/is');
 
-// From: https://github.com/nodejs/node/blob/8476053c132fd9613aab547aba165190f8064254/lib/internal/url.js#L1318-L1340
 module.exports = url => {
 	const options = {
 		protocol: url.protocol,
@@ -8,17 +8,18 @@ module.exports = url => {
 		hash: url.hash,
 		search: url.search,
 		pathname: url.pathname,
-		path: `${url.pathname}${url.search}`,
 		href: url.href
 	};
 
-	if (url.port !== '') {
+	if (is.string(url.port) && url.port.length > 0) {
 		options.port = Number(url.port);
 	}
 
 	if (url.username || url.password) {
 		options.auth = `${url.username}:${url.password}`;
 	}
+
+	options.path = is.null(url.search) ? url.pathname : `${url.pathname}${url.search}`;
 
 	return options;
 };
