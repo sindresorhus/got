@@ -110,19 +110,21 @@ module.exports = (url, options) => {
 		}
 	}
 
-	options.gotRetry = {retry: 0, methods: [], statusCodes: []};
+	options.gotRetry = {retries: 0, methods: [], statusCodes: []};
 	if (options.retry !== false) {
 		options.gotRetry = {...options.gotRetry, ...options.retry};
+		delete options.retry;
 	}
-	delete options.retry;
 
 	options.gotRetry.methods = new Set(options.gotRetry.methods.map(method => method.toUpperCase()));
 	options.gotRetry.statusCodes = new Set(options.gotRetry.statusCodes);
 
-	if (Reflect.has(options.gotRetry, 'maxRetryAfter')) {
-		options.gotRetry.maxRetryAfter = options.maxRetryAfter;
-	} else {
-		options.gotRetry.maxRetryAfter = Math.min(options.gotRetry.request, options.gotRetry.connection);
+	if (!options.gotRetry.maxRetryAfter && Reflect.has(options, 'timeout')) {
+		if (is.number(options.timeout)) {
+			options.gotRetry.maxRetryAfter = options.timeout;
+		} else {
+			options.gotRetry.maxRetryAfter = Math.min(...[options.timeout.request, options.timeout.connection].filter(n => !is.nullOrUndefined(n)));
+		}
 	}
 
 	if (!is.function(options.gotRetry.retries)) {
@@ -146,6 +148,10 @@ module.exports = (url, options) => {
 				}
 
 				return after;
+			}
+
+			if (error.statusCode === 413) {
+				return 0;
 			}
 
 			const noise = Math.random() * 100;

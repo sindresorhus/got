@@ -201,7 +201,7 @@ Default:
 
 Object representing `retries`, `methods`, `statusCodes` and `maxRetryAfter` fields for time until retry, allowed methods, allowed status codes and maximum [`Retry-After`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Retry-After) time.
 
-If `maxRetryAfter` is set to undefined, it will use `options.timeout`.<br>
+If `maxRetryAfter` is set to `undefined`, it will use `options.timeout`.<br>
 If [`Retry-After`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Retry-After) header is greater than `maxRetryAfter`, it will cancel the request.
 
 Delays between retries counts with function `1000 * Math.pow(2, retry) + Math.random() * 100`, where `retry` is attempt number (starts from 0).

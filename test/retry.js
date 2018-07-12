@@ -55,6 +55,16 @@ test.before('setup', async () => {
 		res.end();
 	});
 
+	s.on('/413withoutRetryAfter', (req, res) => {
+		res.statusCode = 413;
+		res.end();
+	});
+
+	s.on('/503', (req, res) => {
+		res.statusCode = 503;
+		res.end();
+	});
+
 	await s.listen(s.port);
 });
 
@@ -166,6 +176,23 @@ test('doesn\'t retry on 413 with empty methods', async t => {
 	t.is(retryCount, 0);
 });
 
+test('doesn\'t retry on 413 without Retry-After header', async t => {
+	const {retryCount} = await got(`${s.url}/413withoutRetryAfter`, {
+		throwHttpErrors: false
+	});
+	t.is(retryCount, 0);
+});
+
+test('retries on 503 without Retry-After header', async t => {
+	const {retryCount} = await got(`${s.url}/503`, {
+		throwHttpErrors: false,
+		retry: {
+			retries: 1
+		}
+	});
+	t.is(retryCount, 1);
+});
+
 test('doesn\'t retry on streams', async t => {
 	const stream = got.stream(s.url, {
 		timeout: 1,
@@ -176,8 +203,12 @@ test('doesn\'t retry on streams', async t => {
 	await t.throws(pEvent(stream, 'response'));
 });
 
-test('throws if Retry-After header is greater than maxRetryAfter', async t => {
-	await t.throws(got(`${s.url}/413`, {retry: {maxRetryAfter: 1000}}), {instanceOf: got.HTTPError});
+test('doesn\'t retry if Retry-After header is greater than maxRetryAfter', async t => {
+	const {retryCount} = await got(`${s.url}/413`, {
+		retry: {maxRetryAfter: 1000},
+		throwHttpErrors: false
+	});
+	t.is(retryCount, 0);
 });
 
 test.after('cleanup', async () => {
