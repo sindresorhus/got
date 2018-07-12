@@ -1,7 +1,6 @@
 'use strict';
 const is = require('@sindresorhus/is');
 
-// From: https://github.com/nodejs/node/blob/8476053c132fd9613aab547aba165190f8064254/lib/internal/url.js#L1318-L1340
 module.exports = url => {
 	const options = {
 		protocol: url.protocol,
