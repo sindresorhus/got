@@ -19,11 +19,7 @@ module.exports = url => {
 		options.auth = `${url.username}:${url.password}`;
 	}
 
-	if (is.null(url.search)) {
-		options.path = url.pathname;
-	} else {
-		options.path = `${url.pathname}${url.search}`;
-	}
+	options.path = is.null(url.search) ? url.pathname : `${url.pathname}${url.search}`;
 
 	return options;
 };
