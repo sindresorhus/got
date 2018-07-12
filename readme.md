@@ -258,10 +258,17 @@ Determines if a `got.HTTPError` is thrown for error responses (non-2xx status co
 
 If this is disabled, requests that encounter an error status code will be resolved with the `response` instead of throwing. This may be useful if you are checking for resource availability and are expecting error responses.
 
-###### beforeRequest
+###### hooks
 
-Type: `Function`<br>
-Default: `undefined`
+Type: `Object<string, Array<Function>`<br>
+Default: `{ beforeRequest: [] }`
+
+Hooks allow modifications during the request lifecycle. Hook functions may be async and are run serially.
+
+###### hooks.beforeRequest
+
+Type: `Array<Function>`<br>
+Default: `[]`
 
 Called with the normalized request options just before the request is sent. You can modify the object. This is especially useful in conjunction with [`got.extend()`](#instances) and [`got.create()`](advanced-creation.md) when you want to create an API client that uses HMAC-signing.
 

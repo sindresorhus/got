@@ -241,8 +241,9 @@ module.exports = (options = {}) => {
 				options.headers['content-length'] = uploadBodySize;
 			}
 
-			if (is.function(options.beforeRequest)) {
-				await options.beforeRequest(options);
+			for (const hook of options.hooks.beforeRequest) {
+				// eslint-disable-next-line no-await-in-loop
+				await hook(options);
 			}
 
 			get(options);
