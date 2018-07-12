@@ -3,11 +3,11 @@ const URLSearchParamsGlobal = typeof URLSearchParams === 'undefined' ? require('
 const is = require('@sindresorhus/is');
 const toReadableStream = require('to-readable-stream');
 const urlParseLax = require('url-parse-lax');
-const isRetryOnNetworkErrorAllowed = require('./is-retry-allowed');
+const isRetryOnNetworkErrorAllowed = require('./is-retry-on-network-error-allowed');
 const urlToOptions = require('./url-to-options');
 const isFormData = require('./is-form-data');
 
-const RetryAfterStatusCodes = new Set([413, 429, 503]);
+const RETRY_AFTER_STATUS_CODES = new Set([413, 429, 503]);
 
 module.exports = (url, options) => {
 	if (!is.string(url) && !is.object(url)) {
@@ -133,7 +133,7 @@ module.exports = (url, options) => {
 				return 0;
 			}
 
-			if (Reflect.has(error, 'headers') && Reflect.has(error.headers, 'retry-after') && RetryAfterStatusCodes.has(error.statusCode)) {
+			if (Reflect.has(error, 'headers') && Reflect.has(error.headers, 'retry-after') && RETRY_AFTER_STATUS_CODES.has(error.statusCode)) {
 				let after = Number(error.headers['retry-after']);
 				if (is.number(after)) {
 					after *= 1000;
