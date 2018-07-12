@@ -2,9 +2,8 @@ import url from 'url';
 import test from 'ava';
 import urlToOptions from '../source/url-to-options';
 
-const exampleURL = 'https://user:password@github.com:443/say?hello=world#bang';
-
 test('converts node legacy URL to options', t => {
+	const exampleURL = 'https://user:password@github.com:443/say?hello=world#bang';
 	const parsedURL = url.parse(exampleURL);
 	const options = urlToOptions(parsedURL);
 	const expected = {
@@ -22,6 +21,7 @@ test('converts node legacy URL to options', t => {
 });
 
 test('converts URL to options', t => {
+	const exampleURL = 'https://user:password@github.com:443/say?hello=world#bang';
 	// TODO: Use the `URL` global when targeting Node.js 10
 	const parsedURL = new url.URL(exampleURL);
 	const options = urlToOptions(parsedURL);
@@ -73,4 +73,44 @@ test('only adds port to options for URLs with ports', t => {
 
 	t.deepEqual(options, expected);
 	t.false(Reflect.has(options, 'port'));
+});
+
+test('does not concat null search to path', t => {
+	const exampleURL = 'https://github.com/';
+	const parsedURL = url.parse(exampleURL);
+
+	t.is(parsedURL.search, null);
+
+	const options = urlToOptions(parsedURL);
+	const expected = {
+		hash: null,
+		hostname: 'github.com',
+		href: 'https://github.com/',
+		path: '/',
+		pathname: '/',
+		protocol: 'https:',
+		search: null
+	};
+
+	t.deepEqual(options, expected);
+});
+
+test('does not add null port to options', t => {
+	const exampleURL = 'https://github.com/';
+	const parsedURL = url.parse(exampleURL);
+
+	t.is(parsedURL.port, null);
+
+	const options = urlToOptions(parsedURL);
+	const expected = {
+		hash: null,
+		hostname: 'github.com',
+		href: 'https://github.com/',
+		path: '/',
+		pathname: '/',
+		protocol: 'https:',
+		search: null
+	};
+
+	t.deepEqual(options, expected);
 });
