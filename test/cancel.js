@@ -42,8 +42,10 @@ test('cancel do not retry after cancelation', async t => {
 	const helper = await createAbortServer();
 
 	const p = got(helper.redirectUrl, {
-		retries: _ => {
-			t.fail('Makes a new try after cancelation');
+		retry: {
+			retries: _ => {
+				t.fail('Makes a new try after cancelation');
+			}
 		}
 	});
 

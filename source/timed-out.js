@@ -2,12 +2,11 @@
 
 // Forked from https://github.com/floatdrop/timed-out
 
-module.exports = function (req, time) {
+module.exports = function (req, delays) {
 	if (req.timeoutTimer) {
 		return req;
 	}
 
-	const delays = isNaN(time) ? time : {request: time};
 	const host = req._headers ? (' to ' + req._headers.host) : '';
 
 	function throwESOCKETTIMEDOUT() {

@@ -1,13 +1,15 @@
 'use strict';
 const URLSearchParamsGlobal = typeof URLSearchParams === 'undefined' ? require('url').URLSearchParams : URLSearchParams; // TODO: Use the `URL` global when targeting Node.js 10
 const is = require('@sindresorhus/is');
-const isRetryAllowed = require('is-retry-allowed');
 const toReadableStream = require('to-readable-stream');
 const urlParseLax = require('url-parse-lax');
+const isRetryOnNetworkErrorAllowed = require('./is-retry-on-network-error-allowed');
 const urlToOptions = require('./url-to-options');
 const isFormData = require('./is-form-data');
 
-module.exports = (url, options) => {
+const RETRY_AFTER_STATUS_CODES = new Set([413, 429, 503]);
+
+module.exports = (url, options, defaults) => {
 	if (Reflect.has(options, 'url') || (is.object(url) && Reflect.has(url, 'url'))) {
 		throw new TypeError('Parameter `url` is not an option. Use got(url, options)');
 	}
@@ -112,17 +114,61 @@ module.exports = (url, options) => {
 		}
 	}
 
-	if (!is.function(options.retries)) {
-		const {retries} = options;
+	options.gotRetry = {retries: 0, methods: [], statusCodes: []};
+	if (options.retry !== false) {
+		if (is.number(options.retry)) {
+			if (is.object(defaults.options.retry)) {
+				options.gotRetry = {...defaults.options.retry, retries: options.retry};
+			} else {
+				options.gotRetry.retries = options.retry;
+			}
+		} else {
+			options.gotRetry = {...options.gotRetry, ...options.retry};
+		}
+		delete options.retry;
+	}
 
-		options.retries = (iter, error) => {
-			if (iter > retries || !isRetryAllowed(error)) {
+	options.gotRetry.methods = new Set(options.gotRetry.methods.map(method => method.toUpperCase()));
+	options.gotRetry.statusCodes = new Set(options.gotRetry.statusCodes);
+
+	if (!options.gotRetry.maxRetryAfter && Reflect.has(options, 'timeout')) {
+		if (is.number(options.timeout)) {
+			options.gotRetry.maxRetryAfter = options.timeout;
+		} else {
+			options.gotRetry.maxRetryAfter = Math.min(...[options.timeout.request, options.timeout.connection].filter(n => !is.nullOrUndefined(n)));
+		}
+	}
+
+	if (!is.function(options.gotRetry.retries)) {
+		const {retries} = options.gotRetry;
+
+		options.gotRetry.retries = (iteration, error) => {
+			if (iteration > retries || (!isRetryOnNetworkErrorAllowed(error) && (!options.gotRetry.methods.has(error.method) || !options.gotRetry.statusCodes.has(error.statusCode)))) {
+				return 0;
+			}
+
+			if (Reflect.has(error, 'headers') && Reflect.has(error.headers, 'retry-after') && RETRY_AFTER_STATUS_CODES.has(error.statusCode)) {
+				let after = Number(error.headers['retry-after']);
+				if (is.number(after)) {
+					after *= 1000;
+				} else {
+					after = Math.max(Date.parse(error.headers['retry-after']) - Date.now(), 0);
+				}
+
+				if (after > options.gotRetry.maxRetryAfter) {
+					return 0;
+				}
+
+				return after;
+			}
+
+			if (error.statusCode === 413) {
 				return 0;
 			}
 
 			const noise = Math.random() * 100;
 
-			return ((1 << iter) * 1000) + noise;
+			return ((1 << iteration) * 1000) + noise;
 		};
 	}
 

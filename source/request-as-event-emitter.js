@@ -20,6 +20,7 @@ module.exports = (options = {}) => {
 	const redirects = [];
 	const agents = is.object(options.agent) ? options.agent : null;
 	let retryCount = 0;
+	let retryTries = 0;
 	let redirectUrl;
 	let uploadBodySize;
 	let uploaded = 0;
@@ -56,6 +57,7 @@ module.exports = (options = {}) => {
 
 			const {statusCode} = response;
 
+			response.retryCount = retryCount;
 			response.url = redirectUrl || requestUrl;
 			response.requestUrl = requestUrl;
 
@@ -131,20 +133,12 @@ module.exports = (options = {}) => {
 					return;
 				}
 
-				const backoff = options.retries(++retryCount, error);
-
-				if (backoff) {
-					setTimeout(options => {
-						try {
-							get(options);
-						} catch (error2) {
-							emitter.emit('error', error2);
-						}
-					}, backoff, options);
-					return;
-				}
-
-				emitter.emit('error', new RequestError(error, options));
+				const err = new RequestError(error, options);
+				emitter.emit('retry', err, retried => {
+					if (!retried) {
+						emitter.emit('error', err);
+					}
+				});
 			});
 
 			emitter.once('request', req => {
@@ -211,6 +205,25 @@ module.exports = (options = {}) => {
 			});
 		});
 	};
+
+	emitter.on('retry', (error, cb) => {
+		const backoff = options.gotRetry.retries(++retryTries, error);
+
+		if (backoff) {
+			retryCount++;
+			setTimeout(options => {
+				try {
+					get(options);
+				} catch (error2) {
+					emitter.emit('error', error2);
+				}
+			}, backoff, options);
+			cb(true);
+			return;
+		}
+
+		cb(false);
+	});
 
 	setImmediate(async () => {
 		try {

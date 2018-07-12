@@ -75,12 +75,12 @@ test('have response event', async t => {
 });
 
 test('have error event', async t => {
-	const stream = got.stream(`${s.url}/error`, {retries: 0});
+	const stream = got.stream(`${s.url}/error`, {retry: 0});
 	await t.throws(pEvent(stream, 'response'), /Response code 404 \(Not Found\)/);
 });
 
 test('have error event #2', async t => {
-	const stream = got.stream('.com', {retries: 0});
+	const stream = got.stream('.com', {retry: 0});
 	await t.throws(pEvent(stream, 'response'), /getaddrinfo ENOTFOUND/);
 });
 

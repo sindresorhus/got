@@ -25,7 +25,7 @@ test('promise mode', async t => {
 	const err = await t.throws(got.get(`${s.url}/404`));
 	t.is(err.response.body, 'not found');
 
-	const err2 = await t.throws(got.get('.com', {retries: 0}));
+	const err2 = await t.throws(got.get('.com', {retry: 0}));
 	t.truthy(err2);
 });
 

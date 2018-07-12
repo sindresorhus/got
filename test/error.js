@@ -45,7 +45,7 @@ test('properties', async t => {
 });
 
 test('dns message', async t => {
-	const err = await t.throws(got('.com', {retries: 0}));
+	const err = await t.throws(got('.com', {retry: 0}));
 	t.truthy(err);
 	t.regex(err.message, /getaddrinfo ENOTFOUND/);
 	t.is(err.host, '.com');

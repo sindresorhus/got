@@ -10,6 +10,8 @@ module.exports = options => {
 	const output = new PassThrough();
 	const proxy = duplexer3(input, output);
 
+	options.gotRetry.retries = () => 0;
+
 	if (options.json) {
 		throw new Error('Got can not be used as a stream when the `json` option is used');
 	}
