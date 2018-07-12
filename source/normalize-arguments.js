@@ -10,6 +10,10 @@ const isFormData = require('./is-form-data');
 const RETRY_AFTER_STATUS_CODES = new Set([413, 429, 503]);
 
 module.exports = (url, options, defaults) => {
+	if (Reflect.has(options, 'url') || (is.object(url) && Reflect.has(url, 'url'))) {	
+		throw new TypeError('Parameter `url` is not an option. Use got(url, options)');	
+	}	
+	
 	if (!is.string(url) && !is.object(url)) {
 		throw new TypeError(`Parameter \`url\` must be a string or object, not ${is(url)}`);
 	} else if (is.string(url)) {
