@@ -9,7 +9,7 @@ const isFormData = require('./is-form-data');
 
 const RETRY_AFTER_STATUS_CODES = new Set([413, 429, 503]);
 
-module.exports = (url, options) => {
+module.exports = (url, options, defaults) => {
 	if (!is.string(url) && !is.object(url)) {
 		throw new TypeError(`Parameter \`url\` must be a string or object, not ${is(url)}`);
 	} else if (is.string(url)) {
@@ -112,7 +112,15 @@ module.exports = (url, options) => {
 
 	options.gotRetry = {retries: 0, methods: [], statusCodes: []};
 	if (options.retry !== false) {
-		options.gotRetry = {...options.gotRetry, ...options.retry};
+		if (is.number(options.retry)) {
+			if (is.object(defaults.options.retry)) {
+				options.gotRetry = {...defaults.options.retry, retries: options.retry};
+			} else {
+				options.gotRetry.retries = options.retry;
+			}
+		} else {
+			options.gotRetry = {...options.gotRetry, ...options.retry};
+		}
 		delete options.retry;
 	}
 

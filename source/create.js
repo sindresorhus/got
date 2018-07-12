@@ -7,14 +7,14 @@ const asPromise = require('./as-promise');
 const normalizeArguments = require('./normalize-arguments');
 const deepFreeze = require('./deep-freeze');
 
-const next = (path, options) => {
+const makeNext = defaults => (path, options) => {
 	let url = path;
 
 	if (options.baseUrl) {
 		url = new URLGlobal(path, options.baseUrl);
 	}
 
-	options = normalizeArguments(url, options);
+	options = normalizeArguments(url, options, defaults);
 
 	if (options.stream) {
 		return asStream(options);
@@ -24,6 +24,7 @@ const next = (path, options) => {
 };
 
 const create = defaults => {
+	const next = makeNext(defaults);
 	if (!defaults.handler) {
 		defaults.handler = next;
 	}

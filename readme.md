@@ -192,7 +192,7 @@ This also accepts an object with separate `connect`, `socket`, and `request` fie
 
 ###### retry
 
-Type: `Object`<br>
+Type: `number` `Object`<br>
 Default:
 - retries: `2`
 - methods: `GET` `PUT` `HEAD` `DELETE` `OPTIONS` `TRACE`

@@ -75,9 +75,7 @@ test('works on timeout error', async t => {
 test('can be disabled with option', async t => {
 	const err = await t.throws(got(`${s.url}/try-me`, {
 		timeout: {connect: CONNECT_TIMEOUT, socket: SOCKET_TIMEOUT},
-		retry: {
-			retries: 0
-		}
+		retry: 0
 	}));
 	t.truthy(err);
 	t.is(trys, 1);
@@ -142,9 +140,7 @@ test('custom retries', async t => {
 test('respect 413 Retry-After', async t => {
 	const {statusCode, body} = await got(`${s.url}/measure413`, {
 		throwHttpErrors: false,
-		retry: {
-			retries: 1
-		}
+		retry: 1
 	});
 	t.is(statusCode, 413);
 	t.true(Number(body) >= RETRY_AFTER_ON_413 * 1000);
@@ -186,9 +182,7 @@ test('doesn\'t retry on 413 without Retry-After header', async t => {
 test('retries on 503 without Retry-After header', async t => {
 	const {retryCount} = await got(`${s.url}/503`, {
 		throwHttpErrors: false,
-		retry: {
-			retries: 1
-		}
+		retry: 1
 	});
 	t.is(retryCount, 1);
 });
