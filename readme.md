@@ -671,7 +671,7 @@ const awsClient = got.extend(
 	}
 );
 
-const response = await awsClient('/endpoint/path', {
+const response = await awsClient('endpoint/path', {
 	// Request-specific options
 });
 ```
