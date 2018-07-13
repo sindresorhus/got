@@ -9,9 +9,9 @@ let knocks = 0;
 let fifth = 0;
 let lastTried413access = Date.now();
 
-const RETRY_AFTER_ON_413 = 2;
-const CONNECT_TIMEOUT = 500;
-const SOCKET_TIMEOUT = 100;
+const retryAfterOn413 = 2;
+const connectTimeout = 500;
+const socketTimeout = 100;
 
 test.before('setup', async () => {
 	s = await createServer();
@@ -41,7 +41,7 @@ test.before('setup', async () => {
 
 	s.on('/measure413', (req, res) => {
 		res.writeHead(413, {
-			'Retry-After': RETRY_AFTER_ON_413
+			'Retry-After': retryAfterOn413
 		});
 		res.end((Date.now() - lastTried413access).toString());
 
@@ -50,7 +50,7 @@ test.before('setup', async () => {
 
 	s.on('/413', (req, res) => {
 		res.writeHead(413, {
-			'Retry-After': RETRY_AFTER_ON_413
+			'Retry-After': retryAfterOn413
 		});
 		res.end();
 	});
@@ -69,12 +69,12 @@ test.before('setup', async () => {
 });
 
 test('works on timeout error', async t => {
-	t.is((await got(`${s.url}/knock-twice`, {timeout: {connect: CONNECT_TIMEOUT, socket: SOCKET_TIMEOUT}})).body, 'who`s there?');
+	t.is((await got(`${s.url}/knock-twice`, {timeout: {connect: connectTimeout, socket: socketTimeout}})).body, 'who`s there?');
 });
 
 test('can be disabled with option', async t => {
 	const err = await t.throws(got(`${s.url}/try-me`, {
-		timeout: {connect: CONNECT_TIMEOUT, socket: SOCKET_TIMEOUT},
+		timeout: {connect: connectTimeout, socket: socketTimeout},
 		retry: 0
 	}));
 	t.truthy(err);
@@ -83,7 +83,7 @@ test('can be disabled with option', async t => {
 
 test('function gets iter count', async t => {
 	await got(`${s.url}/fifth`, {
-		timeout: {connect: CONNECT_TIMEOUT, socket: SOCKET_TIMEOUT},
+		timeout: {connect: connectTimeout, socket: socketTimeout},
 		retry: {
 			retries: iteration => iteration < 10
 		}
@@ -93,7 +93,7 @@ test('function gets iter count', async t => {
 
 test('falsy value prevents retries', async t => {
 	const err = await t.throws(got(`${s.url}/long`, {
-		timeout: {connect: CONNECT_TIMEOUT, socket: SOCKET_TIMEOUT},
+		timeout: {connect: connectTimeout, socket: socketTimeout},
 		retry: {
 			retries: () => 0
 		}
@@ -103,7 +103,7 @@ test('falsy value prevents retries', async t => {
 
 test('falsy value prevents retries #2', async t => {
 	const err = await t.throws(got(`${s.url}/long`, {
-		timeout: {connect: CONNECT_TIMEOUT, socket: SOCKET_TIMEOUT},
+		timeout: {connect: connectTimeout, socket: socketTimeout},
 		retry: {
 			retries: (iter, err) => {
 				t.truthy(err);
@@ -143,7 +143,7 @@ test('respect 413 Retry-After', async t => {
 		retry: 1
 	});
 	t.is(statusCode, 413);
-	t.true(Number(body) >= RETRY_AFTER_ON_413 * 1000);
+	t.true(Number(body) >= retryAfterOn413 * 1000);
 });
 
 test('doesn\'t retry on 413 with empty statusCodes and methods', async t => {
