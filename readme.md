@@ -270,7 +270,7 @@ Hooks allow modifications during the request lifecycle. Hook functions may be as
 Type: `Array<Function>`<br>
 Default: `[]`
 
-Called with the normalized request options just before the request is sent. Got will make no further changes to the request before it is sent. This is especially useful in conjunction with [`got.extend()`](#instances) and [`got.create()`](advanced-creation.md) when you want to create an API client that uses HMAC-signing.
+Called with the normalized request options. Got will make no further changes to the request before it is sent. This is especially useful in conjunction with [`got.extend()`](#instances) and [`got.create()`](advanced-creation.md) when you want to create an API client that uses HMAC-signing.
 
 See the [AWS section](#aws) for an example.
 
