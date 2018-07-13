@@ -260,7 +260,7 @@ If this is disabled, requests that encounter an error status code will be resolv
 
 ###### hooks
 
-Type: `Object<string, Array<Function>`<br>
+Type: `Object<string, Array<Function>>`<br>
 Default: `{ beforeRequest: [] }`
 
 Hooks allow modifications during the request lifecycle. Hook functions may be async and are run serially.
@@ -660,9 +660,13 @@ const credentials = await new AWS.CredentialProviderChain().resolvePromise();
 const awsClient = got.extend(
 	{
 		baseUrl: 'https://<api-id>.execute-api.<api-region>.amazonaws.com/<stage>/',
-		beforeRequest: async options => {
-			await credentials.getPromise();
-			aws4.sign(options, credentials);
+		hooks: {
+			beforeRequest: [
+				async options => {
+					await credentials.getPromise();
+					aws4.sign(options, credentials);
+				}
+			]
 		}
 	}
 );
