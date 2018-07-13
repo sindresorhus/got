@@ -7,7 +7,7 @@ const isRetryOnNetworkErrorAllowed = require('./is-retry-on-network-error-allowe
 const urlToOptions = require('./url-to-options');
 const isFormData = require('./is-form-data');
 
-const RETRY_AFTER_STATUS_CODES = new Set([413, 429, 503]);
+const retryAfterStatusCodes = new Set([413, 429, 503]);
 
 module.exports = (url, options, defaults) => {
 	if (Reflect.has(options, 'url') || (is.object(url) && Reflect.has(url, 'url'))) {
@@ -147,7 +147,7 @@ module.exports = (url, options, defaults) => {
 				return 0;
 			}
 
-			if (Reflect.has(error, 'headers') && Reflect.has(error.headers, 'retry-after') && RETRY_AFTER_STATUS_CODES.has(error.statusCode)) {
+			if (Reflect.has(error, 'headers') && Reflect.has(error.headers, 'retry-after') && retryAfterStatusCodes.has(error.statusCode)) {
 				let after = Number(error.headers['retry-after']);
 				if (is.number(after)) {
 					after *= 1000;
