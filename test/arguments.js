@@ -101,6 +101,40 @@ test('throws TypeError when `url` is passed as an option', async t => {
 	await t.throws(got({url: 'example.com'}), {instanceOf: TypeError});
 });
 
+test('throws TypeError when `hooks` is not an object', async t => {
+	await t.throws(
+		() => got(s.url, {hooks: 'not object'}),
+		{
+			instanceOf: TypeError,
+			message: 'Parameter `hooks` must be an object, not string'
+		}
+	);
+});
+
+test('throws TypeError when known `hooks` value is not an array', async t => {
+	await t.throws(
+		() => got(s.url, {hooks: {beforeRequest: {}}}),
+		{
+			instanceOf: TypeError,
+			message: 'Parameter `hooks.beforeRequest` must be an array, not Object'
+		}
+	);
+});
+
+test('throws TypeError when known `hooks` array item is not a function', async t => {
+	await t.throws(
+		() => got(s.url, {hooks: {beforeRequest: [{}]}}),
+		{
+			instanceOf: TypeError,
+			message: 'Parameter `hooks.beforeRequest[0]` must be a function, not Object'
+		}
+	);
+});
+
+test('allows extra keys in `hooks`', async t => {
+	await t.notThrows(() => got(`${s.url}/test`, {hooks: {extra: {}}}));
+});
+
 test.after('cleanup', async () => {
 	await s.close();
 });

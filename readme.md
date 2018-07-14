@@ -258,6 +258,24 @@ Determines if a `got.HTTPError` is thrown for error responses (non-2xx status co
 
 If this is disabled, requests that encounter an error status code will be resolved with the `response` instead of throwing. This may be useful if you are checking for resource availability and are expecting error responses.
 
+###### hooks
+
+Type: `Object<string, Array<Function>>`<br>
+Default: `{ beforeRequest: [] }`
+
+Hooks allow modifications during the request lifecycle. Hook functions may be async and are run serially.
+
+###### hooks.beforeRequest
+
+Type: `Array<Function>`<br>
+Default: `[]`
+
+Called with the normalized request options. Got will make no further changes to the request before it is sent. This is especially useful in conjunction with [`got.extend()`](#instances) and [`got.create()`](advanced-creation.md) when you want to create an API client that uses HMAC-signing.
+
+See the [AWS section](#aws) for an example.
+
+**Note**: Modifying the `body` is not recommended because the `content-length` header has already been computed and assigned.
+
 #### Streams
 
 **Note**: Progress events, redirect events and request/response events can also be used with promises.
@@ -626,47 +644,35 @@ got('http://unix:/var/run/docker.sock:/containers/json');
 got('unix:/var/run/docker.sock:/containers/json');
 ```
 
+
 ## AWS
 
-Requests to AWS services need to have their headers signed. This can be accomplished by using the [`aws4`](https://www.npmjs.com/package/aws4) package. This is an example for querying an ["Elasticsearch Service"](https://aws.amazon.com/elasticsearch-service/) host with a signed request.
+Requests to AWS services need to have their headers signed. This can be accomplished by using the [`aws4`](https://www.npmjs.com/package/aws4) package. This is an example for querying an ["API Gateway"](https://docs.aws.amazon.com/apigateway/api-reference/signing-requests/) with a signed request.
 
 ```js
-const url = require('url');
 const AWS = require('aws-sdk');
 const aws4 = require('aws4');
 const got = require('got');
-const config = require('./config');
 
-// Reads keys from the environment or `~/.aws/credentials`. Could be a plain object.
-const awsConfig = new AWS.Config({ region: config.region });
+const credentials = await new AWS.CredentialProviderChain().resolvePromise();
 
-function request(url, options) {
-	const awsOpts = {
-		region: awsConfig.region,
-		headers: {
-			accept: 'application/json',
-			'content-type': 'application/json'
-		},
-		method: 'GET',
-		json: true
-	};
+// Create a Got instance to use relative paths and signed requests
+const awsClient = got.extend(
+	{
+		baseUrl: 'https://<api-id>.execute-api.<api-region>.amazonaws.com/<stage>/',
+		hooks: {
+			beforeRequest: [
+				async options => {
+					await credentials.getPromise();
+					aws4.sign(options, credentials);
+				}
+			]
+		}
+	}
+);
 
-	// We need to parse the URL before passing it to `got` so `aws4` can sign the request
-	options = {
-		...url.parse(url),
-		...awsOpts,
-		...options
-	};
-
-	aws4.sign(options, awsConfig.credentials);
-
-	return got(options);
-}
-
-request(`https://${config.host}/production/users/1`);
-
-request(`https://${config.host}/production/`, {
-	// All usual `got` options
+const response = await awsClient('endpoint/path', {
+	// Request-specific options
 });
 ```
 
