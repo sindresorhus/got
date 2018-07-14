@@ -26,6 +26,15 @@ test.before('setup', async () => {
 		res.end('body');
 	});
 
+	s.on('/body', (req, res) => {
+		const body = [];
+		req.on('data', chunk => {
+			body.push(chunk);
+		}).on('end', () => {
+			res.end(Buffer.concat(body).toString());
+		});
+	});
+
 	await s.listen(s.port);
 });
 
@@ -54,17 +63,27 @@ test('dns message', async t => {
 
 test('options.body error message', async t => {
 	const err = await t.throws(got(s.url, {body: {}}));
-	t.regex(err.message, /The `body` option must be a stream\.Readable, string or Buffer/);
+	t.is(err.message, 'The `body` option must be a stream.Readable, string or Buffer');
 });
 
 test('options.body json error message', async t => {
 	const err = await t.throws(got(s.url, {body: Buffer.from('test'), json: true}));
-	t.regex(err.message, /The `body` option must be a plain Object or Array when the `json` option is used/);
+	t.is(err.message, 'The `body` option must be an Object or Array when the `json` option is used');
 });
 
 test('options.body form error message', async t => {
 	const err = await t.throws(got(s.url, {body: Buffer.from('test'), form: true}));
-	t.regex(err.message, /The `body` option must be a plain Object when the `form` option is used/);
+	t.is(err.message, 'The `body` option must be an Object when the `form` option is used');
+});
+
+test('no plain object restriction on body', async t => {
+	function CustomObject() {
+		this.a = 123;
+	}
+
+	const {body} = (await got(`${s.url}/body`, {body: new CustomObject(), json: true}));
+
+	t.deepEqual(body, {a: 123});
 });
 
 test('default status message', async t => {
