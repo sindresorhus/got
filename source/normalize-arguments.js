@@ -64,25 +64,26 @@ module.exports = (url, options, defaults) => {
 		options.method = (options.method || 'GET').toUpperCase();
 	} else {
 		const {headers} = options;
+		const isObject = is.object(body) && !Buffer.isBuffer(body) && !is.nodeStream(body);
 		if (!is.nodeStream(body) && !is.string(body) && !is.buffer(body) && !(options.form || options.json)) {
 			throw new TypeError('The `body` option must be a stream.Readable, string or Buffer');
 		}
 
-		if (options.json && !(is.plainObject(body) || is.array(body))) {
-			throw new TypeError('The `body` option must be a plain Object or Array when the `json` option is used');
+		if (options.json && !(isObject || is.array(body))) {
+			throw new TypeError('The `body` option must be an Object or Array when the `json` option is used');
 		}
 
-		if (options.form && !is.plainObject(body)) {
-			throw new TypeError('The `body` option must be a plain Object when the `form` option is used');
+		if (options.form && !isObject) {
+			throw new TypeError('The `body` option must be an Object when the `form` option is used');
 		}
 
 		if (isFormData(body)) {
 			// Special case for https://github.com/form-data/form-data
 			headers['content-type'] = headers['content-type'] || `multipart/form-data; boundary=${body.getBoundary()}`;
-		} else if (options.form && is.plainObject(body)) {
+		} else if (options.form) {
 			headers['content-type'] = headers['content-type'] || 'application/x-www-form-urlencoded';
 			options.body = (new URLSearchParamsGlobal(body)).toString();
-		} else if (options.json && (is.plainObject(body) || is.array(body))) {
+		} else if (options.json) {
 			headers['content-type'] = headers['content-type'] || 'application/json';
 			options.body = JSON.stringify(body);
 		}

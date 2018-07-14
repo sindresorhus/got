@@ -1,6 +1,7 @@
 import http from 'http';
 import test from 'ava';
 import sinon from 'sinon';
+import getStream from 'get-stream';
 import proxyquire from 'proxyquire';
 import got from '../source';
 import {createServer} from './helpers/server';
@@ -24,6 +25,11 @@ test.before('setup', async () => {
 		res.statusCode = 400;
 		res.statusMessage = 'Something Exploded';
 		res.end('body');
+	});
+
+	s.on('/body', async (req, res) => {
+		const body = await getStream(req);
+		res.end(body);
 	});
 
 	await s.listen(s.port);
@@ -53,18 +59,31 @@ test('dns message', async t => {
 });
 
 test('options.body error message', async t => {
-	const err = await t.throws(got(s.url, {body: {}}));
-	t.regex(err.message, /The `body` option must be a stream\.Readable, string or Buffer/);
+	await t.throws(got(s.url, {body: {}}), {
+		message: 'The `body` option must be a stream.Readable, string or Buffer'
+	});
 });
 
 test('options.body json error message', async t => {
-	const err = await t.throws(got(s.url, {body: Buffer.from('test'), json: true}));
-	t.regex(err.message, /The `body` option must be a plain Object or Array when the `json` option is used/);
+	await t.throws(got(s.url, {body: Buffer.from('test'), json: true}), {
+		message: 'The `body` option must be an Object or Array when the `json` option is used'
+	});
 });
 
 test('options.body form error message', async t => {
-	const err = await t.throws(got(s.url, {body: Buffer.from('test'), form: true}));
-	t.regex(err.message, /The `body` option must be a plain Object when the `form` option is used/);
+	await t.throws(got(s.url, {body: Buffer.from('test'), form: true}), {
+		message: 'The `body` option must be an Object when the `form` option is used'
+	});
+});
+
+test('no plain object restriction on body', async t => {
+	function CustomObject() {
+		this.a = 123;
+	}
+
+	const {body} = await got(`${s.url}/body`, {body: new CustomObject(), json: true});
+
+	t.deepEqual(body, {a: 123});
 });
 
 test('default status message', async t => {
@@ -83,9 +102,7 @@ test.serial('http.request error', async t => {
 	const stub = sinon.stub(http, 'request').callsFake(() => {
 		throw new TypeError('The header content contains invalid characters');
 	});
-	const err = await t.throws(got(s.url));
-	t.true(err instanceof got.RequestError);
-	t.is(err.message, 'The header content contains invalid characters');
+	await t.throws(got(s.url), {instanceOf: got.RequestError, message: 'The header content contains invalid characters'});
 	stub.restore();
 });
 
@@ -99,8 +116,7 @@ test.serial('catch error in mimicResponse', async t => {
 		'mimic-response': mimicResponse
 	});
 
-	const err = await t.throws(proxiedGot(s.url));
-	t.is(err.message, 'Error in mimic-response');
+	await t.throws(proxiedGot(s.url), {message: 'Error in mimic-response'});
 });
 
 test.after('cleanup', async () => {
