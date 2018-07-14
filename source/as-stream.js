@@ -88,11 +88,13 @@ module.exports = options => {
 			throw new Error('Failed to pipe. The response has been emitted already.');
 		}
 
+		const result = pipe(destination, options);
+
 		if (Reflect.has(destination, 'setHeader')) {
 			piped.add(destination);
 		}
 
-		return pipe(destination, options);
+		return result;
 	};
 	proxy.unpipe = stream => {
 		piped.delete(stream);
