@@ -9,6 +9,8 @@ module.exports = options => {
 	const input = new PassThrough();
 	const output = new PassThrough();
 	const proxy = duplexer3(input, output);
+	const piped = new Set();
+	let finished = false;
 
 	if (options.json) {
 		throw new Error('Got can not be used as a stream when the `json` option is used');
@@ -50,11 +52,25 @@ module.exports = options => {
 			proxy.emit('error', new ReadError(error, options));
 		});
 
-		response.pipe(output);
-
 		if (options.throwHttpErrors && statusCode !== 304 && (statusCode < 200 || statusCode > 299)) {
 			proxy.emit('error', new HTTPError(statusCode, response.statusMessage, response.headers, options), null, response);
 			return;
+		}
+
+		finished = true;
+
+		response.pipe(output);
+
+		for (const destination of piped) {
+			if (!destination.headersSent) {
+				for (const [key, value] of Object.entries(response.headers)) {
+					if (key.toLowerCase() !== 'content-encoding') {
+						destination.setHeader(key, value);
+					}
+				}
+
+				destination.statusCode = response.statusCode;
+			}
 		}
 
 		proxy.emit('response', response);
@@ -66,19 +82,21 @@ module.exports = options => {
 	emitter.on('downloadProgress', proxy.emit.bind(proxy, 'downloadProgress'));
 
 	const pipe = proxy.pipe.bind(proxy);
+	const unpipe = proxy.unpipe.bind(proxy);
 	proxy.pipe = (destination, options) => {
-		// TODO: what if pipe gets called after it receives response?
+		if (finished) {
+			throw new Error('Failed to pipe. The response has been emitted already.');
+		}
+
 		if (Reflect.has(destination, 'setHeader')) {
-			proxy.on('response', response => {
-				for (const [key, value] of Object.entries(response.headers)) {
-					if (key.toLowerCase() !== 'content-encoding') {
-						destination.setHeader(key, value);
-					}
-				}
-			});
+			piped.add(destination);
 		}
 
 		return pipe(destination, options);
+	};
+	proxy.unpipe = stream => {
+		piped.delete(stream);
+		return unpipe(stream);
 	};
 
 	return proxy;
