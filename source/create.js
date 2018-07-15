@@ -51,6 +51,17 @@ const create = defaults => {
 		return defaults.handler(url, options, next);
 	};
 
+	if (Object.isFrozen(defaults.options)) {
+		got.hooks = defaults.options.hooks;
+	} else {
+		got.hooks = defaults.options.hooks = { // eslint-disable-line no-multi-assign
+			beforeRequest: [],
+			onSocketConnect: [],
+			onAbort: [],
+			...(defaults.options.hooks || {})
+		};
+	}
+
 	for (const method of defaults.methods) {
 		got[method] = (url, options) => got(url, {...options, method});
 		got.stream[method] = (url, options) => got.stream(url, {...options, method});
