@@ -81,14 +81,9 @@ test('beforeRequest rejects when beforeRequest rejects', async t => {
 test('extend got + onAbort hook', async t => {
 	let aborted = false;
 
-	const extended = got.extend({
-		hooks: {
-			onAbort: [
-				() => {
-					aborted = true;
-				}
-			]
-		}
+	const extended = got.extend();
+	extended.hooks.onAbort.push(() => {
+		aborted = true;
 	});
 
 	const p = extended(s.url);
