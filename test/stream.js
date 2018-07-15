@@ -12,6 +12,9 @@ test.before('setup', async () => {
 	s = await createServer();
 
 	s.on('/', (req, res) => {
+		res.writeHead(200, {
+			unicorn: 'rainbow'
+		});
 		res.end('ok');
 	});
 
@@ -109,6 +112,21 @@ test('check for pipe method', t => {
 test('piping works', async t => {
 	t.is(await getStream(got.stream(`${s.url}/`)), 'ok');
 	t.is(await getStream(got.stream(`${s.url}/`).on('error', () => {})), 'ok');
+});
+
+test('proxying headers works', async t => {
+	const server = await createServer();
+
+	server.on('/', (req, res) => {
+		got.stream(s.url).pipe(res);
+	});
+
+	await server.listen(server.port);
+
+	const {headers} = await got(server.url);
+	t.is(headers.unicorn, 'rainbow');
+
+	await server.close();
 });
 
 test.after('cleanup', async () => {
