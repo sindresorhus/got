@@ -8,7 +8,6 @@ const urlToOptions = require('./url-to-options');
 const isFormData = require('./is-form-data');
 
 const retryAfterStatusCodes = new Set([413, 429, 503]);
-const knownHookEvents = ['beforeRequest'];
 
 module.exports = (url, options, defaults) => {
 	if (Reflect.has(options, 'url') || (is.object(url) && Reflect.has(url, 'url'))) {
@@ -187,24 +186,14 @@ module.exports = (url, options, defaults) => {
 		delete options.timeout;
 	}
 
-	if (is.nullOrUndefined(options.hooks)) {
-		options.hooks = {};
-	}
 	if (is.object(options.hooks)) {
-		for (const hookEvent of knownHookEvents) {
-			const hooks = options.hooks[hookEvent];
-			if (is.nullOrUndefined(hooks)) {
-				options.hooks[hookEvent] = [];
-			} else if (is.array(hooks)) {
-				hooks.forEach(
-					(hook, index) => {
-						if (!is.function_(hook)) {
-							throw new TypeError(
-								`Parameter \`hooks.${hookEvent}[${index}]\` must be a function, not ${is(hook)}`
-							);
-						}
+		for (const [hookEvent, hooks] of Object.entries(options.hooks)) {
+			if (is.array(hooks)) {
+				for (const [index, hook] of Object.entries(hooks)) {
+					if (!is.function(hook)) {
+						throw new TypeError(`Parameter \`hooks.${hookEvent}[${index}]\` must be a function, not ${is(hook)}`);
 					}
-				);
+				}
 			} else {
 				throw new TypeError(`Parameter \`hooks.${hookEvent}\` must be an array, not ${is(hooks)}`);
 			}

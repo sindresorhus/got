@@ -23,9 +23,6 @@ const defaults = {
 		throwHttpErrors: true,
 		headers: {
 			'user-agent': `${pkg.name}/${pkg.version} (https://github.com/sindresorhus/got)`
-		},
-		hooks: {
-			beforeRequest: []
 		}
 	}
 };
