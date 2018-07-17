@@ -91,13 +91,11 @@ module.exports = (options = {}) => {
 				return;
 			}
 
-			setImmediate(() => {
-				try {
-					getResponse(response, options, emitter, redirects);
-				} catch (error) {
-					emitter.emit('error', error);
-				}
-			});
+			try {
+				getResponse(response, options, emitter, redirects);
+			} catch (error) {
+				emitter.emit('error', error);
+			}
 		});
 
 		cacheReq.on('error', error => {
@@ -110,7 +108,7 @@ module.exports = (options = {}) => {
 
 		cacheReq.once('request', req => {
 			let aborted = false;
-			req.once('abort', _ => {
+			req.once('abort', () => {
 				aborted = true;
 			});
 
@@ -133,9 +131,7 @@ module.exports = (options = {}) => {
 				timedOut(req, options.gotTimeout);
 			}
 
-			setImmediate(() => {
-				emitter.emit('request', req);
-			});
+			emitter.emit('request', req);
 		});
 	};
 
