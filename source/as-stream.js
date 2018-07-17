@@ -9,6 +9,8 @@ module.exports = options => {
 	const input = new PassThrough();
 	const output = new PassThrough();
 	const proxy = duplexer3(input, output);
+	const piped = new Set();
+	let isFinished = false;
 
 	options.gotRetry.retries = () => 0;
 
@@ -52,11 +54,29 @@ module.exports = options => {
 			proxy.emit('error', new ReadError(error, options));
 		});
 
-		response.pipe(output);
-
 		if (options.throwHttpErrors && statusCode !== 304 && (statusCode < 200 || statusCode > 299)) {
 			proxy.emit('error', new HTTPError(statusCode, response.statusMessage, response.headers, options), null, response);
 			return;
+		}
+
+		isFinished = true;
+
+		response.pipe(output);
+
+		for (const destination of piped) {
+			if (destination.headersSent) {
+				continue;
+			}
+
+			for (const [key, value] of Object.entries(response.headers)) {
+				// Got gives *uncompressed* data. Overriding `content-encoding` header would result in an error.
+				// It's not possible to decompress uncompressed data, is it?
+				if (key.toLowerCase() !== 'content-encoding') {
+					destination.setHeader(key, value);
+				}
+			}
+
+			destination.statusCode = response.statusCode;
 		}
 
 		proxy.emit('response', response);
@@ -68,6 +88,26 @@ module.exports = options => {
 		'uploadProgress',
 		'downloadProgress'
 	].forEach(event => emitter.on(event, (...args) => proxy.emit(event, ...args)));
+
+	const pipe = proxy.pipe.bind(proxy);
+	const unpipe = proxy.unpipe.bind(proxy);
+	proxy.pipe = (destination, options) => {
+		if (isFinished) {
+			throw new Error('Failed to pipe. The response has been emitted already.');
+		}
+
+		const result = pipe(destination, options);
+
+		if (Reflect.has(destination, 'setHeader')) {
+			piped.add(destination);
+		}
+
+		return result;
+	};
+	proxy.unpipe = stream => {
+		piped.delete(stream);
+		return unpipe(stream);
+	};
 
 	return proxy;
 };
