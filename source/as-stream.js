@@ -10,7 +10,7 @@ module.exports = options => {
 	const output = new PassThrough();
 	const proxy = duplexer3(input, output);
 	const piped = new Set();
-	let finished = false;
+	let isFinished = false;
 
 	if (options.json) {
 		throw new Error('Got can not be used as a stream when the `json` option is used');
@@ -57,20 +57,24 @@ module.exports = options => {
 			return;
 		}
 
-		finished = true;
+		isFinished = true;
 
 		response.pipe(output);
 
 		for (const destination of piped) {
 			if (!destination.headersSent) {
-				for (const [key, value] of Object.entries(response.headers)) {
-					if (key.toLowerCase() !== 'content-encoding') {
-						destination.setHeader(key, value);
-					}
-				}
-
-				destination.statusCode = response.statusCode;
+				continue;
 			}
+
+			for (const [key, value] of Object.entries(response.headers)) {
+				// Got gives *uncompressed* data. Overriding `content-encoding` header would result in an error.
+				// It's not possible to decompress uncompressed data, is it?
+				if (key.toLowerCase() !== 'content-encoding') {
+					destination.setHeader(key, value);
+				}
+			}
+
+			destination.statusCode = response.statusCode;
 		}
 
 		proxy.emit('response', response);
@@ -84,7 +88,7 @@ module.exports = options => {
 	const pipe = proxy.pipe.bind(proxy);
 	const unpipe = proxy.unpipe.bind(proxy);
 	proxy.pipe = (destination, options) => {
-		if (finished) {
+		if (isFinished) {
 			throw new Error('Failed to pipe. The response has been emitted already.');
 		}
 
