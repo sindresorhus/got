@@ -62,7 +62,7 @@ module.exports = options => {
 		response.pipe(output);
 
 		for (const destination of piped) {
-			if (!destination.headersSent) {
+			if (destination.headersSent) {
 				continue;
 			}
 
