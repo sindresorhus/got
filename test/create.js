@@ -102,7 +102,7 @@ test('custom endpoint with custom headers (extend)', async t => {
 	t.is(headers['user-agent'] === undefined, false);
 });
 
-test('no tampering with defaults', t => {
+test('exclusive defaults', t => {
 	const instance = got.create({
 		handler: got.defaults.handler,
 		methods: got.defaults.methods,
@@ -118,11 +118,25 @@ test('no tampering with defaults', t => {
 		options: instance.defaults.options
 	});
 
-	// Tamper Time
-	t.throws(() => {
+	t.notThrows(() => {
 		instance.defaults.options.baseUrl = 'http://google.com';
 	});
 
-	t.is(instance.defaults.options.baseUrl, 'example');
+	t.is(instance.defaults.options.baseUrl, 'http://google.com');
 	t.is(instance2.defaults.options.baseUrl, 'example');
+});
+
+test('can freeze all options', t => {
+	const instance = got.create({
+		preventChanges: true,
+		...got.defaults
+	});
+
+	t.throws(() => {
+		instance.defaults.options.followRedirect = false;
+	});
+
+	t.throws(() => {
+		instance.hooks.beforeRequest = [];
+	});
 });

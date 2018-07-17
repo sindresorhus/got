@@ -1,11 +1,12 @@
 'use strict';
 const URLGlobal = typeof URL === 'undefined' ? require('url').URL : URL; // TODO: Use the `URL` global when targeting Node.js 10
+const extend = require('extend');
 const errors = require('./errors');
 const assignOptions = require('./assign-options');
 const asStream = require('./as-stream');
 const asPromise = require('./as-promise');
 const normalizeArguments = require('./normalize-arguments');
-const deepFreeze = require('./deep-freeze');
+const defineConstProperty = require('./define-const-property');
 
 const makeNext = defaults => (path, options) => {
 	let url = path;
@@ -24,6 +25,8 @@ const makeNext = defaults => (path, options) => {
 };
 
 const create = defaults => {
+	defaults = extend(true, {}, defaults);
+
 	const next = makeNext(defaults);
 	if (!defaults.handler) {
 		defaults.handler = next;
@@ -38,7 +41,6 @@ const create = defaults => {
 		}
 	}
 
-	got.create = create;
 	got.extend = (options = {}) => create({
 		options: assignOptions(defaults.options, options),
 		methods: defaults.methods,
@@ -51,18 +53,19 @@ const create = defaults => {
 		return defaults.handler(url, options, next);
 	};
 
+	defaults.options.hooks = {
+		beforeRequest: [],
+		...(defaults.options.hooks || {})
+	};
+	got.hooks = defaults.options.hooks;
+
 	for (const method of defaults.methods) {
 		got[method] = (url, options) => got(url, {...options, method});
 		got.stream[method] = (url, options) => got.stream(url, {...options, method});
 	}
 
-	Object.assign(got, errors);
-	Object.defineProperty(got, 'defaults', {
-		value: deepFreeze(defaults),
-		writable: false,
-		enumerable: true,
-		configurable: true
-	});
+	defineConstProperty(got, {...errors, create}, {deepFreeze: true});
+	defineConstProperty(got, {defaults}, {deepFreeze: defaults.preventChanges});
 
 	return got;
 };
