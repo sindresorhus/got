@@ -2,7 +2,7 @@
 
 > Make calling REST APIs easier by creating niche-specific `got` instances.
 
-#### got.create(settings)
+#### got.create(defaults)
 
 Example: [gh-got](https://github.com/sindresorhus/gh-got/blob/master/index.js)
 
@@ -114,3 +114,10 @@ const unicorn = got.create(settings);
 // Same as:
 const unicorn = got.extend({headers: {unicorn: 'rainbow'}});
 ```
+
+##### preventChanges
+
+Type: `boolean`<br>
+Default: `false`
+
+If set to `true` freezes whole `defaults` to prevent unwanted changes.

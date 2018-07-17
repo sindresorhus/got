@@ -14,6 +14,12 @@ const {CacheError, UnsupportedProtocolError, MaxRedirectsError, RequestError} = 
 const getMethodRedirectCodes = new Set([300, 301, 302, 303, 304, 305, 307, 308]);
 const allMethodRedirectCodes = new Set([300, 303, 307, 308]);
 
+const callAll = async (array, ...args) => {
+	for (const func of array) {
+		await func(...args); // eslint-disable-line no-await-in-loop
+	}
+};
+
 module.exports = (options = {}) => {
 	const emitter = new EventEmitter();
 	const requestUrl = options.href || (new URLGlobal(options.path, urlLib.format(options))).toString();
@@ -122,7 +128,7 @@ module.exports = (options = {}) => {
 
 		cacheReq.once('request', req => {
 			let aborted = false;
-			req.once('abort', _ => {
+			req.once('abort', () => {
 				aborted = true;
 			});
 
@@ -241,10 +247,7 @@ module.exports = (options = {}) => {
 				options.headers['content-length'] = uploadBodySize;
 			}
 
-			for (const hook of options.hooks.beforeRequest) {
-				// eslint-disable-next-line no-await-in-loop
-				await hook(options);
-			}
+			await callAll(options.hooks.beforeRequest, options);
 
 			get(options);
 		} catch (error) {
