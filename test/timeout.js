@@ -144,7 +144,7 @@ test('timeout with streams', async t => {
 	await t.throws(pEvent(stream, 'response'), {code: 'ETIMEDOUT'});
 });
 
-test('no error emitted when timeout is not breached', async t => {
+test('no error emitted when timeout is not breached (stream)', async t => {
 	const stream = got.stream(s.url, {
 		retry: 0,
 		timeout: {
@@ -155,6 +155,23 @@ test('no error emitted when timeout is not breached', async t => {
 		t.fail(`error was emitted: ${err}`);
 	});
 	await getStream(stream);
+	await delay(reqDelay * 3);
+	t.pass();
+});
+
+test('no error emitted when timeout is not breached (promise)', async t => {
+	await got(s.url, {
+		retry: 0,
+		timeout: {
+			request: reqDelay * 2
+		}
+	}).on('request', req => {
+		// 'error' events are not emitted by the Promise interface, so attach
+		// directly to the request object
+		req.on('error', err => {
+			t.fail(`error was emitted: ${err}`);
+		});
+	});
 	await delay(reqDelay * 3);
 	t.pass();
 });
