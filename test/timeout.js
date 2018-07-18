@@ -1,3 +1,4 @@
+import getStream from 'get-stream';
 import test from 'ava';
 import pEvent from 'p-event';
 import delay from 'delay';
@@ -141,4 +142,19 @@ test('timeout with streams', async t => {
 		retry: 0
 	});
 	await t.throws(pEvent(stream, 'response'), {code: 'ETIMEDOUT'});
+});
+
+test('no error emitted when timeout is not breached', async t => {
+	const stream = got.stream(s.url, {
+		retry: 0,
+		timeout: {
+			request: reqDelay * 2
+		}
+	});
+	stream.on('error', err => {
+		t.fail(`error was emitted: ${err}`);
+	});
+	await getStream(stream);
+	await delay(reqDelay * 3);
+	t.pass();
 });
