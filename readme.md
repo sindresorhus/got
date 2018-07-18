@@ -19,6 +19,7 @@ A nicer interface to the built-in [`http`](http://nodejs.org/api/http.html) modu
 
 Created because [`request`](https://github.com/request/request) is bloated *(several megabytes!)*.
 
+*Looking for the [current npm got release docs](https://github.com/sindresorhus/got/blob/v8.3.2/readme.md)?*
 
 ## Highlights
 
