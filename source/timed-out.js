@@ -67,9 +67,11 @@ module.exports = function (req, delays) {
 			req.setTimeout(delays.socket, throwESOCKETTIMEDOUT);
 		}
 
-		req.on('end', () => {
-			// The request is finished, cancel request timeout.
-			clearTimeout(req.requestTimeoutTimer);
+		req.on('response', res => {
+			res.on('end', () => {
+				// The request is finished, cancel request timeout.
+				clearTimeout(req.requestTimeoutTimer);
+			});
 		});
 	}
 
