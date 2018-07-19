@@ -126,3 +126,58 @@ test('no tampering with defaults', t => {
 	t.is(instance.defaults.options.baseUrl, 'example');
 	t.is(instance2.defaults.options.baseUrl, 'example');
 });
+
+test('merging instances', async t => {
+	const instanceA = got.extend({headers: {unicorn: 'rainbow'}});
+	const instanceB = got.extend({baseUrl: s.url});
+	const merged = instanceA.merge(instanceB);
+
+	const headers = (await merged('/', {json: true})).body;
+	t.is(headers.unicorn, 'rainbow');
+	t.not(headers['user-agent'], undefined);
+});
+
+test('merging already merged instances & another instance', async t => {
+	const instanceA = got.extend({headers: {dog: 'woof'}});
+	const instanceB = got.extend({headers: {cat: 'meow'}});
+	const instanceC = got.extend({headers: {bird: 'tweet'}});
+	const instanceD = got.extend({headers: {mouse: 'squeek'}});
+
+	const merged = got.merge([instanceA, instanceB, instanceC]);
+	const doubleMerged = got.merge([merged, instanceD]);
+
+	const headers = (await doubleMerged(s.url, {json: true})).body;
+	t.is(headers.dog, 'woof');
+	t.is(headers.cat, 'meow');
+	t.is(headers.bird, 'tweet');
+	t.is(headers.mouse, 'squeek');
+});
+
+test('merging two groups of merged instances', async t => {
+	const instanceA = got.extend({headers: {dog: 'woof'}});
+	const instanceB = got.extend({headers: {cat: 'meow'}});
+	const instanceC = got.extend({headers: {bird: 'tweet'}});
+	const instanceD = got.extend({headers: {mouse: 'squeek'}});
+
+	const groupA = got.merge([instanceA, instanceB]);
+	const groupB = got.merge([instanceC, instanceD]);
+
+	const merged = groupA.merge(groupB);
+
+	const headers = (await merged(s.url, {json: true})).body;
+	t.is(headers.dog, 'woof');
+	t.is(headers.cat, 'meow');
+	t.is(headers.bird, 'tweet');
+	t.is(headers.mouse, 'squeek');
+});
+
+test('throws when trying to merge unmergeable instance', t => {
+	const instanceA = got.extend();
+	const instanceB = got.create({
+		methods: [],
+		options: {},
+		mergeable: false
+	});
+
+	t.throws(() => instanceA.merge(instanceB));
+});

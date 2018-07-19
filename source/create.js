@@ -1,5 +1,6 @@
 'use strict';
 const URLGlobal = typeof URL === 'undefined' ? require('url').URL : URL; // TODO: Use the `URL` global when targeting Node.js 10
+const is = require('@sindresorhus/is');
 const errors = require('./errors');
 const assignOptions = require('./assign-options');
 const asStream = require('./as-stream');
@@ -44,6 +45,47 @@ const create = defaults => {
 		methods: defaults.methods,
 		handler: defaults.handler
 	});
+
+	const merge = (instances, methods = instances[0].defaults.methods) => {
+		for (const instance of instances) {
+			if (Reflect.has(instance.defaults, 'mergeable') && !instance.defaults.mergeable) {
+				throw new Error('Couldn\'t perform merge on unmergeable instances.');
+			}
+		}
+
+		const handlers = instances.map(instance => instance.defaults.handler);
+		const size = instances.length - 1;
+
+		let options = {};
+		for (const instance of instances) {
+			options = assignOptions(options, instance.defaults.options);
+		}
+
+		return create({
+			methods,
+			options,
+			handler: (url, options, next) => {
+				let iteration = -1;
+
+				const iterate = options => {
+					iteration++;
+					return handlers[iteration](url, options, iteration === size ? next : iterate);
+				};
+
+				return iterate(options);
+			}
+		});
+	};
+
+	got.merge = (instances, methods) => {
+		// Single instance
+		if (is.function(instances)) {
+			return merge([got, instances], methods);
+		}
+
+		// Many instances
+		return merge(instances, methods);
+	};
 
 	got.stream = (url, options) => {
 		options = assignOptions(defaults.options, options);

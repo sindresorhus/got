@@ -114,3 +114,67 @@ const unicorn = got.create(settings);
 // Same as:
 const unicorn = got.extend({headers: {unicorn: 'rainbow'}});
 ```
+
+### Merging instances
+
+#### got.merge(instances, [methods])
+
+Merges many instances into a single one.
+
+##### instances
+Type: `Function` `Object`
+
+A single instance or an array of instances.
+
+**Note:** if an array of instances is passed you need to provide a parent instance at the beginning.
+```js
+const merged = got.merge([instanceA, instanceB, instanceC]);
+
+// Same as:
+const merged = instanceA.merge(instanceB).merge(instanceC);
+```
+
+##### [[methods]](#methods)
+
+Default: `instances[0].defaults.methods`
+
+```js
+const instanceA = got.extend({headers: {unicorn: 'rainbow'}});
+const instanceB = got.create({
+	options: {baseUrl: 'http://example.com'},
+	methods: [],
+	handler: (options, next) => { // These options are normalized, so assigning `baseUrl` here won't work.
+		return next(url, got.assignOptions(options, {headers: {unicorn: 'rainbow'}}));
+	}
+});
+const merged = instanceA.merge(instanceB);
+
+(async () => {
+	await merged('/');
+	/* HTTP Request =>
+	 * GET / HTTP/1.1
+	 * Host: example.com
+	 * unicorn: rainbow
+	 */
+})();
+```
+
+#### Merge strategy
+
+##### options
+
+Options are merged using [`assignOptions`](source/assign-options.js) function in the following way:
+
+1. Properties are deep cloned using `node-extend` dependency.
+2. Headers set to `null` or `undefined` are removed from the instance.
+3. If `retry` option is specified it overrides the old one.
+
+##### methods
+
+Parent's methods are taken unless you specify that.
+
+##### handlers
+
+Handlers are stored in an array and are executed serially.
+
+Want to know more? [Explore the source code](source/create.js).
