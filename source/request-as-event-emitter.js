@@ -10,7 +10,7 @@ const timedOut = require('./timed-out');
 const getBodySize = require('./get-body-size');
 const getResponse = require('./get-response');
 const progress = require('./progress');
-const {CacheError, UnsupportedProtocolError, MaxRedirectsError, RequestError} = require('./errors');
+const {GotError, CacheError, UnsupportedProtocolError, MaxRedirectsError, RequestError} = require('./errors');
 
 const getMethodRedirectCodes = new Set([300, 301, 302, 303, 304, 305, 307, 308]);
 const allMethodRedirectCodes = new Set([300, 303, 307, 308]);
@@ -91,13 +91,11 @@ module.exports = (options = {}) => {
 				return;
 			}
 
-			setImmediate(() => {
-				try {
-					getResponse(response, options, emitter, redirects);
-				} catch (error) {
-					emitter.emit('error', error);
-				}
-			});
+			try {
+				getResponse(response, options, emitter, redirects);
+			} catch (error) {
+				emitter.emit('error', error);
+			}
 		});
 
 		cacheReq.on('error', error => {
@@ -119,10 +117,12 @@ module.exports = (options = {}) => {
 					return;
 				}
 
-				const err = new RequestError(error, options);
-				emitter.emit('retry', err, retried => {
+				if (!(error instanceof GotError)) {
+					error = new RequestError(error, options);
+				}
+				emitter.emit('retry', error, retried => {
 					if (!retried) {
-						emitter.emit('error', err);
+						emitter.emit('error', error);
 					}
 				});
 			});
@@ -130,12 +130,10 @@ module.exports = (options = {}) => {
 			progress.upload(req, emitter, uploadBodySize);
 
 			if (options.gotTimeout) {
-				timedOut(req, options.gotTimeout);
+				timedOut(req, options);
 			}
 
-			setImmediate(() => {
-				emitter.emit('request', req);
-			});
+			emitter.emit('request', req);
 		});
 	};
 

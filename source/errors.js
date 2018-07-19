@@ -19,6 +19,7 @@ class GotError extends Error {
 			hostname: opts.hostname,
 			method: opts.method,
 			path: opts.path,
+			socketPath: opts.socketPath,
 			protocol: opts.protocol,
 			url: opts.href
 		});
@@ -86,6 +87,14 @@ module.exports.UnsupportedProtocolError = class extends GotError {
 	constructor(opts) {
 		super(`Unsupported protocol "${opts.protocol}"`, {}, opts);
 		this.name = 'UnsupportedProtocolError';
+	}
+};
+
+module.exports.TimeoutError = class extends GotError {
+	constructor(threshold, event, opts) {
+		super(`Timeout awaiting '${event}' for ${threshold}ms`, {code: 'ETIMEDOUT'}, opts);
+		this.name = 'TimeoutError';
+		this.event = event;
 	}
 };
 
