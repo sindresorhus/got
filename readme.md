@@ -767,6 +767,7 @@ const custom = got.extend({
 ```
 *Need to merge some instances into a single one? Check out the [`got.merge()`](advanced-creation.md#gotmergeinstances-methods).*
 
+
 ## Related
 
 - [gh-got](https://github.com/sindresorhus/gh-got) - Got convenience wrapper to interact with the GitHub API
