@@ -11,7 +11,8 @@ Configure a new `got` instance with the provided settings.<br>
 
 ##### [options](readme.md#options)
 
-To inherit from parent, set it as `got.defaults.options` or use [object spread](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Spread_syntax#Spread_in_object_literals).
+To inherit from parent, set it as `got.defaults.options` or use `got.assignOptions(defaults.options, options)`.<br>
+Avoid using [object spread](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Spread_syntax#Spread_in_object_literals) as it may give unwanted result.
 
 ##### methods
 
@@ -53,10 +54,9 @@ const settings = {
 		return next(url, options);
 	},
 	methods: got.defaults.methods,
-	options: {
-		...got.defaults.options,
+	options: got.assignOptions(got.defaults.options, {
 		json: true
-	}
+	})
 };
 
 const jsonGot = got.create(settings);
@@ -64,9 +64,7 @@ const jsonGot = got.create(settings);
 
 ```js
 const defaults = {
-	handler: (url, options, next) => {
-		return next(url, options);
-	},
+	handler: (url, options, next) => next(url, options),
 	methods: [
 		'get',
 		'post',
@@ -101,12 +99,11 @@ const unchangedGot = got.create(defaults);
 const settings = {
 	handler: got.defaults.handler,
 	methods: got.defaults.methods,
-	options: {
-		...got.defaults.options,
+	options: got.assignOptions(got.defaults.options, {
 		headers: {
 			unicorn: 'rainbow'
 		}
-	}
+	})
 };
 
 const unicorn = got.create(settings);
