@@ -9,6 +9,7 @@ const is = require('@sindresorhus/is');
 const timedOut = require('./timed-out');
 const getBodySize = require('./get-body-size');
 const getResponse = require('./get-response');
+const progress = require('./progress');
 const {CacheError, UnsupportedProtocolError, MaxRedirectsError, RequestError} = require('./errors');
 
 const getMethodRedirectCodes = new Set([300, 301, 302, 303, 304, 305, 307, 308]);
@@ -23,7 +24,6 @@ module.exports = (options = {}) => {
 	let retryTries = 0;
 	let redirectUrl;
 	let uploadBodySize;
-	let uploaded = 0;
 
 	const get = options => {
 		if (options.protocol !== 'http:' && options.protocol !== 'https:') {
@@ -43,20 +43,9 @@ module.exports = (options = {}) => {
 			fn = electron.net || electron.remote.net;
 		}
 
-		let progressInterval;
-
 		const cacheableRequest = new CacheableRequest(fn.request, options.cache);
 		const cacheReq = cacheableRequest(options, response => {
-			clearInterval(progressInterval);
-
-			emitter.emit('uploadProgress', {
-				percent: 1,
-				transferred: uploaded,
-				total: uploadBodySize
-			});
-
 			const {statusCode} = response;
-
 			response.retryCount = retryCount;
 			response.url = redirectUrl || requestUrl;
 			response.requestUrl = requestUrl;
@@ -99,7 +88,6 @@ module.exports = (options = {}) => {
 				emitter.emit('redirect', response, redirectOpts);
 
 				get(redirectOpts);
-
 				return;
 			}
 
@@ -127,8 +115,6 @@ module.exports = (options = {}) => {
 			});
 
 			req.once('error', error => {
-				clearInterval(progressInterval);
-
 				if (aborted) {
 					return;
 				}
@@ -141,62 +127,9 @@ module.exports = (options = {}) => {
 				});
 			});
 
-			emitter.once('request', req => {
-				emitter.emit('uploadProgress', {
-					percent: 0,
-					transferred: 0,
-					total: uploadBodySize
-				});
-
-				const socket = req.connection;
-				if (socket) {
-					const onSocketConnect = () => {
-						const uploadEventFrequency = 150;
-
-						progressInterval = setInterval(() => {
-							if (socket.destroyed) {
-								clearInterval(progressInterval);
-								return;
-							}
-
-							const lastUploaded = uploaded;
-							const headersSize = req._header ? Buffer.byteLength(req._header) : 0;
-							uploaded = socket.bytesWritten - headersSize;
-
-							// Prevent the known issue of `bytesWritten` being larger than body size
-							if (uploadBodySize && uploaded > uploadBodySize) {
-								uploaded = uploadBodySize;
-							}
-
-							// Don't emit events with unchanged progress and
-							// prevent last event from being emitted, because
-							// it's emitted when `response` is emitted
-							if (uploaded === lastUploaded || uploaded === uploadBodySize) {
-								return;
-							}
-
-							emitter.emit('uploadProgress', {
-								percent: uploadBodySize ? uploaded / uploadBodySize : 0,
-								transferred: uploaded,
-								total: uploadBodySize
-							});
-						}, uploadEventFrequency);
-					};
-
-					// Only subscribe to `connect` event if we're actually connecting a new
-					// socket, otherwise if we're already connected (because this is a
-					// keep-alive connection) do not bother. This is important since we won't
-					// get a `connect` event for an already connected socket.
-					if (socket.connecting) {
-						socket.once('connect', onSocketConnect);
-					} else {
-						onSocketConnect();
-					}
-				}
-			});
+			progress.upload(req, emitter, uploadBodySize);
 
 			if (options.gotTimeout) {
-				clearInterval(progressInterval);
 				timedOut(req, options.gotTimeout);
 			}
 
