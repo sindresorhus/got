@@ -139,7 +139,7 @@ test('connect timeout', async t => {
 test('connect timeout (ip address)', async t => {
 	await t.throws(
 		got({
-			hostname: s.address().address,
+			hostname: '127.0.0.1',
 			port: s.port,
 			createConnection: options => {
 				const socket = new net.Socket(options);
@@ -176,7 +176,7 @@ test('lookup timeout', async t => {
 
 test('lookup timeout no error (ip address)', async t => {
 	await got({
-		hostname: s.address().address,
+		hostname: '127.0.0.1',
 		port: s.port
 	}, {
 		timeout: {lookup: 100},
