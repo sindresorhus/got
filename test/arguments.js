@@ -60,7 +60,21 @@ test('requestUrl with url.parse object as first argument', async t => {
 });
 
 test('overrides querystring from opts', async t => {
-	t.is((await got(`${s.url}/?test=doge`, {query: {test: 'wow'}})).body, '/?test=wow');
+	const response = await got(
+		`${s.url}/?drop=this`,
+		{
+			query: {test: 'wow'},
+			cache: {
+				get(key) {
+					t.is(key, `cacheable-request:GET:${s.url}/?test=wow`);
+				},
+				set(key) {
+					t.is(key, `cacheable-request:GET:${s.url}/?test=wow`);
+				}
+			}
+		}
+	);
+	t.is(response.body, '/?test=wow');
 });
 
 test('should throw with auth in url string', async t => {
