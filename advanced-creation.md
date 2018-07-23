@@ -33,7 +33,7 @@ To use the default handler, just omit specifying this.
 
 ###### [options](readme.md#options)
 
-**Note:** these options are [normalized](source/normalize-arguments.js).
+**Note:** These options are [normalized](source/normalize-arguments.js).
 
 ###### next()
 
