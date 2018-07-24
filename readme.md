@@ -193,7 +193,7 @@ This also accepts an object with separate `lookup`, `connect`, `socket`, `respon
 - `lookup` starts when a socket is assigned and ends when the hostname has been resolved. Does not apply when using a unix domain socket.
 - `connect` starts when `lookup` completes (or when the socket is assigned if lookup does not apply to the request) and ends when the socket is connected.
 - `socket` starts when the socket is connected. See [request.setTimeout](https://nodejs.org/api/http.html#http_request_settimeout_timeout_callback).
-- `response` starts when the socket is connected and ends when the response headers are received.
+- `response` starts when the request has been written to the socket and ends when the response headers are received.
 - `request` starts when the request is initiated and ends when the response's end event fires.
 
 ###### retry

@@ -1,6 +1,8 @@
+import fs from 'fs';
 import http from 'http';
 import net from 'net';
 import getStream from 'get-stream';
+import SlowStream from 'slow-stream';
 import test from 'ava';
 import pEvent from 'p-event';
 import delay from 'delay';
@@ -22,8 +24,11 @@ test.before('setup', async () => {
 	s = await createServer();
 
 	s.on('/', async (req, res) => {
-		await delay(reqDelay);
-		res.end('OK');
+		req.pipe(fs.createWriteStream('/dev/null'));
+		req.on('end', async () => {
+			await delay(reqDelay);
+			res.end('OK');
+		});
 	});
 
 	s.on('/prime', (req, res) => {
@@ -84,6 +89,21 @@ test('response timeout', async t => {
 			message: `Timeout awaiting 'response' for 1ms`
 		}
 	);
+});
+
+test('response timeout (slow upload)', async t => {
+	const body = fs.createReadStream('/dev/urandom', {
+		end: (1 << 20)
+	}).pipe(new SlowStream({maxWriteInterval: 100}));
+	await got(s.url, {
+		timeout: {response: reqDelay * 2},
+		retry: 0,
+		body
+	}).on('error', error => {
+		t.fail(`unexpected error: ${error}`);
+	});
+	await delay(100);
+	t.pass('no error emitted');
 });
 
 test('response timeout (keepalive)', async t => {

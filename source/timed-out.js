@@ -98,23 +98,14 @@ module.exports = function (req, options) {
 		});
 	}
 	if (delays.response !== undefined) {
-		req.once('socket', socket => {
-			const timeResponse = () => {
-				const cancelTimeout = addTimeout(
-					delays.response,
-					timeoutHandler,
-					'response'
-				);
-				cancelers.push(cancelTimeout);
-				return cancelTimeout;
-			};
-			if (socket.connecting) {
-				socket.once('connect', () => {
-					req.once('response', timeResponse());
-				});
-			} else {
-				req.once('response', timeResponse());
-			}
+		req.once('upload-complete', () => {
+			const cancelTimeout = addTimeout(
+				delays.response,
+				timeoutHandler,
+				'response'
+			);
+			cancelers.push(cancelTimeout);
+			return cancelTimeout;
 		});
 	}
 };
