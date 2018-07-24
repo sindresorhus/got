@@ -16,22 +16,24 @@ module.exports = (url, options, defaults) => {
 		throw new TypeError('Parameter `url` is not an option. Use got(url, options)');
 	}
 
-	if (options.baseUrl && (is.string(url) || is(url) === 'URL')) {
-		url = urlToOptions(new URLGlobal(url, options.baseUrl));
-	} else if (!is.string(url) && !is.object(url)) {
+	if (!is.string(url) && !is.object(url)) {
 		throw new TypeError(`Parameter \`url\` must be a string or object, not ${is(url)}`);
 	} else if (is.string(url)) {
-		url = url.replace(/^unix:/, 'http://$&');
+		if (options.baseUrl) {
+			url = urlToOptions(new URLGlobal(url, options.baseUrl));
+		} else {
+			url = url.replace(/^unix:/, 'http://$&');
 
-		try {
-			decodeURI(url);
-		} catch (_) {
-			throw new Error('Parameter `url` must contain valid UTF-8 character sequences');
-		}
+			try {
+				decodeURI(url);
+			} catch (_) {
+				throw new Error('Parameter `url` must contain valid UTF-8 character sequences');
+			}
 
-		url = urlParseLax(url);
-		if (url.auth) {
-			throw new Error('Basic authentication must be done with the `auth` option');
+			url = urlParseLax(url);
+			if (url.auth) {
+				throw new Error('Basic authentication must be done with the `auth` option');
+			}
 		}
 	} else if (is(url) === 'URL') {
 		url = urlToOptions(url);
