@@ -97,6 +97,26 @@ module.exports = function (req, options) {
 			}
 		});
 	}
+	if (delays.send !== undefined) {
+		req.once('socket', socket => {
+			const timeRequest = () => {
+				const cancelTimeout = addTimeout(
+					delays.send,
+					timeoutHandler,
+					'send'
+				);
+				cancelers.push(cancelTimeout);
+				return cancelTimeout;
+			};
+			if (socket.connecting) {
+				socket.once('connect', () => {
+					req.once('upload-complete', timeRequest());
+				});
+			} else {
+				req.once('upload-complete', timeRequest());
+			}
+		});
+	}
 	if (delays.response !== undefined) {
 		req.once('upload-complete', () => {
 			const cancelTimeout = addTimeout(

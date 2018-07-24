@@ -78,6 +78,19 @@ test('socket timeout', async t => {
 	);
 });
 
+test('send timeout', async t => {
+	await t.throws(
+		got(s.url, {
+			timeout: {send: 1},
+			retry: 0
+		}),
+		{
+			...errorMatcher,
+			message: `Timeout awaiting 'send' for 1ms`
+		}
+	);
+});
+
 test('response timeout', async t => {
 	await t.throws(
 		got(s.url, {

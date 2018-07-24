@@ -194,6 +194,7 @@ This also accepts an object with separate `lookup`, `connect`, `socket`, `respon
 - `connect` starts when `lookup` completes (or when the socket is assigned if lookup does not apply to the request) and ends when the socket is connected.
 - `socket` starts when the socket is connected. See [request.setTimeout](https://nodejs.org/api/http.html#http_request_settimeout_timeout_callback).
 - `response` starts when the request has been written to the socket and ends when the response headers are received.
+- `send` starts when the socket is connected and ends with the request has been written to the socket.
 - `request` starts when the request is initiated and ends when the response's end event fires.
 
 ###### retry
