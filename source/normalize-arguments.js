@@ -18,7 +18,9 @@ module.exports = (url, options, defaults) => {
 
 	if (!is.string(url) && !is.object(url)) {
 		throw new TypeError(`Parameter \`url\` must be a string or object, not ${is(url)}`);
-	} else if (is.string(url)) {
+	}
+
+	if (is.string(url)) {
 		if (options.baseUrl) {
 			url = urlToOptions(new URLGlobal(url, options.baseUrl));
 		} else {
