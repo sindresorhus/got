@@ -1,8 +1,6 @@
-import util from 'util';
 import {Agent as HttpAgent} from 'http';
 import {Agent as HttpsAgent} from 'https';
 import test from 'ava';
-import pem from 'pem';
 import sinon from 'sinon';
 import got from '../source';
 import {createServer, createSSLServer} from './helpers/server';
@@ -10,34 +8,8 @@ import {createServer, createSSLServer} from './helpers/server';
 let http;
 let https;
 
-const createCertificate = util.promisify(pem.createCertificate);
-
 test.before('setup', async () => {
-	const caKeys = await createCertificate({
-		days: 1,
-		selfSigned: true
-	});
-
-	const caRootKey = caKeys.serviceKey;
-	const caRootCert = caKeys.certificate;
-
-	const keys = await createCertificate({
-		serviceCertificate: caRootCert,
-		serviceKey: caRootKey,
-		serial: Date.now(),
-		days: 500,
-		country: '',
-		state: '',
-		locality: '',
-		organization: '',
-		organizationUnit: '',
-		commonName: 'sindresorhus.com'
-	});
-
-	const key = keys.clientKey;
-	const cert = keys.certificate;
-
-	https = await createSSLServer({key, cert}); // eslint-disable-line object-property-newline
+	https = await createSSLServer();
 	http = await createServer();
 
 	// HTTPS Handlers

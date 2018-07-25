@@ -1,40 +1,11 @@
-import util from 'util';
 import test from 'ava';
-import pem from 'pem';
 import got from '../source';
 import {createSSLServer} from './helpers/server';
 
 let s;
-let caRootCert;
-
-const createCertificate = util.promisify(pem.createCertificate);
 
 test.before('setup', async () => {
-	const caKeys = await createCertificate({
-		days: 1,
-		selfSigned: true
-	});
-
-	const caRootKey = caKeys.serviceKey;
-	caRootCert = caKeys.certificate;
-
-	const keys = await createCertificate({
-		serviceCertificate: caRootCert,
-		serviceKey: caRootKey,
-		serial: Date.now(),
-		days: 500,
-		country: '',
-		state: '',
-		locality: '',
-		organization: '',
-		organizationUnit: '',
-		commonName: 'sindresorhus.com'
-	});
-
-	const key = keys.clientKey;
-	const cert = keys.certificate;
-
-	s = await createSSLServer({key, cert});
+	s = await createSSLServer();
 
 	s.on('/', (request, response) => response.end('ok'));
 
@@ -51,7 +22,7 @@ test('make request to https server without ca', async t => {
 
 test('make request to https server with ca', async t => {
 	const {body} = await got(s.url, {
-		ca: caRootCert,
+		ca: s.caRootCert,
 		headers: {host: 'sindresorhus.com'}
 	});
 	t.is(body, 'ok');
@@ -59,7 +30,7 @@ test('make request to https server with ca', async t => {
 
 test('protocol-less URLs default to HTTPS', async t => {
 	const {body, requestUrl} = await got(s.url.replace(/^https:\/\//, ''), {
-		ca: caRootCert,
+		ca: s.caRootCert,
 		headers: {host: 'sindresorhus.com'}
 	});
 	t.is(body, 'ok');

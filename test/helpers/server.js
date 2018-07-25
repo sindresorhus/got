@@ -3,9 +3,12 @@ const util = require('util');
 const http = require('http');
 const https = require('https');
 const getPort = require('get-port');
+const pem = require('pem');
 
 exports.host = 'localhost';
 const {host} = exports;
+
+const createCertificate = util.promisify(pem.createCertificate);
 
 exports.createServer = async () => {
 	const port = await getPort();
@@ -25,10 +28,34 @@ exports.createServer = async () => {
 	return s;
 };
 
-exports.createSSLServer = async options => {
+exports.createSSLServer = async () => {
 	const port = await getPort();
 
-	const s = https.createServer(options, (request, response) => {
+	const caKeys = await createCertificate({
+		days: 1,
+		selfSigned: true
+	});
+
+	const caRootKey = caKeys.serviceKey;
+	const caRootCert = caKeys.certificate;
+
+	const keys = await createCertificate({
+		serviceCertificate: caRootCert,
+		serviceKey: caRootKey,
+		serial: Date.now(),
+		days: 500,
+		country: '',
+		state: '',
+		locality: '',
+		organization: '',
+		organizationUnit: '',
+		commonName: 'sindresorhus.com'
+	});
+
+	const key = keys.clientKey;
+	const cert = keys.certificate;
+
+	const s = https.createServer({cert, key}, (request, response) => {
 		s.emit(request.url, request, response);
 	});
 
@@ -36,6 +63,7 @@ exports.createSSLServer = async options => {
 	s.port = port;
 	s.url = `https://${host}:${port}`;
 	s.protocol = 'https';
+	s.caRootCert = caRootCert;
 
 	s.listen = util.promisify(s.listen);
 	s.close = util.promisify(s.close);
