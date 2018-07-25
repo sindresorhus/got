@@ -6,9 +6,10 @@ import test from 'ava';
 import pEvent from 'p-event';
 import delay from 'delay';
 import got from '../source';
-import {createServer} from './helpers/server';
+import {createServer, createSSLServer} from './helpers/server';
 
 let s;
+let ss;
 
 const slowDataStream = () => {
 	const slowStream = new stream.PassThrough();
@@ -36,7 +37,7 @@ const keepAliveAgent = new http.Agent({
 });
 
 test.before('setup', async () => {
-	s = await createServer();
+	[s, ss] = await Promise.all([createServer(), createSSLServer()]);
 
 	s.on('/', async (request, response) => {
 		request.on('data', () => {});
@@ -58,7 +59,11 @@ test.before('setup', async () => {
 		response.end('OK');
 	});
 
-	await s.listen(s.port);
+	ss.on('/', async (request, response) => {
+		response.end('OK');
+	});
+
+	await Promise.all([s.listen(s.port), ss.listen(ss.port)]);
 });
 
 test('timeout option (ETIMEDOUT)', async t => {
@@ -246,6 +251,35 @@ test('connect timeout (ip address)', async t => {
 			message: `Timeout awaiting 'connect' for 1ms`
 		}
 	);
+});
+
+test('secureConnect timeout', async t => {
+	await t.throws(
+		got(ss.url, {
+			timeout: {secureConnect: 1},
+			retry: 0,
+			rejectUnauthorized: false
+		}),
+		{
+			...errorMatcher,
+			message: `Timeout awaiting 'secureConnect' for 1ms`
+		}
+	);
+});
+
+test('secureConnect timeout not breached', async t => {
+	const secureConnect = 200;
+	await got(ss.url, {
+		timeout: {secureConnect},
+		retry: 0,
+		rejectUnauthorized: false
+	}).on('request', request => {
+		request.on('error', error => {
+			t.fail(`error emitted: ${error}`);
+		});
+	});
+	await delay(secureConnect * 2);
+	t.pass('no error emitted');
 });
 
 test('lookup timeout', async t => {

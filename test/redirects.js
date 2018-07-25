@@ -1,41 +1,13 @@
-import util from 'util';
 import {URL} from 'url';
 import test from 'ava';
-import pem from 'pem';
 import got from '../source';
 import {createServer, createSSLServer} from './helpers/server';
 
 let http;
 let https;
 
-const createCertificate = util.promisify(pem.createCertificate);
-
 test.before('setup', async () => {
-	const caKeys = await createCertificate({
-		days: 1,
-		selfSigned: true
-	});
-
-	const caRootKey = caKeys.serviceKey;
-	const caRootCert = caKeys.certificate;
-
-	const keys = await createCertificate({
-		serviceCertificate: caRootCert,
-		serviceKey: caRootKey,
-		serial: Date.now(),
-		days: 500,
-		country: '',
-		state: '',
-		locality: '',
-		organization: '',
-		organizationUnit: '',
-		commonName: 'sindresorhus.com'
-	});
-
-	const key = keys.clientKey;
-	const cert = keys.certificate;
-
-	https = await createSSLServer({key, cert});
+	https = await createSSLServer();
 	http = await createServer();
 
 	// HTTPS Handlers

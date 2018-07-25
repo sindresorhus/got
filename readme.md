@@ -192,6 +192,7 @@ This also accepts an `object` with the following fields to constrain the duratio
 
 - `lookup` starts when a socket is assigned and ends when the hostname has been resolved. Does not apply when using a Unix domain socket.
 - `connect` starts when `lookup` completes (or when the socket is assigned if lookup does not apply to the request) and ends when the socket is connected.
+- `secureConnect` starts when `connect` completes and ends when the handshaking process completes (HTTPS only).
 - `socket` starts when the socket is connected. See [request.setTimeout](https://nodejs.org/api/http.html#http_request_settimeout_timeout_callback).
 - `response` starts when the request has been written to the socket and ends when the response headers are received.
 - `send` starts when the socket is connected and ends with the request has been written to the socket.
