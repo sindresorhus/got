@@ -358,10 +358,8 @@ Sets `options.method` to the method name and makes a request.
 
 #### got.extend([options])
 
-Configure a new `got` instance with default `options` and (optionally) a custom `baseUrl`:
+Configure a new `got` instance with default `options`. `options` are merged with the extended instance's `defaults.options` as described in [`got.assignOptions`](#got.assignoptionsparentoptions,-newoptions).
 
-**Note:** You can extend another extended instance. `got.defaults` provides settings used by that instance.<br>
-Check out the [unchanged default values](source/index.js).
 
 ```js
 const client = got.extend({
@@ -407,14 +405,21 @@ client.get('/demo');
 
 #### got.assignOptions(parentOptions, newOptions)
 
-Extends parent options. Avoid using [object spread](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Spread_syntax#Spread_in_object_literals) as it doesn't work recursively:
+Extends parent options. Options are deeply merged to a new object as follows:
+
+- If either value is `null`, a primitive, or an `Array`, the result is the newOptions value.
+- If the parentOptions value is an instance of `URL`, the resulting value is the result of `new URL(new, parent)`.
+- If the newOptions value is `undefined` the key is removed.
+- If the newOptions value is an `Object`, its values are merged recursively.
+
+Avoid using [object spread](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Spread_syntax#Spread_in_object_literals) as it doesn't work recursively:
 
 ```js
-const a = {headers: {cat: 'meow'}};
-const b = {headers: {dog: 'woof'}};
+const a = {headers: {cat: 'meow', habitat: ['house']}};
+const b = {headers: {cow: 'moo', habitat: ['barn']}};
 
-{...a, ...b}            // => {headers: {dog: 'woof'}}
-got.assignOptions(a, b) // => {headers: {cat: 'meow', dog: 'woof'}}
+{...a, ...b}            // => {headers: {cow: 'moo'}}
+got.assignOptions(a, b) // => {headers: {cat: 'meow', dog: 'woof', habitat: ['barn']}}
 ```
 
 ## Errors

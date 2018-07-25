@@ -1,3 +1,4 @@
+import {URL} from 'url';
 import test from 'ava';
 import got from '../source';
 import {createServer} from './helpers/server';
@@ -74,6 +75,36 @@ test('custom headers (extend)', async t => {
 		json: true
 	})).body;
 	t.is(headers.unicorn, 'rainbow');
+});
+
+test('extend overwrites arrays with copy', t => {
+	const statusCodes = [408];
+	const a = got.extend({retry: {statusCodes}});
+	t.deepEqual(a.defaults.options.retry.statusCodes, statusCodes);
+	t.not(a.defaults.options.retry.statusCodes, statusCodes);
+});
+
+test('extend removes object values set to undefined', t => {
+	const a = got.extend({
+		headers: {foo: 'foo', bar: 'bar', baz: 'baz'}
+	});
+	const b = a.extend({headers: {foo: undefined, bar: null}});
+	t.deepEqual(
+		b.defaults.options.headers,
+		{...got.defaults.options.headers, ...{baz: 'baz', bar: null}}
+	);
+});
+
+test('extend merges URL instances', t => {
+	const a = got.extend({baseUrl: new URL('https://example.com')});
+	const b = a.extend({baseUrl: '/foo'});
+	t.is(b.defaults.options.baseUrl.toString(), 'https://example.com/foo');
+});
+
+test('extend removes object values set to undefined (root keys)', t => {
+	t.true('headers' in got.defaults.options);
+	const a = got.extend({headers: undefined});
+	t.false('headers' in a.defaults.options);
 });
 
 test('create', async t => {

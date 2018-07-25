@@ -1,27 +1,36 @@
-const extend = require('extend');
+const url = require('url');
+const mergeWith = require('lodash.mergewith');
+const cloneDeep = require('lodash.clonedeep');
 const is = require('@sindresorhus/is');
 
 module.exports = (defaults, options = {}) => {
-	const returnOptions = extend(true, {}, defaults, options);
+	return mergeWith(
+		{opts: cloneDeep(defaults)},
+		{opts: options},
+		customizer
+	).opts;
+};
 
-	if (Reflect.has(options, 'headers')) {
-		for (const [key, value] of Object.entries(options.headers)) {
-			if (is.nullOrUndefined(value)) {
-				delete returnOptions.headers[key];
+function customizer(objValue, srcValue) {
+	if (is.array(srcValue) || is.array(objValue)) {
+		return cloneDeep(srcValue);
+	}
+	if (objValue instanceof url.URL) {
+		return new url.URL(srcValue, objValue);
+	}
+	if (![objValue, srcValue].some(is.array) && [objValue, srcValue].every(is.object)) {
+		// When both args are non-array objects, delete keys for which the source
+		// value is undefined (null is a significant value places, e.g. `encoding`).
+		const deleteKeys = [];
+		for (const key in srcValue) {
+			if (is.undefined(srcValue[key])) {
+				deleteKeys.push(key);
 			}
 		}
-	}
-
-	// Override these arrays because we don't want to extend them
-	if (is.object(options.retry)) {
-		if (Reflect.has(options.retry, 'methods')) {
-			returnOptions.retry.methods = options.retry.methods;
+		const result = mergeWith(objValue, srcValue, customizer);
+		for (const key of deleteKeys) {
+			delete result[key];
 		}
-
-		if (Reflect.has(options.retry, 'statusCodes')) {
-			returnOptions.retry.statusCodes = options.retry.statusCodes;
-		}
+		return result;
 	}
-
-	return returnOptions;
-};
+}
