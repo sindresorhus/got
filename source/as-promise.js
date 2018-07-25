@@ -24,17 +24,22 @@ module.exports = options => {
 
 			proxy.emit('request', req);
 
+			const uploadComplete = () => {
+				req.emit('upload-complete');
+			};
+
 			onCancel(() => {
 				req.abort();
 			});
 
 			if (is.nodeStream(options.body)) {
+				options.body.once('end', uploadComplete);
 				options.body.pipe(req);
 				options.body = undefined;
 				return;
 			}
 
-			req.end(options.body);
+			req.end(options.body, uploadComplete);
 		});
 
 		emitter.on('response', async response => {

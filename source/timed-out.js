@@ -1,79 +1,131 @@
 'use strict';
+const net = require('net');
+const {TimeoutError} = require('./errors');
 
-// Forked from https://github.com/floatdrop/timed-out
+const reentry = Symbol('reentry');
 
-module.exports = function (req, delays) {
-	if (req.timeoutTimer) {
-		return req;
-	}
-
-	const host = req._headers ? (' to ' + req._headers.host) : '';
-
-	function throwESOCKETTIMEDOUT() {
-		req.abort();
-		const e = new Error('Socket timed out on request' + host);
-		e.code = 'ESOCKETTIMEDOUT';
-		req.emit('error', e);
-	}
-
-	function throwETIMEDOUT() {
-		req.abort();
-		const e = new Error('Connection timed out on request' + host);
-		e.code = 'ETIMEDOUT';
-		req.emit('error', e);
-	}
-
-	if (delays.connect !== undefined) {
-		req.timeoutTimer = setTimeout(throwETIMEDOUT, delays.connect);
-	}
-
-	if (delays.request !== undefined) {
-		req.requestTimeoutTimer = setTimeout(() => {
-			clear();
-
-			if (req.connection.connecting) {
-				throwETIMEDOUT();
-			} else {
-				throwESOCKETTIMEDOUT();
+function addTimeout(delay, callback, ...args) {
+	// Event loop order is timers, poll, immediates.
+	// The timed event may emit during the current tick poll phase, so
+	// defer calling the handler until the poll phase completes.
+	let immediate;
+	const timeout = setTimeout(
+		() => {
+			immediate = setImmediate(callback, delay, ...args);
+			if (immediate.unref) {
+				// Added in node v9.7.0
+				immediate.unref();
 			}
-		}, delays.request);
+		},
+		delay
+	);
+	timeout.unref();
+	return () => {
+		clearTimeout(timeout);
+		clearImmediate(immediate);
+	};
+}
+
+module.exports = function (req, options) {
+	if (req[reentry]) {
+		return;
 	}
+	req[reentry] = true;
+	const {gotTimeout: delays, host, hostname} = options;
+	const timeoutHandler = (delay, event) => {
+		req.abort();
+		req.emit('error', new TimeoutError(delay, event, options));
+	};
+	const cancelers = [];
+	const cancelTimeouts = () => {
+		cancelers.forEach(cancelTimeout => cancelTimeout());
+	};
 
-	// Clear the connection timeout timer once a socket is assigned to the
-	// request and is connected.
-	req.on('socket', socket => {
-		// Socket may come from Agent pool and may be already connected.
-		if (!socket.connecting) {
-			connect();
-			return;
-		}
-
-		socket.once('connect', connect);
+	req.on('error', cancelTimeouts);
+	req.once('response', response => {
+		response.once('end', cancelTimeouts);
 	});
 
-	function clear() {
-		if (req.timeoutTimer) {
-			clearTimeout(req.timeoutTimer);
-			req.timeoutTimer = null;
-		}
+	if (delays.request !== undefined) {
+		const cancelTimeout = addTimeout(
+			delays.request,
+			timeoutHandler,
+			'request'
+		);
+		cancelers.push(cancelTimeout);
 	}
-
-	function connect() {
-		clear();
-
-		if (delays.socket !== undefined) {
-			// Abort the request if there is no activity on the socket for more
-			// than `delays.socket` milliseconds.
-			req.setTimeout(delays.socket, throwESOCKETTIMEDOUT);
-		}
-
-		req.on('response', res => {
-			res.on('end', () => {
-				// The request is finished, cancel request timeout.
-				clearTimeout(req.requestTimeoutTimer);
-			});
+	if (delays.socket !== undefined) {
+		req.setTimeout(
+			delays.socket,
+			() => {
+				timeoutHandler(delays.socket, 'socket');
+			}
+		);
+	}
+	if (delays.lookup !== undefined && !req.socketPath && !net.isIP(hostname || host)) {
+		req.once('socket', socket => {
+			if (socket.connecting) {
+				const cancelTimeout = addTimeout(
+					delays.lookup,
+					timeoutHandler,
+					'lookup'
+				);
+				cancelers.push(cancelTimeout);
+				socket.once('lookup', cancelTimeout);
+			}
 		});
 	}
-
-	return req.on('error', clear);
+	if (delays.connect !== undefined) {
+		req.once('socket', socket => {
+			if (socket.connecting) {
+				const timeConnect = () => {
+					const cancelTimeout = addTimeout(
+						delays.connect,
+						timeoutHandler,
+						'connect'
+					);
+					cancelers.push(cancelTimeout);
+					return cancelTimeout;
+				};
+				if (req.socketPath || net.isIP(hostname || host)) {
+					socket.once('connect', timeConnect());
+				} else {
+					socket.once('lookup', () => {
+						socket.once('connect', timeConnect());
+					});
+				}
+			}
+		});
+	}
+	if (delays.send !== undefined) {
+		req.once('socket', socket => {
+			const timeRequest = () => {
+				const cancelTimeout = addTimeout(
+					delays.send,
+					timeoutHandler,
+					'send'
+				);
+				cancelers.push(cancelTimeout);
+				return cancelTimeout;
+			};
+			if (socket.connecting) {
+				socket.once('connect', () => {
+					req.once('upload-complete', timeRequest());
+				});
+			} else {
+				req.once('upload-complete', timeRequest());
+			}
+		});
+	}
+	if (delays.response !== undefined) {
+		req.once('upload-complete', () => {
+			const cancelTimeout = addTimeout(
+				delays.response,
+				timeoutHandler,
+				'response'
+			);
+			cancelers.push(cancelTimeout);
+			req.once('response', cancelTimeout);
+		});
+	}
 };

@@ -10,8 +10,7 @@ let fifth = 0;
 let lastTried413access = Date.now();
 
 const retryAfterOn413 = 2;
-const connectTimeout = 500;
-const socketTimeout = 100;
+const socketTimeout = 200;
 
 test.before('setup', async () => {
 	s = await createServer();
@@ -69,12 +68,12 @@ test.before('setup', async () => {
 });
 
 test('works on timeout error', async t => {
-	t.is((await got(`${s.url}/knock-twice`, {timeout: {connect: connectTimeout, socket: socketTimeout}})).body, 'who`s there?');
+	t.is((await got(`${s.url}/knock-twice`, {timeout: {socket: socketTimeout}})).body, 'who`s there?');
 });
 
 test('can be disabled with option', async t => {
 	const err = await t.throws(got(`${s.url}/try-me`, {
-		timeout: {connect: connectTimeout, socket: socketTimeout},
+		timeout: {socket: socketTimeout},
 		retry: 0
 	}));
 	t.truthy(err);
@@ -83,7 +82,7 @@ test('can be disabled with option', async t => {
 
 test('function gets iter count', async t => {
 	await got(`${s.url}/fifth`, {
-		timeout: {connect: connectTimeout, socket: socketTimeout},
+		timeout: {socket: socketTimeout},
 		retry: {
 			retries: iteration => iteration < 10
 		}
@@ -93,7 +92,7 @@ test('function gets iter count', async t => {
 
 test('falsy value prevents retries', async t => {
 	const err = await t.throws(got(`${s.url}/long`, {
-		timeout: {connect: connectTimeout, socket: socketTimeout},
+		timeout: {socket: socketTimeout},
 		retry: {
 			retries: () => 0
 		}
@@ -103,7 +102,7 @@ test('falsy value prevents retries', async t => {
 
 test('falsy value prevents retries #2', async t => {
 	const err = await t.throws(got(`${s.url}/long`, {
-		timeout: {connect: connectTimeout, socket: socketTimeout},
+		timeout: {socket: socketTimeout},
 		retry: {
 			retries: (iter, err) => {
 				t.truthy(err);
