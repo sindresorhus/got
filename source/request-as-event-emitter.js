@@ -108,7 +108,7 @@ module.exports = (options = {}) => {
 
 		cacheReq.once('request', req => {
 			let aborted = false;
-			req.once('abort', _ => {
+			req.once('abort', () => {
 				aborted = true;
 			});
 
