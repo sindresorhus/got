@@ -186,7 +186,7 @@ Query string object that will be added to the request URL. This will override th
 
 Type: `number` `Object`
 
-Milliseconds to wait for the server to end the response before aborting request with `ETIMEDOUT` error (a.k.a. `request` property). By default there's no timeout.
+Milliseconds to wait for the server to end the response before aborting request with [`got.TimeoutError`](#gottimeouterror) error (a.k.a. `request` property). By default there's no timeout.
 
 This also accepts an `object` with the following fields to constrain the duration of each phase of the request lifecycle:
 
@@ -455,6 +455,9 @@ When given an unsupported protocol.
 
 When the request is aborted with `.cancel()`.
 
+#### got.TimeoutError
+
+When the request is aborted due to a [timeout](#timeout)
 
 ## Aborting the request
 
