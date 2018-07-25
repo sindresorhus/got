@@ -190,7 +190,7 @@ Milliseconds to wait for the server to end the response before aborting request 
 
 This also accepts an object with separate `lookup`, `connect`, `socket`, `response` and `request` fields to specify granular timeouts for each phase of the request.
 
-- `lookup` starts when a socket is assigned and ends when the hostname has been resolved. Does not apply when using a unix domain socket.
+- `lookup` starts when a socket is assigned and ends when the hostname has been resolved. Does not apply when using a Unix domain socket.
 - `connect` starts when `lookup` completes (or when the socket is assigned if lookup does not apply to the request) and ends when the socket is connected.
 - `socket` starts when the socket is connected. See [request.setTimeout](https://nodejs.org/api/http.html#http_request_settimeout_timeout_callback).
 - `response` starts when the request has been written to the socket and ends when the response headers are received.
