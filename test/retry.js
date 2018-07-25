@@ -10,7 +10,7 @@ let fifth = 0;
 let lastTried413access = Date.now();
 
 const retryAfterOn413 = 2;
-const socketTimeout = 100;
+const socketTimeout = 200;
 
 test.before('setup', async () => {
 	s = await createServer();

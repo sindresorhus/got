@@ -1,8 +1,7 @@
-import fs from 'fs';
 import http from 'http';
 import net from 'net';
+import stream from 'stream';
 import getStream from 'get-stream';
-import SlowStream from 'slow-stream';
 import test from 'ava';
 import pEvent from 'p-event';
 import delay from 'delay';
@@ -10,7 +9,19 @@ import got from '../source';
 import {createServer} from './helpers/server';
 
 let s;
-const reqDelay = 160;
+const reqDelay = 250;
+const slowDataStream = () => {
+	const slowStream = new stream.PassThrough();
+	let count = 0;
+	const interval = setInterval(() => {
+		if (count++ < 10) {
+			return slowStream.push('data\n'.repeat(100));
+		}
+		clearInterval(interval);
+		slowStream.push(null);
+	}, 100);
+	return slowStream;
+};
 const reqTimeout = reqDelay - 10;
 const errorMatcher = {
 	instanceOf: got.TimeoutError,
@@ -24,11 +35,19 @@ test.before('setup', async () => {
 	s = await createServer();
 
 	s.on('/', async (req, res) => {
-		req.pipe(fs.createWriteStream('/dev/null'));
+		req.on('data', () => {});
 		req.on('end', async () => {
 			await delay(reqDelay);
 			res.end('OK');
 		});
+	});
+
+	s.on('/download', async (req, res) => {
+		res.writeHead(200, {
+			'transfer-encoding': 'chunked'
+		});
+		res.flushHeaders();
+		slowDataStream().pipe(res);
 	});
 
 	s.on('/prime', (req, res) => {
@@ -91,6 +110,29 @@ test('send timeout', async t => {
 	);
 });
 
+test('send timeout (keepalive)', async t => {
+	await got(`${s.url}/prime`, {agent: keepAliveAgent});
+	await t.throws(
+		got(s.url, {
+			agent: keepAliveAgent,
+			timeout: {send: 1},
+			retry: 0,
+			body: slowDataStream()
+		}).on('request', req => {
+			req.once('socket', socket => {
+				t.false(socket.connecting);
+				socket.once('connect', () => {
+					t.fail(`'connect' event fired, invalidating test`);
+				});
+			});
+		}),
+		{
+			...errorMatcher,
+			message: `Timeout awaiting 'send' for 1ms`
+		}
+	);
+});
+
 test('response timeout', async t => {
 	await t.throws(
 		got(s.url, {
@@ -104,18 +146,30 @@ test('response timeout', async t => {
 	);
 });
 
-test('response timeout (slow upload)', async t => {
-	const body = fs.createReadStream('/dev/urandom', {
-		end: (1 << 20)
-	}).pipe(new SlowStream({maxWriteInterval: 100}));
+test('response timeout unaffected by slow upload', async t => {
 	await got(s.url, {
 		timeout: {response: reqDelay * 2},
 		retry: 0,
-		body
-	}).on('error', error => {
-		t.fail(`unexpected error: ${error}`);
+		body: slowDataStream()
+	}).on('request', request => {
+		request.on('error', error => {
+			t.fail(`unexpected error: ${error}`);
+		});
 	});
-	await delay(100);
+	await delay(reqDelay * 3);
+	t.pass('no error emitted');
+});
+
+test('response timeout unaffected by slow download', async t => {
+	await got(`${s.url}/download`, {
+		timeout: {response: 100},
+		retry: 0
+	}).on('request', request => {
+		request.on('error', error => {
+			t.fail(`unexpected error: ${error}`);
+		});
+	});
+	await delay(reqDelay * 3);
 	t.pass('no error emitted');
 });
 

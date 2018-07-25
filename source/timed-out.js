@@ -125,7 +125,7 @@ module.exports = function (req, options) {
 				'response'
 			);
 			cancelers.push(cancelTimeout);
-			return cancelTimeout;
+			req.once('response', cancelTimeout);
 		});
 	}
 };
