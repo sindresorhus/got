@@ -76,17 +76,16 @@ test('custom headers (extend)', async t => {
 	t.is(headers.unicorn, 'rainbow');
 });
 
-test('custom endpoint with custom headers (create)', async t => {
-	const options = {headers: {unicorn: 'rainbow'}};
-	const handler = (url, options, next) => {
-		url = `${s.url}` + url;
-
-		return next(url, options);
-	};
-	const methods = ['get'];
-
-	const instance = got.create({options, methods, handler});
-	const headers = (await instance('/', {
+test('create', async t => {
+	const instance = got.create({
+		options: {},
+		methods: ['get'],
+		handler: (options, next) => {
+			options.headers.unicorn = 'rainbow';
+			return next(options);
+		}
+	});
+	const headers = (await instance(s.url, {
 		json: true
 	})).body;
 	t.is(headers.unicorn, 'rainbow');
@@ -99,7 +98,7 @@ test('custom endpoint with custom headers (extend)', async t => {
 		json: true
 	})).body;
 	t.is(headers.unicorn, 'rainbow');
-	t.is(headers['user-agent'] === undefined, false);
+	t.not(headers['user-agent'], undefined);
 });
 
 test('no tampering with defaults', t => {

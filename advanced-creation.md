@@ -31,9 +31,9 @@ Function making additional changes to the request.
 To inherit from parent, set it as `got.defaults.handler`.<br>
 To use the default handler, just omit specifying this.
 
-###### [url](readme.md#url)
-
 ###### [options](readme.md#options)
+
+**Note:** These options are [normalized](source/normalize-arguments.js).
 
 ###### next()
 
@@ -41,16 +41,16 @@ Normalizes arguments and returns a `Promise` or a `Stream` depending on [`option
 
 ```js
 const settings = {
-	handler: (url, options, next) => {
+	handler: (options, next) => {
 		if (options.stream) {
 			// It's a Stream
 			// We can perform stream-specific actions on it
-			return next(url, options)
+			return next(options)
 				.on('request', request => setTimeout(() => request.abort(), 50));
 		}
 
 		// It's a Promise
-		return next(url, options);
+		return next(options);
 	},
 	methods: got.defaults.methods,
 	options: {
@@ -64,9 +64,7 @@ const jsonGot = got.create(settings);
 
 ```js
 const defaults = {
-	handler: (url, options, next) => {
-		return next(url, options);
-	},
+	handler: (options, next) => next(options),
 	methods: [
 		'get',
 		'post',

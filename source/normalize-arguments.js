@@ -1,5 +1,6 @@
 'use strict';
-const URLSearchParamsGlobal = typeof URLSearchParams === 'undefined' ? require('url').URLSearchParams : URLSearchParams; // TODO: Use the `URL` global when targeting Node.js 10
+const URLGlobal = typeof URL === 'undefined' ? require('url').URL : URL; // TODO: Use the `URL` global when targeting Node.js 10
+const URLSearchParamsGlobal = typeof URLSearchParams === 'undefined' ? require('url').URLSearchParams : URLSearchParams;
 const is = require('@sindresorhus/is');
 const toReadableStream = require('to-readable-stream');
 const urlParseLax = require('url-parse-lax');
@@ -17,18 +18,24 @@ module.exports = (url, options, defaults) => {
 
 	if (!is.string(url) && !is.object(url)) {
 		throw new TypeError(`Parameter \`url\` must be a string or object, not ${is(url)}`);
-	} else if (is.string(url)) {
-		url = url.replace(/^unix:/, 'http://$&');
+	}
 
-		try {
-			decodeURI(url);
-		} catch (_) {
-			throw new Error('Parameter `url` must contain valid UTF-8 character sequences');
-		}
+	if (is.string(url)) {
+		if (options.baseUrl) {
+			url = urlToOptions(new URLGlobal(url, options.baseUrl));
+		} else {
+			url = url.replace(/^unix:/, 'http://$&');
 
-		url = urlParseLax(url);
-		if (url.auth) {
-			throw new Error('Basic authentication must be done with the `auth` option');
+			try {
+				decodeURI(url);
+			} catch (_) {
+				throw new Error('Parameter `url` must contain valid UTF-8 character sequences');
+			}
+
+			url = urlParseLax(url);
+			if (url.auth) {
+				throw new Error('Basic authentication must be done with the `auth` option');
+			}
 		}
 	} else if (is(url) === 'URL') {
 		url = urlToOptions(url);
@@ -36,6 +43,7 @@ module.exports = (url, options, defaults) => {
 
 	options = {
 		path: '',
+		headers: {},
 		...url,
 		protocol: url.protocol || 'http:', // Override both null/undefined with default protocol
 		...options
