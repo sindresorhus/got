@@ -104,6 +104,22 @@ module.exports = (request, options) => {
 		});
 	}
 
+	if (delays.secureConnect !== undefined && options.protocol === 'https:') {
+		request.once('socket', socket => {
+			if (socket.connecting) {
+				socket.once('connect', () => {
+					const cancelTimeout = addTimeout(
+						delays.secureConnect,
+						timeoutHandler,
+						'secureConnect'
+					);
+					cancelers.push(cancelTimeout);
+					socket.once('secureConnect', cancelTimeout);
+				});
+			}
+		});
+	}
+
 	if (delays.send !== undefined) {
 		request.once('socket', socket => {
 			const timeRequest = () => {
