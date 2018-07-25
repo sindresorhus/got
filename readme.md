@@ -188,7 +188,7 @@ Type: `number` `Object`
 
 Milliseconds to wait for the server to end the response before aborting request with `ETIMEDOUT` error (a.k.a. `request` property). By default there's no timeout.
 
-This also accepts an object with separate `lookup`, `connect`, `socket`, `response` and `request` fields to specify granular timeouts for each phase of the request.
+This also accepts an `object` with the following fields to constrain the duration of each phase of the request lifecycle:
 
 - `lookup` starts when a socket is assigned and ends when the hostname has been resolved. Does not apply when using a Unix domain socket.
 - `connect` starts when `lookup` completes (or when the socket is assigned if lookup does not apply to the request) and ends when the socket is connected.
@@ -412,7 +412,7 @@ Extends parent options. Avoid using [object spread](https://developer.mozilla.or
 ```js
 const a = {headers: {cat: 'meow'}};
 const b = {headers: {dog: 'woof'}};
- 
+
 {...a, ...b}            // => {headers: {dog: 'woof'}}
 got.assignOptions(a, b) // => {headers: {cat: 'meow', dog: 'woof'}}
 ```
