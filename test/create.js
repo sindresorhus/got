@@ -105,10 +105,9 @@ test('no tampering with defaults', t => {
 	const instance = got.create({
 		handler: got.defaults.handler,
 		methods: got.defaults.methods,
-		options: {
-			...got.defaults.options,
+		options: got.assignOptions(got.defaults.options, {
 			baseUrl: 'example'
-		}
+		})
 	});
 
 	const instance2 = instance.create({

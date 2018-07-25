@@ -398,6 +398,18 @@ client.get('/demo');
 
 *Need more control over the behavior of Got? Check out the [`got.create()`](advanced-creation.md).*
 
+#### got.assignOptions(parentOptions, newOptions)
+
+Extends parent options. Avoid using [object spread](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Spread_syntax#Spread_in_object_literals) as it doesn't work recursively:
+
+```js
+const a = {headers: {cat: 'meow'}};
+const b = {headers: {dog: 'woof'}};
+ 
+{...a, ...b}            // => {headers: {dog: 'woof'}}
+got.assignOptions(a, b) // => {headers: {cat: 'meow', dog: 'woof'}}
+```
+
 ## Errors
 
 Each error contains (if available) `statusCode`, `statusMessage`, `host`, `hostname`, `method`, `path`, `protocol` and `url` properties to make debugging easier.

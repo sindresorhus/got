@@ -46,7 +46,7 @@ const create = defaults => {
 		got.stream[method] = (url, options) => got.stream(url, {...options, method});
 	}
 
-	Object.assign(got, errors);
+	Object.assign(got, {...errors, assignOptions});
 	Object.defineProperty(got, 'defaults', {
 		value: deepFreeze(defaults),
 		writable: false,
