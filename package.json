@@ -34,7 +34,7 @@
 		"electron"
 	],
 	"dependencies": {
-		"@sindresorhus/is": "^0.9.0",
+		"@sindresorhus/is": "^0.11.0",
 		"cacheable-request": "^4.0.1",
 		"decompress-response": "^3.3.0",
 		"duplexer3": "^0.1.4",
@@ -50,7 +50,7 @@
 		"coveralls": "^3.0.0",
 		"delay": "^3.0.0",
 		"form-data": "^2.1.1",
-		"get-port": "^3.0.0",
+		"get-port": "^4.0.0",
 		"nyc": "^12.0.2",
 		"p-event": "^2.1.0",
 		"pem": "^1.4.4",
