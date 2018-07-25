@@ -15,12 +15,12 @@ const defaults = {
 		retry: {
 			retries: 2,
 			methods: [
-				'GET',
-				'PUT',
-				'HEAD',
-				'DELETE',
-				'OPTIONS',
-				'TRACE'
+				'get',
+				'put',
+				'head',
+				'delete',
+				'options',
+				'trace'
 			],
 			statusCodes: [
 				408,
