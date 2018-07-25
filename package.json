@@ -35,7 +35,7 @@
 	],
 	"dependencies": {
 		"@sindresorhus/is": "^0.9.0",
-		"cacheable-request": "^2.1.1",
+		"cacheable-request": "^4.0.1",
 		"decompress-response": "^3.3.0",
 		"duplexer3": "^0.1.4",
 		"extend": "^3.0.1",

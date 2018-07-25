@@ -1,5 +1,4 @@
 'use strict';
-const URLGlobal = typeof URL === 'undefined' ? require('url').URL : URL; // TODO: Use the `URL` global when targeting Node.js 10
 const errors = require('./errors');
 const assignOptions = require('./assign-options');
 const asStream = require('./as-stream');
@@ -7,15 +6,7 @@ const asPromise = require('./as-promise');
 const normalizeArguments = require('./normalize-arguments');
 const deepFreeze = require('./deep-freeze');
 
-const makeNext = defaults => (path, options) => {
-	let url = path;
-
-	if (options.baseUrl) {
-		url = new URLGlobal(path, options.baseUrl);
-	}
-
-	options = normalizeArguments(url, options, defaults);
-
+const next = options => {
 	if (options.stream) {
 		return asStream(options);
 	}
@@ -24,15 +15,14 @@ const makeNext = defaults => (path, options) => {
 };
 
 const create = defaults => {
-	const next = makeNext(defaults);
 	if (!defaults.handler) {
-		defaults.handler = next;
+		defaults.handler = (options, next) => next(options);
 	}
 
 	function got(url, options) {
 		try {
 			options = assignOptions(defaults.options, options);
-			return defaults.handler(url, options, next);
+			return defaults.handler(normalizeArguments(url, options, defaults), next);
 		} catch (error) {
 			return Promise.reject(error);
 		}
@@ -48,7 +38,7 @@ const create = defaults => {
 	got.stream = (url, options) => {
 		options = assignOptions(defaults.options, options);
 		options.stream = true;
-		return defaults.handler(url, options, next);
+		return defaults.handler(normalizeArguments(url, options, defaults), next);
 	};
 
 	for (const method of defaults.methods) {
