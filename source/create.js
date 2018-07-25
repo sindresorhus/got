@@ -6,13 +6,7 @@ const asPromise = require('./as-promise');
 const normalizeArguments = require('./normalize-arguments');
 const deepFreeze = require('./deep-freeze');
 
-const next = options => {
-	if (options.stream) {
-		return asStream(options);
-	}
-
-	return asPromise(options);
-};
+const next = options => options.stream ? asStream(options) : asPromise(options);
 
 const create = defaults => {
 	if (!defaults.handler) {

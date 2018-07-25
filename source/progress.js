@@ -1,6 +1,6 @@
 'use strict';
 module.exports = {
-	upload(req, emitter, uploadBodySize) {
+	upload(request, emitter, uploadBodySize) {
 		const uploadEventFrequency = 150;
 		let uploaded = 0;
 		let progressInterval;
@@ -11,11 +11,11 @@ module.exports = {
 			total: uploadBodySize
 		});
 
-		req.once('error', () => {
+		request.once('error', () => {
 			clearInterval(progressInterval);
 		});
 
-		req.once('response', () => {
+		request.once('response', () => {
 			clearInterval(progressInterval);
 
 			emitter.emit('uploadProgress', {
@@ -25,7 +25,7 @@ module.exports = {
 			});
 		});
 
-		req.once('socket', socket => {
+		request.once('socket', socket => {
 			const onSocketConnect = () => {
 				progressInterval = setInterval(() => {
 					if (socket.destroyed) {
@@ -34,7 +34,7 @@ module.exports = {
 					}
 
 					const lastUploaded = uploaded;
-					const headersSize = req._header ? Buffer.byteLength(req._header) : 0;
+					const headersSize = request._header ? Buffer.byteLength(request._header) : 0;
 					uploaded = socket.bytesWritten - headersSize;
 
 					// Prevent the known issue of `bytesWritten` being larger than body size

@@ -204,15 +204,13 @@ module.exports = (url, options, defaults) => {
 			if (is.nullOrUndefined(hooks)) {
 				options.hooks[hookEvent] = [];
 			} else if (is.array(hooks)) {
-				hooks.forEach(
-					(hook, index) => {
-						if (!is.function_(hook)) {
-							throw new TypeError(
-								`Parameter \`hooks.${hookEvent}[${index}]\` must be a function, not ${is(hook)}`
-							);
-						}
+				for (const [index, hook] of hooks.entries()) {
+					if (!is.function(hook)) {
+						throw new TypeError(
+							`Parameter \`hooks.${hookEvent}[${index}]\` must be a function, not ${is(hook)}`
+						);
 					}
-				);
+				}
 			} else {
 				throw new TypeError(`Parameter \`hooks.${hookEvent}\` must be an array, not ${is(hooks)}`);
 			}

@@ -26,23 +26,25 @@ function addTimeout(delay, callback, ...args) {
 	};
 }
 
-module.exports = function (req, options) {
-	if (req[reentry]) {
+module.exports = (request, options) => {
+	if (request[reentry]) {
 		return;
 	}
-	req[reentry] = true;
+
+	request[reentry] = true;
 	const {gotTimeout: delays, host, hostname} = options;
 	const timeoutHandler = (delay, event) => {
-		req.abort();
-		req.emit('error', new TimeoutError(delay, event, options));
+		request.abort();
+		request.emit('error', new TimeoutError(delay, event, options));
 	};
+
 	const cancelers = [];
 	const cancelTimeouts = () => {
 		cancelers.forEach(cancelTimeout => cancelTimeout());
 	};
 
-	req.on('error', cancelTimeouts);
-	req.once('response', response => {
+	request.on('error', cancelTimeouts);
+	request.once('response', response => {
 		response.once('end', cancelTimeouts);
 	});
 
@@ -54,16 +56,18 @@ module.exports = function (req, options) {
 		);
 		cancelers.push(cancelTimeout);
 	}
+
 	if (delays.socket !== undefined) {
-		req.setTimeout(
+		request.setTimeout(
 			delays.socket,
 			() => {
 				timeoutHandler(delays.socket, 'socket');
 			}
 		);
 	}
-	if (delays.lookup !== undefined && !req.socketPath && !net.isIP(hostname || host)) {
-		req.once('socket', socket => {
+
+	if (delays.lookup !== undefined && !request.socketPath && !net.isIP(hostname || host)) {
+		request.once('socket', socket => {
 			if (socket.connecting) {
 				const cancelTimeout = addTimeout(
 					delays.lookup,
@@ -75,8 +79,9 @@ module.exports = function (req, options) {
 			}
 		});
 	}
+
 	if (delays.connect !== undefined) {
-		req.once('socket', socket => {
+		request.once('socket', socket => {
 			if (socket.connecting) {
 				const timeConnect = () => {
 					const cancelTimeout = addTimeout(
@@ -87,7 +92,8 @@ module.exports = function (req, options) {
 					cancelers.push(cancelTimeout);
 					return cancelTimeout;
 				};
-				if (req.socketPath || net.isIP(hostname || host)) {
+
+				if (request.socketPath || net.isIP(hostname || host)) {
 					socket.once('connect', timeConnect());
 				} else {
 					socket.once('lookup', () => {
@@ -97,8 +103,9 @@ module.exports = function (req, options) {
 			}
 		});
 	}
+
 	if (delays.send !== undefined) {
-		req.once('socket', socket => {
+		request.once('socket', socket => {
 			const timeRequest = () => {
 				const cancelTimeout = addTimeout(
 					delays.send,
@@ -108,24 +115,26 @@ module.exports = function (req, options) {
 				cancelers.push(cancelTimeout);
 				return cancelTimeout;
 			};
+
 			if (socket.connecting) {
 				socket.once('connect', () => {
-					req.once('upload-complete', timeRequest());
+					request.once('upload-complete', timeRequest());
 				});
 			} else {
-				req.once('upload-complete', timeRequest());
+				request.once('upload-complete', timeRequest());
 			}
 		});
 	}
+
 	if (delays.response !== undefined) {
-		req.once('upload-complete', () => {
+		request.once('upload-complete', () => {
 			const cancelTimeout = addTimeout(
 				delays.response,
 				timeoutHandler,
 				'response'
 			);
 			cancelers.push(cancelTimeout);
-			req.once('response', cancelTimeout);
+			request.once('response', cancelTimeout);
 		});
 	}
 };

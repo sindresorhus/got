@@ -11,51 +11,55 @@ let s;
 test.before('setup', async () => {
 	s = await createServer();
 
-	s.on('/', (req, res) => {
-		res.statusCode = 404;
-		res.end('not');
+	s.on('/', (request, response) => {
+		response.statusCode = 404;
+		response.end('not');
 	});
 
-	s.on('/default-status-message', (req, res) => {
-		res.statusCode = 400;
-		res.end('body');
+	s.on('/default-status-message', (request, response) => {
+		response.statusCode = 400;
+		response.end('body');
 	});
 
-	s.on('/custom-status-message', (req, res) => {
-		res.statusCode = 400;
-		res.statusMessage = 'Something Exploded';
-		res.end('body');
+	s.on('/custom-status-message', (request, response) => {
+		response.statusCode = 400;
+		response.statusMessage = 'Something Exploded';
+		response.end('body');
 	});
 
-	s.on('/body', async (req, res) => {
-		const body = await getStream(req);
-		res.end(body);
+	s.on('/body', async (request, response) => {
+		const body = await getStream(request);
+		response.end(body);
 	});
 
 	await s.listen(s.port);
 });
 
+test.after('cleanup', async () => {
+	await s.close();
+});
+
 test('properties', async t => {
-	const err = await t.throws(got(s.url));
-	t.truthy(err);
-	t.truthy(err.response);
-	t.false({}.propertyIsEnumerable.call(err, 'response'));
-	t.false({}.hasOwnProperty.call(err, 'code'));
-	t.is(err.message, 'Response code 404 (Not Found)');
-	t.is(err.host, `${s.host}:${s.port}`);
-	t.is(err.method, 'GET');
-	t.is(err.protocol, 'http:');
-	t.is(err.url, err.response.requestUrl);
-	t.is(err.headers.connection, 'close');
-	t.is(err.response.body, 'not');
+	const error = await t.throws(got(s.url));
+	t.truthy(error);
+	t.truthy(error.response);
+	t.false({}.propertyIsEnumerable.call(error, 'response'));
+	t.false({}.hasOwnProperty.call(error, 'code'));
+	t.is(error.message, 'Response code 404 (Not Found)');
+	t.is(error.host, `${s.host}:${s.port}`);
+	t.is(error.method, 'GET');
+	t.is(error.protocol, 'http:');
+	t.is(error.url, error.response.requestUrl);
+	t.is(error.headers.connection, 'close');
+	t.is(error.response.body, 'not');
 });
 
 test('dns message', async t => {
-	const err = await t.throws(got('.com', {retry: 0}));
-	t.truthy(err);
-	t.regex(err.message, /getaddrinfo ENOTFOUND/);
-	t.is(err.host, '.com');
-	t.is(err.method, 'GET');
+	const error = await t.throws(got('.com', {retry: 0}));
+	t.truthy(error);
+	t.regex(error.message, /getaddrinfo ENOTFOUND/);
+	t.is(error.host, '.com');
+	t.is(error.method, 'GET');
 });
 
 test('options.body error message', async t => {
@@ -87,15 +91,15 @@ test('no plain object restriction on body', async t => {
 });
 
 test('default status message', async t => {
-	const err = await t.throws(got(`${s.url}/default-status-message`));
-	t.is(err.statusCode, 400);
-	t.is(err.statusMessage, 'Bad Request');
+	const error = await t.throws(got(`${s.url}/default-status-message`));
+	t.is(error.statusCode, 400);
+	t.is(error.statusMessage, 'Bad Request');
 });
 
 test('custom status message', async t => {
-	const err = await t.throws(got(`${s.url}/custom-status-message`));
-	t.is(err.statusCode, 400);
-	t.is(err.statusMessage, 'Something Exploded');
+	const error = await t.throws(got(`${s.url}/custom-status-message`));
+	t.is(error.statusCode, 400);
+	t.is(error.statusMessage, 'Something Exploded');
 });
 
 test.serial('http.request error', async t => {
@@ -117,8 +121,4 @@ test.serial('catch error in mimicResponse', async t => {
 	});
 
 	await t.throws(proxiedGot(s.url), {message: 'Error in mimic-response'});
-});
-
-test.after('cleanup', async () => {
-	await s.close();
 });

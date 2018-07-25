@@ -7,9 +7,9 @@ let s;
 test.before('setup', async () => {
 	s = await createServer();
 
-	s.on('/', (req, res) => {
-		req.resume();
-		res.end(JSON.stringify(req.headers));
+	s.on('/', (request, response) => {
+		request.resume();
+		response.end(JSON.stringify(request.headers));
 	});
 
 	await s.listen(s.port);

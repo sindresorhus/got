@@ -40,95 +40,95 @@ test.before('setup', async () => {
 
 	// HTTPS Handlers
 
-	https.on('/', (req, res) => {
-		res.end('https');
+	https.on('/', (request, response) => {
+		response.end('https');
 	});
 
-	https.on('/httpsToHttp', (req, res) => {
-		res.writeHead(302, {
+	https.on('/httpsToHttp', (request, response) => {
+		response.writeHead(302, {
 			location: http.url
 		});
-		res.end();
+		response.end();
 	});
 
 	// HTTP Handlers
 
-	http.on('/', (req, res) => {
-		res.end('reached');
+	http.on('/', (request, response) => {
+		response.end('reached');
 	});
 
-	http.on('/finite', (req, res) => {
-		res.writeHead(302, {
+	http.on('/finite', (request, response) => {
+		response.writeHead(302, {
 			location: `${http.url}/`
 		});
-		res.end();
+		response.end();
 	});
 
-	http.on('/utf8-url-áé', (req, res) => {
-		res.end('reached');
+	http.on('/utf8-url-áé', (request, response) => {
+		response.end('reached');
 	});
 
-	http.on('/redirect-with-utf8-binary', (req, res) => {
-		res.writeHead(302, {
+	http.on('/redirect-with-utf8-binary', (request, response) => {
+		response.writeHead(302, {
 			location: Buffer.from((new URL('/utf8-url-áé', http.url)).toString(), 'utf8').toString('binary')
 		});
-		res.end();
+		response.end();
 	});
 
-	http.on('/endless', (req, res) => {
-		res.writeHead(302, {
+	http.on('/endless', (request, response) => {
+		response.writeHead(302, {
 			location: `${http.url}/endless`
 		});
-		res.end();
+		response.end();
 	});
 
-	http.on('/relative', (req, res) => {
-		res.writeHead(302, {
+	http.on('/relative', (request, response) => {
+		response.writeHead(302, {
 			location: '/'
 		});
-		res.end();
+		response.end();
 	});
 
-	http.on('/seeOther', (req, res) => {
-		res.writeHead(303, {
+	http.on('/seeOther', (request, response) => {
+		response.writeHead(303, {
 			location: '/'
 		});
-		res.end();
+		response.end();
 	});
 
-	http.on('/temporary', (req, res) => {
-		res.writeHead(307, {
+	http.on('/temporary', (request, response) => {
+		response.writeHead(307, {
 			location: '/'
 		});
-		res.end();
+		response.end();
 	});
 
-	http.on('/permanent', (req, res) => {
-		res.writeHead(308, {
+	http.on('/permanent', (request, response) => {
+		response.writeHead(308, {
 			location: '/'
 		});
-		res.end();
+		response.end();
 	});
 
-	http.on('/relativeQuery?bang', (req, res) => {
-		res.writeHead(302, {
+	http.on('/relativeQuery?bang', (request, response) => {
+		response.writeHead(302, {
 			location: '/'
 		});
-		res.end();
+		response.end();
 	});
 
-	http.on('/httpToHttps', (req, res) => {
-		res.writeHead(302, {
+	http.on('/httpToHttps', (request, response) => {
+		response.writeHead(302, {
 			location: https.url
 		});
-		res.end();
+		response.end();
 	});
 
-	http.on('/malformedRedirect', (req, res) => {
-		res.writeHead(302, {
+	http.on('/malformedRedirect', (request, response) => {
+		response.writeHead(302, {
 			location: '/%D8'
 		});
-		res.end();
+		response.end();
 	});
 
 	await http.listen(http.port);
@@ -163,9 +163,9 @@ test('relative redirect works', async t => {
 });
 
 test('throws on endless redirect', async t => {
-	const err = await t.throws(got(`${http.url}/endless`));
-	t.is(err.message, 'Redirected 10 times. Aborting.');
-	t.deepEqual(err.redirectUrls, new Array(10).fill(`${http.url}/endless`));
+	const error = await t.throws(got(`${http.url}/endless`));
+	t.is(error.message, 'Redirected 10 times. Aborting.');
+	t.deepEqual(error.redirectUrls, new Array(10).fill(`${http.url}/endless`));
 });
 
 test('query in options are not breaking redirects', async t => {
@@ -180,10 +180,10 @@ test('hostname+path in options are not breaking redirects', async t => {
 });
 
 test('redirect only GET and HEAD requests', async t => {
-	const err = await t.throws(got(`${http.url}/relative`, {body: 'wow'}));
-	t.is(err.message, 'Response code 302 (Found)');
-	t.is(err.path, '/relative');
-	t.is(err.statusCode, 302);
+	const error = await t.throws(got(`${http.url}/relative`, {body: 'wow'}));
+	t.is(error.message, 'Response code 302 (Found)');
+	t.is(error.path, '/relative');
+	t.is(error.statusCode, 302);
 });
 
 test('redirect on 303 response even with post, put, delete', async t => {
@@ -220,6 +220,6 @@ test('redirect response contains utf8 with binary encoding', async t => {
 });
 
 test('throws on malformed redirect URI', async t => {
-	const err = await t.throws(got(`${http.url}/malformedRedirect`));
-	t.is(err.name, 'URIError');
+	const error = await t.throws(got(`${http.url}/malformedRedirect`));
+	t.is(error.name, 'URIError');
 });

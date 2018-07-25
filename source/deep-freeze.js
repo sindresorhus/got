@@ -1,12 +1,12 @@
 'use strict';
 const is = require('@sindresorhus/is');
 
-module.exports = function deepFreeze(obj) {
-	for (const [key, value] of Object.entries(obj)) {
+module.exports = function deepFreeze(object) {
+	for (const [key, value] of Object.entries(object)) {
 		if (is.object(value)) {
-			deepFreeze(obj[key]);
+			deepFreeze(object[key]);
 		}
 	}
 
-	return Object.freeze(obj);
+	return Object.freeze(object);
 };

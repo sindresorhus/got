@@ -26,30 +26,30 @@ module.exports = options => {
 
 	const emitter = requestAsEventEmitter(options);
 
-	emitter.on('request', req => {
-		proxy.emit('request', req);
+	emitter.on('request', request => {
+		proxy.emit('request', request);
 		const uploadComplete = () => {
-			req.emit('upload-complete');
+			request.emit('upload-complete');
 		};
 
 		if (is.nodeStream(options.body)) {
 			options.body.once('end', uploadComplete);
-			options.body.pipe(req);
+			options.body.pipe(request);
 			return;
 		}
 
 		if (options.body) {
-			req.end(options.body, uploadComplete);
+			request.end(options.body, uploadComplete);
 			return;
 		}
 
 		if (options.method === 'POST' || options.method === 'PUT' || options.method === 'PATCH') {
 			input.once('end', uploadComplete);
-			input.pipe(req);
+			input.pipe(request);
 			return;
 		}
 
-		req.end(uploadComplete);
+		request.end(uploadComplete);
 	});
 
 	emitter.on('response', response => {

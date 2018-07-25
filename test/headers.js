@@ -12,12 +12,16 @@ let s;
 test.before('setup', async () => {
 	s = await createServer();
 
-	s.on('/', (req, res) => {
-		req.resume();
-		res.end(JSON.stringify(req.headers));
+	s.on('/', (request, response) => {
+		request.resume();
+		response.end(JSON.stringify(request.headers));
 	});
 
 	await s.listen(s.port);
+});
+
+test.after('cleanup', async () => {
+	await s.close();
 });
 
 test('user-agent', async t => {
@@ -146,8 +150,4 @@ test('remove undefined value headers', async t => {
 	});
 	const headers = JSON.parse(body);
 	t.false(Reflect.has(headers, 'user-agent'));
-});
-
-test.after('cleanup', async () => {
-	await s.close();
 });

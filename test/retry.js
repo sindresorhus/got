@@ -17,9 +17,9 @@ test.before('setup', async () => {
 
 	s.on('/long', () => {});
 
-	s.on('/knock-twice', (req, res) => {
+	s.on('/knock-twice', (request, response) => {
 		if (knocks++ === 1) {
-			res.end('who`s there?');
+			response.end('who`s there?');
 		}
 	});
 
@@ -27,44 +27,48 @@ test.before('setup', async () => {
 		trys++;
 	});
 
-	s.on('/fifth', (req, res) => {
+	s.on('/fifth', (request, response) => {
 		if (fifth++ === 5) {
-			res.end('who`s there?');
+			response.end('who`s there?');
 		}
 	});
 
-	s.on('/500', (req, res) => {
-		res.statusCode = 500;
-		res.end();
+	s.on('/500', (request, response) => {
+		response.statusCode = 500;
+		response.end();
 	});
 
-	s.on('/measure413', (req, res) => {
-		res.writeHead(413, {
+	s.on('/measure413', (request, response) => {
+		response.writeHead(413, {
 			'Retry-After': retryAfterOn413
 		});
-		res.end((Date.now() - lastTried413access).toString());
+		response.end((Date.now() - lastTried413access).toString());
 
 		lastTried413access = Date.now();
 	});
 
-	s.on('/413', (req, res) => {
-		res.writeHead(413, {
+	s.on('/413', (request, response) => {
+		response.writeHead(413, {
 			'Retry-After': retryAfterOn413
 		});
-		res.end();
+		response.end();
 	});
 
-	s.on('/413withoutRetryAfter', (req, res) => {
-		res.statusCode = 413;
-		res.end();
+	s.on('/413withoutRetryAfter', (request, response) => {
+		response.statusCode = 413;
+		response.end();
 	});
 
-	s.on('/503', (req, res) => {
-		res.statusCode = 503;
-		res.end();
+	s.on('/503', (request, response) => {
+		response.statusCode = 503;
+		response.end();
 	});
 
 	await s.listen(s.port);
+});
+
+test.after('cleanup', async () => {
+	await s.close();
 });
 
 test('works on timeout error', async t => {
@@ -72,11 +76,11 @@ test('works on timeout error', async t => {
 });
 
 test('can be disabled with option', async t => {
-	const err = await t.throws(got(`${s.url}/try-me`, {
+	const error = await t.throws(got(`${s.url}/try-me`, {
 		timeout: {socket: socketTimeout},
 		retry: 0
 	}));
-	t.truthy(err);
+	t.truthy(error);
 	t.is(trys, 1);
 });
 
@@ -91,31 +95,31 @@ test('function gets iter count', async t => {
 });
 
 test('falsy value prevents retries', async t => {
-	const err = await t.throws(got(`${s.url}/long`, {
+	const error = await t.throws(got(`${s.url}/long`, {
 		timeout: {socket: socketTimeout},
 		retry: {
 			retries: () => 0
 		}
 	}));
-	t.truthy(err);
+	t.truthy(error);
 });
 
 test('falsy value prevents retries #2', async t => {
-	const err = await t.throws(got(`${s.url}/long`, {
+	const error = await t.throws(got(`${s.url}/long`, {
 		timeout: {socket: socketTimeout},
 		retry: {
-			retries: (iter, err) => {
-				t.truthy(err);
+			retries: (iter, error) => {
+				t.truthy(error);
 				return false;
 			}
 		}
 	}));
-	t.truthy(err);
+	t.truthy(error);
 });
 
 test('custom retries', async t => {
 	let tried = false;
-	const err = await t.throws(got(`${s.url}/500`, {
+	const error = await t.throws(got(`${s.url}/500`, {
 		throwHttpErrors: true,
 		retry: {
 			retries: iter => {
@@ -132,7 +136,7 @@ test('custom retries', async t => {
 			]
 		}
 	}));
-	t.is(err.statusCode, 500);
+	t.is(error.statusCode, 500);
 	t.true(tried);
 });
 
@@ -202,8 +206,4 @@ test('doesn\'t retry if Retry-After header is greater than maxRetryAfter', async
 		throwHttpErrors: false
 	});
 	t.is(retryCount, 0);
-});
-
-test.after('cleanup', async () => {
-	await s.close();
 });

@@ -12,15 +12,19 @@ if (process.platform !== 'win32') {
 	test.before('setup', async () => {
 		s = await createServer();
 
-		s.on('/', (req, res) => {
-			res.end('ok');
+		s.on('/', (request, response) => {
+			response.end('ok');
 		});
 
-		s.on('/foo:bar', (req, res) => {
-			res.end('ok');
+		s.on('/foo:bar', (request, response) => {
+			response.end('ok');
 		});
 
 		await s.listen(socketPath);
+	});
+
+	test.after('cleanup', async () => {
+		await s.close();
 	});
 
 	test('works', async t => {
@@ -36,9 +40,5 @@ if (process.platform !== 'win32') {
 	test('address with : works', async t => {
 		const url = format('unix:%s:%s', socketPath, '/foo:bar');
 		t.is((await got(url)).body, 'ok');
-	});
-
-	test.after('cleanup', async () => {
-		await s.close();
 	});
 }

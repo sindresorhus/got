@@ -7,28 +7,28 @@ let s;
 test.before('setup', async () => {
 	s = await createServer();
 
-	s.on('/', (req, res) => {
-		res.end('ok');
+	s.on('/', (request, response) => {
+		response.end('ok');
 	});
 
-	s.on('/404', (req, res) => {
-		res.statusCode = 404;
-		res.end('not found');
+	s.on('/404', (request, response) => {
+		response.statusCode = 404;
+		response.end('not found');
 	});
 
 	await s.listen(s.port);
 });
 
+test.after('cleanup', async () => {
+	await s.close();
+});
+
 test('promise mode', async t => {
 	t.is((await got.get(s.url)).body, 'ok');
 
-	const err = await t.throws(got.get(`${s.url}/404`));
-	t.is(err.response.body, 'not found');
+	const error = await t.throws(got.get(`${s.url}/404`));
+	t.is(error.response.body, 'not found');
 
-	const err2 = await t.throws(got.get('.com', {retry: 0}));
-	t.truthy(err2);
-});
-
-test.after('cleanup', async () => {
-	await s.close();
+	const error2 = await t.throws(got.get('.com', {retry: 0}));
+	t.truthy(error2);
 });

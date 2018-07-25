@@ -36,9 +36,13 @@ test.before('setup', async () => {
 
 	s = await createSSLServer({key, cert});
 
-	s.on('/', (req, res) => res.end('ok'));
+	s.on('/', (request, response) => response.end('ok'));
 
 	await s.listen(s.port);
+});
+
+test.after('cleanup', async () => {
+	await s.close();
 });
 
 test('make request to https server without ca', async t => {
@@ -62,6 +66,3 @@ test('protocol-less URLs default to HTTPS', async t => {
 	t.true(requestUrl.startsWith('https://'));
 });
 
-test.after('cleanup', async () => {
-	await s.close();
-});

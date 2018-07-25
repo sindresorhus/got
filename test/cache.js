@@ -8,42 +8,46 @@ test.before('setup', async () => {
 	s = await createServer();
 
 	let noStoreIndex = 0;
-	s.on('/no-store', (req, res) => {
-		res.setHeader('Cache-Control', 'public, no-cache, no-store');
-		res.end(noStoreIndex.toString());
+	s.on('/no-store', (request, response) => {
+		response.setHeader('Cache-Control', 'public, no-cache, no-store');
+		response.end(noStoreIndex.toString());
 		noStoreIndex++;
 	});
 
 	let cacheIndex = 0;
-	s.on('/cache', (req, res) => {
-		res.setHeader('Cache-Control', 'public, max-age=60');
-		res.end(cacheIndex.toString());
+	s.on('/cache', (request, response) => {
+		response.setHeader('Cache-Control', 'public, max-age=60');
+		response.end(cacheIndex.toString());
 		cacheIndex++;
 	});
 
 	let status301Index = 0;
-	s.on('/301', (req, res) => {
+	s.on('/301', (request, response) => {
 		if (status301Index === 0) {
-			res.setHeader('Cache-Control', 'public, max-age=60');
-			res.setHeader('Location', s.url + '/302');
-			res.statusCode = 301;
+			response.setHeader('Cache-Control', 'public, max-age=60');
+			response.setHeader('Location', `${s.url}/302`);
+			response.statusCode = 301;
 		}
-		res.end();
+		response.end();
 		status301Index++;
 	});
 
 	let status302Index = 0;
-	s.on('/302', (req, res) => {
+	s.on('/302', (request, response) => {
 		if (status302Index === 0) {
-			res.setHeader('Cache-Control', 'public, max-age=60');
-			res.setHeader('Location', s.url + '/cache');
-			res.statusCode = 302;
+			response.setHeader('Cache-Control', 'public, max-age=60');
+			response.setHeader('Location', `${s.url}/cache`);
+			response.statusCode = 302;
 		}
-		res.end();
+		response.end();
 		status302Index++;
 	});
 
 	await s.listen(s.port);
+});
+
+test.after('cleanup', async () => {
+	await s.close();
 });
 
 test('Non cacheable responses are not cached', async t => {
@@ -98,10 +102,6 @@ test('Cache error throws got.CacheError', async t => {
 	const endpoint = '/no-store';
 	const cache = {};
 
-	const err = await t.throws(got(s.url + endpoint, {cache}));
-	t.is(err.name, 'CacheError');
-});
-
-test.after('cleanup', async () => {
-	await s.close();
+	const error = await t.throws(got(s.url + endpoint, {cache}));
+	t.is(error.name, 'CacheError');
 });

@@ -11,30 +11,34 @@ let s;
 test.before('setup', async () => {
 	s = await createServer();
 
-	s.on('/', (req, res) => {
-		res.writeHead(200, {
+	s.on('/', (request, response) => {
+		response.writeHead(200, {
 			unicorn: 'rainbow'
 		});
-		res.end('ok');
+		response.end('ok');
 	});
 
-	s.on('/post', (req, res) => {
-		req.pipe(res);
+	s.on('/post', (request, response) => {
+		request.pipe(response);
 	});
 
-	s.on('/redirect', (req, res) => {
-		res.writeHead(302, {
+	s.on('/redirect', (request, response) => {
+		response.writeHead(302, {
 			location: s.url
 		});
-		res.end();
+		response.end();
 	});
 
-	s.on('/error', (req, res) => {
-		res.statusCode = 404;
-		res.end();
+	s.on('/error', (request, response) => {
+		response.statusCode = 404;
+		response.end();
 	});
 
 	await s.listen(s.port);
+});
+
+test.after('cleanup', async () => {
+	await s.close();
 });
 
 test('option.json can not be used', t => {
@@ -117,8 +121,8 @@ test('piping works', async t => {
 test('proxying headers works', async t => {
 	const server = await createServer();
 
-	server.on('/', (req, res) => {
-		got.stream(s.url).pipe(res);
+	server.on('/', (request, response) => {
+		got.stream(s.url).pipe(response);
 	});
 
 	await server.listen(server.port);
@@ -127,8 +131,4 @@ test('proxying headers works', async t => {
 	t.is(headers.unicorn, 'rainbow');
 
 	await server.close();
-});
-
-test.after('cleanup', async () => {
-	await s.close();
 });

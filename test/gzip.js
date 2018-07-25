@@ -15,40 +15,44 @@ test.before('setup', async () => {
 	s = await createServer();
 	gzipData = await util.promisify(zlib.gzip)(testContent);
 
-	s.on('/', (req, res) => {
-		res.statusCode = 200;
-		res.setHeader('Content-Type', 'text/plain');
-		res.setHeader('Content-Encoding', 'gzip');
+	s.on('/', (request, response) => {
+		response.statusCode = 200;
+		response.setHeader('Content-Type', 'text/plain');
+		response.setHeader('Content-Encoding', 'gzip');
 
-		if (req.method === 'HEAD') {
-			res.end();
+		if (request.method === 'HEAD') {
+			response.end();
 			return;
 		}
 
-		res.end(gzipData);
+		response.end(gzipData);
 	});
 
-	s.on('/corrupted', (req, res) => {
-		res.statusCode = 200;
-		res.setHeader('Content-Type', 'text/plain');
-		res.setHeader('Content-Encoding', 'gzip');
-		res.end('Not gzipped content');
+	s.on('/corrupted', (request, response) => {
+		response.statusCode = 200;
+		response.setHeader('Content-Type', 'text/plain');
+		response.setHeader('Content-Encoding', 'gzip');
+		response.end('Not gzipped content');
 	});
 
-	s.on('/missing-data', (req, res) => {
-		res.statusCode = 200;
-		res.setHeader('Content-Type', 'text/plain');
-		res.setHeader('Content-Encoding', 'gzip');
-		res.end(gzipData.slice(0, -1));
+	s.on('/missing-data', (request, response) => {
+		response.statusCode = 200;
+		response.setHeader('Content-Type', 'text/plain');
+		response.setHeader('Content-Encoding', 'gzip');
+		response.end(gzipData.slice(0, -1));
 	});
 
-	s.on('/uncompressed', (req, res) => {
-		res.statusCode = 200;
-		res.setHeader('Content-Type', 'text/plain');
-		res.end(testContentUncompressed);
+	s.on('/uncompressed', (request, response) => {
+		response.statusCode = 200;
+		response.setHeader('Content-Type', 'text/plain');
+		response.end(testContentUncompressed);
 	});
 
 	await s.listen(s.port);
+});
+
+test.after('cleanup', async () => {
+	await s.close();
 });
 
 test('decompress content', async t => {
@@ -60,17 +64,17 @@ test('decompress content - stream', async t => {
 });
 
 test('handles gzip error', async t => {
-	const err = await t.throws(got(`${s.url}/corrupted`));
-	t.is(err.message, 'incorrect header check');
-	t.is(err.path, '/corrupted');
-	t.is(err.name, 'ReadError');
+	const error = await t.throws(got(`${s.url}/corrupted`));
+	t.is(error.message, 'incorrect header check');
+	t.is(error.path, '/corrupted');
+	t.is(error.name, 'ReadError');
 });
 
 test('handles gzip error - stream', async t => {
-	const err = await t.throws(getStream(got.stream(`${s.url}/corrupted`)));
-	t.is(err.message, 'incorrect header check');
-	t.is(err.path, '/corrupted');
-	t.is(err.name, 'ReadError');
+	const error = await t.throws(getStream(got.stream(`${s.url}/corrupted`)));
+	t.is(error.message, 'incorrect header check');
+	t.is(error.path, '/corrupted');
+	t.is(error.name, 'ReadError');
 });
 
 test('decompress option opts out of decompressing', async t => {
@@ -96,11 +100,7 @@ test('ignore missing data', async t => {
 });
 
 test('has url and requestUrl properties', async t => {
-	const res = await got(s.url);
-	t.truthy(res.url);
-	t.truthy(res.requestUrl);
-});
-
-test.after('cleanup', async () => {
-	await s.close();
+	const response = await got(s.url);
+	t.truthy(response.url);
+	t.truthy(response.requestUrl);
 });

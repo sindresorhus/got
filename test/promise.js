@@ -8,27 +8,27 @@ let s;
 
 test.before('setup', async () => {
 	s = await createServer();
-	s.on('/', (req, res) => {
-		res.statusCode = 200;
-		res.end();
+	s.on('/', (request, response) => {
+		response.statusCode = 200;
+		response.end();
 	});
 	await s.listen(s.port);
 });
 
+test.after('cleanup', async () => {
+	await s.close();
+});
+
 test('should emit request event as promise', async t => {
-	await got(s.url, {json: true}).on('request', req => {
-		t.true(req instanceof ClientRequest);
+	await got(s.url, {json: true}).on('request', request => {
+		t.true(request instanceof ClientRequest);
 	});
 });
 
 test('should emit response event as promise', async t => {
-	await got(s.url, {json: true}).on('response', res => {
-		t.true(res instanceof Transform);
-		t.true(res.readable);
-		t.is(res.statusCode, 200);
+	await got(s.url, {json: true}).on('response', response => {
+		t.true(response instanceof Transform);
+		t.true(response.readable);
+		t.is(response.statusCode, 200);
 	});
-});
-
-test.after('cleanup', async () => {
-	await s.close();
 });

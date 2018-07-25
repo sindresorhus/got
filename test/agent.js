@@ -42,32 +42,37 @@ test.before('setup', async () => {
 
 	// HTTPS Handlers
 
-	https.on('/', (req, res) => {
-		res.end('https');
+	https.on('/', (request, response) => {
+		response.end('https');
 	});
 
-	https.on('/httpsToHttp', (req, res) => {
-		res.writeHead(302, {
+	https.on('/httpsToHttp', (request, response) => {
+		response.writeHead(302, {
 			location: http.url
 		});
-		res.end();
+		response.end();
 	});
 
 	// HTTP Handlers
 
-	http.on('/', (req, res) => {
-		res.end('http');
+	http.on('/', (request, response) => {
+		response.end('http');
 	});
 
-	http.on('/httpToHttps', (req, res) => {
-		res.writeHead(302, {
+	http.on('/httpToHttps', (request, response) => {
+		response.writeHead(302, {
 			location: https.url
 		});
-		res.end();
+		response.end();
 	});
 
 	await http.listen(http.port);
 	await https.listen(https.port);
+});
+
+test.after('cleanup', async () => {
+	await http.close();
+	await https.close();
 });
 
 const createAgentSpy = Cls => {
@@ -160,9 +165,4 @@ test('socket connect listener cleaned up after request', async t => {
 
 	// Make sure to close all open sockets
 	agent.destroy();
-});
-
-test.after('cleanup', async () => {
-	await http.close();
-	await https.close();
 });

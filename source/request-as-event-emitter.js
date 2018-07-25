@@ -106,13 +106,13 @@ module.exports = (options = {}) => {
 			}
 		});
 
-		cacheReq.once('request', req => {
+		cacheReq.once('request', request => {
 			let aborted = false;
-			req.once('abort', _ => {
+			request.once('abort', _ => {
 				aborted = true;
 			});
 
-			req.once('error', error => {
+			request.once('error', error => {
 				if (aborted) {
 					return;
 				}
@@ -127,13 +127,13 @@ module.exports = (options = {}) => {
 				});
 			});
 
-			progress.upload(req, emitter, uploadBodySize);
+			progress.upload(request, emitter, uploadBodySize);
 
 			if (options.gotTimeout) {
-				timedOut(req, options);
+				timedOut(request, options);
 			}
 
-			emitter.emit('request', req);
+			emitter.emit('request', request);
 		});
 	};
 

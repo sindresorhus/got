@@ -9,34 +9,38 @@ let s;
 test.before('setup', async () => {
 	s = await createServer();
 
-	s.on('/', (req, res) => {
-		res.statusCode = 404;
-		res.end();
+	s.on('/', (request, response) => {
+		response.statusCode = 404;
+		response.end();
 	});
 
-	s.on('/test', (req, res) => {
-		res.end(req.url);
+	s.on('/test', (request, response) => {
+		response.end(request.url);
 	});
 
-	s.on('/?test=wow', (req, res) => {
-		res.end(req.url);
+	s.on('/?test=wow', (request, response) => {
+		response.end(request.url);
 	});
 
-	s.on('/stream', (req, res) => {
-		res.end('ok');
+	s.on('/stream', (request, response) => {
+		response.end('ok');
 	});
 
 	await s.listen(s.port);
 });
 
+test.after('cleanup', async () => {
+	await s.close();
+});
+
 test('url is required', async t => {
-	const err = await t.throws(got());
-	t.regex(err.message, /Parameter `url` must be a string or object, not undefined/);
+	const error = await t.throws(got());
+	t.regex(error.message, /Parameter `url` must be a string or object, not undefined/);
 });
 
 test('url should be utf-8 encoded', async t => {
-	const err = await t.throws(got(`${s.url}/%D2%E0%EB%EB%E8%ED`));
-	t.regex(err.message, /Parameter `url` must contain valid UTF-8 character sequences/);
+	const error = await t.throws(got(`${s.url}/%D2%E0%EB%EB%E8%ED`));
+	t.regex(error.message, /Parameter `url` must contain valid UTF-8 character sequences/);
 });
 
 test('options are optional', async t => {
@@ -78,8 +82,8 @@ test('overrides querystring from opts', async t => {
 });
 
 test('should throw with auth in url string', async t => {
-	const err = await t.throws(got('https://test:45d3ps453@account.myservice.com/api/token'));
-	t.regex(err.message, /Basic authentication must be done with the `auth` option/);
+	const error = await t.throws(got('https://test:45d3ps453@account.myservice.com/api/token'));
+	t.regex(error.message, /Basic authentication must be done with the `auth` option/);
 });
 
 test('does not throw with auth in url object', async t => {
@@ -147,8 +151,4 @@ test('throws TypeError when known `hooks` array item is not a function', async t
 
 test('allows extra keys in `hooks`', async t => {
 	await t.notThrows(() => got(`${s.url}/test`, {hooks: {extra: {}}}));
-});
-
-test.after('cleanup', async () => {
-	await s.close();
 });
