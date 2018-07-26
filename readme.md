@@ -217,10 +217,9 @@ Delays between retries counts with function `1000 * Math.pow(2, retry) + Math.ra
 Option `retries` can be a `number`, but also accepts a `function` with `retry` and `error` arguments. Function must return delay in milliseconds (`0` return value cancels retry).
 
 **Note:** It retries only on the specified methods, status codes, and on these network errors:
-- `ETIMEDOUT`: Connection was not estabilished after a period of time.
+- `ETIMEDOUT`: One of the [timeout](#timeout) limits was reached.
 - `ECONNRESET`: Connection was forcibly closed by a peer.
 - `EADDRINUSE`: Could not bind to any free port.
-- `ESOCKETTIMEDOUT`: Connected, but received no response after a period of time.
 - `ECONNREFUSED`: Connection was refused by the server.
 - `EPIPE`: The remote side of the stream being written has been closed.
 
