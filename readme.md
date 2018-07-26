@@ -405,12 +405,14 @@ client.get('/demo');
 
 #### got.assignOptions(parentOptions, newOptions)
 
-Extends parent options. Options are deeply merged to a new object as follows:
+Extends parent options. Options are deeply merged to a new object. The value of each key is determined as follows:
 
-- If either value is `null`, a primitive, or an `Array`, the result is the newOptions value.
-- If the parentOptions value is an instance of `URL`, the resulting value is the result of `new URL(new, parent)`.
-- If the newOptions value is `undefined` the key is removed.
-- If the newOptions value is an `Object`, its values are merged recursively.
+- If the newOptions value is `undefined` the key is omitted from the result.
+- If the parentOptions value is an instance of `URL` and the newOptions value is a `string` or `URL`, a new URL instance is created with the p `new URL(new, parent)`.
+- If the newOptions value is a plain `Object`
+  - If the parentOptions value is a plain `Object`, both values are merged recursively into a new `Object`.
+  - Otherwise, only the newOptions value is merged recurively into a new `Object`.
+- Otherwise, the newOptions value is assigned to the key.
 
 Avoid using [object spread](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Spread_syntax#Spread_in_object_literals) as it doesn't work recursively:
 

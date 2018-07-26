@@ -77,11 +77,11 @@ test('custom headers (extend)', async t => {
 	t.is(headers.unicorn, 'rainbow');
 });
 
-test('extend overwrites arrays with copy', t => {
+test('extend overwrites arrays', t => {
 	const statusCodes = [408];
 	const a = got.extend({retry: {statusCodes}});
 	t.deepEqual(a.defaults.options.retry.statusCodes, statusCodes);
-	t.not(a.defaults.options.retry.statusCodes, statusCodes);
+	t.is(a.defaults.options.retry.statusCodes, statusCodes);
 });
 
 test('extend removes object values set to undefined', t => {
