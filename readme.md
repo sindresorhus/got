@@ -405,23 +405,23 @@ client.get('/demo');
 
 #### got.assignOptions(parentOptions, newOptions)
 
-Extends parent options. Options are deeply merged to a new object. The value of each key is determined as follows:
+Extends parent options. The options objects are deeply merged to a new object. The value of each property is determined as follows:
 
-- If the newOptions value is `undefined` the key is omitted from the result.
-- If the parentOptions value is an instance of `URL` and the newOptions value is a `string` or `URL`, a new URL instance is created with the p `new URL(new, parent)`.
-- If the newOptions value is a plain `Object`
-  - If the parentOptions value is a plain `Object`, both values are merged recursively into a new `Object`.
-  - Otherwise, only the newOptions value is merged recurively into a new `Object`.
-- Otherwise, the newOptions value is assigned to the key.
+- If the new value is `undefined` the parent value is preserved.
+- If the parent value is an instance of `URL` and the new value is a `string` or `URL`, a new URL instance is created, using the parent value as the base: `new URL(new, parent)`.
+- If the new value is a plain `Object`
+  - If the parent value is a plain `Object`, both values are merged recursively into a new `Object`.
+  - Otherwise, only the new value is merged recursively into a new `Object`.
+- Otherwise, the new value is assigned to the property.
 
 Avoid using [object spread](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Spread_syntax#Spread_in_object_literals) as it doesn't work recursively:
 
 ```js
-const a = {headers: {cat: 'meow', habitat: ['house']}};
+const a = {headers: {cat: 'meow', habitat: ['house', 'alley']}};
 const b = {headers: {cow: 'moo', habitat: ['barn']}};
 
 {...a, ...b}            // => {headers: {cow: 'moo'}}
-got.assignOptions(a, b) // => {headers: {cat: 'meow', dog: 'woof', habitat: ['barn']}}
+got.assignOptions(a, b) // => {headers: {cat: 'meow', cow: 'moo', habitat: ['barn']}}
 ```
 
 ## Errors

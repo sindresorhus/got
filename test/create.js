@@ -84,14 +84,14 @@ test('extend overwrites arrays', t => {
 	t.is(a.defaults.options.retry.statusCodes, statusCodes);
 });
 
-test('extend removes object values set to undefined', t => {
+test('extend ignores object values set to undefined', t => {
 	const a = got.extend({
-		headers: {foo: 'foo', bar: 'bar', baz: 'baz'}
+		headers: {foo: undefined, 'user-agent': undefined}
 	});
-	const b = a.extend({headers: {foo: undefined, bar: null}});
+	const b = a.extend({headers: {foo: undefined}});
 	t.deepEqual(
 		b.defaults.options.headers,
-		{...got.defaults.options.headers, ...{baz: 'baz', bar: null}}
+		got.defaults.options.headers
 	);
 });
 
@@ -101,10 +101,10 @@ test('extend merges URL instances', t => {
 	t.is(b.defaults.options.baseUrl.toString(), 'https://example.com/foo');
 });
 
-test('extend removes object values set to undefined (root keys)', t => {
+test('extend ignores object values set to undefined (root keys)', t => {
 	t.true('headers' in got.defaults.options);
 	const a = got.extend({headers: undefined});
-	t.false('headers' in a.defaults.options);
+	t.deepEqual(a.defaults.options, got.defaults.options);
 });
 
 test('create', async t => {

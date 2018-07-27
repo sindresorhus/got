@@ -69,7 +69,7 @@ module.exports = (url, options, defaults) => {
 
 	const {headers} = options;
 	for (const [key, value] of Object.entries(headers)) {
-		if (is.null(value)) {
+		if (is.nullOrUndefined(value)) {
 			delete headers[key];
 		}
 	}

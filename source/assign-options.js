@@ -10,8 +10,9 @@ function merge(target, ...sources) {
 		for (const [key, sourceValue] of Object.entries(source)) {
 			const targetValue = target[key];
 			if (is.undefined(sourceValue)) {
-				delete target[key];
-			} else if (is.urlInstance(targetValue) && (
+				continue;
+			}
+			if (is.urlInstance(targetValue) && (
 				is.urlInstance(sourceValue) || is.string(sourceValue)
 			)) {
 				target[key] = new URL(sourceValue, targetValue);
