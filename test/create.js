@@ -84,7 +84,13 @@ test('extend overwrites arrays', t => {
 	t.is(a.defaults.options.retry.statusCodes, statusCodes);
 });
 
-test('extend ignores object values set to undefined', t => {
+test('extend overwrites null', t => {
+	const statusCodes = null;
+	const a = got.extend({retry: {statusCodes}});
+	t.is(a.defaults.options.retry.statusCodes, statusCodes);
+});
+
+test('extend ignores source values set to undefined', t => {
 	const a = got.extend({
 		headers: {foo: undefined, 'user-agent': undefined}
 	});
