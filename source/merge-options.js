@@ -7,12 +7,17 @@ module.exports = (defaults, options = {}) => {
 
 function merge(target, ...sources) {
 	for (const source of sources) {
-		for (const [key, sourceValue] of Object.entries(source)) {
+		const sourceIter = is.array(source) ?
+			source.entries() :
+			Object.entries(source);
+		for (const [key, sourceValue] of sourceIter) {
 			const targetValue = target[key];
 			if (is.undefined(sourceValue)) {
 				continue;
 			}
-			if (is.urlInstance(targetValue) && (
+			if (is.array(sourceValue)) {
+				target[key] = merge(new Array(sourceValue.length), sourceValue);
+			} else if (is.urlInstance(targetValue) && (
 				is.urlInstance(sourceValue) || is.string(sourceValue)
 			)) {
 				target[key] = new URL(sourceValue, targetValue);

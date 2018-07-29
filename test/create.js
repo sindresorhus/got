@@ -81,7 +81,7 @@ test('extend overwrites arrays', t => {
 	const statusCodes = [408];
 	const a = got.extend({retry: {statusCodes}});
 	t.deepEqual(a.defaults.options.retry.statusCodes, statusCodes);
-	t.is(a.defaults.options.retry.statusCodes, statusCodes);
+	t.not(a.defaults.options.retry.statusCodes, statusCodes);
 });
 
 test('extend overwrites null', t => {
@@ -142,7 +142,7 @@ test('no tampering with defaults', t => {
 	const instance = got.create({
 		handler: got.defaults.handler,
 		methods: got.defaults.methods,
-		options: got.assignOptions(got.defaults.options, {
+		options: got.mergeOptions(got.defaults.options, {
 			baseUrl: 'example'
 		})
 	});

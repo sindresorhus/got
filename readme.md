@@ -358,7 +358,7 @@ Sets `options.method` to the method name and makes a request.
 
 #### got.extend([options])
 
-Configure a new `got` instance with default `options`. `options` are merged with the extended instance's `defaults.options` as described in [`got.assignOptions`](#got.assignoptionsparentoptions,-newoptions).
+Configure a new `got` instance with default `options`. `options` are merged with the extended instance's `defaults.options` as described in [`got.mergeOptions`](#got.mergeOptionsparentoptions,-newoptions).
 
 
 ```js
@@ -403,12 +403,15 @@ client.get('/demo');
 
 *Need more control over the behavior of Got? Check out the [`got.create()`](advanced-creation.md).*
 
-#### got.assignOptions(parentOptions, newOptions)
+**Both `got.extend(options)` and `got.create(options)` will freeze the instance's default options. For `got.extend()`, the instance's default options are the result of `got.mergeOptions`, which effectively copies plain `Object` and `Array` values. Therefore, you should treat objects passed to these methods as immutable.**
+
+#### got.mergeOptions(parentOptions, newOptions)
 
 Extends parent options. The options objects are deeply merged to a new object. The value of each property is determined as follows:
 
 - If the new value is `undefined` the parent value is preserved.
 - If the parent value is an instance of `URL` and the new value is a `string` or `URL`, a new URL instance is created, using the parent value as the base: `new URL(new, parent)`.
+- If the new value is an `Array`, the new value is recursively merged into an empty array (the source value is discarded). `undefined` elements in the source array are not assigned during the merge, so the resulting array will have an empty item where the source array had an `undefined` item.
 - If the new value is a plain `Object`
   - If the parent value is a plain `Object`, both values are merged recursively into a new `Object`.
   - Otherwise, only the new value is merged recursively into a new `Object`.
@@ -421,7 +424,7 @@ const a = {headers: {cat: 'meow', habitat: ['house', 'alley']}};
 const b = {headers: {cow: 'moo', habitat: ['barn']}};
 
 {...a, ...b}            // => {headers: {cow: 'moo'}}
-got.assignOptions(a, b) // => {headers: {cat: 'meow', cow: 'moo', habitat: ['barn']}}
+got.mergeOptions(a, b) // => {headers: {cat: 'meow', cow: 'moo', habitat: ['barn']}}
 ```
 
 ## Errors
