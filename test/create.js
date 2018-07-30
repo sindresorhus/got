@@ -77,21 +77,19 @@ test('custom headers (extend)', async t => {
 	t.is(headers.unicorn, 'rainbow');
 });
 
-test('extend overwrites arrays', t => {
+test('extend overwrites arrays with a deep clone', t => {
 	const statusCodes = [408];
 	const a = got.extend({retry: {statusCodes}});
-	t.deepEqual(a.defaults.options.retry.statusCodes, statusCodes);
-	t.is(a.defaults.options.retry.statusCodes, statusCodes);
+	statusCodes[0] = 500;
+	t.deepEqual(a.defaults.options.retry.statusCodes, [408]);
+	t.not(a.defaults.options.retry.statusCodes, statusCodes);
 });
 
-test('extend removes object values set to undefined', t => {
-	const a = got.extend({
-		headers: {foo: 'foo', bar: 'bar', baz: 'baz'}
-	});
-	const b = a.extend({headers: {foo: undefined, bar: null}});
+test('extend keeps the old value if the new one is to undefined', t => {
+	const a = got.extend({headers: undefined});
 	t.deepEqual(
-		b.defaults.options.headers,
-		{...got.defaults.options.headers, ...{baz: 'baz', bar: null}}
+		a.defaults.options.headers,
+		got.defaults.options.headers
 	);
 });
 
@@ -99,12 +97,6 @@ test('extend merges URL instances', t => {
 	const a = got.extend({baseUrl: new URL('https://example.com')});
 	const b = a.extend({baseUrl: '/foo'});
 	t.is(b.defaults.options.baseUrl.toString(), 'https://example.com/foo');
-});
-
-test('extend removes object values set to undefined (root keys)', t => {
-	t.true('headers' in got.defaults.options);
-	const a = got.extend({headers: undefined});
-	t.false('headers' in a.defaults.options);
 });
 
 test('create', async t => {
@@ -136,7 +128,7 @@ test('no tampering with defaults', t => {
 	const instance = got.create({
 		handler: got.defaults.handler,
 		methods: got.defaults.methods,
-		options: got.assignOptions(got.defaults.options, {
+		options: got.mergeOptions(got.defaults.options, {
 			baseUrl: 'example'
 		})
 	});
@@ -154,4 +146,21 @@ test('no tampering with defaults', t => {
 
 	t.is(instance.defaults.options.baseUrl, 'example');
 	t.is(instance2.defaults.options.baseUrl, 'example');
+});
+
+test('defaults are cloned on instance creation', t => {
+	const options = {foo: 'bar'};
+	const methods = ['get'];
+	const instance = got.create({
+		methods,
+		options
+	});
+
+	t.notThrows(() => {
+		options.foo = 'foo';
+		methods[0] = 'post';
+	});
+
+	t.not(options.foo, instance.defaults.options.foo);
+	t.not(methods[0], instance.defaults.methods[0]);
 });

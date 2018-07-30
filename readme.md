@@ -124,7 +124,7 @@ Default: `{}`
 
 Request headers.
 
-Existing headers will be overwritten. Headers set to `null` or `undefined` will be omitted.
+Existing headers will be overwritten. Headers set to `null` will be omitted.
 
 ###### stream
 
@@ -358,7 +358,7 @@ Sets `options.method` to the method name and makes a request.
 
 #### got.extend([options])
 
-Configure a new `got` instance with default `options`. `options` are merged with the extended instance's `defaults.options` as described in [`got.assignOptions`](#got.assignoptionsparentoptions,-newoptions).
+Configure a new `got` instance with default `options`. `options` are merged with the parent instance's `defaults.options` using [`got.mergeOptions`](#gotmergeoptionsparentoptions-newoptions).
 
 
 ```js
@@ -403,26 +403,27 @@ client.get('/demo');
 
 *Need more control over the behavior of Got? Check out the [`got.create()`](advanced-creation.md).*
 
-#### got.assignOptions(parentOptions, newOptions)
+#### got.mergeOptions(parentOptions, newOptions)
 
-Extends parent options. Options are deeply merged to a new object. The value of each key is determined as follows:
-
-- If the newOptions value is `undefined` the key is omitted from the result.
-- If the parentOptions value is an instance of `URL` and the newOptions value is a `string` or `URL`, a new URL instance is created with the p `new URL(new, parent)`.
-- If the newOptions value is a plain `Object`
-  - If the parentOptions value is a plain `Object`, both values are merged recursively into a new `Object`.
-  - Otherwise, only the newOptions value is merged recurively into a new `Object`.
-- Otherwise, the newOptions value is assigned to the key.
-
-Avoid using [object spread](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Spread_syntax#Spread_in_object_literals) as it doesn't work recursively:
+Extends parent options. Avoid using [object spread](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Spread_syntax#Spread_in_object_literals) as it doesn't work recursively:
 
 ```js
-const a = {headers: {cat: 'meow', habitat: ['house']}};
-const b = {headers: {cow: 'moo', habitat: ['barn']}};
+const a = {headers: {cat: 'meow', wolf: ['bark']}};
+const b = {headers: {cow: 'moo', wolf: ['auuu']}};
 
 {...a, ...b}            // => {headers: {cow: 'moo'}}
-got.assignOptions(a, b) // => {headers: {cat: 'meow', dog: 'woof', habitat: ['barn']}}
+got.mergeOptions(a, b)  // => {headers: {cat: 'meow', dog: 'woof', wolf: ['auuu']}}
 ```
+
+Options are deeply merged to a new object. The value of each key is determined as follows:
+
+- If the new property is set to `undefined`, it keeps the old one.
+- If the parent property is an instance of `URL` and the new value is a `string` or `URL`, a new URL instance is created: [`new URL(new, parent)`](https://developer.mozilla.org/en-US/docs/Web/API/URL/URL#Syntax).
+- If the new property is a plain `Object`:
+  - If the parent property is a plain `Object` too, both values are merged recursively into a new `Object`.
+  - Otherwise, only the new value is deeply cloned.
+- If the new property is an `Array`, it overwrites the old one with a deep clone of the new property.
+- Otherwise, the new value is assigned to the key.
 
 ## Errors
 

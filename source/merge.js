@@ -1,19 +1,16 @@
+'use strict';
 const {URL} = require('url');
 const is = require('@sindresorhus/is');
 
-module.exports = (defaults, options = {}) => {
-	return merge({}, defaults, options);
-};
-
-function merge(target, ...sources) {
+const merge = (target, ...sources) => {
 	for (const source of sources) {
 		for (const [key, sourceValue] of Object.entries(source)) {
-			const targetValue = target[key];
 			if (is.undefined(sourceValue)) {
-				delete target[key];
-			} else if (is.urlInstance(targetValue) && (
-				is.urlInstance(sourceValue) || is.string(sourceValue)
-			)) {
+				continue;
+			}
+
+			const targetValue = target[key];
+			if (is.urlInstance(targetValue) && (is.urlInstance(sourceValue) || is.string(sourceValue))) {
 				target[key] = new URL(sourceValue, targetValue);
 			} else if (is.plainObject(sourceValue)) {
 				if (is.plainObject(targetValue)) {
@@ -21,10 +18,15 @@ function merge(target, ...sources) {
 				} else {
 					target[key] = merge({}, sourceValue);
 				}
+			} else if (is.array(sourceValue)) {
+				target[key] = merge([], sourceValue);
 			} else {
 				target[key] = sourceValue;
 			}
 		}
 	}
+
 	return target;
-}
+};
+
+module.exports = merge;
