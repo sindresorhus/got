@@ -174,7 +174,7 @@ module.exports = (options = {}) => {
 
 			// Call the hook by reference, to enable accessing `this` when it's a `Function`.
 			const {beforeRequest} = options.hooks;
-			for (let i = 0; i < beforeRequest; i++) {
+			for (let i = 0; i < beforeRequest.length; i++) {
 				await beforeRequest[i](options); // eslint-disable-line no-await-in-loop
 			}
 
