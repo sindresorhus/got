@@ -403,7 +403,7 @@ client.get('/demo');
 
 *Need more control over the behavior of Got? Check out the [`got.create()`](advanced-creation.md).*
 
-**Both `got.extend(options)` and `got.create(options)` will freeze the instance's default options. For `got.extend()`, the instance's default options are the result of `got.mergeOptions`, which effectively copies plain `Object` and `Array` values. Therefore, you should treat objects passed to these methods as immutable.**
+Both **`got.extend(options)`** and **`got.create(options)`** will **freeze** the instance's default options. Therefore, you should treat objects passed to these methods as **immutable**. For `got.extend()`, the instance's default options are the result of **`got.mergeOptions`**, which effectively **copies plain `Object` and `Array` values** (the copies will be frozen, not the passed instances).
 
 #### got.mergeOptions(parentOptions, newOptions)
 
@@ -423,7 +423,7 @@ Avoid using [object spread](https://developer.mozilla.org/en-US/docs/Web/JavaScr
 const a = {headers: {cat: 'meow', habitat: ['house', 'alley']}};
 const b = {headers: {cow: 'moo', habitat: ['barn']}};
 
-{...a, ...b}            // => {headers: {cow: 'moo'}}
+{...a, ...b}            // => {headers: {cow: 'moo', habitat: [ 'barn' ]}}
 got.mergeOptions(a, b) // => {headers: {cat: 'meow', cow: 'moo', habitat: ['barn']}}
 ```
 
