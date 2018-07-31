@@ -108,7 +108,7 @@ test('extend merges URL instances', t => {
 });
 
 test('extend ignores object values set to undefined (root keys)', t => {
-	t.true('headers' in got.defaults.options);
+	t.true(Reflect.has(got.defaults.options, 'headers'));
 	const a = got.extend({headers: undefined});
 	t.deepEqual(a.defaults.options, got.defaults.options);
 });
