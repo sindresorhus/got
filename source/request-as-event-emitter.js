@@ -172,10 +172,9 @@ module.exports = (options = {}) => {
 				options.headers['content-length'] = uploadBodySize;
 			}
 
-			// Call the hook by reference, to enable accessing `this` when it's a `Function`.
-			const {beforeRequest} = options.hooks;
-			for (let i = 0; i < beforeRequest.length; i++) {
-				await beforeRequest[i](options); // eslint-disable-line no-await-in-loop
+			for (const hook of options.hooks.beforeRequest) {
+				// eslint-disable-next-line no-await-in-loop
+				await hook(options);
 			}
 
 			get(options);
