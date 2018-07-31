@@ -1,6 +1,6 @@
 'use strict';
 const errors = require('./errors');
-const assignOptions = require('./assign-options');
+const mergeOptions = require('./merge-options');
 const asStream = require('./as-stream');
 const asPromise = require('./as-promise');
 const normalizeArguments = require('./normalize-arguments');
@@ -15,7 +15,7 @@ const create = defaults => {
 
 	function got(url, options) {
 		try {
-			options = assignOptions(defaults.options, options);
+			options = mergeOptions(defaults.options, options);
 			return defaults.handler(normalizeArguments(url, options, defaults), next);
 		} catch (error) {
 			return Promise.reject(error);
@@ -24,13 +24,13 @@ const create = defaults => {
 
 	got.create = create;
 	got.extend = (options = {}) => create({
-		options: assignOptions(defaults.options, options),
+		options: mergeOptions(defaults.options, options),
 		methods: defaults.methods,
 		handler: defaults.handler
 	});
 
 	got.stream = (url, options) => {
-		options = assignOptions(defaults.options, options);
+		options = mergeOptions(defaults.options, options);
 		options.stream = true;
 		return defaults.handler(normalizeArguments(url, options, defaults), next);
 	};
@@ -40,7 +40,7 @@ const create = defaults => {
 		got.stream[method] = (url, options) => got.stream(url, {...options, method});
 	}
 
-	Object.assign(got, {...errors, assignOptions});
+	Object.assign(got, {...errors, mergeOptions});
 	Object.defineProperty(got, 'defaults', {
 		value: deepFreeze(defaults),
 		writable: false,

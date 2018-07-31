@@ -1,3 +1,4 @@
+import {URL} from 'url';
 import test from 'ava';
 import got from '../source';
 import {createServer} from './helpers/server';
@@ -76,6 +77,42 @@ test('custom headers (extend)', async t => {
 	t.is(headers.unicorn, 'rainbow');
 });
 
+test('extend overwrites arrays', t => {
+	const statusCodes = [408];
+	const a = got.extend({retry: {statusCodes}});
+	t.deepEqual(a.defaults.options.retry.statusCodes, statusCodes);
+	t.not(a.defaults.options.retry.statusCodes, statusCodes);
+});
+
+test('extend overwrites null', t => {
+	const statusCodes = null;
+	const a = got.extend({retry: {statusCodes}});
+	t.is(a.defaults.options.retry.statusCodes, statusCodes);
+});
+
+test('extend ignores source values set to undefined', t => {
+	const a = got.extend({
+		headers: {foo: undefined, 'user-agent': undefined}
+	});
+	const b = a.extend({headers: {foo: undefined}});
+	t.deepEqual(
+		b.defaults.options.headers,
+		got.defaults.options.headers
+	);
+});
+
+test('extend merges URL instances', t => {
+	const a = got.extend({baseUrl: new URL('https://example.com')});
+	const b = a.extend({baseUrl: '/foo'});
+	t.is(b.defaults.options.baseUrl.toString(), 'https://example.com/foo');
+});
+
+test('extend ignores object values set to undefined (root keys)', t => {
+	t.true(Reflect.has(got.defaults.options, 'headers'));
+	const a = got.extend({headers: undefined});
+	t.deepEqual(a.defaults.options, got.defaults.options);
+});
+
 test('create', async t => {
 	const instance = got.create({
 		options: {},
@@ -105,7 +142,7 @@ test('no tampering with defaults', t => {
 	const instance = got.create({
 		handler: got.defaults.handler,
 		methods: got.defaults.methods,
-		options: got.assignOptions(got.defaults.options, {
+		options: got.mergeOptions(got.defaults.options, {
 			baseUrl: 'example'
 		})
 	});

@@ -67,11 +67,17 @@ module.exports = (url, options, defaults) => {
 		options.headers.accept = 'application/json';
 	}
 
+	const {headers} = options;
+	for (const [key, value] of Object.entries(headers)) {
+		if (is.nullOrUndefined(value)) {
+			delete headers[key];
+		}
+	}
+
 	const {body} = options;
 	if (is.nullOrUndefined(body)) {
 		options.method = (options.method || 'GET').toUpperCase();
 	} else {
-		const {headers} = options;
 		const isObject = is.object(body) && !Buffer.isBuffer(body) && !is.nodeStream(body);
 		if (!is.nodeStream(body) && !is.string(body) && !is.buffer(body) && !(options.form || options.json)) {
 			throw new TypeError('The `body` option must be a stream.Readable, string or Buffer');
