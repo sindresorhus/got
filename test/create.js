@@ -85,7 +85,7 @@ test('extend overwrites arrays with a deep clone', t => {
 	t.not(a.defaults.options.retry.statusCodes, statusCodes);
 });
 
-test('extend keeps the old value if the new one is to undefined', t => {
+test('extend keeps the old value if the new one is undefined', t => {
 	const a = got.extend({headers: undefined});
 	t.deepEqual(
 		a.defaults.options.headers,
