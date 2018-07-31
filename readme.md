@@ -408,7 +408,7 @@ client.get('/demo');
 Extends parent options. Avoid using [object spread](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Spread_syntax#Spread_in_object_literals) as it doesn't work recursively:
 
 ```js
-const a = {headers: {cat: 'meow', wolf: ['bark']}};
+const a = {headers: {cat: 'meow', wolf: ['bark', 'wrrr']}};
 const b = {headers: {cow: 'moo', wolf: ['auuu']}};
 
 {...a, ...b}            // => {headers: {cow: 'moo'}}

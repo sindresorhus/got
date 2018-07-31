@@ -145,7 +145,7 @@ test('remove null value headers', async t => {
 test('setting to undefined keeps the old value', async t => {
 	const {body} = await got(s.url, {
 		headers: {
-			'user-agent': undefined
+			foo: undefined
 		}
 	});
 	const headers = JSON.parse(body);
