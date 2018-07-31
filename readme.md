@@ -411,8 +411,8 @@ Extends parent options. Avoid using [object spread](https://developer.mozilla.or
 const a = {headers: {cat: 'meow', wolf: ['bark', 'wrrr']}};
 const b = {headers: {cow: 'moo', wolf: ['auuu']}};
 
-{...a, ...b}            // => {headers: {cow: 'moo'}}
-got.mergeOptions(a, b)  // => {headers: {cat: 'meow', dog: 'woof', wolf: ['auuu']}}
+{...a, ...b}            // => {headers: {cow: 'moo', wolf: ['auuu']}}
+got.mergeOptions(a, b)  // => {headers: {cat: 'meow', cow: 'moo', wolf: ['auuu']}}
 ```
 
 Options are deeply merged to a new object. The value of each key is determined as follows:
