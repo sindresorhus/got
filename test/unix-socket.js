@@ -41,4 +41,8 @@ if (process.platform !== 'win32') {
 		const url = format('unix:%s:%s', socketPath, '/foo:bar');
 		t.is((await got(url)).body, 'ok');
 	});
+
+	test('throws on invalid URL', async t => {
+		await t.throws(got('unix:'));
+	});
 }
