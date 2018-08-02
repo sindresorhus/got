@@ -420,8 +420,8 @@ Options are deeply merged to a new object. The value of each key is determined a
 - If the new property is set to `undefined`, it keeps the old one.
 - If the parent property is an instance of `URL` and the new value is a `string` or `URL`, a new URL instance is created: [`new URL(new, parent)`](https://developer.mozilla.org/en-US/docs/Web/API/URL/URL#Syntax).
 - If the new property is a plain `Object`:
-  - If the parent property is a plain `Object` too, both values are merged recursively into a new `Object`.
-  - Otherwise, only the new value is deeply cloned.
+	- If the parent property is a plain `Object` too, both values are merged recursively into a new `Object`.
+	- Otherwise, only the new value is deeply cloned.
 - If the new property is an `Array`, it overwrites the old one with a deep clone of the new property.
 - Otherwise, the new value is assigned to the key.
 
