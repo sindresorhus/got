@@ -142,13 +142,7 @@ module.exports = options => {
 
 		if (backoff) {
 			retryCount++;
-			setTimeout(options => {
-				try {
-					get(options);
-				} catch (error2) {
-					emitter.emit('error', error2);
-				}
-			}, backoff, options);
+			setTimeout(get, backoff, options);
 			cb(true);
 			return;
 		}
