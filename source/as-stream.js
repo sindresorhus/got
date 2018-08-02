@@ -72,7 +72,8 @@ module.exports = options => {
 			for (const [key, value] of Object.entries(response.headers)) {
 				// Got gives *uncompressed* data. Overriding `content-encoding` header would result in an error.
 				// It's not possible to decompress uncompressed data, is it?
-				if (key.toLowerCase() !== 'content-encoding') {
+				const allowed = options.decompress ? key !== 'content-encoding' : true;
+				if (allowed) {
 					destination.setHeader(key, value);
 				}
 			}
