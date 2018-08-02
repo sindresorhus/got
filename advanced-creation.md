@@ -38,7 +38,7 @@ To use the default handler, just omit specifying this.
 
 ###### next()
 
-Normalizes arguments and returns a `Promise` or a `Stream` depending on [`options.stream`](readme.md#stream).
+Returns a `Promise` or a `Stream` depending on [`options.stream`](readme.md#stream).
 
 ```js
 const settings = {
