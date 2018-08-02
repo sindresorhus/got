@@ -49,6 +49,10 @@ module.exports = (url, options, defaults) => {
 		...options
 	};
 
+	if (options.stream && options.json) {
+		options.json = false;
+	}
+
 	if (options.decompress && is.undefined(options.headers['accept-encoding'])) {
 		options.headers['accept-encoding'] = 'gzip, deflate';
 	}

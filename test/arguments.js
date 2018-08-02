@@ -109,9 +109,9 @@ test('should return streams when using stream option', async t => {
 	t.is(data.toString(), 'ok');
 });
 
-test('should not allow stream and JSON option at the same time', async t => {
-	const error = await t.throws(got(`${s.url}/stream`, {stream: true, json: true}));
-	t.is(error.message, 'Got can not be used as a stream when the `json` option is used');
+test('should ignore JSON option when using stream option', async t => {
+	const data = await pEvent(got(`${s.url}/stream`, {stream: true, json: true}), 'data');
+	t.is(data.toString(), 'ok');
 });
 
 test('throws TypeError when `url` is passed as an option', async t => {
