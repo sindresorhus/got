@@ -168,7 +168,7 @@ If set to `true` and `Content-Type` header is not set, it will be set to `applic
 Type: `boolean`<br>
 Default: `false`
 
-**Note**: *this option is ignored when using `got.stream()`.*
+*If you use `got.stream()`, this option will be ignored.*
 
 If set to `true` and `Content-Type` header is not set, it will be set to `application/json`.
 
