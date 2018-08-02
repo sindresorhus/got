@@ -15,7 +15,7 @@ const {GotError, CacheError, UnsupportedProtocolError, MaxRedirectsError, Reques
 const getMethodRedirectCodes = new Set([300, 301, 302, 303, 304, 305, 307, 308]);
 const allMethodRedirectCodes = new Set([300, 303, 307, 308]);
 
-module.exports = (options = {}) => {
+module.exports = options => {
 	const emitter = new EventEmitter();
 	const requestUrl = options.href || (new URLGlobal(options.path, urlLib.format(options))).toString();
 	const redirects = [];
