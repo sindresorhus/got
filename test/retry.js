@@ -213,8 +213,10 @@ test('retries on 503 without Retry-After header', async t => {
 test('doesn\'t retry on streams', async t => {
 	const stream = got.stream(s.url, {
 		timeout: 1,
-		retries: () => {
-			t.fail('Retries on streams');
+		retry: {
+			retries: () => {
+				t.fail('Retries on streams');
+			}
 		}
 	});
 	await t.throws(pEvent(stream, 'response'));
@@ -246,4 +248,14 @@ test('works when defaults.options.retry is not an object', async t => {
 		throwHttpErrors: false
 	});
 	t.is(retryCount, 0);
+});
+
+test('retry function can throw', async t => {
+	await t.throws(got(`${s.url}/413`, {
+		retry: {
+			retries: () => {
+				throw new Error('Simple error');
+			}
+		}
+	}), 'Simple error');
 });

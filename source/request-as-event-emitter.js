@@ -138,7 +138,13 @@ module.exports = options => {
 	};
 
 	emitter.on('retry', (error, cb) => {
-		const backoff = options.gotRetry.retries(++retryTries, error);
+		let backoff;
+		try {
+			backoff = options.gotRetry.retries(++retryTries, error);
+		} catch (error) {
+			emitter.emit('error', error);
+			return;
+		}
 
 		if (backoff) {
 			retryCount++;
