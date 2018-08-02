@@ -251,11 +251,12 @@ test('works when defaults.options.retry is not an object', async t => {
 });
 
 test('retry function can throw', async t => {
+	const error = 'Simple error';
 	await t.throws(got(`${s.url}/413`, {
 		retry: {
 			retries: () => {
-				throw new Error('Simple error');
+				throw new Error(error);
 			}
 		}
-	}), 'Simple error');
+	}), error);
 });
