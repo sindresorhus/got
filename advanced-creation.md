@@ -11,7 +11,7 @@ Configure a new `got` instance with the provided settings.<br>
 
 ##### [options](readme.md#options)
 
-To inherit from parent, set it as `got.defaults.options` or use [`got.mergeOptions(defaults.options, options)`](readme.md#gotmergeOptionsparentoptions-newoptions).<br>
+To inherit from parent, set it as `got.defaults.options` or use [`got.mergeOptions(defaults.options, options)`](readme.md#gotmergeoptionsparentoptions-newoptions).<br>
 **Note**: Avoid using [object spread](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Spread_syntax#Spread_in_object_literals) as it doesn't work recursively.
 
 ##### methods

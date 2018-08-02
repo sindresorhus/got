@@ -142,12 +142,22 @@ test('remove null value headers', async t => {
 	t.false(Reflect.has(headers, 'user-agent'));
 });
 
-test('remove undefined value headers', async t => {
+test('setting a header to undefined keeps the old value', async t => {
 	const {body} = await got(s.url, {
 		headers: {
-			foo: undefined
+			'user-agent': undefined
 		}
 	});
 	const headers = JSON.parse(body);
-	t.false(Reflect.has(headers, 'foo'));
+	t.not(headers['user-agent'], undefined);
+});
+
+test('non-existent headers set to undefined are omitted', async t => {
+	const {body} = await got(s.url, {
+		headers: {
+			blah: undefined
+		}
+	});
+	const headers = JSON.parse(body);
+	t.false(Reflect.has(headers, 'blah'));
 });
