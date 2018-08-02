@@ -137,7 +137,7 @@ Returns a `Stream` instead of a `Promise`. This is equivalent to calling `got.st
 
 Type: `string` `Buffer` `stream.Readable` [`form-data` instance](https://github.com/form-data/form-data)
 
-*This is mutually exclusive with stream mode.*
+*If you provide this option, `got.stream()` will be read-only.*
 
 Body that will be sent with a `POST` request.
 
@@ -157,7 +157,7 @@ Default: `'utf8'`
 Type: `boolean`<br>
 Default: `false`
 
-*This is mutually exclusive with stream mode.*
+*If you provide this option, `got.stream()` will be read-only.*
 
 If set to `true` and `Content-Type` header is not set, it will be set to `application/x-www-form-urlencoded`.
 
@@ -168,7 +168,7 @@ If set to `true` and `Content-Type` header is not set, it will be set to `applic
 Type: `boolean`<br>
 Default: `false`
 
-*This is mutually exclusive with stream mode.*
+*If you use `got.stream()`, this option will be ignored.*
 
 If set to `true` and `Content-Type` header is not set, it will be set to `application/json`.
 

@@ -14,10 +14,6 @@ module.exports = options => {
 
 	options.gotRetry.retries = () => 0;
 
-	if (options.json) {
-		throw new Error('Got can not be used as a stream when the `json` option is used');
-	}
-
 	if (options.body) {
 		proxy.write = () => {
 			throw new Error('Got\'s stream is not writable when the `body` option is used');

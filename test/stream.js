@@ -41,10 +41,8 @@ test.after('cleanup', async () => {
 	await s.close();
 });
 
-test('option.json can not be used', t => {
-	t.throws(() => {
-		got.stream(s.url, {json: true});
-	}, 'Got can not be used as a stream when the `json` option is used');
+test('options.json is ignored', t => {
+	t.notThrows(() => got.stream(s.url, {json: true}));
 });
 
 test('returns readable stream', async t => {
