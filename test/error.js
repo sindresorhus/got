@@ -27,6 +27,11 @@ test.before('setup', async () => {
 		response.end('body');
 	});
 
+	s.on('/no-status-message', (request, response) => {
+		response.writeHead(400, '');
+		response.end('body');
+	});
+
 	s.on('/body', async (request, response) => {
 		const body = await getStream(request);
 		response.end(body);
@@ -100,6 +105,12 @@ test('custom status message', async t => {
 	const error = await t.throws(got(`${s.url}/custom-status-message`));
 	t.is(error.statusCode, 400);
 	t.is(error.statusMessage, 'Something Exploded');
+});
+
+test('no status message is overriden by the default one', async t => {
+	const error = await t.throws(got(`${s.url}/no-status-message`));
+	t.is(error.statusCode, 400);
+	t.is(error.statusMessage, http.STATUS_CODES[400]);
 });
 
 test.serial('http.request error', async t => {

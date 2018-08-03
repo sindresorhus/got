@@ -2,6 +2,7 @@ import test from 'ava';
 import toReadableStream from 'to-readable-stream';
 import getStream from 'get-stream';
 import pEvent from 'p-event';
+import delay from 'delay';
 import is from '@sindresorhus/is';
 import got from '../source';
 import {createServer} from './helpers/server';
@@ -13,9 +14,10 @@ test.before('setup', async () => {
 
 	s.on('/', (request, response) => {
 		response.writeHead(200, {
-			unicorn: 'rainbow'
+			unicorn: 'rainbow',
+			'content-encoding': 'gzip'
 		});
-		response.end('ok');
+		response.end(Buffer.from('H4sIAAAAAAAA/8vPBgBH3dx5AgAAAA==', 'base64')); // 'ok'
 	});
 
 	s.on('/post', (request, response) => {
@@ -127,6 +129,38 @@ test('proxying headers works', async t => {
 
 	const {headers} = await got(server.url);
 	t.is(headers.unicorn, 'rainbow');
+	t.is(headers['content-encoding'], undefined);
 
+	await server.close();
+});
+
+test('skips proxying headers after server has sent them already', async t => {
+	const server = await createServer();
+
+	server.on('/', (request, response) => {
+		response.writeHead(200);
+		got.stream(s.url).pipe(response);
+	});
+
+	await server.listen(server.port);
+
+	const {headers} = await got(server.url);
+	t.is(headers.unicorn, undefined);
+
+	await server.close();
+});
+
+test('throws when trying to proxy through a closed stream', async t => {
+	const server = await createServer();
+
+	server.on('/', async (request, response) => {
+		const stream = got.stream(s.url);
+		await delay(1000);
+		t.throws(() => stream.pipe(response));
+		response.end();
+	});
+
+	await server.listen(server.port);
+	await got(server.url);
 	await server.close();
 });

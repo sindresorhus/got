@@ -15,7 +15,7 @@ const {GotError, CacheError, UnsupportedProtocolError, MaxRedirectsError, Reques
 const getMethodRedirectCodes = new Set([300, 301, 302, 303, 304, 305, 307, 308]);
 const allMethodRedirectCodes = new Set([300, 303, 307, 308]);
 
-module.exports = (options = {}) => {
+module.exports = options => {
 	const emitter = new EventEmitter();
 	const requestUrl = options.href || (new URLGlobal(options.path, urlLib.format(options))).toString();
 	const redirects = [];
@@ -138,17 +138,17 @@ module.exports = (options = {}) => {
 	};
 
 	emitter.on('retry', (error, cb) => {
-		const backoff = options.gotRetry.retries(++retryTries, error);
+		let backoff;
+		try {
+			backoff = options.gotRetry.retries(++retryTries, error);
+		} catch (error) {
+			emitter.emit('error', error);
+			return;
+		}
 
 		if (backoff) {
 			retryCount++;
-			setTimeout(options => {
-				try {
-					get(options);
-				} catch (error2) {
-					emitter.emit('error', error2);
-				}
-			}, backoff, options);
+			setTimeout(get, backoff, options);
 			cb(true);
 			return;
 		}

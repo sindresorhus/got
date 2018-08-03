@@ -8,6 +8,7 @@ let trys = 0;
 let knocks = 0;
 let fifth = 0;
 let lastTried413access = Date.now();
+let lastTried413TimestampAccess;
 
 const retryAfterOn413 = 2;
 const socketTimeout = 200;
@@ -52,6 +53,16 @@ test.before('setup', async () => {
 			'Retry-After': retryAfterOn413
 		});
 		response.end();
+	});
+
+	s.on('/413withTimestamp', (request, response) => {
+		const date = (new Date(Date.now() + (retryAfterOn413 * 1000))).toUTCString();
+
+		response.writeHead(413, {
+			'Retry-After': date
+		});
+		response.end(lastTried413TimestampAccess);
+		lastTried413TimestampAccess = date;
 	});
 
 	s.on('/413withoutRetryAfter', (request, response) => {
@@ -149,6 +160,15 @@ test('respect 413 Retry-After', async t => {
 	t.true(Number(body) >= retryAfterOn413 * 1000);
 });
 
+test('respect 413 Retry-After with RFC-1123 timestamp', async t => {
+	const {statusCode, body} = await got(`${s.url}/413withTimestamp`, {
+		throwHttpErrors: false,
+		retry: 1
+	});
+	t.is(statusCode, 413);
+	t.true(Date.now() >= Date.parse(body));
+});
+
 test('doesn\'t retry on 413 with empty statusCodes and methods', async t => {
 	const {statusCode, retryCount} = await got(`${s.url}/413`, {
 		throwHttpErrors: false,
@@ -193,8 +213,10 @@ test('retries on 503 without Retry-After header', async t => {
 test('doesn\'t retry on streams', async t => {
 	const stream = got.stream(s.url, {
 		timeout: 1,
-		retries: () => {
-			t.fail('Retries on streams');
+		retry: {
+			retries: () => {
+				t.fail('Retries on streams');
+			}
 		}
 	});
 	await t.throws(pEvent(stream, 'response'));
@@ -206,4 +228,35 @@ test('doesn\'t retry if Retry-After header is greater than maxRetryAfter', async
 		throwHttpErrors: false
 	});
 	t.is(retryCount, 0);
+});
+
+test('doesn\'t retry when set to false', async t => {
+	const {statusCode, retryCount} = await got(`${s.url}/413`, {
+		throwHttpErrors: false,
+		retry: false
+	});
+	t.is(statusCode, 413);
+	t.is(retryCount, 0);
+});
+
+test('works when defaults.options.retry is not an object', async t => {
+	const instance = got.extend({
+		retry: 2
+	});
+
+	const {retryCount} = await instance(`${s.url}/413`, {
+		throwHttpErrors: false
+	});
+	t.is(retryCount, 0);
+});
+
+test('retry function can throw', async t => {
+	const error = 'Simple error';
+	await t.throws(got(`${s.url}/413`, {
+		retry: {
+			retries: () => {
+				throw new Error(error);
+			}
+		}
+	}), error);
 });

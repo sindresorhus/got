@@ -169,10 +169,10 @@ module.exports = (url, options, defaults) => {
 
 			if (Reflect.has(error, 'headers') && Reflect.has(error.headers, 'retry-after') && retryAfterStatusCodes.has(error.statusCode)) {
 				let after = Number(error.headers['retry-after']);
-				if (is.number(after)) {
-					after *= 1000;
+				if (is.nan(after)) {
+					after = Date.parse(error.headers['retry-after']) - Date.now();
 				} else {
-					after = Math.max(Date.parse(error.headers['retry-after']) - Date.now(), 0);
+					after *= 1000;
 				}
 
 				if (after > options.gotRetry.maxRetryAfter) {
