@@ -18,6 +18,10 @@ module.exports = async options => {
 	if (is.string(body)) {
 		return Buffer.byteLength(body);
 	}
+	
+	if (is.buffer(body)) {
+		return body.length;
+	}
 
 	if (isFormData(body)) {
 		return util.promisify(body.getLength.bind(body))();
@@ -30,10 +34,6 @@ module.exports = async options => {
 
 	if (is.nodeStream(body) && is.buffer(body._buffer)) {
 		return body._buffer.length;
-	}
-
-	if (body && is.number(body.length)) {
-		return body.length;
 	}
 
 	return null;
