@@ -127,9 +127,10 @@ test('proxying headers works', async t => {
 
 	await server.listen(server.port);
 
-	const {headers} = await got(server.url);
+	const {headers, body} = await got(server.url);
 	t.is(headers.unicorn, 'rainbow');
 	t.is(headers['content-encoding'], undefined);
+	t.is(body, 'ok');
 
 	await server.close();
 });
@@ -162,5 +163,21 @@ test('throws when trying to proxy through a closed stream', async t => {
 
 	await server.listen(server.port);
 	await got(server.url);
+	await server.close();
+});
+
+test('proxies content-encoding header when options.decompress is false', async t => {
+	const server = await createServer();
+
+	server.on('/', (request, response) => {
+		got.stream(s.url, {decompress: false}).pipe(response);
+	});
+
+	await server.listen(server.port);
+
+	const {headers} = await got(server.url);
+	t.is(headers.unicorn, 'rainbow');
+	t.is(headers['content-encoding'], 'gzip');
+
 	await server.close();
 });

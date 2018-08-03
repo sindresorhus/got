@@ -27,6 +27,7 @@ function addTimeout(delay, callback, ...args) {
 }
 
 module.exports = (request, options) => {
+	/* istanbul ignore next */
 	if (request[reentry]) {
 		return;
 	}
