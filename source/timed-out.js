@@ -12,6 +12,7 @@ function addTimeout(delay, callback, ...args) {
 	const timeout = setTimeout(
 		() => {
 			immediate = setImmediate(callback, delay, ...args);
+			/* istanbul ignore next */
 			if (immediate.unref) {
 				// Added in node v9.7.0
 				immediate.unref();
@@ -69,6 +70,7 @@ module.exports = (request, options) => {
 
 	if (delays.lookup !== undefined && !request.socketPath && !net.isIP(hostname || host)) {
 		request.once('socket', socket => {
+			/* istanbul ignore next */
 			if (socket.connecting) {
 				const cancelTimeout = addTimeout(
 					delays.lookup,
@@ -83,6 +85,7 @@ module.exports = (request, options) => {
 
 	if (delays.connect !== undefined) {
 		request.once('socket', socket => {
+			/* istanbul ignore next */
 			if (socket.connecting) {
 				const timeConnect = () => {
 					const cancelTimeout = addTimeout(
@@ -107,6 +110,7 @@ module.exports = (request, options) => {
 
 	if (delays.secureConnect !== undefined && options.protocol === 'https:') {
 		request.once('socket', socket => {
+			/* istanbul ignore next */
 			if (socket.connecting) {
 				socket.once('connect', () => {
 					const cancelTimeout = addTimeout(
@@ -132,7 +136,7 @@ module.exports = (request, options) => {
 				cancelers.push(cancelTimeout);
 				return cancelTimeout;
 			};
-
+			/* istanbul ignore next */
 			if (socket.connecting) {
 				socket.once('connect', () => {
 					request.once('upload-complete', timeRequest());
