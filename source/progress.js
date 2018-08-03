@@ -28,7 +28,7 @@ module.exports = {
 		request.once('socket', socket => {
 			const onSocketConnect = () => {
 				progressInterval = setInterval(() => {
-					/* istanbul ignore next */
+					/* istanbul ignore next: hard to test */
 					if (socket.destroyed) {
 						clearInterval(progressInterval);
 						return;

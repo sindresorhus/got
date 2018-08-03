@@ -1,7 +1,7 @@
 'use strict';
-/* istanbul ignore next */
+/* istanbul ignore next: compatibility reason */
 const URLGlobal = typeof URL === 'undefined' ? require('url').URL : URL; // TODO: Use the `URL` global when targeting Node.js 10
-/* istanbul ignore next */
+/* istanbul ignore next: compatibility reason */
 const URLSearchParamsGlobal = typeof URLSearchParams === 'undefined' ? require('url').URLSearchParams : URLSearchParams;
 const is = require('@sindresorhus/is');
 const toReadableStream = require('to-readable-stream');

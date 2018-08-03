@@ -1,5 +1,5 @@
 'use strict';
-/* istanbul ignore next */
+/* istanbul ignore next: compatibility reason */
 const URLGlobal = typeof URL === 'undefined' ? require('url').URL : URL; // TODO: Use the `URL` global when targeting Node.js 10
 const EventEmitter = require('events');
 const http = require('http');
@@ -39,7 +39,7 @@ module.exports = options => {
 			options.agent = agents[protocolName] || options.agent;
 		}
 
-		/* istanbul ignore next */
+		/* istanbul ignore next: electron.net is broken */
 		if (options.useElectronNet && process.versions.electron) {
 			const electron = global['require']('electron'); // eslint-disable-line dot-notation
 			fn = electron.net || electron.remote.net;
