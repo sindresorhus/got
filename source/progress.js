@@ -35,10 +35,11 @@ module.exports = {
 					}
 
 					const lastUploaded = uploaded;
+					/* istanbul ignore next: see #490 (occurs randomly!) */
 					const headersSize = request._header ? Buffer.byteLength(request._header) : 0;
 					uploaded = socket.bytesWritten - headersSize;
 
-					// Prevent the known issue of `bytesWritten` being larger than body size
+					/* istanbul ignore next: see https://github.com/sindresorhus/got/pull/322#pullrequestreview-51647813 (no proof) */
 					if (uploadBodySize && uploaded > uploadBodySize) {
 						uploaded = uploadBodySize;
 					}
