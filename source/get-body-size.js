@@ -32,5 +32,9 @@ module.exports = async options => {
 		return body._buffer.length;
 	}
 
+	if (body && is.number(body.length)) {
+		return body.length;
+	}
+
 	return null;
 };
