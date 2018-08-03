@@ -19,6 +19,10 @@ module.exports = async options => {
 		return Buffer.byteLength(body);
 	}
 
+	if (is.buffer(body)) {
+		return body.length;
+	}
+
 	if (isFormData(body)) {
 		return util.promisify(body.getLength.bind(body))();
 	}

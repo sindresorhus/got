@@ -108,11 +108,6 @@ module.exports = (url, options, defaults) => {
 			options.body = JSON.stringify(body);
 		}
 
-		if (is.undefined(headers['content-length']) && is.undefined(headers['transfer-encoding']) && !is.nodeStream(body)) {
-			const length = is.string(options.body) ? Buffer.byteLength(options.body) : options.body.length;
-			headers['content-length'] = length;
-		}
-
 		// Convert buffer to stream to receive upload progress events (#322)
 		if (is.buffer(body)) {
 			options.body = toReadableStream(body);

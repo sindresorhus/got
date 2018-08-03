@@ -162,10 +162,6 @@ module.exports = options => {
 		try {
 			uploadBodySize = await getBodySize(options);
 
-			// This is the second try at setting a `content-length` header.
-			// This supports getting the size async, in contrast to
-			// https://github.com/sindresorhus/got/blob/82763c8089596dcee5eaa7f57f5dbf8194842fe6/index.js#L579-L582
-			// TODO: We should unify these two at some point
 			if (
 				uploadBodySize > 0 &&
 				is.undefined(options.headers['content-length']) &&
