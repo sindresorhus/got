@@ -18,7 +18,7 @@ module.exports = async options => {
 	if (is.string(body)) {
 		return Buffer.byteLength(body);
 	}
-	
+
 	if (is.buffer(body)) {
 		return body.length;
 	}
