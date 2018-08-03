@@ -12,8 +12,8 @@ function addTimeout(delay, callback, ...args) {
 	const timeout = setTimeout(
 		() => {
 			immediate = setImmediate(callback, delay, ...args);
+			/* istanbul ignore next: added in node v9.7.0 */
 			if (immediate.unref) {
-				// Added in node v9.7.0
 				immediate.unref();
 			}
 		},
@@ -27,6 +27,7 @@ function addTimeout(delay, callback, ...args) {
 }
 
 module.exports = (request, options) => {
+	/* istanbul ignore next: this makes sure timed-out isn't called twice */
 	if (request[reentry]) {
 		return;
 	}
@@ -68,6 +69,7 @@ module.exports = (request, options) => {
 
 	if (delays.lookup !== undefined && !request.socketPath && !net.isIP(hostname || host)) {
 		request.once('socket', socket => {
+			/* istanbul ignore next: hard to test */
 			if (socket.connecting) {
 				const cancelTimeout = addTimeout(
 					delays.lookup,
@@ -82,6 +84,7 @@ module.exports = (request, options) => {
 
 	if (delays.connect !== undefined) {
 		request.once('socket', socket => {
+			/* istanbul ignore next: hard to test */
 			if (socket.connecting) {
 				const timeConnect = () => {
 					const cancelTimeout = addTimeout(
@@ -106,6 +109,7 @@ module.exports = (request, options) => {
 
 	if (delays.secureConnect !== undefined && options.protocol === 'https:') {
 		request.once('socket', socket => {
+			/* istanbul ignore next: hard to test */
 			if (socket.connecting) {
 				socket.once('connect', () => {
 					const cancelTimeout = addTimeout(
@@ -131,7 +135,7 @@ module.exports = (request, options) => {
 				cancelers.push(cancelTimeout);
 				return cancelTimeout;
 			};
-
+			/* istanbul ignore next: hard to test */
 			if (socket.connecting) {
 				socket.once('connect', () => {
 					request.once('upload-complete', timeRequest());
