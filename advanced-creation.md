@@ -116,7 +116,9 @@ const unicorn = got.extend({headers: {unicorn: 'rainbow'}});
 
 #### got.merge(instances, [methods])
 
-Merges many instances into a single one.
+Merges many instances into a single one:
+- options are merged using [`got.mergeOptions()`](readme.md#gotmergeoptions),
+- handlers are stored in an array.
 
 ##### instances
 Type: `Function` `Object`
@@ -141,7 +143,7 @@ const instanceB = got.create({
 	options: {baseUrl: 'http://example.com'},
 	methods: [],
 	handler: (options, next) => { // These options are normalized, so assigning `baseUrl` here won't work.
-		return next(url, got.assignOptions(options, {headers: {unicorn: 'rainbow'}}));
+		return next(url, got.mergeOptions(options, {headers: {unicorn: 'rainbow'}}));
 	}
 });
 const merged = instanceA.merge(instanceB);
@@ -155,23 +157,3 @@ const merged = instanceA.merge(instanceB);
 	 */
 })();
 ```
-
-#### Merge strategy
-
-##### options
-
-Options are merged using [`assignOptions`](source/assign-options.js) function in the following way:
-
-1. Properties are deep cloned using `node-extend` dependency.
-2. Headers set to `null` or `undefined` are removed from the instance.
-3. If `retry` option is specified it overrides the old one.
-
-##### methods
-
-Parent's methods are taken unless you specify that.
-
-##### handlers
-
-Handlers are stored in an array and are executed serially.
-
-Want to know more? [Explore the source code](source/create.js).

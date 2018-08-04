@@ -33,9 +33,9 @@ const create = defaults => {
 	});
 
 	const merge = (instances, methods = instances[0].defaults.methods) => {
-		for (const instance of instances) {
+		for (const [n, instance] of instances.entries()) {
 			if (Reflect.has(instance.defaults, 'mergeable') && !instance.defaults.mergeable) {
-				throw new Error('Couldn\'t perform merge on unmergeable instances.');
+				throw new Error('Instance ' + n + ' is not mergeable.');
 			}
 		}
 
@@ -44,7 +44,7 @@ const create = defaults => {
 
 		let options = {};
 		for (const instance of instances) {
-			options = assignOptions(options, instance.defaults.options);
+			options = mergeOptions(options, instance.defaults.options);
 		}
 
 		return create({
