@@ -117,7 +117,7 @@ const unicorn = got.extend({headers: {unicorn: 'rainbow'}});
 #### got.merge(instances, [methods])
 
 Merges many instances into a single one:
-- options are merged using [`got.mergeOptions()`](readme.md#gotmergeoptions),
+- options are merged using [`got.mergeOptions()`](readme.md#gotmergeoptionsparentoptions-newoptions),
 - handlers are stored in an array.
 
 ##### instances
