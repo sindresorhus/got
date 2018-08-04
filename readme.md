@@ -26,7 +26,7 @@ Created because [`request`](https://github.com/request/request) is bloated *(sev
 - [Request cancelation](#aborting-the-request)
 - [RFC compliant caching](#cache-adapters)
 - [Follows redirects](#followredirect)
-- [Retries on network failure](#retries)
+- [Retries on failure](#retry)
 - [Progress events](#onuploadprogress-progress)
 - [Handles gzip/deflate](#decompress)
 - [Timeout handling](#timeout)
