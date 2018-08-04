@@ -29,12 +29,12 @@ const mergeInstances = (instances, methods = instances[0].defaults.methods) => {
 	return create({
 		methods,
 		options,
-		handler: (url, options, next) => {
+		handler: (options, next) => {
 			let iteration = -1;
 
 			const iterate = options => {
 				iteration++;
-				return handlers[iteration](url, options, iteration === size ? next : iterate);
+				return handlers[iteration](options, iteration === size ? next : iterate);
 			};
 
 			return iterate(options);
