@@ -110,14 +110,15 @@ Any of the [`https.request`](https://nodejs.org/api/https.html#https_https_reque
 
 ###### baseUrl
 
-Type: `string` `Object`
+Type: `string` `Object` `Function`
 
 When specified, `url` will be prepended by `baseUrl`.<br>
 If you specify an absolute URL, it will skip the `baseUrl`.
 
 Very useful when used with `got.extend()` to create niche-specific Got instances.
 
-Can be a string or a [WHATWG `URL`](https://nodejs.org/api/url.html#url_class_url).
+Can be a `string` or a [WHATWG `URL`](https://nodejs.org/api/url.html#url_class_url).<br>
+Can be a `Function` - it's very useful when needed to retrieve global endpoints that can change.
 
 ###### headers
 

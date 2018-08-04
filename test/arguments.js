@@ -119,6 +119,11 @@ test('throws TypeError when `url` is passed as an option', async t => {
 	await t.throws(got({url: 'example.com'}), {instanceOf: TypeError});
 });
 
+test('accepts `baseUrl` as a Function', async t => {
+	const {body} = await got('', {baseUrl: () => `${s.url}/test`});
+	t.is(body, '/test');
+});
+
 test('throws TypeError when `hooks` is not an object', async t => {
 	await t.throws(
 		() => got(s.url, {hooks: 'not object'}),
