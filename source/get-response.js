@@ -14,7 +14,7 @@ module.exports = (response, options, emitter, redirects) => {
 
 			const percent = downloadBodySize ? downloaded / downloadBodySize : 0;
 
-			// Let flush() be responsible for emitting the last event
+			// Let `flush()` be responsible for emitting the last event
 			if (percent < 1) {
 				emitter.emit('downloadProgress', {
 					percent,

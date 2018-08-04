@@ -10,20 +10,20 @@ async function createAbortServer() {
 	const s = await createServer();
 	const ee = new EventEmitter();
 	ee.aborted = new Promise((resolve, reject) => {
-		s.on('/abort', async (req, res) => {
+		s.on('/abort', async (request, response) => {
 			ee.emit('connection');
-			req.on('aborted', resolve);
-			res.on('finish', reject.bind(null, new Error('Request finished instead of aborting.')));
+			request.on('aborted', resolve);
+			response.on('finish', reject.bind(null, new Error('Request finished instead of aborting.')));
 
-			await getStream(req);
-			res.end();
+			await getStream(request);
+			response.end();
 		});
 
-		s.on('/redirect', (req, res) => {
-			res.writeHead(302, {
+		s.on('/redirect', (request, response) => {
+			response.writeHead(302, {
 				location: `${s.url}/abort`
 			});
-			res.end();
+			response.end();
 
 			ee.emit('sentRedirect');
 
@@ -100,9 +100,9 @@ test('cancel immediately', async t => {
 	const aborted = new Promise((resolve, reject) => {
 		// We won't get an abort or even a connection
 		// We assume no request within 1000ms equals a (client side) aborted request
-		s.on('/abort', (req, res) => {
-			res.on('finish', reject.bind(this, new Error('Request finished instead of aborting.')));
-			res.end();
+		s.on('/abort', (request, response) => {
+			response.on('finish', reject.bind(this, new Error('Request finished instead of aborting.')));
+			response.end();
 		});
 		setTimeout(resolve, 1000);
 	});

@@ -1,3 +1,4 @@
+import {URL} from 'url';
 import test from 'ava';
 import got from '../source';
 import {createServer} from './helpers/server';
@@ -7,9 +8,9 @@ let s;
 test.before('setup', async () => {
 	s = await createServer();
 
-	s.on('/', (req, res) => {
-		req.resume();
-		res.end(JSON.stringify(req.headers));
+	s.on('/', (request, response) => {
+		request.resume();
+		response.end(JSON.stringify(request.headers));
 	});
 
 	await s.listen(s.port);
@@ -76,17 +77,38 @@ test('custom headers (extend)', async t => {
 	t.is(headers.unicorn, 'rainbow');
 });
 
-test('custom endpoint with custom headers (create)', async t => {
-	const options = {headers: {unicorn: 'rainbow'}};
-	const handler = (url, options, next) => {
-		url = `${s.url}` + url;
+test('extend overwrites arrays with a deep clone', t => {
+	const statusCodes = [408];
+	const a = got.extend({retry: {statusCodes}});
+	statusCodes[0] = 500;
+	t.deepEqual(a.defaults.options.retry.statusCodes, [408]);
+	t.not(a.defaults.options.retry.statusCodes, statusCodes);
+});
 
-		return next(url, options);
-	};
-	const methods = ['get'];
+test('extend keeps the old value if the new one is undefined', t => {
+	const a = got.extend({headers: undefined});
+	t.deepEqual(
+		a.defaults.options.headers,
+		got.defaults.options.headers
+	);
+});
 
-	const instance = got.create({options, methods, handler});
-	const headers = (await instance('/', {
+test('extend merges URL instances', t => {
+	const a = got.extend({baseUrl: new URL('https://example.com')});
+	const b = a.extend({baseUrl: '/foo'});
+	t.is(b.defaults.options.baseUrl.toString(), 'https://example.com/foo');
+});
+
+test('create', async t => {
+	const instance = got.create({
+		options: {},
+		methods: ['get'],
+		handler: (options, next) => {
+			options.headers.unicorn = 'rainbow';
+			return next(options);
+		}
+	});
+	const headers = (await instance(s.url, {
 		json: true
 	})).body;
 	t.is(headers.unicorn, 'rainbow');
@@ -99,17 +121,16 @@ test('custom endpoint with custom headers (extend)', async t => {
 		json: true
 	})).body;
 	t.is(headers.unicorn, 'rainbow');
-	t.is(headers['user-agent'] === undefined, false);
+	t.not(headers['user-agent'], undefined);
 });
 
 test('no tampering with defaults', t => {
 	const instance = got.create({
 		handler: got.defaults.handler,
 		methods: got.defaults.methods,
-		options: {
-			...got.defaults.options,
+		options: got.mergeOptions(got.defaults.options, {
 			baseUrl: 'example'
-		}
+		})
 	});
 
 	const instance2 = instance.create({
@@ -125,6 +146,23 @@ test('no tampering with defaults', t => {
 
 	t.is(instance.defaults.options.baseUrl, 'example');
 	t.is(instance2.defaults.options.baseUrl, 'example');
+});
+
+test('defaults are cloned on instance creation', t => {
+	const options = {foo: 'bar'};
+	const methods = ['get'];
+	const instance = got.create({
+		methods,
+		options
+	});
+
+	t.notThrows(() => {
+		options.foo = 'foo';
+		methods[0] = 'post';
+	});
+
+	t.not(options.foo, instance.defaults.options.foo);
+	t.not(methods[0], instance.defaults.methods[0]);
 });
 
 test('merging instances', async t => {

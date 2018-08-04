@@ -14,10 +14,6 @@ module.exports = options => {
 
 	options.gotRetry.retries = () => 0;
 
-	if (options.json) {
-		throw new Error('Got can not be used as a stream when the `json` option is used');
-	}
-
 	if (options.body) {
 		proxy.write = () => {
 			throw new Error('Got\'s stream is not writable when the `body` option is used');
@@ -26,25 +22,30 @@ module.exports = options => {
 
 	const emitter = requestAsEventEmitter(options);
 
-	emitter.on('request', req => {
-		proxy.emit('request', req);
+	emitter.on('request', request => {
+		proxy.emit('request', request);
+		const uploadComplete = () => {
+			request.emit('upload-complete');
+		};
 
 		if (is.nodeStream(options.body)) {
-			options.body.pipe(req);
+			options.body.once('end', uploadComplete);
+			options.body.pipe(request);
 			return;
 		}
 
 		if (options.body) {
-			req.end(options.body);
+			request.end(options.body, uploadComplete);
 			return;
 		}
 
 		if (options.method === 'POST' || options.method === 'PUT' || options.method === 'PATCH') {
-			input.pipe(req);
+			input.once('end', uploadComplete);
+			input.pipe(request);
 			return;
 		}
 
-		req.end();
+		request.end(uploadComplete);
 	});
 
 	emitter.on('response', response => {
@@ -71,7 +72,8 @@ module.exports = options => {
 			for (const [key, value] of Object.entries(response.headers)) {
 				// Got gives *uncompressed* data. Overriding `content-encoding` header would result in an error.
 				// It's not possible to decompress uncompressed data, is it?
-				if (key.toLowerCase() !== 'content-encoding') {
+				const allowed = options.decompress ? key !== 'content-encoding' : true;
+				if (allowed) {
 					destination.setHeader(key, value);
 				}
 			}

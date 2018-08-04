@@ -17,24 +17,29 @@ module.exports = options => {
 			cancelOnRequest = true;
 		});
 
-		emitter.on('request', req => {
+		emitter.on('request', request => {
 			if (cancelOnRequest) {
-				req.abort();
+				request.abort();
 			}
 
-			proxy.emit('request', req);
+			proxy.emit('request', request);
+
+			const uploadComplete = () => {
+				request.emit('upload-complete');
+			};
 
 			onCancel(() => {
-				req.abort();
+				request.abort();
 			});
 
 			if (is.nodeStream(options.body)) {
-				options.body.pipe(req);
+				options.body.once('end', uploadComplete);
+				options.body.pipe(request);
 				options.body = undefined;
 				return;
 			}
 
-			req.end(options.body);
+			request.end(options.body, uploadComplete);
 		});
 
 		emitter.on('response', async response => {

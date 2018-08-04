@@ -13,11 +13,11 @@
 
 > Simplified HTTP requests
 
-[![Build Status: Linux](https://travis-ci.org/sindresorhus/got.svg?branch=master)](https://travis-ci.org/sindresorhus/got) [![Build status: Windows](https://ci.appveyor.com/api/projects/status/a9fgfqojj8mf5upf/branch/master?svg=true)](https://ci.appveyor.com/project/sindresorhus/got/branch/master) [![Coverage Status](https://coveralls.io/repos/github/sindresorhus/got/badge.svg?branch=master)](https://coveralls.io/github/sindresorhus/got?branch=master) [![Downloads](https://img.shields.io/npm/dm/got.svg)](https://npmjs.com/got)
+[![Build Status: Linux](https://travis-ci.org/sindresorhus/got.svg?branch=master)](https://travis-ci.org/sindresorhus/got) [![Build status: Windows](https://ci.appveyor.com/api/projects/status/a9fgfqojj8mf5upf/branch/master?svg=true)](https://ci.appveyor.com/project/sindresorhus/got/branch/master) [![Coverage Status](https://coveralls.io/repos/github/sindresorhus/got/badge.svg?branch=master)](https://coveralls.io/github/sindresorhus/got?branch=master) [![Downloads](https://img.shields.io/npm/dm/got.svg)](https://npmjs.com/got) [![Install size](https://packagephobia.now.sh/badge?p=got)](https://packagephobia.now.sh/result?p=got)
 
-A nicer interface to the built-in [`http`](http://nodejs.org/api/http.html) module.
+Got is a human-friendly and powerful HTTP request library.
 
-Created because [`request`](https://github.com/request/request) is bloated *(several megabytes!)*.
+It was created because the popular [`request`](https://github.com/request/request) package is bloated: [![Install size](https://packagephobia.now.sh/badge?p=request)](https://packagephobia.now.sh/result?p=request)
 
 
 ## Highlights
@@ -26,7 +26,7 @@ Created because [`request`](https://github.com/request/request) is bloated *(sev
 - [Request cancelation](#aborting-the-request)
 - [RFC compliant caching](#cache-adapters)
 - [Follows redirects](#followredirect)
-- [Retries on network failure](#retries)
+- [Retries on failure](#retry)
 - [Progress events](#onuploadprogress-progress)
 - [Handles gzip/deflate](#decompress)
 - [Timeout handling](#timeout)
@@ -35,6 +35,8 @@ Created because [`request`](https://github.com/request/request) is bloated *(sev
 - [WHATWG URL support](#url)
 - [Electron support](#useelectronnet)
 - [Instances with custom defaults](#instances)
+- [Used by ~2000 packages and ~500K repos](https://github.com/sindresorhus/got/network/dependents)
+- Actively maintained
 
 
 ## Install
@@ -84,9 +86,9 @@ It's a `GET` request by default, but can be changed by using different methods o
 
 #### got(url, [options])
 
-Returns a Promise for a `response` object with a `body` property, a `url` property with the request URL or the final URL after redirects, and a `requestUrl` property with the original request URL.
+Returns a Promise for a `response` object with a `body` property, an `url` property with the request URL or the final URL after redirects, and a `requestUrl` property with the original request URL.
 
-The response object will normally be a [Node.js HTTP response stream](https://nodejs.org/api/http.html#http_class_http_incomingmessage), however if returned from the cache it will be a [responselike object](https://github.com/lukechilds/responselike) which behaves in the same way.
+The response object will typically be a [Node.js HTTP response stream](https://nodejs.org/api/http.html#http_class_http_incomingmessage), however, if returned from the cache it will be a [response-like object](https://github.com/lukechilds/responselike) which behaves in the same way.
 
 The response will also have a `fromCache` property set with a boolean value.
 
@@ -94,7 +96,7 @@ The response will also have a `fromCache` property set with a boolean value.
 
 Type: `string` `Object`
 
-The URL to request as simple string, a [`https.request` options](https://nodejs.org/api/https.html#https_https_request_options_callback), or a [WHATWG `URL`](https://nodejs.org/api/url.html#url_class_url).
+The URL to request, as a string, a [`https.request` options object](https://nodejs.org/api/https.html#https_https_request_options_callback), or a [WHATWG `URL`](https://nodejs.org/api/url.html#url_class_url).
 
 Properties from `options` will override properties in the parsed `url`.
 
@@ -113,7 +115,7 @@ Type: `string` `Object`
 When specified, `url` will be prepended by `baseUrl`.<br>
 If you specify an absolute URL, it will skip the `baseUrl`.
 
-Very useful when used with `got.extend()` to create niche-specific `got` instances.
+Very useful when used with `got.extend()` to create niche-specific Got instances.
 
 Can be a string or a [WHATWG `URL`](https://nodejs.org/api/url.html#url_class_url).
 
@@ -124,7 +126,7 @@ Default: `{}`
 
 Request headers.
 
-Existing headers will be overwritten. Headers set to `null` or `undefined` will be omitted.
+Existing headers will be overwritten. Headers set to `null` will be omitted.
 
 ###### stream
 
@@ -137,9 +139,9 @@ Returns a `Stream` instead of a `Promise`. This is equivalent to calling `got.st
 
 Type: `string` `Buffer` `stream.Readable` [`form-data` instance](https://github.com/form-data/form-data)
 
-*This is mutually exclusive with stream mode.*
+*If you provide this option, `got.stream()` will be read-only.*
 
-Body that will be sent with a `POST` request.
+The body that will be sent with a `POST` request.
 
 If present in `options` and `options.method` is not set, `options.method` will be set to `POST`.
 
@@ -157,7 +159,7 @@ Default: `'utf8'`
 Type: `boolean`<br>
 Default: `false`
 
-*This is mutually exclusive with stream mode.*
+*If you provide this option, `got.stream()` will be read-only.*
 
 If set to `true` and `Content-Type` header is not set, it will be set to `application/x-www-form-urlencoded`.
 
@@ -168,7 +170,7 @@ If set to `true` and `Content-Type` header is not set, it will be set to `applic
 Type: `boolean`<br>
 Default: `false`
 
-*This is mutually exclusive with stream mode.*
+*If you use `got.stream()`, this option will be ignored.*
 
 If set to `true` and `Content-Type` header is not set, it will be set to `application/json`.
 
@@ -186,9 +188,17 @@ Query string object that will be added to the request URL. This will override th
 
 Type: `number` `Object`
 
-Milliseconds to wait for the server to end the response before aborting request with `ETIMEDOUT` error (a.k.a. `request` property). By default there's no timeout.
+Milliseconds to wait for the server to end the response before aborting the request with [`got.TimeoutError`](#gottimeouterror) error (a.k.a. `request` property). By default, there's no timeout.
 
-This also accepts an object with separate `connect`, `socket`, and `request` fields for connection, socket, and entire request timeouts.
+This also accepts an `object` with the following fields to constrain the duration of each phase of the request lifecycle:
+
+- `lookup` starts when a socket is assigned and ends when the hostname has been resolved. Does not apply when using a Unix domain socket.
+- `connect` starts when `lookup` completes (or when the socket is assigned if lookup does not apply to the request) and ends when the socket is connected.
+- `secureConnect` starts when `connect` completes and ends when the handshaking process completes (HTTPS only).
+- `socket` starts when the socket is connected. See [request.setTimeout](https://nodejs.org/api/http.html#http_request_settimeout_timeout_callback).
+- `response` starts when the request has been written to the socket and ends when the response headers are received.
+- `send` starts when the socket is connected and ends with the request has been written to the socket.
+- `request` starts when the request is initiated and ends when the response's end event fires.
 
 ###### retry
 
@@ -199,20 +209,19 @@ Default:
 - statusCodes: [`408`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/408) [`413`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/413) [`429`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429) [`502`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/502) [`503`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/503) [`504`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/504)
 - maxRetryAfter: `undefined`
 
-Object representing `retries`, `methods`, `statusCodes` and `maxRetryAfter` fields for time until retry, allowed methods, allowed status codes and maximum [`Retry-After`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Retry-After) time.
+An object representing `retries`, `methods`, `statusCodes` and `maxRetryAfter` fields for the time until retry, allowed methods, allowed status codes and maximum [`Retry-After`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Retry-After) time.
 
 If `maxRetryAfter` is set to `undefined`, it will use `options.timeout`.<br>
 If [`Retry-After`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Retry-After) header is greater than `maxRetryAfter`, it will cancel the request.
 
 Delays between retries counts with function `1000 * Math.pow(2, retry) + Math.random() * 100`, where `retry` is attempt number (starts from 0).
 
-Option `retries` can be a `number`, but also accepts a `function` with `retry` and `error` arguments. Function must return delay in milliseconds (`0` return value cancels retry).
+The `retries` property can be a `number` or a `function` with `retry` and `error` arguments. The function must return a delay in milliseconds (`0` return value cancels retry).
 
 **Note:** It retries only on the specified methods, status codes, and on these network errors:
-- `ETIMEDOUT`: Connection was not estabilished after a period of time.
+- `ETIMEDOUT`: One of the [timeout](#timeout) limits were reached.
 - `ECONNRESET`: Connection was forcibly closed by a peer.
 - `EADDRINUSE`: Could not bind to any free port.
-- `ESOCKETTIMEDOUT`: Connected, but received no response after a period of time.
 - `ECONNREFUSED`: Connection was refused by the server.
 - `EPIPE`: The remote side of the stream being written has been closed.
 
@@ -223,8 +232,7 @@ Default: `true`
 
 Defines if redirect responses should be followed automatically.
 
-Note that if a `303` is sent by the server in response to any request type (`POST`, `DELETE`, etc.), got will automatically
-request the resource pointed to in the location header via `GET`. This is in accordance with [the spec](https://tools.ietf.org/html/rfc7231#section-6.4.4).
+Note that if a `303` is sent by the server in response to any request type (`POST`, `DELETE`, etc.), Got will automatically request the resource pointed to in the location header via `GET`. This is in accordance with [the spec](https://tools.ietf.org/html/rfc7231#section-6.4.4).
 
 ###### decompress
 
@@ -247,7 +255,7 @@ Default: `false`
 Type: `boolean`<br>
 Default: `false`
 
-When used in Electron, Got will use [`electron.net`](https://electronjs.org/docs/api/net/) instead of the Node.js `http` module. According to the Electron docs, it should be fully compatible, but it's not entirely. See [#315](https://github.com/sindresorhus/got/issues/315).
+When used in Electron, Got will use [`electron.net`](https://electronjs.org/docs/api/net/) instead of the Node.js `http` module. According to the Electron docs, it should be fully compatible, but it's not entirely. See [#443](https://github.com/sindresorhus/got/issues/443) and [#461](https://github.com/sindresorhus/got/issues/461).
 
 ###### throwHttpErrors
 
@@ -260,17 +268,17 @@ If this is disabled, requests that encounter an error status code will be resolv
 
 ###### hooks
 
-Type: `Object<string, Array<Function>>`<br>
-Default: `{ beforeRequest: [] }`
+Type: `Object<string, Function[]>`<br>
+Default: `{beforeRequest: []}`
 
 Hooks allow modifications during the request lifecycle. Hook functions may be async and are run serially.
 
 ###### hooks.beforeRequest
 
-Type: `Array<Function>`<br>
+Type: `Function[]`<br>
 Default: `[]`
 
-Called with the normalized request options. Got will make no further changes to the request before it is sent. This is especially useful in conjunction with [`got.extend()`](#instances) and [`got.create()`](advanced-creation.md) when you want to create an API client that uses HMAC-signing.
+Called with the normalized request options. Got will make no further changes to the request before it is sent. This is especially useful in conjunction with [`got.extend()`](#instances) and [`got.create()`](advanced-creation.md) when you want to create an API client that, for example, uses HMAC-signing.
 
 See the [AWS section](#aws) for an example.
 
@@ -284,7 +292,7 @@ See the [AWS section](#aws) for an example.
 
 Sets `options.stream` to `true`.
 
-`stream` method will return Duplex stream with additional events:
+Returna a [duplex stream](https://nodejs.org/api/stream.html#stream_class_stream_duplex) with additional events:
 
 ##### .on('request', request)
 
@@ -294,21 +302,21 @@ Sets `options.stream` to `true`.
 
 ```js
 got.stream('github.com')
-	.on('request', req => setTimeout(() => req.abort(), 50));
+	.on('request', request => setTimeout(() => request.abort(), 50));
 ```
 
 ##### .on('response', response)
 
-`response` event to get the response object of the final request.
+The `response` event to get the response object of the final request.
 
 ##### .on('redirect', response, nextOptions)
 
-`redirect` event to get the response object of a redirect. The second argument is options for the next request to the redirect location.
+The `redirect` event to get the response object of a redirect. The second argument is options for the next request to the redirect location.
 
 ##### .on('uploadProgress', progress)
 ##### .on('downloadProgress', progress)
 
-Progress events for uploading (sending request) and downloading (receiving response). The `progress` argument is an object like:
+Progress events for uploading (sending a request) and downloading (receiving a response). The `progress` argument is an object like:
 
 ```js
 {
@@ -336,7 +344,7 @@ If it's not possible to retrieve the body size (can happen when streaming), `tot
 
 ##### .on('error', error, body, response)
 
-`error` event emitted in case of protocol error (like `ENOTFOUND` etc.) or status error (4xx or 5xx). The second argument is the body of the server response in case of status error. The third argument is response object.
+The `error` event emitted in case of a protocol error (like `ENOTFOUND` etc.) or status error (4xx or 5xx). The second argument is the body of the server response in case of status error. The third argument is a response object.
 
 #### got.get(url, [options])
 #### got.post(url, [options])
@@ -351,10 +359,7 @@ Sets `options.method` to the method name and makes a request.
 
 #### got.extend([options])
 
-Configure a new `got` instance with default `options` and (optionally) a custom `baseUrl`:
-
-**Note:** You can extend another extended instance. `got.defaults` provides settings used by that instance.<br>
-Check out the [unchanged default values](source/index.js).
+Configure a new `got` instance with default `options`. `options` are merged with the parent instance's `defaults.options` using [`got.mergeOptions`](#gotmergeoptionsparentoptions-newoptions).
 
 ```js
 const client = got.extend({
@@ -371,7 +376,7 @@ client.get('/demo');
  * Host: example.com
  * x-unicorn: rainbow
  */
- ```
+```
 
 ```js
 (async () => {
@@ -398,6 +403,28 @@ client.get('/demo');
 
 *Need more control over the behavior of Got? Check out the [`got.create()`](advanced-creation.md).*
 
+#### got.mergeOptions(parentOptions, newOptions)
+
+Extends parent options. Avoid using [object spread](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Spread_syntax#Spread_in_object_literals) as it doesn't work recursively:
+
+```js
+const a = {headers: {cat: 'meow', wolf: ['bark', 'wrrr']}};
+const b = {headers: {cow: 'moo', wolf: ['auuu']}};
+
+{...a, ...b}            // => {headers: {cow: 'moo', wolf: ['auuu']}}
+got.mergeOptions(a, b)  // => {headers: {cat: 'meow', cow: 'moo', wolf: ['auuu']}}
+```
+
+Options are deeply merged to a new object. The value of each key is determined as follows:
+
+- If the new property is set to `undefined`, it keeps the old one.
+- If the parent property is an instance of `URL` and the new value is a `string` or `URL`, a new URL instance is created: [`new URL(new, parent)`](https://developer.mozilla.org/en-US/docs/Web/API/URL/URL#Syntax).
+- If the new property is a plain `Object`:
+	- If the parent property is a plain `Object` too, both values are merged recursively into a new `Object`.
+	- Otherwise, only the new value is deeply cloned.
+- If the new property is an `Array`, it overwrites the old one with a deep clone of the new property.
+- Otherwise, the new value is assigned to the key.
+
 ## Errors
 
 Each error contains (if available) `statusCode`, `statusMessage`, `host`, `hostname`, `method`, `path`, `protocol` and `url` properties to make debugging easier.
@@ -406,7 +433,7 @@ In Promise mode, the `response` is attached to the error.
 
 #### got.CacheError
 
-When a cache method fails, for example if the database goes down, or there's a filesystem error.
+When a cache method fails, for example, if the database goes down or there's a filesystem error.
 
 #### got.RequestError
 
@@ -422,11 +449,11 @@ When `json` option is enabled, server response code is 2xx, and `JSON.parse` fai
 
 #### got.HTTPError
 
-When server response code is not 2xx. Includes `statusCode`, `statusMessage`, and `redirectUrls` properties.
+When the server response code is not 2xx. Includes `statusCode`, `statusMessage`, and `redirectUrls` properties.
 
 #### got.MaxRedirectsError
 
-When server redirects you more than 10 times. Includes a `redirectUrls` property, which is an array of the URLs Got was redirected to before giving up.
+When the server redirects you more than ten times. Includes a `redirectUrls` property, which is an array of the URLs Got was redirected to before giving up.
 
 #### got.UnsupportedProtocolError
 
@@ -436,23 +463,26 @@ When given an unsupported protocol.
 
 When the request is aborted with `.cancel()`.
 
+#### got.TimeoutError
+
+When the request is aborted due to a [timeout](#timeout)
 
 ## Aborting the request
 
-The promise returned by Got has a [`.cancel()`](https://github.com/sindresorhus/p-cancelable) method which, when called, aborts the request.
+The promise returned by Got has a [`.cancel()`](https://github.com/sindresorhus/p-cancelable) method which when called, aborts the request.
 
 ```js
 (async () => {
 	const request = got(url, options);
 
-	…
+	// …
 
 	// In another part of the code
 	if (something) {
 		request.cancel();
 	}
 
-	…
+	// …
 
 	try {
 		await request;
@@ -469,9 +499,9 @@ The promise returned by Got has a [`.cancel()`](https://github.com/sindresorhus/
 <a name="cache-adapters"></a>
 ## Cache
 
-Got implements [RFC 7234](http://httpwg.org/specs/rfc7234.html) compliant HTTP caching which works out of the box in memory or is easily pluggable with a wide range of storage adapters. Fresh cache entries are served directly from cache and stale cache entries are revalidated with `If-None-Match`/`If-Modified-Since` headers. You can read more about the underlying cache behaviour in the `cacheable-request` [documentation](https://github.com/lukechilds/cacheable-request).
+Got implements [RFC 7234](http://httpwg.org/specs/rfc7234.html) compliant HTTP caching which works out of the box in-memory and is easily pluggable with a wide range of storage adapters. Fresh cache entries are served directly from the cache, and stale cache entries are revalidated with `If-None-Match`/`If-Modified-Since` headers. You can read more about the underlying cache behavior in the [`cacheable-request` documentation](https://github.com/lukechilds/cacheable-request).
 
-You can use the JavaScript `Map` type as an in memory cache:
+You can use the JavaScript `Map` type as an in-memory cache:
 
 ```js
 const got = require('got');
@@ -509,9 +539,9 @@ For example, the following are all valid storage adapters:
 
 ```js
 const storageAdapter = new Map();
-// or
+// Or
 const storageAdapter = require('./my-storage-adapter');
-// or
+// Or
 const QuickLRU = require('quick-lru');
 const storageAdapter = new QuickLRU({maxSize: 1000});
 
@@ -634,13 +664,13 @@ got(url, {
 Requests can also be sent via [unix domain sockets](http://serverfault.com/questions/124517/whats-the-difference-between-unix-socket-and-tcp-ip-socket). Use the following URL scheme: `PROTOCOL://unix:SOCKET:PATH`.
 
 - `PROTOCOL` - `http` or `https` *(optional)*
-- `SOCKET` - absolute path to a unix domain socket, e.g. `/var/run/docker.sock`
-- `PATH` - request path, e.g. `/v2/keys`
+- `SOCKET` - Absolute path to a unix domain socket, for example: `/var/run/docker.sock`
+- `PATH` - Request path, for example: `/v2/keys`
 
 ```js
 got('http://unix:/var/run/docker.sock:/containers/json');
 
-// or without protocol (http by default)
+// Or without protocol (HTTP by default)
 got('unix:/var/run/docker.sock:/containers/json');
 ```
 
@@ -719,7 +749,7 @@ const createTestServer = require('create-test-server');
 
 ### User Agent
 
-It's a good idea to set the `'user-agent'` header so the provider can more easily see how their resource is used. By default, it's the URL to this repo. You can omit this header by setting it to `null` or `undefined`.
+It's a good idea to set the `'user-agent'` header so the provider can more easily see how their resource is used. By default, it's the URL to this repo. You can omit this header by setting it to `null`.
 
 ```js
 const got = require('got');
@@ -740,7 +770,7 @@ got('sindresorhus.com', {
 
 ### 304 Responses
 
-Bear in mind, if you send an `if-modified-since` header and receive a `304 Not Modified` response, the body will be empty. It's your responsibility to cache and retrieve the body contents.
+Bear in mind; if you send an `if-modified-since` header and receive a `304 Not Modified` response, the body will be empty. It's your responsibility to cache and retrieve the body contents.
 
 ### Custom endpoints
 

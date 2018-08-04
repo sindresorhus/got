@@ -12,12 +12,16 @@ let s;
 test.before('setup', async () => {
 	s = await createServer();
 
-	s.on('/', (req, res) => {
-		req.resume();
-		res.end(JSON.stringify(req.headers));
+	s.on('/', (request, response) => {
+		request.resume();
+		response.end(JSON.stringify(request.headers));
 	});
 
 	await s.listen(s.port);
+});
+
+test.after('cleanup', async () => {
+	await s.close();
 });
 
 test('user-agent', async t => {
@@ -138,16 +142,22 @@ test('remove null value headers', async t => {
 	t.false(Reflect.has(headers, 'user-agent'));
 });
 
-test('remove undefined value headers', async t => {
+test('setting a header to undefined keeps the old value', async t => {
 	const {body} = await got(s.url, {
 		headers: {
 			'user-agent': undefined
 		}
 	});
 	const headers = JSON.parse(body);
-	t.false(Reflect.has(headers, 'user-agent'));
+	t.not(headers['user-agent'], undefined);
 });
 
-test.after('cleanup', async () => {
-	await s.close();
+test('non-existent headers set to undefined are omitted', async t => {
+	const {body} = await got(s.url, {
+		headers: {
+			blah: undefined
+		}
+	});
+	const headers = JSON.parse(body);
+	t.false(Reflect.has(headers, 'blah'));
 });

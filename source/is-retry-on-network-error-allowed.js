@@ -4,13 +4,12 @@ const WHITELIST = new Set([
 	'ETIMEDOUT',
 	'ECONNRESET',
 	'EADDRINUSE',
-	'ESOCKETTIMEDOUT',
 	'ECONNREFUSED',
 	'EPIPE'
 ]);
 
-module.exports = err => {
-	if (err && WHITELIST.has(err.code)) {
+module.exports = error => {
+	if (error && WHITELIST.has(error.code)) {
 		return true;
 	}
 

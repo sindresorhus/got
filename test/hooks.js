@@ -7,13 +7,17 @@ let s;
 
 test.before('setup', async () => {
 	s = await createServer();
-	const echoHeaders = (req, res) => {
-		res.statusCode = 200;
-		res.write(JSON.stringify(req.headers));
-		res.end();
+	const echoHeaders = (request, response) => {
+		response.statusCode = 200;
+		response.write(JSON.stringify(request.headers));
+		response.end();
 	};
 	s.on('/', echoHeaders);
 	await s.listen(s.port);
+});
+
+test.after('cleanup', async () => {
+	await s.close();
 });
 
 test('beforeRequest receives normalized options', async t => {
@@ -34,7 +38,7 @@ test('beforeRequest receives normalized options', async t => {
 });
 
 test('beforeRequest allows modifications', async t => {
-	const res = await got(
+	const response = await got(
 		s.url,
 		{
 			json: true,
@@ -47,11 +51,11 @@ test('beforeRequest allows modifications', async t => {
 			}
 		}
 	);
-	t.is(res.body.foo, 'bar');
+	t.is(response.body.foo, 'bar');
 });
 
 test('beforeRequest awaits async function', async t => {
-	const res = await got(
+	const response = await got(
 		s.url,
 		{
 			json: true,
@@ -65,7 +69,7 @@ test('beforeRequest awaits async function', async t => {
 			}
 		}
 	);
-	t.is(res.body.foo, 'bar');
+	t.is(response.body.foo, 'bar');
 });
 
 test('beforeRequest rejects when beforeRequest throws', async t => {
@@ -98,8 +102,4 @@ test('beforeRequest rejects when beforeRequest rejects', async t => {
 			message: 'oops'
 		}
 	);
-});
-
-test.after('cleanup', async () => {
-	await s.close();
 });

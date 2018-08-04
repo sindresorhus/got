@@ -42,42 +42,46 @@ let s;
 test.before('setup', async () => {
 	s = await createServer();
 
-	s.on('/download', (req, res) => {
-		res.setHeader('content-length', file.length);
+	s.on('/download', (request, response) => {
+		response.setHeader('content-length', file.length);
 
 		toReadableStream(file)
 			.pipe(new SlowStream({maxWriteInterval: 50}))
-			.pipe(res);
+			.pipe(response);
 	});
 
-	s.on('/download/no-total', (req, res) => {
-		res.write('hello');
-		res.end();
+	s.on('/download/no-total', (request, response) => {
+		response.write('hello');
+		response.end();
 	});
 
-	s.on('/upload', (req, res) => {
-		req
+	s.on('/upload', (request, response) => {
+		request
 			.pipe(new SlowStream({maxWriteInterval: 100}))
-			.on('end', () => res.end());
+			.on('end', () => response.end());
 	});
 
 	await s.listen(s.port);
 });
 
+test.after('cleanup', async () => {
+	await s.close();
+});
+
 test('download progress', async t => {
 	const events = [];
 
-	const res = await got(`${s.url}/download`, {encoding: null})
-		.on('downloadProgress', e => events.push(e));
+	const response = await got(`${s.url}/download`, {encoding: null})
+		.on('downloadProgress', event => events.push(event));
 
-	checkEvents(t, events, res.body.length);
+	checkEvents(t, events, response.body.length);
 });
 
 test('download progress - missing total size', async t => {
 	const events = [];
 
 	await got(`${s.url}/download/no-total`)
-		.on('downloadProgress', e => events.push(e));
+		.on('downloadProgress', event => events.push(event));
 
 	checkEvents(t, events);
 });
@@ -86,7 +90,7 @@ test('download progress - stream', async t => {
 	const events = [];
 
 	const stream = got.stream(`${s.url}/download`, {encoding: null})
-		.on('downloadProgress', e => events.push(e));
+		.on('downloadProgress', event => events.push(event));
 
 	await getStream(stream);
 
@@ -97,7 +101,7 @@ test('upload progress - file', async t => {
 	const events = [];
 
 	await got.post(`${s.url}/upload`, {body: file})
-		.on('uploadProgress', e => events.push(e));
+		.on('uploadProgress', event => events.push(event));
 
 	checkEvents(t, events, file.length);
 });
@@ -109,7 +113,7 @@ test('upload progress - file stream', async t => {
 	const events = [];
 
 	await got.post(`${s.url}/upload`, {body: fs.createReadStream(path)})
-		.on('uploadProgress', e => events.push(e));
+		.on('uploadProgress', event => events.push(event));
 
 	checkEvents(t, events, file.length);
 });
@@ -124,7 +128,7 @@ test('upload progress - form data', async t => {
 	const size = await util.promisify(body.getLength.bind(body))();
 
 	await got.post(`${s.url}/upload`, {body})
-		.on('uploadProgress', e => events.push(e));
+		.on('uploadProgress', event => events.push(event));
 
 	checkEvents(t, events, size);
 });
@@ -135,7 +139,7 @@ test('upload progress - json', async t => {
 	const events = [];
 
 	await got.post(`${s.url}/upload`, {body})
-		.on('uploadProgress', e => events.push(e));
+		.on('uploadProgress', event => events.push(event));
 
 	checkEvents(t, events, size);
 });
@@ -146,10 +150,10 @@ test('upload progress - stream with known body size', async t => {
 		headers: {'content-length': file.length}
 	};
 
-	const req = got.stream.post(`${s.url}/upload`, options)
-		.on('uploadProgress', e => events.push(e));
+	const request = got.stream.post(`${s.url}/upload`, options)
+		.on('uploadProgress', event => events.push(event));
 
-	await getStream(toReadableStream(file).pipe(req));
+	await getStream(toReadableStream(file).pipe(request));
 
 	checkEvents(t, events, file.length);
 });
@@ -157,10 +161,10 @@ test('upload progress - stream with known body size', async t => {
 test('upload progress - stream with unknown body size', async t => {
 	const events = [];
 
-	const req = got.stream.post(`${s.url}/upload`)
-		.on('uploadProgress', e => events.push(e));
+	const request = got.stream.post(`${s.url}/upload`)
+		.on('uploadProgress', event => events.push(event));
 
-	await getStream(toReadableStream(file).pipe(req));
+	await getStream(toReadableStream(file).pipe(request));
 
 	checkEvents(t, events);
 });
@@ -169,7 +173,7 @@ test('upload progress - no body', async t => {
 	const events = [];
 
 	await got.post(`${s.url}/upload`)
-		.on('uploadProgress', e => events.push(e));
+		.on('uploadProgress', event => events.push(event));
 
 	t.deepEqual(events, [
 		{
@@ -183,8 +187,4 @@ test('upload progress - no body', async t => {
 			total: 0
 		}
 	]);
-});
-
-test.after('cleanup', async () => {
-	await s.close();
 });

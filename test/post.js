@@ -8,20 +8,24 @@ let s;
 test.before('setup', async () => {
 	s = await createServer();
 
-	s.on('/', (req, res) => {
-		res.setHeader('method', req.method);
-		req.pipe(res);
+	s.on('/', (request, response) => {
+		response.setHeader('method', request.method);
+		request.pipe(response);
 	});
 
-	s.on('/headers', (req, res) => {
-		res.end(JSON.stringify(req.headers));
+	s.on('/headers', (request, response) => {
+		response.end(JSON.stringify(request.headers));
 	});
 
-	s.on('/empty', (req, res) => {
-		res.end();
+	s.on('/empty', (request, response) => {
+		response.end();
 	});
 
 	await s.listen(s.port);
+});
+
+test.after('cleanup', async () => {
+	await s.close();
 });
 
 test('GET can have body', async t => {
@@ -142,8 +146,4 @@ test('throws when json body is not a plain object or array', async t => {
 
 test('throws when form body is not a plain object or array', async t => {
 	await t.throws(got(`${s.url}`, {body: 'such=wow', form: true}), TypeError);
-});
-
-test.after('cleanup', async () => {
-	await s.close();
 });

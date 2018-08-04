@@ -1,5 +1,8 @@
 'use strict';
-const URLSearchParamsGlobal = typeof URLSearchParams === 'undefined' ? require('url').URLSearchParams : URLSearchParams; // TODO: Use the `URL` global when targeting Node.js 10
+/* istanbul ignore next: compatibility reason */
+const URLGlobal = typeof URL === 'undefined' ? require('url').URL : URL; // TODO: Use the `URL` global when targeting Node.js 10
+/* istanbul ignore next: compatibility reason */
+const URLSearchParamsGlobal = typeof URLSearchParams === 'undefined' ? require('url').URLSearchParams : URLSearchParams;
 const is = require('@sindresorhus/is');
 const toReadableStream = require('to-readable-stream');
 const urlParseLax = require('url-parse-lax');
@@ -17,18 +20,24 @@ module.exports = (url, options, defaults) => {
 
 	if (!is.string(url) && !is.object(url)) {
 		throw new TypeError(`Parameter \`url\` must be a string or object, not ${is(url)}`);
-	} else if (is.string(url)) {
-		url = url.replace(/^unix:/, 'http://$&');
+	}
 
-		try {
-			decodeURI(url);
-		} catch (_) {
-			throw new Error('Parameter `url` must contain valid UTF-8 character sequences');
-		}
+	if (is.string(url)) {
+		if (options.baseUrl) {
+			url = urlToOptions(new URLGlobal(url, options.baseUrl));
+		} else {
+			url = url.replace(/^unix:/, 'http://$&');
 
-		url = urlParseLax(url);
-		if (url.auth) {
-			throw new Error('Basic authentication must be done with the `auth` option');
+			try {
+				decodeURI(url);
+			} catch (_) {
+				throw new Error('Parameter `url` must contain valid UTF-8 character sequences');
+			}
+
+			url = urlParseLax(url);
+			if (url.auth) {
+				throw new Error('Basic authentication must be done with the `auth` option');
+			}
 		}
 	} else if (is(url) === 'URL') {
 		url = urlToOptions(url);
@@ -36,10 +45,15 @@ module.exports = (url, options, defaults) => {
 
 	options = {
 		path: '',
+		headers: {},
 		...url,
 		protocol: url.protocol || 'http:', // Override both null/undefined with default protocol
 		...options
 	};
+
+	if (options.stream && options.json) {
+		options.json = false;
+	}
 
 	if (options.decompress && is.undefined(options.headers['accept-encoding'])) {
 		options.headers['accept-encoding'] = 'gzip, deflate';
@@ -59,11 +73,17 @@ module.exports = (url, options, defaults) => {
 		options.headers.accept = 'application/json';
 	}
 
+	const {headers} = options;
+	for (const [key, value] of Object.entries(headers)) {
+		if (is.nullOrUndefined(value)) {
+			delete headers[key];
+		}
+	}
+
 	const {body} = options;
 	if (is.nullOrUndefined(body)) {
 		options.method = (options.method || 'GET').toUpperCase();
 	} else {
-		const {headers} = options;
 		const isObject = is.object(body) && !Buffer.isBuffer(body) && !is.nodeStream(body);
 		if (!is.nodeStream(body) && !is.string(body) && !is.buffer(body) && !(options.form || options.json)) {
 			throw new TypeError('The `body` option must be a stream.Readable, string or Buffer');
@@ -86,11 +106,6 @@ module.exports = (url, options, defaults) => {
 		} else if (options.json) {
 			headers['content-type'] = headers['content-type'] || 'application/json';
 			options.body = JSON.stringify(body);
-		}
-
-		if (is.undefined(headers['content-length']) && is.undefined(headers['transfer-encoding']) && !is.nodeStream(body)) {
-			const length = is.string(options.body) ? Buffer.byteLength(options.body) : options.body.length;
-			headers['content-length'] = length;
 		}
 
 		// Convert buffer to stream to receive upload progress events (#322)
@@ -151,10 +166,10 @@ module.exports = (url, options, defaults) => {
 
 			if (Reflect.has(error, 'headers') && Reflect.has(error.headers, 'retry-after') && retryAfterStatusCodes.has(error.statusCode)) {
 				let after = Number(error.headers['retry-after']);
-				if (is.number(after)) {
-					after *= 1000;
+				if (is.nan(after)) {
+					after = Date.parse(error.headers['retry-after']) - Date.now();
 				} else {
-					after = Math.max(Date.parse(error.headers['retry-after']) - Date.now(), 0);
+					after *= 1000;
 				}
 
 				if (after > options.gotRetry.maxRetryAfter) {
@@ -196,15 +211,13 @@ module.exports = (url, options, defaults) => {
 			if (is.nullOrUndefined(hooks)) {
 				options.hooks[hookEvent] = [];
 			} else if (is.array(hooks)) {
-				hooks.forEach(
-					(hook, index) => {
-						if (!is.function_(hook)) {
-							throw new TypeError(
-								`Parameter \`hooks.${hookEvent}[${index}]\` must be a function, not ${is(hook)}`
-							);
-						}
+				for (const [index, hook] of hooks.entries()) {
+					if (!is.function(hook)) {
+						throw new TypeError(
+							`Parameter \`hooks.${hookEvent}[${index}]\` must be a function, not ${is(hook)}`
+						);
 					}
-				);
+				}
 			} else {
 				throw new TypeError(`Parameter \`hooks.${hookEvent}\` must be an array, not ${is(hooks)}`);
 			}

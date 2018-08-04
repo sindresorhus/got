@@ -8,29 +8,33 @@ let s;
 test.before('setup', async () => {
 	s = await createServer();
 
-	s.on('/', (req, res) => {
-		res.end('ok');
+	s.on('/', (request, response) => {
+		response.end('ok');
 	});
 
-	s.on('/empty', (req, res) => {
-		res.end();
+	s.on('/empty', (request, response) => {
+		response.end();
 	});
 
-	s.on('/304', (req, res) => {
-		res.statusCode = 304;
-		res.end();
+	s.on('/304', (request, response) => {
+		response.statusCode = 304;
+		response.end();
 	});
 
-	s.on('/404', (req, res) => {
-		res.statusCode = 404;
-		res.end('not');
+	s.on('/404', (request, response) => {
+		response.statusCode = 404;
+		response.end('not');
 	});
 
-	s.on('/?recent=true', (req, res) => {
-		res.end('recent');
+	s.on('/?recent=true', (request, response) => {
+		response.end('recent');
 	});
 
 	await s.listen(s.port);
+});
+
+test.after('cleanup', async () => {
+	await s.close();
 });
 
 test('simple request', async t => {
@@ -47,9 +51,9 @@ test('requestUrl response', async t => {
 });
 
 test('error with code', async t => {
-	const err = await t.throws(got(`${s.url}/404`));
-	t.is(err.statusCode, 404);
-	t.is(err.response.body, 'not');
+	const error = await t.throws(got(`${s.url}/404`));
+	t.is(error.statusCode, 404);
+	t.is(error.response.body, 'not');
 });
 
 test('status code 304 doesn\'t throw', async t => {
@@ -65,8 +69,8 @@ test('doesn\'t throw on throwHttpErrors === false', async t => {
 });
 
 test('invalid protocol throws', async t => {
-	const err = await t.throws(got('c:/nope.com', {json: true}));
-	t.is(err.constructor, got.UnsupportedProtocolError);
+	const error = await t.throws(got('c:/nope.com', {json: true}));
+	t.is(error.constructor, got.UnsupportedProtocolError);
 });
 
 test('buffer on encoding === null', async t => {
@@ -86,8 +90,4 @@ test('requestUrl response when sending url as param', async t => {
 
 test('response contains url', async t => {
 	t.is((await got(s.url)).url, `${s.url}/`);
-});
-
-test.after('cleanup', async () => {
-	await s.close();
 });

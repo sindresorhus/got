@@ -2,6 +2,7 @@ import test from 'ava';
 import toReadableStream from 'to-readable-stream';
 import getStream from 'get-stream';
 import pEvent from 'p-event';
+import delay from 'delay';
 import is from '@sindresorhus/is';
 import got from '../source';
 import {createServer} from './helpers/server';
@@ -11,36 +12,39 @@ let s;
 test.before('setup', async () => {
 	s = await createServer();
 
-	s.on('/', (req, res) => {
-		res.writeHead(200, {
-			unicorn: 'rainbow'
+	s.on('/', (request, response) => {
+		response.writeHead(200, {
+			unicorn: 'rainbow',
+			'content-encoding': 'gzip'
 		});
-		res.end('ok');
+		response.end(Buffer.from('H4sIAAAAAAAA/8vPBgBH3dx5AgAAAA==', 'base64')); // 'ok'
 	});
 
-	s.on('/post', (req, res) => {
-		req.pipe(res);
+	s.on('/post', (request, response) => {
+		request.pipe(response);
 	});
 
-	s.on('/redirect', (req, res) => {
-		res.writeHead(302, {
+	s.on('/redirect', (request, response) => {
+		response.writeHead(302, {
 			location: s.url
 		});
-		res.end();
+		response.end();
 	});
 
-	s.on('/error', (req, res) => {
-		res.statusCode = 404;
-		res.end();
+	s.on('/error', (request, response) => {
+		response.statusCode = 404;
+		response.end();
 	});
 
 	await s.listen(s.port);
 });
 
-test('option.json can not be used', t => {
-	t.throws(() => {
-		got.stream(s.url, {json: true});
-	}, 'Got can not be used as a stream when the `json` option is used');
+test.after('cleanup', async () => {
+	await s.close();
+});
+
+test('options.json is ignored', t => {
+	t.notThrows(() => got.stream(s.url, {json: true}));
 });
 
 test('returns readable stream', async t => {
@@ -117,18 +121,63 @@ test('piping works', async t => {
 test('proxying headers works', async t => {
 	const server = await createServer();
 
-	server.on('/', (req, res) => {
-		got.stream(s.url).pipe(res);
+	server.on('/', (request, response) => {
+		got.stream(s.url).pipe(response);
+	});
+
+	await server.listen(server.port);
+
+	const {headers, body} = await got(server.url);
+	t.is(headers.unicorn, 'rainbow');
+	t.is(headers['content-encoding'], undefined);
+	t.is(body, 'ok');
+
+	await server.close();
+});
+
+test('skips proxying headers after server has sent them already', async t => {
+	const server = await createServer();
+
+	server.on('/', (request, response) => {
+		response.writeHead(200);
+		got.stream(s.url).pipe(response);
+	});
+
+	await server.listen(server.port);
+
+	const {headers} = await got(server.url);
+	t.is(headers.unicorn, undefined);
+
+	await server.close();
+});
+
+test('throws when trying to proxy through a closed stream', async t => {
+	const server = await createServer();
+
+	server.on('/', async (request, response) => {
+		const stream = got.stream(s.url);
+		await delay(1000);
+		t.throws(() => stream.pipe(response));
+		response.end();
+	});
+
+	await server.listen(server.port);
+	await got(server.url);
+	await server.close();
+});
+
+test('proxies content-encoding header when options.decompress is false', async t => {
+	const server = await createServer();
+
+	server.on('/', (request, response) => {
+		got.stream(s.url, {decompress: false}).pipe(response);
 	});
 
 	await server.listen(server.port);
 
 	const {headers} = await got(server.url);
 	t.is(headers.unicorn, 'rainbow');
+	t.is(headers['content-encoding'], 'gzip');
 
 	await server.close();
-});
-
-test.after('cleanup', async () => {
-	await s.close();
 });
