@@ -18,7 +18,7 @@ To inherit from parent, set it as `got.defaults.options` or use [`got.mergeOptio
 
 Type: `Object`
 
-Array of supported request methods.
+An array of supported request methods.
 
 To inherit from parent, set it as `got.defaults.methods`.
 
@@ -27,7 +27,7 @@ To inherit from parent, set it as `got.defaults.methods`.
 Type: `Function`<br>
 Default: `undefined`
 
-Function making additional changes to the request.
+A function making additional changes to the request.
 
 To inherit from parent, set it as `got.defaults.handler`.<br>
 To use the default handler, just omit specifying this.
