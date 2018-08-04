@@ -24,7 +24,7 @@ module.exports = (url, options, defaults) => {
 
 	if (is.string(url)) {
 		if (options.baseUrl) {
-			url = urlToOptions(new URLGlobal(url, options.baseUrl));
+			url = urlToOptions(new URLGlobal(url, is.function(options.baseUrl) ? options.baseUrl() : options.baseUrl));
 		} else {
 			url = url.replace(/^unix:/, 'http://$&');
 
