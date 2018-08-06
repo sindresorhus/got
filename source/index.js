@@ -4,23 +4,23 @@ const create = require('./create');
 
 const defaults = {
 	methods: [
-		'get',
-		'post',
-		'put',
-		'patch',
-		'head',
-		'delete'
+		'GET',
+		'POST',
+		'PUT',
+		'PATCH',
+		'HEAD',
+		'DELETE'
 	],
 	options: {
 		retry: {
 			retries: 2,
 			methods: [
-				'get',
-				'put',
-				'head',
-				'delete',
-				'options',
-				'trace'
+				'GET',
+				'PUT',
+				'HEAD',
+				'DELETE',
+				'OPTIONS',
+				'TRACE'
 			],
 			statusCodes: [
 				408,
@@ -31,9 +31,7 @@ const defaults = {
 				504
 			]
 		},
-		cache: false,
 		decompress: true,
-		useElectronNet: false,
 		throwHttpErrors: true,
 		headers: {
 			'user-agent': `${pkg.name}/${pkg.version} (https://github.com/sindresorhus/got)`
