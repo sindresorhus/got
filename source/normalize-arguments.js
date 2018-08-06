@@ -82,7 +82,7 @@ module.exports = (url, options, defaults) => {
 
 	const {body} = options;
 	if (is.nullOrUndefined(body)) {
-		options.method = (options.method || 'GET').toUpperCase();
+		options.method = options.method || 'GET';
 	} else {
 		const isObject = is.object(body) && !Buffer.isBuffer(body) && !is.nodeStream(body);
 		if (!is.nodeStream(body) && !is.string(body) && !is.buffer(body) && !(options.form || options.json)) {
@@ -114,8 +114,10 @@ module.exports = (url, options, defaults) => {
 			options.body._buffer = body;
 		}
 
-		options.method = (options.method || 'POST').toUpperCase();
+		options.method = options.method || 'POST';
 	}
+
+	options.method = options.method.toUpperCase();
 
 	if (options.hostname === 'unix') {
 		const matches = /(.+?):(.+)/.exec(options.path);
