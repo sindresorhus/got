@@ -31,6 +31,7 @@ const defaults = {
 				504
 			]
 		},
+		cache: false,
 		decompress: true,
 		throwHttpErrors: true,
 		headers: {
