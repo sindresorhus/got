@@ -168,7 +168,7 @@ test('defaults are cloned on instance creation', t => {
 test('merging instances', async t => {
 	const instanceA = got.extend({headers: {unicorn: 'rainbow'}});
 	const instanceB = got.extend({baseUrl: s.url});
-	const merged = instanceA.merge(instanceB, ['get']);
+	const merged = got.merge(instanceA, instanceB, ['get']);
 
 	const headers = (await merged('/', {json: true})).body;
 	t.is(headers.unicorn, 'rainbow');
@@ -227,7 +227,7 @@ test('hooks are merged when merging instances', t => {
 		]
 	}});
 
-	const merged = instanceA.merge(instanceB);
+	const merged = got.merge(instanceA, instanceB);
 	t.deepEqual(getBeforeRequestHooks(merged), getBeforeRequestHooks(instanceA).concat(getBeforeRequestHooks(instanceB)));
 });
 
@@ -245,7 +245,7 @@ test('hooks can be passed by when merging instances', t => {
 			hooks: {}
 		}
 	});
-	const merged = instanceA.merge(instanceB);
+	const merged = got.merge(instanceA, instanceB);
 	t.deepEqual(merged.defaults.options.hooks.beforeRequest, instanceA.defaults.options.hooks.beforeRequest);
 });
 
@@ -257,5 +257,5 @@ test('throws when trying to merge unmergeable instance', t => {
 		mergeable: false
 	});
 
-	t.throws(() => instanceA.merge(instanceB));
+	t.throws(() => got.merge(instanceA, instanceB));
 });

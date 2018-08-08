@@ -3,12 +3,6 @@ const merge = require('./merge');
 const knownHookEvents = require('./known-hook-events');
 
 module.exports = (instances, methods) => {
-	for (const [index, instance] of instances.entries()) {
-		if (Reflect.has(instance.defaults, 'mergeable') && !instance.defaults.mergeable) {
-			throw new Error(`Instance ${index} is not mergeable.`);
-		}
-	}
-
 	const handlers = instances.map(instance => instance.defaults.handler);
 	const size = instances.length - 1;
 

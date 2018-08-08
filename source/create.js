@@ -35,7 +35,7 @@ const create = defaults => {
 		handler: defaults.handler
 	});
 
-	got.merge = (...args) => {
+	got.mergeInstances = (...args) => {
 		const lastArgument = args[args.length - 1];
 		let methods;
 		let instances;
@@ -47,8 +47,6 @@ const create = defaults => {
 			methods = args[0].defaults.methods; // eslint-disable-line prefer-destructuring
 			instances = args;
 		}
-
-		instances = instances.length === 1 ? [got, ...instances] : instances;
 
 		return create(mergeInstances(instances, methods));
 	};
