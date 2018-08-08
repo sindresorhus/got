@@ -47,6 +47,24 @@ test('options are optional', async t => {
 	t.is((await got(`${s.url}/test`)).body, '/test');
 });
 
+test('methods are normalized', async t => {
+	const instance = got.create({
+		methods: got.defaults.methods,
+		options: got.defaults.options,
+		handler: (options, next) => {
+			if (options.method === options.method.toUpperCase()) {
+				t.pass();
+			} else {
+				t.fail();
+			}
+
+			return next(options);
+		}
+	});
+
+	await instance(`${s.url}/test`, {method: 'post'});
+});
+
 test('accepts url.parse object as first argument', async t => {
 	t.is((await got({
 		hostname: s.host,

@@ -37,7 +37,8 @@ const create = defaults => {
 		return defaults.handler(normalizeArguments(url, options, defaults), next);
 	};
 
-	for (const method of defaults.methods) {
+	const methods = defaults.methods.map(method => method.toLowerCase());
+	for (const method of methods) {
 		got[method] = (url, options) => got(url, {...options, method});
 		got.stream[method] = (url, options) => got.stream(url, {...options, method});
 	}
