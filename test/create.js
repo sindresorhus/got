@@ -168,7 +168,7 @@ test('defaults are cloned on instance creation', t => {
 test('merging instances', async t => {
 	const instanceA = got.extend({headers: {unicorn: 'rainbow'}});
 	const instanceB = got.extend({baseUrl: s.url});
-	const merged = got.merge(instanceA, instanceB, ['get']);
+	const merged = got.mergeInstances(instanceA, instanceB, ['get']);
 
 	const headers = (await merged('/', {json: true})).body;
 	t.is(headers.unicorn, 'rainbow');
@@ -181,8 +181,8 @@ test('merging already merged instances & another instance', async t => {
 	const instanceC = got.extend({headers: {bird: 'tweet'}});
 	const instanceD = got.extend({headers: {mouse: 'squeek'}});
 
-	const merged = got.merge(instanceA, instanceB, instanceC);
-	const doubleMerged = got.merge(merged, instanceD);
+	const merged = got.mergeInstances(instanceA, instanceB, instanceC);
+	const doubleMerged = got.mergeInstances(merged, instanceD);
 
 	const headers = (await doubleMerged(s.url, {json: true})).body;
 	t.is(headers.dog, 'woof');
@@ -197,10 +197,10 @@ test('merging two groups of merged instances', async t => {
 	const instanceC = got.extend({headers: {bird: 'tweet'}});
 	const instanceD = got.extend({headers: {mouse: 'squeek'}});
 
-	const groupA = got.merge(instanceA, instanceB);
-	const groupB = got.merge(instanceC, instanceD);
+	const groupA = got.mergeInstances(instanceA, instanceB);
+	const groupB = got.mergeInstances(instanceC, instanceD);
 
-	const merged = groupA.merge(groupB);
+	const merged = got.mergeInstances(groupA, groupB);
 
 	const headers = (await merged(s.url, {json: true})).body;
 	t.is(headers.dog, 'woof');
@@ -227,7 +227,7 @@ test('hooks are merged when merging instances', t => {
 		]
 	}});
 
-	const merged = got.merge(instanceA, instanceB);
+	const merged = got.mergeInstances(instanceA, instanceB);
 	t.deepEqual(getBeforeRequestHooks(merged), getBeforeRequestHooks(instanceA).concat(getBeforeRequestHooks(instanceB)));
 });
 
@@ -245,17 +245,6 @@ test('hooks can be passed by when merging instances', t => {
 			hooks: {}
 		}
 	});
-	const merged = got.merge(instanceA, instanceB);
+	const merged = got.mergeInstances(instanceA, instanceB);
 	t.deepEqual(merged.defaults.options.hooks.beforeRequest, instanceA.defaults.options.hooks.beforeRequest);
-});
-
-test('throws when trying to merge unmergeable instance', t => {
-	const instanceA = got.extend();
-	const instanceB = got.create({
-		methods: [],
-		options: {},
-		mergeable: false
-	});
-
-	t.throws(() => got.merge(instanceA, instanceB));
 });
