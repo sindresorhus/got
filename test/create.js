@@ -168,7 +168,7 @@ test('defaults are cloned on instance creation', t => {
 test('merging instances', async t => {
 	const instanceA = got.extend({headers: {unicorn: 'rainbow'}});
 	const instanceB = got.extend({baseUrl: s.url});
-	const merged = instanceA.merge(instanceB);
+	const merged = instanceA.merge(instanceB, ['get']);
 
 	const headers = (await merged('/', {json: true})).body;
 	t.is(headers.unicorn, 'rainbow');
@@ -181,8 +181,8 @@ test('merging already merged instances & another instance', async t => {
 	const instanceC = got.extend({headers: {bird: 'tweet'}});
 	const instanceD = got.extend({headers: {mouse: 'squeek'}});
 
-	const merged = got.merge([instanceA, instanceB, instanceC]);
-	const doubleMerged = got.merge([merged, instanceD]);
+	const merged = got.merge(instanceA, instanceB, instanceC);
+	const doubleMerged = got.merge(merged, instanceD);
 
 	const headers = (await doubleMerged(s.url, {json: true})).body;
 	t.is(headers.dog, 'woof');
@@ -197,8 +197,8 @@ test('merging two groups of merged instances', async t => {
 	const instanceC = got.extend({headers: {bird: 'tweet'}});
 	const instanceD = got.extend({headers: {mouse: 'squeek'}});
 
-	const groupA = got.merge([instanceA, instanceB]);
-	const groupB = got.merge([instanceC, instanceD]);
+	const groupA = got.merge(instanceA, instanceB);
+	const groupB = got.merge(instanceC, instanceD);
 
 	const merged = groupA.merge(groupB);
 

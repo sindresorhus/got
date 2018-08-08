@@ -114,23 +114,17 @@ const unicorn = got.extend({headers: {unicorn: 'rainbow'}});
 
 ### Merging instances
 
-#### got.merge(instances, [methods])
+#### got.merge(instanceA, instanceB, ..., [methods])
 
 Merges many instances into a single one:
 - options are merged using [`got.mergeOptions()`](readme.md#gotmergeoptionsparentoptions-newoptions),
 - handlers are stored in an array.
 
-##### instances
-Type: `Function` `Object`
+##### [instances](readme.md#instances)
 
-A single instance or an array of instances.
-
-**Note:** if an array of instances is passed you need to provide a parent instance at the beginning.
 ```js
-const merged = got.merge([instanceA, instanceB, instanceC]);
-
-// Same as:
-const merged = instanceA.merge(instanceB).merge(instanceC);
+// Merges three instances into a single one:
+const merged = got.merge(instanceA, instanceB, instanceC);
 ```
 
 ##### [[methods]](#methods)
@@ -140,9 +134,9 @@ Default: `instances[0].defaults.methods`
 ```js
 const instanceA = got.extend({headers: {unicorn: 'rainbow'}});
 const instanceB = got.create({
-	options: {baseUrl: 'http://example.com'},
+	options: {baseUrl: 'https://example.com'},
 	methods: [],
-	handler: (options, next) => { // These options are normalized, so assigning `baseUrl` here won't work.
+	handler: (options, next) => { // These options are normalized, so assigning `baseUrl` here won't have any effect.
 		return next(url, got.mergeOptions(options, {headers: {unicorn: 'rainbow'}}));
 	}
 });
