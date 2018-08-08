@@ -231,6 +231,24 @@ test('hooks are merged when merging instances', t => {
 	t.deepEqual(getBeforeRequestHooks(merged), getBeforeRequestHooks(instanceA).concat(getBeforeRequestHooks(instanceB)));
 });
 
+test('hooks can be passed by when merging instances', t => {
+	const instanceA = got.extend({hooks: {
+		beforeRequest: [
+			options => {
+				options.headers.dog = 'woof';
+			}
+		]
+	}});
+	const instanceB = got.create({
+		methods: [],
+		options: {
+			hooks: {}
+		}
+	});
+	const merged = instanceA.merge(instanceB);
+	t.deepEqual(merged.defaults.options.hooks.beforeRequest, instanceA.defaults.options.hooks.beforeRequest);
+});
+
 test('throws when trying to merge unmergeable instance', t => {
 	const instanceA = got.extend();
 	const instanceB = got.create({
