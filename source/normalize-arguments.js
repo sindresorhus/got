@@ -11,7 +11,7 @@ const urlToOptions = require('./url-to-options');
 const isFormData = require('./is-form-data');
 
 const retryAfterStatusCodes = new Set([413, 429, 503]);
-const knownHookEvents = ['beforeRequest'];
+const knownHookEvents = require('./known-hook-events');
 
 module.exports = (url, options, defaults) => {
 	if (Reflect.has(options, 'url') || (is.object(url) && Reflect.has(url, 'url'))) {
