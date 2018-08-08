@@ -122,11 +122,6 @@ Merges many instances into a single one:
 
 ##### [instances](readme.md#instances)
 
-```js
-// Merges three instances into a single one:
-const merged = got.merge(instanceA, instanceB, instanceC);
-```
-
 ##### [[methods]](#methods)
 
 Default: `instances[0].defaults.methods`
@@ -140,13 +135,16 @@ const instanceB = got.create({
 		return next(url, got.mergeOptions(options, {headers: {unicorn: 'rainbow'}}));
 	}
 });
-const merged = instanceA.merge(instanceB);
+const instanceC = got.extend({headers: {'cat': 'meow'}});
 
+// Merges three instances into a single one:
+const merged = got.merge(instanceA, instanceB, instanceC);
 (async () => {
 	await merged('/');
 	/* HTTP Request =>
 	 * GET / HTTP/1.1
 	 * Host: example.com
+	 * cat: meow
 	 * unicorn: rainbow
 	 */
 })();
