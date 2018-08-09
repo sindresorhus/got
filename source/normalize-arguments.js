@@ -51,6 +51,16 @@ module.exports = (url, options, defaults) => {
 		...options
 	};
 
+	const {baseUrl} = options;
+	Object.defineProperty(options, 'baseUrl', {
+		set: _ => {
+			throw new Error('Failed to set baseUrl. Options are normalized already.');
+		},
+		get: () => {
+			return baseUrl;
+		}
+	});
+
 	if (options.stream && options.json) {
 		options.json = false;
 	}

@@ -34,11 +34,7 @@ module.exports = (instances, methods) => {
 		options,
 		handler: (options, next) => {
 			let iteration = -1;
-
-			const iterate = options => {
-				iteration++;
-				return handlers[iteration](options, iteration === size ? next : iterate);
-			};
+			const iterate = options => handlers[++iteration](options, iteration === size ? next : iterate);
 
 			return iterate(options);
 		}
