@@ -188,7 +188,7 @@ const httpbin = got.extend({
 });
 ```
 
-#### Signing request
+#### Signing requests
 
 ```js
 const crypto = require('crypto');
