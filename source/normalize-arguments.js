@@ -53,12 +53,10 @@ module.exports = (url, options, defaults) => {
 
 	const {baseUrl} = options;
 	Object.defineProperty(options, 'baseUrl', {
-		set: _ => {
+		set: () => {
 			throw new Error('Failed to set baseUrl. Options are normalized already.');
 		},
-		get: () => {
-			return baseUrl;
-		}
+		get: () => baseUrl
 	});
 
 	if (options.stream && options.json) {
