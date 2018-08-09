@@ -1,6 +1,4 @@
 'use strict';
-module.exports = () => {};
-
 const is = require('@sindresorhus/is');
 const errors = require('./errors');
 const asStream = require('./as-stream');
