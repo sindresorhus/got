@@ -123,12 +123,11 @@ Merges many instances into a single one:
 
 ##### [instances](readme.md#instances)
 
-#### Usage
+## Usage
+
+### You can deny redirects that lead to other sites than specified
 
 ```js
-const got = require('./got');
-
-// #1 You can deny redirects that lead to other sites than specified
 const controlRedirects = got.create({
 	options: got.defaults.options,
 	handler: (options, next) => {
@@ -141,8 +140,11 @@ const controlRedirects = got.create({
 		});
 	}
 });
+```
 
-// #2 You can limit download & upload in case your machine's got a little amount of RAM
+### You can limit download & upload in case your machine's got a little amount of RAM
+
+```js
 const limitDownloadUpload = got.create({
     options: got.defaults.options,
     handler: (options, next) => {
@@ -166,34 +168,46 @@ const limitDownloadUpload = got.create({
         return promiseOrStream;
     }
 });
+```
 
-// #3 No user agent
+### No user agent
+
+```js
 const noUserAgent = got.extend({
 	headers: {
 		'user-agent': null
 	}
 });
+```
 
-// #4 Custom endpoint
+### Custom endpoint
+
+```js
 const httpbin = got.extend({
 	baseUrl: 'https://httpbin.org/'
 });
+```
 
-// #5 Sign request
+### Sign request
+
+```js
 const crypto = require('crypto');
 const getMessageSignature = (data, secret) => crypto.createHmac('sha256', secret).update(data).digest('hex').toUpperCase();
 const signRequest = got.extend({
 	hooks: {
 		beforeRequest: [
 			options => {
-				options.headers['sign'] = getMessageSignature(options.body || '', 'secret');
+				options.headers['sign'] = getMessageSignature(options.body || '', process.env.SECRET);
 			}
 		]
 	}
 });
+```
 
-// If these ^^^ are different modules and you don't want to rewrite them, use `got.mergeInstances()`!
-// Note: noUserAgent must be placed at the end of chain because our other modules do have 'user-agent' header.
+If these ^^^ are different modules and you don't want to rewrite them, use `got.mergeInstances()`.
+**Note**: `noUserAgent` must be placed at the end of chain as the instances are merged serially. Other modules do have the `user-agent` header.
+
+```js
 const merged = got.mergeInstances(controlRedirects, limitDownloadUpload, httpbin, signRequest, noUserAgent);
 
 (async () => {
