@@ -132,6 +132,15 @@ test('stream as options.body sets content-length', async t => {
 	t.is(Number(headers['content-length']), size);
 });
 
+test('buffer as options.body sets content-length', async t => {
+	const buffer = Buffer.from('unicorn');
+	const {body} = await got(s.url, {
+		body: buffer
+	});
+	const headers = JSON.parse(body);
+	t.is(Number(headers['content-length']), buffer.length);
+});
+
 test('remove null value headers', async t => {
 	const {body} = await got(s.url, {
 		headers: {
