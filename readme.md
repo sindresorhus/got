@@ -795,7 +795,7 @@ const custom = got.extend({
 	const list = await custom('/v1/users/list');
 })();
 ```
-*Need to merge some instances into a single one? Check out the [`got.merge()`](advanced-creation.md#gotmergeinstances-methods).*
+*Need to merge some instances into a single one? Check out the [`got.mergeInstances()`](advanced-creation.md##gotmergeinstancesinstancea-instanceb--methods).*
 
 
 ## Related
