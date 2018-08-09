@@ -125,7 +125,7 @@ Merges many instances into a single one:
 
 ## Usage
 
-### You can deny redirects that lead to other sites than specified
+#### Denying redirects that lead to other sites than specified
 
 ```js
 const controlRedirects = got.create({
@@ -142,7 +142,7 @@ const controlRedirects = got.create({
 });
 ```
 
-### You can limit download & upload in case your machine's got a little amount of RAM
+#### Limiting download & upload (in case your machine's got a little amount of RAM)
 
 ```js
 const limitDownloadUpload = got.create({
@@ -170,7 +170,7 @@ const limitDownloadUpload = got.create({
 });
 ```
 
-### No user agent
+#### No user agent
 
 ```js
 const noUserAgent = got.extend({
@@ -180,7 +180,7 @@ const noUserAgent = got.extend({
 });
 ```
 
-### Custom endpoint
+#### Custom endpoint
 
 ```js
 const httpbin = got.extend({
@@ -188,7 +188,7 @@ const httpbin = got.extend({
 });
 ```
 
-### Sign request
+#### Signing request
 
 ```js
 const crypto = require('crypto');
@@ -205,6 +205,7 @@ const signRequest = got.extend({
 ```
 
 If these ^^^ are different modules and you don't want to rewrite them, use `got.mergeInstances()`.
+
 **Note**: `noUserAgent` must be placed at the end of chain as the instances are merged serially. Other modules do have the `user-agent` header.
 
 ```js
