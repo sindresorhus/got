@@ -20,7 +20,11 @@ const create = defaults => {
 			options = mergeOptions(defaults.options, options);
 			return defaults.handler(normalizeArguments(url, options, defaults), next);
 		} catch (error) {
-			return Promise.reject(error);
+			if (options.stream) {
+				throw error;
+			} else {
+				return Promise.reject(error);
+			}
 		}
 	}
 
