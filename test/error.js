@@ -133,3 +133,9 @@ test.serial('catch error in mimicResponse', async t => {
 
 	await t.throws(proxiedGot(s.url), {message: 'Error in mimic-response'});
 });
+
+test('errors are thrown directly when options.stream is true', t => {
+	t.throws(() => got(s.url, {stream: true, body: {}}), {
+		message: 'The `body` option must be a stream.Readable, string or Buffer'
+	});
+});
