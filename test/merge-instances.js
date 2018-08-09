@@ -22,7 +22,7 @@ test.after('cleanup', async () => {
 test('merging instances', async t => {
 	const instanceA = got.extend({headers: {unicorn: 'rainbow'}});
 	const instanceB = got.extend({baseUrl: s.url});
-	const merged = got.mergeInstances(instanceA, instanceB, ['get']);
+	const merged = got.mergeInstances(instanceA, instanceB);
 
 	const headers = (await merged('/', {json: true})).body;
 	t.is(headers.unicorn, 'rainbow');
@@ -94,11 +94,9 @@ test('hooks are passed by though other instances don\'t have them', t => {
 		]
 	}});
 	const instanceB = got.create({
-		methods: [],
 		options: {}
 	});
 	const instanceC = got.create({
-		methods: [],
 		options: {hooks: {}}
 	});
 

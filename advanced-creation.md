@@ -14,14 +14,6 @@ Configure a new `got` instance with the provided settings.<br>
 To inherit from parent, set it as `got.defaults.options` or use [`got.mergeOptions(defaults.options, options)`](readme.md#gotmergeoptionsparentoptions-newoptions).<br>
 **Note**: Avoid using [object spread](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Spread_syntax#Spread_in_object_literals) as it doesn't work recursively.
 
-##### methods
-
-Type: `Object`
-
-An array of supported request methods.
-
-To inherit from parent, set it as `got.defaults.methods`.
-
 ##### handler
 
 Type: `Function`<br>
@@ -53,7 +45,6 @@ const settings = {
 		// It's a Promise
 		return next(options);
 	},
-	methods: got.defaults.methods,
 	options: got.mergeOptions(got.defaults.options, {
 		json: true
 	})
@@ -64,23 +55,35 @@ const jsonGot = got.create(settings);
 
 ```js
 const defaults = {
-	handler: (options, next) => next(options),
-	methods: [
-		'get',
-		'post',
-		'put',
-		'patch',
-		'head',
-		'delete'
-	],
 	options: {
-		retries: 2,
+		retry: {
+			retries: 2,
+			methods: [
+				'get',
+				'put',
+				'head',
+				'delete',
+				'options',
+				'trace'
+			],
+			statusCodes: [
+				408,
+				413,
+				429,
+				502,
+				503,
+				504
+			]
+		},
 		cache: false,
 		decompress: true,
 		useElectronNet: false,
 		throwHttpErrors: true,
 		headers: {
 			'user-agent': `${pkg.name}/${pkg.version} (https://github.com/sindresorhus/got)`
+		},
+		hooks: {
+			beforeRequest: []
 		}
 	}
 };
@@ -88,7 +91,6 @@ const defaults = {
 // Same as:
 const defaults = {
 	handler: got.defaults.handler,
-	methods: got.defaults.methods,
 	options: got.defaults.options
 };
 
@@ -98,7 +100,6 @@ const unchangedGot = got.create(defaults);
 ```js
 const settings = {
 	handler: got.defaults.handler,
-	methods: got.defaults.methods,
 	options: got.mergeOptions(got.defaults.options, {
 		headers: {
 			unicorn: 'rainbow'
@@ -114,17 +115,13 @@ const unicorn = got.extend({headers: {unicorn: 'rainbow'}});
 
 ### Merging instances
 
-#### got.mergeInstances(instanceA, instanceB, ..., [methods])
+#### got.mergeInstances(instanceA, instanceB, ...)
 
 Merges many instances into a single one:
 - options are merged using [`got.mergeOptions()`](readme.md#gotmergeoptionsparentoptions-newoptions) (+ hooks are merged too),
 - handlers are stored in an array.
 
 ##### [instances](readme.md#instances)
-
-##### [[methods]](#methods)
-
-Default: `instances[0].defaults.methods`
 
 #### Usage
 
@@ -134,7 +131,6 @@ const got = require('./got');
 // #1 You can deny redirects that lead to other sites than specified
 const controlRedirects = got.create({
 	options: got.defaults.options,
-	methods: got.defaults.methods,
 	handler: (options, next) => {
 		const promiseOrStream = next(options);
 		return promiseOrStream.on('redirect', resp => {
@@ -148,7 +144,6 @@ const controlRedirects = got.create({
 
 // #2 You can limit download & upload in case your machine's got a little amount of RAM
 const limitDownloadUpload = got.create({
-    methods: got.defaults.methods,
     options: got.defaults.options,
     handler: (options, next) => {
         let promiseOrStream = next(options);

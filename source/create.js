@@ -1,5 +1,4 @@
 'use strict';
-const is = require('@sindresorhus/is');
 const errors = require('./errors');
 const asStream = require('./as-stream');
 const asPromise = require('./as-promise');
@@ -10,6 +9,15 @@ const mergeInstances = require('./merge-instances');
 
 const next = options => options.stream ? asStream(options) : asPromise(options);
 const mergeOptions = (defaults, options = {}) => merge({}, defaults, options);
+
+const aliases = [
+	'get',
+	'post',
+	'put',
+	'patch',
+	'head',
+	'delete'
+];
 
 const create = defaults => {
 	defaults = merge({}, defaults);
@@ -29,25 +37,10 @@ const create = defaults => {
 	got.create = create;
 	got.extend = (options = {}) => create({
 		options: mergeOptions(defaults.options, options),
-		methods: defaults.methods,
 		handler: defaults.handler
 	});
 
-	got.mergeInstances = (...args) => {
-		const lastArgument = args[args.length - 1];
-		let methods;
-		let instances;
-
-		if (is.array(lastArgument)) {
-			methods = lastArgument;
-			instances = args.slice(0, -1);
-		} else {
-			methods = args[0].defaults.methods; // eslint-disable-line prefer-destructuring
-			instances = args;
-		}
-
-		return create(mergeInstances(instances, methods));
-	};
+	got.mergeInstances = (...args) => create(mergeInstances(args));
 
 	got.stream = (url, options) => {
 		options = mergeOptions(defaults.options, options);
@@ -55,7 +48,7 @@ const create = defaults => {
 		return defaults.handler(normalizeArguments(url, options, defaults), next);
 	};
 
-	for (const method of defaults.methods) {
+	for (const method of aliases) {
 		got[method] = (url, options) => got(url, {...options, method});
 		got.stream[method] = (url, options) => got.stream(url, {...options, method});
 	}
