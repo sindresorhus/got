@@ -121,8 +121,6 @@ Merges many instances into a single one:
 - options are merged using [`got.mergeOptions()`](readme.md#gotmergeoptionsparentoptions-newoptions) (+ hooks are merged too),
 - handlers are stored in an array.
 
-##### [instances](readme.md#instances)
-
 ## Usage
 
 #### Denying redirects that lead to other sites than specified
