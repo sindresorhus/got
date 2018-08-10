@@ -688,19 +688,17 @@ const got = require('got');
 const credentials = await new AWS.CredentialProviderChain().resolvePromise();
 
 // Create a Got instance to use relative paths and signed requests
-const awsClient = got.extend(
-	{
-		baseUrl: 'https://<api-id>.execute-api.<api-region>.amazonaws.com/<stage>/',
-		hooks: {
-			beforeRequest: [
-				async options => {
-					await credentials.getPromise();
-					aws4.sign(options, credentials);
-				}
-			]
-		}
+const awsClient = got.extend({
+	baseUrl: 'https://<api-id>.execute-api.<api-region>.amazonaws.com/<stage>/',
+	hooks: {
+		beforeRequest: [
+			async options => {
+				await credentials.getPromise();
+				aws4.sign(options, credentials);
+			}
+		]
 	}
-);
+});
 
 const response = await awsClient('endpoint/path', {
 	// Request-specific options
