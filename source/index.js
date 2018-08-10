@@ -3,14 +3,6 @@ const pkg = require('../package.json');
 const create = require('./create');
 
 const defaults = {
-	methods: [
-		'GET',
-		'POST',
-		'PUT',
-		'PATCH',
-		'HEAD',
-		'DELETE'
-	],
 	options: {
 		retry: {
 			retries: 2,

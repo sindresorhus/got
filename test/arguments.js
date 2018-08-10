@@ -170,3 +170,15 @@ test('throws TypeError when known `hooks` array item is not a function', async t
 test('allows extra keys in `hooks`', async t => {
 	await t.notThrows(() => got(`${s.url}/test`, {hooks: {extra: {}}}));
 });
+
+test('throws when trying to modify baseUrl after options got normalized', async t => {
+	const instanceA = got.create({
+		methods: [],
+		options: {baseUrl: 'https://example.com'},
+		handler: options => {
+			options.baseUrl = 'https://google.com';
+		}
+	});
+
+	await t.throws(instanceA('/'), 'Failed to set baseUrl. Options are normalized already.');
+});

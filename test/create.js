@@ -102,7 +102,6 @@ test('extend merges URL instances', t => {
 test('create', async t => {
 	const instance = got.create({
 		options: {},
-		methods: ['get'],
 		handler: (options, next) => {
 			options.headers.unicorn = 'rainbow';
 			return next(options);
@@ -127,7 +126,6 @@ test('custom endpoint with custom headers (extend)', async t => {
 test('no tampering with defaults', t => {
 	const instance = got.create({
 		handler: got.defaults.handler,
-		methods: got.defaults.methods,
 		options: got.mergeOptions(got.defaults.options, {
 			baseUrl: 'example'
 		})
@@ -135,7 +133,6 @@ test('no tampering with defaults', t => {
 
 	const instance2 = instance.create({
 		handler: instance.defaults.handler,
-		methods: instance.defaults.methods,
 		options: instance.defaults.options
 	});
 
@@ -149,18 +146,14 @@ test('no tampering with defaults', t => {
 });
 
 test('defaults are cloned on instance creation', t => {
-	const options = {foo: 'bar'};
-	const methods = ['get'];
-	const instance = got.create({
-		methods,
-		options
-	});
+	const options = {foo: 'bar', hooks: {beforeRequest: [() => {}]}};
+	const instance = got.create({options});
 
 	t.notThrows(() => {
 		options.foo = 'foo';
-		methods[0] = 'post';
+		delete options.hooks.beforeRequest[0];
 	});
 
 	t.not(options.foo, instance.defaults.options.foo);
-	t.not(methods[0], instance.defaults.methods[0]);
+	t.not(options.hooks.beforeRequest, instance.defaults.options.hooks.beforeRequest);
 });

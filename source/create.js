@@ -5,9 +5,19 @@ const asPromise = require('./as-promise');
 const normalizeArguments = require('./normalize-arguments');
 const merge = require('./merge');
 const deepFreeze = require('./deep-freeze');
+const mergeInstances = require('./merge-instances');
 
 const next = options => options.stream ? asStream(options) : asPromise(options);
 const mergeOptions = (defaults, options = {}) => merge({}, defaults, options);
+
+const aliases = [
+	'get',
+	'post',
+	'put',
+	'patch',
+	'head',
+	'delete'
+];
 
 const create = defaults => {
 	defaults = merge({}, defaults);
@@ -31,9 +41,10 @@ const create = defaults => {
 	got.create = create;
 	got.extend = (options = {}) => create({
 		options: mergeOptions(defaults.options, options),
-		methods: defaults.methods,
 		handler: defaults.handler
 	});
+
+	got.mergeInstances = (...args) => create(mergeInstances(args));
 
 	got.stream = (url, options) => {
 		options = mergeOptions(defaults.options, options);
@@ -41,8 +52,7 @@ const create = defaults => {
 		return defaults.handler(normalizeArguments(url, options, defaults), next);
 	};
 
-	const methods = defaults.methods.map(method => method.toLowerCase());
-	for (const method of methods) {
+	for (const method of aliases) {
 		got[method] = (url, options) => got(url, {...options, method});
 		got.stream[method] = (url, options) => got.stream(url, {...options, method});
 	}

@@ -35,6 +35,7 @@ It was created because the popular [`request`](https://github.com/request/reques
 - [WHATWG URL support](#url)
 - [Electron support](#useelectronnet)
 - [Instances with custom defaults](#instances)
+- [Composable](advanced-creation.md#merging-instances)
 - [Used by ~2000 packages and ~500K repos](https://github.com/sindresorhus/got/network/dependents)
 - Actively maintained
 
@@ -795,6 +796,8 @@ const custom = got.extend({
 	const list = await custom('/v1/users/list');
 })();
 ```
+
+*Need to merge some instances into a single one? Check out [`got.mergeInstances()`](advanced-creation.md#merging-instances).*
 
 
 ## Related

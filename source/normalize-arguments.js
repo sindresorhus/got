@@ -9,9 +9,9 @@ const urlParseLax = require('url-parse-lax');
 const isRetryOnNetworkErrorAllowed = require('./is-retry-on-network-error-allowed');
 const urlToOptions = require('./url-to-options');
 const isFormData = require('./is-form-data');
+const knownHookEvents = require('./known-hook-events');
 
 const retryAfterStatusCodes = new Set([413, 429, 503]);
-const knownHookEvents = ['beforeRequest'];
 
 module.exports = (url, options, defaults) => {
 	if (Reflect.has(options, 'url') || (is.object(url) && Reflect.has(url, 'url'))) {
@@ -50,6 +50,14 @@ module.exports = (url, options, defaults) => {
 		protocol: url.protocol || 'http:', // Override both null/undefined with default protocol
 		...options
 	};
+
+	const {baseUrl} = options;
+	Object.defineProperty(options, 'baseUrl', {
+		set: () => {
+			throw new Error('Failed to set baseUrl. Options are normalized already.');
+		},
+		get: () => baseUrl
+	});
 
 	if (options.stream && options.json) {
 		options.json = false;
