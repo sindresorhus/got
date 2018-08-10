@@ -35,6 +35,7 @@ It was created because the popular [`request`](https://github.com/request/reques
 - [WHATWG URL support](#url)
 - [Electron support](#useelectronnet)
 - [Instances with custom defaults](#instances)
+- [Composable](advanced-creation#merginginstances)
 - [Used by ~2000 packages and ~500K repos](https://github.com/sindresorhus/got/network/dependents)
 - Actively maintained
 

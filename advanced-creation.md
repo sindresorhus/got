@@ -115,13 +115,17 @@ const unicorn = got.extend({headers: {unicorn: 'rainbow'}});
 
 ### Merging instances
 
+Got supports composing multiple instances together. This is very powerful. You can create a client that limits download speed and then compose it with an instance that signs a request. It's like plugins without any of the plugin mess. You just create instances and then compose them together.
+
 #### got.mergeInstances(instanceA, instanceB, ...)
 
 Merges many instances into a single one:
 - options are merged using [`got.mergeOptions()`](readme.md#gotmergeoptionsparentoptions-newoptions) (+ hooks are merged too),
 - handlers are stored in an array.
 
-## Usage
+## Examples
+
+Some examples of what kind of instances you could compose together:
 
 #### Denying redirects that lead to other sites than specified
 
@@ -140,7 +144,9 @@ const controlRedirects = got.create({
 });
 ```
 
-#### Limiting download & upload (in case your machine's got a little amount of RAM)
+#### Limiting download & upload
+
+It's very useful in case your machine's got a little amount of RAM.
 
 ```js
 const limitDownloadUpload = got.create({
@@ -202,9 +208,11 @@ const signRequest = got.extend({
 });
 ```
 
-If these ^^^ are different modules and you don't want to rewrite them, use `got.mergeInstances()`.
+#### Putting it all together
 
-**Note**: `noUserAgent` must be placed at the end of chain as the instances are merged serially. Other modules do have the `user-agent` header.
+If these instances are different modules and you don't want to rewrite them, use `got.mergeInstances()`.
+
+**Note**: The `noUserAgent` instance must be placed at the end of chain as the instances are merged in order. Other instances do have the `user-agent` header.
 
 ```js
 const merged = got.mergeInstances(controlRedirects, limitDownloadUpload, httpbin, signRequest, noUserAgent);
