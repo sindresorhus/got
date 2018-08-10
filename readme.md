@@ -39,6 +39,8 @@ It was created because the popular [`request`](https://github.com/request/reques
 - [Used by ~2000 packages and ~500K repos](https://github.com/sindresorhus/got/network/dependents)
 - Actively maintained
 
+[See how Got compares to other HTTP libraries](#comparison)
+
 
 ## Install
 
@@ -796,6 +798,76 @@ const custom = got.extend({
 ```
 
 *Need to merge some instances into a single one? Check out [`got.mergeInstances()`](advanced-creation.md#merging-instances).*
+
+
+## Comparison
+
+|                       |  `got`  | `request` | `node-fetch` | `axios` |
+|-----------------------|:-------:|:---------:|:------------:|:-------:|
+| HTTP/2 support        |    ✖    |     ✖    |       ✖      |    ✖   |
+| Promise API           |    ✔    |     ✔    |       ✔      |    ✔   |
+| Stream API            |    ✔    |     ✔    |       ✖      |    ✖   |
+| Request cancelation   |    ✔    |     ✖    |       ✖      |    ✔   |
+| RFC compliant caching |    ✔    |     ✖    |       ✖      |    ✖   |
+| Follows redirects     |    ✔    |     ✔    |       ✔      |    ✔   |
+| Retries on failure    |    ✔    |     ✖    |       ✖      |    ✖   |
+| Progress events       |    ✔    |     ✖    |       ✖      |    ✔   |
+| Handles gzip/deflate  |    ✔    |     ✔    |       ✔      |    ✔   |
+| Advanced timeouts     |    ✔    |     ✖    |       ✖      |    ✖   |
+| Errors with metadata  |    ✔    |     ✖    |       ✖      |    ✔   |
+| JSON mode             |    ✔    |     ✖    |       ✖      |    ✔   |
+| Custom defaults       |    ✔    |     ✔    |       ✖      |    ✔   |
+| Composable            |    ✔    |     ✖    |       ✖      |    ✖   |
+| Hooks                 |    ✔    |     ✖    |       ✖      |    ✔   |
+| Issues open           | ![][gio] | ![][rio] |   ![][nio]   | ![][aio] |
+| Issues closed         | ![][gic] | ![][ric] |   ![][nic]   | ![][aic] |
+| Downloads             |  ![][gd] |  ![][rd] |    ![][nd]   |  ![][ad] |
+| Coverage              |  ![][gc] |  ![][rc] |    ![][nc]   |  ![][ac] |
+| Build                 |  ![][gb] |  ![][rb] |    ![][nb]   |  ![][ab] |
+| Dependents            | ![][gdp] | ![][rdp] |   ![][ndp]   | ![][adp] |
+| Install size          | ![][gis] | ![][ris] |   ![][nis]   | ![][ais] |
+
+<!-- ISSUES OPEN -->
+[gio]: https://img.shields.io/github/issues/sindresorhus/got.svg
+[rio]: https://img.shields.io/github/issues/request/request.svg
+[nio]: https://img.shields.io/github/issues/bitinn/node-fetch.svg
+[aio]: https://img.shields.io/github/issues/axios/axios.svg
+
+<!-- ISSUES CLOSED -->
+[gic]: https://img.shields.io/github/issues-closed/sindresorhus/got.svg
+[ric]: https://img.shields.io/github/issues-closed/request/request.svg
+[nic]: https://img.shields.io/github/issues-closed/bitinn/node-fetch.svg
+[aic]: https://img.shields.io/github/issues-closed/axios/axios.svg
+
+<!-- DOWNLOADS -->
+[gd]: https://img.shields.io/npm/dm/got.svg
+[rd]: https://img.shields.io/npm/dm/request.svg
+[nd]: https://img.shields.io/npm/dm/node-fetch.svg
+[ad]: https://img.shields.io/npm/dm/axios.svg
+
+<!-- COVERAGE -->
+[gc]: https://coveralls.io/repos/github/sindresorhus/got/badge.svg?branch=master
+[rc]: https://coveralls.io/repos/github/request/request/badge.svg?branch=master
+[nc]: https://coveralls.io/repos/github/bitinn/node-fetch/badge.svg?branch=master
+[ac]: https://coveralls.io/repos/github/mzabriskie/axios/badge.svg?branch=master
+
+<!-- BUILD -->
+[gb]: https://travis-ci.org/sindresorhus/got.svg?branch=master
+[rb]: https://travis-ci.org/request/request.svg?branch=master
+[nb]: https://travis-ci.org/bitinn/node-fetch.svg?branch=master
+[ab]: https://travis-ci.org/axios/axios.svg?branch=master
+
+<!-- DEPENDENTS -->
+[gdp]: https://badgen.net/npm/dependents/got
+[rdp]: https://badgen.net/npm/dependents/request
+[ndp]: https://badgen.net/npm/dependents/node-fetch
+[adp]: https://badgen.net/npm/dependents/axios
+
+<!-- INSTALL SIZE -->
+[gis]: https://packagephobia.now.sh/badge?p=got
+[ris]: https://packagephobia.now.sh/badge?p=request
+[nis]: https://packagephobia.now.sh/badge?p=node-fetch
+[ais]: https://packagephobia.now.sh/badge?p=axios
 
 
 ## Related
