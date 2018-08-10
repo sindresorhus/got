@@ -39,7 +39,8 @@ It was created because the popular [`request`](https://github.com/request/reques
 - [Used by ~2000 packages and ~500K repos](https://github.com/sindresorhus/got/network/dependents)
 - Actively maintained
 
-What to know what new features `got` gives? See the [comparsion](#showcase).
+[See how Got compares to other HTTP libraries](#comparison)
+
 
 ## Install
 
@@ -798,7 +799,8 @@ const custom = got.extend({
 
 *Need to merge some instances into a single one? Check out [`got.mergeInstances()`](advanced-creation.md#merging-instances).*
 
-## Showcase
+
+## Comparison
 
 |                       |  `got`  | `request` | `node-fetch` | `axios` |
 |-----------------------|:-------:|:---------:|:------------:|:-------:|
