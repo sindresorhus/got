@@ -59,17 +59,18 @@ const defaults = {
 		retry: {
 			retries: 2,
 			methods: [
-				'get',
-				'put',
-				'head',
-				'delete',
-				'options',
-				'trace'
+				'GET',
+				'PUT',
+				'HEAD',
+				'DELETE',
+				'OPTIONS',
+				'TRACE'
 			],
 			statusCodes: [
 				408,
 				413,
 				429,
+				500,
 				502,
 				503,
 				504
