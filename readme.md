@@ -89,7 +89,7 @@ It's a `GET` request by default, but can be changed by using different methods o
 
 #### got(url, [options])
 
-Returns a Promise for a `response` object with a `body` property, an `url` property with the request URL or the final URL after redirects, and a `requestUrl` property with the original request URL.
+Returns a Promise for a `response` object with a `body` property, a `url` property with the request URL or the final URL after redirects, and a `requestUrl` property with the original request URL.
 
 The response object will typically be a [Node.js HTTP response stream](https://nodejs.org/api/http.html#http_class_http_incomingmessage), however, if returned from the cache it will be a [response-like object](https://github.com/lukechilds/responselike) which behaves in the same way.
 
