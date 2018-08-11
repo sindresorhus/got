@@ -805,6 +805,8 @@ const custom = got.extend({
 |                       |  `got`  | `request` | `node-fetch` | `axios` |
 |-----------------------|:-------:|:---------:|:------------:|:-------:|
 | HTTP/2 support        |    ✖    |     ✖    |       ✖      |    ✖   |
+| Browser support       |    ✖    |     ✖    |       ✔*     |    ✔   |
+| Electron support      |    ✔    |     ✖    |       ✖      |    ✖   |
 | Promise API           |    ✔    |     ✔    |       ✔      |    ✔   |
 | Stream API            |    ✔    |     ✔    |       ✖      |    ✖   |
 | Request cancelation   |    ✔    |     ✖    |       ✖      |    ✔   |
@@ -826,6 +828,8 @@ const custom = got.extend({
 | Build                 |  ![][gb] |  ![][rb] |    ![][nb]   |  ![][ab] |
 | Dependents            | ![][gdp] | ![][rdp] |   ![][ndp]   | ![][adp] |
 | Install size          | ![][gis] | ![][ris] |   ![][nis]   | ![][ais] |
+
+\* It's almost API compatible with the browser `fetch` API.
 
 <!-- ISSUES OPEN -->
 [gio]: https://img.shields.io/github/issues/sindresorhus/got.svg
