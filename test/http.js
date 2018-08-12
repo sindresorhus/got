@@ -51,14 +51,14 @@ test('requestUrl response', async t => {
 });
 
 test('error with code', async t => {
-	const error = await t.throws(got(`${s.url}/404`));
+	const error = await t.throwsAsync(got(`${s.url}/404`));
 	t.is(error.statusCode, 404);
 	t.is(error.response.body, 'not');
 });
 
 test('status code 304 doesn\'t throw', async t => {
 	const p = got(`${s.url}/304`);
-	await t.notThrows(p);
+	await t.notThrowsAsync(p);
 	const response = await p;
 	t.is(response.statusCode, 304);
 	t.is(response.body, '');
@@ -69,7 +69,7 @@ test('doesn\'t throw on throwHttpErrors === false', async t => {
 });
 
 test('invalid protocol throws', async t => {
-	const error = await t.throws(got('c:/nope.com', {json: true}));
+	const error = await t.throwsAsync(got('c:/nope.com', {json: true}));
 	t.is(error.constructor, got.UnsupportedProtocolError);
 });
 

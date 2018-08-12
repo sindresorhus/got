@@ -51,26 +51,26 @@ test('not parses responses without a body', async t => {
 });
 
 test('wraps parsing errors', async t => {
-	const error = await t.throws(got(`${s.url}/invalid`, {json: true}));
+	const error = await t.throwsAsync(got(`${s.url}/invalid`, {json: true}));
 	t.regex(error.message, /Unexpected token/);
 	t.true(error.message.includes(error.hostname), error.message);
 	t.is(error.path, '/invalid');
 });
 
 test('parses non-200 responses', async t => {
-	const error = await t.throws(got(`${s.url}/non200`, {json: true}));
+	const error = await t.throwsAsync(got(`${s.url}/non200`, {json: true}));
 	t.deepEqual(error.response.body, {data: 'dog'});
 });
 
 test('ignores errors on invalid non-200 responses', async t => {
-	const error = await t.throws(got(`${s.url}/non200-invalid`, {json: true}));
+	const error = await t.throwsAsync(got(`${s.url}/non200-invalid`, {json: true}));
 	t.is(error.message, 'Response code 500 (Internal Server Error)');
 	t.is(error.response.body, 'Internal error');
 	t.is(error.path, '/non200-invalid');
 });
 
 test('should have statusCode in error', async t => {
-	const error = await t.throws(got(`${s.url}/invalid`, {json: true}));
+	const error = await t.throwsAsync(got(`${s.url}/invalid`, {json: true}));
 	t.is(error.constructor, got.ParseError);
 	t.is(error.statusCode, 200);
 });

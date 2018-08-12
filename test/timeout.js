@@ -67,7 +67,7 @@ test.before('setup', async () => {
 });
 
 test('timeout option (ETIMEDOUT)', async t => {
-	await t.throws(
+	await t.throwsAsync(
 		got(s.url, {
 			timeout: 0,
 			retry: 0
@@ -80,7 +80,7 @@ test('timeout option (ETIMEDOUT)', async t => {
 });
 
 test('timeout option as object (ETIMEDOUT)', async t => {
-	await t.throws(
+	await t.throwsAsync(
 		got(s.url, {
 			timeout: {socket: requestDelay * 2.5, request: 1},
 			retry: 0
@@ -93,7 +93,7 @@ test('timeout option as object (ETIMEDOUT)', async t => {
 });
 
 test('socket timeout', async t => {
-	await t.throws(
+	await t.throwsAsync(
 		got(s.url, {
 			timeout: {socket: requestTimeout},
 			retry: 0
@@ -107,7 +107,7 @@ test('socket timeout', async t => {
 });
 
 test('send timeout', async t => {
-	await t.throws(
+	await t.throwsAsync(
 		got(s.url, {
 			timeout: {send: 1},
 			retry: 0
@@ -121,7 +121,7 @@ test('send timeout', async t => {
 
 test('send timeout (keepalive)', async t => {
 	await got(`${s.url}/prime`, {agent: keepAliveAgent});
-	await t.throws(
+	await t.throwsAsync(
 		got(s.url, {
 			agent: keepAliveAgent,
 			timeout: {send: 1},
@@ -143,7 +143,7 @@ test('send timeout (keepalive)', async t => {
 });
 
 test('response timeout', async t => {
-	await t.throws(
+	await t.throwsAsync(
 		got(s.url, {
 			timeout: {response: 1},
 			retry: 0
@@ -197,14 +197,14 @@ test('response timeout (keepalive)', async t => {
 			});
 		});
 	});
-	await t.throws(request, {
+	await t.throwsAsync(request, {
 		...errorMatcher,
 		message: `Timeout awaiting 'response' for 1ms`
 	});
 });
 
 test('connect timeout', async t => {
-	await t.throws(
+	await t.throwsAsync(
 		got({
 			host: s.host,
 			port: s.port,
@@ -233,7 +233,7 @@ test('connect timeout', async t => {
 });
 
 test('connect timeout (ip address)', async t => {
-	await t.throws(
+	await t.throwsAsync(
 		got({
 			hostname: '127.0.0.1',
 			port: s.port,
@@ -254,7 +254,7 @@ test('connect timeout (ip address)', async t => {
 });
 
 test('secureConnect timeout', async t => {
-	await t.throws(
+	await t.throwsAsync(
 		got(ss.url, {
 			timeout: {secureConnect: 1},
 			retry: 0,
@@ -283,7 +283,7 @@ test('secureConnect timeout not breached', async t => {
 });
 
 test('lookup timeout', async t => {
-	await t.throws(
+	await t.throwsAsync(
 		got({
 			host: s.host,
 			port: s.port,
@@ -334,7 +334,7 @@ test('lookup timeout no error (keepalive)', async t => {
 });
 
 test('request timeout', async t => {
-	await t.throws(
+	await t.throwsAsync(
 		got(s.url, {
 			timeout: {request: requestTimeout},
 			retry: 0
@@ -349,7 +349,7 @@ test('request timeout', async t => {
 test('retries on timeout (ESOCKETTIMEDOUT)', async t => {
 	let tried = false;
 
-	await t.throws(got(s.url, {
+	await t.throwsAsync(got(s.url, {
 		timeout: requestTimeout,
 		retry: {
 			retries: () => {
@@ -372,7 +372,7 @@ test('retries on timeout (ESOCKETTIMEDOUT)', async t => {
 test('retries on timeout (ETIMEDOUT)', async t => {
 	let tried = false;
 
-	await t.throws(got(s.url, {
+	await t.throwsAsync(got(s.url, {
 		timeout: 0,
 		retry: {
 			retries: () => {
@@ -394,7 +394,7 @@ test('timeout with streams', async t => {
 		timeout: 0,
 		retry: 0
 	});
-	await t.throws(pEvent(stream, 'response'), {code: 'ETIMEDOUT'});
+	await t.throwsAsync(pEvent(stream, 'response'), {code: 'ETIMEDOUT'});
 });
 
 test('no error emitted when timeout is not breached (stream)', async t => {

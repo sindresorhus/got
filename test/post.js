@@ -58,7 +58,7 @@ test('sends plain objects as forms', async t => {
 });
 
 test('does NOT support sending arrays as forms', async t => {
-	await t.throws(got(s.url, {
+	await t.throwsAsync(got(s.url, {
 		body: ['such', 'wow'],
 		form: true
 	}), TypeError);
@@ -141,9 +141,9 @@ test('content-type header is not overriden when object in options.body', async t
 });
 
 test('throws when json body is not a plain object or array', async t => {
-	await t.throws(got(`${s.url}`, {body: '{}', json: true}), TypeError);
+	await t.throwsAsync(got(`${s.url}`, {body: '{}', json: true}), TypeError);
 });
 
 test('throws when form body is not a plain object or array', async t => {
-	await t.throws(got(`${s.url}`, {body: 'such=wow', form: true}), TypeError);
+	await t.throwsAsync(got(`${s.url}`, {body: 'such=wow', form: true}), TypeError);
 });

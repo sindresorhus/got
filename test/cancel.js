@@ -53,8 +53,8 @@ test('cancel do not retry after cancelation', async t => {
 		p.cancel();
 	});
 
-	await t.throws(p, PCancelable.CancelError);
-	await t.notThrows(helper.aborted, 'Request finished instead of aborting.');
+	await t.throwsAsync(p, PCancelable.CancelError);
+	await t.notThrowsAsync(helper.aborted, 'Request finished instead of aborting.');
 });
 
 test('cancel in-progress request', async t => {
@@ -72,8 +72,8 @@ test('cancel in-progress request', async t => {
 		body.push(null);
 	});
 
-	await t.throws(p, PCancelable.CancelError);
-	await t.notThrows(helper.aborted, 'Request finished instead of aborting.');
+	await t.throwsAsync(p, PCancelable.CancelError);
+	await t.notThrowsAsync(helper.aborted, 'Request finished instead of aborting.');
 });
 
 test('cancel in-progress request with timeout', async t => {
@@ -91,8 +91,8 @@ test('cancel in-progress request with timeout', async t => {
 		body.push(null);
 	});
 
-	await t.throws(p, PCancelable.CancelError);
-	await t.notThrows(helper.aborted, 'Request finished instead of aborting.');
+	await t.throwsAsync(p, PCancelable.CancelError);
+	await t.notThrowsAsync(helper.aborted, 'Request finished instead of aborting.');
 });
 
 test('cancel immediately', async t => {
@@ -111,8 +111,8 @@ test('cancel immediately', async t => {
 
 	const p = got(`${s.url}/abort`);
 	p.cancel();
-	await t.throws(p);
-	await t.notThrows(aborted, 'Request finished instead of aborting.');
+	await t.throwsAsync(p);
+	await t.notThrowsAsync(aborted, 'Request finished instead of aborting.');
 });
 
 test('recover from cancelation using cancelable promise attribute', async t => {
@@ -128,7 +128,7 @@ test('recover from cancelation using cancelable promise attribute', async t => {
 
 	p.cancel();
 
-	await t.notThrows(recover);
+	await t.notThrowsAsync(recover);
 });
 
 test('recover from cancellation using error instance', async t => {
@@ -144,5 +144,5 @@ test('recover from cancellation using error instance', async t => {
 
 	p.cancel();
 
-	await t.notThrows(recover);
+	await t.notThrowsAsync(recover);
 });

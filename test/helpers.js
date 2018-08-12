@@ -26,9 +26,9 @@ test.after('cleanup', async () => {
 test('promise mode', async t => {
 	t.is((await got.get(s.url)).body, 'ok');
 
-	const error = await t.throws(got.get(`${s.url}/404`));
+	const error = await t.throwsAsync(got.get(`${s.url}/404`));
 	t.is(error.response.body, 'not found');
 
-	const error2 = await t.throws(got.get('.com', {retry: 0}));
+	const error2 = await t.throwsAsync(got.get('.com', {retry: 0}));
 	t.truthy(error2);
 });

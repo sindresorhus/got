@@ -43,6 +43,6 @@ if (process.platform !== 'win32') {
 	});
 
 	test('throws on invalid URL', async t => {
-		await t.throws(got('unix:'));
+		await t.throwsAsync(got('unix:'));
 	});
 }

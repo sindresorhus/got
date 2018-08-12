@@ -64,14 +64,14 @@ test('decompress content - stream', async t => {
 });
 
 test('handles gzip error', async t => {
-	const error = await t.throws(got(`${s.url}/corrupted`));
+	const error = await t.throwsAsync(got(`${s.url}/corrupted`));
 	t.is(error.message, 'incorrect header check');
 	t.is(error.path, '/corrupted');
 	t.is(error.name, 'ReadError');
 });
 
 test('handles gzip error - stream', async t => {
-	const error = await t.throws(getStream(got.stream(`${s.url}/corrupted`)));
+	const error = await t.throwsAsync(getStream(got.stream(`${s.url}/corrupted`)));
 	t.is(error.message, 'incorrect header check');
 	t.is(error.path, '/corrupted');
 	t.is(error.name, 'ReadError');

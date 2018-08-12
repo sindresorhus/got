@@ -73,7 +73,7 @@ test('beforeRequest awaits async function', async t => {
 });
 
 test('beforeRequest rejects when beforeRequest throws', async t => {
-	await t.throws(
+	await t.throwsAsync(
 		() => got(s.url, {
 			hooks: {
 				beforeRequest: [
@@ -91,7 +91,7 @@ test('beforeRequest rejects when beforeRequest throws', async t => {
 });
 
 test('beforeRequest rejects when beforeRequest rejects', async t => {
-	await t.throws(
+	await t.throwsAsync(
 		() => got(s.url, {
 			hooks: {
 				beforeRequest: [() => Promise.reject(new Error('oops'))]

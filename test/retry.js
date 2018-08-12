@@ -87,7 +87,7 @@ test('works on timeout error', async t => {
 });
 
 test('can be disabled with option', async t => {
-	const error = await t.throws(got(`${s.url}/try-me`, {
+	const error = await t.throwsAsync(got(`${s.url}/try-me`, {
 		timeout: {socket: socketTimeout},
 		retry: 0
 	}));
@@ -106,7 +106,7 @@ test('function gets iter count', async t => {
 });
 
 test('falsy value prevents retries', async t => {
-	const error = await t.throws(got(`${s.url}/long`, {
+	const error = await t.throwsAsync(got(`${s.url}/long`, {
 		timeout: {socket: socketTimeout},
 		retry: {
 			retries: () => 0
@@ -116,7 +116,7 @@ test('falsy value prevents retries', async t => {
 });
 
 test('falsy value prevents retries #2', async t => {
-	const error = await t.throws(got(`${s.url}/long`, {
+	const error = await t.throwsAsync(got(`${s.url}/long`, {
 		timeout: {socket: socketTimeout},
 		retry: {
 			retries: (iter, error) => {
@@ -130,7 +130,7 @@ test('falsy value prevents retries #2', async t => {
 
 test('custom retries', async t => {
 	let tried = false;
-	const error = await t.throws(got(`${s.url}/500`, {
+	const error = await t.throwsAsync(got(`${s.url}/500`, {
 		throwHttpErrors: true,
 		retry: {
 			retries: iter => {
@@ -219,7 +219,7 @@ test('doesn\'t retry on streams', async t => {
 			}
 		}
 	});
-	await t.throws(pEvent(stream, 'response'));
+	await t.throwsAsync(pEvent(stream, 'response'));
 });
 
 test('doesn\'t retry if Retry-After header is greater than maxRetryAfter', async t => {
@@ -252,7 +252,7 @@ test('works when defaults.options.retry is not an object', async t => {
 
 test('retry function can throw', async t => {
 	const error = 'Simple error';
-	await t.throws(got(`${s.url}/413`, {
+	await t.throwsAsync(got(`${s.url}/413`, {
 		retry: {
 			retries: () => {
 				throw new Error(error);

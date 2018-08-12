@@ -45,7 +45,7 @@ test.after('cleanup', async () => {
 });
 
 test('properties', async t => {
-	const error = await t.throws(got(s.url));
+	const error = await t.throwsAsync(got(s.url));
 	t.truthy(error);
 	t.truthy(error.response);
 	t.false({}.propertyIsEnumerable.call(error, 'response'));
@@ -60,7 +60,7 @@ test('properties', async t => {
 });
 
 test('dns message', async t => {
-	const error = await t.throws(got('.com', {retry: 0}));
+	const error = await t.throwsAsync(got('.com', {retry: 0}));
 	t.truthy(error);
 	t.regex(error.message, /getaddrinfo ENOTFOUND/);
 	t.is(error.host, '.com');
@@ -68,19 +68,19 @@ test('dns message', async t => {
 });
 
 test('options.body error message', async t => {
-	await t.throws(got(s.url, {body: {}}), {
+	await t.throwsAsync(got(s.url, {body: {}}), {
 		message: 'The `body` option must be a stream.Readable, string or Buffer'
 	});
 });
 
 test('options.body json error message', async t => {
-	await t.throws(got(s.url, {body: Buffer.from('test'), json: true}), {
+	await t.throwsAsync(got(s.url, {body: Buffer.from('test'), json: true}), {
 		message: 'The `body` option must be an Object or Array when the `json` option is used'
 	});
 });
 
 test('options.body form error message', async t => {
-	await t.throws(got(s.url, {body: Buffer.from('test'), form: true}), {
+	await t.throwsAsync(got(s.url, {body: Buffer.from('test'), form: true}), {
 		message: 'The `body` option must be an Object when the `form` option is used'
 	});
 });
@@ -96,19 +96,19 @@ test('no plain object restriction on body', async t => {
 });
 
 test('default status message', async t => {
-	const error = await t.throws(got(`${s.url}/default-status-message`));
+	const error = await t.throwsAsync(got(`${s.url}/default-status-message`));
 	t.is(error.statusCode, 400);
 	t.is(error.statusMessage, 'Bad Request');
 });
 
 test('custom status message', async t => {
-	const error = await t.throws(got(`${s.url}/custom-status-message`));
+	const error = await t.throwsAsync(got(`${s.url}/custom-status-message`));
 	t.is(error.statusCode, 400);
 	t.is(error.statusMessage, 'Something Exploded');
 });
 
 test('no status message is overriden by the default one', async t => {
-	const error = await t.throws(got(`${s.url}/no-status-message`));
+	const error = await t.throwsAsync(got(`${s.url}/no-status-message`));
 	t.is(error.statusCode, 400);
 	t.is(error.statusMessage, http.STATUS_CODES[400]);
 });
@@ -117,7 +117,7 @@ test.serial('http.request error', async t => {
 	const stub = sinon.stub(http, 'request').callsFake(() => {
 		throw new TypeError('The header content contains invalid characters');
 	});
-	await t.throws(got(s.url), {instanceOf: got.RequestError, message: 'The header content contains invalid characters'});
+	await t.throwsAsync(got(s.url), {instanceOf: got.RequestError, message: 'The header content contains invalid characters'});
 	stub.restore();
 });
 
@@ -131,7 +131,7 @@ test.serial('catch error in mimicResponse', async t => {
 		'mimic-response': mimicResponse
 	});
 
-	await t.throws(proxiedGot(s.url), {message: 'Error in mimic-response'});
+	await t.throwsAsync(proxiedGot(s.url), {message: 'Error in mimic-response'});
 });
 
 test('errors are thrown directly when options.stream is true', t => {

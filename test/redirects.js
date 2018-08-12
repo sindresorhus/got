@@ -135,7 +135,7 @@ test('relative redirect works', async t => {
 });
 
 test('throws on endless redirect', async t => {
-	const error = await t.throws(got(`${http.url}/endless`));
+	const error = await t.throwsAsync(got(`${http.url}/endless`));
 	t.is(error.message, 'Redirected 10 times. Aborting.');
 	t.deepEqual(error.redirectUrls, new Array(10).fill(`${http.url}/endless`));
 });
@@ -152,7 +152,7 @@ test('hostname+path in options are not breaking redirects', async t => {
 });
 
 test('redirect only GET and HEAD requests', async t => {
-	const error = await t.throws(got(`${http.url}/relative`, {body: 'wow'}));
+	const error = await t.throwsAsync(got(`${http.url}/relative`, {body: 'wow'}));
 	t.is(error.message, 'Response code 302 (Found)');
 	t.is(error.path, '/relative');
 	t.is(error.statusCode, 302);
@@ -192,6 +192,6 @@ test('redirect response contains utf8 with binary encoding', async t => {
 });
 
 test('throws on malformed redirect URI', async t => {
-	const error = await t.throws(got(`${http.url}/malformedRedirect`));
+	const error = await t.throwsAsync(got(`${http.url}/malformedRedirect`));
 	t.is(error.name, 'URIError');
 });

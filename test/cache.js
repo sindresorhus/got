@@ -102,6 +102,6 @@ test('Cache error throws got.CacheError', async t => {
 	const endpoint = '/no-store';
 	const cache = {};
 
-	const error = await t.throws(got(s.url + endpoint, {cache}));
+	const error = await t.throwsAsync(got(s.url + endpoint, {cache}));
 	t.is(error.name, 'CacheError');
 });
