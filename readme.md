@@ -287,6 +287,65 @@ See the [AWS section](#aws) for an example.
 
 **Note**: Modifying the `body` is not recommended because the `content-length` header has already been computed and assigned.
 
+###### events
+
+Type: `Object<string, Function[]>`<br>
+Default: `{}`
+
+Events allow listeners to be attached to all events emitted during the request lifecycle. Listeners are subscribed using `on` or `once` according to the known frequency of the event.
+
+The signature for a given listener can be found in the Node.js docs. All listeners will be passed an additional `context` parameter, which is a plain object, that is initialized with an `options` property containing the normalized options for the request.
+
+Listeners are free to modify the context object. Use Symbol properties to avoid collisions with multiple listeners.
+
+Note: Got will handle the following special cases on your behalf:
+
+- Socket events that only apply to new connections will not be attached when a keep-alive connection is reused:
+  - `'request.socket.connect'`
+  - `'request.socket.secureConnect'`
+  - `'request.socket.lookup'`
+- `'request.socket.lookup'` is ignored if the target is an ip address or unix domain socket.
+- When the request reaches a terminal state due due to `error` or `response.end` firing, all listeners are removed. This prevents potential memory leaks when an event emitter outlives the request (e.g. keep-alive socket).
+
+```js
+got({
+	events: {
+		'request': [],
+		'request.abort': [],
+		'request.connect': [],
+		'request.continue': [],
+		'request.timeout': [],
+		'request.upgrade': [],
+		'request.close': [],
+		'request.drain': [],
+		'request.error': [],
+		'request.finish': [],
+		'request.pipe': [],
+		'request.unpipe': [],
+		'request.socket': [],
+		'request.socket.close': [],
+		'request.socket.connect': [],
+		'request.socket.secureConnect': [],
+		'request.socket.data': [],
+		'request.socket.drain': [],
+		'request.socket.end': [],
+		'request.socket.error': [],
+		'request.socket.lookup': [],
+		'request.socket.timeout': [],
+		'response': [],
+		'response.aborted': [],
+		'response.close': [],
+		'response.data': [],
+		'response.end': [],
+		'response.error': [],
+		'response.readable': [],
+		'uploadProgress': [],
+		'downloadProgress': [],
+		'error': []
+	}
+})
+```
+
 #### Streams
 
 **Note**: Progress events, redirect events and request/response events can also be used with promises.

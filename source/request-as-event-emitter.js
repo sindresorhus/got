@@ -7,6 +7,7 @@ const https = require('https');
 const urlLib = require('url');
 const CacheableRequest = require('cacheable-request');
 const is = require('@sindresorhus/is');
+const events = require('./events');
 const timedOut = require('./timed-out');
 const getBodySize = require('./get-body-size');
 const getResponse = require('./get-response');
@@ -180,6 +181,6 @@ module.exports = options => {
 			emitter.emit('error', error);
 		}
 	});
-
+	events(emitter, options);
 	return emitter;
 };
