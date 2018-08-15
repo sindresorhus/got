@@ -74,7 +74,7 @@ module.exports = options => {
 				redirectUrl = (new URLGlobal(bufferString, urlLib.format(options))).toString();
 
 				try {
-					redirectUrl = decodeURI(redirectUrl);
+					decodeURI(redirectUrl);
 				} catch (error) {
 					emitter.emit('error', error);
 					return;
@@ -89,7 +89,8 @@ module.exports = options => {
 
 				emitter.emit('redirect', response, redirectOpts);
 
-				get(redirectOpts);
+				// Recursive Deferral
+				setImmediate(get, redirectOpts);
 				return;
 			}
 
