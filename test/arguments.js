@@ -99,12 +99,10 @@ test('overrides querystring from opts', async t => {
 	t.is(response.body, '/?test=wow');
 });
 
-test('should parse query argument when it is an URLSearchParams params', async t => {
+test('the `query` option can be a URLSearchParams', async t => {
 	const query = new URLSearchParams({test: 'wow'});
-	const response = await got(
-		`${s.url}`, {query}
-	);
-	t.is(response.body, '/?test=wow');
+	const {body} = await got(s.url, {query});
+	t.is(body, '/?test=wow');
 });
 
 test('should throw with auth in url string', async t => {
