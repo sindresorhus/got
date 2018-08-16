@@ -4,6 +4,8 @@ const {isIP} = require('net');
 
 const listenerRegistry = Symbol('events');
 const adapters = {
+	error: eventHandler('on', 'error'),
+	redirect: eventHandler('on', 'redirect'),
 	request: eventHandler('once', 'request'),
 	'request.abort': requestEventHandler('once', 'abort'),
 	'request.connect': requestEventHandler('on', 'connect'),
@@ -34,8 +36,7 @@ const adapters = {
 	'response.error': responseEventHandler('on', 'error'),
 	'response.readable': responseEventHandler('on', 'readable'),
 	uploadProgress: eventHandler('on', 'uploadProgress'),
-	downloadProgress: eventHandler('on', 'downloadProgress'),
-	error: eventHandler('on', 'error')
+	downloadProgress: eventHandler('on', 'downloadProgress')
 };
 
 function eventHandler(method, event) {
