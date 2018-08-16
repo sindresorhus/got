@@ -28,7 +28,14 @@ const adapters = {
 	'request.socket.error': requestSocketEventHandler('on', 'error'),
 	'request.socket.lookup': requestSocketLookupHandler(),
 	'request.socket.timeout': requestSocketEventHandler('once', 'timeout'),
-	response: requestEventHandler('once', 'response'),
+	'request.response': requestEventHandler('once', 'response'),
+	'request.response.aborted': requestResponseEventHandler('once', 'aborted'),
+	'request.response.close': requestResponseEventHandler('once', 'close'),
+	'request.response.data': requestResponseEventHandler('on', 'data'),
+	'request.response.end': requestResponseEventHandler('once', 'end'),
+	'request.response.error': requestResponseEventHandler('on', 'error'),
+	'request.response.readable': requestResponseEventHandler('on', 'readable'),
+	response: eventHandler('once', 'response'),
 	'response.aborted': responseEventHandler('once', 'aborted'),
 	'response.close': responseEventHandler('once', 'close'),
 	'response.data': responseEventHandler('on', 'data'),
@@ -91,6 +98,14 @@ function requestSocketLookupHandler() {
 }
 
 function responseEventHandler(method, event) {
+	return (emitter, handlers, context) => {
+		emitter.once('response', response => {
+			attachListener(response, method, event, handlers, context);
+		});
+	};
+}
+
+function requestResponseEventHandler(method, event) {
 	return (emitter, handlers, context) => {
 		emitter.once('request', request => {
 			request.once('response', response => {
