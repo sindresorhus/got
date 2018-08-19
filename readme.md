@@ -586,6 +586,8 @@ got('sindresorhus.com', {
 });
 ```
 
+Check out [`global-tunnel`](https://github.com/np-maintain/global-tunnel) if you want to configure proxy support for all HTTP/HTTPS traffic in your app.
+
 
 ## Cookies
 
