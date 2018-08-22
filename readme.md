@@ -689,7 +689,7 @@ const AWS = require('aws-sdk');
 const aws4 = require('aws4');
 const got = require('got');
 
-const credentials = await new AWS.CredentialProviderChain().resolvePromise();
+const chain = new AWS.CredentialProviderChain();
 
 // Create a Got instance to use relative paths and signed requests
 const awsClient = got.extend({
@@ -697,7 +697,7 @@ const awsClient = got.extend({
 	hooks: {
 		beforeRequest: [
 			async options => {
-				await credentials.getPromise();
+				const credentials = await chain.resolvePromise();
 				aws4.sign(options, credentials);
 			}
 		]
