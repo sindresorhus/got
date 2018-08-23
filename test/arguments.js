@@ -105,6 +105,10 @@ test('the `query` option can be a URLSearchParams', async t => {
 	t.is(body, '/?test=wow');
 });
 
+test('should ignore empty query object', async t => {
+	t.is((await got(`${s.url}/test`, {query: {}})).requestUrl, `${s.url}/test`);
+});
+
 test('should throw with auth in url string', async t => {
 	const error = await t.throwsAsync(got('https://test:45d3ps453@account.myservice.com/api/token'));
 	t.regex(error.message, /Basic authentication must be done with the `auth` option/);
