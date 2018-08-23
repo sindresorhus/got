@@ -177,7 +177,7 @@ test('ability to pass a custom request lib', async t => {
 		}
 	};
 
-	const instance = got.extend({fn: lib});
+	const instance = got.extend({_requestFunction: lib});
 	await instance(s.url);
 
 	t.true(called);
