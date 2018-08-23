@@ -13,6 +13,8 @@ const knownHookEvents = require('./known-hook-events');
 
 const retryAfterStatusCodes = new Set([413, 429, 503]);
 
+// `preNormalize` handles all the stuff which is related with static options like `baseUrl`, `followRedirect`, `hooks` etc.
+// While `normalize` does `preNormalize` + handles all the stuff related with dynamic options like url, headers, body etc.
 const preNormalize = options => {
 	options = {
 		headers: {},
