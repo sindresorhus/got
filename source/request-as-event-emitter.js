@@ -32,7 +32,12 @@ module.exports = options => {
 			return;
 		}
 
-		let fn = options.protocol === 'https:' ? https : http;
+		let fn;
+		if (options.fn) {
+			fn = options.fn; // eslint-disable-line prefer-destructuring
+		} else {
+			fn = options.protocol === 'https:' ? https : http;
+		}
 
 		if (agents) {
 			const protocolName = options.protocol === 'https:' ? 'https' : 'http';
