@@ -266,6 +266,13 @@ Default: `false`
 
 [Cache adapter instance](#cache-adapters) for storing cached data.
 
+###### request
+
+Type: `Function`<br>
+Default: `http.request` `https.request`
+
+Custom request function. By default it's `http.request` or `https.request` (depending on the protocol).
+
 ###### useElectronNet
 
 Type: `boolean`<br>
