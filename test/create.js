@@ -1,3 +1,4 @@
+import http from 'http';
 import {URL} from 'url';
 import test from 'ava';
 import got from '../source';
@@ -143,6 +144,14 @@ test('no tampering with defaults', t => {
 
 	t.is(instance.defaults.options.baseUrl, 'example');
 	t.is(instance2.defaults.options.baseUrl, 'example');
+});
+
+test('only plain objects are freezed', async t => {
+	const instance = got.extend({
+		agent: new http.Agent({keepAlive: true})
+	});
+
+	await t.notThrowsAsync(() => instance(s.url));
 });
 
 test('defaults are cloned on instance creation', t => {
