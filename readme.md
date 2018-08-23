@@ -122,6 +122,19 @@ Very useful when used with `got.extend()` to create niche-specific Got instances
 
 Can be a string or a [WHATWG `URL`](https://nodejs.org/api/url.html#url_class_url).
 
+Backslash at the end of `baseUrl` and at the beginning of the `url` argument is optional:
+
+```js
+await got('hello', {baseUrl: 'https://example.com/v1'});
+//=> 'https://example.com/v1/hello'
+
+await got('/hello', {baseUrl: 'https://example.com/v1/'});
+//=> 'https://example.com/v1/hello'
+
+await got('/hello', {baseUrl: 'https://example.com/v1'});
+//=> 'https://example.com/v1/hello'
+```
+
 ###### headers
 
 Type: `Object`<br>

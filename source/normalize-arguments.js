@@ -13,6 +13,49 @@ const knownHookEvents = require('./known-hook-events');
 
 const retryAfterStatusCodes = new Set([413, 429, 503]);
 
+// `preNormalize` handles things related to static options, like `baseUrl`, `followRedirect`, `hooks`, etc.
+// While `normalize` does `preNormalize` + handles things related to dynamic options, like URL, headers, body, etc.
+const preNormalize = options => {
+	options = {
+		headers: {},
+		...options
+	};
+
+	if (options.baseUrl && !options.baseUrl.toString().endsWith('/')) {
+		options.baseUrl += '/';
+	}
+
+	if (is.undefined(options.followRedirect)) {
+		options.followRedirect = true;
+	}
+
+	if (is.nullOrUndefined(options.hooks)) {
+		options.hooks = {};
+	}
+	if (is.object(options.hooks)) {
+		for (const hookEvent of knownHookEvents) {
+			const hooks = options.hooks[hookEvent];
+			if (is.nullOrUndefined(hooks)) {
+				options.hooks[hookEvent] = [];
+			} else if (is.array(hooks)) {
+				for (const [index, hook] of hooks.entries()) {
+					if (!is.function(hook)) {
+						throw new TypeError(
+							`Parameter \`hooks.${hookEvent}[${index}]\` must be a function, not ${is(hook)}`
+						);
+					}
+				}
+			} else {
+				throw new TypeError(`Parameter \`hooks.${hookEvent}\` must be an array, not ${is(hooks)}`);
+			}
+		}
+	} else {
+		throw new TypeError(`Parameter \`hooks\` must be an object, not ${is(options.hooks)}`);
+	}
+
+	return options;
+};
+
 module.exports = (url, options, defaults) => {
 	if (Reflect.has(options, 'url') || (is.object(url) && Reflect.has(url, 'url'))) {
 		throw new TypeError('Parameter `url` is not an option. Use got(url, options)');
@@ -22,8 +65,14 @@ module.exports = (url, options, defaults) => {
 		throw new TypeError(`Parameter \`url\` must be a string or object, not ${is(url)}`);
 	}
 
+	options = preNormalize(options);
+
 	if (is.string(url)) {
 		if (options.baseUrl) {
+			if (url.toString().startsWith('/')) {
+				url = url.toString().slice(1);
+			}
+
 			url = urlToOptions(new URLGlobal(url, options.baseUrl));
 		} else {
 			url = url.replace(/^unix:/, 'http://$&');
@@ -45,7 +94,6 @@ module.exports = (url, options, defaults) => {
 
 	options = {
 		path: '',
-		headers: {},
 		...url,
 		protocol: url.protocol || 'http:', // Override both null/undefined with default protocol
 		...options
@@ -59,20 +107,15 @@ module.exports = (url, options, defaults) => {
 		get: () => baseUrl
 	});
 
-	if (options.stream && options.json) {
-		options.json = false;
-	}
-
-	if (options.decompress && is.undefined(options.headers['accept-encoding'])) {
-		options.headers['accept-encoding'] = 'gzip, deflate';
-	}
-
 	const {query} = options;
-
 	if (!is.empty(query) || query instanceof URLSearchParamsGlobal) {
 		const queryParams = new URLSearchParamsGlobal(query);
 		options.path = `${options.path.split('?')[0]}?${queryParams.toString()}`;
 		delete options.query;
+	}
+
+	if (options.stream && options.json) {
+		options.json = false;
 	}
 
 	if (options.json && is.undefined(options.headers.accept)) {
@@ -125,6 +168,10 @@ module.exports = (url, options, defaults) => {
 
 	options.method = options.method.toUpperCase();
 
+	if (options.decompress && is.undefined(options.headers['accept-encoding'])) {
+		options.headers['accept-encoding'] = 'gzip, deflate';
+	}
+
 	if (options.hostname === 'unix') {
 		const matches = /(.+?):(.+)/.exec(options.path);
 
@@ -164,6 +211,15 @@ module.exports = (url, options, defaults) => {
 		}
 	}
 
+	if (is.number(options.timeout) || is.object(options.timeout)) {
+		if (is.number(options.timeout)) {
+			options.gotTimeout = {request: options.timeout};
+		} else {
+			options.gotTimeout = options.timeout;
+		}
+		delete options.timeout;
+	}
+
 	if (!is.function(options.gotRetry.retries)) {
 		const {retries} = options.gotRetry;
 
@@ -197,42 +253,7 @@ module.exports = (url, options, defaults) => {
 		};
 	}
 
-	if (is.undefined(options.followRedirect)) {
-		options.followRedirect = true;
-	}
-
-	if (is.number(options.timeout) || is.object(options.timeout)) {
-		if (is.number(options.timeout)) {
-			options.gotTimeout = {request: options.timeout};
-		} else {
-			options.gotTimeout = options.timeout;
-		}
-		delete options.timeout;
-	}
-
-	if (is.nullOrUndefined(options.hooks)) {
-		options.hooks = {};
-	}
-	if (is.object(options.hooks)) {
-		for (const hookEvent of knownHookEvents) {
-			const hooks = options.hooks[hookEvent];
-			if (is.nullOrUndefined(hooks)) {
-				options.hooks[hookEvent] = [];
-			} else if (is.array(hooks)) {
-				for (const [index, hook] of hooks.entries()) {
-					if (!is.function(hook)) {
-						throw new TypeError(
-							`Parameter \`hooks.${hookEvent}[${index}]\` must be a function, not ${is(hook)}`
-						);
-					}
-				}
-			} else {
-				throw new TypeError(`Parameter \`hooks.${hookEvent}\` must be an array, not ${is(hooks)}`);
-			}
-		}
-	} else {
-		throw new TypeError(`Parameter \`hooks\` must be an object, not ${is(options.hooks)}`);
-	}
-
 	return options;
 };
+
+module.exports.preNormalize = preNormalize;
