@@ -1,4 +1,4 @@
-import {URL} from 'url';
+import {URL, URLSearchParams} from 'url';
 import test from 'ava';
 import pEvent from 'p-event';
 import got from '../source';
@@ -97,6 +97,12 @@ test('overrides querystring from opts', async t => {
 		}
 	);
 	t.is(response.body, '/?test=wow');
+});
+
+test('the `query` option can be a URLSearchParams', async t => {
+	const query = new URLSearchParams({test: 'wow'});
+	const {body} = await got(s.url, {query});
+	t.is(body, '/?test=wow');
 });
 
 test('should ignore empty query object', async t => {
