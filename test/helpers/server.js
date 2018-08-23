@@ -14,7 +14,13 @@ exports.createServer = async () => {
 	const port = await getPort();
 
 	const s = http.createServer((request, response) => {
-		s.emit(request.url, request, response);
+		const event = decodeURI(request.url);
+		if (s.listeners(event).length === 0) {
+			response.writeHead(404, 'Not Found');
+			response.end(`No listener for ${event}`);
+		} else {
+			s.emit(event, request, response);
+		}
 	});
 
 	s.host = host;

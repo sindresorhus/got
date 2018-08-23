@@ -22,6 +22,10 @@ test.before('setup', async () => {
 		response.end(request.url);
 	});
 
+	s.on('/?test=it’s+ok', (request, response) => {
+		response.end(request.url);
+	});
+
 	s.on('/stream', (request, response) => {
 		response.end('ok');
 	});
@@ -97,6 +101,15 @@ test('overrides querystring from opts', async t => {
 		}
 	);
 	t.is(response.body, '/?test=wow');
+});
+
+test('escapes query parameter values', async t => {
+	const response = await got(`${s.url}`, {
+		query: {
+			test: `it’s ok`
+		}
+	});
+	t.is(response.body, '/?test=it%E2%80%99s+ok');
 });
 
 test('the `query` option can be a URLSearchParams', async t => {
