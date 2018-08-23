@@ -204,9 +204,21 @@ test('baseUrl works', async t => {
 	t.is(body, `/test/foobar`);
 });
 
-test('backslash is optional (baseUrl)', async t => {
+test('accepts WHATWG URL as the baseUrl option', async t => {
+	const instanceA = got.extend({baseUrl: new URL(`${s.url}/test`)});
+	const {body} = await instanceA('/foobar');
+	t.is(body, `/test/foobar`);
+});
+
+test('backslash in the end of `baseUrl` is optional', async t => {
 	const instanceA = got.extend({baseUrl: `${s.url}/test/`});
 	const {body} = await instanceA('/foobar');
+	t.is(body, `/test/foobar`);
+});
+
+test('backslash in the beginning of `url` is optional when using baseUrl', async t => {
+	const instanceA = got.extend({baseUrl: `${s.url}/test`});
+	const {body} = await instanceA('foobar');
 	t.is(body, `/test/foobar`);
 });
 

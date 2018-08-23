@@ -122,6 +122,17 @@ Very useful when used with `got.extend()` to create niche-specific Got instances
 
 Can be a string or a [WHATWG `URL`](https://nodejs.org/api/url.html#url_class_url).
 
+Examples:
+- **baseUrl**: `https://example.com/v1`<br>
+  **url**: `hello`<br>
+  **result**: `https://example.com/v1/hello`
+- **baseUrl**: `https://example.com/v1`<br>
+  **url**: `/hello`<br>
+  **result**: `https://example.com/v1/hello`
+- **baseUrl**: `https://example.com/v1/`<br>
+  **url**: `/hello`<br>
+  **result**: `https://example.com/v1/hello`
+
 ###### headers
 
 Type: `Object`<br>

@@ -21,7 +21,7 @@ const aliases = [
 
 const create = defaults => {
 	defaults = merge({}, defaults);
-	defaults.options = normalizeArguments.prenormalize(defaults.options);
+	defaults.options = normalizeArguments.preNormalize(defaults.options);
 	if (!defaults.handler) {
 		defaults.handler = next;
 	}

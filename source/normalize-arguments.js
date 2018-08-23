@@ -13,7 +13,7 @@ const knownHookEvents = require('./known-hook-events');
 
 const retryAfterStatusCodes = new Set([413, 429, 503]);
 
-const prenormalize = options => {
+const preNormalize = options => {
 	options = {
 		headers: {},
 		...options
@@ -63,7 +63,7 @@ module.exports = (url, options, defaults) => {
 		throw new TypeError(`Parameter \`url\` must be a string or object, not ${is(url)}`);
 	}
 
-	options = prenormalize(options);
+	options = preNormalize(options);
 
 	if (is.string(url)) {
 		if (options.baseUrl) {
@@ -254,4 +254,4 @@ module.exports = (url, options, defaults) => {
 	return options;
 };
 
-module.exports.prenormalize = prenormalize;
+module.exports.preNormalize = preNormalize;
