@@ -22,6 +22,10 @@ test.before('setup', async () => {
 		response.end(request.url);
 	});
 
+	s.on('/test/foobar', (request, response) => {
+		response.end(request.url);
+	});
+
 	s.on('/stream', (request, response) => {
 		response.end('ok');
 	});
@@ -179,6 +183,18 @@ test('throws TypeError when known `hooks` array item is not a function', async t
 
 test('allows extra keys in `hooks`', async t => {
 	await t.notThrowsAsync(() => got(`${s.url}/test`, {hooks: {extra: {}}}));
+});
+
+test('baseUrl works', async t => {
+	const instanceA = got.extend({baseUrl: `${s.url}/test`});
+	const {body} = await instanceA('/foobar');
+	t.is(body, `/test/foobar`);
+});
+
+test('backslash is optional (baseUrl)', async t => {
+	const instanceA = got.extend({baseUrl: `${s.url}/test/`});
+	const {body} = await instanceA('/foobar');
+	t.is(body, `/test/foobar`);
 });
 
 test('throws when trying to modify baseUrl after options got normalized', async t => {

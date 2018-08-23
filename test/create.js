@@ -97,7 +97,7 @@ test('extend keeps the old value if the new one is undefined', t => {
 test('extend merges URL instances', t => {
 	const a = got.extend({baseUrl: new URL('https://example.com')});
 	const b = a.extend({baseUrl: '/foo'});
-	t.is(b.defaults.options.baseUrl.toString(), 'https://example.com/foo');
+	t.is(b.defaults.options.baseUrl.toString(), 'https://example.com/foo/');
 });
 
 test('create', async t => {
@@ -128,7 +128,7 @@ test('no tampering with defaults', t => {
 	const instance = got.create({
 		handler: got.defaults.handler,
 		options: got.mergeOptions(got.defaults.options, {
-			baseUrl: 'example'
+			baseUrl: 'example/'
 		})
 	});
 
@@ -142,8 +142,8 @@ test('no tampering with defaults', t => {
 		instance.defaults.options.baseUrl = 'http://google.com';
 	});
 
-	t.is(instance.defaults.options.baseUrl, 'example');
-	t.is(instance2.defaults.options.baseUrl, 'example');
+	t.is(instance.defaults.options.baseUrl, 'example/');
+	t.is(instance2.defaults.options.baseUrl, 'example/');
 });
 
 test('only plain objects are freezed', async t => {
