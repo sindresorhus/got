@@ -7,6 +7,9 @@ let http;
 let https;
 
 test.before('setup', async () => {
+	const reached = (request, response) => {
+		response.end('reached');
+	};
 	https = await createSSLServer();
 	http = await createServer();
 
@@ -25,9 +28,7 @@ test.before('setup', async () => {
 
 	// HTTP Handlers
 
-	http.on('/', (request, response) => {
-		response.end('reached');
-	});
+	http.on('/', reached);
 
 	http.on('/finite', (request, response) => {
 		response.writeHead(302, {
@@ -36,13 +37,19 @@ test.before('setup', async () => {
 		response.end();
 	});
 
-	http.on('/utf8-url-áé', (request, response) => {
-		response.end('reached');
-	});
+	http.on('/utf8-url-áé', reached);
+	http.on('/?test=it’s+ok', reached);
 
 	http.on('/redirect-with-utf8-binary', (request, response) => {
 		response.writeHead(302, {
 			location: Buffer.from((new URL('/utf8-url-áé', http.url)).toString(), 'utf8').toString('binary')
+		});
+		response.end();
+	});
+
+	http.on('/redirect-with-uri-encoded-location', (request, response) => {
+		response.writeHead(302, {
+			location: new URL('/?test=it’s+ok', http.url).toString()
 		});
 		response.end();
 	});
@@ -187,8 +194,12 @@ test('redirect response contains old url', async t => {
 	t.is(requestUrl, `${http.url}/finite`);
 });
 
-test('redirect response contains utf8 with binary encoding', async t => {
+test('redirect response contains UTF-8 with binary encoding', async t => {
 	t.is((await got(`${http.url}/redirect-with-utf8-binary`)).body, 'reached');
+});
+
+test('redirect response contains UTF-8 with URI encoding', async t => {
+	t.is((await got(`${http.url}/redirect-with-uri-encoded-location`)).body, 'reached');
 });
 
 test('throws on malformed redirect URI', async t => {

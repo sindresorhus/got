@@ -74,7 +74,7 @@ module.exports = options => {
 				redirectUrl = (new URLGlobal(bufferString, urlLib.format(options))).toString();
 
 				try {
-					redirectUrl = decodeURI(redirectUrl);
+					decodeURI(redirectUrl);
 				} catch (error) {
 					emitter.emit('error', error);
 					return;
