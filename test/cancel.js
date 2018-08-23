@@ -1,7 +1,7 @@
 import EventEmitter from 'events';
 import {Readable} from 'stream';
 import test from 'ava';
-import getStream from 'get-stream';
+import pEvent from 'p-event';
 import PCancelable from 'p-cancelable';
 import got from '../source';
 import {createServer} from './helpers/server';
@@ -15,7 +15,7 @@ async function createAbortServer() {
 			request.on('aborted', resolve);
 			response.on('finish', reject.bind(null, new Error('Request finished instead of aborting.')));
 
-			await getStream(request);
+			await pEvent(request, 'end');
 			response.end();
 		});
 
