@@ -1,4 +1,4 @@
-import {URL} from 'url';
+import {URL, URLSearchParams} from 'url';
 import test from 'ava';
 import pEvent from 'p-event';
 import got from '../source';
@@ -110,6 +110,16 @@ test('escapes query parameter values', async t => {
 		}
 	});
 	t.is(response.body, '/?test=it%E2%80%99s+ok');
+});
+
+test('the `query` option can be a URLSearchParams', async t => {
+	const query = new URLSearchParams({test: 'wow'});
+	const {body} = await got(s.url, {query});
+	t.is(body, '/?test=wow');
+});
+
+test('should ignore empty query object', async t => {
+	t.is((await got(`${s.url}/test`, {query: {}})).requestUrl, `${s.url}/test`);
 });
 
 test('should throw with auth in url string', async t => {
