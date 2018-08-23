@@ -89,8 +89,7 @@ module.exports = options => {
 
 				emitter.emit('redirect', response, redirectOpts);
 
-				// Recursive Deferral
-				setImmediate(get, redirectOpts);
+				get(redirectOpts);
 				return;
 			}
 
