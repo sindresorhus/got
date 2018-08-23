@@ -167,17 +167,17 @@ test('defaults are cloned on instance creation', t => {
 	t.not(options.hooks.beforeRequest, instance.defaults.options.hooks.beforeRequest);
 });
 
-test('ability to pass a custom request lib', async t => {
+test('ability to pass a custom request library', async t => {
 	let called = false;
 
-	const lib = {
+	const library = {
 		request: (...args) => {
 			called = true;
 			return http.request(...args);
 		}
 	};
 
-	const instance = got.extend({_requestFunction: lib});
+	const instance = got.extend({_requestFunction: library});
 	await instance(s.url);
 
 	t.true(called);
