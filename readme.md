@@ -183,7 +183,7 @@ Parse response body with `JSON.parse` and set `accept` header to `application/js
 
 ###### query
 
-Type: `string` `Object` [`URLSearchParams`](https://developer.mozilla.org/en-US/docs/Web/API/URLSearchParams)<br>
+Type: `string` `Object` [`URLSearchParams`](https://developer.mozilla.org/en-US/docs/Web/API/URLSearchParams)
 
 Query string object that will be added to the request URL. This will override the query string in `url`.
 
