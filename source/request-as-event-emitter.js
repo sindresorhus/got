@@ -33,7 +33,7 @@ module.exports = options => {
 		}
 
 		let fn;
-		if (options.fn) {
+		if (options._requestFunction) {
 			fn = options.fn; // eslint-disable-line prefer-destructuring
 		} else {
 			fn = options.protocol === 'https:' ? https : http;
