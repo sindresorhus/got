@@ -1,4 +1,5 @@
 import {URL} from 'url';
+import {URLSearchParams} from 'url';
 import test from 'ava';
 import pEvent from 'p-event';
 import got from '../source';
