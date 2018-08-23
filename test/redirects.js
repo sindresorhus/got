@@ -194,11 +194,11 @@ test('redirect response contains old url', async t => {
 	t.is(requestUrl, `${http.url}/finite`);
 });
 
-test('redirect response contains utf8 with binary encoding', async t => {
+test('redirect response contains UTF-8 with binary encoding', async t => {
 	t.is((await got(`${http.url}/redirect-with-utf8-binary`)).body, 'reached');
 });
 
-test('redirect response contains utf8 with uri encoding', async t => {
+test('redirect response contains UTF-8 with URI encoding', async t => {
 	t.is((await got(`${http.url}/redirect-with-uri-encoded-location`)).body, 'reached');
 });
 
