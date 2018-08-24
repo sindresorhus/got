@@ -9,26 +9,20 @@ let s;
 test.before('setup', async () => {
 	s = await createServer();
 
+	const echoUrl = (request, response) => {
+		response.end(request.url);
+	};
+
 	s.on('/', (request, response) => {
 		response.statusCode = 404;
 		response.end();
 	});
 
-	s.on('/test', (request, response) => {
-		response.end(request.url);
-	});
-
-	s.on('/?test=wow', (request, response) => {
-		response.end(request.url);
-	});
-
-	s.on('/test/foobar', (request, response) => {
-		response.end(request.url);
-	});
-
-	s.on('/?test=it’s+ok', (request, response) => {
-		response.end(request.url);
-	});
+	s.on('/test', echoUrl);
+	s.on('/?test=wow', echoUrl);
+	s.on('/test/foobar', echoUrl);
+	s.on('/?test=it’s+ok', echoUrl);
+	s.on('/?test=http://example.com?foo=bar', echoUrl);
 
 	s.on('/stream', (request, response) => {
 		response.end('ok');
@@ -49,6 +43,12 @@ test('url is required', async t => {
 test('url should be utf-8 encoded', async t => {
 	const error = await t.throwsAsync(got(`${s.url}/%D2%E0%EB%EB%E8%ED`));
 	t.regex(error.message, /Parameter `url` must contain valid UTF-8 character sequences/);
+});
+
+test('string url with query is preserved', async t => {
+	const path = `/?test=http://example.com?foo=bar`;
+	const response = await got(`${s.url}${path}`);
+	t.is(response.body, path);
 });
 
 test('options are optional', async t => {

@@ -109,8 +109,10 @@ module.exports = (url, options, defaults) => {
 
 	const {query} = options;
 	if (!is.empty(query) || query instanceof URLSearchParamsGlobal) {
-		const queryParams = new URLSearchParamsGlobal(query);
-		options.path = `${options.path.split('?')[0]}?${queryParams.toString()}`;
+		if (!is.string(query)) {
+			options.query = (new URLSearchParamsGlobal(query)).toString();
+		}
+		options.path = `${options.path.split('?')[0]}?${options.query}`;
 		delete options.query;
 	}
 
