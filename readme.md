@@ -282,6 +282,25 @@ Determines if a `got.HTTPError` is thrown for error responses (non-2xx status co
 
 If this is disabled, requests that encounter an error status code will be resolved with the `response` instead of throwing. This may be useful if you are checking for resource availability and are expecting error responses.
 
+###### agent
+
+Same as the [`agent` option](https://nodejs.org/api/http.html#http_http_request_url_options_callback) for `http.request`, but with an extra feature:
+
+If you require different agents for different protocols, you can pass a map of agents to the `agent` option. This is necessary because a request to one protocol might redirect to another. In such a scenario, Got will switch over to the right protocol agent for you.
+
+```js
+const got = require('got');
+const HttpAgent = require('agentkeepalive');
+const {HttpsAgent} = HttpAgent;
+
+got('sindresorhus.com', {
+	agent: {
+		http: new HttpAgent(),
+		https: new HttpsAgent()
+	}
+});
+```
+
 ###### hooks
 
 Type: `Object<string, Function[]>`<br>
@@ -581,21 +600,6 @@ got('sindresorhus.com', {
 			host: 'localhost'
 		}
 	})
-});
-```
-
-If you require different agents for different protocols, you can pass a map of agents to the `agent` option. This is necessary because a request to one protocol might redirect to another. In such a scenario, `got` will switch over to the right protocol agent for you.
-
-```js
-const got = require('got');
-const HttpAgent = require('agentkeepalive');
-const HttpsAgent = HttpAgent.HttpsAgent;
-
-got('sindresorhus.com', {
-	agent: {
-		http: new HttpAgent(),
-		https: new HttpsAgent()
-	}
 });
 ```
 
