@@ -167,7 +167,7 @@ test('defaults are cloned on instance creation', t => {
 	t.not(options.hooks.beforeRequest, instance.defaults.options.hooks.beforeRequest);
 });
 
-test('ability to pass a custom request library', async t => {
+test('ability to pass a custom request method', async t => {
 	let called = false;
 
 	const request = (...args) => {
