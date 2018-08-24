@@ -89,7 +89,7 @@ test.before('setup', async () => {
 		response.end();
 	});
 
-	http.on('/relativeQuery?bang=', (request, response) => {
+	http.on('/relativeQuery?bang', (request, response) => {
 		response.writeHead(302, {
 			location: '/'
 		});
