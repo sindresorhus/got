@@ -266,6 +266,13 @@ Default: `false`
 
 [Cache adapter instance](#cache-adapters) for storing cached data.
 
+###### request
+
+Type: `Function`<br>
+Default: `http.request` `https.request` *(depending on the protocol)*
+
+Custom request function. The main purpose of this is to [support HTTP2 using a wrapper](#experimental-http2-support).
+
 ###### useElectronNet
 
 Type: `boolean`<br>
@@ -818,12 +825,27 @@ const custom = got.extend({
 
 *Need to merge some instances into a single one? Check out [`got.mergeInstances()`](advanced-creation.md#merging-instances).*
 
+### Experimental HTTP2 support
+
+Got provides an experimental support for HTTP2 using the [`http2-wrapper`](https://github.com/szmarczak/http2-wrapper) module:
+
+```js
+const got = require('got');
+const {request} = require('http2-wrapper');
+
+const h2got = got.extend({request});
+
+(async () => {
+	const {body} = await h2got('https://nghttp2.org/httpbin/headers');
+	console.log(body);
+})();
+```
 
 ## Comparison
 
 |                       |  `got`  | `request` | `node-fetch` | `axios` |
 |-----------------------|:-------:|:---------:|:------------:|:-------:|
-| HTTP/2 support        |    ✖    |     ✖    |       ✖      |    ✖   |
+| HTTP/2 support        |    ❔    |     ✖    |       ✖      |    ✖   |
 | Browser support       |    ✖    |     ✖    |       ✔*     |    ✔   |
 | Electron support      |    ✔    |     ✖    |       ✖      |    ✖   |
 | Promise API           |    ✔    |     ✔    |       ✔      |    ✔   |
@@ -848,7 +870,8 @@ const custom = got.extend({
 | Dependents            | ![][gdp] | ![][rdp] |   ![][ndp]   | ![][adp] |
 | Install size          | ![][gis] | ![][ris] |   ![][nis]   | ![][ais] |
 
-\* It's almost API compatible with the browser `fetch` API.
+\* It's almost API compatible with the browser `fetch` API.<br>
+❔ Experimental support.
 
 <!-- ISSUES OPEN -->
 [gio]: https://img.shields.io/github/issues/sindresorhus/got.svg

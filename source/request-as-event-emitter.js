@@ -32,7 +32,12 @@ module.exports = options => {
 			return;
 		}
 
-		let fn = options.protocol === 'https:' ? https : http;
+		let fn;
+		if (is.function(options.request)) {
+			fn = {request: options.request};
+		} else {
+			fn = options.protocol === 'https:' ? https : http;
+		}
 
 		if (agents) {
 			const protocolName = options.protocol === 'https:' ? 'https' : 'http';

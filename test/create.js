@@ -166,3 +166,17 @@ test('defaults are cloned on instance creation', t => {
 	t.not(options.foo, instance.defaults.options.foo);
 	t.not(options.hooks.beforeRequest, instance.defaults.options.hooks.beforeRequest);
 });
+
+test('ability to pass a custom request method', async t => {
+	let called = false;
+
+	const request = (...args) => {
+		called = true;
+		return http.request(...args);
+	};
+
+	const instance = got.extend({request});
+	await instance(s.url);
+
+	t.true(called);
+});
