@@ -595,7 +595,7 @@ View the [Keyv docs](https://github.com/lukechilds/keyv) for more information on
 
 ## Proxies
 
-You can use the [`tunnel`](https://github.com/koichik/node-tunnel) module with the `agent` option to work with proxies:
+You can use the [`tunnel`](https://github.com/koichik/node-tunnel) package with the `agent` option to work with proxies:
 
 ```js
 const got = require('got');
@@ -615,7 +615,7 @@ Check out [`global-tunnel`](https://github.com/np-maintain/global-tunnel) if you
 
 ## Cookies
 
-You can use the [`cookie`](https://github.com/jshttp/cookie) module to include cookies in a request:
+You can use the [`cookie`](https://github.com/jshttp/cookie) package to include cookies in a request:
 
 ```js
 const got = require('got');
@@ -640,7 +640,7 @@ got('google.com', {
 
 ## Form data
 
-You can use the [`form-data`](https://github.com/form-data/form-data) module to create POST request with form data:
+You can use the [`form-data`](https://github.com/form-data/form-data) package to create POST request with form data:
 
 ```js
 const fs = require('fs');
@@ -658,7 +658,7 @@ got.post('google.com', {
 
 ## OAuth
 
-You can use the [`oauth-1.0a`](https://github.com/ddo/oauth-1.0a) module to create a signed OAuth request:
+You can use the [`oauth-1.0a`](https://github.com/ddo/oauth-1.0a) package to create a signed OAuth request:
 
 ```js
 const got = require('got');
@@ -736,7 +736,7 @@ const response = await awsClient('endpoint/path', {
 
 ## Testing
 
-You can test your requests by using the [`nock`](https://github.com/node-nock/nock) module to mock an endpoint:
+You can test your requests by using the [`nock`](https://github.com/node-nock/nock) package to mock an endpoint:
 
 ```js
 const got = require('got');
@@ -784,7 +784,7 @@ const pkg = require('./package.json');
 
 got('sindresorhus.com', {
 	headers: {
-		'user-agent': `my-module/${pkg.version} (https://github.com/username/my-module)`
+		'user-agent': `my-package/${pkg.version} (https://github.com/username/my-package)`
 	}
 });
 
@@ -813,7 +813,7 @@ const custom = got.extend({
 	baseUrl: 'example.com',
 	json: true,
 	headers: {
-		'user-agent': `my-module/${pkg.version} (https://github.com/username/my-module)`
+		'user-agent': `my-package/${pkg.version} (https://github.com/username/my-package)`
 	}
 });
 
@@ -827,7 +827,7 @@ const custom = got.extend({
 
 ### Experimental HTTP2 support
 
-Got provides an experimental support for HTTP2 using the [`http2-wrapper`](https://github.com/szmarczak/http2-wrapper) module:
+Got provides an experimental support for HTTP2 using the [`http2-wrapper`](https://github.com/szmarczak/http2-wrapper) package:
 
 ```js
 const got = require('got');
