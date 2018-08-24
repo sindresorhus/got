@@ -80,12 +80,20 @@ test('transform names to lowercase', async t => {
 	t.is(headers['user-agent'], 'test');
 });
 
-test('zero content-length', async t => {
+test('setting content-length to 0', async t => {
 	const {body} = await got(s.url, {
 		headers: {
 			'content-length': 0
 		},
 		body: 'sup'
+	});
+	const headers = JSON.parse(body);
+	t.is(headers['content-length'], '0');
+});
+
+test('sets content-length to 0 when requesting PUT with empty body', async t => {
+	const {body} = await got(s.url, {
+		method: 'PUT'
 	});
 	const headers = JSON.parse(body);
 	t.is(headers['content-length'], '0');

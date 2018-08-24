@@ -162,12 +162,10 @@ module.exports = options => {
 		try {
 			uploadBodySize = await getBodySize(options);
 
-			if (
-				uploadBodySize > 0 &&
-				is.undefined(options.headers['content-length']) &&
-				is.undefined(options.headers['transfer-encoding'])
-			) {
-				options.headers['content-length'] = uploadBodySize;
+			if (is.undefined(options.headers['content-length']) && is.undefined(options.headers['transfer-encoding'])) {
+				if (uploadBodySize > 0 || options.method === 'PUT') {
+					options.headers['content-length'] = uploadBodySize;
+				}
 			}
 
 			for (const hook of options.hooks.beforeRequest) {
