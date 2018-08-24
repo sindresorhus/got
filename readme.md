@@ -269,9 +269,9 @@ Default: `false`
 ###### request
 
 Type: `Function`<br>
-Default: `http.request` `https.request`
+Default: `http.request` `https.request` *(depending on the protocol)*
 
-Custom request function. By default it's `http.request` or `https.request` (depending on the protocol).
+Custom request function.
 
 ###### useElectronNet
 
