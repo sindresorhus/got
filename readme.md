@@ -271,7 +271,7 @@ Default: `false`
 Type: `Function`<br>
 Default: `http.request` `https.request` *(depending on the protocol)*
 
-Custom request function.
+Custom request function. The main purpose of this ability is to [support HTTP2 using a wrapper](#experimental-http2-support).
 
 ###### useElectronNet
 
