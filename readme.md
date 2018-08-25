@@ -354,7 +354,7 @@ Whether the response was retrieved from the cache.
 
 Type: `Array`
 
-An `array` of strings containing the redirect URLs.
+The redirect URLs.
 
 ##### retryCount
 
