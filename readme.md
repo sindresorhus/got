@@ -89,7 +89,7 @@ It's a `GET` request by default, but can be changed by using different methods o
 
 #### got(url, [options])
 
-Returns a Promise for a [`response` object](#response) or a stream if `options.stream` is set to true.
+Returns a Promise for a [`response` object](#response) or a [stream](#streams-1) if `options.stream` is set to true.
 
 ##### url
 
