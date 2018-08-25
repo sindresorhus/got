@@ -7,6 +7,7 @@ const https = require('https');
 const urlLib = require('url');
 const CacheableRequest = require('cacheable-request');
 const is = require('@sindresorhus/is');
+const timer = require('@szmarczak/http-timer');
 const timedOut = require('./timed-out');
 const getBodySize = require('./get-body-size');
 const getResponse = require('./get-response');
@@ -50,12 +51,14 @@ module.exports = options => {
 			fn = electron.net || electron.remote.net;
 		}
 
+		let timings;
 		const cacheableRequest = new CacheableRequest(fn.request, options.cache);
 		const cacheReq = cacheableRequest(options, response => {
 			const {statusCode} = response;
-			response.retryCount = retryCount;
 			response.url = redirectUrl || requestUrl;
 			response.requestUrl = requestUrl;
+			response.retryCount = retryCount;
+			response.timings = timings;
 
 			const followRedirect = options.followRedirect && 'location' in response.headers;
 			const redirectGet = followRedirect && getMethodRedirectCodes.has(statusCode);
@@ -133,6 +136,8 @@ module.exports = options => {
 					}
 				});
 			});
+
+			timings = timer(request);
 
 			progress.upload(request, emitter, uploadBodySize);
 
