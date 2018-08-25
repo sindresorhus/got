@@ -328,7 +328,7 @@ The response object will typically be a [Node.js HTTP response stream](https://n
 
 ##### body
 
-Type: `string` `object` *(depending on `options.json`)*
+Type: `string` `Object` *(depending on `options.json`)*
 
 The result of the request.
 
@@ -336,7 +336,7 @@ The result of the request.
 
 Type: `string`
 
-The request URL or the final URL after many redirects.
+The request URL or the final URL after redirects.
 
 ##### requestUrl
 
@@ -348,11 +348,11 @@ The original request URL.
 
 Type: `boolean`
 
-It's `true` if the response was retrieved from the cache.
+Whether the response was retrieved from the cache.
 
 ##### redirectUrls
 
-Type: `array`
+Type: `Array`
 
 An `array` of strings containing the redirect URLs.
 
@@ -360,7 +360,7 @@ An `array` of strings containing the redirect URLs.
 
 Type: `number`
 
-Tells how many attepts Got has made to succeed.
+The number of times the request was retried.
 
 #### Streams
 
