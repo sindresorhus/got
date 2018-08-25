@@ -89,11 +89,7 @@ It's a `GET` request by default, but can be changed by using different methods o
 
 #### got(url, [options])
 
-Returns a Promise for a `response` object with a `body` property, a `url` property with the request URL or the final URL after redirects, and a `requestUrl` property with the original request URL.
-
-The response object will typically be a [Node.js HTTP response stream](https://nodejs.org/api/http.html#http_class_http_incomingmessage), however, if returned from the cache it will be a [response-like object](https://github.com/lukechilds/responselike) which behaves in the same way.
-
-The response will also have a `fromCache` property set with a boolean value.
+Returns a Promise for a [`response` object](#response) or a [stream](#streams-1) if `options.stream` is set to true.
 
 ##### url
 
@@ -325,6 +321,46 @@ Called with the normalized request options. Got will make no further changes to 
 See the [AWS section](#aws) for an example.
 
 **Note**: Modifying the `body` is not recommended because the `content-length` header has already been computed and assigned.
+
+#### Response
+
+The response object will typically be a [Node.js HTTP response stream](https://nodejs.org/api/http.html#http_class_http_incomingmessage), however, if returned from the cache it will be a [response-like object](https://github.com/lukechilds/responselike) which behaves in the same way.
+
+##### body
+
+Type: `string` `Object` *(depending on `options.json`)*
+
+The result of the request.
+
+##### url
+
+Type: `string`
+
+The request URL or the final URL after redirects.
+
+##### requestUrl
+
+Type: `string`
+
+The original request URL.
+
+##### fromCache
+
+Type: `boolean`
+
+Whether the response was retrieved from the cache.
+
+##### redirectUrls
+
+Type: `Array`
+
+The redirect URLs.
+
+##### retryCount
+
+Type: `number`
+
+The number of times the request was retried.
 
 #### Streams
 
