@@ -178,3 +178,28 @@ test('non-existent headers set to undefined are omitted', async t => {
 	const headers = JSON.parse(body);
 	t.false(Reflect.has(headers, 'blah'));
 });
+
+test('preserve port in host header if non-standard port', async t => {
+	const {body} = await got(s.url, {json: true});
+	t.is(body.host, 'localhost:' + s.port);
+});
+
+test('strip port in host header if explicit standard port (:80) & protocol (HTTP)', async t => {
+	const {body} = await got('http://httpbin.org:80/headers', {json: true});
+	t.is(body.headers.Host, 'httpbin.org');
+});
+
+test('strip port in host header if explicit standard port (:443) & protocol (HTTPS)', async t => {
+	const {body} = await got('https://httpbin.org:443/headers', {json: true});
+	t.is(body.headers.Host, 'httpbin.org');
+});
+
+test('strip port in host header if implicit standard port & protocol (HTTP)', async t => {
+	const {body} = await got('http://httpbin.org/headers', {json: true});
+	t.is(body.headers.Host, 'httpbin.org');
+});
+
+test('strip port in host header if implicit standard port & protocol (HTTPS)', async t => {
+	const {body} = await got('https://httpbin.org/headers', {json: true});
+	t.is(body.headers.Host, 'httpbin.org');
+});
