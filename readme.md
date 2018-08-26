@@ -370,7 +370,7 @@ The number of times the request was retried.
 
 Sets `options.stream` to `true`.
 
-Returna a [duplex stream](https://nodejs.org/api/stream.html#stream_class_stream_duplex) with additional events:
+Returns a [duplex stream](https://nodejs.org/api/stream.html#stream_class_stream_duplex) with additional events:
 
 ##### .on('request', request)
 
