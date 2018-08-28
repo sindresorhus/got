@@ -344,6 +344,25 @@ Type: `string`
 
 The original request URL.
 
+##### timings
+
+Type: `Object`
+
+The object contains following properties:
+- start - time, when the request has started
+- socket - time, when a socket has been assigned to the request
+- lookup - time, when the DNS lookup has finished
+- connect - time, when the socket has successfully connected
+- response - time, when the request fired the `response` event
+- end - time, when the response fired the `end` event
+- phases
+  - wait - `timings.socket - timings.start`
+  - dns - `timings.lookup - timings.socket`
+  - firstByte - `timings.response - timings.connect`
+  - download - `timings.end - timings.response`
+  - tcp - `timings.connect - timings.lookup`
+  - total - `timings.end - timings.start`
+
 ##### fromCache
 
 Type: `boolean`
