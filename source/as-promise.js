@@ -9,7 +9,7 @@ const {HTTPError, ParseError, ReadError} = require('./errors');
 module.exports = options => {
 	const proxy = new EventEmitter();
 
-	const cancelable = new PCancelable((resolve, reject, onCancel) => {
+	const promise = new PCancelable((resolve, reject, onCancel) => {
 		const emitter = requestAsEventEmitter(options);
 		let cancelOnRequest = false;
 
@@ -20,6 +20,7 @@ module.exports = options => {
 		emitter.on('request', request => {
 			if (cancelOnRequest) {
 				request.abort();
+				return;
 			}
 
 			proxy.emit('request', request);
@@ -98,10 +99,6 @@ module.exports = options => {
 			'downloadProgress'
 		].forEach(event => emitter.on(event, (...args) => proxy.emit(event, ...args)));
 	});
-
-	const promise = cancelable;
-
-	promise.cancel = cancelable.cancel.bind(cancelable);
 
 	promise.on = (name, fn) => {
 		proxy.on(name, fn);
