@@ -364,6 +364,8 @@ The object contains the following properties:
   - `tcp` - `timings.connect - timings.lookup`
   - `total` - `timings.end - timings.start`
 
+**Note**: time is a `number` representing the milliseconds elapsed since the UNIX epoch.
+
 ##### fromCache
 
 Type: `boolean`
