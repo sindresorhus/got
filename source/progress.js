@@ -28,12 +28,6 @@ module.exports = {
 		request.once('socket', socket => {
 			const onSocketConnect = () => {
 				progressInterval = setInterval(() => {
-					/* istanbul ignore next: hard to test */
-					if (socket.destroyed) {
-						clearInterval(progressInterval);
-						return;
-					}
-
 					const lastUploaded = uploaded;
 					/* istanbul ignore next: see #490 (occurs randomly!) */
 					const headersSize = request._header ? Buffer.byteLength(request._header) : 0;
@@ -59,9 +53,10 @@ module.exports = {
 				}, uploadEventFrequency);
 			};
 
+			/* istanbul ignore next: hard to test */
 			if (socket.connecting) {
 				socket.once('connect', onSocketConnect);
-			} else {
+			} else if (socket.writable) {
 				// The socket is being reused from pool,
 				// so the connect event will not be emitted
 				onSocketConnect();
