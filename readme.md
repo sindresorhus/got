@@ -879,32 +879,32 @@ const h2got = got.extend({request});
 
 ## Comparison
 
-|                       |  `got`  | `request` | `node-fetch` | `axios` |
-|-----------------------|:-------:|:---------:|:------------:|:-------:|
-| HTTP/2 support        |    ❔    |     ✖    |       ✖      |    ✖   |
-| Browser support       |    ✖    |     ✖    |       ✔*     |    ✔   |
-| Electron support      |    ✔    |     ✖    |       ✖      |    ✖   |
-| Promise API           |    ✔    |     ✔    |       ✔      |    ✔   |
-| Stream API            |    ✔    |     ✔    |       ✖      |    ✖   |
-| Request cancelation   |    ✔    |     ✖    |       ✖      |    ✔   |
-| RFC compliant caching |    ✔    |     ✖    |       ✖      |    ✖   |
-| Follows redirects     |    ✔    |     ✔    |       ✔      |    ✔   |
-| Retries on failure    |    ✔    |     ✖    |       ✖      |    ✖   |
-| Progress events       |    ✔    |     ✖    |       ✖      |    ✔   |
-| Handles gzip/deflate  |    ✔    |     ✔    |       ✔      |    ✔   |
-| Advanced timeouts     |    ✔    |     ✖    |       ✖      |    ✖   |
-| Errors with metadata  |    ✔    |     ✖    |       ✖      |    ✔   |
-| JSON mode             |    ✔    |     ✖    |       ✖      |    ✔   |
-| Custom defaults       |    ✔    |     ✔    |       ✖      |    ✔   |
-| Composable            |    ✔    |     ✖    |       ✖      |    ✖   |
-| Hooks                 |    ✔    |     ✖    |       ✖      |    ✔   |
-| Issues open           | ![][gio] | ![][rio] |   ![][nio]   | ![][aio] |
-| Issues closed         | ![][gic] | ![][ric] |   ![][nic]   | ![][aic] |
-| Downloads             |  ![][gd] |  ![][rd] |    ![][nd]   |  ![][ad] |
-| Coverage              |  ![][gc] |  ![][rc] |    ![][nc]   |  ![][ac] |
-| Build                 |  ![][gb] |  ![][rb] |    ![][nb]   |  ![][ab] |
-| Dependents            | ![][gdp] | ![][rdp] |   ![][ndp]   | ![][adp] |
-| Install size          | ![][gis] | ![][ris] |   ![][nis]   | ![][ais] |
+|                       |     `got`    |   `request`  | `node-fetch` |    `axios`   |
+|-----------------------|:------------:|:------------:|:------------:|:------------:|
+| HTTP/2 support        |      ❔      |       ✖      |       ✖      |       ✖      |
+| Browser support       |       ✖      |       ✖      |       ✔*     |       ✔      |
+| Electron support      |       ✔      |       ✖      |       ✖      |       ✖      |
+| Promise API           |       ✔      |       ✔      |       ✔      |       ✔      |
+| Stream API            |       ✔      |       ✔      |       ✖      |       ✖      |
+| Request cancelation   |       ✔      |       ✖      |       ✖      |       ✔      |
+| RFC compliant caching |       ✔      |       ✖      |       ✖      |       ✖      |
+| Follows redirects     |       ✔      |       ✔      |       ✔      |       ✔      |
+| Retries on failure    |       ✔      |       ✖      |       ✖      |       ✖      |
+| Progress events       |       ✔      |       ✖      |       ✖      | Browser only |
+| Handles gzip/deflate  |       ✔      |       ✔      |       ✔      |       ✔      |
+| Advanced timeouts     |       ✔      |       ✖      |       ✖      |       ✖      |
+| Errors with metadata  |       ✔      |       ✖      |       ✖      |       ✔      |
+| JSON mode             |       ✔      |       ✔      |       ✖      |       ✔      |
+| Custom defaults       |       ✔      |       ✔      |       ✖      |       ✔      |
+| Composable            |       ✔      |       ✖      |       ✖      |       ✖      |
+| Hooks                 |       ✔      |       ✖      |       ✖      |       ✔      |
+| Issues open           |   ![][gio]   |   ![][rio]   |   ![][nio]   |   ![][aio]   |
+| Issues closed         |   ![][gic]   |   ![][ric]   |   ![][nic]   |   ![][aic]   |
+| Downloads             |    ![][gd]   |    ![][rd]   |    ![][nd]   |    ![][ad]   |
+| Coverage              |    ![][gc]   |    ![][rc]   |    ![][nc]   |    ![][ac]   |
+| Build                 |    ![][gb]   |    ![][rb]   |    ![][nb]   |    ![][ab]   |
+| Dependents            |   ![][gdp]   |   ![][rdp]   |   ![][ndp]   |   ![][adp]   |
+| Install size          |   ![][gis]   |   ![][ris]   |   ![][nis]   |   ![][ais]   |
 
 \* It's almost API compatible with the browser `fetch` API.<br>
 ❔ Experimental support.
