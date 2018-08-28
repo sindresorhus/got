@@ -10,6 +10,7 @@ const isRetryOnNetworkErrorAllowed = require('./is-retry-on-network-error-allowe
 const urlToOptions = require('./url-to-options');
 const isFormData = require('./is-form-data');
 const knownHookEvents = require('./known-hook-events');
+const merge = require('./merge');
 
 const retryAfterStatusCodes = new Set([413, 429, 503]);
 
@@ -57,6 +58,8 @@ const preNormalize = options => {
 };
 
 module.exports = (url, options, defaults) => {
+	options = merge({}, defaults.options, options ? preNormalize(options) : {});
+
 	if (Reflect.has(options, 'url') || (is.object(url) && Reflect.has(url, 'url'))) {
 		throw new TypeError('Parameter `url` is not an option. Use got(url, options)');
 	}
@@ -64,8 +67,6 @@ module.exports = (url, options, defaults) => {
 	if (!is.string(url) && !is.object(url)) {
 		throw new TypeError(`Parameter \`url\` must be a string or object, not ${is(url)}`);
 	}
-
-	options = preNormalize(options);
 
 	if (is.string(url)) {
 		if (options.baseUrl) {

@@ -28,10 +28,9 @@ const create = defaults => {
 
 	function got(url, options) {
 		try {
-			options = mergeOptions(defaults.options, options);
 			return defaults.handler(normalizeArguments(url, options, defaults), next);
 		} catch (error) {
-			if (options.stream) {
+			if (options && options.stream) {
 				throw error;
 			} else {
 				return Promise.reject(error);
@@ -40,7 +39,7 @@ const create = defaults => {
 	}
 
 	got.create = create;
-	got.extend = (options = {}) => create({
+	got.extend = options => create({
 		options: mergeOptions(defaults.options, options),
 		handler: defaults.handler
 	});
@@ -48,9 +47,7 @@ const create = defaults => {
 	got.mergeInstances = (...args) => create(mergeInstances(args));
 
 	got.stream = (url, options) => {
-		options = mergeOptions(defaults.options, options);
-		options.stream = true;
-		return defaults.handler(normalizeArguments(url, options, defaults), next);
+		return defaults.handler(normalizeArguments(url, {...options, stream: true}, defaults), next);
 	};
 
 	for (const method of aliases) {
