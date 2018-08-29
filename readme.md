@@ -159,6 +159,12 @@ If present in `options` and `options.method` is not set, `options.method` will b
 
 The `content-length` header will be automatically set if `body` is a `string` / `Buffer` / `fs.createReadStream` instance / [`form-data` instance](https://github.com/form-data/form-data), and `content-length` and `transfer-encoding` are not manually set in `options.headers`.
 
+###### cookieJar
+
+Type: `object`
+
+An instance of [`tough.CookieJar`](https://github.com/salesforce/tough-cookie#cookiejar). If provided, `options.headers.cookie` will be overriden.
+
 ###### encoding
 
 Type: `string` `null`<br>
@@ -673,26 +679,16 @@ Check out [`global-tunnel`](https://github.com/np-maintain/global-tunnel) if you
 
 ## Cookies
 
-You can use the [`cookie`](https://github.com/jshttp/cookie) package to include cookies in a request:
+You can use the [`tough-cookie`](https://github.com/salesforce/tough-cookie) package:
 
 ```js
 const got = require('got');
-const cookie = require('cookie');
+const {CookieJar} = require('tough-cookie');
+const jar = new CookieJar();
 
-got('google.com', {
-	headers: {
-		cookie: cookie.serialize('foo', 'bar')
-	}
-});
+jar.setCookie('foo=bar', 'https://www.google.com');
 
-got('google.com', {
-	headers: {
-		cookie: [
-			cookie.serialize('foo', 'bar'),
-			cookie.serialize('fizz', 'buzz')
-		].join(';')
-	}
-});
+got('google.com', {cookieJar: jar});
 ```
 
 
