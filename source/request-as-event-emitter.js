@@ -1,6 +1,6 @@
 'use strict';
-/* istanbul ignore next: compatibility reason */
-const URLGlobal = typeof URL === 'undefined' ? require('url').URL : URL; // TODO: Use the `URL` global when targeting Node.js 10
+const {URL} = require('url'); // TODO: Use the `URL` global when targeting Node.js 10
+const util = require('util');
 const EventEmitter = require('events');
 const http = require('http');
 const https = require('https');
@@ -19,7 +19,7 @@ const allMethodRedirectCodes = new Set([300, 303, 307, 308]);
 
 module.exports = options => {
 	const emitter = new EventEmitter();
-	const requestUrl = options.href || (new URLGlobal(options.path, urlLib.format(options))).toString();
+	const requestUrl = options.href || (new URL(options.path, urlLib.format(options))).toString();
 	const redirects = [];
 	const agents = is.object(options.agent) ? options.agent : null;
 	let retryCount = 0;
@@ -27,7 +27,12 @@ module.exports = options => {
 	let redirectUrl;
 	let uploadBodySize;
 
-	const get = options => {
+	const setCookie = options.cookieJar ? util.promisify(options.cookieJar.setCookie.bind(options.cookieJar)) : null;
+	const getCookieString = options.cookieJar ? util.promisify(options.cookieJar.getCookieString.bind(options.cookieJar)) : null;
+
+	const get = async options => {
+		const currentUrl = redirectUrl || requestUrl;
+
 		if (options.protocol !== 'http:' && options.protocol !== 'https:') {
 			emitter.emit('error', new UnsupportedProtocolError(options));
 			return;
@@ -51,14 +56,41 @@ module.exports = options => {
 			fn = electron.net || electron.remote.net;
 		}
 
+		if (options.cookieJar) {
+			try {
+				const cookieString = await getCookieString(currentUrl, {});
+
+				if (!is.empty(cookieString)) {
+					options.headers.cookie = cookieString;
+				}
+			} catch (e) {
+				emitter.emit('error', e);
+			}
+		}
+
 		let timings;
 		const cacheableRequest = new CacheableRequest(fn.request, options.cache);
-		const cacheReq = cacheableRequest(options, response => {
+		const cacheReq = cacheableRequest(options, async response => {
 			const {statusCode} = response;
-			response.url = redirectUrl || requestUrl;
+			response.url = currentUrl;
 			response.requestUrl = requestUrl;
 			response.retryCount = retryCount;
 			response.timings = timings;
+
+			const rawCookies = response.headers['set-cookie'];
+			if (options.cookieJar && rawCookies) {
+				try {
+					if (is.array(rawCookies)) {
+						for (const rawCookie of rawCookies) {
+							await setCookie(rawCookie, response.url); // eslint-disable-line no-await-in-loop
+						}
+					} else {
+						await setCookie(rawCookies, response.url);
+					}
+				} catch (e) {
+					emitter.emit('error', e);
+				}
+			}
 
 			const followRedirect = options.followRedirect && 'location' in response.headers;
 			const redirectGet = followRedirect && getMethodRedirectCodes.has(statusCode);
@@ -79,7 +111,7 @@ module.exports = options => {
 				}
 
 				const bufferString = Buffer.from(response.headers.location, 'binary').toString();
-				redirectUrl = (new URLGlobal(bufferString, urlLib.format(options))).toString();
+				redirectUrl = (new URL(bufferString, urlLib.format(options))).toString();
 
 				try {
 					decodeURI(redirectUrl);
@@ -97,7 +129,7 @@ module.exports = options => {
 
 				emitter.emit('redirect', response, redirectOpts);
 
-				get(redirectOpts);
+				await get(redirectOpts);
 				return;
 			}
 
@@ -183,7 +215,7 @@ module.exports = options => {
 				await hook(options);
 			}
 
-			get(options);
+			await get(options);
 		} catch (error) {
 			emitter.emit('error', error);
 		}
