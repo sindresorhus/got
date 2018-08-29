@@ -9,19 +9,24 @@ test.before('setup', async () => {
 	s = await createServer();
 
 	s.on('/set-cookie', (request, response) => {
-		response.setHeader('set-cookie', `hello=world`);
+		response.setHeader('set-cookie', 'hello=world');
 		response.end();
 	});
 
 	s.on('/set-multiple-cookies', (request, response) => {
-		response.setHeader('set-cookie', [`hello=world`, `foo=bar`]);
+		response.setHeader('set-cookie', ['hello=world', 'foo=bar']);
 		response.end();
 	});
 
 	s.on('/set-cookies-then-redirect', (request, response) => {
-		response.setHeader('set-cookie', [`hello=world`, `foo=bar`]);
+		response.setHeader('set-cookie', ['hello=world', 'foo=bar']);
 		response.setHeader('location', '/');
 		response.statusCode = 302;
+		response.end();
+	});
+
+	s.on('/invalid', (request, response) => {
+		response.setHeader('set-cookie', 'hello=world; domain=localhost');
 		response.end();
 	});
 
@@ -66,4 +71,21 @@ test('cookies doesn\'t break on redirects', async t => {
 
 	const {body} = await got(`${s.url}/set-cookies-then-redirect`, {cookieJar: jar});
 	t.is(body, 'hello=world; foo=bar');
+});
+
+test('throws on invalid cookies', async t => {
+	const jar = new tough.CookieJar();
+
+	await t.throwsAsync(() => got(`${s.url}/invalid`, {cookieJar: jar}), 'Cookie has domain set to a public suffix');
+});
+
+test('catches store errors', async t => {
+	const error = 'Some error';
+	const jar = new tough.CookieJar({
+		findCookies: (_, __, cb) => {
+			cb(new Error(error));
+		}
+	});
+
+	await t.throwsAsync(() => got(s.url, {cookieJar: jar}), error);
 });

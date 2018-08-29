@@ -80,12 +80,8 @@ module.exports = options => {
 			const rawCookies = response.headers['set-cookie'];
 			if (options.cookieJar && rawCookies) {
 				try {
-					if (is.array(rawCookies)) {
-						for (const rawCookie of rawCookies) {
-							await setCookie(rawCookie, response.url); // eslint-disable-line no-await-in-loop
-						}
-					} else {
-						await setCookie(rawCookies, response.url);
+					for (const rawCookie of rawCookies) {
+						await setCookie(rawCookie, response.url); // eslint-disable-line no-await-in-loop
 					}
 				} catch (e) {
 					emitter.emit('error', e);
