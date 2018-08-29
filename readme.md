@@ -906,11 +906,13 @@ const h2got = got.extend({request});
 | Stream API            |       ✔      |       ✔      |       ✖      |       ✖      |
 | Request cancelation   |       ✔      |       ✖      |       ✖      |       ✔      |
 | RFC compliant caching |       ✔      |       ✖      |       ✖      |       ✖      |
+| Cookies (out-of-box)  |       ✔      |       ✔      |       ✖      |       ✖      |
 | Follows redirects     |       ✔      |       ✔      |       ✔      |       ✔      |
 | Retries on failure    |       ✔      |       ✖      |       ✖      |       ✖      |
 | Progress events       |       ✔      |       ✖      |       ✖      | Browser only |
 | Handles gzip/deflate  |       ✔      |       ✔      |       ✔      |       ✔      |
 | Advanced timeouts     |       ✔      |       ✖      |       ✖      |       ✖      |
+| Timings               |       ✔      |       ✔      |       ✖      |       ✖      |
 | Errors with metadata  |       ✔      |       ✖      |       ✖      |       ✔      |
 | JSON mode             |       ✔      |       ✔      |       ✖      |       ✔      |
 | Custom defaults       |       ✔      |       ✔      |       ✖      |       ✔      |
