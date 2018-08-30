@@ -63,8 +63,8 @@ module.exports = options => {
 				if (!is.empty(cookieString)) {
 					options.headers.cookie = cookieString;
 				}
-			} catch (e) {
-				emitter.emit('error', e);
+			} catch (error) {
+				emitter.emit('error', error);
 			}
 		}
 
