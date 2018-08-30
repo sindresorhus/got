@@ -47,13 +47,26 @@ module.exports = options => {
 
 		/* istanbul ignore next: electron.net is broken */
 		if (options.useElectronNet && process.versions.electron) {
-			const electron = global['require']('electron'); // eslint-disable-line dot-notation
+			const electron = require('electron');
 			fn = electron.net || electron.remote.net;
 		}
 
 		let timings;
 		const cacheableRequest = new CacheableRequest(fn.request, options.cache);
 		const cacheReq = cacheableRequest(options, response => {
+			if (options.useElectronNet) {
+				response = new Proxy(response, {
+					get: (target, name) => {
+						if (name === 'trailers' || name === 'rawTrailers') {
+							return [];
+						}
+
+						const value = target[name];
+						return is.function(value) ? value.bind(target) : value;
+					}
+				});
+			}
+
 			const {statusCode} = response;
 			response.url = redirectUrl || requestUrl;
 			response.requestUrl = requestUrl;
