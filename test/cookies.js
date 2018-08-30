@@ -42,21 +42,21 @@ test.after('cleanup', async () => {
 });
 
 test('reads a cookie', async t => {
-	const jar = new tough.CookieJar();
+	const cookieJar = new tough.CookieJar();
 
-	await got(`${s.url}/set-cookie`, {cookieJar: jar});
+	await got(`${s.url}/set-cookie`, {cookieJar});
 
-	const cookie = jar.getCookiesSync(s.url)[0];
+	const cookie = cookieJar.getCookiesSync(s.url)[0];
 	t.is(cookie.key, 'hello');
 	t.is(cookie.value, 'world');
 });
 
 test('reads multiple cookies', async t => {
-	const jar = new tough.CookieJar();
+	const cookieJar = new tough.CookieJar();
 
-	await got(`${s.url}/set-multiple-cookies`, {cookieJar: jar});
+	await got(`${s.url}/set-multiple-cookies`, {cookieJar});
 
-	const cookies = jar.getCookiesSync(s.url);
+	const cookies = cookieJar.getCookiesSync(s.url);
 	const cookieA = cookies[0];
 	t.is(cookieA.key, 'hello');
 	t.is(cookieA.value, 'world');
@@ -67,25 +67,33 @@ test('reads multiple cookies', async t => {
 });
 
 test('cookies doesn\'t break on redirects', async t => {
-	const jar = new tough.CookieJar();
+	const cookieJar = new tough.CookieJar();
 
-	const {body} = await got(`${s.url}/set-cookies-then-redirect`, {cookieJar: jar});
+	const {body} = await got(`${s.url}/set-cookies-then-redirect`, {cookieJar});
 	t.is(body, 'hello=world; foo=bar');
 });
 
 test('throws on invalid cookies', async t => {
-	const jar = new tough.CookieJar();
+	const cookieJar = new tough.CookieJar();
 
-	await t.throwsAsync(() => got(`${s.url}/invalid`, {cookieJar: jar}), 'Cookie has domain set to a public suffix');
+	await t.throwsAsync(() => got(`${s.url}/invalid`, {cookieJar}), 'Cookie has domain set to a public suffix');
 });
 
 test('catches store errors', async t => {
 	const error = 'Some error';
-	const jar = new tough.CookieJar({
+	const cookieJar = new tough.CookieJar({
 		findCookies: (_, __, cb) => {
 			cb(new Error(error));
 		}
 	});
 
-	await t.throwsAsync(() => got(s.url, {cookieJar: jar}), error);
+	await t.throwsAsync(() => got(s.url, {cookieJar}), error);
+});
+
+test('options.headers.cookie overrides options.cookieJar', async t => {
+	const cookie = 'a=b';
+
+	const cookieJar = new tough.CookieJar();
+	const {body} = await got(`${s.url}/set-cookies-then-redirect`, {cookieJar, headers: {cookie}});
+	t.is(body, cookie);
 });

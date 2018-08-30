@@ -165,7 +165,7 @@ Type: [`tough.CookieJar` instance](https://github.com/salesforce/tough-cookie#co
 
 Supports cookies globally. You don't need to care of parsing nor storing them. [Click here](#cookies) for an example.
 
-**Note**: if provided, `options.headers.cookie` will be overriden.
+**Note**: `options.headers.cookie` must be `undefined`.
 
 ###### encoding
 

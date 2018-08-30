@@ -56,7 +56,7 @@ module.exports = options => {
 			fn = electron.net || electron.remote.net;
 		}
 
-		if (options.cookieJar) {
+		if (options.cookieJar && !options.headers.cookie) {
 			try {
 				const cookieString = await getCookieString(currentUrl, {});
 
