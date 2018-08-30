@@ -1,6 +1,5 @@
 'use strict';
-/* istanbul ignore next: compatibility reason */
-const URLGlobal = typeof URL === 'undefined' ? require('url').URL : URL; // TODO: Use the `URL` global when targeting Node.js 10
+const {URL} = require('url'); // TODO: Use the `URL` global when targeting Node.js 10
 const EventEmitter = require('events');
 const http = require('http');
 const https = require('https');
@@ -19,7 +18,7 @@ const allMethodRedirectCodes = new Set([300, 303, 307, 308]);
 
 module.exports = options => {
 	const emitter = new EventEmitter();
-	const requestUrl = options.href || (new URLGlobal(options.path, urlLib.format(options))).toString();
+	const requestUrl = options.href || (new URL(options.path, urlLib.format(options))).toString();
 	const redirects = [];
 	const agents = is.object(options.agent) ? options.agent : null;
 	let retryCount = 0;
@@ -79,7 +78,7 @@ module.exports = options => {
 				}
 
 				const bufferString = Buffer.from(response.headers.location, 'binary').toString();
-				redirectUrl = (new URLGlobal(bufferString, urlLib.format(options))).toString();
+				redirectUrl = (new URL(bufferString, urlLib.format(options))).toString();
 
 				try {
 					decodeURI(redirectUrl);

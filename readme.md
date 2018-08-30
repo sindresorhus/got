@@ -915,6 +915,7 @@ const h2got = got.extend({request});
 | Progress events       |       ✔      |       ✖      |       ✖      | Browser only |
 | Handles gzip/deflate  |       ✔      |       ✔      |       ✔      |       ✔      |
 | Advanced timeouts     |       ✔      |       ✖      |       ✖      |       ✖      |
+| Timings               |       ✔      |       ✔      |       ✖      |       ✖      |
 | Errors with metadata  |       ✔      |       ✖      |       ✖      |       ✔      |
 | JSON mode             |       ✔      |       ✔      |       ✖      |       ✔      |
 | Custom defaults       |       ✔      |       ✔      |       ✖      |       ✔      |
