@@ -161,9 +161,11 @@ The `content-length` header will be automatically set if `body` is a `string` / 
 
 ###### cookieJar
 
-Type: `object`
+Type: [`tough.CookieJar` instance](https://github.com/salesforce/tough-cookie#cookiejar)
 
-An instance of [`tough.CookieJar`](https://github.com/salesforce/tough-cookie#cookiejar). If provided, `options.headers.cookie` will be overriden.
+Supports cookies globally. You don't need to care of parsing nor storing them. [Click here](#cookies) for an example.
+
+**Note**: if provided, `options.headers.cookie` will be overriden.
 
 ###### encoding
 
