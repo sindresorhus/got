@@ -684,11 +684,11 @@ You can use the [`tough-cookie`](https://github.com/salesforce/tough-cookie) pac
 ```js
 const got = require('got');
 const {CookieJar} = require('tough-cookie');
-const jar = new CookieJar();
 
-jar.setCookie('foo=bar', 'https://www.google.com');
+const cookieJar = new CookieJar();
+cookieJar.setCookie('foo=bar', 'https://www.google.com');
 
-got('google.com', {cookieJar: jar});
+got('google.com', {cookieJar});
 ```
 
 
