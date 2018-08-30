@@ -31,7 +31,7 @@ So if you're familiar with them, you're good to go :)
 
 #### Changes in behavior
 
-The `timeout` option works in the same way if you provide a number. But here's the thing: you can set timeouts on particular events! [Click here](readme.md#timeout) to read more.
+The `timeout` option works in the same way if you provide a number. In Got, you can also [set timeouts on particular events!](readme.md#timeout)
 
 The `query` option is serialized using [`URLSearchParams`](https://developer.mozilla.org/en-US/docs/Web/API/URLSearchParams).
 
@@ -59,7 +59,7 @@ There's no `followAllRedirects` option. [More info.](readme.md#followredirect)
 
 There are no `agentClass`/`agentOptions`/`forever`/`pool` options.
 
-There are no proxy options. You need to [pass custom agent](https://github.com/sindresorhus/got#proxies).
+There are no proxy options. You need to [pass custom agent](readme.md#proxies).
 
 *need to write something about `removeRefererHeader`*
 
