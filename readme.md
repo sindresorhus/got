@@ -159,6 +159,14 @@ If present in `options` and `options.method` is not set, `options.method` will b
 
 The `content-length` header will be automatically set if `body` is a `string` / `Buffer` / `fs.createReadStream` instance / [`form-data` instance](https://github.com/form-data/form-data), and `content-length` and `transfer-encoding` are not manually set in `options.headers`.
 
+###### cookieJar
+
+Type: [`tough.CookieJar` instance](https://github.com/salesforce/tough-cookie#cookiejar)
+
+Cookie support. You don't have to care about parsing or how to store them. [Example.](#cookies)
+
+**Note:** `options.headers.cookie` will be overridden.
+
 ###### encoding
 
 Type: `string` `null`<br>
@@ -673,26 +681,16 @@ Check out [`global-tunnel`](https://github.com/np-maintain/global-tunnel) if you
 
 ## Cookies
 
-You can use the [`cookie`](https://github.com/jshttp/cookie) package to include cookies in a request:
+You can use the [`tough-cookie`](https://github.com/salesforce/tough-cookie) package:
 
 ```js
 const got = require('got');
-const cookie = require('cookie');
+const {CookieJar} = require('tough-cookie');
 
-got('google.com', {
-	headers: {
-		cookie: cookie.serialize('foo', 'bar')
-	}
-});
+const cookieJar = new CookieJar();
+cookieJar.setCookie('foo=bar', 'https://www.google.com');
 
-got('google.com', {
-	headers: {
-		cookie: [
-			cookie.serialize('foo', 'bar'),
-			cookie.serialize('fizz', 'buzz')
-		].join(';')
-	}
-});
+got('google.com', {cookieJar});
 ```
 
 
@@ -910,6 +908,7 @@ const h2got = got.extend({request});
 | Stream API            |       ✔      |       ✔      |       ✖      |       ✖      |
 | Request cancelation   |       ✔      |       ✖      |       ✖      |       ✔      |
 | RFC compliant caching |       ✔      |       ✖      |       ✖      |       ✖      |
+| Cookies (out-of-box)  |       ✔      |       ✔      |       ✖      |       ✖      |
 | Follows redirects     |       ✔      |       ✔      |       ✔      |       ✔      |
 | Retries on failure    |       ✔      |       ✖      |       ✖      |       ✖      |
 | Progress events       |       ✔      |       ✖      |       ✖      | Browser only |
