@@ -1,4 +1,6 @@
 'use strict';
+/* istanbul ignore next: webpack only */
+const r = ({x: require})['yx'.slice(1)];
 /* istanbul ignore next: compatibility reason */
 const URLGlobal = typeof URL === 'undefined' ? require('url').URL : URL; // TODO: Use the `URL` global when targeting Node.js 10
 const EventEmitter = require('events');
@@ -47,14 +49,14 @@ module.exports = options => {
 
 		/* istanbul ignore next: electron.net is broken */
 		if (options.useElectronNet && process.versions.electron) {
-			const electron = require('electron');
+			const electron = r('electron');
 			fn = electron.net || electron.remote.net;
 		}
 
 		let timings;
 		const cacheableRequest = new CacheableRequest(fn.request, options.cache);
 		const cacheReq = cacheableRequest(options, response => {
-			// Fixes https://github.com/electron/electron/blob/cbb460d47628a7a146adf4419ed48550a98b2923/lib/browser/api/net.js#L59-L65
+			/* istanbul ignore next: fixes https://github.com/electron/electron/blob/cbb460d47628a7a146adf4419ed48550a98b2923/lib/browser/api/net.js#L59-L65 */
 			if (options.useElectronNet) {
 				response = new Proxy(response, {
 					get: (target, name) => {
