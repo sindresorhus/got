@@ -1,6 +1,4 @@
 'use strict';
-/* istanbul ignore next: webpack only */
-const r = ({x: require})['yx'.slice(1)];
 const {URL} = require('url'); // TODO: Use the `URL` global when targeting Node.js 10
 const util = require('util');
 const EventEmitter = require('events');
@@ -54,6 +52,7 @@ module.exports = options => {
 
 		/* istanbul ignore next: electron.net is broken */
 		if (options.useElectronNet && process.versions.electron) {
+			const r = ({x: require})['yx'.slice(1)]; // Trick webpack
 			const electron = r('electron');
 			fn = electron.net || electron.remote.net;
 		}
