@@ -52,7 +52,8 @@ module.exports = options => {
 
 		/* istanbul ignore next: electron.net is broken */
 		if (options.useElectronNet && process.versions.electron) {
-			const electron = global['require']('electron'); // eslint-disable-line dot-notation
+			const r = ({x: require})['yx'.slice(1)]; // Trick webpack
+			const electron = r('electron');
 			fn = electron.net || electron.remote.net;
 		}
 
@@ -71,6 +72,20 @@ module.exports = options => {
 		let timings;
 		const cacheableRequest = new CacheableRequest(fn.request, options.cache);
 		const cacheReq = cacheableRequest(options, async response => {
+			/* istanbul ignore next: fixes https://github.com/electron/electron/blob/cbb460d47628a7a146adf4419ed48550a98b2923/lib/browser/api/net.js#L59-L65 */
+			if (options.useElectronNet) {
+				response = new Proxy(response, {
+					get: (target, name) => {
+						if (name === 'trailers' || name === 'rawTrailers') {
+							return [];
+						}
+
+						const value = target[name];
+						return is.function(value) ? value.bind(target) : value;
+					}
+				});
+			}
+
 			const {statusCode} = response;
 			response.url = currentUrl;
 			response.requestUrl = requestUrl;
