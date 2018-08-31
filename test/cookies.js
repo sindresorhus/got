@@ -90,10 +90,13 @@ test('catches store errors', async t => {
 	await t.throwsAsync(() => got(s.url, {cookieJar}), error);
 });
 
-test('options.headers.cookie overrides options.cookieJar', async t => {
-	const cookie = 'a=b';
-
+test('overrides options.headers.cookie', async t => {
 	const cookieJar = new tough.CookieJar();
-	const {body} = await got(`${s.url}/set-cookies-then-redirect`, {cookieJar, headers: {cookie}});
-	t.is(body, cookie);
+	const {body} = await got(`${s.url}/set-cookies-then-redirect`, {
+		cookieJar,
+		headers: {
+			cookie: 'a=b'
+		}
+	});
+	t.is(body, 'hello=world; foo=bar');
 });
