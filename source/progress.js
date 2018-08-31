@@ -1,4 +1,5 @@
 'use strict';
+
 module.exports = {
 	upload(request, emitter, uploadBodySize) {
 		const uploadEventFrequency = 150;

@@ -1,8 +1,5 @@
 'use strict';
-/* istanbul ignore next: compatibility reason */
-const URLGlobal = typeof URL === 'undefined' ? require('url').URL : URL; // TODO: Use the `URL` global when targeting Node.js 10
-/* istanbul ignore next: compatibility reason */
-const URLSearchParamsGlobal = typeof URLSearchParams === 'undefined' ? require('url').URLSearchParams : URLSearchParams;
+const {URL, URLSearchParams} = require('url'); // TODO: Use the `URL` global when targeting Node.js 10
 const is = require('@sindresorhus/is');
 const toReadableStream = require('to-readable-stream');
 const urlParseLax = require('url-parse-lax');
@@ -74,7 +71,7 @@ module.exports = (url, options, defaults) => {
 				url = url.toString().slice(1);
 			}
 
-			url = urlToOptions(new URLGlobal(url, options.baseUrl));
+			url = urlToOptions(new URL(url, options.baseUrl));
 		} else {
 			url = url.replace(/^unix:/, 'http://$&');
 
@@ -109,9 +106,9 @@ module.exports = (url, options, defaults) => {
 	});
 
 	const {query} = options;
-	if (!is.empty(query) || query instanceof URLSearchParamsGlobal) {
+	if (!is.empty(query) || query instanceof URLSearchParams) {
 		if (!is.string(query)) {
-			options.query = (new URLSearchParamsGlobal(query)).toString();
+			options.query = (new URLSearchParams(query)).toString();
 		}
 		options.path = `${options.path.split('?')[0]}?${options.query}`;
 		delete options.query;
@@ -154,7 +151,7 @@ module.exports = (url, options, defaults) => {
 			headers['content-type'] = headers['content-type'] || `multipart/form-data; boundary=${body.getBoundary()}`;
 		} else if (options.form) {
 			headers['content-type'] = headers['content-type'] || 'application/x-www-form-urlencoded';
-			options.body = (new URLSearchParamsGlobal(body)).toString();
+			options.body = (new URLSearchParams(body)).toString();
 		} else if (options.json) {
 			headers['content-type'] = headers['content-type'] || 'application/json';
 			options.body = JSON.stringify(body);
