@@ -54,7 +54,7 @@ module.exports = options => {
 		let timings;
 		const cacheableRequest = new CacheableRequest(fn.request, options.cache);
 		const cacheReq = cacheableRequest(options, response => {
-			// Fixes https://github.com/electron/electron/blob/master/lib/browser/api/net.js#L59
+			// Fixes https://github.com/electron/electron/blob/cbb460d47628a7a146adf4419ed48550a98b2923/lib/browser/api/net.js#L59-L65
 			if (options.useElectronNet) {
 				response = new Proxy(response, {
 					get: (target, name) => {
