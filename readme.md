@@ -926,6 +926,7 @@ const h2got = got.extend({request});
 | Downloads             |    ![][gd]   |    ![][rd]   |    ![][nd]   |    ![][ad]   |
 | Coverage              |    ![][gc]   |    ![][rc]   |    ![][nc]   |    ![][ac]   |
 | Build                 |    ![][gb]   |    ![][rb]   |    ![][nb]   |    ![][ab]   |
+| Bugs                  |   ![][gbg]   |   ![][rbg]   |   ![][nbg]   |   ![][abg]   |
 | Dependents            |   ![][gdp]   |   ![][rdp]   |   ![][ndp]   |   ![][adp]   |
 | Install size          |   ![][gis]   |   ![][ris]   |   ![][nis]   |   ![][ais]   |
 
@@ -961,6 +962,12 @@ const h2got = got.extend({request});
 [rb]: https://travis-ci.org/request/request.svg?branch=master
 [nb]: https://travis-ci.org/bitinn/node-fetch.svg?branch=master
 [ab]: https://travis-ci.org/axios/axios.svg?branch=master
+
+<!-- BUGS -->
+[gbg]: https://badgen.net/github/label-issues/sindresorhus/got/bug/open
+[rbg]: https://badgen.net/github/label-issues/request/request/Needs%20investigation/open
+[nbg]: https://badgen.net/github/label-issues/bitinn/node-fetch/bug/open
+[abg]: https://badgen.net/github/label-issues/axios/axios/bug/open
 
 <!-- DEPENDENTS -->
 [gdp]: https://badgen.net/npm/dependents/got
