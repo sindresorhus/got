@@ -9,8 +9,7 @@
 		"node": ">=8.6"
 	},
 	"scripts": {
-		"test": "xo && nyc ava",
-		"coveralls": "nyc report --reporter=text-lcov | coveralls"
+		"test": "xo && nyc ava"
 	},
 	"files": [
 		"source"

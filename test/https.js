@@ -36,4 +36,3 @@ test('protocol-less URLs default to HTTPS', async t => {
 	t.is(body, 'ok');
 	t.true(requestUrl.startsWith('https://'));
 });
-

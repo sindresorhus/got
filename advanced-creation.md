@@ -169,7 +169,7 @@ const limitDownloadUpload = got.create({
         		}
         	});
         }
-        
+
         return promiseOrStream;
     }
 });
