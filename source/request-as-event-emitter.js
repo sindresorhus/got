@@ -194,8 +194,8 @@ module.exports = options => {
 		let backoff;
 		try {
 			backoff = options.gotRetry.retries(++retryTries, error);
-		} catch (error) {
-			emitter.emit('error', error);
+		} catch (error2) {
+			emitter.emit('error', error2);
 			return;
 		}
 

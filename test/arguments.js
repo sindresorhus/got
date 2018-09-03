@@ -46,7 +46,7 @@ test('url should be utf-8 encoded', async t => {
 });
 
 test('string url with query is preserved', async t => {
-	const path = `/?test=http://example.com?foo=bar`;
+	const path = '/?test=http://example.com?foo=bar';
 	const response = await got(`${s.url}${path}`);
 	t.is(response.body, path);
 });
@@ -110,7 +110,7 @@ test('overrides querystring from opts', async t => {
 test('escapes query parameter values', async t => {
 	const response = await got(`${s.url}`, {
 		query: {
-			test: `it’s ok`
+			test: 'it’s ok'
 		}
 	});
 	t.is(response.body, '/?test=it%E2%80%99s+ok');
@@ -201,25 +201,25 @@ test('allows extra keys in `hooks`', async t => {
 test('baseUrl works', async t => {
 	const instanceA = got.extend({baseUrl: `${s.url}/test`});
 	const {body} = await instanceA('/foobar');
-	t.is(body, `/test/foobar`);
+	t.is(body, '/test/foobar');
 });
 
 test('accepts WHATWG URL as the baseUrl option', async t => {
 	const instanceA = got.extend({baseUrl: new URL(`${s.url}/test`)});
 	const {body} = await instanceA('/foobar');
-	t.is(body, `/test/foobar`);
+	t.is(body, '/test/foobar');
 });
 
 test('backslash in the end of `baseUrl` is optional', async t => {
 	const instanceA = got.extend({baseUrl: `${s.url}/test/`});
 	const {body} = await instanceA('/foobar');
-	t.is(body, `/test/foobar`);
+	t.is(body, '/test/foobar');
 });
 
 test('backslash in the beginning of `url` is optional when using baseUrl', async t => {
 	const instanceA = got.extend({baseUrl: `${s.url}/test`});
 	const {body} = await instanceA('foobar');
-	t.is(body, `/test/foobar`);
+	t.is(body, '/test/foobar');
 });
 
 test('throws when trying to modify baseUrl after options got normalized', async t => {

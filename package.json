@@ -45,12 +45,12 @@
 		"url-parse-lax": "^3.0.0"
 	},
 	"devDependencies": {
-		"ava": "1.0.0-beta.7",
+		"ava": "1.0.0-beta.8",
 		"coveralls": "^3.0.0",
-		"delay": "^3.0.0",
+		"delay": "^4.0.0",
 		"form-data": "^2.1.1",
 		"get-port": "^4.0.0",
-		"nyc": "^12.0.2",
+		"nyc": "^13.0.1",
 		"p-event": "^2.1.0",
 		"pem": "^1.4.4",
 		"proxyquire": "^2.0.1",
@@ -59,7 +59,7 @@
 		"tempfile": "^2.0.0",
 		"tempy": "^0.2.1",
 		"tough-cookie": "^2.4.3",
-		"xo": "^0.22.0"
+		"xo": "^0.23.0"
 	},
 	"ava": {
 		"concurrency": 4

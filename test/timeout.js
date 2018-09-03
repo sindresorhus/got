@@ -39,7 +39,7 @@ const keepAliveAgent = new http.Agent({
 test.before('setup', async () => {
 	[s, ss] = await Promise.all([createServer(), createSSLServer()]);
 
-	s.on('/', async (request, response) => {
+	s.on('/', (request, response) => {
 		request.on('data', () => {});
 		request.on('end', async () => {
 			await delay(requestDelay);
@@ -47,7 +47,7 @@ test.before('setup', async () => {
 		});
 	});
 
-	s.on('/download', async (request, response) => {
+	s.on('/download', (request, response) => {
 		response.writeHead(200, {
 			'transfer-encoding': 'chunked'
 		});
@@ -59,7 +59,7 @@ test.before('setup', async () => {
 		response.end('OK');
 	});
 
-	ss.on('/', async (request, response) => {
+	ss.on('/', (request, response) => {
 		response.end('OK');
 	});
 
@@ -74,7 +74,7 @@ test('timeout option (ETIMEDOUT)', async t => {
 		}),
 		{
 			...errorMatcher,
-			message: `Timeout awaiting 'request' for 0ms`
+			message: 'Timeout awaiting \'request\' for 0ms'
 		}
 	);
 });
@@ -87,7 +87,7 @@ test('timeout option as object (ETIMEDOUT)', async t => {
 		}),
 		{
 			...errorMatcher,
-			message: `Timeout awaiting 'request' for 1ms`
+			message: 'Timeout awaiting \'request\' for 1ms'
 		}
 	);
 });
@@ -114,7 +114,7 @@ test('send timeout', async t => {
 		}),
 		{
 			...errorMatcher,
-			message: `Timeout awaiting 'send' for 1ms`
+			message: 'Timeout awaiting \'send\' for 1ms'
 		}
 	);
 });
@@ -131,13 +131,13 @@ test('send timeout (keepalive)', async t => {
 			request.once('socket', socket => {
 				t.false(socket.connecting);
 				socket.once('connect', () => {
-					t.fail(`'connect' event fired, invalidating test`);
+					t.fail('\'connect\' event fired, invalidating test');
 				});
 			});
 		}),
 		{
 			...errorMatcher,
-			message: `Timeout awaiting 'send' for 1ms`
+			message: 'Timeout awaiting \'send\' for 1ms'
 		}
 	);
 });
@@ -150,7 +150,7 @@ test('response timeout', async t => {
 		}),
 		{
 			...errorMatcher,
-			message: `Timeout awaiting 'response' for 1ms`
+			message: 'Timeout awaiting \'response\' for 1ms'
 		}
 	);
 });
@@ -193,13 +193,13 @@ test('response timeout (keepalive)', async t => {
 		request.once('socket', socket => {
 			t.false(socket.connecting);
 			socket.once('connect', () => {
-				t.fail(`'connect' event fired, invalidating test`);
+				t.fail('\'connect\' event fired, invalidating test');
 			});
 		});
 	});
 	await t.throwsAsync(request, {
 		...errorMatcher,
-		message: `Timeout awaiting 'response' for 1ms`
+		message: 'Timeout awaiting \'response\' for 1ms'
 	});
 });
 
@@ -227,7 +227,7 @@ test('connect timeout', async t => {
 		}),
 		{
 			...errorMatcher,
-			message: `Timeout awaiting 'connect' for 1ms`
+			message: 'Timeout awaiting \'connect\' for 1ms'
 		}
 	);
 });
@@ -248,7 +248,7 @@ test('connect timeout (ip address)', async t => {
 		}),
 		{
 			...errorMatcher,
-			message: `Timeout awaiting 'connect' for 1ms`
+			message: 'Timeout awaiting \'connect\' for 1ms'
 		}
 	);
 });
@@ -262,7 +262,7 @@ test('secureConnect timeout', async t => {
 		}),
 		{
 			...errorMatcher,
-			message: `Timeout awaiting 'secureConnect' for 1ms`
+			message: 'Timeout awaiting \'secureConnect\' for 1ms'
 		}
 	);
 });
@@ -294,7 +294,7 @@ test('lookup timeout', async t => {
 		}),
 		{
 			...errorMatcher,
-			message: `Timeout awaiting 'lookup' for 1ms`
+			message: 'Timeout awaiting \'lookup\' for 1ms'
 		}
 	);
 });

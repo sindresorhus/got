@@ -118,12 +118,12 @@ test('cancel immediately', async t => {
 test('recover from cancelation using cancelable promise attribute', async t => {
 	// Canceled before connection started
 	const p = got('http://example.com');
-	const recover = p.catch(err => {
+	const recover = p.catch(error => {
 		if (p.isCanceled) {
 			return;
 		}
 
-		throw err;
+		throw error;
 	});
 
 	p.cancel();
@@ -134,12 +134,12 @@ test('recover from cancelation using cancelable promise attribute', async t => {
 test('recover from cancellation using error instance', async t => {
 	// Canceled before connection started
 	const p = got('http://example.com');
-	const recover = p.catch(err => {
-		if (err instanceof got.CancelError) {
+	const recover = p.catch(error => {
+		if (error instanceof got.CancelError) {
 			return;
 		}
 
-		throw err;
+		throw error;
 	});
 
 	p.cancel();

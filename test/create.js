@@ -117,7 +117,7 @@ test('create', async t => {
 
 test('custom endpoint with custom headers (extend)', async t => {
 	const instance = got.extend({headers: {unicorn: 'rainbow'}, baseUrl: s.url});
-	const headers = (await instance(`/`, {
+	const headers = (await instance('/', {
 		json: true
 	})).body;
 	t.is(headers.unicorn, 'rainbow');
