@@ -7,7 +7,7 @@ const merge = require('./merge');
 const deepFreeze = require('./deep-freeze');
 const mergeInstances = require('./merge-instances');
 
-const next = options => options.stream ? asStream(options) : asPromise(options);
+const getPromiseOrStream = options => options.stream ? asStream(options) : asPromise(options);
 const mergeOptions = (defaults, options = {}) => merge({}, defaults, options);
 
 const aliases = [
@@ -23,12 +23,14 @@ const create = defaults => {
 	defaults = merge({}, defaults);
 	defaults.options = normalizeArguments.preNormalize(defaults.options);
 	if (!defaults.handler) {
-		defaults.handler = next;
+		// This can't be getPromiseOrStream, because when merging
+		// the chain would stop at this point and no further handlers would be called.
+		defaults.handler = (options, next) => next(options);
 	}
 
 	function got(url, options) {
 		try {
-			return defaults.handler(normalizeArguments(url, options, defaults), next);
+			return defaults.handler(normalizeArguments(url, options, defaults), getPromiseOrStream);
 		} catch (error) {
 			if (options && options.stream) {
 				throw error;
@@ -46,9 +48,7 @@ const create = defaults => {
 
 	got.mergeInstances = (...args) => create(mergeInstances(args));
 
-	got.stream = (url, options) => {
-		return defaults.handler(normalizeArguments(url, {...options, stream: true}, defaults), next);
-	};
+	got.stream = (url, options) => got(url, {...options, stream: true});
 
 	for (const method of aliases) {
 		got[method] = (url, options) => got(url, {...options, method});

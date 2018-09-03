@@ -29,7 +29,38 @@ test('merging instances', async t => {
 	t.not(headers['user-agent'], undefined);
 });
 
-test('merging already merged instances & another instance', async t => {
+test('works even if no default handler in the end', async t => {
+	const instanceA = got.create({
+		options: {},
+		handler: (options, next) => next(options)
+	});
+
+	const instanceB = got.create({
+		options: {},
+		handler: (options, next) => next(options)
+	});
+
+	const merged = got.mergeInstances(instanceA, instanceB);
+	await t.notThrows(() => merged(s.url));
+});
+
+test('merges default handlers & custom handlers', async t => {
+	const instanceA = got.extend({headers: {unicorn: 'rainbow'}});
+	const instanceB = got.create({
+		options: {},
+		handler: (options, next) => {
+			options.headers.cat = 'meow';
+			return next(options);
+		}
+	});
+	const merged = got.mergeInstances(instanceA, instanceB);
+
+	const {body: headers} = await merged(s.url, {json: true});
+	t.is(headers.unicorn, 'rainbow');
+	t.is(headers.cat, 'meow');
+});
+
+test('merging one group & one instance', async t => {
 	const instanceA = got.extend({headers: {dog: 'woof'}});
 	const instanceB = got.extend({headers: {cat: 'meow'}});
 	const instanceC = got.extend({headers: {bird: 'tweet'}});
