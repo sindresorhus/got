@@ -19,6 +19,8 @@ Got is a human-friendly and powerful HTTP request library.
 
 It was created because the popular [`request`](https://github.com/request/request) package is bloated: [![Install size](https://packagephobia.now.sh/badge?p=request)](https://packagephobia.now.sh/result?p=request)
 
+Got is for Node.js. For browsers, we recommend [Ky](https://github.com/sindresorhus/ky).
+
 
 ## Highlights
 
