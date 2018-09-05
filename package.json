@@ -35,7 +35,7 @@
 	"dependencies": {
 		"@sindresorhus/is": "^0.11.0",
 		"@szmarczak/http-timer": "^1.1.0",
-		"cacheable-request": "^4.0.1",
+		"cacheable-request": "^5.0.0",
 		"decompress-response": "^3.3.0",
 		"duplexer3": "^0.1.4",
 		"get-stream": "^4.0.0",
