@@ -21,6 +21,18 @@ test.before('setup', async () => {
 		cacheIndex++;
 	});
 
+	let calledFirstError = false;
+	s.on('/first-error', (request, response) => {
+		if (calledFirstError) {
+			response.end('ok');
+			return;
+		}
+
+		calledFirstError = true;
+		response.statusCode = 502;
+		response.end('received 502');
+	});
+
 	let status301Index = 0;
 	s.on('/301', (request, response) => {
 		if (status301Index === 0) {
@@ -104,4 +116,13 @@ test('Cache error throws got.CacheError', async t => {
 
 	const error = await t.throwsAsync(got(s.url + endpoint, {cache}));
 	t.is(error.name, 'CacheError');
+});
+
+test('doesn\'t cache response when received HTTP error', async t => {
+	const endpoint = '/first-error';
+	const cache = new Map();
+
+	const response = await got(s.url + endpoint, {cache, throwHttpErrors: false});
+	t.is(response.statusCode, 200);
+	t.deepEqual(response.body, 'ok');
 });

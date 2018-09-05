@@ -201,7 +201,7 @@ module.exports = options => {
 
 		if (backoff) {
 			retryCount++;
-			setTimeout(get, backoff, options);
+			setTimeout(get, backoff, {...options, forceRefresh: true});
 			cb(true);
 			return;
 		}
