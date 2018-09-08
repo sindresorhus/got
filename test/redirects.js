@@ -110,6 +110,13 @@ test.before('setup', async () => {
 		response.end();
 	});
 
+	http.on('/invalidRedirect', (request, response) => {
+		response.writeHead(302, {
+			location: 'http://'
+		});
+		response.end();
+	});
+
 	await http.listen(http.port);
 	await https.listen(https.port);
 });
@@ -205,4 +212,9 @@ test('redirect response contains UTF-8 with URI encoding', async t => {
 test('throws on malformed redirect URI', async t => {
 	const error = await t.throwsAsync(got(`${http.url}/malformedRedirect`));
 	t.is(error.name, 'URIError');
+});
+
+test('throws on invalid redirect URL', async t => {
+	const error = await t.throwsAsync(got(`${http.url}/invalidRedirect`));
+	t.is(error.code, 'ERR_INVALID_URL');
 });
