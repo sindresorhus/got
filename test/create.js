@@ -100,6 +100,12 @@ test('extend merges URL instances', t => {
 	t.is(b.defaults.options.baseUrl.toString(), 'https://example.com/foo/');
 });
 
+test('extend merges hooks', t=> {
+	const a = got.extend({hooks: { beforeRequest: [console.log] };
+	const b = a.extend({hooks: { beforeRequest: [console.log, console.log] });
+	t.true(b.defaults.options.hooks.beforeRequest.length, 3);
+});
+
 test('create', async t => {
 	const instance = got.create({
 		options: {},
