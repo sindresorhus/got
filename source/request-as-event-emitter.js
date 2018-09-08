@@ -120,9 +120,10 @@ module.exports = options => {
 				}
 
 				const bufferString = Buffer.from(response.headers.location, 'binary').toString();
-				redirectUrl = (new URL(bufferString, urlLib.format(options))).toString();
 
 				try {
+					// Handles invalid URLs. See https://github.com/sindresorhus/got/issues/604
+					redirectUrl = (new URL(bufferString, urlLib.format(options))).toString();
 					decodeURI(redirectUrl);
 				} catch (error) {
 					emitter.emit('error', error);
