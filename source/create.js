@@ -51,8 +51,8 @@ const create = defaults => {
 	got.stream = (url, options) => got(url, {...options, stream: true});
 
 	for (const method of aliases) {
-		got[method] = (url, options) => got(url, {...options, method});
-		got.stream[method] = (url, options) => got.stream(url, {...options, method});
+		got[method] = (url, options) => got(url, mergeOptions(defaults.options, {...options, method}));
+		got.stream[method] = (url, options) => got.stream(url, mergeOptions(defaults.options, {...options, method}));
 	}
 
 	Object.assign(got, {...errors, mergeOptions});
