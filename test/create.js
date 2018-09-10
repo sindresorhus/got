@@ -115,6 +115,16 @@ test('create', async t => {
 	t.is(headers['user-agent'], undefined);
 });
 
+test('hooks are merged on got.extend()', t => {
+	const hooksA = [() => {}];
+	const hooksB = [() => {}];
+
+	const instanceA = got.create({options: {hooks: {beforeRequest: hooksA}}});
+
+	const extended = instanceA.extend({hooks: {beforeRequest: hooksB}});
+	t.deepEqual(extended.defaults.options.hooks.beforeRequest, hooksA.concat(hooksB));
+});
+
 test('custom endpoint with custom headers (extend)', async t => {
 	const instance = got.extend({headers: {unicorn: 'rainbow'}, baseUrl: s.url});
 	const headers = (await instance('/', {
