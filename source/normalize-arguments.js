@@ -55,7 +55,8 @@ const preNormalize = options => {
 };
 
 module.exports = (url, options, defaults) => {
-	options = merge({}, defaults.options, options ? preNormalize(options) : {});
+	options = merge({}, defaults.options, options || {});
+	options = preNormalize(options);
 
 	if (Reflect.has(options, 'url') || (is.object(url) && Reflect.has(url, 'url'))) {
 		throw new TypeError('Parameter `url` is not an option. Use got(url, options)');

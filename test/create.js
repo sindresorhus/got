@@ -190,3 +190,20 @@ test('ability to pass a custom request method', async t => {
 
 	t.true(called);
 });
+
+test('hooks aren\'t overriden when merging options', async t => {
+	let called = false;
+	const instance = got.extend({
+		hooks: {
+			beforeRequest: [
+				() => {
+					called = true;
+				}
+			]
+		}
+	});
+
+	await instance(s.url, {});
+
+	t.true(called);
+});
