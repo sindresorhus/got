@@ -73,11 +73,11 @@ test('host', async t => {
 test('transform names to lowercase', async t => {
 	const headers = (await got(s.url, {
 		headers: {
-			'USER-AGENT': 'test'
+			'ACCEPT-ENCODING': 'identity'
 		},
 		json: true
 	})).body;
-	t.is(headers['user-agent'], 'test');
+	t.is(headers['accept-encoding'], 'identity');
 });
 
 test('setting content-length to 0', async t => {
