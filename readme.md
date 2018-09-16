@@ -25,7 +25,7 @@ Got is for Node.js. For browsers, we recommend [Ky](https://github.com/sindresor
 ## Highlights
 
 - [Promise & stream API](#api)
-- [Request cancelation](#aborting-the-request)
+- [Request cancellation](#aborting-the-request)
 - [RFC compliant caching](#cache-adapters)
 - [Follows redirects](#followredirect)
 - [Retries on failure](#retry)
@@ -601,7 +601,7 @@ The promise returned by Got has a [`.cancel()`](https://github.com/sindresorhus/
 		await request;
 	} catch (error) {
 		if (request.isCanceled) { // Or `error instanceof got.CancelError`
-			// Handle cancelation
+			// Handle cancellation
 		}
 
 		// Handle other errors
@@ -911,7 +911,7 @@ const h2got = got.extend({request});
 | Electron support      |       ✔      |       ✖      |       ✖      |       ✖      |
 | Promise API           |       ✔      |       ✔      |       ✔      |       ✔      |
 | Stream API            |       ✔      |       ✔      |       ✖      |       ✖      |
-| Request cancelation   |       ✔      |       ✖      |       ✖      |       ✔      |
+| Request cancellation   |       ✔      |       ✖      |       ✖      |       ✔      |
 | RFC compliant caching |       ✔      |       ✖      |       ✖      |       ✖      |
 | Cookies (out-of-box)  |       ✔      |       ✔      |       ✖      |       ✖      |
 | Follows redirects     |       ✔      |       ✔      |       ✔      |       ✔      |
