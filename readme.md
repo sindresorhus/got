@@ -35,9 +35,10 @@ Got is for Node.js. For browsers, we recommend [Ky](https://github.com/sindresor
 - [Errors with metadata](#errors)
 - [JSON mode](#json)
 - [WHATWG URL support](#url)
-- [Electron support](#useelectronnet)
+- [Hooks](https://github.com/sindresorhus/got#hooks)
 - [Instances with custom defaults](#instances)
 - [Composable](advanced-creation.md#merging-instances)
+- [Electron support](#useelectronnet)
 - [Used by ~2000 packages and ~500K repos](https://github.com/sindresorhus/got/network/dependents)
 - Actively maintained
 
