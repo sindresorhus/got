@@ -3,6 +3,7 @@ const {URL, URLSearchParams} = require('url'); // TODO: Use the `URL` global whe
 const is = require('@sindresorhus/is');
 const toReadableStream = require('to-readable-stream');
 const urlParseLax = require('url-parse-lax');
+const lowercaseKeys = require('lowercase-keys');
 const isRetryOnNetworkErrorAllowed = require('./is-retry-on-network-error-allowed');
 const urlToOptions = require('./url-to-options');
 const isFormData = require('./is-form-data');
@@ -15,9 +16,14 @@ const retryAfterStatusCodes = new Set([413, 429, 503]);
 // While `normalize` does `preNormalize` + handles things related to dynamic options, like URL, headers, body, etc.
 const preNormalize = options => {
 	options = {
-		headers: {},
 		...options
 	};
+
+	if (is.nullOrUndefined(options.headers)) {
+		options.headers = {};
+	} else {
+		options.headers = lowercaseKeys(options.headers);
+	}
 
 	if (options.baseUrl && !options.baseUrl.toString().endsWith('/')) {
 		options.baseUrl += '/';
