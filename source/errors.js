@@ -59,7 +59,10 @@ module.exports.ParseError = class extends GotError {
 };
 
 module.exports.HTTPError = class extends GotError {
-	constructor(statusCode, statusMessage, headers, body, opts) {
+	constructor(request, opts) {
+		const {statusCode} = request;
+		let {statusMessage} = request;
+
 		if (statusMessage) {
 			statusMessage = statusMessage.replace(/\r?\n/g, ' ').trim();
 		} else {
@@ -69,8 +72,8 @@ module.exports.HTTPError = class extends GotError {
 		this.name = 'HTTPError';
 		this.statusCode = statusCode;
 		this.statusMessage = statusMessage;
-		this.headers = headers;
-		this.body = body;
+		this.headers = request.headers;
+		this.body = request.body;
 	}
 };
 
