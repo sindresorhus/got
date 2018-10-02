@@ -56,7 +56,7 @@ module.exports = options => {
 		});
 
 		if (options.throwHttpErrors && statusCode !== 304 && (statusCode < 200 || statusCode > 299)) {
-			proxy.emit('error', new HTTPError(statusCode, response.statusMessage, response.headers, options), null, response);
+			proxy.emit('error', new HTTPError(response, options), null, response);
 			return;
 		}
 

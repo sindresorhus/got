@@ -107,6 +107,12 @@ test('custom status message', async t => {
 	t.is(error.statusMessage, 'Something Exploded');
 });
 
+test('custom body', async t => {
+	const error = await t.throwsAsync(got(s.url));
+	t.is(error.statusCode, 404);
+	t.is(error.body, 'not');
+});
+
 test('no status message is overriden by the default one', async t => {
 	const error = await t.throwsAsync(got(`${s.url}/no-status-message`));
 	t.is(error.statusCode, 400);

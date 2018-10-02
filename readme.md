@@ -541,7 +541,7 @@ Options are deeply merged to a new object. The value of each key is determined a
 
 ## Errors
 
-Each error contains (if available) `statusCode`, `statusMessage`, `host`, `hostname`, `method`, `path`, `protocol` and `url` properties to make debugging easier.
+Each error contains (if available) `body`, `statusCode`, `statusMessage`, `host`, `hostname`, `method`, `path`, `protocol` and `url` properties to make debugging easier.
 
 In Promise mode, the `response` is attached to the error.
 

@@ -74,7 +74,7 @@ module.exports = options => {
 			}
 
 			if (statusCode !== 304 && (statusCode < 200 || statusCode > limitStatusCode)) {
-				const error = new HTTPError(statusCode, response.statusMessage, response.headers, options);
+				const error = new HTTPError(response, options);
 				Object.defineProperty(error, 'response', {value: response});
 				emitter.emit('retry', error, retried => {
 					if (!retried) {
