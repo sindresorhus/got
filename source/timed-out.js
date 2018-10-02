@@ -19,7 +19,11 @@ function addTimeout(delay, callback, ...args) {
 		},
 		delay
 	);
-	timeout.unref();
+	/* istanbul ignore next: in order to support electron renderer */
+	if (timeout.unref) {
+		timeout.unref();
+	}
+
 	return () => {
 		clearTimeout(timeout);
 		clearImmediate(immediate);
