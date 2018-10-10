@@ -671,7 +671,7 @@ You can use the [`tunnel`](https://github.com/koichik/node-tunnel) package with 
 
 ```js
 const got = require('got');
-const tunnel = require('tunnel-agent');
+const tunnel = require('tunnel');
 
 got('sindresorhus.com', {
 	agent: tunnel.httpOverHttp({
