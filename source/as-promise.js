@@ -35,6 +35,7 @@ module.exports = options => {
 
 			if (is.nodeStream(options.body)) {
 				options.body.once('end', uploadComplete);
+				request.on('error', error => reject(error));
 				options.body.pipe(request);
 				options.body = undefined;
 				return;
