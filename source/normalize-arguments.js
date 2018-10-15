@@ -91,12 +91,8 @@ module.exports = (url, options, defaults) => {
 		url = urlToOptions(url);
 	}
 
-	options = {
-		path: '',
-		...url,
-		protocol: url.protocol || 'http:', // Override both null/undefined with default protocol
-		...options
-	};
+	// Override both null/undefined with default protocol
+	options = merge({path: ''}, url, {protocol: url.protocol || 'http:'}, options);
 
 	const {baseUrl} = options;
 	Object.defineProperty(options, 'baseUrl', {
