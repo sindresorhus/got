@@ -1,12 +1,11 @@
 'use strict';
 const {URL, URLSearchParams} = require('url'); // TODO: Use the `URL` global when targeting Node.js 10
 const is = require('@sindresorhus/is');
-const toReadableStream = require('to-readable-stream');
 const urlParseLax = require('url-parse-lax');
 const lowercaseKeys = require('lowercase-keys');
-const isRetryOnNetworkErrorAllowed = require('./is-retry-on-network-error-allowed');
-const urlToOptions = require('./url-to-options');
-const isFormData = require('./is-form-data');
+const isRetryOnNetworkErrorAllowed = require('./utils/is-retry-on-network-error-allowed');
+const urlToOptions = require('./utils/url-to-options');
+const isFormData = require('./utils/is-form-data');
 const knownHookEvents = require('./known-hook-events');
 const merge = require('./merge');
 
@@ -162,12 +161,6 @@ module.exports = (url, options, defaults) => {
 		} else if (options.json) {
 			headers['content-type'] = headers['content-type'] || 'application/json';
 			options.body = JSON.stringify(body);
-		}
-
-		// Convert buffer to stream to receive upload progress events (#322)
-		if (is.buffer(body)) {
-			options.body = toReadableStream(body);
-			options.body._buffer = body;
 		}
 
 		options.method = options.method || 'POST';

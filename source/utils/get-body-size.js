@@ -28,9 +28,5 @@ module.exports = async options => {
 		return size;
 	}
 
-	if (is.nodeStream(body) && is.buffer(body._buffer)) {
-		return body._buffer.length;
-	}
-
 	return null;
 };

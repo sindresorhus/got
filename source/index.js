@@ -24,9 +24,7 @@ const defaults = {
 				504
 			]
 		},
-		cache: false,
 		decompress: true,
-		useElectronNet: false,
 		throwHttpErrors: true,
 		headers: {
 			'user-agent': `${pkg.name}/${pkg.version} (https://github.com/sindresorhus/got)`
