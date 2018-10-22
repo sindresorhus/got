@@ -19,6 +19,19 @@ const urlToOptions = require('./utils/url-to-options');
 const getMethodRedirectCodes = new Set([300, 301, 302, 303, 304, 305, 307, 308]);
 const allMethodRedirectCodes = new Set([300, 303, 307, 308]);
 
+const cachedCacheableRequests = new Map();
+const createCacheableRequest = (request, cache) => {
+	if (!cachedCacheableRequests.has(request)) {
+		cachedCacheableRequests.set(request, new Map());
+	}
+
+	if (!cachedCacheableRequests.get(request).has(cache)) {
+		cachedCacheableRequests.get(request).set(cache, new CacheableRequest(request, cache));
+	}
+
+	return cachedCacheableRequests.get(request).get(cache);
+};
+
 module.exports = (options, input) => {
 	const emitter = new EventEmitter();
 	const redirects = [];
@@ -40,6 +53,8 @@ module.exports = (options, input) => {
 		if (options.protocol !== 'http:' && options.protocol !== 'https:') {
 			throw new UnsupportedProtocolError(options);
 		}
+
+		decodeURI(currentUrl);
 
 		let fn;
 		if (is.function(options.request)) {
@@ -115,7 +130,6 @@ module.exports = (options, input) => {
 						const redirectURL = new URL(redirectBuffer, currentUrl);
 						redirectString = redirectURL.toString();
 
-						decodeURI(redirectString);
 						redirects.push(redirectString);
 
 						const redirectOpts = {
@@ -165,7 +179,7 @@ module.exports = (options, input) => {
 			progress.upload(request, emitter, uploadBodySize);
 
 			if (options.gotTimeout) {
-				timedOut(request, options);
+				timedOut(request, options.gotTimeout, options);
 			}
 
 			emitter.emit('request', request);
@@ -174,22 +188,26 @@ module.exports = (options, input) => {
 				request.emit('upload-complete');
 			};
 
-			if (is.nodeStream(options.body)) {
-				options.body.once('end', uploadComplete);
-				options.body.pipe(request);
-				options.body = undefined;
-			} else if (options.body) {
-				request.end(options.body, uploadComplete);
-			} else if (input && (options.method === 'POST' || options.method === 'PUT' || options.method === 'PATCH')) {
-				input.once('end', uploadComplete);
-				input.pipe(request);
-			} else {
-				request.end(uploadComplete);
+			try {
+				if (is.nodeStream(options.body)) {
+					options.body.once('end', uploadComplete);
+					options.body.pipe(request);
+					options.body = undefined;
+				} else if (options.body) {
+					request.end(options.body, uploadComplete);
+				} else if (input && (options.method === 'POST' || options.method === 'PUT' || options.method === 'PATCH')) {
+					input.once('end', uploadComplete);
+					input.pipe(request);
+				} else {
+					request.end(uploadComplete);
+				}
+			} catch (error) {
+				emitter.emit('error', new RequestError(error, options));
 			}
 		};
 
 		if (options.cache) {
-			const cacheableRequest = new CacheableRequest(fn.request, options.cache); // TODO: we need a manager for CacheableRequest instances
+			const cacheableRequest = createCacheableRequest(fn.request, options.cache);
 			const cacheReq = cacheableRequest(options, handleResponse);
 
 			cacheReq.once('error', error => {
@@ -202,6 +220,7 @@ module.exports = (options, input) => {
 
 			cacheReq.once('request', handleRequest);
 		} else {
+			// Catches errors thrown by calling fn.request(...)
 			try {
 				handleRequest(fn.request(options, handleResponse));
 			} catch (error) {
@@ -213,7 +232,7 @@ module.exports = (options, input) => {
 	emitter.retry = error => {
 		let backoff;
 		try {
-			backoff = options.gotRetry.retries(++retryTries, error);
+			backoff = options.retry.retries(++retryTries, error);
 		} catch (error2) {
 			emitter.emit('error', error2);
 			return;
@@ -253,9 +272,11 @@ module.exports = (options, input) => {
 				}
 			}
 
-			for (const hook of options.hooks.beforeRequest) {
-				// eslint-disable-next-line no-await-in-loop
-				await hook(options);
+			if (options.hooks.beforeRequest) {
+				for (const hook of options.hooks.beforeRequest) {
+					// eslint-disable-next-line no-await-in-loop
+					await hook(options);
+				}
 			}
 
 			requestUrl = options.href || (new URL(options.path, urlLib.format(options))).toString();

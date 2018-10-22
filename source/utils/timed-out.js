@@ -38,16 +38,16 @@ function addTimeout(delay, callback, ...args) {
 	return cancel;
 }
 
-module.exports = (request, options) => {
+module.exports = (request, delays, options) => {
 	/* istanbul ignore next: this makes sure timed-out isn't called twice */
 	if (request[reentry]) {
 		return;
 	}
 
 	request[reentry] = true;
-	const {gotTimeout: delays, host, hostname} = options;
+	const {host, hostname} = options;
 	const timeoutHandler = (delay, event) => {
-		request.emit('error', new TimeoutError(delay, event, options));
+		request.emit('error', new TimeoutError(delay, event));
 		request.once('error', () => {}); // Ignore the `socket hung up` error made by request.abort()
 
 		request.abort();

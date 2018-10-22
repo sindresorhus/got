@@ -11,7 +11,7 @@ module.exports = options => {
 	const piped = new Set();
 	let isFinished = false;
 
-	options.gotRetry.retries = () => 0;
+	options.retry.retries = () => 0;
 
 	if (options.body) {
 		proxy.write = () => {

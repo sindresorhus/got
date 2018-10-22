@@ -1,4 +1,4 @@
-import {URL, URLSearchParams} from 'url';
+import {URL, URLSearchParams, parse} from 'url';
 import test from 'ava';
 import pEvent from 'p-event';
 import got from '../source';
@@ -37,12 +37,12 @@ test.after('cleanup', async () => {
 
 test('url is required', async t => {
 	const error = await t.throwsAsync(got());
-	t.regex(error.message, /Parameter `url` must be a string or object, not undefined/);
+	t.is(error.message, 'Parameter `url` must be a string or object, not undefined');
 });
 
 test('url should be utf-8 encoded', async t => {
 	const error = await t.throwsAsync(got(`${s.url}/%D2%E0%EB%EB%E8%ED`));
-	t.regex(error.message, /Parameter `url` must contain valid UTF-8 character sequences/);
+	t.is(error.message, 'URI malformed');
 });
 
 test('string url with query is preserved', async t => {
@@ -74,19 +74,11 @@ test('methods are normalized', async t => {
 });
 
 test('accepts url.parse object as first argument', async t => {
-	t.is((await got({
-		hostname: s.host,
-		port: s.port,
-		path: '/test'
-	})).body, '/test');
+	t.is((await got(parse(`${s.url}/test`))).body, '/test');
 });
 
 test('requestUrl with url.parse object as first argument', async t => {
-	t.is((await got({
-		hostname: s.host,
-		port: s.port,
-		path: '/test'
-	})).requestUrl, `${s.url}/test`);
+	t.is((await got(parse(`${s.url}/test`))).requestUrl, `${s.url}/test`);
 });
 
 test('overrides querystring from opts', async t => {
@@ -128,7 +120,7 @@ test('should ignore empty query object', async t => {
 
 test('should throw with auth in url string', async t => {
 	const error = await t.throwsAsync(got('https://test:45d3ps453@account.myservice.com/api/token'));
-	t.regex(error.message, /Basic authentication must be done with the `auth` option/);
+	t.is(error.message, 'Basic authentication must be done with the `auth` option');
 });
 
 test('does not throw with auth in url object', async t => {
@@ -136,6 +128,7 @@ test('does not throw with auth in url object', async t => {
 		auth: 'foo:bar',
 		hostname: s.host,
 		port: s.port,
+		protocol: 'http:',
 		path: '/test'
 	}));
 });
@@ -159,9 +152,8 @@ test('should ignore JSON option when using stream option', async t => {
 	t.is(data.toString(), 'ok');
 });
 
-test('throws TypeError when `url` is passed as an option', async t => {
-	await t.throwsAsync(got('', {url: 'example.com'}), {instanceOf: TypeError});
-	await t.throwsAsync(got({url: 'example.com'}), {instanceOf: TypeError});
+test('accepts `url` as an option', async t => {
+	await t.notThrowsAsync(got({url: `${s.url}/test`}));
 });
 
 test('throws TypeError when `hooks` is not an object', async t => {
@@ -179,7 +171,7 @@ test('throws TypeError when known `hooks` value is not an array', async t => {
 		() => got(s.url, {hooks: {beforeRequest: {}}}),
 		{
 			instanceOf: TypeError,
-			message: 'Parameter `hooks.beforeRequest` must be an array, not Object'
+			message: 'options.hooks.beforeRequest is not iterable'
 		}
 	);
 });
@@ -189,7 +181,7 @@ test('throws TypeError when known `hooks` array item is not a function', async t
 		() => got(s.url, {hooks: {beforeRequest: [{}]}}),
 		{
 			instanceOf: TypeError,
-			message: 'Parameter `hooks.beforeRequest[0]` must be a function, not Object'
+			message: 'hook is not a function'
 		}
 	);
 });

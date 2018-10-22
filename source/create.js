@@ -19,7 +19,8 @@ const aliases = [
 
 const create = defaults => {
 	defaults = merge({}, defaults);
-	defaults.options = normalizeArguments.preNormalize(defaults.options);
+	normalizeArguments.preNormalize(defaults.options);
+
 	if (!defaults.handler) {
 		// This can't be getPromiseOrStream, because when merging
 		// the chain would stop at this point and no further handlers would be called.

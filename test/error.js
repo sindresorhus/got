@@ -1,6 +1,5 @@
 import http from 'http';
 import test from 'ava';
-import sinon from 'sinon';
 import getStream from 'get-stream';
 import proxyquire from 'proxyquire';
 import got from '../source';
@@ -120,11 +119,11 @@ test('no status message is overriden by the default one', async t => {
 });
 
 test.serial('http.request error', async t => {
-	const stub = sinon.stub(http, 'request').callsFake(() => {
-		throw new TypeError('The header content contains invalid characters');
-	});
-	await t.throwsAsync(got(s.url), {instanceOf: got.RequestError, message: 'The header content contains invalid characters'});
-	stub.restore();
+	await t.throwsAsync(got(s.url, {
+		request: () => {
+			throw new TypeError('The header content contains invalid characters');
+		}
+	}), {instanceOf: got.RequestError, message: 'The header content contains invalid characters'});
 });
 
 test.serial('catch error in mimicResponse', async t => {

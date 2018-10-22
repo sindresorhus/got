@@ -302,7 +302,8 @@ test('lookup timeout', async t => {
 test('lookup timeout no error (ip address)', async t => {
 	await got({
 		hostname: '127.0.0.1',
-		port: s.port
+		port: s.port,
+		protocol: 'http:'
 	}, {
 		timeout: {lookup: 100},
 		retry: 0

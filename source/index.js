@@ -24,14 +24,20 @@ const defaults = {
 				504
 			]
 		},
-		decompress: true,
-		throwHttpErrors: true,
 		headers: {
 			'user-agent': `${pkg.name}/${pkg.version} (https://github.com/sindresorhus/got)`
 		},
 		hooks: {
 			beforeRequest: []
-		}
+		},
+		decompress: true,
+		throwHttpErrors: true,
+		followRedirect: true,
+		stream: false,
+		form: false,
+		json: false,
+		cache: false,
+		useElectronNet: false
 	}
 };
 

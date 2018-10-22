@@ -85,7 +85,7 @@ test('query option', async t => {
 
 test('requestUrl response when sending url as param', async t => {
 	t.is((await got(s.url, {hostname: s.host, port: s.port})).requestUrl, `${s.url}/`);
-	t.is((await got({hostname: s.host, port: s.port})).requestUrl, `${s.url}/`);
+	t.is((await got({hostname: s.host, port: s.port, protocol: 'http:'})).requestUrl, `${s.url}/`);
 });
 
 test('response contains url', async t => {
