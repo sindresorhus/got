@@ -55,7 +55,11 @@ const preNormalize = (options, defaults) => {
 	if (defaults && retry !== false) {
 		options.retry = {...defaults.retry};
 	} else {
-		options.retry = {retries: 0, methods: [], statusCodes: []};
+		options.retry = {
+			retries: 0,
+			methods: [],
+			statusCodes: []
+		};
 	}
 
 	if (retry !== false) {
