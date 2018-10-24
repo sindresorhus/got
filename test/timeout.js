@@ -47,6 +47,12 @@ test.before('setup', async () => {
 		});
 	});
 
+	s.on('/delayed', async (request, response) => {
+		response.write('O');
+		await delay(requestDelay);
+		response.end('K');
+	});
+
 	s.on('/download', (request, response) => {
 		response.writeHead(200, {
 			'transfer-encoding': 'chunked'
@@ -428,4 +434,9 @@ test('no error emitted when timeout is not breached (promise)', async t => {
 	});
 	await delay(requestDelay * 3);
 	t.pass();
+});
+
+test('no unhandled errors', async t => {
+	await t.throwsAsync(got(s.url, {retry: 0, timeout: requestDelay / 2}), {instanceOf: got.TimeoutError});
+	await delay(requestDelay);
 });

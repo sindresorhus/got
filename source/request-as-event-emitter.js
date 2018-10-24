@@ -249,6 +249,7 @@ module.exports = (options, input) => {
 
 	emitter.abort = () => {
 		if (currentRequest) {
+			currentRequest.once('error', () => {});
 			currentRequest.abort();
 		} else {
 			shouldAbort = true;
