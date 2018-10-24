@@ -411,7 +411,7 @@ got('example.com', {
 		]
 	}
 });
-``
+```
 
 #### Response
 
