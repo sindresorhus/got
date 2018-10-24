@@ -203,11 +203,27 @@ Parse response body with `JSON.parse` and set `accept` header to `application/js
 
 ###### query
 
-Type: `string` `Object` [`URLSearchParams`](https://developer.mozilla.org/en-US/docs/Web/API/URLSearchParams)
+Type: `string` `Array` `Object` [`URLSearchParams`](https://developer.mozilla.org/en-US/docs/Web/API/URLSearchParams)
 
 Query string object that will be added to the request URL. This will override the query string in `url`.
 
-**Note**: if you pass an `Object` it'll be converted to a `string` using `URLSearchParams`. Beware of that `{foo: [1, 2]}` won't return `foo=1&foo=2` but `foo=1,2`. To achieve the expected result you need to pass an `Array`: `[['foo', 1], ['foo', 2]]`.
+**Note**: the keys and values should be type of `string`. To represent an array, don't use `{foo: [1, 2]}`, because this results in `foo=1,2`. You can represent an array in two ways:
+
+1. Use an `object`:
+```js
+{
+    'foo[0]': '1',
+    'foo[1]': '2'
+}
+```
+
+2. Use an `Array` of keys and values:
+```js
+[
+    ['foo', '1'],
+    ['foo', '2']
+]
+```
 
 ###### timeout
 
