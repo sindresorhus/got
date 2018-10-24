@@ -317,8 +317,7 @@ got('sindresorhus.com', {
 
 ###### hooks
 
-Type: `Object<string, Function[]>`<br>
-Default: `{beforeRequest: []}`
+Type: `Object<string, Function[]>`
 
 Hooks allow modifications during the request lifecycle. Hook functions may be async and are run serially.
 
@@ -331,7 +330,28 @@ Called with the normalized request options. Got will make no further changes to 
 
 See the [AWS section](#aws) for an example.
 
-**Note**: Modifying the `body` is not recommended because the `content-length` header has already been computed and assigned.
+**Note**: If you modify the `body` you will need to modify the `content-length` header too, because it has already been computed and assigned.
+
+###### hooks.beforeRedirect
+
+Type: `Function[]`<br>
+Default: `[]`
+
+Called with the normalized request options. Got will make no further changes to the request.
+
+###### hooks.beforeRetry
+
+Type: `Function[]`<br>
+Default: `[]`
+
+Called with the normalized request options. Got will make no further changes to the request.
+
+###### hooks.afterResponse
+
+Type: `Function[]`<br>
+Default: `[]`
+
+Called with the response object. Each function should return the response.
 
 #### Response
 

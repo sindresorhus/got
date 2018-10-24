@@ -32,6 +32,16 @@ module.exports = options => {
 
 			response.body = data;
 
+			try {
+				for (const hook of options.hooks.afterResponse) {
+					// eslint-disable-next-line no-await-in-loop
+					response = await hook(response);
+				}
+			} catch (error) {
+				reject(error);
+				return;
+			}
+
 			if (options.json && response.body) {
 				try {
 					response.body = JSON.parse(response.body);

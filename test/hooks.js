@@ -3,6 +3,8 @@ import delay from 'delay';
 import {createServer} from './helpers/server';
 import got from '..';
 
+const errorStr = 'oops';
+const error = new Error(errorStr);
 let s;
 
 test.before('setup', async () => {
@@ -12,7 +14,24 @@ test.before('setup', async () => {
 		response.write(JSON.stringify(request.headers));
 		response.end();
 	};
+
 	s.on('/', echoHeaders);
+	s.on('/redirect', (request, response) => {
+		response.statusCode = 302;
+		response.setHeader('location', '/');
+		response.end();
+	});
+	s.on('/retry', (request, response) => {
+		if (request.headers.foo) {
+			response.statusCode = 302;
+			response.setHeader('location', '/');
+			response.end();
+		}
+
+		response.statusCode = 500;
+		response.end();
+	});
+
 	await s.listen(s.port);
 });
 
@@ -20,86 +39,187 @@ test.after('cleanup', async () => {
 	await s.close();
 });
 
-test('beforeRequest receives normalized options', async t => {
-	await got(
-		s.url,
-		{
-			json: true,
-			hooks: {
-				beforeRequest: [
-					options => {
-						t.is(options.path, '/');
-						t.is(options.hostname, 'localhost');
-					}
-				]
-			}
+test('async hooks', async t => {
+	const response = await got(s.url, {
+		json: true,
+		hooks: {
+			beforeRequest: [
+				async options => {
+					await delay(100);
+					options.headers.foo = 'bar';
+				}
+			]
 		}
-	);
+	});
+	t.is(response.body.foo, 'bar');
+});
+
+test('catches thrown errors', async t => {
+	await t.throwsAsync(() => got(s.url, {
+		hooks: {
+			beforeRequest: [
+				() => {
+					throw error;
+				}
+			]
+		}
+	}), errorStr);
+});
+
+test('catches promise rejections', async t => {
+	await t.throwsAsync(() => got(s.url, {
+		hooks: {
+			beforeRequest: [
+				() => Promise.reject(error)
+			]
+		}
+	}), errorStr);
+});
+
+test('catches beforeRequest errors', async t => {
+	await t.throwsAsync(() => got(s.url, {
+		hooks: {
+			beforeRequest: [() => Promise.reject(error)]
+		}
+	}), errorStr);
+});
+
+test('catches beforeRedirect errors', async t => {
+	await t.throwsAsync(() => got(`${s.url}/redirect`, {
+		hooks: {
+			beforeRedirect: [() => Promise.reject(error)]
+		}
+	}), errorStr);
+});
+
+test('catches beforeRetry errors', async t => {
+	await t.throwsAsync(() => got(`${s.url}/retry`, {
+		hooks: {
+			beforeRetry: [() => Promise.reject(error)]
+		}
+	}), errorStr);
+});
+
+test('catches afterResponse errors', async t => {
+	await t.throwsAsync(() => got(s.url, {
+		hooks: {
+			afterResponse: [() => Promise.reject(error)]
+		}
+	}), errorStr);
+});
+
+test('beforeRequest', async t => {
+	await got(s.url, {
+		json: true,
+		hooks: {
+			beforeRequest: [
+				options => {
+					t.is(options.path, '/');
+					t.is(options.hostname, 'localhost');
+				}
+			]
+		}
+	});
 });
 
 test('beforeRequest allows modifications', async t => {
-	const response = await got(
-		s.url,
-		{
-			json: true,
-			hooks: {
-				beforeRequest: [
-					options => {
-						options.headers.foo = 'bar';
-					}
-				]
-			}
+	const response = await got(s.url, {
+		json: true,
+		hooks: {
+			beforeRequest: [
+				options => {
+					options.headers.foo = 'bar';
+				}
+			]
 		}
-	);
+	});
 	t.is(response.body.foo, 'bar');
 });
 
-test('beforeRequest awaits async function', async t => {
-	const response = await got(
-		s.url,
-		{
-			json: true,
-			hooks: {
-				beforeRequest: [
-					async options => {
-						await delay(100);
-						options.headers.foo = 'bar';
-					}
-				]
-			}
+test('beforeRedirect', async t => {
+	await got(`${s.url}/redirect`, {
+		json: true,
+		hooks: {
+			beforeRedirect: [
+				options => {
+					t.is(options.path, '/');
+					t.is(options.hostname, 'localhost');
+				}
+			]
 		}
-	);
+	});
+});
+
+test('beforeRedirect allows modifications', async t => {
+	const response = await got(`${s.url}/redirect`, {
+		json: true,
+		hooks: {
+			beforeRedirect: [
+				options => {
+					options.headers.foo = 'bar';
+				}
+			]
+		}
+	});
 	t.is(response.body.foo, 'bar');
 });
 
-test('beforeRequest rejects when beforeRequest throws', async t => {
-	await t.throwsAsync(
-		() => got(s.url, {
-			hooks: {
-				beforeRequest: [
-					() => {
-						throw new Error('oops');
-					}
-				]
-			}
-		}),
-		{
-			instanceOf: Error,
-			message: 'oops'
+test('beforeRetry', async t => {
+	await got(`${s.url}/retry`, {
+		json: true,
+		retry: 1,
+		throwHttpErrors: false,
+		hooks: {
+			beforeRetry: [
+				options => {
+					t.is(options.hostname, 'localhost');
+				}
+			]
 		}
-	);
+	});
 });
 
-test('beforeRequest rejects when beforeRequest rejects', async t => {
-	await t.throwsAsync(
-		() => got(s.url, {
-			hooks: {
-				beforeRequest: [() => Promise.reject(new Error('oops'))]
-			}
-		}),
-		{
-			instanceOf: Error,
-			message: 'oops'
+test('beforeRetry allows modifications', async t => {
+	const response = await got(`${s.url}/retry`, {
+		json: true,
+		hooks: {
+			beforeRetry: [
+				options => {
+					options.headers.foo = 'bar';
+				}
+			]
 		}
-	);
+	});
+	t.is(response.body.foo, 'bar');
+});
+
+test('afterResponse', async t => {
+	await got(`${s.url}`, {
+		json: true,
+		hooks: {
+			afterResponse: [
+				response => {
+					t.is(typeof response.body, 'string');
+
+					return response;
+				}
+			]
+		}
+	});
+});
+
+test('afterResponse allows modifications', async t => {
+	const response = await got(`${s.url}`, {
+		json: true,
+		hooks: {
+			afterResponse: [
+				response => {
+					response.body = '{"hello": "world"}';
+
+					return response;
+				}
+			]
+		}
+	});
+	t.is(response.body.hello, 'world');
 });
