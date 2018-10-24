@@ -13,7 +13,7 @@ const timedOut = require('./utils/timed-out');
 const getBodySize = require('./utils/get-body-size');
 const getResponse = require('./get-response');
 const progress = require('./progress');
-const {GotError, CacheError, UnsupportedProtocolError, MaxRedirectsError, RequestError, TimeoutError} = require('./errors');
+const {CacheError, UnsupportedProtocolError, MaxRedirectsError, RequestError, TimeoutError} = require('./errors');
 const urlToOptions = require('./utils/url-to-options');
 
 const getMethodRedirectCodes = new Set([300, 301, 302, 303, 304, 305, 307, 308]);
@@ -152,6 +152,7 @@ module.exports = (options, input) => {
 
 		const handleRequest = request => {
 			if (shouldAbort) {
+				request.once('error', () => {});
 				request.abort();
 				return;
 			}
@@ -165,7 +166,7 @@ module.exports = (options, input) => {
 
 				if (error instanceof timedOut.TimeoutError) {
 					error = new TimeoutError(error, options);
-				} else if (!(error instanceof GotError)) {
+				} else {
 					error = new RequestError(error, options);
 				}
 
@@ -273,11 +274,9 @@ module.exports = (options, input) => {
 				}
 			}
 
-			if (options.hooks.beforeRequest) {
-				for (const hook of options.hooks.beforeRequest) {
-					// eslint-disable-next-line no-await-in-loop
-					await hook(options);
-				}
+			for (const hook of options.hooks.beforeRequest) {
+				// eslint-disable-next-line no-await-in-loop
+				await hook(options);
 			}
 
 			requestUrl = options.href || (new URL(options.path, urlLib.format(options))).toString();

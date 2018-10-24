@@ -118,7 +118,7 @@ test('no status message is overriden by the default one', async t => {
 	t.is(error.statusMessage, http.STATUS_CODES[400]);
 });
 
-test.serial('http.request error', async t => {
+test('http.request error', async t => {
 	await t.throwsAsync(got(s.url, {
 		request: () => {
 			throw new TypeError('The header content contains invalid characters');
@@ -126,7 +126,33 @@ test.serial('http.request error', async t => {
 	}), {instanceOf: got.RequestError, message: 'The header content contains invalid characters'});
 });
 
-test.serial('catch error in mimicResponse', async t => {
+test('http.request pipe error', async t => {
+	const error = 'snap!';
+
+	await t.throwsAsync(got(s.url, {
+		request: (...opts) => {
+			const modified = http.request(...opts);
+			modified.end = () => {
+				modified.abort();
+				throw new Error(error);
+			};
+
+			return modified;
+		},
+		throwHttpErrors: false
+	}), {instanceOf: got.RequestError, message: error});
+});
+
+test('http.request error through CacheableRequest', async t => {
+	await t.throwsAsync(got(s.url, {
+		request: () => {
+			throw new TypeError('The header content contains invalid characters');
+		},
+		cache: new Map()
+	}), {instanceOf: got.RequestError, message: 'The header content contains invalid characters'});
+});
+
+test('catch error in mimicResponse', async t => {
 	const mimicResponse = () => {
 		throw new Error('Error in mimic-response');
 	};
