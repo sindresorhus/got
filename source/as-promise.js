@@ -11,37 +11,8 @@ module.exports = options => {
 
 	const promise = new PCancelable((resolve, reject, onCancel) => {
 		const emitter = requestAsEventEmitter(options);
-		let cancelOnRequest = false;
 
-		onCancel(() => {
-			cancelOnRequest = true;
-		});
-
-		emitter.on('request', request => {
-			if (cancelOnRequest) {
-				request.abort();
-				return;
-			}
-
-			proxy.emit('request', request);
-
-			const uploadComplete = () => {
-				request.emit('upload-complete');
-			};
-
-			onCancel(() => {
-				request.abort();
-			});
-
-			if (is.nodeStream(options.body)) {
-				options.body.once('end', uploadComplete);
-				options.body.pipe(request);
-				options.body = undefined;
-				return;
-			}
-
-			request.end(options.body, uploadComplete);
-		});
+		onCancel(emitter.abort);
 
 		emitter.on('response', async response => {
 			proxy.emit('response', response);
@@ -69,6 +40,7 @@ module.exports = options => {
 						const parseError = new ParseError(error, statusCode, options, data);
 						Object.defineProperty(parseError, 'response', {value: response});
 						reject(parseError);
+						return;
 					}
 				}
 			}
@@ -76,16 +48,14 @@ module.exports = options => {
 			if (statusCode !== 304 && (statusCode < 200 || statusCode > limitStatusCode)) {
 				const error = new HTTPError(response, options);
 				Object.defineProperty(error, 'response', {value: response});
-				emitter.emit('retry', error, retried => {
-					if (!retried) {
-						if (options.throwHttpErrors) {
-							reject(error);
-							return;
-						}
-
-						resolve(response);
+				if (emitter.retry(error) === false) {
+					if (options.throwHttpErrors) {
+						reject(error);
+						return;
 					}
-				});
+
+					resolve(response);
+				}
 				return;
 			}
 
@@ -94,6 +64,7 @@ module.exports = options => {
 
 		emitter.once('error', reject);
 		[
+			'request',
 			'redirect',
 			'uploadProgress',
 			'downloadProgress'

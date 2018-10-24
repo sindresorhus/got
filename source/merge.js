@@ -42,16 +42,12 @@ const mergeOptions = (...sources) => {
 	for (const source of sources) {
 		if (source.hooks) {
 			for (const hook of knownHookEvents) {
-				if (hooks[hook]) {
-					hooks[hook] = hooks[hook].concat(source.hooks[hook]);
-				}
+				hooks[hook] = hooks[hook].concat(source.hooks[hook]);
 			}
 		}
 	}
 
-	if (!is.empty(hooks)) {
-		merged.hooks = hooks;
-	}
+	merged.hooks = hooks;
 
 	return merged;
 };

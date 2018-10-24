@@ -1,5 +1,7 @@
+import net from 'net';
 import test from 'ava';
 import tough from 'tough-cookie';
+import delay from 'delay';
 import got from '../source';
 import {createServer} from './helpers/server';
 
@@ -99,4 +101,24 @@ test('overrides options.headers.cookie', async t => {
 		}
 	});
 	t.is(body, 'hello=world; foo=bar');
+});
+
+test('no unhandled errors', async t => {
+	const server = net.createServer(connection => {
+		connection.end('blah');
+	}).listen(0);
+
+	const error = 'snap!';
+
+	const opts = {
+		cookieJar: {
+			setCookie: () => {},
+			getCookieString: (_, __, cb) => cb(new Error(error))
+		}
+	};
+	await t.throwsAsync(got(`http://127.0.0.1:${server.address().port}`, opts), error);
+	await delay(500);
+	t.pass();
+
+	server.close();
 });

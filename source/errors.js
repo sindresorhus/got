@@ -95,10 +95,10 @@ module.exports.UnsupportedProtocolError = class extends GotError {
 };
 
 module.exports.TimeoutError = class extends GotError {
-	constructor(threshold, event, opts) {
-		super(`Timeout awaiting '${event}' for ${threshold}ms`, {code: 'ETIMEDOUT'}, opts);
+	constructor(error, opts) {
+		super(error.message, {code: 'ETIMEDOUT'}, opts);
 		this.name = 'TimeoutError';
-		this.event = event;
+		this.event = error.event;
 	}
 };
 
