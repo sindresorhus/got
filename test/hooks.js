@@ -4,7 +4,7 @@ import {createServer} from './helpers/server';
 import got from '..';
 
 const errorString = 'oops';
-const error = new Error(errorStr);
+const error = new Error(errorString);
 let s;
 
 test.before('setup', async () => {
@@ -63,7 +63,7 @@ test('catches thrown errors', async t => {
 				}
 			]
 		}
-	}), errorStr);
+	}), errorString);
 });
 
 test('catches promise rejections', async t => {
@@ -73,7 +73,7 @@ test('catches promise rejections', async t => {
 				() => Promise.reject(error)
 			]
 		}
-	}), errorStr);
+	}), errorString);
 });
 
 test('catches beforeRequest errors', async t => {
@@ -81,7 +81,7 @@ test('catches beforeRequest errors', async t => {
 		hooks: {
 			beforeRequest: [() => Promise.reject(error)]
 		}
-	}), errorStr);
+	}), errorString);
 });
 
 test('catches beforeRedirect errors', async t => {
@@ -89,7 +89,7 @@ test('catches beforeRedirect errors', async t => {
 		hooks: {
 			beforeRedirect: [() => Promise.reject(error)]
 		}
-	}), errorStr);
+	}), errorString);
 });
 
 test('catches beforeRetry errors', async t => {
@@ -97,7 +97,7 @@ test('catches beforeRetry errors', async t => {
 		hooks: {
 			beforeRetry: [() => Promise.reject(error)]
 		}
-	}), errorStr);
+	}), errorString);
 });
 
 test('catches afterResponse errors', async t => {
@@ -105,7 +105,7 @@ test('catches afterResponse errors', async t => {
 		hooks: {
 			afterResponse: [() => Promise.reject(error)]
 		}
-	}), errorStr);
+	}), errorString);
 });
 
 test('beforeRequest', async t => {
