@@ -207,6 +207,8 @@ Type: `string` `Object` [`URLSearchParams`](https://developer.mozilla.org/en-US/
 
 Query string object that will be added to the request URL. This will override the query string in `url`.
 
+**Note**: if you pass an `Object` it'll be converted to a `string` using `URLSearchParams`. Beware of that `{foo: [1, 2]}` won't return `foo=1&foo=2` but `foo=1,2`. To achieve the expected result you need to pass an `Array`: `[['foo', 1], ['foo', 2]]`.
+
 ###### timeout
 
 Type: `number` `Object`
