@@ -207,6 +207,8 @@ Type: `string` `Object` [`URLSearchParams`](https://developer.mozilla.org/en-US/
 
 Query string object that will be added to the request URL. This will override the query string in `url`.
 
+**Note**: if you pass an `Object` it'll be converted to a `string` using `URLSearchParams`. Beware of that `{foo: [1, 2]}` won't return `foo=1&foo=2` but `foo=1,2`. To achieve the expected result you need to pass an `Array`: `[['foo', 1], ['foo', 2]]`.
+
 ###### timeout
 
 Type: `number` `Object`
@@ -326,7 +328,7 @@ Hooks allow modifications during the request lifecycle. Hook functions may be as
 Type: `Function[]`<br>
 Default: `[]`
 
-Called with the normalized request options. Got will make no further changes to the request before it is sent. This is especially useful in conjunction with [`got.extend()`](#instances) and [`got.create()`](advanced-creation.md) when you want to create an API client that, for example, uses HMAC-signing.
+Called with [normalized](source/normalize-arguments.js) [request options](#options). Got will make no further changes to the request before it is sent. This is especially useful in conjunction with [`got.extend()`](#instances) and [`got.create()`](advanced-creation.md) when you want to create an API client that, for example, uses HMAC-signing.
 
 See the [AWS section](#aws) for an example.
 
@@ -337,21 +339,79 @@ See the [AWS section](#aws) for an example.
 Type: `Function[]`<br>
 Default: `[]`
 
-Called with the normalized request options. Got will make no further changes to the request.
+Called with [normalized](source/normalize-arguments.js) [request options](#options). Got will make no further changes to the request. This is especially useful when you want to avoid dead sites. Example:
+
+```js
+const got = require('got');
+
+got('example.com', {
+	hooks: {
+		beforeRedirect: [
+			options => {
+				if (options.hostname === 'deadSite') {
+					options.hostname = 'fallbackSite';
+				}
+			}
+		]
+	}
+});
+```
 
 ###### hooks.beforeRetry
 
 Type: `Function[]`<br>
 Default: `[]`
 
-Called with the normalized request options. Got will make no further changes to the request.
+Called with [normalized](source/normalize-arguments.js) [request options](#options), the error and the retry count. Got will make no further changes to the request. This is especially useful when some extra work is required before the next request. Example:
+
+```js
+const got = require('got');
+
+got('example.com', {
+	hooks: {
+		beforeRetry: [
+			(options, error, retryCount) => {
+				if (error.statusCode === 401) { // Unauthorized
+					options.headers.token = getNewToken();
+				}
+			}
+		]
+	}
+});
+```
 
 ###### hooks.afterResponse
 
 Type: `Function[]`<br>
 Default: `[]`
 
-Called with the response object. Each function should return the response.
+Called with [response object](#response). Each function should return the response. This is especially useful when you want to beautify the response body. Example:
+
+```js
+const got = require('got');
+
+got('example.com', {
+	hooks: {
+		afterResponse: [
+			response => {
+				const content = response.body.split(','); // 8,5,6
+				response.body = {
+					ponies: content[0],
+					dogs: content[1],
+					cats: content[2]
+				};
+
+				return response;
+				// body => {
+				//   ponies: 8,
+				//   dogs: 5,
+				//   cats: 6
+				// }
+			}
+		]
+	}
+});
+``
 
 #### Response
 

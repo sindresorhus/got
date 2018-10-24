@@ -236,7 +236,7 @@ module.exports = (options, input) => {
 				try {
 					for (const hook of options.hooks.beforeRetry) {
 						// eslint-disable-next-line no-await-in-loop
-						await hook(options);
+						await hook(options, error, retryCount);
 					}
 
 					retryCount++;
