@@ -19,19 +19,6 @@ const urlToOptions = require('./utils/url-to-options');
 const getMethodRedirectCodes = new Set([300, 301, 302, 303, 304, 305, 307, 308]);
 const allMethodRedirectCodes = new Set([300, 303, 307, 308]);
 
-const cachedCacheableRequests = new Map();
-const createCacheableRequest = (request, cache) => {
-	if (!cachedCacheableRequests.has(request)) {
-		cachedCacheableRequests.set(request, new Map());
-	}
-
-	if (!cachedCacheableRequests.get(request).has(cache)) {
-		cachedCacheableRequests.get(request).set(cache, new CacheableRequest(request, cache));
-	}
-
-	return cachedCacheableRequests.get(request).get(cache);
-};
-
 module.exports = (options, input) => {
 	const emitter = new EventEmitter();
 	const redirects = [];
@@ -208,7 +195,7 @@ module.exports = (options, input) => {
 		};
 
 		if (options.cache) {
-			const cacheableRequest = createCacheableRequest(fn.request, options.cache);
+			const cacheableRequest = new CacheableRequest(fn.request, options.cache);
 			const cacheReq = cacheableRequest(options, handleResponse);
 
 			cacheReq.once('error', error => {
