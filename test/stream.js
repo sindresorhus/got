@@ -181,3 +181,11 @@ test('proxies content-encoding header when options.decompress is false', async t
 
 	await server.close();
 });
+
+test('destroying got.stream() cancels the request', async t => {
+	const stream = got.stream(s.url);
+
+	const req = await pEvent(stream, 'request');
+	stream.destroy();
+	t.truthy(req.aborted);
+});
