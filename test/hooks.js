@@ -3,7 +3,7 @@ import delay from 'delay';
 import {createServer} from './helpers/server';
 import got from '..';
 
-const errorStr = 'oops';
+const errorString = 'oops';
 const error = new Error(errorStr);
 let s;
 
