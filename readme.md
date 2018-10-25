@@ -207,8 +207,6 @@ Type: `string` `Object` [`URLSearchParams`](https://developer.mozilla.org/en-US/
 
 Query string object that will be added to the request URL. This will override the query string in `url`.
 
-**Note**: if you pass an `Object` it'll be converted to a `string` using `URLSearchParams`. Beware of that `{foo: [1, 2]}` won't return `foo=1&foo=2` but `foo=1,2`. To achieve the expected result you need to pass an `Array`: `[['foo', 1], ['foo', 2]]`.
-
 ###### timeout
 
 Type: `number` `Object`
@@ -362,7 +360,7 @@ got('example.com', {
 Type: `Function[]`<br>
 Default: `[]`
 
-Called with [normalized](source/normalize-arguments.js) [request options](#options), the error and the retry count. Got will make no further changes to the request. This is especially useful when some extra work is required before the next request. Example:
+Called with [normalized](source/normalize-arguments.js) [request options](#options), the error and the retry count. Got will make no further changes to the request. This is especially useful when some extra work is required before the next try. Example:
 
 ```js
 const got = require('got');
@@ -371,8 +369,8 @@ got('example.com', {
 	hooks: {
 		beforeRetry: [
 			(options, error, retryCount) => {
-				if (error.statusCode === 401) { // Unauthorized
-					options.headers.token = getNewToken();
+				if (error.statusCode === 413) { // Payload too large
+					options.body = getNewBody();
 				}
 			}
 		]
@@ -385,7 +383,7 @@ got('example.com', {
 Type: `Function[]`<br>
 Default: `[]`
 
-Called with [response object](#response). Each function should return the response. This is especially useful when you want to beautify the response body. Example:
+Called with [response object](#response). Each function should return the response. This is especially useful when you want to refresh an access token. Example:
 
 ```js
 const got = require('got');
@@ -394,19 +392,16 @@ got('example.com', {
 	hooks: {
 		afterResponse: [
 			response => {
-				const content = response.body.split(','); // 8,5,6
-				response.body = {
-					ponies: content[0],
-					dogs: content[1],
-					cats: content[2]
-				};
+				if (response.statusCode === 401) { // Unauthorized
+					return {
+						headers: {
+							token: getNewToken(); // Refresh the access token
+						}
+					};
+				}
 
+				// No changes otherwise
 				return response;
-				// body => {
-				//   ponies: 8,
-				//   dogs: 5,
-				//   cats: 6
-				// }
 			}
 		]
 	}

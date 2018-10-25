@@ -36,6 +36,13 @@ module.exports = options => {
 				for (const hook of options.hooks.afterResponse) {
 					// eslint-disable-next-line no-await-in-loop
 					response = await hook(response);
+
+					if (is.plainObject(response)) {
+						if (emitter.retry(response) === false) {
+							reject(new Error('Retry limit reached.'));
+						}
+						return;
+					}
 				}
 			} catch (error) {
 				reject(error);

@@ -32,6 +32,14 @@ test.before('setup', async () => {
 		response.end();
 	});
 
+	s.on('/401', (request, response) => {
+		if (request.headers.token !== 'unicorn') {
+			response.statusCode = 401;
+		}
+
+		response.end();
+	});
+
 	await s.listen(s.port);
 });
 
@@ -222,4 +230,26 @@ test('afterResponse allows modifications', async t => {
 		}
 	});
 	t.is(response.body.hello, 'world');
+});
+
+test('afterResponse allows to retry', async t => {
+	const response = await got(`${s.url}/401`, {
+		json: true,
+		hooks: {
+			afterResponse: [
+				response => {
+					if (response.statusCode === 401) {
+						return {
+							headers: {
+								token: 'unicorn'
+							}
+						};
+					}
+
+					return response;
+				}
+			]
+		}
+	});
+	t.is(response.statusCode, 200);
 });
