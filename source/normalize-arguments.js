@@ -24,7 +24,7 @@ const preNormalize = (options, defaults) => {
 		options.baseUrl += '/';
 	}
 
-	if (options.stream && options.json) {
+	if (options.stream) {
 		options.json = false;
 	}
 
@@ -205,27 +205,33 @@ module.exports = (url, options, defaults) => {
 		const {retries} = options.retry;
 
 		options.retry.retries = (iteration, error) => {
-			if (iteration > retries || (!isRetryOnNetworkErrorAllowed(error) && (!options.retry.methods.has(error.method) || !options.retry.statusCodes.has(error.statusCode)))) {
+			if (iteration > retries) {
 				return 0;
 			}
 
-			if (Reflect.has(error, 'headers') && Reflect.has(error.headers, 'retry-after') && retryAfterStatusCodes.has(error.statusCode)) {
-				let after = Number(error.headers['retry-after']);
-				if (is.nan(after)) {
-					after = Date.parse(error.headers['retry-after']) - Date.now();
-				} else {
-					after *= 1000;
-				}
-
-				if (after > options.retry.maxRetryAfter) {
+			if (error !== null) {
+				if (!isRetryOnNetworkErrorAllowed(error) && (!options.retry.methods.has(error.method) || !options.retry.statusCodes.has(error.statusCode))) {
 					return 0;
 				}
 
-				return after;
-			}
+				if (Reflect.has(error, 'headers') && Reflect.has(error.headers, 'retry-after') && retryAfterStatusCodes.has(error.statusCode)) {
+					let after = Number(error.headers['retry-after']);
+					if (is.nan(after)) {
+						after = Date.parse(error.headers['retry-after']) - Date.now();
+					} else {
+						after *= 1000;
+					}
 
-			if (error.statusCode === 413) {
-				return 0;
+					if (after > options.retry.maxRetryAfter) {
+						return 0;
+					}
+
+					return after;
+				}
+
+				if (error.statusCode === 413) {
+					return 0;
+				}
 			}
 
 			const noise = Math.random() * 100;

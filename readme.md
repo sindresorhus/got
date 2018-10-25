@@ -317,8 +317,7 @@ got('sindresorhus.com', {
 
 ###### hooks
 
-Type: `Object<string, Function[]>`<br>
-Default: `{beforeRequest: []}`
+Type: `Object<string, Function[]>`
 
 Hooks allow modifications during the request lifecycle. Hook functions may be async and are run serially.
 
@@ -327,11 +326,87 @@ Hooks allow modifications during the request lifecycle. Hook functions may be as
 Type: `Function[]`<br>
 Default: `[]`
 
-Called with the normalized request options. Got will make no further changes to the request before it is sent. This is especially useful in conjunction with [`got.extend()`](#instances) and [`got.create()`](advanced-creation.md) when you want to create an API client that, for example, uses HMAC-signing.
+Called with [normalized](source/normalize-arguments.js) [request options](#options). Got will make no further changes to the request before it is sent. This is especially useful in conjunction with [`got.extend()`](#instances) and [`got.create()`](advanced-creation.md) when you want to create an API client that, for example, uses HMAC-signing.
 
 See the [AWS section](#aws) for an example.
 
-**Note**: Modifying the `body` is not recommended because the `content-length` header has already been computed and assigned.
+**Note**: If you modify the `body` you will need to modify the `content-length` header too, because it has already been computed and assigned.
+
+###### hooks.beforeRedirect
+
+Type: `Function[]`<br>
+Default: `[]`
+
+Called with [normalized](source/normalize-arguments.js) [request options](#options). Got will make no further changes to the request. This is especially useful when you want to avoid dead sites. Example:
+
+```js
+const got = require('got');
+
+got('example.com', {
+	hooks: {
+		beforeRedirect: [
+			options => {
+				if (options.hostname === 'deadSite') {
+					options.hostname = 'fallbackSite';
+				}
+			}
+		]
+	}
+});
+```
+
+###### hooks.beforeRetry
+
+Type: `Function[]`<br>
+Default: `[]`
+
+Called with [normalized](source/normalize-arguments.js) [request options](#options), the error and the retry count. Got will make no further changes to the request. This is especially useful when some extra work is required before the next try. Example:
+
+```js
+const got = require('got');
+
+got('example.com', {
+	hooks: {
+		beforeRetry: [
+			(options, error, retryCount) => {
+				if (error.statusCode === 413) { // Payload too large
+					options.body = getNewBody();
+				}
+			}
+		]
+	}
+});
+```
+
+###### hooks.afterResponse
+
+Type: `Function[]`<br>
+Default: `[]`
+
+Called with [response object](#response). Each function should return the response or updated options. This is especially useful when you want to refresh an access token. Example:
+
+```js
+const got = require('got');
+
+got('example.com', {
+	hooks: {
+		afterResponse: [
+			response => {
+				if (response.statusCode === 401) { // Unauthorized
+					return {
+						headers: {
+							token: getNewToken(); // Refresh the access token
+						}
+					};
+				}
+
+				// No changes otherwise
+				return response;
+			}
+		]
+	}
+});
+```
 
 #### Response
 

@@ -124,6 +124,11 @@ module.exports = (options, input) => {
 							...urlToOptions(redirectURL)
 						};
 
+						for (const hook of options.hooks.beforeRedirect) {
+							// eslint-disable-next-line no-await-in-loop
+							await hook(redirectOpts);
+						}
+
 						emitter.emit('redirect', response, redirectOpts);
 
 						await get(redirectOpts);
@@ -219,6 +224,17 @@ module.exports = (options, input) => {
 
 	emitter.retry = error => {
 		let backoff;
+
+		if (is.plainObject(error)) {
+			// Retry with updated options
+			options = {
+				...options,
+				...error
+			};
+
+			error = null;
+		}
+
 		try {
 			backoff = options.retry.retries(++retryTries, error);
 		} catch (error2) {
@@ -227,8 +243,21 @@ module.exports = (options, input) => {
 		}
 
 		if (backoff) {
-			retryCount++;
-			setTimeout(get, backoff, {...options, forceRefresh: true});
+			const retry = async options => {
+				try {
+					for (const hook of options.hooks.beforeRetry) {
+						// eslint-disable-next-line no-await-in-loop
+						await hook(options, error, retryCount);
+					}
+
+					retryCount++;
+					await get(options);
+				} catch (error) {
+					emitter.emit('error', error);
+				}
+			};
+
+			setTimeout(retry, backoff, {...options, forceRefresh: true});
 			return true;
 		}
 
