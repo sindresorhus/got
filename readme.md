@@ -383,7 +383,7 @@ got('example.com', {
 Type: `Function[]`<br>
 Default: `[]`
 
-Called with [response object](#response). Each function should return the response. This is especially useful when you want to refresh an access token. Example:
+Called with [response object](#response). Each function should return the response or updated options. This is especially useful when you want to refresh an access token. Example:
 
 ```js
 const got = require('got');
