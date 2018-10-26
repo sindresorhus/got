@@ -986,7 +986,7 @@ const h2got = got.extend({request});
 | Browser support       |       ✖      |       ✖      |       ✔*     |       ✔      |
 | Electron support      |       ✔      |       ✖      |       ✖      |       ✖      |
 | Promise API           |       ✔      |       ✔      |       ✔      |       ✔      |
-| Stream API            |       ✔      |       ✔      |       ✖      |       ✖      |
+| Stream API            |       ✔      |       ✔      | Node.js only |       ✖      |
 | Request cancelation   |       ✔      |       ✖      |       ✖      |       ✔      |
 | RFC compliant caching |       ✔      |       ✖      |       ✖      |       ✖      |
 | Cookies (out-of-box)  |       ✔      |       ✔      |       ✖      |       ✖      |
