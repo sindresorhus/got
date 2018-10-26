@@ -253,3 +253,20 @@ test('afterResponse allows to retry', async t => {
 	});
 	t.is(response.statusCode, 200);
 });
+
+test('throws on afterResponse when reached retry limit', async t => {
+	await t.throwsAsync(got(`${s.url}/401`, {
+		retry: 0,
+		hooks: {
+			afterResponse: [
+				() => {
+					return {
+						headers: {
+							token: 'unicorn'
+						}
+					};
+				}
+			]
+		}
+	}), 'Retry limit reached.');
+});
