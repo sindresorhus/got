@@ -41,7 +41,8 @@ const defaults = {
 		json: false,
 		cache: false,
 		useElectronNet: false
-	}
+	},
+	mutable: false
 };
 
 const got = create(defaults);

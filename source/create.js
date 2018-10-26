@@ -40,9 +40,10 @@ const create = defaults => {
 	}
 
 	got.create = create;
-	got.extend = options => create({
+	got.extend = (options, mutable) => create({
 		options: merge.options(defaults.options, options),
-		handler: defaults.handler
+		handler: defaults.handler,
+		mutable: mutable || defaults.mutable
 	});
 
 	got.mergeInstances = (...args) => create(merge.instances(args));
@@ -56,7 +57,7 @@ const create = defaults => {
 
 	Object.assign(got, {...errors, mergeOptions: merge.options});
 	Object.defineProperty(got, 'defaults', {
-		value: deepFreeze(defaults),
+		value: defaults.mutable ? defaults : deepFreeze(defaults),
 		writable: false,
 		enumerable: true,
 		configurable: true

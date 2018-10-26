@@ -388,16 +388,22 @@ Called with [response object](#response). Each function should return the respon
 ```js
 const got = require('got');
 
-got('example.com', {
+const instance = got.extend({
 	hooks: {
 		afterResponse: [
 			response => {
 				if (response.statusCode === 401) { // Unauthorized
-					return {
+					const updatedOptions = {
 						headers: {
-							token: getNewToken(); // Refresh the access token
+							token: getNewToken() // Refresh the access token
 						}
 					};
+
+					// Save for further requests
+					instance.defaults.options = got.mergeOptions(instance.defaults.options, updatedOptions);
+
+					// Apply changes
+					return updatedOptions;
 				}
 
 				// No changes otherwise
@@ -405,7 +411,7 @@ got('example.com', {
 			}
 		]
 	}
-});
+}, true);
 ```
 
 #### Response
@@ -546,7 +552,7 @@ Sets `options.method` to the method name and makes a request.
 
 ### Instances
 
-#### got.extend([options])
+#### got.extend([options], [[mutable]](advanced-creation.md#mutable))
 
 Configure a new `got` instance with default `options`. `options` are merged with the parent instance's `defaults.options` using [`got.mergeOptions`](#gotmergeoptionsparentoptions-newoptions).
 
