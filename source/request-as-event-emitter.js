@@ -92,6 +92,7 @@ module.exports = (options, input) => {
 				response.requestUrl = requestUrl;
 				response.retryCount = retryCount;
 				response.timings = timings;
+				response.redirectUrls = redirects;
 
 				const rawCookies = response.headers['set-cookie'];
 				if (options.cookieJar && rawCookies) {
@@ -136,7 +137,7 @@ module.exports = (options, input) => {
 					}
 				}
 
-				getResponse(response, options, emitter, redirects);
+				getResponse(response, options, emitter);
 			} catch (error) {
 				emitter.emit('error', error);
 			}

@@ -4,13 +4,12 @@ const is = require('@sindresorhus/is');
 const mimicResponse = require('mimic-response');
 const progress = require('./progress');
 
-module.exports = (response, options, emitter, redirects) => {
+module.exports = (response, options, emitter) => {
 	const downloadBodySize = Number(response.headers['content-length']) || null;
 
 	const progressStream = progress.download(response, emitter, downloadBodySize);
 
 	mimicResponse(response, progressStream);
-	progressStream.redirectUrls = redirects;
 
 	const newResponse = options.decompress === true &&
 		is.function(decompressResponse) &&
