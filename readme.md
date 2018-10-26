@@ -410,8 +410,9 @@ const instance = got.extend({
 				return response;
 			}
 		]
-	}
-}, true);
+	},
+	mutableDefaults: true
+});
 ```
 
 #### Response
@@ -552,7 +553,7 @@ Sets `options.method` to the method name and makes a request.
 
 ### Instances
 
-#### got.extend([options], [[mutable]](advanced-creation.md#mutable))
+#### got.extend([options])
 
 Configure a new `got` instance with default `options`. `options` are merged with the parent instance's `defaults.options` using [`got.mergeOptions`](#gotmergeoptionsparentoptions-newoptions).
 

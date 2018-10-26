@@ -158,7 +158,7 @@ test('no tampering with defaults', t => {
 
 test('defaults can be mutable', t => {
 	const instance = got.create({
-		mutable: true,
+		mutableDefaults: true,
 		options: {
 			followRedirect: false
 		}
