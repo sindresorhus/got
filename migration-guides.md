@@ -78,7 +78,6 @@ To use streams, just call `got.stream(url, options)` or `got(url, {stream: true,
 
 #### Breaking changes
 
-- no `jsonReviver`/`jsonReviver` option
 - no `form` option. You have to pass a [`form-data` instance](https://github.com/form-data/form-data) through the `body` option
 - no `oauth`/`hawk`/`aws`/`httpSignature` option. To sign requests, you need to create a [custom instance](advanced-creation.md#signing-requests)
 - no `agentClass`/`agentOptions`/`forever`/`pool` option
@@ -98,6 +97,8 @@ const instance = got.extend({
 
 instance(url, options);
 ```
+
+- no `jsonReviver`/`jsonReplacer` option (but you can you hooks for that too)
 
 Hooks are powerful, aren't they? [Read more](readme.md#hooks) to know what else you can use the hooks for!
 
