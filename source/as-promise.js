@@ -33,20 +33,19 @@ const asPromise = options => {
 			response.body = data;
 
 			try {
-				for (const hook of options.hooks.afterResponse) {
+				for (const [index, hook] of Object.entries(options.hooks.afterResponse)) {
 					// eslint-disable-next-line no-await-in-loop
 					response = await hook(response, updatedOptions => {
-						if (emitter.retry(null) === false) {
-							throw new Error('Retry limit reached.');
-						}
-
-						return asPromise(mergeOptions(options, {
+						updatedOptions = mergeOptions(options, {
 							...updatedOptions,
 							retry: {
 								retries: () => 0
 							},
 							throwHttpErrors: false
-						}));
+						});
+
+						updatedOptions.hooks.afterResponse = options.hooks.afterResponse.slice(0, index);
+						return asPromise(updatedOptions);
 					});
 				}
 			} catch (error) {

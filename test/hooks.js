@@ -266,7 +266,7 @@ test('afterResponse allows to retry', async t => {
 	t.is(response.statusCode, 200);
 });
 
-test('throws on afterResponse when reached retry limit', async t => {
+test('no infinity loop when retrying on afterResponse', async t => {
 	await t.throwsAsync(got(`${s.url}/401`, {
 		retry: 0,
 		hooks: {
@@ -274,13 +274,13 @@ test('throws on afterResponse when reached retry limit', async t => {
 				(response, retryWithMergedOptions) => {
 					return retryWithMergedOptions({
 						headers: {
-							token: 'unicorn'
+							token: 'invalid'
 						}
 					});
 				}
 			]
 		}
-	}), 'Retry limit reached.');
+	}), {instanceOf: got.HTTPError, message: 'Response code 401 (Unauthorized)'});
 });
 
 test.serial('throws on afterResponse retry failure', async t => {
@@ -303,7 +303,7 @@ test.serial('throws on afterResponse retry failure', async t => {
 				}
 			]
 		}
-	}), {instanceOf: got.HTTPError});
+	}), {instanceOf: got.HTTPError, message: 'Response code 500 (Internal Server Error)'});
 });
 
 test.serial('doesn\'t throw on afterResponse retry HTTP failure if throwHttpErrors is false', async t => {
