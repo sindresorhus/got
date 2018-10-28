@@ -40,6 +40,18 @@ test.before('setup', async () => {
 		response.end();
 	});
 
+	let visited401then500 = false;
+	s.on('/401then500', (request, response) => {
+		if (visited401then500) {
+			response.statusCode = 500;
+		} else {
+			visited401then500 = true;
+			response.statusCode = 401;
+		}
+
+		response.end();
+	});
+
 	await s.listen(s.port);
 });
 
@@ -234,16 +246,15 @@ test('afterResponse allows modifications', async t => {
 
 test('afterResponse allows to retry', async t => {
 	const response = await got(`${s.url}/401`, {
-		json: true,
 		hooks: {
 			afterResponse: [
-				response => {
+				(response, retryWithMergedOptions) => {
 					if (response.statusCode === 401) {
-						return {
+						return retryWithMergedOptions({
 							headers: {
 								token: 'unicorn'
 							}
-						};
+						});
 					}
 
 					return response;
@@ -259,14 +270,35 @@ test('throws on afterResponse when reached retry limit', async t => {
 		retry: 0,
 		hooks: {
 			afterResponse: [
-				() => {
-					return {
+				(response, retryWithMergedOptions) => {
+					return retryWithMergedOptions({
 						headers: {
 							token: 'unicorn'
 						}
-					};
+					});
 				}
 			]
 		}
 	}), 'Retry limit reached.');
+});
+
+test('throws on afterResponse retry failure', async t => {
+	await t.throwsAsync(got(`${s.url}/401then500`, {
+		retry: 1,
+		hooks: {
+			afterResponse: [
+				(response, retryWithMergedOptions) => {
+					if (response.statusCode === 401) {
+						return retryWithMergedOptions({
+							headers: {
+								token: 'unicorn'
+							}
+						});
+					}
+
+					return response;
+				}
+			]
+		}
+	}), {instanceOf: got.HTTPError});
 });
