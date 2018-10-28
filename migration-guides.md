@@ -56,7 +56,7 @@ It is more clear, isn't it?
 
 #### Changes in behavior
 
-The [`timeout` option](https://github.com/sindresorhus/got#timeout) has some extra features. You can [set timeouts on particular events!](readme.md#timeout).
+The [`timeout` option](https://github.com/sindresorhus/got#timeout) has some extra features. You can [set timeouts on particular events](readme.md#timeout)!
 
 The [`query` option](https://github.com/sindresorhus/got#query) is always serialized using [`URLSearchParams`](https://developer.mozilla.org/en-US/docs/Web/API/URLSearchParams) unless it's a `string`.
 
@@ -86,7 +86,7 @@ const instance = got.extend({
 instance(url, options);
 ```
 
-- no `jsonReviver`/`jsonReplacer` option (but you can you hooks for that too)
+- no `jsonReviver`/`jsonReplacer` option (but you can use hooks for that too)
 
 Hooks are powerful, aren't they? [Read more](readme.md#hooks) to know what else you can use the hooks for!
 
