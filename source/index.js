@@ -42,7 +42,7 @@ const defaults = {
 		cache: false,
 		useElectronNet: false
 	},
-	mutable: false
+	mutableDefaults: false
 };
 
 const got = create(defaults);
