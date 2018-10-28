@@ -391,7 +391,7 @@ const got = require('got');
 const instance = got.extend({
 	hooks: {
 		afterResponse: [
-			async (response, retryWithMergedOptions) => {
+			(response, retryWithMergedOptions) => {
 				if (response.statusCode === 401) { // Unauthorized
 					const updatedOptions = {
 						headers: {
@@ -403,7 +403,7 @@ const instance = got.extend({
 					instance.defaults.options = got.mergeOptions(instance.defaults.options, updatedOptions);
 
 					// Make a new retry
-					return await retryWithMergedOptions(updatedOptions);
+					return retryWithMergedOptions(updatedOptions);
 				}
 
 				// No changes otherwise
