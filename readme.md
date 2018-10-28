@@ -203,9 +203,36 @@ Parse response body with `JSON.parse` and set `accept` header to `application/js
 
 ###### query
 
-Type: `string` `Object` [`URLSearchParams`](https://developer.mozilla.org/en-US/docs/Web/API/URLSearchParams)
+Type: `string` `Object<string, string|number>` [`URLSearchParams`](https://developer.mozilla.org/en-US/docs/Web/API/URLSearchParams)
 
-Query string object that will be added to the request URL. This will override the query string in `url`.
+Query string that will be added to the request URL. This will override the query string in `url`.
+
+If you need to pass in an array, you can do it using a `URLSearchParams` instance:
+
+```js
+const got = require('got');
+
+const query = new URLSearchParams([['key', 'a'], ['key', 'b']]);
+
+got('https://example.com', {query});
+
+console.log(query.toString());
+//=> 'key=a&key=b'
+```
+
+And if you need a different array format, you could use the [`query-string`](https://github.com/sindresorhus/query-string) package:
+
+```js
+const got = require('got');
+const queryString = require('query-string');
+
+const query = queryString.stringify({key: ['a', 'b']}, {arrayFormat: 'bracket'});
+
+got('https://example.com', {query});
+
+console.log(query);
+//=> 'key[]=a&key[]=b'
+```
 
 ###### timeout
 
