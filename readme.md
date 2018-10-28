@@ -207,7 +207,7 @@ Type: `string` `Object<string, string|number>` [`URLSearchParams`](https://devel
 
 Query string that will be added to the request URL. This will override the query string in `url`.
 
-If you need to pass in an array, you can do it with a `URLSearchParams` instance:
+If you need to pass in an array, you can do it using a `URLSearchParams` instance:
 
 ```js
 const got = require('got');
