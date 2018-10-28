@@ -102,7 +102,7 @@ http.createServer((req, res) => {
 });
 ```
 
-The cool feature `request` has is that it can proxy headers. But Got is cool too. You can do excatly the same:
+The cool feature `request` has is that it can proxy headers. But Got is that cool too. You can do excatly the same:
 
 ```js
 http.createServer((req, res) => {
