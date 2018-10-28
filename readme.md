@@ -388,23 +388,30 @@ Called with [response object](#response). Each function should return the respon
 ```js
 const got = require('got');
 
-got('example.com', {
+const instance = got.extend({
 	hooks: {
 		afterResponse: [
 			response => {
 				if (response.statusCode === 401) { // Unauthorized
-					return {
+					const updatedOptions = {
 						headers: {
-							token: getNewToken(); // Refresh the access token
+							token: getNewToken() // Refresh the access token
 						}
 					};
+
+					// Save for further requests
+					instance.defaults.options = got.mergeOptions(instance.defaults.options, updatedOptions);
+
+					// Apply changes
+					return updatedOptions;
 				}
 
 				// No changes otherwise
 				return response;
 			}
 		]
-	}
+	},
+	mutableDefaults: true
 });
 ```
 

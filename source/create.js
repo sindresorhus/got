@@ -40,10 +40,21 @@ const create = defaults => {
 	}
 
 	got.create = create;
-	got.extend = options => create({
-		options: merge.options(defaults.options, options),
-		handler: defaults.handler
-	});
+	got.extend = options => {
+		let mutableDefaults;
+		if (options && Reflect.has(options, 'mutableDefaults')) {
+			mutableDefaults = options.mutableDefaults;
+			delete options.mutableDefaults;
+		} else {
+			mutableDefaults = defaults.mutableDefaults;
+		}
+
+		return create({
+			options: merge.options(defaults.options, options),
+			handler: defaults.handler,
+			mutableDefaults
+		});
+	};
 
 	got.mergeInstances = (...args) => create(merge.instances(args));
 
@@ -56,10 +67,10 @@ const create = defaults => {
 
 	Object.assign(got, {...errors, mergeOptions: merge.options});
 	Object.defineProperty(got, 'defaults', {
-		value: deepFreeze(defaults),
-		writable: false,
-		enumerable: true,
-		configurable: true
+		value: defaults.mutableDefaults ? defaults : deepFreeze(defaults),
+		writable: defaults.mutableDefaults,
+		configurable: defaults.mutableDefaults,
+		enumerable: true
 	});
 
 	return got;

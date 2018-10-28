@@ -14,6 +14,13 @@ Configure a new `got` instance with the provided settings.<br>
 To inherit from parent, set it as `got.defaults.options` or use [`got.mergeOptions(defaults.options, options)`](readme.md#gotmergeoptionsparentoptions-newoptions).<br>
 **Note**: Avoid using [object spread](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Spread_syntax#Spread_in_object_literals) as it doesn't work recursively.
 
+##### mutableDefaults
+
+Type: `boolean`<br>
+Default: `false`
+
+States if the defaults are mutable. It's very useful when you need to [update headers over time](readme.md#hooksafterresponse).
+
 ##### handler
 
 Type: `Function`<br>
