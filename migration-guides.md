@@ -41,7 +41,7 @@ These Got options are the same in with Request:
 
 So if you're familiar with them, you're good to go :)
 
-Oh, and one more thing... There's no `time` options. Assume it's always true.
+Oh, and one more thing... There's no `time` option. Assume [it's always true](https://github.com/sindresorhus/got#timings).
 
 #### Renamed options
 
@@ -56,7 +56,7 @@ It is more clear, isn't it?
 
 #### Changes in behavior
 
-The [`timeout`](https://github.com/sindresorhus/got#timeout) option has some extra features. You can [set timeouts on particular events!](readme.md#timeout).
+The [`timeout` option](https://github.com/sindresorhus/got#timeout) has some extra features. You can [set timeouts on particular events!](readme.md#timeout).
 
 The [`query` option](https://github.com/sindresorhus/got#query) is always serialized using [`URLSearchParams`](https://developer.mozilla.org/en-US/docs/Web/API/URLSearchParams) unless it's a `string`.
 
