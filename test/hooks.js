@@ -7,6 +7,8 @@ const errorString = 'oops';
 const error = new Error(errorString);
 let s;
 
+let visited401then500;
+
 test.before('setup', async () => {
 	s = await createServer();
 	const echoHeaders = (request, response) => {
@@ -40,7 +42,6 @@ test.before('setup', async () => {
 		response.end();
 	});
 
-	let visited401then500 = false;
 	s.on('/401then500', (request, response) => {
 		if (visited401then500) {
 			response.statusCode = 500;
@@ -282,7 +283,9 @@ test('throws on afterResponse when reached retry limit', async t => {
 	}), 'Retry limit reached.');
 });
 
-test('throws on afterResponse retry failure', async t => {
+test.serial('throws on afterResponse retry failure', async t => {
+	visited401then500 = false;
+
 	await t.throwsAsync(got(`${s.url}/401then500`, {
 		retry: 1,
 		hooks: {
@@ -301,4 +304,29 @@ test('throws on afterResponse retry failure', async t => {
 			]
 		}
 	}), {instanceOf: got.HTTPError});
+});
+
+test.serial('doesn\'t throw on afterResponse retry HTTP failure if throwHttpErrors is false', async t => {
+	visited401then500 = false;
+
+	const response = await got(`${s.url}/401then500`, {
+		throwHttpErrors: false,
+		retry: 1,
+		hooks: {
+			afterResponse: [
+				(response, retryWithMergedOptions) => {
+					if (response.statusCode === 401) {
+						return retryWithMergedOptions({
+							headers: {
+								token: 'unicorn'
+							}
+						});
+					}
+
+					return response;
+				}
+			]
+		}
+	});
+	t.is(response.statusCode, 500);
 });
