@@ -6,7 +6,7 @@ const PCancelable = require('p-cancelable');
 const requestAsEventEmitter = require('./request-as-event-emitter');
 const {HTTPError, ParseError, ReadError} = require('./errors');
 const {options: mergeOptions} = require('./merge');
-const normalizeArguments = require('./normalizeArguments');
+const normalizeArguments = require('./normalize-arguments');
 
 const asPromise = options => {
 	const proxy = new EventEmitter();
