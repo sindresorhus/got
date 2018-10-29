@@ -6,6 +6,7 @@ const PCancelable = require('p-cancelable');
 const requestAsEventEmitter = require('./request-as-event-emitter');
 const {HTTPError, ParseError, ReadError} = require('./errors');
 const {options: mergeOptions} = require('./merge');
+const normalizeArguments = require('./normalizeArguments');
 
 const asPromise = options => {
 	const proxy = new EventEmitter();
@@ -36,16 +37,17 @@ const asPromise = options => {
 				for (const [index, hook] of Object.entries(options.hooks.afterResponse)) {
 					// eslint-disable-next-line no-await-in-loop
 					response = await hook(response, updatedOptions => {
-						updatedOptions = mergeOptions(options, {
+						updatedOptions = {
 							...updatedOptions,
-							retry: {
-								retries: () => 0
-							},
+							retry: 0,
 							throwHttpErrors: false
-						});
+						};
 
+						// Remove any further hooks for that request, because we we'll call them anyway.
+						// The loop continues. We don't want duplicates (asPromise recursion).
 						updatedOptions.hooks.afterResponse = options.hooks.afterResponse.slice(0, index);
-						return asPromise(updatedOptions);
+
+						return asPromise(normalizeArguments(mergeOptions(options, updatedOptions)));
 					});
 				}
 			} catch (error) {

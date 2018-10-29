@@ -385,7 +385,7 @@ Default: `[]`
 
 Called with [response object](#response) and a retry function.
 
-Each function should return the response or updated options. This is especially useful when you want to refresh an access token. Example:
+Each function should return the response. This is especially useful when you want to refresh an access token. Example:
 
 ```js
 const got = require('got');
