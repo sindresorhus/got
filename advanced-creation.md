@@ -6,7 +6,7 @@
 
 Example: [gh-got](https://github.com/sindresorhus/gh-got/blob/master/index.js)
 
-Configure a new `got` instance with the provided settings.<br>
+Configure a new `got` instance with the provided settings. You can access the settings through `got.defaults`.<br>
 **Note:** In contrast to `got.extend()`, this method has no defaults.
 
 ##### [options](readme.md#options)
