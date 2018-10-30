@@ -65,7 +65,7 @@ module.exports = (options, input) => {
 		if (options.cookieJar) {
 			const cookieString = await getCookieString(currentUrl, {});
 
-			if (!is.empty(cookieString)) {
+			if (is.nonEmptyString(cookieString)) {
 				options.headers.cookie = cookieString;
 			}
 		}

@@ -59,7 +59,7 @@ const preNormalize = (options, defaults) => {
 		statusCodes: []
 	};
 
-	if (!is.empty(defaults) && retry !== false) {
+	if (is.nonEmptyObject(defaults) && retry !== false) {
 		options.retry = {...defaults.retry};
 	}
 
@@ -138,7 +138,7 @@ const normalize = (url, options, defaults) => {
 	});
 
 	const {query} = options;
-	if (!is.empty(query) || query instanceof URLSearchParams) {
+	if (is.nonEmptyString(query) || is.nonEmptyObject(query) || query instanceof URLSearchParams) {
 		if (!is.string(query)) {
 			options.query = (new URLSearchParams(query)).toString();
 		}
