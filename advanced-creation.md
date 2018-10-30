@@ -83,23 +83,32 @@ const defaults = {
 				504
 			]
 		},
-		cache: false,
-		decompress: true,
-		useElectronNet: false,
-		throwHttpErrors: true,
 		headers: {
 			'user-agent': `${pkg.name}/${pkg.version} (https://github.com/sindresorhus/got)`
 		},
 		hooks: {
-			beforeRequest: []
-		}
-	}
+			beforeRequest: [],
+			beforeRedirect: [],
+			beforeRetry: [],
+			afterResponse: []
+		},
+		decompress: true,
+		throwHttpErrors: true,
+		followRedirect: true,
+		stream: false,
+		form: false,
+		json: false,
+		cache: false,
+		useElectronNet: false
+	},
+	mutableDefaults: false
 };
 
 // Same as:
 const defaults = {
 	handler: got.defaults.handler,
-	options: got.defaults.options
+	options: got.defaults.options,
+	mutableDefaults: got.defaults.mutableDefaults
 };
 
 const unchangedGot = got.create(defaults);
