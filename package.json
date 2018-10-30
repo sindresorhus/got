@@ -9,7 +9,8 @@
 		"node": ">=8.6"
 	},
 	"scripts": {
-		"test": "xo && nyc ava"
+		"test": "xo && nyc ava",
+		"release": "np"
 	},
 	"files": [
 		"source"
@@ -51,6 +52,7 @@
 		"delay": "^4.1.0",
 		"form-data": "^2.3.3",
 		"get-port": "^4.0.0",
+		"np": "^3.0.4",
 		"nyc": "^13.1.0",
 		"p-event": "^2.1.0",
 		"pem": "^1.13.2",
