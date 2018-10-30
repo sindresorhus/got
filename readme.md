@@ -410,7 +410,9 @@ got('example.com', {
 Type: `Function[]`<br>
 Default: `[]`
 
-Called with [response object](#response). Each function should return the response or updated options. This is especially useful when you want to refresh an access token. Example:
+Called with [response object](#response) and a retry function.
+
+Each function should return the response. This is especially useful when you want to refresh an access token. Example:
 
 ```js
 const got = require('got');
@@ -418,7 +420,7 @@ const got = require('got');
 const instance = got.extend({
 	hooks: {
 		afterResponse: [
-			response => {
+			(response, retryWithMergedOptions) => {
 				if (response.statusCode === 401) { // Unauthorized
 					const updatedOptions = {
 						headers: {
@@ -429,8 +431,8 @@ const instance = got.extend({
 					// Save for further requests
 					instance.defaults.options = got.mergeOptions(instance.defaults.options, updatedOptions);
 
-					// Apply changes
-					return updatedOptions;
+					// Make a new retry
+					return retryWithMergedOptions(updatedOptions);
 				}
 
 				// No changes otherwise

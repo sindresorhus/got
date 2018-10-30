@@ -1,5 +1,6 @@
 'use strict';
 const {URL, URLSearchParams} = require('url'); // TODO: Use the `URL` global when targeting Node.js 10
+const urlLib = require('url');
 const is = require('@sindresorhus/is');
 const urlParseLax = require('url-parse-lax');
 const lowercaseKeys = require('lowercase-keys');
@@ -52,14 +53,14 @@ const preNormalize = (options, defaults) => {
 	delete options.timeout;
 
 	const {retry} = options;
-	if (defaults && retry !== false) {
+	options.retry = {
+		retries: 0,
+		methods: [],
+		statusCodes: []
+	};
+
+	if (!is.empty(defaults) && retry !== false) {
 		options.retry = {...defaults.retry};
-	} else {
-		options.retry = {
-			retries: 0,
-			methods: [],
-			statusCodes: []
-		};
 	}
 
 	if (retry !== false) {
@@ -85,14 +86,18 @@ const preNormalize = (options, defaults) => {
 	return options;
 };
 
-module.exports = (url, options, defaults) => {
+const normalize = (url, options, defaults) => {
 	if (is.plainObject(url) && Reflect.has(url, 'url')) {
 		options = url;
 		url = url.url;
 		delete options.url;
 	}
 
-	options = merge({}, defaults.options, options ? preNormalize(options, defaults.options) : {});
+	if (defaults) {
+		options = merge({}, defaults.options, options ? preNormalize(options, defaults.options) : {});
+	} else {
+		options = merge({}, options ? preNormalize(options) : {});
+	}
 
 	if (!is.string(url) && !is.object(url)) {
 		throw new TypeError(`Parameter \`url\` must be a string or object, not ${is(url)}`);
@@ -242,4 +247,8 @@ module.exports = (url, options, defaults) => {
 	return options;
 };
 
+const reNormalize = options => normalize(urlLib.format(options), options);
+
+module.exports = normalize;
 module.exports.preNormalize = preNormalize;
+module.exports.reNormalize = reNormalize;

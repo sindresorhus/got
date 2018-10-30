@@ -7,6 +7,8 @@ const errorString = 'oops';
 const error = new Error(errorString);
 let s;
 
+let visited401then500;
+
 test.before('setup', async () => {
 	s = await createServer();
 	const echoHeaders = (request, response) => {
@@ -34,6 +36,17 @@ test.before('setup', async () => {
 
 	s.on('/401', (request, response) => {
 		if (request.headers.token !== 'unicorn') {
+			response.statusCode = 401;
+		}
+
+		response.end();
+	});
+
+	s.on('/401then500', (request, response) => {
+		if (visited401then500) {
+			response.statusCode = 500;
+		} else {
+			visited401then500 = true;
 			response.statusCode = 401;
 		}
 
@@ -234,16 +247,15 @@ test('afterResponse allows modifications', async t => {
 
 test('afterResponse allows to retry', async t => {
 	const response = await got(`${s.url}/401`, {
-		json: true,
 		hooks: {
 			afterResponse: [
-				response => {
+				(response, retryWithMergedOptions) => {
 					if (response.statusCode === 401) {
-						return {
+						return retryWithMergedOptions({
 							headers: {
 								token: 'unicorn'
 							}
-						};
+						});
 					}
 
 					return response;
@@ -254,19 +266,67 @@ test('afterResponse allows to retry', async t => {
 	t.is(response.statusCode, 200);
 });
 
-test('throws on afterResponse when reached retry limit', async t => {
+test('no infinity loop when retrying on afterResponse', async t => {
 	await t.throwsAsync(got(`${s.url}/401`, {
 		retry: 0,
 		hooks: {
 			afterResponse: [
-				() => {
-					return {
+				(response, retryWithMergedOptions) => {
+					return retryWithMergedOptions({
 						headers: {
-							token: 'unicorn'
+							token: 'invalid'
 						}
-					};
+					});
 				}
 			]
 		}
-	}), 'Retry limit reached.');
+	}), {instanceOf: got.HTTPError, message: 'Response code 401 (Unauthorized)'});
+});
+
+test.serial('throws on afterResponse retry failure', async t => {
+	visited401then500 = false;
+
+	await t.throwsAsync(got(`${s.url}/401then500`, {
+		retry: 1,
+		hooks: {
+			afterResponse: [
+				(response, retryWithMergedOptions) => {
+					if (response.statusCode === 401) {
+						return retryWithMergedOptions({
+							headers: {
+								token: 'unicorn'
+							}
+						});
+					}
+
+					return response;
+				}
+			]
+		}
+	}), {instanceOf: got.HTTPError, message: 'Response code 500 (Internal Server Error)'});
+});
+
+test.serial('doesn\'t throw on afterResponse retry HTTP failure if throwHttpErrors is false', async t => {
+	visited401then500 = false;
+
+	const response = await got(`${s.url}/401then500`, {
+		throwHttpErrors: false,
+		retry: 1,
+		hooks: {
+			afterResponse: [
+				(response, retryWithMergedOptions) => {
+					if (response.statusCode === 401) {
+						return retryWithMergedOptions({
+							headers: {
+								token: 'unicorn'
+							}
+						});
+					}
+
+					return response;
+				}
+			]
+		}
+	});
+	t.is(response.statusCode, 500);
 });

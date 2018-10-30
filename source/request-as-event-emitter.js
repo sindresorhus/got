@@ -226,16 +226,6 @@ module.exports = (options, input) => {
 	emitter.retry = error => {
 		let backoff;
 
-		if (is.plainObject(error)) {
-			// Retry with updated options
-			options = {
-				...options,
-				...error
-			};
-
-			error = null;
-		}
-
 		try {
 			backoff = options.retry.retries(++retryTries, error);
 		} catch (error2) {
