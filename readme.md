@@ -584,7 +584,7 @@ Sets `options.method` to the method name and makes a request.
 
 #### got.extend([options])
 
-Configure a new `got` instance with default `options`. `options` are merged with the parent instance's `defaults.options` using [`got.mergeOptions`](#gotmergeoptionsparentoptions-newoptions).
+Configure a new `got` instance with default `options`. The `options` are merged with the parent instance's `defaults.options` using [`got.mergeOptions`](#gotmergeoptionsparentoptions-newoptions). You can access the resolved options with the `.defaults` property on the instance.
 
 ```js
 const client = got.extend({
@@ -649,6 +649,12 @@ Options are deeply merged to a new object. The value of each key is determined a
 	- Otherwise, only the new value is deeply cloned.
 - If the new property is an `Array`, it overwrites the old one with a deep clone of the new property.
 - Otherwise, the new value is assigned to the key.
+
+#### got.defaults
+
+Type: `Object`
+
+The default Got options.
 
 ## Errors
 
