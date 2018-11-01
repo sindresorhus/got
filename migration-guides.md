@@ -18,7 +18,7 @@ request('https://google.com', (error, response, body) => {
 });
 ```
 
-With Got, it would be:
+With Got, it is:
 
 ```js
 const got = require('got');
