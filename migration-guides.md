@@ -4,17 +4,25 @@
 
 ### Migrating from Request
 
-You may think, it's too hard to switch. But that's not true. Let's take the very first example from `request` and see how it looks using `got`.
+You may think it's too hard to switch, but it's really not. 🦄
+
+Let's take the very first example from Request's readme:
 
 ```js
 const request = require('request');
-request('https://google.com', (error, response, body) => {
-  console.log('error:', error); // Print the error if one occurred
-  console.log('statusCode:', response && response.statusCode); // Print the response status code if a response was received
-  console.log('body:', body); // Print the HTML for the Google homepage.
-});
 
+request('https://google.com', (error, response, body) => {
+	console.log('error:', error); // Print the error if one occurred
+	console.log('statusCode:', response && response.statusCode); // Print the response status code if a response was received
+	console.log('body:', body); // Print the HTML for the Google homepage
+});
+```
+
+With Got, it would be:
+
+```js
 const got = require('got');
+
 (async () => {
 	try {
 		const response = await got('https://google.com');
@@ -26,12 +34,13 @@ const got = require('got');
 })();
 ```
 
-Now it looks cool, huh?
+Looks better now, huh? 😎
 
-#### Options in common
+#### Common options
 
-Both `request` and `got` accept [`http.request` options](https://nodejs.org/api/http.html#http_http_request_options_callback).
-These Got options are the same in with Request:
+Both Request and Got accept [`http.request` options](https://nodejs.org/api/http.html#http_http_request_options_callback).
+
+These Got options are the same as with Request:
 
 - [`url`](https://github.com/sindresorhus/got#url) (+ we accept [`URL`](https://developer.mozilla.org/en-US/docs/Web/API/URL) instances too!)
 - [`body`](https://github.com/sindresorhus/got#body)
@@ -39,20 +48,20 @@ These Got options are the same in with Request:
 - [`followRedirect`](https://github.com/sindresorhus/got#followRedirect)
 - [`encoding`](https://github.com/sindresorhus/got#encoding)
 
-So if you're familiar with them, you're good to go :)
+So if you're familiar with them, you're good to go.
 
 Oh, and one more thing... There's no `time` option. Assume [it's always true](https://github.com/sindresorhus/got#timings).
 
 #### Renamed options
 
-Readability is very important to us, so we decided to rename these options:
+Readability is very important to us, so we have different names for these options:
 
 - `qs` → [`query`](https://github.com/sindresorhus/got#query)
 - `strictSSL` → [`rejectUnauthorized`](https://github.com/sindresorhus/got#rejectUnauthorized)
 - `gzip` → [`decompress`](https://github.com/sindresorhus/got#decompress)
 - `jar` → [`cookieJar`](https://github.com/sindresorhus/got#cookiejar) (accepts [`tough-cookie`](https://github.com/salesforce/tough-cookie) jar)
 
-It is more clear, isn't it?
+It's more clear, isn't it?
 
 #### Changes in behavior
 
@@ -70,10 +79,10 @@ To use streams, just call `got.stream(url, options)` or `got(url, {stream: true,
 - No `oauth`/`hawk`/`aws`/`httpSignature` option. To sign requests, you need to create a [custom instance](advanced-creation.md#signing-requests).
 - No `agentClass`/`agentOptions`/`forever`/`pool` option.
 - No proxy option. You need to [pass a custom agent](readme.md#proxies).
-- No `removeRefererHeader`. But it doesn't mean it isn't possible! Of course it is, you need to use the [`beforeRequest` hook](https://github.com/sindresorhus/got#hooksbeforeRequest):
+- No `removeRefererHeader` option. You can remove the referer header in a [`beforeRequest` hook](https://github.com/sindresorhus/got#hooksbeforeRequest):
 
 ```js
-const instance = got.extend({
+const gotInstance = got.extend({
 	hooks: {
 		beforeRequest: [
 			options => {
@@ -83,37 +92,37 @@ const instance = got.extend({
 	}
 });
 
-instance(url, options);
+gotInstance(url, options);
 ```
 
-- no `jsonReviver`/`jsonReplacer` option (but you can use hooks for that too)
+- No `jsonReviver`/`jsonReplacer` option, but you can use hooks for that too.
 
-Hooks are powerful, aren't they? [Read more](readme.md#hooks) to know what else you can use the hooks for!
+Hooks are powerful, aren't they? [Read more](readme.md#hooks) to see what else you can do with hooks.
 
 #### More about streams
 
-Let's take a quick look on another example from `request`:
+Let's take a quick look at another example from Request's readme:
 
 ```js
 http.createServer((req, res) => {
-  if (req.url === '/doodle.png') {
-    req.pipe(request('http://mysite.com/doodle.png')).pipe(res);
-  }
+	if (req.url === '/doodle.png') {
+		req.pipe(request('http://mysite.com/doodle.png')).pipe(res);
+	}
 });
 ```
 
-The cool feature `request` has is that it can proxy headers. But Got is that cool too. You can do excatly the same:
+The cool feature here is that Request can proxy headers with the stream, but Got can do that too:
 
 ```js
 http.createServer((req, res) => {
-  if (req.url === '/doodle.png') {
-    req.pipe(got.stream('http://mysite.com/doodle.png')).pipe(res);
-  }
+	if (req.url === '/doodle.png') {
+		req.pipe(got.stream('http://mysite.com/doodle.png')).pipe(res);
+	}
 });
 ```
 
-Nothing has really changed. But you need to remember to use `got.stream(url, options)` or `got(url, {stream: true, ...`}). That's it!
+Nothing has really changed. Just remember to use `got.stream(url, options)` or `got(url, {stream: true, …`}). That's it!
 
 #### You're good to go!
 
-Well, you have already come this far. Take a look at the [documentation](readme.md#highlights), it's really worth reading. There are [some great tips](readme.md#aborting-the-request). If something's unclear or doesn't work as it should, don't hestitate to open an issue.
+Well, you have already come this far. Take a look at the [documentation](readme.md#highlights). It's worth the time to read it. There are [some great tips](readme.md#aborting-the-request). If something is unclear or doesn't work as it should, don't hesitate to open an issue.
