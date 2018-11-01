@@ -4,7 +4,7 @@ const asStream = require('./as-stream');
 const asPromise = require('./as-promise');
 const normalizeArguments = require('./normalize-arguments');
 const merge = require('./merge');
-const deepFreeze = require('./deep-freeze');
+const deepFreeze = require('./utils/deep-freeze');
 
 const getPromiseOrStream = options => options.stream ? asStream(options) : asPromise(options);
 
@@ -19,7 +19,8 @@ const aliases = [
 
 const create = defaults => {
 	defaults = merge({}, defaults);
-	defaults.options = normalizeArguments.preNormalize(defaults.options);
+	normalizeArguments.preNormalize(defaults.options);
+
 	if (!defaults.handler) {
 		// This can't be getPromiseOrStream, because when merging
 		// the chain would stop at this point and no further handlers would be called.
@@ -39,10 +40,21 @@ const create = defaults => {
 	}
 
 	got.create = create;
-	got.extend = options => create({
-		options: merge.options(defaults.options, options),
-		handler: defaults.handler
-	});
+	got.extend = options => {
+		let mutableDefaults;
+		if (options && Reflect.has(options, 'mutableDefaults')) {
+			mutableDefaults = options.mutableDefaults;
+			delete options.mutableDefaults;
+		} else {
+			mutableDefaults = defaults.mutableDefaults;
+		}
+
+		return create({
+			options: merge.options(defaults.options, options),
+			handler: defaults.handler,
+			mutableDefaults
+		});
+	};
 
 	got.mergeInstances = (...args) => create(merge.instances(args));
 
@@ -55,10 +67,10 @@ const create = defaults => {
 
 	Object.assign(got, {...errors, mergeOptions: merge.options});
 	Object.defineProperty(got, 'defaults', {
-		value: deepFreeze(defaults),
-		writable: false,
-		enumerable: true,
-		configurable: true
+		value: defaults.mutableDefaults ? defaults : deepFreeze(defaults),
+		writable: defaults.mutableDefaults,
+		configurable: defaults.mutableDefaults,
+		enumerable: true
 	});
 
 	return got;

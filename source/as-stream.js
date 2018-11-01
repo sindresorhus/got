@@ -1,7 +1,6 @@
 'use strict';
 const {PassThrough} = require('stream');
 const duplexer3 = require('duplexer3');
-const is = require('@sindresorhus/is');
 const requestAsEventEmitter = require('./request-as-event-emitter');
 const {HTTPError, ReadError} = require('./errors');
 
@@ -12,7 +11,7 @@ module.exports = options => {
 	const piped = new Set();
 	let isFinished = false;
 
-	options.gotRetry.retries = () => 0;
+	options.retry.retries = () => 0;
 
 	if (options.body) {
 		proxy.write = () => {
@@ -20,33 +19,10 @@ module.exports = options => {
 		};
 	}
 
-	const emitter = requestAsEventEmitter(options);
+	const emitter = requestAsEventEmitter(options, input);
 
-	emitter.on('request', request => {
-		proxy.emit('request', request);
-		const uploadComplete = () => {
-			request.emit('upload-complete');
-		};
-
-		if (is.nodeStream(options.body)) {
-			options.body.once('end', uploadComplete);
-			options.body.pipe(request);
-			return;
-		}
-
-		if (options.body) {
-			request.end(options.body, uploadComplete);
-			return;
-		}
-
-		if (options.method === 'POST' || options.method === 'PUT' || options.method === 'PATCH') {
-			input.once('end', uploadComplete);
-			input.pipe(request);
-			return;
-		}
-
-		request.end(uploadComplete);
-	});
+	// Cancels the request
+	proxy._destroy = emitter.abort;
 
 	emitter.on('response', response => {
 		const {statusCode} = response;
@@ -56,7 +32,7 @@ module.exports = options => {
 		});
 
 		if (options.throwHttpErrors && statusCode !== 304 && (statusCode < 200 || statusCode > 299)) {
-			proxy.emit('error', new HTTPError(statusCode, response.statusMessage, response.headers, options), null, response);
+			proxy.emit('error', new HTTPError(response, options), null, response);
 			return;
 		}
 
@@ -70,8 +46,8 @@ module.exports = options => {
 			}
 
 			for (const [key, value] of Object.entries(response.headers)) {
-				// Got gives *uncompressed* data. Overriding `content-encoding` header would result in an error.
-				// It's not possible to decompress uncompressed data, is it?
+				// Got gives *decompressed* data. Overriding `content-encoding` header would result in an error.
+				// It's not possible to decompress already decompressed data, is it?
 				const allowed = options.decompress ? key !== 'content-encoding' : true;
 				if (allowed) {
 					destination.setHeader(key, value);
@@ -86,6 +62,7 @@ module.exports = options => {
 
 	[
 		'error',
+		'request',
 		'redirect',
 		'uploadProgress',
 		'downloadProgress'

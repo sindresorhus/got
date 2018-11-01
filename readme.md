@@ -121,7 +121,7 @@ Very useful when used with `got.extend()` to create niche-specific Got instances
 
 Can be a string or a [WHATWG `URL`](https://nodejs.org/api/url.html#url_class_url).
 
-Backslash at the end of `baseUrl` and at the beginning of the `url` argument is optional:
+Slash at the end of `baseUrl` and at the beginning of the `url` argument is optional:
 
 ```js
 await got('hello', {baseUrl: 'https://example.com/v1'});
@@ -203,9 +203,36 @@ Parse response body with `JSON.parse` and set `accept` header to `application/js
 
 ###### query
 
-Type: `string` `Object` [`URLSearchParams`](https://developer.mozilla.org/en-US/docs/Web/API/URLSearchParams)
+Type: `string` `Object<string, string|number>` [`URLSearchParams`](https://developer.mozilla.org/en-US/docs/Web/API/URLSearchParams)
 
-Query string object that will be added to the request URL. This will override the query string in `url`.
+Query string that will be added to the request URL. This will override the query string in `url`.
+
+If you need to pass in an array, you can do it using a `URLSearchParams` instance:
+
+```js
+const got = require('got');
+
+const query = new URLSearchParams([['key', 'a'], ['key', 'b']]);
+
+got('https://example.com', {query});
+
+console.log(query.toString());
+//=> 'key=a&key=b'
+```
+
+And if you need a different array format, you could use the [`query-string`](https://github.com/sindresorhus/query-string) package:
+
+```js
+const got = require('got');
+const queryString = require('query-string');
+
+const query = queryString.stringify({key: ['a', 'b']}, {arrayFormat: 'bracket'});
+
+got('https://example.com', {query});
+
+console.log(query);
+//=> 'key[]=a&key[]=b'
+```
 
 ###### timeout
 
@@ -317,8 +344,7 @@ got('sindresorhus.com', {
 
 ###### hooks
 
-Type: `Object<string, Function[]>`<br>
-Default: `{beforeRequest: []}`
+Type: `Object<string, Function[]>`
 
 Hooks allow modifications during the request lifecycle. Hook functions may be async and are run serially.
 
@@ -327,11 +353,96 @@ Hooks allow modifications during the request lifecycle. Hook functions may be as
 Type: `Function[]`<br>
 Default: `[]`
 
-Called with the normalized request options. Got will make no further changes to the request before it is sent. This is especially useful in conjunction with [`got.extend()`](#instances) and [`got.create()`](advanced-creation.md) when you want to create an API client that, for example, uses HMAC-signing.
+Called with [normalized](source/normalize-arguments.js) [request options](#options). Got will make no further changes to the request before it is sent. This is especially useful in conjunction with [`got.extend()`](#instances) and [`got.create()`](advanced-creation.md) when you want to create an API client that, for example, uses HMAC-signing.
 
 See the [AWS section](#aws) for an example.
 
-**Note**: Modifying the `body` is not recommended because the `content-length` header has already been computed and assigned.
+**Note**: If you modify the `body` you will need to modify the `content-length` header too, because it has already been computed and assigned.
+
+###### hooks.beforeRedirect
+
+Type: `Function[]`<br>
+Default: `[]`
+
+Called with [normalized](source/normalize-arguments.js) [request options](#options). Got will make no further changes to the request. This is especially useful when you want to avoid dead sites. Example:
+
+```js
+const got = require('got');
+
+got('example.com', {
+	hooks: {
+		beforeRedirect: [
+			options => {
+				if (options.hostname === 'deadSite') {
+					options.hostname = 'fallbackSite';
+				}
+			}
+		]
+	}
+});
+```
+
+###### hooks.beforeRetry
+
+Type: `Function[]`<br>
+Default: `[]`
+
+Called with [normalized](source/normalize-arguments.js) [request options](#options), the error and the retry count. Got will make no further changes to the request. This is especially useful when some extra work is required before the next try. Example:
+
+```js
+const got = require('got');
+
+got('example.com', {
+	hooks: {
+		beforeRetry: [
+			(options, error, retryCount) => {
+				if (error.statusCode === 413) { // Payload too large
+					options.body = getNewBody();
+				}
+			}
+		]
+	}
+});
+```
+
+###### hooks.afterResponse
+
+Type: `Function[]`<br>
+Default: `[]`
+
+Called with [response object](#response) and a retry function.
+
+Each function should return the response. This is especially useful when you want to refresh an access token. Example:
+
+```js
+const got = require('got');
+
+const instance = got.extend({
+	hooks: {
+		afterResponse: [
+			(response, retryWithMergedOptions) => {
+				if (response.statusCode === 401) { // Unauthorized
+					const updatedOptions = {
+						headers: {
+							token: getNewToken() // Refresh the access token
+						}
+					};
+
+					// Save for further requests
+					instance.defaults.options = got.mergeOptions(instance.defaults.options, updatedOptions);
+
+					// Make a new retry
+					return retryWithMergedOptions(updatedOptions);
+				}
+
+				// No changes otherwise
+				return response;
+			}
+		]
+	},
+	mutableDefaults: true
+});
+```
 
 #### Response
 
@@ -473,7 +584,7 @@ Sets `options.method` to the method name and makes a request.
 
 #### got.extend([options])
 
-Configure a new `got` instance with default `options`. `options` are merged with the parent instance's `defaults.options` using [`got.mergeOptions`](#gotmergeoptionsparentoptions-newoptions).
+Configure a new `got` instance with default `options`. The `options` are merged with the parent instance's `defaults.options` using [`got.mergeOptions`](#gotmergeoptionsparentoptions-newoptions). You can access the resolved options with the `.defaults` property on the instance.
 
 ```js
 const client = got.extend({
@@ -539,9 +650,15 @@ Options are deeply merged to a new object. The value of each key is determined a
 - If the new property is an `Array`, it overwrites the old one with a deep clone of the new property.
 - Otherwise, the new value is assigned to the key.
 
+#### got.defaults
+
+Type: `Object`
+
+The default Got options.
+
 ## Errors
 
-Each error contains (if available) `statusCode`, `statusMessage`, `host`, `hostname`, `method`, `path`, `protocol` and `url` properties to make debugging easier.
+Each error contains (if available) `body`, `statusCode`, `statusMessage`, `host`, `hostname`, `method`, `path`, `protocol` and `url` properties to make debugging easier.
 
 In Promise mode, the `response` is attached to the error.
 
@@ -671,7 +788,7 @@ You can use the [`tunnel`](https://github.com/koichik/node-tunnel) package with 
 
 ```js
 const got = require('got');
-const tunnel = require('tunnel-agent');
+const tunnel = require('tunnel');
 
 got('sindresorhus.com', {
 	agent: tunnel.httpOverHttp({
@@ -911,7 +1028,7 @@ const h2got = got.extend({request});
 | Browser support       |       ✖      |       ✖      |       ✔*     |       ✔      |
 | Electron support      |       ✔      |       ✖      |       ✖      |       ✖      |
 | Promise API           |       ✔      |       ✔      |       ✔      |       ✔      |
-| Stream API            |       ✔      |       ✔      |       ✖      |       ✖      |
+| Stream API            |       ✔      |       ✔      | Node.js only |       ✖      |
 | Request cancelation   |       ✔      |       ✖      |       ✖      |       ✔      |
 | RFC compliant caching |       ✔      |       ✖      |       ✖      |       ✖      |
 | Cookies (out-of-box)  |       ✔      |       ✔      |       ✖      |       ✖      |

@@ -1,44 +1,15 @@
 'use strict';
-const {Transform} = require('stream');
 const decompressResponse = require('decompress-response');
 const is = require('@sindresorhus/is');
 const mimicResponse = require('mimic-response');
+const progress = require('./progress');
 
-module.exports = (response, options, emitter, redirects) => {
+module.exports = (response, options, emitter) => {
 	const downloadBodySize = Number(response.headers['content-length']) || null;
-	let downloaded = 0;
 
-	const progressStream = new Transform({
-		transform(chunk, encoding, callback) {
-			downloaded += chunk.length;
-
-			const percent = downloadBodySize ? downloaded / downloadBodySize : 0;
-
-			// Let `flush()` be responsible for emitting the last event
-			if (percent < 1) {
-				emitter.emit('downloadProgress', {
-					percent,
-					transferred: downloaded,
-					total: downloadBodySize
-				});
-			}
-
-			callback(null, chunk);
-		},
-
-		flush(callback) {
-			emitter.emit('downloadProgress', {
-				percent: 1,
-				transferred: downloaded,
-				total: downloadBodySize
-			});
-
-			callback();
-		}
-	});
+	const progressStream = progress.download(response, emitter, downloadBodySize);
 
 	mimicResponse(response, progressStream);
-	progressStream.redirectUrls = redirects;
 
 	const newResponse = options.decompress === true &&
 		is.function(decompressResponse) &&

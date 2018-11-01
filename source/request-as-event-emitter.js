@@ -6,37 +6,42 @@ const http = require('http');
 const https = require('https');
 const urlLib = require('url');
 const CacheableRequest = require('cacheable-request');
+const toReadableStream = require('to-readable-stream');
 const is = require('@sindresorhus/is');
 const timer = require('@szmarczak/http-timer');
-const timedOut = require('./timed-out');
-const getBodySize = require('./get-body-size');
+const timedOut = require('./utils/timed-out');
+const getBodySize = require('./utils/get-body-size');
 const getResponse = require('./get-response');
 const progress = require('./progress');
-const {GotError, CacheError, UnsupportedProtocolError, MaxRedirectsError, RequestError} = require('./errors');
+const {CacheError, UnsupportedProtocolError, MaxRedirectsError, RequestError, TimeoutError} = require('./errors');
+const urlToOptions = require('./utils/url-to-options');
 
 const getMethodRedirectCodes = new Set([300, 301, 302, 303, 304, 305, 307, 308]);
 const allMethodRedirectCodes = new Set([300, 303, 307, 308]);
 
-module.exports = options => {
+module.exports = (options, input) => {
 	const emitter = new EventEmitter();
-	const requestUrl = options.href || (new URL(options.path, urlLib.format(options))).toString();
 	const redirects = [];
-	const agents = is.object(options.agent) ? options.agent : null;
+	let currentRequest;
+	let requestUrl;
+	let redirectString;
+	let uploadBodySize;
 	let retryCount = 0;
 	let retryTries = 0;
-	let redirectUrl;
-	let uploadBodySize;
+	let shouldAbort = false;
 
 	const setCookie = options.cookieJar ? util.promisify(options.cookieJar.setCookie.bind(options.cookieJar)) : null;
 	const getCookieString = options.cookieJar ? util.promisify(options.cookieJar.getCookieString.bind(options.cookieJar)) : null;
+	const agents = is.object(options.agent) ? options.agent : null;
 
 	const get = async options => {
-		const currentUrl = redirectUrl || requestUrl;
+		const currentUrl = redirectString || requestUrl;
 
 		if (options.protocol !== 'http:' && options.protocol !== 'https:') {
-			emitter.emit('error', new UnsupportedProtocolError(options));
-			return;
+			throw new UnsupportedProtocolError(options);
 		}
+
+		decodeURI(currentUrl);
 
 		let fn;
 		if (is.function(options.request)) {
@@ -58,125 +63,109 @@ module.exports = options => {
 		}
 
 		if (options.cookieJar) {
-			try {
-				const cookieString = await getCookieString(currentUrl, {});
+			const cookieString = await getCookieString(currentUrl, {});
 
-				if (!is.empty(cookieString)) {
-					options.headers.cookie = cookieString;
-				}
-			} catch (error) {
-				emitter.emit('error', error);
+			if (is.nonEmptyString(cookieString)) {
+				options.headers.cookie = cookieString;
 			}
 		}
 
 		let timings;
-		const cacheableRequest = new CacheableRequest(fn.request, options.cache);
-		const cacheReq = cacheableRequest(options, async response => {
-			/* istanbul ignore next: fixes https://github.com/electron/electron/blob/cbb460d47628a7a146adf4419ed48550a98b2923/lib/browser/api/net.js#L59-L65 */
-			if (options.useElectronNet) {
-				response = new Proxy(response, {
-					get: (target, name) => {
-						if (name === 'trailers' || name === 'rawTrailers') {
-							return [];
+		const handleResponse = async response => {
+			try {
+				/* istanbul ignore next: fixes https://github.com/electron/electron/blob/cbb460d47628a7a146adf4419ed48550a98b2923/lib/browser/api/net.js#L59-L65 */
+				if (options.useElectronNet) {
+					response = new Proxy(response, {
+						get: (target, name) => {
+							if (name === 'trailers' || name === 'rawTrailers') {
+								return [];
+							}
+
+							const value = target[name];
+							return is.function(value) ? value.bind(target) : value;
+						}
+					});
+				}
+
+				const {statusCode} = response;
+				response.url = currentUrl;
+				response.requestUrl = requestUrl;
+				response.retryCount = retryCount;
+				response.timings = timings;
+				response.redirectUrls = redirects;
+
+				const rawCookies = response.headers['set-cookie'];
+				if (options.cookieJar && rawCookies) {
+					await Promise.all(rawCookies.map(rawCookie => setCookie(rawCookie, response.url)));
+				}
+
+				if (options.followRedirect && 'location' in response.headers) {
+					if (allMethodRedirectCodes.has(statusCode) || (getMethodRedirectCodes.has(statusCode) && (options.method === 'GET' || options.method === 'HEAD'))) {
+						response.resume(); // We're being redirected, we don't care about the response.
+
+						if (statusCode === 303) {
+							// Server responded with "see other", indicating that the resource exists at another location,
+							// and the client should request it from that location via GET or HEAD.
+							options.method = 'GET';
 						}
 
-						const value = target[name];
-						return is.function(value) ? value.bind(target) : value;
+						if (redirects.length >= 10) {
+							throw new MaxRedirectsError(statusCode, redirects, options);
+						}
+
+						// Handles invalid URLs. See https://github.com/sindresorhus/got/issues/604
+						const redirectBuffer = Buffer.from(response.headers.location, 'binary').toString();
+						const redirectURL = new URL(redirectBuffer, currentUrl);
+						redirectString = redirectURL.toString();
+
+						redirects.push(redirectString);
+
+						const redirectOpts = {
+							...options,
+							...urlToOptions(redirectURL)
+						};
+
+						for (const hook of options.hooks.beforeRedirect) {
+							// eslint-disable-next-line no-await-in-loop
+							await hook(redirectOpts);
+						}
+
+						emitter.emit('redirect', response, redirectOpts);
+
+						await get(redirectOpts);
+						return;
 					}
-				});
-			}
-
-			const {statusCode} = response;
-			response.url = currentUrl;
-			response.requestUrl = requestUrl;
-			response.retryCount = retryCount;
-			response.timings = timings;
-
-			const rawCookies = response.headers['set-cookie'];
-			if (options.cookieJar && rawCookies) {
-				try {
-					await Promise.all(rawCookies.map(rawCookie => setCookie(rawCookie, response.url)));
-				} catch (error) {
-					emitter.emit('error', error);
-				}
-			}
-
-			const followRedirect = options.followRedirect && 'location' in response.headers;
-			const redirectGet = followRedirect && getMethodRedirectCodes.has(statusCode);
-			const redirectAll = followRedirect && allMethodRedirectCodes.has(statusCode);
-
-			if (redirectAll || (redirectGet && (options.method === 'GET' || options.method === 'HEAD'))) {
-				response.resume();
-
-				if (statusCode === 303) {
-					// Server responded with "see other", indicating that the resource exists at another location,
-					// and the client should request it from that location via GET or HEAD.
-					options.method = 'GET';
 				}
 
-				if (redirects.length >= 10) {
-					emitter.emit('error', new MaxRedirectsError(statusCode, redirects, options), null, response);
-					return;
-				}
-
-				const bufferString = Buffer.from(response.headers.location, 'binary').toString();
-
-				try {
-					// Handles invalid URLs. See https://github.com/sindresorhus/got/issues/604
-					redirectUrl = (new URL(bufferString, urlLib.format(options))).toString();
-					decodeURI(redirectUrl);
-				} catch (error) {
-					emitter.emit('error', error);
-					return;
-				}
-
-				redirects.push(redirectUrl);
-
-				const redirectOpts = {
-					...options,
-					...urlLib.parse(redirectUrl)
-				};
-
-				emitter.emit('redirect', response, redirectOpts);
-
-				await get(redirectOpts);
-				return;
-			}
-
-			try {
-				getResponse(response, options, emitter, redirects);
+				getResponse(response, options, emitter);
 			} catch (error) {
 				emitter.emit('error', error);
 			}
-		});
+		};
 
-		cacheReq.on('error', error => {
-			if (error instanceof CacheableRequest.RequestError) {
-				emitter.emit('error', new RequestError(error, options));
-			} else {
-				emitter.emit('error', new CacheError(error, options));
+		const handleRequest = request => {
+			if (shouldAbort) {
+				request.once('error', () => {});
+				request.abort();
+				return;
 			}
-		});
 
-		cacheReq.once('request', request => {
-			let aborted = false;
-			request.once('abort', _ => {
-				aborted = true;
-			});
+			currentRequest = request;
 
 			request.once('error', error => {
-				if (aborted) {
+				if (request.aborted) {
 					return;
 				}
 
-				if (!(error instanceof GotError)) {
+				if (error instanceof timedOut.TimeoutError) {
+					error = new TimeoutError(error, options);
+				} else {
 					error = new RequestError(error, options);
 				}
-				emitter.emit('retry', error, retried => {
-					if (!retried) {
-						emitter.emit('error', error);
-					}
-				});
+
+				if (emitter.retry(error) === false) {
+					emitter.emit('error', error);
+				}
 			});
 
 			timings = timer(request);
@@ -184,35 +173,107 @@ module.exports = options => {
 			progress.upload(request, emitter, uploadBodySize);
 
 			if (options.gotTimeout) {
-				timedOut(request, options);
+				timedOut(request, options.gotTimeout, options);
 			}
 
 			emitter.emit('request', request);
-		});
+
+			const uploadComplete = () => {
+				request.emit('upload-complete');
+			};
+
+			try {
+				if (is.nodeStream(options.body)) {
+					options.body.once('end', uploadComplete);
+					options.body.pipe(request);
+					options.body = undefined;
+				} else if (options.body) {
+					request.end(options.body, uploadComplete);
+				} else if (input && (options.method === 'POST' || options.method === 'PUT' || options.method === 'PATCH')) {
+					input.once('end', uploadComplete);
+					input.pipe(request);
+				} else {
+					request.end(uploadComplete);
+				}
+			} catch (error) {
+				emitter.emit('error', new RequestError(error, options));
+			}
+		};
+
+		if (options.cache) {
+			const cacheableRequest = new CacheableRequest(fn.request, options.cache);
+			const cacheReq = cacheableRequest(options, handleResponse);
+
+			cacheReq.once('error', error => {
+				if (error instanceof CacheableRequest.RequestError) {
+					emitter.emit('error', new RequestError(error, options));
+				} else {
+					emitter.emit('error', new CacheError(error, options));
+				}
+			});
+
+			cacheReq.once('request', handleRequest);
+		} else {
+			// Catches errors thrown by calling fn.request(...)
+			try {
+				handleRequest(fn.request(options, handleResponse));
+			} catch (error) {
+				emitter.emit('error', new RequestError(error, options));
+			}
+		}
 	};
 
-	emitter.on('retry', (error, cb) => {
+	emitter.retry = error => {
 		let backoff;
+
 		try {
-			backoff = options.gotRetry.retries(++retryTries, error);
+			backoff = options.retry.retries(++retryTries, error);
 		} catch (error2) {
 			emitter.emit('error', error2);
 			return;
 		}
 
 		if (backoff) {
-			retryCount++;
-			setTimeout(get, backoff, {...options, forceRefresh: true});
-			cb(true);
-			return;
+			const retry = async options => {
+				try {
+					for (const hook of options.hooks.beforeRetry) {
+						// eslint-disable-next-line no-await-in-loop
+						await hook(options, error, retryCount);
+					}
+
+					retryCount++;
+					await get(options);
+				} catch (error) {
+					emitter.emit('error', error);
+				}
+			};
+
+			setTimeout(retry, backoff, {...options, forceRefresh: true});
+			return true;
 		}
 
-		cb(false);
-	});
+		return false;
+	};
+
+	emitter.abort = () => {
+		if (currentRequest) {
+			currentRequest.once('error', () => {});
+			currentRequest.abort();
+		} else {
+			shouldAbort = true;
+		}
+	};
 
 	setImmediate(async () => {
 		try {
-			uploadBodySize = await getBodySize(options);
+			// Convert buffer to stream to receive upload progress events (#322)
+			const {body} = options;
+			if (is.buffer(body)) {
+				options.body = toReadableStream(body);
+				uploadBodySize = body.length;
+			} else {
+				uploadBodySize = await getBodySize(options);
+			}
 
 			if (is.undefined(options.headers['content-length']) && is.undefined(options.headers['transfer-encoding'])) {
 				if (uploadBodySize > 0 || options.method === 'PUT') {
@@ -224,6 +285,8 @@ module.exports = options => {
 				// eslint-disable-next-line no-await-in-loop
 				await hook(options);
 			}
+
+			requestUrl = options.href || (new URL(options.path, urlLib.format(options))).toString();
 
 			await get(options);
 		} catch (error) {

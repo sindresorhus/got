@@ -5,7 +5,10 @@ const WHITELIST = new Set([
 	'ECONNRESET',
 	'EADDRINUSE',
 	'ECONNREFUSED',
-	'EPIPE'
+	'EPIPE',
+	'ENOTFOUND',
+	'ENETUNREACH',
+	'EAI_AGAIN'
 ]);
 
 module.exports = error => {

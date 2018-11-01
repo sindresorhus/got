@@ -6,13 +6,21 @@
 
 Example: [gh-got](https://github.com/sindresorhus/gh-got/blob/master/index.js)
 
-Configure a new `got` instance with the provided settings.<br>
+Configure a new `got` instance with the provided settings. You can access the resolved options with the `.defaults` property on the instance.
+
 **Note:** In contrast to `got.extend()`, this method has no defaults.
 
 ##### [options](readme.md#options)
 
 To inherit from parent, set it as `got.defaults.options` or use [`got.mergeOptions(defaults.options, options)`](readme.md#gotmergeoptionsparentoptions-newoptions).<br>
 **Note**: Avoid using [object spread](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Spread_syntax#Spread_in_object_literals) as it doesn't work recursively.
+
+##### mutableDefaults
+
+Type: `boolean`<br>
+Default: `false`
+
+States if the defaults are mutable. It's very useful when you need to [update headers over time](readme.md#hooksafterresponse).
 
 ##### handler
 
@@ -76,23 +84,32 @@ const defaults = {
 				504
 			]
 		},
-		cache: false,
-		decompress: true,
-		useElectronNet: false,
-		throwHttpErrors: true,
 		headers: {
 			'user-agent': `${pkg.name}/${pkg.version} (https://github.com/sindresorhus/got)`
 		},
 		hooks: {
-			beforeRequest: []
-		}
-	}
+			beforeRequest: [],
+			beforeRedirect: [],
+			beforeRetry: [],
+			afterResponse: []
+		},
+		decompress: true,
+		throwHttpErrors: true,
+		followRedirect: true,
+		stream: false,
+		form: false,
+		json: false,
+		cache: false,
+		useElectronNet: false
+	},
+	mutableDefaults: false
 };
 
 // Same as:
 const defaults = {
 	handler: got.defaults.handler,
-	options: got.defaults.options
+	options: got.defaults.options,
+	mutableDefaults: got.defaults.mutableDefaults
 };
 
 const unchangedGot = got.create(defaults);

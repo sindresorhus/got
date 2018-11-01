@@ -47,6 +47,12 @@ test.before('setup', async () => {
 		});
 	});
 
+	s.on('/delayed', async (request, response) => {
+		response.write('O');
+		await delay(requestDelay);
+		response.end('K');
+	});
+
 	s.on('/download', (request, response) => {
 		response.writeHead(200, {
 			'transfer-encoding': 'chunked'
@@ -302,7 +308,8 @@ test('lookup timeout', async t => {
 test('lookup timeout no error (ip address)', async t => {
 	await got({
 		hostname: '127.0.0.1',
-		port: s.port
+		port: s.port,
+		protocol: 'http:'
 	}, {
 		timeout: {lookup: 100},
 		retry: 0
@@ -427,4 +434,9 @@ test('no error emitted when timeout is not breached (promise)', async t => {
 	});
 	await delay(requestDelay * 3);
 	t.pass();
+});
+
+test('no unhandled errors', async t => {
+	await t.throwsAsync(got(s.url, {retry: 0, timeout: requestDelay / 2}), {instanceOf: got.TimeoutError});
+	await delay(requestDelay);
 });

@@ -1,6 +1,40 @@
 'use strict';
+const {Transform} = require('stream');
 
 module.exports = {
+	download(response, emitter, downloadBodySize) {
+		let downloaded = 0;
+
+		return new Transform({
+			transform(chunk, encoding, callback) {
+				downloaded += chunk.length;
+
+				const percent = downloadBodySize ? downloaded / downloadBodySize : 0;
+
+				// Let `flush()` be responsible for emitting the last event
+				if (percent < 1) {
+					emitter.emit('downloadProgress', {
+						percent,
+						transferred: downloaded,
+						total: downloadBodySize
+					});
+				}
+
+				callback(null, chunk);
+			},
+
+			flush(callback) {
+				emitter.emit('downloadProgress', {
+					percent: 1,
+					transferred: downloaded,
+					total: downloadBodySize
+				});
+
+				callback();
+			}
+		});
+	},
+
 	upload(request, emitter, uploadBodySize) {
 		const uploadEventFrequency = 150;
 		let uploaded = 0;
@@ -33,11 +67,6 @@ module.exports = {
 					/* istanbul ignore next: see #490 (occurs randomly!) */
 					const headersSize = request._header ? Buffer.byteLength(request._header) : 0;
 					uploaded = socket.bytesWritten - headersSize;
-
-					/* istanbul ignore next: see https://github.com/sindresorhus/got/pull/322#pullrequestreview-51647813 (no proof) */
-					if (uploadBodySize && uploaded > uploadBodySize) {
-						uploaded = uploadBodySize;
-					}
 
 					// Don't emit events with unchanged progress and
 					// prevent last event from being emitted, because

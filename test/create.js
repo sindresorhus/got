@@ -79,11 +79,11 @@ test('custom headers (extend)', async t => {
 });
 
 test('extend overwrites arrays with a deep clone', t => {
-	const statusCodes = [408];
-	const a = got.extend({retry: {statusCodes}});
-	statusCodes[0] = 500;
-	t.deepEqual(a.defaults.options.retry.statusCodes, [408]);
-	t.not(a.defaults.options.retry.statusCodes, statusCodes);
+	const beforeRequest = [0];
+	const a = got.extend({hooks: {beforeRequest}});
+	beforeRequest[0] = 1;
+	t.deepEqual(a.defaults.options.hooks.beforeRequest, [0]);
+	t.not(a.defaults.options.hooks.beforeRequest, beforeRequest);
 });
 
 test('extend keeps the old value if the new one is undefined', t => {
@@ -154,6 +154,34 @@ test('no tampering with defaults', t => {
 
 	t.is(instance.defaults.options.baseUrl, 'example/');
 	t.is(instance2.defaults.options.baseUrl, 'example/');
+});
+
+test('defaults can be mutable', t => {
+	const instance = got.create({
+		mutableDefaults: true,
+		options: {
+			followRedirect: false
+		}
+	});
+
+	t.notThrows(() => {
+		instance.defaults.options.followRedirect = true;
+	});
+
+	t.true(instance.defaults.options.followRedirect);
+});
+
+test('can set mutable defaults using got.extend', t => {
+	const instance = got.extend({
+		mutableDefaults: true,
+		followRedirect: false
+	});
+
+	t.notThrows(() => {
+		instance.defaults.options.followRedirect = true;
+	});
+
+	t.true(instance.defaults.options.followRedirect);
 });
 
 test('only plain objects are freezed', async t => {

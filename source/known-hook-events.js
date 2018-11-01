@@ -1,3 +1,8 @@
 'use strict';
 
-module.exports = ['beforeRequest'];
+module.exports = [
+	'beforeRequest',
+	'beforeRedirect',
+	'beforeRetry',
+	'afterResponse'
+];

@@ -59,7 +59,10 @@ module.exports.ParseError = class extends GotError {
 };
 
 module.exports.HTTPError = class extends GotError {
-	constructor(statusCode, statusMessage, headers, opts) {
+	constructor(response, opts) {
+		const {statusCode} = response;
+		let {statusMessage} = response;
+
 		if (statusMessage) {
 			statusMessage = statusMessage.replace(/\r?\n/g, ' ').trim();
 		} else {
@@ -69,7 +72,8 @@ module.exports.HTTPError = class extends GotError {
 		this.name = 'HTTPError';
 		this.statusCode = statusCode;
 		this.statusMessage = statusMessage;
-		this.headers = headers;
+		this.headers = response.headers;
+		this.body = response.body;
 	}
 };
 
@@ -91,10 +95,10 @@ module.exports.UnsupportedProtocolError = class extends GotError {
 };
 
 module.exports.TimeoutError = class extends GotError {
-	constructor(threshold, event, opts) {
-		super(`Timeout awaiting '${event}' for ${threshold}ms`, {code: 'ETIMEDOUT'}, opts);
+	constructor(error, opts) {
+		super(error.message, {code: 'ETIMEDOUT'}, opts);
 		this.name = 'TimeoutError';
-		this.event = event;
+		this.event = error.event;
 	}
 };
 
