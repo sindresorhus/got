@@ -49,6 +49,7 @@ test('do not remove user headers from `url` object argument', async t => {
 		hostname: s.host,
 		port: s.port,
 		json: true,
+		protocol: 'http:',
 		headers: {
 			'X-Request-Id': 'value'
 		}
