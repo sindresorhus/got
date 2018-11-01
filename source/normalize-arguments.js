@@ -88,7 +88,7 @@ const preNormalize = (options, defaults) => {
 
 const normalize = (url, options, defaults) => {
 	if (is.plainObject(url)) {
-		options = url;
+		options = {...url, ...options};
 		url = url.url || {};
 		delete options.url;
 	}
