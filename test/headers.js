@@ -44,7 +44,7 @@ test('do not override accept-encoding', async t => {
 	t.is(headers['accept-encoding'], 'gzip');
 });
 
-test('do not remove user headers', async t => {
+test('do not remove user headers from `url` object argument', async t => {
 	const headers = (await got({
 		hostname: s.host,
 		port: s.port,
