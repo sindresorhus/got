@@ -39,8 +39,9 @@ It was created because the popular [`request`](https://github.com/request/reques
 - [Used by ~2000 packages and ~500K repos](https://github.com/sindresorhus/got/network/dependents)
 - Actively maintained
 
-[See how Got compares to other HTTP libraries](#comparison)
+[Moving from Request?](migration-guides.md)
 
+[See how Got compares to other HTTP libraries](#comparison)
 
 ## Install
 
