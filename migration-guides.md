@@ -71,14 +71,17 @@ The [`query` option](https://github.com/sindresorhus/got#query) is always serial
 
 The [`baseUrl` option](https://github.com/sindresorhus/got#baseurl) appends the ending slash if it's not present.
 
+There's no `maxRedirects` option. It's always set to `10`.
+
 To use streams, just call `got.stream(url, options)` or `got(url, {stream: true, ...}`).
 
 #### Breaking changes
 
 - No `form` option. You have to pass a [`form-data` instance](https://github.com/form-data/form-data) through the [`body` option](https://github.com/sindresorhus/got#body).
 - No `oauth`/`hawk`/`aws`/`httpSignature` option. To sign requests, you need to create a [custom instance](advanced-creation.md#signing-requests).
-- No `agentClass`/`agentOptions`/`forever`/`pool` option.
-- No proxy option. You need to [pass a custom agent](readme.md#proxies).
+- No `agentClass`/`agentOptions`/`pool` option.
+- No `forever` option. You need to use [forever-agent](https://github.com/request/forever-agent).
+- No `proxy` option. You need to [pass a custom agent](readme.md#proxies).
 - No `removeRefererHeader` option. You can remove the referer header in a [`beforeRequest` hook](https://github.com/sindresorhus/got#hooksbeforeRequest):
 
 ```js
@@ -95,7 +98,46 @@ const gotInstance = got.extend({
 gotInstance(url, options);
 ```
 
-- No `jsonReviver`/`jsonReplacer` option, but you can use hooks for that too.
+- No `jsonReviver`/`jsonReplacer` option, but you can use hooks for that too:
+
+```js
+const gotInstance = got.extend({
+	hooks: {
+		beforeRequest: [
+			options => {
+				if (options.json && options.jsonReplacer) {
+					const newBody = {};
+					for (const [key, value] of Object.entries(options.body)) {
+						let newValue = value;
+						do {
+							newValue = options.jsonReplacer(key, newValue);
+						} while (typeof newValue === 'object');
+
+						newBody[key] = newValue;
+					}
+
+					// #1 solution (faster)
+					options.body = newBody;
+
+					// #2 solution (slower)
+					options.body = JSON.parse(JSON.stringify(options.body, options.jsonReplacer));
+				}
+			}
+		],
+		afterResponse: [
+			response => {
+				// TODO in Got: we need to make the `options` public somehow
+				if (options.json && options.jsonReviver) {
+					response.body = JSON.stringify(JSON.parse(response.body, options.jsonReviver));
+				}
+				return response;
+			}
+		]
+	}
+});
+
+gotInstance(url, options);
+```
 
 Hooks are powerful, aren't they? [Read more](readme.md#hooks) to see what else you can do with hooks.
 
