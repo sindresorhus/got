@@ -189,3 +189,9 @@ test('destroying got.stream() cancels the request', async t => {
 	stream.destroy();
 	t.truthy(req.aborted);
 });
+
+test('piping to got.stream.put()', async t => {
+	await t.notThrowsAsync(async () => {
+		await getStream(got.stream(s.url).pipe(got.stream.put(`${s.url}/post`)));
+	});
+});

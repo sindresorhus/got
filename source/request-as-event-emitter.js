@@ -276,7 +276,7 @@ module.exports = (options, input) => {
 			}
 
 			if (is.undefined(options.headers['content-length']) && is.undefined(options.headers['transfer-encoding'])) {
-				if (uploadBodySize > 0 || options.method === 'PUT') {
+				if ((uploadBodySize > 0 || options.method === 'PUT') && !is.null(uploadBodySize)) {
 					options.headers['content-length'] = uploadBodySize;
 				}
 			}
