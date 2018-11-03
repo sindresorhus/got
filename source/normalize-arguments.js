@@ -87,9 +87,9 @@ const preNormalize = (options, defaults) => {
 };
 
 const normalize = (url, options, defaults) => {
-	if (is.plainObject(url) && Reflect.has(url, 'url')) {
-		options = url;
-		url = url.url;
+	if (is.plainObject(url)) {
+		options = {...url, ...options};
+		url = options.url || {};
 		delete options.url;
 	}
 
@@ -122,12 +122,8 @@ const normalize = (url, options, defaults) => {
 		url = urlToOptions(url);
 	}
 
-	options = {
-		path: '',
-		...url,
-		protocol: url.protocol || 'https:', // Override both null/undefined with default protocol
-		...options
-	};
+	// Override both null/undefined with default protocol
+	options = merge({path: ''}, url, {protocol: url.protocol || 'https:'}, options);
 
 	const {baseUrl} = options;
 	Object.defineProperty(options, 'baseUrl', {

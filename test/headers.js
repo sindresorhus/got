@@ -44,6 +44,23 @@ test('do not override accept-encoding', async t => {
 	t.is(headers['accept-encoding'], 'gzip');
 });
 
+test('do not remove user headers from `url` object argument', async t => {
+	const headers = (await got({
+		hostname: s.host,
+		port: s.port,
+		json: true,
+		protocol: 'http:',
+		headers: {
+			'X-Request-Id': 'value'
+		}
+	})).body;
+
+	t.is(headers.accept, 'application/json');
+	t.is(headers['user-agent'], `${pkg.name}/${pkg.version} (https://github.com/sindresorhus/got)`);
+	t.is(headers['accept-encoding'], 'gzip, deflate');
+	t.is(headers['x-request-id'], 'value');
+});
+
 test('do not set accept-encoding header when decompress options is false', async t => {
 	const {body: headers} = await got(s.url, {
 		json: true,
