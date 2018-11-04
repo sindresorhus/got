@@ -12,31 +12,7 @@ class TimeoutError extends Error {
 
 const reentry = Symbol('reentry');
 
-function addTimeout(delay, callback, ...args) {
-	// Event loop order is timers, poll, immediates.
-	// The timed event may emit during the current tick poll phase, so
-	// defer calling the handler until the poll phase completes.
-	let immediate;
-	const timeout = setTimeout(() => {
-		immediate = setImmediate(callback, delay, ...args);
-		/* istanbul ignore next: added in node v9.7.0 */
-		if (immediate.unref) {
-			immediate.unref();
-		}
-	}, delay);
-
-	/* istanbul ignore next: in order to support electron renderer */
-	if (timeout.unref) {
-		timeout.unref();
-	}
-
-	const cancel = () => {
-		clearTimeout(timeout);
-		clearImmediate(immediate);
-	};
-
-	return cancel;
-}
+const noop = () => {};
 
 module.exports = (request, delays, options) => {
 	/* istanbul ignore next: this makes sure timed-out isn't called twice */
@@ -45,6 +21,43 @@ module.exports = (request, delays, options) => {
 	}
 
 	request[reentry] = true;
+
+	let stopNewTimeouts = false;
+
+	const addTimeout = (delay, callback, ...args) => {
+		// An error had been thrown before. Going further would result in uncaught errors.
+		// See https://github.com/sindresorhus/got/issues/631#issuecomment-435675051
+		if (stopNewTimeouts) {
+			return noop;
+		}
+
+		// Event loop order is timers, poll, immediates.
+		// The timed event may emit during the current tick poll phase, so
+		// defer calling the handler until the poll phase completes.
+		let immediate;
+		const timeout = setTimeout(() => {
+			immediate = setImmediate(callback, delay, ...args);
+			/* istanbul ignore next: added in node v9.7.0 */
+			if (immediate.unref) {
+				immediate.unref();
+			}
+		}, delay);
+
+		/* istanbul ignore next: in order to support electron renderer */
+		if (timeout.unref) {
+			timeout.unref();
+		}
+
+		const cancel = () => {
+			clearTimeout(timeout);
+			clearImmediate(immediate);
+		};
+
+		cancelers.push(cancel);
+
+		return cancel;
+	};
+
 	const {host, hostname} = options;
 	const timeoutHandler = (delay, event) => {
 		request.emit('error', new TimeoutError(delay, event));
@@ -55,6 +68,7 @@ module.exports = (request, delays, options) => {
 
 	const cancelers = [];
 	const cancelTimeouts = () => {
+		stopNewTimeouts = true;
 		cancelers.forEach(cancelTimeout => cancelTimeout());
 	};
 
@@ -64,8 +78,7 @@ module.exports = (request, delays, options) => {
 	});
 
 	if (delays.request !== undefined) {
-		const cancelTimeout = addTimeout(delays.request, timeoutHandler, 'request');
-		cancelers.push(cancelTimeout);
+		addTimeout(delays.request, timeoutHandler, 'request');
 	}
 
 	if (delays.socket !== undefined) {
@@ -79,7 +92,6 @@ module.exports = (request, delays, options) => {
 			/* istanbul ignore next: hard to test */
 			if (socket.connecting) {
 				const cancelTimeout = addTimeout(delays.lookup, timeoutHandler, 'lookup');
-				cancelers.push(cancelTimeout);
 				socket.once('lookup', cancelTimeout);
 			}
 		});
@@ -89,17 +101,15 @@ module.exports = (request, delays, options) => {
 		request.once('socket', socket => {
 			/* istanbul ignore next: hard to test */
 			if (socket.connecting) {
-				const timeConnect = () => {
-					const cancelTimeout = addTimeout(delays.connect, timeoutHandler, 'connect');
-					cancelers.push(cancelTimeout);
-					return cancelTimeout;
-				};
+				const timeConnect = () => addTimeout(delays.connect, timeoutHandler, 'connect');
 
 				if (request.socketPath || net.isIP(hostname || host)) {
 					socket.once('connect', timeConnect());
 				} else {
-					socket.once('lookup', () => {
-						socket.once('connect', timeConnect());
+					socket.once('lookup', error => {
+						if (error === null) {
+							socket.once('connect', timeConnect());
+						}
 					});
 				}
 			}
@@ -112,7 +122,6 @@ module.exports = (request, delays, options) => {
 			if (socket.connecting) {
 				socket.once('connect', () => {
 					const cancelTimeout = addTimeout(delays.secureConnect, timeoutHandler, 'secureConnect');
-					cancelers.push(cancelTimeout);
 					socket.once('secureConnect', cancelTimeout);
 				});
 			}
@@ -121,11 +130,7 @@ module.exports = (request, delays, options) => {
 
 	if (delays.send !== undefined) {
 		request.once('socket', socket => {
-			const timeRequest = () => {
-				const cancelTimeout = addTimeout(delays.send, timeoutHandler, 'send');
-				cancelers.push(cancelTimeout);
-				return cancelTimeout;
-			};
+			const timeRequest = () => addTimeout(delays.send, timeoutHandler, 'send');
 			/* istanbul ignore next: hard to test */
 			if (socket.connecting) {
 				socket.once('connect', () => {
@@ -140,7 +145,6 @@ module.exports = (request, delays, options) => {
 	if (delays.response !== undefined) {
 		request.once('upload-complete', () => {
 			const cancelTimeout = addTimeout(delays.response, timeoutHandler, 'response');
-			cancelers.push(cancelTimeout);
 			request.once('response', cancelTimeout);
 		});
 	}
