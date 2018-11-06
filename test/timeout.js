@@ -436,7 +436,25 @@ test('no error emitted when timeout is not breached (promise)', async t => {
 	t.pass();
 });
 
-test('no unhandled errors', async t => {
+test('no unhandled `socket hung up` errors', async t => {
 	await t.throwsAsync(got(s.url, {retry: 0, timeout: requestDelay / 2}), {instanceOf: got.TimeoutError});
 	await delay(requestDelay);
+});
+
+test('no more timeouts after an error', async t => {
+	await t.throwsAsync(got(`http://${Date.now()}.dev`, {
+		retry: 1,
+		timeout: {
+			lookup: 1,
+			connect: 1,
+			secureConnect: 1,
+			socket: 1,
+			response: 1,
+			send: 1,
+			request: 1
+		}
+	}), {instanceOf: got.GotError}); // Don't check the message, because it may throw ENOTFOUND before the timeout.
+
+	// Wait a bit more to check if there are any unhandled errors
+	await delay(10);
 });
