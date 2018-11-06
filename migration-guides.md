@@ -139,7 +139,7 @@ const gotInstance = got.extend({
 gotInstance(url, options);
 ```
 
-Hooks are powerful, aren't they? [Read more](readme.md#hooks) to see what else you can do with hooks.
+Hooks are powerful, aren't they? [Read more](readme.md#hooks) to see what else you achieve using hooks.
 
 #### More about streams
 
