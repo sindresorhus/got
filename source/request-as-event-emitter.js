@@ -226,7 +226,7 @@ module.exports = (options, input) => {
 		let backoff;
 
 		try {
-			backoff = options.retry.retries(retryCount, error);
+			backoff = options.retry.retries(++retryCount, error);
 		} catch (error2) {
 			emitter.emit('error', error2);
 			return;
@@ -240,7 +240,6 @@ module.exports = (options, input) => {
 						await hook(options, error, retryCount);
 					}
 
-					retryCount++;
 					await get(options);
 				} catch (error) {
 					emitter.emit('error', error);

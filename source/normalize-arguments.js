@@ -206,7 +206,7 @@ const normalize = (url, options, defaults) => {
 		const {retries} = options.retry;
 
 		options.retry.retries = (iteration, error) => {
-			if (iteration >= retries) {
+			if (iteration > retries) {
 				return 0;
 			}
 
@@ -236,7 +236,7 @@ const normalize = (url, options, defaults) => {
 			}
 
 			const noise = Math.random() * 100;
-			return (2 ** iteration) * 1000 + noise;
+			return (2 ** (iteration - 1)) * 1000 + noise;
 		};
 	}
 

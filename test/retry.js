@@ -134,7 +134,7 @@ test('custom retries', async t => {
 		throwHttpErrors: true,
 		retry: {
 			retries: iter => {
-				if (iter === 0) {
+				if (iter === 1) {
 					tried = true;
 					return 1;
 				}
