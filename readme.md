@@ -274,6 +274,9 @@ The `retries` property can be a `number` or a `function` with `retry` and `error
 - `EADDRINUSE`: Could not bind to any free port.
 - `ECONNREFUSED`: Connection was refused by the server.
 - `EPIPE`: The remote side of the stream being written has been closed.
+- `ENOTFOUND`: Couldn't resolve the hostname to an IP address.
+- `ENETUNREACH`: No internet connection.
+- `EAI_AGAIN`: DNS lookup timed out.
 
 ###### followRedirect
 
