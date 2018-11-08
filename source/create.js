@@ -8,14 +8,15 @@ const deepFreeze = require('./utils/deep-freeze');
 
 const getPromiseOrStream = options => options.stream ? asStream(options) : asPromise(options);
 
-const aliases = [
-	'get',
-	'post',
-	'put',
-	'patch',
-	'head',
-	'delete'
-];
+const aliases = {
+	get: 'get',
+	post: 'post',
+	put: 'put',
+	patch: 'patch',
+	head: 'head',
+	delete: 'delete',
+	del: 'delete'
+};
 
 const create = defaults => {
 	defaults = merge({}, defaults);
@@ -60,10 +61,10 @@ const create = defaults => {
 
 	got.stream = (url, options) => got(url, {...options, stream: true});
 
-	for (const method of aliases) {
-		got[method] = (url, options) => got(url, {...options, method});
-		got.stream[method] = (url, options) => got.stream(url, {...options, method});
-	}
+	Object.entries(aliases).forEach(({ key, method }) => {
+		got[key] = (url, options) => got(url, {...options, method});
+		got.stream[key] = (url, options) => got.stream(url, {...options, method});
+	})
 
 	Object.assign(got, {...errors, mergeOptions: merge.options});
 	Object.defineProperty(got, 'defaults', {
