@@ -236,7 +236,7 @@ const normalize = (url, options, defaults) => {
 			}
 
 			const noise = Math.random() * 100;
-			return ((1 << iteration) * 1000) + noise;
+			return ((2 ** (iteration - 1)) * 1000) + noise;
 		};
 	}
 
