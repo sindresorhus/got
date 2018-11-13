@@ -4,7 +4,7 @@ about: Something is not working as it should
 ---
 #### Describe the bug
 
- - NodeJS version: 
+ - Node.js version: 
  - OS: 
 
 <!-- A clear and concise description of what the bug is. -->
@@ -22,6 +22,12 @@ about: Something is not working as it should
 ```js
 ...
 ```
+
+<!--
+We encourage you to submit a PR with a failing test:
+ - This will make it more likely for us to prioritize your issue.
+ - It's a good way to prove that the issue is related to Got and to not your code. 
+-->
 
 #### Checklist
 
