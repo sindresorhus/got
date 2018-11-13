@@ -20,4 +20,4 @@ about: Something is not working as it should
 #### Checklist
 
 - [ ] I have read the documentation.
-- [ ] I have tried using the latest Got.
+- [ ] I have tried my code with the latest version of Node.js and Got.
