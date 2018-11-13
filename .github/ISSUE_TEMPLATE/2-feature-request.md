@@ -3,7 +3,7 @@ name: "⭐ Feature request"
 about: Suggest an idea for Got
 ---
 
-#### What's the idea?
+#### What problem are you trying to solve?
 
 ...
 
