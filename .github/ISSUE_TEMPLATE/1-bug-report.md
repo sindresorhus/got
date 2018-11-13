@@ -4,7 +4,11 @@ about: Something is not working as it should
 ---
 #### Describe the bug
 
+ - NodeJS version: 
+ - OS: 
+
 <!-- A clear and concise description of what the bug is. -->
+
 #### Actual behavior
 
 ...
