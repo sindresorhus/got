@@ -96,7 +96,7 @@ const normalize = (url, options, defaults) => {
 	if (defaults) {
 		options = merge({}, defaults.options, options ? preNormalize(options, defaults.options) : {});
 	} else {
-		options = merge({}, options ? preNormalize(options) : {});
+		options = merge({}, preNormalize(options));
 	}
 
 	if (!is.string(url) && !is.object(url)) {
