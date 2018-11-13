@@ -1032,7 +1032,7 @@ const h2got = got.extend({request});
 | Electron support      |       ✔      |       ✖      |       ✖      |       ✖      |
 | Promise API           |       ✔      |       ✔      |       ✔      |       ✔      |
 | Stream API            |       ✔      |       ✔      | Node.js only |       ✖      |
-| Request cancelation   |       ✔      |       ✖      |       ✖      |       ✔      |
+| Request cancelation   |       ✔      |       ✖      |       ✔      |       ✔      |
 | RFC compliant caching |       ✔      |       ✖      |       ✖      |       ✖      |
 | Cookies (out-of-box)  |       ✔      |       ✔      |       ✖      |       ✖      |
 | Follows redirects     |       ✔      |       ✔      |       ✔      |       ✔      |
