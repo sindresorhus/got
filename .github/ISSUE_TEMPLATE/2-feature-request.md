@@ -11,4 +11,4 @@ about: Suggest an idea for Got
 
 #### Checklist
 
-- [ ] I have read the documentation. <!-- (no such feature exists right now) -->
+- [ ] I have read the documentation and made sure this feature doesn't already exist.
