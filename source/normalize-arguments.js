@@ -210,29 +210,27 @@ const normalize = (url, options, defaults) => {
 				return 0;
 			}
 
-			if (error !== null) {
-				if (!isRetryOnNetworkErrorAllowed(error) && (!options.retry.methods.has(error.method) || !options.retry.statusCodes.has(error.statusCode))) {
+			if (!isRetryOnNetworkErrorAllowed(error) && (!options.retry.methods.has(error.method) || !options.retry.statusCodes.has(error.statusCode))) {
+				return 0;
+			}
+
+			if (Reflect.has(error, 'headers') && Reflect.has(error.headers, 'retry-after') && retryAfterStatusCodes.has(error.statusCode)) {
+				let after = Number(error.headers['retry-after']);
+				if (is.nan(after)) {
+					after = Date.parse(error.headers['retry-after']) - Date.now();
+				} else {
+					after *= 1000;
+				}
+
+				if (after > options.retry.maxRetryAfter) {
 					return 0;
 				}
 
-				if (Reflect.has(error, 'headers') && Reflect.has(error.headers, 'retry-after') && retryAfterStatusCodes.has(error.statusCode)) {
-					let after = Number(error.headers['retry-after']);
-					if (is.nan(after)) {
-						after = Date.parse(error.headers['retry-after']) - Date.now();
-					} else {
-						after *= 1000;
-					}
+				return after;
+			}
 
-					if (after > options.retry.maxRetryAfter) {
-						return 0;
-					}
-
-					return after;
-				}
-
-				if (error.statusCode === 413) {
-					return 0;
-				}
+			if (error.statusCode === 413) {
+				return 0;
 			}
 
 			const noise = Math.random() * 100;
