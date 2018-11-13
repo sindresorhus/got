@@ -7,7 +7,7 @@ about: Suggest an idea for Got
 
 ...
 
-<!-- If it's possible to make a workaround, please include the code too! It'll help us when working on the feature. 🦄 -->
+<!-- Include a usage example of the feature. If the feature is currently possible with a workaround, include that too. -->
 
 #### Checklist
 
