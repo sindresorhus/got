@@ -93,6 +93,12 @@ module.exports = (options, input) => {
 				response.timings = timings;
 				response.redirectUrls = redirects;
 
+				if (response.req) {
+					response.req.gotOptions = options;
+			  } else {
+					response.req = {gotOptions: options};
+			  }
+
 				const rawCookies = response.headers['set-cookie'];
 				if (options.cookieJar && rawCookies) {
 					await Promise.all(rawCookies.map(rawCookie => setCookie(rawCookie, response.url)));
