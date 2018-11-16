@@ -112,6 +112,12 @@ test('custom body', async t => {
 	t.is(error.body, 'not');
 });
 
+test('contains got options', async t => {
+	const options = {url: s.url, auth: 'foo:bar'}
+	const error = await t.throwsAsync(got(options));
+	t.is(error.gotOptions.auth, options.auth);
+});
+
 test('no status message is overriden by the default one', async t => {
 	const error = await t.throwsAsync(got(`${s.url}/no-status-message`));
 	t.is(error.statusCode, 400);
