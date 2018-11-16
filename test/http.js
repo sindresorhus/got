@@ -94,7 +94,7 @@ test('response contains url', async t => {
 
 test('response contains got options', async t => {
 	 const options = {url: s.url, auth: 'foo:bar'}
-	 t.is((await got(options)).req.gotOptions.auth, options.auth);
+	 t.is((await got(options)).request.gotOptions.auth, options.auth);
 });
 
 

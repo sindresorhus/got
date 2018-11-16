@@ -451,7 +451,7 @@ const instance = got.extend({
 
 The response object will typically be a [Node.js HTTP response stream](https://nodejs.org/api/http.html#http_class_http_incomingmessage), however, if returned from the cache it will be a [response-like object](https://github.com/lukechilds/responselike) which behaves in the same way.
 
-##### req
+##### request
 
 Type: `Object`
 

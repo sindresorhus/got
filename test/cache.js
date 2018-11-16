@@ -118,7 +118,7 @@ test('Cached response should have got options', async t => {
 	await got(options);
 	const secondResponse = await got(options);
 
-	t.is(secondResponse.req.gotOptions.auth, options.auth);
+	t.is(secondResponse.request.gotOptions.auth, options.auth);
 });
 
 test('Cache error throws got.CacheError', async t => {
