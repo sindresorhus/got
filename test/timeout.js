@@ -470,5 +470,6 @@ test('socket timeout is canceled on error', async t => {
 	});
 
 	await t.throwsAsync(promise, {message});
+	// Wait a bit more to check if there are any unhandled errors
 	await delay(10);
 });
