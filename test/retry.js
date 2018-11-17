@@ -152,7 +152,7 @@ test('custom retries', async t => {
 	t.true(tried);
 });
 
-test.only('custom errors', async t => {
+test('custom errors', async t => {
 	const errorCode = 'OH_SNAP';
 
 	let tried = false;
