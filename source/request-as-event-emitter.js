@@ -119,19 +119,19 @@ module.exports = (options, input) => {
 
 						redirects.push(redirectString);
 
-						const redirectOpts = {
+						const redirectOptions = {
 							...options,
 							...urlToOptions(redirectURL)
 						};
 
 						for (const hook of options.hooks.beforeRedirect) {
 							// eslint-disable-next-line no-await-in-loop
-							await hook(redirectOpts);
+							await hook(redirectOptions);
 						}
 
-						emitter.emit('redirect', response, redirectOpts);
+						emitter.emit('redirect', response, redirectOptions);
 
-						await get(redirectOpts);
+						await get(redirectOptions);
 						return;
 					}
 				}
@@ -201,9 +201,9 @@ module.exports = (options, input) => {
 
 		if (options.cache) {
 			const cacheableRequest = new CacheableRequest(fn.request, options.cache);
-			const cacheReq = cacheableRequest(options, handleResponse);
+			const cacheRequest = cacheableRequest(options, handleResponse);
 
-			cacheReq.once('error', error => {
+			cacheRequest.once('error', error => {
 				if (error instanceof CacheableRequest.RequestError) {
 					emitter.emit('error', new RequestError(error, options));
 				} else {
@@ -211,7 +211,7 @@ module.exports = (options, input) => {
 				}
 			});
 
-			cacheReq.once('request', handleRequest);
+			cacheRequest.once('request', handleRequest);
 		} else {
 			// Catches errors thrown by calling fn.request(...)
 			try {

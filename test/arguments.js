@@ -36,19 +36,27 @@ test.after('cleanup', async () => {
 });
 
 test('url is required', async t => {
-	const error = await t.throwsAsync(got());
-	t.is(error.message, 'Parameter `url` must be a string or object, not undefined');
+	await t.throwsAsync(
+		got(),
+		{
+			message: 'Parameter `url` must be a string or object, not undefined'
+		}
+	);
 });
 
 test('url should be utf-8 encoded', async t => {
-	const error = await t.throwsAsync(got(`${s.url}/%D2%E0%EB%EB%E8%ED`));
-	t.is(error.message, 'URI malformed');
+	await t.throwsAsync(
+		got(`${s.url}/%D2%E0%EB%EB%E8%ED`),
+		{
+			message: 'URI malformed'
+		}
+	);
 });
 
 test('string url with query is preserved', async t => {
 	const path = '/?test=http://example.com?foo=bar';
-	const response = await got(`${s.url}${path}`);
-	t.is(response.body, path);
+	const {body} = await got(`${s.url}${path}`);
+	t.is(body, path);
 });
 
 test('options are optional', async t => {
@@ -81,11 +89,13 @@ test('requestUrl with url.parse object as first argument', async t => {
 	t.is((await got(parse(`${s.url}/test`))).requestUrl, `${s.url}/test`);
 });
 
-test('overrides querystring from opts', async t => {
-	const response = await got(
+test('overrides querystring from options', async t => {
+	const {body} = await got(
 		`${s.url}/?drop=this`,
 		{
-			query: {test: 'wow'},
+			query: {
+				test: 'wow'
+			},
 			cache: {
 				get(key) {
 					t.is(key, `cacheable-request:GET:${s.url}/?test=wow`);
@@ -96,16 +106,18 @@ test('overrides querystring from opts', async t => {
 			}
 		}
 	);
-	t.is(response.body, '/?test=wow');
+
+	t.is(body, '/?test=wow');
 });
 
 test('escapes query parameter values', async t => {
-	const response = await got(`${s.url}`, {
+	const {body} = await got(`${s.url}`, {
 		query: {
 			test: 'it’s ok'
 		}
 	});
-	t.is(response.body, '/?test=it%E2%80%99s+ok');
+
+	t.is(body, '/?test=it%E2%80%99s+ok');
 });
 
 test('the `query` option can be a URLSearchParams', async t => {
@@ -119,18 +131,24 @@ test('should ignore empty query object', async t => {
 });
 
 test('should throw with auth in url string', async t => {
-	const error = await t.throwsAsync(got('https://test:45d3ps453@account.myservice.com/api/token'));
-	t.is(error.message, 'Basic authentication must be done with the `auth` option');
+	await t.throwsAsync(
+		got('https://test:45d3ps453@account.myservice.com/api/token'),
+		{
+			message: 'Basic authentication must be done with the `auth` option'
+		}
+	);
 });
 
 test('does not throw with auth in url object', async t => {
-	await t.notThrowsAsync(got({
-		auth: 'foo:bar',
-		hostname: s.host,
-		port: s.port,
-		protocol: 'http:',
-		path: '/test'
-	}));
+	await t.notThrowsAsync(
+		got({
+			auth: 'foo:bar',
+			hostname: s.host,
+			port: s.port,
+			protocol: 'http:',
+			path: '/test'
+		})
+	);
 });
 
 test('should throw when body is set to object', async t => {

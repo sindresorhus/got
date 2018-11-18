@@ -71,10 +71,10 @@ test.after('cleanup', async () => {
 test('download progress', async t => {
 	const events = [];
 
-	const response = await got(`${s.url}/download`, {encoding: null})
+	const {body} = await got(`${s.url}/download`, {encoding: null})
 		.on('downloadProgress', event => events.push(event));
 
-	checkEvents(t, events, response.body.length);
+	checkEvents(t, events, body.length);
 });
 
 test('download progress - missing total size', async t => {

@@ -123,24 +123,30 @@ test('http.request error', async t => {
 		request: () => {
 			throw new TypeError('The header content contains invalid characters');
 		}
-	}), {instanceOf: got.RequestError, message: 'The header content contains invalid characters'});
+	}), {
+		instanceOf: got.RequestError,
+		message: 'The header content contains invalid characters'
+	});
 });
 
 test('http.request pipe error', async t => {
-	const error = 'snap!';
+	const message = 'snap!';
 
 	await t.throwsAsync(got(s.url, {
-		request: (...opts) => {
-			const modified = http.request(...opts);
+		request: (...options) => {
+			const modified = http.request(...options);
 			modified.end = () => {
 				modified.abort();
-				throw new Error(error);
+				throw new Error(message);
 			};
 
 			return modified;
 		},
 		throwHttpErrors: false
-	}), {instanceOf: got.RequestError, message: error});
+	}), {
+		instanceOf: got.RequestError,
+		message
+	});
 });
 
 test('http.request error through CacheableRequest', async t => {
@@ -149,7 +155,10 @@ test('http.request error through CacheableRequest', async t => {
 			throw new TypeError('The header content contains invalid characters');
 		},
 		cache: new Map()
-	}), {instanceOf: got.RequestError, message: 'The header content contains invalid characters'});
+	}), {
+		instanceOf: got.RequestError,
+		message: 'The header content contains invalid characters'
+	});
 });
 
 test('catch error in mimicResponse', async t => {

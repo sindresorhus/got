@@ -61,7 +61,7 @@ test.after('cleanup', async () => {
 });
 
 test('async hooks', async t => {
-	const response = await got(s.url, {
+	const {body} = await got(s.url, {
 		json: true,
 		hooks: {
 			beforeRequest: [
@@ -72,7 +72,7 @@ test('async hooks', async t => {
 			]
 		}
 	});
-	t.is(response.body.foo, 'bar');
+	t.is(body.foo, 'bar');
 });
 
 test('catches thrown errors', async t => {
@@ -144,7 +144,7 @@ test('beforeRequest', async t => {
 });
 
 test('beforeRequest allows modifications', async t => {
-	const response = await got(s.url, {
+	const {body} = await got(s.url, {
 		json: true,
 		hooks: {
 			beforeRequest: [
@@ -154,7 +154,7 @@ test('beforeRequest allows modifications', async t => {
 			]
 		}
 	});
-	t.is(response.body.foo, 'bar');
+	t.is(body.foo, 'bar');
 });
 
 test('beforeRedirect', async t => {
@@ -172,7 +172,7 @@ test('beforeRedirect', async t => {
 });
 
 test('beforeRedirect allows modifications', async t => {
-	const response = await got(`${s.url}/redirect`, {
+	const {body} = await got(`${s.url}/redirect`, {
 		json: true,
 		hooks: {
 			beforeRedirect: [
@@ -182,7 +182,7 @@ test('beforeRedirect allows modifications', async t => {
 			]
 		}
 	});
-	t.is(response.body.foo, 'bar');
+	t.is(body.foo, 'bar');
 });
 
 test('beforeRetry', async t => {
@@ -201,7 +201,7 @@ test('beforeRetry', async t => {
 });
 
 test('beforeRetry allows modifications', async t => {
-	const response = await got(`${s.url}/retry`, {
+	const {body} = await got(`${s.url}/retry`, {
 		json: true,
 		hooks: {
 			beforeRetry: [
@@ -211,7 +211,7 @@ test('beforeRetry allows modifications', async t => {
 			]
 		}
 	});
-	t.is(response.body.foo, 'bar');
+	t.is(body.foo, 'bar');
 });
 
 test('afterResponse', async t => {
@@ -230,7 +230,7 @@ test('afterResponse', async t => {
 });
 
 test('afterResponse allows modifications', async t => {
-	const response = await got(`${s.url}`, {
+	const {body} = await got(`${s.url}`, {
 		json: true,
 		hooks: {
 			afterResponse: [
@@ -242,11 +242,11 @@ test('afterResponse allows modifications', async t => {
 			]
 		}
 	});
-	t.is(response.body.hello, 'world');
+	t.is(body.hello, 'world');
 });
 
 test('afterResponse allows to retry', async t => {
-	const response = await got(`${s.url}/401`, {
+	const {statusCode} = await got(`${s.url}/401`, {
 		hooks: {
 			afterResponse: [
 				(response, retryWithMergedOptions) => {
@@ -263,7 +263,7 @@ test('afterResponse allows to retry', async t => {
 			]
 		}
 	});
-	t.is(response.statusCode, 200);
+	t.is(statusCode, 200);
 });
 
 test('no infinity loop when retrying on afterResponse', async t => {
@@ -309,7 +309,7 @@ test.serial('throws on afterResponse retry failure', async t => {
 test.serial('doesn\'t throw on afterResponse retry HTTP failure if throwHttpErrors is false', async t => {
 	visited401then500 = false;
 
-	const response = await got(`${s.url}/401then500`, {
+	const {statusCode} = await got(`${s.url}/401then500`, {
 		throwHttpErrors: false,
 		retry: 1,
 		hooks: {
@@ -328,5 +328,5 @@ test.serial('doesn\'t throw on afterResponse retry HTTP failure if throwHttpErro
 			]
 		}
 	});
-	t.is(response.statusCode, 500);
+	t.is(statusCode, 500);
 });

@@ -5,7 +5,7 @@ const PCancelable = require('p-cancelable');
 const is = require('@sindresorhus/is');
 
 class GotError extends Error {
-	constructor(message, error, opts) {
+	constructor(message, error, options) {
 		super(message);
 		Error.captureStackTrace(this, this.constructor);
 		this.name = 'GotError';
@@ -15,13 +15,13 @@ class GotError extends Error {
 		}
 
 		Object.assign(this, {
-			host: opts.host,
-			hostname: opts.hostname,
-			method: opts.method,
-			path: opts.path,
-			socketPath: opts.socketPath,
-			protocol: opts.protocol,
-			url: opts.href
+			host: options.host,
+			hostname: options.hostname,
+			method: options.method,
+			path: options.path,
+			socketPath: options.socketPath,
+			protocol: options.protocol,
+			url: options.href
 		});
 	}
 }
@@ -29,29 +29,29 @@ class GotError extends Error {
 module.exports.GotError = GotError;
 
 module.exports.CacheError = class extends GotError {
-	constructor(error, opts) {
-		super(error.message, error, opts);
+	constructor(error, options) {
+		super(error.message, error, options);
 		this.name = 'CacheError';
 	}
 };
 
 module.exports.RequestError = class extends GotError {
-	constructor(error, opts) {
-		super(error.message, error, opts);
+	constructor(error, options) {
+		super(error.message, error, options);
 		this.name = 'RequestError';
 	}
 };
 
 module.exports.ReadError = class extends GotError {
-	constructor(error, opts) {
-		super(error.message, error, opts);
+	constructor(error, options) {
+		super(error.message, error, options);
 		this.name = 'ReadError';
 	}
 };
 
 module.exports.ParseError = class extends GotError {
-	constructor(error, statusCode, opts, data) {
-		super(`${error.message} in "${urlLib.format(opts)}": \n${data.slice(0, 77)}...`, error, opts);
+	constructor(error, statusCode, options, data) {
+		super(`${error.message} in "${urlLib.format(options)}": \n${data.slice(0, 77)}...`, error, options);
 		this.name = 'ParseError';
 		this.statusCode = statusCode;
 		this.statusMessage = http.STATUS_CODES[this.statusCode];
@@ -59,7 +59,7 @@ module.exports.ParseError = class extends GotError {
 };
 
 module.exports.HTTPError = class extends GotError {
-	constructor(response, opts) {
+	constructor(response, options) {
 		const {statusCode} = response;
 		let {statusMessage} = response;
 
@@ -68,7 +68,7 @@ module.exports.HTTPError = class extends GotError {
 		} else {
 			statusMessage = http.STATUS_CODES[statusCode];
 		}
-		super(`Response code ${statusCode} (${statusMessage})`, {}, opts);
+		super(`Response code ${statusCode} (${statusMessage})`, {}, options);
 		this.name = 'HTTPError';
 		this.statusCode = statusCode;
 		this.statusMessage = statusMessage;
@@ -78,8 +78,8 @@ module.exports.HTTPError = class extends GotError {
 };
 
 module.exports.MaxRedirectsError = class extends GotError {
-	constructor(statusCode, redirectUrls, opts) {
-		super('Redirected 10 times. Aborting.', {}, opts);
+	constructor(statusCode, redirectUrls, options) {
+		super('Redirected 10 times. Aborting.', {}, options);
 		this.name = 'MaxRedirectsError';
 		this.statusCode = statusCode;
 		this.statusMessage = http.STATUS_CODES[this.statusCode];
@@ -88,15 +88,15 @@ module.exports.MaxRedirectsError = class extends GotError {
 };
 
 module.exports.UnsupportedProtocolError = class extends GotError {
-	constructor(opts) {
-		super(`Unsupported protocol "${opts.protocol}"`, {}, opts);
+	constructor(options) {
+		super(`Unsupported protocol "${options.protocol}"`, {}, options);
 		this.name = 'UnsupportedProtocolError';
 	}
 };
 
 module.exports.TimeoutError = class extends GotError {
-	constructor(error, opts) {
-		super(error.message, {code: 'ETIMEDOUT'}, opts);
+	constructor(error, options) {
+		super(error.message, {code: 'ETIMEDOUT'}, options);
 		this.name = 'TimeoutError';
 		this.event = error.event;
 	}

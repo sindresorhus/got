@@ -57,11 +57,11 @@ test('error with code', async t => {
 });
 
 test('status code 304 doesn\'t throw', async t => {
-	const p = got(`${s.url}/304`);
-	await t.notThrowsAsync(p);
-	const response = await p;
-	t.is(response.statusCode, 304);
-	t.is(response.body, '');
+	const promise = got(`${s.url}/304`);
+	await t.notThrowsAsync(promise);
+	const {statusCode, body} = await promise;
+	t.is(statusCode, 304);
+	t.is(body, '');
 });
 
 test('doesn\'t throw on throwHttpErrors === false', async t => {

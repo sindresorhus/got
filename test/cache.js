@@ -122,7 +122,7 @@ test('doesn\'t cache response when received HTTP error', async t => {
 	const endpoint = '/first-error';
 	const cache = new Map();
 
-	const response = await got(s.url + endpoint, {cache, throwHttpErrors: false});
-	t.is(response.statusCode, 200);
-	t.deepEqual(response.body, 'ok');
+	const {statusCode, body} = await got(s.url + endpoint, {cache, throwHttpErrors: false});
+	t.is(statusCode, 200);
+	t.deepEqual(body, 'ok');
 });

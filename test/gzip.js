@@ -78,13 +78,13 @@ test('handles gzip error - stream', async t => {
 });
 
 test('decompress option opts out of decompressing', async t => {
-	const response = await got(s.url, {decompress: false});
-	t.true(Buffer.compare(response.body, gzipData) === 0);
+	const {body} = await got(s.url, {decompress: false});
+	t.is(Buffer.compare(body, gzipData), 0);
 });
 
 test('decompress option doesn\'t alter encoding of uncompressed responses', async t => {
-	const response = await got(`${s.url}/uncompressed`, {decompress: false});
-	t.is(response.body, testContentUncompressed);
+	const {body} = await got(`${s.url}/uncompressed`, {decompress: false});
+	t.is(body, testContentUncompressed);
 });
 
 test('preserve headers property', async t => {
