@@ -85,6 +85,8 @@ module.exports = (request, delays, options) => {
 		request.setTimeout(delays.socket, () => {
 			timeoutHandler(delays.socket, 'socket');
 		});
+
+		cancelers.push(() => request.setTimeout(0));
 	}
 
 	if (delays.lookup !== undefined && !request.socketPath && !net.isIP(hostname || host)) {

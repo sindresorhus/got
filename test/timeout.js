@@ -458,3 +458,18 @@ test('no more timeouts after an error', async t => {
 	// Wait a bit more to check if there are any unhandled errors
 	await delay(10);
 });
+
+test('socket timeout is canceled on error', async t => {
+	const message = 'oh, snap!';
+
+	const promise = got(s.url, {
+		timeout: {socket: requestTimeout},
+		retry: 0
+	}).on('request', request => {
+		request.emit('error', new Error(message));
+	});
+
+	await t.throwsAsync(promise, {message});
+	// Wait a bit more to check if there are any unhandled errors
+	await delay(10);
+});
