@@ -155,32 +155,33 @@ test('custom retries', async t => {
 test('custom errors', async t => {
 	const errorCode = 'OH_SNAP';
 
-	let tried = false;
+	let isTried = false;
 	const error = await t.throwsAsync(got(`${s.url}/500`, {
 		request: (...args) => {
-			const req = http.request(...args);
-			if (!tried) {
-				tried = true;
+			const request = http.request(...args);
+			if (!isTried) {
+				isTried = true;
 				const error = new Error('Snap!');
 				error.code = errorCode;
 
-				setTimeout(() => req.emit('error', error));
+				setTimeout(() => request.emit('error', error));
 			}
 
-			return req;
+			return request;
 		},
 		retry: {
 			retries: 1,
 			methods: [
 				'GET'
-			], errors: [
+			],
+			errors: [
 				errorCode
 			]
 		}
 	}));
 
 	t.is(error.statusCode, 500);
-	t.true(tried);
+	t.true(isTried);
 });
 
 test('respect 413 Retry-After', async t => {
