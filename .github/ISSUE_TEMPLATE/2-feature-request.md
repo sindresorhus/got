@@ -7,6 +7,10 @@ about: Suggest an idea for Got
 
 ...
 
+#### Describe the feature
+
+...
+
 <!-- Include a usage example of the feature. If the feature is currently possible with a workaround, include that too. -->
 
 #### Checklist
