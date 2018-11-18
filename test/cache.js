@@ -113,7 +113,11 @@ test('Redirects are cached and re-used internally', async t => {
 test('Cached response should have got options', async t => {
 	const endpoint = '/cache';
 	const cache = new Map();
-	const options = {url: s.url + endpoint, auth: 'foo:bar', cache}
+	const options = {
+		url: s.url + endpoint,
+		auth: 'foo:bar',
+		cache
+	};
 
 	await got(options);
 	const secondResponse = await got(options);
