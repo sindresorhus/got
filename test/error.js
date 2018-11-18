@@ -112,8 +112,12 @@ test('custom body', async t => {
 	t.is(error.body, 'not');
 });
 
-test('contains got options', async t => {
-	const options = {url: s.url, auth: 'foo:bar'}
+test('contains Got options', async t => {
+	const options = {
+		url: s.url,
+		auth: 'foo:bar'
+	};
+
 	const error = await t.throwsAsync(got(options));
 	t.is(error.gotOptions.auth, options.auth);
 });
