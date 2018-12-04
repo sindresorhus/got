@@ -126,10 +126,11 @@ const gotInstance = got.extend({
 		],
 		afterResponse: [
 			response => {
-				// TODO in Got: we need to make the `options` public somehow
+				// TODO in Got: We need to make the `options` public somehow
 				if (options.json && options.jsonReviver) {
 					response.body = JSON.stringify(JSON.parse(response.body, options.jsonReviver));
 				}
+
 				return response;
 			}
 		]
@@ -148,7 +149,7 @@ Let's take a quick look at another example from Request's readme:
 ```js
 http.createServer((req, res) => {
 	if (req.url === '/doodle.png') {
-		req.pipe(request('http://mysite.com/doodle.png')).pipe(res);
+		req.pipe(request('https://example.com/doodle.png')).pipe(res);
 	}
 });
 ```
@@ -158,7 +159,7 @@ The cool feature here is that Request can proxy headers with the stream, but Got
 ```js
 http.createServer((req, res) => {
 	if (req.url === '/doodle.png') {
-		req.pipe(got.stream('http://mysite.com/doodle.png')).pipe(res);
+		req.pipe(got.stream('https://example.com/doodle.png')).pipe(res);
 	}
 });
 ```
