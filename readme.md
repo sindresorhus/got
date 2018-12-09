@@ -452,6 +452,14 @@ const instance = got.extend({
 
 The response object will typically be a [Node.js HTTP response stream](https://nodejs.org/api/http.html#http_class_http_incomingmessage), however, if returned from the cache it will be a [response-like object](https://github.com/lukechilds/responselike) which behaves in the same way.
 
+##### request
+
+Type: `Object`
+
+**Note:** This is not a [http.ClientRequest](https://nodejs.org/api/http.html#http_class_http_clientrequest).
+
+- `gotOptions` - The options that were set on this request.
+
 ##### body
 
 Type: `string` `Object` *(depending on `options.json`)*
@@ -662,7 +670,7 @@ The default Got options.
 
 ## Errors
 
-Each error contains (if available) `body`, `statusCode`, `statusMessage`, `host`, `hostname`, `method`, `path`, `protocol` and `url` properties to make debugging easier.
+Each error contains (if available) `body`, `statusCode`, `statusMessage`, `host`, `hostname`, `method`, `path`, `protocol`, `url`, and `gotOptions` properties to make debugging easier.
 
 In Promise mode, the `response` is attached to the error.
 
