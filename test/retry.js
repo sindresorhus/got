@@ -173,8 +173,7 @@ test('custom errors', async t => {
 			retries: 1,
 			methods: [
 				'GET'
-			],
-			errors: [
+			], errorCodes: [
 				errorCode
 			]
 		}

@@ -83,7 +83,7 @@ const defaults = {
 				503,
 				504
 			],
-			errors: [
+			errorCodes: [
 				'ETIMEDOUT',
 				'ECONNRESET',
 				'EADDRINUSE',

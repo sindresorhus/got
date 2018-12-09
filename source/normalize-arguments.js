@@ -56,7 +56,7 @@ const preNormalize = (options, defaults) => {
 		retries: 0,
 		methods: [],
 		statusCodes: [],
-		errors: []
+		errorCodes: []
 	};
 
 	if (is.nonEmptyObject(defaults) && retry !== false) {
@@ -83,8 +83,8 @@ const preNormalize = (options, defaults) => {
 		options.retry.statusCodes = new Set(options.retry.statusCodes);
 	}
 
-	if (is.array(options.retry.errors)) {
-		options.retry.errors = new Set(options.retry.errors);
+	if (is.array(options.retry.errorCodes)) {
+		options.retry.errorCodes = new Set(options.retry.errorCodes);
 	}
 
 	return options;
@@ -214,7 +214,7 @@ const normalize = (url, options, defaults) => {
 				return 0;
 			}
 
-			if ((!error || !options.retry.errors.has(error.code)) && (!options.retry.methods.has(error.method) || !options.retry.statusCodes.has(error.statusCode))) {
+			if ((!error || !options.retry.errorCodes.has(error.code)) && (!options.retry.methods.has(error.method) || !options.retry.statusCodes.has(error.statusCode))) {
 				return 0;
 			}
 
