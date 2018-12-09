@@ -455,7 +455,7 @@ The response object will typically be a [Node.js HTTP response stream](https://n
 
 Type: `Object`
 
-This is not a [http.ClientRequest](https://nodejs.org/api/http.html#http_class_http_clientrequest).
+**Note:** This is not a [http.ClientRequest](https://nodejs.org/api/http.html#http_class_http_clientrequest).
 
 - `gotOptions` - The options that were set on this request.
 
