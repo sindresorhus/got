@@ -662,7 +662,7 @@ The default Got options.
 
 ## Errors
 
-Each error contains (if available) `body`, `statusCode`, `statusMessage`, `host`, `hostname`, `method`, `path`, `protocol` and `url` properties to make debugging easier.
+Each error contains `host`, `hostname`, `method`, `path`, `protocol` and `url` properties to make debugging easier.
 
 In Promise mode, the `response` is attached to the error.
 
@@ -680,7 +680,7 @@ When reading from response stream fails.
 
 #### got.ParseError
 
-When `json` option is enabled, server response code is 2xx, and `JSON.parse` fails.
+When `json` option is enabled, server response code is 2xx, and `JSON.parse` fails. Includes `statusCode` and `statusMessage` properties.
 
 #### got.HTTPError
 
@@ -688,7 +688,7 @@ When the server response code is not 2xx. Includes `statusCode`, `statusMessage`
 
 #### got.MaxRedirectsError
 
-When the server redirects you more than ten times. Includes a `redirectUrls` property, which is an array of the URLs Got was redirected to before giving up.
+When the server redirects you more than ten times. Includes a `statusCode`, `statusMessage`, and `redirectUrls` property which is an array of the URLs Got was redirected to before giving up.
 
 #### got.UnsupportedProtocolError
 
@@ -700,7 +700,7 @@ When the request is aborted with `.cancel()`.
 
 #### got.TimeoutError
 
-When the request is aborted due to a [timeout](#timeout)
+When the request is aborted due to a [timeout](#timeout). Includes an `event` property.
 
 ## Aborting the request
 
