@@ -22,6 +22,16 @@ const defaults = {
 				502,
 				503,
 				504
+			],
+			errorCodes: [
+				'ETIMEDOUT',
+				'ECONNRESET',
+				'EADDRINUSE',
+				'ECONNREFUSED',
+				'EPIPE',
+				'ENOTFOUND',
+				'ENETUNREACH',
+				'EAI_AGAIN'
 			]
 		},
 		headers: {

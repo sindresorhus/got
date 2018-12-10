@@ -91,3 +91,12 @@ test('requestUrl response when sending url as param', async t => {
 test('response contains url', async t => {
 	t.is((await got(s.url)).url, `${s.url}/`);
 });
+
+test('response contains got options', async t => {
+	const options = {
+		url: s.url,
+		auth: 'foo:bar'
+	};
+
+	t.is((await got(options)).request.gotOptions.auth, options.auth);
+});

@@ -21,7 +21,8 @@ class GotError extends Error {
 			path: options.path,
 			socketPath: options.socketPath,
 			protocol: options.protocol,
-			url: options.href
+			url: options.href,
+			gotOptions: options
 		});
 	}
 }
