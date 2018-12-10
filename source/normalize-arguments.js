@@ -4,7 +4,6 @@ const urlLib = require('url');
 const is = require('@sindresorhus/is');
 const urlParseLax = require('url-parse-lax');
 const lowercaseKeys = require('lowercase-keys');
-const isRetryOnNetworkErrorAllowed = require('./utils/is-retry-on-network-error-allowed');
 const urlToOptions = require('./utils/url-to-options');
 const isFormData = require('./utils/is-form-data');
 const merge = require('./merge');
@@ -56,7 +55,8 @@ const preNormalize = (options, defaults) => {
 	options.retry = {
 		retries: 0,
 		methods: [],
-		statusCodes: []
+		statusCodes: [],
+		errorCodes: []
 	};
 
 	if (is.nonEmptyObject(defaults) && retry !== false) {
@@ -81,6 +81,10 @@ const preNormalize = (options, defaults) => {
 
 	if (is.array(options.retry.statusCodes)) {
 		options.retry.statusCodes = new Set(options.retry.statusCodes);
+	}
+
+	if (is.array(options.retry.errorCodes)) {
+		options.retry.errorCodes = new Set(options.retry.errorCodes);
 	}
 
 	return options;
@@ -210,7 +214,7 @@ const normalize = (url, options, defaults) => {
 				return 0;
 			}
 
-			if (!isRetryOnNetworkErrorAllowed(error) && (!options.retry.methods.has(error.method) || !options.retry.statusCodes.has(error.statusCode))) {
+			if ((!error || !options.retry.errorCodes.has(error.code)) && (!options.retry.methods.has(error.method) || !options.retry.statusCodes.has(error.statusCode))) {
 				return 0;
 			}
 

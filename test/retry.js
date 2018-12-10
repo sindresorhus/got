@@ -1,3 +1,4 @@
+import http from 'http';
 import test from 'ava';
 import pEvent from 'p-event';
 import got from '../source';
@@ -149,6 +150,38 @@ test('custom retries', async t => {
 	}));
 	t.is(error.statusCode, 500);
 	t.true(tried);
+});
+
+test('custom errors', async t => {
+	const errorCode = 'OH_SNAP';
+
+	let isTried = false;
+	const error = await t.throwsAsync(got(`${s.url}/500`, {
+		request: (...args) => {
+			const request = http.request(...args);
+			if (!isTried) {
+				isTried = true;
+				const error = new Error('Snap!');
+				error.code = errorCode;
+
+				setTimeout(() => request.emit('error', error));
+			}
+
+			return request;
+		},
+		retry: {
+			retries: 1,
+			methods: [
+				'GET'
+			],
+			errorCodes: [
+				errorCode
+			]
+		}
+	}));
+
+	t.is(error.statusCode, 500);
+	t.true(isTried);
 });
 
 test('respect 413 Retry-After', async t => {
