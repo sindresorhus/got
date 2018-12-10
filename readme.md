@@ -671,7 +671,7 @@ The default Got options.
 
 ## Errors
 
-Each error contains `host`, `hostname`, `method`, `path`, `protocol` and `url` properties to make debugging easier.
+Each error contains `host`, `hostname`, `method`, `path`, `protocol`, `url` and `gotOptions` properties to make debugging easier.
 
 In Promise mode, the `response` is attached to the error.
 
