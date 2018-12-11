@@ -693,7 +693,7 @@ When `json` option is enabled, server response code is 2xx, and `JSON.parse` fai
 
 #### got.HTTPError
 
-When the server response code is not 2xx. Includes `statusCode`, `statusMessage`, and `redirectUrls` properties.
+When the server response code is not 2xx. Includes `body`, `statusCode`, `statusMessage`, and `redirectUrls` properties.
 
 #### got.MaxRedirectsError
 
