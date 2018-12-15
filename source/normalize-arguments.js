@@ -116,11 +116,7 @@ const normalize = (url, options, defaults) => {
 			url = urlToOptions(new URL(url, options.baseUrl));
 		} else {
 			url = url.replace(/^unix:/, 'http://$&');
-
 			url = urlParseLax(url);
-			if (url.auth) {
-				throw new Error('Basic authentication must be done with the `auth` option');
-			}
 		}
 	} else if (is(url) === 'URL') {
 		url = urlToOptions(url);
