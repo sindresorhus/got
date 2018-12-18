@@ -130,27 +130,6 @@ test('should ignore empty query object', async t => {
 	t.is((await got(`${s.url}/test`, {query: {}})).requestUrl, `${s.url}/test`);
 });
 
-test('should throw with auth in url string', async t => {
-	await t.throwsAsync(
-		got('https://test:45d3ps453@account.myservice.com/api/token'),
-		{
-			message: 'Basic authentication must be done with the `auth` option'
-		}
-	);
-});
-
-test('does not throw with auth in url object', async t => {
-	await t.notThrowsAsync(
-		got({
-			auth: 'foo:bar',
-			hostname: s.host,
-			port: s.port,
-			protocol: 'http:',
-			path: '/test'
-		})
-	);
-});
-
 test('should throw when body is set to object', async t => {
 	await t.throwsAsync(got(`${s.url}/`, {body: {}}), TypeError);
 });
