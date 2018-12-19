@@ -106,6 +106,7 @@ const gotInstance = got.extend({
 		beforeRequest: [
 			options => {
 				if (options.json && options.jsonReplacer) {
+					// #1 solution (faster)
 					const newBody = {};
 					for (const [key, value] of Object.entries(options.body)) {
 						let newValue = value;
@@ -115,8 +116,6 @@ const gotInstance = got.extend({
 
 						newBody[key] = newValue;
 					}
-
-					// #1 solution (faster)
 					options.body = newBody;
 
 					// #2 solution (slower)
@@ -126,7 +125,7 @@ const gotInstance = got.extend({
 		],
 		afterResponse: [
 			response => {
-				// TODO in Got: We need to make the `options` public somehow
+				const options = response.request.gotOptions;
 				if (options.json && options.jsonReviver) {
 					response.body = JSON.stringify(JSON.parse(response.body, options.jsonReviver));
 				}
