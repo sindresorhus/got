@@ -114,11 +114,6 @@ const normalize = (url, options, defaults) => {
 		throw new TypeError(`Parameter \`url\` must be a string or object, not ${is(url)}`);
 	}
 
-	for (const hook of options.hooks.init) {
-		// eslint-disable-next-line no-await-in-loop
-		await hook(options);
-	}
-
 	if (is.string(url)) {
 		if (options.baseUrl) {
 			if (url.toString().startsWith('/')) {
@@ -136,6 +131,10 @@ const normalize = (url, options, defaults) => {
 
 	// Override both null/undefined with default protocol
 	options = merge({path: ''}, url, {protocol: url.protocol || 'https:'}, options);
+
+	for (const hook of options.hooks.init) {
+		hook(options);
+	}
 
 	const {baseUrl} = options;
 	Object.defineProperty(options, 'baseUrl', {

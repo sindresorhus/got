@@ -1,5 +1,6 @@
 import test from 'ava';
 import delay from 'delay';
+import getStream from 'get-stream';
 import {createServer} from './helpers/server';
 import got from '..';
 
@@ -18,6 +19,9 @@ test.before('setup', async () => {
 	};
 
 	s.on('/', echoHeaders);
+	s.on('/body', async (request, response) => {
+		response.end(await getStream(request));
+	});
 	s.on('/redirect', (request, response) => {
 		response.statusCode = 302;
 		response.setHeader('location', '/');
@@ -127,6 +131,33 @@ test('catches afterResponse errors', async t => {
 			afterResponse: [() => Promise.reject(error)]
 		}
 	}), errorString);
+});
+
+test('init', async t => {
+	await got(s.url, {
+		json: true,
+		hooks: {
+			init: [
+				options => {
+					t.is(options.path, '/');
+					t.is(options.hostname, 'localhost');
+				}
+			]
+		}
+	});
+});
+
+test('init allows modifications', async t => {
+	const {body} = await got(`${s.url}/body`, {
+		hooks: {
+			init: [
+				options => {
+					options.body = 'foobar';
+				}
+			]
+		}
+	});
+	t.is(body, 'foobar');
 });
 
 test('beforeRequest', async t => {
