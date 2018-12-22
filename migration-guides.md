@@ -103,23 +103,11 @@ gotInstance(url, options);
 ```js
 const gotInstance = got.extend({
 	hooks: {
-		beforeRequest: [
+		init: [
 			options => {
 				if (options.json && options.jsonReplacer) {
-					// #1 solution (faster)
-					const newBody = {};
-					for (const [key, value] of Object.entries(options.body)) {
-						let newValue = value;
-						do {
-							newValue = options.jsonReplacer(key, newValue);
-						} while (typeof newValue === 'object');
-
-						newBody[key] = newValue;
-					}
-					options.body = newBody;
-
-					// #2 solution (slower)
-					options.body = JSON.parse(JSON.stringify(options.body, options.jsonReplacer));
+					options.body = JSON.stringify(options.body, options.jsonReplacer);
+					options.json = false; // We've handled that on our own
 				}
 			}
 		],
@@ -127,7 +115,8 @@ const gotInstance = got.extend({
 			response => {
 				const options = response.request.gotOptions;
 				if (options.json && options.jsonReviver) {
-					response.body = JSON.stringify(JSON.parse(response.body, options.jsonReviver));
+					response.body = JSON.parse(response.body, options.jsonReviver);
+					options.json = false; // We've handled that on our own
 				}
 
 				return response;
