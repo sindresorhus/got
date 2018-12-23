@@ -105,6 +105,9 @@ const gotInstance = got.extend({
 	hooks: {
 		init: [
 			options => {
+				// Save the original option, so we can look at it in the `afterResponse` hook
+				options._json = options.json;
+
 				if (options.json && options.jsonReplacer) {
 					options.body = JSON.stringify(options.body, options.jsonReplacer);
 					options.json = false; // We've handled that on our own
@@ -114,7 +117,7 @@ const gotInstance = got.extend({
 		afterResponse: [
 			response => {
 				const options = response.request.gotOptions;
-				if (options.json && options.jsonReviver) {
+				if (options._json && options.jsonReviver) {
 					response.body = JSON.parse(response.body, options.jsonReviver);
 					options.json = false; // We've handled that on our own
 				}
