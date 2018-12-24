@@ -155,7 +155,7 @@ Returns a `Stream` instead of a `Promise`. This is equivalent to calling `got.st
 
 Type: `string` `Buffer` `stream.Readable` [`form-data` instance](https://github.com/form-data/form-data)
 
-*If you provide this option, `got.stream()` will be read-only.*
+**Note**: If you provide this option, `got.stream()` will be read-only.
 
 The body that will be sent with a `POST` request.
 
@@ -167,9 +167,9 @@ The `content-length` header will be automatically set if `body` is a `string` / 
 
 Type: [`tough.CookieJar` instance](https://github.com/salesforce/tough-cookie#cookiejar)
 
-Cookie support. You don't have to care about parsing or how to store them. [Example.](#cookies)
+**Note:**: `options.headers.cookie` will be overridden.
 
-**Note:** `options.headers.cookie` will be overridden.
+Cookie support. You don't have to care about parsing or how to store them. [Example.](#cookies)
 
 ###### encoding
 
@@ -183,24 +183,22 @@ Default: `'utf8'`
 Type: `boolean`<br>
 Default: `false`
 
-*If you provide this option, `got.stream()` will be read-only.*
+**Note**:If you provide this option, `got.stream()` will be read-only.
+**Note**: `body` must be a plain object. It will be converted to a query string using [`(new URLSearchParams(object)).toString()`](https://nodejs.org/api/url.html#url_constructor_new_urlsearchparams_obj).
 
 If set to `true` and `Content-Type` header is not set, it will be set to `application/x-www-form-urlencoded`.
-
-`body` must be a plain object. It will be converted to a query string using [`(new URLSearchParams(object)).toString()`](https://nodejs.org/api/url.html#url_constructor_new_urlsearchparams_obj).
 
 ###### json
 
 Type: `boolean`<br>
 Default: `false`
 
-*If you use `got.stream()`, this option will be ignored.*
+**Note**: If you use `got.stream()`, this option will be ignored.
+**Note**: `body` must be a plain object or array and will be stringified.
 
 If set to `true` and `Content-Type` header is not set, it will be set to `application/json`.
 
 Parse response body with `JSON.parse` and set `accept` header to `application/json`. If used in conjunction with the `form` option, the `body` will the stringified as querystring and the response parsed as JSON.
-
-`body` must be a plain object or array and will be stringified.
 
 ###### query
 
@@ -270,7 +268,7 @@ Delays between retries counts with function `1000 * Math.pow(2, retry) + Math.ra
 
 The `retries` property can be a `number` or a `function` with `retry` and `error` arguments. The function must return a delay in milliseconds (`0` return value cancels retry).
 
-**Note:** By default, it retries *only* on the specified methods, status codes, and on these network errors:
+**Note**: By default, it retries *only* on the specified methods, status codes, and on these network errors:
 - `ETIMEDOUT`: One of the [timeout](#timeout) limits were reached.
 - `ECONNRESET`: Connection was forcibly closed by a peer.
 - `EADDRINUSE`: Could not bind to any free port.
@@ -457,7 +455,7 @@ The response object will typically be a [Node.js HTTP response stream](https://n
 
 Type: `Object`
 
-**Note:** This is not a [http.ClientRequest](https://nodejs.org/api/http.html#http_class_http_clientrequest).
+**Note**: This is not a [http.ClientRequest](https://nodejs.org/api/http.html#http_class_http_clientrequest).
 
 - `gotOptions` - The options that were set on this request.
 
@@ -639,7 +637,7 @@ client.get('/demo');
 })();
 ```
 
-*Need more control over the behavior of Got? Check out the [`got.create()`](advanced-creation.md).*
+**Tip**: Need more control over the behavior of Got? Check out the [`got.create()`](advanced-creation.md).
 
 #### got.mergeOptions(parentOptions, newOptions)
 
@@ -995,7 +993,7 @@ Bear in mind; if you send an `if-modified-since` header and receive a `304 Not M
 
 Use `got.extend()` to make it nicer to work with REST APIs. Especially if you use the `baseUrl` option.
 
-**Note:** Not to be confused with [`got.create()`](advanced-creation.md), which has no defaults.
+**Note:**: Not to be confused with [`got.create()`](advanced-creation.md), which has no defaults.
 
 ```js
 const got = require('got');
@@ -1015,7 +1013,7 @@ const custom = got.extend({
 })();
 ```
 
-*Need to merge some instances into a single one? Check out [`got.mergeInstances()`](advanced-creation.md#merging-instances).*
+**Tip**: Need to merge some instances into a single one? Check out [`got.mergeInstances()`](advanced-creation.md#merging-instances).
 
 ### Experimental HTTP2 support
 
