@@ -268,7 +268,7 @@ Delays between retries counts with function `1000 * Math.pow(2, retry) + Math.ra
 
 The `retries` property can be a `number` or a `function` with `retry` and `error` arguments. The function must return a delay in milliseconds (`0` return value cancels retry).
 
-**Note**: By default, it retries *only* on the specified methods, status codes, and on these network errors:
+By default, it retries *only* on the specified methods, status codes, and on these network errors:
 - `ETIMEDOUT`: One of the [timeout](#timeout) limits were reached.
 - `ECONNRESET`: Connection was forcibly closed by a peer.
 - `EADDRINUSE`: Could not bind to any free port.
