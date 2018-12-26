@@ -1035,7 +1035,7 @@ const h2got = got.extend({request});
 
 |                       |     `got`    |   `request`  | `node-fetch` |    `axios`   |
 |-----------------------|:------------:|:------------:|:------------:|:------------:|
-| HTTP/2 support        |      ❔      |       ✖      |       ✖      |       ✖      |
+| HTTP/2 support        |       ❔      |       ✖      |       ✖      |       ✖      |
 | Browser support       |       ✖      |       ✖      |       ✔\*    |       ✔      |
 | Electron support      |       ✔      |       ✖      |       ✖      |       ✖      |
 | Promise API           |       ✔      |       ✔      |       ✔      |       ✔      |
