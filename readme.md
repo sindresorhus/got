@@ -534,7 +534,7 @@ Returns a [duplex stream](https://nodejs.org/api/stream.html#stream_class_stream
 
 `request` event to get the request object of the request.
 
-**Tip**: You can use `request` event to abort request:
+**Tip:** You can use `request` event to abort request:
 
 ```js
 got.stream('github.com')
@@ -637,7 +637,7 @@ client.get('/demo');
 })();
 ```
 
-**Tip**: Need more control over the behavior of Got? Check out the [`got.create()`](advanced-creation.md).
+**Tip:** Need more control over the behavior of Got? Check out the [`got.create()`](advanced-creation.md).
 
 #### got.mergeOptions(parentOptions, newOptions)
 
@@ -993,7 +993,7 @@ Bear in mind; if you send an `if-modified-since` header and receive a `304 Not M
 
 Use `got.extend()` to make it nicer to work with REST APIs. Especially if you use the `baseUrl` option.
 
-**Note:**: Not to be confused with [`got.create()`](advanced-creation.md), which has no defaults.
+**Note:** Not to be confused with [`got.create()`](advanced-creation.md), which has no defaults.
 
 ```js
 const got = require('got');
@@ -1013,7 +1013,7 @@ const custom = got.extend({
 })();
 ```
 
-**Tip**: Need to merge some instances into a single one? Check out [`got.mergeInstances()`](advanced-creation.md#merging-instances).
+**Tip:** Need to merge some instances into a single one? Check out [`got.mergeInstances()`](advanced-creation.md#merging-instances).
 
 ### Experimental HTTP2 support
 
