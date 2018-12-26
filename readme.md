@@ -155,7 +155,7 @@ Returns a `Stream` instead of a `Promise`. This is equivalent to calling `got.st
 
 Type: `string` `Buffer` `stream.Readable` [`form-data` instance](https://github.com/form-data/form-data)
 
-**Note**: If you provide this option, `got.stream()` will be read-only.
+**Note:** If you provide this option, `got.stream()` will be read-only.
 
 The body that will be sent with a `POST` request.
 
@@ -167,7 +167,7 @@ The `content-length` header will be automatically set if `body` is a `string` / 
 
 Type: [`tough.CookieJar` instance](https://github.com/salesforce/tough-cookie#cookiejar)
 
-**Note**: If you provide this option, `options.headers.cookie` will be overridden.
+**Note:** If you provide this option, `options.headers.cookie` will be overridden.
 
 Cookie support. You don't have to care about parsing or how to store them. [Example.](#cookies)
 
@@ -183,8 +183,8 @@ Default: `'utf8'`
 Type: `boolean`<br>
 Default: `false`
 
-**Note**: If you provide this option, `got.stream()` will be read-only.
-**Note**: `body` must be a plain object. It will be converted to a query string using [`(new URLSearchParams(object)).toString()`](https://nodejs.org/api/url.html#url_constructor_new_urlsearchparams_obj).
+**Note:** If you provide this option, `got.stream()` will be read-only.
+**Note:** `body` must be a plain object. It will be converted to a query string using [`(new URLSearchParams(object)).toString()`](https://nodejs.org/api/url.html#url_constructor_new_urlsearchparams_obj).
 
 If set to `true` and `Content-Type` header is not set, it will be set to `application/x-www-form-urlencoded`.
 
@@ -193,8 +193,8 @@ If set to `true` and `Content-Type` header is not set, it will be set to `applic
 Type: `boolean`<br>
 Default: `false`
 
-**Note**: If you use `got.stream()`, this option will be ignored.
-**Note**: `body` must be a plain object or array and will be stringified.
+**Note:** If you use `got.stream()`, this option will be ignored.
+**Note:** `body` must be a plain object or array and will be stringified.
 
 If set to `true` and `Content-Type` header is not set, it will be set to `application/json`.
 
@@ -360,7 +360,7 @@ Called with [normalized](source/normalize-arguments.js) [request options](#optio
 
 See the [AWS section](#aws) for an example.
 
-**Note**: If you modify the `body` you will need to modify the `content-length` header too, because it has already been computed and assigned.
+**Note:** If you modify the `body` you will need to modify the `content-length` header too, because it has already been computed and assigned.
 
 ###### hooks.beforeRedirect
 
@@ -455,7 +455,7 @@ The response object will typically be a [Node.js HTTP response stream](https://n
 
 Type: `Object`
 
-**Note**: This is not a [http.ClientRequest](https://nodejs.org/api/http.html#http_class_http_clientrequest).
+**Note:** This is not a [http.ClientRequest](https://nodejs.org/api/http.html#http_class_http_clientrequest).
 
 - `gotOptions` - The options that were set on this request.
 
@@ -500,7 +500,7 @@ The object contains the following properties:
 	- `download` - `timings.end - timings.response`
 	- `total` - `timings.end - timings.start` or `timings.error - timings.start`
 
-**Note**: The time is a `number` representing the milliseconds elapsed since the UNIX epoch.
+**Note:** The time is a `number` representing the milliseconds elapsed since the UNIX epoch.
 
 ##### fromCache
 
@@ -522,7 +522,7 @@ The number of times the request was retried.
 
 #### Streams
 
-**Note**: Progress events, redirect events and request/response events can also be used with promises.
+**Note:** Progress events, redirect events and request/response events can also be used with promises.
 
 #### got.stream(url, [options])
 
