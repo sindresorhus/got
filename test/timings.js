@@ -18,6 +18,7 @@ test.after('cleanup', async () => {
 	await s.close();
 });
 
+// #687
 test.failing('sensible timings', async t => {
 	const {timings} = await got(s.url);
 	t.true(timings.phases.request < 1000);
