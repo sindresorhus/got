@@ -20,6 +20,6 @@ test.after('cleanup', async () => {
 });
 
 test.failing('sensible timings', async t => {
-	const response = await(got(s.url));
-	t.true(response.timings.phases.request < 1000);
+	const {timings} = await got(s.url);
+	t.true(timings.phases.request < 1000);
 });
