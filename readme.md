@@ -1057,7 +1057,7 @@ const h2got = got.extend({request});
 | Issues open           | [![][gio]][g1] | [![][rio]][r1]  |   [![][nio]][n1]   |  [![][aio]][a1] |   [![][sio]][s1]    |
 | Issues closed         | [![][gic]][g2] | [![][ric]][r2]  |   [![][nic]][n2]   |  [![][aic]][a2] |   [![][sic]][s2]    |
 | Downloads             | [![][gd]][g3]  |  [![][rd]][r3]  |   [![][nd]][n3]    |  [![][ad]][a3]  |   [![][sd]][s3]     |
-| Coverage              | [![][gc]][g4]  |  [![][rc]][r4]  |   [![][nc]][n4]    |  [![][ac]][a4]  |   unknown     |
+| Coverage              | [![][gc]][g4]  |  [![][rc]][r4]  |   [![][nc]][n4]    |  [![][ac]][a4]  |       unknown       |
 | Build                 | [![][gb]][g5]  |  [![][rb]][r5]  |   [![][nb]][n5]    |  [![][ab]][a5]  |   [![][sb]][s5]     |
 | Bugs                  | [![][gbg]][g6] | [![][rbg]][r6]  |   [![][nbg]][n6]   |  [![][abg]][a6] |   [![][sbg]][s6]    |
 | Dependents            | [![][gdp]][g7] | [![][rdp]][r7]  |   [![][ndp]][n7]   |  [![][adp]][a7] |   [![][sdp]][s7]    |
