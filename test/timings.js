@@ -19,7 +19,7 @@ test.after('cleanup', async () => {
 });
 
 // #687
-test.failing('sensible timings', async t => {
+test('sensible timings', async t => {
 	const {timings} = await got(s.url);
 	t.true(timings.phases.request < 1000);
 });
