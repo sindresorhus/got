@@ -32,10 +32,6 @@ const preNormalize = (options, defaults) => {
 		options.baseUrl += '/';
 	}
 
-	if (options.stream) {
-		options.json = false;
-	}
-
 	if (is.nullOrUndefined(options.hooks)) {
 		options.hooks = {};
 	} else if (!is.object(options.hooks)) {
@@ -62,6 +58,7 @@ const preNormalize = (options, defaults) => {
 
 	const {retry} = options;
 	options.retry = {
+
 		retries: 0,
 		methods: [],
 		statusCodes: [],
@@ -185,10 +182,6 @@ const normalize = (url, options, defaults) => {
 		}
 	}
 
-	if (options.json && is.undefined(headers.accept)) {
-		headers.accept = 'application/json';
-	}
-
 	if (options.decompress && is.undefined(headers['accept-encoding'])) {
 		headers['accept-encoding'] = 'gzip, deflate';
 	}
@@ -198,12 +191,8 @@ const normalize = (url, options, defaults) => {
 		options.method = options.method ? options.method.toUpperCase() : 'GET';
 	} else {
 		const isObject = is.object(body) && !is.buffer(body) && !is.nodeStream(body);
-		if (!is.nodeStream(body) && !is.string(body) && !is.buffer(body) && !(options.form || options.json)) {
-			throw new TypeError('The `body` option must be a stream.Readable, string or Buffer');
-		}
-
-		if (options.json && !(isObject || is.array(body))) {
-			throw new TypeError('The `body` option must be an Object or Array when the `json` option is used');
+		if (!is.nodeStream(body) && !is.string(body) && !is.buffer(body) && !isObject && !options.form) {
+			throw new TypeError('The `body` option must be a stream.Readable, string, Buffer, Object or Array');
 		}
 
 		if (options.form && !isObject) {
@@ -216,7 +205,7 @@ const normalize = (url, options, defaults) => {
 		} else if (options.form) {
 			headers['content-type'] = headers['content-type'] || 'application/x-www-form-urlencoded';
 			options.body = (new URLSearchParams(body)).toString();
-		} else if (options.json) {
+		} else if (isObject) {
 			headers['content-type'] = headers['content-type'] || 'application/json';
 			options.body = JSON.stringify(body);
 		}

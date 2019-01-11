@@ -131,10 +131,6 @@ test('should ignore empty query object', async t => {
 	t.is((await got(`${s.url}/test`, {query: {}})).requestUrl, `${s.url}/test`);
 });
 
-test('should throw when body is set to object', async t => {
-	await t.throwsAsync(got(`${s.url}/`, {body: {}}), TypeError);
-});
-
 test('WHATWG URL support', async t => {
 	const wURL = new URL(`${s.url}/test`);
 	await t.notThrowsAsync(got(wURL));
@@ -142,11 +138,6 @@ test('WHATWG URL support', async t => {
 
 test('should return streams when using stream option', async t => {
 	const data = await pEvent(got(`${s.url}/stream`, {stream: true}), 'data');
-	t.is(data.toString(), 'ok');
-});
-
-test('should ignore JSON option when using stream option', async t => {
-	const data = await pEvent(got(`${s.url}/stream`, {stream: true, json: true}), 'data');
 	t.is(data.toString(), 'ok');
 });
 

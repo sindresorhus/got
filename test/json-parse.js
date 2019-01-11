@@ -42,41 +42,41 @@ test.after('cleanup', async () => {
 });
 
 test('parses response', async t => {
-	t.deepEqual((await got(s.url, {json: true})).body, {data: 'dog'});
+	t.deepEqual((await got(s.url, {responseType: 'json'})).body, {data: 'dog'});
 });
 
 test('not parses responses without a body', async t => {
-	const {body} = await got(`${s.url}/no-body`, {json: true});
+	const {body} = await got(`${s.url}/no-body`, {responseType: 'json'});
 	t.is(body, '');
 });
 
 test('wraps parsing errors', async t => {
-	const error = await t.throwsAsync(got(`${s.url}/invalid`, {json: true}));
+	const error = await t.throwsAsync(got(`${s.url}/invalid`, {responseType: 'json'}));
 	t.regex(error.message, /Unexpected token/);
 	t.true(error.message.includes(error.hostname), error.message);
 	t.is(error.path, '/invalid');
 });
 
 test('parses non-200 responses', async t => {
-	const error = await t.throwsAsync(got(`${s.url}/non200`, {json: true}));
+	const error = await t.throwsAsync(got(`${s.url}/non200`, {responseType: 'json'}));
 	t.deepEqual(error.response.body, {data: 'dog'});
 });
 
 test('ignores errors on invalid non-200 responses', async t => {
-	const error = await t.throwsAsync(got(`${s.url}/non200-invalid`, {json: true}));
+	const error = await t.throwsAsync(got(`${s.url}/non200-invalid`, {responseType: 'json'}));
 	t.is(error.message, 'Response code 500 (Internal Server Error)');
 	t.is(error.response.body, 'Internal error');
 	t.is(error.path, '/non200-invalid');
 });
 
 test('should have statusCode in error', async t => {
-	const error = await t.throwsAsync(got(`${s.url}/invalid`, {json: true}));
+	const error = await t.throwsAsync(got(`${s.url}/invalid`, {responseType: 'json'}));
 	t.is(error.constructor, got.ParseError);
 	t.is(error.statusCode, 200);
 });
 
 test('should set correct headers', async t => {
-	const {body: headers} = await got(`${s.url}/headers`, {json: true, body: {}});
+	const {body: headers} = await got(`${s.url}/headers`, {responseType: 'json', body: {}});
 	t.is(headers['content-type'], 'application/json');
 	t.is(headers.accept, 'application/json');
 });
