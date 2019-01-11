@@ -66,7 +66,7 @@ test.after('cleanup', async () => {
 
 test('async hooks', async t => {
 	const {body} = await got(s.url, {
-		json: true,
+		responseType: 'json',
 		hooks: {
 			beforeRequest: [
 				async options => {
@@ -207,7 +207,7 @@ test('init allows modifications', async t => {
 
 test('beforeRequest is called with options', async t => {
 	await got(s.url, {
-		json: true,
+		responseType: 'json',
 		hooks: {
 			beforeRequest: [
 				options => {
@@ -221,7 +221,7 @@ test('beforeRequest is called with options', async t => {
 
 test('beforeRequest allows modifications', async t => {
 	const {body} = await got(s.url, {
-		json: true,
+		responseType: 'json',
 		hooks: {
 			beforeRequest: [
 				options => {
@@ -235,7 +235,7 @@ test('beforeRequest allows modifications', async t => {
 
 test('beforeRedirect is called with options', async t => {
 	await got(`${s.url}/redirect`, {
-		json: true,
+		responseType: 'json',
 		hooks: {
 			beforeRedirect: [
 				options => {
@@ -249,7 +249,7 @@ test('beforeRedirect is called with options', async t => {
 
 test('beforeRedirect allows modifications', async t => {
 	const {body} = await got(`${s.url}/redirect`, {
-		json: true,
+		responseType: 'json',
 		hooks: {
 			beforeRedirect: [
 				options => {
@@ -263,7 +263,7 @@ test('beforeRedirect allows modifications', async t => {
 
 test('beforeRetry is called with options', async t => {
 	await got(`${s.url}/retry`, {
-		json: true,
+		responseType: 'json',
 		retry: 1,
 		throwHttpErrors: false,
 		hooks: {
@@ -280,7 +280,7 @@ test('beforeRetry is called with options', async t => {
 
 test('beforeRetry allows modifications', async t => {
 	const {body} = await got(`${s.url}/retry`, {
-		json: true,
+		responseType: 'json',
 		hooks: {
 			beforeRetry: [
 				options => {
@@ -294,7 +294,7 @@ test('beforeRetry allows modifications', async t => {
 
 test('afterResponse is called with response', async t => {
 	await got(`${s.url}`, {
-		json: true,
+		responseType: 'json',
 		hooks: {
 			afterResponse: [
 				response => {
@@ -309,7 +309,7 @@ test('afterResponse is called with response', async t => {
 
 test('afterResponse allows modifications', async t => {
 	const {body} = await got(`${s.url}`, {
-		json: true,
+		responseType: 'json',
 		hooks: {
 			afterResponse: [
 				response => {

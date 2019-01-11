@@ -295,6 +295,10 @@ module.exports = (options, input) => {
 				}
 			}
 
+			if (options.responseType === 'json' && is.undefined(options.headers.accept)) {
+				options.headers.accept = 'application/json';
+			}
+
 			for (const hook of options.hooks.beforeRequest) {
 				// eslint-disable-next-line no-await-in-loop
 				await hook(options);
