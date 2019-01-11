@@ -133,7 +133,11 @@ const normalize = (url, options, defaults) => {
 	options = merge({path: ''}, url, {protocol: url.protocol || 'https:'}, options);
 
 	for (const hook of options.hooks.init) {
-		hook(options);
+		const called = hook(options);
+
+		if (called instanceof Promise) {
+			throw new TypeError('The `init` hook must be a synchronous function');
+		}
 	}
 
 	const {baseUrl} = options;

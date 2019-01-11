@@ -79,29 +79,65 @@ test('async hooks', async t => {
 	t.is(body.foo, 'bar');
 });
 
-test('catches thrown errors', async t => {
+test('catches init thrown errors', async t => {
 	await t.throwsAsync(() => got(s.url, {
 		hooks: {
-			beforeRequest: [
-				() => {
-					throw error;
-				}
-			]
+			init: [() => {
+				throw error;
+			}]
 		}
 	}), errorString);
 });
 
-test('catches promise rejections', async t => {
+test('catches beforeRequest thrown errors', async t => {
 	await t.throwsAsync(() => got(s.url, {
 		hooks: {
-			beforeRequest: [
-				() => Promise.reject(error)
-			]
+			beforeRequest: [() => {
+				throw error;
+			}]
 		}
 	}), errorString);
 });
 
-test('catches beforeRequest errors', async t => {
+test('catches beforeRedirect thrown errors', async t => {
+	await t.throwsAsync(() => got(`${s.url}/redirect`, {
+		hooks: {
+			beforeRedirect: [() => {
+				throw error;
+			}]
+		}
+	}), errorString);
+});
+
+test('catches beforeRetry thrown errors', async t => {
+	await t.throwsAsync(() => got(`${s.url}/retry`, {
+		hooks: {
+			beforeRetry: [() => {
+				throw error;
+			}]
+		}
+	}), errorString);
+});
+
+test('catches afterResponse thrown errors', async t => {
+	await t.throwsAsync(() => got(s.url, {
+		hooks: {
+			afterResponse: [() => {
+				throw error;
+			}]
+		}
+	}), errorString);
+});
+
+test('throws a helpful error when passing async function as init hook', async t => {
+	await t.throwsAsync(() => got(s.url, {
+		hooks: {
+			init: [() => Promise.resolve()]
+		}
+	}), 'The `init` hook must be a synchronous function');
+});
+
+test('catches beforeRequest promise rejections', async t => {
 	await t.throwsAsync(() => got(s.url, {
 		hooks: {
 			beforeRequest: [() => Promise.reject(error)]
@@ -109,7 +145,7 @@ test('catches beforeRequest errors', async t => {
 	}), errorString);
 });
 
-test('catches beforeRedirect errors', async t => {
+test('catches beforeRedirect promise rejections', async t => {
 	await t.throwsAsync(() => got(`${s.url}/redirect`, {
 		hooks: {
 			beforeRedirect: [() => Promise.reject(error)]
@@ -117,7 +153,7 @@ test('catches beforeRedirect errors', async t => {
 	}), errorString);
 });
 
-test('catches beforeRetry errors', async t => {
+test('catches beforeRetry promise rejections', async t => {
 	await t.throwsAsync(() => got(`${s.url}/retry`, {
 		hooks: {
 			beforeRetry: [() => Promise.reject(error)]
@@ -125,7 +161,7 @@ test('catches beforeRetry errors', async t => {
 	}), errorString);
 });
 
-test('catches afterResponse errors', async t => {
+test('catches afterResponse promise rejections', async t => {
 	await t.throwsAsync(() => got(s.url, {
 		hooks: {
 			afterResponse: [() => Promise.reject(error)]
@@ -133,7 +169,7 @@ test('catches afterResponse errors', async t => {
 	}), errorString);
 });
 
-test('init', async t => {
+test('init is called with options', async t => {
 	await got(s.url, {
 		json: true,
 		hooks: {
@@ -160,7 +196,7 @@ test('init allows modifications', async t => {
 	t.is(body, 'foobar');
 });
 
-test('beforeRequest', async t => {
+test('beforeRequest is called with options', async t => {
 	await got(s.url, {
 		json: true,
 		hooks: {
@@ -188,7 +224,7 @@ test('beforeRequest allows modifications', async t => {
 	t.is(body.foo, 'bar');
 });
 
-test('beforeRedirect', async t => {
+test('beforeRedirect is called with options', async t => {
 	await got(`${s.url}/redirect`, {
 		json: true,
 		hooks: {
@@ -216,15 +252,17 @@ test('beforeRedirect allows modifications', async t => {
 	t.is(body.foo, 'bar');
 });
 
-test('beforeRetry', async t => {
+test('beforeRetry is called with options', async t => {
 	await got(`${s.url}/retry`, {
 		json: true,
 		retry: 1,
 		throwHttpErrors: false,
 		hooks: {
 			beforeRetry: [
-				options => {
+				(options, error, retryCount) => {
 					t.is(options.hostname, 'localhost');
+					t.truthy(error);
+					t.true(retryCount >= 1);
 				}
 			]
 		}
@@ -245,7 +283,7 @@ test('beforeRetry allows modifications', async t => {
 	t.is(body.foo, 'bar');
 });
 
-test('afterResponse', async t => {
+test('afterResponse is called with response', async t => {
 	await got(`${s.url}`, {
 		json: true,
 		hooks: {
