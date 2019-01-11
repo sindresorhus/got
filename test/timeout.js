@@ -483,8 +483,6 @@ test('no memory leak when using socket timeout and keepalive agent', async t => 
 	let socket;
 	promise.on('request', request => {
 		request.on('socket', () => {
-			got(s.url);
-
 			socket = request.socket;
 		});
 	});
