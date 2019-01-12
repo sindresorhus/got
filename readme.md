@@ -447,6 +447,38 @@ const instance = got.extend({
 });
 ```
 
+###### hooks.onError
+
+Type: `Function[]`<br>
+Default: `[]`
+
+Called with an `Error` instance. The error is passed to the hook right before it's thrown. This is especially useful when you want to have more detailed errors. Example:
+
+```js
+const got = require('got');
+
+got('api.github.com/someEndpoint', {
+	hooks: {
+		onError: [
+			error => {
+				const {response} = error;
+
+				if (response && response.body) {
+					error.name = 'GitHubError';
+					error.message = `${response.body.message} (${error.statusCode})`;
+				}
+
+				if (response) {
+					error.rateLimit = getRateLimit(response);
+				}
+
+				return error;
+			}
+		]
+	}
+});
+```
+
 #### Response
 
 The response object will typically be a [Node.js HTTP response stream](https://nodejs.org/api/http.html#http_class_http_incomingmessage), however, if returned from the cache it will be a [response-like object](https://github.com/lukechilds/responselike) which behaves in the same way.

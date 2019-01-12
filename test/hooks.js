@@ -129,6 +129,15 @@ test('catches afterResponse errors', async t => {
 	}), errorString);
 });
 
+test('catches onError errors', async t => {
+	await t.throwsAsync(() => got(s.url, {
+		request: null,
+		hooks: {
+			onError: [() => Promise.reject(error)]
+		}
+	}), errorString);
+});
+
 test('beforeRequest', async t => {
 	await got(s.url, {
 		json: true,
@@ -329,4 +338,33 @@ test.serial('doesn\'t throw on afterResponse retry HTTP failure if throwHttpErro
 		}
 	});
 	t.is(statusCode, 500);
+});
+
+test('onError is called with an error', async t => {
+	await t.throwsAsync(() => got(s.url, {
+		request: () => {
+			throw error;
+		},
+		hooks: {
+			onError: [error2 => {
+				t.true(error2 instanceof Error);
+				return error2;
+			}]
+		}
+	}), errorString);
+});
+
+test('onError allows modifications', async t => {
+	const errorString2 = 'foobar';
+
+	await t.throwsAsync(() => got(s.url, {
+		request: () => {
+			throw error;
+		},
+		hooks: {
+			onError: [error2 => {
+				return new Error(errorString2);
+			}]
+		}
+	}), errorString2);
 });

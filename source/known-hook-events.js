@@ -4,5 +4,6 @@ module.exports = [
 	'beforeRequest',
 	'beforeRedirect',
 	'beforeRetry',
-	'afterResponse'
+	'afterResponse',
+	'onError'
 ];
