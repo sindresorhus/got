@@ -131,7 +131,7 @@ test('catches afterResponse errors', async t => {
 
 test('catches onError errors', async t => {
 	await t.throwsAsync(() => got(s.url, {
-		request: null,
+		request: () => {},
 		hooks: {
 			onError: [() => Promise.reject(error)]
 		}
