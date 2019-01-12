@@ -174,7 +174,7 @@ test('catch error in mimicResponse', async t => {
 });
 
 test('errors are thrown directly when options.stream is true', t => {
-	t.throws(() => got(s.url, {stream: true, body: Buffer.from('blah'), form: true}), {
-		message: 'The `body` option must be an Object when the `form` option is used'
+	t.throws(() => got(s.url, {stream: true, hooks: false}), {
+		message: 'Parameter `hooks` must be an object, not boolean'
 	});
 });

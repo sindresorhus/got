@@ -50,7 +50,8 @@ const defaults = {
 		form: false,
 		json: false,
 		cache: false,
-		useElectronNet: false
+		useElectronNet: false,
+		responseType: 'text'
 	},
 	mutableDefaults: false
 };

@@ -4,11 +4,13 @@ import {createServer} from './helpers/server';
 
 let s;
 
+const jsonResponse = '{"data":"dog"}';
+
 test.before('setup', async () => {
 	s = await createServer();
 
 	s.on('/', (request, response) => {
-		response.end('{"data":"dog"}');
+		response.end(jsonResponse);
 	});
 
 	s.on('/invalid', (request, response) => {
@@ -22,7 +24,7 @@ test.before('setup', async () => {
 
 	s.on('/non200', (request, response) => {
 		response.statusCode = 500;
-		response.end('{"data":"dog"}');
+		response.end(jsonResponse);
 	});
 
 	s.on('/non200-invalid', (request, response) => {
@@ -41,11 +43,27 @@ test.after('cleanup', async () => {
 	await s.close();
 });
 
-test('parses response', async t => {
+test('JSON response', async t => {
 	t.deepEqual((await got(s.url, {responseType: 'json'})).body, {data: 'dog'});
 });
 
-test('not parses responses without a body', async t => {
+test('Buffer response', async t => {
+	t.deepEqual((await got(s.url, {responseType: 'buffer'})).body, Buffer.from(jsonResponse));
+});
+
+test('JSON response - promise.json()', async t => {
+	t.deepEqual((await got(s.url).json()).body, {data: 'dog'});
+});
+
+test('Buffer response - promise.buffer()', async t => {
+	t.deepEqual((await got(s.url).buffer()).body, Buffer.from(jsonResponse));
+});
+
+test('throws an error on invalid response type', async t => {
+	await t.throwsAsync(() => got(s.url, {responseType: 'invalid'}), /^Failed to parse body of type 'invalid'/);
+});
+
+test('doesn\'t parse responses without a body', async t => {
 	const {body} = await got(`${s.url}/no-body`, {responseType: 'json'});
 	t.is(body, '');
 });

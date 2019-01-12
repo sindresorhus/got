@@ -5,7 +5,6 @@ const is = require('@sindresorhus/is');
 const urlParseLax = require('url-parse-lax');
 const lowercaseKeys = require('lowercase-keys');
 const urlToOptions = require('./utils/url-to-options');
-const isFormData = require('./utils/is-form-data');
 const validateSearchParams = require('./utils/validate-search-params');
 const merge = require('./merge');
 const knownHookEvents = require('./known-hook-events');
@@ -186,31 +185,10 @@ const normalize = (url, options, defaults) => {
 		headers['accept-encoding'] = 'gzip, deflate';
 	}
 
-	const {body} = options;
-	if (is.nullOrUndefined(body)) {
-		options.method = options.method ? options.method.toUpperCase() : 'GET';
+	if (options.method) {
+		options.method = options.method.toUpperCase();
 	} else {
-		const isObject = is.object(body) && !is.buffer(body) && !is.nodeStream(body);
-		if (!is.nodeStream(body) && !is.string(body) && !is.buffer(body) && !isObject && !options.form) {
-			throw new TypeError('The `body` option must be a stream.Readable, string, Buffer, Object or Array');
-		}
-
-		if (options.form && !isObject) {
-			throw new TypeError('The `body` option must be an Object when the `form` option is used');
-		}
-
-		if (isFormData(body)) {
-			// Special case for https://github.com/form-data/form-data
-			headers['content-type'] = headers['content-type'] || `multipart/form-data; boundary=${body.getBoundary()}`;
-		} else if (options.form) {
-			headers['content-type'] = headers['content-type'] || 'application/x-www-form-urlencoded';
-			options.body = (new URLSearchParams(body)).toString();
-		} else if (isObject) {
-			headers['content-type'] = headers['content-type'] || 'application/json';
-			options.body = JSON.stringify(body);
-		}
-
-		options.method = options.method ? options.method.toUpperCase() : 'POST';
+		options.method = is.nullOrUndefined(options.body) ? 'GET' : 'POST';
 	}
 
 	if (!is.function(options.retry.retries)) {

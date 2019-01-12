@@ -131,6 +131,10 @@ test('should ignore empty query object', async t => {
 	t.is((await got(`${s.url}/test`, {query: {}})).requestUrl, `${s.url}/test`);
 });
 
+test('should throw on invalid type of body', async t => {
+	await t.throwsAsync(got(`${s.url}/`, {body: false}), TypeError);
+});
+
 test('WHATWG URL support', async t => {
 	const wURL = new URL(`${s.url}/test`);
 	await t.notThrowsAsync(got(wURL));

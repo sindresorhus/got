@@ -11,6 +11,7 @@ const is = require('@sindresorhus/is');
 const timer = require('@szmarczak/http-timer');
 const timedOut = require('./utils/timed-out');
 const getBodySize = require('./utils/get-body-size');
+const isFormData = require('./utils/is-form-data');
 const getResponse = require('./get-response');
 const progress = require('./progress');
 const {CacheError, UnsupportedProtocolError, MaxRedirectsError, RequestError, TimeoutError} = require('./errors');
@@ -280,8 +281,37 @@ module.exports = (options, input) => {
 
 	setImmediate(async () => {
 		try {
-			// Convert buffer to stream to receive upload progress events (#322)
+			for (const hook of options.hooks.beforeRequest) {
+				// eslint-disable-next-line no-await-in-loop
+				await hook(options);
+			}
+
+			// Serialize body
 			const {body} = options;
+			if (!is.nullOrUndefined(body)) {
+				const isObject = is.object(body) && !is.buffer(body) && !is.nodeStream(body);
+				if (!is.nodeStream(body) && !is.string(body) && !is.buffer(body) && !isObject && !options.form) {
+					throw new TypeError('The `body` option must be a stream.Readable, string, Buffer, Object or Array');
+				}
+
+				if (options.form && !isObject) {
+					throw new TypeError('The `body` option must be an Object when the `form` option is used');
+				}
+
+				const {headers} = options;
+				if (isFormData(body)) {
+					// Special case for https://github.com/form-data/form-data
+					headers['content-type'] = headers['content-type'] || `multipart/form-data; boundary=${body.getBoundary()}`;
+				} else if (options.form) {
+					headers['content-type'] = headers['content-type'] || 'application/x-www-form-urlencoded';
+					options.body = (new URLSearchParams(body)).toString();
+				} else if (isObject) {
+					headers['content-type'] = headers['content-type'] || 'application/json';
+					options.body = JSON.stringify(body);
+				}
+			}
+
+			// Convert buffer to stream to receive upload progress events (#322)
 			if (is.buffer(body)) {
 				options.body = toReadableStream(body);
 				uploadBodySize = body.length;
@@ -295,13 +325,8 @@ module.exports = (options, input) => {
 				}
 			}
 
-			if (options.responseType === 'json' && is.undefined(options.headers.accept)) {
+			if (!options.stream && options.responseType === 'json' && is.undefined(options.headers.accept)) {
 				options.headers.accept = 'application/json';
-			}
-
-			for (const hook of options.hooks.beforeRequest) {
-				// eslint-disable-next-line no-await-in-loop
-				await hook(options);
 			}
 
 			requestUrl = options.href || (new URL(options.path, urlLib.format(options))).toString();

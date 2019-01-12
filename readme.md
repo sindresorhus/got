@@ -35,7 +35,7 @@ Got is for Node.js. For browsers, we recommend [Ky](https://github.com/sindresor
 - [Handles gzip/deflate](#decompress)
 - [Timeout handling](#timeout)
 - [Errors with metadata](#errors)
-- [JSON mode](#json)
+- [JSON mode](#json-mode)
 - [WHATWG URL support](#url)
 - [Hooks](#hooks)
 - [Instances with custom defaults](#instances)
@@ -159,11 +159,28 @@ Type: `string` `Buffer` `stream.Readable` [`form-data` instance](https://github.
 
 **Note:** If you provide this option, `got.stream()` will be read-only.
 
+**Note:** if body is an object/array and `Content-Type` header is not set, it will be set to `application/json`.
+
 The body that will be sent with a `POST` request.
 
 If present in `options` and `options.method` is not set, `options.method` will be set to `POST`.
 
 The `content-length` header will be automatically set if `body` is a `string` / `Buffer` / `fs.createReadStream` instance / [`form-data` instance](https://github.com/form-data/form-data), and `content-length` and `transfer-encoding` are not manually set in `options.headers`.
+
+###### responseType
+
+Type: `string`<br>
+Default: `text`
+
+**Note**: when using streams, this option is ignored.
+
+Parsing method used to retrieve the body from the response. Can be `text`, `json` or `buffer`. The promise has `.json()` and `.buffer()` functions which set this option automatically.
+
+Example:
+
+```js
+const {body} = await got(url).json();
+```
 
 ###### cookieJar
 
@@ -189,18 +206,6 @@ Default: `false`
 **Note:** `body` must be a plain object. It will be converted to a query string using [`(new URLSearchParams(object)).toString()`](https://nodejs.org/api/url.html#url_constructor_new_urlsearchparams_obj).
 
 If set to `true` and `Content-Type` header is not set, it will be set to `application/x-www-form-urlencoded`.
-
-###### json
-
-Type: `boolean`<br>
-Default: `false`
-
-**Note:** If you use `got.stream()`, this option will be ignored.
-**Note:** `body` must be a plain object or array and will be stringified.
-
-If set to `true` and `Content-Type` header is not set, it will be set to `application/json`.
-
-Parse response body with `JSON.parse` and set `accept` header to `application/json`. If used in conjunction with the `form` option, the `body` will the stringified as querystring and the response parsed as JSON.
 
 ###### query
 
@@ -503,7 +508,7 @@ Type: `Object`
 
 ##### body
 
-Type: `string` `Object` *(depending on `options.json`)*
+Type: `string` `Object` `Buffer` *(depending on `options.responseType`)*
 
 The result of the request.
 
@@ -664,11 +669,11 @@ client.get('/demo');
 			'x-foo': 'bar'
 		}
 	});
-	const {headers} = (await client.get('/headers', {json: true})).body;
+	const {headers} = (await client.get('/headers').json()).body;
 	//=> headers['x-foo'] === 'bar'
 
 	const jsonClient = client.extend({
-		json: true,
+		responseType: 'json',
 		headers: {
 			'x-baz': 'qux'
 		}
@@ -729,7 +734,7 @@ When reading from response stream fails.
 
 #### got.ParseError
 
-When `json` option is enabled, server response code is 2xx, and `JSON.parse` fails. Includes `statusCode` and `statusMessage` properties.
+When server response code is 2xx, and parsing body fails. Includes `body`, `statusCode` and `statusMessage` properties.
 
 #### got.HTTPError
 
@@ -915,7 +920,7 @@ const url = 'https://api.twitter.com/1.1/statuses/home_timeline.json';
 
 got(url, {
 	headers: oauth.toHeader(oauth.authorize({url, method: 'GET'}, token)),
-	json: true
+	responseType: 'json'
 });
 ```
 
@@ -1043,7 +1048,7 @@ const pkg = require('./package.json');
 
 const custom = got.extend({
 	baseUrl: 'example.com',
-	json: true,
+	responseType: 'json',
 	headers: {
 		'user-agent': `my-package/${pkg.version} (https://github.com/username/my-package)`
 	}

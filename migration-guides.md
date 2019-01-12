@@ -44,7 +44,6 @@ These Got options are the same as with Request:
 
 - [`url`](https://github.com/sindresorhus/got#url) (+ we accept [`URL`](https://developer.mozilla.org/en-US/docs/Web/API/URL) instances too!)
 - [`body`](https://github.com/sindresorhus/got#body)
-- [`json`](https://github.com/sindresorhus/got#json)
 - [`followRedirect`](https://github.com/sindresorhus/got#followRedirect)
 - [`encoding`](https://github.com/sindresorhus/got#encoding)
 
@@ -82,6 +81,7 @@ To use streams, just call `got.stream(url, options)` or `got(url, {stream: true,
 - No `agentClass`/`agentOptions`/`pool` option.
 - No `forever` option. You need to use [forever-agent](https://github.com/request/forever-agent).
 - No `proxy` option. You need to [pass a custom agent](readme.md#proxies).
+- No `json` option. Assume it's set to `true` when passing an object.
 - No `removeRefererHeader` option. You can remove the referer header in a [`beforeRequest` hook](https://github.com/sindresorhus/got#hooksbeforeRequest):
 
 ```js
@@ -105,21 +105,17 @@ const gotInstance = got.extend({
 	hooks: {
 		init: [
 			options => {
-				// Save the original option, so we can look at it in the `afterResponse` hook
-				options.originalJson = options.json;
-
-				if (options.json && options.jsonReplacer) {
+				if (options.jsonReplacer) {
 					options.body = JSON.stringify(options.body, options.jsonReplacer);
-					options.json = false; // We've handled that on our own
 				}
 			}
 		],
 		afterResponse: [
 			response => {
 				const options = response.request.gotOptions;
-				if (options.originalJson && options.jsonReviver) {
+				if (options.jsonReviver && options.responseType === 'json') {
+					options.responseType = '';
 					response.body = JSON.parse(response.body, options.jsonReviver);
-					options.json = false; // We've handled that on our own
 				}
 
 				return response;

@@ -52,8 +52,9 @@ module.exports.ReadError = class extends GotError {
 
 module.exports.ParseError = class extends GotError {
 	constructor(error, statusCode, options, data) {
-		super(`${error.message} in "${urlLib.format(options)}": \n${data.slice(0, 77)}...`, error, options);
+		super(`${error.message} in "${urlLib.format(options)}"`, error, options);
 		this.name = 'ParseError';
+		this.body = data;
 		this.statusCode = statusCode;
 		this.statusMessage = http.STATUS_CODES[this.statusCode];
 	}
