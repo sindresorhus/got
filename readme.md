@@ -1132,7 +1132,7 @@ const h2got = got.extend({request});
 | Advanced timeouts     |        ✔       |        ✖       |          ✖         |        ✖       |          ✖          |
 | Timings               |        ✔       |        ✔       |          ✖         |        ✖       |          ✖          |
 | Errors with metadata  |        ✔       |        ✖       |          ✖         |        ✔       |          ✖          |
-| JSON mode             |        ✔       |        ✔       |          ✖         |        ✔       |          ✔          |
+| JSON mode             |        ✔       |        ✔       |          ✔         |        ✔       |          ✔          |
 | Custom defaults       |        ✔       |        ✔       |          ✖         |        ✔       |          ✖          |
 | Composable            |        ✔       |        ✖       |          ✖         |        ✖       |          ✔          |
 | Hooks                 |        ✔       |        ✖       |          ✖         |        ✔       |          ✖          |
