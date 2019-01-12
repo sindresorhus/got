@@ -136,6 +136,19 @@ const normalize = (url, options, defaults) => {
 	const {query} = options;
 	if (is.nonEmptyString(query) || is.nonEmptyObject(query) || query instanceof URLSearchParams) {
 		if (!is.string(query)) {
+			if (!(query instanceof URLSearchParams)) {
+				const verify = (value, type) => {
+					if (typeof value !== 'string' && typeof value !== 'number' && typeof value !== 'boolean' && value !== null) {
+						throw new TypeError(`The query ${type} '${value}' must be a string, number, boolean or null`);
+					}
+				};
+
+				for (const [key, value] of Object.entries(query)) {
+					verify(key, 'key');
+					verify(value, 'value');
+				}
+			}
+
 			options.query = (new URLSearchParams(query)).toString();
 		}
 		options.path = `${options.path.split('?')[0]}?${options.query}`;
