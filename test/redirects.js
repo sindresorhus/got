@@ -155,7 +155,7 @@ test('throws on endless redirect', async t => {
 });
 
 test('query in options are not breaking redirects', async t => {
-	t.is((await got(`${http.url}/relativeQuery`, {query: 'bang'})).body, 'reached');
+	t.is((await got(`${http.url}/relativeQuery`, {searchParams: 'bang'})).body, 'reached');
 });
 
 test('hostname+path in options are not breaking redirects', async t => {

@@ -11,6 +11,8 @@ const knownHookEvents = require('./known-hook-events');
 
 const retryAfterStatusCodes = new Set([413, 429, 503]);
 
+let shownDeprecation = false;
+
 // `preNormalize` handles static things (lowercasing headers; normalizing baseUrl, timeout, retry)
 // While `normalize` does `preNormalize` + handles things which need to be reworked when user changes them
 const preNormalize = (options, defaults) => {
@@ -117,6 +119,8 @@ const normalize = (url, options, defaults) => {
 		} else {
 			url = url.replace(/^unix:/, 'http://$&');
 			url = urlParseLax(url);
+			url.searchParams = url.query;
+			delete url.query;
 		}
 	} else if (is(url) === 'URL') {
 		url = urlToOptions(url);
@@ -133,13 +137,23 @@ const normalize = (url, options, defaults) => {
 		get: () => baseUrl
 	});
 
-	const {query} = options;
-	if (is.nonEmptyString(query) || is.nonEmptyObject(query) || query instanceof URLSearchParams) {
-		if (!is.string(query)) {
-			options.query = (new URLSearchParams(query)).toString();
+	let searchParams;
+	if (options.query) {
+		if (!shownDeprecation) {
+			console.error('`options.query` is deprecated. We support it solely for compatibility - it will be removed in Got 11. Use `options.searchParams` instead.');
+			shownDeprecation = true;
 		}
-		options.path = `${options.path.split('?')[0]}?${options.query}`;
-		delete options.query;
+		searchParams = options.query;
+	} else {
+		searchParams = options.searchParams;
+	}
+
+	if (is.nonEmptyString(searchParams) || is.nonEmptyObject(searchParams) || searchParams instanceof URLSearchParams) {
+		if (!is.string(searchParams)) {
+			options.searchParams = (new URLSearchParams(searchParams)).toString();
+		}
+		options.path = `${options.path.split('?')[0]}?${options.searchParams}`;
+		delete options.searchParams;
 	}
 
 	if (options.hostname === 'unix') {

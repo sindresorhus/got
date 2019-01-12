@@ -78,9 +78,9 @@ test('buffer on encoding === null', async t => {
 	t.true(is.buffer(data));
 });
 
-test('query option', async t => {
-	t.is((await got(s.url, {query: {recent: true}})).body, 'recent');
-	t.is((await got(s.url, {query: 'recent=true'})).body, 'recent');
+test('searchParams option', async t => {
+	t.is((await got(s.url, {searchParams: {recent: true}})).body, 'recent');
+	t.is((await got(s.url, {searchParams: 'recent=true'})).body, 'recent');
 });
 
 test('requestUrl response when sending url as param', async t => {
