@@ -1,5 +1,5 @@
 'use strict';
-const {URL} = require('url'); // TODO: Use the `URL` global when targeting Node.js 10
+const {URL, URLSearchParams} = require('url'); // TODO: Use the `URL` global when targeting Node.js 10
 const util = require('util');
 const EventEmitter = require('events');
 const http = require('http');
