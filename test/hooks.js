@@ -362,7 +362,7 @@ test('onError allows modifications', async t => {
 			throw error;
 		},
 		hooks: {
-			onError: [error2 => {
+			onError: [() => {
 				return new Error(errorString2);
 			}]
 		}
