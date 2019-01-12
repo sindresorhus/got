@@ -101,7 +101,8 @@ const defaults = {
 			beforeRequest: [],
 			beforeRedirect: [],
 			beforeRetry: [],
-			afterResponse: []
+			afterResponse: [],
+			onError: []
 		},
 		decompress: true,
 		throwHttpErrors: true,
