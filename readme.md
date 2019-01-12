@@ -159,7 +159,7 @@ Type: `string` `Buffer` `stream.Readable` [`form-data` instance](https://github.
 
 **Note:** If you provide this option, `got.stream()` will be read-only.
 
-**Note:** if body is an object/array and `Content-Type` header is not set, it will be set to `application/json`.
+**Note:** If body is an object/array, it will be stringified. The `Content-Type` header will be set to `application/json` if it's not defined.
 
 The body that will be sent with a `POST` request.
 
@@ -172,7 +172,7 @@ The `content-length` header will be automatically set if `body` is a `string` / 
 Type: `string`<br>
 Default: `text`
 
-**Note**: when using streams, this option is ignored.
+**Note**: When using streams, this option is ignored.
 
 Parsing method used to retrieve the body from the response. Can be `text`, `json` or `buffer`. The promise has `.json()` and `.buffer()` functions which set this option automatically.
 
@@ -374,11 +374,9 @@ See the [Request migration guide](migration-guides.md#breaking-changes) for an e
 Type: `Function[]`<br>
 Default: `[]`
 
-Called with [normalized](source/normalize-arguments.js) [request options](#options). Got will make no further changes to the request before it is sent. This is especially useful in conjunction with [`got.extend()`](#instances) and [`got.create()`](advanced-creation.md) when you want to create an API client that, for example, uses HMAC-signing.
+Called with [normalized](source/normalize-arguments.js) [request options](#options). Got will make no further changes to the request before it is sent (except the body serialization). This is especially useful in conjunction with [`got.extend()`](#instances) and [`got.create()`](advanced-creation.md) when you want to create an API client that, for example, uses HMAC-signing.
 
 See the [AWS section](#aws) for an example.
-
-**Note:** If you modify the `body` you will need to modify the `content-length` header too, because it has already been computed and assigned.
 
 ###### hooks.beforeRedirect
 
@@ -1010,6 +1008,43 @@ const createTestServer = require('create-test-server');
 
 
 ## Tips
+
+### JSON mode
+
+By default, if you pass an object to the `body` option it will be stringified using `JSON.stringify`. Example:
+
+```js
+const got = require('got');
+
+(async () => {
+	const response = await got('httpbin.org/anything', {
+		body: {
+			hello: 'world'
+		},
+		responseType: 'json'
+	});
+
+	console.log(response.body.data);
+	//=> '{"hello":"world"}'
+})();
+```
+
+To receive a JSON body you can either set `responseType` option to `json` or use `promise.json()`. Example:
+
+```js
+const got = require('got');
+
+(async () => {
+	const {body} = await got('httpbin.org/anything', {
+		body: {
+			hello: 'world'
+		}
+	}).json();
+
+	console.log(body);
+	//=> {...}
+})();
+```
 
 ### User Agent
 

@@ -57,7 +57,6 @@ const preNormalize = (options, defaults) => {
 
 	const {retry} = options;
 	options.retry = {
-
 		retries: 0,
 		methods: [],
 		statusCodes: [],

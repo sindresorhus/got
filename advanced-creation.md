@@ -112,7 +112,7 @@ const defaults = {
 		form: false,
 		cache: false,
 		useElectronNet: false,
-		responseType: 'text
+		responseType: 'text'
 	},
 	mutableDefaults: false
 };
