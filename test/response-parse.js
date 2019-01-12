@@ -43,7 +43,6 @@ test.after('cleanup', async () => {
 	await s.close();
 });
 
-<<<<<<< HEAD:test/response-parse.js
 test('options.resolveBody works', async t => {
 	t.deepEqual(await got(s.url, {responseType: 'json', resolveBody: true}), {data: 'dog'});
 });

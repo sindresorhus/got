@@ -160,6 +160,7 @@ Type: `string` `Buffer` `stream.Readable` [`form-data` instance](https://github.
 **Note:** If you provide this option, `got.stream()` will be read-only.
 
 **Note:** If body is an object/array, it will be stringified. The `Content-Type` header will be set to `application/json` if it's not defined.
+>>>>>>> Improvements
 
 The body that will be sent with a `POST` request.
 
