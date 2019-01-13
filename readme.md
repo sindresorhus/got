@@ -447,7 +447,7 @@ const instance = got.extend({
 });
 ```
 
-###### hooks.onError
+###### hooks.beforeError
 
 Type: `Function[]`<br>
 Default: `[]`

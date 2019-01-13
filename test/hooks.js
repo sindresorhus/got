@@ -129,11 +129,11 @@ test('catches afterResponse errors', async t => {
 	}), errorString);
 });
 
-test('catches onError errors', async t => {
+test('catches beforeError errors', async t => {
 	await t.throwsAsync(() => got(s.url, {
 		request: () => {},
 		hooks: {
-			onError: [() => Promise.reject(error)]
+			beforeError: [() => Promise.reject(error)]
 		}
 	}), errorString);
 });
@@ -340,13 +340,13 @@ test.serial('doesn\'t throw on afterResponse retry HTTP failure if throwHttpErro
 	t.is(statusCode, 500);
 });
 
-test('onError is called with an error', async t => {
+test('beforeError is called with an error', async t => {
 	await t.throwsAsync(() => got(s.url, {
 		request: () => {
 			throw error;
 		},
 		hooks: {
-			onError: [error2 => {
+			beforeError: [error2 => {
 				t.true(error2 instanceof Error);
 				return error2;
 			}]
@@ -354,7 +354,7 @@ test('onError is called with an error', async t => {
 	}), errorString);
 });
 
-test('onError allows modifications', async t => {
+test('beforeError allows modifications', async t => {
 	const errorString2 = 'foobar';
 
 	await t.throwsAsync(() => got(s.url, {
@@ -362,7 +362,7 @@ test('onError allows modifications', async t => {
 			throw error;
 		},
 		hooks: {
-			onError: [() => {
+			beforeError: [() => {
 				return new Error(errorString2);
 			}]
 		}

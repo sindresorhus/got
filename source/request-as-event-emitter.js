@@ -35,7 +35,7 @@ module.exports = (options, input) => {
 
 	const emitError = async error => {
 		try {
-			for (const hook of options.hooks.onError) {
+			for (const hook of options.hooks.beforeError) {
 				// eslint-disable-next-line no-await-in-loop
 				error = await hook(error);
 			}

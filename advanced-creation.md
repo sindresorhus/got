@@ -98,11 +98,11 @@ const defaults = {
 			'user-agent': `${pkg.name}/${pkg.version} (https://github.com/sindresorhus/got)`
 		},
 		hooks: {
+			beforeError: [],
 			beforeRequest: [],
 			beforeRedirect: [],
 			beforeRetry: [],
-			afterResponse: [],
-			onError: []
+			afterResponse: []
 		},
 		decompress: true,
 		throwHttpErrors: true,
