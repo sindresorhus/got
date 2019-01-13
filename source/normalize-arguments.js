@@ -140,20 +140,21 @@ const normalize = (url, options, defaults) => {
 	let searchParams;
 	if (options.query) {
 		if (!shownDeprecation) {
-			console.error('`options.query` is deprecated. We support it solely for compatibility - it will be removed in Got 11. Use `options.searchParams` instead.');
+			console.warn('`options.query` is deprecated. We support it solely for compatibility - it will be removed in Got 11. Use `options.searchParams` instead.');
 			shownDeprecation = true;
 		}
 		searchParams = options.query;
-	} else {
+		delete options.query;
+	} else if (options.searchParams) {
 		searchParams = options.searchParams;
+		delete options.searchParams;
 	}
 
 	if (is.nonEmptyString(searchParams) || is.nonEmptyObject(searchParams) || searchParams instanceof URLSearchParams) {
 		if (!is.string(searchParams)) {
-			options.searchParams = (new URLSearchParams(searchParams)).toString();
+			searchParams = (new URLSearchParams(searchParams)).toString();
 		}
-		options.path = `${options.path.split('?')[0]}?${options.searchParams}`;
-		delete options.searchParams;
+		options.path = `${options.path.split('?')[0]}?${searchParams}`;
 	}
 
 	if (options.hostname === 'unix') {
