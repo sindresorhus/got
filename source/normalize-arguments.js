@@ -135,7 +135,7 @@ const normalize = (url, options, defaults) => {
 	for (const hook of options.hooks.init) {
 		const called = hook(options);
 
-		if (called instanceof Promise) {
+		if (is.promise(called)) {
 			throw new TypeError('The `init` hook must be a synchronous function');
 		}
 	}
