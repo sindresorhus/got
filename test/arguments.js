@@ -224,13 +224,17 @@ test('throws when trying to modify baseUrl after options got normalized', async 
 });
 
 test('throws if the query key is invalid', async t => {
-	await t.throwsAsync(() => got(s.url, {query: {
-		[[]]: []
-	}}), TypeError);
+	await t.throwsAsync(() => got(s.url, {
+		query: {
+			[[]]: []
+		}
+	}), TypeError);
 });
 
 test('throws if the query value is invalid', async t => {
-	await t.throwsAsync(() => got(s.url, {query: {
-		foo: []
-	}}), TypeError);
+	await t.throwsAsync(() => got(s.url, {
+		query: {
+			foo: []
+		}
+	}), TypeError);
 });
