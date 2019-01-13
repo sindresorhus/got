@@ -6,6 +6,7 @@ const urlParseLax = require('url-parse-lax');
 const lowercaseKeys = require('lowercase-keys');
 const urlToOptions = require('./utils/url-to-options');
 const isFormData = require('./utils/is-form-data');
+const validateSearchParams = require('./utils/validate-search-params');
 const merge = require('./merge');
 const knownHookEvents = require('./known-hook-events');
 
@@ -137,16 +138,7 @@ const normalize = (url, options, defaults) => {
 	if (is.nonEmptyString(query) || is.nonEmptyObject(query) || query instanceof URLSearchParams) {
 		if (!is.string(query)) {
 			if (!(query instanceof URLSearchParams)) {
-				const verify = (value, type) => {
-					if (typeof value !== 'string' && typeof value !== 'number' && typeof value !== 'boolean' && value !== null) {
-						throw new TypeError(`The query ${type} '${value}' must be a string, number, boolean or null`);
-					}
-				};
-
-				for (const [key, value] of Object.entries(query)) {
-					verify(key, 'key');
-					verify(value, 'value');
-				}
+				validateSearchParams(query);
 			}
 
 			options.query = (new URLSearchParams(query)).toString();
