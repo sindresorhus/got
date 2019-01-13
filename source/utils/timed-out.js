@@ -82,11 +82,16 @@ module.exports = (request, delays, options) => {
 	}
 
 	if (delays.socket !== undefined) {
-		request.setTimeout(delays.socket, () => {
+		const socketTimeoutHandler = () => {
 			timeoutHandler(delays.socket, 'socket');
-		});
+		};
 
-		cancelers.push(() => request.setTimeout(0));
+		request.setTimeout(delays.socket, socketTimeoutHandler);
+
+		// `request.setTimeout(0)` causes a memory leak.
+		// We can just remove the listener and forget about the timer - it's unreffed.
+		// See https://github.com/sindresorhus/got/issues/690
+		cancelers.push(() => request.removeListener('timeout', socketTimeoutHandler));
 	}
 
 	if (delays.lookup !== undefined && !request.socketPath && !net.isIP(hostname || host)) {
