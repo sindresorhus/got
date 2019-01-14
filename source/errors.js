@@ -69,6 +69,7 @@ module.exports.HTTPError = class extends GotError {
 		} else {
 			statusMessage = http.STATUS_CODES[statusCode];
 		}
+
 		super(`Response code ${statusCode} (${statusMessage})`, {}, options);
 		this.name = 'HTTPError';
 		this.statusCode = statusCode;

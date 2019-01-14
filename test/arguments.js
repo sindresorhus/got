@@ -1,3 +1,4 @@
+/* eslint-disable node/no-deprecated-api */
 import {URL, URLSearchParams, parse} from 'url';
 import test from 'ava';
 import pEvent from 'p-event';

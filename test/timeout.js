@@ -18,6 +18,7 @@ const slowDataStream = () => {
 		if (count++ < 10) {
 			return slowStream.push('data\n'.repeat(100));
 		}
+
 		clearInterval(interval);
 		slowStream.push(null);
 	}, 100);
@@ -472,4 +473,22 @@ test('socket timeout is canceled on error', async t => {
 	await t.throwsAsync(promise, {message});
 	// Wait a bit more to check if there are any unhandled errors
 	await delay(10);
+});
+
+test('no memory leak when using socket timeout and keepalive agent', async t => {
+	const promise = got(s.url, {
+		agent: keepAliveAgent,
+		timeout: {socket: requestDelay * 2}
+	});
+
+	let socket;
+	promise.on('request', request => {
+		request.on('socket', () => {
+			socket = request.socket;
+		});
+	});
+
+	await promise;
+
+	t.is(socket.listenerCount('timeout'), 0);
 });

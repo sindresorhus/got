@@ -83,6 +83,7 @@ module.exports = options => {
 
 		return result;
 	};
+
 	proxy.unpipe = stream => {
 		piped.delete(stream);
 		return unpipe(stream);

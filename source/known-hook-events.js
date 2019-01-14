@@ -2,6 +2,7 @@
 
 module.exports = [
 	'beforeError',
+	'init',
 	'beforeRequest',
 	'beforeRedirect',
 	'beforeRetry',

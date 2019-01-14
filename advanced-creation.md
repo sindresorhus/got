@@ -99,6 +99,7 @@ const defaults = {
 		},
 		hooks: {
 			beforeError: [],
+			init: [],
 			beforeRequest: [],
 			beforeRedirect: [],
 			beforeRetry: [],
