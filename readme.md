@@ -35,7 +35,7 @@ Got is for Node.js. For browsers, we recommend [Ky](https://github.com/sindresor
 - [Errors with metadata](#errors)
 - [JSON mode](#json)
 - [WHATWG URL support](#url)
-- [Hooks](https://github.com/sindresorhus/got#hooks)
+- [Hooks](#hooks)
 - [Instances with custom defaults](#instances)
 - [Composable](advanced-creation.md#merging-instances)
 - [Electron support](#useelectronnet)
@@ -350,6 +350,17 @@ got('sindresorhus.com', {
 Type: `Object<string, Function[]>`
 
 Hooks allow modifications during the request lifecycle. Hook functions may be async and are run serially.
+
+###### hooks.init
+
+Type: `Function[]`<br>
+Default: `[]`
+
+Called with plain [request options](#options), right before their normalization. This is especially useful in conjunction with [`got.extend()`](#instances) and [`got.create()`](advanced-creation.md) when the input needs custom handling.
+
+See the [Request migration guide](migration-guides.md#breaking-changes) for an example.
+
+**Note**: This hook must be synchronous!
 
 ###### hooks.beforeRequest
 

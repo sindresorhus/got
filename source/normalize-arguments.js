@@ -11,8 +11,15 @@ const knownHookEvents = require('./known-hook-events');
 
 const retryAfterStatusCodes = new Set([413, 429, 503]);
 
-// `preNormalize` handles static things (lowercasing headers; normalizing baseUrl, timeout, retry)
-// While `normalize` does `preNormalize` + handles things which need to be reworked when user changes them
+// `preNormalize` handles static options (e.g. headers).
+// For example, when you create a custom instance and make a request
+// with no static changes, they won't be normalized again.
+//
+// `normalize` operates on dynamic options - they cannot be saved.
+// For example, `body` is everytime different per request.
+// When it's done normalizing the new options, it performs merge()
+// on the prenormalized options and the normalized ones.
+
 const preNormalize = (options, defaults) => {
 	if (is.nullOrUndefined(options.headers)) {
 		options.headers = {};
@@ -125,6 +132,14 @@ const normalize = (url, options, defaults) => {
 
 	// Override both null/undefined with default protocol
 	options = merge({path: ''}, url, {protocol: url.protocol || 'https:'}, options);
+
+	for (const hook of options.hooks.init) {
+		const called = hook(options);
+
+		if (is.promise(called)) {
+			throw new TypeError('The `init` hook must be a synchronous function');
+		}
+	}
 
 	const {baseUrl} = options;
 	Object.defineProperty(options, 'baseUrl', {
