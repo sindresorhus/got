@@ -463,7 +463,9 @@ const instance = got.extend({
 Type: `Function[]`<br>
 Default: `[]`
 
-Called with an `Error` instance. The error is passed to the hook right before it's thrown. This is especially useful when you want to have more detailed errors. Example:
+Called with an `Error` instance. The error is passed to the hook right before it's thrown. This is especially useful when you want to have more detailed errors.
+
+**Note**: errors thrown while normalizing options are thrown directly.
 
 ```js	
 const got = require('got');	
