@@ -1,3 +1,4 @@
+import {URLSearchParams} from 'url';
 import test from 'ava';
 import got from '../source';
 import {createServer} from './helpers/server';
