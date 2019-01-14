@@ -33,6 +33,19 @@ module.exports = (options, input) => {
 	const getCookieString = options.cookieJar ? util.promisify(options.cookieJar.getCookieString.bind(options.cookieJar)) : null;
 	const agents = is.object(options.agent) ? options.agent : null;
 
+	const emitError = async error => {
+		try {
+			for (const hook of options.hooks.beforeError) {
+				// eslint-disable-next-line no-await-in-loop
+				error = await hook(error);
+			}
+
+			emitter.emit('error', error);
+		} catch (error2) {
+			emitter.emit('error', error2);
+		}
+	};
+
 	const get = async options => {
 		const currentUrl = redirectString || requestUrl;
 
@@ -141,7 +154,7 @@ module.exports = (options, input) => {
 
 				getResponse(response, options, emitter);
 			} catch (error) {
-				emitter.emit('error', error);
+				emitError(error);
 			}
 		};
 
@@ -166,7 +179,7 @@ module.exports = (options, input) => {
 				}
 
 				if (emitter.retry(error) === false) {
-					emitter.emit('error', error);
+					emitError(error);
 				}
 			});
 
@@ -198,7 +211,7 @@ module.exports = (options, input) => {
 					request.end(uploadComplete);
 				}
 			} catch (error) {
-				emitter.emit('error', new RequestError(error, options));
+				emitError(new RequestError(error, options));
 			}
 		};
 
@@ -208,9 +221,9 @@ module.exports = (options, input) => {
 
 			cacheRequest.once('error', error => {
 				if (error instanceof CacheableRequest.RequestError) {
-					emitter.emit('error', new RequestError(error, options));
+					emitError(new RequestError(error, options));
 				} else {
-					emitter.emit('error', new CacheError(error, options));
+					emitError(new CacheError(error, options));
 				}
 			});
 
@@ -220,7 +233,7 @@ module.exports = (options, input) => {
 			try {
 				handleRequest(fn.request(options, handleResponse));
 			} catch (error) {
-				emitter.emit('error', new RequestError(error, options));
+				emitError(new RequestError(error, options));
 			}
 		}
 	};
@@ -231,7 +244,7 @@ module.exports = (options, input) => {
 		try {
 			backoff = options.retry.retries(++retryCount, error);
 		} catch (error2) {
-			emitter.emit('error', error2);
+			emitError(error2);
 			return;
 		}
 
@@ -245,7 +258,7 @@ module.exports = (options, input) => {
 
 					await get(options);
 				} catch (error) {
-					emitter.emit('error', error);
+					emitError(error);
 				}
 			};
 
@@ -291,7 +304,7 @@ module.exports = (options, input) => {
 
 			await get(options);
 		} catch (error) {
-			emitter.emit('error', error);
+			emitError(error);
 		}
 	});
 

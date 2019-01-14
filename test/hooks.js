@@ -169,6 +169,15 @@ test('catches afterResponse promise rejections', async t => {
 	}), errorString);
 });
 
+test('catches beforeError errors', async t => {
+	await t.throwsAsync(() => got(s.url, {
+		request: () => {},
+		hooks: {
+			beforeError: [() => Promise.reject(error)]
+		}
+	}), errorString);
+});
+
 test('init is called with options', async t => {
 	await got(s.url, {
 		json: true,
@@ -398,4 +407,33 @@ test.serial('doesn\'t throw on afterResponse retry HTTP failure if throwHttpErro
 		}
 	});
 	t.is(statusCode, 500);
+});
+
+test('beforeError is called with an error', async t => {
+	await t.throwsAsync(() => got(s.url, {
+		request: () => {
+			throw error;
+		},
+		hooks: {
+			beforeError: [error2 => {
+				t.true(error2 instanceof Error);
+				return error2;
+			}]
+		}
+	}), errorString);
+});
+
+test('beforeError allows modifications', async t => {
+	const errorString2 = 'foobar';
+
+	await t.throwsAsync(() => got(s.url, {
+		request: () => {
+			throw error;
+		},
+		hooks: {
+			beforeError: [() => {
+				return new Error(errorString2);
+			}]
+		}
+	}), errorString2);
 });
