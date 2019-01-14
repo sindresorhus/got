@@ -465,7 +465,7 @@ Default: `[]`
 
 Called with an `Error` instance. The error is passed to the hook right before it's thrown. This is especially useful when you want to have more detailed errors.
 
-**Note**: errors thrown while normalizing options are thrown directly.
+**Note**: Errors thrown while normalizing input options are thrown directly and not part of this hook.
 
 ```js	
 const got = require('got');	
