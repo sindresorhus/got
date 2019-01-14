@@ -47,7 +47,7 @@
 		"url-parse-lax": "^3.0.0"
 	},
 	"devDependencies": {
-		"ava": "^1.0.1",
+		"ava": "^1.1.0",
 		"coveralls": "^3.0.0",
 		"delay": "^4.1.0",
 		"form-data": "^2.3.3",
@@ -61,8 +61,8 @@
 		"slow-stream": "0.0.4",
 		"tempfile": "^2.0.0",
 		"tempy": "^0.2.1",
-		"tough-cookie": "^2.4.3",
-		"xo": "^0.23.0"
+		"tough-cookie": "^3.0.0",
+		"xo": "^0.24.0"
 	},
 	"ava": {
 		"concurrency": 4

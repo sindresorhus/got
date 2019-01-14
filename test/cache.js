@@ -40,6 +40,7 @@ test.before('setup', async () => {
 			response.setHeader('Location', `${s.url}/302`);
 			response.statusCode = 301;
 		}
+
 		response.end();
 		status301Index++;
 	});
@@ -51,6 +52,7 @@ test.before('setup', async () => {
 			response.setHeader('Location', `${s.url}/cache`);
 			response.statusCode = 302;
 		}
+
 		response.end();
 		status302Index++;
 	});

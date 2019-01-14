@@ -18,6 +18,7 @@ const slowDataStream = () => {
 		if (count++ < 10) {
 			return slowStream.push('data\n'.repeat(100));
 		}
+
 		clearInterval(interval);
 		slowStream.push(null);
 	}, 100);

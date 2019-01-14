@@ -175,6 +175,7 @@ test('catch error in mimicResponse', async t => {
 	const mimicResponse = () => {
 		throw new Error('Error in mimic-response');
 	};
+
 	mimicResponse['@global'] = true;
 
 	const proxiedGot = proxyquire('..', {

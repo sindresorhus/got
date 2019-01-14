@@ -49,6 +49,7 @@ const preNormalize = (options, defaults) => {
 	} else if (is.object(options.timeout)) {
 		options.gotTimeout = options.timeout;
 	}
+
 	delete options.timeout;
 
 	const {retry} = options;
@@ -138,6 +139,7 @@ const normalize = (url, options, defaults) => {
 		if (!is.string(query)) {
 			options.query = (new URLSearchParams(query)).toString();
 		}
+
 		options.path = `${options.path.split('?')[0]}?${options.query}`;
 		delete options.query;
 	}

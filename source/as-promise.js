@@ -81,6 +81,7 @@ const asPromise = options => {
 
 					resolve(response);
 				}
+
 				return;
 			}
 

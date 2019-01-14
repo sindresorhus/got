@@ -1,3 +1,4 @@
+/* eslint-disable node/no-deprecated-api */
 import url from 'url';
 import test from 'ava';
 import urlToOptions from '../source/utils/url-to-options';
