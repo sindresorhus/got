@@ -98,6 +98,7 @@ const defaults = {
 			'user-agent': `${pkg.name}/${pkg.version} (https://github.com/sindresorhus/got)`
 		},
 		hooks: {
+			init: [],
 			beforeRequest: [],
 			beforeRedirect: [],
 			beforeRetry: [],

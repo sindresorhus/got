@@ -1,6 +1,7 @@
 import test from 'ava';
 import got from '../source';
 
+// eslint-disable-next-line node/no-deprecated-api
 const {Timer} = process.binding('timer_wrap');
 
 test.serial('clear the progressInterval if the socket has been destroyed', async t => {

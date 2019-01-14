@@ -10,6 +10,7 @@ test.before('setup', async () => {
 	const reached = (request, response) => {
 		response.end('reached');
 	};
+
 	https = await createSSLServer();
 	http = await createServer();
 
