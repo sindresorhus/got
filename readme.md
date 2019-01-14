@@ -456,7 +456,8 @@ Called with an `Error` instance. The error is passed to the hook right before it
 
 ```js	
 const got = require('got');	
-got('api.github.com/someEndpoint', {	
+
+got('api.github.com/some-endpoint', {	
 	hooks: {	
 		onError: [	
 			error => {	
