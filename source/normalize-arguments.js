@@ -171,6 +171,7 @@ const normalize = (url, options, defaults) => {
 		if (!is.string(searchParams)) {
 			searchParams = (new URLSearchParams(searchParams)).toString();
 		}
+
 		options.path = `${options.path.split('?')[0]}?${searchParams}`;
 	}
 
