@@ -51,7 +51,8 @@ const defaults = {
 		json: false,
 		cache: false,
 		useElectronNet: false,
-		responseType: 'text'
+		responseType: 'text',
+		resolveBody: false
 	},
 	mutableDefaults: false
 };
