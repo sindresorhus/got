@@ -43,6 +43,10 @@ test.after('cleanup', async () => {
 	await s.close();
 });
 
+test('options.resolveBody works', async t => {
+	t.deepEqual(await got(s.url, {responseType: 'json', resolveBody: true}), {data: 'dog'});
+});
+
 test('JSON response', async t => {
 	t.deepEqual((await got(s.url, {responseType: 'json'})).body, {data: 'dog'});
 });
@@ -52,11 +56,11 @@ test('Buffer response', async t => {
 });
 
 test('JSON response - promise.json()', async t => {
-	t.deepEqual((await got(s.url).json()).body, {data: 'dog'});
+	t.deepEqual(await got(s.url).json(), {data: 'dog'});
 });
 
 test('Buffer response - promise.buffer()', async t => {
-	t.deepEqual((await got(s.url).buffer()).body, Buffer.from(jsonResponse));
+	t.deepEqual(await got(s.url).buffer(), Buffer.from(jsonResponse));
 });
 
 test('throws an error on invalid response type', async t => {
@@ -64,7 +68,7 @@ test('throws an error on invalid response type', async t => {
 });
 
 test('doesn\'t parse responses without a body', async t => {
-	const {body} = await got(`${s.url}/no-body`, {responseType: 'json'});
+	const body = await got(`${s.url}/no-body`).json();
 	t.is(body, '');
 });
 

@@ -77,7 +77,7 @@ test('no plain object restriction on body', async t => {
 		this.a = 123;
 	}
 
-	const {body} = await got(`${s.url}/body`, {body: new CustomObject()}).json();
+	const body = await got(`${s.url}/body`, {body: new CustomObject()}).json();
 
 	t.deepEqual(body, {a: 123});
 });

@@ -182,6 +182,13 @@ Example:
 const {body} = await got(url).json();
 ```
 
+###### resolveBody
+
+Type: `string`<br>
+Default: `false`
+
+When set to `true` the promise will return the [Response body](#body-1) instead of the [Response](#response) object.
+
 ###### cookieJar
 
 Type: [`tough.CookieJar` instance](https://github.com/salesforce/tough-cookie#cookiejar)

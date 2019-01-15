@@ -22,8 +22,8 @@ test.after('cleanup', async () => {
 });
 
 test('preserve global defaults', async t => {
-	const globalHeaders = (await got(s.url).json()).body;
-	const instanceHeaders = (await got.extend()(s.url).json()).body;
+	const globalHeaders = await got(s.url).json();
+	const instanceHeaders = await got.extend()(s.url).json();
 	t.deepEqual(instanceHeaders, globalHeaders);
 });
 
@@ -33,7 +33,7 @@ test('support instance defaults', async t => {
 			'user-agent': 'custom-ua-string'
 		}
 	});
-	const headers = (await instance(s.url).json()).body;
+	const headers = await instance(s.url).json();
 	t.is(headers['user-agent'], 'custom-ua-string');
 });
 
@@ -43,12 +43,11 @@ test('support invocation overrides', async t => {
 			'user-agent': 'custom-ua-string'
 		}
 	});
-	const headers = (await instance(s.url, {
-		responseType: 'json',
+	const headers = await instance(s.url, {
 		headers: {
 			'user-agent': 'different-ua-string'
 		}
-	})).body;
+	}).json();
 	t.is(headers['user-agent'], 'different-ua-string');
 });
 
@@ -63,7 +62,7 @@ test('curry previous instance defaults', async t => {
 			'x-bar': 'bar'
 		}
 	});
-	const headers = (await instanceB(s.url).json()).body;
+	const headers = await instanceB(s.url).json();
 	t.is(headers['x-foo'], 'foo');
 	t.is(headers['x-bar'], 'bar');
 });
@@ -72,7 +71,7 @@ test('custom headers (extend)', async t => {
 	const options = {headers: {unicorn: 'rainbow'}};
 
 	const instance = got.extend(options);
-	const headers = (await instance(`${s.url}/`).json()).body;
+	const headers = await instance(`${s.url}/`).json();
 	t.is(headers.unicorn, 'rainbow');
 });
 
@@ -106,7 +105,7 @@ test('create', async t => {
 			return next(options);
 		}
 	});
-	const headers = (await instance(s.url).json()).body;
+	const headers = await instance(s.url).json();
 	t.is(headers.unicorn, 'rainbow');
 	t.is(headers['user-agent'], undefined);
 });
@@ -123,7 +122,7 @@ test('hooks are merged on got.extend()', t => {
 
 test('custom endpoint with custom headers (extend)', async t => {
 	const instance = got.extend({headers: {unicorn: 'rainbow'}, baseUrl: s.url});
-	const headers = (await instance('/').json()).body;
+	const headers = await instance('/').json();
 	t.is(headers.unicorn, 'rainbow');
 	t.not(headers['user-agent'], undefined);
 });
