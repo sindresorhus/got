@@ -124,6 +124,12 @@ const asPromise = options => {
 		return promise;
 	};
 
+	promise.text = () => {
+		options.responseType = 'text';
+		options.resolveBody = true;
+		return promise;
+	};
+
 	return promise;
 };
 

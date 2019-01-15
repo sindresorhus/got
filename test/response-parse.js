@@ -55,12 +55,20 @@ test('Buffer response', async t => {
 	t.deepEqual((await got(s.url, {responseType: 'buffer'})).body, Buffer.from(jsonResponse));
 });
 
+test('Text response', async t => {
+	t.is((await got(s.url, {responseType: 'text'})).body, jsonResponse);
+});
+
 test('JSON response - promise.json()', async t => {
 	t.deepEqual(await got(s.url).json(), {data: 'dog'});
 });
 
 test('Buffer response - promise.buffer()', async t => {
 	t.deepEqual(await got(s.url).buffer(), Buffer.from(jsonResponse));
+});
+
+test('Text response - promise.text()', async t => {
+	t.is(await got(s.url).text(), jsonResponse);
 });
 
 test('throws an error on invalid response type', async t => {
