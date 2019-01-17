@@ -157,23 +157,26 @@ Returns a `Stream` instead of a `Promise`. This is equivalent to calling `got.st
 
 Type: `string` `Buffer` `stream.Readable` [`form-data` instance](https://github.com/form-data/form-data)
 
+**Note:** The `body` option cannot be used with the `json` or `form` option.
+
 **Note:** If you provide this option, `got.stream()` will be read-only.
-
-**Note:** If body is an object/array, it will be stringified. The `Content-Type` header will be set to `application/json` if it's not defined.
->>>>>>> Improvements
-
-The body that will be sent with a `POST` request.
 
 If present in `options` and `options.method` is not set, `options.method` will be set to `POST`.
 
 The `content-length` header will be automatically set if `body` is a `string` / `Buffer` / `fs.createReadStream` instance / [`form-data` instance](https://github.com/form-data/form-data), and `content-length` and `transfer-encoding` are not manually set in `options.headers`.
+
+###### json
+
+Type: `Object` `Array` `number` `string` `boolean` `null`
+
+JSON body. The `Content-Type` header will be set to `application/json` if it's not defined.
 
 ###### responseType
 
 Type: `string`<br>
 Default: `text`
 
-**Note**: When using streams, this option is ignored.
+**Note:** When using streams, this option is ignored.
 
 Parsing method used to retrieve the body from the response. Can be `text`, `json` or `buffer`. The promise has `.json()` and `.buffer()` functions which set this option automatically.
 
@@ -183,7 +186,7 @@ Example:
 const {body} = await got(url).json();
 ```
 
-###### resolveBody
+###### resolveBodyOnly
 
 Type: `string`<br>
 Default: `false`
@@ -207,11 +210,11 @@ Default: `'utf8'`
 
 ###### form
 
-Type: `boolean`<br>
-Default: `false`
+Type: `Object`
 
 **Note:** If you provide this option, `got.stream()` will be read-only.
-**Note:** `body` must be a plain object. It will be converted to a query string using [`(new URLSearchParams(object)).toString()`](https://nodejs.org/api/url.html#url_constructor_new_urlsearchparams_obj).
+
+The form body is converted to query string using [`(new URLSearchParams(object)).toString()`](https://nodejs.org/api/url.html#url_constructor_new_urlsearchparams_obj).
 
 If set to `true` and `Content-Type` header is not set, it will be set to `application/x-www-form-urlencoded`.
 
@@ -375,7 +378,7 @@ Called with plain [request options](#options), right before their normalization.
 
 See the [Request migration guide](migration-guides.md#breaking-changes) for an example.
 
-**Note**: This hook must be synchronous!
+**Note:** This hook must be synchronous!
 
 ###### hooks.beforeRequest
 
@@ -478,7 +481,7 @@ Default: `[]`
 
 Called with an `Error` instance. The error is passed to the hook right before it's thrown. This is especially useful when you want to have more detailed errors.
 
-**Note**: Errors thrown while normalizing input options are thrown directly and not part of this hook.
+**Note:** Errors thrown while normalizing input options are thrown directly and not part of this hook.
 
 ```js	
 const got = require('got');	

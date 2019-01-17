@@ -47,12 +47,10 @@ const defaults = {
 		throwHttpErrors: true,
 		followRedirect: true,
 		stream: false,
-		form: false,
-		json: false,
 		cache: false,
 		useElectronNet: false,
 		responseType: 'text',
-		resolveBody: false
+		resolveBodyOnly: false
 	},
 	mutableDefaults: false
 };

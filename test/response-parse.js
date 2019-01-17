@@ -43,8 +43,8 @@ test.after('cleanup', async () => {
 	await s.close();
 });
 
-test('options.resolveBody works', async t => {
-	t.deepEqual(await got(s.url, {responseType: 'json', resolveBody: true}), {data: 'dog'});
+test('options.resolveBodyOnly works', async t => {
+	t.deepEqual(await got(s.url, {responseType: 'json', resolveBodyOnly: true}), {data: 'dog'});
 });
 
 test('JSON response', async t => {
@@ -106,7 +106,7 @@ test('should have statusCode in error', async t => {
 });
 
 test('should set correct headers', async t => {
-	const {body: headers} = await got(`${s.url}/headers`, {responseType: 'json', body: {}});
+	const {body: headers} = await got(`${s.url}/headers`, {responseType: 'json', json: {}});
 	t.is(headers['content-type'], 'application/json');
 	t.is(headers.accept, 'application/json');
 });

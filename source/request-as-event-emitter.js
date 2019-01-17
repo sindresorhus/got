@@ -287,28 +287,30 @@ module.exports = (options, input) => {
 			}
 
 			// Serialize body
-			const {body} = options;
+			const {body, headers} = options;
+			const isForm = !is.nullOrUndefined(options.form);
+			const isJSON = !is.nullOrUndefined(options.json);
 			if (!is.nullOrUndefined(body)) {
-				const isObject = is.object(body) && !is.buffer(body) && !is.nodeStream(body);
-				if (!is.nodeStream(body) && !is.string(body) && !is.buffer(body) && !isObject && !options.form) {
-					throw new TypeError('The `body` option must be a stream.Readable, string, Buffer, Object or Array');
+				if (isForm || isJSON) {
+					throw new TypeError('The `body` option cannot be used with the `json` option or `form` option');
 				}
 
-				if (options.form && !isObject) {
-					throw new TypeError('The `body` option must be an Object when the `form` option is used');
-				}
-
-				const {headers} = options;
-				if (isFormData(body)) {
+				if (is.object(body) && isFormData(body)) {
 					// Special case for https://github.com/form-data/form-data
 					headers['content-type'] = headers['content-type'] || `multipart/form-data; boundary=${body.getBoundary()}`;
-				} else if (options.form) {
-					headers['content-type'] = headers['content-type'] || 'application/x-www-form-urlencoded';
-					options.body = (new URLSearchParams(body)).toString();
-				} else if (isObject) {
-					headers['content-type'] = headers['content-type'] || 'application/json';
-					options.body = JSON.stringify(body);
+				} else if (!is.nodeStream(body) && !is.string(body) && !is.buffer(body)) {
+					throw new TypeError('The `body` option must be a stream.Readable, string, Buffer, Object or Array');
 				}
+			} else if (isForm) {
+				if (!is.object(options.form)) {
+					throw new TypeError('The `form` option must be an Object');
+				}
+
+				headers['content-type'] = headers['content-type'] || 'application/x-www-form-urlencoded';
+				options.body = (new URLSearchParams(options.form)).toString();
+			} else if (isJSON) {
+				headers['content-type'] = headers['content-type'] || 'application/json';
+				options.body = JSON.stringify(options.json);
 			}
 
 			// Convert buffer to stream to receive upload progress events (#322)
@@ -319,13 +321,13 @@ module.exports = (options, input) => {
 				uploadBodySize = await getBodySize(options);
 			}
 
-			if (is.undefined(options.headers['content-length']) && is.undefined(options.headers['transfer-encoding'])) {
+			if (is.undefined(headers['content-length']) && is.undefined(headers['transfer-encoding'])) {
 				if ((uploadBodySize > 0 || options.method === 'PUT') && !is.null(uploadBodySize)) {
-					options.headers['content-length'] = uploadBodySize;
+					headers['content-length'] = uploadBodySize;
 				}
 			}
 
-			if (!options.stream && options.responseType === 'json' && is.undefined(options.headers.accept)) {
+			if (!options.stream && options.responseType === 'json' && is.undefined(headers.accept)) {
 				options.headers.accept = 'application/json';
 			}
 
