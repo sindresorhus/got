@@ -6,6 +6,7 @@ const urlParseLax = require('url-parse-lax');
 const lowercaseKeys = require('lowercase-keys');
 const urlToOptions = require('./utils/url-to-options');
 const isFormData = require('./utils/is-form-data');
+const validateSearchParams = require('./utils/validate-search-params');
 const merge = require('./merge');
 const knownHookEvents = require('./known-hook-events');
 
@@ -162,13 +163,17 @@ const normalize = (url, options, defaults) => {
 
 		searchParams = options.query;
 		delete options.query;
-	} else if (options.searchParams) {
+	} if (options.searchParams) {
 		searchParams = options.searchParams;
 		delete options.searchParams;
 	}
 
 	if (is.nonEmptyString(searchParams) || is.nonEmptyObject(searchParams) || searchParams instanceof URLSearchParams) {
 		if (!is.string(searchParams)) {
+			if (!(searchParams instanceof URLSearchParams)) {
+				validateSearchParams(searchParams);
+			}
+
 			searchParams = (new URLSearchParams(searchParams)).toString();
 		}
 

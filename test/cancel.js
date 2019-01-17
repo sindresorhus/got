@@ -3,7 +3,7 @@ import {Readable} from 'stream';
 import test from 'ava';
 import pEvent from 'p-event';
 import PCancelable from 'p-cancelable';
-import got from '../source';
+import got from '../dist';
 import {createServer} from './helpers/server';
 
 async function createAbortServer() {

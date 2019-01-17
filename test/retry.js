@@ -1,7 +1,7 @@
 import http from 'http';
 import test from 'ava';
 import pEvent from 'p-event';
-import got from '../source';
+import got from '../dist';
 import {createServer} from './helpers/server';
 
 let s;

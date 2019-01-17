@@ -2,7 +2,7 @@ import http from 'http';
 import test from 'ava';
 import getStream from 'get-stream';
 import proxyquire from 'proxyquire';
-import got from '../source';
+import got from '../dist';
 import {createServer} from './helpers/server';
 
 let s;

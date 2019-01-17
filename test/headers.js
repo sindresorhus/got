@@ -3,7 +3,7 @@ import util from 'util';
 import path from 'path';
 import test from 'ava';
 import FormData from 'form-data';
-import got from '../source';
+import got from '../dist';
 import pkg from '../package';
 import {createServer} from './helpers/server';
 

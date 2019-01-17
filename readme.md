@@ -21,6 +21,8 @@ It was created because the popular [`request`](https://github.com/request/reques
 
 Got is for Node.js. For browsers, we recommend [Ky](https://github.com/sindresorhus/ky).
 
+**This readme reflects the next major version that is currently in development. You probably want [the v9 readme](https://www.npmjs.com/package/got).**
+
 
 ## Highlights
 
@@ -458,6 +460,35 @@ const instance = got.extend({
 	},
 	mutableDefaults: true
 });
+```
+
+###### hooks.beforeError
+
+Type: `Function[]`<br>
+Default: `[]`
+
+Called with an `Error` instance. The error is passed to the hook right before it's thrown. This is especially useful when you want to have more detailed errors.
+
+**Note**: Errors thrown while normalizing input options are thrown directly and not part of this hook.
+
+```js	
+const got = require('got');	
+
+got('api.github.com/some-endpoint', {	
+	hooks: {	
+		onError: [	
+			error => {	
+				const {response} = error;	
+ 				if (response && response.body) {	
+					error.name = 'GitHubError';	
+					error.message = `${response.body.message} (${error.statusCode})`;	
+				}
+
+ 				return error;	
+			}	
+		]	
+	}	
+});	
 ```
 
 #### Response
