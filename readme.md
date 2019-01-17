@@ -471,24 +471,24 @@ Called with an `Error` instance. The error is passed to the hook right before it
 
 **Note**: Errors thrown while normalizing input options are thrown directly and not part of this hook.
 
-```js	
-const got = require('got');	
+```js
+const got = require('got');
 
-got('api.github.com/some-endpoint', {	
-	hooks: {	
-		onError: [	
-			error => {	
-				const {response} = error;	
- 				if (response && response.body) {	
-					error.name = 'GitHubError';	
-					error.message = `${response.body.message} (${error.statusCode})`;	
+got('api.github.com/some-endpoint', {
+	hooks: {
+		onError: [
+			error => {
+				const {response} = error;
+ 				if (response && response.body) {
+					error.name = 'GitHubError';
+					error.message = `${response.body.message} (${error.statusCode})`;
 				}
 
- 				return error;	
-			}	
-		]	
-	}	
-});	
+ 				return error;
+			}
+		]
+	}
+});
 ```
 
 #### Response
