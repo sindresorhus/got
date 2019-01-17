@@ -220,9 +220,11 @@ The form body is converted to query string using [`(new URLSearchParams(object))
 
 If set to `true` and `Content-Type` header is not set, it will be set to `application/x-www-form-urlencoded`.
 
-###### query
+###### searchParams
 
 Type: `string` `Object<string, string|number>` [`URLSearchParams`](https://developer.mozilla.org/en-US/docs/Web/API/URLSearchParams)
+
+**Note**: The `query` option was renamed to `searchParams` in Got v10. The `query` option name is still functional, but is being deprecated and will be completely removed in Got v11.
 
 Query string that will be added to the request URL. This will override the query string in `url`.
 
@@ -231,11 +233,11 @@ If you need to pass in an array, you can do it using a `URLSearchParams` instanc
 ```js
 const got = require('got');
 
-const query = new URLSearchParams([['key', 'a'], ['key', 'b']]);
+const searchParams = new URLSearchParams([['key', 'a'], ['key', 'b']]);
 
-got('https://example.com', {query});
+got('https://example.com', {searchParams});
 
-console.log(query.toString());
+console.log(searchParams.toString());
 //=> 'key=a&key=b'
 ```
 
@@ -245,11 +247,11 @@ And if you need a different array format, you could use the [`query-string`](htt
 const got = require('got');
 const queryString = require('query-string');
 
-const query = queryString.stringify({key: ['a', 'b']}, {arrayFormat: 'bracket'});
+const searchParams = queryString.stringify({key: ['a', 'b']}, {arrayFormat: 'bracket'});
 
-got('https://example.com', {query});
+got('https://example.com', {searchParams});
 
-console.log(query);
+console.log(searchParams);
 //=> 'key[]=a&key[]=b'
 ```
 
@@ -485,24 +487,24 @@ Called with an `Error` instance. The error is passed to the hook right before it
 
 **Note:** Errors thrown while normalizing input options are thrown directly and not part of this hook.
 
-```js	
-const got = require('got');	
+```js
+const got = require('got');
 
-got('api.github.com/some-endpoint', {	
-	hooks: {	
-		onError: [	
-			error => {	
-				const {response} = error;	
- 				if (response && response.body) {	
-					error.name = 'GitHubError';	
-					error.message = `${response.body.message} (${error.statusCode})`;	
+got('api.github.com/some-endpoint', {
+	hooks: {
+		onError: [
+			error => {
+				const {response} = error;
+ 				if (response && response.body) {
+					error.name = 'GitHubError';
+					error.message = `${response.body.message} (${error.statusCode})`;
 				}
 
- 				return error;	
-			}	
-		]	
-	}	
-});	
+ 				return error;
+			}
+		]
+	}
+});
 ```
 
 #### Response

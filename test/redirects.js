@@ -90,7 +90,7 @@ test.before('setup', async () => {
 		response.end();
 	});
 
-	http.on('/relativeQuery?bang', (request, response) => {
+	http.on('/relativeSearchParam?bang', (request, response) => {
 		response.writeHead(302, {
 			location: '/'
 		});
@@ -155,8 +155,8 @@ test('throws on endless redirect', async t => {
 	t.deepEqual(error.redirectUrls, new Array(10).fill(`${http.url}/endless`));
 });
 
-test('query in options are not breaking redirects', async t => {
-	t.is((await got(`${http.url}/relativeQuery`, {query: 'bang'})).body, 'reached');
+test('searchParams in options are not breaking redirects', async t => {
+	t.is((await got(`${http.url}/relativeSearchParam`, {searchParams: 'bang'})).body, 'reached');
 });
 
 test('hostname+path in options are not breaking redirects', async t => {
