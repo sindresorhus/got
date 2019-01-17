@@ -163,7 +163,7 @@ const normalize = (url, options, defaults) => {
 
 		searchParams = options.query;
 		delete options.query;
-	} if (options.searchParams) {
+	} else if (options.searchParams) {
 		searchParams = options.searchParams;
 		delete options.searchParams;
 	}
