@@ -204,7 +204,7 @@ Parse response body with `JSON.parse` and set `accept` header to `application/js
 
 Type: `string` `Object<string, string|number>` [`URLSearchParams`](https://developer.mozilla.org/en-US/docs/Web/API/URLSearchParams)
 
-**Note**: The `query` option was renamed to `searchParams`. `query` is being deprecated and will be completely removed in v11.
+**Note**: The `query` option was renamed to `searchParams` in Got v10. The `query` option name is still functional, but is being deprecated and will be completely removed in Got v11.
 
 Query string that will be added to the request URL. This will override the query string in `url`.
 
