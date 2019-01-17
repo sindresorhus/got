@@ -24,7 +24,7 @@ test('merging instances', async t => {
 	const instanceB = got.extend({baseUrl: s.url});
 	const merged = got.mergeInstances(instanceA, instanceB);
 
-	const headers = (await merged('/', {json: true})).body;
+	const headers = await merged('/').json();
 	t.is(headers.unicorn, 'rainbow');
 	t.not(headers['user-agent'], undefined);
 });
@@ -55,7 +55,7 @@ test('merges default handlers & custom handlers', async t => {
 	});
 	const merged = got.mergeInstances(instanceA, instanceB);
 
-	const {body: headers} = await merged(s.url, {json: true});
+	const headers = await merged(s.url).json();
 	t.is(headers.unicorn, 'rainbow');
 	t.is(headers.cat, 'meow');
 });
@@ -69,7 +69,7 @@ test('merging one group & one instance', async t => {
 	const merged = got.mergeInstances(instanceA, instanceB, instanceC);
 	const doubleMerged = got.mergeInstances(merged, instanceD);
 
-	const headers = (await doubleMerged(s.url, {json: true})).body;
+	const headers = await doubleMerged(s.url).json();
 	t.is(headers.dog, 'woof');
 	t.is(headers.cat, 'meow');
 	t.is(headers.bird, 'tweet');
@@ -87,7 +87,7 @@ test('merging two groups of merged instances', async t => {
 
 	const merged = got.mergeInstances(groupA, groupB);
 
-	const headers = (await merged(s.url, {json: true})).body;
+	const headers = await merged(s.url).json();
 	t.is(headers.dog, 'woof');
 	t.is(headers.cat, 'meow');
 	t.is(headers.bird, 'tweet');

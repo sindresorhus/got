@@ -131,8 +131,8 @@ test('should ignore empty searchParams object', async t => {
 	t.is((await got(`${s.url}/test`, {searchParams: {}})).requestUrl, `${s.url}/test`);
 });
 
-test('should throw when body is set to object', async t => {
-	await t.throwsAsync(got(`${s.url}/`, {body: {}}), TypeError);
+test('should throw on invalid type of body', async t => {
+	await t.throwsAsync(got(`${s.url}/`, {body: false}), TypeError);
 });
 
 test('WHATWG URL support', async t => {
@@ -142,11 +142,6 @@ test('WHATWG URL support', async t => {
 
 test('should return streams when using stream option', async t => {
 	const data = await pEvent(got(`${s.url}/stream`, {stream: true}), 'data');
-	t.is(data.toString(), 'ok');
-});
-
-test('should ignore JSON option when using stream option', async t => {
-	const data = await pEvent(got(`${s.url}/stream`, {stream: true, json: true}), 'data');
 	t.is(data.toString(), 'ok');
 });
 

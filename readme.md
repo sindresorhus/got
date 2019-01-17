@@ -35,7 +35,7 @@ Got is for Node.js. For browsers, we recommend [Ky](https://github.com/sindresor
 - [Handles gzip/deflate](#decompress)
 - [Timeout handling](#timeout)
 - [Errors with metadata](#errors)
-- [JSON mode](#json)
+- [JSON mode](#json-mode)
 - [WHATWG URL support](#url)
 - [Hooks](#hooks)
 - [Instances with custom defaults](#instances)
@@ -157,13 +157,43 @@ Returns a `Stream` instead of a `Promise`. This is equivalent to calling `got.st
 
 Type: `string` `Buffer` `stream.Readable` [`form-data` instance](https://github.com/form-data/form-data)
 
-**Note:** If you provide this option, `got.stream()` will be read-only.
+**Note:** The `body` option cannot be used with the `json` or `form` option.
 
-The body that will be sent with a `POST` request.
+**Note:** If you provide this option, `got.stream()` will be read-only.
 
 If present in `options` and `options.method` is not set, `options.method` will be set to `POST`.
 
 The `content-length` header will be automatically set if `body` is a `string` / `Buffer` / `fs.createReadStream` instance / [`form-data` instance](https://github.com/form-data/form-data), and `content-length` and `transfer-encoding` are not manually set in `options.headers`.
+
+###### json
+
+Type: `Object` `Array` `number` `string` `boolean` `null`
+
+**Note:** If you provide this option, `got.stream()` will be read-only.
+
+JSON body. The `Content-Type` header will be set to `application/json` if it's not defined.
+
+###### responseType
+
+Type: `string`<br>
+Default: `text`
+
+**Note:** When using streams, this option is ignored.
+
+Parsing method used to retrieve the body from the response. Can be `text`, `json` or `buffer`. The promise has `.json()` and `.buffer()` and `.text()` functions which set this option automatically.
+
+Example:
+
+```js
+const {body} = await got(url).json();
+```
+
+###### resolveBodyOnly
+
+Type: `string`<br>
+Default: `false`
+
+When set to `true` the promise will return the [Response body](#body-1) instead of the [Response](#response) object.
 
 ###### cookieJar
 
@@ -182,25 +212,13 @@ Default: `'utf8'`
 
 ###### form
 
-Type: `boolean`<br>
-Default: `false`
+Type: `Object`
 
 **Note:** If you provide this option, `got.stream()` will be read-only.
-**Note:** `body` must be a plain object. It will be converted to a query string using [`(new URLSearchParams(object)).toString()`](https://nodejs.org/api/url.html#url_constructor_new_urlsearchparams_obj).
+
+The form body is converted to query string using [`(new URLSearchParams(object)).toString()`](https://nodejs.org/api/url.html#url_constructor_new_urlsearchparams_obj).
 
 If set to `true` and `Content-Type` header is not set, it will be set to `application/x-www-form-urlencoded`.
-
-###### json
-
-Type: `boolean`<br>
-Default: `false`
-
-**Note:** If you use `got.stream()`, this option will be ignored.
-**Note:** `body` must be a plain object or array and will be stringified.
-
-If set to `true` and `Content-Type` header is not set, it will be set to `application/json`.
-
-Parse response body with `JSON.parse` and set `accept` header to `application/json`. If used in conjunction with the `form` option, the `body` will the stringified as querystring and the response parsed as JSON.
 
 ###### searchParams
 
@@ -364,18 +382,16 @@ Called with plain [request options](#options), right before their normalization.
 
 See the [Request migration guide](migration-guides.md#breaking-changes) for an example.
 
-**Note**: This hook must be synchronous!
+**Note:** This hook must be synchronous!
 
 ###### hooks.beforeRequest
 
 Type: `Function[]`<br>
 Default: `[]`
 
-Called with [normalized](source/normalize-arguments.js) [request options](#options). Got will make no further changes to the request before it is sent. This is especially useful in conjunction with [`got.extend()`](#instances) and [`got.create()`](advanced-creation.md) when you want to create an API client that, for example, uses HMAC-signing.
+Called with [normalized](source/normalize-arguments.js) [request options](#options). Got will make no further changes to the request before it is sent (except the body serialization). This is especially useful in conjunction with [`got.extend()`](#instances) and [`got.create()`](advanced-creation.md) when you want to create an API client that, for example, uses HMAC-signing.
 
 See the [AWS section](#aws) for an example.
-
-**Note:** If you modify the `body` you will need to modify the `content-length` header too, because it has already been computed and assigned.
 
 ###### hooks.beforeRedirect
 
@@ -469,7 +485,7 @@ Default: `[]`
 
 Called with an `Error` instance. The error is passed to the hook right before it's thrown. This is especially useful when you want to have more detailed errors.
 
-**Note**: Errors thrown while normalizing input options are thrown directly and not part of this hook.
+**Note:** Errors thrown while normalizing input options are thrown directly and not part of this hook.
 
 ```js
 const got = require('got');
@@ -505,7 +521,7 @@ Type: `Object`
 
 ##### body
 
-Type: `string` `Object` *(depending on `options.json`)*
+Type: `string` `Object` `Buffer` *(depending on `options.responseType`)*
 
 The result of the request.
 
@@ -666,11 +682,11 @@ client.get('/demo');
 			'x-foo': 'bar'
 		}
 	});
-	const {headers} = (await client.get('/headers', {json: true})).body;
+	const {headers} = (await client.get('/headers').json()).body;
 	//=> headers['x-foo'] === 'bar'
 
 	const jsonClient = client.extend({
-		json: true,
+		responseType: 'json',
 		headers: {
 			'x-baz': 'qux'
 		}
@@ -731,7 +747,7 @@ When reading from response stream fails.
 
 #### got.ParseError
 
-When `json` option is enabled, server response code is 2xx, and `JSON.parse` fails. Includes `statusCode` and `statusMessage` properties.
+When server response code is 2xx, and parsing body fails. Includes `body`, `statusCode` and `statusMessage` properties.
 
 #### got.HTTPError
 
@@ -917,7 +933,7 @@ const url = 'https://api.twitter.com/1.1/statuses/home_timeline.json';
 
 got(url, {
 	headers: oauth.toHeader(oauth.authorize({url, method: 'GET'}, token)),
-	json: true
+	responseType: 'json'
 });
 ```
 
@@ -1008,6 +1024,43 @@ const createTestServer = require('create-test-server');
 
 ## Tips
 
+### JSON mode
+
+By default, if you pass an object to the `body` option it will be stringified using `JSON.stringify`. Example:
+
+```js
+const got = require('got');
+
+(async () => {
+	const response = await got('httpbin.org/anything', {
+		body: {
+			hello: 'world'
+		},
+		responseType: 'json'
+	});
+
+	console.log(response.body.data);
+	//=> '{"hello":"world"}'
+})();
+```
+
+To receive a JSON body you can either set `responseType` option to `json` or use `promise.json()`. Example:
+
+```js
+const got = require('got');
+
+(async () => {
+	const {body} = await got('httpbin.org/anything', {
+		body: {
+			hello: 'world'
+		}
+	}).json();
+
+	console.log(body);
+	//=> {...}
+})();
+```
+
 ### User Agent
 
 It's a good idea to set the `'user-agent'` header so the provider can more easily see how their resource is used. By default, it's the URL to this repo. You can omit this header by setting it to `null`.
@@ -1045,7 +1098,7 @@ const pkg = require('./package.json');
 
 const custom = got.extend({
 	baseUrl: 'example.com',
-	json: true,
+	responseType: 'json',
 	headers: {
 		'user-agent': `my-package/${pkg.version} (https://github.com/username/my-package)`
 	}
@@ -1094,7 +1147,7 @@ const h2got = got.extend({request});
 | Advanced timeouts     |        ✔       |        ✖       |          ✖         |        ✖       |          ✖          |
 | Timings               |        ✔       |        ✔       |          ✖         |        ✖       |          ✖          |
 | Errors with metadata  |        ✔       |        ✖       |          ✖         |        ✔       |          ✖          |
-| JSON mode             |        ✔       |        ✔       |          ✖         |        ✔       |          ✔          |
+| JSON mode             |        ✔       |        ✔       |          ✔         |        ✔       |          ✔          |
 | Custom defaults       |        ✔       |        ✔       |          ✖         |        ✔       |          ✖          |
 | Composable            |        ✔       |        ✖       |          ✖         |        ✖       |          ✔          |
 | Hooks                 |        ✔       |        ✖       |          ✖         |        ✔       |          ✖          |

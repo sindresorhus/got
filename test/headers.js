@@ -25,22 +25,21 @@ test.after('cleanup', async () => {
 });
 
 test('user-agent', async t => {
-	const headers = (await got(s.url, {json: true})).body;
+	const headers = await got(s.url).json();
 	t.is(headers['user-agent'], `${pkg.name}/${pkg.version} (https://github.com/sindresorhus/got)`);
 });
 
 test('accept-encoding', async t => {
-	const headers = (await got(s.url, {json: true})).body;
+	const headers = await got(s.url).json();
 	t.is(headers['accept-encoding'], 'gzip, deflate');
 });
 
 test('do not override accept-encoding', async t => {
-	const headers = (await got(s.url, {
-		json: true,
+	const headers = await got(s.url, {
 		headers: {
 			'accept-encoding': 'gzip'
 		}
-	})).body;
+	}).json();
 	t.is(headers['accept-encoding'], 'gzip');
 });
 
@@ -48,7 +47,7 @@ test('do not remove user headers from `url` object argument', async t => {
 	const headers = (await got({
 		hostname: s.host,
 		port: s.port,
-		json: true,
+		responseType: 'json',
 		protocol: 'http:',
 		headers: {
 			'X-Request-Id': 'value'
@@ -62,28 +61,26 @@ test('do not remove user headers from `url` object argument', async t => {
 });
 
 test('do not set accept-encoding header when decompress options is false', async t => {
-	const {body: headers} = await got(s.url, {
-		json: true,
+	const headers = await got(s.url, {
 		decompress: false
-	});
+	}).json();
 	t.false(Reflect.has(headers, 'accept-encoding'));
 });
 
 test('accept header with json option', async t => {
-	let headers = (await got(s.url, {json: true})).body;
+	let headers = await got(s.url).json();
 	t.is(headers.accept, 'application/json');
 
-	headers = (await got(s.url, {
+	headers = await got(s.url, {
 		headers: {
 			accept: ''
-		},
-		json: true
-	})).body;
+		}
+	}).json();
 	t.is(headers.accept, '');
 });
 
 test('host', async t => {
-	const headers = (await got(s.url, {json: true})).body;
+	const headers = await got(s.url).json();
 	t.is(headers.host, `localhost:${s.port}`);
 });
 
@@ -92,7 +89,7 @@ test('transform names to lowercase', async t => {
 		headers: {
 			'ACCEPT-ENCODING': 'identity'
 		},
-		json: true
+		responseType: 'json'
 	})).body;
 	t.is(headers['accept-encoding'], 'identity');
 });
@@ -197,26 +194,26 @@ test('non-existent headers set to undefined are omitted', async t => {
 });
 
 test('preserve port in host header if non-standard port', async t => {
-	const {body} = await got(s.url, {json: true});
+	const body = await got(s.url).json();
 	t.is(body.host, 'localhost:' + s.port);
 });
 
 test('strip port in host header if explicit standard port (:80) & protocol (HTTP)', async t => {
-	const {body} = await got('http://httpbin.org:80/headers', {json: true});
+	const body = await got('http://httpbin.org:80/headers').json();
 	t.is(body.headers.Host, 'httpbin.org');
 });
 
 test('strip port in host header if explicit standard port (:443) & protocol (HTTPS)', async t => {
-	const {body} = await got('https://httpbin.org:443/headers', {json: true});
+	const body = await got('https://httpbin.org:443/headers').json();
 	t.is(body.headers.Host, 'httpbin.org');
 });
 
 test('strip port in host header if implicit standard port & protocol (HTTP)', async t => {
-	const {body} = await got('http://httpbin.org/headers', {json: true});
+	const body = await got('http://httpbin.org/headers').json();
 	t.is(body.headers.Host, 'httpbin.org');
 });
 
 test('strip port in host header if implicit standard port & protocol (HTTPS)', async t => {
-	const {body} = await got('https://httpbin.org/headers', {json: true});
+	const body = await got('https://httpbin.org/headers').json();
 	t.is(body.headers.Host, 'httpbin.org');
 });

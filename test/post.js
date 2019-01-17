@@ -51,31 +51,29 @@ test('sends Streams', async t => {
 
 test('sends plain objects as forms', async t => {
 	const {body} = await got(s.url, {
-		body: {such: 'wow'},
-		form: true
+		form: {such: 'wow'}
 	});
 	t.is(body, 'such=wow');
 });
 
 test('does NOT support sending arrays as forms', async t => {
 	await t.throwsAsync(got(s.url, {
-		body: ['such', 'wow'],
-		form: true
+		form: ['such', 'wow']
 	}), TypeError);
 });
 
 test('sends plain objects as JSON', async t => {
 	const {body} = await got(s.url, {
-		body: {such: 'wow'},
-		json: true
+		json: {such: 'wow'},
+		responseType: 'json'
 	});
 	t.deepEqual(body, {such: 'wow'});
 });
 
 test('sends arrays as JSON', async t => {
 	const {body} = await got(s.url, {
-		body: ['such', 'wow'],
-		json: true
+		json: ['such', 'wow'],
+		responseType: 'json'
 	});
 	t.deepEqual(body, ['such', 'wow']);
 });
@@ -132,18 +130,14 @@ test('content-type header is not overriden when object in options.body', async t
 		headers: {
 			'content-type': 'doge'
 		},
-		body: {
+		json: {
 			such: 'wow'
 		},
-		json: true
+		responseType: 'json'
 	});
 	t.is(headers['content-type'], 'doge');
 });
 
-test('throws when json body is not a plain object or array', async t => {
-	await t.throwsAsync(got(`${s.url}`, {body: '{}', json: true}), TypeError);
-});
-
 test('throws when form body is not a plain object or array', async t => {
-	await t.throwsAsync(got(`${s.url}`, {body: 'such=wow', form: true}), TypeError);
+	await t.throwsAsync(got(`${s.url}`, {form: 'such=wow'}), TypeError);
 });

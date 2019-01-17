@@ -44,7 +44,6 @@ These Got options are the same as with Request:
 
 - [`url`](https://github.com/sindresorhus/got#url) (+ we accept [`URL`](https://developer.mozilla.org/en-US/docs/Web/API/URL) instances too!)
 - [`body`](https://github.com/sindresorhus/got#body)
-- [`json`](https://github.com/sindresorhus/got#json)
 - [`followRedirect`](https://github.com/sindresorhus/got#followRedirect)
 - [`encoding`](https://github.com/sindresorhus/got#encoding)
 
@@ -77,6 +76,7 @@ To use streams, just call `got.stream(url, options)` or `got(url, {stream: true,
 
 #### Breaking changes
 
+- The `json` option is not a `boolean`, it's an `Object`. It will be stringified and used as a body.
 - No `form` option. You have to pass a [`form-data` instance](https://github.com/form-data/form-data) through the [`body` option](https://github.com/sindresorhus/got#body).
 - No `oauth`/`hawk`/`aws`/`httpSignature` option. To sign requests, you need to create a [custom instance](advanced-creation.md#signing-requests).
 - No `agentClass`/`agentOptions`/`pool` option.
@@ -105,21 +105,17 @@ const gotInstance = got.extend({
 	hooks: {
 		init: [
 			options => {
-				// Save the original option, so we can look at it in the `afterResponse` hook
-				options.originalJson = options.json;
-
-				if (options.json && options.jsonReplacer) {
+				if (options.jsonReplacer) {
 					options.body = JSON.stringify(options.body, options.jsonReplacer);
-					options.json = false; // We've handled that on our own
 				}
 			}
 		],
 		afterResponse: [
 			response => {
 				const options = response.request.gotOptions;
-				if (options.originalJson && options.jsonReviver) {
+				if (options.jsonReviver && options.responseType === 'json') {
+					options.responseType = '';
 					response.body = JSON.parse(response.body, options.jsonReviver);
-					options.json = false; // We've handled that on our own
 				}
 
 				return response;

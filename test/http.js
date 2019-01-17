@@ -69,7 +69,7 @@ test('doesn\'t throw on throwHttpErrors === false', async t => {
 });
 
 test('invalid protocol throws', async t => {
-	const error = await t.throwsAsync(got('c:/nope.com', {json: true}));
+	const error = await t.throwsAsync(got('c:/nope.com').json());
 	t.is(error.constructor, got.UnsupportedProtocolError);
 });
 

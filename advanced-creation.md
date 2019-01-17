@@ -54,7 +54,7 @@ const settings = {
 		return next(options);
 	},
 	options: got.mergeOptions(got.defaults.options, {
-		json: true
+		responseType: 'json'
 	})
 };
 
@@ -110,9 +110,10 @@ const defaults = {
 		followRedirect: true,
 		stream: false,
 		form: false,
-		json: false,
 		cache: false,
-		useElectronNet: false
+		useElectronNet: false,
+		responseType: 'text',
+		resolveBodyOnly: 'false'
 	},
 	mutableDefaults: false
 };

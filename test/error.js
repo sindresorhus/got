@@ -66,30 +66,18 @@ test('dns message', async t => {
 	t.is(error.method, 'GET');
 });
 
-test('options.body error message', async t => {
-	await t.throwsAsync(got(s.url, {body: {}}), {
-		message: 'The `body` option must be a stream.Readable, string or Buffer'
-	});
-});
-
-test('options.body json error message', async t => {
-	await t.throwsAsync(got(s.url, {body: Buffer.from('test'), json: true}), {
-		message: 'The `body` option must be an Object or Array when the `json` option is used'
-	});
-});
-
 test('options.body form error message', async t => {
-	await t.throwsAsync(got(s.url, {body: Buffer.from('test'), form: true}), {
-		message: 'The `body` option must be an Object when the `form` option is used'
+	await t.throwsAsync(got(s.url, {body: Buffer.from('test'), form: ''}), {
+		message: 'The `body` option cannot be used with the `json` option or `form` option'
 	});
 });
 
-test('no plain object restriction on body', async t => {
+test('no plain object restriction on json body', async t => {
 	function CustomObject() {
 		this.a = 123;
 	}
 
-	const {body} = await got(`${s.url}/body`, {body: new CustomObject(), json: true});
+	const body = await got(`${s.url}/body`, {json: new CustomObject()}).json();
 
 	t.deepEqual(body, {a: 123});
 });
@@ -186,7 +174,7 @@ test('catch error in mimicResponse', async t => {
 });
 
 test('errors are thrown directly when options.stream is true', t => {
-	t.throws(() => got(s.url, {stream: true, body: {}}), {
-		message: 'The `body` option must be a stream.Readable, string or Buffer'
+	t.throws(() => got(s.url, {stream: true, hooks: false}), {
+		message: 'Parameter `hooks` must be an object, not boolean'
 	});
 });

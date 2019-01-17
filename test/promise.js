@@ -20,13 +20,13 @@ test.after('cleanup', async () => {
 });
 
 test('should emit request event as promise', async t => {
-	await got(s.url, {json: true}).on('request', request => {
+	await got(s.url).json().on('request', request => {
 		t.true(request instanceof ClientRequest);
 	});
 });
 
 test('should emit response event as promise', async t => {
-	await got(s.url, {json: true}).on('response', response => {
+	await got(s.url).json().on('response', response => {
 		t.true(response instanceof Transform);
 		t.true(response.readable);
 		t.is(response.statusCode, 200);

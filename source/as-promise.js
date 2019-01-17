@@ -11,6 +11,16 @@ const {reNormalize} = require('./normalize-arguments');
 const asPromise = options => {
 	const proxy = new EventEmitter();
 
+	const parseBody = response => {
+		if (options.responseType === 'json') {
+			response.body = JSON.parse(response.body);
+		} else if (options.responseType === 'buffer') {
+			response.body = Buffer.from(response.body);
+		} else if (options.responseType !== 'text' && !is.falsy(options.responseType)) {
+			throw new Error(`Failed to parse body of type '${options.responseType}'`);
+		}
+	};
+
 	const promise = new PCancelable((resolve, reject, onCancel) => {
 		const emitter = requestAsEventEmitter(options);
 
@@ -57,9 +67,9 @@ const asPromise = options => {
 
 			const {statusCode} = response;
 
-			if (options.json && response.body) {
+			if (response.body) {
 				try {
-					response.body = JSON.parse(response.body);
+					parseBody(response);
 				} catch (error) {
 					if (statusCode >= 200 && statusCode < 300) {
 						const parseError = new ParseError(error, statusCode, options, data);
@@ -79,13 +89,13 @@ const asPromise = options => {
 						return;
 					}
 
-					resolve(response);
+					resolve(options.resolveBodyOnly ? response.body : response);
 				}
 
 				return;
 			}
 
-			resolve(response);
+			resolve(options.resolveBodyOnly ? response.body : response);
 		});
 
 		emitter.once('error', reject);
@@ -99,6 +109,24 @@ const asPromise = options => {
 
 	promise.on = (name, fn) => {
 		proxy.on(name, fn);
+		return promise;
+	};
+
+	promise.json = () => {
+		options.responseType = 'json';
+		options.resolveBodyOnly = true;
+		return promise;
+	};
+
+	promise.buffer = () => {
+		options.responseType = 'buffer';
+		options.resolveBodyOnly = true;
+		return promise;
+	};
+
+	promise.text = () => {
+		options.responseType = 'text';
+		options.resolveBodyOnly = true;
 		return promise;
 	};
 

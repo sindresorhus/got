@@ -43,8 +43,8 @@ test.after('cleanup', async () => {
 	await s.close();
 });
 
-test('options.json is ignored', t => {
-	t.notThrows(() => got.stream(s.url, {json: true}));
+test('options.responseType is ignored', t => {
+	t.notThrows(() => got.stream(s.url, {responseType: 'json'}));
 });
 
 test('returns readable stream', async t => {

@@ -5,7 +5,6 @@ const is = require('@sindresorhus/is');
 const urlParseLax = require('url-parse-lax');
 const lowercaseKeys = require('lowercase-keys');
 const urlToOptions = require('./utils/url-to-options');
-const isFormData = require('./utils/is-form-data').default;
 const validateSearchParams = require('./utils/validate-search-params');
 const merge = require('./merge');
 const knownHookEvents = require('./known-hook-events');
@@ -32,10 +31,6 @@ const preNormalize = (options, defaults) => {
 
 	if (options.baseUrl && !options.baseUrl.toString().endsWith('/')) {
 		options.baseUrl += '/';
-	}
-
-	if (options.stream) {
-		options.json = false;
 	}
 
 	if (is.nullOrUndefined(options.hooks)) {
@@ -201,43 +196,14 @@ const normalize = (url, options, defaults) => {
 		}
 	}
 
-	if (options.json && is.undefined(headers.accept)) {
-		headers.accept = 'application/json';
-	}
-
 	if (options.decompress && is.undefined(headers['accept-encoding'])) {
 		headers['accept-encoding'] = 'gzip, deflate';
 	}
 
-	const {body} = options;
-	if (is.nullOrUndefined(body)) {
-		options.method = options.method ? options.method.toUpperCase() : 'GET';
+	if (options.method) {
+		options.method = options.method.toUpperCase();
 	} else {
-		const isObject = is.object(body) && !is.buffer(body) && !is.nodeStream(body);
-		if (!is.nodeStream(body) && !is.string(body) && !is.buffer(body) && !(options.form || options.json)) {
-			throw new TypeError('The `body` option must be a stream.Readable, string or Buffer');
-		}
-
-		if (options.json && !(isObject || is.array(body))) {
-			throw new TypeError('The `body` option must be an Object or Array when the `json` option is used');
-		}
-
-		if (options.form && !isObject) {
-			throw new TypeError('The `body` option must be an Object when the `form` option is used');
-		}
-
-		if (isFormData(body)) {
-			// Special case for https://github.com/form-data/form-data
-			headers['content-type'] = headers['content-type'] || `multipart/form-data; boundary=${body.getBoundary()}`;
-		} else if (options.form) {
-			headers['content-type'] = headers['content-type'] || 'application/x-www-form-urlencoded';
-			options.body = (new URLSearchParams(body)).toString();
-		} else if (options.json) {
-			headers['content-type'] = headers['content-type'] || 'application/json';
-			options.body = JSON.stringify(body);
-		}
-
-		options.method = options.method ? options.method.toUpperCase() : 'POST';
+		options.method = is.nullOrUndefined(options.body) ? 'GET' : 'POST';
 	}
 
 	if (!is.function(options.retry.retries)) {
