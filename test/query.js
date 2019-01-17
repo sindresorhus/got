@@ -3,7 +3,7 @@ import test from 'ava';
 import got from '../source';
 import {createServer} from './helpers/server';
 
-// TODO: remove this file in v11 as the `query` option is deprecated
+// TODO: Remove this file before the Got v11 release together with completely removing the `query` option
 
 let s;
 
