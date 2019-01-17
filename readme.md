@@ -180,7 +180,7 @@ Default: `text`
 
 **Note:** When using streams, this option is ignored.
 
-Parsing method used to retrieve the body from the response. Can be `text`, `json` or `buffer`. The promise has `.json()` and `.buffer()` functions which set this option automatically.
+Parsing method used to retrieve the body from the response. Can be `text`, `json` or `buffer`. The promise has `.json()` and `.buffer()` and `.text()` functions which set this option automatically.
 
 Example:
 
