@@ -89,13 +89,13 @@ const asPromise = options => {
 						return;
 					}
 
-					resolve(response);
+					resolve(options.resolveBodyOnly ? response.body : response);
 				}
 
 				return;
 			}
 
-			resolve(response);
+			resolve(options.resolveBodyOnly ? response.body : response);
 		});
 
 		emitter.once('error', reject);
@@ -114,11 +114,19 @@ const asPromise = options => {
 
 	promise.json = () => {
 		options.responseType = 'json';
+		options.resolveBodyOnly = true;
 		return promise;
 	};
 
 	promise.buffer = () => {
 		options.responseType = 'buffer';
+		options.resolveBodyOnly = true;
+		return promise;
+	};
+
+	promise.text = () => {
+		options.responseType = 'text';
+		options.resolveBodyOnly = true;
 		return promise;
 	};
 

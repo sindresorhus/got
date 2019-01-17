@@ -73,11 +73,16 @@
 		"typescript": "^3.2.2",
 		"xo": "^0.24.0"
 	},
-	"ava": {
-		"concurrency": 4
-	},
 	"browser": {
 		"decompress-response": false,
 		"electron": false
+	},
+	"ava": {
+		"concurrency": 4
+	},
+	"xo": {
+		"rules": {
+			"import/no-unresolved": "off"
+		}
 	}
 }

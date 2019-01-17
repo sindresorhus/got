@@ -43,6 +43,10 @@ test.after('cleanup', async () => {
 	await s.close();
 });
 
+test('options.responseType is ignored', t => {
+	t.notThrows(() => got.stream(s.url, {responseType: 'json'}));
+});
+
 test('returns readable stream', async t => {
 	const data = await pEvent(got.stream(s.url), 'data');
 	t.is(data.toString(), 'ok');
