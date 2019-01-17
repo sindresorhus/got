@@ -2,7 +2,7 @@
 const fs = require('fs');
 const util = require('util');
 const is = require('@sindresorhus/is');
-const isFormData = require('./is-form-data');
+const isFormData = require('./is-form-data').default;
 
 module.exports = async options => {
 	const {body} = options;

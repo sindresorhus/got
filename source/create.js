@@ -4,7 +4,7 @@ const asStream = require('./as-stream');
 const asPromise = require('./as-promise');
 const normalizeArguments = require('./normalize-arguments');
 const merge = require('./merge');
-const deepFreeze = require('./utils/deep-freeze');
+const deepFreeze = require('./utils/deep-freeze').default;
 
 const getPromiseOrStream = options => options.stream ? asStream(options) : asPromise(options);
 
