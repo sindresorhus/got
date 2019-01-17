@@ -1,6 +1,6 @@
 import is from '@sindresorhus/is';
 import test from 'ava';
-import got from '../source';
+import got from '../dist';
 import {createServer} from './helpers/server';
 
 let s;

@@ -5,7 +5,7 @@ import getStream from 'get-stream';
 import test from 'ava';
 import pEvent from 'p-event';
 import delay from 'delay';
-import got from '../source';
+import got from '../dist';
 import {createServer, createSSLServer} from './helpers/server';
 
 let s;

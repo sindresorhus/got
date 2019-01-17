@@ -4,7 +4,7 @@ import getStream from 'get-stream';
 import pEvent from 'p-event';
 import delay from 'delay';
 import is from '@sindresorhus/is';
-import got from '../source';
+import got from '../dist';
 import {createServer} from './helpers/server';
 
 let s;

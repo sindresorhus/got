@@ -1,6 +1,6 @@
 import test from 'ava';
 import toReadableStream from 'to-readable-stream';
-import got from '../source';
+import got from '../dist';
 import {createServer} from './helpers/server';
 
 let s;

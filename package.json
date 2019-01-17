@@ -4,16 +4,20 @@
 	"description": "Simplified HTTP requests",
 	"license": "MIT",
 	"repository": "sindresorhus/got",
-	"main": "source",
+	"main": "dist",
 	"engines": {
 		"node": ">=8.6"
 	},
 	"scripts": {
-		"test": "xo && nyc ava",
-		"release": "np"
+		"test": "npm run lint && npm run build && nyc ava",
+		"release": "np",
+		"lint": "xo && tslint --format stylish --project tsconfig.json",
+		"build": "rm -rf dist && tsc",
+		"prepublish": "npm run test"
 	},
 	"files": [
-		"source"
+		"source",
+		"dist"
 	],
 	"keywords": [
 		"http",
@@ -47,6 +51,8 @@
 		"url-parse-lax": "^3.0.0"
 	},
 	"devDependencies": {
+		"@sindresorhus/tsconfig": "^0.2.0",
+		"@types/node": "^10.12.18",
 		"ava": "^1.1.0",
 		"coveralls": "^3.0.0",
 		"delay": "^4.1.0",
@@ -62,6 +68,9 @@
 		"tempfile": "^2.0.0",
 		"tempy": "^0.2.1",
 		"tough-cookie": "^3.0.0",
+		"tslint": "^5.12.1",
+		"tslint-xo": "^0.11.0",
+		"typescript": "^3.2.2",
 		"xo": "^0.24.0"
 	},
 	"ava": {

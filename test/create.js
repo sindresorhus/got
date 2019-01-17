@@ -1,7 +1,7 @@
 import http from 'http';
 import {URL} from 'url';
 import test from 'ava';
-import got from '../source';
+import got from '../dist';
 import {createServer} from './helpers/server';
 
 let s;
