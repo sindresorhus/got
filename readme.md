@@ -169,6 +169,8 @@ The `content-length` header will be automatically set if `body` is a `string` / 
 
 Type: `Object` `Array` `number` `string` `boolean` `null`
 
+**Note:** If you provide this option, `got.stream()` will be read-only.
+
 JSON body. The `Content-Type` header will be set to `application/json` if it's not defined.
 
 ###### responseType
