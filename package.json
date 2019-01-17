@@ -11,12 +11,11 @@
 	"scripts": {
 		"test": "npm run lint && npm run build && nyc ava",
 		"release": "np",
-		"lint": "xo && tslint --format stylish --project tsconfig.json",
-		"build": "rm -rf dist && tsc",
-		"prepublish": "npm run test"
+		"lint": "xo && tslint --format stylish --project .",
+		"build": "del dist && tsc",
+		"prepublishOnly": "npm run build"
 	},
 	"files": [
-		"source",
 		"dist"
 	],
 	"keywords": [
@@ -55,6 +54,7 @@
 		"@types/node": "^10.12.18",
 		"ava": "^1.1.0",
 		"coveralls": "^3.0.0",
+		"del-cli": "^1.1.0",
 		"delay": "^4.1.0",
 		"form-data": "^2.3.3",
 		"get-port": "^4.0.0",
