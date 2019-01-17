@@ -2,7 +2,7 @@ import {Agent as HttpAgent} from 'http';
 import {Agent as HttpsAgent} from 'https';
 import test from 'ava';
 import sinon from 'sinon';
-import got from '../source';
+import got from '../dist';
 import {createServer, createSSLServer} from './helpers/server';
 
 let http;

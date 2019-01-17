@@ -2,7 +2,7 @@ import net from 'net';
 import test from 'ava';
 import tough from 'tough-cookie';
 import delay from 'delay';
-import got from '../source';
+import got from '../dist';
 import {createServer} from './helpers/server';
 
 let s;

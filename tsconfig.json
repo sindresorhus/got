@@ -1,0 +1,11 @@
+{
+	"extends": "@sindresorhus/tsconfig",
+	"compilerOptions": {
+		"outDir": "dist",
+		"target": "es2016",
+		"lib": ["es2016", "es2017.sharedmemory", "esnext.asynciterable"],
+		"allowJs": true,
+		"declaration": false
+	},
+	"include": ["source"]
+}
