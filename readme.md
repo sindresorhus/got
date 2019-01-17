@@ -21,6 +21,8 @@ It was created because the popular [`request`](https://github.com/request/reques
 
 Got is for Node.js. For browsers, we recommend [Ky](https://github.com/sindresorhus/ky).
 
+**This readme reflects the next major version that is currently in development. You probably want [the v9 readme](https://www.npmjs.com/package/got).**
+
 
 ## Highlights
 
