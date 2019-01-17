@@ -56,7 +56,7 @@ Oh, and one more thing... There's no `time` option. Assume [it's always true](ht
 
 Readability is very important to us, so we have different names for these options:
 
-- `qs` → [`query`](https://github.com/sindresorhus/got#query)
+- `qs` → [`searchParams`](https://github.com/sindresorhus/got#searchParams)
 - `strictSSL` → [`rejectUnauthorized`](https://github.com/sindresorhus/got#rejectUnauthorized)
 - `gzip` → [`decompress`](https://github.com/sindresorhus/got#decompress)
 - `jar` → [`cookieJar`](https://github.com/sindresorhus/got#cookiejar) (accepts [`tough-cookie`](https://github.com/salesforce/tough-cookie) jar)
@@ -67,7 +67,7 @@ It's more clear, isn't it?
 
 The [`timeout` option](https://github.com/sindresorhus/got#timeout) has some extra features. You can [set timeouts on particular events](readme.md#timeout)!
 
-The [`query` option](https://github.com/sindresorhus/got#query) is always serialized using [`URLSearchParams`](https://developer.mozilla.org/en-US/docs/Web/API/URLSearchParams) unless it's a `string`.
+The [`searchParams` option](https://github.com/sindresorhus/got#searchParams) is always serialized using [`URLSearchParams`](https://developer.mozilla.org/en-US/docs/Web/API/URLSearchParams) unless it's a `string`.
 
 The [`baseUrl` option](https://github.com/sindresorhus/got#baseurl) appends the ending slash if it's not present.
 

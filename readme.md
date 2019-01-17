@@ -202,9 +202,11 @@ If set to `true` and `Content-Type` header is not set, it will be set to `applic
 
 Parse response body with `JSON.parse` and set `accept` header to `application/json`. If used in conjunction with the `form` option, the `body` will the stringified as querystring and the response parsed as JSON.
 
-###### query
+###### searchParams
 
 Type: `string` `Object<string, string|number>` [`URLSearchParams`](https://developer.mozilla.org/en-US/docs/Web/API/URLSearchParams)
+
+**Note**: The `query` option was renamed to `searchParams` in Got v10. The `query` option name is still functional, but is being deprecated and will be completely removed in Got v11.
 
 Query string that will be added to the request URL. This will override the query string in `url`.
 
@@ -213,11 +215,11 @@ If you need to pass in an array, you can do it using a `URLSearchParams` instanc
 ```js
 const got = require('got');
 
-const query = new URLSearchParams([['key', 'a'], ['key', 'b']]);
+const searchParams = new URLSearchParams([['key', 'a'], ['key', 'b']]);
 
-got('https://example.com', {query});
+got('https://example.com', {searchParams});
 
-console.log(query.toString());
+console.log(searchParams.toString());
 //=> 'key=a&key=b'
 ```
 
@@ -227,11 +229,11 @@ And if you need a different array format, you could use the [`query-string`](htt
 const got = require('got');
 const queryString = require('query-string');
 
-const query = queryString.stringify({key: ['a', 'b']}, {arrayFormat: 'bracket'});
+const searchParams = queryString.stringify({key: ['a', 'b']}, {arrayFormat: 'bracket'});
 
-got('https://example.com', {query});
+got('https://example.com', {searchParams});
 
-console.log(query);
+console.log(searchParams);
 //=> 'key[]=a&key[]=b'
 ```
 

@@ -54,7 +54,7 @@ test('url should be utf-8 encoded', async t => {
 	);
 });
 
-test('string url with query is preserved', async t => {
+test('string url with searchParams is preserved', async t => {
 	const path = '/?test=http://example.com?foo=bar';
 	const {body} = await got(`${s.url}${path}`);
 	t.is(body, path);
@@ -90,11 +90,11 @@ test('requestUrl with url.parse object as first argument', async t => {
 	t.is((await got(parse(`${s.url}/test`))).requestUrl, `${s.url}/test`);
 });
 
-test('overrides querystring from options', async t => {
+test('overrides searchParams from options', async t => {
 	const {body} = await got(
 		`${s.url}/?drop=this`,
 		{
-			query: {
+			searchParams: {
 				test: 'wow'
 			},
 			cache: {
@@ -111,9 +111,9 @@ test('overrides querystring from options', async t => {
 	t.is(body, '/?test=wow');
 });
 
-test('escapes query parameter values', async t => {
+test('escapes searchParams parameter values', async t => {
 	const {body} = await got(`${s.url}`, {
-		query: {
+		searchParams: {
 			test: 'it’s ok'
 		}
 	});
@@ -121,14 +121,14 @@ test('escapes query parameter values', async t => {
 	t.is(body, '/?test=it%E2%80%99s+ok');
 });
 
-test('the `query` option can be a URLSearchParams', async t => {
-	const query = new URLSearchParams({test: 'wow'});
-	const {body} = await got(s.url, {query});
+test('the `searchParams` option can be a URLSearchParams', async t => {
+	const searchParams = new URLSearchParams({test: 'wow'});
+	const {body} = await got(s.url, {searchParams});
 	t.is(body, '/?test=wow');
 });
 
-test('should ignore empty query object', async t => {
-	t.is((await got(`${s.url}/test`, {query: {}})).requestUrl, `${s.url}/test`);
+test('should ignore empty searchParams object', async t => {
+	t.is((await got(`${s.url}/test`, {searchParams: {}})).requestUrl, `${s.url}/test`);
 });
 
 test('should throw when body is set to object', async t => {
@@ -224,17 +224,17 @@ test('throws when trying to modify baseUrl after options got normalized', async 
 	await t.throwsAsync(instanceA('/'), 'Failed to set baseUrl. Options are normalized already.');
 });
 
-test('throws if the query key is invalid', async t => {
+test('throws if the searchParams key is invalid', async t => {
 	await t.throwsAsync(() => got(s.url, {
-		query: {
+		searchParams: {
 			[[]]: []
 		}
 	}), TypeError);
 });
 
-test('throws if the query value is invalid', async t => {
+test('throws if the searchParams value is invalid', async t => {
 	await t.throwsAsync(() => got(s.url, {
-		query: {
+		searchParams: {
 			foo: []
 		}
 	}), TypeError);
