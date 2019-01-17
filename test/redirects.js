@@ -155,7 +155,7 @@ test('throws on endless redirect', async t => {
 	t.deepEqual(error.redirectUrls, new Array(10).fill(`${http.url}/endless`));
 });
 
-test('query in options are not breaking redirects', async t => {
+test('searchParams in options are not breaking redirects', async t => {
 	t.is((await got(`${http.url}/relativeQuery`, {searchParams: 'bang'})).body, 'reached');
 });
 
