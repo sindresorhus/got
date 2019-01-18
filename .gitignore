@@ -3,3 +3,4 @@ yarn.lock
 coverage
 .nyc_output
 dist
+.vscode

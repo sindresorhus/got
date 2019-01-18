@@ -10,6 +10,7 @@ test('converts URL to options', t => {
 	const expected = {
 		auth: 'user:password',
 		hash: '#bang',
+		host: 'github.com',
 		hostname: 'github.com',
 		href: 'https://user:password@github.com/say?hello=world#bang',
 		path: '/say?hello=world',
@@ -28,6 +29,7 @@ test('converts IPv6 URL to options', t => {
 	const options = urlToOptions(parsedURL);
 	const expected = {
 		hash: '',
+		host: '[2001:cdba::3257:9652]',
 		hostname: '2001:cdba::3257:9652',
 		href: 'https://[2001:cdba::3257:9652]/',
 		path: '/',
@@ -45,6 +47,7 @@ test('only adds port to options for URLs with ports', t => {
 	const options = urlToOptions(parsedURL);
 	const expected = {
 		hash: '',
+		host: 'github.com',
 		hostname: 'github.com',
 		href: 'https://github.com/',
 		path: '/',

@@ -4,6 +4,7 @@ import { URL } from 'url';
 export interface URLOptions {
 	protocol: string,
 	hostname: string,
+	host: string,
 	hash: string,
 	search: string,
 	pathname: string,
@@ -17,6 +18,7 @@ export default (url: URL): URLOptions => {
 	const options: URLOptions = {
 		protocol: url.protocol,
 		hostname: url.hostname.startsWith('[') ? url.hostname.slice(1, -1) : url.hostname,
+		host: url.host,
 		hash: url.hash,
 		search: url.search,
 		pathname: url.pathname,

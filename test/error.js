@@ -59,10 +59,10 @@ test('properties', async t => {
 });
 
 test('dns message', async t => {
-	const error = await t.throwsAsync(got('.com', {retry: 0}));
+	const error = await t.throwsAsync(got('http://doesntexist', {retry: 0}));
 	t.truthy(error);
 	t.regex(error.message, /getaddrinfo ENOTFOUND/);
-	t.is(error.host, '.com');
+	t.is(error.host, 'doesntexist');
 	t.is(error.method, 'GET');
 });
 

@@ -2,7 +2,6 @@
 const {URL, URLSearchParams} = require('url'); // TODO: Use the `URL` global when targeting Node.js 10
 const urlLib = require('url');
 const is = require('@sindresorhus/is');
-const urlParseLax = require('url-parse-lax');
 const lowercaseKeys = require('lowercase-keys');
 const urlToOptions = require('./utils/url-to-options').default;
 const validateSearchParams = require('./utils/validate-search-params');
@@ -118,14 +117,11 @@ const normalize = (url, options, defaults) => {
 			if (url.toString().startsWith('/')) {
 				url = url.toString().slice(1);
 			}
-
-			url = urlToOptions(new URL(url, options.baseUrl));
 		} else {
 			url = url.replace(/^unix:/, 'http://$&');
-			url = urlParseLax(url);
-			url.searchParams = url.query;
-			delete url.query;
 		}
+
+		url = urlToOptions(new URL(url, options.baseUrl));
 	} else if (is(url) === 'URL') {
 		url = urlToOptions(url);
 	}

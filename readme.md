@@ -108,7 +108,7 @@ The URL to request, as a string, a [`https.request` options object](https://node
 
 Properties from `options` will override properties in the parsed `url`.
 
-If no protocol is specified, it will default to `https`.
+If no protocol is specified, it will throw a `TypeError`.
 
 ##### options
 

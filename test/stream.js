@@ -87,7 +87,7 @@ test('have error event', async t => {
 });
 
 test('have error event #2', async t => {
-	const stream = got.stream('.com', {retry: 0});
+	const stream = got.stream('http://doesntexist', {retry: 0});
 	await t.throwsAsync(pEvent(stream, 'response'), /getaddrinfo ENOTFOUND/);
 });
 

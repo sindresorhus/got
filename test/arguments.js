@@ -54,6 +54,10 @@ test('url should be utf-8 encoded', async t => {
 	);
 });
 
+test('throws an error if the protocol is not specified', async t => {
+	await t.throwsAsync(got('example.com'), TypeError);
+});
+
 test('string url with searchParams is preserved', async t => {
 	const path = '/?test=http://example.com?foo=bar';
 	const {body} = await got(`${s.url}${path}`);
