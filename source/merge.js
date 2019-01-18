@@ -1,7 +1,7 @@
 'use strict';
 const {URL} = require('url');
 const is = require('@sindresorhus/is');
-const knownHookEvents = require('./known-hook-events');
+const knownHookEvents = require('./known-hook-events').default;
 
 const merge = (target, ...sources) => {
 	for (const source of sources) {

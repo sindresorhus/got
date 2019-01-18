@@ -9,10 +9,11 @@
 		"node": ">=8.6"
 	},
 	"scripts": {
-		"test": "npm run lint && npm run build && nyc ava",
+		"test": "npm run lint && npm run build && nyc ava -T 60000",
 		"release": "np",
 		"lint": "xo && tslint --format stylish --project .",
-		"build": "del dist && tsc",
+		"build": "(del dist || rm -r dist) && tsc",
+		"forceBuild": "(del dist /q || rm -rf dist) && tsc",
 		"prepublishOnly": "npm run build"
 	},
 	"files": [

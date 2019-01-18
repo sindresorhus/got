@@ -1,10 +1,9 @@
-'use strict';
-const fs = require('fs');
-const util = require('util');
-const is = require('@sindresorhus/is');
-const isFormData = require('./is-form-data').default;
+import fs from 'fs';
+import util from 'util';
+import is from '@sindresorhus/is';
+import isFormData from './is-form-data';
 
-module.exports = async options => {
+export default async (options: any): Promise<Number | null> => {
 	const {body} = options;
 
 	if (options.headers['content-length']) {

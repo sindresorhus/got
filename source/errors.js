@@ -98,10 +98,11 @@ module.exports.UnsupportedProtocolError = class extends GotError {
 };
 
 module.exports.TimeoutError = class extends GotError {
-	constructor(error, options) {
+	constructor(error, timings, options) {
 		super(error.message, {code: 'ETIMEDOUT'}, options);
 		this.name = 'TimeoutError';
 		this.event = error.event;
+		this.timings = timings;
 	}
 };
 

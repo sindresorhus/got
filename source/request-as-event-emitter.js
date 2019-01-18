@@ -10,12 +10,12 @@ const toReadableStream = require('to-readable-stream');
 const is = require('@sindresorhus/is');
 const timer = require('@szmarczak/http-timer');
 const timedOut = require('./utils/timed-out');
-const getBodySize = require('./utils/get-body-size');
+const getBodySize = require('./utils/get-body-size').default;
 const isFormData = require('./utils/is-form-data').default;
 const getResponse = require('./get-response');
 const progress = require('./progress');
 const {CacheError, UnsupportedProtocolError, MaxRedirectsError, RequestError, TimeoutError} = require('./errors');
-const urlToOptions = require('./utils/url-to-options');
+const urlToOptions = require('./utils/url-to-options').default;
 
 const getMethodRedirectCodes = new Set([300, 301, 302, 303, 304, 305, 307, 308]);
 const allMethodRedirectCodes = new Set([300, 303, 307, 308]);
@@ -161,20 +161,19 @@ module.exports = (options, input) => {
 
 		const handleRequest = request => {
 			if (shouldAbort) {
-				request.once('error', () => {});
 				request.abort();
 				return;
 			}
 
 			currentRequest = request;
 
-			request.once('error', error => {
-				if (request.aborted) {
+			request.on('error', error => {
+				if (request.aborted || error.message === 'socket hang up') {
 					return;
 				}
 
 				if (error instanceof timedOut.TimeoutError) {
-					error = new TimeoutError(error, options);
+					error = new TimeoutError(error, timings, options);
 				} else {
 					error = new RequestError(error, options);
 				}
@@ -189,7 +188,7 @@ module.exports = (options, input) => {
 			progress.upload(request, emitter, uploadBodySize);
 
 			if (options.gotTimeout) {
-				timedOut(request, options.gotTimeout, options);
+				timedOut.default(request, options.gotTimeout, options);
 			}
 
 			emitter.emit('request', request);
@@ -272,7 +271,6 @@ module.exports = (options, input) => {
 
 	emitter.abort = () => {
 		if (currentRequest) {
-			currentRequest.once('error', () => {});
 			currentRequest.abort();
 		} else {
 			shouldAbort = true;

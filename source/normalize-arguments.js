@@ -4,10 +4,10 @@ const urlLib = require('url');
 const is = require('@sindresorhus/is');
 const urlParseLax = require('url-parse-lax');
 const lowercaseKeys = require('lowercase-keys');
-const urlToOptions = require('./utils/url-to-options');
+const urlToOptions = require('./utils/url-to-options').default;
 const validateSearchParams = require('./utils/validate-search-params');
 const merge = require('./merge');
-const knownHookEvents = require('./known-hook-events');
+const knownHookEvents = require('./known-hook-events').default;
 
 const retryAfterStatusCodes = new Set([413, 429, 503]);
 
