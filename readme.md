@@ -770,7 +770,7 @@ When the request is aborted with `.cancel()`.
 
 #### got.TimeoutError
 
-When the request is aborted due to a [timeout](#timeout). Includes an `event` property.
+When the request is aborted due to a [timeout](#timeout). Includes an `event` and `timings` property.
 
 ## Aborting the request
 
