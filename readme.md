@@ -13,7 +13,10 @@
 
 > Simplified HTTP requests
 
-[![Build Status: Linux](https://travis-ci.org/sindresorhus/got.svg?branch=master)](https://travis-ci.org/sindresorhus/got) [![Coverage Status](https://coveralls.io/repos/github/sindresorhus/got/badge.svg?branch=master)](https://coveralls.io/github/sindresorhus/got?branch=master) [![Downloads](https://img.shields.io/npm/dm/got.svg)](https://npmjs.com/got) [![Install size](https://packagephobia.now.sh/badge?p=got)](https://packagephobia.now.sh/result?p=got)
+[![Build Status: Linux](https://travis-ci.org/sindresorhus/got.svg?branch=master)](https://travis-ci.org/sindresorhus/got)
+[![Coverage Status](https://coveralls.io/repos/github/sindresorhus/got/badge.svg?branch=master)](https://coveralls.io/github/sindresorhus/got?branch=master)
+[![Downloads](https://img.shields.io/npm/dm/got.svg)](https://npmjs.com/got)
+[![Install size](https://packagephobia.now.sh/badge?p=got)](https://packagephobia.now.sh/result?p=got)
 
 Got is a human-friendly and powerful HTTP request library.
 
@@ -1272,6 +1275,46 @@ const h2got = got.extend({request});
 [a8]: https://packagephobia.now.sh/result?p=axios
 [s8]: https://packagephobia.now.sh/result?p=superagent
 
+#### Install size of the dependencies
+
+|                   Dependency                   |          Install size         |
+|------------------------------------------------|-------------------------------|
+| [@sindresorhus/is][url-is]                     | ![][size-is]                  |
+| [@szmarczak/http-timer][url-http-timer]        | ![][size-http-timer]          |
+| [cacheable-request][url-cacheable-request]     | ![][size-cacheable-request]   |
+| [decompress-response][url-decompress-response] | ![][size-decompress-response] |
+| [duplexer3][url-duplexer3]                     | ![][size-duplexer3]           |
+| [get-stream][url-get-stream]                   | ![][size-get-stream]          |
+| [lowercase-keys][url-lowercase-keys]           | ![][size-lowercase-keys]      |
+| [mimic-response][url-mimic-response]           | ![][size-mimic-response]      |
+| [p-cancelable][url-p-cancelable]               | ![][size-p-cancelable]        |
+| [to-readable-stream][url-to-readable-stream]   | ![][size-to-readable-stream]  |
+| [url-parse-lax][url-url-parse-lax]             | ![][size-url-parse-lax]       |
+|                                                | ![][gis]                      |
+
+[size-is]: https://badgen.net/packagephobia/install/@sindresorhus/is?label
+[size-http-timer]: https://badgen.net/packagephobia/install/@szmarczak/http-timer?label
+[size-cacheable-request]: https://badgen.net/packagephobia/install/cacheable-request?label
+[size-decompress-response]: https://badgen.net/packagephobia/install/decompress-response?label
+[size-duplexer3]: https://badgen.net/packagephobia/install/duplexer3?label
+[size-get-stream]: https://badgen.net/packagephobia/install/get-stream?label
+[size-lowercase-keys]: https://badgen.net/packagephobia/install/lowercase-keys?label
+[size-mimic-response]: https://badgen.net/packagephobia/install/mimic-response?label
+[size-p-cancelable]: https://badgen.net/packagephobia/install/p-cancelable?label
+[size-to-readable-stream]: https://badgen.net/packagephobia/install/to-readable-stream?label
+[size-url-parse-lax]: https://badgen.net/packagephobia/install/url-parse-lax?label
+
+[url-is]: https://github.com/sindresorhus/is
+[url-http-timer]: https://github.com/szmarczak/http-timer
+[url-cacheable-request]: https://github.com/lukechilds/cacheable-request
+[url-decompress-response]: https://github.com/sindresorhus/decompress-response
+[url-duplexer3]: https://github.com/floatdrop/duplexer3
+[url-get-stream]: https://github.com/sindresorhus/get-stream
+[url-lowercase-keys]: https://github.com/sindresorhus/lowercase-keys
+[url-mimic-response]: https://github.com/sindresorhus/mimic-response
+[url-p-cancelable]: https://github.com/sindresorhus/p-cancelable
+[url-to-readable-stream]: https://github.com/sindresorhus/to-readable-stream
+[url-url-parse-lax]: https://github.com/sindresorhus/url-parse-lax
 
 ## Related
 
