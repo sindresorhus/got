@@ -1,5 +1,5 @@
-import { Transform } from 'stream';
-import { EventEmitter } from 'events';
+import {Transform} from 'stream';
+import {EventEmitter} from 'events';
 
 export function download(response: any, emitter: EventEmitter, downloadBodySize?: number) {
 	let downloaded = 0;
@@ -92,4 +92,3 @@ export function upload(request: any, emitter: EventEmitter, uploadBodySize?: num
 		}
 	});
 }
-
