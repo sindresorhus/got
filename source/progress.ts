@@ -1,7 +1,9 @@
 import {Transform} from 'stream';
 import {EventEmitter} from 'events';
+import {IncomingMessage} from 'http';
+import {Socket} from 'net';
 
-export function download(response: any, emitter: EventEmitter, downloadBodySize?: number) {
+export function download(response: IncomingMessage, emitter: EventEmitter, downloadBodySize?: number) {
 	let downloaded = 0;
 
 	return new Transform({
@@ -34,7 +36,7 @@ export function download(response: any, emitter: EventEmitter, downloadBodySize?
 	});
 }
 
-export function upload(request: any, emitter: EventEmitter, uploadBodySize?: number) {
+export function upload(request: IncomingMessage, emitter: EventEmitter, uploadBodySize?: number) {
 	const uploadEventFrequency = 150;
 	let uploaded = 0;
 	let progressInterval: NodeJS.Timeout;
@@ -59,7 +61,7 @@ export function upload(request: any, emitter: EventEmitter, uploadBodySize?: num
 		});
 	});
 
-	request.once('socket', (socket: any) => {
+	request.once('socket', (socket: Socket) => {
 		const onSocketConnect = () => {
 			progressInterval = setInterval(() => {
 				const lastUploaded = uploaded;
