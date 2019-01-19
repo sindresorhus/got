@@ -1,6 +1,6 @@
 import {Transform} from 'stream';
 import {EventEmitter} from 'events';
-import {IncomingMessage, OutgoingMessage} from 'http';
+import {IncomingMessage, ClientRequest} from 'http';
 import {Socket} from 'net';
 
 export function download(response: IncomingMessage, emitter: EventEmitter, downloadBodySize?: number) {
@@ -36,7 +36,7 @@ export function download(response: IncomingMessage, emitter: EventEmitter, downl
 	});
 }
 
-export function upload(request: OutgoingMessage, emitter: EventEmitter, uploadBodySize?: number) {
+export function upload(request: ClientRequest, emitter: EventEmitter, uploadBodySize?: number) {
 	const uploadEventFrequency = 150;
 	let uploaded = 0;
 	let progressInterval: NodeJS.Timeout;
