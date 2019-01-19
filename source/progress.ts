@@ -66,7 +66,7 @@ export function upload(request: ClientRequest, emitter: EventEmitter, uploadBody
 			progressInterval = setInterval(() => {
 				const lastUploaded = uploaded;
 				/* istanbul ignore next: see #490 (occurs randomly!) */
-				const headersSize = request._header ? Buffer.byteLength(request._header) : 0;
+				const headersSize = (request as any)._header ? Buffer.byteLength((request as any)._header) : 0;
 				uploaded = socket.bytesWritten - headersSize;
 
 				// Don't emit events with unchanged progress and
