@@ -5,6 +5,7 @@ const is = require('@sindresorhus/is');
 const lowercaseKeys = require('lowercase-keys');
 const urlToOptions = require('./utils/url-to-options').default;
 const validateSearchParams = require('./utils/validate-search-params');
+const supportsBrotli = require('./utils/supports-brotli').default;
 const merge = require('./merge');
 const knownHookEvents = require('./known-hook-events').default;
 
@@ -193,7 +194,7 @@ const normalize = (url, options, defaults) => {
 	}
 
 	if (options.decompress && is.undefined(headers['accept-encoding'])) {
-		headers['accept-encoding'] = 'gzip, deflate';
+		headers['accept-encoding'] = supportsBrotli ? 'gzip, deflate, br' : 'gzip, deflate';
 	}
 
 	if (options.method) {

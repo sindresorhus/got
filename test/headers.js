@@ -4,6 +4,7 @@ import path from 'path';
 import test from 'ava';
 import FormData from 'form-data';
 import got from '../dist';
+import supportsBrotli from '../dist/utils/supports-brotli';
 import pkg from '../package';
 import {createServer} from './helpers/server';
 
@@ -31,7 +32,7 @@ test('user-agent', async t => {
 
 test('accept-encoding', async t => {
 	const headers = await got(s.url).json();
-	t.is(headers['accept-encoding'], 'gzip, deflate');
+	t.is(headers['accept-encoding'], supportsBrotli ? 'gzip, deflate, br' : 'gzip, deflate');
 });
 
 test('do not override accept-encoding', async t => {
@@ -56,7 +57,7 @@ test('do not remove user headers from `url` object argument', async t => {
 
 	t.is(headers.accept, 'application/json');
 	t.is(headers['user-agent'], `${pkg.name}/${pkg.version} (https://github.com/sindresorhus/got)`);
-	t.is(headers['accept-encoding'], 'gzip, deflate');
+	t.is(headers['accept-encoding'], supportsBrotli ? 'gzip, deflate, br' : 'gzip, deflate');
 	t.is(headers['x-request-id'], 'value');
 });
 

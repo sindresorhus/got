@@ -35,7 +35,7 @@ Got is for Node.js. For browsers, we recommend [Ky](https://github.com/sindresor
 - [Follows redirects](#followredirect)
 - [Retries on failure](#retry)
 - [Progress events](#onuploadprogress-progress)
-- [Handles gzip/deflate](#decompress)
+- [Handles gzip/deflate/brotli](#decompress)
 - [Timeout handling](#timeout)
 - [Errors with metadata](#errors)
 - [JSON mode](#json-mode)
@@ -317,7 +317,9 @@ Note that if a `303` is sent by the server in response to any request type (`POS
 Type: `boolean`<br>
 Default: `true`
 
-Decompress the response automatically. This will set the `accept-encoding` header to `gzip, deflate` unless you set it yourself.
+Decompress the response automatically. This will set the `accept-encoding` header to `gzip, deflate, br` on Node.js 11.7.0+ or `gzip, deflate` for older Node.js versions, unless you set it yourself.
+
+Brotli (`br`) support requires Node.js 11.7.0 or later.
 
 If this is disabled, a compressed response is returned as a `Buffer`. This may be useful if you want to handle decompression yourself or stream the raw compressed data.
 
