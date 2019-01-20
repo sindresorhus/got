@@ -253,7 +253,7 @@ const merged = got.mergeInstances(controlRedirects, limitDownloadUpload, httpbin
 	await merged('/');
 	/* HTTP Request =>
 	 * GET / HTTP/1.1
-	 * accept-encoding: gzip, deflate
+	 * accept-encoding: gzip, deflate, br
 	 * sign: F9E66E179B6747AE54108F82F8ADE8B3C25D76FD30AFDE6C395822C530196169
 	 * Host: httpbin.org
 	 * Connection: close
