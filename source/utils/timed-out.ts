@@ -1,5 +1,5 @@
 import net from 'net';
-import { ClientRequest } from 'http';
+import {ClientRequest} from 'http';
 
 export class TimeoutError extends Error {
 	event: string;

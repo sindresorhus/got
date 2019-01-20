@@ -1,4 +1,4 @@
-import util from 'util';
+import {promisify} from 'util';
 import fs from 'fs';
 import SlowStream from 'slow-stream';
 import toReadableStream from 'to-readable-stream';
@@ -125,7 +125,7 @@ test('upload progress - form data', async t => {
 	body.append('key', 'value');
 	body.append('file', file);
 
-	const size = await util.promisify(body.getLength.bind(body))();
+	const size = await promisify(body.getLength.bind(body))();
 
 	await got.post(`${s.url}/upload`, {body})
 		.on('uploadProgress', event => events.push(event));

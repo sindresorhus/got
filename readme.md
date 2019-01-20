@@ -69,7 +69,7 @@ const got = require('got');
 
 (async () => {
 	try {
-		const response = await got('sindresorhus.com');
+		const response = await got('https://sindresorhus.com');
 		console.log(response.body);
 		//=> '<!doctype html> ...'
 	} catch (error) {
@@ -85,10 +85,10 @@ const got = require('got');
 const fs = require('fs');
 const got = require('got');
 
-got.stream('sindresorhus.com').pipe(fs.createWriteStream('index.html'));
+got.stream('https://sindresorhus.com').pipe(fs.createWriteStream('index.html'));
 
 // For POST, PUT, and PATCH methods `got.stream` returns a `stream.Writable`
-fs.createReadStream('index.html').pipe(got.stream.post('sindresorhus.com'));
+fs.createReadStream('index.html').pipe(got.stream.post('https://sindresorhus.com'));
 ```
 
 
@@ -362,7 +362,7 @@ const got = require('got');
 const HttpAgent = require('agentkeepalive');
 const {HttpsAgent} = HttpAgent;
 
-got('sindresorhus.com', {
+got('https://sindresorhus.com', {
 	agent: {
 		http: new HttpAgent(),
 		https: new HttpsAgent()
@@ -406,7 +406,7 @@ Called with [normalized](source/normalize-arguments.js) [request options](#optio
 ```js
 const got = require('got');
 
-got('example.com', {
+got('https://example.com', {
 	hooks: {
 		beforeRedirect: [
 			options => {
@@ -429,7 +429,7 @@ Called with [normalized](source/normalize-arguments.js) [request options](#optio
 ```js
 const got = require('got');
 
-got('example.com', {
+got('https://example.com', {
 	hooks: {
 		beforeRetry: [
 			(options, error, retryCount) => {
@@ -493,7 +493,7 @@ Called with an `Error` instance. The error is passed to the hook right before it
 ```js
 const got = require('got');
 
-got('api.github.com/some-endpoint', {
+got('https://api.github.com/some-endpoint', {
 	hooks: {
 		onError: [
 			error => {
@@ -600,7 +600,7 @@ Returns a [duplex stream](https://nodejs.org/api/stream.html#stream_class_stream
 **Tip:** You can use `request` event to abort request:
 
 ```js
-got.stream('github.com')
+got.stream('https://github.com')
 	.on('request', request => setTimeout(() => request.abort(), 50));
 ```
 
@@ -629,7 +629,7 @@ If it's not possible to retrieve the body size (can happen when streaming), `tot
 
 ```js
 (async () => {
-	const response = await got('sindresorhus.com')
+	const response = await got('https://sindresorhus.com')
 		.on('downloadProgress', progress => {
 			// Report download progress
 		})
@@ -813,11 +813,11 @@ const got = require('got');
 const map = new Map();
 
 (async () => {
-		let response = await got('sindresorhus.com', {cache: map});
+		let response = await got('https://sindresorhus.com', {cache: map});
 		console.log(response.fromCache);
 		//=> false
 
-		response = await got('sindresorhus.com', {cache: map});
+		response = await got('https://sindresorhus.com', {cache: map});
 		console.log(response.fromCache);
 		//=> true
 })();
@@ -835,7 +835,7 @@ const KeyvRedis = require('@keyv/redis');
 
 const redis = new KeyvRedis('redis://user:pass@localhost:6379');
 
-got('sindresorhus.com', {cache: redis});
+got('https://sindresorhus.com', {cache: redis});
 ```
 
 Got supports anything that follows the Map API, so it's easy to write your own storage adapter or use a third-party solution.
@@ -850,7 +850,7 @@ const storageAdapter = require('./my-storage-adapter');
 const QuickLRU = require('quick-lru');
 const storageAdapter = new QuickLRU({maxSize: 1000});
 
-got('sindresorhus.com', {cache: storageAdapter});
+got('https://sindresorhus.com', {cache: storageAdapter});
 ```
 
 View the [Keyv docs](https://github.com/lukechilds/keyv) for more information on how to use storage adapters.
@@ -864,7 +864,7 @@ You can use the [`tunnel`](https://github.com/koichik/node-tunnel) package with 
 const got = require('got');
 const tunnel = require('tunnel');
 
-got('sindresorhus.com', {
+got('https://sindresorhus.com', {
 	agent: tunnel.httpOverHttp({
 		proxy: {
 			host: 'localhost'
@@ -887,7 +887,7 @@ const {CookieJar} = require('tough-cookie');
 const cookieJar = new CookieJar();
 cookieJar.setCookie('foo=bar', 'https://www.google.com');
 
-got('google.com', {cookieJar});
+got('https://google.com', {cookieJar});
 ```
 
 
@@ -903,7 +903,7 @@ const form = new FormData();
 
 form.append('my_file', fs.createReadStream('/foo/bar.jpg'));
 
-got.post('google.com', {
+got.post('https://example.com', {
 	body: form
 });
 ```
@@ -1000,7 +1000,7 @@ nock('https://sindresorhus.com')
 	.reply(200, 'Hello world!');
 
 (async () => {
-	const response = await got('sindresorhus.com');
+	const response = await got('https://sindresorhus.com');
 	console.log(response.body);
 	//=> 'Hello world!'
 })();
@@ -1035,7 +1035,7 @@ By default, if you pass an object to the `body` option it will be stringified us
 const got = require('got');
 
 (async () => {
-	const response = await got('httpbin.org/anything', {
+	const response = await got('https://httpbin.org/anything', {
 		body: {
 			hello: 'world'
 		},
@@ -1053,7 +1053,7 @@ To receive a JSON body you can either set `responseType` option to `json` or use
 const got = require('got');
 
 (async () => {
-	const {body} = await got('httpbin.org/anything', {
+	const {body} = await got('https://httpbin.org/anything', {
 		body: {
 			hello: 'world'
 		}
@@ -1072,13 +1072,13 @@ It's a good idea to set the `'user-agent'` header so the provider can more easil
 const got = require('got');
 const pkg = require('./package.json');
 
-got('sindresorhus.com', {
+got('https://sindresorhus.com', {
 	headers: {
 		'user-agent': `my-package/${pkg.version} (https://github.com/username/my-package)`
 	}
 });
 
-got('sindresorhus.com', {
+got('https://sindresorhus.com', {
 	headers: {
 		'user-agent': null
 	}
@@ -1289,7 +1289,6 @@ const h2got = got.extend({request});
 | [mimic-response][url-mimic-response]           | ![][size-mimic-response]      |
 | [p-cancelable][url-p-cancelable]               | ![][size-p-cancelable]        |
 | [to-readable-stream][url-to-readable-stream]   | ![][size-to-readable-stream]  |
-| [url-parse-lax][url-url-parse-lax]             | ![][size-url-parse-lax]       |
 |                                                | ![][gis]                      |
 
 [size-is]: https://badgen.net/packagephobia/install/@sindresorhus/is?label
@@ -1302,7 +1301,6 @@ const h2got = got.extend({request});
 [size-mimic-response]: https://badgen.net/packagephobia/install/mimic-response?label
 [size-p-cancelable]: https://badgen.net/packagephobia/install/p-cancelable?label
 [size-to-readable-stream]: https://badgen.net/packagephobia/install/to-readable-stream?label
-[size-url-parse-lax]: https://badgen.net/packagephobia/install/url-parse-lax?label
 
 [url-is]: https://github.com/sindresorhus/is
 [url-http-timer]: https://github.com/szmarczak/http-timer
@@ -1314,7 +1312,6 @@ const h2got = got.extend({request});
 [url-mimic-response]: https://github.com/sindresorhus/mimic-response
 [url-p-cancelable]: https://github.com/sindresorhus/p-cancelable
 [url-to-readable-stream]: https://github.com/sindresorhus/to-readable-stream
-[url-url-parse-lax]: https://github.com/sindresorhus/url-parse-lax
 
 ## Related
 

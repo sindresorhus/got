@@ -1,5 +1,5 @@
 import is from '@sindresorhus/is';
-import { URL } from 'url';
+import {URL} from 'url';
 
 export interface URLOptions {
 	protocol: string,

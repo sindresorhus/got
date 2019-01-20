@@ -9,11 +9,10 @@
 		"node": ">=8.6"
 	},
 	"scripts": {
-		"test": "npm run lint && npm run build && nyc ava -T 60000",
+		"test": "npm run lint && npm run build && nyc ava --timeout=1m",
 		"release": "np",
 		"lint": "xo && tslint --format stylish --project .",
-		"build": "(del dist || rm -r dist) && tsc",
-		"forceBuild": "(del dist /q || rm -rf dist) && tsc",
+		"build": "del-cli dist && tsc",
 		"prepublishOnly": "npm run build"
 	},
 	"files": [
@@ -47,8 +46,7 @@
 		"lowercase-keys": "^1.0.1",
 		"mimic-response": "^1.0.1",
 		"p-cancelable": "^1.0.0",
-		"to-readable-stream": "^1.0.0",
-		"url-parse-lax": "^3.0.0"
+		"to-readable-stream": "^1.0.0"
 	},
 	"devDependencies": {
 		"@sindresorhus/tsconfig": "^0.2.0",
