@@ -1,5 +1,6 @@
 import is from '@sindresorhus/is';
-import {URL} from 'url';
+
+// TODO: Deprecate legacy Url at some point
 
 export interface URLOptions {
 	protocol: string,
@@ -14,7 +15,7 @@ export interface URLOptions {
 	auth?: string
 }
 
-export default (url: URL): URLOptions => {
+export default (url: any): URLOptions => {
 	const options: URLOptions = {
 		protocol: url.protocol,
 		hostname: url.hostname.startsWith('[') ? url.hostname.slice(1, -1) : url.hostname,
@@ -23,7 +24,7 @@ export default (url: URL): URLOptions => {
 		search: url.search,
 		pathname: url.pathname,
 		href: url.href,
-		path: `${url.pathname}${url.search}`
+		path: is.null_(url.search) ? url.pathname : `${url.pathname}${url.search}`
 	};
 
 	if (is.string(url.port) && url.port.length > 0) {
