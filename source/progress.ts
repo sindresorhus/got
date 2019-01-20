@@ -3,11 +3,11 @@ import {EventEmitter} from 'events';
 import {IncomingMessage, ClientRequest} from 'http';
 import {Socket} from 'net';
 
-export function download(response: IncomingMessage, emitter: EventEmitter, downloadBodySize?: number) {
+export function download(_response: IncomingMessage, emitter: EventEmitter, downloadBodySize?: number) {
 	let downloaded = 0;
 
 	return new Transform({
-		transform(chunk, encoding, callback) {
+		transform(chunk, _encoding, callback) {
 			downloaded += chunk.length;
 
 			const percent = downloadBodySize ? downloaded / downloadBodySize : 0;
