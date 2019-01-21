@@ -52,10 +52,12 @@
 	"devDependencies": {
 		"@sindresorhus/tsconfig": "^0.2.0",
 		"@types/node": "^10.12.18",
+		"@typescript-eslint/eslint-plugin": "1.0.0",
 		"ava": "^1.1.0",
 		"coveralls": "^3.0.0",
 		"del-cli": "^1.1.0",
 		"delay": "^4.1.0",
+		"eslint-config-xo-typescript": "0.4.1",
 		"form-data": "^2.3.3",
 		"get-port": "^4.0.0",
 		"np": "^3.1.0",
@@ -81,8 +83,14 @@
 		"concurrency": 4
 	},
 	"xo": {
+		"extends": "xo-typescript",
+		"extensions": [
+			"ts"
+		],
 		"rules": {
-			"import/no-unresolved": "off"
+			"import/no-unresolved": "off",
+			"@typescript-eslint/no-var-requires": "off",
+			"@typescript-eslint/explicit-function-return-type": "off"
 		}
 	}
 }

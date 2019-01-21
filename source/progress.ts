@@ -3,7 +3,7 @@ import {EventEmitter} from 'events';
 import {IncomingMessage, ClientRequest} from 'http';
 import {Socket} from 'net';
 
-export function download(_response: IncomingMessage, emitter: EventEmitter, downloadBodySize?: number) {
+export function download(_response: IncomingMessage, emitter: EventEmitter, downloadBodySize?: number): Transform {
 	let downloaded = 0;
 
 	return new Transform({
@@ -36,7 +36,7 @@ export function download(_response: IncomingMessage, emitter: EventEmitter, down
 	});
 }
 
-export function upload(request: ClientRequest, emitter: EventEmitter, uploadBodySize?: number) {
+export function upload(request: ClientRequest, emitter: EventEmitter, uploadBodySize?: number): void {
 	const uploadEventFrequency = 150;
 	let uploaded = 0;
 	let progressInterval: NodeJS.Timeout;
@@ -62,7 +62,7 @@ export function upload(request: ClientRequest, emitter: EventEmitter, uploadBody
 	});
 
 	request.once('socket', (socket: Socket) => {
-		const onSocketConnect = () => {
+		const onSocketConnect = (): void => {
 			progressInterval = setInterval(() => {
 				const lastUploaded = uploaded;
 				/* istanbul ignore next: see #490 (occurs randomly!) */

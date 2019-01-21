@@ -3,6 +3,7 @@ import {ClientRequest} from 'http';
 
 export class TimeoutError extends Error {
 	event: string;
+
 	code: string;
 
 	constructor(threshold: number, event: string) {
@@ -18,13 +19,13 @@ const reentry: symbol = Symbol('reentry');
 const noop = (): void => {};
 
 export interface Delays {
-	lookup?: number,
-	connect?: number,
-	secureConnect?: number
-	socket?: number,
-	response?: number,
-	send?: number,
-	request?: number
+	lookup?: number;
+	connect?: number;
+	secureConnect?: number;
+	socket?: number;
+	response?: number;
+	send?: number;
+	request?: number;
 }
 
 export default (request: ClientRequest, delays: Delays, options: any) => {
@@ -107,12 +108,12 @@ export default (request: ClientRequest, delays: Delays, options: any) => {
 		// We can just remove the listener and forget about the timer - it's unreffed.
 		// See https://github.com/sindresorhus/got/issues/690
 		cancelers.push((): void => {
-			request.removeListener('timeout', socketTimeoutHandler)
+			request.removeListener('timeout', socketTimeoutHandler);
 		});
 	}
 
 	request.once('socket', (socket: net.Socket): void => {
-		const socketPath = (request as any).socketPath;
+		const {socketPath} = request as any;
 
 		/* istanbul ignore next: hard to test */
 		if (socket.connecting) {

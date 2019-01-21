@@ -5,7 +5,7 @@ import test from 'ava';
 import FormData from 'form-data';
 import got from '../dist';
 import supportsBrotli from '../dist/utils/supports-brotli';
-import pkg from '../package';
+import pkg from '../package.json';
 import {createServer} from './helpers/server';
 
 let s;

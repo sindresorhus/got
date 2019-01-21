@@ -3,16 +3,16 @@ import is from '@sindresorhus/is';
 // TODO: Deprecate legacy Url at some point
 
 export interface URLOptions {
-	protocol: string,
-	hostname: string,
-	host: string,
-	hash: string,
-	search: string,
-	pathname: string,
-	href: string,
-	path: string,
-	port?: number
-	auth?: string
+	protocol: string;
+	hostname: string;
+	host: string;
+	hash: string;
+	search: string;
+	pathname: string;
+	href: string;
+	path: string;
+	port?: number;
+	auth?: string;
 }
 
 export default (url: any): URLOptions => {
