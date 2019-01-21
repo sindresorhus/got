@@ -10,7 +10,7 @@ import test from 'ava';
 import got from '../dist';
 import {createServer} from './helpers/server';
 
-const checkEvents = (t, events, bodySize = null) => {
+const checkEvents = (t, events, bodySize = undefined) => {
 	t.true(events.length >= 2);
 
 	const hasBodySize = is.number(bodySize);

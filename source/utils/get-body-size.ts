@@ -3,7 +3,7 @@ import {promisify} from 'util';
 import is from '@sindresorhus/is';
 import isFormData from './is-form-data';
 
-export default async (options: any): Promise<number | null> => {
+export default async (options: any): Promise<number | undefined> => {
 	const {body} = options;
 
 	if (options.headers['content-length']) {
@@ -27,5 +27,5 @@ export default async (options: any): Promise<number | null> => {
 		return size;
 	}
 
-	return null;
+	return undefined;
 };

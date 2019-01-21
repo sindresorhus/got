@@ -12,7 +12,7 @@ const timer = require('@szmarczak/http-timer');
 const timedOut = require('./utils/timed-out');
 const getBodySize = require('./utils/get-body-size').default;
 const isFormData = require('./utils/is-form-data').default;
-const getResponse = require('./get-response');
+const getResponse = require('./get-response').default;
 const progress = require('./progress');
 const {CacheError, UnsupportedProtocolError, MaxRedirectsError, RequestError, TimeoutError} = require('./errors');
 const urlToOptions = require('./utils/url-to-options').default;
@@ -320,7 +320,7 @@ module.exports = (options, input) => {
 			}
 
 			if (is.undefined(headers['content-length']) && is.undefined(headers['transfer-encoding'])) {
-				if ((uploadBodySize > 0 || options.method === 'PUT') && !is.null(uploadBodySize)) {
+				if ((uploadBodySize > 0 || options.method === 'PUT') && !is.undefined(uploadBodySize)) {
 					headers['content-length'] = uploadBodySize;
 				}
 			}
