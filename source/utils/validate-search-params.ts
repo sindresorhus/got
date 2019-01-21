@@ -1,7 +1,7 @@
 import is from '@sindresorhus/is';
 
-type SearchParams = {
-	[key: string]: string | number | boolean | null
+interface SearchParams {
+	[key: string]: string | number | boolean | null;
 }
 
 const verify = (value: unknown, type: string) => {
