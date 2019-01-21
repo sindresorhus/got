@@ -15,7 +15,7 @@ module.exports = (response, options, emitter) => {
 		is.function(decompressResponse) &&
 		options.method !== 'HEAD' ? decompressResponse(progressStream) : progressStream;
 
-	if (!options.decompress && ['gzip', 'deflate'].includes(response.headers['content-encoding'])) {
+	if (!options.decompress && ['gzip', 'deflate', 'br'].includes(response.headers['content-encoding'])) {
 		options.encoding = null;
 	}
 
