@@ -1135,35 +1135,35 @@ const h2got = got.extend({request});
 
 ## Comparison
 
-|                       |      `got`     | [`request`][r0] | [`node-fetch`][n0] |  [`axios`][a0]  |  [`superagent`][s0]  |
-|-----------------------|:--------------:|:---------------:|:------------------:|:---------------:|:--------------------:|
-| HTTP/2 support        |        ❔       |        ✖       |          ✖         |        ✖       |          ✔\*\*      |
-| Browser support       |        ✖       |        ✖       |          ✔\*       |        ✔       |          ✔          |
-| Electron support      |        ✔       |        ✖       |          ✖         |        ✖       |          ✖          |
-| Promise API           |        ✔       |        ✔       |          ✔         |        ✔       |          ✔          |
-| Stream API            |        ✔       |        ✔       |    Node.js only    |        ✖       |          ✔          |
-| Request cancelation   |        ✔       |        ✖       |          ✔         |        ✔       |          ✔          |
-| RFC compliant caching |        ✔       |        ✖       |          ✖         |        ✖       |          ✖          |
-| Cookies (out-of-box)  |        ✔       |        ✔       |          ✖         |        ✖       |          ✖          |
-| Follows redirects     |        ✔       |        ✔       |          ✔         |        ✔       |          ✔          |
-| Retries on failure    |        ✔       |        ✖       |          ✖         |        ✖       |          ✔          |
-| Progress events       |        ✔       |        ✖       |          ✖         |  Browser only  |          ✔          |
-| Handles gzip/deflate  |        ✔       |        ✔       |          ✔         |        ✔       |          ✔          |
-| Advanced timeouts     |        ✔       |        ✖       |          ✖         |        ✖       |          ✖          |
-| Timings               |        ✔       |        ✔       |          ✖         |        ✖       |          ✖          |
-| Errors with metadata  |        ✔       |        ✖       |          ✖         |        ✔       |          ✖          |
-| JSON mode             |        ✔       |        ✔       |          ✔         |        ✔       |          ✔          |
-| Custom defaults       |        ✔       |        ✔       |          ✖         |        ✔       |          ✖          |
-| Composable            |        ✔       |        ✖       |          ✖         |        ✖       |          ✔          |
-| Hooks                 |        ✔       |        ✖       |          ✖         |        ✔       |          ✖          |
-| Issues open           | [![][gio]][g1] | [![][rio]][r1]  |   [![][nio]][n1]   |  [![][aio]][a1] |   [![][sio]][s1]    |
-| Issues closed         | [![][gic]][g2] | [![][ric]][r2]  |   [![][nic]][n2]   |  [![][aic]][a2] |   [![][sic]][s2]    |
-| Downloads             | [![][gd]][g3]  |  [![][rd]][r3]  |   [![][nd]][n3]    |  [![][ad]][a3]  |   [![][sd]][s3]     |
-| Coverage              | [![][gc]][g4]  |  [![][rc]][r4]  |   [![][nc]][n4]    |  [![][ac]][a4]  |       unknown       |
-| Build                 | [![][gb]][g5]  |  [![][rb]][r5]  |   [![][nb]][n5]    |  [![][ab]][a5]  |   [![][sb]][s5]     |
-| Bugs                  | [![][gbg]][g6] | [![][rbg]][r6]  |   [![][nbg]][n6]   |  [![][abg]][a6] |   [![][sbg]][s6]    |
-| Dependents            | [![][gdp]][g7] | [![][rdp]][r7]  |   [![][ndp]][n7]   |  [![][adp]][a7] |   [![][sdp]][s7]    |
-| Install size          | [![][gis]][g8] | [![][ris]][r8]  |   [![][nis]][n8]   |  [![][ais]][a8] |   [![][sis]][s8]    |
+|                       |       `got`      | [`request`][r0] |  [`node-fetch`][n0]  |  [`axios`][a0]  |  [`superagent`][s0]  |
+|-----------------------|:----------------:|:---------------:|:--------------------:|:---------------:|:--------------------:|
+| HTTP/2 support        |        ❔        |        ❌       |          ❌         |        ❌       |          ✔️\*\*      |
+| Browser support       |        ❌       |        ❌       |          ✔️\*       |        ✔️       |          ✔️          |
+| Electron support      |        ✔️       |        ❌       |          ❌         |        ❌       |          ❌          |
+| Promise API           |        ✔️       |        ✔️       |          ✔️         |        ✔️       |          ✔️          |
+| Stream API            |        ✔️       |        ✔️       |     Node.js only     |        ❌       |          ✔️          |
+| Request cancelation   |        ✔️       |        ❌       |          ✔️         |        ✔️       |          ✔️          |
+| RFC compliant caching |        ✔️       |        ❌       |          ❌         |        ❌       |          ❌          |
+| Cookies (out-of-box)  |        ✔️       |        ✔️       |          ❌         |        ❌       |          ❌          |
+| Follows redirects     |        ✔️       |        ✔️       |          ✔️         |        ✔️       |          ✔️          |
+| Retries on failure    |        ✔️       |        ❌       |          ❌         |        ❌       |          ✔️          |
+| Progress events       |        ✔️       |        ❌       |          ❌         |   Browser only   |          ✔️          |
+| Handles gzip/deflate  |        ✔️       |        ✔️       |          ✔️         |        ✔️       |          ✔️          |
+| Advanced timeouts     |        ✔️       |        ❌       |          ❌         |        ❌       |          ❌          |
+| Timings               |        ✔️       |        ✔️       |          ❌         |        ❌       |          ❌          |
+| Errors with metadata  |        ✔️       |        ❌       |          ❌         |        ✔️       |          ❌          |
+| JSON mode             |        ✔️       |        ✔️       |          ✔️         |        ✔️       |          ✔️          |
+| Custom defaults       |        ✔️       |        ✔️       |          ❌         |        ✔️       |          ❌          |
+| Composable            |        ✔️       |        ❌       |          ❌         |        ❌       |          ✔️          |
+| Hooks                 |        ✔️       |        ❌       |          ❌         |        ✔️       |          ❌          |
+| Issues open           |  [![][gio]][g1]  | [![][rio]][r1]  |    [![][nio]][n1]    |  [![][aio]][a1] |    [![][sio]][s1]     |
+| Issues closed         |  [![][gic]][g2]  | [![][ric]][r2]  |    [![][nic]][n2]    |  [![][aic]][a2] |    [![][sic]][s2]     |
+| Downloads             |  [![][gd]][g3]   |  [![][rd]][r3]  |    [![][nd]][n3]     |  [![][ad]][a3]  |    [![][sd]][s3]      |
+| Coverage              |  [![][gc]][g4]   |  [![][rc]][r4]  |    [![][nc]][n4]     |  [![][ac]][a4]  |        unknown        |
+| Build                 |  [![][gb]][g5]   |  [![][rb]][r5]  |    [![][nb]][n5]     |  [![][ab]][a5]  |    [![][sb]][s5]      |
+| Bugs                  |  [![][gbg]][g6]  | [![][rbg]][r6]  |    [![][nbg]][n6]    |  [![][abg]][a6] |    [![][sbg]][s6]     |
+| Dependents            |  [![][gdp]][g7]  | [![][rdp]][r7]  |    [![][ndp]][n7]    |  [![][adp]][a7] |    [![][sdp]][s7]     |
+| Install size          |  [![][gis]][g8]  | [![][ris]][r8]  |    [![][nis]][n8]    |  [![][ais]][a8] |    [![][sis]][s8]     |
 
 \* It's almost API compatible with the browser `fetch` API.<br>
 \*\* Need to switch the protocol manually.<br>
