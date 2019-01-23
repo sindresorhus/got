@@ -1,11 +1,41 @@
-'use strict';
-const urlLib = require('url');
-const http = require('http');
-const PCancelable = require('p-cancelable');
-const is = require('@sindresorhus/is');
+import urlLib from 'url';
+import http from 'http';
+import PCancelable from 'p-cancelable';
+import is from '@sindresorhus/is';
 
-class GotError extends Error {
-	constructor(message, error, options) {
+/**
+ * @todo use the Got options-object types.
+ */
+
+interface Options {
+	host: string;
+	hostname: string;
+	method: string;
+	path: string;
+	socketPath: string;
+	protocol: string;
+	href: string;
+	options: string;
+}
+
+export class GotError extends Error {
+	code: number | undefined;
+
+	body: string | undefined;
+
+	statusCode: number | undefined;
+
+	statusMessage: string | undefined;
+
+	headers: string | undefined;
+
+	redirectUrls: string | undefined;
+
+	event: string | undefined;
+
+	timings: number | undefined;
+
+	constructor(message: string, error: any, options: Options) {
 		super(message);
 		Error.captureStackTrace(this, this.constructor);
 		this.name = 'GotError';
@@ -22,36 +52,34 @@ class GotError extends Error {
 			socketPath: options.socketPath,
 			protocol: options.protocol,
 			url: options.href,
-			gotOptions: options
+			gotOptions: options.options
 		});
 	}
 }
 
-module.exports.GotError = GotError;
-
-module.exports.CacheError = class extends GotError {
-	constructor(error, options) {
+export const CacheError = class extends GotError {
+	constructor(error: any, options: Options) {
 		super(error.message, error, options);
 		this.name = 'CacheError';
 	}
 };
 
-module.exports.RequestError = class extends GotError {
-	constructor(error, options) {
+export const RequestError = class extends GotError {
+	constructor(error: any, options: Options) {
 		super(error.message, error, options);
 		this.name = 'RequestError';
 	}
 };
 
-module.exports.ReadError = class extends GotError {
-	constructor(error, options) {
+exports.ReadError = class extends GotError {
+	constructor(error: any, options: Options) {
 		super(error.message, error, options);
 		this.name = 'ReadError';
 	}
 };
 
-module.exports.ParseError = class extends GotError {
-	constructor(error, statusCode, options, data) {
+exports.ParseError = class extends GotError {
+	constructor(error: any, statusCode: number, options: Options, data: any) {
 		super(`${error.message} in "${urlLib.format(options)}"`, error, options);
 		this.name = 'ParseError';
 		this.body = data;
@@ -60,8 +88,8 @@ module.exports.ParseError = class extends GotError {
 	}
 };
 
-module.exports.HTTPError = class extends GotError {
-	constructor(response, options) {
+exports.HTTPError = class extends GotError {
+	constructor(response: any, options: Options) {
 		const {statusCode} = response;
 		let {statusMessage} = response;
 
@@ -80,8 +108,8 @@ module.exports.HTTPError = class extends GotError {
 	}
 };
 
-module.exports.MaxRedirectsError = class extends GotError {
-	constructor(statusCode, redirectUrls, options) {
+exports.MaxRedirectsError = class extends GotError {
+	constructor(statusCode: number, redirectUrls: string, options: Options) {
 		super('Redirected 10 times. Aborting.', {}, options);
 		this.name = 'MaxRedirectsError';
 		this.statusCode = statusCode;
@@ -90,15 +118,15 @@ module.exports.MaxRedirectsError = class extends GotError {
 	}
 };
 
-module.exports.UnsupportedProtocolError = class extends GotError {
-	constructor(options) {
+exports.UnsupportedProtocolError = class extends GotError {
+	constructor(options: Options) {
 		super(`Unsupported protocol "${options.protocol}"`, {}, options);
 		this.name = 'UnsupportedProtocolError';
 	}
 };
 
-module.exports.TimeoutError = class extends GotError {
-	constructor(error, timings, options) {
+exports.TimeoutError = class extends GotError {
+	constructor(error: any, timings: number, options: Options) {
 		super(error.message, {code: 'ETIMEDOUT'}, options);
 		this.name = 'TimeoutError';
 		this.event = error.event;
@@ -106,4 +134,4 @@ module.exports.TimeoutError = class extends GotError {
 	}
 };
 
-module.exports.CancelError = PCancelable.CancelError;
+exports.CancelError = PCancelable.CancelError;

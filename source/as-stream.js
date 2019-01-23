@@ -2,7 +2,7 @@
 const {PassThrough} = require('stream');
 const duplexer3 = require('duplexer3');
 const requestAsEventEmitter = require('./request-as-event-emitter');
-const {HTTPError, ReadError} = require('./errors');
+const {HTTPError, ReadError} = require('./errors').default;
 
 module.exports = options => {
 	const input = new PassThrough();

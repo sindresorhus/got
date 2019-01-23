@@ -1,5 +1,5 @@
 'use strict';
-const errors = require('./errors');
+const errors = require('./errors').default;
 const asStream = require('./as-stream');
 const asPromise = require('./as-promise');
 const normalizeArguments = require('./normalize-arguments');
