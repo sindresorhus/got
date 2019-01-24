@@ -3,10 +3,7 @@ import http from 'http';
 import PCancelable from 'p-cancelable';
 import is from '@sindresorhus/is';
 
-/**
- * @todo use the Got options-object types.
- */
-
+// TODO: Use the Got options-object type
 interface Options {
 	host: string;
 	hostname: string;
