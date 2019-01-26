@@ -7,9 +7,7 @@ import {download} from './progress';
 const decompressResponse = require('decompress-response');
 const mimicResponse = require('mimic-response');
 
-/**
- * @todo use the Got options-object types.
- */
+// TODO: Use the Got options-object types.
 interface Options {
 	decompress: boolean;
 	encoding: BufferEncoding | null;

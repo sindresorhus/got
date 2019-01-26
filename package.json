@@ -52,18 +52,18 @@
 	"devDependencies": {
 		"@sindresorhus/tsconfig": "^0.2.0",
 		"@types/node": "^10.12.18",
-		"@typescript-eslint/eslint-plugin": "1.0.0",
+		"@typescript-eslint/eslint-plugin": "1.1.0",
 		"ava": "^1.1.0",
 		"coveralls": "^3.0.0",
 		"del-cli": "^1.1.0",
 		"delay": "^4.1.0",
-		"eslint-config-xo-typescript": "0.4.1",
+		"eslint-config-xo-typescript": "^0.6.0",
 		"form-data": "^2.3.3",
 		"get-port": "^4.0.0",
-		"np": "^3.1.0",
+		"np": "^4.0.2",
 		"nyc": "^13.1.0",
 		"p-event": "^2.1.0",
-		"pem": "^1.13.2",
+		"pem": "^1.14.1",
 		"proxyquire": "^2.0.1",
 		"sinon": "^7.2.2",
 		"slow-stream": "0.0.4",
@@ -71,7 +71,7 @@
 		"tempy": "^0.2.1",
 		"tough-cookie": "^3.0.0",
 		"tslint": "^5.12.1",
-		"tslint-xo": "^0.11.0",
+		"tslint-xo": "^0.13.0",
 		"typescript": "^3.2.2",
 		"xo": "^0.24.0"
 	},
@@ -90,7 +90,8 @@
 		"rules": {
 			"import/no-unresolved": "off",
 			"@typescript-eslint/no-var-requires": "off",
-			"@typescript-eslint/explicit-function-return-type": "off"
+			"@typescript-eslint/explicit-function-return-type": "off",
+			"@typescript-eslint/restrict-plus-operands": "off"
 		}
 	}
 }
