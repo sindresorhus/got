@@ -6,7 +6,7 @@ const lowercaseKeys = require('lowercase-keys');
 const urlToOptions = require('./utils/url-to-options').default;
 const validateSearchParams = require('./utils/validate-search-params').default;
 const supportsBrotli = require('./utils/supports-brotli').default;
-const merge = require('./merge');
+const merge = require('./merge').default;
 const knownHookEvents = require('./known-hook-events').default;
 
 const retryAfterStatusCodes = new Set([413, 429, 503]);

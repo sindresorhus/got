@@ -5,7 +5,7 @@ const is = require('@sindresorhus/is');
 const PCancelable = require('p-cancelable');
 const requestAsEventEmitter = require('./request-as-event-emitter');
 const {HTTPError, ParseError, ReadError} = require('./errors');
-const {options: mergeOptions} = require('./merge');
+const {mergeOptions} = require('./merge');
 const {reNormalize} = require('./normalize-arguments');
 
 const asPromise = options => {
