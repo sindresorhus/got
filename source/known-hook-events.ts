@@ -19,7 +19,8 @@ export interface Hooks {
 	/**
 	 * Called with plain request options, right before their normalization. This is especially useful in conjunction with got.extend() and got.create() when the input needs custom handling.
 	 *
-	 * @note This hook must be synchronous
+	 * **Note:** This hook must be synchronous.
+	 *
 	 * @see [Request migration guide](https://github.com/sindresorhus/got/blob/master/migration-guides.md#breaking-changes) for an example.
 	 * @default []
 	 */
@@ -50,7 +51,8 @@ export interface Hooks {
 	/**
 	 * Called with an `Error` instance. The error is passed to the hook right before it's thrown. This is especially useful when you want to have more detailed errors.
 	 *
-	 * @note Errors thrown while normalizing input options are thrown directly and not part of this hook.
+	 * **Note:** Errors thrown while normalizing input options are thrown directly and not part of this hook.
+	 *
 	 * @default []
 	 */
 	beforeError: BeforeErrorHook[];
