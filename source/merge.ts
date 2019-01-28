@@ -35,7 +35,8 @@ export function mergeOptions(...sources: Options[]) {
 	const merged = merge({}, ...sources);
 
 	// TODO: This is a funky situation. Even though we "know" that we're going to
-	//       populate the `hooks` object in the loop below, TypeScript want us to //       put them into the object upon initialization, because it cannot infer
+	//       populate the `hooks` object in the loop below, TypeScript want us to
+	//       put them into the object upon initialization, because it cannot infer
 	//       that they are going to conform correctly in runtime.
 	// eslint-disable-next-line @typescript-eslint/no-object-literal-type-assertion
 	const hooks = {} as { [Key in HookEvent]: HookType[] };
@@ -60,8 +61,6 @@ type NextFunction = (error?: Error | string) => void;
 
 type IterateFunction = (options: Options) => void;
 
-type Method = 'GET' | 'PUT' | 'HEAD' | 'DELETE' | 'OPTIONS' | 'TRACE';
-
 interface Instance {
 	defaults: {
 		handler: (options: Options, callback: NextFunction | IterateFunction) => void;
@@ -69,7 +68,7 @@ interface Instance {
 	};
 }
 
-export function mergeInstances(instances: Instance[], methods: Method[]) {
+export function mergeInstances(instances: Instance[], methods: string[]) {
 	const handlers = instances.map(instance => instance.defaults.handler);
 	const size = instances.length - 1;
 
