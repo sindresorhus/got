@@ -1,12 +1,7 @@
 import {URL} from 'url';
 import is from '@sindresorhus/is';
+import {Options} from './utils/types';
 import knownHookEvents, {Hooks, HookType, HookEvent} from './known-hook-events';
-
-// TODO: Use the Got options-object types.
-interface Options {
-	hooks?: Partial<Hooks>;
-	[key: string]: unknown | Options;
-}
 
 export default function merge(target: Options, ...sources: Options[]) {
 	for (const source of sources) {

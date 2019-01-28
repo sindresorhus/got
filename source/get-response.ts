@@ -2,17 +2,11 @@ import {IncomingMessage} from 'http';
 import EventEmitter from 'events';
 import {Transform, PassThrough} from 'stream';
 import is from '@sindresorhus/is';
+import {Options} from './utils/types';
 import {download} from './progress';
 
 const decompressResponse = require('decompress-response');
 const mimicResponse = require('mimic-response');
-
-// TODO: Use the Got options-object types.
-interface Options {
-	decompress: boolean;
-	encoding: BufferEncoding | null;
-	method: string;
-}
 
 export default (response: IncomingMessage, options: Options, emitter: EventEmitter) => {
 	const downloadBodySize = Number(response.headers['content-length']) || undefined;
