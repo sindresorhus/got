@@ -1,7 +1,5 @@
 import {URL} from 'url';
 import is from '@sindresorhus/is';
-// XO doesn't recognize `export type` for some reason.
-// eslint-disable-next-line import/named
 import knownHookEvents, {Hooks, HookType, HookEvent} from './known-hook-events';
 
 // TODO: Use the Got options-object types.
