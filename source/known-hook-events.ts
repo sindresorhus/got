@@ -8,7 +8,7 @@ export type BeforeErrorHook = (error: Error) => Error | Promise<Error>;
 export type BeforeRequestHook = (options: Options) => void | Promise<void>
 export type BeforeRedirectHook = (options: Options) => void | Promise<void>
 export type BeforeRetryHook = (options: Options, error: HTTPError, retryCount: number) => void | Promise<void>
-export type AfterResponseHook = (response: IncomingMessage, retryWithMergedOptions: (options: Options) => IncomingMessage | CancelableRequest<IncomingMessage>) => IncomingMessage | CancelableRequest<IncomingMessage>
+export type AfterResponseHook = (response: IncomingMessage, retryWithMergedOptions: (options: Options) => CancelableRequest<IncomingMessage>) => IncomingMessage | CancelableRequest<IncomingMessage>
 
 export type HookType = BeforeErrorHook | InitHook | BeforeRequestHook | BeforeRedirectHook | BeforeRetryHook | AfterResponseHook;
 
