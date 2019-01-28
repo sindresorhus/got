@@ -4,7 +4,7 @@ import {HTTPError} from './errors';
 
 export type InitHook = (options: Options) => void;
 // TODO: The `Error` type should confirm to any possible extended error type that can be thrown. See https://github.com/sindresorhus/got#hooksbeforeerror
-export type BeforeErrorHook = (error: Error) => Error | void | Promise<Error> | Promise<void>;
+export type BeforeErrorHook = (error: Error) => Error | Promise<Error>;
 export type BeforeRequestHook = (options: Options) => void | Promise<void>
 export type BeforeRedirectHook = (options: Options) => void | Promise<void>
 export type BeforeRetryHook = (options: Options, error: HTTPError, retryCount: number) => void | Promise<void>
