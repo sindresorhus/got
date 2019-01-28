@@ -1,6 +1,6 @@
 import {URL} from 'url';
 import is from '@sindresorhus/is';
-import {Options} from './utils/types';
+import {Options, Method} from './utils/types';
 import knownHookEvents, {Hooks, HookType, HookEvent} from './known-hook-events';
 
 export default function merge(target: Options, ...sources: Options[]) {
@@ -68,7 +68,7 @@ interface Instance {
 	};
 }
 
-export function mergeInstances(instances: Instance[], methods: string[]) {
+export function mergeInstances(instances: Instance[], methods: Method[]) {
 	const handlers = instances.map(instance => instance.defaults.handler);
 	const size = instances.length - 1;
 
