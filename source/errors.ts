@@ -1,58 +1,19 @@
 import urlLib from 'url';
-import http, {IncomingMessage, IncomingHttpHeaders} from 'http';
+import http, {IncomingHttpHeaders} from 'http';
 import PCancelable from 'p-cancelable';
 import is from '@sindresorhus/is';
-
-// TODO: Use the Got options-object type
-interface Options {
-	host: string;
-	hostname: string;
-	method: string;
-	path: string;
-	socketPath: string;
-	protocol: string;
-	href: string;
-	options: string;
-}
-
-interface IncomingMessageExtended extends IncomingMessage {
-	body: string;
-	statusCode: number;
-}
-
-interface Timings {
-	start: number;
-	socket: number;
-	lookup: number;
-	connect: number;
-	upload: number;
-	response: number;
-	end: number;
-	error: number;
-	phases: {
-		wait: number;
-		dns: number;
-		tcp: number;
-		request: number;
-		firstByte: number;
-		download: number;
-		total: number;
-	};
-}
+import {Response, Timings, Options} from './utils/types';
+import {TimeoutError as TimedOutError} from './utils/timed-out';
 
 export class GotError extends Error {
-	code?: number;
+	code?: string;
 
-	statusMessage?: string;
-
-	statusCode?: number;
-
-	constructor(message: string, error: any, options: Options) {
+	constructor(message: string, error: Error | { code?: string }, options: Options) {
 		super(message);
 		Error.captureStackTrace(this, this.constructor);
 		this.name = 'GotError';
 
-		if (!is.undefined(error.code)) {
+		if (!(error instanceof Error) && !is.undefined(error.code)) {
 			this.code = error.code;
 		}
 
@@ -91,9 +52,11 @@ export class ReadError extends GotError {
 }
 
 export class ParseError extends GotError {
+	body: string | Buffer;
+
 	statusCode: number;
 
-	body: string | Buffer;
+	statusMessage?: string;
 
 	constructor(error: Error, statusCode: number, options: Options, data: string | Buffer) {
 		super(`${error.message} in "${urlLib.format(options)}"`, error, options);
@@ -107,9 +70,13 @@ export class ParseError extends GotError {
 export class HTTPError extends GotError {
 	headers?: IncomingHttpHeaders;
 
-	body: string | undefined;
+	body: string | Buffer;
 
-	constructor(response: IncomingMessageExtended, options: Options) {
+	statusCode: number;
+
+	statusMessage?: string;
+
+	constructor(response: Response, options: Options) {
 		const {statusCode} = response;
 		let {statusMessage} = response;
 
@@ -130,6 +97,10 @@ export class HTTPError extends GotError {
 
 export class MaxRedirectsError extends GotError {
 	redirectUrls?: URL[];
+
+	statusMessage?: string;
+
+	statusCode: number;
 
 	constructor(statusCode: number, redirectUrls: URL[], options: Options) {
 		super('Redirected 10 times. Aborting.', {}, options);
@@ -152,7 +123,7 @@ export class TimeoutError extends GotError {
 
 	event: string;
 
-	constructor(error: any, timings: Timings, options: Options) {
+	constructor(error: TimedOutError, timings: Timings, options: Options) {
 		super(error.message, {code: 'ETIMEDOUT'}, options);
 		this.name = 'TimeoutError';
 		this.event = error.event;
