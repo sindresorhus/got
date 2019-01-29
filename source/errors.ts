@@ -16,21 +16,13 @@ interface Options {
 }
 
 export class GotError extends Error {
-	code: number | undefined;
+	code?: number;
 
-	body: string | undefined;
+	body?: string;
 
-	statusCode: number | undefined;
+	statusMessage?: string;
 
-	statusMessage: string | undefined;
-
-	headers: string | undefined;
-
-	redirectUrls: string | undefined;
-
-	event: string | undefined;
-
-	timings: number | undefined;
+	statusCode?: number;
 
 	constructor(message: string, error: any, options: Options) {
 		super(message);
@@ -54,38 +46,42 @@ export class GotError extends Error {
 	}
 }
 
-export const CacheError = class extends GotError {
+export class CacheError extends GotError {
 	constructor(error: any, options: Options) {
 		super(error.message, error, options);
 		this.name = 'CacheError';
 	}
-};
+}
 
-export const RequestError = class extends GotError {
+export class RequestError extends GotError {
 	constructor(error: any, options: Options) {
 		super(error.message, error, options);
 		this.name = 'RequestError';
 	}
-};
+}
 
-exports.ReadError = class extends GotError {
+export class ReadError extends GotError {
 	constructor(error: any, options: Options) {
 		super(error.message, error, options);
 		this.name = 'ReadError';
 	}
-};
+}
 
-exports.ParseError = class extends GotError {
-	constructor(error: any, statusCode: number, options: Options, data: any) {
+export class ParseError extends GotError {
+	statusCode: number;
+
+	constructor(error: any, statusCode: number, options: any, data: any) {
 		super(`${error.message} in "${urlLib.format(options)}"`, error, options);
 		this.name = 'ParseError';
 		this.body = data;
 		this.statusCode = statusCode;
 		this.statusMessage = http.STATUS_CODES[this.statusCode];
 	}
-};
+}
 
-exports.HTTPError = class extends GotError {
+export class HTTPError extends GotError {
+	headers?: string;
+
 	constructor(response: any, options: Options) {
 		const {statusCode} = response;
 		let {statusMessage} = response;
@@ -103,9 +99,11 @@ exports.HTTPError = class extends GotError {
 		this.headers = response.headers;
 		this.body = response.body;
 	}
-};
+}
 
-exports.MaxRedirectsError = class extends GotError {
+export class MaxRedirectsError extends GotError {
+	redirectUrls?: string;
+
 	constructor(statusCode: number, redirectUrls: string, options: Options) {
 		super('Redirected 10 times. Aborting.', {}, options);
 		this.name = 'MaxRedirectsError';
@@ -113,22 +111,26 @@ exports.MaxRedirectsError = class extends GotError {
 		this.statusMessage = http.STATUS_CODES[this.statusCode];
 		this.redirectUrls = redirectUrls;
 	}
-};
+}
 
-exports.UnsupportedProtocolError = class extends GotError {
+export class UnsupportedProtocolError extends GotError {
 	constructor(options: Options) {
 		super(`Unsupported protocol "${options.protocol}"`, {}, options);
 		this.name = 'UnsupportedProtocolError';
 	}
-};
+}
 
-exports.TimeoutError = class extends GotError {
+export class TimeoutError extends GotError {
+	timings: number;
+
+	event: string;
+
 	constructor(error: any, timings: number, options: Options) {
 		super(error.message, {code: 'ETIMEDOUT'}, options);
 		this.name = 'TimeoutError';
 		this.event = error.event;
 		this.timings = timings;
 	}
-};
+}
 
 exports.CancelError = PCancelable.CancelError;
