@@ -5,6 +5,23 @@ import {Hooks} from '../known-hook-events';
 
 export type Method = 'GET' | 'PUT' | 'HEAD' | 'DELETE' | 'OPTIONS' | 'TRACE' | 'get' | 'put' | 'head' | 'delete' | 'options' | 'trace';
 
+export type NextFunction = (error?: Error | string) => void;
+
+export type IterateFunction = (options: Options) => void;
+
+export interface Instance {
+	methods?: Method[];
+	options?: Options;
+	handler?: (options: Options, callback: NextFunction) => void;
+}
+
+export interface InterfaceWithDefaults extends Instance {
+	defaults: {
+		handler: (options: Options, callback: NextFunction | IterateFunction) => void;
+		options: Options;
+	};
+}
+
 export interface Options extends RequestOptions {
 	hooks?: Partial<Hooks>;
 	decompress?: boolean;

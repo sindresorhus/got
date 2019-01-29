@@ -1,9 +1,9 @@
 import {URL} from 'url';
 import is from '@sindresorhus/is';
-import {Options, Method} from './utils/types';
+import {Options, Method, NextFunction, Instance, InterfaceWithDefaults} from './utils/types';
 import knownHookEvents, {Hooks, HookType, HookEvent} from './known-hook-events';
 
-export default function merge(target: Options, ...sources: Options[]) {
+export default function merge(target: Options, ...sources: Options[]): Options {
 	for (const source of sources) {
 		for (const [key, sourceValue] of Object.entries(source)) {
 			if (is.undefined(sourceValue)) {
@@ -30,7 +30,7 @@ export default function merge(target: Options, ...sources: Options[]) {
 	return target;
 }
 
-export function mergeOptions(...sources: Options[]) {
+export function mergeOptions(...sources: Options[]): Options {
 	sources = sources.map(source => source || {});
 	const merged = merge({}, ...sources);
 
@@ -57,18 +57,7 @@ export function mergeOptions(...sources: Options[]) {
 	return merged;
 }
 
-type NextFunction = (error?: Error | string) => void;
-
-type IterateFunction = (options: Options) => void;
-
-interface Instance {
-	defaults: {
-		handler: (options: Options, callback: NextFunction | IterateFunction) => void;
-		options: Options;
-	};
-}
-
-export function mergeInstances(instances: Instance[], methods: Method[]) {
+export function mergeInstances(instances: InterfaceWithDefaults[], methods: Method[]): Instance {
 	const handlers = instances.map(instance => instance.defaults.handler);
 	const size = instances.length - 1;
 
