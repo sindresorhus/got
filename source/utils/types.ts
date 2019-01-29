@@ -27,7 +27,8 @@ export interface Options extends RequestOptions {
 	decompress?: boolean;
 	encoding?: BufferEncoding | null;
 	method?: Method;
-	[ key: string ]: unknown | Options;
+	// TODO: Remove this once TS migration is complete and all options are defined.
+	[ key: string ]: unknown;
 }
 
 export interface CancelableRequest<T extends IncomingMessage> extends PCancelable<T> {
