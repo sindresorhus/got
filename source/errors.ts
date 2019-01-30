@@ -98,13 +98,13 @@ export class HTTPError extends GotError {
 }
 
 export class MaxRedirectsError extends GotError {
-	redirectUrls?: URL[];
+	redirectUrls?: string[];
 
 	statusMessage?: string;
 
 	statusCode: number;
 
-	constructor(statusCode: number, redirectUrls: URL[], options: Options) {
+	constructor(statusCode: number, redirectUrls: string[], options: Options) {
 		super('Redirected 10 times. Aborting.', {}, options);
 		this.name = 'MaxRedirectsError';
 		this.statusCode = statusCode;

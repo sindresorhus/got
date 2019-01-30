@@ -19,20 +19,20 @@ export interface Response extends IncomingMessage {
 
 export interface Timings {
 	start: number;
-	socket: number;
-	lookup: number;
-	connect: number;
-	upload: number;
-	response: number;
-	end: number;
-	error: number;
+	socket: number | null;
+	lookup: number | null;
+	connect: number | null;
+	upload: number | null;
+	response: number | null;
+	end: number | null;
+	error: number | null;
 	phases: {
-		wait: number;
-		dns: number;
-		tcp: number;
-		request: number;
-		firstByte: number;
-		download: number;
-		total: number;
+		wait: number | null;
+		dns: number | null;
+		tcp: number | null;
+		request: number | null;
+		firstByte: number | null;
+		download: number | null;
+		total: number | null;
 	};
 }
