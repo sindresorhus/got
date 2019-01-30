@@ -50,7 +50,6 @@ export interface InterfaceWithDefaults extends Instance {
 export interface Options extends RequestOptions {
 	host: string;
 	hostname: string;
-	method: string;
 	path: string;
 	socketPath: string;
 	protocol: string;
