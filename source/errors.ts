@@ -131,4 +131,4 @@ export class TimeoutError extends GotError {
 	}
 }
 
-exports.CancelError = PCancelable.CancelError;
+export const {CancelError} = PCancelable;
