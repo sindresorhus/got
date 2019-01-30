@@ -52,6 +52,7 @@
 	"devDependencies": {
 		"@sindresorhus/tsconfig": "^0.2.0",
 		"@types/node": "^10.12.18",
+		"@types/p-cancelable": "^1.0.0",
 		"@typescript-eslint/eslint-plugin": "1.1.0",
 		"ava": "^1.1.0",
 		"coveralls": "^3.0.0",
@@ -88,6 +89,7 @@
 			"ts"
 		],
 		"rules": {
+			"import/named": "off",
 			"import/no-unresolved": "off",
 			"@typescript-eslint/no-var-requires": "off",
 			"@typescript-eslint/explicit-function-return-type": "off",
