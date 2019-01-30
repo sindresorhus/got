@@ -5,15 +5,17 @@ import is from '@sindresorhus/is';
 import {Response, Timings, Options} from './utils/types';
 import {TimeoutError as TimedOutError} from './utils/timed-out';
 
+type ErrorWithCode = (Error & { code?: string }) | { code?: string };
+
 export class GotError extends Error {
 	code?: string;
 
-	constructor(message: string, error: Error | { code?: string }, options: Options) {
+	constructor(message: string, error: ErrorWithCode, options: Options) {
 		super(message);
 		Error.captureStackTrace(this, this.constructor);
 		this.name = 'GotError';
 
-		if (!(error instanceof Error) && !is.undefined(error.code)) {
+		if (!is.undefined(error.code)) {
 			this.code = error.code;
 		}
 
