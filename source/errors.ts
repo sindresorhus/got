@@ -25,7 +25,7 @@ export class GotError extends Error {
 			socketPath: options.socketPath,
 			protocol: options.protocol,
 			url: options.href,
-			gotOptions: options.options
+			gotOptions: options
 		});
 	}
 }
