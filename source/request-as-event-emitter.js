@@ -14,7 +14,7 @@ const getBodySize = require('./utils/get-body-size').default;
 const isFormData = require('./utils/is-form-data').default;
 const getResponse = require('./get-response').default;
 const progress = require('./progress');
-const {CacheError, UnsupportedProtocolError, MaxRedirectsError, RequestError, TimeoutError} = require('./errors').default;
+const {CacheError, UnsupportedProtocolError, MaxRedirectsError, RequestError, TimeoutError} = require('./errors');
 const urlToOptions = require('./utils/url-to-options').default;
 
 const getMethodRedirectCodes = new Set([300, 301, 302, 303, 304, 305, 307, 308]);
