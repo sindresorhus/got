@@ -9,17 +9,6 @@ export type NextFunction = (error?: Error | string) => void;
 
 export type IterateFunction = (options: Options) => void;
 
-export interface Options extends RequestOptions {
-	host: string;
-	hostname: string;
-	method: string;
-	path: string;
-	socketPath: string;
-	protocol: string;
-	href: string;
-	options: Options;
-}
-
 export interface Response extends IncomingMessage {
 	body: string | Buffer;
 	statusCode: number;
@@ -59,6 +48,14 @@ export interface InterfaceWithDefaults extends Instance {
 }
 
 export interface Options extends RequestOptions {
+	host: string;
+	hostname: string;
+	method: string;
+	path: string;
+	socketPath: string;
+	protocol: string;
+	href: string;
+	options: Options;
 	hooks?: Partial<Hooks>;
 	decompress?: boolean;
 	encoding?: BufferEncoding | null;
