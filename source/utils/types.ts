@@ -36,7 +36,7 @@ export interface Timings {
 
 export interface Instance {
 	methods: Method[];
-	options: Partial<Options> & { hooks: Partial<Hooks> };
+	options: Partial<Options>;
 	handler: (options: Options, callback: NextFunction) => void;
 }
 
