@@ -49,12 +49,12 @@ export interface InterfaceWithDefaults extends Instance {
 
 export interface Options extends RequestOptions {
 	host: string;
-	hostname: string;
-	path: string;
-	socketPath: string;
-	protocol: string;
-	href: string;
-	options: Options;
+	hostname?: string;
+	path?: string;
+	socketPath?: string;
+	protocol?: string;
+	href?: string;
+	options?: Options;
 	hooks?: Partial<Hooks>;
 	decompress?: boolean;
 	encoding?: BufferEncoding | null;

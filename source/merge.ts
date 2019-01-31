@@ -3,7 +3,7 @@ import is from '@sindresorhus/is';
 import {Options, Method, NextFunction, Instance, InterfaceWithDefaults} from './utils/types';
 import knownHookEvents, {Hooks, HookType, HookEvent} from './known-hook-events';
 
-export default function merge(target: Options, ...sources: Options[]): Options {
+export default function merge(target: Partial<Options>, ...sources: Partial<Options>[]): Options {
 	for (const source of sources) {
 		for (const [key, sourceValue] of Object.entries(source)) {
 			if (is.undefined(sourceValue)) {
@@ -30,7 +30,7 @@ export default function merge(target: Options, ...sources: Options[]): Options {
 	return target;
 }
 
-export function mergeOptions(...sources: Options[]): Options {
+export function mergeOptions(...sources: Partial<Options>[]): Options {
 	sources = sources.map(source => source || {});
 	const merged = merge({}, ...sources);
 
