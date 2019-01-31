@@ -35,9 +35,9 @@ export interface Timings {
 }
 
 export interface Instance {
-	methods?: Method[];
-	options?: Options;
-	handler?: (options: Options, callback: NextFunction) => void;
+	methods: Method[];
+	options: Partial<Options> & { hooks: Partial<Hooks> };
+	handler: (options: Options, callback: NextFunction) => void;
 }
 
 export interface InterfaceWithDefaults extends Instance {
@@ -54,7 +54,7 @@ export interface Options extends RequestOptions {
 	socketPath?: string;
 	protocol?: string;
 	href?: string;
-	options?: Options;
+	options?: Partial<Options>;
 	hooks?: Partial<Hooks>;
 	decompress?: boolean;
 	encoding?: BufferEncoding | null;
