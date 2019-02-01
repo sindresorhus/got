@@ -3,7 +3,7 @@ import is from '@sindresorhus/is';
 import {Options, Method, NextFunction, Instance, InterfaceWithDefaults} from './utils/types';
 import knownHookEvents, {Hooks, HookType, HookEvent} from './known-hook-events';
 
-export default function merge(target: Options, ...sources: Options[]): Options {
+export default function merge<Target extends { [key: string]: unknown }, Source extends { [key: string]: unknown }>(target: Target, ...sources: Source[]): Target & Source {
 	for (const source of sources) {
 		for (const [key, sourceValue] of Object.entries(source)) {
 			if (is.undefined(sourceValue)) {
@@ -15,9 +15,9 @@ export default function merge(target: Options, ...sources: Options[]): Options {
 				target[key] = new URL(sourceValue as string, targetValue);
 			} else if (is.plainObject(sourceValue)) {
 				if (is.plainObject(targetValue)) {
-					target[key] = merge({}, targetValue as Options, sourceValue as Options);
+					target[key] = merge({}, targetValue as { [key: string]: unknown }, sourceValue as { [key: string]: unknown });
 				} else {
-					target[key] = merge({}, sourceValue as Options);
+					target[key] = merge({}, sourceValue as { [key: string]: unknown });
 				}
 			} else if (is.array(sourceValue)) {
 				target[key] = merge([], sourceValue);
@@ -27,10 +27,10 @@ export default function merge(target: Options, ...sources: Options[]): Options {
 		}
 	}
 
-	return target;
+	return target as Target & Source;
 }
 
-export function mergeOptions(...sources: Options[]): Options {
+export function mergeOptions(...sources: Partial<Options>[]): Partial<Options> & { hooks: Partial<Hooks> } {
 	sources = sources.map(source => source || {});
 	const merged = merge({}, ...sources);
 
@@ -54,7 +54,7 @@ export function mergeOptions(...sources: Options[]): Options {
 
 	merged.hooks = hooks as Hooks;
 
-	return merged;
+	return merged as Partial<Options> & { hooks: Partial<Hooks> };
 }
 
 export function mergeInstances(instances: InterfaceWithDefaults[], methods: Method[]): Instance {

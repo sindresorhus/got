@@ -9,10 +9,35 @@ export type NextFunction = (error?: Error | string) => void;
 
 export type IterateFunction = (options: Options) => void;
 
+export interface Response extends IncomingMessage {
+	body: string | Buffer;
+	statusCode: number;
+}
+
+export interface Timings {
+	start: number;
+	socket: number | null;
+	lookup: number | null;
+	connect: number | null;
+	upload: number | null;
+	response: number | null;
+	end: number | null;
+	error: number | null;
+	phases: {
+		wait: number | null;
+		dns: number | null;
+		tcp: number | null;
+		request: number | null;
+		firstByte: number | null;
+		download: number | null;
+		total: number | null;
+	};
+}
+
 export interface Instance {
-	methods?: Method[];
-	options?: Options;
-	handler?: (options: Options, callback: NextFunction) => void;
+	methods: Method[];
+	options: Partial<Options>;
+	handler: (options: Options, callback: NextFunction) => void;
 }
 
 export interface InterfaceWithDefaults extends Instance {
@@ -23,6 +48,13 @@ export interface InterfaceWithDefaults extends Instance {
 }
 
 export interface Options extends RequestOptions {
+	host: string;
+	hostname?: string;
+	path?: string;
+	socketPath?: string;
+	protocol?: string;
+	href?: string;
+	options?: Partial<Options>;
 	hooks?: Partial<Hooks>;
 	decompress?: boolean;
 	encoding?: BufferEncoding | null;
