@@ -1,7 +1,7 @@
 /* eslint-disable node/no-deprecated-api */
 import url from 'url';
 import test from 'ava';
-import urlToOptions from '../dist/utils/url-to-options';
+import urlToOptions from '../source/utils/url-to-options';
 
 test('converts node legacy URL to options', t => {
 	const exampleURL = 'https://user:password@github.com:443/say?hello=world#bang';

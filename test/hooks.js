@@ -1,8 +1,8 @@
 import test from 'ava';
 import delay from 'delay';
 import getStream from 'get-stream';
+import got from '../source';
 import {createServer} from './helpers/server';
-import got from '..';
 
 const errorString = 'oops';
 const error = new Error(errorString);

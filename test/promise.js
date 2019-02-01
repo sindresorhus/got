@@ -1,8 +1,8 @@
 import {ClientRequest} from 'http';
 import {Transform} from 'stream';
 import test from 'ava';
+import got from '../source';
 import {createServer} from './helpers/server';
-import got from '..';
 
 let s;
 

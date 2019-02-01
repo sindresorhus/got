@@ -2,7 +2,7 @@ import http from 'http';
 import test from 'ava';
 import getStream from 'get-stream';
 import proxyquire from 'proxyquire';
-import got from '../dist';
+import got from '../source';
 import {createServer} from './helpers/server';
 
 let s;
@@ -166,7 +166,7 @@ test('catch error in mimicResponse', async t => {
 
 	mimicResponse['@global'] = true;
 
-	const proxiedGot = proxyquire('..', {
+	const proxiedGot = proxyquire('../source', {
 		'mimic-response': mimicResponse
 	});
 

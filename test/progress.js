@@ -7,7 +7,7 @@ import FormData from 'form-data';
 import tempfile from 'tempfile';
 import is from '@sindresorhus/is';
 import test from 'ava';
-import got from '../dist';
+import got from '../source';
 import {createServer} from './helpers/server';
 
 const checkEvents = (t, events, bodySize = undefined) => {

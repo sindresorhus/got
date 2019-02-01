@@ -1,5 +1,5 @@
 import test from 'ava';
-import got from '../dist';
+import got from '../source';
 
 // TODO: Use `getActiveResources()` instead when it's out:
 // https://github.com/nodejs/node/pull/21453

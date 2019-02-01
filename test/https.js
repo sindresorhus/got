@@ -1,5 +1,5 @@
 import test from 'ava';
-import got from '../dist';
+import got from '../source';
 import {createSSLServer} from './helpers/server';
 
 let s;

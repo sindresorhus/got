@@ -1,6 +1,6 @@
 import {URLSearchParams} from 'url';
 import test from 'ava';
-import got from '../dist';
+import got from '../source';
 import {createServer} from './helpers/server';
 
 // TODO: Remove this file before the Got v11 release together with completely removing the `query` option

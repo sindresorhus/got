@@ -2,7 +2,7 @@ import {promisify} from 'util';
 import zlib from 'zlib';
 import test from 'ava';
 import getStream from 'get-stream';
-import got from '../dist';
+import got from '../source';
 import {createServer} from './helpers/server';
 
 const testContent = 'Compressible response content.\n';

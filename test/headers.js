@@ -3,8 +3,8 @@ import {promisify} from 'util';
 import path from 'path';
 import test from 'ava';
 import FormData from 'form-data';
-import got from '../dist';
-import supportsBrotli from '../dist/utils/supports-brotli';
+import got from '../source';
+import supportsBrotli from '../source/utils/supports-brotli';
 import pkg from '../package.json';
 import {createServer} from './helpers/server';
 
