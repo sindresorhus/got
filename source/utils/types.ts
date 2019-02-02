@@ -53,10 +53,7 @@ export interface InterfaceWithDefaults extends Instance {
 }
 
 interface RetryDescriptor {
-	// @todo Unsure of which types `retry` can be.
-	// Used `unknown` so anytime it'll be used, TS will complain and require a type assertion
-	// Maybe a maintainer can guide me here.
-	retries: (retry: unknown, error: Error) => number | number;
+	retries: (retry: number, error: Error) => number | number;
 }
 
 export interface Options extends RequestOptions {

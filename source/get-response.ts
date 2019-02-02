@@ -15,10 +15,6 @@ export default (response: IncomingMessage, options: Options, emitter: EventEmitt
 
 	mimicResponse(response, progressStream);
 
-	// @todo
-	// I believe this typings was slightly wrong because the way `response` is used in 
-	// `as-stream.ts::52` it requires a `statusCode` which `IncomingMessage` from node has.
-	// Maybe a maintainer can guide me a bit here.
 	const newResponse: Response = options.decompress === true &&
 		is.function_(decompressResponse) &&
 		options.method !== 'HEAD' ? decompressResponse(progressStream) : progressStream;
