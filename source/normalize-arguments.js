@@ -245,5 +245,6 @@ const normalize = (url, options, defaults) => {
 const reNormalize = options => normalize(urlLib.format(options), options);
 
 module.exports = normalize;
+module.exports.normalize= normalize;
 module.exports.preNormalize = preNormalize;
 module.exports.reNormalize = reNormalize;

@@ -3,7 +3,7 @@ import {RequestOptions} from 'https';
 import {PCancelable} from 'p-cancelable';
 import {Hooks} from '../known-hook-events';
 
-export type Method = 'GET' | 'PUT' | 'HEAD' | 'DELETE' | 'OPTIONS' | 'TRACE' | 'get' | 'put' | 'head' | 'delete' | 'options' | 'trace';
+export type Method = 'GET' | 'PUT' | 'POST' | 'PATCH' | 'HEAD' | 'DELETE' | 'OPTIONS' | 'TRACE' | 'get' | 'put' | 'post' | 'patch' | 'head' | 'delete' | 'options' | 'trace';
 
 export type NextFunction = (error?: Error | string) => void;
 
