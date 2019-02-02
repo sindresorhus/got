@@ -2,7 +2,12 @@
 const pkg = require('../package.json');
 const create = require('./create');
 
-const defaults = {
+// @todo
+// I exported this default to be able to infer typings from it.
+// I'm guessing this `defaults` is being merged with user options
+// so `as-stream` receives an object that has merged props.
+// Let's get a confirmation from a maintainer but I can also create an explicit typings for it.
+export const defaults = {
 	options: {
 		retry: {
 			retries: 2,

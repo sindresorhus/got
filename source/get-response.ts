@@ -1,8 +1,8 @@
 import {IncomingMessage} from 'http';
 import EventEmitter from 'events';
-import {Transform, PassThrough} from 'stream';
+import {Transform} from 'stream';
 import is from '@sindresorhus/is';
-import {Options} from './utils/types';
+import {Options, Response} from './utils/types';
 import {download} from './progress';
 
 const decompressResponse = require('decompress-response');
@@ -15,7 +15,11 @@ export default (response: IncomingMessage, options: Options, emitter: EventEmitt
 
 	mimicResponse(response, progressStream);
 
-	const newResponse: PassThrough | Transform = options.decompress === true &&
+	// @todo
+	// I believe this typings was slightly wrong because the way `response` is used in 
+	// `as-stream.ts::52` it requires a `statusCode` which `IncomingMessage` from node has.
+	// Maybe a maintainer can guide me a bit here.
+	const newResponse: Response = options.decompress === true &&
 		is.function_(decompressResponse) &&
 		options.method !== 'HEAD' ? decompressResponse(progressStream) : progressStream;
 
