@@ -4,7 +4,7 @@ import {Readable} from 'stream';
 import {EventEmitter} from 'events';
 import {PCancelable} from 'p-cancelable';
 import {Hooks} from '../known-hook-events';
-import {defaults} from '../index';
+import {defaults} from '..';
 
 export type Method = 'GET' | 'PUT' | 'HEAD' | 'DELETE' | 'OPTIONS' | 'TRACE' | 'get' | 'put' | 'head' | 'delete' | 'options' | 'trace';
 
