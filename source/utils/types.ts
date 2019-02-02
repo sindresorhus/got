@@ -53,7 +53,7 @@ export interface InterfaceWithDefaults extends Instance {
 }
 
 interface RetryDescriptor {
-	retries: (retry: number, error: Error) => number | number;
+	retries: ((retry: number, error: Error) => number) | number;
 }
 
 export interface Options extends RequestOptions {
