@@ -1,14 +1,14 @@
 'use strict';
-const errors = require('./errors');
-const asStream = require('./as-stream');
-const asPromise = require('./as-promise');
-const normalizeArguments = require('./normalize-arguments');
-const {default: merge, mergeOptions, mergeInstances} = require('./merge');
-const deepFreeze = require('./utils/deep-freeze').default;
+import * as errors from './errors';
+import * as  asStream  from './as-stream';
+import * as asPromise from './as-promise';
+import * as normalizeArguments from './normalize-arguments';
+import merge, { mergeOptions, mergeInstances} from './merge';
+import deepFreeze from './utils/deep-freeze';
 
-const getPromiseOrStream = options => options.stream ? asStream(options) : asPromise(options);
+const getPromiseOrStream = ( options : any ) => options.stream ? asStream(options) : asPromise(options);
 
-const aliases = [
+const aliases :  = [
 	'get',
 	'post',
 	'put',
@@ -67,7 +67,7 @@ const create = defaults => {
 
 	Object.assign(got, {...errors, mergeOptions});
 	Object.defineProperty(got, 'defaults', {
-		value: defaults.mutableDefaults ? defaults : deepFreeze(defaults),
+		value: defaults.mutableDefaults ? defaults : deepFreeze.default(defaults),
 		writable: defaults.mutableDefaults,
 		configurable: defaults.mutableDefaults,
 		enumerable: true
