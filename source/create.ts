@@ -1,9 +1,9 @@
 'use strict';
 import {URL} from 'url';
-import * as errors from './errors';
-import * as  asStream  from './as-stream';
-import * as asPromise from './as-promise';
-import * as normalizeArguments from './normalize-arguments';
+import errors from './errors';
+import asStream from './as-stream';
+import asPromise from './as-promise';
+import {normalize, preNormalize} from './normalize-arguments';
 import merge, { mergeOptions, mergeInstances} from './merge';
 import deepFreeze from './utils/deep-freeze';
 import { InterfaceWithDefaults, Method, Options, NextFunction } from './utils/types';
@@ -21,7 +21,7 @@ const aliases : Method[]  = [
 
 const create = (defaults : any) => {
 	defaults = merge({}, defaults);
-	normalizeArguments.preNormalize(defaults.options);
+	preNormalize(defaults.options);
 
 	if (!defaults.handler) {
 		// This can't be getPromiseOrStream, because when merging
@@ -31,7 +31,7 @@ const create = (defaults : any) => {
 
 	function got(url: URL, options: Options) {
 		try {
-			return defaults.handler(normalizeArguments.normalize(url, options, defaults), getPromiseOrStream);
+			return defaults.handler(normalize(url, options, defaults), getPromiseOrStream);
 		} catch (error) {
 			if (options && options.stream) {
 				throw error;
