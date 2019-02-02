@@ -3,7 +3,7 @@ import {URL} from 'url';
 import errors from './errors';
 import asStream from './as-stream';
 import asPromise from './as-promise';
-import {normalize, preNormalize} from './normalize-arguments';
+import { normalize, preNormalize } from './normalize-arguments';
 import merge, { mergeOptions, mergeInstances} from './merge';
 import deepFreeze from './utils/deep-freeze';
 import { InterfaceWithDefaults, Method, Options, NextFunction } from './utils/types';
