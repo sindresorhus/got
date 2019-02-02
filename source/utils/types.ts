@@ -12,7 +12,7 @@ export type NextFunction = (error?: Error | string) => void;
 
 export type IterateFunction = (options: Options) => void;
 
-export type Defaults = typeof defaults
+export type Defaults = typeof defaults;
 
 export interface Response extends IncomingMessage {
 	body: string | Buffer;
