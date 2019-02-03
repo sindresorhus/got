@@ -9,9 +9,8 @@
 		"node": ">=8.6"
 	},
 	"scripts": {
-		"test": "npm run lint && nyc ava --timeout=1m",
+		"test": "xo && nyc ava",
 		"release": "np",
-		"lint": "xo && tslint --format stylish --project .",
 		"build": "del-cli dist && tsc",
 		"prepublishOnly": "npm run build"
 	},
@@ -74,8 +73,6 @@
 		"tempy": "^0.2.1",
 		"tough-cookie": "^3.0.0",
 		"ts-node": "^8.0.2",
-		"tslint": "^5.12.1",
-		"tslint-xo": "^0.13.0",
 		"typescript": "^3.2.2",
 		"xo": "^0.24.0"
 	},
@@ -85,6 +82,7 @@
 	},
 	"ava": {
 		"concurrency": 4,
+		"timeout": "1m",
 		"babel": false,
 		"compileEnhancements": false,
 		"extensions": [
