@@ -115,8 +115,8 @@ const normalize = (url, options, defaults) => {
 
 	if (is.string(url)) {
 		if (options.baseUrl) {
-			if (url.toString().startsWith('/')) {
-				url = url.toString().slice(1);
+			if (url.startsWith('/')) {
+				url = url.slice(1);
 			}
 		} else {
 			url = url.replace(/^unix:/, 'http://$&');
