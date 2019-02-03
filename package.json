@@ -95,6 +95,11 @@
 			"ts-node/register"
 		]
 	},
+	"nyc": {
+		"extension": [
+			".ts"
+		]
+	},
 	"xo": {
 		"extends": "xo-typescript",
 		"extensions": [
