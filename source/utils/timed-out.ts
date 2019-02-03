@@ -99,7 +99,7 @@ export default (request: ClientRequest, delays: Delays, options: any) => {
 
 	if (delays.socket !== undefined) {
 		const socketTimeoutHandler = (): void => {
-			timeoutHandler(delays.socket as number, 'socket');
+			timeoutHandler(delays.socket!, 'socket');
 		};
 
 		request.setTimeout(delays.socket, socketTimeoutHandler);
@@ -118,12 +118,12 @@ export default (request: ClientRequest, delays: Delays, options: any) => {
 		/* istanbul ignore next: hard to test */
 		if (socket.connecting) {
 			if (delays.lookup !== undefined && !socketPath && !net.isIP(hostname || host)) {
-				const cancelTimeout = addTimeout(delays.lookup as number, timeoutHandler, 'lookup');
+				const cancelTimeout = addTimeout(delays.lookup, timeoutHandler, 'lookup');
 				socket.once('lookup', cancelTimeout);
 			}
 
 			if (delays.connect !== undefined) {
-				const timeConnect = () => addTimeout(delays.connect as number, timeoutHandler, 'connect');
+				const timeConnect = () => addTimeout(delays.connect!, timeoutHandler, 'connect');
 
 				if (socketPath || net.isIP(hostname || host)) {
 					socket.once('connect', timeConnect());
@@ -138,14 +138,14 @@ export default (request: ClientRequest, delays: Delays, options: any) => {
 
 			if (delays.secureConnect !== undefined && options.protocol === 'https:') {
 				socket.once('connect', (): void => {
-					const cancelTimeout = addTimeout(delays.secureConnect as number, timeoutHandler, 'secureConnect');
+					const cancelTimeout = addTimeout(delays.secureConnect!, timeoutHandler, 'secureConnect');
 					socket.once('secureConnect', cancelTimeout);
 				});
 			}
 		}
 
 		if (delays.send !== undefined) {
-			const timeRequest = () => addTimeout(delays.send as number, timeoutHandler, 'send');
+			const timeRequest = () => addTimeout(delays.send!, timeoutHandler, 'send');
 			/* istanbul ignore next: hard to test */
 			if (socket.connecting) {
 				socket.once('connect', (): void => {
@@ -159,7 +159,7 @@ export default (request: ClientRequest, delays: Delays, options: any) => {
 
 	if (delays.response !== undefined) {
 		request.once('upload-complete', (): void => {
-			const cancelTimeout = addTimeout(delays.response as number, timeoutHandler, 'response');
+			const cancelTimeout = addTimeout(delays.response!, timeoutHandler, 'response');
 			request.once('response', cancelTimeout);
 		});
 	}

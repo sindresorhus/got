@@ -38,7 +38,7 @@
 		"brotli"
 	],
 	"dependencies": {
-		"@sindresorhus/is": "^0.14.0",
+		"@sindresorhus/is": "^0.15.0",
 		"@szmarczak/http-timer": "^1.1.2",
 		"@types/p-cancelable": "^1.0.0",
 		"cacheable-request": "^6.0.0",
@@ -55,12 +55,12 @@
 		"@sindresorhus/tsconfig": "^0.2.0",
 		"@types/node": "^10.12.18",
 		"@types/p-cancelable": "^1.0.0",
-		"@typescript-eslint/eslint-plugin": "1.1.0",
+		"@typescript-eslint/eslint-plugin": "1.2.0",
 		"ava": "^1.1.0",
 		"coveralls": "^3.0.0",
 		"del-cli": "^1.1.0",
 		"delay": "^4.1.0",
-		"eslint-config-xo-typescript": "^0.6.0",
+		"eslint-config-xo-typescript": "^0.7.0",
 		"form-data": "^2.3.3",
 		"get-port": "^4.0.0",
 		"np": "^4.0.2",

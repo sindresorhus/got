@@ -3,7 +3,7 @@ import is from '@sindresorhus/is';
 import {Options, Method, NextFunction, Instance, InterfaceWithDefaults} from './utils/types';
 import knownHookEvents, {Hooks, HookType, HookEvent} from './known-hook-events';
 
-export default function merge<Target extends { [key: string]: unknown }, Source extends { [key: string]: unknown }>(target: Target, ...sources: Source[]): Target & Source {
+export default function merge<Target extends {[key: string]: unknown}, Source extends {[key: string]: unknown}>(target: Target, ...sources: Source[]): Target & Source {
 	for (const source of sources) {
 		for (const [key, sourceValue] of Object.entries(source)) {
 			if (is.undefined(sourceValue)) {
@@ -15,9 +15,9 @@ export default function merge<Target extends { [key: string]: unknown }, Source 
 				target[key] = new URL(sourceValue as string, targetValue);
 			} else if (is.plainObject(sourceValue)) {
 				if (is.plainObject(targetValue)) {
-					target[key] = merge({}, targetValue as { [key: string]: unknown }, sourceValue as { [key: string]: unknown });
+					target[key] = merge({}, targetValue, sourceValue);
 				} else {
-					target[key] = merge({}, sourceValue as { [key: string]: unknown });
+					target[key] = merge({}, sourceValue);
 				}
 			} else if (is.array(sourceValue)) {
 				target[key] = merge([], sourceValue);
@@ -30,7 +30,7 @@ export default function merge<Target extends { [key: string]: unknown }, Source 
 	return target as Target & Source;
 }
 
-export function mergeOptions(...sources: Partial<Options>[]): Partial<Options> & { hooks: Partial<Hooks> } {
+export function mergeOptions(...sources: Partial<Options>[]): Partial<Options> & {hooks: Partial<Hooks>} {
 	sources = sources.map(source => source || {});
 	const merged = merge({}, ...sources);
 
@@ -39,7 +39,7 @@ export function mergeOptions(...sources: Partial<Options>[]): Partial<Options> &
 	//       put them into the object upon initialization, because it cannot infer
 	//       that they are going to conform correctly in runtime.
 	// eslint-disable-next-line @typescript-eslint/no-object-literal-type-assertion
-	const hooks = {} as { [Key in HookEvent]: HookType[] };
+	const hooks = {} as {[Key in HookEvent]: HookType[]};
 	for (const hook of knownHookEvents) {
 		hooks[hook] = [];
 	}
@@ -54,7 +54,7 @@ export function mergeOptions(...sources: Partial<Options>[]): Partial<Options> &
 
 	merged.hooks = hooks as Hooks;
 
-	return merged as Partial<Options> & { hooks: Partial<Hooks> };
+	return merged as Partial<Options> & {hooks: Partial<Hooks>};
 }
 
 export function mergeInstances(instances: InterfaceWithDefaults[], methods: Method[]): Instance {
