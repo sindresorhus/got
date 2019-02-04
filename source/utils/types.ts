@@ -57,7 +57,7 @@ interface RetryDescriptor {
 }
 
 export interface MergedOptions extends Options {
-	retry: RetryDescriptor
+	retry: RetryDescriptor;
 }
 
 export interface Options extends RequestOptions {
@@ -82,7 +82,6 @@ export interface Options extends RequestOptions {
 export interface RequestEmitter extends EventEmitter {
 	abort: () => void;
 }
-
 
 export interface CancelableRequest<T extends IncomingMessage> extends PCancelable<T> {
 	on(name: string, listener: () => void): CancelableRequest<T>;
