@@ -4,15 +4,12 @@ import {Readable} from 'stream';
 import {EventEmitter} from 'events';
 import {PCancelable} from 'p-cancelable';
 import {Hooks} from '../known-hook-events';
-import {defaults} from '..';
 
 export type Method = 'GET' | 'PUT' | 'HEAD' | 'DELETE' | 'OPTIONS' | 'TRACE' | 'get' | 'put' | 'head' | 'delete' | 'options' | 'trace';
 
 export type NextFunction = (error?: Error | string) => void;
 
 export type IterateFunction = (options: Options) => void;
-
-export type Defaults = typeof defaults;
 
 export interface Response extends IncomingMessage {
 	body: string | Buffer;
@@ -54,6 +51,13 @@ export interface InterfaceWithDefaults extends Instance {
 
 interface RetryDescriptor {
 	retries: ((retry: number, error: Error) => number) | number;
+	methods: Method[];
+	statusCodes: number[];
+	errorCodes: string[];
+}
+
+export interface MergedOptions extends Options {
+	retry: RetryDescriptor
 }
 
 export interface Options extends RequestOptions {
@@ -69,7 +73,7 @@ export interface Options extends RequestOptions {
 	decompress?: boolean;
 	encoding?: BufferEncoding | null;
 	method?: Method;
-	retry?: RetryDescriptor; // @todo Documentation says this might be a number, need to confirm from a maintainer.
+	retry?: RetryDescriptor;
 	throwHttpErrors?: boolean;
 	// TODO: Remove this once TS migration is complete and all options are defined.
 	[key: string]: unknown;

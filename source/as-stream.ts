@@ -4,18 +4,15 @@ import {PassThrough} from 'stream';
 import duplexer3 from 'duplexer3';
 import requestAsEventEmitter from './request-as-event-emitter';
 import {HTTPError, ReadError} from './errors';
-import {Options, Response, Defaults, RequestEmitter} from './utils/types';
+import {MergedOptions, Response, RequestEmitter} from './utils/types';
 
-module.exports = (options: Options & Defaults['options']) => {
+module.exports = (options: MergedOptions) => {
 	const input = new PassThrough();
 	const output = new PassThrough();
 	const proxy = duplexer3(input, output);
 	const piped = new Set();
 	let isFinished = false;
 
-	// @todo
-	// RetryDescriptor#retries looks like it could be either a number (according to `defaults`) or a function
-	// that returns a number. Once confirmed with maintainers, this could be a bug or a bad typing on my end.
 	options.retry.retries = () => 0;
 
 	if (options.body) {
