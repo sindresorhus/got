@@ -497,7 +497,7 @@ const got = require('got');
 
 got('https://api.github.com/some-endpoint', {
 	hooks: {
-		onError: [
+		beforeError: [
 			error => {
 				const {response} = error;
  				if (response && response.body) {
