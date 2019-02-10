@@ -76,6 +76,7 @@
 		"typescript": "^3.3.3",
 		"xo": "^0.24.0"
 	},
+	"types": "dist",
 	"browser": {
 		"decompress-response": false,
 		"electron": false
