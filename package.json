@@ -54,12 +54,12 @@
 		"@sindresorhus/tsconfig": "^0.2.0",
 		"@types/node": "^10.12.18",
 		"@types/p-cancelable": "^1.0.0",
-		"@typescript-eslint/eslint-plugin": "1.2.0",
+		"@typescript-eslint/eslint-plugin": "1.3.0",
 		"ava": "^1.1.0",
 		"coveralls": "^3.0.0",
 		"del-cli": "^1.1.0",
 		"delay": "^4.1.0",
-		"eslint-config-xo-typescript": "^0.7.0",
+		"eslint-config-xo-typescript": "^0.8.0",
 		"form-data": "^2.3.3",
 		"get-port": "^4.0.0",
 		"np": "^4.0.2",
@@ -73,7 +73,7 @@
 		"tempy": "^0.2.1",
 		"tough-cookie": "^3.0.0",
 		"ts-node": "^8.0.2",
-		"typescript": "^3.2.2",
+		"typescript": "^3.3.3",
 		"xo": "^0.24.0"
 	},
 	"browser": {
@@ -108,7 +108,10 @@
 			"import/no-unresolved": "off",
 			"@typescript-eslint/no-var-requires": "off",
 			"@typescript-eslint/explicit-function-return-type": "off",
-			"@typescript-eslint/restrict-plus-operands": "off"
+			"@typescript-eslint/restrict-plus-operands": "off",
+			"@typescript-eslint/no-require-imports": "off",
+			"@typescript-eslint/no-unnecessary-type-assertion": "off",
+			"@typescript-eslint/promise-function-async": "off"
 		}
 	}
 }
