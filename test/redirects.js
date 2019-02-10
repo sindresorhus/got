@@ -38,6 +38,13 @@ test.before('setup', async () => {
 		response.end();
 	});
 
+	http.on('/to-port-80', (request, response) => {
+		response.writeHead(307, {
+			location: 'http://localhost'
+		});
+		response.end();
+	});
+
 	http.on('/utf8-url-áé', reached);
 	http.on('/?test=it’s+ok', reached);
 
@@ -218,4 +225,17 @@ test('throws on malformed redirect URI', async t => {
 test('throws on invalid redirect URL', async t => {
 	const error = await t.throwsAsync(got(`${http.url}/invalidRedirect`));
 	t.is(error.code, 'ERR_INVALID_URL');
+});
+
+test('port is reset on redirect', async t => {
+	const s = await createServer();
+	s.on('/', (request, response) => {
+		response.end('ok');
+	});
+	await s.listen(80);
+
+	const {body} = await got(`${http.url}/to-port-80`);
+	t.is(body, 'ok');
+
+	await s.close();
 });

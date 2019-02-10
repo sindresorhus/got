@@ -138,6 +138,7 @@ module.exports = (options, input) => {
 
 						const redirectOptions = {
 							...options,
+							port: null,
 							...urlToOptions(redirectURL)
 						};
 
