@@ -7,7 +7,7 @@ import requestAsEventEmitter from './request-as-event-emitter';
 import {HTTPError, ReadError} from './errors';
 import {MergedOptions, Response} from './utils/types';
 
-module.exports = (options: MergedOptions) => {
+export default function asStream(options: MergedOptions) {
 	const input = new PassThrough();
 	const output = new PassThrough();
 	const proxy = duplexer3(input, output);
