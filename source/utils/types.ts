@@ -1,6 +1,6 @@
 import {IncomingMessage} from 'http';
 import {RequestOptions} from 'https';
-import {Readable} from 'stream';
+import {Readable as ReadableStream} from 'stream';
 import {PCancelable} from 'p-cancelable';
 import {Hooks} from '../known-hook-events';
 
@@ -64,7 +64,7 @@ export interface MergedOptions extends Options {
 
 export interface Options extends RequestOptions {
 	host: string;
-	body: string | Buffer | Readable;
+	body: string | Buffer | ReadableStream;
 	hostname?: string;
 	path?: string;
 	socketPath?: string;
