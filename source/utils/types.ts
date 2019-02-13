@@ -1,7 +1,6 @@
 import {IncomingMessage} from 'http';
 import {RequestOptions} from 'https';
 import {Readable} from 'stream';
-import {EventEmitter} from 'events';
 import {PCancelable} from 'p-cancelable';
 import {Hooks} from '../known-hook-events';
 
