@@ -79,10 +79,6 @@ export interface Options extends RequestOptions {
 	[key: string]: unknown;
 }
 
-export interface RequestEmitter extends EventEmitter {
-	abort: () => void;
-}
-
 export interface CancelableRequest<T extends IncomingMessage> extends PCancelable<T> {
 	on(name: string, listener: () => void): CancelableRequest<T>;
 	json(): CancelableRequest<T>;

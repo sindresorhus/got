@@ -1,10 +1,11 @@
 'use strict';
 
+import {ClientRequest} from 'http';
 import {PassThrough} from 'stream';
 import duplexer3 from 'duplexer3';
 import requestAsEventEmitter from './request-as-event-emitter';
 import {HTTPError, ReadError} from './errors';
-import {MergedOptions, Response, RequestEmitter} from './utils/types';
+import {MergedOptions, Response} from './utils/types';
 
 module.exports = (options: MergedOptions) => {
 	const input = new PassThrough();
@@ -21,7 +22,7 @@ module.exports = (options: MergedOptions) => {
 		};
 	}
 
-	const emitter = requestAsEventEmitter(options, input) as RequestEmitter;
+	const emitter = requestAsEventEmitter(options, input) as ClientRequest;
 
 	// Cancels the request
 	proxy._destroy = emitter.abort;
