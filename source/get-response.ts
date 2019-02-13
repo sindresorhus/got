@@ -1,6 +1,6 @@
 import {IncomingMessage} from 'http';
 import EventEmitter from 'events';
-import {Transform} from 'stream';
+import {Transform as TransformStream} from 'stream';
 import is from '@sindresorhus/is';
 import {Options, Response} from './utils/types';
 import {download} from './progress';
@@ -11,7 +11,7 @@ const mimicResponse = require('mimic-response');
 export default (response: IncomingMessage, options: Options, emitter: EventEmitter) => {
 	const downloadBodySize = Number(response.headers['content-length']) || undefined;
 
-	const progressStream: Transform = download(response, emitter, downloadBodySize);
+	const progressStream: TransformStream = download(response, emitter, downloadBodySize);
 
 	mimicResponse(response, progressStream);
 
