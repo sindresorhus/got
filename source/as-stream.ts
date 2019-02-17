@@ -1,5 +1,3 @@
-'use strict';
-
 import {ClientRequest} from 'http';
 import {PassThrough} from 'stream';
 import duplexer3 from 'duplexer3';
