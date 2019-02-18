@@ -1,9 +1,12 @@
 import {IncomingMessage} from 'http';
 import {RequestOptions} from 'https';
+import {Readable as ReadableStream} from 'stream';
 import {PCancelable} from 'p-cancelable';
 import {Hooks} from '../known-hook-events';
 
 export type Method = 'GET' | 'PUT' | 'HEAD' | 'DELETE' | 'OPTIONS' | 'TRACE' | 'get' | 'put' | 'head' | 'delete' | 'options' | 'trace';
+export type ErrorCode = 'ETIMEDOUT' | 'ECONNRESET' | 'EADDRINUSE' | 'ECONNREFUSED' | 'EPIPE' | 'ENOTFOUND' | 'ENETUNREACH' | 'EAI_AGAIN';
+export type StatusCode = 408 | 413 | 429 | 500 | 502 | 503 | 504;
 
 export type NextFunction = (error?: Error | string) => void;
 
@@ -47,8 +50,21 @@ export interface InterfaceWithDefaults extends Instance {
 	};
 }
 
+interface RetryOption {
+	retries?: ((retry: number, error: Error) => number) | number;
+	methods?: Method[];
+	statusCodes?: StatusCode[];
+	maxRetryAfter?: number;
+	errorCodes?: ErrorCode[];
+}
+
+export interface MergedOptions extends Options {
+	retry: RetryOption;
+}
+
 export interface Options extends RequestOptions {
 	host: string;
+	body: string | Buffer | ReadableStream;
 	hostname?: string;
 	path?: string;
 	socketPath?: string;
@@ -59,6 +75,8 @@ export interface Options extends RequestOptions {
 	decompress?: boolean;
 	encoding?: BufferEncoding | null;
 	method?: Method;
+	retry?: number | RetryOption;
+	throwHttpErrors?: boolean;
 	// TODO: Remove this once TS migration is complete and all options are defined.
 	[key: string]: unknown;
 }

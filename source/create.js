@@ -1,6 +1,6 @@
 'use strict';
 const errors = require('./errors');
-const asStream = require('./as-stream');
+const asStream = require('./as-stream').default;
 const asPromise = require('./as-promise');
 const normalizeArguments = require('./normalize-arguments');
 const {default: merge, mergeOptions, mergeInstances} = require('./merge');

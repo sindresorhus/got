@@ -1,10 +1,11 @@
-'use strict';
-const {PassThrough} = require('stream');
-const duplexer3 = require('duplexer3');
-const requestAsEventEmitter = require('./request-as-event-emitter');
-const {HTTPError, ReadError} = require('./errors');
+import {ClientRequest} from 'http';
+import {PassThrough} from 'stream';
+import duplexer3 from 'duplexer3';
+import requestAsEventEmitter from './request-as-event-emitter';
+import {HTTPError, ReadError} from './errors';
+import {MergedOptions, Response} from './utils/types';
 
-module.exports = options => {
+export default function asStream(options: MergedOptions) {
 	const input = new PassThrough();
 	const output = new PassThrough();
 	const proxy = duplexer3(input, output);
@@ -19,12 +20,12 @@ module.exports = options => {
 		};
 	}
 
-	const emitter = requestAsEventEmitter(options, input);
+	const emitter = requestAsEventEmitter(options, input) as ClientRequest;
 
 	// Cancels the request
 	proxy._destroy = emitter.abort;
 
-	emitter.on('response', response => {
+	emitter.on('response', (response: Response) => {
 		const {statusCode} = response;
 
 		response.on('error', error => {
@@ -90,4 +91,4 @@ module.exports = options => {
 	};
 
 	return proxy;
-};
+}

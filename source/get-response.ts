@@ -1,8 +1,8 @@
 import {IncomingMessage} from 'http';
 import EventEmitter from 'events';
-import {Transform, PassThrough} from 'stream';
+import {Transform as TransformStream} from 'stream';
 import is from '@sindresorhus/is';
-import {Options} from './utils/types';
+import {Options, Response} from './utils/types';
 import {download} from './progress';
 
 const decompressResponse = require('decompress-response');
@@ -11,11 +11,11 @@ const mimicResponse = require('mimic-response');
 export default (response: IncomingMessage, options: Options, emitter: EventEmitter) => {
 	const downloadBodySize = Number(response.headers['content-length']) || undefined;
 
-	const progressStream: Transform = download(response, emitter, downloadBodySize);
+	const progressStream: TransformStream = download(response, emitter, downloadBodySize);
 
 	mimicResponse(response, progressStream);
 
-	const newResponse: PassThrough | Transform = options.decompress === true &&
+	const newResponse: Response = options.decompress === true &&
 		is.function_(decompressResponse) &&
 		options.method !== 'HEAD' ? decompressResponse(progressStream) : progressStream;
 
