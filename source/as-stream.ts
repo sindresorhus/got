@@ -91,4 +91,4 @@ export default function asStream(options: MergedOptions) {
 	};
 
 	return proxy;
-};
+}
