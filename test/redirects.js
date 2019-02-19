@@ -1,5 +1,6 @@
 import {URL} from 'url';
 import test from 'ava';
+import nock from 'nock';
 import got from '../source';
 import {createServer, createSSLServer} from './helpers/server';
 
@@ -218,4 +219,22 @@ test('throws on malformed redirect URI', async t => {
 test('throws on invalid redirect URL', async t => {
 	const error = await t.throwsAsync(got(`${http.url}/invalidRedirect`));
 	t.is(error.code, 'ERR_INVALID_URL');
+});
+
+test('port is reset on redirect', async t => {
+	const server = await createServer();
+	server.on('/', (request, response) => {
+		response.writeHead(307, {
+			location: 'http://localhost'
+		});
+		response.end();
+	});
+	await server.listen(server.port);
+
+	nock('http://localhost').get('/').reply(200, 'ok');
+
+	const {body} = await got(server.url);
+	t.is(body, 'ok');
+
+	await server.close();
 });

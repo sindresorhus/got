@@ -63,6 +63,7 @@
 		"eslint-config-xo-typescript": "^0.8.0",
 		"form-data": "^2.3.3",
 		"get-port": "^4.0.0",
+		"nock": "^10.0.6",
 		"np": "^4.0.2",
 		"nyc": "^13.1.0",
 		"p-event": "^2.1.0",
