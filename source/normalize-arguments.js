@@ -1,6 +1,7 @@
 'use strict';
 const {URL, URLSearchParams} = require('url'); // TODO: Use the `URL` global when targeting Node.js 10
 const urlLib = require('url');
+const CacheableLookup = require('cacheable-lookup');
 const is = require('@sindresorhus/is');
 const lowercaseKeys = require('lowercase-keys');
 const urlToOptions = require('./utils/url-to-options').default;
@@ -91,6 +92,12 @@ const preNormalize = (options, defaults) => {
 
 	if (is.array(options.retry.errorCodes)) {
 		options.retry.errorCodes = new Set(options.retry.errorCodes);
+	}
+
+	if (options.dnsCache) {
+		const cacheableLookup = new CacheableLookup({cacheAdapter: options.dnsCache});
+		options.lookup = cacheableLookup.lookup;
+		delete options.dnsCache;
 	}
 
 	return options;

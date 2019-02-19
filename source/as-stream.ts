@@ -76,13 +76,13 @@ export default function asStream(options: MergedOptions) {
 			throw new Error('Failed to pipe. The response has been emitted already.');
 		}
 
-		const result = pipe(destination, options);
+		pipe(destination, options);
 
 		if (Reflect.has(destination, 'setHeader')) {
 			piped.add(destination);
 		}
 
-		return result;
+		return destination;
 	};
 
 	proxy.unpipe = stream => {

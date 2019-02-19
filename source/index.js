@@ -48,6 +48,7 @@ const defaults = {
 		followRedirect: true,
 		stream: false,
 		cache: false,
+		dnsCache: false,
 		useElectronNet: false,
 		responseType: 'text',
 		resolveBodyOnly: false
