@@ -1,6 +1,7 @@
 'use strict';
 const EventEmitter = require('events');
 const getStream = require('get-stream');
+const pEvent = require('p-event');
 const is = require('@sindresorhus/is');
 const PCancelable = require('p-cancelable');
 const requestAsEventEmitter = require('./request-as-event-emitter');
@@ -8,8 +9,9 @@ const {HTTPError, ParseError, ReadError} = require('./errors');
 const {mergeOptions} = require('./merge');
 const {reNormalize} = require('./normalize-arguments');
 
-const asPromise = options => {
+const asPromise = () => {
 	const proxy = new EventEmitter();
+	let options = {};
 
 	const parseBody = response => {
 		if (options.responseType === 'json') {
@@ -21,7 +23,23 @@ const asPromise = options => {
 		}
 	};
 
-	const promise = new PCancelable((resolve, reject, onCancel) => {
+	const promise = new PCancelable(async (resolve, reject, onCancel) => {
+		try {
+			const receivedOptions = await pEvent(proxy, 'options');
+
+			if (promise.isCanceled) {
+				return;
+			}
+
+			options = {
+				...receivedOptions,
+				...options
+			};
+		} catch (error) {
+			reject(error);
+			return;
+		}
+
 		const emitter = requestAsEventEmitter(options);
 
 		onCancel(emitter.abort);
@@ -46,18 +64,18 @@ const asPromise = options => {
 			try {
 				for (const [index, hook] of Object.entries(options.hooks.afterResponse)) {
 					// eslint-disable-next-line no-await-in-loop
-					response = await hook(response, updatedOptions => {
-						updatedOptions = reNormalize(mergeOptions(options, {
+					response = await hook(response, async updatedOptions => {
+						updatedOptions = await reNormalize(mergeOptions(options, {
 							...updatedOptions,
 							retry: 0,
 							throwHttpErrors: false
 						}));
 
-						// Remove any further hooks for that request, because we we'll call them anyway.
-						// The loop continues. We don't want duplicates (asPromise recursion).
-						updatedOptions.hooks.afterResponse = options.hooks.afterResponse.slice(0, index);
+						// Remove called hooks from the array to avoid duplicates.
+						// It will continue iterating in the following instance.
+						updatedOptions.hooks.afterResponse.splice(0, index + 1);
 
-						return asPromise(updatedOptions);
+						return asPromise().emit('options', updatedOptions);
 					});
 				}
 			} catch (error) {
@@ -107,8 +125,13 @@ const asPromise = options => {
 		].forEach(event => emitter.on(event, (...args) => proxy.emit(event, ...args)));
 	});
 
-	promise.on = (name, fn) => {
-		proxy.on(name, fn);
+	promise.on = (...args) => {
+		proxy.on(...args);
+		return promise;
+	};
+
+	promise.emit = (...args) => {
+		proxy.emit(...args);
 		return promise;
 	};
 

@@ -41,7 +41,7 @@ test('works even if no default handler in the end', async t => {
 	});
 
 	const merged = got.mergeInstances(instanceA, instanceB);
-	await t.notThrows(() => merged(s.url));
+	await t.notThrowsAsync(() => merged(s.url));
 });
 
 test('merges default handlers & custom handlers', async t => {

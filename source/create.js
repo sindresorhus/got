@@ -6,8 +6,6 @@ const normalizeArguments = require('./normalize-arguments');
 const {default: merge, mergeOptions, mergeInstances} = require('./merge');
 const deepFreeze = require('./utils/deep-freeze').default;
 
-const getPromiseOrStream = options => options.stream ? asStream(options) : asPromise(options);
-
 const aliases = [
 	'get',
 	'post',
@@ -27,17 +25,21 @@ const create = defaults => {
 		defaults.handler = (options, next) => next(options);
 	}
 
-	function got(url, options) {
-		try {
-			return defaults.handler(normalizeArguments(url, options, defaults), getPromiseOrStream);
-		} catch (error) {
-			if (options && options.stream) {
-				throw error;
-			} else {
-				return Promise.reject(error);
+	const got = (url, options) => {
+		const promiseOrStream = options && options.stream ? asStream() : asPromise();
+		const finish = options => promiseOrStream.emit('options', options);
+
+		(async () => {
+			try {
+				const normalizedOptions = await normalizeArguments(url, options, defaults);
+				defaults.handler(normalizedOptions, finish);
+			} catch (error) {
+				promiseOrStream.emit('error', error);
 			}
-		}
-	}
+		})();
+
+		return promiseOrStream;
+	};
 
 	got.create = create;
 	got.extend = options => {

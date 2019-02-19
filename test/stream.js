@@ -43,8 +43,8 @@ test.after('cleanup', async () => {
 	await s.close();
 });
 
-test('options.responseType is ignored', t => {
-	t.notThrows(() => got.stream(s.url, {responseType: 'json'}));
+test('options.responseType is ignored', async t => {
+	await t.notThrowsAsync(getStream(got.stream(s.url, {responseType: 'json'})));
 });
 
 test('returns readable stream', async t => {
@@ -59,10 +59,11 @@ test('returns writeable stream', async t => {
 	t.is((await promise).toString(), 'wow');
 });
 
-test('throws on write to stream with body specified', t => {
-	t.throws(() => {
-		got.stream(s.url, {body: 'wow'}).end('wow');
-	}, 'Got\'s stream is not writable when the `body` option is used');
+test('throws on write to stream with body specified', async t => {
+	await t.throwsAsync(
+		getStream(got.stream(s.url, {body: 'wow'}).end('wow')),
+		'Got\'s stream is not writable when the `body` option is used'
+	);
 });
 
 test('have request event', async t => {

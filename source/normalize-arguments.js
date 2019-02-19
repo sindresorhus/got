@@ -96,7 +96,7 @@ const preNormalize = (options, defaults) => {
 	return options;
 };
 
-const normalize = (url, options, defaults) => {
+const normalize = async (url, options, defaults) => {
 	if (is.plainObject(url)) {
 		options = {...url, ...options};
 		url = options.url || {};
@@ -131,11 +131,8 @@ const normalize = (url, options, defaults) => {
 	options = merge({path: ''}, url, {protocol: url.protocol || 'https:'}, options);
 
 	for (const hook of options.hooks.init) {
-		const called = hook(options);
-
-		if (is.promise(called)) {
-			throw new TypeError('The `init` hook must be a synchronous function');
-		}
+		// eslint-disable-next-line no-await-in-loop
+		await hook(options);
 	}
 
 	const {baseUrl} = options;

@@ -387,8 +387,6 @@ Called with plain [request options](#options), right before their normalization.
 
 See the [Request migration guide](migration-guides.md#breaking-changes) for an example.
 
-**Note:** This hook must be synchronous!
-
 ###### hooks.beforeRequest
 
 Type: `Function[]`<br>

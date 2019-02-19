@@ -173,8 +173,8 @@ test('catch error in mimicResponse', async t => {
 	await t.throwsAsync(proxiedGot(s.url), {message: 'Error in mimic-response'});
 });
 
-test('errors are thrown directly when options.stream is true', t => {
-	t.throws(() => got(s.url, {stream: true, hooks: false}), {
+test('errors are thrown directly when options.stream is true', async t => {
+	await t.throwsAsync(getStream(got(s.url, {stream: true, hooks: false}), {
 		message: 'Parameter `hooks` must be an object, not boolean'
-	});
+	}));
 });

@@ -129,18 +129,18 @@ test('catches afterResponse thrown errors', async t => {
 	}), errorString);
 });
 
-test('throws a helpful error when passing async function as init hook', async t => {
-	await t.throwsAsync(() => got(s.url, {
-		hooks: {
-			init: [() => Promise.resolve()]
-		}
-	}), 'The `init` hook must be a synchronous function');
-});
-
 test('catches beforeRequest promise rejections', async t => {
 	await t.throwsAsync(() => got(s.url, {
 		hooks: {
 			beforeRequest: [() => Promise.reject(error)]
+		}
+	}), errorString);
+});
+
+test('catches init promise rejections', async t => {
+	await t.throwsAsync(() => got(`${s.url}/redirect`, {
+		hooks: {
+			init: [() => Promise.reject(error)]
 		}
 	}), errorString);
 });
