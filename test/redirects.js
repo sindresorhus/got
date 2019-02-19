@@ -1,5 +1,6 @@
 import {URL} from 'url';
 import test from 'ava';
+import nock from 'nock';
 import got from '../source';
 import {createServer, createSSLServer} from './helpers/server';
 
@@ -34,13 +35,6 @@ test.before('setup', async () => {
 	http.on('/finite', (request, response) => {
 		response.writeHead(302, {
 			location: `${http.url}/`
-		});
-		response.end();
-	});
-
-	http.on('/to-port-80', (request, response) => {
-		response.writeHead(307, {
-			location: 'http://localhost'
 		});
 		response.end();
 	});
@@ -228,14 +222,19 @@ test('throws on invalid redirect URL', async t => {
 });
 
 test('port is reset on redirect', async t => {
-	const s = await createServer();
-	s.on('/', (request, response) => {
-		response.end('ok');
+	const server = await createServer();
+	server.on('/', (request, response) => {
+		response.writeHead(307, {
+			location: 'http://localhost'
+		});
+		response.end();
 	});
-	await s.listen(80);
+	await server.listen(server.port);
 
-	const {body} = await got(`${http.url}/to-port-80`);
+	nock('http://localhost').get('/').reply(200, 'ok');
+
+	const {body} = await got(server.url);
 	t.is(body, 'ok');
 
-	await s.close();
+	await server.close();
 });
