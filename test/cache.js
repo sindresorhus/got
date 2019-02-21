@@ -144,7 +144,7 @@ test('doesn\'t cache response when received HTTP error', async t => {
 	t.deepEqual(body, 'ok');
 });
 
-test('dns cache works', async t => {
+test('DNS cache works', async t => {
 	const map = new Map();
 	await t.notThrowsAsync(got('https://example.com', {dnsCache: map}));
 
