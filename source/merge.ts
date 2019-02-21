@@ -1,4 +1,4 @@
-import {URL} from 'url';
+import {URL, URLSearchParams} from 'url';
 import is from '@sindresorhus/is';
 import {Options, Method, NextFunction, Instance, InterfaceWithDefaults} from './utils/types';
 import knownHookEvents, {Hooks, HookType, HookEvent} from './known-hook-events';
