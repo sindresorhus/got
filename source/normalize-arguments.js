@@ -206,8 +206,6 @@ const normalize = (url, options, defaults) => {
 
 	if (options.method) {
 		options.method = options.method.toUpperCase();
-	} else {
-		options.method = is.nullOrUndefined(options.body) ? 'GET' : 'POST';
 	}
 
 	if (!is.function(options.retry.retries)) {

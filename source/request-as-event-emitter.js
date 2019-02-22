@@ -312,6 +312,10 @@ module.exports = (options, input) => {
 				options.body = JSON.stringify(options.json);
 			}
 
+			if (!options.method) {
+				options.method = is.nullOrUndefined(options.body) ? 'GET' : 'POST';
+			}
+
 			// Convert buffer to stream to receive upload progress events (#322)
 			if (is.buffer(body)) {
 				options.body = toReadableStream(body);

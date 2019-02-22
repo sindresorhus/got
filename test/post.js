@@ -141,3 +141,8 @@ test('content-type header is not overriden when object in options.body', async t
 test('throws when form body is not a plain object or array', async t => {
 	await t.throwsAsync(got(`${s.url}`, {form: 'such=wow'}), TypeError);
 });
+
+test('setting JSON will default to POST', async t => {
+	const {headers} = await got(s.url, {json: {foo: 'bar'}});
+	t.is(headers.method, 'POST');
+});
