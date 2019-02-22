@@ -39,6 +39,7 @@
 	"dependencies": {
 		"@sindresorhus/is": "^0.15.0",
 		"@szmarczak/http-timer": "^1.1.2",
+		"@types/get-stream": "^3.0.1",
 		"@types/p-cancelable": "^1.0.0",
 		"cacheable-lookup": "^0.1.0",
 		"cacheable-request": "^6.0.0",

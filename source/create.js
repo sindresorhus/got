@@ -1,7 +1,7 @@
 'use strict';
 const errors = require('./errors');
 const asStream = require('./as-stream').default;
-const asPromise = require('./as-promise');
+const asPromise = require('./as-promise').default;
 const normalizeArguments = require('./normalize-arguments');
 const {default: merge, mergeOptions, mergeInstances} = require('./merge');
 const deepFreeze = require('./utils/deep-freeze').default;
