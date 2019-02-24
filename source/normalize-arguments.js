@@ -60,10 +60,11 @@ const preNormalize = (options, defaults) => {
 
 	const {retry} = options;
 	options.retry = {
-		retries: 0,
-		methods: [],
-		statusCodes: [],
-		errorCodes: []
+		retries: () => 0,
+		methods: new Set(),
+		statusCodes: new Set(),
+		errorCodes: new Set(),
+		maxRetryAfter: undefined
 	};
 
 	if (is.nonEmptyObject(defaults) && retry !== false) {
@@ -78,7 +79,7 @@ const preNormalize = (options, defaults) => {
 		}
 	}
 
-	if (options.gotTimeout) {
+	if (!options.retry.maxRetryAfter && options.gotTimeout) {
 		options.retry.maxRetryAfter = Math.min(...[options.gotTimeout.request, options.gotTimeout.connection].filter(n => !is.nullOrUndefined(n)));
 	}
 
@@ -153,7 +154,9 @@ const normalize = (url, options, defaults) => {
 		get: () => baseUrl
 	});
 
-	let searchParams;
+	let {searchParams} = options;
+	delete options.searchParams;
+
 	if (options.query) {
 		if (!shownDeprecation) {
 			console.warn('`options.query` is deprecated. We support it solely for compatibility - it will be removed in Got 11. Use `options.searchParams` instead.');
@@ -162,9 +165,6 @@ const normalize = (url, options, defaults) => {
 
 		searchParams = options.query;
 		delete options.query;
-	} else if (options.searchParams) {
-		searchParams = options.searchParams;
-		delete options.searchParams;
 	}
 
 	if (is.nonEmptyString(searchParams) || is.nonEmptyObject(searchParams) || searchParams instanceof URLSearchParams) {

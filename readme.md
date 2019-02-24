@@ -726,6 +726,7 @@ got.mergeOptions(a, b)  // => {headers: {cat: 'meow', cow: 'moo', wolf: ['auuu']
 Options are deeply merged to a new object. The value of each key is determined as follows:
 
 - If the new property is set to `undefined`, it keeps the old one.
+- If both properties are an instances of `URLSearchParams`, a new URLSearchParams instance is created. The values are merged using [`urlSearchParams.append(key, value)`](https://developer.mozilla.org/en-US/docs/Web/API/URLSearchParams/append).
 - If the parent property is an instance of `URL` and the new value is a `string` or `URL`, a new URL instance is created: [`new URL(new, parent)`](https://developer.mozilla.org/en-US/docs/Web/API/URL/URL#Syntax).
 - If the new property is a plain `Object`:
 	- If the parent property is a plain `Object` too, both values are merged recursively into a new `Object`.

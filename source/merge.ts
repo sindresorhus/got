@@ -1,4 +1,4 @@
-import {URL} from 'url';
+import {URL, URLSearchParams} from 'url';
 import is from '@sindresorhus/is';
 import {Options, Method, NextFunction, Instance, InterfaceWithDefaults} from './utils/types';
 import knownHookEvents, {Hooks, HookType, HookEvent} from './known-hook-events';
@@ -11,7 +11,15 @@ export default function merge<Target extends {[key: string]: unknown}, Source ex
 			}
 
 			const targetValue = target[key];
-			if (is.urlInstance(targetValue) && (is.urlInstance(sourceValue) || is.string(sourceValue))) {
+			if (targetValue instanceof URLSearchParams && sourceValue instanceof URLSearchParams) {
+				const params = new URLSearchParams();
+
+				const append = (value: string, key: string) => params.append(key, value);
+				targetValue.forEach(append);
+				sourceValue.forEach(append);
+
+				target[key] = params;
+			} else if (is.urlInstance(targetValue) && (is.urlInstance(sourceValue) || is.string(sourceValue))) {
 				target[key] = new URL(sourceValue as string, targetValue);
 			} else if (is.plainObject(sourceValue)) {
 				if (is.plainObject(targetValue)) {

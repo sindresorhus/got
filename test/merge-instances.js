@@ -1,3 +1,4 @@
+import {URLSearchParams} from 'url';
 import test from 'ava';
 import got from '../source';
 import {createServer} from './helpers/server';
@@ -133,4 +134,18 @@ test('hooks are passed by though other instances don\'t have them', t => {
 
 	const merged = got.mergeInstances(instanceA, instanceB, instanceC);
 	t.deepEqual(merged.defaults.options.hooks.beforeRequest, instanceA.defaults.options.hooks.beforeRequest);
+});
+
+test('URLSearchParams instances are merged', t => {
+	const instanceA = got.extend({
+		searchParams: new URLSearchParams({a: '1'})
+	});
+
+	const instanceB = got.extend({
+		searchParams: new URLSearchParams({b: '2'})
+	});
+
+	const merged = got.mergeInstances(instanceA, instanceB);
+	t.is(merged.defaults.options.searchParams.get('a'), '1');
+	t.is(merged.defaults.options.searchParams.get('b'), '2');
 });
