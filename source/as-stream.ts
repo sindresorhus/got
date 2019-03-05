@@ -1,13 +1,13 @@
 import {ClientRequest} from 'http';
-import {PassThrough} from 'stream';
+import {PassThrough as PassThroughStream} from 'stream';
 import duplexer3 from 'duplexer3';
 import requestAsEventEmitter from './request-as-event-emitter';
 import {HTTPError, ReadError} from './errors';
 import {MergedOptions, Response} from './utils/types';
 
 export default function asStream(options: MergedOptions) {
-	const input = new PassThrough();
-	const output = new PassThrough();
+	const input = new PassThroughStream();
+	const output = new PassThroughStream();
 	const proxy = duplexer3(input, output);
 	const piped = new Set();
 	let isFinished = false;

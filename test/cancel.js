@@ -1,5 +1,5 @@
 import EventEmitter from 'events';
-import {Readable} from 'stream';
+import {Readable as ReadableStream} from 'stream';
 import test from 'ava';
 import pEvent from 'p-event';
 import PCancelable from 'p-cancelable';
@@ -59,7 +59,7 @@ test('cancel do not retry after cancelation', async t => {
 
 test('cancel in-progress request', async t => {
 	const helper = await createAbortServer();
-	const body = new Readable({
+	const body = new ReadableStream({
 		read() {}
 	});
 	body.push('1');
@@ -78,7 +78,7 @@ test('cancel in-progress request', async t => {
 
 test('cancel in-progress request with timeout', async t => {
 	const helper = await createAbortServer();
-	const body = new Readable({
+	const body = new ReadableStream({
 		read() {}
 	});
 	body.push('1');

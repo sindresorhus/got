@@ -1,12 +1,12 @@
-import {Transform} from 'stream';
+import {Transform as TransformStream} from 'stream';
 import {EventEmitter} from 'events';
 import {IncomingMessage, ClientRequest} from 'http';
 import {Socket} from 'net';
 
-export function download(_response: IncomingMessage, emitter: EventEmitter, downloadBodySize?: number): Transform {
+export function download(_response: IncomingMessage, emitter: EventEmitter, downloadBodySize?: number): TransformStream {
 	let downloaded = 0;
 
-	return new Transform({
+	return new TransformStream({
 		transform(chunk, _encoding, callback) {
 			downloaded += chunk.length;
 
