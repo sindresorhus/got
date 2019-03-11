@@ -1,11 +1,10 @@
 import urlLib from 'url';
 import http, {IncomingHttpHeaders} from 'http';
-import PCancelable from 'p-cancelable';
 import is from '@sindresorhus/is';
 import {Response, Timings, Options} from './utils/types';
 import {TimeoutError as TimedOutError} from './utils/timed-out';
 
-type ErrorWithCode = (Error & { code?: string }) | { code?: string };
+type ErrorWithCode = (Error & {code?: string}) | {code?: string};
 
 export class GotError extends Error {
 	code?: string;
@@ -133,4 +132,4 @@ export class TimeoutError extends GotError {
 	}
 }
 
-export const {CancelError} = PCancelable;
+export {CancelError} from 'p-cancelable';

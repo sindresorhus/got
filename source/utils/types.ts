@@ -1,7 +1,7 @@
 import {IncomingMessage} from 'http';
 import {RequestOptions} from 'https';
 import {Readable as ReadableStream} from 'stream';
-import {PCancelable} from 'p-cancelable';
+import PCancelable from 'p-cancelable';
 import {Hooks} from '../known-hook-events';
 
 export type Method = 'GET' | 'PUT' | 'HEAD' | 'DELETE' | 'OPTIONS' | 'TRACE' | 'get' | 'put' | 'head' | 'delete' | 'options' | 'trace';

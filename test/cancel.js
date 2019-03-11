@@ -2,8 +2,7 @@ import EventEmitter from 'events';
 import {Readable as ReadableStream} from 'stream';
 import test from 'ava';
 import pEvent from 'p-event';
-import PCancelable from 'p-cancelable';
-import got from '../source';
+import got, {CancelError} from '../source';
 import {createServer} from './helpers/server';
 
 async function createAbortServer() {
@@ -53,7 +52,7 @@ test('cancel do not retry after cancelation', async t => {
 		p.cancel();
 	});
 
-	await t.throwsAsync(p, PCancelable.CancelError);
+	await t.throwsAsync(p, CancelError);
 	await t.notThrowsAsync(helper.aborted, 'Request finished instead of aborting.');
 });
 
@@ -72,7 +71,7 @@ test('cancel in-progress request', async t => {
 		body.push(null);
 	});
 
-	await t.throwsAsync(p, PCancelable.CancelError);
+	await t.throwsAsync(p, CancelError);
 	await t.notThrowsAsync(helper.aborted, 'Request finished instead of aborting.');
 });
 
@@ -91,7 +90,7 @@ test('cancel in-progress request with timeout', async t => {
 		body.push(null);
 	});
 
-	await t.throwsAsync(p, PCancelable.CancelError);
+	await t.throwsAsync(p, CancelError);
 	await t.notThrowsAsync(helper.aborted, 'Request finished instead of aborting.');
 });
 

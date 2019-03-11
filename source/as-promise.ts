@@ -27,7 +27,7 @@ export default function asPromise(options: Options) {
 		}
 	};
 
-	const promise = new PCancelable((resolve, reject, onCancel) => {
+	const promise = new PCancelable<IncomingMessage>((resolve, reject, onCancel) => {
 		const emitter = requestAsEventEmitter(options) as RequestAsEventEmitter;
 
 		onCancel(emitter.abort);
