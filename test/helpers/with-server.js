@@ -5,7 +5,7 @@ const createTestServer = require('create-test-server');
 exports.withServer = async (t, run) => {
 	const s = await createTestServer();
 
-	s.host = (new URL(s.url)).host;
+	s.host = (new URL(s.url)).hostname;
 
 	try {
 		await run(t, s);
