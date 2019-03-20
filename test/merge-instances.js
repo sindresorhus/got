@@ -1,26 +1,16 @@
 import {URLSearchParams} from 'url';
 import test from 'ava';
 import got from '../source';
-import {createServer} from './helpers/server';
+import {withServer} from './helpers/with-server';
 
-let s;
+const responseFn = (request, response) => {
+	request.resume();
+	response.end(JSON.stringify(request.headers));
+};
 
-test.before('setup', async () => {
-	s = await createServer();
+test('merging instances', withServer, async (t, s) => {
+	s.get('/', responseFn);
 
-	s.on('/', (request, response) => {
-		request.resume();
-		response.end(JSON.stringify(request.headers));
-	});
-
-	await s.listen(s.port);
-});
-
-test.after('cleanup', async () => {
-	await s.close();
-});
-
-test('merging instances', async t => {
 	const instanceA = got.extend({headers: {unicorn: 'rainbow'}});
 	const instanceB = got.extend({baseUrl: s.url});
 	const merged = got.mergeInstances(instanceA, instanceB);
@@ -30,7 +20,9 @@ test('merging instances', async t => {
 	t.not(headers['user-agent'], undefined);
 });
 
-test('works even if no default handler in the end', async t => {
+test('works even if no default handler in the end', withServer, async (t, s) => {
+	s.get('/', responseFn);
+
 	const instanceA = got.create({
 		options: {},
 		handler: (options, next) => next(options)
@@ -45,7 +37,8 @@ test('works even if no default handler in the end', async t => {
 	await t.notThrows(() => merged(s.url));
 });
 
-test('merges default handlers & custom handlers', async t => {
+test('merges default handlers & custom handlers', withServer, async (t, s) => {
+	s.get('/', responseFn);
 	const instanceA = got.extend({headers: {unicorn: 'rainbow'}});
 	const instanceB = got.create({
 		options: {},
@@ -61,7 +54,9 @@ test('merges default handlers & custom handlers', async t => {
 	t.is(headers.cat, 'meow');
 });
 
-test('merging one group & one instance', async t => {
+test('merging one group & one instance', withServer, async (t, s) => {
+	s.get('/', responseFn);
+
 	const instanceA = got.extend({headers: {dog: 'woof'}});
 	const instanceB = got.extend({headers: {cat: 'meow'}});
 	const instanceC = got.extend({headers: {bird: 'tweet'}});
@@ -77,7 +72,9 @@ test('merging one group & one instance', async t => {
 	t.is(headers.mouse, 'squeek');
 });
 
-test('merging two groups of merged instances', async t => {
+test('merging two groups of merged instances', withServer, async (t, s) => {
+	s.get('/', responseFn);
+
 	const instanceA = got.extend({headers: {dog: 'woof'}});
 	const instanceB = got.extend({headers: {cat: 'meow'}});
 	const instanceC = got.extend({headers: {bird: 'tweet'}});
