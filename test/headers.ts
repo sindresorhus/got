@@ -196,7 +196,7 @@ test('non-existent headers set to undefined are omitted', async t => {
 
 test('preserve port in host header if non-standard port', async t => {
 	const body = await got(s.url).json();
-	t.is(body.host, 'localhost:' + s.port);
+	t.is(body.host, `localhost:${s.port}`);
 });
 
 test('strip port in host header if explicit standard port (:80) & protocol (HTTP)', async t => {

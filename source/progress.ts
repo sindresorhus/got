@@ -3,7 +3,7 @@ import {EventEmitter} from 'events';
 import {IncomingMessage, ClientRequest} from 'http';
 import {Socket} from 'net';
 
-export function download(_response: IncomingMessage, emitter: EventEmitter, downloadBodySize?: number): TransformStream {
+export function downloadProgress(_response: IncomingMessage, emitter: EventEmitter, downloadBodySize?: number): TransformStream {
 	let downloaded = 0;
 
 	return new TransformStream({
@@ -36,7 +36,7 @@ export function download(_response: IncomingMessage, emitter: EventEmitter, down
 	});
 }
 
-export function upload(request: ClientRequest, emitter: EventEmitter, uploadBodySize?: number): void {
+export function uploadProgress(request: ClientRequest, emitter: EventEmitter, uploadBodySize?: number): void {
 	const uploadEventFrequency = 150;
 	let uploaded = 0;
 	let progressInterval: NodeJS.Timeout;

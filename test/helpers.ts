@@ -1,6 +1,6 @@
 import test from 'ava';
 import got from '../source';
-import {withServer} from './helpers/with-server';
+import withServer from './helpers/with-server';
 
 test('promise mode', withServer, async (t, s) => {
 	s.get('/', (request, response) => {

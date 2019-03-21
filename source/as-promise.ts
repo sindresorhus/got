@@ -6,7 +6,7 @@ import PCancelable from 'p-cancelable';
 import requestAsEventEmitter from './request-as-event-emitter';
 import {HTTPError, ParseError, ReadError} from './errors';
 import {mergeOptions} from './merge';
-import {reNormalize} from './normalize-arguments';
+import {reNormalizeArguments} from './normalize-arguments';
 import {CancelableRequest, Options, Response} from './utils/types';
 
 // TODO: Remove once request-as-event-emitter is converted to TypeScript
@@ -53,7 +53,7 @@ export default function asPromise(options: Options) {
 				for (const [index, hook] of options.hooks!.afterResponse!.entries()) {
 					// eslint-disable-next-line no-await-in-loop
 					response = await hook(response, updatedOptions => {
-						updatedOptions = reNormalize(mergeOptions(options, {
+						updatedOptions = reNormalizeArguments(mergeOptions(options, {
 							...updatedOptions,
 							retry: 0,
 							throwHttpErrors: false

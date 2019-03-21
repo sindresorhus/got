@@ -4,9 +4,10 @@
 		"outDir": "dist",
 		"target": "es2017", // Node.js 8
 
-		// TODO: Remove these when everything has been converted to TS
-		"allowJs": true,
-		"declaration": false
+		// TODO: Make it strict
+		"strict": false,
+		"noImplicitReturns": false,
+		"noUnusedParameters": false
 	},
 	"include": [
 		"source"

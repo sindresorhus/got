@@ -148,6 +148,7 @@ test('custom retries', async t => {
 			]
 		}
 	}));
+	// @ts-ignore
 	t.is(error.statusCode, 500);
 	t.true(tried);
 });
@@ -158,10 +159,12 @@ test('custom errors', async t => {
 	let isTried = false;
 	const error = await t.throwsAsync(got(`${s.url}/500`, {
 		request: (...args) => {
+			// @ts-ignore
 			const request = http.request(...args);
 			if (!isTried) {
 				isTried = true;
 				const error = new Error('Snap!');
+				// @ts-ignore
 				error.code = errorCode;
 
 				setTimeout(() => request.emit('error', error));
@@ -180,6 +183,7 @@ test('custom errors', async t => {
 		}
 	}));
 
+	// @ts-ignore
 	t.is(error.statusCode, 500);
 	t.true(isTried);
 });

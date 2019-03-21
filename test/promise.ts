@@ -2,7 +2,7 @@ import {ClientRequest} from 'http';
 import {Transform as TransformStream} from 'stream';
 import test from 'ava';
 import got from '../source';
-import {withServer} from './helpers/with-server';
+import withServer from './helpers/with-server';
 
 test('should emit request event as promise', withServer, async (t, s) => {
 	s.get('/', (request, response) => {

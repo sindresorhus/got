@@ -129,7 +129,7 @@ test('socket connect listener cleaned up after request', async t => {
 		});
 	}
 
-	for (const value of Object.values(agent.freeSockets)) {
+	for (const value of Object.values(agent.freeSockets) as [any]) {
 		for (const sock of value) {
 			t.is(sock.listenerCount('connect'), 0);
 		}

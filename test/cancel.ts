@@ -2,12 +2,14 @@ import EventEmitter from 'events';
 import {Readable as ReadableStream} from 'stream';
 import test from 'ava';
 import pEvent from 'p-event';
+// @ts-ignore
 import got, {CancelError} from '../source';
 import {createServer} from './helpers/server';
 
 async function createAbortServer() {
 	const s = await createServer();
 	const ee = new EventEmitter();
+	// @ts-ignore
 	ee.aborted = new Promise((resolve, reject) => {
 		s.on('/abort', async (request, response) => {
 			ee.emit('connection');
@@ -31,7 +33,9 @@ async function createAbortServer() {
 	});
 
 	await s.listen(s.port);
+	// @ts-ignore
 	ee.url = `${s.url}/abort`;
+	// @ts-ignore
 	ee.redirectUrl = `${s.url}/redirect`;
 
 	return ee;
@@ -40,6 +44,7 @@ async function createAbortServer() {
 test('cancel do not retry after cancelation', async t => {
 	const helper = await createAbortServer();
 
+	// @ts-ignore
 	const p = got(helper.redirectUrl, {
 		retry: {
 			retries: () => {
@@ -52,7 +57,9 @@ test('cancel do not retry after cancelation', async t => {
 		p.cancel();
 	});
 
+	// @ts-ignore
 	await t.throwsAsync(p, CancelError);
+	// @ts-ignore
 	await t.notThrowsAsync(helper.aborted, 'Request finished instead of aborting.');
 });
 
@@ -63,6 +70,7 @@ test('cancel in-progress request', async t => {
 	});
 	body.push('1');
 
+	// @ts-ignore
 	const p = got(helper.url, {body});
 
 	// Wait for the connection to be established before canceling
@@ -71,7 +79,9 @@ test('cancel in-progress request', async t => {
 		body.push(null);
 	});
 
+	// @ts-ignore
 	await t.throwsAsync(p, CancelError);
+	// @ts-ignore
 	await t.notThrowsAsync(helper.aborted, 'Request finished instead of aborting.');
 });
 
@@ -82,6 +92,7 @@ test('cancel in-progress request with timeout', async t => {
 	});
 	body.push('1');
 
+	// @ts-ignore
 	const p = got(helper.url, {body, timeout: 10000});
 
 	// Wait for the connection to be established before canceling
@@ -91,6 +102,7 @@ test('cancel in-progress request with timeout', async t => {
 	});
 
 	await t.throwsAsync(p, CancelError);
+	// @ts-ignore
 	await t.notThrowsAsync(helper.aborted, 'Request finished instead of aborting.');
 });
 

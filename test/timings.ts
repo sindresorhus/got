@@ -1,6 +1,6 @@
 import test from 'ava';
 import got from '../source';
-import {withServer} from './helpers/with-server';
+import withServer from './helpers/with-server';
 
 // #687
 test('sensible timings', withServer, async (t, s) => {

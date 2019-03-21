@@ -1,14 +1,12 @@
-'use strict';
-const {URL, URLSearchParams} = require('url'); // TODO: Use the `URL` global when targeting Node.js 10
-const urlLib = require('url');
-const CacheableLookup = require('cacheable-lookup');
-const is = require('@sindresorhus/is');
-const lowercaseKeys = require('lowercase-keys');
-const urlToOptions = require('./utils/url-to-options').default;
-const validateSearchParams = require('./utils/validate-search-params').default;
-const supportsBrotli = require('./utils/supports-brotli').default;
-const merge = require('./merge').default;
-const knownHookEvents = require('./known-hook-events').default;
+import urlLib, {URL, URLSearchParams} from 'url'; // TODO: Use the `URL` global when targeting Node.js 10
+import CacheableLookup from 'cacheable-lookup';
+import is from '@sindresorhus/is';
+import lowercaseKeys from 'lowercase-keys';
+import urlToOptions from './utils/url-to-options';
+import validateSearchParams from './utils/validate-search-params';
+import supportsBrotli from './utils/supports-brotli';
+import merge from './merge';
+import knownHookEvents from './known-hook-events';
 
 const retryAfterStatusCodes = new Set([413, 429, 503]);
 
@@ -23,7 +21,7 @@ let shownDeprecation = false;
 // When it's done normalizing the new options, it performs merge()
 // on the prenormalized options and the normalized ones.
 
-const preNormalize = (options, defaults) => {
+export const preNormalizeArguments = (options: any, defaults?: any) => {
 	if (is.nullOrUndefined(options.headers)) {
 		options.headers = {};
 	} else {
@@ -104,7 +102,7 @@ const preNormalize = (options, defaults) => {
 	return options;
 };
 
-const normalize = (url, options, defaults) => {
+export const normalizeArguments = (url, options, defaults?: any) => {
 	if (is.plainObject(url)) {
 		options = {...url, ...options};
 		url = options.url || {};
@@ -112,9 +110,9 @@ const normalize = (url, options, defaults) => {
 	}
 
 	if (defaults) {
-		options = merge({}, defaults.options, options ? preNormalize(options, defaults.options) : {});
+		options = merge({}, defaults.options, options ? preNormalizeArguments(options, defaults.options) : {});
 	} else {
-		options = merge({}, preNormalize(options));
+		options = merge({}, preNormalizeArguments(options));
 	}
 
 	if (!is.string(url) && !is.object(url)) {
@@ -167,10 +165,16 @@ const normalize = (url, options, defaults) => {
 		delete options.query;
 	}
 
+	// TODO: This should be used in the `options` type instead
+	interface SearchParams {
+		[key: string]: string | number | boolean | null;
+	}
+
 	if (is.nonEmptyString(searchParams) || is.nonEmptyObject(searchParams) || searchParams instanceof URLSearchParams) {
 		if (!is.string(searchParams)) {
 			if (!(searchParams instanceof URLSearchParams)) {
 				validateSearchParams(searchParams);
+				searchParams = searchParams as SearchParams;
 			}
 
 			searchParams = (new URLSearchParams(searchParams)).toString();
@@ -208,7 +212,7 @@ const normalize = (url, options, defaults) => {
 		options.method = options.method.toUpperCase();
 	}
 
-	if (!is.function(options.retry.retries)) {
+	if (!is.function_(options.retry.retries)) {
 		const {retries} = options.retry;
 
 		options.retry.retries = (iteration, error) => {
@@ -247,8 +251,4 @@ const normalize = (url, options, defaults) => {
 	return options;
 };
 
-const reNormalize = options => normalize(urlLib.format(options), options);
-
-module.exports = normalize;
-module.exports.preNormalize = preNormalize;
-module.exports.reNormalize = reNormalize;
+export const reNormalizeArguments = options => normalizeArguments(urlLib.format(options), options);

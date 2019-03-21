@@ -1,10 +1,9 @@
-'use strict';
-const errors = require('./errors');
-const asStream = require('./as-stream').default;
-const asPromise = require('./as-promise').default;
-const normalizeArguments = require('./normalize-arguments');
-const {default: merge, mergeOptions, mergeInstances} = require('./merge');
-const deepFreeze = require('./utils/deep-freeze').default;
+import * as errors from './errors';
+import asStream from './as-stream';
+import asPromise from './as-promise';
+import {normalizeArguments, preNormalizeArguments} from './normalize-arguments';
+import merge, {mergeOptions, mergeInstances} from './merge';
+import deepFreeze from './utils/deep-freeze';
 
 const getPromiseOrStream = options => options.stream ? asStream(options) : asPromise(options);
 
@@ -19,7 +18,7 @@ const aliases = [
 
 const create = defaults => {
 	defaults = merge({}, defaults);
-	normalizeArguments.preNormalize(defaults.options);
+	preNormalizeArguments(defaults.options);
 
 	if (!defaults.handler) {
 		// This can't be getPromiseOrStream, because when merging
@@ -27,7 +26,7 @@ const create = defaults => {
 		defaults.handler = (options, next) => next(options);
 	}
 
-	function got(url, options) {
+	function got(url, options?: any) {
 		try {
 			return defaults.handler(normalizeArguments(url, options, defaults), getPromiseOrStream);
 		} catch (error) {
@@ -58,11 +57,11 @@ const create = defaults => {
 
 	got.mergeInstances = (...args) => create(mergeInstances(args));
 
-	got.stream = (url, options) => got(url, {...options, stream: true});
+	got.stream = (url, options?: any) => got(url, {...options, stream: true});
 
 	for (const method of aliases) {
-		got[method] = (url, options) => got(url, {...options, method});
-		got.stream[method] = (url, options) => got.stream(url, {...options, method});
+		got[method] = (url, options?: any) => got(url, {...options, method});
+		got.stream[method] = (url, options?: any) => got.stream(url, {...options, method});
 	}
 
 	Object.assign(got, {...errors, mergeOptions});
@@ -73,7 +72,7 @@ const create = defaults => {
 		enumerable: true
 	});
 
-	return got;
+	return got as any;
 };
 
-module.exports = create;
+export default create;

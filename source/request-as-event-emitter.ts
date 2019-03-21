@@ -1,26 +1,25 @@
-'use strict';
-const {URL, URLSearchParams} = require('url'); // TODO: Use the `URL` global when targeting Node.js 10
-const util = require('util');
-const EventEmitter = require('events');
-const http = require('http');
-const https = require('https');
-const urlLib = require('url');
-const CacheableRequest = require('cacheable-request');
-const toReadableStream = require('to-readable-stream');
-const is = require('@sindresorhus/is');
-const timer = require('@szmarczak/http-timer');
-const timedOut = require('./utils/timed-out');
-const getBodySize = require('./utils/get-body-size').default;
-const isFormData = require('./utils/is-form-data').default;
-const getResponse = require('./get-response').default;
-const progress = require('./progress');
-const {CacheError, UnsupportedProtocolError, MaxRedirectsError, RequestError, TimeoutError} = require('./errors');
-const urlToOptions = require('./utils/url-to-options').default;
+import urlLib, {URL, URLSearchParams} from 'url'; // TODO: Use the `URL` global when targeting Node.js 10
+import util from 'util';
+import EventEmitter from 'events';
+import {Transform as TransformStream} from 'stream';
+import http from 'http';
+import https from 'https';
+import CacheableRequest from 'cacheable-request';
+import toReadableStream from 'to-readable-stream';
+import is from '@sindresorhus/is';
+import timer from '@szmarczak/http-timer';
+import timedOut, {TimeoutError as TimedOutTimeoutError} from './utils/timed-out';
+import getBodySize from './utils/get-body-size';
+import isFormData from './utils/is-form-data';
+import getResponse from './get-response';
+import {uploadProgress} from './progress';
+import {CacheError, UnsupportedProtocolError, MaxRedirectsError, RequestError, TimeoutError} from './errors';
+import urlToOptions from './utils/url-to-options';
 
 const getMethodRedirectCodes = new Set([300, 301, 302, 303, 304, 305, 307, 308]);
 const allMethodRedirectCodes = new Set([300, 303, 307, 308]);
 
-module.exports = (options, input) => {
+export default (options, input?: TransformStream) => {
 	const emitter = new EventEmitter();
 	const redirects = [];
 	let currentRequest;
@@ -57,7 +56,7 @@ module.exports = (options, input) => {
 		decodeURI(currentUrl);
 
 		let fn;
-		if (is.function(options.request)) {
+		if (is.function_(options.request)) {
 			fn = {request: options.request};
 		} else {
 			fn = options.protocol === 'https:' ? https : http;
@@ -69,7 +68,8 @@ module.exports = (options, input) => {
 		}
 
 		/* istanbul ignore next: electron.net is broken */
-		if (options.useElectronNet && process.versions.electron) {
+		if (options.useElectronNet && (process.versions as any).electron) {
+			// @ts-ignore
 			const r = ({x: require})['yx'.slice(1)]; // Trick webpack
 			const electron = r('electron');
 			fn = electron.net || electron.remote.net;
@@ -95,7 +95,7 @@ module.exports = (options, input) => {
 							}
 
 							const value = target[name];
-							return is.function(value) ? value.bind(target) : value;
+							return is.function_(value) ? value.bind(target) : value;
 						}
 					});
 				}
@@ -173,23 +173,24 @@ module.exports = (options, input) => {
 					return;
 				}
 
-				if (error instanceof timedOut.TimeoutError) {
+				if (error instanceof TimedOutTimeoutError) {
 					error = new TimeoutError(error, timings, options);
 				} else {
 					error = new RequestError(error, options);
 				}
 
-				if (emitter.retry(error) === false) {
+				// TODO: Properly type this
+				if ((emitter as any).retry(error) === false) {
 					emitError(error);
 				}
 			});
 
 			timings = timer(request);
 
-			progress.upload(request, emitter, uploadBodySize);
+			uploadProgress(request, emitter, uploadBodySize);
 
 			if (options.gotTimeout) {
-				timedOut.default(request, options.gotTimeout, options);
+				timedOut(request, options.gotTimeout, options);
 			}
 
 			emitter.emit('request', request);
@@ -239,7 +240,8 @@ module.exports = (options, input) => {
 		}
 	};
 
-	emitter.retry = error => {
+	// TODO: Properly type this
+	(emitter as any).retry = error => {
 		let backoff;
 
 		try {
@@ -270,7 +272,8 @@ module.exports = (options, input) => {
 		return false;
 	};
 
-	emitter.abort = () => {
+	// TODO: Properly type this
+	(emitter as any).abort = () => {
 		if (currentRequest) {
 			currentRequest.abort();
 		} else {

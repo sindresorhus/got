@@ -203,6 +203,7 @@ test('ability to pass a custom request method', async t => {
 
 	const request = (...args) => {
 		called = true;
+		// @ts-ignore
 		return http.request(...args);
 	};
 

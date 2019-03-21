@@ -68,8 +68,8 @@ test('Non cacheable responses are not cached', async t => {
 	const endpoint = '/no-store';
 	const cache = new Map();
 
-	const firstResponseInt = Number((await got(s.url + endpoint, {cache})).body);
-	const secondResponseInt = Number((await got(s.url + endpoint, {cache})).body);
+	const firstResponseInt = Number((await got(`${s.url}${endpoint}`, {cache})).body);
+	const secondResponseInt = Number((await got(`${s.url}${endpoint}`, {cache})).body);
 
 	t.is(cache.size, 0);
 	t.true(firstResponseInt < secondResponseInt);
@@ -79,8 +79,8 @@ test('Cacheable responses are cached', async t => {
 	const endpoint = '/cache';
 	const cache = new Map();
 
-	const firstResponse = await got(s.url + endpoint, {cache});
-	const secondResponse = await got(s.url + endpoint, {cache});
+	const firstResponse = await got(`${s.url}${endpoint}`, {cache});
+	const secondResponse = await got(`${s.url}${endpoint}`, {cache});
 
 	t.is(cache.size, 1);
 	t.is(firstResponse.body, secondResponse.body);
@@ -92,8 +92,8 @@ test('Cached response is re-encoded to current encoding option', async t => {
 	const firstEncoding = 'base64';
 	const secondEncoding = 'hex';
 
-	const firstResponse = await got(s.url + endpoint, {cache, encoding: firstEncoding});
-	const secondResponse = await got(s.url + endpoint, {cache, encoding: secondEncoding});
+	const firstResponse = await got(`${s.url}${endpoint}`, {cache, encoding: firstEncoding});
+	const secondResponse = await got(`${s.url}${endpoint}`, {cache, encoding: secondEncoding});
 
 	const expectedSecondResponseBody = Buffer.from(firstResponse.body, firstEncoding).toString(secondEncoding);
 
@@ -105,8 +105,8 @@ test('Redirects are cached and re-used internally', async t => {
 	const endpoint = '/301';
 	const cache = new Map();
 
-	const firstResponse = await got(s.url + endpoint, {cache});
-	const secondResponse = await got(s.url + endpoint, {cache});
+	const firstResponse = await got(`${s.url}${endpoint}`, {cache});
+	const secondResponse = await got(`${s.url}${endpoint}`, {cache});
 
 	t.is(cache.size, 3);
 	t.is(firstResponse.body, secondResponse.body);
@@ -116,7 +116,7 @@ test('Cached response should have got options', async t => {
 	const endpoint = '/cache';
 	const cache = new Map();
 	const options = {
-		url: s.url + endpoint,
+		url: `${s.url}${endpoint}`,
 		auth: 'foo:bar',
 		cache
 	};
@@ -131,7 +131,7 @@ test('Cache error throws got.CacheError', async t => {
 	const endpoint = '/no-store';
 	const cache = {};
 
-	const error = await t.throwsAsync(got(s.url + endpoint, {cache}));
+	const error = await t.throwsAsync(got(`${s.url}${endpoint}`, {cache}));
 	t.is(error.name, 'CacheError');
 });
 
@@ -139,7 +139,7 @@ test('doesn\'t cache response when received HTTP error', async t => {
 	const endpoint = '/first-error';
 	const cache = new Map();
 
-	const {statusCode, body} = await got(s.url + endpoint, {cache, throwHttpErrors: false});
+	const {statusCode, body} = await got(`${s.url}${endpoint}`, {cache, throwHttpErrors: false});
 	t.is(statusCode, 200);
 	t.deepEqual(body, 'ok');
 });

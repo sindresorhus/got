@@ -68,6 +68,7 @@ test('throws on write to stream with body specified', t => {
 test('have request event', async t => {
 	const request = await pEvent(got.stream(s.url), 'request');
 	t.truthy(request);
+	// @ts-ignore
 	t.is(request.method, 'GET');
 });
 
@@ -109,8 +110,8 @@ test('redirect response contains old url', async t => {
 
 test('check for pipe method', t => {
 	const stream = got.stream(`${s.url}/`);
-	t.true(is.function(stream.pipe));
-	t.true(is.function(stream.on('error', () => {}).pipe));
+	t.true(is.function_(stream.pipe));
+	t.true(is.function_(stream.on('error', () => {}).pipe));
 });
 
 test('piping works', async t => {
@@ -186,6 +187,7 @@ test('destroying got.stream() cancels the request', async t => {
 	const stream = got.stream(s.url);
 	const request = await pEvent(stream, 'request');
 	stream.destroy();
+	// @ts-ignore
 	t.truthy(request.aborted);
 });
 

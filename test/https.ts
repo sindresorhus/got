@@ -7,7 +7,7 @@ let s;
 test.before('setup', async () => {
 	s = await createSSLServer();
 
-	s.on('/', (request, response) => response.end('ok'));
+	s.on('/', (request_, response) => response.end('ok'));
 
 	await s.listen(s.port);
 });

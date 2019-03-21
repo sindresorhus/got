@@ -226,6 +226,7 @@ test('throws when trying to modify baseUrl after options got normalized', async 
 test('throws if the searchParams key is invalid', async t => {
 	await t.throwsAsync(() => got(s.url, {
 		searchParams: {
+			// @ts-ignore
 			[[]]: []
 		}
 	}), TypeError);

@@ -39,6 +39,7 @@
 	"dependencies": {
 		"@sindresorhus/is": "^0.15.0",
 		"@szmarczak/http-timer": "^1.1.2",
+		"@types/form-data": "^2.2.1",
 		"cacheable-lookup": "^0.1.0",
 		"cacheable-request": "^6.0.0",
 		"debug": "^4.1.1",
@@ -89,8 +90,7 @@
 		"babel": false,
 		"compileEnhancements": false,
 		"extensions": [
-			"ts",
-			"js"
+			"ts"
 		],
 		"require": [
 			"ts-node/register"
@@ -110,12 +110,9 @@
 			"import/named": "off",
 			"import/no-unresolved": "off",
 			"ava/no-ignored-test-files": "off",
-			"@typescript-eslint/no-var-requires": "off",
 			"@typescript-eslint/explicit-function-return-type": "off",
-			"@typescript-eslint/restrict-plus-operands": "off",
-			"@typescript-eslint/no-require-imports": "off",
 			"@typescript-eslint/no-unnecessary-type-assertion": "off",
-			"@typescript-eslint/promise-function-async": "off"
+			"@typescript-eslint/ban-types": "off"
 		}
 	}
 }

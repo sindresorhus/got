@@ -217,6 +217,7 @@ test('connect timeout', async t => {
 			port: s.port,
 			createConnection: options => {
 				const socket = new net.Socket(options);
+				// @ts-ignore
 				socket.connecting = true;
 				setImmediate(
 					socket.emit.bind(socket),
@@ -246,6 +247,7 @@ test('connect timeout (ip address)', async t => {
 			port: s.port,
 			createConnection: options => {
 				const socket = new net.Socket(options);
+				// @ts-ignore
 				socket.connecting = true;
 				return socket;
 			}

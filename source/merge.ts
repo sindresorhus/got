@@ -65,7 +65,7 @@ export function mergeOptions(...sources: Partial<Options>[]): Partial<Options> &
 	return merged as Partial<Options> & {hooks: Partial<Hooks>};
 }
 
-export function mergeInstances(instances: InterfaceWithDefaults[], methods: Method[]): Instance {
+export function mergeInstances(instances: InterfaceWithDefaults[], methods?: Method[]): Instance {
 	const handlers = instances.map(instance => instance.defaults.handler);
 	const size = instances.length - 1;
 

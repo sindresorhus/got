@@ -44,8 +44,9 @@ test.after('cleanup', async () => {
 });
 
 test('properties', async t => {
-	const error = await t.throwsAsync(got(s.url));
+	const error = await t.throwsAsync(got(s.url)) as any;
 	t.truthy(error);
+	// @ts-ignore
 	t.truthy(error.response);
 	t.false({}.propertyIsEnumerable.call(error, 'response'));
 	t.false({}.hasOwnProperty.call(error, 'code'));
@@ -59,7 +60,7 @@ test('properties', async t => {
 });
 
 test('dns message', async t => {
-	const error = await t.throwsAsync(got('http://doesntexist', {retry: 0}));
+	const error = await t.throwsAsync(got('http://doesntexist', {retry: 0})) as any;
 	t.truthy(error);
 	t.regex(error.message, /getaddrinfo ENOTFOUND/);
 	t.is(error.host, 'doesntexist');
@@ -84,19 +85,25 @@ test('no plain object restriction on json body', async t => {
 
 test('default status message', async t => {
 	const error = await t.throwsAsync(got(`${s.url}/default-status-message`));
+	// @ts-ignore
 	t.is(error.statusCode, 400);
+	// @ts-ignore
 	t.is(error.statusMessage, 'Bad Request');
 });
 
 test('custom status message', async t => {
 	const error = await t.throwsAsync(got(`${s.url}/custom-status-message`));
+	// @ts-ignore
 	t.is(error.statusCode, 400);
+	// @ts-ignore
 	t.is(error.statusMessage, 'Something Exploded');
 });
 
 test('custom body', async t => {
 	const error = await t.throwsAsync(got(s.url));
+	// @ts-ignore
 	t.is(error.statusCode, 404);
+	// @ts-ignore
 	t.is(error.body, 'not');
 });
 
@@ -107,12 +114,15 @@ test('contains Got options', async t => {
 	};
 
 	const error = await t.throwsAsync(got(options));
+	// @ts-ignore
 	t.is(error.gotOptions.auth, options.auth);
 });
 
 test('no status message is overriden by the default one', async t => {
 	const error = await t.throwsAsync(got(`${s.url}/no-status-message`));
+	// @ts-ignore
 	t.is(error.statusCode, 400);
+	// @ts-ignore
 	t.is(error.statusMessage, http.STATUS_CODES[400]);
 });
 
@@ -132,6 +142,7 @@ test('http.request pipe error', async t => {
 
 	await t.throwsAsync(got(s.url, {
 		request: (...options) => {
+			// @ts-ignore
 			const modified = http.request(...options);
 			modified.end = () => {
 				modified.abort();
@@ -170,6 +181,7 @@ test('catch error in mimicResponse', async t => {
 		'mimic-response': mimicResponse
 	});
 
+	// @ts-ignore
 	await t.throwsAsync(proxiedGot(s.url), {message: 'Error in mimic-response'});
 });
 

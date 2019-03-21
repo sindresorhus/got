@@ -1,7 +1,7 @@
 import is from '@sindresorhus/is';
 import test from 'ava';
 import got from '../source';
-import {withServer} from './helpers/with-server';
+import withServer from './helpers/with-server';
 
 test('simple request', withServer, async (t, s) => {
 	s.get('/', (request, response) => {
