@@ -2,7 +2,7 @@
 	"extends": "@sindresorhus/tsconfig",
 	"compilerOptions": {
 		"outDir": "dist",
-		"target": "es2017",
+		"target": "es2017", // Node.js 8
 
 		// TODO: Remove these when everything has been converted to TS
 		"allowJs": true,

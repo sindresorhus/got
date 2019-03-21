@@ -1,6 +1,5 @@
-'use strict';
-const pkg = require('../package.json');
-const create = require('./create');
+import packageJson from '../package.json';
+import create from './create';
 
 const defaults = {
 	options: {
@@ -35,7 +34,7 @@ const defaults = {
 			]
 		},
 		headers: {
-			'user-agent': `${pkg.name}/${pkg.version} (https://github.com/sindresorhus/got)`
+			'user-agent': `${packageJson.name}/${packageJson.version} (https://github.com/sindresorhus/got)`
 		},
 		hooks: {
 			beforeRequest: [],
@@ -58,4 +57,5 @@ const defaults = {
 
 const got = create(defaults);
 
-module.exports = got;
+module.exports = got; // For CommonJS default export support
+export default got;
