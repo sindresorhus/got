@@ -1,25 +1,12 @@
 import test from 'ava';
 import got from '../source';
-import {createServer} from './helpers/server';
-
-let s;
-
-test.before('setup', async () => {
-	s = await createServer();
-
-	s.on('/', (request, response) => {
-		response.end('ok');
-	});
-
-	await s.listen(s.port);
-});
-
-test.after('cleanup', async () => {
-	await s.close();
-});
+import {withServer} from './helpers/with-server';
 
 // #687
-test('sensible timings', async t => {
+test('sensible timings', withServer, async (t, s) => {
+	s.get('/', (request, response) => {
+		response.end('ok');
+	});
 	const {timings} = await got(s.url);
 	t.true(timings.phases.request < 1000);
 });
