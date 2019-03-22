@@ -1,9 +1,10 @@
-import urlLib, {URL, URLSearchParams} from 'url'; // TODO: Use the `URL` global when targeting Node.js 10
-import util from 'util';
-import EventEmitter from 'events';
+import {format as urlFormat, URL, URLSearchParams} from 'url'; // TODO: Use the `URL` global when targeting Node.js 10
+import * as util from 'util';
+import {EventEmitter} from 'events';
 import {Transform as TransformStream} from 'stream';
-import http from 'http';
-import https from 'https';
+import * as http from 'http';
+import * as https from 'https';
+// TODO: This causs a TypeScript warning, but using `import * as CacheableRequest` produces a runtime error.
 import CacheableRequest from 'cacheable-request';
 import toReadableStream from 'to-readable-stream';
 import is from '@sindresorhus/is';
@@ -15,17 +16,28 @@ import getResponse from './get-response';
 import {uploadProgress} from './progress';
 import {CacheError, UnsupportedProtocolError, MaxRedirectsError, RequestError, TimeoutError} from './errors';
 import urlToOptions from './utils/url-to-options';
+import {RequestFn, Options, Delays, RetryFn, RetryOption} from './utils/types';
 
 const getMethodRedirectCodes = new Set([300, 301, 302, 303, 304, 305, 307, 308]);
 const allMethodRedirectCodes = new Set([300, 303, 307, 308]);
 
+type ProcessVersions = typeof process.versions
+interface ProcessVersionsWithElectron extends ProcessVersions {
+	electron: string;
+}
+
+export interface RequestAsEventEmitter extends EventEmitter {
+	retry: (error: Error) => (boolean | undefined);
+	abort: () => void;
+}
+
 export default (options, input?: TransformStream) => {
-	const emitter = new EventEmitter();
-	const redirects = [];
-	let currentRequest;
-	let requestUrl;
-	let redirectString;
-	let uploadBodySize;
+	const emitter = new EventEmitter() as RequestAsEventEmitter;
+	const redirects = [] as string[];
+	let currentRequest: http.ClientRequest;
+	let requestUrl: string;
+	let redirectString: string;
+	let uploadBodySize: number | undefined;
 	let retryCount = 0;
 	let shouldAbort = false;
 
@@ -33,7 +45,7 @@ export default (options, input?: TransformStream) => {
 	const getCookieString = options.cookieJar ? util.promisify(options.cookieJar.getCookieString.bind(options.cookieJar)) : null;
 	const agents = is.object(options.agent) ? options.agent : null;
 
-	const emitError = async error => {
+	const emitError = async (error: Error) => {
 		try {
 			for (const hook of options.hooks.beforeError) {
 				// eslint-disable-next-line no-await-in-loop
@@ -46,7 +58,7 @@ export default (options, input?: TransformStream) => {
 		}
 	};
 
-	const get = async options => {
+	const get = async (options: Options) => {
 		const currentUrl = redirectString || requestUrl;
 
 		if (options.protocol !== 'http:' && options.protocol !== 'https:') {
@@ -55,11 +67,11 @@ export default (options, input?: TransformStream) => {
 
 		decodeURI(currentUrl);
 
-		let fn;
+		let requestFn: RequestFn;
 		if (is.function_(options.request)) {
-			fn = {request: options.request};
+			requestFn = options.request;
 		} else {
-			fn = options.protocol === 'https:' ? https : http;
+			requestFn = options.protocol === 'https:' ? https.request : http.request;
 		}
 
 		if (agents) {
@@ -68,11 +80,11 @@ export default (options, input?: TransformStream) => {
 		}
 
 		/* istanbul ignore next: electron.net is broken */
-		if (options.useElectronNet && (process.versions as any).electron) {
+		if (options.useElectronNet && (process.versions as ProcessVersionsWithElectron).electron) {
 			// @ts-ignore
 			const r = ({x: require})['yx'.slice(1)]; // Trick webpack
 			const electron = r('electron');
-			fn = electron.net || electron.remote.net;
+			requestFn = electron.net || electron.remote.net;
 		}
 
 		if (options.cookieJar) {
@@ -84,6 +96,7 @@ export default (options, input?: TransformStream) => {
 		}
 
 		let timings;
+		// TODO: Properly type this.
 		const handleResponse = async response => {
 			try {
 				/* istanbul ignore next: fixes https://github.com/electron/electron/blob/cbb460d47628a7a146adf4419ed48550a98b2923/lib/browser/api/net.js#L59-L65 */
@@ -160,7 +173,7 @@ export default (options, input?: TransformStream) => {
 			}
 		};
 
-		const handleRequest = request => {
+		const handleRequest = (request: http.ClientRequest) => {
 			if (shouldAbort) {
 				request.abort();
 				return;
@@ -179,8 +192,7 @@ export default (options, input?: TransformStream) => {
 					error = new RequestError(error, options);
 				}
 
-				// TODO: Properly type this
-				if ((emitter as any).retry(error) === false) {
+				if (emitter.retry(error) === false) {
 					emitError(error);
 				}
 			});
@@ -190,7 +202,8 @@ export default (options, input?: TransformStream) => {
 			uploadProgress(request, emitter, uploadBodySize);
 
 			if (options.gotTimeout) {
-				timedOut(request, options.gotTimeout, options);
+				// TODO: Properly type this. `preNormalizeArguments` coerces `gotTimeout` to `Delays`.
+				timedOut(request, options.gotTimeout as Delays, options);
 			}
 
 			emitter.emit('request', request);
@@ -218,8 +231,10 @@ export default (options, input?: TransformStream) => {
 		};
 
 		if (options.cache) {
-			const cacheableRequest = new CacheableRequest(fn.request, options.cache);
-			const cacheRequest = cacheableRequest(options, handleResponse);
+			// TODO: Properly type this.
+			const cacheableRequest = new CacheableRequest(requestFn, options.cache as any);
+			// TODO: Properly type this.
+			const cacheRequest = cacheableRequest(options as https.RequestOptions, handleResponse);
 
 			cacheRequest.once('error', error => {
 				if (error instanceof CacheableRequest.RequestError) {
@@ -231,21 +246,22 @@ export default (options, input?: TransformStream) => {
 
 			cacheRequest.once('request', handleRequest);
 		} else {
-			// Catches errors thrown by calling fn.request(...)
+			// Catches errors thrown by calling requestFn(...)
 			try {
-				handleRequest(fn.request(options, handleResponse));
+				// TODO: Properly type this.
+				handleRequest(requestFn(options as https.RequestOptions, handleResponse));
 			} catch (error) {
 				emitError(new RequestError(error, options));
 			}
 		}
 	};
 
-	// TODO: Properly type this
-	(emitter as any).retry = error => {
-		let backoff;
+	emitter.retry = (error: Error): (boolean | undefined) => {
+		let backoff: number;
 
 		try {
-			backoff = options.retry.retries(++retryCount, error);
+			// TODO: Properly type this. Looks like a case handled by `preNormalizeArguments`.
+			backoff = ((options.retry as RetryOption).retries as RetryFn)(++retryCount, error);
 		} catch (error2) {
 			emitError(error2);
 			return;
@@ -272,8 +288,7 @@ export default (options, input?: TransformStream) => {
 		return false;
 	};
 
-	// TODO: Properly type this
-	(emitter as any).abort = () => {
+	emitter.abort = () => {
 		if (currentRequest) {
 			currentRequest.abort();
 		} else {
@@ -337,7 +352,7 @@ export default (options, input?: TransformStream) => {
 				options.headers.accept = 'application/json';
 			}
 
-			requestUrl = options.href || (new URL(options.path, urlLib.format(options))).toString();
+			requestUrl = options.href || (new URL(options.path, urlFormat(options))).toString();
 
 			await get(options);
 		} catch (error) {

@@ -1,4 +1,4 @@
-import {ClientRequest, IncomingMessage} from 'http';
+import {IncomingMessage} from 'http';
 import EventEmitter from 'events';
 import getStream from 'get-stream';
 import is from '@sindresorhus/is';
@@ -8,11 +8,6 @@ import {HTTPError, ParseError, ReadError} from './errors';
 import {mergeOptions} from './merge';
 import {reNormalizeArguments} from './normalize-arguments';
 import {CancelableRequest, Options, Response} from './utils/types';
-
-// TODO: Remove once request-as-event-emitter is converted to TypeScript
-interface RequestAsEventEmitter extends ClientRequest {
-	retry: (error: Error) => boolean;
-}
 
 export default function asPromise(options: Options) {
 	const proxy = new EventEmitter();
@@ -28,7 +23,7 @@ export default function asPromise(options: Options) {
 	};
 
 	const promise = new PCancelable<IncomingMessage>((resolve, reject, onCancel) => {
-		const emitter = requestAsEventEmitter(options) as RequestAsEventEmitter;
+		const emitter = requestAsEventEmitter(options);
 
 		onCancel(emitter.abort);
 

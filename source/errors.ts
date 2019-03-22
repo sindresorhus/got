@@ -1,5 +1,5 @@
-import urlLib from 'url';
-import http, {IncomingHttpHeaders} from 'http';
+import * as urlLib from 'url';
+import * as http from 'http';
 import is from '@sindresorhus/is';
 import {Response, Timings, Options} from './utils/types';
 import {TimeoutError as TimedOutError} from './utils/timed-out';
@@ -69,7 +69,7 @@ export class ParseError extends GotError {
 }
 
 export class HTTPError extends GotError {
-	headers?: IncomingHttpHeaders;
+	headers?: http.IncomingHttpHeaders;
 
 	body: string | Buffer;
 
