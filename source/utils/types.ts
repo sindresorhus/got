@@ -4,7 +4,7 @@ import {Readable as ReadableStream} from 'stream';
 import PCancelable from 'p-cancelable';
 import {Hooks} from '../known-hook-events';
 
-export type Method = 'GET' | 'PUT' | 'HEAD' | 'DELETE' | 'OPTIONS' | 'TRACE' | 'get' | 'put' | 'head' | 'delete' | 'options' | 'trace';
+export type Method = 'GET' | 'POST' | 'PUT' | 'HEAD' | 'DELETE' | 'OPTIONS' | 'TRACE' | 'get' | 'post' | 'put' | 'head' | 'delete' | 'options' | 'trace';
 export type ErrorCode = 'ETIMEDOUT' | 'ECONNRESET' | 'EADDRINUSE' | 'ECONNREFUSED' | 'EPIPE' | 'ENOTFOUND' | 'ENETUNREACH' | 'EAI_AGAIN';
 export type StatusCode = 408 | 413 | 429 | 500 | 502 | 503 | 504;
 
