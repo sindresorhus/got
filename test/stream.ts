@@ -61,7 +61,7 @@ test('returns writeable stream', async t => {
 
 test('throws on write to stream with body specified', t => {
 	t.throws(() => {
-		got.stream(s.url, {body: 'wow'}).end('wow');
+		got.stream.post(s.url, {body: 'wow'}).end('wow');
 	}, 'Got\'s stream is not writable when the `body` option is used');
 });
 
@@ -98,7 +98,7 @@ test('have response event on throwHttpErrors === false', async t => {
 });
 
 test('accepts option.body as Stream', async t => {
-	const stream = got.stream(`${s.url}/post`, {body: toReadableStream('wow')});
+	const stream = got.stream.post(`${s.url}/post`, {body: toReadableStream('wow')});
 	const data = await pEvent(stream, 'data');
 	t.is(data.toString(), 'wow');
 });

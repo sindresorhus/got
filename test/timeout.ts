@@ -129,7 +129,7 @@ test('send timeout', async t => {
 test('send timeout (keepalive)', async t => {
 	await got(`${s.url}/prime`, {agent: keepAliveAgent});
 	await t.throwsAsync(
-		got(s.url, {
+		got.post(s.url, {
 			agent: keepAliveAgent,
 			timeout: {send: 1},
 			retry: 0,
@@ -163,7 +163,7 @@ test('response timeout', async t => {
 });
 
 test('response timeout unaffected by slow upload', async t => {
-	await got(s.url, {
+	await got.post(s.url, {
 		timeout: {response: requestDelay * 2},
 		retry: 0,
 		body: slowDataStream()

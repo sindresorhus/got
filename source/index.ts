@@ -3,6 +3,7 @@ import create from './create';
 
 const defaults = {
 	options: {
+		method: 'GET',
 		retry: {
 			retries: 2,
 			methods: [
