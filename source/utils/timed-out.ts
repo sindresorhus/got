@@ -1,4 +1,4 @@
-import * as net from 'net';
+import net from 'net';
 import {ClientRequest} from 'http';
 import {Delays} from './types';
 

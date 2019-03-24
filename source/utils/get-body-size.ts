@@ -1,4 +1,4 @@
-import * as fs from 'fs';
+import fs from 'fs';
 import {promisify} from 'util';
 import is from '@sindresorhus/is';
 import isFormData from './is-form-data';

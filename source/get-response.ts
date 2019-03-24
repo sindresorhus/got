@@ -1,5 +1,5 @@
 import {IncomingMessage} from 'http';
-import {EventEmitter} from 'events';
+import EventEmitter from 'events';
 import {Transform as TransformStream} from 'stream';
 import is from '@sindresorhus/is';
 import decompressResponse from 'decompress-response';

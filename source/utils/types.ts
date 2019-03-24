@@ -1,5 +1,5 @@
 import {IncomingMessage} from 'http';
-import * as https from 'https';
+import https from 'https';
 import {Readable as ReadableStream} from 'stream';
 import PCancelable from 'p-cancelable';
 import {CookieJar} from 'tough-cookie';

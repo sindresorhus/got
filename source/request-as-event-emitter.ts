@@ -1,10 +1,9 @@
-import {format as urlFormat, URL, URLSearchParams} from 'url'; // TODO: Use the `URL` global when targeting Node.js 10
-import * as util from 'util';
-import {EventEmitter} from 'events';
+import urlLib, {URL, URLSearchParams} from 'url'; // TODO: Use the `URL` global when targeting Node.js 10
+import util from 'util';
+import EventEmitter from 'events';
 import {Transform as TransformStream} from 'stream';
-import * as http from 'http';
-import * as https from 'https';
-// TODO: This causs a TypeScript warning, but using `import * as CacheableRequest` produces a runtime error.
+import http from 'http';
+import https from 'https';
 import CacheableRequest from 'cacheable-request';
 import toReadableStream from 'to-readable-stream';
 import is from '@sindresorhus/is';
@@ -20,11 +19,6 @@ import {RequestFn, Options, Delays, RetryFn, RetryOption} from './utils/types';
 
 const getMethodRedirectCodes = new Set([300, 301, 302, 303, 304, 305, 307, 308]);
 const allMethodRedirectCodes = new Set([300, 303, 307, 308]);
-
-type ProcessVersions = typeof process.versions
-interface ProcessVersionsWithElectron extends ProcessVersions {
-	electron: string;
-}
 
 export interface RequestAsEventEmitter extends EventEmitter {
 	retry: (error: Error) => (boolean | undefined);
@@ -80,7 +74,7 @@ export default (options, input?: TransformStream) => {
 		}
 
 		/* istanbul ignore next: electron.net is broken */
-		if (options.useElectronNet && (process.versions as ProcessVersionsWithElectron).electron) {
+		if (options.useElectronNet && (process.versions as any).electron) {
 			// @ts-ignore
 			const r = ({x: require})['yx'.slice(1)]; // Trick webpack
 			const electron = r('electron');
@@ -352,7 +346,7 @@ export default (options, input?: TransformStream) => {
 				options.headers.accept = 'application/json';
 			}
 
-			requestUrl = options.href || (new URL(options.path, urlFormat(options))).toString();
+			requestUrl = options.href || (new URL(options.path, urlLib.format(options))).toString();
 
 			await get(options);
 		} catch (error) {
