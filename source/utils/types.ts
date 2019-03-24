@@ -3,6 +3,7 @@ import https from 'https';
 import {Readable as ReadableStream} from 'stream';
 import PCancelable from 'p-cancelable';
 import {CookieJar} from 'tough-cookie';
+import {Omit} from 'type-fest';
 import {Hooks} from '../known-hook-events';
 
 export type Method = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'HEAD' | 'DELETE' | 'OPTIONS' | 'TRACE' | 'get' | 'post' | 'put' | 'patch' | 'head' | 'delete' | 'options' | 'trace';
@@ -78,7 +79,7 @@ export interface Delays {
 }
 
 // The library overrides the type definition of `agent`.
-export interface Options extends Pick<https.RequestOptions, Exclude<keyof https.RequestOptions, 'agent'>> {
+export interface Options extends Omit<https.RequestOptions, 'agent'> {
 	host: string;
 	body: string | Buffer | ReadableStream;
 	hostname?: string;
