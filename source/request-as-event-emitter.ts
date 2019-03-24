@@ -74,6 +74,8 @@ export default (options, input?: TransformStream) => {
 		}
 
 		/* istanbul ignore next: electron.net is broken */
+		// No point in typing process.versions correctly, as
+		// process.version.electron is used only once, right here.
 		if (options.useElectronNet && (process.versions as any).electron) {
 			// @ts-ignore
 			const r = ({x: require})['yx'.slice(1)]; // Trick webpack
