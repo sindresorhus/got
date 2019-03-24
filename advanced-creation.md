@@ -64,6 +64,7 @@ const jsonGot = got.create(settings);
 ```js
 const defaults = {
 	options: {
+		method: 'GET',
 		retry: {
 			retries: 2,
 			methods: [

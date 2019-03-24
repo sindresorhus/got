@@ -105,7 +105,7 @@ const gotInstance = got.extend({
 	hooks: {
 		init: [
 			options => {
-				if (options.jsonReplacer) {
+				if (options.jsonReplacer && options.body) {
 					options.body = JSON.stringify(options.body, options.jsonReplacer);
 				}
 			}
