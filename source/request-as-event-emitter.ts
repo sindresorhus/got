@@ -299,7 +299,7 @@ export default (options, input?: TransformStream) => {
 				throw new TypeError(`The \`${options.method}\` method cannot be used with a body`);
 			}
 
- 			if (isBody) {
+			if (isBody) {
 				if (isForm || isJSON) {
 					throw new TypeError('The `body` option cannot be used with the `json` option or `form` option');
 				}
