@@ -15,7 +15,7 @@ import getResponse from './get-response';
 import {uploadProgress} from './progress';
 import {CacheError, UnsupportedProtocolError, MaxRedirectsError, RequestError, TimeoutError} from './errors';
 import urlToOptions from './utils/url-to-options';
-import {RequestFn, Options, Delays, RetryFn, RetryOption} from './utils/types';
+import {RequestFunction, Options, Delays, RetryFunction, RetryOption} from './utils/types';
 
 const getMethodRedirectCodes = new Set([300, 301, 302, 303, 304, 305, 307, 308]);
 const allMethodRedirectCodes = new Set([300, 303, 307, 308]);
@@ -61,7 +61,7 @@ export default (options, input?: TransformStream) => {
 
 		decodeURI(currentUrl);
 
-		let requestFn: RequestFn;
+		let requestFn: RequestFunction;
 		if (is.function_(options.request)) {
 			requestFn = options.request;
 		} else {
@@ -257,7 +257,7 @@ export default (options, input?: TransformStream) => {
 
 		try {
 			// TODO: Properly type this. Looks like a case handled by `preNormalizeArguments`.
-			backoff = ((options.retry as RetryOption).retries as RetryFn)(++retryCount, error);
+			backoff = ((options.retry as RetryOption).retries as RetryFunction)(++retryCount, error);
 		} catch (error2) {
 			emitError(error2);
 			return;

@@ -52,17 +52,17 @@ export interface InterfaceWithDefaults extends Instance {
 	};
 }
 
-export type RetryFn = (retry: number, error: Error) => number;
+export type RetryFunction = (retry: number, error: Error) => number;
 
 export interface RetryOption {
-	retries?: RetryFn | number;
+	retries?: RetryFunction | number;
 	methods?: Method[];
 	statusCodes?: StatusCode[];
 	maxRetryAfter?: number;
 	errorCodes?: ErrorCode[];
 }
 
-export type RequestFn = typeof https.request;
+export type RequestFunction = typeof https.request;
 
 export interface MergedOptions extends Options {
 	retry: RetryOption;
@@ -95,7 +95,7 @@ export interface Options extends Omit<https.RequestOptions, 'agent'> {
 	retry?: number | RetryOption;
 	throwHttpErrors?: boolean;
 	cookieJar?: CookieJar;
-	request?: RequestFn;
+	request?: RequestFunction;
 	agent: https.Agent | boolean | { [key: string]: https.Agent };
 	gotTimeout?: number | Delays;
 	// TODO: Remove this once TS migration is complete and all options are defined.
