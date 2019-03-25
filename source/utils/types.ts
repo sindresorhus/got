@@ -1,4 +1,4 @@
-import {IncomingMessage} from 'http';
+import http, {IncomingMessage} from 'http';
 import https from 'https';
 import {Readable as ReadableStream} from 'stream';
 import PCancelable from 'p-cancelable';
@@ -78,6 +78,11 @@ export interface Delays {
 	request?: number;
 }
 
+export interface AgentByProtocol {
+	http: http.Agent;
+	https: https.Agent;
+}
+
 // The library overrides the type definition of `agent`.
 export interface Options extends Omit<https.RequestOptions, 'agent'> {
 	host: string;
@@ -96,7 +101,7 @@ export interface Options extends Omit<https.RequestOptions, 'agent'> {
 	throwHttpErrors?: boolean;
 	cookieJar?: CookieJar;
 	request?: RequestFunction;
-	agent: https.Agent | boolean | { [key: string]: https.Agent };
+	agent: http.Agent | https.Agent | boolean | AgentByProtocol;
 	gotTimeout?: number | Delays;
 	// TODO: Remove this once TS migration is complete and all options are defined.
 	[key: string]: unknown;
