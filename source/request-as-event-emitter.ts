@@ -21,7 +21,7 @@ const getMethodRedirectCodes = new Set([300, 301, 302, 303, 304, 305, 307, 308])
 const allMethodRedirectCodes = new Set([300, 303, 307, 308]);
 
 export interface RequestAsEventEmitter extends EventEmitter {
-	retry: (error: Error) => (boolean | undefined);
+	retry: (error: Error) => boolean;
 	abort: () => void;
 }
 
@@ -252,7 +252,7 @@ export default (options, input?: TransformStream) => {
 		}
 	};
 
-	emitter.retry = (error: Error): (boolean | undefined) => {
+	emitter.retry = (error: Error): boolean => {
 		let backoff: number;
 
 		try {
@@ -260,7 +260,7 @@ export default (options, input?: TransformStream) => {
 			backoff = ((options.retry as RetryOption).retries as RetryFunction)(++retryCount, error);
 		} catch (error2) {
 			emitError(error2);
-			return;
+			return false;
 		}
 
 		if (backoff) {
