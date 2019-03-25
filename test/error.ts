@@ -68,7 +68,7 @@ test('dns message', async t => {
 });
 
 test('options.body form error message', async t => {
-	await t.throwsAsync(got(s.url, {body: Buffer.from('test'), form: ''}), {
+	await t.throwsAsync(got.post(s.url, {body: Buffer.from('test'), form: ''}), {
 		message: 'The `body` option cannot be used with the `json` option or `form` option'
 	});
 });
@@ -78,7 +78,7 @@ test('no plain object restriction on json body', async t => {
 		this.a = 123;
 	}
 
-	const body = await got(`${s.url}/body`, {json: new CustomObject()}).json();
+	const body = await got.post(`${s.url}/body`, {json: new CustomObject()}).json();
 
 	t.deepEqual(body, {a: 123});
 });

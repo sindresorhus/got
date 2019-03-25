@@ -112,7 +112,7 @@ test('should have statusCode in error', async t => {
 });
 
 test('should set correct headers', async t => {
-	const {body: headers} = await got(`${s.url}/headers`, {responseType: 'json', json: {}});
+	const {body: headers} = await got.post(`${s.url}/headers`, {responseType: 'json', json: {}});
 	t.is(headers['content-type'], 'application/json');
 	t.is(headers.accept, 'application/json');
 });
