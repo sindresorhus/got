@@ -20,6 +20,8 @@ import {RequestFunction, Options, Delays, RetryFunction, RetryOption} from './ut
 const getMethodRedirectCodes = new Set([300, 301, 302, 303, 304, 305, 307, 308]);
 const allMethodRedirectCodes = new Set([300, 303, 307, 308]);
 
+const withoutBody = new Set(['GET', 'HEAD']);
+
 export interface RequestAsEventEmitter extends EventEmitter {
 	retry: (error: Error) => boolean;
 	abort: () => void;
@@ -303,7 +305,12 @@ export default (options, input?: TransformStream) => {
 			const {body, headers} = options;
 			const isForm = !is.nullOrUndefined(options.form);
 			const isJSON = !is.nullOrUndefined(options.json);
-			if (!is.nullOrUndefined(body)) {
+			const isBody = !is.nullOrUndefined(body);
+			if ((isBody || isForm || isJSON) && withoutBody.has(options.method)) {
+				throw new TypeError(`The \`${options.method}\` method cannot be used with a body`);
+			}
+
+			if (isBody) {
 				if (isForm || isJSON) {
 					throw new TypeError('The `body` option cannot be used with the `json` option or `form` option');
 				}
@@ -324,10 +331,6 @@ export default (options, input?: TransformStream) => {
 			} else if (isJSON) {
 				headers['content-type'] = headers['content-type'] || 'application/json';
 				options.body = JSON.stringify(options.json);
-			}
-
-			if (!options.method) {
-				options.method = is.nullOrUndefined(options.body) ? 'GET' : 'POST';
 			}
 
 			// Convert buffer to stream to receive upload progress events (#322)

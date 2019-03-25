@@ -169,7 +169,7 @@ test('hostname+path in options are not breaking redirects', async t => {
 });
 
 test('redirect only GET and HEAD requests', async t => {
-	const error = await t.throwsAsync(got(`${http.url}/relative`, {body: 'wow'}));
+	const error = await t.throwsAsync(got.post(`${http.url}/relative`, {body: 'wow'}));
 	t.is(error.message, 'Response code 302 (Found)');
 	// @ts-ignore
 	t.is(error.path, '/relative');
@@ -178,7 +178,7 @@ test('redirect only GET and HEAD requests', async t => {
 });
 
 test('redirect on 303 response even with post, put, delete', async t => {
-	const {url, body} = await got(`${http.url}/seeOther`, {body: 'wow'});
+	const {url, body} = await got.post(`${http.url}/seeOther`, {body: 'wow'});
 	t.is(url, `${http.url}/`);
 	t.is(body, 'reached');
 });

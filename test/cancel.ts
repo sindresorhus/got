@@ -71,7 +71,7 @@ test('cancel in-progress request', async t => {
 	body.push('1');
 
 	// @ts-ignore
-	const p = got(helper.url, {body});
+	const p = got.post(helper.url, {body});
 
 	// Wait for the connection to be established before canceling
 	helper.on('connection', () => {
@@ -93,7 +93,7 @@ test('cancel in-progress request with timeout', async t => {
 	body.push('1');
 
 	// @ts-ignore
-	const p = got(helper.url, {body, timeout: 10000});
+	const p = got.post(helper.url, {body, timeout: 10000});
 
 	// Wait for the connection to be established before canceling
 	helper.on('connection', () => {

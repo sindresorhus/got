@@ -94,7 +94,7 @@ fs.createReadStream('index.html').pipe(got.stream.post('https://sindresorhus.com
 
 ### API
 
-It's a `GET` request by default, but can be changed by using different methods or in the `options`.
+It's a `GET` request by default, but can be changed by using different methods or via `options.method`.
 
 #### got(url, [options])
 
@@ -164,7 +164,7 @@ Type: `string` `Buffer` `stream.Readable` [`form-data` instance](https://github.
 
 **Note:** If you provide this option, `got.stream()` will be read-only.
 
-If present in `options` and `options.method` is not set, `options.method` will be set to `POST`.
+If present in `options` and `options.method` is not set, it will throw a `TypeError`.
 
 The `content-length` header will be automatically set if `body` is a `string` / `Buffer` / `fs.createReadStream` instance / [`form-data` instance](https://github.com/form-data/form-data), and `content-length` and `transfer-encoding` are not manually set in `options.headers`.
 
@@ -438,7 +438,7 @@ Called with [normalized](source/normalize-arguments.js) [request options](#optio
 ```js
 const got = require('got');
 
-got('https://example.com', {
+got.post('https://example.com', {
 	hooks: {
 		beforeRetry: [
 			(options, error, retryCount) => {
@@ -694,16 +694,17 @@ client.get('/demo');
 			'x-foo': 'bar'
 		}
 	});
-	const {headers} = (await client.get('/headers').json()).body;
+	const {headers} = await client.get('/headers').json();
 	//=> headers['x-foo'] === 'bar'
 
 	const jsonClient = client.extend({
 		responseType: 'json',
+		resolveBodyOnly: true,
 		headers: {
 			'x-baz': 'qux'
 		}
 	});
-	const {headers: headers2} = (await jsonClient.get('/headers')).body;
+	const {headers: headers2} = await jsonClient.get('/headers');
 	//=> headers2['x-foo'] === 'bar'
 	//=> headers2['x-baz'] === 'qux'
 })();
@@ -1045,7 +1046,7 @@ By default, if you pass an object to the `body` option it will be stringified us
 const got = require('got');
 
 (async () => {
-	const response = await got('https://httpbin.org/anything', {
+	const response = await got.post('https://httpbin.org/anything', {
 		body: {
 			hello: 'world'
 		},
@@ -1063,7 +1064,7 @@ To receive a JSON body you can either set `responseType` option to `json` or use
 const got = require('got');
 
 (async () => {
-	const {body} = await got('https://httpbin.org/anything', {
+	const {body} = await got.post('https://httpbin.org/anything', {
 		body: {
 			hello: 'world'
 		}

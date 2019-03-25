@@ -179,7 +179,7 @@ test('catches beforeError errors', async t => {
 });
 
 test('init is called with options', async t => {
-	await got(s.url, {
+	await got.post(s.url, {
 		json: true,
 		hooks: {
 			init: [
@@ -197,6 +197,7 @@ test('init allows modifications', async t => {
 		hooks: {
 			init: [
 				options => {
+					options.method = 'POST';
 					options.body = 'foobar';
 				}
 			]

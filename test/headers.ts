@@ -96,7 +96,7 @@ test('transform names to lowercase', async t => {
 });
 
 test('setting content-length to 0', async t => {
-	const {body} = await got(s.url, {
+	const {body} = await got.post(s.url, {
 		headers: {
 			'content-length': 0
 		},
@@ -117,7 +117,7 @@ test('sets content-length to 0 when requesting PUT with empty body', async t => 
 test('form-data manual content-type', async t => {
 	const form = new FormData();
 	form.append('a', 'b');
-	const {body} = await got(s.url, {
+	const {body} = await got.post(s.url, {
 		headers: {
 			'content-type': 'custom'
 		},
@@ -130,7 +130,7 @@ test('form-data manual content-type', async t => {
 test('form-data automatic content-type', async t => {
 	const form = new FormData();
 	form.append('a', 'b');
-	const {body} = await got(s.url, {
+	const {body} = await got.post(s.url, {
 		body: form
 	});
 	const headers = JSON.parse(body);
@@ -140,7 +140,7 @@ test('form-data automatic content-type', async t => {
 test('form-data sets content-length', async t => {
 	const form = new FormData();
 	form.append('a', 'b');
-	const {body} = await got(s.url, {body: form});
+	const {body} = await got.post(s.url, {body: form});
 	const headers = JSON.parse(body);
 	t.is(headers['content-length'], '157');
 });
@@ -148,7 +148,7 @@ test('form-data sets content-length', async t => {
 test('stream as options.body sets content-length', async t => {
 	const fixture = path.join(__dirname, 'fixtures/stream-content-length');
 	const {size} = await promisify(fs.stat)(fixture);
-	const {body} = await got(s.url, {
+	const {body} = await got.post(s.url, {
 		body: fs.createReadStream(fixture)
 	});
 	const headers = JSON.parse(body);
@@ -157,7 +157,7 @@ test('stream as options.body sets content-length', async t => {
 
 test('buffer as options.body sets content-length', async t => {
 	const buffer = Buffer.from('unicorn');
-	const {body} = await got(s.url, {
+	const {body} = await got.post(s.url, {
 		body: buffer
 	});
 	const headers = JSON.parse(body);
