@@ -6,7 +6,6 @@
 
 		// TODO: Make it strict
 		"strict": false,
-		"noImplicitReturns": false,
 		"noUnusedParameters": false
 	},
 	"include": [
