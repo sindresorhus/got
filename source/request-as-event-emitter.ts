@@ -82,7 +82,7 @@ export default (options, input?: TransformStream) => {
 			// @ts-ignore
 			const r = ({x: require})['yx'.slice(1)]; // Trick webpack
 			const electron = r('electron');
-			requestFn = electron.net || electron.remote.net;
+			requestFn = electron.net.request || electron.remote.net.request;
 		}
 
 		if (options.cookieJar) {
