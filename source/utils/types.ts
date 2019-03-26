@@ -3,6 +3,7 @@ import https from 'https';
 import {Readable as ReadableStream} from 'stream';
 import PCancelable from 'p-cancelable';
 import {CookieJar} from 'tough-cookie';
+import {StorageAdapter} from 'cacheable-request';
 import {Omit} from 'type-fest';
 import {Hooks} from '../known-hook-events';
 
@@ -103,6 +104,7 @@ export interface Options extends Omit<https.RequestOptions, 'agent'> {
 	request?: RequestFunction;
 	agent: http.Agent | https.Agent | boolean | AgentByProtocol;
 	gotTimeout?: number | Delays;
+	cache?: string | StorageAdapter;
 	// TODO: Remove this once TS migration is complete and all options are defined.
 	[key: string]: unknown;
 }
