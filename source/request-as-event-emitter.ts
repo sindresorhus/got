@@ -229,8 +229,7 @@ export default (options, input?: TransformStream) => {
 		};
 
 		if (options.cache) {
-			// TODO: Properly type this.
-			const cacheableRequest = new CacheableRequest(requestFn, options.cache as any);
+			const cacheableRequest = new CacheableRequest(requestFn, options.cache);
 			// TODO: Properly type this.
 			const cacheRequest = cacheableRequest(options as https.RequestOptions, handleResponse);
 
