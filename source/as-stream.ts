@@ -1,4 +1,3 @@
-import {ClientRequest} from 'http';
 import {PassThrough as PassThroughStream} from 'stream';
 import duplexer3 from 'duplexer3';
 import requestAsEventEmitter from './request-as-event-emitter';
@@ -20,7 +19,7 @@ export default function asStream(options: MergedOptions) {
 		};
 	}
 
-	const emitter = requestAsEventEmitter(options, input) as ClientRequest;
+	const emitter = requestAsEventEmitter(options, input);
 
 	// Cancels the request
 	proxy._destroy = emitter.abort;

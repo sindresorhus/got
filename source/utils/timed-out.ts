@@ -1,5 +1,6 @@
 import net from 'net';
 import {ClientRequest} from 'http';
+import {Delays} from './types';
 
 export class TimeoutError extends Error {
 	event: string;
@@ -17,16 +18,6 @@ export class TimeoutError extends Error {
 
 const reentry: symbol = Symbol('reentry');
 const noop = (): void => {};
-
-export interface Delays {
-	lookup?: number;
-	connect?: number;
-	secureConnect?: number;
-	socket?: number;
-	response?: number;
-	send?: number;
-	request?: number;
-}
 
 export default (request: ClientRequest, delays: Delays, options: any) => {
 	/* istanbul ignore next: this makes sure timed-out isn't called twice */

@@ -39,6 +39,7 @@
 	"dependencies": {
 		"@sindresorhus/is": "^0.15.0",
 		"@szmarczak/http-timer": "^1.1.2",
+		"@types/cacheable-request": "^6.0.1",
 		"@types/form-data": "^2.2.1",
 		"cacheable-lookup": "^0.1.0",
 		"cacheable-request": "^6.0.0",
@@ -49,7 +50,8 @@
 		"lowercase-keys": "^1.0.1",
 		"mimic-response": "^2.0.0",
 		"p-cancelable": "^1.1.0",
-		"to-readable-stream": "^2.0.0"
+		"to-readable-stream": "^2.0.0",
+		"type-fest": "^0.3.0"
 	},
 	"devDependencies": {
 		"@sindresorhus/tsconfig": "^0.3.0",
