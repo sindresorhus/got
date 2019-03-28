@@ -8,21 +8,21 @@ test.before('setup', async () => {
 	s = await createServer();
 
 	let noStoreIndex = 0;
-	s.on('/no-store', (request, response) => {
+	s.on('/no-store', (_unusedRequest, response) => {
 		response.setHeader('Cache-Control', 'public, no-cache, no-store');
 		response.end(noStoreIndex.toString());
 		noStoreIndex++;
 	});
 
 	let cacheIndex = 0;
-	s.on('/cache', (request, response) => {
+	s.on('/cache', (_unusedRequest, response) => {
 		response.setHeader('Cache-Control', 'public, max-age=60');
 		response.end(cacheIndex.toString());
 		cacheIndex++;
 	});
 
 	let calledFirstError = false;
-	s.on('/first-error', (request, response) => {
+	s.on('/first-error', (_unusedRequest, response) => {
 		if (calledFirstError) {
 			response.end('ok');
 			return;
@@ -34,7 +34,7 @@ test.before('setup', async () => {
 	});
 
 	let status301Index = 0;
-	s.on('/301', (request, response) => {
+	s.on('/301', (_unusedRequest, response) => {
 		if (status301Index === 0) {
 			response.setHeader('Cache-Control', 'public, max-age=60');
 			response.setHeader('Location', `${s.url}/302`);
@@ -46,7 +46,7 @@ test.before('setup', async () => {
 	});
 
 	let status302Index = 0;
-	s.on('/302', (request, response) => {
+	s.on('/302', (_unusedRequest, response) => {
 		if (status302Index === 0) {
 			response.setHeader('Cache-Control', 'public, max-age=60');
 			response.setHeader('Location', `${s.url}/cache`);

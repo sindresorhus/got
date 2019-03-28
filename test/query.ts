@@ -14,7 +14,7 @@ test.before('setup', async () => {
 		response.end(request.url);
 	};
 
-	s.on('/', (request, response) => {
+	s.on('/', (_unusedRequest, response) => {
 		response.statusCode = 404;
 		response.end();
 	});
@@ -23,18 +23,18 @@ test.before('setup', async () => {
 	s.on('/?test=wow', echoUrl);
 	s.on('/?test=it’s+ok', echoUrl);
 
-	s.on('/reached', (request, response) => {
+	s.on('/reached', (_unusedRequest, response) => {
 		response.end('reached');
 	});
 
-	s.on('/relativeQuery?bang', (request, response) => {
+	s.on('/relativeQuery?bang', (_unusedRequest, response) => {
 		response.writeHead(302, {
 			location: '/reached'
 		});
 		response.end();
 	});
 
-	s.on('/?recent=true', (request, response) => {
+	s.on('/?recent=true', (_unusedRequest, response) => {
 		response.end('recent');
 	});
 

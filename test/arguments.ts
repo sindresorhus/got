@@ -14,7 +14,7 @@ test.before('setup', async () => {
 		response.end(request.url);
 	};
 
-	s.on('/', (request, response) => {
+	s.on('/', (_unusedRequest, response) => {
 		response.statusCode = 404;
 		response.end();
 	});
@@ -25,7 +25,7 @@ test.before('setup', async () => {
 	s.on('/?test=it’s+ok', echoUrl);
 	s.on('/?test=http://example.com?foo=bar', echoUrl);
 
-	s.on('/stream', (request, response) => {
+	s.on('/stream', (_unusedRequest, response) => {
 		response.end('ok');
 	});
 

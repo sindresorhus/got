@@ -10,23 +10,23 @@ let s;
 test.before('setup', async () => {
 	s = await createServer();
 
-	s.on('/', (request, response) => {
+	s.on('/', (_unusedRequest, response) => {
 		response.statusCode = 404;
 		response.end('not');
 	});
 
-	s.on('/default-status-message', (request, response) => {
+	s.on('/default-status-message', (_unusedRequest, response) => {
 		response.statusCode = 400;
 		response.end('body');
 	});
 
-	s.on('/custom-status-message', (request, response) => {
+	s.on('/custom-status-message', (_unusedRequest, response) => {
 		response.statusCode = 400;
 		response.statusMessage = 'Something Exploded';
 		response.end('body');
 	});
 
-	s.on('/no-status-message', (request, response) => {
+	s.on('/no-status-message', (_unusedRequest, response) => {
 		response.writeHead(400, '');
 		response.end('body');
 	});

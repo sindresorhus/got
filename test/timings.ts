@@ -4,7 +4,7 @@ import withServer from './helpers/with-server';
 
 // #687
 test('sensible timings', withServer, async (t, s) => {
-	s.get('/', (request, response) => {
+	s.get('/', (_unusedRequest, response) => {
 		response.end('ok');
 	});
 	const {timings} = await got(s.url);

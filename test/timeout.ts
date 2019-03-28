@@ -49,13 +49,13 @@ test.before('setup', async () => {
 		});
 	});
 
-	s.on('/delayed', async (request, response) => {
+	s.on('/delayed', async (_unusedRequest, response) => {
 		response.write('O');
 		await delay(requestDelay);
 		response.end('K');
 	});
 
-	s.on('/download', (request, response) => {
+	s.on('/download', (_unusedRequest, response) => {
 		response.writeHead(200, {
 			'transfer-encoding': 'chunked'
 		});
@@ -63,11 +63,11 @@ test.before('setup', async () => {
 		slowDataStream().pipe(response);
 	});
 
-	s.on('/prime', (request, response) => {
+	s.on('/prime', (_unusedRequest, response) => {
 		response.end('OK');
 	});
 
-	ss.on('/', (request, response) => {
+	ss.on('/', (_unusedRequest, response) => {
 		response.end('OK');
 	});
 

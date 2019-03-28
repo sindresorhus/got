@@ -12,11 +12,11 @@ if (process.platform !== 'win32') {
 	test.before('setup', async () => {
 		s = await createServer();
 
-		s.on('/', (request, response) => {
+		s.on('/', (_unusedRequest, response) => {
 			response.end('ok');
 		});
 
-		s.on('/foo:bar', (request, response) => {
+		s.on('/foo:bar', (_unusedRequest, response) => {
 			response.end('ok');
 		});
 

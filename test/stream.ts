@@ -12,7 +12,7 @@ let s;
 test.before('setup', async () => {
 	s = await createServer();
 
-	s.on('/', (request, response) => {
+	s.on('/', (_unusedRequest, response) => {
 		response.writeHead(200, {
 			unicorn: 'rainbow',
 			'content-encoding': 'gzip'
@@ -24,14 +24,14 @@ test.before('setup', async () => {
 		request.pipe(response);
 	});
 
-	s.on('/redirect', (request, response) => {
+	s.on('/redirect', (_unusedRequest, response) => {
 		response.writeHead(302, {
 			location: s.url
 		});
 		response.end();
 	});
 
-	s.on('/error', (request, response) => {
+	s.on('/error', (_unusedRequest, response) => {
 		response.statusCode = 404;
 		response.end();
 	});
@@ -122,7 +122,7 @@ test('piping works', async t => {
 test('proxying headers works', async t => {
 	const server = await createServer();
 
-	server.on('/', (request, response) => {
+	server.on('/', (_unusedRequest, response) => {
 		got.stream(s.url).pipe(response);
 	});
 
@@ -139,7 +139,7 @@ test('proxying headers works', async t => {
 test('skips proxying headers after server has sent them already', async t => {
 	const server = await createServer();
 
-	server.on('/', (request, response) => {
+	server.on('/', (_unusedRequest, response) => {
 		response.writeHead(200);
 		got.stream(s.url).pipe(response);
 	});
@@ -155,7 +155,7 @@ test('skips proxying headers after server has sent them already', async t => {
 test('throws when trying to proxy through a closed stream', async t => {
 	const server = await createServer();
 
-	server.on('/', async (request, response) => {
+	server.on('/', async (_unusedRequest, response) => {
 		const stream = got.stream(s.url);
 		await delay(1000);
 		t.throws(() => stream.pipe(response));
@@ -170,7 +170,7 @@ test('throws when trying to proxy through a closed stream', async t => {
 test('proxies content-encoding header when options.decompress is false', async t => {
 	const server = await createServer();
 
-	server.on('/', (request, response) => {
+	server.on('/', (_unusedRequest, response) => {
 		got.stream(s.url, {decompress: false}).pipe(response);
 	});
 

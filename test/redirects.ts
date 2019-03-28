@@ -8,7 +8,7 @@ let http;
 let https;
 
 test.before('setup', async () => {
-	const reached = (request, response) => {
+	const reached = (_unusedRequest, response) => {
 		response.end('reached');
 	};
 
@@ -17,11 +17,11 @@ test.before('setup', async () => {
 
 	// HTTPS Handlers
 
-	https.on('/', (request, response) => {
+	https.on('/', (_unusedRequest, response) => {
 		response.end('https');
 	});
 
-	https.on('/httpsToHttp', (request, response) => {
+	https.on('/httpsToHttp', (_unusedRequest, response) => {
 		response.writeHead(302, {
 			location: http.url
 		});
@@ -32,7 +32,7 @@ test.before('setup', async () => {
 
 	http.on('/', reached);
 
-	http.on('/finite', (request, response) => {
+	http.on('/finite', (_unusedRequest, response) => {
 		response.writeHead(302, {
 			location: `${http.url}/`
 		});
@@ -42,77 +42,77 @@ test.before('setup', async () => {
 	http.on('/utf8-url-áé', reached);
 	http.on('/?test=it’s+ok', reached);
 
-	http.on('/redirect-with-utf8-binary', (request, response) => {
+	http.on('/redirect-with-utf8-binary', (_unusedRequest, response) => {
 		response.writeHead(302, {
 			location: Buffer.from((new URL('/utf8-url-áé', http.url)).toString(), 'utf8').toString('binary')
 		});
 		response.end();
 	});
 
-	http.on('/redirect-with-uri-encoded-location', (request, response) => {
+	http.on('/redirect-with-uri-encoded-location', (_unusedRequest, response) => {
 		response.writeHead(302, {
 			location: new URL('/?test=it’s+ok', http.url).toString()
 		});
 		response.end();
 	});
 
-	http.on('/endless', (request, response) => {
+	http.on('/endless', (_unusedRequest, response) => {
 		response.writeHead(302, {
 			location: `${http.url}/endless`
 		});
 		response.end();
 	});
 
-	http.on('/relative', (request, response) => {
+	http.on('/relative', (_unusedRequest, response) => {
 		response.writeHead(302, {
 			location: '/'
 		});
 		response.end();
 	});
 
-	http.on('/seeOther', (request, response) => {
+	http.on('/seeOther', (_unusedRequest, response) => {
 		response.writeHead(303, {
 			location: '/'
 		});
 		response.end();
 	});
 
-	http.on('/temporary', (request, response) => {
+	http.on('/temporary', (_unusedRequest, response) => {
 		response.writeHead(307, {
 			location: '/'
 		});
 		response.end();
 	});
 
-	http.on('/permanent', (request, response) => {
+	http.on('/permanent', (_unusedRequest, response) => {
 		response.writeHead(308, {
 			location: '/'
 		});
 		response.end();
 	});
 
-	http.on('/relativeSearchParam?bang', (request, response) => {
+	http.on('/relativeSearchParam?bang', (_unusedRequest, response) => {
 		response.writeHead(302, {
 			location: '/'
 		});
 		response.end();
 	});
 
-	http.on('/httpToHttps', (request, response) => {
+	http.on('/httpToHttps', (_unusedRequest, response) => {
 		response.writeHead(302, {
 			location: https.url
 		});
 		response.end();
 	});
 
-	http.on('/malformedRedirect', (request, response) => {
+	http.on('/malformedRedirect', (_unusedRequest, response) => {
 		response.writeHead(302, {
 			location: '/%D8'
 		});
 		response.end();
 	});
 
-	http.on('/invalidRedirect', (request, response) => {
+	http.on('/invalidRedirect', (_unusedRequest, response) => {
 		response.writeHead(302, {
 			location: 'http://'
 		});
@@ -227,7 +227,7 @@ test('throws on invalid redirect URL', async t => {
 
 test('port is reset on redirect', async t => {
 	const server = await createServer();
-	server.on('/', (request, response) => {
+	server.on('/', (_unusedRequest, response) => {
 		response.writeHead(307, {
 			location: 'http://localhost'
 		});

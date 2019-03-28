@@ -10,24 +10,24 @@ let s;
 test.before('setup', async () => {
 	s = await createServer();
 
-	s.on('/set-cookie', (request, response) => {
+	s.on('/set-cookie', (_unusedRequest, response) => {
 		response.setHeader('set-cookie', 'hello=world');
 		response.end();
 	});
 
-	s.on('/set-multiple-cookies', (request, response) => {
+	s.on('/set-multiple-cookies', (_unusedRequest, response) => {
 		response.setHeader('set-cookie', ['hello=world', 'foo=bar']);
 		response.end();
 	});
 
-	s.on('/set-cookies-then-redirect', (request, response) => {
+	s.on('/set-cookies-then-redirect', (_unusedRequest, response) => {
 		response.setHeader('set-cookie', ['hello=world', 'foo=bar']);
 		response.setHeader('location', '/');
 		response.statusCode = 302;
 		response.end();
 	});
 
-	s.on('/invalid', (request, response) => {
+	s.on('/invalid', (_unusedRequest, response) => {
 		response.setHeader('set-cookie', 'hello=world; domain=localhost');
 		response.end();
 	});

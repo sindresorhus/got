@@ -3,10 +3,10 @@ import got from '../source';
 import withServer from './helpers/with-server';
 
 test('promise mode', withServer, async (t, s) => {
-	s.get('/', (request, response) => {
+	s.get('/', (_unusedRequest, response) => {
 		response.end('ok');
 	});
-	s.get('/404', (request, response) => {
+	s.get('/404', (_unusedRequest, response) => {
 		response.statusCode = 404;
 		response.end('not found');
 	});

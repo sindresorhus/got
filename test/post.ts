@@ -17,7 +17,7 @@ test.before('setup', async () => {
 		response.end(JSON.stringify(request.headers));
 	});
 
-	s.on('/empty', (request_, response) => {
+	s.on('/empty', (_unusedRequest, response) => {
 		response.end();
 	});
 

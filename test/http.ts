@@ -4,24 +4,24 @@ import got from '../source';
 import withServer from './helpers/with-server';
 
 test('simple request', withServer, async (t, s) => {
-	s.get('/', (request, response) => {
+	s.get('/', (_unusedRequest, response) => {
 		response.end('ok');
 	});
 	t.is((await got(s.url)).body, 'ok');
 });
 
 test('empty response', withServer, async (t, s) => {
-	s.get('/empty', (request, response) => {
+	s.get('/empty', (_unusedRequest, response) => {
 		response.end();
 	});
 	t.is((await got(`${s.url}/empty`)).body, '');
 });
 
 test('requestUrl response', withServer, async (t, s) => {
-	s.get('/', (request, response) => {
+	s.get('/', (_unusedRequest, response) => {
 		response.end('ok');
 	});
-	s.get('/empty', (request, response) => {
+	s.get('/empty', (_unusedRequest, response) => {
 		response.end();
 	});
 	t.is((await got(s.url)).requestUrl, `${s.url}/`);
@@ -29,7 +29,7 @@ test('requestUrl response', withServer, async (t, s) => {
 });
 
 test('error with code', withServer, async (t, s) => {
-	s.get('/404', (request, response) => {
+	s.get('/404', (_unusedRequest, response) => {
 		response.statusCode = 404;
 		response.end('not');
 	});
@@ -39,7 +39,7 @@ test('error with code', withServer, async (t, s) => {
 });
 
 test('status code 304 doesn\'t throw', withServer, async (t, s) => {
-	s.get('/304', (request, response) => {
+	s.get('/304', (_unusedRequest, response) => {
 		response.statusCode = 304;
 		response.end();
 	});
@@ -51,7 +51,7 @@ test('status code 304 doesn\'t throw', withServer, async (t, s) => {
 });
 
 test('doesn\'t throw on throwHttpErrors === false', withServer, async (t, s) => {
-	s.get('/404', (request, response) => {
+	s.get('/404', (_unusedRequest, response) => {
 		response.statusCode = 404;
 		response.end('not');
 	});
@@ -64,7 +64,7 @@ test('invalid protocol throws', async t => {
 });
 
 test('buffer on encoding === null', withServer, async (t, s) => {
-	s.get('/', (request, response) => {
+	s.get('/', (_unusedRequest, response) => {
 		response.end('ok');
 	});
 	const data = (await got(s.url, {encoding: null})).body;
@@ -72,10 +72,10 @@ test('buffer on encoding === null', withServer, async (t, s) => {
 });
 
 test('searchParams option', withServer, async (t, s) => {
-	s.get('/', (request, response) => {
+	s.get('/', (_unusedRequest, response) => {
 		response.end('recent');
 	});
-	s.get('/?recent=true', (request, response) => {
+	s.get('/?recent=true', (_unusedRequest, response) => {
 		response.end('recent');
 	});
 	t.is((await got(s.url, {searchParams: {recent: true}})).body, 'recent');
@@ -83,7 +83,7 @@ test('searchParams option', withServer, async (t, s) => {
 });
 
 test('requestUrl response when sending url as param', withServer, async (t, s) => {
-	s.get('/', (request, response) => {
+	s.get('/', (_unusedRequest, response) => {
 		response.end('ok');
 	});
 	t.is((await got(s.url, {hostname: s.hostname, port: s.port})).requestUrl, `${s.url}/`);
@@ -91,14 +91,14 @@ test('requestUrl response when sending url as param', withServer, async (t, s) =
 });
 
 test('response contains url', withServer, async (t, s) => {
-	s.get('/', (request, response) => {
+	s.get('/', (_unusedRequest, response) => {
 		response.end('ok');
 	});
 	t.is((await got(s.url)).url, `${s.url}/`);
 });
 
 test('response contains got options', withServer, async (t, s) => {
-	s.get('/', (request, response) => {
+	s.get('/', (_unusedRequest, response) => {
 		response.end('ok');
 	});
 

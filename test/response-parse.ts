@@ -9,25 +9,25 @@ const jsonResponse = '{"data":"dog"}';
 test.before('setup', async () => {
 	s = await createServer();
 
-	s.on('/', (request, response) => {
+	s.on('/', (_unusedRequest, response) => {
 		response.end(jsonResponse);
 	});
 
-	s.on('/invalid', (request, response) => {
+	s.on('/invalid', (_unusedRequest, response) => {
 		response.end('/');
 	});
 
-	s.on('/no-body', (request, response) => {
+	s.on('/no-body', (_unusedRequest, response) => {
 		response.statusCode = 200;
 		response.end();
 	});
 
-	s.on('/non200', (request, response) => {
+	s.on('/non200', (_unusedRequest, response) => {
 		response.statusCode = 500;
 		response.end(jsonResponse);
 	});
 
-	s.on('/non200-invalid', (request, response) => {
+	s.on('/non200-invalid', (_unusedRequest, response) => {
 		response.statusCode = 500;
 		response.end('Internal error');
 	});

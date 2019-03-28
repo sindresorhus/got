@@ -5,7 +5,7 @@ import got from '../source';
 import withServer from './helpers/with-server';
 
 test('should emit request event as promise', withServer, async (t, s) => {
-	s.get('/', (request, response) => {
+	s.get('/', (_unusedRequest, response) => {
 		response.statusCode = 200;
 		response.end();
 	});
@@ -15,7 +15,7 @@ test('should emit request event as promise', withServer, async (t, s) => {
 });
 
 test('should emit response event as promise', withServer, async (t, s) => {
-	s.get('/', (request, response) => {
+	s.get('/', (_unusedRequest, response) => {
 		response.statusCode = 200;
 		response.end();
 	});

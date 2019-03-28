@@ -14,11 +14,11 @@ test.before('setup', async () => {
 
 	// HTTPS Handlers
 
-	https.on('/', (request, response) => {
+	https.on('/', (_unusedRequest, response) => {
 		response.end('https');
 	});
 
-	https.on('/httpsToHttp', (request, response) => {
+	https.on('/httpsToHttp', (_unusedRequest, response) => {
 		response.writeHead(302, {
 			location: http.url
 		});
@@ -27,11 +27,11 @@ test.before('setup', async () => {
 
 	// HTTP Handlers
 
-	http.on('/', (request, response) => {
+	http.on('/', (_unusedRequest, response) => {
 		response.end('http');
 	});
 
-	http.on('/httpToHttps', (request, response) => {
+	http.on('/httpToHttps', (_unusedRequest, response) => {
 		response.writeHead(302, {
 			location: https.url
 		});

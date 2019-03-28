@@ -20,7 +20,7 @@ async function createAbortServer() {
 			response.end();
 		});
 
-		s.on('/redirect', (request, response) => {
+		s.on('/redirect', (_unusedReques, response) => {
 			response.writeHead(302, {
 				location: `${s.url}/abort`
 			});
@@ -111,7 +111,7 @@ test('cancel immediately', async t => {
 	const aborted = new Promise((resolve, reject) => {
 		// We won't get an abort or even a connection
 		// We assume no request within 1000ms equals a (client side) aborted request
-		s.on('/abort', (request, response) => {
+		s.on('/abort', (_unusedRequest, response) => {
 			response.on('finish', reject.bind(this, new Error('Request finished instead of aborting.')));
 			response.end();
 		});

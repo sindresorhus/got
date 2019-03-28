@@ -22,7 +22,7 @@ test.before('setup', async () => {
 	s.on('/body', async (request, response) => {
 		response.end(await getStream(request));
 	});
-	s.on('/redirect', (request, response) => {
+	s.on('/redirect', (_unusedRequest, response) => {
 		response.statusCode = 302;
 		response.setHeader('location', '/');
 		response.end();
@@ -46,7 +46,7 @@ test.before('setup', async () => {
 		response.end();
 	});
 
-	s.on('/401then500', (request, response) => {
+	s.on('/401then500', (_unusedRequest, response) => {
 		if (visited401then500) {
 			response.statusCode = 500;
 		} else {
@@ -350,7 +350,7 @@ test('no infinity loop when retrying on afterResponse', async t => {
 		retry: 0,
 		hooks: {
 			afterResponse: [
-				(response, retryWithMergedOptions) => {
+				(_unusedResponse, retryWithMergedOptions) => {
 					return retryWithMergedOptions({
 						headers: {
 							token: 'invalid'

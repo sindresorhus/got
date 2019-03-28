@@ -19,7 +19,7 @@ test.before('setup', async () => {
 
 	s.on('/long', () => {});
 
-	s.on('/knock-twice', (request, response) => {
+	s.on('/knock-twice', (_unusedRequest, response) => {
 		if (knocks++ === 1) {
 			response.end('who`s there?');
 		}
@@ -29,18 +29,18 @@ test.before('setup', async () => {
 		trys++;
 	});
 
-	s.on('/fifth', (request, response) => {
+	s.on('/fifth', (_unusedRequest, response) => {
 		if (fifth++ === 5) {
 			response.end('who`s there?');
 		}
 	});
 
-	s.on('/500', (request, response) => {
+	s.on('/500', (_unusedRequest, response) => {
 		response.statusCode = 500;
 		response.end();
 	});
 
-	s.on('/measure413', (request, response) => {
+	s.on('/measure413', (_unusedRequest, response) => {
 		response.writeHead(413, {
 			'Retry-After': retryAfterOn413
 		});
@@ -49,14 +49,14 @@ test.before('setup', async () => {
 		lastTried413access = Date.now();
 	});
 
-	s.on('/413', (request, response) => {
+	s.on('/413', (_unusedRequest, response) => {
 		response.writeHead(413, {
 			'Retry-After': retryAfterOn413
 		});
 		response.end();
 	});
 
-	s.on('/413withTimestamp', (request, response) => {
+	s.on('/413withTimestamp', (_unusedRequest, response) => {
 		const date = (new Date(Date.now() + (retryAfterOn413 * 1000))).toUTCString();
 
 		response.writeHead(413, {
@@ -66,12 +66,12 @@ test.before('setup', async () => {
 		lastTried413TimestampAccess = date;
 	});
 
-	s.on('/413withoutRetryAfter', (request, response) => {
+	s.on('/413withoutRetryAfter', (_unusedRequest, response) => {
 		response.statusCode = 413;
 		response.end();
 	});
 
-	s.on('/503', (request, response) => {
+	s.on('/503', (_unusedRequest, response) => {
 		response.statusCode = 503;
 		response.end();
 	});
@@ -120,7 +120,7 @@ test('falsy value prevents retries #2', async t => {
 	const error = await t.throwsAsync(got(`${s.url}/long`, {
 		timeout: {socket: socketTimeout},
 		retry: {
-			retries: (iter, error) => {
+			retries: (_unusedIter, error) => {
 				t.truthy(error);
 				return false;
 			}

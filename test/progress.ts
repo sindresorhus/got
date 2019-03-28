@@ -42,7 +42,7 @@ let s;
 test.before('setup', async () => {
 	s = await createServer();
 
-	s.on('/download', (request, response) => {
+	s.on('/download', (_unusedRequest, response) => {
 		response.setHeader('content-length', file.length);
 
 		toReadableStream(file)
@@ -50,7 +50,7 @@ test.before('setup', async () => {
 			.pipe(response);
 	});
 
-	s.on('/download/no-total', (request, response) => {
+	s.on('/download/no-total', (_unusedRequest, response) => {
 		response.write('hello');
 		response.end();
 	});

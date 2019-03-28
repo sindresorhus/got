@@ -28,21 +28,21 @@ test.before('setup', async () => {
 		response.end(gzipData);
 	});
 
-	s.on('/corrupted', (request, response) => {
+	s.on('/corrupted', (_unusedRequest, response) => {
 		response.statusCode = 200;
 		response.setHeader('Content-Type', 'text/plain');
 		response.setHeader('Content-Encoding', 'gzip');
 		response.end('Not gzipped content');
 	});
 
-	s.on('/missing-data', (request, response) => {
+	s.on('/missing-data', (_unusedRequest, response) => {
 		response.statusCode = 200;
 		response.setHeader('Content-Type', 'text/plain');
 		response.setHeader('Content-Encoding', 'gzip');
 		response.end(gzipData.slice(0, -1));
 	});
 
-	s.on('/uncompressed', (request, response) => {
+	s.on('/uncompressed', (_unusedRequest, response) => {
 		response.statusCode = 200;
 		response.setHeader('Content-Type', 'text/plain');
 		response.end(testContentUncompressed);
