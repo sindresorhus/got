@@ -22,7 +22,7 @@ const noop = (): void => {};
 export default (request: ClientRequest, delays: Delays, options: any) => {
 	/* istanbul ignore next: this makes sure timed-out isn't called twice */
 	if (Reflect.has(request, reentry)) {
-		return;
+		return noop;
 	}
 
 	(request as any)[reentry] = true;
