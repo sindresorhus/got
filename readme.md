@@ -1036,6 +1036,27 @@ const createTestServer = require('create-test-server');
 ```
 
 
+<br>
+<br>
+
+---
+
+<div align="center">
+	<b>
+		<a href="https://tidelift.com/subscription/pkg/npm-got?utm_source=npm-got&utm_medium=referral&utm_campaign=readme">Get professional support for this package with a Tidelift subscription</a>
+	</b>
+	<br>
+	<sub>
+		Tidelift helps make open source sustainable for maintainers while giving companies<br>assurances about security, maintenance, and licensing for their dependencies.
+	</sub>
+</div>
+
+---
+
+<br>
+<br>
+
+
 ## Tips
 
 ### JSON mode
@@ -1338,6 +1359,11 @@ const h2got = got.extend({request});
 [![Sindre Sorhus](https://github.com/sindresorhus.png?size=100)](https://sindresorhus.com) | [![Vsevolod Strukchinsky](https://github.com/floatdrop.png?size=100)](https://github.com/floatdrop) | [![Alexander Tesfamichael](https://github.com/AlexTes.png?size=100)](https://github.com/AlexTes) | [![Luke Childs](https://github.com/lukechilds.png?size=100)](https://github.com/lukechilds) | [![Szymon Marczak](https://github.com/szmarczak.png?size=100)](https://github.com/szmarczak) | [![Brandon Smith](https://github.com/brandon93s.png?size=100)](https://github.com/brandon93s)
 ---|---|---|---|---|---
 [Sindre Sorhus](https://sindresorhus.com) | [Vsevolod Strukchinsky](https://github.com/floatdrop) | [Alexander Tesfamichael](https://alextes.me) | [Luke Childs](https://github.com/lukechilds) | [Szymon Marczak](https://github.com/szmarczak) | [Brandon Smith](https://github.com/brandon93s)
+
+
+## Security
+
+To report a security vulnerability, please use the [Tidelift security contact](https://tidelift.com/security). Tidelift will coordinate the fix and disclosure.
 
 
 ## License
