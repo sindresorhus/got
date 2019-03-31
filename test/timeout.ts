@@ -24,7 +24,7 @@ const slowDataStream = () => {
 };
 
 const requestDelay = 750;
-const requestTimeout = requestDelay - 40;
+const requestTimeout = requestDelay - 50;
 
 const errorMatcher = {
 	instanceOf: got.TimeoutError,
