@@ -6,10 +6,7 @@ import test from 'ava';
 import pEvent from 'p-event';
 import delay from 'delay';
 import got from '../source';
-import {createServer, createSSLServer} from './helpers/server';
-
-let s;
-let ss;
+import withServer from './helpers/with-server';
 
 const slowDataStream = () => {
 	const slowStream = new stream.PassThrough();
@@ -27,7 +24,7 @@ const slowDataStream = () => {
 };
 
 const requestDelay = 750;
-const requestTimeout = requestDelay - 30;
+const requestTimeout = requestDelay - 40;
 
 const errorMatcher = {
 	instanceOf: got.TimeoutError,
@@ -38,45 +35,27 @@ const keepAliveAgent = new http.Agent({
 	keepAlive: true
 });
 
-test.before('setup', async () => {
-	[s, ss] = await Promise.all([createServer(), createSSLServer()]);
-
-	s.on('/', (request, response) => {
-		request.on('data', () => {});
-		request.on('end', async () => {
-			await delay(requestDelay);
-			response.end('OK');
-		});
-	});
-
-	s.on('/delayed', async (request, response) => {
-		response.write('O');
+const defaultHandler = (request, response) => {
+	request.resume();
+	request.on('end', async () => {
 		await delay(requestDelay);
-		response.end('K');
-	});
-
-	s.on('/download', (request, response) => {
-		response.writeHead(200, {
-			'transfer-encoding': 'chunked'
-		});
-		response.flushHeaders();
-		slowDataStream().pipe(response);
-	});
-
-	s.on('/prime', (request, response) => {
 		response.end('OK');
 	});
+};
 
-	ss.on('/', (request, response) => {
-		response.end('OK');
+const downloadHandler = (request, response) => {
+	response.writeHead(200, {
+		'transfer-encoding': 'chunked'
 	});
+	response.flushHeaders();
+	slowDataStream().pipe(response);
+};
 
-	await Promise.all([s.listen(s.port), ss.listen(ss.port)]);
-});
+test('timeout option (ETIMEDOUT)', withServer, async (t, server, got) => {
+	server.get('/', defaultHandler);
 
-test('timeout option (ETIMEDOUT)', async t => {
 	await t.throwsAsync(
-		got(s.url, {
+		got({
 			timeout: 0,
 			retry: 0
 		}),
@@ -87,9 +66,11 @@ test('timeout option (ETIMEDOUT)', async t => {
 	);
 });
 
-test('timeout option as object (ETIMEDOUT)', async t => {
+test('timeout option as object (ETIMEDOUT)', withServer, async (t, server, got) => {
+	server.get('/', defaultHandler);
+
 	await t.throwsAsync(
-		got(s.url, {
+		got({
 			timeout: {socket: requestDelay * 2.5, request: 1},
 			retry: 0
 		}),
@@ -100,9 +81,11 @@ test('timeout option as object (ETIMEDOUT)', async t => {
 	);
 });
 
-test('socket timeout', async t => {
+test('socket timeout', withServer, async (t, server, got) => {
+	server.get('/', defaultHandler);
+
 	await t.throwsAsync(
-		got(s.url, {
+		got({
 			timeout: {socket: requestTimeout},
 			retry: 0
 		}),
@@ -114,9 +97,11 @@ test('socket timeout', async t => {
 	);
 });
 
-test('send timeout', async t => {
+test('send timeout', withServer, async (t, server, got) => {
+	server.get('/', defaultHandler);
+
 	await t.throwsAsync(
-		got(s.url, {
+		got({
 			timeout: {send: 1},
 			retry: 0
 		}),
@@ -127,10 +112,15 @@ test('send timeout', async t => {
 	);
 });
 
-test('send timeout (keepalive)', async t => {
-	await got(`${s.url}/prime`, {agent: keepAliveAgent});
+test('send timeout (keepalive)', withServer, async (t, server, got) => {
+	server.post('/', defaultHandler);
+	server.get('/prime', (request, response) => {
+		response.end('ok');
+	});
+
+	await got('prime', {agent: keepAliveAgent});
 	await t.throwsAsync(
-		got.post(s.url, {
+		got.post('', {
 			agent: keepAliveAgent,
 			timeout: {send: 1},
 			retry: 0,
@@ -150,9 +140,11 @@ test('send timeout (keepalive)', async t => {
 	);
 });
 
-test('response timeout', async t => {
+test('response timeout', withServer, async (t, server, got) => {
+	server.get('/', defaultHandler);
+
 	await t.throwsAsync(
-		got(s.url, {
+		got({
 			timeout: {response: 1},
 			retry: 0
 		}),
@@ -163,8 +155,10 @@ test('response timeout', async t => {
 	);
 });
 
-test('response timeout unaffected by slow upload', async t => {
-	await got.post(s.url, {
+test('response timeout unaffected by slow upload', withServer, async (t, server, got) => {
+	server.post('/', defaultHandler);
+
+	await got.post({
 		timeout: {response: requestDelay * 2},
 		retry: 0,
 		body: slowDataStream()
@@ -177,8 +171,10 @@ test('response timeout unaffected by slow upload', async t => {
 	t.pass('no error emitted');
 });
 
-test('response timeout unaffected by slow download', async t => {
-	await got(`${s.url}/download`, {
+test('response timeout unaffected by slow download', withServer, async (t, server, got) => {
+	server.get('/download', downloadHandler);
+
+	await got('download', {
 		timeout: {response: 100},
 		retry: 0
 	}).on('request', request => {
@@ -190,10 +186,15 @@ test('response timeout unaffected by slow download', async t => {
 	t.pass('no error emitted');
 });
 
-test('response timeout (keepalive)', async t => {
-	await got(`${s.url}/prime`, {agent: keepAliveAgent});
+test('response timeout (keepalive)', withServer, async (t, server, got) => {
+	server.get('/', defaultHandler);
+	server.get('/prime', (request, response) => {
+		response.end('ok');
+	});
+
+	await got('prime', {agent: keepAliveAgent});
 	await delay(100);
-	const request = got(s.url, {
+	const request = got({
 		agent: keepAliveAgent,
 		timeout: {response: 1},
 		retry: 0
@@ -211,11 +212,13 @@ test('response timeout (keepalive)', async t => {
 	});
 });
 
-test('connect timeout', async t => {
+test('connect timeout', withServer, async (t, server, got) => {
+	server.get('/', defaultHandler);
+
 	await t.throwsAsync(
 		got({
-			host: s.host,
-			port: s.port,
+			host: server.hostname,
+			port: server.port,
 			createConnection: options => {
 				const socket = new net.Socket(options);
 				// @ts-ignore
@@ -241,11 +244,13 @@ test('connect timeout', async t => {
 	);
 });
 
-test('connect timeout (ip address)', async t => {
+test('connect timeout (ip address)', withServer, async (t, server, got) => {
+	server.get('/', defaultHandler);
+
 	await t.throwsAsync(
 		got({
 			hostname: '127.0.0.1',
-			port: s.port,
+			port: server.port,
 			createConnection: options => {
 				const socket = new net.Socket(options);
 				// @ts-ignore
@@ -263,9 +268,13 @@ test('connect timeout (ip address)', async t => {
 	);
 });
 
-test('secureConnect timeout', async t => {
+test('secureConnect timeout', withServer, async (t, server, got) => {
+	server.get('/', (request, response) => {
+		response.end('ok');
+	});
+
 	await t.throwsAsync(
-		got(ss.url, {
+		got.secure({
 			timeout: {secureConnect: 1},
 			retry: 0,
 			rejectUnauthorized: false
@@ -277,9 +286,13 @@ test('secureConnect timeout', async t => {
 	);
 });
 
-test('secureConnect timeout not breached', async t => {
+test('secureConnect timeout not breached', withServer, async (t, server, got) => {
+	server.get('/', (request, response) => {
+		response.end('ok');
+	});
+
 	const secureConnect = 200;
-	await got(ss.url, {
+	await got({
 		timeout: {secureConnect},
 		retry: 0,
 		rejectUnauthorized: false
@@ -292,11 +305,13 @@ test('secureConnect timeout not breached', async t => {
 	t.pass('no error emitted');
 });
 
-test('lookup timeout', async t => {
+test('lookup timeout', withServer, async (t, server, got) => {
+	server.get('/', defaultHandler);
+
 	await t.throwsAsync(
 		got({
-			host: s.host,
-			port: s.port,
+			host: server.hostname,
+			port: server.port,
 			lookup: () => { }
 		}, {
 			timeout: {lookup: 1},
@@ -309,10 +324,12 @@ test('lookup timeout', async t => {
 	);
 });
 
-test('lookup timeout no error (ip address)', async t => {
+test('lookup timeout no error (ip address)', withServer, async (t, server, got) => {
+	server.get('/', defaultHandler);
+
 	await got({
 		hostname: '127.0.0.1',
-		port: s.port,
+		port: server.port,
 		protocol: 'http:'
 	}, {
 		timeout: {lookup: 100},
@@ -326,9 +343,14 @@ test('lookup timeout no error (ip address)', async t => {
 	t.pass('no error emitted');
 });
 
-test('lookup timeout no error (keepalive)', async t => {
-	await got(`${s.url}/prime`, {agent: keepAliveAgent});
-	await got(s.url, {
+test('lookup timeout no error (keepalive)', withServer, async (t, server, got) => {
+	server.get('/', defaultHandler);
+	server.get('/prime', (request, response) => {
+		response.end('ok');
+	});
+
+	await got('prime', {agent: keepAliveAgent});
+	await got('', {
 		agent: keepAliveAgent,
 		timeout: {lookup: 100},
 		retry: 0
@@ -344,9 +366,11 @@ test('lookup timeout no error (keepalive)', async t => {
 	t.pass('no error emitted');
 });
 
-test('request timeout', async t => {
+test('request timeout', withServer, async (t, server, got) => {
+	server.get('/', defaultHandler);
+
 	await t.throwsAsync(
-		got(s.url, {
+		got({
 			timeout: {request: requestTimeout},
 			retry: 0
 		}),
@@ -357,10 +381,11 @@ test('request timeout', async t => {
 	);
 });
 
-test('retries on timeout (ESOCKETTIMEDOUT)', async t => {
-	let tried = false;
+test('retries on timeout (ESOCKETTIMEDOUT)', withServer, async (t, server, got) => {
+	server.get('/', defaultHandler);
 
-	await t.throwsAsync(got(s.url, {
+	let tried = false;
+	await t.throwsAsync(got({
 		timeout: requestTimeout,
 		retry: {
 			retries: () => {
@@ -380,10 +405,11 @@ test('retries on timeout (ESOCKETTIMEDOUT)', async t => {
 	t.true(tried);
 });
 
-test('retries on timeout (ETIMEDOUT)', async t => {
-	let tried = false;
+test('retries on timeout (ETIMEDOUT)', withServer, async (t, server, got) => {
+	server.get('/', defaultHandler);
 
-	await t.throwsAsync(got(s.url, {
+	let tried = false;
+	await t.throwsAsync(got({
 		timeout: 0,
 		retry: {
 			retries: () => {
@@ -400,16 +426,20 @@ test('retries on timeout (ETIMEDOUT)', async t => {
 	t.true(tried);
 });
 
-test('timeout with streams', async t => {
-	const stream = got.stream(s.url, {
+test('timeout with streams', withServer, async (t, server, got) => {
+	server.get('/', defaultHandler);
+
+	const stream = got.stream({
 		timeout: 0,
 		retry: 0
 	});
 	await t.throwsAsync(pEvent(stream, 'response'), {code: 'ETIMEDOUT'});
 });
 
-test('no error emitted when timeout is not breached (stream)', async t => {
-	const stream = got.stream(s.url, {
+test('no error emitted when timeout is not breached (stream)', withServer, async (t, server, got) => {
+	server.get('/', defaultHandler);
+
+	const stream = got.stream({
 		retry: 0,
 		timeout: {
 			request: requestDelay * 2
@@ -423,8 +453,10 @@ test('no error emitted when timeout is not breached (stream)', async t => {
 	t.pass();
 });
 
-test('no error emitted when timeout is not breached (promise)', async t => {
-	await got(s.url, {
+test('no error emitted when timeout is not breached (promise)', withServer, async (t, server, got) => {
+	server.get('/', defaultHandler);
+
+	await got({
 		retry: 0,
 		timeout: {
 			request: requestDelay * 2
@@ -440,8 +472,10 @@ test('no error emitted when timeout is not breached (promise)', async t => {
 	t.pass();
 });
 
-test('no unhandled `socket hung up` errors', async t => {
-	await t.throwsAsync(got(s.url, {retry: 0, timeout: requestDelay / 2}), {instanceOf: got.TimeoutError});
+test('no unhandled `socket hung up` errors', withServer, async (t, server, got) => {
+	server.get('/', defaultHandler);
+
+	await t.throwsAsync(got({retry: 0, timeout: requestDelay / 2}), {instanceOf: got.TimeoutError});
 	await delay(requestDelay);
 });
 
@@ -463,14 +497,17 @@ test('no more timeouts after an error', async t => {
 	await delay(10);
 });
 
-test('socket timeout is canceled on error', async t => {
+test('socket timeout is canceled on error', withServer, async (t, server, got) => {
+	server.get('/', defaultHandler);
+
 	const message = 'oh, snap!';
 
-	const promise = got(s.url, {
+	const promise = got({
 		timeout: {socket: requestTimeout},
 		retry: 0
 	}).on('request', request => {
 		request.emit('error', new Error(message));
+		request.abort();
 	});
 
 	await t.throwsAsync(promise, {message});
@@ -478,8 +515,10 @@ test('socket timeout is canceled on error', async t => {
 	await delay(10);
 });
 
-test('no memory leak when using socket timeout and keepalive agent', async t => {
-	const promise = got(s.url, {
+test('no memory leak when using socket timeout and keepalive agent', withServer, async (t, server, got) => {
+	server.get('/', defaultHandler);
+
+	const promise = got({
 		agent: keepAliveAgent,
 		timeout: {socket: requestDelay * 2}
 	});

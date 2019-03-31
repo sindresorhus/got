@@ -105,7 +105,7 @@ export const preNormalizeArguments = (options: any, defaults?: any) => {
 export const normalizeArguments = (url, options, defaults?: any) => {
 	if (is.plainObject(url)) {
 		options = {...url, ...options};
-		url = options.url || {};
+		url = options.url || '';
 		delete options.url;
 	}
 

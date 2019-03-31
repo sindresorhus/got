@@ -3,16 +3,15 @@ import test from 'ava';
 import got from '../source';
 import withServer from './helpers/with-server';
 
-const responseFn = (request, response) => {
-	request.resume();
+const echoHeaders = (request, response) => {
 	response.end(JSON.stringify(request.headers));
 };
 
-test('merging instances', withServer, async (t, s) => {
-	s.get('/', responseFn);
+test('merging instances', withServer, async (t, server) => {
+	server.get('/', echoHeaders);
 
 	const instanceA = got.extend({headers: {unicorn: 'rainbow'}});
-	const instanceB = got.extend({baseUrl: s.url});
+	const instanceB = got.extend({baseUrl: server.url});
 	const merged = got.mergeInstances(instanceA, instanceB);
 
 	const headers = await merged('/').json();
@@ -20,26 +19,26 @@ test('merging instances', withServer, async (t, s) => {
 	t.not(headers['user-agent'], undefined);
 });
 
-// TODO: Enable this test again. It currently throws an unhandled rejection.
-// test('works even if no default handler in the end', withServer, async (t, s) => {
-// 	s.get('/', responseFn);
+test('works even if no default handler in the end', withServer, async (t, server) => {
+	server.get('/', echoHeaders);
 
-// 	const instanceA = got.create({
-// 		options: {},
-// 		handler: (options, next) => next(options)
-// 	});
+	const instanceA = got.create({
+		options: {},
+		handler: (options, next) => next(options)
+	});
 
-// 	const instanceB = got.create({
-// 		options: {},
-// 		handler: (options, next) => next(options)
-// 	});
+	const instanceB = got.create({
+		options: {},
+		handler: (options, next) => next(options)
+	});
 
-// 	const merged = got.mergeInstances(instanceA, instanceB);
-// 	await t.notThrows(() => merged(s.url));
-// });
+	const merged = got.mergeInstances(instanceA, instanceB);
+	await t.notThrowsAsync(() => merged(server.url));
+});
 
-test('merges default handlers & custom handlers', withServer, async (t, s) => {
-	s.get('/', responseFn);
+test('merges default handlers & custom handlers', withServer, async (t, server) => {
+	server.get('/', echoHeaders);
+
 	const instanceA = got.extend({headers: {unicorn: 'rainbow'}});
 	const instanceB = got.create({
 		options: {},
@@ -50,13 +49,13 @@ test('merges default handlers & custom handlers', withServer, async (t, s) => {
 	});
 	const merged = got.mergeInstances(instanceA, instanceB);
 
-	const headers = await merged(s.url).json();
+	const headers = await merged(server.url).json();
 	t.is(headers.unicorn, 'rainbow');
 	t.is(headers.cat, 'meow');
 });
 
-test('merging one group & one instance', withServer, async (t, s) => {
-	s.get('/', responseFn);
+test('merging one group & one instance', withServer, async (t, server) => {
+	server.get('/', echoHeaders);
 
 	const instanceA = got.extend({headers: {dog: 'woof'}});
 	const instanceB = got.extend({headers: {cat: 'meow'}});
@@ -66,15 +65,15 @@ test('merging one group & one instance', withServer, async (t, s) => {
 	const merged = got.mergeInstances(instanceA, instanceB, instanceC);
 	const doubleMerged = got.mergeInstances(merged, instanceD);
 
-	const headers = await doubleMerged(s.url).json();
+	const headers = await doubleMerged(server.url).json();
 	t.is(headers.dog, 'woof');
 	t.is(headers.cat, 'meow');
 	t.is(headers.bird, 'tweet');
 	t.is(headers.mouse, 'squeek');
 });
 
-test('merging two groups of merged instances', withServer, async (t, s) => {
-	s.get('/', responseFn);
+test('merging two groups of merged instances', withServer, async (t, server) => {
+	server.get('/', echoHeaders);
 
 	const instanceA = got.extend({headers: {dog: 'woof'}});
 	const instanceB = got.extend({headers: {cat: 'meow'}});
@@ -86,7 +85,7 @@ test('merging two groups of merged instances', withServer, async (t, s) => {
 
 	const merged = got.mergeInstances(groupA, groupB);
 
-	const headers = await merged(s.url).json();
+	const headers = await merged(server.url).json();
 	t.is(headers.dog, 'woof');
 	t.is(headers.cat, 'meow');
 	t.is(headers.bird, 'tweet');

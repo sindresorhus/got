@@ -1,43 +1,60 @@
 import test from 'ava';
-import got from '../source';
-import {createServer} from './helpers/server';
+import withServer from './helpers/with-server';
 
-let s;
+const cacheEndpoint = (request, response) => {
+	response.setHeader('Cache-Control', 'public, max-age=60');
+	response.end(Date.now().toString());
+};
 
-test.before('setup', async () => {
-	s = await createServer();
-
-	let noStoreIndex = 0;
-	s.on('/no-store', (request, response) => {
+test('Non cacheable responses are not cached', withServer, async (t, server, got) => {
+	server.get('/no-store', (request, response) => {
 		response.setHeader('Cache-Control', 'public, no-cache, no-store');
-		response.end(noStoreIndex.toString());
-		noStoreIndex++;
+		response.end(Date.now().toString());
 	});
 
-	let cacheIndex = 0;
-	s.on('/cache', (request, response) => {
-		response.setHeader('Cache-Control', 'public, max-age=60');
-		response.end(cacheIndex.toString());
-		cacheIndex++;
-	});
+	const cache = new Map();
 
-	let calledFirstError = false;
-	s.on('/first-error', (request, response) => {
-		if (calledFirstError) {
-			response.end('ok');
-			return;
-		}
+	const firstResponseInt = Number((await got('no-store', {cache})).body);
+	const secondResponseInt = Number((await got('no-store', {cache})).body);
 
-		calledFirstError = true;
-		response.statusCode = 502;
-		response.end('received 502');
-	});
+	t.is(cache.size, 0);
+	t.true(firstResponseInt < secondResponseInt);
+});
 
+test('Cacheable responses are cached', withServer, async (t, server, got) => {
+	server.get('/cache', cacheEndpoint);
+
+	const cache = new Map();
+
+	const firstResponse = await got('cache', {cache});
+	const secondResponse = await got('cache', {cache});
+
+	t.is(cache.size, 1);
+	t.is(firstResponse.body, secondResponse.body);
+});
+
+test('Cached response is re-encoded to current encoding option', withServer, async (t, server, got) => {
+	server.get('/cache', cacheEndpoint);
+
+	const cache = new Map();
+	const firstEncoding = 'base64';
+	const secondEncoding = 'hex';
+
+	const firstResponse = await got('cache', {cache, encoding: firstEncoding});
+	const secondResponse = await got('cache', {cache, encoding: secondEncoding});
+
+	const expectedSecondResponseBody = Buffer.from(firstResponse.body, firstEncoding).toString(secondEncoding);
+
+	t.is(cache.size, 1);
+	t.is(secondResponse.body, expectedSecondResponseBody);
+});
+
+test('Redirects are cached and re-used internally', withServer, async (t, server, got) => {
 	let status301Index = 0;
-	s.on('/301', (request, response) => {
+	server.get('/301', (request, response) => {
 		if (status301Index === 0) {
 			response.setHeader('Cache-Control', 'public, max-age=60');
-			response.setHeader('Location', `${s.url}/302`);
+			response.setHeader('Location', `${server.url}/302`);
 			response.statusCode = 301;
 		}
 
@@ -46,10 +63,10 @@ test.before('setup', async () => {
 	});
 
 	let status302Index = 0;
-	s.on('/302', (request, response) => {
+	server.get('/302', (request, response) => {
 		if (status302Index === 0) {
 			response.setHeader('Cache-Control', 'public, max-age=60');
-			response.setHeader('Location', `${s.url}/cache`);
+			response.setHeader('Location', `${server.url}/cache`);
 			response.statusCode = 302;
 		}
 
@@ -57,66 +74,22 @@ test.before('setup', async () => {
 		status302Index++;
 	});
 
-	await s.listen(s.port);
-});
+	server.get('/cache', cacheEndpoint);
 
-test.after('cleanup', async () => {
-	await s.close();
-});
-
-test('Non cacheable responses are not cached', async t => {
-	const endpoint = '/no-store';
 	const cache = new Map();
-
-	const firstResponseInt = Number((await got(`${s.url}${endpoint}`, {cache})).body);
-	const secondResponseInt = Number((await got(`${s.url}${endpoint}`, {cache})).body);
-
-	t.is(cache.size, 0);
-	t.true(firstResponseInt < secondResponseInt);
-});
-
-test('Cacheable responses are cached', async t => {
-	const endpoint = '/cache';
-	const cache = new Map();
-
-	const firstResponse = await got(`${s.url}${endpoint}`, {cache});
-	const secondResponse = await got(`${s.url}${endpoint}`, {cache});
-
-	t.is(cache.size, 1);
-	t.is(firstResponse.body, secondResponse.body);
-});
-
-test('Cached response is re-encoded to current encoding option', async t => {
-	const endpoint = '/cache';
-	const cache = new Map();
-	const firstEncoding = 'base64';
-	const secondEncoding = 'hex';
-
-	const firstResponse = await got(`${s.url}${endpoint}`, {cache, encoding: firstEncoding});
-	const secondResponse = await got(`${s.url}${endpoint}`, {cache, encoding: secondEncoding});
-
-	const expectedSecondResponseBody = Buffer.from(firstResponse.body, firstEncoding).toString(secondEncoding);
-
-	t.is(cache.size, 1);
-	t.is(secondResponse.body, expectedSecondResponseBody);
-});
-
-test('Redirects are cached and re-used internally', async t => {
-	const endpoint = '/301';
-	const cache = new Map();
-
-	const firstResponse = await got(`${s.url}${endpoint}`, {cache});
-	const secondResponse = await got(`${s.url}${endpoint}`, {cache});
+	const firstResponse = await got('301', {cache});
+	const secondResponse = await got('302', {cache});
 
 	t.is(cache.size, 3);
 	t.is(firstResponse.body, secondResponse.body);
 });
 
-test('Cached response should have got options', async t => {
-	const endpoint = '/cache';
+test('Cached response should have got options', withServer, async (t, server, got) => {
+	server.get('/cache', cacheEndpoint);
+
 	const cache = new Map();
 	const options = {
-		url: `${s.url}${endpoint}`,
+		url: 'cache',
 		auth: 'foo:bar',
 		cache
 	};
@@ -127,26 +100,40 @@ test('Cached response should have got options', async t => {
 	t.is(secondResponse.request.gotOptions.auth, options.auth);
 });
 
-test('Cache error throws got.CacheError', async t => {
-	const endpoint = '/no-store';
+test('Cache error throws got.CacheError', withServer, async (t, server, got) => {
+	server.get('/', (request, response) => {
+		response.end('ok');
+	});
+
 	const cache = {};
 
-	const error = await t.throwsAsync(got(`${s.url}${endpoint}`, {cache}));
+	const error = await t.throwsAsync(() => got('', {cache}));
 	t.is(error.name, 'CacheError');
 });
 
-test('doesn\'t cache response when received HTTP error', async t => {
-	const endpoint = '/first-error';
+test('doesn\'t cache response when received HTTP error', withServer, async (t, server, got) => {
+	let calledFirstError = false;
+	server.get('/first-error', (request, response) => {
+		if (calledFirstError) {
+			response.end('ok');
+			return;
+		}
+
+		calledFirstError = true;
+		response.statusCode = 502;
+		response.end('received 502');
+	});
+
 	const cache = new Map();
 
-	const {statusCode, body} = await got(`${s.url}${endpoint}`, {cache, throwHttpErrors: false});
+	const {statusCode, body} = await got('first-error', {cache, throwHttpErrors: false});
 	t.is(statusCode, 200);
 	t.deepEqual(body, 'ok');
 });
 
-test('DNS cache works', async t => {
+test('DNS cache works', withServer, async (t, server, got) => {
 	const map = new Map();
-	await t.notThrowsAsync(got('https://example.com', {dnsCache: map}));
+	await t.notThrowsAsync(() => got('https://example.com', {dnsCache: map}));
 
 	t.is(map.size, 1);
 });
