@@ -34,7 +34,7 @@ test('overrides query from options', withServer, async (t, server, got) => {
 test('escapes query parameter values', withServer, async (t, server, got) => {
 	server.get('/', echoUrl);
 
-	const {body} = await got('', {
+	const {body} = await got({
 		query: {
 			test: 'it’s ok'
 		}

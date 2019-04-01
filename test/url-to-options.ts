@@ -1,5 +1,5 @@
 /* eslint-disable node/no-deprecated-api */
-import url from 'url';
+import url, {URL} from 'url';
 import test from 'ava';
 import urlToOptions from '../source/utils/url-to-options';
 
@@ -24,8 +24,7 @@ test('converts node legacy URL to options', t => {
 
 test('converts URL to options', t => {
 	const exampleURL = 'https://user:password@github.com:443/say?hello=world#bang';
-	// TODO: Use the `URL` global when targeting Node.js 10
-	const parsedURL = new url.URL(exampleURL);
+	const parsedURL = new URL(exampleURL);
 	const options = urlToOptions(parsedURL);
 	const expected = {
 		auth: 'user:password',
@@ -44,8 +43,7 @@ test('converts URL to options', t => {
 
 test('converts IPv6 URL to options', t => {
 	const IPv6URL = 'https://[2001:cdba::3257:9652]:443/';
-	// TODO: Use the `URL` global when targeting Node.js 10
-	const parsedURL = new url.URL(IPv6URL);
+	const parsedURL = new URL(IPv6URL);
 	const options = urlToOptions(parsedURL);
 	const expected = {
 		hash: '',
@@ -63,7 +61,7 @@ test('converts IPv6 URL to options', t => {
 
 test('only adds port to options for URLs with ports', t => {
 	const noPortURL = 'https://github.com/';
-	const parsedURL = new url.URL(noPortURL);
+	const parsedURL = new URL(noPortURL);
 	const options = urlToOptions(parsedURL);
 	const expected = {
 		hash: '',

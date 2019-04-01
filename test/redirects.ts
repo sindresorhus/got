@@ -68,7 +68,7 @@ test('relative redirect works', withServer, async (t, server, got) => {
 	t.is((await got('relative')).body, 'reached');
 });
 
-test('throws on endless redirect', withServer, async (t, server, got) => {
+test('throws on endless redirects', withServer, async (t, server, got) => {
 	server.get('/endless', (request, response) => {
 		response.writeHead(302, {
 			location: `${server.url}/endless`
@@ -76,13 +76,13 @@ test('throws on endless redirect', withServer, async (t, server, got) => {
 		response.end();
 	});
 
-	const error = await t.throwsAsync(() => got('endless'));
-	t.is(error.message, 'Redirected 10 times. Aborting.');
+	const error = await t.throwsAsync(() => got('endless'), 'Redirected 10 times. Aborting.');
+
 	// @ts-ignore
 	t.deepEqual(error.redirectUrls, new Array(10).fill(`${server.url}/endless`));
 });
 
-test('searchParams in options are not breaking redirects', withServer, async (t, server, got) => {
+test('searchParams are not breaking redirects', withServer, async (t, server, got) => {
 	server.get('/', reachedHandler);
 
 	server.get('/relativeSearchParam', (request, response) => {
@@ -97,7 +97,7 @@ test('searchParams in options are not breaking redirects', withServer, async (t,
 	t.is((await got('relativeSearchParam', {searchParams: 'bang=1'})).body, 'reached');
 });
 
-test('hostname+path in options are not breaking redirects', withServer, async (t, server, got) => {
+test('hostname + path are not breaking redirects', withServer, async (t, server, got) => {
 	server.get('/', reachedHandler);
 	server.get('/relative', relativeHandler);
 
@@ -107,18 +107,21 @@ test('hostname+path in options are not breaking redirects', withServer, async (t
 	})).body, 'reached');
 });
 
-test('redirect only GET and HEAD requests', withServer, async (t, server, got) => {
+test('redirects only GET and HEAD requests', withServer, async (t, server, got) => {
 	server.post('/relative', relativeHandler);
 
-	const error = await t.throwsAsync(() => got.post('relative', {body: 'wow'}));
-	t.is(error.message, 'Response code 302 (Found)');
+	const error = await t.throwsAsync(() => got.post('relative', {body: 'wow'}), {
+		instanceOf: got.HTTPError,
+		message: 'Response code 302 (Found)'
+	});
+
 	// @ts-ignore
 	t.is(error.path, '/relative');
 	// @ts-ignore
 	t.is(error.statusCode, 302);
 });
 
-test('redirect on 303 response even with post, put, delete', withServer, async (t, server, got) => {
+test('redirects on 303 response even on post, put, delete', withServer, async (t, server, got) => {
 	server.get('/', reachedHandler);
 
 	server.post('/seeOther', (request, response) => {
@@ -133,7 +136,7 @@ test('redirect on 303 response even with post, put, delete', withServer, async (
 	t.is(body, 'reached');
 });
 
-test('redirects from http to https works', withServer, async (t, server, got) => {
+test('redirects from http to https work', withServer, async (t, server, got) => {
 	server.get('/', (request, response) => {
 		if (request.socket instanceof TLSSocket) {
 			response.end('https');
@@ -152,7 +155,7 @@ test('redirects from http to https works', withServer, async (t, server, got) =>
 	t.is((await got('httpToHttps', {rejectUnauthorized: false})).body, 'https');
 });
 
-test('redirects from https to http works', withServer, async (t, server, got) => {
+test('redirects from https to http work', withServer, async (t, server, got) => {
 	server.get('/', (request, response) => {
 		if (request.socket instanceof TLSSocket) {
 			response.end('https');
@@ -175,7 +178,7 @@ test('redirects works with lowercase method', withServer, async (t, server, got)
 	server.get('/', reachedHandler);
 	server.get('/relative', relativeHandler);
 
-	const {body} = (await got('relative', {method: 'head'}));
+	const {body} = await got('relative', {method: 'head'});
 	t.is(body, '');
 });
 
@@ -183,7 +186,7 @@ test('redirect response contains new url', withServer, async (t, server, got) =>
 	server.get('/', reachedHandler);
 	server.get('/finite', finiteHandler);
 
-	const {url} = (await got('finite'));
+	const {url} = await got('finite');
 	t.is(url, `${server.url}/`);
 });
 
@@ -191,7 +194,7 @@ test('redirect response contains old url', withServer, async (t, server, got) =>
 	server.get('/', reachedHandler);
 	server.get('/finite', finiteHandler);
 
-	const {requestUrl} = (await got('finite'));
+	const {requestUrl} = await got('finite');
 	t.is(requestUrl, `${server.url}/finite`);
 });
 
@@ -232,8 +235,9 @@ test('throws on malformed redirect URI', withServer, async (t, server, got) => {
 		response.end();
 	});
 
-	const error = await t.throwsAsync(() => got('malformedRedirect'));
-	t.is(error.name, 'URIError');
+	await t.throwsAsync(() => got('malformedRedirect'), {
+		name: 'URIError'
+	});
 });
 
 test('throws on invalid redirect URL', withServer, async (t, server, got) => {
@@ -244,9 +248,9 @@ test('throws on invalid redirect URL', withServer, async (t, server, got) => {
 		response.end();
 	});
 
-	const error = await t.throwsAsync(() => got('invalidRedirect'));
-	// @ts-ignore
-	t.is(error.code, 'ERR_INVALID_URL');
+	await t.throwsAsync(() => got('invalidRedirect'), {
+		code: 'ERR_INVALID_URL'
+	});
 });
 
 test('port is reset on redirect', withServer, async (t, server, got) => {

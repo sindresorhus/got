@@ -3,7 +3,7 @@ import {Transform as TransformStream} from 'stream';
 import test from 'ava';
 import withServer from './helpers/with-server';
 
-test('should emit request event as promise', withServer, async (t, server, got) => {
+test('emits request event as promise', withServer, async (t, server, got) => {
 	server.get('/', (request, response) => {
 		response.statusCode = 200;
 		response.end();
@@ -14,7 +14,7 @@ test('should emit request event as promise', withServer, async (t, server, got) 
 	});
 });
 
-test('should emit response event as promise', withServer, async (t, server, got) => {
+test('emits response event as promise', withServer, async (t, server, got) => {
 	server.get('/', (request, response) => {
 		response.statusCode = 200;
 		response.end();

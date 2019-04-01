@@ -9,7 +9,7 @@ const echoHeaders = (request, response) => {
 	response.end(JSON.stringify(request.headers));
 };
 
-test('preserve global defaults', withServer, async (t, server, got) => {
+test('preserves global defaults', withServer, async (t, server, got) => {
 	server.get('/', echoHeaders);
 
 	const globalHeaders = await got('').json();
@@ -17,7 +17,7 @@ test('preserve global defaults', withServer, async (t, server, got) => {
 	t.deepEqual(instanceHeaders, globalHeaders);
 });
 
-test('support instance defaults', withServer, async (t, server, got) => {
+test('supports instance defaults', withServer, async (t, server, got) => {
 	server.get('/', echoHeaders);
 
 	const instance = got.extend({
@@ -29,7 +29,7 @@ test('support instance defaults', withServer, async (t, server, got) => {
 	t.is(headers['user-agent'], 'custom-ua-string');
 });
 
-test('support invocation overrides', withServer, async (t, server, got) => {
+test('supports invocation overrides', withServer, async (t, server, got) => {
 	server.get('/', echoHeaders);
 
 	const instance = got.extend({
@@ -37,7 +37,7 @@ test('support invocation overrides', withServer, async (t, server, got) => {
 			'user-agent': 'custom-ua-string'
 		}
 	});
-	const headers = await instance('', {
+	const headers = await instance({
 		headers: {
 			'user-agent': 'different-ua-string'
 		}
@@ -45,7 +45,7 @@ test('support invocation overrides', withServer, async (t, server, got) => {
 	t.is(headers['user-agent'], 'different-ua-string');
 });
 
-test('curry previous instance defaults', withServer, async (t, server, got) => {
+test('carries previous instance defaults', withServer, async (t, server, got) => {
 	server.get('/', echoHeaders);
 
 	const instanceA = got.extend({
@@ -233,7 +233,7 @@ test('hooks aren\'t overriden when merging options', withServer, async (t, serve
 		}
 	});
 
-	await instance('', {});
+	await instance({});
 
 	t.true(called);
 });

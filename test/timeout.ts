@@ -11,6 +11,7 @@ import withServer from './helpers/with-server';
 const slowDataStream = () => {
 	const slowStream = new stream.PassThrough();
 	let count = 0;
+
 	const interval = setInterval(() => {
 		if (count++ < 10) {
 			slowStream.push('data\n'.repeat(100));
@@ -20,11 +21,11 @@ const slowDataStream = () => {
 		clearInterval(interval);
 		slowStream.push(null);
 	}, 100);
+
 	return slowStream;
 };
 
-const requestDelay = 750;
-const requestTimeout = requestDelay - 50;
+const requestDelay = 800;
 
 const errorMatcher = {
 	instanceOf: got.TimeoutError,
@@ -51,27 +52,27 @@ const downloadHandler = (request, response) => {
 	slowDataStream().pipe(response);
 };
 
-test('timeout option (ETIMEDOUT)', withServer, async (t, server, got) => {
+test('timeout option', withServer, async (t, server, got) => {
 	server.get('/', defaultHandler);
 
 	await t.throwsAsync(
-		got({
-			timeout: 0,
+		() => got({
+			timeout: 1,
 			retry: 0
 		}),
 		{
 			...errorMatcher,
-			message: 'Timeout awaiting \'request\' for 0ms'
+			message: 'Timeout awaiting \'request\' for 1ms'
 		}
 	);
 });
 
-test('timeout option as object (ETIMEDOUT)', withServer, async (t, server, got) => {
+test('timeout option as object', withServer, async (t, server, got) => {
 	server.get('/', defaultHandler);
 
 	await t.throwsAsync(
-		got({
-			timeout: {socket: requestDelay * 2.5, request: 1},
+		() => got({
+			timeout: {request: 1},
 			retry: 0
 		}),
 		{
@@ -85,14 +86,14 @@ test('socket timeout', withServer, async (t, server, got) => {
 	server.get('/', defaultHandler);
 
 	await t.throwsAsync(
-		got({
-			timeout: {socket: requestTimeout},
+		() => got({
+			timeout: {socket: 1},
 			retry: 0
 		}),
 		{
 			instanceOf: got.TimeoutError,
 			code: 'ETIMEDOUT',
-			message: `Timeout awaiting 'socket' for ${requestTimeout}ms`
+			message: 'Timeout awaiting \'socket\' for 1ms'
 		}
 	);
 });
@@ -101,7 +102,7 @@ test('send timeout', withServer, async (t, server, got) => {
 	server.get('/', defaultHandler);
 
 	await t.throwsAsync(
-		got({
+		() => got({
 			timeout: {send: 1},
 			retry: 0
 		}),
@@ -120,7 +121,7 @@ test('send timeout (keepalive)', withServer, async (t, server, got) => {
 
 	await got('prime', {agent: keepAliveAgent});
 	await t.throwsAsync(
-		got.post('', {
+		() => got.post({
 			agent: keepAliveAgent,
 			timeout: {send: 1},
 			retry: 0,
@@ -144,7 +145,7 @@ test('response timeout', withServer, async (t, server, got) => {
 	server.get('/', defaultHandler);
 
 	await t.throwsAsync(
-		got({
+		() => got({
 			timeout: {response: 1},
 			retry: 0
 		}),
@@ -158,32 +159,20 @@ test('response timeout', withServer, async (t, server, got) => {
 test('response timeout unaffected by slow upload', withServer, async (t, server, got) => {
 	server.post('/', defaultHandler);
 
-	await got.post({
+	await t.notThrowsAsync(() => got.post({
 		timeout: {response: requestDelay * 2},
 		retry: 0,
 		body: slowDataStream()
-	}).on('request', request => {
-		request.on('error', error => {
-			t.fail(`unexpected error: ${error}`);
-		});
-	});
-	await delay(requestDelay * 3);
-	t.pass('no error emitted');
+	}));
 });
 
 test('response timeout unaffected by slow download', withServer, async (t, server, got) => {
 	server.get('/download', downloadHandler);
 
-	await got('download', {
+	await t.notThrowsAsync(() => got('download', {
 		timeout: {response: 100},
 		retry: 0
-	}).on('request', request => {
-		request.on('error', error => {
-			t.fail(`unexpected error: ${error}`);
-		});
-	});
-	await delay(requestDelay * 3);
-	t.pass('no error emitted');
+	}));
 });
 
 test('response timeout (keepalive)', withServer, async (t, server, got) => {
@@ -193,7 +182,7 @@ test('response timeout (keepalive)', withServer, async (t, server, got) => {
 	});
 
 	await got('prime', {agent: keepAliveAgent});
-	await delay(100);
+
 	const request = got({
 		agent: keepAliveAgent,
 		timeout: {response: 1},
@@ -206,6 +195,7 @@ test('response timeout (keepalive)', withServer, async (t, server, got) => {
 			});
 		});
 	});
+
 	await t.throwsAsync(request, {
 		...errorMatcher,
 		message: 'Timeout awaiting \'response\' for 1ms'
@@ -216,9 +206,7 @@ test('connect timeout', withServer, async (t, server, got) => {
 	server.get('/', defaultHandler);
 
 	await t.throwsAsync(
-		got({
-			host: server.hostname,
-			port: server.port,
+		() => got({
 			createConnection: options => {
 				const socket = new net.Socket(options);
 				// @ts-ignore
@@ -232,8 +220,7 @@ test('connect timeout', withServer, async (t, server, got) => {
 					'localhost'
 				);
 				return socket;
-			}
-		}, {
+			},
 			timeout: {connect: 1},
 			retry: 0
 		}),
@@ -248,16 +235,14 @@ test('connect timeout (ip address)', withServer, async (t, server, got) => {
 	server.get('/', defaultHandler);
 
 	await t.throwsAsync(
-		got({
+		() => got({
 			hostname: '127.0.0.1',
-			port: server.port,
 			createConnection: options => {
 				const socket = new net.Socket(options);
 				// @ts-ignore
 				socket.connecting = true;
 				return socket;
-			}
-		}, {
+			},
 			timeout: {connect: 1},
 			retry: 0
 		}),
@@ -274,7 +259,7 @@ test('secureConnect timeout', withServer, async (t, server, got) => {
 	});
 
 	await t.throwsAsync(
-		got.secure({
+		() => got.secure({
 			timeout: {secureConnect: 1},
 			retry: 0,
 			rejectUnauthorized: false
@@ -292,28 +277,19 @@ test('secureConnect timeout not breached', withServer, async (t, server, got) =>
 	});
 
 	const secureConnect = 200;
-	await got({
+	await t.notThrowsAsync(() => got({
 		timeout: {secureConnect},
 		retry: 0,
 		rejectUnauthorized: false
-	}).on('request', request => {
-		request.on('error', error => {
-			t.fail(`error emitted: ${error}`);
-		});
-	});
-	await delay(secureConnect * 2);
-	t.pass('no error emitted');
+	}));
 });
 
 test('lookup timeout', withServer, async (t, server, got) => {
 	server.get('/', defaultHandler);
 
 	await t.throwsAsync(
-		got({
-			host: server.hostname,
-			port: server.port,
-			lookup: () => { }
-		}, {
+		() => got({
+			lookup: () => {},
 			timeout: {lookup: 1},
 			retry: 0
 		}),
@@ -327,20 +303,11 @@ test('lookup timeout', withServer, async (t, server, got) => {
 test('lookup timeout no error (ip address)', withServer, async (t, server, got) => {
 	server.get('/', defaultHandler);
 
-	await got({
+	await t.notThrowsAsync(() => got({
 		hostname: '127.0.0.1',
-		port: server.port,
-		protocol: 'http:'
-	}, {
-		timeout: {lookup: 100},
+		timeout: {lookup: 1},
 		retry: 0
-	}).on('request', request => {
-		request.on('error', error => {
-			t.fail(`error emitted: ${error}`);
-		});
-	});
-	await delay(100);
-	t.pass('no error emitted');
+	}));
 });
 
 test('lookup timeout no error (keepalive)', withServer, async (t, server, got) => {
@@ -350,43 +317,23 @@ test('lookup timeout no error (keepalive)', withServer, async (t, server, got) =
 	});
 
 	await got('prime', {agent: keepAliveAgent});
-	await got('', {
+	await t.notThrowsAsync(() => got({
 		agent: keepAliveAgent,
-		timeout: {lookup: 100},
+		timeout: {lookup: 1},
 		retry: 0
 	}).on('request', request => {
 		request.once('connect', () => {
 			t.fail('connect event fired, invalidating test');
 		});
-		request.on('error', error => {
-			t.fail(`error emitted: ${error}`);
-		});
-	});
-	await delay(100);
-	t.pass('no error emitted');
+	}));
 });
 
-test('request timeout', withServer, async (t, server, got) => {
-	server.get('/', defaultHandler);
-
-	await t.throwsAsync(
-		got({
-			timeout: {request: requestTimeout},
-			retry: 0
-		}),
-		{
-			...errorMatcher,
-			message: `Timeout awaiting 'request' for ${requestTimeout}ms`
-		}
-	);
-});
-
-test('retries on timeout (ESOCKETTIMEDOUT)', withServer, async (t, server, got) => {
+test('retries on timeout', withServer, async (t, server, got) => {
 	server.get('/', defaultHandler);
 
 	let tried = false;
-	await t.throwsAsync(got({
-		timeout: requestTimeout,
+	await t.throwsAsync(() => got({
+		timeout: 1,
 		retry: {
 			retries: () => {
 				if (tried) {
@@ -399,29 +346,8 @@ test('retries on timeout (ESOCKETTIMEDOUT)', withServer, async (t, server, got) 
 		}
 	}), {
 		...errorMatcher,
-		message: `Timeout awaiting 'request' for ${requestTimeout}ms`
+		message: 'Timeout awaiting \'request\' for 1ms'
 	});
-
-	t.true(tried);
-});
-
-test('retries on timeout (ETIMEDOUT)', withServer, async (t, server, got) => {
-	server.get('/', defaultHandler);
-
-	let tried = false;
-	await t.throwsAsync(got({
-		timeout: 0,
-		retry: {
-			retries: () => {
-				if (tried) {
-					return 0;
-				}
-
-				tried = true;
-				return 1;
-			}
-		}
-	}), {...errorMatcher});
 
 	t.true(tried);
 });
@@ -433,7 +359,7 @@ test('timeout with streams', withServer, async (t, server, got) => {
 		timeout: 0,
 		retry: 0
 	});
-	await t.throwsAsync(pEvent(stream, 'response'), {code: 'ETIMEDOUT'});
+	await t.throwsAsync(() => pEvent(stream, 'response'), {code: 'ETIMEDOUT'});
 });
 
 test('no error emitted when timeout is not breached (stream)', withServer, async (t, server, got) => {
@@ -445,42 +371,30 @@ test('no error emitted when timeout is not breached (stream)', withServer, async
 			request: requestDelay * 2
 		}
 	});
-	stream.on('error', err => {
-		t.fail(`error was emitted: ${err}`);
-	});
-	await getStream(stream);
-	await delay(requestDelay * 3);
-	t.pass();
+
+	await t.notThrowsAsync(() => getStream(stream));
 });
 
 test('no error emitted when timeout is not breached (promise)', withServer, async (t, server, got) => {
 	server.get('/', defaultHandler);
 
-	await got({
+	await t.notThrowsAsync(() => got({
 		retry: 0,
 		timeout: {
 			request: requestDelay * 2
 		}
-	}).on('request', request => {
-		// 'error' events are not emitted by the Promise interface, so attach
-		// directly to the request object
-		request.on('error', error => {
-			t.fail(`error was emitted: ${error}`);
-		});
-	});
-	await delay(requestDelay * 3);
-	t.pass();
+	}));
 });
 
 test('no unhandled `socket hung up` errors', withServer, async (t, server, got) => {
 	server.get('/', defaultHandler);
 
-	await t.throwsAsync(got({retry: 0, timeout: requestDelay / 2}), {instanceOf: got.TimeoutError});
+	await t.throwsAsync(() => got({retry: 0, timeout: requestDelay / 2}), {instanceOf: got.TimeoutError});
 	await delay(requestDelay);
 });
 
 test('no more timeouts after an error', async t => {
-	await t.throwsAsync(got(`http://${Date.now()}.dev`, {
+	await t.throwsAsync(() => got(`http://${Date.now()}.dev`, {
 		retry: 1,
 		timeout: {
 			lookup: 1,
@@ -494,7 +408,7 @@ test('no more timeouts after an error', async t => {
 	}), {instanceOf: got.GotError}); // Don't check the message, because it may throw ENOTFOUND before the timeout.
 
 	// Wait a bit more to check if there are any unhandled errors
-	await delay(10);
+	await delay(100);
 });
 
 test('socket timeout is canceled on error', withServer, async (t, server, got) => {
@@ -503,7 +417,7 @@ test('socket timeout is canceled on error', withServer, async (t, server, got) =
 	const message = 'oh, snap!';
 
 	const promise = got({
-		timeout: {socket: requestTimeout},
+		timeout: {socket: 100},
 		retry: 0
 	}).on('request', request => {
 		request.emit('error', new Error(message));
@@ -511,8 +425,9 @@ test('socket timeout is canceled on error', withServer, async (t, server, got) =
 	});
 
 	await t.throwsAsync(promise, {message});
+
 	// Wait a bit more to check if there are any unhandled errors
-	await delay(10);
+	await delay(100);
 });
 
 test('no memory leak when using socket timeout and keepalive agent', withServer, async (t, server, got) => {

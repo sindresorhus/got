@@ -96,7 +96,7 @@ fs.createReadStream('index.html').pipe(got.stream.post('https://sindresorhus.com
 
 It's a `GET` request by default, but can be changed by using different methods or via `options.method`.
 
-#### got(url, [options])
+#### got([url], [options])
 
 Returns a Promise for a [`response` object](#response) or a [stream](#streams-1) if `options.stream` is set to true.
 
@@ -109,6 +109,8 @@ The URL to request, as a string, a [`https.request` options object](https://node
 Properties from `options` will override properties in the parsed `url`.
 
 If no protocol is specified, it will throw a `TypeError`.
+
+**Note**: this can also be an option.
 
 ##### options
 

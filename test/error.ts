@@ -28,7 +28,7 @@ test('properties', withServer, async (t, server, got) => {
 	t.is(error.response.body, 'not');
 });
 
-test('dns message', async t => {
+test('catches dns errors', async t => {
 	const error = await t.throwsAsync(() => got('http://doesntexist', {retry: 0})) as any;
 	t.truthy(error);
 	t.regex(error.message, /getaddrinfo ENOTFOUND/);
@@ -36,7 +36,7 @@ test('dns message', async t => {
 	t.is(error.method, 'GET');
 });
 
-test('options.body form error message', async t => {
+test('`options.body` form error message', async t => {
 	await t.throwsAsync(() => got.post('https://example.com', {body: Buffer.from('test'), form: ''}), {
 		message: 'The `body` option cannot be used with the `json` option or `form` option'
 	});
@@ -111,7 +111,7 @@ test('contains Got options', withServer, async (t, server, got) => {
 	t.is(error.gotOptions.auth, options.auth);
 });
 
-test('no status message is overriden by the default one', withServer, async (t, server, got) => {
+test('empty status message is overriden by the default one', withServer, async (t, server, got) => {
 	server.get('/no-status-message', (request, response) => {
 		response.writeHead(400, '');
 		response.end('body');
@@ -124,7 +124,7 @@ test('no status message is overriden by the default one', withServer, async (t, 
 	t.is(error.statusMessage, http.STATUS_CODES[400]);
 });
 
-test('http.request error', async t => {
+test('`http.request` error', async t => {
 	await t.throwsAsync(() => got('https://example.com', {
 		request: () => {
 			throw new TypeError('The header content contains invalid characters');
@@ -135,7 +135,7 @@ test('http.request error', async t => {
 	});
 });
 
-test('http.request pipe error', async t => {
+test('`http.request` pipe error', async t => {
 	const message = 'snap!';
 
 	await t.throwsAsync(() => got('https://example.com', {
@@ -156,7 +156,7 @@ test('http.request pipe error', async t => {
 	});
 });
 
-test('http.request error through CacheableRequest', async t => {
+test('`http.request` error through CacheableRequest', async t => {
 	await t.throwsAsync(() => got('https://example.com', {
 		request: () => {
 			throw new TypeError('The header content contains invalid characters');
@@ -168,7 +168,7 @@ test('http.request error through CacheableRequest', async t => {
 	});
 });
 
-test('catch error in mimicResponse', withServer, async (t, server) => {
+test('catches error in mimicResponse', withServer, async (t, server) => {
 	server.get('/', (request, response) => {
 		response.end('ok');
 	});

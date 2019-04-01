@@ -19,7 +19,7 @@ test('empty response', withServer, async (t, server, got) => {
 	t.is((await got('empty')).body, '');
 });
 
-test('requestUrl response', withServer, async (t, server, got) => {
+test('response has `requestUrl` property', withServer, async (t, server, got) => {
 	server.get('/', (request, response) => {
 		response.end('ok');
 	});
@@ -32,13 +32,13 @@ test('requestUrl response', withServer, async (t, server, got) => {
 	t.is((await got('empty')).requestUrl, `${server.url}/empty`);
 });
 
-test('error with code', withServer, async (t, server, got) => {
+test('errors have `statusCode` property', withServer, async (t, server, got) => {
 	server.get('/404', (request, response) => {
 		response.statusCode = 404;
 		response.end('not');
 	});
 
-	const error = await t.throwsAsync(() => got('404'));
+	const error = await t.throwsAsync(() => got('404'), got.HTTPError);
 	t.is(error.statusCode, 404);
 	t.is(error.response.body, 'not');
 });
@@ -56,7 +56,7 @@ test('status code 304 doesn\'t throw', withServer, async (t, server) => {
 	t.is(body, '');
 });
 
-test('doesn\'t throw on throwHttpErrors === false', withServer, async (t, server, got) => {
+test('doesn\'t throw if `options.throwHttpErrors` is false', withServer, async (t, server, got) => {
 	server.get('/404', (request, response) => {
 		response.statusCode = 404;
 		response.end('not');
@@ -66,11 +66,13 @@ test('doesn\'t throw on throwHttpErrors === false', withServer, async (t, server
 });
 
 test('invalid protocol throws', async t => {
-	const error = await t.throwsAsync(() => got('c:/nope.com').json());
-	t.is(error.constructor, got.UnsupportedProtocolError);
+	await t.throwsAsync(() => got('c:/nope.com').json(), {
+		instanceOf: got.UnsupportedProtocolError,
+		message: 'Unsupported protocol "c:"'
+	});
 });
 
-test('buffer on encoding === null', withServer, async (t, server, got) => {
+test('gives buffer if `options.encoding` is null', withServer, async (t, server, got) => {
 	server.get('/', (request, response) => {
 		response.end('ok');
 	});
@@ -79,7 +81,7 @@ test('buffer on encoding === null', withServer, async (t, server, got) => {
 	t.true(is.buffer(data));
 });
 
-test('searchParams option', withServer, async (t, server, got) => {
+test('`searchParams` option', withServer, async (t, server, got) => {
 	server.get('/', (request, response) => {
 		t.is(request.query.recent, 'true');
 		response.end('recent');
@@ -89,7 +91,7 @@ test('searchParams option', withServer, async (t, server, got) => {
 	t.is((await got({searchParams: 'recent=true'})).body, 'recent');
 });
 
-test('requestUrl response when sending url as param', withServer, async (t, server, got) => {
+test('response has `requestUrl` property even if `url` is an object', withServer, async (t, server, got) => {
 	server.get('/', (request, response) => {
 		response.end('ok');
 	});

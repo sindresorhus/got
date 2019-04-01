@@ -6,7 +6,7 @@ const cacheEndpoint = (request, response) => {
 	response.end(Date.now().toString());
 };
 
-test('Non cacheable responses are not cached', withServer, async (t, server, got) => {
+test('non-cacheable responses are not cached', withServer, async (t, server, got) => {
 	server.get('/no-store', (request, response) => {
 		response.setHeader('Cache-Control', 'public, no-cache, no-store');
 		response.end(Date.now().toString());
@@ -21,7 +21,7 @@ test('Non cacheable responses are not cached', withServer, async (t, server, got
 	t.true(firstResponseInt < secondResponseInt);
 });
 
-test('Cacheable responses are cached', withServer, async (t, server, got) => {
+test('cacheable responses are cached', withServer, async (t, server, got) => {
 	server.get('/cache', cacheEndpoint);
 
 	const cache = new Map();
@@ -33,7 +33,7 @@ test('Cacheable responses are cached', withServer, async (t, server, got) => {
 	t.is(firstResponse.body, secondResponse.body);
 });
 
-test('Cached response is re-encoded to current encoding option', withServer, async (t, server, got) => {
+test('cached response is re-encoded to current encoding option', withServer, async (t, server, got) => {
 	server.get('/cache', cacheEndpoint);
 
 	const cache = new Map();
@@ -49,7 +49,7 @@ test('Cached response is re-encoded to current encoding option', withServer, asy
 	t.is(secondResponse.body, expectedSecondResponseBody);
 });
 
-test('Redirects are cached and re-used internally', withServer, async (t, server, got) => {
+test('redirects are cached and re-used internally', withServer, async (t, server, got) => {
 	let status301Index = 0;
 	server.get('/301', (request, response) => {
 		if (status301Index === 0) {
@@ -84,7 +84,7 @@ test('Redirects are cached and re-used internally', withServer, async (t, server
 	t.is(firstResponse.body, secondResponse.body);
 });
 
-test('Cached response should have got options', withServer, async (t, server, got) => {
+test('cached response has got options', withServer, async (t, server, got) => {
 	server.get('/cache', cacheEndpoint);
 
 	const cache = new Map();
@@ -100,15 +100,14 @@ test('Cached response should have got options', withServer, async (t, server, go
 	t.is(secondResponse.request.gotOptions.auth, options.auth);
 });
 
-test('Cache error throws got.CacheError', withServer, async (t, server, got) => {
+test('cache error throws `got.CacheError`', withServer, async (t, server, got) => {
 	server.get('/', (request, response) => {
 		response.end('ok');
 	});
 
 	const cache = {};
 
-	const error = await t.throwsAsync(() => got('', {cache}));
-	t.is(error.name, 'CacheError');
+	await t.throwsAsync(() => got({cache}), got.CacheError);
 });
 
 test('doesn\'t cache response when received HTTP error', withServer, async (t, server, got) => {

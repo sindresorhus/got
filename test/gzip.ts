@@ -36,8 +36,8 @@ test('handles gzip error', withServer, async (t, server, got) => {
 		response.end('Not gzipped content');
 	});
 
-	const error = await t.throwsAsync(() => got('corrupted'));
-	t.is(error.message, 'incorrect header check');
+	const error = await t.throwsAsync(() => got('corrupted'), 'incorrect header check');
+
 	// @ts-ignore
 	t.is(error.path, '/corrupted');
 	t.is(error.name, 'ReadError');
@@ -49,8 +49,8 @@ test('handles gzip error - stream', withServer, async (t, server, got) => {
 		response.end('Not gzipped content');
 	});
 
-	const error = await t.throwsAsync(getStream(got.stream('corrupted')));
-	t.is(error.message, 'incorrect header check');
+	const error = await t.throwsAsync(() => getStream(got.stream('corrupted')), 'incorrect header check');
+
 	// @ts-ignore
 	t.is(error.path, '/corrupted');
 	t.is(error.name, 'ReadError');
@@ -75,7 +75,7 @@ test('decompress option doesn\'t alter encoding of uncompressed responses', with
 	t.is(body, testContentUncompressed);
 });
 
-test('preserve headers property', withServer, async (t, server, got) => {
+test('preserves `headers` property', withServer, async (t, server, got) => {
 	server.get('/', (request, response) => {
 		response.setHeader('Content-Encoding', 'gzip');
 		response.end(gzipData);
@@ -84,7 +84,7 @@ test('preserve headers property', withServer, async (t, server, got) => {
 	t.truthy((await got('')).headers);
 });
 
-test('do not break HEAD responses', withServer, async (t, server, got) => {
+test('does not break HEAD responses', withServer, async (t, server, got) => {
 	server.get('/', (request, response) => {
 		response.end();
 	});
@@ -101,7 +101,7 @@ test('ignore missing data', withServer, async (t, server, got) => {
 	t.is((await got('missing-data')).body, testContent);
 });
 
-test('has url and requestUrl properties', withServer, async (t, server, got) => {
+test('response has `url` and `requestUrl` properties', withServer, async (t, server, got) => {
 	server.get('/', (request, response) => {
 		response.setHeader('Content-Encoding', 'gzip');
 		response.end(gzipData);

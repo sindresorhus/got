@@ -1,4 +1,4 @@
-import net from 'net';
+import net, {AddressInfo} from 'net';
 import test from 'ava';
 import tough from 'tough-cookie';
 import delay from 'delay';
@@ -117,8 +117,7 @@ test('no unhandled errors', async t => {
 		}
 	};
 
-	// @ts-ignore
-	await t.throwsAsync(() => got(`http://127.0.0.1:${server.address().port}`, options), {message});
+	await t.throwsAsync(() => got(`http://127.0.0.1:${(server.address() as AddressInfo).port}`, options), {message});
 	await delay(500);
 	t.pass();
 

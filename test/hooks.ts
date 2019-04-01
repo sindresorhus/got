@@ -93,7 +93,7 @@ test('catches beforeRetry thrown errors', withServer, async (t, server, got) => 
 test('catches afterResponse thrown errors', withServer, async (t, server, got) => {
 	server.get('/', echoHeaders);
 
-	await t.throwsAsync(() => got('', {
+	await t.throwsAsync(() => got({
 		hooks: {
 			afterResponse: [() => {
 				throw error;
@@ -141,7 +141,7 @@ test('catches beforeRetry promise rejections', withServer, async (t, server, got
 test('catches afterResponse promise rejections', withServer, async (t, server, got) => {
 	server.get('/', echoHeaders);
 
-	await t.throwsAsync(() => got('', {
+	await t.throwsAsync(() => got({
 		hooks: {
 			afterResponse: [() => Promise.reject(error)]
 		}

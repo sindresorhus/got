@@ -1,40 +1,41 @@
 import test from 'ava';
 import withServer from './helpers/with-server';
 
-const jsonResponse = '{"data":"dog"}';
+const dog = {data: 'dog'};
+const jsonResponse = JSON.stringify(dog);
 
 const defaultHandler = (request, response) => {
 	response.end(jsonResponse);
 };
 
-test('options.resolveBodyOnly works', withServer, async (t, server, got) => {
+test('`options.resolveBodyOnly` works', withServer, async (t, server, got) => {
 	server.get('/', defaultHandler);
 
-	t.deepEqual(await got('', {responseType: 'json', resolveBodyOnly: true}), {data: 'dog'});
+	t.deepEqual(await got({responseType: 'json', resolveBodyOnly: true}), dog);
 });
 
 test('JSON response', withServer, async (t, server, got) => {
 	server.get('/', defaultHandler);
 
-	t.deepEqual((await got('', {responseType: 'json'})).body, {data: 'dog'});
+	t.deepEqual((await got({responseType: 'json'})).body, dog);
 });
 
 test('Buffer response', withServer, async (t, server, got) => {
 	server.get('/', defaultHandler);
 
-	t.deepEqual((await got('', {responseType: 'buffer'})).body, Buffer.from(jsonResponse));
+	t.deepEqual((await got({responseType: 'buffer'})).body, Buffer.from(jsonResponse));
 });
 
 test('Text response', withServer, async (t, server, got) => {
 	server.get('/', defaultHandler);
 
-	t.is((await got('', {responseType: 'text'})).body, jsonResponse);
+	t.is((await got({responseType: 'text'})).body, jsonResponse);
 });
 
 test('JSON response - promise.json()', withServer, async (t, server, got) => {
 	server.get('/', defaultHandler);
 
-	t.deepEqual(await got('').json(), {data: 'dog'});
+	t.deepEqual(await got('').json(), dog);
 });
 
 test('Buffer response - promise.buffer()', withServer, async (t, server, got) => {
@@ -52,7 +53,11 @@ test('Text response - promise.text()', withServer, async (t, server, got) => {
 test('throws an error on invalid response type', withServer, async (t, server, got) => {
 	server.get('/', defaultHandler);
 
-	await t.throwsAsync(() => got('', {responseType: 'invalid'}), /^Failed to parse body of type 'invalid'/);
+	const error = await t.throwsAsync(() => got({responseType: 'invalid'}), /^Failed to parse body of type 'invalid'/);
+	// @ts-ignore
+	t.true(error.message.includes(error.hostname));
+	// @ts-ignore
+	t.is(error.path, '/');
 });
 
 test('doesn\'t parse responses without a body', withServer, async (t, server, got) => {
@@ -69,10 +74,9 @@ test('wraps parsing errors', withServer, async (t, server, got) => {
 		response.end('/');
 	});
 
-	const error = await t.throwsAsync(() => got('invalid', {responseType: 'json'}));
-	t.regex(error.message, /Unexpected token/);
+	const error = await t.throwsAsync(() => got('invalid', {responseType: 'json'}), got.ParseError);
 	// @ts-ignore
-	t.true(error.message.includes(error.hostname), error.message);
+	t.true(error.message.includes(error.hostname));
 	// @ts-ignore
 	t.is(error.path, '/invalid');
 });
@@ -83,9 +87,9 @@ test('parses non-200 responses', withServer, async (t, server, got) => {
 		response.end(jsonResponse);
 	});
 
-	const error = await t.throwsAsync(() => got('non200', {responseType: 'json'}));
+	const error = await t.throwsAsync(() => got('non200', {responseType: 'json'}), got.HTTPError);
 	// @ts-ignore
-	t.deepEqual(error.response.body, {data: 'dog'});
+	t.deepEqual(error.response.body, dog);
 });
 
 test('ignores errors on invalid non-200 responses', withServer, async (t, server, got) => {
@@ -94,26 +98,29 @@ test('ignores errors on invalid non-200 responses', withServer, async (t, server
 		response.end('Internal error');
 	});
 
-	const error = await t.throwsAsync(() => got('non200-invalid', {responseType: 'json'}));
-	t.is(error.message, 'Response code 500 (Internal Server Error)');
+	const error = await t.throwsAsync(() => got('non200-invalid', {responseType: 'json'}), {
+		instanceOf: got.HTTPError,
+		message: 'Response code 500 (Internal Server Error)'
+	});
+
 	// @ts-ignore
 	t.is(error.response.body, 'Internal error');
 	// @ts-ignore
 	t.is(error.path, '/non200-invalid');
 });
 
-test('should have statusCode in error', withServer, async (t, server, got) => {
+test('errors have `statusCode` property', withServer, async (t, server, got) => {
 	server.get('/invalid', (request, response) => {
 		response.end('/');
 	});
 
-	const error = await t.throwsAsync(() => got('invalid', {responseType: 'json'}));
-	t.is(error.constructor, got.ParseError);
+	const error = await t.throwsAsync(() => got('invalid', {responseType: 'json'}), got.ParseError);
+
 	// @ts-ignore
 	t.is(error.statusCode, 200);
 });
 
-test('should set correct headers', withServer, async (t, server, got) => {
+test('sets correct headers', withServer, async (t, server, got) => {
 	server.post('/headers', (request, response) => {
 		response.end(JSON.stringify(request.headers));
 	});

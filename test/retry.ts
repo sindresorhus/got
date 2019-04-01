@@ -1,5 +1,6 @@
-import http from 'http';
+import EventEmitter from 'events';
 import test from 'ava';
+import is from '@sindresorhus/is';
 import pEvent from 'p-event';
 import withServer from './helpers/with-server';
 
@@ -24,62 +25,56 @@ test('works on timeout error', withServer, async (t, server, got) => {
 	t.is((await got('knock-twice', {timeout: {socket: socketTimeout}})).body, 'who`s there?');
 });
 
-test('can be disabled with option', withServer, async (t, server, got) => {
+test('setting to `0` disables retrying', withServer, async (t, server, got) => {
 	let trys = 0;
 	server.get('/try-me', () => {
 		trys++;
 	});
 
-	const error = await t.throwsAsync(() => got('try-me', {
+	await t.throwsAsync(() => got('try-me', {
 		timeout: {socket: socketTimeout},
 		retry: 0
-	}));
-	t.truthy(error);
+	}), {
+		instanceOf: got.TimeoutError,
+		message: `Timeout awaiting 'socket' for ${socketTimeout}ms`
+	});
 	t.is(trys, 1);
 });
 
-test('function gets iter count', withServer, async (t, server, got) => {
-	let fifth = 0;
-	server.get('/fifth', (request, response) => {
-		if (fifth++ === 5) {
+test('retry function gets iteration count', withServer, async (t, server, got) => {
+	let knocks = 0;
+	server.get('/knock-twice', (request, response) => {
+		if (knocks++ === 1) {
 			response.end('who`s there?');
 		}
 	});
 
-	await got('fifth', {
+	await got('knock-twice', {
 		timeout: {socket: socketTimeout},
 		retry: {
-			retries: iteration => iteration < 10
+			retries: iteration => {
+				t.true(is.number(iteration));
+				return iteration < 2;
+			}
 		}
 	});
-	t.is(fifth, 6);
 });
 
 test('falsy value prevents retries', withServer, async (t, server, got) => {
 	server.get('/long', () => {});
 
-	const error = await t.throwsAsync(() => got('long', {
+	await t.throwsAsync(() => got('long', {
 		timeout: {socket: socketTimeout},
 		retry: {
-			retries: () => 0
-		}
-	}));
-	t.truthy(error);
-});
-
-test('falsy value prevents retries #2', withServer, async (t, server, got) => {
-	server.get('/long', () => {});
-
-	const error = await t.throwsAsync(() => got('long', {
-		timeout: {socket: socketTimeout},
-		retry: {
-			retries: (iter, error) => {
-				t.truthy(error);
-				return false;
+			retries: (iteration, error) => {
+				t.true(is.error(error));
+				return 0;
 			}
 		}
-	}));
-	t.truthy(error);
+	}), {
+		instanceOf: got.TimeoutError,
+		message: `Timeout awaiting 'socket' for ${socketTimeout}ms`
+	});
 });
 
 test('custom retries', withServer, async (t, server, got) => {
@@ -92,8 +87,8 @@ test('custom retries', withServer, async (t, server, got) => {
 	const error = await t.throwsAsync(() => got('500', {
 		throwHttpErrors: true,
 		retry: {
-			retries: iter => {
-				if (iter === 1) {
+			retries: iteration => {
+				if (iteration === 1) {
 					tried = true;
 					return 1;
 				}
@@ -111,7 +106,7 @@ test('custom retries', withServer, async (t, server, got) => {
 	t.true(tried);
 });
 
-test('custom errors', withServer, async (t, server, got) => {
+test('custom error codes', withServer, async (t, server, got) => {
 	server.get('/500', (request, response) => {
 		response.statusCode = 500;
 		response.end();
@@ -119,24 +114,23 @@ test('custom errors', withServer, async (t, server, got) => {
 
 	const errorCode = 'OH_SNAP';
 
-	let isTried = false;
 	const error = await t.throwsAsync(() => got('500', {
-		request: (...args) => {
+		request: () => {
+			const emitter = (new EventEmitter()) as any;
+			emitter.end = () => {};
+
+			const error = new Error('Snap!');
 			// @ts-ignore
-			const request = http.request(...args);
-			if (!isTried) {
-				isTried = true;
-				const error = new Error('Snap!');
-				// @ts-ignore
-				error.code = errorCode;
+			error.code = errorCode;
+			setTimeout(() => emitter.emit('error', error));
 
-				setTimeout(() => request.emit('error', error));
-			}
-
-			return request;
+			return emitter;
 		},
 		retry: {
-			retries: 1,
+			retries: (iteration, error) => {
+				t.is(error.code, errorCode);
+				return 0;
+			},
 			methods: [
 				'GET'
 			],
@@ -147,11 +141,10 @@ test('custom errors', withServer, async (t, server, got) => {
 	}));
 
 	// @ts-ignore
-	t.is(error.statusCode, 500);
-	t.true(isTried);
+	t.is(error.code, errorCode);
 });
 
-test('respect 413 Retry-After', withServer, async (t, server, got) => {
+test('respects 413 Retry-After', withServer, async (t, server, got) => {
 	let lastTried413access = Date.now();
 	server.get('/measure413', (request, response) => {
 		response.writeHead(413, {
@@ -170,7 +163,7 @@ test('respect 413 Retry-After', withServer, async (t, server, got) => {
 	t.true(Number(body) >= retryAfterOn413 * 1000);
 });
 
-test('respect 413 Retry-After with RFC-1123 timestamp', withServer, async (t, server, got) => {
+test('respects 413 Retry-After with RFC-1123 timestamp', withServer, async (t, server, got) => {
 	let lastTried413TimestampAccess;
 	server.get('/413withTimestamp', (request, response) => {
 		const date = (new Date(Date.now() + (retryAfterOn413 * 1000))).toUTCString();

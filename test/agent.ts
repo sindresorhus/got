@@ -42,7 +42,7 @@ test('non-object agent option works with http', withServer, async (t, server, go
 
 	const {agent, spy} = createAgentSpy(HttpAgent);
 
-	t.truthy((await got('', {
+	t.truthy((await got({
 		rejectUnauthorized: false,
 		agent
 	})).body);
@@ -59,7 +59,7 @@ test('non-object agent option works with https', withServer, async (t, server, g
 
 	const {agent, spy} = createAgentSpy(HttpsAgent);
 
-	t.truthy((await got.secure('', {
+	t.truthy((await got.secure({
 		rejectUnauthorized: false,
 		agent
 	})).body);
@@ -121,7 +121,7 @@ test('socket connect listener cleaned up after request', withServer, async (t, s
 	// Make sure there are no memory leaks when reusing keep-alive sockets
 	for (let i = 0; i < 20; i++) {
 		// eslint-disable-next-line no-await-in-loop
-		await got.secure('', {
+		await got.secure({
 			rejectUnauthorized: false,
 			agent
 		});

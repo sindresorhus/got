@@ -34,10 +34,9 @@ const prepareServer = server => {
 	return {emitter, promise};
 };
 
-test('cancel do not retry after cancelation', withServer, async (t, server, got) => {
+test('does not retry after cancelation', withServer, async (t, server, got) => {
 	const {emitter, promise} = prepareServer(server);
 
-	// @ts-ignore
 	const gotPromise = got('redirect', {
 		retry: {
 			retries: () => {
@@ -56,7 +55,7 @@ test('cancel do not retry after cancelation', withServer, async (t, server, got)
 	await t.notThrowsAsync(promise, 'Request finished instead of aborting.');
 });
 
-test('cancel in-progress request', withServer, async (t, server, got) => {
+test('cancels in-progress request', withServer, async (t, server, got) => {
 	const {emitter, promise} = prepareServer(server);
 
 	const body = new ReadableStream({
@@ -64,7 +63,6 @@ test('cancel in-progress request', withServer, async (t, server, got) => {
 	});
 	body.push('1');
 
-	// @ts-ignore
 	const gotPromise = got.post('abort', {body});
 
 	// Wait for the connection to be established before canceling
@@ -73,13 +71,11 @@ test('cancel in-progress request', withServer, async (t, server, got) => {
 		body.push(null);
 	});
 
-	// @ts-ignore
 	await t.throwsAsync(gotPromise, CancelError);
-	// @ts-ignore
 	await t.notThrowsAsync(promise, 'Request finished instead of aborting.');
 });
 
-test('cancel in-progress request with timeout', withServer, async (t, server, got) => {
+test('cancels in-progress request with timeout', withServer, async (t, server, got) => {
 	const {emitter, promise} = prepareServer(server);
 
 	const body = new ReadableStream({
@@ -87,7 +83,6 @@ test('cancel in-progress request with timeout', withServer, async (t, server, go
 	});
 	body.push('1');
 
-	// @ts-ignore
 	const gotPromise = got.post('abort', {body, timeout: 10000});
 
 	// Wait for the connection to be established before canceling
@@ -97,7 +92,6 @@ test('cancel in-progress request with timeout', withServer, async (t, server, go
 	});
 
 	await t.throwsAsync(gotPromise, CancelError);
-	// @ts-ignore
 	await t.notThrowsAsync(promise, 'Request finished instead of aborting.');
 });
 

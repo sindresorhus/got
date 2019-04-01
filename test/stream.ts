@@ -30,7 +30,7 @@ const errorHandler = (request, response) => {
 	response.end();
 };
 
-test('options.responseType is ignored', withServer, async (t, server, got) => {
+test('`options.responseType` is ignored', withServer, async (t, server, got) => {
 	server.get('/', defaultHandler);
 
 	await t.notThrowsAsync(() => getStream(got.stream({responseType: 'json'})));
@@ -40,7 +40,7 @@ test('returns readable stream', withServer, async (t, server, got) => {
 	server.get('/', defaultHandler);
 
 	const data = await getStream(got.stream(''));
-	t.is(data.toString(), 'ok');
+	t.is(data, 'ok');
 });
 
 test('returns writeable stream', withServer, async (t, server, got) => {
@@ -49,10 +49,11 @@ test('returns writeable stream', withServer, async (t, server, got) => {
 	const stream = got.stream.post('post');
 	const promise = getStream(stream);
 	stream.end('wow');
-	t.is((await promise).toString(), 'wow');
+
+	t.is(await promise, 'wow');
 });
 
-test('throws on write to stream with body specified', withServer, (t, server, got) => {
+test('throws on write if body is specified', withServer, (t, server, got) => {
 	server.post('/post', postHandler);
 
 	t.throws(() => {
@@ -94,27 +95,29 @@ test('has error event', withServer, async (t, server, got) => {
 	server.get('/error', errorHandler);
 
 	const stream = got.stream('error');
-	await t.throwsAsync(pEvent(stream, 'response'), /Response code 404 \(Not Found\)/);
+	await t.throwsAsync(pEvent(stream, 'response'), {
+		instanceOf: got.HTTPError,
+		message: 'Response code 404 (Not Found)'
+	});
 });
 
 test('has error event #2', withServer, async (t, server, got) => {
 	const stream = got.stream('http://doesntexist');
-	await t.throwsAsync(pEvent(stream, 'response'), /getaddrinfo ENOTFOUND/);
+	await t.throwsAsync(pEvent(stream, 'response'), {code: 'ENOTFOUND'});
 });
 
-test('has response event on throwHttpErrors === false', withServer, async (t, server, got) => {
+test('has response event if `options.throwHttpErrors` is false', withServer, async (t, server, got) => {
 	server.get('/error', errorHandler);
 
 	const {statusCode} = await pEvent(got.stream('error', {throwHttpErrors: false}), 'response');
 	t.is(statusCode, 404);
 });
 
-test('accepts option.body as Stream', withServer, async (t, server, got) => {
+test('accepts `options.body` as a Stream', withServer, async (t, server, got) => {
 	server.post('/post', postHandler);
 
 	const stream = got.stream.post('post', {body: toReadableStream('wow')});
-	const data = await pEvent(stream, 'data');
-	t.is(data.toString(), 'wow');
+	t.is(await getStream(stream), 'wow');
 });
 
 test('redirect response contains old url', withServer, async (t, server, got) => {
@@ -130,14 +133,16 @@ test('check for pipe method', withServer, (t, server, got) => {
 
 	const stream = got.stream('');
 	t.true(is.function_(stream.pipe));
-	t.true(is.function_(stream.on('error', () => {}).pipe));
+	t.true(is.function_(stream.on('foobar', () => {}).pipe));
+
+	stream.destroy();
 });
 
 test('piping works', withServer, async (t, server, got) => {
 	server.get('/', defaultHandler);
 
 	t.is(await getStream(got.stream('')), 'ok');
-	t.is(await getStream(got.stream('').on('error', () => {})), 'ok');
+	t.is(await getStream(got.stream('').on('foobar', () => {})), 'ok');
 });
 
 test('proxying headers works', withServer, async (t, server, got) => {
@@ -168,17 +173,17 @@ test('throws when trying to proxy through a closed stream', withServer, async (t
 	server.get('/proxy', async (request, response) => {
 		const stream = got.stream('');
 		await delay(1000);
-		t.throws(() => stream.pipe(response));
+		t.throws(() => stream.pipe(response), 'Failed to pipe. The response has been emitted already.');
 		response.end();
 	});
 
 	await got('proxy');
 });
 
-test('proxies content-encoding header when options.decompress is false', withServer, async (t, server, got) => {
+test('proxies `content-encoding` header when `options.decompress` is false', withServer, async (t, server, got) => {
 	server.get('/', defaultHandler);
 	server.get('/proxy', (request, response) => {
-		got.stream('', {decompress: false}).pipe(response);
+		got.stream({decompress: false}).pipe(response);
 	});
 
 	const {headers} = await got('proxy');
@@ -204,3 +209,7 @@ test('piping to got.stream.put()', withServer, async (t, server, got) => {
 		await getStream(got.stream('').pipe(got.stream.put('post')));
 	});
 });
+
+// Do not remove this. Some test is throwing a unhandled rejection and we need to know what particular test does that.
+// (It will log the test name in Got options)
+process.on('unhandledRejection', console.log);
