@@ -37,7 +37,7 @@ const checkEvents = (t, events, bodySize = undefined) => {
 
 const file = Buffer.alloc(1024 * 1024 * 2);
 
-const downloadEndpoint = (request, response) => {
+const downloadEndpoint = (_request, response) => {
 	response.setHeader('content-length', file.length);
 
 	toReadableStream(file)
@@ -45,7 +45,7 @@ const downloadEndpoint = (request, response) => {
 		.pipe(response);
 };
 
-const noTotalEndpoint = (request, response) => {
+const noTotalEndpoint = (_request, response) => {
 	response.write('hello');
 	response.end();
 };

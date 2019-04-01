@@ -145,7 +145,7 @@ test('WHATWG URL support', withServer, async (t, server, got) => {
 });
 
 test('returns streams when using stream option', withServer, async (t, server, got) => {
-	server.get('/stream', (request, response) => {
+	server.get('/stream', (_request, response) => {
 		response.end('ok');
 	});
 
