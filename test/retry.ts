@@ -66,8 +66,9 @@ test('falsy value prevents retries', withServer, async (t, server, got) => {
 	await t.throwsAsync(() => got({
 		timeout: {socket: socketTimeout},
 		retry: {
-			retries: (_iteration, error) => {
+			retries: (iteration, error) => {
 				t.true(is.error(error));
+				t.is(iteration, 1);
 				return 0;
 			}
 		}
