@@ -7,9 +7,42 @@ import {StorageAdapter} from 'cacheable-request';
 import {Omit} from 'type-fest';
 import {Hooks} from '../known-hook-events';
 
-export type Method = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'HEAD' | 'DELETE' | 'OPTIONS' | 'TRACE' | 'get' | 'post' | 'put' | 'patch' | 'head' | 'delete' | 'options' | 'trace';
-export type ErrorCode = 'ETIMEDOUT' | 'ECONNRESET' | 'EADDRINUSE' | 'ECONNREFUSED' | 'EPIPE' | 'ENOTFOUND' | 'ENETUNREACH' | 'EAI_AGAIN';
-export type StatusCode = 408 | 413 | 429 | 500 | 502 | 503 | 504;
+export type Method =
+	| 'GET'
+	| 'POST'
+	| 'PUT'
+	| 'PATCH'
+	| 'HEAD'
+	| 'DELETE'
+	| 'OPTIONS'
+	| 'TRACE'
+	| 'get'
+	| 'post'
+	| 'put'
+	| 'patch'
+	| 'head'
+	| 'delete'
+	| 'options'
+	| 'trace';
+
+export type ErrorCode =
+	| 'ETIMEDOUT'
+	| 'ECONNRESET'
+	| 'EADDRINUSE'
+	| 'ECONNREFUSED'
+	| 'EPIPE'
+	| 'ENOTFOUND'
+	| 'ENETUNREACH'
+	| 'EAI_AGAIN';
+
+export type StatusCode =
+	| 408
+	| 413
+	| 429
+	| 500
+	| 502
+	| 503
+	| 504;
 
 export type NextFunction = (error?: Error | string) => void;
 

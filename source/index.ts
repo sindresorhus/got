@@ -54,7 +54,7 @@ const defaults = {
 		resolveBodyOnly: false
 	},
 	mutableDefaults: false
-};
+} as const;
 
 const got = create(defaults);
 

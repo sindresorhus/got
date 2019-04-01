@@ -19,7 +19,6 @@ import {RequestFunction, Options, Delays, RetryFunction, RetryOption} from './ut
 
 const getMethodRedirectCodes = new Set([300, 301, 302, 303, 304, 305, 307, 308]);
 const allMethodRedirectCodes = new Set([300, 303, 307, 308]);
-
 const withoutBody = new Set(['GET', 'HEAD']);
 
 export interface RequestAsEventEmitter extends EventEmitter {
