@@ -52,9 +52,9 @@ test('the `query` option can be a URLSearchParams', withServer, async (t, server
 });
 
 test('should ignore empty query object', withServer, async (t, server, got) => {
-	server.get('/test', echoUrl);
+	server.get('/', echoUrl);
 
-	t.is((await got('test', {query: {}})).requestUrl, `${server.url}/test`);
+	t.is((await got({query: {}})).requestUrl, `${server.url}/test`);
 });
 
 test('query option', withServer, async (t, server, got) => {
@@ -68,7 +68,7 @@ test('query option', withServer, async (t, server, got) => {
 });
 
 test('query in options are not breaking redirects', withServer, async (t, server, got) => {
-	server.get('/reached', (request, response) => {
+	server.get('/', (request, response) => {
 		response.end('reached');
 	});
 
@@ -76,7 +76,7 @@ test('query in options are not breaking redirects', withServer, async (t, server
 		t.is(request.query.bang, '1');
 
 		response.writeHead(302, {
-			location: '/reached'
+			location: '/'
 		});
 		response.end();
 	});

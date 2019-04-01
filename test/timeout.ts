@@ -167,9 +167,9 @@ test('response timeout unaffected by slow upload', withServer, async (t, server,
 });
 
 test('response timeout unaffected by slow download', withServer, async (t, server, got) => {
-	server.get('/download', downloadHandler);
+	server.get('/', downloadHandler);
 
-	await t.notThrowsAsync(() => got('download', {
+	await t.notThrowsAsync(() => got({
 		timeout: {response: 100},
 		retry: 0
 	}));

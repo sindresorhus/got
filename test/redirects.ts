@@ -56,9 +56,9 @@ test('follows 307, 308 redirect', withServer, async (t, server, got) => {
 });
 
 test('does not follow redirect when disabled', withServer, async (t, server, got) => {
-	server.get('/finite', finiteHandler);
+	server.get('/', finiteHandler);
 
-	t.is((await got('finite', {followRedirect: false})).statusCode, 302);
+	t.is((await got({followRedirect: false})).statusCode, 302);
 });
 
 test('relative redirect works', withServer, async (t, server, got) => {
@@ -69,14 +69,14 @@ test('relative redirect works', withServer, async (t, server, got) => {
 });
 
 test('throws on endless redirects', withServer, async (t, server, got) => {
-	server.get('/endless', (request, response) => {
+	server.get('/', (request, response) => {
 		response.writeHead(302, {
-			location: `${server.url}/endless`
+			location: server.url
 		});
 		response.end();
 	});
 
-	const error = await t.throwsAsync(() => got('endless'), 'Redirected 10 times. Aborting.');
+	const error = await t.throwsAsync(() => got(''), 'Redirected 10 times. Aborting.');
 
 	// @ts-ignore
 	t.deepEqual(error.redirectUrls, new Array(10).fill(`${server.url}/endless`));
@@ -108,15 +108,15 @@ test('hostname + path are not breaking redirects', withServer, async (t, server,
 });
 
 test('redirects only GET and HEAD requests', withServer, async (t, server, got) => {
-	server.post('/relative', relativeHandler);
+	server.post('/', relativeHandler);
 
-	const error = await t.throwsAsync(() => got.post('relative', {body: 'wow'}), {
+	const error = await t.throwsAsync(() => got.post({body: 'wow'}), {
 		instanceOf: got.HTTPError,
 		message: 'Response code 302 (Found)'
 	});
 
 	// @ts-ignore
-	t.is(error.path, '/relative');
+	t.is(error.path, '/');
 	// @ts-ignore
 	t.is(error.statusCode, 302);
 });
@@ -228,27 +228,27 @@ test('redirect response contains UTF-8 with URI encoding', withServer, async (t,
 });
 
 test('throws on malformed redirect URI', withServer, async (t, server, got) => {
-	server.get('/malformedRedirect', (request, response) => {
+	server.get('/', (request, response) => {
 		response.writeHead(302, {
 			location: '/%D8'
 		});
 		response.end();
 	});
 
-	await t.throwsAsync(() => got('malformedRedirect'), {
+	await t.throwsAsync(() => got(''), {
 		name: 'URIError'
 	});
 });
 
 test('throws on invalid redirect URL', withServer, async (t, server, got) => {
-	server.get('/invalidRedirect', (request, response) => {
+	server.get('/', (request, response) => {
 		response.writeHead(302, {
 			location: 'http://'
 		});
 		response.end();
 	});
 
-	await t.throwsAsync(() => got('invalidRedirect'), {
+	await t.throwsAsync(() => got(''), {
 		code: 'ERR_INVALID_URL'
 	});
 });

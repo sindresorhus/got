@@ -57,12 +57,12 @@ test('no plain object restriction on json body', withServer, async (t, server, g
 });
 
 test('default status message', withServer, async (t, server, got) => {
-	server.get('/default-status-message', (request, response) => {
+	server.get('/', (request, response) => {
 		response.statusCode = 400;
 		response.end('body');
 	});
 
-	const error = await t.throwsAsync(() => got('default-status-message'));
+	const error = await t.throwsAsync(() => got(''));
 	// @ts-ignore
 	t.is(error.statusCode, 400);
 	// @ts-ignore
@@ -70,13 +70,13 @@ test('default status message', withServer, async (t, server, got) => {
 });
 
 test('custom status message', withServer, async (t, server, got) => {
-	server.get('/custom-status-message', (request, response) => {
+	server.get('/', (request, response) => {
 		response.statusCode = 400;
 		response.statusMessage = 'Something Exploded';
 		response.end('body');
 	});
 
-	const error = await t.throwsAsync(() => got('custom-status-message'));
+	const error = await t.throwsAsync(() => got(''));
 	// @ts-ignore
 	t.is(error.statusCode, 400);
 	// @ts-ignore
@@ -112,12 +112,12 @@ test('contains Got options', withServer, async (t, server, got) => {
 });
 
 test('empty status message is overriden by the default one', withServer, async (t, server, got) => {
-	server.get('/no-status-message', (request, response) => {
+	server.get('/', (request, response) => {
 		response.writeHead(400, '');
 		response.end('body');
 	});
 
-	const error = await t.throwsAsync(() => got('no-status-message'));
+	const error = await t.throwsAsync(() => got(''));
 	// @ts-ignore
 	t.is(error.statusCode, 400);
 	// @ts-ignore

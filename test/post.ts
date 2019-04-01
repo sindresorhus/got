@@ -90,34 +90,34 @@ test('works with empty post response', withServer, async (t, server, got) => {
 });
 
 test('`content-length` header with string body', withServer, async (t, server, got) => {
-	server.post('/headers', echoHeaders);
+	server.post('/', echoHeaders);
 
-	const {body} = await got.post('headers', {body: 'wow'});
+	const {body} = await got.post({body: 'wow'});
 	const headers = JSON.parse(body);
 	t.is(headers['content-length'], '3');
 });
 
 test('`content-length` header with Buffer body', withServer, async (t, server, got) => {
-	server.post('/headers', echoHeaders);
+	server.post('/', echoHeaders);
 
-	const {body} = await got.post('headers', {body: Buffer.from('wow')});
+	const {body} = await got.post({body: Buffer.from('wow')});
 	const headers = JSON.parse(body);
 	t.is(headers['content-length'], '3');
 });
 
 test('`content-length` header with Stream body', withServer, async (t, server, got) => {
-	server.post('/headers', echoHeaders);
+	server.post('/', echoHeaders);
 
-	const {body} = await got.post('headers', {body: toReadableStream('wow')});
+	const {body} = await got.post({body: toReadableStream('wow')});
 	const headers = JSON.parse(body);
 	t.is(headers['transfer-encoding'], 'chunked', 'likely failed to get headers at all');
 	t.is(headers['content-length'], undefined);
 });
 
 test('`content-length` header is not overriden', withServer, async (t, server, got) => {
-	server.post('/headers', echoHeaders);
+	server.post('/', echoHeaders);
 
-	const {body} = await got.post('headers', {
+	const {body} = await got.post({
 		body: 'wow',
 		headers: {
 			'content-length': '10'
@@ -128,9 +128,9 @@ test('`content-length` header is not overriden', withServer, async (t, server, g
 });
 
 test('`content-length` header disabled for chunked transfer-encoding', withServer, async (t, server, got) => {
-	server.post('/headers', echoHeaders);
+	server.post('/', echoHeaders);
 
-	const {body} = await got.post('headers', {
+	const {body} = await got.post({
 		body: '3\r\nwow\r\n0\r\n',
 		headers: {
 			'transfer-encoding': 'chunked'
@@ -142,9 +142,9 @@ test('`content-length` header disabled for chunked transfer-encoding', withServe
 });
 
 test('`content-type` header is not overriden when object in `options.body`', withServer, async (t, server, got) => {
-	server.post('/headers', echoHeaders);
+	server.post('/', echoHeaders);
 
-	const {body: headers} = await got.post('headers', {
+	const {body: headers} = await got.post({
 		headers: {
 			'content-type': 'doge'
 		},

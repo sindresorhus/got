@@ -119,9 +119,9 @@ test('catches beforeRequest promise rejections', async t => {
 });
 
 test('catches beforeRedirect promise rejections', withServer, async (t, server, got) => {
-	server.get('/redirect', redirectEndpoint);
+	server.get('/', redirectEndpoint);
 
-	await t.throwsAsync(() => got('redirect', {
+	await t.throwsAsync(() => got({
 		hooks: {
 			beforeRedirect: [() => Promise.reject(error)]
 		}
@@ -328,7 +328,7 @@ test('afterResponse allows modifications', withServer, async (t, server, got) =>
 });
 
 test('afterResponse allows to retry', withServer, async (t, server, got) => {
-	server.get('/401', (request, response) => {
+	server.get('/', (request, response) => {
 		if (request.headers.token !== 'unicorn') {
 			response.statusCode = 401;
 		}
@@ -336,7 +336,7 @@ test('afterResponse allows to retry', withServer, async (t, server, got) => {
 		response.end();
 	});
 
-	const {statusCode} = await got('401', {
+	const {statusCode} = await got({
 		hooks: {
 			afterResponse: [
 				(response, retryWithMergedOptions) => {
@@ -357,7 +357,7 @@ test('afterResponse allows to retry', withServer, async (t, server, got) => {
 });
 
 test('no infinity loop when retrying on afterResponse', withServer, async (t, server, got) => {
-	server.get('/401', (request, response) => {
+	server.get('/', (request, response) => {
 		if (request.headers.token !== 'unicorn') {
 			response.statusCode = 401;
 		}
@@ -365,7 +365,7 @@ test('no infinity loop when retrying on afterResponse', withServer, async (t, se
 		response.end();
 	});
 
-	await t.throwsAsync(() => got('401', {
+	await t.throwsAsync(() => got({
 		retry: 0,
 		hooks: {
 			afterResponse: [
@@ -383,7 +383,7 @@ test('no infinity loop when retrying on afterResponse', withServer, async (t, se
 
 test('throws on afterResponse retry failure', withServer, async (t, server, got) => {
 	let visited401then500;
-	server.get('/401then500', (request, response) => {
+	server.get('/', (request, response) => {
 		if (visited401then500) {
 			response.statusCode = 500;
 		} else {
@@ -394,7 +394,7 @@ test('throws on afterResponse retry failure', withServer, async (t, server, got)
 		response.end();
 	});
 
-	await t.throwsAsync(() => got('401then500', {
+	await t.throwsAsync(() => got({
 		retry: 1,
 		hooks: {
 			afterResponse: [
@@ -416,7 +416,7 @@ test('throws on afterResponse retry failure', withServer, async (t, server, got)
 
 test('doesn\'t throw on afterResponse retry HTTP failure if throwHttpErrors is false', withServer, async (t, server, got) => {
 	let visited401then500;
-	server.get('/401then500', (request, response) => {
+	server.get('/', (request, response) => {
 		if (visited401then500) {
 			response.statusCode = 500;
 		} else {
@@ -427,7 +427,7 @@ test('doesn\'t throw on afterResponse retry HTTP failure if throwHttpErrors is f
 		response.end();
 	});
 
-	const {statusCode} = await got('401then500', {
+	const {statusCode} = await got({
 		throwHttpErrors: false,
 		retry: 1,
 		hooks: {

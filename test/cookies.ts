@@ -6,14 +6,14 @@ import got from '../source';
 import withServer from './helpers/with-server';
 
 test('reads a cookie', withServer, async (t, server, got) => {
-	server.get('/set-cookie', (request, response) => {
+	server.get('/', (request, response) => {
 		response.setHeader('set-cookie', 'hello=world');
 		response.end();
 	});
 
 	const cookieJar = new tough.CookieJar();
 
-	await got('set-cookie', {cookieJar});
+	await got({cookieJar});
 
 	const cookie = cookieJar.getCookiesSync(server.url)[0];
 	t.is(cookie.key, 'hello');
@@ -21,14 +21,14 @@ test('reads a cookie', withServer, async (t, server, got) => {
 });
 
 test('reads multiple cookies', withServer, async (t, server, got) => {
-	server.get('/set-multiple-cookies', (request, response) => {
+	server.get('/', (request, response) => {
 		response.setHeader('set-cookie', ['hello=world', 'foo=bar']);
 		response.end();
 	});
 
 	const cookieJar = new tough.CookieJar();
 
-	await got('set-multiple-cookies', {cookieJar});
+	await got({cookieJar});
 
 	const cookies = cookieJar.getCookiesSync(server.url);
 	const cookieA = cookies[0];
@@ -41,7 +41,7 @@ test('reads multiple cookies', withServer, async (t, server, got) => {
 });
 
 test('cookies doesn\'t break on redirects', withServer, async (t, server, got) => {
-	server.get('/set-cookies-then-redirect', (request, response) => {
+	server.get('/', (request, response) => {
 		response.setHeader('set-cookie', ['hello=world', 'foo=bar']);
 		response.setHeader('location', '/');
 		response.statusCode = 302;
@@ -54,19 +54,19 @@ test('cookies doesn\'t break on redirects', withServer, async (t, server, got) =
 
 	const cookieJar = new tough.CookieJar();
 
-	const {body} = await got('set-cookies-then-redirect', {cookieJar});
+	const {body} = await got({cookieJar});
 	t.is(body, 'hello=world; foo=bar');
 });
 
 test('throws on invalid cookies', withServer, async (t, server, got) => {
-	server.get('/invalid', (request, response) => {
+	server.get('/', (request, response) => {
 		response.setHeader('set-cookie', 'hello=world; domain=localhost');
 		response.end();
 	});
 
 	const cookieJar = new tough.CookieJar();
 
-	await t.throwsAsync(() => got('invalid', {cookieJar}), 'Cookie has domain set to a public suffix');
+	await t.throwsAsync(() => got({cookieJar}), 'Cookie has domain set to a public suffix');
 });
 
 test('catches store errors', async t => {
@@ -82,7 +82,7 @@ test('catches store errors', async t => {
 });
 
 test('overrides options.headers.cookie', withServer, async (t, server, got) => {
-	server.get('/set-cookies-then-redirect', (request, response) => {
+	server.get('/', (request, response) => {
 		response.setHeader('set-cookie', ['hello=world', 'foo=bar']);
 		response.setHeader('location', '/');
 		response.statusCode = 302;
@@ -94,7 +94,7 @@ test('overrides options.headers.cookie', withServer, async (t, server, got) => {
 	});
 
 	const cookieJar = new tough.CookieJar();
-	const {body} = await got('set-cookies-then-redirect', {
+	const {body} = await got({
 		cookieJar,
 		headers: {
 			cookie: 'a=b'

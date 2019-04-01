@@ -31,28 +31,28 @@ test('decompress content - stream', withServer, async (t, server, got) => {
 });
 
 test('handles gzip error', withServer, async (t, server, got) => {
-	server.get('/corrupted', (request, response) => {
+	server.get('/', (request, response) => {
 		response.setHeader('Content-Encoding', 'gzip');
 		response.end('Not gzipped content');
 	});
 
-	const error = await t.throwsAsync(() => got('corrupted'), 'incorrect header check');
+	const error = await t.throwsAsync(() => got(''), 'incorrect header check');
 
 	// @ts-ignore
-	t.is(error.path, '/corrupted');
+	t.is(error.path, '/');
 	t.is(error.name, 'ReadError');
 });
 
 test('handles gzip error - stream', withServer, async (t, server, got) => {
-	server.get('/corrupted', (request, response) => {
+	server.get('/', (request, response) => {
 		response.setHeader('Content-Encoding', 'gzip');
 		response.end('Not gzipped content');
 	});
 
-	const error = await t.throwsAsync(() => getStream(got.stream('corrupted')), 'incorrect header check');
+	const error = await t.throwsAsync(() => getStream(got.stream('')), 'incorrect header check');
 
 	// @ts-ignore
-	t.is(error.path, '/corrupted');
+	t.is(error.path, '/');
 	t.is(error.name, 'ReadError');
 });
 
@@ -67,11 +67,11 @@ test('decompress option opts out of decompressing', withServer, async (t, server
 });
 
 test('decompress option doesn\'t alter encoding of uncompressed responses', withServer, async (t, server, got) => {
-	server.get('/uncompressed', (request, response) => {
+	server.get('/', (request, response) => {
 		response.end(testContentUncompressed);
 	});
 
-	const {body} = await got('uncompressed', {decompress: false});
+	const {body} = await got({decompress: false});
 	t.is(body, testContentUncompressed);
 });
 
@@ -93,12 +93,12 @@ test('does not break HEAD responses', withServer, async (t, server, got) => {
 });
 
 test('ignore missing data', withServer, async (t, server, got) => {
-	server.get('/missing-data', (request, response) => {
+	server.get('/', (request, response) => {
 		response.setHeader('Content-Encoding', 'gzip');
 		response.end(gzipData.slice(0, -1));
 	});
 
-	t.is((await got('missing-data')).body, testContent);
+	t.is((await got('')).body, testContent);
 });
 
 test('response has `url` and `requestUrl` properties', withServer, async (t, server, got) => {

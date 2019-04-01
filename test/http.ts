@@ -12,11 +12,11 @@ test('simple request', withServer, async (t, server, got) => {
 });
 
 test('empty response', withServer, async (t, server, got) => {
-	server.get('/empty', (request, response) => {
+	server.get('/', (request, response) => {
 		response.end();
 	});
 
-	t.is((await got('empty')).body, '');
+	t.is((await got('')).body, '');
 });
 
 test('response has `requestUrl` property', withServer, async (t, server, got) => {
@@ -33,23 +33,23 @@ test('response has `requestUrl` property', withServer, async (t, server, got) =>
 });
 
 test('errors have `statusCode` property', withServer, async (t, server, got) => {
-	server.get('/404', (request, response) => {
+	server.get('/', (request, response) => {
 		response.statusCode = 404;
 		response.end('not');
 	});
 
-	const error = await t.throwsAsync(() => got('404'), got.HTTPError);
+	const error = await t.throwsAsync(() => got(''), got.HTTPError);
 	t.is(error.statusCode, 404);
 	t.is(error.response.body, 'not');
 });
 
 test('status code 304 doesn\'t throw', withServer, async (t, server) => {
-	server.get('/304', (request, response) => {
+	server.get('/', (request, response) => {
 		response.statusCode = 304;
 		response.end();
 	});
 
-	const promise = got(`${server.url}/304`);
+	const promise = got('');
 	await t.notThrowsAsync(promise);
 	const {statusCode, body} = await promise;
 	t.is(statusCode, 304);
@@ -57,12 +57,12 @@ test('status code 304 doesn\'t throw', withServer, async (t, server) => {
 });
 
 test('doesn\'t throw if `options.throwHttpErrors` is false', withServer, async (t, server, got) => {
-	server.get('/404', (request, response) => {
+	server.get('/', (request, response) => {
 		response.statusCode = 404;
 		response.end('not');
 	});
 
-	t.is((await got('404', {throwHttpErrors: false})).body, 'not');
+	t.is((await got({throwHttpErrors: false})).body, 'not');
 });
 
 test('invalid protocol throws', async t => {

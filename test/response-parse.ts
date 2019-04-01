@@ -61,44 +61,44 @@ test('throws an error on invalid response type', withServer, async (t, server, g
 });
 
 test('doesn\'t parse responses without a body', withServer, async (t, server, got) => {
-	server.get('/no-body', (request, response) => {
+	server.get('/', (request, response) => {
 		response.end();
 	});
 
-	const body = await got('no-body').json();
+	const body = await got('').json();
 	t.is(body, '');
 });
 
 test('wraps parsing errors', withServer, async (t, server, got) => {
-	server.get('/invalid', (request, response) => {
+	server.get('/', (request, response) => {
 		response.end('/');
 	});
 
-	const error = await t.throwsAsync(() => got('invalid', {responseType: 'json'}), got.ParseError);
+	const error = await t.throwsAsync(() => got({responseType: 'json'}), got.ParseError);
 	// @ts-ignore
 	t.true(error.message.includes(error.hostname));
 	// @ts-ignore
-	t.is(error.path, '/invalid');
+	t.is(error.path, '/');
 });
 
 test('parses non-200 responses', withServer, async (t, server, got) => {
-	server.get('/non200', (request, response) => {
+	server.get('/', (request, response) => {
 		response.statusCode = 500;
 		response.end(jsonResponse);
 	});
 
-	const error = await t.throwsAsync(() => got('non200', {responseType: 'json'}), got.HTTPError);
+	const error = await t.throwsAsync(() => got({responseType: 'json'}), got.HTTPError);
 	// @ts-ignore
 	t.deepEqual(error.response.body, dog);
 });
 
 test('ignores errors on invalid non-200 responses', withServer, async (t, server, got) => {
-	server.get('/non200-invalid', (request, response) => {
+	server.get('/', (request, response) => {
 		response.statusCode = 500;
 		response.end('Internal error');
 	});
 
-	const error = await t.throwsAsync(() => got('non200-invalid', {responseType: 'json'}), {
+	const error = await t.throwsAsync(() => got({responseType: 'json'}), {
 		instanceOf: got.HTTPError,
 		message: 'Response code 500 (Internal Server Error)'
 	});
@@ -106,26 +106,26 @@ test('ignores errors on invalid non-200 responses', withServer, async (t, server
 	// @ts-ignore
 	t.is(error.response.body, 'Internal error');
 	// @ts-ignore
-	t.is(error.path, '/non200-invalid');
+	t.is(error.path, '/');
 });
 
 test('errors have `statusCode` property', withServer, async (t, server, got) => {
-	server.get('/invalid', (request, response) => {
+	server.get('/', (request, response) => {
 		response.end('/');
 	});
 
-	const error = await t.throwsAsync(() => got('invalid', {responseType: 'json'}), got.ParseError);
+	const error = await t.throwsAsync(() => got({responseType: 'json'}), got.ParseError);
 
 	// @ts-ignore
 	t.is(error.statusCode, 200);
 });
 
 test('sets correct headers', withServer, async (t, server, got) => {
-	server.post('/headers', (request, response) => {
+	server.post('/', (request, response) => {
 		response.end(JSON.stringify(request.headers));
 	});
 
-	const {body: headers} = await got.post('headers', {responseType: 'json', json: {}});
+	const {body: headers} = await got.post({responseType: 'json', json: {}});
 	t.is(headers['content-type'], 'application/json');
 	t.is(headers.accept, 'application/json');
 });
