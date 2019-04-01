@@ -41,7 +41,7 @@ test('reads multiple cookies', withServer, async (t, server, got) => {
 });
 
 test('cookies doesn\'t break on redirects', withServer, async (t, server, got) => {
-	server.get('/', (request, response) => {
+	server.get('/redirect', (request, response) => {
 		response.setHeader('set-cookie', ['hello=world', 'foo=bar']);
 		response.setHeader('location', '/');
 		response.statusCode = 302;
@@ -54,7 +54,7 @@ test('cookies doesn\'t break on redirects', withServer, async (t, server, got) =
 
 	const cookieJar = new tough.CookieJar();
 
-	const {body} = await got({cookieJar});
+	const {body} = await got('redirect', {cookieJar});
 	t.is(body, 'hello=world; foo=bar');
 });
 
@@ -82,7 +82,7 @@ test('catches store errors', async t => {
 });
 
 test('overrides options.headers.cookie', withServer, async (t, server, got) => {
-	server.get('/', (request, response) => {
+	server.get('/redirect', (request, response) => {
 		response.setHeader('set-cookie', ['hello=world', 'foo=bar']);
 		response.setHeader('location', '/');
 		response.statusCode = 302;
@@ -94,7 +94,7 @@ test('overrides options.headers.cookie', withServer, async (t, server, got) => {
 	});
 
 	const cookieJar = new tough.CookieJar();
-	const {body} = await got({
+	const {body} = await got('redirect', {
 		cookieJar,
 		headers: {
 			cookie: 'a=b'

@@ -44,9 +44,9 @@ test('returns readable stream', withServer, async (t, server, got) => {
 });
 
 test('returns writeable stream', withServer, async (t, server, got) => {
-	server.post('/post', postHandler);
+	server.post('/', postHandler);
 
-	const stream = got.stream.post('post');
+	const stream = got.stream.post('');
 	const promise = getStream(stream);
 	stream.end('wow');
 
@@ -54,10 +54,10 @@ test('returns writeable stream', withServer, async (t, server, got) => {
 });
 
 test('throws on write if body is specified', withServer, (t, server, got) => {
-	server.post('/post', postHandler);
+	server.post('/', postHandler);
 
 	t.throws(() => {
-		got.stream.post('post', {body: 'wow'}).end('wow');
+		got.stream.post({body: 'wow'}).end('wow');
 	}, 'Got\'s stream is not writable when the `body` option is used');
 });
 
@@ -92,9 +92,9 @@ test('has response event', withServer, async (t, server, got) => {
 });
 
 test('has error event', withServer, async (t, server, got) => {
-	server.get('/error', errorHandler);
+	server.get('/', errorHandler);
 
-	const stream = got.stream('error');
+	const stream = got.stream('');
 	await t.throwsAsync(pEvent(stream, 'response'), {
 		instanceOf: got.HTTPError,
 		message: 'Response code 404 (Not Found)'
@@ -107,16 +107,16 @@ test('has error event #2', withServer, async (t, server, got) => {
 });
 
 test('has response event if `options.throwHttpErrors` is false', withServer, async (t, server, got) => {
-	server.get('/error', errorHandler);
+	server.get('/', errorHandler);
 
-	const {statusCode} = await pEvent(got.stream('error', {throwHttpErrors: false}), 'response');
+	const {statusCode} = await pEvent(got.stream({throwHttpErrors: false}), 'response');
 	t.is(statusCode, 404);
 });
 
 test('accepts `options.body` as a Stream', withServer, async (t, server, got) => {
-	server.post('/post', postHandler);
+	server.post('/', postHandler);
 
-	const stream = got.stream.post('post', {body: toReadableStream('wow')});
+	const stream = got.stream.post({body: toReadableStream('wow')});
 	t.is(await getStream(stream), 'wow');
 });
 

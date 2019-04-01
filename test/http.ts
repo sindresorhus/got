@@ -43,7 +43,7 @@ test('errors have `statusCode` property', withServer, async (t, server, got) => 
 	t.is(error.response.body, 'not');
 });
 
-test('status code 304 doesn\'t throw', withServer, async (t, server) => {
+test('status code 304 doesn\'t throw', withServer, async (t, server, got) => {
 	server.get('/', (request, response) => {
 		response.statusCode = 304;
 		response.end();

@@ -54,7 +54,7 @@ test('the `query` option can be a URLSearchParams', withServer, async (t, server
 test('should ignore empty query object', withServer, async (t, server, got) => {
 	server.get('/', echoUrl);
 
-	t.is((await got({query: {}})).requestUrl, `${server.url}/test`);
+	t.is((await got({query: {}})).requestUrl, `${server.url}/`);
 });
 
 test('query option', withServer, async (t, server, got) => {
