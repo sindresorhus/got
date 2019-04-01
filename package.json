@@ -12,7 +12,8 @@
 		"test": "xo && nyc ava",
 		"release": "np",
 		"build": "del-cli dist && tsc",
-		"prepublishOnly": "npm run build"
+		"prepublishOnly": "npm run build",
+		"postinstall": "opencollective-postinstall"
 	},
 	"files": [
 		"dist"
@@ -49,9 +50,11 @@
 		"get-stream": "^5.0.0",
 		"lowercase-keys": "^1.0.1",
 		"mimic-response": "^2.0.0",
+		"opencollective-postinstall": "^2.0.2",
 		"p-cancelable": "^1.1.0",
 		"to-readable-stream": "^2.0.0",
-		"type-fest": "^0.3.0"
+		"type-fest": "^0.3.0",
+		"opencollective": "^1.0.3"
 	},
 	"devDependencies": {
 		"@sindresorhus/tsconfig": "^0.3.0",
@@ -116,5 +119,9 @@
 			"@typescript-eslint/no-unnecessary-type-assertion": "off",
 			"@typescript-eslint/ban-types": "off"
 		}
+	},
+	"collective": {
+		"type": "opencollective",
+		"url": "https://opencollective.com/sindresorhus"
 	}
 }
