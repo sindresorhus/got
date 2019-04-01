@@ -81,7 +81,7 @@ test('sends arrays as JSON', withServer, async (t, server, got) => {
 });
 
 test('works with empty post response', withServer, async (t, server, got) => {
-	server.post('/empty', (request, response) => {
+	server.post('/empty', (_request, response) => {
 		response.end();
 	});
 

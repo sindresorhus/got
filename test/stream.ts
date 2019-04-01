@@ -6,7 +6,7 @@ import delay from 'delay';
 import is from '@sindresorhus/is';
 import withServer from './helpers/with-server';
 
-const defaultHandler = (request, response) => {
+const defaultHandler = (_request, response) => {
 	response.writeHead(200, {
 		unicorn: 'rainbow',
 		'content-encoding': 'gzip'
@@ -14,7 +14,7 @@ const defaultHandler = (request, response) => {
 	response.end(Buffer.from('H4sIAAAAAAAA/8vPBgBH3dx5AgAAAA==', 'base64')); // 'ok'
 };
 
-const redirectHandler = (request, response) => {
+const redirectHandler = (_request, response) => {
 	response.writeHead(302, {
 		location: '/'
 	});
@@ -25,7 +25,7 @@ const postHandler = (request, response) => {
 	request.pipe(response);
 };
 
-const errorHandler = (request, response) => {
+const errorHandler = (_request, response) => {
 	response.statusCode = 404;
 	response.end();
 };
@@ -101,7 +101,7 @@ test('has error event', withServer, async (t, server, got) => {
 	});
 });
 
-test('has error event #2', withServer, async (t, server, got) => {
+test('has error event #2', withServer, async (t, _server, got) => {
 	const stream = got.stream('http://doesntexist');
 	await t.throwsAsync(pEvent(stream, 'response'), {code: 'ENOTFOUND'});
 });
@@ -147,7 +147,7 @@ test('piping works', withServer, async (t, server, got) => {
 
 test('proxying headers works', withServer, async (t, server, got) => {
 	server.get('/', defaultHandler);
-	server.get('/proxy', (request, response) => {
+	server.get('/proxy', (_request, response) => {
 		got.stream('').pipe(response);
 	});
 
@@ -159,7 +159,7 @@ test('proxying headers works', withServer, async (t, server, got) => {
 
 test('skips proxying headers after server has sent them already', withServer, async (t, server, got) => {
 	server.get('/', defaultHandler);
-	server.get('/proxy', (request, response) => {
+	server.get('/proxy', (_request, response) => {
 		response.writeHead(200);
 		got.stream('').pipe(response);
 	});
@@ -170,7 +170,7 @@ test('skips proxying headers after server has sent them already', withServer, as
 
 test('throws when trying to proxy through a closed stream', withServer, async (t, server, got) => {
 	server.get('/', defaultHandler);
-	server.get('/proxy', async (request, response) => {
+	server.get('/proxy', async (_request, response) => {
 		const stream = got.stream('');
 		await delay(1000);
 		t.throws(() => stream.pipe(response), 'Failed to pipe. The response has been emitted already.');
@@ -182,7 +182,7 @@ test('throws when trying to proxy through a closed stream', withServer, async (t
 
 test('proxies `content-encoding` header when `options.decompress` is false', withServer, async (t, server, got) => {
 	server.get('/', defaultHandler);
-	server.get('/proxy', (request, response) => {
+	server.get('/proxy', (_request, response) => {
 		got.stream({decompress: false}).pipe(response);
 	});
 

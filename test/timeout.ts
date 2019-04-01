@@ -44,7 +44,7 @@ const defaultHandler = (request, response) => {
 	});
 };
 
-const downloadHandler = (request, response) => {
+const downloadHandler = (_request, response) => {
 	response.writeHead(200, {
 		'transfer-encoding': 'chunked'
 	});
@@ -115,7 +115,7 @@ test('send timeout', withServer, async (t, server, got) => {
 
 test('send timeout (keepalive)', withServer, async (t, server, got) => {
 	server.post('/', defaultHandler);
-	server.get('/prime', (request, response) => {
+	server.get('/prime', (_request, response) => {
 		response.end('ok');
 	});
 
@@ -177,7 +177,7 @@ test('response timeout unaffected by slow download', withServer, async (t, serve
 
 test('response timeout (keepalive)', withServer, async (t, server, got) => {
 	server.get('/', defaultHandler);
-	server.get('/prime', (request, response) => {
+	server.get('/prime', (_request, response) => {
 		response.end('ok');
 	});
 
@@ -254,7 +254,7 @@ test('connect timeout (ip address)', withServer, async (t, server, got) => {
 });
 
 test('secureConnect timeout', withServer, async (t, server, got) => {
-	server.get('/', (request, response) => {
+	server.get('/', (_request, response) => {
 		response.end('ok');
 	});
 
@@ -272,7 +272,7 @@ test('secureConnect timeout', withServer, async (t, server, got) => {
 });
 
 test('secureConnect timeout not breached', withServer, async (t, server, got) => {
-	server.get('/', (request, response) => {
+	server.get('/', (_request, response) => {
 		response.end('ok');
 	});
 
@@ -312,7 +312,7 @@ test('lookup timeout no error (ip address)', withServer, async (t, server, got) 
 
 test('lookup timeout no error (keepalive)', withServer, async (t, server, got) => {
 	server.get('/', defaultHandler);
-	server.get('/prime', (request, response) => {
+	server.get('/prime', (_request, response) => {
 		response.end('ok');
 	});
 

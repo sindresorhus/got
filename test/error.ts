@@ -6,7 +6,7 @@ import got from '../source';
 import withServer from './helpers/with-server';
 
 test('properties', withServer, async (t, server, got) => {
-	server.get('/', (request, response) => {
+	server.get('/', (_request, response) => {
 		response.statusCode = 404;
 		response.end('not');
 	});
@@ -57,7 +57,7 @@ test('no plain object restriction on json body', withServer, async (t, server, g
 });
 
 test('default status message', withServer, async (t, server, got) => {
-	server.get('/', (request, response) => {
+	server.get('/', (_request, response) => {
 		response.statusCode = 400;
 		response.end('body');
 	});
@@ -70,7 +70,7 @@ test('default status message', withServer, async (t, server, got) => {
 });
 
 test('custom status message', withServer, async (t, server, got) => {
-	server.get('/', (request, response) => {
+	server.get('/', (_request, response) => {
 		response.statusCode = 400;
 		response.statusMessage = 'Something Exploded';
 		response.end('body');
@@ -84,7 +84,7 @@ test('custom status message', withServer, async (t, server, got) => {
 });
 
 test('custom body', withServer, async (t, server, got) => {
-	server.get('/', (request, response) => {
+	server.get('/', (_request, response) => {
 		response.statusCode = 404;
 		response.end('not');
 	});
@@ -97,7 +97,7 @@ test('custom body', withServer, async (t, server, got) => {
 });
 
 test('contains Got options', withServer, async (t, server, got) => {
-	server.get('/', (request, response) => {
+	server.get('/', (_request, response) => {
 		response.statusCode = 404;
 		response.end();
 	});
@@ -112,7 +112,7 @@ test('contains Got options', withServer, async (t, server, got) => {
 });
 
 test('empty status message is overriden by the default one', withServer, async (t, server, got) => {
-	server.get('/', (request, response) => {
+	server.get('/', (_request, response) => {
 		response.writeHead(400, '');
 		response.end('body');
 	});
@@ -169,7 +169,7 @@ test('`http.request` error through CacheableRequest', async t => {
 });
 
 test('catches error in mimicResponse', withServer, async (t, server) => {
-	server.get('/', (request, response) => {
+	server.get('/', (_request, response) => {
 		response.end('ok');
 	});
 

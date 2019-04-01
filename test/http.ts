@@ -4,7 +4,7 @@ import got from '../source';
 import withServer from './helpers/with-server';
 
 test('simple request', withServer, async (t, server, got) => {
-	server.get('/', (request, response) => {
+	server.get('/', (_request, response) => {
 		response.end('ok');
 	});
 
@@ -12,7 +12,7 @@ test('simple request', withServer, async (t, server, got) => {
 });
 
 test('empty response', withServer, async (t, server, got) => {
-	server.get('/', (request, response) => {
+	server.get('/', (_request, response) => {
 		response.end();
 	});
 
@@ -20,11 +20,11 @@ test('empty response', withServer, async (t, server, got) => {
 });
 
 test('response has `requestUrl` property', withServer, async (t, server, got) => {
-	server.get('/', (request, response) => {
+	server.get('/', (_request, response) => {
 		response.end('ok');
 	});
 
-	server.get('/empty', (request, response) => {
+	server.get('/empty', (_request, response) => {
 		response.end();
 	});
 
@@ -33,7 +33,7 @@ test('response has `requestUrl` property', withServer, async (t, server, got) =>
 });
 
 test('errors have `statusCode` property', withServer, async (t, server, got) => {
-	server.get('/', (request, response) => {
+	server.get('/', (_request, response) => {
 		response.statusCode = 404;
 		response.end('not');
 	});
@@ -44,7 +44,7 @@ test('errors have `statusCode` property', withServer, async (t, server, got) => 
 });
 
 test('status code 304 doesn\'t throw', withServer, async (t, server, got) => {
-	server.get('/', (request, response) => {
+	server.get('/', (_request, response) => {
 		response.statusCode = 304;
 		response.end();
 	});
@@ -57,7 +57,7 @@ test('status code 304 doesn\'t throw', withServer, async (t, server, got) => {
 });
 
 test('doesn\'t throw if `options.throwHttpErrors` is false', withServer, async (t, server, got) => {
-	server.get('/', (request, response) => {
+	server.get('/', (_request, response) => {
 		response.statusCode = 404;
 		response.end('not');
 	});
@@ -73,7 +73,7 @@ test('invalid protocol throws', async t => {
 });
 
 test('gives buffer if `options.encoding` is null', withServer, async (t, server, got) => {
-	server.get('/', (request, response) => {
+	server.get('/', (_request, response) => {
 		response.end('ok');
 	});
 
@@ -92,7 +92,7 @@ test('`searchParams` option', withServer, async (t, server, got) => {
 });
 
 test('response has `requestUrl` property even if `url` is an object', withServer, async (t, server, got) => {
-	server.get('/', (request, response) => {
+	server.get('/', (_request, response) => {
 		response.end('ok');
 	});
 
@@ -101,7 +101,7 @@ test('response has `requestUrl` property even if `url` is an object', withServer
 });
 
 test('response contains url', withServer, async (t, server, got) => {
-	server.get('/', (request, response) => {
+	server.get('/', (_request, response) => {
 		response.end('ok');
 	});
 
@@ -109,7 +109,7 @@ test('response contains url', withServer, async (t, server, got) => {
 });
 
 test('response contains got options', withServer, async (t, server, got) => {
-	server.get('/', (request, response) => {
+	server.get('/', (_request, response) => {
 		response.end('ok');
 	});
 

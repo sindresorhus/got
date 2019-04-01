@@ -68,7 +68,7 @@ test('query option', withServer, async (t, server, got) => {
 });
 
 test('query in options are not breaking redirects', withServer, async (t, server, got) => {
-	server.get('/', (request, response) => {
+	server.get('/', (_request, response) => {
 		response.end('reached');
 	});
 

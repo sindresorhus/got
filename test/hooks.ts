@@ -21,7 +21,7 @@ const retryEndpoint = (request, response) => {
 	response.end();
 };
 
-const redirectEndpoint = (request, response) => {
+const redirectEndpoint = (_request, response) => {
 	response.statusCode = 302;
 	response.setHeader('location', '/');
 	response.end();
@@ -369,7 +369,7 @@ test('no infinity loop when retrying on afterResponse', withServer, async (t, se
 		retry: 0,
 		hooks: {
 			afterResponse: [
-				(response, retryWithMergedOptions) => {
+				(_response, retryWithMergedOptions) => {
 					return retryWithMergedOptions({
 						headers: {
 							token: 'invalid'
@@ -383,7 +383,7 @@ test('no infinity loop when retrying on afterResponse', withServer, async (t, se
 
 test('throws on afterResponse retry failure', withServer, async (t, server, got) => {
 	let visited401then500;
-	server.get('/', (request, response) => {
+	server.get('/', (_request, response) => {
 		if (visited401then500) {
 			response.statusCode = 500;
 		} else {
@@ -416,7 +416,7 @@ test('throws on afterResponse retry failure', withServer, async (t, server, got)
 
 test('doesn\'t throw on afterResponse retry HTTP failure if throwHttpErrors is false', withServer, async (t, server, got) => {
 	let visited401then500;
-	server.get('/', (request, response) => {
+	server.get('/', (_request, response) => {
 		if (visited401then500) {
 			response.statusCode = 500;
 		} else {

@@ -13,7 +13,7 @@ test.before('setup', async () => {
 });
 
 test('decompress content', withServer, async (t, server, got) => {
-	server.get('/', (request, response) => {
+	server.get('/', (_request, response) => {
 		response.setHeader('Content-Encoding', 'gzip');
 		response.end(gzipData);
 	});
@@ -22,7 +22,7 @@ test('decompress content', withServer, async (t, server, got) => {
 });
 
 test('decompress content - stream', withServer, async (t, server, got) => {
-	server.get('/', (request, response) => {
+	server.get('/', (_request, response) => {
 		response.setHeader('Content-Encoding', 'gzip');
 		response.end(gzipData);
 	});
@@ -31,7 +31,7 @@ test('decompress content - stream', withServer, async (t, server, got) => {
 });
 
 test('handles gzip error', withServer, async (t, server, got) => {
-	server.get('/', (request, response) => {
+	server.get('/', (_request, response) => {
 		response.setHeader('Content-Encoding', 'gzip');
 		response.end('Not gzipped content');
 	});
@@ -44,7 +44,7 @@ test('handles gzip error', withServer, async (t, server, got) => {
 });
 
 test('handles gzip error - stream', withServer, async (t, server, got) => {
-	server.get('/', (request, response) => {
+	server.get('/', (_request, response) => {
 		response.setHeader('Content-Encoding', 'gzip');
 		response.end('Not gzipped content');
 	});
@@ -57,7 +57,7 @@ test('handles gzip error - stream', withServer, async (t, server, got) => {
 });
 
 test('decompress option opts out of decompressing', withServer, async (t, server, got) => {
-	server.get('/', (request, response) => {
+	server.get('/', (_request, response) => {
 		response.setHeader('Content-Encoding', 'gzip');
 		response.end(gzipData);
 	});
@@ -67,7 +67,7 @@ test('decompress option opts out of decompressing', withServer, async (t, server
 });
 
 test('decompress option doesn\'t alter encoding of uncompressed responses', withServer, async (t, server, got) => {
-	server.get('/', (request, response) => {
+	server.get('/', (_request, response) => {
 		response.end(testContentUncompressed);
 	});
 
@@ -76,7 +76,7 @@ test('decompress option doesn\'t alter encoding of uncompressed responses', with
 });
 
 test('preserves `headers` property', withServer, async (t, server, got) => {
-	server.get('/', (request, response) => {
+	server.get('/', (_request, response) => {
 		response.setHeader('Content-Encoding', 'gzip');
 		response.end(gzipData);
 	});
@@ -85,7 +85,7 @@ test('preserves `headers` property', withServer, async (t, server, got) => {
 });
 
 test('does not break HEAD responses', withServer, async (t, server, got) => {
-	server.get('/', (request, response) => {
+	server.get('/', (_request, response) => {
 		response.end();
 	});
 
@@ -93,7 +93,7 @@ test('does not break HEAD responses', withServer, async (t, server, got) => {
 });
 
 test('ignore missing data', withServer, async (t, server, got) => {
-	server.get('/', (request, response) => {
+	server.get('/', (_request, response) => {
 		response.setHeader('Content-Encoding', 'gzip');
 		response.end(gzipData.slice(0, -1));
 	});
@@ -102,7 +102,7 @@ test('ignore missing data', withServer, async (t, server, got) => {
 });
 
 test('response has `url` and `requestUrl` properties', withServer, async (t, server, got) => {
-	server.get('/', (request, response) => {
+	server.get('/', (_request, response) => {
 		response.setHeader('Content-Encoding', 'gzip');
 		response.end(gzipData);
 	});

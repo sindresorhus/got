@@ -2,7 +2,7 @@ import test from 'ava';
 import withServer from './helpers/with-server';
 
 test('https request without ca', withServer, async (t, server, got) => {
-	server.get('/', (request, response) => {
+	server.get('/', (_request, response) => {
 		response.end('ok');
 	});
 
@@ -10,7 +10,7 @@ test('https request without ca', withServer, async (t, server, got) => {
 });
 
 test('https request with ca', withServer, async (t, server, got) => {
-	server.get('/', (request, response) => {
+	server.get('/', (_request, response) => {
 		response.end('ok');
 	});
 

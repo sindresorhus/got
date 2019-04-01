@@ -3,11 +3,11 @@ import got from '../source';
 import withServer from './helpers/with-server';
 
 test('works', withServer, async (t, server) => {
-	server.get('/', (request, response) => {
+	server.get('/', (_request, response) => {
 		response.end('ok');
 	});
 
-	server.get('/404', (request, response) => {
+	server.get('/404', (_request, response) => {
 		response.statusCode = 404;
 		response.end('not found');
 	});

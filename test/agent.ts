@@ -14,14 +14,14 @@ const prepareServer = server => {
 		}
 	});
 
-	server.get('/httpsToHttp', (request, response) => {
+	server.get('/httpsToHttp', (_request, response) => {
 		response.writeHead(302, {
 			location: server.url
 		});
 		response.end();
 	});
 
-	server.get('/httpToHttps', (request, response) => {
+	server.get('/httpToHttps', (_request, response) => {
 		response.writeHead(302, {
 			location: server.sslUrl
 		});
@@ -36,7 +36,7 @@ const createAgentSpy = Cls => {
 };
 
 test('non-object agent option works with http', withServer, async (t, server, got) => {
-	server.get('/', (request, response) => {
+	server.get('/', (_request, response) => {
 		response.end('ok');
 	});
 
@@ -53,7 +53,7 @@ test('non-object agent option works with http', withServer, async (t, server, go
 });
 
 test('non-object agent option works with https', withServer, async (t, server, got) => {
-	server.get('/', (request, response) => {
+	server.get('/', (_request, response) => {
 		response.end('ok');
 	});
 
@@ -112,7 +112,7 @@ test('redirects from https to http work with an agent object', withServer, async
 });
 
 test('socket connect listener cleaned up after request', withServer, async (t, server, got) => {
-	server.get('/', (request, response) => {
+	server.get('/', (_request, response) => {
 		response.end('ok');
 	});
 

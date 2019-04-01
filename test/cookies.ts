@@ -6,7 +6,7 @@ import got from '../source';
 import withServer from './helpers/with-server';
 
 test('reads a cookie', withServer, async (t, server, got) => {
-	server.get('/', (request, response) => {
+	server.get('/', (_request, response) => {
 		response.setHeader('set-cookie', 'hello=world');
 		response.end();
 	});
@@ -21,7 +21,7 @@ test('reads a cookie', withServer, async (t, server, got) => {
 });
 
 test('reads multiple cookies', withServer, async (t, server, got) => {
-	server.get('/', (request, response) => {
+	server.get('/', (_request, response) => {
 		response.setHeader('set-cookie', ['hello=world', 'foo=bar']);
 		response.end();
 	});
@@ -41,7 +41,7 @@ test('reads multiple cookies', withServer, async (t, server, got) => {
 });
 
 test('cookies doesn\'t break on redirects', withServer, async (t, server, got) => {
-	server.get('/redirect', (request, response) => {
+	server.get('/redirect', (_request, response) => {
 		response.setHeader('set-cookie', ['hello=world', 'foo=bar']);
 		response.setHeader('location', '/');
 		response.statusCode = 302;
@@ -59,7 +59,7 @@ test('cookies doesn\'t break on redirects', withServer, async (t, server, got) =
 });
 
 test('throws on invalid cookies', withServer, async (t, server, got) => {
-	server.get('/', (request, response) => {
+	server.get('/', (_request, response) => {
 		response.setHeader('set-cookie', 'hello=world; domain=localhost');
 		response.end();
 	});
@@ -82,7 +82,7 @@ test('catches store errors', async t => {
 });
 
 test('overrides options.headers.cookie', withServer, async (t, server, got) => {
-	server.get('/redirect', (request, response) => {
+	server.get('/redirect', (_request, response) => {
 		response.setHeader('set-cookie', ['hello=world', 'foo=bar']);
 		response.setHeader('location', '/');
 		response.statusCode = 302;

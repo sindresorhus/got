@@ -1019,22 +1019,26 @@ nock('https://sindresorhus.com')
 })();
 ```
 
-If you need real integration tests you can use [`create-test-server`](https://github.com/lukechilds/create-test-server):
+For real integration testing we recommend using [`ava`](https://github.com/avajs/ava) with [`create-test-server`](https://github.com/lukechilds/create-test-server). We're using a macro so we don't have to `server.listen()` and `server.close()` every test. Take a look at one of our tests:
 
 ```js
-const got = require('got');
-const createTestServer = require('create-test-server');
+test('retry function gets iteration count', withServer, async (t, server, got) => {
+	let knocks = 0;
+	server.get('/', (request, response) => {
+		if (knocks++ === 1) {
+			response.end('who`s there?');
+		}
+	});
 
-(async () => {
-	const server = await createTestServer();
-	server.get('/', 'Hello world!');
-
-	const response = await got(server.url);
-	console.log(response.body);
-	//=> 'Hello world!'
-
-	await server.close();
-})();
+	await got({
+		retry: {
+			retries: iteration => {
+				t.true(is.number(iteration));
+				return iteration < 2;
+			}
+		}
+	});
+});
 ```
 
 

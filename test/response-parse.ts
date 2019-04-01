@@ -4,7 +4,7 @@ import withServer from './helpers/with-server';
 const dog = {data: 'dog'};
 const jsonResponse = JSON.stringify(dog);
 
-const defaultHandler = (request, response) => {
+const defaultHandler = (_request, response) => {
 	response.end(jsonResponse);
 };
 
@@ -61,7 +61,7 @@ test('throws an error on invalid response type', withServer, async (t, server, g
 });
 
 test('doesn\'t parse responses without a body', withServer, async (t, server, got) => {
-	server.get('/', (request, response) => {
+	server.get('/', (_request, response) => {
 		response.end();
 	});
 
@@ -70,7 +70,7 @@ test('doesn\'t parse responses without a body', withServer, async (t, server, go
 });
 
 test('wraps parsing errors', withServer, async (t, server, got) => {
-	server.get('/', (request, response) => {
+	server.get('/', (_request, response) => {
 		response.end('/');
 	});
 
@@ -82,7 +82,7 @@ test('wraps parsing errors', withServer, async (t, server, got) => {
 });
 
 test('parses non-200 responses', withServer, async (t, server, got) => {
-	server.get('/', (request, response) => {
+	server.get('/', (_request, response) => {
 		response.statusCode = 500;
 		response.end(jsonResponse);
 	});
@@ -93,7 +93,7 @@ test('parses non-200 responses', withServer, async (t, server, got) => {
 });
 
 test('ignores errors on invalid non-200 responses', withServer, async (t, server, got) => {
-	server.get('/', (request, response) => {
+	server.get('/', (_request, response) => {
 		response.statusCode = 500;
 		response.end('Internal error');
 	});
@@ -110,7 +110,7 @@ test('ignores errors on invalid non-200 responses', withServer, async (t, server
 });
 
 test('errors have `statusCode` property', withServer, async (t, server, got) => {
-	server.get('/', (request, response) => {
+	server.get('/', (_request, response) => {
 		response.end('/');
 	});
 

@@ -5,8 +5,7 @@
 		"target": "es2017", // Node.js 8
 
 		// TODO: Make it strict
-		"strict": false,
-		"noUnusedParameters": false
+		"strict": false
 	},
 	"include": [
 		"source"

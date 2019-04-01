@@ -5,7 +5,7 @@ import {withSocketServer} from './helpers/with-server';
 
 if (process.platform !== 'win32') {
 	test('works', withSocketServer, async (t, server) => {
-		server.on('/', (request, response) => {
+		server.on('/', (_request, response) => {
 			response.end('ok');
 		});
 
@@ -14,7 +14,7 @@ if (process.platform !== 'win32') {
 	});
 
 	test('protocol-less works', withSocketServer, async (t, server) => {
-		server.on('/', (request, response) => {
+		server.on('/', (_request, response) => {
 			response.end('ok');
 		});
 
@@ -23,7 +23,7 @@ if (process.platform !== 'win32') {
 	});
 
 	test('address with : works', withSocketServer, async (t, server) => {
-		server.on('/foo:bar', (request, response) => {
+		server.on('/foo:bar', (_request, response) => {
 			response.end('ok');
 		});
 

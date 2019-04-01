@@ -7,7 +7,7 @@ import withServer from './helpers/with-server';
 const retryAfterOn413 = 2;
 const socketTimeout = 200;
 
-const handler413 = (request, response) => {
+const handler413 = (_request, response) => {
 	response.writeHead(413, {
 		'Retry-After': retryAfterOn413
 	});
@@ -16,7 +16,7 @@ const handler413 = (request, response) => {
 
 test('works on timeout error', withServer, async (t, server, got) => {
 	let knocks = 0;
-	server.get('/', (request, response) => {
+	server.get('/', (_request, response) => {
 		if (knocks++ === 1) {
 			response.end('who`s there?');
 		}
@@ -43,7 +43,7 @@ test('setting to `0` disables retrying', withServer, async (t, server, got) => {
 
 test('retry function gets iteration count', withServer, async (t, server, got) => {
 	let knocks = 0;
-	server.get('/', (request, response) => {
+	server.get('/', (_request, response) => {
 		if (knocks++ === 1) {
 			response.end('who`s there?');
 		}
@@ -66,7 +66,7 @@ test('falsy value prevents retries', withServer, async (t, server, got) => {
 	await t.throwsAsync(() => got({
 		timeout: {socket: socketTimeout},
 		retry: {
-			retries: (iteration, error) => {
+			retries: (_iteration, error) => {
 				t.true(is.error(error));
 				return 0;
 			}
@@ -78,7 +78,7 @@ test('falsy value prevents retries', withServer, async (t, server, got) => {
 });
 
 test('custom retries', withServer, async (t, server, got) => {
-	server.get('/', (request, response) => {
+	server.get('/', (_request, response) => {
 		response.statusCode = 500;
 		response.end();
 	});
@@ -107,7 +107,7 @@ test('custom retries', withServer, async (t, server, got) => {
 });
 
 test('custom error codes', withServer, async (t, server, got) => {
-	server.get('/', (request, response) => {
+	server.get('/', (_request, response) => {
 		response.statusCode = 500;
 		response.end();
 	});
@@ -127,7 +127,7 @@ test('custom error codes', withServer, async (t, server, got) => {
 			return emitter;
 		},
 		retry: {
-			retries: (iteration, error) => {
+			retries: (_iteration, error) => {
 				t.is(error.code, errorCode);
 				return 0;
 			},
@@ -146,7 +146,7 @@ test('custom error codes', withServer, async (t, server, got) => {
 
 test('respects 413 Retry-After', withServer, async (t, server, got) => {
 	let lastTried413access = Date.now();
-	server.get('/', (request, response) => {
+	server.get('/', (_request, response) => {
 		response.writeHead(413, {
 			'Retry-After': retryAfterOn413
 		});
@@ -165,7 +165,7 @@ test('respects 413 Retry-After', withServer, async (t, server, got) => {
 
 test('respects 413 Retry-After with RFC-1123 timestamp', withServer, async (t, server, got) => {
 	let lastTried413TimestampAccess;
-	server.get('/', (request, response) => {
+	server.get('/', (_request, response) => {
 		const date = (new Date(Date.now() + (retryAfterOn413 * 1000))).toUTCString();
 
 		response.writeHead(413, {
@@ -214,7 +214,7 @@ test('doesn\'t retry on 413 with empty methods', withServer, async (t, server, g
 });
 
 test('doesn\'t retry on 413 without Retry-After header', withServer, async (t, server, got) => {
-	server.get('/', (request, response) => {
+	server.get('/', (_request, response) => {
 		response.statusCode = 413;
 		response.end();
 	});
@@ -226,7 +226,7 @@ test('doesn\'t retry on 413 without Retry-After header', withServer, async (t, s
 });
 
 test('retries on 503 without Retry-After header', withServer, async (t, server, got) => {
-	server.get('/', (request, response) => {
+	server.get('/', (_request, response) => {
 		response.statusCode = 503;
 		response.end();
 	});

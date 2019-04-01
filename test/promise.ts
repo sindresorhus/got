@@ -4,7 +4,7 @@ import test from 'ava';
 import withServer from './helpers/with-server';
 
 test('emits request event as promise', withServer, async (t, server, got) => {
-	server.get('/', (request, response) => {
+	server.get('/', (_request, response) => {
 		response.statusCode = 200;
 		response.end();
 	});
@@ -15,7 +15,7 @@ test('emits request event as promise', withServer, async (t, server, got) => {
 });
 
 test('emits response event as promise', withServer, async (t, server, got) => {
-	server.get('/', (request, response) => {
+	server.get('/', (_request, response) => {
 		response.statusCode = 200;
 		response.end();
 	});
