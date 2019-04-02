@@ -450,7 +450,7 @@ test('no memory leak when using socket timeout and keepalive agent', withServer,
 	t.is(socket.listenerCount('timeout'), 0);
 });
 
-test('throws on incomplete response - promise', withServer, async (t, server, got) => {
+test('throws on incomplete (canceled) response - promise', withServer, async (t, server, got) => {
 	server.get('/', downloadHandler);
 
 	await t.throwsAsync(got({
@@ -458,7 +458,7 @@ test('throws on incomplete response - promise', withServer, async (t, server, go
 	}), got.TimeoutError);
 });
 
-test('throws on incomplete response - promise #2', withServer, async (t, server, got) => {
+test('throws on incomplete (canceled) response - promise #2', withServer, async (t, server, got) => {
 	server.get('/', downloadHandler);
 
 	const promise = got('').on('response', () => {
@@ -468,7 +468,7 @@ test('throws on incomplete response - promise #2', withServer, async (t, server,
 	await t.throwsAsync(promise, got.CancelError);
 });
 
-test.failing('throws on incomplete response - stream', withServer, async (t, server, got) => {
+test('throws on incomplete (canceled) response - stream', withServer, async (t, server, got) => {
 	server.get('/', downloadHandler);
 
 	const errorString = 'Foobar';
@@ -479,3 +479,5 @@ test.failing('throws on incomplete response - stream', withServer, async (t, ser
 
 	await t.throwsAsync(getStream(stream), errorString);
 });
+
+test.todo('throws on incomplete (canceled) response - cached request');
