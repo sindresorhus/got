@@ -1,28 +1,21 @@
 import test from 'ava';
-import got from '../source';
-import {createSSLServer} from './helpers/server';
+import withServer from './helpers/with-server';
 
-let s;
+test('https request without ca', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.end('ok');
+	});
 
-test.before('setup', async () => {
-	s = await createSSLServer();
-
-	s.on('/', (request_, response) => response.end('ok'));
-
-	await s.listen(s.port);
+	t.truthy((await got({rejectUnauthorized: false})).body);
 });
 
-test.after('cleanup', async () => {
-	await s.close();
-});
+test('https request with ca', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.end('ok');
+	});
 
-test('make request to https server without ca', async t => {
-	t.truthy((await got(s.url, {rejectUnauthorized: false})).body);
-});
-
-test('make request to https server with ca', async t => {
-	const {body} = await got(s.url, {
-		ca: s.caRootCert,
+	const {body} = await got({
+		ca: server.caCert,
 		headers: {host: 'sindresorhus.com'}
 	});
 	t.is(body, 'ok');

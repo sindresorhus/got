@@ -15,6 +15,7 @@ export default function asStream(options: MergedOptions) {
 
 	if (options.body) {
 		proxy.write = () => {
+			proxy.destroy();
 			throw new Error('Got\'s stream is not writable when the `body` option is used');
 		};
 	}

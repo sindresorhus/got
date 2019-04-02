@@ -2,48 +2,42 @@ import http from 'http';
 import {URL} from 'url';
 import test from 'ava';
 import got from '../source';
-import {createServer} from './helpers/server';
+import withServer from './helpers/with-server';
 
-let s;
+const echoHeaders = (request, response) => {
+	request.resume();
+	response.end(JSON.stringify(request.headers));
+};
 
-test.before('setup', async () => {
-	s = await createServer();
+test('preserves global defaults', withServer, async (t, server, got) => {
+	server.get('/', echoHeaders);
 
-	s.on('/', (request, response) => {
-		request.resume();
-		response.end(JSON.stringify(request.headers));
-	});
-
-	await s.listen(s.port);
-});
-
-test.after('cleanup', async () => {
-	await s.close();
-});
-
-test('preserve global defaults', async t => {
-	const globalHeaders = await got(s.url).json();
-	const instanceHeaders = await got.extend()(s.url).json();
+	const globalHeaders = await got('').json();
+	const instanceHeaders = await got.extend()('').json();
 	t.deepEqual(instanceHeaders, globalHeaders);
 });
 
-test('support instance defaults', async t => {
+test('supports instance defaults', withServer, async (t, server, got) => {
+	server.get('/', echoHeaders);
+
 	const instance = got.extend({
 		headers: {
 			'user-agent': 'custom-ua-string'
 		}
 	});
-	const headers = await instance(s.url).json();
+	const headers = await instance('').json();
 	t.is(headers['user-agent'], 'custom-ua-string');
 });
 
-test('support invocation overrides', async t => {
+test('supports invocation overrides', withServer, async (t, server, got) => {
+	server.get('/', echoHeaders);
+
 	const instance = got.extend({
 		headers: {
 			'user-agent': 'custom-ua-string'
 		}
 	});
-	const headers = await instance(s.url, {
+	const headers = await instance({
 		headers: {
 			'user-agent': 'different-ua-string'
 		}
@@ -51,7 +45,9 @@ test('support invocation overrides', async t => {
 	t.is(headers['user-agent'], 'different-ua-string');
 });
 
-test('curry previous instance defaults', async t => {
+test('carries previous instance defaults', withServer, async (t, server, got) => {
+	server.get('/', echoHeaders);
+
 	const instanceA = got.extend({
 		headers: {
 			'x-foo': 'foo'
@@ -62,16 +58,18 @@ test('curry previous instance defaults', async t => {
 			'x-bar': 'bar'
 		}
 	});
-	const headers = await instanceB(s.url).json();
+	const headers = await instanceB('').json();
 	t.is(headers['x-foo'], 'foo');
 	t.is(headers['x-bar'], 'bar');
 });
 
-test('custom headers (extend)', async t => {
+test('custom headers (extend)', withServer, async (t, server, got) => {
+	server.get('/', echoHeaders);
+
 	const options = {headers: {unicorn: 'rainbow'}};
 
 	const instance = got.extend(options);
-	const headers = await instance(`${s.url}/`).json();
+	const headers = await instance('').json();
 	t.is(headers.unicorn, 'rainbow');
 });
 
@@ -97,7 +95,9 @@ test('extend merges URL instances', t => {
 	t.is(b.defaults.options.baseUrl.toString(), 'https://example.com/foo/');
 });
 
-test('create', async t => {
+test('create', withServer, async (t, server) => {
+	server.all('/', echoHeaders);
+
 	const instance = got.create({
 		options: {},
 		handler: (options, next) => {
@@ -105,7 +105,7 @@ test('create', async t => {
 			return next(options);
 		}
 	});
-	const headers = await instance(s.url).json();
+	const headers = await instance(server.url).json();
 	t.is(headers.unicorn, 'rainbow');
 	t.is(headers['user-agent'], undefined);
 });
@@ -120,8 +120,10 @@ test('hooks are merged on got.extend()', t => {
 	t.deepEqual(extended.defaults.options.hooks.beforeRequest, hooksA.concat(hooksB));
 });
 
-test('custom endpoint with custom headers (extend)', async t => {
-	const instance = got.extend({headers: {unicorn: 'rainbow'}, baseUrl: s.url});
+test('custom endpoint with custom headers (extend)', withServer, async (t, server) => {
+	server.all('/', echoHeaders);
+
+	const instance = got.extend({headers: {unicorn: 'rainbow'}, baseUrl: server.url});
 	const headers = await instance('/').json();
 	t.is(headers.unicorn, 'rainbow');
 	t.not(headers['user-agent'], undefined);
@@ -177,12 +179,14 @@ test('can set mutable defaults using got.extend', t => {
 	t.true(instance.defaults.options.followRedirect);
 });
 
-test('only plain objects are freezed', async t => {
+test('only plain objects are freezed', withServer, async (t, server, got) => {
+	server.get('/', echoHeaders);
+
 	const instance = got.extend({
 		agent: new http.Agent({keepAlive: true})
 	});
 
-	await t.notThrowsAsync(() => instance(s.url));
+	await t.notThrowsAsync(() => instance(''));
 });
 
 test('defaults are cloned on instance creation', t => {
@@ -198,7 +202,9 @@ test('defaults are cloned on instance creation', t => {
 	t.not(options.hooks.beforeRequest, instance.defaults.options.hooks.beforeRequest);
 });
 
-test('ability to pass a custom request method', async t => {
+test('ability to pass a custom request method', withServer, async (t, server, got) => {
+	server.get('/', echoHeaders);
+
 	let called = false;
 
 	const request = (...args) => {
@@ -208,12 +214,14 @@ test('ability to pass a custom request method', async t => {
 	};
 
 	const instance = got.extend({request});
-	await instance(s.url);
+	await instance('');
 
 	t.true(called);
 });
 
-test('hooks aren\'t overriden when merging options', async t => {
+test('hooks aren\'t overriden when merging options', withServer, async (t, server, got) => {
+	server.get('/', echoHeaders);
+
 	let called = false;
 	const instance = got.extend({
 		hooks: {
@@ -225,7 +233,7 @@ test('hooks aren\'t overriden when merging options', async t => {
 		}
 	});
 
-	await instance(s.url, {});
+	await instance({});
 
 	t.true(called);
 });

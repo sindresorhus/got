@@ -1,244 +1,268 @@
+import {TLSSocket} from 'tls';
 import {URL} from 'url';
 import test from 'ava';
 import nock from 'nock';
-import got from '../source';
-import {createServer, createSSLServer} from './helpers/server';
+import withServer from './helpers/with-server';
 
-let http;
-let https;
+const reachedHandler = (_request, response) => {
+	response.end('reached');
+};
 
-test.before('setup', async () => {
-	const reached = (request, response) => {
-		response.end('reached');
-	};
-
-	https = await createSSLServer();
-	http = await createServer();
-
-	// HTTPS Handlers
-
-	https.on('/', (request, response) => {
-		response.end('https');
+const finiteHandler = (_request, response) => {
+	response.writeHead(302, {
+		location: '/'
 	});
+	response.end();
+};
 
-	https.on('/httpsToHttp', (request, response) => {
-		response.writeHead(302, {
-			location: http.url
-		});
-		response.end();
+const relativeHandler = (_request, response) => {
+	response.writeHead(302, {
+		location: '/'
 	});
+	response.end();
+};
 
-	// HTTP Handlers
+test('follows redirect', withServer, async (t, server, got) => {
+	server.get('/', reachedHandler);
+	server.get('/finite', finiteHandler);
 
-	http.on('/', reached);
+	const {body, redirectUrls} = await got('finite');
+	t.is(body, 'reached');
+	t.deepEqual(redirectUrls, [`${server.url}/`]);
+});
 
-	http.on('/finite', (request, response) => {
-		response.writeHead(302, {
-			location: `${http.url}/`
-		});
-		response.end();
-	});
+test('follows 307, 308 redirect', withServer, async (t, server, got) => {
+	server.get('/', reachedHandler);
 
-	http.on('/utf8-url-áé', reached);
-	http.on('/?test=it’s+ok', reached);
-
-	http.on('/redirect-with-utf8-binary', (request, response) => {
-		response.writeHead(302, {
-			location: Buffer.from((new URL('/utf8-url-áé', http.url)).toString(), 'utf8').toString('binary')
-		});
-		response.end();
-	});
-
-	http.on('/redirect-with-uri-encoded-location', (request, response) => {
-		response.writeHead(302, {
-			location: new URL('/?test=it’s+ok', http.url).toString()
-		});
-		response.end();
-	});
-
-	http.on('/endless', (request, response) => {
-		response.writeHead(302, {
-			location: `${http.url}/endless`
-		});
-		response.end();
-	});
-
-	http.on('/relative', (request, response) => {
-		response.writeHead(302, {
-			location: '/'
-		});
-		response.end();
-	});
-
-	http.on('/seeOther', (request, response) => {
-		response.writeHead(303, {
-			location: '/'
-		});
-		response.end();
-	});
-
-	http.on('/temporary', (request, response) => {
+	server.get('/temporary', (_request, response) => {
 		response.writeHead(307, {
 			location: '/'
 		});
 		response.end();
 	});
 
-	http.on('/permanent', (request, response) => {
+	server.get('/permanent', (_request, response) => {
 		response.writeHead(308, {
 			location: '/'
 		});
 		response.end();
 	});
 
-	http.on('/relativeSearchParam?bang', (request, response) => {
+	const tempBody = (await got('temporary')).body;
+	t.is(tempBody, 'reached');
+
+	const permBody = (await got('permanent')).body;
+	t.is(permBody, 'reached');
+});
+
+test('does not follow redirect when disabled', withServer, async (t, server, got) => {
+	server.get('/', finiteHandler);
+
+	t.is((await got({followRedirect: false})).statusCode, 302);
+});
+
+test('relative redirect works', withServer, async (t, server, got) => {
+	server.get('/', reachedHandler);
+	server.get('/relative', relativeHandler);
+
+	t.is((await got('relative')).body, 'reached');
+});
+
+test('throws on endless redirects', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.writeHead(302, {
+			location: server.url
+		});
+		response.end();
+	});
+
+	const error = await t.throwsAsync(got(''), 'Redirected 10 times. Aborting.');
+
+	// @ts-ignore
+	t.deepEqual(error.redirectUrls, new Array(10).fill(`${server.url}/`));
+});
+
+test('searchParams are not breaking redirects', withServer, async (t, server, got) => {
+	server.get('/', reachedHandler);
+
+	server.get('/relativeSearchParam', (request, response) => {
+		t.is(request.query.bang, '1');
+
 		response.writeHead(302, {
 			location: '/'
 		});
 		response.end();
 	});
 
-	http.on('/httpToHttps', (request, response) => {
-		response.writeHead(302, {
-			location: https.url
+	t.is((await got('relativeSearchParam', {searchParams: 'bang=1'})).body, 'reached');
+});
+
+test('hostname + path are not breaking redirects', withServer, async (t, server, got) => {
+	server.get('/', reachedHandler);
+	server.get('/relative', relativeHandler);
+
+	t.is((await got('relative', {
+		hostname: server.hostname,
+		path: '/relative'
+	})).body, 'reached');
+});
+
+test('redirects only GET and HEAD requests', withServer, async (t, server, got) => {
+	server.post('/', relativeHandler);
+
+	const error = await t.throwsAsync(got.post({body: 'wow'}), {
+		instanceOf: got.HTTPError,
+		message: 'Response code 302 (Found)'
+	});
+
+	// @ts-ignore
+	t.is(error.path, '/');
+	// @ts-ignore
+	t.is(error.statusCode, 302);
+});
+
+test('redirects on 303 response even on post, put, delete', withServer, async (t, server, got) => {
+	server.get('/', reachedHandler);
+
+	server.post('/seeOther', (_request, response) => {
+		response.writeHead(303, {
+			location: '/'
 		});
 		response.end();
 	});
 
-	http.on('/malformedRedirect', (request, response) => {
+	const {url, body} = await got.post('seeOther', {body: 'wow'});
+	t.is(url, `${server.url}/`);
+	t.is(body, 'reached');
+});
+
+test('redirects from http to https work', withServer, async (t, server, got) => {
+	server.get('/', (request, response) => {
+		if (request.socket instanceof TLSSocket) {
+			response.end('https');
+		} else {
+			response.end('http');
+		}
+	});
+
+	server.get('/httpToHttps', (_request, response) => {
+		response.writeHead(302, {
+			location: server.sslUrl
+		});
+		response.end();
+	});
+
+	t.is((await got('httpToHttps', {rejectUnauthorized: false})).body, 'https');
+});
+
+test('redirects from https to http work', withServer, async (t, server, got) => {
+	server.get('/', (request, response) => {
+		if (request.socket instanceof TLSSocket) {
+			response.end('https');
+		} else {
+			response.end('http');
+		}
+	});
+
+	server.get('/httpsToHttp', (_request, response) => {
+		response.writeHead(302, {
+			location: server.url
+		});
+		response.end();
+	});
+
+	t.truthy((await got.secure('httpsToHttp', {rejectUnauthorized: false})).body);
+});
+
+test('redirects works with lowercase method', withServer, async (t, server, got) => {
+	server.get('/', reachedHandler);
+	server.get('/relative', relativeHandler);
+
+	const {body} = await got('relative', {method: 'head'});
+	t.is(body, '');
+});
+
+test('redirect response contains new url', withServer, async (t, server, got) => {
+	server.get('/', reachedHandler);
+	server.get('/finite', finiteHandler);
+
+	const {url} = await got('finite');
+	t.is(url, `${server.url}/`);
+});
+
+test('redirect response contains old url', withServer, async (t, server, got) => {
+	server.get('/', reachedHandler);
+	server.get('/finite', finiteHandler);
+
+	const {requestUrl} = await got('finite');
+	t.is(requestUrl, `${server.url}/finite`);
+});
+
+test('redirect response contains UTF-8 with binary encoding', withServer, async (t, server, got) => {
+	server.get('/utf8-url-%C3%A1%C3%A9', reachedHandler);
+
+	server.get('/redirect-with-utf8-binary', (_request, response) => {
+		response.writeHead(302, {
+			location: Buffer.from((new URL('/utf8-url-áé', server.url)).toString(), 'utf8').toString('binary')
+		});
+		response.end();
+	});
+
+	t.is((await got('redirect-with-utf8-binary')).body, 'reached');
+});
+
+test('redirect response contains UTF-8 with URI encoding', withServer, async (t, server, got) => {
+	server.get('/', (request, response) => {
+		t.is(request.query.test, 'it’s ok');
+		response.end('reached');
+	});
+
+	server.get('/redirect-with-uri-encoded-location', (_request, response) => {
+		response.writeHead(302, {
+			location: new URL('/?test=it’s+ok', server.url).toString()
+		});
+		response.end();
+	});
+
+	t.is((await got('redirect-with-uri-encoded-location')).body, 'reached');
+});
+
+test('throws on malformed redirect URI', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
 		response.writeHead(302, {
 			location: '/%D8'
 		});
 		response.end();
 	});
 
-	http.on('/invalidRedirect', (request, response) => {
+	await t.throwsAsync(got(''), {
+		name: 'URIError'
+	});
+});
+
+test('throws on invalid redirect URL', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
 		response.writeHead(302, {
 			location: 'http://'
 		});
 		response.end();
 	});
 
-	await http.listen(http.port);
-	await https.listen(https.port);
+	await t.throwsAsync(got(''), {
+		code: 'ERR_INVALID_URL'
+	});
 });
 
-test.after('cleanup', async () => {
-	await http.close();
-	await https.close();
-});
-
-test('follows redirect', async t => {
-	const {body, redirectUrls} = await got(`${http.url}/finite`);
-	t.is(body, 'reached');
-	t.deepEqual(redirectUrls, [`${http.url}/`]);
-});
-
-test('follows 307, 308 redirect', async t => {
-	const tempBody = (await got(`${http.url}/temporary`)).body;
-	t.is(tempBody, 'reached');
-
-	const permBody = (await got(`${http.url}/permanent`)).body;
-	t.is(permBody, 'reached');
-});
-
-test('does not follow redirect when disabled', async t => {
-	t.is((await got(`${http.url}/finite`, {followRedirect: false})).statusCode, 302);
-});
-
-test('relative redirect works', async t => {
-	t.is((await got(`${http.url}/relative`)).body, 'reached');
-});
-
-test('throws on endless redirect', async t => {
-	const error = await t.throwsAsync(got(`${http.url}/endless`));
-	t.is(error.message, 'Redirected 10 times. Aborting.');
-	// @ts-ignore
-	t.deepEqual(error.redirectUrls, new Array(10).fill(`${http.url}/endless`));
-});
-
-test('searchParams in options are not breaking redirects', async t => {
-	t.is((await got(`${http.url}/relativeSearchParam`, {searchParams: 'bang'})).body, 'reached');
-});
-
-test('hostname+path in options are not breaking redirects', async t => {
-	t.is((await got(`${http.url}/relative`, {
-		hostname: http.host,
-		path: '/relative'
-	})).body, 'reached');
-});
-
-test('redirect only GET and HEAD requests', async t => {
-	const error = await t.throwsAsync(got.post(`${http.url}/relative`, {body: 'wow'}));
-	t.is(error.message, 'Response code 302 (Found)');
-	// @ts-ignore
-	t.is(error.path, '/relative');
-	// @ts-ignore
-	t.is(error.statusCode, 302);
-});
-
-test('redirect on 303 response even with post, put, delete', async t => {
-	const {url, body} = await got.post(`${http.url}/seeOther`, {body: 'wow'});
-	t.is(url, `${http.url}/`);
-	t.is(body, 'reached');
-});
-
-test('redirects from http to https works', async t => {
-	t.truthy((await got(`${http.url}/httpToHttps`, {rejectUnauthorized: false})).body);
-});
-
-test('redirects from https to http works', async t => {
-	t.truthy((await got(`${https.url}/httpsToHttp`, {rejectUnauthorized: false})).body);
-});
-
-test('redirects works with lowercase method', async t => {
-	const {body} = (await got(`${http.url}/relative`, {method: 'head'}));
-	t.is(body, '');
-});
-
-test('redirect response contains new url', async t => {
-	const {url} = (await got(`${http.url}/finite`));
-	t.is(url, `${http.url}/`);
-});
-
-test('redirect response contains old url', async t => {
-	const {requestUrl} = (await got(`${http.url}/finite`));
-	t.is(requestUrl, `${http.url}/finite`);
-});
-
-test('redirect response contains UTF-8 with binary encoding', async t => {
-	t.is((await got(`${http.url}/redirect-with-utf8-binary`)).body, 'reached');
-});
-
-test('redirect response contains UTF-8 with URI encoding', async t => {
-	t.is((await got(`${http.url}/redirect-with-uri-encoded-location`)).body, 'reached');
-});
-
-test('throws on malformed redirect URI', async t => {
-	const error = await t.throwsAsync(got(`${http.url}/malformedRedirect`));
-	t.is(error.name, 'URIError');
-});
-
-test('throws on invalid redirect URL', async t => {
-	const error = await t.throwsAsync(got(`${http.url}/invalidRedirect`));
-	// @ts-ignore
-	t.is(error.code, 'ERR_INVALID_URL');
-});
-
-test('port is reset on redirect', async t => {
-	const server = await createServer();
-	server.on('/', (request, response) => {
+test('port is reset on redirect', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
 		response.writeHead(307, {
 			location: 'http://localhost'
 		});
 		response.end();
 	});
-	await server.listen(server.port);
 
 	nock('http://localhost').get('/').reply(200, 'ok');
 
-	const {body} = await got(server.url);
+	const {body} = await got('');
 	t.is(body, 'ok');
-
-	await server.close();
 });

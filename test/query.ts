@@ -1,63 +1,28 @@
 import {URLSearchParams} from 'url';
 import test from 'ava';
-import got from '../source';
-import {createServer} from './helpers/server';
+import withServer from './helpers/with-server';
 
 // TODO: Remove this file before the Got v11 release together with completely removing the `query` option
 
-let s;
+const echoUrl = (request, response) => {
+	response.end(request.url);
+};
 
-test.before('setup', async () => {
-	s = await createServer();
+test('overrides query from options', withServer, async (t, server, got) => {
+	server.get('/', echoUrl);
 
-	const echoUrl = (request, response) => {
-		response.end(request.url);
-	};
-
-	s.on('/', (request, response) => {
-		response.statusCode = 404;
-		response.end();
-	});
-
-	s.on('/test', echoUrl);
-	s.on('/?test=wow', echoUrl);
-	s.on('/?test=it’s+ok', echoUrl);
-
-	s.on('/reached', (request, response) => {
-		response.end('reached');
-	});
-
-	s.on('/relativeQuery?bang', (request, response) => {
-		response.writeHead(302, {
-			location: '/reached'
-		});
-		response.end();
-	});
-
-	s.on('/?recent=true', (request, response) => {
-		response.end('recent');
-	});
-
-	await s.listen(s.port);
-});
-
-test.after('cleanup', async () => {
-	await s.close();
-});
-
-test('overrides query from options', async t => {
 	const {body} = await got(
-		`${s.url}/?drop=this`,
+		'?drop=this',
 		{
 			query: {
 				test: 'wow'
 			},
 			cache: {
 				get(key) {
-					t.is(key, `cacheable-request:GET:${s.url}/?test=wow`);
+					t.is(key, `cacheable-request:GET:${server.url}/?test=wow`);
 				},
 				set(key) {
-					t.is(key, `cacheable-request:GET:${s.url}/?test=wow`);
+					t.is(key, `cacheable-request:GET:${server.url}/?test=wow`);
 				}
 			}
 		}
@@ -66,8 +31,10 @@ test('overrides query from options', async t => {
 	t.is(body, '/?test=wow');
 });
 
-test('escapes query parameter values', async t => {
-	const {body} = await got(`${s.url}`, {
+test('escapes query parameter values', withServer, async (t, server, got) => {
+	server.get('/', echoUrl);
+
+	const {body} = await got({
 		query: {
 			test: 'it’s ok'
 		}
@@ -76,21 +43,43 @@ test('escapes query parameter values', async t => {
 	t.is(body, '/?test=it%E2%80%99s+ok');
 });
 
-test('the `query` option can be a URLSearchParams', async t => {
+test('the `query` option can be a URLSearchParams', withServer, async (t, server, got) => {
+	server.get('/', echoUrl);
+
 	const query = new URLSearchParams({test: 'wow'});
-	const {body} = await got(s.url, {query});
+	const {body} = await got({query});
 	t.is(body, '/?test=wow');
 });
 
-test('should ignore empty query object', async t => {
-	t.is((await got(`${s.url}/test`, {query: {}})).requestUrl, `${s.url}/test`);
+test('should ignore empty query object', withServer, async (t, server, got) => {
+	server.get('/', echoUrl);
+
+	t.is((await got({query: {}})).requestUrl, `${server.url}/`);
 });
 
-test('query option', async t => {
-	t.is((await got(s.url, {query: {recent: true}})).body, 'recent');
-	t.is((await got(s.url, {query: 'recent=true'})).body, 'recent');
+test('query option', withServer, async (t, server, got) => {
+	server.get('/', (request, response) => {
+		t.is(request.query.recent, 'true');
+		response.end('recent');
+	});
+
+	t.is((await got({query: {recent: true}})).body, 'recent');
+	t.is((await got({query: 'recent=true'})).body, 'recent');
 });
 
-test('query in options are not breaking redirects', async t => {
-	t.is((await got(`${s.url}/relativeQuery`, {query: 'bang'})).body, 'reached');
+test('query in options are not breaking redirects', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.end('reached');
+	});
+
+	server.get('/relativeQuery', (request, response) => {
+		t.is(request.query.bang, '1');
+
+		response.writeHead(302, {
+			location: '/'
+		});
+		response.end();
+	});
+
+	t.is((await got('relativeQuery', {query: 'bang=1'})).body, 'reached');
 });

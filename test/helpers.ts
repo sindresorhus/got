@@ -2,20 +2,20 @@ import test from 'ava';
 import got from '../source';
 import withServer from './helpers/with-server';
 
-test('promise mode', withServer, async (t, s) => {
-	s.get('/', (request, response) => {
+test('works', withServer, async (t, server) => {
+	server.get('/', (_request, response) => {
 		response.end('ok');
 	});
-	s.get('/404', (request, response) => {
+
+	server.get('/404', (_request, response) => {
 		response.statusCode = 404;
 		response.end('not found');
 	});
 
-	t.is((await got.get(s.url)).body, 'ok');
+	t.is((await got.get(server.url)).body, 'ok');
 
-	const error = await t.throwsAsync(got.get(`${s.url}/404`));
+	const error = await t.throwsAsync(got.get(`${server.url}/404`), got.HTTPError);
 	t.is(error.response.body, 'not found');
 
-	const error2 = await t.throwsAsync(got.get('.com', {retry: 0}));
-	t.truthy(error2);
+	await t.throwsAsync(got.get('.com', {retry: 0}), 'Invalid URL: .com');
 });

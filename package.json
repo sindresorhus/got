@@ -58,7 +58,7 @@
 		"@types/duplexer3": "^0.1.0",
 		"@types/node": "^11.12.2",
 		"@typescript-eslint/eslint-plugin": "^1.5.0",
-		"ava": "^1.3.1",
+		"ava": "^1.4.1",
 		"coveralls": "^3.0.0",
 		"create-test-server": "^2.4.0",
 		"del-cli": "^1.1.0",

@@ -1,107 +1,123 @@
 import test from 'ava';
 import toReadableStream from 'to-readable-stream';
 import got from '../source';
-import {createServer} from './helpers/server';
+import withServer from './helpers/with-server';
 
-let s;
+const defaultEndpoint = (request, response) => {
+	response.setHeader('method', request.method);
+	request.pipe(response);
+};
 
-test.before('setup', async () => {
-	s = await createServer();
+const echoHeaders = (request, response) => {
+	response.end(JSON.stringify(request.headers));
+};
 
-	s.on('/', (request, response) => {
-		response.setHeader('method', request.method);
-		request.pipe(response);
-	});
+test('GET cannot have body', withServer, async (t, server, got) => {
+	server.post('/', defaultEndpoint);
 
-	s.on('/headers', (request, response) => {
-		response.end(JSON.stringify(request.headers));
-	});
-
-	s.on('/empty', (request_, response) => {
-		response.end();
-	});
-
-	await s.listen(s.port);
+	await t.throwsAsync(got.get({body: 'hi'}), 'The `GET` method cannot be used with a body');
 });
 
-test.after('cleanup', async () => {
-	await s.close();
-});
+test('sends strings', withServer, async (t, server, got) => {
+	server.post('/', defaultEndpoint);
 
-test('GET cannot have body', async t => {
-	await t.throwsAsync(got.get(s.url, {body: 'hi'}), 'The `GET` method cannot be used with a body');
-});
-
-test('sends strings', async t => {
-	const {body} = await got.post(s.url, {body: 'wow'});
+	const {body} = await got.post({body: 'wow'});
 	t.is(body, 'wow');
 });
 
-test('sends Buffers', async t => {
-	const {body} = await got.post(s.url, {body: Buffer.from('wow')});
+test('sends Buffers', withServer, async (t, server, got) => {
+	server.post('/', defaultEndpoint);
+
+	const {body} = await got.post({body: Buffer.from('wow')});
 	t.is(body, 'wow');
 });
 
-test('sends Streams', async t => {
-	const {body} = await got.post(s.url, {body: toReadableStream('wow')});
+test('sends Streams', withServer, async (t, server, got) => {
+	server.post('/', defaultEndpoint);
+
+	const {body} = await got.post({body: toReadableStream('wow')});
 	t.is(body, 'wow');
 });
 
-test('sends plain objects as forms', async t => {
-	const {body} = await got.post(s.url, {
+test('sends plain objects as forms', withServer, async (t, server, got) => {
+	server.post('/', defaultEndpoint);
+
+	const {body} = await got.post({
 		form: {such: 'wow'}
 	});
+
 	t.is(body, 'such=wow');
 });
 
-test('does NOT support sending arrays as forms', async t => {
-	await t.throwsAsync(got.post(s.url, {
+test('does NOT support sending arrays as forms', withServer, async (t, server, got) => {
+	server.post('/', defaultEndpoint);
+
+	await t.throwsAsync(got.post({
 		form: ['such', 'wow']
-	}), TypeError);
+	}), {
+		instanceOf: TypeError,
+		message: 'Each query pair must be an iterable [name, value] tuple'
+	});
 });
 
-test('sends plain objects as JSON', async t => {
-	const {body} = await got.post(s.url, {
+test('sends plain objects as JSON', withServer, async (t, server, got) => {
+	server.post('/', defaultEndpoint);
+
+	const {body} = await got.post({
 		json: {such: 'wow'},
 		responseType: 'json'
 	});
 	t.deepEqual(body, {such: 'wow'});
 });
 
-test('sends arrays as JSON', async t => {
-	const {body} = await got.post(s.url, {
+test('sends arrays as JSON', withServer, async (t, server, got) => {
+	server.post('/', defaultEndpoint);
+
+	const {body} = await got.post({
 		json: ['such', 'wow'],
 		responseType: 'json'
 	});
 	t.deepEqual(body, ['such', 'wow']);
 });
 
-test('works with empty post response', async t => {
-	const {body} = await got.post(`${s.url}/empty`, {body: 'wow'});
+test('works with empty post response', withServer, async (t, server, got) => {
+	server.post('/empty', (_request, response) => {
+		response.end();
+	});
+
+	const {body} = await got.post('empty', {body: 'wow'});
 	t.is(body, '');
 });
 
-test('content-length header with string body', async t => {
-	const {body} = await got.post(`${s.url}/headers`, {body: 'wow'});
+test('`content-length` header with string body', withServer, async (t, server, got) => {
+	server.post('/', echoHeaders);
+
+	const {body} = await got.post({body: 'wow'});
 	const headers = JSON.parse(body);
 	t.is(headers['content-length'], '3');
 });
 
-test('content-length header with Buffer body', async t => {
-	const {body} = await got.post(`${s.url}/headers`, {body: Buffer.from('wow')});
+test('`content-length` header with Buffer body', withServer, async (t, server, got) => {
+	server.post('/', echoHeaders);
+
+	const {body} = await got.post({body: Buffer.from('wow')});
 	const headers = JSON.parse(body);
 	t.is(headers['content-length'], '3');
 });
 
-test('content-length header with Stream body', async t => {
-	const {body} = await got.post(`${s.url}/headers`, {body: toReadableStream('wow')});
+test('`content-length` header with Stream body', withServer, async (t, server, got) => {
+	server.post('/', echoHeaders);
+
+	const {body} = await got.post({body: toReadableStream('wow')});
 	const headers = JSON.parse(body);
 	t.is(headers['transfer-encoding'], 'chunked', 'likely failed to get headers at all');
 	t.is(headers['content-length'], undefined);
 });
 
-test('content-length header is not overriden', async t => {
-	const {body} = await got.post(`${s.url}/headers`, {
+test('`content-length` header is not overriden', withServer, async (t, server, got) => {
+	server.post('/', echoHeaders);
+
+	const {body} = await got.post({
 		body: 'wow',
 		headers: {
 			'content-length': '10'
@@ -111,8 +127,10 @@ test('content-length header is not overriden', async t => {
 	t.is(headers['content-length'], '10');
 });
 
-test('content-length header disabled for chunked transfer-encoding', async t => {
-	const {body} = await got.post(`${s.url}/headers`, {
+test('`content-length` header disabled for chunked transfer-encoding', withServer, async (t, server, got) => {
+	server.post('/', echoHeaders);
+
+	const {body} = await got.post({
 		body: '3\r\nwow\r\n0\r\n',
 		headers: {
 			'transfer-encoding': 'chunked'
@@ -123,8 +141,10 @@ test('content-length header disabled for chunked transfer-encoding', async t => 
 	t.is(headers['content-length'], undefined);
 });
 
-test('content-type header is not overriden when object in options.body', async t => {
-	const {body: headers} = await got.post(`${s.url}/headers`, {
+test('`content-type` header is not overriden when object in `options.body`', withServer, async (t, server, got) => {
+	server.post('/', echoHeaders);
+
+	const {body: headers} = await got.post({
 		headers: {
 			'content-type': 'doge'
 		},
@@ -137,5 +157,8 @@ test('content-type header is not overriden when object in options.body', async t
 });
 
 test('throws when form body is not a plain object or array', async t => {
-	await t.throwsAsync(got.post(`${s.url}`, {form: 'such=wow'}), TypeError);
+	await t.throwsAsync(got.post('https://example.com', {form: 'such=wow'}), {
+		instanceOf: TypeError,
+		message: 'The `form` option must be an Object'
+	});
 });

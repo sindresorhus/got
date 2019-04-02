@@ -3,107 +3,117 @@ import test from 'ava';
 import got from '../source';
 import withServer from './helpers/with-server';
 
-test('simple request', withServer, async (t, s) => {
-	s.get('/', (request, response) => {
+test('simple request', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
 		response.end('ok');
 	});
-	t.is((await got(s.url)).body, 'ok');
+
+	t.is((await got('')).body, 'ok');
 });
 
-test('empty response', withServer, async (t, s) => {
-	s.get('/empty', (request, response) => {
+test('empty response', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
 		response.end();
 	});
-	t.is((await got(`${s.url}/empty`)).body, '');
+
+	t.is((await got('')).body, '');
 });
 
-test('requestUrl response', withServer, async (t, s) => {
-	s.get('/', (request, response) => {
+test('response has `requestUrl` property', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
 		response.end('ok');
 	});
-	s.get('/empty', (request, response) => {
+
+	server.get('/empty', (_request, response) => {
 		response.end();
 	});
-	t.is((await got(s.url)).requestUrl, `${s.url}/`);
-	t.is((await got(`${s.url}/empty`)).requestUrl, `${s.url}/empty`);
+
+	t.is((await got('')).requestUrl, `${server.url}/`);
+	t.is((await got('empty')).requestUrl, `${server.url}/empty`);
 });
 
-test('error with code', withServer, async (t, s) => {
-	s.get('/404', (request, response) => {
+test('errors have `statusCode` property', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
 		response.statusCode = 404;
 		response.end('not');
 	});
-	const error = await t.throwsAsync(got(`${s.url}/404`));
+
+	const error = await t.throwsAsync(got(''), got.HTTPError);
 	t.is(error.statusCode, 404);
 	t.is(error.response.body, 'not');
 });
 
-test('status code 304 doesn\'t throw', withServer, async (t, s) => {
-	s.get('/304', (request, response) => {
+test('status code 304 doesn\'t throw', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
 		response.statusCode = 304;
 		response.end();
 	});
-	const promise = got(`${s.url}/304`);
+
+	const promise = got('');
 	await t.notThrowsAsync(promise);
 	const {statusCode, body} = await promise;
 	t.is(statusCode, 304);
 	t.is(body, '');
 });
 
-test('doesn\'t throw on throwHttpErrors === false', withServer, async (t, s) => {
-	s.get('/404', (request, response) => {
+test('doesn\'t throw if `options.throwHttpErrors` is false', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
 		response.statusCode = 404;
 		response.end('not');
 	});
-	t.is((await got(`${s.url}/404`, {throwHttpErrors: false})).body, 'not');
+
+	t.is((await got({throwHttpErrors: false})).body, 'not');
 });
 
 test('invalid protocol throws', async t => {
-	const error = await t.throwsAsync(got('c:/nope.com').json());
-	t.is(error.constructor, got.UnsupportedProtocolError);
+	await t.throwsAsync(got('c:/nope.com').json(), {
+		instanceOf: got.UnsupportedProtocolError,
+		message: 'Unsupported protocol "c:"'
+	});
 });
 
-test('buffer on encoding === null', withServer, async (t, s) => {
-	s.get('/', (request, response) => {
+test('gives buffer if `options.encoding` is null', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
 		response.end('ok');
 	});
-	const data = (await got(s.url, {encoding: null})).body;
+
+	const data = (await got({encoding: null})).body;
 	t.true(is.buffer(data));
 });
 
-test('searchParams option', withServer, async (t, s) => {
-	s.get('/', (request, response) => {
+test('`searchParams` option', withServer, async (t, server, got) => {
+	server.get('/', (request, response) => {
+		t.is(request.query.recent, 'true');
 		response.end('recent');
 	});
-	s.get('/?recent=true', (request, response) => {
-		response.end('recent');
-	});
-	t.is((await got(s.url, {searchParams: {recent: true}})).body, 'recent');
-	t.is((await got(s.url, {searchParams: 'recent=true'})).body, 'recent');
+
+	t.is((await got({searchParams: {recent: true}})).body, 'recent');
+	t.is((await got({searchParams: 'recent=true'})).body, 'recent');
 });
 
-test('requestUrl response when sending url as param', withServer, async (t, s) => {
-	s.get('/', (request, response) => {
+test('response has `requestUrl` property even if `url` is an object', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
 		response.end('ok');
 	});
-	t.is((await got(s.url, {hostname: s.hostname, port: s.port})).requestUrl, `${s.url}/`);
-	t.is((await got({hostname: s.hostname, port: s.port, protocol: 'http:'})).requestUrl, `${s.url}/`);
+
+	t.is((await got({hostname: server.hostname, port: server.port})).requestUrl, `${server.url}/`);
+	t.is((await got({hostname: server.hostname, port: server.port, protocol: 'http:'})).requestUrl, `${server.url}/`);
 });
 
-test('response contains url', withServer, async (t, s) => {
-	s.get('/', (request, response) => {
+test('response contains url', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
 		response.end('ok');
 	});
-	t.is((await got(s.url)).url, `${s.url}/`);
+
+	t.is((await got('')).url, `${server.url}/`);
 });
 
-test('response contains got options', withServer, async (t, s) => {
-	s.get('/', (request, response) => {
+test('response contains got options', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
 		response.end('ok');
 	});
 
 	const options = {
-		url: s.url,
 		auth: 'foo:bar'
 	};
 

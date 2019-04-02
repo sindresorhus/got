@@ -1,51 +1,43 @@
-import EventEmitter from 'events';
+import {EventEmitter} from 'events';
 import {Readable as ReadableStream} from 'stream';
 import test from 'ava';
 import pEvent from 'p-event';
 // @ts-ignore
 import got, {CancelError} from '../source';
-import {createServer} from './helpers/server';
+import withServer from './helpers/with-server';
 
-async function createAbortServer() {
-	const s = await createServer();
-	const ee = new EventEmitter();
-	// @ts-ignore
-	ee.aborted = new Promise((resolve, reject) => {
-		s.on('/abort', async (request, response) => {
-			ee.emit('connection');
-			request.on('aborted', resolve);
-			response.on('finish', reject.bind(null, new Error('Request finished instead of aborting.')));
+const prepareServer = server => {
+	const emitter = new EventEmitter();
+
+	const promise = new Promise((resolve, reject) => {
+		server.all('/abort', async (request, response) => {
+			emitter.emit('connection');
+			request.once('aborted', resolve);
+			response.once('finish', reject.bind(null, new Error('Request finished instead of aborting.')));
 
 			await pEvent(request, 'end');
 			response.end();
 		});
 
-		s.on('/redirect', (request, response) => {
+		server.get('/redirect', (_request, response) => {
 			response.writeHead(302, {
-				location: `${s.url}/abort`
+				location: `${server.url}/abort`
 			});
 			response.end();
 
-			ee.emit('sentRedirect');
+			emitter.emit('sentRedirect');
 
 			setTimeout(resolve, 3000);
 		});
 	});
 
-	await s.listen(s.port);
-	// @ts-ignore
-	ee.url = `${s.url}/abort`;
-	// @ts-ignore
-	ee.redirectUrl = `${s.url}/redirect`;
+	return {emitter, promise};
+};
 
-	return ee;
-}
+test('does not retry after cancelation', withServer, async (t, server, got) => {
+	const {emitter, promise} = prepareServer(server);
 
-test('cancel do not retry after cancelation', async t => {
-	const helper = await createAbortServer();
-
-	// @ts-ignore
-	const p = got(helper.redirectUrl, {
+	const gotPromise = got('redirect', {
 		retry: {
 			retries: () => {
 				t.fail('Makes a new try after cancelation');
@@ -53,77 +45,73 @@ test('cancel do not retry after cancelation', async t => {
 		}
 	});
 
-	helper.on('sentRedirect', () => {
-		p.cancel();
+	emitter.once('sentRedirect', () => {
+		gotPromise.cancel();
 	});
 
 	// @ts-ignore
-	await t.throwsAsync(p, CancelError);
+	await t.throwsAsync(gotPromise, CancelError);
 	// @ts-ignore
-	await t.notThrowsAsync(helper.aborted, 'Request finished instead of aborting.');
+	await t.notThrowsAsync(promise, 'Request finished instead of aborting.');
 });
 
-test('cancel in-progress request', async t => {
-	const helper = await createAbortServer();
+test('cancels in-progress request', withServer, async (t, server, got) => {
+	const {emitter, promise} = prepareServer(server);
+
 	const body = new ReadableStream({
 		read() {}
 	});
 	body.push('1');
 
-	// @ts-ignore
-	const p = got.post(helper.url, {body});
+	const gotPromise = got.post('abort', {body});
 
 	// Wait for the connection to be established before canceling
-	helper.on('connection', () => {
-		p.cancel();
+	emitter.once('connection', () => {
+		gotPromise.cancel();
 		body.push(null);
 	});
 
-	// @ts-ignore
-	await t.throwsAsync(p, CancelError);
-	// @ts-ignore
-	await t.notThrowsAsync(helper.aborted, 'Request finished instead of aborting.');
+	await t.throwsAsync(gotPromise, CancelError);
+	await t.notThrowsAsync(promise, 'Request finished instead of aborting.');
 });
 
-test('cancel in-progress request with timeout', async t => {
-	const helper = await createAbortServer();
+test('cancels in-progress request with timeout', withServer, async (t, server, got) => {
+	const {emitter, promise} = prepareServer(server);
+
 	const body = new ReadableStream({
 		read() {}
 	});
 	body.push('1');
 
-	// @ts-ignore
-	const p = got.post(helper.url, {body, timeout: 10000});
+	const gotPromise = got.post('abort', {body, timeout: 10000});
 
 	// Wait for the connection to be established before canceling
-	helper.on('connection', () => {
-		p.cancel();
+	emitter.once('connection', () => {
+		gotPromise.cancel();
 		body.push(null);
 	});
 
-	await t.throwsAsync(p, CancelError);
-	// @ts-ignore
-	await t.notThrowsAsync(helper.aborted, 'Request finished instead of aborting.');
+	await t.throwsAsync(gotPromise, CancelError);
+	await t.notThrowsAsync(promise, 'Request finished instead of aborting.');
 });
 
-test('cancel immediately', async t => {
-	const s = await createServer();
-	const aborted = new Promise((resolve, reject) => {
+test('cancel immediately', withServer, async (t, server, got) => {
+	const promise = new Promise((resolve, reject) => {
 		// We won't get an abort or even a connection
 		// We assume no request within 1000ms equals a (client side) aborted request
-		s.on('/abort', (request, response) => {
-			response.on('finish', reject.bind(this, new Error('Request finished instead of aborting.')));
+		server.get('/abort', (_request, response) => {
+			response.once('finish', reject.bind(this, new Error('Request finished instead of aborting.')));
 			response.end();
 		});
+
 		setTimeout(resolve, 1000);
 	});
 
-	await s.listen(s.port);
+	const gotPromise = got('abort');
+	gotPromise.cancel();
 
-	const p = got(`${s.url}/abort`);
-	p.cancel();
-	await t.throwsAsync(p);
-	await t.notThrowsAsync(aborted, 'Request finished instead of aborting.');
+	await t.throwsAsync(gotPromise);
+	await t.notThrowsAsync(promise, 'Request finished instead of aborting.');
 });
 
 test('recover from cancelation using cancelable promise attribute', async t => {

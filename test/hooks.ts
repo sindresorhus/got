@@ -1,71 +1,36 @@
 import test from 'ava';
 import delay from 'delay';
-import getStream from 'get-stream';
 import got from '../source';
-import {createServer} from './helpers/server';
+import withServer from './helpers/with-server';
 
 const errorString = 'oops';
 const error = new Error(errorString);
-let s;
 
-let visited401then500;
+const echoHeaders = (request, response) => {
+	response.end(JSON.stringify(request.headers));
+};
 
-test.before('setup', async () => {
-	s = await createServer();
-	const echoHeaders = (request, response) => {
-		response.statusCode = 200;
-		response.write(JSON.stringify(request.headers));
-		response.end();
-	};
-
-	s.on('/', echoHeaders);
-	s.on('/body', async (request, response) => {
-		response.end(await getStream(request));
-	});
-	s.on('/redirect', (request, response) => {
+const retryEndpoint = (request, response) => {
+	if (request.headers.foo) {
 		response.statusCode = 302;
 		response.setHeader('location', '/');
 		response.end();
-	});
-	s.on('/retry', (request, response) => {
-		if (request.headers.foo) {
-			response.statusCode = 302;
-			response.setHeader('location', '/');
-			response.end();
-		}
+	}
 
-		response.statusCode = 500;
-		response.end();
-	});
+	response.statusCode = 500;
+	response.end();
+};
 
-	s.on('/401', (request, response) => {
-		if (request.headers.token !== 'unicorn') {
-			response.statusCode = 401;
-		}
+const redirectEndpoint = (_request, response) => {
+	response.statusCode = 302;
+	response.setHeader('location', '/');
+	response.end();
+};
 
-		response.end();
-	});
+test('async hooks', withServer, async (t, server, got) => {
+	server.get('/', echoHeaders);
 
-	s.on('/401then500', (request, response) => {
-		if (visited401then500) {
-			response.statusCode = 500;
-		} else {
-			visited401then500 = true;
-			response.statusCode = 401;
-		}
-
-		response.end();
-	});
-
-	await s.listen(s.port);
-});
-
-test.after('cleanup', async () => {
-	await s.close();
-});
-
-test('async hooks', async t => {
-	const {body} = await got(s.url, {
+	const {body} = await got({
 		responseType: 'json',
 		hooks: {
 			beforeRequest: [
@@ -80,7 +45,7 @@ test('async hooks', async t => {
 });
 
 test('catches init thrown errors', async t => {
-	await t.throwsAsync(() => got(s.url, {
+	await t.throwsAsync(got('https://example.com', {
 		hooks: {
 			init: [() => {
 				throw error;
@@ -90,7 +55,7 @@ test('catches init thrown errors', async t => {
 });
 
 test('catches beforeRequest thrown errors', async t => {
-	await t.throwsAsync(() => got(s.url, {
+	await t.throwsAsync(got('https://example.com', {
 		hooks: {
 			beforeRequest: [() => {
 				throw error;
@@ -99,8 +64,11 @@ test('catches beforeRequest thrown errors', async t => {
 	}), errorString);
 });
 
-test('catches beforeRedirect thrown errors', async t => {
-	await t.throwsAsync(() => got(`${s.url}/redirect`, {
+test('catches beforeRedirect thrown errors', withServer, async (t, server, got) => {
+	server.get('/', echoHeaders);
+	server.get('/redirect', redirectEndpoint);
+
+	await t.throwsAsync(got('redirect', {
 		hooks: {
 			beforeRedirect: [() => {
 				throw error;
@@ -109,8 +77,11 @@ test('catches beforeRedirect thrown errors', async t => {
 	}), errorString);
 });
 
-test('catches beforeRetry thrown errors', async t => {
-	await t.throwsAsync(() => got(`${s.url}/retry`, {
+test('catches beforeRetry thrown errors', withServer, async (t, server, got) => {
+	server.get('/', echoHeaders);
+	server.get('/retry', retryEndpoint);
+
+	await t.throwsAsync(got('retry', {
 		hooks: {
 			beforeRetry: [() => {
 				throw error;
@@ -119,8 +90,10 @@ test('catches beforeRetry thrown errors', async t => {
 	}), errorString);
 });
 
-test('catches afterResponse thrown errors', async t => {
-	await t.throwsAsync(() => got(s.url, {
+test('catches afterResponse thrown errors', withServer, async (t, server, got) => {
+	server.get('/', echoHeaders);
+
+	await t.throwsAsync(got({
 		hooks: {
 			afterResponse: [() => {
 				throw error;
@@ -130,7 +103,7 @@ test('catches afterResponse thrown errors', async t => {
 });
 
 test('throws a helpful error when passing async function as init hook', async t => {
-	await t.throwsAsync(() => got(s.url, {
+	await t.throwsAsync(got('https://example.com', {
 		hooks: {
 			init: [() => Promise.resolve()]
 		}
@@ -138,31 +111,37 @@ test('throws a helpful error when passing async function as init hook', async t 
 });
 
 test('catches beforeRequest promise rejections', async t => {
-	await t.throwsAsync(() => got(s.url, {
+	await t.throwsAsync(got('https://example.com', {
 		hooks: {
 			beforeRequest: [() => Promise.reject(error)]
 		}
 	}), errorString);
 });
 
-test('catches beforeRedirect promise rejections', async t => {
-	await t.throwsAsync(() => got(`${s.url}/redirect`, {
+test('catches beforeRedirect promise rejections', withServer, async (t, server, got) => {
+	server.get('/', redirectEndpoint);
+
+	await t.throwsAsync(got({
 		hooks: {
 			beforeRedirect: [() => Promise.reject(error)]
 		}
 	}), errorString);
 });
 
-test('catches beforeRetry promise rejections', async t => {
-	await t.throwsAsync(() => got(`${s.url}/retry`, {
+test('catches beforeRetry promise rejections', withServer, async (t, server, got) => {
+	server.get('/retry', retryEndpoint);
+
+	await t.throwsAsync(got('retry', {
 		hooks: {
 			beforeRetry: [() => Promise.reject(error)]
 		}
 	}), errorString);
 });
 
-test('catches afterResponse promise rejections', async t => {
-	await t.throwsAsync(() => got(s.url, {
+test('catches afterResponse promise rejections', withServer, async (t, server, got) => {
+	server.get('/', echoHeaders);
+
+	await t.throwsAsync(got({
 		hooks: {
 			afterResponse: [() => Promise.reject(error)]
 		}
@@ -170,7 +149,7 @@ test('catches afterResponse promise rejections', async t => {
 });
 
 test('catches beforeError errors', async t => {
-	await t.throwsAsync(() => got(s.url, {
+	await t.throwsAsync(got('https://example.com', {
 		request: () => {},
 		hooks: {
 			beforeError: [() => Promise.reject(error)]
@@ -178,9 +157,10 @@ test('catches beforeError errors', async t => {
 	}), errorString);
 });
 
-test('init is called with options', async t => {
-	await got.post(s.url, {
-		json: true,
+test('init is called with options', withServer, async (t, server, got) => {
+	server.get('/', echoHeaders);
+
+	await got({
 		hooks: {
 			init: [
 				options => {
@@ -192,22 +172,27 @@ test('init is called with options', async t => {
 	});
 });
 
-test('init allows modifications', async t => {
-	const {body} = await got(`${s.url}/body`, {
+test('init allows modifications', withServer, async (t, server, got) => {
+	server.get('/', async (request, response) => {
+		response.end(request.headers.foo);
+	});
+
+	const {body} = await got({
 		hooks: {
 			init: [
 				options => {
-					options.method = 'POST';
-					options.body = 'foobar';
+					options.headers.foo = 'bar';
 				}
 			]
 		}
 	});
-	t.is(body, 'foobar');
+	t.is(body, 'bar');
 });
 
-test('beforeRequest is called with options', async t => {
-	await got(s.url, {
+test('beforeRequest is called with options', withServer, async (t, server, got) => {
+	server.get('/', echoHeaders);
+
+	await got({
 		responseType: 'json',
 		hooks: {
 			beforeRequest: [
@@ -220,8 +205,10 @@ test('beforeRequest is called with options', async t => {
 	});
 });
 
-test('beforeRequest allows modifications', async t => {
-	const {body} = await got(s.url, {
+test('beforeRequest allows modifications', withServer, async (t, server, got) => {
+	server.get('/', echoHeaders);
+
+	const {body} = await got({
 		responseType: 'json',
 		hooks: {
 			beforeRequest: [
@@ -234,8 +221,11 @@ test('beforeRequest allows modifications', async t => {
 	t.is(body.foo, 'bar');
 });
 
-test('beforeRedirect is called with options', async t => {
-	await got(`${s.url}/redirect`, {
+test('beforeRedirect is called with options', withServer, async (t, server, got) => {
+	server.get('/', echoHeaders);
+	server.get('/redirect', redirectEndpoint);
+
+	await got('redirect', {
 		responseType: 'json',
 		hooks: {
 			beforeRedirect: [
@@ -248,8 +238,11 @@ test('beforeRedirect is called with options', async t => {
 	});
 });
 
-test('beforeRedirect allows modifications', async t => {
-	const {body} = await got(`${s.url}/redirect`, {
+test('beforeRedirect allows modifications', withServer, async (t, server, got) => {
+	server.get('/', echoHeaders);
+	server.get('/redirect', redirectEndpoint);
+
+	const {body} = await got('redirect', {
 		responseType: 'json',
 		hooks: {
 			beforeRedirect: [
@@ -262,8 +255,11 @@ test('beforeRedirect allows modifications', async t => {
 	t.is(body.foo, 'bar');
 });
 
-test('beforeRetry is called with options', async t => {
-	await got(`${s.url}/retry`, {
+test('beforeRetry is called with options', withServer, async (t, server, got) => {
+	server.get('/', echoHeaders);
+	server.get('/retry', retryEndpoint);
+
+	await got('retry', {
 		responseType: 'json',
 		retry: 1,
 		throwHttpErrors: false,
@@ -279,8 +275,11 @@ test('beforeRetry is called with options', async t => {
 	});
 });
 
-test('beforeRetry allows modifications', async t => {
-	const {body} = await got(`${s.url}/retry`, {
+test('beforeRetry allows modifications', withServer, async (t, server, got) => {
+	server.get('/', echoHeaders);
+	server.get('/retry', retryEndpoint);
+
+	const {body} = await got('retry', {
 		responseType: 'json',
 		hooks: {
 			beforeRetry: [
@@ -293,8 +292,10 @@ test('beforeRetry allows modifications', async t => {
 	t.is(body.foo, 'bar');
 });
 
-test('afterResponse is called with response', async t => {
-	await got(`${s.url}`, {
+test('afterResponse is called with response', withServer, async (t, server, got) => {
+	server.get('/', echoHeaders);
+
+	await got({
 		responseType: 'json',
 		hooks: {
 			afterResponse: [
@@ -308,8 +309,10 @@ test('afterResponse is called with response', async t => {
 	});
 });
 
-test('afterResponse allows modifications', async t => {
-	const {body} = await got(`${s.url}`, {
+test('afterResponse allows modifications', withServer, async (t, server, got) => {
+	server.get('/', echoHeaders);
+
+	const {body} = await got({
 		responseType: 'json',
 		hooks: {
 			afterResponse: [
@@ -324,8 +327,16 @@ test('afterResponse allows modifications', async t => {
 	t.is(body.hello, 'world');
 });
 
-test('afterResponse allows to retry', async t => {
-	const {statusCode} = await got(`${s.url}/401`, {
+test('afterResponse allows to retry', withServer, async (t, server, got) => {
+	server.get('/', (request, response) => {
+		if (request.headers.token !== 'unicorn') {
+			response.statusCode = 401;
+		}
+
+		response.end();
+	});
+
+	const {statusCode} = await got({
 		hooks: {
 			afterResponse: [
 				(response, retryWithMergedOptions) => {
@@ -345,12 +356,20 @@ test('afterResponse allows to retry', async t => {
 	t.is(statusCode, 200);
 });
 
-test('no infinity loop when retrying on afterResponse', async t => {
-	await t.throwsAsync(got(`${s.url}/401`, {
+test('no infinity loop when retrying on afterResponse', withServer, async (t, server, got) => {
+	server.get('/', (request, response) => {
+		if (request.headers.token !== 'unicorn') {
+			response.statusCode = 401;
+		}
+
+		response.end();
+	});
+
+	await t.throwsAsync(got({
 		retry: 0,
 		hooks: {
 			afterResponse: [
-				(response, retryWithMergedOptions) => {
+				(_response, retryWithMergedOptions) => {
 					return retryWithMergedOptions({
 						headers: {
 							token: 'invalid'
@@ -362,10 +381,20 @@ test('no infinity loop when retrying on afterResponse', async t => {
 	}), {instanceOf: got.HTTPError, message: 'Response code 401 (Unauthorized)'});
 });
 
-test.serial('throws on afterResponse retry failure', async t => {
-	visited401then500 = false;
+test('throws on afterResponse retry failure', withServer, async (t, server, got) => {
+	let visited401then500;
+	server.get('/', (_request, response) => {
+		if (visited401then500) {
+			response.statusCode = 500;
+		} else {
+			visited401then500 = true;
+			response.statusCode = 401;
+		}
 
-	await t.throwsAsync(got(`${s.url}/401then500`, {
+		response.end();
+	});
+
+	await t.throwsAsync(got({
 		retry: 1,
 		hooks: {
 			afterResponse: [
@@ -385,10 +414,20 @@ test.serial('throws on afterResponse retry failure', async t => {
 	}), {instanceOf: got.HTTPError, message: 'Response code 500 (Internal Server Error)'});
 });
 
-test.serial('doesn\'t throw on afterResponse retry HTTP failure if throwHttpErrors is false', async t => {
-	visited401then500 = false;
+test('doesn\'t throw on afterResponse retry HTTP failure if throwHttpErrors is false', withServer, async (t, server, got) => {
+	let visited401then500;
+	server.get('/', (_request, response) => {
+		if (visited401then500) {
+			response.statusCode = 500;
+		} else {
+			visited401then500 = true;
+			response.statusCode = 401;
+		}
 
-	const {statusCode} = await got(`${s.url}/401then500`, {
+		response.end();
+	});
+
+	const {statusCode} = await got({
 		throwHttpErrors: false,
 		retry: 1,
 		hooks: {
@@ -411,7 +450,7 @@ test.serial('doesn\'t throw on afterResponse retry HTTP failure if throwHttpErro
 });
 
 test('beforeError is called with an error', async t => {
-	await t.throwsAsync(() => got(s.url, {
+	await t.throwsAsync(got('https://example.com', {
 		request: () => {
 			throw error;
 		},
@@ -427,7 +466,7 @@ test('beforeError is called with an error', async t => {
 test('beforeError allows modifications', async t => {
 	const errorString2 = 'foobar';
 
-	await t.throwsAsync(() => got(s.url, {
+	await t.throwsAsync(got('https://example.com', {
 		request: () => {
 			throw error;
 		},

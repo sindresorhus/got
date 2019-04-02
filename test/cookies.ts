@@ -1,64 +1,36 @@
-import net from 'net';
+import net, {AddressInfo} from 'net';
 import test from 'ava';
 import tough from 'tough-cookie';
 import delay from 'delay';
 import got from '../source';
-import {createServer} from './helpers/server';
+import withServer from './helpers/with-server';
 
-let s;
-
-test.before('setup', async () => {
-	s = await createServer();
-
-	s.on('/set-cookie', (request, response) => {
+test('reads a cookie', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
 		response.setHeader('set-cookie', 'hello=world');
 		response.end();
 	});
 
-	s.on('/set-multiple-cookies', (request, response) => {
-		response.setHeader('set-cookie', ['hello=world', 'foo=bar']);
-		response.end();
-	});
-
-	s.on('/set-cookies-then-redirect', (request, response) => {
-		response.setHeader('set-cookie', ['hello=world', 'foo=bar']);
-		response.setHeader('location', '/');
-		response.statusCode = 302;
-		response.end();
-	});
-
-	s.on('/invalid', (request, response) => {
-		response.setHeader('set-cookie', 'hello=world; domain=localhost');
-		response.end();
-	});
-
-	s.on('/', (request, response) => {
-		response.end(request.headers.cookie || '');
-	});
-
-	await s.listen(s.port);
-});
-
-test.after('cleanup', async () => {
-	await s.close();
-});
-
-test('reads a cookie', async t => {
 	const cookieJar = new tough.CookieJar();
 
-	await got(`${s.url}/set-cookie`, {cookieJar});
+	await got({cookieJar});
 
-	const cookie = cookieJar.getCookiesSync(s.url)[0];
+	const cookie = cookieJar.getCookiesSync(server.url)[0];
 	t.is(cookie.key, 'hello');
 	t.is(cookie.value, 'world');
 });
 
-test('reads multiple cookies', async t => {
+test('reads multiple cookies', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.setHeader('set-cookie', ['hello=world', 'foo=bar']);
+		response.end();
+	});
+
 	const cookieJar = new tough.CookieJar();
 
-	await got(`${s.url}/set-multiple-cookies`, {cookieJar});
+	await got({cookieJar});
 
-	const cookies = cookieJar.getCookiesSync(s.url);
+	const cookies = cookieJar.getCookiesSync(server.url);
 	const cookieA = cookies[0];
 	t.is(cookieA.key, 'hello');
 	t.is(cookieA.value, 'world');
@@ -68,33 +40,61 @@ test('reads multiple cookies', async t => {
 	t.is(cookieB.value, 'bar');
 });
 
-test('cookies doesn\'t break on redirects', async t => {
+test('cookies doesn\'t break on redirects', withServer, async (t, server, got) => {
+	server.get('/redirect', (_request, response) => {
+		response.setHeader('set-cookie', ['hello=world', 'foo=bar']);
+		response.setHeader('location', '/');
+		response.statusCode = 302;
+		response.end();
+	});
+
+	server.get('/', (request, response) => {
+		response.end(request.headers.cookie || '');
+	});
+
 	const cookieJar = new tough.CookieJar();
 
-	const {body} = await got(`${s.url}/set-cookies-then-redirect`, {cookieJar});
+	const {body} = await got('redirect', {cookieJar});
 	t.is(body, 'hello=world; foo=bar');
 });
 
-test('throws on invalid cookies', async t => {
+test('throws on invalid cookies', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.setHeader('set-cookie', 'hello=world; domain=localhost');
+		response.end();
+	});
+
 	const cookieJar = new tough.CookieJar();
 
-	await t.throwsAsync(() => got(`${s.url}/invalid`, {cookieJar}), 'Cookie has domain set to a public suffix');
+	await t.throwsAsync(got({cookieJar}), 'Cookie has domain set to a public suffix');
 });
 
 test('catches store errors', async t => {
 	const error = 'Some error';
+	// @ts-ignore
 	const cookieJar = new tough.CookieJar({
 		findCookies: (_, __, cb) => {
-			cb(new Error(error));
+			cb(new Error(error), []);
 		}
 	});
 
-	await t.throwsAsync(() => got(s.url, {cookieJar}), error);
+	await t.throwsAsync(got('https://example.com', {cookieJar}), error);
 });
 
-test('overrides options.headers.cookie', async t => {
+test('overrides options.headers.cookie', withServer, async (t, server, got) => {
+	server.get('/redirect', (_request, response) => {
+		response.setHeader('set-cookie', ['hello=world', 'foo=bar']);
+		response.setHeader('location', '/');
+		response.statusCode = 302;
+		response.end();
+	});
+
+	server.get('/', (request, response) => {
+		response.end(request.headers.cookie || '');
+	});
+
 	const cookieJar = new tough.CookieJar();
-	const {body} = await got(`${s.url}/set-cookies-then-redirect`, {
+	const {body} = await got('redirect', {
 		cookieJar,
 		headers: {
 			cookie: 'a=b'
@@ -117,8 +117,7 @@ test('no unhandled errors', async t => {
 		}
 	};
 
-	// @ts-ignore
-	await t.throwsAsync(got(`http://127.0.0.1:${server.address().port}`, options), {message});
+	await t.throwsAsync(got(`http://127.0.0.1:${(server.address() as AddressInfo).port}`, options), {message});
 	await delay(500);
 	t.pass();
 

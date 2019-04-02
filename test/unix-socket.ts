@@ -1,48 +1,40 @@
 import {format} from 'util';
-import tempy from 'tempy';
 import test from 'ava';
 import got from '../source';
-import {createServer} from './helpers/server';
-
-const socketPath = tempy.file({extension: 'socket'});
-
-let s;
+import {withSocketServer} from './helpers/with-server';
 
 if (process.platform !== 'win32') {
-	test.before('setup', async () => {
-		s = await createServer();
-
-		s.on('/', (request, response) => {
+	test('works', withSocketServer, async (t, server) => {
+		server.on('/', (_request, response) => {
 			response.end('ok');
 		});
 
-		s.on('/foo:bar', (request, response) => {
+		const url = format('http://unix:%s:%s', server.socketPath, '/');
+		t.is((await got(url)).body, 'ok');
+	});
+
+	test('protocol-less works', withSocketServer, async (t, server) => {
+		server.on('/', (_request, response) => {
 			response.end('ok');
 		});
 
-		await s.listen(socketPath);
-	});
-
-	test.after('cleanup', async () => {
-		await s.close();
-	});
-
-	test('works', async t => {
-		const url = format('http://unix:%s:%s', socketPath, '/');
+		const url = format('unix:%s:%s', server.socketPath, '/');
 		t.is((await got(url)).body, 'ok');
 	});
 
-	test('protocol-less works', async t => {
-		const url = format('unix:%s:%s', socketPath, '/');
-		t.is((await got(url)).body, 'ok');
-	});
+	test('address with : works', withSocketServer, async (t, server) => {
+		server.on('/foo:bar', (_request, response) => {
+			response.end('ok');
+		});
 
-	test('address with : works', async t => {
-		const url = format('unix:%s:%s', socketPath, '/foo:bar');
+		const url = format('unix:%s:%s', server.socketPath, '/foo:bar');
 		t.is((await got(url)).body, 'ok');
 	});
 
 	test('throws on invalid URL', async t => {
-		await t.throwsAsync(got('unix:'));
+		await t.throwsAsync(got('unix:'), {
+			instanceOf: got.RequestError,
+			message: 'getaddrinfo ENOTFOUND unix unix:80'
+		});
 	});
 }

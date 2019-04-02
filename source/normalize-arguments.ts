@@ -105,7 +105,7 @@ export const preNormalizeArguments = (options: any, defaults?: any) => {
 export const normalizeArguments = (url, options, defaults?: any) => {
 	if (is.plainObject(url)) {
 		options = {...url, ...options};
-		url = options.url || {};
+		url = options.url || '';
 		delete options.url;
 	}
 
@@ -119,7 +119,7 @@ export const normalizeArguments = (url, options, defaults?: any) => {
 		throw new TypeError(`Parameter \`url\` must be a string or object, not ${is(url)}`);
 	}
 
-	if (is.string(url)) {
+	if (is.string(url) && !(url === '' && !options.baseUrl)) {
 		if (options.baseUrl) {
 			if (url.startsWith('/')) {
 				url = url.slice(1);
@@ -220,7 +220,10 @@ export const normalizeArguments = (url, options, defaults?: any) => {
 				return 0;
 			}
 
-			if ((!error || !options.retry.errorCodes.has(error.code)) && (!options.retry.methods.has(error.method) || !options.retry.statusCodes.has(error.statusCode))) {
+			const hasCode = !is.undefined(error.code) && options.retry.errorCodes.has(error.code);
+			const hasMethod = !is.undefined(error.method) && options.retry.methods.has(error.method);
+			const hasStatusCode = !is.undefined(error.statusCode) && options.retry.statusCodes.has(error.statusCode);
+			if ((!error || !hasCode) && (!hasMethod || !hasStatusCode)) {
 				return 0;
 			}
 
