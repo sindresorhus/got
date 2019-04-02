@@ -1,8 +1,8 @@
+import {PassThrough} from 'stream';
 import test from 'ava';
 import toReadableStream from 'to-readable-stream';
 import getStream from 'get-stream';
 import pEvent from 'p-event';
-import delay from 'delay';
 import is from '@sindresorhus/is';
 import withServer from './helpers/with-server';
 
@@ -170,14 +170,15 @@ test('skips proxying headers after server has sent them already', withServer, as
 
 test('throws when trying to proxy through a closed stream', withServer, async (t, server, got) => {
 	server.get('/', defaultHandler);
-	server.get('/proxy', async (_request, response) => {
-		const stream = got.stream('');
-		await delay(1000);
-		t.throws(() => stream.pipe(response), 'Failed to pipe. The response has been emitted already.');
-		response.end();
+
+	const stream = got.stream('');
+	const promise = getStream(stream);
+
+	stream.once('data', () => {
+		t.throws(() => stream.pipe(new PassThrough()), 'Failed to pipe. The response has been emitted already.');
 	});
 
-	await got('proxy');
+	await promise;
 });
 
 test('proxies `content-encoding` header when `options.decompress` is false', withServer, async (t, server, got) => {

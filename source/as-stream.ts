@@ -1,13 +1,17 @@
-import {PassThrough as PassThroughStream} from 'stream';
+import {PassThrough as PassThroughStream, Duplex as DuplexStream} from 'stream';
 import duplexer3 from 'duplexer3';
 import requestAsEventEmitter from './request-as-event-emitter';
 import {HTTPError, ReadError} from './errors';
 import {MergedOptions, Response} from './utils/types';
 
+export class ProxyStream extends DuplexStream {
+	fromCache?: boolean;
+}
+
 export default function asStream(options: MergedOptions) {
 	const input = new PassThroughStream();
 	const output = new PassThroughStream();
-	const proxy = duplexer3(input, output);
+	const proxy = duplexer3(input, output) as ProxyStream;
 	const piped = new Set();
 	let isFinished = false;
 
@@ -26,7 +30,8 @@ export default function asStream(options: MergedOptions) {
 	proxy._destroy = emitter.abort;
 
 	emitter.on('response', (response: Response) => {
-		const {statusCode} = response;
+		const {statusCode, fromCache} = response;
+		proxy.fromCache = fromCache;
 
 		response.on('error', error => {
 			proxy.emit('error', new ReadError(error, options));
@@ -37,7 +42,14 @@ export default function asStream(options: MergedOptions) {
 			return;
 		}
 
-		isFinished = true;
+		{
+			const read = proxy._read.bind(proxy);
+			proxy._read = (...args) => {
+				isFinished = true;
+
+				return read(...args);
+			};
+		}
 
 		response.pipe(output);
 
@@ -89,6 +101,8 @@ export default function asStream(options: MergedOptions) {
 		piped.delete(stream);
 		return unpipe(stream);
 	};
+
+	proxy.fromCache = undefined;
 
 	return proxy;
 }
