@@ -52,6 +52,11 @@ const downloadHandler = (_request, response) => {
 	slowDataStream().pipe(response);
 };
 
+const incorrectContentLength = (_request, response) => {
+	response.setHeader('content-length', 10);
+	response.end('Hello');
+};
+
 test('timeout option', withServer, async (t, server, got) => {
 	server.get('/', defaultHandler);
 
@@ -448,4 +453,24 @@ test('no memory leak when using socket timeout and keepalive agent', withServer,
 	await promise;
 
 	t.is(socket.listenerCount('timeout'), 0);
+});
+
+test('throws on incomplete response - promise', withServer, async (t, server, got) => {
+	server.get('/', downloadHandler);
+
+	await t.throwsAsync(got({
+		timeout: {request: 500}
+	}), got.TimeoutError);
+});
+
+test('throws on incomplete response - promise #2', withServer, async (t, server, got) => {
+	server.get('/', incorrectContentLength);
+
+	await t.throwsAsync(got(''), got.IncompleteResponseError);
+});
+
+test('throws on incomplete response - stream', withServer, async (t, server, got) => {
+	server.get('/', incorrectContentLength);
+
+	await t.throwsAsync(getStream(got.stream('')), got.IncompleteResponseError);
 });

@@ -1,7 +1,7 @@
 import {PassThrough as PassThroughStream} from 'stream';
 import duplexer3 from 'duplexer3';
 import requestAsEventEmitter from './request-as-event-emitter';
-import {HTTPError, ReadError} from './errors';
+import {HTTPError, ReadError, IncompleteResponseError} from './errors';
 import {MergedOptions, Response} from './utils/types';
 
 export default function asStream(options: MergedOptions) {
@@ -38,6 +38,12 @@ export default function asStream(options: MergedOptions) {
 		}
 
 		isFinished = true;
+
+		response.once('end', () => {
+			if (!(response as any).complete) {
+				proxy.emit('error', new IncompleteResponseError(response, options));
+			}
+		});
 
 		response.pipe(output);
 

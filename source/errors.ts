@@ -1,5 +1,5 @@
 import urlLib from 'url';
-import http, {IncomingHttpHeaders} from 'http';
+import http, {IncomingMessage, IncomingHttpHeaders} from 'http';
 import is from '@sindresorhus/is';
 import {Response, Timings, Options} from './utils/types';
 import {TimeoutError as TimedOutError} from './utils/timed-out';
@@ -49,6 +49,16 @@ export class ReadError extends GotError {
 	constructor(error: Error, options: Options) {
 		super(error.message, error, options);
 		this.name = 'ReadError';
+	}
+}
+
+export class IncompleteResponseError extends GotError {
+	response: IncomingMessage;
+
+	constructor(response: IncomingMessage, options: Options) {
+		super('Incomplete response', {}, options);
+		this.name = 'IncompleteResponseError';
+		this.response = response;
 	}
 }
 
