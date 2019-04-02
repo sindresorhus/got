@@ -106,7 +106,7 @@ test('cache error throws `got.CacheError`', withServer, async (t, server, got) =
 
 	const cache = {};
 
-	await t.throwsAsync(() => got({cache}), got.CacheError);
+	await t.throwsAsync(got({cache}), got.CacheError);
 });
 
 test('doesn\'t cache response when received HTTP error', withServer, async (t, server, got) => {
@@ -131,7 +131,7 @@ test('doesn\'t cache response when received HTTP error', withServer, async (t, s
 
 test('DNS cache works', withServer, async (t, _server, got) => {
 	const map = new Map();
-	await t.notThrowsAsync(() => got('https://example.com', {dnsCache: map}));
+	await t.notThrowsAsync(got('https://example.com', {dnsCache: map}));
 
 	t.is(map.size, 1);
 });

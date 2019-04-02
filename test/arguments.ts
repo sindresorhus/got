@@ -29,7 +29,7 @@ test('`url` should be utf-8 encoded', async t => {
 });
 
 test('throws an error if the protocol is not specified', async t => {
-	await t.throwsAsync(() => got('example.com'), {
+	await t.throwsAsync(got('example.com'), {
 		instanceOf: TypeError,
 		message: 'Invalid URL: example.com'
 	});
@@ -131,7 +131,7 @@ test('ignores empty searchParams object', withServer, async (t, server, got) => 
 });
 
 test('throws on invalid type of body', async t => {
-	await t.throwsAsync(() => got('https://example.com', {body: false}), {
+	await t.throwsAsync(got('https://example.com', {body: false}), {
 		instanceOf: TypeError,
 		message: 'The `GET` method cannot be used with a body'
 	});
@@ -141,7 +141,7 @@ test('WHATWG URL support', withServer, async (t, server, got) => {
 	server.get('/test', echoUrl);
 
 	const wURL = new URL(`${server.url}/test`);
-	await t.notThrowsAsync(() => got(wURL));
+	await t.notThrowsAsync(got(wURL));
 });
 
 test('returns streams when using stream option', withServer, async (t, server, got) => {
@@ -156,18 +156,18 @@ test('returns streams when using stream option', withServer, async (t, server, g
 test('accepts `url` as an option', withServer, async (t, server, got) => {
 	server.get('/test', echoUrl);
 
-	await t.notThrowsAsync(() => got({url: 'test'}));
+	await t.notThrowsAsync(got({url: 'test'}));
 });
 
 test('can omit `url` option if using `baseUrl`', withServer, async (t, server, got) => {
 	server.get('/', echoUrl);
 
-	await t.notThrowsAsync(() => got({}));
+	await t.notThrowsAsync(got({}));
 });
 
 test('throws TypeError when `options.hooks` is not an object', async t => {
 	await t.throwsAsync(
-		() => got('https://example.com', {hooks: 'not object'}),
+		got('https://example.com', {hooks: 'not object'}),
 		{
 			instanceOf: TypeError,
 			message: 'Parameter `hooks` must be an object, not string'
@@ -177,7 +177,7 @@ test('throws TypeError when `options.hooks` is not an object', async t => {
 
 test('throws TypeError when known `options.hooks` value is not an array', async t => {
 	await t.throwsAsync(
-		() => got('https://example.com', {hooks: {beforeRequest: {}}}),
+		got('https://example.com', {hooks: {beforeRequest: {}}}),
 		{
 			instanceOf: TypeError,
 			message: 'options.hooks.beforeRequest is not iterable'
@@ -187,7 +187,7 @@ test('throws TypeError when known `options.hooks` value is not an array', async 
 
 test('throws TypeError when known `options.hooks` array item is not a function', async t => {
 	await t.throwsAsync(
-		() => got('https://example.com', {hooks: {beforeRequest: [{}]}}),
+		got('https://example.com', {hooks: {beforeRequest: [{}]}}),
 		{
 			instanceOf: TypeError,
 			message: 'hook is not a function'
@@ -198,7 +198,7 @@ test('throws TypeError when known `options.hooks` array item is not a function',
 test('allows extra keys in `options.hooks`', withServer, async (t, server, got) => {
 	server.get('/test', echoUrl);
 
-	await t.notThrowsAsync(() => got('test', {hooks: {extra: {}}}));
+	await t.notThrowsAsync(got('test', {hooks: {extra: {}}}));
 });
 
 test('`baseUrl` option works', withServer, async (t, server, got) => {
@@ -247,7 +247,7 @@ test('throws when trying to modify `baseUrl` after options got normalized', asyn
 
 // TODO: fix this
 test.failing('throws if the `searchParams` key is invalid', async t => {
-	await t.throwsAsync(() => got('https://example.com', {
+	await t.throwsAsync(got('https://example.com', {
 		searchParams: {
 			// @ts-ignore
 			[undefined]: 'valid'
@@ -259,7 +259,7 @@ test.failing('throws if the `searchParams` key is invalid', async t => {
 });
 
 test('throws if the `searchParams` value is invalid', async t => {
-	await t.throwsAsync(() => got('https://example.com', {
+	await t.throwsAsync(got('https://example.com', {
 		searchParams: {
 			foo: []
 		}

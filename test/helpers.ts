@@ -14,8 +14,8 @@ test('works', withServer, async (t, server) => {
 
 	t.is((await got.get(server.url)).body, 'ok');
 
-	const error = await t.throwsAsync(() => got.get(`${server.url}/404`), got.HTTPError);
+	const error = await t.throwsAsync(got.get(`${server.url}/404`), got.HTTPError);
 	t.is(error.response.body, 'not found');
 
-	await t.throwsAsync(() => got.get('.com', {retry: 0}), 'Invalid URL: .com');
+	await t.throwsAsync(got.get('.com', {retry: 0}), 'Invalid URL: .com');
 });

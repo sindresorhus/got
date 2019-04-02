@@ -7,7 +7,7 @@ import got from '../source';
 const {Timer} = process.binding('timer_wrap'); // eslint-disable-line node/no-deprecated-api
 
 test('clear the progressInterval if the socket has been destroyed', async t => {
-	await t.throwsAsync(() => got('http://127.0.0.1:55555', {retry: 0}), {
+	await t.throwsAsync(got('http://127.0.0.1:55555', {retry: 0}), {
 		code: 'ECONNREFUSED'
 	});
 

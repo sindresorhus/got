@@ -33,7 +33,7 @@ const errorHandler = (_request, response) => {
 test('`options.responseType` is ignored', withServer, async (t, server, got) => {
 	server.get('/', defaultHandler);
 
-	await t.notThrowsAsync(() => getStream(got.stream({responseType: 'json'})));
+	await t.notThrowsAsync(getStream(got.stream({responseType: 'json'})));
 });
 
 test('returns readable stream', withServer, async (t, server, got) => {

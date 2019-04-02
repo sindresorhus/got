@@ -45,7 +45,7 @@ test('async hooks', withServer, async (t, server, got) => {
 });
 
 test('catches init thrown errors', async t => {
-	await t.throwsAsync(() => got('https://example.com', {
+	await t.throwsAsync(got('https://example.com', {
 		hooks: {
 			init: [() => {
 				throw error;
@@ -55,7 +55,7 @@ test('catches init thrown errors', async t => {
 });
 
 test('catches beforeRequest thrown errors', async t => {
-	await t.throwsAsync(() => got('https://example.com', {
+	await t.throwsAsync(got('https://example.com', {
 		hooks: {
 			beforeRequest: [() => {
 				throw error;
@@ -68,7 +68,7 @@ test('catches beforeRedirect thrown errors', withServer, async (t, server, got) 
 	server.get('/', echoHeaders);
 	server.get('/redirect', redirectEndpoint);
 
-	await t.throwsAsync(() => got('redirect', {
+	await t.throwsAsync(got('redirect', {
 		hooks: {
 			beforeRedirect: [() => {
 				throw error;
@@ -81,7 +81,7 @@ test('catches beforeRetry thrown errors', withServer, async (t, server, got) => 
 	server.get('/', echoHeaders);
 	server.get('/retry', retryEndpoint);
 
-	await t.throwsAsync(() => got('retry', {
+	await t.throwsAsync(got('retry', {
 		hooks: {
 			beforeRetry: [() => {
 				throw error;
@@ -93,7 +93,7 @@ test('catches beforeRetry thrown errors', withServer, async (t, server, got) => 
 test('catches afterResponse thrown errors', withServer, async (t, server, got) => {
 	server.get('/', echoHeaders);
 
-	await t.throwsAsync(() => got({
+	await t.throwsAsync(got({
 		hooks: {
 			afterResponse: [() => {
 				throw error;
@@ -103,7 +103,7 @@ test('catches afterResponse thrown errors', withServer, async (t, server, got) =
 });
 
 test('throws a helpful error when passing async function as init hook', async t => {
-	await t.throwsAsync(() => got('https://example.com', {
+	await t.throwsAsync(got('https://example.com', {
 		hooks: {
 			init: [() => Promise.resolve()]
 		}
@@ -111,7 +111,7 @@ test('throws a helpful error when passing async function as init hook', async t 
 });
 
 test('catches beforeRequest promise rejections', async t => {
-	await t.throwsAsync(() => got('https://example.com', {
+	await t.throwsAsync(got('https://example.com', {
 		hooks: {
 			beforeRequest: [() => Promise.reject(error)]
 		}
@@ -121,7 +121,7 @@ test('catches beforeRequest promise rejections', async t => {
 test('catches beforeRedirect promise rejections', withServer, async (t, server, got) => {
 	server.get('/', redirectEndpoint);
 
-	await t.throwsAsync(() => got({
+	await t.throwsAsync(got({
 		hooks: {
 			beforeRedirect: [() => Promise.reject(error)]
 		}
@@ -131,7 +131,7 @@ test('catches beforeRedirect promise rejections', withServer, async (t, server, 
 test('catches beforeRetry promise rejections', withServer, async (t, server, got) => {
 	server.get('/retry', retryEndpoint);
 
-	await t.throwsAsync(() => got('retry', {
+	await t.throwsAsync(got('retry', {
 		hooks: {
 			beforeRetry: [() => Promise.reject(error)]
 		}
@@ -141,7 +141,7 @@ test('catches beforeRetry promise rejections', withServer, async (t, server, got
 test('catches afterResponse promise rejections', withServer, async (t, server, got) => {
 	server.get('/', echoHeaders);
 
-	await t.throwsAsync(() => got({
+	await t.throwsAsync(got({
 		hooks: {
 			afterResponse: [() => Promise.reject(error)]
 		}
@@ -149,7 +149,7 @@ test('catches afterResponse promise rejections', withServer, async (t, server, g
 });
 
 test('catches beforeError errors', async t => {
-	await t.throwsAsync(() => got('https://example.com', {
+	await t.throwsAsync(got('https://example.com', {
 		request: () => {},
 		hooks: {
 			beforeError: [() => Promise.reject(error)]
@@ -365,7 +365,7 @@ test('no infinity loop when retrying on afterResponse', withServer, async (t, se
 		response.end();
 	});
 
-	await t.throwsAsync(() => got({
+	await t.throwsAsync(got({
 		retry: 0,
 		hooks: {
 			afterResponse: [
@@ -394,7 +394,7 @@ test('throws on afterResponse retry failure', withServer, async (t, server, got)
 		response.end();
 	});
 
-	await t.throwsAsync(() => got({
+	await t.throwsAsync(got({
 		retry: 1,
 		hooks: {
 			afterResponse: [
@@ -450,7 +450,7 @@ test('doesn\'t throw on afterResponse retry HTTP failure if throwHttpErrors is f
 });
 
 test('beforeError is called with an error', async t => {
-	await t.throwsAsync(() => got('https://example.com', {
+	await t.throwsAsync(got('https://example.com', {
 		request: () => {
 			throw error;
 		},
@@ -466,7 +466,7 @@ test('beforeError is called with an error', async t => {
 test('beforeError allows modifications', async t => {
 	const errorString2 = 'foobar';
 
-	await t.throwsAsync(() => got('https://example.com', {
+	await t.throwsAsync(got('https://example.com', {
 		request: () => {
 			throw error;
 		},

@@ -38,7 +38,7 @@ test('errors have `statusCode` property', withServer, async (t, server, got) => 
 		response.end('not');
 	});
 
-	const error = await t.throwsAsync(() => got(''), got.HTTPError);
+	const error = await t.throwsAsync(got(''), got.HTTPError);
 	t.is(error.statusCode, 404);
 	t.is(error.response.body, 'not');
 });
@@ -66,7 +66,7 @@ test('doesn\'t throw if `options.throwHttpErrors` is false', withServer, async (
 });
 
 test('invalid protocol throws', async t => {
-	await t.throwsAsync(() => got('c:/nope.com').json(), {
+	await t.throwsAsync(got('c:/nope.com').json(), {
 		instanceOf: got.UnsupportedProtocolError,
 		message: 'Unsupported protocol "c:"'
 	});

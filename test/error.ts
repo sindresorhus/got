@@ -13,7 +13,7 @@ test('properties', withServer, async (t, server, got) => {
 
 	const url = new URL(server.url);
 
-	const error = await t.throwsAsync(() => got('')) as any;
+	const error = await t.throwsAsync(got('')) as any;
 	t.truthy(error);
 	// @ts-ignore
 	t.truthy(error.response);
@@ -29,7 +29,7 @@ test('properties', withServer, async (t, server, got) => {
 });
 
 test('catches dns errors', async t => {
-	const error = await t.throwsAsync(() => got('http://doesntexist', {retry: 0})) as any;
+	const error = await t.throwsAsync(got('http://doesntexist', {retry: 0})) as any;
 	t.truthy(error);
 	t.regex(error.message, /getaddrinfo ENOTFOUND/);
 	t.is(error.host, 'doesntexist');
@@ -37,7 +37,7 @@ test('catches dns errors', async t => {
 });
 
 test('`options.body` form error message', async t => {
-	await t.throwsAsync(() => got.post('https://example.com', {body: Buffer.from('test'), form: ''}), {
+	await t.throwsAsync(got.post('https://example.com', {body: Buffer.from('test'), form: ''}), {
 		message: 'The `body` option cannot be used with the `json` option or `form` option'
 	});
 });
@@ -62,7 +62,7 @@ test('default status message', withServer, async (t, server, got) => {
 		response.end('body');
 	});
 
-	const error = await t.throwsAsync(() => got(''));
+	const error = await t.throwsAsync(got(''));
 	// @ts-ignore
 	t.is(error.statusCode, 400);
 	// @ts-ignore
@@ -76,7 +76,7 @@ test('custom status message', withServer, async (t, server, got) => {
 		response.end('body');
 	});
 
-	const error = await t.throwsAsync(() => got(''));
+	const error = await t.throwsAsync(got(''));
 	// @ts-ignore
 	t.is(error.statusCode, 400);
 	// @ts-ignore
@@ -89,7 +89,7 @@ test('custom body', withServer, async (t, server, got) => {
 		response.end('not');
 	});
 
-	const error = await t.throwsAsync(() => got(''));
+	const error = await t.throwsAsync(got(''));
 	// @ts-ignore
 	t.is(error.statusCode, 404);
 	// @ts-ignore
@@ -106,7 +106,7 @@ test('contains Got options', withServer, async (t, server, got) => {
 		auth: 'foo:bar'
 	};
 
-	const error = await t.throwsAsync(() => got(options));
+	const error = await t.throwsAsync(got(options));
 	// @ts-ignore
 	t.is(error.gotOptions.auth, options.auth);
 });
@@ -117,7 +117,7 @@ test('empty status message is overriden by the default one', withServer, async (
 		response.end('body');
 	});
 
-	const error = await t.throwsAsync(() => got(''));
+	const error = await t.throwsAsync(got(''));
 	// @ts-ignore
 	t.is(error.statusCode, 400);
 	// @ts-ignore
@@ -125,7 +125,7 @@ test('empty status message is overriden by the default one', withServer, async (
 });
 
 test('`http.request` error', async t => {
-	await t.throwsAsync(() => got('https://example.com', {
+	await t.throwsAsync(got('https://example.com', {
 		request: () => {
 			throw new TypeError('The header content contains invalid characters');
 		}
@@ -138,7 +138,7 @@ test('`http.request` error', async t => {
 test('`http.request` pipe error', async t => {
 	const message = 'snap!';
 
-	await t.throwsAsync(() => got('https://example.com', {
+	await t.throwsAsync(got('https://example.com', {
 		request: () => {
 			return {
 				end: () => {
@@ -157,7 +157,7 @@ test('`http.request` pipe error', async t => {
 });
 
 test('`http.request` error through CacheableRequest', async t => {
-	await t.throwsAsync(() => got('https://example.com', {
+	await t.throwsAsync(got('https://example.com', {
 		request: () => {
 			throw new TypeError('The header content contains invalid characters');
 		},

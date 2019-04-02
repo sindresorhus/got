@@ -76,7 +76,7 @@ test('throws on endless redirects', withServer, async (t, server, got) => {
 		response.end();
 	});
 
-	const error = await t.throwsAsync(() => got(''), 'Redirected 10 times. Aborting.');
+	const error = await t.throwsAsync(got(''), 'Redirected 10 times. Aborting.');
 
 	// @ts-ignore
 	t.deepEqual(error.redirectUrls, new Array(10).fill(`${server.url}/`));
@@ -110,7 +110,7 @@ test('hostname + path are not breaking redirects', withServer, async (t, server,
 test('redirects only GET and HEAD requests', withServer, async (t, server, got) => {
 	server.post('/', relativeHandler);
 
-	const error = await t.throwsAsync(() => got.post({body: 'wow'}), {
+	const error = await t.throwsAsync(got.post({body: 'wow'}), {
 		instanceOf: got.HTTPError,
 		message: 'Response code 302 (Found)'
 	});
@@ -235,7 +235,7 @@ test('throws on malformed redirect URI', withServer, async (t, server, got) => {
 		response.end();
 	});
 
-	await t.throwsAsync(() => got(''), {
+	await t.throwsAsync(got(''), {
 		name: 'URIError'
 	});
 });
@@ -248,7 +248,7 @@ test('throws on invalid redirect URL', withServer, async (t, server, got) => {
 		response.end();
 	});
 
-	await t.throwsAsync(() => got(''), {
+	await t.throwsAsync(got(''), {
 		code: 'ERR_INVALID_URL'
 	});
 });

@@ -53,7 +53,7 @@ test('Text response - promise.text()', withServer, async (t, server, got) => {
 test('throws an error on invalid response type', withServer, async (t, server, got) => {
 	server.get('/', defaultHandler);
 
-	const error = await t.throwsAsync(() => got({responseType: 'invalid'}), /^Failed to parse body of type 'invalid'/);
+	const error = await t.throwsAsync(got({responseType: 'invalid'}), /^Failed to parse body of type 'invalid'/);
 	// @ts-ignore
 	t.true(error.message.includes(error.hostname));
 	// @ts-ignore
@@ -74,7 +74,7 @@ test('wraps parsing errors', withServer, async (t, server, got) => {
 		response.end('/');
 	});
 
-	const error = await t.throwsAsync(() => got({responseType: 'json'}), got.ParseError);
+	const error = await t.throwsAsync(got({responseType: 'json'}), got.ParseError);
 	// @ts-ignore
 	t.true(error.message.includes(error.hostname));
 	// @ts-ignore
@@ -87,7 +87,7 @@ test('parses non-200 responses', withServer, async (t, server, got) => {
 		response.end(jsonResponse);
 	});
 
-	const error = await t.throwsAsync(() => got({responseType: 'json'}), got.HTTPError);
+	const error = await t.throwsAsync(got({responseType: 'json'}), got.HTTPError);
 	// @ts-ignore
 	t.deepEqual(error.response.body, dog);
 });
@@ -98,7 +98,7 @@ test('ignores errors on invalid non-200 responses', withServer, async (t, server
 		response.end('Internal error');
 	});
 
-	const error = await t.throwsAsync(() => got({responseType: 'json'}), {
+	const error = await t.throwsAsync(got({responseType: 'json'}), {
 		instanceOf: got.HTTPError,
 		message: 'Response code 500 (Internal Server Error)'
 	});
@@ -114,7 +114,7 @@ test('errors have `statusCode` property', withServer, async (t, server, got) => 
 		response.end('/');
 	});
 
-	const error = await t.throwsAsync(() => got({responseType: 'json'}), got.ParseError);
+	const error = await t.throwsAsync(got({responseType: 'json'}), got.ParseError);
 
 	// @ts-ignore
 	t.is(error.statusCode, 200);

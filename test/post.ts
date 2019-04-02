@@ -52,7 +52,7 @@ test('sends plain objects as forms', withServer, async (t, server, got) => {
 test('does NOT support sending arrays as forms', withServer, async (t, server, got) => {
 	server.post('/', defaultEndpoint);
 
-	await t.throwsAsync(() => got.post({
+	await t.throwsAsync(got.post({
 		form: ['such', 'wow']
 	}), {
 		instanceOf: TypeError,
@@ -157,7 +157,7 @@ test('`content-type` header is not overriden when object in `options.body`', wit
 });
 
 test('throws when form body is not a plain object or array', async t => {
-	await t.throwsAsync(() => got.post('https://example.com', {form: 'such=wow'}), {
+	await t.throwsAsync(got.post('https://example.com', {form: 'such=wow'}), {
 		instanceOf: TypeError,
 		message: 'The `form` option must be an Object'
 	});

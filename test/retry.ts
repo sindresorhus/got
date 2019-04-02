@@ -31,7 +31,7 @@ test('setting to `0` disables retrying', withServer, async (t, server, got) => {
 		trys++;
 	});
 
-	await t.throwsAsync(() => got({
+	await t.throwsAsync(got({
 		timeout: {socket: socketTimeout},
 		retry: 0
 	}), {
@@ -63,7 +63,7 @@ test('retry function gets iteration count', withServer, async (t, server, got) =
 test('falsy value prevents retries', withServer, async (t, server, got) => {
 	server.get('/', () => {});
 
-	await t.throwsAsync(() => got({
+	await t.throwsAsync(got({
 		timeout: {socket: socketTimeout},
 		retry: {
 			retries: (iteration, error) => {
@@ -85,7 +85,7 @@ test('custom retries', withServer, async (t, server, got) => {
 	});
 
 	let tried = false;
-	const error = await t.throwsAsync(() => got({
+	const error = await t.throwsAsync(got({
 		throwHttpErrors: true,
 		retry: {
 			retries: iteration => {
@@ -115,7 +115,7 @@ test('custom error codes', withServer, async (t, server, got) => {
 
 	const errorCode = 'OH_SNAP';
 
-	const error = await t.throwsAsync(() => got({
+	const error = await t.throwsAsync(got({
 		request: () => {
 			const emitter = (new EventEmitter()) as any;
 			emitter.end = () => {};
@@ -291,7 +291,7 @@ test('retry function can throw', withServer, async (t, server, got) => {
 	server.get('/', handler413);
 
 	const error = 'Simple error';
-	await t.throwsAsync(() => got({
+	await t.throwsAsync(got({
 		retry: {
 			retries: () => {
 				throw new Error(error);

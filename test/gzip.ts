@@ -36,7 +36,7 @@ test('handles gzip error', withServer, async (t, server, got) => {
 		response.end('Not gzipped content');
 	});
 
-	const error = await t.throwsAsync(() => got(''), 'incorrect header check');
+	const error = await t.throwsAsync(got(''), 'incorrect header check');
 
 	// @ts-ignore
 	t.is(error.path, '/');
@@ -49,7 +49,7 @@ test('handles gzip error - stream', withServer, async (t, server, got) => {
 		response.end('Not gzipped content');
 	});
 
-	const error = await t.throwsAsync(() => getStream(got.stream('')), 'incorrect header check');
+	const error = await t.throwsAsync(getStream(got.stream('')), 'incorrect header check');
 
 	// @ts-ignore
 	t.is(error.path, '/');

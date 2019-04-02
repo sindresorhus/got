@@ -66,7 +66,7 @@ test('throws on invalid cookies', withServer, async (t, server, got) => {
 
 	const cookieJar = new tough.CookieJar();
 
-	await t.throwsAsync(() => got({cookieJar}), 'Cookie has domain set to a public suffix');
+	await t.throwsAsync(got({cookieJar}), 'Cookie has domain set to a public suffix');
 });
 
 test('catches store errors', async t => {
@@ -78,7 +78,7 @@ test('catches store errors', async t => {
 		}
 	});
 
-	await t.throwsAsync(() => got('https://example.com', {cookieJar}), error);
+	await t.throwsAsync(got('https://example.com', {cookieJar}), error);
 });
 
 test('overrides options.headers.cookie', withServer, async (t, server, got) => {
@@ -117,7 +117,7 @@ test('no unhandled errors', async t => {
 		}
 	};
 
-	await t.throwsAsync(() => got(`http://127.0.0.1:${(server.address() as AddressInfo).port}`, options), {message});
+	await t.throwsAsync(got(`http://127.0.0.1:${(server.address() as AddressInfo).port}`, options), {message});
 	await delay(500);
 	t.pass();
 

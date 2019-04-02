@@ -56,7 +56,7 @@ test('timeout option', withServer, async (t, server, got) => {
 	server.get('/', defaultHandler);
 
 	await t.throwsAsync(
-		() => got({
+		got({
 			timeout: 1,
 			retry: 0
 		}),
@@ -71,7 +71,7 @@ test('timeout option as object', withServer, async (t, server, got) => {
 	server.get('/', defaultHandler);
 
 	await t.throwsAsync(
-		() => got({
+		got({
 			timeout: {request: 1},
 			retry: 0
 		}),
@@ -86,7 +86,7 @@ test('socket timeout', withServer, async (t, server, got) => {
 	server.get('/', defaultHandler);
 
 	await t.throwsAsync(
-		() => got({
+		got({
 			timeout: {socket: 1},
 			retry: 0
 		}),
@@ -102,7 +102,7 @@ test('send timeout', withServer, async (t, server, got) => {
 	server.get('/', defaultHandler);
 
 	await t.throwsAsync(
-		() => got({
+		got({
 			timeout: {send: 1},
 			retry: 0
 		}),
@@ -121,7 +121,7 @@ test('send timeout (keepalive)', withServer, async (t, server, got) => {
 
 	await got('prime', {agent: keepAliveAgent});
 	await t.throwsAsync(
-		() => got.post({
+		got.post({
 			agent: keepAliveAgent,
 			timeout: {send: 1},
 			retry: 0,
@@ -145,7 +145,7 @@ test('response timeout', withServer, async (t, server, got) => {
 	server.get('/', defaultHandler);
 
 	await t.throwsAsync(
-		() => got({
+		got({
 			timeout: {response: 1},
 			retry: 0
 		}),
@@ -159,7 +159,7 @@ test('response timeout', withServer, async (t, server, got) => {
 test('response timeout unaffected by slow upload', withServer, async (t, server, got) => {
 	server.post('/', defaultHandler);
 
-	await t.notThrowsAsync(() => got.post({
+	await t.notThrowsAsync(got.post({
 		timeout: {response: requestDelay * 2},
 		retry: 0,
 		body: slowDataStream()
@@ -169,7 +169,7 @@ test('response timeout unaffected by slow upload', withServer, async (t, server,
 test('response timeout unaffected by slow download', withServer, async (t, server, got) => {
 	server.get('/', downloadHandler);
 
-	await t.notThrowsAsync(() => got({
+	await t.notThrowsAsync(got({
 		timeout: {response: 100},
 		retry: 0
 	}));
@@ -206,7 +206,7 @@ test('connect timeout', withServer, async (t, server, got) => {
 	server.get('/', defaultHandler);
 
 	await t.throwsAsync(
-		() => got({
+		got({
 			createConnection: options => {
 				const socket = new net.Socket(options);
 				// @ts-ignore
@@ -235,7 +235,7 @@ test('connect timeout (ip address)', withServer, async (t, server, got) => {
 	server.get('/', defaultHandler);
 
 	await t.throwsAsync(
-		() => got({
+		got({
 			hostname: '127.0.0.1',
 			createConnection: options => {
 				const socket = new net.Socket(options);
@@ -259,7 +259,7 @@ test('secureConnect timeout', withServer, async (t, server, got) => {
 	});
 
 	await t.throwsAsync(
-		() => got.secure({
+		got.secure({
 			timeout: {secureConnect: 1},
 			retry: 0,
 			rejectUnauthorized: false
@@ -277,7 +277,7 @@ test('secureConnect timeout not breached', withServer, async (t, server, got) =>
 	});
 
 	const secureConnect = 200;
-	await t.notThrowsAsync(() => got({
+	await t.notThrowsAsync(got({
 		timeout: {secureConnect},
 		retry: 0,
 		rejectUnauthorized: false
@@ -288,7 +288,7 @@ test('lookup timeout', withServer, async (t, server, got) => {
 	server.get('/', defaultHandler);
 
 	await t.throwsAsync(
-		() => got({
+		got({
 			lookup: () => {},
 			timeout: {lookup: 1},
 			retry: 0
@@ -303,7 +303,7 @@ test('lookup timeout', withServer, async (t, server, got) => {
 test('lookup timeout no error (ip address)', withServer, async (t, server, got) => {
 	server.get('/', defaultHandler);
 
-	await t.notThrowsAsync(() => got({
+	await t.notThrowsAsync(got({
 		hostname: '127.0.0.1',
 		timeout: {lookup: 1},
 		retry: 0
@@ -317,7 +317,7 @@ test('lookup timeout no error (keepalive)', withServer, async (t, server, got) =
 	});
 
 	await got('prime', {agent: keepAliveAgent});
-	await t.notThrowsAsync(() => got({
+	await t.notThrowsAsync(got({
 		agent: keepAliveAgent,
 		timeout: {lookup: 1},
 		retry: 0
@@ -332,7 +332,7 @@ test('retries on timeout', withServer, async (t, server, got) => {
 	server.get('/', defaultHandler);
 
 	let tried = false;
-	await t.throwsAsync(() => got({
+	await t.throwsAsync(got({
 		timeout: 1,
 		retry: {
 			retries: () => {
@@ -372,13 +372,13 @@ test('no error emitted when timeout is not breached (stream)', withServer, async
 		}
 	});
 
-	await t.notThrowsAsync(() => getStream(stream));
+	await t.notThrowsAsync(getStream(stream));
 });
 
 test('no error emitted when timeout is not breached (promise)', withServer, async (t, server, got) => {
 	server.get('/', defaultHandler);
 
-	await t.notThrowsAsync(() => got({
+	await t.notThrowsAsync(got({
 		retry: 0,
 		timeout: {
 			request: requestDelay * 2
@@ -389,12 +389,12 @@ test('no error emitted when timeout is not breached (promise)', withServer, asyn
 test('no unhandled `socket hung up` errors', withServer, async (t, server, got) => {
 	server.get('/', defaultHandler);
 
-	await t.throwsAsync(() => got({retry: 0, timeout: requestDelay / 2}), {instanceOf: got.TimeoutError});
+	await t.throwsAsync(got({retry: 0, timeout: requestDelay / 2}), {instanceOf: got.TimeoutError});
 	await delay(requestDelay);
 });
 
 test('no more timeouts after an error', async t => {
-	await t.throwsAsync(() => got(`http://${Date.now()}.dev`, {
+	await t.throwsAsync(got(`http://${Date.now()}.dev`, {
 		retry: 1,
 		timeout: {
 			lookup: 1,
