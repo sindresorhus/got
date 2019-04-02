@@ -4,7 +4,7 @@ import getStream from 'get-stream';
 import is from '@sindresorhus/is';
 import PCancelable from 'p-cancelable';
 import requestAsEventEmitter from './request-as-event-emitter';
-import {HTTPError, ParseError, ReadError, IncompleteResponseError} from './errors';
+import {HTTPError, ParseError, ReadError} from './errors';
 import {mergeOptions} from './merge';
 import {reNormalizeArguments} from './normalize-arguments';
 import {CancelableRequest, Options, Response} from './utils/types';
@@ -40,13 +40,9 @@ export default function asPromise(options: Options) {
 				return;
 			}
 
-			if (!response.complete) {
-				if (response.req.aborted) {
-					// Canceled while downloading - will throw a CancelError or TimeoutError
-					return;
-				}
-
-				reject(new IncompleteResponseError(response, options));
+			if (response.req.aborted) {
+				// Canceled while downloading - will throw a CancelError or TimeoutError
+				return;
 			}
 
 			const limitStatusCode = options.followRedirect ? 299 : 399;
