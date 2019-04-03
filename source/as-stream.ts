@@ -24,8 +24,8 @@ export default function asStream(options: MergedOptions) {
 
 	// Cancels the request
 	proxy._destroy = (error, callback) => {
-		emitter.abort();
 		callback(error);
+		emitter.abort();
 	};
 
 	emitter.on('response', (response: Response) => {
