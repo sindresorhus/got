@@ -7,23 +7,7 @@ import pEvent from 'p-event';
 import delay from 'delay';
 import got from '../source';
 import withServer from './helpers/with-server';
-
-const slowDataStream = () => {
-	const slowStream = new stream.PassThrough();
-	let count = 0;
-
-	const interval = setInterval(() => {
-		if (count++ < 10) {
-			slowStream.push('data\n'.repeat(100));
-			return;
-		}
-
-		clearInterval(interval);
-		slowStream.push(null);
-	}, 100);
-
-	return slowStream;
-};
+import slowDataStream from './helpers/slow-data-stream';
 
 const requestDelay = 800;
 
@@ -449,35 +433,3 @@ test('no memory leak when using socket timeout and keepalive agent', withServer,
 
 	t.is(socket.listenerCount('timeout'), 0);
 });
-
-test('throws on incomplete (canceled) response - promise', withServer, async (t, server, got) => {
-	server.get('/', downloadHandler);
-
-	await t.throwsAsync(got({
-		timeout: {request: 500}
-	}), got.TimeoutError);
-});
-
-test('throws on incomplete (canceled) response - promise #2', withServer, async (t, server, got) => {
-	server.get('/', downloadHandler);
-
-	const promise = got('').on('response', () => {
-		setTimeout(() => promise.cancel(), 500);
-	});
-
-	await t.throwsAsync(promise, got.CancelError);
-});
-
-test('throws on incomplete (canceled) response - stream', withServer, async (t, server, got) => {
-	server.get('/', downloadHandler);
-
-	const errorString = 'Foobar';
-
-	const stream = got.stream('').on('response', () => {
-		setTimeout(() => stream.destroy(new Error(errorString)), 500);
-	});
-
-	await t.throwsAsync(getStream(stream), errorString);
-});
-
-test.todo('throws on incomplete (canceled) response - cached request');

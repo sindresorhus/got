@@ -40,7 +40,7 @@ export default function asPromise(options: Options) {
 				return;
 			}
 
-			if (response.canceled()) {
+			if (response.req && response.req.aborted) {
 				// Canceled while downloading - will throw a CancelError or TimeoutError
 				return;
 			}

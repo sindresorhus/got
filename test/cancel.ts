@@ -2,9 +2,11 @@ import {EventEmitter} from 'events';
 import {Readable as ReadableStream} from 'stream';
 import test from 'ava';
 import pEvent from 'p-event';
+import getStream from 'get-stream';
 // @ts-ignore
 import got, {CancelError} from '../source';
 import withServer from './helpers/with-server';
+import slowDataStream from './helpers/slow-data-stream';
 
 const prepareServer = server => {
 	const emitter = new EventEmitter();
@@ -32,6 +34,14 @@ const prepareServer = server => {
 	});
 
 	return {emitter, promise};
+};
+
+const downloadHandler = (_request, response) => {
+	response.writeHead(200, {
+		'transfer-encoding': 'chunked'
+	});
+	response.flushHeaders();
+	slowDataStream().pipe(response);
 };
 
 test('does not retry after cancelation', withServer, async (t, server, got) => {
@@ -144,4 +154,51 @@ test('recover from cancellation using error instance', async t => {
 	p.cancel();
 
 	await t.notThrowsAsync(recover);
+});
+
+test('throws on incomplete (canceled) response - promise', withServer, async (t, server, got) => {
+	server.get('/', downloadHandler);
+
+	await t.throwsAsync(got({
+		timeout: {request: 500}
+	}), got.TimeoutError);
+});
+
+test('throws on incomplete (canceled) response - promise #2', withServer, async (t, server, got) => {
+	server.get('/', downloadHandler);
+
+	const promise = got('').on('response', () => {
+		setTimeout(() => promise.cancel(), 500);
+	});
+
+	await t.throwsAsync(promise, got.CancelError);
+});
+
+test('throws on incomplete (canceled) response - stream', withServer, async (t, server, got) => {
+	server.get('/', downloadHandler);
+
+	const errorString = 'Foobar';
+
+	const stream = got.stream('').on('response', () => {
+		setTimeout(() => stream.destroy(new Error(errorString)), 500);
+	});
+
+	await t.throwsAsync(getStream(stream), errorString);
+});
+
+// Note: it will throw, but the response is loaded already.
+test('throws when canceling cached request', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.setHeader('Cache-Control', 'public, max-age=60');
+		response.end(Date.now().toString());
+	});
+
+	const cache = new Map();
+	await got({cache});
+
+	const promise = got({cache}).on('response', () => {
+		promise.cancel();
+	});
+
+	await t.throwsAsync(promise, got.CancelError);
 });

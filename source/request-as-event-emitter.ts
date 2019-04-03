@@ -26,14 +26,10 @@ export interface RequestAsEventEmitter extends EventEmitter {
 	abort: () => void;
 }
 
-export interface Abortable {
-	abort: () => void;
-}
-
 export default (options, input?: TransformStream) => {
 	const emitter = new EventEmitter() as RequestAsEventEmitter;
 	const redirects = [] as string[];
-	let currentRequest: http.ClientRequest | Abortable;
+	let currentRequest: http.ClientRequest;
 	let requestUrl: string;
 	let redirectString: string;
 	let uploadBodySize: number | undefined;
@@ -123,21 +119,6 @@ export default (options, input?: TransformStream) => {
 				response.request = {
 					gotOptions: options
 				};
-
-				// Cached requests don't have the request object (so we can't do `request.aborted`)
-				// so we need to create our own `canceled` property.
-				if (response.fromCache) {
-					response.canceled = () => false;
-
-					currentRequest = {
-						abort: () => {
-							response.canceled = () => true;
-							response.destroy();
-						}
-					};
-				} else {
-					response.canceled = () => response.req.aborted;
-				}
 
 				const rawCookies = response.headers['set-cookie'];
 				if (options.cookieJar && rawCookies) {
