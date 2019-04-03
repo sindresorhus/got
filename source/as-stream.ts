@@ -24,11 +24,6 @@ export default function asStream(options: MergedOptions) {
 
 	// Cancels the request
 	proxy._destroy = (error, callback) => {
-		// Stop transmitting data,
-		// so the stream won't have an `end` event.
-		output.destroy();
-
-		// Abort safely
 		emitter.abort();
 		callback(error);
 	};

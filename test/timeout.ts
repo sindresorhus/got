@@ -1,6 +1,5 @@
 import http from 'http';
 import net from 'net';
-import stream from 'stream';
 import getStream from 'get-stream';
 import test from 'ava';
 import pEvent from 'p-event';
