@@ -1,6 +1,6 @@
 import {PassThrough} from 'stream';
 
-export default () => {
+export default (): PassThrough => {
 	const slowStream = new PassThrough();
 	let count = 0;
 
