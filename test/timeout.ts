@@ -1,29 +1,12 @@
 import http from 'http';
 import net from 'net';
-import stream from 'stream';
 import getStream from 'get-stream';
 import test from 'ava';
 import pEvent from 'p-event';
 import delay from 'delay';
 import got from '../source';
 import withServer from './helpers/with-server';
-
-const slowDataStream = () => {
-	const slowStream = new stream.PassThrough();
-	let count = 0;
-
-	const interval = setInterval(() => {
-		if (count++ < 10) {
-			slowStream.push('data\n'.repeat(100));
-			return;
-		}
-
-		clearInterval(interval);
-		slowStream.push(null);
-	}, 100);
-
-	return slowStream;
-};
+import slowDataStream from './helpers/slow-data-stream';
 
 const requestDelay = 800;
 
