@@ -40,6 +40,11 @@ export default function asPromise(options: Options) {
 				return;
 			}
 
+			if (response.req && response.req.aborted) {
+				// Canceled while downloading - will throw a CancelError or TimeoutError
+				return;
+			}
+
 			const limitStatusCode = options.followRedirect ? 299 : 399;
 
 			response.body = data;

@@ -27,7 +27,10 @@ export default function asStream(options: MergedOptions) {
 	const emitter = requestAsEventEmitter(options, input);
 
 	// Cancels the request
-	proxy._destroy = emitter.abort;
+	proxy._destroy = (error, callback) => {
+		callback(error);
+		emitter.abort();
+	};
 
 	emitter.on('response', (response: Response) => {
 		const {statusCode, fromCache} = response;
