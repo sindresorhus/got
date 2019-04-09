@@ -138,29 +138,31 @@ test('DNS cache works', withServer, async (t, _server, got) => {
 	t.is(map.size, 1);
 });
 
-test('`fromCache` stream property is undefined before the `response` event', withServer, async (t, server, got) => {
+test('`isFromCache` stream property is undefined before the `response` event', withServer, async (t, server, got) => {
 	server.get('/', cacheEndpoint);
 
 	const cache = new Map();
 	const stream = got.stream({cache});
-	t.is(stream.fromCache, undefined);
+	t.is(stream.isFromCache
+	, undefined);
 
 	await getStream(stream);
 });
 
-test('`fromCache` stream property is false after the `response` event', withServer, async (t, server, got) => {
+test('`isFromCache` stream property is false after the `response` event', withServer, async (t, server, got) => {
 	server.get('/', cacheEndpoint);
 
 	const cache = new Map();
 	const stream = got.stream({cache});
 
 	await pEvent(stream, 'response');
-	t.is(stream.fromCache, false);
+	t.is(stream.isFromCache
+	, false);
 
 	await getStream(stream);
 });
 
-test('`fromCache` stream property is true if the response was cached', withServer, async (t, server, got) => {
+test('`isFromCache` stream property is true if the response was cached', withServer, async (t, server, got) => {
 	server.get('/', cacheEndpoint);
 
 	const cache = new Map();
@@ -169,7 +171,8 @@ test('`fromCache` stream property is true if the response was cached', withServe
 	const stream = got.stream({cache});
 
 	await pEvent(stream, 'response');
-	t.is(stream.fromCache, true);
+	t.is(stream.isFromCache
+	, true);
 
 	await getStream(stream);
 });

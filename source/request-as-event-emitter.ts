@@ -119,6 +119,8 @@ export default (options, input?: TransformStream) => {
 				response.request = {
 					gotOptions: options
 				};
+				response.isFromCache = response.fromCache || false;
+				delete response.fromCache;
 
 				const rawCookies = response.headers['set-cookie'];
 				if (options.cookieJar && rawCookies) {

@@ -5,7 +5,7 @@ import {HTTPError, ReadError} from './errors';
 import {MergedOptions, Response} from './utils/types';
 
 export class ProxyStream extends DuplexStream {
-	fromCache?: boolean;
+	isFromCache?: boolean;
 }
 
 export default function asStream(options: MergedOptions) {
@@ -34,7 +34,7 @@ export default function asStream(options: MergedOptions) {
 
 	emitter.on('response', (response: Response) => {
 		const {statusCode, fromCache} = response;
-		proxy.fromCache = fromCache;
+		proxy.isFromCache = fromCache;
 
 		response.on('error', error => {
 			proxy.emit('error', new ReadError(error, options));

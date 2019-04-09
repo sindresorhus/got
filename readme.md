@@ -110,7 +110,7 @@ Properties from `options` will override properties in the parsed `url`.
 
 If no protocol is specified, it will throw a `TypeError`.
 
-**Note**: this can also be an option.
+**Note:** this can also be an option.
 
 ##### options
 
@@ -229,7 +229,7 @@ If set to `true` and `Content-Type` header is not set, it will be set to `applic
 
 Type: `string` `Object<string, string|number>` [`URLSearchParams`](https://developer.mozilla.org/en-US/docs/Web/API/URLSearchParams)
 
-**Note**: The `query` option was renamed to `searchParams` in Got v10. The `query` option name is still functional, but is being deprecated and will be completely removed in Got v11.
+**Note:** The `query` option was renamed to `searchParams` in Got v10. The `query` option name is still functional, but is being deprecated and will be completely removed in Got v11.
 
 Query string that will be added to the request URL. This will override the query string in `url`.
 
@@ -576,7 +576,7 @@ The object contains the following properties:
 
 **Note:** The time is a `number` representing the milliseconds elapsed since the UNIX epoch.
 
-##### fromCache
+##### isFromCache
 
 Type: `boolean`
 
@@ -597,6 +597,8 @@ The number of times the request was retried.
 #### Streams
 
 **Note:** Progress events, redirect events and request/response events can also be used with promises.
+
+**Note:** To access `response.isFromCache` you need to use `got.stream(url, options).isFromCache`. The value will be undefined until the `response` event.
 
 #### got.stream(url, [options])
 
@@ -827,11 +829,11 @@ const map = new Map();
 
 (async () => {
 		let response = await got('https://sindresorhus.com', {cache: map});
-		console.log(response.fromCache);
+		console.log(response.isFromCache);
 		//=> false
 
 		response = await got('https://sindresorhus.com', {cache: map});
-		console.log(response.fromCache);
+		console.log(response.isFromCache);
 		//=> true
 })();
 ```
