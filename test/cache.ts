@@ -1,8 +1,8 @@
 import test from 'ava';
 import pEvent from 'p-event';
 import getStream from 'get-stream';
-import withServer from './helpers/with-server';
 import {Response} from '../source/utils/types';
+import withServer from './helpers/with-server';
 
 const cacheEndpoint = (_request, response) => {
 	response.setHeader('Cache-Control', 'public, max-age=60');
