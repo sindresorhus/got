@@ -33,8 +33,8 @@ export default function asStream(options: MergedOptions) {
 	};
 
 	emitter.on('response', (response: Response) => {
-		const {statusCode, fromCache} = response;
-		proxy.isFromCache = fromCache;
+		const {statusCode, isFromCache} = response;
+		proxy.isFromCache = isFromCache;
 
 		response.on('error', error => {
 			proxy.emit('error', new ReadError(error, options));
@@ -105,7 +105,7 @@ export default function asStream(options: MergedOptions) {
 		return unpipe(stream);
 	};
 
-	proxy.fromCache = undefined;
+	proxy.isFromCache = undefined;
 
 	return proxy;
 }

@@ -51,7 +51,7 @@ export type IterateFunction = (options: Options) => void;
 export interface Response extends IncomingMessage {
 	body: string | Buffer;
 	statusCode: number;
-	fromCache?: boolean;
+	isFromCache?: boolean;
 }
 
 export interface Timings {

@@ -2,6 +2,7 @@ import test from 'ava';
 import pEvent from 'p-event';
 import getStream from 'get-stream';
 import withServer from './helpers/with-server';
+import {Response} from '../source/utils/types';
 
 const cacheEndpoint = (_request, response) => {
 	response.setHeader('Cache-Control', 'public, max-age=60');
@@ -143,8 +144,7 @@ test('`isFromCache` stream property is undefined before the `response` event', w
 
 	const cache = new Map();
 	const stream = got.stream({cache});
-	t.is(stream.isFromCache
-	, undefined);
+	t.is(stream.isFromCache, undefined);
 
 	await getStream(stream);
 });
@@ -155,9 +155,9 @@ test('`isFromCache` stream property is false after the `response` event', withSe
 	const cache = new Map();
 	const stream = got.stream({cache});
 
-	await pEvent(stream, 'response');
-	t.is(stream.isFromCache
-	, false);
+	const response = await pEvent(stream, 'response') as Response;
+	t.is(response.isFromCache, false);
+	t.is(stream.isFromCache, false);
 
 	await getStream(stream);
 });
@@ -170,9 +170,9 @@ test('`isFromCache` stream property is true if the response was cached', withSer
 	await getStream(got.stream({cache}));
 	const stream = got.stream({cache});
 
-	await pEvent(stream, 'response');
-	t.is(stream.isFromCache
-	, true);
+	const response = await pEvent(stream, 'response') as Response;
+	t.is(response.isFromCache, true);
+	t.is(stream.isFromCache, true);
 
 	await getStream(stream);
 });
