@@ -1,9 +1,9 @@
 import {PassThrough as PassThroughStream, Duplex as DuplexStream} from 'stream';
+import {IncomingMessage} from 'http';
 import duplexer3 from 'duplexer3';
 import requestAsEventEmitter from './request-as-event-emitter';
 import {HTTPError, ReadError} from './errors';
 import {MergedOptions, Response} from './utils/types';
-import { IncomingMessage } from 'http';
 
 export class ProxyStream extends DuplexStream {
 	isFromCache?: boolean;
