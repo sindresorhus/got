@@ -134,9 +134,9 @@ Hooks are powerful, aren't they? [Read more](readme.md#hooks) to see what else y
 Let's take a quick look at another example from Request's readme:
 
 ```js
-http.createServer((req, res) => {
-	if (req.url === '/doodle.png') {
-		req.pipe(request('https://example.com/doodle.png')).pipe(res);
+http.createServer((request, response) => {
+	if (request.url === '/doodle.png') {
+		request.pipe(request('https://example.com/doodle.png')).pipe(response);
 	}
 });
 ```
@@ -144,9 +144,13 @@ http.createServer((req, res) => {
 The cool feature here is that Request can proxy headers with the stream, but Got can do that too:
 
 ```js
-http.createServer((req, res) => {
-	if (req.url === '/doodle.png') {
-		req.pipe(got.stream('https://example.com/doodle.png')).pipe(res);
+http.createServer((request, response) => {
+	if (request.url === '/doodle.png') {
+		// When someone makes a request to our server, we receive a body and some headers.
+		// These are passed to Got. Got proxies received data to our server response,
+		// so you don't have to do `response.writeHead(statusCode, headers)` and `response.end(body)`.
+		// It's done automatically.
+		request.pipe(got.stream('https://example.com/doodle.png')).pipe(response);
 	}
 });
 ```

@@ -3,6 +3,7 @@ import duplexer3 from 'duplexer3';
 import requestAsEventEmitter from './request-as-event-emitter';
 import {HTTPError, ReadError} from './errors';
 import {MergedOptions, Response} from './utils/types';
+import { IncomingMessage } from 'http';
 
 export class ProxyStream extends DuplexStream {
 	isFromCache?: boolean;
@@ -104,6 +105,15 @@ export default function asStream(options: MergedOptions) {
 		piped.delete(stream);
 		return unpipe(stream);
 	};
+
+	proxy.on('pipe', source => {
+		if (source instanceof IncomingMessage) {
+			options.headers = {
+				...options.headers,
+				...source.headers
+			};
+		}
+	});
 
 	proxy.isFromCache = undefined;
 
