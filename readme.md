@@ -747,9 +747,7 @@ The default Got options.
 
 ## Errors
 
-Each error contains `host`, `hostname`, `method`, `path`, `protocol`, `url` and `gotOptions` properties to make debugging easier.
-
-In Promise mode, the `response` is attached to the error.
+Each error contains `options` property which are the options Got used to create a request - just to make debugging easier.
 
 #### got.CacheError
 
@@ -765,15 +763,15 @@ When reading from response stream fails.
 
 #### got.ParseError
 
-When server response code is 2xx, and parsing body fails. Includes `body`, `statusCode` and `statusMessage` properties.
+When server response code is 2xx, and parsing body fails. Includes `response` property.
 
 #### got.HTTPError
 
-When the server response code is not 2xx. Includes `body`, `statusCode`, `statusMessage`, and `redirectUrls` properties.
+When the server response code is not 2xx. Includes `response` and `redirectUrls` properties.
 
 #### got.MaxRedirectsError
 
-When the server redirects you more than ten times. Includes a `statusCode`, `statusMessage`, and `redirectUrls` property which is an array of the URLs Got was redirected to before giving up.
+When the server redirects you more than ten times. Includes `response` and `redirectUrls` properties which is an array of the URLs Got was redirected to before giving up.
 
 #### got.UnsupportedProtocolError
 

@@ -111,6 +111,7 @@ export default (options, input?: TransformStream) => {
 				}
 
 				const {statusCode} = response;
+				response.statusMessage = response.statusMessage || http.STATUS_CODES[statusCode];
 				response.url = currentUrl;
 				response.requestUrl = requestUrl;
 				response.retryCount = retryCount;

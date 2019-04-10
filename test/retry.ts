@@ -103,7 +103,7 @@ test('custom retries', withServer, async (t, server, got) => {
 		}
 	}));
 	// @ts-ignore
-	t.is(error.statusCode, 500);
+	t.is(error.response.statusCode, 500);
 	t.true(tried);
 });
 

@@ -116,9 +116,9 @@ test('redirects only GET and HEAD requests', withServer, async (t, server, got) 
 	});
 
 	// @ts-ignore
-	t.is(error.path, '/');
+	t.is(error.options.path, '/');
 	// @ts-ignore
-	t.is(error.statusCode, 302);
+	t.is(error.response.statusCode, 302);
 });
 
 test('redirects on 303 response even on post, put, delete', withServer, async (t, server, got) => {
