@@ -1,4 +1,7 @@
 import test from 'ava';
+import pEvent from 'p-event';
+import getStream from 'get-stream';
+import {Response} from '../source/utils/types';
 import withServer from './helpers/with-server';
 
 const cacheEndpoint = (_request, response) => {
@@ -134,4 +137,42 @@ test('DNS cache works', withServer, async (t, _server, got) => {
 	await t.notThrowsAsync(got('https://example.com', {dnsCache: map}));
 
 	t.is(map.size, 1);
+});
+
+test('`isFromCache` stream property is undefined before the `response` event', withServer, async (t, server, got) => {
+	server.get('/', cacheEndpoint);
+
+	const cache = new Map();
+	const stream = got.stream({cache});
+	t.is(stream.isFromCache, undefined);
+
+	await getStream(stream);
+});
+
+test('`isFromCache` stream property is false after the `response` event', withServer, async (t, server, got) => {
+	server.get('/', cacheEndpoint);
+
+	const cache = new Map();
+	const stream = got.stream({cache});
+
+	const response = await pEvent(stream, 'response') as Response;
+	t.is(response.isFromCache, false);
+	t.is(stream.isFromCache, false);
+
+	await getStream(stream);
+});
+
+test('`isFromCache` stream property is true if the response was cached', withServer, async (t, server, got) => {
+	server.get('/', cacheEndpoint);
+
+	const cache = new Map();
+
+	await getStream(got.stream({cache}));
+	const stream = got.stream({cache});
+
+	const response = await pEvent(stream, 'response') as Response;
+	t.is(response.isFromCache, true);
+	t.is(stream.isFromCache, true);
+
+	await getStream(stream);
 });
