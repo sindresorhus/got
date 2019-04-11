@@ -56,7 +56,8 @@ export default function asPromise(options: Options) {
 						updatedOptions = reNormalizeArguments(mergeOptions(options, {
 							...updatedOptions,
 							retry: 0,
-							throwHttpErrors: false
+							throwHttpErrors: false,
+							responseType: 'text'
 						}));
 
 						// Remove any further hooks for that request, because we we'll call them anyway.

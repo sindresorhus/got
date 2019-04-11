@@ -477,3 +477,24 @@ test('beforeError allows modifications', async t => {
 		}
 	}), errorString2);
 });
+
+test('does not break on `afterResponse` hook with JSON mode', withServer, async (t, server, got) => {
+	server.get('/foobar', echoHeaders);
+
+	await t.notThrowsAsync(got('/', {
+		hooks: {
+			afterResponse: [
+				(response, retryWithMergedOptions) => {
+					if (response.statusCode === 404) {
+						return retryWithMergedOptions({
+							path: '/foobar'
+						});
+					}
+
+					return response;
+				}
+			]
+		},
+		responseType: 'json'
+	}));
+});
