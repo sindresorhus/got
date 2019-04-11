@@ -262,3 +262,18 @@ test('throws if the `searchParams` value is invalid', async t => {
 		message: 'The `searchParams` value \'\' must be a string, number, boolean or null'
 	});
 });
+
+test('`userData` option is not enumerable', withServer, async (t, server, got) => {
+	server.get('/', echoUrl);
+
+	await got({
+		userData: 123,
+		hooks: {
+			beforeRequest: [
+				options => {
+					t.false({}.propertyIsEnumerable.call(options, 'userData'));
+				}
+			]
+		}
+	});
+});

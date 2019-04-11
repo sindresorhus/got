@@ -174,6 +174,12 @@ Type: `object | Array | number | string | boolean | null` *(JSON-serializable va
 
 JSON body. If the `Content-Type` header is not set, it will be set to `application/json`.
 
+###### userData
+
+Type: `any`
+
+User data. In the opposite to other options, `userData` is not enumerable.
+
 ###### responseType
 
 Type: `string`<br>
