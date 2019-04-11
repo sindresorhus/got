@@ -151,6 +151,7 @@ export default (options, input?: TransformStream) => {
 						const redirectOptions = {
 							...options,
 							port: null,
+							auth: null,
 							...urlToOptions(redirectURL)
 						};
 

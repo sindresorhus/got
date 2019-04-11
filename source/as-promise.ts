@@ -57,7 +57,8 @@ export default function asPromise(options: Options) {
 							...updatedOptions,
 							retry: 0,
 							throwHttpErrors: false,
-							responseType: 'text'
+							responseType: 'text',
+							resolveBodyOnly: false
 						}));
 
 						// Remove any further hooks for that request, because we we'll call them anyway.
