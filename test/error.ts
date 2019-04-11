@@ -18,13 +18,14 @@ test('properties', withServer, async (t, server, got) => {
 	// @ts-ignore
 	t.truthy(error.response);
 	t.truthy(error.options);
+	t.false({}.propertyIsEnumerable.call(error, 'options'));
 	t.false({}.propertyIsEnumerable.call(error, 'response'));
 	t.false({}.hasOwnProperty.call(error, 'code'));
 	t.is(error.message, 'Response code 404 (Not Found)');
 	t.is(error.options.host, `${url.hostname}:${url.port}`);
 	t.is(error.options.method, 'GET');
 	t.is(error.options.protocol, 'http:');
-	t.is(error.options.url, error.response.requestUrl);
+	t.is(error.options.url, error.options.requestUrl);
 	t.is(error.response.headers.connection, 'close');
 	t.is(error.response.body, 'not');
 });

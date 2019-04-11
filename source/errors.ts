@@ -20,7 +20,9 @@ export class GotError extends Error {
 			this.code = error.code;
 		}
 
-		this.options = options;
+		Object.defineProperty(this, 'options', {
+			value: options
+		});
 	}
 }
 
@@ -51,7 +53,10 @@ export class ParseError extends GotError {
 	constructor(error: Error, response: Response, options: Options) {
 		super(`${error.message} in "${urlLib.format(options)}"`, error, options);
 		this.name = 'ParseError';
-		this.response = response;
+
+		Object.defineProperty(this, 'response', {
+			value: response
+		});
 	}
 }
 
@@ -70,7 +75,10 @@ export class HTTPError extends GotError {
 
 		super(`Response code ${statusCode} (${statusMessage})`, {}, options);
 		this.name = 'HTTPError';
-		this.response = response;
+
+		Object.defineProperty(this, 'response', {
+			value: response
+		});
 	}
 }
 
@@ -82,7 +90,11 @@ export class MaxRedirectsError extends GotError {
 	constructor(response: Response, redirectUrls: string[], options: Options) {
 		super('Redirected 10 times. Aborting.', {}, options);
 		this.name = 'MaxRedirectsError';
-		this.response = response;
+
+		Object.defineProperty(this, 'response', {
+			value: response
+		});
+
 		this.redirectUrls = redirectUrls;
 	}
 }
