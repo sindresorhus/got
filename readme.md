@@ -767,11 +767,11 @@ When server response code is 2xx, and parsing body fails. Includes `response` pr
 
 #### got.HTTPError
 
-When the server response code is not 2xx. Includes `response` and `redirectUrls` properties.
+When the server response code is not 2xx. Includes `response` property.
 
 #### got.MaxRedirectsError
 
-When the server redirects you more than ten times. Includes `response` and `redirectUrls` properties which is an array of the URLs Got was redirected to before giving up.
+When the server redirects you more than ten times. Includes `response` property.
 
 #### got.UnsupportedProtocolError
 

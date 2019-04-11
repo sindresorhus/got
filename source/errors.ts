@@ -83,19 +83,15 @@ export class HTTPError extends GotError {
 }
 
 export class MaxRedirectsError extends GotError {
-	redirectUrls?: string[];
-
 	response: Response;
 
-	constructor(response: Response, redirectUrls: string[], options: Options) {
+	constructor(response: Response, options: Options) {
 		super('Redirected 10 times. Aborting.', {}, options);
 		this.name = 'MaxRedirectsError';
 
 		Object.defineProperty(this, 'response', {
 			value: response
 		});
-
-		this.redirectUrls = redirectUrls;
 	}
 }
 

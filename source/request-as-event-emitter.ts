@@ -137,7 +137,7 @@ export default (options, input?: TransformStream) => {
 						}
 
 						if (redirects.length >= 10) {
-							throw new MaxRedirectsError(statusCode, redirects, options);
+							throw new MaxRedirectsError(response, options);
 						}
 
 						// Handles invalid URLs. See https://github.com/sindresorhus/got/issues/604
