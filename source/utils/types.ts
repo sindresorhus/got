@@ -139,7 +139,7 @@ export interface Options extends Omit<https.RequestOptions, 'agent'> {
 	agent: http.Agent | https.Agent | boolean | AgentByProtocol;
 	gotTimeout?: number | Delays;
 	cache?: string | StorageAdapter;
-	headers?: {[key: string]: string};
+	headers?: {[key: string]: string | string[]};
 	// TODO: Remove this once TS migration is complete and all options are defined.
 	[key: string]: unknown;
 }

@@ -1,4 +1,5 @@
 import {PassThrough as PassThroughStream, Duplex as DuplexStream} from 'stream';
+import {IncomingMessage} from 'http';
 import duplexer3 from 'duplexer3';
 import requestAsEventEmitter from './request-as-event-emitter';
 import {HTTPError, ReadError} from './errors';
@@ -104,6 +105,15 @@ export default function asStream(options: MergedOptions) {
 		piped.delete(stream);
 		return unpipe(stream);
 	};
+
+	proxy.on('pipe', source => {
+		if (source instanceof IncomingMessage) {
+			options.headers = {
+				...source.headers,
+				...options.headers
+			};
+		}
+	});
 
 	proxy.isFromCache = undefined;
 

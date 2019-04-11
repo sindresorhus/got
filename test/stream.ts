@@ -30,6 +30,10 @@ const errorHandler = (_request, response) => {
 	response.end();
 };
 
+const headersHandler = (request, response) => {
+	response.end(JSON.stringify(request.headers));
+};
+
 test('`options.responseType` is ignored', withServer, async (t, server, got) => {
 	server.get('/', defaultHandler);
 
@@ -155,6 +159,20 @@ test('proxying headers works', withServer, async (t, server, got) => {
 	t.is(headers.unicorn, 'rainbow');
 	t.is(headers['content-encoding'], undefined);
 	t.is(body, 'ok');
+});
+
+test('piping server request to Got proxies also headers', withServer, async (t, server, got) => {
+	server.get('/', headersHandler);
+	server.get('/proxy', (request, response) => {
+		request.pipe(got.stream('')).pipe(response);
+	});
+
+	const {foo} = await got('proxy', {
+		headers: {
+			foo: 'bar'
+		}
+	}).json();
+	t.is(foo, 'bar');
 });
 
 test('skips proxying headers after server has sent them already', withServer, async (t, server, got) => {
