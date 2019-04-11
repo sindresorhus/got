@@ -117,5 +117,5 @@ test('response contains got options', withServer, async (t, server, got) => {
 		auth: 'foo:bar'
 	};
 
-	t.is((await got(options)).request.gotOptions.auth, options.auth);
+	t.is((await got(options)).request.options.auth, options.auth);
 });
