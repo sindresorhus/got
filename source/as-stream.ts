@@ -109,8 +109,8 @@ export default function asStream(options: MergedOptions) {
 	proxy.on('pipe', source => {
 		if (source instanceof IncomingMessage) {
 			options.headers = {
-				...options.headers,
-				...source.headers
+				...source.headers,
+				...options.headers
 			};
 		}
 	});
