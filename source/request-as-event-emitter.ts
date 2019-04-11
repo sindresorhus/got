@@ -117,9 +117,7 @@ export default (options, input?: TransformStream) => {
 				response.retryCount = retryCount;
 				response.timings = timings;
 				response.redirectUrls = redirects;
-				response.request = {
-					gotOptions: options
-				};
+				response.request = {options};
 				response.isFromCache = response.fromCache || false;
 				delete response.fromCache;
 

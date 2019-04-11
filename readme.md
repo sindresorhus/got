@@ -531,7 +531,7 @@ Type: `Object`
 
 **Note:** This is not a [http.ClientRequest](https://nodejs.org/api/http.html#http_class_http_clientrequest).
 
-- `gotOptions` - The options that were set on this request.
+- `options` - The Got options that were set on this request.
 
 ##### body
 
