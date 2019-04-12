@@ -80,7 +80,7 @@ export default (options, input?: TransformStream) => {
 		// process.version.electron is used only once, right here.
 		if (options.useElectronNet && (process.versions as any).electron) {
 			// @ts-ignore
-			const electron = dynamicRequire(module, 'electron'); // Trick webpack
+			const electron = dynamicRequire('electron'); // Trick webpack
 			requestFn = electron.net.request || electron.remote.net.request;
 		}
 
