@@ -38,7 +38,7 @@
 	],
 	"dependencies": {
 		"@sindresorhus/is": "^0.15.0",
-		"@szmarczak/http-timer": "^1.1.2",
+		"@szmarczak/http-timer": "^2.0.0",
 		"@types/cacheable-request": "^6.0.1",
 		"@types/form-data": "^2.2.1",
 		"cacheable-lookup": "^0.1.0",

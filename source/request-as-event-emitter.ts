@@ -7,7 +7,7 @@ import https from 'https';
 import CacheableRequest from 'cacheable-request';
 import toReadableStream from 'to-readable-stream';
 import is from '@sindresorhus/is';
-import timer from '@szmarczak/http-timer';
+import timer, {Timings} from '@szmarczak/http-timer';
 import timedOut, {TimeoutError as TimedOutTimeoutError} from './utils/timed-out';
 import getBodySize from './utils/get-body-size';
 import isFormData from './utils/is-form-data';
@@ -92,7 +92,7 @@ export default (options, input?: TransformStream) => {
 			}
 		}
 
-		let timings;
+		let timings: Timings;
 		// TODO: Properly type this.
 		const handleResponse = async response => {
 			try {

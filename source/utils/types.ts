@@ -54,26 +54,6 @@ export interface Response extends IncomingMessage {
 	isFromCache?: boolean;
 }
 
-export interface Timings {
-	start: number;
-	socket: number | null;
-	lookup: number | null;
-	connect: number | null;
-	upload: number | null;
-	response: number | null;
-	end: number | null;
-	error: number | null;
-	phases: {
-		wait: number | null;
-		dns: number | null;
-		tcp: number | null;
-		request: number | null;
-		firstByte: number | null;
-		download: number | null;
-		total: number | null;
-	};
-}
-
 export interface Instance {
 	methods: Method[];
 	options: Partial<Options>;

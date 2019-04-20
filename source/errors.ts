@@ -1,7 +1,8 @@
 import urlLib from 'url';
 import http, {IncomingHttpHeaders} from 'http';
 import is from '@sindresorhus/is';
-import {Response, Timings, Options} from './utils/types';
+import {Timings} from '@szmarczak/http-timer';
+import {Response, Options} from './utils/types';
 import {TimeoutError as TimedOutError} from './utils/timed-out';
 
 type ErrorWithCode = (Error & {code?: string}) | {code?: string};
