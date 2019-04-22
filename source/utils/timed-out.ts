@@ -69,7 +69,7 @@ export default (request: ClientRequest, delays: Delays, options: any) => {
 		request.abort();
 	};
 
-	const cancelers: (() => void)[] = [];
+	const cancelers: Array<() => void> = [];
 	const cancelTimeouts = (): void => {
 		stopNewTimeouts = true;
 		cancelers.forEach(cancelTimeout => cancelTimeout());
