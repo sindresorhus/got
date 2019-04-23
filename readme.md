@@ -176,7 +176,7 @@ Type: `Object` `Array` `number` `string` `boolean` `null`
 
 **Note:** If you provide this option, `got.stream()` will be read-only.
 
-JSON body. The `Content-Type` header will be set to `application/json` if it's not defined.
+JSON body. If the `Content-Type` header is not set, it will be set to `application/json`.
 
 ###### responseType
 
@@ -223,7 +223,7 @@ Type: `Object`
 
 The form body is converted to query string using [`(new URLSearchParams(object)).toString()`](https://nodejs.org/api/url.html#url_constructor_new_urlsearchparams_obj).
 
-If set to `true` and `Content-Type` header is not set, it will be set to `application/x-www-form-urlencoded`.
+If set to `true` and the `Content-Type` header is not set, it will be set to `application/x-www-form-urlencoded`.
 
 ###### searchParams
 
