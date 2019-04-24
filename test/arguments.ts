@@ -271,6 +271,7 @@ test('`userData` option is not enumerable', withServer, async (t, server, got) =
 		hooks: {
 			beforeRequest: [
 				options => {
+					t.is(options.userData, 123);
 					t.false({}.propertyIsEnumerable.call(options, 'userData'));
 				}
 			]
