@@ -747,7 +747,7 @@ The default Got options.
 
 ## Errors
 
-Each error contains `options` property which are the options Got used to create a request - just to make debugging easier.
+Each error contains an `options` property which are the options Got used to create a request - just to make debugging easier.
 
 #### got.CacheError
 
@@ -763,15 +763,15 @@ When reading from response stream fails.
 
 #### got.ParseError
 
-When server response code is 2xx, and parsing body fails. Includes `response` property.
+When server response code is 2xx, and parsing body fails. Includes a `response` property.
 
 #### got.HTTPError
 
-When the server response code is not 2xx. Includes `response` property.
+When the server response code is not 2xx. Includes a `response` property.
 
 #### got.MaxRedirectsError
 
-When the server redirects you more than ten times. Includes `response` property.
+When the server redirects you more than ten times. Includes a `response` property.
 
 #### got.UnsupportedProtocolError
 
