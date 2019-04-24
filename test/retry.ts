@@ -299,3 +299,18 @@ test('retry function can throw', withServer, async (t, server, got) => {
 		}
 	}), error);
 });
+
+test('does not retry on POST', withServer, async (t, server, got) => {
+	server.post('/', () => {});
+
+	await t.throwsAsync(got.post({
+		timeout: 200,
+		hooks: {
+			beforeRetry: [
+				() => {
+					t.fail('Retries on POST requests');
+				}
+			]
+		}
+	}), got.TimeoutError);
+});

@@ -1,5 +1,4 @@
 import urlLib from 'url';
-import http from 'http';
 import is from '@sindresorhus/is';
 import {Timings} from '@szmarczak/http-timer';
 import {Response, Options} from './utils/types';
@@ -65,14 +64,7 @@ export class HTTPError extends GotError {
 	response: Response;
 
 	constructor(response: Response, options: Options) {
-		const {statusCode} = response;
-		let {statusMessage} = response;
-
-		if (statusMessage) {
-			statusMessage = statusMessage.replace(/\r?\n/g, ' ').trim();
-		} else {
-			statusMessage = http.STATUS_CODES[statusCode];
-		}
+		const {statusCode, statusMessage} = response;
 
 		super(`Response code ${statusCode} (${statusMessage})`, {}, options);
 		this.name = 'HTTPError';

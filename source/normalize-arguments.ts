@@ -220,10 +220,10 @@ export const normalizeArguments = (url, options, defaults?: any) => {
 				return 0;
 			}
 
-			const hasCode = Reflect.has(error, 'code') && options.retry.errorCodes.has(error.code);
-			const hasMethod = Reflect.has(error, 'options') && options.retry.methods.has(error.options.method);
+			const hasMethod = options.retry.methods.has(error.options.method);
+			const hasErrorCode = Reflect.has(error, 'code') && options.retry.errorCodes.has(error.code);
 			const hasStatusCode = Reflect.has(error, 'response') && options.retry.statusCodes.has(error.response.statusCode);
-			if ((!error || !hasCode) && (!hasMethod || !hasStatusCode)) {
+			if (!hasMethod || (!hasErrorCode && !hasStatusCode)) {
 				return 0;
 			}
 

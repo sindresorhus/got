@@ -1,6 +1,7 @@
 import net from 'net';
-import {ClientRequest} from 'http';
+import {ClientRequest, IncomingMessage} from 'http';
 import {Delays} from './types';
+import unhandler from './unhandle';
 
 export class TimeoutError extends Error {
 	event: string;
@@ -20,22 +21,15 @@ const reentry: symbol = Symbol('reentry');
 const noop = (): void => {};
 
 export default (request: ClientRequest, delays: Delays, options: any) => {
-	/* istanbul ignore next: this makes sure timed-out isn't called twice */
 	if (Reflect.has(request, reentry)) {
 		return noop;
 	}
 
 	(request as any)[reentry] = true;
+	const cancelers: (typeof noop)[] = [];
+	const {once, unhandleAll} = unhandler();
 
-	let stopNewTimeouts = false;
-
-	const addTimeout = (delay: number, callback: (...args: any) => void, ...args: any): (() => void) => {
-		// An error had been thrown before. Going further would result in uncaught errors.
-		// See https://github.com/sindresorhus/got/issues/631#issuecomment-435675051
-		if (stopNewTimeouts) {
-			return noop;
-		}
-
+	const addTimeout = (delay: number, callback: (...args: any) => void, ...args: any): (typeof noop) => {
 		// Event loop order is timers, poll, immediates.
 		// The timed event may emit during the current tick poll phase, so
 		// defer calling the handler until the poll phase completes.
@@ -69,10 +63,9 @@ export default (request: ClientRequest, delays: Delays, options: any) => {
 		request.abort();
 	};
 
-	const cancelers: Array<() => void> = [];
 	const cancelTimeouts = (): void => {
-		stopNewTimeouts = true;
 		cancelers.forEach(cancelTimeout => cancelTimeout());
+		unhandleAll();
 	};
 
 	request.on('error', (error: Error): void => {
@@ -80,8 +73,9 @@ export default (request: ClientRequest, delays: Delays, options: any) => {
 			cancelTimeouts();
 		}
 	});
-	request.once('response', response => {
-		response.once('end', cancelTimeouts);
+
+	once(request, 'response', (response: IncomingMessage) => {
+		once(response, 'end', cancelTimeouts);
 	});
 
 	if (delays.request !== undefined) {
@@ -103,34 +97,34 @@ export default (request: ClientRequest, delays: Delays, options: any) => {
 		});
 	}
 
-	request.once('socket', (socket: net.Socket): void => {
+	once(request, 'socket', (socket: net.Socket): void => {
 		const {socketPath} = request as any;
 
 		/* istanbul ignore next: hard to test */
 		if (socket.connecting) {
 			if (delays.lookup !== undefined && !socketPath && !net.isIP(hostname || host)) {
 				const cancelTimeout = addTimeout(delays.lookup, timeoutHandler, 'lookup');
-				socket.once('lookup', cancelTimeout);
+				once(socket, 'lookup', cancelTimeout);
 			}
 
 			if (delays.connect !== undefined) {
 				const timeConnect = () => addTimeout(delays.connect!, timeoutHandler, 'connect');
 
 				if (socketPath || net.isIP(hostname || host)) {
-					socket.once('connect', timeConnect());
+					once(socket, 'connect', timeConnect());
 				} else {
-					socket.once('lookup', (error: Error): void => {
+					once(socket, 'lookup', (error: Error): void => {
 						if (error === null) {
-							socket.once('connect', timeConnect());
+							once(socket, 'connect', timeConnect());
 						}
 					});
 				}
 			}
 
 			if (delays.secureConnect !== undefined && options.protocol === 'https:') {
-				socket.once('connect', (): void => {
+				once(socket, 'connect', (): void => {
 					const cancelTimeout = addTimeout(delays.secureConnect!, timeoutHandler, 'secureConnect');
-					socket.once('secureConnect', cancelTimeout);
+					once(socket, 'secureConnect', cancelTimeout);
 				});
 			}
 		}
@@ -139,19 +133,19 @@ export default (request: ClientRequest, delays: Delays, options: any) => {
 			const timeRequest = () => addTimeout(delays.send!, timeoutHandler, 'send');
 			/* istanbul ignore next: hard to test */
 			if (socket.connecting) {
-				socket.once('connect', (): void => {
-					request.once('upload-complete', timeRequest());
+				once(socket, 'connect', (): void => {
+					once(request, 'upload-complete', timeRequest());
 				});
 			} else {
-				request.once('upload-complete', timeRequest());
+				once(request, 'upload-complete', timeRequest());
 			}
 		}
 	});
 
 	if (delays.response !== undefined) {
-		request.once('upload-complete', (): void => {
+		once(request, 'upload-complete', (): void => {
 			const cancelTimeout = addTimeout(delays.response!, timeoutHandler, 'response');
-			request.once('response', cancelTimeout);
+			once(request, 'response', cancelTimeout);
 		});
 	}
 
