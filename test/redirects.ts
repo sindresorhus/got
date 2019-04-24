@@ -253,7 +253,9 @@ test('throws on invalid redirect URL', withServer, async (t, server, got) => {
 	});
 });
 
-test('port is reset on redirect', withServer, async (t, server, got) => {
+// TODO: Enable this again when https://github.com/nock/nock/issues/1509 is fixed
+// eslint-disable-next-line ava/no-skip-test
+test.skip('port is reset on redirect', withServer, async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.writeHead(307, {
 			location: 'http://localhost'

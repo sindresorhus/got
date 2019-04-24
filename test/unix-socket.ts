@@ -34,7 +34,7 @@ if (process.platform !== 'win32') {
 	test('throws on invalid URL', async t => {
 		await t.throwsAsync(got('unix:'), {
 			instanceOf: got.RequestError,
-			message: 'getaddrinfo ENOTFOUND unix unix:80'
+			code: 'ENOTFOUND'
 		});
 	});
 }
