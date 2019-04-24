@@ -16,6 +16,7 @@ import {uploadProgress} from './progress';
 import {CacheError, UnsupportedProtocolError, MaxRedirectsError, RequestError, TimeoutError} from './errors';
 import urlToOptions from './utils/url-to-options';
 import {RequestFunction, Options, Delays, RetryFunction, RetryOption} from './utils/types';
+import dynamicRequire from './utils/dynamic-require';
 
 const getMethodRedirectCodes = new Set([300, 301, 302, 303, 304, 305, 307, 308]);
 const allMethodRedirectCodes = new Set([300, 303, 307, 308]);
@@ -79,8 +80,7 @@ export default (options, input?: TransformStream) => {
 		// process.version.electron is used only once, right here.
 		if (options.useElectronNet && (process.versions as any).electron) {
 			// @ts-ignore
-			const r = ({x: require})['yx'.slice(1)]; // Trick webpack
-			const electron = r('electron');
+			const electron = dynamicRequire(module, 'electron') as any; // Trick webpack
 			requestFn = electron.net.request || electron.remote.net.request;
 		}
 
