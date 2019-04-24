@@ -111,14 +111,13 @@ export default (options, input?: TransformStream) => {
 				}
 
 				const {statusCode} = response;
+				response.statusMessage = response.statusMessage || http.STATUS_CODES[statusCode];
 				response.url = currentUrl;
 				response.requestUrl = requestUrl;
 				response.retryCount = retryCount;
 				response.timings = timings;
 				response.redirectUrls = redirects;
-				response.request = {
-					gotOptions: options
-				};
+				response.request = {options};
 				response.isFromCache = response.fromCache || false;
 				delete response.fromCache;
 
@@ -138,7 +137,7 @@ export default (options, input?: TransformStream) => {
 						}
 
 						if (redirects.length >= 10) {
-							throw new MaxRedirectsError(statusCode, redirects, options);
+							throw new MaxRedirectsError(response, options);
 						}
 
 						// Handles invalid URLs. See https://github.com/sindresorhus/got/issues/604

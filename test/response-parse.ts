@@ -55,9 +55,9 @@ test('throws an error on invalid response type', withServer, async (t, server, g
 
 	const error = await t.throwsAsync(got({responseType: 'invalid'}), /^Failed to parse body of type 'invalid'/);
 	// @ts-ignore
-	t.true(error.message.includes(error.hostname));
+	t.true(error.message.includes(error.options.hostname));
 	// @ts-ignore
-	t.is(error.path, '/');
+	t.is(error.options.path, '/');
 });
 
 test('doesn\'t parse responses without a body', withServer, async (t, server, got) => {
@@ -76,9 +76,9 @@ test('wraps parsing errors', withServer, async (t, server, got) => {
 
 	const error = await t.throwsAsync(got({responseType: 'json'}), got.ParseError);
 	// @ts-ignore
-	t.true(error.message.includes(error.hostname));
+	t.true(error.message.includes(error.options.hostname));
 	// @ts-ignore
-	t.is(error.path, '/');
+	t.is(error.options.path, '/');
 });
 
 test('parses non-200 responses', withServer, async (t, server, got) => {
@@ -106,10 +106,10 @@ test('ignores errors on invalid non-200 responses', withServer, async (t, server
 	// @ts-ignore
 	t.is(error.response.body, 'Internal error');
 	// @ts-ignore
-	t.is(error.path, '/');
+	t.is(error.options.path, '/');
 });
 
-test('errors have `statusCode` property', withServer, async (t, server, got) => {
+test('parse errors have `response` property', withServer, async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.end('/');
 	});
@@ -117,7 +117,7 @@ test('errors have `statusCode` property', withServer, async (t, server, got) => 
 	const error = await t.throwsAsync(got({responseType: 'json'}), got.ParseError);
 
 	// @ts-ignore
-	t.is(error.statusCode, 200);
+	t.is(error.response.statusCode, 200);
 });
 
 test('sets correct headers', withServer, async (t, server, got) => {

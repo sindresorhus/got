@@ -79,7 +79,7 @@ test('throws on endless redirects', withServer, async (t, server, got) => {
 	const error = await t.throwsAsync(got(''), 'Redirected 10 times. Aborting.');
 
 	// @ts-ignore
-	t.deepEqual(error.redirectUrls, new Array(10).fill(`${server.url}/`));
+	t.deepEqual(error.response.redirectUrls, new Array(10).fill(`${server.url}/`));
 });
 
 test('searchParams are not breaking redirects', withServer, async (t, server, got) => {
@@ -116,9 +116,9 @@ test('redirects only GET and HEAD requests', withServer, async (t, server, got) 
 	});
 
 	// @ts-ignore
-	t.is(error.path, '/');
+	t.is(error.options.path, '/');
 	// @ts-ignore
-	t.is(error.statusCode, 302);
+	t.is(error.response.statusCode, 302);
 });
 
 test('redirects on 303 response even on post, put, delete', withServer, async (t, server, got) => {

@@ -531,7 +531,7 @@ Type: `Object`
 
 **Note:** This is not a [http.ClientRequest](https://nodejs.org/api/http.html#http_class_http_clientrequest).
 
-- `gotOptions` - The options that were set on this request.
+- `options` - The Got options that were set on this request.
 
 ##### body
 
@@ -747,9 +747,7 @@ The default Got options.
 
 ## Errors
 
-Each error contains `host`, `hostname`, `method`, `path`, `protocol`, `url` and `gotOptions` properties to make debugging easier.
-
-In Promise mode, the `response` is attached to the error.
+Each error contains an `options` property which are the options Got used to create a request - just to make debugging easier.
 
 #### got.CacheError
 
@@ -765,15 +763,15 @@ When reading from response stream fails.
 
 #### got.ParseError
 
-When server response code is 2xx, and parsing body fails. Includes `body`, `statusCode` and `statusMessage` properties.
+When server response code is 2xx, and parsing body fails. Includes a `response` property.
 
 #### got.HTTPError
 
-When the server response code is not 2xx. Includes `body`, `statusCode`, `statusMessage`, and `redirectUrls` properties.
+When the server response code is not 2xx. Includes a `response` property.
 
 #### got.MaxRedirectsError
 
-When the server redirects you more than ten times. Includes a `statusCode`, `statusMessage`, and `redirectUrls` property which is an array of the URLs Got was redirected to before giving up.
+When the server redirects you more than ten times. Includes a `response` property.
 
 #### got.UnsupportedProtocolError
 

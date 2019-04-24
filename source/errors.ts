@@ -1,5 +1,5 @@
 import urlLib from 'url';
-import http, {IncomingHttpHeaders} from 'http';
+import http from 'http';
 import is from '@sindresorhus/is';
 import {Timings} from '@szmarczak/http-timer';
 import {Response, Options} from './utils/types';
@@ -10,6 +10,8 @@ type ErrorWithCode = (Error & {code?: string}) | {code?: string};
 export class GotError extends Error {
 	code?: string;
 
+	options: Options;
+
 	constructor(message: string, error: ErrorWithCode, options: Options) {
 		super(message);
 		Error.captureStackTrace(this, this.constructor);
@@ -19,15 +21,8 @@ export class GotError extends Error {
 			this.code = error.code;
 		}
 
-		Object.assign(this, {
-			host: options.host,
-			hostname: options.hostname,
-			method: options.method,
-			path: options.path,
-			socketPath: options.socketPath,
-			protocol: options.protocol,
-			url: options.href,
-			gotOptions: options
+		Object.defineProperty(this, 'options', {
+			value: options
 		});
 	}
 }
@@ -54,29 +49,20 @@ export class ReadError extends GotError {
 }
 
 export class ParseError extends GotError {
-	body: string | Buffer;
+	response: Response;
 
-	statusCode: number;
-
-	statusMessage?: string;
-
-	constructor(error: Error, statusCode: number, options: Options, data: string | Buffer) {
+	constructor(error: Error, response: Response, options: Options) {
 		super(`${error.message} in "${urlLib.format(options)}"`, error, options);
 		this.name = 'ParseError';
-		this.body = data;
-		this.statusCode = statusCode;
-		this.statusMessage = http.STATUS_CODES[this.statusCode];
+
+		Object.defineProperty(this, 'response', {
+			value: response
+		});
 	}
 }
 
 export class HTTPError extends GotError {
-	headers?: IncomingHttpHeaders;
-
-	body: string | Buffer;
-
-	statusCode: number;
-
-	statusMessage?: string;
+	response: Response;
 
 	constructor(response: Response, options: Options) {
 		const {statusCode} = response;
@@ -90,26 +76,23 @@ export class HTTPError extends GotError {
 
 		super(`Response code ${statusCode} (${statusMessage})`, {}, options);
 		this.name = 'HTTPError';
-		this.statusCode = statusCode;
-		this.statusMessage = statusMessage;
-		this.headers = response.headers;
-		this.body = response.body;
+
+		Object.defineProperty(this, 'response', {
+			value: response
+		});
 	}
 }
 
 export class MaxRedirectsError extends GotError {
-	redirectUrls?: string[];
+	response: Response;
 
-	statusMessage?: string;
-
-	statusCode: number;
-
-	constructor(statusCode: number, redirectUrls: string[], options: Options) {
+	constructor(response: Response, options: Options) {
 		super('Redirected 10 times. Aborting.', {}, options);
 		this.name = 'MaxRedirectsError';
-		this.statusCode = statusCode;
-		this.statusMessage = http.STATUS_CODES[this.statusCode];
-		this.redirectUrls = redirectUrls;
+
+		Object.defineProperty(this, 'response', {
+			value: response
+		});
 	}
 }
 

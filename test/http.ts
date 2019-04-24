@@ -32,14 +32,14 @@ test('response has `requestUrl` property', withServer, async (t, server, got) =>
 	t.is((await got('empty')).requestUrl, `${server.url}/empty`);
 });
 
-test('errors have `statusCode` property', withServer, async (t, server, got) => {
+test('http errors have `response` property', withServer, async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.statusCode = 404;
 		response.end('not');
 	});
 
 	const error = await t.throwsAsync(got(''), got.HTTPError);
-	t.is(error.statusCode, 404);
+	t.is(error.response.statusCode, 404);
 	t.is(error.response.body, 'not');
 });
 
@@ -117,5 +117,5 @@ test('response contains got options', withServer, async (t, server, got) => {
 		auth: 'foo:bar'
 	};
 
-	t.is((await got(options)).request.gotOptions.auth, options.auth);
+	t.is((await got(options)).request.options.auth, options.auth);
 });

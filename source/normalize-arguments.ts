@@ -220,17 +220,18 @@ export const normalizeArguments = (url, options, defaults?: any) => {
 				return 0;
 			}
 
-			const hasCode = !is.undefined(error.code) && options.retry.errorCodes.has(error.code);
-			const hasMethod = !is.undefined(error.method) && options.retry.methods.has(error.method);
-			const hasStatusCode = !is.undefined(error.statusCode) && options.retry.statusCodes.has(error.statusCode);
+			const hasCode = Reflect.has(error, 'code') && options.retry.errorCodes.has(error.code);
+			const hasMethod = Reflect.has(error, 'options') && options.retry.methods.has(error.options.method);
+			const hasStatusCode = Reflect.has(error, 'response') && options.retry.statusCodes.has(error.response.statusCode);
 			if ((!error || !hasCode) && (!hasMethod || !hasStatusCode)) {
 				return 0;
 			}
 
-			if (Reflect.has(error, 'headers') && Reflect.has(error.headers, 'retry-after') && retryAfterStatusCodes.has(error.statusCode)) {
-				let after = Number(error.headers['retry-after']);
+			const {response} = error;
+			if (response && Reflect.has(response.headers, 'retry-after') && retryAfterStatusCodes.has(response.statusCode)) {
+				let after = Number(response.headers['retry-after']);
 				if (is.nan(after)) {
-					after = Date.parse(error.headers['retry-after']) - Date.now();
+					after = Date.parse(response.headers['retry-after']) - Date.now();
 				} else {
 					after *= 1000;
 				}
@@ -242,7 +243,7 @@ export const normalizeArguments = (url, options, defaults?: any) => {
 				return after;
 			}
 
-			if (error.statusCode === 413) {
+			if (response && response.statusCode === 413) {
 				return 0;
 			}
 

@@ -80,8 +80,7 @@ export default function asPromise(options: Options) {
 					parseBody(response);
 				} catch (error) {
 					if (statusCode >= 200 && statusCode < 300) {
-						const parseError = new ParseError(error, statusCode, options, data);
-						Object.defineProperty(parseError, 'response', {value: response});
+						const parseError = new ParseError(error, response, options);
 						reject(parseError);
 						return;
 					}
@@ -90,7 +89,6 @@ export default function asPromise(options: Options) {
 
 			if (statusCode !== 304 && (statusCode < 200 || statusCode > limitStatusCode)) {
 				const error = new HTTPError(response, options);
-				Object.defineProperty(error, 'response', {value: response});
 				if (emitter.retry(error) === false) {
 					if (options.throwHttpErrors) {
 						reject(error);

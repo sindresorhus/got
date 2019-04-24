@@ -17,14 +17,16 @@ test('properties', withServer, async (t, server, got) => {
 	t.truthy(error);
 	// @ts-ignore
 	t.truthy(error.response);
+	t.truthy(error.options);
+	t.false({}.propertyIsEnumerable.call(error, 'options'));
 	t.false({}.propertyIsEnumerable.call(error, 'response'));
 	t.false({}.hasOwnProperty.call(error, 'code'));
 	t.is(error.message, 'Response code 404 (Not Found)');
-	t.is(error.host, `${url.hostname}:${url.port}`);
-	t.is(error.method, 'GET');
-	t.is(error.protocol, 'http:');
-	t.is(error.url, error.response.requestUrl);
-	t.is(error.headers.connection, 'close');
+	t.is(error.options.host, `${url.hostname}:${url.port}`);
+	t.is(error.options.method, 'GET');
+	t.is(error.options.protocol, 'http:');
+	t.is(error.options.url, error.options.requestUrl);
+	t.is(error.response.headers.connection, 'close');
 	t.is(error.response.body, 'not');
 });
 
@@ -32,8 +34,8 @@ test('catches dns errors', async t => {
 	const error = await t.throwsAsync(got('http://doesntexist', {retry: 0})) as any;
 	t.truthy(error);
 	t.regex(error.message, /getaddrinfo ENOTFOUND/);
-	t.is(error.host, 'doesntexist');
-	t.is(error.method, 'GET');
+	t.is(error.options.host, 'doesntexist');
+	t.is(error.options.method, 'GET');
 });
 
 test('`options.body` form error message', async t => {
@@ -64,9 +66,9 @@ test('default status message', withServer, async (t, server, got) => {
 
 	const error = await t.throwsAsync(got(''));
 	// @ts-ignore
-	t.is(error.statusCode, 400);
+	t.is(error.response.statusCode, 400);
 	// @ts-ignore
-	t.is(error.statusMessage, 'Bad Request');
+	t.is(error.response.statusMessage, 'Bad Request');
 });
 
 test('custom status message', withServer, async (t, server, got) => {
@@ -78,9 +80,9 @@ test('custom status message', withServer, async (t, server, got) => {
 
 	const error = await t.throwsAsync(got(''));
 	// @ts-ignore
-	t.is(error.statusCode, 400);
+	t.is(error.response.statusCode, 400);
 	// @ts-ignore
-	t.is(error.statusMessage, 'Something Exploded');
+	t.is(error.response.statusMessage, 'Something Exploded');
 });
 
 test('custom body', withServer, async (t, server, got) => {
@@ -91,9 +93,9 @@ test('custom body', withServer, async (t, server, got) => {
 
 	const error = await t.throwsAsync(got(''));
 	// @ts-ignore
-	t.is(error.statusCode, 404);
+	t.is(error.response.statusCode, 404);
 	// @ts-ignore
-	t.is(error.body, 'not');
+	t.is(error.response.body, 'not');
 });
 
 test('contains Got options', withServer, async (t, server, got) => {
@@ -108,7 +110,7 @@ test('contains Got options', withServer, async (t, server, got) => {
 
 	const error = await t.throwsAsync(got(options));
 	// @ts-ignore
-	t.is(error.gotOptions.auth, options.auth);
+	t.is(error.options.auth, options.auth);
 });
 
 test('empty status message is overriden by the default one', withServer, async (t, server, got) => {
@@ -119,9 +121,9 @@ test('empty status message is overriden by the default one', withServer, async (
 
 	const error = await t.throwsAsync(got(''));
 	// @ts-ignore
-	t.is(error.statusCode, 400);
+	t.is(error.response.statusCode, 400);
 	// @ts-ignore
-	t.is(error.statusMessage, http.STATUS_CODES[400]);
+	t.is(error.response.statusMessage, http.STATUS_CODES[400]);
 });
 
 test('`http.request` error', async t => {
