@@ -110,6 +110,7 @@ export type Headers = Record<string, string | string[]>;
 export interface Options extends Omit<https.RequestOptions, 'agent' | 'timeout' | 'host' | 'headers'> {
 	host?: string;
 	body?: string | Buffer | ReadableStream;
+	userData?: unknown;
 	hostname?: string;
 	path?: string;
 	socketPath?: string;
