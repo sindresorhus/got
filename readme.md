@@ -178,7 +178,7 @@ JSON body. If the `Content-Type` header is not set, it will be set to `applicati
 
 Type: `unknown`
 
-User data. In the opposite to other options, `userData` is not enumerable.
+User data. In contrast to other options, `userData` is not enumerable.
 
 ###### responseType
 
