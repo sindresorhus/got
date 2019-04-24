@@ -1173,33 +1173,35 @@ const h2got = got.extend({request});
 
 |                       |       `got`      | [`request`][r0] |  [`node-fetch`][n0]  |  [`axios`][a0]  |  [`superagent`][s0]  |
 |-----------------------|:----------------:|:---------------:|:--------------------:|:---------------:|:--------------------:|
-| HTTP/2 support        |        ❔        |        ❌       |          ❌         |        ❌       |          ✔️\*\*      |
-| Browser support       |        ❌       |        ❌       |          ✔️\*       |        ✔️       |          ✔️          |
-| Electron support      |        ✔️       |        ❌       |          ❌         |        ❌       |          ❌          |
-| Promise API           |        ✔️       |        ✔️       |          ✔️         |        ✔️       |          ✔️          |
-| Stream API            |        ✔️       |        ✔️       |     Node.js only     |        ❌       |          ✔️          |
-| Request cancelation   |        ✔️       |        ❌       |          ✔️         |        ✔️       |          ✔️          |
-| RFC compliant caching |        ✔️       |        ❌       |          ❌         |        ❌       |          ❌          |
-| Cookies (out-of-box)  |        ✔️       |        ✔️       |          ❌         |        ❌       |          ❌          |
-| Follows redirects     |        ✔️       |        ✔️       |          ✔️         |        ✔️       |          ✔️          |
-| Retries on failure    |        ✔️       |        ❌       |          ❌         |        ❌       |          ✔️          |
-| Progress events       |        ✔️       |        ❌       |          ❌         |   Browser only   |          ✔️          |
-| Handles gzip/deflate  |        ✔️       |        ✔️       |          ✔️         |        ✔️       |          ✔️          |
-| Advanced timeouts     |        ✔️       |        ❌       |          ❌         |        ❌       |          ❌          |
-| Timings               |        ✔️       |        ✔️       |          ❌         |        ❌       |          ❌          |
-| Errors with metadata  |        ✔️       |        ❌       |          ❌         |        ✔️       |          ❌          |
-| JSON mode             |        ✔️       |        ✔️       |          ✔️         |        ✔️       |          ✔️          |
-| Custom defaults       |        ✔️       |        ✔️       |          ❌         |        ✔️       |          ❌          |
-| Composable            |        ✔️       |        ❌       |          ❌         |        ❌       |          ✔️          |
-| Hooks                 |        ✔️       |        ❌       |          ❌         |        ✔️       |          ❌          |
-| Issues open           |  [![][gio]][g1]  | [![][rio]][r1]  |    [![][nio]][n1]    |  [![][aio]][a1] |    [![][sio]][s1]     |
-| Issues closed         |  [![][gic]][g2]  | [![][ric]][r2]  |    [![][nic]][n2]    |  [![][aic]][a2] |    [![][sic]][s2]     |
-| Downloads             |  [![][gd]][g3]   |  [![][rd]][r3]  |    [![][nd]][n3]     |  [![][ad]][a3]  |    [![][sd]][s3]      |
-| Coverage              |  [![][gc]][g4]   |  [![][rc]][r4]  |    [![][nc]][n4]     |  [![][ac]][a4]  |        unknown        |
-| Build                 |  [![][gb]][g5]   |  [![][rb]][r5]  |    [![][nb]][n5]     |  [![][ab]][a5]  |    [![][sb]][s5]      |
-| Bugs                  |  [![][gbg]][g6]  | [![][rbg]][r6]  |    [![][nbg]][n6]    |  [![][abg]][a6] |    [![][sbg]][s6]     |
-| Dependents            |  [![][gdp]][g7]  | [![][rdp]][r7]  |    [![][ndp]][n7]    |  [![][adp]][a7] |    [![][sdp]][s7]     |
-| Install size          |  [![][gis]][g8]  | [![][ris]][r8]  |    [![][nis]][n8]    |  [![][ais]][a8] |    [![][sis]][s8]     |
+| HTTP/2 support        |         ❔        |         ❌       |           ❌          |        ❌        |          ✔\*\*       |
+| Browser support       |         ❌        |         ❌       |           ✔\*        |        ✔        |          ✔           |
+| Electron support      |         ✔        |         ❌       |           ❌          |        ❌        |          ❌           |
+| Promise API           |         ✔        |         ✔       |           ✔          |        ✔        |          ✔           |
+| Stream API            |         ✔        |         ✔       |     Node.js only     |        ❌        |          ✔           |
+| Request cancelation   |         ✔        |         ❌       |           ✔          |        ✔        |          ✔           |
+| RFC compliant caching |         ✔        |         ❌       |           ❌          |        ❌        |          ❌           |
+| DNS caching           |         ✔        |         ❌       |           ❌          |        ❌        |          ❌           |
+| Cookies (out-of-box)  |         ✔        |         ✔       |           ❌          |        ❌        |          ❌           |
+| Follows redirects     |         ✔        |         ✔       |           ✔          |        ✔        |          ✔           |
+| Retries on failure    |         ✔        |         ❌       |           ❌          |        ❌        |          ✔           |
+| Progress events       |         ✔        |         ❌       |           ❌          |   Browser only  |          ✔           |
+| Handles gzip/deflate  |         ✔        |         ✔       |           ✔          |        ✔        |          ✔           |
+| Advanced timeouts     |         ✔        |         ❌       |           ❌          |        ❌        |          ❌           |
+| Timings               |         ✔        |         ✔       |           ❌          |        ❌        |          ❌           |
+| Errors with metadata  |         ✔        |         ❌       |           ❌          |        ✔        |          ❌           |
+| JSOn mode             |         ✔        |         ✔       |           ✔          |        ✔        |          ✔           |
+| Custom defaults       |         ✔        |         ✔       |           ❌          |        ✔        |          ❌           |
+| Composable            |         ✔        |         ❌       |           ❌          |        ❌        |          ✔           |
+| Hooks                 |         ✔        |         ❌       |           ❌          |        ✔        |          ❌           |
+| Issues open           |  [![][gio]][g1]  | [![][rio]][r1]  |    [![][nio]][n1]    |  [![][aio]][a1] |    [![][sio]][s1]    |
+| Issues closed         |  [![][gic]][g2]  | [![][ric]][r2]  |    [![][nic]][n2]    |  [![][aic]][a2] |    [![][sic]][s2]    |
+| Downloads             |  [![][gd]][g3]   |  [![][rd]][r3]  |    [![][nd]][n3]     |  [![][ad]][a3]  |    [![][sd]][s3]     |
+| Coverage              |  [![][gc]][g4]   |  [![][rc]][r4]  |    [![][nc]][n4]     |  [![][ac]][a4]  |        unknown       |
+| Build                 |  [![][gb]][g5]   |  [![][rb]][r5]  |    [![][nb]][n5]     |  [![][ab]][a5]  |    [![][sb]][s5]     |
+| Bugs                  |  [![][gbg]][g6]  | [![][rbg]][r6]  |    [![][nbg]][n6]    |  [![][abg]][a6] |    [![][sbg]][s6]    |
+| Dependents            |  [![][gdp]][g7]  | [![][rdp]][r7]  |    [![][ndp]][n7]    |  [![][adp]][a7] |    [![][sdp]][s7]    |
+| Publish size          |  [![][gps]][g8]  | [![][rps]][r8]  |    [![][nps]][n8]    |  [![][aps]][a8] |    [![][sps]][s8]    |
+| Install size          |  [![][gis]][g8]  | [![][ris]][r8]  |    [![][nis]][n8]    |  [![][ais]][a8] |    [![][sis]][s8]    |
 
 \* It's almost API compatible with the browser `fetch` API.<br>
 \*\* Need to switch the protocol manually.<br>
@@ -1307,6 +1309,12 @@ const h2got = got.extend({request});
 [ais]: https://badgen.net/packagephobia/install/axios?label
 [sis]: https://badgen.net/packagephobia/install/superagent?label
 
+[rps]: https://badgen.net/packagephobia/publish/request?label
+[gps]: https://badgen.net/packagephobia/publish/got?label
+[nps]: https://badgen.net/packagephobia/publish/node-fetch?label
+[aps]: https://badgen.net/packagephobia/publish/axios?label
+[sps]: https://badgen.net/packagephobia/publish/superagent?label
+
 [g8]: https://packagephobia.now.sh/result?p=got
 [r8]: https://packagephobia.now.sh/result?p=request
 [n8]: https://packagephobia.now.sh/result?p=node-fetch
@@ -1315,23 +1323,25 @@ const h2got = got.extend({request});
 
 #### Install size of the dependencies
 
-|                   Dependency                   |          Install size         |
-|------------------------------------------------|-------------------------------|
-| [@sindresorhus/is][url-is]                     | ![][size-is]                  |
-| [@szmarczak/http-timer][url-http-timer]        | ![][size-http-timer]          |
-| [cacheable-request][url-cacheable-request]     | ![][size-cacheable-request]   |
-| [decompress-response][url-decompress-response] | ![][size-decompress-response] |
-| [duplexer3][url-duplexer3]                     | ![][size-duplexer3]           |
-| [get-stream][url-get-stream]                   | ![][size-get-stream]          |
-| [lowercase-keys][url-lowercase-keys]           | ![][size-lowercase-keys]      |
-| [mimic-response][url-mimic-response]           | ![][size-mimic-response]      |
-| [p-cancelable][url-p-cancelable]               | ![][size-p-cancelable]        |
-| [to-readable-stream][url-to-readable-stream]   | ![][size-to-readable-stream]  |
-|                                                | ![][gis]                      |
+|                   Dependency                   |          Publish size          |          Install size         |
+|------------------------------------------------|--------------------------------|-------------------------------|
+| [@sindresorhus/is][url-is]                     | ![][psize-is]                  | ![][size-is]                  |
+| [@szmarczak/http-timer][url-http-timer]        | ![][psize-http-timer]          | ![][size-http-timer]          |
+| [cacheable-lookup][url-cacheable-lookup]       | ![][psize-cacheable-lookup]    | ![][size-cacheable-lookup]    |
+| [cacheable-request][url-cacheable-request]     | ![][psize-cacheable-request]   | ![][size-cacheable-request]   |
+| [decompress-response][url-decompress-response] | ![][psize-decompress-response] | ![][size-decompress-response] |
+| [duplexer3][url-duplexer3]                     | ![][psize-duplexer3]           | ![][size-duplexer3]           |
+| [get-stream][url-get-stream]                   | ![][psize-get-stream]          | ![][size-get-stream]          |
+| [lowercase-keys][url-lowercase-keys]           | ![][psize-lowercase-keys]      | ![][size-lowercase-keys]      |
+| [mimic-response][url-mimic-response]           | ![][psize-mimic-response]      | ![][size-mimic-response]      |
+| [p-cancelable][url-p-cancelable]               | ![][psize-p-cancelable]        | ![][size-p-cancelable]        |
+| [to-readable-stream][url-to-readable-stream]   | ![][psize-to-readable-stream]  | ![][size-to-readable-stream]  |
+|                                                |                                | ![][gis]                      |
 
 [size-is]: https://badgen.net/packagephobia/install/@sindresorhus/is?label
 [size-http-timer]: https://badgen.net/packagephobia/install/@szmarczak/http-timer?label
 [size-cacheable-request]: https://badgen.net/packagephobia/install/cacheable-request?label
+[size-cacheable-lookup]: https://badgen.net/packagephobia/install/cacheable-lookup?label
 [size-decompress-response]: https://badgen.net/packagephobia/install/decompress-response?label
 [size-duplexer3]: https://badgen.net/packagephobia/install/duplexer3?label
 [size-get-stream]: https://badgen.net/packagephobia/install/get-stream?label
@@ -1340,9 +1350,22 @@ const h2got = got.extend({request});
 [size-p-cancelable]: https://badgen.net/packagephobia/install/p-cancelable?label
 [size-to-readable-stream]: https://badgen.net/packagephobia/install/to-readable-stream?label
 
+[psize-is]: https://badgen.net/packagephobia/publish/@sindresorhus/is?label
+[psize-http-timer]: https://badgen.net/packagephobia/publish/@szmarczak/http-timer?label
+[psize-cacheable-request]: https://badgen.net/packagephobia/publish/cacheable-request?label
+[psize-cacheable-lookup]: https://badgen.net/packagephobia/publish/cacheable-lookup?label
+[psize-decompress-response]: https://badgen.net/packagephobia/publish/decompress-response?label
+[psize-duplexer3]: https://badgen.net/packagephobia/publish/duplexer3?label
+[psize-get-stream]: https://badgen.net/packagephobia/publish/get-stream?label
+[psize-lowercase-keys]: https://badgen.net/packagephobia/publish/lowercase-keys?label
+[psize-mimic-response]: https://badgen.net/packagephobia/publish/mimic-response?label
+[psize-p-cancelable]: https://badgen.net/packagephobia/publish/p-cancelable?label
+[psize-to-readable-stream]: https://badgen.net/packagephobia/publish/to-readable-stream?label
+
 [url-is]: https://github.com/sindresorhus/is
 [url-http-timer]: https://github.com/szmarczak/http-timer
 [url-cacheable-request]: https://github.com/lukechilds/cacheable-request
+[url-cacheable-lookup]: https://github.com/szmarczak/cacheable-lookup
 [url-decompress-response]: https://github.com/sindresorhus/decompress-response
 [url-duplexer3]: https://github.com/floatdrop/duplexer3
 [url-get-stream]: https://github.com/sindresorhus/get-stream
