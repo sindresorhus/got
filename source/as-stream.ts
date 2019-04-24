@@ -27,6 +27,19 @@ export default function asStream(options: MergedOptions) {
 
 	const emitter = requestAsEventEmitter(options, input);
 
+	const emitError = async (error: Error) => {
+		try {
+			for (const hook of options.hooks.beforeError) {
+				// eslint-disable-next-line no-await-in-loop
+				error = await hook(error);
+			}
+
+			proxy.emit('error', error);
+		} catch (error2) {
+			proxy.emit('error', error2);
+		}
+	};
+
 	// Cancels the request
 	proxy._destroy = (error, callback) => {
 		callback(error);
@@ -38,11 +51,11 @@ export default function asStream(options: MergedOptions) {
 		proxy.isFromCache = isFromCache;
 
 		response.on('error', error => {
-			proxy.emit('error', new ReadError(error, options));
+			emitError(new ReadError(error, options));
 		});
 
 		if (options.throwHttpErrors && statusCode !== 304 && (statusCode < 200 || statusCode > 299)) {
-			proxy.emit('error', new HTTPError(response, options), null, response);
+			emitError(new HTTPError(response, options));
 			return;
 		}
 

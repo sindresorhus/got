@@ -498,3 +498,18 @@ test('does not break on `afterResponse` hook with JSON mode', withServer, async 
 		responseType: 'json'
 	}));
 });
+
+test('catches HTTPErrors', withServer, async (t, _server, got) => {
+	t.plan(2);
+
+	await t.throwsAsync(got({
+		hooks: {
+			beforeError: [
+				(error: Error) => {
+					t.true(error instanceof got.HTTPError);
+					return error;
+				}
+			]
+		}
+	}));
+});

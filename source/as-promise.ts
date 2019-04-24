@@ -24,19 +24,31 @@ export default function asPromise(options: Options) {
 
 	const promise = new PCancelable<IncomingMessage>((resolve, reject, onCancel) => {
 		const emitter = requestAsEventEmitter(options);
-
 		onCancel(emitter.abort);
+
+		const emitError = async (error: Error) => {
+			try {
+				for (const hook of options.hooks.beforeError) {
+					// eslint-disable-next-line no-await-in-loop
+					error = await hook(error);
+				}
+
+				reject(error);
+			} catch (error2) {
+				reject(error2);
+			}
+		};
 
 		emitter.on('response', async response => {
 			proxy.emit('response', response);
 
 			const stream = is.null_(options.encoding) ? getStream.buffer(response) : getStream(response, {encoding: options.encoding});
 
-			let data;
+			let data: Buffer | String;
 			try {
 				data = await stream;
 			} catch (error) {
-				reject(new ReadError(error, options));
+				emitError(new ReadError(error, options));
 				return;
 			}
 
@@ -69,7 +81,7 @@ export default function asPromise(options: Options) {
 					});
 				}
 			} catch (error) {
-				reject(error);
+				emitError(error);
 				return;
 			}
 
@@ -81,7 +93,7 @@ export default function asPromise(options: Options) {
 				} catch (error) {
 					if (statusCode >= 200 && statusCode < 300) {
 						const parseError = new ParseError(error, response, options);
-						reject(parseError);
+						emitError(parseError);
 						return;
 					}
 				}
@@ -91,7 +103,7 @@ export default function asPromise(options: Options) {
 				const error = new HTTPError(response, options);
 				if (emitter.retry(error) === false) {
 					if (options.throwHttpErrors) {
-						reject(error);
+						emitError(error);
 						return;
 					}
 
