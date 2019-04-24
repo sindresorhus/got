@@ -26,7 +26,7 @@ export default (request: ClientRequest, delays: Delays, options: any) => {
 	}
 
 	(request as any)[reentry] = true;
-	const cancelers: (typeof noop)[] = [];
+	const cancelers: Array<typeof noop> = [];
 	const {once, unhandleAll} = unhandler();
 
 	const addTimeout = (delay: number, callback: (...args: any) => void, ...args: any): (typeof noop) => {

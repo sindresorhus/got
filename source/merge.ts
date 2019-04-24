@@ -38,7 +38,7 @@ export default function merge<Target extends {[key: string]: unknown}, Source ex
 	return target as Target & Source;
 }
 
-export function mergeOptions(...sources: Partial<Options>[]): Partial<Options> & {hooks: Partial<Hooks>} {
+export function mergeOptions(...sources: Array<Partial<Options>>): Partial<Options> & {hooks: Partial<Hooks>} {
 	sources = sources.map(source => source || {});
 	const merged = merge({}, ...sources);
 
