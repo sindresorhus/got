@@ -1176,6 +1176,7 @@ const h2got = got.extend({request});
 | HTTP/2 support        |         ❔        |         ❌       |           ❌          |        ❌        |          ✔\*\*       |
 | Browser support       |         ❌        |         ❌       |           ✔\*        |        ✔        |          ✔           |
 | Electron support      |         ✔        |         ❌       |           ❌          |        ❌        |          ❌           |
+| TypeScript support    |        100%      |      @types     |         @types       |        100%     |          @types      |
 | Promise API           |         ✔        |         ✔       |           ✔          |        ✔        |          ✔           |
 | Stream API            |         ✔        |         ✔       |     Node.js only     |        ❌        |          ✔           |
 | Request cancelation   |         ✔        |         ❌       |           ✔          |        ✔        |          ✔           |
