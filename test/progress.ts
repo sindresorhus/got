@@ -4,7 +4,7 @@ import SlowStream from 'slow-stream';
 import toReadableStream from 'to-readable-stream';
 import getStream from 'get-stream';
 import FormData from 'form-data';
-import tempfile from 'tempfile';
+import tempy from 'tempy';
 import is from '@sindresorhus/is';
 import test from 'ava';
 import withServer from './helpers/with-server';
@@ -103,7 +103,7 @@ test('upload progress - file', withServer, async (t, server, got) => {
 test('upload progress - file stream', withServer, async (t, server, got) => {
 	server.post('/', uploadEndpoint);
 
-	const path = tempfile();
+	const path = tempy.file();
 	fs.writeFileSync(path, file);
 
 	const events = [];
