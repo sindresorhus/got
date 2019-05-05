@@ -1,16 +1,15 @@
 import {IncomingMessage} from 'http';
 import EventEmitter from 'events';
-import {Transform as TransformStream} from 'stream';
 import is from '@sindresorhus/is';
 import decompressResponse from 'decompress-response';
 import mimicResponse from 'mimic-response';
-import {Options, Response} from './utils/types';
+import {NormalizedOptions, Response} from './utils/types';
 import {downloadProgress} from './progress';
 
-export default (response: IncomingMessage, options: Options, emitter: EventEmitter) => {
+export default (response: IncomingMessage, options: NormalizedOptions, emitter: EventEmitter) => {
 	const downloadBodySize = Number(response.headers['content-length']) || undefined;
 
-	const progressStream: TransformStream = downloadProgress(response, emitter, downloadBodySize);
+	const progressStream = downloadProgress(response, emitter, downloadBodySize);
 
 	mimicResponse(response, progressStream);
 

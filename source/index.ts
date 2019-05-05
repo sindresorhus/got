@@ -1,7 +1,8 @@
 import packageJson from '../package.json';
 import create from './create';
+import {Defaults} from './utils/types.js';
 
-const defaults = {
+const defaults: Partial<Defaults> = {
 	options: {
 		method: 'GET',
 		retry: {
@@ -54,7 +55,7 @@ const defaults = {
 		resolveBodyOnly: false
 	},
 	mutableDefaults: false
-} as const;
+};
 
 const got = create(defaults);
 

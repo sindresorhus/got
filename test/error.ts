@@ -13,7 +13,7 @@ test('properties', withServer, async (t, server, got) => {
 
 	const url = new URL(server.url);
 
-	const error = await t.throwsAsync(got('')) as any;
+	const error = await t.throwsAsync(got(''));
 	t.truthy(error);
 	// @ts-ignore
 	t.truthy(error.response);
