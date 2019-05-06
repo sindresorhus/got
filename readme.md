@@ -102,7 +102,7 @@ Returns a Promise for a [`response` object](#response) or a [stream](#streams-1)
 
 ##### url
 
-Type: `string` `Object`
+Type: `string | object`
 
 The URL to request, as a string, a [`https.request` options object](https://nodejs.org/api/https.html#https_https_request_options_callback), or a [WHATWG `URL`](https://nodejs.org/api/url.html#url_class_url).
 
@@ -114,13 +114,13 @@ If no protocol is specified, it will throw a `TypeError`.
 
 ##### options
 
-Type: `Object`
+Type: `object`
 
 Any of the [`https.request`](https://nodejs.org/api/https.html#https_https_request_options_callback) options.
 
 ###### baseUrl
 
-Type: `string` `Object`
+Type: `string | object`
 
 When specified, `url` will be prepended by `baseUrl`.<br>
 If you specify an absolute URL, it will skip the `baseUrl`.
@@ -144,7 +144,7 @@ await got('/hello', {baseUrl: 'https://example.com/v1'});
 
 ###### headers
 
-Type: `Object`<br>
+Type: `object`<br>
 Default: `{}`
 
 Request headers.
@@ -160,7 +160,7 @@ Returns a `Stream` instead of a `Promise`. This is equivalent to calling `got.st
 
 ###### body
 
-Type: `string` `Buffer` `stream.Readable` [`form-data` instance](https://github.com/form-data/form-data)
+Type: `string | Buffer | stream.Readable` or [`form-data` instance](https://github.com/form-data/form-data)
 
 **Note:** The `body` option cannot be used with the `json` or `form` option.
 
@@ -172,7 +172,7 @@ The `content-length` header will be automatically set if `body` is a `string` / 
 
 ###### json
 
-Type: `Object` `Array` `number` `string` `boolean` `null`
+Type: `object | Array | number | string | boolean | null` *(JSON-serializable values)*
 
 **Note:** If you provide this option, `got.stream()` will be read-only.
 
@@ -210,14 +210,14 @@ Cookie support. You don't have to care about parsing or how to store them. [Exam
 
 ###### encoding
 
-Type: `string` `null`<br>
+Type: `string | null`<br>
 Default: `'utf8'`
 
 [Encoding](https://nodejs.org/api/buffer.html#buffer_buffers_and_character_encodings) to be used on `setEncoding` of the response data. If `null`, the body is returned as a [`Buffer`](https://nodejs.org/api/buffer.html) (binary data).
 
 ###### form
 
-Type: `Object`
+Type: `object | true`
 
 **Note:** If you provide this option, `got.stream()` will be read-only.
 
@@ -227,7 +227,7 @@ If set to `true` and the `Content-Type` header is not set, it will be set to `ap
 
 ###### searchParams
 
-Type: `string` `Object<string, string|number>` [`URLSearchParams`](https://developer.mozilla.org/en-US/docs/Web/API/URLSearchParams)
+Type: `string | object<string, string | number> | URLSearchParams`
 
 **Note:** The `query` option was renamed to `searchParams` in Got v10. The `query` option name is still functional, but is being deprecated and will be completely removed in Got v11.
 
@@ -262,7 +262,7 @@ console.log(searchParams);
 
 ###### timeout
 
-Type: `number` `Object`
+Type: `number | object`
 
 Milliseconds to wait for the server to end the response before aborting the request with [`got.TimeoutError`](#gottimeouterror) error (a.k.a. `request` property). By default, there's no timeout.
 
@@ -278,7 +278,7 @@ This also accepts an `object` with the following fields to constrain the duratio
 
 ###### retry
 
-Type: `number` `Object`<br>
+Type: `number | object`<br>
 Default:
 - retries: `2`
 - methods: `GET` `PUT` `HEAD` `DELETE` `OPTIONS` `TRACE`
@@ -327,14 +327,14 @@ If this is disabled, a compressed response is returned as a `Buffer`. This may b
 
 ###### cache
 
-Type: `Object`<br>
+Type: `object`<br>
 Default: `false`
 
 [Cache adapter instance](#cache-adapters) for storing cached response data.
 
 ###### dnsCache
 
-Type: `Object`<br>
+Type: `object`<br>
 Default: `false`
 
 [Cache adapter instance](#cache-adapters) for storing cached DNS data.
@@ -342,7 +342,7 @@ Default: `false`
 ###### request
 
 Type: `Function`<br>
-Default: `http.request` `https.request` *(depending on the protocol)*
+Default: `http.request` `https.request` *(Depending on the protocol)*
 
 Custom request function. The main purpose of this is to [support HTTP2 using a wrapper](#experimental-http2-support).
 
@@ -383,7 +383,7 @@ got('https://sindresorhus.com', {
 
 ###### hooks
 
-Type: `Object<string, Function[]>`
+Type: `object<string, Function[]>`
 
 Hooks allow modifications during the request lifecycle. Hook functions may be async and are run serially.
 
@@ -527,7 +527,7 @@ The response object will typically be a [Node.js HTTP response stream](https://n
 
 ##### request
 
-Type: `Object`
+Type: `object`
 
 **Note:** This is not a [http.ClientRequest](https://nodejs.org/api/http.html#http_class_http_clientrequest).
 
@@ -535,7 +535,7 @@ Type: `Object`
 
 ##### body
 
-Type: `string` `Object` `Buffer` *(depending on `options.responseType`)*
+Type: `string | object | Buffer` *(Depending on `options.responseType`)*
 
 The result of the request.
 
@@ -553,7 +553,7 @@ The original request URL.
 
 ##### timings
 
-Type: `Object`
+Type: `object`
 
 The object contains the following properties:
 
@@ -584,7 +584,7 @@ Whether the response was retrieved from the cache.
 
 ##### redirectUrls
 
-Type: `Array`
+Type: `string[]`
 
 The redirect URLs.
 
@@ -733,15 +733,15 @@ Options are deeply merged to a new object. The value of each key is determined a
 - If the new property is set to `undefined`, it keeps the old one.
 - If both properties are an instances of `URLSearchParams`, a new URLSearchParams instance is created. The values are merged using [`urlSearchParams.append(key, value)`](https://developer.mozilla.org/en-US/docs/Web/API/URLSearchParams/append).
 - If the parent property is an instance of `URL` and the new value is a `string` or `URL`, a new URL instance is created: [`new URL(new, parent)`](https://developer.mozilla.org/en-US/docs/Web/API/URL/URL#Syntax).
-- If the new property is a plain `Object`:
-	- If the parent property is a plain `Object` too, both values are merged recursively into a new `Object`.
+- If the new property is a plain `object`:
+	- If the parent property is a plain `object` too, both values are merged recursively into a new `object`.
 	- Otherwise, only the new value is deeply cloned.
 - If the new property is an `Array`, it overwrites the old one with a deep clone of the new property.
 - Otherwise, the new value is assigned to the key.
 
 #### got.defaults
 
-Type: `Object`
+Type: `object`
 
 The default Got options.
 
@@ -912,6 +912,7 @@ You can use the [`form-data`](https://github.com/form-data/form-data) package to
 const fs = require('fs');
 const got = require('got');
 const FormData = require('form-data');
+
 const form = new FormData();
 
 form.append('my_file', fs.createReadStream('/foo/bar.jpg'));
@@ -975,9 +976,9 @@ got('unix:/var/run/docker.sock:/containers/json');
 Requests to AWS services need to have their headers signed. This can be accomplished by using the [`aws4`](https://www.npmjs.com/package/aws4) package. This is an example for querying an ["API Gateway"](https://docs.aws.amazon.com/apigateway/api-reference/signing-requests/) with a signed request.
 
 ```js
+const got = require('got');
 const AWS = require('aws-sdk');
 const aws4 = require('aws4');
-const got = require('got');
 
 const chain = new AWS.CredentialProviderChain();
 
@@ -1073,14 +1074,14 @@ By default, if you pass an object to the `body` option it will be stringified us
 const got = require('got');
 
 (async () => {
-	const response = await got.post('https://httpbin.org/anything', {
+	const {body} = await got.post('https://httpbin.org/anything', {
 		body: {
 			hello: 'world'
 		},
 		responseType: 'json'
 	});
 
-	console.log(response.body.data);
+	console.log(body.data);
 	//=> '{"hello":"world"}'
 })();
 ```
