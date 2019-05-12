@@ -16,7 +16,7 @@ import getResponse from './get-response';
 import {uploadProgress} from './progress';
 import {CacheError, UnsupportedProtocolError, MaxRedirectsError, RequestError, TimeoutError, HTTPError} from './errors';
 import urlToOptions from './utils/url-to-options';
-import {RequestFunction, NormalizedOptions, Response} from './utils/types';
+import {RequestFunction, NormalizedOptions, Response, AgentByProtocol} from './utils/types';
 import dynamicRequire from './utils/dynamic-require';
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -82,8 +82,7 @@ export default (options: NormalizedOptions, input?: TransformStream) => {
 
 		if (agents) {
 			const protocolName = options.protocol === 'https:' ? 'https' : 'http';
-			// TS complains due to index signature missing
-			options.agent = (agents as any)[protocolName] || options.agent;
+			options.agent = (agents as AgentByProtocol)[protocolName] || options.agent;
 		}
 
 		/* istanbul ignore next: electron.net is broken */
@@ -104,7 +103,6 @@ export default (options: NormalizedOptions, input?: TransformStream) => {
 		}
 
 		let timings: Timings;
-		// TODO: Properly type this.
 		const handleResponse = async (response: http.ServerResponse | ResponseLike): Promise<void> => {
 			try {
 				/* istanbul ignore next: fixes https://github.com/electron/electron/blob/cbb460d47628a7a146adf4419ed48550a98b2923/lib/browser/api/net.js#L59-L65 */
