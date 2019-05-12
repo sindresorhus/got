@@ -25,7 +25,7 @@ export type BeforeRedirectHook = (options: NormalizedOptions) => void | Promise<
 /**
 Called with normalized [request options](https://github.com/sindresorhus/got#options), the error and the retry count. Got will make no further changes to the request. This is especially useful when some extra work is required before the next try.
 */
-export type BeforeRetryHook = (options: NormalizedOptions, error: HTTPError, retryCount: number) => void | Promise<void>;
+export type BeforeRetryHook = (options: NormalizedOptions, error: Error | GotError | ParseError | HTTPError | MaxRedirectsError, retryCount: number) => void | Promise<void>;
 
 /**
 Called with an `Error` instance. The error is passed to the hook right before it's thrown. This is especially useful when you want to have more detailed errors.

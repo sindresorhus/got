@@ -14,7 +14,7 @@ import getBodySize from './utils/get-body-size';
 import isFormData from './utils/is-form-data';
 import getResponse from './get-response';
 import {uploadProgress} from './progress';
-import {CacheError, UnsupportedProtocolError, MaxRedirectsError, RequestError, TimeoutError, HTTPError} from './errors';
+import {CacheError, UnsupportedProtocolError, MaxRedirectsError, RequestError, TimeoutError} from './errors';
 import urlToOptions from './utils/url-to-options';
 import {RequestFunction, NormalizedOptions, Response, AgentByProtocol} from './utils/types';
 import dynamicRequire from './utils/dynamic-require';
@@ -33,7 +33,7 @@ const allMethodRedirectCodes: ReadonlySet<AllMethodRedirectCodes> = new Set([300
 const withoutBody: ReadonlySet<WithoutBody> = new Set(['GET', 'HEAD']);
 
 export interface RequestAsEventEmitter extends EventEmitter {
-	retry: (error: Error) => boolean;
+	retry: <T extends Error>(error: T) => boolean;
 	abort: () => void;
 }
 
@@ -120,7 +120,7 @@ export default (options: NormalizedOptions, input?: TransformStream) => {
 				}
 
 				const {statusCode} = response;
-				const typedResponse = response as unknown as Response;
+				const typedResponse = response as Response;
 				typedResponse.statusMessage = typedResponse.statusMessage || http.STATUS_CODES[statusCode];
 				typedResponse.url = currentUrl;
 				typedResponse.requestUrl = requestUrl;
@@ -254,7 +254,7 @@ export default (options: NormalizedOptions, input?: TransformStream) => {
 		} else {
 			// Catches errors thrown by calling requestFn(...)
 			try {
-				// @ts-ignore Something's up with ts
+				// @ts-ignore TS complains that URLSearchParams is not the same as URLSearchParams
 				handleRequest(requestFn(options as any as URL, handleResponse));
 			} catch (error) {
 				emitError(new RequestError(error, options));
@@ -262,7 +262,7 @@ export default (options: NormalizedOptions, input?: TransformStream) => {
 		}
 	};
 
-	emitter.retry = (error: Error): boolean => {
+	emitter.retry = (error): boolean => {
 		let backoff: number;
 
 		try {
@@ -277,7 +277,7 @@ export default (options: NormalizedOptions, input?: TransformStream) => {
 				try {
 					for (const hook of options.hooks.beforeRetry) {
 						// eslint-disable-next-line no-await-in-loop
-						await hook(options, error as HTTPError, retryCount);
+						await hook(options, error, retryCount);
 					}
 
 					await get(options);

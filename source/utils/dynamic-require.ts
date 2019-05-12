@@ -1,3 +1,3 @@
-export default (moduleObject: NodeModule, moduleId: string): any => {
+export default (moduleObject: NodeModule, moduleId: string): unknown => {
 	return moduleObject.require(moduleId);
 };
