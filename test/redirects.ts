@@ -4,18 +4,18 @@ import test from 'ava';
 import nock from 'nock';
 import withServer from './helpers/with-server';
 
-const reachedHandler = (_request, response): void => {
+const reachedHandler = (_request, response) => {
 	response.end('reached');
 };
 
-const finiteHandler = (_request, response): void => {
+const finiteHandler = (_request, response) => {
 	response.writeHead(302, {
 		location: '/'
 	});
 	response.end();
 };
 
-const relativeHandler = (_request, response): void => {
+const relativeHandler = (_request, response) => {
 	response.writeHead(302, {
 		location: '/'
 	});

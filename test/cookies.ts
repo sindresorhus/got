@@ -1,13 +1,12 @@
-import {IncomingMessage, ServerResponse} from 'http';
 import net, {AddressInfo} from 'net';
-import test, {ExecutionContext} from 'ava';
+import test from 'ava';
 import tough from 'tough-cookie';
 import delay from 'delay';
 import got from '../source';
-import withServer, {SecureGot} from './helpers/with-server';
+import withServer from './helpers/with-server';
 
-test('reads a cookie', withServer, async (t: ExecutionContext, server: any, got: SecureGot) => {
-	server.get('/', (_request: IncomingMessage, response: ServerResponse) => {
+test('reads a cookie', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
 		response.setHeader('set-cookie', 'hello=world');
 		response.end();
 	});
@@ -21,8 +20,8 @@ test('reads a cookie', withServer, async (t: ExecutionContext, server: any, got:
 	t.is(cookie.value, 'world');
 });
 
-test('reads multiple cookies', withServer, async (t: ExecutionContext, server: any, got: SecureGot) => {
-	server.get('/', (_request: IncomingMessage, response: ServerResponse) => {
+test('reads multiple cookies', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
 		response.setHeader('set-cookie', ['hello=world', 'foo=bar']);
 		response.end();
 	});
@@ -41,15 +40,15 @@ test('reads multiple cookies', withServer, async (t: ExecutionContext, server: a
 	t.is(cookieB.value, 'bar');
 });
 
-test('cookies doesn\'t break on redirects', withServer, async (t: ExecutionContext, server: any, got: SecureGot) => {
-	server.get('/redirect', (_request: IncomingMessage, response: ServerResponse) => {
+test('cookies doesn\'t break on redirects', withServer, async (t, server, got) => {
+	server.get('/redirect', (_request, response) => {
 		response.setHeader('set-cookie', ['hello=world', 'foo=bar']);
 		response.setHeader('location', '/');
 		response.statusCode = 302;
 		response.end();
 	});
 
-	server.get('/', (request: IncomingMessage, response: ServerResponse) => {
+	server.get('/', (request, response) => {
 		response.end(request.headers.cookie || '');
 	});
 
@@ -59,8 +58,8 @@ test('cookies doesn\'t break on redirects', withServer, async (t: ExecutionConte
 	t.is(body, 'hello=world; foo=bar');
 });
 
-test('throws on invalid cookies', withServer, async (t: ExecutionContext, server: any, got: SecureGot) => {
-	server.get('/', (_request: IncomingMessage, response: ServerResponse) => {
+test('throws on invalid cookies', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
 		response.setHeader('set-cookie', 'hello=world; domain=localhost');
 		response.end();
 	});
@@ -82,15 +81,15 @@ test('catches store errors', async t => {
 	await t.throwsAsync(got('https://example.com', {cookieJar}), error);
 });
 
-test('overrides options.headers.cookie', withServer, async (t: ExecutionContext, server: any, got: SecureGot) => {
-	server.get('/redirect', (_request: IncomingMessage, response: ServerResponse) => {
+test('overrides options.headers.cookie', withServer, async (t, server, got) => {
+	server.get('/redirect', (_request, response) => {
 		response.setHeader('set-cookie', ['hello=world', 'foo=bar']);
 		response.setHeader('location', '/');
 		response.statusCode = 302;
 		response.end();
 	});
 
-	server.get('/', (request: IncomingMessage, response: ServerResponse) => {
+	server.get('/', (request, response) => {
 		response.end(request.headers.cookie || '');
 	});
 
@@ -114,11 +113,10 @@ test('no unhandled errors', async t => {
 	const options = {
 		cookieJar: {
 			setCookie: () => {},
-			getCookieString: (_: any, __: any, cb: (error?: Error, cookie?: string) => void) => cb(new Error(message))
+			getCookieString: (_, __, cb) => cb(new Error(message))
 		}
 	};
 
-	// @ts-ignore Options object complains that the cookieJar is missing properties
 	await t.throwsAsync(got(`http://127.0.0.1:${(server.address() as AddressInfo).port}`, options), {message});
 	await delay(500);
 	t.pass();

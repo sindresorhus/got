@@ -1,45 +1,33 @@
-import {IncomingMessage, ServerResponse} from 'http';
 import fs from 'fs';
 import {promisify} from 'util';
 import path from 'path';
-import test, {ExecutionContext} from 'ava';
+import test from 'ava';
 import FormData from 'form-data';
 import got from '../source';
 import supportsBrotli from '../source/utils/supports-brotli';
 import pkg from '../package.json';
-import withServer, {SecureGot} from './helpers/with-server';
+import withServer from './helpers/with-server';
 
-interface HttpBinResult {
-	headers: {
-		Host: string;
-	};
-}
-
-interface FakeBody {
-	accept: string;
-	host: string;
-}
-
-const echoHeaders = (request: IncomingMessage, response: ServerResponse): void => {
+const echoHeaders = (request, response) => {
 	request.resume();
 	response.end(JSON.stringify(request.headers));
 };
 
-test('`user-agent`', withServer, async (t: ExecutionContext, server: any, got: SecureGot) => {
+test('`user-agent`', withServer, async (t, server, got) => {
 	server.get('/', echoHeaders);
 
 	const headers = await got('').json();
 	t.is(headers['user-agent'], `${pkg.name}/${pkg.version} (https://github.com/sindresorhus/got)`);
 });
 
-test('`accept-encoding`', withServer, async (t: ExecutionContext, server: any, got: SecureGot) => {
+test('`accept-encoding`', withServer, async (t, server, got) => {
 	server.get('/', echoHeaders);
 
 	const headers = await got('').json();
 	t.is(headers['accept-encoding'], supportsBrotli ? 'gzip, deflate, br' : 'gzip, deflate');
 });
 
-test('does not override provided `accept-encoding`', withServer, async (t: ExecutionContext, server: any, got: SecureGot) => {
+test('does not override provided `accept-encoding`', withServer, async (t, server, got) => {
 	server.get('/', echoHeaders);
 
 	const headers = await got({
@@ -69,7 +57,7 @@ test('does not remove user headers from `url` object argument', withServer, asyn
 	t.is(headers['x-request-id'], 'value');
 });
 
-test('does not set `accept-encoding` header when `options.decompress` is false', withServer, async (t: ExecutionContext, server: any, got: SecureGot) => {
+test('does not set `accept-encoding` header when `options.decompress` is false', withServer, async (t, server, got) => {
 	server.get('/', echoHeaders);
 
 	const headers = await got({
@@ -78,10 +66,10 @@ test('does not set `accept-encoding` header when `options.decompress` is false',
 	t.false(Reflect.has(headers, 'accept-encoding'));
 });
 
-test('`accept` header with `json` option', withServer, async (t: ExecutionContext, server: any, got: SecureGot) => {
+test('`accept` header with `json` option', withServer, async (t, server, got) => {
 	server.get('/', echoHeaders);
 
-	let headers = await got('').json<FakeBody>();
+	let headers = await got('').json();
 	t.is(headers.accept, 'application/json');
 
 	headers = await got({
@@ -92,14 +80,14 @@ test('`accept` header with `json` option', withServer, async (t: ExecutionContex
 	t.is(headers.accept, '');
 });
 
-test('`host` header', withServer, async (t: ExecutionContext, server: any, got: SecureGot) => {
+test('`host` header', withServer, async (t, server, got) => {
 	server.get('/', echoHeaders);
 
-	const headers = await got('').json<FakeBody>();
+	const headers = await got('').json();
 	t.is(headers.host, `localhost:${server.port}`);
 });
 
-test('transforms names to lowercase', withServer, async (t: ExecutionContext, server: any, got: SecureGot) => {
+test('transforms names to lowercase', withServer, async (t, server, got) => {
 	server.get('/', echoHeaders);
 
 	const headers = (await got({
@@ -111,7 +99,7 @@ test('transforms names to lowercase', withServer, async (t: ExecutionContext, se
 	t.is(headers['accept-encoding'], 'identity');
 });
 
-test('setting `content-length` to 0', withServer, async (t: ExecutionContext, server: any, got: SecureGot) => {
+test('setting `content-length` to 0', withServer, async (t, server, got) => {
 	server.post('/', echoHeaders);
 
 	const {body} = await got.post({
@@ -124,7 +112,7 @@ test('setting `content-length` to 0', withServer, async (t: ExecutionContext, se
 	t.is(headers['content-length'], '0');
 });
 
-test('sets `content-length` to `0` when requesting PUT with empty body', withServer, async (t: ExecutionContext, server: any, got: SecureGot) => {
+test('sets `content-length` to `0` when requesting PUT with empty body', withServer, async (t, server, got) => {
 	server.put('/', echoHeaders);
 
 	const {body} = await got({
@@ -134,7 +122,7 @@ test('sets `content-length` to `0` when requesting PUT with empty body', withSer
 	t.is(headers['content-length'], '0');
 });
 
-test('form-data manual `content-type` header', withServer, async (t: ExecutionContext, server: any, got: SecureGot) => {
+test('form-data manual `content-type` header', withServer, async (t, server, got) => {
 	server.post('/', echoHeaders);
 
 	const form = new FormData();
@@ -149,7 +137,7 @@ test('form-data manual `content-type` header', withServer, async (t: ExecutionCo
 	t.is(headers['content-type'], 'custom');
 });
 
-test('form-data automatic `content-type` header', withServer, async (t: ExecutionContext, server: any, got: SecureGot) => {
+test('form-data automatic `content-type` header', withServer, async (t, server, got) => {
 	server.post('/', echoHeaders);
 
 	const form = new FormData();
@@ -161,7 +149,7 @@ test('form-data automatic `content-type` header', withServer, async (t: Executio
 	t.is(headers['content-type'], `multipart/form-data; boundary=${form.getBoundary()}`);
 });
 
-test('form-data sets `content-length` header', withServer, async (t: ExecutionContext, server: any, got: SecureGot) => {
+test('form-data sets `content-length` header', withServer, async (t, server, got) => {
 	server.post('/', echoHeaders);
 
 	const form = new FormData();
@@ -171,7 +159,7 @@ test('form-data sets `content-length` header', withServer, async (t: ExecutionCo
 	t.is(headers['content-length'], '157');
 });
 
-test('stream as `options.body` sets `content-length` header', withServer, async (t: ExecutionContext, server: any, got: SecureGot) => {
+test('stream as `options.body` sets `content-length` header', withServer, async (t, server, got) => {
 	server.post('/', echoHeaders);
 
 	const fixture = path.join(__dirname, 'fixtures/stream-content-length');
@@ -183,7 +171,7 @@ test('stream as `options.body` sets `content-length` header', withServer, async 
 	t.is(Number(headers['content-length']), size);
 });
 
-test('buffer as `options.body` sets `content-length` header', withServer, async (t: ExecutionContext, server: any, got: SecureGot) => {
+test('buffer as `options.body` sets `content-length` header', withServer, async (t, server, got) => {
 	server.post('/', echoHeaders);
 
 	const buffer = Buffer.from('unicorn');
@@ -194,7 +182,7 @@ test('buffer as `options.body` sets `content-length` header', withServer, async 
 	t.is(Number(headers['content-length']), buffer.length);
 });
 
-test('removes null value headers', withServer, async (t: ExecutionContext, server: any, got: SecureGot) => {
+test('removes null value headers', withServer, async (t, server, got) => {
 	server.get('/', echoHeaders);
 
 	const {body} = await got({
@@ -206,7 +194,7 @@ test('removes null value headers', withServer, async (t: ExecutionContext, serve
 	t.false(Reflect.has(headers, 'user-agent'));
 });
 
-test('setting a header to undefined keeps the old value', withServer, async (t: ExecutionContext, server: any, got: SecureGot) => {
+test('setting a header to undefined keeps the old value', withServer, async (t, server, got) => {
 	server.get('/', echoHeaders);
 
 	const {body} = await got({
@@ -218,7 +206,7 @@ test('setting a header to undefined keeps the old value', withServer, async (t: 
 	t.not(headers['user-agent'], undefined);
 });
 
-test('non-existent headers set to undefined are omitted', withServer, async (t: ExecutionContext, server: any, got: SecureGot) => {
+test('non-existent headers set to undefined are omitted', withServer, async (t, server, got) => {
 	server.get('/', echoHeaders);
 
 	const {body} = await got({
@@ -230,29 +218,29 @@ test('non-existent headers set to undefined are omitted', withServer, async (t: 
 	t.false(Reflect.has(headers, 'blah'));
 });
 
-test('preserve port in host header if non-standard port', withServer, async (t: ExecutionContext, server: any, got: SecureGot) => {
+test('preserve port in host header if non-standard port', withServer, async (t, server, got) => {
 	server.get('/', echoHeaders);
 
-	const body = await got('').json<FakeBody>();
+	const body = await got('').json();
 	t.is(body.host, `localhost:${server.port}`);
 });
 
 test('strip port in host header if explicit standard port (:80) & protocol (HTTP)', async t => {
-	const body = await got('http://httpbin.org:80/headers').json<HttpBinResult>();
+	const body = await got('http://httpbin.org:80/headers').json();
 	t.is(body.headers.Host, 'httpbin.org');
 });
 
 test('strip port in host header if explicit standard port (:443) & protocol (HTTPS)', async t => {
-	const body = await got('https://httpbin.org:443/headers').json<HttpBinResult>();
+	const body = await got('https://httpbin.org:443/headers').json();
 	t.is(body.headers.Host, 'httpbin.org');
 });
 
 test('strip port in host header if implicit standard port & protocol (HTTP)', async t => {
-	const body = await got('http://httpbin.org/headers').json<HttpBinResult>();
+	const body = await got('http://httpbin.org/headers').json();
 	t.is(body.headers.Host, 'httpbin.org');
 });
 
 test('strip port in host header if implicit standard port & protocol (HTTPS)', async t => {
-	const body = await got('https://httpbin.org/headers').json<HttpBinResult>();
+	const body = await got('https://httpbin.org/headers').json();
 	t.is(body.headers.Host, 'httpbin.org');
 });

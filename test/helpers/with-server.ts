@@ -3,25 +3,17 @@ import http from 'http';
 import {URL} from 'url';
 import tempy from 'tempy';
 import createTestServer from 'create-test-server';
-// eslint-disable-next-line ava/use-test
-import {ExecutionContext} from 'ava';
 import got from '../../source';
-import {Got} from '../../source/create';
-import {Options} from '../../source/utils/types';
 
-export interface SecureGot extends Got {
-	secure: Got;
-}
-
-export default async (t: ExecutionContext, run: (t: ExecutionContext, server: any, got: SecureGot) => Promise<void>) => {
+export default async (t, run) => {
 	const server = await createTestServer({
 		bodyParser: {
 			type: () => false
 		}
 	});
 
-	const preparedGot = got.extend({baseUrl: server.url, avaTest: t.title} as Options & { avaTest: string }) as SecureGot;
-	preparedGot.secure = got.extend({baseUrl: server.sslUrl, avaTest: t.title} as Options & { avaTest: string });
+	const preparedGot = got.extend({baseUrl: server.url, avaTest: t.title});
+	preparedGot.secure = got.extend({baseUrl: server.sslUrl, avaTest: t.title});
 
 	server.hostname = (new URL(server.url)).hostname;
 	server.sslHostname = (new URL(server.sslUrl)).hostname;
@@ -34,7 +26,7 @@ export default async (t: ExecutionContext, run: (t: ExecutionContext, server: an
 };
 
 // TODO: remove this when `create-test-server` supports custom listen
-export const withSocketServer = async (t: ExecutionContext, run: (t: ExecutionContext, server: http.Server) => Promise<void>): Promise<void> => {
+export const withSocketServer = async (t, run) => {
 	const socketPath = tempy.file({extension: 'socket'});
 
 	const server = http.createServer((request, response) => {

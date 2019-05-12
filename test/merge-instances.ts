@@ -1,11 +1,9 @@
 import {URLSearchParams} from 'url';
 import test from 'ava';
 import got from '../source';
-import {Got} from '../source/create';
-import {BeforeRequestHook} from '../source/known-hook-events';
 import withServer from './helpers/with-server';
 
-const echoHeaders = (request, response): void => {
+const echoHeaders = (request, response) => {
 	response.end(JSON.stringify(request.headers));
 };
 
@@ -16,7 +14,7 @@ test('merging instances', withServer, async (t, server) => {
 	const instanceB = got.extend({baseUrl: server.url});
 	const merged = got.mergeInstances(instanceA, instanceB);
 
-	const headers = await merged('/').json<{unicorn: string}>();
+	const headers = await merged('/').json();
 	t.is(headers.unicorn, 'rainbow');
 	t.not(headers['user-agent'], undefined);
 });
@@ -51,7 +49,7 @@ test('merges default handlers & custom handlers', withServer, async (t, server) 
 	});
 	const merged = got.mergeInstances(instanceA, instanceB);
 
-	const headers = await merged(server.url).json<{unicorn: string; cat: string}>();
+	const headers = await merged(server.url).json();
 	t.is(headers.unicorn, 'rainbow');
 	t.is(headers.cat, 'meow');
 });
@@ -67,7 +65,7 @@ test('merging one group & one instance', withServer, async (t, server) => {
 	const merged = got.mergeInstances(instanceA, instanceB, instanceC);
 	const doubleMerged = got.mergeInstances(merged, instanceD);
 
-	const headers = await doubleMerged(server.url).json<{dog: string; cat: string; bird: string; mouse: string}>();
+	const headers = await doubleMerged(server.url).json();
 	t.is(headers.dog, 'woof');
 	t.is(headers.cat, 'meow');
 	t.is(headers.bird, 'tweet');
@@ -87,7 +85,7 @@ test('merging two groups of merged instances', withServer, async (t, server) => 
 
 	const merged = got.mergeInstances(groupA, groupB);
 
-	const headers = await merged(server.url).json<{dog: string; cat: string; bird: string; mouse: string}>();
+	const headers = await merged(server.url).json();
 	t.is(headers.dog, 'woof');
 	t.is(headers.cat, 'meow');
 	t.is(headers.bird, 'tweet');
@@ -95,7 +93,7 @@ test('merging two groups of merged instances', withServer, async (t, server) => 
 });
 
 test('hooks are merged', t => {
-	const getBeforeRequestHooks = (instance: Got): BeforeRequestHook[] => instance.defaults.options.hooks.beforeRequest;
+	const getBeforeRequestHooks = instance => instance.defaults.options.hooks.beforeRequest;
 
 	const instanceA = got.extend({hooks: {
 		beforeRequest: [
@@ -145,8 +143,6 @@ test('URLSearchParams instances are merged', t => {
 	});
 
 	const merged = got.mergeInstances(instanceA, instanceB);
-	// @ts-ignore Due to the type not being just URLSearchParams
 	t.is(merged.defaults.options.searchParams.get('a'), '1');
-	// @ts-ignore Due to the type not being just URLSearchParams
 	t.is(merged.defaults.options.searchParams.get('b'), '2');
 });

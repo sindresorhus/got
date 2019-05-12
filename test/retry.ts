@@ -7,7 +7,7 @@ import withServer from './helpers/with-server';
 const retryAfterOn413 = 2;
 const socketTimeout = 200;
 
-const handler413 = (_request, response): void => {
+const handler413 = (_request, response) => {
 	response.writeHead(413, {
 		'Retry-After': retryAfterOn413
 	});

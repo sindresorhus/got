@@ -44,7 +44,7 @@ export default function asPromise(options: NormalizedOptions): CancelableRequest
 			}
 		};
 
-		emitter.once('response', async (response: Response) => {
+		emitter.on('response', async (response: Response) => {
 			proxy.emit('response', response);
 
 			const stream = is.null_(options.encoding) ? getStream.buffer(response) : getStream(response, {encoding: options.encoding});

@@ -3,12 +3,12 @@ import toReadableStream from 'to-readable-stream';
 import got from '../source';
 import withServer from './helpers/with-server';
 
-const defaultEndpoint = (request, response): void => {
+const defaultEndpoint = (request, response) => {
 	response.setHeader('method', request.method);
 	request.pipe(response);
 };
 
-const echoHeaders = (request, response): void => {
+const echoHeaders = (request, response) => {
 	response.end(JSON.stringify(request.headers));
 };
 
@@ -157,7 +157,6 @@ test('`content-type` header is not overriden when object in `options.body`', wit
 });
 
 test('throws when form body is not a plain object or array', async t => {
-	// @ts-ignore Manually checking errors
 	await t.throwsAsync(got.post('https://example.com', {form: 'such=wow'}), {
 		instanceOf: TypeError,
 		message: 'The `form` option must be an Object'

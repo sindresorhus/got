@@ -1,18 +1,16 @@
 /* eslint-disable node/no-deprecated-api */
-import {ServerResponse, IncomingMessage} from 'http';
 import {URL, URLSearchParams, parse} from 'url';
-import test, {ExecutionContext} from 'ava';
+import test from 'ava';
 import pEvent from 'p-event';
 import got from '../source';
-import withServer, {SecureGot} from './helpers/with-server';
+import withServer from './helpers/with-server';
 
-const echoUrl = (request: IncomingMessage, response: ServerResponse): void => {
+const echoUrl = (request, response) => {
 	response.end(request.url);
 };
 
 test('`url` is required', async t => {
 	await t.throwsAsync(
-		// @ts-ignore Testing missing args
 		got(),
 		{
 			instanceOf: TypeError,
@@ -23,7 +21,6 @@ test('`url` is required', async t => {
 
 test('`url` should be utf-8 encoded', async t => {
 	await t.throwsAsync(
-		// @ts-ignore
 		got('https://example.com/%D2%E0%EB%EB%E8%ED'),
 		{
 			message: 'URI malformed'
@@ -32,14 +29,13 @@ test('`url` should be utf-8 encoded', async t => {
 });
 
 test('throws an error if the protocol is not specified', async t => {
-	// @ts-ignore
 	await t.throwsAsync(got('example.com'), {
 		instanceOf: TypeError,
 		message: 'Invalid URL: example.com'
 	});
 });
 
-test('string url with searchParams is preserved', withServer, async (t: ExecutionContext, server: any, got: SecureGot) => {
+test('string url with searchParams is preserved', withServer, async (t, server, got) => {
 	server.get('/', echoUrl);
 
 	const path = '/?test=http://example.com?foo=bar';
@@ -47,13 +43,13 @@ test('string url with searchParams is preserved', withServer, async (t: Executio
 	t.is(body, path);
 });
 
-test('options are optional', withServer, async (t: ExecutionContext, server: any, got: SecureGot) => {
+test('options are optional', withServer, async (t, server, got) => {
 	server.get('/test', echoUrl);
 
 	t.is((await got('test')).body, '/test');
 });
 
-test('methods are normalized', withServer, async (t: ExecutionContext, server: any, got: SecureGot) => {
+test('methods are normalized', withServer, async (t, server, got) => {
 	server.post('/test', echoUrl);
 
 	const instance = got.create({
@@ -73,19 +69,19 @@ test('methods are normalized', withServer, async (t: ExecutionContext, server: a
 	await instance('test', {method: 'post'});
 });
 
-test('accepts url.parse object as first argument', withServer, async (t: ExecutionContext, server: any, got: SecureGot) => {
+test('accepts url.parse object as first argument', withServer, async (t, server, got) => {
 	server.get('/test', echoUrl);
 
-	t.is((await got(parse(`${server.url}/test`) as unknown as URL)).body, '/test');
+	t.is((await got(parse(`${server.url}/test`))).body, '/test');
 });
 
-test('requestUrl with url.parse object as first argument', withServer, async (t: ExecutionContext, server: any, got: SecureGot) => {
+test('requestUrl with url.parse object as first argument', withServer, async (t, server, got) => {
 	server.get('/test', echoUrl);
 
-	t.is((await got(parse(`${server.url}/test`) as unknown as URL)).requestUrl, `${server.url}/test`);
+	t.is((await got(parse(`${server.url}/test`))).requestUrl, `${server.url}/test`);
 });
 
-test('overrides `searchParams` from options', withServer, async (t: ExecutionContext, server: any, got: SecureGot) => {
+test('overrides `searchParams` from options', withServer, async (t, server, got) => {
 	server.get('/', echoUrl);
 
 	const {body} = await got(
@@ -94,7 +90,6 @@ test('overrides `searchParams` from options', withServer, async (t: ExecutionCon
 			searchParams: {
 				test: 'wow'
 			},
-			// @ts-ignore Emulating cache
 			cache: {
 				get(key) {
 					t.is(key, `cacheable-request:GET:${server.url}/?test=wow`);
@@ -109,7 +104,7 @@ test('overrides `searchParams` from options', withServer, async (t: ExecutionCon
 	t.is(body, '/?test=wow');
 });
 
-test('escapes `searchParams` parameter values', withServer, async (t: ExecutionContext, server: any, got: SecureGot) => {
+test('escapes `searchParams` parameter values', withServer, async (t, server, got) => {
 	server.get('/', echoUrl);
 
 	const {body} = await got({
@@ -121,7 +116,7 @@ test('escapes `searchParams` parameter values', withServer, async (t: ExecutionC
 	t.is(body, '/?test=it%E2%80%99s+ok');
 });
 
-test('the `searchParams` option can be a URLSearchParams', withServer, async (t: ExecutionContext, server: any, got: SecureGot) => {
+test('the `searchParams` option can be a URLSearchParams', withServer, async (t, server, got) => {
 	server.get('/', echoUrl);
 
 	const searchParams = new URLSearchParams({test: 'wow'});
@@ -129,30 +124,28 @@ test('the `searchParams` option can be a URLSearchParams', withServer, async (t:
 	t.is(body, '/?test=wow');
 });
 
-test('ignores empty searchParams object', withServer, async (t: ExecutionContext, server: any, got: SecureGot) => {
+test('ignores empty searchParams object', withServer, async (t, server, got) => {
 	server.get('/test', echoUrl);
 
 	t.is((await got('test', {searchParams: {}})).requestUrl, `${server.url}/test`);
 });
 
 test('throws on invalid type of body', async t => {
-	// @ts-ignore
-	await t.throwsAsync(got('https://example.com', {body: ''}), {
+	await t.throwsAsync(got('https://example.com', {body: false}), {
 		instanceOf: TypeError,
 		message: 'The `GET` method cannot be used with a body'
 	});
 });
 
-test('WHATWG URL support', withServer, async (t: ExecutionContext, server: any, got: SecureGot) => {
+test('WHATWG URL support', withServer, async (t, server, got) => {
 	server.get('/test', echoUrl);
 
 	const wURL = new URL(`${server.url}/test`);
-	// @ts-ignore
 	await t.notThrowsAsync(got(wURL));
 });
 
-test('returns streams when using stream option', withServer, async (t: ExecutionContext, server: any, got: SecureGot) => {
-	server.get('/stream', (_request: IncomingMessage, response: ServerResponse) => {
+test('returns streams when using stream option', withServer, async (t, server, got) => {
+	server.get('/stream', (_request, response) => {
 		response.end('ok');
 	});
 
@@ -160,23 +153,20 @@ test('returns streams when using stream option', withServer, async (t: Execution
 	t.is(data.toString(), 'ok');
 });
 
-test('accepts `url` as an option', withServer, async (t: ExecutionContext, server: any, got: SecureGot) => {
+test('accepts `url` as an option', withServer, async (t, server, got) => {
 	server.get('/test', echoUrl);
 
-	// @ts-ignore
 	await t.notThrowsAsync(got({url: 'test'}));
 });
 
-test('can omit `url` option if using `baseUrl`', withServer, async (t: ExecutionContext, server: any, got: SecureGot) => {
+test('can omit `url` option if using `baseUrl`', withServer, async (t, server, got) => {
 	server.get('/', echoUrl);
 
-	// @ts-ignore
 	await t.notThrowsAsync(got({}));
 });
 
 test('throws TypeError when `options.hooks` is not an object', async t => {
 	await t.throwsAsync(
-		// @ts-ignore
 		got('https://example.com', {hooks: 'not object'}),
 		{
 			instanceOf: TypeError,
@@ -187,7 +177,6 @@ test('throws TypeError when `options.hooks` is not an object', async t => {
 
 test('throws TypeError when known `options.hooks` value is not an array', async t => {
 	await t.throwsAsync(
-		// @ts-ignore
 		got('https://example.com', {hooks: {beforeRequest: {}}}),
 		{
 			instanceOf: TypeError,
@@ -198,7 +187,6 @@ test('throws TypeError when known `options.hooks` value is not an array', async 
 
 test('throws TypeError when known `options.hooks` array item is not a function', async t => {
 	await t.throwsAsync(
-		// @ts-ignore
 		got('https://example.com', {hooks: {beforeRequest: [{}]}}),
 		{
 			instanceOf: TypeError,
@@ -207,14 +195,13 @@ test('throws TypeError when known `options.hooks` array item is not a function',
 	);
 });
 
-test('allows extra keys in `options.hooks`', withServer, async (t: ExecutionContext, server: any, got: SecureGot) => {
+test('allows extra keys in `options.hooks`', withServer, async (t, server, got) => {
 	server.get('/test', echoUrl);
 
-	// @ts-ignore
 	await t.notThrowsAsync(got('test', {hooks: {extra: {}}}));
 });
 
-test('`baseUrl` option works', withServer, async (t: ExecutionContext, server: any, got: SecureGot) => {
+test('`baseUrl` option works', withServer, async (t, server, got) => {
 	server.get('/test/foobar', echoUrl);
 
 	const instanceA = got.extend({baseUrl: `${server.url}/test`});
@@ -222,7 +209,7 @@ test('`baseUrl` option works', withServer, async (t: ExecutionContext, server: a
 	t.is(body, '/test/foobar');
 });
 
-test('accepts WHATWG URL as the `baseUrl` option', withServer, async (t: ExecutionContext, server: any, got: SecureGot) => {
+test('accepts WHATWG URL as the `baseUrl` option', withServer, async (t, server, got) => {
 	server.get('/test/foobar', echoUrl);
 
 	const instanceA = got.extend({baseUrl: new URL(`${server.url}/test`)});
@@ -250,20 +237,16 @@ test('throws when trying to modify `baseUrl` after options got normalized', asyn
 	const instanceA = got.create({
 		methods: [],
 		options: {baseUrl: 'https://example.com'},
-		handler: (options, next) => {
-			// @ts-ignore
+		handler: options => {
 			options.baseUrl = 'https://google.com';
-			return next(options);
 		}
 	});
 
-	// @ts-ignore
 	await t.throwsAsync(instanceA('/'), 'Failed to set baseUrl. Options are normalized already.');
 });
 
 // TODO: fix this
 test.failing('throws if the `searchParams` key is invalid', async t => {
-	// @ts-ignore
 	await t.throwsAsync(got('https://example.com', {
 		searchParams: {
 			// @ts-ignore
@@ -277,7 +260,6 @@ test.failing('throws if the `searchParams` key is invalid', async t => {
 
 test('throws if the `searchParams` value is invalid', async t => {
 	await t.throwsAsync(got('https://example.com', {
-		// @ts-ignore
 		searchParams: {
 			foo: []
 		}
