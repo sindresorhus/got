@@ -3,7 +3,7 @@ import {IncomingMessage} from 'http';
 import duplexer3 from 'duplexer3';
 import requestAsEventEmitter from './request-as-event-emitter';
 import {HTTPError, ReadError} from './errors';
-import {NormalizedOptions, Response} from './utils/types';
+import {NormalizedOptions, Response, Headers} from './utils/types';
 
 export class ProxyStream extends DuplexStream {
 	isFromCache?: boolean;
@@ -126,7 +126,7 @@ export default function asStream(options: NormalizedOptions): ProxyStream {
 			options.headers = {
 				...source.headers,
 				...options.headers
-			} as Record<string, string | string[]>;
+			} as Headers;
 		}
 	});
 

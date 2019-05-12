@@ -101,6 +101,8 @@ export interface Delays {
 	request?: number;
 }
 
+export type Headers = Record<string, string | string[]>;
+
 // The library overrides the type definition of `agent`, `host`, 'headers and `timeout`.
 export interface Options extends Omit<https.RequestOptions, 'agent' | 'timeout' | 'host' | 'headers'> {
 	host?: string;
@@ -123,7 +125,7 @@ export interface Options extends Omit<https.RequestOptions, 'agent' | 'timeout' 
 	agent?: http.Agent | https.Agent | boolean | AgentByProtocol;
 	gotTimeout?: number | Delays;
 	cache?: string | StorageAdapter | false;
-	headers?: Record<string, string | string[] | number | boolean>;
+	headers?: Headers;
 	mutableDefaults?: boolean;
 	responseType?: ResponseType;
 	resolveBodyOnly?: boolean;
@@ -143,7 +145,6 @@ export interface Options extends Omit<https.RequestOptions, 'agent' | 'timeout' 
 }
 
 export interface NormalizedOptions extends Omit<Required<Options>, 'timeout' | 'dnsCache' | 'retry'> {
-	headers: Record<string, string | string[]>;
 	hooks: Hooks;
 	gotTimeout: Required<Delays>;
 	retry: NormalizedRetryOptions;
