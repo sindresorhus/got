@@ -336,7 +336,7 @@ export default (options: NormalizedOptions, input?: TransformStream) => {
 				}
 
 				headers['content-type'] = headers['content-type'] || 'application/x-www-form-urlencoded';
-				options.body = (new URLSearchParamsGlobal(options.form)).toString();
+				options.body = (new URLSearchParamsGlobal(options.form as Record<string, any>)).toString();
 			} else if (isJSON) {
 				headers['content-type'] = headers['content-type'] || 'application/json';
 				options.body = JSON.stringify(options.json);

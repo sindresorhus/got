@@ -1,3 +1,4 @@
+import {UrlWithStringQuery} from 'url';
 import is from '@sindresorhus/is';
 
 // TODO: Deprecate legacy Url at some point
@@ -15,7 +16,10 @@ export interface URLOptions {
 	auth?: string;
 }
 
-export default (url: URL): URLOptions => {
+export default (url: URL | UrlWithStringQuery): URLOptions => {
+	// Cast to URL
+	url = url as URL;
+
 	const options: URLOptions = {
 		protocol: url.protocol,
 		hostname: url.hostname.startsWith('[') ? url.hostname.slice(1, -1) : url.hostname,

@@ -4,7 +4,7 @@ import withServer from './helpers/with-server';
 const dog = {data: 'dog'};
 const jsonResponse = JSON.stringify(dog);
 
-const defaultHandler = (_request, response) => {
+const defaultHandler = (_request, response): void => {
 	response.end(jsonResponse);
 };
 

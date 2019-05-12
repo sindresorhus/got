@@ -6,36 +6,43 @@ import merge, {mergeOptions, mergeInstances} from './merge';
 import asPromise from './as-promise';
 import asStream, {ProxyStream} from './as-stream';
 import {preNormalizeArguments, normalizeArguments} from './normalize-arguments';
+import {Hooks} from './known-hook-events';
 
 const getPromiseOrStream = (options: NormalizedOptions): ProxyStream | CancelableRequest<Response> => options.stream ? asStream(options) : asPromise(options);
 
 export type HTTPAliases = 'get' | 'post' | 'put' | 'patch' | 'head' | 'delete';
 
-export interface Got extends Record<HTTPAliases, (url: URL | string, options?: Partial<Options>) => ProxyStream | CancelableRequest<Response>> {
+export type ReturnResponse = (url: URL | string | Partial<Options> & { stream?: false }, options?: Partial<Options> & { stream?: false }) => CancelableRequest<Response>;
+export type ReturnStream = (url: URL | string | Partial<Options> & { stream: true }, options?: Partial<Options> & { stream: true }) => ProxyStream;
+
+export interface Got extends Record<HTTPAliases, ReturnResponse> {
 	stream: GotStream;
 	defaults: Defaults | Readonly<Defaults>;
-	GotError: errors.GotError;
-	CacheError: errors.CacheError;
-	RequestError: errors.RequestError;
-	ReadError: errors.ReadError;
-	ParseError: errors.ParseError;
-	HTTPError: errors.HTTPError;
-	MaxRedirectsError: errors.MaxRedirectsError;
-	UnsupportedProtocolError: errors.UnsupportedProtocolError;
-	TimeoutError: errors.TimeoutError;
-	CancelError: errors.CancelError;
+	GotError: typeof errors.GotError;
+	CacheError: typeof errors.CacheError;
+	RequestError: typeof errors.RequestError;
+	ReadError: typeof errors.ReadError;
+	ParseError: typeof errors.ParseError;
+	HTTPError: typeof errors.HTTPError;
+	MaxRedirectsError: typeof errors.MaxRedirectsError;
+	UnsupportedProtocolError: typeof errors.UnsupportedProtocolError;
+	TimeoutError: typeof errors.TimeoutError;
+	CancelError: typeof errors.CancelError;
 
-	(url: URL | string, options: NormalizedOptions): ProxyStream | CancelableRequest<Response>;
+	(url: URL | string | Partial<Options & { stream?: false }>, options?: Partial<Options & { stream?: false }>): CancelableRequest<Response>;
+	(url: URL | string | Partial<Options & { stream: true }>, options?: Partial<Options & { stream: true }>): ProxyStream;
+	(url: URL | string | Partial<Options>, options?: Partial<Options>): CancelableRequest<Response> | ProxyStream;
 	create(defaults: Partial<Defaults>): Got;
 	extend(options?: Partial<Options>): Got;
 	mergeInstances(...instances: Got[]): Got;
+	mergeOptions<T extends Options>(...sources: T[]): T & { hooks: Partial<Hooks> };
 }
 
-export interface GotStream extends Record<HTTPAliases, (url: URL | string, options?: Partial<Options>) => ProxyStream> {
-	(url: URL | string, options?: Partial<Options>): ProxyStream;
+export interface GotStream extends Record<HTTPAliases, ReturnStream> {
+	(url: URL | string | Partial<Options>, options?: Partial<Options>): ProxyStream;
 }
 
-const aliases: ReadonlyArray<HTTPAliases> = [
+const aliases: readonly HTTPAliases[] = [
 	'get',
 	'post',
 	'put',
@@ -46,7 +53,7 @@ const aliases: ReadonlyArray<HTTPAliases> = [
 
 const create = (defaults: Partial<Defaults>): Got => {
 	defaults = merge<Defaults, Partial<Defaults>>({}, defaults);
-	preNormalizeArguments(defaults.options!);
+	preNormalizeArguments(defaults.options);
 
 	if (!defaults.handler) {
 		// This can't be getPromiseOrStream, because when merging
@@ -55,9 +62,9 @@ const create = (defaults: Partial<Defaults>): Got => {
 	}
 
 	// @ts-ignore Because the for loop handles it for us, as well as the other Object.defines
-	const got: Got = (url, options): ProxyStream | CancelableRequest<Response> => {
+	const got: Got = (url: URL | string | Partial<Options>, options?: Partial<Options>): ProxyStream | CancelableRequest<Response> => {
 		try {
-			return defaults.handler!(normalizeArguments(url, options, defaults), getPromiseOrStream);
+			return defaults.handler!(normalizeArguments(url, options as NormalizedOptions, defaults), getPromiseOrStream);
 		} catch (error) {
 			if (options && options.stream) {
 				throw error;
@@ -70,7 +77,7 @@ const create = (defaults: Partial<Defaults>): Got => {
 
 	got.create = create;
 	got.extend = options => {
-		let mutableDefaults;
+		let mutableDefaults: boolean;
 		if (options && Reflect.has(options, 'mutableDefaults')) {
 			mutableDefaults = options.mutableDefaults;
 			delete options.mutableDefaults;
@@ -79,7 +86,7 @@ const create = (defaults: Partial<Defaults>): Got => {
 		}
 
 		return create({
-			options: mergeOptions(defaults.options!, options!),
+			options: mergeOptions(defaults.options, options),
 			handler: defaults.handler,
 			mutableDefaults
 		});
@@ -91,7 +98,7 @@ const create = (defaults: Partial<Defaults>): Got => {
 	got.stream = (url, options) => got(url, {...options, stream: true}) as ReadableStream;
 
 	for (const method of aliases) {
-		got[method] = (url, options) => got(url, {...options, method: method as Method} as NormalizedOptions);
+		got[method] = (url, options) => got(url, {...options, method: method as Method});
 		got.stream[method] = (url, options) => got.stream(url, {...options, method: method as Method});
 	}
 

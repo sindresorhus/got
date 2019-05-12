@@ -1,16 +1,16 @@
-import test from 'ava';
+import {IncomingMessage, ServerResponse} from 'http';
+import test, {ExecutionContext} from 'ava';
 import pEvent from 'p-event';
 import getStream from 'get-stream';
-import {Response} from '../source/utils/types';
-import withServer from './helpers/with-server';
+import withServer, {SecureGot} from './helpers/with-server';
 
-const cacheEndpoint = (_request, response) => {
+const cacheEndpoint = (_request: IncomingMessage, response: ServerResponse): void => {
 	response.setHeader('Cache-Control', 'public, max-age=60');
 	response.end(Date.now().toString());
 };
 
-test('non-cacheable responses are not cached', withServer, async (t, server, got) => {
-	server.get('/', (_request, response) => {
+test('non-cacheable responses are not cached', withServer, async (t: ExecutionContext, server: any, got: SecureGot) => {
+	server.get('/', (_request: IncomingMessage, response: ServerResponse) => {
 		response.setHeader('Cache-Control', 'public, no-cache, no-store');
 		response.end(Date.now().toString());
 	});
@@ -24,7 +24,7 @@ test('non-cacheable responses are not cached', withServer, async (t, server, got
 	t.true(firstResponseInt < secondResponseInt);
 });
 
-test('cacheable responses are cached', withServer, async (t, server, got) => {
+test('cacheable responses are cached', withServer, async (t: ExecutionContext, server: any, got: SecureGot) => {
 	server.get('/', cacheEndpoint);
 
 	const cache = new Map();
@@ -36,7 +36,7 @@ test('cacheable responses are cached', withServer, async (t, server, got) => {
 	t.is(firstResponse.body, secondResponse.body);
 });
 
-test('cached response is re-encoded to current encoding option', withServer, async (t, server, got) => {
+test('cached response is re-encoded to current encoding option', withServer, async (t: ExecutionContext, server: any, got: SecureGot) => {
 	server.get('/', cacheEndpoint);
 
 	const cache = new Map();
@@ -52,9 +52,9 @@ test('cached response is re-encoded to current encoding option', withServer, asy
 	t.is(secondResponse.body, expectedSecondResponseBody);
 });
 
-test('redirects are cached and re-used internally', withServer, async (t, server, got) => {
+test('redirects are cached and re-used internally', withServer, async (t: ExecutionContext, server: any, got: SecureGot) => {
 	let status301Index = 0;
-	server.get('/301', (_request, response) => {
+	server.get('/301', (_request: IncomingMessage, response: ServerResponse) => {
 		if (status301Index === 0) {
 			response.setHeader('Cache-Control', 'public, max-age=60');
 			response.setHeader('Location', '/');
@@ -66,7 +66,7 @@ test('redirects are cached and re-used internally', withServer, async (t, server
 	});
 
 	let status302Index = 0;
-	server.get('/302', (_request, response) => {
+	server.get('/302', (_request: IncomingMessage, response: ServerResponse) => {
 		if (status302Index === 0) {
 			response.setHeader('Cache-Control', 'public, max-age=60');
 			response.setHeader('Location', '/');
@@ -87,7 +87,7 @@ test('redirects are cached and re-used internally', withServer, async (t, server
 	t.is(firstResponse.body, secondResponse.body);
 });
 
-test('cached response has got options', withServer, async (t, server, got) => {
+test('cached response has got options', withServer, async (t: ExecutionContext, server: any, got: SecureGot) => {
 	server.get('/', cacheEndpoint);
 
 	const cache = new Map();
@@ -102,19 +102,20 @@ test('cached response has got options', withServer, async (t, server, got) => {
 	t.is(secondResponse.request.options.auth, options.auth);
 });
 
-test('cache error throws `got.CacheError`', withServer, async (t, server, got) => {
-	server.get('/', (_request, response) => {
+test('cache error throws `got.CacheError`', withServer, async (t: ExecutionContext, server: any, got: SecureGot) => {
+	server.get('/', (_request: IncomingMessage, response: ServerResponse) => {
 		response.end('ok');
 	});
 
 	const cache = {};
 
+	// @ts-ignore
 	await t.throwsAsync(got({cache}), got.CacheError);
 });
 
-test('doesn\'t cache response when received HTTP error', withServer, async (t, server, got) => {
+test('doesn\'t cache response when received HTTP error', withServer, async (t: ExecutionContext, server: any, got: SecureGot) => {
 	let calledFirstError = false;
-	server.get('/', (_request, response) => {
+	server.get('/', (_request: IncomingMessage, response: ServerResponse) => {
 		if (calledFirstError) {
 			response.end('ok');
 			return;
@@ -132,14 +133,14 @@ test('doesn\'t cache response when received HTTP error', withServer, async (t, s
 	t.deepEqual(body, 'ok');
 });
 
-test('DNS cache works', withServer, async (t, _server, got) => {
+test('DNS cache works', withServer, async (t: ExecutionContext, _server: any, got: SecureGot) => {
 	const map = new Map();
 	await t.notThrowsAsync(got('https://example.com', {dnsCache: map}));
 
 	t.is(map.size, 1);
 });
 
-test('`isFromCache` stream property is undefined before the `response` event', withServer, async (t, server, got) => {
+test('`isFromCache` stream property is undefined before the `response` event', withServer, async (t: ExecutionContext, server: any, got: SecureGot) => {
 	server.get('/', cacheEndpoint);
 
 	const cache = new Map();
@@ -149,7 +150,7 @@ test('`isFromCache` stream property is undefined before the `response` event', w
 	await getStream(stream);
 });
 
-test('`isFromCache` stream property is false after the `response` event', withServer, async (t, server, got) => {
+test('`isFromCache` stream property is false after the `response` event', withServer, async (t: ExecutionContext, server: any, got: SecureGot) => {
 	server.get('/', cacheEndpoint);
 
 	const cache = new Map();
@@ -162,7 +163,7 @@ test('`isFromCache` stream property is false after the `response` event', withSe
 	await getStream(stream);
 });
 
-test('`isFromCache` stream property is true if the response was cached', withServer, async (t, server, got) => {
+test('`isFromCache` stream property is true if the response was cached', withServer, async (t: ExecutionContext, server: any, got: SecureGot) => {
 	server.get('/', cacheEndpoint);
 
 	const cache = new Map();

@@ -2,6 +2,7 @@ import {format} from 'url';
 import CacheableLookup from 'cacheable-lookup';
 import is from '@sindresorhus/is';
 import lowercaseKeys from 'lowercase-keys';
+import Keyv from 'keyv';
 import urlToOptions, {URLOptions} from './utils/url-to-options';
 import validateSearchParams from './utils/validate-search-params';
 import supportsBrotli from './utils/supports-brotli';
@@ -49,7 +50,7 @@ export const preNormalizeArguments = (options: Options, defaults?: Options): Nor
 		if (is.nullOrUndefined(options.hooks[event])) {
 			if (defaults && defaults.hooks) {
 				if (event in defaults.hooks) {
-					options.hooks[event] = defaults.hooks[event]!.slice();
+					options.hooks[event] = defaults.hooks[event].slice();
 				}
 			} else {
 				options.hooks[event] = [];
@@ -104,7 +105,7 @@ export const preNormalizeArguments = (options: Options, defaults?: Options): Nor
 	}
 
 	if (options.dnsCache) {
-		const cacheableLookup = new CacheableLookup({cacheAdapter: options.dnsCache});
+		const cacheableLookup = new CacheableLookup({cacheAdapter: options.dnsCache as Keyv | undefined});
 		(options as NormalizedOptions).lookup = cacheableLookup.lookup;
 		delete options.dnsCache;
 	}
@@ -112,7 +113,7 @@ export const preNormalizeArguments = (options: Options, defaults?: Options): Nor
 	return options as NormalizedOptions;
 };
 
-export const normalizeArguments = (url: URL | URLOptions | string, options: NormalizedOptions, defaults?: Defaults): NormalizedOptions => {
+export const normalizeArguments = (url: URL | URLOptions | string | Options, options: NormalizedOptions, defaults?: Defaults): NormalizedOptions => {
 	if (is.plainObject(url)) {
 		options = {...url, ...options};
 		url = options.url || '';
@@ -144,7 +145,7 @@ export const normalizeArguments = (url: URL | URLOptions | string, options: Norm
 	}
 
 	// Override both null/undefined with default protocol
-	options = merge<NormalizedOptions, Partial<URL | URLOptions | NormalizedOptions>>({path: ''} as NormalizedOptions, url as URL | URLOptions, {protocol: (url as URL | URLOptions).protocol || 'https:'}, options);
+	options = merge<NormalizedOptions, Partial<URL | URLOptions | NormalizedOptions | Options>>({path: ''} as NormalizedOptions, url as URL | URLOptions, {protocol: (url as URL | URLOptions).protocol || 'https:'}, options);
 
 	for (const hook of options.hooks.init) {
 		const called = hook(options);

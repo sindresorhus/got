@@ -1,16 +1,17 @@
-import test from 'ava';
+import {IncomingMessage, ServerResponse} from 'http';
+import test, {ExecutionContext} from 'ava';
 import delay from 'delay';
 import got from '../source';
-import withServer from './helpers/with-server';
+import withServer, {SecureGot} from './helpers/with-server';
 
 const errorString = 'oops';
 const error = new Error(errorString);
 
-const echoHeaders = (request, response) => {
+const echoHeaders = (request: IncomingMessage, response: ServerResponse): void => {
 	response.end(JSON.stringify(request.headers));
 };
 
-const retryEndpoint = (request, response) => {
+const retryEndpoint = (request: IncomingMessage, response: ServerResponse): void => {
 	if (request.headers.foo) {
 		response.statusCode = 302;
 		response.setHeader('location', '/');
@@ -21,13 +22,13 @@ const retryEndpoint = (request, response) => {
 	response.end();
 };
 
-const redirectEndpoint = (_request, response) => {
+const redirectEndpoint = (_request: IncomingMessage, response: ServerResponse): void => {
 	response.statusCode = 302;
 	response.setHeader('location', '/');
 	response.end();
 };
 
-test('async hooks', withServer, async (t, server, got) => {
+test('async hooks', withServer, async (t: ExecutionContext, server: any, got: SecureGot) => {
 	server.get('/', echoHeaders);
 
 	const {body} = await got({
@@ -64,7 +65,7 @@ test('catches beforeRequest thrown errors', async t => {
 	}), errorString);
 });
 
-test('catches beforeRedirect thrown errors', withServer, async (t, server, got) => {
+test('catches beforeRedirect thrown errors', withServer, async (t: ExecutionContext, server: any, got: SecureGot) => {
 	server.get('/', echoHeaders);
 	server.get('/redirect', redirectEndpoint);
 
@@ -77,7 +78,7 @@ test('catches beforeRedirect thrown errors', withServer, async (t, server, got) 
 	}), errorString);
 });
 
-test('catches beforeRetry thrown errors', withServer, async (t, server, got) => {
+test('catches beforeRetry thrown errors', withServer, async (t: ExecutionContext, server: any, got: SecureGot) => {
 	server.get('/', echoHeaders);
 	server.get('/retry', retryEndpoint);
 
@@ -90,7 +91,7 @@ test('catches beforeRetry thrown errors', withServer, async (t, server, got) => 
 	}), errorString);
 });
 
-test('catches afterResponse thrown errors', withServer, async (t, server, got) => {
+test('catches afterResponse thrown errors', withServer, async (t: ExecutionContext, server: any, got: SecureGot) => {
 	server.get('/', echoHeaders);
 
 	await t.throwsAsync(got({
@@ -118,7 +119,7 @@ test('catches beforeRequest promise rejections', async t => {
 	}), errorString);
 });
 
-test('catches beforeRedirect promise rejections', withServer, async (t, server, got) => {
+test('catches beforeRedirect promise rejections', withServer, async (t: ExecutionContext, server: any, got: SecureGot) => {
 	server.get('/', redirectEndpoint);
 
 	await t.throwsAsync(got({
@@ -128,7 +129,7 @@ test('catches beforeRedirect promise rejections', withServer, async (t, server, 
 	}), errorString);
 });
 
-test('catches beforeRetry promise rejections', withServer, async (t, server, got) => {
+test('catches beforeRetry promise rejections', withServer, async (t: ExecutionContext, server: any, got: SecureGot) => {
 	server.get('/retry', retryEndpoint);
 
 	await t.throwsAsync(got('retry', {
@@ -138,9 +139,10 @@ test('catches beforeRetry promise rejections', withServer, async (t, server, got
 	}), errorString);
 });
 
-test('catches afterResponse promise rejections', withServer, async (t, server, got) => {
+test('catches afterResponse promise rejections', withServer, async (t: ExecutionContext, server: any, got: SecureGot) => {
 	server.get('/', echoHeaders);
 
+	// @ts-ignore
 	await t.throwsAsync(got({
 		hooks: {
 			afterResponse: [() => Promise.reject(error)]
@@ -150,6 +152,7 @@ test('catches afterResponse promise rejections', withServer, async (t, server, g
 
 test('catches beforeError errors', async t => {
 	await t.throwsAsync(got('https://example.com', {
+		// @ts-ignore
 		request: () => {},
 		hooks: {
 			beforeError: [() => Promise.reject(error)]
@@ -157,7 +160,7 @@ test('catches beforeError errors', async t => {
 	}), errorString);
 });
 
-test('init is called with options', withServer, async (t, server, got) => {
+test('init is called with options', withServer, async (t: ExecutionContext, server: any, got: SecureGot) => {
 	server.get('/', echoHeaders);
 
 	await got({
@@ -172,8 +175,8 @@ test('init is called with options', withServer, async (t, server, got) => {
 	});
 });
 
-test('init allows modifications', withServer, async (t, server, got) => {
-	server.get('/', async (request, response) => {
+test('init allows modifications', withServer, async (t: ExecutionContext, server: any, got: SecureGot) => {
+	server.get('/', async (request: IncomingMessage, response: ServerResponse) => {
 		response.end(request.headers.foo);
 	});
 
@@ -189,7 +192,7 @@ test('init allows modifications', withServer, async (t, server, got) => {
 	t.is(body, 'bar');
 });
 
-test('beforeRequest is called with options', withServer, async (t, server, got) => {
+test('beforeRequest is called with options', withServer, async (t: ExecutionContext, server: any, got: SecureGot) => {
 	server.get('/', echoHeaders);
 
 	await got({
@@ -205,7 +208,7 @@ test('beforeRequest is called with options', withServer, async (t, server, got) 
 	});
 });
 
-test('beforeRequest allows modifications', withServer, async (t, server, got) => {
+test('beforeRequest allows modifications', withServer, async (t: ExecutionContext, server: any, got: SecureGot) => {
 	server.get('/', echoHeaders);
 
 	const {body} = await got({
@@ -221,7 +224,7 @@ test('beforeRequest allows modifications', withServer, async (t, server, got) =>
 	t.is(body.foo, 'bar');
 });
 
-test('beforeRedirect is called with options', withServer, async (t, server, got) => {
+test('beforeRedirect is called with options', withServer, async (t: ExecutionContext, server: any, got: SecureGot) => {
 	server.get('/', echoHeaders);
 	server.get('/redirect', redirectEndpoint);
 
@@ -238,7 +241,7 @@ test('beforeRedirect is called with options', withServer, async (t, server, got)
 	});
 });
 
-test('beforeRedirect allows modifications', withServer, async (t, server, got) => {
+test('beforeRedirect allows modifications', withServer, async (t: ExecutionContext, server: any, got: SecureGot) => {
 	server.get('/', echoHeaders);
 	server.get('/redirect', redirectEndpoint);
 
@@ -255,7 +258,7 @@ test('beforeRedirect allows modifications', withServer, async (t, server, got) =
 	t.is(body.foo, 'bar');
 });
 
-test('beforeRetry is called with options', withServer, async (t, server, got) => {
+test('beforeRetry is called with options', withServer, async (t: ExecutionContext, server: any, got: SecureGot) => {
 	server.get('/', echoHeaders);
 	server.get('/retry', retryEndpoint);
 
@@ -275,7 +278,7 @@ test('beforeRetry is called with options', withServer, async (t, server, got) =>
 	});
 });
 
-test('beforeRetry allows modifications', withServer, async (t, server, got) => {
+test('beforeRetry allows modifications', withServer, async (t: ExecutionContext, server: any, got: SecureGot) => {
 	server.get('/', echoHeaders);
 	server.get('/retry', retryEndpoint);
 
@@ -292,7 +295,7 @@ test('beforeRetry allows modifications', withServer, async (t, server, got) => {
 	t.is(body.foo, 'bar');
 });
 
-test('afterResponse is called with response', withServer, async (t, server, got) => {
+test('afterResponse is called with response', withServer, async (t: ExecutionContext, server: any, got: SecureGot) => {
 	server.get('/', echoHeaders);
 
 	await got({
@@ -309,7 +312,7 @@ test('afterResponse is called with response', withServer, async (t, server, got)
 	});
 });
 
-test('afterResponse allows modifications', withServer, async (t, server, got) => {
+test('afterResponse allows modifications', withServer, async (t: ExecutionContext, server: any, got: SecureGot) => {
 	server.get('/', echoHeaders);
 
 	const {body} = await got({
@@ -327,8 +330,8 @@ test('afterResponse allows modifications', withServer, async (t, server, got) =>
 	t.is(body.hello, 'world');
 });
 
-test('afterResponse allows to retry', withServer, async (t, server, got) => {
-	server.get('/', (request, response) => {
+test('afterResponse allows to retry', withServer, async (t: ExecutionContext, server: any, got: SecureGot) => {
+	server.get('/', (request: IncomingMessage, response: ServerResponse) => {
 		if (request.headers.token !== 'unicorn') {
 			response.statusCode = 401;
 		}
@@ -356,8 +359,8 @@ test('afterResponse allows to retry', withServer, async (t, server, got) => {
 	t.is(statusCode, 200);
 });
 
-test('no infinity loop when retrying on afterResponse', withServer, async (t, server, got) => {
-	server.get('/', (request, response) => {
+test('no infinity loop when retrying on afterResponse', withServer, async (t: ExecutionContext, server: any, got: SecureGot) => {
+	server.get('/', (request: IncomingMessage, response: ServerResponse) => {
 		if (request.headers.token !== 'unicorn') {
 			response.statusCode = 401;
 		}
@@ -381,9 +384,9 @@ test('no infinity loop when retrying on afterResponse', withServer, async (t, se
 	}), {instanceOf: got.HTTPError, message: 'Response code 401 (Unauthorized)'});
 });
 
-test('throws on afterResponse retry failure', withServer, async (t, server, got) => {
+test('throws on afterResponse retry failure', withServer, async (t: ExecutionContext, server: any, got: SecureGot) => {
 	let visited401then500;
-	server.get('/', (_request, response) => {
+	server.get('/', (_request: IncomingMessage, response: ServerResponse) => {
 		if (visited401then500) {
 			response.statusCode = 500;
 		} else {
@@ -414,9 +417,9 @@ test('throws on afterResponse retry failure', withServer, async (t, server, got)
 	}), {instanceOf: got.HTTPError, message: 'Response code 500 (Internal Server Error)'});
 });
 
-test('doesn\'t throw on afterResponse retry HTTP failure if throwHttpErrors is false', withServer, async (t, server, got) => {
+test('doesn\'t throw on afterResponse retry HTTP failure if throwHttpErrors is false', withServer, async (t: ExecutionContext, server: any, got: SecureGot) => {
 	let visited401then500;
-	server.get('/', (_request, response) => {
+	server.get('/', (_request: IncomingMessage, response: ServerResponse) => {
 		if (visited401then500) {
 			response.statusCode = 500;
 		} else {
@@ -471,14 +474,12 @@ test('beforeError allows modifications', async t => {
 			throw error;
 		},
 		hooks: {
-			beforeError: [() => {
-				return new Error(errorString2);
-			}]
+			beforeError: [() => new Error(errorString2)]
 		}
 	}), errorString2);
 });
 
-test('does not break on `afterResponse` hook with JSON mode', withServer, async (t, server, got) => {
+test('does not break on `afterResponse` hook with JSON mode', withServer, async (t: ExecutionContext, server: any, got: SecureGot) => {
 	server.get('/foobar', echoHeaders);
 
 	await t.notThrowsAsync(got('/', {

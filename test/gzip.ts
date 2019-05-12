@@ -1,19 +1,23 @@
+import {IncomingMessage, ServerResponse} from 'http';
 import {promisify} from 'util';
 import zlib from 'zlib';
-import test from 'ava';
+import test, {ExecutionContext} from 'ava';
 import getStream from 'get-stream';
-import withServer from './helpers/with-server';
+import {ReadError} from '../source/errors';
+import withServer, {SecureGot} from './helpers/with-server';
+
+const zlibAsync = promisify(zlib.gzip);
 
 const testContent = 'Compressible response content.\n';
 const testContentUncompressed = 'Uncompressed response content.\n';
-let gzipData;
+let gzipData: Buffer;
 
 test.before('setup', async () => {
-	gzipData = await promisify(zlib.gzip)(testContent);
+	gzipData = await zlibAsync(testContent) as Buffer;
 });
 
-test('decompress content', withServer, async (t, server, got) => {
-	server.get('/', (_request, response) => {
+test('decompress content', withServer, async (t: ExecutionContext, server: any, got: SecureGot) => {
+	server.get('/', (_request: IncomingMessage, response: ServerResponse) => {
 		response.setHeader('Content-Encoding', 'gzip');
 		response.end(gzipData);
 	});
@@ -21,8 +25,8 @@ test('decompress content', withServer, async (t, server, got) => {
 	t.is((await got('')).body, testContent);
 });
 
-test('decompress content - stream', withServer, async (t, server, got) => {
-	server.get('/', (_request, response) => {
+test('decompress content - stream', withServer, async (t: ExecutionContext, server: any, got: SecureGot) => {
+	server.get('/', (_request: IncomingMessage, response: ServerResponse) => {
 		response.setHeader('Content-Encoding', 'gzip');
 		response.end(gzipData);
 	});
@@ -30,34 +34,32 @@ test('decompress content - stream', withServer, async (t, server, got) => {
 	t.is((await getStream(got.stream(''))), testContent);
 });
 
-test('handles gzip error', withServer, async (t, server, got) => {
-	server.get('/', (_request, response) => {
+test('handles gzip error', withServer, async (t: ExecutionContext, server: any, got: SecureGot) => {
+	server.get('/', (_request: IncomingMessage, response: ServerResponse) => {
 		response.setHeader('Content-Encoding', 'gzip');
 		response.end('Not gzipped content');
 	});
 
-	const error = await t.throwsAsync(got(''), 'incorrect header check');
+	const error: ReadError = await t.throwsAsync(got(''), 'incorrect header check');
 
-	// @ts-ignore
 	t.is(error.options.path, '/');
 	t.is(error.name, 'ReadError');
 });
 
-test('handles gzip error - stream', withServer, async (t, server, got) => {
-	server.get('/', (_request, response) => {
+test('handles gzip error - stream', withServer, async (t: ExecutionContext, server: any, got: SecureGot) => {
+	server.get('/', (_request: IncomingMessage, response: ServerResponse) => {
 		response.setHeader('Content-Encoding', 'gzip');
 		response.end('Not gzipped content');
 	});
 
-	const error = await t.throwsAsync(getStream(got.stream('')), 'incorrect header check');
+	const error: ReadError = await t.throwsAsync(getStream(got.stream('')), 'incorrect header check');
 
-	// @ts-ignore
 	t.is(error.options.path, '/');
 	t.is(error.name, 'ReadError');
 });
 
-test('decompress option opts out of decompressing', withServer, async (t, server, got) => {
-	server.get('/', (_request, response) => {
+test('decompress option opts out of decompressing', withServer, async (t: ExecutionContext, server: any, got: SecureGot) => {
+	server.get('/', (_request: IncomingMessage, response: ServerResponse) => {
 		response.setHeader('Content-Encoding', 'gzip');
 		response.end(gzipData);
 	});
@@ -66,8 +68,8 @@ test('decompress option opts out of decompressing', withServer, async (t, server
 	t.is(Buffer.compare(body, gzipData), 0);
 });
 
-test('decompress option doesn\'t alter encoding of uncompressed responses', withServer, async (t, server, got) => {
-	server.get('/', (_request, response) => {
+test('decompress option doesn\'t alter encoding of uncompressed responses', withServer, async (t: ExecutionContext, server: any, got: SecureGot) => {
+	server.get('/', (_request: IncomingMessage, response: ServerResponse) => {
 		response.end(testContentUncompressed);
 	});
 
@@ -75,8 +77,8 @@ test('decompress option doesn\'t alter encoding of uncompressed responses', with
 	t.is(body, testContentUncompressed);
 });
 
-test('preserves `headers` property', withServer, async (t, server, got) => {
-	server.get('/', (_request, response) => {
+test('preserves `headers` property', withServer, async (t: ExecutionContext, server: any, got: SecureGot) => {
+	server.get('/', (_request: IncomingMessage, response: ServerResponse) => {
 		response.setHeader('Content-Encoding', 'gzip');
 		response.end(gzipData);
 	});
@@ -84,16 +86,16 @@ test('preserves `headers` property', withServer, async (t, server, got) => {
 	t.truthy((await got('')).headers);
 });
 
-test('does not break HEAD responses', withServer, async (t, server, got) => {
-	server.get('/', (_request, response) => {
+test('does not break HEAD responses', withServer, async (t: ExecutionContext, server: any, got: SecureGot) => {
+	server.get('/', (_request: IncomingMessage, response: ServerResponse) => {
 		response.end();
 	});
 
 	t.is((await got.head('')).body, '');
 });
 
-test('ignore missing data', withServer, async (t, server, got) => {
-	server.get('/', (_request, response) => {
+test('ignore missing data', withServer, async (t: ExecutionContext, server: any, got: SecureGot) => {
+	server.get('/', (_request: IncomingMessage, response: ServerResponse) => {
 		response.setHeader('Content-Encoding', 'gzip');
 		response.end(gzipData.slice(0, -1));
 	});
@@ -101,8 +103,8 @@ test('ignore missing data', withServer, async (t, server, got) => {
 	t.is((await got('')).body, testContent);
 });
 
-test('response has `url` and `requestUrl` properties', withServer, async (t, server, got) => {
-	server.get('/', (_request, response) => {
+test('response has `url` and `requestUrl` properties', withServer, async (t: ExecutionContext, server: any, got: SecureGot) => {
+	server.get('/', (_request: IncomingMessage, response: ServerResponse) => {
 		response.setHeader('Content-Encoding', 'gzip');
 		response.end(gzipData);
 	});

@@ -72,8 +72,8 @@ export default function asPromise(options: NormalizedOptions): CancelableRequest
 					response = await hook(response, updatedOptions => {
 						updatedOptions = reNormalizeArguments(mergeOptions(options, {
 							...updatedOptions,
+							// @ts-ignore TS complaining that it's missing properties, which get merged
 							retry: {
-								...updatedOptions.retry,
 								retries: () => 0
 							},
 							throwHttpErrors: false,
@@ -83,9 +83,9 @@ export default function asPromise(options: NormalizedOptions): CancelableRequest
 
 						// Remove any further hooks for that request, because we we'll call them anyway.
 						// The loop continues. We don't want duplicates (asPromise recursion).
-						updatedOptions.hooks.afterResponse = options.hooks.afterResponse.slice(0, index);
+						updatedOptions.hooks!.afterResponse = options.hooks.afterResponse.slice(0, index);
 
-						return asPromise(updatedOptions);
+						return asPromise(updatedOptions as NormalizedOptions);
 					});
 				}
 			} catch (error) {
@@ -131,7 +131,7 @@ export default function asPromise(options: NormalizedOptions): CancelableRequest
 			'uploadProgress',
 			'downloadProgress'
 		].forEach(event => emitter.on(event, (...args: unknown[]) => proxy.emit(event, ...args)));
-	}) as CancelableRequest<Response>;
+	}) as CancelableRequest<Response | Buffer | string | any>;
 
 	promise.on = (name, fn) => {
 		proxy.on(name, fn);

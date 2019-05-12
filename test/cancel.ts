@@ -1,18 +1,19 @@
+import {IncomingMessage, ServerResponse} from 'http';
 import {EventEmitter} from 'events';
 import {Readable as ReadableStream} from 'stream';
-import test from 'ava';
+import test, {ExecutionContext} from 'ava';
 import pEvent from 'p-event';
 import getStream from 'get-stream';
 // @ts-ignore
 import got, {CancelError} from '../source';
-import withServer from './helpers/with-server';
+import withServer, {SecureGot} from './helpers/with-server';
 import slowDataStream from './helpers/slow-data-stream';
 
-const prepareServer = server => {
+const prepareServer = (server: any): { emitter: EventEmitter; promise: Promise<{}> } => {
 	const emitter = new EventEmitter();
 
 	const promise = new Promise((resolve, reject) => {
-		server.all('/abort', async (request, response) => {
+		server.all('/abort', async (request: IncomingMessage, response: ServerResponse) => {
 			emitter.emit('connection');
 			request.once('aborted', resolve);
 			response.once('finish', reject.bind(null, new Error('Request finished instead of aborting.')));
@@ -21,7 +22,7 @@ const prepareServer = server => {
 			response.end();
 		});
 
-		server.get('/redirect', (_request, response) => {
+		server.get('/redirect', (_request: IncomingMessage, response: ServerResponse) => {
 			response.writeHead(302, {
 				location: `${server.url}/abort`
 			});
@@ -36,7 +37,7 @@ const prepareServer = server => {
 	return {emitter, promise};
 };
 
-const downloadHandler = (_request, response) => {
+const downloadHandler = (_request: IncomingMessage, response: ServerResponse): void => {
 	response.writeHead(200, {
 		'transfer-encoding': 'chunked'
 	});
@@ -44,13 +45,14 @@ const downloadHandler = (_request, response) => {
 	slowDataStream().pipe(response);
 };
 
-test('does not retry after cancelation', withServer, async (t, server, got) => {
+test('does not retry after cancelation', withServer, async (t: ExecutionContext, server: any, got: SecureGot) => {
 	const {emitter, promise} = prepareServer(server);
 
 	const gotPromise = got('redirect', {
 		retry: {
 			retries: () => {
 				t.fail('Makes a new try after cancelation');
+				return 0;
 			}
 		}
 	});
@@ -59,13 +61,11 @@ test('does not retry after cancelation', withServer, async (t, server, got) => {
 		gotPromise.cancel();
 	});
 
-	// @ts-ignore
 	await t.throwsAsync(gotPromise, CancelError);
-	// @ts-ignore
 	await t.notThrowsAsync(promise, 'Request finished instead of aborting.');
 });
 
-test('cancels in-progress request', withServer, async (t, server, got) => {
+test('cancels in-progress request', withServer, async (t: ExecutionContext, server: any, got: SecureGot) => {
 	const {emitter, promise} = prepareServer(server);
 
 	const body = new ReadableStream({
@@ -85,7 +85,7 @@ test('cancels in-progress request', withServer, async (t, server, got) => {
 	await t.notThrowsAsync(promise, 'Request finished instead of aborting.');
 });
 
-test('cancels in-progress request with timeout', withServer, async (t, server, got) => {
+test('cancels in-progress request with timeout', withServer, async (t: ExecutionContext, server: any, got: SecureGot) => {
 	const {emitter, promise} = prepareServer(server);
 
 	const body = new ReadableStream({
@@ -105,12 +105,12 @@ test('cancels in-progress request with timeout', withServer, async (t, server, g
 	await t.notThrowsAsync(promise, 'Request finished instead of aborting.');
 });
 
-test('cancel immediately', withServer, async (t, server, got) => {
+test('cancel immediately', withServer, async (t: ExecutionContext, server: any, got: SecureGot) => {
 	const promise = new Promise((resolve, reject) => {
 		// We won't get an abort or even a connection
 		// We assume no request within 1000ms equals a (client side) aborted request
-		server.get('/abort', (_request, response) => {
-			response.once('finish', reject.bind(this, new Error('Request finished instead of aborting.')));
+		server.get('/abort', (_request: IncomingMessage, response: ServerResponse) => {
+			response.once('finish', reject.bind(promise, new Error('Request finished instead of aborting.')));
 			response.end();
 		});
 
@@ -156,7 +156,7 @@ test('recover from cancellation using error instance', async t => {
 	await t.notThrowsAsync(recover);
 });
 
-test('throws on incomplete (canceled) response - promise', withServer, async (t, server, got) => {
+test('throws on incomplete (canceled) response - promise', withServer, async (t: ExecutionContext, server: any, got: SecureGot) => {
 	server.get('/', downloadHandler);
 
 	await t.throwsAsync(got({
@@ -164,7 +164,7 @@ test('throws on incomplete (canceled) response - promise', withServer, async (t,
 	}), got.TimeoutError);
 });
 
-test('throws on incomplete (canceled) response - promise #2', withServer, async (t, server, got) => {
+test('throws on incomplete (canceled) response - promise #2', withServer, async (t: ExecutionContext, server: any, got: SecureGot) => {
 	server.get('/', downloadHandler);
 
 	const promise = got('').on('response', () => {
@@ -174,7 +174,7 @@ test('throws on incomplete (canceled) response - promise #2', withServer, async 
 	await t.throwsAsync(promise, got.CancelError);
 });
 
-test('throws on incomplete (canceled) response - stream', withServer, async (t, server, got) => {
+test('throws on incomplete (canceled) response - stream', withServer, async (t: ExecutionContext, server: any, got: SecureGot) => {
 	server.get('/', downloadHandler);
 
 	const errorString = 'Foobar';
@@ -187,8 +187,8 @@ test('throws on incomplete (canceled) response - stream', withServer, async (t, 
 });
 
 // Note: it will throw, but the response is loaded already.
-test('throws when canceling cached request', withServer, async (t, server, got) => {
-	server.get('/', (_request, response) => {
+test('throws when canceling cached request', withServer, async (t: ExecutionContext, server: any, got: SecureGot) => {
+	server.get('/', (_request: ClientRect, response: ServerResponse) => {
 		response.setHeader('Cache-Control', 'public, max-age=60');
 		response.end(Date.now().toString());
 	});

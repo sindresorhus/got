@@ -5,6 +5,12 @@
 		"target": "es2017", // Node.js 8
 		"lib": [
 			"esnext"
+		],
+		"strict": false,
+		"typeRoots": [
+			"./source/types/*",
+			"./node_modules/@types/*",
+			"./node_modules/*"
 		]
 	},
 	"include": [

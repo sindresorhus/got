@@ -49,6 +49,14 @@ export type StatusCode =
 	| 503
 	| 504;
 
+export type DeepPartial<T> = {
+	[TKey in keyof T]?: T[TKey] extends Array<infer TU>
+		? Array<DeepPartial<TU>>
+		: T[TKey] extends ReadonlyArray<infer TU>
+			? ReadonlyArray<DeepPartial<TU>>
+			: DeepPartial<T[TKey]>
+};
+
 export type ResponseType = 'json' | 'buffer' | 'text';
 
 export interface Response extends IncomingMessage {
@@ -101,8 +109,8 @@ export interface Delays {
 	request?: number;
 }
 
-// The library overrides the type definition of `agent`, `host` and `timeout`.
-export interface Options extends Omit<https.RequestOptions, 'agent' | 'timeout' | 'host'> {
+// The library overrides the type definition of `agent`, `host`, 'headers and `timeout`.
+export interface Options extends Omit<https.RequestOptions, 'agent' | 'timeout' | 'host' | 'headers'> {
 	host?: string;
 	body?: string | Buffer | ReadableStream;
 	hostname?: string;
@@ -116,21 +124,21 @@ export interface Options extends Omit<https.RequestOptions, 'agent' | 'timeout' 
 	stream?: boolean;
 	encoding?: BufferEncoding | null;
 	method?: Method;
-	retry?: number | RetryOption | NormalizedRetryOptions;
+	retry?: number | Partial<RetryOption | NormalizedRetryOptions>;
 	throwHttpErrors?: boolean;
 	cookieJar?: CookieJar;
 	request?: RequestFunction;
 	agent?: http.Agent | https.Agent | boolean | AgentByProtocol;
 	gotTimeout?: number | Delays;
 	cache?: string | StorageAdapter | false;
-	headers?: Record<string, string | string[]>;
+	headers?: Record<string, string | string[] | number | boolean>;
 	mutableDefaults?: boolean;
 	responseType?: ResponseType;
 	resolveBodyOnly?: boolean;
 	followRedirect?: boolean;
 	baseUrl?: URL | string;
 	timeout?: number | Delays;
-	dnsCache?: Keyv | false;
+	dnsCache?: Map<string, string> | Keyv | false;
 	url?: URL | string;
 	searchParams?: Record<string, string | number | boolean | null> | URLSearchParams | string;
 	/*
@@ -138,8 +146,8 @@ export interface Options extends Omit<https.RequestOptions, 'agent' | 'timeout' 
 	 */
 	query?: Options['searchParams'];
 	useElectronNet?: boolean;
-	form?: boolean;
-	json?: boolean;
+	form?: Record<string, any>;
+	json?: Record<string, any>;
 }
 
 export interface NormalizedOptions extends Omit<Options, 'timeout' | 'dnsCache' | 'retry'> {
@@ -156,14 +164,14 @@ export interface NormalizedOptions extends Omit<Options, 'timeout' | 'dnsCache' 
 
 export interface Defaults {
 	methods?: Method[];
-	options?: Partial<Options>;
+	options?: Options;
 	handler?: HandlerFunction;
 	mutableDefaults?: boolean;
 }
 
-export interface CancelableRequest<T extends IncomingMessage> extends PCancelable<T> {
+export interface CancelableRequest<T extends IncomingMessage | Buffer | string | object> extends PCancelable<T> {
 	on(name: string, listener: () => void): CancelableRequest<T>;
-	json(): CancelableRequest<T>;
-	buffer(): CancelableRequest<T>;
-	text(): CancelableRequest<T>;
+	json<TReturnType extends object>(): CancelableRequest<TReturnType>;
+	buffer<TReturnType extends Buffer>(): CancelableRequest<TReturnType>;
+	text<TReturnType extends string>(): CancelableRequest<TReturnType>;
 }

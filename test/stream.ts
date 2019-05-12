@@ -6,7 +6,7 @@ import pEvent from 'p-event';
 import is from '@sindresorhus/is';
 import withServer from './helpers/with-server';
 
-const defaultHandler = (_request, response) => {
+const defaultHandler = (_request, response): void => {
 	response.writeHead(200, {
 		unicorn: 'rainbow',
 		'content-encoding': 'gzip'
@@ -14,23 +14,23 @@ const defaultHandler = (_request, response) => {
 	response.end(Buffer.from('H4sIAAAAAAAA/8vPBgBH3dx5AgAAAA==', 'base64')); // 'ok'
 };
 
-const redirectHandler = (_request, response) => {
+const redirectHandler = (_request, response): void => {
 	response.writeHead(302, {
 		location: '/'
 	});
 	response.end();
 };
 
-const postHandler = (request, response) => {
+const postHandler = (request, response): void => {
 	request.pipe(response);
 };
 
-const errorHandler = (_request, response) => {
+const errorHandler = (_request, response): void => {
 	response.statusCode = 404;
 	response.end();
 };
 
-const headersHandler = (request, response) => {
+const headersHandler = (request, response): void => {
 	response.end(JSON.stringify(request.headers));
 };
 

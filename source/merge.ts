@@ -1,8 +1,8 @@
-import {Readable as ReadableStream} from 'stream';
 import is from '@sindresorhus/is';
-import {Options, Method, Defaults, NormalizedOptions} from './utils/types';
+import {Options, Method, Defaults, NormalizedOptions, CancelableRequest, Response} from './utils/types';
 import knownHookEvents, {Hooks, HookEvent, HookType} from './known-hook-events';
 import {Got} from './create';
+import {ProxyStream} from './as-stream';
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const URLGlobal: typeof URL = typeof URL === 'undefined' ? require('url').URL : URL;
@@ -45,12 +45,12 @@ export default function merge<Target extends Record<string, unknown>, Source ext
 }
 
 export function mergeOptions<T extends Options>(...sources: T[]): T & { hooks: Partial<Hooks> } {
-	const mergedData = merge({} as NormalizedOptions, ...sources.map(source => source || {}));
+	const mergedData = merge({} as T & { hooks: Partial<Hooks> }, ...sources.map(source => source || {}));
 
 	const hooks = knownHookEvents.reduce((acc, current) => ({...acc, [current]: []}), {}) as Record<HookEvent, HookType[]>;
 
 	for (const source of sources) {
-		if (source.hooks) {
+		if (source && source.hooks) {
 			for (const hook of knownHookEvents) {
 				hooks[hook] = hooks[hook].concat(source.hooks[hook] || []);
 			}
@@ -69,9 +69,9 @@ export function mergeInstances(instances: Got[], methods?: Method[]): Defaults {
 	return {
 		methods,
 		options: mergeOptions(...instances.map(instance => instance.defaults.options || {})),
-		handler: <T extends ReadableStream | Promise<any>>(options: NormalizedOptions, next: (options: NormalizedOptions) => T) => {
+		handler: <T extends ProxyStream | CancelableRequest<Response>>(options: NormalizedOptions, next: (options: NormalizedOptions) => T) => {
 			let iteration = 0;
-			const iterate = (options: NormalizedOptions): T => handlers[iteration++]!(options, iteration === size ? next : iterate);
+			const iterate = (newOptions: NormalizedOptions): T => handlers[iteration++]!(newOptions, iteration === size ? next : iterate);
 
 			return iterate(options);
 		}

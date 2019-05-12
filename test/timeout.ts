@@ -19,7 +19,7 @@ const keepAliveAgent = new http.Agent({
 	keepAlive: true
 });
 
-const defaultHandler = (request, response) => {
+const defaultHandler = (request, response): void => {
 	request.resume();
 	request.on('end', async () => {
 		await delay(requestDelay);
@@ -27,7 +27,7 @@ const defaultHandler = (request, response) => {
 	});
 };
 
-const downloadHandler = (_request, response) => {
+const downloadHandler = (_request, response): void => {
 	response.writeHead(200, {
 		'transfer-encoding': 'chunked'
 	});

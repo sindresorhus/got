@@ -9,7 +9,7 @@ import is from '@sindresorhus/is';
 import test from 'ava';
 import withServer from './helpers/with-server';
 
-const checkEvents = (t, events, bodySize = undefined) => {
+const checkEvents = (t, events, bodySize = undefined): void => {
 	t.true(events.length >= 2);
 
 	const hasBodySize = is.number(bodySize);
@@ -37,7 +37,7 @@ const checkEvents = (t, events, bodySize = undefined) => {
 
 const file = Buffer.alloc(1024 * 1024 * 2);
 
-const downloadEndpoint = (_request, response) => {
+const downloadEndpoint = (_request, response): void => {
 	response.setHeader('content-length', file.length);
 
 	toReadableStream(file)
@@ -45,12 +45,12 @@ const downloadEndpoint = (_request, response) => {
 		.pipe(response);
 };
 
-const noTotalEndpoint = (_request, response) => {
+const noTotalEndpoint = (_request, response): void => {
 	response.write('hello');
 	response.end();
 };
 
-const uploadEndpoint = (request, response) => {
+const uploadEndpoint = (request, response): void => {
 	request
 		.pipe(new SlowStream({maxWriteInterval: 100}))
 		.on('end', () => response.end());

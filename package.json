@@ -61,7 +61,8 @@
 		"@sindresorhus/tsconfig": "^0.3.0",
 		"@types/duplexer3": "^0.1.0",
 		"@types/node": "^11.13.6",
-		"@typescript-eslint/eslint-plugin": "^1.7.0",
+		"@types/sinon": "^7.0.11",
+		"@typescript-eslint/eslint-plugin": "^1.8.0",
 		"ava": "^1.4.1",
 		"coveralls": "^3.0.0",
 		"create-test-server": "^2.4.0",
@@ -114,7 +115,8 @@
 		"rules": {
 			"import/named": "off",
 			"import/no-unresolved": "off",
-			"ava/no-ignored-test-files": "off"
+			"ava/no-ignored-test-files": "off",
+			"@typescript-eslint/no-unnecessary-type-assertion": "off"
 		}
 	}
 }

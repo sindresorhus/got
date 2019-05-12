@@ -4,7 +4,7 @@ import withServer from './helpers/with-server';
 
 // TODO: Remove this file before the Got v11 release together with completely removing the `query` option
 
-const echoUrl = (request, response) => {
+const echoUrl = (request, response): void => {
 	response.end(request.url);
 };
 
