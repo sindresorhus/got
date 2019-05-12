@@ -13,17 +13,12 @@ export default function asPromise(options: NormalizedOptions): CancelableRequest
 	const proxy = new EventEmitter();
 
 	const parseBody = (response: Response): void => {
-		switch (options.responseType) {
-			case 'json':
-				response.body = JSON.parse(response.body);
-				break;
-			case 'buffer':
-				response.body = Buffer.from(response.body);
-				break;
-			default:
-				if (options.responseType !== 'text' && !is.falsy(options.responseType)) {
-					throw new Error(`Failed to parse body of type '${options.responseType}'`);
-				}
+		if (options.responseType === 'json') {
+			response.body = JSON.parse(response.body);
+		} else if (options.responseType === 'buffer') {
+			response.body = Buffer.from(response.body);
+		} else if (options.responseType !== 'text' && !is.falsy(options.responseType)) {
+			throw new Error(`Failed to parse body of type '${options.responseType}'`);
 		}
 	};
 
