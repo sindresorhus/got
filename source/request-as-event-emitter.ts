@@ -89,9 +89,8 @@ export default (options: NormalizedOptions, input?: TransformStream) => {
 		// No point in typing process.versions correctly, as
 		// process.version.electron is used only once, right here.
 		if (options.useElectronNet && (process.versions as any).electron) {
-			// @ts-ignore
 			const electron = dynamicRequire(module, 'electron'); // Trick webpack
-			requestFn = electron.net.request || electron.remote.net.request;
+			requestFn = (electron as any).net.request || (electron as any).remote.net.request;
 		}
 
 		if (options.cookieJar) {

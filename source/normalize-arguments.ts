@@ -1,4 +1,4 @@
-import {format} from 'url';
+import {format, URL, URLSearchParams} from 'url';
 import CacheableLookup from 'cacheable-lookup';
 import is from '@sindresorhus/is';
 import lowercaseKeys from 'lowercase-keys';
@@ -10,11 +10,6 @@ import merge from './merge';
 import knownHookEvents from './known-hook-events';
 import {Options, Defaults, NormalizedOptions, NormalizedRetryOptions, RetryOption, Method, Delays, ErrorCode, StatusCode} from './utils/types';
 import {HTTPError, ParseError, MaxRedirectsError, GotError} from './errors';
-
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const URLGlobal: typeof URL = typeof URL === 'undefined' ? require('url').URL : URL;
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const URLSearchParamsGlobal: typeof URLSearchParams = typeof URLSearchParams === 'undefined' ? require('url').URLSearchParams : URLSearchParams;
 
 const retryAfterStatusCodes: ReadonlySet<StatusCode> = new Set([413, 429, 503]);
 
@@ -139,7 +134,7 @@ export const normalizeArguments = (url: URL | URLOptions | string | Options, opt
 			url = url.replace(/^unix:/, 'http://$&');
 		}
 
-		url = urlToOptions(new URLGlobal(url, options.baseUrl));
+		url = urlToOptions(new URL(url, options.baseUrl));
 	} else if (is(url) === 'URL') {
 		url = urlToOptions(url as URL);
 	}
@@ -182,7 +177,7 @@ export const normalizeArguments = (url: URL | URLOptions | string | Options, opt
 				validateSearchParams(searchParams);
 			}
 
-			searchParams = (new URLSearchParamsGlobal(searchParams as Record<string, string>)).toString();
+			searchParams = (new URLSearchParams(searchParams as Record<string, string>)).toString();
 		}
 
 		options.path = `${options.path.split('?')[0]}?${searchParams}`;
