@@ -12,8 +12,8 @@ const getPromiseOrStream = (options: NormalizedOptions): ProxyStream | Cancelabl
 
 export type HTTPAlias = 'get' | 'post' | 'put' | 'patch' | 'head' | 'delete';
 
-export type ReturnResponse = (url: URL | string | Partial<Options> & { stream?: false }, options?: Partial<Options> & { stream?: false }) => CancelableRequest<Response>;
-export type ReturnStream = (url: URL | string | Partial<Options> & { stream: true }, options?: Partial<Options> & { stream: true }) => ProxyStream;
+export type ReturnResponse = (url: URL | string | Options & { stream?: false }, options?: Options & { stream?: false }) => CancelableRequest<Response>;
+export type ReturnStream = (url: URL | string | Options & { stream: true }, options?: Options & { stream: true }) => ProxyStream;
 
 export interface Got extends Record<HTTPAlias, ReturnResponse> {
 	stream: GotStream;
@@ -31,15 +31,15 @@ export interface Got extends Record<HTTPAlias, ReturnResponse> {
 
 	(url: URL | string | Partial<Options & { stream?: false }>, options?: Partial<Options & { stream?: false }>): CancelableRequest<Response>;
 	(url: URL | string | Partial<Options & { stream: true }>, options?: Partial<Options & { stream: true }>): ProxyStream;
-	(url: URL | string | Partial<Options>, options?: Partial<Options>): CancelableRequest<Response> | ProxyStream;
+	(url: URL | string | Options, options?: Options): CancelableRequest<Response> | ProxyStream;
 	create(defaults: Partial<Defaults>): Got;
-	extend(options?: Partial<Options>): Got;
+	extend(options?: Options): Got;
 	mergeInstances(...instances: Got[]): Got;
 	mergeOptions<T extends Options>(...sources: T[]): T & { hooks: Partial<Hooks> };
 }
 
 export interface GotStream extends Record<HTTPAlias, ReturnStream> {
-	(url: URL | string | Partial<Options>, options?: Partial<Options>): ProxyStream;
+	(url: URL | string | Options, options?: Options): ProxyStream;
 }
 
 const aliases: readonly HTTPAlias[] = [
@@ -62,7 +62,7 @@ const create = (defaults: Partial<Defaults>): Got => {
 	}
 
 	// @ts-ignore Because the for loop handles it for us, as well as the other Object.defines
-	const got: Got = (url: URL | string | Partial<Options>, options?: Partial<Options>): ProxyStream | CancelableRequest<Response> => {
+	const got: Got = (url: URL | string | Options, options?: Options): ProxyStream | CancelableRequest<Response> => {
 		try {
 			return defaults.handler!(normalizeArguments(url, options as NormalizedOptions, defaults), getPromiseOrStream);
 		} catch (error) {

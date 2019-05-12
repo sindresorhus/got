@@ -49,14 +49,6 @@ export type StatusCode =
 	| 503
 	| 504;
 
-export type DeepPartial<T> = {
-	[TKey in keyof T]?: T[TKey] extends Array<infer TU>
-		? Array<DeepPartial<TU>>
-		: T[TKey] extends ReadonlyArray<infer TU>
-			? ReadonlyArray<DeepPartial<TU>>
-			: DeepPartial<T[TKey]>
-};
-
 export type ResponseType = 'json' | 'buffer' | 'text';
 
 export interface Response extends IncomingMessage {
@@ -118,7 +110,7 @@ export interface Options extends Omit<https.RequestOptions, 'agent' | 'timeout' 
 	socketPath?: string;
 	protocol?: string;
 	href?: string;
-	options?: Partial<Options>;
+	options?: Options;
 	hooks?: Partial<Hooks>;
 	decompress?: boolean;
 	stream?: boolean;
@@ -150,7 +142,7 @@ export interface Options extends Omit<https.RequestOptions, 'agent' | 'timeout' 
 	json?: Record<string, any>;
 }
 
-export interface NormalizedOptions extends Omit<Options, 'timeout' | 'dnsCache' | 'retry'> {
+export interface NormalizedOptions extends Omit<Required<Options>, 'timeout' | 'dnsCache' | 'retry'> {
 	headers: Record<string, string | string[]>;
 	hooks: Hooks;
 	gotTimeout: Required<Delays>;
