@@ -1,6 +1,13 @@
-import {Readable as ReadableStream} from 'stream';
 import * as errors from './errors';
-import {Options, Defaults, Method, NormalizedOptions, Response, CancelableRequest} from './utils/types';
+import {
+	Options,
+	Defaults,
+	NormalizedOptions,
+	Response,
+	CancelableRequest,
+	URLOrOptions,
+	URLArgument
+} from './utils/types';
 import deepFreeze from './utils/deep-freeze';
 import merge, {mergeOptions, mergeInstances} from './merge';
 import asPromise from './as-promise';
@@ -12,8 +19,8 @@ const getPromiseOrStream = (options: NormalizedOptions): ProxyStream | Cancelabl
 
 export type HTTPAlias = 'get' | 'post' | 'put' | 'patch' | 'head' | 'delete';
 
-export type ReturnResponse = (url: URL | string | Options & { stream?: false }, options?: Options & { stream?: false }) => CancelableRequest<Response>;
-export type ReturnStream = (url: URL | string | Options & { stream: true }, options?: Options & { stream: true }) => ProxyStream;
+export type ReturnResponse = (url: URLArgument | Options & { stream?: false; url: URLArgument }, options?: Options & { stream?: false }) => CancelableRequest<Response>;
+export type ReturnStream = (url: URLArgument | Options & { stream: true; url: URLArgument }, options?: Options & { stream: true }) => ProxyStream;
 
 export interface Got extends Record<HTTPAlias, ReturnResponse> {
 	stream: GotStream;
@@ -29,9 +36,9 @@ export interface Got extends Record<HTTPAlias, ReturnResponse> {
 	TimeoutError: typeof errors.TimeoutError;
 	CancelError: typeof errors.CancelError;
 
-	(url: URL | string | Partial<Options & { stream?: false }>, options?: Partial<Options & { stream?: false }>): CancelableRequest<Response>;
-	(url: URL | string | Partial<Options & { stream: true }>, options?: Partial<Options & { stream: true }>): ProxyStream;
-	(url: URL | string | Options, options?: Options): CancelableRequest<Response> | ProxyStream;
+	(url: URLArgument | Options & { stream?: false; url: URLArgument }, options?: Options & { stream?: false }): CancelableRequest<Response>;
+	(url: URLArgument | Options & { stream: true; url: URLArgument }, options?: Options & { stream: true }): ProxyStream;
+	(url: URLOrOptions, options?: Options): CancelableRequest<Response> | ProxyStream;
 	create(defaults: Defaults): Got;
 	extend(options?: Options): Got;
 	mergeInstances(...instances: Got[]): Got;
@@ -39,7 +46,7 @@ export interface Got extends Record<HTTPAlias, ReturnResponse> {
 }
 
 export interface GotStream extends Record<HTTPAlias, ReturnStream> {
-	(url: URL | string | Options, options?: Options): ProxyStream;
+	(url: URLOrOptions, options?: Options): ProxyStream;
 }
 
 const aliases: readonly HTTPAlias[] = [
@@ -62,7 +69,7 @@ const create = (defaults: Partial<Defaults>): Got => {
 	}
 
 	// @ts-ignore Because the for loop handles it for us, as well as the other Object.defines
-	const got: Got = (url: URL | string | Options, options?: Options): ProxyStream | CancelableRequest<Response> => {
+	const got: Got = (url: URLOrOptions, options?: Options): ProxyStream | CancelableRequest<Response> => {
 		try {
 			return defaults.handler!(normalizeArguments(url, options as NormalizedOptions, defaults), getPromiseOrStream);
 		} catch (error) {
@@ -92,14 +99,14 @@ const create = (defaults: Partial<Defaults>): Got => {
 		});
 	};
 
-	got.mergeInstances = (...args) => create(mergeInstances(args));
+	got.mergeInstances = (...args: Got[]) => create(mergeInstances(args));
 
-	// @ts-ignore Because the for loop handles it for us
-	got.stream = (url, options) => got(url, {...options, stream: true}) as ReadableStream;
+	// @ts-ignore The missing methods because the for-loop handles it for us
+	got.stream = (url, options) => got(url, {...options, stream: true});
 
 	for (const method of aliases) {
-		got[method] = (url, options) => got(url, {...options, method: method as Method});
-		got.stream[method] = (url, options) => got.stream(url, {...options, method: method as Method});
+		got[method] = (url, options) => got(url, {...options, method});
+		got.stream[method] = (url, options) => got.stream(url, {...options, method});
 	}
 
 	Object.assign(got, {...errors, mergeOptions});
