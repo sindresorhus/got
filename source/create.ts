@@ -53,7 +53,7 @@ const aliases: readonly HTTPAliases[] = [
 
 const create = (defaults: Partial<Defaults>): Got => {
 	defaults = merge<Defaults, Partial<Defaults>>({}, defaults);
-	preNormalizeArguments(defaults.options);
+	preNormalizeArguments(defaults.options!);
 
 	if (!defaults.handler) {
 		// This can't be getPromiseOrStream, because when merging
@@ -79,14 +79,14 @@ const create = (defaults: Partial<Defaults>): Got => {
 	got.extend = options => {
 		let mutableDefaults: boolean;
 		if (options && Reflect.has(options, 'mutableDefaults')) {
-			mutableDefaults = options.mutableDefaults;
+			mutableDefaults = options.mutableDefaults!;
 			delete options.mutableDefaults;
 		} else {
-			mutableDefaults = defaults.mutableDefaults;
+			mutableDefaults = defaults.mutableDefaults!;
 		}
 
 		return create({
-			options: mergeOptions(defaults.options, options),
+			options: mergeOptions(defaults.options!, options!),
 			handler: defaults.handler,
 			mutableDefaults
 		});

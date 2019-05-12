@@ -50,7 +50,7 @@ export const preNormalizeArguments = (options: Options, defaults?: Options): Nor
 		if (is.nullOrUndefined(options.hooks[event])) {
 			if (defaults && defaults.hooks) {
 				if (event in defaults.hooks) {
-					options.hooks[event] = defaults.hooks[event].slice();
+					options.hooks[event] = defaults.hooks[event]!.slice();
 				}
 			} else {
 				options.hooks[event] = [];
