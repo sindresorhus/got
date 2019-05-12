@@ -10,12 +10,12 @@ import {Hooks} from './known-hook-events';
 
 const getPromiseOrStream = (options: NormalizedOptions): ProxyStream | CancelableRequest<Response> => options.stream ? asStream(options) : asPromise(options);
 
-export type HTTPAliases = 'get' | 'post' | 'put' | 'patch' | 'head' | 'delete';
+export type HTTPAlias = 'get' | 'post' | 'put' | 'patch' | 'head' | 'delete';
 
 export type ReturnResponse = (url: URL | string | Partial<Options> & { stream?: false }, options?: Partial<Options> & { stream?: false }) => CancelableRequest<Response>;
 export type ReturnStream = (url: URL | string | Partial<Options> & { stream: true }, options?: Partial<Options> & { stream: true }) => ProxyStream;
 
-export interface Got extends Record<HTTPAliases, ReturnResponse> {
+export interface Got extends Record<HTTPAlias, ReturnResponse> {
 	stream: GotStream;
 	defaults: Defaults | Readonly<Defaults>;
 	GotError: typeof errors.GotError;
@@ -38,11 +38,11 @@ export interface Got extends Record<HTTPAliases, ReturnResponse> {
 	mergeOptions<T extends Options>(...sources: T[]): T & { hooks: Partial<Hooks> };
 }
 
-export interface GotStream extends Record<HTTPAliases, ReturnStream> {
+export interface GotStream extends Record<HTTPAlias, ReturnStream> {
 	(url: URL | string | Partial<Options>, options?: Partial<Options>): ProxyStream;
 }
 
-const aliases: readonly HTTPAliases[] = [
+const aliases: readonly HTTPAlias[] = [
 	'get',
 	'post',
 	'put',
