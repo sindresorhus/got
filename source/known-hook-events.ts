@@ -1,4 +1,4 @@
-import {Options, CancelableRequest, Response, NormalizedOptions, DeepPartial} from './utils/types';
+import {Options, CancelableRequest, Response, NormalizedOptions} from './utils/types';
 import {HTTPError, GotError, ParseError, MaxRedirectsError} from './errors';
 
 /**
@@ -39,7 +39,7 @@ Called with [response object](https://github.com/sindresorhus/got#response) and 
 
 Each function should return the response. This is especially useful when you want to refresh an access token.
 */
-export type AfterResponseHook = (response: Response, retryWithMergedOptions: (options: DeepPartial<NormalizedOptions>) => CancelableRequest<Response>) => Response | CancelableRequest<Response>;
+export type AfterResponseHook = (response: Response, retryWithMergedOptions: (options: NormalizedOptions) => CancelableRequest<Response>) => Response | CancelableRequest<Response>;
 
 export type HookType =
 	| BeforeErrorHook
