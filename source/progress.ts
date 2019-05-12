@@ -3,7 +3,7 @@ import {Transform as TransformStream} from 'stream';
 import {Socket} from 'net';
 import EventEmitter from 'events';
 
-export function downloadProgress(_: IncomingMessage, emitter: EventEmitter, downloadBodySize?: number): TransformStream {
+export function downloadProgress(_response: IncomingMessage, emitter: EventEmitter, downloadBodySize?: number): TransformStream {
 	let downloaded = 0;
 
 	return new TransformStream({

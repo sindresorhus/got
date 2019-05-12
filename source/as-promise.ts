@@ -78,7 +78,7 @@ export default function asPromise(options: NormalizedOptions): CancelableRequest
 
 						// Remove any further hooks for that request, because we we'll call them anyway.
 						// The loop continues. We don't want duplicates (asPromise recursion).
-						updatedOptions.hooks!.afterResponse = options.hooks.afterResponse.slice(0, index);
+						updatedOptions.hooks.afterResponse = options.hooks.afterResponse.slice(0, index);
 
 						return asPromise(updatedOptions);
 					});
