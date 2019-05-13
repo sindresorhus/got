@@ -1,3 +1,4 @@
+import https = require('https');
 import {format, URL, URLSearchParams} from 'url';
 import CacheableLookup from 'cacheable-lookup';
 import is from '@sindresorhus/is';
@@ -8,7 +9,19 @@ import validateSearchParams from './utils/validate-search-params';
 import supportsBrotli from './utils/supports-brotli';
 import merge from './merge';
 import knownHookEvents from './known-hook-events';
-import {Options, Defaults, NormalizedOptions, NormalizedRetryOptions, RetryOption, Method, Delays, ErrorCode, StatusCode} from './utils/types';
+import {
+	Options,
+	Defaults,
+	NormalizedOptions,
+	NormalizedRetryOptions,
+	RetryOption,
+	Method,
+	Delays,
+	ErrorCode,
+	StatusCode,
+	URLArgument,
+	URLOrOptions
+} from './utils/types';
 import {HTTPError, ParseError, MaxRedirectsError, GotError} from './errors';
 
 const retryAfterStatusCodes: ReadonlySet<StatusCode> = new Set([413, 429, 503]);
@@ -20,7 +33,7 @@ let shownDeprecation = false;
 // with no static changes, they won't be normalized again.
 //
 // `normalize` operates on dynamic options - they cannot be saved.
-// For example, `body` is everytime different per request.
+// For example, `body` is every time different per request.
 // When it's done normalizing the new options, it performs merge()
 // on the prenormalized options and the normalized ones.
 
@@ -108,11 +121,14 @@ export const preNormalizeArguments = (options: Options, defaults?: Options): Nor
 	return options as NormalizedOptions;
 };
 
-export const normalizeArguments = (url: URL | URLOptions | string | Options, options: NormalizedOptions, defaults?: Defaults): NormalizedOptions => {
+export const normalizeArguments = (url: URLOrOptions, options: NormalizedOptions, defaults?: Defaults): NormalizedOptions => {
+	let urlArg: URLArgument;
 	if (is.plainObject(url)) {
 		options = {...url, ...options};
-		url = options.url || '';
+		urlArg = options.url || '';
 		delete options.url;
+	} else {
+		urlArg = url;
 	}
 
 	if (defaults) {
@@ -121,26 +137,29 @@ export const normalizeArguments = (url: URL | URLOptions | string | Options, opt
 		options = merge({}, preNormalizeArguments(options));
 	}
 
-	if (!is.string(url) && !is.object(url)) {
-		throw new TypeError(`Parameter \`url\` must be a string or object, not ${is(url)}`);
+	if (!is.string(urlArg) && !is.object(urlArg)) {
+		throw new TypeError(`Parameter \`url\` must be a string or object, not ${is(urlArg)}`);
 	}
 
-	if (is.string(url) && !(url === '' && !options.baseUrl)) {
+	let urlObj: https.RequestOptions | URLOptions;
+	if (is.string(urlArg)) {
 		if (options.baseUrl) {
-			if (url.startsWith('/')) {
-				url = url.slice(1);
+			if (urlArg.startsWith('/')) {
+				urlArg = urlArg.slice(1);
 			}
 		} else {
-			url = url.replace(/^unix:/, 'http://$&');
+			urlArg = urlArg.replace(/^unix:/, 'http://$&');
 		}
 
-		url = urlToOptions(new URL(url, options.baseUrl));
-	} else if (is(url) === 'URL') {
-		url = urlToOptions(url as URL);
+		urlObj = urlArg || options.baseUrl ? urlToOptions(new URL(urlArg, options.baseUrl)) : {};
+	} else if (is.urlInstance(urlArg)) {
+		urlObj = urlToOptions(urlArg);
+	} else {
+		urlObj = urlArg;
 	}
 
 	// Override both null/undefined with default protocol
-	options = merge<NormalizedOptions, Partial<URL | URLOptions | NormalizedOptions | Options>>({path: ''} as NormalizedOptions, url as URL | URLOptions, {protocol: (url as URL | URLOptions).protocol || 'https:'}, options);
+	options = merge<NormalizedOptions, Partial<URL | URLOptions | NormalizedOptions | Options>>({path: ''} as NormalizedOptions, urlObj, {protocol: urlObj.protocol || 'https:'}, options);
 
 	for (const hook of options.hooks.init) {
 		const called = hook(options);
