@@ -16,7 +16,7 @@ export class TimeoutError extends Error {
 	}
 }
 
-const reentry: symbol = Symbol('reentry');
+const reentry = Symbol('reentry');
 const noop = (): void => {};
 
 export default (request: ClientRequest, delays: Delays, options: any) => {
