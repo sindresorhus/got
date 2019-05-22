@@ -1,5 +1,6 @@
 import urlLib, {URL, URLSearchParams} from 'url'; // TODO: Use the `URL` global when targeting Node.js 10
 import CacheableLookup from 'cacheable-lookup';
+import ProxyAgent from 'https-proxy-agent';
 import is from '@sindresorhus/is';
 import lowercaseKeys from 'lowercase-keys';
 import urlToOptions from './utils/url-to-options';
@@ -181,6 +182,11 @@ export const normalizeArguments = (url, options, defaults?: any) => {
 		}
 
 		options.path = `${options.path.split('?')[0]}?${searchParams}`;
+	}
+
+	const proxy = process.env.HTTPS_PROXY || process.env.HTTP_PROXY || undefined;
+	if (is.nonEmptyString(proxy)) {
+		options.agent = new ProxyAgent(proxy);
 	}
 
 	if (options.hostname === 'unix') {
