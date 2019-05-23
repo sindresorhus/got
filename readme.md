@@ -57,10 +57,6 @@ Got is for Node.js. For browsers, we recommend [Ky](https://github.com/sindresor
 $ npm install got
 ```
 
-<a href="https://www.patreon.com/sindresorhus">
-	<img src="https://c5.patreon.com/external/logo/become_a_patron_button@2x.png" width="160">
-</a>
-
 
 ## Usage
 
@@ -1375,8 +1371,3 @@ const h2got = got.extend({request});
 ## Security
 
 To report a security vulnerability, please use the [Tidelift security contact](https://tidelift.com/security). Tidelift will coordinate the fix and disclosure.
-
-
-## License
-
-MIT
