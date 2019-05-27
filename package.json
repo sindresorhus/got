@@ -113,6 +113,7 @@
 			"import/named": "off",
 			"import/no-unresolved": "off",
 			"ava/no-ignored-test-files": "off",
+			"@typescript-eslint/explicit-function-return-type": "off",
 			"@typescript-eslint/no-unnecessary-type-assertion": "off"
 		}
 	}
