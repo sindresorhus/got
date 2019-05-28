@@ -1,3 +1,4 @@
+import {URL} from 'url';
 import test from 'ava';
 import delay = require('delay');
 import got from '../source';
@@ -222,7 +223,7 @@ test('beforeRequest allows modifications', withServer, async (t, server, got) =>
 	t.is(body.foo, 'bar');
 });
 
-test('beforeRedirect is called with options', withServer, async (t, server, got) => {
+test('beforeRedirect is called with options and response', withServer, async (t, server, got) => {
 	server.get('/', echoHeaders);
 	server.get('/redirect', redirectEndpoint);
 
@@ -230,9 +231,13 @@ test('beforeRedirect is called with options', withServer, async (t, server, got)
 		responseType: 'json',
 		hooks: {
 			beforeRedirect: [
-				options => {
+				(options, response) => {
 					t.is(options.path, '/');
 					t.is(options.hostname, 'localhost');
+
+					t.is(response.statusCode, 302);
+					t.is(new URL(response.url).pathname, '/redirect');
+					t.is(response.redirectUrls.length, 1);
 				}
 			]
 		}
