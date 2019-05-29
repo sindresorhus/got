@@ -1,3 +1,6 @@
+
+import http = require('http');
+import ResponseLike = require('responselike');
 import {Options, CancelableRequest, Response, NormalizedOptions} from './utils/types';
 import {HTTPError, GotError, ParseError, MaxRedirectsError} from './errors';
 
@@ -20,7 +23,7 @@ export type BeforeRequestHook = (options: NormalizedOptions) => void | Promise<v
 /**
 Called with normalized [request options](https://github.com/sindresorhus/got#options). Got will make no further changes to the request. This is especially useful when you want to avoid dead sites.
 */
-export type BeforeRedirectHook = (options: NormalizedOptions, response: any) => void | Promise<void>;
+export type BeforeRedirectHook = (options: NormalizedOptions, response: http.ServerResponse | ResponseLike) => void | Promise<void>;
 
 /**
 Called with normalized [request options](https://github.com/sindresorhus/got#options), the error and the retry count. Got will make no further changes to the request. This is especially useful when some extra work is required before the next try.
