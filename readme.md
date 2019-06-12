@@ -572,7 +572,7 @@ The object contains the following properties:
 
 **Note:** The time is a `number` representing the milliseconds elapsed since the UNIX epoch.
 
-##### isFromCache
+##### fromCache
 
 Type: `boolean`
 
@@ -594,7 +594,7 @@ The number of times the request was retried.
 
 **Note:** Progress events, redirect events and request/response events can also be used with promises.
 
-**Note:** To access `response.isFromCache` you need to use `got.stream(url, options).isFromCache`. The value will be undefined until the `response` event.
+**Note:** To access `response.fromCache` you need to use `got.stream(url, options).fromCache`. The value will be undefined until the `response` event.
 
 #### got.stream(url, [options])
 
@@ -823,11 +823,11 @@ const map = new Map();
 
 (async () => {
 		let response = await got('https://sindresorhus.com', {cache: map});
-		console.log(response.isFromCache);
+		console.log(response.fromCache);
 		//=> false
 
 		response = await got('https://sindresorhus.com', {cache: map});
-		console.log(response.isFromCache);
+		console.log(response.fromCache);
 		//=> true
 })();
 ```
