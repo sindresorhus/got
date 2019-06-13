@@ -79,7 +79,7 @@
 		"tempy": "^0.3.0",
 		"tough-cookie": "^3.0.0",
 		"ts-node": "^8.0.3",
-		"typescript": "^3.4.4",
+		"typescript": "3.4.4",
 		"xo": "^0.24.0"
 	},
 	"types": "dist",
