@@ -113,7 +113,7 @@ test('no unhandled errors', async t => {
 	const options = {
 		cookieJar: {
 			setCookie: () => {},
-			getCookieString: (_, __, cb) => cb(new Error(message))
+			getCookieString: (_, cb) => cb(new Error(message))
 		}
 	};
 
