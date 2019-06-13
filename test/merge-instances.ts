@@ -51,7 +51,7 @@ test('merges default handlers & custom handlers', withServer, async (t, server) 
 	});
 	const merged = got.mergeInstances(instanceA, instanceB);
 
-	const headers = await merged(server.url).json();
+	const headers = await merged(server.url).json<TestReturn>();
 	t.is(headers.unicorn, 'rainbow');
 	t.is(headers.cat, 'meow');
 });
