@@ -32,7 +32,7 @@ export interface Got extends Record<HTTPAlias, ReturnResponse> {
 	(url: URL | string | Partial<Options & { stream?: false }>, options?: Partial<Options & { stream?: false }>): CancelableRequest<Response>;
 	(url: URL | string | Partial<Options & { stream: true }>, options?: Partial<Options & { stream: true }>): ProxyStream;
 	(url: URL | string | Options, options?: Options): CancelableRequest<Response> | ProxyStream;
-	create(defaults: Partial<Defaults>): Got;
+	create(defaults: Defaults): Got;
 	extend(options?: Options): Got;
 	mergeInstances(...instances: Got[]): Got;
 	mergeOptions<T extends Options>(...sources: T[]): T & { hooks: Partial<Hooks> };

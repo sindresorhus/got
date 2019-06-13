@@ -117,6 +117,7 @@ test('no unhandled errors', async t => {
 		}
 	};
 
+	// @ts-ignore Manual tests
 	await t.throwsAsync(got(`http://127.0.0.1:${(server.address() as AddressInfo).port}`, options), {message});
 	await delay(500);
 	t.pass();

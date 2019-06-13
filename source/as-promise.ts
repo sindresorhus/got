@@ -9,6 +9,8 @@ import {ParseError, ReadError, HTTPError} from './errors';
 import {reNormalizeArguments} from './normalize-arguments';
 import requestAsEventEmitter from './request-as-event-emitter';
 
+type ResponeReturn = Response | Buffer | string | any;
+
 export default function asPromise(options: NormalizedOptions): CancelableRequest<Response> {
 	const proxy = new EventEmitter();
 
@@ -126,7 +128,7 @@ export default function asPromise(options: NormalizedOptions): CancelableRequest
 			'uploadProgress',
 			'downloadProgress'
 		].forEach(event => emitter.on(event, (...args: unknown[]) => proxy.emit(event, ...args)));
-	}) as CancelableRequest<Response | Buffer | string | any>;
+	}) as CancelableRequest<ResponeReturn>;
 
 	promise.on = (name, fn) => {
 		proxy.on(name, fn);

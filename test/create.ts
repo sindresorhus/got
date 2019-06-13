@@ -4,6 +4,8 @@ import test from 'ava';
 import got from '../source';
 import withServer from './helpers/with-server';
 
+type TestReturn = Record<string, unknown>;
+
 const echoHeaders = (request, response) => {
 	request.resume();
 	response.end(JSON.stringify(request.headers));
@@ -75,9 +77,12 @@ test('custom headers (extend)', withServer, async (t, server, got) => {
 
 test('extend overwrites arrays with a deep clone', t => {
 	const beforeRequest = [0];
+	// @ts-ignore Manual tests
 	const a = got.extend({hooks: {beforeRequest}});
 	beforeRequest[0] = 1;
+	// @ts-ignore Manual tests
 	t.deepEqual(a.defaults.options.hooks.beforeRequest, [0]);
+	// @ts-ignore Manual tests
 	t.not(a.defaults.options.hooks.beforeRequest, beforeRequest);
 });
 
@@ -105,7 +110,7 @@ test('create', withServer, async (t, server) => {
 			return next(options);
 		}
 	});
-	const headers = await instance(server.url).json();
+	const headers = await instance(server.url).json<TestReturn>();
 	t.is(headers.unicorn, 'rainbow');
 	t.is(headers['user-agent'], undefined);
 });
@@ -124,7 +129,7 @@ test('custom endpoint with custom headers (extend)', withServer, async (t, serve
 	server.all('/', echoHeaders);
 
 	const instance = got.extend({headers: {unicorn: 'rainbow'}, baseUrl: server.url});
-	const headers = await instance('/').json();
+	const headers = await instance('/').json<TestReturn>();
 	t.is(headers.unicorn, 'rainbow');
 	t.not(headers['user-agent'], undefined);
 });
@@ -198,6 +203,7 @@ test('defaults are cloned on instance creation', t => {
 		delete options.hooks.beforeRequest[0];
 	});
 
+	// @ts-ignore This IS correct
 	t.not(options.foo, instance.defaults.options.foo);
 	t.not(options.hooks.beforeRequest, instance.defaults.options.hooks.beforeRequest);
 });
