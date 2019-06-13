@@ -115,7 +115,7 @@ test('cache error throws `got.CacheError`', withServer, async (t, server, got) =
 test('doesn\'t cache response when received HTTP error', withServer, async (t, server, got) => {
 	let calledFirstError = false;
 	server.get('/', (_request, response) => {
-		if (calledFirstError) {
+		if (!calledFirstError) {
 			response.end('ok');
 			return;
 		}

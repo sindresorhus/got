@@ -106,7 +106,7 @@ export default function asPromise(options: NormalizedOptions): CancelableRequest
 
 			if (statusCode !== 304 && (statusCode < 200 || statusCode > limitStatusCode)) {
 				const error = new HTTPError(response, options);
-				if (!emitter.retry(error)) {
+				if (emitter.retry(error) === false) {
 					if (options.throwHttpErrors) {
 						emitError(error);
 						return;
