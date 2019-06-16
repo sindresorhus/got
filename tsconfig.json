@@ -6,6 +6,7 @@
 		"lib": [
 			"esnext"
 		],
+		// TODO: Make it strict
 		"strict": false,
 		"typeRoots": [
 			"./source/types/*",

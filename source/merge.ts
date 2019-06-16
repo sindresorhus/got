@@ -50,6 +50,7 @@ export function mergeOptions<T extends Options>(...sources: T[]): T & { hooks: P
 	const hooks = knownHookEvents.reduce((acc, current) => ({...acc, [current]: []}), {}) as Record<HookEvent, HookType[]>;
 
 	for (const source of sources) {
+		// We need to check `source` to allow calling `.extend()` with no arguments.
 		if (source && source.hooks) {
 			for (const hook of knownHookEvents) {
 				hooks[hook] = hooks[hook].concat(source.hooks[hook] || []);
@@ -71,7 +72,7 @@ export function mergeInstances(instances: Got[], methods?: Method[]): Defaults {
 		options: mergeOptions(...instances.map(instance => instance.defaults.options || {})),
 		handler: <T extends ProxyStream | CancelableRequest<Response>>(options: NormalizedOptions, next: (options: NormalizedOptions) => T) => {
 			let iteration = 0;
-			const iterate = (newOptions: NormalizedOptions): T => handlers[iteration++]!(newOptions, iteration === size ? next : iterate);
+			const iterate = (newOptions: NormalizedOptions): T => handlers[++iteration]!(newOptions, iteration === size ? next : iterate);
 
 			return iterate(options);
 		}

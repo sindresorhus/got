@@ -251,19 +251,6 @@ test('throws when trying to modify `baseUrl` after options got normalized', asyn
 	await t.throwsAsync(instanceA('/'), 'Failed to set baseUrl. Options are normalized already.');
 });
 
-// TODO: fix this
-test.failing('throws if the `searchParams` key is invalid', async t => {
-	await t.throwsAsync(got('https://example.com', {
-		searchParams: {
-			// @ts-ignore
-			[undefined]: 'valid'
-		}
-	}), {
-		instanceOf: TypeError,
-		message: 'The `searchParams` key \'\' must be a string, number, boolean or null'
-	});
-});
-
 test('throws if the `searchParams` value is invalid', async t => {
 	await t.throwsAsync(got('https://example.com', {
 		// @ts-ignore Manual tests

@@ -67,7 +67,7 @@ export const preNormalizeArguments = (options: Options, defaults?: Options): Nor
 		methods: new Set(),
 		statusCodes: new Set(),
 		errorCodes: new Set(),
-		maxRetryAfter: 0
+		maxRetryAfter: undefined
 	};
 
 	if (is.nonEmptyObject(defaults) && retry !== false) {
@@ -79,7 +79,7 @@ export const preNormalizeArguments = (options: Options, defaults?: Options): Nor
 			options.retry.retries = retry;
 		} else {
 			// eslint-disable-next-line @typescript-eslint/no-object-literal-type-assertion
-			options.retry = {...retry, ...options.retry} as NormalizedRetryOptions;
+			options.retry = {...options.retry, ...retry} as NormalizedRetryOptions;
 		}
 	}
 
