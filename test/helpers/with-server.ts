@@ -12,7 +12,9 @@ export default async (t, run) => {
 		}
 	});
 
+	// @ts-ignore Ignore errors for extending got, for the tests
 	const preparedGot = got.extend({baseUrl: server.url, avaTest: t.title});
+	// @ts-ignore Ignore errors for extending got, for the tests
 	preparedGot.secure = got.extend({baseUrl: server.sslUrl, avaTest: t.title});
 
 	server.hostname = (new URL(server.url)).hostname;

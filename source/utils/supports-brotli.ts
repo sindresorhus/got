@@ -1,3 +1,3 @@
 import zlib from 'zlib';
 
-export default typeof (zlib as any).createBrotliDecompress === 'function';
+export default typeof zlib.createBrotliDecompress === 'function';

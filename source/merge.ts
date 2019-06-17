@@ -1,9 +1,15 @@
-import {URL, URLSearchParams} from 'url';
 import is from '@sindresorhus/is';
-import {Options, Method, NextFunction, Instance, InterfaceWithDefaults} from './utils/types';
-import knownHookEvents, {Hooks, HookType, HookEvent} from './known-hook-events';
+import {Options, Method, Defaults, NormalizedOptions, CancelableRequest, Response} from './utils/types';
+import knownHookEvents, {Hooks, HookEvent, HookType} from './known-hook-events';
+import {Got} from './create';
+import {ProxyStream} from './as-stream';
 
-export default function merge<Target extends {[key: string]: unknown}, Source extends {[key: string]: unknown}>(target: Target, ...sources: Source[]): Target & Source {
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const URLGlobal: typeof URL = typeof URL === 'undefined' ? require('url').URL : URL;
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const URLSearchParamsGlobal: typeof URLSearchParams = typeof URLSearchParams === 'undefined' ? require('url').URLSearchParams : URLSearchParams;
+
+export default function merge<Target extends Record<string, unknown>, Source extends Record<string, unknown>>(target: Target, ...sources: Source[]): Target & Source {
 	for (const source of sources) {
 		for (const [key, sourceValue] of Object.entries(source)) {
 			if (is.undefined(sourceValue)) {
@@ -11,16 +17,16 @@ export default function merge<Target extends {[key: string]: unknown}, Source ex
 			}
 
 			const targetValue = target[key];
-			if (targetValue instanceof URLSearchParams && sourceValue instanceof URLSearchParams) {
-				const params = new URLSearchParams();
+			if (targetValue instanceof URLSearchParamsGlobal && sourceValue instanceof URLSearchParamsGlobal) {
+				const params = new URLSearchParamsGlobal();
 
-				const append = (value: string, key: string) => params.append(key, value);
+				const append = (value: string, key: string): void => params.append(key, value);
 				targetValue.forEach(append);
 				sourceValue.forEach(append);
 
 				target[key] = params;
 			} else if (is.urlInstance(targetValue) && (is.urlInstance(sourceValue) || is.string(sourceValue))) {
-				target[key] = new URL(sourceValue as string, targetValue);
+				target[key] = new URLGlobal(sourceValue as string, targetValue);
 			} else if (is.plainObject(sourceValue)) {
 				if (is.plainObject(targetValue)) {
 					target[key] = merge({}, targetValue, sourceValue);
@@ -28,7 +34,7 @@ export default function merge<Target extends {[key: string]: unknown}, Source ex
 					target[key] = merge({}, sourceValue);
 				}
 			} else if (is.array(sourceValue)) {
-				target[key] = merge([], sourceValue);
+				target[key] = sourceValue.slice();
 			} else {
 				target[key] = sourceValue;
 			}
@@ -38,42 +44,35 @@ export default function merge<Target extends {[key: string]: unknown}, Source ex
 	return target as Target & Source;
 }
 
-export function mergeOptions(...sources: Array<Partial<Options>>): Partial<Options> & {hooks: Partial<Hooks>} {
-	sources = sources.map(source => source || {});
-	const merged = merge({}, ...sources);
+export function mergeOptions<T extends Options>(...sources: T[]): T & { hooks: Partial<Hooks> } {
+	const mergedOptions = merge({} as T & { hooks: Partial<Hooks> }, ...sources.map(source => source || {}));
 
-	// TODO: This is a funky situation. Even though we "know" that we're going to
-	//       populate the `hooks` object in the loop below, TypeScript want us to
-	//       put them into the object upon initialization, because it cannot infer
-	//       that they are going to conform correctly in runtime.
-	const hooks = {} as {[Key in HookEvent]: HookType[]};
-	for (const hook of knownHookEvents) {
-		hooks[hook] = [];
-	}
+	const hooks = knownHookEvents.reduce((acc, current) => ({...acc, [current]: []}), {}) as Record<HookEvent, HookType[]>;
 
 	for (const source of sources) {
-		if (source.hooks) {
+		// We need to check `source` to allow calling `.extend()` with no arguments.
+		if (source && source.hooks) {
 			for (const hook of knownHookEvents) {
 				hooks[hook] = hooks[hook].concat(source.hooks[hook] || []);
 			}
 		}
 	}
 
-	merged.hooks = hooks as Hooks;
+	mergedOptions.hooks = hooks as Hooks;
 
-	return merged as Partial<Options> & {hooks: Partial<Hooks>};
+	return mergedOptions;
 }
 
-export function mergeInstances(instances: InterfaceWithDefaults[], methods?: Method[]): Instance {
+export function mergeInstances(instances: Got[], methods?: Method[]): Defaults {
 	const handlers = instances.map(instance => instance.defaults.handler);
 	const size = instances.length - 1;
 
 	return {
 		methods,
-		options: mergeOptions(...instances.map(instance => instance.defaults.options)),
-		handler: (options: Options, next: NextFunction) => {
-			let iteration = -1;
-			const iterate = (options: Options): void => handlers[++iteration](options, iteration === size ? next : iterate);
+		options: mergeOptions(...instances.map(instance => instance.defaults.options || {})),
+		handler: <T extends ProxyStream | CancelableRequest<Response>>(options: NormalizedOptions, next: (options: NormalizedOptions) => T) => {
+			let iteration = 0;
+			const iterate = (newOptions: NormalizedOptions): T => handlers[++iteration]!(newOptions, iteration === size ? next : iterate);
 
 			return iterate(options);
 		}

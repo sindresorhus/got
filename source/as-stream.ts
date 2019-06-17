@@ -3,13 +3,13 @@ import {IncomingMessage} from 'http';
 import duplexer3 from 'duplexer3';
 import requestAsEventEmitter from './request-as-event-emitter';
 import {HTTPError, ReadError} from './errors';
-import {MergedOptions, Response} from './utils/types';
+import {NormalizedOptions, Response, Headers} from './utils/types';
 
 export class ProxyStream extends DuplexStream {
 	isFromCache?: boolean;
 }
 
-export default function asStream(options: MergedOptions) {
+export default function asStream(options: NormalizedOptions): ProxyStream {
 	const input = new PassThroughStream();
 	const output = new PassThroughStream();
 	const proxy = duplexer3(input, output) as ProxyStream;
@@ -27,7 +27,7 @@ export default function asStream(options: MergedOptions) {
 
 	const emitter = requestAsEventEmitter(options, input);
 
-	const emitError = async (error: Error) => {
+	const emitError = async (error: Error): Promise<void> => {
 		try {
 			for (const hook of options.hooks.beforeError) {
 				// eslint-disable-next-line no-await-in-loop
@@ -100,6 +100,7 @@ export default function asStream(options: MergedOptions) {
 
 	const pipe = proxy.pipe.bind(proxy);
 	const unpipe = proxy.unpipe.bind(proxy);
+
 	proxy.pipe = (destination, options) => {
 		if (isFinished) {
 			throw new Error('Failed to pipe. The response has been emitted already.');
@@ -121,10 +122,11 @@ export default function asStream(options: MergedOptions) {
 
 	proxy.on('pipe', source => {
 		if (source instanceof IncomingMessage) {
+			// eslint-disable-next-line @typescript-eslint/no-object-literal-type-assertion
 			options.headers = {
 				...source.headers,
 				...options.headers
-			};
+			} as Headers;
 		}
 	});
 

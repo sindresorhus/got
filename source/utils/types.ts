@@ -1,11 +1,16 @@
-import http, {IncomingMessage} from 'http';
+import http, {ClientRequest, IncomingMessage} from 'http';
 import https from 'https';
 import {Readable as ReadableStream} from 'stream';
 import PCancelable from 'p-cancelable';
 import {CookieJar} from 'tough-cookie';
 import {StorageAdapter} from 'cacheable-request';
 import {Omit} from 'type-fest';
+import CacheableLookup from 'cacheable-lookup';
+import Keyv from 'keyv';
+import {Timings} from '@szmarczak/http-timer/dist';
 import {Hooks} from '../known-hook-events';
+import {GotError, ParseError, HTTPError, MaxRedirectsError} from '../errors';
+import {ProxyStream} from '../as-stream';
 
 export type Method =
 	| 'GET'
@@ -44,43 +49,46 @@ export type StatusCode =
 	| 503
 	| 504;
 
-export type NextFunction = (error?: Error | string) => void;
-
-export type IterateFunction = (options: Options) => void;
+export type ResponseType = 'json' | 'buffer' | 'text';
 
 export interface Response extends IncomingMessage {
-	body: string | Buffer;
+	body: Buffer | string | any;
 	statusCode: number;
+	fromCache?: boolean;
 	isFromCache?: boolean;
+	req: ClientRequest;
+	requestUrl: string;
+	retryCount: number;
+	timings: Timings;
+	redirectUrls: string[];
+	request: { options: NormalizedOptions };
 }
 
-export interface Instance {
-	methods: Method[];
-	options: Partial<Options>;
-	handler: (options: Options, callback: NextFunction) => void;
-}
+export type RetryFunction = (retry: number, error: Error | GotError | ParseError | HTTPError | MaxRedirectsError) => number;
 
-export interface InterfaceWithDefaults extends Instance {
-	defaults: {
-		handler: (options: Options, callback: NextFunction | IterateFunction) => void;
-		options: Options;
-	};
-}
-
-export type RetryFunction = (retry: number, error: Error) => number;
+export type HandlerFunction = <T extends ProxyStream | CancelableRequest<Response>>(options: Options, next: (options: Options) => T) => T;
 
 export interface RetryOption {
 	retries?: RetryFunction | number;
 	methods?: Method[];
 	statusCodes?: StatusCode[];
-	maxRetryAfter?: number;
 	errorCodes?: ErrorCode[];
+	maxRetryAfter?: number;
+}
+
+export interface NormalizedRetryOptions {
+	retries: RetryFunction;
+	methods: ReadonlySet<Method>;
+	statusCodes: ReadonlySet<StatusCode>;
+	errorCodes: ReadonlySet<ErrorCode>;
+	maxRetryAfter: number;
 }
 
 export type RequestFunction = typeof https.request;
 
-export interface MergedOptions extends Options {
-	retry: RetryOption;
+export interface AgentByProtocol {
+	http: http.Agent;
+	https: https.Agent;
 }
 
 export interface Delays {
@@ -93,40 +101,70 @@ export interface Delays {
 	request?: number;
 }
 
-export interface AgentByProtocol {
-	http: http.Agent;
-	https: https.Agent;
-}
+export type Headers = Record<string, string | string[]>;
 
-// The library overrides the type definition of `agent`.
-export interface Options extends Omit<https.RequestOptions, 'agent'> {
-	host: string;
-	body: string | Buffer | ReadableStream;
+// The library overrides the type definition of `agent`, `host`, 'headers and `timeout`.
+export interface Options extends Omit<https.RequestOptions, 'agent' | 'timeout' | 'host' | 'headers'> {
+	host?: string;
+	body?: string | Buffer | ReadableStream;
 	hostname?: string;
 	path?: string;
 	socketPath?: string;
 	protocol?: string;
 	href?: string;
-	options?: Partial<Options>;
+	options?: Options;
 	hooks?: Partial<Hooks>;
 	decompress?: boolean;
+	stream?: boolean;
 	encoding?: BufferEncoding | null;
 	method?: Method;
-	retry?: number | RetryOption;
+	retry?: number | Partial<RetryOption | NormalizedRetryOptions>;
 	throwHttpErrors?: boolean;
 	cookieJar?: CookieJar;
 	request?: RequestFunction;
-	agent: http.Agent | https.Agent | boolean | AgentByProtocol;
+	agent?: http.Agent | https.Agent | boolean | AgentByProtocol;
 	gotTimeout?: number | Delays;
-	cache?: string | StorageAdapter;
-	headers?: {[key: string]: string | string[]};
-	// TODO: Remove this once TS migration is complete and all options are defined.
-	[key: string]: unknown;
+	cache?: string | StorageAdapter | false;
+	headers?: Headers;
+	mutableDefaults?: boolean;
+	responseType?: ResponseType;
+	resolveBodyOnly?: boolean;
+	followRedirect?: boolean;
+	baseUrl?: URL | string;
+	timeout?: number | Delays;
+	dnsCache?: Map<string, string> | Keyv | false;
+	url?: URL | string;
+	searchParams?: Record<string, string | number | boolean | null> | URLSearchParams | string;
+	/*
+	Deprecated
+	 */
+	query?: Options['searchParams'];
+	useElectronNet?: boolean;
+	form?: Record<string, any>;
+	json?: Record<string, any>;
 }
 
-export interface CancelableRequest<T extends IncomingMessage> extends PCancelable<T> {
+export interface NormalizedOptions extends Omit<Required<Options>, 'timeout' | 'dnsCache' | 'retry'> {
+	hooks: Hooks;
+	gotTimeout: Required<Delays>;
+	retry: NormalizedRetryOptions;
+	lookup?: CacheableLookup['lookup'];
+	readonly baseUrl: string;
+	path: string;
+	hostname: string;
+	host: string;
+}
+
+export interface Defaults {
+	methods?: Method[];
+	options?: Options;
+	handler?: HandlerFunction;
+	mutableDefaults?: boolean;
+}
+
+export interface CancelableRequest<T extends IncomingMessage | Buffer | string | object> extends PCancelable<T> {
 	on(name: string, listener: () => void): CancelableRequest<T>;
-	json(): CancelableRequest<T>;
-	buffer(): CancelableRequest<T>;
-	text(): CancelableRequest<T>;
+	json<TReturnType extends object>(): CancelableRequest<TReturnType>;
+	buffer<TReturnType extends Buffer>(): CancelableRequest<TReturnType>;
+	text<TReturnType extends string>(): CancelableRequest<TReturnType>;
 }

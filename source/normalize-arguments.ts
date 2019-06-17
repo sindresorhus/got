@@ -1,14 +1,17 @@
-import urlLib, {URL, URLSearchParams} from 'url'; // TODO: Use the `URL` global when targeting Node.js 10
+import {format, URL, URLSearchParams} from 'url';
 import CacheableLookup from 'cacheable-lookup';
 import is from '@sindresorhus/is';
 import lowercaseKeys from 'lowercase-keys';
-import urlToOptions from './utils/url-to-options';
+import Keyv from 'keyv';
+import urlToOptions, {URLOptions} from './utils/url-to-options';
 import validateSearchParams from './utils/validate-search-params';
 import supportsBrotli from './utils/supports-brotli';
 import merge from './merge';
 import knownHookEvents from './known-hook-events';
+import {Options, Defaults, NormalizedOptions, NormalizedRetryOptions, RetryOption, Method, Delays, ErrorCode, StatusCode} from './utils/types';
+import {HTTPError, ParseError, MaxRedirectsError, GotError} from './errors';
 
-const retryAfterStatusCodes = new Set([413, 429, 503]);
+const retryAfterStatusCodes: ReadonlySet<StatusCode> = new Set([413, 429, 503]);
 
 let shownDeprecation = false;
 
@@ -21,7 +24,7 @@ let shownDeprecation = false;
 // When it's done normalizing the new options, it performs merge()
 // on the prenormalized options and the normalized ones.
 
-export const preNormalizeArguments = (options: any, defaults?: any) => {
+export const preNormalizeArguments = (options: Options, defaults?: Options): NormalizedOptions => {
 	if (is.nullOrUndefined(options.headers)) {
 		options.headers = {};
 	} else {
@@ -40,8 +43,10 @@ export const preNormalizeArguments = (options: any, defaults?: any) => {
 
 	for (const event of knownHookEvents) {
 		if (is.nullOrUndefined(options.hooks[event])) {
-			if (defaults) {
-				options.hooks[event] = [...defaults.hooks[event]];
+			if (defaults && defaults.hooks) {
+				if (event in defaults.hooks) {
+					options.hooks[event] = defaults.hooks[event]!.slice();
+				}
 			} else {
 				options.hooks[event] = [];
 			}
@@ -66,23 +71,24 @@ export const preNormalizeArguments = (options: any, defaults?: any) => {
 	};
 
 	if (is.nonEmptyObject(defaults) && retry !== false) {
-		options.retry = {...defaults.retry};
+		options.retry = {...(defaults.retry as RetryOption)};
 	}
 
 	if (retry !== false) {
 		if (is.number(retry)) {
 			options.retry.retries = retry;
 		} else {
-			options.retry = {...options.retry, ...retry};
+			// eslint-disable-next-line @typescript-eslint/no-object-literal-type-assertion
+			options.retry = {...options.retry, ...retry} as NormalizedRetryOptions;
 		}
 	}
 
 	if (!options.retry.maxRetryAfter && options.gotTimeout) {
-		options.retry.maxRetryAfter = Math.min(...[options.gotTimeout.request, options.gotTimeout.connection].filter(n => !is.nullOrUndefined(n)));
+		options.retry.maxRetryAfter = Math.min(...[(options.gotTimeout as Delays).request!, (options.gotTimeout as Delays).connect!].filter(n => !is.nullOrUndefined(n)));
 	}
 
 	if (is.array(options.retry.methods)) {
-		options.retry.methods = new Set(options.retry.methods.map(method => method.toUpperCase()));
+		options.retry.methods = new Set(options.retry.methods.map(method => method.toUpperCase())) as ReadonlySet<Method>;
 	}
 
 	if (is.array(options.retry.statusCodes)) {
@@ -94,15 +100,15 @@ export const preNormalizeArguments = (options: any, defaults?: any) => {
 	}
 
 	if (options.dnsCache) {
-		const cacheableLookup = new CacheableLookup({cacheAdapter: options.dnsCache});
-		options.lookup = cacheableLookup.lookup;
+		const cacheableLookup = new CacheableLookup({cacheAdapter: options.dnsCache as Keyv | undefined});
+		(options as NormalizedOptions).lookup = cacheableLookup.lookup;
 		delete options.dnsCache;
 	}
 
-	return options;
+	return options as NormalizedOptions;
 };
 
-export const normalizeArguments = (url, options, defaults?: any) => {
+export const normalizeArguments = (url: URL | URLOptions | string | Options, options: NormalizedOptions, defaults?: Defaults): NormalizedOptions => {
 	if (is.plainObject(url)) {
 		options = {...url, ...options};
 		url = options.url || '';
@@ -110,7 +116,7 @@ export const normalizeArguments = (url, options, defaults?: any) => {
 	}
 
 	if (defaults) {
-		options = merge({}, defaults.options, options ? preNormalizeArguments(options, defaults.options) : {});
+		options = merge<NormalizedOptions, Options>({} as NormalizedOptions, defaults.options!, options ? preNormalizeArguments(options, defaults.options) : {});
 	} else {
 		options = merge({}, preNormalizeArguments(options));
 	}
@@ -130,11 +136,11 @@ export const normalizeArguments = (url, options, defaults?: any) => {
 
 		url = urlToOptions(new URL(url, options.baseUrl));
 	} else if (is(url) === 'URL') {
-		url = urlToOptions(url);
+		url = urlToOptions(url as URL);
 	}
 
 	// Override both null/undefined with default protocol
-	options = merge({path: ''}, url, {protocol: url.protocol || 'https:'}, options);
+	options = merge<NormalizedOptions, Partial<URL | URLOptions | NormalizedOptions | Options>>({path: ''} as NormalizedOptions, url as URL | URLOptions, {protocol: (url as URL | URLOptions).protocol || 'https:'}, options);
 
 	for (const hook of options.hooks.init) {
 		const called = hook(options);
@@ -165,19 +171,13 @@ export const normalizeArguments = (url, options, defaults?: any) => {
 		delete options.query;
 	}
 
-	// TODO: This should be used in the `options` type instead
-	interface SearchParams {
-		[key: string]: string | number | boolean | null;
-	}
-
-	if (is.nonEmptyString(searchParams) || is.nonEmptyObject(searchParams) || searchParams instanceof URLSearchParams) {
+	if (is.nonEmptyString(searchParams) || is.nonEmptyObject(searchParams) || (searchParams && searchParams! instanceof URLSearchParams)) {
 		if (!is.string(searchParams)) {
 			if (!(searchParams instanceof URLSearchParams)) {
 				validateSearchParams(searchParams);
-				searchParams = searchParams as SearchParams;
 			}
 
-			searchParams = (new URLSearchParams(searchParams)).toString();
+			searchParams = (new URLSearchParams(searchParams as Record<string, string>)).toString();
 		}
 
 		options.path = `${options.path.split('?')[0]}?${searchParams}`;
@@ -192,7 +192,7 @@ export const normalizeArguments = (url, options, defaults?: any) => {
 				...options,
 				socketPath,
 				path,
-				host: null
+				host: ''
 			};
 		}
 	}
@@ -209,7 +209,7 @@ export const normalizeArguments = (url, options, defaults?: any) => {
 	}
 
 	if (options.method) {
-		options.method = options.method.toUpperCase();
+		options.method = options.method.toUpperCase() as Method;
 	}
 
 	if (!is.function_(options.retry.retries)) {
@@ -220,18 +220,18 @@ export const normalizeArguments = (url, options, defaults?: any) => {
 				return 0;
 			}
 
-			const hasCode = Reflect.has(error, 'code') && options.retry.errorCodes.has(error.code);
-			const hasMethod = Reflect.has(error, 'options') && options.retry.methods.has(error.options.method);
-			const hasStatusCode = Reflect.has(error, 'response') && options.retry.statusCodes.has(error.response.statusCode);
+			const hasCode = Reflect.has(error, 'code') && options.retry.errorCodes.has((error as GotError).code as ErrorCode);
+			const hasMethod = Reflect.has(error, 'options') && options.retry.methods.has((error as GotError).options.method as Method);
+			const hasStatusCode = Reflect.has(error, 'response') && options.retry.statusCodes.has((error as HTTPError | ParseError | MaxRedirectsError).response.statusCode as StatusCode);
 			if ((!error || !hasCode) && (!hasMethod || !hasStatusCode)) {
 				return 0;
 			}
 
-			const {response} = error;
-			if (response && Reflect.has(response.headers, 'retry-after') && retryAfterStatusCodes.has(response.statusCode)) {
+			const {response} = error as HTTPError | ParseError | MaxRedirectsError;
+			if (response && Reflect.has(response.headers, 'retry-after') && retryAfterStatusCodes.has(response.statusCode as StatusCode)) {
 				let after = Number(response.headers['retry-after']);
 				if (is.nan(after)) {
-					after = Date.parse(response.headers['retry-after']) - Date.now();
+					after = Date.parse(response.headers['retry-after']!) - Date.now();
 				} else {
 					after *= 1000;
 				}
@@ -255,4 +255,4 @@ export const normalizeArguments = (url, options, defaults?: any) => {
 	return options;
 };
 
-export const reNormalizeArguments = options => normalizeArguments(urlLib.format(options), options);
+export const reNormalizeArguments = (options: NormalizedOptions): NormalizedOptions => normalizeArguments(format(options as unknown as URL | URLOptions), options);

@@ -113,10 +113,11 @@ test('no unhandled errors', async t => {
 	const options = {
 		cookieJar: {
 			setCookie: () => {},
-			getCookieString: (_, __, cb) => cb(new Error(message))
+			getCookieString: (_, cb) => cb(new Error(message))
 		}
 	};
 
+	// @ts-ignore Manual tests
 	await t.throwsAsync(got(`http://127.0.0.1:${(server.address() as AddressInfo).port}`, options), {message});
 	await delay(500);
 	t.pass();

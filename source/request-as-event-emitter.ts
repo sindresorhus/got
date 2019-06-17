@@ -1,5 +1,5 @@
-import urlLib, {URL, URLSearchParams} from 'url'; // TODO: Use the `URL` global when targeting Node.js 10
-import util from 'util';
+import {format, UrlObject} from 'url';
+import {promisify} from 'util';
 import EventEmitter from 'events';
 import {Transform as TransformStream} from 'stream';
 import http from 'http';
@@ -8,6 +8,7 @@ import CacheableRequest from 'cacheable-request';
 import toReadableStream from 'to-readable-stream';
 import is from '@sindresorhus/is';
 import timer, {Timings} from '@szmarczak/http-timer';
+import ResponseLike from 'responselike';
 import timedOut, {TimeoutError as TimedOutTimeoutError} from './utils/timed-out';
 import getBodySize from './utils/get-body-size';
 import isFormData from './utils/is-form-data';
@@ -15,19 +16,28 @@ import getResponse from './get-response';
 import {uploadProgress} from './progress';
 import {CacheError, UnsupportedProtocolError, MaxRedirectsError, RequestError, TimeoutError} from './errors';
 import urlToOptions from './utils/url-to-options';
-import {RequestFunction, Options, Delays, RetryFunction, RetryOption} from './utils/types';
+import {RequestFunction, NormalizedOptions, Response, AgentByProtocol} from './utils/types';
 import dynamicRequire from './utils/dynamic-require';
 
-const getMethodRedirectCodes = new Set([300, 301, 302, 303, 304, 305, 307, 308]);
-const allMethodRedirectCodes = new Set([300, 303, 307, 308]);
-const withoutBody = new Set(['GET', 'HEAD']);
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const URLGlobal: typeof URL = typeof URL === 'undefined' ? require('url').URL : URL;
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const URLSearchParamsGlobal: typeof URLSearchParams = typeof URLSearchParams === 'undefined' ? require('url').URLSearchParams : URLSearchParams;
+
+export type GetMethodRedirectCodes = 300 | 301 | 302 | 303 | 304 | 305 | 307 | 308;
+export type AllMethodRedirectCodes = 300 | 303 | 307 | 308;
+export type WithoutBody = 'GET' | 'HEAD';
+
+const getMethodRedirectCodes: ReadonlySet<GetMethodRedirectCodes> = new Set([300, 301, 302, 303, 304, 305, 307, 308]);
+const allMethodRedirectCodes: ReadonlySet<AllMethodRedirectCodes> = new Set([300, 303, 307, 308]);
+const withoutBody: ReadonlySet<WithoutBody> = new Set(['GET', 'HEAD']);
 
 export interface RequestAsEventEmitter extends EventEmitter {
-	retry: (error: Error) => boolean;
+	retry: <T extends Error>(error: T) => boolean;
 	abort: () => void;
 }
 
-export default (options, input?: TransformStream) => {
+export default (options: NormalizedOptions, input?: TransformStream) => {
 	const emitter = new EventEmitter() as RequestAsEventEmitter;
 	const redirects = [] as string[];
 	let currentRequest: http.ClientRequest;
@@ -37,11 +47,11 @@ export default (options, input?: TransformStream) => {
 	let retryCount = 0;
 	let shouldAbort = false;
 
-	const setCookie = options.cookieJar ? util.promisify(options.cookieJar.setCookie.bind(options.cookieJar)) : null;
-	const getCookieString = options.cookieJar ? util.promisify(options.cookieJar.getCookieString.bind(options.cookieJar)) : null;
+	const setCookie = options.cookieJar ? promisify(options.cookieJar.setCookie.bind(options.cookieJar)) : null;
+	const getCookieString = options.cookieJar ? promisify(options.cookieJar.getCookieString.bind(options.cookieJar)) : null;
 	const agents = is.object(options.agent) ? options.agent : null;
 
-	const emitError = async (error: Error) => {
+	const emitError = async (error: Error): Promise<void> => {
 		try {
 			for (const hook of options.hooks.beforeError) {
 				// eslint-disable-next-line no-await-in-loop
@@ -54,7 +64,7 @@ export default (options, input?: TransformStream) => {
 		}
 	};
 
-	const get = async (options: Options) => {
+	const get = async (options: NormalizedOptions): Promise<void> => {
 		const currentUrl = redirectString || requestUrl;
 
 		if (options.protocol !== 'http:' && options.protocol !== 'https:') {
@@ -72,20 +82,19 @@ export default (options, input?: TransformStream) => {
 
 		if (agents) {
 			const protocolName = options.protocol === 'https:' ? 'https' : 'http';
-			options.agent = agents[protocolName] || options.agent;
+			options.agent = (agents as AgentByProtocol)[protocolName] || options.agent;
 		}
 
 		/* istanbul ignore next: electron.net is broken */
 		// No point in typing process.versions correctly, as
 		// process.version.electron is used only once, right here.
 		if (options.useElectronNet && (process.versions as any).electron) {
-			// @ts-ignore
-			const electron = dynamicRequire(module, 'electron') as any; // Trick webpack
-			requestFn = electron.net.request || electron.remote.net.request;
+			const electron = dynamicRequire(module, 'electron'); // Trick webpack
+			requestFn = (electron as any).net.request || (electron as any).remote.net.request;
 		}
 
 		if (options.cookieJar) {
-			const cookieString = await getCookieString(currentUrl, {});
+			const cookieString = await getCookieString!(currentUrl);
 
 			if (is.nonEmptyString(cookieString)) {
 				options.headers.cookie = cookieString;
@@ -93,8 +102,7 @@ export default (options, input?: TransformStream) => {
 		}
 
 		let timings: Timings;
-		// TODO: Properly type this.
-		const handleResponse = async response => {
+		const handleResponse = async (response: http.ServerResponse | ResponseLike): Promise<void> => {
 			try {
 				/* istanbul ignore next: fixes https://github.com/electron/electron/blob/cbb460d47628a7a146adf4419ed48550a98b2923/lib/browser/api/net.js#L59-L65 */
 				if (options.useElectronNet) {
@@ -104,31 +112,32 @@ export default (options, input?: TransformStream) => {
 								return [];
 							}
 
-							const value = target[name];
+							const value = (target as any)[name];
 							return is.function_(value) ? value.bind(target) : value;
 						}
 					});
 				}
 
 				const {statusCode} = response;
-				response.statusMessage = response.statusMessage || http.STATUS_CODES[statusCode];
-				response.url = currentUrl;
-				response.requestUrl = requestUrl;
-				response.retryCount = retryCount;
-				response.timings = timings;
-				response.redirectUrls = redirects;
-				response.request = {options};
-				response.isFromCache = response.fromCache || false;
-				delete response.fromCache;
+				const typedResponse = response as Response;
+				typedResponse.statusMessage = typedResponse.statusMessage || http.STATUS_CODES[statusCode];
+				typedResponse.url = currentUrl;
+				typedResponse.requestUrl = requestUrl;
+				typedResponse.retryCount = retryCount;
+				typedResponse.timings = timings;
+				typedResponse.redirectUrls = redirects;
+				typedResponse.request = {options};
+				typedResponse.isFromCache = typedResponse.fromCache || false;
+				delete typedResponse.fromCache;
 
-				const rawCookies = response.headers['set-cookie'];
+				const rawCookies = typedResponse.headers['set-cookie'];
 				if (options.cookieJar && rawCookies) {
-					await Promise.all(rawCookies.map(rawCookie => setCookie(rawCookie, response.url)));
+					await Promise.all(rawCookies.map((rawCookie: string) => setCookie!(rawCookie, typedResponse.url!)));
 				}
 
-				if (options.followRedirect && 'location' in response.headers) {
-					if (allMethodRedirectCodes.has(statusCode) || (getMethodRedirectCodes.has(statusCode) && (options.method === 'GET' || options.method === 'HEAD'))) {
-						response.resume(); // We're being redirected, we don't care about the response.
+				if (options.followRedirect && 'location' in typedResponse.headers) {
+					if (allMethodRedirectCodes.has(statusCode as AllMethodRedirectCodes) || (getMethodRedirectCodes.has(statusCode as GetMethodRedirectCodes) && (options.method === 'GET' || options.method === 'HEAD'))) {
+						typedResponse.resume(); // We're being redirected, we don't care about the response.
 
 						if (statusCode === 303) {
 							// Server responded with "see other", indicating that the resource exists at another location,
@@ -137,20 +146,20 @@ export default (options, input?: TransformStream) => {
 						}
 
 						if (redirects.length >= 10) {
-							throw new MaxRedirectsError(response, options);
+							throw new MaxRedirectsError(typedResponse, options);
 						}
 
 						// Handles invalid URLs. See https://github.com/sindresorhus/got/issues/604
-						const redirectBuffer = Buffer.from(response.headers.location, 'binary').toString();
-						const redirectURL = new URL(redirectBuffer, currentUrl);
+						const redirectBuffer = Buffer.from(typedResponse.headers.location!, 'binary').toString();
+						const redirectURL = new URLGlobal(redirectBuffer, currentUrl);
 						redirectString = redirectURL.toString();
 
 						redirects.push(redirectString);
 
 						const redirectOptions = {
 							...options,
-							port: null,
-							auth: null,
+							port: undefined,
+							auth: undefined,
 							...urlToOptions(redirectURL)
 						};
 
@@ -166,13 +175,13 @@ export default (options, input?: TransformStream) => {
 					}
 				}
 
-				getResponse(response, options, emitter);
+				getResponse(typedResponse, options, emitter);
 			} catch (error) {
 				emitError(error);
 			}
 		};
 
-		const handleRequest = (request: http.ClientRequest) => {
+		const handleRequest = (request: http.ClientRequest): void => {
 			if (shouldAbort) {
 				request.abort();
 				return;
@@ -201,13 +210,12 @@ export default (options, input?: TransformStream) => {
 			uploadProgress(request, emitter, uploadBodySize);
 
 			if (options.gotTimeout) {
-				// TODO: Properly type this. `preNormalizeArguments` coerces `gotTimeout` to `Delays`.
-				timedOut(request, options.gotTimeout as Delays, options);
+				timedOut(request, options.gotTimeout, options);
 			}
 
 			emitter.emit('request', request);
 
-			const uploadComplete = () => {
+			const uploadComplete = (): void => {
 				request.emit('upload-complete');
 			};
 
@@ -231,7 +239,6 @@ export default (options, input?: TransformStream) => {
 
 		if (options.cache) {
 			const cacheableRequest = new CacheableRequest(requestFn, options.cache);
-			// TODO: Properly type this.
 			const cacheRequest = cacheableRequest(options as https.RequestOptions, handleResponse);
 
 			cacheRequest.once('error', error => {
@@ -246,27 +253,26 @@ export default (options, input?: TransformStream) => {
 		} else {
 			// Catches errors thrown by calling requestFn(...)
 			try {
-				// TODO: Properly type this.
-				handleRequest(requestFn(options as https.RequestOptions, handleResponse));
+				// @ts-ignore TS complains that URLSearchParams is not the same as URLSearchParams
+				handleRequest(requestFn(options as any as URL, handleResponse));
 			} catch (error) {
 				emitError(new RequestError(error, options));
 			}
 		}
 	};
 
-	emitter.retry = (error: Error): boolean => {
+	emitter.retry = (error): boolean => {
 		let backoff: number;
 
 		try {
-			// TODO: Properly type this. Looks like a case handled by `preNormalizeArguments`.
-			backoff = ((options.retry as RetryOption).retries as RetryFunction)(++retryCount, error);
+			backoff = options.retry.retries(++retryCount, error);
 		} catch (error2) {
 			emitError(error2);
 			return false;
 		}
 
 		if (backoff) {
-			const retry = async options => {
+			const retry = async (options: NormalizedOptions): Promise<void> => {
 				try {
 					for (const hook of options.hooks.beforeRetry) {
 						// eslint-disable-next-line no-await-in-loop
@@ -306,7 +312,7 @@ export default (options, input?: TransformStream) => {
 			const isForm = !is.nullOrUndefined(options.form);
 			const isJSON = !is.nullOrUndefined(options.json);
 			const isBody = !is.nullOrUndefined(body);
-			if ((isBody || isForm || isJSON) && withoutBody.has(options.method)) {
+			if ((isBody || isForm || isJSON) && withoutBody.has(options.method as WithoutBody)) {
 				throw new TypeError(`The \`${options.method}\` method cannot be used with a body`);
 			}
 
@@ -327,7 +333,7 @@ export default (options, input?: TransformStream) => {
 				}
 
 				headers['content-type'] = headers['content-type'] || 'application/x-www-form-urlencoded';
-				options.body = (new URLSearchParams(options.form)).toString();
+				options.body = (new URLSearchParamsGlobal(options.form as Record<string, string>)).toString();
 			} else if (isJSON) {
 				headers['content-type'] = headers['content-type'] || 'application/json';
 				options.body = JSON.stringify(options.json);
@@ -342,8 +348,8 @@ export default (options, input?: TransformStream) => {
 			}
 
 			if (is.undefined(headers['content-length']) && is.undefined(headers['transfer-encoding'])) {
-				if ((uploadBodySize > 0 || options.method === 'PUT') && !is.undefined(uploadBodySize)) {
-					headers['content-length'] = uploadBodySize;
+				if ((uploadBodySize! > 0 || options.method === 'PUT') && !is.undefined(uploadBodySize)) {
+					headers['content-length'] = String(uploadBodySize);
 				}
 			}
 
@@ -351,7 +357,7 @@ export default (options, input?: TransformStream) => {
 				options.headers.accept = 'application/json';
 			}
 
-			requestUrl = options.href || (new URL(options.path, urlLib.format(options))).toString();
+			requestUrl = options.href || (new URLGlobal(options.path, format(options as UrlObject))).toString();
 
 			await get(options);
 		} catch (error) {

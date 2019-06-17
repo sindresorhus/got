@@ -3,20 +3,22 @@ import EventEmitter from 'events';
 import getStream from 'get-stream';
 import is from '@sindresorhus/is';
 import PCancelable from 'p-cancelable';
-import requestAsEventEmitter from './request-as-event-emitter';
-import {HTTPError, ParseError, ReadError} from './errors';
+import {NormalizedOptions, Response, CancelableRequest} from './utils/types';
 import {mergeOptions} from './merge';
+import {ParseError, ReadError, HTTPError} from './errors';
 import {reNormalizeArguments} from './normalize-arguments';
-import {CancelableRequest, Options, Response} from './utils/types';
+import requestAsEventEmitter from './request-as-event-emitter';
 
-export default function asPromise(options: Options) {
+type ResponeReturn = Response | Buffer | string | any;
+
+export default function asPromise(options: NormalizedOptions): CancelableRequest<Response> {
 	const proxy = new EventEmitter();
 
-	const parseBody = (response: Response) => {
+	const parseBody = (response: Response): void => {
 		if (options.responseType === 'json') {
-			response.body = JSON.parse(response.body as string);
+			response.body = JSON.parse(response.body);
 		} else if (options.responseType === 'buffer') {
-			response.body = Buffer.from(response.body as Buffer);
+			response.body = Buffer.from(response.body);
 		} else if (options.responseType !== 'text' && !is.falsy(options.responseType)) {
 			throw new Error(`Failed to parse body of type '${options.responseType}'`);
 		}
@@ -26,7 +28,7 @@ export default function asPromise(options: Options) {
 		const emitter = requestAsEventEmitter(options);
 		onCancel(emitter.abort);
 
-		const emitError = async (error: Error) => {
+		const emitError = async (error: Error): Promise<void> => {
 			try {
 				for (const hook of options.hooks.beforeError) {
 					// eslint-disable-next-line no-await-in-loop
@@ -39,12 +41,12 @@ export default function asPromise(options: Options) {
 			}
 		};
 
-		emitter.on('response', async response => {
+		emitter.on('response', async (response: Response) => {
 			proxy.emit('response', response);
 
 			const stream = is.null_(options.encoding) ? getStream.buffer(response) : getStream(response, {encoding: options.encoding});
 
-			let data: Buffer | String;
+			let data: Buffer | string;
 			try {
 				data = await stream;
 			} catch (error) {
@@ -62,12 +64,15 @@ export default function asPromise(options: Options) {
 			response.body = data;
 
 			try {
-				for (const [index, hook] of options.hooks!.afterResponse!.entries()) {
+				for (const [index, hook] of options.hooks.afterResponse.entries()) {
 					// eslint-disable-next-line no-await-in-loop
 					response = await hook(response, updatedOptions => {
 						updatedOptions = reNormalizeArguments(mergeOptions(options, {
 							...updatedOptions,
-							retry: 0,
+							// @ts-ignore TS complaining that it's missing properties, which get merged
+							retry: {
+								retries: () => 0
+							},
 							throwHttpErrors: false,
 							responseType: 'text',
 							resolveBodyOnly: false
@@ -75,7 +80,7 @@ export default function asPromise(options: Options) {
 
 						// Remove any further hooks for that request, because we we'll call them anyway.
 						// The loop continues. We don't want duplicates (asPromise recursion).
-						updatedOptions.hooks!.afterResponse = options.hooks!.afterResponse!.slice(0, index);
+						updatedOptions.hooks.afterResponse = options.hooks.afterResponse.slice(0, index);
 
 						return asPromise(updatedOptions);
 					});
@@ -122,10 +127,10 @@ export default function asPromise(options: Options) {
 			'redirect',
 			'uploadProgress',
 			'downloadProgress'
-		].forEach(event => emitter.on(event, (...args) => proxy.emit(event, ...args)));
-	}) as CancelableRequest<IncomingMessage>;
+		].forEach(event => emitter.on(event, (...args: unknown[]) => proxy.emit(event, ...args)));
+	}) as CancelableRequest<ResponeReturn>;
 
-	promise.on = (name: string, fn: () => void) => {
+	promise.on = (name, fn) => {
 		proxy.on(name, fn);
 		return promise;
 	};

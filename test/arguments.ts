@@ -11,6 +11,7 @@ const echoUrl = (request, response) => {
 
 test('`url` is required', async t => {
 	await t.throwsAsync(
+		// @ts-ignore Manual tests
 		got(),
 		{
 			instanceOf: TypeError,
@@ -131,6 +132,7 @@ test('ignores empty searchParams object', withServer, async (t, server, got) => 
 });
 
 test('throws on invalid type of body', async t => {
+	// @ts-ignore Manual tests
 	await t.throwsAsync(got('https://example.com', {body: false}), {
 		instanceOf: TypeError,
 		message: 'The `GET` method cannot be used with a body'
@@ -167,6 +169,7 @@ test('can omit `url` option if using `baseUrl`', withServer, async (t, server, g
 
 test('throws TypeError when `options.hooks` is not an object', async t => {
 	await t.throwsAsync(
+		// @ts-ignore Manual tests
 		got('https://example.com', {hooks: 'not object'}),
 		{
 			instanceOf: TypeError,
@@ -177,6 +180,7 @@ test('throws TypeError when `options.hooks` is not an object', async t => {
 
 test('throws TypeError when known `options.hooks` value is not an array', async t => {
 	await t.throwsAsync(
+		// @ts-ignore Manual tests
 		got('https://example.com', {hooks: {beforeRequest: {}}}),
 		{
 			instanceOf: TypeError,
@@ -187,6 +191,7 @@ test('throws TypeError when known `options.hooks` value is not an array', async 
 
 test('throws TypeError when known `options.hooks` array item is not a function', async t => {
 	await t.throwsAsync(
+		// @ts-ignore Manual tests
 		got('https://example.com', {hooks: {beforeRequest: [{}]}}),
 		{
 			instanceOf: TypeError,
@@ -237,29 +242,18 @@ test('throws when trying to modify `baseUrl` after options got normalized', asyn
 	const instanceA = got.create({
 		methods: [],
 		options: {baseUrl: 'https://example.com'},
-		handler: options => {
+		handler: (options, next) => {
 			options.baseUrl = 'https://google.com';
+			return next(options);
 		}
 	});
 
 	await t.throwsAsync(instanceA('/'), 'Failed to set baseUrl. Options are normalized already.');
 });
 
-// TODO: fix this
-test.failing('throws if the `searchParams` key is invalid', async t => {
-	await t.throwsAsync(got('https://example.com', {
-		searchParams: {
-			// @ts-ignore
-			[undefined]: 'valid'
-		}
-	}), {
-		instanceOf: TypeError,
-		message: 'The `searchParams` key \'\' must be a string, number, boolean or null'
-	});
-});
-
 test('throws if the `searchParams` value is invalid', async t => {
 	await t.throwsAsync(got('https://example.com', {
+		// @ts-ignore Manual tests
 		searchParams: {
 			foo: []
 		}
