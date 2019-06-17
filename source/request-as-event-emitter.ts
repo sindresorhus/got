@@ -19,9 +19,7 @@ import urlToOptions from './utils/url-to-options';
 import {RequestFunction, NormalizedOptions, Response, AgentByProtocol} from './utils/types';
 import dynamicRequire from './utils/dynamic-require';
 
-// eslint-disable-next-line @typescript-eslint/no-require-imports
 const URLGlobal: typeof URL = typeof URL === 'undefined' ? require('url').URL : URL;
-// eslint-disable-next-line @typescript-eslint/no-require-imports
 const URLSearchParamsGlobal: typeof URLSearchParams = typeof URLSearchParams === 'undefined' ? require('url').URLSearchParams : URLSearchParams;
 
 export type GetMethodRedirectCodes = 300 | 301 | 302 | 303 | 304 | 305 | 307 | 308;

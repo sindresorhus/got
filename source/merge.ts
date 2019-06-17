@@ -4,9 +4,7 @@ import knownHookEvents, {Hooks, HookEvent, HookType} from './known-hook-events';
 import {Got} from './create';
 import {ProxyStream} from './as-stream';
 
-// eslint-disable-next-line @typescript-eslint/no-require-imports
 const URLGlobal: typeof URL = typeof URL === 'undefined' ? require('url').URL : URL;
-// eslint-disable-next-line @typescript-eslint/no-require-imports
 const URLSearchParamsGlobal: typeof URLSearchParams = typeof URLSearchParams === 'undefined' ? require('url').URLSearchParams : URLSearchParams;
 
 export default function merge<Target extends Record<string, unknown>, Source extends Record<string, unknown>>(target: Target, ...sources: Source[]): Target & Source {

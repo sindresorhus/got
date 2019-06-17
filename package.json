@@ -43,7 +43,7 @@
 		"@types/form-data": "^2.2.1",
 		"@types/tough-cookie": "^2.3.5",
 		"cacheable-lookup": "^0.2.1",
-		"cacheable-request": "^6.0.0",
+		"cacheable-request": "^6.1.0",
 		"decompress-response": "^4.2.0",
 		"duplexer3": "^0.1.4",
 		"get-stream": "^5.0.0",
@@ -57,20 +57,21 @@
 	"devDependencies": {
 		"@sindresorhus/tsconfig": "^0.3.0",
 		"@types/duplexer3": "^0.1.0",
-		"@types/node": "^12.0.1",
-		"@types/sinon": "^7.0.11",
-		"@typescript-eslint/eslint-plugin": "1.9.0",
-		"ava": "^1.4.1",
-		"coveralls": "^3.0.0",
-		"create-test-server": "^2.4.0",
-		"del-cli": "^1.1.0",
-		"delay": "^4.1.0",
-		"eslint-config-xo-typescript": "^0.12.0",
+		"@types/node": "^12.0.8",
+		"@types/sinon": "^7.0.13",
+		"@typescript-eslint/eslint-plugin": "^1.10.2",
+		"@typescript-eslint/parser": "^1.10.2",
+		"ava": "^2.1.0",
+		"coveralls": "^3.0.4",
+		"create-test-server": "^3.0.1",
+		"del-cli": "^2.0.0",
+		"delay": "^4.3.0",
+		"eslint-config-xo-typescript": "^0.14.0",
 		"form-data": "^2.3.3",
 		"get-port": "^5.0.0",
 		"keyv": "^3.1.0",
 		"nock": "^10.0.6",
-		"np": "^5.0.0",
+		"np": "^5.0.3",
 		"nyc": "^14.0.0",
 		"p-event": "^4.0.0",
 		"proxyquire": "^2.0.1",
@@ -78,7 +79,7 @@
 		"slow-stream": "0.0.4",
 		"tempy": "^0.3.0",
 		"tough-cookie": "^3.0.0",
-		"ts-node": "^8.0.3",
+		"ts-node": "^8.3.0",
 		"typescript": "3.4.4",
 		"xo": "^0.24.0"
 	},
@@ -88,6 +89,9 @@
 		"electron": false
 	},
 	"ava": {
+		"files": [
+			"test/*"
+		],
 		"concurrency": 4,
 		"timeout": "1m",
 		"babel": false,
@@ -114,7 +118,8 @@
 			"import/no-unresolved": "off",
 			"ava/no-ignored-test-files": "off",
 			"@typescript-eslint/explicit-function-return-type": "off",
-			"@typescript-eslint/no-unnecessary-type-assertion": "off"
+			"@typescript-eslint/no-unnecessary-type-assertion": "off",
+			"@typescript-eslint/await-thenable": "off"
 		}
 	}
 }
