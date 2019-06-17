@@ -1,5 +1,5 @@
 import test from 'ava';
-import toReadableStream from 'to-readable-stream';
+import toReadableStream = require('to-readable-stream');
 import got from '../source';
 import withServer from './helpers/with-server';
 

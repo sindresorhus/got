@@ -1,8 +1,8 @@
 import {format, URL, URLSearchParams} from 'url';
 import CacheableLookup from 'cacheable-lookup';
 import is from '@sindresorhus/is';
-import lowercaseKeys from 'lowercase-keys';
-import Keyv from 'keyv';
+import lowercaseKeys = require('lowercase-keys');
+import Keyv = require('keyv');
 import urlToOptions, {URLOptions} from './utils/url-to-options';
 import validateSearchParams from './utils/validate-search-params';
 import supportsBrotli from './utils/supports-brotli';

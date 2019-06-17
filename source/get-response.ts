@@ -1,8 +1,8 @@
 import {IncomingMessage} from 'http';
-import EventEmitter from 'events';
+import EventEmitter = require('events');
 import is from '@sindresorhus/is';
-import decompressResponse from 'decompress-response';
-import mimicResponse from 'mimic-response';
+import decompressResponse = require('decompress-response');
+import mimicResponse = require('mimic-response');
 import {NormalizedOptions, Response} from './utils/types';
 import {downloadProgress} from './progress';
 

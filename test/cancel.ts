@@ -1,8 +1,8 @@
 import {EventEmitter} from 'events';
 import {Readable as ReadableStream} from 'stream';
 import test from 'ava';
-import pEvent from 'p-event';
-import getStream from 'get-stream';
+import pEvent = require('p-event');
+import getStream = require('get-stream');
 // @ts-ignore
 import got, {CancelError} from '../source';
 import withServer from './helpers/with-server';

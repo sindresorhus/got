@@ -2,7 +2,7 @@ import {TLSSocket} from 'tls';
 import {Agent as HttpAgent} from 'http';
 import {Agent as HttpsAgent} from 'https';
 import test from 'ava';
-import sinon from 'sinon';
+import sinon = require('sinon');
 import withServer from './helpers/with-server';
 
 const prepareServer = server => {

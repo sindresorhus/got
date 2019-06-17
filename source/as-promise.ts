@@ -1,8 +1,8 @@
 import {IncomingMessage} from 'http';
-import EventEmitter from 'events';
-import getStream from 'get-stream';
+import EventEmitter = require('events');
+import getStream = require('get-stream');
 import is from '@sindresorhus/is';
-import PCancelable from 'p-cancelable';
+import PCancelable = require('p-cancelable');
 import {NormalizedOptions, Response, CancelableRequest} from './utils/types';
 import {mergeOptions} from './merge';
 import {ParseError, ReadError, HTTPError} from './errors';

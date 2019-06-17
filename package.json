@@ -55,7 +55,7 @@
 		"type-fest": "^0.5.0"
 	},
 	"devDependencies": {
-		"@sindresorhus/tsconfig": "^0.3.0",
+		"@sindresorhus/tsconfig": "^0.4.0",
 		"@types/duplexer3": "^0.1.0",
 		"@types/node": "^12.0.8",
 		"@types/sinon": "^7.0.13",
@@ -116,6 +116,9 @@
 		"rules": {
 			"import/named": "off",
 			"import/no-unresolved": "off",
+			"import/first": "off",
+			"import/newline-after-import": "off",
+			"ava/no-import-test-files": "off",
 			"ava/no-ignored-test-files": "off",
 			"@typescript-eslint/explicit-function-return-type": "off",
 			"@typescript-eslint/no-unnecessary-type-assertion": "off",

@@ -1,6 +1,6 @@
 import test from 'ava';
-import pEvent from 'p-event';
-import getStream from 'get-stream';
+import pEvent = require('p-event');
+import getStream = require('get-stream');
 import {Response} from '../source/utils/types';
 import withServer from './helpers/with-server';
 

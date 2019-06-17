@@ -1,7 +1,7 @@
-import EventEmitter from 'events';
+import EventEmitter = require('events');
 import test from 'ava';
 import is from '@sindresorhus/is';
-import pEvent from 'p-event';
+import pEvent = require('p-event');
 import withServer from './helpers/with-server';
 
 const retryAfterOn413 = 2;

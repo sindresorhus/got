@@ -1,3 +1,3 @@
-import zlib from 'zlib';
+import zlib = require('zlib');
 
 export default typeof zlib.createBrotliDecompress === 'function';

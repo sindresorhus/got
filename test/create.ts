@@ -1,4 +1,4 @@
-import http from 'http';
+import http = require('http');
 import {URL} from 'url';
 import test from 'ava';
 import got from '../source';

@@ -1,12 +1,12 @@
 import http, {ClientRequest, IncomingMessage} from 'http';
-import https from 'https';
+import https = require('https');
 import {Readable as ReadableStream} from 'stream';
-import PCancelable from 'p-cancelable';
+import PCancelable = require('p-cancelable');
 import {CookieJar} from 'tough-cookie';
 import {StorageAdapter} from 'cacheable-request';
 import {Omit} from 'type-fest';
 import CacheableLookup from 'cacheable-lookup';
-import Keyv from 'keyv';
+import Keyv = require('keyv');
 import {Timings} from '@szmarczak/http-timer/dist';
 import {Hooks} from '../known-hook-events';
 import {GotError, ParseError, HTTPError, MaxRedirectsError} from '../errors';

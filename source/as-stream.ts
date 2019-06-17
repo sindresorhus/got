@@ -1,6 +1,6 @@
 import {PassThrough as PassThroughStream, Duplex as DuplexStream} from 'stream';
 import {IncomingMessage} from 'http';
-import duplexer3 from 'duplexer3';
+import duplexer3 = require('duplexer3');
 import requestAsEventEmitter from './request-as-event-emitter';
 import {HTTPError, ReadError} from './errors';
 import {NormalizedOptions, Response, Headers} from './utils/types';

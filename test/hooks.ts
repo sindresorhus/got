@@ -1,5 +1,5 @@
 import test from 'ava';
-import delay from 'delay';
+import delay = require('delay');
 import got from '../source';
 import withServer from './helpers/with-server';
 

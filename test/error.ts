@@ -1,7 +1,7 @@
 import {URL} from 'url';
-import http from 'http';
+import http = require('http');
 import test from 'ava';
-import proxyquire from 'proxyquire';
+import proxyquire = require('proxyquire');
 import got from '../source';
 import withServer from './helpers/with-server';
 

@@ -1,7 +1,8 @@
-import net, {AddressInfo} from 'net';
+import net = require('net');
+import {AddressInfo} from 'net';
 import test from 'ava';
-import tough from 'tough-cookie';
-import delay from 'delay';
+import toughCookie = require('tough-cookie');
+import delay = require('delay');
 import got from '../source';
 import withServer from './helpers/with-server';
 
@@ -11,7 +12,7 @@ test('reads a cookie', withServer, async (t, server, got) => {
 		response.end();
 	});
 
-	const cookieJar = new tough.CookieJar();
+	const cookieJar = new toughCookie.CookieJar();
 
 	await got({cookieJar});
 
@@ -26,7 +27,7 @@ test('reads multiple cookies', withServer, async (t, server, got) => {
 		response.end();
 	});
 
-	const cookieJar = new tough.CookieJar();
+	const cookieJar = new toughCookie.CookieJar();
 
 	await got({cookieJar});
 
@@ -52,7 +53,7 @@ test('cookies doesn\'t break on redirects', withServer, async (t, server, got) =
 		response.end(request.headers.cookie || '');
 	});
 
-	const cookieJar = new tough.CookieJar();
+	const cookieJar = new toughCookie.CookieJar();
 
 	const {body} = await got('redirect', {cookieJar});
 	t.is(body, 'hello=world; foo=bar');
@@ -64,7 +65,7 @@ test('throws on invalid cookies', withServer, async (t, server, got) => {
 		response.end();
 	});
 
-	const cookieJar = new tough.CookieJar();
+	const cookieJar = new toughCookie.CookieJar();
 
 	await t.throwsAsync(got({cookieJar}), 'Cookie has domain set to a public suffix');
 });
@@ -72,7 +73,7 @@ test('throws on invalid cookies', withServer, async (t, server, got) => {
 test('catches store errors', async t => {
 	const error = 'Some error';
 	// @ts-ignore
-	const cookieJar = new tough.CookieJar({
+	const cookieJar = new toughCookie.CookieJar({
 		findCookies: (_, __, cb) => {
 			cb(new Error(error), []);
 		}
@@ -93,7 +94,7 @@ test('overrides options.headers.cookie', withServer, async (t, server, got) => {
 		response.end(request.headers.cookie || '');
 	});
 
-	const cookieJar = new tough.CookieJar();
+	const cookieJar = new toughCookie.CookieJar();
 	const {body} = await got('redirect', {
 		cookieJar,
 		headers: {

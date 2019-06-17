@@ -1,8 +1,8 @@
-import util from 'util';
-import http from 'http';
+import {promisify} from 'util';
+import http = require('http');
 import {URL} from 'url';
-import tempy from 'tempy';
-import createTestServer from 'create-test-server';
+import tempy = require('tempy');
+import createTestServer = require('create-test-server');
 import got from '../../source';
 
 export default async (t, run) => {
@@ -37,11 +37,11 @@ export const withSocketServer = async (t, run) => {
 
 	server.socketPath = socketPath;
 
-	await util.promisify(server.listen.bind(server))(socketPath);
+	await promisify(server.listen.bind(server))(socketPath);
 
 	try {
 		await run(t, server);
 	} finally {
-		await util.promisify(server.close.bind(server))();
+		await promisify(server.close.bind(server))();
 	}
 };

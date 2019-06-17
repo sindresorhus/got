@@ -1,4 +1,4 @@
-import net from 'net';
+import net = require('net');
 import {ClientRequest} from 'http';
 import {Delays, NormalizedOptions} from './types';
 
