@@ -33,8 +33,7 @@ const defaults: Partial<Defaults> = {
 				'ENOTFOUND',
 				'ENETUNREACH',
 				'EAI_AGAIN'
-			],
-			maxRetryAfter: 30000
+			]
 		},
 		headers: {
 			'user-agent': `${packageJson.name}/${packageJson.version} (https://github.com/sindresorhus/got)`
