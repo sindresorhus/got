@@ -96,7 +96,9 @@ export default function asStream(options: NormalizedOptions): ProxyStream {
 		'redirect',
 		'uploadProgress',
 		'downloadProgress'
-	].forEach(event => emitter.on(event, (...args) => proxy.emit(event, ...args)));
+	].forEach(event => emitter.on(event, (...args) => {
+		proxy.emit(event, ...args);
+	}));
 
 	const pipe = proxy.pipe.bind(proxy);
 	const unpipe = proxy.unpipe.bind(proxy);

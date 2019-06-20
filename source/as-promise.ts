@@ -127,7 +127,9 @@ export default function asPromise(options: NormalizedOptions): CancelableRequest
 			'redirect',
 			'uploadProgress',
 			'downloadProgress'
-		].forEach(event => emitter.on(event, (...args: unknown[]) => proxy.emit(event, ...args)));
+		].forEach(event => emitter.on(event, (...args: unknown[]) => {
+			proxy.emit(event, ...args);
+		}));
 	}) as CancelableRequest<ResponeReturn>;
 
 	promise.on = (name, fn) => {

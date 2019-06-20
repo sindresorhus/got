@@ -102,7 +102,6 @@ test('custom retries', withServer, async (t, server, got) => {
 			]
 		}
 	}));
-	// @ts-ignore
 	t.is(error.response.statusCode, 500);
 	t.true(tried);
 });
@@ -123,7 +122,9 @@ test('custom error codes', withServer, async (t, server, got) => {
 			const error = new Error('Snap!');
 			// @ts-ignore
 			error.code = errorCode;
-			setTimeout(() => emitter.emit('error', error));
+			setTimeout(() => {
+				emitter.emit('error', error);
+			});
 
 			return emitter;
 		},
@@ -141,7 +142,6 @@ test('custom error codes', withServer, async (t, server, got) => {
 		}
 	}));
 
-	// @ts-ignore
 	t.is(error.code, errorCode);
 });
 

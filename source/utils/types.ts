@@ -1,7 +1,8 @@
-import http, {ClientRequest, IncomingMessage} from 'http';
+import http = require('http');
 import https = require('https');
 import {Readable as ReadableStream} from 'stream';
 import PCancelable = require('p-cancelable');
+import {URL} from 'url';
 import {CookieJar} from 'tough-cookie';
 import {StorageAdapter} from 'cacheable-request';
 import {Omit} from 'type-fest';
@@ -51,12 +52,14 @@ export type StatusCode =
 
 export type ResponseType = 'json' | 'buffer' | 'text';
 
-export interface Response extends IncomingMessage {
+export type URLArgument = string | https.RequestOptions | URL;
+
+export interface Response extends http.IncomingMessage {
 	body: Buffer | string | any;
 	statusCode: number;
 	fromCache?: boolean;
 	isFromCache?: boolean;
-	req: ClientRequest;
+	req: http.ClientRequest;
 	requestUrl: string;
 	retryCount: number;
 	timings: Timings;
@@ -162,7 +165,9 @@ export interface Defaults {
 	mutableDefaults?: boolean;
 }
 
-export interface CancelableRequest<T extends IncomingMessage | Buffer | string | object> extends PCancelable<T> {
+export type URLOrOptions = URLArgument | (Options & {url: URLArgument});
+
+export interface CancelableRequest<T extends http.IncomingMessage | Buffer | string | object> extends PCancelable<T> {
 	on(name: string, listener: () => void): CancelableRequest<T>;
 	json<TReturnType extends object>(): CancelableRequest<TReturnType>;
 	buffer<TReturnType extends Buffer>(): CancelableRequest<TReturnType>;
