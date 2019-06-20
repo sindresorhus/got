@@ -53,10 +53,10 @@ export function mergeOptions<T extends Options>(...sources: T[]): T & { hooks: P
 					}
 				};
 			}
-			
+
 			return source;
 		}
-		
+
 		return {};
 	}) as T[];
 
