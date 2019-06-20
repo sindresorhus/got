@@ -1,4 +1,3 @@
-
 import http = require('http');
 import ResponseLike = require('responselike');
 import {Options, CancelableRequest, Response, NormalizedOptions} from './utils/types';
