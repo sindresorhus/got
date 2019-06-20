@@ -22,8 +22,7 @@ export default async (options: Options): Promise<number | undefined> => {
 	}
 
 	if (isFormData(body)) {
-		// TS thinks this returns Promise<void> when it actually returns a number
-		return promisify(body.getLength.bind(body))() as unknown as number;
+		return promisify(body.getLength.bind(body))();
 	}
 
 	if (body instanceof ReadStream) {

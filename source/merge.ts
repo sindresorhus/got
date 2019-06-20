@@ -42,10 +42,10 @@ export default function merge<Target extends Record<string, unknown>, Source ext
 	return target as Target & Source;
 }
 
-export function mergeOptions<T extends Options>(...sources: T[]): T & { hooks: Partial<Hooks> } {
-	const mergedOptions = merge({} as T & { hooks: Partial<Hooks> }, ...sources.map(source => source || {}));
+export function mergeOptions<T extends Options>(...sources: T[]): T & {hooks: Partial<Hooks>} {
+	const mergedOptions = merge({} as T & {hooks: Partial<Hooks>}, ...sources.map(source => source || {}));
 
-	const hooks = knownHookEvents.reduce((acc, current) => ({...acc, [current]: []}), {}) as Record<HookEvent, HookType[]>;
+	const hooks = knownHookEvents.reduce((accumulator, current) => ({...accumulator, [current]: []}), {}) as Record<HookEvent, HookType[]>;
 
 	for (const source of sources) {
 		// We need to check `source` to allow calling `.extend()` with no arguments.

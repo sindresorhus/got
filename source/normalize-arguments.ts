@@ -26,7 +26,7 @@ import {HTTPError, ParseError, MaxRedirectsError, GotError} from './errors';
 
 const retryAfterStatusCodes: ReadonlySet<StatusCode> = new Set([413, 429, 503]);
 
-let shownDeprecation = false;
+let hasShownDeprecation = false;
 
 // `preNormalize` handles static options (e.g. headers).
 // For example, when you create a custom instance and make a request
@@ -122,13 +122,13 @@ export const preNormalizeArguments = (options: Options, defaults?: Options): Nor
 };
 
 export const normalizeArguments = (url: URLOrOptions, options: NormalizedOptions, defaults?: Defaults): NormalizedOptions => {
-	let urlArg: URLArgument;
+	let urlArgument: URLArgument;
 	if (is.plainObject(url)) {
 		options = {...url, ...options};
-		urlArg = options.url || '';
+		urlArgument = options.url || '';
 		delete options.url;
 	} else {
-		urlArg = url;
+		urlArgument = url;
 	}
 
 	if (defaults) {
@@ -137,34 +137,34 @@ export const normalizeArguments = (url: URLOrOptions, options: NormalizedOptions
 		options = merge({}, preNormalizeArguments(options));
 	}
 
-	if (!is.string(urlArg) && !is.object(urlArg)) {
-		throw new TypeError(`Parameter \`url\` must be a string or object, not ${is(urlArg)}`);
+	if (!is.string(urlArgument) && !is.object(urlArgument)) {
+		throw new TypeError(`Parameter \`url\` must be a string or object, not ${is(urlArgument)}`);
 	}
 
 	let urlObj: https.RequestOptions | URLOptions;
-	if (is.string(urlArg)) {
+	if (is.string(urlArgument)) {
 		if (options.baseUrl) {
-			if (urlArg.startsWith('/')) {
-				urlArg = urlArg.slice(1);
+			if (urlArgument.startsWith('/')) {
+				urlArgument = urlArgument.slice(1);
 			}
 		} else {
-			urlArg = urlArg.replace(/^unix:/, 'http://$&');
+			urlArgument = urlArgument.replace(/^unix:/, 'http://$&');
 		}
 
-		urlObj = urlArg || options.baseUrl ? urlToOptions(new URL(urlArg, options.baseUrl)) : {};
-	} else if (is.urlInstance(urlArg)) {
-		urlObj = urlToOptions(urlArg);
+		urlObj = urlArgument || options.baseUrl ? urlToOptions(new URL(urlArgument, options.baseUrl)) : {};
+	} else if (is.urlInstance(urlArgument)) {
+		urlObj = urlToOptions(urlArgument);
 	} else {
-		urlObj = urlArg;
+		urlObj = urlArgument;
 	}
 
 	// Override both null/undefined with default protocol
 	options = merge<NormalizedOptions, Partial<URL | URLOptions | NormalizedOptions | Options>>({path: ''} as NormalizedOptions, urlObj, {protocol: urlObj.protocol || 'https:'}, options);
 
 	for (const hook of options.hooks.init) {
-		const called = hook(options);
+		const isCalled = hook(options);
 
-		if (is.promise(called)) {
+		if (is.promise(isCalled)) {
 			throw new TypeError('The `init` hook must be a synchronous function');
 		}
 	}
@@ -180,10 +180,11 @@ export const normalizeArguments = (url: URLOrOptions, options: NormalizedOptions
 	let {searchParams} = options;
 	delete options.searchParams;
 
+	// TODO: Remove this before Got v11
 	if (options.query) {
-		if (!shownDeprecation) {
+		if (!hasShownDeprecation) {
 			console.warn('`options.query` is deprecated. We support it solely for compatibility - it will be removed in Got 11. Use `options.searchParams` instead.');
-			shownDeprecation = true;
+			hasShownDeprecation = true;
 		}
 
 		searchParams = options.query;

@@ -10,7 +10,7 @@ export class GotError extends Error {
 
 	readonly options!: NormalizedOptions;
 
-	constructor(message: string, error: (Error & { code?: string }) | { code?: string }, options: NormalizedOptions) {
+	constructor(message: string, error: (Error & {code?: string}) | {code?: string}, options: NormalizedOptions) {
 		super(message);
 		Error.captureStackTrace(this, this.constructor);
 		this.name = 'GotError';
