@@ -2,7 +2,7 @@ import EventEmitter = require('events');
 
 type Origin = EventEmitter;
 type Event = string | symbol;
-type Fn = (...args: any[]) => void;
+type Fn = (...args: unknown[]) => void;
 
 interface Handler {
 	origin: Origin;
