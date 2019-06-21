@@ -274,7 +274,7 @@ test('doesn\'t retry when set to false', withServer, async (t, server, got) => {
 	t.is(retryCount, 0);
 });
 
-test('works when defaults.options.retry is not an object', withServer, async (t, server, got) => {
+test('works when defaults.options.retry is a number', withServer, async (t, server, got) => {
 	server.get('/', handler413);
 
 	const instance = got.extend({
@@ -284,7 +284,7 @@ test('works when defaults.options.retry is not an object', withServer, async (t,
 	const {retryCount} = await instance({
 		throwHttpErrors: false
 	});
-	t.is(retryCount, 0);
+	t.is(retryCount, 2);
 });
 
 test('retry function can throw', withServer, async (t, server, got) => {
