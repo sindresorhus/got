@@ -61,7 +61,7 @@ export class ParseError extends GotError {
 export class HTTPError extends GotError {
 	readonly response!: Response;
 
-	constructor(response: Response, options: Options) {
+	constructor(response: Response, options: NormalizedOptions) {
 		const {statusCode, statusMessage} = response;
 
 		super(`Response code ${statusCode} (${statusMessage})`, {}, options);
