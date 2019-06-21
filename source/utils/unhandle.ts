@@ -17,8 +17,8 @@ interface Unhandler {
 
 // When attaching listeners, it's very easy to forget about them.
 // Especially if you do error handling and set timeouts.
-// So, instead of checking if it's proper to throw an error on every timeout ever
-// Use this simple tool which will remove all listeners you have attached.
+// So instead of checking if it's proper to throw an error on every timeout ever,
+// use this simple tool which will remove all listeners you have attached.
 export default (): Unhandler => {
 	const handlers: Handler[] = [];
 
