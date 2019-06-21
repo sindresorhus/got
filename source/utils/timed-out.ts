@@ -24,7 +24,6 @@ export class TimeoutError extends Error {
 }
 
 export default (request: ClientRequest, delays: Delays, options: TimedOutOptions) => {
-	/* istanbul ignore next: this makes sure timed-out isn't called twice */
 	if (Reflect.has(request, reentry)) {
 		return noop;
 	}
