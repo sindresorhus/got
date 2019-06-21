@@ -1,7 +1,16 @@
 import net = require('net');
 import {ClientRequest, IncomingMessage} from 'http';
-import {Delays, NormalizedOptions} from './types';
+import {Delays} from './types';
 import unhandler from './unhandle';
+
+const reentry = Symbol('reentry');
+const noop = (): void => {};
+
+interface TimedOutOptions {
+	host?: string;
+	hostname?: string;
+	protocol?: string;
+}
 
 export class TimeoutError extends Error {
 	code: string;
@@ -14,10 +23,7 @@ export class TimeoutError extends Error {
 	}
 }
 
-const reentry = Symbol('reentry');
-const noop = (): void => {};
-
-export default (request: ClientRequest, delays: Delays, options: NormalizedOptions) => {
+export default (request: ClientRequest, delays: Delays, options: TimedOutOptions) => {
 	/* istanbul ignore next: this makes sure timed-out isn't called twice */
 	if (Reflect.has(request, reentry)) {
 		return noop;
