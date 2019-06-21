@@ -1,7 +1,7 @@
-import EventEmitter from 'events';
+import EventEmitter = require('events');
 import test from 'ava';
 import is from '@sindresorhus/is';
-import pEvent from 'p-event';
+import pEvent = require('p-event');
 import withServer from './helpers/with-server';
 
 const retryAfterOn413 = 2;
@@ -102,7 +102,6 @@ test('custom retries', withServer, async (t, server, got) => {
 			]
 		}
 	}));
-	// @ts-ignore
 	t.is(error.response.statusCode, 500);
 	t.true(tried);
 });
@@ -123,7 +122,9 @@ test('custom error codes', withServer, async (t, server, got) => {
 			const error = new Error('Snap!');
 			// @ts-ignore
 			error.code = errorCode;
-			setTimeout(() => emitter.emit('error', error));
+			setTimeout(() => {
+				emitter.emit('error', error);
+			});
 
 			return emitter;
 		},
@@ -141,7 +142,6 @@ test('custom error codes', withServer, async (t, server, got) => {
 		}
 	}));
 
-	// @ts-ignore
 	t.is(error.code, errorCode);
 });
 
@@ -274,7 +274,7 @@ test('doesn\'t retry when set to false', withServer, async (t, server, got) => {
 	t.is(retryCount, 0);
 });
 
-test('works when defaults.options.retry is not an object', withServer, async (t, server, got) => {
+test('works when defaults.options.retry is a number', withServer, async (t, server, got) => {
 	server.get('/', handler413);
 
 	const instance = got.extend({
@@ -284,7 +284,7 @@ test('works when defaults.options.retry is not an object', withServer, async (t,
 	const {retryCount} = await instance({
 		throwHttpErrors: false
 	});
-	t.is(retryCount, 0);
+	t.is(retryCount, 2);
 });
 
 test('retry function can throw', withServer, async (t, server, got) => {

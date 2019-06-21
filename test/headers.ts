@@ -1,12 +1,14 @@
-import fs from 'fs';
+import fs = require('fs');
 import {promisify} from 'util';
-import path from 'path';
+import path = require('path');
 import test from 'ava';
-import FormData from 'form-data';
+import FormData = require('form-data');
 import got from '../source';
 import supportsBrotli from '../source/utils/supports-brotli';
-import pkg from '../package.json';
+import packageJson = require('../package.json');
 import withServer from './helpers/with-server';
+
+type TestReturn = Record<string, Record<string, unknown>>;
 
 const echoHeaders = (request, response) => {
 	request.resume();
@@ -17,7 +19,7 @@ test('`user-agent`', withServer, async (t, server, got) => {
 	server.get('/', echoHeaders);
 
 	const headers = await got('').json();
-	t.is(headers['user-agent'], `${pkg.name}/${pkg.version} (https://github.com/sindresorhus/got)`);
+	t.is(headers['user-agent'], `${packageJson.name}/${packageJson.version} (https://github.com/sindresorhus/got)`);
 });
 
 test('`accept-encoding`', withServer, async (t, server, got) => {
@@ -52,7 +54,7 @@ test('does not remove user headers from `url` object argument', withServer, asyn
 	})).body;
 
 	t.is(headers.accept, 'application/json');
-	t.is(headers['user-agent'], `${pkg.name}/${pkg.version} (https://github.com/sindresorhus/got)`);
+	t.is(headers['user-agent'], `${packageJson.name}/${packageJson.version} (https://github.com/sindresorhus/got)`);
 	t.is(headers['accept-encoding'], supportsBrotli ? 'gzip, deflate, br' : 'gzip, deflate');
 	t.is(headers['x-request-id'], 'value');
 });
@@ -226,21 +228,21 @@ test('preserve port in host header if non-standard port', withServer, async (t, 
 });
 
 test('strip port in host header if explicit standard port (:80) & protocol (HTTP)', async t => {
-	const body = await got('http://httpbin.org:80/headers').json();
+	const body = await got('http://httpbin.org:80/headers').json<TestReturn>();
 	t.is(body.headers.Host, 'httpbin.org');
 });
 
 test('strip port in host header if explicit standard port (:443) & protocol (HTTPS)', async t => {
-	const body = await got('https://httpbin.org:443/headers').json();
+	const body = await got('https://httpbin.org:443/headers').json<TestReturn>();
 	t.is(body.headers.Host, 'httpbin.org');
 });
 
 test('strip port in host header if implicit standard port & protocol (HTTP)', async t => {
-	const body = await got('http://httpbin.org/headers').json();
+	const body = await got('http://httpbin.org/headers').json<TestReturn>();
 	t.is(body.headers.Host, 'httpbin.org');
 });
 
 test('strip port in host header if implicit standard port & protocol (HTTPS)', async t => {
-	const body = await got('https://httpbin.org/headers').json();
+	const body = await got('https://httpbin.org/headers').json<TestReturn>();
 	t.is(body.headers.Host, 'httpbin.org');
 });

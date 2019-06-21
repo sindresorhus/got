@@ -1,6 +1,6 @@
 import test from 'ava';
-import pEvent from 'p-event';
-import getStream from 'get-stream';
+import pEvent = require('p-event');
+import getStream = require('get-stream');
 import {Response} from '../source/utils/types';
 import withServer from './helpers/with-server';
 
@@ -115,7 +115,7 @@ test('cache error throws `got.CacheError`', withServer, async (t, server, got) =
 test('doesn\'t cache response when received HTTP error', withServer, async (t, server, got) => {
 	let calledFirstError = false;
 	server.get('/', (_request, response) => {
-		if (calledFirstError) {
+		if (!calledFirstError) {
 			response.end('ok');
 			return;
 		}

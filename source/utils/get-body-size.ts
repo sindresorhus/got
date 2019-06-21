@@ -1,16 +1,19 @@
-import fs from 'fs';
+import {ReadStream, stat} from 'fs';
 import {promisify} from 'util';
 import is from '@sindresorhus/is';
 import isFormData from './is-form-data';
+import {Options} from './types';
 
-export default async (options: any): Promise<number | undefined> => {
-	const {body} = options;
+const statAsync = promisify(stat);
 
-	if (options.headers['content-length']) {
-		return Number(options.headers['content-length']);
+export default async (options: Options): Promise<number | undefined> => {
+	const {body, headers, stream} = options;
+
+	if (headers && 'content-length' in headers) {
+		return Number(headers['content-length']);
 	}
 
-	if (!body && !options.stream) {
+	if (!body && !stream) {
 		return 0;
 	}
 
@@ -22,8 +25,8 @@ export default async (options: any): Promise<number | undefined> => {
 		return promisify(body.getLength.bind(body))();
 	}
 
-	if (body instanceof fs.ReadStream) {
-		const {size} = await promisify(fs.stat)(body.path);
+	if (body instanceof ReadStream) {
+		const {size} = await statAsync(body.path);
 		return size;
 	}
 

@@ -3,9 +3,16 @@
 	"compilerOptions": {
 		"outDir": "dist",
 		"target": "es2017", // Node.js 8
-
+		"lib": [
+			"esnext"
+		],
 		// TODO: Make it strict
-		"strict": false
+		"strict": false,
+		"typeRoots": [
+			"./source/types/*",
+			"./node_modules/@types/*",
+			"./node_modules/*"
+		]
 	},
 	"include": [
 		"source"

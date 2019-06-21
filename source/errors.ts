@@ -1,17 +1,15 @@
-import urlLib from 'url';
+import {format} from 'url';
 import is from '@sindresorhus/is';
 import {Timings} from '@szmarczak/http-timer';
-import {Response, Options} from './utils/types';
+import {Response, NormalizedOptions} from './utils/types';
 import {TimeoutError as TimedOutError} from './utils/timed-out';
-
-type ErrorWithCode = (Error & {code?: string}) | {code?: string};
 
 export class GotError extends Error {
 	code?: string;
 
-	options: Options;
+	readonly options!: NormalizedOptions;
 
-	constructor(message: string, error: ErrorWithCode, options: Options) {
+	constructor(message: string, error: (Error & {code?: string}) | {code?: string}, options: NormalizedOptions) {
 		super(message);
 		Error.captureStackTrace(this, this.constructor);
 		this.name = 'GotError';
@@ -27,31 +25,31 @@ export class GotError extends Error {
 }
 
 export class CacheError extends GotError {
-	constructor(error: Error, options: Options) {
+	constructor(error: Error, options: NormalizedOptions) {
 		super(error.message, error, options);
 		this.name = 'CacheError';
 	}
 }
 
 export class RequestError extends GotError {
-	constructor(error: Error, options: Options) {
+	constructor(error: Error, options: NormalizedOptions) {
 		super(error.message, error, options);
 		this.name = 'RequestError';
 	}
 }
 
 export class ReadError extends GotError {
-	constructor(error: Error, options: Options) {
+	constructor(error: Error, options: NormalizedOptions) {
 		super(error.message, error, options);
 		this.name = 'ReadError';
 	}
 }
 
 export class ParseError extends GotError {
-	response: Response;
+	readonly response!: Response;
 
-	constructor(error: Error, response: Response, options: Options) {
-		super(`${error.message} in "${urlLib.format(options)}"`, error, options);
+	constructor(error: Error, response: Response, options: NormalizedOptions) {
+		super(`${error.message} in "${format(options as unknown as URL)}"`, error, options);
 		this.name = 'ParseError';
 
 		Object.defineProperty(this, 'response', {
@@ -61,7 +59,7 @@ export class ParseError extends GotError {
 }
 
 export class HTTPError extends GotError {
-	response: Response;
+	readonly response!: Response;
 
 	constructor(response: Response, options: Options) {
 		const {statusCode, statusMessage} = response;
@@ -76,9 +74,9 @@ export class HTTPError extends GotError {
 }
 
 export class MaxRedirectsError extends GotError {
-	response: Response;
+	readonly response!: Response;
 
-	constructor(response: Response, options: Options) {
+	constructor(response: Response, options: NormalizedOptions) {
 		super('Redirected 10 times. Aborting.', {}, options);
 		this.name = 'MaxRedirectsError';
 
@@ -89,7 +87,7 @@ export class MaxRedirectsError extends GotError {
 }
 
 export class UnsupportedProtocolError extends GotError {
-	constructor(options: Options) {
+	constructor(options: NormalizedOptions) {
 		super(`Unsupported protocol "${options.protocol}"`, {}, options);
 		this.name = 'UnsupportedProtocolError';
 	}
@@ -100,7 +98,7 @@ export class TimeoutError extends GotError {
 
 	event: string;
 
-	constructor(error: TimedOutError, timings: Timings, options: Options) {
+	constructor(error: TimedOutError, timings: Timings, options: NormalizedOptions) {
 		super(error.message, {code: 'ETIMEDOUT'}, options);
 		this.name = 'TimeoutError';
 		this.event = error.event;

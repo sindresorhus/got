@@ -1,31 +1,29 @@
-import net from 'net';
+import net = require('net');
 import {ClientRequest, IncomingMessage} from 'http';
-import {Delays} from './types';
+import {Delays, NormalizedOptions} from './types';
 import unhandler from './unhandle';
 
 export class TimeoutError extends Error {
-	event: string;
-
 	code: string;
 
-	constructor(threshold: number, event: string) {
+	constructor(threshold: number, public event: string) {
 		super(`Timeout awaiting '${event}' for ${threshold}ms`);
 
 		this.name = 'TimeoutError';
 		this.code = 'ETIMEDOUT';
-		this.event = event;
 	}
 }
 
-const reentry: symbol = Symbol('reentry');
+const reentry = Symbol('reentry');
 const noop = (): void => {};
 
-export default (request: ClientRequest, delays: Delays, options: any) => {
+export default (request: ClientRequest, delays: Required<Delays>, options: NormalizedOptions) => {
+	/* istanbul ignore next: this makes sure timed-out isn't called twice */
 	if (Reflect.has(request, reentry)) {
 		return noop;
 	}
 
-	(request as any)[reentry] = true;
+	request[reentry] = true;
 	const cancelers: Array<typeof noop> = [];
 	const {once, unhandleAll} = unhandler();
 
@@ -58,23 +56,27 @@ export default (request: ClientRequest, delays: Delays, options: any) => {
 	};
 
 	const {host, hostname} = options;
+
 	const timeoutHandler = (delay: number, event: string): void => {
 		request.emit('error', new TimeoutError(delay, event));
 		request.abort();
 	};
 
 	const cancelTimeouts = (): void => {
-		cancelers.forEach(cancelTimeout => cancelTimeout());
+		for (const cancel of cancelers) {
+			cancel();
+		}
+
 		unhandleAll();
 	};
 
-	request.on('error', (error: Error): void => {
+	request.on('error', error => {
 		if (error.message !== 'socket hang up') {
 			cancelTimeouts();
 		}
 	});
 
-	once(request, 'response', (response: IncomingMessage) => {
+	once(request, 'response', (response: IncomingMessage): void => {
 		once(response, 'end', cancelTimeouts);
 	});
 
@@ -84,7 +86,7 @@ export default (request: ClientRequest, delays: Delays, options: any) => {
 
 	if (delays.socket !== undefined) {
 		const socketTimeoutHandler = (): void => {
-			timeoutHandler(delays.socket!, 'socket');
+			timeoutHandler(delays.socket, 'socket');
 		};
 
 		request.setTimeout(delays.socket, socketTimeoutHandler);
@@ -92,12 +94,13 @@ export default (request: ClientRequest, delays: Delays, options: any) => {
 		// `request.setTimeout(0)` causes a memory leak.
 		// We can just remove the listener and forget about the timer - it's unreffed.
 		// See https://github.com/sindresorhus/got/issues/690
-		cancelers.push((): void => {
+		cancelers.push(() => {
 			request.removeListener('timeout', socketTimeoutHandler);
 		});
 	}
 
 	once(request, 'socket', (socket: net.Socket): void => {
+		// TODO: There seems to not be a 'socketPath' on the request, but there IS a socket.remoteAddress
 		const {socketPath} = request as any;
 
 		/* istanbul ignore next: hard to test */
@@ -108,7 +111,7 @@ export default (request: ClientRequest, delays: Delays, options: any) => {
 			}
 
 			if (delays.connect !== undefined) {
-				const timeConnect = () => addTimeout(delays.connect!, timeoutHandler, 'connect');
+				const timeConnect = (): (() => void) => addTimeout(delays.connect, timeoutHandler, 'connect');
 
 				if (socketPath || net.isIP(hostname || host)) {
 					once(socket, 'connect', timeConnect());
@@ -123,14 +126,14 @@ export default (request: ClientRequest, delays: Delays, options: any) => {
 
 			if (delays.secureConnect !== undefined && options.protocol === 'https:') {
 				once(socket, 'connect', (): void => {
-					const cancelTimeout = addTimeout(delays.secureConnect!, timeoutHandler, 'secureConnect');
+					const cancelTimeout = addTimeout(delays.secureConnect, timeoutHandler, 'secureConnect');
 					once(socket, 'secureConnect', cancelTimeout);
 				});
 			}
 		}
 
 		if (delays.send !== undefined) {
-			const timeRequest = () => addTimeout(delays.send!, timeoutHandler, 'send');
+			const timeRequest = (): (() => void) => addTimeout(delays.send, timeoutHandler, 'send');
 			/* istanbul ignore next: hard to test */
 			if (socket.connecting) {
 				once(socket, 'connect', (): void => {
@@ -151,3 +154,9 @@ export default (request: ClientRequest, delays: Delays, options: any) => {
 
 	return cancelTimeouts;
 };
+
+declare module 'http' {
+	interface ClientRequest {
+		[reentry]: boolean;
+	}
+}

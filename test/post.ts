@@ -1,5 +1,5 @@
 import test from 'ava';
-import toReadableStream from 'to-readable-stream';
+import toReadableStream = require('to-readable-stream');
 import got from '../source';
 import withServer from './helpers/with-server';
 
@@ -157,6 +157,7 @@ test('`content-type` header is not overriden when object in `options.body`', wit
 });
 
 test('throws when form body is not a plain object or array', async t => {
+	// @ts-ignore manual test
 	await t.throwsAsync(got.post('https://example.com', {form: 'such=wow'}), {
 		instanceOf: TypeError,
 		message: 'The `form` option must be an Object'

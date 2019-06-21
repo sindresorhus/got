@@ -1,7 +1,7 @@
 import {URL} from 'url';
-import http from 'http';
+import http = require('http');
 import test from 'ava';
-import proxyquire from 'proxyquire';
+import proxyquire = require('proxyquire');
 import got from '../source';
 import withServer from './helpers/with-server';
 
@@ -39,6 +39,7 @@ test('catches dns errors', async t => {
 });
 
 test('`options.body` form error message', async t => {
+	// @ts-ignore Manual tests
 	await t.throwsAsync(got.post('https://example.com', {body: Buffer.from('test'), form: ''}), {
 		message: 'The `body` option cannot be used with the `json` option or `form` option'
 	});
@@ -141,6 +142,7 @@ test('`http.request` pipe error', async t => {
 	const message = 'snap!';
 
 	await t.throwsAsync(got('https://example.com', {
+		// @ts-ignore Manual tests
 		request: () => {
 			return {
 				end: () => {
@@ -190,6 +192,7 @@ test('catches error in mimicResponse', withServer, async (t, server) => {
 });
 
 test('errors are thrown directly when options.stream is true', t => {
+	// @ts-ignore Manual tests
 	t.throws(() => got('https://example.com', {stream: true, hooks: false}), {
 		message: 'Parameter `hooks` must be an object, not boolean'
 	});

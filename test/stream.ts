@@ -1,8 +1,8 @@
 import {PassThrough} from 'stream';
 import test from 'ava';
-import toReadableStream from 'to-readable-stream';
-import getStream from 'get-stream';
-import pEvent from 'p-event';
+import toReadableStream = require('to-readable-stream');
+import getStream = require('get-stream');
+import pEvent = require('p-event');
 import is from '@sindresorhus/is';
 import withServer from './helpers/with-server';
 

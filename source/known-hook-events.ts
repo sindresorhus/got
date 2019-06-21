@@ -1,6 +1,5 @@
-import {IncomingMessage} from 'http';
-import {Options, CancelableRequest} from './utils/types';
-import {HTTPError} from './errors';
+import {Options, CancelableRequest, Response, NormalizedOptions} from './utils/types';
+import {HTTPError, GotError, ParseError, MaxRedirectsError} from './errors';
 
 /**
 Called with plain request options, right before their normalization. This is especially useful in conjunction with got.extend() and got.create() when the input needs custom handling.
@@ -16,32 +15,31 @@ Called with normalized [request options](https://github.com/sindresorhus/got#opt
 
 @see [AWS section](https://github.com/sindresorhus/got#aws) for an example.
 */
-export type BeforeRequestHook = (options: Options) => void | Promise<void>;
+export type BeforeRequestHook = (options: NormalizedOptions) => void | Promise<void>;
 
 /**
 Called with normalized [request options](https://github.com/sindresorhus/got#options). Got will make no further changes to the request. This is especially useful when you want to avoid dead sites.
 */
-export type BeforeRedirectHook = (options: Options) => void | Promise<void>;
+export type BeforeRedirectHook = (options: NormalizedOptions) => void | Promise<void>;
 
 /**
 Called with normalized [request options](https://github.com/sindresorhus/got#options), the error and the retry count. Got will make no further changes to the request. This is especially useful when some extra work is required before the next try.
 */
-export type BeforeRetryHook = (options: Options, error: HTTPError, retryCount: number) => void | Promise<void>;
+export type BeforeRetryHook = (options: NormalizedOptions, error: Error | GotError | ParseError | HTTPError | MaxRedirectsError, retryCount: number) => void | Promise<void>;
 
-// TODO: The `Error` type should conform to any possible extended error type that can be thrown. See https://github.com/sindresorhus/got#hooksbeforeerror
 /**
 Called with an `Error` instance. The error is passed to the hook right before it's thrown. This is especially useful when you want to have more detailed errors.
 
 **Note:** Errors thrown while normalizing input options are thrown directly and not part of this hook.
 */
-export type BeforeErrorHook = (error: Error) => Error | Promise<Error>;
+export type BeforeErrorHook = <ErrorLike extends Error | GotError | ParseError | HTTPError | MaxRedirectsError>(error: ErrorLike) => Error | Promise<Error>;
 
 /**
 Called with [response object](https://github.com/sindresorhus/got#response) and a retry function.
 
 Each function should return the response. This is especially useful when you want to refresh an access token.
 */
-export type AfterResponseHook = (response: IncomingMessage, retryWithMergedOptions: (options: Options) => CancelableRequest<IncomingMessage>) => IncomingMessage | CancelableRequest<IncomingMessage>;
+export type AfterResponseHook = (response: Response, retryWithMergedOptions: (options: NormalizedOptions) => CancelableRequest<Response>) => Response | CancelableRequest<Response>;
 
 export type HookType =
 	| BeforeErrorHook
@@ -108,7 +106,7 @@ export interface Hooks {
 
 export type HookEvent = keyof Hooks;
 
-const knownHookEvents: HookEvent[] = [
+const knownHookEvents: readonly HookEvent[] = [
 	'beforeError',
 	'init',
 	'beforeRequest',

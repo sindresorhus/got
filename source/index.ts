@@ -1,7 +1,8 @@
-import packageJson from '../package.json';
+import packageJson = require('../package.json');
 import create from './create';
+import {Defaults} from './utils/types.js';
 
-const defaults = {
+const defaults: Partial<Defaults> = {
 	options: {
 		method: 'GET',
 		retry: {
@@ -54,9 +55,12 @@ const defaults = {
 		resolveBodyOnly: false
 	},
 	mutableDefaults: false
-} as const;
+};
 
 const got = create(defaults);
 
-module.exports = got; // For CommonJS default export support
 export default got;
+
+// For CommonJS default export support
+module.exports = got;
+module.exports.default = got;

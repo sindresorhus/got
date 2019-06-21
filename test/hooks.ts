@@ -1,5 +1,5 @@
 import test from 'ava';
-import delay from 'delay';
+import delay = require('delay');
 import got from '../source';
 import withServer from './helpers/with-server';
 
@@ -150,6 +150,7 @@ test('catches afterResponse promise rejections', withServer, async (t, server, g
 
 test('catches beforeError errors', async t => {
 	await t.throwsAsync(got('https://example.com', {
+		// @ts-ignore Manual tests
 		request: () => {},
 		hooks: {
 			beforeError: [() => Promise.reject(error)]
@@ -496,5 +497,20 @@ test('does not break on `afterResponse` hook with JSON mode', withServer, async 
 			]
 		},
 		responseType: 'json'
+	}));
+});
+
+test('catches HTTPErrors', withServer, async (t, _server, got) => {
+	t.plan(2);
+
+	await t.throwsAsync(got({
+		hooks: {
+			beforeError: [
+				(error: Error) => {
+					t.true(error instanceof got.HTTPError);
+					return error;
+				}
+			]
+		}
 	}));
 });

@@ -1,7 +1,7 @@
 import {TLSSocket} from 'tls';
 import {URL} from 'url';
 import test from 'ava';
-import nock from 'nock';
+import nock = require('nock');
 import withServer from './helpers/with-server';
 
 const reachedHandler = (_request, response) => {
