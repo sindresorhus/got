@@ -25,10 +25,10 @@ export default (): Unhandler => {
 		},
 
 		unhandleAll() {
-			handlers.forEach((handler: Handler) => {
+			for (const handler of handlers) {
 				const {origin, event, fn} = handler;
 				origin.removeListener(event, fn);
-			});
+			}
 		}
 	};
 };
