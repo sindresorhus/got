@@ -15,14 +15,7 @@ export default function merge<Target extends Record<string, unknown>, Source ext
 			}
 
 			const targetValue = target[key];
-			if (key === 'userData') {
-				Object.defineProperty(target, 'userData', {
-					writable: true,
-					configurable: true,
-					enumerable: false,
-					value: sourceValue
-				});
-			} else if (targetValue instanceof URLSearchParamsGlobal && sourceValue instanceof URLSearchParamsGlobal) {
+			if (targetValue instanceof URLSearchParamsGlobal && sourceValue instanceof URLSearchParamsGlobal) {
 				const params = new URLSearchParamsGlobal();
 
 				const append = (value: string, key: string): void => params.append(key, value);
@@ -43,6 +36,15 @@ export default function merge<Target extends Record<string, unknown>, Source ext
 			} else {
 				target[key] = sourceValue;
 			}
+		}
+
+		if (Reflect.has(source, 'userData')) {
+			Object.defineProperty(target, 'userData', {
+				writable: true,
+				configurable: true,
+				enumerable: false,
+				value: source.userData
+			});
 		}
 	}
 
