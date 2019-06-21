@@ -1,3 +1,4 @@
+import EventEmitter = require('events');
 import http = require('http');
 import net = require('net');
 import getStream = require('get-stream');
@@ -5,6 +6,7 @@ import test from 'ava';
 import pEvent = require('p-event');
 import delay = require('delay');
 import got from '../source';
+import timedOut from '../source/utils/timed-out';
 import withServer from './helpers/with-server';
 import slowDataStream from './helpers/slow-data-stream';
 
@@ -431,4 +433,35 @@ test('no memory leak when using socket timeout and keepalive agent', withServer,
 	await promise;
 
 	t.is(socket.listenerCount('timeout'), 0);
+});
+
+test('ensure there are no new timeouts after cancelation', t => {
+	const emitter = new EventEmitter();
+	const socket = new EventEmitter();
+	(socket as any).connecting = true;
+
+	timedOut(emitter as http.ClientRequest, {
+		connect: 1
+	}, {
+		hostname: '127.0.0.1'
+	})();
+
+	emitter.emit('socket', socket);
+	socket.emit('lookup', null);
+	t.is(socket.listenerCount('connect'), 0);
+});
+
+test('double calling timedOut has no effect', t => {
+	const emitter = new EventEmitter();
+
+	const attach = () => timedOut(emitter as http.ClientRequest, {
+		connect: 1
+	}, {
+		hostname: '127.0.0.1'
+	});
+
+	attach();
+	attach();
+
+	t.is(emitter.listenerCount('socket'), 1);
 });

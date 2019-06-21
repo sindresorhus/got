@@ -240,10 +240,10 @@ export const normalizeArguments = (url: URLOrOptions, options: NormalizedOptions
 				return 0;
 			}
 
-			const hasCode = Reflect.has(error, 'code') && options.retry.errorCodes.has((error as GotError).code as ErrorCode);
-			const hasMethod = Reflect.has(error, 'options') && options.retry.methods.has((error as GotError).options.method as Method);
+			const hasMethod = options.retry.methods.has((error as GotError).options.method as Method);
+			const hasErrorCode = Reflect.has(error, 'code') && options.retry.errorCodes.has((error as GotError).code as ErrorCode);
 			const hasStatusCode = Reflect.has(error, 'response') && options.retry.statusCodes.has((error as HTTPError | ParseError | MaxRedirectsError).response.statusCode as StatusCode);
-			if ((!error || !hasCode) && (!hasMethod || !hasStatusCode)) {
+			if (!hasMethod || (!hasErrorCode && !hasStatusCode)) {
 				return 0;
 			}
 
