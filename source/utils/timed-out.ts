@@ -17,7 +17,7 @@ export class TimeoutError extends Error {
 const reentry = Symbol('reentry');
 const noop = (): void => {};
 
-export default (request: ClientRequest, delays: Required<Delays>, options: NormalizedOptions) => {
+export default (request: ClientRequest, delays: Delays, options: NormalizedOptions) => {
 	/* istanbul ignore next: this makes sure timed-out isn't called twice */
 	if (Reflect.has(request, reentry)) {
 		return noop;
