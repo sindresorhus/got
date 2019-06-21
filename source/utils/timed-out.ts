@@ -33,7 +33,7 @@ export default (request: ClientRequest, delays: Delays, options: TimedOutOptions
 	const cancelers: Array<typeof noop> = [];
 	const {once, unhandleAll} = unhandler();
 
-	const addTimeout = (delay: number, callback: (...args: any) => void, ...args: any): (typeof noop) => {
+	const addTimeout = (delay: number, callback: (...args: unknown[]) => void, ...args: unknown[]): (typeof noop) => {
 		// Event loop order is timers, poll, immediates.
 		// The timed event may emit during the current tick poll phase, so
 		// defer calling the handler until the poll phase completes.
