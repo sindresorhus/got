@@ -42,25 +42,25 @@ export default function merge<Target extends Record<string, unknown>, Source ext
 	return target as Target & Source;
 }
 
-export function mergeOptions<T extends Options>(...sources: T[]): T & { hooks: Partial<Hooks> } {
+export function mergeOptions<T extends Options>(...sources: T[]): T & {hooks: Partial<Hooks>} {
 	sources = sources.map(source => {
-		if (source) {
-			if (!is.object(source.retry)) {
-				source = {
-					...source,
-					retry: {
-						retries: source.retry
-					}
-				};
-			}
+		if (!source) {
+			return {};
+		}
 
+		if (is.object(source.retry)) {
 			return source;
 		}
 
-		return {};
+		return {
+			...source,
+			retry: {
+				retries: source.retry
+			}
+		};
 	}) as T[];
 
-	const mergedOptions = merge({} as T & { hooks: Partial<Hooks> }, ...sources);
+	const mergedOptions = merge({} as T & {hooks: Partial<Hooks>}, ...sources);
 
 	const hooks = knownHookEvents.reduce((accumulator, current) => ({...accumulator, [current]: []}), {}) as Record<HookEvent, HookType[]>;
 
