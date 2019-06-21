@@ -110,7 +110,6 @@ export type Headers = Record<string, string | string[]>;
 export interface Options extends Omit<https.RequestOptions, 'agent' | 'timeout' | 'host' | 'headers'> {
 	host?: string;
 	body?: string | Buffer | ReadableStream;
-	userData?: unknown;
 	hostname?: string;
 	path?: string;
 	socketPath?: string;
@@ -139,13 +138,11 @@ export interface Options extends Omit<https.RequestOptions, 'agent' | 'timeout' 
 	dnsCache?: Map<string, string> | Keyv | false;
 	url?: URL | string;
 	searchParams?: Record<string, string | number | boolean | null> | URLSearchParams | string;
-	/*
-	Deprecated
-	 */
-	query?: Options['searchParams'];
+	query?: Options['searchParams']; // Deprecated
 	useElectronNet?: boolean;
 	form?: Record<string, any>;
 	json?: Record<string, any>;
+	userData?: unknown;
 }
 
 export interface NormalizedOptions extends Omit<Required<Options>, 'timeout' | 'dnsCache' | 'retry'> {
