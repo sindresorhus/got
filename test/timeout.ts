@@ -435,7 +435,7 @@ test('no memory leak when using socket timeout and keepalive agent', withServer,
 	t.is(socket.listenerCount('timeout'), 0);
 });
 
-test('assure there are no new timeouts after cancelation', t => {
+test('ensure there are no new timeouts after cancelation', t => {
 	const emitter = new EventEmitter();
 	const socket = new EventEmitter();
 	(socket as any).connecting = true;
