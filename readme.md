@@ -408,7 +408,7 @@ See the [AWS section](#aws) for an example.
 Type: `Function[]`<br>
 Default: `[]`
 
-Called with [normalized](source/normalize-arguments.ts) [request options](#options). Got will make no further changes to the request. This is especially useful when you want to avoid dead sites. Example:
+Called with [normalized](source/normalize-arguments.ts) [request options](#options) and the redirect [response](#response). Got will make no further changes to the request. This is especially useful when you want to avoid dead sites. Example:
 
 ```js
 const got = require('got');
@@ -416,7 +416,7 @@ const got = require('got');
 got('https://example.com', {
 	hooks: {
 		beforeRedirect: [
-			options => {
+			(options, response) => {
 				if (options.hostname === 'deadSite') {
 					options.hostname = 'fallbackSite';
 				}

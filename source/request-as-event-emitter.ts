@@ -163,7 +163,7 @@ export default (options: NormalizedOptions, input?: TransformStream) => {
 
 						for (const hook of options.hooks.beforeRedirect) {
 							// eslint-disable-next-line no-await-in-loop
-							await hook(redirectOptions);
+							await hook(redirectOptions, typedResponse);
 						}
 
 						emitter.emit('redirect', response, redirectOptions);
