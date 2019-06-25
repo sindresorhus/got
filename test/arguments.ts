@@ -54,17 +54,18 @@ test('methods are normalized', withServer, async (t, server, got) => {
 	server.post('/test', echoUrl);
 
 	const instance = got.create({
-		methods: got.defaults.methods,
 		options: got.defaults.options,
-		handler: (options, next) => {
-			if (options.method === options.method.toUpperCase()) {
-				t.pass();
-			} else {
-				t.fail();
-			}
+		handlers: [
+			(options, next) => {
+				if (options.method === options.method.toUpperCase()) {
+					t.pass();
+				} else {
+					t.fail();
+				}
 
-			return next(options);
-		}
+				return next(options);
+			}
+		]
 	});
 
 	await instance('test', {method: 'post'});
