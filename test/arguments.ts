@@ -263,43 +263,53 @@ test('throws if the `searchParams` value is invalid', async t => {
 	});
 });
 
-test('`userData` option is not enumerable', withServer, async (t, server, got) => {
+test('`context` option is not enumerable', withServer, async (t, server, got) => {
 	server.get('/', echoUrl);
 
+	const context = {
+		foo: 'bar'
+	};
+
 	await got({
-		userData: 123,
+		context,
 		hooks: {
 			beforeRequest: [
 				options => {
-					t.is(options.userData, 123);
-					t.false({}.propertyIsEnumerable.call(options, 'userData'));
+					t.is(options.context, context);
+					t.false({}.propertyIsEnumerable.call(options, 'context'));
 				}
 			]
 		}
 	});
 });
 
-test('`userData` option is accessible when using hooks', withServer, async (t, server, got) => {
+test('`context` option is accessible when using hooks', withServer, async (t, server, got) => {
 	server.get('/', echoUrl);
 
+	const context = {
+		foo: 'bar'
+	};
+
 	await got({
-		userData: 123,
+		context,
 		hooks: {
 			init: [
 				options => {
-					t.is(options.userData, 123);
-					t.false({}.propertyIsEnumerable.call(options, 'userData'));
+					t.is(options.context, context);
+					t.false({}.propertyIsEnumerable.call(options, 'context'));
 				}
 			]
 		}
 	});
 });
 
-test('`userData` option is accessible when extending instances', t => {
-	const instance = got.extend({
-		userData: 123
-	});
+test('`context` option is accessible when extending instances', t => {
+	const context = {
+		foo: 'bar'
+	};
 
-	t.is(instance.defaults.options.userData, 123);
-	t.false({}.propertyIsEnumerable.call(instance.defaults.options, 'userData'));
+	const instance = got.extend({context});
+
+	t.is(instance.defaults.options.context, context);
+	t.false({}.propertyIsEnumerable.call(instance.defaults.options, 'context'));
 });

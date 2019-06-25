@@ -174,11 +174,41 @@ Type: `object | Array | number | string | boolean | null` *(JSON-serializable va
 
 JSON body. If the `Content-Type` header is not set, it will be set to `application/json`.
 
-###### userData
+###### context
 
 Type: `unknown`
 
-User data. In contrast to other options, `userData` is not enumerable.
+User data. In contrast to other options, `context` is not enumerable. Example:
+
+```js
+const got = require('got');
+
+const instance = got.extend({
+	hooks: {
+		afterResponse: [
+			response => {
+				const {context} = response.request.options;
+				context.latestFetchedSite = response.url;
+			}
+		]
+	}
+});
+
+(async () => {
+	const context = {
+		latestFetchedSite: ''
+	};
+
+	const response = await instance('https://example.com', {context});
+
+	// Let's see our user data
+	console.log(context.latestFetchedSite); // => https://example.com/
+
+	// `context` won't be displayed here, because it's not enumerable.
+	// Of course, you can access it in the following way: response.request.options.context
+	console.log(response.request.options);
+})();
+```
 
 ###### responseType
 

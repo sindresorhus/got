@@ -142,7 +142,7 @@ export interface Options extends Omit<https.RequestOptions, 'agent' | 'timeout' 
 	useElectronNet?: boolean;
 	form?: Record<string, any>;
 	json?: Record<string, any>;
-	userData?: unknown;
+	context?: object;
 }
 
 export interface NormalizedOptions extends Omit<Required<Options>, 'timeout' | 'dnsCache' | 'retry'> {

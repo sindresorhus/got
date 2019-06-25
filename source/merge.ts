@@ -38,12 +38,12 @@ export default function merge<Target extends Record<string, unknown>, Source ext
 			}
 		}
 
-		if (Reflect.has(source, 'userData')) {
-			Object.defineProperty(target, 'userData', {
+		if (Reflect.has(source, 'context')) {
+			Object.defineProperty(target, 'context', {
 				writable: true,
 				configurable: true,
 				enumerable: false,
-				value: source.userData
+				value: source.context
 			});
 		}
 	}
