@@ -176,7 +176,7 @@ JSON body. If the `Content-Type` header is not set, it will be set to `applicati
 
 ###### context
 
-Type: `unknown`
+Type: `object`
 
 User data. In contrast to other options, `context` is not enumerable.
 
