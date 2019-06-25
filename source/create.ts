@@ -41,7 +41,7 @@ export interface Got extends Record<HTTPAlias, ReturnResponse> {
 	(url: URLArgument | Options & { stream: true; url: URLArgument }, options?: Options & { stream: true }): ProxyStream;
 	(url: URLOrOptions, options?: Options): CancelableRequest<Response> | ProxyStream;
 	create(defaults: Defaults): Got;
-	extend(...instancesOrOptions: Array<Got | Options & {mutableDefaults?: boolean, handlers?: HandlerFunction[]}>): Got;
+	extend(...instancesOrOptions: Array<Got | Options & {mutableDefaults?: boolean; handlers?: HandlerFunction[]}>): Got;
 	mergeOptions<T extends Options>(...sources: T[]): T & { hooks: Partial<Hooks> };
 }
 
