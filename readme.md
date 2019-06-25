@@ -203,10 +203,10 @@ const instance = got.extend({
 
 	const response = await instance('https://example.com', {context});
 
-	// Let's see our context data
+	// Let's see our context data.
 	console.log(context.latestFetchedSite); //=> 'https://example.com/'
 
-	// The `.context` won't be displayed here because it's not enumerable.
+	// The `context` won't be displayed here because it's not enumerable.
 	// You can, however, access it directly: `response.request.options.context`
 	console.log(response.request.options);
 })();
