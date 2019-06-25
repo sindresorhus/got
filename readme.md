@@ -735,7 +735,7 @@ Sets `options.method` to the method name and makes a request.
 
 ### Instances
 
-#### got.extend([options])
+#### got.extend(...options)
 
 Configure a new `got` instance with default `options`. The `options` are merged with the parent instance's `defaults.options` using [`got.mergeOptions`](#gotmergeoptionsparentoptions-newoptions). You can access the resolved options with the `.defaults` property on the instance.
 
@@ -782,6 +782,12 @@ client.get('/demo');
 
 **Tip:** Need more control over the behavior of Got? Check out the [`got.create()`](advanced-creation.md).
 
+#### got.extend(...instances)
+
+Merges many instances into a single one:
+- options are merged using [`got.mergeOptions()`](readme.md#gotmergeoptionsparentoptions-newoptions) (+ hooks are merged too),
+- handlers are stored in an array.
+
 #### got.mergeOptions(parentOptions, newOptions)
 
 Extends parent options. Avoid using [object spread](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Spread_syntax#Spread_in_object_literals) as it doesn't work recursively:
@@ -809,7 +815,7 @@ Options are deeply merged to a new object. The value of each key is determined a
 
 Type: `object`
 
-The default Got options.
+The default Got options used in that instance.
 
 ## Errors
 
@@ -1200,8 +1206,6 @@ const custom = got.extend({
 	const list = await custom('/v1/users/list');
 })();
 ```
-
-**Tip:** Need to merge some instances into a single one? Check out [`got.mergeInstances()`](advanced-creation.md#merging-instances).
 
 ### Experimental HTTP2 support
 

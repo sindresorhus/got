@@ -158,9 +158,8 @@ export interface NormalizedOptions extends Omit<Required<Options>, 'timeout' | '
 }
 
 export interface Defaults {
-	methods?: Method[];
 	options?: Options;
-	handler?: HandlerFunction;
+	handlers?: HandlerFunction[];
 	mutableDefaults?: boolean;
 }
 

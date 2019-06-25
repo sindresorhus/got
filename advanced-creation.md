@@ -61,73 +61,7 @@ const settings = {
 const jsonGot = got.create(settings);
 ```
 
-```js
-const defaults = {
-	options: {
-		method: 'GET',
-		retry: {
-			retries: 2,
-			methods: [
-				'GET',
-				'PUT',
-				'HEAD',
-				'DELETE',
-				'OPTIONS',
-				'TRACE'
-			],
-			statusCodes: [
-				408,
-				413,
-				429,
-				500,
-				502,
-				503,
-				504
-			],
-			errorCodes: [
-				'ETIMEDOUT',
-				'ECONNRESET',
-				'EADDRINUSE',
-				'ECONNREFUSED',
-				'EPIPE',
-				'ENOTFOUND',
-				'ENETUNREACH',
-				'EAI_AGAIN'
-			]
-		},
-		headers: {
-			'user-agent': `${pkg.name}/${pkg.version} (https://github.com/sindresorhus/got)`
-		},
-		hooks: {
-			beforeError: [],
-			init: [],
-			beforeRequest: [],
-			beforeRedirect: [],
-			beforeRetry: [],
-			afterResponse: []
-		},
-		decompress: true,
-		throwHttpErrors: true,
-		followRedirect: true,
-		stream: false,
-		form: false,
-		cache: false,
-		useElectronNet: false,
-		responseType: 'text',
-		resolveBodyOnly: 'false'
-	},
-	mutableDefaults: false
-};
-
-// Same as:
-const defaults = {
-	handler: got.defaults.handler,
-	options: got.defaults.options,
-	mutableDefaults: got.defaults.mutableDefaults
-};
-
-const unchangedGot = got.create(defaults);
-```
+Sometimes you don't need to use `got.create(defaults)`. Instead, `got.extend(options)` should be good enough:
 
 ```js
 const settings = {
@@ -149,11 +83,7 @@ const unicorn = got.extend({headers: {unicorn: 'rainbow'}});
 
 Got supports composing multiple instances together. This is very powerful. You can create a client that limits download speed and then compose it with an instance that signs a request. It's like plugins without any of the plugin mess. You just create instances and then compose them together.
 
-#### got.mergeInstances(instanceA, instanceB, ...)
-
-Merges many instances into a single one:
-- options are merged using [`got.mergeOptions()`](readme.md#gotmergeoptionsparentoptions-newoptions) (+ hooks are merged too),
-- handlers are stored in an array.
+Just use `instanceA.extend(instanceB, instanceC, ...)`, that's all.
 
 ## Examples
 
@@ -162,17 +92,18 @@ Some examples of what kind of instances you could compose together:
 #### Denying redirects that lead to other sites than specified
 
 ```js
-const controlRedirects = got.create({
-	options: got.defaults.options,
-	handler: (options, next) => {
-		const promiseOrStream = next(options);
-		return promiseOrStream.on('redirect', resp => {
-			const host = new URL(resp.url).host;
-			if (options.allowedHosts && !options.allowedHosts.includes(host)) {
-				promiseOrStream.cancel(`Redirection to ${host} is not allowed`);
-			}
-		});
-	}
+const controlRedirects = got.extend({
+	handlers: [
+		(options, next) => {
+			const promiseOrStream = next(options);
+			return promiseOrStream.on('redirect', resp => {
+				const host = new URL(resp.url).host;
+				if (options.allowedHosts && !options.allowedHosts.includes(host)) {
+					promiseOrStream.cancel(`Redirection to ${host} is not allowed`);
+				}
+			});
+		}
+	]
 });
 ```
 
@@ -181,28 +112,29 @@ const controlRedirects = got.create({
 It's very useful in case your machine's got a little amount of RAM.
 
 ```js
-const limitDownloadUpload = got.create({
-    options: got.defaults.options,
-    handler: (options, next) => {
-        let promiseOrStream = next(options);
-        if (typeof options.downloadLimit === 'number') {
-            promiseOrStream.on('downloadProgress', progress => {
-        		if (progress.transferred > options.downloadLimit && progress.percent !== 1) {
-        			promiseOrStream.cancel(`Exceeded the download limit of ${options.downloadLimit} bytes`);
-        		}
-        	});
-        }
+const limitDownloadUpload = got.extend({
+    handlers: [
+		(options, next) => {
+			let promiseOrStream = next(options);
+			if (typeof options.downloadLimit === 'number') {
+				promiseOrStream.on('downloadProgress', progress => {
+					if (progress.transferred > options.downloadLimit && progress.percent !== 1) {
+						promiseOrStream.cancel(`Exceeded the download limit of ${options.downloadLimit} bytes`);
+					}
+				});
+			}
 
-        if (typeof options.uploadLimit === 'number') {
-            promiseOrStream.on('uploadProgress', progress => {
-        		if (progress.transferred > options.uploadLimit && progress.percent !== 1) {
-        			promiseOrStream.cancel(`Exceeded the upload limit of ${options.uploadLimit} bytes`);
-        		}
-        	});
-        }
+			if (typeof options.uploadLimit === 'number') {
+				promiseOrStream.on('uploadProgress', progress => {
+					if (progress.transferred > options.uploadLimit && progress.percent !== 1) {
+						promiseOrStream.cancel(`Exceeded the upload limit of ${options.uploadLimit} bytes`);
+					}
+				});
+			}
 
-        return promiseOrStream;
-    }
+			return promiseOrStream;
+		}
+	]
 });
 ```
 
@@ -242,12 +174,12 @@ const signRequest = got.extend({
 
 #### Putting it all together
 
-If these instances are different modules and you don't want to rewrite them, use `got.mergeInstances()`.
+If these instances are different modules and you don't want to rewrite them, use `got.extend(...instances)`.
 
 **Note**: The `noUserAgent` instance must be placed at the end of chain as the instances are merged in order. Other instances do have the `user-agent` header.
 
 ```js
-const merged = got.mergeInstances(controlRedirects, limitDownloadUpload, httpbin, signRequest, noUserAgent);
+const merged = got.extend(controlRedirects, limitDownloadUpload, httpbin, signRequest, noUserAgent);
 
 (async () => {
 	// There's no 'user-agent' header :)

@@ -6,10 +6,11 @@ import {
 	Response,
 	CancelableRequest,
 	URLOrOptions,
-	URLArgument
+	URLArgument,
+	HandlerFunction
 } from './utils/types';
 import deepFreeze from './utils/deep-freeze';
-import merge, {mergeOptions, mergeInstances} from './merge';
+import merge, {mergeOptions} from './merge';
 import asPromise from './as-promise';
 import asStream, {ProxyStream} from './as-stream';
 import {preNormalizeArguments, normalizeArguments} from './normalize-arguments';
@@ -40,8 +41,7 @@ export interface Got extends Record<HTTPAlias, ReturnResponse> {
 	(url: URLArgument | Options & { stream: true; url: URLArgument }, options?: Options & { stream: true }): ProxyStream;
 	(url: URLOrOptions, options?: Options): CancelableRequest<Response> | ProxyStream;
 	create(defaults: Defaults): Got;
-	extend(options?: Options): Got;
-	mergeInstances(...instances: Got[]): Got;
+	extend(...instancesOrOptions: Array<Got | Options & {mutableDefaults?: boolean, handlers?: HandlerFunction[]}>): Got;
 	mergeOptions<T extends Options>(...sources: T[]): T & { hooks: Partial<Hooks> };
 }
 
@@ -62,16 +62,21 @@ const create = (defaults: Partial<Defaults>): Got => {
 	defaults = merge<Defaults, Partial<Defaults>>({}, defaults);
 	preNormalizeArguments(defaults.options!);
 
-	if (!defaults.handler) {
-		// This can't be getPromiseOrStream, because when merging
-		// the chain would stop at this point and no further handlers would be called.
-		defaults.handler = (options, next) => next(options);
+	if (!defaults.handlers || defaults.handlers.length === 0) {
+		defaults.handlers = [
+			(options, next) => next(options)
+		];
 	}
 
 	// @ts-ignore Because the for loop handles it for us, as well as the other Object.defines
 	const got: Got = (url: URLOrOptions, options?: Options): ProxyStream | CancelableRequest<Response> => {
+		let iteration = 0;
+		const iterateHandlers = (newOptions: NormalizedOptions): ProxyStream | CancelableRequest<Response> => {
+			return defaults.handlers[iteration++](newOptions, iteration === defaults.handlers.length ? getPromiseOrStream : iterateHandlers);
+		};
+
 		try {
-			return defaults.handler!(normalizeArguments(url, options as NormalizedOptions, defaults), getPromiseOrStream);
+			return iterateHandlers(normalizeArguments(url, options as NormalizedOptions, defaults));
 		} catch (error) {
 			if (options && options.stream) {
 				throw error;
@@ -83,23 +88,34 @@ const create = (defaults: Partial<Defaults>): Got => {
 	};
 
 	got.create = create;
-	got.extend = options => {
+	got.extend = (...instancesOrOptions) => {
+		const options: Options[] = [defaults.options];
+		const handlers: HandlerFunction[] = [...defaults.handlers];
 		let mutableDefaults: boolean;
-		if (options && Reflect.has(options, 'mutableDefaults')) {
-			mutableDefaults = options.mutableDefaults!;
-			delete options.mutableDefaults;
-		} else {
-			mutableDefaults = defaults.mutableDefaults!;
+
+		for (const value of instancesOrOptions) {
+			if (Reflect.has(value, 'defaults')) {
+				options.push((value as Got).defaults.options);
+				handlers.push(...(value as Got).defaults.handlers);
+
+				mutableDefaults = (value as Got).defaults.mutableDefaults;
+			} else {
+				options.push(value as Options);
+
+				if (Reflect.has(value, 'handlers')) {
+					handlers.push(...(value as Options & {handlers?: HandlerFunction[]}).handlers);
+				}
+
+				mutableDefaults = (value as Options & {mutableDefaults?: boolean}).mutableDefaults;
+			}
 		}
 
 		return create({
-			options: mergeOptions(defaults.options!, options!),
-			handler: defaults.handler,
+			options: mergeOptions(...options),
+			handlers,
 			mutableDefaults
 		});
 	};
-
-	got.mergeInstances = (...args: Got[]) => create(mergeInstances(args));
 
 	// @ts-ignore The missing methods because the for-loop handles it for us
 	got.stream = (url, options) => got(url, {...options, stream: true});
