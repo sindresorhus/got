@@ -232,7 +232,6 @@ test('backslash in the end of `prefixUrl` option is optional', withServer, async
 
 test('throws when trying to modify `prefixUrl` after options got normalized', async t => {
 	const instanceA = got.create({
-		methods: [],
 		options: {prefixUrl: 'https://example.com'},
 		handler: (options, next) => {
 			options.prefixUrl = 'https://google.com';
