@@ -178,7 +178,9 @@ JSON body. If the `Content-Type` header is not set, it will be set to `applicati
 
 Type: `unknown`
 
-User data. In contrast to other options, `context` is not enumerable. Example:
+User data. In contrast to other options, `context` is not enumerable.
+
+Example:
 
 ```js
 const got = require('got');
@@ -201,11 +203,11 @@ const instance = got.extend({
 
 	const response = await instance('https://example.com', {context});
 
-	// Let's see our user data
-	console.log(context.latestFetchedSite); // => https://example.com/
+	// Let's see our context data
+	console.log(context.latestFetchedSite); //=> 'https://example.com/'
 
-	// `context` won't be displayed here, because it's not enumerable.
-	// Of course, you can access it in the following way: response.request.options.context
+	// The `.context` won't be displayed here because it's not enumerable.
+	// You can, however, access it directly: `response.request.options.context`
 	console.log(response.request.options);
 })();
 ```
