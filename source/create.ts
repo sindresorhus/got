@@ -58,15 +58,18 @@ const aliases: readonly HTTPAlias[] = [
 	'delete'
 ];
 
+const defaultHandler: HandlerFunction = (options, next) => next(options);
+
 const create = (defaults: Partial<Defaults>): Got => {
 	defaults = merge<Defaults, Partial<Defaults>>({}, defaults);
 	preNormalizeArguments(defaults.options!);
 
-	if (!defaults.handlers || defaults.handlers.length === 0) {
-		defaults.handlers = [
-			(options, next) => next(options)
-		];
-	}
+	defaults = {
+		handlers: [defaultHandler],
+		options: {},
+		...defaults,
+		mutableDefaults: Boolean(defaults.mutableDefaults)
+	};
 
 	// @ts-ignore Because the for loop handles it for us, as well as the other Object.defines
 	const got: Got = (url: URLOrOptions, options?: Options): ProxyStream | CancelableRequest<Response> => {
@@ -96,7 +99,7 @@ const create = (defaults: Partial<Defaults>): Got => {
 		for (const value of instancesOrOptions) {
 			if (Reflect.has(value, 'defaults')) {
 				options.push((value as Got).defaults.options);
-				handlers.push(...(value as Got).defaults.handlers);
+				handlers.push(...(value as Got).defaults.handlers.filter(handler => handler !== defaultHandler));
 
 				mutableDefaults = (value as Got).defaults.mutableDefaults;
 			} else {
@@ -109,6 +112,8 @@ const create = (defaults: Partial<Defaults>): Got => {
 				mutableDefaults = (value as Options & {mutableDefaults?: boolean}).mutableDefaults;
 			}
 		}
+
+		handlers.push(defaultHandler);
 
 		return create({
 			options: mergeOptions(...options),
