@@ -138,13 +138,11 @@ export interface Options extends Omit<https.RequestOptions, 'agent' | 'timeout' 
 	dnsCache?: Map<string, string> | Keyv | false;
 	url?: URL | string;
 	searchParams?: Record<string, string | number | boolean | null> | URLSearchParams | string;
-	/*
-	Deprecated
-	 */
-	query?: Options['searchParams'];
+	query?: Options['searchParams']; // Deprecated
 	useElectronNet?: boolean;
 	form?: Record<string, any>;
 	json?: Record<string, any>;
+	context?: {[key: string]: unknown};
 }
 
 export interface NormalizedOptions extends Omit<Required<Options>, 'timeout' | 'dnsCache' | 'retry'> {

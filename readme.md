@@ -174,6 +174,45 @@ Type: `object | Array | number | string | boolean | null` *(JSON-serializable va
 
 JSON body. If the `Content-Type` header is not set, it will be set to `application/json`.
 
+###### context
+
+Type: `object`
+
+User data. In contrast to other options, `context` is not enumerable.
+
+**Note:** The object is never merged, it's just passed through. Got will not modify the object in any way.
+
+It's very useful for storing auth tokens:
+
+```js
+const got = require('got');
+
+const instance = got.extend({
+	hooks: {
+		beforeRequest: [
+			options => {
+				if (!options.context && !options.context.token) {
+					throw new Error('Token required');
+				}
+
+				options.header.token = options.context.token;
+			}
+		]
+	}
+});
+
+(async () => {
+	const context = {
+		token: 'secret'
+	};
+
+	const response = await instance('https://httpbin.org/headers', {context});
+
+	// Let's see the headers
+	console.log(response.body);
+})();
+```
+
 ###### responseType
 
 Type: `string`<br>

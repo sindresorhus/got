@@ -37,6 +37,15 @@ export default function merge<Target extends Record<string, unknown>, Source ext
 				target[key] = sourceValue;
 			}
 		}
+
+		if (Reflect.has(source, 'context')) {
+			Object.defineProperty(target, 'context', {
+				writable: true,
+				configurable: true,
+				enumerable: false,
+				value: source.context
+			});
+		}
 	}
 
 	return target as Target & Source;
