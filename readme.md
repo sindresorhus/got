@@ -180,17 +180,22 @@ Type: `object`
 
 User data. In contrast to other options, `context` is not enumerable.
 
-Example:
+**Note:** The object is never merged, it's just passed through. Got will not modify the object in any way.
+
+It's very useful for storing auth tokens:
 
 ```js
 const got = require('got');
 
 const instance = got.extend({
 	hooks: {
-		afterResponse: [
-			response => {
-				const {context} = response.request.options;
-				context.latestFetchedSite = response.url;
+		beforeRequest: [
+			options => {
+				if (!options.context && !options.context.token) {
+					throw new Error('Token required');
+				}
+
+				options.header.token = options.context.token;
 			}
 		]
 	}
@@ -198,17 +203,13 @@ const instance = got.extend({
 
 (async () => {
 	const context = {
-		latestFetchedSite: ''
+		token: 'secret'
 	};
 
-	const response = await instance('https://example.com', {context});
+	const response = await instance('https://httpbin.org/headers', {context});
 
-	// Let's see our context data.
-	console.log(context.latestFetchedSite); //=> 'https://example.com/'
-
-	// The `context` won't be displayed here because it's not enumerable.
-	// You can, however, access it directly: `response.request.options.context`
-	console.log(response.request.options);
+	// Let's see the headers
+	console.log(response.body);
 })();
 ```
 
