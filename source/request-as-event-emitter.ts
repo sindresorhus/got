@@ -130,7 +130,12 @@ export default (options: NormalizedOptions, input?: TransformStream) => {
 
 				const rawCookies = typedResponse.headers['set-cookie'];
 				if (options.cookieJar && rawCookies) {
-					await Promise.all(rawCookies.map((rawCookie: string) => setCookie!(rawCookie, typedResponse.url!)));
+					let promises = rawCookies.map((rawCookie: string) => setCookie!(rawCookie, typedResponse.url!));
+					if (options.ignoreInvalidCookies) {
+						promises = promises.map(p => p.catch(() => {}));
+					}
+
+					await Promise.all(promises);
 				}
 
 				if (options.followRedirect && 'location' in typedResponse.headers) {

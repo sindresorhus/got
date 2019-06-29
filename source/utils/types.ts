@@ -124,6 +124,7 @@ export interface Options extends Omit<https.RequestOptions, 'agent' | 'timeout' 
 	retry?: number | Partial<RetryOption | NormalizedRetryOptions>;
 	throwHttpErrors?: boolean;
 	cookieJar?: CookieJar;
+	ignoreInvalidCookies?: boolean;
 	request?: RequestFunction;
 	agent?: http.Agent | https.Agent | boolean | AgentByProtocol;
 	gotTimeout?: number | Delays;
