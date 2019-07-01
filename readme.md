@@ -587,6 +587,12 @@ Type: `string`
 
 The request URL or the final URL after redirects.
 
+##### ip
+
+Type: `string`
+
+The remote IP address.
+
 ##### requestUrl
 
 Type: `string`
