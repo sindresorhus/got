@@ -8,7 +8,6 @@ import CacheableRequest = require('cacheable-request');
 import toReadableStream = require('to-readable-stream');
 import is from '@sindresorhus/is';
 import timer, {Timings} from '@szmarczak/http-timer';
-import ResponseLike = require('responselike');
 import timedOut, {TimeoutError as TimedOutTimeoutError} from './utils/timed-out';
 import getBodySize from './utils/get-body-size';
 import isFormData from './utils/is-form-data';
@@ -16,7 +15,7 @@ import getResponse from './get-response';
 import {uploadProgress} from './progress';
 import {CacheError, UnsupportedProtocolError, MaxRedirectsError, RequestError, TimeoutError} from './errors';
 import urlToOptions from './utils/url-to-options';
-import {RequestFunction, NormalizedOptions, Response, AgentByProtocol} from './utils/types';
+import {RequestFunction, NormalizedOptions, Response, ResponseObject, AgentByProtocol} from './utils/types';
 import dynamicRequire from './utils/dynamic-require';
 
 const URLGlobal: typeof URL = typeof URL === 'undefined' ? require('url').URL : URL;
@@ -100,7 +99,7 @@ export default (options: NormalizedOptions, input?: TransformStream) => {
 		}
 
 		let timings: Timings;
-		const handleResponse = async (response: http.ServerResponse | ResponseLike): Promise<void> => {
+		const handleResponse = async (response: http.ServerResponse | ResponseObject): Promise<void> => {
 			try {
 				/* istanbul ignore next: fixes https://github.com/electron/electron/blob/cbb460d47628a7a146adf4419ed48550a98b2923/lib/browser/api/net.js#L59-L65 */
 				if (options.useElectronNet) {
@@ -121,6 +120,7 @@ export default (options: NormalizedOptions, input?: TransformStream) => {
 				typedResponse.statusMessage = typedResponse.statusMessage || http.STATUS_CODES[statusCode];
 				typedResponse.url = currentUrl;
 				typedResponse.requestUrl = requestUrl;
+				typedResponse.ip = response.connection.remoteAddress;
 				typedResponse.retryCount = retryCount;
 				typedResponse.timings = timings;
 				typedResponse.redirectUrls = redirects;

@@ -1,5 +1,6 @@
 import http = require('http');
 import https = require('https');
+import ResponseLike = require('responselike');
 import {Readable as ReadableStream} from 'stream';
 import PCancelable = require('p-cancelable');
 import {URL} from 'url';
@@ -57,6 +58,7 @@ export type URLArgument = string | https.RequestOptions | URL;
 export interface Response extends http.IncomingMessage {
 	body: Buffer | string | any;
 	statusCode: number;
+	ip: string;
 	fromCache?: boolean;
 	isFromCache?: boolean;
 	req: http.ClientRequest;
@@ -65,6 +67,10 @@ export interface Response extends http.IncomingMessage {
 	timings: Timings;
 	redirectUrls: string[];
 	request: { options: NormalizedOptions };
+}
+
+export interface ResponseObject extends ResponseLike {
+	connection: { remoteAddress: string };
 }
 
 export type RetryFunction = (retry: number, error: Error | GotError | ParseError | HTTPError | MaxRedirectsError) => number;
