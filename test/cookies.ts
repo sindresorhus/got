@@ -70,6 +70,23 @@ test('throws on invalid cookies', withServer, async (t, server, got) => {
 	await t.throwsAsync(got({cookieJar}), 'Cookie has domain set to a public suffix');
 });
 
+test('does not throw on invalid cookies when options.ignoreInvalidCookies is set', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.setHeader('set-cookie', 'hello=world; domain=localhost');
+		response.end();
+	});
+
+	const cookieJar = new toughCookie.CookieJar();
+
+	await got({
+		cookieJar,
+		ignoreInvalidCookies: true
+	});
+
+	const cookies = cookieJar.getCookiesSync(server.url);
+	t.is(cookies.length, 0);
+});
+
 test('catches store errors', async t => {
 	const error = 'Some error';
 	// @ts-ignore

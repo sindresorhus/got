@@ -243,6 +243,13 @@ Type: [`tough.CookieJar` instance](https://github.com/salesforce/tough-cookie#co
 
 Cookie support. You don't have to care about parsing or how to store them. [Example.](#cookies)
 
+###### ignoreInvalidCookies
+
+Type: `boolean`<br>
+Default: `false`
+
+Ignore invalid cookies instead of throwing an error. Only useful when the `cookieJar` option has been set. Not recommended.
+
 ###### encoding
 
 Type: `string | null`<br>
