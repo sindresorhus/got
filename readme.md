@@ -248,7 +248,7 @@ Cookie support. You don't have to care about parsing or how to store them. [Exam
 Type: `boolean`<br>
 Default: `false`
 
-When set to `true`, silently ignore invalid cookies instead of throwing an error. Only useful when the `cookieJar` option has been set.
+Ignore invalid cookies instead of throwing an error. Only useful when the `cookieJar` option has been set. Not recommended.
 
 ###### encoding
 
