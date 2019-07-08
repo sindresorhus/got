@@ -13,8 +13,7 @@ export default async (t, run) => {
 		}
 	});
 
-	
-	const {request,forceTimeout} = timedOut.init();
+	const {request, forceTimeout, tickTimers} = timedOut.init();
 	const preparedGot = got.extend({
 		baseUrl: server.url,
 		request,
@@ -26,6 +25,8 @@ export default async (t, run) => {
 	preparedGot.secure = got.extend({baseUrl: server.sslUrl, avaTest: t.title});
 	// @ts-ignore Ignore errors for extending got, for the tests
 	preparedGot.forceTimeout = forceTimeout;
+	// @ts-ignore Ignore errors for extending got, for the tests
+	preparedGot.tickTimers = tickTimers;
 
 	server.hostname = (new URL(server.url)).hostname;
 	server.sslHostname = (new URL(server.sslUrl)).hostname;
