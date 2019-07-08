@@ -24,16 +24,16 @@ const keepAliveAgent = new http.Agent({
 const defaultHandler = (got, pretick) => {
 	return (request, response) => {
 		if (pretick === true) {
-			got.tickTimers(requestDelay+1);
+			got.tickTimers(requestDelay + 1);
 		}
 
 		request.resume();
 		request.on('end', async () => {
 			try {
-				got.tickTimers(requestDelay+1);
+				got.tickTimers(requestDelay + 1);
 				response.end('OK');
-			} catch (err) {
-				console.error(err.stack || err);
+			} catch (error) {
+				console.error(error.stack || error);
 				response.statusCode = 500;
 				response.end();
 			}
@@ -216,7 +216,7 @@ test('connect timeout', withServer, async (t, server, got) => {
 					4,
 					'localhost'
 				);
-				setImmediate(() => got.tickTimers(requestDelay+1));
+				setImmediate(() => got.tickTimers(requestDelay + 1));
 				return socket;
 			},
 			timeout: {connect: 1},
@@ -239,7 +239,7 @@ test('connect timeout (ip address)', withServer, async (t, server, got) => {
 				const socket = new net.Socket(options);
 				// @ts-ignore
 				socket.connecting = true;
-				setImmediate(() => got.tickTimers(requestDelay+1));
+				setImmediate(() => got.tickTimers(requestDelay + 1));
 				return socket;
 			},
 			timeout: {connect: 1},

@@ -19,7 +19,7 @@ export default async (t, run) => {
 		request,
 
 		// @ts-ignore Ignore errors for extending got, for the tests
-		avaTest: t.title,
+		avaTest: t.title
 	});
 	// @ts-ignore Ignore errors for extending got, for the tests
 	preparedGot.secure = got.extend({baseUrl: server.sslUrl, avaTest: t.title});

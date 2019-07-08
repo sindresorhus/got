@@ -35,8 +35,8 @@ export default (request: ClientRequest, delays: Delays, options: TimedOutOptions
 	const timers: typeof global =
 		isTestEnv ?
 		// @ts-ignore
-		request.timers || global :
-		global;
+			request.timers || global :
+			global;
 
 	const addTimeout = (delay: number, callback: (...args: unknown[]) => void, type: string, ...args: unknown[]): (typeof noop) => {
 		if (type === 'socket') {
