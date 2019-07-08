@@ -5,6 +5,7 @@ import unhandler from './unhandle';
 
 const reentry = Symbol('reentry');
 const noop = (): void => {};
+const isTestEnv = process.env.NODE_ENV === 'test';
 
 interface TimedOutOptions {
 	host?: string;
@@ -32,13 +33,18 @@ export default (request: ClientRequest, delays: Delays, options: TimedOutOptions
 	const cancelers: Array<typeof noop> = [];
 	const {once, unhandleAll} = unhandler();
 
-	const addTimeout = (delay: number, callback: (...args: unknown[]) => void, ...args: unknown[]): (typeof noop) => {
+	const _addTimeout = (delay: number, callback: (...args: unknown[]) => void, type: string, ...args: unknown[]): (typeof noop) => {
+		if (type === 'socket') {
+			request.setTimeout(delay, callback);
+			return noop;
+		}
+
 		// Event loop order is timers, poll, immediates.
 		// The timed event may emit during the current tick poll phase, so
 		// defer calling the handler until the poll phase completes.
 		let immediate: NodeJS.Immediate;
 		const timeout: NodeJS.Timeout = setTimeout(() => {
-			immediate = setImmediate(callback, delay, ...args);
+			immediate = setImmediate(callback, delay, type, ...args);
 			/* istanbul ignore next: added in node v9.7.0 */
 			if (immediate.unref) {
 				immediate.unref();
@@ -59,6 +65,17 @@ export default (request: ClientRequest, delays: Delays, options: TimedOutOptions
 
 		return cancel;
 	};
+	const addTimeout = (
+		// @ts-ignore
+		isTestEnv && request.addTimeout ?
+		// @ts-ignore
+		request.addTimeout :
+		_addTimeout
+	) as typeof _addTimeout;
+
+	if (!addTimeout) {
+		throw new Error(`Could not find addTimeout function on request`)
+	}
 
 	const {host, hostname} = options;
 
@@ -94,7 +111,7 @@ export default (request: ClientRequest, delays: Delays, options: TimedOutOptions
 			timeoutHandler(delays.socket, 'socket');
 		};
 
-		request.setTimeout(delays.socket, socketTimeoutHandler);
+		addTimeout(delays.socket, socketTimeoutHandler, 'socket');
 
 		// `request.setTimeout(0)` causes a memory leak.
 		// We can just remove the listener and forget about the timer - it's unreffed.
