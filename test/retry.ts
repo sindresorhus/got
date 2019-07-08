@@ -20,7 +20,7 @@ test('works on timeout error', withServer, async (t, server, got) => {
 		if (knocks++ === 1) {
 			response.end('who`s there?');
 		} else {
-			got.forceTimeout();
+			got.tickTimers(socketTimeout+1);
 		}
 	});
 
@@ -31,7 +31,7 @@ test('setting to `0` disables retrying', withServer, async (t, server, got) => {
 	let trys = 0;
 	server.get('/', () => {
 		trys++;
-		got.forceTimeout();
+		got.tickTimers(socketTimeout+1);
 	});
 
 	await t.throwsAsync(got({
@@ -50,7 +50,7 @@ test('retry function gets iteration count', withServer, async (t, server, got) =
 		if (knocks++ === 1) {
 			response.end('who`s there?');
 		} else {
-			got.forceTimeout();
+			got.tickTimers(socketTimeout+1);
 		}
 	});
 
@@ -67,7 +67,7 @@ test('retry function gets iteration count', withServer, async (t, server, got) =
 
 test('falsy value prevents retries', withServer, async (t, server, got) => {
 	server.get('/', () => {
-		got.forceTimeout();
+		got.tickTimers(socketTimeout+1);
 	});
 
 	await t.throwsAsync(got({
@@ -248,7 +248,7 @@ test('retries on 503 without Retry-After header', withServer, async (t, server, 
 
 test('doesn\'t retry on streams', withServer, async (t, server, got) => {
 	server.get('/', () => {
-		got.forceTimeout();
+		got.tickTimers(socketTimeout+1);
 	});
 
 	const stream = got.stream({
@@ -311,7 +311,7 @@ test('retry function can throw', withServer, async (t, server, got) => {
 
 test('does not retry on POST', withServer, async (t, server, got) => {
 	server.post('/', () => {
-		got.forceTimeout();
+		got.tickTimers(socketTimeout+1);
 	});
 
 	await t.throwsAsync(got.post({

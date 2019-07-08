@@ -1,51 +1,42 @@
 import http = require('http');
+import lolex = require('lolex');
 
 export function init() {
-    const timeoutMap = new Map<string, Array<{
-        delay: number;
-        timeout: (delay: number, type: string) => void;
-    }>>();
+    const clock = lolex.createClock();
+    let requestWasCreated = false;
 
     return {
         request(...args: any[]) {
+            requestWasCreated = true;
+
             // @ts-ignore
             const req = http.request(...args);
-            req.addTimeout = (delay, fn, type) => {
-                const timeouts = timeoutMap.get(type) || [];
-                if (!timeoutMap.has(type)) {
-                    timeoutMap.set(type, timeouts);
-                }
+            req.timers = clock;
+            req.setTimeout = (delay, timeout) => {
+                req.on('socket', socket => {
+                    let timer
+                    function updateTimer() {
+                        clock.clearTimeout(timer)
+                        clock.setTimeout(timeout, delay)
+                    }
+                    updateTimer()
 
-                const timeoutObject = {
-                    delay,
-                    timeout: fn,
-                };
+                    socket.on('data', () => updateTimer())
 
-                timeouts.push(timeoutObject);
-                return () => {
-                    timeouts.splice(timeouts.indexOf(timeoutObject), 1);
-                };
+                    const write = socket.write
+                    socket.write = (...args) => {
+                        updateTimer()
+                        return write.apply(socket, args)
+                    }
+                });
             };
             return req;
         },
         tickTimers(ms: number) {
-            for (const [type, timeouts] of timeoutMap.entries()) {
-                for (const {delay, timeout} of timeouts) {
-                    if (ms >= delay) {
-                        timeout(delay, type)
-                    }
-                }
+            if (!requestWasCreated) {
+                throw new Error(`Cannot tick got instance - no request was ever created`);
             }
-        },
-        forceTimeout(type: string) {
-            const timeouts = timeoutMap.get(type);
-            if (!timeouts) {
-                throw new Error(`No timeouts registered for: '${type}'`)
-            }
-
-            for (const {delay, timeout} of timeouts) {
-                timeout(delay, type)
-            }
+            clock.tick(ms);
         },
     }
 }
