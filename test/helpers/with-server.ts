@@ -4,6 +4,7 @@ import {URL} from 'url';
 import tempy = require('tempy');
 import createTestServer = require('create-test-server');
 import got from '../../source';
+import * as timedOut from './timed-out';
 
 export default async (t, run) => {
 	const server = await createTestServer({
@@ -12,10 +13,19 @@ export default async (t, run) => {
 		}
 	});
 
-	// @ts-ignore Ignore errors for extending got, for the tests
-	const preparedGot = got.extend({baseUrl: server.url, avaTest: t.title});
+	
+	const {request,forceTimeout} = timedOut.init();
+	const preparedGot = got.extend({
+		baseUrl: server.url,
+		request,
+
+		// @ts-ignore Ignore errors for extending got, for the tests
+		avaTest: t.title,
+	});
 	// @ts-ignore Ignore errors for extending got, for the tests
 	preparedGot.secure = got.extend({baseUrl: server.sslUrl, avaTest: t.title});
+	// @ts-ignore Ignore errors for extending got, for the tests
+	preparedGot.forceTimeout = forceTimeout;
 
 	server.hostname = (new URL(server.url)).hostname;
 	server.sslHostname = (new URL(server.sslUrl)).hostname;
