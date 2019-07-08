@@ -5,7 +5,7 @@ import pEvent = require('p-event');
 import withServer from './helpers/with-server';
 
 const retryAfterOn413 = 2;
-const socketTimeout = 200;
+const socketTimeout = 2e5;
 
 const handler413 = (_request, response) => {
 	response.writeHead(413, {
@@ -19,6 +19,8 @@ test('works on timeout error', withServer, async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		if (knocks++ === 1) {
 			response.end('who`s there?');
+		} else {
+			got.forceTimeout();
 		}
 	});
 
@@ -29,6 +31,7 @@ test('setting to `0` disables retrying', withServer, async (t, server, got) => {
 	let trys = 0;
 	server.get('/', () => {
 		trys++;
+		got.forceTimeout();
 	});
 
 	await t.throwsAsync(got({
@@ -46,6 +49,8 @@ test('retry function gets iteration count', withServer, async (t, server, got) =
 	server.get('/', (_request, response) => {
 		if (knocks++ === 1) {
 			response.end('who`s there?');
+		} else {
+			got.forceTimeout();
 		}
 	});
 
@@ -61,7 +66,9 @@ test('retry function gets iteration count', withServer, async (t, server, got) =
 });
 
 test('falsy value prevents retries', withServer, async (t, server, got) => {
-	server.get('/', () => {});
+	server.get('/', () => {
+		got.forceTimeout();
+	});
 
 	await t.throwsAsync(got({
 		timeout: {socket: socketTimeout},
@@ -240,7 +247,9 @@ test('retries on 503 without Retry-After header', withServer, async (t, server, 
 });
 
 test('doesn\'t retry on streams', withServer, async (t, server, got) => {
-	server.get('/', () => {});
+	server.get('/', () => {
+		got.forceTimeout();
+	});
 
 	const stream = got.stream({
 		timeout: 1,
@@ -301,7 +310,9 @@ test('retry function can throw', withServer, async (t, server, got) => {
 });
 
 test('does not retry on POST', withServer, async (t, server, got) => {
-	server.post('/', () => {});
+	server.post('/', () => {
+		got.forceTimeout();
+	});
 
 	await t.throwsAsync(got.post({
 		timeout: 200,
