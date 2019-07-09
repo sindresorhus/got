@@ -2,13 +2,13 @@ import EventEmitter = require('events');
 import http = require('http');
 import net = require('net');
 import getStream = require('get-stream');
+import {PassThrough} from 'stream';
 import test from 'ava';
 import pEvent = require('p-event');
 import got from '../source';
 import timedOut from '../source/utils/timed-out';
 import withServer from './helpers/with-server';
 import slowDataStream from './helpers/slow-data-stream';
-import { PassThrough } from 'stream';
 
 const requestDelay = 800;
 
@@ -21,7 +21,7 @@ const keepAliveAgent = new http.Agent({
 	keepAlive: true
 });
 
-const defaultHandler = (got) => {
+const defaultHandler = got => {
 	return (request, response) => {
 		request.resume();
 		request.on('end', async () => {
@@ -120,7 +120,7 @@ test('send timeout (keepalive)', withServer, async (t, server, got) => {
 			agent: keepAliveAgent,
 			timeout: {send: 1},
 			retry: 0,
-			body,
+			body
 		}).on('request', request => {
 			request.once('socket', socket => {
 				t.false(socket.connecting);
@@ -159,7 +159,7 @@ test('response timeout unaffected by slow upload', withServer, async (t, server,
 	await t.notThrowsAsync(got.post({
 		timeout: {response: requestDelay * 2},
 		retry: 0,
-		body,
+		body
 	}).on('request', () => {
 		slowDataStream(got).pipe(body);
 	}));
@@ -169,7 +169,7 @@ test('response timeout unaffected by slow download', withServer, async (t, serve
 	server.get('/', downloadHandler(got));
 
 	await t.notThrowsAsync(got({
-		timeout: {response: requestDelay*2},
+		timeout: {response: requestDelay * 2},
 		retry: 0
 	}));
 });

@@ -161,7 +161,7 @@ test('throws on incomplete (canceled) response - promise', withServer, async (t,
 
 	await t.throwsAsync(got({
 		timeout: {request: 500},
-		retry: 0,
+		retry: 0
 	}).then(() => null), got.TimeoutError);
 });
 

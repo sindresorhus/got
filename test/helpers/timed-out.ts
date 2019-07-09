@@ -1,4 +1,4 @@
-import {RequestOptions } from 'http';
+import {RequestOptions} from 'http';
 import http = require('http');
 import https = require('https');
 import lolex = require('lolex');
@@ -24,7 +24,7 @@ export function init() {
 						clock.clearTimeout(timeoutTimer);
 						clock.setTimeout(() => {
 							if (listenerAttached) {
-								timeout()
+								timeout();
 							}
 						}, delay);
 					}
@@ -42,10 +42,10 @@ export function init() {
 				return req;
 			};
 
-			const removeListener = req.removeListener;
+			const {removeListener} = req;
 			req.removeListener = (event, handler) => {
 				if (event !== 'timeout') {
-					return removeListener.call(req, event, handler)
+					return removeListener.call(req, event, handler);
 				}
 
 				clock.clearTimeout(timeoutTimer);

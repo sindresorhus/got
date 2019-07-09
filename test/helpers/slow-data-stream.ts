@@ -6,11 +6,11 @@ export default (got): PassThrough => {
 	setImmediate(async () => {
 		for (let i = 0; i < 11; i++) {
 			slowStream.push('data\n'.repeat(100));
-			await got.tickTimers(100);
+			await got.tickTimers(100); // eslint-disable-line no-await-in-loop
 		}
 
 		slowStream.push(null);
 	});
-	
+
 	return slowStream;
 };
