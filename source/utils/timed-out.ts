@@ -49,7 +49,7 @@ export default (request: ClientRequest, delays: Delays, options: TimedOutOptions
 		// defer calling the handler until the poll phase completes.
 		let immediate: NodeJS.Immediate;
 		const timeout: NodeJS.Timeout = timers.setTimeout(() => {
-			immediate = setImmediate(callback, delay, type, ...args);
+			immediate = timers.setImmediate(callback, delay, type, ...args);
 			/* istanbul ignore next: added in node v9.7.0 */
 			if (immediate.unref) {
 				immediate.unref();

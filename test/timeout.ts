@@ -4,7 +4,6 @@ import net = require('net');
 import getStream = require('get-stream');
 import test from 'ava';
 import pEvent = require('p-event');
-import delay = require('delay');
 import got from '../source';
 import timedOut from '../source/utils/timed-out';
 import withServer from './helpers/with-server';
@@ -41,12 +40,12 @@ const defaultHandler = (got, pretick) => {
 	};
 };
 
-const downloadHandler = (_request, response) => {
+const downloadHandler = got => (_request, response) => {
 	response.writeHead(200, {
 		'transfer-encoding': 'chunked'
 	});
 	response.flushHeaders();
-	slowDataStream().pipe(response);
+	slowDataStream(got).pipe(response);
 };
 
 test('timeout option', withServer, async (t, server, got) => {
@@ -122,7 +121,7 @@ test('send timeout (keepalive)', withServer, async (t, server, got) => {
 			agent: keepAliveAgent,
 			timeout: {send: 1},
 			retry: 0,
-			body: slowDataStream()
+			body: slowDataStream(got)
 		}).on('request', request => {
 			request.once('socket', socket => {
 				t.false(socket.connecting);
@@ -159,12 +158,12 @@ test('response timeout unaffected by slow upload', withServer, async (t, server,
 	await t.notThrowsAsync(got.post({
 		timeout: {response: requestDelay * 2},
 		retry: 0,
-		body: slowDataStream()
+		body: slowDataStream(got)
 	}));
 });
 
 test('response timeout unaffected by slow download', withServer, async (t, server, got) => {
-	server.get('/', downloadHandler);
+	server.get('/', downloadHandler(got));
 
 	await t.notThrowsAsync(got({
 		timeout: {response: 100},
@@ -406,7 +405,8 @@ test('no more timeouts after an error', async t => {
 	}), {instanceOf: got.GotError}); // Don't check the message, because it may throw ENOTFOUND before the timeout.
 
 	// Wait a bit more to check if there are any unhandled errors
-	await delay(100);
+	// @ts-ignore
+	await got.tickTimers(100);
 });
 
 test('socket timeout is canceled on error', withServer, async (t, server, got) => {
@@ -425,7 +425,7 @@ test('socket timeout is canceled on error', withServer, async (t, server, got) =
 	await t.throwsAsync(promise, {message});
 
 	// Wait a bit more to check if there are any unhandled errors
-	await delay(100);
+	await got.tickTimers(100);
 });
 
 test('no memory leak when using socket timeout and keepalive agent', withServer, async (t, server, got) => {

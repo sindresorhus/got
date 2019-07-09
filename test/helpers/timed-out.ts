@@ -1,4 +1,6 @@
+import {RequestOptions } from 'http';
 import http = require('http');
+import https = require('https');
 import lolex = require('lolex');
 
 export function init() {
@@ -6,12 +8,12 @@ export function init() {
 	let requestWasCreated = false;
 
 	return {
-		request(...args: any[]) {
+		request: ((options: RequestOptions, cb) => {
 			requestWasCreated = true;
 
-			// @ts-ignore
-			const req = http.request(...args);
-			req.timers = clock;
+			const httpMod = options.protocol === 'https:' ? https : http;
+			const req = httpMod.request(options, cb);
+
 			req.setTimeout = (delay, timeout) => {
 				req.on('socket', socket => {
 					let timer;
@@ -30,16 +32,21 @@ export function init() {
 						return write.apply(socket, args);
 					};
 				});
+				return req;
 			};
 
+			// @ts-ignore
+			req.timers = clock;
+
 			return req;
-		},
+		}) as any,
 		tickTimers(ms: number) {
 			if (!requestWasCreated) {
 				throw new Error('Cannot tick got instance - no request was ever created');
 			}
 
 			clock.tick(ms);
+			clock.tick(1);
 		}
 	};
 }

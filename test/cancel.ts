@@ -36,12 +36,12 @@ const prepareServer = server => {
 	return {emitter, promise};
 };
 
-const downloadHandler = (_request, response) => {
+const downloadHandler = got => (_request, response) => {
 	response.writeHead(200, {
 		'transfer-encoding': 'chunked'
 	});
 	response.flushHeaders();
-	slowDataStream().pipe(response);
+	slowDataStream(got).pipe(response);
 };
 
 test('does not retry after cancelation', withServer, async (t, server, got) => {
@@ -157,30 +157,38 @@ test('recover from cancellation using error instance', async t => {
 });
 
 test('throws on incomplete (canceled) response - promise', withServer, async (t, server, got) => {
-	server.get('/', downloadHandler);
+	server.get('/', downloadHandler(got));
 
 	await t.throwsAsync(got({
-		timeout: {request: 500}
-	}), got.TimeoutError);
+		timeout: {request: 500},
+		retry: 0,
+	}).then(() => null), got.TimeoutError);
 });
 
 test('throws on incomplete (canceled) response - promise #2', withServer, async (t, server, got) => {
-	server.get('/', downloadHandler);
+	server.get('/', downloadHandler(got));
 
 	const promise = got('').on('response', () => {
-		setTimeout(() => promise.cancel(), 500);
+		got.tickTimers(500);
+		promise.cancel();
 	});
 
 	await t.throwsAsync(promise, got.CancelError);
 });
 
 test('throws on incomplete (canceled) response - stream', withServer, async (t, server, got) => {
-	server.get('/', downloadHandler);
+	server.get('/', (_, res) => {
+		res.writeHead(200, {
+			'transfer-encoding': 'chunked'
+		});
+		res.flushHeaders();
+	});
 
 	const errorString = 'Foobar';
 
 	const stream = got.stream('').on('response', () => {
-		setTimeout(() => stream.destroy(new Error(errorString)), 500);
+		got.tickTimers(500);
+		stream.destroy(new Error(errorString));
 	});
 
 	await t.throwsAsync(getStream(stream), errorString);
