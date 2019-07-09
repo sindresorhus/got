@@ -24,6 +24,8 @@ export class TimeoutError extends Error {
 	}
 }
 
+export const kTimers = Symbol('$timers');
+
 export default (request: ClientRequest, delays: Delays, options: TimedOutOptions) => {
 	if (Reflect.has(request, reentry)) {
 		return noop;
@@ -35,7 +37,7 @@ export default (request: ClientRequest, delays: Delays, options: TimedOutOptions
 	const timers: typeof global =
 		isTestEnv ?
 		// @ts-ignore
-			request.timers || global :
+			request[kTimers] || global :
 			global;
 
 	const addTimeout = (delay: number, callback: (...args: unknown[]) => void, type: string, ...args: unknown[]): (typeof noop) => {

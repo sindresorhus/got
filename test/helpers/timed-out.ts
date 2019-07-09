@@ -2,6 +2,7 @@ import {RequestOptions} from 'http';
 import http = require('http');
 import https = require('https');
 import lolex = require('lolex');
+import {kTimers} from '../../source/utils/timed-out';
 
 export function init() {
 	const clock = lolex.createClock();
@@ -54,7 +55,7 @@ export function init() {
 			};
 
 			// @ts-ignore
-			req.timers = clock;
+			req[kTimers] = clock;
 
 			return req;
 		}) as any,
