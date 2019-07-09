@@ -14,12 +14,19 @@ export function init() {
 			const httpMod = options.protocol === 'https:' ? https : http;
 			const req = httpMod.request(options, cb);
 
+			let timeoutTimer;
+			let listenerAttached = false;
+
 			req.setTimeout = (delay, timeout) => {
 				req.on('socket', socket => {
-					let timer;
+					listenerAttached = true;
 					function updateTimer() {
-						clock.clearTimeout(timer);
-						clock.setTimeout(timeout, delay);
+						clock.clearTimeout(timeoutTimer);
+						clock.setTimeout(() => {
+							if (listenerAttached) {
+								timeout()
+							}
+						}, delay);
 					}
 
 					updateTimer();
@@ -32,6 +39,17 @@ export function init() {
 						return write.apply(socket, args);
 					};
 				});
+				return req;
+			};
+
+			const removeListener = req.removeListener;
+			req.removeListener = (event, handler) => {
+				if (event !== 'timeout') {
+					return removeListener.call(req, event, handler)
+				}
+
+				clock.clearTimeout(timeoutTimer);
+				listenerAttached = false;
 				return req;
 			};
 
