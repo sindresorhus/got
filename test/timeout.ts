@@ -169,7 +169,7 @@ test('response timeout unaffected by slow download', withServer, async (t, serve
 	server.get('/', downloadHandler(got));
 
 	await t.notThrowsAsync(got({
-		timeout: {response: 100},
+		timeout: {response: requestDelay*2},
 		retry: 0
 	}));
 });
