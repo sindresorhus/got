@@ -40,18 +40,13 @@ export default (request: ClientRequest, delays: Delays, options: TimedOutOptions
 			request[kTimers] || global :
 			global;
 
-	const addTimeout = (delay: number, callback: (...args: unknown[]) => void, type: string, ...args: unknown[]): (typeof noop) => {
-		if (type === 'socket') {
-			request.setTimeout(delay, callback);
-			return noop;
-		}
-
+	const addTimeout = (delay: number, callback: (...args: unknown[]) => void, ...args: unknown[]): (typeof noop) => {
 		// Event loop order is timers, poll, immediates.
 		// The timed event may emit during the current tick poll phase, so
 		// defer calling the handler until the poll phase completes.
 		let immediate: NodeJS.Immediate;
 		const timeout: NodeJS.Timeout = timers.setTimeout(() => {
-			immediate = timers.setImmediate(callback, delay, type, ...args);
+			immediate = timers.setImmediate(callback, delay, ...args);
 			/* istanbul ignore next: added in node v9.7.0 */
 			if (immediate.unref) {
 				immediate.unref();
@@ -107,7 +102,7 @@ export default (request: ClientRequest, delays: Delays, options: TimedOutOptions
 			timeoutHandler(delays.socket, 'socket');
 		};
 
-		addTimeout(delays.socket, socketTimeoutHandler, 'socket');
+		request.setTimeout(delays.socket, socketTimeoutHandler);
 
 		// `request.setTimeout(0)` causes a memory leak.
 		// We can just remove the listener and forget about the timer - it's unreffed.
