@@ -24,7 +24,7 @@ export class TimeoutError extends Error {
 	}
 }
 
-export const kTimers = Symbol('$timers');
+export const kTimers = Symbol('timers');
 
 export default (request: ClientRequest, delays: Delays, options: TimedOutOptions) => {
 	if (Reflect.has(request, reentry)) {
