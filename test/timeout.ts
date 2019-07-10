@@ -264,6 +264,12 @@ test('secureConnect timeout', withServer, async (t, server, got) => {
 			timeout: {secureConnect: 1},
 			retry: 0,
 			rejectUnauthorized: false
+		}).on('request', request => {
+			request.on('socket', socket => {
+				socket.on('connect', async () => {
+					await got.tickTimers(10);
+				});
+			});
 		}),
 		{
 			...errorMatcher,
