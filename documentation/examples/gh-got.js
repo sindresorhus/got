@@ -1,6 +1,6 @@
 'use strict';
+const got = require('../..');
 const package = require('../../package');
-const got = require('got');
 
 const getRateLimit = ({headers}) => ({
 	limit: parseInt(headers['x-ratelimit-limit'], 10),
