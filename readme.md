@@ -87,6 +87,7 @@ got.stream('https://sindresorhus.com').pipe(fs.createWriteStream('index.html'));
 fs.createReadStream('index.html').pipe(got.stream.post('https://sindresorhus.com'));
 ```
 
+**Note:** `from.pipe(to)` doesn't forward errors. Instead you can use [`Stream.pipeline(from, to, callback)`](https://nodejs.org/api/stream.html#stream_stream_pipeline_streams_callback) which catches them.
 
 ### API
 
