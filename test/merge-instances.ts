@@ -150,3 +150,16 @@ test('URLSearchParams instances are merged', t => {
 	// @ts-ignore Manual tests
 	t.is(merged.defaults.options.searchParams.get('b'), '2');
 });
+
+// TODO: remove this before Got v11
+test('`got.mergeInstances()` works', t => {
+	const instance = got.mergeInstances(got, got.create({
+		options: {
+			headers: {
+				'user-agent': null
+			}
+		}
+	}));
+
+	t.is(instance.defaults.options.headers['user-agent'], null);
+});
