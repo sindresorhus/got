@@ -7,7 +7,8 @@ import {
 	CancelableRequest,
 	URLOrOptions,
 	URLArgument,
-	HandlerFunction
+	HandlerFunction,
+	ExtendedOptions
 } from './utils/types';
 import deepFreeze from './utils/deep-freeze';
 import merge, {mergeOptions} from './merge';
@@ -42,7 +43,7 @@ export interface Got extends Record<HTTPAlias, ReturnResponse> {
 	(url: URLArgument | Options & { stream: true; url: URLArgument }, options?: Options & { stream: true }): ProxyStream;
 	(url: URLOrOptions, options?: Options): CancelableRequest<Response> | ProxyStream;
 	create(defaults: Defaults): Got;
-	extend(...instancesOrOptions: Array<Got | Options & {mutableDefaults?: boolean; handlers?: HandlerFunction[]}>): Got;
+	extend(...instancesOrOptions: Array<Got | ExtendedOptions>): Got;
 	mergeOptions<T extends Options>(...sources: T[]): T & { hooks: Partial<Hooks> };
 }
 
@@ -139,10 +140,10 @@ const create = (defaults: Partial<Defaults>): Got => {
 				options.push(value as Options);
 
 				if (Reflect.has(value, 'handlers')) {
-					handlers.push(...(value as Options & {handlers?: HandlerFunction[]}).handlers);
+					handlers.push(...(value as ExtendedOptions).handlers);
 				}
 
-				mutableDefaults = (value as Options & {mutableDefaults?: boolean}).mutableDefaults;
+				mutableDefaults = (value as ExtendedOptions).mutableDefaults;
 			}
 		}
 

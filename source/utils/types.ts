@@ -130,7 +130,6 @@ export interface Options extends Omit<https.RequestOptions, 'agent' | 'timeout' 
 	gotTimeout?: number | Delays;
 	cache?: string | StorageAdapter | false;
 	headers?: Headers;
-	mutableDefaults?: boolean;
 	responseType?: ResponseType;
 	resolveBodyOnly?: boolean;
 	followRedirect?: boolean;
@@ -155,6 +154,11 @@ export interface NormalizedOptions extends Omit<Required<Options>, 'timeout' | '
 	path: string;
 	hostname: string;
 	host: string;
+}
+
+export interface ExtendedOptions extends Options {
+	handlers?: HandlerFunction[];
+	mutableDefaults?: boolean;
 }
 
 export interface Defaults {
