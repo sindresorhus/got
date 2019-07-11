@@ -236,6 +236,7 @@ test('throws when trying to modify `prefixUrl` after options got normalized', as
 		options: {prefixUrl: 'https://example.com'},
 		handlers: [
 			(options, next) => {
+				// @ts-ignore Even though we know it's read only, we need to test it.
 				options.prefixUrl = 'https://google.com';
 				return next(options);
 			}

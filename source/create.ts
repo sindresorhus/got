@@ -11,17 +11,18 @@ import {
 } from './utils/types';
 import deepFreeze from './utils/deep-freeze';
 import merge, {mergeOptions} from './merge';
-import asPromise from './as-promise';
+import asPromise, {kProxied} from './as-promise';
 import asStream, {ProxyStream} from './as-stream';
 import {preNormalizeArguments, normalizeArguments} from './normalize-arguments';
 import {Hooks} from './known-hook-events';
-
-const getPromiseOrStream = (options: NormalizedOptions): ProxyStream | CancelableRequest<Response> => options.stream ? asStream(options) : asPromise(options);
 
 export type HTTPAlias = 'get' | 'post' | 'put' | 'patch' | 'head' | 'delete';
 
 export type ReturnResponse = (url: URLArgument | Options & { stream?: false; url: URLArgument }, options?: Options & { stream?: false }) => CancelableRequest<Response>;
 export type ReturnStream = (url: URLArgument | Options & { stream: true; url: URLArgument }, options?: Options & { stream: true }) => ProxyStream;
+export type GotReturn = ProxyStream | CancelableRequest<Response>;
+
+const getPromiseOrStream = (options: NormalizedOptions): GotReturn => options.stream ? asStream(options) : asPromise(options);
 
 export interface Got extends Record<HTTPAlias, ReturnResponse> {
 	stream: GotStream;
@@ -72,16 +73,48 @@ const create = (defaults: Partial<Defaults>): Got => {
 	};
 
 	// @ts-ignore Because the for loop handles it for us, as well as the other Object.defines
-	const got: Got = (url: URLOrOptions, options?: Options): ProxyStream | CancelableRequest<Response> => {
+	const got: Got = (url: URLOrOptions, options?: Options): GotReturn => {
+		const isStream = options && options.stream;
+
 		let iteration = 0;
-		const iterateHandlers = (newOptions: NormalizedOptions): ProxyStream | CancelableRequest<Response> => {
-			return defaults.handlers[iteration++](newOptions, iteration === defaults.handlers.length ? getPromiseOrStream : iterateHandlers);
+		const iterateHandlers = (newOptions: NormalizedOptions): GotReturn => {
+			let nextPromise: CancelableRequest<Response>;
+			const result = defaults.handlers[iteration++](newOptions, options => {
+				const fn = iteration === defaults.handlers.length ? getPromiseOrStream : iterateHandlers;
+
+				if (isStream) {
+					return fn(options);
+				}
+
+				// We need to remember the `next(options)` result.
+				nextPromise = fn(options) as CancelableRequest<Response>;
+				return nextPromise;
+			});
+
+			// Proxy the properties from the next handler to this one
+			if (!isStream && !Reflect.has(result, kProxied)) {
+				for (const key of Object.keys(nextPromise)) {
+					Object.defineProperty(result, key, {
+						get: () => {
+							return nextPromise[key];
+						},
+						set: (value: unknown) => {
+							nextPromise[key] = value;
+						}
+					});
+				}
+
+				(result as CancelableRequest<Response>).cancel = nextPromise.cancel;
+				result[kProxied] = true;
+			}
+
+			return result;
 		};
 
 		try {
 			return iterateHandlers(normalizeArguments(url, options as NormalizedOptions, defaults));
 		} catch (error) {
-			if (options && options.stream) {
+			if (isStream) {
 				throw error;
 			} else {
 				// @ts-ignore It's an Error not a response, but TS thinks it's calling .resolve

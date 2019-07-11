@@ -1,6 +1,7 @@
 import http = require('http');
 import {URL} from 'url';
 import test from 'ava';
+import is from '@sindresorhus/is';
 import got from '../source';
 import withServer from './helpers/with-server';
 
@@ -275,4 +276,23 @@ test('extend with a chain', t => {
 	const b = got.extend(a, {headers: {foo: 'bar'}});
 	t.is(b.defaults.options.baseUrl.toString(), 'https://example.com/');
 	t.is(b.defaults.options.headers.foo, 'bar');
+});
+
+test('async handlers', withServer, async (t, server, got) => {
+	server.get('/', echoHeaders);
+
+	const instance = got.extend({
+		handlers: [
+			async (options, next) => {
+				const result = await next(options);
+				result.modified = true;
+
+				return result;
+			}
+		]
+	});
+
+	const promise = instance('');
+	t.true(is.function_(promise.cancel));
+	t.true((await promise).modified);
 });
