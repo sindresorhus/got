@@ -79,6 +79,36 @@ const unicorn = got.create(settings);
 const unicorn = got.extend({headers: {unicorn: 'rainbow'}});
 ```
 
+**Note:** handlers can be asynchronous. The recommended approach is:
+
+```js
+const handler = (options, next) => {
+	if (!options.stream) {
+		// It's a Promise
+
+		return (async () => {
+			try {
+				const result = await next(options);
+
+				result.modifiedByHandler = true;
+
+				return result;
+			} catch (error) {
+				// Every error will be replaced by this one.
+				// Before you will receive any error here,
+				// it will be passed to `beforeError` hooks first.
+
+				// Note: this one won't be passed to `beforeError` hook. It's final.
+				throw new Error('Your very own error.');
+			}
+		})();
+	}
+
+	// It's a Stream
+	return next(options);
+};
+```
+
 ### Merging instances
 
 Got supports composing multiple instances together. This is very powerful. You can create a client that limits download speed and then compose it with an instance that signs a request. It's like plugins without any of the plugin mess. You just create instances and then compose them together.

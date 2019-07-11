@@ -786,7 +786,27 @@ client.get('/demo');
 
 Merges many instances into a single one:
 - options are merged using [`got.mergeOptions()`](readme.md#gotmergeoptionsparentoptions-newoptions) (+ hooks are merged too),
-- handlers are stored in an array.
+- handlers are stored in an array (you can access them through `instance.defaults.handlers`).
+
+#### got.extend(...options, ...instances, ...)
+
+It's possible to combine options and instances.<br>
+It gives the same effect as `got.extend(...options).extend(...instances)`:
+
+```js
+const a = {headers: {cat: 'meow'}};
+const b = got.create({
+	options: {
+		headers: {
+			cow: 'moo'
+		}
+	}
+});
+
+// The same as `got.extend(a).extend(b)`.
+// Note `a` is options and `b` is an instance.
+got.extend(a, b); // => {headers: {cat: 'meow', cow: 'moo'}}
+```
 
 #### got.mergeOptions(parentOptions, newOptions)
 
