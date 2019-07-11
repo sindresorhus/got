@@ -95,9 +95,12 @@ test('extend keeps the old value if the new one is undefined', t => {
 });
 
 test('extend merges URL instances', t => {
-	const a = got.extend({baseUrl: new URL('https://example.com')});
-	const b = a.extend({baseUrl: '/foo'});
-	t.is(b.defaults.options.baseUrl.toString(), 'https://example.com/foo/');
+	// @ts-ignore Custom instance.
+	const a = got.extend({custom: new URL('https://example.com')});
+	// @ts-ignore Custom instance.
+	const b = a.extend({custom: '/foo'});
+	// @ts-ignore Custom instance.
+	t.is(b.defaults.options.custom.toString(), 'https://example.com/foo');
 });
 
 test('create', withServer, async (t, server) => {
@@ -128,8 +131,8 @@ test('hooks are merged on got.extend()', t => {
 test('custom endpoint with custom headers (extend)', withServer, async (t, server) => {
 	server.all('/', echoHeaders);
 
-	const instance = got.extend({headers: {unicorn: 'rainbow'}, baseUrl: server.url});
-	const headers = await instance('/').json<TestReturn>();
+	const instance = got.extend({headers: {unicorn: 'rainbow'}, prefixUrl: server.url});
+	const headers = await instance('').json<TestReturn>();
 	t.is(headers.unicorn, 'rainbow');
 	t.not(headers['user-agent'], undefined);
 });
@@ -138,7 +141,7 @@ test('no tampering with defaults', t => {
 	const instance = got.create({
 		handler: got.defaults.handler,
 		options: got.mergeOptions(got.defaults.options, {
-			baseUrl: 'example/'
+			prefixUrl: 'example/'
 		})
 	});
 
@@ -149,11 +152,11 @@ test('no tampering with defaults', t => {
 
 	// Tamper Time
 	t.throws(() => {
-		instance.defaults.options.baseUrl = 'http://google.com';
+		instance.defaults.options.prefixUrl = 'http://google.com';
 	});
 
-	t.is(instance.defaults.options.baseUrl, 'example/');
-	t.is(instance2.defaults.options.baseUrl, 'example/');
+	t.is(instance.defaults.options.prefixUrl, 'example/');
+	t.is(instance2.defaults.options.prefixUrl, 'example/');
 });
 
 test('defaults can be mutable', t => {

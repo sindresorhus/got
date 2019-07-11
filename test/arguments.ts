@@ -39,9 +39,9 @@ test('throws an error if the protocol is not specified', async t => {
 test('string url with searchParams is preserved', withServer, async (t, server, got) => {
 	server.get('/', echoUrl);
 
-	const path = '/?test=http://example.com?foo=bar';
+	const path = '?test=http://example.com?foo=bar';
 	const {body} = await got(path);
-	t.is(body, path);
+	t.is(body, `/${path}`);
 });
 
 test('options are optional', withServer, async (t, server, got) => {
@@ -161,7 +161,7 @@ test('accepts `url` as an option', withServer, async (t, server, got) => {
 	await t.notThrowsAsync(got({url: 'test'}));
 });
 
-test('can omit `url` option if using `baseUrl`', withServer, async (t, server, got) => {
+test('can omit `url` option if using `prefixUrl`', withServer, async (t, server, got) => {
 	server.get('/', echoUrl);
 
 	await t.notThrowsAsync(got({}));
@@ -206,49 +206,41 @@ test('allows extra keys in `options.hooks`', withServer, async (t, server, got) 
 	await t.notThrowsAsync(got('test', {hooks: {extra: {}}}));
 });
 
-test('`baseUrl` option works', withServer, async (t, server, got) => {
+test('`prefixUrl` option works', withServer, async (t, server, got) => {
 	server.get('/test/foobar', echoUrl);
 
-	const instanceA = got.extend({baseUrl: `${server.url}/test`});
-	const {body} = await instanceA('/foobar');
-	t.is(body, '/test/foobar');
-});
-
-test('accepts WHATWG URL as the `baseUrl` option', withServer, async (t, server, got) => {
-	server.get('/test/foobar', echoUrl);
-
-	const instanceA = got.extend({baseUrl: new URL(`${server.url}/test`)});
-	const {body} = await instanceA('/foobar');
-	t.is(body, '/test/foobar');
-});
-
-test('backslash in the end of `baseUrl` option is optional', withServer, async (t, server) => {
-	server.get('/test/foobar', echoUrl);
-
-	const instanceA = got.extend({baseUrl: `${server.url}/test/`});
-	const {body} = await instanceA('/foobar');
-	t.is(body, '/test/foobar');
-});
-
-test('backslash in the beginning of `url` is optional when using `baseUrl` option', withServer, async (t, server) => {
-	server.get('/test/foobar', echoUrl);
-
-	const instanceA = got.extend({baseUrl: `${server.url}/test`});
+	const instanceA = got.extend({prefixUrl: `${server.url}/test`});
 	const {body} = await instanceA('foobar');
 	t.is(body, '/test/foobar');
 });
 
-test('throws when trying to modify `baseUrl` after options got normalized', async t => {
+test('accepts WHATWG URL as the `prefixUrl` option', withServer, async (t, server, got) => {
+	server.get('/test/foobar', echoUrl);
+
+	const instanceA = got.extend({prefixUrl: new URL(`${server.url}/test`)});
+	const {body} = await instanceA('foobar');
+	t.is(body, '/test/foobar');
+});
+
+test('backslash in the end of `prefixUrl` option is optional', withServer, async (t, server) => {
+	server.get('/test/foobar', echoUrl);
+
+	const instanceA = got.extend({prefixUrl: `${server.url}/test/`});
+	const {body} = await instanceA('foobar');
+	t.is(body, '/test/foobar');
+});
+
+test('throws when trying to modify `prefixUrl` after options got normalized', async t => {
 	const instanceA = got.create({
 		methods: [],
-		options: {baseUrl: 'https://example.com'},
+		options: {prefixUrl: 'https://example.com'},
 		handler: (options, next) => {
-			options.baseUrl = 'https://google.com';
+			options.prefixUrl = 'https://google.com';
 			return next(options);
 		}
 	});
 
-	await t.throwsAsync(instanceA('/'), 'Failed to set baseUrl. Options are normalized already.');
+	await t.throwsAsync(instanceA(''), 'Failed to set prefixUrl. Options are normalized already.');
 });
 
 test('throws if the `searchParams` value is invalid', async t => {

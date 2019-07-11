@@ -44,8 +44,12 @@ export const preNormalizeArguments = (options: Options, defaults?: Options): Nor
 		options.headers = lowercaseKeys(options.headers);
 	}
 
-	if (options.baseUrl && !options.baseUrl.toString().endsWith('/')) {
-		options.baseUrl += '/';
+	if (options.prefixUrl) {
+		options.prefixUrl = options.prefixUrl.toString();
+
+		if (!options.prefixUrl.toString().endsWith('/')) {
+			options.prefixUrl += '/';
+		}
 	}
 
 	if (is.nullOrUndefined(options.hooks)) {
@@ -125,7 +129,7 @@ export const normalizeArguments = (url: URLOrOptions, options: NormalizedOptions
 	let urlArgument: URLArgument;
 	if (is.plainObject(url)) {
 		options = {...url, ...options};
-		urlArgument = options.url || '';
+		urlArgument = options.url || {};
 		delete options.url;
 	} else {
 		urlArgument = url;
@@ -143,17 +147,24 @@ export const normalizeArguments = (url: URLOrOptions, options: NormalizedOptions
 
 	let urlObj: https.RequestOptions | URLOptions;
 	if (is.string(urlArgument)) {
-		if (options.baseUrl) {
-			if (urlArgument.startsWith('/')) {
-				urlArgument = urlArgument.slice(1);
-			}
-		} else {
-			urlArgument = urlArgument.replace(/^unix:/, 'http://$&');
+		if (options.prefixUrl && urlArgument.startsWith('/')) {
+			throw new Error('`url` must not begin with a slash when using `prefixUrl`');
 		}
 
-		urlObj = urlArgument || options.baseUrl ? urlToOptions(new URL(urlArgument, options.baseUrl)) : {};
+		if (options.prefixUrl) {
+			urlArgument = options.prefixUrl + urlArgument;
+		}
+
+		urlArgument = urlArgument.replace(/^unix:/, 'http://$&');
+
+		urlObj = urlToOptions(new URL(urlArgument));
 	} else if (is.urlInstance(urlArgument)) {
 		urlObj = urlToOptions(urlArgument);
+	} else if (options.prefixUrl) {
+		urlObj = {
+			...urlToOptions(new URL(options.prefixUrl)),
+			...urlArgument
+		};
 	} else {
 		urlObj = urlArgument;
 	}
@@ -169,12 +180,12 @@ export const normalizeArguments = (url: URLOrOptions, options: NormalizedOptions
 		}
 	}
 
-	const {baseUrl} = options;
-	Object.defineProperty(options, 'baseUrl', {
+	const {prefixUrl} = options;
+	Object.defineProperty(options, 'prefixUrl', {
 		set: () => {
-			throw new Error('Failed to set baseUrl. Options are normalized already.');
+			throw new Error('Failed to set prefixUrl. Options are normalized already.');
 		},
-		get: () => baseUrl
+		get: () => prefixUrl
 	});
 
 	let {searchParams} = options;

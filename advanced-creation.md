@@ -220,7 +220,7 @@ const noUserAgent = got.extend({
 
 ```js
 const httpbin = got.extend({
-	baseUrl: 'https://httpbin.org/'
+	prefixUrl: 'https://httpbin.org/'
 });
 ```
 

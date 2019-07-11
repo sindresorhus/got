@@ -114,28 +114,21 @@ Type: `object`
 
 Any of the [`https.request`](https://nodejs.org/api/https.html#https_https_request_options_callback) options.
 
-###### baseUrl
+###### prefixUrl
 
-Type: `string | object`
+Type: `string | URL`
 
-When specified, `url` will be prepended by `baseUrl`.<br>
-If you specify an absolute URL, it will skip the `baseUrl`.
+When specified, `prefixUrl` will be prepended to `url`. The prefix can be any valid URL, either relative or absolute. A trailing slash `/` is optional, one will be added automatically, if needed, when joining `prefixUrl` and `url`. The `url` argument cannot start with a `/` when using this option.
 
-Very useful when used with `got.extend()` to create niche-specific Got instances.
-
-Can be a string or a [WHATWG `URL`](https://nodejs.org/api/url.html#url_class_url).
-
-Slash at the end of `baseUrl` and at the beginning of the `url` argument is optional:
+Useful when used with `got.extend()1 to create niche-specific Got-instances.
 
 ```js
-await got('hello', {baseUrl: 'https://example.com/v1'});
-//=> 'https://example.com/v1/hello'
+const got = require('got');
 
-await got('/hello', {baseUrl: 'https://example.com/v1/'});
-//=> 'https://example.com/v1/hello'
-
-await got('/hello', {baseUrl: 'https://example.com/v1'});
-//=> 'https://example.com/v1/hello'
+(async () => {
+	await ky('unicorn', {prefixUrl: 'https://cats.com'});
+	//=> 'https://cats.com/unicorn'
+})();
 ```
 
 ###### headers
