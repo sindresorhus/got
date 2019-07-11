@@ -58,12 +58,13 @@ Got is for Node.js. For browsers, we recommend [Ky](https://github.com/sindresor
 - [WHATWG URL support](#url)
 - [Hooks](#hooks)
 - [Instances with custom defaults](#instances)
-- [Composable](advanced-creation.md#merging-instances)
+- [Composable](documentation/advanced-creation.md#merging-instances)
+- [Plugins](documentatino/lest-make-a-plugin.md)
 - [Electron support](#useelectronnet)
 - [Used by ~2000 packages and ~500K repos](https://github.com/sindresorhus/got/network/dependents)
 - Actively maintained
 
-[Moving from Request?](migration-guides.md)
+[Moving from Request?](documentation/migration-guides.md)
 
 [See how Got compares to other HTTP libraries](#comparison)
 
@@ -458,9 +459,9 @@ Hooks allow modifications during the request lifecycle. Hook functions may be as
 Type: `Function[]`<br>
 Default: `[]`
 
-Called with plain [request options](#options), right before their normalization. This is especially useful in conjunction with [`got.extend()`](#instances) and [`got.create()`](advanced-creation.md) when the input needs custom handling.
+Called with plain [request options](#options), right before their normalization. This is especially useful in conjunction with [`got.extend()`](#instances) and [`got.create()`](documentation/advanced-creation.md) when the input needs custom handling.
 
-See the [Request migration guide](migration-guides.md#breaking-changes) for an example.
+See the [Request migration guide](documentation/migration-guides.md#breaking-changes) for an example.
 
 **Note:** This hook must be synchronous!
 
@@ -469,7 +470,7 @@ See the [Request migration guide](migration-guides.md#breaking-changes) for an e
 Type: `Function[]`<br>
 Default: `[]`
 
-Called with [normalized](source/normalize-arguments.ts) [request options](#options). Got will make no further changes to the request before it is sent (except the body serialization). This is especially useful in conjunction with [`got.extend()`](#instances) and [`got.create()`](advanced-creation.md) when you want to create an API client that, for example, uses HMAC-signing.
+Called with [normalized](source/normalize-arguments.ts) [request options](#options). Got will make no further changes to the request before it is sent (except the body serialization). This is especially useful in conjunction with [`got.extend()`](#instances) and [`got.create()`](documentation/advanced-creation.md) when you want to create an API client that, for example, uses HMAC-signing.
 
 See the [AWS section](#aws) for an example.
 
@@ -780,7 +781,7 @@ client.get('/demo');
 })();
 ```
 
-**Tip:** Need more control over the behavior of Got? Check out the [`got.create()`](advanced-creation.md).
+**Tip:** Need more control over the behavior of Got? Check out the [`got.create()`](documentation/advanced-creation.md).
 
 Additionally, `got.extend()` accepts two properties from the `defaults` object: `mutableDefaults` and `handlers`. Example:
 
@@ -802,7 +803,7 @@ const mergedHandlers = got.extend({
 #### got.extend(...instances)
 
 Merges many instances into a single one:
-- options are merged using [`got.mergeOptions()`](readme.md#gotmergeoptionsparentoptions-newoptions) (+ hooks are merged too),
+- options are merged using [`got.mergeOptions()`](#gotmergeoptionsparentoptions-newoptions) (+ hooks are merged too),
 - handlers are stored in an array (you can access them through `instance.defaults.handlers`).
 
 #### got.extend(...options, ...instances, ...)
@@ -1224,7 +1225,7 @@ Bear in mind; if you send an `if-modified-since` header and receive a `304 Not M
 
 Use `got.extend()` to make it nicer to work with REST APIs. Especially if you use the `prefixUrl` option.
 
-**Note:** Not to be confused with [`got.create()`](advanced-creation.md), which has no defaults.
+**Note:** Not to be confused with [`got.create()`](documentation/advanced-creation.md), which has no defaults.
 
 ```js
 const got = require('got');

@@ -6,31 +6,35 @@
 
 Example: [gh-got](https://github.com/sindresorhus/gh-got/blob/master/index.js)
 
-Configure a new `got` instance with the provided settings. You can access the resolved options with the `.defaults` property on the instance.
+Configures a new `got` instance with the provided settings. You can access the resolved options with the `.defaults` property on the instance.
 
-**Note:** In contrast to `got.extend()`, this method has no defaults.
+**Note:** In contrast to [`got.extend()`](../readme.md#gotextendinstances), this method has no defaults.
 
 ##### [options](readme.md#options)
 
-To inherit from parent, set it as `got.defaults.options` or use [`got.mergeOptions(defaults.options, options)`](readme.md#gotmergeoptionsparentoptions-newoptions).<br>
-**Note**: Avoid using [object spread](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Spread_syntax#Spread_in_object_literals) as it doesn't work recursively.
+To inherit from parent, set it to `got.defaults.options` or use [`got.mergeOptions(defaults.options, options)`](../readme.md#gotmergeoptionsparentoptions-newoptions).<br>
+**Note:** Avoid using [object spread](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Spread_syntax#Spread_in_object_literals) as it doesn't work recursively.
+
+**Note #2:** [`got.mergeOptions()`](../readme.md#gotmergeoptionsparentoptions-newoptions) does not merge hooks. Use [`got.extend()`](../readme.md#gotextendinstances) instead.
 
 ##### mutableDefaults
 
 Type: `boolean`<br>
 Default: `false`
 
-States if the defaults are mutable. It's very useful when you need to [update headers over time](readme.md#hooksafterresponse).
+States if the defaults are mutable. It's very useful when you need to [update headers over time](readme.md#hooksafterresponse), e.g. update the access token when it expires.
 
-##### handler
+##### handlers
 
-Type: `Function`<br>
-Default: `undefined`
+Type: `Function[]`<br>
+Default: `[]`
 
-A function making additional changes to the request.
+An array of functions. These are very special, because they're called first.
 
-To inherit from parent, set it as `got.defaults.handler`.<br>
+To inherit from parent, set it as `got.defaults.handlers`.<br>
 To use the default handler, just omit specifying this.
+
+Each handler takes two arguments:
 
 ###### [options](readme.md#options)
 
@@ -42,17 +46,19 @@ Returns a `Promise` or a `Stream` depending on [`options.stream`](readme.md#stre
 
 ```js
 const settings = {
-	handler: (options, next) => {
-		if (options.stream) {
-			// It's a Stream
-			// We can perform stream-specific actions on it
-			return next(options)
-				.on('request', request => setTimeout(() => request.abort(), 50));
-		}
+	handlers: [
+		(options, next) => {
+			if (options.stream) {
+				// It's a Stream
+				// We can perform stream-specific actions on it
+				return next(options)
+					.on('request', request => setTimeout(() => request.abort(), 50));
+			}
 
-		// It's a Promise
-		return next(options);
-	},
+			// It's a Promise
+			return next(options);
+		}
+	],
 	options: got.mergeOptions(got.defaults.options, {
 		responseType: 'json'
 	})
@@ -113,7 +119,7 @@ const handler = (options, next) => {
 
 Got supports composing multiple instances together. This is very powerful. You can create a client that limits download speed and then compose it with an instance that signs a request. It's like plugins without any of the plugin mess. You just create instances and then compose them together.
 
-Just use `instanceA.extend(instanceB, instanceC, ...)`, that's all.
+To mix them use `instanceA.extend(instanceB, instanceC, ...)`, that's all.
 
 ## Examples
 
