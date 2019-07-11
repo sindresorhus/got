@@ -52,7 +52,7 @@ test('retry function gets iteration count', withServer, async (t, server, got) =
 	await got({
 		timeout: {socket: socketTimeout},
 		retry: {
-			retries: iteration => {
+			retryFunction: iteration => {
 				t.true(is.number(iteration));
 				return iteration < 2;
 			}
@@ -88,7 +88,7 @@ test('custom retries', withServer, async (t, server, got) => {
 	const error = await t.throwsAsync(got({
 		throwHttpErrors: true,
 		retry: {
-			retries: iteration => {
+			retryFunction: iteration => {
 				if (iteration === 1) {
 					tried = true;
 					return 1;
@@ -293,7 +293,7 @@ test('retry function can throw', withServer, async (t, server, got) => {
 	const error = 'Simple error';
 	await t.throwsAsync(got({
 		retry: {
-			retries: () => {
+			retryFunction: () => {
 				throw new Error(error);
 			}
 		}

@@ -67,12 +67,13 @@ export interface Response extends http.IncomingMessage {
 	request: { options: NormalizedOptions };
 }
 
-export type RetryFunction = (retry: number, error: Error | GotError | ParseError | HTTPError | MaxRedirectsError) => number;
+export type RetryFunction = (retry: number, retryOptions: NormalizedRetryOptions, error: Error | GotError | ParseError | HTTPError | MaxRedirectsError, computedValue: number) => number;
 
 export type HandlerFunction = <T extends ProxyStream | CancelableRequest<Response>>(options: Options, next: (options: Options) => T) => T;
 
-export interface RetryOption {
-	retries?: RetryFunction | number;
+export interface RetryOptions {
+	limit?: number;
+	retryFunction?: RetryFunction;
 	methods?: Method[];
 	statusCodes?: StatusCode[];
 	errorCodes?: ErrorCode[];
@@ -80,7 +81,8 @@ export interface RetryOption {
 }
 
 export interface NormalizedRetryOptions {
-	retries: RetryFunction;
+	limit: number;
+	retryFunction: RetryFunction;
 	methods: ReadonlySet<Method>;
 	statusCodes: ReadonlySet<StatusCode>;
 	errorCodes: ReadonlySet<ErrorCode>;
@@ -121,7 +123,7 @@ export interface Options extends Omit<https.RequestOptions, 'agent' | 'timeout' 
 	stream?: boolean;
 	encoding?: BufferEncoding | null;
 	method?: Method;
-	retry?: number | Partial<RetryOption | NormalizedRetryOptions>;
+	retry?: number | Partial<RetryOptions | NormalizedRetryOptions>;
 	throwHttpErrors?: boolean;
 	cookieJar?: CookieJar;
 	ignoreInvalidCookies?: boolean;
