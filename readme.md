@@ -782,6 +782,23 @@ client.get('/demo');
 
 **Tip:** Need more control over the behavior of Got? Check out the [`got.create()`](advanced-creation.md).
 
+Additionally, `got.extend()` accepts two properties from the `defaults` object: `mutableDefaults` and `handlers`. Example:
+
+```js
+// You can now modify `mutableGot.defaults.options`.
+const mutableGot = got.extend({mutableDefaults: true});
+
+const mergedHandlers = got.extend({
+	handlers: [
+		(options, next) => {
+			delete options.headers.referer;
+
+			return next(options);
+		}
+	]
+});
+```
+
 #### got.extend(...instances)
 
 Merges many instances into a single one:
