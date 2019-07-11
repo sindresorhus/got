@@ -120,7 +120,7 @@ Type: `string | URL`
 
 When specified, `prefixUrl` will be prepended to `url`. The prefix can be any valid URL, either relative or absolute. A trailing slash `/` is optional, one will be added automatically, if needed, when joining `prefixUrl` and `url`. The `url` argument cannot start with a `/` when using this option.
 
-Useful when used with `got.extend()1 to create niche-specific Got-instances.
+Useful when used with `got.extend()` to create niche-specific Got-instances.
 
 ```js
 const got = require('got');
