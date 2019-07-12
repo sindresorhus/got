@@ -245,13 +245,13 @@ test('secureConnect timeout', withServer, async (t, server, got) => {
 
 	await t.throwsAsync(
 		got.secure({
-			timeout: {secureConnect: 10},
+			timeout: {secureConnect: 0},
 			retry: 0,
 			rejectUnauthorized: false
 		}),
 		{
 			...errorMatcher,
-			message: 'Timeout awaiting \'secureConnect\' for 10ms'
+			message: 'Timeout awaiting \'secureConnect\' for 0ms'
 		}
 	);
 });
