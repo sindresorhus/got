@@ -245,13 +245,13 @@ test('secureConnect timeout', withServer, async (t, server, got) => {
 
 	await t.throwsAsync(
 		got.secure({
-			timeout: {secureConnect: 1},
+			timeout: {secureConnect: 10},
 			retry: 0,
 			rejectUnauthorized: false
 		}),
 		{
 			...errorMatcher,
-			message: 'Timeout awaiting \'secureConnect\' for 1ms'
+			message: 'Timeout awaiting \'secureConnect\' for 10ms'
 		}
 	);
 });
@@ -371,6 +371,7 @@ test('no error emitted when timeout is not breached (promise)', withServer, asyn
 	}));
 });
 
+// Note: sometimes `got()` resolves instead of rejecting. That's because Travis is slow.
 test('no unhandled `socket hung up` errors', withServer, async (t, server, got) => {
 	server.get('/', defaultHandler);
 

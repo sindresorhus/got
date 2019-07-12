@@ -5,7 +5,7 @@ import pEvent = require('p-event');
 import withServer from './helpers/with-server';
 
 const retryAfterOn413 = 2;
-const socketTimeout = 200;
+const socketTimeout = 300;
 
 const handler413 = (_request, response) => {
 	response.writeHead(413, {
