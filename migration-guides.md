@@ -81,7 +81,7 @@ To use streams, just call `got.stream(url, options)` or `got(url, {stream: true,
 - No `forever` option. You need to use [forever-agent](https://github.com/request/forever-agent).
 - No `proxy` option. You need to [pass a custom agent](readme.md#proxies).
 - No `removeRefererHeader` option. You can remove the referer header in a [`beforeRequest` hook](https://github.com/sindresorhus/got#hooksbeforeRequest):
-- No `baseUrl` option. Instead, there is `prefixUrl` which appends ending slash if not present.
+- No `baseUrl` option. Instead, there is `prefixUrl` which appends ending slash if not present. If `prefixUrl` is used, it will be always prepended to the `url` argument.
 
 ```js
 const gotInstance = got.extend({
