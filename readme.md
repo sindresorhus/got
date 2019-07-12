@@ -78,16 +78,28 @@ const got = require('got');
 ###### Streams
 
 ```js
+const stream = require('stream');
+const {promisify} = require('util');
 const fs = require('fs');
 const got = require('got');
 
-got.stream('https://sindresorhus.com').pipe(fs.createWriteStream('index.html'));
+const pipeline = promisify(stream.pipeline);
 
-// For POST, PUT, and PATCH methods `got.stream` returns a `stream.Writable`
-fs.createReadStream('index.html').pipe(got.stream.post('https://sindresorhus.com'));
+(async () => {
+    await pipeline(
+        got.stream('https://sindresorhus.com'),
+        fs.createWriteStream('index.html')
+    );
+
+    // For POST, PUT, and PATCH methods `got.stream` returns a `stream.Writable`
+    await pipeline(
+        fs.createReadStream('index.html'),
+        got.stream.post('https://sindresorhus.com')
+    );
+})();
 ```
 
-**Note:** `from.pipe(to)` doesn't forward errors. Instead you can use [`Stream.pipeline(from, to, callback)`](https://nodejs.org/api/stream.html#stream_stream_pipeline_streams_callback) which catches them.
+**Tip:** Using `from.pipe(to)` doesn't forward errors. If you use it, switch to [`Stream.pipeline(from, ..., to, callback)`](https://nodejs.org/api/stream.html#stream_stream_pipeline_streams_callback) instead (available from Node v10).
 
 ### API
 

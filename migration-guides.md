@@ -144,13 +144,22 @@ http.createServer((request, response) => {
 The cool feature here is that Request can proxy headers with the stream, but Got can do that too:
 
 ```js
-http.createServer((request, response) => {
+const stream = require('stream');
+const {promisify} = require('util');
+const got = require('got');
+
+const pipeline = promisify(stream.pipeline);
+
+http.createServer(async (request, response) => {
 	if (request.url === '/doodle.png') {
 		// When someone makes a request to our server, we receive a body and some headers.
 		// These are passed to Got. Got proxies received data to our server response,
 		// so you don't have to do `response.writeHead(statusCode, headers)` and `response.end(body)`.
 		// It's done automatically.
-		request.pipe(got.stream('https://example.com/doodle.png')).pipe(response);
+		await pipeline(
+			got.stream('https://example.com/doodle.png'),
+			response
+		);
 	}
 });
 ```
