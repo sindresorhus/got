@@ -122,6 +122,8 @@ When specified, `prefixUrl` will be prepended to `url`. The prefix can be any va
 
 Useful when used with `got.extend()` to create niche-specific Got-instances.
 
+**Note:** `prefixUrl` will be ignored if the `url` argument is a URL instance.
+
 ```js
 const got = require('got');
 
