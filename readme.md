@@ -950,12 +950,19 @@ You can use the [`tough-cookie`](https://github.com/salesforce/tough-cookie) pac
 
 ```js
 const got = require('got');
-const {CookieJar} = require('tough-cookie');
+const { CookieJar, Cookie } = require('tough-cookie');
 
-const cookieJar = new CookieJar();
-cookieJar.setCookie('foo=bar', 'https://www.google.com');
+const newCookie = new Cookie({ key: 'foo-bar', value: 'something' });
 
-got('https://google.com', {cookieJar});
+const cookieErrorCb = (err) => {
+     if ( err ) {
+        console.log(err)
+    }
+}
+
+cookieJar.setCookie(newCookie, 'https://yourdomain.com', cookieErrorCb);
+
+got.get(url, { cookieJar });
 ```
 
 
