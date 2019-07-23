@@ -76,10 +76,10 @@ test('throws on endless redirects', withServer, async (t, server, got) => {
 		response.end();
 	});
 
-	const error = await t.throwsAsync(got(''), 'Redirected 10 times. Aborting.');
+	const error = await t.throwsAsync(got(''), 'Redirected 20 times. Aborting.');
 
 	// @ts-ignore
-	t.deepEqual(error.response.redirectUrls, new Array(10).fill(`${server.url}/`));
+	t.deepEqual(error.response.redirectUrls, new Array(20).fill(`${server.url}/`));
 });
 
 test('searchParams are not breaking redirects', withServer, async (t, server, got) => {

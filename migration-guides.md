@@ -70,7 +70,7 @@ The [`searchParams` option](https://github.com/sindresorhus/got#searchParams) is
 
 The [`baseUrl` option](https://github.com/sindresorhus/got#baseurl) appends the ending slash if it's not present.
 
-There's no `maxRedirects` option. It's always set to `10`.
+There's no `maxRedirects` option. It's always set to `20`.
 
 To use streams, just call `got.stream(url, options)` or `got(url, {stream: true, ...}`).
 

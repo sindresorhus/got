@@ -148,7 +148,7 @@ export default (options: NormalizedOptions, input?: TransformStream) => {
 							options.method = 'GET';
 						}
 
-						if (redirects.length >= 10) {
+						if (redirects.length >= 20) {
 							throw new MaxRedirectsError(typedResponse, options);
 						}
 
