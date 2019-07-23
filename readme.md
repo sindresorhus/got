@@ -950,19 +950,15 @@ You can use the [`tough-cookie`](https://github.com/salesforce/tough-cookie) pac
 
 ```js
 const got = require('got');
-const { CookieJar, Cookie } = require('tough-cookie');
+const { CookieJar } = require('tough-cookie');
+const util = require('util');
 
-const newCookie = new Cookie({ key: 'foo-bar', value: 'something' });
-
-const cookieErrorCb = (err) => {
-     if ( err ) {
-        console.log(err)
-    }
+const yourFunction = async () => {
+	const cookieJar = new CookieJar();
+	const setCookie = util.promisify(cookieJar.setCookie.bind(cookieJar));
+	await setCookie('foo=bar', 'https://www.google.com');
+	got.get('https://google.com', { cookieJar });
 }
-
-cookieJar.setCookie(newCookie, 'https://yourdomain.com', cookieErrorCb);
-
-got.get(url, { cookieJar });
 ```
 
 
