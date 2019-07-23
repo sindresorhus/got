@@ -77,7 +77,7 @@ export class MaxRedirectsError extends GotError {
 	readonly response!: Response;
 
 	constructor(response: Response, options: NormalizedOptions) {
-		super('Redirected 10 times. Aborting.', {}, options);
+		super('Redirected 20 times. Aborting.', {}, options);
 		this.name = 'MaxRedirectsError';
 
 		Object.defineProperty(this, 'response', {
