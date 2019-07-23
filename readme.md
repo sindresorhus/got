@@ -956,8 +956,9 @@ const util = require('util');
 (async () => {
 	const cookieJar = new CookieJar();
 	const setCookie = util.promisify(cookieJar.setCookie.bind(cookieJar));
+
 	await setCookie('foo=bar', 'https://www.google.com');
-	got.get('https://google.com', { cookieJar });
+	await got('https://google.com', {cookieJar});
 })();
 ```
 
