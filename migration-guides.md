@@ -80,7 +80,7 @@ To use streams, just call `got.stream(url, options)` or `got(url, {stream: true,
 - No `agentClass`/`agentOptions`/`pool` option.
 - No `forever` option. You need to use [forever-agent](https://github.com/request/forever-agent).
 - No `proxy` option. You need to [pass a custom agent](readme.md#proxies).
-- No `baseUrl` option. Instead, there is `prefixUrl` which appends ending slash if not present. Will be always prepended unless `url` is an instance of URL.
+- No `baseUrl` option. Instead, there is `prefixUrl` which appends a trailing slash if not present. It will be always prepended unless `url` is an instance of URL.
 - No `removeRefererHeader` option. You can remove the referer header in a [`beforeRequest` hook](https://github.com/sindresorhus/got#hooksbeforeRequest):
 
 ```js
