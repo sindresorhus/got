@@ -949,13 +949,17 @@ Alternatively, use [`global-agent`](https://github.com/gajus/global-agent) to co
 You can use the [`tough-cookie`](https://github.com/salesforce/tough-cookie) package:
 
 ```js
+const {promisify} = require('util');
 const got = require('got');
 const {CookieJar} = require('tough-cookie');
 
-const cookieJar = new CookieJar();
-cookieJar.setCookie('foo=bar', 'https://www.google.com');
+(async () => {
+	const cookieJar = new CookieJar();
+	const setCookie = promisify(cookieJar.setCookie.bind(cookieJar));
 
-got('https://google.com', {cookieJar});
+	await setCookie('foo=bar', 'https://example.com');
+	await got('https://example.com', {cookieJar});
+})();
 ```
 
 
