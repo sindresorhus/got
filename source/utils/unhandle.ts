@@ -33,6 +33,8 @@ export default (): Unhandler => {
 				const {origin, event, fn} = handler;
 				origin.removeListener(event, fn);
 			}
+
+			handlers.length = 0;
 		}
 	};
 };

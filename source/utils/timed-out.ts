@@ -32,12 +32,23 @@ export default (request: ClientRequest, delays: Delays, options: TimedOutOptions
 	const cancelers: Array<typeof noop> = [];
 	const {once, unhandleAll} = unhandler();
 
+	const cancelTimeouts = (): void => {
+		for (const cancel of cancelers) {
+			cancel();
+		}
+
+		cancelers.length = 0;
+
+		unhandleAll();
+	};
+
 	const addTimeout = (delay: number, callback: (...args: unknown[]) => void, ...args: unknown[]): (typeof noop) => {
 		// Event loop order is timers, poll, immediates.
 		// The timed event may emit during the current tick poll phase, so
 		// defer calling the handler until the poll phase completes.
 		let immediate: NodeJS.Immediate;
 		const timeout: NodeJS.Timeout = setTimeout(() => {
+			cancelTimeouts();
 			immediate = setImmediate(callback, delay, ...args);
 			/* istanbul ignore next: added in node v9.7.0 */
 			if (immediate.unref) {
@@ -65,14 +76,6 @@ export default (request: ClientRequest, delays: Delays, options: TimedOutOptions
 	const timeoutHandler = (delay: number, event: string): void => {
 		request.emit('error', new TimeoutError(delay, event));
 		request.abort();
-	};
-
-	const cancelTimeouts = (): void => {
-		for (const cancel of cancelers) {
-			cancel();
-		}
-
-		unhandleAll();
 	};
 
 	request.on('error', error => {
