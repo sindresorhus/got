@@ -3,6 +3,9 @@ import {ClientRequest, IncomingMessage} from 'http';
 import {Delays} from './types';
 import unhandler from './unhandle';
 
+// Help TypeScript to understand how we are passing arguments thru setImmediate
+declare function setImmediate<T extends any[]>(callback: (arg0: number, ...args: T) => void, arg0: number, ...args: T): NodeJS.Immediate;
+
 const reentry = Symbol('reentry');
 const noop = (): void => {};
 
@@ -32,7 +35,7 @@ export default (request: ClientRequest, delays: Delays, options: TimedOutOptions
 	const cancelers: Array<typeof noop> = [];
 	const {once, unhandleAll} = unhandler();
 
-	const addTimeout = (delay: number, callback: (...args: unknown[]) => void, ...args: unknown[]): (typeof noop) => {
+	const addTimeout = <T extends any[]>(delay: number, callback: (delay: number, ...args: T) => void, ...args: T): (typeof noop) => {
 		// Event loop order is timers, poll, immediates.
 		// The timed event may emit during the current tick poll phase, so
 		// defer calling the handler until the poll phase completes.
@@ -91,7 +94,7 @@ export default (request: ClientRequest, delays: Delays, options: TimedOutOptions
 
 	if (delays.socket !== undefined) {
 		const socketTimeoutHandler = (): void => {
-			timeoutHandler(delays.socket, 'socket');
+			timeoutHandler(delays.socket!, 'socket');
 		};
 
 		request.setTimeout(delays.socket, socketTimeoutHandler);
@@ -110,15 +113,15 @@ export default (request: ClientRequest, delays: Delays, options: TimedOutOptions
 
 		/* istanbul ignore next: hard to test */
 		if (socket.connecting) {
-			if (delays.lookup !== undefined && !socketPath && !net.isIP(hostname || host)) {
+			if (delays.lookup !== undefined && !socketPath && !net.isIP(hostname || host || '')) {
 				const cancelTimeout = addTimeout(delays.lookup, timeoutHandler, 'lookup');
 				once(socket, 'lookup', cancelTimeout);
 			}
 
 			if (delays.connect !== undefined) {
-				const timeConnect = (): (() => void) => addTimeout(delays.connect, timeoutHandler, 'connect');
+				const timeConnect = (): (() => void) => addTimeout(delays.connect!, timeoutHandler, 'connect');
 
-				if (socketPath || net.isIP(hostname || host)) {
+				if (socketPath || net.isIP(hostname || host || '')) {
 					once(socket, 'connect', timeConnect());
 				} else {
 					once(socket, 'lookup', (error: Error): void => {
@@ -131,14 +134,14 @@ export default (request: ClientRequest, delays: Delays, options: TimedOutOptions
 
 			if (delays.secureConnect !== undefined && options.protocol === 'https:') {
 				once(socket, 'connect', (): void => {
-					const cancelTimeout = addTimeout(delays.secureConnect, timeoutHandler, 'secureConnect');
+					const cancelTimeout = addTimeout(delays.secureConnect!, timeoutHandler, 'secureConnect');
 					once(socket, 'secureConnect', cancelTimeout);
 				});
 			}
 		}
 
 		if (delays.send !== undefined) {
-			const timeRequest = (): (() => void) => addTimeout(delays.send, timeoutHandler, 'send');
+			const timeRequest = (): (() => void) => addTimeout(delays.send!, timeoutHandler, 'send');
 			/* istanbul ignore next: hard to test */
 			if (socket.connecting) {
 				once(socket, 'connect', (): void => {

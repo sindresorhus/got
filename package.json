@@ -9,7 +9,7 @@
 		"node": ">=8.6"
 	},
 	"scripts": {
-		"test": "xo && nyc ava",
+		"test": "xo && nyc ava && tsc --noEmit --strict",
 		"release": "np",
 		"build": "del-cli dist && tsc",
 		"prepublishOnly": "npm run build"
