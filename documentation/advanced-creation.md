@@ -31,7 +31,7 @@ Default: `[]`
 
 An array of functions. These are very special, because they're called first.
 
-To inherit from parent, set it as `got.defaults.handlers`.<br>
+To inherit from the parent, set it as `got.defaults.handlers`.<br>
 To use the default handler, just omit specifying this.
 
 Each handler takes two arguments:
