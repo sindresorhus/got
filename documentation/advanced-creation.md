@@ -148,7 +148,7 @@ const controlRedirects = got.extend({
 
 #### Limiting download & upload
 
-It's very useful in case your machine's got a little amount of RAM.
+It can be useful when your machine has limited amount of memory.
 
 ```js
 const limitDownloadUpload = got.extend({
