@@ -8,7 +8,7 @@ When it comes to advanced usage, custom instances are really helpful.
 For example, take a look at [`gh-got`](https://github.com/sindresorhus/gh-got).
 It looks pretty complicated, but... it's really not.
 
-Before we start, we need to find the GitHub API docs: https://developer.github.com/v3/
+Before we start, we need to find the [GitHub API docs](https://developer.github.com/v3/).
 
 Let's write down the most important information:
 1. The root endpoint is `https://api.github.com/`.
