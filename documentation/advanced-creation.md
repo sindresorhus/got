@@ -135,7 +135,7 @@ const controlRedirects = got.extend({
 	handlers: [
 		(options, next) => {
 			const promiseOrStream = next(options);
-			return promiseOrStream.on('redirect', resp => {
+			return promiseOrStream.on('redirect', response => {
 				const host = new URL(resp.url).host;
 				if (options.allowedHosts && !options.allowedHosts.includes(host)) {
 					promiseOrStream.cancel(`Redirection to ${host} is not allowed`);
