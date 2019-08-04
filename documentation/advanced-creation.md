@@ -97,7 +97,7 @@ const handler = (options, next) => {
 
 		return (async () => {
 			try {
-				const result = await next(options);
+				const promiseOrStream = await next(options);
 
 				result.modifiedByHandler = true;
 
