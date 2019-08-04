@@ -823,7 +823,8 @@ const b = got.create({
 
 // The same as `got.extend(a).extend(b)`.
 // Note `a` is options and `b` is an instance.
-got.extend(a, b); // => {headers: {cat: 'meow', cow: 'moo'}}
+got.extend(a, b);
+//=> {headers: {cat: 'meow', cow: 'moo'}}
 ```
 
 #### got.mergeOptions(parentOptions, newOptions)
