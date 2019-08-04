@@ -49,8 +49,7 @@ const settings = {
 	handlers: [
 		(options, next) => {
 			if (options.stream) {
-				// It's a Stream
-				// We can perform stream-specific actions on it
+				// It's a Stream, so we can perform stream-specific actions on it
 				return next(options)
 					.on('request', request => setTimeout(() => request.abort(), 50));
 			}
