@@ -76,7 +76,7 @@ const instance = got.extend({
 
 ### Authorization
 
-It's popular to set some environment variables, say `GITHUB_TOKEN`. You can modify the tokens in all your apps easily, right? Cool. What about... we want to provide a unique token for each app. Then we will need to create a new option - it will default to the environment variable, but you can easily override it.
+It's common to set some environment variables, for example, `GITHUB_TOKEN`. You can modify the tokens in all your apps easily, right? Cool. What about... we want to provide a unique token for each app. Then we will need to create a new option - it will default to the environment variable, but you can easily override it.
 
 Let's use handlers instead of hooks, our code will be more readable later.
 
