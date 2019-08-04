@@ -22,7 +22,7 @@ To inherit from the parent, set it to `got.defaults.options` or use [`got.mergeO
 Type: `boolean`<br>
 Default: `false`
 
-States if the defaults are mutable. It's very useful when you need to [update headers over time](readme.md#hooksafterresponse), e.g. update the access token when it expires.
+States if the defaults are mutable. It can be useful when you need to [update headers over time](readme.md#hooksafterresponse), for example, update an access token when it expires.
 
 ##### handlers
 
