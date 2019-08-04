@@ -28,7 +28,7 @@ const instance = got.extend({
 				return next(options);
 			}
 
-			// Magic begins.
+			// Magic begins
 			return (async () => {
 				try {
 					const response = await next(options);
