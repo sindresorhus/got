@@ -34,7 +34,7 @@ When we have all the necessary info, we can start mixing :cake:
 
 ### The root endpoint
 
-Not much to do here, just extend an instance and provide `baseUrl` option:
+Not much to do here, just extend an instance and provide the `baseUrl` option:
 
 ```js
 'use strict';
