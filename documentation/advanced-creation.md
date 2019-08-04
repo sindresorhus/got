@@ -51,7 +51,11 @@ const settings = {
 			if (options.stream) {
 				// It's a Stream, so we can perform stream-specific actions on it
 				return next(options)
-					.on('request', request => setTimeout(() => request.abort(), 50));
+					.on('request', request => {
+						setTimeout(() => {
+							request.abort();
+						}, 50);
+					});
 			}
 
 			// It's a Promise
