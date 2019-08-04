@@ -3,7 +3,7 @@ import {ClientRequest, IncomingMessage} from 'http';
 import {Delays} from './types';
 import unhandler from './unhandle';
 
-// Help TypeScript to understand how we are passing arguments thru setImmediate
+// Help TypeScript understand how we are passing arguments through `setImmediate`.
 declare function setImmediate<T extends any[]>(callback: (arg0: number, ...args: T) => void, arg0: number, ...args: T): NodeJS.Immediate;
 
 const reentry = Symbol('reentry');
