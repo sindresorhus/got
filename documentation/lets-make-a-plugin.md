@@ -236,7 +236,7 @@ const instance = got.extend({
 
 ## Woah. Is that it?
 
-Yup. View the full source code [here](examples/gh-got.js). Here's an example how to use it:
+Yup. View the full source code [here](examples/gh-got.js). Here's an example of how to use it:
 
 ```js
 const ghGot = require('gh-got');
