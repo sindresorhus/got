@@ -12,7 +12,7 @@ Before we start, we need to find the [GitHub API docs](https://developer.github.
 
 Let's write down the most important information:
 1. The root endpoint is `https://api.github.com/`.
-2. We will use the V3 API vesion.<br>
+2. We will use version 3 of the API.<br>
    The `Accept` header needs to be set to `application/vnd.github.v3+json`.
 3. The body is in a JSON format.
 4. We will use OAuth2 for authorization.
