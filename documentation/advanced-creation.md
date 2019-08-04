@@ -199,6 +199,7 @@ const httpbin = got.extend({
 
 ```js
 const crypto = require('crypto');
+
 const getMessageSignature = (data, secret) => crypto.createHmac('sha256', secret).update(data).digest('hex').toUpperCase();
 const signRequest = got.extend({
 	hooks: {
