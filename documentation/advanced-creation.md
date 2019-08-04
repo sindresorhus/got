@@ -103,7 +103,7 @@ const handler = (options, next) => {
 
 				return result;
 			} catch (error) {
-				// Every error will be replaced by this one.
+				// Every error will be replaced by the one thrown here.
 				// Before you will receive any error here,
 				// it will be passed to `beforeError` hooks first.
 
