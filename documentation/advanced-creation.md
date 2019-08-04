@@ -88,7 +88,7 @@ const unicorn = got.create(settings);
 const unicorn = got.extend({headers: {unicorn: 'rainbow'}});
 ```
 
-**Note:** handlers can be asynchronous. The recommended approach is:
+**Note:** Handlers can be asynchronous. The recommended approach is:
 
 ```js
 const handler = (options, next) => {
