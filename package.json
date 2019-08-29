@@ -40,7 +40,6 @@
 		"@sindresorhus/is": "^0.17.0",
 		"@szmarczak/http-timer": "^2.0.0",
 		"@types/cacheable-request": "^6.0.1",
-		"@types/form-data": "^2.2.1",
 		"@types/tough-cookie": "^2.3.5",
 		"cacheable-lookup": "^0.2.1",
 		"cacheable-request": "^6.1.0",
