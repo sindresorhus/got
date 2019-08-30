@@ -70,7 +70,9 @@ export interface Response extends http.IncomingMessage {
 }
 
 export interface ResponseObject extends ResponseLike {
-	connection: { remoteAddress: string };
+	connection: {
+		remoteAddress: string
+	};
 }
 
 export type RetryFunction = (retry: number, error: Error | GotError | ParseError | HTTPError | MaxRedirectsError) => number;
