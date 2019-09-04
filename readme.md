@@ -712,7 +712,7 @@ Configure a new `got` instance with default `options`. The `options` are merged 
 
 ```js
 const client = got.extend({
-	baseUrl: 'https://example.com',
+	prefixUrl: 'https://example.com',
 	headers: {
 		'x-unicorn': 'rainbow'
 	}
@@ -730,7 +730,7 @@ client.get('/demo');
 ```js
 (async () => {
 	const client = got.extend({
-		baseUrl: 'httpbin.org',
+		prefixUrl: 'httpbin.org',
 		headers: {
 			'x-foo': 'bar'
 		}
@@ -1021,7 +1021,7 @@ const chain = new AWS.CredentialProviderChain();
 
 // Create a Got instance to use relative paths and signed requests
 const awsClient = got.extend({
-	baseUrl: 'https://<api-id>.execute-api.<api-region>.amazonaws.com/<stage>/',
+	prefixUrl: 'https://<api-id>.execute-api.<api-region>.amazonaws.com/<stage>/',
 	hooks: {
 		beforeRequest: [
 			async options => {
@@ -1146,7 +1146,7 @@ Bear in mind; if you send an `if-modified-since` header and receive a `304 Not M
 
 ### Custom endpoints
 
-Use `got.extend()` to make it nicer to work with REST APIs. Especially if you use the `baseUrl` option.
+Use `got.extend()` to make it nicer to work with REST APIs. Especially if you use the `prefixUrl` option.
 
 **Note:** Not to be confused with [`got.create()`](advanced-creation.md), which has no defaults.
 
@@ -1155,7 +1155,7 @@ const got = require('got');
 const pkg = require('./package.json');
 
 const custom = got.extend({
-	baseUrl: 'example.com',
+	prefixUrl: 'example.com',
 	responseType: 'json',
 	headers: {
 		'user-agent': `my-package/${pkg.version} (https://github.com/username/my-package)`
