@@ -143,28 +143,23 @@ Type: `object`
 
 Any of the [`https.request`](https://nodejs.org/api/https.html#https_https_request_options_callback) options.
 
-###### baseUrl
+###### prefixUrl
 
-Type: `string | object`
+Type: `string | URL`
 
-When specified, `url` will be prepended by `baseUrl`.<br>
-If you specify an absolute URL, it will skip the `baseUrl`.
+When specified, `prefixUrl` will be prepended to `url`. The prefix can be any valid URL, either relative or absolute. A trailing slash `/` is optional, one will be added automatically, if needed, when joining `prefixUrl` and `url`. The `url` argument cannot start with a `/` when using this option.
 
-Very useful when used with `got.extend()` to create niche-specific Got instances.
+Useful when used with `got.extend()` to create niche-specific Got-instances.
 
-Can be a string or a [WHATWG `URL`](https://nodejs.org/api/url.html#url_class_url).
-
-Slash at the end of `baseUrl` and at the beginning of the `url` argument is optional:
+**Note:** `prefixUrl` will be ignored if the `url` argument is a URL instance.
 
 ```js
-await got('hello', {baseUrl: 'https://example.com/v1'});
-//=> 'https://example.com/v1/hello'
+const got = require('got');
 
-await got('/hello', {baseUrl: 'https://example.com/v1/'});
-//=> 'https://example.com/v1/hello'
-
-await got('/hello', {baseUrl: 'https://example.com/v1'});
-//=> 'https://example.com/v1/hello'
+(async () => {
+	await ky('unicorn', {prefixUrl: 'https://cats.com'});
+	//=> 'https://cats.com/unicorn'
+})();
 ```
 
 ###### headers
@@ -746,7 +741,7 @@ Configure a new `got` instance with default `options`. The `options` are merged 
 
 ```js
 const client = got.extend({
-	baseUrl: 'https://example.com',
+	prefixUrl: 'https://example.com',
 	headers: {
 		'x-unicorn': 'rainbow'
 	}
@@ -764,7 +759,7 @@ client.get('/demo');
 ```js
 (async () => {
 	const client = got.extend({
-		baseUrl: 'httpbin.org',
+		prefixUrl: 'httpbin.org',
 		headers: {
 			'x-foo': 'bar'
 		}
@@ -1059,7 +1054,7 @@ const chain = new AWS.CredentialProviderChain();
 
 // Create a Got instance to use relative paths and signed requests
 const awsClient = got.extend({
-	baseUrl: 'https://<api-id>.execute-api.<api-region>.amazonaws.com/<stage>/',
+	prefixUrl: 'https://<api-id>.execute-api.<api-region>.amazonaws.com/<stage>/',
 	hooks: {
 		beforeRequest: [
 			async options => {
@@ -1184,7 +1179,7 @@ Bear in mind; if you send an `if-modified-since` header and receive a `304 Not M
 
 ### Custom endpoints
 
-Use `got.extend()` to make it nicer to work with REST APIs. Especially if you use the `baseUrl` option.
+Use `got.extend()` to make it nicer to work with REST APIs. Especially if you use the `prefixUrl` option.
 
 **Note:** Not to be confused with [`got.create()`](advanced-creation.md), which has no defaults.
 
@@ -1193,7 +1188,7 @@ const got = require('got');
 const pkg = require('./package.json');
 
 const custom = got.extend({
-	baseUrl: 'example.com',
+	prefixUrl: 'example.com',
 	responseType: 'json',
 	headers: {
 		'user-agent': `my-package/${pkg.version} (https://github.com/username/my-package)`

@@ -68,8 +68,6 @@ The [`timeout` option](https://github.com/sindresorhus/got#timeout) has some ext
 
 The [`searchParams` option](https://github.com/sindresorhus/got#searchParams) is always serialized using [`URLSearchParams`](https://developer.mozilla.org/en-US/docs/Web/API/URLSearchParams) unless it's a `string`.
 
-The [`baseUrl` option](https://github.com/sindresorhus/got#baseurl) appends the ending slash if it's not present.
-
 There's no `maxRedirects` option. It's always set to `10`.
 
 To use streams, just call `got.stream(url, options)` or `got(url, {stream: true, ...}`).
@@ -82,6 +80,7 @@ To use streams, just call `got.stream(url, options)` or `got(url, {stream: true,
 - No `agentClass`/`agentOptions`/`pool` option.
 - No `forever` option. You need to use [forever-agent](https://github.com/request/forever-agent).
 - No `proxy` option. You need to [pass a custom agent](readme.md#proxies).
+- No `baseUrl` option. Instead, there is `prefixUrl` which appends a trailing slash if not present. It will be always prepended unless `url` is an instance of URL.
 - No `removeRefererHeader` option. You can remove the referer header in a [`beforeRequest` hook](https://github.com/sindresorhus/got#hooksbeforeRequest):
 
 ```js

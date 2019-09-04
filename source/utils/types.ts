@@ -134,7 +134,7 @@ export interface Options extends Omit<https.RequestOptions, 'agent' | 'timeout' 
 	responseType?: ResponseType;
 	resolveBodyOnly?: boolean;
 	followRedirect?: boolean;
-	baseUrl?: URL | string;
+	prefixUrl?: URL | string;
 	timeout?: number | Delays;
 	dnsCache?: Map<string, string> | Keyv | false;
 	url?: URL | string;
@@ -151,7 +151,7 @@ export interface NormalizedOptions extends Omit<Required<Options>, 'timeout' | '
 	gotTimeout: Required<Delays>;
 	retry: NormalizedRetryOptions;
 	lookup?: CacheableLookup['lookup'];
-	readonly baseUrl: string;
+	readonly prefixUrl: string;
 	path: string;
 	hostname: string;
 	host: string;

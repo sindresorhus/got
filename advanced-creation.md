@@ -220,7 +220,7 @@ const noUserAgent = got.extend({
 
 ```js
 const httpbin = got.extend({
-	baseUrl: 'https://httpbin.org/'
+	prefixUrl: 'https://httpbin.org/'
 });
 ```
 
@@ -261,10 +261,10 @@ const merged = got.mergeInstances(controlRedirects, limitDownloadUpload, httpbin
 	 */
 
 	const MEGABYTE = 1048576;
-	await merged('http://ipv4.download.thinkbroadband.com/5MB.zip', {downloadLimit: MEGABYTE});
+	await merged('http://ipv4.download.thinkbroadband.com/5MB.zip', {downloadLimit: MEGABYTE, prefixUrl: ''});
 	// CancelError: Exceeded the download limit of 1048576 bytes
 
-	await merged('https://jigsaw.w3.org/HTTP/300/301.html', {allowedHosts: ['google.com']});
+	await merged('https://jigsaw.w3.org/HTTP/300/301.html', {allowedHosts: ['google.com'], prefixUrl: ''});
 	// CancelError: Redirection to jigsaw.w3.org is not allowed
 })();
 ```

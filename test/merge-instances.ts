@@ -13,10 +13,10 @@ test('merging instances', withServer, async (t, server) => {
 	server.get('/', echoHeaders);
 
 	const instanceA = got.extend({headers: {unicorn: 'rainbow'}});
-	const instanceB = got.extend({baseUrl: server.url});
+	const instanceB = got.extend({prefixUrl: server.url});
 	const merged = got.mergeInstances(instanceA, instanceB);
 
-	const headers = await merged('/').json<TestReturn>();
+	const headers = await merged('').json<TestReturn>();
 	t.is(headers.unicorn, 'rainbow');
 	t.not(headers['user-agent'], undefined);
 });

@@ -134,7 +134,7 @@ test('doesn\'t cache response when received HTTP error', withServer, async (t, s
 
 test('DNS cache works', withServer, async (t, _server, got) => {
 	const map = new Map();
-	await t.notThrowsAsync(got('https://example.com', {dnsCache: map}));
+	await t.notThrowsAsync(got('https://example.com', {dnsCache: map, prefixUrl: ''}));
 
 	t.is(map.size, 1);
 });
