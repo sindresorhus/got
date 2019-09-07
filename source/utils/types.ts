@@ -69,7 +69,7 @@ export interface Response extends http.IncomingMessage {
 
 export type RetryFunction = (retry: number, error: Error | GotError | ParseError | HTTPError | MaxRedirectsError) => number;
 
-export type HandlerFunction = <T extends ProxyStream | CancelableRequest<Response>>(options: Options, next: (options: Options) => T) => T;
+export type HandlerFunction = <T extends ProxyStream | CancelableRequest<Response>>(options: NormalizedOptions, next: (options: NormalizedOptions) => T) => T;
 
 export interface RetryOption {
 	retries?: RetryFunction | number;
@@ -130,7 +130,6 @@ export interface Options extends Omit<https.RequestOptions, 'agent' | 'timeout' 
 	gotTimeout?: number | Delays;
 	cache?: string | StorageAdapter | false;
 	headers?: Headers;
-	mutableDefaults?: boolean;
 	responseType?: ResponseType;
 	resolveBodyOnly?: boolean;
 	followRedirect?: boolean;
@@ -157,10 +156,14 @@ export interface NormalizedOptions extends Omit<Required<Options>, 'timeout' | '
 	host: string;
 }
 
+export interface ExtendedOptions extends Options {
+	handlers?: HandlerFunction[];
+	mutableDefaults?: boolean;
+}
+
 export interface Defaults {
-	methods?: Method[];
 	options?: Options;
-	handler?: HandlerFunction;
+	handlers?: HandlerFunction[];
 	mutableDefaults?: boolean;
 }
 

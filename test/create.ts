@@ -1,6 +1,7 @@
 import http = require('http');
 import {URL} from 'url';
 import test from 'ava';
+import is from '@sindresorhus/is';
 import got from '../source';
 import withServer from './helpers/with-server';
 
@@ -108,10 +109,12 @@ test('create', withServer, async (t, server) => {
 
 	const instance = got.create({
 		options: {},
-		handler: (options, next) => {
-			options.headers.unicorn = 'rainbow';
-			return next(options);
-		}
+		handlers: [
+			(options, next) => {
+				options.headers.unicorn = 'rainbow';
+				return next(options);
+			}
+		]
 	});
 	const headers = await instance(server.url).json<TestReturn>();
 	t.is(headers.unicorn, 'rainbow');
@@ -139,14 +142,14 @@ test('custom endpoint with custom headers (extend)', withServer, async (t, serve
 
 test('no tampering with defaults', t => {
 	const instance = got.create({
-		handler: got.defaults.handler,
+		handlers: got.defaults.handlers,
 		options: got.mergeOptions(got.defaults.options, {
 			prefixUrl: 'example/'
 		})
 	});
 
 	const instance2 = instance.create({
-		handler: instance.defaults.handler,
+		handlers: instance.defaults.handlers,
 		options: instance.defaults.options
 	});
 
@@ -245,4 +248,51 @@ test('hooks aren\'t overriden when merging options', withServer, async (t, serve
 	await instance({});
 
 	t.true(called);
+});
+
+test('extend with custom handlers', withServer, async (t, server, got) => {
+	server.get('/', echoHeaders);
+
+	const instance = got.extend({
+		handlers: [
+			(options, next) => {
+				options.headers.unicorn = 'rainbow';
+				return next(options);
+			}
+		]
+	});
+	const headers = await instance('').json();
+	t.is(headers.unicorn, 'rainbow');
+});
+
+test('extend with instances', t => {
+	const a = got.extend({prefixUrl: new URL('https://example.com/')});
+	const b = got.extend(a);
+	t.is(b.defaults.options.prefixUrl.toString(), 'https://example.com/');
+});
+
+test('extend with a chain', t => {
+	const a = got.extend({prefixUrl: 'https://example.com/'});
+	const b = got.extend(a, {headers: {foo: 'bar'}});
+	t.is(b.defaults.options.prefixUrl.toString(), 'https://example.com/');
+	t.is(b.defaults.options.headers.foo, 'bar');
+});
+
+test('async handlers', withServer, async (t, server, got) => {
+	server.get('/', echoHeaders);
+
+	const instance = got.extend({
+		handlers: [
+			async (options, next) => {
+				const result = await next(options);
+				result.modified = true;
+
+				return result;
+			}
+		]
+	});
+
+	const promise = instance('');
+	t.true(is.function_(promise.cancel));
+	t.true((await promise).modified);
 });

@@ -54,17 +54,18 @@ test('methods are normalized', withServer, async (t, server, got) => {
 	server.post('/test', echoUrl);
 
 	const instance = got.create({
-		methods: got.defaults.methods,
 		options: got.defaults.options,
-		handler: (options, next) => {
-			if (options.method === options.method.toUpperCase()) {
-				t.pass();
-			} else {
-				t.fail();
-			}
+		handlers: [
+			(options, next) => {
+				if (options.method === options.method.toUpperCase()) {
+					t.pass();
+				} else {
+					t.fail();
+				}
 
-			return next(options);
-		}
+				return next(options);
+			}
+		]
 	});
 
 	await instance('test', {method: 'post'});
@@ -232,12 +233,14 @@ test('backslash in the end of `prefixUrl` option is optional', withServer, async
 
 test('throws when trying to modify `prefixUrl` after options got normalized', async t => {
 	const instanceA = got.create({
-		methods: [],
 		options: {prefixUrl: 'https://example.com'},
-		handler: (options, next) => {
-			options.prefixUrl = 'https://google.com';
-			return next(options);
-		}
+		handlers: [
+			(options, next) => {
+				// @ts-ignore Even though we know it's read only, we need to test it.
+				options.prefixUrl = 'https://google.com';
+				return next(options);
+			}
+		]
 	});
 
 	await t.throwsAsync(instanceA(''), 'Failed to set prefixUrl. Options are normalized already.');

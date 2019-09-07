@@ -122,6 +122,9 @@
 			"@typescript-eslint/explicit-function-return-type": "off",
 			"@typescript-eslint/no-unnecessary-type-assertion": "off",
 			"@typescript-eslint/await-thenable": "off"
-		}
+		},
+		"ignores": [
+			"documentation/examples/*"
+		]
 	}
 }

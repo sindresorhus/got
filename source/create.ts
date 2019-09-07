@@ -6,21 +6,24 @@ import {
 	Response,
 	CancelableRequest,
 	URLOrOptions,
-	URLArgument
+	URLArgument,
+	HandlerFunction,
+	ExtendedOptions
 } from './utils/types';
 import deepFreeze from './utils/deep-freeze';
-import merge, {mergeOptions, mergeInstances} from './merge';
-import asPromise from './as-promise';
+import merge, {mergeOptions} from './merge';
+import asPromise, {isProxiedSymbol} from './as-promise';
 import asStream, {ProxyStream} from './as-stream';
 import {preNormalizeArguments, normalizeArguments} from './normalize-arguments';
 import {Hooks} from './known-hook-events';
-
-const getPromiseOrStream = (options: NormalizedOptions): ProxyStream | CancelableRequest<Response> => options.stream ? asStream(options) : asPromise(options);
 
 export type HTTPAlias = 'get' | 'post' | 'put' | 'patch' | 'head' | 'delete';
 
 export type ReturnResponse = (url: URLArgument | Options & { stream?: false; url: URLArgument }, options?: Options & { stream?: false }) => CancelableRequest<Response>;
 export type ReturnStream = (url: URLArgument | Options & { stream: true; url: URLArgument }, options?: Options & { stream: true }) => ProxyStream;
+export type GotReturn = ProxyStream | CancelableRequest<Response>;
+
+const getPromiseOrStream = (options: NormalizedOptions): GotReturn => options.stream ? asStream(options) : asPromise(options);
 
 export interface Got extends Record<HTTPAlias, ReturnResponse> {
 	stream: GotStream;
@@ -40,8 +43,8 @@ export interface Got extends Record<HTTPAlias, ReturnResponse> {
 	(url: URLArgument | Options & { stream: true; url: URLArgument }, options?: Options & { stream: true }): ProxyStream;
 	(url: URLOrOptions, options?: Options): CancelableRequest<Response> | ProxyStream;
 	create(defaults: Defaults): Got;
-	extend(options?: Options): Got;
-	mergeInstances(...instances: Got[]): Got;
+	extend(...instancesOrOptions: Array<Got | ExtendedOptions>): Got;
+	mergeInstances(parent: Got, ...instances: Got[]): Got;
 	mergeOptions<T extends Options>(...sources: T[]): T & { hooks: Partial<Hooks> };
 }
 
@@ -58,22 +61,65 @@ const aliases: readonly HTTPAlias[] = [
 	'delete'
 ];
 
+const defaultHandler: HandlerFunction = (options, next) => next(options);
+
+// `got.mergeInstances()` is deprecated
+let hasShownDeprecation = false;
+
 const create = (defaults: Partial<Defaults>): Got => {
 	defaults = merge<Defaults, Partial<Defaults>>({}, defaults);
 	preNormalizeArguments(defaults.options!);
 
-	if (!defaults.handler) {
-		// This can't be getPromiseOrStream, because when merging
-		// the chain would stop at this point and no further handlers would be called.
-		defaults.handler = (options, next) => next(options);
-	}
+	defaults = {
+		handlers: [defaultHandler],
+		options: {},
+		...defaults,
+		mutableDefaults: Boolean(defaults.mutableDefaults)
+	};
 
 	// @ts-ignore Because the for loop handles it for us, as well as the other Object.defines
-	const got: Got = (url: URLOrOptions, options?: Options): ProxyStream | CancelableRequest<Response> => {
+	const got: Got = (url: URLOrOptions, options?: Options): GotReturn => {
+		const isStream = options && options.stream;
+
+		let iteration = 0;
+		const iterateHandlers = (newOptions: NormalizedOptions): GotReturn => {
+			let nextPromise: CancelableRequest<Response>;
+			const result = defaults.handlers[iteration++](newOptions, options => {
+				const fn = iteration === defaults.handlers.length ? getPromiseOrStream : iterateHandlers;
+
+				if (isStream) {
+					return fn(options);
+				}
+
+				// We need to remember the `next(options)` result.
+				nextPromise = fn(options) as CancelableRequest<Response>;
+				return nextPromise;
+			});
+
+			// Proxy the properties from the next handler to this one
+			if (!isStream && !Reflect.has(result, isProxiedSymbol)) {
+				for (const key of Object.keys(nextPromise)) {
+					Object.defineProperty(result, key, {
+						get: () => {
+							return nextPromise[key];
+						},
+						set: (value: unknown) => {
+							nextPromise[key] = value;
+						}
+					});
+				}
+
+				(result as CancelableRequest<Response>).cancel = nextPromise.cancel;
+				result[isProxiedSymbol] = true;
+			}
+
+			return result;
+		};
+
 		try {
-			return defaults.handler!(normalizeArguments(url, options as NormalizedOptions, defaults), getPromiseOrStream);
+			return iterateHandlers(normalizeArguments(url, options as NormalizedOptions, defaults));
 		} catch (error) {
-			if (options && options.stream) {
+			if (isStream) {
 				throw error;
 			} else {
 				// @ts-ignore It's an Error not a response, but TS thinks it's calling .resolve
@@ -83,23 +129,45 @@ const create = (defaults: Partial<Defaults>): Got => {
 	};
 
 	got.create = create;
-	got.extend = options => {
+	got.extend = (...instancesOrOptions) => {
+		const options: Options[] = [defaults.options];
+		const handlers: HandlerFunction[] = [...defaults.handlers];
 		let mutableDefaults: boolean;
-		if (options && Reflect.has(options, 'mutableDefaults')) {
-			mutableDefaults = options.mutableDefaults!;
-			delete options.mutableDefaults;
-		} else {
-			mutableDefaults = defaults.mutableDefaults!;
+
+		for (const value of instancesOrOptions) {
+			if (Reflect.has(value, 'defaults')) {
+				options.push((value as Got).defaults.options);
+				handlers.push(...(value as Got).defaults.handlers.filter(handler => handler !== defaultHandler));
+
+				mutableDefaults = (value as Got).defaults.mutableDefaults;
+			} else {
+				options.push(value as Options);
+
+				if (Reflect.has(value, 'handlers')) {
+					handlers.push(...(value as ExtendedOptions).handlers);
+				}
+
+				mutableDefaults = (value as ExtendedOptions).mutableDefaults;
+			}
 		}
 
+		handlers.push(defaultHandler);
+
 		return create({
-			options: mergeOptions(defaults.options!, options!),
-			handler: defaults.handler,
+			options: mergeOptions(...options),
+			handlers,
 			mutableDefaults
 		});
 	};
 
-	got.mergeInstances = (...args: Got[]) => create(mergeInstances(args));
+	got.mergeInstances = (parent, ...instances) => {
+		if (!hasShownDeprecation) {
+			console.warn('`got.mergeInstances()` is deprecated. We support it solely for compatibility - it will be removed in Got 11. Use `instance.extend(...instances)` instead.');
+			hasShownDeprecation = true;
+		}
+
+		return parent.extend(...instances);
+	};
 
 	// @ts-ignore The missing methods because the for-loop handles it for us
 	got.stream = (url, options) => got(url, {...options, stream: true});
