@@ -151,7 +151,7 @@ It can be useful when your machine has limited amount of memory.
 
 ```js
 const limitDownloadUpload = got.extend({
-    handlers: [
+	handlers: [
 		(options, next) => {
 			let promiseOrStream = next(options);
 			if (typeof options.downloadLimit === 'number') {
