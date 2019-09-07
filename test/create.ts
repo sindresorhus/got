@@ -266,15 +266,15 @@ test('extend with custom handlers', withServer, async (t, server, got) => {
 });
 
 test('extend with instances', t => {
-	const a = got.extend({baseUrl: new URL('https://example.com/')});
+	const a = got.extend({prefixUrl: new URL('https://example.com/')});
 	const b = got.extend(a);
-	t.is(b.defaults.options.baseUrl.toString(), 'https://example.com/');
+	t.is(b.defaults.options.prefixUrl.toString(), 'https://example.com/');
 });
 
 test('extend with a chain', t => {
-	const a = got.extend({baseUrl: 'https://example.com/'});
+	const a = got.extend({prefixUrl: 'https://example.com/'});
 	const b = got.extend(a, {headers: {foo: 'bar'}});
-	t.is(b.defaults.options.baseUrl.toString(), 'https://example.com/');
+	t.is(b.defaults.options.prefixUrl.toString(), 'https://example.com/');
 	t.is(b.defaults.options.headers.foo, 'bar');
 });
 
