@@ -11,7 +11,7 @@ import requestAsEventEmitter from './request-as-event-emitter';
 
 type ResponseReturn = Response | Buffer | string | any;
 
-export const kProxied = Symbol('proxied');
+export const isProxiedSymbol = Symbol('proxied');
 
 export default function asPromise(options: NormalizedOptions): CancelableRequest<Response> {
 	const proxy = new EventEmitter();
@@ -134,7 +134,7 @@ export default function asPromise(options: NormalizedOptions): CancelableRequest
 		}));
 	}) as CancelableRequest<ResponseReturn>;
 
-	promise[kProxied] = true;
+	promise[isProxiedSymbol] = true;
 
 	promise.on = (name, fn) => {
 		proxy.on(name, fn);

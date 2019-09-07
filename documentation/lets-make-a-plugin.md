@@ -37,7 +37,6 @@ When we have all the necessary info, we can start mixing :cake:
 Not much to do here, just extend an instance and provide the `baseUrl` option:
 
 ```js
-'use strict';
 const got = require('got');
 
 const instance = got.extend({
@@ -52,6 +51,8 @@ module.exports = instance;
 GitHub needs to know which version we are using. We'll use the `Accept` header for that:
 
 ```js
+const got = require('got');
+
 const instance = got.extend({
 	baseUrl: 'https://api.github.com',
 	headers: {
@@ -65,6 +66,8 @@ const instance = got.extend({
 We'll use [`options.responseType`](../readme.md#responsetype):
 
 ```js
+const got = require('got');
+
 const instance = got.extend({
 	baseUrl: 'https://api.github.com',
 	headers: {
@@ -72,15 +75,21 @@ const instance = got.extend({
 	},
 	responseType: 'json'
 });
+
+module.exports = instance;
 ```
 
 ### Authorization
 
 It's common to set some environment variables, for example, `GITHUB_TOKEN`. You can modify the tokens in all your apps easily, right? Cool. What about... we want to provide a unique token for each app. Then we will need to create a new option - it will default to the environment variable, but you can easily override it.
 
-Let's use handlers instead of hooks, our code will be more readable later.
+Let's use handlers instead of hooks. This will make our code more readable: having `beforeRequest`, `beforeError` and `afterResponse` hooks for just a few lines of code would complicate things unnecessarily.
+
+**Tip:** it's a good practice to use hooks when your plugin gets complicated. Try not to overload the handler function, but don't abuse hooks either.
 
 ```js
+const got = require('got');
+
 const instance = got.extend({
 	baseUrl: 'https://api.github.com',
 	headers: {
@@ -99,11 +108,13 @@ const instance = got.extend({
 		}
 	]
 });
+
+module.exports = instance;
 ```
 
 ### Errors
 
-We should name our errors, just to know there is a problem with your request, so you don't have to figure it out on your own. Superb errors, here we come!
+We should name our errors, just to know if the error is from the API response. Superb errors, here we come!
 
 ```js
 ...
@@ -162,7 +173,7 @@ getRateLimit({
 // => {
 // 	limit: 60,
 // 	remaining: 55,
-// 	reset: 1562852139000
+// 	reset: 2019-07-11T13:35:39.000Z
 // }
 ```
 
@@ -188,7 +199,7 @@ const getRateLimit = ({headers}) => ({
 				return next(options);
 			}
 
-			// Magic begins.
+			// Magic begins
 			return (async () => {
 				try {
 					const response = await next(options);

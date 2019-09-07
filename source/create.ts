@@ -12,7 +12,7 @@ import {
 } from './utils/types';
 import deepFreeze from './utils/deep-freeze';
 import merge, {mergeOptions} from './merge';
-import asPromise, {kProxied} from './as-promise';
+import asPromise, {isProxiedSymbol} from './as-promise';
 import asStream, {ProxyStream} from './as-stream';
 import {preNormalizeArguments, normalizeArguments} from './normalize-arguments';
 import {Hooks} from './known-hook-events';
@@ -97,7 +97,7 @@ const create = (defaults: Partial<Defaults>): Got => {
 			});
 
 			// Proxy the properties from the next handler to this one
-			if (!isStream && !Reflect.has(result, kProxied)) {
+			if (!isStream && !Reflect.has(result, isProxiedSymbol)) {
 				for (const key of Object.keys(nextPromise)) {
 					Object.defineProperty(result, key, {
 						get: () => {
@@ -110,7 +110,7 @@ const create = (defaults: Partial<Defaults>): Got => {
 				}
 
 				(result as CancelableRequest<Response>).cancel = nextPromise.cancel;
-				result[kProxied] = true;
+				result[isProxiedSymbol] = true;
 			}
 
 			return result;

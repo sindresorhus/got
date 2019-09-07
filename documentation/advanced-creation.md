@@ -29,7 +29,7 @@ States if the defaults are mutable. It can be useful when you need to [update he
 Type: `Function[]`<br>
 Default: `[]`
 
-An array of functions. These are very special, because they're called first.
+An array of functions. You execute them directly by calling `got()`. They are some sort of "global hooks" - these functions are called first. The last handler (*it's hidden*) is either [`asPromise`](../source/as-promise.ts) or [`asStream`](../source/as-stream.ts), depending on the `options.stream` property.
 
 To inherit from the parent, set it as `got.defaults.handlers`.<br>
 To use the default handler, just omit specifying this.
@@ -70,7 +70,7 @@ const settings = {
 const jsonGot = got.create(settings);
 ```
 
-Sometimes you don't need to use `got.create(defaults)`. Instead, `got.extend(options)` should be good enough:
+Sometimes you don't need to use `got.create(defaults)`. You should go for `got.extend(options)` if you don't want to overwrite the defaults:
 
 ```js
 const settings = {
@@ -92,29 +92,28 @@ const unicorn = got.extend({headers: {unicorn: 'rainbow'}});
 
 ```js
 const handler = (options, next) => {
-	if (!options.stream) {
-		// It's a Promise
-
-		return (async () => {
-			try {
-				const promiseOrStream = await next(options);
-
-				result.modifiedByHandler = true;
-
-				return result;
-			} catch (error) {
-				// Every error will be replaced by the one thrown here.
-				// Before you will receive any error here,
-				// it will be passed to `beforeError` hooks first.
-
-				// Note: this one won't be passed to `beforeError` hook. It's final.
-				throw new Error('Your very own error.');
-			}
-		})();
+	if (options.stream) {
+		// It's a Stream
+		return next(options);
 	}
 
-	// It's a Stream
-	return next(options);
+	// It's a Promise
+	return (async () => {
+		try {
+			const response = await next(options);
+
+			response.yourOwnProperty = true;
+
+			return response;
+		} catch (error) {
+			// Every error will be replaced by this one.
+			// Before you receive any error here,
+			// it will be passed to the `beforeError` hooks first.
+
+			// Note: this one won't be passed to `beforeError` hook. It's final.
+			throw new Error('Your very own error.');
+		}
+	})();
 };
 ```
 
@@ -146,7 +145,7 @@ const controlRedirects = got.extend({
 });
 ```
 
-#### Limiting download & upload
+#### Limiting download & upload size
 
 It can be useful when your machine has limited amount of memory.
 
