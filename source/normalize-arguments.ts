@@ -71,7 +71,7 @@ export const preNormalizeArguments = (options: Options, defaults?: Options): Nor
 
 	const {retry} = options;
 	options.retry = {
-		retryFunction: (_iteration, _retryOptions, _error, computedValue) => computedValue,
+		calculateDelay: retryObject => retryObject.computedValue,
 		methods: new Set(),
 		statusCodes: new Set(),
 		errorCodes: new Set(),

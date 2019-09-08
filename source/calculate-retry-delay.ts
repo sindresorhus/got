@@ -9,8 +9,8 @@ import {
 
 const retryAfterStatusCodes: ReadonlySet<StatusCode> = new Set([413, 429, 503]);
 
-const calculateRetryDelay: RetryFunction = (iteration, retryOptions, error) => {
-	if (iteration > retryOptions.limit) {
+const calculateRetryDelay: RetryFunction = ({attemptCount, retryOptions, error}) => {
+	if (attemptCount > retryOptions.limit) {
 		return 0;
 	}
 
@@ -42,7 +42,7 @@ const calculateRetryDelay: RetryFunction = (iteration, retryOptions, error) => {
 	}
 
 	const noise = Math.random() * 100;
-	return ((2 ** (iteration - 1)) * 1000) + noise;
+	return ((2 ** (attemptCount - 1)) * 1000) + noise;
 };
 
 export default calculateRetryDelay;

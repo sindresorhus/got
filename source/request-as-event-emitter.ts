@@ -271,7 +271,17 @@ export default (options: NormalizedOptions, input?: TransformStream) => {
 		retryCount++;
 
 		try {
-			backoff = options.retry.retryFunction(retryCount, options.retry, error, calculateRetryDelay(retryCount, options.retry, error, 0));
+			backoff = options.retry.calculateDelay({
+				attemptCount: retryCount,
+				retryOptions: options.retry,
+				error,
+				computedValue: calculateRetryDelay({
+					attemptCount: retryCount,
+					retryOptions: options.retry,
+					error,
+					computedValue: 0
+				})
+			});
 		} catch (error2) {
 			emitError(error2);
 			return false;
