@@ -320,7 +320,7 @@ test('retries on timeout', withServer, async (t, server, got) => {
 	await t.throwsAsync(got({
 		timeout: 1,
 		retry: {
-			retries: () => {
+			calculateDelay: () => {
 				if (tried) {
 					return 0;
 				}

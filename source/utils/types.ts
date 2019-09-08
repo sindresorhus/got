@@ -67,12 +67,20 @@ export interface Response extends http.IncomingMessage {
 	request: { options: NormalizedOptions };
 }
 
-export type RetryFunction = (retry: number, error: Error | GotError | ParseError | HTTPError | MaxRedirectsError) => number;
+export interface RetryObject {
+	attemptCount: number;
+	retryOptions: NormalizedRetryOptions;
+	error: Error | GotError | ParseError | HTTPError | MaxRedirectsError;
+	computedValue: number;
+}
+
+export type RetryFunction = (retryObject: RetryObject) => number;
 
 export type HandlerFunction = <T extends ProxyStream | CancelableRequest<Response>>(options: NormalizedOptions, next: (options: NormalizedOptions) => T) => T;
 
-export interface RetryOption {
-	retries?: RetryFunction | number;
+export interface RetryOptions {
+	limit?: number;
+	calculateDelay?: RetryFunction;
 	methods?: Method[];
 	statusCodes?: StatusCode[];
 	errorCodes?: ErrorCode[];
@@ -80,7 +88,8 @@ export interface RetryOption {
 }
 
 export interface NormalizedRetryOptions {
-	retries: RetryFunction;
+	limit: number;
+	calculateDelay: RetryFunction;
 	methods: ReadonlySet<Method>;
 	statusCodes: ReadonlySet<StatusCode>;
 	errorCodes: ReadonlySet<ErrorCode>;
@@ -121,7 +130,7 @@ export interface Options extends Omit<https.RequestOptions, 'agent' | 'timeout' 
 	stream?: boolean;
 	encoding?: BufferEncoding | null;
 	method?: Method;
-	retry?: number | Partial<RetryOption | NormalizedRetryOptions>;
+	retry?: number | Partial<RetryOptions | NormalizedRetryOptions>;
 	throwHttpErrors?: boolean;
 	cookieJar?: CookieJar;
 	ignoreInvalidCookies?: boolean;

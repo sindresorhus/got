@@ -73,7 +73,7 @@ export default function asPromise(options: NormalizedOptions): CancelableRequest
 							...updatedOptions,
 							// @ts-ignore TS complaining that it's missing properties, which get merged
 							retry: {
-								retries: () => 0
+								calculateDelay: () => 0
 							},
 							throwHttpErrors: false,
 							responseType: 'text',

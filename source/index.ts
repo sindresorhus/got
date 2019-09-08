@@ -6,7 +6,7 @@ const defaults: Partial<Defaults> = {
 	options: {
 		method: 'GET',
 		retry: {
-			retries: 2,
+			limit: 2,
 			methods: [
 				'GET',
 				'PUT',

@@ -14,17 +14,12 @@ import {
 	Defaults,
 	NormalizedOptions,
 	NormalizedRetryOptions,
-	RetryOption,
+	RetryOptions,
 	Method,
 	Delays,
-	ErrorCode,
-	StatusCode,
 	URLArgument,
 	URLOrOptions
 } from './utils/types';
-import {HTTPError, ParseError, MaxRedirectsError, GotError} from './errors';
-
-const retryAfterStatusCodes: ReadonlySet<StatusCode> = new Set([413, 429, 503]);
 
 let hasShownDeprecation = false;
 
@@ -80,7 +75,7 @@ export const preNormalizeArguments = (options: Options, defaults?: Options): Nor
 
 	const {retry} = options;
 	options.retry = {
-		retries: () => 0,
+		calculateDelay: retryObject => retryObject.computedValue,
 		methods: new Set(),
 		statusCodes: new Set(),
 		errorCodes: new Set(),
@@ -88,12 +83,12 @@ export const preNormalizeArguments = (options: Options, defaults?: Options): Nor
 	};
 
 	if (is.nonEmptyObject(defaults) && retry !== false) {
-		options.retry = {...(defaults.retry as RetryOption)};
+		options.retry = {...(defaults.retry as RetryOptions)};
 	}
 
 	if (retry !== false) {
 		if (is.number(retry)) {
-			options.retry.retries = retry;
+			options.retry.limit = retry;
 		} else {
 			// eslint-disable-next-line @typescript-eslint/no-object-literal-type-assertion
 			options.retry = {...options.retry, ...retry} as NormalizedRetryOptions;
@@ -241,46 +236,6 @@ export const normalizeArguments = (url: URLOrOptions, options: NormalizedOptions
 
 	if (options.method) {
 		options.method = options.method.toUpperCase() as Method;
-	}
-
-	if (!is.function_(options.retry.retries)) {
-		const {retries} = options.retry;
-
-		options.retry.retries = (iteration, error) => {
-			if (iteration > retries) {
-				return 0;
-			}
-
-			const hasMethod = options.retry.methods.has((error as GotError).options.method as Method);
-			const hasErrorCode = Reflect.has(error, 'code') && options.retry.errorCodes.has((error as GotError).code as ErrorCode);
-			const hasStatusCode = Reflect.has(error, 'response') && options.retry.statusCodes.has((error as HTTPError | ParseError | MaxRedirectsError).response.statusCode as StatusCode);
-			if (!hasMethod || (!hasErrorCode && !hasStatusCode)) {
-				return 0;
-			}
-
-			const {response} = error as HTTPError | ParseError | MaxRedirectsError;
-			if (response && Reflect.has(response.headers, 'retry-after') && retryAfterStatusCodes.has(response.statusCode as StatusCode)) {
-				let after = Number(response.headers['retry-after']);
-				if (is.nan(after)) {
-					after = Date.parse(response.headers['retry-after']!) - Date.now();
-				} else {
-					after *= 1000;
-				}
-
-				if (after > options.retry.maxRetryAfter) {
-					return 0;
-				}
-
-				return after;
-			}
-
-			if (response && response.statusCode === 413) {
-				return 0;
-			}
-
-			const noise = Math.random() * 100;
-			return ((2 ** (iteration - 1)) * 1000) + noise;
-		};
 	}
 
 	return options;
