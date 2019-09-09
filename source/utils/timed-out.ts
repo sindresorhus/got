@@ -85,11 +85,11 @@ export default (request: ClientRequest, delays: Delays, options: TimedOutOptions
 		once(response, 'end', cancelTimeouts);
 	});
 
-	if (delays.request !== undefined) {
+	if (typeof delays.request !== 'undefined') {
 		addTimeout(delays.request, timeoutHandler, 'request');
 	}
 
-	if (delays.socket !== undefined) {
+	if (typeof delays.socket !== 'undefined') {
 		const socketTimeoutHandler = (): void => {
 			timeoutHandler(delays.socket, 'socket');
 		};
@@ -110,12 +110,12 @@ export default (request: ClientRequest, delays: Delays, options: TimedOutOptions
 
 		/* istanbul ignore next: hard to test */
 		if (socket.connecting) {
-			if (delays.lookup !== undefined && !socketPath && !net.isIP(hostname || host)) {
+			if (typeof delays.lookup !== 'undefined' && !socketPath && !net.isIP(hostname || host) && typeof (socket.address() as net.AddressInfo).address === 'undefined') {
 				const cancelTimeout = addTimeout(delays.lookup, timeoutHandler, 'lookup');
 				once(socket, 'lookup', cancelTimeout);
 			}
 
-			if (delays.connect !== undefined) {
+			if (typeof delays.connect !== 'undefined') {
 				const timeConnect = (): (() => void) => addTimeout(delays.connect, timeoutHandler, 'connect');
 
 				if (socketPath || net.isIP(hostname || host)) {
@@ -129,7 +129,7 @@ export default (request: ClientRequest, delays: Delays, options: TimedOutOptions
 				}
 			}
 
-			if (delays.secureConnect !== undefined && options.protocol === 'https:') {
+			if (typeof delays.secureConnect !== 'undefined' && options.protocol === 'https:') {
 				once(socket, 'connect', (): void => {
 					const cancelTimeout = addTimeout(delays.secureConnect, timeoutHandler, 'secureConnect');
 					once(socket, 'secureConnect', cancelTimeout);
@@ -137,7 +137,7 @@ export default (request: ClientRequest, delays: Delays, options: TimedOutOptions
 			}
 		}
 
-		if (delays.send !== undefined) {
+		if (typeof delays.send !== 'undefined') {
 			const timeRequest = (): (() => void) => addTimeout(delays.send, timeoutHandler, 'send');
 			/* istanbul ignore next: hard to test */
 			if (socket.connecting) {
@@ -150,7 +150,7 @@ export default (request: ClientRequest, delays: Delays, options: TimedOutOptions
 		}
 	});
 
-	if (delays.response !== undefined) {
+	if (typeof delays.response !== 'undefined') {
 		once(request, 'upload-complete', (): void => {
 			const cancelTimeout = addTimeout(delays.response!, timeoutHandler, 'response');
 			once(request, 'response', cancelTimeout);

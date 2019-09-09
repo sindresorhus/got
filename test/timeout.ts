@@ -466,3 +466,21 @@ test('double calling timedOut has no effect', t => {
 
 	t.is(emitter.listenerCount('socket'), 1);
 });
+
+test('doesn\'t throw on early lookup', withServer, async (t, server, got) => {
+	server.get('/', defaultHandler);
+
+	await t.notThrowsAsync(got('', {
+		timeout: {
+			lookup: 100
+		},
+		retry: 0,
+		lookup: (_hostname, options, callback) => {
+			if (typeof options === 'function') {
+				callback = options;
+			}
+
+			callback(null, '127.0.0.1', 4);
+		}
+	}));
+});
