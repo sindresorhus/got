@@ -158,7 +158,7 @@ Useful when used with `got.extend()` to create niche-specific Got-instances.
 const got = require('got');
 
 (async () => {
-	await ky('unicorn', {prefixUrl: 'https://cats.com'});
+	await got('unicorn', {prefixUrl: 'https://cats.com'});
 	//=> 'https://cats.com/unicorn'
 })();
 ```
