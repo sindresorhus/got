@@ -1165,14 +1165,14 @@ test('retry function gets iteration count', withServer, async (t, server, got) =
 
 ### JSON mode
 
-By default, if you pass an object to the `body` option it will be stringified using `JSON.stringify`. Example:
+To pass an object as the body, you need to use the `json` option. It will be stringified using `JSON.stringify`. Example:
 
 ```js
 const got = require('got');
 
 (async () => {
 	const {body} = await got.post('https://httpbin.org/anything', {
-		body: {
+		json: {
 			hello: 'world'
 		},
 		responseType: 'json'
