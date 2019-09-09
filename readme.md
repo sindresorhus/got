@@ -1374,13 +1374,13 @@ const h2got = got.extend({request});
 [gbg]: https://badgen.net/github/label-issues/sindresorhus/got/bug/open?label
 [rbg]: https://badgen.net/github/label-issues/request/request/Needs%20investigation/open?label
 [nbg]: https://badgen.net/github/label-issues/bitinn/node-fetch/bug/open?label
-[abg]: https://badgen.net/github/label-issues/axios/axios/bug/open?label
+[abg]: https://badgen.net/github/label-issues/axios/axios/type:bug/open?label
 [sbg]: https://badgen.net/github/label-issues/visionmedia/superagent/Bug/open?label
 
 [g6]: https://github.com/sindresorhus/got/issues?q=is%3Aissue+is%3Aopen+sort%3Aupdated-desc+label%3Abug
 [r6]: https://github.com/request/request/issues?q=is%3Aissue+is%3Aopen+sort%3Aupdated-desc+label%3A"Needs+investigation"
 [n6]: https://github.com/bitinn/node-fetch/issues?q=is%3Aissue+is%3Aopen+sort%3Aupdated-desc+label%3Abug
-[a6]: https://github.com/axios/axios/issues?q=is%3Aissue+is%3Aopen+sort%3Aupdated-desc+label%3Abug
+[a6]: https://github.com/axios/axios/issues?q=is%3Aissue+is%3Aopen+sort%3Aupdated-desc+label%3Atype:bug
 [s6]: https://github.com/visionmedia/superagent/issues?q=is%3Aissue+is%3Aopen+sort%3Aupdated-desc+label%3ABug
 
 <!-- DEPENDENTS -->
