@@ -1291,7 +1291,7 @@ const h2got = got.extend({request});
 | Issues open           |  [![][gio]][g1]  | [![][rio]][r1]  |    [![][nio]][n1]    |  [![][aio]][a1] |    [![][sio]][s1]     |
 | Issues closed         |  [![][gic]][g2]  | [![][ric]][r2]  |    [![][nic]][n2]    |  [![][aic]][a2] |    [![][sic]][s2]     |
 | Downloads             |  [![][gd]][g3]   |  [![][rd]][r3]  |    [![][nd]][n3]     |  [![][ad]][a3]  |    [![][sd]][s3]      |
-| Coverage              |  [![][gc]][g4]   |  [![][rc]][r4]  |    [![][nc]][n4]     |  [![][ac]][a4]  |        unknown        |
+| Coverage              |  [![][gc]][g4]   |  [![][rc]][r4]  |    [![][nc]][n4]     |  [![][ac]][a4]  |    [![][sc]][s4]      |
 | Build                 |  [![][gb]][g5]   |  [![][rb]][r5]  |    [![][nb]][n5]     |  [![][ab]][a5]  |    [![][sb]][s5]      |
 | Bugs                  |  [![][gbg]][g6]  | [![][rbg]][r6]  |    [![][nbg]][n6]    |  [![][abg]][a6] |    [![][sbg]][s6]     |
 | Dependents            |  [![][gdp]][g7]  | [![][rdp]][r7]  |    [![][ndp]][n7]    |  [![][adp]][a7] |    [![][sdp]][s7]     |
@@ -1351,11 +1351,13 @@ const h2got = got.extend({request});
 [rc]: https://badgen.net/coveralls/c/github/request/request?label
 [nc]: https://badgen.net/coveralls/c/github/bitinn/node-fetch?label
 [ac]: https://badgen.net/coveralls/c/github/mzabriskie/axios?label
+[sc]: https://badgen.net/codecov/c/github/visionmedia/superagent?label
 
 [g4]: https://coveralls.io/github/sindresorhus/got
 [r4]: https://coveralls.io/github/request/request
 [n4]: https://coveralls.io/github/bitinn/node-fetch
 [a4]: https://coveralls.io/github/mzabriskie/axios
+[s4]: https://codecov.io/gh/visionmedia/superagent
 
 <!-- BUILD -->
 [gb]: https://badgen.net/travis/sindresorhus/got?label
