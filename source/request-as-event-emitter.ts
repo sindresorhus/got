@@ -120,13 +120,16 @@ export default (options: NormalizedOptions, input?: TransformStream) => {
 				typedResponse.statusMessage = typedResponse.statusMessage || http.STATUS_CODES[statusCode];
 				typedResponse.url = currentUrl;
 				typedResponse.requestUrl = requestUrl;
-				typedResponse.ip = response.connection.remoteAddress;
 				typedResponse.retryCount = retryCount;
 				typedResponse.timings = timings;
 				typedResponse.redirectUrls = redirects;
 				typedResponse.request = {options};
 				typedResponse.isFromCache = typedResponse.fromCache || false;
 				delete typedResponse.fromCache;
+
+				if (!typedResponse.isFromCache) {
+					typedResponse.ip = response.connection.remoteAddress;
+				}
 
 				const rawCookies = typedResponse.headers['set-cookie'];
 				if (options.cookieJar && rawCookies) {
