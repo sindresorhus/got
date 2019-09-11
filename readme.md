@@ -593,6 +593,8 @@ Type: `string`
 
 The remote IP address.
 
+**Note:** Isn't available when the response is cached; see [lukechilds/cacheable-request#86](https://github.com/lukechilds/cacheable-request/issues/86).
+
 ##### requestUrl
 
 Type: `string`
