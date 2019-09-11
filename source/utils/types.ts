@@ -71,7 +71,7 @@ export interface Response extends http.IncomingMessage {
 
 export interface ResponseObject extends ResponseLike {
 	connection: {
-		remoteAddress: string
+		remoteAddress: string;
 	};
 }
 
