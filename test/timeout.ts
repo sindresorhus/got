@@ -7,7 +7,7 @@ import pEvent = require('p-event');
 import delay = require('delay');
 import got from '../source';
 import timedOut from '../source/utils/timed-out';
-import withServer from './helpers/with-server';
+import withServer, { withServerAndLolex } from './helpers/with-server';
 import slowDataStream from './helpers/slow-data-stream';
 
 const requestDelay = 800;
@@ -379,7 +379,7 @@ test('no unhandled `socket hung up` errors', withServer, async (t, server, got) 
 	await delay(requestDelay);
 });
 
-test('no more timeouts after an error', async t => {
+test.serial('no more timeouts after an error', withServerAndLolex, async (t, _server, _got, clock) => {
 	await t.throwsAsync(got(`http://${Date.now()}.dev`, {
 		retry: 1,
 		timeout: {
@@ -394,10 +394,10 @@ test('no more timeouts after an error', async t => {
 	}), {instanceOf: got.GotError}); // Don't check the message, because it may throw ENOTFOUND before the timeout.
 
 	// Wait a bit more to check if there are any unhandled errors
-	await delay(100);
+	clock.tick(100);
 });
 
-test('socket timeout is canceled on error', withServer, async (t, server, got) => {
+test.serial('socket timeout is canceled on error', withServerAndLolex, async (t, server, got, clock) => {
 	server.get('/', defaultHandler);
 
 	const message = 'oh, snap!';
@@ -413,7 +413,7 @@ test('socket timeout is canceled on error', withServer, async (t, server, got) =
 	await t.throwsAsync(promise, {message});
 
 	// Wait a bit more to check if there are any unhandled errors
-	await delay(100);
+	clock.tick(100);
 });
 
 test('no memory leak when using socket timeout and keepalive agent', withServer, async (t, server, got) => {
