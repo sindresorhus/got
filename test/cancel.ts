@@ -172,8 +172,6 @@ test('throws on incomplete (canceled) response - promise #2', withServer, async 
 		promise.cancel();
 	});
 
-	clock.tick();
-
 	await t.throwsAsync(promise, got.CancelError);
 });
 

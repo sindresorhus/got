@@ -15,10 +15,23 @@ export default async (t, run) => {
 		}
 	});
 
+	const options = {
+		avaTest: t.title,
+		handlers: [
+			(options, next) => {
+				const result = next(options);
+
+				clock.tick(0);
+
+				return result;
+			}
+		]
+	};
+
 	// @ts-ignore Ignore errors for extending got, for the tests
-	const preparedGot = got.extend({prefixUrl: server.url, avaTest: t.title});
+	const preparedGot = got.extend({prefixUrl: server.url, ...options});
 	// @ts-ignore Ignore errors for extending got, for the tests
-	preparedGot.secure = got.extend({prefixUrl: server.sslUrl, avaTest: t.title});
+	preparedGot.secure = got.extend({prefixUrl: server.sslUrl, ...options});
 
 	server.hostname = (new URL(server.url)).hostname;
 	server.sslHostname = (new URL(server.sslUrl)).hostname;
