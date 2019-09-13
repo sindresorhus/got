@@ -261,7 +261,7 @@ test('secureConnect timeout', withServer, async (t, server, got) => {
 
 	await t.throwsAsync(
 		got.secure({
-			timeout: {secureConnect: 1},
+			timeout: {secureConnect: 0},
 			retry: 0,
 			rejectUnauthorized: false
 		}).on('request', request => {
@@ -273,7 +273,7 @@ test('secureConnect timeout', withServer, async (t, server, got) => {
 		}),
 		{
 			...errorMatcher,
-			message: 'Timeout awaiting \'secureConnect\' for 1ms'
+			message: 'Timeout awaiting \'secureConnect\' for 0ms'
 		}
 	);
 });
@@ -343,7 +343,7 @@ test('retries on timeout', withServer, async (t, server, got) => {
 	await t.throwsAsync(got({
 		timeout: 1,
 		retry: {
-			retries: () => {
+			calculateDelay: () => {
 				if (tried) {
 					return 0;
 				}
@@ -394,6 +394,7 @@ test('no error emitted when timeout is not breached (promise)', withServer, asyn
 	}));
 });
 
+// Note: sometimes `got()` resolves instead of rejecting. That's because Travis is slow.
 test('no unhandled `socket hung up` errors', withServer, async (t, server, got) => {
 	server.get('/', defaultHandler(got));
 	await t.throwsAsync(got({retry: 0, timeout: requestDelay / 2}), {instanceOf: got.TimeoutError});
@@ -486,4 +487,22 @@ test('double calling timedOut has no effect', t => {
 	attach();
 
 	t.is(emitter.listenerCount('socket'), 1);
+});
+
+test('doesn\'t throw on early lookup', withServer, async (t, server, got) => {
+	server.get('/', defaultHandler);
+
+	await t.notThrowsAsync(got('', {
+		timeout: {
+			lookup: 100
+		},
+		retry: 0,
+		lookup: (_hostname, options, callback) => {
+			if (typeof options === 'function') {
+				callback = options;
+			}
+
+			callback(null, '127.0.0.1', 4);
+		}
+	}));
 });

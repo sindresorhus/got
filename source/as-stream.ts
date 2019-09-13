@@ -16,7 +16,7 @@ export default function asStream(options: NormalizedOptions): ProxyStream {
 	const piped = new Set();
 	let isFinished = false;
 
-	options.retry.retries = () => 0;
+	options.retry.calculateDelay = () => 0;
 
 	if (options.body) {
 		proxy.write = () => {

@@ -1,8 +1,6 @@
 import is from '@sindresorhus/is';
-import {Options, Method, Defaults, NormalizedOptions, CancelableRequest, Response} from './utils/types';
+import {Options} from './utils/types';
 import knownHookEvents, {Hooks, HookEvent, HookType} from './known-hook-events';
-import {Got} from './create';
-import {ProxyStream} from './as-stream';
 
 const URLGlobal: typeof URL = typeof URL === 'undefined' ? require('url').URL : URL;
 const URLSearchParamsGlobal: typeof URLSearchParams = typeof URLSearchParams === 'undefined' ? require('url').URLSearchParams : URLSearchParams;
@@ -85,20 +83,4 @@ export function mergeOptions<T extends Options>(...sources: T[]): T & {hooks: Pa
 	mergedOptions.hooks = hooks as Hooks;
 
 	return mergedOptions;
-}
-
-export function mergeInstances(instances: Got[], methods?: Method[]): Defaults {
-	const handlers = instances.map(instance => instance.defaults.handler);
-	const size = instances.length - 1;
-
-	return {
-		methods,
-		options: mergeOptions(...instances.map(instance => instance.defaults.options || {})),
-		handler: <T extends ProxyStream | CancelableRequest<Response>>(options: NormalizedOptions, next: (options: NormalizedOptions) => T) => {
-			let iteration = 0;
-			const iterate = (newOptions: NormalizedOptions): T => handlers[++iteration]!(newOptions, iteration === size ? next : iterate);
-
-			return iterate(options);
-		}
-	};
 }

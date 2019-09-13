@@ -12,9 +12,9 @@ Let's take the very first example from Request's readme:
 const request = require('request');
 
 request('https://google.com', (error, response, body) => {
-	console.log('error:', error); // Print the error if one occurred
-	console.log('statusCode:', response && response.statusCode); // Print the response status code if a response was received
-	console.log('body:', body); // Print the HTML for the Google homepage
+	console.log('error:', error);
+	console.log('statusCode:', response && response.statusCode);
+	console.log('body:', body);
 });
 ```
 
@@ -68,8 +68,6 @@ The [`timeout` option](https://github.com/sindresorhus/got#timeout) has some ext
 
 The [`searchParams` option](https://github.com/sindresorhus/got#searchParams) is always serialized using [`URLSearchParams`](https://developer.mozilla.org/en-US/docs/Web/API/URLSearchParams) unless it's a `string`.
 
-The [`baseUrl` option](https://github.com/sindresorhus/got#baseurl) appends the ending slash if it's not present.
-
 There's no `maxRedirects` option. It's always set to `10`.
 
 To use streams, just call `got.stream(url, options)` or `got(url, {stream: true, ...}`).
@@ -82,6 +80,7 @@ To use streams, just call `got.stream(url, options)` or `got(url, {stream: true,
 - No `agentClass`/`agentOptions`/`pool` option.
 - No `forever` option. You need to use [forever-agent](https://github.com/request/forever-agent).
 - No `proxy` option. You need to [pass a custom agent](readme.md#proxies).
+- No `baseUrl` option. Instead, there is `prefixUrl` which appends a trailing slash if not present. It will be always prepended unless `url` is an instance of URL.
 - No `removeRefererHeader` option. You can remove the referer header in a [`beforeRequest` hook](https://github.com/sindresorhus/got#hooksbeforeRequest):
 
 ```js
@@ -144,13 +143,22 @@ http.createServer((request, response) => {
 The cool feature here is that Request can proxy headers with the stream, but Got can do that too:
 
 ```js
-http.createServer((request, response) => {
+const stream = require('stream');
+const {promisify} = require('util');
+const got = require('got');
+
+const pipeline = promisify(stream.pipeline);
+
+http.createServer(async (request, response) => {
 	if (request.url === '/doodle.png') {
 		// When someone makes a request to our server, we receive a body and some headers.
 		// These are passed to Got. Got proxies received data to our server response,
 		// so you don't have to do `response.writeHead(statusCode, headers)` and `response.end(body)`.
 		// It's done automatically.
-		request.pipe(got.stream('https://example.com/doodle.png')).pipe(response);
+		await pipeline(
+			got.stream('https://example.com/doodle.png'),
+			response
+		);
 	}
 });
 ```

@@ -9,7 +9,9 @@ import {ParseError, ReadError, HTTPError} from './errors';
 import {reNormalizeArguments} from './normalize-arguments';
 import requestAsEventEmitter from './request-as-event-emitter';
 
-type ResponeReturn = Response | Buffer | string | any;
+type ResponseReturn = Response | Buffer | string | any;
+
+export const isProxiedSymbol = Symbol('proxied');
 
 export default function asPromise(options: NormalizedOptions): CancelableRequest<Response> {
 	const proxy = new EventEmitter();
@@ -71,7 +73,7 @@ export default function asPromise(options: NormalizedOptions): CancelableRequest
 							...updatedOptions,
 							// @ts-ignore TS complaining that it's missing properties, which get merged
 							retry: {
-								retries: () => 0
+								calculateDelay: () => 0
 							},
 							throwHttpErrors: false,
 							responseType: 'text',
@@ -130,7 +132,9 @@ export default function asPromise(options: NormalizedOptions): CancelableRequest
 		].forEach(event => emitter.on(event, (...args: unknown[]) => {
 			proxy.emit(event, ...args);
 		}));
-	}) as CancelableRequest<ResponeReturn>;
+	}) as CancelableRequest<ResponseReturn>;
+
+	promise[isProxiedSymbol] = true;
 
 	promise.on = (name, fn) => {
 		proxy.on(name, fn);

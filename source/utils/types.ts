@@ -67,12 +67,20 @@ export interface Response extends http.IncomingMessage {
 	request: { options: NormalizedOptions };
 }
 
-export type RetryFunction = (retry: number, error: Error | GotError | ParseError | HTTPError | MaxRedirectsError) => number;
+export interface RetryObject {
+	attemptCount: number;
+	retryOptions: NormalizedRetryOptions;
+	error: Error | GotError | ParseError | HTTPError | MaxRedirectsError;
+	computedValue: number;
+}
 
-export type HandlerFunction = <T extends ProxyStream | CancelableRequest<Response>>(options: Options, next: (options: Options) => T) => T;
+export type RetryFunction = (retryObject: RetryObject) => number;
 
-export interface RetryOption {
-	retries?: RetryFunction | number;
+export type HandlerFunction = <T extends ProxyStream | CancelableRequest<Response>>(options: NormalizedOptions, next: (options: NormalizedOptions) => T) => T;
+
+export interface RetryOptions {
+	limit?: number;
+	calculateDelay?: RetryFunction;
 	methods?: Method[];
 	statusCodes?: StatusCode[];
 	errorCodes?: ErrorCode[];
@@ -80,7 +88,8 @@ export interface RetryOption {
 }
 
 export interface NormalizedRetryOptions {
-	retries: RetryFunction;
+	limit: number;
+	calculateDelay: RetryFunction;
 	methods: ReadonlySet<Method>;
 	statusCodes: ReadonlySet<StatusCode>;
 	errorCodes: ReadonlySet<ErrorCode>;
@@ -121,7 +130,7 @@ export interface Options extends Omit<https.RequestOptions, 'agent' | 'timeout' 
 	stream?: boolean;
 	encoding?: BufferEncoding | null;
 	method?: Method;
-	retry?: number | Partial<RetryOption | NormalizedRetryOptions>;
+	retry?: number | Partial<RetryOptions | NormalizedRetryOptions>;
 	throwHttpErrors?: boolean;
 	cookieJar?: CookieJar;
 	ignoreInvalidCookies?: boolean;
@@ -130,11 +139,10 @@ export interface Options extends Omit<https.RequestOptions, 'agent' | 'timeout' 
 	gotTimeout?: number | Delays;
 	cache?: string | StorageAdapter | false;
 	headers?: Headers;
-	mutableDefaults?: boolean;
 	responseType?: ResponseType;
 	resolveBodyOnly?: boolean;
 	followRedirect?: boolean;
-	baseUrl?: URL | string;
+	prefixUrl?: URL | string;
 	timeout?: number | Delays;
 	dnsCache?: Map<string, string> | Keyv | false;
 	url?: URL | string;
@@ -151,16 +159,20 @@ export interface NormalizedOptions extends Omit<Required<Options>, 'timeout' | '
 	gotTimeout: Required<Delays>;
 	retry: NormalizedRetryOptions;
 	lookup?: CacheableLookup['lookup'];
-	readonly baseUrl: string;
+	readonly prefixUrl: string;
 	path: string;
 	hostname: string;
 	host: string;
 }
 
+export interface ExtendedOptions extends Options {
+	handlers?: HandlerFunction[];
+	mutableDefaults?: boolean;
+}
+
 export interface Defaults {
-	methods?: Method[];
 	options?: Options;
-	handler?: HandlerFunction;
+	handlers?: HandlerFunction[];
 	mutableDefaults?: boolean;
 }
 

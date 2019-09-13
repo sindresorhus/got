@@ -72,7 +72,7 @@ test('download progress - missing total size', withServer, async (t, server, got
 
 	const events = [];
 
-	await got('/').on('downloadProgress', event => events.push(event));
+	await got('').on('downloadProgress', event => events.push(event));
 
 	checkEvents(t, events);
 });

@@ -5,8 +5,24 @@
 	<br>
 	<br>
 	<br>
-	<p align="center">Huge thanks to <a href="https://moxy.studio"><img src="https://sindresorhus.com/assets/thanks/moxy-logo.svg" width="150"></a> for sponsoring me!
+	<br>
+	<hr>
+	<p align="center">
+		<sub>Huge thanks to these companies for helping make open source sustainable by sponsoring Sindre Sorhus</sub>
+		<br>
+		<br>
+		<br>
+		<a href="https://moxy.studio"><img src="https://sindresorhus.com/assets/thanks/moxy-logo.svg" width="170"></a>
+		<br>
+		<br>
+		<a href="https://www.gumlet.com">
+			<div>
+				<img src="https://sindresorhus.com/assets/thanks/gumlet-logo.svg" width="200"/>
+			</div>
+			<sup><b>Optimised Image Delivery made simple</b></sup>
+		</a>
 	</p>
+	<hr>
 	<br>
 	<br>
 </div>
@@ -42,12 +58,13 @@ Got is for Node.js. For browsers, we recommend [Ky](https://github.com/sindresor
 - [WHATWG URL support](#url)
 - [Hooks](#hooks)
 - [Instances with custom defaults](#instances)
-- [Composable](advanced-creation.md#merging-instances)
+- [Composable](documentation/advanced-creation.md#merging-instances)
+- [Plugins](documentation/lets-make-a-plugin.md)
 - [Electron support](#useelectronnet)
 - [Used by ~2000 packages and ~500K repos](https://github.com/sindresorhus/got/network/dependents)
 - Actively maintained
 
-[Moving from Request?](migration-guides.md)
+[Moving from Request?](documentation/migration-guides.md)
 
 [See how Got compares to other HTTP libraries](#comparison)
 
@@ -78,15 +95,28 @@ const got = require('got');
 ###### Streams
 
 ```js
+const stream = require('stream');
+const {promisify} = require('util');
 const fs = require('fs');
 const got = require('got');
 
-got.stream('https://sindresorhus.com').pipe(fs.createWriteStream('index.html'));
+const pipeline = promisify(stream.pipeline);
 
-// For POST, PUT, and PATCH methods `got.stream` returns a `stream.Writable`
-fs.createReadStream('index.html').pipe(got.stream.post('https://sindresorhus.com'));
+(async () => {
+    await pipeline(
+        got.stream('https://sindresorhus.com'),
+        fs.createWriteStream('index.html')
+    );
+
+    // For POST, PUT, and PATCH methods `got.stream` returns a `stream.Writable`
+    await pipeline(
+        fs.createReadStream('index.html'),
+        got.stream.post('https://sindresorhus.com')
+    );
+})();
 ```
 
+**Tip:** Using `from.pipe(to)` doesn't forward errors. If you use it, switch to [`Stream.pipeline(from, ..., to, callback)`](https://nodejs.org/api/stream.html#stream_stream_pipeline_streams_callback) instead (available from Node v10).
 
 ### API
 
@@ -114,28 +144,23 @@ Type: `object`
 
 Any of the [`https.request`](https://nodejs.org/api/https.html#https_https_request_options_callback) options.
 
-###### baseUrl
+###### prefixUrl
 
-Type: `string | object`
+Type: `string | URL`
 
-When specified, `url` will be prepended by `baseUrl`.<br>
-If you specify an absolute URL, it will skip the `baseUrl`.
+When specified, `prefixUrl` will be prepended to `url`. The prefix can be any valid URL, either relative or absolute. A trailing slash `/` is optional, one will be added automatically, if needed, when joining `prefixUrl` and `url`. The `url` argument cannot start with a `/` when using this option.
 
-Very useful when used with `got.extend()` to create niche-specific Got instances.
+Useful when used with `got.extend()` to create niche-specific Got-instances.
 
-Can be a string or a [WHATWG `URL`](https://nodejs.org/api/url.html#url_class_url).
-
-Slash at the end of `baseUrl` and at the beginning of the `url` argument is optional:
+**Note:** `prefixUrl` will be ignored if the `url` argument is a URL instance.
 
 ```js
-await got('hello', {baseUrl: 'https://example.com/v1'});
-//=> 'https://example.com/v1/hello'
+const got = require('got');
 
-await got('/hello', {baseUrl: 'https://example.com/v1/'});
-//=> 'https://example.com/v1/hello'
-
-await got('/hello', {baseUrl: 'https://example.com/v1'});
-//=> 'https://example.com/v1/hello'
+(async () => {
+	await got('unicorn', {prefixUrl: 'https://cats.com'});
+	//=> 'https://cats.com/unicorn'
+})();
 ```
 
 ###### headers
@@ -322,20 +347,23 @@ This also accepts an `object` with the following fields to constrain the duratio
 
 Type: `number | object`<br>
 Default:
-- retries: `2`
+- limit: `2`
+- calculateDelay: `(attemptCount, retryOptions, error, computedValue) => computedValue`
 - methods: `GET` `PUT` `HEAD` `DELETE` `OPTIONS` `TRACE`
 - statusCodes: [`408`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/408) [`413`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/413) [`429`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429) [`500`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/500) [`502`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/502) [`503`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/503) [`504`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/504)
 - maxRetryAfter: `undefined`
 - errorCodes: `ETIMEDOUT` `ECONNRESET` `EADDRINUSE` `ECONNREFUSED` `EPIPE` `ENOTFOUND` `ENETUNREACH` `EAI_AGAIN`
 
-An object representing `retries`, `methods`, `statusCodes`, `maxRetryAfter` and `errorCodes` fields for the time until retry, allowed methods, allowed status codes, maximum [`Retry-After`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Retry-After) time and allowed error codes.
+An object representing `limit`, `calculateDelay`, `methods`, `statusCodes`, `maxRetryAfter` and `errorCodes` fields for maximum retry count, retry handler, allowed methods, allowed status codes, maximum [`Retry-After`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Retry-After) time and allowed error codes.
+
+**Note:** When using streams, this option is ignored.
 
 If `maxRetryAfter` is set to `undefined`, it will use `options.timeout`.<br>
 If [`Retry-After`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Retry-After) header is greater than `maxRetryAfter`, it will cancel the request.
 
 Delays between retries counts with function `1000 * Math.pow(2, retry) + Math.random() * 100`, where `retry` is attempt number (starts from 1).
 
-The `retries` property can be a `number` or a `function` with `retry` and `error` arguments. The function must return a delay in milliseconds (`0` return value cancels retry).
+The `calculateDelay` property is a `function` with `attemptCount`, `retryOptions`, `error` and `computedValue` arguments for current retry count, the retry options, error and default computed value. The function must return a delay in milliseconds (`0` return value cancels retry).
 
 By default, it retries *only* on the specified methods, status codes, and on these network errors:
 - `ETIMEDOUT`: One of the [timeout](#timeout) limits were reached.
@@ -434,9 +462,9 @@ Hooks allow modifications during the request lifecycle. Hook functions may be as
 Type: `Function[]`<br>
 Default: `[]`
 
-Called with plain [request options](#options), right before their normalization. This is especially useful in conjunction with [`got.extend()`](#instances) and [`got.create()`](advanced-creation.md) when the input needs custom handling.
+Called with plain [request options](#options), right before their normalization. This is especially useful in conjunction with [`got.extend()`](#instances) and [`got.create()`](documentation/advanced-creation.md) when the input needs custom handling.
 
-See the [Request migration guide](migration-guides.md#breaking-changes) for an example.
+See the [Request migration guide](documentation/migration-guides.md#breaking-changes) for an example.
 
 **Note:** This hook must be synchronous!
 
@@ -445,7 +473,7 @@ See the [Request migration guide](migration-guides.md#breaking-changes) for an e
 Type: `Function[]`<br>
 Default: `[]`
 
-Called with [normalized](source/normalize-arguments.ts) [request options](#options). Got will make no further changes to the request before it is sent (except the body serialization). This is especially useful in conjunction with [`got.extend()`](#instances) and [`got.create()`](advanced-creation.md) when you want to create an API client that, for example, uses HMAC-signing.
+Called with [normalized](source/normalize-arguments.ts) [request options](#options). Got will make no further changes to the request before it is sent (except the body serialization). This is especially useful in conjunction with [`got.extend()`](#instances) and [`got.create()`](documentation/advanced-creation.md) when you want to create an API client that, for example, uses HMAC-signing.
 
 See the [AWS section](#aws) for an example.
 
@@ -711,13 +739,13 @@ Sets `options.method` to the method name and makes a request.
 
 ### Instances
 
-#### got.extend([options])
+#### got.extend(...options)
 
 Configure a new `got` instance with default `options`. The `options` are merged with the parent instance's `defaults.options` using [`got.mergeOptions`](#gotmergeoptionsparentoptions-newoptions). You can access the resolved options with the `.defaults` property on the instance.
 
 ```js
 const client = got.extend({
-	baseUrl: 'https://example.com',
+	prefixUrl: 'https://example.com',
 	headers: {
 		'x-unicorn': 'rainbow'
 	}
@@ -735,7 +763,7 @@ client.get('/demo');
 ```js
 (async () => {
 	const client = got.extend({
-		baseUrl: 'httpbin.org',
+		prefixUrl: 'httpbin.org',
 		headers: {
 			'x-foo': 'bar'
 		}
@@ -756,7 +784,51 @@ client.get('/demo');
 })();
 ```
 
-**Tip:** Need more control over the behavior of Got? Check out the [`got.create()`](advanced-creation.md).
+**Tip:** Need more control over the behavior of Got? Check out the [`got.create()`](documentation/advanced-creation.md).
+
+Additionally, `got.extend()` accepts two properties from the `defaults` object: `mutableDefaults` and `handlers`. Example:
+
+```js
+// You can now modify `mutableGot.defaults.options`.
+const mutableGot = got.extend({mutableDefaults: true});
+
+const mergedHandlers = got.extend({
+	handlers: [
+		(options, next) => {
+			delete options.headers.referer;
+
+			return next(options);
+		}
+	]
+});
+```
+
+#### got.extend(...instances)
+
+Merges many instances into a single one:
+- options are merged using [`got.mergeOptions()`](#gotmergeoptionsparentoptions-newoptions) (+ hooks are merged too),
+- handlers are stored in an array (you can access them through `instance.defaults.handlers`).
+
+#### got.extend(...options, ...instances, ...)
+
+It's possible to combine options and instances.<br>
+It gives the same effect as `got.extend(...options).extend(...instances)`:
+
+```js
+const a = {headers: {cat: 'meow'}};
+const b = got.create({
+	options: {
+		headers: {
+			cow: 'moo'
+		}
+	}
+});
+
+// The same as `got.extend(a).extend(b)`.
+// Note `a` is options and `b` is an instance.
+got.extend(a, b);
+//=> {headers: {cat: 'meow', cow: 'moo'}}
+```
 
 #### got.mergeOptions(parentOptions, newOptions)
 
@@ -785,7 +857,7 @@ Options are deeply merged to a new object. The value of each key is determined a
 
 Type: `object`
 
-The default Got options.
+The default Got options used in that instance.
 
 ## Errors
 
@@ -936,13 +1008,17 @@ Alternatively, use [`global-agent`](https://github.com/gajus/global-agent) to co
 You can use the [`tough-cookie`](https://github.com/salesforce/tough-cookie) package:
 
 ```js
+const {promisify} = require('util');
 const got = require('got');
 const {CookieJar} = require('tough-cookie');
 
-const cookieJar = new CookieJar();
-cookieJar.setCookie('foo=bar', 'https://www.google.com');
+(async () => {
+	const cookieJar = new CookieJar();
+	const setCookie = promisify(cookieJar.setCookie.bind(cookieJar));
 
-got('https://google.com', {cookieJar});
+	await setCookie('foo=bar', 'https://example.com');
+	await got('https://example.com', {cookieJar});
+})();
 ```
 
 
@@ -1026,7 +1102,7 @@ const chain = new AWS.CredentialProviderChain();
 
 // Create a Got instance to use relative paths and signed requests
 const awsClient = got.extend({
-	baseUrl: 'https://<api-id>.execute-api.<api-region>.amazonaws.com/<stage>/',
+	prefixUrl: 'https://<api-id>.execute-api.<api-region>.amazonaws.com/<stage>/',
 	hooks: {
 		beforeRequest: [
 			async options => {
@@ -1089,14 +1165,14 @@ test('retry function gets iteration count', withServer, async (t, server, got) =
 
 ### JSON mode
 
-By default, if you pass an object to the `body` option it will be stringified using `JSON.stringify`. Example:
+To pass an object as the body, you need to use the `json` option. It will be stringified using `JSON.stringify`. Example:
 
 ```js
 const got = require('got');
 
 (async () => {
 	const {body} = await got.post('https://httpbin.org/anything', {
-		body: {
+		json: {
 			hello: 'world'
 		},
 		responseType: 'json'
@@ -1151,16 +1227,16 @@ Bear in mind; if you send an `if-modified-since` header and receive a `304 Not M
 
 ### Custom endpoints
 
-Use `got.extend()` to make it nicer to work with REST APIs. Especially if you use the `baseUrl` option.
+Use `got.extend()` to make it nicer to work with REST APIs. Especially if you use the `prefixUrl` option.
 
-**Note:** Not to be confused with [`got.create()`](advanced-creation.md), which has no defaults.
+**Note:** Not to be confused with [`got.create()`](documentation/advanced-creation.md), which has no defaults.
 
 ```js
 const got = require('got');
 const pkg = require('./package.json');
 
 const custom = got.extend({
-	baseUrl: 'example.com',
+	prefixUrl: 'example.com',
 	responseType: 'json',
 	headers: {
 		'user-agent': `my-package/${pkg.version} (https://github.com/username/my-package)`
@@ -1172,8 +1248,6 @@ const custom = got.extend({
 	const list = await custom('/v1/users/list');
 })();
 ```
-
-**Tip:** Need to merge some instances into a single one? Check out [`got.mergeInstances()`](advanced-creation.md#merging-instances).
 
 ### Experimental HTTP2 support
 
@@ -1217,7 +1291,7 @@ const h2got = got.extend({request});
 | Issues open           |  [![][gio]][g1]  | [![][rio]][r1]  |    [![][nio]][n1]    |  [![][aio]][a1] |    [![][sio]][s1]     |
 | Issues closed         |  [![][gic]][g2]  | [![][ric]][r2]  |    [![][nic]][n2]    |  [![][aic]][a2] |    [![][sic]][s2]     |
 | Downloads             |  [![][gd]][g3]   |  [![][rd]][r3]  |    [![][nd]][n3]     |  [![][ad]][a3]  |    [![][sd]][s3]      |
-| Coverage              |  [![][gc]][g4]   |  [![][rc]][r4]  |    [![][nc]][n4]     |  [![][ac]][a4]  |        unknown        |
+| Coverage              |  [![][gc]][g4]   |  [![][rc]][r4]  |    [![][nc]][n4]     |  [![][ac]][a4]  |    [![][sc]][s4]      |
 | Build                 |  [![][gb]][g5]   |  [![][rb]][r5]  |    [![][nb]][n5]     |  [![][ab]][a5]  |    [![][sb]][s5]      |
 | Bugs                  |  [![][gbg]][g6]  | [![][rbg]][r6]  |    [![][nbg]][n6]    |  [![][abg]][a6] |    [![][sbg]][s6]     |
 | Dependents            |  [![][gdp]][g7]  | [![][rdp]][r7]  |    [![][ndp]][n7]    |  [![][adp]][a7] |    [![][sdp]][s7]     |
@@ -1277,11 +1351,13 @@ const h2got = got.extend({request});
 [rc]: https://badgen.net/coveralls/c/github/request/request?label
 [nc]: https://badgen.net/coveralls/c/github/bitinn/node-fetch?label
 [ac]: https://badgen.net/coveralls/c/github/mzabriskie/axios?label
+[sc]: https://badgen.net/codecov/c/github/visionmedia/superagent?label
 
 [g4]: https://coveralls.io/github/sindresorhus/got
 [r4]: https://coveralls.io/github/request/request
 [n4]: https://coveralls.io/github/bitinn/node-fetch
 [a4]: https://coveralls.io/github/mzabriskie/axios
+[s4]: https://codecov.io/gh/visionmedia/superagent
 
 <!-- BUILD -->
 [gb]: https://badgen.net/travis/sindresorhus/got?label
@@ -1300,13 +1376,13 @@ const h2got = got.extend({request});
 [gbg]: https://badgen.net/github/label-issues/sindresorhus/got/bug/open?label
 [rbg]: https://badgen.net/github/label-issues/request/request/Needs%20investigation/open?label
 [nbg]: https://badgen.net/github/label-issues/bitinn/node-fetch/bug/open?label
-[abg]: https://badgen.net/github/label-issues/axios/axios/bug/open?label
+[abg]: https://badgen.net/github/label-issues/axios/axios/type:bug/open?label
 [sbg]: https://badgen.net/github/label-issues/visionmedia/superagent/Bug/open?label
 
 [g6]: https://github.com/sindresorhus/got/issues?q=is%3Aissue+is%3Aopen+sort%3Aupdated-desc+label%3Abug
 [r6]: https://github.com/request/request/issues?q=is%3Aissue+is%3Aopen+sort%3Aupdated-desc+label%3A"Needs+investigation"
 [n6]: https://github.com/bitinn/node-fetch/issues?q=is%3Aissue+is%3Aopen+sort%3Aupdated-desc+label%3Abug
-[a6]: https://github.com/axios/axios/issues?q=is%3Aissue+is%3Aopen+sort%3Aupdated-desc+label%3Abug
+[a6]: https://github.com/axios/axios/issues?q=is%3Aissue+is%3Aopen+sort%3Aupdated-desc+label%3Atype:bug
 [s6]: https://github.com/visionmedia/superagent/issues?q=is%3Aissue+is%3Aopen+sort%3Aupdated-desc+label%3ABug
 
 <!-- DEPENDENTS -->
