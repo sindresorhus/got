@@ -5,7 +5,7 @@ import pEvent = require('p-event');
 import getStream = require('get-stream');
 // @ts-ignore
 import got, {CancelError} from '../source';
-import withServer, { withServerAndLolex } from './helpers/with-server';
+import withServer, {withServerAndLolex} from './helpers/with-server';
 import slowDataStream from './helpers/slow-data-stream';
 
 const prepareServer = server => {
