@@ -160,15 +160,16 @@ test('throws on incomplete (canceled) response - promise', withServer, async (t,
 	server.get('/', downloadHandler);
 
 	await t.throwsAsync(got({
-		timeout: {request: 500}
+		timeout: {request: 500},
+		retry: 0,
+		lolexResponseTick: 600
 	}), got.TimeoutError);
 });
 
 test('throws on incomplete (canceled) response - promise #2', withServer, async (t, server, got, clock) => {
 	server.get('/', downloadHandler);
 
-	const promise = got('').on('response', () => {
-		clock.tick(500);
+	const promise = got('', {lolexResponseTick: 500}).on('response', () => {
 		promise.cancel();
 	});
 

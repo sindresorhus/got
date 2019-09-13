@@ -23,6 +23,12 @@ export default async (t, run) => {
 
 				clock.tick(0);
 
+				if (options.lolexResponseTick) {
+					result.on('response', () => {
+						clock.tick(options.lolexResponseTick);
+					});
+				}
+
 				return result;
 			}
 		]
