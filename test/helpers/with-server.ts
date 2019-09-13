@@ -24,10 +24,10 @@ const generateHook = ({install}) => async (t, run) => {
 				clock.tick(0);
 
 				// @ts-ignore
-				const timeout = options.gotTimeout ? Math.max(...Object.values(options.gotTimeout)) : 0;
+				// const timeout = options.gotTimeout ? Math.max(...Object.values(options.gotTimeout)) : 0;
 
 				result.on('response', () => {
-					clock.tick(timeout + 1);
+					clock.tick(0);
 				});
 
 				return result;

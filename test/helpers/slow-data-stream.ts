@@ -1,18 +1,17 @@
 import {PassThrough} from 'stream';
+import {Clock} from 'lolex';
 
-export default (): PassThrough => {
+export default (clock: Clock): PassThrough => {
 	const slowStream = new PassThrough();
-	let count = 0;
 
-	const interval = setInterval(() => {
-		if (count++ < 10) {
+	setImmediate(() => {
+		for (let i = 0; i < 10; i++) {
 			slowStream.push('data\n'.repeat(100));
-			return;
+			clock.tick(100);
 		}
 
-		clearInterval(interval);
 		slowStream.push(null);
-	}, 100);
+	});
 
 	return slowStream;
 };
