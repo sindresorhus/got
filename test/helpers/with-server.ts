@@ -23,11 +23,12 @@ const generateHook = ({install}) => async (t, run) => {
 
 				clock.tick(0);
 
-				if (options.lolexResponseTick) {
-					result.on('response', () => {
-						clock.tick(options.lolexResponseTick);
-					});
-				}
+				// @ts-ignore
+				const timeout = options.gotTimeout ? Math.max(...Object.values(options.gotTimeout)) : 0;
+
+				result.on('response', () => {
+					clock.tick(timeout + 1);
+				});
 
 				return result;
 			}

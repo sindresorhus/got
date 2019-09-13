@@ -161,28 +161,29 @@ test.serial('throws on incomplete (canceled) response - promise', withServerAndL
 
 	await t.throwsAsync(got({
 		timeout: {request: 500},
-		retry: 0,
-		lolexResponseTick: 600
+		retry: 0
 	}), got.TimeoutError);
 });
 
-test.serial('throws on incomplete (canceled) response - promise #2', withServerAndLolex, async (t, server, got) => {
+test.serial('throws on incomplete (canceled) response - promise #2', withServerAndLolex, async (t, server, got, clock) => {
 	server.get('/', downloadHandler);
 
-	const promise = got('', {lolexResponseTick: 500}).on('response', () => {
+	const promise = got('').on('response', () => {
+		clock.tick(500);
 		promise.cancel();
 	});
 
 	await t.throwsAsync(promise, got.CancelError);
 });
 
-test('throws on incomplete (canceled) response - stream', withServer, async (t, server, got) => {
+test.serial('throws on incomplete (canceled) response - stream', withServerAndLolex, async (t, server, got, clock) => {
 	server.get('/', downloadHandler);
 
 	const errorString = 'Foobar';
 
 	const stream = got.stream('').on('response', () => {
-		setTimeout(() => stream.destroy(new Error(errorString)), 500);
+		clock.tick(500);
+		stream.destroy(new Error(errorString));
 	});
 
 	await t.throwsAsync(getStream(stream), errorString);
