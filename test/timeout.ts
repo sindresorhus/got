@@ -373,12 +373,17 @@ test('no error emitted when timeout is not breached (promise)', withServer, asyn
 	}));
 });
 
-// Note: sometimes `got()` resolves instead of rejecting. That's because Travis is slow.
-test('no unhandled `socket hung up` errors', withServer, async (t, server, got) => {
+test.serial('no unhandled `socket hung up` errors', withServerAndLolex, async (t, server, got, clock) => {
 	server.get('/', defaultHandler);
 
-	await t.throwsAsync(got({retry: 0, timeout: requestDelay / 2}), {instanceOf: got.TimeoutError});
-	await delay(requestDelay);
+	await t.throwsAsync(
+		got({retry: 0, timeout: requestDelay / 2}).on('request', () => {
+			clock.tick(requestDelay);
+		}),
+		{instanceOf: got.TimeoutError}
+	);
+
+	clock.tick(requestDelay);
 });
 
 test.serial('no more timeouts after an error', withServerAndLolex, async (t, _server, got, clock) => {
@@ -476,12 +481,14 @@ test('double calling timedOut has no effect', t => {
 	t.is(emitter.listenerCount('socket'), 1);
 });
 
-test('doesn\'t throw on early lookup', withServer, async (t, server, got) => {
-	server.get('/', defaultHandler);
+test.serial('doesn\'t throw on early lookup', withServerAndLolex, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.end('ok');
+	});
 
 	await t.notThrowsAsync(got('', {
 		timeout: {
-			lookup: 100
+			lookup: 1
 		},
 		retry: 0,
 		lookup: (_hostname, options, callback) => {
