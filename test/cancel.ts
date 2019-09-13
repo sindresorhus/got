@@ -5,7 +5,7 @@ import pEvent = require('p-event');
 import getStream = require('get-stream');
 // @ts-ignore
 import got, {CancelError} from '../source';
-import withServer from './helpers/with-server';
+import withServer, { withServerAndLolex } from './helpers/with-server';
 import slowDataStream from './helpers/slow-data-stream';
 
 const prepareServer = server => {
@@ -156,7 +156,7 @@ test('recover from cancellation using error instance', async t => {
 	await t.notThrowsAsync(recover);
 });
 
-test('throws on incomplete (canceled) response - promise', withServer, async (t, server, got) => {
+test.serial('throws on incomplete (canceled) response - promise', withServerAndLolex, async (t, server, got) => {
 	server.get('/', downloadHandler);
 
 	await t.throwsAsync(got({
@@ -166,7 +166,7 @@ test('throws on incomplete (canceled) response - promise', withServer, async (t,
 	}), got.TimeoutError);
 });
 
-test('throws on incomplete (canceled) response - promise #2', withServer, async (t, server, got, clock) => {
+test.serial('throws on incomplete (canceled) response - promise #2', withServerAndLolex, async (t, server, got) => {
 	server.get('/', downloadHandler);
 
 	const promise = got('', {lolexResponseTick: 500}).on('response', () => {

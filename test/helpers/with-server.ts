@@ -6,8 +6,8 @@ import createTestServer = require('create-test-server');
 import lolex = require('lolex');
 import got from '../../source';
 
-export default async (t, run) => {
-	const clock = lolex.install();
+const generateHook = ({install}) => async (t, run) => {
+	const clock = install ? lolex.install() : lolex.createClock();
 
 	const server = await createTestServer({
 		bodyParser: {
@@ -48,8 +48,15 @@ export default async (t, run) => {
 		await server.close();
 	}
 
-	clock.uninstall();
+	if (install) {
+		// @ts-ignore This is a global clock.
+		clock.uninstall();
+	}
 };
+
+export default generateHook({install: false});
+
+export const withServerAndLolex = generateHook({install: true});
 
 // TODO: remove this when `create-test-server` supports custom listen
 export const withSocketServer = async (t, run) => {
