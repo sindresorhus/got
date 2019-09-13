@@ -164,12 +164,15 @@ test('throws on incomplete (canceled) response - promise', withServer, async (t,
 	}), got.TimeoutError);
 });
 
-test('throws on incomplete (canceled) response - promise #2', withServer, async (t, server, got) => {
+test('throws on incomplete (canceled) response - promise #2', withServer, async (t, server, got, clock) => {
 	server.get('/', downloadHandler);
 
 	const promise = got('').on('response', () => {
-		setTimeout(() => promise.cancel(), 500);
+		clock.tick(500);
+		promise.cancel();
 	});
+
+	clock.tick();
 
 	await t.throwsAsync(promise, got.CancelError);
 });

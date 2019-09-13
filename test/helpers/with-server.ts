@@ -3,9 +3,12 @@ import http = require('http');
 import {URL} from 'url';
 import tempy = require('tempy');
 import createTestServer = require('create-test-server');
+import lolex = require('lolex');
 import got from '../../source';
 
 export default async (t, run) => {
+	const clock = lolex.install();
+
 	const server = await createTestServer({
 		bodyParser: {
 			type: () => false
@@ -21,10 +24,12 @@ export default async (t, run) => {
 	server.sslHostname = (new URL(server.sslUrl)).hostname;
 
 	try {
-		await run(t, server, preparedGot);
+		await run(t, server, preparedGot, clock);
 	} finally {
 		await server.close();
 	}
+
+	clock.uninstall();
 };
 
 // TODO: remove this when `create-test-server` supports custom listen
