@@ -1,4 +1,5 @@
 import EventEmitter = require('events');
+import {PassThrough} from 'stream';
 import http = require('http');
 import net = require('net');
 import getStream = require('get-stream');
@@ -73,7 +74,18 @@ test.serial('socket timeout', withServerAndLolex, async (t, server, got, clock) 
 	await t.throwsAsync(
 		got({
 			timeout: {socket: 1},
-			retry: 0
+			retry: 0,
+			request: () => {
+				const stream = new PassThrough();
+				// @ts-ignore
+				stream.setTimeout = (ms, callback) => {
+					callback();
+				};
+				// @ts-ignore
+				stream.abort = () => {};
+				stream.resume();
+				return stream;
+			}
 		}),
 		{
 			instanceOf: got.TimeoutError,
@@ -99,7 +111,7 @@ test.serial('send timeout', withServerAndLolex, async (t, server, got, clock) =>
 });
 
 test.serial('send timeout (keepalive)', withServerAndLolex, async (t, server, got, clock) => {
-	server.post('/', defaultHandler);
+	server.post('/', defaultHandler(clock));
 	server.get('/prime', (_request, response) => {
 		response.end('ok');
 	});
@@ -188,12 +200,11 @@ test.serial('response timeout (keepalive)', withServerAndLolex, async (t, server
 	});
 });
 
-test.serial('connect timeout', withServerAndLolex, async (t, server, got, clock) => {
-	server.get('/', defaultHandler(clock));
-
+test.serial('connect timeout', withServerAndLolex, async (t, _server, got, clock) => {
 	await t.throwsAsync(
-		got({
+		got('https://example.com', {
 			createConnection: options => {
+				// @ts-ignore
 				const socket = new net.Socket(options);
 				// @ts-ignore
 				socket.connecting = true;
@@ -209,6 +220,10 @@ test.serial('connect timeout', withServerAndLolex, async (t, server, got, clock)
 			},
 			timeout: {connect: 1},
 			retry: 0
+		}).on('request', request => {
+			request.on('socket', () => {
+				clock.runAll();
+			});
 		}),
 		{
 			...errorMatcher,
@@ -231,6 +246,10 @@ test.serial('connect timeout (ip address)', withServerAndLolex, async (t, server
 			},
 			timeout: {connect: 1},
 			retry: 0
+		}).on('request', request => {
+			request.on('socket', () => {
+				clock.runAll();
+			});
 		}),
 		{
 			...errorMatcher,
@@ -264,9 +283,8 @@ test('secureConnect timeout not breached', withServer, async (t, server, got) =>
 		response.end('ok');
 	});
 
-	const secureConnect = 200;
 	await t.notThrowsAsync(got({
-		timeout: {secureConnect},
+		timeout: {secureConnect: 200},
 		retry: 0,
 		rejectUnauthorized: false
 	}));
@@ -280,6 +298,10 @@ test.serial('lookup timeout', withServerAndLolex, async (t, server, got, clock) 
 			lookup: () => {},
 			timeout: {lookup: 1},
 			retry: 0
+		}).on('request', request => {
+			request.on('socket', () => {
+				clock.runAll();
+			});
 		}),
 		{
 			...errorMatcher,
@@ -316,7 +338,7 @@ test.serial('lookup timeout no error (keepalive)', withServerAndLolex, async (t,
 	}));
 });
 
-test.serial('retries on timeout', withServer, async (t, server, got, clock) => {
+test.serial('retries on timeout', withServerAndLolex, async (t, server, got, clock) => {
 	server.get('/', defaultHandler(clock));
 
 	let tried = false;

@@ -8,7 +8,7 @@ import got, {CancelError} from '../source';
 import withServer, {withServerAndLolex} from './helpers/with-server';
 import slowDataStream from './helpers/slow-data-stream';
 
-const prepareServer = server => {
+const prepareServer = (server, clock) => {
 	const emitter = new EventEmitter();
 
 	const promise = new Promise((resolve, reject) => {
@@ -29,23 +29,24 @@ const prepareServer = server => {
 
 			emitter.emit('sentRedirect');
 
-			setTimeout(resolve, 3000);
+			clock.tick(3000);
+			resolve();
 		});
 	});
 
 	return {emitter, promise};
 };
 
-const downloadHandler = (_request, response) => {
+const downloadHandler = clock => (_request, response) => {
 	response.writeHead(200, {
 		'transfer-encoding': 'chunked'
 	});
 	response.flushHeaders();
-	slowDataStream().pipe(response);
+	slowDataStream(clock).pipe(response);
 };
 
-test('does not retry after cancelation', withServer, async (t, server, got) => {
-	const {emitter, promise} = prepareServer(server);
+test.serial('does not retry after cancelation', withServerAndLolex, async (t, server, got, clock) => {
+	const {emitter, promise} = prepareServer(server, clock);
 
 	const gotPromise = got('redirect', {
 		retry: {
@@ -65,8 +66,8 @@ test('does not retry after cancelation', withServer, async (t, server, got) => {
 	await t.notThrowsAsync(promise, 'Request finished instead of aborting.');
 });
 
-test('cancels in-progress request', withServer, async (t, server, got) => {
-	const {emitter, promise} = prepareServer(server);
+test.serial('cancels in-progress request', withServerAndLolex, async (t, server, got, clock) => {
+	const {emitter, promise} = prepareServer(server, clock);
 
 	const body = new ReadableStream({
 		read() {}
@@ -85,8 +86,8 @@ test('cancels in-progress request', withServer, async (t, server, got) => {
 	await t.notThrowsAsync(promise, 'Request finished instead of aborting.');
 });
 
-test('cancels in-progress request with timeout', withServer, async (t, server, got) => {
-	const {emitter, promise} = prepareServer(server);
+test.serial('cancels in-progress request with timeout', withServerAndLolex, async (t, server, got, clock) => {
+	const {emitter, promise} = prepareServer(server, clock);
 
 	const body = new ReadableStream({
 		read() {}
@@ -105,7 +106,7 @@ test('cancels in-progress request with timeout', withServer, async (t, server, g
 	await t.notThrowsAsync(promise, 'Request finished instead of aborting.');
 });
 
-test('cancel immediately', withServer, async (t, server, got) => {
+test.serial('cancel immediately', withServerAndLolex, async (t, server, got, clock) => {
 	const promise = new Promise((resolve, reject) => {
 		// We won't get an abort or even a connection
 		// We assume no request within 1000ms equals a (client side) aborted request
@@ -114,7 +115,8 @@ test('cancel immediately', withServer, async (t, server, got) => {
 			response.end();
 		});
 
-		setTimeout(resolve, 1000);
+		clock.tick(1000);
+		resolve();
 	});
 
 	const gotPromise = got('abort');
@@ -156,8 +158,8 @@ test('recover from cancellation using error instance', async t => {
 	await t.notThrowsAsync(recover);
 });
 
-test.serial('throws on incomplete (canceled) response - promise', withServerAndLolex, async (t, server, got) => {
-	server.get('/', downloadHandler);
+test.serial('throws on incomplete (canceled) response - promise', withServerAndLolex, async (t, server, got, clock) => {
+	server.get('/', downloadHandler(clock));
 
 	await t.throwsAsync(got({
 		timeout: {request: 500},
@@ -166,7 +168,7 @@ test.serial('throws on incomplete (canceled) response - promise', withServerAndL
 });
 
 test.serial('throws on incomplete (canceled) response - promise #2', withServerAndLolex, async (t, server, got, clock) => {
-	server.get('/', downloadHandler);
+	server.get('/', downloadHandler(clock));
 
 	const promise = got('').on('response', () => {
 		clock.tick(500);
@@ -177,7 +179,7 @@ test.serial('throws on incomplete (canceled) response - promise #2', withServerA
 });
 
 test.serial('throws on incomplete (canceled) response - stream', withServerAndLolex, async (t, server, got, clock) => {
-	server.get('/', downloadHandler);
+	server.get('/', downloadHandler(clock));
 
 	const errorString = 'Foobar';
 
