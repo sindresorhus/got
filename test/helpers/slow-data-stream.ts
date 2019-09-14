@@ -5,7 +5,6 @@ export default (clock: Clock): Readable => {
 	let i = 0;
 
 	return new Readable({
-		// @ts-ignore
 		read() {
 			if (i++ < 10) {
 				this.push('data\n'.repeat(100));

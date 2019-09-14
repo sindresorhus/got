@@ -81,9 +81,11 @@ test.serial('socket timeout', withServerAndLolex, async (t, server, got, clock) 
 				stream.setTimeout = (ms, callback) => {
 					callback();
 				};
+
 				// @ts-ignore
 				stream.abort = () => {};
 				stream.resume();
+
 				return stream;
 			}
 		}),
