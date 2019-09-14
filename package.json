@@ -93,7 +93,7 @@
 			"test/*"
 		],
 		"concurrency": 4,
-		"timeout": "1m",
+		"timeout": "5m",
 		"babel": false,
 		"compileEnhancements": false,
 		"extensions": [
