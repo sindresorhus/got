@@ -194,7 +194,7 @@ export default (options: NormalizedOptions, input?: TransformStream) => {
 			currentRequest = request;
 
 			request.on('error', error => {
-				if (typeof request.aborted !== 'undefined' || error.message === 'socket hang up') {
+				if (typeof request.aborted === 'number' || error.message === 'socket hang up') {
 					return;
 				}
 
