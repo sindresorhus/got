@@ -2,6 +2,7 @@ import EventEmitter = require('events');
 import test from 'ava';
 import is from '@sindresorhus/is';
 import pEvent = require('p-event');
+import got from '../source';
 import withServer from './helpers/with-server';
 
 const retryAfterOn413 = 2;
@@ -106,15 +107,10 @@ test('custom retries', withServer, async (t, server, got) => {
 	t.true(tried);
 });
 
-test('custom error codes', withServer, async (t, server, got) => {
-	server.get('/', (_request, response) => {
-		response.statusCode = 500;
-		response.end();
-	});
-
+test('custom error codes', async t => {
 	const errorCode = 'OH_SNAP';
 
-	const error = await t.throwsAsync(got({
+	const error = await t.throwsAsync(got('https://example.com', {
 		request: () => {
 			const emitter = (new EventEmitter()) as any;
 			emitter.end = () => {};
@@ -128,8 +124,10 @@ test('custom error codes', withServer, async (t, server, got) => {
 
 			return emitter;
 		},
+		// @ts-ignore TS is assuming that we're using Partial<NormalizedRetryOptions> instead of Partial<RetryOptions>
 		retry: {
-			retries: (_iteration, error) => {
+			calculateDelay: ({error}) => {
+				// @ts-ignore
 				t.is(error.code, errorCode);
 				return 0;
 			},
@@ -142,6 +140,7 @@ test('custom error codes', withServer, async (t, server, got) => {
 		}
 	}));
 
+	// @ts-ignore
 	t.is(error.code, errorCode);
 });
 

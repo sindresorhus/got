@@ -68,9 +68,7 @@ test.serial('timeout option as object', withServerAndLolex, async (t, server, go
 	);
 });
 
-test.serial('socket timeout', withServerAndLolex, async (t, server, got, clock) => {
-	server.get('/', defaultHandler(clock));
-
+test.serial('socket timeout', withServerAndLolex, async (t, _server, got) => {
 	await t.throwsAsync(
 		got({
 			timeout: {socket: 1},
@@ -204,20 +202,15 @@ test.serial('response timeout (keepalive)', withServerAndLolex, async (t, server
 
 test.serial('connect timeout', withServerAndLolex, async (t, _server, got, clock) => {
 	await t.throwsAsync(
-		got('https://example.com', {
+		got({
 			createConnection: options => {
 				// @ts-ignore
 				const socket = new net.Socket(options);
 				// @ts-ignore
 				socket.connecting = true;
-				setImmediate(
-					socket.emit.bind(socket),
-					'lookup',
-					null,
-					'127.0.0.1',
-					4,
-					'localhost'
-				);
+				setImmediate(() => {
+					socket.emit('lookup', null, '127.0.0.1', 4, 'localhost');
+				});
 				return socket;
 			},
 			timeout: {connect: 1},
@@ -234,9 +227,7 @@ test.serial('connect timeout', withServerAndLolex, async (t, _server, got, clock
 	);
 });
 
-test.serial('connect timeout (ip address)', withServerAndLolex, async (t, server, got, clock) => {
-	server.get('/', defaultHandler(clock));
-
+test.serial('connect timeout (ip address)', withServerAndLolex, async (t, _server, got, clock) => {
 	await t.throwsAsync(
 		got({
 			hostname: '127.0.0.1',
@@ -260,18 +251,29 @@ test.serial('connect timeout (ip address)', withServerAndLolex, async (t, server
 	);
 });
 
-// TODO: fix this
-// eslint-disable-next-line ava/no-skip-test
-test.serial.skip('secureConnect timeout', withServerAndLolex, async (t, server, got) => {
-	server.get('/', (_request, response) => {
-		response.end('ok');
-	});
-
+test.serial('secureConnect timeout', withServerAndLolex, async (t, _server, got, clock) => {
 	await t.throwsAsync(
 		got.secure({
+			createConnection: options => {
+				// @ts-ignore
+				const socket = new net.Socket(options);
+				// @ts-ignore
+				socket.connecting = true;
+				setImmediate(() => {
+					socket.emit('lookup', null, '127.0.0.1', 4, 'localhost');
+
+					setImmediate(() => {
+						socket.emit('connect');
+					});
+				});
+				return socket;
+			},
 			timeout: {secureConnect: 0},
-			retry: 0,
-			rejectUnauthorized: false
+			retry: 0
+		}).on('request', request => {
+			request.on('socket', () => {
+				clock.runAll();
+			});
 		}),
 		{
 			...errorMatcher,
@@ -424,14 +426,7 @@ test.serial('no more timeouts after an error', withServerAndLolex, async (t, _se
 			request: 1
 		}
 	}).on('request', () => {
-		// The first request
-		clock.tick(2);
-
-		// The retry delay
-		clock.tick(2100);
-
-		// The second request
-		clock.tick(2);
+		clock.runAll();
 	}), {instanceOf: got.GotError});
 
 	// Wait a bit more to check if there are any unhandled errors
