@@ -162,11 +162,11 @@ test.serial('response timeout unaffected by slow upload', withServerAndLolex, as
 	}));
 });
 
-test.serial('response timeout unaffected by slow download', withServerAndLolex, async (t, server, got, clock) => {
+test.serial.failing('response timeout unaffected by slow download', withServerAndLolex, async (t, server, got, clock) => {
 	server.get('/', downloadHandler(clock));
 
 	await t.notThrowsAsync(got({
-		timeout: {response: 1000},
+		timeout: {response: 200},
 		retry: 0
 	}));
 
