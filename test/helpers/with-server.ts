@@ -23,6 +23,10 @@ const generateHook = ({install}) => async (t, run) => {
 
 				clock.tick(0);
 
+				result.on('response', () => {
+					clock.tick(0);
+				});
+
 				return result;
 			}
 		]

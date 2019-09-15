@@ -35,7 +35,10 @@ const downloadHandler = clock => (_request, response) => {
 		'transfer-encoding': 'chunked'
 	});
 	response.flushHeaders();
-	slowDataStream(clock).pipe(response);
+
+	setImmediate(() => {
+		slowDataStream(clock).pipe(response);
+	});
 };
 
 test.serial('timeout option', withServerAndLolex, async (t, server, got, clock) => {
@@ -162,7 +165,7 @@ test.serial('response timeout unaffected by slow upload', withServerAndLolex, as
 	}));
 });
 
-test.serial.failing('response timeout unaffected by slow download', withServerAndLolex, async (t, server, got, clock) => {
+test.serial('response timeout unaffected by slow download', withServerAndLolex, async (t, server, got, clock) => {
 	server.get('/', downloadHandler(clock));
 
 	await t.notThrowsAsync(got({
