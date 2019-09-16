@@ -5,7 +5,7 @@ import PCancelable = require('p-cancelable');
 import {URL} from 'url';
 import {CookieJar} from 'tough-cookie';
 import {StorageAdapter} from 'cacheable-request';
-import {Omit} from 'type-fest';
+import {Except} from 'type-fest';
 import CacheableLookup from 'cacheable-lookup';
 import Keyv = require('keyv');
 import {Timings} from '@szmarczak/http-timer/dist';
@@ -116,7 +116,7 @@ export interface Delays {
 export type Headers = Record<string, string | string[]>;
 
 // The library overrides the type definition of `agent`, `host`, 'headers and `timeout`.
-export interface Options extends Omit<https.RequestOptions, 'agent' | 'timeout' | 'host' | 'headers'> {
+export interface Options extends Except<https.RequestOptions, 'agent' | 'timeout' | 'host' | 'headers'> {
 	host?: string;
 	body?: string | Buffer | ReadableStream;
 	hostname?: string;
@@ -154,7 +154,7 @@ export interface Options extends Omit<https.RequestOptions, 'agent' | 'timeout' 
 	context?: {[key: string]: unknown};
 }
 
-export interface NormalizedOptions extends Omit<Required<Options>, 'timeout' | 'dnsCache' | 'retry'> {
+export interface NormalizedOptions extends Except<Required<Options>, 'timeout' | 'dnsCache' | 'retry'> {
 	hooks: Hooks;
 	gotTimeout: Required<Delays>;
 	retry: NormalizedRetryOptions;

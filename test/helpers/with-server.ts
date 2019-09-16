@@ -9,6 +9,7 @@ import got from '../../source';
 const generateHook = ({install}) => async (t, run) => {
 	const clock = install ? lolex.install() : lolex.createClock();
 
+	// @ts-ignore
 	const server = await createTestServer({
 		bodyParser: {
 			type: () => false
