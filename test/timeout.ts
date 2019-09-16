@@ -1,13 +1,13 @@
 import EventEmitter = require('events');
+import {PassThrough} from 'stream';
 import http = require('http');
 import net = require('net');
 import getStream = require('get-stream');
 import test from 'ava';
 import pEvent = require('p-event');
-import delay = require('delay');
 import got from '../source';
 import timedOut from '../source/utils/timed-out';
-import withServer from './helpers/with-server';
+import withServer, {withServerAndLolex} from './helpers/with-server';
 import slowDataStream from './helpers/slow-data-stream';
 
 const requestDelay = 800;
@@ -21,24 +21,28 @@ const keepAliveAgent = new http.Agent({
 	keepAlive: true
 });
 
-const defaultHandler = (request, response) => {
+const defaultHandler = clock => (request, response) => {
 	request.resume();
 	request.on('end', async () => {
-		await delay(requestDelay);
+		clock.tick(requestDelay);
+
 		response.end('OK');
 	});
 };
 
-const downloadHandler = (_request, response) => {
+const downloadHandler = clock => (_request, response) => {
 	response.writeHead(200, {
 		'transfer-encoding': 'chunked'
 	});
 	response.flushHeaders();
-	slowDataStream().pipe(response);
+
+	setImmediate(() => {
+		slowDataStream(clock).pipe(response);
+	});
 };
 
-test('timeout option', withServer, async (t, server, got) => {
-	server.get('/', defaultHandler);
+test.serial('timeout option', withServerAndLolex, async (t, server, got, clock) => {
+	server.get('/', defaultHandler(clock));
 
 	await t.throwsAsync(
 		got({
@@ -52,8 +56,8 @@ test('timeout option', withServer, async (t, server, got) => {
 	);
 });
 
-test('timeout option as object', withServer, async (t, server, got) => {
-	server.get('/', defaultHandler);
+test.serial('timeout option as object', withServerAndLolex, async (t, server, got, clock) => {
+	server.get('/', defaultHandler(clock));
 
 	await t.throwsAsync(
 		got({
@@ -67,13 +71,24 @@ test('timeout option as object', withServer, async (t, server, got) => {
 	);
 });
 
-test('socket timeout', withServer, async (t, server, got) => {
-	server.get('/', defaultHandler);
-
+test.serial('socket timeout', withServerAndLolex, async (t, _server, got) => {
 	await t.throwsAsync(
 		got({
 			timeout: {socket: 1},
-			retry: 0
+			retry: 0,
+			request: () => {
+				const stream = new PassThrough();
+				// @ts-ignore
+				stream.setTimeout = (ms, callback) => {
+					callback();
+				};
+
+				// @ts-ignore
+				stream.abort = () => {};
+				stream.resume();
+
+				return stream;
+			}
 		}),
 		{
 			instanceOf: got.TimeoutError,
@@ -83,8 +98,8 @@ test('socket timeout', withServer, async (t, server, got) => {
 	);
 });
 
-test('send timeout', withServer, async (t, server, got) => {
-	server.get('/', defaultHandler);
+test.serial('send timeout', withServerAndLolex, async (t, server, got, clock) => {
+	server.get('/', defaultHandler(clock));
 
 	await t.throwsAsync(
 		got({
@@ -98,8 +113,8 @@ test('send timeout', withServer, async (t, server, got) => {
 	);
 });
 
-test('send timeout (keepalive)', withServer, async (t, server, got) => {
-	server.post('/', defaultHandler);
+test.serial('send timeout (keepalive)', withServerAndLolex, async (t, server, got, clock) => {
+	server.post('/', defaultHandler(clock));
 	server.get('/prime', (_request, response) => {
 		response.end('ok');
 	});
@@ -110,7 +125,7 @@ test('send timeout (keepalive)', withServer, async (t, server, got) => {
 			agent: keepAliveAgent,
 			timeout: {send: 1},
 			retry: 0,
-			body: slowDataStream()
+			body: slowDataStream(clock)
 		}).on('request', request => {
 			request.once('socket', socket => {
 				t.false(socket.connecting);
@@ -126,8 +141,8 @@ test('send timeout (keepalive)', withServer, async (t, server, got) => {
 	);
 });
 
-test('response timeout', withServer, async (t, server, got) => {
-	server.get('/', defaultHandler);
+test.serial('response timeout', withServerAndLolex, async (t, server, got, clock) => {
+	server.get('/', defaultHandler(clock));
 
 	await t.throwsAsync(
 		got({
@@ -141,27 +156,28 @@ test('response timeout', withServer, async (t, server, got) => {
 	);
 });
 
-test('response timeout unaffected by slow upload', withServer, async (t, server, got) => {
-	server.post('/', defaultHandler);
+test.serial('response timeout unaffected by slow upload', withServerAndLolex, async (t, server, got, clock) => {
+	server.post('/', defaultHandler(clock));
 
 	await t.notThrowsAsync(got.post({
-		timeout: {response: requestDelay * 2},
 		retry: 0,
-		body: slowDataStream()
+		body: slowDataStream(clock)
 	}));
 });
 
-test('response timeout unaffected by slow download', withServer, async (t, server, got) => {
-	server.get('/', downloadHandler);
+test.serial('response timeout unaffected by slow download', withServerAndLolex, async (t, server, got, clock) => {
+	server.get('/', downloadHandler(clock));
 
 	await t.notThrowsAsync(got({
-		timeout: {response: 100},
+		timeout: {response: 200},
 		retry: 0
 	}));
+
+	clock.tick(100);
 });
 
-test('response timeout (keepalive)', withServer, async (t, server, got) => {
-	server.get('/', defaultHandler);
+test.serial('response timeout (keepalive)', withServerAndLolex, async (t, server, got, clock) => {
+	server.get('/', defaultHandler(clock));
 	server.get('/prime', (_request, response) => {
 		response.end('ok');
 	});
@@ -187,27 +203,25 @@ test('response timeout (keepalive)', withServer, async (t, server, got) => {
 	});
 });
 
-test('connect timeout', withServer, async (t, server, got) => {
-	server.get('/', defaultHandler);
-
+test.serial('connect timeout', withServerAndLolex, async (t, _server, got, clock) => {
 	await t.throwsAsync(
 		got({
 			createConnection: options => {
+				// @ts-ignore
 				const socket = new net.Socket(options);
 				// @ts-ignore
 				socket.connecting = true;
-				setImmediate(
-					socket.emit.bind(socket),
-					'lookup',
-					null,
-					'127.0.0.1',
-					4,
-					'localhost'
-				);
+				setImmediate(() => {
+					socket.emit('lookup', null, '127.0.0.1', 4, 'localhost');
+				});
 				return socket;
 			},
 			timeout: {connect: 1},
 			retry: 0
+		}).on('request', request => {
+			request.on('socket', () => {
+				clock.runAll();
+			});
 		}),
 		{
 			...errorMatcher,
@@ -216,9 +230,7 @@ test('connect timeout', withServer, async (t, server, got) => {
 	);
 });
 
-test('connect timeout (ip address)', withServer, async (t, server, got) => {
-	server.get('/', defaultHandler);
-
+test.serial('connect timeout (ip address)', withServerAndLolex, async (t, _server, got, clock) => {
 	await t.throwsAsync(
 		got({
 			hostname: '127.0.0.1',
@@ -230,6 +242,10 @@ test('connect timeout (ip address)', withServer, async (t, server, got) => {
 			},
 			timeout: {connect: 1},
 			retry: 0
+		}).on('request', request => {
+			request.on('socket', () => {
+				clock.runAll();
+			});
 		}),
 		{
 			...errorMatcher,
@@ -238,16 +254,29 @@ test('connect timeout (ip address)', withServer, async (t, server, got) => {
 	);
 });
 
-test('secureConnect timeout', withServer, async (t, server, got) => {
-	server.get('/', (_request, response) => {
-		response.end('ok');
-	});
-
+test.serial('secureConnect timeout', withServerAndLolex, async (t, _server, got, clock) => {
 	await t.throwsAsync(
 		got.secure({
+			createConnection: options => {
+				// @ts-ignore
+				const socket = new net.Socket(options);
+				// @ts-ignore
+				socket.connecting = true;
+				setImmediate(() => {
+					socket.emit('lookup', null, '127.0.0.1', 4, 'localhost');
+
+					setImmediate(() => {
+						socket.emit('connect');
+					});
+				});
+				return socket;
+			},
 			timeout: {secureConnect: 0},
-			retry: 0,
-			rejectUnauthorized: false
+			retry: 0
+		}).on('request', request => {
+			request.on('socket', () => {
+				clock.runAll();
+			});
 		}),
 		{
 			...errorMatcher,
@@ -261,22 +290,25 @@ test('secureConnect timeout not breached', withServer, async (t, server, got) =>
 		response.end('ok');
 	});
 
-	const secureConnect = 200;
 	await t.notThrowsAsync(got({
-		timeout: {secureConnect},
+		timeout: {secureConnect: 200},
 		retry: 0,
 		rejectUnauthorized: false
 	}));
 });
 
-test('lookup timeout', withServer, async (t, server, got) => {
-	server.get('/', defaultHandler);
+test.serial('lookup timeout', withServerAndLolex, async (t, server, got, clock) => {
+	server.get('/', defaultHandler(clock));
 
 	await t.throwsAsync(
 		got({
 			lookup: () => {},
 			timeout: {lookup: 1},
 			retry: 0
+		}).on('request', request => {
+			request.on('socket', () => {
+				clock.runAll();
+			});
 		}),
 		{
 			...errorMatcher,
@@ -285,8 +317,8 @@ test('lookup timeout', withServer, async (t, server, got) => {
 	);
 });
 
-test('lookup timeout no error (ip address)', withServer, async (t, server, got) => {
-	server.get('/', defaultHandler);
+test.serial('lookup timeout no error (ip address)', withServerAndLolex, async (t, server, got, clock) => {
+	server.get('/', defaultHandler(clock));
 
 	await t.notThrowsAsync(got({
 		hostname: '127.0.0.1',
@@ -295,8 +327,8 @@ test('lookup timeout no error (ip address)', withServer, async (t, server, got) 
 	}));
 });
 
-test('lookup timeout no error (keepalive)', withServer, async (t, server, got) => {
-	server.get('/', defaultHandler);
+test.serial('lookup timeout no error (keepalive)', withServerAndLolex, async (t, server, got, clock) => {
+	server.get('/', defaultHandler(clock));
 	server.get('/prime', (_request, response) => {
 		response.end('ok');
 	});
@@ -313,8 +345,8 @@ test('lookup timeout no error (keepalive)', withServer, async (t, server, got) =
 	}));
 });
 
-test('retries on timeout', withServer, async (t, server, got) => {
-	server.get('/', defaultHandler);
+test.serial('retries on timeout', withServerAndLolex, async (t, server, got, clock) => {
+	server.get('/', defaultHandler(clock));
 
 	let tried = false;
 	await t.throwsAsync(got({
@@ -337,8 +369,8 @@ test('retries on timeout', withServer, async (t, server, got) => {
 	t.true(tried);
 });
 
-test('timeout with streams', withServer, async (t, server, got) => {
-	server.get('/', defaultHandler);
+test.serial('timeout with streams', withServerAndLolex, async (t, server, got, clock) => {
+	server.get('/', defaultHandler(clock));
 
 	const stream = got.stream({
 		timeout: 0,
@@ -347,8 +379,8 @@ test('timeout with streams', withServer, async (t, server, got) => {
 	await t.throwsAsync(() => pEvent(stream, 'response'), {code: 'ETIMEDOUT'});
 });
 
-test('no error emitted when timeout is not breached (stream)', withServer, async (t, server, got) => {
-	server.get('/', defaultHandler);
+test.serial('no error emitted when timeout is not breached (stream)', withServerAndLolex, async (t, server, got, clock) => {
+	server.get('/', defaultHandler(clock));
 
 	const stream = got.stream({
 		retry: 0,
@@ -360,8 +392,8 @@ test('no error emitted when timeout is not breached (stream)', withServer, async
 	await t.notThrowsAsync(getStream(stream));
 });
 
-test('no error emitted when timeout is not breached (promise)', withServer, async (t, server, got) => {
-	server.get('/', defaultHandler);
+test.serial('no error emitted when timeout is not breached (promise)', withServerAndLolex, async (t, server, got, clock) => {
+	server.get('/', defaultHandler(clock));
 
 	await t.notThrowsAsync(got({
 		retry: 0,
@@ -371,15 +403,20 @@ test('no error emitted when timeout is not breached (promise)', withServer, asyn
 	}));
 });
 
-// Note: sometimes `got()` resolves instead of rejecting. That's because Travis is slow.
-test('no unhandled `socket hung up` errors', withServer, async (t, server, got) => {
-	server.get('/', defaultHandler);
+test.serial('no unhandled `socket hung up` errors', withServerAndLolex, async (t, server, got, clock) => {
+	server.get('/', defaultHandler(clock));
 
-	await t.throwsAsync(got({retry: 0, timeout: requestDelay / 2}), {instanceOf: got.TimeoutError});
-	await delay(requestDelay);
+	await t.throwsAsync(
+		got({retry: 0, timeout: requestDelay / 2}).on('request', () => {
+			clock.tick(requestDelay);
+		}),
+		{instanceOf: got.TimeoutError}
+	);
+
+	clock.tick(requestDelay);
 });
 
-test('no more timeouts after an error', async t => {
+test.serial('no more timeouts after an error', withServerAndLolex, async (t, _server, got, clock) => {
 	await t.throwsAsync(got(`http://${Date.now()}.dev`, {
 		retry: 1,
 		timeout: {
@@ -391,19 +428,19 @@ test('no more timeouts after an error', async t => {
 			send: 1,
 			request: 1
 		}
-	}), {instanceOf: got.GotError}); // Don't check the message, because it may throw ENOTFOUND before the timeout.
+	}).on('request', () => {
+		clock.runAll();
+	}), {instanceOf: got.GotError});
 
 	// Wait a bit more to check if there are any unhandled errors
-	await delay(100);
+	clock.tick(100);
 });
 
-test('socket timeout is canceled on error', withServer, async (t, server, got) => {
-	server.get('/', defaultHandler);
-
+test.serial('socket timeout is canceled on error', withServerAndLolex, async (t, _server, got, clock) => {
 	const message = 'oh, snap!';
 
 	const promise = got({
-		timeout: {socket: 100},
+		timeout: {socket: 50},
 		retry: 0
 	}).on('request', request => {
 		request.emit('error', new Error(message));
@@ -413,11 +450,11 @@ test('socket timeout is canceled on error', withServer, async (t, server, got) =
 	await t.throwsAsync(promise, {message});
 
 	// Wait a bit more to check if there are any unhandled errors
-	await delay(100);
+	clock.tick(100);
 });
 
-test('no memory leak when using socket timeout and keepalive agent', withServer, async (t, server, got) => {
-	server.get('/', defaultHandler);
+test.serial('no memory leak when using socket timeout and keepalive agent', withServerAndLolex, async (t, server, got, clock) => {
+	server.get('/', defaultHandler(clock));
 
 	const promise = got({
 		agent: keepAliveAgent,
@@ -467,12 +504,14 @@ test('double calling timedOut has no effect', t => {
 	t.is(emitter.listenerCount('socket'), 1);
 });
 
-test('doesn\'t throw on early lookup', withServer, async (t, server, got) => {
-	server.get('/', defaultHandler);
+test.serial('doesn\'t throw on early lookup', withServerAndLolex, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.end('ok');
+	});
 
 	await t.notThrowsAsync(got('', {
 		timeout: {
-			lookup: 100
+			lookup: 1
 		},
 		retry: 0,
 		lookup: (_hostname, options, callback) => {
