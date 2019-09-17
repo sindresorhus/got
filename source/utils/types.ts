@@ -154,7 +154,7 @@ export interface Options extends Except<https.RequestOptions, 'agent' | 'timeout
 	context?: {[key: string]: unknown};
 }
 
-export interface NormalizedOptions extends Except<Required<Options>, 'timeout' | 'dnsCache' | 'retry'> {
+export interface NormalizedOptions extends Except<Required<Options>, 'timeout' | 'dnsCache' | 'retry' | 'auth' | 'body' | 'port'> {
 	hooks: Hooks;
 	gotTimeout: Required<Delays>;
 	retry: NormalizedRetryOptions;
@@ -163,6 +163,9 @@ export interface NormalizedOptions extends Except<Required<Options>, 'timeout' |
 	path: string;
 	hostname: string;
 	host: string;
+	auth?: Options['auth'];
+	body?: Options['body'];
+	port?: Options['port'];
 }
 
 export interface ExtendedOptions extends Options {
