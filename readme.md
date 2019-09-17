@@ -1456,6 +1456,7 @@ const h2got = got.extend({request});
 - [travis-got](https://github.com/samverschueren/travis-got) - Got convenience wrapper to interact with the Travis API
 - [graphql-got](https://github.com/kevva/graphql-got) - Got convenience wrapper to interact with GraphQL
 - [GotQL](https://github.com/khaosdoctor/gotql) - Got convenience wrapper to interact with GraphQL using JSON-parsed queries instead of strings
+- [got-fetch](https://github.com/alexghr/got-fetch) - Got with a `fetch` interface
 
 
 ## Maintainers
