@@ -1151,9 +1151,9 @@ test('retry function gets iteration count', withServer, async (t, server, got) =
 
 	await got({
 		retry: {
-			retries: iteration => {
-				t.true(is.number(iteration));
-				return iteration < 2;
+			calculateDelay: ({attemptCount}) => {
+				t.true(is.number(attemptCount));
+				return attemptCount < 2;
 			}
 		}
 	});
@@ -1196,7 +1196,7 @@ const got = require('got');
 	}).json();
 
 	console.log(body);
-	//=> {...}
+	//=> {…}
 })();
 ```
 
