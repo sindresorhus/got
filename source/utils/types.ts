@@ -31,25 +31,6 @@ export type Method =
 	| 'options'
 	| 'trace';
 
-export type ErrorCode =
-	| 'ETIMEDOUT'
-	| 'ECONNRESET'
-	| 'EADDRINUSE'
-	| 'ECONNREFUSED'
-	| 'EPIPE'
-	| 'ENOTFOUND'
-	| 'ENETUNREACH'
-	| 'EAI_AGAIN';
-
-export type StatusCode =
-	| 408
-	| 413
-	| 429
-	| 500
-	| 502
-	| 503
-	| 504;
-
 export type ResponseType = 'json' | 'buffer' | 'text';
 
 export type URLArgument = string | https.RequestOptions | URL;
@@ -82,8 +63,8 @@ export interface RetryOptions {
 	limit?: number;
 	calculateDelay?: RetryFunction;
 	methods?: Method[];
-	statusCodes?: StatusCode[];
-	errorCodes?: ErrorCode[];
+	statusCodes?: number[];
+	errorCodes?: string[];
 	maxRetryAfter?: number;
 }
 
@@ -91,8 +72,8 @@ export interface NormalizedRetryOptions {
 	limit: number;
 	calculateDelay: RetryFunction;
 	methods: ReadonlySet<Method>;
-	statusCodes: ReadonlySet<StatusCode>;
-	errorCodes: ReadonlySet<ErrorCode>;
+	statusCodes: ReadonlySet<number>;
+	errorCodes: ReadonlySet<string>;
 	maxRetryAfter: number;
 }
 
