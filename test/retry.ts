@@ -2,10 +2,11 @@ import EventEmitter = require('events');
 import test from 'ava';
 import is from '@sindresorhus/is';
 import pEvent = require('p-event');
+import got from '../source';
 import withServer from './helpers/with-server';
 
 const retryAfterOn413 = 2;
-const socketTimeout = 200;
+const socketTimeout = 300;
 
 const handler413 = (_request, response) => {
 	response.writeHead(413, {
@@ -52,9 +53,9 @@ test('retry function gets iteration count', withServer, async (t, server, got) =
 	await got({
 		timeout: {socket: socketTimeout},
 		retry: {
-			retries: iteration => {
-				t.true(is.number(iteration));
-				return iteration < 2;
+			calculateDelay: ({attemptCount}) => {
+				t.true(is.number(attemptCount));
+				return attemptCount < 2;
 			}
 		}
 	});
@@ -88,8 +89,8 @@ test('custom retries', withServer, async (t, server, got) => {
 	const error = await t.throwsAsync(got({
 		throwHttpErrors: true,
 		retry: {
-			retries: iteration => {
-				if (iteration === 1) {
+			calculateDelay: ({attemptCount}) => {
+				if (attemptCount === 1) {
 					tried = true;
 					return 1;
 				}
@@ -106,15 +107,10 @@ test('custom retries', withServer, async (t, server, got) => {
 	t.true(tried);
 });
 
-test('custom error codes', withServer, async (t, server, got) => {
-	server.get('/', (_request, response) => {
-		response.statusCode = 500;
-		response.end();
-	});
-
+test('custom error codes', async t => {
 	const errorCode = 'OH_SNAP';
 
-	const error = await t.throwsAsync(got({
+	const error = await t.throwsAsync(got('https://example.com', {
 		request: () => {
 			const emitter = (new EventEmitter()) as any;
 			emitter.end = () => {};
@@ -128,8 +124,10 @@ test('custom error codes', withServer, async (t, server, got) => {
 
 			return emitter;
 		},
+		// @ts-ignore TS is assuming that we're using Partial<NormalizedRetryOptions> instead of Partial<RetryOptions>
 		retry: {
-			retries: (_iteration, error) => {
+			calculateDelay: ({error}) => {
+				// @ts-ignore
 				t.is(error.code, errorCode);
 				return 0;
 			},
@@ -142,6 +140,7 @@ test('custom error codes', withServer, async (t, server, got) => {
 		}
 	}));
 
+	// @ts-ignore
 	t.is(error.code, errorCode);
 });
 
@@ -293,7 +292,7 @@ test('retry function can throw', withServer, async (t, server, got) => {
 	const error = 'Simple error';
 	await t.throwsAsync(got({
 		retry: {
-			retries: () => {
+			calculateDelay: () => {
 				throw new Error(error);
 			}
 		}

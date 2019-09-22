@@ -11,6 +11,7 @@ import timer, {Timings} from '@szmarczak/http-timer';
 import timedOut, {TimeoutError as TimedOutTimeoutError} from './utils/timed-out';
 import getBodySize from './utils/get-body-size';
 import isFormData from './utils/is-form-data';
+import calculateRetryDelay from './calculate-retry-delay';
 import getResponse from './get-response';
 import {uploadProgress} from './progress';
 import {CacheError, UnsupportedProtocolError, MaxRedirectsError, RequestError, TimeoutError} from './errors';
@@ -133,7 +134,7 @@ export default (options: NormalizedOptions, input?: TransformStream) => {
 
 				const rawCookies = typedResponse.headers['set-cookie'];
 				if (options.cookieJar && rawCookies) {
-					let promises = rawCookies.map((rawCookie: string) => setCookie!(rawCookie, typedResponse.url!));
+					let promises: Array<Promise<unknown>> = rawCookies.map((rawCookie: string) => setCookie!(rawCookie, typedResponse.url!));
 					if (options.ignoreInvalidCookies) {
 						promises = promises.map(p => p.catch(() => {}));
 					}
@@ -196,7 +197,7 @@ export default (options: NormalizedOptions, input?: TransformStream) => {
 			currentRequest = request;
 
 			request.on('error', error => {
-				if (request.aborted || error.message === 'socket hang up') {
+				if (typeof request.aborted === 'number' || error.message === 'socket hang up') {
 					return;
 				}
 
@@ -270,8 +271,20 @@ export default (options: NormalizedOptions, input?: TransformStream) => {
 	emitter.retry = (error): boolean => {
 		let backoff: number;
 
+		retryCount++;
+
 		try {
-			backoff = options.retry.retries(++retryCount, error);
+			backoff = options.retry.calculateDelay({
+				attemptCount: retryCount,
+				retryOptions: options.retry,
+				error,
+				computedValue: calculateRetryDelay({
+					attemptCount: retryCount,
+					retryOptions: options.retry,
+					error,
+					computedValue: 0
+				})
+			});
 		} catch (error2) {
 			emitError(error2);
 			return false;

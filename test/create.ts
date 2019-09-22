@@ -1,6 +1,7 @@
 import http = require('http');
 import {URL} from 'url';
 import test from 'ava';
+import is from '@sindresorhus/is';
 import got from '../source';
 import withServer from './helpers/with-server';
 
@@ -95,9 +96,12 @@ test('extend keeps the old value if the new one is undefined', t => {
 });
 
 test('extend merges URL instances', t => {
-	const a = got.extend({baseUrl: new URL('https://example.com')});
-	const b = a.extend({baseUrl: '/foo'});
-	t.is(b.defaults.options.baseUrl.toString(), 'https://example.com/foo/');
+	// @ts-ignore Custom instance.
+	const a = got.extend({custom: new URL('https://example.com')});
+	// @ts-ignore Custom instance.
+	const b = a.extend({custom: '/foo'});
+	// @ts-ignore Custom instance.
+	t.is(b.defaults.options.custom.toString(), 'https://example.com/foo');
 });
 
 test('create', withServer, async (t, server) => {
@@ -105,10 +109,12 @@ test('create', withServer, async (t, server) => {
 
 	const instance = got.create({
 		options: {},
-		handler: (options, next) => {
-			options.headers.unicorn = 'rainbow';
-			return next(options);
-		}
+		handlers: [
+			(options, next) => {
+				options.headers.unicorn = 'rainbow';
+				return next(options);
+			}
+		]
 	});
 	const headers = await instance(server.url).json<TestReturn>();
 	t.is(headers.unicorn, 'rainbow');
@@ -128,32 +134,32 @@ test('hooks are merged on got.extend()', t => {
 test('custom endpoint with custom headers (extend)', withServer, async (t, server) => {
 	server.all('/', echoHeaders);
 
-	const instance = got.extend({headers: {unicorn: 'rainbow'}, baseUrl: server.url});
-	const headers = await instance('/').json<TestReturn>();
+	const instance = got.extend({headers: {unicorn: 'rainbow'}, prefixUrl: server.url});
+	const headers = await instance('').json<TestReturn>();
 	t.is(headers.unicorn, 'rainbow');
 	t.not(headers['user-agent'], undefined);
 });
 
 test('no tampering with defaults', t => {
 	const instance = got.create({
-		handler: got.defaults.handler,
+		handlers: got.defaults.handlers,
 		options: got.mergeOptions(got.defaults.options, {
-			baseUrl: 'example/'
+			prefixUrl: 'example/'
 		})
 	});
 
 	const instance2 = instance.create({
-		handler: instance.defaults.handler,
+		handlers: instance.defaults.handlers,
 		options: instance.defaults.options
 	});
 
 	// Tamper Time
 	t.throws(() => {
-		instance.defaults.options.baseUrl = 'http://google.com';
+		instance.defaults.options.prefixUrl = 'http://google.com';
 	});
 
-	t.is(instance.defaults.options.baseUrl, 'example/');
-	t.is(instance2.defaults.options.baseUrl, 'example/');
+	t.is(instance.defaults.options.prefixUrl, 'example/');
+	t.is(instance2.defaults.options.prefixUrl, 'example/');
 });
 
 test('defaults can be mutable', t => {
@@ -242,4 +248,51 @@ test('hooks aren\'t overriden when merging options', withServer, async (t, serve
 	await instance({});
 
 	t.true(called);
+});
+
+test('extend with custom handlers', withServer, async (t, server, got) => {
+	server.get('/', echoHeaders);
+
+	const instance = got.extend({
+		handlers: [
+			(options, next) => {
+				options.headers.unicorn = 'rainbow';
+				return next(options);
+			}
+		]
+	});
+	const headers = await instance('').json();
+	t.is(headers.unicorn, 'rainbow');
+});
+
+test('extend with instances', t => {
+	const a = got.extend({prefixUrl: new URL('https://example.com/')});
+	const b = got.extend(a);
+	t.is(b.defaults.options.prefixUrl.toString(), 'https://example.com/');
+});
+
+test('extend with a chain', t => {
+	const a = got.extend({prefixUrl: 'https://example.com/'});
+	const b = got.extend(a, {headers: {foo: 'bar'}});
+	t.is(b.defaults.options.prefixUrl.toString(), 'https://example.com/');
+	t.is(b.defaults.options.headers.foo, 'bar');
+});
+
+test('async handlers', withServer, async (t, server, got) => {
+	server.get('/', echoHeaders);
+
+	const instance = got.extend({
+		handlers: [
+			async (options, next) => {
+				const result = await next(options);
+				result.modified = true;
+
+				return result;
+			}
+		]
+	});
+
+	const promise = instance('');
+	t.true(is.function_(promise.cancel));
+	t.true((await promise).modified);
 });

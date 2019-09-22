@@ -2,7 +2,7 @@ import EventEmitter = require('events');
 
 type Origin = EventEmitter;
 type Event = string | symbol;
-type Fn = (...args: unknown[]) => void;
+type Fn = (...args: any[]) => void;
 
 interface Handler {
 	origin: Origin;
@@ -33,6 +33,8 @@ export default (): Unhandler => {
 				const {origin, event, fn} = handler;
 				origin.removeListener(event, fn);
 			}
+
+			handlers.length = 0;
 		}
 	};
 };

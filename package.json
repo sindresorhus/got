@@ -1,6 +1,6 @@
 {
 	"name": "got",
-	"version": "9.6.0",
+	"version": "10.0.0-alpha.1",
 	"description": "Simplified HTTP requests",
 	"license": "MIT",
 	"repository": "sindresorhus/got",
@@ -9,10 +9,10 @@
 		"node": ">=8.6"
 	},
 	"scripts": {
-		"test": "xo && nyc ava",
+		"test": "xo && nyc ava && tsc --noEmit",
 		"release": "np",
 		"build": "del-cli dist && tsc",
-		"prepublishOnly": "npm run build"
+		"prepare": "npm run build"
 	},
 	"files": [
 		"dist"
@@ -37,10 +37,9 @@
 		"brotli"
 	],
 	"dependencies": {
-		"@sindresorhus/is": "^0.17.0",
+		"@sindresorhus/is": "^1.0.0",
 		"@szmarczak/http-timer": "^2.0.0",
 		"@types/cacheable-request": "^6.0.1",
-		"@types/form-data": "^2.2.1",
 		"@types/tough-cookie": "^2.3.5",
 		"cacheable-lookup": "^0.2.1",
 		"cacheable-request": "^6.1.0",
@@ -52,34 +51,35 @@
 		"p-cancelable": "^2.0.0",
 		"responselike": "^1.0.2",
 		"to-readable-stream": "^2.0.0",
-		"type-fest": "^0.5.0"
+		"type-fest": "^0.8.0"
 	},
 	"devDependencies": {
 		"@sindresorhus/tsconfig": "^0.4.0",
 		"@types/duplexer3": "^0.1.0",
-		"@types/node": "^12.0.8",
+		"@types/node": "^12.7.5",
 		"@types/sinon": "^7.0.13",
 		"@typescript-eslint/eslint-plugin": "^1.10.2",
 		"@typescript-eslint/parser": "^1.10.2",
-		"ava": "^2.1.0",
+		"ava": "^2.4.0",
 		"coveralls": "^3.0.4",
 		"create-test-server": "^3.0.1",
-		"del-cli": "^2.0.0",
+		"del-cli": "^3.0.0",
 		"delay": "^4.3.0",
 		"eslint-config-xo-typescript": "^0.14.0",
-		"form-data": "^2.3.3",
+		"form-data": "^2.5.1",
 		"get-port": "^5.0.0",
 		"keyv": "^3.1.0",
-		"nock": "^10.0.6",
+		"lolex": "^4.2.0",
+		"nock": "^11.3.4",
 		"np": "^5.0.3",
 		"nyc": "^14.0.0",
 		"p-event": "^4.0.0",
 		"proxyquire": "^2.0.1",
-		"sinon": "^7.2.2",
+		"sinon": "^7.4.2",
 		"slow-stream": "0.0.4",
 		"tempy": "^0.3.0",
 		"tough-cookie": "^3.0.0",
-		"ts-node": "^8.3.0",
+		"ts-node": "^8.4.1",
 		"typescript": "3.4.4",
 		"xo": "^0.24.0"
 	},
@@ -123,6 +123,9 @@
 			"@typescript-eslint/explicit-function-return-type": "off",
 			"@typescript-eslint/no-unnecessary-type-assertion": "off",
 			"@typescript-eslint/await-thenable": "off"
-		}
+		},
+		"ignores": [
+			"documentation/examples/*"
+		]
 	}
 }

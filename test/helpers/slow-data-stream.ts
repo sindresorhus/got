@@ -1,18 +1,17 @@
-import {PassThrough} from 'stream';
+import {Readable} from 'stream';
+import {Clock} from 'lolex';
 
-export default (): PassThrough => {
-	const slowStream = new PassThrough();
-	let count = 0;
+export default (clock: Clock): Readable => {
+	let i = 0;
 
-	const interval = setInterval(() => {
-		if (count++ < 10) {
-			slowStream.push('data\n'.repeat(100));
-			return;
+	return new Readable({
+		read() {
+			if (i++ < 10) {
+				this.push('data\n'.repeat(100));
+				clock.tick(100);
+			} else {
+				this.push(null);
+			}
 		}
-
-		clearInterval(interval);
-		slowStream.push(null);
-	}, 100);
-
-	return slowStream;
+	});
 };

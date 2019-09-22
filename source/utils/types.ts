@@ -6,7 +6,7 @@ import PCancelable = require('p-cancelable');
 import {URL} from 'url';
 import {CookieJar} from 'tough-cookie';
 import {StorageAdapter} from 'cacheable-request';
-import {Omit} from 'type-fest';
+import {Except} from 'type-fest';
 import CacheableLookup from 'cacheable-lookup';
 import Keyv = require('keyv');
 import {Timings} from '@szmarczak/http-timer/dist';
@@ -77,12 +77,20 @@ export interface ResponseObject extends ResponseLike {
 	};
 }
 
-export type RetryFunction = (retry: number, error: Error | GotError | ParseError | HTTPError | MaxRedirectsError) => number;
+export interface RetryObject {
+	attemptCount: number;
+	retryOptions: NormalizedRetryOptions;
+	error: Error | GotError | ParseError | HTTPError | MaxRedirectsError;
+	computedValue: number;
+}
 
-export type HandlerFunction = <T extends ProxyStream | CancelableRequest<Response>>(options: Options, next: (options: Options) => T) => T;
+export type RetryFunction = (retryObject: RetryObject) => number;
 
-export interface RetryOption {
-	retries?: RetryFunction | number;
+export type HandlerFunction = <T extends ProxyStream | CancelableRequest<Response>>(options: NormalizedOptions, next: (options: NormalizedOptions) => T) => T;
+
+export interface RetryOptions {
+	limit?: number;
+	calculateDelay?: RetryFunction;
 	methods?: Method[];
 	statusCodes?: StatusCode[];
 	errorCodes?: ErrorCode[];
@@ -90,7 +98,8 @@ export interface RetryOption {
 }
 
 export interface NormalizedRetryOptions {
-	retries: RetryFunction;
+	limit: number;
+	calculateDelay: RetryFunction;
 	methods: ReadonlySet<Method>;
 	statusCodes: ReadonlySet<StatusCode>;
 	errorCodes: ReadonlySet<ErrorCode>;
@@ -117,7 +126,7 @@ export interface Delays {
 export type Headers = Record<string, string | string[]>;
 
 // The library overrides the type definition of `agent`, `host`, 'headers and `timeout`.
-export interface Options extends Omit<https.RequestOptions, 'agent' | 'timeout' | 'host' | 'headers'> {
+export interface Options extends Except<https.RequestOptions, 'agent' | 'timeout' | 'host' | 'headers'> {
 	host?: string;
 	body?: string | Buffer | ReadableStream;
 	hostname?: string;
@@ -131,7 +140,7 @@ export interface Options extends Omit<https.RequestOptions, 'agent' | 'timeout' 
 	stream?: boolean;
 	encoding?: BufferEncoding | null;
 	method?: Method;
-	retry?: number | Partial<RetryOption | NormalizedRetryOptions>;
+	retry?: number | Partial<RetryOptions | NormalizedRetryOptions>;
 	throwHttpErrors?: boolean;
 	cookieJar?: CookieJar;
 	ignoreInvalidCookies?: boolean;
@@ -140,11 +149,10 @@ export interface Options extends Omit<https.RequestOptions, 'agent' | 'timeout' 
 	gotTimeout?: number | Delays;
 	cache?: string | StorageAdapter | false;
 	headers?: Headers;
-	mutableDefaults?: boolean;
 	responseType?: ResponseType;
 	resolveBodyOnly?: boolean;
 	followRedirect?: boolean;
-	baseUrl?: URL | string;
+	prefixUrl?: URL | string;
 	timeout?: number | Delays;
 	dnsCache?: Map<string, string> | Keyv | false;
 	url?: URL | string;
@@ -156,21 +164,28 @@ export interface Options extends Omit<https.RequestOptions, 'agent' | 'timeout' 
 	context?: {[key: string]: unknown};
 }
 
-export interface NormalizedOptions extends Omit<Required<Options>, 'timeout' | 'dnsCache' | 'retry'> {
+export interface NormalizedOptions extends Except<Required<Options>, 'timeout' | 'dnsCache' | 'retry' | 'auth' | 'body' | 'port'> {
 	hooks: Hooks;
 	gotTimeout: Required<Delays>;
 	retry: NormalizedRetryOptions;
 	lookup?: CacheableLookup['lookup'];
-	readonly baseUrl: string;
+	readonly prefixUrl: string;
 	path: string;
 	hostname: string;
 	host: string;
+	auth?: Options['auth'];
+	body?: Options['body'];
+	port?: Options['port'];
+}
+
+export interface ExtendedOptions extends Options {
+	handlers?: HandlerFunction[];
+	mutableDefaults?: boolean;
 }
 
 export interface Defaults {
-	methods?: Method[];
 	options?: Options;
-	handler?: HandlerFunction;
+	handlers?: HandlerFunction[];
 	mutableDefaults?: boolean;
 }
 
