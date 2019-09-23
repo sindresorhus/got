@@ -31,13 +31,25 @@ export type Method =
 	| 'options'
 	| 'trace';
 
+export type ErrorCode =
+	| 'ETIMEDOUT'
+	| 'ECONNRESET'
+	| 'EADDRINUSE'
+	| 'ECONNREFUSED'
+	| 'EPIPE'
+	| 'ENOTFOUND'
+	| 'ENETUNREACH'
+	| 'EAI_AGAIN';
+
+export type StatusCode = number;
+
 export type ResponseType = 'json' | 'buffer' | 'text';
 
 export type URLArgument = string | https.RequestOptions | URL;
 
 export interface Response extends http.IncomingMessage {
 	body: Buffer | string | any;
-	statusCode: number;
+	statusCode: StatusCode;
 	fromCache?: boolean;
 	isFromCache?: boolean;
 	req: http.ClientRequest;
@@ -63,7 +75,7 @@ export interface RetryOptions {
 	limit?: number;
 	calculateDelay?: RetryFunction;
 	methods?: Method[];
-	statusCodes?: number[];
+	statusCodes?: StatusCode[];
 	errorCodes?: string[];
 	maxRetryAfter?: number;
 }
