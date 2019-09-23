@@ -41,14 +41,7 @@ export type ErrorCode =
 	| 'ENETUNREACH'
 	| 'EAI_AGAIN';
 
-export type StatusCode =
-	| 408
-	| 413
-	| 429
-	| 500
-	| 502
-	| 503
-	| 504;
+export type StatusCode = number;
 
 export type ResponseType = 'json' | 'buffer' | 'text';
 
@@ -56,7 +49,7 @@ export type URLArgument = string | https.RequestOptions | URL;
 
 export interface Response extends http.IncomingMessage {
 	body: Buffer | string | any;
-	statusCode: number;
+	statusCode: StatusCode;
 	fromCache?: boolean;
 	isFromCache?: boolean;
 	req: http.ClientRequest;
@@ -83,7 +76,7 @@ export interface RetryOptions {
 	calculateDelay?: RetryFunction;
 	methods?: Method[];
 	statusCodes?: StatusCode[];
-	errorCodes?: ErrorCode[];
+	errorCodes?: string[];
 	maxRetryAfter?: number;
 }
 
@@ -91,8 +84,8 @@ export interface NormalizedRetryOptions {
 	limit: number;
 	calculateDelay: RetryFunction;
 	methods: ReadonlySet<Method>;
-	statusCodes: ReadonlySet<StatusCode>;
-	errorCodes: ReadonlySet<ErrorCode>;
+	statusCodes: ReadonlySet<number>;
+	errorCodes: ReadonlySet<string>;
 	maxRetryAfter: number;
 }
 
