@@ -64,3 +64,43 @@ export default got;
 // For CommonJS default export support
 module.exports = got;
 module.exports.default = got;
+
+// Export types
+export * from './utils/types';
+export {
+	Got,
+	GotStream,
+	ReturnResponse,
+	ReturnStream,
+	GotReturn
+} from './create';
+export {
+	ProxyStream
+} from './as-stream';
+export {
+	GotError,
+	CacheError,
+	RequestError,
+	ParseError,
+	HTTPError,
+	MaxRedirectsError,
+	UnsupportedProtocolError,
+	TimeoutError,
+	CancelError
+} from './errors';
+export {
+	InitHook,
+	BeforeRequestHook,
+	BeforeRedirectHook,
+	BeforeRetryHook,
+	BeforeErrorHook,
+	AfterResponseHook,
+	HookType,
+	Hooks,
+	HookEvent
+} from './known-hook-events';
+export {
+	GetMethodRedirectCodes,
+	AllMethodRedirectCodes,
+	RequestAsEventEmitter
+} from './request-as-event-emitter';
