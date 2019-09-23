@@ -75,7 +75,7 @@ export {
 	GotReturn
 } from './create';
 export {
-	ProxyStream
+	ProxyStream as ResponseStream
 } from './as-stream';
 export {
 	GotError,
