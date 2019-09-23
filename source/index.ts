@@ -99,8 +99,3 @@ export {
 	Hooks,
 	HookEvent
 } from './known-hook-events';
-export {
-	GetMethodRedirectCodes,
-	AllMethodRedirectCodes,
-	RequestAsEventEmitter
-} from './request-as-event-emitter';
