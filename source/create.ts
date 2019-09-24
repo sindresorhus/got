@@ -68,7 +68,7 @@ let hasShownDeprecation = false;
 
 const create = (defaults: Partial<Defaults>): Got => {
 	defaults = merge<Defaults, Partial<Defaults>>({}, defaults);
-	preNormalizeArguments(defaults.options!);
+	preNormalizeArguments(defaults.options);
 
 	defaults = {
 		handlers: [defaultHandler],

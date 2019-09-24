@@ -106,7 +106,7 @@ test('catches afterResponse thrown errors', withServer, async (t, server, got) =
 test('throws a helpful error when passing async function as init hook', async t => {
 	await t.throwsAsync(got('https://example.com', {
 		hooks: {
-			init: [() => Promise.resolve()]
+			init: [async () => {}]
 		}
 	}), 'The `init` hook must be a synchronous function');
 });
@@ -114,7 +114,11 @@ test('throws a helpful error when passing async function as init hook', async t 
 test('catches beforeRequest promise rejections', async t => {
 	await t.throwsAsync(got('https://example.com', {
 		hooks: {
-			beforeRequest: [() => Promise.reject(error)]
+			beforeRequest: [
+				async () => {
+					throw error;
+				}
+			]
 		}
 	}), errorString);
 });
@@ -124,7 +128,11 @@ test('catches beforeRedirect promise rejections', withServer, async (t, server, 
 
 	await t.throwsAsync(got({
 		hooks: {
-			beforeRedirect: [() => Promise.reject(error)]
+			beforeRedirect: [
+				async () => {
+					throw error;
+				}
+			]
 		}
 	}), errorString);
 });
@@ -134,7 +142,11 @@ test('catches beforeRetry promise rejections', withServer, async (t, server, got
 
 	await t.throwsAsync(got('retry', {
 		hooks: {
-			beforeRetry: [() => Promise.reject(error)]
+			beforeRetry: [
+				async () => {
+					throw error;
+				}
+			]
 		}
 	}), errorString);
 });
@@ -144,7 +156,11 @@ test('catches afterResponse promise rejections', withServer, async (t, server, g
 
 	await t.throwsAsync(got({
 		hooks: {
-			afterResponse: [() => Promise.reject(error)]
+			afterResponse: [
+				async () => {
+					throw error;
+				}
+			]
 		}
 	}), errorString);
 });
@@ -154,7 +170,11 @@ test('catches beforeError errors', async t => {
 		// @ts-ignore Manual tests
 		request: () => {},
 		hooks: {
-			beforeError: [() => Promise.reject(error)]
+			beforeError: [
+				async () => {
+					throw error;
+				}
+			]
 		}
 	}), errorString);
 });
@@ -175,7 +195,7 @@ test('init is called with options', withServer, async (t, server, got) => {
 });
 
 test('init allows modifications', withServer, async (t, server, got) => {
-	server.get('/', async (request, response) => {
+	server.get('/', (request, response) => {
 		response.end(request.headers.foo);
 	});
 

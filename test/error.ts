@@ -2,7 +2,7 @@ import {URL} from 'url';
 import http = require('http');
 import test from 'ava';
 import proxyquire = require('proxyquire');
-import got from '../source';
+import got, {GotError} from '../source';
 import withServer from './helpers/with-server';
 
 test('properties', withServer, async (t, server, got) => {
@@ -13,9 +13,8 @@ test('properties', withServer, async (t, server, got) => {
 
 	const url = new URL(server.url);
 
-	const error = await t.throwsAsync(got('')) as any;
+	const error = await t.throwsAsync(got(''));
 	t.truthy(error);
-	// @ts-ignore
 	t.truthy(error.response);
 	t.truthy(error.options);
 	t.false({}.propertyIsEnumerable.call(error, 'options'));
@@ -31,7 +30,7 @@ test('properties', withServer, async (t, server, got) => {
 });
 
 test('catches dns errors', async t => {
-	const error = await t.throwsAsync(got('http://doesntexist', {retry: 0})) as any;
+	const error = await t.throwsAsync<GotError>(got('http://doesntexist', {retry: 0}));
 	t.truthy(error);
 	t.regex(error.message, /getaddrinfo ENOTFOUND/);
 	t.is(error.options.host, 'doesntexist');
@@ -46,7 +45,7 @@ test('`options.body` form error message', async t => {
 });
 
 test('no plain object restriction on json body', withServer, async (t, server, got) => {
-	server.post('/body', async (request, response) => {
+	server.post('/body', (request, response) => {
 		request.pipe(response);
 	});
 
@@ -192,8 +191,10 @@ test('catches error in mimicResponse', withServer, async (t, server) => {
 });
 
 test('errors are thrown directly when options.stream is true', t => {
-	// @ts-ignore Manual tests
-	t.throws(() => got('https://example.com', {stream: true, hooks: false}), {
+	t.throws(() => {
+		// @ts-ignore Manual tests
+		got('https://example.com', {stream: true, hooks: false});
+	}, {
 		message: 'Parameter `hooks` must be an object, not boolean'
 	});
 });

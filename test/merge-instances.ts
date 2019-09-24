@@ -33,7 +33,7 @@ test('works even if no default handler in the end', withServer, async (t, server
 	});
 
 	const merged = instanceA.extend(instanceB);
-	await t.notThrowsAsync(() => merged(server.url));
+	await t.notThrowsAsync(merged(server.url));
 });
 
 test('merges default handlers & custom handlers', withServer, async (t, server) => {

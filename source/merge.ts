@@ -5,7 +5,7 @@ import knownHookEvents, {Hooks, HookEvent, HookType} from './known-hook-events';
 const URLGlobal: typeof URL = typeof URL === 'undefined' ? require('url').URL : URL;
 const URLSearchParamsGlobal: typeof URLSearchParams = typeof URLSearchParams === 'undefined' ? require('url').URLSearchParams : URLSearchParams;
 
-export default function merge<Target extends Record<string, unknown>, Source extends Record<string, unknown>>(target: Target, ...sources: Source[]): Target & Source {
+export default function merge<Target extends Record<string, any>, Source extends Record<string, any>>(target: Target, ...sources: Source[]): Target & Source {
 	for (const source of sources) {
 		for (const [key, sourceValue] of Object.entries(source)) {
 			if (is.undefined(sourceValue)) {
@@ -20,18 +20,24 @@ export default function merge<Target extends Record<string, unknown>, Source ext
 				targetValue.forEach(append);
 				sourceValue.forEach(append);
 
+				// @ts-ignore https://github.com/microsoft/TypeScript/issues/31661
 				target[key] = params;
 			} else if (is.urlInstance(targetValue) && (is.urlInstance(sourceValue) || is.string(sourceValue))) {
+				// @ts-ignore
 				target[key] = new URLGlobal(sourceValue as string, targetValue);
 			} else if (is.plainObject(sourceValue)) {
 				if (is.plainObject(targetValue)) {
+					// @ts-ignore
 					target[key] = merge({}, targetValue, sourceValue);
 				} else {
+					// @ts-ignore
 					target[key] = merge({}, sourceValue);
 				}
 			} else if (is.array(sourceValue)) {
+				// @ts-ignore
 				target[key] = sourceValue.slice();
 			} else {
+				// @ts-ignore
 				target[key] = sourceValue;
 			}
 		}
@@ -41,6 +47,7 @@ export default function merge<Target extends Record<string, unknown>, Source ext
 				writable: true,
 				configurable: true,
 				enumerable: false,
+				// @ts-ignore
 				value: source.context
 			});
 		}

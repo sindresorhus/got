@@ -92,7 +92,7 @@ export default (request: ClientRequest, delays: Delays, options: TimedOutOptions
 
 	if (typeof delays.socket !== 'undefined') {
 		const socketTimeoutHandler = (): void => {
-			timeoutHandler(delays.socket!, 'socket');
+			timeoutHandler(delays.socket, 'socket');
 		};
 
 		request.setTimeout(delays.socket, socketTimeoutHandler);
@@ -117,7 +117,7 @@ export default (request: ClientRequest, delays: Delays, options: TimedOutOptions
 			}
 
 			if (typeof delays.connect !== 'undefined') {
-				const timeConnect = (): (() => void) => addTimeout(delays.connect!, timeoutHandler, 'connect');
+				const timeConnect = (): (() => void) => addTimeout(delays.connect, timeoutHandler, 'connect');
 
 				if (socketPath || net.isIP(hostname || host || '')) {
 					once(socket, 'connect', timeConnect());
@@ -132,14 +132,14 @@ export default (request: ClientRequest, delays: Delays, options: TimedOutOptions
 
 			if (typeof delays.secureConnect !== 'undefined' && options.protocol === 'https:') {
 				once(socket, 'connect', (): void => {
-					const cancelTimeout = addTimeout(delays.secureConnect!, timeoutHandler, 'secureConnect');
+					const cancelTimeout = addTimeout(delays.secureConnect, timeoutHandler, 'secureConnect');
 					once(socket, 'secureConnect', cancelTimeout);
 				});
 			}
 		}
 
 		if (typeof delays.send !== 'undefined') {
-			const timeRequest = (): (() => void) => addTimeout(delays.send!, timeoutHandler, 'send');
+			const timeRequest = (): (() => void) => addTimeout(delays.send, timeoutHandler, 'send');
 			/* istanbul ignore next: hard to test */
 			if (socket.connecting) {
 				once(socket, 'connect', (): void => {
@@ -153,7 +153,7 @@ export default (request: ClientRequest, delays: Delays, options: TimedOutOptions
 
 	if (typeof delays.response !== 'undefined') {
 		once(request, 'upload-complete', (): void => {
-			const cancelTimeout = addTimeout(delays.response!, timeoutHandler, 'response');
+			const cancelTimeout = addTimeout(delays.response, timeoutHandler, 'response');
 			once(request, 'response', cancelTimeout);
 		});
 	}

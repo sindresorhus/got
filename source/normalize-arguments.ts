@@ -57,6 +57,7 @@ export const preNormalizeArguments = (options: Options, defaults?: Options): Nor
 		if (is.nullOrUndefined(options.hooks[event])) {
 			if (defaults && defaults.hooks) {
 				if (event in defaults.hooks) {
+					// @ts-ignore
 					options.hooks[event] = defaults.hooks[event]!.slice();
 				}
 			} else {
@@ -90,13 +91,14 @@ export const preNormalizeArguments = (options: Options, defaults?: Options): Nor
 		if (is.number(retry)) {
 			options.retry.limit = retry;
 		} else {
-			// eslint-disable-next-line @typescript-eslint/no-object-literal-type-assertion
-			options.retry = {...options.retry, ...retry} as NormalizedRetryOptions;
+			// @ts-ignore
+			const retryOption: NormalizedRetryOptions = {...options.retry, ...retry};
+			options.retry = retryOption;
 		}
 	}
 
 	if (!options.retry.maxRetryAfter && options.gotTimeout) {
-		options.retry.maxRetryAfter = Math.min(...[(options.gotTimeout as Delays).request!, (options.gotTimeout as Delays).connect!].filter(n => !is.nullOrUndefined(n)));
+		options.retry.maxRetryAfter = Math.min(...[(options.gotTimeout as Delays).request, (options.gotTimeout as Delays).connect].filter(n => !is.nullOrUndefined(n)));
 	}
 
 	if (is.array(options.retry.methods)) {
@@ -131,7 +133,7 @@ export const normalizeArguments = (url: URLOrOptions, options: NormalizedOptions
 	}
 
 	if (defaults) {
-		options = merge<NormalizedOptions, Options>({} as NormalizedOptions, defaults.options!, options ? preNormalizeArguments(options, defaults.options) : {});
+		options = merge<NormalizedOptions, Options>({} as NormalizedOptions, defaults.options, options ? preNormalizeArguments(options, defaults.options) : {});
 	} else {
 		options = merge({}, preNormalizeArguments(options));
 	}
@@ -197,7 +199,7 @@ export const normalizeArguments = (url: URLOrOptions, options: NormalizedOptions
 		delete options.query;
 	}
 
-	if (is.nonEmptyString(searchParams) || is.nonEmptyObject(searchParams) || (searchParams && searchParams! instanceof URLSearchParams)) {
+	if (is.nonEmptyString(searchParams) || is.nonEmptyObject(searchParams) || (searchParams && searchParams instanceof URLSearchParams)) {
 		if (!is.string(searchParams)) {
 			if (!(searchParams instanceof URLSearchParams)) {
 				validateSearchParams(searchParams);

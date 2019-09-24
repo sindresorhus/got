@@ -1,3 +1,3 @@
 declare module 'create-test-server' {
-	export default function(options: any): Promise<any>;
+	export default function createTestServer(options: any): Promise<any>;
 }

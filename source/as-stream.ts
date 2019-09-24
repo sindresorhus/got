@@ -3,7 +3,7 @@ import {IncomingMessage} from 'http';
 import duplexer3 = require('duplexer3');
 import requestAsEventEmitter from './request-as-event-emitter';
 import {HTTPError, ReadError} from './errors';
-import {NormalizedOptions, Response, Headers} from './utils/types';
+import {NormalizedOptions, Response} from './utils/types';
 
 export class ProxyStream extends DuplexStream {
 	isFromCache?: boolean;
@@ -13,7 +13,7 @@ export default function asStream(options: NormalizedOptions): ProxyStream {
 	const input = new PassThroughStream();
 	const output = new PassThroughStream();
 	const proxy = duplexer3(input, output) as ProxyStream;
-	const piped = new Set();
+	const piped = new Set<any>(); // TODO: Should be `new Set<ProxyStream>();`.
 	let isFinished = false;
 
 	options.retry.calculateDelay = () => 0;
@@ -124,11 +124,10 @@ export default function asStream(options: NormalizedOptions): ProxyStream {
 
 	proxy.on('pipe', source => {
 		if (source instanceof IncomingMessage) {
-			// eslint-disable-next-line @typescript-eslint/no-object-literal-type-assertion
 			options.headers = {
 				...source.headers,
 				...options.headers
-			} as Headers;
+			};
 		}
 	});
 

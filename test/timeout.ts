@@ -23,9 +23,8 @@ const keepAliveAgent = new http.Agent({
 
 const defaultHandler = clock => (request, response) => {
 	request.resume();
-	request.on('end', async () => {
+	request.on('end', () => {
 		clock.tick(requestDelay);
-
 		response.end('OK');
 	});
 };
@@ -376,7 +375,7 @@ test.serial('timeout with streams', withServerAndLolex, async (t, server, got, c
 		timeout: 0,
 		retry: 0
 	});
-	await t.throwsAsync(() => pEvent(stream, 'response'), {code: 'ETIMEDOUT'});
+	await t.throwsAsync(pEvent(stream, 'response'), {code: 'ETIMEDOUT'});
 });
 
 test.serial('no error emitted when timeout is not breached (stream)', withServerAndLolex, async (t, server, got, clock) => {
