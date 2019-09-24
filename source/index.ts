@@ -1,8 +1,8 @@
-import { readFileSync } from 'fs';
+import {readFileSync} from 'fs';
 import create from './create';
 import {Defaults} from './utils/types.js';
 
-const packageJson = JSON.parse(readFileSync('./../package.json', { encoding: 'utf8' }));
+const packageJson = JSON.parse(readFileSync('./../package.json', {encoding: 'utf8'}));
 
 const defaults: Partial<Defaults> = {
 	options: {
