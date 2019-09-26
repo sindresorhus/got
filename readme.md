@@ -5,24 +5,8 @@
 	<br>
 	<br>
 	<br>
-	<br>
-	<hr>
-	<p align="center">
-		<sub>Huge thanks to these companies for helping make open source sustainable by sponsoring Sindre Sorhus</sub>
-		<br>
-		<br>
-		<br>
-		<a href="https://moxy.studio"><img src="https://sindresorhus.com/assets/thanks/moxy-logo.svg" width="170"></a>
-		<br>
-		<br>
-		<a href="https://www.gumlet.com">
-			<div>
-				<img src="https://sindresorhus.com/assets/thanks/gumlet-logo.svg" width="200"/>
-			</div>
-			<sup><b>Optimised Image Delivery made simple</b></sup>
-		</a>
+	<p align="center">Huge thanks to <a href="https://moxy.studio"><img src="https://sindresorhus.com/assets/thanks/moxy-logo.svg" width="150"></a> for sponsoring Sindre Sorhus!
 	</p>
-	<hr>
 	<br>
 	<br>
 </div>
