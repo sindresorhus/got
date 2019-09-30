@@ -7,14 +7,10 @@
 			"esnext"
 		],
 		// TODO: Make it strict
-		"strict": false,
-		"typeRoots": [
-			"./source/types/*",
-			"./node_modules/@types/*",
-			"./node_modules/*"
-		]
+		"strict": false
 	},
 	"include": [
-		"source"
+		"source",
+		"test"
 	]
 }

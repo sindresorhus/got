@@ -93,7 +93,7 @@ export default (options: NormalizedOptions, input?: TransformStream) => {
 		}
 
 		if (options.cookieJar) {
-			const cookieString = await getCookieString!(currentUrl);
+			const cookieString = await getCookieString(currentUrl);
 
 			if (is.nonEmptyString(cookieString)) {
 				options.headers.cookie = cookieString;
@@ -131,9 +131,9 @@ export default (options: NormalizedOptions, input?: TransformStream) => {
 
 				const rawCookies = typedResponse.headers['set-cookie'];
 				if (options.cookieJar && rawCookies) {
-					let promises: Array<Promise<unknown>> = rawCookies.map((rawCookie: string) => setCookie!(rawCookie, typedResponse.url!));
+					let promises: Array<Promise<unknown>> = rawCookies.map((rawCookie: string) => setCookie(rawCookie, typedResponse.url));
 					if (options.ignoreInvalidCookies) {
-						promises = promises.map(p => p.catch(() => {}));
+						promises = promises.map(async p => p.catch(() => {}));
 					}
 
 					await Promise.all(promises);
@@ -154,7 +154,7 @@ export default (options: NormalizedOptions, input?: TransformStream) => {
 						}
 
 						// Handles invalid URLs. See https://github.com/sindresorhus/got/issues/604
-						const redirectBuffer = Buffer.from(typedResponse.headers.location!, 'binary').toString();
+						const redirectBuffer = Buffer.from(typedResponse.headers.location, 'binary').toString();
 						const redirectURL = new URLGlobal(redirectBuffer, currentUrl);
 						redirectString = redirectURL.toString();
 
@@ -364,7 +364,7 @@ export default (options: NormalizedOptions, input?: TransformStream) => {
 			}
 
 			if (is.undefined(headers['content-length']) && is.undefined(headers['transfer-encoding'])) {
-				if ((uploadBodySize! > 0 || options.method === 'PUT') && !is.undefined(uploadBodySize)) {
+				if ((uploadBodySize > 0 || options.method === 'PUT') && !is.undefined(uploadBodySize)) {
 					headers['content-length'] = String(uploadBodySize);
 				}
 			}

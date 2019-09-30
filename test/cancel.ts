@@ -70,7 +70,7 @@ test.serial('cancels in-progress request', withServerAndLolex, async (t, server,
 	const {emitter, promise} = prepareServer(server, clock);
 
 	const body = new ReadableStream({
-		read() {}
+		read() {} // eslint-disable-line @typescript-eslint/no-empty-function
 	});
 	body.push('1');
 
@@ -90,7 +90,7 @@ test.serial('cancels in-progress request with timeout', withServerAndLolex, asyn
 	const {emitter, promise} = prepareServer(server, clock);
 
 	const body = new ReadableStream({
-		read() {}
+		read() {} // eslint-disable-line @typescript-eslint/no-empty-function
 	});
 	body.push('1');
 

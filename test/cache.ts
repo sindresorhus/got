@@ -155,7 +155,7 @@ test('`isFromCache` stream property is false after the `response` event', withSe
 	const cache = new Map();
 	const stream = got.stream({cache});
 
-	const response = await pEvent(stream, 'response') as Response;
+	const response: Response = await pEvent(stream, 'response');
 	t.is(response.isFromCache, false);
 	t.is(stream.isFromCache, false);
 
@@ -170,7 +170,7 @@ test('`isFromCache` stream property is true if the response was cached', withSer
 	await getStream(got.stream({cache}));
 	const stream = got.stream({cache});
 
-	const response = await pEvent(stream, 'response') as Response;
+	const response: Response = await pEvent(stream, 'response');
 	t.is(response.isFromCache, true);
 	t.is(stream.isFromCache, true);
 
