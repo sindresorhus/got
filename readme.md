@@ -599,6 +599,14 @@ Type: `string`
 
 The request URL or the final URL after redirects.
 
+##### ip
+
+Type: `string`
+
+The remote IP address.
+
+**Note:** Not available when the response is cached. This is hopefully a temporary limitation, see [lukechilds/cacheable-request#86](https://github.com/lukechilds/cacheable-request/issues/86).
+
 ##### requestUrl
 
 Type: `string`

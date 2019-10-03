@@ -1,5 +1,6 @@
 import http = require('http');
 import https = require('https');
+import ResponseLike = require('responselike');
 import {Readable as ReadableStream} from 'stream';
 import PCancelable = require('p-cancelable');
 import {URL} from 'url';
@@ -50,6 +51,14 @@ export type URLArgument = string | https.RequestOptions | URL;
 export interface Response extends http.IncomingMessage {
 	body: Buffer | string | any;
 	statusCode: StatusCode;
+
+	/**
+	The remote IP address.
+
+	Note: Not available when the response is cached. This is hopefully a temporary limitation, see [lukechilds/cacheable-request#86](https://github.com/lukechilds/cacheable-request/issues/86).
+	*/
+	ip: string;
+
 	fromCache?: boolean;
 	isFromCache?: boolean;
 	req: http.ClientRequest;
@@ -58,6 +67,14 @@ export interface Response extends http.IncomingMessage {
 	timings: Timings;
 	redirectUrls: string[];
 	request: { options: NormalizedOptions };
+}
+
+// TODO: The `ResponseLike` type should be properly fixed instead:
+// https://github.com/sindresorhus/got/pull/827/files#r323633794
+export interface ResponseObject extends ResponseLike {
+	connection: {
+		remoteAddress: string;
+	};
 }
 
 export interface RetryObject {
