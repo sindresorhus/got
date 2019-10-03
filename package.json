@@ -4,7 +4,7 @@
 	"description": "Simplified HTTP requests",
 	"license": "MIT",
 	"repository": "sindresorhus/got",
-	"main": "dist",
+	"main": "dist/source",
 	"engines": {
 		"node": ">=8.6"
 	},
@@ -83,7 +83,7 @@
 		"typescript": "3.6.3",
 		"xo": "^0.24.0"
 	},
-	"types": "dist",
+	"types": "dist/source",
 	"browser": {
 		"decompress-response": false,
 		"electron": false

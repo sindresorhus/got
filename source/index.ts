@@ -1,6 +1,9 @@
-import packageJson = require('../package.json');
+import * as fs from 'fs';
+import * as path from 'path';
 import create from './create';
 import {Defaults} from './utils/types.js';
+
+const packageJson = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8'));
 
 const defaults: Partial<Defaults> = {
 	options: {
