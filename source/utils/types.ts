@@ -51,7 +51,14 @@ export type URLArgument = string | https.RequestOptions | URL;
 export interface Response extends http.IncomingMessage {
 	body: Buffer | string | any;
 	statusCode: StatusCode;
+
+	/**
+	The remote IP address.
+
+	Note: Not available when the response is cached. This is hopefully a temporary limitation, see [lukechilds/cacheable-request#86](https://github.com/lukechilds/cacheable-request/issues/86).
+	*/
 	ip: string;
+
 	fromCache?: boolean;
 	isFromCache?: boolean;
 	req: http.ClientRequest;
