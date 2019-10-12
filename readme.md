@@ -1369,7 +1369,7 @@ const h2got = got.extend({request});
 [sb]: https://badgen.net/travis/visionmedia/superagent?label
 
 [g5]: https://travis-ci.org/sindresorhus/got
-[k5]: https://travis-ci.org/ky/got
+[k5]: https://travis-ci.org/sindresorhus/ky
 [r5]: https://travis-ci.org/request/request
 [n5]: https://travis-ci.org/bitinn/node-fetch
 [a5]: https://travis-ci.org/axios/axios
