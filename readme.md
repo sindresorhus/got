@@ -45,7 +45,7 @@ Got is for Node.js. For browsers, we recommend [Ky](https://github.com/sindresor
 - [Composable](documentation/advanced-creation.md#merging-instances)
 - [Plugins](documentation/lets-make-a-plugin.md)
 - [Electron support](#useelectronnet)
-- [Used by ~2000 packages and ~500K repos](https://github.com/sindresorhus/got/network/dependents)
+- [Used by 3000+ packages and 1.4M+ repos](https://github.com/sindresorhus/got/network/dependents)
 - Actively maintained
 
 [Moving from Request?](documentation/migration-guides.md)
