@@ -3,7 +3,7 @@ import https = require('https');
 import ResponseLike = require('responselike');
 import {Readable as ReadableStream} from 'stream';
 import PCancelable = require('p-cancelable');
-import {URL} from 'url';
+import {URL, URLSearchParams} from 'url';
 import {CookieJar} from 'tough-cookie';
 import {StorageAdapter} from 'cacheable-request';
 import {Except} from 'type-fest';
