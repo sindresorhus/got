@@ -204,7 +204,7 @@ const instance = got.extend({
 					throw new Error('Token required');
 				}
 
-				options.header.token = options.context.token;
+				options.headers.token = options.context.token;
 			}
 		]
 	}
