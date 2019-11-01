@@ -209,7 +209,7 @@ export default (options: NormalizedOptions, input?: TransformStream) => {
 				if (emitter.retry(error) === false) {
 					emitError(error);
 				}
-			});
+			};
 
 			timings = timer(request);
 
