@@ -1271,7 +1271,7 @@ const h2got = got.extend({request});
 | Cookies (out-of-box)  |        ✔️       |        ✔️       |          ❌         |         ❌        |        ❌       |          ❌          |
 | Follows redirects     |        ✔️       |        ✔️       |          ✔️         |         ✔️        |        ✔️       |          ✔️          |
 | Retries on failure    |        ✔️       |        ❌       |          ❌         |         ✔️        |        ❌       |          ✔️          |
-| Progress events       |        ✔️       |        ❌       |          ❌         |         ❌        |   Browser only   |          ✔️          |
+| Progress events       |        ✔️       |        ❌       |          ❌         |         ✔️\*\*\*  |   Browser only   |          ✔️          |
 | Handles gzip/deflate  |        ✔️       |        ✔️       |          ✔️         |         ✔️        |        ✔️       |          ✔️          |
 | Advanced timeouts     |        ✔️       |        ❌       |          ❌         |         ❌        |        ❌       |          ❌          |
 | Timings               |        ✔️       |        ✔️       |          ❌         |         ❌        |        ❌       |          ❌          |
@@ -1291,6 +1291,7 @@ const h2got = got.extend({request});
 
 \* It's almost API compatible with the browser `fetch` API.<br>
 \*\* Need to switch the protocol manually.<br>
+\*\*\* Currently, only 'DownloadProgress' event is supported, 'UploadProgress' event is not supported.<br>
 ❔ Experimental support.
 
 <!-- GITHUB -->
