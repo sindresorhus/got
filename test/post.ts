@@ -169,7 +169,7 @@ test('throws when form body is not a plain object or array', async t => {
 });
 
 // See https://github.com/sindresorhus/got/issues/897
-test.failing('the `json` payload is not touched', withServer, async (t, server, got) => {
+test('the `json` payload is not touched', withServer, async (t, server, got) => {
 	server.post('/', defaultEndpoint);
 
 	const {body} = await got.post({

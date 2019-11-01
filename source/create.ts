@@ -8,7 +8,8 @@ import {
 	URLOrOptions,
 	URLArgument,
 	HandlerFunction,
-	ExtendedOptions
+	ExtendedOptions,
+	NormalizedDefaults
 } from './utils/types';
 import deepFreeze from './utils/deep-freeze';
 import merge, {mergeOptions} from './merge';
@@ -66,15 +67,11 @@ const defaultHandler: HandlerFunction = (options, next) => next(options);
 // `got.mergeInstances()` is deprecated
 let hasShownDeprecation = false;
 
-const create = (defaults: Partial<Defaults>): Got => {
-	defaults = merge<Defaults, Partial<Defaults>>({}, defaults);
-	preNormalizeArguments(defaults.options);
-
-	defaults = {
-		handlers: [defaultHandler],
-		options: {},
-		...defaults,
-		mutableDefaults: Boolean(defaults.mutableDefaults)
+const create = (nonTypedDefaults: Defaults): Got => {
+	const defaults: NormalizedDefaults = {
+		handlers: Reflect.has(nonTypedDefaults, 'handlers') ? merge([], nonTypedDefaults.handlers) : [defaultHandler],
+		options: preNormalizeArguments(mergeOptions(Reflect.has(nonTypedDefaults, 'options') ? nonTypedDefaults.options : {})),
+		mutableDefaults: Boolean(nonTypedDefaults.mutableDefaults)
 	};
 
 	// @ts-ignore Because the for loop handles it for us, as well as the other Object.defines

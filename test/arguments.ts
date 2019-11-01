@@ -185,7 +185,7 @@ test('throws TypeError when known `options.hooks` value is not an array', async 
 		got('https://example.com', {hooks: {beforeRequest: {}}}),
 		{
 			instanceOf: TypeError,
-			message: 'options.hooks.beforeRequest is not iterable'
+			message: 'Parameter `beforeRequest` must be an array, not Array'
 		}
 	);
 });
@@ -204,7 +204,7 @@ test('throws TypeError when known `options.hooks` array item is not a function',
 test('allows extra keys in `options.hooks`', withServer, async (t, server, got) => {
 	server.get('/test', echoUrl);
 
-	await t.notThrowsAsync(got('test', {hooks: {extra: {}}}));
+	await t.notThrowsAsync(got('test', {hooks: {extra: []}}));
 });
 
 test('`prefixUrl` option works', withServer, async (t, server, got) => {
