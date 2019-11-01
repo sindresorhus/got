@@ -43,17 +43,13 @@ test('handles gzip error', withServer, async (t, server, got) => {
 	t.is(error.name, 'ReadError');
 });
 
-// FIXME: This causes an unhandled rejection.
-// eslint-disable-next-line ava/no-skip-test
-test.skip('handles gzip error - stream', withServer, async (t, server, got) => {
+test('handles gzip error - stream', withServer, async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.setHeader('Content-Encoding', 'gzip');
 		response.end('Not gzipped content');
 	});
 
-	const error = await t.throws(() => {
-		got.stream('');
-	}, 'incorrect header check');
+	const error = await t.throwsAsync(getStream(got.stream('')), 'incorrect header check');
 
 	// @ts-ignore
 	t.is(error.options.path, '/');

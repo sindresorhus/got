@@ -194,12 +194,17 @@ export default (options: NormalizedOptions, input?: TransformStream) => {
 
 			currentRequest = request;
 
-			request.on('error', error => {
-				if (typeof request.aborted === 'number' || error.message === 'socket hang up') {
+			const onError = (error: Error): void => {
+				const isTimedOutError = error instanceof TimedOutTimeoutError;
+
+				// `request.aborted` is a boolean since v11.0.0: https://github.com/nodejs/node/commit/4b00c4fafaa2ae8c41c1f78823c0feb810ae4723#diff-e3bc37430eb078ccbafe3aa3b570c91a
+				// We need to allow `TimedOutTimeoutError` here, because it `stream.pipeline(..)` aborts it automatically.
+				if (!isTimedOutError && (typeof request.aborted === 'number' || (request.aborted as unknown as boolean) === true)) {
 					return;
 				}
 
-				if (error instanceof TimedOutTimeoutError) {
+				if (isTimedOutError) {
+					// @ts-ignore TS is dumb.
 					error = new TimeoutError(error, timings, options);
 				} else {
 					error = new RequestError(error, options);
@@ -208,7 +213,22 @@ export default (options: NormalizedOptions, input?: TransformStream) => {
 				if (emitter.retry(error) === false) {
 					emitError(error);
 				}
-			});
+			};
+
+			const uploadComplete = (error?: Error): void => {
+				if (error) {
+					onError(error);
+					return;
+				}
+
+				// No need to attach an error handler here,
+				// as `stream.pipeline(...)` doesn't remove this handler
+				// to allow stream reuse.
+
+				request.emit('upload-complete');
+			};
+
+			request.on('error', onError);
 
 			timings = timer(request);
 
@@ -220,20 +240,13 @@ export default (options: NormalizedOptions, input?: TransformStream) => {
 
 			emitter.emit('request', request);
 
-			const uploadComplete = (error?: Error): void => {
-				if (error) {
-					emitError(new RequestError(error, options));
-					return;
-				}
-
-				request.emit('upload-complete');
-			};
-
 			try {
 				if (is.nodeStream(options.body)) {
 					const {body} = options;
 					delete options.body;
 
+					// `stream.pipeline(...)` does it for us.
+					request.removeListener('error', onError);
 					stream.pipeline(
 						body,
 						request,

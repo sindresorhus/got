@@ -40,10 +40,7 @@ export default (request: ClientRequest, delays: Delays, options: TimedOutOptions
 		const timeout: NodeJS.Timeout = setTimeout(() => {
 			// @ts-ignore https://github.com/microsoft/TypeScript/issues/26113
 			immediate = setImmediate(callback, delay, ...args);
-			/* istanbul ignore next: added in node v9.7.0 */
-			if (immediate.unref) {
-				immediate.unref();
-			}
+			immediate.unref();
 		}, delay);
 
 		/* istanbul ignore next: in order to support electron renderer */
