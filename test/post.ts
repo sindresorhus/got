@@ -163,3 +163,20 @@ test('throws when form body is not a plain object or array', async t => {
 		message: 'The `form` option must be an Object'
 	});
 });
+
+// See https://github.com/sindresorhus/got/issues/897
+test.failing('the `json` payload is not touched', withServer, async (t, server, got) => {
+	server.post('/', defaultEndpoint);
+
+	const {body} = await got.post({
+		json: {
+			context: {
+				foo: true
+			}
+		},
+		responseType: 'json'
+	});
+
+	t.true('context' in body);
+	t.true(body.context.foo);
+});
