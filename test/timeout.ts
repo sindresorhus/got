@@ -414,13 +414,9 @@ test.serial('no unhandled `socket hung up` errors', withServerAndLolex, async (t
 	server.get('/', defaultHandler(clock));
 
 	await t.throwsAsync(
-		got({retry: 0, timeout: requestDelay / 2}).on('request', () => {
-			clock.tick(requestDelay);
-		}),
+		got({retry: 0, timeout: requestDelay / 2}),
 		{instanceOf: got.TimeoutError}
 	);
-
-	clock.tick(requestDelay);
 });
 
 test.serial('no more timeouts after an error', withServerAndLolex, async (t, _server, got, clock) => {

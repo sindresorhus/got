@@ -194,8 +194,9 @@ export default (options: NormalizedOptions, input?: TransformStream) => {
 
 			currentRequest = request;
 
-			request.on('error', error => {
-				if (typeof request.aborted === 'number' || error.message === 'socket hang up') {
+			const onError = (error: Error): void => {
+				// `request.aborted` is a boolean since v11.0.0: https://github.com/nodejs/node/commit/4b00c4fafaa2ae8c41c1f78823c0feb810ae4723#diff-e3bc37430eb078ccbafe3aa3b570c91a
+				if (typeof request.aborted === 'number' || (request.aborted as unknown as boolean) === true) {
 					return;
 				}
 

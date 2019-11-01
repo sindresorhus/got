@@ -119,3 +119,13 @@ test('response contains got options', withServer, async (t, server, got) => {
 
 	t.is((await got(options)).request.options.auth, options.auth);
 });
+
+test('socket destroyed by the server throws ECONNRESET', withServer, async (t, server, got) => {
+	server.get('/', request => {
+		request.socket.destroy();
+	});
+
+	await t.throwsAsync(got('', {retry: 0}), {
+		code: 'ECONNRESET'
+	});
+});
