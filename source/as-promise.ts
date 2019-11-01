@@ -38,8 +38,8 @@ export default function asPromise(options: NormalizedOptions): CancelableRequest
 				}
 
 				reject(error);
-			} catch (error2) {
-				reject(error2);
+			} catch (error_) {
+				reject(error_);
 			}
 		};
 

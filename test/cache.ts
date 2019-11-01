@@ -129,7 +129,7 @@ test('doesn\'t cache response when received HTTP error', withServer, async (t, s
 
 	const {statusCode, body} = await got({cache, throwHttpErrors: false});
 	t.is(statusCode, 200);
-	t.deepEqual(body, 'ok');
+	t.is(body, 'ok');
 });
 
 test('DNS cache works', withServer, async (t, _server, got) => {

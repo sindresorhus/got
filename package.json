@@ -42,19 +42,19 @@
 		"@types/cacheable-request": "^6.0.1",
 		"@types/tough-cookie": "^2.3.5",
 		"cacheable-lookup": "^0.2.1",
-		"cacheable-request": "^6.1.0",
+		"cacheable-request": "^7.0.0",
 		"decompress-response": "^4.2.0",
 		"duplexer3": "^0.1.4",
 		"get-stream": "^5.0.0",
 		"lowercase-keys": "^2.0.0",
 		"mimic-response": "^2.0.0",
 		"p-cancelable": "^2.0.0",
-		"responselike": "^1.0.2",
+		"responselike": "^2.0.0",
 		"to-readable-stream": "^2.0.0",
 		"type-fest": "^0.8.0"
 	},
 	"devDependencies": {
-		"@sindresorhus/tsconfig": "^0.4.0",
+		"@sindresorhus/tsconfig": "^0.5.0",
 		"@types/duplexer3": "^0.1.0",
 		"@types/node": "^12.7.5",
 		"@types/sinon": "^7.0.13",
@@ -65,11 +65,11 @@
 		"create-test-server": "^3.0.1",
 		"del-cli": "^3.0.0",
 		"delay": "^4.3.0",
-		"eslint-config-xo-typescript": "^0.18.0",
+		"eslint-config-xo-typescript": "^0.19.0",
 		"form-data": "^2.5.1",
 		"get-port": "^5.0.0",
 		"keyv": "^3.1.0",
-		"lolex": "^4.2.0",
+		"lolex": "^5.1.1",
 		"nock": "^11.3.4",
 		"np": "^5.0.3",
 		"nyc": "^14.0.0",
@@ -80,8 +80,8 @@
 		"tempy": "^0.3.0",
 		"tough-cookie": "^3.0.0",
 		"ts-node": "^8.4.1",
-		"typescript": "3.6.3",
-		"xo": "^0.24.0"
+		"typescript": "^3.6.4",
+		"xo": "^0.25.3"
 	},
 	"types": "dist/source",
 	"browser": {
@@ -114,15 +114,10 @@
 			"ts"
 		],
 		"rules": {
-			"import/named": "off",
-			"import/no-unresolved": "off",
-			"import/first": "off",
-			"import/newline-after-import": "off",
-			"ava/no-import-test-files": "off",
-			"ava/no-ignored-test-files": "off",
-			"@typescript-eslint/require-await": "off",
 			"@typescript-eslint/explicit-function-return-type": "off",
-			"@typescript-eslint/promise-function-async": "off"
+			"@typescript-eslint/promise-function-async": "off",
+			"@typescript-eslint/strict-boolean-expressions": "off",
+			"@typescript-eslint/no-unnecessary-condition": "off"
 		},
 		"ignores": [
 			"documentation/examples/*"

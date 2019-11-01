@@ -35,8 +35,8 @@ export default function asStream(options: NormalizedOptions): ProxyStream {
 			}
 
 			proxy.emit('error', error);
-		} catch (error2) {
-			proxy.emit('error', error2);
+		} catch (error_) {
+			proxy.emit('error', error_);
 		}
 	};
 

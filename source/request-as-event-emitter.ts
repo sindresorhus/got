@@ -57,8 +57,8 @@ export default (options: NormalizedOptions, input?: TransformStream) => {
 			}
 
 			emitter.emit('error', error);
-		} catch (error2) {
-			emitter.emit('error', error2);
+		} catch (error_) {
+			emitter.emit('error', error_);
 		}
 	};
 
@@ -285,8 +285,8 @@ export default (options: NormalizedOptions, input?: TransformStream) => {
 					computedValue: 0
 				})
 			});
-		} catch (error2) {
-			emitError(error2);
+		} catch (error_) {
+			emitError(error_);
 			return false;
 		}
 
@@ -299,8 +299,8 @@ export default (options: NormalizedOptions, input?: TransformStream) => {
 					}
 
 					await get(options);
-				} catch (error) {
-					emitError(error);
+				} catch (error_) {
+					emitError(error_);
 				}
 			};
 
