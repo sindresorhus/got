@@ -1,5 +1,6 @@
 import {EventEmitter} from 'events';
 import {Readable as ReadableStream} from 'stream';
+import stream = require('stream');
 import test from 'ava';
 import pEvent = require('p-event');
 import getStream = require('get-stream');
@@ -41,8 +42,16 @@ const downloadHandler = clock => (_request, response) => {
 	response.writeHead(200, {
 		'transfer-encoding': 'chunked'
 	});
+
 	response.flushHeaders();
-	slowDataStream(clock).pipe(response);
+
+	stream.pipeline(
+		slowDataStream(clock),
+		response,
+		() => {
+			response.end();
+		}
+	);
 };
 
 test.serial('does not retry after cancelation', withServerAndLolex, async (t, server, got, clock) => {

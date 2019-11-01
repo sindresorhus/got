@@ -1,5 +1,5 @@
 /* eslint-disable node/no-deprecated-api */
-import {URL, URLSearchParams, parse} from 'url';
+import {parse} from 'url';
 import test from 'ava';
 import pEvent = require('p-event');
 import got from '../source';

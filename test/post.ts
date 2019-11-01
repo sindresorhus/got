@@ -1,11 +1,15 @@
+import {promisify} from 'util';
+import stream = require('stream');
 import test from 'ava';
 import toReadableStream = require('to-readable-stream');
 import got from '../source';
 import withServer from './helpers/with-server';
 
-const defaultEndpoint = (request, response) => {
+const pStreamPipeline = promisify(stream.pipeline);
+
+const defaultEndpoint = async (request, response) => {
 	response.setHeader('method', request.method);
-	request.pipe(response);
+	await pStreamPipeline(request, response);
 };
 
 const echoHeaders = (request, response) => {

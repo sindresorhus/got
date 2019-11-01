@@ -6,7 +6,7 @@
 	"repository": "sindresorhus/got",
 	"main": "dist/source",
 	"engines": {
-		"node": ">=8.6"
+		"node": ">=10"
 	},
 	"scripts": {
 		"test": "xo && nyc ava && tsc --noEmit",
@@ -43,7 +43,7 @@
 		"@types/tough-cookie": "^2.3.5",
 		"cacheable-lookup": "^0.2.1",
 		"cacheable-request": "^7.0.0",
-		"decompress-response": "^4.2.0",
+		"decompress-response": "^5.0.0",
 		"duplexer3": "^0.1.4",
 		"get-stream": "^5.0.0",
 		"lowercase-keys": "^2.0.0",

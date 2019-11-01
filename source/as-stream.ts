@@ -1,4 +1,5 @@
 import {PassThrough as PassThroughStream, Duplex as DuplexStream} from 'stream';
+import stream = require('stream');
 import {IncomingMessage} from 'http';
 import duplexer3 = require('duplexer3');
 import requestAsEventEmitter from './request-as-event-emitter';
@@ -50,10 +51,6 @@ export default function asStream(options: NormalizedOptions): ProxyStream {
 		const {statusCode, isFromCache} = response;
 		proxy.isFromCache = isFromCache;
 
-		response.on('error', error => {
-			emitError(new ReadError(error, options));
-		});
-
 		if (options.throwHttpErrors && statusCode !== 304 && (statusCode < 200 || statusCode > 299)) {
 			emitError(new HTTPError(response, options));
 			return;
@@ -63,12 +60,19 @@ export default function asStream(options: NormalizedOptions): ProxyStream {
 			const read = proxy._read.bind(proxy);
 			proxy._read = (...args) => {
 				isFinished = true;
-
 				return read(...args);
 			};
 		}
 
-		response.pipe(output);
+		stream.pipeline(
+			response,
+			output,
+			error => {
+				if (error) {
+					emitError(new ReadError(error, options));
+				}
+			}
+		);
 
 		for (const destination of piped) {
 			if (destination.headersSent) {
@@ -90,15 +94,19 @@ export default function asStream(options: NormalizedOptions): ProxyStream {
 		proxy.emit('response', response);
 	});
 
-	[
+	const events = [
 		'error',
 		'request',
 		'redirect',
 		'uploadProgress',
 		'downloadProgress'
-	].forEach(event => emitter.on(event, (...args) => {
-		proxy.emit(event, ...args);
-	}));
+	];
+
+	for (const event of events) {
+		emitter.on(event, (...args) => {
+			proxy.emit(event, ...args);
+		});
+	}
 
 	const pipe = proxy.pipe.bind(proxy);
 	const unpipe = proxy.unpipe.bind(proxy);

@@ -2,9 +2,6 @@ import is from '@sindresorhus/is';
 import {Options} from './utils/types';
 import knownHookEvents, {Hooks, HookEvent, HookType} from './known-hook-events';
 
-const URLGlobal: typeof URL = typeof URL === 'undefined' ? require('url').URL : URL;
-const URLSearchParamsGlobal: typeof URLSearchParams = typeof URLSearchParams === 'undefined' ? require('url').URLSearchParams : URLSearchParams;
-
 export default function merge<Target extends Record<string, any>, Source extends Record<string, any>>(target: Target, ...sources: Source[]): Target & Source {
 	for (const source of sources) {
 		for (const [key, sourceValue] of Object.entries(source)) {
@@ -13,8 +10,8 @@ export default function merge<Target extends Record<string, any>, Source extends
 			}
 
 			const targetValue = target[key];
-			if (targetValue instanceof URLSearchParamsGlobal && sourceValue instanceof URLSearchParamsGlobal) {
-				const params = new URLSearchParamsGlobal();
+			if (targetValue instanceof URLSearchParams && sourceValue instanceof URLSearchParams) {
+				const params = new URLSearchParams();
 
 				const append = (value: string, key: string): void => params.append(key, value);
 				targetValue.forEach(append);
@@ -24,7 +21,7 @@ export default function merge<Target extends Record<string, any>, Source extends
 				target[key] = params;
 			} else if (is.urlInstance(targetValue) && (is.urlInstance(sourceValue) || is.string(sourceValue))) {
 				// @ts-ignore
-				target[key] = new URLGlobal(sourceValue as string, targetValue);
+				target[key] = new URL(sourceValue as string, targetValue);
 			} else if (is.plainObject(sourceValue)) {
 				if (is.plainObject(targetValue)) {
 					// @ts-ignore

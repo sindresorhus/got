@@ -1,9 +1,12 @@
-import {URL} from 'url';
+import {promisify} from 'util';
 import http = require('http');
+import stream = require('stream');
 import test from 'ava';
 import proxyquire = require('proxyquire');
 import got, {GotError} from '../source';
 import withServer from './helpers/with-server';
+
+const pStreamPipeline = promisify(stream.pipeline);
 
 test('properties', withServer, async (t, server, got) => {
 	server.get('/', (_request, response) => {
@@ -45,8 +48,8 @@ test('`options.body` form error message', async t => {
 });
 
 test('no plain object restriction on json body', withServer, async (t, server, got) => {
-	server.post('/body', (request, response) => {
-		request.pipe(response);
+	server.post('/body', async (request, response) => {
+		await pStreamPipeline(request, response);
 	});
 
 	function CustomObject() {

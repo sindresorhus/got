@@ -1,4 +1,5 @@
 import {promisify} from 'util';
+import stream = require('stream');
 import fs = require('fs');
 import SlowStream = require('slow-stream');
 import toReadableStream = require('to-readable-stream');
@@ -40,9 +41,14 @@ const file = Buffer.alloc(1024 * 1024 * 2);
 const downloadEndpoint = (_request, response) => {
 	response.setHeader('content-length', file.length);
 
-	toReadableStream(file)
-		.pipe(new SlowStream({maxWriteInterval: 50}))
-		.pipe(response);
+	stream.pipeline(
+		toReadableStream(file),
+		new SlowStream({maxWriteInterval: 50}),
+		response,
+		() => {
+			response.end();
+		}
+	);
 };
 
 const noTotalEndpoint = (_request, response) => {
@@ -51,9 +57,13 @@ const noTotalEndpoint = (_request, response) => {
 };
 
 const uploadEndpoint = (request, response) => {
-	request
-		.pipe(new SlowStream({maxWriteInterval: 100}))
-		.on('end', () => response.end());
+	stream.pipeline(
+		request,
+		new SlowStream({maxWriteInterval: 100}),
+		() => {
+			response.end();
+		}
+	);
 };
 
 test('download progress', withServer, async (t, server, got) => {
@@ -153,7 +163,9 @@ test('upload progress - stream with known body size', withServer, async (t, serv
 	const request = got.stream.post(options)
 		.on('uploadProgress', event => events.push(event));
 
-	await getStream(toReadableStream(file).pipe(request));
+	await getStream(
+		stream.pipeline(toReadableStream(file), request, () => {})
+	);
 
 	checkEvents(t, events, file.length);
 });
@@ -166,7 +178,9 @@ test('upload progress - stream with unknown body size', withServer, async (t, se
 	const request = got.stream.post('')
 		.on('uploadProgress', event => events.push(event));
 
-	await getStream(toReadableStream(file).pipe(request));
+	await getStream(
+		stream.pipeline(toReadableStream(file), request, () => {})
+	);
 
 	checkEvents(t, events);
 });

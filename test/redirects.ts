@@ -1,5 +1,4 @@
 import {TLSSocket} from 'tls';
-import {URL} from 'url';
 import test from 'ava';
 import nock = require('nock');
 import withServer from './helpers/with-server';

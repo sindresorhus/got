@@ -1,5 +1,5 @@
 import https = require('https');
-import {format, URL, URLSearchParams} from 'url';
+import {format} from 'url';
 import CacheableLookup from 'cacheable-lookup';
 import is from '@sindresorhus/is';
 import lowercaseKeys = require('lowercase-keys');
@@ -212,10 +212,10 @@ export const normalizeArguments = (url: URLOrOptions, options: NormalizedOptions
 	}
 
 	if (options.hostname === 'unix') {
-		const matches = /(.+?):(.+)/.exec(options.path);
+		const matches = /(?<socketPath>.+?):(?<path>.+)/.exec(options.path);
 
 		if (matches) {
-			const [, socketPath, path] = matches;
+			const {socketPath, path} = matches.groups;
 			options = {
 				...options,
 				socketPath,

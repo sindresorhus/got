@@ -1,5 +1,6 @@
 import {IncomingMessage} from 'http';
 import EventEmitter = require('events');
+import stream = require('stream');
 import is from '@sindresorhus/is';
 import decompressResponse = require('decompress-response');
 import mimicResponse = require('mimic-response');
@@ -8,7 +9,6 @@ import {downloadProgress} from './progress';
 
 export default (response: IncomingMessage, options: NormalizedOptions, emitter: EventEmitter) => {
 	const downloadBodySize = Number(response.headers['content-length']) || undefined;
-
 	const progressStream = downloadProgress(response, emitter, downloadBodySize);
 
 	mimicResponse(response, progressStream);
@@ -31,5 +31,13 @@ export default (response: IncomingMessage, options: NormalizedOptions, emitter: 
 		total: downloadBodySize
 	});
 
-	response.pipe(progressStream);
+	stream.pipeline(
+		response,
+		progressStream,
+		error => {
+			if (error) {
+				emitter.emit('error', error);
+			}
+		}
+	);
 };

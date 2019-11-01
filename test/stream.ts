@@ -1,10 +1,14 @@
-import {PassThrough} from 'stream';
+import {promisify} from 'util';
+import {PassThrough as PassThroughStream} from 'stream';
+import stream = require('stream');
 import test from 'ava';
 import toReadableStream = require('to-readable-stream');
 import getStream = require('get-stream');
 import pEvent = require('p-event');
 import is from '@sindresorhus/is';
 import withServer from './helpers/with-server';
+
+const pStreamPipeline = promisify(stream.pipeline);
 
 const defaultHandler = (_request, response) => {
 	response.writeHead(200, {
@@ -21,8 +25,8 @@ const redirectHandler = (_request, response) => {
 	response.end();
 };
 
-const postHandler = (request, response) => {
-	request.pipe(response);
+const postHandler = async (request, response) => {
+	await pStreamPipeline(request, response);
 };
 
 const errorHandler = (_request, response) => {
@@ -151,8 +155,11 @@ test('piping works', withServer, async (t, server, got) => {
 
 test('proxying headers works', withServer, async (t, server, got) => {
 	server.get('/', defaultHandler);
-	server.get('/proxy', (_request, response) => {
-		got.stream('').pipe(response);
+	server.get('/proxy', async (_request, response) => {
+		await pStreamPipeline(
+			got.stream(''),
+			response
+		);
 	});
 
 	const {headers, body} = await got('proxy');
@@ -163,8 +170,12 @@ test('proxying headers works', withServer, async (t, server, got) => {
 
 test('piping server request to Got proxies also headers', withServer, async (t, server, got) => {
 	server.get('/', headersHandler);
-	server.get('/proxy', (request, response) => {
-		request.pipe(got.stream('')).pipe(response);
+	server.get('/proxy', async (request, response) => {
+		await pStreamPipeline(
+			request,
+			got.stream(''),
+			response
+		);
 	});
 
 	const {foo} = await got('proxy', {
@@ -177,9 +188,13 @@ test('piping server request to Got proxies also headers', withServer, async (t, 
 
 test('skips proxying headers after server has sent them already', withServer, async (t, server, got) => {
 	server.get('/', defaultHandler);
-	server.get('/proxy', (_request, response) => {
+	server.get('/proxy', async (_request, response) => {
 		response.writeHead(200);
-		got.stream('').pipe(response);
+
+		await pStreamPipeline(
+			got.stream(''),
+			response
+		);
 	});
 
 	const {headers} = await got('proxy');
@@ -193,7 +208,9 @@ test('throws when trying to proxy through a closed stream', withServer, async (t
 	const promise = getStream(stream);
 
 	stream.once('data', () => {
-		t.throws(() => stream.pipe(new PassThrough()), 'Failed to pipe. The response has been emitted already.');
+		t.throws(() => {
+			stream.pipe(new PassThroughStream());
+		}, 'Failed to pipe. The response has been emitted already.');
 	});
 
 	await promise;
@@ -201,8 +218,11 @@ test('throws when trying to proxy through a closed stream', withServer, async (t
 
 test('proxies `content-encoding` header when `options.decompress` is false', withServer, async (t, server, got) => {
 	server.get('/', defaultHandler);
-	server.get('/proxy', (_request, response) => {
-		got.stream({decompress: false}).pipe(response);
+	server.get('/proxy', async (_request, response) => {
+		await pStreamPipeline(
+			got.stream({decompress: false}),
+			response
+		);
 	});
 
 	const {headers} = await got('proxy');
@@ -225,7 +245,13 @@ test('piping to got.stream.put()', withServer, async (t, server, got) => {
 	server.put('/post', postHandler);
 
 	await t.notThrowsAsync(async () => {
-		await getStream(got.stream('').pipe(got.stream.put('post')));
+		await getStream(
+			stream.pipeline(
+				got.stream(''),
+				got.stream.put('post'),
+				() => {}
+			)
+		);
 	});
 });
 

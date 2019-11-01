@@ -1,4 +1,3 @@
-import {URL} from 'url';
 import test from 'ava';
 import delay = require('delay');
 import got from '../source';

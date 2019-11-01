@@ -1,5 +1,6 @@
 import {format, UrlObject} from 'url';
 import {promisify} from 'util';
+import stream = require('stream');
 import EventEmitter = require('events');
 import {Transform as TransformStream} from 'stream';
 import http = require('http');
@@ -18,9 +19,6 @@ import {CacheError, UnsupportedProtocolError, MaxRedirectsError, RequestError, T
 import urlToOptions from './utils/url-to-options';
 import {RequestFunction, NormalizedOptions, Response, ResponseObject, AgentByProtocol} from './utils/types';
 import dynamicRequire from './utils/dynamic-require';
-
-const URLGlobal: typeof URL = typeof URL === 'undefined' ? require('url').URL : URL;
-const URLSearchParamsGlobal: typeof URLSearchParams = typeof URLSearchParams === 'undefined' ? require('url').URLSearchParams : URLSearchParams;
 
 export type GetMethodRedirectCodes = 300 | 301 | 302 | 303 | 304 | 305 | 307 | 308;
 export type AllMethodRedirectCodes = 300 | 303 | 307 | 308;
@@ -158,7 +156,7 @@ export default (options: NormalizedOptions, input?: TransformStream) => {
 
 						// Handles invalid URLs. See https://github.com/sindresorhus/got/issues/604
 						const redirectBuffer = Buffer.from(typedResponse.headers.location, 'binary').toString();
-						const redirectURL = new URLGlobal(redirectBuffer, currentUrl);
+						const redirectURL = new URL(redirectBuffer, currentUrl);
 						redirectString = redirectURL.toString();
 
 						redirects.push(redirectString);
@@ -222,20 +220,33 @@ export default (options: NormalizedOptions, input?: TransformStream) => {
 
 			emitter.emit('request', request);
 
-			const uploadComplete = (): void => {
+			const uploadComplete = (error?: Error): void => {
+				if (error) {
+					emitError(new RequestError(error, options));
+					return;
+				}
+
 				request.emit('upload-complete');
 			};
 
 			try {
 				if (is.nodeStream(options.body)) {
-					options.body.once('end', uploadComplete);
-					options.body.pipe(request);
-					options.body = undefined;
+					const {body} = options;
+					delete options.body;
+
+					stream.pipeline(
+						body,
+						request,
+						uploadComplete
+					);
 				} else if (options.body) {
 					request.end(options.body, uploadComplete);
 				} else if (input && (options.method === 'POST' || options.method === 'PUT' || options.method === 'PATCH')) {
-					input.once('end', uploadComplete);
-					input.pipe(request);
+					stream.pipeline(
+						input,
+						request,
+						uploadComplete
+					);
 				} else {
 					request.end(uploadComplete);
 				}
@@ -352,7 +363,7 @@ export default (options: NormalizedOptions, input?: TransformStream) => {
 				}
 
 				headers['content-type'] = headers['content-type'] || 'application/x-www-form-urlencoded';
-				options.body = (new URLSearchParamsGlobal(options.form as Record<string, string>)).toString();
+				options.body = (new URLSearchParams(options.form as Record<string, string>)).toString();
 			} else if (isJSON) {
 				headers['content-type'] = headers['content-type'] || 'application/json';
 				options.body = JSON.stringify(options.json);
@@ -376,7 +387,7 @@ export default (options: NormalizedOptions, input?: TransformStream) => {
 				options.headers.accept = 'application/json';
 			}
 
-			requestUrl = options.href || (new URLGlobal(options.path, format(options as UrlObject))).toString();
+			requestUrl = options.href || (new URL(options.path, format(options as UrlObject))).toString();
 
 			await get(options);
 		} catch (error) {

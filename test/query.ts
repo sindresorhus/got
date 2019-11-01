@@ -1,4 +1,3 @@
-import {URLSearchParams} from 'url';
 import test from 'ava';
 import withServer from './helpers/with-server';
 

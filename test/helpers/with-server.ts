@@ -1,6 +1,5 @@
 import {promisify} from 'util';
 import http = require('http');
-import {URL} from 'url';
 import tempy = require('tempy');
 import createTestServer = require('create-test-server');
 import lolex = require('lolex');
