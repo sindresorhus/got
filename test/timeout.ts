@@ -116,9 +116,7 @@ test.serial('send timeout', withServerAndLolex, async (t, server, got, clock) =>
 	);
 });
 
-// FIXME: This causes an unhandled rejection.
-// eslint-disable-next-line ava/no-skip-test
-test.serial.skip('send timeout (keepalive)', withServerAndLolex, async (t, server, got, clock) => {
+test.serial('send timeout (keepalive)', withServerAndLolex, async (t, server, got, clock) => {
 	server.post('/', defaultHandler(clock));
 	server.get('/prime', (_request, response) => {
 		response.end('ok');

@@ -194,7 +194,7 @@ export default (options: NormalizedOptions, input?: TransformStream) => {
 
 			currentRequest = request;
 
-			request.on('error', error => {
+			const onError = (error: Error): void => {
 				if (typeof request.aborted === 'number' || error.message === 'socket hang up') {
 					return;
 				}
@@ -208,7 +208,22 @@ export default (options: NormalizedOptions, input?: TransformStream) => {
 				if (emitter.retry(error) === false) {
 					emitError(error);
 				}
-			});
+			};
+
+			const uploadComplete = (error?: Error): void => {
+				if (error) {
+					onError(error);
+					return;
+				}
+
+				// No need to attach an error handler here,
+				// as `stream.pipeline(...)` doesn't remove this handler
+				// to allow stream reuse.
+
+				request.emit('upload-complete');
+			};
+
+			request.on('error', onError);
 
 			timings = timer(request);
 
@@ -220,20 +235,13 @@ export default (options: NormalizedOptions, input?: TransformStream) => {
 
 			emitter.emit('request', request);
 
-			const uploadComplete = (error?: Error): void => {
-				if (error) {
-					emitError(new RequestError(error, options));
-					return;
-				}
-
-				request.emit('upload-complete');
-			};
-
 			try {
 				if (is.nodeStream(options.body)) {
 					const {body} = options;
 					delete options.body;
 
+					// `stream.pipeline(...)` does it for us.
+					request.removeListener('error', onError);
 					stream.pipeline(
 						body,
 						request,
