@@ -195,11 +195,16 @@ export default (options: NormalizedOptions, input?: TransformStream) => {
 			currentRequest = request;
 
 			const onError = (error: Error): void => {
-				if (typeof request.aborted === 'number' || error.message === 'socket hang up') {
+				const isTimedOutError = error instanceof TimedOutTimeoutError;
+
+				// `request.aborted` is a boolean since v11.0.0: https://github.com/nodejs/node/commit/4b00c4fafaa2ae8c41c1f78823c0feb810ae4723#diff-e3bc37430eb078ccbafe3aa3b570c91a
+				// We need to allow `TimedOutTimeoutError` here, because it `stream.pipeline(..)` aborts it automatically.
+				if (!isTimedOutError && (typeof request.aborted === 'number' || (request.aborted as unknown as boolean) === true)) {
 					return;
 				}
 
-				if (error instanceof TimedOutTimeoutError) {
+				if (isTimedOutError) {
+					// @ts-ignore TS is dumb.
 					error = new TimeoutError(error, timings, options);
 				} else {
 					error = new RequestError(error, options);
