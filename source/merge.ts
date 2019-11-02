@@ -38,22 +38,12 @@ export default function merge<Target extends Record<string, any>, Source extends
 				target[key] = sourceValue;
 			}
 		}
-
-		if (Reflect.has(source, 'context')) {
-			Object.defineProperty(target, 'context', {
-				writable: true,
-				configurable: true,
-				enumerable: false,
-				// @ts-ignore
-				value: source.context
-			});
-		}
 	}
 
 	return target as Target & Source;
 }
 
-export function mergeOptions<T extends Options>(...sources: T[]): T & {hooks: Partial<Hooks>} {
+export function mergeOptions(...sources: Array<Partial<Options>>): Partial<Options> {
 	sources = sources.map(source => {
 		if (!source) {
 			return {};
@@ -69,17 +59,41 @@ export function mergeOptions<T extends Options>(...sources: T[]): T & {hooks: Pa
 				retries: source.retry
 			}
 		};
-	}) as T[];
+	}) as Array<Partial<Options>>;
 
-	const mergedOptions = merge({} as T & {hooks: Partial<Hooks>}, ...sources);
+	const mergedOptions = merge({}, ...sources);
 
 	const hooks = knownHookEvents.reduce((accumulator, current) => ({...accumulator, [current]: []}), {}) as Record<HookEvent, HookType[]>;
 
 	for (const source of sources) {
 		// We need to check `source` to allow calling `.extend()` with no arguments.
-		if (source && source.hooks) {
-			for (const hook of knownHookEvents) {
-				hooks[hook] = hooks[hook].concat(source.hooks[hook] || []);
+		if (source) {
+			if (Reflect.has(source, 'hooks')) {
+				for (const hook of knownHookEvents) {
+					hooks[hook] = hooks[hook].concat(source.hooks[hook] || []);
+				}
+			}
+
+			if (Reflect.has(source, 'context')) {
+				Object.defineProperty(mergedOptions, 'context', {
+					writable: true,
+					configurable: true,
+					enumerable: false,
+					// @ts-ignore
+					value: source.context
+				});
+			}
+
+			if (Reflect.has(source, 'body')) {
+				mergedOptions.body = source.body;
+			}
+
+			if (Reflect.has(source, 'json')) {
+				mergedOptions.json = source.json;
+			}
+
+			if (Reflect.has(source, 'form')) {
+				mergedOptions.form = source.form;
 			}
 		}
 	}

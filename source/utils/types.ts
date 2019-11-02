@@ -188,6 +188,12 @@ export interface Defaults {
 	mutableDefaults?: boolean;
 }
 
+export interface NormalizedDefaults {
+	options: NormalizedOptions;
+	handlers: HandlerFunction[];
+	mutableDefaults: boolean;
+}
+
 export type URLOrOptions = URLArgument | (Options & {url: URLArgument});
 
 export interface CancelableRequest<T extends http.IncomingMessage | Buffer | string | object> extends PCancelable<T> {

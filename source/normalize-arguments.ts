@@ -7,18 +7,18 @@ import Keyv = require('keyv');
 import urlToOptions, {URLOptions} from './utils/url-to-options';
 import validateSearchParams from './utils/validate-search-params';
 import supportsBrotli from './utils/supports-brotli';
-import merge from './merge';
+import merge, {mergeOptions} from './merge';
 import knownHookEvents from './known-hook-events';
 import {
 	Options,
-	Defaults,
 	NormalizedOptions,
 	NormalizedRetryOptions,
 	RetryOptions,
 	Method,
 	Delays,
 	URLArgument,
-	URLOrOptions
+	URLOrOptions,
+	NormalizedDefaults
 } from './utils/types';
 
 let hasShownDeprecation = false;
@@ -32,7 +32,7 @@ let hasShownDeprecation = false;
 // When it's done normalizing the new options, it performs merge()
 // on the prenormalized options and the normalized ones.
 
-export const preNormalizeArguments = (options: Options, defaults?: Options): NormalizedOptions => {
+export const preNormalizeArguments = (options: Options, defaults?: NormalizedOptions): NormalizedOptions => {
 	if (is.nullOrUndefined(options.headers)) {
 		options.headers = {};
 	} else {
@@ -49,8 +49,14 @@ export const preNormalizeArguments = (options: Options, defaults?: Options): Nor
 
 	if (is.nullOrUndefined(options.hooks)) {
 		options.hooks = {};
-	} else if (!is.object(options.hooks)) {
-		throw new TypeError(`Parameter \`hooks\` must be an object, not ${is(options.hooks)}`);
+	} else if (is.object(options.hooks)) {
+		for (const event in options.hooks) {
+			if (!is.array(options.hooks[event])) {
+				throw new TypeError(`Parameter \`${event}\` must be an Array, not ${is(options.hooks[event])}`);
+			}
+		}
+	} else {
+		throw new TypeError(`Parameter \`hooks\` must be an Object, not ${is(options.hooks)}`);
 	}
 
 	for (const event of knownHookEvents) {
@@ -84,7 +90,7 @@ export const preNormalizeArguments = (options: Options, defaults?: Options): Nor
 	};
 
 	if (is.nonEmptyObject(defaults) && retry !== false) {
-		options.retry = {...(defaults.retry as RetryOptions)};
+		options.retry = {...(defaults.retry as unknown as RetryOptions)};
 	}
 
 	if (retry !== false) {
@@ -122,10 +128,10 @@ export const preNormalizeArguments = (options: Options, defaults?: Options): Nor
 	return options as NormalizedOptions;
 };
 
-export const normalizeArguments = (url: URLOrOptions, options: NormalizedOptions, defaults?: Defaults): NormalizedOptions => {
+export const normalizeArguments = (url: URLOrOptions, options: Options, defaults?: NormalizedDefaults): NormalizedOptions => {
 	let urlArgument: URLArgument;
 	if (is.plainObject(url)) {
-		options = {...url, ...options};
+		options = {...url as Options, ...options};
 		urlArgument = options.url || {};
 		delete options.url;
 	} else {
@@ -133,13 +139,13 @@ export const normalizeArguments = (url: URLOrOptions, options: NormalizedOptions
 	}
 
 	if (defaults) {
-		options = merge<NormalizedOptions, Options>({} as NormalizedOptions, defaults.options, options ? preNormalizeArguments(options, defaults.options) : {});
+		options = mergeOptions(defaults.options, options ? preNormalizeArguments(options, defaults.options) : {});
 	} else {
 		options = merge({}, preNormalizeArguments(options));
 	}
 
 	if (!is.string(urlArgument) && !is.object(urlArgument)) {
-		throw new TypeError(`Parameter \`url\` must be a string or object, not ${is(urlArgument)}`);
+		throw new TypeError(`Parameter \`url\` must be a string or an Object, not ${is(urlArgument)}`);
 	}
 
 	let urlObj: https.RequestOptions | URLOptions;
@@ -149,7 +155,7 @@ export const normalizeArguments = (url: URLOrOptions, options: NormalizedOptions
 		}
 
 		if (options.prefixUrl) {
-			urlArgument = options.prefixUrl + urlArgument;
+			urlArgument = options.prefixUrl.toString() + urlArgument;
 		}
 
 		urlArgument = urlArgument.replace(/^unix:/, 'http://$&');
@@ -159,6 +165,7 @@ export const normalizeArguments = (url: URLOrOptions, options: NormalizedOptions
 		urlObj = urlToOptions(urlArgument);
 	} else if (options.prefixUrl) {
 		urlObj = {
+			// @ts-ignore
 			...urlToOptions(new URL(options.prefixUrl)),
 			...urlArgument
 		};
@@ -167,14 +174,15 @@ export const normalizeArguments = (url: URLOrOptions, options: NormalizedOptions
 	}
 
 	// Override both null/undefined with default protocol
-	options = merge<NormalizedOptions, Partial<URL | URLOptions | NormalizedOptions | Options>>({path: ''} as NormalizedOptions, urlObj, {protocol: urlObj.protocol || 'https:'}, options);
+	options = mergeOptions({path: ''}, urlObj, {protocol: urlObj.protocol || 'https:'}, options);
 
 	for (const hook of options.hooks.init) {
-		const isCalled = hook(options);
-
-		if (is.promise(isCalled)) {
+		if (is.asyncFunction(hook)) {
 			throw new TypeError('The `init` hook must be a synchronous function');
 		}
+
+		// @ts-ignore TS is dumb.
+		hook(options);
 	}
 
 	const {prefixUrl} = options;
@@ -240,7 +248,7 @@ export const normalizeArguments = (url: URLOrOptions, options: NormalizedOptions
 		options.method = options.method.toUpperCase() as Method;
 	}
 
-	return options;
+	return options as NormalizedOptions;
 };
 
-export const reNormalizeArguments = (options: NormalizedOptions): NormalizedOptions => normalizeArguments(format(options as unknown as URL | URLOptions), options);
+export const reNormalizeArguments = (options: Options): NormalizedOptions => normalizeArguments(format(options as unknown as URL | URLOptions), options);

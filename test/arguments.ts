@@ -15,7 +15,7 @@ test('`url` is required', async t => {
 		got(),
 		{
 			instanceOf: TypeError,
-			message: 'Parameter `url` must be a string or object, not undefined'
+			message: 'Parameter `url` must be a string or an Object, not undefined'
 		}
 	);
 });
@@ -174,7 +174,7 @@ test('throws TypeError when `options.hooks` is not an object', async t => {
 		got('https://example.com', {hooks: 'not object'}),
 		{
 			instanceOf: TypeError,
-			message: 'Parameter `hooks` must be an object, not string'
+			message: 'Parameter `hooks` must be an Object, not string'
 		}
 	);
 });
@@ -185,7 +185,7 @@ test('throws TypeError when known `options.hooks` value is not an array', async 
 		got('https://example.com', {hooks: {beforeRequest: {}}}),
 		{
 			instanceOf: TypeError,
-			message: 'options.hooks.beforeRequest is not iterable'
+			message: 'Parameter `beforeRequest` must be an Array, not Object'
 		}
 	);
 });
@@ -204,7 +204,7 @@ test('throws TypeError when known `options.hooks` array item is not a function',
 test('allows extra keys in `options.hooks`', withServer, async (t, server, got) => {
 	server.get('/test', echoUrl);
 
-	await t.notThrowsAsync(got('test', {hooks: {extra: {}}}));
+	await t.notThrowsAsync(got('test', {hooks: {extra: []}}));
 });
 
 test('`prefixUrl` option works', withServer, async (t, server, got) => {

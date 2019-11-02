@@ -368,7 +368,7 @@ export default (options: NormalizedOptions, input?: TransformStream) => {
 					// Special case for https://github.com/form-data/form-data
 					headers['content-type'] = headers['content-type'] || `multipart/form-data; boundary=${body.getBoundary()}`;
 				} else if (!is.nodeStream(body) && !is.string(body) && !is.buffer(body)) {
-					throw new TypeError('The `body` option must be a stream.Readable, string, Buffer, Object or Array');
+					throw new TypeError('The `body` option must be a stream.Readable, string or Buffer');
 				}
 			} else if (isForm) {
 				if (!is.object(options.form)) {
