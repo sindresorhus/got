@@ -67,11 +67,11 @@ const defaultHandler: HandlerFunction = (options, next) => next(options);
 // `got.mergeInstances()` is deprecated
 let hasShownDeprecation = false;
 
-const create = (nonTypedDefaults: Defaults): Got => {
+const create = (nonNormalizedDefaults: Defaults): Got => {
 	const defaults: NormalizedDefaults = {
-		handlers: Reflect.has(nonTypedDefaults, 'handlers') ? merge([], nonTypedDefaults.handlers) : [defaultHandler],
-		options: preNormalizeArguments(mergeOptions(Reflect.has(nonTypedDefaults, 'options') ? nonTypedDefaults.options : {})),
-		mutableDefaults: Boolean(nonTypedDefaults.mutableDefaults)
+		handlers: Reflect.has(nonNormalizedDefaults, 'handlers') ? merge([], nonNormalizedDefaults.handlers) : [defaultHandler],
+		options: preNormalizeArguments(mergeOptions(Reflect.has(nonNormalizedDefaults, 'options') ? nonNormalizedDefaults.options : {})),
+		mutableDefaults: Boolean(nonNormalizedDefaults.mutableDefaults)
 	};
 
 	// @ts-ignore Because the for loop handles it for us, as well as the other Object.defines
