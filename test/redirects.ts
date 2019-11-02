@@ -67,7 +67,7 @@ test('relative redirect works', withServer, async (t, server, got) => {
 	t.is((await got('relative')).body, 'reached');
 });
 
-test('throws on endless redirects', withServer, async (t, server, got) => {
+test('throws on endless redirects - default behavior', withServer, async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.writeHead(302, {
 			location: server.url
