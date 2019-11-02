@@ -76,8 +76,8 @@ export class HTTPError extends GotError {
 export class MaxRedirectsError extends GotError {
 	readonly response!: Response;
 
-	constructor(response: Response, options: NormalizedOptions) {
-		super('Redirected 10 times. Aborting.', {}, options);
+	constructor(response: Response, maxRedirects: number, options: NormalizedOptions) {
+		super(`Redirected ${maxRedirects} times. Aborting.`, {}, options);
 		this.name = 'MaxRedirectsError';
 
 		Object.defineProperty(this, 'response', {

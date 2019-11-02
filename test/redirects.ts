@@ -81,6 +81,20 @@ test('throws on endless redirects', withServer, async (t, server, got) => {
 	t.deepEqual(error.response.redirectUrls, new Array(10).fill(`${server.url}/`));
 });
 
+test('custom `maxRedirects` option', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.writeHead(302, {
+			location: server.url
+		});
+		response.end();
+	});
+
+	const error = await t.throwsAsync(got('', {maxRedirects: 5}), 'Redirected 5 times. Aborting.');
+
+	// @ts-ignore
+	t.deepEqual(error.response.redirectUrls, new Array(5).fill(`${server.url}/`));
+});
+
 test('searchParams are not breaking redirects', withServer, async (t, server, got) => {
 	server.get('/', reachedHandler);
 
