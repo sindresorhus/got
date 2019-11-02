@@ -184,3 +184,39 @@ test('the `json` payload is not touched', withServer, async (t, server, got) => 
 	t.true('context' in body);
 	t.true(body.context.foo);
 });
+
+test('the `body` payload is not touched', withServer, async (t, server, got) => {
+	server.post('/', defaultEndpoint);
+
+	const buffer = Buffer.from('Hello, Got!');
+
+	await got.post({
+		body: buffer,
+		hooks: {
+			beforeRequest: [
+				options => {
+					t.is(options.body, buffer);
+				}
+			]
+		}
+	});
+});
+
+test('the `form` payload is not touched', withServer, async (t, server, got) => {
+	server.post('/', defaultEndpoint);
+
+	const object = {
+		foo: 'bar'
+	};
+
+	await got.post({
+		form: object,
+		hooks: {
+			beforeRequest: [
+				options => {
+					t.is(options.form, object);
+				}
+			]
+		}
+	});
+});
