@@ -74,11 +74,12 @@ test.serial('timeout option as object', withServerAndLolex, async (t, server, go
 	);
 });
 
-test.serial('socket timeout', withServerAndLolex, async (t, _server, got) => {
+test.serial('socket timeout', async t => {
 	await t.throwsAsync(
-		got({
+		got('https://example.com', {
 			timeout: {socket: 1},
 			retry: 0,
+			// @ts-ignore
 			request: () => {
 				const stream = new PassThroughStream();
 				// @ts-ignore

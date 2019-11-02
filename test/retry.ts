@@ -1,4 +1,6 @@
 import EventEmitter = require('events');
+import {PassThrough as PassThroughStream} from 'stream';
+import http = require('http');
 import test from 'ava';
 import is from '@sindresorhus/is';
 import pEvent = require('p-event');
@@ -15,31 +17,39 @@ const handler413 = (_request, response) => {
 	response.end();
 };
 
-test('works on timeout error', withServer, async (t, server, got) => {
+const createSocketTimeoutStream = () => {
+	const stream = new PassThroughStream();
+	// @ts-ignore
+	stream.setTimeout = (ms, callback) => {
+		callback();
+	};
+
+	// @ts-ignore
+	stream.abort = () => {};
+	stream.resume();
+
+	return stream;
+};
+
+test('works on timeout', withServer, async (t, server, got) => {
 	let knocks = 0;
 	server.get('/', (_request, response) => {
-		if (knocks++ === 1) {
-			response.end('who`s there?');
+		response.end('who`s there?');
+	});
+
+	t.is((await got({
+		timeout: {
+			socket: socketTimeout
+		},
+		request: (url, options, callback) => {
+			if (knocks === 1) {
+				return http.request(url, options, callback);
+			}
+
+			knocks++;
+			return createSocketTimeoutStream();
 		}
-	});
-
-	t.is((await got({timeout: {socket: socketTimeout}})).body, 'who`s there?');
-});
-
-test('setting to `0` disables retrying', withServer, async (t, server, got) => {
-	let trys = 0;
-	server.get('/', () => {
-		trys++;
-	});
-
-	await t.throwsAsync(got({
-		timeout: {socket: socketTimeout},
-		retry: 0
-	}), {
-		instanceOf: got.TimeoutError,
-		message: `Timeout awaiting 'socket' for ${socketTimeout}ms`
-	});
-	t.is(trys, 1);
+	})).body, 'who`s there?');
 });
 
 test('retry function gets iteration count', withServer, async (t, server, got) => {
@@ -47,11 +57,14 @@ test('retry function gets iteration count', withServer, async (t, server, got) =
 	server.get('/', (_request, response) => {
 		if (knocks++ === 1) {
 			response.end('who`s there?');
+			return;
 		}
+
+		response.statusCode = 500;
+		response.end();
 	});
 
 	await got({
-		timeout: {socket: socketTimeout},
 		retry: {
 			calculateDelay: ({attemptCount}) => {
 				t.true(is.number(attemptCount));
@@ -61,17 +74,18 @@ test('retry function gets iteration count', withServer, async (t, server, got) =
 	});
 });
 
-test('falsy value prevents retries', withServer, async (t, server, got) => {
-	server.get('/', () => {});
-
-	await t.throwsAsync(got({
+test('setting to `0` disables retrying', async t => {
+	await t.throwsAsync(got('https://example.com', {
 		timeout: {socket: socketTimeout},
 		retry: {
-			retries: (iteration, error) => {
-				t.true(is.error(error));
-				t.is(iteration, 1);
+			calculateDelay: ({attemptCount}) => {
+				t.is(attemptCount, 1);
 				return 0;
 			}
+		},
+		// @ts-ignore
+		request: () => {
+			return createSocketTimeoutStream();
 		}
 	}), {
 		instanceOf: got.TimeoutError,
