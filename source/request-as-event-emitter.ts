@@ -150,8 +150,8 @@ export default (options: NormalizedOptions, input?: TransformStream) => {
 							options.method = 'GET';
 						}
 
-						if (redirects.length >= 10) {
-							throw new MaxRedirectsError(typedResponse, options);
+						if (redirects.length >= options.maxRedirects) {
+							throw new MaxRedirectsError(typedResponse, options.maxRedirects, options);
 						}
 
 						// Handles invalid URLs. See https://github.com/sindresorhus/got/issues/604

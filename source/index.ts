@@ -55,7 +55,8 @@ const defaults: Partial<Defaults> = {
 		dnsCache: false,
 		useElectronNet: false,
 		responseType: 'text',
-		resolveBodyOnly: false
+		resolveBodyOnly: false,
+		maxRedirects: 10
 	},
 	mutableDefaults: false
 };

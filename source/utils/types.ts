@@ -161,6 +161,7 @@ export interface Options extends Except<https.RequestOptions, 'agent' | 'timeout
 	form?: Record<string, any>;
 	json?: Record<string, any>;
 	context?: {[key: string]: unknown};
+	maxRedirects?: number;
 }
 
 export interface NormalizedOptions extends Except<Required<Options>, 'timeout' | 'dnsCache' | 'retry' | 'auth' | 'body' | 'port'> {
