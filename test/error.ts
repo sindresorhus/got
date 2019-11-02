@@ -152,7 +152,8 @@ test('`http.request` pipe error', async t => {
 				},
 				on: () => {},
 				once: () => {},
-				emit: () => {}
+				emit: () => {},
+				prependOnceListener: () => {}
 			};
 		},
 		throwHttpErrors: false

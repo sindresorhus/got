@@ -35,7 +35,7 @@ const defaults: Partial<Defaults> = {
 			]
 		},
 		headers: {
-			'user-agent': `got (https://github.com/sindresorhus/got)`
+			'user-agent': 'got (https://github.com/sindresorhus/got)'
 		},
 		hooks: {
 			beforeRequest: [],
