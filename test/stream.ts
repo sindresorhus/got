@@ -1,11 +1,14 @@
 import {promisify} from 'util';
+import fs = require('fs');
 import {PassThrough as PassThroughStream} from 'stream';
 import stream = require('stream');
 import test from 'ava';
 import toReadableStream = require('to-readable-stream');
 import getStream = require('get-stream');
 import pEvent = require('p-event');
+import FormData = require('form-data');
 import is from '@sindresorhus/is';
+import got from '../source';
 import withServer from './helpers/with-server';
 
 const pStreamPipeline = promisify(stream.pipeline);
@@ -255,6 +258,14 @@ test('piping to got.stream.put()', withServer, async (t, server, got) => {
 	});
 });
 
-// Do not remove this. Some test is throwing a unhandled rejection and we need to know what particular test does that.
-// (It will log the test name in Got options)
-process.on('unhandledRejection', console.log);
+test('no unhandled body stream errors', async t => {
+	const form = new FormData();
+	// @ts-ignore
+	form.append('upload', fs.createReadStream('/bin/sh'));
+
+	await t.throwsAsync(got.post(`https://offlinesite${Date.now()}.com`, {
+		form
+	}), {
+		code: 'ENOTFOUND'
+	});
+});
