@@ -106,18 +106,30 @@ test('hostname + path are not breaking redirects', withServer, async (t, server,
 	})).body, 'reached');
 });
 
-test('redirects only GET and HEAD requests', withServer, async (t, server, got) => {
-	server.post('/', relativeHandler);
-
-	const error = await t.throwsAsync(got.post({body: 'wow'}), {
-		instanceOf: got.HTTPError,
-		message: 'Response code 302 (Found)'
+test('redirects GET and HEAD requests', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.writeHead(308, {
+			location: '/'
+		});
+		response.end();
 	});
 
-	// @ts-ignore
-	t.is(error.options.path, '/');
-	// @ts-ignore
-	t.is(error.response.statusCode, 302);
+	await t.throwsAsync(got.get(''), {
+		instanceOf: got.MaxRedirectsError
+	});
+});
+
+test('redirects POST requests', withServer, async (t, server, got) => {
+	server.post('/', (_request, response) => {
+		response.writeHead(308, {
+			location: '/'
+		});
+		response.end();
+	});
+
+	await t.throwsAsync(got.post({body: 'wow'}), {
+		instanceOf: got.MaxRedirectsError
+	});
 });
 
 test('redirects on 303 response even on post, put, delete', withServer, async (t, server, got) => {
