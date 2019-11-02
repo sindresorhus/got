@@ -52,11 +52,11 @@ export const preNormalizeArguments = (options: Options, defaults?: NormalizedOpt
 	} else if (is.object(options.hooks)) {
 		for (const event in options.hooks) {
 			if (!is.array(options.hooks[event])) {
-				throw new TypeError(`Parameter \`${event}\` must be an array, not ${is(defaults.hooks[event])}`);
+				throw new TypeError(`Parameter \`${event}\` must be an Array, not ${is(options.hooks[event])}`);
 			}
 		}
 	} else {
-		throw new TypeError(`Parameter \`hooks\` must be an object, not ${is(options.hooks)}`);
+		throw new TypeError(`Parameter \`hooks\` must be an Object, not ${is(options.hooks)}`);
 	}
 
 	for (const event of knownHookEvents) {
@@ -145,7 +145,7 @@ export const normalizeArguments = (url: URLOrOptions, options: Options, defaults
 	}
 
 	if (!is.string(urlArgument) && !is.object(urlArgument)) {
-		throw new TypeError(`Parameter \`url\` must be a string or object, not ${is(urlArgument)}`);
+		throw new TypeError(`Parameter \`url\` must be a string or an Object, not ${is(urlArgument)}`);
 	}
 
 	let urlObj: https.RequestOptions | URLOptions;
@@ -177,11 +177,12 @@ export const normalizeArguments = (url: URLOrOptions, options: Options, defaults
 	options = mergeOptions({path: ''}, urlObj, {protocol: urlObj.protocol || 'https:'}, options);
 
 	for (const hook of options.hooks.init) {
-		const isCalled = hook(options);
-
-		if (is.promise(isCalled)) {
+		if (is.asyncFunction(hook)) {
 			throw new TypeError('The `init` hook must be a synchronous function');
 		}
+
+		// @ts-ignore TS is dumb.
+		hook(options);
 	}
 
 	const {prefixUrl} = options;
