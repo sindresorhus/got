@@ -1,9 +1,5 @@
-import * as fs from 'fs';
-import * as path from 'path';
 import create from './create';
 import {Defaults} from './utils/types.js';
-
-const packageJson = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8'));
 
 const defaults: Partial<Defaults> = {
 	options: {
@@ -39,7 +35,7 @@ const defaults: Partial<Defaults> = {
 			]
 		},
 		headers: {
-			'user-agent': `${packageJson.name}/${packageJson.version} (https://github.com/sindresorhus/got)`
+			'user-agent': 'got (https://github.com/sindresorhus/got)'
 		},
 		hooks: {
 			beforeRequest: [],
