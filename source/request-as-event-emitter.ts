@@ -127,6 +127,7 @@ export default (options: NormalizedOptions, input?: TransformStream) => {
 				delete typedResponse.fromCache;
 
 				if (!typedResponse.isFromCache) {
+					// @ts-ignore Node typings haven't been updated yet
 					typedResponse.ip = response.socket.remoteAddress;
 				}
 
