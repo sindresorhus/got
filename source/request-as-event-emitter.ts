@@ -135,46 +135,48 @@ export default (options: NormalizedOptions, input?: TransformStream) => {
 					await Promise.all(promises);
 				}
 
-				if (options.followRedirect && 'location' in typedResponse.headers) {
-					if (redirectCodes.has(statusCode)) {
-						typedResponse.resume(); // We're being redirected, we don't care about the response.
+				if (options.followRedirect && Reflect.has(typedResponse.headers, 'location') && redirectCodes.has(statusCode)) {
+					typedResponse.resume(); // We're being redirected, we don't care about the response.
 
-						if (statusCode === 303 && options.method !== 'GET' && options.method !== 'HEAD') {
-							// Server responded with "see other", indicating that the resource exists at another location,
-							// and the client should request it from that location via GET or HEAD.
-							options.method = 'GET';
-							delete options.body;
-						}
+					if (statusCode === 303 && options.method !== 'GET' && options.method !== 'HEAD') {
+						// Server responded with "see other", indicating that the resource exists at another location,
+						// and the client should request it from that location via GET or HEAD.
+						options.method = 'GET';
 
-						if (redirects.length >= options.maxRedirects) {
-							throw new MaxRedirectsError(typedResponse, options.maxRedirects, options);
-						}
-
-						// Handles invalid URLs. See https://github.com/sindresorhus/got/issues/604
-						const redirectBuffer = Buffer.from(typedResponse.headers.location, 'binary').toString();
-						const redirectURL = new URL(redirectBuffer, currentUrl);
-						redirectString = redirectURL.toString();
-
-						redirects.push(redirectString);
-
-						const redirectOptions = {
-							...options,
-							port: undefined,
-							auth: undefined,
-							...urlToOptions(redirectURL)
-						};
-
-						for (const hook of options.hooks.beforeRedirect) {
-							// eslint-disable-next-line no-await-in-loop
-							await hook(redirectOptions, typedResponse);
-						}
-
-						emitter.emit('redirect', response, redirectOptions);
-
-						await get(redirectOptions);
-						return;
+						delete options.json;
+						delete options.form;
 					}
+
+					if (redirects.length >= options.maxRedirects) {
+						throw new MaxRedirectsError(typedResponse, options.maxRedirects, options);
+					}
+
+					// Handles invalid URLs. See https://github.com/sindresorhus/got/issues/604
+					const redirectBuffer = Buffer.from(typedResponse.headers.location, 'binary').toString();
+					const redirectURL = new URL(redirectBuffer, currentUrl);
+					redirectString = redirectURL.toString();
+
+					redirects.push(redirectString);
+
+					const redirectOptions = {
+						...options,
+						port: undefined,
+						auth: undefined,
+						...urlToOptions(redirectURL)
+					};
+
+					for (const hook of options.hooks.beforeRedirect) {
+						// eslint-disable-next-line no-await-in-loop
+						await hook(redirectOptions, typedResponse);
+					}
+
+					emitter.emit('redirect', response, redirectOptions);
+
+					await get(redirectOptions);
+					return;
 				}
+
+				delete options.body;
 
 				getResponse(typedResponse, options, emitter);
 			} catch (error) {
@@ -373,13 +375,9 @@ export default (options: NormalizedOptions, input?: TransformStream) => {
 
 				headers['content-type'] = headers['content-type'] || 'application/x-www-form-urlencoded';
 				options.body = (new URLSearchParams(options.form as Record<string, string>)).toString();
-
-				delete options.form;
 			} else if (isJSON) {
 				headers['content-type'] = headers['content-type'] || 'application/json';
 				options.body = JSON.stringify(options.json);
-
-				delete options.json;
 			}
 
 			// Convert buffer to stream to receive upload progress events (#322)

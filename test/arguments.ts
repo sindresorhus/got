@@ -309,8 +309,7 @@ test('`context` option is accessible when extending instances', t => {
 	t.false({}.propertyIsEnumerable.call(instance.defaults.options, 'context'));
 });
 
-
-test('`options.json` is cleaned up when retrying', withServer, async (t, server, got) => {
+test('`options.body` is cleaned up when retrying - `options.json`', withServer, async (t, server, got) => {
 	let first = true;
 	server.post('/', (_request, response) => {
 		if (first) {
@@ -329,6 +328,8 @@ test('`options.json` is cleaned up when retrying', withServer, async (t, server,
 					if (response.statusCode === 401) {
 						return retryWithMergedOptions();
 					}
+
+					t.is(response.request.options.body, undefined);
 
 					return response;
 				}
@@ -340,7 +341,7 @@ test('`options.json` is cleaned up when retrying', withServer, async (t, server,
 	}));
 });
 
-test('`options.form` is cleaned up when retrying', withServer, async (t, server, got) => {
+test('`options.body` is cleaned up when retrying - `options.form`', withServer, async (t, server, got) => {
 	let first = true;
 	server.post('/', (_request, response) => {
 		if (first) {
@@ -359,6 +360,8 @@ test('`options.form` is cleaned up when retrying', withServer, async (t, server,
 					if (response.statusCode === 401) {
 						return retryWithMergedOptions();
 					}
+
+					t.is(response.request.options.body, undefined);
 
 					return response;
 				}
