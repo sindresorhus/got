@@ -127,7 +127,8 @@ export default (options: NormalizedOptions, input?: TransformStream) => {
 				delete typedResponse.fromCache;
 
 				if (!typedResponse.isFromCache) {
-					typedResponse.ip = response.connection.remoteAddress;
+					// @ts-ignore Node typings haven't been updated yet
+					typedResponse.ip = response.socket.remoteAddress;
 				}
 
 				const rawCookies = typedResponse.headers['set-cookie'];
