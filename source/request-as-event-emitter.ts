@@ -145,6 +145,7 @@ export default (options: NormalizedOptions, input?: TransformStream) => {
 
 						delete options.json;
 						delete options.form;
+						delete options.body;
 					}
 
 					if (redirects.length >= options.maxRedirects) {
