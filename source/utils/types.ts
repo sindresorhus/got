@@ -71,7 +71,7 @@ export interface Response extends http.IncomingMessage {
 // TODO: The `ResponseLike` type should be properly fixed instead:
 // https://github.com/sindresorhus/got/pull/827/files#r323633794
 export interface ResponseObject extends ResponseLike {
-	connection: {
+	socket: {
 		remoteAddress: string;
 	};
 }
