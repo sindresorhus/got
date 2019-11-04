@@ -34,13 +34,13 @@ When we have all the necessary info, we can start mixing :cake:
 
 ### The root endpoint
 
-Not much to do here, just extend an instance and provide the `baseUrl` option:
+Not much to do here, just extend an instance and provide the `prefixUrl` option:
 
 ```js
 const got = require('got');
 
 const instance = got.extend({
-	baseUrl: 'https://api.github.com'
+	prefixUrl: 'https://api.github.com'
 });
 
 module.exports = instance;
@@ -54,11 +54,13 @@ GitHub needs to know which version we are using. We'll use the `Accept` header f
 const got = require('got');
 
 const instance = got.extend({
-	baseUrl: 'https://api.github.com',
+	prefixUrl: 'https://api.github.com',
 	headers: {
 		accept: 'application/vnd.github.v3+json'
 	}
 });
+
+module.exports = instance;
 ```
 
 ### JSON body
@@ -69,7 +71,7 @@ We'll use [`options.responseType`](../readme.md#responsetype):
 const got = require('got');
 
 const instance = got.extend({
-	baseUrl: 'https://api.github.com',
+	prefixUrl: 'https://api.github.com',
 	headers: {
 		accept: 'application/vnd.github.v3+json'
 	},
@@ -91,7 +93,7 @@ Let's use handlers instead of hooks. This will make our code more readable: havi
 const got = require('got');
 
 const instance = got.extend({
-	baseUrl: 'https://api.github.com',
+	prefixUrl: 'https://api.github.com',
 	headers: {
 		accept: 'application/vnd.github.v3+json'
 	},
