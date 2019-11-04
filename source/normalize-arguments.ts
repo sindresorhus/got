@@ -42,7 +42,7 @@ export const preNormalizeArguments = (options: Options, defaults?: NormalizedOpt
 	if (options.prefixUrl) {
 		options.prefixUrl = options.prefixUrl.toString();
 
-		if (!options.prefixUrl.toString().endsWith('/')) {
+		if (!options.prefixUrl.endsWith('/')) {
 			options.prefixUrl += '/';
 		}
 	}
