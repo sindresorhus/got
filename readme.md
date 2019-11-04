@@ -927,6 +927,28 @@ The promise returned by Got has a [`.cancel()`](https://github.com/sindresorhus/
 })();
 ```
 
+When using hooks, simply throw an error to abort the request.
+
+```js
+(async () => {
+	const request = got(url, {
+		hooks: {
+			beforeRequest: [
+				() => {
+					throw new Error('Oops. Request canceled.');
+				}
+			]
+		}
+	});
+
+	try {
+		await request;
+	} catch (error) {
+		// …
+	}
+})();
+```
+
 <a name="cache-adapters"></a>
 ## Cache
 
