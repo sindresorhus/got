@@ -340,7 +340,7 @@ Default:
 
 An object representing `limit`, `calculateDelay`, `methods`, `statusCodes`, `maxRetryAfter` and `errorCodes` fields for maximum retry count, retry handler, allowed methods, allowed status codes, maximum [`Retry-After`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Retry-After) time and allowed error codes.
 
-**Note:** When using streams, this option is ignored.
+**Note:** When using streams, this option is ignored. If the connection is reset when downloading, you need to catch the error and clear the file you were writing into to prevent duplicated content.
 
 If `maxRetryAfter` is set to `undefined`, it will use `options.timeout`.<br>
 If [`Retry-After`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Retry-After) header is greater than `maxRetryAfter`, it will cancel the request.
@@ -496,6 +496,8 @@ got('https://example.com', {
 Type: `Function[]`<br>
 Default: `[]`
 
+**Note:** When using streams, this hook is ignored.
+
 Called with [normalized](source/normalize-arguments.ts) [request options](#options), the error and the retry count. Got will make no further changes to the request. This is especially useful when some extra work is required before the next try. Example:
 
 ```js
@@ -518,6 +520,8 @@ got.post('https://example.com', {
 
 Type: `Function[]`<br>
 Default: `[]`
+
+**Note:** When using streams, this hook is ignored.
 
 Called with [response object](#response) and a retry function.
 
