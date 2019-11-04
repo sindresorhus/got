@@ -46,6 +46,7 @@ These Got options are the same as with Request:
 - [`body`](https://github.com/sindresorhus/got#body)
 - [`followRedirect`](https://github.com/sindresorhus/got#followRedirect)
 - [`encoding`](https://github.com/sindresorhus/got#encoding)
+- [`maxRedirects`](https://github.com/sindresorhus/got#maxredirects)
 
 So if you're familiar with them, you're good to go.
 
@@ -68,14 +69,12 @@ The [`timeout` option](https://github.com/sindresorhus/got#timeout) has some ext
 
 The [`searchParams` option](https://github.com/sindresorhus/got#searchParams) is always serialized using [`URLSearchParams`](https://developer.mozilla.org/en-US/docs/Web/API/URLSearchParams) unless it's a `string`.
 
-There's no `maxRedirects` option. It's always set to `10`.
-
 To use streams, just call `got.stream(url, options)` or `got(url, {stream: true, ...}`).
 
 #### Breaking changes
 
 - The `json` option is not a `boolean`, it's an `Object`. It will be stringified and used as a body.
-- No `form` option. You have to pass a [`form-data` instance](https://github.com/form-data/form-data) through the [`body` option](https://github.com/sindresorhus/got#body).
+- The `form` option is an `Object`. It can be a plain object or a [`form-data` instance](https://github.com/sindresorhus/got/#form-data).
 - No `oauth`/`hawk`/`aws`/`httpSignature` option. To sign requests, you need to create a [custom instance](advanced-creation.md#signing-requests).
 - No `agentClass`/`agentOptions`/`pool` option.
 - No `forever` option. You need to use [forever-agent](https://github.com/request/forever-agent).
@@ -152,7 +151,7 @@ const pipeline = promisify(stream.pipeline);
 http.createServer(async (request, response) => {
 	if (request.url === '/doodle.png') {
 		// When someone makes a request to our server, we receive a body and some headers.
-		// These are passed to Got. Got proxies received data to our server response,
+		// These are passed to Got. Got proxies downloaded data to our server response,
 		// so you don't have to do `response.writeHead(statusCode, headers)` and `response.end(body)`.
 		// It's done automatically.
 		await pipeline(
