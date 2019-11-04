@@ -143,6 +143,7 @@ export default (options: NormalizedOptions, input?: TransformStream) => {
 							// Server responded with "see other", indicating that the resource exists at another location,
 							// and the client should request it from that location via GET or HEAD.
 							options.method = 'GET';
+							delete options.body;
 						}
 
 						if (redirects.length >= 10) {
@@ -372,9 +373,13 @@ export default (options: NormalizedOptions, input?: TransformStream) => {
 
 				headers['content-type'] = headers['content-type'] || 'application/x-www-form-urlencoded';
 				options.body = (new URLSearchParams(options.form as Record<string, string>)).toString();
+
+				delete options.form;
 			} else if (isJSON) {
 				headers['content-type'] = headers['content-type'] || 'application/json';
 				options.body = JSON.stringify(options.json);
+
+				delete options.json;
 			}
 
 			// Convert buffer to stream to receive upload progress events (#322)

@@ -277,3 +277,53 @@ test('port is reset on redirect', withServer, async (t, server, got) => {
 	const {body} = await got('');
 	t.is(body, 'ok');
 });
+
+test('body is reset on GET redirect', withServer, async (t, server, got) => {
+	server.post('/', (_request, response) => {
+		response.writeHead(303, {
+			location: '/'
+		});
+		response.end();
+	});
+
+	server.get('/', (_request, response) => {
+		response.end();
+	});
+
+	await got.post('', {
+		body: 'foobar',
+		hooks: {
+			beforeRedirect: [
+				options => {
+					t.is(options.body, undefined);
+				}
+			]
+		}
+	});
+});
+
+test('body is passed on POST redirect', withServer, async (t, server, got) => {
+	server.post('/redirect', (_request, response) => {
+		response.writeHead(302, {
+			location: '/'
+		});
+		response.end();
+	});
+
+	server.post('/', (request, response) => {
+		request.pipe(response);
+	});
+
+	const {body} = await got.post('redirect', {
+		body: 'foobar',
+		hooks: {
+			beforeRedirect: [
+				options => {
+					t.is(options.body, 'foobar');
+				}
+			]
+		}
+	});
+
+	t.is(body, 'foobar');
+});
