@@ -34,6 +34,11 @@ test('throws an error if the protocol is not specified', async t => {
 		instanceOf: TypeError,
 		message: 'Invalid URL: example.com'
 	});
+
+	await t.throwsAsync(got({}), {
+		instanceOf: TypeError,
+		message: 'No URL protocol specified'
+	});
 });
 
 test('string url with searchParams is preserved', withServer, async (t, server, got) => {
