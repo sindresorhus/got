@@ -9,13 +9,13 @@
 		"node": ">=10"
 	},
 	"scripts": {
-		"test": "xo && nyc ava && tsc --noEmit",
+		"test": "xo && tsc --noEmit && nyc ava",
 		"release": "np",
 		"build": "del-cli dist && tsc",
 		"prepare": "npm run build"
 	},
 	"files": [
-		"dist"
+		"dist/source"
 	],
 	"keywords": [
 		"http",

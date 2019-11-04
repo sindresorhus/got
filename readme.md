@@ -370,6 +370,13 @@ Note that if a `303` is sent by the server in response to any request type (`POS
 
 This supports [method rewriting](https://tools.ietf.org/html/rfc7231#section-6.4). For example, when sending a POST request and receiving a `302`, it will resend that request to the new location.
 
+###### maxRedirects
+
+Type: `number`<br>
+Default: `10`
+
+If exceeded, the request will be aborted and a `MaxRedirectsError` will be thrown.
+
 ###### decompress
 
 Type: `boolean`<br>
