@@ -164,9 +164,9 @@ export interface Options extends Except<https.RequestOptions, 'agent' | 'timeout
 	maxRedirects?: number;
 }
 
-export interface NormalizedOptions extends Except<Required<Options>, 'timeout' | 'dnsCache' | 'retry' | 'auth' | 'body' | 'port'> {
+export interface NormalizedOptions extends Except<Required<Options>, 'dnsCache' | 'retry' | 'auth' | 'body' | 'port'> {
 	hooks: Hooks;
-	gotTimeout: Required<Delays>;
+	timeout: Required<Delays>;
 	retry: NormalizedRetryOptions;
 	lookup?: CacheableLookup['lookup'];
 	readonly prefixUrl: string;

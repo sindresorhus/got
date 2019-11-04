@@ -538,3 +538,19 @@ test('catches HTTPErrors', withServer, async (t, _server, got) => {
 		}
 	}));
 });
+
+test('timeout can be modified using a hook', withServer, async (t, server, got) => {
+	server.get('/', () => {});
+
+	await t.throwsAsync(got({
+		timeout: 1000,
+		hooks: {
+			init: [
+				options => {
+					options.timeout.request = 500;
+				}
+			]
+		},
+		retry: 0
+	}), 'Timeout awaiting \'request\' for 500ms');
+});

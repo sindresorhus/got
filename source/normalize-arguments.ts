@@ -73,12 +73,8 @@ export const preNormalizeArguments = (options: Options, defaults?: NormalizedOpt
 	}
 
 	if (is.number(options.timeout)) {
-		options.gotTimeout = {request: options.timeout};
-	} else if (is.object(options.timeout)) {
-		options.gotTimeout = options.timeout;
+		options.timeout = {request: options.timeout};
 	}
-
-	delete options.timeout;
 
 	const {retry} = options;
 	options.retry = {

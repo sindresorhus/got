@@ -99,6 +99,8 @@ export default (options: NormalizedOptions, input?: TransformStream) => {
 
 		let timings: Timings;
 		const handleResponse = async (response: http.ServerResponse | ResponseObject): Promise<void> => {
+			options.timeout = timeout;
+
 			try {
 				/* istanbul ignore next: fixes https://github.com/electron/electron/blob/cbb460d47628a7a146adf4419ed48550a98b2923/lib/browser/api/net.js#L59-L65 */
 				if (options.useElectronNet) {
@@ -194,6 +196,7 @@ export default (options: NormalizedOptions, input?: TransformStream) => {
 			}
 
 			currentRequest = request;
+			options.timeout = timeout;
 
 			const onError = (error: Error): void => {
 				const isTimedOutError = error instanceof TimedOutTimeoutError;
@@ -235,8 +238,8 @@ export default (options: NormalizedOptions, input?: TransformStream) => {
 
 			uploadProgress(request, emitter, uploadBodySize);
 
-			if (options.gotTimeout) {
-				timedOut(request, options.gotTimeout, options);
+			if (options.timeout) {
+				timedOut(request, options.timeout, options);
 			}
 
 			emitter.emit('request', request);
@@ -269,9 +272,12 @@ export default (options: NormalizedOptions, input?: TransformStream) => {
 			}
 		};
 
+		const {timeout} = options;
+		delete options.timeout;
+
 		if (options.cache) {
 			const cacheableRequest = new CacheableRequest(requestFn, options.cache);
-			const cacheRequest = cacheableRequest(options as https.RequestOptions, handleResponse);
+			const cacheRequest = cacheableRequest(options as unknown as https.RequestOptions, handleResponse);
 
 			cacheRequest.once('error', error => {
 				if (error instanceof CacheableRequest.RequestError) {
@@ -286,7 +292,7 @@ export default (options: NormalizedOptions, input?: TransformStream) => {
 			// Catches errors thrown by calling requestFn(...)
 			try {
 				// @ts-ignore TS complains that URLSearchParams is not the same as URLSearchParams
-				handleRequest(requestFn(options as any as URL, handleResponse));
+				handleRequest(requestFn(options as unknown as URL, handleResponse));
 			} catch (error) {
 				emitError(new RequestError(error, options));
 			}
