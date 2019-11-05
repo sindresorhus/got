@@ -313,3 +313,67 @@ test('`context` option is accessible when extending instances', t => {
 	t.is(instance.defaults.options.context, context);
 	t.false({}.propertyIsEnumerable.call(instance.defaults.options, 'context'));
 });
+
+test('`options.body` is cleaned up when retrying - `options.json`', withServer, async (t, server, got) => {
+	let first = true;
+	server.post('/', (_request, response) => {
+		if (first) {
+			first = false;
+
+			response.statusCode = 401;
+		}
+
+		response.end();
+	});
+
+	await t.notThrowsAsync(got.post('', {
+		hooks: {
+			afterResponse: [
+				async (response, retryWithMergedOptions) => {
+					if (response.statusCode === 401) {
+						return retryWithMergedOptions();
+					}
+
+					t.is(response.request.options.body, undefined);
+
+					return response;
+				}
+			]
+		},
+		json: {
+			some: 'data'
+		}
+	}));
+});
+
+test('`options.body` is cleaned up when retrying - `options.form`', withServer, async (t, server, got) => {
+	let first = true;
+	server.post('/', (_request, response) => {
+		if (first) {
+			first = false;
+
+			response.statusCode = 401;
+		}
+
+		response.end();
+	});
+
+	await t.notThrowsAsync(got.post('', {
+		hooks: {
+			afterResponse: [
+				async (response, retryWithMergedOptions) => {
+					if (response.statusCode === 401) {
+						return retryWithMergedOptions();
+					}
+
+					t.is(response.request.options.body, undefined);
+
+					return response;
+				}
+			]
+		},
+		form: {
+			some: 'data'
+		}
+	}));
+});

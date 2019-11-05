@@ -20,13 +20,8 @@ import urlToOptions from './utils/url-to-options';
 import {RequestFunction, NormalizedOptions, Response, ResponseObject, AgentByProtocol} from './utils/types';
 import dynamicRequire from './utils/dynamic-require';
 
-export type GetMethodRedirectCodes = 300 | 301 | 302 | 303 | 304 | 305 | 307 | 308;
-export type AllMethodRedirectCodes = 300 | 303 | 307 | 308;
-export type WithoutBody = 'GET' | 'HEAD';
-
-const getMethodRedirectCodes: ReadonlySet<GetMethodRedirectCodes> = new Set([300, 301, 302, 303, 304, 305, 307, 308]);
-const allMethodRedirectCodes: ReadonlySet<AllMethodRedirectCodes> = new Set([300, 303, 307, 308]);
-const withoutBody: ReadonlySet<WithoutBody> = new Set(['GET', 'HEAD']);
+const redirectCodes: ReadonlySet<number> = new Set([300, 301, 302, 303, 304, 307, 308]);
+const withoutBody: ReadonlySet<string> = new Set(['GET', 'HEAD']);
 
 export interface RequestAsEventEmitter extends EventEmitter {
 	retry: <T extends Error>(error: T) => boolean;
@@ -143,45 +138,49 @@ export default (options: NormalizedOptions, input?: TransformStream) => {
 					await Promise.all(promises);
 				}
 
-				if (options.followRedirect && 'location' in typedResponse.headers) {
-					if (allMethodRedirectCodes.has(statusCode as AllMethodRedirectCodes) || (getMethodRedirectCodes.has(statusCode as GetMethodRedirectCodes) && (options.method === 'GET' || options.method === 'HEAD'))) {
-						typedResponse.resume(); // We're being redirected, we don't care about the response.
+				if (options.followRedirect && Reflect.has(typedResponse.headers, 'location') && redirectCodes.has(statusCode)) {
+					typedResponse.resume(); // We're being redirected, we don't care about the response.
 
-						if (statusCode === 303) {
-							// Server responded with "see other", indicating that the resource exists at another location,
-							// and the client should request it from that location via GET or HEAD.
-							options.method = 'GET';
-						}
+					if (statusCode === 303 && options.method !== 'GET' && options.method !== 'HEAD') {
+						// Server responded with "see other", indicating that the resource exists at another location,
+						// and the client should request it from that location via GET or HEAD.
+						options.method = 'GET';
 
-						if (redirects.length >= options.maxRedirects) {
-							throw new MaxRedirectsError(typedResponse, options.maxRedirects, options);
-						}
-
-						// Handles invalid URLs. See https://github.com/sindresorhus/got/issues/604
-						const redirectBuffer = Buffer.from(typedResponse.headers.location, 'binary').toString();
-						const redirectURL = new URL(redirectBuffer, currentUrl);
-						redirectString = redirectURL.toString();
-
-						redirects.push(redirectString);
-
-						const redirectOptions = {
-							...options,
-							port: undefined,
-							auth: undefined,
-							...urlToOptions(redirectURL)
-						};
-
-						for (const hook of options.hooks.beforeRedirect) {
-							// eslint-disable-next-line no-await-in-loop
-							await hook(redirectOptions, typedResponse);
-						}
-
-						emitter.emit('redirect', response, redirectOptions);
-
-						await get(redirectOptions);
-						return;
+						delete options.json;
+						delete options.form;
+						delete options.body;
 					}
+
+					if (redirects.length >= options.maxRedirects) {
+						throw new MaxRedirectsError(typedResponse, options.maxRedirects, options);
+					}
+
+					// Handles invalid URLs. See https://github.com/sindresorhus/got/issues/604
+					const redirectBuffer = Buffer.from(typedResponse.headers.location, 'binary').toString();
+					const redirectURL = new URL(redirectBuffer, currentUrl);
+					redirectString = redirectURL.toString();
+
+					redirects.push(redirectString);
+
+					const redirectOptions = {
+						...options,
+						port: undefined,
+						auth: undefined,
+						...urlToOptions(redirectURL)
+					};
+
+					for (const hook of options.hooks.beforeRedirect) {
+						// eslint-disable-next-line no-await-in-loop
+						await hook(redirectOptions, typedResponse);
+					}
+
+					emitter.emit('redirect', response, redirectOptions);
+
+					await get(redirectOptions);
+					return;
 				}
+
+				delete options.body;
 
 				getResponse(typedResponse, options, emitter);
 			} catch (error) {
@@ -362,7 +361,7 @@ export default (options: NormalizedOptions, input?: TransformStream) => {
 			const isForm = !is.nullOrUndefined(options.form);
 			const isJSON = !is.nullOrUndefined(options.json);
 			const isBody = !is.nullOrUndefined(body);
-			if ((isBody || isForm || isJSON) && withoutBody.has(options.method as WithoutBody)) {
+			if ((isBody || isForm || isJSON) && withoutBody.has(options.method)) {
 				throw new TypeError(`The \`${options.method}\` method cannot be used with a body`);
 			}
 
