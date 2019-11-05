@@ -6,8 +6,8 @@ import PCancelable = require('p-cancelable');
 import {NormalizedOptions, Response, CancelableRequest} from './utils/types';
 import {mergeOptions} from './merge';
 import {ParseError, ReadError, HTTPError} from './errors';
-import {reNormalizeArguments} from './normalize-arguments';
 import requestAsEventEmitter from './request-as-event-emitter';
+import {normalizeArguments} from './normalize-arguments';
 
 type ResponseReturn = Response | Buffer | string | any;
 
@@ -69,7 +69,7 @@ export default function asPromise(options: NormalizedOptions): CancelableRequest
 				for (const [index, hook] of options.hooks.afterResponse.entries()) {
 					// eslint-disable-next-line no-await-in-loop
 					response = await hook(response, updatedOptions => {
-						updatedOptions = reNormalizeArguments(mergeOptions(options, {
+						updatedOptions = normalizeArguments(mergeOptions(options, {
 							...updatedOptions,
 							retry: {
 								calculateDelay: () => 0

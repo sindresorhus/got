@@ -6,7 +6,6 @@ import {
 	Response,
 	CancelableRequest,
 	URLOrOptions,
-	URLArgument,
 	HandlerFunction,
 	ExtendedOptions,
 	NormalizedDefaults
@@ -18,16 +17,10 @@ import asStream, {ProxyStream} from './as-stream';
 import {preNormalizeArguments, normalizeArguments} from './normalize-arguments';
 import {Hooks} from './known-hook-events';
 
-export type HTTPAlias =
-	| 'get'
-	| 'post'
-	| 'put'
-	| 'patch'
-	| 'head'
-	| 'delete';
+export type HTTPAlias = 'get' | 'post' | 'put' | 'patch' | 'head' | 'delete';
 
-export type ReturnResponse = (url: URLArgument | Options & {stream?: false; url: URLArgument}, options?: Options & {stream?: false}) => CancelableRequest<Response>;
-export type ReturnStream = (url: URLArgument | Options & {stream: true; url: URLArgument}, options?: Options & {stream: true}) => ProxyStream;
+export type ReturnResponse = (url: URLOrOptions | Options & { stream?: false }, options?: Options & { stream?: false }) => CancelableRequest<Response>;
+export type ReturnStream = (url: URLOrOptions | Options & { stream: true }, options?: Options & { stream: true }) => ProxyStream;
 export type GotReturn = ProxyStream | CancelableRequest<Response>;
 
 const getPromiseOrStream = (options: NormalizedOptions): GotReturn => options.stream ? asStream(options) : asPromise(options);
@@ -46,8 +39,8 @@ export interface Got extends Record<HTTPAlias, ReturnResponse> {
 	TimeoutError: typeof errors.TimeoutError;
 	CancelError: typeof errors.CancelError;
 
-	(url: URLArgument | Options & {stream?: false; url: URLArgument}, options?: Options & {stream?: false}): CancelableRequest<Response>;
-	(url: URLArgument | Options & {stream: true; url: URLArgument}, options?: Options & {stream: true}): ProxyStream;
+	(url: URLOrOptions | Options & {stream?: false}, options?: Options & {stream?: false}): CancelableRequest<Response>;
+	(url: URLOrOptions | Options & {stream: true}, options?: Options & {stream: true}): ProxyStream;
 	(url: URLOrOptions, options?: Options): CancelableRequest<Response> | ProxyStream;
 	create(defaults: Defaults): Got;
 	extend(...instancesOrOptions: Array<Got | ExtendedOptions>): Got;

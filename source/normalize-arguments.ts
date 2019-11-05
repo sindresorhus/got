@@ -1,11 +1,8 @@
-import https = require('https');
-import {format} from 'url';
 import CacheableLookup from 'cacheable-lookup';
 import is from '@sindresorhus/is';
 import lowercaseKeys = require('lowercase-keys');
 import Keyv = require('keyv');
-import urlToOptions, {URLOptions} from './utils/url-to-options';
-import validateSearchParams from './utils/validate-search-params';
+import optionsToUrl from './utils/options-to-url';
 import supportsBrotli from './utils/supports-brotli';
 import merge, {mergeOptions} from './merge';
 import knownHookEvents from './known-hook-events';
@@ -13,7 +10,6 @@ import {
 	Options,
 	NormalizedOptions,
 	Method,
-	URLArgument,
 	URLOrOptions,
 	NormalizedDefaults
 } from './utils/types';
@@ -115,56 +111,61 @@ export const preNormalizeArguments = (options: Options, defaults?: NormalizedOpt
 	return options as NormalizedOptions;
 };
 
-export const normalizeArguments = (url: URLOrOptions, options: Options, defaults?: NormalizedDefaults): NormalizedOptions => {
-	let urlArgument: URLArgument;
+export const normalizeArguments = (url: URLOrOptions, options?: Options, defaults?: NormalizedDefaults): NormalizedOptions => {
+	// `options.prefixUrl` and UNIX socket support
+	if (is.string(url)) {
+		if (Reflect.has(options, 'prefixUrl')) {
+			if (url.startsWith('/')) {
+				throw new Error('`url` must not begin with a slash when using `prefixUrl`');
+			} else {
+				url = options.prefixUrl.toString() + url;
+			}
+		}
+
+		url = url.replace(/^unix:/, 'http://$&');
+	}
+
+	// TODO: Remove this before Got v11
+	if (options.query) {
+		if (!hasShownDeprecation) {
+			console.warn('`options.query` is deprecated. We support it solely for compatibility - it will be removed in Got 11. Use `options.searchParams` instead.');
+			hasShownDeprecation = true;
+		}
+
+		options.searchParams = options.query;
+		delete options.query;
+	}
+
+	// Merge url
 	if (is.plainObject(url)) {
-		options = {...url as Options, ...options};
-		urlArgument = options.url ?? {};
-		delete options.url;
+		options = mergeOptions(url, options);
+
+		if (!Reflect.has(options, 'url')) {
+			if (!Reflect.has(options, 'protocol') && !Reflect.has(options, 'hostname') && !Reflect.has(options, 'host')) {
+				throw new TypeError('Missing `protocol` and `hostname` properties.`');
+			}
+
+			// TODO: Drop URLOptions support in Got v12
+			options.url = optionsToUrl(options);
+		}
 	} else {
-		urlArgument = url;
+		options = merge({}, options);
+		options.url = new URL(url as string);
 	}
 
+	// Merge defaults
 	if (defaults) {
-		options = mergeOptions(defaults.options, options ? preNormalizeArguments(options, defaults.options) : {});
-	} else {
-		options = merge({}, preNormalizeArguments(options));
-	}
-
-	if (!is.string(urlArgument) && !is.object(urlArgument)) {
-		throw new TypeError(`Parameter \`url\` must be a string or an Object, not ${is(urlArgument)}`);
-	}
-
-	let urlObj: https.RequestOptions | URLOptions;
-	if (is.string(urlArgument)) {
-		if (options.prefixUrl && urlArgument.startsWith('/')) {
-			throw new Error('`url` must not begin with a slash when using `prefixUrl`');
+		if (options) {
+			options = mergeOptions(defaults.options, preNormalizeArguments(options, defaults.options));
 		}
-
-		if (options.prefixUrl) {
-			urlArgument = options.prefixUrl.toString() + urlArgument;
-		}
-
-		urlArgument = urlArgument.replace(/^unix:/, 'http://$&');
-
-		urlObj = urlToOptions(new URL(urlArgument));
-	} else if (is.urlInstance(urlArgument)) {
-		urlObj = urlToOptions(urlArgument);
-	} else if (options.prefixUrl) {
-		urlObj = {
-			// @ts-ignore
-			...urlToOptions(new URL(options.prefixUrl)),
-			...urlArgument
-		};
 	} else {
-		urlObj = urlArgument;
+		preNormalizeArguments(options);
 	}
 
-	if (!Reflect.has(urlObj, 'protocol') && !Reflect.has(options, 'protocol')) {
-		throw new TypeError('No URL protocol specified');
-	}
+	// Cast `options.url` to URL
+	options.url = options.url as URL;
 
-	options = mergeOptions(urlObj, options);
+	// TODO: normalizing arguments should be done at this point
 
 	for (const hook of options.hooks.init) {
 		if (is.asyncFunction(hook)) {
@@ -175,52 +176,21 @@ export const normalizeArguments = (url: URLOrOptions, options: Options, defaults
 		hook(options);
 	}
 
-	const {prefixUrl} = options;
-	Object.defineProperty(options, 'prefixUrl', {
-		set: () => {
-			throw new Error('Failed to set prefixUrl. Options are normalized already.');
-		},
-		get: () => prefixUrl
-	});
-
-	let {searchParams} = options;
-	delete options.searchParams;
-
-	// TODO: Remove this before Got v11
-	if (options.query) {
-		if (!hasShownDeprecation) {
-			console.warn('`options.query` is deprecated. We support it solely for compatibility - it will be removed in Got 11. Use `options.searchParams` instead.');
-			hasShownDeprecation = true;
-		}
-
-		searchParams = options.query;
-		delete options.query;
-	}
-
-	if (is.nonEmptyString(searchParams) || is.nonEmptyObject(searchParams) || (searchParams && searchParams instanceof URLSearchParams)) {
-		if (!is.string(searchParams)) {
-			if (!(searchParams instanceof URLSearchParams)) {
-				// @ts-ignore
-				validateSearchParams(searchParams);
-			}
-
-			searchParams = (new URLSearchParams(searchParams as Record<string, string>)).toString();
-		}
-
-		options.path = `${options.path.split('?')[0]}?${searchParams}`;
-	}
-
-	if (options.hostname === 'unix') {
-		const matches = /(?<socketPath>.+?):(?<path>.+)/.exec(options.path);
+	if (options.url.hostname === 'unix') {
+		const matches = /(?<socketPath>.+?):(?<path>.+)/.exec(options.url.pathname);
 
 		if (matches?.groups) {
 			const {socketPath, path} = matches.groups;
+
+			// It's a bug!
+			// eslint-disable-next-line @typescript-eslint/consistent-type-assertions
 			options = {
 				...options,
 				socketPath,
 				path,
-				host: ''
-			};
+				host: '',
+				url: undefined
+			} as NormalizedOptions;
 		}
 	}
 
@@ -241,5 +211,3 @@ export const normalizeArguments = (url: URLOrOptions, options: Options, defaults
 
 	return options as NormalizedOptions;
 };
-
-export const reNormalizeArguments = (options: Options): NormalizedOptions => normalizeArguments(format(options as unknown as URL | URLOptions), options);

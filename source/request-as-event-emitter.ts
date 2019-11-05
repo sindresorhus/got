@@ -281,8 +281,17 @@ export default (options: NormalizedOptions, input?: TransformStream) => {
 			options.lookup = options.dnsCache.lookup;
 		}
 
-		if (options.cache) {
-			const cacheableRequest = new CacheableRequest(requestFn, options.cache);
+		if (Reflect.has(options, 'cache')) {
+			// `cacheable-request` doesn't support Node 10 API, fallback.
+			options = {
+				...options,
+				...urlToOptions(options.url)
+			};
+
+			// @ts-ignore URLOptions are almost identical to HTTP options.
+			options.url = options;
+
+			const cacheableRequest = new CacheableRequest(requestFn, options.cache as CacheableRequest.StorageAdapter);
 			const cacheRequest = cacheableRequest(options as unknown as https.RequestOptions, handleResponse);
 
 			cacheRequest.once('error', error => {
@@ -297,8 +306,9 @@ export default (options: NormalizedOptions, input?: TransformStream) => {
 		} else {
 			// Catches errors thrown by calling `requestFn(…)`
 			try {
-				// @ts-ignore TS complains that URLSearchParams is not the same as URLSearchParams
-				handleRequest(requestFn(options as unknown as URL, handleResponse));
+				// @ts-ignore 1. TS complains that URLSearchParams is not the same as URLSearchParams.
+				//            2. It doesn't notice that `options.timeout` is deleted above.
+				handleRequest(requestFn(options.url, options, handleResponse));
 			} catch (error) {
 				emitError(new RequestError(error, options));
 			}

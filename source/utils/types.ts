@@ -5,13 +5,13 @@ import {Readable as ReadableStream} from 'stream';
 import PCancelable = require('p-cancelable');
 import {CookieJar} from 'tough-cookie';
 import {StorageAdapter} from 'cacheable-request';
-import {Except} from 'type-fest';
 import CacheableLookup from 'cacheable-lookup';
 import Keyv = require('keyv');
 import {Timings} from '@szmarczak/http-timer/dist';
 import {Hooks} from '../known-hook-events';
 import {GotError, ParseError, HTTPError, MaxRedirectsError} from '../errors';
 import {ProxyStream} from '../as-stream';
+import {URLOptions} from './options-to-url';
 
 export type Method =
 	| 'GET'
@@ -42,8 +42,6 @@ export type ErrorCode =
 	| 'EAI_AGAIN';
 
 export type ResponseType = 'json' | 'buffer' | 'text';
-
-export type URLArgument = string | https.RequestOptions | URL;
 
 export interface Response extends http.IncomingMessage {
 	body: Buffer | string | any;
@@ -116,15 +114,10 @@ export interface Delays {
 export type Headers = Record<string, string | string[]>;
 
 // The library overrides the type definition of `agent`, `host`, 'headers and `timeout`.
-export interface Options extends Except<https.RequestOptions, 'agent' | 'timeout' | 'host' | 'headers'> {
-	host?: string;
+export interface Options extends URLOptions {
 	body?: string | Buffer | ReadableStream;
 	hostname?: string;
-	path?: string;
 	socketPath?: string;
-	protocol?: string;
-	href?: string;
-	options?: Options;
 	hooks?: Partial<Hooks>;
 	decompress?: boolean;
 	stream?: boolean;
@@ -145,7 +138,6 @@ export interface Options extends Except<https.RequestOptions, 'agent' | 'timeout
 	timeout?: number | Delays;
 	dnsCache?: CacheableLookup | Map<string, string> | Keyv | false;
 	url?: URL | string;
-	searchParams?: Record<string, string | number | boolean | null> | URLSearchParams | string;
 	query?: Options['searchParams']; // Deprecated
 	useElectronNet?: boolean;
 	form?: Record<string, any>;
@@ -155,7 +147,7 @@ export interface Options extends Except<https.RequestOptions, 'agent' | 'timeout
 	lookup?: CacheableLookup['lookup'];
 }
 
-export interface NormalizedOptions extends Except<Options, 'method'> {
+export interface NormalizedOptions extends Options {
 	// Normalized Got options
 	headers: Headers;
 	hooks: Hooks;
@@ -164,20 +156,11 @@ export interface NormalizedOptions extends Except<Options, 'method'> {
 	retry: Required<RetryOptions>;
 	readonly prefixUrl?: string;
 	method: Method;
+	url?: URL;
+	agent?: http.Agent | https.Agent | boolean;
 
-	// Normalized URL options
-	protocol: string;
-	hostname: string;
-	host: string;
-	hash: string;
-	search: string | null;
-	pathname: string;
-	href: string;
-	path: string;
-	port: number;
-	username: string;
-	password: string;
-	auth?: string;
+	// UNIX socket support
+	path?: string;
 }
 
 export interface ExtendedOptions extends Options {
@@ -197,7 +180,7 @@ export interface NormalizedDefaults {
 	mutableDefaults: boolean;
 }
 
-export type URLOrOptions = URLArgument | (Options & {url: URLArgument});
+export type URLOrOptions = Options | Options['url'] | URLOptions;
 
 export interface CancelableRequest<T extends http.IncomingMessage | Buffer | string | object> extends PCancelable<T> {
 	on(name: string, listener: () => void): CancelableRequest<T>;
