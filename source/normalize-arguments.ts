@@ -169,8 +169,11 @@ export const normalizeArguments = (url: URLOrOptions, options: Options, defaults
 		urlObj = urlArgument;
 	}
 
-	// Override both null/undefined with default protocol
-	options = mergeOptions({path: ''}, urlObj, {protocol: urlObj.protocol || 'https:'}, options);
+	if (!Reflect.has(urlObj, 'protocol') && !Reflect.has(options, 'protocol')) {
+		throw new TypeError('No URL protocol specified');
+	}
+
+	options = mergeOptions(urlObj, options);
 
 	for (const hook of options.hooks.init) {
 		if (is.asyncFunction(hook)) {
