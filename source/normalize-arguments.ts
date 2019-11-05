@@ -12,10 +12,7 @@ import knownHookEvents from './known-hook-events';
 import {
 	Options,
 	NormalizedOptions,
-	NormalizedRetryOptions,
-	RetryOptions,
 	Method,
-	Delays,
 	URLArgument,
 	URLOrOptions,
 	NormalizedDefaults
@@ -23,22 +20,26 @@ import {
 
 let hasShownDeprecation = false;
 
+// It's 2x faster than [...new Set(array)]
+const uniqueArray = <T>(array: T[]): T[] => array.filter((element, position) => array.indexOf(element) === position);
+
 // `preNormalize` handles static options (e.g. headers).
 // For example, when you create a custom instance and make a request
 // with no static changes, they won't be normalized again.
 //
 // `normalize` operates on dynamic options - they cannot be saved.
-// For example, `body` is every time different per request.
-// When it's done normalizing the new options, it performs merge()
-// on the prenormalized options and the normalized ones.
+// For example, `url` needs to be normalized every request.
 
+// TODO: document this.
 export const preNormalizeArguments = (options: Options, defaults?: NormalizedOptions): NormalizedOptions => {
+	// `options.headers`
 	if (is.nullOrUndefined(options.headers)) {
 		options.headers = {};
 	} else {
 		options.headers = lowercaseKeys(options.headers);
 	}
 
+	// `options.prefixUrl`
 	if (options.prefixUrl) {
 		options.prefixUrl = options.prefixUrl.toString();
 
@@ -47,78 +48,68 @@ export const preNormalizeArguments = (options: Options, defaults?: NormalizedOpt
 		}
 	}
 
+	// `options.hooks`
 	if (is.nullOrUndefined(options.hooks)) {
 		options.hooks = {};
 	} else if (is.object(options.hooks)) {
-		for (const event in options.hooks) {
-			if (!is.array(options.hooks[event])) {
-				throw new TypeError(`Parameter \`${event}\` must be an Array, not ${is(options.hooks[event])}`);
+		for (const event of knownHookEvents) {
+			if (Reflect.has(options.hooks, event)) {
+				if (!is.array(options.hooks[event])) {
+					throw new TypeError(`Parameter \`${event}\` must be an Array, not ${is(options.hooks[event])}`);
+				}
+			} else {
+				options.hooks[event] = [];
 			}
 		}
 	} else {
 		throw new TypeError(`Parameter \`hooks\` must be an Object, not ${is(options.hooks)}`);
 	}
 
-	for (const event of knownHookEvents) {
-		if (is.nullOrUndefined(options.hooks[event])) {
-			if (defaults && defaults.hooks) {
-				if (event in defaults.hooks) {
-					// @ts-ignore
-					options.hooks[event] = defaults.hooks[event]!.slice();
-				}
-			} else {
-				options.hooks[event] = [];
-			}
-		}
-	}
-
+	// `options.timeout`
 	if (is.number(options.timeout)) {
 		options.timeout = {request: options.timeout};
+	} else if (!is.object(options.timeout)) {
+		options.timeout = {};
 	}
 
+	// `options.retry`
 	const {retry} = options;
-	options.retry = {
-		calculateDelay: retryObject => retryObject.computedValue,
-		methods: new Set(),
-		statusCodes: new Set(),
-		errorCodes: new Set(),
-		maxRetryAfter: undefined
-	};
 
-	if (is.nonEmptyObject(defaults) && retry !== false) {
-		options.retry = {...(defaults.retry as unknown as RetryOptions)};
+	if (defaults && Reflect.has(defaults, 'retry')) {
+		options.retry = {...defaults.retry};
+	} else {
+		options.retry = {
+			calculateDelay: retryObject => retryObject.computedValue,
+			limit: 0,
+			methods: [],
+			statusCodes: [],
+			errorCodes: [],
+			maxRetryAfter: undefined
+		};
 	}
 
-	if (retry !== false) {
-		if (is.number(retry)) {
-			options.retry.limit = retry;
-		} else {
-			// @ts-ignore
-			const retryOption: NormalizedRetryOptions = {...options.retry, ...retry};
-			options.retry = retryOption;
-		}
+	if (is.object(retry)) {
+		options.retry = {
+			...options.retry,
+			...retry
+		};
+	} else if (is.number(retry)) {
+		options.retry.limit = retry;
 	}
 
-	if (!options.retry.maxRetryAfter && options.gotTimeout) {
-		options.retry.maxRetryAfter = Math.min(...[(options.gotTimeout as Delays).request, (options.gotTimeout as Delays).connect].filter(n => !is.nullOrUndefined(n)));
+	if (options.retry.maxRetryAfter === undefined) {
+		options.retry.maxRetryAfter = Math.min(
+			...[options.timeout.request, options.timeout.connect].filter(n => !is.nullOrUndefined(n))
+		);
 	}
 
-	if (is.array(options.retry.methods)) {
-		options.retry.methods = new Set(options.retry.methods.map(method => method.toUpperCase())) as ReadonlySet<Method>;
-	}
+	options.retry.methods = uniqueArray(options.retry.methods.map(method => method.toUpperCase())) as Method[];
+	options.retry.statusCodes = uniqueArray(options.retry.statusCodes);
+	options.retry.errorCodes = uniqueArray(options.retry.errorCodes);
 
-	if (is.array(options.retry.statusCodes)) {
-		options.retry.statusCodes = new Set(options.retry.statusCodes);
-	}
-
-	if (is.array(options.retry.errorCodes)) {
-		options.retry.errorCodes = new Set(options.retry.errorCodes);
-	}
-
-	if (options.dnsCache) {
-		const cacheableLookup = new CacheableLookup({cacheAdapter: options.dnsCache as Keyv | undefined});
-		(options as NormalizedOptions).lookup = cacheableLookup.lookup;
-		delete options.dnsCache;
+	// `options.dnsCache`
+	if (options.dnsCache && !(options instanceof CacheableLookup)) {
+		options.dnsCache = new CacheableLookup({cacheAdapter: options.dnsCache as Keyv | undefined});
 	}
 
 	return options as NormalizedOptions;

@@ -274,6 +274,10 @@ export default (options: NormalizedOptions, input?: TransformStream) => {
 		const {timeout} = options;
 		delete options.timeout;
 
+		if (options.dnsCache) {
+			options.lookup = options.dnsCache.lookup;
+		}
+
 		if (options.cache) {
 			const cacheableRequest = new CacheableRequest(requestFn, options.cache);
 			const cacheRequest = cacheableRequest(options as unknown as https.RequestOptions, handleResponse);

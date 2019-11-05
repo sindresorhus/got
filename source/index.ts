@@ -67,6 +67,7 @@ module.exports.default = got;
 
 // Export types
 export * from './utils/types';
+
 export {
 	Got,
 	GotStream,
@@ -74,9 +75,11 @@ export {
 	ReturnStream,
 	GotReturn
 } from './create';
+
 export {
 	ProxyStream as ResponseStream
 } from './as-stream';
+
 export {
 	GotError,
 	CacheError,
@@ -88,6 +91,7 @@ export {
 	TimeoutError,
 	CancelError
 } from './errors';
+
 export {
 	InitHook,
 	BeforeRequestHook,

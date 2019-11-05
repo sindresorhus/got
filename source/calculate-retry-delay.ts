@@ -1,21 +1,17 @@
 import is from '@sindresorhus/is';
 import {HTTPError, ParseError, MaxRedirectsError, GotError} from './errors';
-import {
-	RetryFunction,
-	ErrorCode,
-	StatusCode
-} from './utils/types';
+import {RetryFunction} from './utils/types';
 
-const retryAfterStatusCodes: ReadonlySet<StatusCode> = new Set([413, 429, 503]);
+const retryAfterStatusCodes: ReadonlySet<number> = new Set([413, 429, 503]);
 
 const calculateRetryDelay: RetryFunction = ({attemptCount, retryOptions, error}) => {
 	if (attemptCount > retryOptions.limit) {
 		return 0;
 	}
 
-	const hasMethod = retryOptions.methods.has((error as GotError).options.method);
-	const hasErrorCode = Reflect.has(error, 'code') && retryOptions.errorCodes.has((error as GotError).code as ErrorCode);
-	const hasStatusCode = Reflect.has(error, 'response') && retryOptions.statusCodes.has((error as HTTPError | ParseError | MaxRedirectsError).response.statusCode);
+	const hasMethod = retryOptions.methods.includes((error as GotError).options.method);
+	const hasErrorCode = Reflect.has(error, 'code') && retryOptions.errorCodes.includes((error as GotError).code);
+	const hasStatusCode = Reflect.has(error, 'response') && retryOptions.statusCodes.includes((error as HTTPError | ParseError | MaxRedirectsError).response.statusCode);
 	if (!hasMethod || (!hasErrorCode && !hasStatusCode)) {
 		return 0;
 	}

@@ -276,12 +276,12 @@ test('doesn\'t retry if Retry-After header is greater than maxRetryAfter', withS
 	t.is(retryCount, 0);
 });
 
-test('doesn\'t retry when set to false', withServer, async (t, server, got) => {
+test('doesn\'t retry when set to 0', withServer, async (t, server, got) => {
 	server.get('/', handler413);
 
 	const {statusCode, retryCount} = await got({
 		throwHttpErrors: false,
-		retry: false
+		retry: 0
 	});
 	t.is(statusCode, 413);
 	t.is(retryCount, 0);

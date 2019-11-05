@@ -61,7 +61,7 @@ export interface Hooks {
 	@see [Request migration guide](https://github.com/sindresorhus/got/blob/master/migration-guides.md#breaking-changes) for an example.
 	@default []
 	*/
-	init: InitHook[];
+	init?: InitHook[];
 
 	/**
 	Called with normalized [request options](https://github.com/sindresorhus/got#options). Got will make no further changes to the request before it is sent (except the body serialization). This is especially useful in conjunction with [`got.extend()`](https://github.com/sindresorhus/got#instances) and [`got.create()`](https://github.com/sindresorhus/got/blob/master/advanced-creation.md) when you want to create an API client that, for example, uses HMAC-signing.
@@ -69,21 +69,21 @@ export interface Hooks {
 	@see [AWS section](https://github.com/sindresorhus/got#aws) for an example.
 	@default []
 	*/
-	beforeRequest: BeforeRequestHook[];
+	beforeRequest?: BeforeRequestHook[];
 
 	/**
 	Called with normalized [request options](https://github.com/sindresorhus/got#options). Got will make no further changes to the request. This is especially useful when you want to avoid dead sites.
 
 	@default []
 	*/
-	beforeRedirect: BeforeRedirectHook[];
+	beforeRedirect?: BeforeRedirectHook[];
 
 	/**
 	Called with normalized [request options](https://github.com/sindresorhus/got#options), the error and the retry count. Got will make no further changes to the request. This is especially useful when some extra work is required before the next try.
 
 	@default []
 	*/
-	beforeRetry: BeforeRetryHook[];
+	beforeRetry?: BeforeRetryHook[];
 
 	/**
 	Called with an `Error` instance. The error is passed to the hook right before it's thrown. This is especially useful when you want to have more detailed errors.
@@ -92,7 +92,7 @@ export interface Hooks {
 
 	@default []
 	*/
-	beforeError: BeforeErrorHook[];
+	beforeError?: BeforeErrorHook[];
 
 	/**
 	Called with [response object](https://github.com/sindresorhus/got#response) and a retry function.
@@ -101,7 +101,7 @@ export interface Hooks {
 
 	@default []
 	*/
-	afterResponse: AfterResponseHook[];
+	afterResponse?: AfterResponseHook[];
 }
 
 export type HookEvent = keyof Hooks;

@@ -41,15 +41,13 @@ export type ErrorCode =
 	| 'ENETUNREACH'
 	| 'EAI_AGAIN';
 
-export type StatusCode = number;
-
 export type ResponseType = 'json' | 'buffer' | 'text';
 
 export type URLArgument = string | https.RequestOptions | URL;
 
 export interface Response extends http.IncomingMessage {
 	body: Buffer | string | any;
-	statusCode: StatusCode;
+	statusCode: number;
 
 	/**
 	The remote IP address.
@@ -65,7 +63,9 @@ export interface Response extends http.IncomingMessage {
 	retryCount: number;
 	timings: Timings;
 	redirectUrls: string[];
-	request: { options: NormalizedOptions };
+	request: {
+		options: NormalizedOptions;
+	};
 }
 
 // TODO: The `ResponseLike` type should be properly fixed instead:
@@ -78,7 +78,7 @@ export interface ResponseObject extends ResponseLike {
 
 export interface RetryObject {
 	attemptCount: number;
-	retryOptions: NormalizedRetryOptions;
+	retryOptions: RetryOptions;
 	error: Error | GotError | ParseError | HTTPError | MaxRedirectsError;
 	computedValue: number;
 }
@@ -91,25 +91,16 @@ export interface RetryOptions {
 	limit?: number;
 	calculateDelay?: RetryFunction;
 	methods?: Method[];
-	statusCodes?: StatusCode[];
+	statusCodes?: number[];
 	errorCodes?: string[];
 	maxRetryAfter?: number;
-}
-
-export interface NormalizedRetryOptions {
-	limit: number;
-	calculateDelay: RetryFunction;
-	methods: ReadonlySet<Method>;
-	statusCodes: ReadonlySet<number>;
-	errorCodes: ReadonlySet<string>;
-	maxRetryAfter: number;
 }
 
 export type RequestFunction = typeof https.request;
 
 export interface AgentByProtocol {
-	http: http.Agent;
-	https: https.Agent;
+	http?: http.Agent;
+	https?: https.Agent;
 }
 
 export interface Delays {
@@ -139,13 +130,12 @@ export interface Options extends Except<https.RequestOptions, 'agent' | 'timeout
 	stream?: boolean;
 	encoding?: BufferEncoding | null;
 	method?: Method;
-	retry?: number | Partial<RetryOptions | NormalizedRetryOptions>;
+	retry?: number | RetryOptions;
 	throwHttpErrors?: boolean;
 	cookieJar?: CookieJar;
 	ignoreInvalidCookies?: boolean;
 	request?: RequestFunction;
 	agent?: http.Agent | https.Agent | boolean | AgentByProtocol;
-	gotTimeout?: number | Delays;
 	cache?: string | StorageAdapter | false;
 	headers?: Headers;
 	responseType?: ResponseType;
@@ -153,7 +143,7 @@ export interface Options extends Except<https.RequestOptions, 'agent' | 'timeout
 	followRedirect?: boolean;
 	prefixUrl?: URL | string;
 	timeout?: number | Delays;
-	dnsCache?: Map<string, string> | Keyv | false;
+	dnsCache?: CacheableLookup | Map<string, string> | Keyv | false;
 	url?: URL | string;
 	searchParams?: Record<string, string | number | boolean | null> | URLSearchParams | string;
 	query?: Options['searchParams']; // Deprecated
@@ -162,20 +152,32 @@ export interface Options extends Except<https.RequestOptions, 'agent' | 'timeout
 	json?: Record<string, any>;
 	context?: {[key: string]: unknown};
 	maxRedirects?: number;
+	lookup?: CacheableLookup['lookup'];
 }
 
-export interface NormalizedOptions extends Except<Required<Options>, 'dnsCache' | 'retry' | 'auth' | 'body' | 'port'> {
+export interface NormalizedOptions extends Except<Options, 'method'> {
+	// Normalized Got options
+	headers: Headers;
 	hooks: Hooks;
-	timeout: Required<Delays>;
-	retry: NormalizedRetryOptions;
-	lookup?: CacheableLookup['lookup'];
-	readonly prefixUrl: string;
-	path: string;
+	timeout: Delays;
+	dnsCache?: CacheableLookup | false;
+	retry: Required<RetryOptions>;
+	readonly prefixUrl?: string;
+	method: Method;
+
+	// Normalized URL options
+	protocol: string;
 	hostname: string;
 	host: string;
-	auth?: Options['auth'];
-	body?: Options['body'];
-	port?: Options['port'];
+	hash: string;
+	search: string | null;
+	pathname: string;
+	href: string;
+	path: string;
+	port: number;
+	username: string;
+	password: string;
+	auth?: string;
 }
 
 export interface ExtendedOptions extends Options {
