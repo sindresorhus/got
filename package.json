@@ -17,6 +17,10 @@
 	"files": [
 		"dist/source"
 	],
+	"funding": {
+		"type": "Tidelift",
+		"url": "https://tidelift.com/subscription/pkg/npm-got"
+	},
 	"keywords": [
 		"http",
 		"https",
