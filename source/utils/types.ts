@@ -4,7 +4,7 @@ import ResponseLike = require('responselike');
 import {Readable as ReadableStream} from 'stream';
 import PCancelable = require('p-cancelable');
 import {CookieJar} from 'tough-cookie';
-import {StorageAdapter} from 'cacheable-request';
+import CacheableRequest = require('cacheable-request');
 import CacheableLookup from 'cacheable-lookup';
 import Keyv = require('keyv');
 import {Timings} from '@szmarczak/http-timer/dist';
@@ -114,7 +114,7 @@ export interface Delays {
 export type Headers = Record<string, string | string[]>;
 
 // The library overrides the type definition of `agent`, `host`, 'headers and `timeout`.
-export interface Options extends URLOptions {
+export interface Options {
 	body?: string | Buffer | ReadableStream;
 	hostname?: string;
 	socketPath?: string;
@@ -125,11 +125,11 @@ export interface Options extends URLOptions {
 	method?: Method;
 	retry?: number | RetryOptions;
 	throwHttpErrors?: boolean;
-	cookieJar?: CookieJar;
+	cookieJar?: Pick<CookieJar, 'getCookieString' | 'setCookie'>;
 	ignoreInvalidCookies?: boolean;
 	request?: RequestFunction;
 	agent?: http.Agent | https.Agent | boolean | AgentByProtocol;
-	cache?: string | StorageAdapter | false;
+	cache?: string | CacheableRequest.StorageAdapter | false;
 	headers?: Headers;
 	responseType?: ResponseType;
 	resolveBodyOnly?: boolean;
@@ -137,8 +137,7 @@ export interface Options extends URLOptions {
 	prefixUrl?: URL | string;
 	timeout?: number | Delays;
 	dnsCache?: CacheableLookup | Map<string, string> | Keyv | false;
-	url?: URL | string;
-	query?: Options['searchParams']; // Deprecated
+	url?: URLOptions | URL | string;
 	useElectronNet?: boolean;
 	form?: Record<string, any>;
 	json?: Record<string, any>;
@@ -157,7 +156,7 @@ export interface NormalizedOptions extends Options {
 	readonly prefixUrl?: string;
 	method: Method;
 	url?: URL;
-	agent?: http.Agent | https.Agent | boolean;
+	cacheableRequest?: (opts: string | URL | http.RequestOptions, cb?: (response: http.ServerResponse | ResponseLike) => void) => CacheableRequest.Emitter;
 
 	// UNIX socket support
 	path?: string;

@@ -1,9 +1,13 @@
+import http = require('http');
+import https = require('https');
 import CacheableLookup from 'cacheable-lookup';
+import CacheableRequest = require('cacheable-request');
 import is from '@sindresorhus/is';
 import lowercaseKeys = require('lowercase-keys');
+import toReadableStream = require('to-readable-stream');
 import Keyv = require('keyv');
 import optionsToUrl from './utils/options-to-url';
-import supportsBrotli from './utils/supports-brotli';
+import {UnsupportedProtocolError} from './errors';
 import merge, {mergeOptions} from './merge';
 import knownHookEvents from './known-hook-events';
 import {
@@ -11,22 +15,22 @@ import {
 	NormalizedOptions,
 	Method,
 	URLOrOptions,
-	NormalizedDefaults
+	NormalizedDefaults,
+	RequestFunction
 } from './utils/types';
-
-let hasShownDeprecation = false;
+import dynamicRequire from './utils/dynamic-require';
+import getBodySize from './utils/get-body-size';
+import isFormData from './utils/is-form-data';
+import supportsBrotli from './utils/supports-brotli';
 
 // It's 2x faster than [...new Set(array)]
 const uniqueArray = <T>(array: T[]): T[] => array.filter((element, position) => array.indexOf(element) === position);
 
-// `preNormalize` handles static options (e.g. headers).
-// For example, when you create a custom instance and make a request
-// with no static changes, they won't be normalized again.
-//
-// `normalize` operates on dynamic options - they cannot be saved.
-// For example, `url` needs to be normalized every request.
+// TODO: Add this to documentation:
+// `preNormalizeArguments` handles options that doesn't change during the whole request (e.g. hooks).
+// `normalizeArguments` is only called on `got(...)`. It merges options and normalizes URL.
+// `normalizeRequestArguments` converts Got options into HTTP options.
 
-// TODO: document this.
 export const preNormalizeArguments = (options: Options, defaults?: NormalizedOptions): NormalizedOptions => {
 	// `options.headers`
 	if (is.nullOrUndefined(options.headers)) {
@@ -108,64 +112,61 @@ export const preNormalizeArguments = (options: Options, defaults?: NormalizedOpt
 		options.dnsCache = new CacheableLookup({cacheAdapter: options.dnsCache as Keyv | undefined});
 	}
 
+	// `options.method`
+	if (options.method) {
+		options.method = options.method.toUpperCase() as Method;
+	}
+
+	// Better memory management
+	if (Reflect.has(options, 'cache') && options.cache !== false) {
+		(options as NormalizedOptions).cacheableRequest = new CacheableRequest((options, handler) => options.request(options, handler), options.cache as any);
+	}
+
 	return options as NormalizedOptions;
 };
 
 export const normalizeArguments = (url: URLOrOptions, options?: Options, defaults?: NormalizedDefaults): NormalizedOptions => {
-	// `options.prefixUrl` and UNIX socket support
+	// Merge options
 	if (is.string(url)) {
-		if (Reflect.has(options, 'prefixUrl')) {
-			if (url.startsWith('/')) {
-				throw new Error('`url` must not begin with a slash when using `prefixUrl`');
-			} else {
-				url = options.prefixUrl.toString() + url;
-			}
-		}
-
-		url = url.replace(/^unix:/, 'http://$&');
-	}
-
-	// TODO: Remove this before Got v11
-	if (options.query) {
-		if (!hasShownDeprecation) {
-			console.warn('`options.query` is deprecated. We support it solely for compatibility - it will be removed in Got 11. Use `options.searchParams` instead.');
-			hasShownDeprecation = true;
-		}
-
-		options.searchParams = options.query;
-		delete options.query;
-	}
-
-	// Merge url
-	if (is.plainObject(url)) {
+		options = merge({}, options);
+		options.url = url;
+	} else {
 		options = mergeOptions(url, options);
 
 		if (!Reflect.has(options, 'url')) {
-			if (!Reflect.has(options, 'protocol') && !Reflect.has(options, 'hostname') && !Reflect.has(options, 'host')) {
-				throw new TypeError('Missing `protocol` and `hostname` properties.`');
-			}
-
-			// TODO: Drop URLOptions support in Got v12
-			options.url = optionsToUrl(options);
+			options.url = '';
 		}
-	} else {
-		options = merge({}, options);
-		options.url = new URL(url as string);
 	}
 
 	// Merge defaults
 	if (defaults) {
-		if (options) {
-			options = mergeOptions(defaults.options, preNormalizeArguments(options, defaults.options));
-		}
+		options = mergeOptions(defaults.options, preNormalizeArguments(options, defaults.options));
 	} else {
 		preNormalizeArguments(options);
 	}
 
-	// Cast `options.url` to URL
-	options.url = options.url as URL;
+	// Normalize URL
+	if (is.string(options.url)) {
+		if (Reflect.has(options, 'prefixUrl')) {
+			if (options.url.startsWith('/')) {
+				throw new Error('`url` must not begin with a slash when using `prefixUrl`');
+			} else {
+				options.url = options.prefixUrl.toString() + url;
+			}
+		}
 
-	// TODO: normalizing arguments should be done at this point
+		options.url = new URL(options.url.replace(/^unix:/, 'http://$&'));
+	} else {
+		// TODO: Maybe drop URLOptions support in Got v12
+		options.url = optionsToUrl(options.url);
+	}
+
+	// Make it possible to remove default headers
+	for (const [key, value] of Object.entries(options.headers)) {
+		if (is.nullOrUndefined(value)) {
+			delete options.headers[key];
+		}
+	}
 
 	for (const hook of options.hooks.init) {
 		if (is.asyncFunction(hook)) {
@@ -176,14 +177,77 @@ export const normalizeArguments = (url: URLOrOptions, options?: Options, default
 		hook(options);
 	}
 
+	return options as NormalizedOptions;
+};
+
+const withoutBody: ReadonlySet<string> = new Set(['GET', 'HEAD']);
+type NormalizedRequestArguments = https.RequestOptions & {request: RequestFunction};
+
+export const normalizeRequestArguments = async (options: NormalizedOptions): Promise<NormalizedRequestArguments> => {
+	options = merge({}, options);
+
+	let uploadBodySize: number | undefined;
+
+	// Serialize body
+	const {body, headers} = options;
+	const isForm = !is.nullOrUndefined(options.form);
+	const isJSON = !is.nullOrUndefined(options.json);
+	const isBody = !is.nullOrUndefined(body);
+	if ((isBody || isForm || isJSON) && withoutBody.has(options.method)) {
+		throw new TypeError(`The \`${options.method}\` method cannot be used with a body`);
+	}
+
+	if (isBody) {
+		if (isForm || isJSON) {
+			throw new TypeError('The `body` option cannot be used with the `json` option or `form` option');
+		}
+
+		if (is.object(body) && isFormData(body)) {
+			// Special case for https://github.com/form-data/form-data
+			headers['content-type'] = headers['content-type'] || `multipart/form-data; boundary=${body.getBoundary()}`;
+		} else if (!is.nodeStream(body) && !is.string(body) && !is.buffer(body)) {
+			throw new TypeError('The `body` option must be a stream.Readable, string or Buffer');
+		}
+	} else if (isForm) {
+		if (!is.object(options.form)) {
+			throw new TypeError('The `form` option must be an Object');
+		}
+
+		headers['content-type'] = headers['content-type'] || 'application/x-www-form-urlencoded';
+		options.body = (new URLSearchParams(options.form as Record<string, string>)).toString();
+	} else if (isJSON) {
+		headers['content-type'] = headers['content-type'] || 'application/json';
+		options.body = JSON.stringify(options.json);
+	}
+
+	// Convert buffer to stream to receive upload progress events (#322)
+	if (is.buffer(body)) {
+		options.body = toReadableStream(body);
+		uploadBodySize = body.length;
+	} else {
+		uploadBodySize = await getBodySize(options);
+	}
+
+	if (is.undefined(headers['content-length']) && is.undefined(headers['transfer-encoding'])) {
+		if ((uploadBodySize > 0 || options.method === 'PUT') && !is.undefined(uploadBodySize)) {
+			headers['content-length'] = String(uploadBodySize);
+		}
+	}
+
+	if (!options.stream && options.responseType === 'json' && is.undefined(headers.accept)) {
+		headers.accept = 'application/json';
+	}
+
+	if (options.decompress && is.undefined(headers['accept-encoding'])) {
+		headers['accept-encoding'] = supportsBrotli ? 'gzip, deflate, br' : 'gzip, deflate';
+	}
+
 	if (options.url.hostname === 'unix') {
 		const matches = /(?<socketPath>.+?):(?<path>.+)/.exec(options.url.pathname);
 
 		if (matches?.groups) {
 			const {socketPath, path} = matches.groups;
 
-			// It's a bug!
-			// eslint-disable-next-line @typescript-eslint/consistent-type-assertions
 			options = {
 				...options,
 				socketPath,
@@ -194,20 +258,33 @@ export const normalizeArguments = (url: URLOrOptions, options?: Options, default
 		}
 	}
 
-	const {headers} = options;
-	for (const [key, value] of Object.entries(headers)) {
-		if (is.nullOrUndefined(value)) {
-			delete headers[key];
-		}
+	if (is.object(options.agent)) {
+		options.agent = options.agent[options.url.protocol.slice(0, -1)] || options.agent;
 	}
 
-	if (options.decompress && is.undefined(headers['accept-encoding'])) {
-		headers['accept-encoding'] = supportsBrotli ? 'gzip, deflate, br' : 'gzip, deflate';
+	if (options.dnsCache) {
+		options.lookup = options.dnsCache.lookup;
 	}
 
-	if (options.method) {
-		options.method = options.method.toUpperCase() as Method;
+	// Validate URL
+	if (options.url.protocol !== 'http:' && options.url.protocol !== 'https:') {
+		throw new UnsupportedProtocolError(options);
 	}
 
-	return options as NormalizedOptions;
+	decodeURI(options.url.toString());
+
+	// Normalize request function
+	if (!is.function_(options.request)) {
+		options.request = options.url.protocol === 'https:' ? https.request : http.request;
+	}
+
+	/* istanbul ignore next: electron.net is broken */
+	// No point in typing process.versions correctly, as
+	// process.version.electron is used only once, right here.
+	if (options.useElectronNet && (process.versions as any).electron) {
+		const electron = dynamicRequire(module, 'electron'); // Trick webpack
+		options.request = (electron as any).net.request || (electron as any).remote.net.request;
+	}
+
+	return options as unknown as NormalizedRequestArguments;
 };

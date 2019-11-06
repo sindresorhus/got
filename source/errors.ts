@@ -87,7 +87,7 @@ export class MaxRedirectsError extends GotError {
 
 export class UnsupportedProtocolError extends GotError {
 	constructor(options: NormalizedOptions) {
-		super(`Unsupported protocol "${options.protocol}"`, {}, options);
+		super(`Unsupported protocol "${options.url.protocol}"`, {}, options);
 		this.name = 'UnsupportedProtocolError';
 	}
 }

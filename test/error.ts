@@ -36,7 +36,7 @@ test('catches dns errors', async t => {
 	const error = await t.throwsAsync<GotError>(got('http://doesntexist', {retry: 0}));
 	t.truthy(error);
 	t.regex(error.message, /getaddrinfo ENOTFOUND/);
-	t.is(error.options.host, 'doesntexist');
+	t.is(error.options.url.host, 'doesntexist');
 	t.is(error.options.method, 'GET');
 });
 
@@ -47,7 +47,7 @@ test('`options.body` form error message', async t => {
 	});
 });
 
-test('no plain object restriction on json body', withServer, async (t, server, got) => {
+test.only('no plain object restriction on json body', withServer, async (t, server, got) => {
 	server.post('/body', async (request, response) => {
 		await pStreamPipeline(request, response);
 	});
@@ -108,12 +108,12 @@ test('contains Got options', withServer, async (t, server, got) => {
 	});
 
 	const options = {
-		auth: 'foo:bar'
+		agent: false
 	};
 
 	const error = await t.throwsAsync(got(options));
 	// @ts-ignore
-	t.is(error.options.auth, options.auth);
+	t.is(error.options.agent, options.agent);
 });
 
 test('empty status message is overriden by the default one', withServer, async (t, server, got) => {

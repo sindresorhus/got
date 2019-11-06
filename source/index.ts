@@ -1,6 +1,10 @@
 import create from './create';
 import {Defaults} from './utils/types.js';
 
+// A suggestion from @szmarczak:
+// Rename `stream` to `isStream`, because
+// people may think that `stream` is an input stream.
+
 const defaults: Partial<Defaults> = {
 	options: {
 		method: 'GET',

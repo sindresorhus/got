@@ -2,12 +2,18 @@ import {IncomingMessage, ClientRequest} from 'http';
 import {Transform as TransformStream} from 'stream';
 import {Socket} from 'net';
 import EventEmitter = require('events');
+import mimicResponse = require('mimic-response');
 
-export function downloadProgress(_response: IncomingMessage, emitter: EventEmitter, downloadBodySize?: number): TransformStream {
+export function downloadProgress(response: IncomingMessage, emitter: EventEmitter, downloadBodySize?: number): TransformStream {
 	let downloadedBytes = 0;
 
-	return new TransformStream({
+	const progressStream = new TransformStream({
 		transform(chunk, _encoding, callback) {
+			// TODO: `options.transform`
+			// I love English. Does Transform Response Function:
+			// 1. transforms: the response function
+			// 2. transforms: the response; using some function
+
 			downloadedBytes += chunk.length;
 
 			const percent = downloadBodySize ? downloadedBytes / downloadBodySize : 0;
@@ -34,6 +40,10 @@ export function downloadProgress(_response: IncomingMessage, emitter: EventEmitt
 			callback();
 		}
 	});
+
+	mimicResponse(response, progressStream);
+
+	return progressStream;
 }
 
 export function uploadProgress(request: ClientRequest, emitter: EventEmitter, uploadBodySize?: number): void {

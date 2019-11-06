@@ -1,9 +1,7 @@
 import {IncomingMessage} from 'http';
 import EventEmitter = require('events');
 import stream = require('stream');
-import is from '@sindresorhus/is';
 import decompressResponse = require('decompress-response');
-import mimicResponse = require('mimic-response');
 import {NormalizedOptions, Response} from './utils/types';
 import {downloadProgress} from './progress';
 
@@ -11,11 +9,8 @@ export default (response: IncomingMessage, options: NormalizedOptions, emitter: 
 	const downloadBodySize = Number(response.headers['content-length']) || undefined;
 	const progressStream = downloadProgress(response, emitter, downloadBodySize);
 
-	mimicResponse(response, progressStream);
-
 	const newResponse = (
 		options.decompress === true &&
-		is.function_(decompressResponse) &&
 		options.method !== 'HEAD' ? decompressResponse(progressStream as unknown as IncomingMessage) : progressStream
 	) as Response;
 

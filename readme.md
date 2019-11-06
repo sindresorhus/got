@@ -280,8 +280,6 @@ If set to `true` and the `Content-Type` header is not set, it will be set to `ap
 
 Type: `string | object<string, string | number> | URLSearchParams`
 
-**Note:** The `query` option was renamed to `searchParams` in Got v10. The `query` option name is still functional, but is being deprecated and will be completely removed in Got v11.
-
 Query string that will be added to the request URL. This will override the query string in `url`.
 
 If you need to pass in an array, you can do it using a `URLSearchParams` instance:
