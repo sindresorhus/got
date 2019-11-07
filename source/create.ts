@@ -17,7 +17,13 @@ import asStream, {ProxyStream} from './as-stream';
 import {preNormalizeArguments, normalizeArguments} from './normalize-arguments';
 import {Hooks} from './known-hook-events';
 
-export type HTTPAlias = 'get' | 'post' | 'put' | 'patch' | 'head' | 'delete';
+export type HTTPAlias =
+	| 'get'
+	| 'post'
+	| 'put'
+	| 'patch'
+	| 'head'
+	| 'delete';
 
 export type ReturnResponse = (url: URLOrOptions | Options & { stream?: false }, options?: Options & { stream?: false }) => CancelableRequest<Response>;
 export type ReturnStream = (url: URLOrOptions | Options & { stream: true }, options?: Options & { stream: true }) => ProxyStream;

@@ -23,9 +23,6 @@ import getBodySize from './utils/get-body-size';
 import isFormData from './utils/is-form-data';
 import supportsBrotli from './utils/supports-brotli';
 
-// It's 2x faster than [...new Set(array)]
-const uniqueArray = <T>(array: T[]): T[] => array.filter((element, position) => array.indexOf(element) === position);
-
 // TODO: Add this to documentation:
 // `preNormalizeArguments` handles options that doesn't change during the whole request (e.g. hooks).
 // `normalizeArguments` is only called on `got(...)`. It merges options and normalizes URL.
@@ -103,9 +100,9 @@ export const preNormalizeArguments = (options: Options, defaults?: NormalizedOpt
 		);
 	}
 
-	options.retry.methods = uniqueArray(options.retry.methods.map(method => method.toUpperCase())) as Method[];
-	options.retry.statusCodes = uniqueArray(options.retry.statusCodes);
-	options.retry.errorCodes = uniqueArray(options.retry.errorCodes);
+	options.retry.methods = [...new Set(options.retry.methods.map(method => method.toUpperCase()))] as Method[];
+	options.retry.statusCodes = [...new Set(options.retry.statusCodes)];
+	options.retry.errorCodes = [...new Set(options.retry.errorCodes)];
 
 	// `options.dnsCache`
 	if (options.dnsCache && !(options instanceof CacheableLookup)) {
@@ -204,7 +201,9 @@ export const normalizeRequestArguments = async (options: NormalizedOptions): Pro
 
 		if (is.object(body) && isFormData(body)) {
 			// Special case for https://github.com/form-data/form-data
-			headers['content-type'] = headers['content-type'] || `multipart/form-data; boundary=${body.getBoundary()}`;
+			if (!Reflect.has(headers, 'content-type')) {
+				headers['content-type'] = `multipart/form-data; boundary=${body.getBoundary()}`;
+			}
 		} else if (!is.nodeStream(body) && !is.string(body) && !is.buffer(body)) {
 			throw new TypeError('The `body` option must be a stream.Readable, string or Buffer');
 		}
@@ -213,10 +212,16 @@ export const normalizeRequestArguments = async (options: NormalizedOptions): Pro
 			throw new TypeError('The `form` option must be an Object');
 		}
 
-		headers['content-type'] = headers['content-type'] || 'application/x-www-form-urlencoded';
+		if (!Reflect.has(headers, 'content-type')) {
+			headers['content-type'] = 'application/x-www-form-urlencoded';
+		}
+
 		options.body = (new URLSearchParams(options.form as Record<string, string>)).toString();
 	} else if (isJSON) {
-		headers['content-type'] = headers['content-type'] || 'application/json';
+		if (!Reflect.has(headers, 'content-type')) {
+			headers['content-type'] = 'application/json';
+		}
+
 		options.body = JSON.stringify(options.json);
 	}
 
@@ -228,7 +233,7 @@ export const normalizeRequestArguments = async (options: NormalizedOptions): Pro
 		uploadBodySize = await getBodySize(options);
 	}
 
-	if (is.undefined(headers['content-length']) && is.undefined(headers['transfer-encoding'])) {
+	if (!Reflect.has(headers, 'content-length') && !Reflect.has(headers, 'transfer-encoding')) {
 		if ((uploadBodySize > 0 || options.method === 'PUT') && !is.undefined(uploadBodySize)) {
 			headers['content-length'] = String(uploadBodySize);
 		}
@@ -282,10 +287,10 @@ export const normalizeRequestArguments = async (options: NormalizedOptions): Pro
 
 	/* istanbul ignore next: electron.net is broken */
 	// No point in typing process.versions correctly, as
-	// process.version.electron is used only once, right here.
+	// `process.version.electron` is used only once, right here.
 	if (options.useElectronNet && (process.versions as any).electron) {
-		const electron = dynamicRequire(module, 'electron'); // Trick webpack
-		options.request = (electron as any).net.request || (electron as any).remote.net.request;
+		const electron = dynamicRequire(module, 'electron') as any; // Trick webpack
+		options.request = electron.net.request ?? electron.remote.net.request;
 	}
 
 	return options as unknown as NormalizedRequestArguments;

@@ -40,7 +40,7 @@ export default (request: ClientRequest, delays: Delays, options: TimedOutOptions
 		const timeout: NodeJS.Timeout = setTimeout(() => {
 			// @ts-ignore https://github.com/microsoft/TypeScript/issues/26113
 			immediate = setImmediate(callback, delay, ...args);
-			immediate.unref();
+			immediate.unref?.();
 		}, delay);
 
 		timeout.unref?.();
