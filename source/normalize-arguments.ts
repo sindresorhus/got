@@ -152,6 +152,8 @@ export const normalizeArguments = (url: URLOrOptions, options?: Options, default
 		}
 
 		options.url = new URL(options.url.replace(/^unix:/, 'http://$&'));
+	} else if (Reflect.has(options.url, 'resolve')) {
+		throw new Error('The legacy `url.Url` is deprecated. Use `URL` instead.');
 	} else {
 		// TODO: Maybe drop URLOptions support in Got v12
 		options.url = optionsToUrl(options.url);
