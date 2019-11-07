@@ -4,7 +4,7 @@ function validateSearchParams(searchParams: Record<string, unknown>): asserts se
 			throw new TypeError(`The \`searchParams\` value '${value}' must be a string, number, boolean or null`);
 		}
 	}
-};
+}
 
 export interface URLOptions {
 	href?: string;
