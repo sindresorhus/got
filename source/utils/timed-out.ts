@@ -3,7 +3,7 @@ import {ClientRequest, IncomingMessage} from 'http';
 import {Delays} from './types';
 import unhandler from './unhandle';
 
-const reentry = Symbol('reentry');
+const reentry: unique symbol = Symbol('reentry');
 const noop = (): void => {};
 
 interface TimedOutOptions {
@@ -43,10 +43,7 @@ export default (request: ClientRequest, delays: Delays, options: TimedOutOptions
 			immediate.unref();
 		}, delay);
 
-		/* istanbul ignore next: in order to support electron renderer */
-		if (timeout.unref) {
-			timeout.unref();
-		}
+		timeout.unref?.();
 
 		const cancel = (): void => {
 			clearTimeout(timeout);
@@ -103,12 +100,14 @@ export default (request: ClientRequest, delays: Delays, options: TimedOutOptions
 	}
 
 	once(request, 'socket', (socket: net.Socket): void => {
-		// TODO: There seems to not be a 'socketPath' on the request, but there IS a socket.remoteAddress
+		// TODO: There seems to not be a `socketPath` on the request, but there *is* a `socket.remoteAddress`.
 		const {socketPath} = request as any;
 
 		/* istanbul ignore next: hard to test */
 		if (socket.connecting) {
-			if (typeof delays.lookup !== 'undefined' && !socketPath && !net.isIP(hostname || host || '') && typeof (socket.address() as net.AddressInfo).address === 'undefined') {
+			const hasPath = Boolean(socketPath ?? net.isIP(hostname ?? host ?? '') !== 0);
+
+			if (typeof delays.lookup !== 'undefined' && !hasPath && typeof (socket.address() as net.AddressInfo).address === 'undefined') {
 				const cancelTimeout = addTimeout(delays.lookup, timeoutHandler, 'lookup');
 				once(socket, 'lookup', cancelTimeout);
 			}
@@ -116,7 +115,7 @@ export default (request: ClientRequest, delays: Delays, options: TimedOutOptions
 			if (typeof delays.connect !== 'undefined') {
 				const timeConnect = (): (() => void) => addTimeout(delays.connect, timeoutHandler, 'connect');
 
-				if (socketPath || net.isIP(hostname || host || '')) {
+				if (hasPath) {
 					once(socket, 'connect', timeConnect());
 				} else {
 					once(socket, 'lookup', (error: Error): void => {

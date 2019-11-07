@@ -65,7 +65,7 @@
 		"create-test-server": "^3.0.1",
 		"del-cli": "^3.0.0",
 		"delay": "^4.3.0",
-		"eslint-config-xo-typescript": "^0.19.0",
+		"eslint-config-xo-typescript": "^0.21.0",
 		"form-data": "^3.0.0",
 		"get-port": "^5.0.0",
 		"keyv": "^3.1.0",
@@ -115,9 +115,7 @@
 		],
 		"rules": {
 			"@typescript-eslint/explicit-function-return-type": "off",
-			"@typescript-eslint/promise-function-async": "off",
-			"@typescript-eslint/strict-boolean-expressions": "off",
-			"@typescript-eslint/no-unnecessary-condition": "off"
+			"@typescript-eslint/promise-function-async": "off"
 		},
 		"ignores": [
 			"documentation/examples/*"

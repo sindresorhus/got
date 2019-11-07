@@ -18,10 +18,16 @@ import asStream, {ProxyStream} from './as-stream';
 import {preNormalizeArguments, normalizeArguments} from './normalize-arguments';
 import {Hooks} from './known-hook-events';
 
-export type HTTPAlias = 'get' | 'post' | 'put' | 'patch' | 'head' | 'delete';
+export type HTTPAlias =
+	| 'get'
+	| 'post'
+	| 'put'
+	| 'patch'
+	| 'head'
+	| 'delete';
 
-export type ReturnResponse = (url: URLArgument | Options & { stream?: false; url: URLArgument }, options?: Options & { stream?: false }) => CancelableRequest<Response>;
-export type ReturnStream = (url: URLArgument | Options & { stream: true; url: URLArgument }, options?: Options & { stream: true }) => ProxyStream;
+export type ReturnResponse = (url: URLArgument | Options & {stream?: false; url: URLArgument}, options?: Options & {stream?: false}) => CancelableRequest<Response>;
+export type ReturnStream = (url: URLArgument | Options & {stream: true; url: URLArgument}, options?: Options & {stream: true}) => ProxyStream;
 export type GotReturn = ProxyStream | CancelableRequest<Response>;
 
 const getPromiseOrStream = (options: NormalizedOptions): GotReturn => options.stream ? asStream(options) : asPromise(options);
@@ -40,13 +46,13 @@ export interface Got extends Record<HTTPAlias, ReturnResponse> {
 	TimeoutError: typeof errors.TimeoutError;
 	CancelError: typeof errors.CancelError;
 
-	(url: URLArgument | Options & { stream?: false; url: URLArgument }, options?: Options & { stream?: false }): CancelableRequest<Response>;
-	(url: URLArgument | Options & { stream: true; url: URLArgument }, options?: Options & { stream: true }): ProxyStream;
+	(url: URLArgument | Options & {stream?: false; url: URLArgument}, options?: Options & {stream?: false}): CancelableRequest<Response>;
+	(url: URLArgument | Options & {stream: true; url: URLArgument}, options?: Options & {stream: true}): ProxyStream;
 	(url: URLOrOptions, options?: Options): CancelableRequest<Response> | ProxyStream;
 	create(defaults: Defaults): Got;
 	extend(...instancesOrOptions: Array<Got | ExtendedOptions>): Got;
 	mergeInstances(parent: Got, ...instances: Got[]): Got;
-	mergeOptions<T extends Options>(...sources: T[]): T & { hooks: Partial<Hooks> };
+	mergeOptions<T extends Options>(...sources: T[]): T & {hooks: Partial<Hooks>};
 }
 
 export interface GotStream extends Record<HTTPAlias, ReturnStream> {
@@ -76,7 +82,7 @@ const create = (nonNormalizedDefaults: Defaults): Got => {
 
 	// @ts-ignore Because the for loop handles it for us, as well as the other Object.defines
 	const got: Got = (url: URLOrOptions, options?: Options): GotReturn => {
-		const isStream = options && options.stream;
+		const isStream = options?.stream ?? false;
 
 		let iteration = 0;
 		const iterateHandlers = (newOptions: NormalizedOptions): GotReturn => {
@@ -97,9 +103,7 @@ const create = (nonNormalizedDefaults: Defaults): Got => {
 			if (!isStream && !Reflect.has(result, isProxiedSymbol)) {
 				for (const key of Object.keys(nextPromise)) {
 					Object.defineProperty(result, key, {
-						get: () => {
-							return nextPromise[key];
-						},
+						get: () => nextPromise[key],
 						set: (value: unknown) => {
 							nextPromise[key] = value;
 						}

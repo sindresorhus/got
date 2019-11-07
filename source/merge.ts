@@ -67,34 +67,36 @@ export function mergeOptions(...sources: Array<Partial<Options>>): Partial<Optio
 
 	for (const source of sources) {
 		// We need to check `source` to allow calling `.extend()` with no arguments.
-		if (source) {
-			if (Reflect.has(source, 'hooks')) {
-				for (const hook of knownHookEvents) {
-					hooks[hook] = hooks[hook].concat(source.hooks[hook] || []);
-				}
-			}
+		if (!source) {
+			continue;
+		}
 
-			if (Reflect.has(source, 'context')) {
-				Object.defineProperty(mergedOptions, 'context', {
-					writable: true,
-					configurable: true,
-					enumerable: false,
-					// @ts-ignore
-					value: source.context
-				});
+		if (Reflect.has(source, 'hooks')) {
+			for (const hook of knownHookEvents) {
+				hooks[hook] = hooks[hook].concat(source.hooks[hook] ?? []);
 			}
+		}
 
-			if (Reflect.has(source, 'body')) {
-				mergedOptions.body = source.body;
-			}
+		if (Reflect.has(source, 'context')) {
+			Object.defineProperty(mergedOptions, 'context', {
+				writable: true,
+				configurable: true,
+				enumerable: false,
+				// @ts-ignore
+				value: source.context
+			});
+		}
 
-			if (Reflect.has(source, 'json')) {
-				mergedOptions.json = source.json;
-			}
+		if (Reflect.has(source, 'body')) {
+			mergedOptions.body = source.body;
+		}
 
-			if (Reflect.has(source, 'form')) {
-				mergedOptions.form = source.form;
-			}
+		if (Reflect.has(source, 'json')) {
+			mergedOptions.json = source.json;
+		}
+
+		if (Reflect.has(source, 'form')) {
+			mergedOptions.form = source.form;
 		}
 	}
 

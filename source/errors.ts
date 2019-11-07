@@ -6,8 +6,7 @@ import {TimeoutError as TimedOutError} from './utils/timed-out';
 
 export class GotError extends Error {
 	code?: string;
-
-	readonly options!: NormalizedOptions;
+	readonly options: NormalizedOptions;
 
 	constructor(message: string, error: (Error & {code?: string}) | {code?: string}, options: NormalizedOptions) {
 		super(message);
@@ -46,7 +45,7 @@ export class ReadError extends GotError {
 }
 
 export class ParseError extends GotError {
-	readonly response!: Response;
+	readonly response: Response;
 
 	constructor(error: Error, response: Response, options: NormalizedOptions) {
 		super(`${error.message} in "${format(options as unknown as URL)}"`, error, options);
@@ -59,7 +58,7 @@ export class ParseError extends GotError {
 }
 
 export class HTTPError extends GotError {
-	readonly response!: Response;
+	readonly response: Response;
 
 	constructor(response: Response, options: NormalizedOptions) {
 		const {statusCode, statusMessage} = response;
@@ -74,7 +73,7 @@ export class HTTPError extends GotError {
 }
 
 export class MaxRedirectsError extends GotError {
-	readonly response!: Response;
+	readonly response: Response;
 
 	constructor(response: Response, maxRedirects: number, options: NormalizedOptions) {
 		super(`Redirected ${maxRedirects} times. Aborting.`, {}, options);
@@ -95,7 +94,6 @@ export class UnsupportedProtocolError extends GotError {
 
 export class TimeoutError extends GotError {
 	timings: Timings;
-
 	event: string;
 
 	constructor(error: TimedOutError, timings: Timings, options: NormalizedOptions) {

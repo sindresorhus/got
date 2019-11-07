@@ -30,17 +30,17 @@ export interface RequestAsEventEmitter extends EventEmitter {
 
 export default (options: NormalizedOptions, input?: TransformStream) => {
 	const emitter = new EventEmitter() as RequestAsEventEmitter;
-	const redirects = [] as string[];
+	const redirects: string[] = [];
 	let currentRequest: http.ClientRequest;
 	let requestUrl: string;
-	let redirectString: string;
+	let redirectString: string | undefined;
 	let uploadBodySize: number | undefined;
 	let retryCount = 0;
 	let shouldAbort = false;
 
-	const setCookie = options.cookieJar ? promisify(options.cookieJar.setCookie.bind(options.cookieJar)) : null;
-	const getCookieString = options.cookieJar ? promisify(options.cookieJar.getCookieString.bind(options.cookieJar)) : null;
-	const agents = is.object(options.agent) ? options.agent : null;
+	const setCookie = options.cookieJar && promisify(options.cookieJar.setCookie.bind(options.cookieJar));
+	const getCookieString = options.cookieJar && promisify(options.cookieJar.getCookieString.bind(options.cookieJar));
+	const agents = is.object(options.agent) && options.agent;
 
 	const emitError = async (error: Error): Promise<void> => {
 		try {
@@ -56,12 +56,13 @@ export default (options: NormalizedOptions, input?: TransformStream) => {
 	};
 
 	const get = async (options: NormalizedOptions): Promise<void> => {
-		const currentUrl = redirectString || requestUrl;
+		const currentUrl = redirectString ?? requestUrl;
 
 		if (options.protocol !== 'http:' && options.protocol !== 'https:') {
 			throw new UnsupportedProtocolError(options);
 		}
 
+		// Validate the URL
 		decodeURI(currentUrl);
 
 		let requestFn: RequestFunction;
@@ -73,15 +74,15 @@ export default (options: NormalizedOptions, input?: TransformStream) => {
 
 		if (agents) {
 			const protocolName = options.protocol === 'https:' ? 'https' : 'http';
-			options.agent = (agents as AgentByProtocol)[protocolName] || options.agent;
+			options.agent = (agents as AgentByProtocol)[protocolName] ?? options.agent;
 		}
 
 		/* istanbul ignore next: electron.net is broken */
 		// No point in typing process.versions correctly, as
-		// process.version.electron is used only once, right here.
+		// `process.version.electron` is used only once, right here.
 		if (options.useElectronNet && (process.versions as any).electron) {
-			const electron = dynamicRequire(module, 'electron'); // Trick webpack
-			requestFn = (electron as any).net.request || (electron as any).remote.net.request;
+			const electron = dynamicRequire(module, 'electron') as any; // Trick Webpack
+			requestFn = electron.net.request ?? electron.remote.net.request;
 		}
 
 		if (options.cookieJar) {
@@ -113,6 +114,7 @@ export default (options: NormalizedOptions, input?: TransformStream) => {
 
 				const {statusCode} = response;
 				const typedResponse = response as Response;
+				// This is intentionally using `||` over `??` so it can also catch empty status message.
 				typedResponse.statusMessage = typedResponse.statusMessage || http.STATUS_CODES[statusCode];
 				typedResponse.url = currentUrl;
 				typedResponse.requestUrl = requestUrl;
@@ -120,11 +122,11 @@ export default (options: NormalizedOptions, input?: TransformStream) => {
 				typedResponse.timings = timings;
 				typedResponse.redirectUrls = redirects;
 				typedResponse.request = {options};
-				typedResponse.isFromCache = typedResponse.fromCache || false;
+				typedResponse.isFromCache = typedResponse.fromCache ?? false;
 				delete typedResponse.fromCache;
 
 				if (!typedResponse.isFromCache) {
-					// @ts-ignore Node typings haven't been updated yet
+					// @ts-ignore Node.js typings haven't been updated yet
 					typedResponse.ip = response.socket.remoteAddress;
 				}
 
@@ -225,7 +227,7 @@ export default (options: NormalizedOptions, input?: TransformStream) => {
 				}
 
 				// No need to attach an error handler here,
-				// as `stream.pipeline(...)` doesn't remove this handler
+				// as `stream.pipeline(…)` doesn't remove this handler
 				// to allow stream reuse.
 
 				request.emit('upload-complete');
@@ -248,8 +250,9 @@ export default (options: NormalizedOptions, input?: TransformStream) => {
 					const {body} = options;
 					delete options.body;
 
-					// `stream.pipeline(...)` does it for us.
+					// `stream.pipeline(…)` handles `error` for us.
 					request.removeListener('error', onError);
+
 					stream.pipeline(
 						body,
 						request,
@@ -292,7 +295,7 @@ export default (options: NormalizedOptions, input?: TransformStream) => {
 
 			cacheRequest.once('request', handleRequest);
 		} else {
-			// Catches errors thrown by calling requestFn(...)
+			// Catches errors thrown by calling `requestFn(…)`
 			try {
 				// @ts-ignore TS complains that URLSearchParams is not the same as URLSearchParams
 				handleRequest(requestFn(options as unknown as URL, handleResponse));
@@ -376,7 +379,7 @@ export default (options: NormalizedOptions, input?: TransformStream) => {
 
 				if (is.object(body) && isFormData(body)) {
 					// Special case for https://github.com/form-data/form-data
-					headers['content-type'] = headers['content-type'] || `multipart/form-data; boundary=${body.getBoundary()}`;
+					headers['content-type'] = headers['content-type'] ?? `multipart/form-data; boundary=${body.getBoundary()}`;
 				} else if (!is.nodeStream(body) && !is.string(body) && !is.buffer(body)) {
 					throw new TypeError('The `body` option must be a stream.Readable, string or Buffer');
 				}
@@ -385,10 +388,10 @@ export default (options: NormalizedOptions, input?: TransformStream) => {
 					throw new TypeError('The `form` option must be an Object');
 				}
 
-				headers['content-type'] = headers['content-type'] || 'application/x-www-form-urlencoded';
+				headers['content-type'] = headers['content-type'] ?? 'application/x-www-form-urlencoded';
 				options.body = (new URLSearchParams(options.form as Record<string, string>)).toString();
 			} else if (isJSON) {
-				headers['content-type'] = headers['content-type'] || 'application/json';
+				headers['content-type'] = headers['content-type'] ?? 'application/json';
 				options.body = JSON.stringify(options.json);
 			}
 
@@ -410,7 +413,7 @@ export default (options: NormalizedOptions, input?: TransformStream) => {
 				options.headers.accept = 'application/json';
 			}
 
-			requestUrl = options.href || (new URL(options.path, format(options as UrlObject))).toString();
+			requestUrl = options.href ?? (new URL(options.path, format(options as UrlObject))).toString();
 
 			await get(options);
 		} catch (error) {

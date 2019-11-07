@@ -4,19 +4,19 @@ import {Socket} from 'net';
 import EventEmitter = require('events');
 
 export function downloadProgress(_response: IncomingMessage, emitter: EventEmitter, downloadBodySize?: number): TransformStream {
-	let downloaded = 0;
+	let downloadedBytes = 0;
 
 	return new TransformStream({
 		transform(chunk, _encoding, callback) {
-			downloaded += chunk.length;
+			downloadedBytes += chunk.length;
 
-			const percent = downloadBodySize ? downloaded / downloadBodySize : 0;
+			const percent = downloadBodySize ? downloadedBytes / downloadBodySize : 0;
 
 			// Let `flush()` be responsible for emitting the last event
 			if (percent < 1) {
 				emitter.emit('downloadProgress', {
 					percent,
-					transferred: downloaded,
+					transferred: downloadedBytes,
 					total: downloadBodySize
 				});
 			}
@@ -27,7 +27,7 @@ export function downloadProgress(_response: IncomingMessage, emitter: EventEmitt
 		flush(callback) {
 			emitter.emit('downloadProgress', {
 				percent: 1,
-				transferred: downloaded,
+				transferred: downloadedBytes,
 				total: downloadBodySize
 			});
 
@@ -38,7 +38,7 @@ export function downloadProgress(_response: IncomingMessage, emitter: EventEmitt
 
 export function uploadProgress(request: ClientRequest, emitter: EventEmitter, uploadBodySize?: number): void {
 	const uploadEventFrequency = 150;
-	let uploaded = 0;
+	let uploadedBytes = 0;
 	let progressInterval: NodeJS.Timeout;
 
 	emitter.emit('uploadProgress', {
@@ -56,7 +56,7 @@ export function uploadProgress(request: ClientRequest, emitter: EventEmitter, up
 
 		emitter.emit('uploadProgress', {
 			percent: 1,
-			transferred: uploaded,
+			transferred: uploadedBytes,
 			total: uploadBodySize
 		});
 	});
@@ -64,21 +64,21 @@ export function uploadProgress(request: ClientRequest, emitter: EventEmitter, up
 	request.once('socket', (socket: Socket) => {
 		const onSocketConnect = (): void => {
 			progressInterval = setInterval(() => {
-				const lastUploaded = uploaded;
+				const lastUploadedBytes = uploadedBytes;
 				/* istanbul ignore next: see #490 (occurs randomly!) */
 				const headersSize = (request as any)._header ? Buffer.byteLength((request as any)._header) : 0;
-				uploaded = socket.bytesWritten - headersSize;
+				uploadedBytes = socket.bytesWritten - headersSize;
 
 				// Don't emit events with unchanged progress and
 				// prevent last event from being emitted, because
 				// it's emitted when `response` is emitted
-				if (uploaded === lastUploaded || uploaded === uploadBodySize) {
+				if (uploadedBytes === lastUploadedBytes || uploadedBytes === uploadBodySize) {
 					return;
 				}
 
 				emitter.emit('uploadProgress', {
-					percent: uploadBodySize ? uploaded / uploadBodySize : 0,
-					transferred: uploaded,
+					percent: uploadBodySize ? uploadedBytes / uploadBodySize : 0,
+					transferred: uploadedBytes,
 					total: uploadBodySize
 				});
 			}, uploadEventFrequency);

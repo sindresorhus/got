@@ -82,8 +82,8 @@ export default function asStream(options: NormalizedOptions): ProxyStream {
 			for (const [key, value] of Object.entries(response.headers)) {
 				// Got gives *decompressed* data. Overriding `content-encoding` header would result in an error.
 				// It's not possible to decompress already decompressed data, is it?
-				const allowed = options.decompress ? key !== 'content-encoding' : true;
-				if (allowed) {
+				const isAllowed = options.decompress ? key !== 'content-encoding' : true;
+				if (isAllowed) {
 					destination.setHeader(key, value);
 				}
 			}

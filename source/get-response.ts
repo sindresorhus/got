@@ -19,7 +19,7 @@ export default (response: IncomingMessage, options: NormalizedOptions, emitter: 
 		options.method !== 'HEAD' ? decompressResponse(progressStream as unknown as IncomingMessage) : progressStream
 	) as Response;
 
-	if (!options.decompress && ['gzip', 'deflate', 'br'].includes(response.headers['content-encoding'] || '')) {
+	if (!options.decompress && ['gzip', 'deflate', 'br'].includes(response.headers['content-encoding'] ?? '')) {
 		options.encoding = null;
 	}
 

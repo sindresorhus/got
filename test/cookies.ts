@@ -50,7 +50,7 @@ test('cookies doesn\'t break on redirects', withServer, async (t, server, got) =
 	});
 
 	server.get('/', (request, response) => {
-		response.end(request.headers.cookie || '');
+		response.end(request.headers.cookie ?? '');
 	});
 
 	const cookieJar = new toughCookie.CookieJar();
@@ -108,7 +108,7 @@ test('overrides options.headers.cookie', withServer, async (t, server, got) => {
 	});
 
 	server.get('/', (request, response) => {
-		response.end(request.headers.cookie || '');
+		response.end(request.headers.cookie ?? '');
 	});
 
 	const cookieJar = new toughCookie.CookieJar();

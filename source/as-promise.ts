@@ -11,7 +11,7 @@ import requestAsEventEmitter from './request-as-event-emitter';
 
 type ResponseReturn = Response | Buffer | string | any;
 
-export const isProxiedSymbol = Symbol('proxied');
+export const isProxiedSymbol: unique symbol = Symbol('proxied');
 
 export default function asPromise(options: NormalizedOptions): CancelableRequest<Response> {
 	const proxy = new EventEmitter();
@@ -56,8 +56,8 @@ export default function asPromise(options: NormalizedOptions): CancelableRequest
 				return;
 			}
 
-			if (response.req && response.req.aborted) {
-				// Canceled while downloading - will throw a CancelError or TimeoutError
+			if (response.req?.aborted) {
+				// Canceled while downloading - will throw a `CancelError` or `TimeoutError` error
 				return;
 			}
 
@@ -123,14 +123,19 @@ export default function asPromise(options: NormalizedOptions): CancelableRequest
 		});
 
 		emitter.once('error', reject);
-		[
+
+		const events = [
 			'request',
 			'redirect',
 			'uploadProgress',
 			'downloadProgress'
-		].forEach(event => emitter.on(event, (...args: unknown[]) => {
-			proxy.emit(event, ...args);
-		}));
+		];
+
+		for (const event of events) {
+			emitter.on(event, (...args: unknown[]) => {
+				proxy.emit(event, ...args);
+			});
+		}
 	}) as CancelableRequest<ResponseReturn>;
 
 	promise[isProxiedSymbol] = true;

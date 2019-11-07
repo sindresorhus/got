@@ -119,7 +119,7 @@ export const normalizeArguments = (url: URLOrOptions, options: Options, defaults
 	let urlArgument: URLArgument;
 	if (is.plainObject(url)) {
 		options = {...url as Options, ...options};
-		urlArgument = options.url || {};
+		urlArgument = options.url ?? {};
 		delete options.url;
 	} else {
 		urlArgument = url;
@@ -200,6 +200,7 @@ export const normalizeArguments = (url: URLOrOptions, options: Options, defaults
 	if (is.nonEmptyString(searchParams) || is.nonEmptyObject(searchParams) || (searchParams && searchParams instanceof URLSearchParams)) {
 		if (!is.string(searchParams)) {
 			if (!(searchParams instanceof URLSearchParams)) {
+				// @ts-ignore
 				validateSearchParams(searchParams);
 			}
 
@@ -212,7 +213,7 @@ export const normalizeArguments = (url: URLOrOptions, options: Options, defaults
 	if (options.hostname === 'unix') {
 		const matches = /(?<socketPath>.+?):(?<path>.+)/.exec(options.path);
 
-		if (matches && matches.groups) {
+		if (matches?.groups) {
 			const {socketPath, path} = matches.groups;
 			options = {
 				...options,
