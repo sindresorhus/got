@@ -238,7 +238,7 @@ export const normalizeRequestArguments = async (options: NormalizedOptions): Pro
 		}
 	}
 
-	if (!options.stream && options.responseType === 'json' && is.undefined(headers.accept)) {
+	if (!options.isStream && options.responseType === 'json' && is.undefined(headers.accept)) {
 		headers.accept = 'application/json';
 	}
 

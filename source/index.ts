@@ -50,7 +50,7 @@ const defaults: Partial<Defaults> = {
 		decompress: true,
 		throwHttpErrors: true,
 		followRedirect: true,
-		stream: false,
+		isStream: false,
 		cache: false,
 		dnsCache: false,
 		useElectronNet: false,

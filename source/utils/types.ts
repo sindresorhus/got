@@ -120,7 +120,7 @@ export interface Options {
 	socketPath?: string;
 	hooks?: Partial<Hooks>;
 	decompress?: boolean;
-	stream?: boolean;
+	isStream?: boolean;
 	encoding?: BufferEncoding | null;
 	method?: Method;
 	retry?: number | RetryOptions;

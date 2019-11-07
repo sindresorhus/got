@@ -156,7 +156,7 @@ Request headers.
 
 Existing headers will be overwritten. Headers set to `null` will be omitted.
 
-###### stream
+###### isStream
 
 Type: `boolean`<br>
 Default: `false`

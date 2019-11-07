@@ -29,7 +29,7 @@ export type ReturnResponse = (url: URLOrOptions | Options & { stream?: false }, 
 export type ReturnStream = (url: URLOrOptions | Options & { stream: true }, options?: Options & { stream: true }) => ProxyStream;
 export type GotReturn = ProxyStream | CancelableRequest<Response>;
 
-const getPromiseOrStream = (options: NormalizedOptions): GotReturn => options.stream ? asStream(options) : asPromise(options);
+const getPromiseOrStream = (options: NormalizedOptions): GotReturn => options.isStream ? asStream(options) : asPromise(options);
 
 export interface Got extends Record<HTTPAlias, ReturnResponse> {
 	stream: GotStream;
@@ -81,7 +81,7 @@ const create = (nonNormalizedDefaults: Defaults): Got => {
 
 	// @ts-ignore Because the for loop handles it for us, as well as the other Object.defines
 	const got: Got = (url: URLOrOptions, options?: Options): GotReturn => {
-		const isStream = options?.stream ?? false;
+		const isStream = options?.isStream ?? false;
 
 		let iteration = 0;
 		const iterateHandlers = (newOptions: NormalizedOptions): GotReturn => {
@@ -170,7 +170,7 @@ const create = (nonNormalizedDefaults: Defaults): Got => {
 	};
 
 	// @ts-ignore The missing methods because the for-loop handles it for us
-	got.stream = (url, options) => got(url, {...options, stream: true});
+	got.stream = (url, options) => got(url, {...options, isStream: true});
 
 	for (const method of aliases) {
 		got[method] = (url, options) => got(url, {...options, method});
