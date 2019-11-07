@@ -58,10 +58,11 @@ export default (options: NormalizedOptions, input?: TransformStream) => {
 			}
 		}
 
+		let httpOptions = await normalizeRequestArguments(options);
+		delete httpOptions.timeout;
+
 		let timings: Timings;
 		const handleResponse = async (response: http.ServerResponse | ResponseObject): Promise<void> => {
-			options.timeout = timeout;
-
 			try {
 				/* istanbul ignore next: fixes https://github.com/electron/electron/blob/cbb460d47628a7a146adf4419ed48550a98b2923/lib/browser/api/net.js#L59-L65 */
 				if (options.useElectronNet) {
@@ -150,14 +151,15 @@ export default (options: NormalizedOptions, input?: TransformStream) => {
 			}
 
 			currentRequest = request;
-			options.timeout = timeout;
+
+			// `request.aborted` is a boolean since v11.0.0: https://github.com/nodejs/node/commit/4b00c4fafaa2ae8c41c1f78823c0feb810ae4723#diff-e3bc37430eb078ccbafe3aa3b570c91a
+			// We need to allow `TimedOutTimeoutError` here, because it `stream.pipeline(…)` aborts it automatically.
+			const isAborted = () => typeof request.aborted === 'number' || (request.aborted as unknown as boolean) === true;
 
 			const onError = (error: Error): void => {
 				const isTimedOutError = error instanceof TimedOutTimeoutError;
 
-				// `request.aborted` is a boolean since v11.0.0: https://github.com/nodejs/node/commit/4b00c4fafaa2ae8c41c1f78823c0feb810ae4723#diff-e3bc37430eb078ccbafe3aa3b570c91a
-				// We need to allow `TimedOutTimeoutError` here, because it `stream.pipeline(…)` aborts it automatically.
-				if (!isTimedOutError && (typeof request.aborted === 'number' || (request.aborted as unknown as boolean) === true)) {
+				if (!isTimedOutError && isAborted()) {
 					return;
 				}
 
@@ -189,10 +191,14 @@ export default (options: NormalizedOptions, input?: TransformStream) => {
 			request.on('error', onError);
 
 			timings = timer(request); // TODO: Make `@szmarczak/http-timer` set `request.timings` and `response.timings`
-			uploadProgress(request, emitter, Number(options.headers['content-length']));
-			timedOut(request, timeout, options.url);
+			uploadProgress(request, emitter, Number(httpOptions.headers['content-length']));
+			timedOut(request, options.timeout, options.url);
 
-			emitter.emit('request', request, options);
+			emitter.emit('request', request);
+
+			if (isAborted()) {
+				return;
+			}
 
 			try {
 				if (is.nodeStream(options.body)) {
@@ -207,8 +213,8 @@ export default (options: NormalizedOptions, input?: TransformStream) => {
 						request,
 						uploadComplete
 					);
-				} else if (options.body) {
-					request.end(options.body, uploadComplete);
+				} else if (httpOptions.body) {
+					request.end(httpOptions.body, uploadComplete);
 				} else if (input && (options.method === 'POST' || options.method === 'PUT' || options.method === 'PATCH')) {
 					stream.pipeline(
 						input,
@@ -223,20 +229,14 @@ export default (options: NormalizedOptions, input?: TransformStream) => {
 			}
 		};
 
-		const {timeout} = options;
-		delete options.timeout;
-
-		let normalizedRequestOptions = await normalizeRequestArguments(options);
-		const {request} = normalizedRequestOptions;
-
-		if (Reflect.has(options, 'cache') && options.cache !== false) {
+		if (options.cache !== false) {
 			// `cacheable-request` doesn't support Node 10 API, fallback.
-			normalizedRequestOptions = {
-				...normalizedRequestOptions,
+			httpOptions = {
+				...httpOptions,
 				...urlToOptions(options.url)
 			};
 
-			const cacheRequest = options.cacheableRequest(normalizedRequestOptions, handleResponse);
+			const cacheRequest = options.cacheableRequest(httpOptions, handleResponse);
 
 			cacheRequest.once('error', error => {
 				if (error instanceof CacheableRequest.RequestError) {
@@ -252,7 +252,7 @@ export default (options: NormalizedOptions, input?: TransformStream) => {
 			try {
 				// @ts-ignore 1. TS complains that URLSearchParams is not the same as URLSearchParams.
 				//            2. It doesn't notice that `options.timeout` is deleted above.
-				handleRequest(request(options.url, options, handleResponse));
+				handleRequest(httpOptions.request(httpOptions.url, httpOptions, handleResponse));
 			} catch (error) {
 				emitError(new RequestError(error, options));
 			}

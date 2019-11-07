@@ -15,8 +15,7 @@ import {
 	NormalizedOptions,
 	Method,
 	URLOrOptions,
-	NormalizedDefaults,
-	RequestFunction
+	NormalizedDefaults
 } from './utils/types';
 import dynamicRequire from './utils/dynamic-require';
 import getBodySize from './utils/get-body-size';
@@ -178,7 +177,7 @@ export const normalizeArguments = (url: URLOrOptions, options?: Options, default
 };
 
 const withoutBody: ReadonlySet<string> = new Set(['GET', 'HEAD']);
-type NormalizedRequestArguments = https.RequestOptions & {request: RequestFunction};
+type NormalizedRequestArguments = https.RequestOptions & {body: Pick<NormalizedOptions, 'body'>};
 
 export const normalizeRequestArguments = async (options: NormalizedOptions): Promise<NormalizedRequestArguments> => {
 	options = merge({}, options);
