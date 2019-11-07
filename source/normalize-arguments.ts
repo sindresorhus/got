@@ -212,7 +212,7 @@ export const normalizeArguments = (url: URLOrOptions, options: Options, defaults
 	if (options.hostname === 'unix') {
 		const matches = /(?<socketPath>.+?):(?<path>.+)/.exec(options.path);
 
-		if (matches) {
+		if (matches && matches.groups) {
 			const {socketPath, path} = matches.groups;
 			options = {
 				...options,

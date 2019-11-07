@@ -178,7 +178,7 @@ test('respects 413 Retry-After', withServer, async (t, server, got) => {
 });
 
 test('respects 413 Retry-After with RFC-1123 timestamp', withServer, async (t, server, got) => {
-	let lastTried413TimestampAccess;
+	let lastTried413TimestampAccess: string;
 	server.get('/', (_request, response) => {
 		const date = (new Date(Date.now() + (retryAfterOn413 * 1000))).toUTCString();
 

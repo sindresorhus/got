@@ -71,7 +71,6 @@ export default function asPromise(options: NormalizedOptions): CancelableRequest
 					response = await hook(response, updatedOptions => {
 						updatedOptions = reNormalizeArguments(mergeOptions(options, {
 							...updatedOptions,
-							// @ts-ignore TS complaining that it's missing properties, which get merged
 							retry: {
 								calculateDelay: () => 0
 							},
