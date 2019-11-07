@@ -151,7 +151,7 @@ export const normalizeArguments = (url: URLOrOptions, options?: Options, default
 			if (options.url.startsWith('/')) {
 				throw new Error('`url` must not begin with a slash when using `prefixUrl`');
 			} else {
-				options.url = options.prefixUrl.toString() + url;
+				options.url = options.prefixUrl.toString() + options.url;
 			}
 		}
 
@@ -248,6 +248,8 @@ export const normalizeRequestArguments = async (options: NormalizedOptions): Pro
 		if (matches?.groups) {
 			const {socketPath, path} = matches.groups;
 
+			// It's a bug!
+			// eslint-disable-next-line @typescript-eslint/consistent-type-assertions
 			options = {
 				...options,
 				socketPath,
