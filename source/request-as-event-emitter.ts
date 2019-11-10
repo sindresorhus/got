@@ -229,11 +229,12 @@ export default (options: NormalizedOptions, input?: TransformStream) => {
 			}
 		};
 
-		if (options.cache !== false) {
+		if (is.object(options.cache)) {
 			// `cacheable-request` doesn't support Node 10 API, fallback.
 			httpOptions = {
 				...httpOptions,
-				...urlToOptions(options.url)
+				...urlToOptions(options.url),
+				url: undefined // `http-cache-semantics` check this
 			};
 
 			const cacheRequest = options.cacheableRequest(httpOptions, handleResponse);
@@ -252,7 +253,7 @@ export default (options: NormalizedOptions, input?: TransformStream) => {
 			try {
 				// @ts-ignore 1. TS complains that URLSearchParams is not the same as URLSearchParams.
 				//            2. It doesn't notice that `options.timeout` is deleted above.
-				handleRequest(httpOptions.request(httpOptions.url, httpOptions, handleResponse));
+				handleRequest(httpOptions.request(options.url, httpOptions, handleResponse));
 			} catch (error) {
 				emitError(new RequestError(error, options));
 			}

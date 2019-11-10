@@ -19,9 +19,9 @@ export default function merge<Target extends Record<string, any>, Source extends
 
 				// @ts-ignore https://github.com/microsoft/TypeScript/issues/31661
 				target[key] = params;
-			} else if (is.urlInstance(targetValue) && (is.urlInstance(sourceValue) || is.string(sourceValue))) {
+			} else if (is.urlInstance(targetValue) && is.string(sourceValue)) {
 				// @ts-ignore
-				target[key] = new URL(sourceValue as string, targetValue);
+				target[key] = new URL(sourceValue, targetValue);
 			} else if (is.plainObject(sourceValue)) {
 				if (is.plainObject(targetValue)) {
 					// @ts-ignore
@@ -44,23 +44,6 @@ export default function merge<Target extends Record<string, any>, Source extends
 }
 
 export function mergeOptions(...sources: Array<Partial<Options>>): Partial<Options> {
-	sources = sources.map(source => {
-		if (!source) {
-			return {};
-		}
-
-		if (is.object(source.retry)) {
-			return source;
-		}
-
-		return {
-			...source,
-			retry: {
-				retries: source.retry
-			}
-		};
-	}) as Array<Partial<Options>>;
-
 	const mergedOptions = merge({}, ...sources);
 
 	const hooks = knownHookEvents.reduce((accumulator, current) => ({...accumulator, [current]: []}), {}) as Record<HookEvent, HookType[]>;

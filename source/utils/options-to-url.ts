@@ -33,25 +33,29 @@ const keys = [
 export default (options: URLOptions): URL => {
 	let origin: string;
 
-	if (Reflect.has(options, 'path')) {
+	if ((options as any).path) {
 		throw new TypeError('Parameter `path` is deprecated. Use `pathname` instead.');
 	}
 
-	if (Reflect.has(options, 'auth')) {
+	if ((options as any).auth) {
 		throw new TypeError('Parameter `auth` is deprecated. Use `username`/`password` instead.');
 	}
 
-	if (Reflect.has(options, 'search') && Reflect.has(options, 'searchParams')) {
+	if (options.search && options.searchParams) {
 		throw new TypeError('Parameters `search` and `searchParams` are mutually exclusive.');
 	}
 
-	if (Reflect.has(options, 'href')) {
+	if (options.href) {
 		return new URL(options.href);
 	}
 
-	if (Reflect.has(options, 'origin')) {
+	if (options.origin) {
 		origin = options.origin;
 	} else {
+		if (!options.protocol) {
+			throw new TypeError('No URL protocol specified');
+		}
+
 		origin = `${options.protocol}//${options.hostname || options.host}`;
 	}
 

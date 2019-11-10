@@ -12,10 +12,10 @@ const echoUrl = (request, response) => {
 test('`url` is required', async t => {
 	await t.throwsAsync(
 		// @ts-ignore Manual tests
-		got(),
+		got(''),
 		{
 			instanceOf: TypeError,
-			message: 'Parameter `url` must be a string or an Object, not undefined'
+			message: 'No URL protocol specified'
 		}
 	);
 });
@@ -33,6 +33,11 @@ test('throws an error if the protocol is not specified', async t => {
 	await t.throwsAsync(got('example.com'), {
 		instanceOf: TypeError,
 		message: 'Invalid URL: example.com'
+	});
+
+	await t.throwsAsync(got({}), {
+		instanceOf: TypeError,
+		message: 'No URL protocol specified'
 	});
 
 	await t.throwsAsync(got({}), {
@@ -76,16 +81,13 @@ test('methods are normalized', withServer, async (t, server, got) => {
 	await instance('test', {method: 'post'});
 });
 
-test('accepts url.parse object as first argument', withServer, async (t, server, got) => {
+test('throws an error when legacy Url is passed', withServer, async (t, server, got) => {
 	server.get('/test', echoUrl);
 
-	t.is((await got(parse(`${server.url}/test`))).body, '/test');
-});
-
-test('requestUrl with url.parse object as first argument', withServer, async (t, server, got) => {
-	server.get('/test', echoUrl);
-
-	t.is((await got(parse(`${server.url}/test`))).requestUrl, `${server.url}/test`);
+	await t.throwsAsync(
+		got(parse(`${server.url}/test`)),
+		'The legacy `url.Url` is deprecated. Use `URL` instead.'
+	);
 });
 
 test('overrides `searchParams` from options', withServer, async (t, server, got) => {
@@ -152,12 +154,12 @@ test('WHATWG URL support', withServer, async (t, server, got) => {
 	await t.notThrowsAsync(got(wURL));
 });
 
-test('returns streams when using stream option', withServer, async (t, server, got) => {
+test('returns streams when using `isStream` option', withServer, async (t, server, got) => {
 	server.get('/stream', (_request, response) => {
 		response.end('ok');
 	});
 
-	const data = await pEvent(got('stream', {stream: true}), 'data');
+	const data = await pEvent(got('stream', {isStream: true}), 'data');
 	t.is(data.toString(), 'ok');
 });
 
@@ -236,19 +238,22 @@ test('backslash in the end of `prefixUrl` option is optional', withServer, async
 	t.is(body, '/test/foobar');
 });
 
-test('throws when trying to modify `prefixUrl` after options got normalized', async t => {
+test('`prefixUrl` can be changed if the URL contains the old one', withServer, async (t, server) => {
+	server.get('/', echoUrl);
+
 	const instanceA = got.create({
 		options: {prefixUrl: 'https://example.com'},
 		handlers: [
 			(options, next) => {
 				// @ts-ignore Even though we know it's read only, we need to test it.
-				options.prefixUrl = 'https://google.com';
+				options.prefixUrl = server.url;
 				return next(options);
 			}
 		]
 	});
 
-	await t.throwsAsync(instanceA(''), 'Failed to set prefixUrl. Options are normalized already.');
+	const {body} = await instanceA('');
+	t.is(body, '/');
 });
 
 test('throws if the `searchParams` value is invalid', async t => {
@@ -312,68 +317,4 @@ test('`context` option is accessible when extending instances', t => {
 
 	t.is(instance.defaults.options.context, context);
 	t.false({}.propertyIsEnumerable.call(instance.defaults.options, 'context'));
-});
-
-test('`options.body` is cleaned up when retrying - `options.json`', withServer, async (t, server, got) => {
-	let first = true;
-	server.post('/', (_request, response) => {
-		if (first) {
-			first = false;
-
-			response.statusCode = 401;
-		}
-
-		response.end();
-	});
-
-	await t.notThrowsAsync(got.post('', {
-		hooks: {
-			afterResponse: [
-				async (response, retryWithMergedOptions) => {
-					if (response.statusCode === 401) {
-						return retryWithMergedOptions();
-					}
-
-					t.is(response.request.options.body, undefined);
-
-					return response;
-				}
-			]
-		},
-		json: {
-			some: 'data'
-		}
-	}));
-});
-
-test('`options.body` is cleaned up when retrying - `options.form`', withServer, async (t, server, got) => {
-	let first = true;
-	server.post('/', (_request, response) => {
-		if (first) {
-			first = false;
-
-			response.statusCode = 401;
-		}
-
-		response.end();
-	});
-
-	await t.notThrowsAsync(got.post('', {
-		hooks: {
-			afterResponse: [
-				async (response, retryWithMergedOptions) => {
-					if (response.statusCode === 401) {
-						return retryWithMergedOptions();
-					}
-
-					t.is(response.request.options.body, undefined);
-
-					return response;
-				}
-			]
-		},
-		form: {
-			some: 'data'
-		}
-	}));
 });

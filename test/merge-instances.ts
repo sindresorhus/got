@@ -134,22 +134,6 @@ test('hooks are passed by though other instances don\'t have them', t => {
 	t.deepEqual(merged.defaults.options.hooks.beforeRequest, instanceA.defaults.options.hooks.beforeRequest);
 });
 
-test('URLSearchParams instances are merged', t => {
-	const instanceA = got.extend({
-		searchParams: new URLSearchParams({a: '1'})
-	});
-
-	const instanceB = got.extend({
-		searchParams: new URLSearchParams({b: '2'})
-	});
-
-	const merged = instanceA.extend(instanceB);
-	// @ts-ignore Manual tests
-	t.is(merged.defaults.options.searchParams.get('a'), '1');
-	// @ts-ignore Manual tests
-	t.is(merged.defaults.options.searchParams.get('b'), '2');
-});
-
 // TODO: remove this before Got v11
 test('`got.mergeInstances()` works', t => {
 	const instance = got.mergeInstances(got, got.create({

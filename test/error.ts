@@ -47,7 +47,7 @@ test('`options.body` form error message', async t => {
 	});
 });
 
-test.only('no plain object restriction on json body', withServer, async (t, server, got) => {
+test('no plain object restriction on json body', withServer, async (t, server, got) => {
 	server.post('/body', async (request, response) => {
 		await pStreamPipeline(request, response);
 	});
@@ -197,7 +197,7 @@ test('catches error in mimicResponse', withServer, async (t, server) => {
 test('errors are thrown directly when options.stream is true', t => {
 	t.throws(() => {
 		// @ts-ignore Manual tests
-		got('https://example.com', {stream: true, hooks: false});
+		got('https://example.com', {isStream: true, hooks: false});
 	}, {
 		message: 'Parameter `hooks` must be an Object, not boolean'
 	});

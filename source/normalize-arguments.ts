@@ -23,8 +23,8 @@ import isFormData from './utils/is-form-data';
 import supportsBrotli from './utils/supports-brotli';
 
 // TODO: Add this to documentation:
-// `preNormalizeArguments` handles options that doesn't change during the whole request (e.g. hooks).
-// `normalizeArguments` is only called on `got(...)`. It merges options and normalizes URL.
+// `preNormalizeArguments` normalizes these options: `headers`, `prefixUrl`, `hooks`, `timeout`, `retry` and `method`.
+// `normalizeArguments` is *only* called on `got(...)`. It normalizes the URL and performs `mergeOptions(...)`.
 // `normalizeRequestArguments` converts Got options into HTTP options.
 
 export const preNormalizeArguments = (options: Options, defaults?: NormalizedOptions): NormalizedOptions => {
@@ -71,7 +71,7 @@ export const preNormalizeArguments = (options: Options, defaults?: NormalizedOpt
 	// `options.retry`
 	const {retry} = options;
 
-	if (defaults && Reflect.has(defaults, 'retry')) {
+	if (defaults) {
 		options.retry = {...defaults.retry};
 	} else {
 		options.retry = {
@@ -123,15 +123,22 @@ export const preNormalizeArguments = (options: Options, defaults?: NormalizedOpt
 
 export const normalizeArguments = (url: URLOrOptions, options?: Options, defaults?: NormalizedDefaults): NormalizedOptions => {
 	// Merge options
-	if (is.string(url)) {
-		options = merge({}, options);
+	if (typeof url === 'undefined') {
+		throw new TypeError('Missing `url` argument.');
+	}
+
+	if (typeof options === 'undefined') {
+		options = {};
+	}
+
+	if (is.urlInstance(url) || is.string(url)) {
 		options.url = url;
 	} else {
-		options = mergeOptions(url, options);
-
-		if (!Reflect.has(options, 'url')) {
-			options.url = '';
+		if (Reflect.has(url, 'resolve')) {
+			throw new Error('The legacy `url.Url` is deprecated. Use `URL` instead.');
 		}
+
+		options = mergeOptions(url, options);
 	}
 
 	// Merge defaults
@@ -143,21 +150,39 @@ export const normalizeArguments = (url: URLOrOptions, options?: Options, default
 
 	// Normalize URL
 	if (is.string(options.url)) {
-		if (Reflect.has(options, 'prefixUrl')) {
-			if (options.url.startsWith('/')) {
-				throw new Error('`url` must not begin with a slash when using `prefixUrl`');
-			} else {
-				options.url = options.prefixUrl.toString() + options.url;
-			}
+		if (options.prefixUrl) {
+			options.url = (options.prefixUrl as string) + options.url;
 		}
 
-		options.url = new URL(options.url.replace(/^unix:/, 'http://$&'));
-	} else if (Reflect.has(options.url, 'resolve')) {
-		throw new Error('The legacy `url.Url` is deprecated. Use `URL` instead.');
-	} else {
-		// TODO: Maybe drop URLOptions support in Got v12
-		options.url = optionsToUrl(options.url);
+		options.url = options.url.replace(/^unix:/, 'http://$&');
+
+		if (options.searchParams || options.search) {
+			options.url = options.url.split('?')[0];
+		}
+
+		options.url = optionsToUrl({
+			origin: options.url,
+			...options
+		});
+	} else if (!is.urlInstance(options.url)) {
+		options.url = optionsToUrl({origin: options.prefixUrl as string, ...options});
 	}
+
+	const normalizedOptions = options as NormalizedOptions;
+
+	// Make it possible to change `options.prefixUrl`
+	let prefixUrl = options.prefixUrl as string;
+	Object.defineProperty(options, 'prefixUrl', {
+		set: (value: string) => {
+			if (normalizedOptions.url.href.startsWith(value)) {
+				throw new Error(`Cannot change \`prefixUrl\` from ${prefixUrl} to ${value}: ${normalizedOptions.url.href}`);
+			}
+
+			normalizedOptions.url = new URL(value + normalizedOptions.url.href.slice(prefixUrl.length));
+			prefixUrl = value;
+		},
+		get: () => prefixUrl
+	});
 
 	// Make it possible to remove default headers
 	for (const [key, value] of Object.entries(options.headers)) {
@@ -172,14 +197,18 @@ export const normalizeArguments = (url: URLOrOptions, options?: Options, default
 		}
 
 		// @ts-ignore TS is dumb.
-		hook(options);
+		hook(normalizedOptions);
 	}
 
-	return options as NormalizedOptions;
+	return normalizedOptions;
 };
 
 const withoutBody: ReadonlySet<string> = new Set(['GET', 'HEAD']);
-type NormalizedRequestArguments = https.RequestOptions & {body: Pick<NormalizedOptions, 'body'>};
+
+type NormalizedRequestArguments = https.RequestOptions & {
+	body: Pick<NormalizedOptions, 'body'>;
+	url: Pick<NormalizedOptions, 'url'>;
+};
 
 export const normalizeRequestArguments = async (options: NormalizedOptions): Promise<NormalizedRequestArguments> => {
 	options = merge({}, options);
@@ -248,6 +277,19 @@ export const normalizeRequestArguments = async (options: NormalizedOptions): Pro
 		headers['accept-encoding'] = supportsBrotli ? 'gzip, deflate, br' : 'gzip, deflate';
 	}
 
+	// Validate URL
+	if (options.url.protocol !== 'http:' && options.url.protocol !== 'https:') {
+		throw new UnsupportedProtocolError(options);
+	}
+
+	decodeURI(options.url.toString());
+
+	// Normalize request function
+	if (!is.function_(options.request)) {
+		options.request = options.url.protocol === 'https:' ? https.request : http.request;
+	}
+
+	// UNIX sockets
 	if (options.url.hostname === 'unix') {
 		const matches = /(?<socketPath>.+?):(?<path>.+)/.exec(options.url.pathname);
 
@@ -272,18 +314,6 @@ export const normalizeRequestArguments = async (options: NormalizedOptions): Pro
 
 	if (options.dnsCache) {
 		options.lookup = options.dnsCache.lookup;
-	}
-
-	// Validate URL
-	if (options.url.protocol !== 'http:' && options.url.protocol !== 'https:') {
-		throw new UnsupportedProtocolError(options);
-	}
-
-	decodeURI(options.url.toString());
-
-	// Normalize request function
-	if (!is.function_(options.request)) {
-		options.request = options.url.protocol === 'https:' ? https.request : http.request;
 	}
 
 	/* istanbul ignore next: electron.net is broken */

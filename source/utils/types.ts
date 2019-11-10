@@ -2,6 +2,7 @@ import http = require('http');
 import https = require('https');
 import ResponseLike = require('responselike');
 import {Readable as ReadableStream} from 'stream';
+import {Except} from 'type-fest';
 import PCancelable = require('p-cancelable');
 import {CookieJar} from 'tough-cookie';
 import CacheableRequest = require('cacheable-request');
@@ -114,7 +115,8 @@ export interface Delays {
 export type Headers = Record<string, string | string[]>;
 
 // The library overrides the type definition of `agent`, `host`, 'headers and `timeout`.
-export interface Options {
+export interface Options extends URLOptions {
+	url?: URL | string;
 	body?: string | Buffer | ReadableStream;
 	hostname?: string;
 	socketPath?: string;
@@ -137,7 +139,6 @@ export interface Options {
 	prefixUrl?: URL | string;
 	timeout?: number | Delays;
 	dnsCache?: CacheableLookup | Map<string, string> | Keyv | false;
-	url?: URLOptions | URL | string;
 	useElectronNet?: boolean;
 	form?: Record<string, any>;
 	json?: Record<string, any>;
@@ -146,7 +147,7 @@ export interface Options {
 	lookup?: CacheableLookup['lookup'];
 }
 
-export interface NormalizedOptions extends Options {
+export interface NormalizedOptions extends Except<Options, keyof URLOptions> {
 	// Normalized Got options
 	headers: Headers;
 	hooks: Hooks;
@@ -155,7 +156,7 @@ export interface NormalizedOptions extends Options {
 	retry: Required<RetryOptions>;
 	readonly prefixUrl?: string;
 	method: Method;
-	url?: URL;
+	url: URL;
 	cacheableRequest?: (opts: string | URL | http.RequestOptions, cb?: (response: http.ServerResponse | ResponseLike) => void) => CacheableRequest.Emitter;
 
 	// UNIX socket support
@@ -179,7 +180,7 @@ export interface NormalizedDefaults {
 	mutableDefaults: boolean;
 }
 
-export type URLOrOptions = Options | Options['url'] | URLOptions;
+export type URLOrOptions = Options | string;
 
 export interface CancelableRequest<T extends http.IncomingMessage | Buffer | string | object> extends PCancelable<T> {
 	on(name: string, listener: () => void): CancelableRequest<T>;
