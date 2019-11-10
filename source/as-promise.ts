@@ -4,10 +4,9 @@ import getStream = require('get-stream');
 import is from '@sindresorhus/is';
 import PCancelable = require('p-cancelable');
 import {NormalizedOptions, Response, CancelableRequest} from './utils/types';
-import {mergeOptions} from './merge';
 import {ParseError, ReadError, HTTPError} from './errors';
 import requestAsEventEmitter from './request-as-event-emitter';
-import {normalizeArguments} from './normalize-arguments';
+import {normalizeArguments, mergeOptions} from './normalize-arguments';
 
 type ResponseReturn = Response | Buffer | string | any;
 

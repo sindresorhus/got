@@ -11,10 +11,10 @@ import {
 	NormalizedDefaults
 } from './utils/types';
 import deepFreeze from './utils/deep-freeze';
-import merge, {mergeOptions} from './merge';
+import merge from './merge';
 import asPromise, {isProxiedSymbol} from './as-promise';
 import asStream, {ProxyStream} from './as-stream';
-import {preNormalizeArguments, normalizeArguments} from './normalize-arguments';
+import {normalizeArguments, mergeOptions} from './normalize-arguments';
 import {Hooks} from './known-hook-events';
 
 export type HTTPAlias =
@@ -75,7 +75,7 @@ let hasShownDeprecation = false;
 const create = (nonNormalizedDefaults: Defaults): Got => {
 	const defaults: NormalizedDefaults = {
 		handlers: Reflect.has(nonNormalizedDefaults, 'handlers') ? merge([], nonNormalizedDefaults.handlers) : [defaultHandler],
-		options: preNormalizeArguments(mergeOptions(Reflect.has(nonNormalizedDefaults, 'options') ? nonNormalizedDefaults.options : {})),
+		options: mergeOptions(Reflect.has(nonNormalizedDefaults, 'options') ? nonNormalizedDefaults.options : {}),
 		mutableDefaults: Boolean(nonNormalizedDefaults.mutableDefaults)
 	};
 
@@ -117,7 +117,7 @@ const create = (nonNormalizedDefaults: Defaults): Got => {
 		};
 
 		try {
-			return iterateHandlers(normalizeArguments(url, options as NormalizedOptions, defaults));
+			return iterateHandlers(normalizeArguments(url, options, defaults));
 		} catch (error) {
 			if (isStream) {
 				throw error;
@@ -130,18 +130,18 @@ const create = (nonNormalizedDefaults: Defaults): Got => {
 
 	got.create = create;
 	got.extend = (...instancesOrOptions) => {
-		const options: Options[] = [defaults.options];
+		const optionsArray: Options[] = [defaults.options];
 		const handlers: HandlerFunction[] = [...defaults.handlers];
 		let mutableDefaults: boolean;
 
 		for (const value of instancesOrOptions) {
 			if (Reflect.has(value, 'defaults')) {
-				options.push((value as Got).defaults.options);
+				optionsArray.push((value as Got).defaults.options);
 				handlers.push(...(value as Got).defaults.handlers.filter(handler => handler !== defaultHandler));
 
 				mutableDefaults = (value as Got).defaults.mutableDefaults;
 			} else {
-				options.push(value as Options);
+				optionsArray.push(value as Options);
 
 				if (Reflect.has(value, 'handlers')) {
 					handlers.push(...(value as ExtendedOptions).handlers);
@@ -154,7 +154,7 @@ const create = (nonNormalizedDefaults: Defaults): Got => {
 		handlers.push(defaultHandler);
 
 		return create({
-			options: mergeOptions(...options),
+			options: mergeOptions(...optionsArray),
 			handlers,
 			mutableDefaults
 		});

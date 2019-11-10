@@ -9,6 +9,7 @@ const calculateRetryDelay: RetryFunction = ({attemptCount, retryOptions, error})
 		return 0;
 	}
 
+	// @ts-ignore TODO
 	const hasMethod = retryOptions.methods.includes((error as GotError).options.method);
 	const hasErrorCode = Reflect.has(error, 'code') && retryOptions.errorCodes.includes((error as GotError).code);
 	const hasStatusCode = Reflect.has(error, 'response') && retryOptions.statusCodes.includes((error as HTTPError | ParseError | MaxRedirectsError).response.statusCode);

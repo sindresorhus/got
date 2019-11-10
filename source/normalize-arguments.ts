@@ -8,7 +8,7 @@ import toReadableStream = require('to-readable-stream');
 import Keyv = require('keyv');
 import optionsToUrl from './utils/options-to-url';
 import {UnsupportedProtocolError} from './errors';
-import merge, {mergeOptions} from './merge';
+import merge from './merge';
 import knownHookEvents from './known-hook-events';
 import {
 	Options,
@@ -47,7 +47,9 @@ export const preNormalizeArguments = (options: Options, defaults?: NormalizedOpt
 	// `options.hooks`
 	if (is.nullOrUndefined(options.hooks)) {
 		options.hooks = {};
-	} else if (is.object(options.hooks)) {
+	}
+
+	if (is.object(options.hooks)) {
 		for (const event of knownHookEvents) {
 			if (Reflect.has(options.hooks, event)) {
 				if (!is.array(options.hooks[event])) {
@@ -59,6 +61,16 @@ export const preNormalizeArguments = (options: Options, defaults?: NormalizedOpt
 		}
 	} else {
 		throw new TypeError(`Parameter \`hooks\` must be an Object, not ${is(options.hooks)}`);
+	}
+
+	if (defaults) {
+		for (const event of knownHookEvents) {
+			// @ts-ignore TS is dumb.
+			options.hooks[event] = [
+				...defaults.hooks[event],
+				...options.hooks[event]
+			];
+		}
 	}
 
 	// `options.timeout`
@@ -113,12 +125,58 @@ export const preNormalizeArguments = (options: Options, defaults?: NormalizedOpt
 		options.method = options.method.toUpperCase() as Method;
 	}
 
-	// Better memory management
+	// Better memory management, so we don't have to generate a new object every time
 	if (Reflect.has(options, 'cache') && options.cache !== false) {
-		(options as NormalizedOptions).cacheableRequest = new CacheableRequest((options, handler) => options.request(options, handler), options.cache as any);
+		(options as NormalizedOptions).cacheableRequest = new CacheableRequest(
+			(options, handler) => options.request(options, handler),
+			options.cache as any
+		);
 	}
 
 	return options as NormalizedOptions;
+};
+
+export const mergeOptions = (...sources: Options[]): NormalizedOptions => {
+	sources = sources.map(source => merge({}, source || {}));
+
+	let defaults = preNormalizeArguments(sources[0]);
+	let mergedOptions: NormalizedOptions = defaults;
+
+	for (let index = 1; index < sources.length; index++) {
+		mergedOptions = merge({}, defaults, preNormalizeArguments(sources[index], defaults));
+		defaults = mergedOptions;
+	}
+
+	for (const source of sources) {
+		// We need to check `source` to allow calling `.extend()` with no arguments.
+		if (!source) {
+			continue;
+		}
+
+		if (Reflect.has(source, 'context')) {
+			Object.defineProperty(mergedOptions, 'context', {
+				writable: true,
+				configurable: true,
+				enumerable: false,
+				// @ts-ignore
+				value: source.context
+			});
+		}
+
+		if (Reflect.has(source, 'body')) {
+			mergedOptions.body = source.body;
+		}
+
+		if (Reflect.has(source, 'json')) {
+			mergedOptions.json = source.json;
+		}
+
+		if (Reflect.has(source, 'form')) {
+			mergedOptions.form = source.form;
+		}
+	}
+
+	return mergedOptions;
 };
 
 export const normalizeArguments = (url: URLOrOptions, options?: Options, defaults?: NormalizedDefaults): NormalizedOptions => {
@@ -133,19 +191,14 @@ export const normalizeArguments = (url: URLOrOptions, options?: Options, default
 
 	if (is.urlInstance(url) || is.string(url)) {
 		options.url = url;
+
+		options = mergeOptions(defaults && defaults.options, options);
 	} else {
 		if (Reflect.has(url, 'resolve')) {
 			throw new Error('The legacy `url.Url` is deprecated. Use `URL` instead.');
 		}
 
-		options = mergeOptions(url, options);
-	}
-
-	// Merge defaults
-	if (defaults) {
-		options = mergeOptions(defaults.options, preNormalizeArguments(options, defaults.options));
-	} else {
-		preNormalizeArguments(options);
+		options = mergeOptions(defaults && defaults.options, url, options);
 	}
 
 	// Normalize URL

@@ -55,9 +55,9 @@ test('throws an error on invalid response type', withServer, async (t, server, g
 
 	const error = await t.throwsAsync(got({responseType: 'invalid'}), /^Failed to parse body of type 'invalid'/);
 	// @ts-ignore
-	t.true(error.message.includes(error.options.hostname));
+	t.true(error.message.includes(error.options.url.hostname));
 	// @ts-ignore
-	t.is(error.options.path, '/');
+	t.is(error.options.url.pathname, '/');
 });
 
 test('doesn\'t parse responses without a body', withServer, async (t, server, got) => {
@@ -76,9 +76,9 @@ test('wraps parsing errors', withServer, async (t, server, got) => {
 
 	const error = await t.throwsAsync(got({responseType: 'json'}), got.ParseError);
 	// @ts-ignore
-	t.true(error.message.includes(error.options.hostname));
+	t.true(error.message.includes(error.options.url.hostname));
 	// @ts-ignore
-	t.is(error.options.path, '/');
+	t.is(error.options.url.pathname, '/');
 });
 
 test('parses non-200 responses', withServer, async (t, server, got) => {

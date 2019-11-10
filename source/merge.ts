@@ -1,6 +1,4 @@
 import is from '@sindresorhus/is';
-import {Options} from './utils/types';
-import knownHookEvents, {Hooks, HookEvent, HookType} from './known-hook-events';
 
 export default function merge<Target extends Record<string, any>, Source extends Record<string, any>>(target: Target, ...sources: Source[]): Target & Source {
 	for (const source of sources) {
@@ -41,49 +39,4 @@ export default function merge<Target extends Record<string, any>, Source extends
 	}
 
 	return target as Target & Source;
-}
-
-export function mergeOptions(...sources: Array<Partial<Options>>): Partial<Options> {
-	const mergedOptions = merge({}, ...sources);
-
-	const hooks = knownHookEvents.reduce((accumulator, current) => ({...accumulator, [current]: []}), {}) as Record<HookEvent, HookType[]>;
-
-	for (const source of sources) {
-		// We need to check `source` to allow calling `.extend()` with no arguments.
-		if (!source) {
-			continue;
-		}
-
-		if (Reflect.has(source, 'hooks')) {
-			for (const hook of knownHookEvents) {
-				hooks[hook] = hooks[hook].concat(source.hooks[hook] ?? []);
-			}
-		}
-
-		if (Reflect.has(source, 'context')) {
-			Object.defineProperty(mergedOptions, 'context', {
-				writable: true,
-				configurable: true,
-				enumerable: false,
-				// @ts-ignore
-				value: source.context
-			});
-		}
-
-		if (Reflect.has(source, 'body')) {
-			mergedOptions.body = source.body;
-		}
-
-		if (Reflect.has(source, 'json')) {
-			mergedOptions.json = source.json;
-		}
-
-		if (Reflect.has(source, 'form')) {
-			mergedOptions.form = source.form;
-		}
-	}
-
-	mergedOptions.hooks = hooks as Hooks;
-
-	return mergedOptions;
 }
