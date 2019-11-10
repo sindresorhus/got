@@ -137,13 +137,13 @@ export const preNormalizeArguments = (options: Options, defaults?: NormalizedOpt
 };
 
 export const mergeOptions = (...sources: Options[]): NormalizedOptions => {
-	sources = sources.map(source => merge({}, source || {}));
+	const prepare = (source: Options, defaults?: NormalizedOptions) => preNormalizeArguments(merge({}, source || {}), defaults);
 
-	let defaults = preNormalizeArguments(sources[0]);
+	let defaults = prepare(sources[0]);
 	let mergedOptions: NormalizedOptions = defaults;
 
 	for (let index = 1; index < sources.length; index++) {
-		mergedOptions = merge({}, defaults, preNormalizeArguments(sources[index], defaults));
+		mergedOptions = merge({}, defaults, prepare(sources[index], defaults));
 		defaults = mergedOptions;
 	}
 
