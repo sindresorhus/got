@@ -27,6 +27,14 @@ import supportsBrotli from './utils/supports-brotli';
 // `normalizeArguments` is *only* called on `got(...)`. It normalizes the URL and performs `mergeOptions(...)`.
 // `normalizeRequestArguments` converts Got options into HTTP options.
 
+type NonEnumerableProperty = 'context' | 'body' | 'json' | 'form';
+const nonEnumerableProperties: NonEnumerableProperty[] = [
+	'context',
+	'body',
+	'json',
+	'form'
+];
+
 export const preNormalizeArguments = (options: Options, defaults?: NormalizedOptions): NormalizedOptions => {
 	// `options.headers`
 	if (is.nullOrUndefined(options.headers)) {
@@ -133,47 +141,28 @@ export const preNormalizeArguments = (options: Options, defaults?: NormalizedOpt
 		);
 	}
 
+	// Non enumerable properties shall not be merged
+	const properties = {};
+
+	for (const name of nonEnumerableProperties) {
+		properties[name] = {
+			writable: true,
+			configurable: true,
+			enumerable: false,
+			value: options[name] || (defaults && defaults[name])
+		};
+	}
+
+	Object.defineProperties(options, properties);
+
 	return options as NormalizedOptions;
 };
 
 export const mergeOptions = (...sources: Options[]): NormalizedOptions => {
-	const prepare = (source: Options, defaults?: NormalizedOptions) => preNormalizeArguments(merge({}, source || {}), defaults);
-
-	let defaults = prepare(sources[0]);
-	let mergedOptions: NormalizedOptions = defaults;
-
-	for (let index = 1; index < sources.length; index++) {
-		mergedOptions = merge({}, defaults, prepare(sources[index], defaults));
-		defaults = mergedOptions;
-	}
+	let mergedOptions = preNormalizeArguments({});
 
 	for (const source of sources) {
-		// We need to check `source` to allow calling `.extend()` with no arguments.
-		if (!source) {
-			continue;
-		}
-
-		if (Reflect.has(source, 'context')) {
-			Object.defineProperty(mergedOptions, 'context', {
-				writable: true,
-				configurable: true,
-				enumerable: false,
-				// @ts-ignore
-				value: source.context
-			});
-		}
-
-		if (Reflect.has(source, 'body')) {
-			mergedOptions.body = source.body;
-		}
-
-		if (Reflect.has(source, 'json')) {
-			mergedOptions.json = source.json;
-		}
-
-		if (Reflect.has(source, 'form')) {
-			mergedOptions.form = source.form;
-		}
+		merge(mergedOptions, preNormalizeArguments(merge({}, source), mergedOptions));
 	}
 
 	return mergedOptions;
