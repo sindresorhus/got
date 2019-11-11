@@ -291,7 +291,7 @@ test('beforeRetry is called with options', withServer, async (t, server, got) =>
 		hooks: {
 			beforeRetry: [
 				(options, error, retryCount) => {
-					t.is(options.hostname, 'localhost');
+					t.is(options.url.hostname, 'localhost');
 					t.truthy(error);
 					t.true(retryCount >= 1);
 				}

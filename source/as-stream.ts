@@ -24,9 +24,11 @@ export default function asStream(options: NormalizedOptions): ProxyStream {
 			proxy.destroy();
 			throw new Error('Got\'s stream is not writable when the `body` option is used');
 		};
+	} else {
+		options.body = input;
 	}
 
-	const emitter = requestAsEventEmitter(options, input);
+	const emitter = requestAsEventEmitter(options);
 
 	const emitError = async (error: Error): Promise<void> => {
 		try {

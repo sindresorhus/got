@@ -1,7 +1,6 @@
 import {promisify} from 'util';
 import stream = require('stream');
 import EventEmitter = require('events');
-import {Transform as TransformStream} from 'stream';
 import http = require('http');
 import CacheableRequest = require('cacheable-request');
 import is from '@sindresorhus/is';
@@ -22,7 +21,7 @@ export interface RequestAsEventEmitter extends EventEmitter {
 	abort: () => void;
 }
 
-export default (options: NormalizedOptions, input?: TransformStream) => {
+export default (options: NormalizedOptions) => {
 	const emitter = new EventEmitter() as RequestAsEventEmitter;
 	const originalOptions = options;
 
@@ -201,26 +200,20 @@ export default (options: NormalizedOptions, input?: TransformStream) => {
 			}
 
 			try {
-				if (is.nodeStream(options.body)) {
-					const {body} = options;
-					delete options.body;
+				if (options.method === 'POST' || options.method === 'PUT' || options.method === 'PATCH') {
+					if (is.nodeStream(httpOptions.body)) {
+						// `stream.pipeline(…)` handles `error` for us.
+						request.removeListener('error', onError);
 
-					// `stream.pipeline(…)` handles `error` for us.
-					request.removeListener('error', onError);
-
-					stream.pipeline(
-						body,
-						request,
-						uploadComplete
-					);
-				} else if (httpOptions.body) {
-					request.end(httpOptions.body, uploadComplete);
-				} else if (input && (options.method === 'POST' || options.method === 'PUT' || options.method === 'PATCH')) {
-					stream.pipeline(
-						input,
-						request,
-						uploadComplete
-					);
+						stream.pipeline(
+							// @ts-ignore TS is dumb.
+							httpOptions.body,
+							request,
+							uploadComplete
+						);
+					} else {
+						request.end(httpOptions.body, uploadComplete);
+					}
 				} else {
 					request.end(uploadComplete);
 				}

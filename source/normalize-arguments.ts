@@ -141,29 +141,29 @@ export const preNormalizeArguments = (options: Options, defaults?: NormalizedOpt
 		);
 	}
 
-	// Non enumerable properties shall not be merged
-	const properties = {};
-
-	for (const name of nonEnumerableProperties) {
-		properties[name] = {
-			writable: true,
-			configurable: true,
-			enumerable: false,
-			value: options[name] || (defaults && defaults[name])
-		};
-	}
-
-	Object.defineProperties(options, properties);
-
 	return options as NormalizedOptions;
 };
 
 export const mergeOptions = (...sources: Options[]): NormalizedOptions => {
 	let mergedOptions = preNormalizeArguments({});
 
+	// Non enumerable properties shall not be merged
+	const properties = {};
+
 	for (const source of sources) {
 		merge(mergedOptions, preNormalizeArguments(merge({}, source), mergedOptions));
+
+		for (const name of nonEnumerableProperties) {
+			properties[name] = {
+				writable: true,
+				configurable: true,
+				enumerable: false,
+				value: source[name]
+			};
+		}
 	}
+
+	Object.defineProperties(mergedOptions, properties);
 
 	return mergedOptions;
 };
@@ -187,7 +187,7 @@ export const normalizeArguments = (url: URLOrOptions, options?: Options, default
 			throw new Error('The legacy `url.Url` is deprecated. Use `URL` instead.');
 		}
 
-		options = mergeOptions(defaults && defaults.options, url, options);
+		options = mergeOptions(defaults && defaults.options, merge({}, url, options));
 	}
 
 	// Normalize URL
@@ -253,15 +253,15 @@ type NormalizedRequestArguments = https.RequestOptions & {
 };
 
 export const normalizeRequestArguments = async (options: NormalizedOptions): Promise<NormalizedRequestArguments> => {
-	options = merge({}, options);
+	options = mergeOptions(options);
 
 	let uploadBodySize: number | undefined;
 
 	// Serialize body
-	const {body, headers} = options;
+	const {headers} = options;
 	const isForm = !is.nullOrUndefined(options.form);
 	const isJSON = !is.nullOrUndefined(options.json);
-	const isBody = !is.nullOrUndefined(body);
+	const isBody = !is.nullOrUndefined(options.body);
 	if ((isBody || isForm || isJSON) && withoutBody.has(options.method)) {
 		throw new TypeError(`The \`${options.method}\` method cannot be used with a body`);
 	}
@@ -271,12 +271,12 @@ export const normalizeRequestArguments = async (options: NormalizedOptions): Pro
 			throw new TypeError('The `body` option cannot be used with the `json` option or `form` option');
 		}
 
-		if (is.object(body) && isFormData(body)) {
+		if (is.object(options.body) && isFormData(options.body)) {
 			// Special case for https://github.com/form-data/form-data
 			if (!Reflect.has(headers, 'content-type')) {
-				headers['content-type'] = `multipart/form-data; boundary=${body.getBoundary()}`;
+				headers['content-type'] = `multipart/form-data; boundary=${options.body.getBoundary()}`;
 			}
-		} else if (!is.nodeStream(body) && !is.string(body) && !is.buffer(body)) {
+		} else if (!is.nodeStream(options.body) && !is.string(options.body) && !is.buffer(options.body)) {
 			throw new TypeError('The `body` option must be a stream.Readable, string or Buffer');
 		}
 	} else if (isForm) {
@@ -298,9 +298,9 @@ export const normalizeRequestArguments = async (options: NormalizedOptions): Pro
 	}
 
 	// Convert buffer to stream to receive upload progress events (#322)
-	if (is.buffer(body)) {
-		options.body = toReadableStream(body);
-		uploadBodySize = body.length;
+	if (is.buffer(options.body)) {
+		uploadBodySize = options.body.length;
+		options.body = toReadableStream(options.body);
 	} else {
 		uploadBodySize = await getBodySize(options);
 	}
