@@ -190,7 +190,10 @@ export default (options: NormalizedOptions) => {
 			request.on('error', onError);
 
 			timings = timer(request); // TODO: Make `@szmarczak/http-timer` set `request.timings` and `response.timings`
-			uploadProgress(request, emitter, Number(httpOptions.headers['content-length']));
+
+			const uploadBodySize = httpOptions.headers['content-length'] ? Number(httpOptions.headers['content-length']) : undefined;
+			uploadProgress(request, emitter, uploadBodySize);
+
 			timedOut(request, options.timeout, options.url);
 
 			emitter.emit('request', request);

@@ -151,9 +151,17 @@ export const mergeOptions = (...sources: Options[]): NormalizedOptions => {
 	const properties = {};
 
 	for (const source of sources) {
+		if (!source) {
+			continue;
+		}
+
 		merge(mergedOptions, preNormalizeArguments(merge({}, source), mergedOptions));
 
 		for (const name of nonEnumerableProperties) {
+			if (!Reflect.has(source, name)) {
+				continue;
+			}
+
 			properties[name] = {
 				writable: true,
 				configurable: true,
@@ -187,7 +195,7 @@ export const normalizeArguments = (url: URLOrOptions, options?: Options, default
 			throw new Error('The legacy `url.Url` is deprecated. Use `URL` instead.');
 		}
 
-		options = mergeOptions(defaults && defaults.options, merge({}, url, options));
+		options = mergeOptions(defaults && defaults.options, url, options);
 	}
 
 	// Normalize URL
@@ -305,8 +313,20 @@ export const normalizeRequestArguments = async (options: NormalizedOptions): Pro
 		uploadBodySize = await getBodySize(options);
 	}
 
+	// See https://tools.ietf.org/html/rfc7230#section-3.3.2
+	// A user agent SHOULD send a Content-Length in a request message when
+	// no Transfer-Encoding is sent and the request method defines a meaning
+	// for an enclosed payload body.  For example, a Content-Length header
+	// field is normally sent in a POST request even when the value is 0
+	// (indicating an empty payload body).  A user agent SHOULD NOT send a
+	// Content-Length header field when the request message does not contain
+	// a payload body and the method semantics do not anticipate such a
+	// body.
 	if (!Reflect.has(headers, 'content-length') && !Reflect.has(headers, 'transfer-encoding')) {
-		if ((uploadBodySize > 0 || options.method === 'PUT') && !is.undefined(uploadBodySize)) {
+		if (
+			(options.method === 'POST' || options.method === 'PUT' || options.method === 'PATCH') &&
+			!is.undefined(uploadBodySize)
+		) {
 			headers['content-length'] = String(uploadBodySize);
 		}
 	}

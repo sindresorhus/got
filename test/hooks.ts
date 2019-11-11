@@ -185,8 +185,8 @@ test('init is called with options', withServer, async (t, server, got) => {
 		hooks: {
 			init: [
 				options => {
-					t.is(options.path, '/');
-					t.is(options.hostname, 'localhost');
+					t.is(options.url.pathname, '/');
+					t.is(options.url.hostname, 'localhost');
 				}
 			]
 		}
@@ -218,8 +218,8 @@ test('beforeRequest is called with options', withServer, async (t, server, got) 
 		hooks: {
 			beforeRequest: [
 				options => {
-					t.is(options.path, '/');
-					t.is(options.hostname, 'localhost');
+					t.is(options.url.pathname, '/');
+					t.is(options.url.hostname, 'localhost');
 				}
 			]
 		}
@@ -251,8 +251,8 @@ test('beforeRedirect is called with options and response', withServer, async (t,
 		hooks: {
 			beforeRedirect: [
 				(options, response) => {
-					t.is(options.path, '/');
-					t.is(options.hostname, 'localhost');
+					t.is(options.url.pathname, '/');
+					t.is(options.url.hostname, 'localhost');
 
 					t.is(response.statusCode, 302);
 					t.is(new URL(response.url).pathname, '/redirect');

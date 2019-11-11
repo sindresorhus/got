@@ -24,8 +24,13 @@ export default function asStream(options: NormalizedOptions): ProxyStream {
 			proxy.destroy();
 			throw new Error('Got\'s stream is not writable when the `body` option is used');
 		};
-	} else {
+	} else if (options.method === 'POST' || options.method === 'PUT' || options.method === 'PATCH') {
 		options.body = input;
+	} else {
+		proxy.write = () => {
+			proxy.destroy();
+			throw new TypeError(`The \`${options.method}\` method cannot be used with a body`);
+		};
 	}
 
 	const emitter = requestAsEventEmitter(options);
