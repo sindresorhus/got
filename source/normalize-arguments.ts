@@ -124,8 +124,8 @@ export const preNormalizeArguments = (options: Options, defaults?: NormalizedOpt
 	options.retry.errorCodes = [...new Set(options.retry.errorCodes)];
 
 	// `options.dnsCache`
-	if (options.dnsCache && !(options instanceof CacheableLookup)) {
-		options.dnsCache = new CacheableLookup({cacheAdapter: options.dnsCache as Keyv | undefined});
+	if (options.dnsCache && !(options.dnsCache instanceof CacheableLookup)) {
+		options.dnsCache = new CacheableLookup({cacheAdapter: options.dnsCache as Keyv});
 	}
 
 	// `options.method`
@@ -145,7 +145,7 @@ export const preNormalizeArguments = (options: Options, defaults?: NormalizedOpt
 };
 
 export const mergeOptions = (...sources: Options[]): NormalizedOptions => {
-	let mergedOptions = preNormalizeArguments({});
+	const mergedOptions = preNormalizeArguments({});
 
 	// Non enumerable properties shall not be merged
 	const properties = {};
@@ -385,6 +385,8 @@ export const normalizeRequestArguments = async (options: NormalizedOptions): Pro
 		const electron = dynamicRequire(module, 'electron') as any; // Trick webpack
 		options.request = electron.net.request ?? electron.remote.net.request;
 	}
+
+	delete options.timeout;
 
 	return options as unknown as NormalizedRequestArguments;
 };

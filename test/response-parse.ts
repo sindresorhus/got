@@ -106,7 +106,7 @@ test('ignores errors on invalid non-200 responses', withServer, async (t, server
 	// @ts-ignore
 	t.is(error.response.body, 'Internal error');
 	// @ts-ignore
-	t.is(error.options.path, '/');
+	t.is(error.options.url.pathname, '/');
 });
 
 test('parse errors have `response` property', withServer, async (t, server, got) => {

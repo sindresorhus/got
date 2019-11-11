@@ -22,9 +22,12 @@ export interface URLOptions {
 }
 
 const keys = [
-	'port',
+	'protocol',
 	'username',
 	'password',
+	'host',
+	'hostname',
+	'port',
 	'pathname',
 	'search',
 	'hash'

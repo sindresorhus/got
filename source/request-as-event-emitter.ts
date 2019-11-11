@@ -58,7 +58,6 @@ export default (options: NormalizedOptions) => {
 		}
 
 		let httpOptions = await normalizeRequestArguments(options);
-		delete httpOptions.timeout;
 
 		let timings: Timings;
 		const handleResponse = async (response: http.ServerResponse | ResponseObject): Promise<void> => {
@@ -109,10 +108,16 @@ export default (options: NormalizedOptions) => {
 				if (options.followRedirect && Reflect.has(typedResponse.headers, 'location') && redirectCodes.has(statusCode)) {
 					typedResponse.resume(); // We're being redirected, we don't care about the response.
 
-					if (statusCode === 303 && options.method !== 'GET' && options.method !== 'HEAD') {
-						// Server responded with "see other", indicating that the resource exists at another location,
-						// and the client should request it from that location via GET or HEAD.
-						options.method = 'GET';
+					if (statusCode === 303) {
+						if (options.method !== 'GET' && options.method !== 'HEAD') {
+							// Server responded with "see other", indicating that the resource exists at another location,
+							// and the client should request it from that location via GET or HEAD.
+							options.method = 'GET';
+						}
+
+						delete options.body;
+						delete options.json;
+						delete options.form;
 					}
 
 					if (redirects.length >= options.maxRedirects) {
