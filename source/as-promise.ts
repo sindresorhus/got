@@ -17,7 +17,7 @@ export default function asPromise(options: NormalizedOptions): CancelableRequest
 
 	const parseBody = (response: Response): void => {
 		if (options.responseType === 'json') {
-			response.body = JSON.parse(response.body);
+			response.body = response.statusCode === 204 ? '' : JSON.parse(response.body);
 		} else if (options.responseType === 'buffer') {
 			response.body = Buffer.from(response.body);
 		} else if (options.responseType !== 'text' && !is.falsy(options.responseType)) {

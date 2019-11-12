@@ -199,6 +199,7 @@ export const normalizeArguments = (url: URLOrOptions, options?: Options, default
 	}
 
 	// Normalize URL
+	// TODO: drop `optionsToUrl` in Got 12
 	if (is.string(options.url)) {
 		if (options.prefixUrl) {
 			options.url = (options.prefixUrl as string) + options.url;

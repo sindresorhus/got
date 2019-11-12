@@ -129,3 +129,13 @@ test('sets correct headers', withServer, async (t, server, got) => {
 	t.is(headers['content-type'], 'application/json');
 	t.is(headers.accept, 'application/json');
 });
+
+test('doesn\'t throw on 204 No Content', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.statusCode = 204;
+		response.end();
+	});
+
+	const body = await got('').json();
+	t.is(body, '');
+});
