@@ -146,7 +146,7 @@ test('no unhandled errors', async t => {
 test('accepts custom `cookieJar` object - async', withServer, async (t, server, got) => {
 	server.get('/', (request, response) => {
 		response.setHeader('set-cookie', ['hello=world']);
-		response.end(request.headers['cookie']);
+		response.end(request.headers.cookie);
 	});
 
 	const cookies = {};
@@ -172,7 +172,7 @@ test('accepts custom `cookieJar` object - async', withServer, async (t, server, 
 test('accepts custom `cookieJar` object - sync', withServer, async (t, server, got) => {
 	server.get('/', (request, response) => {
 		response.setHeader('set-cookie', ['hello=world']);
-		response.end(request.headers['cookie']);
+		response.end(request.headers.cookie);
 	});
 
 	const cookies = {};
