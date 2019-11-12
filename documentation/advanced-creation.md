@@ -2,63 +2,6 @@
 
 > Make calling REST APIs easier by creating niche-specific `got` instances.
 
-#### got.extend(options)
-
-These are the same Got options described [here](../readme.md#options), plus these two:
-
-##### mutableDefaults
-
-Type: `boolean`<br>
-Default: `false`
-
-States if the defaults are mutable. It can be useful when you need to [update headers over time](../readme.md#hooksafterresponse), for example, update an access token when it expires.
-
-##### handlers
-
-Type: `Function[]`<br>
-Default: `[]`
-
-An array of functions. You execute them directly by calling `got()`. They are some sort of "global hooks" - these functions are called first. The last handler (*it's hidden*) is either [`asPromise`](../source/as-promise.ts) or [`asStream`](../source/as-stream.ts), depending on the `options.isStream` property.
-
-To inherit from the parent, set it as `got.defaults.handlers`.<br>
-To use the default handler, just omit specifying this.
-
-Each handler takes two arguments:
-
-###### [options](readme.md#options)
-
-**Note:** These options are [normalized](source/normalize-arguments.js).
-
-###### next()
-
-Returns a `Promise` or a `Stream` depending on [`options.isStream`](../readme.md#isstream).
-
-```js
-const settings = {
-	handlers: [
-		(options, next) => {
-			if (options.isStream) {
-				// It's a Stream, so we can perform stream-specific actions on it
-				return next(options)
-					.on('request', request => {
-						setTimeout(() => {
-							request.abort();
-						}, 50);
-					});
-			}
-
-			// It's a Promise
-			return next(options);
-		}
-	],
-	options: got.mergeOptions(got.defaults.options, {
-		responseType: 'json'
-	})
-};
-
-const jsonGot = got.create(settings);
-```
-
 ### Merging instances
 
 Got supports composing multiple instances together. This is very powerful. You can create a client that limits download speed and then compose it with an instance that signs a request. It's like plugins without any of the plugin mess. You just create instances and then compose them together.

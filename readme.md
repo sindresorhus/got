@@ -787,8 +787,6 @@ client.get('/demo');
 })();
 ```
 
-**Tip:** Need more control over the behavior of Got? Check out the [`got.create()`](documentation/advanced-creation.md).
-
 Additionally, `got.extend()` accepts two properties from the `defaults` object: `mutableDefaults` and `handlers`. Example:
 
 ```js
@@ -804,6 +802,34 @@ const mergedHandlers = got.extend({
 		}
 	]
 });
+```
+
+**Note:** Handlers can be asynchronous. The recommended approach is:
+
+```js
+const handler = (options, next) => {
+	if (options.stream) {
+		// It's a Stream
+		return next(options);
+	}
+
+	// It's a Promise
+	return (async () => {
+		try {
+			const response = await next(options);
+			response.yourOwnProperty = true;
+			return response;
+		} catch (error) {
+			// Every error will be replaced by this one.
+			// Before you receive any error here,
+			// it will be passed to the `beforeError` hooks first.
+			// Note: this one won't be passed to `beforeError` hook. It's final.
+			throw new Error('Your very own error.');
+		}
+	})();
+};
+
+const instance = got.extend({handlers: [handler]});
 ```
 
 #### got.extend(...instances)
@@ -860,7 +886,57 @@ Options are deeply merged to a new object. The value of each key is determined a
 
 Type: `object`
 
-The default Got options used in that instance.
+The Got defaults used in that instance.
+
+##### [options](readme.md#options)
+
+##### handlers
+
+Type: `Function[]`<br>
+Default: `[]`
+
+An array of functions. You execute them directly by calling `got()`. They are some sort of "global hooks" - these functions are called first. The last handler (*it's hidden*) is either [`asPromise`](../source/as-promise.ts) or [`asStream`](../source/as-stream.ts), depending on the `options.isStream` property.
+
+Each handler takes two arguments:
+
+###### [options](readme.md#options)
+
+###### next()
+
+Returns a `Promise` or a `Stream` depending on [`options.isStream`](../readme.md#isstream).
+
+```js
+const settings = {
+	handlers: [
+		(options, next) => {
+			if (options.isStream) {
+				// It's a Stream, so we can perform stream-specific actions on it
+				return next(options)
+					.on('request', request => {
+						setTimeout(() => {
+							request.abort();
+						}, 50);
+					});
+			}
+
+			// It's a Promise
+			return next(options);
+		}
+	],
+	options: got.mergeOptions(got.defaults.options, {
+		responseType: 'json'
+	})
+};
+
+const jsonGot = got.create(settings);
+```
+
+##### mutableDefaults
+
+Type: `boolean`<br>
+Default: `false`
+
+A read-only boolean describing whether the defaults are mutable or not. If set to `true`, you can [update headers over time](../readme.md#hooksafterresponse), for example, update an access token when it expires.
 
 ## Errors
 
