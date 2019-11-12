@@ -2,7 +2,7 @@ import http = require('http');
 import https = require('https');
 import ResponseLike = require('responselike');
 import {Readable as ReadableStream} from 'stream';
-import {Except} from 'type-fest';
+import {Except, Merge} from 'type-fest';
 import PCancelable = require('p-cancelable');
 import {CookieJar} from 'tough-cookie';
 import CacheableRequest = require('cacheable-request');
@@ -182,8 +182,20 @@ export interface NormalizedDefaults {
 
 export type URLOrOptions = Options | string;
 
-export interface CancelableRequest<T extends http.IncomingMessage | Buffer | string | object> extends PCancelable<T> {
-	on(name: string, listener: () => void): CancelableRequest<T>;
+export interface Progress {
+	percent: number;
+	transfered: number;
+	total?: number;
+}
+
+export interface GotEvents<T> {
+	on(name: 'request', listener: (request: http.ClientRequest) => void): T;
+	on(name: 'response', listener: (response: Response) => void): T;
+	on(name: 'redirect', listener: (response: Response, nextOptions: NormalizedOptions) => void): T;
+	on(name: 'uploadProgress' | 'downloadProgress', listener: (progress: Progress) => void): T;
+}
+
+export interface CancelableRequest<T extends http.IncomingMessage | Buffer | string | object> extends Merge<PCancelable<T>, GotEvents<CancelableRequest<T>>> {
 	json<TReturnType extends object>(): CancelableRequest<TReturnType>;
 	buffer<TReturnType extends Buffer>(): CancelableRequest<TReturnType>;
 	text<TReturnType extends string>(): CancelableRequest<TReturnType>;

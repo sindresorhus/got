@@ -4,9 +4,9 @@ import {IncomingMessage} from 'http';
 import duplexer3 = require('duplexer3');
 import requestAsEventEmitter from './request-as-event-emitter';
 import {HTTPError, ReadError} from './errors';
-import {NormalizedOptions, Response} from './utils/types';
+import {NormalizedOptions, Response, GotEvents} from './utils/types';
 
-export class ProxyStream extends DuplexStream {
+export class ProxyStream extends DuplexStream implements GotEvents<ProxyStream> {
 	isFromCache?: boolean;
 }
 

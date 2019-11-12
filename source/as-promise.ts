@@ -25,6 +25,7 @@ export default function asPromise(options: NormalizedOptions): CancelableRequest
 		}
 	};
 
+	// @ts-ignore `.json()`, `.buffer()` and `.text()` are added later
 	const promise = new PCancelable<IncomingMessage>((resolve, reject, onCancel) => {
 		const emitter = requestAsEventEmitter(options);
 		onCancel(emitter.abort);
