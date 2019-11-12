@@ -11,7 +11,7 @@ import {
 	NormalizedDefaults
 } from './utils/types';
 import deepFreeze from './utils/deep-freeze';
-import merge from './merge';
+import merge from './utils/merge';
 import asPromise, {isProxiedSymbol} from './as-promise';
 import asStream, {ProxyStream} from './as-stream';
 import {normalizeArguments, mergeOptions} from './normalize-arguments';

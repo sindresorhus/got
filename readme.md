@@ -1303,7 +1303,7 @@ const got = require('got');
 
 ### User Agent
 
-It's a good idea to set the `'user-agent'` header so the provider can more easily see how their resource is used. By default, it's the URL to this repo. You can omit this header by setting it to `null`.
+It's a good idea to set the `'user-agent'` header so the provider can more easily see how their resource is used. By default, it's the URL to this repo. You can omit this header by setting it to `undefined` (or `null`).
 
 ```js
 const got = require('got');
@@ -1317,7 +1317,7 @@ got('https://sindresorhus.com', {
 
 got('https://sindresorhus.com', {
 	headers: {
-		'user-agent': null
+		'user-agent': undefined
 	}
 });
 ```

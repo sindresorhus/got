@@ -195,7 +195,7 @@ test('removes null value headers', withServer, async (t, server, got) => {
 	t.false(Reflect.has(headers, 'user-agent'));
 });
 
-test('setting a header to undefined keeps the old value', withServer, async (t, server, got) => {
+test('removes undefined value headers', withServer, async (t, server, got) => {
 	server.get('/', echoHeaders);
 
 	const {body} = await got({
@@ -204,7 +204,7 @@ test('setting a header to undefined keeps the old value', withServer, async (t, 
 		}
 	});
 	const headers = JSON.parse(body);
-	t.not(headers['user-agent'], undefined);
+	t.is(headers['user-agent'], undefined);
 });
 
 test('non-existent headers set to undefined are omitted', withServer, async (t, server, got) => {

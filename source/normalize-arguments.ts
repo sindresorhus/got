@@ -8,7 +8,7 @@ import toReadableStream = require('to-readable-stream');
 import Keyv = require('keyv');
 import optionsToUrl from './utils/options-to-url';
 import {UnsupportedProtocolError} from './errors';
-import merge from './merge';
+import merge from './utils/merge';
 import knownHookEvents from './known-hook-events';
 import {
 	Options,

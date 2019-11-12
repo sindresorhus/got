@@ -3,10 +3,6 @@ import is from '@sindresorhus/is';
 export default function merge<Target extends Record<string, any>, Source extends Record<string, any>>(target: Target, ...sources: Source[]): Target & Source {
 	for (const source of sources) {
 		for (const [key, sourceValue] of Object.entries(source)) {
-			if (is.undefined(sourceValue)) {
-				continue;
-			}
-
 			const targetValue = target[key];
 			if (targetValue instanceof URLSearchParams && sourceValue instanceof URLSearchParams) {
 				const params = new URLSearchParams();
