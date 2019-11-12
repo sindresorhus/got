@@ -2,32 +2,23 @@
 
 > Make calling REST APIs easier by creating niche-specific `got` instances.
 
-#### got.create(settings)
+#### got.extend(options)
 
-Example: [gh-got](https://github.com/sindresorhus/gh-got/blob/master/index.js)
-
-Configures a new `got` instance with the provided settings. You can access the resolved options with the `.defaults` property on the instance.
-
-**Note:** In contrast to [`got.extend()`](../readme.md#gotextendinstances), this method has no defaults.
-
-##### [options](readme.md#options)
-
-To inherit from the parent, set it to `got.defaults.options` or use [`got.mergeOptions(defaults.options, options)`](../readme.md#gotmergeoptionsparentoptions-newoptions).<br>
-**Note:** Avoid using [object spread](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Spread_syntax#Spread_in_object_literals) as it doesn't work recursively.
+These are the same Got options described [here](../readme.md#options), plus these two:
 
 ##### mutableDefaults
 
 Type: `boolean`<br>
 Default: `false`
 
-States if the defaults are mutable. It can be useful when you need to [update headers over time](readme.md#hooksafterresponse), for example, update an access token when it expires.
+States if the defaults are mutable. It can be useful when you need to [update headers over time](../readme.md#hooksafterresponse), for example, update an access token when it expires.
 
 ##### handlers
 
 Type: `Function[]`<br>
 Default: `[]`
 
-An array of functions. You execute them directly by calling `got()`. They are some sort of "global hooks" - these functions are called first. The last handler (*it's hidden*) is either [`asPromise`](../source/as-promise.ts) or [`asStream`](../source/as-stream.ts), depending on the `options.stream` property.
+An array of functions. You execute them directly by calling `got()`. They are some sort of "global hooks" - these functions are called first. The last handler (*it's hidden*) is either [`asPromise`](../source/as-promise.ts) or [`asStream`](../source/as-stream.ts), depending on the `options.isStream` property.
 
 To inherit from the parent, set it as `got.defaults.handlers`.<br>
 To use the default handler, just omit specifying this.
@@ -40,13 +31,13 @@ Each handler takes two arguments:
 
 ###### next()
 
-Returns a `Promise` or a `Stream` depending on [`options.stream`](readme.md#stream).
+Returns a `Promise` or a `Stream` depending on [`options.isStream`](../readme.md#isstream).
 
 ```js
 const settings = {
 	handlers: [
 		(options, next) => {
-			if (options.stream) {
+			if (options.isStream) {
 				// It's a Stream, so we can perform stream-specific actions on it
 				return next(options)
 					.on('request', request => {
@@ -66,53 +57,6 @@ const settings = {
 };
 
 const jsonGot = got.create(settings);
-```
-
-Sometimes you don't need to use `got.create(defaults)`. You should go for `got.extend(options)` if you don't want to overwrite the defaults:
-
-```js
-const settings = {
-	handler: got.defaults.handler,
-	options: got.mergeOptions(got.defaults.options, {
-		headers: {
-			unicorn: 'rainbow'
-		}
-	})
-};
-
-const unicorn = got.create(settings);
-
-// Same as:
-const unicorn = got.extend({headers: {unicorn: 'rainbow'}});
-```
-
-**Note:** Handlers can be asynchronous. The recommended approach is:
-
-```js
-const handler = (options, next) => {
-	if (options.stream) {
-		// It's a Stream
-		return next(options);
-	}
-
-	// It's a Promise
-	return (async () => {
-		try {
-			const response = await next(options);
-
-			response.yourOwnProperty = true;
-
-			return response;
-		} catch (error) {
-			// Every error will be replaced by this one.
-			// Before you receive any error here,
-			// it will be passed to the `beforeError` hooks first.
-
-			// Note: this one won't be passed to `beforeError` hook. It's final.
-			throw new Error('Your very own error.');
-		}
-	})();
-};
 ```
 
 ### Merging instances

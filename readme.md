@@ -108,7 +108,7 @@ It's a `GET` request by default, but can be changed by using different methods o
 
 #### got([url], [options])
 
-Returns a Promise for a [`response` object](#response) or a [stream](#streams-1) if `options.stream` is set to true.
+Returns a Promise for a [`response` object](#response) or a [stream](#streams-1) if `options.isStream` is set to true.
 
 ##### url
 
@@ -675,7 +675,7 @@ The number of times the request was retried.
 
 #### got.stream(url, [options])
 
-Sets `options.stream` to `true`.
+Sets `options.isStream` to `true`.
 
 Returns a [duplex stream](https://nodejs.org/api/stream.html#stream_class_stream_duplex) with additional events:
 

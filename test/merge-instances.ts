@@ -20,27 +20,11 @@ test('merging instances', withServer, async (t, server) => {
 	t.not(headers['user-agent'], undefined);
 });
 
-test('works even if no default handler in the end', withServer, async (t, server) => {
-	server.get('/', echoHeaders);
-
-	const instanceA = got.create({
-		options: {}
-	});
-
-	const instanceB = got.create({
-		options: {}
-	});
-
-	const merged = instanceA.extend(instanceB);
-	await t.notThrowsAsync(merged(server.url));
-});
-
 test('merges default handlers & custom handlers', withServer, async (t, server) => {
 	server.get('/', echoHeaders);
 
 	const instanceA = got.extend({headers: {unicorn: 'rainbow'}});
-	const instanceB = got.create({
-		options: {},
+	const instanceB = got.extend({
 		handlers: [
 			(options, next) => {
 				options.headers.cat = 'meow';
@@ -113,36 +97,4 @@ test('hooks are merged', t => {
 
 	const merged = instanceA.extend(instanceB);
 	t.deepEqual(getBeforeRequestHooks(merged), getBeforeRequestHooks(instanceA).concat(getBeforeRequestHooks(instanceB)));
-});
-
-test('hooks are passed by though other instances don\'t have them', t => {
-	const instanceA = got.extend({hooks: {
-		beforeRequest: [
-			options => {
-				options.headers.dog = 'woof';
-			}
-		]
-	}});
-	const instanceB = got.create({
-		options: {}
-	});
-	const instanceC = got.create({
-		options: {hooks: {}}
-	});
-
-	const merged = instanceA.extend(instanceB, instanceC);
-	t.deepEqual(merged.defaults.options.hooks.beforeRequest, instanceA.defaults.options.hooks.beforeRequest);
-});
-
-// TODO: remove this before Got v11
-test('`got.mergeInstances()` works', t => {
-	const instance = got.mergeInstances(got, got.create({
-		options: {
-			headers: {
-				'user-agent': null
-			}
-		}
-	}));
-
-	t.is(instance.defaults.options.headers['user-agent'], null);
 });

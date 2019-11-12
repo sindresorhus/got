@@ -63,8 +63,7 @@ test('options are optional', withServer, async (t, server, got) => {
 test('methods are normalized', withServer, async (t, server, got) => {
 	server.post('/test', echoUrl);
 
-	const instance = got.create({
-		options: got.defaults.options,
+	const instance = got.extend({
 		handlers: [
 			(options, next) => {
 				if (options.method === options.method.toUpperCase()) {
@@ -241,8 +240,8 @@ test('backslash in the end of `prefixUrl` option is optional', withServer, async
 test('`prefixUrl` can be changed if the URL contains the old one', withServer, async (t, server) => {
 	server.get('/', echoUrl);
 
-	const instanceA = got.create({
-		options: {prefixUrl: 'https://example.com'},
+	const instanceA = got.extend({
+		prefixUrl: 'https://example.com',
 		handlers: [
 			(options, next) => {
 				// @ts-ignore Even though we know it's read only, we need to test it.

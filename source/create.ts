@@ -48,7 +48,6 @@ export interface Got extends Record<HTTPAlias, ReturnResponse> {
 	(url: URLOrOptions | Options & {stream?: false}, options?: Options & {stream?: false}): CancelableRequest<Response>;
 	(url: URLOrOptions | Options & {stream: true}, options?: Options & {stream: true}): ProxyStream;
 	(url: URLOrOptions, options?: Options): CancelableRequest<Response> | ProxyStream;
-	create(defaults: Defaults): Got;
 	extend(...instancesOrOptions: Array<Got | ExtendedOptions>): Got;
 	mergeInstances(parent: Got, ...instances: Got[]): Got;
 	mergeOptions<T extends Options>(...sources: T[]): T & {hooks: Partial<Hooks>};
@@ -68,9 +67,6 @@ const aliases: readonly HTTPAlias[] = [
 ];
 
 const defaultHandler: HandlerFunction = (options, next) => next(options);
-
-// `got.mergeInstances()` is deprecated
-let hasShownDeprecation = false;
 
 const create = (nonNormalizedDefaults: Defaults): Got => {
 	const defaults: NormalizedDefaults = {
@@ -128,7 +124,6 @@ const create = (nonNormalizedDefaults: Defaults): Got => {
 		}
 	};
 
-	got.create = create;
 	got.extend = (...instancesOrOptions) => {
 		const optionsArray: Options[] = [defaults.options];
 		const handlers: HandlerFunction[] = [...defaults.handlers];
@@ -158,15 +153,6 @@ const create = (nonNormalizedDefaults: Defaults): Got => {
 			handlers,
 			mutableDefaults
 		});
-	};
-
-	got.mergeInstances = (parent, ...instances) => {
-		if (!hasShownDeprecation) {
-			console.warn('`got.mergeInstances()` is deprecated. We support it solely for compatibility - it will be removed in Got 11. Use `instance.extend(...instances)` instead.');
-			hasShownDeprecation = true;
-		}
-
-		return parent.extend(...instances);
 	};
 
 	// @ts-ignore The missing methods because the for-loop handles it for us
