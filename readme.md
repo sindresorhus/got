@@ -246,11 +246,19 @@ When set to `true` the promise will return the [Response body](#body-1) instead 
 
 ###### cookieJar
 
-Type: [`tough.CookieJar` instance](https://github.com/salesforce/tough-cookie#cookiejar)
+Type: `object` | [`tough.CookieJar` instance](https://github.com/salesforce/tough-cookie#cookiejar)
 
 **Note:** If you provide this option, `options.headers.cookie` will be overridden.
 
-Cookie support. You don't have to care about parsing or how to store them. [Example.](#cookies)
+Cookie support. You don't have to care about parsing or how to store them. [Example](#cookies).
+
+###### cookieJar.setCookie
+
+The function takes two arguments: `rawCookie` (`string`) and `url` (`string`). It needs to be an async function or some callback-style function.
+
+###### cookieJar.getCookieString
+
+The function takes one argument: `url` (`string`). It needs to be an async function or some callback-style function.
 
 ###### ignoreInvalidCookies
 

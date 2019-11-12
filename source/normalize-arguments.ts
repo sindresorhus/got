@@ -1,3 +1,4 @@
+import {promisify} from 'util';
 import http = require('http');
 import https = require('https');
 import CacheableLookup from 'cacheable-lookup';
@@ -139,6 +140,21 @@ export const preNormalizeArguments = (options: Options, defaults?: NormalizedOpt
 			(options, handler) => options.request(options, handler),
 			options.cache as any
 		);
+	}
+
+	// `options.cookieJar`
+	if (options.cookieJar) {
+		let {setCookie, getCookieString} = options.cookieJar;
+
+		if (!is.asyncFunction(setCookie)) {
+			setCookie = promisify(options.cookieJar.setCookie.bind(options.cookieJar));
+		}
+
+		if (!is.asyncFunction(getCookieString)) {
+			getCookieString = promisify(options.cookieJar.getCookieString.bind(options.cookieJar));
+		}
+
+		options.cookieJar = {setCookie, getCookieString};
 	}
 
 	return options as NormalizedOptions;

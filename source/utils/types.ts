@@ -4,7 +4,6 @@ import ResponseLike = require('responselike');
 import {Readable as ReadableStream} from 'stream';
 import {Except, Merge} from 'type-fest';
 import PCancelable = require('p-cancelable');
-import {CookieJar} from 'tough-cookie';
 import CacheableRequest = require('cacheable-request');
 import CacheableLookup from 'cacheable-lookup';
 import Keyv = require('keyv');
@@ -114,6 +113,13 @@ export interface Delays {
 
 export type Headers = Record<string, string | string[]>;
 
+interface CookieJar {
+	getCookieString(url: string, callback: (error: Error, cookieHeader: string) => void): void;
+	getCookieString(url: string): Promise<string>;
+	setCookie(rawCookie: string, url: string, callback: (error: Error, result: unknown) => void): void;
+	setCookie(rawCookie: string, url: string): Promise<unknown>;
+}
+
 // The library overrides the type definition of `agent`, `host`, 'headers and `timeout`.
 export interface Options extends URLOptions {
 	url?: URL | string;
@@ -127,7 +133,7 @@ export interface Options extends URLOptions {
 	method?: Method;
 	retry?: number | RetryOptions;
 	throwHttpErrors?: boolean;
-	cookieJar?: Pick<CookieJar, 'getCookieString' | 'setCookie'>;
+	cookieJar?: CookieJar;
 	ignoreInvalidCookies?: boolean;
 	request?: RequestFunction;
 	agent?: http.Agent | https.Agent | boolean | AgentByProtocol;

@@ -1,4 +1,3 @@
-import {promisify} from 'util';
 import stream = require('stream');
 import EventEmitter = require('events');
 import http = require('http');
@@ -32,9 +31,6 @@ export default (options: NormalizedOptions) => {
 	let currentRequest: http.ClientRequest;
 	let shouldAbort = false;
 
-	const setCookie = options.cookieJar && promisify(options.cookieJar.setCookie.bind(options.cookieJar));
-	const getCookieString = options.cookieJar && promisify(options.cookieJar.getCookieString.bind(options.cookieJar));
-
 	const emitError = async (error: Error): Promise<void> => {
 		try {
 			for (const hook of options.hooks.beforeError) {
@@ -50,7 +46,7 @@ export default (options: NormalizedOptions) => {
 
 	const get = async (options: NormalizedOptions): Promise<void> => {
 		if (Reflect.has(options, 'cookieJar')) {
-			const cookieString = await getCookieString(options.url.toString());
+			const cookieString = await options.cookieJar.getCookieString(options.url.toString());
 
 			if (is.nonEmptyString(cookieString)) {
 				options.headers.cookie = cookieString;
@@ -95,8 +91,8 @@ export default (options: NormalizedOptions) => {
 				}
 
 				const rawCookies = typedResponse.headers['set-cookie'];
-				if (options.cookieJar && rawCookies) {
-					let promises: Array<Promise<unknown>> = rawCookies.map((rawCookie: string) => setCookie(rawCookie, typedResponse.url));
+				if (Reflect.has(options, 'cookieJar') && rawCookies) {
+					let promises: Array<Promise<unknown>> = rawCookies.map((rawCookie: string) => options.cookieJar.setCookie(rawCookie, typedResponse.url));
 
 					if (options.ignoreInvalidCookies) {
 						promises = promises.map(p => p.catch(() => {}));

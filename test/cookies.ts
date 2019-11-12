@@ -142,3 +142,57 @@ test('no unhandled errors', async t => {
 
 	server.close();
 });
+
+test('accepts custom `cookieJar` object - async', withServer, async (t, server, got) => {
+	server.get('/', (request, response) => {
+		response.setHeader('set-cookie', ['hello=world']);
+		response.end(request.headers['cookie']);
+	});
+
+	const cookies = {};
+	const cookieJar = {
+		async getCookieString(url) {
+			t.is(typeof url, 'string');
+
+			return cookies[url];
+		},
+
+		async setCookie(rawCookie, url) {
+			cookies[url] = rawCookie;
+		}
+	};
+
+	const first = await got('', {cookieJar});
+	const second = await got('', {cookieJar});
+
+	t.is(first.body, '');
+	t.is(second.body, 'hello=world');
+});
+
+test('accepts custom `cookieJar` object - sync', withServer, async (t, server, got) => {
+	server.get('/', (request, response) => {
+		response.setHeader('set-cookie', ['hello=world']);
+		response.end(request.headers['cookie']);
+	});
+
+	const cookies = {};
+	const cookieJar = {
+		getCookieString(url, callback) {
+			t.is(typeof url, 'string');
+
+			callback(null, cookies[url]);
+		},
+
+		setCookie(rawCookie, url, callback) {
+			cookies[url] = rawCookie;
+
+			callback(null);
+		}
+	};
+
+	const first = await got('', {cookieJar});
+	const second = await got('', {cookieJar});
+
+	t.is(first.body, '');
+	t.is(second.body, 'hello=world');
+});
