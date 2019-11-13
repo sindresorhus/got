@@ -1,25 +1,22 @@
-import {format} from 'url';
+import {format, URL, UrlObject} from 'url';
 import is from '@sindresorhus/is';
 import {Timings} from '@szmarczak/http-timer';
-import {Response, NormalizedOptions} from './utils/types';
+import {ErrorCode, Response, NormalizedOptions} from './utils/types';
 import {TimeoutError as TimedOutError} from './utils/timed-out';
 
 export class GotError extends Error {
-	code?: string;
+	code?: ErrorCode;
 	readonly options: NormalizedOptions;
 
-	constructor(message: string, error: (Error & {code?: string}) | {code?: string}, options: NormalizedOptions) {
+	constructor(message: string, error: (Error & {code?: ErrorCode}) | {code?: ErrorCode}, options: NormalizedOptions) {
 		super(message);
 		Error.captureStackTrace(this, this.constructor);
 		this.name = 'GotError';
+		this.options = options;
 
 		if (!is.undefined(error.code)) {
 			this.code = error.code;
 		}
-
-		Object.defineProperty(this, 'options', {
-			value: options
-		});
 	}
 }
 
@@ -48,12 +45,9 @@ export class ParseError extends GotError {
 	readonly response: Response;
 
 	constructor(error: Error, response: Response, options: NormalizedOptions) {
-		super(`${error.message} in "${format(options as unknown as URL)}"`, error, options);
+		super(`${error.message} in "${format(options as unknown as URL | UrlObject)}"`, error, options);
 		this.name = 'ParseError';
-
-		Object.defineProperty(this, 'response', {
-			value: response
-		});
+		this.response = response;
 	}
 }
 
@@ -61,14 +55,9 @@ export class HTTPError extends GotError {
 	readonly response: Response;
 
 	constructor(response: Response, options: NormalizedOptions) {
-		const {statusCode, statusMessage} = response;
-
-		super(`Response code ${statusCode} (${statusMessage})`, {}, options);
+		super(`Response code ${response.statusCode} (${response.statusMessage})`, {}, options);
 		this.name = 'HTTPError';
-
-		Object.defineProperty(this, 'response', {
-			value: response
-		});
+		this.response = response;
 	}
 }
 
@@ -78,10 +67,7 @@ export class MaxRedirectsError extends GotError {
 	constructor(response: Response, maxRedirects: number, options: NormalizedOptions) {
 		super(`Redirected ${maxRedirects} times. Aborting.`, {}, options);
 		this.name = 'MaxRedirectsError';
-
-		Object.defineProperty(this, 'response', {
-			value: response
-		});
+		this.response = response;
 	}
 }
 
