@@ -112,13 +112,13 @@ const create = (nonNormalizedDefaults: Defaults): Got => {
 			// Proxy the properties from the next handler to this one
 			if (isCancelableRequest(result, isStream)) {
 				for (const key of Object.keys(nextPromise)) {
-					const tempKey = key as keyof typeof nextPromise;
+					const promiseKey = key as keyof typeof nextPromise;
 					Object.defineProperty(result, key, {
-						get: () => nextPromise[tempKey],
+						get: () => nextPromise[promiseKey],
 						set: (value: unknown) => {
 							// FIXME: This will warn because there are readonly keys on nextPromise
 							// @ts-ignore
-							nextPromise[tempKey] = value;
+							nextPromise[promiseKey] = value;
 						}
 					});
 				}
@@ -153,7 +153,7 @@ const create = (nonNormalizedDefaults: Defaults): Got => {
 				options.push(value.defaults.options!);
 				handlers.push(...value.defaults.handlers!.filter(handler => handler !== defaultHandler));
 
-				mutableDefaults = value.defaults.mutableDefaults ?? false;
+				mutableDefaults = value.defaults.mutableDefaults;
 			} else {
 				options.push(value);
 
