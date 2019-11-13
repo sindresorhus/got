@@ -1,4 +1,4 @@
-import {format, UrlObject, URLSearchParams} from 'url';
+import {format, UrlObject} from 'url';
 import {promisify} from 'util';
 import stream = require('stream');
 import EventEmitter = require('events');
