@@ -1,16 +1,18 @@
 import http = require('http');
 import https = require('https');
 import ResponseLike = require('responselike');
-import {Readable as ReadableStream} from 'stream';
 import PCancelable = require('p-cancelable');
+import Keyv = require('keyv');
+import {Readable as ReadableStream} from 'stream';
 import {CookieJar} from 'tough-cookie';
 import {StorageAdapter} from 'cacheable-request';
 import {Except} from 'type-fest';
 import CacheableLookup from 'cacheable-lookup';
-import Keyv = require('keyv');
 import {Timings} from '@szmarczak/http-timer/dist';
+import {URL} from 'url';
 import {Hooks} from '../known-hook-events';
-import {GotError, ParseError, HTTPError, MaxRedirectsError} from '../errors';
+import {GotError, HTTPError, MaxRedirectsError, ParseError} from '../errors';
+import {isProxiedSymbol} from '../as-promise';
 import {ProxyStream} from '../as-stream';
 
 export type DeepPartial<T> = {
@@ -86,7 +88,7 @@ export interface ResponseObject extends ResponseLike {
 
 export interface RetryObject {
 	attemptCount: number;
-	retryOptions: RetryOptions;
+	retryOptions: Required<RetryOptions>;
 	error: Error | GotError | ParseError | HTTPError | MaxRedirectsError;
 	computedValue: number;
 }
@@ -95,12 +97,15 @@ export type RetryFunction = (retryObject: RetryObject) => number;
 
 export type HandlerFunction = <T extends ProxyStream | CancelableRequest<Response>>(options: NormalizedOptions, next: (options: NormalizedOptions) => T) => T;
 
-export interface RetryOptions {
-	limit?: number;
+export interface DefaultRetryOptions {
+	limit: number;
+	methods: Method[];
+	statusCodes: number[];
+	errorCodes: ErrorCode[];
+}
+
+export interface RetryOptions extends Partial<DefaultRetryOptions> {
 	calculateDelay?: RetryFunction;
-	methods?: Method[];
-	statusCodes?: number[];
-	errorCodes?: string[];
 	maxRetryAfter?: number;
 }
 
@@ -121,10 +126,27 @@ export interface Delays {
 	request?: number;
 }
 
-export type Headers = Record<string, string | string[]>;
+export type Headers = Record<string, string | string[] | undefined>;
+
+export interface DefaultOptions {
+	method: Method;
+	retry: number | DefaultRetryOptions;
+	headers: Headers;
+	hooks: Hooks;
+	decompress: boolean;
+	throwHttpErrors: boolean;
+	followRedirect: boolean;
+	stream: boolean;
+	cache: string | StorageAdapter | false;
+	dnsCache: CacheableLookup | Map<string, string> | Keyv | false;
+	useElectronNet: boolean;
+	responseType: ResponseType;
+	resolveBodyOnly: boolean;
+	maxRedirects: number;
+}
 
 // The library overrides the type definition of `agent`, `host`, 'headers and `timeout`.
-export interface Options extends Except<https.RequestOptions, 'agent' | 'timeout' | 'host' | 'headers'> {
+export interface Options extends DeepPartial<DefaultOptions>, Except<https.RequestOptions, 'agent' | 'timeout' | 'host' | 'headers'> {
 	host?: string;
 	body?: string | Buffer | ReadableStream;
 	hostname?: string;
@@ -163,12 +185,11 @@ export interface Options extends Except<https.RequestOptions, 'agent' | 'timeout
 	lookup?: CacheableLookup['lookup'];
 }
 
-export interface NormalizedOptions extends Except<Options, 'method'> {
+export interface NormalizedOptions extends DefaultOptions, Except<Options, keyof DefaultOptions> {
 	// Normalized Got options
-	headers: Headers;
-	hooks: Hooks;
+	hooks: Required<Hooks>;
 	timeout: Delays;
-	dnsCache?: CacheableLookup | false;
+	dnsCache: CacheableLookup | false;
 	retry: Required<RetryOptions>;
 	readonly prefixUrl?: string;
 	method: Method;
@@ -182,19 +203,21 @@ export interface NormalizedOptions extends Except<Options, 'method'> {
 	pathname: string;
 	href: string;
 	path: string;
-	port: number;
+	port?: number;
 	username: string;
 	password: string;
 	auth?: string;
 }
 
-export interface ExtendedOptions extends Options {
+export interface ExtendOptions extends Options {
 	handlers?: HandlerFunction[];
 	mutableDefaults?: boolean;
 }
 
+export type ExtendedOptions = DefaultOptions & Options;
+
 export interface Defaults {
-	options?: Options;
+	options?: DefaultOptions;
 	handlers?: HandlerFunction[];
 	mutableDefaults?: boolean;
 }
@@ -212,4 +235,5 @@ export interface CancelableRequest<T extends http.IncomingMessage | Buffer | str
 	json<TReturnType extends object>(): CancelableRequest<TReturnType>;
 	buffer<TReturnType extends Buffer>(): CancelableRequest<TReturnType>;
 	text<TReturnType extends string>(): CancelableRequest<TReturnType>;
+	[isProxiedSymbol]: boolean;
 }
