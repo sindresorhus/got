@@ -36,7 +36,7 @@ const getPromiseOrStream = (options: NormalizedOptions): GotReturn => options.st
 
 export interface Got extends Record<HTTPAlias, ReturnResponse> {
 	stream: GotStream;
-	defaults: Defaults | Readonly<Defaults>;
+	defaults: Required<Defaults | Readonly<Defaults>>;
 	GotError: typeof errors.GotError;
 	CacheError: typeof errors.CacheError;
 	RequestError: typeof errors.RequestError;
@@ -48,8 +48,8 @@ export interface Got extends Record<HTTPAlias, ReturnResponse> {
 	TimeoutError: typeof errors.TimeoutError;
 	CancelError: typeof errors.CancelError;
 
-	(url: URLArgument | Options & {stream?: false; url: URLArgument}, options?: Options & {stream?: false}): CancelableRequest<Response>;
-	(url: URLArgument | Options & {stream: true; url: URLArgument}, options?: Options & {stream: true}): ProxyStream;
+	(url: URLArgument | URLOrOptions & {stream?: false;}, options?: Options & {stream?: false}): CancelableRequest<Response>;
+	(url: URLArgument | URLOrOptions & {stream: true;}, options?: Options & {stream: true}): ProxyStream;
 	(url: URLOrOptions, options?: Options): CancelableRequest<Response> | ProxyStream;
 	create(defaults: Defaults): Got;
 	extend(...instancesOrOptions: Array<Got | ExtendOptions>): Got;
