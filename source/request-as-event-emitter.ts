@@ -1,4 +1,4 @@
-import {format, UrlObject} from 'url';
+import {format, URL, UrlObject, URLSearchParams} from 'url';
 import {promisify} from 'util';
 import stream = require('stream');
 import EventEmitter = require('events');
@@ -17,7 +17,14 @@ import getResponse from './get-response';
 import {uploadProgress} from './progress';
 import {CacheError, UnsupportedProtocolError, MaxRedirectsError, RequestError, TimeoutError} from './errors';
 import urlToOptions from './utils/url-to-options';
-import {RequestFunction, NormalizedOptions, Response, ResponseObject, AgentByProtocol} from './utils/types';
+import {
+	AgentByProtocol,
+	DeepPartial,
+	NormalizedOptions,
+	RequestFunction,
+	Response,
+	ResponseObject
+} from './utils/types';
 import dynamicRequire from './utils/dynamic-require';
 
 const redirectCodes: ReadonlySet<number> = new Set([300, 301, 302, 303, 304, 307, 308]);
@@ -86,7 +93,7 @@ export default (options: NormalizedOptions, input?: TransformStream) => {
 		}
 
 		if (options.cookieJar) {
-			const cookieString = await getCookieString(currentUrl);
+			const cookieString = await getCookieString!(currentUrl);
 
 			if (is.nonEmptyString(cookieString)) {
 				options.headers.cookie = cookieString;
@@ -94,7 +101,7 @@ export default (options: NormalizedOptions, input?: TransformStream) => {
 		}
 
 		let timings: Timings;
-		const handleResponse = async (response: http.ServerResponse | ResponseObject): Promise<void> => {
+		const handleResponse = async (response: http.ServerResponse | DeepPartial<ResponseObject>): Promise<void> => {
 			options.timeout = timeout;
 
 			try {
@@ -112,8 +119,8 @@ export default (options: NormalizedOptions, input?: TransformStream) => {
 					});
 				}
 
-				const {statusCode} = response;
 				const typedResponse = response as Response;
+				const {statusCode} = typedResponse;
 				// This is intentionally using `||` over `??` so it can also catch empty status message.
 				typedResponse.statusMessage = typedResponse.statusMessage || http.STATUS_CODES[statusCode];
 				typedResponse.url = currentUrl;
@@ -132,7 +139,7 @@ export default (options: NormalizedOptions, input?: TransformStream) => {
 
 				const rawCookies = typedResponse.headers['set-cookie'];
 				if (options.cookieJar && rawCookies) {
-					let promises: Array<Promise<unknown>> = rawCookies.map((rawCookie: string) => setCookie(rawCookie, typedResponse.url));
+					let promises: Array<Promise<unknown>> = rawCookies.map((rawCookie: string) => setCookie!(rawCookie, typedResponse.url!));
 					if (options.ignoreInvalidCookies) {
 						promises = promises.map(async p => p.catch(() => {}));
 					}
@@ -204,7 +211,7 @@ export default (options: NormalizedOptions, input?: TransformStream) => {
 
 				// `request.aborted` is a boolean since v11.0.0: https://github.com/nodejs/node/commit/4b00c4fafaa2ae8c41c1f78823c0feb810ae4723#diff-e3bc37430eb078ccbafe3aa3b570c91a
 				// We need to allow `TimedOutTimeoutError` here, because it `stream.pipeline(..)` aborts it automatically.
-				if (!isTimedOutError && (typeof request.aborted === 'number' || (request.aborted as unknown as boolean) === true)) {
+				if (!isTimedOutError && (typeof request.aborted === 'number' || (request.aborted as unknown as boolean))) {
 					return;
 				}
 
@@ -215,12 +222,12 @@ export default (options: NormalizedOptions, input?: TransformStream) => {
 					error = new RequestError(error, options);
 				}
 
-				if (emitter.retry(error) === false) {
+				if (!emitter.retry(error)) {
 					emitError(error);
 				}
 			};
 
-			const uploadComplete = (error?: Error): void => {
+			const uploadComplete = (error?: Error | null): void => {
 				if (error) {
 					onError(error);
 					return;
@@ -297,7 +304,6 @@ export default (options: NormalizedOptions, input?: TransformStream) => {
 		} else {
 			// Catches errors thrown by calling `requestFn(…)`
 			try {
-				// @ts-ignore TS complains that URLSearchParams is not the same as URLSearchParams
 				handleRequest(requestFn(options as unknown as URL, handleResponse));
 			} catch (error) {
 				emitError(new RequestError(error, options));
@@ -389,7 +395,7 @@ export default (options: NormalizedOptions, input?: TransformStream) => {
 				}
 
 				headers['content-type'] = headers['content-type'] ?? 'application/x-www-form-urlencoded';
-				options.body = (new URLSearchParams(options.form as Record<string, string>)).toString();
+				options.body = (new URLSearchParams(options.form)).toString();
 			} else if (isJSON) {
 				headers['content-type'] = headers['content-type'] ?? 'application/json';
 				options.body = JSON.stringify(options.json);
@@ -404,7 +410,7 @@ export default (options: NormalizedOptions, input?: TransformStream) => {
 			}
 
 			if (is.undefined(headers['content-length']) && is.undefined(headers['transfer-encoding'])) {
-				if ((uploadBodySize > 0 || options.method === 'PUT') && !is.undefined(uploadBodySize)) {
+				if ((uploadBodySize! > 0 || options.method === 'PUT') && !is.undefined(uploadBodySize)) {
 					headers['content-length'] = String(uploadBodySize);
 				}
 			}
