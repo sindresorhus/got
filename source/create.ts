@@ -110,7 +110,7 @@ const create = (nonNormalizedDefaults: Defaults): Got => {
 			});
 
 			// Proxy the properties from the next handler to this one
-			if (isCancelableRequest(result, isStream)){
+			if (isCancelableRequest(result, isStream)) {
 				for (const key of Object.keys(nextPromise)) {
 					const tempKey = key as keyof typeof nextPromise;
 					Object.defineProperty(result, key, {
@@ -144,7 +144,7 @@ const create = (nonNormalizedDefaults: Defaults): Got => {
 
 	got.create = create;
 	got.extend = (...instancesOrOptions) => {
-		const options: (DeepPartial<DefaultOptions> & Options)[] = [defaults.options];
+		const options: Array<DeepPartial<DefaultOptions> & Options> = [defaults.options];
 		const handlers: HandlerFunction[] = [...defaults.handlers];
 		let mutableDefaults: boolean | undefined;
 

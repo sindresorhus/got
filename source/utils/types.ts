@@ -15,11 +15,11 @@ import {isProxiedSymbol} from '../as-promise';
 import {ProxyStream} from '../as-stream';
 
 export type DeepPartial<T> = {
-	[P in keyof T]?: T[P] extends Array<infer U>
-		? Array<DeepPartial<U>>
-		: T[P] extends ReadonlyArray<infer U>
-			? ReadonlyArray<DeepPartial<U>>
-			: DeepPartial<T[P]>
+	[Key in keyof T]?: T[Key] extends Array<infer ArrayVal>
+		? Array<DeepPartial<ArrayVal>>
+		: T[Key] extends ReadonlyArray<infer ArrayVal>
+			? ReadonlyArray<DeepPartial<ArrayVal>>
+			: DeepPartial<T[Key]>
 };
 
 export type Method =
@@ -230,9 +230,9 @@ export interface NormalizedDefaults {
 export type URLOrOptions = URLArgument | (Options & {url: URLArgument});
 
 export interface CancelableRequest<T extends http.IncomingMessage | Buffer | string | object> extends PCancelable<T> {
+	[isProxiedSymbol]: boolean;
 	on(name: string, listener: () => void): CancelableRequest<T>;
 	json<TReturnType extends object>(): CancelableRequest<TReturnType>;
 	buffer<TReturnType extends Buffer>(): CancelableRequest<TReturnType>;
 	text<TReturnType extends string>(): CancelableRequest<TReturnType>;
-	[isProxiedSymbol]: boolean;
 }

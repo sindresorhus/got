@@ -1,5 +1,5 @@
 import is from '@sindresorhus/is';
-import {ExtendedOptions, Options, RetryOptions} from './utils/types';
+import {ExtendedOptions, Options} from './utils/types';
 import knownHookEvents, {Hooks, HookEvent, HookType} from './known-hook-events';
 
 export default function merge<Target extends Record<string, any>, Source extends Record<string, any>>(target: Target, ...sources: Source[]): Target & Source {
@@ -44,7 +44,7 @@ export default function merge<Target extends Record<string, any>, Source extends
 }
 
 export function mergeOptions(...sources: Array<Partial<Options>>): ExtendedOptions {
-	sources = sources.map((source) => {
+	sources = sources.map(source => {
 		if (!source) {
 			return {};
 		}
@@ -57,9 +57,9 @@ export function mergeOptions(...sources: Array<Partial<Options>>): ExtendedOptio
 			...source,
 			retry: {
 				retries: source.retry
-			} as Partial<RetryOptions>
+			}
 		};
-	});
+	}) as Array<Partial<Options>>;
 
 	const mergedOptions = merge({}, ...sources);
 
