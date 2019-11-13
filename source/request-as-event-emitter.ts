@@ -410,7 +410,7 @@ export default (options: NormalizedOptions, input?: TransformStream) => {
 			}
 
 			if (is.undefined(headers['content-length']) && is.undefined(headers['transfer-encoding'])) {
-				if ((uploadBodySize! > 0 || options.method === 'PUT') && !is.undefined(uploadBodySize)) {
+				if (!is.undefined(uploadBodySize) && (uploadBodySize > 0 || options.method === 'PUT')) {
 					headers['content-length'] = String(uploadBodySize);
 				}
 			}

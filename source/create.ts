@@ -95,8 +95,8 @@ const create = (nonNormalizedDefaults: Defaults): Got => {
 		const isStream = options?.stream ?? false;
 
 		let iteration = 0;
-		let nextPromise: CancelableRequest<Response>;
 		const iterateHandlers = (newOptions: NormalizedOptions): GotReturn => {
+			let nextPromise: CancelableRequest<Response>;
 			const result = defaults.handlers[iteration++](newOptions, options => {
 				const fn = iteration === defaults.handlers.length ? getPromiseOrStream : iterateHandlers;
 
@@ -110,8 +110,9 @@ const create = (nonNormalizedDefaults: Defaults): Got => {
 			});
 
 			// Proxy the properties from the next handler to this one
+			// If result is an instance of CancelableRequest, nextPromise is guaranteed to be defined
 			if (isCancelableRequest(result, isStream)) {
-				for (const key of Object.keys(nextPromise)) {
+				for (const key of Object.keys(nextPromise!)) {
 					const promiseKey = key as keyof typeof nextPromise;
 					Object.defineProperty(result, key, {
 						get: () => nextPromise[promiseKey],
@@ -123,7 +124,7 @@ const create = (nonNormalizedDefaults: Defaults): Got => {
 					});
 				}
 
-				result.cancel = nextPromise.cancel;
+				result.cancel = nextPromise!.cancel;
 				result[isProxiedSymbol] = true;
 			}
 
