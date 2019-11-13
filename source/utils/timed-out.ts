@@ -85,7 +85,7 @@ export default (request: ClientRequest, delays: Delays, options: TimedOutOptions
 	}
 
 	if (typeof delays.socket !== 'undefined') {
-		const socket = delays.socket;
+		const {socket} = delays;
 		const socketTimeoutHandler = (): void => {
 			timeoutHandler(socket, 'socket');
 		};
@@ -114,7 +114,7 @@ export default (request: ClientRequest, delays: Delays, options: TimedOutOptions
 			}
 
 			if (typeof delays.connect !== 'undefined') {
-				const connect = delays.connect;
+				const {connect} = delays;
 				const timeConnect = (): (() => void) => addTimeout(connect, timeoutHandler, 'connect');
 
 				if (hasPath) {
@@ -129,7 +129,7 @@ export default (request: ClientRequest, delays: Delays, options: TimedOutOptions
 			}
 
 			if (typeof delays.secureConnect !== 'undefined' && options.protocol === 'https:') {
-				const secureConnect = delays.secureConnect;
+				const {secureConnect} = delays;
 				once(socket, 'connect', (): void => {
 					const cancelTimeout = addTimeout(secureConnect, timeoutHandler, 'secureConnect');
 					once(socket, 'secureConnect', cancelTimeout);
@@ -138,7 +138,7 @@ export default (request: ClientRequest, delays: Delays, options: TimedOutOptions
 		}
 
 		if (typeof delays.send !== 'undefined') {
-			const send = delays.send;
+			const {send} = delays;
 			const timeRequest = (): (() => void) => addTimeout(send, timeoutHandler, 'send');
 			/* istanbul ignore next: hard to test */
 			if (socket.connecting) {
@@ -152,7 +152,7 @@ export default (request: ClientRequest, delays: Delays, options: TimedOutOptions
 	});
 
 	if (typeof delays.response !== 'undefined') {
-		const response = delays.response;
+		const {response} = delays;
 		once(request, 'upload-complete', (): void => {
 			const cancelTimeout = addTimeout(response, timeoutHandler, 'response');
 			once(request, 'response', cancelTimeout);
