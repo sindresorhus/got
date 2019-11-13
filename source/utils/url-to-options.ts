@@ -1,4 +1,4 @@
-import {URL, UrlWithStringQuery} from 'url';
+import {UrlWithStringQuery} from 'url';
 import is from '@sindresorhus/is';
 
 // TODO: Deprecate legacy Url at some point

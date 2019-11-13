@@ -9,7 +9,6 @@ import {StorageAdapter} from 'cacheable-request';
 import {Except} from 'type-fest';
 import CacheableLookup from 'cacheable-lookup';
 import {Timings} from '@szmarczak/http-timer/dist';
-import {URL} from 'url';
 import {Hooks} from '../known-hook-events';
 import {GotError, HTTPError, MaxRedirectsError, ParseError} from '../errors';
 import {isProxiedSymbol} from '../as-promise';

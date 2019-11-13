@@ -1,5 +1,5 @@
 import https = require('https');
-import {format, URL} from 'url';
+import {format} from 'url';
 import CacheableLookup from 'cacheable-lookup';
 import is from '@sindresorhus/is';
 import lowercaseKeys = require('lowercase-keys');

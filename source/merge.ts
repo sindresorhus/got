@@ -1,5 +1,5 @@
 import is from '@sindresorhus/is';
-import {URL, URLSearchParams} from 'url';
+import {URLSearchParams} from 'url';
 import {ExtendedOptions, Options, RetryOptions} from './utils/types';
 import knownHookEvents, {Hooks, HookEvent, HookType} from './known-hook-events';
 

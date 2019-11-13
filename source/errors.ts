@@ -1,4 +1,4 @@
-import {format, URL, UrlObject} from 'url';
+import {format, UrlObject} from 'url';
 import is from '@sindresorhus/is';
 import {Timings} from '@szmarczak/http-timer';
 import {ErrorCode, Response, NormalizedOptions} from './utils/types';
