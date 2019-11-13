@@ -39,8 +39,6 @@
 	"dependencies": {
 		"@sindresorhus/is": "^1.0.0",
 		"@szmarczak/http-timer": "^3.0.0",
-		"@types/cacheable-request": "^6.0.1",
-		"@types/tough-cookie": "^2.3.5",
 		"cacheable-lookup": "^0.2.1",
 		"cacheable-request": "^7.0.0",
 		"decompress-response": "^5.0.0",
@@ -55,9 +53,12 @@
 	},
 	"devDependencies": {
 		"@sindresorhus/tsconfig": "^0.5.0",
+		"@types/cacheable-request": "^6.0.1",
 		"@types/duplexer3": "^0.1.0",
+		"@types/lolex": "^3.1.1",
 		"@types/node": "^12.12.6",
 		"@types/sinon": "^7.0.13",
+		"@types/tough-cookie": "^2.3.5",
 		"@typescript-eslint/eslint-plugin": "^2.6.1",
 		"@typescript-eslint/parser": "^2.6.1",
 		"ava": "^2.4.0",

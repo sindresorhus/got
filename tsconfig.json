@@ -6,8 +6,8 @@
 		"lib": [
 			"es2018"
 		],
-		// TODO: Make it strict
-		"strict": false
+	  	"useDefineForClassFields": true,
+		"strict": true
 	},
 	"include": [
 		"source",
