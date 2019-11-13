@@ -107,7 +107,7 @@ export default function asPromise(options: NormalizedOptions): CancelableRequest
 
 			if (statusCode !== 304 && (statusCode < 200 || statusCode > limitStatusCode)) {
 				const error = new HTTPError(response, options);
-				if (emitter.retry(error) === false) {
+				if (!emitter.retry(error)) {
 					if (options.throwHttpErrors) {
 						emitError(error);
 						return;
@@ -140,8 +140,8 @@ export default function asPromise(options: NormalizedOptions): CancelableRequest
 
 	promise[isProxiedSymbol] = true;
 
-	promise.on = (name, fn) => {
-		proxy.on(name, fn);
+	promise.on = (name, listener) => {
+		proxy.on(name, listener);
 		return promise;
 	};
 
