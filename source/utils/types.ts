@@ -216,7 +216,7 @@ export interface ExtendOptions extends Options {
 export type ExtendedOptions = DefaultOptions & Options;
 
 export interface Defaults {
-	options?: DefaultOptions;
+	options?: Options;
 	handlers?: HandlerFunction[];
 	mutableDefaults?: boolean;
 }
