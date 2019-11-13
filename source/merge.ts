@@ -1,5 +1,6 @@
 import is from '@sindresorhus/is';
-import {Options} from './utils/types';
+import {URL, URLSearchParams} from 'url';
+import {ExtendedOptions, Options, RetryOptions} from './utils/types';
 import knownHookEvents, {Hooks, HookEvent, HookType} from './known-hook-events';
 
 export default function merge<Target extends Record<string, any>, Source extends Record<string, any>>(target: Target, ...sources: Source[]): Target & Source {
@@ -43,8 +44,8 @@ export default function merge<Target extends Record<string, any>, Source extends
 	return target as Target & Source;
 }
 
-export function mergeOptions(...sources: Array<Partial<Options>>): Partial<Options> {
-	sources = sources.map(source => {
+export function mergeOptions(...sources: Array<Partial<Options>>): ExtendedOptions {
+	sources = sources.map((source) => {
 		if (!source) {
 			return {};
 		}
@@ -57,9 +58,9 @@ export function mergeOptions(...sources: Array<Partial<Options>>): Partial<Optio
 			...source,
 			retry: {
 				retries: source.retry
-			}
+			} as Partial<RetryOptions>
 		};
-	}) as Array<Partial<Options>>;
+	});
 
 	const mergedOptions = merge({}, ...sources);
 
@@ -73,7 +74,7 @@ export function mergeOptions(...sources: Array<Partial<Options>>): Partial<Optio
 
 		if (Reflect.has(source, 'hooks')) {
 			for (const hook of knownHookEvents) {
-				hooks[hook] = hooks[hook].concat(source.hooks[hook] ?? []);
+				hooks[hook] = hooks[hook].concat(source.hooks?.[hook] ?? []);
 			}
 		}
 
@@ -102,5 +103,5 @@ export function mergeOptions(...sources: Array<Partial<Options>>): Partial<Optio
 
 	mergedOptions.hooks = hooks as Hooks;
 
-	return mergedOptions;
+	return mergedOptions as ExtendedOptions;
 }

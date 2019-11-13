@@ -1,5 +1,5 @@
 import https = require('https');
-import {format} from 'url';
+import {format, URL} from 'url';
 import CacheableLookup from 'cacheable-lookup';
 import is from '@sindresorhus/is';
 import lowercaseKeys = require('lowercase-keys');
@@ -99,16 +99,16 @@ export const preNormalizeArguments = (options: Options, defaults?: NormalizedOpt
 
 	if (options.retry.maxRetryAfter === undefined) {
 		options.retry.maxRetryAfter = Math.min(
-			...[options.timeout.request, options.timeout.connect].filter(n => !is.nullOrUndefined(n))
+			...[options.timeout.request, options.timeout.connect].filter((n): n is number => !is.nullOrUndefined(n))
 		);
 	}
 
-	options.retry.methods = uniqueArray(options.retry.methods.map(method => method.toUpperCase())) as Method[];
-	options.retry.statusCodes = uniqueArray(options.retry.statusCodes);
-	options.retry.errorCodes = uniqueArray(options.retry.errorCodes);
+	options.retry.methods = uniqueArray(options.retry.methods!.map(method => method.toUpperCase() as Method));
+	options.retry.statusCodes = uniqueArray(options.retry.statusCodes!);
+	options.retry.errorCodes = uniqueArray(options.retry.errorCodes!);
 
 	// `options.dnsCache`
-	if (options.dnsCache && !(options instanceof CacheableLookup)) {
+	if (options.dnsCache && !(options.dnsCache instanceof CacheableLookup)) {
 		options.dnsCache = new CacheableLookup({cacheAdapter: options.dnsCache as Keyv | undefined});
 	}
 
@@ -125,10 +125,15 @@ export const normalizeArguments = (url: URLOrOptions, options: Options, defaults
 		urlArgument = url;
 	}
 
+	// After the block below, options are already initialized to type `NormalizedOptions`.
+	// However, because TypeScript does not support type narrowing on object reassign,
+	// an intermediate variable is used here to indicate the narrowing.
+	// Another solution to this is to use the non-null assertion operator (!) when needed.
+	let mergedOptions: NormalizedOptions;
 	if (defaults) {
-		options = mergeOptions(defaults.options, options ? preNormalizeArguments(options, defaults.options) : {});
+		mergedOptions = mergeOptions(defaults.options, options ? preNormalizeArguments(options, defaults.options) : {}) as NormalizedOptions;
 	} else {
-		options = merge({}, preNormalizeArguments(options));
+		mergedOptions = merge({}, preNormalizeArguments(options));
 	}
 
 	if (!is.string(urlArgument) && !is.object(urlArgument)) {
@@ -137,12 +142,12 @@ export const normalizeArguments = (url: URLOrOptions, options: Options, defaults
 
 	let urlObj: https.RequestOptions | URLOptions;
 	if (is.string(urlArgument)) {
-		if (options.prefixUrl && urlArgument.startsWith('/')) {
+		if (mergedOptions.prefixUrl && urlArgument.startsWith('/')) {
 			throw new Error('`url` must not begin with a slash when using `prefixUrl`');
 		}
 
-		if (options.prefixUrl) {
-			urlArgument = options.prefixUrl.toString() + urlArgument;
+		if (mergedOptions.prefixUrl) {
+			urlArgument = mergedOptions.prefixUrl.toString() + urlArgument;
 		}
 
 		urlArgument = urlArgument.replace(/^unix:/, 'http://$&');
@@ -150,51 +155,51 @@ export const normalizeArguments = (url: URLOrOptions, options: Options, defaults
 		urlObj = urlToOptions(new URL(urlArgument));
 	} else if (is.urlInstance(urlArgument)) {
 		urlObj = urlToOptions(urlArgument);
-	} else if (options.prefixUrl) {
+	} else if (mergedOptions.prefixUrl) {
 		urlObj = {
 			// @ts-ignore
-			...urlToOptions(new URL(options.prefixUrl)),
+			...urlToOptions(new URL(mergedOptions.prefixUrl)),
 			...urlArgument
 		};
 	} else {
 		urlObj = urlArgument;
 	}
 
-	if (!Reflect.has(urlObj, 'protocol') && !Reflect.has(options, 'protocol')) {
+	if (!Reflect.has(urlObj, 'protocol') && !Reflect.has(mergedOptions, 'protocol')) {
 		throw new TypeError('No URL protocol specified');
 	}
 
-	options = mergeOptions(urlObj, options);
+	mergedOptions = mergeOptions(urlObj, mergedOptions) as NormalizedOptions;
 
-	for (const hook of options.hooks.init) {
+	for (const hook of mergedOptions.hooks.init) {
 		if (is.asyncFunction(hook)) {
 			throw new TypeError('The `init` hook must be a synchronous function');
 		}
 
 		// @ts-ignore TS is dumb.
-		hook(options);
+		hook(mergedOptions);
 	}
 
-	const {prefixUrl} = options;
-	Object.defineProperty(options, 'prefixUrl', {
+	const {prefixUrl} = mergedOptions;
+	Object.defineProperty(mergedOptions, 'prefixUrl', {
 		set: () => {
 			throw new Error('Failed to set prefixUrl. Options are normalized already.');
 		},
 		get: () => prefixUrl
 	});
 
-	let {searchParams} = options;
-	delete options.searchParams;
+	let {searchParams} = mergedOptions;
+	delete mergedOptions.searchParams;
 
 	// TODO: Remove this before Got v11
-	if (options.query) {
+	if (mergedOptions.query) {
 		if (!hasShownDeprecation) {
 			console.warn('`options.query` is deprecated. We support it solely for compatibility - it will be removed in Got 11. Use `options.searchParams` instead.');
 			hasShownDeprecation = true;
 		}
 
-		searchParams = options.query;
-		delete options.query;
+		searchParams = mergedOptions.query;
+		delete mergedOptions.query;
 	}
 
 	if (is.nonEmptyString(searchParams) || is.nonEmptyObject(searchParams) || (searchParams && searchParams instanceof URLSearchParams)) {
@@ -207,16 +212,16 @@ export const normalizeArguments = (url: URLOrOptions, options: Options, defaults
 			searchParams = (new URLSearchParams(searchParams as Record<string, string>)).toString();
 		}
 
-		options.path = `${options.path.split('?')[0]}?${searchParams}`;
+		mergedOptions.path = `${mergedOptions.path.split('?')[0]}?${searchParams}`;
 	}
 
-	if (options.hostname === 'unix') {
-		const matches = /(?<socketPath>.+?):(?<path>.+)/.exec(options.path);
+	if (mergedOptions.hostname === 'unix') {
+		const matches = /(?<socketPath>.+?):(?<path>.+)/.exec(mergedOptions.path);
 
 		if (matches?.groups) {
 			const {socketPath, path} = matches.groups;
-			options = {
-				...options,
+			mergedOptions = {
+				...mergedOptions,
 				socketPath,
 				path,
 				host: ''
@@ -224,22 +229,22 @@ export const normalizeArguments = (url: URLOrOptions, options: Options, defaults
 		}
 	}
 
-	const {headers} = options;
+	const {headers} = mergedOptions;
 	for (const [key, value] of Object.entries(headers)) {
 		if (is.nullOrUndefined(value)) {
 			delete headers[key];
 		}
 	}
 
-	if (options.decompress && is.undefined(headers['accept-encoding'])) {
+	if (mergedOptions.decompress && is.undefined(headers['accept-encoding'])) {
 		headers['accept-encoding'] = supportsBrotli ? 'gzip, deflate, br' : 'gzip, deflate';
 	}
 
-	if (options.method) {
-		options.method = options.method.toUpperCase() as Method;
+	if (mergedOptions.method) {
+		mergedOptions.method = mergedOptions.method.toUpperCase() as Method;
 	}
 
-	return options as NormalizedOptions;
+	return mergedOptions;
 };
 
 export const reNormalizeArguments = (options: Options): NormalizedOptions => normalizeArguments(format(options as unknown as URL | URLOptions), options);

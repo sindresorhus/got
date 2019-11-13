@@ -8,8 +8,10 @@ import {
 	URLOrOptions,
 	URLArgument,
 	HandlerFunction,
-	ExtendedOptions,
-	NormalizedDefaults
+	DefaultOptions,
+	ExtendOptions,
+	NormalizedDefaults,
+	DeepPartial
 } from './utils/types';
 import deepFreeze from './utils/deep-freeze';
 import merge, {mergeOptions} from './merge';
@@ -50,7 +52,7 @@ export interface Got extends Record<HTTPAlias, ReturnResponse> {
 	(url: URLArgument | Options & {stream: true; url: URLArgument}, options?: Options & {stream: true}): ProxyStream;
 	(url: URLOrOptions, options?: Options): CancelableRequest<Response> | ProxyStream;
 	create(defaults: Defaults): Got;
-	extend(...instancesOrOptions: Array<Got | ExtendedOptions>): Got;
+	extend(...instancesOrOptions: Array<Got | ExtendOptions>): Got;
 	mergeInstances(parent: Got, ...instances: Got[]): Got;
 	mergeOptions<T extends Options>(...sources: T[]): T & {hooks: Partial<Hooks>};
 }
@@ -70,6 +72,14 @@ const aliases: readonly HTTPAlias[] = [
 
 const defaultHandler: HandlerFunction = (options, next) => next(options);
 
+const isCancelableRequest = <T extends Response>(value: GotReturn, isStream: boolean): value is CancelableRequest<T> => (
+	!isStream && !Reflect.has(value, isProxiedSymbol)
+);
+
+const isGotInstance = (value: any): value is Got => (
+	Reflect.has(value, 'defaults') && Reflect.has(value.defaults, 'options')
+);
+
 // `got.mergeInstances()` is deprecated
 let hasShownDeprecation = false;
 
@@ -81,12 +91,12 @@ const create = (nonNormalizedDefaults: Defaults): Got => {
 	};
 
 	// @ts-ignore Because the for loop handles it for us, as well as the other Object.defines
-	const got: Got = (url: URLOrOptions, options?: Options): GotReturn => {
+	const got: Got = (url: URLOrOptions, options: Options = {}): GotReturn => {
 		const isStream = options?.stream ?? false;
 
 		let iteration = 0;
+		let nextPromise: CancelableRequest<Response>;
 		const iterateHandlers = (newOptions: NormalizedOptions): GotReturn => {
-			let nextPromise: CancelableRequest<Response>;
 			const result = defaults.handlers[iteration++](newOptions, options => {
 				const fn = iteration === defaults.handlers.length ? getPromiseOrStream : iterateHandlers;
 
@@ -100,17 +110,20 @@ const create = (nonNormalizedDefaults: Defaults): Got => {
 			});
 
 			// Proxy the properties from the next handler to this one
-			if (!isStream && !Reflect.has(result, isProxiedSymbol)) {
+			if (isCancelableRequest(result, isStream)){
 				for (const key of Object.keys(nextPromise)) {
+					const tempKey = key as keyof typeof nextPromise;
 					Object.defineProperty(result, key, {
-						get: () => nextPromise[key],
+						get: () => nextPromise[tempKey],
 						set: (value: unknown) => {
-							nextPromise[key] = value;
+							// FIXME: This will warn because there are readonly keys on nextPromise
+							// @ts-ignore
+							nextPromise[tempKey] = value;
 						}
 					});
 				}
 
-				(result as CancelableRequest<Response>).cancel = nextPromise.cancel;
+				result.cancel = nextPromise.cancel;
 				result[isProxiedSymbol] = true;
 			}
 
@@ -118,7 +131,7 @@ const create = (nonNormalizedDefaults: Defaults): Got => {
 		};
 
 		try {
-			return iterateHandlers(normalizeArguments(url, options as NormalizedOptions, defaults));
+			return iterateHandlers(normalizeArguments(url, options, defaults));
 		} catch (error) {
 			if (isStream) {
 				throw error;
@@ -131,24 +144,24 @@ const create = (nonNormalizedDefaults: Defaults): Got => {
 
 	got.create = create;
 	got.extend = (...instancesOrOptions) => {
-		const options: Options[] = [defaults.options];
+		const options: (DeepPartial<DefaultOptions> & Options)[] = [defaults.options];
 		const handlers: HandlerFunction[] = [...defaults.handlers];
-		let mutableDefaults: boolean;
+		let mutableDefaults: boolean | undefined;
 
 		for (const value of instancesOrOptions) {
-			if (Reflect.has(value, 'defaults')) {
-				options.push((value as Got).defaults.options);
-				handlers.push(...(value as Got).defaults.handlers.filter(handler => handler !== defaultHandler));
+			if (isGotInstance(value)) {
+				options.push(value.defaults.options!);
+				handlers.push(...value.defaults.handlers!.filter(handler => handler !== defaultHandler));
 
-				mutableDefaults = (value as Got).defaults.mutableDefaults;
+				mutableDefaults = value.defaults.mutableDefaults ?? false;
 			} else {
-				options.push(value as Options);
+				options.push(value);
 
 				if (Reflect.has(value, 'handlers')) {
-					handlers.push(...(value as ExtendedOptions).handlers);
+					handlers.push(...value.handlers);
 				}
 
-				mutableDefaults = (value as ExtendedOptions).mutableDefaults;
+				mutableDefaults = value.mutableDefaults;
 			}
 		}
 
