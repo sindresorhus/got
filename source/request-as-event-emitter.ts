@@ -217,7 +217,7 @@ export default (options: NormalizedOptions) => {
 			}
 		};
 
-		if (is.object(options.cache)) {
+		if (options.cache) {
 			// `cacheable-request` doesn't support Node 10 API, fallback.
 			httpOptions = {
 				...httpOptions,

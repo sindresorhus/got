@@ -37,23 +37,25 @@ const nonEnumerableProperties: NonEnumerableProperty[] = [
 
 export const preNormalizeArguments = (options: Options, defaults?: NormalizedOptions): NormalizedOptions => {
 	// `options.headers`
-	if (is.nullOrUndefined(options.headers)) {
+	if (is.undefined(options.headers)) {
 		options.headers = {};
 	} else {
 		options.headers = lowercaseKeys(options.headers);
 	}
 
 	// `options.prefixUrl`
-	if (options.prefixUrl) {
+	if (is.urlInstance(options.prefixUrl) || is.string(options.prefixUrl)) {
 		options.prefixUrl = options.prefixUrl.toString();
 
-		if (!options.prefixUrl.endsWith('/')) {
+		if (options.prefixUrl.length !== 0 && !options.prefixUrl.endsWith('/')) {
 			options.prefixUrl += '/';
 		}
+	} else {
+		options.prefixUrl = defaults ? defaults.prefixUrl : '';
 	}
 
 	// `options.hooks`
-	if (is.nullOrUndefined(options.hooks)) {
+	if (is.undefined(options.hooks)) {
 		options.hooks = {};
 	}
 
@@ -129,12 +131,14 @@ export const preNormalizeArguments = (options: Options, defaults?: NormalizedOpt
 	}
 
 	// `options.method`
-	if (options.method) {
+	if (is.string(options.method)) {
 		options.method = options.method.toUpperCase() as Method;
+	} else {
+		options.method = defaults?.method || 'GET';
 	}
 
 	// Better memory management, so we don't have to generate a new object every time
-	if (Reflect.has(options, 'cache') && options.cache !== false) {
+	if (options.cache) {
 		(options as NormalizedOptions).cacheableRequest = new CacheableRequest(
 			(options, handler) => options.request(options, handler),
 			options.cache as any
@@ -142,7 +146,7 @@ export const preNormalizeArguments = (options: Options, defaults?: NormalizedOpt
 	}
 
 	// `options.cookieJar`
-	if (options.cookieJar) {
+	if (is.object(options.cookieJar)) {
 		let {setCookie, getCookieString} = options.cookieJar;
 
 		// Horrible `tough-cookie` check
@@ -220,10 +224,7 @@ export const normalizeArguments = (url: URLOrOptions, options?: Options, default
 	// Normalize URL
 	// TODO: drop `optionsToUrl` in Got 12
 	if (is.string(options.url)) {
-		if (options.prefixUrl) {
-			options.url = (options.prefixUrl as string) + options.url;
-		}
-
+		options.url = (options.prefixUrl as string) + options.url;
 		options.url = options.url.replace(/^unix:/, 'http://$&');
 
 		if (options.searchParams || options.search) {
@@ -289,9 +290,9 @@ export const normalizeRequestArguments = async (options: NormalizedOptions): Pro
 
 	// Serialize body
 	const {headers} = options;
-	const isForm = !is.nullOrUndefined(options.form);
-	const isJSON = !is.nullOrUndefined(options.json);
-	const isBody = !is.nullOrUndefined(options.body);
+	const isForm = !is.undefined(options.form);
+	const isJSON = !is.undefined(options.json);
+	const isBody = !is.undefined(options.body);
 	if ((isBody || isForm || isJSON) && withoutBody.has(options.method)) {
 		throw new TypeError(`The \`${options.method}\` method cannot be used with a body`);
 	}

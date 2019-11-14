@@ -160,7 +160,7 @@ export interface NormalizedOptions extends Except<Options, keyof URLOptions> {
 	timeout: Delays;
 	dnsCache?: CacheableLookup | false;
 	retry: Required<RetryOptions>;
-	prefixUrl?: string;
+	prefixUrl: string;
 	method: Method;
 	url: URL;
 	cacheableRequest?: (opts: string | URL | http.RequestOptions, cb?: (response: http.ServerResponse | ResponseLike) => void) => CacheableRequest.Emitter;

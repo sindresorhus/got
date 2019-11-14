@@ -13,7 +13,7 @@ export default (response: IncomingMessage, options: NormalizedOptions, emitter: 
 	mimicResponse(response, progressStream);
 
 	const newResponse = (
-		options.decompress === true &&
+		options.decompress &&
 		options.method !== 'HEAD' ? decompressResponse(progressStream as unknown as IncomingMessage) : progressStream
 	) as Response;
 

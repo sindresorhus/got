@@ -127,7 +127,7 @@ test('no tampering with defaults', t => {
 		got.defaults.options.prefixUrl = 'http://google.com';
 	});
 
-	t.is(got.defaults.options.prefixUrl, undefined);
+	t.is(got.defaults.options.prefixUrl, '');
 });
 
 test('defaults can be mutable', t => {

@@ -55,7 +55,8 @@ const defaults: Defaults = {
 		useElectronNet: false,
 		responseType: '',
 		resolveBodyOnly: false,
-		maxRedirects: 10
+		maxRedirects: 10,
+		prefixUrl: ''
 	},
 	handlers: [defaultHandler],
 	mutableDefaults: false
