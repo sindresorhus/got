@@ -387,8 +387,7 @@ export const normalizeRequestArguments = async (options: NormalizedOptions): Pro
 				...options,
 				socketPath,
 				path,
-				host: '',
-				url: undefined
+				host: ''
 			} as NormalizedOptions;
 		}
 	}
