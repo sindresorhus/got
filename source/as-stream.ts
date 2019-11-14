@@ -2,7 +2,7 @@ import {PassThrough as PassThroughStream, Duplex as DuplexStream} from 'stream';
 import stream = require('stream');
 import {IncomingMessage} from 'http';
 import duplexer3 = require('duplexer3');
-import requestAsEventEmitter from './request-as-event-emitter';
+import requestAsEventEmitter, {proxyEvents} from './request-as-event-emitter';
 import {HTTPError, ReadError} from './errors';
 import {NormalizedOptions, Response, GotEvents} from './utils/types';
 
@@ -101,19 +101,8 @@ export default function asStream(options: NormalizedOptions): ProxyStream {
 		proxy.emit('response', response);
 	});
 
-	const events = [
-		'error',
-		'request',
-		'redirect',
-		'uploadProgress',
-		'downloadProgress'
-	];
-
-	for (const event of events) {
-		emitter.on(event, (...args) => {
-			proxy.emit(event, ...args);
-		});
-	}
+	proxyEvents(proxy, emitter);
+	emitter.on('error', (error: Error) => proxy.emit('error', error));
 
 	const pipe = proxy.pipe.bind(proxy);
 	const unpipe = proxy.unpipe.bind(proxy);

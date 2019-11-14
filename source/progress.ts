@@ -1,19 +1,13 @@
-import {IncomingMessage, ClientRequest} from 'http';
+import {ClientRequest} from 'http';
 import {Transform as TransformStream} from 'stream';
 import {Socket} from 'net';
 import EventEmitter = require('events');
-import mimicResponse = require('mimic-response');
 
-export function downloadProgress(response: IncomingMessage, emitter: EventEmitter, downloadBodySize?: number): TransformStream {
+export function downloadProgress(emitter: EventEmitter, downloadBodySize?: number): TransformStream {
 	let downloadedBytes = 0;
 
 	const progressStream = new TransformStream({
 		transform(chunk, _encoding, callback) {
-			// TODO: `options.transform`
-			// I love English. Does Transform Response Function:
-			// 1. transforms: the response function
-			// 2. transforms: the response; using some function
-
 			downloadedBytes += chunk.length;
 
 			const percent = downloadBodySize ? downloadedBytes / downloadBodySize : 0;
@@ -41,8 +35,6 @@ export function downloadProgress(response: IncomingMessage, emitter: EventEmitte
 		}
 	});
 
-	mimicResponse(response, progressStream);
-
 	return progressStream;
 }
 
@@ -61,6 +53,10 @@ export function uploadProgress(request: ClientRequest, emitter: EventEmitter, up
 		clearInterval(progressInterval);
 	});
 
+	request.once('abort', () => {
+		clearInterval(progressInterval);
+	});
+
 	request.once('response', () => {
 		clearInterval(progressInterval);
 
@@ -75,8 +71,7 @@ export function uploadProgress(request: ClientRequest, emitter: EventEmitter, up
 		const onSocketConnect = (): void => {
 			progressInterval = setInterval(() => {
 				const lastUploadedBytes = uploadedBytes;
-				/* istanbul ignore next: see #490 (occurs randomly!) */
-				const headersSize = (request as any)._header ? Buffer.byteLength((request as any)._header) : 0;
+				const headersSize = Buffer.byteLength((request as any)._header);
 				uploadedBytes = socket.bytesWritten - headersSize;
 
 				// Don't emit events with unchanged progress and

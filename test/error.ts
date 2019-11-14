@@ -40,7 +40,7 @@ test('catches dns errors', async t => {
 test('`options.body` form error message', async t => {
 	// @ts-ignore Manual tests
 	await t.throwsAsync(got.post('https://example.com', {body: Buffer.from('test'), form: ''}), {
-		message: 'The `body` option cannot be used with the `json` option or `form` option'
+		message: 'The `body`, `json` and `form` options are mutually exclusive'
 	});
 });
 

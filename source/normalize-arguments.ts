@@ -23,7 +23,6 @@ import getBodySize from './utils/get-body-size';
 import isFormData from './utils/is-form-data';
 import supportsBrotli from './utils/supports-brotli';
 
-// TODO: Add this to documentation:
 // `preNormalizeArguments` normalizes these options: `headers`, `prefixUrl`, `hooks`, `timeout`, `retry` and `method`.
 // `normalizeArguments` is *only* called on `got(...)`. It normalizes the URL and performs `mergeOptions(...)`.
 // `normalizeRequestArguments` converts Got options into HTTP options.
@@ -146,12 +145,16 @@ export const preNormalizeArguments = (options: Options, defaults?: NormalizedOpt
 	if (options.cookieJar) {
 		let {setCookie, getCookieString} = options.cookieJar;
 
-		if (setCookie.length !== 2) {
-			setCookie = promisify(options.cookieJar.setCookie.bind(options.cookieJar));
-		}
-
-		if (setCookie.length !== 2) {
-			getCookieString = promisify(options.cookieJar.getCookieString.bind(options.cookieJar));
+		// Horrible `tough-cookie` check
+		if (setCookie.length === 4 && getCookieString.length === 0) {
+			if (!Reflect.has(setCookie, promisify.custom)) {
+				setCookie = promisify(setCookie.bind(options.cookieJar));
+				getCookieString = promisify(getCookieString.bind(options.cookieJar));
+			}
+		} else if (setCookie.length !== 2) {
+			throw new TypeError('`options.cookieJar.setCookie` needs to be an async function with 2 arguments');
+		} else if (getCookieString.length !== 1) {
+			throw new TypeError('`options.cookieJar.getCookieString` needs to be an async function with 1 argument');
 		}
 
 		options.cookieJar = {setCookie, getCookieString};
@@ -195,7 +198,7 @@ export const mergeOptions = (...sources: Options[]): NormalizedOptions => {
 export const normalizeArguments = (url: URLOrOptions, options?: Options, defaults?: Defaults): NormalizedOptions => {
 	// Merge options
 	if (typeof url === 'undefined') {
-		throw new TypeError('Missing `url` argument.');
+		throw new TypeError('Missing `url` argument');
 	}
 
 	if (typeof options === 'undefined') {
@@ -241,7 +244,7 @@ export const normalizeArguments = (url: URLOrOptions, options?: Options, default
 	let prefixUrl = options.prefixUrl as string;
 	Object.defineProperty(options, 'prefixUrl', {
 		set: (value: string) => {
-			if (normalizedOptions.url.href.startsWith(value)) {
+			if (!normalizedOptions.url.href.startsWith(value)) {
 				throw new Error(`Cannot change \`prefixUrl\` from ${prefixUrl} to ${value}: ${normalizedOptions.url.href}`);
 			}
 
@@ -274,7 +277,7 @@ export const normalizeArguments = (url: URLOrOptions, options?: Options, default
 
 const withoutBody: ReadonlySet<string> = new Set(['GET', 'HEAD']);
 
-type NormalizedRequestArguments = https.RequestOptions & {
+export type NormalizedRequestArguments = https.RequestOptions & {
 	body: Pick<NormalizedOptions, 'body'>;
 	url: Pick<NormalizedOptions, 'url'>;
 };
@@ -293,11 +296,11 @@ export const normalizeRequestArguments = async (options: NormalizedOptions): Pro
 		throw new TypeError(`The \`${options.method}\` method cannot be used with a body`);
 	}
 
-	if (isBody) {
-		if (isForm || isJSON) {
-			throw new TypeError('The `body` option cannot be used with the `json` option or `form` option');
-		}
+	if ([isBody, isForm, isJSON].filter(isTrue => isTrue).length > 1) {
+		throw new TypeError('The `body`, `json` and `form` options are mutually exclusive');
+	}
 
+	if (isBody) {
 		if (is.object(options.body) && isFormData(options.body)) {
 			// Special case for https://github.com/form-data/form-data
 			if (!Reflect.has(headers, 'content-type')) {
@@ -405,7 +408,17 @@ export const normalizeRequestArguments = async (options: NormalizedOptions): Pro
 		options.request = electron.net.request ?? electron.remote.net.request;
 	}
 
+	// We're not compatible
 	delete options.timeout;
+
+	// Set cookies
+	if (options.cookieJar) {
+		const cookieString = await options.cookieJar.getCookieString(options.url.toString());
+
+		if (is.nonEmptyString(cookieString)) {
+			options.headers.cookie = cookieString;
+		}
+	}
 
 	// `http-cache-semantics` check this
 	delete options.url;

@@ -1,4 +1,5 @@
 import test from 'ava';
+import getStream from 'get-stream';
 import delay = require('delay');
 import got from '../source';
 import withServer from './helpers/with-server';
@@ -474,18 +475,76 @@ test('doesn\'t throw on afterResponse retry HTTP failure if throwHttpErrors is f
 	t.is(statusCode, 500);
 });
 
-test('beforeError is called with an error', async t => {
-	await t.throwsAsync(got('https://example.com', {
-		request: () => {
-			throw error;
-		},
+test('throwing in a beforeError hook - promise', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.end('ok');
+	});
+
+	await t.throwsAsync(got({
 		hooks: {
+			afterResponse: [
+				() => {
+					throw error;
+				}
+			],
+			beforeError: [
+				() => {
+					throw new Error('foobar');
+				},
+				// @ts-ignore Assertion.
+				() => {
+					t.fail('This shouldn\'t be called at all');
+				}
+			]
+		}
+	}), 'foobar');
+});
+
+test('throwing in a beforeError hook - stream', withServer, async (t, _server, got) => {
+	await t.throwsAsync(getStream(got.stream({
+		hooks: {
+			beforeError: [
+				() => {
+					throw new Error('foobar');
+				},
+				// @ts-ignore Assertion.
+				() => {
+					t.fail('This shouldn\'t be called at all');
+				}
+			]
+		}
+	})), 'foobar');
+});
+
+test('beforeError is called with an error - promise', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.end('ok');
+	});
+
+	await t.throwsAsync(got({
+		hooks: {
+			afterResponse: [
+				() => {
+					throw error;
+				}
+			],
 			beforeError: [error2 => {
 				t.true(error2 instanceof Error);
 				return error2;
 			}]
 		}
 	}), errorString);
+});
+
+test('beforeError is called with an error - stream', withServer, async (t, _server, got) => {
+	await t.throwsAsync(getStream(got.stream({
+		hooks: {
+			beforeError: [error2 => {
+				t.true(error2 instanceof Error);
+				return error2;
+			}]
+		}
+	})), 'Response code 404 (Not Found)');
 });
 
 test('beforeError allows modifications', async t => {

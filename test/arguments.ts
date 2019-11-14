@@ -29,6 +29,11 @@ test('`url` should be utf-8 encoded', async t => {
 	);
 });
 
+test('throws if no arguments provided', async t => {
+	// @ts-ignore This is on purpose.
+	await t.throwsAsync(got(), TypeError, 'Missing `url` argument');
+});
+
 test('throws an error if the protocol is not specified', async t => {
 	await t.throwsAsync(got('example.com'), {
 		instanceOf: TypeError,
@@ -138,9 +143,9 @@ test('ignores empty searchParams object', withServer, async (t, server, got) => 
 	t.is((await got('test', {searchParams: {}})).requestUrl, `${server.url}/test`);
 });
 
-test('throws on invalid type of body', async t => {
+test('throws when passing body with a non payload method', async t => {
 	// @ts-ignore Manual tests
-	await t.throwsAsync(got('https://example.com', {body: false}), {
+	await t.throwsAsync(got('https://example.com', {body: 'asdf'}), {
 		instanceOf: TypeError,
 		message: 'The `GET` method cannot be used with a body'
 	});
@@ -241,10 +246,9 @@ test('`prefixUrl` can be changed if the URL contains the old one', withServer, a
 	server.get('/', echoUrl);
 
 	const instanceA = got.extend({
-		prefixUrl: 'https://example.com',
+		prefixUrl: `${server.url}/meh`,
 		handlers: [
 			(options, next) => {
-				// @ts-ignore Even though we know it's read only, we need to test it.
 				options.prefixUrl = server.url;
 				return next(options);
 			}
@@ -253,6 +257,21 @@ test('`prefixUrl` can be changed if the URL contains the old one', withServer, a
 
 	const {body} = await instanceA('');
 	t.is(body, '/');
+});
+
+test('throws if cannot change `prefixUrl`', async t => {
+	const instanceA = got.extend({
+		prefixUrl: 'https://example.com',
+		handlers: [
+			(options, next) => {
+				options.url = new URL('https://google.pl');
+				options.prefixUrl = 'https://example.com';
+				return next(options);
+			}
+		]
+	});
+
+	await t.throwsAsync(instanceA(''), 'Cannot change `prefixUrl` from https://example.com/ to https://example.com: https://google.pl/');
 });
 
 test('throws if the `searchParams` value is invalid', async t => {

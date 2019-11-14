@@ -14,6 +14,15 @@ test('`options.resolveBodyOnly` works', withServer, async (t, server, got) => {
 	t.deepEqual(await got({responseType: 'json', resolveBodyOnly: true}), dog);
 });
 
+test('`options.resolveBodyOnly` combined with `options.throwHttpErrors`', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.statusCode = 404;
+		response.end('/');
+	});
+
+	t.is(await got({resolveBodyOnly: true, throwHttpErrors: false}), '/');
+});
+
 test('JSON response', withServer, async (t, server, got) => {
 	server.get('/', defaultHandler);
 
@@ -50,6 +59,20 @@ test('Text response - promise.text()', withServer, async (t, server, got) => {
 	t.is(await got('').text(), jsonResponse);
 });
 
+test('Text response - promise.json().text()', withServer, async (t, server, got) => {
+	server.get('/', defaultHandler);
+
+	t.is(await got('').json().text(), jsonResponse);
+});
+
+test('works if promise has been already resolved', withServer, async (t, server, got) => {
+	server.get('/', defaultHandler);
+
+	const promise = got('').text();
+	t.is(await promise, jsonResponse);
+	t.deepEqual(await promise.json(), dog);
+});
+
 test('throws an error on invalid response type', withServer, async (t, server, got) => {
 	server.get('/', defaultHandler);
 
@@ -58,15 +81,6 @@ test('throws an error on invalid response type', withServer, async (t, server, g
 	t.true(error.message.includes(error.options.url.hostname));
 	// @ts-ignore
 	t.is(error.options.url.pathname, '/');
-});
-
-test('doesn\'t parse responses without a body', withServer, async (t, server, got) => {
-	server.get('/', (_request, response) => {
-		response.end();
-	});
-
-	const body = await got('').json();
-	t.is(body, '');
 });
 
 test('wraps parsing errors', withServer, async (t, server, got) => {

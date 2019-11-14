@@ -4,16 +4,8 @@ export default function merge<Target extends Record<string, any>, Source extends
 	for (const source of sources) {
 		for (const [key, sourceValue] of Object.entries(source)) {
 			const targetValue = target[key];
-			if (targetValue instanceof URLSearchParams && sourceValue instanceof URLSearchParams) {
-				const params = new URLSearchParams();
 
-				const append = (value: string, key: string): void => params.append(key, value);
-				targetValue.forEach(append);
-				sourceValue.forEach(append);
-
-				// @ts-ignore https://github.com/microsoft/TypeScript/issues/31661
-				target[key] = params;
-			} else if (is.urlInstance(targetValue) && is.string(sourceValue)) {
+			if (is.urlInstance(targetValue) && is.string(sourceValue)) {
 				// @ts-ignore
 				target[key] = new URL(sourceValue, targetValue);
 			} else if (is.plainObject(sourceValue)) {

@@ -4,7 +4,12 @@ import nock = require('nock');
 import withServer from './helpers/with-server';
 
 const reachedHandler = (_request, response) => {
-	response.end('reached');
+	const body = 'reached';
+
+	response.writeHead(200, {
+		'content-length': body.length
+	});
+	response.end(body);
 };
 
 const finiteHandler = (_request, response) => {
@@ -144,6 +149,22 @@ test('redirects POST requests', withServer, async (t, server, got) => {
 	await t.throwsAsync(got.post({body: 'wow'}), {
 		instanceOf: got.MaxRedirectsError
 	});
+});
+
+test('redirects on 303 if GET or HEAD', withServer, async (t, server, got) => {
+	server.get('/', reachedHandler);
+
+	server.head('/seeOther', (_request, response) => {
+		response.writeHead(303, {
+			location: '/'
+		});
+		response.end();
+	});
+
+	const {url, headers, request} = await got.head('seeOther');
+	t.is(url, `${server.url}/`);
+	t.is(headers['content-length'], 'reached'.length.toString());
+	t.is(request.options.method, 'HEAD');
 });
 
 test('redirects on 303 response even on post, put, delete', withServer, async (t, server, got) => {

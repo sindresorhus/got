@@ -41,10 +41,10 @@ export type ErrorCode =
 	| 'ENETUNREACH'
 	| 'EAI_AGAIN';
 
-export type ResponseType = 'json' | 'buffer' | 'text';
+export type ResponseType = 'json' | 'buffer' | 'text' | '';
 
 export interface Response extends http.IncomingMessage {
-	body: Buffer | string | any;
+	body: any;
 	statusCode: number;
 
 	/**
@@ -177,6 +177,7 @@ export interface ExtendedOptions extends Options {
 export interface Defaults {
 	options: Except<NormalizedOptions, 'url'>;
 	handlers: HandlerFunction[];
+	_rawHandlers?: HandlerFunction[];
 	mutableDefaults: boolean;
 }
 
@@ -195,8 +196,8 @@ export interface GotEvents<T> {
 	on(name: 'uploadProgress' | 'downloadProgress', listener: (progress: Progress) => void): T;
 }
 
-export interface CancelableRequest<T extends http.IncomingMessage | Buffer | string | object> extends Merge<PCancelable<T>, GotEvents<CancelableRequest<T>>> {
+export interface CancelableRequest<T extends Response | Response['body']> extends Merge<PCancelable<T>, GotEvents<CancelableRequest<T>>> {
 	json<TReturnType extends object>(): CancelableRequest<TReturnType>;
 	buffer<TReturnType extends Buffer>(): CancelableRequest<TReturnType>;
-	text<TReturnType extends string>(): CancelableRequest<TReturnType>;
+	text(): CancelableRequest<string>;
 }

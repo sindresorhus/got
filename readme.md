@@ -254,11 +254,15 @@ Cookie support. You don't have to care about parsing or how to store them. [Exam
 
 ###### cookieJar.setCookie
 
-The function takes two arguments: `rawCookie` (`string`) and `url` (`string`). It needs to be an async function or some callback-style function.
+Type: `Function<Promise>`
+
+The function takes two arguments: `rawCookie` (`string`) and `url` (`string`).
 
 ###### cookieJar.getCookieString
 
-The function takes one argument: `url` (`string`). It needs to be an async function or some callback-style function.
+Type: `Function<Promise>`
+
+The function takes one argument: `url` (`string`).
 
 ###### ignoreInvalidCookies
 

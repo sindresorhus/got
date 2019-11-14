@@ -22,7 +22,6 @@ export interface RequestAsEventEmitter extends EventEmitter {
 
 export default (options: NormalizedOptions) => {
 	const emitter = new EventEmitter() as RequestAsEventEmitter;
-	const originalOptions = options;
 
 	const requestURL = options.url.toString();
 	const redirects: string[] = [];
@@ -44,15 +43,7 @@ export default (options: NormalizedOptions) => {
 		}
 	};
 
-	const get = async (options: NormalizedOptions): Promise<void> => {
-		if (Reflect.has(options, 'cookieJar')) {
-			const cookieString = await options.cookieJar.getCookieString(options.url.toString());
-
-			if (is.nonEmptyString(cookieString)) {
-				options.headers.cookie = cookieString;
-			}
-		}
-
+	const get = async (): Promise<void> => {
 		let httpOptions = await normalizeRequestArguments(options);
 
 		let timings: Timings;
@@ -125,16 +116,16 @@ export default (options: NormalizedOptions) => {
 
 					const redirectURL = new URL(redirectBuffer, options.url);
 					redirects.push(redirectURL.toString());
-					originalOptions.url = redirectURL;
+					options.url = redirectURL;
 
 					for (const hook of options.hooks.beforeRedirect) {
 						// eslint-disable-next-line no-await-in-loop
-						await hook(originalOptions, typedResponse);
+						await hook(options, typedResponse);
 					}
 
-					emitter.emit('redirect', response, originalOptions);
+					emitter.emit('redirect', response, options);
 
-					await get(originalOptions);
+					await get();
 					return;
 				}
 
@@ -286,7 +277,7 @@ export default (options: NormalizedOptions) => {
 						await hook(options, error, retryCount);
 					}
 
-					await get(options);
+					await get();
 				} catch (error_) {
 					emitError(error_);
 				}
@@ -314,11 +305,26 @@ export default (options: NormalizedOptions) => {
 				await hook(options);
 			}
 
-			await get(options);
+			await get();
 		} catch (error) {
 			emitError(error);
 		}
 	});
 
 	return emitter;
+};
+
+export const proxyEvents = (proxy, emitter) => {
+	const events = [
+		'request',
+		'redirect',
+		'uploadProgress',
+		'downloadProgress'
+	];
+
+	for (const event of events) {
+		emitter.on(event, (...args: unknown[]) => {
+			proxy.emit(event, ...args);
+		});
+	}
 };

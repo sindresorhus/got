@@ -53,7 +53,7 @@ const defaults: Defaults = {
 		cache: false,
 		dnsCache: false,
 		useElectronNet: false,
-		responseType: 'text',
+		responseType: '',
 		resolveBodyOnly: false,
 		maxRedirects: 10
 	},

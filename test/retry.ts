@@ -327,3 +327,23 @@ test('does not retry on POST', withServer, async (t, server, got) => {
 		}
 	}), got.TimeoutError);
 });
+
+test('does not break on redirect', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.statusCode = 500;
+		response.end();
+	});
+
+	let tries = 0;
+	server.get('/redirect', (_request, response) => {
+		tries++;
+
+		response.writeHead(302, {
+			location: '/'
+		});
+		response.end();
+	});
+
+	await t.throwsAsync(got('redirect'), 'Response code 500 (Internal Server Error)');
+	t.is(tries, 1);
+});

@@ -36,11 +36,11 @@ const keys = [
 export default (options: URLOptions): URL => {
 	let origin: string;
 
-	if ((options as any).path) {
+	if (Reflect.has(options, 'path')) {
 		throw new TypeError('Parameter `path` is deprecated. Use `pathname` instead.');
 	}
 
-	if ((options as any).auth) {
+	if (Reflect.has(options, 'auth')) {
 		throw new TypeError('Parameter `auth` is deprecated. Use `username`/`password` instead.');
 	}
 

@@ -68,6 +68,7 @@ export const defaultHandler: HandlerFunction = (options, next) => next(options);
 
 const create = (defaults: Defaults): Got => {
 	// Proxy properties from next handlers
+	defaults._rawHandlers = defaults.handlers;
 	defaults.handlers = defaults.handlers.map(fn => ((options, next) => {
 		let root: GotReturn;
 
@@ -110,18 +111,18 @@ const create = (defaults: Defaults): Got => {
 
 	got.extend = (...instancesOrOptions) => {
 		const optionsArray: Options[] = [defaults.options];
-		const handlers: HandlerFunction[] = [...defaults.handlers];
+		let handlers: HandlerFunction[] = [...defaults._rawHandlers];
 		let mutableDefaults: boolean;
 
 		for (const value of instancesOrOptions) {
 			if (Reflect.has(value, 'defaults')) {
 				optionsArray.push((value as Got).defaults.options);
 
-				handlers.push(...(value as Got).defaults.handlers.filter(handler => handler !== defaultHandler));
+				handlers.push(...(value as Got).defaults._rawHandlers);
 
 				mutableDefaults = (value as Got).defaults.mutableDefaults;
 			} else {
-				optionsArray.push(value as Options);
+				optionsArray.push(value as ExtendedOptions);
 
 				if (Reflect.has(value, 'handlers')) {
 					handlers.push(...(value as ExtendedOptions).handlers);
@@ -130,6 +131,8 @@ const create = (defaults: Defaults): Got => {
 				mutableDefaults = (value as ExtendedOptions).mutableDefaults;
 			}
 		}
+
+		handlers = handlers.filter(handler => handler !== defaultHandler);
 
 		if (handlers.length === 0) {
 			handlers.push(defaultHandler);

@@ -22,6 +22,14 @@ test('GET cannot have body', withServer, async (t, server, got) => {
 	await t.throwsAsync(got.get({body: 'hi'}), 'The `GET` method cannot be used with a body');
 });
 
+test('invalid body', async t => {
+	await t.throwsAsync(
+		got('https://example.com', {body: {} as any}),
+		TypeError,
+		'The `body` option must be a stream.Readable, string or Buffer'
+	);
+});
+
 test('sends strings', withServer, async (t, server, got) => {
 	server.post('/', defaultEndpoint);
 
