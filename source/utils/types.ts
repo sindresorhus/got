@@ -1,26 +1,18 @@
 import http = require('http');
 import https = require('https');
-import ResponseLike = require('responselike');
-import PCancelable = require('p-cancelable');
 import Keyv = require('keyv');
+import PCancelable = require('p-cancelable');
+import ResponseLike = require('responselike');
+import CacheableLookup from 'cacheable-lookup';
 import {Readable as ReadableStream} from 'stream';
 import {CookieJar} from 'tough-cookie';
+import {Timings} from '@szmarczak/http-timer';
 import {StorageAdapter} from 'cacheable-request';
-import {Except} from 'type-fest';
-import CacheableLookup from 'cacheable-lookup';
-import {Timings} from '@szmarczak/http-timer/dist';
-import {Hooks} from '../known-hook-events';
-import {GotError, HTTPError, MaxRedirectsError, ParseError} from '../errors';
+import {Except, PartialDeep} from 'type-fest';
 import {isProxiedSymbol} from '../as-promise';
 import {ProxyStream} from '../as-stream';
-
-export type DeepPartial<T> = {
-	[Key in keyof T]?: T[Key] extends Array<infer ArrayVal>
-		? Array<DeepPartial<ArrayVal>>
-		: T[Key] extends ReadonlyArray<infer ArrayVal>
-			? ReadonlyArray<DeepPartial<ArrayVal>>
-			: DeepPartial<T[Key]>
-};
+import {GotError, HTTPError, MaxRedirectsError, ParseError} from '../errors';
+import {Hooks} from '../known-hook-events';
 
 export type Method =
 	| 'GET'
@@ -79,7 +71,7 @@ export interface Response extends http.IncomingMessage {
 
 // TODO: The `ResponseLike` type should be properly fixed instead:
 // https://github.com/sindresorhus/got/pull/827/files#r323633794
-export interface ResponseObject extends ResponseLike {
+export interface ResponseObject extends Partial<ResponseLike> {
 	socket: {
 		remoteAddress: string;
 	};
@@ -145,7 +137,7 @@ export interface DefaultOptions {
 }
 
 // The library overrides the type definition of `agent`, `host`, 'headers and `timeout`.
-export interface Options extends DeepPartial<DefaultOptions>, Except<https.RequestOptions, 'agent' | 'timeout' | 'host' | 'headers'> {
+export interface Options extends PartialDeep<DefaultOptions>, Except<https.RequestOptions, 'agent' | 'timeout' | 'host' | 'headers'> {
 	host?: string;
 	body?: string | Buffer | ReadableStream;
 	hostname?: string;
@@ -190,7 +182,7 @@ export interface NormalizedOptions extends DefaultOptions, Except<Options, keyof
 	timeout: Delays;
 	dnsCache: CacheableLookup | false;
 	retry: Required<RetryOptions>;
-	readonly prefixUrl?: string;
+	readonly prefixUrl: string;
 	method: Method;
 
 	// Normalized URL options

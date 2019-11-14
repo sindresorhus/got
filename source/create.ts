@@ -1,3 +1,4 @@
+import {PartialDeep} from 'type-fest';
 import * as errors from './errors';
 import {
 	Options,
@@ -6,12 +7,10 @@ import {
 	Response,
 	CancelableRequest,
 	URLOrOptions,
-	URLArgument,
 	HandlerFunction,
 	DefaultOptions,
 	ExtendOptions,
 	NormalizedDefaults,
-	DeepPartial
 } from './utils/types';
 import deepFreeze from './utils/deep-freeze';
 import merge, {mergeOptions} from './merge';
@@ -28,15 +27,15 @@ export type HTTPAlias =
 	| 'head'
 	| 'delete';
 
-export type ReturnResponse = (url: URLArgument | Options & {stream?: false; url: URLArgument}, options?: Options & {stream?: false}) => CancelableRequest<Response>;
-export type ReturnStream = (url: URLArgument | Options & {stream: true; url: URLArgument}, options?: Options & {stream: true}) => ProxyStream;
+export type ReturnResponse = (url: URLOrOptions | Options & {stream?: false}, options?: Options & {stream?: false}) => CancelableRequest<Response>;
+export type ReturnStream = (url: URLOrOptions | Options & {stream: true}, options?: Options & {stream: true}) => ProxyStream;
 export type GotReturn = ProxyStream | CancelableRequest<Response>;
 
 const getPromiseOrStream = (options: NormalizedOptions): GotReturn => options.stream ? asStream(options) : asPromise(options);
 
 export interface Got extends Record<HTTPAlias, ReturnResponse> {
 	stream: GotStream;
-	defaults: Required<Defaults | Readonly<Defaults>>;
+	defaults: NormalizedDefaults | Readonly<NormalizedDefaults>;
 	GotError: typeof errors.GotError;
 	CacheError: typeof errors.CacheError;
 	RequestError: typeof errors.RequestError;
@@ -48,8 +47,8 @@ export interface Got extends Record<HTTPAlias, ReturnResponse> {
 	TimeoutError: typeof errors.TimeoutError;
 	CancelError: typeof errors.CancelError;
 
-	(url: URLArgument | URLOrOptions & {stream?: false;}, options?: Options & {stream?: false}): CancelableRequest<Response>;
-	(url: URLArgument | URLOrOptions & {stream: true;}, options?: Options & {stream: true}): ProxyStream;
+	(url: URLOrOptions | Options & {stream?: false}, options?: Options & {stream?: false}): CancelableRequest<Response>;
+	(url: URLOrOptions | Options & {stream: true}, options?: Options & {stream: true}): ProxyStream;
 	(url: URLOrOptions, options?: Options): CancelableRequest<Response> | ProxyStream;
 	create(defaults: Defaults): Got;
 	extend(...instancesOrOptions: Array<Got | ExtendOptions>): Got;
@@ -58,7 +57,7 @@ export interface Got extends Record<HTTPAlias, ReturnResponse> {
 }
 
 export interface GotStream extends Record<HTTPAlias, ReturnStream> {
-	(url: URLOrOptions, options?: Options): ProxyStream;
+	(url: URLOrOptions | Options & {stream?: true}, options?: Options): ProxyStream;
 }
 
 const aliases: readonly HTTPAlias[] = [
@@ -145,14 +144,14 @@ const create = (nonNormalizedDefaults: Defaults): Got => {
 
 	got.create = create;
 	got.extend = (...instancesOrOptions) => {
-		const options: Array<DeepPartial<DefaultOptions> & Options> = [defaults.options];
+		const options: Array<PartialDeep<DefaultOptions> & Options> = [defaults.options];
 		const handlers: HandlerFunction[] = [...defaults.handlers];
 		let mutableDefaults: boolean | undefined;
 
 		for (const value of instancesOrOptions) {
 			if (isGotInstance(value)) {
-				options.push(value.defaults.options!);
-				handlers.push(...value.defaults.handlers!.filter(handler => handler !== defaultHandler));
+				options.push(value.defaults.options);
+				handlers.push(...value.defaults.handlers.filter(handler => handler !== defaultHandler));
 
 				mutableDefaults = value.defaults.mutableDefaults;
 			} else {

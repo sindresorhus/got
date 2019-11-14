@@ -9,6 +9,7 @@ import CacheableRequest = require('cacheable-request');
 import toReadableStream = require('to-readable-stream');
 import is from '@sindresorhus/is';
 import timer, {Timings} from '@szmarczak/http-timer';
+import {PartialDeep} from 'type-fest';
 import timedOut, {TimeoutError as TimedOutTimeoutError} from './utils/timed-out';
 import getBodySize from './utils/get-body-size';
 import isFormData from './utils/is-form-data';
@@ -19,7 +20,6 @@ import {CacheError, UnsupportedProtocolError, MaxRedirectsError, RequestError, T
 import urlToOptions from './utils/url-to-options';
 import {
 	AgentByProtocol,
-	DeepPartial,
 	NormalizedOptions,
 	RequestFunction,
 	Response,
@@ -101,7 +101,7 @@ export default (options: NormalizedOptions, input?: TransformStream) => {
 		}
 
 		let timings: Timings;
-		const handleResponse = async (response: http.ServerResponse | DeepPartial<ResponseObject>): Promise<void> => {
+		const handleResponse = async (response: http.ServerResponse | PartialDeep<ResponseObject>): Promise<void> => {
 			options.timeout = timeout;
 
 			try {
@@ -290,6 +290,7 @@ export default (options: NormalizedOptions, input?: TransformStream) => {
 
 		if (options.cache) {
 			const cacheableRequest = new CacheableRequest(requestFn, options.cache);
+			// @ts-ignore Mismatch related ResponseLike should be fixed upstream
 			const cacheRequest = cacheableRequest(options as unknown as https.RequestOptions, handleResponse);
 
 			cacheRequest.once('error', error => {
@@ -304,6 +305,7 @@ export default (options: NormalizedOptions, input?: TransformStream) => {
 		} else {
 			// Catches errors thrown by calling `requestFn(…)`
 			try {
+				// @ts-ignore Since we are using global URL instead of the import, types clashes with URL !== URL
 				handleRequest(requestFn(options as unknown as URL, handleResponse));
 			} catch (error) {
 				emitError(new RequestError(error, options));
