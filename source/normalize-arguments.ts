@@ -157,7 +157,6 @@ export const normalizeArguments = (url: URLOrOptions, options: Options, defaults
 		urlObj = urlToOptions(urlArgument);
 	} else if (mergedOptions.prefixUrl) {
 		urlObj = {
-			// @ts-ignore
 			...urlToOptions(new URL(mergedOptions.prefixUrl)),
 			...urlArgument
 		};
