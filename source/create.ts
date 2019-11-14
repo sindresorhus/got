@@ -27,11 +27,9 @@ export type HTTPAlias =
 	| 'head'
 	| 'delete';
 
-export type ReturnResponse = (url: URLOrOptions | Options & {stream?: false}, options?: Options & {stream?: false}) => CancelableRequest<Response>;
-export type ReturnStream = (url: URLOrOptions | Options & {stream: true}, options?: Options & {stream: true}) => ProxyStream;
-export type GotReturn = ProxyStream | CancelableRequest<Response>;
-
-const getPromiseOrStream = (options: NormalizedOptions): GotReturn => options.stream ? asStream(options) : asPromise(options);
+export type ReturnResponse = (url: URLOrOptions | Options & {stream?: false}, options?: Options & {stream?: false}) => ReturnType<typeof asPromise>;
+export type ReturnStream = (url: URLOrOptions | Options & {stream: true}, options?: Options & {stream: true}) => ReturnType<typeof asStream>;
+export type GotReturn = ReturnType<ReturnResponse> | ReturnType<ReturnStream>;
 
 export interface Got extends Record<HTTPAlias, ReturnResponse> {
 	stream: GotStream;
@@ -47,9 +45,9 @@ export interface Got extends Record<HTTPAlias, ReturnResponse> {
 	TimeoutError: typeof errors.TimeoutError;
 	CancelError: typeof errors.CancelError;
 
-	(url: URLOrOptions | Options & {stream?: false}, options?: Options & {stream?: false}): CancelableRequest<Response>;
-	(url: URLOrOptions | Options & {stream: true}, options?: Options & {stream: true}): ProxyStream;
-	(url: URLOrOptions, options?: Options): CancelableRequest<Response> | ProxyStream;
+	(url: URLOrOptions | Options & {stream?: false}, options?: Options & {stream?: false}): ReturnType<typeof asPromise>;
+	(url: URLOrOptions | Options & {stream: true}, options?: Options & {stream: true}): ReturnType<typeof asStream>;
+	(url: URLOrOptions, options?: Options): GotReturn;
 	create(defaults: Defaults): Got;
 	extend(...instancesOrOptions: Array<Got | ExtendOptions>): Got;
 	mergeInstances(parent: Got, ...instances: Got[]): Got;
@@ -70,6 +68,8 @@ const aliases: readonly HTTPAlias[] = [
 ];
 
 const defaultHandler: HandlerFunction = (options, next) => next(options);
+
+const getPromiseOrStream = (options: NormalizedOptions): GotReturn => options.stream ? asStream(options) : asPromise(options);
 
 const isCancelableRequest = <T extends Response>(value: GotReturn, isStream: boolean): value is CancelableRequest<T> => (
 	!isStream && !Reflect.has(value, isProxiedSymbol)

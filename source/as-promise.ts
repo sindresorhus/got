@@ -13,7 +13,7 @@ type ResponseReturn = Response | Buffer | string | any;
 
 export const isProxiedSymbol: unique symbol = Symbol('proxied');
 
-export default function asPromise(options: NormalizedOptions): CancelableRequest<Response> {
+export default function asPromise(options: NormalizedOptions): CancelableRequest<Response> | Response['body'] {
 	const proxy = new EventEmitter();
 
 	const parseBody = (response: Response): void => {
@@ -69,7 +69,7 @@ export default function asPromise(options: NormalizedOptions): CancelableRequest
 				for (const [index, hook] of options.hooks.afterResponse.entries()) {
 					// eslint-disable-next-line no-await-in-loop
 					response = await hook(response, updatedOptions => {
-						updatedOptions = reNormalizeArguments(mergeOptions(options, {
+						const reNormalizedOptions = reNormalizeArguments(mergeOptions(options, {
 							...updatedOptions,
 							retry: {
 								calculateDelay: () => 0
@@ -81,9 +81,9 @@ export default function asPromise(options: NormalizedOptions): CancelableRequest
 
 						// Remove any further hooks for that request, because we we'll call them anyway.
 						// The loop continues. We don't want duplicates (asPromise recursion).
-						updatedOptions.hooks.afterResponse = options.hooks.afterResponse.slice(0, index);
+						reNormalizedOptions.hooks.afterResponse = options.hooks.afterResponse.slice(0, index);
 
-						return asPromise(updatedOptions);
+						return asPromise(reNormalizedOptions);
 					});
 				}
 			} catch (error) {
