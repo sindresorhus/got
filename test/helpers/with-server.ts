@@ -18,8 +18,8 @@ export interface ExtendedTestServer extends TestServer {
 
 export type InstalledClock = ReturnType<typeof lolex.install>;
 export type GlobalClock = InstalledClock | lolex.NodeClock;
-export type RunTestWithServer = (t: test.ExecutionContext, server: ExtendedTestServer, got: ExtendedGot, clock: GlobalClock) => Promise<void>;
-export type RunTestWithSocket = (t: test.ExecutionContext, server: any) => Promise<void>;
+export type RunTestWithServer = (t: test.ExecutionContext, server: ExtendedTestServer, got: ExtendedGot, clock: GlobalClock) => Promise<void> | void;
+export type RunTestWithSocket = (t: test.ExecutionContext, server: any) => Promise<void> | void;
 
 const generateHook = ({install}: {install?: boolean}): test.Macro<[RunTestWithServer]> => async (t, run) => {
 	const clock: GlobalClock = install ? lolex.install() : lolex.createClock();
