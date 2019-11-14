@@ -10,7 +10,7 @@ import {
 	HandlerFunction,
 	DefaultOptions,
 	ExtendOptions,
-	NormalizedDefaults,
+	NormalizedDefaults
 } from './utils/types';
 import deepFreeze from './utils/deep-freeze';
 import merge, {mergeOptions} from './merge';

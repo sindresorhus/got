@@ -3,8 +3,8 @@ import https = require('https');
 import Keyv = require('keyv');
 import PCancelable = require('p-cancelable');
 import ResponseLike = require('responselike');
-import CacheableLookup from 'cacheable-lookup';
 import {Readable as ReadableStream} from 'stream';
+import CacheableLookup from 'cacheable-lookup';
 import {CookieJar} from 'tough-cookie';
 import {Timings} from '@szmarczak/http-timer';
 import {StorageAdapter} from 'cacheable-request';
@@ -67,6 +67,7 @@ export interface Response extends http.IncomingMessage {
 	request: {
 		options: NormalizedOptions;
 	};
+	url: string;
 }
 
 // TODO: The `ResponseLike` type should be properly fixed instead:
@@ -117,7 +118,7 @@ export interface Delays {
 	request?: number;
 }
 
-export type Headers = Record<string, string | string[] | undefined>;
+export type Headers = Record<string, string | string[] | null | undefined>;
 
 export interface DefaultOptions {
 	method: Method;
