@@ -1,19 +1,34 @@
 import {promisify} from 'util';
+import * as test from 'ava';
 import http = require('http');
 import tempy = require('tempy');
 import createTestServer = require('create-test-server');
 import lolex = require('lolex');
-import got from '../../source';
+import {TestServer} from 'create-test-server';
+import got, {Got, HandlerFunction} from '../../source';
 
-const generateHook = ({install}) => async (t, run) => {
-	const clock = install ? lolex.install() : lolex.createClock();
+export interface ExtendedGot extends Got {
+	secure: Got;
+}
 
-	// @ts-ignore
+export interface ExtendedTestServer extends TestServer {
+	hostname: string;
+	sslHostname: string;
+}
+
+export type InstalledClock = ReturnType<typeof lolex.install>;
+export type GlobalClock = InstalledClock | lolex.NodeClock;
+export type RunTestWithServer = (t: test.ExecutionContext, server: ExtendedTestServer, got: ExtendedGot, clock: GlobalClock) => Promise<void>;
+export type RunTestWithSocket = (t: test.ExecutionContext, server: any) => Promise<void>;
+
+const generateHook = ({install}: {install?: boolean}): test.Macro<[RunTestWithServer]> => async (t, run) => {
+	const clock: GlobalClock = install ? lolex.install() : lolex.createClock();
+
 	const server = await createTestServer({
 		bodyParser: {
 			type: () => false
 		}
-	});
+	}) as ExtendedTestServer;
 
 	const options = {
 		avaTest: t.title,
@@ -29,12 +44,10 @@ const generateHook = ({install}) => async (t, run) => {
 
 				return result;
 			}
-		]
+		] as HandlerFunction[]
 	};
 
-	// @ts-ignore Ignore errors for extending got, for the tests
-	const preparedGot = got.extend({prefixUrl: server.url, ...options});
-	// @ts-ignore Ignore errors for extending got, for the tests
+	const preparedGot = got.extend({prefixUrl: server.url, ...options}) as ExtendedGot;
 	preparedGot.secure = got.extend({prefixUrl: server.sslUrl, ...options});
 
 	server.hostname = (new URL(server.url)).hostname;
@@ -47,8 +60,7 @@ const generateHook = ({install}) => async (t, run) => {
 	}
 
 	if (install) {
-		// @ts-ignore This is a global clock.
-		clock.uninstall();
+		(clock as InstalledClock).uninstall();
 	}
 };
 
@@ -57,7 +69,7 @@ export default generateHook({install: false});
 export const withServerAndLolex = generateHook({install: true});
 
 // TODO: remove this when `create-test-server` supports custom listen
-export const withSocketServer = async (t, run) => {
+export const withSocketServer: test.Macro<[RunTestWithSocket]> = async (t, run) => {
 	const socketPath = tempy.file({extension: 'socket'});
 
 	const server = http.createServer((request, response) => {
