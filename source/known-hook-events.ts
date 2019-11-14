@@ -1,4 +1,4 @@
-import {Options, CancelableRequest, Response, NormalizedOptions} from './utils/types';
+import {CancelableRequest, Response, NormalizedOptions, Options} from './utils/types';
 import {HTTPError, GotError, ParseError, MaxRedirectsError} from './errors';
 
 /**
@@ -8,7 +8,7 @@ Called with plain request options, right before their normalization. This is esp
 
 @see [Request migration guide](https://github.com/sindresorhus/got/blob/master/migration-guides.md#breaking-changes) for an example.
 */
-export type InitHook = (options: Options) => void;
+export type InitHook = (options: NormalizedOptions) => void;
 
 /**
 Called with normalized [request options](https://github.com/sindresorhus/got#options). Got will make no further changes to the request before it is sent (except the body serialization). This is especially useful in conjunction with [`got.extend()`](https://github.com/sindresorhus/got#instances) and [`got.create()`](https://github.com/sindresorhus/got/blob/master/advanced-creation.md) when you want to create an API client that, for example, uses HMAC-signing.
@@ -39,7 +39,7 @@ Called with [response object](https://github.com/sindresorhus/got#response) and 
 
 Each function should return the response. This is especially useful when you want to refresh an access token.
 */
-export type AfterResponseHook = (response: Response, retryWithMergedOptions: (options: NormalizedOptions) => CancelableRequest<Response>) => Response | CancelableRequest<Response> | Promise<Response | CancelableRequest<Response>>;
+export type AfterResponseHook = (response: Response, retryWithMergedOptions: (options: Options) => CancelableRequest<Response>) => Response | CancelableRequest<Response> | Promise<Response | CancelableRequest<Response>>;
 
 export type HookType =
 	| BeforeErrorHook
