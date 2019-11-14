@@ -201,7 +201,7 @@ export default (options: NormalizedOptions) => {
 						request.removeListener('error', onError);
 
 						stream.pipeline(
-							// @ts-ignore TS is dumb.
+							// @ts-ignore Upgrade `@sindresorhus/is`
 							httpOptions.body,
 							request,
 							uploadComplete

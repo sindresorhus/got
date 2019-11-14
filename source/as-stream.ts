@@ -14,7 +14,7 @@ export default function asStream(options: NormalizedOptions): ProxyStream {
 	const input = new PassThroughStream();
 	const output = new PassThroughStream();
 	const proxy = duplexer3(input, output) as ProxyStream;
-	const piped = new Set<any>(); // TODO: Should be `new Set<ProxyStream>();`.
+	const piped = new Set<any>(); // TODO: Should be `new Set<stream.Writable>();`.
 	let isFinished = false;
 
 	options.retry.calculateDelay = () => 0;
