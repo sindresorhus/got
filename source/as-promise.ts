@@ -69,8 +69,9 @@ export default function asPromise(options: NormalizedOptions) {
 
 			try {
 				for (const [index, hook] of options.hooks.afterResponse.entries()) {
+					// @ts-ignore
 					// eslint-disable-next-line no-await-in-loop
-					response = await hook(response, updatedOptions => {
+					response = await hook(response, async (updatedOptions: NormalizedOptions) => {
 						updatedOptions = normalizeArguments(mergeOptions(options, {
 							...updatedOptions,
 							retry: {
@@ -85,7 +86,19 @@ export default function asPromise(options: NormalizedOptions) {
 						// The loop continues. We don't want duplicates (asPromise recursion).
 						updatedOptions.hooks.afterResponse = options.hooks.afterResponse.slice(0, index);
 
-						return asPromise(updatedOptions);
+						for (const hook of options.hooks.beforeRetry) {
+							// eslint-disable-next-line no-await-in-loop
+							await hook(updatedOptions);
+						}
+
+						const promise = asPromise(updatedOptions);
+
+						onCancel(() => {
+							promise.catch(() => {});
+							promise.cancel();
+						});
+
+						return promise;
 					});
 				}
 			} catch (error) {

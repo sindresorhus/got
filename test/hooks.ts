@@ -382,6 +382,44 @@ test('afterResponse allows to retry', withServer, async (t, server, got) => {
 	t.is(statusCode, 200);
 });
 
+test('afterResponse allows to retry - `beforeRetry` hook', withServer, async (t, server, got) => {
+	server.get('/', (request, response) => {
+		if (request.headers.token !== 'unicorn') {
+			response.statusCode = 401;
+		}
+
+		response.end();
+	});
+
+	let called = false;
+
+	const {statusCode} = await got({
+		hooks: {
+			afterResponse: [
+				(response, retryWithMergedOptions) => {
+					if (response.statusCode === 401) {
+						return retryWithMergedOptions({
+							headers: {
+								token: 'unicorn'
+							}
+						});
+					}
+
+					return response;
+				}
+			],
+			beforeRetry: [
+				options => {
+					t.truthy(options);
+					called = true;
+				}
+			]
+		}
+	});
+	t.is(statusCode, 200);
+	t.true(called);
+});
+
 test('no infinity loop when retrying on afterResponse', withServer, async (t, server, got) => {
 	server.get('/', (request, response) => {
 		if (request.headers.token !== 'unicorn') {

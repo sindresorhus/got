@@ -528,6 +528,8 @@ got.post('https://example.com', {
 });
 ```
 
+**Note:** When retrying in a `afterResponse` hook, all remaining `beforeRetry` hooks will be called without the `error` and `retryCount` arguments.
+
 ###### hooks.afterResponse
 
 Type: `Function[]`<br>
