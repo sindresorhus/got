@@ -7,12 +7,10 @@ import {
 	CancelableRequest,
 	URLOrOptions,
 	HandlerFunction,
-	ExtendedOptions,
-	NormalizedDefaults
+	ExtendedOptions
 } from './utils/types';
 import deepFreeze from './utils/deep-freeze';
-import merge from './utils/merge';
-import asPromise, {isProxiedSymbol} from './as-promise';
+import asPromise from './as-promise';
 import asStream, {ProxyStream} from './as-stream';
 import {normalizeArguments, mergeOptions} from './normalize-arguments';
 import {Hooks} from './known-hook-events';
@@ -66,56 +64,42 @@ const aliases: readonly HTTPAlias[] = [
 	'delete'
 ];
 
-const defaultHandler: HandlerFunction = (options, next) => next(options);
+export const defaultHandler: HandlerFunction = (options, next) => next(options);
 
-const create = (nonNormalizedDefaults: Defaults): Got => {
-	const defaults: NormalizedDefaults = {
-		handlers: Reflect.has(nonNormalizedDefaults, 'handlers') ? merge([], nonNormalizedDefaults.handlers) : [defaultHandler],
-		options: mergeOptions(Reflect.has(nonNormalizedDefaults, 'options') ? nonNormalizedDefaults.options : {}),
-		mutableDefaults: Boolean(nonNormalizedDefaults.mutableDefaults)
-	};
+const create = (defaults: Defaults): Got => {
+	// Proxy properties from next handlers
+	defaults.handlers = defaults.handlers.map(fn => ((options, next) => {
+		let root: GotReturn;
+
+		const result = fn(options, newOptions => {
+			root = next(newOptions);
+			return root;
+		});
+
+		if (result !== root && !options.isStream) {
+			Object.setPrototypeOf(result, Object.getPrototypeOf(root));
+			Object.defineProperties(result, Object.getOwnPropertyDescriptors(root));
+		}
+
+		return result;
+	}) as HandlerFunction);
 
 	// @ts-ignore Because the for loop handles it for us, as well as the other Object.defines
 	const got: Got = (url: URLOrOptions, options?: Options): GotReturn => {
-		const isStream = options?.isStream ?? false;
-
 		let iteration = 0;
-		const iterateHandlers = (newOptions: NormalizedOptions): GotReturn => {
-			let nextPromise: CancelableRequest<Response>;
-			const result = defaults.handlers[iteration++](newOptions, options => {
-				const fn = iteration === defaults.handlers.length ? getPromiseOrStream : iterateHandlers;
-
-				if (isStream) {
-					return fn(options);
-				}
-
-				// We need to remember the `next(options)` result.
-				nextPromise = fn(options) as CancelableRequest<Response>;
-				return nextPromise;
-			});
-
-			// Proxy the properties from the next handler to this one
-			if (!isStream && !Reflect.has(result, isProxiedSymbol)) {
-				for (const key of Object.keys(nextPromise)) {
-					Object.defineProperty(result, key, {
-						get: () => nextPromise[key],
-						set: (value: unknown) => {
-							nextPromise[key] = value;
-						}
-					});
-				}
-
-				(result as CancelableRequest<Response>).cancel = nextPromise.cancel;
-				result[isProxiedSymbol] = true;
-			}
-
-			return result;
+		const iterateHandlers: HandlerFunction = newOptions => {
+			return defaults.handlers[iteration++](
+				newOptions,
+				// @ts-ignore TS doesn't know that it calls `getPromiseOrStream` at the end
+				iteration === defaults.handlers.length ? getPromiseOrStream : iterateHandlers
+			);
 		};
 
 		try {
+			// @ts-ignore This handler takes only one parameter.
 			return iterateHandlers(normalizeArguments(url, options, defaults));
 		} catch (error) {
-			if (isStream) {
+			if (options?.isStream) {
 				throw error;
 			} else {
 				// @ts-ignore It's an Error not a response, but TS thinks it's calling .resolve
@@ -132,6 +116,7 @@ const create = (nonNormalizedDefaults: Defaults): Got => {
 		for (const value of instancesOrOptions) {
 			if (Reflect.has(value, 'defaults')) {
 				optionsArray.push((value as Got).defaults.options);
+
 				handlers.push(...(value as Got).defaults.handlers.filter(handler => handler !== defaultHandler));
 
 				mutableDefaults = (value as Got).defaults.mutableDefaults;
@@ -146,7 +131,9 @@ const create = (nonNormalizedDefaults: Defaults): Got => {
 			}
 		}
 
-		handlers.push(defaultHandler);
+		if (handlers.length === 0) {
+			handlers.push(defaultHandler);
+		}
 
 		return create({
 			options: mergeOptions(...optionsArray),

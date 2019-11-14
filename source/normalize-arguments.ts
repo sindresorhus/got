@@ -16,7 +16,7 @@ import {
 	NormalizedOptions,
 	Method,
 	URLOrOptions,
-	NormalizedDefaults
+	Defaults
 } from './utils/types';
 import dynamicRequire from './utils/dynamic-require';
 import getBodySize from './utils/get-body-size';
@@ -146,11 +146,11 @@ export const preNormalizeArguments = (options: Options, defaults?: NormalizedOpt
 	if (options.cookieJar) {
 		let {setCookie, getCookieString} = options.cookieJar;
 
-		if (!is.asyncFunction(setCookie)) {
+		if (setCookie.length !== 2) {
 			setCookie = promisify(options.cookieJar.setCookie.bind(options.cookieJar));
 		}
 
-		if (!is.asyncFunction(getCookieString)) {
+		if (setCookie.length !== 2) {
 			getCookieString = promisify(options.cookieJar.getCookieString.bind(options.cookieJar));
 		}
 
@@ -192,7 +192,7 @@ export const mergeOptions = (...sources: Options[]): NormalizedOptions => {
 	return mergedOptions;
 };
 
-export const normalizeArguments = (url: URLOrOptions, options?: Options, defaults?: NormalizedDefaults): NormalizedOptions => {
+export const normalizeArguments = (url: URLOrOptions, options?: Options, defaults?: Defaults): NormalizedOptions => {
 	// Merge options
 	if (typeof url === 'undefined') {
 		throw new TypeError('Missing `url` argument.');

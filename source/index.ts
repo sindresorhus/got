@@ -1,7 +1,7 @@
-import create from './create';
+import create, {defaultHandler} from './create';
 import {Defaults} from './utils/types.js';
 
-const defaults: Partial<Defaults> = {
+const defaults: Defaults = {
 	options: {
 		method: 'GET',
 		retry: {
@@ -32,8 +32,11 @@ const defaults: Partial<Defaults> = {
 				'ENOTFOUND',
 				'ENETUNREACH',
 				'EAI_AGAIN'
-			]
+			],
+			maxRetryAfter: undefined,
+			calculateDelay: ({computedValue}) => computedValue
 		},
+		timeout: {},
 		headers: {
 			'user-agent': 'got (https://github.com/sindresorhus/got)'
 		},
@@ -54,6 +57,7 @@ const defaults: Partial<Defaults> = {
 		resolveBodyOnly: false,
 		maxRedirects: 10
 	},
+	handlers: [defaultHandler],
 	mutableDefaults: false
 };
 
