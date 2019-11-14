@@ -154,7 +154,7 @@ Default: `{}`
 
 Request headers.
 
-Existing headers will be overwritten. Headers set to `null` will be omitted.
+Existing headers will be overwritten. Headers set to `undefined` will be omitted.
 
 ###### isStream
 
@@ -1311,7 +1311,7 @@ const got = require('got');
 
 ### User Agent
 
-It's a good idea to set the `'user-agent'` header so the provider can more easily see how their resource is used. By default, it's the URL to this repo. You can omit this header by setting it to `undefined` (or `null`).
+It's a good idea to set the `'user-agent'` header so the provider can more easily see how their resource is used. By default, it's the URL to this repo. You can omit this header by setting it to `undefined`.
 
 ```js
 const got = require('got');

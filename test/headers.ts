@@ -183,16 +183,12 @@ test('buffer as `options.body` sets `content-length` header', withServer, async 
 	t.is(Number(headers['content-length']), buffer.length);
 });
 
-test('removes null value headers', withServer, async (t, server, got) => {
-	server.get('/', echoHeaders);
-
-	const {body} = await got({
+test('throws on null value headers', async t => {
+	await t.throwsAsync(got({
 		headers: {
 			'user-agent': null
 		}
-	});
-	const headers = JSON.parse(body);
-	t.false(Reflect.has(headers, 'user-agent'));
+	}), TypeError, 'Use `undefined` instead of `null` to delete HTTP headers');
 });
 
 test('removes undefined value headers', withServer, async (t, server, got) => {

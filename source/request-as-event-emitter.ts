@@ -230,8 +230,7 @@ export default (options: NormalizedOptions) => {
 			// `cacheable-request` doesn't support Node 10 API, fallback.
 			httpOptions = {
 				...httpOptions,
-				...urlToOptions(options.url),
-				url: undefined // `http-cache-semantics` check this
+				...urlToOptions(options.url)
 			};
 
 			const cacheRequest = options.cacheableRequest(httpOptions, handleResponse);

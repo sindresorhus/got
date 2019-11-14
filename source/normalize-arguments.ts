@@ -253,8 +253,10 @@ export const normalizeArguments = (url: URLOrOptions, options?: Options, default
 
 	// Make it possible to remove default headers
 	for (const [key, value] of Object.entries(options.headers)) {
-		if (is.nullOrUndefined(value)) {
+		if (is.undefined(value)) {
 			delete options.headers[key];
+		} else if (is.null_(value)) {
+			throw new TypeError('Use `undefined` instead of `null` to delete HTTP headers');
 		}
 	}
 
@@ -404,6 +406,9 @@ export const normalizeRequestArguments = async (options: NormalizedOptions): Pro
 	}
 
 	delete options.timeout;
+
+	// `http-cache-semantics` check this
+	delete options.url;
 
 	return options as unknown as NormalizedRequestArguments;
 };
