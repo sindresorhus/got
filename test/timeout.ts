@@ -464,7 +464,7 @@ test.serial('no memory leak when using socket timeout and keepalive agent', with
 		timeout: {socket: requestDelay * 2}
 	});
 
-	let socket: net.Socket;
+	let socket!: net.Socket;
 	promise.on('request', (request: http.ClientRequest) => {
 		request.on('socket', () => {
 			socket = request.socket;
@@ -473,7 +473,7 @@ test.serial('no memory leak when using socket timeout and keepalive agent', with
 
 	await promise;
 
-	t.is(socket!.listenerCount('timeout'), 0);
+	t.is(socket.listenerCount('timeout'), 0);
 });
 
 test('ensure there are no new timeouts after cancelation', t => {
