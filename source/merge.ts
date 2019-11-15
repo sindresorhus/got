@@ -59,7 +59,7 @@ export function mergeOptions(...sources: Array<Partial<Options>>): ExtendedOptio
 				retries: source.retry
 			}
 		};
-	}) as Array<Partial<Options>>;
+	});
 
 	const mergedOptions = merge({}, ...sources);
 

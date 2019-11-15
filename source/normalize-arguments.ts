@@ -246,4 +246,5 @@ export const normalizeArguments = (url: URLOrOptions, options: Options, defaults
 	return mergedOptions;
 };
 
+// @ts-ignore URL !== URL mismatch
 export const reNormalizeArguments = (options: Options): NormalizedOptions => normalizeArguments(format(options as unknown as URL | URLOptions), options);

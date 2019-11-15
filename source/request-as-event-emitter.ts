@@ -293,7 +293,7 @@ export default (options: NormalizedOptions, input?: TransformStream) => {
 			// @ts-ignore Mismatch related ResponseLike should be fixed upstream
 			const cacheRequest = cacheableRequest(options as unknown as https.RequestOptions, handleResponse);
 
-			cacheRequest.once('error', error => {
+			cacheRequest.once('error', (error: Error) => {
 				if (error instanceof CacheableRequest.RequestError) {
 					emitError(new RequestError(error, options));
 				} else {

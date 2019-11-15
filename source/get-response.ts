@@ -4,7 +4,7 @@ import stream = require('stream');
 import is from '@sindresorhus/is';
 import decompressResponse = require('decompress-response');
 import mimicResponse = require('mimic-response');
-import {NormalizedOptions, Response} from './utils/types';
+import {NormalizedOptions} from './utils/types';
 import {downloadProgress} from './progress';
 
 export default (response: IncomingMessage, options: NormalizedOptions, emitter: EventEmitter) => {
@@ -17,7 +17,7 @@ export default (response: IncomingMessage, options: NormalizedOptions, emitter: 
 		options.decompress &&
 		is.function_(decompressResponse) &&
 		options.method !== 'HEAD' ? decompressResponse(progressStream as unknown as IncomingMessage) : progressStream
-	) as Response;
+	);
 
 	if (!options.decompress && ['gzip', 'deflate', 'br'].includes(response.headers['content-encoding'] ?? '')) {
 		options.encoding = null;

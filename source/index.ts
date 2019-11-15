@@ -103,3 +103,5 @@ export {
 	Hooks,
 	HookEvent
 } from './known-hook-events';
+
+export {Progress} from './progress';
