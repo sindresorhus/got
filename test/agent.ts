@@ -3,7 +3,8 @@ import {Agent as HttpAgent} from 'http';
 import {Agent as HttpsAgent} from 'https';
 import test from 'ava';
 import sinon = require('sinon');
-import withServer, {ExtendedTestServer} from './helpers/with-server';
+import {ExtendedTestServer} from './helpers/types';
+import withServer from './helpers/with-server';
 
 const prepareServer = (server: ExtendedTestServer) => {
 	server.get('/', (request, response) => {

@@ -11,8 +11,9 @@ import {Handler} from 'express';
 import pEvent = require('p-event');
 import got, {Options} from '../source';
 import timedOut from '../source/utils/timed-out';
-import withServer, {GlobalClock, withServerAndLolex} from './helpers/with-server';
 import slowDataStream from './helpers/slow-data-stream';
+import {GlobalClock} from './helpers/types';
+import withServer, {withServerAndLolex} from './helpers/with-server';
 
 const pStreamPipeline = promisify(stream.pipeline);
 

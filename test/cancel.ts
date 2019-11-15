@@ -6,8 +6,9 @@ import pEvent = require('p-event');
 import getStream = require('get-stream');
 import {Handler} from 'express';
 import got, {CancelError, RetryOptions} from '../source';
-import withServer, {ExtendedTestServer, GlobalClock, withServerAndLolex} from './helpers/with-server';
 import slowDataStream from './helpers/slow-data-stream';
+import {ExtendedTestServer, GlobalClock} from './helpers/types';
+import withServer, {withServerAndLolex} from './helpers/with-server';
 
 const prepareServer = (server: ExtendedTestServer, clock: GlobalClock) => {
 	const emitter = new EventEmitter();
