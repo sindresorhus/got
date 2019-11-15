@@ -85,12 +85,11 @@ export default (request: ClientRequest, delays: Delays, options: TimedOutOptions
 	}
 
 	if (typeof delays.socket !== 'undefined') {
-		const {socket} = delays;
 		const socketTimeoutHandler = (): void => {
-			timeoutHandler(socket, 'socket');
+			timeoutHandler(delays.socket!, 'socket');
 		};
 
-		request.setTimeout(socket, socketTimeoutHandler);
+		request.setTimeout(delays.socket, socketTimeoutHandler);
 
 		// `request.setTimeout(0)` causes a memory leak.
 		// We can just remove the listener and forget about the timer - it's unreffed.
@@ -114,8 +113,7 @@ export default (request: ClientRequest, delays: Delays, options: TimedOutOptions
 			}
 
 			if (typeof delays.connect !== 'undefined') {
-				const {connect} = delays;
-				const timeConnect = (): (() => void) => addTimeout(connect, timeoutHandler, 'connect');
+				const timeConnect = (): (() => void) => addTimeout(delays.connect!, timeoutHandler, 'connect');
 
 				if (hasPath) {
 					once(socket, 'connect', timeConnect());
@@ -129,17 +127,15 @@ export default (request: ClientRequest, delays: Delays, options: TimedOutOptions
 			}
 
 			if (typeof delays.secureConnect !== 'undefined' && options.protocol === 'https:') {
-				const {secureConnect} = delays;
 				once(socket, 'connect', (): void => {
-					const cancelTimeout = addTimeout(secureConnect, timeoutHandler, 'secureConnect');
+					const cancelTimeout = addTimeout(delays.secureConnect!, timeoutHandler, 'secureConnect');
 					once(socket, 'secureConnect', cancelTimeout);
 				});
 			}
 		}
 
 		if (typeof delays.send !== 'undefined') {
-			const {send} = delays;
-			const timeRequest = (): (() => void) => addTimeout(send, timeoutHandler, 'send');
+			const timeRequest = (): (() => void) => addTimeout(delays.send!, timeoutHandler, 'send');
 			/* istanbul ignore next: hard to test */
 			if (socket.connecting) {
 				once(socket, 'connect', (): void => {
@@ -152,9 +148,8 @@ export default (request: ClientRequest, delays: Delays, options: TimedOutOptions
 	});
 
 	if (typeof delays.response !== 'undefined') {
-		const {response} = delays;
 		once(request, 'upload-complete', (): void => {
-			const cancelTimeout = addTimeout(response, timeoutHandler, 'response');
+			const cancelTimeout = addTimeout(delays.response!, timeoutHandler, 'response');
 			once(request, 'response', cancelTimeout);
 		});
 	}
