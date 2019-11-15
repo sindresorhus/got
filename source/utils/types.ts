@@ -81,7 +81,7 @@ export interface ResponseObject extends Partial<ResponseLike> {
 export interface RetryObject {
 	attemptCount: number;
 	retryOptions: Required<RetryOptions>;
-	error: Error | GotError | ParseError | HTTPError | MaxRedirectsError;
+	error: GotError | ParseError | HTTPError | MaxRedirectsError;
 	computedValue: number;
 }
 

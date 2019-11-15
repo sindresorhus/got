@@ -16,7 +16,14 @@ import isFormData from './utils/is-form-data';
 import calculateRetryDelay from './calculate-retry-delay';
 import getResponse from './get-response';
 import {uploadProgress} from './progress';
-import {CacheError, UnsupportedProtocolError, MaxRedirectsError, RequestError, TimeoutError} from './errors';
+import {
+	CacheError,
+	GotError,
+	MaxRedirectsError,
+	RequestError,
+	TimeoutError,
+	UnsupportedProtocolError
+} from './errors';
 import urlToOptions from './utils/url-to-options';
 import {
 	AgentByProtocol,
@@ -31,7 +38,7 @@ const redirectCodes: ReadonlySet<number> = new Set([300, 301, 302, 303, 304, 307
 const withoutBody: ReadonlySet<string> = new Set(['GET', 'HEAD']);
 
 export interface RequestAsEventEmitter extends EventEmitter {
-	retry: <T extends Error>(error: T) => boolean;
+	retry: <T extends GotError>(error: T) => boolean;
 	abort: () => void;
 }
 
@@ -215,15 +222,15 @@ export default (options: NormalizedOptions, input?: TransformStream) => {
 					return;
 				}
 
+				let emittedError: RequestError | TimeoutError;
 				if (isTimedOutError) {
-					// @ts-ignore TS is dumb.
-					error = new TimeoutError(error, timings, options);
+					emittedError = new TimeoutError(error as TimedOutTimeoutError, timings, options);
 				} else {
-					error = new RequestError(error, options);
+					emittedError = new RequestError(error, options);
 				}
 
-				if (!emitter.retry(error)) {
-					emitError(error);
+				if (!emitter.retry(emittedError)) {
+					emitError(emittedError);
 				}
 			};
 
