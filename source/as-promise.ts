@@ -56,7 +56,7 @@ export default function asPromise(options: NormalizedOptions): CancelableRequest
 				return;
 			}
 
-			if (response.req.aborted) {
+			if (response.req?.aborted) {
 				// Canceled while downloading - will throw a `CancelError` or `TimeoutError` error
 				return;
 			}

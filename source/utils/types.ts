@@ -59,7 +59,7 @@ export interface Response extends http.IncomingMessage {
 
 	fromCache?: boolean;
 	isFromCache?: boolean;
-	req: http.ClientRequest;
+	req?: http.ClientRequest;
 	requestUrl: string;
 	retryCount: number;
 	timings: Timings;
