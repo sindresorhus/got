@@ -9,23 +9,23 @@ import requestAsEventEmitter, {proxyEvents} from './request-as-event-emitter';
 import {normalizeArguments, mergeOptions} from './normalize-arguments';
 
 const parseBody = (body: Response['body'], responseType: NormalizedOptions['responseType'], statusCode: Response['statusCode']) => {
-	if (responseType === 'json') {
+	if (responseType === 'json' && is.string(body)) {
 		return statusCode === 204 ? '' : JSON.parse(body);
 	}
 
-	if (responseType === 'buffer') {
+	if (responseType === 'buffer' && is.string(body)) {
 		return Buffer.from(body);
 	}
 
 	if (responseType === 'text') {
-		return body.toString();
+		return String(body);
 	}
 
 	if (responseType === 'default') {
 		return body;
 	}
 
-	throw new Error(`Failed to parse body of type '${responseType}'`);
+	throw new Error(`Failed to parse body of type '${typeof body}' as '${responseType}'`);
 };
 
 export default function asPromise(options: NormalizedOptions) {
@@ -33,7 +33,7 @@ export default function asPromise(options: NormalizedOptions) {
 	let finalResponse: Pick<Response, 'body' | 'statusCode'>;
 
 	// @ts-ignore `.json()`, `.buffer()` and `.text()` are added later
-	const promise = new PCancelable<IncomingMessage>((resolve, reject, onCancel) => {
+	const promise = new PCancelable<IncomingMessage | Response['body']>((resolve, reject, onCancel) => {
 		const emitter = requestAsEventEmitter(options);
 		onCancel(emitter.abort);
 

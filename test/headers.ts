@@ -52,7 +52,8 @@ test('does not remove user headers from `url` object argument', withServer, asyn
 		}
 	})).body;
 
-	t.is(headers.accept, 'application/json');
+	// TODO: The response is not typed, so we need to cast as any
+	t.is((headers as any).accept, 'application/json');
 	t.is(headers['user-agent'], 'got (https://github.com/sindresorhus/got)');
 	t.is(headers['accept-encoding'], supportsBrotli ? 'gzip, deflate, br' : 'gzip, deflate');
 	t.is(headers['x-request-id'], 'value');

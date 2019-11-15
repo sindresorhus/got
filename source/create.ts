@@ -24,7 +24,7 @@ export type HTTPAlias =
 	| 'head'
 	| 'delete';
 
-export type ReturnStream = (url: URLOrOptions | Options & {isStream: true}, options?: Options & {isStream: true}) => ProxyStream;
+export type ReturnStream = (url: string | Options & {isStream: true}, options?: Options & {isStream: true}) => ProxyStream;
 export type GotReturn = ProxyStream | CancelableRequest<Response>;
 
 const getPromiseOrStream = (options: NormalizedOptions): GotReturn => options.isStream ? asStream(options) : asPromise(options);
@@ -33,22 +33,22 @@ type OptionsOfDefaultResponseBody = Options & {isStream?: false; resolveBodyOnly
 type OptionsOfTextResponseBody = Options & {isStream?: false; resolveBodyOnly?: false; responseType: 'text'};
 type OptionsOfJSONResponseBody = Options & {isStream?: false; resolveBodyOnly?: false; responseType: 'json'};
 type OptionsOfBufferResponseBody = Options & {isStream?: false; resolveBodyOnly?: false; responseType: 'buffer'};
-type BodyOnly = {resolveBodyOnly: true};
+type ResponseBodyOnly = {resolveBodyOnly: true};
 
 interface GotFunctions {
 	// `asPromise` usage
-	(url: URLOrOptions | OptionsOfDefaultResponseBody, options?: OptionsOfDefaultResponseBody): CancelableRequest<Response>;
-	(url: URLOrOptions | OptionsOfTextResponseBody, options?: OptionsOfTextResponseBody): CancelableRequest<Response<string>>;
-	(url: URLOrOptions | OptionsOfJSONResponseBody, options?: OptionsOfJSONResponseBody): CancelableRequest<Response<object>>;
-	(url: URLOrOptions | OptionsOfBufferResponseBody, options?: OptionsOfBufferResponseBody): CancelableRequest<Response<Buffer>>;
+	(url: string | OptionsOfDefaultResponseBody, options?: OptionsOfDefaultResponseBody): CancelableRequest<Response>;
+	(url: string | OptionsOfTextResponseBody, options?: OptionsOfTextResponseBody): CancelableRequest<Response<string>>;
+	(url: string | OptionsOfJSONResponseBody, options?: OptionsOfJSONResponseBody): CancelableRequest<Response<object>>;
+	(url: string | OptionsOfBufferResponseBody, options?: OptionsOfBufferResponseBody): CancelableRequest<Response<Buffer>>;
 
-	(url: URLOrOptions | OptionsOfDefaultResponseBody & BodyOnly, options?: OptionsOfDefaultResponseBody & BodyOnly): CancelableRequest<any>;
-	(url: URLOrOptions | OptionsOfTextResponseBody & BodyOnly, options?: OptionsOfTextResponseBody & BodyOnly): CancelableRequest<string>;
-	(url: URLOrOptions | OptionsOfJSONResponseBody & BodyOnly, options?: OptionsOfJSONResponseBody & BodyOnly): CancelableRequest<object>;
-	(url: URLOrOptions | OptionsOfBufferResponseBody & BodyOnly, options?: OptionsOfBufferResponseBody & BodyOnly): CancelableRequest<Buffer>;
+	(url: string | OptionsOfDefaultResponseBody & ResponseBodyOnly, options?: OptionsOfDefaultResponseBody & ResponseBodyOnly): CancelableRequest<any>;
+	(url: string | OptionsOfTextResponseBody & ResponseBodyOnly, options?: OptionsOfTextResponseBody & ResponseBodyOnly): CancelableRequest<string>;
+	(url: string | OptionsOfJSONResponseBody & ResponseBodyOnly, options?: OptionsOfJSONResponseBody & ResponseBodyOnly): CancelableRequest<object>;
+	(url: string | OptionsOfBufferResponseBody & ResponseBodyOnly, options?: OptionsOfBufferResponseBody & ResponseBodyOnly): CancelableRequest<Buffer>;
 
 	// `asStream` usage
-	(url: URLOrOptions | Options & {isStream: true}, options?: Options & {isStream: true}): ProxyStream;
+	(url: string | Options & {isStream: true}, options?: Options & {isStream: true}): ProxyStream;
 }
 
 export interface Got extends Merge<Record<HTTPAlias, GotFunctions>, GotFunctions> {

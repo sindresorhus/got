@@ -45,7 +45,7 @@ export type ErrorCode =
 
 export type ResponseType = 'json' | 'buffer' | 'text' | 'default';
 
-export interface Response<BodyType = any> extends http.IncomingMessage {
+export interface Response<BodyType = unknown> extends http.IncomingMessage {
 	body: BodyType;
 	statusCode: number;
 
