@@ -408,7 +408,7 @@ export const normalizeRequestArguments = async (options: NormalizedOptions): Pro
 		options.request = electron.net.request ?? electron.remote.net.request;
 	}
 
-	// We're not compatible
+	// Got's `timeout` is an object, http's `timeout` is a number, so they're not compatible.
 	delete options.timeout;
 
 	// Set cookies
@@ -417,10 +417,12 @@ export const normalizeRequestArguments = async (options: NormalizedOptions): Pro
 
 		if (is.nonEmptyString(cookieString)) {
 			options.headers.cookie = cookieString;
+		} else {
+			delete options.headers.cookie;
 		}
 	}
 
-	// `http-cache-semantics` check this
+	// `http-cache-semantics` checks this
 	delete options.url;
 
 	return options as unknown as NormalizedRequestArguments;

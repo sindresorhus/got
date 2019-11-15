@@ -138,11 +138,28 @@ Useful when used with `got.extend()` to create niche-specific Got-instances.
 
 **Note:** `prefixUrl` will be ignored if the `url` argument is a URL instance.
 
+**Tip:** If the input URL still contains the initial prefixUrl, you can change it as many times as you want. Otherwise it will throw an error.
+
 ```js
 const got = require('got');
 
 (async () => {
 	await got('unicorn', {prefixUrl: 'https://cats.com'});
+	//=> 'https://cats.com/unicorn'
+
+	const instance = got.extend({
+		prefixUrl: 'https://google.com'
+	});
+
+	await instance('unicorn', {
+		hooks: {
+			beforeRequest: [
+				options => {
+					options.prefixUrl = 'https://cats.com';
+				}
+			]
+		}
+	});
 	//=> 'https://cats.com/unicorn'
 })();
 ```
@@ -537,7 +554,7 @@ Default: `[]`
 
 **Note:** When using streams, this hook is ignored.
 
-Called with [response object](#response) and a retry function.
+Called with [response object](#response) and a retry function. Calling the retry function will trigger `beforeRetry` hooks.
 
 Each function should return the response. This is especially useful when you want to refresh an access token. Example:
 
@@ -564,6 +581,11 @@ const instance = got.extend({
 
 				// No changes otherwise
 				return response;
+			}
+		],
+		beforeRetry: [
+			(options, error, retryCount) => {
+				// This will be called on `retryWithMergedOptions(...)`
 			}
 		]
 	},
@@ -902,22 +924,22 @@ Type: `object`
 
 The Got defaults used in that instance.
 
-##### [options](readme.md#options)
+##### [options](#options)
 
 ##### handlers
 
 Type: `Function[]`<br>
 Default: `[]`
 
-An array of functions. You execute them directly by calling `got()`. They are some sort of "global hooks" - these functions are called first. The last handler (*it's hidden*) is either [`asPromise`](../source/as-promise.ts) or [`asStream`](../source/as-stream.ts), depending on the `options.isStream` property.
+An array of functions. You execute them directly by calling `got()`. They are some sort of "global hooks" - these functions are called first. The last handler (*it's hidden*) is either [`asPromise`](source/as-promise.ts) or [`asStream`](source/as-stream.ts), depending on the `options.isStream` property.
 
 Each handler takes two arguments:
 
-###### [options](readme.md#options)
+###### [options](#options)
 
 ###### next()
 
-Returns a `Promise` or a `Stream` depending on [`options.isStream`](../readme.md#isstream).
+Returns a `Promise` or a `Stream` depending on [`options.isStream`](#isstream).
 
 ```js
 const settings = {
@@ -950,7 +972,7 @@ const jsonGot = got.create(settings);
 Type: `boolean`<br>
 Default: `false`
 
-A read-only boolean describing whether the defaults are mutable or not. If set to `true`, you can [update headers over time](../readme.md#hooksafterresponse), for example, update an access token when it expires.
+A read-only boolean describing whether the defaults are mutable or not. If set to `true`, you can [update headers over time](#hooksafterresponse), for example, update an access token when it expires.
 
 ## Errors
 

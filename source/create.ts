@@ -23,8 +23,8 @@ export type HTTPAlias =
 	| 'head'
 	| 'delete';
 
-export type ReturnResponse = (url: URLOrOptions | Options & { stream?: false }, options?: Options & { stream?: false }) => CancelableRequest<Response>;
-export type ReturnStream = (url: URLOrOptions | Options & { stream: true }, options?: Options & { stream: true }) => ProxyStream;
+export type ReturnResponse = (url: URLOrOptions | Options & {isStream?: false}, options?: Options & {isStream?: false}) => CancelableRequest<Response>;
+export type ReturnStream = (url: URLOrOptions | Options & {isStream: true}, options?: Options & {isStream: true}) => ProxyStream;
 export type GotReturn = ProxyStream | CancelableRequest<Response>;
 
 const getPromiseOrStream = (options: NormalizedOptions): GotReturn => options.isStream ? asStream(options) : asPromise(options);
@@ -43,8 +43,8 @@ export interface Got extends Record<HTTPAlias, ReturnResponse> {
 	TimeoutError: typeof errors.TimeoutError;
 	CancelError: typeof errors.CancelError;
 
-	(url: URLOrOptions | Options & {stream?: false}, options?: Options & {stream?: false}): CancelableRequest<Response>;
-	(url: URLOrOptions | Options & {stream: true}, options?: Options & {stream: true}): ProxyStream;
+	(url: URLOrOptions | Options & {isStream?: false}, options?: Options & {isStream?: false}): CancelableRequest<Response>;
+	(url: URLOrOptions | Options & {isStream: true}, options?: Options & {isStream: true}): ProxyStream;
 	(url: URLOrOptions, options?: Options): CancelableRequest<Response> | ProxyStream;
 	extend(...instancesOrOptions: Array<Got | ExtendedOptions>): Got;
 	mergeInstances(parent: Got, ...instances: Got[]): Got;

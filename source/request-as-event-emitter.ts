@@ -113,8 +113,13 @@ export default (options: NormalizedOptions) => {
 
 					// Handles invalid URLs. See https://github.com/sindresorhus/got/issues/604
 					const redirectBuffer = Buffer.from(typedResponse.headers.location, 'binary').toString();
-
 					const redirectURL = new URL(redirectBuffer, options.url);
+
+					// Redirecting to a different site, clear cookies.
+					if (redirectURL.hostname !== options.url.hostname) {
+						delete options.headers.cookie;
+					}
+
 					redirects.push(redirectURL.toString());
 					options.url = redirectURL;
 

@@ -13,6 +13,8 @@ import {GotError, ParseError, HTTPError, MaxRedirectsError} from '../errors';
 import {ProxyStream} from '../as-stream';
 import {URLOptions} from './options-to-url';
 
+export type GenericError = Error | GotError | ParseError | HTTPError | MaxRedirectsError;
+
 export type Method =
 	| 'GET'
 	| 'POST'
@@ -77,7 +79,7 @@ export interface ResponseObject extends ResponseLike {
 export interface RetryObject {
 	attemptCount: number;
 	retryOptions: RetryOptions;
-	error: Error | GotError | ParseError | HTTPError | MaxRedirectsError;
+	error: GenericError;
 	computedValue: number;
 }
 
@@ -120,7 +122,7 @@ interface CookieJar {
 	setCookie(rawCookie: string, url: string): Promise<unknown>;
 }
 
-// The library overrides the type definition of `agent`, `host`, 'headers and `timeout`.
+// TODO: Missing lots of `http` options
 export interface Options extends URLOptions {
 	url?: URL | string;
 	body?: string | Buffer | ReadableStream;
@@ -163,7 +165,7 @@ export interface NormalizedOptions extends Except<Options, keyof URLOptions> {
 	prefixUrl: string;
 	method: Method;
 	url: URL;
-	cacheableRequest?: (opts: string | URL | http.RequestOptions, cb?: (response: http.ServerResponse | ResponseLike) => void) => CacheableRequest.Emitter;
+	cacheableRequest?: (options: string | URL | http.RequestOptions, callback?: (response: http.ServerResponse | ResponseLike) => void) => CacheableRequest.Emitter;
 
 	// UNIX socket support
 	path?: string;
@@ -185,7 +187,7 @@ export type URLOrOptions = Options | string;
 
 export interface Progress {
 	percent: number;
-	transfered: number;
+	transferred: number;
 	total?: number;
 }
 
@@ -198,6 +200,6 @@ export interface GotEvents<T> {
 
 export interface CancelableRequest<T extends Response | Response['body']> extends Merge<PCancelable<T>, GotEvents<CancelableRequest<T>>> {
 	json<TReturnType extends object>(): CancelableRequest<TReturnType>;
-	buffer<TReturnType extends Buffer>(): CancelableRequest<TReturnType>;
+	buffer(): CancelableRequest<Buffer>;
 	text(): CancelableRequest<string>;
 }
