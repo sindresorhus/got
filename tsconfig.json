@@ -6,7 +6,6 @@
 		"lib": [
 			"es2018"
 		],
-	  	"useDefineForClassFields": true,
 		"strict": true
 	},
 	"include": [
