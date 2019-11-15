@@ -76,7 +76,7 @@ test('works if promise has been already resolved', withServer, async (t, server,
 test('throws an error on invalid response type', withServer, async (t, server, got) => {
 	server.get('/', defaultHandler);
 
-	const error = await t.throwsAsync(got({responseType: 'invalid'}), /^Failed to parse body of type 'string\' as 'invalid'/);
+	const error = await t.throwsAsync(got({responseType: 'invalid'}), /^Failed to parse body of type 'string' as 'invalid'/);
 	// @ts-ignore
 	t.true(error.message.includes(error.options.url.hostname));
 	// @ts-ignore
