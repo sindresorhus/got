@@ -1,20 +1,22 @@
 import {TLSSocket} from 'tls';
 import test from 'ava';
+import {Handler} from 'express';
 import nock = require('nock');
+import {MaxRedirectsError} from '../source';
 import withServer from './helpers/with-server';
 
-const reachedHandler = (_request, response) => {
+const reachedHandler: Handler = (_request, response) => {
 	response.end('reached');
 };
 
-const finiteHandler = (_request, response) => {
+const finiteHandler: Handler = (_request, response) => {
 	response.writeHead(302, {
 		location: '/'
 	});
 	response.end();
 };
 
-const relativeHandler = (_request, response) => {
+const relativeHandler: Handler = (_request, response) => {
 	response.writeHead(302, {
 		location: '/'
 	});
@@ -75,9 +77,8 @@ test('throws on endless redirects - default behavior', withServer, async (t, ser
 		response.end();
 	});
 
-	const error = await t.throwsAsync(got(''), 'Redirected 10 times. Aborting.');
+	const error = await t.throwsAsync<MaxRedirectsError>(got(''), 'Redirected 10 times. Aborting.');
 
-	// @ts-ignore
 	t.deepEqual(error.response.redirectUrls, new Array(10).fill(`${server.url}/`));
 });
 
@@ -89,9 +90,8 @@ test('custom `maxRedirects` option', withServer, async (t, server, got) => {
 		response.end();
 	});
 
-	const error = await t.throwsAsync(got('', {maxRedirects: 5}), 'Redirected 5 times. Aborting.');
+	const error = await t.throwsAsync<MaxRedirectsError>(got('', {maxRedirects: 5}), 'Redirected 5 times. Aborting.');
 
-	// @ts-ignore
 	t.deepEqual(error.response.redirectUrls, new Array(5).fill(`${server.url}/`));
 });
 

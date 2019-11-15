@@ -2,14 +2,13 @@ import fs = require('fs');
 import {promisify} from 'util';
 import path = require('path');
 import test from 'ava';
+import {Handler} from 'express';
 import FormData = require('form-data');
 import got from '../source';
 import supportsBrotli from '../source/utils/supports-brotli';
 import withServer from './helpers/with-server';
 
-type TestReturn = Record<string, Record<string, unknown>>;
-
-const echoHeaders = (request, response) => {
+const echoHeaders: Handler = (request, response) => {
 	request.resume();
 	response.end(JSON.stringify(request.headers));
 };
@@ -227,21 +226,21 @@ test('preserve port in host header if non-standard port', withServer, async (t, 
 });
 
 test('strip port in host header if explicit standard port (:80) & protocol (HTTP)', async t => {
-	const body = await got('http://httpbin.org:80/headers').json<TestReturn>();
+	const body = await got('http://httpbin.org:80/headers').json();
 	t.is(body.headers.Host, 'httpbin.org');
 });
 
 test('strip port in host header if explicit standard port (:443) & protocol (HTTPS)', async t => {
-	const body = await got('https://httpbin.org:443/headers').json<TestReturn>();
+	const body = await got('https://httpbin.org:443/headers').json();
 	t.is(body.headers.Host, 'httpbin.org');
 });
 
 test('strip port in host header if implicit standard port & protocol (HTTP)', async t => {
-	const body = await got('http://httpbin.org/headers').json<TestReturn>();
+	const body = await got('http://httpbin.org/headers').json();
 	t.is(body.headers.Host, 'httpbin.org');
 });
 
 test('strip port in host header if implicit standard port & protocol (HTTPS)', async t => {
-	const body = await got('https://httpbin.org/headers').json<TestReturn>();
+	const body = await got('https://httpbin.org/headers').json();
 	t.is(body.headers.Host, 'httpbin.org');
 });

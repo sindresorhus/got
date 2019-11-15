@@ -1,16 +1,17 @@
 import test from 'ava';
 import delay = require('delay');
+import {Handler} from 'express';
 import got from '../source';
 import withServer from './helpers/with-server';
 
 const errorString = 'oops';
 const error = new Error(errorString);
 
-const echoHeaders = (request, response) => {
+const echoHeaders: Handler = (request, response) => {
 	response.end(JSON.stringify(request.headers));
 };
 
-const retryEndpoint = (request, response) => {
+const retryEndpoint: Handler = (request, response) => {
 	if (request.headers.foo) {
 		response.statusCode = 302;
 		response.setHeader('location', '/');
@@ -21,7 +22,7 @@ const retryEndpoint = (request, response) => {
 	response.end();
 };
 
-const redirectEndpoint = (_request, response) => {
+const redirectEndpoint: Handler = (_request, response) => {
 	response.statusCode = 302;
 	response.setHeader('location', '/');
 	response.end();
@@ -165,8 +166,8 @@ test('catches afterResponse promise rejections', withServer, async (t, server, g
 });
 
 test('catches beforeError errors', async t => {
+	// @ts-ignore Error tests
 	await t.throwsAsync(got('https://example.com', {
-		// @ts-ignore Manual tests
 		request: () => {},
 		hooks: {
 			beforeError: [
@@ -407,7 +408,7 @@ test('no infinity loop when retrying on afterResponse', withServer, async (t, se
 });
 
 test('throws on afterResponse retry failure', withServer, async (t, server, got) => {
-	let visited401then500;
+	let visited401then500: boolean;
 	server.get('/', (_request, response) => {
 		if (visited401then500) {
 			response.statusCode = 500;
@@ -440,7 +441,7 @@ test('throws on afterResponse retry failure', withServer, async (t, server, got)
 });
 
 test('doesn\'t throw on afterResponse retry HTTP failure if throwHttpErrors is false', withServer, async (t, server, got) => {
-	let visited401then500;
+	let visited401then500: boolean;
 	server.get('/', (_request, response) => {
 		if (visited401then500) {
 			response.statusCode = 500;

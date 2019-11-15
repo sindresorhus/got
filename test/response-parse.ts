@@ -1,10 +1,12 @@
 import test from 'ava';
+import {Handler} from 'express';
+import {HTTPError, ParseError} from '../source';
 import withServer from './helpers/with-server';
 
 const dog = {data: 'dog'};
 const jsonResponse = JSON.stringify(dog);
 
-const defaultHandler = (_request, response) => {
+const defaultHandler: Handler = (_request, response) => {
 	response.end(jsonResponse);
 };
 
@@ -53,10 +55,9 @@ test('Text response - promise.text()', withServer, async (t, server, got) => {
 test('throws an error on invalid response type', withServer, async (t, server, got) => {
 	server.get('/', defaultHandler);
 
-	const error = await t.throwsAsync(got({responseType: 'invalid'}), /^Failed to parse body of type 'invalid'/);
-	// @ts-ignore
+	// @ts-ignore Error tests
+	const error = await t.throwsAsync<ParseError>(got({responseType: 'invalid'}), /^Failed to parse body of type 'invalid'/);
 	t.true(error.message.includes(error.options.hostname));
-	// @ts-ignore
 	t.is(error.options.path, '/');
 });
 
@@ -74,10 +75,8 @@ test('wraps parsing errors', withServer, async (t, server, got) => {
 		response.end('/');
 	});
 
-	const error = await t.throwsAsync(got({responseType: 'json'}), got.ParseError);
-	// @ts-ignore
+	const error = await t.throwsAsync<ParseError>(got({responseType: 'json'}), ParseError);
 	t.true(error.message.includes(error.options.hostname));
-	// @ts-ignore
 	t.is(error.options.path, '/');
 });
 
@@ -87,8 +86,7 @@ test('parses non-200 responses', withServer, async (t, server, got) => {
 		response.end(jsonResponse);
 	});
 
-	const error = await t.throwsAsync(got({responseType: 'json'}), got.HTTPError);
-	// @ts-ignore
+	const error = await t.throwsAsync<HTTPError>(got({responseType: 'json'}), HTTPError);
 	t.deepEqual(error.response.body, dog);
 });
 
@@ -98,14 +96,12 @@ test('ignores errors on invalid non-200 responses', withServer, async (t, server
 		response.end('Internal error');
 	});
 
-	const error = await t.throwsAsync(got({responseType: 'json'}), {
+	const error = await t.throwsAsync<HTTPError>(got({responseType: 'json'}), {
 		instanceOf: got.HTTPError,
 		message: 'Response code 500 (Internal Server Error)'
 	});
 
-	// @ts-ignore
 	t.is(error.response.body, 'Internal error');
-	// @ts-ignore
 	t.is(error.options.path, '/');
 });
 
@@ -114,9 +110,8 @@ test('parse errors have `response` property', withServer, async (t, server, got)
 		response.end('/');
 	});
 
-	const error = await t.throwsAsync(got({responseType: 'json'}), got.ParseError);
+	const error = await t.throwsAsync<ParseError>(got({responseType: 'json'}), ParseError);
 
-	// @ts-ignore
 	t.is(error.response.statusCode, 200);
 });
 

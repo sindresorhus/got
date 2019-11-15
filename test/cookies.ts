@@ -89,12 +89,11 @@ test('does not throw on invalid cookies when options.ignoreInvalidCookies is set
 
 test('catches store errors', async t => {
 	const error = 'Some error';
-	// @ts-ignore
 	const cookieJar = new toughCookie.CookieJar({
 		findCookies: (_, __, cb) => {
 			cb(new Error(error), []);
 		}
-	});
+	} as toughCookie.Store);
 
 	await t.throwsAsync(got('https://example.com', {cookieJar}), error);
 });
@@ -131,11 +130,11 @@ test('no unhandled errors', async t => {
 	const options = {
 		cookieJar: {
 			setCookie: () => {},
-			getCookieString: (_, cb) => cb(new Error(message))
-		}
+			getCookieString: (_: string, cb: (err: Error) => void) => cb(new Error(message))
+		} as unknown as toughCookie.CookieJar
 	};
 
-	// @ts-ignore Manual tests
+	// @ts-ignore Error tests
 	await t.throwsAsync(got(`http://127.0.0.1:${(server.address() as AddressInfo).port}`, options), {message});
 	await delay(500);
 	t.pass();

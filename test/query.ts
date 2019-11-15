@@ -1,9 +1,11 @@
 import test from 'ava';
+import {StorageAdapter} from 'cacheable-request';
+import {Handler} from 'express';
 import withServer from './helpers/with-server';
 
 // TODO: Remove this file before the Got v11 release together with completely removing the `query` option
 
-const echoUrl = (request, response) => {
+const echoUrl: Handler = (request, response) => {
 	response.end(request.url);
 };
 
@@ -17,13 +19,13 @@ test('overrides query from options', withServer, async (t, server, got) => {
 				test: 'wow'
 			},
 			cache: {
-				get(key) {
+				get(key: string) {
 					t.is(key, `cacheable-request:GET:${server.url}/?test=wow`);
 				},
-				set(key) {
+				set(key: string) {
 					t.is(key, `cacheable-request:GET:${server.url}/?test=wow`);
 				}
-			}
+			} as unknown as StorageAdapter
 		}
 	);
 

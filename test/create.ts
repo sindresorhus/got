@@ -1,12 +1,17 @@
-import http = require('http');
+import {Agent as HttpAgent, request as httpRequest} from 'http';
 import test from 'ava';
 import is from '@sindresorhus/is';
-import got from '../source';
+import {Handler} from 'express';
+import got, {
+	BeforeRequestHook,
+	HandlerFunction,
+	Hooks,
+	Options,
+	RequestFunction
+} from '../source';
 import withServer from './helpers/with-server';
 
-type TestReturn = Record<string, unknown>;
-
-const echoHeaders = (request, response) => {
+const echoHeaders: Handler = (request, response) => {
 	request.resume();
 	response.end(JSON.stringify(request.headers));
 };
@@ -77,13 +82,10 @@ test('custom headers (extend)', withServer, async (t, server, got) => {
 
 test('extend overwrites arrays with a deep clone', t => {
 	const beforeRequest = [0];
-	// @ts-ignore Manual tests
-	const a = got.extend({hooks: {beforeRequest}});
+	const a = got.extend({hooks: {beforeRequest} as unknown as Hooks});
 	beforeRequest[0] = 1;
-	// @ts-ignore Manual tests
-	t.deepEqual(a.defaults.options.hooks.beforeRequest, [0]);
-	// @ts-ignore Manual tests
-	t.not(a.defaults.options.hooks.beforeRequest, beforeRequest);
+	t.deepEqual(a.defaults.options.hooks.beforeRequest, [0] as unknown as BeforeRequestHook[]);
+	t.not(a.defaults.options.hooks.beforeRequest, beforeRequest as unknown as BeforeRequestHook[]);
 });
 
 test('extend keeps the old value if the new one is undefined', t => {
@@ -115,7 +117,7 @@ test('create', withServer, async (t, server) => {
 			}
 		]
 	});
-	const headers = await instance(server.url).json<TestReturn>();
+	const headers = await instance(server.url).json();
 	t.is(headers.unicorn, 'rainbow');
 	t.is(headers['user-agent'], undefined);
 });
@@ -134,7 +136,7 @@ test('custom endpoint with custom headers (extend)', withServer, async (t, serve
 	server.all('/', echoHeaders);
 
 	const instance = got.extend({headers: {unicorn: 'rainbow'}, prefixUrl: server.url});
-	const headers = await instance('').json<TestReturn>();
+	const headers = await instance('').json();
 	t.is(headers.unicorn, 'rainbow');
 	t.not(headers['user-agent'], undefined);
 });
@@ -142,7 +144,7 @@ test('custom endpoint with custom headers (extend)', withServer, async (t, serve
 test('no tampering with defaults', t => {
 	const instance = got.create({
 		handlers: got.defaults.handlers,
-		options: got.mergeOptions(got.defaults.options, {
+		options: got.mergeOptions<Options>(got.defaults.options, {
 			prefixUrl: 'example/'
 		})
 	});
@@ -154,6 +156,7 @@ test('no tampering with defaults', t => {
 
 	// Tamper Time
 	t.throws(() => {
+		// @ts-ignore Error tests
 		instance.defaults.options.prefixUrl = 'http://google.com';
 	});
 
@@ -193,7 +196,7 @@ test('only plain objects are freezed', withServer, async (t, server, got) => {
 	server.get('/', echoHeaders);
 
 	const instance = got.extend({
-		agent: new http.Agent({keepAlive: true})
+		agent: new HttpAgent({keepAlive: true})
 	});
 
 	await t.notThrowsAsync(() => instance(''));
@@ -218,10 +221,9 @@ test('ability to pass a custom request method', withServer, async (t, server, go
 
 	let called = false;
 
-	const request = (...args) => {
+	const request: RequestFunction = (...args: [any, any, any?]) => {
 		called = true;
-		// @ts-ignore
-		return http.request(...args);
+		return httpRequest(...args);
 	};
 
 	const instance = got.extend({request});
@@ -284,14 +286,16 @@ test('async handlers', withServer, async (t, server, got) => {
 		handlers: [
 			async (options, next) => {
 				const result = await next(options);
+				// @ts-ignore Manual tests
 				result.modified = true;
 
 				return result;
 			}
-		]
+		] as HandlerFunction[]
 	});
 
 	const promise = instance('');
 	t.true(is.function_(promise.cancel));
+	// @ts-ignore Manual tests
 	t.true((await promise).modified);
 });

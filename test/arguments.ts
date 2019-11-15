@@ -1,17 +1,19 @@
 /* eslint-disable node/no-deprecated-api */
 import {parse} from 'url';
 import test from 'ava';
+import {StorageAdapter} from 'cacheable-request';
+import {Handler} from 'express';
 import pEvent = require('p-event');
 import got from '../source';
 import withServer from './helpers/with-server';
 
-const echoUrl = (request, response) => {
+const echoUrl: Handler = (request, response) => {
 	response.end(request.url);
 };
 
 test('`url` is required', async t => {
 	await t.throwsAsync(
-		// @ts-ignore Manual tests
+		// @ts-ignore Error tests
 		got(),
 		{
 			instanceOf: TypeError,
@@ -98,13 +100,13 @@ test('overrides `searchParams` from options', withServer, async (t, server, got)
 				test: 'wow'
 			},
 			cache: {
-				get(key) {
+				get(key: string) {
 					t.is(key, `cacheable-request:GET:${server.url}/?test=wow`);
 				},
-				set(key) {
+				set(key: string) {
 					t.is(key, `cacheable-request:GET:${server.url}/?test=wow`);
 				}
-			}
+			} as unknown as StorageAdapter
 		}
 	);
 
@@ -138,7 +140,7 @@ test('ignores empty searchParams object', withServer, async (t, server, got) => 
 });
 
 test('throws on invalid type of body', async t => {
-	// @ts-ignore Manual tests
+	// @ts-ignore Error tests
 	await t.throwsAsync(got('https://example.com', {body: false}), {
 		instanceOf: TypeError,
 		message: 'The `GET` method cannot be used with a body'
@@ -175,7 +177,7 @@ test('can omit `url` option if using `prefixUrl`', withServer, async (t, server,
 
 test('throws TypeError when `options.hooks` is not an object', async t => {
 	await t.throwsAsync(
-		// @ts-ignore Manual tests
+		// @ts-ignore Error tests
 		got('https://example.com', {hooks: 'not object'}),
 		{
 			instanceOf: TypeError,
@@ -186,7 +188,7 @@ test('throws TypeError when `options.hooks` is not an object', async t => {
 
 test('throws TypeError when known `options.hooks` value is not an array', async t => {
 	await t.throwsAsync(
-		// @ts-ignore Manual tests
+		// @ts-ignore Error tests
 		got('https://example.com', {hooks: {beforeRequest: {}}}),
 		{
 			instanceOf: TypeError,
@@ -197,7 +199,7 @@ test('throws TypeError when known `options.hooks` value is not an array', async 
 
 test('throws TypeError when known `options.hooks` array item is not a function', async t => {
 	await t.throwsAsync(
-		// @ts-ignore Manual tests
+		// @ts-ignore Error tests
 		got('https://example.com', {hooks: {beforeRequest: [{}]}}),
 		{
 			instanceOf: TypeError,
@@ -252,8 +254,8 @@ test('throws when trying to modify `prefixUrl` after options got normalized', as
 });
 
 test('throws if the `searchParams` value is invalid', async t => {
+	// @ts-ignore Error tests
 	await t.throwsAsync(got('https://example.com', {
-		// @ts-ignore Manual tests
 		searchParams: {
 			foo: []
 		}
@@ -331,6 +333,7 @@ test('`options.body` is cleaned up when retrying - `options.json`', withServer, 
 			afterResponse: [
 				async (response, retryWithMergedOptions) => {
 					if (response.statusCode === 401) {
+						// @ts-ignore Manual tests
 						return retryWithMergedOptions();
 					}
 
@@ -363,6 +366,7 @@ test('`options.body` is cleaned up when retrying - `options.form`', withServer, 
 			afterResponse: [
 				async (response, retryWithMergedOptions) => {
 					if (response.statusCode === 401) {
+						// @ts-ignore Manual tests
 						return retryWithMergedOptions();
 					}
 
