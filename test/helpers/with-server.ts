@@ -4,20 +4,9 @@ import http = require('http');
 import tempy = require('tempy');
 import createTestServer = require('create-test-server');
 import lolex = require('lolex');
-import {TestServer} from 'create-test-server';
-import got, {Got, HandlerFunction} from '../../source';
+import got, {HandlerFunction} from '../../source';
+import {ExtendedGot, ExtendedTestServer, GlobalClock, InstalledClock} from './types';
 
-export interface ExtendedGot extends Got {
-	secure: Got;
-}
-
-export interface ExtendedTestServer extends TestServer {
-	hostname: string;
-	sslHostname: string;
-}
-
-export type InstalledClock = ReturnType<typeof lolex.install>;
-export type GlobalClock = InstalledClock | lolex.NodeClock;
 export type RunTestWithServer = (t: test.ExecutionContext, server: ExtendedTestServer, got: ExtendedGot, clock: GlobalClock) => Promise<void> | void;
 export type RunTestWithSocket = (t: test.ExecutionContext, server: any) => Promise<void> | void;
 
