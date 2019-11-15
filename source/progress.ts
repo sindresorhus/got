@@ -2,6 +2,7 @@ import {ClientRequest} from 'http';
 import {Transform as TransformStream} from 'stream';
 import {Socket} from 'net';
 import EventEmitter = require('events');
+import is from '@sindresorhus/is';
 
 export function downloadProgress(emitter: EventEmitter, downloadBodySize?: number): TransformStream {
 	let downloadedBytes = 0;
@@ -71,6 +72,19 @@ export function uploadProgress(request: ClientRequest, emitter: EventEmitter, up
 		const onSocketConnect = (): void => {
 			progressInterval = setInterval(() => {
 				const lastUploadedBytes = uploadedBytes;
+
+				/* istanbul ignore next: future versions of Node may not have this property */
+				if (!is.string((request as any)._header)) {
+					clearInterval(progressInterval);
+
+					const url = new URL('https://github.com/sindresorhus/got/issues/new');
+					url.searchParams.set('title', '`request._header` is not present');
+					url.searchParams.set('body', 'It causes `uploadProgress` to fail.');
+
+					console.warn('`request._header` is not present. Please report this as a bug:\n' + url.href);
+					return;
+				}
+
 				const headersSize = Buffer.byteLength((request as any)._header);
 				uploadedBytes = socket.bytesWritten - headersSize;
 

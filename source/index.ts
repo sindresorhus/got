@@ -53,7 +53,7 @@ const defaults: Defaults = {
 		cache: false,
 		dnsCache: false,
 		useElectronNet: false,
-		responseType: '',
+		responseType: 'default',
 		resolveBodyOnly: false,
 		maxRedirects: 10,
 		prefixUrl: ''
@@ -76,7 +76,6 @@ export * from './utils/types';
 export {
 	Got,
 	GotStream,
-	ReturnResponse,
 	ReturnStream,
 	GotReturn
 } from './create';

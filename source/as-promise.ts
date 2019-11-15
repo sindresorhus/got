@@ -21,7 +21,7 @@ const parseBody = (body: Response['body'], responseType: NormalizedOptions['resp
 		return body.toString();
 	}
 
-	if (responseType === '') {
+	if (responseType === 'default') {
 		return body;
 	}
 

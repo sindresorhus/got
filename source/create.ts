@@ -1,3 +1,4 @@
+import {Merge} from 'type-fest';
 import * as errors from './errors';
 import {
 	Options,
@@ -23,13 +24,34 @@ export type HTTPAlias =
 	| 'head'
 	| 'delete';
 
-export type ReturnResponse = (url: URLOrOptions | Options & {isStream?: false}, options?: Options & {isStream?: false}) => CancelableRequest<Response>;
 export type ReturnStream = (url: URLOrOptions | Options & {isStream: true}, options?: Options & {isStream: true}) => ProxyStream;
 export type GotReturn = ProxyStream | CancelableRequest<Response>;
 
 const getPromiseOrStream = (options: NormalizedOptions): GotReturn => options.isStream ? asStream(options) : asPromise(options);
 
-export interface Got extends Record<HTTPAlias, ReturnResponse> {
+type OptionsOfDefaultResponseBody = Options & {isStream?: false; resolveBodyOnly?: false; responseType?: 'default'};
+type OptionsOfTextResponseBody = Options & {isStream?: false; resolveBodyOnly?: false; responseType: 'text'};
+type OptionsOfJSONResponseBody = Options & {isStream?: false; resolveBodyOnly?: false; responseType: 'json'};
+type OptionsOfBufferResponseBody = Options & {isStream?: false; resolveBodyOnly?: false; responseType: 'buffer'};
+type BodyOnly = {resolveBodyOnly: true};
+
+interface GotFunctions {
+	// `asPromise` usage
+	(url: URLOrOptions | OptionsOfDefaultResponseBody, options?: OptionsOfDefaultResponseBody): CancelableRequest<Response>;
+	(url: URLOrOptions | OptionsOfTextResponseBody, options?: OptionsOfTextResponseBody): CancelableRequest<Response<string>>;
+	(url: URLOrOptions | OptionsOfJSONResponseBody, options?: OptionsOfJSONResponseBody): CancelableRequest<Response<object>>;
+	(url: URLOrOptions | OptionsOfBufferResponseBody, options?: OptionsOfBufferResponseBody): CancelableRequest<Response<Buffer>>;
+
+	(url: URLOrOptions | OptionsOfDefaultResponseBody & BodyOnly, options?: OptionsOfDefaultResponseBody & BodyOnly): CancelableRequest<any>;
+	(url: URLOrOptions | OptionsOfTextResponseBody & BodyOnly, options?: OptionsOfTextResponseBody & BodyOnly): CancelableRequest<string>;
+	(url: URLOrOptions | OptionsOfJSONResponseBody & BodyOnly, options?: OptionsOfJSONResponseBody & BodyOnly): CancelableRequest<object>;
+	(url: URLOrOptions | OptionsOfBufferResponseBody & BodyOnly, options?: OptionsOfBufferResponseBody & BodyOnly): CancelableRequest<Buffer>;
+
+	// `asStream` usage
+	(url: URLOrOptions | Options & {isStream: true}, options?: Options & {isStream: true}): ProxyStream;
+}
+
+export interface Got extends Merge<Record<HTTPAlias, GotFunctions>, GotFunctions> {
 	stream: GotStream;
 	defaults: Defaults | Readonly<Defaults>;
 	GotError: typeof errors.GotError;
@@ -43,9 +65,6 @@ export interface Got extends Record<HTTPAlias, ReturnResponse> {
 	TimeoutError: typeof errors.TimeoutError;
 	CancelError: typeof errors.CancelError;
 
-	(url: URLOrOptions | Options & {isStream?: false}, options?: Options & {isStream?: false}): CancelableRequest<Response>;
-	(url: URLOrOptions | Options & {isStream: true}, options?: Options & {isStream: true}): ProxyStream;
-	(url: URLOrOptions, options?: Options): CancelableRequest<Response> | ProxyStream;
 	extend(...instancesOrOptions: Array<Got | ExtendedOptions>): Got;
 	mergeInstances(parent: Got, ...instances: Got[]): Got;
 	mergeOptions<T extends Options>(...sources: T[]): T & {hooks: Partial<Hooks>};
@@ -149,7 +168,8 @@ const create = (defaults: Defaults): Got => {
 	got.stream = (url, options) => got(url, {...options, isStream: true});
 
 	for (const method of aliases) {
-		got[method] = (url, options) => got(url, {...options, method});
+		// @ts-ignore
+		got[method] = (url: URLOrOptions, options?: Options): GotReturn => got(url, {...options, method});
 		got.stream[method] = (url, options) => got.stream(url, {...options, method});
 	}
 
