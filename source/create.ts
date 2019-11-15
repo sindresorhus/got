@@ -15,7 +15,7 @@ import {
 import deepFreeze from './utils/deep-freeze';
 import merge, {mergeOptions} from './merge';
 import asPromise, {isProxiedSymbol} from './as-promise';
-import asStream, {ProxyStream} from './as-stream';
+import asStream from './as-stream';
 import {preNormalizeArguments, normalizeArguments} from './normalize-arguments';
 import {Hooks} from './known-hook-events';
 
@@ -28,8 +28,12 @@ export type HTTPAlias =
 	| 'delete';
 
 export type ReturnResponse = (url: URLOrOptions | Options & {stream?: false}, options?: Options & {stream?: false}) => ReturnType<typeof asPromise>;
-export type ReturnStream = (url: URLOrOptions | Options & {stream: true}, options?: Options & {stream: true}) => ReturnType<typeof asStream>;
+export type ReturnStream = (url: URLOrOptions | Options & {stream?: true}, options?: Options & {stream?: true}) => ReturnType<typeof asStream>;
 export type GotReturn = ReturnType<ReturnResponse> | ReturnType<ReturnStream>;
+
+export interface GotStream extends Record<HTTPAlias, ReturnStream> {
+	(url: URLOrOptions | Options & {stream?: true}, options?: Options & {stream?: true}): ReturnType<typeof asStream>;
+}
 
 export interface Got extends Record<HTTPAlias, ReturnResponse> {
 	stream: GotStream;
@@ -52,10 +56,6 @@ export interface Got extends Record<HTTPAlias, ReturnResponse> {
 	extend(...instancesOrOptions: Array<Got | ExtendOptions>): Got;
 	mergeInstances(parent: Got, ...instances: Got[]): Got;
 	mergeOptions<T extends Options>(...sources: T[]): T & {hooks: Partial<Hooks>};
-}
-
-export interface GotStream extends Record<HTTPAlias, ReturnStream> {
-	(url: URLOrOptions | Options & {stream?: true}, options?: Options): ProxyStream;
 }
 
 const aliases: readonly HTTPAlias[] = [

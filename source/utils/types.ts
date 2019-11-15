@@ -93,11 +93,12 @@ export interface DefaultRetryOptions {
 	limit: number;
 	methods: Method[];
 	statusCodes: number[];
-	errorCodes: ErrorCode[];
+	errorCodes: string[];
 }
 
 export interface RetryOptions extends Partial<DefaultRetryOptions> {
 	calculateDelay?: RetryFunction;
+	retries?: number;
 	maxRetryAfter?: number;
 }
 
@@ -122,7 +123,7 @@ export type Headers = Record<string, string | string[] | null | undefined>;
 
 export interface DefaultOptions {
 	method: Method;
-	retry: number | DefaultRetryOptions;
+	retry: DefaultRetryOptions | number;
 	headers: Headers;
 	hooks: Hooks;
 	decompress: boolean;
@@ -152,7 +153,7 @@ export interface Options extends PartialDeep<DefaultOptions>, Except<https.Reque
 	stream?: boolean;
 	encoding?: BufferEncoding | null;
 	method?: Method;
-	retry?: number | RetryOptions;
+	retry?: RetryOptions | number;
 	throwHttpErrors?: boolean;
 	cookieJar?: CookieJar;
 	ignoreInvalidCookies?: boolean;
@@ -190,7 +191,7 @@ export interface NormalizedOptions extends DefaultOptions, Except<Options, keyof
 	protocol: string;
 	hostname: string;
 	host: string;
-	hash: string;
+	hash: string | null;
 	search: string | null;
 	pathname: string;
 	href: string;
@@ -224,7 +225,7 @@ export type URLOrOptions = URLArgument | (Options & {url: URLArgument});
 
 export interface CancelableRequest<T extends http.IncomingMessage | Buffer | string | object> extends PCancelable<T> {
 	[isProxiedSymbol]: boolean;
-	on(name: string, listener: () => void): CancelableRequest<T>;
+	on(event: string, listener: (...args: any[]) => void): CancelableRequest<T>;
 	json<TReturnType extends object>(): CancelableRequest<TReturnType>;
 	buffer<TReturnType extends Buffer>(): CancelableRequest<TReturnType>;
 	text<TReturnType extends string>(): CancelableRequest<TReturnType>;
