@@ -6,10 +6,12 @@ import http = require('http');
 import net = require('net');
 import getStream = require('get-stream');
 import test from 'ava';
+import CacheableLookup from 'cacheable-lookup';
+import {Handler} from 'express';
 import pEvent = require('p-event');
-import got from '../source';
+import got, {Options} from '../source';
 import timedOut from '../source/utils/timed-out';
-import withServer, {withServerAndLolex} from './helpers/with-server';
+import withServer, {GlobalClock, withServerAndLolex} from './helpers/with-server';
 import slowDataStream from './helpers/slow-data-stream';
 
 const pStreamPipeline = promisify(stream.pipeline);
@@ -25,7 +27,7 @@ const keepAliveAgent = new http.Agent({
 	keepAlive: true
 });
 
-const defaultHandler = clock => (request, response) => {
+const defaultHandler = (clock: GlobalClock): Handler => (request, response) => {
 	request.resume();
 	request.on('end', () => {
 		clock.tick(requestDelay);
@@ -33,7 +35,7 @@ const defaultHandler = clock => (request, response) => {
 	});
 };
 
-const downloadHandler = clock => (_request, response) => {
+const downloadHandler = (clock: GlobalClock): Handler => (_request, response) => {
 	response.writeHead(200, {
 		'transfer-encoding': 'chunked'
 	});
@@ -79,7 +81,6 @@ test.serial('socket timeout', async t => {
 		got('https://example.com', {
 			timeout: {socket: 1},
 			retry: 0,
-			// @ts-ignore
 			request: () => {
 				const stream = new PassThroughStream();
 				// @ts-ignore
@@ -91,7 +92,7 @@ test.serial('socket timeout', async t => {
 				stream.abort = () => {};
 				stream.resume();
 
-				return stream;
+				return stream as unknown as http.ClientRequest;
 			}
 		}),
 		{
@@ -131,7 +132,7 @@ test.serial('send timeout (keepalive)', withServerAndLolex, async (t, server, go
 			timeout: {send: 1},
 			retry: 0,
 			body: slowDataStream(clock)
-		}).on('request', request => {
+		}).on('request', (request: http.ClientRequest) => {
 			request.once('socket', socket => {
 				t.false(socket.connecting);
 
@@ -194,7 +195,7 @@ test.serial('response timeout (keepalive)', withServerAndLolex, async (t, server
 		agent: keepAliveAgent,
 		timeout: {response: 1},
 		retry: 0
-	}).on('request', request => {
+	}).on('request', (request: http.ClientRequest) => {
 		request.once('socket', socket => {
 			t.false(socket.connecting);
 			socket.once('connect', () => {
@@ -213,8 +214,7 @@ test.serial('connect timeout', withServerAndLolex, async (t, _server, got, clock
 	await t.throwsAsync(
 		got({
 			createConnection: options => {
-				// @ts-ignore
-				const socket = new net.Socket(options);
+				const socket = new net.Socket(options as unknown as net.SocketConstructorOpts);
 				// @ts-ignore
 				socket.connecting = true;
 				setImmediate(() => {
@@ -224,7 +224,7 @@ test.serial('connect timeout', withServerAndLolex, async (t, _server, got, clock
 			},
 			timeout: {connect: 1},
 			retry: 0
-		}).on('request', request => {
+		}).on('request', (request: http.ClientRequest) => {
 			request.on('socket', () => {
 				clock.runAll();
 			});
@@ -241,14 +241,14 @@ test.serial('connect timeout (ip address)', withServerAndLolex, async (t, _serve
 		got({
 			hostname: '127.0.0.1',
 			createConnection: options => {
-				const socket = new net.Socket(options);
+				const socket = new net.Socket(options as unknown as net.SocketConstructorOpts);
 				// @ts-ignore
 				socket.connecting = true;
 				return socket;
 			},
 			timeout: {connect: 1},
 			retry: 0
-		}).on('request', request => {
+		}).on('request', (request: http.ClientRequest) => {
 			request.on('socket', () => {
 				clock.runAll();
 			});
@@ -279,7 +279,7 @@ test.serial('secureConnect timeout', withServerAndLolex, async (t, _server, got,
 			},
 			timeout: {secureConnect: 0},
 			retry: 0
-		}).on('request', request => {
+		}).on('request', (request: http.ClientRequest) => {
 			request.on('socket', () => {
 				clock.runAll();
 			});
@@ -311,7 +311,7 @@ test.serial('lookup timeout', withServerAndLolex, async (t, server, got, clock) 
 			lookup: () => {},
 			timeout: {lookup: 1},
 			retry: 0
-		}).on('request', request => {
+		}).on('request', (request: http.ClientRequest) => {
 			request.on('socket', () => {
 				clock.runAll();
 			});
@@ -344,7 +344,7 @@ test.serial('lookup timeout no error (keepalive)', withServerAndLolex, async (t,
 		agent: keepAliveAgent,
 		timeout: {lookup: 1},
 		retry: 0
-	}).on('request', request => {
+	}).on('request', (request: http.ClientRequest) => {
 		request.once('connect', () => {
 			t.fail('connect event fired, invalidating test');
 		});
@@ -444,7 +444,7 @@ test.serial('socket timeout is canceled on error', withServerAndLolex, async (t,
 	const promise = got({
 		timeout: {socket: 50},
 		retry: 0
-	}).on('request', request => {
+	}).on('request', (request: http.ClientRequest) => {
 		request.emit('error', new Error(message));
 		request.abort();
 	});
@@ -463,8 +463,8 @@ test.serial('no memory leak when using socket timeout and keepalive agent', with
 		timeout: {socket: requestDelay * 2}
 	});
 
-	let socket;
-	promise.on('request', request => {
+	let socket: net.Socket;
+	promise.on('request', (request: http.ClientRequest) => {
 		request.on('socket', () => {
 			socket = request.socket;
 		});
@@ -472,7 +472,7 @@ test.serial('no memory leak when using socket timeout and keepalive agent', with
 
 	await promise;
 
-	t.is(socket.listenerCount('timeout'), 0);
+	t.is(socket!.listenerCount('timeout'), 0);
 });
 
 test('ensure there are no new timeouts after cancelation', t => {
@@ -516,12 +516,13 @@ test.serial('doesn\'t throw on early lookup', withServerAndLolex, async (t, serv
 			lookup: 1
 		},
 		retry: 0,
-		lookup: (_hostname, options, callback) => {
+		lookup: (...[_hostname, options, callback]: Parameters<CacheableLookup['lookup']>) => {
 			if (typeof options === 'function') {
 				callback = options;
 			}
 
+			// @ts-ignore This should be fixed in upstream
 			callback(null, '127.0.0.1', 4);
 		}
-	}));
+	} as Options));
 });
