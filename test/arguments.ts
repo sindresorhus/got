@@ -198,6 +198,7 @@ test('throws TypeError when known `options.hooks` value is not an array', async 
 });
 
 test('throws TypeError when known `options.hooks` array item is not a function', async t => {
+	// @ts-ignore Error tests
 	await t.throwsAsync(
 		// @ts-ignore Error tests
 		got('https://example.com', {hooks: {beforeRequest: [{}]}}),
@@ -256,6 +257,7 @@ test('throws when trying to modify `prefixUrl` after options got normalized', as
 test('throws if the `searchParams` value is invalid', async t => {
 	// @ts-ignore Error tests
 	await t.throwsAsync(got('https://example.com', {
+		// @ts-ignore Error tests
 		searchParams: {
 			foo: []
 		}

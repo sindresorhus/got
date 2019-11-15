@@ -137,6 +137,7 @@ test('`http.request` pipe error', async t => {
 
 	// @ts-ignore Error tests
 	await t.throwsAsync(got('https://example.com', {
+		// @ts-ignore Error tests
 		request: () => {
 			return {
 				end: () => {
