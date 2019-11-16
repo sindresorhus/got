@@ -138,7 +138,7 @@ Useful when used with `got.extend()` to create niche-specific Got-instances.
 
 **Note:** `prefixUrl` will be ignored if the `url` argument is a URL instance.
 
-**Tip:** If the input URL still contains the initial prefixUrl, you can change it as many times as you want. Otherwise it will throw an error.
+**Tip:** If the input URL still contains the initial `prefixUrl`, you can change it as many times as you want. Otherwise it will throw an error.
 
 ```js
 const got = require('got');
