@@ -25,11 +25,7 @@ test('properties', withServer, async (t, server, got) => {
 	// t.false({}.propertyIsEnumerable.call(error, 'response'));
 	// t.false({}.hasOwnProperty.call(error, 'code'));
 	t.is(error.message, 'Response code 404 (Not Found)');
-	t.is(error.options.host, `${url.hostname}:${url.port}`);
-	t.is(error.options.method, 'GET');
-	t.is(error.options.protocol, 'http:');
-	// @ts-ignore Not sure where this is implemented
-	t.is(error.options.url, error.options.requestUrl);
+	t.deepEqual(error.options.url, url);
 	t.is(error.response.headers.connection, 'close');
 	t.is(error.response.body, 'not');
 });
@@ -38,14 +34,14 @@ test('catches dns errors', async t => {
 	const error = await t.throwsAsync<GotError>(got('http://doesntexist', {retry: 0}));
 	t.truthy(error);
 	t.regex(error.message, /getaddrinfo ENOTFOUND/);
-	t.is(error.options.host, 'doesntexist');
+	t.is(error.options.url.host, 'doesntexist');
 	t.is(error.options.method, 'GET');
 });
 
 test('`options.body` form error message', async t => {
 	// @ts-ignore Error tests
 	await t.throwsAsync(got.post('https://example.com', {body: Buffer.from('test'), form: ''}), {
-		message: 'The `body` option cannot be used with the `json` option or `form` option'
+		message: 'The `body`, `json` and `form` options are mutually exclusive'
 	});
 });
 
@@ -104,11 +100,11 @@ test('contains Got options', withServer, async (t, server, got) => {
 	});
 
 	const options = {
-		auth: 'foo:bar'
+		agent: false
 	};
 
 	const error = await t.throwsAsync<GotError>(got(options));
-	t.is(error.options.auth, options.auth);
+	t.is(error.options.agent, options.agent);
 });
 
 test('empty status message is overriden by the default one', withServer, async (t, server, got) => {
@@ -190,7 +186,7 @@ test('catches error in mimicResponse', withServer, async (t, server) => {
 test('errors are thrown directly when options.stream is true', t => {
 	t.throws(() => {
 		// @ts-ignore Error tests
-		got('https://example.com', {stream: true, hooks: false});
+		got('https://example.com', {isStream: true, hooks: false});
 	}, {
 		message: 'Parameter `hooks` must be an Object, not boolean'
 	});

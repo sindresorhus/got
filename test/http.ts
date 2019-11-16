@@ -114,10 +114,10 @@ test('response contains got options', withServer, async (t, server, got) => {
 	});
 
 	const options = {
-		auth: 'foo:bar'
+		username: 'foo'
 	};
 
-	t.is((await got(options)).request.options.auth, options.auth);
+	t.is((await got(options)).request.options.username, options.username);
 });
 
 test('socket destroyed by the server throws ECONNRESET', withServer, async (t, server, got) => {

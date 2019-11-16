@@ -128,7 +128,7 @@ We should name our errors, just to know if the error is from the API response. S
 			}
 
 			// Don't touch streams
-			if (options.stream) {
+			if (options.isStream) {
 				return next(options);
 			}
 
@@ -197,7 +197,7 @@ const getRateLimit = ({headers}) => ({
 			}
 
 			// Don't touch streams
-			if (options.stream) {
+			if (options.isStream) {
 				return next(options);
 			}
 

@@ -24,7 +24,7 @@ const instance = got.extend({
 			}
 
 			// Don't touch streams
-			if (options.stream) {
+			if (options.isStream) {
 				return next(options);
 			}
 

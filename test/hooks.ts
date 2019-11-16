@@ -1,4 +1,5 @@
 import test from 'ava';
+import getStream from 'get-stream';
 import delay = require('delay');
 import {Handler} from 'express';
 import got from '../source';
@@ -187,8 +188,8 @@ test('init is called with options', withServer, async (t, server, got) => {
 		hooks: {
 			init: [
 				options => {
-					t.is(options.path, '/');
-					t.is(options.hostname, 'localhost');
+					t.is(options.url.pathname, '/');
+					t.is(options.url.hostname, 'localhost');
 				}
 			]
 		}
@@ -220,8 +221,8 @@ test('beforeRequest is called with options', withServer, async (t, server, got) 
 		hooks: {
 			beforeRequest: [
 				options => {
-					t.is(options.path, '/');
-					t.is(options.hostname, 'localhost');
+					t.is(options.url.pathname, '/');
+					t.is(options.url.hostname, 'localhost');
 				}
 			]
 		}
@@ -253,8 +254,8 @@ test('beforeRedirect is called with options and response', withServer, async (t,
 		hooks: {
 			beforeRedirect: [
 				(options, response) => {
-					t.is(options.path, '/');
-					t.is(options.hostname, 'localhost');
+					t.is(options.url.pathname, '/');
+					t.is(options.url.hostname, 'localhost');
 
 					t.is(response.statusCode, 302);
 					t.is(new URL(response.url).pathname, '/redirect');
@@ -293,7 +294,7 @@ test('beforeRetry is called with options', withServer, async (t, server, got) =>
 		hooks: {
 			beforeRetry: [
 				(options, error, retryCount) => {
-					t.is(options.hostname, 'localhost');
+					t.is(options.url.hostname, 'localhost');
 					t.truthy(error);
 					t.true(retryCount >= 1);
 				}
@@ -381,6 +382,44 @@ test('afterResponse allows to retry', withServer, async (t, server, got) => {
 		}
 	});
 	t.is(statusCode, 200);
+});
+
+test('afterResponse allows to retry - `beforeRetry` hook', withServer, async (t, server, got) => {
+	server.get('/', (request, response) => {
+		if (request.headers.token !== 'unicorn') {
+			response.statusCode = 401;
+		}
+
+		response.end();
+	});
+
+	let called = false;
+
+	const {statusCode} = await got({
+		hooks: {
+			afterResponse: [
+				(response, retryWithMergedOptions) => {
+					if (response.statusCode === 401) {
+						return retryWithMergedOptions({
+							headers: {
+								token: 'unicorn'
+							}
+						});
+					}
+
+					return response;
+				}
+			],
+			beforeRetry: [
+				options => {
+					t.truthy(options);
+					called = true;
+				}
+			]
+		}
+	});
+	t.is(statusCode, 200);
+	t.true(called);
 });
 
 test('no infinity loop when retrying on afterResponse', withServer, async (t, server, got) => {
@@ -476,18 +515,76 @@ test('doesn\'t throw on afterResponse retry HTTP failure if throwHttpErrors is f
 	t.is(statusCode, 500);
 });
 
-test('beforeError is called with an error', async t => {
-	await t.throwsAsync(got('https://example.com', {
-		request: () => {
-			throw error;
-		},
+test('throwing in a beforeError hook - promise', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.end('ok');
+	});
+
+	await t.throwsAsync(got({
 		hooks: {
+			afterResponse: [
+				() => {
+					throw error;
+				}
+			],
+			beforeError: [
+				() => {
+					throw new Error('foobar');
+				},
+				// @ts-ignore Assertion.
+				() => {
+					t.fail('This shouldn\'t be called at all');
+				}
+			]
+		}
+	}), 'foobar');
+});
+
+test('throwing in a beforeError hook - stream', withServer, async (t, _server, got) => {
+	await t.throwsAsync(getStream(got.stream({
+		hooks: {
+			beforeError: [
+				() => {
+					throw new Error('foobar');
+				},
+				// @ts-ignore Assertion.
+				() => {
+					t.fail('This shouldn\'t be called at all');
+				}
+			]
+		}
+	})), 'foobar');
+});
+
+test('beforeError is called with an error - promise', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.end('ok');
+	});
+
+	await t.throwsAsync(got({
+		hooks: {
+			afterResponse: [
+				() => {
+					throw error;
+				}
+			],
 			beforeError: [error2 => {
 				t.true(error2 instanceof Error);
 				return error2;
 			}]
 		}
 	}), errorString);
+});
+
+test('beforeError is called with an error - stream', withServer, async (t, _server, got) => {
+	await t.throwsAsync(getStream(got.stream({
+		hooks: {
+			beforeError: [error2 => {
+				t.true(error2 instanceof Error);
+				return error2;
+			}]
+		}
+	})), 'Response code 404 (Not Found)');
 });
 
 test('beforeError allows modifications', async t => {

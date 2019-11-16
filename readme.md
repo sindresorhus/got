@@ -108,7 +108,7 @@ It's a `GET` request by default, but can be changed by using different methods o
 
 #### got([url], [options])
 
-Returns a Promise for a [`response` object](#response) or a [stream](#streams-1) if `options.stream` is set to true.
+Returns a Promise for a [`response` object](#response) or a [stream](#streams-1) if `options.isStream` is set to true.
 
 ##### url
 
@@ -138,11 +138,28 @@ Useful when used with `got.extend()` to create niche-specific Got-instances.
 
 **Note:** `prefixUrl` will be ignored if the `url` argument is a URL instance.
 
+**Tip:** If the input URL still contains the initial `prefixUrl`, you can change it as many times as you want. Otherwise it will throw an error.
+
 ```js
 const got = require('got');
 
 (async () => {
 	await got('unicorn', {prefixUrl: 'https://cats.com'});
+	//=> 'https://cats.com/unicorn'
+
+	const instance = got.extend({
+		prefixUrl: 'https://google.com'
+	});
+
+	await instance('unicorn', {
+		hooks: {
+			beforeRequest: [
+				options => {
+					options.prefixUrl = 'https://cats.com';
+				}
+			]
+		}
+	});
 	//=> 'https://cats.com/unicorn'
 })();
 ```
@@ -154,9 +171,9 @@ Default: `{}`
 
 Request headers.
 
-Existing headers will be overwritten. Headers set to `null` will be omitted.
+Existing headers will be overwritten. Headers set to `undefined` will be omitted.
 
-###### stream
+###### isStream
 
 Type: `boolean`<br>
 Default: `false`
@@ -225,11 +242,18 @@ const instance = got.extend({
 ###### responseType
 
 Type: `string`<br>
-Default: `text`
+Default: `'default'`
 
 **Note:** When using streams, this option is ignored.
 
-Parsing method used to retrieve the body from the response. Can be `text`, `json` or `buffer`. The promise has `.json()` and `.buffer()` and `.text()` functions which set this option automatically.
+Parsing method used to retrieve the body from the response.
+
+- `'default'` - if `options.encoding` is `null`, the body will be a Buffer. Otherwise it will be a string unless it's overwritten in a `afterResponse` hook,
+- `'text'` - will always give a string, no matter what's the `options.encoding` or if the body is a custom object,
+- `'json'` - will always give an object, unless it's invalid JSON - then it will throw.
+- `'buffer'` - will always give a Buffer, no matter what's the `options.encoding`. It will throw if the body is a custom object.
+
+The promise has `.json()` and `.buffer()` and `.text()` functions which set this option automatically.
 
 Example:
 
@@ -246,11 +270,23 @@ When set to `true` the promise will return the [Response body](#body-1) instead 
 
 ###### cookieJar
 
-Type: [`tough.CookieJar` instance](https://github.com/salesforce/tough-cookie#cookiejar)
+Type: `object` | [`tough.CookieJar` instance](https://github.com/salesforce/tough-cookie#cookiejar)
 
 **Note:** If you provide this option, `options.headers.cookie` will be overridden.
 
-Cookie support. You don't have to care about parsing or how to store them. [Example.](#cookies)
+Cookie support. You don't have to care about parsing or how to store them. [Example](#cookies).
+
+###### cookieJar.setCookie
+
+Type: `Function<Promise>`
+
+The function takes two arguments: `rawCookie` (`string`) and `url` (`string`).
+
+###### cookieJar.getCookieString
+
+Type: `Function<Promise>`
+
+The function takes one argument: `url` (`string`).
 
 ###### ignoreInvalidCookies
 
@@ -279,8 +315,6 @@ If set to `true` and the `Content-Type` header is not set, it will be set to `ap
 ###### searchParams
 
 Type: `string | object<string, string | number> | URLSearchParams`
-
-**Note:** The `query` option was renamed to `searchParams` in Got v10. The `query` option name is still functional, but is being deprecated and will be completely removed in Got v11.
 
 Query string that will be added to the request URL. This will override the query string in `url`.
 
@@ -518,6 +552,8 @@ got.post('https://example.com', {
 });
 ```
 
+**Note:** When retrying in a `afterResponse` hook, all remaining `beforeRetry` hooks will be called without the `error` and `retryCount` arguments.
+
 ###### hooks.afterResponse
 
 Type: `Function[]`<br>
@@ -525,7 +561,7 @@ Default: `[]`
 
 **Note:** When using streams, this hook is ignored.
 
-Called with [response object](#response) and a retry function.
+Called with [response object](#response) and a retry function. Calling the retry function will trigger `beforeRetry` hooks.
 
 Each function should return the response. This is especially useful when you want to refresh an access token. Example:
 
@@ -552,6 +588,11 @@ const instance = got.extend({
 
 				// No changes otherwise
 				return response;
+			}
+		],
+		beforeRetry: [
+			(options, error, retryCount) => {
+				// This will be called on `retryWithMergedOptions(...)`
 			}
 		]
 	},
@@ -677,7 +718,7 @@ The number of times the request was retried.
 
 #### got.stream(url, [options])
 
-Sets `options.stream` to `true`.
+Sets `options.isStream` to `true`.
 
 Returns a [duplex stream](https://nodejs.org/api/stream.html#stream_class_stream_duplex) with additional events:
 
@@ -789,8 +830,6 @@ client.get('/demo');
 })();
 ```
 
-**Tip:** Need more control over the behavior of Got? Check out the [`got.create()`](documentation/advanced-creation.md).
-
 Additionally, `got.extend()` accepts two properties from the `defaults` object: `mutableDefaults` and `handlers`. Example:
 
 ```js
@@ -806,6 +845,34 @@ const mergedHandlers = got.extend({
 		}
 	]
 });
+```
+
+**Note:** Handlers can be asynchronous. The recommended approach is:
+
+```js
+const handler = (options, next) => {
+	if (options.stream) {
+		// It's a Stream
+		return next(options);
+	}
+
+	// It's a Promise
+	return (async () => {
+		try {
+			const response = await next(options);
+			response.yourOwnProperty = true;
+			return response;
+		} catch (error) {
+			// Every error will be replaced by this one.
+			// Before you receive any error here,
+			// it will be passed to the `beforeError` hooks first.
+			// Note: this one won't be passed to `beforeError` hook. It's final.
+			throw new Error('Your very own error.');
+		}
+	})();
+};
+
+const instance = got.extend({handlers: [handler]});
 ```
 
 #### got.extend(...instances)
@@ -862,7 +929,57 @@ Options are deeply merged to a new object. The value of each key is determined a
 
 Type: `object`
 
-The default Got options used in that instance.
+The Got defaults used in that instance.
+
+##### [options](#options)
+
+##### handlers
+
+Type: `Function[]`<br>
+Default: `[]`
+
+An array of functions. You execute them directly by calling `got()`. They are some sort of "global hooks" - these functions are called first. The last handler (*it's hidden*) is either [`asPromise`](source/as-promise.ts) or [`asStream`](source/as-stream.ts), depending on the `options.isStream` property.
+
+Each handler takes two arguments:
+
+###### [options](#options)
+
+###### next()
+
+Returns a `Promise` or a `Stream` depending on [`options.isStream`](#isstream).
+
+```js
+const settings = {
+	handlers: [
+		(options, next) => {
+			if (options.isStream) {
+				// It's a Stream, so we can perform stream-specific actions on it
+				return next(options)
+					.on('request', request => {
+						setTimeout(() => {
+							request.abort();
+						}, 50);
+					});
+			}
+
+			// It's a Promise
+			return next(options);
+		}
+	],
+	options: got.mergeOptions(got.defaults.options, {
+		responseType: 'json'
+	})
+};
+
+const jsonGot = got.create(settings);
+```
+
+##### mutableDefaults
+
+Type: `boolean`<br>
+Default: `false`
+
+A read-only boolean describing whether the defaults are mutable or not. If set to `true`, you can [update headers over time](#hooksafterresponse), for example, update an access token when it expires.
 
 ## Errors
 
@@ -1229,7 +1346,7 @@ const got = require('got');
 
 ### User Agent
 
-It's a good idea to set the `'user-agent'` header so the provider can more easily see how their resource is used. By default, it's the URL to this repo. You can omit this header by setting it to `null`.
+It's a good idea to set the `'user-agent'` header so the provider can more easily see how their resource is used. By default, it's the URL to this repo. You can omit this header by setting it to `undefined`.
 
 ```js
 const got = require('got');
@@ -1243,7 +1360,7 @@ got('https://sindresorhus.com', {
 
 got('https://sindresorhus.com', {
 	headers: {
-		'user-agent': null
+		'user-agent': undefined
 	}
 });
 ```

@@ -40,7 +40,7 @@ export default (request: ClientRequest, delays: Delays, options: TimedOutOptions
 		const timeout: NodeJS.Timeout = setTimeout(() => {
 			// @ts-ignore https://github.com/microsoft/TypeScript/issues/26113
 			immediate = setImmediate(callback, delay, ...args);
-			immediate.unref();
+			immediate.unref?.();
 		}, delay);
 
 		timeout.unref?.();
@@ -100,8 +100,8 @@ export default (request: ClientRequest, delays: Delays, options: TimedOutOptions
 	}
 
 	once(request, 'socket', (socket: net.Socket): void => {
-		// TODO: There seems to not be a `socketPath` on the request, but there *is* a `socket.remoteAddress`.
-		const {socketPath} = request as any;
+		// @ts-ignore Node typings doesn't have this property
+		const {socketPath} = request;
 
 		/* istanbul ignore next: hard to test */
 		if (socket.connecting) {

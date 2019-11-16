@@ -105,28 +105,11 @@ test('extend merges URL instances', t => {
 	t.is(b.defaults.options.custom.toString(), 'https://example.com/foo');
 });
 
-test('create', withServer, async (t, server) => {
-	server.all('/', echoHeaders);
-
-	const instance = got.create({
-		options: {},
-		handlers: [
-			(options, next) => {
-				options.headers.unicorn = 'rainbow';
-				return next(options);
-			}
-		]
-	});
-	const headers = await instance(server.url).json();
-	t.is(headers.unicorn, 'rainbow');
-	t.is(headers['user-agent'], undefined);
-});
-
 test('hooks are merged on got.extend()', t => {
 	const hooksA = [() => {}];
 	const hooksB = [() => {}];
 
-	const instanceA = got.create({options: {hooks: {beforeRequest: hooksA}}});
+	const instanceA = got.extend({hooks: {beforeRequest: hooksA}});
 
 	const extended = instanceA.extend({hooks: {beforeRequest: hooksB}});
 	t.deepEqual(extended.defaults.options.hooks.beforeRequest, hooksA.concat(hooksB));
@@ -142,34 +125,17 @@ test('custom endpoint with custom headers (extend)', withServer, async (t, serve
 });
 
 test('no tampering with defaults', t => {
-	const instance = got.create({
-		handlers: got.defaults.handlers,
-		options: got.mergeOptions<Options>(got.defaults.options, {
-			prefixUrl: 'example/'
-		})
-	});
-
-	const instance2 = instance.create({
-		handlers: instance.defaults.handlers,
-		options: instance.defaults.options
-	});
-
-	// Tamper Time
 	t.throws(() => {
-		// @ts-ignore Error tests
-		instance.defaults.options.prefixUrl = 'http://google.com';
+		got.defaults.options.prefixUrl = 'http://google.com';
 	});
 
-	t.is(instance.defaults.options.prefixUrl, 'example/');
-	t.is(instance2.defaults.options.prefixUrl, 'example/');
+	t.is(got.defaults.options.prefixUrl, '');
 });
 
 test('defaults can be mutable', t => {
-	const instance = got.create({
+	const instance = got.extend({
 		mutableDefaults: true,
-		options: {
-			followRedirect: false
-		}
+		followRedirect: false
 	});
 
 	t.notThrows(() => {
@@ -204,7 +170,7 @@ test('only plain objects are freezed', withServer, async (t, server, got) => {
 
 test('defaults are cloned on instance creation', t => {
 	const options = {foo: 'bar', hooks: {beforeRequest: [() => {}]}};
-	const instance = got.create({options});
+	const instance = got.extend(options);
 
 	t.notThrows(() => {
 		options.foo = 'foo';
