@@ -52,7 +52,8 @@ test('does not remove user headers from `url` object argument', withServer, asyn
 		}
 	})).body;
 
-	t.is(headers.accept, 'application/json');
+	// TODO: The response is not typed, so we need to cast as any
+	t.is((headers as any).accept, 'application/json');
 	t.is(headers['user-agent'], 'got (https://github.com/sindresorhus/got)');
 	t.is(headers['accept-encoding'], supportsBrotli ? 'gzip, deflate, br' : 'gzip, deflate');
 	t.is(headers['x-request-id'], 'value');
@@ -183,19 +184,15 @@ test('buffer as `options.body` sets `content-length` header', withServer, async 
 	t.is(Number(headers['content-length']), buffer.length);
 });
 
-test('removes null value headers', withServer, async (t, server, got) => {
-	server.get('/', echoHeaders);
-
-	const {body} = await got({
+test('throws on null value headers', async t => {
+	await t.throwsAsync(got({
 		headers: {
 			'user-agent': null
 		}
-	});
-	const headers = JSON.parse(body);
-	t.false(Reflect.has(headers, 'user-agent'));
+	}), TypeError, 'Use `undefined` instead of `null` to delete HTTP headers');
 });
 
-test('setting a header to undefined keeps the old value', withServer, async (t, server, got) => {
+test('removes undefined value headers', withServer, async (t, server, got) => {
 	server.get('/', echoHeaders);
 
 	const {body} = await got({
@@ -204,7 +201,7 @@ test('setting a header to undefined keeps the old value', withServer, async (t, 
 		}
 	});
 	const headers = JSON.parse(body);
-	t.not(headers['user-agent'], undefined);
+	t.is(headers['user-agent'], undefined);
 });
 
 test('non-existent headers set to undefined are omitted', withServer, async (t, server, got) => {

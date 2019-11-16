@@ -1,4 +1,3 @@
-import {format} from 'url';
 import is from '@sindresorhus/is';
 import {Timings} from '@szmarczak/http-timer';
 import {Response, NormalizedOptions} from './utils/types';
@@ -48,7 +47,7 @@ export class ParseError extends GotError {
 	readonly response: Response;
 
 	constructor(error: Error, response: Response, options: NormalizedOptions) {
-		super(`${error.message} in "${format(options as unknown as URL)}"`, error, options);
+		super(`${error.message} in "${options.url.toString()}"`, error, options);
 		this.name = 'ParseError';
 
 		Object.defineProperty(this, 'response', {
@@ -87,7 +86,7 @@ export class MaxRedirectsError extends GotError {
 
 export class UnsupportedProtocolError extends GotError {
 	constructor(options: NormalizedOptions) {
-		super(`Unsupported protocol "${options.protocol}"`, {}, options);
+		super(`Unsupported protocol "${options.url.protocol}"`, {}, options);
 		this.name = 'UnsupportedProtocolError';
 	}
 }

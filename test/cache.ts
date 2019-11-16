@@ -92,14 +92,14 @@ test('cached response has got options', withServer, async (t, server, got) => {
 
 	const cache = new Map();
 	const options = {
-		auth: 'foo:bar',
+		username: 'foo',
 		cache
 	};
 
 	await got(options);
 	const secondResponse = await got(options);
 
-	t.is(secondResponse.request.options.auth, options.auth);
+	t.is(secondResponse.request.options.username, options.username);
 });
 
 test('cache error throws `got.CacheError`', withServer, async (t, server, got) => {

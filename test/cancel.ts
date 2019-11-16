@@ -59,7 +59,7 @@ test.serial('does not retry after cancelation', withServerAndLolex, async (t, se
 
 	const gotPromise = got('redirect', {
 		retry: {
-			retries: () => {
+			calculateDelay: () => {
 				t.fail('Makes a new try after cancelation');
 			}
 		}

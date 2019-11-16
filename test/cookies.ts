@@ -130,8 +130,10 @@ test('no unhandled errors', async t => {
 
 	const options = {
 		cookieJar: {
-			setCookie: () => {},
-			getCookieString: (_, cb) => cb(new Error(message))
+			setCookie: async (_rawCookie, _url) => {},
+			getCookieString: async _url => {
+				throw new Error(message);
+			}
 		}
 	};
 
@@ -141,4 +143,49 @@ test('no unhandled errors', async t => {
 	t.pass();
 
 	server.close();
+});
+
+test('accepts custom `cookieJar` object', withServer, async (t, server, got) => {
+	server.get('/', (request, response) => {
+		response.setHeader('set-cookie', ['hello=world']);
+		response.end(request.headers.cookie);
+	});
+
+	const cookies = {};
+	const cookieJar = {
+		async getCookieString(url) {
+			t.is(typeof url, 'string');
+
+			return cookies[url];
+		},
+
+		async setCookie(rawCookie, url) {
+			cookies[url] = rawCookie;
+		}
+	};
+
+	const first = await got('', {cookieJar});
+	const second = await got('', {cookieJar});
+
+	t.is(first.body, '');
+	t.is(second.body, 'hello=world');
+});
+
+test('throws on invalid `options.cookieJar.setCookie`', async t => {
+	await t.throwsAsync(got('https://example.com', {
+		cookieJar: {
+			// @ts-ignore
+			setCookie: () => {}
+		}
+	}), '`options.cookieJar.setCookie` needs to be an async function with 2 arguments');
+});
+
+test('throws on invalid `options.cookieJar.getCookieString`', async t => {
+	await t.throwsAsync(got('https://example.com', {
+		cookieJar: {
+			setCookie: async (_rawCookie, _url) => {},
+			// @ts-ignore
+			getCookieString: () => {}
+		}
+	}), '`options.cookieJar.getCookieString` needs to be an async function with 1 argument');
 });

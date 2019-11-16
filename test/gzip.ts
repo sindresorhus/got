@@ -36,11 +36,10 @@ test('handles gzip error', withServer, async (t, server, got) => {
 		response.end('Not gzipped content');
 	});
 
-	const error = await t.throwsAsync(got(''), 'incorrect header check');
-
-	// @ts-ignore
-	t.is(error.options.path, '/');
-	t.is(error.name, 'ReadError');
+	await t.throwsAsync(got(''), {
+		name: 'ReadError',
+		message: 'incorrect header check'
+	});
 });
 
 test('handles gzip error - stream', withServer, async (t, server, got) => {
@@ -49,11 +48,10 @@ test('handles gzip error - stream', withServer, async (t, server, got) => {
 		response.end('Not gzipped content');
 	});
 
-	const error = await t.throwsAsync(getStream(got.stream('')), 'incorrect header check');
-
-	// @ts-ignore
-	t.is(error.options.path, '/');
-	t.is(error.name, 'ReadError');
+	await t.throwsAsync(getStream(got.stream('')), {
+		name: 'ReadError',
+		message: 'incorrect header check'
+	});
 });
 
 test('decompress option opts out of decompressing', withServer, async (t, server, got) => {

@@ -72,6 +72,14 @@ test('throws on write if body is specified', withServer, (t, server, got) => {
 	}, 'Got\'s stream is not writable when the `body` option is used');
 });
 
+test('throws on write if no payload method is present', withServer, (t, server, got) => {
+	server.post('/', postHandler);
+
+	t.throws(() => {
+		got.stream.get('').end('wow');
+	}, 'The `GET` method cannot be used with a body');
+});
+
 test('has request event', withServer, async (t, server, got) => {
 	server.get('/', defaultHandler);
 

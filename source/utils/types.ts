@@ -2,16 +2,18 @@ import http = require('http');
 import https = require('https');
 import ResponseLike = require('responselike');
 import {Readable as ReadableStream} from 'stream';
+import {Except, Merge} from 'type-fest';
 import PCancelable = require('p-cancelable');
-import {CookieJar} from 'tough-cookie';
-import {StorageAdapter} from 'cacheable-request';
-import {Except} from 'type-fest';
+import CacheableRequest = require('cacheable-request');
 import CacheableLookup from 'cacheable-lookup';
 import Keyv = require('keyv');
 import {Timings} from '@szmarczak/http-timer/dist';
 import {Hooks} from '../known-hook-events';
 import {GotError, ParseError, HTTPError, MaxRedirectsError} from '../errors';
 import {ProxyStream} from '../as-stream';
+import {URLOptions} from './options-to-url';
+
+export type GenericError = Error | GotError | ParseError | HTTPError | MaxRedirectsError;
 
 export type Method =
 	| 'GET'
@@ -41,12 +43,10 @@ export type ErrorCode =
 	| 'ENETUNREACH'
 	| 'EAI_AGAIN';
 
-export type ResponseType = 'json' | 'buffer' | 'text';
+export type ResponseType = 'json' | 'buffer' | 'text' | 'default';
 
-export type URLArgument = string | https.RequestOptions | URL;
-
-export interface Response extends http.IncomingMessage {
-	body: Buffer | string | any;
+export interface Response<BodyType = unknown> extends http.IncomingMessage {
+	body: BodyType;
 	statusCode: number;
 
 	/**
@@ -79,7 +79,7 @@ export interface ResponseObject extends ResponseLike {
 export interface RetryObject {
 	attemptCount: number;
 	retryOptions: RetryOptions;
-	error: Error | GotError | ParseError | HTTPError | MaxRedirectsError;
+	error: GenericError;
 	computedValue: number;
 }
 
@@ -115,19 +115,22 @@ export interface Delays {
 
 export type Headers = Record<string, string | string[]>;
 
-// The library overrides the type definition of `agent`, `host`, 'headers and `timeout`.
-export interface Options extends Except<https.RequestOptions, 'agent' | 'timeout' | 'host' | 'headers'> {
-	host?: string;
+interface CookieJar {
+	getCookieString(url: string, callback: (error: Error, cookieHeader: string) => void): void;
+	getCookieString(url: string): Promise<string>;
+	setCookie(rawCookie: string, url: string, callback: (error: Error, result: unknown) => void): void;
+	setCookie(rawCookie: string, url: string): Promise<unknown>;
+}
+
+// TODO: Missing lots of `http` options
+export interface Options extends URLOptions {
+	url?: URL | string;
 	body?: string | Buffer | ReadableStream;
 	hostname?: string;
-	path?: string;
 	socketPath?: string;
-	protocol?: string;
-	href?: string;
-	options?: Options;
 	hooks?: Partial<Hooks>;
 	decompress?: boolean;
-	stream?: boolean;
+	isStream?: boolean;
 	encoding?: BufferEncoding | null;
 	method?: Method;
 	retry?: number | RetryOptions;
@@ -136,7 +139,7 @@ export interface Options extends Except<https.RequestOptions, 'agent' | 'timeout
 	ignoreInvalidCookies?: boolean;
 	request?: RequestFunction;
 	agent?: http.Agent | https.Agent | boolean | AgentByProtocol;
-	cache?: string | StorageAdapter | false;
+	cache?: string | CacheableRequest.StorageAdapter | false;
 	headers?: Headers;
 	responseType?: ResponseType;
 	resolveBodyOnly?: boolean;
@@ -144,9 +147,6 @@ export interface Options extends Except<https.RequestOptions, 'agent' | 'timeout
 	prefixUrl?: URL | string;
 	timeout?: number | Delays;
 	dnsCache?: CacheableLookup | Map<string, string> | Keyv | false;
-	url?: URL | string;
-	searchParams?: Record<string, string | number | boolean | null> | URLSearchParams | string;
-	query?: Options['searchParams']; // Deprecated
 	useElectronNet?: boolean;
 	form?: Record<string, any>;
 	json?: Record<string, any>;
@@ -155,29 +155,20 @@ export interface Options extends Except<https.RequestOptions, 'agent' | 'timeout
 	lookup?: CacheableLookup['lookup'];
 }
 
-export interface NormalizedOptions extends Except<Options, 'method'> {
+export interface NormalizedOptions extends Except<Options, keyof URLOptions> {
 	// Normalized Got options
 	headers: Headers;
 	hooks: Hooks;
 	timeout: Delays;
 	dnsCache?: CacheableLookup | false;
 	retry: Required<RetryOptions>;
-	readonly prefixUrl?: string;
+	prefixUrl: string;
 	method: Method;
+	url: URL;
+	cacheableRequest?: (options: string | URL | http.RequestOptions, callback?: (response: http.ServerResponse | ResponseLike) => void) => CacheableRequest.Emitter;
 
-	// Normalized URL options
-	protocol: string;
-	hostname: string;
-	host: string;
-	hash: string;
-	search: string | null;
-	pathname: string;
-	href: string;
-	path: string;
-	port: number;
-	username: string;
-	password: string;
-	auth?: string;
+	// UNIX socket support
+	path?: string;
 }
 
 export interface ExtendedOptions extends Options {
@@ -186,22 +177,29 @@ export interface ExtendedOptions extends Options {
 }
 
 export interface Defaults {
-	options?: Options;
-	handlers?: HandlerFunction[];
-	mutableDefaults?: boolean;
-}
-
-export interface NormalizedDefaults {
-	options: NormalizedOptions;
+	options: Except<NormalizedOptions, 'url'>;
 	handlers: HandlerFunction[];
+	_rawHandlers?: HandlerFunction[];
 	mutableDefaults: boolean;
 }
 
-export type URLOrOptions = URLArgument | (Options & {url: URLArgument});
+export type URLOrOptions = Options | string;
 
-export interface CancelableRequest<T extends http.IncomingMessage | Buffer | string | object> extends PCancelable<T> {
-	on(name: string, listener: () => void): CancelableRequest<T>;
+export interface Progress {
+	percent: number;
+	transferred: number;
+	total?: number;
+}
+
+export interface GotEvents<T> {
+	on(name: 'request', listener: (request: http.ClientRequest) => void): T;
+	on(name: 'response', listener: (response: Response) => void): T;
+	on(name: 'redirect', listener: (response: Response, nextOptions: NormalizedOptions) => void): T;
+	on(name: 'uploadProgress' | 'downloadProgress', listener: (progress: Progress) => void): T;
+}
+
+export interface CancelableRequest<T extends Response | Response['body']> extends Merge<PCancelable<T>, GotEvents<CancelableRequest<T>>> {
 	json<TReturnType extends object>(): CancelableRequest<TReturnType>;
-	buffer<TReturnType extends Buffer>(): CancelableRequest<TReturnType>;
-	text<TReturnType extends string>(): CancelableRequest<TReturnType>;
+	buffer(): CancelableRequest<Buffer>;
+	text(): CancelableRequest<string>;
 }

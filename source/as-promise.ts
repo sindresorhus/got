@@ -4,29 +4,36 @@ import getStream = require('get-stream');
 import is from '@sindresorhus/is';
 import PCancelable = require('p-cancelable');
 import {NormalizedOptions, Response, CancelableRequest} from './utils/types';
-import {mergeOptions} from './merge';
 import {ParseError, ReadError, HTTPError} from './errors';
-import {reNormalizeArguments} from './normalize-arguments';
-import requestAsEventEmitter from './request-as-event-emitter';
+import requestAsEventEmitter, {proxyEvents} from './request-as-event-emitter';
+import {normalizeArguments, mergeOptions} from './normalize-arguments';
 
-type ResponseReturn = Response | Buffer | string | any;
+const parseBody = (body: Response['body'], responseType: NormalizedOptions['responseType'], statusCode: Response['statusCode']) => {
+	if (responseType === 'json' && is.string(body)) {
+		return statusCode === 204 ? '' : JSON.parse(body);
+	}
 
-export const isProxiedSymbol: unique symbol = Symbol('proxied');
+	if (responseType === 'buffer' && is.string(body)) {
+		return Buffer.from(body);
+	}
 
-export default function asPromise(options: NormalizedOptions): CancelableRequest<Response> {
+	if (responseType === 'text') {
+		return String(body);
+	}
+
+	if (responseType === 'default') {
+		return body;
+	}
+
+	throw new Error(`Failed to parse body of type '${typeof body}' as '${responseType}'`);
+};
+
+export default function asPromise(options: NormalizedOptions) {
 	const proxy = new EventEmitter();
+	let finalResponse: Pick<Response, 'body' | 'statusCode'>;
 
-	const parseBody = (response: Response): void => {
-		if (options.responseType === 'json') {
-			response.body = JSON.parse(response.body);
-		} else if (options.responseType === 'buffer') {
-			response.body = Buffer.from(response.body);
-		} else if (options.responseType !== 'text' && !is.falsy(options.responseType)) {
-			throw new Error(`Failed to parse body of type '${options.responseType}'`);
-		}
-	};
-
-	const promise = new PCancelable<IncomingMessage>((resolve, reject, onCancel) => {
+	// @ts-ignore `.json()`, `.buffer()` and `.text()` are added later
+	const promise = new PCancelable<IncomingMessage | Response['body']>((resolve, reject, onCancel) => {
 		const emitter = requestAsEventEmitter(options);
 		onCancel(emitter.abort);
 
@@ -46,11 +53,10 @@ export default function asPromise(options: NormalizedOptions): CancelableRequest
 		emitter.on('response', async (response: Response) => {
 			proxy.emit('response', response);
 
-			const stream = is.null_(options.encoding) ? getStream.buffer(response) : getStream(response, {encoding: options.encoding});
+			const streamAsPromise = is.null_(options.encoding) ? getStream.buffer(response) : getStream(response, {encoding: options.encoding});
 
-			let data: Buffer | string;
 			try {
-				data = await stream;
+				response.body = await streamAsPromise;
 			} catch (error) {
 				emitError(new ReadError(error, options));
 				return;
@@ -61,15 +67,12 @@ export default function asPromise(options: NormalizedOptions): CancelableRequest
 				return;
 			}
 
-			const limitStatusCode = options.followRedirect ? 299 : 399;
-
-			response.body = data;
-
 			try {
 				for (const [index, hook] of options.hooks.afterResponse.entries()) {
+					// @ts-ignore
 					// eslint-disable-next-line no-await-in-loop
-					response = await hook(response, updatedOptions => {
-						updatedOptions = reNormalizeArguments(mergeOptions(options, {
+					response = await hook(response, async (updatedOptions: NormalizedOptions) => {
+						updatedOptions = normalizeArguments(mergeOptions(options, {
 							...updatedOptions,
 							retry: {
 								calculateDelay: () => 0
@@ -83,7 +86,19 @@ export default function asPromise(options: NormalizedOptions): CancelableRequest
 						// The loop continues. We don't want duplicates (asPromise recursion).
 						updatedOptions.hooks.afterResponse = options.hooks.afterResponse.slice(0, index);
 
-						return asPromise(updatedOptions);
+						for (const hook of options.hooks.beforeRetry) {
+							// eslint-disable-next-line no-await-in-loop
+							await hook(updatedOptions);
+						}
+
+						const promise = asPromise(updatedOptions);
+
+						onCancel(() => {
+							promise.catch(() => {});
+							promise.cancel();
+						});
+
+						return promise;
 					});
 				}
 			} catch (error) {
@@ -93,18 +108,22 @@ export default function asPromise(options: NormalizedOptions): CancelableRequest
 
 			const {statusCode} = response;
 
-			if (response.body) {
-				try {
-					parseBody(response);
-				} catch (error) {
-					if (statusCode >= 200 && statusCode < 300) {
-						const parseError = new ParseError(error, response, options);
-						emitError(parseError);
-						return;
-					}
+			finalResponse = {
+				body: response.body,
+				statusCode
+			};
+
+			try {
+				response.body = parseBody(response.body, options.responseType, response.statusCode);
+			} catch (error) {
+				if (statusCode >= 200 && statusCode < 300) {
+					const parseError = new ParseError(error, response, options);
+					emitError(parseError);
+					return;
 				}
 			}
 
+			const limitStatusCode = options.followRedirect ? 299 : 399;
 			if (statusCode !== 304 && (statusCode < 200 || statusCode > limitStatusCode)) {
 				const error = new HTTPError(response, options);
 				if (emitter.retry(error) === false) {
@@ -124,44 +143,34 @@ export default function asPromise(options: NormalizedOptions): CancelableRequest
 
 		emitter.once('error', reject);
 
-		const events = [
-			'request',
-			'redirect',
-			'uploadProgress',
-			'downloadProgress'
-		];
+		proxyEvents(proxy, emitter);
+	}) as CancelableRequest<any>;
 
-		for (const event of events) {
-			emitter.on(event, (...args: unknown[]) => {
-				proxy.emit(event, ...args);
-			});
-		}
-	}) as CancelableRequest<ResponseReturn>;
-
-	promise[isProxiedSymbol] = true;
-
-	promise.on = (name, fn) => {
+	promise.on = (name: string, fn: (...args: any[]) => void) => {
 		proxy.on(name, fn);
 		return promise;
 	};
 
+	const shortcut = (responseType: NormalizedOptions['responseType']): CancelableRequest<any> => {
+		// eslint-disable-next-line promise/prefer-await-to-then
+		const newPromise = promise.then(() => parseBody(finalResponse.body, responseType, finalResponse.statusCode));
+
+		Object.defineProperties(newPromise, Object.getOwnPropertyDescriptors(promise));
+
+		// @ts-ignore The missing properties are added above
+		return newPromise;
+	};
+
 	promise.json = () => {
-		options.responseType = 'json';
-		options.resolveBodyOnly = true;
-		return promise;
+		if (is.undefined(options.headers.accept)) {
+			options.headers.accept = 'application/json';
+		}
+
+		return shortcut('json');
 	};
 
-	promise.buffer = () => {
-		options.responseType = 'buffer';
-		options.resolveBodyOnly = true;
-		return promise;
-	};
-
-	promise.text = () => {
-		options.responseType = 'text';
-		options.resolveBodyOnly = true;
-		return promise;
-	};
+	promise.buffer = () => shortcut('buffer');
+	promise.text = () => shortcut('text');
 
 	return promise;
 }

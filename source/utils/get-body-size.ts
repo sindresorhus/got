@@ -7,13 +7,13 @@ import {Options} from './types';
 const statAsync = promisify(stat);
 
 export default async (options: Options): Promise<number | undefined> => {
-	const {body, headers, stream} = options;
+	const {body, headers, isStream} = options;
 
 	if (headers && 'content-length' in headers) {
 		return Number(headers['content-length']);
 	}
 
-	if (!body && !stream) {
+	if (!body && !isStream) {
 		return 0;
 	}
 

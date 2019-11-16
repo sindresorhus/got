@@ -16,8 +16,7 @@ const calculateRetryDelay: RetryFunction = ({attemptCount, retryOptions, error})
 		return 0;
 	}
 
-	// TODO: This type coercion is not entirely correct as it makes `response` a guaranteed property, when it's in fact not.
-	const {response} = error as HTTPError | ParseError | MaxRedirectsError;
+	const {response} = error as HTTPError | ParseError | MaxRedirectsError | undefined;
 	if (response && Reflect.has(response.headers, 'retry-after') && retryAfterStatusCodes.has(response.statusCode)) {
 		let after = Number(response.headers['retry-after']);
 		if (is.nan(after)) {

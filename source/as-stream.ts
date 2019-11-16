@@ -2,11 +2,11 @@ import {PassThrough as PassThroughStream, Duplex as DuplexStream} from 'stream';
 import stream = require('stream');
 import {IncomingMessage} from 'http';
 import duplexer3 = require('duplexer3');
-import requestAsEventEmitter from './request-as-event-emitter';
+import requestAsEventEmitter, {proxyEvents} from './request-as-event-emitter';
 import {HTTPError, ReadError} from './errors';
-import {NormalizedOptions, Response} from './utils/types';
+import {NormalizedOptions, Response, GotEvents} from './utils/types';
 
-export class ProxyStream extends DuplexStream {
+export class ProxyStream extends DuplexStream implements GotEvents<ProxyStream> {
 	isFromCache?: boolean;
 }
 
@@ -14,7 +14,7 @@ export default function asStream(options: NormalizedOptions): ProxyStream {
 	const input = new PassThroughStream();
 	const output = new PassThroughStream();
 	const proxy = duplexer3(input, output) as ProxyStream;
-	const piped = new Set<any>(); // TODO: Should be `new Set<ProxyStream>();`.
+	const piped = new Set<any>(); // TODO: Should be `new Set<stream.Writable>();`.
 	let isFinished = false;
 
 	options.retry.calculateDelay = () => 0;
@@ -24,9 +24,16 @@ export default function asStream(options: NormalizedOptions): ProxyStream {
 			proxy.destroy();
 			throw new Error('Got\'s stream is not writable when the `body` option is used');
 		};
+	} else if (options.method === 'POST' || options.method === 'PUT' || options.method === 'PATCH') {
+		options.body = input;
+	} else {
+		proxy.write = () => {
+			proxy.destroy();
+			throw new TypeError(`The \`${options.method}\` method cannot be used with a body`);
+		};
 	}
 
-	const emitter = requestAsEventEmitter(options, input);
+	const emitter = requestAsEventEmitter(options);
 
 	const emitError = async (error: Error): Promise<void> => {
 		try {
@@ -94,19 +101,8 @@ export default function asStream(options: NormalizedOptions): ProxyStream {
 		proxy.emit('response', response);
 	});
 
-	const events = [
-		'error',
-		'request',
-		'redirect',
-		'uploadProgress',
-		'downloadProgress'
-	];
-
-	for (const event of events) {
-		emitter.on(event, (...args) => {
-			proxy.emit(event, ...args);
-		});
-	}
+	proxyEvents(proxy, emitter);
+	emitter.on('error', (error: Error) => proxy.emit('error', error));
 
 	const pipe = proxy.pipe.bind(proxy);
 	const unpipe = proxy.unpipe.bind(proxy);

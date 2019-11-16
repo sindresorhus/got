@@ -14,6 +14,15 @@ test('`options.resolveBodyOnly` works', withServer, async (t, server, got) => {
 	t.deepEqual(await got({responseType: 'json', resolveBodyOnly: true}), dog);
 });
 
+test('`options.resolveBodyOnly` combined with `options.throwHttpErrors`', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.statusCode = 404;
+		response.end('/');
+	});
+
+	t.is(await got({resolveBodyOnly: true, throwHttpErrors: false}), '/');
+});
+
 test('JSON response', withServer, async (t, server, got) => {
 	server.get('/', defaultHandler);
 
@@ -50,23 +59,28 @@ test('Text response - promise.text()', withServer, async (t, server, got) => {
 	t.is(await got('').text(), jsonResponse);
 });
 
+test('Text response - promise.json().text()', withServer, async (t, server, got) => {
+	server.get('/', defaultHandler);
+
+	t.is(await got('').json().text(), jsonResponse);
+});
+
+test('works if promise has been already resolved', withServer, async (t, server, got) => {
+	server.get('/', defaultHandler);
+
+	const promise = got('').text();
+	t.is(await promise, jsonResponse);
+	t.deepEqual(await promise.json(), dog);
+});
+
 test('throws an error on invalid response type', withServer, async (t, server, got) => {
 	server.get('/', defaultHandler);
 
-	const error = await t.throwsAsync(got({responseType: 'invalid'}), /^Failed to parse body of type 'invalid'/);
+	const error = await t.throwsAsync(got({responseType: 'invalid'}), /^Failed to parse body of type 'string' as 'invalid'/);
 	// @ts-ignore
-	t.true(error.message.includes(error.options.hostname));
+	t.true(error.message.includes(error.options.url.hostname));
 	// @ts-ignore
-	t.is(error.options.path, '/');
-});
-
-test('doesn\'t parse responses without a body', withServer, async (t, server, got) => {
-	server.get('/', (_request, response) => {
-		response.end();
-	});
-
-	const body = await got('').json();
-	t.is(body, '');
+	t.is(error.options.url.pathname, '/');
 });
 
 test('wraps parsing errors', withServer, async (t, server, got) => {
@@ -76,9 +90,9 @@ test('wraps parsing errors', withServer, async (t, server, got) => {
 
 	const error = await t.throwsAsync(got({responseType: 'json'}), got.ParseError);
 	// @ts-ignore
-	t.true(error.message.includes(error.options.hostname));
+	t.true(error.message.includes(error.options.url.hostname));
 	// @ts-ignore
-	t.is(error.options.path, '/');
+	t.is(error.options.url.pathname, '/');
 });
 
 test('parses non-200 responses', withServer, async (t, server, got) => {
@@ -106,7 +120,7 @@ test('ignores errors on invalid non-200 responses', withServer, async (t, server
 	// @ts-ignore
 	t.is(error.response.body, 'Internal error');
 	// @ts-ignore
-	t.is(error.options.path, '/');
+	t.is(error.options.url.pathname, '/');
 });
 
 test('parse errors have `response` property', withServer, async (t, server, got) => {
@@ -128,4 +142,14 @@ test('sets correct headers', withServer, async (t, server, got) => {
 	const {body: headers} = await got.post({responseType: 'json', json: {}});
 	t.is(headers['content-type'], 'application/json');
 	t.is(headers.accept, 'application/json');
+});
+
+test('doesn\'t throw on 204 No Content', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.statusCode = 204;
+		response.end();
+	});
+
+	const body = await got('').json();
+	t.is(body, '');
 });
