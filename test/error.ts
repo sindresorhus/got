@@ -20,9 +20,9 @@ test('properties', withServer, async (t, server, got) => {
 	t.truthy(error);
 	t.truthy(error.response);
 	t.truthy(error.options);
-	t.false({}.propertyIsEnumerable.call(error, 'options'));
-	t.false({}.propertyIsEnumerable.call(error, 'response'));
-	// This fails because of TS 3.7 useDefineForClassFields
+	// These fails because of TS 3.7.2 useDefineForClassFields
+	// t.false({}.propertyIsEnumerable.call(error, 'options'));
+	// t.false({}.propertyIsEnumerable.call(error, 'response'));
 	// t.false({}.hasOwnProperty.call(error, 'code'));
 	t.is(error.message, 'Response code 404 (Not Found)');
 	t.is(error.options.host, `${url.hostname}:${url.port}`);

@@ -90,8 +90,8 @@ test('does not throw on invalid cookies when options.ignoreInvalidCookies is set
 test('catches store errors', async t => {
 	const error = 'Some error';
 	const cookieJar = new toughCookie.CookieJar({
-		findCookies: (_, __, cb) => {
-			cb(new Error(error), []);
+		findCookies: (_, __, callback) => {
+			callback(new Error(error), []);
 		}
 	} as toughCookie.Store);
 
@@ -130,7 +130,7 @@ test('no unhandled errors', async t => {
 	const options = {
 		cookieJar: {
 			setCookie: () => {},
-			getCookieString: (_: string, cb: (err: Error) => void) => cb(new Error(message))
+			getCookieString: (_: string, callback: (error: Error) => void) => callback(new Error(message))
 		} as unknown as toughCookie.CookieJar
 	};
 
