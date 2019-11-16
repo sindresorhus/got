@@ -1,18 +1,18 @@
-import stream = require('stream');
+import CacheableRequest = require('cacheable-request');
 import EventEmitter = require('events');
 import http = require('http');
-import CacheableRequest = require('cacheable-request');
+import stream = require('stream');
 import is from '@sindresorhus/is';
 import timer, {Timings} from '@szmarczak/http-timer';
-import {PartialDeep} from 'type-fest';
-import timedOut, {TimeoutError as TimedOutTimeoutError} from './utils/timed-out';
+import {ProxyStream} from './as-stream';
 import calculateRetryDelay from './calculate-retry-delay';
+import {CacheError, GotError, MaxRedirectsError, RequestError, TimeoutError} from './errors';
 import getResponse from './get-response';
 import {normalizeRequestArguments} from './normalize-arguments';
 import {uploadProgress} from './progress';
-import {CacheError, MaxRedirectsError, RequestError, TimeoutError} from './errors';
-import urlToOptions from './utils/url-to-options';
+import timedOut, {TimeoutError as TimedOutTimeoutError} from './utils/timed-out';
 import {NormalizedOptions, Response, ResponseObject} from './utils/types';
+import urlToOptions from './utils/url-to-options';
 
 const redirectCodes: ReadonlySet<number> = new Set([300, 301, 302, 303, 304, 307, 308]);
 
@@ -84,7 +84,7 @@ export default (options: NormalizedOptions) => {
 
 				const rawCookies = typedResponse.headers['set-cookie'];
 				if (Reflect.has(options, 'cookieJar') && rawCookies) {
-					let promises: Array<Promise<unknown>> = rawCookies.map((rawCookie: string) => options.cookieJar.setCookie(rawCookie, typedResponse.url));
+					let promises: Array<Promise<unknown>> = rawCookies.map((rawCookie: string) => options.cookieJar.setCookie(rawCookie, typedResponse.url!));
 
 					if (options.ignoreInvalidCookies) {
 						promises = promises.map(p => p.catch(() => {}));
@@ -151,7 +151,7 @@ export default (options: NormalizedOptions) => {
 
 			// `request.aborted` is a boolean since v11.0.0: https://github.com/nodejs/node/commit/4b00c4fafaa2ae8c41c1f78823c0feb810ae4723#diff-e3bc37430eb078ccbafe3aa3b570c91a
 			// We need to allow `TimedOutTimeoutError` here, because it `stream.pipeline(…)` aborts it automatically.
-			const isAborted = () => typeof request.aborted === 'number' || (request.aborted as unknown as boolean) === true;
+			const isAborted = () => typeof request.aborted === 'number' || (request.aborted as unknown as boolean);
 
 			const onError = (error: Error): void => {
 				const isTimedOutError = error instanceof TimedOutTimeoutError;
@@ -230,7 +230,8 @@ export default (options: NormalizedOptions) => {
 				...urlToOptions(options.url)
 			};
 
-			const cacheRequest = options.cacheableRequest(httpOptions, handleResponse);
+			// @ts-ignore ResponseLike missing socket field, should be fixed upstream
+			const cacheRequest = options.cacheableRequest!(httpOptions, handleResponse);
 
 			cacheRequest.once('error', (error: Error) => {
 				if (error instanceof CacheableRequest.RequestError) {
@@ -320,7 +321,7 @@ export default (options: NormalizedOptions) => {
 	return emitter;
 };
 
-export const proxyEvents = (proxy, emitter) => {
+export const proxyEvents = (proxy: EventEmitter | ProxyStream, emitter: RequestAsEventEmitter) => {
 	const events = [
 		'request',
 		'redirect',

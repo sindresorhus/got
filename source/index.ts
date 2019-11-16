@@ -1,5 +1,5 @@
 import create, {defaultHandler} from './create';
-import {Defaults} from './utils/types.js';
+import {Defaults} from './utils/types';
 
 const defaults: Defaults = {
 	options: {

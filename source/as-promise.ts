@@ -1,12 +1,11 @@
-import {IncomingMessage} from 'http';
 import EventEmitter = require('events');
 import getStream = require('get-stream');
-import is from '@sindresorhus/is';
 import PCancelable = require('p-cancelable');
-import {NormalizedOptions, Response, CancelableRequest} from './utils/types';
+import is from '@sindresorhus/is';
 import {ParseError, ReadError, HTTPError} from './errors';
-import requestAsEventEmitter, {proxyEvents} from './request-as-event-emitter';
 import {normalizeArguments, mergeOptions} from './normalize-arguments';
+import requestAsEventEmitter, {proxyEvents} from './request-as-event-emitter';
+import {CancelableRequest, GenericError, NormalizedOptions, Response} from './utils/types';
 
 const parseBody = (body: Response['body'], responseType: NormalizedOptions['responseType'], statusCode: Response['statusCode']) => {
 	if (responseType === 'json' && is.string(body)) {
@@ -28,16 +27,16 @@ const parseBody = (body: Response['body'], responseType: NormalizedOptions['resp
 	throw new Error(`Failed to parse body of type '${typeof body}' as '${responseType}'`);
 };
 
-export default function asPromise(options: NormalizedOptions) {
+export default function asPromise<T extends any>(options: NormalizedOptions): CancelableRequest<T> {
 	const proxy = new EventEmitter();
 	let finalResponse: Pick<Response, 'body' | 'statusCode'>;
 
 	// @ts-ignore `.json()`, `.buffer()` and `.text()` are added later
-	const promise = new PCancelable<IncomingMessage | Response['body']>((resolve, reject, onCancel) => {
+	const promise = new PCancelable<Response | Response['body']>((resolve, reject, onCancel) => {
 		const emitter = requestAsEventEmitter(options);
 		onCancel(emitter.abort);
 
-		const emitError = async (error: Error): Promise<void> => {
+		const emitError = async (error: GenericError): Promise<void> => {
 			try {
 				for (const hook of options.hooks.beforeError) {
 					// eslint-disable-next-line no-await-in-loop
@@ -84,7 +83,7 @@ export default function asPromise(options: NormalizedOptions) {
 
 						// Remove any further hooks for that request, because we we'll call them anyway.
 						// The loop continues. We don't want duplicates (asPromise recursion).
-						reNormalizedOptions.hooks.afterResponse = options.hooks.afterResponse.slice(0, index);
+						updatedOptions.hooks.afterResponse = options.hooks.afterResponse.slice(0, index);
 
 						for (const hook of options.hooks.beforeRetry) {
 							// eslint-disable-next-line no-await-in-loop
@@ -151,7 +150,7 @@ export default function asPromise(options: NormalizedOptions) {
 		return promise;
 	};
 
-	const shortcut = (responseType: NormalizedOptions['responseType']): CancelableRequest<any> => {
+	const shortcut = <T extends any>(responseType: NormalizedOptions['responseType']): CancelableRequest<T> => {
 		// eslint-disable-next-line promise/prefer-await-to-then
 		const newPromise = promise.then(() => parseBody(finalResponse.body, responseType, finalResponse.statusCode));
 

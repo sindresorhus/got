@@ -1,19 +1,13 @@
-import {ClientRequest} from 'http';
-import {Transform as TransformStream} from 'stream';
-import {Socket} from 'net';
 import EventEmitter = require('events');
+import {ClientRequest} from 'http';
+import {Socket} from 'net';
+import {Transform as TransformStream} from 'stream';
 import is from '@sindresorhus/is';
-
-export interface Progress {
-	percent: number;
-	transferred: number;
-	total?: number;
-}
 
 export function downloadProgress(emitter: EventEmitter, downloadBodySize?: number): TransformStream {
 	let downloadedBytes = 0;
 
-	const progressStream = new TransformStream({
+	return new TransformStream({
 		transform(chunk, _encoding, callback) {
 			downloadedBytes += chunk.length;
 
@@ -41,8 +35,6 @@ export function downloadProgress(emitter: EventEmitter, downloadBodySize?: numbe
 			callback();
 		}
 	});
-
-	return progressStream;
 }
 
 export function uploadProgress(request: ClientRequest, emitter: EventEmitter, uploadBodySize?: number): void {

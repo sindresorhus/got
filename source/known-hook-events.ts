@@ -31,7 +31,7 @@ Called with an `Error` instance. The error is passed to the hook right before it
 
 **Note:** Errors thrown while normalizing input options are thrown directly and not part of this hook.
 */
-export type BeforeErrorHook = <ErrorLike extends GenericError>(error: ErrorLike) => Error | Promise<Error>;
+export type BeforeErrorHook = <ErrorLike extends GenericError>(error: ErrorLike) => GenericError | Promise<GenericError>;
 
 /**
 Called with [response object](https://github.com/sindresorhus/got#response) and a retry function.

@@ -1,10 +1,10 @@
-import {PassThrough as PassThroughStream, Duplex as DuplexStream} from 'stream';
+import duplexer3 = require('duplexer3');
 import stream = require('stream');
 import {IncomingMessage} from 'http';
-import duplexer3 = require('duplexer3');
-import requestAsEventEmitter, {proxyEvents} from './request-as-event-emitter';
+import {Duplex as DuplexStream, PassThrough as PassThroughStream} from 'stream';
 import {HTTPError, ReadError} from './errors';
-import {NormalizedOptions, Response, GotEvents} from './utils/types';
+import requestAsEventEmitter, {proxyEvents} from './request-as-event-emitter';
+import {GenericError, GotEvents, NormalizedOptions, Response} from './utils/types';
 
 export class ProxyStream extends DuplexStream implements GotEvents<ProxyStream> {
 	isFromCache?: boolean;
@@ -35,7 +35,7 @@ export default function asStream(options: NormalizedOptions): ProxyStream {
 
 	const emitter = requestAsEventEmitter(options);
 
-	const emitError = async (error: Error): Promise<void> => {
+	const emitError = async (error: GenericError): Promise<void> => {
 		try {
 			for (const hook of options.hooks.beforeError) {
 				// eslint-disable-next-line no-await-in-loop

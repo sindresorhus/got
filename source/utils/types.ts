@@ -1,19 +1,19 @@
 import http = require('http');
 import https = require('https');
+import Keyv = require('keyv');
+import CacheableRequest = require('cacheable-request');
+import PCancelable = require('p-cancelable');
 import ResponseLike = require('responselike');
 import {Readable as ReadableStream} from 'stream';
-import {Except, Merge} from 'type-fest';
-import PCancelable = require('p-cancelable');
-import CacheableRequest = require('cacheable-request');
 import CacheableLookup from 'cacheable-lookup';
-import Keyv = require('keyv');
-import {Timings} from '@szmarczak/http-timer/dist';
+import {Timings} from '@szmarczak/http-timer';
+import {Except, Merge, PartialDeep} from 'type-fest';
+import {GotReturn} from '../create';
+import {GotError, HTTPError, MaxRedirectsError, ParseError} from '../errors';
 import {Hooks} from '../known-hook-events';
-import {GotError, ParseError, HTTPError, MaxRedirectsError} from '../errors';
-import {ProxyStream} from '../as-stream';
 import {URLOptions} from './options-to-url';
 
-export type GenericError = Error | GotError | ParseError | HTTPError | MaxRedirectsError;
+export type GenericError = Error | GotError | HTTPError | MaxRedirectsError | ParseError;
 
 export type Method =
 	| 'GET'
@@ -58,7 +58,7 @@ export interface Response<BodyType = unknown> extends http.IncomingMessage {
 
 	fromCache?: boolean;
 	isFromCache?: boolean;
-	req: http.ClientRequest;
+	req?: http.ClientRequest;
 	requestUrl: string;
 	retryCount: number;
 	timings: Timings;
@@ -70,7 +70,7 @@ export interface Response<BodyType = unknown> extends http.IncomingMessage {
 
 // TODO: The `ResponseLike` type should be properly fixed instead:
 // https://github.com/sindresorhus/got/pull/827/files#r323633794
-export interface ResponseObject extends ResponseLike {
+export interface ResponseObject extends Partial<ResponseLike> {
 	socket: {
 		remoteAddress: string;
 	};
@@ -78,21 +78,25 @@ export interface ResponseObject extends ResponseLike {
 
 export interface RetryObject {
 	attemptCount: number;
-	retryOptions: RetryOptions;
-	error: GenericError;
+	retryOptions: Required<RetryOptions>;
+	error: GotError | HTTPError | MaxRedirectsError | ParseError;
 	computedValue: number;
 }
 
 export type RetryFunction = (retryObject: RetryObject) => number;
 
-export type HandlerFunction = <T extends ProxyStream | CancelableRequest<Response>>(options: NormalizedOptions, next: (options: NormalizedOptions) => T) => T;
+export type HandlerFunction = <T extends GotReturn>(options: NormalizedOptions, next: (options: NormalizedOptions) => T) => T;
 
-export interface RetryOptions {
-	limit?: number;
+export interface DefaultRetryOptions {
+	limit: number;
+	methods: Method[];
+	statusCodes: number[];
+	errorCodes: string[];
+}
+
+export interface RetryOptions extends Partial<DefaultRetryOptions> {
 	calculateDelay?: RetryFunction;
-	methods?: Method[];
-	statusCodes?: number[];
-	errorCodes?: string[];
+	retries?: number;
 	maxRetryAfter?: number;
 }
 
@@ -113,7 +117,7 @@ export interface Delays {
 	request?: number;
 }
 
-export type Headers = Record<string, string | string[]>;
+export type Headers = Record<string, string | string[] | undefined>;
 
 interface CookieJar {
 	getCookieString(url: string, callback: (error: Error, cookieHeader: string) => void): void;
@@ -122,8 +126,27 @@ interface CookieJar {
 	setCookie(rawCookie: string, url: string): Promise<unknown>;
 }
 
+export interface DefaultOptions {
+	method: Method;
+	retry: DefaultRetryOptions | number;
+	timeout: Delays | number;
+	headers: Headers;
+	hooks: Hooks;
+	decompress: boolean;
+	throwHttpErrors: boolean;
+	followRedirect: boolean;
+	isStream: boolean;
+	cache: CacheableRequest.StorageAdapter | string | false;
+	dnsCache: CacheableLookup | Map<string, string> | Keyv | false;
+	useElectronNet: boolean;
+	responseType: ResponseType;
+	resolveBodyOnly: boolean;
+	maxRedirects: number;
+	prefixUrl: URL | string;
+}
+
 // TODO: Missing lots of `http` options
-export interface Options extends URLOptions {
+export interface Options extends PartialDeep<DefaultOptions>, URLOptions {
 	url?: URL | string;
 	body?: string | Buffer | ReadableStream;
 	hostname?: string;
@@ -133,7 +156,7 @@ export interface Options extends URLOptions {
 	isStream?: boolean;
 	encoding?: BufferEncoding | null;
 	method?: Method;
-	retry?: number | RetryOptions;
+	retry?: RetryOptions | number;
 	throwHttpErrors?: boolean;
 	cookieJar?: CookieJar;
 	ignoreInvalidCookies?: boolean;
@@ -155,10 +178,9 @@ export interface Options extends URLOptions {
 	lookup?: CacheableLookup['lookup'];
 }
 
-export interface NormalizedOptions extends Except<Options, keyof URLOptions> {
+export interface NormalizedOptions extends Except<DefaultOptions, 'dnsCache'>, Except<Options, keyof DefaultOptions | keyof URLOptions> {
 	// Normalized Got options
-	headers: Headers;
-	hooks: Hooks;
+	hooks: Required<Hooks>;
 	timeout: Delays;
 	dnsCache?: CacheableLookup | false;
 	retry: Required<RetryOptions>;
@@ -171,13 +193,21 @@ export interface NormalizedOptions extends Except<Options, keyof URLOptions> {
 	path?: string;
 }
 
-export interface ExtendedOptions extends Options {
+export interface ExtendOptions extends Options {
 	handlers?: HandlerFunction[];
 	mutableDefaults?: boolean;
 }
 
+export type ExtendedOptions = DefaultOptions & Options;
+
 export interface Defaults {
-	options: Except<NormalizedOptions, 'url'>;
+	options: Options;
+	handlers: HandlerFunction[];
+	mutableDefaults: boolean;
+}
+
+export interface NormalizedDefaults {
+	options: Options;
 	handlers: HandlerFunction[];
 	_rawHandlers?: HandlerFunction[];
 	mutableDefaults: boolean;

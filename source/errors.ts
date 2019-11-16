@@ -1,7 +1,7 @@
 import is from '@sindresorhus/is';
 import {Timings} from '@szmarczak/http-timer';
-import {ErrorCode, Response, NormalizedOptions} from './utils/types';
 import {TimeoutError as TimedOutError} from './utils/timed-out';
+import {ErrorCode, Response, NormalizedOptions} from './utils/types';
 
 export class GotError extends Error {
 	code?: ErrorCode;

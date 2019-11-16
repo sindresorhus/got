@@ -1,10 +1,10 @@
-import {IncomingMessage} from 'http';
-import EventEmitter = require('events');
-import stream = require('stream');
 import decompressResponse = require('decompress-response');
+import EventEmitter = require('events');
 import mimicResponse = require('mimic-response');
-import {NormalizedOptions} from './utils/types';
+import stream = require('stream');
+import {IncomingMessage} from 'http';
 import {downloadProgress} from './progress';
+import {NormalizedOptions} from './utils/types';
 
 export default (response: IncomingMessage, options: NormalizedOptions, emitter: EventEmitter) => {
 	const downloadBodySize = Number(response.headers['content-length']) || undefined;

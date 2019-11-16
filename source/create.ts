@@ -1,20 +1,19 @@
-import {Merge} from 'type-fest';
-import * as errors from './errors';
-import {
-	Options,
-	Defaults,
-	NormalizedOptions,
-	Response,
-	CancelableRequest,
-	URLOrOptions,
-	HandlerFunction,
-	ExtendedOptions
-} from './utils/types';
-import deepFreeze from './utils/deep-freeze';
+import {Merge, PartialDeep} from 'type-fest';
 import asPromise from './as-promise';
 import asStream, {ProxyStream} from './as-stream';
+import * as errors from './errors';
 import {normalizeArguments, mergeOptions} from './normalize-arguments';
-import {Hooks} from './known-hook-events';
+import deepFreeze from './utils/deep-freeze';
+import {
+	CancelableRequest,
+	ExtendOptions,
+	HandlerFunction,
+	NormalizedDefaults,
+	NormalizedOptions,
+	Options,
+	Response,
+	URLOrOptions
+} from './utils/types';
 
 export type HTTPAlias =
 	| 'get'
@@ -24,10 +23,14 @@ export type HTTPAlias =
 	| 'head'
 	| 'delete';
 
-export type ReturnStream = (url: string | Options & {isStream: true}, options?: Options & {isStream: true}) => ProxyStream;
-export type GotReturn = ProxyStream | CancelableRequest<Response>;
+export type ReturnStream = (url: string | Options & {isStream: true}, options?: Options & {isStream: true}) => ReturnType<typeof asStream>;
+export type GotReturn = ReturnType<typeof asPromise> | ReturnType<typeof asStream>;
 
 const getPromiseOrStream = (options: NormalizedOptions): GotReturn => options.isStream ? asStream(options) : asPromise(options);
+
+const isGotInstance = (value: any): value is Got => (
+	Reflect.has(value, 'defaults') && Reflect.has(value.defaults, 'options')
+);
 
 type OptionsOfDefaultResponseBody = Options & {isStream?: false; resolveBodyOnly?: false; responseType?: 'default'};
 type OptionsOfTextResponseBody = Options & {isStream?: false; resolveBodyOnly?: false; responseType: 'text'};
@@ -48,12 +51,12 @@ interface GotFunctions {
 	(url: string | OptionsOfBufferResponseBody & ResponseBodyOnly, options?: OptionsOfBufferResponseBody & ResponseBodyOnly): CancelableRequest<Buffer>;
 
 	// `asStream` usage
-	(url: string | Options & {isStream: true}, options?: Options & {isStream: true}): ProxyStream;
+	(url: string | Options & {isStream: true}, options?: Options & {isStream: true}): ReturnType<typeof asStream>;
 }
 
 export interface Got extends Merge<Record<HTTPAlias, GotFunctions>, GotFunctions> {
 	stream: GotStream;
-	defaults: Defaults | Readonly<Defaults>;
+	defaults: NormalizedDefaults | Readonly<NormalizedDefaults>;
 	GotError: typeof errors.GotError;
 	CacheError: typeof errors.CacheError;
 	RequestError: typeof errors.RequestError;
@@ -65,9 +68,9 @@ export interface Got extends Merge<Record<HTTPAlias, GotFunctions>, GotFunctions
 	TimeoutError: typeof errors.TimeoutError;
 	CancelError: typeof errors.CancelError;
 
-	extend(...instancesOrOptions: Array<Got | ExtendedOptions>): Got;
+	extend(...instancesOrOptions: Array<Got | ExtendOptions>): Got;
 	mergeInstances(parent: Got, ...instances: Got[]): Got;
-	mergeOptions<T extends Options>(...sources: T[]): T & {hooks: Partial<Hooks>};
+	mergeOptions<T extends PartialDeep<Options>>(...sources: T[]): T;
 }
 
 export interface GotStream extends Record<HTTPAlias, ReturnStream> {
@@ -85,11 +88,12 @@ const aliases: readonly HTTPAlias[] = [
 
 export const defaultHandler: HandlerFunction = (options, next) => next(options);
 
-const create = (defaults: Defaults): Got => {
+const create = (defaults: NormalizedDefaults & {_rawHandlers?: HandlerFunction[]}): Got => {
 	// Proxy properties from next handlers
 	defaults._rawHandlers = defaults.handlers;
 	defaults.handlers = defaults.handlers.map(fn => ((options, next) => {
-		let root: GotReturn;
+		// This will be assigned by assigning result
+		let root!: GotReturn;
 
 		const result = fn(options, newOptions => {
 			root = next(newOptions);
@@ -107,7 +111,7 @@ const create = (defaults: Defaults): Got => {
 	// @ts-ignore Because the for loop handles it for us, as well as the other Object.defines
 	const got: Got = (url: URLOrOptions, options?: Options): GotReturn => {
 		let iteration = 0;
-		const iterateHandlers: HandlerFunction = newOptions => {
+		const iterateHandlers = (newOptions: Parameters<HandlerFunction>[0]): ReturnType<HandlerFunction> => {
 			return defaults.handlers[iteration++](
 				newOptions,
 				// @ts-ignore TS doesn't know that it calls `getPromiseOrStream` at the end
@@ -116,7 +120,6 @@ const create = (defaults: Defaults): Got => {
 		};
 
 		try {
-			// @ts-ignore This handler takes only one parameter.
 			return iterateHandlers(normalizeArguments(url, options, defaults));
 		} catch (error) {
 			if (options?.isStream) {
@@ -130,24 +133,22 @@ const create = (defaults: Defaults): Got => {
 
 	got.extend = (...instancesOrOptions) => {
 		const optionsArray: Options[] = [defaults.options];
-		let handlers: HandlerFunction[] = [...defaults._rawHandlers];
-		let mutableDefaults: boolean;
+		let handlers: HandlerFunction[] = [...defaults._rawHandlers!];
+		let mutableDefaults: boolean | undefined;
 
 		for (const value of instancesOrOptions) {
-			if (Reflect.has(value, 'defaults')) {
-				optionsArray.push((value as Got).defaults.options);
-
-				handlers.push(...(value as Got).defaults._rawHandlers);
-
-				mutableDefaults = (value as Got).defaults.mutableDefaults;
+			if (isGotInstance(value)) {
+				optionsArray.push(value.defaults.options);
+				handlers.push(...value.defaults._rawHandlers!);
+				mutableDefaults = value.defaults.mutableDefaults;
 			} else {
-				optionsArray.push(value as ExtendedOptions);
+				optionsArray.push(value);
 
 				if (Reflect.has(value, 'handlers')) {
-					handlers.push(...(value as ExtendedOptions).handlers);
+					handlers.push(...value.handlers);
 				}
 
-				mutableDefaults = (value as ExtendedOptions).mutableDefaults;
+				mutableDefaults = value.mutableDefaults;
 			}
 		}
 
@@ -160,7 +161,7 @@ const create = (defaults: Defaults): Got => {
 		return create({
 			options: mergeOptions(...optionsArray),
 			handlers,
-			mutableDefaults
+			mutableDefaults: Boolean(mutableDefaults)
 		});
 	};
 
