@@ -7,7 +7,7 @@ export class GotError extends Error {
 	code?: string;
 	readonly options: NormalizedOptions;
 
-	constructor(message: string, error: (Error & {code?: string}) | {code?: string}, options: NormalizedOptions) {
+	constructor(message: string, error: Partial<Error & {code?: string}>, options: NormalizedOptions) {
 		super(message);
 		Error.captureStackTrace(this, this.constructor);
 		this.name = 'GotError';
@@ -19,6 +19,20 @@ export class GotError extends Error {
 		Object.defineProperty(this, 'options', {
 			value: options
 		});
+
+		// Recover the original stacktrace
+		if (!is.undefined(error.stack)) {
+			const indexOfMessage = this.stack.indexOf(this.message) + this.message.length;
+			const thisStackTrace = this.stack.slice(indexOfMessage).split('\n').reverse();
+			const errorStackTrace = error.stack.slice(error.stack.indexOf(error.message) + error.message.length).split('\n').reverse();
+
+			// Remove duplicated traces
+			while (errorStackTrace.length !== 0 && errorStackTrace[0] === thisStackTrace[0]) {
+				thisStackTrace.shift();
+			}
+
+			this.stack = `${this.stack.slice(0, indexOfMessage)}${thisStackTrace.reverse().join('\n')}${errorStackTrace.reverse().join('\n')}`;
+		}
 	}
 }
 
@@ -96,7 +110,7 @@ export class TimeoutError extends GotError {
 	event: string;
 
 	constructor(error: TimedOutError, timings: Timings, options: NormalizedOptions) {
-		super(error.message, {code: 'ETIMEDOUT'}, options);
+		super(error.message, error, options);
 		this.name = 'TimeoutError';
 		this.event = error.event;
 		this.timings = timings;
