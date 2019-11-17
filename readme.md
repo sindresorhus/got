@@ -1410,9 +1410,21 @@ const h2got = got.extend({request});
 
 ## FAQ
 
-### Why was Got created?
+### Why yet another HTTP client?
 
-Got was created because the popular [`request`](https://github.com/request/request) package is bloated: [![Install size](https://packagephobia.now.sh/badge?p=request)](https://packagephobia.now.sh/result?p=request)
+Got was created because the popular [`request`](https://github.com/request/request) package is bloated: [![Install size](https://packagephobia.now.sh/badge?p=request)](https://packagephobia.now.sh/result?p=request)\
+Furthermore, Got is fully written in TypeScript.
+
+### Electron support is broken
+
+Please open an [Electron issue](https://github.com/electron/electron/issues/new/choose). They claim their `net.request` is compatible with Node.js, but actually it isn't. These Got features are currently broken:
+
+- `options.retry` does not work (yet)
+- `options.timeout` has no effect (only `options.timeout.request` works; culprit: no `request.socket` property)
+- `options.decompress` has no effect (culprit: `electron` decompresses the content on its own)
+- `options.dnsCache` has no effect (culprit: `electron` does not support `lookup` option)
+- `Agent` instances are not supported
+- `response.timings` are broken (culprit: no `request.socket` property)
 
 ## Comparison
 

@@ -420,6 +420,8 @@ export const normalizeRequestArguments = async (options: NormalizedOptions): Pro
 				path,
 				host: ''
 			};
+
+			delete options.url;
 		}
 	}
 
@@ -429,14 +431,6 @@ export const normalizeRequestArguments = async (options: NormalizedOptions): Pro
 
 	if (options.dnsCache) {
 		options.lookup = options.dnsCache.lookup;
-	}
-
-	/* istanbul ignore next: electron.net is broken */
-	// No point in typing process.versions correctly, as
-	// `process.version.electron` is used only once, right here.
-	if (options.useElectronNet && (process.versions as any).electron) {
-		const electron = dynamicRequire(module, 'electron') as any; // Trick webpack
-		options.request = electron.net.request ?? electron.remote.net.request;
 	}
 
 	// Got's `timeout` is an object, http's `timeout` is a number, so they're not compatible.
@@ -453,8 +447,33 @@ export const normalizeRequestArguments = async (options: NormalizedOptions): Pro
 		}
 	}
 
-	// `http-cache-semantics` checks this
-	delete options.url;
+	// No point in typing process.versions correctly, as
+	// `process.version.electron` is used only once, right here.
+	if (options.useElectronNet && (process.versions as any).electron) {
+		const electron = dynamicRequire(module, 'electron') as any; // Trick webpack
+
+		options.request = electron.net.request ?? electron.remote.net.request;
+
+		// @ts-ignore
+		options.redirect = 'manual';
+
+		if (Reflect.has(options, 'electronSession')) {
+			// @ts-ignore
+			options.session = options.electronSession;
+		}
+
+		if (Reflect.has(options.headers!, 'content-length')) {
+			delete options.headers['content-length'];
+		}
+
+		if (Reflect.has(options, 'url')) {
+			// @ts-ignore
+			options.url = options.url.toString();
+		}
+	} else {
+		// `http-cache-semantics` checks this
+		delete options.url;
+	}
 
 	return options as unknown as NormalizedRequestArguments;
 };

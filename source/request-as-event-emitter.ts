@@ -56,16 +56,35 @@ export default (options: NormalizedOptions): RequestAsEventEmitter => {
 
 		const handleResponse = async (response: http.IncomingMessage): Promise<void> => {
 			try {
-				/* istanbul ignore next: fixes https://github.com/electron/electron/blob/cbb460d47628a7a146adf4419ed48550a98b2923/lib/browser/api/net.js#L59-L65 */
+				/* istanbul ignore next */
 				if (options.useElectronNet) {
+					let {statusMessage} = response as Response;
+
 					response = new Proxy(response, {
 						get: (target, name) => {
 							if (name === 'trailers' || name === 'rawTrailers') {
 								return [];
 							}
 
+							if (name === 'statusMessage') {
+								return statusMessage;
+							}
+
+							if (name === 'socket') {
+								return {};
+							}
+
 							const value = (target as any)[name];
 							return is.function_(value) ? value.bind(target) : value;
+						},
+						set: (target, name, value) => {
+							if (name === 'statusMessage') {
+								statusMessage = value;
+
+								return true;
+							}
+
+							return Reflect.set(target, name, value);
 						}
 					});
 				}
@@ -133,6 +152,14 @@ export default (options: NormalizedOptions): RequestAsEventEmitter => {
 						delete options.headers.cookie;
 					}
 
+					if (Reflect.has(options, 'username')) {
+						delete options.username;
+					}
+
+					if (Reflect.has(options, 'password')) {
+						delete options.password;
+					}
+
 					redirects.push(redirectURL.toString());
 					options.url = redirectURL;
 
@@ -187,6 +214,10 @@ export default (options: NormalizedOptions): RequestAsEventEmitter => {
 					if (isAborted() && !(error instanceof TimedOutTimeoutError)) {
 						return;
 					}
+				}
+
+				if (options.useElectronNet && error.message === 'Redirect was cancelled') {
+					return;
 				}
 
 				onError(error);
