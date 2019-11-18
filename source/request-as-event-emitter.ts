@@ -283,7 +283,7 @@ export default (options: NormalizedOptions) => {
 		}
 	};
 
-	setImmediate(async () => {
+	(async () => {
 		try {
 			for (const hook of options.hooks.beforeRequest) {
 				// eslint-disable-next-line no-await-in-loop
@@ -294,7 +294,7 @@ export default (options: NormalizedOptions) => {
 		} catch (error) {
 			emitError(error);
 		}
-	});
+	})();
 
 	return emitter;
 };
