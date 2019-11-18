@@ -4,6 +4,7 @@
 	"description": "Simplified HTTP requests",
 	"license": "MIT",
 	"repository": "sindresorhus/got",
+	"funding": "https://github.com/sindresorhus/got?sponsor=1",
 	"main": "dist/source",
 	"engines": {
 		"node": ">=10"
