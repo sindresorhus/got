@@ -23,7 +23,7 @@ export type HTTPAlias =
 	| 'head'
 	| 'delete';
 
-export type ReturnStream = (url: string | Options & {isStream: true}, options?: Options & {isStream: true}) => ReturnType<typeof asStream>;
+export type ReturnStream = (url: string | Options & {isStream?: true}, options?: Options & {isStream?: true}) => ReturnType<typeof asStream>;
 export type GotReturn = ReturnType<typeof asPromise> | ReturnType<typeof asStream>;
 
 const getPromiseOrStream = (options: NormalizedOptions): GotReturn => options.isStream ? asStream(options) : asPromise(options);

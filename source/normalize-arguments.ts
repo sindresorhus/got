@@ -119,6 +119,7 @@ export const preNormalizeArguments = (options: Options, defaults?: NormalizedOpt
 	}
 
 	if (options.retry.maxRetryAfter === undefined) {
+		// @ts-ignore We assign if it is undefined, so this is correct
 		options.retry.maxRetryAfter = Math.min(
 			...[options.timeout.request, options.timeout.connect].filter((n): n is number => !is.nullOrUndefined(n))
 		);

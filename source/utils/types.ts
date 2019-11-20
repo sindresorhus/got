@@ -92,12 +92,12 @@ export interface DefaultRetryOptions {
 	methods: Method[];
 	statusCodes: number[];
 	errorCodes: string[];
+	calculateDelay?: RetryFunction;
+	maxRetryAfter?: undefined;
 }
 
 export interface RetryOptions extends Partial<DefaultRetryOptions> {
-	calculateDelay?: RetryFunction;
 	retries?: number;
-	maxRetryAfter?: number;
 }
 
 export type RequestFunction = typeof https.request;
@@ -120,9 +120,9 @@ export interface Delays {
 export type Headers = Record<string, string | string[] | undefined>;
 
 interface CookieJar {
-	getCookieString(url: string, callback: (error: Error, cookieHeader: string) => void): void;
+	getCookieString(url: string, callback: (error: Error | null, cookieHeader: string) => void): void;
 	getCookieString(url: string): Promise<string>;
-	setCookie(rawCookie: string, url: string, callback: (error: Error, result: unknown) => void): void;
+	setCookie(rawCookie: string, url: string, callback: (error: Error | null, result: unknown) => void): void;
 	setCookie(rawCookie: string, url: string): Promise<unknown>;
 }
 
@@ -145,8 +145,8 @@ export interface DefaultOptions {
 	prefixUrl: URL | string;
 }
 
-// TODO: Missing lots of `http` options
-export interface Options extends PartialDeep<DefaultOptions>, URLOptions {
+// The library overrides agent/timeout in a non-standard way, so we have to override them
+export interface Options extends PartialDeep<DefaultOptions>, URLOptions, Except<https.RequestOptions, 'agent' | 'timeout' | 'auth' | 'path'> {
 	url?: URL | string;
 	body?: string | Buffer | ReadableStream;
 	hostname?: string;
@@ -178,7 +178,7 @@ export interface Options extends PartialDeep<DefaultOptions>, URLOptions {
 	lookup?: CacheableLookup['lookup'];
 }
 
-export interface NormalizedOptions extends Except<DefaultOptions, 'dnsCache'>, Except<Options, keyof DefaultOptions | keyof URLOptions> {
+export interface NormalizedOptions extends Except<DefaultOptions, 'dnsCache'>, Except<Options, keyof DefaultOptions> {
 	// Normalized Got options
 	hooks: Required<Hooks>;
 	timeout: Delays;
@@ -197,8 +197,6 @@ export interface ExtendOptions extends Options {
 	handlers?: HandlerFunction[];
 	mutableDefaults?: boolean;
 }
-
-export type ExtendedOptions = DefaultOptions & Options;
 
 export interface Defaults {
 	options: Options;
