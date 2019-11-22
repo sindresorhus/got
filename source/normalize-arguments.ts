@@ -279,14 +279,12 @@ export const normalizeArguments = (url: URLOrOptions, options?: Options, default
 const withoutBody: ReadonlySet<string> = new Set(['GET', 'HEAD']);
 
 export type NormalizedRequestArguments = https.RequestOptions & {
-	body: Pick<NormalizedOptions, 'body'>;
+	body?: ReadableStream;
 	url: Pick<NormalizedOptions, 'url'>;
 };
 
 export const normalizeRequestArguments = async (options: NormalizedOptions): Promise<NormalizedRequestArguments> => {
 	options = mergeOptions(options);
-
-	let uploadBodySize: number | undefined;
 
 	// Serialize body
 	const {headers} = options;
@@ -328,12 +326,10 @@ export const normalizeRequestArguments = async (options: NormalizedOptions): Pro
 		options.body = JSON.stringify(options.json);
 	}
 
-	// Convert buffer to stream to receive upload progress events (#322)
-	if (is.buffer(options.body)) {
-		uploadBodySize = options.body.length;
+	const uploadBodySize = await getBodySize(options);
+
+	if (!is.nodeStream(options.body)) {
 		options.body = toReadableStream(options.body);
-	} else {
-		uploadBodySize = await getBodySize(options);
 	}
 
 	// See https://tools.ietf.org/html/rfc7230#section-3.3.2

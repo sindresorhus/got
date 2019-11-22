@@ -103,12 +103,19 @@ test.serial('socket timeout', async t => {
 });
 
 test.serial('send timeout', withServerAndLolex, async (t, server, got, clock) => {
-	server.get('/', defaultHandler(clock));
+	server.post('/', defaultHandler(clock));
 
 	await t.throwsAsync(
-		got({
+		got.post({
 			timeout: {send: 1},
+			body: new stream.PassThrough(),
 			retry: 0
+		}).on('request', request => {
+			request.once('socket', socket => {
+				socket.once('connect', () => {
+					clock.tick(10);
+				});
+			});
 		}),
 		{
 			...errorMatcher,
@@ -431,6 +438,14 @@ test.serial('no more timeouts after an error', withServerAndLolex, async (t, _se
 			request: 1
 		}
 	}).on('request', () => {
+		const {setTimeout} = global;
+		// @ts-ignore
+		global.setTimeout = (callback, _ms, ...args) => {
+			callback(...args);
+
+			global.setTimeout = setTimeout;
+		};
+
 		clock.runAll();
 	}), {instanceOf: got.GotError});
 
@@ -445,8 +460,8 @@ test.serial('socket timeout is canceled on error', withServerAndLolex, async (t,
 		timeout: {socket: 50},
 		retry: 0
 	}).on('request', request => {
-		request.emit('error', new Error(message));
 		request.abort();
+		request.emit('error', new Error(message));
 	});
 
 	await t.throwsAsync(promise, {message});

@@ -143,15 +143,13 @@ test('`http.request` pipe error', async t => {
 	await t.throwsAsync(got('https://example.com', {
 		// @ts-ignore Manual tests
 		request: () => {
-			return {
-				end: () => {
-					throw new Error(message);
-				},
-				on: () => {},
-				once: () => {},
-				emit: () => {},
-				prependOnceListener: () => {}
-			};
+			const proxy = new stream.PassThrough();
+			proxy.resume();
+			proxy.once('pipe', () => {
+				proxy.destroy(new Error(message));
+			});
+
+			return proxy;
 		},
 		throwHttpErrors: false
 	}), {

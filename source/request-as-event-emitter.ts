@@ -1,17 +1,20 @@
+import {promisify} from 'util';
 import stream = require('stream');
 import EventEmitter = require('events');
 import http = require('http');
 import CacheableRequest = require('cacheable-request');
 import is from '@sindresorhus/is';
-import timer, {Timings} from '@szmarczak/http-timer';
+import timer from '@szmarczak/http-timer';
 import timedOut, {TimeoutError as TimedOutTimeoutError} from './utils/timed-out';
 import calculateRetryDelay from './calculate-retry-delay';
 import getResponse from './get-response';
 import {normalizeRequestArguments} from './normalize-arguments';
-import {uploadProgress} from './progress';
+import {createProgressStream} from './progress';
 import {CacheError, MaxRedirectsError, RequestError, TimeoutError} from './errors';
 import urlToOptions from './utils/url-to-options';
 import {NormalizedOptions, Response, ResponseObject} from './utils/types';
+
+const pipeline = promisify(stream.pipeline);
 
 const redirectCodes: ReadonlySet<number> = new Set([300, 301, 302, 303, 304, 307, 308]);
 
@@ -28,7 +31,6 @@ export default (options: NormalizedOptions) => {
 	let retryCount = 0;
 
 	let currentRequest: http.ClientRequest;
-	let shouldAbort = false;
 
 	const emitError = async (error: Error): Promise<void> => {
 		try {
@@ -46,7 +48,6 @@ export default (options: NormalizedOptions) => {
 	const get = async (): Promise<void> => {
 		let httpOptions = await normalizeRequestArguments(options);
 
-		let timings: Timings;
 		const handleResponse = async (response: http.ServerResponse | ResponseObject): Promise<void> => {
 			try {
 				/* istanbul ignore next: fixes https://github.com/electron/electron/blob/cbb460d47628a7a146adf4419ed48550a98b2923/lib/browser/api/net.js#L59-L65 */
@@ -70,7 +71,6 @@ export default (options: NormalizedOptions) => {
 				typedResponse.url = options.url.toString();
 				typedResponse.requestUrl = requestURL;
 				typedResponse.retryCount = retryCount;
-				typedResponse.timings = timings;
 				typedResponse.redirectUrls = redirects;
 				typedResponse.request = {options};
 				typedResponse.isFromCache = typedResponse.fromCache ?? false;
@@ -134,34 +134,22 @@ export default (options: NormalizedOptions) => {
 					return;
 				}
 
-				getResponse(typedResponse, options, emitter);
+				await getResponse(typedResponse, options, emitter);
 			} catch (error) {
 				emitError(error);
 			}
 		};
 
-		const handleRequest = (request: http.ClientRequest): void => {
-			if (shouldAbort) {
-				request.abort();
-				return;
-			}
-
-			currentRequest = request;
-
+		const handleRequest = async (request: http.ClientRequest): Promise<void> => {
 			// `request.aborted` is a boolean since v11.0.0: https://github.com/nodejs/node/commit/4b00c4fafaa2ae8c41c1f78823c0feb810ae4723#diff-e3bc37430eb078ccbafe3aa3b570c91a
 			// We need to allow `TimedOutTimeoutError` here, because it `stream.pipeline(…)` aborts it automatically.
 			const isAborted = () => typeof request.aborted === 'number' || (request.aborted as unknown as boolean) === true;
 
+			currentRequest = request;
+
 			const onError = (error: Error): void => {
-				const isTimedOutError = error instanceof TimedOutTimeoutError;
-
-				if (!isTimedOutError && isAborted()) {
-					return;
-				}
-
-				if (isTimedOutError) {
-					// @ts-ignore TS is dumb.
-					error = new TimeoutError(error, timings, options);
+				if (error instanceof TimedOutTimeoutError) {
+					error = new TimeoutError(error, request.timings, options);
 				} else {
 					error = new RequestError(error, options);
 				}
@@ -171,54 +159,37 @@ export default (options: NormalizedOptions) => {
 				}
 			};
 
-			const uploadComplete = (error?: Error): void => {
-				if (error) {
+			try {
+				timer(request);
+				timedOut(request, options.timeout, options.url);
+
+				emitter.emit('request', request);
+
+				const uploadStream = createProgressStream('uploadProgress', emitter, httpOptions.headers['content-length'] as string);
+
+				await pipeline(
+					// @ts-ignore Cannot assign ReadableStream to ReadableStream
+					httpOptions.body,
+					uploadStream,
+					request
+				);
+
+				request.once('error', error => {
+					if (isAborted() && !(error instanceof TimedOutTimeoutError)) {
+						return;
+					}
+
 					onError(error);
+				});
+
+				request.emit('upload-complete');
+			} catch (error) {
+				if (isAborted() && error.message === 'Premature close') {
+					// The request was aborted on purpose
 					return;
 				}
 
-				// No need to attach an error handler here,
-				// as `stream.pipeline(…)` doesn't remove this handler
-				// to allow stream reuse.
-
-				request.emit('upload-complete');
-			};
-
-			request.on('error', onError);
-
-			timings = timer(request); // TODO: Make `@szmarczak/http-timer` set `request.timings` and `response.timings`
-
-			const uploadBodySize = httpOptions.headers['content-length'] ? Number(httpOptions.headers['content-length']) : undefined;
-			uploadProgress(request, emitter, uploadBodySize);
-
-			timedOut(request, options.timeout, options.url);
-
-			emitter.emit('request', request);
-
-			if (isAborted()) {
-				return;
-			}
-
-			try {
-				if (options.method === 'POST' || options.method === 'PUT' || options.method === 'PATCH') {
-					if (is.nodeStream(httpOptions.body)) {
-						// `stream.pipeline(…)` handles `error` for us.
-						request.removeListener('error', onError);
-
-						stream.pipeline(
-							// @ts-ignore Upgrade `@sindresorhus/is`
-							httpOptions.body,
-							request,
-							uploadComplete
-						);
-					} else {
-						request.end(httpOptions.body, uploadComplete);
-					}
-				} else {
-					request.end(uploadComplete);
-				}
-			} catch (error) {
-				emitError(new RequestError(error, options));
+				onError(error);
 			}
 		};
 
@@ -296,10 +267,12 @@ export default (options: NormalizedOptions) => {
 	};
 
 	emitter.abort = () => {
+		emitter.prependListener('request', (request: http.ClientRequest) => {
+			request.abort();
+		});
+
 		if (currentRequest) {
 			currentRequest.abort();
-		} else {
-			shouldAbort = true;
 		}
 	};
 

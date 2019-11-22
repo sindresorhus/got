@@ -21,6 +21,10 @@ export default async (options: Options): Promise<number | undefined> => {
 		return Buffer.byteLength(body);
 	}
 
+	if (is.buffer(body)) {
+		return body.length;
+	}
+
 	if (isFormData(body)) {
 		return promisify(body.getLength.bind(body))();
 	}

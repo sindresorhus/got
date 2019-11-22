@@ -167,8 +167,9 @@ test('catches afterResponse promise rejections', withServer, async (t, server, g
 
 test('catches beforeError errors', async t => {
 	await t.throwsAsync(got('https://example.com', {
-		// @ts-ignore Manual tests
-		request: () => {},
+		request: () => {
+			throw new Error('No way');
+		},
 		hooks: {
 			beforeError: [
 				async () => {
