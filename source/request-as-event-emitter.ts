@@ -159,6 +159,16 @@ export default (options: NormalizedOptions) => {
 				}
 			};
 
+			const attachErrorHandler = () => {
+				request.once('error', error => {
+					if (isAborted() && !(error instanceof TimedOutTimeoutError)) {
+						return;
+					}
+
+					onError(error);
+				});
+			};
+
 			try {
 				timer(request);
 				timedOut(request, options.timeout, options.url);
@@ -174,13 +184,7 @@ export default (options: NormalizedOptions) => {
 					request
 				);
 
-				request.once('error', error => {
-					if (isAborted() && !(error instanceof TimedOutTimeoutError)) {
-						return;
-					}
-
-					onError(error);
-				});
+				attachErrorHandler();
 
 				request.emit('upload-complete');
 			} catch (error) {
@@ -190,6 +194,9 @@ export default (options: NormalizedOptions) => {
 				}
 
 				onError(error);
+
+				// Handle future errors
+				attachErrorHandler();
 			}
 		};
 
