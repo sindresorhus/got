@@ -10,7 +10,7 @@ export class ProxyStream<T extends unknown = unknown> extends DuplexStream imple
 	isFromCache?: boolean;
 }
 
-export default function asStream(options: NormalizedOptions): ProxyStream {
+export default function asStream<T extends unknown = unknown>(options: NormalizedOptions): ProxyStream<T> {
 	const input = new PassThroughStream();
 	const output = new PassThroughStream();
 	const proxy = duplexer3(input, output) as ProxyStream;
