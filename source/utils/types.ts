@@ -7,7 +7,7 @@ import ResponseLike = require('responselike');
 import {Readable as ReadableStream} from 'stream';
 import CacheableLookup from 'cacheable-lookup';
 import {Timings} from '@szmarczak/http-timer';
-import {Except, Merge, PartialDeep} from 'type-fest';
+import {Except, JsonValue, PartialDeep} from 'type-fest';
 import {GotReturn} from '../create';
 import {GotError, HTTPError, MaxRedirectsError, ParseError} from '../errors';
 import {Hooks} from '../known-hook-events';
@@ -45,7 +45,7 @@ export type ErrorCode =
 
 export type ResponseType = 'json' | 'buffer' | 'text' | 'default';
 
-export interface Response<BodyType = unknown> extends http.IncomingMessage {
+export interface Response<BodyType extends unknown = unknown> extends http.IncomingMessage {
 	body: BodyType;
 	statusCode: number;
 
@@ -117,7 +117,7 @@ export interface Delays {
 	request?: number;
 }
 
-export type Headers = Record<string, string | string[] | undefined>;
+export type Headers = Record<string, string | string[] | number | undefined>;
 
 interface CookieJar {
 	getCookieString(url: string, callback: (error: Error | null, cookieHeader: string) => void): void;
@@ -146,7 +146,8 @@ export interface DefaultOptions {
 }
 
 // The library overrides agent/timeout in a non-standard way, so we have to override them
-export interface Options extends PartialDeep<DefaultOptions>, URLOptions, Except<https.RequestOptions, 'agent' | 'timeout' | 'auth' | 'path'> {
+// auth/path/host/port/protocol are overwritten in URLOptions
+export interface Options extends PartialDeep<DefaultOptions>, URLOptions, Except<https.RequestOptions, 'agent' | 'timeout' | 'auth' | 'path' | 'host' | 'port' | 'protocol'> {
 	url?: URL | string;
 	body?: string | Buffer | ReadableStream;
 	hostname?: string;
@@ -173,7 +174,7 @@ export interface Options extends PartialDeep<DefaultOptions>, URLOptions, Except
 	useElectronNet?: boolean;
 	form?: Record<string, any>;
 	json?: Record<string, any>;
-	context?: {[key: string]: unknown};
+	context?: Record<string, any>;
 	maxRedirects?: number;
 	lookup?: CacheableLookup['lookup'];
 }
@@ -199,13 +200,13 @@ export interface ExtendOptions extends Options {
 }
 
 export interface Defaults {
-	options: Options;
+	options: Options & {hooks: Required<Hooks>};
 	handlers: HandlerFunction[];
 	mutableDefaults: boolean;
 }
 
 export interface NormalizedDefaults {
-	options: Options;
+	options: Options & {hooks: Required<Hooks>};
 	handlers: HandlerFunction[];
 	_rawHandlers?: HandlerFunction[];
 	mutableDefaults: boolean;
@@ -226,8 +227,8 @@ export interface GotEvents<T> {
 	on(name: 'uploadProgress' | 'downloadProgress', listener: (progress: Progress) => void): T;
 }
 
-export interface CancelableRequest<T extends Response | Response['body']> extends Merge<PCancelable<T>, GotEvents<CancelableRequest<T>>> {
-	json<TReturnType extends object>(): CancelableRequest<TReturnType>;
+export interface CancelableRequest<T extends Response | Response['body']> extends PCancelable<T>, GotEvents<CancelableRequest<T>> {
+	json<TReturnType extends JsonValue = JsonValue>(): CancelableRequest<TReturnType>;
 	buffer(): CancelableRequest<Buffer>;
 	text(): CancelableRequest<string>;
 }

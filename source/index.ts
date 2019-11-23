@@ -41,9 +41,11 @@ const defaults: Defaults = {
 			'user-agent': 'got (https://github.com/sindresorhus/got)'
 		},
 		hooks: {
+			init: [],
 			beforeRequest: [],
 			beforeRedirect: [],
 			beforeRetry: [],
+			beforeError: [],
 			afterResponse: []
 		},
 		decompress: true,
