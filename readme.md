@@ -258,7 +258,7 @@ The promise has `.json()` and `.buffer()` and `.text()` functions which set this
 Example:
 
 ```js
-const {body} = await got(url).json();
+const body = await got(url).json();
 ```
 
 ###### resolveBodyOnly
@@ -1333,7 +1333,7 @@ To receive a JSON body you can either set `responseType` option to `json` or use
 const got = require('got');
 
 (async () => {
-	const {body} = await got.post('https://httpbin.org/anything', {
+	const body = await got.post('https://httpbin.org/anything', {
 		body: {
 			hello: 'world'
 		}
