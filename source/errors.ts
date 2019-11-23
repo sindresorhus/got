@@ -18,6 +18,9 @@ export class GotError extends Error {
 		}
 
 		Object.defineProperty(this, 'options', {
+			// This fails because of TS 3.7.2 useDefineForClassFields
+			// Ref: https://github.com/microsoft/TypeScript/issues/34972
+			enumerable: false,
 			value: options
 		});
 
@@ -66,6 +69,7 @@ export class ParseError extends GotError {
 		this.name = 'ParseError';
 
 		Object.defineProperty(this, 'response', {
+			enumerable: false,
 			value: response
 		});
 	}
@@ -79,6 +83,7 @@ export class HTTPError extends GotError {
 		this.name = 'HTTPError';
 
 		Object.defineProperty(this, 'response', {
+			enumerable: false,
 			value: response
 		});
 	}
@@ -92,6 +97,7 @@ export class MaxRedirectsError extends GotError {
 		this.name = 'MaxRedirectsError';
 
 		Object.defineProperty(this, 'response', {
+			enumerable: false,
 			value: response
 		});
 	}
