@@ -131,7 +131,7 @@ export interface Options extends URLOptions {
 	hooks?: Partial<Hooks>;
 	decompress?: boolean;
 	isStream?: boolean;
-	encoding?: BufferEncoding | null;
+	encoding?: BufferEncoding;
 	method?: Method;
 	retry?: number | RetryOptions;
 	throwHttpErrors?: boolean;

@@ -1,4 +1,3 @@
-import is from '@sindresorhus/is';
 import test from 'ava';
 import got from '../source';
 import withServer from './helpers/with-server';
@@ -72,13 +71,15 @@ test('invalid protocol throws', async t => {
 	});
 });
 
-test('gives buffer if `options.encoding` is null', withServer, async (t, server, got) => {
+test('custom `options.encoding`', withServer, async (t, server, got) => {
+	const string = 'ok';
+
 	server.get('/', (_request, response) => {
-		response.end('ok');
+		response.end(string);
 	});
 
-	const data = (await got({encoding: null})).body;
-	t.true(is.buffer(data));
+	const data = (await got({encoding: 'base64'})).body;
+	t.is(data, Buffer.from(string).toString('base64'));
 });
 
 test('`searchParams` option', withServer, async (t, server, got) => {
