@@ -9,7 +9,8 @@ import test from 'ava';
 import CacheableLookup from 'cacheable-lookup';
 import {Handler} from 'express';
 import pEvent = require('p-event');
-import got, {Options} from '../source';
+import got from '../source';
+import {OptionsOfDefaultResponseBody} from '../source/create';
 import timedOut from '../source/utils/timed-out';
 import slowDataStream from './helpers/slow-data-stream';
 import {GlobalClock} from './helpers/types';
@@ -525,5 +526,5 @@ test.serial('doesn\'t throw on early lookup', withServerAndLolex, async (t, serv
 			// @ts-ignore This should be fixed in upstream
 			callback(null, '127.0.0.1', 4);
 		}
-	} as Options));
+	} as OptionsOfDefaultResponseBody));
 });

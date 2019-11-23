@@ -2,7 +2,6 @@ import {promisify} from 'util';
 import zlib = require('zlib');
 import test from 'ava';
 import getStream = require('get-stream');
-import {GotError} from '../source';
 import withServer from './helpers/with-server';
 
 const testContent = 'Compressible response content.\n';

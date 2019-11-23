@@ -190,7 +190,7 @@ test('piping server request to Got proxies also headers', withServer, async (t, 
 		);
 	});
 
-	const {foo} = await got('proxy', {
+	const {foo}: {foo: string} = await got('proxy', {
 		headers: {
 			foo: 'bar'
 		}

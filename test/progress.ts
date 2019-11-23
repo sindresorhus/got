@@ -72,7 +72,7 @@ test('download progress', withServer, async (t, server, got) => {
 
 	const events: Progress[] = [];
 
-	const {body} = await got({encoding: null})
+	const {body} = await got<Buffer>({encoding: null})
 		.on('downloadProgress', (event: Progress) => events.push(event));
 
 	checkEvents(t, events, body.length);

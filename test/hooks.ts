@@ -258,7 +258,7 @@ test('beforeRedirect is called with options and response', withServer, async (t,
 					t.is(options.url.hostname, 'localhost');
 
 					t.is(response.statusCode, 302);
-					t.is(new URL(response.url).pathname, '/redirect');
+					t.is(new URL(response.url!).pathname, '/redirect');
 					t.is(response.redirectUrls.length, 1);
 				}
 			]
@@ -296,7 +296,7 @@ test('beforeRetry is called with options', withServer, async (t, server, got) =>
 				(options, error, retryCount) => {
 					t.is(options.url.hostname, 'localhost');
 					t.truthy(error);
-					t.true(retryCount >= 1);
+					t.true(retryCount! >= 1);
 				}
 			]
 		}
@@ -520,6 +520,7 @@ test('throwing in a beforeError hook - promise', withServer, async (t, server, g
 		response.end('ok');
 	});
 
+	// @ts-ignore Error tests
 	await t.throwsAsync(got({
 		hooks: {
 			afterResponse: [
@@ -531,7 +532,6 @@ test('throwing in a beforeError hook - promise', withServer, async (t, server, g
 				() => {
 					throw new Error('foobar');
 				},
-				// @ts-ignore Assertion.
 				() => {
 					t.fail('This shouldn\'t be called at all');
 				}
@@ -541,13 +541,13 @@ test('throwing in a beforeError hook - promise', withServer, async (t, server, g
 });
 
 test('throwing in a beforeError hook - stream', withServer, async (t, _server, got) => {
+	// @ts-ignore Error tests
 	await t.throwsAsync(getStream(got.stream({
 		hooks: {
 			beforeError: [
 				() => {
 					throw new Error('foobar');
 				},
-				// @ts-ignore Assertion.
 				() => {
 					t.fail('This shouldn\'t be called at all');
 				}
@@ -611,7 +611,7 @@ test('does not break on `afterResponse` hook with JSON mode', withServer, async 
 				(response, retryWithMergedOptions) => {
 					if (response.statusCode === 404) {
 						return retryWithMergedOptions({
-							path: '/foobar'
+							href: '/foobar'
 						});
 					}
 

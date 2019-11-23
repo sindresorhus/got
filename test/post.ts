@@ -3,7 +3,7 @@ import stream = require('stream');
 import test from 'ava';
 import {Handler} from 'express';
 import toReadableStream = require('to-readable-stream');
-import got from '../source';
+import got, {Response} from '../source';
 import withServer from './helpers/with-server';
 
 const pStreamPipeline = promisify(stream.pipeline);
@@ -25,7 +25,8 @@ test('GET cannot have body', withServer, async (t, server, got) => {
 
 test('invalid body', async t => {
 	await t.throwsAsync(
-		got('https://example.com', {body: {} as any}),
+		// @ts-ignore Error tests
+		got('https://example.com', {body: {}}),
 		TypeError,
 		'The `body` option must be a stream.Readable, string or Buffer'
 	);
@@ -113,7 +114,7 @@ test('`content-length` header with string body', withServer, async (t, server, g
 test('`content-length` header with Buffer body', withServer, async (t, server, got) => {
 	server.post('/', echoHeaders);
 
-	const {body} = await got.post({body: Buffer.from('wow')});
+	const {body}: Response<string> = await got.post({body: Buffer.from('wow')});
 	const headers = JSON.parse(body);
 	t.is(headers['content-length'], '3');
 });
@@ -181,7 +182,7 @@ test('throws when form body is not a plain object or array', async t => {
 test('the `json` payload is not touched', withServer, async (t, server, got) => {
 	server.post('/', defaultEndpoint);
 
-	const {body} = await got.post({
+	const {body} = await got.post<{context: {foo: true}}>({
 		json: {
 			context: {
 				foo: true

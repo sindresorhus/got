@@ -5,9 +5,9 @@ import {Handler} from 'express';
 import got, {
 	BeforeRequestHook,
 	HandlerFunction,
+	Headers,
 	Hooks,
-	Options,
-	RequestFunction
+	RequestFunction,
 } from '../source';
 import withServer from './helpers/with-server';
 
@@ -32,7 +32,7 @@ test('supports instance defaults', withServer, async (t, server, got) => {
 			'user-agent': 'custom-ua-string'
 		}
 	});
-	const headers = await instance('').json();
+	const headers = await instance('').json() as Headers;
 	t.is(headers['user-agent'], 'custom-ua-string');
 });
 
@@ -48,7 +48,7 @@ test('supports invocation overrides', withServer, async (t, server, got) => {
 		headers: {
 			'user-agent': 'different-ua-string'
 		}
-	}).json();
+	}).json() as Headers;
 	t.is(headers['user-agent'], 'different-ua-string');
 });
 
@@ -65,7 +65,7 @@ test('carries previous instance defaults', withServer, async (t, server, got) =>
 			'x-bar': 'bar'
 		}
 	});
-	const headers = await instanceB('').json();
+	const headers = await instanceB('').json() as Headers;
 	t.is(headers['x-foo'], 'foo');
 	t.is(headers['x-bar'], 'bar');
 });
@@ -76,7 +76,7 @@ test('custom headers (extend)', withServer, async (t, server, got) => {
 	const options = {headers: {unicorn: 'rainbow'}};
 
 	const instance = got.extend(options);
-	const headers = await instance('').json();
+	const headers = await instance('').json() as Headers;
 	t.is(headers.unicorn, 'rainbow');
 });
 
@@ -84,8 +84,8 @@ test('extend overwrites arrays with a deep clone', t => {
 	const beforeRequest = [0];
 	const a = got.extend({hooks: {beforeRequest} as unknown as Hooks});
 	beforeRequest[0] = 1;
-	t.deepEqual(a.defaults.options.hooks.beforeRequest, [0] as unknown as BeforeRequestHook[]);
-	t.not(a.defaults.options.hooks.beforeRequest, beforeRequest as unknown as BeforeRequestHook[]);
+	t.deepEqual(a.defaults.options.hooks!.beforeRequest, [0] as unknown as BeforeRequestHook[]);
+	t.not(a.defaults.options.hooks!.beforeRequest, beforeRequest as unknown as BeforeRequestHook[]);
 });
 
 test('extend keeps the old value if the new one is undefined', t => {
@@ -112,14 +112,14 @@ test('hooks are merged on got.extend()', t => {
 	const instanceA = got.extend({hooks: {beforeRequest: hooksA}});
 
 	const extended = instanceA.extend({hooks: {beforeRequest: hooksB}});
-	t.deepEqual(extended.defaults.options.hooks.beforeRequest, hooksA.concat(hooksB));
+	t.deepEqual(extended.defaults.options.hooks!.beforeRequest, hooksA.concat(hooksB));
 });
 
 test('custom endpoint with custom headers (extend)', withServer, async (t, server) => {
 	server.all('/', echoHeaders);
 
 	const instance = got.extend({headers: {unicorn: 'rainbow'}, prefixUrl: server.url});
-	const headers = await instance('').json();
+	const headers = await instance('').json()  as Headers;
 	t.is(headers.unicorn, 'rainbow');
 	t.not(headers['user-agent'], undefined);
 });
@@ -179,7 +179,7 @@ test('defaults are cloned on instance creation', t => {
 
 	// @ts-ignore This IS correct
 	t.not(options.foo, instance.defaults.options.foo);
-	t.not(options.hooks.beforeRequest, instance.defaults.options.hooks.beforeRequest);
+	t.not(options.hooks.beforeRequest, instance.defaults.options.hooks!.beforeRequest);
 });
 
 test('ability to pass a custom request method', withServer, async (t, server, got) => {
@@ -228,21 +228,21 @@ test('extend with custom handlers', withServer, async (t, server, got) => {
 			}
 		]
 	});
-	const headers = await instance('').json();
+	const headers = await instance('').json() as Headers;
 	t.is(headers.unicorn, 'rainbow');
 });
 
 test('extend with instances', t => {
 	const a = got.extend({prefixUrl: new URL('https://example.com/')});
 	const b = got.extend(a);
-	t.is(b.defaults.options.prefixUrl.toString(), 'https://example.com/');
+	t.is(b.defaults.options.prefixUrl!.toString(), 'https://example.com/');
 });
 
 test('extend with a chain', t => {
 	const a = got.extend({prefixUrl: 'https://example.com/'});
 	const b = got.extend(a, {headers: {foo: 'bar'}});
-	t.is(b.defaults.options.prefixUrl.toString(), 'https://example.com/');
-	t.is(b.defaults.options.headers.foo, 'bar');
+	t.is(b.defaults.options.prefixUrl!.toString(), 'https://example.com/');
+	t.is(b.defaults.options.headers!.foo, 'bar');
 });
 
 test('async handlers', withServer, async (t, server, got) => {

@@ -27,6 +27,7 @@ const generateHook = ({install}: {install?: boolean}): test.Macro<[RunTestWithSe
 
 				clock.tick(0);
 
+				// @ts-ignore FIXME: Incompatible union type signatures
 				result.on('response', () => {
 					clock.tick(0);
 				});

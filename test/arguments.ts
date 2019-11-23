@@ -91,6 +91,7 @@ test('throws an error when legacy Url is passed', withServer, async (t, server, 
 	server.get('/test', echoUrl);
 
 	await t.throwsAsync(
+		// @ts-ignore Error tests
 		got(parse(`${server.url}/test`)),
 		'The legacy `url.Url` is deprecated. Use `URL` instead.'
 	);
