@@ -197,9 +197,9 @@ test('the old stacktrace is recovered', async t => {
 		}
 	}));
 
-	t.true(error.stack.includes('at Object.request'));
+	t.true(error.stack!.includes('at Object.request'));
 
 	// The first `at get` points to where the error was wrapped,
 	// the second `at get` points to the real cause.
-	t.not(error.stack.indexOf('at get'), error.stack.lastIndexOf('at get'));
+	t.not(error.stack!.indexOf('at get'), error.stack!.lastIndexOf('at get'));
 });

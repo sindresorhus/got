@@ -2,16 +2,16 @@ import CacheableRequest = require('cacheable-request');
 import EventEmitter = require('events');
 import http = require('http');
 import stream = require('stream');
-import is from '@sindresorhus/is';
-import timer, {Timings} from '@szmarczak/http-timer';
 import {promisify} from 'util';
+import is from '@sindresorhus/is';
+import timer from '@szmarczak/http-timer';
 import {ProxyStream} from './as-stream';
 import calculateRetryDelay from './calculate-retry-delay';
 import {CacheError, GotError, MaxRedirectsError, RequestError, TimeoutError} from './errors';
 import getResponse from './get-response';
 import {normalizeRequestArguments} from './normalize-arguments';
 import {createProgressStream} from './progress';
-import {CacheError, MaxRedirectsError, RequestError, TimeoutError} from './utils/errors';
+import timedOut, {TimeoutError as TimedOutTimeoutError} from './utils/timed-out';
 import {NormalizedOptions, Response, ResponseObject} from './utils/types';
 import urlToOptions from './utils/url-to-options';
 
@@ -150,13 +150,13 @@ export default (options: NormalizedOptions) => {
 
 			const onError = (error: Error): void => {
 				if (error instanceof TimedOutTimeoutError) {
-					error = new TimeoutError(error, request.timings, options);
+					error = new TimeoutError(error, request.timings!, options);
 				} else {
-					emittedError = new RequestError(error, options);
+					error = new RequestError(error, options);
 				}
 
-				if (!emitter.retry(emittedError)) {
-					emitError(emittedError);
+				if (!emitter.retry(error as GotError)) {
+					emitError(error);
 				}
 			};
 
@@ -177,7 +177,7 @@ export default (options: NormalizedOptions) => {
 
 				emitter.emit('request', request);
 
-				const uploadStream = createProgressStream('uploadProgress', emitter, httpOptions.headers['content-length'] as string);
+				const uploadStream = createProgressStream('uploadProgress', emitter, httpOptions.headers!['content-length'] as string);
 
 				await pipeline(
 					// @ts-ignore Cannot assign ReadableStream to ReadableStream

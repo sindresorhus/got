@@ -18,7 +18,7 @@ import optionsToUrl from './utils/options-to-url';
 import supportsBrotli from './utils/supports-brotli';
 import {
 	AgentByProtocol,
-	Defaults, Headers,
+	Defaults,
 	Method,
 	NormalizedOptions,
 	Options,
@@ -339,7 +339,7 @@ export const normalizeRequestArguments = async (options: NormalizedOptions): Pro
 	const uploadBodySize = await getBodySize(options);
 
 	if (!is.nodeStream(options.body)) {
-		options.body = toReadableStream(options.body);
+		options.body = toReadableStream(options.body!);
 	}
 
 	// See https://tools.ietf.org/html/rfc7230#section-3.3.2

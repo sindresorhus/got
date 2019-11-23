@@ -5,7 +5,7 @@ import stream = require('stream');
 import {IncomingMessage} from 'http';
 import {promisify} from 'util';
 import {createProgressStream} from './progress';
-import {NormalizedOptions, Response} from './utils/types';
+import {NormalizedOptions} from './utils/types';
 
 const pipeline = promisify(stream.pipeline);
 

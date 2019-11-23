@@ -5,9 +5,10 @@ import {ErrorCode, Response, NormalizedOptions} from './utils/types';
 
 export class GotError extends Error {
 	code?: ErrorCode;
+	stack!: string;
 	declare readonly options: NormalizedOptions;
 
-	constructor(message: string, error: Partial<Error & {code?: string}>, options: NormalizedOptions) {
+	constructor(message: string, error: Partial<Error & {code?: ErrorCode}>, options: NormalizedOptions) {
 		super(message);
 		Error.captureStackTrace(this, this.constructor);
 		this.name = 'GotError';
@@ -24,7 +25,7 @@ export class GotError extends Error {
 		if (!is.undefined(error.stack)) {
 			const indexOfMessage = this.stack.indexOf(this.message) + this.message.length;
 			const thisStackTrace = this.stack.slice(indexOfMessage).split('\n').reverse();
-			const errorStackTrace = error.stack.slice(error.stack.indexOf(error.message) + error.message.length).split('\n').reverse();
+			const errorStackTrace = error.stack.slice(error.stack.indexOf(error.message!) + error.message!.length).split('\n').reverse();
 
 			// Remove duplicated traces
 			while (errorStackTrace.length !== 0 && errorStackTrace[0] === thisStackTrace[0]) {
