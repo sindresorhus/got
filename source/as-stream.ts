@@ -6,7 +6,7 @@ import {HTTPError, ReadError} from './errors';
 import requestAsEventEmitter, {proxyEvents} from './request-as-event-emitter';
 import {GenericError, GotEvents, NormalizedOptions, Response} from './utils/types';
 
-export class ProxyStream extends DuplexStream implements GotEvents<ProxyStream> {
+export class ProxyStream<T extends unknown = unknown> extends DuplexStream implements GotEvents<ProxyStream<T>> {
 	isFromCache?: boolean;
 }
 

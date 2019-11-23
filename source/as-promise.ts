@@ -27,7 +27,7 @@ const parseBody = (body: Response['body'], responseType: NormalizedOptions['resp
 	throw new Error(`Failed to parse body of type '${typeof body}' as '${responseType}'`);
 };
 
-export default function asPromise<T extends any>(options: NormalizedOptions): CancelableRequest<T> {
+export default function asPromise<T extends unknown = unknown>(options: NormalizedOptions): CancelableRequest<T> {
 	const proxy = new EventEmitter();
 	let finalResponse: Pick<Response, 'body' | 'statusCode'>;
 
