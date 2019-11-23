@@ -102,7 +102,7 @@ export default function asStream(options: NormalizedOptions): ProxyStream {
 	});
 
 	proxyEvents(proxy, emitter);
-	emitter.on('error', (error: Error) => proxy.emit('error', error));
+	emitter.on('error', (error: GenericError) => proxy.emit('error', error));
 
 	const pipe = proxy.pipe.bind(proxy);
 	const unpipe = proxy.unpipe.bind(proxy);

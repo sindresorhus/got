@@ -81,7 +81,7 @@ export default function asPromise<T extends unknown = unknown>(options: Normaliz
 							resolveBodyOnly: false
 						}));
 
-						// Remove any further hooks for that request, because we we'll call them anyway.
+						// Remove any further hooks for that request, because we'll call them anyway.
 						// The loop continues. We don't want duplicates (asPromise recursion).
 						updatedOptions.hooks.afterResponse = options.hooks.afterResponse.slice(0, index);
 
