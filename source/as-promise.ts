@@ -150,7 +150,7 @@ export default function asPromise<T extends unknown = unknown>(options: Normaliz
 		return promise;
 	};
 
-	const shortcut = <T extends any>(responseType: NormalizedOptions['responseType']): CancelableRequest<T> => {
+	const shortcut = <T extends unknown = unknown>(responseType: NormalizedOptions['responseType']): CancelableRequest<T> => {
 		// eslint-disable-next-line promise/prefer-await-to-then
 		const newPromise = promise.then(() => parseBody(finalResponse.body, responseType, finalResponse.statusCode));
 
