@@ -3,12 +3,15 @@ import EventEmitter = require('events');
 import mimicResponse = require('mimic-response');
 import stream = require('stream');
 import {IncomingMessage} from 'http';
-import {downloadProgress} from './progress';
-import {NormalizedOptions} from './utils/types';
+import {promisify} from 'util';
+import {createProgressStream} from './progress';
+import {NormalizedOptions, Response} from './utils/types';
 
-export default (response: IncomingMessage, options: NormalizedOptions, emitter: EventEmitter) => {
+const pipeline = promisify(stream.pipeline);
+
+export default async (response: IncomingMessage, options: NormalizedOptions, emitter: EventEmitter) => {
 	const downloadBodySize = Number(response.headers['content-length']) || undefined;
-	const progressStream = downloadProgress(emitter, downloadBodySize);
+	const progressStream = createProgressStream('downloadProgress', emitter, downloadBodySize);
 
 	mimicResponse(response, progressStream);
 
@@ -23,19 +26,8 @@ export default (response: IncomingMessage, options: NormalizedOptions, emitter: 
 
 	emitter.emit('response', newResponse);
 
-	emitter.emit('downloadProgress', {
-		percent: 0,
-		transferred: 0,
-		total: downloadBodySize
-	});
-
-	stream.pipeline(
+	return pipeline(
 		response,
-		progressStream,
-		error => {
-			if (error) {
-				emitter.emit('error', error);
-			}
-		}
+		progressStream
 	);
 };

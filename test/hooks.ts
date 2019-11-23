@@ -170,7 +170,9 @@ test('catches beforeError errors', async t => {
 	// @ts-ignore Error tests
 	await t.throwsAsync(got('https://example.com', {
 		// @ts-ignore Error tests
-		request: () => {},
+		request: () => {
+			throw new Error('No way');
+		},
 		hooks: {
 			beforeError: [
 				async () => {

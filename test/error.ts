@@ -136,15 +136,13 @@ test('`http.request` pipe error', async t => {
 	await t.throwsAsync(got('https://example.com', {
 		// @ts-ignore Error tests
 		request: () => {
-			return {
-				end: () => {
-					throw new Error(message);
-				},
-				on: () => {},
-				once: () => {},
-				emit: () => {},
-				prependOnceListener: () => {}
-			};
+			const proxy = new stream.PassThrough();
+			proxy.resume();
+			proxy.once('pipe', () => {
+				proxy.destroy(new Error(message));
+			});
+
+			return proxy;
 		},
 		throwHttpErrors: false
 	}), {
@@ -190,4 +188,18 @@ test('errors are thrown directly when options.stream is true', t => {
 	}, {
 		message: 'Parameter `hooks` must be an Object, not boolean'
 	});
+});
+
+test('the old stacktrace is recovered', async t => {
+	const error = await t.throwsAsync(got('https://example.com', {
+		request: () => {
+			throw new Error('foobar');
+		}
+	}));
+
+	t.true(error.stack.includes('at Object.request'));
+
+	// The first `at get` points to where the error was wrapped,
+	// the second `at get` points to the real cause.
+	t.not(error.stack.indexOf('at get'), error.stack.lastIndexOf('at get'));
 });
