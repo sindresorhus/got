@@ -285,6 +285,10 @@ export default (options: NormalizedOptions) => {
 	};
 
 	(async () => {
+		// Promises are executed immediately.
+		// If there were no `setImmediate` here,
+		// `promise.json()` would have no effect
+		// as the request would be sent already.
 		await setImmediateAsync();
 
 		try {
