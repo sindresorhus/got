@@ -7,7 +7,7 @@ import got, {
 	HandlerFunction,
 	Headers,
 	Hooks,
-	RequestFunction,
+	RequestFunction
 } from '../source';
 import withServer from './helpers/with-server';
 
@@ -84,8 +84,8 @@ test('extend overwrites arrays with a deep clone', t => {
 	const beforeRequest = [0];
 	const a = got.extend({hooks: {beforeRequest} as unknown as Hooks});
 	beforeRequest[0] = 1;
-	t.deepEqual(a.defaults.options.hooks!.beforeRequest, [0] as unknown as BeforeRequestHook[]);
-	t.not(a.defaults.options.hooks!.beforeRequest, beforeRequest as unknown as BeforeRequestHook[]);
+	t.deepEqual(a.defaults.options.hooks.beforeRequest, [0] as unknown as BeforeRequestHook[]);
+	t.not(a.defaults.options.hooks.beforeRequest, beforeRequest as unknown as BeforeRequestHook[]);
 });
 
 test('extend keeps the old value if the new one is undefined', t => {
@@ -112,14 +112,14 @@ test('hooks are merged on got.extend()', t => {
 	const instanceA = got.extend({hooks: {beforeRequest: hooksA}});
 
 	const extended = instanceA.extend({hooks: {beforeRequest: hooksB}});
-	t.deepEqual(extended.defaults.options.hooks!.beforeRequest, hooksA.concat(hooksB));
+	t.deepEqual(extended.defaults.options.hooks.beforeRequest, hooksA.concat(hooksB));
 });
 
 test('custom endpoint with custom headers (extend)', withServer, async (t, server) => {
 	server.all('/', echoHeaders);
 
 	const instance = got.extend({headers: {unicorn: 'rainbow'}, prefixUrl: server.url});
-	const headers = await instance('').json()  as Headers;
+	const headers = await instance('').json() as Headers;
 	t.is(headers.unicorn, 'rainbow');
 	t.not(headers['user-agent'], undefined);
 });
@@ -179,7 +179,7 @@ test('defaults are cloned on instance creation', t => {
 
 	// @ts-ignore This IS correct
 	t.not(options.foo, instance.defaults.options.foo);
-	t.not(options.hooks.beforeRequest, instance.defaults.options.hooks!.beforeRequest);
+	t.not(options.hooks.beforeRequest, instance.defaults.options.hooks.beforeRequest);
 });
 
 test('ability to pass a custom request method', withServer, async (t, server, got) => {
