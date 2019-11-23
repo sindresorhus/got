@@ -219,6 +219,7 @@ test('throws TypeError when known `options.hooks` array item is not a function',
 test('allows extra keys in `options.hooks`', withServer, async (t, server, got) => {
 	server.get('/test', echoUrl);
 
+	// @ts-ignore We do not allow extra keys in hooks but this won't throw
 	await t.notThrowsAsync(got('test', {hooks: {extra: []}}));
 });
 

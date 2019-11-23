@@ -101,7 +101,6 @@ export interface Hooks {
 	@default []
 	*/
 	afterResponse?: AfterResponseHook[];
-	[hookName: string]: any;
 }
 
 export type HookEvent = keyof Hooks;

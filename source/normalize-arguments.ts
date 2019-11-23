@@ -82,7 +82,7 @@ export const preNormalizeArguments = (options: Options, defaults?: NormalizedOpt
 			// @ts-ignore TS is dumb.
 			options.hooks[event] = [
 				...defaults.hooks[event],
-				...options.hooks[event]
+				...options.hooks[event]!
 			];
 		}
 	}
