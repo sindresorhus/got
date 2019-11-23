@@ -7,7 +7,7 @@ import ResponseLike = require('responselike');
 import {Readable as ReadableStream} from 'stream';
 import CacheableLookup from 'cacheable-lookup';
 import {Timings} from '@szmarczak/http-timer';
-import {Except, JsonValue, Merge, PartialDeep} from 'type-fest';
+import {Except, JsonValue, Merge} from 'type-fest';
 import {GotReturn} from '../create';
 import {GotError, HTTPError, MaxRedirectsError, ParseError} from '../errors';
 import {Hooks} from '../known-hook-events';
@@ -146,8 +146,7 @@ export interface DefaultOptions {
 }
 
 // The library overrides agent/timeout in a non-standard way, so we have to override them
-// auth/path/host/port/protocol are overwritten in URLOptions
-export interface Options extends PartialDeep<DefaultOptions>, URLOptions, Except<https.RequestOptions, 'agent' | 'timeout' | 'auth' | 'path' | 'host' | 'port' | 'protocol'> {
+export interface Options extends Partial<Except<DefaultOptions, 'retry'>>, Merge<Except<https.RequestOptions, 'agent' | 'timeout'>, URLOptions> {
 	url?: URL | string;
 	body?: string | Buffer | ReadableStream;
 	hostname?: string;
