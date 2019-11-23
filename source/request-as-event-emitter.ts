@@ -14,6 +14,7 @@ import {CacheError, MaxRedirectsError, RequestError, TimeoutError} from './error
 import urlToOptions from './utils/url-to-options';
 import {NormalizedOptions, Response, ResponseObject} from './utils/types';
 
+const setImmediateAsync = () => new Promise(resolve => setImmediate(resolve));
 const pipeline = promisify(stream.pipeline);
 
 const redirectCodes: ReadonlySet<number> = new Set([300, 301, 302, 303, 304, 307, 308]);
@@ -283,7 +284,13 @@ export default (options: NormalizedOptions) => {
 		}
 	};
 
-	setImmediate(async () => {
+	(async () => {
+		// Promises are executed immediately.
+		// If there were no `setImmediate` here,
+		// `promise.json()` would have no effect
+		// as the request would be sent already.
+		await setImmediateAsync();
+
 		try {
 			for (const hook of options.hooks.beforeRequest) {
 				// eslint-disable-next-line no-await-in-loop
@@ -294,7 +301,7 @@ export default (options: NormalizedOptions) => {
 		} catch (error) {
 			emitError(error);
 		}
-	});
+	})();
 
 	return emitter;
 };
