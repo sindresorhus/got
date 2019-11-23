@@ -143,7 +143,6 @@ export default (options: NormalizedOptions) => {
 
 		const handleRequest = async (request: http.ClientRequest): Promise<void> => {
 			// `request.aborted` is a boolean since v11.0.0: https://github.com/nodejs/node/commit/4b00c4fafaa2ae8c41c1f78823c0feb810ae4723#diff-e3bc37430eb078ccbafe3aa3b570c91a
-			// We need to allow `TimedOutTimeoutError` here, because it `stream.pipeline(…)` aborts it automatically.
 			const isAborted = () => typeof request.aborted === 'number' || (request.aborted as unknown as boolean) === true;
 
 			currentRequest = request;
@@ -162,6 +161,7 @@ export default (options: NormalizedOptions) => {
 
 			const attachErrorHandler = () => {
 				request.once('error', error => {
+					// We need to allow `TimedOutTimeoutError` here, because `stream.pipeline(…)` aborts the request automatically.
 					if (isAborted() && !(error instanceof TimedOutTimeoutError)) {
 						return;
 					}
