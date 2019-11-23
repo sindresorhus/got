@@ -71,7 +71,7 @@ test('download progress', withServer, async (t, server, got) => {
 
 	const events = [];
 
-	const {body} = await got({encoding: null})
+	const {body} = await got({responseType: 'buffer'})
 		.on('downloadProgress', event => events.push(event));
 
 	checkEvents(t, events, body.length);
@@ -92,7 +92,7 @@ test('download progress - stream', withServer, async (t, server, got) => {
 
 	const events = [];
 
-	const stream = got.stream({encoding: null})
+	const stream = got.stream({responseType: 'buffer'})
 		.on('downloadProgress', event => events.push(event));
 
 	await getStream(stream);

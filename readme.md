@@ -297,10 +297,12 @@ Ignore invalid cookies instead of throwing an error. Only useful when the `cooki
 
 ###### encoding
 
-Type: `string | null`<br>
+Type: `string`<br>
 Default: `'utf8'`
 
-[Encoding](https://nodejs.org/api/buffer.html#buffer_buffers_and_character_encodings) to be used on `setEncoding` of the response data. If `null`, the body is returned as a [`Buffer`](https://nodejs.org/api/buffer.html) (binary data).
+[Encoding](https://nodejs.org/api/buffer.html#buffer_buffers_and_character_encodings) to be used on `setEncoding` of the response data.
+
+To get a [`Buffer`](https://nodejs.org/api/buffer.html), you need to set [`responseType`](#responseType) to `buffer` instead.
 
 ###### form
 
