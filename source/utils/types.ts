@@ -7,7 +7,7 @@ import ResponseLike = require('responselike');
 import {Readable as ReadableStream} from 'stream';
 import CacheableLookup from 'cacheable-lookup';
 import {Timings} from '@szmarczak/http-timer';
-import {Except, JsonValue, PartialDeep} from 'type-fest';
+import {Except, JsonValue, Merge, PartialDeep} from 'type-fest';
 import {GotReturn} from '../create';
 import {GotError, HTTPError, MaxRedirectsError, ParseError} from '../errors';
 import {Hooks} from '../known-hook-events';
@@ -200,13 +200,13 @@ export interface ExtendOptions extends Options {
 }
 
 export interface Defaults {
-	options: Options & {hooks: Required<Hooks>};
+	options: Merge<Options, {hooks: Required<Hooks>}>;
 	handlers: HandlerFunction[];
 	mutableDefaults: boolean;
 }
 
 export interface NormalizedDefaults {
-	options: Options & {hooks: Required<Hooks>};
+	options: Merge<Options, {hooks: Required<Hooks>}>;
 	handlers: HandlerFunction[];
 	_rawHandlers?: HandlerFunction[];
 	mutableDefaults: boolean;
@@ -227,7 +227,7 @@ export interface GotEvents<T> {
 	on(name: 'uploadProgress' | 'downloadProgress', listener: (progress: Progress) => void): T;
 }
 
-export interface CancelableRequest<T extends Response | Response['body']> extends PCancelable<T>, GotEvents<CancelableRequest<T>> {
+export interface CancelableRequest<T extends Response | Response['body'] = unknown> extends PCancelable<T>, GotEvents<CancelableRequest<T>> {
 	json<TReturnType extends JsonValue = JsonValue>(): CancelableRequest<TReturnType>;
 	buffer(): CancelableRequest<Buffer>;
 	text(): CancelableRequest<string>;

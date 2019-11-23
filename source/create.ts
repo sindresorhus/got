@@ -1,4 +1,4 @@
-import {JsonValue, PartialDeep} from 'type-fest';
+import {JsonValue, Merge, PartialDeep} from 'type-fest';
 import asPromise from './as-promise';
 import asStream, {ProxyStream} from './as-stream';
 import * as errors from './errors';
@@ -23,7 +23,7 @@ export type HTTPAlias =
 	| 'head'
 	| 'delete';
 
-export type ReturnStream = <T extends unknown = unknown>(url: string | Options & {isStream?: true}, options?: Options & {isStream?: true}) => ProxyStream<T>;
+export type ReturnStream = <T extends unknown = unknown>(url: string | Merge<Options, {isStream?: true}>, options?: Merge<Options, {isStream?: true}>) => ProxyStream<T>;
 export type GotReturn<T extends unknown = unknown> = CancelableRequest<T> | ProxyStream<T>;
 
 const getPromiseOrStream = (options: NormalizedOptions): GotReturn => options.isStream ? asStream(options) : asPromise(options);
@@ -32,10 +32,10 @@ const isGotInstance = (value: any): value is Got => (
 	Reflect.has(value, 'defaults') && Reflect.has(value.defaults, 'options')
 );
 
-export type OptionsOfDefaultResponseBody = Options & {isStream?: false; resolveBodyOnly?: false; responseType?: 'default'};
-type OptionsOfTextResponseBody = Options & {isStream?: false; resolveBodyOnly?: false; responseType: 'text'};
-type OptionsOfJSONResponseBody = Options & {isStream?: false; resolveBodyOnly?: false; responseType: 'json'};
-type OptionsOfBufferResponseBody = Options & {isStream?: false; resolveBodyOnly?: false; responseType: 'buffer'};
+export type OptionsOfDefaultResponseBody = Merge<Options, {isStream?: false; resolveBodyOnly?: false; responseType?: 'default'}>;
+type OptionsOfTextResponseBody = Merge<Options, {isStream?: false; resolveBodyOnly?: false; responseType: 'text'}>;
+type OptionsOfJSONResponseBody = Merge<Options, {isStream?: false; resolveBodyOnly?: false; responseType: 'json'}>;
+type OptionsOfBufferResponseBody = Merge<Options, {isStream?: false; resolveBodyOnly?: false; responseType: 'buffer'}>;
 type ResponseBodyOnly = {resolveBodyOnly: true};
 
 interface GotFunctions {
@@ -45,12 +45,12 @@ interface GotFunctions {
 	<T extends JsonValue = JsonValue>(url: string | OptionsOfJSONResponseBody, options?: OptionsOfJSONResponseBody): CancelableRequest<Response<T>>;
 	(url: string | OptionsOfBufferResponseBody, options?: OptionsOfBufferResponseBody): CancelableRequest<Response<Buffer>>;
 	// `resolveBodyOnly` usage
-	<T extends unknown = unknown>(url: string | OptionsOfDefaultResponseBody & ResponseBodyOnly, options?: OptionsOfDefaultResponseBody & ResponseBodyOnly): CancelableRequest<T>;
-	(url: string | OptionsOfTextResponseBody & ResponseBodyOnly, options?: OptionsOfTextResponseBody & ResponseBodyOnly): CancelableRequest<string>;
-	<T extends JsonValue = JsonValue>(url: string | OptionsOfJSONResponseBody & ResponseBodyOnly, options?: OptionsOfJSONResponseBody & ResponseBodyOnly): CancelableRequest<T>;
-	(url: string | OptionsOfBufferResponseBody & ResponseBodyOnly, options?: OptionsOfBufferResponseBody & ResponseBodyOnly): CancelableRequest<Buffer>;
+	<T extends unknown = unknown>(url: string | Merge<OptionsOfDefaultResponseBody, ResponseBodyOnly>, options?: Merge<OptionsOfDefaultResponseBody, ResponseBodyOnly>): CancelableRequest<T>;
+	(url: string | Merge<OptionsOfTextResponseBody, ResponseBodyOnly>, options?: Merge<OptionsOfTextResponseBody, ResponseBodyOnly>): CancelableRequest<string>;
+	<T extends JsonValue = JsonValue>(url: string | Merge<OptionsOfJSONResponseBody, ResponseBodyOnly>, options?: Merge<OptionsOfJSONResponseBody, ResponseBodyOnly>): CancelableRequest<T>;
+	(url: string | Merge<OptionsOfBufferResponseBody, ResponseBodyOnly>, options?: Merge<OptionsOfBufferResponseBody, ResponseBodyOnly>): CancelableRequest<Buffer>;
 	// `asStream` usage
-	<T extends unknown = unknown>(url: string | Options & {isStream: true}, options?: Options & {isStream: true}): ProxyStream<T>;
+	<T extends unknown = unknown>(url: string | Merge<Options, {isStream: true}>, options?: Merge<Options, {isStream: true}>): ProxyStream<T>;
 }
 
 export interface Got extends Record<HTTPAlias, GotFunctions>, GotFunctions {

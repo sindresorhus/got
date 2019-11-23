@@ -7,6 +7,7 @@ import lowercaseKeys = require('lowercase-keys');
 import toReadableStream = require('to-readable-stream');
 import is from '@sindresorhus/is';
 import CacheableLookup from 'cacheable-lookup';
+import {Merge} from 'type-fest';
 import {UnsupportedProtocolError} from './errors';
 import knownHookEvents from './known-hook-events';
 import dynamicRequire from './utils/dynamic-require';
@@ -284,11 +285,11 @@ export const normalizeArguments = (url: URLOrOptions, options?: Options, default
 
 const withoutBody: ReadonlySet<string> = new Set(['GET', 'HEAD']);
 
-export type NormalizedRequestArguments = https.RequestOptions & {
+export type NormalizedRequestArguments = Merge<https.RequestOptions, {
 	body: Pick<NormalizedOptions, 'body'>;
 	headers: Headers;
 	url: Pick<NormalizedOptions, 'url'>;
-};
+}>;
 
 export const normalizeRequestArguments = async (options: NormalizedOptions): Promise<NormalizedRequestArguments> => {
 	options = mergeOptions(options);
