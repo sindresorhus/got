@@ -93,7 +93,7 @@ export interface DefaultRetryOptions {
 	statusCodes: number[];
 	errorCodes: string[];
 	calculateDelay?: RetryFunction;
-	maxRetryAfter?: undefined;
+	maxRetryAfter?: number;
 }
 
 export interface RetryOptions extends Partial<DefaultRetryOptions> {

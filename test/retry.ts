@@ -5,7 +5,8 @@ import test from 'ava';
 import is from '@sindresorhus/is';
 import {Handler} from 'express';
 import pEvent = require('p-event');
-import got, {HTTPError, RequestFunction, RetryOptions, URLOrOptions} from '../source';
+import got, {HTTPError, RequestFunction, RetryOptions} from '../source';
+import {OptionsOfDefaultResponseBody} from '../source/create';
 import withServer from './helpers/with-server';
 
 const retryAfterOn413 = 2;
@@ -50,7 +51,7 @@ test('works on timeout', withServer, async (t, server, got) => {
 			knocks++;
 			return createSocketTimeoutStream();
 		}
-	} as URLOrOptions)).body, 'who`s there?');
+	} as OptionsOfDefaultResponseBody)).body, 'who`s there?');
 });
 
 test('retry function gets iteration count', withServer, async (t, server, got) => {
