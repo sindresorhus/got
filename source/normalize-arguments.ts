@@ -183,7 +183,7 @@ export const mergeOptions = (...sources: Options[]): NormalizedOptions => {
 	const mergedOptions = preNormalizeArguments({});
 
 	// Non enumerable properties shall not be merged
-	const properties: Partial<Record<NonEnumerableProperty, any>> = {};
+	const properties: Partial<{[Key in NonEnumerableProperty]: any}> = {};
 
 	for (const source of sources) {
 		if (!source) {

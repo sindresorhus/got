@@ -1,7 +1,7 @@
 import is from '@sindresorhus/is';
 import {Merge} from 'type-fest';
 
-export default function merge<Target extends Record<string, any>, Source extends Record<string, any>>(target: Target, ...sources: Source[]): Merge<Source, Target> {
+export default function merge<Target extends {[key: string]: any}, Source extends {[key: string]: any}>(target: Target, ...sources: Source[]): Merge<Source, Target> {
 	for (const source of sources) {
 		for (const [key, sourceValue] of Object.entries(source)) {
 			const targetValue = target[key];

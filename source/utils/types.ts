@@ -172,8 +172,8 @@ export interface Options extends Partial<Except<DefaultOptions, 'retry'>>, Merge
 	timeout?: number | Delays;
 	dnsCache?: CacheableLookup | Map<string, string> | Keyv | false;
 	useElectronNet?: boolean;
-	form?: Record<string, any>;
-	json?: Record<string, any>;
+	form?: {[key: string]: any};
+	json?: {[key: string]: any};
 	context?: {[key: string]: any};
 	maxRedirects?: number;
 	lookup?: CacheableLookup['lookup'];
