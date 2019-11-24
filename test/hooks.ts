@@ -260,7 +260,7 @@ test('beforeRedirect is called with options and response', withServer, async (t,
 					t.is(options.url.hostname, 'localhost');
 
 					t.is(response.statusCode, 302);
-					t.is(new URL(response.url!).pathname, '/redirect');
+					t.is(new URL(response.url).pathname, '/redirect');
 					t.is(response.redirectUrls.length, 1);
 				}
 			]

@@ -5,7 +5,7 @@ import is from '@sindresorhus/is';
 import {ParseError, ReadError, HTTPError} from './errors';
 import {normalizeArguments, mergeOptions} from './normalize-arguments';
 import requestAsEventEmitter, {proxyEvents} from './request-as-event-emitter';
-import {CancelableRequest, GenericError, NormalizedOptions, Response} from './utils/types';
+import {CancelableRequest, GeneralError, NormalizedOptions, Response} from './utils/types';
 
 const parseBody = (body: Response['body'], responseType: NormalizedOptions['responseType'], statusCode: Response['statusCode']) => {
 	if (responseType === 'json' && is.string(body)) {
@@ -27,7 +27,7 @@ const parseBody = (body: Response['body'], responseType: NormalizedOptions['resp
 	throw new Error(`Failed to parse body of type '${typeof body}' as '${responseType}'`);
 };
 
-export default function asPromise<T extends unknown = unknown>(options: NormalizedOptions): CancelableRequest<T> {
+export default function asPromise<T>(options: NormalizedOptions): CancelableRequest<T> {
 	const proxy = new EventEmitter();
 	let finalResponse: Pick<Response, 'body' | 'statusCode'>;
 
@@ -36,7 +36,7 @@ export default function asPromise<T extends unknown = unknown>(options: Normaliz
 		const emitter = requestAsEventEmitter(options);
 		onCancel(emitter.abort);
 
-		const emitError = async (error: GenericError): Promise<void> => {
+		const emitError = async (error: GeneralError): Promise<void> => {
 			try {
 				for (const hook of options.hooks.beforeError) {
 					// eslint-disable-next-line no-await-in-loop
@@ -150,7 +150,7 @@ export default function asPromise<T extends unknown = unknown>(options: Normaliz
 		return promise;
 	};
 
-	const shortcut = <T extends unknown = unknown>(responseType: NormalizedOptions['responseType']): CancelableRequest<T> => {
+	const shortcut = <T>(responseType: NormalizedOptions['responseType']): CancelableRequest<T> => {
 		// eslint-disable-next-line promise/prefer-await-to-then
 		const newPromise = promise.then(() => parseBody(finalResponse.body, responseType, finalResponse.statusCode));
 

@@ -14,7 +14,7 @@ test('merging instances', withServer, async (t, server) => {
 	const instanceB = got.extend({prefixUrl: server.url});
 	const merged = instanceA.extend(instanceB);
 
-	const headers = await merged('').json() as Headers;
+	const headers = await merged('').json<Headers>();
 	t.is(headers.unicorn, 'rainbow');
 	t.not(headers['user-agent'], undefined);
 });
@@ -33,7 +33,7 @@ test('merges default handlers & custom handlers', withServer, async (t, server) 
 	});
 	const merged = instanceA.extend(instanceB);
 
-	const headers = await merged(server.url).json() as Headers;
+	const headers = await merged(server.url).json<Headers>();
 	t.is(headers.unicorn, 'rainbow');
 	t.is(headers.cat, 'meow');
 });
@@ -49,7 +49,7 @@ test('merging one group & one instance', withServer, async (t, server) => {
 	const merged = instanceA.extend(instanceB, instanceC);
 	const doubleMerged = merged.extend(instanceD);
 
-	const headers = await doubleMerged(server.url).json() as Headers;
+	const headers = await doubleMerged(server.url).json<Headers>();
 	t.is(headers.dog, 'woof');
 	t.is(headers.cat, 'meow');
 	t.is(headers.bird, 'tweet');
@@ -69,7 +69,7 @@ test('merging two groups of merged instances', withServer, async (t, server) => 
 
 	const merged = groupA.extend(groupB);
 
-	const headers = await merged(server.url).json() as Headers;
+	const headers = await merged(server.url).json<Headers>();
 	t.is(headers.dog, 'woof');
 	t.is(headers.cat, 'meow');
 	t.is(headers.bird, 'tweet');

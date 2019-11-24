@@ -158,7 +158,7 @@ test('upload progress - stream with known body size', withServer, async (t, serv
 
 	const events: Progress[] = [];
 	const options = {
-		headers: {'content-length': file.length}
+		headers: {'content-length': file.length.toString()}
 	};
 
 	const request = got.stream.post(options)

@@ -4,13 +4,13 @@ import {IncomingMessage} from 'http';
 import {Duplex as DuplexStream, PassThrough as PassThroughStream} from 'stream';
 import {HTTPError, ReadError} from './errors';
 import requestAsEventEmitter, {proxyEvents} from './request-as-event-emitter';
-import {GenericError, GotEvents, NormalizedOptions, Response} from './utils/types';
+import {GeneralError, GotEvents, NormalizedOptions, Response} from './utils/types';
 
-export class ProxyStream<T extends unknown = unknown> extends DuplexStream implements GotEvents<ProxyStream<T>> {
+export class ProxyStream<T = unknown> extends DuplexStream implements GotEvents<ProxyStream<T>> {
 	isFromCache?: boolean;
 }
 
-export default function asStream<T extends unknown = unknown>(options: NormalizedOptions): ProxyStream<T> {
+export default function asStream<T>(options: NormalizedOptions): ProxyStream<T> {
 	const input = new PassThroughStream();
 	const output = new PassThroughStream();
 	const proxy = duplexer3(input, output) as ProxyStream;
@@ -35,7 +35,7 @@ export default function asStream<T extends unknown = unknown>(options: Normalize
 
 	const emitter = requestAsEventEmitter(options);
 
-	const emitError = async (error: GenericError): Promise<void> => {
+	const emitError = async (error: GeneralError): Promise<void> => {
 		try {
 			for (const hook of options.hooks.beforeError) {
 				// eslint-disable-next-line no-await-in-loop
@@ -102,7 +102,7 @@ export default function asStream<T extends unknown = unknown>(options: Normalize
 	});
 
 	proxyEvents(proxy, emitter);
-	emitter.on('error', (error: GenericError) => proxy.emit('error', error));
+	emitter.on('error', (error: GeneralError) => proxy.emit('error', error));
 
 	const pipe = proxy.pipe.bind(proxy);
 	const unpipe = proxy.unpipe.bind(proxy);

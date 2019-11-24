@@ -1,4 +1,4 @@
-import {CancelableRequest, GenericError, NormalizedOptions, Options, Response} from './utils/types';
+import {CancelableRequest, GeneralError, NormalizedOptions, Options, Response} from './utils/types';
 
 /**
 Called with plain request options, right before their normalization. This is especially useful in conjunction with got.extend() and got.create() when the input needs custom handling.
@@ -24,14 +24,14 @@ export type BeforeRedirectHook = (options: NormalizedOptions, response: Response
 /**
 Called with normalized [request options](https://github.com/sindresorhus/got#options), the error and the retry count. Got will make no further changes to the request. This is especially useful when some extra work is required before the next try.
 */
-export type BeforeRetryHook = (options: NormalizedOptions, error?: GenericError, retryCount?: number) => void | Promise<void>;
+export type BeforeRetryHook = (options: NormalizedOptions, error?: GeneralError, retryCount?: number) => void | Promise<void>;
 
 /**
 Called with an `Error` instance. The error is passed to the hook right before it's thrown. This is especially useful when you want to have more detailed errors.
 
 **Note:** Errors thrown while normalizing input options are thrown directly and not part of this hook.
 */
-export type BeforeErrorHook = <ErrorLike extends GenericError>(error: ErrorLike) => GenericError | Promise<GenericError>;
+export type BeforeErrorHook = <ErrorLike extends GeneralError>(error: ErrorLike) => GeneralError | Promise<GeneralError>;
 
 /**
 Called with [response object](https://github.com/sindresorhus/got#response) and a retry function.

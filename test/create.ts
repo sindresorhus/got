@@ -32,7 +32,7 @@ test('supports instance defaults', withServer, async (t, server, got) => {
 			'user-agent': 'custom-ua-string'
 		}
 	});
-	const headers = await instance('').json() as Headers;
+	const headers = await instance('').json<Headers>();
 	t.is(headers['user-agent'], 'custom-ua-string');
 });
 
@@ -48,7 +48,7 @@ test('supports invocation overrides', withServer, async (t, server, got) => {
 		headers: {
 			'user-agent': 'different-ua-string'
 		}
-	}).json() as Headers;
+	}).json<Headers>();
 	t.is(headers['user-agent'], 'different-ua-string');
 });
 
@@ -65,7 +65,7 @@ test('carries previous instance defaults', withServer, async (t, server, got) =>
 			'x-bar': 'bar'
 		}
 	});
-	const headers = await instanceB('').json() as Headers;
+	const headers = await instanceB('').json<Headers>();
 	t.is(headers['x-foo'], 'foo');
 	t.is(headers['x-bar'], 'bar');
 });
@@ -76,7 +76,7 @@ test('custom headers (extend)', withServer, async (t, server, got) => {
 	const options = {headers: {unicorn: 'rainbow'}};
 
 	const instance = got.extend(options);
-	const headers = await instance('').json() as Headers;
+	const headers = await instance('').json<Headers>();
 	t.is(headers.unicorn, 'rainbow');
 });
 
@@ -119,7 +119,7 @@ test('custom endpoint with custom headers (extend)', withServer, async (t, serve
 	server.all('/', echoHeaders);
 
 	const instance = got.extend({headers: {unicorn: 'rainbow'}, prefixUrl: server.url});
-	const headers = await instance('').json() as Headers;
+	const headers = await instance('').json<Headers>();
 	t.is(headers.unicorn, 'rainbow');
 	t.not(headers['user-agent'], undefined);
 });
@@ -228,7 +228,7 @@ test('extend with custom handlers', withServer, async (t, server, got) => {
 			}
 		]
 	});
-	const headers = await instance('').json() as Headers;
+	const headers = await instance('').json<Headers>();
 	t.is(headers.unicorn, 'rainbow');
 });
 
@@ -242,7 +242,7 @@ test('extend with a chain', t => {
 	const a = got.extend({prefixUrl: 'https://example.com/'});
 	const b = got.extend(a, {headers: {foo: 'bar'}});
 	t.is(b.defaults.options.prefixUrl!.toString(), 'https://example.com/');
-	t.is(b.defaults.options.headers!.foo, 'bar');
+	t.is(b.defaults.options.headers.foo, 'bar');
 });
 
 test('async handlers', withServer, async (t, server, got) => {

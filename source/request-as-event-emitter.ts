@@ -12,7 +12,7 @@ import getResponse from './get-response';
 import {normalizeRequestArguments} from './normalize-arguments';
 import {createProgressStream} from './progress';
 import timedOut, {TimeoutError as TimedOutTimeoutError} from './utils/timed-out';
-import {GenericError, NormalizedOptions, Response, ResponseObject} from './utils/types';
+import {GeneralError, NormalizedOptions, Response, ResponseObject} from './utils/types';
 import urlToOptions from './utils/url-to-options';
 
 const setImmediateAsync = () => new Promise(resolve => setImmediate(resolve));
@@ -34,7 +34,7 @@ export default (options: NormalizedOptions) => {
 
 	let currentRequest: http.ClientRequest;
 
-	const emitError = async (error: GenericError): Promise<void> => {
+	const emitError = async (error: GeneralError): Promise<void> => {
 		try {
 			for (const hook of options.hooks.beforeError) {
 				// eslint-disable-next-line no-await-in-loop
@@ -148,7 +148,7 @@ export default (options: NormalizedOptions) => {
 
 			currentRequest = request;
 
-			const onError = (error: GenericError): void => {
+			const onError = (error: GeneralError): void => {
 				if (error instanceof TimedOutTimeoutError) {
 					error = new TimeoutError(error, request.timings!, options);
 				} else {
@@ -212,7 +212,7 @@ export default (options: NormalizedOptions) => {
 			// @ts-ignore ResponseLike missing socket field, should be fixed upstream
 			const cacheRequest = options.cacheableRequest!(httpOptions, handleResponse);
 
-			cacheRequest.once('error', (error: GenericError) => {
+			cacheRequest.once('error', (error: GeneralError) => {
 				if (error instanceof CacheableRequest.RequestError) {
 					emitError(new RequestError(error, options));
 				} else {

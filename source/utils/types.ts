@@ -7,13 +7,13 @@ import ResponseLike = require('responselike');
 import {Readable as ReadableStream} from 'stream';
 import CacheableLookup from 'cacheable-lookup';
 import {Timings} from '@szmarczak/http-timer';
-import {Except, JsonValue, Merge} from 'type-fest';
+import {Except, Merge} from 'type-fest';
 import {GotReturn} from '../create';
 import {GotError, HTTPError, MaxRedirectsError, ParseError} from '../errors';
 import {Hooks} from '../known-hook-events';
 import {URLOptions} from './options-to-url';
 
-export type GenericError = Error | GotError | HTTPError | MaxRedirectsError | ParseError;
+export type GeneralError = Error | GotError | HTTPError | MaxRedirectsError | ParseError;
 
 export type Method =
 	| 'GET'
@@ -45,7 +45,7 @@ export type ErrorCode =
 
 export type ResponseType = 'json' | 'buffer' | 'text' | 'default';
 
-export interface Response<BodyType extends unknown = unknown> extends http.IncomingMessage {
+export interface Response<BodyType = unknown> extends http.IncomingMessage {
 	body: BodyType;
 	statusCode: number;
 
@@ -66,6 +66,7 @@ export interface Response<BodyType extends unknown = unknown> extends http.Incom
 	request: {
 		options: NormalizedOptions;
 	};
+	url: string;
 }
 
 // TODO: The `ResponseLike` type should be properly fixed instead:
@@ -117,7 +118,7 @@ export interface Delays {
 	request?: number;
 }
 
-export type Headers = Record<string, string | string[] | number | undefined>;
+export type Headers = Record<string, string | string[] | undefined>;
 
 interface CookieJar {
 	getCookieString(url: string, callback: (error: Error | null, cookieHeader: string) => void): void;
@@ -173,13 +174,14 @@ export interface Options extends Partial<Except<DefaultOptions, 'retry'>>, Merge
 	useElectronNet?: boolean;
 	form?: Record<string, any>;
 	json?: Record<string, any>;
-	context?: Record<string, any>;
+	context?: {[key: string]: any};
 	maxRedirects?: number;
 	lookup?: CacheableLookup['lookup'];
 }
 
 export interface NormalizedOptions extends Except<DefaultOptions, 'dnsCache'>, Except<Options, keyof DefaultOptions> {
 	// Normalized Got options
+	headers: Headers;
 	hooks: Required<Hooks>;
 	timeout: Delays;
 	dnsCache?: CacheableLookup | false;
@@ -199,13 +201,13 @@ export interface ExtendOptions extends Options {
 }
 
 export interface Defaults {
-	options: Merge<Options, {hooks: Required<Hooks>}>;
+	options: Merge<Options, {headers: Headers; hooks: Required<Hooks>}>;
 	handlers: HandlerFunction[];
 	mutableDefaults: boolean;
 }
 
 export interface NormalizedDefaults {
-	options: Merge<Options, {hooks: Required<Hooks>}>;
+	options: Merge<Options, {headers: Headers; hooks: Required<Hooks>}>;
 	handlers: HandlerFunction[];
 	_rawHandlers?: HandlerFunction[];
 	mutableDefaults: boolean;
@@ -226,8 +228,8 @@ export interface GotEvents<T> {
 	on(name: 'uploadProgress' | 'downloadProgress', listener: (progress: Progress) => void): T;
 }
 
-export interface CancelableRequest<T extends Response | Response['body'] = unknown> extends PCancelable<T>, GotEvents<CancelableRequest<T>> {
-	json<TReturnType extends JsonValue = JsonValue>(): CancelableRequest<TReturnType>;
+export interface CancelableRequest<T extends Response | Response['body']> extends PCancelable<T>, GotEvents<CancelableRequest<T>> {
+	json<TReturnType>(): CancelableRequest<TReturnType>;
 	buffer(): CancelableRequest<Buffer>;
 	text(): CancelableRequest<string>;
 }

@@ -1,4 +1,4 @@
-import {JsonValue, Merge, PartialDeep} from 'type-fest';
+import {Merge, PartialDeep} from 'type-fest';
 import asPromise from './as-promise';
 import asStream, {ProxyStream} from './as-stream';
 import * as errors from './errors';
@@ -23,8 +23,8 @@ export type HTTPAlias =
 	| 'head'
 	| 'delete';
 
-export type ReturnStream = <T extends unknown = unknown>(url: string | Merge<Options, {isStream?: true}>, options?: Merge<Options, {isStream?: true}>) => ProxyStream<T>;
-export type GotReturn<T extends unknown = unknown> = CancelableRequest<T> | ProxyStream<T>;
+export type ReturnStream = <T>(url: string | Merge<Options, {isStream?: true}>, options?: Merge<Options, {isStream?: true}>) => ProxyStream<T>;
+export type GotReturn<T = unknown> = CancelableRequest<T> | ProxyStream<T>;
 
 const getPromiseOrStream = (options: NormalizedOptions): GotReturn => options.isStream ? asStream(options) : asPromise(options);
 
@@ -40,17 +40,17 @@ type ResponseBodyOnly = {resolveBodyOnly: true};
 
 interface GotFunctions {
 	// `asPromise` usage
-	<T extends unknown = unknown>(url: string | OptionsOfDefaultResponseBody, options?: OptionsOfDefaultResponseBody): CancelableRequest<Response<T>>;
+	<T>(url: string | OptionsOfDefaultResponseBody, options?: OptionsOfDefaultResponseBody): CancelableRequest<Response<T>>;
 	(url: string | OptionsOfTextResponseBody, options?: OptionsOfTextResponseBody): CancelableRequest<Response<string>>;
-	<T extends JsonValue = JsonValue>(url: string | OptionsOfJSONResponseBody, options?: OptionsOfJSONResponseBody): CancelableRequest<Response<T>>;
+	<T>(url: string | OptionsOfJSONResponseBody, options?: OptionsOfJSONResponseBody): CancelableRequest<Response<T>>;
 	(url: string | OptionsOfBufferResponseBody, options?: OptionsOfBufferResponseBody): CancelableRequest<Response<Buffer>>;
 	// `resolveBodyOnly` usage
-	<T extends unknown = unknown>(url: string | Merge<OptionsOfDefaultResponseBody, ResponseBodyOnly>, options?: Merge<OptionsOfDefaultResponseBody, ResponseBodyOnly>): CancelableRequest<T>;
+	<T>(url: string | Merge<OptionsOfDefaultResponseBody, ResponseBodyOnly>, options?: Merge<OptionsOfDefaultResponseBody, ResponseBodyOnly>): CancelableRequest<T>;
 	(url: string | Merge<OptionsOfTextResponseBody, ResponseBodyOnly>, options?: Merge<OptionsOfTextResponseBody, ResponseBodyOnly>): CancelableRequest<string>;
-	<T extends JsonValue = JsonValue>(url: string | Merge<OptionsOfJSONResponseBody, ResponseBodyOnly>, options?: Merge<OptionsOfJSONResponseBody, ResponseBodyOnly>): CancelableRequest<T>;
+	<T>(url: string | Merge<OptionsOfJSONResponseBody, ResponseBodyOnly>, options?: Merge<OptionsOfJSONResponseBody, ResponseBodyOnly>): CancelableRequest<T>;
 	(url: string | Merge<OptionsOfBufferResponseBody, ResponseBodyOnly>, options?: Merge<OptionsOfBufferResponseBody, ResponseBodyOnly>): CancelableRequest<Buffer>;
 	// `asStream` usage
-	<T extends unknown = unknown>(url: string | Merge<Options, {isStream: true}>, options?: Merge<Options, {isStream: true}>): ProxyStream<T>;
+	<T>(url: string | Merge<Options, {isStream: true}>, options?: Merge<Options, {isStream: true}>): ProxyStream<T>;
 }
 
 export interface Got extends Record<HTTPAlias, GotFunctions>, GotFunctions {
