@@ -3,7 +3,7 @@ import stream = require('stream');
 import test from 'ava';
 import {Handler} from 'express';
 import toReadableStream = require('to-readable-stream');
-import got, {Response} from '../source';
+import got from '../source';
 import withServer from './helpers/with-server';
 
 const pStreamPipeline = promisify(stream.pipeline);
@@ -114,7 +114,7 @@ test('`content-length` header with string body', withServer, async (t, server, g
 test('`content-length` header with Buffer body', withServer, async (t, server, got) => {
 	server.post('/', echoHeaders);
 
-	const {body}: Response<string> = await got.post({body: Buffer.from('wow')});
+	const {body} = await got.post({body: Buffer.from('wow')});
 	const headers = JSON.parse(body);
 	t.is(headers['content-length'], '3');
 });

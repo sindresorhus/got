@@ -44,7 +44,7 @@ test('cached response is re-encoded to current encoding option', withServer, asy
 	const firstEncoding = 'base64';
 	const secondEncoding = 'hex';
 
-	const firstResponse = await got<string>({cache, encoding: firstEncoding});
+	const firstResponse = await got({cache, encoding: firstEncoding});
 	const secondResponse = await got({cache, encoding: secondEncoding});
 
 	const expectedSecondResponseBody = Buffer.from(firstResponse.body, firstEncoding).toString(secondEncoding);
