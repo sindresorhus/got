@@ -248,17 +248,21 @@ Default: `'default'`
 
 Parsing method used to retrieve the body from the response.
 
-- `'default'` - if `options.encoding` is `null`, the body will be a Buffer. Otherwise it will be a string unless it's overwritten in a `afterResponse` hook,
-- `'text'` - will always give a string, no matter what's the `options.encoding` or if the body is a custom object,
-- `'json'` - will always give an object, unless it's invalid JSON - then it will throw.
-- `'buffer'` - will always give a Buffer, no matter what's the `options.encoding`. It will throw if the body is a custom object.
+- `'default'` - Will give a string unless the body is overwritten in a `afterResponse` hook or if `options.decompress` is set to false - Will give a Buffer if the response is compresssed.
+- `'text'` - Will give a string no matter what.
+- `'json'` - Will give an object, unless the body is invalid JSON, then it will throw.
+- `'buffer'` - Will give a Buffer, ignoring `options.encoding`. It will throw if the body is a custom object.
 
-The promise has `.json()` and `.buffer()` and `.text()` functions which set this option automatically.
+The promise has `.json()` and `.buffer()` and `.text()` methods which set this option automatically.
 
 Example:
 
 ```js
+// This
 const body = await got(url).json();
+
+// is the same as this
+const body = await got(url, {responseType: 'json'});
 ```
 
 ###### resolveBodyOnly
@@ -297,10 +301,12 @@ Ignore invalid cookies instead of throwing an error. Only useful when the `cooki
 
 ###### encoding
 
-Type: `string | null`<br>
+Type: `string`<br>
 Default: `'utf8'`
 
-[Encoding](https://nodejs.org/api/buffer.html#buffer_buffers_and_character_encodings) to be used on `setEncoding` of the response data. If `null`, the body is returned as a [`Buffer`](https://nodejs.org/api/buffer.html) (binary data).
+[Encoding](https://nodejs.org/api/buffer.html#buffer_buffers_and_character_encodings) to be used on `setEncoding` of the response data.
+
+To get a [`Buffer`](https://nodejs.org/api/buffer.html), you need to set [`responseType`](#responseType) to `buffer` instead.
 
 ###### form
 

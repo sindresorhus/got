@@ -155,7 +155,7 @@ export interface Options extends Partial<Except<DefaultOptions, 'retry'>>, Merge
 	hooks?: Partial<Hooks>;
 	decompress?: boolean;
 	isStream?: boolean;
-	encoding?: BufferEncoding | null;
+	encoding?: BufferEncoding;
 	method?: Method;
 	retry?: RetryOptions | number;
 	throwHttpErrors?: boolean;
