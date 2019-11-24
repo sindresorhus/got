@@ -248,17 +248,21 @@ Default: `'default'`
 
 Parsing method used to retrieve the body from the response.
 
-- `'default'` - will give a string unless the body is overwritten in a `afterResponse` hook or if `options.decompress` is set to false - will give a Buffer if the response is compresssed,
-- `'text'` - will give a string, no matter what's the `options.encoding` or if the body is a custom object,
-- `'json'` - will give an object, unless the body is an invalid JSON - then it will throw,
-- `'buffer'` - will give a Buffer, no matter what's the `options.encoding`. It will throw if the body is a custom object.
+- `'default'` - Will give a string unless the body is overwritten in a `afterResponse` hook or if `options.decompress` is set to false - Will give a Buffer if the response is compresssed.
+- `'text'` - Will give a string no matter what.
+- `'json'` - Will give an object, unless the body is invalid JSON, then it will throw.
+- `'buffer'` - Will give a Buffer, ignoring `options.encoding`. It will throw if the body is a custom object.
 
-The promise has `.json()` and `.buffer()` and `.text()` functions which set this option automatically.
+The promise has `.json()` and `.buffer()` and `.text()` methods which set this option automatically.
 
 Example:
 
 ```js
+// This
 const body = await got(url).json();
+
+// is the same as this
+const body = await got(url, {responseType: 'json'});
 ```
 
 ###### resolveBodyOnly
