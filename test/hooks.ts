@@ -613,7 +613,7 @@ test('does not break on `afterResponse` hook with JSON mode', withServer, async 
 				(response, retryWithMergedOptions) => {
 					if (response.statusCode === 404) {
 						return retryWithMergedOptions({
-							href: '/foobar'
+							path: '/foobar'
 						});
 					}
 
