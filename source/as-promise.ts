@@ -53,10 +53,8 @@ export default function asPromise(options: NormalizedOptions) {
 		emitter.on('response', async (response: Response) => {
 			proxy.emit('response', response);
 
-			const streamAsPromise = is.null_(options.encoding) ? getStream.buffer(response) : getStream(response, {encoding: options.encoding});
-
 			try {
-				response.body = await streamAsPromise;
+				response.body = await getStream(response, {encoding: options.encoding});
 			} catch (error) {
 				emitError(new ReadError(error, options));
 				return;

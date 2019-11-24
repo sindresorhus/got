@@ -164,6 +164,11 @@ export const preNormalizeArguments = (options: Options, defaults?: NormalizedOpt
 		options.cookieJar = {setCookie, getCookieString};
 	}
 
+	// `options.encoding`
+	if (is.null_(options.encoding)) {
+		throw new TypeError('To get a Buffer, set `options.responseType` to `buffer` instead');
+	}
+
 	return options as NormalizedOptions;
 };
 

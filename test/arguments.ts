@@ -336,3 +336,9 @@ test('`context` option is accessible when extending instances', t => {
 	t.is(instance.defaults.options.context, context);
 	t.false({}.propertyIsEnumerable.call(instance.defaults.options, 'context'));
 });
+
+test('throws if `options.encoding` is `null`', async t => {
+	await t.throwsAsync(got('https://example.com', {
+		encoding: null
+	}), 'To get a Buffer, set `options.responseType` to `buffer` instead');
+});
