@@ -85,7 +85,7 @@ export default (options: NormalizedOptions) => {
 
 				const rawCookies = typedResponse.headers['set-cookie'];
 				if (Reflect.has(options, 'cookieJar') && rawCookies) {
-					let promises: Array<Promise<unknown>> = rawCookies.map((rawCookie: string) => options.cookieJar.setCookie(rawCookie, typedResponse.url!));
+					let promises: Array<Promise<unknown>> = rawCookies.map((rawCookie: string) => options.cookieJar.setCookie(rawCookie, typedResponse.url));
 
 					if (options.ignoreInvalidCookies) {
 						promises = promises.map(p => p.catch(() => {}));
