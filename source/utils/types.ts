@@ -153,7 +153,7 @@ export interface Options extends URLOptions {
 	context?: {[key: string]: unknown};
 	maxRedirects?: number;
 	lookup?: CacheableLookup['lookup'];
-	enableMethodRewriting?: boolean;
+	methodRewriting?: boolean;
 }
 
 export interface NormalizedOptions extends Except<Options, keyof URLOptions> {

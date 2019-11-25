@@ -377,7 +377,7 @@ test('method overwriting can be turned off', withServer, async (t, server, got) 
 
 	const {body} = await got.post('redirect', {
 		body: 'foobar',
-		enableMethodRewriting: false,
+		methodRewriting: false,
 		hooks: {
 			beforeRedirect: [
 				options => {
