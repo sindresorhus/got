@@ -413,7 +413,7 @@ Note that if a `303` is sent by the server in response to any request type (`POS
 Type: `boolean`<br>
 Default: `true`
 
-By default, redirects will use [method rewriting](https://tools.ietf.org/html/rfc7231#section-6.4). For example, when sending a POST request and receiving a `302`, it will resend the body to the new location.
+By default, redirects will use [method rewriting](https://tools.ietf.org/html/rfc7231#section-6.4). For example, when sending a POST request and receiving a `302`, it will resend the body to the new location using the same HTTP method (`POST` in this case).
 
 To disable method rewriting, set this to `false`.
 
