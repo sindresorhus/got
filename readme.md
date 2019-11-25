@@ -106,6 +106,8 @@ const pipeline = promisify(stream.pipeline);
 
 It's a `GET` request by default, but can be changed by using different methods or via `options.method`.
 
+**By default, Got will retry on failure. To disable this option, set [`retry`](#retry) to `0`.**
+
 #### got([url], [options])
 
 Returns a Promise for a [`response` object](#response) or a [stream](#streams-1) if `options.isStream` is set to true.
