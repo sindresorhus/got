@@ -1,18 +1,19 @@
-import {promisify} from 'util';
-import stream = require('stream');
+import CacheableRequest = require('cacheable-request');
 import EventEmitter = require('events');
 import http = require('http');
-import CacheableRequest = require('cacheable-request');
+import stream = require('stream');
+import {promisify} from 'util';
 import is from '@sindresorhus/is';
 import timer from '@szmarczak/http-timer';
-import timedOut, {TimeoutError as TimedOutTimeoutError} from './utils/timed-out';
+import {ProxyStream} from './as-stream';
 import calculateRetryDelay from './calculate-retry-delay';
+import {CacheError, GotError, MaxRedirectsError, RequestError, TimeoutError} from './errors';
 import getResponse from './get-response';
 import {normalizeRequestArguments} from './normalize-arguments';
 import {createProgressStream} from './progress';
-import {CacheError, MaxRedirectsError, RequestError, TimeoutError} from './errors';
+import timedOut, {TimeoutError as TimedOutTimeoutError} from './utils/timed-out';
+import {GeneralError, NormalizedOptions, Response, ResponseObject} from './utils/types';
 import urlToOptions from './utils/url-to-options';
-import {NormalizedOptions, Response, ResponseObject} from './utils/types';
 
 const setImmediateAsync = () => new Promise(resolve => setImmediate(resolve));
 const pipeline = promisify(stream.pipeline);
@@ -20,7 +21,7 @@ const pipeline = promisify(stream.pipeline);
 const redirectCodes: ReadonlySet<number> = new Set([300, 301, 302, 303, 304, 307, 308]);
 
 export interface RequestAsEventEmitter extends EventEmitter {
-	retry: <T extends Error>(error: T) => boolean;
+	retry: <T extends GotError>(error: T) => boolean;
 	abort: () => void;
 }
 
@@ -33,7 +34,7 @@ export default (options: NormalizedOptions) => {
 
 	let currentRequest: http.ClientRequest;
 
-	const emitError = async (error: Error): Promise<void> => {
+	const emitError = async (error: GeneralError): Promise<void> => {
 		try {
 			for (const hook of options.hooks.beforeError) {
 				// eslint-disable-next-line no-await-in-loop
@@ -65,8 +66,8 @@ export default (options: NormalizedOptions) => {
 					});
 				}
 
-				const {statusCode} = response;
 				const typedResponse = response as Response;
+				const {statusCode} = typedResponse;
 				// This is intentionally using `||` over `??` so it can also catch empty status message.
 				typedResponse.statusMessage = typedResponse.statusMessage || http.STATUS_CODES[statusCode];
 				typedResponse.url = options.url.toString();
@@ -143,18 +144,18 @@ export default (options: NormalizedOptions) => {
 
 		const handleRequest = async (request: http.ClientRequest): Promise<void> => {
 			// `request.aborted` is a boolean since v11.0.0: https://github.com/nodejs/node/commit/4b00c4fafaa2ae8c41c1f78823c0feb810ae4723#diff-e3bc37430eb078ccbafe3aa3b570c91a
-			const isAborted = () => typeof request.aborted === 'number' || (request.aborted as unknown as boolean) === true;
+			const isAborted = () => typeof request.aborted === 'number' || (request.aborted as unknown as boolean);
 
 			currentRequest = request;
 
-			const onError = (error: Error): void => {
+			const onError = (error: GeneralError): void => {
 				if (error instanceof TimedOutTimeoutError) {
-					error = new TimeoutError(error, request.timings, options);
+					error = new TimeoutError(error, request.timings!, options);
 				} else {
 					error = new RequestError(error, options);
 				}
 
-				if (emitter.retry(error) === false) {
+				if (!emitter.retry(error as GotError)) {
 					emitError(error);
 				}
 			};
@@ -176,7 +177,7 @@ export default (options: NormalizedOptions) => {
 
 				emitter.emit('request', request);
 
-				const uploadStream = createProgressStream('uploadProgress', emitter, httpOptions.headers['content-length'] as string);
+				const uploadStream = createProgressStream('uploadProgress', emitter, httpOptions.headers!['content-length'] as string);
 
 				await pipeline(
 					// @ts-ignore Cannot assign ReadableStream to ReadableStream
@@ -208,9 +209,10 @@ export default (options: NormalizedOptions) => {
 				...urlToOptions(options.url)
 			};
 
-			const cacheRequest = options.cacheableRequest(httpOptions, handleResponse);
+			// @ts-ignore ResponseLike missing socket field, should be fixed upstream
+			const cacheRequest = options.cacheableRequest!(httpOptions, handleResponse);
 
-			cacheRequest.once('error', error => {
+			cacheRequest.once('error', (error: GeneralError) => {
 				if (error instanceof CacheableRequest.RequestError) {
 					emitError(new RequestError(error, options));
 				} else {
@@ -306,7 +308,7 @@ export default (options: NormalizedOptions) => {
 	return emitter;
 };
 
-export const proxyEvents = (proxy, emitter) => {
+export const proxyEvents = (proxy: EventEmitter | ProxyStream, emitter: RequestAsEventEmitter) => {
 	const events = [
 		'request',
 		'redirect',

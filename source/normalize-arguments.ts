@@ -1,27 +1,29 @@
 import {promisify} from 'util';
+import CacheableRequest = require('cacheable-request');
 import http = require('http');
 import https = require('https');
-import CacheableLookup from 'cacheable-lookup';
-import CacheableRequest = require('cacheable-request');
-import is from '@sindresorhus/is';
+import Keyv = require('keyv');
 import lowercaseKeys = require('lowercase-keys');
 import toReadableStream = require('to-readable-stream');
-import Keyv = require('keyv');
-import optionsToUrl from './utils/options-to-url';
+import is from '@sindresorhus/is';
+import CacheableLookup from 'cacheable-lookup';
+import {Merge} from 'type-fest';
 import {UnsupportedProtocolError} from './errors';
-import merge from './utils/merge';
 import knownHookEvents from './known-hook-events';
-import {
-	Options,
-	NormalizedOptions,
-	Method,
-	URLOrOptions,
-	Defaults
-} from './utils/types';
 import dynamicRequire from './utils/dynamic-require';
 import getBodySize from './utils/get-body-size';
 import isFormData from './utils/is-form-data';
+import merge from './utils/merge';
+import optionsToUrl from './utils/options-to-url';
 import supportsBrotli from './utils/supports-brotli';
+import {
+	AgentByProtocol,
+	Defaults,
+	Method,
+	NormalizedOptions,
+	Options,
+	URLOrOptions
+} from './utils/types';
 
 // `preNormalizeArguments` normalizes these options: `headers`, `prefixUrl`, `hooks`, `timeout`, `retry` and `method`.
 // `normalizeArguments` is *only* called on `got(...)`. It normalizes the URL and performs `mergeOptions(...)`.
@@ -34,6 +36,8 @@ const nonEnumerableProperties: NonEnumerableProperty[] = [
 	'json',
 	'form'
 ];
+
+const isAgentByProtocol = (agent: Options['agent']): agent is AgentByProtocol => is.object(agent);
 
 export const preNormalizeArguments = (options: Options, defaults?: NormalizedOptions): NormalizedOptions => {
 	// `options.headers`
@@ -78,7 +82,7 @@ export const preNormalizeArguments = (options: Options, defaults?: NormalizedOpt
 			// @ts-ignore TS is dumb.
 			options.hooks[event] = [
 				...defaults.hooks[event],
-				...options.hooks[event]
+				...options.hooks[event]!
 			];
 		}
 	}
@@ -116,12 +120,13 @@ export const preNormalizeArguments = (options: Options, defaults?: NormalizedOpt
 	}
 
 	if (options.retry.maxRetryAfter === undefined) {
+		// @ts-ignore We assign if it is undefined, so this is correct
 		options.retry.maxRetryAfter = Math.min(
-			...[options.timeout.request, options.timeout.connect].filter(n => !is.nullOrUndefined(n))
+			...[options.timeout.request, options.timeout.connect].filter((n): n is number => !is.nullOrUndefined(n))
 		);
 	}
 
-	options.retry.methods = [...new Set(options.retry.methods.map(method => method.toUpperCase()))] as Method[];
+	options.retry.methods = [...new Set(options.retry.methods!.map(method => method.toUpperCase() as Method))];
 	options.retry.statusCodes = [...new Set(options.retry.statusCodes)];
 	options.retry.errorCodes = [...new Set(options.retry.errorCodes)];
 
@@ -140,8 +145,9 @@ export const preNormalizeArguments = (options: Options, defaults?: NormalizedOpt
 	// Better memory management, so we don't have to generate a new object every time
 	if (options.cache) {
 		(options as NormalizedOptions).cacheableRequest = new CacheableRequest(
-			(options, handler) => options.request(options, handler),
-			options.cache as any
+			// @ts-ignore Types broke on infer
+			(requestOptions, handler) => requestOptions.request(requestOptions, handler),
+			options.cache
 		);
 	}
 
@@ -152,6 +158,7 @@ export const preNormalizeArguments = (options: Options, defaults?: NormalizedOpt
 		// Horrible `tough-cookie` check
 		if (setCookie.length === 4 && getCookieString.length === 0) {
 			if (!Reflect.has(setCookie, promisify.custom)) {
+				// @ts-ignore TS is dumb.
 				setCookie = promisify(setCookie.bind(options.cookieJar));
 				getCookieString = promisify(getCookieString.bind(options.cookieJar));
 			}
@@ -176,7 +183,7 @@ export const mergeOptions = (...sources: Options[]): NormalizedOptions => {
 	const mergedOptions = preNormalizeArguments({});
 
 	// Non enumerable properties shall not be merged
-	const properties = {};
+	const properties: Partial<{[Key in NonEnumerableProperty]: any}> = {};
 
 	for (const source of sources) {
 		if (!source) {
@@ -217,13 +224,13 @@ export const normalizeArguments = (url: URLOrOptions, options?: Options, default
 	if (is.urlInstance(url) || is.string(url)) {
 		options.url = url;
 
-		options = mergeOptions(defaults && defaults.options, options);
+		options = mergeOptions((defaults && defaults.options) ?? {}, options);
 	} else {
 		if (Reflect.has(url, 'resolve')) {
 			throw new Error('The legacy `url.Url` is deprecated. Use `URL` instead.');
 		}
 
-		options = mergeOptions(defaults && defaults.options, url, options);
+		options = mergeOptions((defaults && defaults.options) ?? {}, url, options);
 	}
 
 	// Normalize URL
@@ -248,7 +255,7 @@ export const normalizeArguments = (url: URLOrOptions, options?: Options, default
 
 	// Make it possible to change `options.prefixUrl`
 	let prefixUrl = options.prefixUrl as string;
-	Object.defineProperty(options, 'prefixUrl', {
+	Object.defineProperty(normalizedOptions, 'prefixUrl', {
 		set: (value: string) => {
 			if (!normalizedOptions.url.href.startsWith(value)) {
 				throw new Error(`Cannot change \`prefixUrl\` from ${prefixUrl} to ${value}: ${normalizedOptions.url.href}`);
@@ -261,15 +268,15 @@ export const normalizeArguments = (url: URLOrOptions, options?: Options, default
 	});
 
 	// Make it possible to remove default headers
-	for (const [key, value] of Object.entries(options.headers)) {
+	for (const [key, value] of Object.entries(normalizedOptions.headers)) {
 		if (is.undefined(value)) {
-			delete options.headers[key];
+			delete normalizedOptions.headers[key];
 		} else if (is.null_(value)) {
 			throw new TypeError('Use `undefined` instead of `null` to delete HTTP headers');
 		}
 	}
 
-	for (const hook of options.hooks.init) {
+	for (const hook of normalizedOptions.hooks.init) {
 		if (is.asyncFunction(hook)) {
 			throw new TypeError('The `init` hook must be a synchronous function');
 		}
@@ -283,10 +290,10 @@ export const normalizeArguments = (url: URLOrOptions, options?: Options, default
 
 const withoutBody: ReadonlySet<string> = new Set(['GET', 'HEAD']);
 
-export type NormalizedRequestArguments = https.RequestOptions & {
+export type NormalizedRequestArguments = Merge<https.RequestOptions, {
 	body?: ReadableStream;
 	url: Pick<NormalizedOptions, 'url'>;
-};
+}>;
 
 export const normalizeRequestArguments = async (options: NormalizedOptions): Promise<NormalizedRequestArguments> => {
 	options = mergeOptions(options);
@@ -308,6 +315,7 @@ export const normalizeRequestArguments = async (options: NormalizedOptions): Pro
 		if (is.object(options.body) && isFormData(options.body)) {
 			// Special case for https://github.com/form-data/form-data
 			if (!Reflect.has(headers, 'content-type')) {
+				// @ts-ignore TS is dumb.
 				headers['content-type'] = `multipart/form-data; boundary=${options.body.getBoundary()}`;
 			}
 		} else if (!is.nodeStream(options.body) && !is.string(options.body) && !is.buffer(options.body)) {
@@ -319,12 +327,14 @@ export const normalizeRequestArguments = async (options: NormalizedOptions): Pro
 		}
 
 		if (!Reflect.has(headers, 'content-type')) {
+			// @ts-ignore TS is dumb.
 			headers['content-type'] = 'application/x-www-form-urlencoded';
 		}
 
 		options.body = (new URLSearchParams(options.form as Record<string, string>)).toString();
 	} else if (isJSON) {
 		if (!Reflect.has(headers, 'content-type')) {
+			// @ts-ignore TS is dumb.
 			headers['content-type'] = 'application/json';
 		}
 
@@ -334,7 +344,7 @@ export const normalizeRequestArguments = async (options: NormalizedOptions): Pro
 	const uploadBodySize = await getBodySize(options);
 
 	if (!is.nodeStream(options.body)) {
-		options.body = toReadableStream(options.body);
+		options.body = toReadableStream(options.body!);
 	}
 
 	// See https://tools.ietf.org/html/rfc7230#section-3.3.2
@@ -351,6 +361,7 @@ export const normalizeRequestArguments = async (options: NormalizedOptions): Pro
 			(options.method === 'POST' || options.method === 'PUT' || options.method === 'PATCH') &&
 			!is.undefined(uploadBodySize)
 		) {
+			// @ts-ignore TS is dumb.
 			headers['content-length'] = String(uploadBodySize);
 		}
 	}
@@ -393,8 +404,8 @@ export const normalizeRequestArguments = async (options: NormalizedOptions): Pro
 		}
 	}
 
-	if (is.object(options.agent)) {
-		options.agent = options.agent[options.url.protocol.slice(0, -1)] || options.agent;
+	if (isAgentByProtocol(options.agent)) {
+		options.agent = options.agent[options.url.protocol.slice(0, -1) as keyof AgentByProtocol] || options.agent;
 	}
 
 	if (options.dnsCache) {

@@ -3,14 +3,16 @@ import {PassThrough as PassThroughStream} from 'stream';
 import http = require('http');
 import test from 'ava';
 import is from '@sindresorhus/is';
+import {Handler} from 'express';
 import pEvent = require('p-event');
-import got from '../source';
+import got, {HTTPError, RequestFunction, RetryOptions} from '../source';
+import {OptionsOfDefaultResponseBody} from '../source/create';
 import withServer from './helpers/with-server';
 
 const retryAfterOn413 = 2;
 const socketTimeout = 300;
 
-const handler413 = (_request, response) => {
+const handler413: Handler = (_request, response) => {
 	response.writeHead(413, {
 		'Retry-After': retryAfterOn413
 	});
@@ -28,7 +30,7 @@ const createSocketTimeoutStream = () => {
 	stream.abort = () => {};
 	stream.resume();
 
-	return stream;
+	return stream as unknown as http.ClientRequest;
 };
 
 test('works on timeout', withServer, async (t, server, got) => {
@@ -41,7 +43,7 @@ test('works on timeout', withServer, async (t, server, got) => {
 		timeout: {
 			socket: socketTimeout
 		},
-		request: (url, options, callback) => {
+		request: (...[url, options, callback]: Parameters<RequestFunction>) => {
 			if (knocks === 1) {
 				return http.request(url, options, callback);
 			}
@@ -49,7 +51,7 @@ test('works on timeout', withServer, async (t, server, got) => {
 			knocks++;
 			return createSocketTimeoutStream();
 		}
-	})).body, 'who`s there?');
+	} as OptionsOfDefaultResponseBody)).body, 'who`s there?');
 });
 
 test('retry function gets iteration count', withServer, async (t, server, got) => {
@@ -68,7 +70,7 @@ test('retry function gets iteration count', withServer, async (t, server, got) =
 		retry: {
 			calculateDelay: ({attemptCount}) => {
 				t.true(is.number(attemptCount));
-				return attemptCount < 2;
+				return Number(attemptCount < 2);
 			}
 		}
 	});
@@ -83,7 +85,6 @@ test('setting to `0` disables retrying', async t => {
 				return 0;
 			}
 		},
-		// @ts-ignore
 		request: () => {
 			return createSocketTimeoutStream();
 		}
@@ -100,7 +101,7 @@ test('custom retries', withServer, async (t, server, got) => {
 	});
 
 	let tried = false;
-	const error = await t.throwsAsync(got({
+	const error = await t.throwsAsync<HTTPError>(got({
 		throwHttpErrors: true,
 		retry: {
 			calculateDelay: ({attemptCount}) => {
@@ -124,25 +125,22 @@ test('custom retries', withServer, async (t, server, got) => {
 test('custom error codes', async t => {
 	const errorCode = 'OH_SNAP';
 
-	const error = await t.throwsAsync(got('https://example.com', {
+	const error = await t.throwsAsync<Error & {code: typeof errorCode}>(got('https://example.com', {
 		request: () => {
-			const emitter = (new EventEmitter()) as any;
+			const emitter = new EventEmitter() as any;
 			emitter.end = () => {};
 
 			const error = new Error('Snap!');
-			// @ts-ignore
-			error.code = errorCode;
+			(error as Error & {code: typeof errorCode}).code = errorCode;
 			setTimeout(() => {
 				emitter.emit('error', error);
 			});
 
 			return emitter;
 		},
-		// @ts-ignore TS is assuming that we're using Partial<NormalizedRetryOptions> instead of Partial<RetryOptions>
 		retry: {
 			calculateDelay: ({error}) => {
-				// @ts-ignore
-				t.is(error.code, errorCode);
+				t.is(error.code as unknown as typeof errorCode, errorCode);
 				return 0;
 			},
 			methods: [
@@ -154,7 +152,6 @@ test('custom error codes', async t => {
 		}
 	}));
 
-	// @ts-ignore
 	t.is(error.code, errorCode);
 });
 
@@ -261,7 +258,7 @@ test('doesn\'t retry on streams', withServer, async (t, server, got) => {
 			retries: () => {
 				t.fail('Retries on streams');
 			}
-		}
+		} as unknown as RetryOptions
 	});
 	await t.throwsAsync(pEvent(stream, 'response'));
 });

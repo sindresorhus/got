@@ -1,9 +1,10 @@
 import {format} from 'util';
 import test from 'ava';
+import {Handler} from 'express';
 import got from '../source';
 import {withSocketServer} from './helpers/with-server';
 
-const okHandler = (_request, response) => {
+const okHandler: Handler = (_request, response) => {
 	response.end('ok');
 };
 

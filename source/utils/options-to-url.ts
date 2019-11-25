@@ -21,7 +21,7 @@ export interface URLOptions {
 	hash?: string;
 }
 
-const keys = [
+const keys: Array<Exclude<keyof URLOptions, 'href' | 'origin' | 'searchParams'>> = [
 	'protocol',
 	'username',
 	'password',
@@ -66,7 +66,7 @@ export default (options: URLOptions): URL => {
 
 	for (const key of keys) {
 		if (Reflect.has(options, key)) {
-			url[key] = options[key];
+			url[key] = options[key].toString();
 		}
 	}
 

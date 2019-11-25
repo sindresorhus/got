@@ -1,5 +1,5 @@
-import {Transform as TransformStream} from 'stream';
 import EventEmitter = require('events');
+import {Transform as TransformStream} from 'stream';
 import is from '@sindresorhus/is';
 
 export function createProgressStream(name: 'downloadProgress' | 'uploadProgress', emitter: EventEmitter, totalBytes?: number | string): TransformStream {

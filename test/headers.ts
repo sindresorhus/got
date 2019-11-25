@@ -2,14 +2,13 @@ import fs = require('fs');
 import {promisify} from 'util';
 import path = require('path');
 import test from 'ava';
+import {Handler} from 'express';
 import FormData = require('form-data');
-import got from '../source';
+import got, {Headers} from '../source';
 import supportsBrotli from '../source/utils/supports-brotli';
 import withServer from './helpers/with-server';
 
-type TestReturn = Record<string, Record<string, unknown>>;
-
-const echoHeaders = (request, response) => {
+const echoHeaders: Handler = (request, response) => {
 	request.resume();
 	response.end(JSON.stringify(request.headers));
 };
@@ -17,14 +16,14 @@ const echoHeaders = (request, response) => {
 test('`user-agent`', withServer, async (t, server, got) => {
 	server.get('/', echoHeaders);
 
-	const headers = await got('').json();
+	const headers = await got('').json<Headers>();
 	t.is(headers['user-agent'], 'got (https://github.com/sindresorhus/got)');
 });
 
 test('`accept-encoding`', withServer, async (t, server, got) => {
 	server.get('/', echoHeaders);
 
-	const headers = await got('').json();
+	const headers = await got('').json<Headers>();
 	t.is(headers['accept-encoding'], supportsBrotli ? 'gzip, deflate, br' : 'gzip, deflate');
 });
 
@@ -35,14 +34,14 @@ test('does not override provided `accept-encoding`', withServer, async (t, serve
 		headers: {
 			'accept-encoding': 'gzip'
 		}
-	}).json();
+	}).json<Headers>();
 	t.is(headers['accept-encoding'], 'gzip');
 });
 
 test('does not remove user headers from `url` object argument', withServer, async (t, server) => {
 	server.get('/', echoHeaders);
 
-	const headers = (await got({
+	const headers = (await got<Headers>({
 		hostname: server.hostname,
 		port: server.port,
 		responseType: 'json',
@@ -52,8 +51,7 @@ test('does not remove user headers from `url` object argument', withServer, asyn
 		}
 	})).body;
 
-	// TODO: The response is not typed, so we need to cast as any
-	t.is((headers as any).accept, 'application/json');
+	t.is(headers.accept, 'application/json');
 	t.is(headers['user-agent'], 'got (https://github.com/sindresorhus/got)');
 	t.is(headers['accept-encoding'], supportsBrotli ? 'gzip, deflate, br' : 'gzip, deflate');
 	t.is(headers['x-request-id'], 'value');
@@ -65,34 +63,35 @@ test('does not set `accept-encoding` header when `options.decompress` is false',
 	const headers = await got({
 		decompress: false
 	}).json();
+	// @ts-ignore Error test
 	t.false(Reflect.has(headers, 'accept-encoding'));
 });
 
 test('`accept` header with `json` option', withServer, async (t, server, got) => {
 	server.get('/', echoHeaders);
 
-	let headers = await got('').json();
+	let headers = await got('').json<Headers>();
 	t.is(headers.accept, 'application/json');
 
 	headers = await got({
 		headers: {
 			accept: ''
 		}
-	}).json();
+	}).json<Headers>();
 	t.is(headers.accept, '');
 });
 
 test('`host` header', withServer, async (t, server, got) => {
 	server.get('/', echoHeaders);
 
-	const headers = await got('').json();
+	const headers = await got('').json<Headers>();
 	t.is(headers.host, `localhost:${server.port}`);
 });
 
 test('transforms names to lowercase', withServer, async (t, server, got) => {
 	server.get('/', echoHeaders);
 
-	const headers = (await got({
+	const headers = (await got<Headers>({
 		headers: {
 			'ACCEPT-ENCODING': 'identity'
 		},
@@ -106,7 +105,7 @@ test('setting `content-length` to 0', withServer, async (t, server, got) => {
 
 	const {body} = await got.post({
 		headers: {
-			'content-length': 0
+			'content-length': '0'
 		},
 		body: 'sup'
 	});
@@ -185,6 +184,7 @@ test('buffer as `options.body` sets `content-length` header', withServer, async 
 });
 
 test('throws on null value headers', async t => {
+	// @ts-ignore Error tests
 	await t.throwsAsync(got({
 		headers: {
 			'user-agent': null
@@ -219,26 +219,26 @@ test('non-existent headers set to undefined are omitted', withServer, async (t, 
 test('preserve port in host header if non-standard port', withServer, async (t, server, got) => {
 	server.get('/', echoHeaders);
 
-	const body = await got('').json();
+	const body = await got('').json<Headers>();
 	t.is(body.host, `localhost:${server.port}`);
 });
 
 test('strip port in host header if explicit standard port (:80) & protocol (HTTP)', async t => {
-	const body = await got('http://httpbin.org:80/headers').json<TestReturn>();
+	const body = await got('http://httpbin.org:80/headers').json<{headers: Headers}>();
 	t.is(body.headers.Host, 'httpbin.org');
 });
 
 test('strip port in host header if explicit standard port (:443) & protocol (HTTPS)', async t => {
-	const body = await got('https://httpbin.org:443/headers').json<TestReturn>();
+	const body = await got('https://httpbin.org:443/headers').json<{headers: Headers}>();
 	t.is(body.headers.Host, 'httpbin.org');
 });
 
 test('strip port in host header if implicit standard port & protocol (HTTP)', async t => {
-	const body = await got('http://httpbin.org/headers').json<TestReturn>();
+	const body = await got('http://httpbin.org/headers').json<{headers: Headers}>();
 	t.is(body.headers.Host, 'httpbin.org');
 });
 
 test('strip port in host header if implicit standard port & protocol (HTTPS)', async t => {
-	const body = await got('https://httpbin.org/headers').json<TestReturn>();
+	const body = await got('https://httpbin.org/headers').json<{headers: Headers}>();
 	t.is(body.headers.Host, 'httpbin.org');
 });

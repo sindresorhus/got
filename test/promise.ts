@@ -9,7 +9,7 @@ test('emits request event as promise', withServer, async (t, server, got) => {
 		response.end('null');
 	});
 
-	await got('').json().on('request', request => {
+	await got('').json().on('request', (request: any) => {
 		t.true(request instanceof ClientRequest);
 	});
 });
@@ -20,7 +20,7 @@ test('emits response event as promise', withServer, async (t, server, got) => {
 		response.end('null');
 	});
 
-	await got('').json().on('response', response => {
+	await got('').json().on('response', (response: any) => {
 		t.true(response instanceof TransformStream);
 		t.true(response.readable);
 		t.is(response.statusCode, 200);

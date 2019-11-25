@@ -1,5 +1,5 @@
 import test from 'ava';
-import got from '../source';
+import got, {HTTPError, UnsupportedProtocolError} from '../source';
 import withServer from './helpers/with-server';
 
 test('simple request', withServer, async (t, server, got) => {
@@ -37,7 +37,7 @@ test('http errors have `response` property', withServer, async (t, server, got) 
 		response.end('not');
 	});
 
-	const error = await t.throwsAsync(got(''), got.HTTPError);
+	const error = await t.throwsAsync<HTTPError>(got(''), HTTPError);
 	t.is(error.response.statusCode, 404);
 	t.is(error.response.body, 'not');
 });
@@ -66,7 +66,7 @@ test('doesn\'t throw if `options.throwHttpErrors` is false', withServer, async (
 
 test('invalid protocol throws', async t => {
 	await t.throwsAsync(got('c:/nope.com').json(), {
-		instanceOf: got.UnsupportedProtocolError,
+		instanceOf: UnsupportedProtocolError,
 		message: 'Unsupported protocol "c:"'
 	});
 });

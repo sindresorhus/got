@@ -6,10 +6,10 @@ import withServer from './helpers/with-server';
 
 const testContent = 'Compressible response content.\n';
 const testContentUncompressed = 'Uncompressed response content.\n';
-let gzipData;
 
+let gzipData: Buffer;
 test.before('setup', async () => {
-	gzipData = await promisify(zlib.gzip)(testContent);
+	gzipData = await promisify<string, Buffer>(zlib.gzip)(testContent);
 });
 
 test('decompress content', withServer, async (t, server, got) => {

@@ -4,12 +4,13 @@ import stream = require('stream');
 import test from 'ava';
 import pEvent = require('p-event');
 import getStream = require('get-stream');
-// @ts-ignore
-import got, {CancelError} from '../source';
-import withServer, {withServerAndLolex} from './helpers/with-server';
+import {Handler} from 'express';
+import got, {CancelError, RetryOptions} from '../source';
 import slowDataStream from './helpers/slow-data-stream';
+import {ExtendedTestServer, GlobalClock} from './helpers/types';
+import withServer, {withServerAndLolex} from './helpers/with-server';
 
-const prepareServer = (server, clock) => {
+const prepareServer = (server: ExtendedTestServer, clock: GlobalClock) => {
 	const emitter = new EventEmitter();
 
 	const promise = new Promise((resolve, reject) => {
@@ -38,7 +39,7 @@ const prepareServer = (server, clock) => {
 	return {emitter, promise};
 };
 
-const downloadHandler = clock => (_request, response) => {
+const downloadHandler = (clock: GlobalClock): Handler => (_request, response) => {
 	response.writeHead(200, {
 		'transfer-encoding': 'chunked'
 	});
@@ -62,16 +63,14 @@ test.serial('does not retry after cancelation', withServerAndLolex, async (t, se
 			calculateDelay: () => {
 				t.fail('Makes a new try after cancelation');
 			}
-		}
+		} as unknown as RetryOptions
 	});
 
 	emitter.once('sentRedirect', () => {
 		gotPromise.cancel();
 	});
 
-	// @ts-ignore
 	await t.throwsAsync(gotPromise, CancelError);
-	// @ts-ignore
 	await t.notThrowsAsync(promise, 'Request finished instead of aborting.');
 });
 
@@ -120,7 +119,7 @@ test.serial('cancel immediately', withServerAndLolex, async (t, server, got, clo
 		// We won't get an abort or even a connection
 		// We assume no request within 1000ms equals a (client side) aborted request
 		server.get('/abort', (_request, response) => {
-			response.once('finish', reject.bind(this, new Error('Request finished instead of aborting.')));
+			response.once('finish', reject.bind(global, new Error('Request finished instead of aborting.')));
 			response.end();
 		});
 
@@ -138,7 +137,7 @@ test.serial('cancel immediately', withServerAndLolex, async (t, server, got, clo
 test('recover from cancelation using cancelable promise attribute', async t => {
 	// Canceled before connection started
 	const p = got('http://example.com');
-	const recover = p.catch(error => {
+	const recover = p.catch((error: Error) => {
 		if (p.isCanceled) {
 			return;
 		}
@@ -154,7 +153,7 @@ test('recover from cancelation using cancelable promise attribute', async t => {
 test('recover from cancellation using error instance', async t => {
 	// Canceled before connection started
 	const p = got('http://example.com');
-	const recover = p.catch(error => {
+	const recover = p.catch((error: Error) => {
 		if (error instanceof got.CancelError) {
 			return;
 		}
@@ -170,10 +169,13 @@ test('recover from cancellation using error instance', async t => {
 test.serial('throws on incomplete (canceled) response - promise', withServerAndLolex, async (t, server, got, clock) => {
 	server.get('/', downloadHandler(clock));
 
-	await t.throwsAsync(got({
-		timeout: {request: 500},
-		retry: 0
-	}), got.TimeoutError);
+	await t.throwsAsync(
+		got({
+			timeout: {request: 500},
+			retry: 0
+		}),
+		got.TimeoutError
+	);
 });
 
 test.serial('throws on incomplete (canceled) response - promise #2', withServerAndLolex, async (t, server, got, clock) => {

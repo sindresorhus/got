@@ -7,8 +7,8 @@ export interface LegacyURLOptions {
 	protocol: string;
 	hostname: string;
 	host: string;
-	hash: string;
-	search: string;
+	hash: string | null;
+	search: string | null;
 	pathname: string;
 	href: string;
 	path: string;

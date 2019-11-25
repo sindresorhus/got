@@ -6,8 +6,12 @@
 		"lib": [
 			"es2018"
 		],
-		// TODO: Make it strict
-		"strict": false
+	  	// This is done to make ts-node load declaration files
+	  	"typeRoots": [
+			"./node_modules/@types",
+			"./source/types",
+			"./test/types"
+		]
 	},
 	"include": [
 		"source",

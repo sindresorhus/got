@@ -1,10 +1,11 @@
 import test from 'ava';
 import pEvent = require('p-event');
 import getStream = require('get-stream');
-import {Response} from '../source/utils/types';
+import {Handler} from 'express';
+import {Response} from '../source';
 import withServer from './helpers/with-server';
 
-const cacheEndpoint = (_request, response) => {
+const cacheEndpoint: Handler = (_request, response) => {
 	response.setHeader('Cache-Control', 'public, max-age=60');
 	response.end(Date.now().toString());
 };
@@ -109,6 +110,7 @@ test('cache error throws `got.CacheError`', withServer, async (t, server, got) =
 
 	const cache = {};
 
+	// @ts-ignore Error tests
 	await t.throwsAsync(got({cache}), got.CacheError);
 });
 
@@ -127,7 +129,7 @@ test('doesn\'t cache response when received HTTP error', withServer, async (t, s
 
 	const cache = new Map();
 
-	const {statusCode, body} = await got({cache, throwHttpErrors: false});
+	const {statusCode, body} = await got({url: '', cache, throwHttpErrors: false});
 	t.is(statusCode, 200);
 	t.is(body, 'ok');
 });

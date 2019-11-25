@@ -1,19 +1,23 @@
 import {promisify} from 'util';
+import * as test from 'ava';
 import http = require('http');
 import tempy = require('tempy');
 import createTestServer = require('create-test-server');
 import lolex = require('lolex');
-import got from '../../source';
+import got, {HandlerFunction} from '../../source';
+import {ExtendedGot, ExtendedTestServer, GlobalClock, InstalledClock} from './types';
 
-const generateHook = ({install}) => async (t, run) => {
-	const clock = install ? lolex.install() : lolex.createClock();
+export type RunTestWithServer = (t: test.ExecutionContext, server: ExtendedTestServer, got: ExtendedGot, clock: GlobalClock) => Promise<void> | void;
+export type RunTestWithSocket = (t: test.ExecutionContext, server: any) => Promise<void> | void;
 
-	// @ts-ignore
+const generateHook = ({install}: {install?: boolean}): test.Macro<[RunTestWithServer]> => async (t, run) => {
+	const clock: GlobalClock = install ? lolex.install() : lolex.createClock();
+
 	const server = await createTestServer({
 		bodyParser: {
 			type: () => false
 		}
-	});
+	}) as ExtendedTestServer;
 
 	const options = {
 		avaTest: t.title,
@@ -23,18 +27,17 @@ const generateHook = ({install}) => async (t, run) => {
 
 				clock.tick(0);
 
+				// @ts-ignore FIXME: Incompatible union type signatures
 				result.on('response', () => {
 					clock.tick(0);
 				});
 
 				return result;
 			}
-		]
+		] as HandlerFunction[]
 	};
 
-	// @ts-ignore Ignore errors for extending got, for the tests
-	const preparedGot = got.extend({prefixUrl: server.url, ...options});
-	// @ts-ignore Ignore errors for extending got, for the tests
+	const preparedGot = got.extend({prefixUrl: server.url, ...options}) as ExtendedGot;
 	preparedGot.secure = got.extend({prefixUrl: server.sslUrl, ...options});
 
 	server.hostname = (new URL(server.url)).hostname;
@@ -47,8 +50,7 @@ const generateHook = ({install}) => async (t, run) => {
 	}
 
 	if (install) {
-		// @ts-ignore This is a global clock.
-		clock.uninstall();
+		(clock as InstalledClock).uninstall();
 	}
 };
 
@@ -57,7 +59,7 @@ export default generateHook({install: false});
 export const withServerAndLolex = generateHook({install: true});
 
 // TODO: remove this when `create-test-server` supports custom listen
-export const withSocketServer = async (t, run) => {
+export const withSocketServer: test.Macro<[RunTestWithSocket]> = async (t, run) => {
 	const socketPath = tempy.file({extension: 'socket'});
 
 	const server = http.createServer((request, response) => {

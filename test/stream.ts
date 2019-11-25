@@ -3,6 +3,7 @@ import fs = require('fs');
 import {PassThrough as PassThroughStream} from 'stream';
 import stream = require('stream');
 import test from 'ava';
+import {Handler} from 'express';
 import toReadableStream = require('to-readable-stream');
 import getStream = require('get-stream');
 import pEvent = require('p-event');
@@ -13,7 +14,7 @@ import withServer from './helpers/with-server';
 
 const pStreamPipeline = promisify(stream.pipeline);
 
-const defaultHandler = (_request, response) => {
+const defaultHandler: Handler = (_request, response) => {
 	response.writeHead(200, {
 		unicorn: 'rainbow',
 		'content-encoding': 'gzip'
@@ -21,23 +22,23 @@ const defaultHandler = (_request, response) => {
 	response.end(Buffer.from('H4sIAAAAAAAA/8vPBgBH3dx5AgAAAA==', 'base64')); // 'ok'
 };
 
-const redirectHandler = (_request, response) => {
+const redirectHandler: Handler = (_request, response) => {
 	response.writeHead(302, {
 		location: '/'
 	});
 	response.end();
 };
 
-const postHandler = async (request, response) => {
+const postHandler: Handler = async (request, response) => {
 	await pStreamPipeline(request, response);
 };
 
-const errorHandler = (_request, response) => {
+const errorHandler: Handler = (_request, response) => {
 	response.statusCode = 404;
 	response.end();
 };
 
-const headersHandler = (request, response) => {
+const headersHandler: Handler = (request, response) => {
 	response.end(JSON.stringify(request.headers));
 };
 
@@ -68,6 +69,7 @@ test('throws on write if body is specified', withServer, (t, server, got) => {
 	server.post('/', postHandler);
 
 	t.throws(() => {
+		// @ts-ignore Error tests
 		got.stream.post({body: 'wow'}).end('wow');
 	}, 'Got\'s stream is not writable when the `body` option is used');
 });
@@ -86,7 +88,6 @@ test('has request event', withServer, async (t, server, got) => {
 	const stream = got.stream('');
 	const request = await pEvent(stream, 'request');
 	t.truthy(request);
-	// @ts-ignore
 	t.is(request.method, 'GET');
 
 	await getStream(stream);
@@ -189,7 +190,7 @@ test('piping server request to Got proxies also headers', withServer, async (t, 
 		);
 	});
 
-	const {foo} = await got('proxy', {
+	const {foo}: {foo: string} = await got('proxy', {
 		headers: {
 			foo: 'bar'
 		}
@@ -247,7 +248,6 @@ test('destroying got.stream() cancels the request', withServer, async (t, server
 	const stream = got.stream('');
 	const request = await pEvent(stream, 'request');
 	stream.destroy();
-	// @ts-ignore
 	t.truthy(request.aborted);
 });
 
@@ -268,7 +268,6 @@ test('piping to got.stream.put()', withServer, async (t, server, got) => {
 
 test('no unhandled body stream errors', async t => {
 	const form = new FormData();
-	// @ts-ignore
 	form.append('upload', fs.createReadStream('/bin/sh'));
 
 	await t.throwsAsync(got.post(`https://offlinesite${Date.now()}.com`, {

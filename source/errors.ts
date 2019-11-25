@@ -1,13 +1,14 @@
 import is from '@sindresorhus/is';
 import {Timings} from '@szmarczak/http-timer';
-import {Response, NormalizedOptions} from './utils/types';
 import {TimeoutError as TimedOutError} from './utils/timed-out';
+import {ErrorCode, Response, NormalizedOptions} from './utils/types';
 
 export class GotError extends Error {
-	code?: string;
-	readonly options: NormalizedOptions;
+	code?: ErrorCode;
+	stack!: string;
+	declare readonly options: NormalizedOptions;
 
-	constructor(message: string, error: Partial<Error & {code?: string}>, options: NormalizedOptions) {
+	constructor(message: string, error: Partial<Error & {code?: ErrorCode}>, options: NormalizedOptions) {
 		super(message);
 		Error.captureStackTrace(this, this.constructor);
 		this.name = 'GotError';
@@ -17,6 +18,9 @@ export class GotError extends Error {
 		}
 
 		Object.defineProperty(this, 'options', {
+			// This fails because of TS 3.7.2 useDefineForClassFields
+			// Ref: https://github.com/microsoft/TypeScript/issues/34972
+			enumerable: false,
 			value: options
 		});
 
@@ -24,7 +28,7 @@ export class GotError extends Error {
 		if (!is.undefined(error.stack)) {
 			const indexOfMessage = this.stack.indexOf(this.message) + this.message.length;
 			const thisStackTrace = this.stack.slice(indexOfMessage).split('\n').reverse();
-			const errorStackTrace = error.stack.slice(error.stack.indexOf(error.message) + error.message.length).split('\n').reverse();
+			const errorStackTrace = error.stack.slice(error.stack.indexOf(error.message!) + error.message!.length).split('\n').reverse();
 
 			// Remove duplicated traces
 			while (errorStackTrace.length !== 0 && errorStackTrace[0] === thisStackTrace[0]) {
@@ -58,41 +62,42 @@ export class ReadError extends GotError {
 }
 
 export class ParseError extends GotError {
-	readonly response: Response;
+	declare readonly response: Response;
 
 	constructor(error: Error, response: Response, options: NormalizedOptions) {
 		super(`${error.message} in "${options.url.toString()}"`, error, options);
 		this.name = 'ParseError';
 
 		Object.defineProperty(this, 'response', {
+			enumerable: false,
 			value: response
 		});
 	}
 }
 
 export class HTTPError extends GotError {
-	readonly response: Response;
+	declare readonly response: Response;
 
 	constructor(response: Response, options: NormalizedOptions) {
-		const {statusCode, statusMessage} = response;
-
-		super(`Response code ${statusCode} (${statusMessage})`, {}, options);
+		super(`Response code ${response.statusCode} (${response.statusMessage})`, {}, options);
 		this.name = 'HTTPError';
 
 		Object.defineProperty(this, 'response', {
+			enumerable: false,
 			value: response
 		});
 	}
 }
 
 export class MaxRedirectsError extends GotError {
-	readonly response: Response;
+	declare readonly response: Response;
 
 	constructor(response: Response, maxRedirects: number, options: NormalizedOptions) {
 		super(`Redirected ${maxRedirects} times. Aborting.`, {}, options);
 		this.name = 'MaxRedirectsError';
 
 		Object.defineProperty(this, 'response', {
+			enumerable: false,
 			value: response
 		});
 	}

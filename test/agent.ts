@@ -3,9 +3,10 @@ import {Agent as HttpAgent} from 'http';
 import {Agent as HttpsAgent} from 'https';
 import test from 'ava';
 import sinon = require('sinon');
+import {ExtendedTestServer} from './helpers/types';
 import withServer from './helpers/with-server';
 
-const prepareServer = server => {
+const prepareServer = (server: ExtendedTestServer) => {
 	server.get('/', (request, response) => {
 		if (request.socket instanceof TLSSocket) {
 			response.end('https');
@@ -29,7 +30,8 @@ const prepareServer = server => {
 	});
 };
 
-const createAgentSpy = Cls => {
+// TODO: Type this stricter if possible
+const createAgentSpy = <T extends any>(Cls: T) => {
 	const agent = new Cls({keepAlive: true});
 	const spy = sinon.spy(agent, 'addRequest');
 	return {agent, spy};
@@ -73,7 +75,7 @@ test('redirects from http to https work with an agent object', withServer, async
 	prepareServer(server);
 
 	const {agent: httpAgent, spy: httpSpy} = createAgentSpy(HttpAgent);
-	const {agent: httpsAgent, spy: httpsSpy} = createAgentSpy(HttpsAgent);
+	const {agent: httpsAgent, spy: httpsSpy} = createAgentSpy<typeof HttpsAgent>(HttpsAgent);
 
 	t.truthy((await got('httpToHttps', {
 		rejectUnauthorized: false,

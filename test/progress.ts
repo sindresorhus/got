@@ -7,21 +7,22 @@ import getStream = require('get-stream');
 import FormData = require('form-data');
 import tempy = require('tempy');
 import is from '@sindresorhus/is';
-import test from 'ava';
+import test, {Macro} from 'ava';
+import {Handler} from 'express';
+import {Progress} from '../source';
 import withServer from './helpers/with-server';
 
-const checkEvents = (t, events, bodySize = undefined) => {
+const checkEvents: Macro<[Progress[], number?]> = (t, events, bodySize = undefined) => {
 	t.true(events.length >= 2);
 
-	const hasBodySize = is.number(bodySize);
-	let lastEvent = events.shift();
+	let lastEvent = events.shift()!;
 
-	if (!hasBodySize) {
+	if (!is.number(bodySize)) {
 		t.is(lastEvent.percent, 0);
 	}
 
 	for (const [index, event] of events.entries()) {
-		if (hasBodySize) {
+		if (is.number(bodySize)) {
 			t.is(event.percent, event.transferred / bodySize);
 			t.true(event.percent > lastEvent.percent);
 		} else {
@@ -38,7 +39,7 @@ const checkEvents = (t, events, bodySize = undefined) => {
 
 const file = Buffer.alloc(1024 * 1024 * 2);
 
-const downloadEndpoint = (_request, response) => {
+const downloadEndpoint: Handler = (_request, response) => {
 	response.setHeader('content-length', file.length);
 
 	stream.pipeline(
@@ -51,12 +52,12 @@ const downloadEndpoint = (_request, response) => {
 	);
 };
 
-const noTotalEndpoint = (_request, response) => {
+const noTotalEndpoint: Handler = (_request, response) => {
 	response.write('hello');
 	response.end();
 };
 
-const uploadEndpoint = (request, response) => {
+const uploadEndpoint: Handler = (request, response) => {
 	stream.pipeline(
 		request,
 		new SlowStream({maxWriteInterval: 100}),
@@ -69,7 +70,7 @@ const uploadEndpoint = (request, response) => {
 test('download progress', withServer, async (t, server, got) => {
 	server.get('/', downloadEndpoint);
 
-	const events = [];
+	const events: Progress[] = [];
 
 	const {body} = await got({responseType: 'buffer'})
 		.on('downloadProgress', event => events.push(event));
@@ -80,9 +81,9 @@ test('download progress', withServer, async (t, server, got) => {
 test('download progress - missing total size', withServer, async (t, server, got) => {
 	server.get('/', noTotalEndpoint);
 
-	const events = [];
+	const events: Progress[] = [];
 
-	await got('').on('downloadProgress', event => events.push(event));
+	await got('').on('downloadProgress', (event: Progress) => events.push(event));
 
 	checkEvents(t, events);
 });
@@ -90,7 +91,7 @@ test('download progress - missing total size', withServer, async (t, server, got
 test('download progress - stream', withServer, async (t, server, got) => {
 	server.get('/', downloadEndpoint);
 
-	const events = [];
+	const events: Progress[] = [];
 
 	const stream = got.stream({responseType: 'buffer'})
 		.on('downloadProgress', event => events.push(event));
@@ -103,9 +104,9 @@ test('download progress - stream', withServer, async (t, server, got) => {
 test('upload progress - file', withServer, async (t, server, got) => {
 	server.post('/', uploadEndpoint);
 
-	const events = [];
+	const events: Progress[] = [];
 
-	await got.post({body: file}).on('uploadProgress', event => events.push(event));
+	await got.post({body: file}).on('uploadProgress', (event: Progress) => events.push(event));
 
 	checkEvents(t, events, file.length);
 });
@@ -116,10 +117,10 @@ test('upload progress - file stream', withServer, async (t, server, got) => {
 	const path = tempy.file();
 	fs.writeFileSync(path, file);
 
-	const events = [];
+	const events: Progress[] = [];
 
 	await got.post({body: fs.createReadStream(path)})
-		.on('uploadProgress', event => events.push(event));
+		.on('uploadProgress', (event: Progress) => events.push(event));
 
 	checkEvents(t, events, file.length);
 });
@@ -127,7 +128,7 @@ test('upload progress - file stream', withServer, async (t, server, got) => {
 test('upload progress - form data', withServer, async (t, server, got) => {
 	server.post('/', uploadEndpoint);
 
-	const events = [];
+	const events: Progress[] = [];
 
 	const body = new FormData();
 	body.append('key', 'value');
@@ -135,7 +136,7 @@ test('upload progress - form data', withServer, async (t, server, got) => {
 
 	const size = await promisify(body.getLength.bind(body))();
 
-	await got.post({body}).on('uploadProgress', event => events.push(event));
+	await got.post({body}).on('uploadProgress', (event: Progress) => events.push(event));
 
 	checkEvents(t, events, size);
 });
@@ -145,9 +146,9 @@ test('upload progress - json', withServer, async (t, server, got) => {
 
 	const body = JSON.stringify({key: 'value'});
 	const size = Buffer.byteLength(body);
-	const events = [];
+	const events: Progress[] = [];
 
-	await got.post({body}).on('uploadProgress', event => events.push(event));
+	await got.post({body}).on('uploadProgress', (event: Progress) => events.push(event));
 
 	checkEvents(t, events, size);
 });
@@ -155,9 +156,9 @@ test('upload progress - json', withServer, async (t, server, got) => {
 test('upload progress - stream with known body size', withServer, async (t, server, got) => {
 	server.post('/', uploadEndpoint);
 
-	const events = [];
+	const events: Progress[] = [];
 	const options = {
-		headers: {'content-length': file.length}
+		headers: {'content-length': file.length.toString()}
 	};
 
 	const request = got.stream.post(options)
@@ -173,7 +174,7 @@ test('upload progress - stream with known body size', withServer, async (t, serv
 test('upload progress - stream with unknown body size', withServer, async (t, server, got) => {
 	server.post('/', uploadEndpoint);
 
-	const events = [];
+	const events: Progress[] = [];
 
 	const request = got.stream.post('')
 		.on('uploadProgress', event => events.push(event));
@@ -188,9 +189,9 @@ test('upload progress - stream with unknown body size', withServer, async (t, se
 test('upload progress - no body', withServer, async (t, server, got) => {
 	server.post('/', uploadEndpoint);
 
-	const events = [];
+	const events: Progress[] = [];
 
-	await got.post('').on('uploadProgress', event => events.push(event));
+	await got.post('').on('uploadProgress', (event: Progress) => events.push(event));
 
 	t.deepEqual(events, [
 		{
