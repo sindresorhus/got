@@ -270,7 +270,7 @@ export const normalizeArguments = (url: URLOrOptions, options?: Options, default
 	// Make it possible to remove default headers
 	for (const [key, value] of Object.entries(normalizedOptions.headers)) {
 		if (is.undefined(value)) {
-			delete normalizedOptions.headers![key];
+			delete normalizedOptions.headers[key];
 		} else if (is.null_(value)) {
 			throw new TypeError('Use `undefined` instead of `null` to delete HTTP headers');
 		}
