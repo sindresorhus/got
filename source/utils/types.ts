@@ -177,6 +177,7 @@ export interface Options extends Partial<Except<DefaultOptions, 'retry'>>, Merge
 	context?: {[key: string]: any};
 	maxRedirects?: number;
 	lookup?: CacheableLookup['lookup'];
+	methodRewriting?: boolean;
 }
 
 export interface NormalizedOptions extends Except<DefaultOptions, 'dnsCache'>, Except<Options, keyof DefaultOptions> {

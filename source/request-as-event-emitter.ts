@@ -97,7 +97,7 @@ export default (options: NormalizedOptions) => {
 				if (options.followRedirect && Reflect.has(typedResponse.headers, 'location') && redirectCodes.has(statusCode)) {
 					typedResponse.resume(); // We're being redirected, we don't care about the response.
 
-					if (statusCode === 303) {
+					if (statusCode === 303 || options.methodRewriting === false) {
 						if (options.method !== 'GET' && options.method !== 'HEAD') {
 							// Server responded with "see other", indicating that the resource exists at another location,
 							// and the client should request it from that location via GET or HEAD.

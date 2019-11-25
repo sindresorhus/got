@@ -362,3 +362,30 @@ test('body is passed on POST redirect', withServer, async (t, server, got) => {
 
 	t.is(body, 'foobar');
 });
+
+test('method overwriting can be turned off', withServer, async (t, server, got) => {
+	server.post('/redirect', (_request, response) => {
+		response.writeHead(302, {
+			location: '/'
+		});
+		response.end();
+	});
+
+	server.get('/', (_request, response) => {
+		response.end();
+	});
+
+	const {body} = await got.post('redirect', {
+		body: 'foobar',
+		methodRewriting: false,
+		hooks: {
+			beforeRedirect: [
+				options => {
+					t.is(options.body, undefined);
+				}
+			]
+		}
+	});
+
+	t.is(body, '');
+});
