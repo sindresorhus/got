@@ -140,7 +140,7 @@ When specified, `prefixUrl` will be prepended to `url`. The prefix can be any va
 
 **Tip:** Useful when used with [`got.extend()`](#custom-endpoints) to create niche-specific Got-instances.
 
-**Tip:** You can change `prefixUrl` using hooks as long as the URL includes it. If the URL doesn't include it anymore, it will throw.
+**Tip:** You can change `prefixUrl` using hooks as long as the URL still includes the `prefixUrl`. If the URL doesn't include it anymore, it will throw.
 
 ```js
 const got = require('got');
