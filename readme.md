@@ -132,13 +132,13 @@ Any of the [`https.request`](https://nodejs.org/api/https.html#https_https_reque
 
 Type: `string | URL`
 
-When specified, `prefixUrl` will be prepended to `url`. The prefix can be any valid URL, either relative or absolute. A trailing slash `/` is  - one will be added automatically.
+When specified, `prefixUrl` will be prepended to `url`. The prefix can be any valid URL, either relative or absolute. A trailing slash `/` is optional - one will be added automatically.
 
 **Note:** `prefixUrl` will be ignored if the `url` argument is a URL instance.
 
 **Note:** Leading slashes in `input` are disallowed when using this option to enforce consistency and avoid confusion about how the `input` URL is handled, given that `input` will not follow the normal URL resolution rules when `prefixUrl` is being used, which changes the meaning of a leading slash.
 
-**Tip:** Useful when used with `got.extend()` to create niche-specific Got-instances.
+**Tip:** Useful when used with [`got.extend()`](#custom-endpoints) to create niche-specific Got-instances.
 
 **Tip:** If the input URL still contains the initial `prefixUrl`, you can change it as many times as you want inside hooks. Otherwise it will throw an error.
 
