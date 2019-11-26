@@ -141,7 +141,7 @@ export default function asPromise<T>(options: NormalizedOptions): CancelableRequ
 		emitter.once('error', reject);
 
 		proxyEvents(proxy, emitter);
-	}) as CancelableRequest<any>;
+	}) as CancelableRequest<T>;
 
 	promise.on = (name: string, fn: (...args: any[]) => void) => {
 		proxy.on(name, fn);

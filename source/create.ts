@@ -28,7 +28,7 @@ export type GotReturn<T = unknown> = CancelableRequest<T> | ProxyStream<T>;
 
 const getPromiseOrStream = (options: NormalizedOptions): GotReturn => options.isStream ? asStream(options) : asPromise(options);
 
-const isGotInstance = (value: any): value is Got => (
+const isGotInstance = (value: Got | ExtendOptions): value is Got => (
 	Reflect.has(value, 'defaults') && Reflect.has(value.defaults, 'options')
 );
 
@@ -87,12 +87,12 @@ const aliases: readonly HTTPAlias[] = [
 
 export const defaultHandler: HandlerFunction = (options, next) => next(options);
 
-const create = (defaults: NormalizedDefaults & {_rawHandlers?: HandlerFunction[]}): Got => {
+const create = (defaults: NormalizedDefaults): Got => {
 	// Proxy properties from next handlers
 	defaults._rawHandlers = defaults.handlers;
 	defaults.handlers = defaults.handlers.map(fn => ((options, next) => {
 		// This will be assigned by assigning result
-		let root!: GotReturn;
+		let root!: ReturnType<typeof next>;
 
 		const result = fn(options, newOptions => {
 			root = next(newOptions);
@@ -105,17 +105,17 @@ const create = (defaults: NormalizedDefaults & {_rawHandlers?: HandlerFunction[]
 		}
 
 		return result;
-	}) as HandlerFunction);
+	}));
 
 	// @ts-ignore Because the for loop handles it for us, as well as the other Object.defines
 	const got: Got = (url: URLOrOptions, options?: Options): GotReturn => {
 		let iteration = 0;
-		const iterateHandlers = (newOptions: Parameters<HandlerFunction>[0]): ReturnType<HandlerFunction> => {
+		const iterateHandlers = (newOptions: NormalizedOptions): GotReturn => {
 			return defaults.handlers[iteration++](
 				newOptions,
 				// @ts-ignore TS doesn't know that it calls `getPromiseOrStream` at the end
 				iteration === defaults.handlers.length ? getPromiseOrStream : iterateHandlers
-			);
+			) as GotReturn;
 		};
 
 		/* eslint-disable @typescript-eslint/return-await */

@@ -224,13 +224,13 @@ export const normalizeArguments = (url: URLOrOptions, options?: Options, default
 	if (is.urlInstance(url) || is.string(url)) {
 		options.url = url;
 
-		options = mergeOptions((defaults?.options) ?? {}, options);
+		options = mergeOptions(defaults?.options ?? {}, options);
 	} else {
 		if (Reflect.has(url, 'resolve')) {
 			throw new Error('The legacy `url.Url` is deprecated. Use `URL` instead.');
 		}
 
-		options = mergeOptions((defaults?.options) ?? {}, url, options);
+		options = mergeOptions(defaults?.options ?? {}, url, options);
 	}
 
 	// Normalize URL
