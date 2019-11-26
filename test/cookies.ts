@@ -141,8 +141,7 @@ test('no unhandled errors', async t => {
 		}
 	};
 
-	// @ts-ignore Error tests
-	await t.throwsAsync(got(`http://127.0.0.1:${(server.address()).port}`, options), {message});
+	await t.throwsAsync(got(`http://127.0.0.1:${(server.address() as net.AddressInfo).port}`, options), {message});
 	await delay(500);
 	t.pass();
 
