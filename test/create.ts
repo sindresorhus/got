@@ -1,10 +1,9 @@
-import {Agent as HttpAgent, request as httpRequest} from 'http';
+import {Agent as HttpAgent, IncomingMessage, request as httpRequest, RequestOptions} from 'http';
 import test from 'ava';
 import is from '@sindresorhus/is';
 import {Handler} from 'express';
 import got, {
 	BeforeRequestHook,
-	HandlerFunction,
 	Headers,
 	Hooks,
 	RequestFunction
@@ -187,8 +186,13 @@ test('ability to pass a custom request method', withServer, async (t, server, go
 
 	let called = false;
 
-	const request: RequestFunction = (...args: [any, any, any?]) => {
+	const request: RequestFunction = (...args: [
+		string | URL | RequestOptions,
+		(RequestOptions | ((res: IncomingMessage) => void))?,
+		((res: IncomingMessage) => void)?
+	]) => {
 		called = true;
+		// @ts-ignore URL !== URL
 		return httpRequest(...args);
 	};
 
@@ -257,7 +261,7 @@ test('async handlers', withServer, async (t, server, got) => {
 
 				return result;
 			}
-		] as HandlerFunction[]
+		]
 	});
 
 	const promise = instance('');

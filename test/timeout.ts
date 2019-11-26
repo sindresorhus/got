@@ -10,7 +10,6 @@ import CacheableLookup from 'cacheable-lookup';
 import {Handler} from 'express';
 import pEvent = require('p-event');
 import got from '../source';
-import {OptionsOfDefaultResponseBody} from '../source/create';
 import timedOut from '../source/utils/timed-out';
 import slowDataStream from './helpers/slow-data-stream';
 import {GlobalClock} from './helpers/types';
@@ -223,7 +222,7 @@ test.serial('connect timeout', withServerAndLolex, async (t, _server, got, clock
 	await t.throwsAsync(
 		got({
 			createConnection: options => {
-				const socket = new net.Socket(options as unknown as net.SocketConstructorOpts);
+				const socket = new net.Socket(options as object as net.SocketConstructorOpts);
 				// @ts-ignore
 				socket.connecting = true;
 				setImmediate(() => {
@@ -250,7 +249,7 @@ test.serial('connect timeout (ip address)', withServerAndLolex, async (t, _serve
 		got({
 			hostname: '127.0.0.1',
 			createConnection: options => {
-				const socket = new net.Socket(options as unknown as net.SocketConstructorOpts);
+				const socket = new net.Socket(options as object as net.SocketConstructorOpts);
 				// @ts-ignore
 				socket.connecting = true;
 				return socket;
@@ -317,6 +316,7 @@ test.serial('lookup timeout', withServerAndLolex, async (t, server, got, clock) 
 
 	await t.throwsAsync(
 		got({
+			// @ts-ignore Manual tests
 			lookup: () => {},
 			timeout: {lookup: 1},
 			retry: 0
@@ -533,6 +533,7 @@ test.serial('doesn\'t throw on early lookup', withServerAndLolex, async (t, serv
 			lookup: 1
 		},
 		retry: 0,
+		// @ts-ignore Manual tests
 		lookup: (...[_hostname, options, callback]: Parameters<CacheableLookup['lookup']>) => {
 			if (typeof options === 'function') {
 				callback = options;
@@ -541,5 +542,5 @@ test.serial('doesn\'t throw on early lookup', withServerAndLolex, async (t, serv
 			// @ts-ignore This should be fixed in upstream
 			callback(null, '127.0.0.1', 4);
 		}
-	} as OptionsOfDefaultResponseBody));
+	}));
 });

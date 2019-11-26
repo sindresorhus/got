@@ -1,7 +1,6 @@
 /* eslint-disable node/no-deprecated-api */
 import {parse} from 'url';
 import test from 'ava';
-import {StorageAdapter} from 'cacheable-request';
 import {Handler} from 'express';
 import pEvent = require('p-event');
 import got from '../source';
@@ -112,8 +111,14 @@ test('overrides `searchParams` from options', withServer, async (t, server, got)
 				},
 				set(key: string) {
 					t.is(key, `cacheable-request:GET:${server.url}/?test=wow`);
+				},
+				delete() {
+					return true;
+				},
+				clear() {
+					return undefined;
 				}
-			} as unknown as StorageAdapter
+			}
 		}
 	);
 

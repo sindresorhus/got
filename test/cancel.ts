@@ -5,7 +5,7 @@ import test from 'ava';
 import pEvent = require('p-event');
 import getStream = require('get-stream');
 import {Handler} from 'express';
-import got, {CancelError, RetryOptions} from '../source';
+import got, {CancelError} from '../source';
 import slowDataStream from './helpers/slow-data-stream';
 import {ExtendedTestServer, GlobalClock} from './helpers/types';
 import withServer, {withServerAndLolex} from './helpers/with-server';
@@ -62,8 +62,9 @@ test.serial('does not retry after cancelation', withServerAndLolex, async (t, se
 		retry: {
 			calculateDelay: () => {
 				t.fail('Makes a new try after cancelation');
+				return 0;
 			}
-		} as unknown as RetryOptions
+		}
 	});
 
 	emitter.once('sentRedirect', () => {
