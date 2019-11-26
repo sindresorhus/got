@@ -1,6 +1,6 @@
 import test from 'ava';
 import {Handler} from 'express';
-import got, {Got, Headers} from '../source';
+import got, {BeforeRequestHook, Got, Headers} from '../source';
 import withServer from './helpers/with-server';
 
 const echoHeaders: Handler = (request, response) => {
@@ -77,7 +77,7 @@ test('merging two groups of merged instances', withServer, async (t, server) => 
 });
 
 test('hooks are merged', t => {
-	const getBeforeRequestHooks = (instance: Got) => instance.defaults.options.hooks.beforeRequest;
+	const getBeforeRequestHooks = (instance: Got): BeforeRequestHook[] => instance.defaults.options.hooks.beforeRequest;
 
 	const instanceA = got.extend({hooks: {
 		beforeRequest: [

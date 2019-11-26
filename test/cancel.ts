@@ -10,7 +10,7 @@ import slowDataStream from './helpers/slow-data-stream';
 import {ExtendedTestServer, GlobalClock} from './helpers/types';
 import withServer, {withServerAndLolex} from './helpers/with-server';
 
-const prepareServer = (server: ExtendedTestServer, clock: GlobalClock) => {
+const prepareServer = (server: ExtendedTestServer, clock: GlobalClock): {emitter: EventEmitter; promise: Promise<unknown>} => {
 	const emitter = new EventEmitter();
 
 	const promise = new Promise((resolve, reject) => {

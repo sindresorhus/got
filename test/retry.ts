@@ -18,7 +18,7 @@ const handler413: Handler = (_request, response) => {
 	response.end();
 };
 
-const createSocketTimeoutStream = () => {
+const createSocketTimeoutStream = (): http.ClientRequest => {
 	const stream = new PassThroughStream();
 	// @ts-ignore
 	stream.setTimeout = (ms, callback) => {

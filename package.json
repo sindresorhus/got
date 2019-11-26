@@ -118,10 +118,6 @@
 		"extensions": [
 			"ts"
 		],
-		"rules": {
-			"@typescript-eslint/explicit-function-return-type": "off",
-			"@typescript-eslint/promise-function-async": "off"
-		},
 		"ignores": [
 			"documentation/examples/*"
 		]

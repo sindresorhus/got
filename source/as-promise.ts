@@ -7,7 +7,7 @@ import {normalizeArguments, mergeOptions} from './normalize-arguments';
 import requestAsEventEmitter, {proxyEvents} from './request-as-event-emitter';
 import {CancelableRequest, GeneralError, NormalizedOptions, Response} from './utils/types';
 
-const parseBody = (body: Response['body'], responseType: NormalizedOptions['responseType'], statusCode: Response['statusCode']) => {
+const parseBody = (body: Response['body'], responseType: NormalizedOptions['responseType'], statusCode: Response['statusCode']): unknown | never => {
 	if (responseType === 'json' && is.string(body)) {
 		return statusCode === 204 ? '' : JSON.parse(body);
 	}

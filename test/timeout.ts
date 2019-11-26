@@ -511,7 +511,7 @@ test('ensure there are no new timeouts after cancelation', t => {
 test('double calling timedOut has no effect', t => {
 	const emitter = new EventEmitter();
 
-	const attach = () => timedOut(emitter as http.ClientRequest, {
+	const attach = (): () => void => timedOut(emitter as http.ClientRequest, {
 		connect: 1
 	}, {
 		hostname: '127.0.0.1'

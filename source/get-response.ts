@@ -9,7 +9,7 @@ import {NormalizedOptions} from './utils/types';
 
 const pipeline = promisify(stream.pipeline);
 
-export default async (response: IncomingMessage, options: NormalizedOptions, emitter: EventEmitter) => {
+export default async (response: IncomingMessage, options: NormalizedOptions, emitter: EventEmitter): Promise<void> => {
 	const downloadBodySize = Number(response.headers['content-length']) || undefined;
 	const progressStream = createProgressStream('downloadProgress', emitter, downloadBodySize);
 

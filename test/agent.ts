@@ -7,7 +7,7 @@ import sinon = require('sinon');
 import {ExtendedTestServer} from './helpers/types';
 import withServer from './helpers/with-server';
 
-const prepareServer = (server: ExtendedTestServer) => {
+const prepareServer = (server: ExtendedTestServer): void => {
 	server.get('/', (request, response) => {
 		if (request.socket instanceof TLSSocket) {
 			response.end('https');
@@ -31,7 +31,7 @@ const prepareServer = (server: ExtendedTestServer) => {
 	});
 };
 
-const createAgentSpy = <T extends HttpAgent>(AgentClass: Constructor) => {
+const createAgentSpy = <T extends HttpAgent>(AgentClass: Constructor): {agent: T; spy: sinon.SinonSpy} => {
 	const agent: T = new AgentClass({keepAlive: true});
 	// @ts-ignore This IS correct.
 	const spy = sinon.spy(agent, 'addRequest');

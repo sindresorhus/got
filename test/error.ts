@@ -171,7 +171,7 @@ test('catches error in mimicResponse', withServer, async (t, server) => {
 		response.end('ok');
 	});
 
-	const mimicResponse = () => {
+	const mimicResponse = (): never => {
 		throw new Error('Error in mimic-response');
 	};
 
