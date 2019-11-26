@@ -139,7 +139,7 @@ export const preNormalizeArguments = (options: Options, defaults?: NormalizedOpt
 	if (is.string(options.method)) {
 		options.method = options.method.toUpperCase() as Method;
 	} else {
-		options.method = defaults?.method || 'GET';
+		options.method = defaults?.method ?? 'GET';
 	}
 
 	// Better memory management, so we don't have to generate a new object every time
@@ -224,13 +224,13 @@ export const normalizeArguments = (url: URLOrOptions, options?: Options, default
 	if (is.urlInstance(url) || is.string(url)) {
 		options.url = url;
 
-		options = mergeOptions((defaults && defaults.options) ?? {}, options);
+		options = mergeOptions((defaults?.options) ?? {}, options);
 	} else {
 		if (Reflect.has(url, 'resolve')) {
 			throw new Error('The legacy `url.Url` is deprecated. Use `URL` instead.');
 		}
 
-		options = mergeOptions((defaults && defaults.options) ?? {}, url, options);
+		options = mergeOptions((defaults?.options) ?? {}, url, options);
 	}
 
 	// Normalize URL
@@ -270,6 +270,7 @@ export const normalizeArguments = (url: URLOrOptions, options?: Options, default
 	// Make it possible to remove default headers
 	for (const [key, value] of Object.entries(normalizedOptions.headers)) {
 		if (is.undefined(value)) {
+			// eslint-disable-next-line @typescript-eslint/no-dynamic-delete
 			delete normalizedOptions.headers[key];
 		} else if (is.null_(value)) {
 			throw new TypeError('Use `undefined` instead of `null` to delete HTTP headers');
@@ -405,7 +406,7 @@ export const normalizeRequestArguments = async (options: NormalizedOptions): Pro
 	}
 
 	if (isAgentByProtocol(options.agent)) {
-		options.agent = options.agent[options.url.protocol.slice(0, -1) as keyof AgentByProtocol] || options.agent;
+		options.agent = options.agent[options.url.protocol.slice(0, -1) as keyof AgentByProtocol] ?? options.agent;
 	}
 
 	if (options.dnsCache) {

@@ -118,6 +118,7 @@ const create = (defaults: NormalizedDefaults & {_rawHandlers?: HandlerFunction[]
 			);
 		};
 
+		/* eslint-disable @typescript-eslint/return-await */
 		try {
 			return iterateHandlers(normalizeArguments(url, options, defaults));
 		} catch (error) {
@@ -128,6 +129,7 @@ const create = (defaults: NormalizedDefaults & {_rawHandlers?: HandlerFunction[]
 				return Promise.reject(error);
 			}
 		}
+		/* eslint-enable @typescript-eslint/return-await */
 	};
 
 	got.extend = (...instancesOrOptions) => {

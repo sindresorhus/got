@@ -68,8 +68,7 @@ export default (options: NormalizedOptions) => {
 
 				const typedResponse = response as Response;
 				const {statusCode} = typedResponse;
-				// This is intentionally using `||` over `??` so it can also catch empty status message.
-				typedResponse.statusMessage = typedResponse.statusMessage || http.STATUS_CODES[statusCode];
+				typedResponse.statusMessage = is.nonEmptyString(typedResponse.statusMessage) ? typedResponse.statusMessage : http.STATUS_CODES[statusCode];
 				typedResponse.url = options.url.toString();
 				typedResponse.requestUrl = requestURL;
 				typedResponse.retryCount = retryCount;

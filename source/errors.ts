@@ -79,7 +79,7 @@ export class HTTPError extends GotError {
 	declare readonly response: Response;
 
 	constructor(response: Response, options: NormalizedOptions) {
-		super(`Response code ${response.statusCode} (${response.statusMessage})`, {}, options);
+		super(`Response code ${response.statusCode} (${response.statusMessage ?? ''})`, {}, options);
 		this.name = 'HTTPError';
 
 		Object.defineProperty(this, 'response', {

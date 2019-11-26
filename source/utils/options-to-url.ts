@@ -1,7 +1,7 @@
 function validateSearchParams(searchParams: Record<string, unknown>): asserts searchParams is Record<string, string | number | boolean | null> {
 	for (const value of Object.values(searchParams)) {
 		if (typeof value !== 'string' && typeof value !== 'number' && typeof value !== 'boolean' && value !== null) {
-			throw new TypeError(`The \`searchParams\` value '${value}' must be a string, number, boolean or null`);
+			throw new TypeError(`The \`searchParams\` value '${String(value)}' must be a string, number, boolean or null`);
 		}
 	}
 }
@@ -59,7 +59,7 @@ export default (options: URLOptions): URL => {
 			throw new TypeError('No URL protocol specified');
 		}
 
-		origin = `${options.protocol}//${options.hostname || options.host}`;
+		origin = `${options.protocol}//${options.hostname ?? options.host ?? ''}`;
 	}
 
 	const url = new URL(origin);
