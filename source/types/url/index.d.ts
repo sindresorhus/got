@@ -1,7 +1,6 @@
 // TODO: Remove this when DefinitelyTyped/#34960 is resolved
 declare global {
 	class URL {
-		constructor(input: string, base?: string | URL);
 		readonly origin: string;
 		readonly searchParams: URLSearchParams;
 		hash: string;
@@ -14,6 +13,8 @@ declare global {
 		protocol: string;
 		search: string;
 		username: string;
+
+		constructor(input: string, base?: string | URL);
 		toString(): string;
 		toJSON(): string;
 	}
