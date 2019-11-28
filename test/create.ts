@@ -192,7 +192,7 @@ test('ability to pass a custom request method', withServer, async (t, server, go
 		((res: IncomingMessage) => void)?
 	]) => {
 		called = true;
-		// @ts-ignore URL !== URL
+		// @ts-ignore Overload error
 		return httpRequest(...args);
 	};
 

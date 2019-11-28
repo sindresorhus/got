@@ -84,12 +84,12 @@ test.serial('socket timeout', async t => {
 			retry: 0,
 			request: () => {
 				const stream = new PassThroughStream();
-				// @ts-ignore
+				// @ts-ignore Mocking the behaviour of a ClientRequest
 				stream.setTimeout = (ms, callback) => {
 					callback();
 				};
 
-				// @ts-ignore
+				// @ts-ignore Mocking the behaviour of a ClientRequest
 				stream.abort = () => {};
 				stream.resume();
 
@@ -223,7 +223,7 @@ test.serial('connect timeout', withServerAndLolex, async (t, _server, got, clock
 		got({
 			createConnection: options => {
 				const socket = new net.Socket(options as object as net.SocketConstructorOpts);
-				// @ts-ignore
+				// @ts-ignore We know that it is readonly, but we have to test it
 				socket.connecting = true;
 				setImmediate(() => {
 					socket.emit('lookup', null, '127.0.0.1', 4, 'localhost');
@@ -250,7 +250,7 @@ test.serial('connect timeout (ip address)', withServerAndLolex, async (t, _serve
 			hostname: '127.0.0.1',
 			createConnection: options => {
 				const socket = new net.Socket(options as object as net.SocketConstructorOpts);
-				// @ts-ignore
+				// @ts-ignore We know that it is readonly, but we have to test it
 				socket.connecting = true;
 				return socket;
 			},
@@ -272,9 +272,9 @@ test.serial('secureConnect timeout', withServerAndLolex, async (t, _server, got,
 	await t.throwsAsync(
 		got.secure({
 			createConnection: options => {
-				// @ts-ignore
+				// @ts-ignore Options types does not align
 				const socket = new net.Socket(options);
-				// @ts-ignore
+				// @ts-ignore We know that it is readonly, but we have to test it
 				socket.connecting = true;
 				setImmediate(() => {
 					socket.emit('lookup', null, '127.0.0.1', 4, 'localhost');
@@ -441,7 +441,7 @@ test.serial('no more timeouts after an error', withServerAndLolex, async (t, _se
 		}
 	}).on('request', () => {
 		const {setTimeout} = global;
-		// @ts-ignore
+		// @ts-ignore Augmenting global for testing purposes
 		global.setTimeout = (callback, _ms, ...args) => {
 			callback(...args);
 

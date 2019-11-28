@@ -7,21 +7,21 @@ export default function merge<Target extends {[key: string]: any}, Source extend
 			const targetValue = target[key];
 
 			if (is.urlInstance(targetValue) && is.string(sourceValue)) {
-				// @ts-ignore
+				// @ts-ignore TS doesn't recognise Target accepts string keys
 				target[key] = new URL(sourceValue, targetValue);
 			} else if (is.plainObject(sourceValue)) {
 				if (is.plainObject(targetValue)) {
-					// @ts-ignore
+					// @ts-ignore TS doesn't recognise Target accepts string keys
 					target[key] = merge({}, targetValue, sourceValue);
 				} else {
-					// @ts-ignore
+					// @ts-ignore TS doesn't recognise Target accepts string keys
 					target[key] = merge({}, sourceValue);
 				}
 			} else if (is.array(sourceValue)) {
-				// @ts-ignore
+				// @ts-ignore TS doesn't recognise Target accepts string keys
 				target[key] = sourceValue.slice();
 			} else {
-				// @ts-ignore
+				// @ts-ignore TS doesn't recognise Target accepts string keys
 				target[key] = sourceValue;
 			}
 		}

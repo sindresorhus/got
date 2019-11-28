@@ -4,21 +4,21 @@ import optionsToUrl from '../source/utils/options-to-url';
 
 test('`path` is deprecated', t => {
 	t.throws(() => {
-		// @ts-ignore
+		// @ts-ignore Error tests
 		optionsToUrl({path: ''});
 	}, 'Parameter `path` is deprecated. Use `pathname` instead.');
 });
 
 test('`auth` is deprecated', t => {
 	t.throws(() => {
-		// @ts-ignore
+		// @ts-ignore Error tests
 		optionsToUrl({auth: ''});
 	}, 'Parameter `auth` is deprecated. Use `username`/`password` instead.');
 });
 
 test('`search` and `searchParams` are mutually exclusive', t => {
 	t.throws(() => {
-		// @ts-ignore
+		// @ts-ignore Error tests
 		optionsToUrl({search: 'a', searchParams: {}});
 	}, 'Parameters `search` and `searchParams` are mutually exclusive.');
 });

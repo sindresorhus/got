@@ -179,8 +179,7 @@ export default (options: NormalizedOptions): RequestAsEventEmitter => {
 				const uploadStream = createProgressStream('uploadProgress', emitter, httpOptions.headers!['content-length'] as string);
 
 				await pipeline(
-					// @ts-ignore Cannot assign ReadableStream to ReadableStream
-					httpOptions.body,
+					httpOptions.body!,
 					uploadStream,
 					request
 				);
@@ -223,8 +222,7 @@ export default (options: NormalizedOptions): RequestAsEventEmitter => {
 		} else {
 			// Catches errors thrown by calling `requestFn(…)`
 			try {
-				// @ts-ignore 1. TS complains that URLSearchParams is not the same as URLSearchParams.
-				//            2. It doesn't notice that `options.timeout` is deleted above.
+				// @ts-ignore URLSearchParams does not equal URLSearchParams
 				handleRequest(httpOptions.request(options.url, httpOptions, handleResponse));
 			} catch (error) {
 				emitError(new RequestError(error, options));

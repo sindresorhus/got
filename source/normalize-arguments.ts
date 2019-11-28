@@ -4,6 +4,7 @@ import http = require('http');
 import https = require('https');
 import Keyv = require('keyv');
 import lowercaseKeys = require('lowercase-keys');
+import stream = require('stream');
 import toReadableStream = require('to-readable-stream');
 import is from '@sindresorhus/is';
 import CacheableLookup from 'cacheable-lookup';
@@ -79,7 +80,7 @@ export const preNormalizeArguments = (options: Options, defaults?: NormalizedOpt
 
 	if (defaults) {
 		for (const event of knownHookEvents) {
-			// @ts-ignore TS is dumb.
+			// @ts-ignore Union type array is not assignable to union array type
 			options.hooks[event] = [
 				...defaults.hooks[event],
 				...options.hooks[event]!
@@ -120,7 +121,7 @@ export const preNormalizeArguments = (options: Options, defaults?: NormalizedOpt
 	}
 
 	if (options.retry.maxRetryAfter === undefined) {
-		// @ts-ignore We assign if it is undefined, so this is correct
+		// @ts-ignore We assign if it is undefined, so this IS correct
 		options.retry.maxRetryAfter = Math.min(
 			...[options.timeout.request, options.timeout.connect].filter((n): n is number => !is.nullOrUndefined(n))
 		);
@@ -158,7 +159,7 @@ export const preNormalizeArguments = (options: Options, defaults?: NormalizedOpt
 		// Horrible `tough-cookie` check
 		if (setCookie.length === 4 && getCookieString.length === 0) {
 			if (!Reflect.has(setCookie, promisify.custom)) {
-				// @ts-ignore TS is dumb.
+				// @ts-ignore We check for non-promisified setCookie, so this IS correct
 				setCookie = promisify(setCookie.bind(options.cookieJar));
 				getCookieString = promisify(getCookieString.bind(options.cookieJar));
 			}
@@ -282,7 +283,7 @@ export const normalizeArguments = (url: URLOrOptions, options?: Options, default
 			throw new TypeError('The `init` hook must be a synchronous function');
 		}
 
-		// @ts-ignore TS is dumb.
+		// @ts-ignore We only run if the hook is a synchronous function, so this IS correct
 		hook(normalizedOptions);
 	}
 
@@ -292,7 +293,8 @@ export const normalizeArguments = (url: URLOrOptions, options?: Options, default
 const withoutBody: ReadonlySet<string> = new Set(['GET', 'HEAD']);
 
 export type NormalizedRequestArguments = Merge<https.RequestOptions, {
-	body?: ReadableStream;
+	body?: stream.Readable;
+	request: typeof http.request | typeof https.request;
 	url: Pick<NormalizedOptions, 'url'>;
 }>;
 
@@ -316,7 +318,7 @@ export const normalizeRequestArguments = async (options: NormalizedOptions): Pro
 		if (is.object(options.body) && isFormData(options.body)) {
 			// Special case for https://github.com/form-data/form-data
 			if (!Reflect.has(headers, 'content-type')) {
-				// @ts-ignore TS is dumb.
+				// @ts-ignore We assign if it is undefined, so this IS correct
 				headers['content-type'] = `multipart/form-data; boundary=${options.body.getBoundary()}`;
 			}
 		} else if (!is.nodeStream(options.body) && !is.string(options.body) && !is.buffer(options.body)) {
@@ -328,14 +330,14 @@ export const normalizeRequestArguments = async (options: NormalizedOptions): Pro
 		}
 
 		if (!Reflect.has(headers, 'content-type')) {
-			// @ts-ignore TS is dumb.
+			// @ts-ignore We assign if it is undefined, so this IS correct
 			headers['content-type'] = 'application/x-www-form-urlencoded';
 		}
 
 		options.body = (new URLSearchParams(options.form as Record<string, string>)).toString();
 	} else if (isJSON) {
 		if (!Reflect.has(headers, 'content-type')) {
-			// @ts-ignore TS is dumb.
+			// @ts-ignore We assign if it is undefined, so this IS correct
 			headers['content-type'] = 'application/json';
 		}
 
@@ -362,7 +364,7 @@ export const normalizeRequestArguments = async (options: NormalizedOptions): Pro
 			(options.method === 'POST' || options.method === 'PUT' || options.method === 'PATCH') &&
 			!is.undefined(uploadBodySize)
 		) {
-			// @ts-ignore TS is dumb.
+			// @ts-ignore We assign if it is undefined, so this IS correct
 			headers['content-length'] = String(uploadBodySize);
 		}
 	}
@@ -394,14 +396,12 @@ export const normalizeRequestArguments = async (options: NormalizedOptions): Pro
 		if (matches?.groups) {
 			const {socketPath, path} = matches.groups;
 
-			// It's a bug!
-			// eslint-disable-next-line @typescript-eslint/consistent-type-assertions
 			options = {
 				...options,
 				socketPath,
 				path,
 				host: ''
-			} as NormalizedOptions;
+			};
 		}
 	}
 

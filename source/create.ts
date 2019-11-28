@@ -170,7 +170,7 @@ const create = (defaults: NormalizedDefaults): Got => {
 	got.stream = (url, options) => got(url, {...options, isStream: true});
 
 	for (const method of aliases) {
-		// @ts-ignore
+		// @ts-ignore GotReturn<Response> does not equal GotReturn<T>
 		got[method] = (url: URLOrOptions, options?: Options): GotReturn => got(url, {...options, method});
 		got.stream[method] = (url, options) => got.stream(url, {...options, method});
 	}

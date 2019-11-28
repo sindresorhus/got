@@ -33,7 +33,7 @@ const prepareServer = (server: ExtendedTestServer): void => {
 
 const createAgentSpy = <T extends HttpAgent>(AgentClass: Constructor): {agent: T; spy: sinon.SinonSpy} => {
 	const agent: T = new AgentClass({keepAlive: true});
-	// @ts-ignore This IS correct.
+	// @ts-ignore This IS correct
 	const spy = sinon.spy(agent, 'addRequest');
 	return {agent, spy};
 };

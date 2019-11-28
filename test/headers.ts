@@ -63,7 +63,7 @@ test('does not set `accept-encoding` header when `options.decompress` is false',
 	const headers = await got({
 		decompress: false
 	}).json();
-	// @ts-ignore Error test
+	// @ts-ignore Error tests
 	t.false(Reflect.has(headers, 'accept-encoding'));
 });
 

@@ -20,12 +20,12 @@ const handler413: Handler = (_request, response) => {
 
 const createSocketTimeoutStream = (): http.ClientRequest => {
 	const stream = new PassThroughStream();
-	// @ts-ignore
+	// @ts-ignore Mocking the behaviour of a ClientRequest
 	stream.setTimeout = (ms, callback) => {
 		callback();
 	};
 
-	// @ts-ignore
+	// @ts-ignore Mocking the behaviour of a ClientRequest
 	stream.abort = () => {};
 	stream.resume();
 
@@ -48,7 +48,7 @@ test('works on timeout', withServer, async (t, server, got) => {
 			((res: http.IncomingMessage) => void)?
 		]) => {
 			if (knocks === 1) {
-				// @ts-ignore URL !== URL
+				// @ts-ignore Overload error
 				return http.request(...args);
 			}
 
