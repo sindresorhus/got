@@ -272,8 +272,7 @@ test.serial('secureConnect timeout', withServerAndLolex, async (t, _server, got,
 	await t.throwsAsync(
 		got.secure({
 			createConnection: options => {
-				// @ts-ignore Options types does not align
-				const socket = new net.Socket(options);
+				const socket = new net.Socket(options as object as net.SocketConstructorOpts);
 				// @ts-ignore We know that it is readonly, but we have to test it
 				socket.connecting = true;
 				setImmediate(() => {
