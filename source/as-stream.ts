@@ -121,7 +121,7 @@ export default function asStream<T>(options: NormalizedOptions): ProxyStream<T> 
 		return destination;
 	};
 
-	proxy.unpipe = (stream) => {
+	proxy.unpipe = stream => {
 		piped.delete(stream as ServerResponse);
 		return unpipe(stream);
 	};
