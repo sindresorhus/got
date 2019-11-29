@@ -134,13 +134,15 @@ Any of the [`https.request`](https://nodejs.org/api/https.html#https_https_reque
 
 Type: `string | URL`
 
-When specified, `prefixUrl` will be prepended to `url`. The prefix can be any valid URL, either relative or absolute. A trailing slash `/` is optional, one will be added automatically, if needed, when joining `prefixUrl` and `url`. The `url` argument cannot start with a `/` when using this option.
-
-Useful when used with `got.extend()` to create niche-specific Got-instances.
+When specified, `prefixUrl` will be prepended to `url`. The prefix can be any valid URL, either relative or absolute. A trailing slash `/` is optional - one will be added automatically.
 
 **Note:** `prefixUrl` will be ignored if the `url` argument is a URL instance.
 
-**Tip:** If the input URL still contains the initial `prefixUrl`, you can change it as many times as you want. Otherwise it will throw an error.
+**Note:** Leading slashes in `input` are disallowed when using this option to enforce consistency and avoid confusion. For example, when the prefix URL is `https://example.com/foo` and the input is `/bar`, there's ambiguity whether the resulting URL would become `https://example.com/foo/bar` or `https://example.com/bar`. The latter is used by browsers.
+
+**Tip:** Useful when used with [`got.extend()`](#custom-endpoints) to create niche-specific Got-instances.
+
+**Tip:** You can change `prefixUrl` using hooks as long as the URL still includes the `prefixUrl`. If the URL doesn't include it anymore, it will throw.
 
 ```js
 const got = require('got');
