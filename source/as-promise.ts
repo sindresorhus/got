@@ -7,7 +7,7 @@ import {normalizeArguments, mergeOptions} from './normalize-arguments';
 import requestAsEventEmitter, {proxyEvents} from './request-as-event-emitter';
 import {CancelableRequest, GeneralError, NormalizedOptions, Response} from './utils/types';
 
-const parseBody = (body: Response['body'], responseType: NormalizedOptions['responseType'], statusCode: Response['statusCode']): unknown | never => {
+const parseBody = (body: Response['body'], responseType: NormalizedOptions['responseType'], statusCode: Response['statusCode']): unknown => {
 	if (responseType === 'json' && is.string(body)) {
 		return statusCode === 204 ? '' : JSON.parse(body);
 	}
@@ -79,7 +79,7 @@ export default function asPromise<T>(options: NormalizedOptions): CancelableRequ
 							resolveBodyOnly: false
 						}));
 
-						// Remove any further hooks for that request, because we'll call them anyway.
+						// Remove any furthe1r hooks for that request, because we'll call them anyway.
 						// The loop continues. We don't want duplicates (asPromise recursion).
 						updatedOptions.hooks.afterResponse = options.hooks.afterResponse.slice(0, index);
 

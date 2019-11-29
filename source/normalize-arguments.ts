@@ -23,6 +23,7 @@ import {
 	Method,
 	NormalizedOptions,
 	Options,
+	RequestFunction,
 	URLOrOptions
 } from './utils/types';
 
@@ -294,7 +295,7 @@ const withoutBody: ReadonlySet<string> = new Set(['GET', 'HEAD']);
 
 export type NormalizedRequestArguments = Merge<https.RequestOptions, {
 	body?: stream.Readable;
-	request: typeof http.request | typeof https.request;
+	request: RequestFunction;
 	url: Pick<NormalizedOptions, 'url'>;
 }>;
 
