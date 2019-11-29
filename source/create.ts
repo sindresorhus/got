@@ -8,11 +8,12 @@ import {
 	CancelableRequest,
 	ExtendOptions,
 	HandlerFunction,
-	NormalizedDefaults,
 	NormalizedOptions,
 	Options,
+	Defaults,
 	Response,
-	URLOrOptions
+	URLOrOptions,
+	DefaultOptions
 } from './utils/types';
 
 export type HTTPAlias =
@@ -55,7 +56,7 @@ interface GotFunctions {
 
 export interface Got extends Record<HTTPAlias, GotFunctions>, GotFunctions {
 	stream: GotStream;
-	defaults: NormalizedDefaults | Readonly<NormalizedDefaults>;
+	defaults: Defaults | Readonly<Defaults>;
 	GotError: typeof errors.GotError;
 	CacheError: typeof errors.CacheError;
 	RequestError: typeof errors.RequestError;
@@ -87,7 +88,7 @@ const aliases: readonly HTTPAlias[] = [
 
 export const defaultHandler: HandlerFunction = (options, next) => next(options);
 
-const create = (defaults: NormalizedDefaults): Got => {
+const create = (defaults: Defaults): Got => {
 	// Proxy properties from next handlers
 	defaults._rawHandlers = defaults.handlers;
 	defaults.handlers = defaults.handlers.map(fn => ((options, next) => {
@@ -160,7 +161,7 @@ const create = (defaults: NormalizedDefaults): Got => {
 		}
 
 		return create({
-			options: mergeOptions(...optionsArray),
+			options: mergeOptions(...optionsArray) as DefaultOptions,
 			handlers,
 			mutableDefaults: Boolean(mutableDefaults)
 		});

@@ -192,3 +192,21 @@ test('throws on invalid `options.cookieJar.getCookieString`', async t => {
 		}
 	}), '`options.cookieJar.getCookieString` needs to be an async function with 1 argument');
 });
+
+test('cookies are cleared when redirecting to a different hostname (no cookieJar)', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.writeHead(302, {
+			location: 'https://httpbin.org/anything'
+		});
+		response.end();
+	});
+
+	const {headers} = await got('', {
+		headers: {
+			cookie: 'foo=bar',
+			'user-agent': 'custom'
+		}
+	}).json();
+	t.is(headers.Cookie, undefined);
+	t.is(headers['User-Agent'], 'custom');
+});
