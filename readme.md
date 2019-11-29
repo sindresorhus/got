@@ -136,7 +136,7 @@ When specified, `prefixUrl` will be prepended to `url`. The prefix can be any va
 
 **Note:** `prefixUrl` will be ignored if the `url` argument is a URL instance.
 
-**Note:** Leading slashes in `input` are disallowed when using this option to enforce consistency and avoid confusion about how the `input` URL is handled, given that `input` will not follow the normal URL resolution rules when `prefixUrl` is being used, which changes the meaning of a leading slash.
+**Note:** Leading slashes in `input` are disallowed when using this option to enforce consistency and avoid confusion. For example, when the prefix URL is `https://example.com/foo` and the input is `/bar`, there's ambiguity whether the resulting URL would become `https://example.com/foo/bar` or `https://example.com/bar`. The latter is used by browsers.
 
 **Tip:** Useful when used with [`got.extend()`](#custom-endpoints) to create niche-specific Got-instances.
 
