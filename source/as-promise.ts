@@ -79,7 +79,7 @@ export default function asPromise<T>(options: NormalizedOptions): CancelableRequ
 							resolveBodyOnly: false
 						}));
 
-						// Remove any furthe1r hooks for that request, because we'll call them anyway.
+						// Remove any further hooks for that request, because we'll call them anyway.
 						// The loop continues. We don't want duplicates (asPromise recursion).
 						updatedOptions.hooks.afterResponse = options.hooks.afterResponse.slice(0, index);
 
