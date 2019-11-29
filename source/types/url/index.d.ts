@@ -1,4 +1,4 @@
-// TODO: Remove this when DefinitelyTyped/#34960 is resolved
+// TODO: Remove this when https://github.com/DefinitelyTyped/DefinitelyTyped/issues/34960 is resolved
 declare global {
 	class URL {
 		readonly origin: string;
