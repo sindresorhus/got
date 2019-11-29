@@ -380,7 +380,7 @@ export const normalizeRequestArguments = async (options: NormalizedOptions): Pro
 			(options.method === 'POST' || options.method === 'PUT' || options.method === 'PATCH') &&
 			!is.undefined(uploadBodySize)
 		) {
-			// @ts-ignore TS is dumb.
+			// @ts-ignore We assign if it is undefined, so this IS correct
 			headers['content-length'] = String(uploadBodySize);
 		}
 	}
