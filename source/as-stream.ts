@@ -1,6 +1,6 @@
 import duplexer3 = require('duplexer3');
 import stream = require('stream');
-import {IncomingMessage} from 'http';
+import {IncomingMessage, ServerResponse} from 'http';
 import {Duplex as DuplexStream, PassThrough as PassThroughStream} from 'stream';
 import {HTTPError, ReadError} from './errors';
 import requestAsEventEmitter, {proxyEvents} from './request-as-event-emitter';
@@ -14,7 +14,7 @@ export default function asStream<T>(options: NormalizedOptions): ProxyStream<T> 
 	const input = new PassThroughStream();
 	const output = new PassThroughStream();
 	const proxy = duplexer3(input, output) as ProxyStream;
-	const piped = new Set<any>(); // TODO: Should be `new Set<stream.Writable>();`.
+	const piped = new Set<ServerResponse>();
 	let isFinished = false;
 
 	options.retry.calculateDelay = () => 0;
@@ -91,7 +91,7 @@ export default function asStream<T>(options: NormalizedOptions): ProxyStream<T> 
 				// It's not possible to decompress already decompressed data, is it?
 				const isAllowed = options.decompress ? key !== 'content-encoding' : true;
 				if (isAllowed) {
-					destination.setHeader(key, value);
+					destination.setHeader(key, value!);
 				}
 			}
 
@@ -115,13 +115,14 @@ export default function asStream<T>(options: NormalizedOptions): ProxyStream<T> 
 		pipe(destination, options);
 
 		if (Reflect.has(destination, 'setHeader')) {
+			// @ts-ignore This IS correct, we check for a property but the type-guard broke type infer.
 			piped.add(destination);
 		}
 
 		return destination;
 	};
 
-	proxy.unpipe = stream => {
+	proxy.unpipe = (stream: ServerResponse) => {
 		piped.delete(stream);
 		return unpipe(stream);
 	};
