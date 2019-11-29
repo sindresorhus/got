@@ -114,8 +114,7 @@ export default function asStream<T>(options: NormalizedOptions): ProxyStream<T> 
 
 		pipe(destination, options);
 
-		if (Reflect.has(destination, 'setHeader')) {
-			// @ts-ignore This IS correct, we check for a property but the type-guard broke type infer.
+		if (destination instanceof ServerResponse) {
 			piped.add(destination);
 		}
 

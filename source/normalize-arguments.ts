@@ -81,11 +81,13 @@ export const preNormalizeArguments = (options: Options, defaults?: NormalizedOpt
 
 	if (defaults) {
 		for (const event of knownHookEvents) {
-			// @ts-ignore Union type array is not assignable to union array type
-			options.hooks[event] = [
-				...defaults.hooks[event],
-				...options.hooks[event]!
-			];
+			if (!(Reflect.has(options.hooks, event) && is.undefined(options.hooks[event]))) {
+				// @ts-ignore Union type array is not assignable to union array type
+				options.hooks[event] = [
+					...defaults.hooks[event],
+					...options.hooks[event]!
+				];
+			}
 		}
 	}
 
@@ -280,12 +282,11 @@ export const normalizeArguments = (url: URLOrOptions, options?: Options, default
 	}
 
 	for (const hook of normalizedOptions.hooks.init) {
-		if (is.asyncFunction(hook)) {
+		const result = hook(normalizedOptions);
+
+		if (is.promise(result)) {
 			throw new TypeError('The `init` hook must be a synchronous function');
 		}
-
-		// @ts-ignore We only run if the hook is a synchronous function, so this IS correct
-		hook(normalizedOptions);
 	}
 
 	return normalizedOptions;

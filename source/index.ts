@@ -33,7 +33,7 @@ const defaults: Defaults = {
 				'ENETUNREACH',
 				'EAI_AGAIN'
 			],
-			maxRetryAfter: undefined,
+			maxRetryAfter: Infinity,
 			calculateDelay: ({computedValue}) => computedValue
 		},
 		timeout: {},
