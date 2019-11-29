@@ -132,32 +132,40 @@ interface PromiseCookieJar {
 	setCookie(rawCookie: string, url: string): Promise<unknown>;
 }
 
-export interface DefaultOptions {
-	method: Method;
-	retry: DefaultRetryOptions | number;
-	timeout: Delays | number;
-	headers: Headers;
-	hooks: Hooks;
-	decompress: boolean;
-	throwHttpErrors: boolean;
-	followRedirect: boolean;
-	isStream: boolean;
-	cache: CacheableRequest.StorageAdapter | string | false;
-	dnsCache: CacheableLookup | Map<string, string> | Keyv | false;
-	useElectronNet: boolean;
-	responseType: ResponseType;
-	resolveBodyOnly: boolean;
-	maxRedirects: number;
-	prefixUrl: URL | string;
-}
+/* eslint-disable @typescript-eslint/indent */
+export type DefaultOptions = Merge<
+	Required<
+		Except<
+			GotOptions,
+			// Overrode
+			'hooks' |
+			'retry' |
+			'timeout' |
+			'context' |
+			// Should not be present
+			'agent' |
+			'body' |
+			'cookieJar' |
+			'encoding' |
+			'form' |
+			'json' |
+			'request' |
+			'url'
+		>
+	>,
+	{
+		hooks: Required<Hooks>;
+		retry: DefaultRetryOptions;
+		timeout: Delays;
+		context: {[key: string]: any};
+	}
+>;
+/* eslint-enable @typescript-eslint/indent */
 
-// The library overrides agent/timeout in a non-standard way, so we have to override them
-export interface Options extends Partial<Except<DefaultOptions, 'retry'>>, Merge<Except<https.RequestOptions, 'agent' | 'timeout'>, URLOptions> {
+export interface GotOptions {
 	url?: URL | string;
 	body?: string | Buffer | ReadableStream;
-	hostname?: string;
-	socketPath?: string;
-	hooks?: Partial<Hooks>;
+	hooks?: Hooks;
 	decompress?: boolean;
 	isStream?: boolean;
 	encoding?: BufferEncoding;
@@ -184,7 +192,9 @@ export interface Options extends Partial<Except<DefaultOptions, 'retry'>>, Merge
 	methodRewriting?: boolean;
 }
 
-export interface NormalizedOptions extends Except<DefaultOptions, 'dnsCache'>, Except<Options, keyof DefaultOptions> {
+export type Options = Merge<https.RequestOptions, Merge<GotOptions, URLOptions>>;
+
+export interface NormalizedOptions extends Options {
 	// Normalized Got options
 	headers: Headers;
 	hooks: Required<Hooks>;
@@ -197,6 +207,7 @@ export interface NormalizedOptions extends Except<DefaultOptions, 'dnsCache'>, E
 	url: URL;
 	cacheableRequest?: (options: string | URL | http.RequestOptions, callback?: (response: http.ServerResponse | ResponseLike) => void) => CacheableRequest.Emitter;
 	cookieJar?: PromiseCookieJar;
+	maxRedirects: number;
 
 	// UNIX socket support
 	path?: string;
@@ -208,15 +219,8 @@ export interface ExtendOptions extends Options {
 }
 
 export interface Defaults {
-	options: Merge<Options, {headers: Headers; hooks: Required<Hooks>}>;
+	options: DefaultOptions;
 	handlers: HandlerFunction[];
-	mutableDefaults: boolean;
-}
-
-export interface NormalizedDefaults {
-	options: Merge<Options, {headers: Headers; hooks: Required<Hooks>}>;
-	handlers: HandlerFunction[];
-	_rawHandlers?: HandlerFunction[];
 	mutableDefaults: boolean;
 }
 

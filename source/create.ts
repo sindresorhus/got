@@ -6,9 +6,10 @@ import {normalizeArguments, mergeOptions} from './normalize-arguments';
 import deepFreeze from './utils/deep-freeze';
 import {
 	CancelableRequest,
+	Defaults,
+	DefaultOptions,
 	ExtendOptions,
 	HandlerFunction,
-	NormalizedDefaults,
 	NormalizedOptions,
 	Options,
 	Response,
@@ -55,7 +56,7 @@ interface GotFunctions {
 
 export interface Got extends Record<HTTPAlias, GotFunctions>, GotFunctions {
 	stream: GotStream;
-	defaults: NormalizedDefaults | Readonly<NormalizedDefaults>;
+	defaults: Defaults | Readonly<Defaults>;
 	GotError: typeof errors.GotError;
 	CacheError: typeof errors.CacheError;
 	RequestError: typeof errors.RequestError;
@@ -87,8 +88,9 @@ const aliases: readonly HTTPAlias[] = [
 
 export const defaultHandler: HandlerFunction = (options, next) => next(options);
 
-const create = (defaults: NormalizedDefaults): Got => {
+const create = (defaults: Defaults): Got => {
 	// Proxy properties from next handlers
+	// @ts-ignore Internal use only.
 	defaults._rawHandlers = defaults.handlers;
 	defaults.handlers = defaults.handlers.map(fn => ((options, next) => {
 		// This will be assigned by assigning result
@@ -134,13 +136,15 @@ const create = (defaults: NormalizedDefaults): Got => {
 
 	got.extend = (...instancesOrOptions) => {
 		const optionsArray: Options[] = [defaults.options];
-		let handlers: HandlerFunction[] = [...defaults._rawHandlers!];
+		// @ts-ignore Internal use only.
+		let handlers: HandlerFunction[] = [...defaults._rawHandlers];
 		let mutableDefaults: boolean | undefined;
 
 		for (const value of instancesOrOptions) {
 			if (isGotInstance(value)) {
 				optionsArray.push(value.defaults.options);
-				handlers.push(...value.defaults._rawHandlers!);
+				// @ts-ignore Internal use only.
+				handlers.push(...value.defaults._rawHandlers);
 				mutableDefaults = value.defaults.mutableDefaults;
 			} else {
 				optionsArray.push(value);
@@ -160,7 +164,7 @@ const create = (defaults: NormalizedDefaults): Got => {
 		}
 
 		return create({
-			options: mergeOptions(...optionsArray),
+			options: mergeOptions(...optionsArray) as DefaultOptions,
 			handlers,
 			mutableDefaults: Boolean(mutableDefaults)
 		});
