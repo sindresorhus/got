@@ -32,7 +32,10 @@ test('`url` should be utf-8 encoded', async t => {
 
 test('throws if no arguments provided', async t => {
 	// @ts-ignore Error tests
-	await t.throwsAsync(got(), TypeError, 'Missing `url` argument');
+	await t.throwsAsync(got(), {
+		instanceOf: TypeError,
+		message: 'Missing `url` argument'
+	});
 });
 
 test('throws an error if the protocol is not specified', async t => {

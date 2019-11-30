@@ -41,12 +41,19 @@ const nonEnumerableProperties: NonEnumerableProperty[] = [
 
 const isAgentByProtocol = (agent: Options['agent']): agent is AgentByProtocol => is.object(agent);
 
+// TODO: `preNormalizeArguments` should merge `options` & `defaults`
 export const preNormalizeArguments = (options: Options, defaults?: NormalizedOptions): NormalizedOptions => {
 	// `options.headers`
 	if (is.undefined(options.headers)) {
 		options.headers = {};
 	} else {
 		options.headers = lowercaseKeys(options.headers);
+	}
+
+	for (const [key, value] of Object.entries(options.headers)) {
+		if (is.null_(value)) {
+			throw new TypeError(`Use \`undefined\` instead of \`null\` to delete the \`${key}\` header`);
+		}
 	}
 
 	// `options.prefixUrl`
@@ -180,6 +187,11 @@ export const preNormalizeArguments = (options: Options, defaults?: NormalizedOpt
 		throw new TypeError('To get a Buffer, set `options.responseType` to `buffer` instead');
 	}
 
+	// `options.maxRedirects`
+	if (!Reflect.has(options, 'maxRedirects') && !(defaults && Reflect.has(defaults, 'maxRedirects'))) {
+		options.maxRedirects = 0;
+	}
+
 	return options as NormalizedOptions;
 };
 
@@ -190,10 +202,6 @@ export const mergeOptions = (...sources: Options[]): NormalizedOptions => {
 	const properties: Partial<{[Key in NonEnumerableProperty]: any}> = {};
 
 	for (const source of sources) {
-		if (!source) {
-			continue;
-		}
-
 		merge(mergedOptions, preNormalizeArguments(merge({}, source), mergedOptions));
 
 		for (const name of nonEnumerableProperties) {
@@ -276,8 +284,6 @@ export const normalizeArguments = (url: URLOrOptions, options?: Options, default
 		if (is.undefined(value)) {
 			// eslint-disable-next-line @typescript-eslint/no-dynamic-delete
 			delete normalizedOptions.headers[key];
-		} else if (is.null_(value)) {
-			throw new TypeError('Use `undefined` instead of `null` to delete HTTP headers');
 		}
 	}
 
@@ -305,41 +311,49 @@ export const normalizeRequestArguments = async (options: NormalizedOptions): Pro
 
 	// Serialize body
 	const {headers} = options;
-	const isForm = !is.undefined(options.form);
-	const isJSON = !is.undefined(options.json);
-	const isBody = !is.undefined(options.body);
-	if ((isBody || isForm || isJSON) && withoutBody.has(options.method)) {
-		throw new TypeError(`The \`${options.method}\` method cannot be used with a body`);
-	}
+	const noContentType = is.undefined(headers['content-type']);
 
-	if ([isBody, isForm, isJSON].filter(isTrue => isTrue).length > 1) {
-		throw new TypeError('The `body`, `json` and `form` options are mutually exclusive');
-	}
+	{
+		// TODO: these checks should be moved to `preNormalizeArguments`
+		const isForm = !is.undefined(options.form);
+		const isJSON = !is.undefined(options.json);
+		const isBody = !is.undefined(options.body);
+		if ((isBody || isForm || isJSON) && withoutBody.has(options.method)) {
+			throw new TypeError(`The \`${options.method}\` method cannot be used with a body`);
+		}
 
-	if (isBody) {
-		if (is.object(options.body) && isFormData(options.body)) {
-			// Special case for https://github.com/form-data/form-data
-			if (!Reflect.has(headers, 'content-type')) {
-				// @ts-ignore We assign if it is undefined, so this IS correct
-				headers['content-type'] = `multipart/form-data; boundary=${options.body.getBoundary()}`;
-			}
-		} else if (!is.nodeStream(options.body) && !is.string(options.body) && !is.buffer(options.body)) {
+		if ([isBody, isForm, isJSON].filter(isTrue => isTrue).length > 1) {
+			throw new TypeError('The `body`, `json` and `form` options are mutually exclusive');
+		}
+
+		if (
+			isBody &&
+			!is.nodeStream(options.body) &&
+			!is.string(options.body) &&
+			!is.buffer(options.body) &&
+			!(is.object(options.body) && isFormData(options.body))
+		) {
 			throw new TypeError('The `body` option must be a stream.Readable, string or Buffer');
 		}
-	} else if (isForm) {
-		if (!is.object(options.form)) {
+
+		if (isForm && !is.object(options.form)) {
 			throw new TypeError('The `form` option must be an Object');
 		}
+	}
 
-		if (!Reflect.has(headers, 'content-type')) {
-			// @ts-ignore We assign if it is undefined, so this IS correct
+	if (options.body) {
+		// Special case for https://github.com/form-data/form-data
+		if (is.object(options.body) && isFormData(options.body) && noContentType) {
+			headers['content-type'] = `multipart/form-data; boundary=${options.body.getBoundary()}`;
+		}
+	} else if (options.form) {
+		if (noContentType) {
 			headers['content-type'] = 'application/x-www-form-urlencoded';
 		}
 
 		options.body = (new URLSearchParams(options.form as Record<string, string>)).toString();
-	} else if (isJSON) {
-		if (!Reflect.has(headers, 'content-type')) {
-			// @ts-ignore We assign if it is undefined, so this IS correct
+	} else if (options.json) {
+		if (noContentType) {
 			headers['content-type'] = 'application/json';
 		}
 
@@ -361,7 +375,7 @@ export const normalizeRequestArguments = async (options: NormalizedOptions): Pro
 	// Content-Length header field when the request message does not contain
 	// a payload body and the method semantics do not anticipate such a
 	// body.
-	if (!Reflect.has(headers, 'content-length') && !Reflect.has(headers, 'transfer-encoding')) {
+	if (noContentType && is.undefined(headers['transfer-encoding'])) {
 		if (
 			(options.method === 'POST' || options.method === 'PUT' || options.method === 'PATCH') &&
 			!is.undefined(uploadBodySize)
