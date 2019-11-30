@@ -149,6 +149,7 @@ export type DefaultOptions = Merge<
 			'encoding' |
 			'form' |
 			'json' |
+			'lookup' |
 			'request' |
 			'url'
 		>
