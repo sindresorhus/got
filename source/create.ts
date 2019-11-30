@@ -12,8 +12,10 @@ import {
 	HandlerFunction,
 	NormalizedOptions,
 	Options,
+	Defaults,
 	Response,
-	URLOrOptions
+	URLOrOptions,
+	DefaultOptions
 } from './utils/types';
 
 export type HTTPAlias =

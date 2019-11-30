@@ -386,6 +386,39 @@ test('afterResponse allows to retry', withServer, async (t, server, got) => {
 	t.is(statusCode, 200);
 });
 
+test('cancelling the request after retrying in a afterResponse hook', withServer, async (t, server, got) => {
+	let requests = 0;
+	server.get('/', (_request, response) => {
+		requests++;
+		response.end();
+	});
+
+	const gotPromise = got({
+		hooks: {
+			afterResponse: [
+				(_response, retryWithMergedOptions) => {
+					const promise = retryWithMergedOptions({
+						headers: {
+							token: 'unicorn'
+						}
+					});
+
+					gotPromise.cancel();
+
+					return promise;
+				}
+			]
+		},
+		retry: {
+			calculateDelay: () => 1
+		}
+	});
+
+	await t.throwsAsync(gotPromise);
+	await delay(100);
+	t.is(requests, 1);
+});
+
 test('afterResponse allows to retry - `beforeRetry` hook', withServer, async (t, server, got) => {
 	server.get('/', (request, response) => {
 		if (request.headers.token !== 'unicorn') {

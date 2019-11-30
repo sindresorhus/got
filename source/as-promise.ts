@@ -24,7 +24,7 @@ const parseBody = (body: Response['body'], responseType: NormalizedOptions['resp
 		return body;
 	}
 
-	throw new Error(`Failed to parse body of type '${typeof body}' as '${responseType}'`);
+	throw new Error(`Failed to parse body of type '${typeof body}' as '${responseType!}'`);
 };
 
 export default function asPromise<T>(options: NormalizedOptions): CancelableRequest<T> {

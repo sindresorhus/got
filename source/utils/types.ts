@@ -94,7 +94,7 @@ export interface DefaultRetryOptions {
 	statusCodes: number[];
 	errorCodes: string[];
 	calculateDelay: RetryFunction;
-	maxRetryAfter: number;
+	maxRetryAfter?: number;
 }
 
 export interface RetryOptions extends Partial<DefaultRetryOptions> {
@@ -189,6 +189,7 @@ export interface GotOptions {
 	json?: {[key: string]: any};
 	context?: {[key: string]: any};
 	maxRedirects?: number;
+	lookup?: CacheableLookup['lookup'];
 	methodRewriting?: boolean;
 }
 
@@ -222,6 +223,7 @@ export interface Defaults {
 	options: DefaultOptions;
 	handlers: HandlerFunction[];
 	mutableDefaults: boolean;
+	_rawHandlers?: HandlerFunction[];
 }
 
 export type URLOrOptions = Options | string;

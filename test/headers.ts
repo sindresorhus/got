@@ -189,7 +189,10 @@ test('throws on null value headers', async t => {
 		headers: {
 			'user-agent': null
 		}
-	}), TypeError, 'Use `undefined` instead of `null` to delete HTTP headers');
+	}), {
+		instanceOf: TypeError,
+		message: 'Use `undefined` instead of `null` to delete the `user-agent` header'
+	});
 });
 
 test('removes undefined value headers', withServer, async (t, server, got) => {
