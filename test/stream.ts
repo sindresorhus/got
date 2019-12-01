@@ -69,9 +69,22 @@ test('throws on write if body is specified', withServer, (t, server, got) => {
 	server.post('/', postHandler);
 
 	t.throws(() => {
-		// @ts-ignore Error tests
 		got.stream.post({body: 'wow'}).end('wow');
-	}, 'Got\'s stream is not writable when the `body` option is used');
+	}, 'Got\'s stream is not writable when the `body`, `json` or `form` option is used');
+
+	t.throws(() => {
+		got.stream.post({json: {}}).end('wow');
+	}, 'Got\'s stream is not writable when the `body`, `json` or `form` option is used');
+
+	t.throws(() => {
+		got.stream.post({form: {}}).end('wow');
+	}, 'Got\'s stream is not writable when the `body`, `json` or `form` option is used');
+});
+
+test('does not throw if using stream and passing a json option', withServer, async (t, server, got) => {
+	server.post('/', postHandler);
+
+	await t.notThrowsAsync(getStream(got.stream.post({json: {}})));
 });
 
 test('throws on write if no payload method is present', withServer, (t, server, got) => {

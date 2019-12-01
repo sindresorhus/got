@@ -19,10 +19,10 @@ export default function asStream<T>(options: NormalizedOptions): ProxyStream<T> 
 
 	options.retry.calculateDelay = () => 0;
 
-	if (options.body) {
+	if (options.body || options.json || options.form) {
 		proxy.write = () => {
 			proxy.destroy();
-			throw new Error('Got\'s stream is not writable when the `body` option is used');
+			throw new Error('Got\'s stream is not writable when the `body`, `json` or `form` option is used');
 		};
 	} else if (options.method === 'POST' || options.method === 'PUT' || options.method === 'PATCH') {
 		options.body = input;
