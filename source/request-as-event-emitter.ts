@@ -5,6 +5,7 @@ import stream = require('stream');
 import {promisify} from 'util';
 import is from '@sindresorhus/is';
 import timer from '@szmarczak/http-timer';
+import {Promisable} from 'type-fest';
 import {ProxyStream} from './as-stream';
 import calculateRetryDelay from './calculate-retry-delay';
 import {CacheError, GotError, MaxRedirectsError, RequestError, TimeoutError} from './errors';
@@ -207,6 +208,35 @@ export default (options: NormalizedOptions): RequestAsEventEmitter => {
 				...urlToOptions(options.url)
 			};
 
+			const request = httpOptions.request!;
+			httpOptions.request = (url, options, callback) => {
+				// @ts-ignore Type URL is not assignable to type URL
+				const result = request(url, options, callback);
+
+				if (is.promise(result)) {
+					const emitter = new EventEmitter();
+
+					// @ts-ignore `cacheable-request` doesn't support async request function
+					result.once = emitter.once.bind(emitter);
+
+					// @ts-ignore This is a TS bug, because `result` is `Promise<http.ClientRequest>`
+					// eslint-disable-next-line promise/prefer-await-to-then
+					result.then((request: http.ClientRequest) => {
+						request.once('abort', () => {
+							emitter.emit('abort');
+						});
+
+						request.once('error', error => {
+							emitter.emit('error', error);
+						});
+
+						return request;
+					});
+				}
+
+				return result;
+			};
+
 			// @ts-ignore ResponseLike missing socket field, should be fixed upstream
 			const cacheRequest = options.cacheableRequest!(httpOptions, handleResponse);
 
@@ -218,12 +248,18 @@ export default (options: NormalizedOptions): RequestAsEventEmitter => {
 				}
 			});
 
-			cacheRequest.once('request', handleRequest);
+			cacheRequest.once('request', async (request: Promisable<http.ClientRequest>) => {
+				try {
+					handleRequest(await request);
+				} catch (error) {
+					emitError(new RequestError(error, options));
+				}
+			});
 		} else {
 			// Catches errors thrown by calling `requestFn(…)`
 			try {
 				// @ts-ignore URLSearchParams does not equal URLSearchParams
-				handleRequest(httpOptions.request(options.url, httpOptions, handleResponse));
+				handleRequest(await httpOptions.request(options.url, httpOptions, handleResponse));
 			} catch (error) {
 				emitError(new RequestError(error, options));
 			}

@@ -3,6 +3,7 @@ import EventEmitter = require('events');
 import {PassThrough as PassThroughStream} from 'stream';
 import stream = require('stream');
 import http = require('http');
+import https = require('https');
 import net = require('net');
 import getStream = require('get-stream');
 import test from 'ava';
@@ -285,7 +286,8 @@ test.serial('secureConnect timeout', withServerAndLolex, async (t, _server, got,
 				return socket;
 			},
 			timeout: {secureConnect: 0},
-			retry: 0
+			retry: 0,
+			request: https.request
 		}).on('request', (request: http.ClientRequest) => {
 			request.on('socket', () => {
 				clock.runAll();

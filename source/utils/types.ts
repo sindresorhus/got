@@ -101,7 +101,7 @@ export interface RetryOptions extends Partial<DefaultRetryOptions> {
 	retries?: number;
 }
 
-export type RequestFunction = typeof http.request;
+export type RequestFunction = (url: string | URL, options: http.RequestOptions, callback?: (res: http.IncomingMessage) => void) => http.ClientRequest | Promise<http.ClientRequest>;
 
 export interface AgentByProtocol {
 	http?: http.Agent;
@@ -175,7 +175,7 @@ export interface GotOptions {
 	throwHttpErrors?: boolean;
 	cookieJar?: ToughCookieJar | PromiseCookieJar;
 	ignoreInvalidCookies?: boolean;
-	request?: RequestFunction;
+	request?: RequestFunction | typeof http.request;
 	agent?: http.Agent | https.Agent | boolean | AgentByProtocol;
 	cache?: string | CacheableRequest.StorageAdapter | false;
 	headers?: Headers;

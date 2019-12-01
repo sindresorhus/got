@@ -27,6 +27,7 @@ For browser usage, we recommend [Ky](https://github.com/sindresorhus/ky) by the 
 ## Highlights
 
 - [Promise & stream API](#api)
+- [HTTP2 support](#http2-support)
 - [Request cancelation](#aborting-the-request)
 - [RFC compliant caching](#cache-adapters)
 - [Follows redirects](#followredirect)
@@ -445,10 +446,10 @@ Default: `false`
 
 ###### request
 
-Type: `Function`\
-Default: `http.request | https.request` *(Depending on the protocol)*
+Type: `Function | AsyncFunction`\
+Default: `http2wrapper.auto`
 
-Custom request function. The main purpose of this is to [support HTTP2 using a wrapper](#experimental-http2-support).
+Custom request function. The main purpose of this is to [support HTTP2 using a wrapper](#http2-support).
 
 ###### useElectronNet
 
@@ -1395,19 +1396,19 @@ const custom = got.extend({
 })();
 ```
 
-### Experimental HTTP2 support
+### HTTP2 support
 
-Got provides an experimental support for HTTP2 using the [`http2-wrapper`](https://github.com/szmarczak/http2-wrapper) package:
+Got supports HTTP2 via the [`http2-wrapper`](https://github.com/szmarczak/http2-wrapper) package.
+
+**Note:** Overriding `options.request` will disable HTTP2 support.
 
 ```js
 const got = require('got');
-const {request} = require('http2-wrapper');
-
-const h2got = got.extend({request});
 
 (async () => {
-	const {body} = await h2got('https://nghttp2.org/httpbin/headers');
-	console.log(body);
+	const {headers} = await got('https://nghttp2.org/httpbin/anything');
+	console.log(headers.via);
+	//=> '2 nghttpx'
 })();
 ```
 
@@ -1421,7 +1422,7 @@ Got was created because the popular [`request`](https://github.com/request/reque
 
 |                       |       `got`      | [`request`][r0] |  [`node-fetch`][n0]  |    [`ky`][k0]     |  [`axios`][a0]   |  [`superagent`][s0]  |
 |-----------------------|:----------------:|:---------------:|:--------------------:|:-----------------:|:----------------:|:--------------------:|
-| HTTP/2 support        |        ❔        |        ❌       |          ❌         |         ❌        |        ❌       |          ✔️\*\*      |
+| HTTP/2 support        |        ✔️        |        ❌       |          ❌         |         ❌        |        ❌       |          ✔️\*\*      |
 | Browser support       |        ❌       |        ❌       |          ✔️\*       |         ✔️        |        ✔️       |          ✔️          |
 | Electron support      |        ✔️       |        ❌       |          ❌         |         ❌        |        ❌       |          ❌          |
 | Promise API           |        ✔️       |        ✔️       |          ✔️         |         ✔️        |        ✔️       |          ✔️          |

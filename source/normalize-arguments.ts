@@ -1,6 +1,7 @@
 import {promisify} from 'util';
 import CacheableRequest = require('cacheable-request');
-import http = require('http');
+// @ts-ignore
+import http2 = require('../../http2-wrapper');
 import https = require('https');
 import Keyv = require('keyv');
 import lowercaseKeys = require('lowercase-keys');
@@ -18,12 +19,10 @@ import merge from './utils/merge';
 import optionsToUrl from './utils/options-to-url';
 import supportsBrotli from './utils/supports-brotli';
 import {
-	AgentByProtocol,
 	Defaults,
 	Method,
 	NormalizedOptions,
 	Options,
-	RequestFunction,
 	URLOrOptions
 } from './utils/types';
 
@@ -38,8 +37,6 @@ const nonEnumerableProperties: NonEnumerableProperty[] = [
 	'json',
 	'form'
 ];
-
-const isAgentByProtocol = (agent: Options['agent']): agent is AgentByProtocol => is.object(agent);
 
 // TODO: `preNormalizeArguments` should merge `options` & `defaults`
 export const preNormalizeArguments = (options: Options, defaults?: NormalizedOptions): NormalizedOptions => {
@@ -302,8 +299,8 @@ const withoutBody: ReadonlySet<string> = new Set(['GET', 'HEAD']);
 
 export type NormalizedRequestArguments = Merge<https.RequestOptions, {
 	body?: stream.Readable;
-	request: RequestFunction;
-	url: Pick<NormalizedOptions, 'url'>;
+	request: NormalizedOptions['request'];
+	url: NormalizedOptions['url'];
 }>;
 
 export const normalizeRequestArguments = async (options: NormalizedOptions): Promise<NormalizedRequestArguments> => {
@@ -402,7 +399,7 @@ export const normalizeRequestArguments = async (options: NormalizedOptions): Pro
 
 	// Normalize request function
 	if (!is.function_(options.request)) {
-		options.request = options.url.protocol === 'https:' ? https.request : http.request;
+		options.request = http2.auto;
 	}
 
 	// UNIX sockets
@@ -419,10 +416,6 @@ export const normalizeRequestArguments = async (options: NormalizedOptions): Pro
 				host: ''
 			};
 		}
-	}
-
-	if (isAgentByProtocol(options.agent)) {
-		options.agent = options.agent[options.url.protocol.slice(0, -1) as keyof AgentByProtocol] ?? options.agent;
 	}
 
 	if (options.dnsCache) {
