@@ -69,7 +69,7 @@ The [`timeout` option](https://github.com/sindresorhus/got#timeout) has some ext
 
 The [`searchParams` option](https://github.com/sindresorhus/got#searchParams) is always serialized using [`URLSearchParams`](https://developer.mozilla.org/en-US/docs/Web/API/URLSearchParams) unless it's a `string`.
 
-To use streams, just call `got.stream(url, options)` or `got(url, {stream: true, ...}`).
+To use streams, just call `got.stream(url, options)` or `got(url, {isStream: true, ...}`).
 
 #### Breaking changes
 
@@ -103,16 +103,17 @@ const gotInstance = got.extend({
 	hooks: {
 		init: [
 			options => {
-				if (options.jsonReplacer && options.body) {
-					options.body = JSON.stringify(options.body, options.jsonReplacer);
+				if (options.jsonReplacer && options.json) {
+					options.body = JSON.stringify(options.json, options.jsonReplacer);
+					delete options.json;
 				}
 			}
 		],
 		afterResponse: [
 			response => {
-				const options = response.request.gotOptions;
+				const {options} = response.request;
 				if (options.jsonReviver && options.responseType === 'json') {
-					options.responseType = '';
+					options.responseType = 'default';
 					response.body = JSON.parse(response.body, options.jsonReviver);
 				}
 
@@ -162,8 +163,8 @@ http.createServer(async (request, response) => {
 });
 ```
 
-Nothing has really changed. Just remember to use `got.stream(url, options)` or `got(url, {stream: true, …`}). That's it!
+Nothing has really changed. Just remember to use `got.stream(url, options)` or `got(url, {isStream: true, …})`. That's it!
 
 #### You're good to go!
 
-Well, you have already come this far. Take a look at the [documentation](readme.md#highlights). It's worth the time to read it. There are [some great tips](readme.md#aborting-the-request). If something is unclear or doesn't work as it should, don't hesitate to open an issue.
+Well, you have already come this far :tada: Take a look at the [documentation](readme.md#highlights). It's worth the time to read it. There are [some great tips](readme.md#aborting-the-request). If something is unclear or doesn't work as it should, don't hesitate to open an issue.
