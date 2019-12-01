@@ -87,6 +87,12 @@ test('does not throw if using stream and passing a json option', withServer, asy
 	await t.notThrowsAsync(getStream(got.stream.post({json: {}})));
 });
 
+test('does not throw if using stream and passing a form option', withServer, async (t, server, got) => {
+	server.post('/', postHandler);
+
+	await t.notThrowsAsync(getStream(got.stream.post({form: {}})));
+});
+
 test('throws on write if no payload method is present', withServer, (t, server, got) => {
 	server.post('/', postHandler);
 
