@@ -1581,43 +1581,9 @@ Got was created because the popular [`request`](https://github.com/request/reque
 [a8]: https://packagephobia.now.sh/result?p=axios
 [s8]: https://packagephobia.now.sh/result?p=superagent
 
-#### Install size of the dependencies
+[Click here][InstallSizeOfTheDependencies] to see the install size of the Got dependencies.
 
-|                   Dependency                   |          Install size         |
-|------------------------------------------------|-------------------------------|
-| [@sindresorhus/is][url-is]                     | ![][size-is]                  |
-| [@szmarczak/http-timer][url-http-timer]        | ![][size-http-timer]          |
-| [cacheable-request][url-cacheable-request]     | ![][size-cacheable-request]   |
-| [decompress-response][url-decompress-response] | ![][size-decompress-response] |
-| [duplexer3][url-duplexer3]                     | ![][size-duplexer3]           |
-| [get-stream][url-get-stream]                   | ![][size-get-stream]          |
-| [lowercase-keys][url-lowercase-keys]           | ![][size-lowercase-keys]      |
-| [mimic-response][url-mimic-response]           | ![][size-mimic-response]      |
-| [p-cancelable][url-p-cancelable]               | ![][size-p-cancelable]        |
-| [to-readable-stream][url-to-readable-stream]   | ![][size-to-readable-stream]  |
-|                                                | ![][gis]                      |
-
-[size-is]: https://badgen.net/packagephobia/install/@sindresorhus/is?label
-[size-http-timer]: https://badgen.net/packagephobia/install/@szmarczak/http-timer?label
-[size-cacheable-request]: https://badgen.net/packagephobia/install/cacheable-request?label
-[size-decompress-response]: https://badgen.net/packagephobia/install/decompress-response?label
-[size-duplexer3]: https://badgen.net/packagephobia/install/duplexer3?label
-[size-get-stream]: https://badgen.net/packagephobia/install/get-stream?label
-[size-lowercase-keys]: https://badgen.net/packagephobia/install/lowercase-keys?label
-[size-mimic-response]: https://badgen.net/packagephobia/install/mimic-response?label
-[size-p-cancelable]: https://badgen.net/packagephobia/install/p-cancelable?label
-[size-to-readable-stream]: https://badgen.net/packagephobia/install/to-readable-stream?label
-
-[url-is]: https://github.com/sindresorhus/is
-[url-http-timer]: https://github.com/szmarczak/http-timer
-[url-cacheable-request]: https://github.com/lukechilds/cacheable-request
-[url-decompress-response]: https://github.com/sindresorhus/decompress-response
-[url-duplexer3]: https://github.com/floatdrop/duplexer3
-[url-get-stream]: https://github.com/sindresorhus/get-stream
-[url-lowercase-keys]: https://github.com/sindresorhus/lowercase-keys
-[url-mimic-response]: https://github.com/sindresorhus/mimic-response
-[url-p-cancelable]: https://github.com/sindresorhus/p-cancelable
-[url-to-readable-stream]: https://github.com/sindresorhus/to-readable-stream
+[InstallSizeOfTheDependencies]: https://packagephobia.now.sh/result?p=@sindresorhus/is@1.0.0,@szmarczak/http-timer@3.1.0,@types/cacheable-request@6.0.1,cacheable-lookup@0.2.1,cacheable-request@7.0.0,decompress-response@5.0.0,duplexer3@0.1.4,get-stream@5.0.0,lowercase-keys@2.0.0,mimic-response@2.0.0,p-cancelable@2.0.0,responselike@2.0.0,to-readable-stream@2.0.0,type-fest@0.8.0
 
 ## Related
 
