@@ -4,11 +4,11 @@ import http = require('http');
 import tempy = require('tempy');
 import createTestServer = require('create-test-server');
 import lolex = require('lolex');
-import got, {HandlerFunction} from '../../source';
-import {ExtendedGot, ExtendedTestServer, GlobalClock, InstalledClock} from './types';
+import got, {Defaults} from '../../source';
+import {ExtendedGot, ExtendedHttpServer, ExtendedTestServer, GlobalClock, InstalledClock} from './types';
 
 export type RunTestWithServer = (t: test.ExecutionContext, server: ExtendedTestServer, got: ExtendedGot, clock: GlobalClock) => Promise<void> | void;
-export type RunTestWithSocket = (t: test.ExecutionContext, server: any) => Promise<void> | void;
+export type RunTestWithSocket = (t: test.ExecutionContext, server: ExtendedHttpServer) => Promise<void> | void;
 
 const generateHook = ({install}: {install?: boolean}): test.Macro<[RunTestWithServer]> => async (t, run) => {
 	const clock: GlobalClock = install ? lolex.install() : lolex.createClock();
@@ -19,7 +19,8 @@ const generateHook = ({install}: {install?: boolean}): test.Macro<[RunTestWithSe
 		}
 	}) as ExtendedTestServer;
 
-	const options = {
+	const options: Defaults = {
+		// @ts-ignore Augmenting for test detection
 		avaTest: t.title,
 		handlers: [
 			(options, next) => {
@@ -34,7 +35,7 @@ const generateHook = ({install}: {install?: boolean}): test.Macro<[RunTestWithSe
 
 				return result;
 			}
-		] as HandlerFunction[]
+		]
 	};
 
 	const preparedGot = got.extend({prefixUrl: server.url, ...options}) as ExtendedGot;
@@ -63,8 +64,8 @@ export const withSocketServer: test.Macro<[RunTestWithSocket]> = async (t, run) 
 	const socketPath = tempy.file({extension: 'socket'});
 
 	const server = http.createServer((request, response) => {
-		server.emit(request.url, request, response);
-	}) as any;
+		server.emit(request.url!, request, response);
+	}) as ExtendedHttpServer;
 
 	server.socketPath = socketPath;
 

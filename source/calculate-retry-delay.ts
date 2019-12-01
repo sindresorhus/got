@@ -15,7 +15,7 @@ const calculateRetryDelay: RetryFunction = ({attemptCount, retryOptions, error})
 
 	const hasMethod = retryOptions.methods.includes(error.options.method);
 	const hasErrorCode = Reflect.has(error, 'code') && retryOptions.errorCodes.includes(error.code);
-	const hasStatusCode = isErrorWithResponse(error) && Reflect.has(error, 'response') && retryOptions.statusCodes.includes(error.response?.statusCode);
+	const hasStatusCode = isErrorWithResponse(error) && retryOptions.statusCodes.includes(error.response.statusCode);
 	if (!hasMethod || (!hasErrorCode && !hasStatusCode)) {
 		return 0;
 	}
@@ -37,7 +37,7 @@ const calculateRetryDelay: RetryFunction = ({attemptCount, retryOptions, error})
 			return after;
 		}
 
-		if (response?.statusCode === 413) {
+		if (response.statusCode === 413) {
 			return 0;
 		}
 	}

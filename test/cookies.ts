@@ -1,10 +1,8 @@
 import net = require('net');
-import {AddressInfo} from 'net';
 import test from 'ava';
 import toughCookie = require('tough-cookie');
 import delay = require('delay');
 import got from '../source';
-import {OptionsOfDefaultResponseBody} from '../source/create';
 import withServer from './helpers/with-server';
 
 test('reads a cookie', withServer, async (t, server, got) => {
@@ -15,7 +13,7 @@ test('reads a cookie', withServer, async (t, server, got) => {
 
 	const cookieJar = new toughCookie.CookieJar();
 
-	await got({cookieJar} as unknown as OptionsOfDefaultResponseBody);
+	await got({cookieJar});
 
 	const cookie = cookieJar.getCookiesSync(server.url)[0];
 	t.is(cookie.key, 'hello');
@@ -30,7 +28,7 @@ test('reads multiple cookies', withServer, async (t, server, got) => {
 
 	const cookieJar = new toughCookie.CookieJar();
 
-	await got({cookieJar} as unknown as OptionsOfDefaultResponseBody);
+	await got({cookieJar});
 
 	const cookies = cookieJar.getCookiesSync(server.url);
 	const cookieA = cookies[0];
@@ -56,7 +54,7 @@ test('cookies doesn\'t break on redirects', withServer, async (t, server, got) =
 
 	const cookieJar = new toughCookie.CookieJar();
 
-	const {body} = await got('redirect', {cookieJar} as unknown as OptionsOfDefaultResponseBody);
+	const {body} = await got('redirect', {cookieJar});
 	t.is(body, 'hello=world; foo=bar');
 });
 
@@ -68,7 +66,7 @@ test('throws on invalid cookies', withServer, async (t, server, got) => {
 
 	const cookieJar = new toughCookie.CookieJar();
 
-	await t.throwsAsync(got({cookieJar} as unknown as OptionsOfDefaultResponseBody), 'Cookie has domain set to a public suffix');
+	await t.throwsAsync(got({cookieJar}), 'Cookie has domain set to a public suffix');
 });
 
 test('does not throw on invalid cookies when options.ignoreInvalidCookies is set', withServer, async (t, server, got) => {
@@ -82,7 +80,7 @@ test('does not throw on invalid cookies when options.ignoreInvalidCookies is set
 	await got({
 		cookieJar,
 		ignoreInvalidCookies: true
-	} as unknown as OptionsOfDefaultResponseBody);
+	});
 
 	const cookies = cookieJar.getCookiesSync(server.url);
 	t.is(cookies.length, 0);
@@ -93,10 +91,16 @@ test('catches store errors', async t => {
 	const cookieJar = new toughCookie.CookieJar({
 		findCookies: (_, __, callback) => {
 			callback(new Error(error), []);
-		}
-	} as toughCookie.Store);
+		},
+		findCookie: () => {},
+		getAllCookies: () => {},
+		putCookie: () => {},
+		removeCookies: () => {},
+		removeCookie: () => {},
+		updateCookie: () => {}
+	});
 
-	await t.throwsAsync(got('https://example.com', {cookieJar} as unknown as OptionsOfDefaultResponseBody), error);
+	await t.throwsAsync(got('https://example.com', {cookieJar}), error);
 });
 
 test('overrides options.headers.cookie', withServer, async (t, server, got) => {
@@ -117,7 +121,7 @@ test('overrides options.headers.cookie', withServer, async (t, server, got) => {
 		headers: {
 			cookie: 'a=b'
 		}
-	} as unknown as OptionsOfDefaultResponseBody);
+	});
 	t.is(body, 'hello=world; foo=bar');
 });
 
@@ -137,8 +141,7 @@ test('no unhandled errors', async t => {
 		}
 	};
 
-	// @ts-ignore Error tests
-	await t.throwsAsync(got(`http://127.0.0.1:${(server.address() as AddressInfo).port}`, options), {message});
+	await t.throwsAsync(got(`http://127.0.0.1:${(server.address() as net.AddressInfo).port}`, options), {message});
 	await delay(500);
 	t.pass();
 
@@ -188,4 +191,22 @@ test('throws on invalid `options.cookieJar.getCookieString`', async t => {
 			getCookieString: () => {}
 		}
 	}), '`options.cookieJar.getCookieString` needs to be an async function with 1 argument');
+});
+
+test('cookies are cleared when redirecting to a different hostname (no cookieJar)', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.writeHead(302, {
+			location: 'https://httpbin.org/anything'
+		});
+		response.end();
+	});
+
+	const {headers} = await got('', {
+		headers: {
+			cookie: 'foo=bar',
+			'user-agent': 'custom'
+		}
+	}).json();
+	t.is(headers.Cookie, undefined);
+	t.is(headers['User-Agent'], 'custom');
 });

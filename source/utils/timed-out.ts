@@ -23,7 +23,7 @@ export class TimeoutError extends Error {
 	}
 }
 
-export default (request: ClientRequest, delays: Delays, options: TimedOutOptions) => {
+export default (request: ClientRequest, delays: Delays, options: TimedOutOptions): () => void => {
 	if (Reflect.has(request, reentry)) {
 		return noop;
 	}

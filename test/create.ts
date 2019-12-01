@@ -1,10 +1,9 @@
-import {Agent as HttpAgent, request as httpRequest} from 'http';
+import {Agent as HttpAgent, IncomingMessage, request as httpRequest, RequestOptions} from 'http';
 import test from 'ava';
 import is from '@sindresorhus/is';
 import {Handler} from 'express';
 import got, {
 	BeforeRequestHook,
-	HandlerFunction,
 	Headers,
 	Hooks,
 	RequestFunction
@@ -187,8 +186,13 @@ test('ability to pass a custom request method', withServer, async (t, server, go
 
 	let called = false;
 
-	const request: RequestFunction = (...args: [any, any, any?]) => {
+	const request: RequestFunction = (...args: [
+		string | URL | RequestOptions,
+		(RequestOptions | ((res: IncomingMessage) => void))?,
+		((res: IncomingMessage) => void)?
+	]) => {
 		called = true;
+		// @ts-ignore Overload error
 		return httpRequest(...args);
 	};
 
@@ -235,13 +239,13 @@ test('extend with custom handlers', withServer, async (t, server, got) => {
 test('extend with instances', t => {
 	const a = got.extend({prefixUrl: new URL('https://example.com/')});
 	const b = got.extend(a);
-	t.is(b.defaults.options.prefixUrl!.toString(), 'https://example.com/');
+	t.is(b.defaults.options.prefixUrl.toString(), 'https://example.com/');
 });
 
 test('extend with a chain', t => {
 	const a = got.extend({prefixUrl: 'https://example.com/'});
 	const b = got.extend(a, {headers: {foo: 'bar'}});
-	t.is(b.defaults.options.prefixUrl!.toString(), 'https://example.com/');
+	t.is(b.defaults.options.prefixUrl.toString(), 'https://example.com/');
 	t.is(b.defaults.options.headers.foo, 'bar');
 });
 
@@ -257,7 +261,7 @@ test('async handlers', withServer, async (t, server, got) => {
 
 				return result;
 			}
-		] as HandlerFunction[]
+		]
 	});
 
 	const promise = instance('');

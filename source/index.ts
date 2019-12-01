@@ -59,7 +59,9 @@ const defaults: Defaults = {
 		resolveBodyOnly: false,
 		maxRedirects: 10,
 		prefixUrl: '',
-		methodRewriting: true
+		methodRewriting: true,
+		ignoreInvalidCookies: false,
+		context: {}
 	},
 	handlers: [defaultHandler],
 	mutableDefaults: false

@@ -15,7 +15,7 @@ import timedOut, {TimeoutError as TimedOutTimeoutError} from './utils/timed-out'
 import {GeneralError, NormalizedOptions, Response, ResponseObject} from './utils/types';
 import urlToOptions from './utils/url-to-options';
 
-const setImmediateAsync = () => new Promise(resolve => setImmediate(resolve));
+const setImmediateAsync = async (): Promise<void> => new Promise(resolve => setImmediate(resolve));
 const pipeline = promisify(stream.pipeline);
 
 const redirectCodes: ReadonlySet<number> = new Set([300, 301, 302, 303, 304, 307, 308]);
@@ -25,7 +25,7 @@ export interface RequestAsEventEmitter extends EventEmitter {
 	abort: () => void;
 }
 
-export default (options: NormalizedOptions) => {
+export default (options: NormalizedOptions): RequestAsEventEmitter => {
 	const emitter = new EventEmitter() as RequestAsEventEmitter;
 
 	const requestURL = options.url.toString();
@@ -84,10 +84,10 @@ export default (options: NormalizedOptions) => {
 
 				const rawCookies = typedResponse.headers['set-cookie'];
 				if (Reflect.has(options, 'cookieJar') && rawCookies) {
-					let promises: Array<Promise<unknown>> = rawCookies.map((rawCookie: string) => options.cookieJar.setCookie(rawCookie, typedResponse.url));
+					let promises: Array<Promise<unknown>> = rawCookies.map(async (rawCookie: string) => options.cookieJar.setCookie(rawCookie, typedResponse.url));
 
 					if (options.ignoreInvalidCookies) {
-						promises = promises.map(p => p.catch(() => {}));
+						promises = promises.map(async p => p.catch(() => {}));
 					}
 
 					await Promise.all(promises);
@@ -143,7 +143,7 @@ export default (options: NormalizedOptions) => {
 
 		const handleRequest = async (request: http.ClientRequest): Promise<void> => {
 			// `request.aborted` is a boolean since v11.0.0: https://github.com/nodejs/node/commit/4b00c4fafaa2ae8c41c1f78823c0feb810ae4723#diff-e3bc37430eb078ccbafe3aa3b570c91a
-			const isAborted = () => typeof request.aborted === 'number' || (request.aborted as unknown as boolean);
+			const isAborted = (): boolean => typeof request.aborted === 'number' || (request.aborted as unknown as boolean);
 
 			currentRequest = request;
 
@@ -159,7 +159,7 @@ export default (options: NormalizedOptions) => {
 				}
 			};
 
-			const attachErrorHandler = () => {
+			const attachErrorHandler = (): void => {
 				request.once('error', error => {
 					// We need to allow `TimedOutTimeoutError` here, because `stream.pipeline(…)` aborts the request automatically.
 					if (isAborted() && !(error instanceof TimedOutTimeoutError)) {
@@ -179,8 +179,7 @@ export default (options: NormalizedOptions) => {
 				const uploadStream = createProgressStream('uploadProgress', emitter, httpOptions.headers!['content-length'] as string);
 
 				await pipeline(
-					// @ts-ignore Cannot assign ReadableStream to ReadableStream
-					httpOptions.body,
+					httpOptions.body!,
 					uploadStream,
 					request
 				);
@@ -223,8 +222,7 @@ export default (options: NormalizedOptions) => {
 		} else {
 			// Catches errors thrown by calling `requestFn(…)`
 			try {
-				// @ts-ignore 1. TS complains that URLSearchParams is not the same as URLSearchParams.
-				//            2. It doesn't notice that `options.timeout` is deleted above.
+				// @ts-ignore URLSearchParams does not equal URLSearchParams
 				handleRequest(httpOptions.request(options.url, httpOptions, handleResponse));
 			} catch (error) {
 				emitError(new RequestError(error, options));
@@ -307,7 +305,7 @@ export default (options: NormalizedOptions) => {
 	return emitter;
 };
 
-export const proxyEvents = (proxy: EventEmitter | ProxyStream, emitter: RequestAsEventEmitter) => {
+export const proxyEvents = (proxy: EventEmitter | ProxyStream, emitter: RequestAsEventEmitter): void => {
 	const events = [
 		'request',
 		'redirect',

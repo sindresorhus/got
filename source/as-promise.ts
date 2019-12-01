@@ -7,7 +7,7 @@ import {normalizeArguments, mergeOptions} from './normalize-arguments';
 import requestAsEventEmitter, {proxyEvents} from './request-as-event-emitter';
 import {CancelableRequest, GeneralError, NormalizedOptions, Response} from './utils/types';
 
-const parseBody = (body: Response['body'], responseType: NormalizedOptions['responseType'], statusCode: Response['statusCode']) => {
+const parseBody = (body: Response['body'], responseType: NormalizedOptions['responseType'], statusCode: Response['statusCode']): unknown => {
 	if (responseType === 'json' && is.string(body)) {
 		return statusCode === 204 ? '' : JSON.parse(body);
 	}
@@ -24,7 +24,7 @@ const parseBody = (body: Response['body'], responseType: NormalizedOptions['resp
 		return body;
 	}
 
-	throw new Error(`Failed to parse body of type '${typeof body}' as '${responseType}'`);
+	throw new Error(`Failed to parse body of type '${typeof body}' as '${responseType!}'`);
 };
 
 export default function asPromise<T>(options: NormalizedOptions): CancelableRequest<T> {
@@ -66,7 +66,7 @@ export default function asPromise<T>(options: NormalizedOptions): CancelableRequ
 
 			try {
 				for (const [index, hook] of options.hooks.afterResponse.entries()) {
-					// @ts-ignore
+					// @ts-ignore Promise is not assignable to CancelableRequest
 					// eslint-disable-next-line no-await-in-loop
 					response = await hook(response, async (updatedOptions: NormalizedOptions) => {
 						updatedOptions = normalizeArguments(mergeOptions(options, {
@@ -141,7 +141,7 @@ export default function asPromise<T>(options: NormalizedOptions): CancelableRequ
 		emitter.once('error', reject);
 
 		proxyEvents(proxy, emitter);
-	}) as CancelableRequest<any>;
+	}) as CancelableRequest<T>;
 
 	promise.on = (name: string, fn: (...args: any[]) => void) => {
 		proxy.on(name, fn);
@@ -154,8 +154,7 @@ export default function asPromise<T>(options: NormalizedOptions): CancelableRequ
 
 		Object.defineProperties(newPromise, Object.getOwnPropertyDescriptors(promise));
 
-		// @ts-ignore The missing properties are added above
-		return newPromise;
+		return newPromise as CancelableRequest<T>;
 	};
 
 	promise.json = () => {

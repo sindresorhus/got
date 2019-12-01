@@ -1,12 +1,13 @@
-import {TLSSocket} from 'tls';
 import {Agent as HttpAgent} from 'http';
 import {Agent as HttpsAgent} from 'https';
-import test from 'ava';
+import {Socket} from 'net';
+import {TLSSocket} from 'tls';
+import test, {Constructor} from 'ava';
 import sinon = require('sinon');
 import {ExtendedTestServer} from './helpers/types';
 import withServer from './helpers/with-server';
 
-const prepareServer = (server: ExtendedTestServer) => {
+const prepareServer = (server: ExtendedTestServer): void => {
 	server.get('/', (request, response) => {
 		if (request.socket instanceof TLSSocket) {
 			response.end('https');
@@ -30,9 +31,9 @@ const prepareServer = (server: ExtendedTestServer) => {
 	});
 };
 
-// TODO: Type this stricter if possible
-const createAgentSpy = <T extends any>(Cls: T) => {
-	const agent = new Cls({keepAlive: true});
+const createAgentSpy = <T extends HttpAgent>(AgentClass: Constructor): {agent: T; spy: sinon.SinonSpy} => {
+	const agent: T = new AgentClass({keepAlive: true});
+	// @ts-ignore This IS correct
 	const spy = sinon.spy(agent, 'addRequest');
 	return {agent, spy};
 };
@@ -75,7 +76,7 @@ test('redirects from http to https work with an agent object', withServer, async
 	prepareServer(server);
 
 	const {agent: httpAgent, spy: httpSpy} = createAgentSpy(HttpAgent);
-	const {agent: httpsAgent, spy: httpsSpy} = createAgentSpy<typeof HttpsAgent>(HttpsAgent);
+	const {agent: httpsAgent, spy: httpsSpy} = createAgentSpy<HttpsAgent>(HttpsAgent);
 
 	t.truthy((await got('httpToHttps', {
 		rejectUnauthorized: false,
@@ -129,7 +130,7 @@ test('socket connect listener cleaned up after request', withServer, async (t, s
 		});
 	}
 
-	for (const value of Object.values(agent.freeSockets) as [any]) {
+	for (const value of Object.values(agent.freeSockets) as [Socket[]]) {
 		for (const sock of value) {
 			t.is(sock.listenerCount('connect'), 0);
 		}

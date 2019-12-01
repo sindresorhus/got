@@ -1,7 +1,6 @@
 /* eslint-disable node/no-deprecated-api */
 import {parse} from 'url';
 import test from 'ava';
-import {StorageAdapter} from 'cacheable-request';
 import {Handler} from 'express';
 import pEvent = require('p-event');
 import got from '../source';
@@ -33,7 +32,10 @@ test('`url` should be utf-8 encoded', async t => {
 
 test('throws if no arguments provided', async t => {
 	// @ts-ignore Error tests
-	await t.throwsAsync(got(), TypeError, 'Missing `url` argument');
+	await t.throwsAsync(got(), {
+		instanceOf: TypeError,
+		message: 'Missing `url` argument'
+	});
 });
 
 test('throws an error if the protocol is not specified', async t => {
@@ -112,8 +114,14 @@ test('overrides `searchParams` from options', withServer, async (t, server, got)
 				},
 				set(key: string) {
 					t.is(key, `cacheable-request:GET:${server.url}/?test=wow`);
+				},
+				delete() {
+					return true;
+				},
+				clear() {
+					return undefined;
 				}
-			} as unknown as StorageAdapter
+			}
 		}
 	);
 

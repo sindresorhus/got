@@ -10,7 +10,6 @@ import CacheableLookup from 'cacheable-lookup';
 import {Handler} from 'express';
 import pEvent = require('p-event');
 import got from '../source';
-import {OptionsOfDefaultResponseBody} from '../source/create';
 import timedOut from '../source/utils/timed-out';
 import slowDataStream from './helpers/slow-data-stream';
 import {GlobalClock} from './helpers/types';
@@ -85,12 +84,12 @@ test.serial('socket timeout', async t => {
 			retry: 0,
 			request: () => {
 				const stream = new PassThroughStream();
-				// @ts-ignore
+				// @ts-ignore Mocking the behaviour of a ClientRequest
 				stream.setTimeout = (ms, callback) => {
 					callback();
 				};
 
-				// @ts-ignore
+				// @ts-ignore Mocking the behaviour of a ClientRequest
 				stream.abort = () => {};
 				stream.resume();
 
@@ -223,8 +222,8 @@ test.serial('connect timeout', withServerAndLolex, async (t, _server, got, clock
 	await t.throwsAsync(
 		got({
 			createConnection: options => {
-				const socket = new net.Socket(options as unknown as net.SocketConstructorOpts);
-				// @ts-ignore
+				const socket = new net.Socket(options as object as net.SocketConstructorOpts);
+				// @ts-ignore We know that it is readonly, but we have to test it
 				socket.connecting = true;
 				setImmediate(() => {
 					socket.emit('lookup', null, '127.0.0.1', 4, 'localhost');
@@ -250,8 +249,8 @@ test.serial('connect timeout (ip address)', withServerAndLolex, async (t, _serve
 		got({
 			hostname: '127.0.0.1',
 			createConnection: options => {
-				const socket = new net.Socket(options as unknown as net.SocketConstructorOpts);
-				// @ts-ignore
+				const socket = new net.Socket(options as object as net.SocketConstructorOpts);
+				// @ts-ignore We know that it is readonly, but we have to test it
 				socket.connecting = true;
 				return socket;
 			},
@@ -273,9 +272,8 @@ test.serial('secureConnect timeout', withServerAndLolex, async (t, _server, got,
 	await t.throwsAsync(
 		got.secure({
 			createConnection: options => {
-				// @ts-ignore
-				const socket = new net.Socket(options);
-				// @ts-ignore
+				const socket = new net.Socket(options as object as net.SocketConstructorOpts);
+				// @ts-ignore We know that it is readonly, but we have to test it
 				socket.connecting = true;
 				setImmediate(() => {
 					socket.emit('lookup', null, '127.0.0.1', 4, 'localhost');
@@ -317,6 +315,7 @@ test.serial('lookup timeout', withServerAndLolex, async (t, server, got, clock) 
 
 	await t.throwsAsync(
 		got({
+			// @ts-ignore Manual tests
 			lookup: () => {},
 			timeout: {lookup: 1},
 			retry: 0
@@ -441,7 +440,7 @@ test.serial('no more timeouts after an error', withServerAndLolex, async (t, _se
 		}
 	}).on('request', () => {
 		const {setTimeout} = global;
-		// @ts-ignore
+		// @ts-ignore Augmenting global for testing purposes
 		global.setTimeout = (callback, _ms, ...args) => {
 			callback(...args);
 
@@ -511,7 +510,7 @@ test('ensure there are no new timeouts after cancelation', t => {
 test('double calling timedOut has no effect', t => {
 	const emitter = new EventEmitter();
 
-	const attach = () => timedOut(emitter as http.ClientRequest, {
+	const attach = (): () => void => timedOut(emitter as http.ClientRequest, {
 		connect: 1
 	}, {
 		hostname: '127.0.0.1'
@@ -528,6 +527,7 @@ test.serial('doesn\'t throw on early lookup', withServerAndLolex, async (t, serv
 		response.end('ok');
 	});
 
+	// @ts-ignore
 	await t.notThrowsAsync(got('', {
 		timeout: {
 			lookup: 1
@@ -541,5 +541,5 @@ test.serial('doesn\'t throw on early lookup', withServerAndLolex, async (t, serv
 			// @ts-ignore This should be fixed in upstream
 			callback(null, '127.0.0.1', 4);
 		}
-	} as OptionsOfDefaultResponseBody));
+	}));
 });

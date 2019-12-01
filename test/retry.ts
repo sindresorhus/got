@@ -5,8 +5,7 @@ import test from 'ava';
 import is from '@sindresorhus/is';
 import {Handler} from 'express';
 import pEvent = require('p-event');
-import got, {HTTPError, RequestFunction, RetryOptions} from '../source';
-import {OptionsOfDefaultResponseBody} from '../source/create';
+import got, {HTTPError} from '../source';
 import withServer from './helpers/with-server';
 
 const retryAfterOn413 = 2;
@@ -19,14 +18,14 @@ const handler413: Handler = (_request, response) => {
 	response.end();
 };
 
-const createSocketTimeoutStream = () => {
+const createSocketTimeoutStream = (): http.ClientRequest => {
 	const stream = new PassThroughStream();
-	// @ts-ignore
+	// @ts-ignore Mocking the behaviour of a ClientRequest
 	stream.setTimeout = (ms, callback) => {
 		callback();
 	};
 
-	// @ts-ignore
+	// @ts-ignore Mocking the behaviour of a ClientRequest
 	stream.abort = () => {};
 	stream.resume();
 
@@ -43,15 +42,20 @@ test('works on timeout', withServer, async (t, server, got) => {
 		timeout: {
 			socket: socketTimeout
 		},
-		request: (...[url, options, callback]: Parameters<RequestFunction>) => {
+		request: (...args: [
+			string | URL | http.RequestOptions,
+			(http.RequestOptions | ((res: http.IncomingMessage) => void))?,
+			((res: http.IncomingMessage) => void)?
+		]) => {
 			if (knocks === 1) {
-				return http.request(url, options, callback);
+				// @ts-ignore Overload error
+				return http.request(...args);
 			}
 
 			knocks++;
 			return createSocketTimeoutStream();
 		}
-	} as OptionsOfDefaultResponseBody)).body, 'who`s there?');
+	})).body, 'who`s there?');
 });
 
 test('retry function gets iteration count', withServer, async (t, server, got) => {
@@ -70,7 +74,7 @@ test('retry function gets iteration count', withServer, async (t, server, got) =
 		retry: {
 			calculateDelay: ({attemptCount}) => {
 				t.true(is.number(attemptCount));
-				return Number(attemptCount < 2);
+				return attemptCount < 2 ? 1 : 0;
 			}
 		}
 	});
@@ -127,7 +131,7 @@ test('custom error codes', async t => {
 
 	const error = await t.throwsAsync<Error & {code: typeof errorCode}>(got('https://example.com', {
 		request: () => {
-			const emitter = new EventEmitter() as any;
+			const emitter = new EventEmitter() as http.ClientRequest;
 			emitter.end = () => {};
 
 			const error = new Error('Snap!');
@@ -140,7 +144,7 @@ test('custom error codes', async t => {
 		},
 		retry: {
 			calculateDelay: ({error}) => {
-				t.is(error.code as unknown as typeof errorCode, errorCode);
+				t.is(error.code as string as typeof errorCode, errorCode);
 				return 0;
 			},
 			methods: [
@@ -252,13 +256,14 @@ test('retries on 503 without Retry-After header', withServer, async (t, server, 
 test('doesn\'t retry on streams', withServer, async (t, server, got) => {
 	server.get('/', () => {});
 
+	// @ts-ignore Error tests
 	const stream = got.stream({
 		timeout: 1,
 		retry: {
 			retries: () => {
 				t.fail('Retries on streams');
 			}
-		} as unknown as RetryOptions
+		}
 	});
 	await t.throwsAsync(pEvent(stream, 'response'));
 });

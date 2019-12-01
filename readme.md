@@ -1312,7 +1312,7 @@ test('retry function gets iteration count', withServer, async (t, server, got) =
 		retry: {
 			calculateDelay: ({attemptCount}) => {
 				t.true(is.number(attemptCount));
-				return attemptCount < 2;
+				return attemptCount < 2 ? 1 : 0;
 			}
 		}
 	});

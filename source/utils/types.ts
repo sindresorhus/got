@@ -5,9 +5,9 @@ import CacheableRequest = require('cacheable-request');
 import PCancelable = require('p-cancelable');
 import ResponseLike = require('responselike');
 import {Readable as ReadableStream} from 'stream';
-import CacheableLookup from 'cacheable-lookup';
 import {Timings} from '@szmarczak/http-timer';
-import {Except, Merge} from 'type-fest';
+import CacheableLookup from 'cacheable-lookup';
+import {Except, Merge, Promisable} from 'type-fest';
 import {GotReturn} from '../create';
 import {GotError, HTTPError, MaxRedirectsError, ParseError} from '../errors';
 import {Hooks} from '../known-hook-events';
@@ -86,14 +86,14 @@ export interface RetryObject {
 
 export type RetryFunction = (retryObject: RetryObject) => number;
 
-export type HandlerFunction = <T extends GotReturn>(options: NormalizedOptions, next: (options: NormalizedOptions) => T) => T;
+export type HandlerFunction = <T extends GotReturn>(options: NormalizedOptions, next: (options: NormalizedOptions) => T) => Promisable<T>;
 
 export interface DefaultRetryOptions {
 	limit: number;
 	methods: Method[];
 	statusCodes: number[];
 	errorCodes: string[];
-	calculateDelay?: RetryFunction;
+	calculateDelay: RetryFunction;
 	maxRetryAfter?: number;
 }
 
@@ -101,7 +101,7 @@ export interface RetryOptions extends Partial<DefaultRetryOptions> {
 	retries?: number;
 }
 
-export type RequestFunction = typeof https.request;
+export type RequestFunction = typeof http.request;
 
 export interface AgentByProtocol {
 	http?: http.Agent;
@@ -120,46 +120,60 @@ export interface Delays {
 
 export type Headers = Record<string, string | string[] | undefined>;
 
-interface CookieJar {
+interface ToughCookieJar {
+	getCookieString(currentUrl: string, options: {[key: string]: unknown}, cb: (err: Error | null, cookies: string) => void): void;
 	getCookieString(url: string, callback: (error: Error | null, cookieHeader: string) => void): void;
-	getCookieString(url: string): Promise<string>;
+	setCookie(cookieOrString: unknown, currentUrl: string, options: {[key: string]: unknown}, cb: (err: Error | null, cookie: unknown) => void): void;
 	setCookie(rawCookie: string, url: string, callback: (error: Error | null, result: unknown) => void): void;
+}
+
+interface PromiseCookieJar {
+	getCookieString(url: string): Promise<string>;
 	setCookie(rawCookie: string, url: string): Promise<unknown>;
 }
 
-export interface DefaultOptions {
-	method: Method;
-	retry: DefaultRetryOptions | number;
-	timeout: Delays | number;
-	headers: Headers;
-	hooks: Hooks;
-	decompress: boolean;
-	throwHttpErrors: boolean;
-	followRedirect: boolean;
-	isStream: boolean;
-	cache: CacheableRequest.StorageAdapter | string | false;
-	dnsCache: CacheableLookup | Map<string, string> | Keyv | false;
-	useElectronNet: boolean;
-	responseType: ResponseType;
-	resolveBodyOnly: boolean;
-	maxRedirects: number;
-	prefixUrl: URL | string;
-}
+/* eslint-disable @typescript-eslint/indent */
+export type DefaultOptions = Merge<
+	Required<
+		Except<
+			GotOptions,
+			// Overrode
+			'hooks' |
+			'retry' |
+			'timeout' |
+			'context' |
+			// Should not be present
+			'agent' |
+			'body' |
+			'cookieJar' |
+			'encoding' |
+			'form' |
+			'json' |
+			'lookup' |
+			'request' |
+			'url'
+		>
+	>,
+	{
+		hooks: Required<Hooks>;
+		retry: DefaultRetryOptions;
+		timeout: Delays;
+		context: {[key: string]: any};
+	}
+>;
+/* eslint-enable @typescript-eslint/indent */
 
-// The library overrides agent/timeout in a non-standard way, so we have to override them
-export interface Options extends Partial<Except<DefaultOptions, 'retry'>>, Merge<Except<https.RequestOptions, 'agent' | 'timeout'>, URLOptions> {
+export interface GotOptions {
 	url?: URL | string;
 	body?: string | Buffer | ReadableStream;
-	hostname?: string;
-	socketPath?: string;
-	hooks?: Partial<Hooks>;
+	hooks?: Hooks;
 	decompress?: boolean;
 	isStream?: boolean;
 	encoding?: BufferEncoding;
 	method?: Method;
 	retry?: RetryOptions | number;
 	throwHttpErrors?: boolean;
-	cookieJar?: CookieJar;
+	cookieJar?: ToughCookieJar | PromiseCookieJar;
 	ignoreInvalidCookies?: boolean;
 	request?: RequestFunction;
 	agent?: http.Agent | https.Agent | boolean | AgentByProtocol;
@@ -180,17 +194,22 @@ export interface Options extends Partial<Except<DefaultOptions, 'retry'>>, Merge
 	methodRewriting?: boolean;
 }
 
-export interface NormalizedOptions extends Except<DefaultOptions, 'dnsCache'>, Except<Options, keyof DefaultOptions> {
+export type Options = Merge<https.RequestOptions, Merge<GotOptions, URLOptions>>;
+
+export interface NormalizedOptions extends Options {
 	// Normalized Got options
 	headers: Headers;
 	hooks: Required<Hooks>;
 	timeout: Delays;
 	dnsCache?: CacheableLookup | false;
+	lookup?: CacheableLookup['lookup'];
 	retry: Required<RetryOptions>;
 	prefixUrl: string;
 	method: Method;
 	url: URL;
 	cacheableRequest?: (options: string | URL | http.RequestOptions, callback?: (response: http.ServerResponse | ResponseLike) => void) => CacheableRequest.Emitter;
+	cookieJar?: PromiseCookieJar;
+	maxRedirects: number;
 
 	// UNIX socket support
 	path?: string;
@@ -202,16 +221,10 @@ export interface ExtendOptions extends Options {
 }
 
 export interface Defaults {
-	options: Merge<Options, {headers: Headers; hooks: Required<Hooks>}>;
+	options: DefaultOptions;
 	handlers: HandlerFunction[];
 	mutableDefaults: boolean;
-}
-
-export interface NormalizedDefaults {
-	options: Merge<Options, {headers: Headers; hooks: Required<Hooks>}>;
-	handlers: HandlerFunction[];
 	_rawHandlers?: HandlerFunction[];
-	mutableDefaults: boolean;
 }
 
 export type URLOrOptions = Options | string;

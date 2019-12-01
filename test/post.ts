@@ -26,9 +26,11 @@ test('GET cannot have body', withServer, async (t, server, got) => {
 test('invalid body', async t => {
 	await t.throwsAsync(
 		// @ts-ignore Error tests
-		got('https://example.com', {body: {}}),
-		TypeError,
-		'The `body` option must be a stream.Readable, string or Buffer'
+		got.post('https://example.com', {body: {}}),
+		{
+			instanceOf: TypeError,
+			message: 'The `body` option must be a stream.Readable, string or Buffer'
+		}
 	);
 });
 
