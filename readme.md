@@ -11,21 +11,18 @@
 	<br>
 </div>
 
-> Simplified HTTP requests
+> Human-friendly and powerful HTTP request library for Node.js
 
 [![Build Status: Linux](https://travis-ci.org/sindresorhus/got.svg?branch=master)](https://travis-ci.org/sindresorhus/got)
 [![Coverage Status](https://coveralls.io/repos/github/sindresorhus/got/badge.svg?branch=master)](https://coveralls.io/github/sindresorhus/got?branch=master)
 [![Downloads](https://img.shields.io/npm/dm/got.svg)](https://npmjs.com/got)
 [![Install size](https://packagephobia.now.sh/badge?p=got)](https://packagephobia.now.sh/result?p=got)
 
-Got is a human-friendly and powerful HTTP request library.
+[Moving from Request?](documentation/migration-guides.md) [*(Note that Request is unmaintained)*](https://github.com/request/request/issues/3142)
 
-It was created because the popular [`request`](https://github.com/request/request) package is bloated: [![Install size](https://packagephobia.now.sh/badge?p=request)](https://packagephobia.now.sh/result?p=request)
+[See how Got compares to other HTTP libraries](#comparison)
 
-Got is for Node.js. For browsers, we recommend [Ky](https://github.com/sindresorhus/ky).
-
-**This readme reflects the next major version that is currently in development. You probably want [the v9 readme](https://www.npmjs.com/package/got).**
-
+For browser usage, we recommend [Ky](https://github.com/sindresorhus/ky) by the same people.
 
 ## Highlights
 
@@ -45,19 +42,14 @@ Got is for Node.js. For browsers, we recommend [Ky](https://github.com/sindresor
 - [Composable](documentation/advanced-creation.md#merging-instances)
 - [Plugins](documentation/lets-make-a-plugin.md)
 - [Electron support](#useelectronnet)
-- [Used by 3000+ packages and 1.4M+ repos](https://github.com/sindresorhus/got/network/dependents)
+- [Used by 3000+ packages and 1.6M+ repos](https://github.com/sindresorhus/got/network/dependents)
 - Actively maintained
-
-[Moving from Request?](documentation/migration-guides.md)
-
-[See how Got compares to other HTTP libraries](#comparison)
 
 ## Install
 
 ```
 $ npm install got
 ```
-
 
 ## Usage
 
@@ -108,7 +100,7 @@ It's a `GET` request by default, but can be changed by using different methods o
 
 **By default, Got will retry on failure. To disable this option, set [`retry`](#retry) to `0`.**
 
-#### got([url], [options])
+#### got(url?, options?)
 
 Returns a Promise for a [`response` object](#response) or a [stream](#streams-1) if `options.isStream` is set to true.
 
@@ -170,7 +162,7 @@ const got = require('got');
 
 ###### headers
 
-Type: `object`<br>
+Type: `object`\
 Default: `{}`
 
 Request headers.
@@ -179,10 +171,10 @@ Existing headers will be overwritten. Headers set to `undefined` will be omitted
 
 ###### isStream
 
-Type: `boolean`<br>
+Type: `boolean`\
 Default: `false`
 
-Returns a `Stream` instead of a `Promise`. This is equivalent to calling `got.stream(url, [options])`.
+Returns a `Stream` instead of a `Promise`. This is equivalent to calling `got.stream(url, options?)`.
 
 ###### body
 
@@ -245,7 +237,7 @@ const instance = got.extend({
 
 ###### responseType
 
-Type: `string`<br>
+Type: `string`\
 Default: `'default'`
 
 **Note:** When using streams, this option is ignored.
@@ -271,7 +263,7 @@ const body = await got(url, {responseType: 'json'});
 
 ###### resolveBodyOnly
 
-Type: `string`<br>
+Type: `string`\
 Default: `false`
 
 When set to `true` the promise will return the [Response body](#body-1) instead of the [Response](#response) object.
@@ -298,14 +290,14 @@ The function takes one argument: `url` (`string`).
 
 ###### ignoreInvalidCookies
 
-Type: `boolean`<br>
+Type: `boolean`\
 Default: `false`
 
 Ignore invalid cookies instead of throwing an error. Only useful when the `cookieJar` option has been set. Not recommended.
 
 ###### encoding
 
-Type: `string`<br>
+Type: `string`\
 Default: `'utf8'`
 
 [Encoding](https://nodejs.org/api/buffer.html#buffer_buffers_and_character_encodings) to be used on `setEncoding` of the response data.
@@ -373,7 +365,7 @@ This also accepts an `object` with the following fields to constrain the duratio
 
 ###### retry
 
-Type: `number | object`<br>
+Type: `number | object`\
 Default:
 - limit: `2`
 - calculateDelay: `(attemptCount, retryOptions, error, computedValue) => computedValue`
@@ -386,7 +378,7 @@ An object representing `limit`, `calculateDelay`, `methods`, `statusCodes`, `max
 
 **Note:** When using streams, this option is ignored. If the connection is reset when downloading, you need to catch the error and clear the file you were writing into to prevent duplicated content.
 
-If `maxRetryAfter` is set to `undefined`, it will use `options.timeout`.<br>
+If `maxRetryAfter` is set to `undefined`, it will use `options.timeout`.\
 If [`Retry-After`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Retry-After) header is greater than `maxRetryAfter`, it will cancel the request.
 
 Delays between retries counts with function `1000 * Math.pow(2, retry) + Math.random() * 100`, where `retry` is attempt number (starts from 1).
@@ -405,7 +397,7 @@ By default, it retries *only* on the specified methods, status codes, and on the
 
 ###### followRedirect
 
-Type: `boolean`<br>
+Type: `boolean`\
 Default: `true`
 
 Defines if redirect responses should be followed automatically.
@@ -414,21 +406,21 @@ Note that if a `303` is sent by the server in response to any request type (`POS
 
 ###### methodRewriting
 
-Type: `boolean`<br>
+Type: `boolean`\
 Default: `true`
 
 By default, redirects will use [method rewriting](https://tools.ietf.org/html/rfc7231#section-6.4). For example, when sending a POST request and receiving a `302`, it will resend the body to the new location using the same HTTP method (`POST` in this case).
 
 ###### maxRedirects
 
-Type: `number`<br>
+Type: `number`\
 Default: `10`
 
 If exceeded, the request will be aborted and a `MaxRedirectsError` will be thrown.
 
 ###### decompress
 
-Type: `boolean`<br>
+Type: `boolean`\
 Default: `true`
 
 Decompress the response automatically. This will set the `accept-encoding` header to `gzip, deflate, br` on Node.js 11.7.0+ or `gzip, deflate` for older Node.js versions, unless you set it yourself.
@@ -439,35 +431,35 @@ If this is disabled, a compressed response is returned as a `Buffer`. This may b
 
 ###### cache
 
-Type: `object`<br>
+Type: `object`\
 Default: `false`
 
 [Cache adapter instance](#cache-adapters) for storing cached response data.
 
 ###### dnsCache
 
-Type: `object`<br>
+Type: `object`\
 Default: `false`
 
 [Cache adapter instance](#cache-adapters) for storing cached DNS data.
 
 ###### request
 
-Type: `Function`<br>
-Default: `http.request` `https.request` *(Depending on the protocol)*
+Type: `Function`\
+Default: `http.request | https.request` *(Depending on the protocol)*
 
 Custom request function. The main purpose of this is to [support HTTP2 using a wrapper](#experimental-http2-support).
 
 ###### useElectronNet
 
-Type: `boolean`<br>
+Type: `boolean`\
 Default: `false`
 
 When used in Electron, Got will use [`electron.net`](https://electronjs.org/docs/api/net/) instead of the Node.js `http` module. According to the Electron docs, it should be fully compatible, but it's not entirely. See [#443](https://github.com/sindresorhus/got/issues/443) and [#461](https://github.com/sindresorhus/got/issues/461).
 
 ###### throwHttpErrors
 
-Type: `boolean`<br>
+Type: `boolean`\
 Default: `true`
 
 Determines if a `got.HTTPError` is thrown for error responses (non-2xx status codes).
@@ -501,10 +493,10 @@ Hooks allow modifications during the request lifecycle. Hook functions may be as
 
 ###### hooks.init
 
-Type: `Function[]`<br>
+Type: `Function[]`\
 Default: `[]`
 
-Called with plain [request options](#options), right before their normalization. This is especially useful in conjunction with [`got.extend()`](#instances) and [`got.create()`](documentation/advanced-creation.md) when the input needs custom handling.
+Called with plain [request options](#options), right before their normalization. This is especially useful in conjunction with [`got.extend()`](#instances) when the input needs custom handling.
 
 See the [Request migration guide](documentation/migration-guides.md#breaking-changes) for an example.
 
@@ -512,16 +504,16 @@ See the [Request migration guide](documentation/migration-guides.md#breaking-cha
 
 ###### hooks.beforeRequest
 
-Type: `Function[]`<br>
+Type: `Function[]`\
 Default: `[]`
 
-Called with [normalized](source/normalize-arguments.ts) [request options](#options). Got will make no further changes to the request before it is sent (except the body serialization). This is especially useful in conjunction with [`got.extend()`](#instances) and [`got.create()`](documentation/advanced-creation.md) when you want to create an API client that, for example, uses HMAC-signing.
+Called with [normalized](source/normalize-arguments.ts) [request options](#options). Got will make no further changes to the request before it is sent (except the body serialization). This is especially useful in conjunction with [`got.extend()`](#instances) when you want to create an API client that, for example, uses HMAC-signing.
 
 See the [AWS section](#aws) for an example.
 
 ###### hooks.beforeRedirect
 
-Type: `Function[]`<br>
+Type: `Function[]`\
 Default: `[]`
 
 Called with [normalized](source/normalize-arguments.ts) [request options](#options) and the redirect [response](#response). Got will make no further changes to the request. This is especially useful when you want to avoid dead sites. Example:
@@ -544,7 +536,7 @@ got('https://example.com', {
 
 ###### hooks.beforeRetry
 
-Type: `Function[]`<br>
+Type: `Function[]`\
 Default: `[]`
 
 **Note:** When using streams, this hook is ignored.
@@ -571,7 +563,7 @@ got.post('https://example.com', {
 
 ###### hooks.afterResponse
 
-Type: `Function[]`<br>
+Type: `Function[]`\
 Default: `[]`
 
 **Note:** When using streams, this hook is ignored.
@@ -617,7 +609,7 @@ const instance = got.extend({
 
 ###### hooks.beforeError
 
-Type: `Function[]`<br>
+Type: `Function[]`\
 Default: `[]`
 
 Called with an `Error` instance. The error is passed to the hook right before it's thrown. This is especially useful when you want to have more detailed errors.
@@ -731,7 +723,7 @@ The number of times the request was retried.
 
 **Note:** To access `response.isFromCache` you need to use `got.stream(url, options).isFromCache`. The value will be undefined until the `response` event.
 
-#### got.stream(url, [options])
+#### got.stream(url, options?)
 
 Sets `options.isStream` to `true`.
 
@@ -789,12 +781,12 @@ If it's not possible to retrieve the body size (can happen when streaming), `tot
 
 The `error` event emitted in case of a protocol error (like `ENOTFOUND` etc.) or status error (4xx or 5xx). The second argument is the body of the server response in case of status error. The third argument is a response object.
 
-#### got.get(url, [options])
-#### got.post(url, [options])
-#### got.put(url, [options])
-#### got.patch(url, [options])
-#### got.head(url, [options])
-#### got.delete(url, [options])
+#### got.get(url, options?)
+#### got.post(url, options?)
+#### got.put(url, options?)
+#### got.patch(url, options?)
+#### got.head(url, options?)
+#### got.delete(url, options?)
 
 Sets `options.method` to the method name and makes a request.
 
@@ -898,12 +890,12 @@ Merges many instances into a single one:
 
 #### got.extend(...options, ...instances, ...)
 
-It's possible to combine options and instances.<br>
+It's possible to combine options and instances.\
 It gives the same effect as `got.extend(...options).extend(...instances)`:
 
 ```js
 const a = {headers: {cat: 'meow'}};
-const b = got.create({
+const b = got.extend({
 	options: {
 		headers: {
 			cow: 'moo'
@@ -950,7 +942,7 @@ The Got defaults used in that instance.
 
 ##### handlers
 
-Type: `Function[]`<br>
+Type: `Function[]`\
 Default: `[]`
 
 An array of functions. You execute them directly by calling `got()`. They are some sort of "global hooks" - these functions are called first. The last handler (*it's hidden*) is either [`asPromise`](source/as-promise.ts) or [`asStream`](source/as-stream.ts), depending on the `options.isStream` property.
@@ -986,12 +978,12 @@ const settings = {
 	})
 };
 
-const jsonGot = got.create(settings);
+const jsonGot = got.extend(settings);
 ```
 
 ##### mutableDefaults
 
-Type: `boolean`<br>
+Type: `boolean`\
 Default: `false`
 
 A read-only boolean describing whether the defaults are mutable or not. If set to `true`, you can [update headers over time](#hooksafterresponse), for example, update an access token when it expires.
@@ -1068,6 +1060,8 @@ The promise returned by Got has a [`.cancel()`](https://github.com/sindresorhus/
 When using hooks, simply throw an error to abort the request.
 
 ```js
+const got = require('got');
+
 (async () => {
 	const request = got(url, {
 		hooks: {
@@ -1096,6 +1090,7 @@ You can use the JavaScript `Map` type as an in-memory cache:
 
 ```js
 const got = require('got');
+
 const map = new Map();
 
 (async () => {
@@ -1141,7 +1136,6 @@ got('https://sindresorhus.com', {cache: storageAdapter});
 
 View the [Keyv docs](https://github.com/lukechilds/keyv) for more information on how to use storage adapters.
 
-
 ## Proxies
 
 You can use the [`tunnel`](https://github.com/koichik/node-tunnel) package with the `agent` option to work with proxies:
@@ -1161,7 +1155,6 @@ got('https://sindresorhus.com', {
 
 Alternatively, use [`global-agent`](https://github.com/gajus/global-agent) to configure a global proxy for all HTTP/HTTPS traffic in your program.
 
-
 ## Cookies
 
 You can use the [`tough-cookie`](https://github.com/salesforce/tough-cookie) package:
@@ -1180,7 +1173,6 @@ const {CookieJar} = require('tough-cookie');
 })();
 ```
 
-
 ## Form data
 
 You can use the [`form-data`](https://github.com/form-data/form-data) package to create POST request with form data:
@@ -1198,7 +1190,6 @@ got.post('https://example.com', {
 	body: form
 });
 ```
-
 
 ## OAuth
 
@@ -1231,7 +1222,6 @@ got(url, {
 });
 ```
 
-
 ## Unix Domain Sockets
 
 Requests can also be sent via [unix domain sockets](http://serverfault.com/questions/124517/whats-the-difference-between-unix-socket-and-tcp-ip-socket). Use the following URL scheme: `PROTOCOL://unix:SOCKET:PATH`.
@@ -1241,12 +1231,13 @@ Requests can also be sent via [unix domain sockets](http://serverfault.com/quest
 - `PATH` - Request path, for example: `/v2/keys`
 
 ```js
+const got = require('got');
+
 got('http://unix:/var/run/docker.sock:/containers/json');
 
 // Or without protocol (HTTP by default)
 got('unix:/var/run/docker.sock:/containers/json');
 ```
-
 
 ## AWS
 
@@ -1276,7 +1267,6 @@ const response = await awsClient('endpoint/path', {
 	// Request-specific options
 });
 ```
-
 
 ## Testing
 
@@ -1318,7 +1308,6 @@ test('retry function gets iteration count', withServer, async (t, server, got) =
 	});
 });
 ```
-
 
 ## Tips
 
@@ -1388,8 +1377,6 @@ Bear in mind; if you send an `if-modified-since` header and receive a `304 Not M
 
 Use `got.extend()` to make it nicer to work with REST APIs. Especially if you use the `prefixUrl` option.
 
-**Note:** Not to be confused with [`got.create()`](documentation/advanced-creation.md), which has no defaults.
-
 ```js
 const got = require('got');
 const pkg = require('./package.json');
@@ -1424,6 +1411,12 @@ const h2got = got.extend({request});
 })();
 ```
 
+## FAQ
+
+### Why was Got created?
+
+Got was created because the popular [`request`](https://github.com/request/request) package is bloated: [![Install size](https://packagephobia.now.sh/badge?p=request)](https://packagephobia.now.sh/result?p=request)
+
 ## Comparison
 
 |                       |       `got`      | [`request`][r0] |  [`node-fetch`][n0]  |    [`ky`][k0]     |  [`axios`][a0]   |  [`superagent`][s0]  |
@@ -1456,9 +1449,9 @@ const h2got = got.extend({request});
 | Dependents            |  [![][gdp]][g7]  | [![][rdp]][r7]  |    [![][ndp]][n7]    |   [![][kdp]][k7]  |  [![][adp]][a7] |    [![][sdp]][s7]     |
 | Install size          |  [![][gis]][g8]  | [![][ris]][r8]  |    [![][nis]][n8]    |   [![][kis]][k8]  |  [![][ais]][a8] |    [![][sis]][s8]     |
 
-\* It's almost API compatible with the browser `fetch` API.<br>
-\*\* Need to switch the protocol manually.<br>
-\*\*\* Currently, only 'DownloadProgress' event is supported, 'UploadProgress' event is not supported.<br>
+\* It's almost API compatible with the browser `fetch` API.\
+\*\* Need to switch the protocol manually.\
+\*\*\* Currently, only 'DownloadProgress' event is supported, 'UploadProgress' event is not supported.\
 ❔ Experimental support.
 
 <!-- GITHUB -->
@@ -1635,17 +1628,18 @@ const h2got = got.extend({request});
 - [GotQL](https://github.com/khaosdoctor/gotql) - Got convenience wrapper to interact with GraphQL using JSON-parsed queries instead of strings
 - [got-fetch](https://github.com/alexghr/got-fetch) - Got with a `fetch` interface
 
-
 ## Maintainers
 
-[![Sindre Sorhus](https://github.com/sindresorhus.png?size=100)](https://sindresorhus.com) | [![Szymon Marczak](https://github.com/szmarczak.png?size=100)](https://github.com/szmarczak) | [![Alexander Tesfamichael](https://github.com/AlexTes.png?size=100)](https://github.com/AlexTes) | [![Brandon Smith](https://github.com/brandon93s.png?size=100)](https://github.com/brandon93s) | [![Luke Childs](https://github.com/lukechilds.png?size=100)](https://github.com/lukechilds)
----|---|---|---|---
-[Sindre Sorhus](https://sindresorhus.com) | [Szymon Marczak](https://github.com/szmarczak) | [Alexander Tesfamichael](https://alextes.me) | [Brandon Smith](https://github.com/brandon93s) | [Luke Childs](https://github.com/lukechilds)
+[![Sindre Sorhus](https://github.com/sindresorhus.png?size=100)](https://sindresorhus.com) | [![Szymon Marczak](https://github.com/szmarczak.png?size=100)](https://github.com/szmarczak)
+---|---
+[Sindre Sorhus](https://sindresorhus.com) | [Szymon Marczak](https://github.com/szmarczak)
 
 ###### Former
 
 - [Vsevolod Strukchinsky](https://github.com/floatdrop)
-
+- [Alexander Tesfamichael](https://github.com/alextes)
+- [Brandon Smith](https://github.com/brandon93s)
+- [Luke Childs](https://github.com/lukechilds)
 
 ---
 
