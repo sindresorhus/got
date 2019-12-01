@@ -1,7 +1,7 @@
 import {promisify} from 'util';
 import CacheableRequest = require('cacheable-request');
-// @ts-ignore
-import http2 = require('../../http2-wrapper');
+// @ts-ignore Missing types
+import http2 = require('http2-wrapper');
 import https = require('https');
 import Keyv = require('keyv');
 import lowercaseKeys = require('lowercase-keys');
