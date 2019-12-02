@@ -1,4 +1,4 @@
-import {Merge, PartialDeep} from 'type-fest';
+import {Merge} from 'type-fest';
 import asPromise from './as-promise';
 import asStream, {ProxyStream} from './as-stream';
 import * as errors from './errors';
