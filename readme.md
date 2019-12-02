@@ -804,7 +804,7 @@ const client = got.extend({
 	}
 });
 
-client.get('/demo');
+client.get('demo');
 
 /* HTTP Request =>
  * GET /demo HTTP/1.1
@@ -821,7 +821,7 @@ client.get('/demo');
 			'x-foo': 'bar'
 		}
 	});
-	const {headers} = await client.get('/headers').json();
+	const {headers} = await client.get('headers').json();
 	//=> headers['x-foo'] === 'bar'
 
 	const jsonClient = client.extend({
@@ -831,7 +831,7 @@ client.get('/demo');
 			'x-baz': 'qux'
 		}
 	});
-	const {headers: headers2} = await jsonClient.get('/headers');
+	const {headers: headers2} = await jsonClient.get('headers');
 	//=> headers2['x-foo'] === 'bar'
 	//=> headers2['x-baz'] === 'qux'
 })();
@@ -1391,7 +1391,7 @@ const custom = got.extend({
 
 // Use `custom` exactly how you use `got`
 (async () => {
-	const list = await custom('/v1/users/list');
+	const list = await custom('v1/users/list');
 })();
 ```
 
