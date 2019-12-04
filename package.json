@@ -42,7 +42,7 @@
 	],
 	"dependencies": {
 		"@sindresorhus/is": "^1.0.0",
-		"@szmarczak/http-timer": "^3.1.0",
+		"@szmarczak/http-timer": "^3.1.1",
 		"@types/cacheable-request": "^6.0.1",
 		"cacheable-lookup": "^0.2.1",
 		"cacheable-request": "^7.0.0",
