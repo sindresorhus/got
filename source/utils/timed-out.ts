@@ -58,6 +58,11 @@ export default (request: ClientRequest, delays: Delays, options: TimedOutOptions
 	const {host, hostname} = options;
 
 	const timeoutHandler = (delay: number, event: string): void => {
+		if (request.socket) {
+			// @ts-ignore We do not want the `socket hang up` error
+			request.socket._hadError = true;
+		}
+
 		request.abort();
 		request.emit('error', new TimeoutError(delay, event));
 	};
@@ -71,9 +76,7 @@ export default (request: ClientRequest, delays: Delays, options: TimedOutOptions
 	};
 
 	request.once('error', error => {
-		if (error.message !== 'socket hang up') {
-			cancelTimeouts();
-		}
+		cancelTimeouts();
 
 		// Save original behavior
 		if (request.listenerCount('error') === 0) {

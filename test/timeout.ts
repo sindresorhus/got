@@ -6,6 +6,7 @@ import http = require('http');
 import net = require('net');
 import getStream = require('get-stream');
 import test from 'ava';
+import delay = require('delay');
 import CacheableLookup from 'cacheable-lookup';
 import {Handler} from 'express';
 import pEvent = require('p-event');
@@ -424,6 +425,26 @@ test.serial('no unhandled `socket hung up` errors', withServerAndLolex, async (t
 		got({retry: 0, timeout: requestDelay / 2}),
 		{instanceOf: got.TimeoutError}
 	);
+});
+
+// TODO: use lolex here
+test.serial('no unhandled timeout errors', withServer, async (t, _server, got) => {
+	await t.throwsAsync(got({
+		retry: 0,
+		timeout: 100,
+		request: (...args: any[]) => {
+			// @ts-ignore
+			const result = http.request(...args);
+
+			result.once('socket', () => {
+				result.socket.destroy();
+			});
+
+			return result;
+		}
+	}));
+
+	await delay(200);
 });
 
 test.serial('no more timeouts after an error', withServerAndLolex, async (t, _server, got, clock) => {
