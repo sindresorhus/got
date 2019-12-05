@@ -180,11 +180,11 @@ Returns a `Stream` instead of a `Promise`. This is equivalent to calling `got.st
 
 Type: `string | Buffer | stream.Readable` or [`form-data` instance](https://github.com/form-data/form-data)
 
-**Note:** The `body` option cannot be used with the `json` or `form` option.
+**Note #1:** The `body` option cannot be used with the `json` or `form` option.
 
-**Note:** If you provide this option, `got.stream()` will be read-only.
+**Note #2:** If you provide this option, `got.stream()` will be read-only.
 
-If present in `options` and `options.method` is not set, it will throw a `TypeError`.
+**Note #3:** If you provide a payload with the `GET` or `HEAD` method, it will throw a `TypeError`.
 
 The `content-length` header will be automatically set if `body` is a `string` / `Buffer` / `fs.createReadStream` instance / [`form-data` instance](https://github.com/form-data/form-data), and `content-length` and `transfer-encoding` are not manually set in `options.headers`.
 
