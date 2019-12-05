@@ -1338,7 +1338,7 @@ const got = require('got');
 
 (async () => {
 	const body = await got.post('https://httpbin.org/anything', {
-		body: {
+		json: {
 			hello: 'world'
 		}
 	}).json();
