@@ -1,4 +1,4 @@
-import {Merge, PartialDeep} from 'type-fest';
+import {Merge} from 'type-fest';
 import asPromise from './as-promise';
 import asStream, {ProxyStream} from './as-stream';
 import * as errors from './errors';
@@ -70,7 +70,7 @@ export interface Got extends Record<HTTPAlias, GotFunctions>, GotFunctions {
 
 	extend(...instancesOrOptions: Array<Got | ExtendOptions>): Got;
 	mergeInstances(parent: Got, ...instances: Got[]): Got;
-	mergeOptions<T extends PartialDeep<Options>>(...sources: T[]): T;
+	mergeOptions(...sources: Options[]): NormalizedOptions;
 }
 
 export interface GotStream extends Record<HTTPAlias, ReturnStream> {
