@@ -65,8 +65,8 @@
 		"@types/proxyquire": "^1.3.28",
 		"@types/sinon": "^7.0.13",
 		"@types/tough-cookie": "^2.3.5",
-		"@typescript-eslint/eslint-plugin": "^2.9.0",
-		"@typescript-eslint/parser": "^2.9.0",
+		"@typescript-eslint/eslint-plugin": "2.10.0",
+		"@typescript-eslint/parser": "2.10.0",
 		"ava": "^2.4.0",
 		"coveralls": "^3.0.4",
 		"create-test-server": "^3.0.1",
@@ -123,6 +123,9 @@
 		],
 		"ignores": [
 			"documentation/examples/*"
-		]
+		],
+		"rules": {
+			"@typescript-eslint/no-empty-function": "off"
+		}
 	}
 }
