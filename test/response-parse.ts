@@ -149,6 +149,16 @@ test('doesn\'t throw on 204 No Content', withServer, async (t, server, got) => {
 	t.is(body, '');
 });
 
+test('doesn\'t throw on empty bodies', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.statusCode = 200;
+		response.end();
+	});
+
+	const body = await got('').json();
+	t.is(body, '');
+});
+
 test('.buffer() returns binary content', withServer, async (t, server, got) => {
 	const body = Buffer.from('89504E470D0A1A0A0000000D49484452', 'hex');
 

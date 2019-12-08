@@ -61,7 +61,7 @@ export default function asPromise<T>(options: NormalizedOptions): CancelableRequ
 				return;
 			}
 
-			const isOk = () => {
+			const isOk = (): boolean => {
 				const {statusCode} = response;
 				const limitStatusCode = options.followRedirect ? 299 : 399;
 
