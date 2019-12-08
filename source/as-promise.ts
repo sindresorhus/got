@@ -7,29 +7,25 @@ import {normalizeArguments, mergeOptions} from './normalize-arguments';
 import requestAsEventEmitter, {proxyEvents} from './request-as-event-emitter';
 import {CancelableRequest, GeneralError, NormalizedOptions, Response} from './utils/types';
 
-const parseBody = (body: Response['body'], responseType: NormalizedOptions['responseType'], statusCode: Response['statusCode']): unknown => {
-	if (responseType === 'json' && is.string(body)) {
-		return statusCode === 204 ? '' : JSON.parse(body);
+const parseBody = (body: Buffer, responseType: NormalizedOptions['responseType'], encoding: NormalizedOptions['encoding']): unknown => {
+	if (responseType === 'json') {
+		return body.length === 0 ? '' : JSON.parse(body.toString());
 	}
 
-	if (responseType === 'buffer' && is.string(body)) {
+	if (responseType === 'buffer') {
 		return Buffer.from(body);
 	}
 
 	if (responseType === 'text') {
-		return String(body);
+		return body.toString(encoding);
 	}
 
-	if (responseType === 'default') {
-		return body;
-	}
-
-	throw new Error(`Failed to parse body of type '${typeof body}' as '${responseType!}'`);
+	throw new TypeError(`Unknown body type '${responseType!}'`);
 };
 
 export default function asPromise<T>(options: NormalizedOptions): CancelableRequest<T> {
 	const proxy = new EventEmitter();
-	let finalResponse: Pick<Response, 'body' | 'statusCode'>;
+	let body: Buffer;
 
 	// @ts-ignore `.json()`, `.buffer()` and `.text()` are added later
 	const promise = new PCancelable<Response | Response['body']>((resolve, reject, onCancel) => {
@@ -52,8 +48,9 @@ export default function asPromise<T>(options: NormalizedOptions): CancelableRequ
 		emitter.on('response', async (response: Response) => {
 			proxy.emit('response', response);
 
+			// Download body
 			try {
-				response.body = await getStream(response, {encoding: options.encoding});
+				body = await getStream.buffer(response, {encoding: 'binary'});
 			} catch (error) {
 				emitError(new ReadError(error, options));
 				return;
@@ -62,6 +59,27 @@ export default function asPromise<T>(options: NormalizedOptions): CancelableRequ
 			if (response.req?.aborted) {
 				// Canceled while downloading - will throw a `CancelError` or `TimeoutError` error
 				return;
+			}
+
+			const isOk = () => {
+				const {statusCode} = response;
+				const limitStatusCode = options.followRedirect ? 299 : 399;
+
+				return (statusCode >= 200 && statusCode <= limitStatusCode) || statusCode === 304;
+			};
+
+			// Parse body
+			try {
+				response.body = parseBody(body, options.responseType, options.encoding);
+			} catch (error) {
+				if (isOk()) {
+					const parseError = new ParseError(error, response, options);
+					emitError(parseError);
+					return;
+				}
+
+				// Fallback to `utf8`
+				response.body = body.toString();
 			}
 
 			try {
@@ -75,7 +93,6 @@ export default function asPromise<T>(options: NormalizedOptions): CancelableRequ
 								calculateDelay: () => 0
 							},
 							throwHttpErrors: false,
-							responseType: 'text',
 							resolveBodyOnly: false
 						}));
 
@@ -103,36 +120,18 @@ export default function asPromise<T>(options: NormalizedOptions): CancelableRequ
 				return;
 			}
 
-			const {statusCode} = response;
+			// Check for HTTP error codes
+			if (!isOk()) {
+				const error = new HTTPError(response, options);
 
-			finalResponse = {
-				body: response.body,
-				statusCode
-			};
-
-			try {
-				response.body = parseBody(response.body, options.responseType, response.statusCode);
-			} catch (error) {
-				if (statusCode >= 200 && statusCode < 300) {
-					const parseError = new ParseError(error, response, options);
-					emitError(parseError);
+				if (emitter.retry(error)) {
 					return;
 				}
-			}
 
-			const limitStatusCode = options.followRedirect ? 299 : 399;
-			if (statusCode !== 304 && (statusCode < 200 || statusCode > limitStatusCode)) {
-				const error = new HTTPError(response, options);
-				if (!emitter.retry(error)) {
-					if (options.throwHttpErrors) {
-						emitError(error);
-						return;
-					}
-
-					resolve(options.resolveBodyOnly ? response.body : response);
+				if (options.throwHttpErrors) {
+					emitError(error);
+					return;
 				}
-
-				return;
 			}
 
 			resolve(options.resolveBodyOnly ? response.body : response);
@@ -150,7 +149,7 @@ export default function asPromise<T>(options: NormalizedOptions): CancelableRequ
 
 	const shortcut = <T>(responseType: NormalizedOptions['responseType']): CancelableRequest<T> => {
 		// eslint-disable-next-line promise/prefer-await-to-then
-		const newPromise = promise.then(() => parseBody(finalResponse.body, responseType, finalResponse.statusCode));
+		const newPromise = promise.then(() => parseBody(body, responseType, options.encoding));
 
 		Object.defineProperties(newPromise, Object.getOwnPropertyDescriptors(promise));
 
@@ -158,7 +157,7 @@ export default function asPromise<T>(options: NormalizedOptions): CancelableRequ
 	};
 
 	promise.json = () => {
-		if (is.undefined(options.headers.accept)) {
+		if (is.undefined(body) && is.undefined(options.headers.accept)) {
 			options.headers.accept = 'application/json';
 		}
 

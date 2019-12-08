@@ -43,7 +43,7 @@ export type ErrorCode =
 	| 'ENETUNREACH'
 	| 'EAI_AGAIN';
 
-export type ResponseType = 'json' | 'buffer' | 'text' | 'default';
+export type ResponseType = 'json' | 'buffer' | 'text';
 
 export interface Response<BodyType = unknown> extends http.IncomingMessage {
 	body: BodyType;

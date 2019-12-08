@@ -64,11 +64,17 @@ export default function asStream<T>(options: NormalizedOptions): ProxyStream<T> 
 		}
 
 		{
-			const read = proxy._read.bind(proxy);
+			const read = proxy._read;
 			proxy._read = (...args) => {
 				isFinished = true;
-				return read(...args);
+
+				proxy._read = read;
+				return read.apply(proxy, args);
 			};
+		}
+
+		if (options.encoding) {
+			proxy.setEncoding(options.encoding);
 		}
 
 		stream.pipeline(

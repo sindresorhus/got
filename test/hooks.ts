@@ -330,7 +330,7 @@ test('afterResponse is called with response', withServer, async (t, server, got)
 		hooks: {
 			afterResponse: [
 				response => {
-					t.is(typeof response.body, 'string');
+					t.is(typeof response.body, 'object');
 
 					return response;
 				}
@@ -347,7 +347,7 @@ test('afterResponse allows modifications', withServer, async (t, server, got) =>
 		hooks: {
 			afterResponse: [
 				response => {
-					response.body = '{"hello": "world"}';
+					response.body = {hello: 'world'};
 
 					return response;
 				}

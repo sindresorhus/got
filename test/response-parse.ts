@@ -79,7 +79,7 @@ test('throws an error on invalid response type', withServer, async (t, server, g
 	server.get('/', defaultHandler);
 
 	// @ts-ignore Error tests
-	const error = await t.throwsAsync<ParseError>(got({responseType: 'invalid'}), /^Failed to parse body of type 'string' as 'invalid'/);
+	const error = await t.throwsAsync<ParseError>(got({responseType: 'invalid'}), /^Unknown body type 'invalid'/);
 	t.true(error.message.includes(error.options.url.hostname));
 	t.is(error.options.url.pathname, '/');
 });
@@ -147,4 +147,15 @@ test('doesn\'t throw on 204 No Content', withServer, async (t, server, got) => {
 
 	const body = await got('').json();
 	t.is(body, '');
+});
+
+test('.buffer() returns binary content', withServer, async (t, server, got) => {
+	const body = Buffer.from('89504E470D0A1A0A0000000D49484452', 'hex');
+
+	server.get('/', (_request, response) => {
+		response.end(body);
+	});
+
+	const buffer = await got('').buffer();
+	t.is(Buffer.compare(buffer, body), 0);
 });

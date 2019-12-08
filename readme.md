@@ -238,18 +238,13 @@ const instance = got.extend({
 ###### responseType
 
 Type: `string`\
-Default: `'default'`
+Default: `'text'`
 
 **Note:** When using streams, this option is ignored.
 
-Parsing method used to retrieve the body from the response.
+The parsing method. Can be `'text'`, `'json'` or `'buffer'`.
 
-- `'default'` - Will give a string unless the body is overwritten in a `afterResponse` hook or if `options.decompress` is set to false - Will give a Buffer if the response is compresssed.
-- `'text'` - Will give a string no matter what.
-- `'json'` - Will give an object, unless the body is invalid JSON, then it will throw.
-- `'buffer'` - Will give a Buffer, ignoring `options.encoding`. It will throw if the body is a custom object.
-
-The promise has `.json()` and `.buffer()` and `.text()` methods which set this option automatically.
+The promise has also `.text()`, `.json()` and `.buffer()` methods which set this option automatically.
 
 Example:
 

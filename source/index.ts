@@ -55,7 +55,7 @@ const defaults: Defaults = {
 		cache: false,
 		dnsCache: false,
 		useElectronNet: false,
-		responseType: 'default',
+		responseType: 'text',
 		resolveBodyOnly: false,
 		maxRedirects: 10,
 		prefixUrl: '',

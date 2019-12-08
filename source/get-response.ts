@@ -21,10 +21,7 @@ export default async (response: IncomingMessage, options: NormalizedOptions, emi
 	);
 
 	if (!options.decompress && ['gzip', 'deflate', 'br'].includes(response.headers['content-encoding'] ?? '')) {
-		options.responseType = 'default';
-
-		// @ts-ignore Internal use.
-		options.encoding = 'buffer';
+		options.responseType = 'buffer';
 	}
 
 	emitter.emit('response', newResponse);
