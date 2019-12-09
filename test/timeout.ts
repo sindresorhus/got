@@ -470,8 +470,10 @@ test.serial('no more timeouts after an error', withServer, async (t, _server, go
 
 	// @ts-ignore
 	global.clearTimeout = timeout => {
-		// @ts-ignore
-		timeout.cleared = true;
+		if (timeout) {
+			// @ts-ignore
+			timeout.cleared = true;
+		}
 	};
 
 	await t.throwsAsync(got(`http://${Date.now()}.dev`, {
@@ -587,9 +589,6 @@ test.serial('doesn\'t throw on early lookup', withServerAndLolex, async (t, serv
 test.serial('no unhandled `Premature close` error', withServer, async (t, server, got) => {
 	server.get('/', async (_request, response) => {
 		response.write('hello');
-
-		await delay(10);
-		response.end();
 	});
 
 	await t.throwsAsync(got({
