@@ -606,12 +606,12 @@ test.serial('cancelling the request removes timeouts', withServer, async (t, ser
 		response.write('hello');
 	});
 
-    const promise = got({
-        timeout: 500,
+	const promise = got({
+		timeout: 500,
 		retry: 0
-    }).on('downloadProgress', () => {
-        promise.cancel();
-    }).on('request', request => {
+	}).on('downloadProgress', () => {
+		promise.cancel();
+	}).on('request', request => {
 		request.on('error', error => {
 			if (error.message === 'Timeout awaiting \'request\' for 500ms') {
 				t.fail(error.message);

@@ -19,9 +19,12 @@ export interface URLOptions {
 	search?: string;
 	searchParams?: Record<string, string | number | boolean | null> | URLSearchParams | string;
 	hash?: string;
+
+	// The only accepted legacy Url options
+	path?: string;
 }
 
-const keys: Array<Exclude<keyof URLOptions, 'href' | 'origin' | 'searchParams'>> = [
+const keys: Array<Exclude<keyof URLOptions, 'href' | 'origin' | 'searchParams' | 'path'>> = [
 	'protocol',
 	'username',
 	'password',
@@ -36,12 +39,22 @@ const keys: Array<Exclude<keyof URLOptions, 'href' | 'origin' | 'searchParams'>>
 export default (options: URLOptions): URL => {
 	let origin: string;
 
-	if (Reflect.has(options, 'path')) {
-		throw new TypeError('Parameter `path` is deprecated. Use `pathname` instead.');
+	if (options.path) {
+		if (options.pathname) {
+			throw new TypeError('Parameters `path` and `pathname` are mutually exclusive.');
+		}
+
+		if (options.search) {
+			throw new TypeError('Parameters `path` and `search` are mutually exclusive.');
+		}
+
+		if (options.searchParams) {
+			throw new TypeError('Parameters `path` and `searchParams` are mutually exclusive.');
+		}
 	}
 
 	if (Reflect.has(options, 'auth')) {
-		throw new TypeError('Parameter `auth` is deprecated. Use `username`/`password` instead.');
+		throw new TypeError('Parameter `auth` is deprecated. Use `username` / `password` instead.');
 	}
 
 	if (options.search && options.searchParams) {
@@ -64,13 +77,27 @@ export default (options: URLOptions): URL => {
 
 	const url = new URL(origin);
 
+	if (options.path) {
+		const searchIndex = options.path.indexOf('?');
+		if (searchIndex === -1) {
+			options.pathname = options.path;
+		} else {
+			options.pathname = options.path.slice(0, searchIndex);
+			options.search = options.path.slice(searchIndex + 1);
+		}
+	}
+
+	if (Reflect.has(options, 'path')) {
+		delete options.path;
+	}
+
 	for (const key of keys) {
 		if (Reflect.has(options, key)) {
 			url[key] = options[key].toString();
 		}
 	}
 
-	if (Reflect.has(options, 'searchParams')) {
+	if (options.searchParams) {
 		if (typeof options.searchParams !== 'string' && !(options.searchParams instanceof URLSearchParams)) {
 			validateSearchParams(options.searchParams);
 		}

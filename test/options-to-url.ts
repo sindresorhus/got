@@ -2,18 +2,40 @@ import test from 'ava';
 import is from '@sindresorhus/is';
 import optionsToUrl from '../source/utils/options-to-url';
 
-test('`path` is deprecated', t => {
+const origin = 'https://google.com';
+
+test('`path` and `pathname` are mutually exclusive', t => {
 	t.throws(() => {
 		// @ts-ignore Error tests
-		optionsToUrl({path: ''});
-	}, 'Parameter `path` is deprecated. Use `pathname` instead.');
+		optionsToUrl({path: 'a', pathname: 'a'});
+	}, 'Parameters `path` and `pathname` are mutually exclusive.');
+});
+
+test('`path` and `search` are mutually exclusive', t => {
+	t.throws(() => {
+		// @ts-ignore Error tests
+		optionsToUrl({path: 'a', search: 'a'});
+	}, 'Parameters `path` and `search` are mutually exclusive.');
+});
+
+test('`path` and `searchParams` are mutually exclusive', t => {
+	t.throws(() => {
+		// @ts-ignore Error tests
+		optionsToUrl({path: 'a', searchParams: {}});
+	}, 'Parameters `path` and `searchParams` are mutually exclusive.');
+});
+
+test('`path` option', t => {
+	const url = optionsToUrl({origin, path: '/?a=1'});
+	t.is(url.href, `${origin}/?a=1`);
+	t.true(is.urlInstance(url));
 });
 
 test('`auth` is deprecated', t => {
 	t.throws(() => {
 		// @ts-ignore Error tests
 		optionsToUrl({auth: ''});
-	}, 'Parameter `auth` is deprecated. Use `username`/`password` instead.');
+	}, 'Parameter `auth` is deprecated. Use `username` / `password` instead.');
 });
 
 test('`search` and `searchParams` are mutually exclusive', t => {
@@ -24,16 +46,12 @@ test('`search` and `searchParams` are mutually exclusive', t => {
 });
 
 test('`href` option', t => {
-	const href = 'https://google.com/';
-
-	const url = optionsToUrl({href});
-	t.is(url.href, href);
+	const url = optionsToUrl({href: origin});
+	t.is(url.href, `${origin}/`);
 	t.true(is.urlInstance(url));
 });
 
 test('`origin` option', t => {
-	const origin = 'https://google.com';
-
 	const url = optionsToUrl({origin});
 	t.is(url.href, `${origin}/`);
 	t.true(is.urlInstance(url));
@@ -46,40 +64,30 @@ test('throws if no protocol specified', t => {
 });
 
 test('`port` option', t => {
-	const origin = 'https://google.com';
-
 	const url = optionsToUrl({origin, port: 8888});
 	t.is(url.href, `${origin}:8888/`);
 	t.true(is.urlInstance(url));
 });
 
 test('`protocol` option', t => {
-	const origin = 'https://google.com';
-
 	const url = optionsToUrl({origin, protocol: 'http:'});
 	t.is(url.href, 'http://google.com/');
 	t.true(is.urlInstance(url));
 });
 
 test('`username` option', t => {
-	const origin = 'https://google.com';
-
 	const url = optionsToUrl({origin, username: 'username'});
 	t.is(url.href, 'https://username@google.com/');
 	t.true(is.urlInstance(url));
 });
 
 test('`password` option', t => {
-	const origin = 'https://google.com';
-
 	const url = optionsToUrl({origin, password: 'password'});
 	t.is(url.href, 'https://:password@google.com/');
 	t.true(is.urlInstance(url));
 });
 
 test('`username` option combined with `password` option', t => {
-	const origin = 'https://google.com';
-
 	const url = optionsToUrl({origin, username: 'username', password: 'password'});
 	t.is(url.href, 'https://username:password@google.com/');
 	t.true(is.urlInstance(url));

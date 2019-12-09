@@ -98,7 +98,7 @@ const pipeline = promisify(stream.pipeline);
 
 It's a `GET` request by default, but can be changed by using different methods or via `options.method`.
 
-**By default, Got will retry on failure. To disable this option, set [`retry`](#retry) to `0`.**
+**By default, Got will retry on failure. To disable this option, set [`options.retry`](#retry) to `0`.**
 
 #### got(url?, options?)
 
@@ -121,6 +121,8 @@ If no protocol is specified, it will throw a `TypeError`.
 Type: `object`
 
 Any of the [`https.request`](https://nodejs.org/api/https.html#https_https_request_options_callback) options.
+
+**Note:** Legacy Url support is disabled. `options.path` is supported only for backwards compatibility. Instead of the `options.auth`, you should use `options.username` and/or `options.password`.
 
 ###### prefixUrl
 
