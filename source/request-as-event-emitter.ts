@@ -34,6 +34,9 @@ export default (options: NormalizedOptions): RequestAsEventEmitter => {
 
 	let currentRequest: http.ClientRequest;
 
+	// `request.aborted` is a boolean since v11.0.0: https://github.com/nodejs/node/commit/4b00c4fafaa2ae8c41c1f78823c0feb810ae4723#diff-e3bc37430eb078ccbafe3aa3b570c91a
+	const isAborted = (): boolean => typeof currentRequest.aborted === 'number' || (currentRequest.aborted as unknown as boolean);
+
 	const emitError = async (error: GeneralError): Promise<void> => {
 		try {
 			for (const hook of options.hooks.beforeError) {
@@ -135,15 +138,27 @@ export default (options: NormalizedOptions): RequestAsEventEmitter => {
 					return;
 				}
 
-				await getResponse(typedResponse, options, emitter);
+				try {
+					await getResponse(typedResponse, options, emitter);
+				} catch (error) {
+					// Don't throw `Premature close` if the request has been aborted
+					if (!(isAborted() && error.message === 'Premature close')) {
+						throw error;
+					}
+				}
 			} catch (error) {
 				emitError(error);
 			}
 		};
 
 		const handleRequest = async (request: http.ClientRequest): Promise<void> => {
-			// `request.aborted` is a boolean since v11.0.0: https://github.com/nodejs/node/commit/4b00c4fafaa2ae8c41c1f78823c0feb810ae4723#diff-e3bc37430eb078ccbafe3aa3b570c91a
-			const isAborted = (): boolean => typeof request.aborted === 'number' || (request.aborted as unknown as boolean);
+			let piped = false;
+			let finished = false;
+
+			// `request.finished` doesn't indicate whether this has been emitted or not
+			request.once('finish', () => {
+				finished = true;
+			});
 
 			currentRequest = request;
 
@@ -159,16 +174,21 @@ export default (options: NormalizedOptions): RequestAsEventEmitter => {
 				}
 			};
 
-			const attachErrorHandler = (): void => {
-				request.once('error', error => {
-					// We need to allow `TimedOutTimeoutError` here, because `stream.pipeline(…)` aborts the request automatically.
-					if (isAborted() && !(error instanceof TimedOutTimeoutError)) {
+			request.on('error', error => {
+				if (piped) {
+					// Check if it's caught by `stream.pipeline(...)`
+					if (!finished) {
 						return;
 					}
 
-					onError(error);
-				});
-			};
+					// We need to let `TimedOutTimeoutError` through, because `stream.pipeline(…)` aborts the request automatically.
+					if (isAborted() && !(error instanceof TimedOutTimeoutError)) {
+						return;
+					}
+				}
+
+				onError(error);
+			});
 
 			try {
 				timer(request);
@@ -178,13 +198,13 @@ export default (options: NormalizedOptions): RequestAsEventEmitter => {
 
 				const uploadStream = createProgressStream('uploadProgress', emitter, httpOptions.headers!['content-length'] as string);
 
+				piped = true;
+
 				await pipeline(
 					httpOptions.body!,
 					uploadStream,
 					request
 				);
-
-				attachErrorHandler();
 
 				request.emit('upload-complete');
 			} catch (error) {
@@ -194,9 +214,6 @@ export default (options: NormalizedOptions): RequestAsEventEmitter => {
 				}
 
 				onError(error);
-
-				// Handle future errors
-				attachErrorHandler();
 			}
 		};
 

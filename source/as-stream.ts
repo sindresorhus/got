@@ -81,7 +81,7 @@ export default function asStream<T>(options: NormalizedOptions): ProxyStream<T> 
 			response,
 			output,
 			error => {
-				if (error) {
+				if (error && error.message !== 'Premature close') {
 					emitError(new ReadError(error, options));
 				}
 			}

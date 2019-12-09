@@ -442,12 +442,38 @@ test.serial('no unhandled timeout errors', withServer, async (t, _server, got) =
 
 			return result;
 		}
-	}));
+	}), 'socket hang up');
 
 	await delay(200);
 });
 
-test.serial('no more timeouts after an error', withServerAndLolex, async (t, _server, got, clock) => {
+test.serial('no more timeouts after an error', withServer, async (t, _server, got) => {
+	const {setTimeout} = global;
+	const {clearTimeout} = global;
+
+	// @ts-ignore
+	global.setTimeout = (callback, _ms, ...args) => {
+		const timeout = {
+			cleared: false
+		};
+
+		process.nextTick(() => {
+			if (timeout.cleared) {
+				return;
+			}
+
+			callback(...args);
+		});
+
+		return timeout;
+	};
+
+	// @ts-ignore
+	global.clearTimeout = timeout => {
+		// @ts-ignore
+		timeout.cleared = true;
+	};
+
 	await t.throwsAsync(got(`http://${Date.now()}.dev`, {
 		retry: 1,
 		timeout: {
@@ -459,20 +485,12 @@ test.serial('no more timeouts after an error', withServerAndLolex, async (t, _se
 			send: 1,
 			request: 1
 		}
-	}).on('request', () => {
-		const {setTimeout} = global;
-		// @ts-ignore Augmenting global for testing purposes
-		global.setTimeout = (callback, _ms, ...args) => {
-			callback(...args);
+	}), {instanceOf: got.TimeoutError});
 
-			global.setTimeout = setTimeout;
-		};
+	await delay(100);
 
-		clock.runAll();
-	}), {instanceOf: got.GotError});
-
-	// Wait a bit more to check if there are any unhandled errors
-	clock.tick(100);
+	global.setTimeout = setTimeout;
+	global.clearTimeout = clearTimeout;
 });
 
 test.serial('socket timeout is canceled on error', withServerAndLolex, async (t, _server, got, clock) => {
@@ -563,4 +581,45 @@ test.serial('doesn\'t throw on early lookup', withServerAndLolex, async (t, serv
 			callback(null, '127.0.0.1', 4);
 		}
 	}));
+});
+
+// TODO: use lolex here
+test.serial('no unhandled `Premature close` error', withServer, async (t, server, got) => {
+	server.get('/', async (_request, response) => {
+		response.write('hello');
+
+		await delay(10);
+		response.end();
+	});
+
+	await t.throwsAsync(got({
+		timeout: 10,
+		retry: 0
+	}), 'Timeout awaiting \'request\' for 10ms');
+
+	await delay(20);
+});
+
+// TODO: use lolex here
+test.serial('cancelling the request removes timeouts', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.write('hello');
+	});
+
+    const promise = got({
+        timeout: 500,
+		retry: 0
+    }).on('downloadProgress', () => {
+        promise.cancel();
+    }).on('request', request => {
+		request.on('error', error => {
+			if (error.message === 'Timeout awaiting \'request\' for 500ms') {
+				t.fail(error.message);
+			}
+		});
+	});
+
+	await t.throwsAsync(promise, 'Promise was canceled');
+
+	await delay(1000);
 });

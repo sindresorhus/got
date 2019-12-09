@@ -84,6 +84,8 @@ export default (request: ClientRequest, delays: Delays, options: TimedOutOptions
 		}
 	});
 
+	request.once('abort', cancelTimeouts);
+
 	once(request, 'response', (response: IncomingMessage): void => {
 		once(response, 'end', cancelTimeouts);
 	});
