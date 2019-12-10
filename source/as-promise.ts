@@ -78,7 +78,7 @@ export default function asPromise<T>(options: NormalizedOptions): CancelableRequ
 					return;
 				}
 
-				// Fallback to `utf8`
+				// Fall back to `utf8`
 				response.body = body.toString();
 			}
 

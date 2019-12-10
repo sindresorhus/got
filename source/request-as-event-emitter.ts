@@ -152,12 +152,12 @@ export default (options: NormalizedOptions): RequestAsEventEmitter => {
 		};
 
 		const handleRequest = async (request: http.ClientRequest): Promise<void> => {
-			let piped = false;
-			let finished = false;
+			let isPiped = false;
+			let isFinished = false;
 
 			// `request.finished` doesn't indicate whether this has been emitted or not
 			request.once('finish', () => {
-				finished = true;
+				isFinished = true;
 			});
 
 			currentRequest = request;
@@ -175,9 +175,9 @@ export default (options: NormalizedOptions): RequestAsEventEmitter => {
 			};
 
 			request.on('error', error => {
-				if (piped) {
+				if (isPiped) {
 					// Check if it's caught by `stream.pipeline(...)`
-					if (!finished) {
+					if (!isFinished) {
 						return;
 					}
 
@@ -198,7 +198,7 @@ export default (options: NormalizedOptions): RequestAsEventEmitter => {
 
 				const uploadStream = createProgressStream('uploadProgress', emitter, httpOptions.headers!['content-length'] as string);
 
-				piped = true;
+				isPiped = true;
 
 				await pipeline(
 					httpOptions.body!,

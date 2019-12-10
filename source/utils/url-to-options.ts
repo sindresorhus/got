@@ -1,7 +1,7 @@
 import {UrlWithStringQuery} from 'url';
 import is from '@sindresorhus/is';
 
-// TODO: Deprecate legacy Url at some point
+// TODO: Deprecate legacy URL at some point
 
 export interface LegacyURLOptions {
 	protocol: string;

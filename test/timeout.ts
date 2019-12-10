@@ -454,11 +454,11 @@ test.serial('no more timeouts after an error', withServer, async (t, _server, go
 	// @ts-ignore
 	global.setTimeout = (callback, _ms, ...args) => {
 		const timeout = {
-			cleared: false
+			isCleared: false
 		};
 
 		process.nextTick(() => {
-			if (timeout.cleared) {
+			if (timeout.isCleared) {
 				return;
 			}
 
@@ -472,7 +472,7 @@ test.serial('no more timeouts after an error', withServer, async (t, _server, go
 	global.clearTimeout = timeout => {
 		if (timeout) {
 			// @ts-ignore
-			timeout.cleared = true;
+			timeout.isCleared = true;
 		}
 	};
 

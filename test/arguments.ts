@@ -89,7 +89,7 @@ test('methods are normalized', withServer, async (t, server, got) => {
 	await instance('test', {method: 'post'});
 });
 
-test('throws an error when legacy Url is passed', withServer, async (t, server, got) => {
+test('throws an error when legacy URL is passed', withServer, async (t, server, got) => {
 	server.get('/test', echoUrl);
 
 	await t.throwsAsync(

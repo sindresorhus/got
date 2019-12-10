@@ -20,7 +20,7 @@ export interface URLOptions {
 	searchParams?: Record<string, string | number | boolean | null> | URLSearchParams | string;
 	hash?: string;
 
-	// The only accepted legacy Url options
+	// The only accepted legacy URL options
 	path?: string;
 }
 
