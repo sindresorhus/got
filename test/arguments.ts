@@ -1,5 +1,5 @@
 /* eslint-disable node/no-deprecated-api */
-import {parse} from 'url';
+import {parse, URL, URLSearchParams} from 'url';
 import test from 'ava';
 import {Handler} from 'express';
 import pEvent = require('p-event');

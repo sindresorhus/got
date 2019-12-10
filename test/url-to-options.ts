@@ -1,4 +1,5 @@
 import url = require('url');
+import {URL} from 'url';
 import test from 'ava';
 import urlToOptions from '../source/utils/url-to-options';
 

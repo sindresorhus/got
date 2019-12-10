@@ -4,6 +4,7 @@ import Keyv = require('keyv');
 import CacheableRequest = require('cacheable-request');
 import PCancelable = require('p-cancelable');
 import ResponseLike = require('responselike');
+import {URL} from 'url';
 import {Readable as ReadableStream} from 'stream';
 import {Timings} from '@szmarczak/http-timer';
 import CacheableLookup from 'cacheable-lookup';

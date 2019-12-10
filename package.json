@@ -125,7 +125,9 @@
 			"documentation/examples/*"
 		],
 		"rules": {
-			"@typescript-eslint/no-empty-function": "off"
+			"@typescript-eslint/no-empty-function": "off",
+			"node/prefer-global/url": "off",
+		  	"node/prefer-global/url-search-params": "off"
 		}
 	}
 }
