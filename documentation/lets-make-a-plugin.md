@@ -12,11 +12,11 @@ Before we start, we need to find the [GitHub API docs](https://developer.github.
 
 Let's write down the most important information:
 1. The root endpoint is `https://api.github.com/`.
-2. We will use version 3 of the API.<br>
+2. We will use version 3 of the API.\
    The `Accept` header needs to be set to `application/vnd.github.v3+json`.
 3. The body is in a JSON format.
 4. We will use OAuth2 for authorization.
-5. We may receive `400 Bad Request` or `422 Unprocessable Entity`.<br>
+5. We may receive `400 Bad Request` or `422 Unprocessable Entity`.\
    The body contains detailed information about the error.
 6. *Pagination?* Not yet. This is going to be a native feature of Got. We'll update this page accordingly when the feature is available.
 7. Rate limiting. These headers are interesting:
