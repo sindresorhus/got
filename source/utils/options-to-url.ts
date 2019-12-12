@@ -1,3 +1,5 @@
+import {URL, URLSearchParams} from 'url';
+
 function validateSearchParams(searchParams: Record<string, unknown>): asserts searchParams is Record<string, string | number | boolean | null> {
 	for (const value of Object.values(searchParams)) {
 		if (typeof value !== 'string' && typeof value !== 'number' && typeof value !== 'boolean' && value !== null) {

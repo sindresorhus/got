@@ -2,6 +2,7 @@ import CacheableRequest = require('cacheable-request');
 import EventEmitter = require('events');
 import http = require('http');
 import stream = require('stream');
+import {URL} from 'url';
 import {promisify} from 'util';
 import is from '@sindresorhus/is';
 import timer from '@szmarczak/http-timer';
@@ -239,7 +240,7 @@ export default (options: NormalizedOptions): RequestAsEventEmitter => {
 		} else {
 			// Catches errors thrown by calling `requestFn(…)`
 			try {
-				// @ts-ignore URLSearchParams does not equal URLSearchParams
+				// @ts-ignore ResponseObject does not equal IncomingMessage
 				handleRequest(httpOptions.request(options.url, httpOptions, handleResponse));
 			} catch (error) {
 				emitError(new RequestError(error, options));

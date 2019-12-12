@@ -1,3 +1,4 @@
+import {URL, URLSearchParams} from 'url';
 import {promisify} from 'util';
 import CacheableRequest = require('cacheable-request');
 import http = require('http');
@@ -234,6 +235,7 @@ export const normalizeArguments = (url: URLOrOptions, options?: Options, default
 	}
 
 	if (is.urlInstance(url) || is.string(url)) {
+		// @ts-ignore URL is not URL
 		options.url = url;
 
 		options = mergeOptions(defaults?.options ?? {}, options);

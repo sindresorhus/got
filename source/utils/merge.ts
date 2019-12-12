@@ -1,3 +1,4 @@
+import {URL} from 'url';
 import is from '@sindresorhus/is';
 import {Merge} from 'type-fest';
 
