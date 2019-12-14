@@ -122,7 +122,7 @@ Type: `object`
 
 Any of the [`https.request`](https://nodejs.org/api/https.html#https_https_request_options_callback) options.
 
-**Note:** Legacy URL support is disabled. `options.path` is supported only for backwards compatibility. Instead of the `options.auth`, you should use `options.username` and/or `options.password`.
+**Note:** Legacy URL support is disabled. `options.path` is supported only for backwards compatibility. Use `options.pathname` and `options.searchParams` instead. `options.auth` has been replaced with `options.username` & `options.password`.
 
 ###### prefixUrl
 
