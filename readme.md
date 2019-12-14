@@ -1461,7 +1461,7 @@ Electron support has been deprecated and will be removed in the next major relea
 \* It's almost API compatible with the browser `fetch` API.\
 \*\* Need to switch the protocol manually.\
 \*\*\* Currently, only 'DownloadProgress' event is supported, 'UploadProgress' event is not supported.\
-❔ Experimental support.
+❔ Experimental support.\
 ⚠️ Deprecated.
 
 <!-- GITHUB -->
