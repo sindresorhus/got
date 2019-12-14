@@ -32,8 +32,8 @@ export default (request: ClientRequest, delays: Delays, options: TimedOutOptions
 	const cancelers: Array<typeof noop> = [];
 	const {once, unhandleAll} = unhandler();
 
-	const addTimeout = <T extends any[]>(delay: number, callback: (delay: number, ...args: T) => void, ...args: T): (typeof noop) => {
-		const timeout = setTimeout(callback, delay, ...args) as unknown as NodeJS.Timeout;
+	const addTimeout = (delay: number, callback: (delay: number, event: string) => void, event: string): (typeof noop) => {
+		const timeout = setTimeout(callback, delay, delay, event) as unknown as NodeJS.Timeout;
 
 		timeout.unref?.();
 
