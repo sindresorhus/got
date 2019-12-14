@@ -21,7 +21,10 @@ const defaults: Defaults = {
 				500,
 				502,
 				503,
-				504
+				504,
+				521,
+				522,
+				524
 			],
 			errorCodes: [
 				'ETIMEDOUT',
