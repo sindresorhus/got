@@ -449,6 +449,7 @@ export const normalizeRequestArguments = async (options: NormalizedOptions): Pro
 
 	// No point in typing process.versions correctly, as
 	// `process.version.electron` is used only once, right here.
+	/* istanbul ignore next */
 	if (options.useElectronNet && (process.versions as any).electron) {
 		const electron = dynamicRequire(module, 'electron') as any; // Trick webpack
 

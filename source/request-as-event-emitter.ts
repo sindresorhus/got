@@ -26,6 +26,27 @@ export interface RequestAsEventEmitter extends EventEmitter {
 	abort: () => void;
 }
 
+const discardedHeaderDuplicates = new Set([
+	'age',
+	'authorization',
+	'content-length',
+	'content-type',
+	'etag',
+	'expires',
+	'from',
+	'host',
+	'if-modified-since',
+	'if-unmodified-since',
+	'last-modified',
+	'location',
+	'max-forwards',
+	'proxy-authorization',
+	'referer',
+	'retry-after',
+	'server',
+	'user-agent'
+]);
+
 export default (options: NormalizedOptions): RequestAsEventEmitter => {
 	const emitter = new EventEmitter() as RequestAsEventEmitter;
 
@@ -152,14 +173,6 @@ export default (options: NormalizedOptions): RequestAsEventEmitter => {
 						delete options.headers.cookie;
 					}
 
-					if (Reflect.has(options, 'username')) {
-						delete options.username;
-					}
-
-					if (Reflect.has(options, 'password')) {
-						delete options.password;
-					}
-
 					redirects.push(redirectURL.toString());
 					options.url = redirectURL;
 
@@ -216,6 +229,7 @@ export default (options: NormalizedOptions): RequestAsEventEmitter => {
 					}
 				}
 
+				/* istanbul ignore next */
 				if (options.useElectronNet && error.message === 'Redirect was cancelled') {
 					return;
 				}
