@@ -462,7 +462,7 @@ export const normalizeRequestArguments = async (options: NormalizedOptions): Pro
 			options.session = options.electronSession;
 		}
 
-		if (Reflect.has(options.headers!, 'content-length')) {
+		if (Reflect.has(options.headers, 'content-length')) {
 			delete options.headers['content-length'];
 		}
 
