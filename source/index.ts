@@ -22,6 +22,7 @@ const defaults: Defaults = {
 				502,
 				503,
 				504,
+				521,
 				522,
 				524
 			],
