@@ -56,39 +56,6 @@ export default (options: NormalizedOptions): RequestAsEventEmitter => {
 
 		const handleResponse = async (response: http.IncomingMessage): Promise<void> => {
 			try {
-				/* istanbul ignore next */
-				if (options.useElectronNet) {
-					let {statusMessage} = response as Response;
-
-					response = new Proxy(response, {
-						get: (target, name) => {
-							if (name === 'trailers' || name === 'rawTrailers') {
-								return [];
-							}
-
-							if (name === 'statusMessage') {
-								return statusMessage;
-							}
-
-							if (name === 'socket') {
-								return {};
-							}
-
-							const value = (target as any)[name];
-							return is.function_(value) ? value.bind(target) : value;
-						},
-						set: (target, name, value) => {
-							if (name === 'statusMessage') {
-								statusMessage = value;
-
-								return true;
-							}
-
-							return Reflect.set(target, name, value);
-						}
-					});
-				}
-
 				const typedResponse = response as Response;
 				const {statusCode} = typedResponse;
 				typedResponse.statusMessage = is.nonEmptyString(typedResponse.statusMessage) ? typedResponse.statusMessage : http.STATUS_CODES[statusCode];

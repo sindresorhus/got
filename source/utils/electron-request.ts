@@ -91,15 +91,48 @@ export default (url: URL, options: RequestOptions, callback?: (response: Incomin
 	const emit = request.emit.bind(request);
 	request.emit = (event: string, ...args: any[]): boolean => {
 		if (event === 'response') {
-			const {headers} = args[0];
+			const electronResponse = args[0];
+			let {statusMessage} = electronResponse;
 
-			if (Reflect.has(headers, 'content-encoding')) {
-				delete headers['content-encoding'];
-			}
+			const response = new Proxy(electronResponse, {
+				get: (target, name) => {
+					if (name === 'trailers' || name === 'rawTrailers') {
+						return [];
+					}
 
-			Object.defineProperty(args[0], 'headers', {
-				get: () => headers
+					if (name === 'statusMessage') {
+						return statusMessage;
+					}
+
+					if (name === 'socket') {
+						return {};
+					}
+
+					if (name === 'headers') {
+						const {headers} = electronResponse;
+
+						if (Reflect.has(headers, 'content-encoding')) {
+							delete headers['content-encoding'];
+						}
+
+						return headers;
+					}
+
+					const value = target[name];
+					return typeof value === 'function' ? value.bind(target) : value;
+				},
+				set: (target, name, value) => {
+					if (name === 'statusMessage') {
+						statusMessage = value;
+
+						return true;
+					}
+
+					return Reflect.set(target, name, value);
+				}
 			});
+
+			args[0] = response;
 		}
 
 		return emit(event, ...args);
