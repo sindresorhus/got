@@ -33,21 +33,12 @@ export default (request: ClientRequest, delays: Delays, options: TimedOutOptions
 	const {once, unhandleAll} = unhandler();
 
 	const addTimeout = <T extends any[]>(delay: number, callback: (delay: number, ...args: T) => void, ...args: T): (typeof noop) => {
-		// Event loop order is timers, poll, immediates.
-		// The timed event may emit during the current tick poll phase, so
-		// defer calling the handler until the poll phase completes.
-		let immediate: NodeJS.Immediate;
-		const timeout: NodeJS.Timeout = setTimeout(() => {
-			// @ts-ignore https://github.com/microsoft/TypeScript/issues/26113
-			immediate = setImmediate(callback, delay, ...args);
-			immediate.unref?.();
-		}, delay);
+		const timeout = setTimeout(callback, delay, ...args) as unknown as NodeJS.Timeout;
 
 		timeout.unref?.();
 
 		const cancel = (): void => {
 			clearTimeout(timeout);
-			clearImmediate(immediate);
 		};
 
 		cancelers.push(cancel);

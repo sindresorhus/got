@@ -10,7 +10,7 @@ import delay = require('delay');
 import CacheableLookup from 'cacheable-lookup';
 import {Handler} from 'express';
 import pEvent = require('p-event');
-import got from '../source';
+import got, {TimeoutError} from '../source';
 import timedOut from '../source/utils/timed-out';
 import slowDataStream from './helpers/slow-data-stream';
 import {GlobalClock} from './helpers/types';
@@ -621,4 +621,16 @@ test.serial('cancelling the request removes timeouts', withServer, async (t, ser
 	await t.throwsAsync(promise, 'Promise was canceled');
 
 	await delay(1000);
+});
+
+test('timeouts are emitted ASAP', async t => {
+	const timeout = 500;
+	const marginOfError = 100;
+
+	const error: TimeoutError = await t.throwsAsync(got('http://192.0.2.1/test', {
+		retry: 0,
+		timeout
+	}), TimeoutError);
+
+	t.true(error.timings.phases.total! < (timeout + marginOfError));
 });
