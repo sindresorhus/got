@@ -1419,7 +1419,7 @@ Furthermore, Got is fully written in TypeScript.
 
 Electron support has been deprecated and will be removed in the next major release. They claim their `net.request` is compatible with Node.js, but actually it isn't. These Got features are currently broken:
 
-- `options.retry` does not work (yet)
+- `options.retry` has no effect (culprit: different error codes)
 - `options.timeout` has no effect (only `options.timeout.request` works; culprit: no `request.socket` property)
 - `options.decompress` has no effect (culprit: `electron` decompresses the content on its own)
 - `options.dnsCache` has no effect (culprit: `electron` does not support `lookup` option)
@@ -1432,7 +1432,7 @@ Electron support has been deprecated and will be removed in the next major relea
 |-----------------------|:----------------:|:---------------:|:--------------------:|:-----------------:|:----------------:|:--------------------:|
 | HTTP/2 support        |        ❔        |        ❌       |          ❌         |         ❌        |        ❌       |          ✔️\*\*      |
 | Browser support       |        ❌       |        ❌       |          ✔️\*       |         ✔️        |        ✔️       |          ✔️          |
-| Electron support      |        ⚠       |        ❌       |          ❌         |         ❌        |        ❌       |          ❌          |
+| Electron support      |        ⚠️       |        ❌       |          ❌         |         ❌        |        ❌       |          ❌          |
 | Promise API           |        ✔️       |        ✔️       |          ✔️         |         ✔️        |        ✔️       |          ✔️          |
 | Stream API            |        ✔️       |        ✔️       |     Node.js only     |         ❌        |        ❌       |          ✔️          |
 | Request cancelation   |        ✔️       |        ❌       |          ✔️         |         ✔️        |        ✔️       |          ✔️          |
@@ -1462,7 +1462,7 @@ Electron support has been deprecated and will be removed in the next major relea
 \*\* Need to switch the protocol manually.\
 \*\*\* Currently, only 'DownloadProgress' event is supported, 'UploadProgress' event is not supported.\
 ❔ Experimental support.
-⚠ Deprecated.
+⚠️ Deprecated.
 
 <!-- GITHUB -->
 [k0]: https://github.com/sindresorhus/ky
