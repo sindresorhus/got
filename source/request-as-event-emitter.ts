@@ -26,27 +26,6 @@ export interface RequestAsEventEmitter extends EventEmitter {
 	abort: () => void;
 }
 
-const discardedHeaderDuplicates = new Set([
-	'age',
-	'authorization',
-	'content-length',
-	'content-type',
-	'etag',
-	'expires',
-	'from',
-	'host',
-	'if-modified-since',
-	'if-unmodified-since',
-	'last-modified',
-	'location',
-	'max-forwards',
-	'proxy-authorization',
-	'referer',
-	'retry-after',
-	'server',
-	'user-agent'
-]);
-
 export default (options: NormalizedOptions): RequestAsEventEmitter => {
 	const emitter = new EventEmitter() as RequestAsEventEmitter;
 

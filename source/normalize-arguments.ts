@@ -12,12 +12,12 @@ import CacheableLookup from 'cacheable-lookup';
 import {Merge} from 'type-fest';
 import {UnsupportedProtocolError} from './errors';
 import knownHookEvents from './known-hook-events';
-import dynamicRequire from './utils/dynamic-require';
 import getBodySize from './utils/get-body-size';
 import isFormData from './utils/is-form-data';
 import merge from './utils/merge';
 import optionsToUrl from './utils/options-to-url';
 import supportsBrotli from './utils/supports-brotli';
+import electronRequest from './utils/electron-request';
 import {
 	AgentByProtocol,
 	Defaults,
@@ -451,30 +451,12 @@ export const normalizeRequestArguments = async (options: NormalizedOptions): Pro
 	// `process.version.electron` is used only once, right here.
 	/* istanbul ignore next */
 	if (options.useElectronNet && (process.versions as any).electron) {
-		const electron = dynamicRequire(module, 'electron') as any; // Trick webpack
-
-		options.request = electron.net.request ?? electron.remote.net.request;
-
 		// @ts-ignore
-		options.redirect = 'manual';
-
-		if (Reflect.has(options, 'electronSession')) {
-			// @ts-ignore
-			options.session = options.electronSession;
-		}
-
-		if (Reflect.has(options.headers, 'content-length')) {
-			delete options.headers['content-length'];
-		}
-
-		if (Reflect.has(options, 'url')) {
-			// @ts-ignore
-			options.url = options.url.toString();
-		}
-	} else {
-		// `http-cache-semantics` checks this
-		delete options.url;
+		options.request = electronRequest;
 	}
+
+	// `http-cache-semantics` checks this
+	delete options.url;
 
 	return options as unknown as NormalizedRequestArguments;
 };
