@@ -377,7 +377,7 @@ export const normalizeRequestArguments = async (options: NormalizedOptions): Pro
 	// Content-Length header field when the request message does not contain
 	// a payload body and the method semantics do not anticipate such a
 	// body.
-	if (noContentType && is.undefined(headers['transfer-encoding'])) {
+	if (is.undefined(headers['content-length']) && is.undefined(headers['transfer-encoding'])) {
 		if (
 			(options.method === 'POST' || options.method === 'PUT' || options.method === 'PATCH') &&
 			!is.undefined(uploadBodySize)

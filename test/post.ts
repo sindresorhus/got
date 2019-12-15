@@ -113,6 +113,22 @@ test('`content-length` header with string body', withServer, async (t, server, g
 	t.is(headers['content-length'], '3');
 });
 
+test('`content-length` header with json body', withServer, async (t, server, got) => {
+	server.post('/', echoHeaders);
+
+	const {body} = await got.post({json: {foo: 'bar'}});
+	const headers = JSON.parse(body);
+	t.is(headers['content-length'], '13');
+});
+
+test('`content-length` header with form body', withServer, async (t, server, got) => {
+	server.post('/', echoHeaders);
+
+	const {body} = await got.post({form: {foo: 'bar'}});
+	const headers = JSON.parse(body);
+	t.is(headers['content-length'], '7');
+});
+
 test('`content-length` header with Buffer body', withServer, async (t, server, got) => {
 	server.post('/', echoHeaders);
 
@@ -141,6 +157,19 @@ test('`content-length` header is not overriden', withServer, async (t, server, g
 	});
 	const headers = JSON.parse(body);
 	t.is(headers['content-length'], '10');
+});
+
+test('`content-length` header is present when using custom content-type', withServer, async (t, server, got) => {
+	server.post('/', echoHeaders);
+
+	const {body} = await got.post({
+		json: {foo: 'bar'},
+		headers: {
+			'content-type': 'custom'
+		}
+	});
+	const headers = JSON.parse(body);
+	t.is(headers['content-length'], '13');
 });
 
 test('`content-length` header disabled for chunked transfer-encoding', withServer, async (t, server, got) => {
