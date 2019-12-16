@@ -175,11 +175,6 @@ export default (options: NormalizedOptions): RequestAsEventEmitter => {
 					}
 				}
 
-				/* istanbul ignore next */
-				if (options.useElectronNet && error.message === 'Redirect was cancelled') {
-					return;
-				}
-
 				onError(error);
 			});
 
