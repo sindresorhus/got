@@ -26,9 +26,17 @@ test('`path` and `searchParams` are mutually exclusive', t => {
 });
 
 test('`path` option', t => {
-	const url = optionsToUrl({origin, path: '/?a=1'});
-	t.is(url.href, `${origin}/?a=1`);
-	t.true(is.urlInstance(url));
+	{
+		const url = optionsToUrl({origin, path: '/x?a=1'});
+		t.is(url.href, `${origin}/x?a=1`);
+		t.true(is.urlInstance(url));
+	}
+
+	{
+		const url = optionsToUrl({origin, path: '/foobar'});
+		t.is(url.href, `${origin}/foobar`);
+		t.true(is.urlInstance(url));
+	}
 });
 
 test('`auth` is deprecated', t => {

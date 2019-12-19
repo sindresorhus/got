@@ -42,6 +42,18 @@ test('handles gzip error', withServer, async (t, server, got) => {
 	});
 });
 
+test('no unhandled `Premature close` error', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.setHeader('Content-Encoding', 'gzip');
+		response.write('Not gzipped content');
+	});
+
+	await t.throwsAsync(got(''), {
+		name: 'ReadError',
+		message: 'incorrect header check'
+	});
+});
+
 test('handles gzip error - stream', withServer, async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.setHeader('Content-Encoding', 'gzip');

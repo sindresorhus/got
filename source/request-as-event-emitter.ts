@@ -13,7 +13,7 @@ import getResponse from './get-response';
 import {normalizeRequestArguments} from './normalize-arguments';
 import {createProgressStream} from './progress';
 import timedOut, {TimeoutError as TimedOutTimeoutError} from './utils/timed-out';
-import {GeneralError, NormalizedOptions, Response, ResponseObject} from './utils/types';
+import {GeneralError, NormalizedOptions, Response} from './utils/types';
 import urlToOptions from './utils/url-to-options';
 
 const setImmediateAsync = async (): Promise<void> => new Promise(resolve => setImmediate(resolve));
@@ -54,7 +54,7 @@ export default (options: NormalizedOptions): RequestAsEventEmitter => {
 	const get = async (): Promise<void> => {
 		let httpOptions = await normalizeRequestArguments(options);
 
-		const handleResponse = async (response: http.ServerResponse | ResponseObject): Promise<void> => {
+		const handleResponse = async (response: http.IncomingMessage): Promise<void> => {
 			try {
 				/* istanbul ignore next: fixes https://github.com/electron/electron/blob/cbb460d47628a7a146adf4419ed48550a98b2923/lib/browser/api/net.js#L59-L65 */
 				if (options.useElectronNet) {
@@ -107,9 +107,17 @@ export default (options: NormalizedOptions): RequestAsEventEmitter => {
 							options.method = 'GET';
 						}
 
-						delete options.body;
-						delete options.json;
-						delete options.form;
+						if (Reflect.has(options, 'body')) {
+							delete options.body;
+						}
+
+						if (Reflect.has(options, 'json')) {
+							delete options.json;
+						}
+
+						if (Reflect.has(options, 'form')) {
+							delete options.form;
+						}
 					}
 
 					if (redirects.length >= options.maxRedirects) {
@@ -121,7 +129,7 @@ export default (options: NormalizedOptions): RequestAsEventEmitter => {
 					const redirectURL = new URL(redirectBuffer, options.url);
 
 					// Redirecting to a different site, clear cookies.
-					if (redirectURL.hostname !== options.url.hostname) {
+					if (redirectURL.hostname !== options.url.hostname && Reflect.has(options.headers, 'cookie')) {
 						delete options.headers.cookie;
 					}
 
@@ -139,14 +147,7 @@ export default (options: NormalizedOptions): RequestAsEventEmitter => {
 					return;
 				}
 
-				try {
-					await getResponse(typedResponse, options, emitter);
-				} catch (error) {
-					// Don't throw `Premature close` if the request has been aborted
-					if (!(isAborted() && error.message === 'Premature close')) {
-						throw error;
-					}
-				}
+				await getResponse(typedResponse, options, emitter);
 			} catch (error) {
 				emitError(error);
 			}
@@ -240,7 +241,6 @@ export default (options: NormalizedOptions): RequestAsEventEmitter => {
 		} else {
 			// Catches errors thrown by calling `requestFn(…)`
 			try {
-				// @ts-ignore ResponseObject does not equal IncomingMessage
 				handleRequest(httpOptions.request(options.url, httpOptions, handleResponse));
 			} catch (error) {
 				emitError(new RequestError(error, options));

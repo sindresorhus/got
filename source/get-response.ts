@@ -18,9 +18,9 @@ export default async (response: IncomingMessage, options: NormalizedOptions, emi
 	const newResponse = (
 		options.decompress &&
 		options.method !== 'HEAD' ? decompressResponse(progressStream as unknown as IncomingMessage) : progressStream
-	);
+	) as IncomingMessage;
 
-	if (!options.decompress && ['gzip', 'deflate', 'br'].includes(response.headers['content-encoding'] ?? '')) {
+	if (!options.decompress && ['gzip', 'deflate', 'br'].includes(newResponse.headers['content-encoding'] ?? '')) {
 		options.responseType = 'buffer';
 	}
 
@@ -29,5 +29,9 @@ export default async (response: IncomingMessage, options: NormalizedOptions, emi
 	return pipeline(
 		response,
 		progressStream
-	);
+	).catch(error => {
+		if (error.code !== 'ERR_STREAM_PREMATURE_CLOSE') {
+			throw error;
+		}
+	});
 };

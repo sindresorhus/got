@@ -335,6 +335,28 @@ test('body is reset on GET redirect', withServer, async (t, server, got) => {
 			]
 		}
 	});
+
+	await got.post('', {
+		json: {foo: 'bar'},
+		hooks: {
+			beforeRedirect: [
+				options => {
+					t.is(options.body, undefined);
+				}
+			]
+		}
+	});
+
+	await got.post('', {
+		form: {foo: 'bar'},
+		hooks: {
+			beforeRedirect: [
+				options => {
+					t.is(options.body, undefined);
+				}
+			]
+		}
+	});
 });
 
 test('body is passed on POST redirect', withServer, async (t, server, got) => {
