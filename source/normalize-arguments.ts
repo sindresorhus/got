@@ -17,7 +17,7 @@ import isFormData from './utils/is-form-data';
 import merge from './utils/merge';
 import optionsToUrl from './utils/options-to-url';
 import supportsBrotli from './utils/supports-brotli';
-import electronRequest from './utils/electron-request';
+import dynamicRequire from './utils/dynamic-require';
 import {
 	AgentByProtocol,
 	Defaults,
@@ -420,8 +420,6 @@ export const normalizeRequestArguments = async (options: NormalizedOptions): Pro
 				path,
 				host: ''
 			};
-
-			delete options.url;
 		}
 	}
 
@@ -447,12 +445,12 @@ export const normalizeRequestArguments = async (options: NormalizedOptions): Pro
 		}
 	}
 
+	/* istanbul ignore next: electron.net is broken */
 	// No point in typing process.versions correctly, as
 	// `process.version.electron` is used only once, right here.
-	/* istanbul ignore next */
 	if (options.useElectronNet && (process.versions as any).electron) {
-		// @ts-ignore
-		options.request = electronRequest;
+		const electron = dynamicRequire(module, 'electron') as any; // Trick webpack
+		options.request = electron.net.request ?? electron.remote.net.request;
 	}
 
 	// `http-cache-semantics` checks this
