@@ -9,10 +9,10 @@ import {Readable as ReadableStream} from 'stream';
 import {Timings} from '@szmarczak/http-timer';
 import CacheableLookup from 'cacheable-lookup';
 import {Except, Merge, Promisable} from 'type-fest';
-import {GotReturn} from '../create';
-import {GotError, HTTPError, MaxRedirectsError, ParseError} from '../errors';
-import {Hooks} from '../known-hook-events';
-import {URLOptions} from './options-to-url';
+import {GotReturn} from './create';
+import {GotError, HTTPError, MaxRedirectsError, ParseError} from './errors';
+import {Hooks} from './known-hook-events';
+import {URLOptions} from './utils/options-to-url';
 
 export type GeneralError = Error | GotError | HTTPError | MaxRedirectsError | ParseError;
 
@@ -33,16 +33,6 @@ export type Method =
 	| 'delete'
 	| 'options'
 	| 'trace';
-
-export type ErrorCode =
-	| 'ETIMEDOUT'
-	| 'ECONNRESET'
-	| 'EADDRINUSE'
-	| 'ECONNREFUSED'
-	| 'EPIPE'
-	| 'ENOTFOUND'
-	| 'ENETUNREACH'
-	| 'EAI_AGAIN';
 
 export type ResponseType = 'json' | 'buffer' | 'text';
 

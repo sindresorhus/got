@@ -5,7 +5,7 @@ import is from '@sindresorhus/is';
 import {ParseError, ReadError, HTTPError} from './errors';
 import {normalizeArguments, mergeOptions} from './normalize-arguments';
 import requestAsEventEmitter, {proxyEvents} from './request-as-event-emitter';
-import {CancelableRequest, GeneralError, NormalizedOptions, Response} from './utils/types';
+import {CancelableRequest, GeneralError, NormalizedOptions, Response} from './types';
 
 const parseBody = (body: Buffer, responseType: NormalizedOptions['responseType'], encoding: NormalizedOptions['encoding']): unknown => {
 	if (responseType === 'json') {
@@ -27,7 +27,6 @@ export default function asPromise<T>(options: NormalizedOptions): CancelableRequ
 	const proxy = new EventEmitter();
 	let body: Buffer;
 
-	// @ts-ignore `.json()`, `.buffer()` and `.text()` are added later
 	const promise = new PCancelable<Response | Response['body']>((resolve, reject, onCancel) => {
 		const emitter = requestAsEventEmitter(options);
 		onCancel(emitter.abort);
@@ -84,10 +83,10 @@ export default function asPromise<T>(options: NormalizedOptions): CancelableRequ
 
 			try {
 				for (const [index, hook] of options.hooks.afterResponse.entries()) {
-					// @ts-ignore Promise is not assignable to CancelableRequest
+					// @ts-ignore TS doesn't notice that CancelableRequest is a Promise
 					// eslint-disable-next-line no-await-in-loop
-					response = await hook(response, async (updatedOptions: NormalizedOptions) => {
-						updatedOptions = normalizeArguments(mergeOptions(options, {
+					response = await hook(response, async (updatedOptions): CancelableRequest<Response> => {
+						const typedOptions = normalizeArguments(mergeOptions(options, {
 							...updatedOptions,
 							retry: {
 								calculateDelay: () => 0
@@ -98,21 +97,21 @@ export default function asPromise<T>(options: NormalizedOptions): CancelableRequ
 
 						// Remove any further hooks for that request, because we'll call them anyway.
 						// The loop continues. We don't want duplicates (asPromise recursion).
-						updatedOptions.hooks.afterResponse = options.hooks.afterResponse.slice(0, index);
+						typedOptions.hooks.afterResponse = options.hooks.afterResponse.slice(0, index);
 
 						for (const hook of options.hooks.beforeRetry) {
 							// eslint-disable-next-line no-await-in-loop
-							await hook(updatedOptions);
+							await hook(typedOptions);
 						}
 
-						const promise = asPromise(updatedOptions);
+						const promise = asPromise(typedOptions);
 
 						onCancel(() => {
 							promise.catch(() => {});
 							promise.cancel();
 						});
 
-						return promise;
+						return promise as unknown as CancelableRequest<Response>;
 					});
 				}
 			} catch (error) {

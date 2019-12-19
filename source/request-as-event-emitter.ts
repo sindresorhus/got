@@ -13,7 +13,7 @@ import getResponse from './get-response';
 import {normalizeRequestArguments} from './normalize-arguments';
 import {createProgressStream} from './progress';
 import timedOut, {TimeoutError as TimedOutTimeoutError} from './utils/timed-out';
-import {GeneralError, NormalizedOptions, Response} from './utils/types';
+import {GeneralError, NormalizedOptions, Response} from './types';
 import urlToOptions from './utils/url-to-options';
 
 const setImmediateAsync = async (): Promise<void> => new Promise(resolve => setImmediate(resolve));
@@ -82,8 +82,7 @@ export default (options: NormalizedOptions): RequestAsEventEmitter => {
 				delete typedResponse.fromCache;
 
 				if (!typedResponse.isFromCache) {
-					// @ts-ignore Node.js typings haven't been updated yet
-					typedResponse.ip = response.socket.remoteAddress;
+					typedResponse.ip = response.socket.remoteAddress!;
 				}
 
 				const rawCookies = typedResponse.headers['set-cookie'];
@@ -226,7 +225,7 @@ export default (options: NormalizedOptions): RequestAsEventEmitter => {
 				...urlToOptions(options.url)
 			};
 
-			// @ts-ignore ResponseLike missing socket field, should be fixed upstream
+			// @ts-ignore `cacheable-request` has got invalid types
 			const cacheRequest = options.cacheableRequest!(httpOptions, handleResponse);
 
 			cacheRequest.once('error', (error: GeneralError) => {

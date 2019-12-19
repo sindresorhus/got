@@ -1,5 +1,5 @@
 import create, {defaultHandler} from './create';
-import {Defaults} from './utils/types';
+import {Defaults} from './types';
 
 const defaults: Defaults = {
 	options: {
@@ -79,7 +79,7 @@ module.exports = got;
 module.exports.default = got;
 
 // Export types
-export * from './utils/types';
+export * from './types';
 
 export {
 	Got,

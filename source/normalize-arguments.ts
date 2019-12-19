@@ -26,7 +26,7 @@ import {
 	Options,
 	RequestFunction,
 	URLOrOptions
-} from './utils/types';
+} from './types';
 
 // `preNormalizeArguments` normalizes these options: `headers`, `prefixUrl`, `hooks`, `timeout`, `retry` and `method`.
 // `normalizeArguments` is *only* called on `got(...)`. It normalizes the URL and performs `mergeOptions(...)`.
@@ -132,7 +132,6 @@ export const preNormalizeArguments = (options: Options, defaults?: NormalizedOpt
 	}
 
 	if (options.retry.maxRetryAfter === undefined) {
-		// @ts-ignore We assign if it is undefined, so this IS correct
 		options.retry.maxRetryAfter = Math.min(
 			...[options.timeout.request, options.timeout.connect].filter((n): n is number => !is.nullOrUndefined(n))
 		);
@@ -157,7 +156,7 @@ export const preNormalizeArguments = (options: Options, defaults?: NormalizedOpt
 	// Better memory management, so we don't have to generate a new object every time
 	if (options.cache) {
 		(options as NormalizedOptions).cacheableRequest = new CacheableRequest(
-			// @ts-ignore Types broke on infer
+			// @ts-ignore Cannot properly type a function with multiple definitions yet
 			(requestOptions, handler) => requestOptions.request(requestOptions, handler),
 			options.cache
 		);
@@ -170,7 +169,7 @@ export const preNormalizeArguments = (options: Options, defaults?: NormalizedOpt
 		// Horrible `tough-cookie` check
 		if (setCookie.length === 4 && getCookieString.length === 0) {
 			if (!Reflect.has(setCookie, promisify.custom)) {
-				// @ts-ignore We check for non-promisified setCookie, so this IS correct
+				// @ts-ignore TS is dumb.
 				setCookie = promisify(setCookie.bind(options.cookieJar));
 				getCookieString = promisify(getCookieString.bind(options.cookieJar));
 			}

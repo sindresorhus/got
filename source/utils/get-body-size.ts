@@ -1,19 +1,24 @@
 import {ReadStream, stat} from 'fs';
 import {promisify} from 'util';
+import {ClientRequestArgs} from 'http';
 import is from '@sindresorhus/is';
 import isFormData from './is-form-data';
-import {Options} from './types';
+
+interface Options {
+	body?: unknown;
+	headers: ClientRequestArgs['headers'];
+}
 
 const statAsync = promisify(stat);
 
 export default async (options: Options): Promise<number | undefined> => {
-	const {body, headers, isStream} = options;
+	const {body, headers} = options;
 
 	if (headers && 'content-length' in headers) {
 		return Number(headers['content-length']);
 	}
 
-	if (!body && !isStream) {
+	if (!body) {
 		return 0;
 	}
 

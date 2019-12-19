@@ -1,6 +1,6 @@
 import is from '@sindresorhus/is';
 import {HTTPError, ParseError, MaxRedirectsError} from './errors';
-import {RetryFunction, RetryObject} from './utils/types';
+import {RetryFunction, RetryObject} from './types';
 
 const retryAfterStatusCodes: ReadonlySet<number> = new Set([413, 429, 503]);
 

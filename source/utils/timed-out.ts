@@ -1,6 +1,5 @@
 import net = require('net');
 import {ClientRequest, IncomingMessage} from 'http';
-import {Delays, ErrorCode} from './types';
 import unhandler from './unhandle';
 
 const reentry: unique symbol = Symbol('reentry');
@@ -11,6 +10,26 @@ interface TimedOutOptions {
 	hostname?: string;
 	protocol?: string;
 }
+
+export interface Delays {
+	lookup?: number;
+	connect?: number;
+	secureConnect?: number;
+	socket?: number;
+	response?: number;
+	send?: number;
+	request?: number;
+}
+
+export type ErrorCode =
+	| 'ETIMEDOUT'
+	| 'ECONNRESET'
+	| 'EADDRINUSE'
+	| 'ECONNREFUSED'
+	| 'EPIPE'
+	| 'ENOTFOUND'
+	| 'ENETUNREACH'
+	| 'EAI_AGAIN';
 
 export class TimeoutError extends Error {
 	code: ErrorCode;

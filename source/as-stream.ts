@@ -4,7 +4,7 @@ import {IncomingMessage, ServerResponse} from 'http';
 import {Duplex as DuplexStream, PassThrough as PassThroughStream} from 'stream';
 import {HTTPError, ReadError} from './errors';
 import requestAsEventEmitter, {proxyEvents} from './request-as-event-emitter';
-import {GeneralError, GotEvents, NormalizedOptions, Response} from './utils/types';
+import {GeneralError, GotEvents, NormalizedOptions, Response} from './types';
 
 export class ProxyStream<T = unknown> extends DuplexStream implements GotEvents<ProxyStream<T>> {
 	isFromCache?: boolean;

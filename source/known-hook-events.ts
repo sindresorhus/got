@@ -1,4 +1,4 @@
-import {CancelableRequest, GeneralError, NormalizedOptions, Options, Response} from './utils/types';
+import {CancelableRequest, GeneralError, NormalizedOptions, Options, Response} from './types';
 
 /**
 Called with plain request options, right before their normalization. This is especially useful in conjunction with `got.extend()` when the input needs custom handling.

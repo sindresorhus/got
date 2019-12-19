@@ -1,14 +1,14 @@
 import is from '@sindresorhus/is';
 import {Timings} from '@szmarczak/http-timer';
 import {TimeoutError as TimedOutError} from './utils/timed-out';
-import {ErrorCode, Response, NormalizedOptions} from './utils/types';
+import {Response, NormalizedOptions} from './types';
 
 export class GotError extends Error {
-	code?: ErrorCode;
+	code?: string;
 	stack!: string;
 	declare readonly options: NormalizedOptions;
 
-	constructor(message: string, error: Partial<Error & {code?: ErrorCode}>, options: NormalizedOptions) {
+	constructor(message: string, error: Partial<Error & {code?: string}>, options: NormalizedOptions) {
 		super(message);
 		Error.captureStackTrace(this, this.constructor);
 		this.name = 'GotError';
