@@ -12,12 +12,12 @@ import CacheableLookup from 'cacheable-lookup';
 import {Merge} from 'type-fest';
 import {UnsupportedProtocolError} from './errors';
 import knownHookEvents from './known-hook-events';
+import dynamicRequire from './utils/dynamic-require';
 import getBodySize from './utils/get-body-size';
 import isFormData from './utils/is-form-data';
 import merge from './utils/merge';
 import optionsToUrl from './utils/options-to-url';
 import supportsBrotli from './utils/supports-brotli';
-import dynamicRequire from './utils/dynamic-require';
 import {
 	AgentByProtocol,
 	Defaults,
@@ -431,6 +431,14 @@ export const normalizeRequestArguments = async (options: NormalizedOptions): Pro
 		options.lookup = options.dnsCache.lookup;
 	}
 
+	/* istanbul ignore next: electron.net is broken */
+	// No point in typing process.versions correctly, as
+	// `process.version.electron` is used only once, right here.
+	if (options.useElectronNet && (process.versions as any).electron) {
+		const electron = dynamicRequire(module, 'electron') as any; // Trick webpack
+		options.request = electron.net.request ?? electron.remote.net.request;
+	}
+
 	// Got's `timeout` is an object, http's `timeout` is a number, so they're not compatible.
 	delete options.timeout;
 
@@ -443,14 +451,6 @@ export const normalizeRequestArguments = async (options: NormalizedOptions): Pro
 		} else {
 			delete options.headers.cookie;
 		}
-	}
-
-	/* istanbul ignore next: electron.net is broken */
-	// No point in typing process.versions correctly, as
-	// `process.version.electron` is used only once, right here.
-	if (options.useElectronNet && (process.versions as any).electron) {
-		const electron = dynamicRequire(module, 'electron') as any; // Trick webpack
-		options.request = electron.net.request ?? electron.remote.net.request;
 	}
 
 	// `http-cache-semantics` checks this
