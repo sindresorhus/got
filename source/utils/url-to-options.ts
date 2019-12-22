@@ -22,13 +22,13 @@ export default (url: URL | UrlWithStringQuery): LegacyURLOptions => {
 
 	const options: LegacyURLOptions = {
 		protocol: url.protocol,
-		hostname: url.hostname.startsWith('[') ? url.hostname.slice(1, -1) : url.hostname,
+		hostname: is.string(url.hostname) && url.hostname.startsWith('[') ? url.hostname.slice(1, -1) : url.hostname,
 		host: url.host,
 		hash: url.hash,
 		search: url.search,
 		pathname: url.pathname,
 		href: url.href,
-		path: is.null_(url.search) ? url.pathname : `${url.pathname}${url.search}`
+		path: `${url.pathname || ''}${url.search || ''}`
 	};
 
 	if (is.string(url.port) && url.port.length !== 0) {
@@ -36,7 +36,7 @@ export default (url: URL | UrlWithStringQuery): LegacyURLOptions => {
 	}
 
 	if (url.username || url.password) {
-		options.auth = `${url.username}:${url.password}`;
+		options.auth = `${url.username || ''}:${url.password || ''}`;
 	}
 
 	return options;

@@ -119,3 +119,25 @@ test('does not add null port to options', t => {
 
 	t.deepEqual(options, expected);
 });
+
+test('does not throw if there is no hostname', t => {
+	t.notThrows(() => urlToOptions({} as URL));
+});
+
+test('null password', t => {
+	const options = urlToOptions({
+		username: 'foo',
+		password: null
+	} as any);
+
+	t.is(options.auth, 'foo:');
+});
+
+test('null username', t => {
+	const options = urlToOptions({
+		username: null,
+		password: 'bar'
+	} as any);
+
+	t.is(options.auth, ':bar');
+});
