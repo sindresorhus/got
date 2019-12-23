@@ -438,7 +438,8 @@ export const normalizeRequestArguments = async (options: NormalizedOptions): Pro
 		const electron = dynamicRequire(module, 'electron') as any; // Trick webpack
 		options.request = deprecate(
 			electron.net.request ?? electron.remote.net.request,
-			'Electron support has been deprecated and will be removed in Got 11',
+			'Electron support has been deprecated and will be removed in Got 11.\n' +
+			'See https://github.com/sindresorhus/got/issues/899 for further information.',
 			'GOT_ELECTRON'
 		);
 	}
