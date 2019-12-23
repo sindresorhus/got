@@ -41,7 +41,6 @@ For browser usage, we recommend [Ky](https://github.com/sindresorhus/ky) by the 
 - [Instances with custom defaults](#instances)
 - [Composable](documentation/advanced-creation.md#merging-instances)
 - [Plugins](documentation/lets-make-a-plugin.md)
-- [Electron support](#useelectronnet)
 - [Used by 3000+ packages and 1.6M+ repos](https://github.com/sindresorhus/got/network/dependents)
 - Actively maintained
 
@@ -451,6 +450,8 @@ Custom request function. The main purpose of this is to [support HTTP2 using a w
 
 Type: `boolean`\
 Default: `false`
+
+[**Deprecated**](https://github.com/sindresorhus/got#electron-support-has-been-deprecated)
 
 When used in Electron, Got will use [`electron.net`](https://electronjs.org/docs/api/net/) instead of the Node.js `http` module. According to the Electron docs, it should be fully compatible, but it's not entirely. See [#443](https://github.com/sindresorhus/got/issues/443) and [#461](https://github.com/sindresorhus/got/issues/461).
 
@@ -1425,7 +1426,6 @@ Some of the Got features may not work properly. See [#899](https://github.com/si
 |-----------------------|:------------------:|:------------------:|:--------------------:|:------------------------:|:------------------:|:----------------------:|
 | HTTP/2 support        | :grey_question:    | :x:                | :x:                  | :x:                      | :x:                | :heavy_check_mark:\*\* |
 | Browser support       | :x:                | :x:                | :heavy_check_mark:\* | :heavy_check_mark:       | :heavy_check_mark: | :heavy_check_mark:     |
-| Electron support      | :x:                | :x:                | :x:                  | :x:                      | :x:                | :x:                    |
 | Promise API           | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark:   | :heavy_check_mark:       | :heavy_check_mark: | :heavy_check_mark:     |
 | Stream API            | :heavy_check_mark: | :heavy_check_mark: | Node.js only         | :x:                      | :x:                | :heavy_check_mark:     |
 | Request cancelation   | :heavy_check_mark: | :x:                | :heavy_check_mark:   | :heavy_check_mark:       | :heavy_check_mark: | :heavy_check_mark:     |
