@@ -1,5 +1,5 @@
 import {URL, URLSearchParams} from 'url';
-import {promisify} from 'util';
+import {promisify, deprecate} from 'util';
 import CacheableRequest = require('cacheable-request');
 import http = require('http');
 import https = require('https');
@@ -435,7 +435,12 @@ export const normalizeRequestArguments = async (options: NormalizedOptions): Pro
 	// `process.version.electron` is used only once, right here.
 	if (options.useElectronNet && (process.versions as any).electron) {
 		const electron = dynamicRequire(module, 'electron') as any; // Trick webpack
-		options.request = electron.net.request ?? electron.remote.net.request;
+		options.request = deprecate(
+			electron.net.request ?? electron.remote.net.request,
+			'Electron support has been deprecated and will be removed in Got 11.\n' +
+			'See https://github.com/sindresorhus/got/issues/899 for further information.',
+			'GOT_ELECTRON'
+		);
 	}
 
 	// Got's `timeout` is an object, http's `timeout` is a number, so they're not compatible.

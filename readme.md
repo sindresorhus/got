@@ -1410,46 +1410,51 @@ const h2got = got.extend({request});
 
 ## FAQ
 
-### Why was Got created?
+### Why yet another HTTP client?
 
-Got was created because the popular [`request`](https://github.com/request/request) package is bloated: [![Install size](https://packagephobia.now.sh/badge?p=request)](https://packagephobia.now.sh/result?p=request)
+Got was created because the popular [`request`](https://github.com/request/request) package is bloated: [![Install size](https://packagephobia.now.sh/badge?p=request)](https://packagephobia.now.sh/result?p=request)\
+Furthermore, Got is fully written in TypeScript.
+
+### Electron support has been deprecated
+
+Some of the Got features may not work properly. See [#899](https://github.com/sindresorhus/got/issues/899) for more info.
 
 ## Comparison
 
-|                       |       `got`      | [`request`][r0] |  [`node-fetch`][n0]  |    [`ky`][k0]     |  [`axios`][a0]   |  [`superagent`][s0]  |
-|-----------------------|:----------------:|:---------------:|:--------------------:|:-----------------:|:----------------:|:--------------------:|
-| HTTP/2 support        |        ❔        |        ❌       |          ❌         |         ❌        |        ❌       |          ✔️\*\*      |
-| Browser support       |        ❌       |        ❌       |          ✔️\*       |         ✔️        |        ✔️       |          ✔️          |
-| Electron support      |        ✔️       |        ❌       |          ❌         |         ❌        |        ❌       |          ❌          |
-| Promise API           |        ✔️       |        ✔️       |          ✔️         |         ✔️        |        ✔️       |          ✔️          |
-| Stream API            |        ✔️       |        ✔️       |     Node.js only     |         ❌        |        ❌       |          ✔️          |
-| Request cancelation   |        ✔️       |        ❌       |          ✔️         |         ✔️        |        ✔️       |          ✔️          |
-| RFC compliant caching |        ✔️       |        ❌       |          ❌         |         ❌        |        ❌       |          ❌          |
-| Cookies (out-of-box)  |        ✔️       |        ✔️       |          ❌         |         ❌        |        ❌       |          ❌          |
-| Follows redirects     |        ✔️       |        ✔️       |          ✔️         |         ✔️        |        ✔️       |          ✔️          |
-| Retries on failure    |        ✔️       |        ❌       |          ❌         |         ✔️        |        ❌       |          ✔️          |
-| Progress events       |        ✔️       |        ❌       |          ❌         |         ✔️\*\*\*  |   Browser only   |          ✔️          |
-| Handles gzip/deflate  |        ✔️       |        ✔️       |          ✔️         |         ✔️        |        ✔️       |          ✔️          |
-| Advanced timeouts     |        ✔️       |        ❌       |          ❌         |         ❌        |        ❌       |          ❌          |
-| Timings               |        ✔️       |        ✔️       |          ❌         |         ❌        |        ❌       |          ❌          |
-| Errors with metadata  |        ✔️       |        ❌       |          ❌         |         ✔️        |        ✔️       |          ❌          |
-| JSON mode             |        ✔️       |        ✔️       |          ✔️         |         ✔️        |        ✔️       |          ✔️          |
-| Custom defaults       |        ✔️       |        ✔️       |          ❌         |         ✔️        |        ✔️       |          ❌          |
-| Composable            |        ✔️       |        ❌       |          ❌         |         ❌        |        ❌       |          ✔️          |
-| Hooks                 |        ✔️       |        ❌       |          ❌         |         ✔️        |        ✔️       |          ❌          |
-| Issues open           |  [![][gio]][g1]  | [![][rio]][r1]  |    [![][nio]][n1]    |   [![][kio]][k1]  |  [![][aio]][a1] |    [![][sio]][s1]     |
-| Issues closed         |  [![][gic]][g2]  | [![][ric]][r2]  |    [![][nic]][n2]    |   [![][kic]][k2]  |  [![][aic]][a2] |    [![][sic]][s2]     |
-| Downloads             |  [![][gd]][g3]   |  [![][rd]][r3]  |    [![][nd]][n3]     |   [![][kd]][k3]   |  [![][ad]][a3]  |    [![][sd]][s3]      |
-| Coverage              |  [![][gc]][g4]   |  [![][rc]][r4]  |    [![][nc]][n4]     |   [![][kc]][k4]   |  [![][ac]][a4]  |    [![][sc]][s4]      |
-| Build                 |  [![][gb]][g5]   |  [![][rb]][r5]  |    [![][nb]][n5]     |   [![][kb]][k5]   |  [![][ab]][a5]  |    [![][sb]][s5]      |
-| Bugs                  |  [![][gbg]][g6]  | [![][rbg]][r6]  |    [![][nbg]][n6]    |   [![][kbg]][k6]  |  [![][abg]][a6] |    [![][sbg]][s6]     |
-| Dependents            |  [![][gdp]][g7]  | [![][rdp]][r7]  |    [![][ndp]][n7]    |   [![][kdp]][k7]  |  [![][adp]][a7] |    [![][sdp]][s7]     |
-| Install size          |  [![][gis]][g8]  | [![][ris]][r8]  |    [![][nis]][n8]    |   [![][kis]][k8]  |  [![][ais]][a8] |    [![][sis]][s8]     |
+|                       | `got`              | [`request`][r0]    | [`node-fetch`][n0]   | [`ky`][k0]               | [`axios`][a0]      | [`superagent`][s0]     |
+|-----------------------|:------------------:|:------------------:|:--------------------:|:------------------------:|:------------------:|:----------------------:|
+| HTTP/2 support        | :grey_question:    | :x:                | :x:                  | :x:                      | :x:                | :heavy_check_mark:\*\* |
+| Browser support       | :x:                | :x:                | :heavy_check_mark:\* | :heavy_check_mark:       | :heavy_check_mark: | :heavy_check_mark:     |
+| Electron support      | :x:                | :x:                | :x:                  | :x:                      | :x:                | :x:                    |
+| Promise API           | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark:   | :heavy_check_mark:       | :heavy_check_mark: | :heavy_check_mark:     |
+| Stream API            | :heavy_check_mark: | :heavy_check_mark: | Node.js only         | :x:                      | :x:                | :heavy_check_mark:     |
+| Request cancelation   | :heavy_check_mark: | :x:                | :heavy_check_mark:   | :heavy_check_mark:       | :heavy_check_mark: | :heavy_check_mark:     |
+| RFC compliant caching | :heavy_check_mark: | :x:                | :x:                  | :x:                      | :x:                | :x:                    |
+| Cookies (out-of-box)  | :heavy_check_mark: | :heavy_check_mark: | :x:                  | :x:                      | :x:                | :x:                    |
+| Follows redirects     | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark:   | :heavy_check_mark:       | :heavy_check_mark: | :heavy_check_mark:     |
+| Retries on failure    | :heavy_check_mark: | :x:                | :x:                  | :heavy_check_mark:       | :x:                | :heavy_check_mark:     |
+| Progress events       | :heavy_check_mark: | :x:                | :x:                  | :heavy_check_mark:\*\*\* | Browser only       | :heavy_check_mark:     |
+| Handles gzip/deflate  | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark:   | :heavy_check_mark:       | :heavy_check_mark: | :heavy_check_mark:     |
+| Advanced timeouts     | :heavy_check_mark: | :x:                | :x:                  | :x:                      | :x:                | :x:                    |
+| Timings               | :heavy_check_mark: | :heavy_check_mark: | :x:                  | :x:                      | :x:                | :x:                    |
+| Errors with metadata  | :heavy_check_mark: | :x:                | :x:                  | :heavy_check_mark:       | :heavy_check_mark: | :x:                    |
+| JSON mode             | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark:   | :heavy_check_mark:       | :heavy_check_mark: | :heavy_check_mark:     |
+| Custom defaults       | :heavy_check_mark: | :heavy_check_mark: | :x:                  | :heavy_check_mark:       | :heavy_check_mark: | :x:                    |
+| Composable            | :heavy_check_mark: | :x:                | :x:                  | :x:                      | :x:                | :heavy_check_mark:     |
+| Hooks                 | :heavy_check_mark: | :x:                | :x:                  | :heavy_check_mark:       | :heavy_check_mark: | :x:                    |
+| Issues open           | [![][gio]][g1]     | [![][rio]][r1]     | [![][nio]][n1]       | [![][kio]][k1]           | [![][aio]][a1]     | [![][sio]][s1]         |
+| Issues closed         | [![][gic]][g2]     | [![][ric]][r2]     | [![][nic]][n2]       | [![][kic]][k2]           | [![][aic]][a2]     | [![][sic]][s2]         |
+| Downloads             | [![][gd]][g3]      | [![][rd]][r3]      | [![][nd]][n3]        | [![][kd]][k3]            | [![][ad]][a3]      | [![][sd]][s3]          |
+| Coverage              | [![][gc]][g4]      | [![][rc]][r4]      | [![][nc]][n4]        | [![][kc]][k4]            | [![][ac]][a4]      | [![][sc]][s4]          |
+| Build                 | [![][gb]][g5]      | [![][rb]][r5]      | [![][nb]][n5]        | [![][kb]][k5]            | [![][ab]][a5]      | [![][sb]][s5]          |
+| Bugs                  | [![][gbg]][g6]     | [![][rbg]][r6]     | [![][nbg]][n6]       | [![][kbg]][k6]           | [![][abg]][a6]     | [![][sbg]][s6]         |
+| Dependents            | [![][gdp]][g7]     | [![][rdp]][r7]     | [![][ndp]][n7]       | [![][kdp]][k7]           | [![][adp]][a7]     | [![][sdp]][s7]         |
+| Install size          | [![][gis]][g8]     | [![][ris]][r8]     | [![][nis]][n8]       | [![][kis]][k8]           | [![][ais]][a8]     | [![][sis]][s8]         |
 
 \* It's almost API compatible with the browser `fetch` API.\
-\*\* Need to switch the protocol manually.\
-\*\*\* Currently, only 'DownloadProgress' event is supported, 'UploadProgress' event is not supported.\
-❔ Experimental support.
+\*\* Need to switch the protocol manually. Doesn't accept PUSH streams and doesn't reuse HTTP/2 sessions.\
+\*\*\* Currently, only `DownloadProgress` event is supported, `UploadProgress` event is not supported.\
+:grey_question: Experimental support.
 
 <!-- GITHUB -->
 [k0]: https://github.com/sindresorhus/ky
