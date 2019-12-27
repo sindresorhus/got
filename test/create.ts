@@ -7,7 +7,8 @@ import got, {
 	BeforeRequestHook,
 	Headers,
 	Hooks,
-	RequestFunction
+	RequestFunction,
+	Defaults
 } from '../source';
 import withServer from './helpers/with-server';
 
@@ -132,14 +133,16 @@ test('no tampering with defaults', t => {
 	t.is(got.defaults.options.prefixUrl, '');
 });
 
-test('defaults can be mutable', t => {
+test('can set defaults to `got.mergeOptions(...)`', t => {
 	const instance = got.extend({
 		mutableDefaults: true,
 		followRedirect: false
 	});
 
 	t.notThrows(() => {
-		instance.defaults.options.followRedirect = true;
+		(instance.defaults as Defaults).options = got.mergeOptions(instance.defaults.options, {
+			followRedirect: true
+		});
 	});
 
 	t.true(instance.defaults.options.followRedirect);

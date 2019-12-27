@@ -128,11 +128,12 @@ export type DefaultOptions = Merge<
 	Required<
 		Except<
 			GotOptions,
-			// Overrode
+			// Override
 			'hooks' |
 			'retry' |
 			'timeout' |
 			'context' |
+
 			// Should not be present
 			'agent' |
 			'body' |
@@ -192,7 +193,7 @@ export interface NormalizedOptions extends Options {
 	headers: Headers;
 	hooks: Required<Hooks>;
 	timeout: Delays;
-	dnsCache?: CacheableLookup | false;
+	dnsCache: CacheableLookup | false;
 	lookup?: CacheableLookup['lookup'];
 	retry: Required<RetryOptions>;
 	prefixUrl: string;
@@ -202,9 +203,43 @@ export interface NormalizedOptions extends Options {
 	cookieJar?: PromiseCookieJar;
 	maxRedirects: number;
 
+	// Other values
+	decompress: boolean;
+	isStream: boolean;
+	throwHttpErrors: boolean;
+	ignoreInvalidCookies: boolean;
+	cache: CacheableRequest.StorageAdapter | false;
+	responseType: ResponseType;
+	resolveBodyOnly: boolean;
+	followRedirect: boolean;
+	useElectronNet: boolean;
+	methodRewriting: boolean;
+	context: {[key: string]: any};
+
 	// UNIX socket support
 	path?: string;
 }
+
+/*
+export interface NormalizedOptions extends DefaultOptions {
+	dnsCache: CacheableLookup | false;
+	lookup?: CacheableLookup['lookup'];
+	url: URL;
+	cacheableRequest?: (options: string | URL | http.RequestOptions, callback?: (response: http.ServerResponse | ResponseLike) => void) => CacheableRequest.Emitter;
+	cookieJar?: PromiseCookieJar;
+	body?: string | Buffer | ReadableStream;
+	form?: {[key: string]: any};
+	json?: {[key: string]: any};
+	retry: Required<RetryOptions>;
+	agent?: http.Agent | https.Agent | boolean | AgentByProtocol;
+	request?: RequestFunction;
+	encoding?: BufferEncoding;
+
+	// UNIX socket support
+	socketPath?: string;
+	path?: string;
+	host?: string;
+}*/
 
 export interface ExtendOptions extends Options {
 	handlers?: HandlerFunction[];
