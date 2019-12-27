@@ -682,18 +682,23 @@ The object contains the following properties:
 - `socket` - Time when a socket was assigned to the request.
 - `lookup` - Time when the DNS lookup finished.
 - `connect` - Time when the socket successfully connected.
+- `secureConnect` - Time when the socket securely connected.
 - `upload` - Time when the request finished uploading.
-- `response` - Time when the request fired the `response` event.
-- `end` - Time when the response fired the `end` event.
-- `error` - Time when the request fired the `error` event.
+- `response` - Time when the request fired `response` event.
+- `end` - Time when the response fired `end` event.
+- `error` - Time when the request fired `error` event.
+- `abort` - Time when the request fired `abort` event.
 - `phases`
 	- `wait` - `timings.socket - timings.start`
 	- `dns` - `timings.lookup - timings.socket`
 	- `tcp` - `timings.connect - timings.lookup`
-	- `request` - `timings.upload - timings.connect`
+	- `tls` - `timings.secureConnect - timings.connect`
+	- `request` - `timings.upload - (timings.secureConnect || timings.connect)`
 	- `firstByte` - `timings.response - timings.upload`
 	- `download` - `timings.end - timings.response`
-	- `total` - `timings.end - timings.start` or `timings.error - timings.start`
+	- `total` - `(timings.end || timings.error || timings.abort) - timings.start`
+
+If something has not been measured yet, it will be `undefined`.
 
 **Note:** The time is a `number` representing the milliseconds elapsed since the UNIX epoch.
 
