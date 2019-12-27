@@ -6,7 +6,7 @@ import PCancelable = require('p-cancelable');
 import ResponseLike = require('responselike');
 import {URL} from 'url';
 import {Readable as ReadableStream} from 'stream';
-import {Timings} from '@szmarczak/http-timer';
+import {Timings, IncomingMessageWithTimings} from '@szmarczak/http-timer';
 import CacheableLookup from 'cacheable-lookup';
 import {Except, Merge, Promisable} from 'type-fest';
 import {GotReturn} from './create';
@@ -36,7 +36,7 @@ export type Method =
 
 export type ResponseType = 'json' | 'buffer' | 'text';
 
-export interface Response<BodyType = unknown> extends http.IncomingMessage {
+export interface Response<BodyType = unknown> extends IncomingMessageWithTimings {
 	body: BodyType;
 	statusCode: number;
 

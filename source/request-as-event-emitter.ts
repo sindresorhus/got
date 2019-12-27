@@ -5,7 +5,7 @@ import stream = require('stream');
 import {URL} from 'url';
 import {promisify} from 'util';
 import is from '@sindresorhus/is';
-import timer from '@szmarczak/http-timer';
+import timer, {ClientRequestWithTimings} from '@szmarczak/http-timer';
 import {ProxyStream} from './as-stream';
 import calculateRetryDelay from './calculate-retry-delay';
 import {CacheError, GotError, MaxRedirectsError, RequestError, TimeoutError} from './errors';
@@ -152,7 +152,7 @@ export default (options: NormalizedOptions): RequestAsEventEmitter => {
 			}
 		};
 
-		const handleRequest = async (request: http.ClientRequest): Promise<void> => {
+		const handleRequest = async (request: ClientRequestWithTimings): Promise<void> => {
 			let isPiped = false;
 			let isFinished = false;
 
