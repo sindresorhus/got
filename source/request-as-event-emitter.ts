@@ -22,7 +22,7 @@ const pipeline = promisify(stream.pipeline);
 const redirectCodes: ReadonlySet<number> = new Set([300, 301, 302, 303, 304, 307, 308]);
 
 export interface RequestAsEventEmitter extends EventEmitter {
-	retry: <T extends GotError>(error: T) => boolean;
+	retry: (error: TimeoutError | RequestError) => boolean;
 	abort: () => void;
 }
 

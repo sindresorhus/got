@@ -10,7 +10,7 @@ import {Timings, IncomingMessageWithTimings} from '@szmarczak/http-timer';
 import CacheableLookup from 'cacheable-lookup';
 import {Except, Merge, Promisable} from 'type-fest';
 import {GotReturn} from './create';
-import {GotError, HTTPError, MaxRedirectsError, ParseError} from './errors';
+import {GotError, HTTPError, MaxRedirectsError, ParseError, TimeoutError, RequestError} from './errors';
 import {Hooks} from './known-hook-events';
 import {URLOptions} from './utils/options-to-url';
 
@@ -71,7 +71,7 @@ export interface ResponseObject extends Partial<ResponseLike> {
 export interface RetryObject {
 	attemptCount: number;
 	retryOptions: Required<RetryOptions>;
-	error: GotError | HTTPError | MaxRedirectsError | ParseError;
+	error: TimeoutError | RequestError;
 	computedValue: number;
 }
 
