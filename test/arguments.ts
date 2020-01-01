@@ -361,5 +361,5 @@ test('throws if `options.encoding` is `null`', async t => {
 test('`url` option and input argument are mutually exclusive', async t => {
 	await t.throwsAsync(got('https://example.com', {
 		url: 'https://example.com'
-	}), 'The `url` option cannot be used if the input is valid URL.');
+	}), 'The `url` option cannot be used if the input is a valid URL.');
 });

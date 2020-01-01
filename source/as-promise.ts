@@ -20,7 +20,7 @@ const parseBody = (body: Buffer, responseType: NormalizedOptions['responseType']
 		return body.toString(encoding);
 	}
 
-	throw new TypeError(`Unknown body type '${responseType!}'`);
+	throw new TypeError(`Unknown body type '${responseType as string}'`);
 };
 
 export default function asPromise<T>(options: NormalizedOptions): CancelableRequest<T> {
