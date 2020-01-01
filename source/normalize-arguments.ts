@@ -192,17 +192,36 @@ export const preNormalizeArguments = (options: Options, defaults?: NormalizedOpt
 		options.maxRedirects = 0;
 	}
 
+	// Merge defaults
+	if (defaults) {
+		options = merge({}, defaults, options);
+	}
+
+	// Other values
+	options.decompress = Boolean(options.decompress);
+	options.isStream = Boolean(options.isStream);
+	options.throwHttpErrors = Boolean(options.throwHttpErrors);
+	options.ignoreInvalidCookies = Boolean(options.ignoreInvalidCookies);
+	options.cache = options.cache ?? false;
+	options.responseType = options.responseType ?? 'text';
+	options.resolveBodyOnly = Boolean(options.resolveBodyOnly);
+	options.followRedirect = Boolean(options.followRedirect);
+	options.dnsCache = options.dnsCache ?? false;
+	options.useElectronNet = Boolean(options.useElectronNet);
+	options.methodRewriting = Boolean(options.methodRewriting);
+	options.context = options.context ?? {};
+
 	return options as NormalizedOptions;
 };
 
 export const mergeOptions = (...sources: Options[]): NormalizedOptions => {
-	const mergedOptions = preNormalizeArguments({});
+	let mergedOptions = preNormalizeArguments({});
 
 	// Non enumerable properties shall not be merged
 	const properties: Partial<{[Key in NonEnumerableProperty]: any}> = {};
 
 	for (const source of sources) {
-		merge(mergedOptions, preNormalizeArguments(merge({}, source), mergedOptions));
+		mergedOptions = preNormalizeArguments(merge({}, source), mergedOptions);
 
 		for (const name of nonEnumerableProperties) {
 			if (!Reflect.has(source, name)) {
@@ -260,11 +279,13 @@ export const normalizeArguments = (url: URLOrOptions, options?: Options, default
 			options.url = options.url.split('?')[0];
 		}
 
+		// @ts-ignore URL is not URL
 		options.url = optionsToUrl({
 			origin: options.url,
 			...options
 		});
 	} else if (!is.urlInstance(options.url)) {
+		// @ts-ignore URL is not URL
 		options.url = optionsToUrl({origin: options.prefixUrl as string, ...options});
 	}
 

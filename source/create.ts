@@ -56,7 +56,7 @@ interface GotFunctions {
 
 export interface Got extends Record<HTTPAlias, GotFunctions>, GotFunctions {
 	stream: GotStream;
-	defaults: Defaults | Readonly<Defaults>;
+	defaults: Defaults;
 	GotError: typeof errors.GotError;
 	CacheError: typeof errors.CacheError;
 	RequestError: typeof errors.RequestError;
