@@ -7,8 +7,7 @@ import got, {
 	BeforeRequestHook,
 	Headers,
 	Hooks,
-	RequestFunction,
-	Defaults
+	RequestFunction
 } from '../source';
 import withServer from './helpers/with-server';
 
@@ -140,7 +139,7 @@ test('can set defaults to `got.mergeOptions(...)`', t => {
 	});
 
 	t.notThrows(() => {
-		(instance.defaults as Defaults).options = got.mergeOptions(instance.defaults.options, {
+		instance.defaults.options = got.mergeOptions(instance.defaults.options, {
 			followRedirect: true
 		});
 	});
