@@ -92,6 +92,7 @@
 		"xo": "^0.25.3"
 	},
 	"types": "dist/source",
+	"sideEffects": false,
 	"browser": {
 		"decompress-response": false,
 		"electron": false
