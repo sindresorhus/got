@@ -123,6 +123,8 @@ interface PromiseCookieJar {
 	setCookie(rawCookie: string, url: string): Promise<unknown>;
 }
 
+export const requestSymbol = Symbol('request');
+
 /* eslint-disable @typescript-eslint/indent */
 export type DefaultOptions = Merge<
 	Required<
@@ -143,7 +145,8 @@ export type DefaultOptions = Merge<
 			'json' |
 			'lookup' |
 			'request' |
-			'url'
+			'url' |
+			typeof requestSymbol
 		>
 	>,
 	{
@@ -156,6 +159,7 @@ export type DefaultOptions = Merge<
 /* eslint-enable @typescript-eslint/indent */
 
 export interface GotOptions {
+	[requestSymbol]?: RequestFunction;
 	url?: URL | string;
 	body?: string | Buffer | ReadableStream;
 	hooks?: Hooks;
@@ -202,6 +206,7 @@ export interface NormalizedOptions extends Options {
 	cacheableRequest?: (options: string | URL | http.RequestOptions, callback?: (response: http.ServerResponse | ResponseLike) => void) => CacheableRequest.Emitter;
 	cookieJar?: PromiseCookieJar;
 	maxRedirects: number;
+	[requestSymbol]: RequestFunction;
 
 	// Other values
 	decompress: boolean;

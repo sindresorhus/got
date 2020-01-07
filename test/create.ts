@@ -205,6 +205,30 @@ test('ability to pass a custom request method', withServer, async (t, server, go
 	t.true(called);
 });
 
+test('does not include the `request` option in normalized `http` options', withServer, async (t, server, got) => {
+	server.get('/', echoHeaders);
+
+	let called = false;
+
+	const request: RequestFunction = (...args: [
+		string | URL | RequestOptions,
+		(RequestOptions | ((res: IncomingMessage) => void))?,
+		((res: IncomingMessage) => void)?
+	]) => {
+		called = true;
+
+		t.false(Reflect.has(args[0] as RequestOptions, 'request'));
+
+		// @ts-ignore Overload error
+		return httpRequest(...args);
+	};
+
+	const instance = got.extend({request});
+	await instance('');
+
+	t.true(called);
+});
+
 test('hooks aren\'t overriden when merging options', withServer, async (t, server, got) => {
 	server.get('/', echoHeaders);
 

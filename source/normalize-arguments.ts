@@ -25,7 +25,8 @@ import {
 	NormalizedOptions,
 	Options,
 	RequestFunction,
-	URLOrOptions
+	URLOrOptions,
+	requestSymbol
 } from './types';
 
 // `preNormalizeArguments` normalizes these options: `headers`, `prefixUrl`, `hooks`, `timeout`, `retry` and `method`.
@@ -157,7 +158,7 @@ export const preNormalizeArguments = (options: Options, defaults?: NormalizedOpt
 	if (options.cache) {
 		(options as NormalizedOptions).cacheableRequest = new CacheableRequest(
 			// @ts-ignore Cannot properly type a function with multiple definitions yet
-			(requestOptions, handler) => requestOptions.request(requestOptions, handler),
+			(requestOptions, handler) => requestOptions[requestSymbol](requestOptions, handler),
 			options.cache
 		);
 	}
@@ -328,7 +329,7 @@ const withoutBody: ReadonlySet<string> = new Set(['GET', 'HEAD']);
 
 export type NormalizedRequestArguments = Merge<https.RequestOptions, {
 	body?: stream.Readable;
-	request: RequestFunction;
+	[requestSymbol]: RequestFunction;
 	url: Pick<NormalizedOptions, 'url'>;
 }>;
 
@@ -427,8 +428,11 @@ export const normalizeRequestArguments = async (options: NormalizedOptions): Pro
 	decodeURI(options.url.toString());
 
 	// Normalize request function
-	if (!is.function_(options.request)) {
-		options.request = options.url.protocol === 'https:' ? https.request : http.request;
+	if (is.function_(options.request)) {
+		options[requestSymbol] = options.request;
+		delete options.request;
+	} else {
+		options[requestSymbol] = options.url.protocol === 'https:' ? https.request : http.request;
 	}
 
 	// UNIX sockets

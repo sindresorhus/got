@@ -13,7 +13,7 @@ import getResponse from './get-response';
 import {normalizeRequestArguments} from './normalize-arguments';
 import {createProgressStream} from './progress';
 import timedOut, {TimeoutError as TimedOutTimeoutError} from './utils/timed-out';
-import {GeneralError, NormalizedOptions, Response} from './types';
+import {GeneralError, NormalizedOptions, Response, requestSymbol} from './types';
 import urlToOptions from './utils/url-to-options';
 
 const setImmediateAsync = async (): Promise<void> => new Promise(resolve => setImmediate(resolve));
@@ -240,7 +240,7 @@ export default (options: NormalizedOptions): RequestAsEventEmitter => {
 		} else {
 			// Catches errors thrown by calling `requestFn(…)`
 			try {
-				handleRequest(httpOptions.request(options.url, httpOptions, handleResponse));
+				handleRequest(httpOptions[requestSymbol](options.url, httpOptions, handleResponse));
 			} catch (error) {
 				emitError(new RequestError(error, options));
 			}
