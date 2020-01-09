@@ -39,7 +39,7 @@ type OptionsOfJSONResponseBody = Merge<Options, {isStream?: false; resolveBodyOn
 type OptionsOfBufferResponseBody = Merge<Options, {isStream?: false; resolveBodyOnly?: false; responseType: 'buffer'}>;
 type ResponseBodyOnly = {resolveBodyOnly: true};
 
-interface GotFunctions {
+export interface GotFunctions {
 	// `asPromise` usage
 	<T = string>(url: string | OptionsOfDefaultResponseBody, options?: OptionsOfDefaultResponseBody): CancelableRequest<Response<T>>;
 	(url: string | OptionsOfTextResponseBody, options?: OptionsOfTextResponseBody): CancelableRequest<Response<string>>;
