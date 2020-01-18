@@ -39,6 +39,7 @@ For browser usage, we recommend [Ky](https://github.com/sindresorhus/ky) by the 
 - [WHATWG URL support](#url)
 - [Hooks](#hooks)
 - [Instances with custom defaults](#instances)
+- [Types](#types)
 - [Composable](documentation/advanced-creation.md#merging-instances)
 - [Plugins](documentation/lets-make-a-plugin.md)
 - [Used by 3000+ packages and 1.6M+ repos](https://github.com/sindresorhus/got/network/dependents)
@@ -991,7 +992,31 @@ Default: `false`
 
 A read-only boolean describing whether the defaults are mutable or not. If set to `true`, you can [update headers over time](#hooksafterresponse), for example, update an access token when it expires.
 
-## Errors
+## Types
+
+Since Got was rewritten in TypeScript it has a set of handy types and interfaces available
+
+### Got
+Typescript will automatically infer types for Got instances but in case you want to define something like dependencies you can use following: `Got`, `GotStream`, `ReturnStream`, `GotRequestMethod`, `GotReturn`
+
+```typescript
+import { GotRequestMethod } from 'got'
+
+interface Dependencies {
+  readonly post: GotRequestMethod
+}
+```
+
+### Hooks
+Following types can be used to define isolated hooks and keep their interfaces consistent: `Hooks`, `HookEvent`, `HookType`, `InitHook`, `BeforeRequestHook`, `BeforeRedirectHook`, `BeforeRetryHook`, `BeforeErrorHook`, `AfterResponseHook`
+
+```typescript
+const addAccessToken = (accessToken: string): BeforeRequestHook => (options) => {
+  options.path = `${options.path}?access_token=${accessToken}`
+}
+```
+
+ ## Errors
 
 Each error contains an `options` property which are the options Got used to create a request - just to make debugging easier.
 
