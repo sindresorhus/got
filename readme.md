@@ -1016,7 +1016,7 @@ const addAccessToken = (accessToken: string): BeforeRequestHook => (options) => 
 }
 ```
 
- ## Errors
+## Errors
 
 Each error contains an `options` property which are the options Got used to create a request - just to make debugging easier.
 
