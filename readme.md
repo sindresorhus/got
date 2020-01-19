@@ -994,25 +994,27 @@ A read-only boolean describing whether the defaults are mutable or not. If set t
 
 ## Types
 
-Since Got was rewritten in TypeScript it has a set of handy types and interfaces available
+When used in a TypeScript project, Got has a set of handy types and interfaces available.
 
 ### Got
+
 Typescript will automatically infer types for Got instances but in case you want to define something like dependencies you can use following: `Got`, `GotStream`, `ReturnStream`, `GotRequestMethod`, `GotReturn`
 
-```typescript
-import { GotRequestMethod } from 'got'
+```ts
+import {GotRequestMethod} from 'got';
 
 interface Dependencies {
-  readonly post: GotRequestMethod
+	readonly post: GotRequestMethod
 }
 ```
 
 ### Hooks
-Following types can be used to define isolated hooks and keep their interfaces consistent: `Hooks`, `HookEvent`, `HookType`, `InitHook`, `BeforeRequestHook`, `BeforeRedirectHook`, `BeforeRetryHook`, `BeforeErrorHook`, `AfterResponseHook`
 
-```typescript
-const addAccessToken = (accessToken: string): BeforeRequestHook => (options) => {
-  options.path = `${options.path}?access_token=${accessToken}`
+The following types can be used to define isolated hooks and keep their interfaces consistent: `Hooks`, `HookEvent`, `HookType`, `InitHook`, `BeforeRequestHook`, `BeforeRedirectHook`, `BeforeRetryHook`, `BeforeErrorHook`, `AfterResponseHook`
+
+```ts
+const addAccessToken = (accessToken: string): BeforeRequestHook => options => {
+	options.path = `${options.path}?access_token=${accessToken}`;
 }
 ```
 
