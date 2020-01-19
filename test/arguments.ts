@@ -165,8 +165,8 @@ test('throws when passing body with a non payload method', async t => {
 test('WHATWG URL support', withServer, async (t, server, got) => {
 	server.get('/test', echoUrl);
 
-	const wURL = new URL(`${server.url}/test`);
-	await t.notThrowsAsync(got(wURL));
+	const url = new URL(`${server.url}/test`);
+	await t.notThrowsAsync(got(url));
 });
 
 test('returns streams when using `isStream` option', withServer, async (t, server, got) => {

@@ -4,14 +4,14 @@ import test from 'ava';
 import urlToOptions from '../source/utils/url-to-options';
 
 test('converts node legacy URL to options', t => {
-	const exampleURL = 'https://user:password@github.com:443/say?hello=world#bang';
-	const parsedURL = url.parse(exampleURL);
-	const options = urlToOptions(parsedURL);
+	const exampleUrl = 'https://user:password@github.com:443/say?hello=world#bang';
+	const parsedUrl = url.parse(exampleUrl);
+	const options = urlToOptions(parsedUrl);
 	const expected = {
 		hash: '#bang',
 		host: 'github.com:443',
 		hostname: 'github.com',
-		href: exampleURL,
+		href: exampleUrl,
 		path: '/say?hello=world',
 		pathname: '/say',
 		port: 443,
@@ -23,9 +23,9 @@ test('converts node legacy URL to options', t => {
 });
 
 test('converts URL to options', t => {
-	const exampleURL = 'https://user:password@github.com:443/say?hello=world#bang';
-	const parsedURL = new URL(exampleURL);
-	const options = urlToOptions(parsedURL);
+	const exampleUrl = 'https://user:password@github.com:443/say?hello=world#bang';
+	const parsedUrl = new URL(exampleUrl);
+	const options = urlToOptions(parsedUrl);
 	const expected = {
 		auth: 'user:password',
 		hash: '#bang',
@@ -43,8 +43,8 @@ test('converts URL to options', t => {
 
 test('converts IPv6 URL to options', t => {
 	const IPv6URL = 'https://[2001:cdba::3257:9652]:443/';
-	const parsedURL = new URL(IPv6URL);
-	const options = urlToOptions(parsedURL);
+	const parsedUrl = new URL(IPv6URL);
+	const options = urlToOptions(parsedUrl);
 	const expected = {
 		hash: '',
 		host: '[2001:cdba::3257:9652]',
@@ -61,8 +61,8 @@ test('converts IPv6 URL to options', t => {
 
 test('only adds port to options for URLs with ports', t => {
 	const noPortURL = 'https://github.com/';
-	const parsedURL = new URL(noPortURL);
-	const options = urlToOptions(parsedURL);
+	const parsedUrl = new URL(noPortURL);
+	const options = urlToOptions(parsedUrl);
 	const expected = {
 		hash: '',
 		host: 'github.com',
@@ -79,12 +79,12 @@ test('only adds port to options for URLs with ports', t => {
 });
 
 test('does not concat null search to path', t => {
-	const exampleURL = 'https://github.com/';
-	const parsedURL = url.parse(exampleURL);
+	const exampleUrl = 'https://github.com/';
+	const parsedUrl = url.parse(exampleUrl);
 
-	t.is(parsedURL.search, null);
+	t.is(parsedUrl.search, null);
 
-	const options = urlToOptions(parsedURL);
+	const options = urlToOptions(parsedUrl);
 	const expected = {
 		hash: null,
 		host: 'github.com',
@@ -100,12 +100,12 @@ test('does not concat null search to path', t => {
 });
 
 test('does not add null port to options', t => {
-	const exampleURL = 'https://github.com/';
-	const parsedURL = url.parse(exampleURL);
+	const exampleUrl = 'https://github.com/';
+	const parsedUrl = url.parse(exampleUrl);
 
-	t.is(parsedURL.port, null);
+	t.is(parsedUrl.port, null);
 
-	const options = urlToOptions(parsedURL);
+	const options = urlToOptions(parsedUrl);
 	const expected = {
 		hash: null,
 		host: 'github.com',

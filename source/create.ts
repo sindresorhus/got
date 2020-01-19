@@ -138,13 +138,13 @@ const create = (defaults: Defaults): Got => {
 	got.extend = (...instancesOrOptions) => {
 		const optionsArray: Options[] = [defaults.options];
 		let handlers: HandlerFunction[] = [...defaults._rawHandlers!];
-		let mutableDefaults: boolean | undefined;
+		let isMutableDefaults: boolean | undefined;
 
 		for (const value of instancesOrOptions) {
 			if (isGotInstance(value)) {
 				optionsArray.push(value.defaults.options);
 				handlers.push(...value.defaults._rawHandlers!);
-				mutableDefaults = value.defaults.mutableDefaults;
+				isMutableDefaults = value.defaults.mutableDefaults;
 			} else {
 				optionsArray.push(value);
 
@@ -152,7 +152,7 @@ const create = (defaults: Defaults): Got => {
 					handlers.push(...value.handlers);
 				}
 
-				mutableDefaults = value.mutableDefaults;
+				isMutableDefaults = value.mutableDefaults;
 			}
 		}
 
@@ -165,7 +165,7 @@ const create = (defaults: Defaults): Got => {
 		return create({
 			options: mergeOptions(...optionsArray) as DefaultOptions,
 			handlers,
-			mutableDefaults: Boolean(mutableDefaults)
+			mutableDefaults: Boolean(isMutableDefaults)
 		});
 	};
 

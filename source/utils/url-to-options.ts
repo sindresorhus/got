@@ -3,7 +3,7 @@ import is from '@sindresorhus/is';
 
 // TODO: Deprecate legacy URL at some point
 
-export interface LegacyURLOptions {
+export interface LegacyUrlOptions {
 	protocol: string;
 	hostname: string;
 	host: string;
@@ -16,11 +16,11 @@ export interface LegacyURLOptions {
 	auth?: string;
 }
 
-export default (url: URL | UrlWithStringQuery): LegacyURLOptions => {
+export default (url: URL | UrlWithStringQuery): LegacyUrlOptions => {
 	// Cast to URL
 	url = url as URL;
 
-	const options: LegacyURLOptions = {
+	const options: LegacyUrlOptions = {
 		protocol: url.protocol,
 		hostname: is.string(url.hostname) && url.hostname.startsWith('[') ? url.hostname.slice(1, -1) : url.hostname,
 		host: url.host,

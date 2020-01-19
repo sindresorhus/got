@@ -338,18 +338,18 @@ export const normalizeRequestArguments = async (options: NormalizedOptions): Pro
 
 	// Serialize body
 	const {headers} = options;
-	const noContentType = is.undefined(headers['content-type']);
+	const hasNoContentType = is.undefined(headers['content-type']);
 
 	{
 		// TODO: these checks should be moved to `preNormalizeArguments`
 		const isForm = !is.undefined(options.form);
-		const isJSON = !is.undefined(options.json);
+		const isJson = !is.undefined(options.json);
 		const isBody = !is.undefined(options.body);
-		if ((isBody || isForm || isJSON) && withoutBody.has(options.method)) {
+		if ((isBody || isForm || isJson) && withoutBody.has(options.method)) {
 			throw new TypeError(`The \`${options.method}\` method cannot be used with a body`);
 		}
 
-		if ([isBody, isForm, isJSON].filter(isTrue => isTrue).length > 1) {
+		if ([isBody, isForm, isJson].filter(isTrue => isTrue).length > 1) {
 			throw new TypeError('The `body`, `json` and `form` options are mutually exclusive');
 		}
 
@@ -370,17 +370,17 @@ export const normalizeRequestArguments = async (options: NormalizedOptions): Pro
 
 	if (options.body) {
 		// Special case for https://github.com/form-data/form-data
-		if (is.object(options.body) && isFormData(options.body) && noContentType) {
+		if (is.object(options.body) && isFormData(options.body) && hasNoContentType) {
 			headers['content-type'] = `multipart/form-data; boundary=${options.body.getBoundary()}`;
 		}
 	} else if (options.form) {
-		if (noContentType) {
+		if (hasNoContentType) {
 			headers['content-type'] = 'application/x-www-form-urlencoded';
 		}
 
 		options.body = (new URLSearchParams(options.form as Record<string, string>)).toString();
 	} else if (options.json) {
-		if (noContentType) {
+		if (hasNoContentType) {
 			headers['content-type'] = 'application/json';
 		}
 

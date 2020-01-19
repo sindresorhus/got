@@ -104,13 +104,13 @@ test('custom retries', withServer, async (t, server, got) => {
 		response.end();
 	});
 
-	let tried = false;
+	let hasTried = false;
 	const error = await t.throwsAsync<HTTPError>(got({
 		throwHttpErrors: true,
 		retry: {
 			calculateDelay: ({attemptCount}) => {
 				if (attemptCount === 1) {
-					tried = true;
+					hasTried = true;
 					return 1;
 				}
 
@@ -123,7 +123,7 @@ test('custom retries', withServer, async (t, server, got) => {
 		}
 	}));
 	t.is(error.response.statusCode, 500);
-	t.true(tried);
+	t.true(hasTried);
 });
 
 test('custom error codes', async t => {

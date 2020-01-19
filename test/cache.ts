@@ -115,14 +115,14 @@ test('cache error throws `got.CacheError`', withServer, async (t, server, got) =
 });
 
 test('doesn\'t cache response when received HTTP error', withServer, async (t, server, got) => {
-	let calledFirstError = false;
+	let isFirstErrorCalled = false;
 	server.get('/', (_request, response) => {
-		if (!calledFirstError) {
+		if (!isFirstErrorCalled) {
 			response.end('ok');
 			return;
 		}
 
-		calledFirstError = true;
+		isFirstErrorCalled = true;
 		response.statusCode = 502;
 		response.end('received 502');
 	});

@@ -187,14 +187,14 @@ test('defaults are cloned on instance creation', t => {
 test('ability to pass a custom request method', withServer, async (t, server, got) => {
 	server.get('/', echoHeaders);
 
-	let called = false;
+	let isCalled = false;
 
 	const request: RequestFunction = (...args: [
 		string | URL | RequestOptions,
 		(RequestOptions | ((res: IncomingMessage) => void))?,
 		((res: IncomingMessage) => void)?
 	]) => {
-		called = true;
+		isCalled = true;
 		// @ts-ignore Overload error
 		return httpRequest(...args);
 	};
@@ -202,20 +202,20 @@ test('ability to pass a custom request method', withServer, async (t, server, go
 	const instance = got.extend({request});
 	await instance('');
 
-	t.true(called);
+	t.true(isCalled);
 });
 
 test('does not include the `request` option in normalized `http` options', withServer, async (t, server, got) => {
 	server.get('/', echoHeaders);
 
-	let called = false;
+	let isCalled = false;
 
 	const request: RequestFunction = (...args: [
 		string | URL | RequestOptions,
 		(RequestOptions | ((res: IncomingMessage) => void))?,
 		((res: IncomingMessage) => void)?
 	]) => {
-		called = true;
+		isCalled = true;
 
 		t.false(Reflect.has(args[0] as RequestOptions, 'request'));
 
@@ -226,18 +226,18 @@ test('does not include the `request` option in normalized `http` options', withS
 	const instance = got.extend({request});
 	await instance('');
 
-	t.true(called);
+	t.true(isCalled);
 });
 
 test('hooks aren\'t overriden when merging options', withServer, async (t, server, got) => {
 	server.get('/', echoHeaders);
 
-	let called = false;
+	let isCalled = false;
 	const instance = got.extend({
 		hooks: {
 			beforeRequest: [
 				() => {
-					called = true;
+					isCalled = true;
 				}
 			]
 		}
@@ -245,7 +245,7 @@ test('hooks aren\'t overriden when merging options', withServer, async (t, serve
 
 	await instance({});
 
-	t.true(called);
+	t.true(isCalled);
 });
 
 test('extend with custom handlers', withServer, async (t, server, got) => {

@@ -363,16 +363,16 @@ test.serial('lookup timeout no error (keepalive)', withServerAndLolex, async (t,
 test.serial('retries on timeout', withServerAndLolex, async (t, server, got, clock) => {
 	server.get('/', defaultHandler(clock));
 
-	let tried = false;
+	let hasTried = false;
 	await t.throwsAsync(got({
 		timeout: 1,
 		retry: {
 			calculateDelay: () => {
-				if (tried) {
+				if (hasTried) {
 					return 0;
 				}
 
-				tried = true;
+				hasTried = true;
 				return 1;
 			}
 		}
@@ -381,7 +381,7 @@ test.serial('retries on timeout', withServerAndLolex, async (t, server, got, clo
 		message: 'Timeout awaiting \'request\' for 1ms'
 	});
 
-	t.true(tried);
+	t.true(hasTried);
 });
 
 test.serial('timeout with streams', withServerAndLolex, async (t, server, got, clock) => {

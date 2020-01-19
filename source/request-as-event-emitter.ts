@@ -29,7 +29,7 @@ export interface RequestAsEventEmitter extends EventEmitter {
 export default (options: NormalizedOptions): RequestAsEventEmitter => {
 	const emitter = new EventEmitter() as RequestAsEventEmitter;
 
-	const requestURL = options.url.toString();
+	const requestUrl = options.url.toString();
 	const redirects: string[] = [];
 	let retryCount = 0;
 
@@ -74,7 +74,7 @@ export default (options: NormalizedOptions): RequestAsEventEmitter => {
 				const {statusCode} = typedResponse;
 				typedResponse.statusMessage = is.nonEmptyString(typedResponse.statusMessage) ? typedResponse.statusMessage : http.STATUS_CODES[statusCode];
 				typedResponse.url = options.url.toString();
-				typedResponse.requestUrl = requestURL;
+				typedResponse.requestUrl = requestUrl;
 				typedResponse.retryCount = retryCount;
 				typedResponse.redirectUrls = redirects;
 				typedResponse.request = {options};
@@ -125,15 +125,15 @@ export default (options: NormalizedOptions): RequestAsEventEmitter => {
 
 					// Handles invalid URLs. See https://github.com/sindresorhus/got/issues/604
 					const redirectBuffer = Buffer.from(typedResponse.headers.location, 'binary').toString();
-					const redirectURL = new URL(redirectBuffer, options.url);
+					const redirectUrl = new URL(redirectBuffer, options.url);
 
 					// Redirecting to a different site, clear cookies.
-					if (redirectURL.hostname !== options.url.hostname && Reflect.has(options.headers, 'cookie')) {
+					if (redirectUrl.hostname !== options.url.hostname && Reflect.has(options.headers, 'cookie')) {
 						delete options.headers.cookie;
 					}
 
-					redirects.push(redirectURL.toString());
-					options.url = redirectURL;
+					redirects.push(redirectUrl.toString());
+					options.url = redirectUrl;
 
 					for (const hook of options.hooks.beforeRedirect) {
 						// eslint-disable-next-line no-await-in-loop

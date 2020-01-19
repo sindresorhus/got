@@ -253,7 +253,7 @@ export interface GotEvents<T> {
 }
 
 export interface CancelableRequest<T extends Response | Response['body']> extends PCancelable<T>, GotEvents<CancelableRequest<T>> {
-	json<TReturnType>(): CancelableRequest<TReturnType>;
+	json<ReturnType>(): CancelableRequest<ReturnType>;
 	buffer(): CancelableRequest<Buffer>;
 	text(): CancelableRequest<string>;
 }
