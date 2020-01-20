@@ -994,7 +994,7 @@ A read-only boolean describing whether the defaults are mutable or not. If set t
 
 ## Types
 
-When used in a TypeScript project, Got has a set of handy types and interfaces available.
+Got has a set of handy types and interfaces available, so you can integrate Got with your TypeScript project seamlessly.
 
 ### Got
 
