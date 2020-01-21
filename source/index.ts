@@ -96,6 +96,7 @@ export {
 	GotError,
 	CacheError,
 	RequestError,
+	ReadError,
 	ParseError,
 	HTTPError,
 	MaxRedirectsError,
