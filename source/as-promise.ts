@@ -23,6 +23,18 @@ const parseBody = (body: Buffer, responseType: NormalizedOptions['responseType']
 	throw new TypeError(`Unknown body type '${responseType as string}'`);
 };
 
+export function createRejection(error: Error): CancelableRequest<never> {
+	const promise = Promise.reject(error) as CancelableRequest<never>;
+	const returnPromise = (): CancelableRequest<never> => promise;
+
+	promise.json = returnPromise;
+	promise.text = returnPromise;
+	promise.buffer = returnPromise;
+	promise.on = returnPromise;
+
+	return promise;
+}
+
 export default function asPromise<T>(options: NormalizedOptions): CancelableRequest<T> {
 	const proxy = new EventEmitter();
 	let body: Buffer;

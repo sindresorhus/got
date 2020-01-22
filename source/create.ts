@@ -1,5 +1,5 @@
 import {Merge} from 'type-fest';
-import asPromise from './as-promise';
+import asPromise, {createRejection} from './as-promise';
 import asStream, {ProxyStream} from './as-stream';
 import * as errors from './errors';
 import {normalizeArguments, mergeOptions} from './normalize-arguments';
@@ -126,7 +126,7 @@ const create = (defaults: Defaults): Got => {
 				throw error;
 			} else {
 				// @ts-ignore It's an Error not a response, but TS thinks it's calling .resolve
-				return Promise.reject(error);
+				return createRejection(error);
 			}
 		}
 		/* eslint-enable @typescript-eslint/return-await */
