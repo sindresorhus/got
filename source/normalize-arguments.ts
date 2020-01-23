@@ -404,7 +404,7 @@ export const normalizeRequestArguments = async (options: NormalizedOptions): Pro
 	// body.
 	if (is.undefined(headers['content-length']) && is.undefined(headers['transfer-encoding'])) {
 		if (
-			(options.method === 'POST' || options.method === 'PUT' || options.method === 'PATCH') &&
+			(options.method === 'POST' || options.method === 'PUT' || options.method === 'PATCH' || options.method === 'DELETE') &&
 			!is.undefined(uploadBodySize)
 		) {
 			// @ts-ignore We assign if it is undefined, so this IS correct
