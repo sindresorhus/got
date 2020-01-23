@@ -193,6 +193,11 @@ test('errors are thrown directly when options.stream is true', t => {
 	});
 });
 
+test('normalization errors using convenience methods', async t => {
+	const url = 'undefined/https://example.com';
+	await t.throwsAsync(got(url).json().text().buffer(), `Invalid URL: ${url}`);
+});
+
 // Fails randomly on Node 10:
 // Blocked by https://github.com/istanbuljs/nyc/issues/619
 // eslint-disable-next-line ava/no-skip-test
