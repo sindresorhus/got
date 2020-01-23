@@ -1010,9 +1010,11 @@ interface Dependencies {
 
 ### Hooks
 
-The following types can be used to define isolated hooks and keep their interfaces consistent: `Hooks`, `HookEvent`, `HookType`, `InitHook`, `BeforeRequestHook`, `BeforeRedirectHook`, `BeforeRetryHook`, `BeforeErrorHook`, `AfterResponseHook`
+When writing hooks you can refer to their types and keep interfaces consistent
 
 ```ts
+import {BeforeRequestHook} from 'got';
+
 const addAccessToken = (accessToken: string): BeforeRequestHook => options => {
 	options.path = `${options.path}?access_token=${accessToken}`;
 }
