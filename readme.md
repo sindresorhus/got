@@ -998,7 +998,7 @@ Got has a set of handy types and interfaces available, so you can integrate Got 
 
 ### Got
 
-Typescript will automatically infer types for Got instances but in case you want to define something like dependencies you can use following: `Got`, `GotStream`, `ReturnStream`, `GotRequestMethod`, `GotReturn`
+Typescript will automatically infer types for Got instances but in case you want to define something like dependencies you can import available types directly from `got`
 
 ```ts
 import {GotRequestMethod} from 'got';
