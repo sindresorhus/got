@@ -77,7 +77,7 @@ export interface GotStream extends Record<HTTPAlias, ReturnStream> {
 	(url: URLOrOptions, options?: Options): ProxyStream;
 }
 
-const aliases: readonly HTTPAlias[] = [
+const aliases: ReadonlyArray<HTTPAlias> = [
 	'get',
 	'post',
 	'put',
