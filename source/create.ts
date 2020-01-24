@@ -39,7 +39,9 @@ type OptionsOfJSONResponseBody = Merge<Options, {isStream?: false; resolveBodyOn
 type OptionsOfBufferResponseBody = Merge<Options, {isStream?: false; resolveBodyOnly?: false; responseType: 'buffer'}>;
 type ResponseBodyOnly = {resolveBodyOnly: true};
 
-// Can be used to match methods explicitly or cases like parameters extraction e.g `Parameters<GotRequestMethod>`
+/**
+Can be used to match methods explicitly or parameters extraction: `Parameters<GotRequestMethod>`.
+*/
 export interface GotRequestMethod {
 	// `asPromise` usage
 	<T = string>(url: string | OptionsOfDefaultResponseBody, options?: OptionsOfDefaultResponseBody): CancelableRequest<Response<T>>;
