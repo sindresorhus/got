@@ -994,11 +994,11 @@ A read-only boolean describing whether the defaults are mutable or not. If set t
 
 ## Types
 
-Got has a set of handy types and interfaces available, so you can integrate Got with your TypeScript project seamlessly.
+Got exports some handy TypeScript types and interfaces. See the type definition for all the exported types.
 
 ### Got
 
-Typescript will automatically infer types for Got instances but in case you want to define something like dependencies you can import available types directly from `got`.
+TypeScript will automatically infer types for Got instances, but in case you want to define something like dependencies, you can import available types directly from Got.
 
 ```ts
 import {GotRequestMethod} from 'got';
@@ -1010,7 +1010,7 @@ interface Dependencies {
 
 ### Hooks
 
-When writing hooks you can refer to their types and keep interfaces consistent
+When writing hooks, you can refer to their types and keep interfaces consistent.
 
 ```ts
 import {BeforeRequestHook} from 'got';
