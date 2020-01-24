@@ -39,6 +39,7 @@ For browser usage, we recommend [Ky](https://github.com/sindresorhus/ky) by the 
 - [WHATWG URL support](#url)
 - [Hooks](#hooks)
 - [Instances with custom defaults](#instances)
+- [Types](#types)
 - [Composable](documentation/advanced-creation.md#merging-instances)
 - [Plugins](documentation/lets-make-a-plugin.md)
 - [Used by 3000+ packages and 1.6M+ repos](https://github.com/sindresorhus/got/network/dependents)
@@ -990,6 +991,34 @@ Type: `boolean`\
 Default: `false`
 
 A read-only boolean describing whether the defaults are mutable or not. If set to `true`, you can [update headers over time](#hooksafterresponse), for example, update an access token when it expires.
+
+## Types
+
+Got exports some handy TypeScript types and interfaces. See the type definition for all the exported types.
+
+### Got
+
+TypeScript will automatically infer types for Got instances, but in case you want to define something like dependencies, you can import the available types directly from Got.
+
+```ts
+import {GotRequestMethod} from 'got';
+
+interface Dependencies {
+	readonly post: GotRequestMethod
+}
+```
+
+### Hooks
+
+When writing hooks, you can refer to their types to keep your interfaces consistent.
+
+```ts
+import {BeforeRequestHook} from 'got';
+
+const addAccessToken = (accessToken: string): BeforeRequestHook => options => {
+	options.path = `${options.path}?access_token=${accessToken}`;
+}
+```
 
 ## Errors
 

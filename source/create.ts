@@ -39,7 +39,10 @@ type OptionsOfJSONResponseBody = Merge<Options, {isStream?: false; resolveBodyOn
 type OptionsOfBufferResponseBody = Merge<Options, {isStream?: false; resolveBodyOnly?: false; responseType: 'buffer'}>;
 type ResponseBodyOnly = {resolveBodyOnly: true};
 
-interface GotFunctions {
+/**
+Can be used to match methods explicitly or parameters extraction: `Parameters<GotRequestMethod>`.
+*/
+export interface GotRequestMethod {
 	// `asPromise` usage
 	<T = string>(url: string | OptionsOfDefaultResponseBody, options?: OptionsOfDefaultResponseBody): CancelableRequest<Response<T>>;
 	(url: string | OptionsOfTextResponseBody, options?: OptionsOfTextResponseBody): CancelableRequest<Response<string>>;
@@ -54,7 +57,7 @@ interface GotFunctions {
 	<T>(url: string | Merge<Options, {isStream: true}>, options?: Merge<Options, {isStream: true}>): ProxyStream<T>;
 }
 
-export interface Got extends Record<HTTPAlias, GotFunctions>, GotFunctions {
+export interface Got extends Record<HTTPAlias, GotRequestMethod>, GotRequestMethod {
 	stream: GotStream;
 	defaults: Defaults;
 	GotError: typeof errors.GotError;

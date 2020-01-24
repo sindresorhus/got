@@ -85,6 +85,7 @@ export {
 	Got,
 	GotStream,
 	ReturnStream,
+	GotRequestMethod,
 	GotReturn
 } from './create';
 
