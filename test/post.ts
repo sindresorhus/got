@@ -262,12 +262,8 @@ test('the `form` payload is not touched', withServer, async (t, server, got) => 
 	});
 });
 
-test.failing('DELETE method sends plain objects as JSON', withServer, async (t, server, got) => {
-	server.delete('/', (request, response) => {
-		// Not using streams here to avoid this unhandled rejection:
-		// Error [ERR_STREAM_PREMATURE_CLOSE]: Premature close
-		response.json(request.body);
-	});
+test('DELETE method sends plain objects as JSON', withServer, async (t, server, got) => {
+	server.delete('/', defaultEndpoint);
 
 	const {body} = await got.delete({
 		json: {such: 'wow'},
