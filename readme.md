@@ -998,7 +998,7 @@ Got exports some handy TypeScript types and interfaces. See the type definition 
 
 ### Got
 
-TypeScript will automatically infer types for Got instances, but in case you want to define something like dependencies, you can import available types directly from Got.
+TypeScript will automatically infer types for Got instances, but in case you want to define something like dependencies, you can import the available types directly from Got.
 
 ```ts
 import {GotRequestMethod} from 'got';
@@ -1010,7 +1010,7 @@ interface Dependencies {
 
 ### Hooks
 
-When writing hooks, you can refer to their types and keep interfaces consistent.
+When writing hooks, you can refer to their types to keep your interfaces consistent.
 
 ```ts
 import {BeforeRequestHook} from 'got';
