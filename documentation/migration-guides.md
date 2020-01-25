@@ -65,7 +65,7 @@ It's more clear, isn't it?
 
 #### Changes in behavior
 
-The [`timeout` option](https://github.com/sindresorhus/got#timeout) has some extra features. You can [set timeouts on particular events](readme.md#timeout)!
+The [`timeout` option](https://github.com/sindresorhus/got#timeout) has some extra features. You can [set timeouts on particular events](../readme.md#timeout)!
 
 The [`searchParams` option](https://github.com/sindresorhus/got#searchParams) is always serialized using [`URLSearchParams`](https://developer.mozilla.org/en-US/docs/Web/API/URLSearchParams) unless it's a `string`.
 
@@ -78,7 +78,7 @@ To use streams, just call `got.stream(url, options)` or `got(url, {isStream: tru
 - No `oauth`/`hawk`/`aws`/`httpSignature` option. To sign requests, you need to create a [custom instance](advanced-creation.md#signing-requests).
 - No `agentClass`/`agentOptions`/`pool` option.
 - No `forever` option. You need to use [forever-agent](https://github.com/request/forever-agent).
-- No `proxy` option. You need to [pass a custom agent](readme.md#proxies).
+- No `proxy` option. You need to [pass a custom agent](../readme.md#proxies).
 - No `auth` option. You need to use `username` / `password` instead.
 - No `baseUrl` option. Instead, there is `prefixUrl` which appends a trailing slash if not present. It will be always prepended unless `url` is an instance of URL.
 - No `removeRefererHeader` option. You can remove the referer header in a [`beforeRequest` hook](https://github.com/sindresorhus/got#hooksbeforeRequest):
@@ -127,7 +127,7 @@ const gotInstance = got.extend({
 gotInstance(url, options);
 ```
 
-Hooks are powerful, aren't they? [Read more](readme.md#hooks) to see what else you achieve using hooks.
+Hooks are powerful, aren't they? [Read more](../readme.md#hooks) to see what else you achieve using hooks.
 
 #### More about streams
 
@@ -168,4 +168,4 @@ Nothing has really changed. Just remember to use `got.stream(url, options)` or `
 
 #### You're good to go!
 
-Well, you have already come this far :tada: Take a look at the [documentation](readme.md#highlights). It's worth the time to read it. There are [some great tips](readme.md#aborting-the-request). If something is unclear or doesn't work as it should, don't hesitate to open an issue.
+Well, you have already come this far :tada: Take a look at the [documentation](../readme.md#highlights). It's worth the time to read it. There are [some great tips](../readme.md#aborting-the-request). If something is unclear or doesn't work as it should, don't hesitate to open an issue.
