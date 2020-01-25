@@ -163,7 +163,7 @@ test('form-data sets `content-length` header', withServer, async (t, server, got
 test('stream as `options.body` sets `content-length` header', withServer, async (t, server, got) => {
 	server.post('/', echoHeaders);
 
-	const fixture = path.join(__dirname, 'fixtures/stream-content-length');
+	const fixture = path.resolve('test/fixtures/stream-content-length');
 	const {size} = await promisify(fs.stat)(fixture);
 	const {body} = await got.post({
 		body: fs.createReadStream(fixture)
