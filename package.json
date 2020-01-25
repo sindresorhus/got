@@ -88,7 +88,6 @@
 		"slow-stream": "0.0.4",
 		"tempy": "^0.3.0",
 		"tough-cookie": "^3.0.0",
-		"ts-node": "^8.5.2",
 		"typescript": "3.7.5",
 		"xo": "^0.25.3"
 	},
