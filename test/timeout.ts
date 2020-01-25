@@ -442,7 +442,7 @@ test.serial('no unhandled timeout errors', withServer, async (t, _server, got) =
 
 			return result;
 		}
-	}), 'socket hang up');
+	}), {message: 'socket hang up'});
 
 	await delay(200);
 });
@@ -594,7 +594,7 @@ test.serial('no unhandled `Premature close` error', withServer, async (t, server
 	await t.throwsAsync(got({
 		timeout: 10,
 		retry: 0
-	}), 'Timeout awaiting \'request\' for 10ms');
+	}), {message: 'Timeout awaiting \'request\' for 10ms'});
 
 	await delay(20);
 });
@@ -618,7 +618,7 @@ test.serial('cancelling the request removes timeouts', withServer, async (t, ser
 		});
 	});
 
-	await t.throwsAsync(promise, 'Promise was canceled');
+	await t.throwsAsync(promise, {message: 'Promise was canceled'});
 
 	await delay(1000);
 });
@@ -627,10 +627,10 @@ test('timeouts are emitted ASAP', async t => {
 	const timeout = 500;
 	const marginOfError = 100;
 
-	const error: TimeoutError = await t.throwsAsync(got('http://192.0.2.1/test', {
+	const error = await t.throwsAsync<TimeoutError>(got('http://192.0.2.1/test', {
 		retry: 0,
 		timeout
-	}), TimeoutError);
+	}), {instanceOf: TimeoutError});
 
 	t.true(error.timings.phases.total! < (timeout + marginOfError));
 });

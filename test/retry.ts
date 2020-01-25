@@ -312,7 +312,7 @@ test('retry function can throw', withServer, async (t, server, got) => {
 				throw new Error(error);
 			}
 		}
-	}), error);
+	}), {message: error});
 });
 
 test('does not retry on POST', withServer, async (t, server, got) => {
@@ -327,7 +327,7 @@ test('does not retry on POST', withServer, async (t, server, got) => {
 				}
 			]
 		}
-	}), got.TimeoutError);
+	}), {instanceOf: got.TimeoutError});
 });
 
 test('does not break on redirect', withServer, async (t, server, got) => {
@@ -346,6 +346,6 @@ test('does not break on redirect', withServer, async (t, server, got) => {
 		response.end();
 	});
 
-	await t.throwsAsync(got('redirect'), 'Response code 500 (Internal Server Error)');
+	await t.throwsAsync(got('redirect'), {message: 'Response code 500 (Internal Server Error)'});
 	t.is(tries, 1);
 });

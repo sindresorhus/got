@@ -66,7 +66,7 @@ test('throws on invalid cookies', withServer, async (t, server, got) => {
 
 	const cookieJar = new toughCookie.CookieJar();
 
-	await t.throwsAsync(got({cookieJar}), 'Cookie has domain set to a public suffix');
+	await t.throwsAsync(got({cookieJar}), {message: 'Cookie has domain set to a public suffix'});
 });
 
 test('does not throw on invalid cookies when options.ignoreInvalidCookies is set', withServer, async (t, server, got) => {
@@ -100,7 +100,7 @@ test('catches store errors', async t => {
 		updateCookie: () => {}
 	});
 
-	await t.throwsAsync(got('https://example.com', {cookieJar}), error);
+	await t.throwsAsync(got('https://example.com', {cookieJar}), {message: error});
 });
 
 test('overrides options.headers.cookie', withServer, async (t, server, got) => {
@@ -180,7 +180,7 @@ test('throws on invalid `options.cookieJar.setCookie`', async t => {
 		cookieJar: {
 			setCookie: () => {}
 		}
-	}), '`options.cookieJar.setCookie` needs to be an async function with 2 arguments');
+	}), {message: '`options.cookieJar.setCookie` needs to be an async function with 2 arguments'});
 });
 
 test('throws on invalid `options.cookieJar.getCookieString`', async t => {
@@ -190,7 +190,7 @@ test('throws on invalid `options.cookieJar.getCookieString`', async t => {
 			setCookie: async (_rawCookie: string, _url: string) => {},
 			getCookieString: () => {}
 		}
-	}), '`options.cookieJar.getCookieString` needs to be an async function with 1 argument');
+	}), {message: '`options.cookieJar.getCookieString` needs to be an async function with 1 argument'});
 });
 
 test('cookies are cleared when redirecting to a different hostname (no cookieJar)', withServer, async (t, server, got) => {

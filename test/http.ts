@@ -37,7 +37,7 @@ test('http errors have `response` property', withServer, async (t, server, got) 
 		response.end('not');
 	});
 
-	const error = await t.throwsAsync<HTTPError>(got(''), HTTPError);
+	const error = await t.throwsAsync<HTTPError>(got(''), {instanceOf: HTTPError});
 	t.is(error.response.statusCode, 404);
 	t.is(error.response.body, 'not');
 });
