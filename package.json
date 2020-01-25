@@ -67,7 +67,7 @@
 		"@types/tough-cookie": "^2.3.5",
 		"@typescript-eslint/eslint-plugin": "^2.17.0",
 		"@typescript-eslint/parser": "^2.17.0",
-		"ava": "^2.4.0",
+		"ava": "^3.0.0",
 		"coveralls": "^3.0.4",
 		"create-test-server": "^3.0.1",
 		"del-cli": "^3.0.0",
@@ -103,8 +103,6 @@
 		],
 		"concurrency": 4,
 		"timeout": "1m",
-		"babel": false,
-		"compileEnhancements": false,
 		"extensions": [
 			"ts"
 		],

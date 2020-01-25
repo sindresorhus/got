@@ -70,15 +70,21 @@ test('throws on write if body is specified', withServer, (t, server, got) => {
 
 	t.throws(() => {
 		got.stream.post({body: 'wow'}).end('wow');
-	}, 'Got\'s stream is not writable when the `body`, `json` or `form` option is used');
+	}, {
+		message: 'Got\'s stream is not writable when the `body`, `json` or `form` option is used'
+	});
 
 	t.throws(() => {
 		got.stream.post({json: {}}).end('wow');
-	}, 'Got\'s stream is not writable when the `body`, `json` or `form` option is used');
+	}, {
+		message: 'Got\'s stream is not writable when the `body`, `json` or `form` option is used'
+	});
 
 	t.throws(() => {
 		got.stream.post({form: {}}).end('wow');
-	}, 'Got\'s stream is not writable when the `body`, `json` or `form` option is used');
+	}, {
+		message: 'Got\'s stream is not writable when the `body`, `json` or `form` option is used'
+	});
 });
 
 test('does not throw if using stream and passing a json option', withServer, async (t, server, got) => {
@@ -98,7 +104,9 @@ test('throws on write if no payload method is present', withServer, (t, server, 
 
 	t.throws(() => {
 		got.stream.get('').end('wow');
-	}, 'The `GET` method cannot be used with a body');
+	}, {
+		message: 'The `GET` method cannot be used with a body'
+	});
 });
 
 test('has request event', withServer, async (t, server, got) => {
@@ -241,7 +249,9 @@ test('throws when trying to proxy through a closed stream', withServer, async (t
 	stream.once('data', () => {
 		t.throws(() => {
 			stream.pipe(new PassThroughStream());
-		}, 'Failed to pipe. The response has been emitted already.');
+		}, {
+			message: 'Failed to pipe. The response has been emitted already.'
+		});
 	});
 
 	await promise;

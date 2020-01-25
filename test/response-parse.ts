@@ -79,7 +79,8 @@ test('throws an error on invalid response type', withServer, async (t, server, g
 	server.get('/', defaultHandler);
 
 	// @ts-ignore Error tests
-	const error = await t.throwsAsync<ParseError>(got({responseType: 'invalid'}), /^Unknown body type 'invalid'/);
+	const error = await t.throwsAsync<ParseError>(got({responseType: 'invalid'}));
+	t.regex(error.message, /^Unknown body type 'invalid'/);
 	t.true(error.message.includes(error.options.url.hostname));
 	t.is(error.options.url.pathname, '/');
 });
@@ -89,7 +90,7 @@ test('wraps parsing errors', withServer, async (t, server, got) => {
 		response.end('/');
 	});
 
-	const error = await t.throwsAsync<ParseError>(got({responseType: 'json'}), got.ParseError);
+	const error = await t.throwsAsync<ParseError>(got({responseType: 'json'}), {instanceOf: got.ParseError});
 	t.true(error.message.includes(error.options.url.hostname));
 	t.is(error.options.url.pathname, '/');
 });
@@ -100,7 +101,7 @@ test('parses non-200 responses', withServer, async (t, server, got) => {
 		response.end(jsonResponse);
 	});
 
-	const error = await t.throwsAsync<HTTPError>(got({responseType: 'json'}), HTTPError);
+	const error = await t.throwsAsync<HTTPError>(got({responseType: 'json'}), {instanceOf: HTTPError});
 	t.deepEqual(error.response.body, dog);
 });
 
@@ -124,7 +125,7 @@ test('parse errors have `response` property', withServer, async (t, server, got)
 		response.end('/');
 	});
 
-	const error = await t.throwsAsync<ParseError>(got({responseType: 'json'}), ParseError);
+	const error = await t.throwsAsync<ParseError>(got({responseType: 'json'}), {instanceOf: ParseError});
 
 	t.is(error.response.statusCode, 200);
 });

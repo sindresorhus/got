@@ -71,7 +71,7 @@ test.serial('does not retry after cancelation', withServerAndLolex, async (t, se
 		gotPromise.cancel();
 	});
 
-	await t.throwsAsync(gotPromise, CancelError);
+	await t.throwsAsync(gotPromise, {instanceOf: CancelError});
 	await t.notThrowsAsync(promise, 'Request finished instead of aborting.');
 });
 
@@ -91,7 +91,7 @@ test.serial('cancels in-progress request', withServerAndLolex, async (t, server,
 		body.push(null);
 	});
 
-	await t.throwsAsync(gotPromise, CancelError);
+	await t.throwsAsync(gotPromise, {instanceOf: CancelError});
 	await t.notThrowsAsync(promise, 'Request finished instead of aborting.');
 });
 
@@ -111,7 +111,7 @@ test.serial('cancels in-progress request with timeout', withServerAndLolex, asyn
 		body.push(null);
 	});
 
-	await t.throwsAsync(gotPromise, CancelError);
+	await t.throwsAsync(gotPromise, {instanceOf: CancelError});
 	await t.notThrowsAsync(promise, 'Request finished instead of aborting.');
 });
 
@@ -175,7 +175,7 @@ test.serial('throws on incomplete (canceled) response - promise', withServerAndL
 			timeout: {request: 500},
 			retry: 0
 		}),
-		got.TimeoutError
+		{instanceOf: got.TimeoutError}
 	);
 });
 
@@ -187,7 +187,7 @@ test.serial('throws on incomplete (canceled) response - promise #2', withServerA
 		promise.cancel();
 	});
 
-	await t.throwsAsync(promise, got.CancelError);
+	await t.throwsAsync(promise, {instanceOf: got.CancelError});
 });
 
 test.serial('throws on incomplete (canceled) response - stream', withServerAndLolex, async (t, server, got, clock) => {
@@ -200,7 +200,7 @@ test.serial('throws on incomplete (canceled) response - stream', withServerAndLo
 		stream.destroy(new Error(errorString));
 	});
 
-	await t.throwsAsync(getStream(stream), errorString);
+	await t.throwsAsync(getStream(stream), {message: errorString});
 });
 
 // Note: it will throw, but the response is loaded already.
@@ -217,5 +217,5 @@ test('throws when canceling cached request', withServer, async (t, server, got) 
 		promise.cancel();
 	});
 
-	await t.throwsAsync(promise, got.CancelError);
+	await t.throwsAsync(promise, {instanceOf: got.CancelError});
 });

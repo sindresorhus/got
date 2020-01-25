@@ -20,7 +20,7 @@ const echoHeaders: Handler = (request, response) => {
 test('GET cannot have body', withServer, async (t, server, got) => {
 	server.post('/', defaultEndpoint);
 
-	await t.throwsAsync(got.get({body: 'hi'}), 'The `GET` method cannot be used with a body');
+	await t.throwsAsync(got.get({body: 'hi'}), {message: 'The `GET` method cannot be used with a body'});
 });
 
 test('invalid body', async t => {

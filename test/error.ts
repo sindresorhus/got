@@ -195,7 +195,7 @@ test('errors are thrown directly when options.stream is true', t => {
 
 test('normalization errors using convenience methods', async t => {
 	const url = 'undefined/https://example.com';
-	await t.throwsAsync(got(url).json().text().buffer(), `Invalid URL: ${url}`);
+	await t.throwsAsync(got(url).json().text().buffer(), {message: `Invalid URL: ${url}`});
 });
 
 // Fails randomly on Node 10:

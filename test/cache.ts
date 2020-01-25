@@ -111,7 +111,7 @@ test('cache error throws `got.CacheError`', withServer, async (t, server, got) =
 	const cache = {};
 
 	// @ts-ignore Error tests
-	await t.throwsAsync(got({cache}), got.CacheError);
+	await t.throwsAsync(got({cache}), {instanceOf: got.CacheError});
 });
 
 test('doesn\'t cache response when received HTTP error', withServer, async (t, server, got) => {

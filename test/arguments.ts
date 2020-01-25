@@ -95,7 +95,7 @@ test('throws an error when legacy URL is passed', withServer, async (t, server, 
 	await t.throwsAsync(
 		// @ts-ignore Error tests
 		got(parse(`${server.url}/test`)),
-		'The legacy `url.Url` is deprecated. Use `URL` instead.'
+		{message: 'The legacy `url.Url` is deprecated. Use `URL` instead.'}
 	);
 });
 
@@ -284,7 +284,7 @@ test('throws if cannot change `prefixUrl`', async t => {
 		]
 	});
 
-	await t.throwsAsync(instanceA(''), 'Cannot change `prefixUrl` from https://example.com/ to https://example.com: https://google.pl/');
+	await t.throwsAsync(instanceA(''), {message: 'Cannot change `prefixUrl` from https://example.com/ to https://example.com: https://google.pl/'});
 });
 
 test('throws if the `searchParams` value is invalid', async t => {
@@ -355,11 +355,11 @@ test('throws if `options.encoding` is `null`', async t => {
 	// @ts-ignore Error tests
 	await t.throwsAsync(got('https://example.com', {
 		encoding: null
-	}), 'To get a Buffer, set `options.responseType` to `buffer` instead');
+	}), {message: 'To get a Buffer, set `options.responseType` to `buffer` instead'});
 });
 
 test('`url` option and input argument are mutually exclusive', async t => {
 	await t.throwsAsync(got('https://example.com', {
 		url: 'https://example.com'
-	}), 'The `url` option cannot be used if the input is a valid URL.');
+	}), {message: 'The `url` option cannot be used if the input is a valid URL.'});
 });

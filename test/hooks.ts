@@ -53,7 +53,7 @@ test('catches init thrown errors', async t => {
 				throw error;
 			}]
 		}
-	}), errorString);
+	}), {message: errorString});
 });
 
 test('catches beforeRequest thrown errors', async t => {
@@ -63,7 +63,7 @@ test('catches beforeRequest thrown errors', async t => {
 				throw error;
 			}]
 		}
-	}), errorString);
+	}), {message: errorString});
 });
 
 test('catches beforeRedirect thrown errors', withServer, async (t, server, got) => {
@@ -76,7 +76,7 @@ test('catches beforeRedirect thrown errors', withServer, async (t, server, got) 
 				throw error;
 			}]
 		}
-	}), errorString);
+	}), {message: errorString});
 });
 
 test('catches beforeRetry thrown errors', withServer, async (t, server, got) => {
@@ -89,7 +89,7 @@ test('catches beforeRetry thrown errors', withServer, async (t, server, got) => 
 				throw error;
 			}]
 		}
-	}), errorString);
+	}), {message: errorString});
 });
 
 test('catches afterResponse thrown errors', withServer, async (t, server, got) => {
@@ -101,7 +101,7 @@ test('catches afterResponse thrown errors', withServer, async (t, server, got) =
 				throw error;
 			}]
 		}
-	}), errorString);
+	}), {message: errorString});
 });
 
 test('throws a helpful error when passing async function as init hook', async t => {
@@ -109,7 +109,7 @@ test('throws a helpful error when passing async function as init hook', async t 
 		hooks: {
 			init: [async () => {}]
 		}
-	}), 'The `init` hook must be a synchronous function');
+	}), {message: 'The `init` hook must be a synchronous function'});
 });
 
 test('catches beforeRequest promise rejections', async t => {
@@ -121,7 +121,7 @@ test('catches beforeRequest promise rejections', async t => {
 				}
 			]
 		}
-	}), errorString);
+	}), {message: errorString});
 });
 
 test('catches beforeRedirect promise rejections', withServer, async (t, server, got) => {
@@ -135,7 +135,7 @@ test('catches beforeRedirect promise rejections', withServer, async (t, server, 
 				}
 			]
 		}
-	}), errorString);
+	}), {message: errorString});
 });
 
 test('catches beforeRetry promise rejections', withServer, async (t, server, got) => {
@@ -149,7 +149,7 @@ test('catches beforeRetry promise rejections', withServer, async (t, server, got
 				}
 			]
 		}
-	}), errorString);
+	}), {message: errorString});
 });
 
 test('catches afterResponse promise rejections', withServer, async (t, server, got) => {
@@ -163,7 +163,7 @@ test('catches afterResponse promise rejections', withServer, async (t, server, g
 				}
 			]
 		}
-	}), errorString);
+	}), {message: errorString});
 });
 
 test('catches beforeError errors', async t => {
@@ -180,7 +180,7 @@ test('catches beforeError errors', async t => {
 				}
 			]
 		}
-	}), errorString);
+	}), {message: errorString});
 });
 
 test('init is called with options', withServer, async (t, server, got) => {
@@ -572,7 +572,7 @@ test('throwing in a beforeError hook - promise', withServer, async (t, server, g
 				}
 			]
 		}
-	}), 'foobar');
+	}), {message: 'foobar'});
 });
 
 test('throwing in a beforeError hook - stream', withServer, async (t, _server, got) => {
@@ -588,7 +588,7 @@ test('throwing in a beforeError hook - stream', withServer, async (t, _server, g
 				}
 			]
 		}
-	})), 'foobar');
+	})), {message: 'foobar'});
 });
 
 test('beforeError is called with an error - promise', withServer, async (t, server, got) => {
@@ -608,7 +608,7 @@ test('beforeError is called with an error - promise', withServer, async (t, serv
 				return error2;
 			}]
 		}
-	}), errorString);
+	}), {message: errorString});
 });
 
 test('beforeError is called with an error - stream', withServer, async (t, _server, got) => {
@@ -619,7 +619,7 @@ test('beforeError is called with an error - stream', withServer, async (t, _serv
 				return error2;
 			}]
 		}
-	})), 'Response code 404 (Not Found)');
+	})), {message: 'Response code 404 (Not Found)'});
 });
 
 test('beforeError allows modifications', async t => {
@@ -634,7 +634,7 @@ test('beforeError allows modifications', async t => {
 				return new Error(errorString2);
 			}]
 		}
-	}), errorString2);
+	}), {message: errorString2});
 });
 
 test('does not break on `afterResponse` hook with JSON mode', withServer, async (t, server, got) => {
@@ -686,5 +686,5 @@ test('timeout can be modified using a hook', withServer, async (t, server, got) 
 			]
 		},
 		retry: 0
-	}), 'Timeout awaiting \'request\' for 500ms');
+	}), {message: 'Timeout awaiting \'request\' for 500ms'});
 });

@@ -8,21 +8,27 @@ test('`path` and `pathname` are mutually exclusive', t => {
 	t.throws(() => {
 		// @ts-ignore Error tests
 		optionsToUrl({path: 'a', pathname: 'a'});
-	}, 'Parameters `path` and `pathname` are mutually exclusive.');
+	}, {
+		message: 'Parameters `path` and `pathname` are mutually exclusive.'
+	});
 });
 
 test('`path` and `search` are mutually exclusive', t => {
 	t.throws(() => {
 		// @ts-ignore Error tests
 		optionsToUrl({path: 'a', search: 'a'});
-	}, 'Parameters `path` and `search` are mutually exclusive.');
+	}, {
+		message: 'Parameters `path` and `search` are mutually exclusive.'
+	});
 });
 
 test('`path` and `searchParams` are mutually exclusive', t => {
 	t.throws(() => {
 		// @ts-ignore Error tests
 		optionsToUrl({path: 'a', searchParams: {}});
-	}, 'Parameters `path` and `searchParams` are mutually exclusive.');
+	}, {
+		message: 'Parameters `path` and `searchParams` are mutually exclusive.'
+	});
 });
 
 test('`path` option', t => {
@@ -43,14 +49,18 @@ test('`auth` is deprecated', t => {
 	t.throws(() => {
 		// @ts-ignore Error tests
 		optionsToUrl({auth: ''});
-	}, 'Parameter `auth` is deprecated. Use `username` / `password` instead.');
+	}, {
+		message: 'Parameter `auth` is deprecated. Use `username` / `password` instead.'
+	});
 });
 
 test('`search` and `searchParams` are mutually exclusive', t => {
 	t.throws(() => {
 		// @ts-ignore Error tests
 		optionsToUrl({search: 'a', searchParams: {}});
-	}, 'Parameters `search` and `searchParams` are mutually exclusive.');
+	}, {
+		message: 'Parameters `search` and `searchParams` are mutually exclusive.'
+	});
 });
 
 test('`href` option', t => {
@@ -68,7 +78,9 @@ test('`origin` option', t => {
 test('throws if no protocol specified', t => {
 	t.throws(() => {
 		optionsToUrl({});
-	}, 'No URL protocol specified');
+	}, {
+		message: 'No URL protocol specified'
+	});
 });
 
 test('`port` option', t => {

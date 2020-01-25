@@ -82,7 +82,7 @@ test('throws on endless redirects - default behavior', withServer, async (t, ser
 		response.end();
 	});
 
-	const error = await t.throwsAsync<MaxRedirectsError>(got(''), 'Redirected 10 times. Aborting.');
+	const error = await t.throwsAsync<MaxRedirectsError>(got(''), {message: 'Redirected 10 times. Aborting.'});
 
 	t.deepEqual(error.response.redirectUrls, new Array(10).fill(`${server.url}/`));
 });
@@ -95,7 +95,7 @@ test('custom `maxRedirects` option', withServer, async (t, server, got) => {
 		response.end();
 	});
 
-	const error = await t.throwsAsync<MaxRedirectsError>(got('', {maxRedirects: 5}), 'Redirected 5 times. Aborting.');
+	const error = await t.throwsAsync<MaxRedirectsError>(got('', {maxRedirects: 5}), {message: 'Redirected 5 times. Aborting.'});
 
 	t.deepEqual(error.response.redirectUrls, new Array(5).fill(`${server.url}/`));
 });
