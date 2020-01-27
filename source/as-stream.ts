@@ -1,5 +1,4 @@
 import duplexer3 = require('duplexer3');
-import stream = require('stream');
 import {IncomingMessage, ServerResponse} from 'http';
 import {Duplex as DuplexStream, PassThrough as PassThroughStream} from 'stream';
 import {HTTPError, ReadError} from './errors';
