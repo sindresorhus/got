@@ -77,15 +77,14 @@ export default function asStream<T>(options: NormalizedOptions): ProxyStream<T> 
 			proxy.setEncoding(options.encoding);
 		}
 
-		stream.pipeline(
-			response,
-			output,
-			error => {
-				if (error && error.message !== 'Premature close') {
-					emitError(new ReadError(error, options));
-				}
-			}
-		);
+
+		// We cannot use `stream.pipeline(...)` here,
+		// because if we did then `output` would throw
+		// the original error before throwing `ReadError`.
+		response.pipe(output);
+		response.once('error', error => {
+			emitError(new ReadError(error, options));
+		});
 
 		for (const destination of piped) {
 			if (destination.headersSent) {
