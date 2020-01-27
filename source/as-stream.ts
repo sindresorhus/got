@@ -76,7 +76,6 @@ export default function asStream<T>(options: NormalizedOptions): ProxyStream<T> 
 			proxy.setEncoding(options.encoding);
 		}
 
-
 		// We cannot use `stream.pipeline(...)` here,
 		// because if we did then `output` would throw
 		// the original error before throwing `ReadError`.
