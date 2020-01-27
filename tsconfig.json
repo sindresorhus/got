@@ -5,12 +5,6 @@
 		"target": "es2018", // Node.js 10
 		"lib": [
 			"es2018"
-		],
-		// This is done to make ts-node load declaration files
-		"typeRoots": [
-			"./node_modules/@types",
-			"./source/types",
-			"./test/types"
 		]
 	},
 	"include": [
