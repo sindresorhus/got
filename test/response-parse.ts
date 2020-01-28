@@ -128,6 +128,7 @@ test('parse errors have `response` property', withServer, async (t, server, got)
 	const error = await t.throwsAsync<ParseError>(got({responseType: 'json'}), {instanceOf: ParseError});
 
 	t.is(error.response.statusCode, 200);
+	t.is(error.response.body, '/');
 });
 
 test('sets correct headers', withServer, async (t, server, got) => {
