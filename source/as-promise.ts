@@ -83,14 +83,14 @@ export default function asPromise<T>(options: NormalizedOptions): CancelableRequ
 			try {
 				response.body = parseBody(body, options.responseType, options.encoding);
 			} catch (error) {
+				// Fall back to `utf8`
+				response.body = body.toString();
+
 				if (isOk()) {
 					const parseError = new ParseError(error, response, options);
 					emitError(parseError);
 					return;
 				}
-
-				// Fall back to `utf8`
-				response.body = body.toString();
 			}
 
 			try {
