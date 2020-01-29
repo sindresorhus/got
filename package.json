@@ -44,7 +44,7 @@
 		"@sindresorhus/is": "^1.0.0",
 		"@szmarczak/http-timer": "^4.0.0",
 		"@types/cacheable-request": "^6.0.1",
-		"cacheable-lookup": "^0.2.1",
+		"cacheable-lookup": "^1.0.0",
 		"cacheable-request": "^7.0.1",
 		"decompress-response": "^5.0.0",
 		"duplexer3": "^0.1.4",
