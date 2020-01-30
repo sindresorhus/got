@@ -1,7 +1,7 @@
 <div align="center">
 	<br>
 	<br>
-	<img width="360" src="media/logo.svg" alt="Got">
+	<img width="360" src="https://raw.githubusercontent.com/sindresorhus/got/master/media/logo.svg" alt="Got">
 	<br>
 	<br>
 	<br>
