@@ -44,7 +44,7 @@
 		"@sindresorhus/is": "^1.0.0",
 		"@szmarczak/http-timer": "^4.0.0",
 		"@types/cacheable-request": "^6.0.1",
-		"cacheable-lookup": "^1.0.0",
+		"cacheable-lookup": "^2.0.0",
 		"cacheable-request": "^7.0.1",
 		"decompress-response": "^5.0.0",
 		"duplexer3": "^0.1.4",
@@ -57,7 +57,7 @@
 		"type-fest": "^0.9.0"
 	},
 	"devDependencies": {
-		"@ava/typescript": "^1.0.0",
+		"@ava/typescript": "^1.1.0",
 		"@sindresorhus/tsconfig": "^0.7.0",
 		"@types/duplexer3": "^0.1.0",
 		"@types/express": "^4.17.2",
@@ -68,7 +68,7 @@
 		"@types/tough-cookie": "^2.3.5",
 		"@typescript-eslint/eslint-plugin": "^2.17.0",
 		"@typescript-eslint/parser": "^2.17.0",
-		"ava": "^3.1.0",
+		"ava": "^3.2.0",
 		"coveralls": "^3.0.4",
 		"create-test-server": "^3.0.1",
 		"del-cli": "^3.0.0",
@@ -101,7 +101,6 @@
 		"files": [
 			"test/*"
 		],
-		"concurrency": 4,
 		"timeout": "1m",
 		"typescript": {
 			"rewritePaths": {
@@ -112,6 +111,9 @@
 	"nyc": {
 		"extension": [
 			".ts"
+		],
+		"exclude": [
+			"**/test/**"
 		]
 	},
 	"xo": {
