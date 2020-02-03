@@ -1,6 +1,7 @@
 import {promisify} from 'util';
 import http = require('http');
 import stream = require('stream');
+import * as fs from 'fs';
 import test from 'ava';
 import proxyquire = require('proxyquire');
 import got, {GotError, HTTPError} from '../source';
@@ -213,4 +214,10 @@ test.skip('the old stacktrace is recovered', async t => {
 	// The first `at get` points to where the error was wrapped,
 	// the second `at get` points to the real cause.
 	t.not(error.stack!.indexOf('at get'), error.stack!.lastIndexOf('at get'));
+});
+
+test('error from file stream', async t => {
+	await t.throwsAsync(got.put('https://example.com', {
+		body: fs.createReadStream('./no-file.txt')
+	}));
 });
