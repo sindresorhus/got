@@ -669,7 +669,9 @@ Checks whether the item should be emitted or not.
 Type: `Function`\
 Default: `(item, allItems) => true`
 
-Checks whether the pagination should continue. For example, if you need to stop **before** emitting an entry with some flag, you should use `(item, allItems) => !item.flag`. If you want to stop **after** emitting the entry, you should use `(item, allItems) => allItems.some(entry => entry.flag)` instead.
+Checks whether the pagination should continue.\
+For example, if you need to stop **before** emitting an entry with some flag, you should use `(item, allItems) => !item.flag`.\
+If you want to stop **after** emitting the entry, you should use `(item, allItems) => allItems.some(entry => entry.flag)` instead.
 
 ###### _pagination.countLimit
 
