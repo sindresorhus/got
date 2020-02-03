@@ -637,34 +637,34 @@ got('https://api.github.com/some-endpoint', {
 });
 ```
 
-##### _pagination
+##### \_pagination
 
 Type: `Object`
 
 **Note:** This feature is experimental, although it's fairly stable to use.
 
-###### _pagination.transform
+###### \_pagination.transform
 
 Type: `Function`\
 Default: `response => JSON.parse(response.body)`
 
 A function that transform [Response](#response) into an array of items. This is where you should do the parsing.
 
-###### _pagination.paginate
+###### \_pagination.paginate
 
 Type: `Function`\
 Default: [`Link` header logic](source/index.ts)
 
 A function that returns an object representing Got options pointing to the next page. If there are no more pages, `false` should be returned.
 
-###### _pagination.filter
+###### \_pagination.filter
 
 Type: `Function`\
 Default: `(item, allItems) => true`
 
 Checks whether the item should be emitted or not.
 
-###### _pagination.shouldContinue
+###### \_pagination.shouldContinue
 
 Type: `Function`\
 Default: `(item, allItems) => true`
@@ -673,7 +673,7 @@ Checks whether the pagination should continue.\
 For example, if you need to stop **before** emitting an entry with some flag, you should use `(item, allItems) => !item.flag`.\
 If you want to stop **after** emitting the entry, you should use `(item, allItems) => allItems.some(entry => entry.flag)` instead.
 
-###### _pagination.countLimit
+###### \_pagination.countLimit
 
 Type: `number`\
 Default: `Infinity`
