@@ -88,9 +88,11 @@ const defaults: Defaults = {
 					}
 				}
 
-				const options: GotOptions = {url: new URL(next!)};
-
 				if (next) {
+					const options: GotOptions = {
+						url: new URL(next)
+					};
+
 					return options;
 				}
 

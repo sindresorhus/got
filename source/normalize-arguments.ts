@@ -210,19 +210,19 @@ export const preNormalizeArguments = (options: Options, defaults?: NormalizedOpt
 		const pagination = options._pagination!;
 
 		if (!is.function_(pagination.transform)) {
-			throw new Error('`options.pagination.transform` must be implemented');
+			throw new Error('`options._pagination.transform` must be implemented');
 		}
 
 		if (!is.function_(pagination.shouldContinue)) {
-			throw new Error('`options.pagination.shouldContinue` must be implemented');
+			throw new Error('`options._pagination.shouldContinue` must be implemented');
 		}
 
 		if (!is.function_(pagination.filter)) {
-			throw new Error('`options.pagination.filter` must be implemented');
+			throw new Error('`options._pagination.filter` must be implemented');
 		}
 
 		if (!is.function_(pagination.paginate)) {
-			throw new Error('`options.pagination.paginate` must be implemented');
+			throw new Error('`options._pagination.paginate` must be implemented');
 		}
 	}
 

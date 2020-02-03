@@ -157,7 +157,7 @@ test('throws if no `pagination` option', async t => {
 	});
 
 	await t.throwsAsync(iterator.next(), {
-		message: '`options.pagination` must be implemented'
+		message: '`options._pagination` must be implemented'
 	});
 });
 
@@ -168,7 +168,7 @@ test('throws if the `pagination` option does not have `transform` property', asy
 	});
 
 	await t.throwsAsync(iterator.next(), {
-		message: '`options.pagination.transform` must be implemented'
+		message: '`options._pagination.transform` must be implemented'
 	});
 });
 
@@ -182,7 +182,7 @@ test('throws if the `pagination` option does not have `shouldContinue` property'
 	});
 
 	await t.throwsAsync(iterator.next(), {
-		message: '`options.pagination.shouldContinue` must be implemented'
+		message: '`options._pagination.shouldContinue` must be implemented'
 	});
 });
 
@@ -197,7 +197,7 @@ test('throws if the `pagination` option does not have `filter` property', async 
 	});
 
 	await t.throwsAsync(iterator.next(), {
-		message: '`options.pagination.filter` must be implemented'
+		message: '`options._pagination.filter` must be implemented'
 	});
 });
 
@@ -213,6 +213,6 @@ test('throws if the `pagination` option does not have `paginate` property', asyn
 	});
 
 	await t.throwsAsync(iterator.next(), {
-		message: '`options.pagination.paginate` must be implemented'
+		message: '`options._pagination.paginate` must be implemented'
 	});
 });
