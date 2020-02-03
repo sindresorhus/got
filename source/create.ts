@@ -210,13 +210,17 @@ const create = (defaults: Defaults): Got => {
 
 			for (const item of parsed) {
 				if (pagination.filter!(item, all)) {
+					if (!pagination.shouldContinue!(item, all)) {
+						return;
+					}
+
 					yield item;
 
 					all.push(item as T);
-				}
 
-				if (!pagination.shouldContinue!(all) || all.length === pagination.countLimit) {
-					return;
+					if (all.length === pagination.countLimit) {
+						return;
+					}
 				}
 			}
 
@@ -226,7 +230,9 @@ const create = (defaults: Defaults): Got => {
 				return;
 			}
 
-			normalizedOptions = normalizeArguments(normalizedOptions, optionsToMerge) as NormalizedOptions & PaginationOptions<T>;
+			if (optionsToMerge !== undefined) {
+				normalizedOptions = normalizeArguments(normalizedOptions, optionsToMerge) as NormalizedOptions & PaginationOptions<T>;
+			}
 		}
 	};
 

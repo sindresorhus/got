@@ -128,7 +128,7 @@ test('`shouldContinue` works', withServer, async (t, server, got) => {
 		results.push(item);
 	}
 
-	t.deepEqual(results, [1]);
+	t.deepEqual(results, []);
 });
 
 test('`countLimit` works', withServer, async (t, server, got) => {
