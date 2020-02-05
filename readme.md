@@ -246,7 +246,7 @@ Default: `'text'`
 
 The parsing method. Can be `'text'`, `'json'` or `'buffer'`.
 
-The promise has also `.text()`, `.json()` and `.buffer()` methods which set this option automatically.
+The promise also has `.text()`, `.json()` and `.buffer()` methods which sets this and the `resolveBodyOnly` option automatically.
 
 Example:
 
@@ -255,7 +255,7 @@ Example:
 const body = await got(url).json();
 
 // is the same as this
-const body = await got(url, {responseType: 'json'});
+const body = await got(url, {responseType: 'json', resolveBodyOnly: true});
 ```
 
 ###### resolveBodyOnly
