@@ -255,7 +255,7 @@ Example:
 const body = await got(url).json();
 
 // is the same as this
-const body = await got(url, {responseType: 'json'});
+const {body} = await got(url, {responseType: 'json'});
 ```
 
 ###### resolveBodyOnly
