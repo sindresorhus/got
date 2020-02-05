@@ -246,7 +246,7 @@ Default: `'text'`
 
 The parsing method. Can be `'text'`, `'json'` or `'buffer'`.
 
-The promise has also `.text()`, `.json()` and `.buffer()` methods which set this option and `resolveBodyOnly` automatically.
+The promise also has `.text()`, `.json()` and `.buffer()` methods which set this and the `resolveBodyOnly` option automatically.
 
 Example:
 
