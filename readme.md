@@ -639,16 +639,16 @@ got('https://api.github.com/some-endpoint', {
 
 ##### \_pagination
 
-Type: `Object`
+Type: `object`
 
-**Note:** This feature is experimental, although it's fairly stable to use.
+**Note:** This feature is marked as experimental as we're [looking for feedback](https://github.com/sindresorhus/got/issues/1052) on the API and how it works. The feature itself is stable, but the API may change based on feedback. So if you decide to try it out, we suggest locking down the `got` dependency semver range or use a lockfile.
 
 ###### \_pagination.transform
 
 Type: `Function`\
 Default: `response => JSON.parse(response.body)`
 
-A function that transform [Response](#response) into an array of items. This is where you should do the parsing.
+A function that transform [`Response`](#response) into an array of items. This is where you should do the parsing.
 
 ###### \_pagination.paginate
 
@@ -669,16 +669,16 @@ Checks whether the item should be emitted or not.
 Type: `Function`\
 Default: `(item, allItems) => true`
 
-Checks whether the pagination should continue.\
-For example, if you need to stop **before** emitting an entry with some flag, you should use `(item, allItems) => !item.flag`.\
-If you want to stop **after** emitting the entry, you should use `(item, allItems) => allItems.some(entry => entry.flag)` instead.
+Checks whether the pagination should continue.
+
+For example, if you need to stop **before** emitting an entry with some flag, you should use `(item, allItems) => !item.flag`. If you want to stop **after** emitting the entry, you should use `(item, allItems) => allItems.some(entry => entry.flag)` instead.
 
 ###### \_pagination.countLimit
 
 Type: `number`\
 Default: `Infinity`
 
-An amount of how many items should be emitted at maximum.
+The maximum amount of items that should be emitted.
 
 #### Response
 
@@ -839,6 +839,7 @@ Returns an async iterator:
 ```js
 (async () => {
 	const countLimit = 10;
+
 	const pagination = got.paginate('https://api.github.com/repos/sindresorhus/got/commits', {
 		_pagination: {countLimit}
 	});
