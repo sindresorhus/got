@@ -1,7 +1,10 @@
 import {promisify} from 'util';
 import stream = require('stream');
+import fs = require('fs');
 import test from 'ava';
+import delay = require('delay');
 import {Handler} from 'express';
+import getStream = require('get-stream');
 import toReadableStream = require('to-readable-stream');
 import got from '../source';
 import withServer from './helpers/with-server';
@@ -270,4 +273,30 @@ test('DELETE method sends plain objects as JSON', withServer, async (t, server, 
 		responseType: 'json'
 	});
 	t.deepEqual(body, {such: 'wow'});
+});
+
+test('catches body errors before calling pipeline() - promise', withServer, async (t, server, got) => {
+	server.post('/', defaultEndpoint);
+
+	await t.throwsAsync(got.post({
+		body: fs.createReadStream('./file-that-does-not-exist.txt')
+	}), {
+		message: /ENOENT: no such file or directory/
+	});
+
+	// Wait for unhandled errors
+	await delay(100);
+});
+
+test('catches body errors before calling pipeline() - stream', withServer, async (t, server, got) => {
+	server.post('/', defaultEndpoint);
+
+	await t.throwsAsync(getStream(got.stream.post({
+		body: fs.createReadStream('./file-that-does-not-exist.txt')
+	})), {
+		message: /ENOENT: no such file or directory/
+	});
+
+	// Wait for unhandled errors
+	await delay(100);
 });
