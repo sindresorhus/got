@@ -1558,7 +1558,7 @@ Some of the Got features may not work properly. See [#899](https://github.com/si
 \* It's almost API compatible with the browser `fetch` API.\
 \*\* Need to switch the protocol manually. Doesn't accept PUSH streams and doesn't reuse HTTP/2 sessions.\
 \*\*\* Currently, only `DownloadProgress` event is supported, `UploadProgress` event is not supported.\
-:sparkle: Experimental feature. Don't hestitate to try it out!\
+:sparkle: Almost-stable feature, but the API may change. Don't hestitate to try it out!\
 :grey_question: Feature in early stage of development. Very experimental.
 
 <!-- GITHUB -->
