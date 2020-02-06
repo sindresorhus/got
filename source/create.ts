@@ -1,3 +1,4 @@
+import {Readable} from 'stream';
 import {Merge} from 'type-fest';
 import is from '@sindresorhus/is';
 import asPromise, {createRejection} from './as-promise';
@@ -99,7 +100,29 @@ const aliases: readonly HTTPAlias[] = [
 	'delete'
 ];
 
-export const defaultHandler: HandlerFunction = (options, next) => next(options);
+export const defaultHandler: HandlerFunction = (options, next) => {
+	const result = next(options);
+
+	if (is.nodeStream(options.body)) {
+		const errorHandler = (error: Error): void => {
+			if (options.isStream) {
+				(result as ProxyStream).destroy(error);
+				return;
+			}
+
+			(result as CancelableRequest<unknown>).cancel(error.message);
+		};
+
+		options.body.once('error', errorHandler);
+
+		// @ts-ignore Each member of the union type '...' has signatures, but none of those signatures are compatible with each other
+		result.on('request', () => {
+			(options.body as Readable).off('error', errorHandler);
+		});
+	}
+
+	return result;
+};
 
 const create = (defaults: Defaults): Got => {
 	// Proxy properties from next handlers
@@ -167,10 +190,7 @@ const create = (defaults: Defaults): Got => {
 		}
 
 		handlers = handlers.filter(handler => handler !== defaultHandler);
-
-		if (handlers.length === 0) {
-			handlers.push(defaultHandler);
-		}
+		handlers.push(defaultHandler);
 
 		return create({
 			options: mergeOptions(...optionsArray) as DefaultOptions,
