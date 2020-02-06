@@ -1,4 +1,5 @@
 import {Merge} from 'type-fest';
+import is from '@sindresorhus/is';
 import asPromise, {createRejection} from './as-promise';
 import asStream, {ProxyStream} from './as-stream';
 import * as errors from './errors';
@@ -13,7 +14,8 @@ import {
 	NormalizedOptions,
 	Options,
 	Response,
-	URLOrOptions
+	URLOrOptions,
+	PaginationOptions
 } from './types';
 
 export type HTTPAlias =
@@ -48,17 +50,25 @@ export interface GotRequestMethod {
 	(url: string | OptionsOfTextResponseBody, options?: OptionsOfTextResponseBody): CancelableRequest<Response<string>>;
 	<T>(url: string | OptionsOfJSONResponseBody, options?: OptionsOfJSONResponseBody): CancelableRequest<Response<T>>;
 	(url: string | OptionsOfBufferResponseBody, options?: OptionsOfBufferResponseBody): CancelableRequest<Response<Buffer>>;
+
 	// `resolveBodyOnly` usage
 	<T = string>(url: string | Merge<OptionsOfDefaultResponseBody, ResponseBodyOnly>, options?: Merge<OptionsOfDefaultResponseBody, ResponseBodyOnly>): CancelableRequest<T>;
 	(url: string | Merge<OptionsOfTextResponseBody, ResponseBodyOnly>, options?: Merge<OptionsOfTextResponseBody, ResponseBodyOnly>): CancelableRequest<string>;
 	<T>(url: string | Merge<OptionsOfJSONResponseBody, ResponseBodyOnly>, options?: Merge<OptionsOfJSONResponseBody, ResponseBodyOnly>): CancelableRequest<T>;
 	(url: string | Merge<OptionsOfBufferResponseBody, ResponseBodyOnly>, options?: Merge<OptionsOfBufferResponseBody, ResponseBodyOnly>): CancelableRequest<Buffer>;
+
 	// `asStream` usage
 	<T>(url: string | Merge<Options, {isStream: true}>, options?: Merge<Options, {isStream: true}>): ProxyStream<T>;
 }
 
+export interface GotPaginate {
+	<T>(url: URLOrOptions & PaginationOptions<T>, options?: Options & PaginationOptions<T>): AsyncIterableIterator<T>;
+	all<T>(url: URLOrOptions & PaginationOptions<T>, options?: Options & PaginationOptions<T>): Promise<T[]>;
+}
+
 export interface Got extends Record<HTTPAlias, GotRequestMethod>, GotRequestMethod {
 	stream: GotStream;
+	paginate: GotPaginate;
 	defaults: Defaults;
 	GotError: typeof errors.GotError;
 	CacheError: typeof errors.CacheError;
@@ -177,6 +187,64 @@ const create = (defaults: Defaults): Got => {
 		got[method] = (url: URLOrOptions, options?: Options): GotReturn => got(url, {...options, method});
 		got.stream[method] = (url, options) => got.stream(url, {...options, method});
 	}
+
+	// @ts-ignore The missing property is added below
+	got.paginate = async function * <T>(url: URLOrOptions & PaginationOptions<T>, options?: Options & PaginationOptions<T>) {
+		let normalizedOptions = normalizeArguments(url, options, defaults) as NormalizedOptions & PaginationOptions<T>;
+
+		const pagination = normalizedOptions._pagination!;
+
+		if (!is.object(pagination)) {
+			throw new Error('`options._pagination` must be implemented');
+		}
+
+		const all: T[] = [];
+
+		while (true) {
+			// @ts-ignore See https://github.com/sindresorhus/got/issues/954
+			// eslint-disable-next-line no-await-in-loop
+			const result = await got(normalizedOptions);
+
+			// eslint-disable-next-line no-await-in-loop
+			const parsed = await pagination.transform!(result);
+
+			for (const item of parsed) {
+				if (pagination.filter!(item, all)) {
+					if (!pagination.shouldContinue!(item, all)) {
+						return;
+					}
+
+					yield item;
+
+					all.push(item as T);
+
+					if (all.length === pagination.countLimit) {
+						return;
+					}
+				}
+			}
+
+			const optionsToMerge = pagination.paginate!(result);
+
+			if (optionsToMerge === false) {
+				return;
+			}
+
+			if (optionsToMerge !== undefined) {
+				normalizedOptions = normalizeArguments(normalizedOptions, optionsToMerge) as NormalizedOptions & PaginationOptions<T>;
+			}
+		}
+	};
+
+	got.paginate.all = async <T>(url: URLOrOptions & PaginationOptions<T>, options?: Options & PaginationOptions<T>) => {
+		const results: T[] = [];
+
+		for await (const item of got.paginate<T>(url, options)) {
+			results.push(item);
+		}
+
+		return results;
+	};
 
 	Object.assign(got, {...errors, mergeOptions});
 	Object.defineProperty(got, 'defaults', {

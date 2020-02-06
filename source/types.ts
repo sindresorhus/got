@@ -135,6 +135,7 @@ export type DefaultOptions = Merge<
 			'retry' |
 			'timeout' |
 			'context' |
+			'_pagination' |
 
 			// Should not be present
 			'agent' |
@@ -154,11 +155,22 @@ export type DefaultOptions = Merge<
 		retry: DefaultRetryOptions;
 		timeout: Delays;
 		context: {[key: string]: any};
+		_pagination?: PaginationOptions<unknown>['_pagination'];
 	}
 >;
 /* eslint-enable @typescript-eslint/indent */
 
-export interface GotOptions {
+export interface PaginationOptions<T> {
+	_pagination?: {
+		transform?: (response: Response) => Promise<T[]> | T[];
+		filter?: (item: T, allItems: T[]) => boolean;
+		paginate?: (response: Response) => Options | false;
+		shouldContinue?: (item: T, allItems: T[]) => boolean;
+		countLimit?: number;
+	};
+}
+
+export interface GotOptions extends PaginationOptions<unknown> {
 	[requestSymbol]?: RequestFunction;
 	url?: URL | string;
 	body?: string | Buffer | ReadableStream;
@@ -206,6 +218,7 @@ export interface NormalizedOptions extends Options {
 	cacheableRequest?: (options: string | URL | http.RequestOptions, callback?: (response: http.ServerResponse | ResponseLike) => void) => CacheableRequest.Emitter;
 	cookieJar?: PromiseCookieJar;
 	maxRedirects: number;
+	pagination?: Required<PaginationOptions<unknown>['_pagination']>;
 	[requestSymbol]: RequestFunction;
 
 	// Other values

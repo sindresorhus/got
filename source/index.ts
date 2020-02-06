@@ -1,5 +1,6 @@
+import {URL} from 'url';
 import create, {defaultHandler} from './create';
-import {Defaults} from './types';
+import {Defaults, Response, GotOptions} from './types';
 
 const defaults: Defaults = {
 	options: {
@@ -64,7 +65,43 @@ const defaults: Defaults = {
 		prefixUrl: '',
 		methodRewriting: true,
 		ignoreInvalidCookies: false,
-		context: {}
+		context: {},
+		_pagination: {
+			transform: (response: Response) => {
+				return JSON.parse(response.body as string);
+			},
+			paginate: response => {
+				if (!Reflect.has(response.headers, 'link')) {
+					return false;
+				}
+
+				const items = (response.headers.link as string).split(',');
+
+				let next: string | undefined;
+				for (const item of items) {
+					const parsed = item.split(';');
+
+					if (parsed[1].includes('next')) {
+						next = parsed[0].trimStart().trim();
+						next = next.slice(1, -1);
+						break;
+					}
+				}
+
+				if (next) {
+					const options: GotOptions = {
+						url: new URL(next)
+					};
+
+					return options;
+				}
+
+				return false;
+			},
+			filter: () => true,
+			shouldContinue: () => true,
+			countLimit: Infinity
+		}
 	},
 	handlers: [defaultHandler],
 	mutableDefaults: false

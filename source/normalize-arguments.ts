@@ -170,7 +170,7 @@ export const preNormalizeArguments = (options: Options, defaults?: NormalizedOpt
 		// Horrible `tough-cookie` check
 		if (setCookie.length === 4 && getCookieString.length === 0) {
 			if (!Reflect.has(setCookie, promisify.custom)) {
-				// @ts-ignore TS is dumb.
+				// @ts-ignore TS is dumb - it says `setCookie` is `never`.
 				setCookie = promisify(setCookie.bind(options.cookieJar));
 				getCookieString = promisify(getCookieString.bind(options.cookieJar));
 			}
@@ -196,6 +196,34 @@ export const preNormalizeArguments = (options: Options, defaults?: NormalizedOpt
 	// Merge defaults
 	if (defaults) {
 		options = merge({}, defaults, options);
+	}
+
+	// `options._pagination`
+	if (is.object(options._pagination)) {
+		if (defaults && !(Reflect.has(options, 'pagination') && is.undefined(options._pagination))) {
+			options._pagination = {
+				...defaults.pagination,
+				...options._pagination
+			};
+		}
+
+		const pagination = options._pagination!;
+
+		if (!is.function_(pagination.transform)) {
+			throw new Error('`options._pagination.transform` must be implemented');
+		}
+
+		if (!is.function_(pagination.shouldContinue)) {
+			throw new Error('`options._pagination.shouldContinue` must be implemented');
+		}
+
+		if (!is.function_(pagination.filter)) {
+			throw new Error('`options._pagination.filter` must be implemented');
+		}
+
+		if (!is.function_(pagination.paginate)) {
+			throw new Error('`options._pagination.paginate` must be implemented');
+		}
 	}
 
 	// Other values

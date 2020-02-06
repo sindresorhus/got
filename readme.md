@@ -26,7 +26,9 @@ For browser usage, we recommend [Ky](https://github.com/sindresorhus/ky) by the 
 
 ## Highlights
 
-- [Promise & stream API](#api)
+- [Promise API](#api)
+- [Stream API](#streams)
+- [Pagination API (experimental)](#pagination)
 - [Request cancelation](#aborting-the-request)
 - [RFC compliant caching](#cache-adapters)
 - [Follows redirects](#followredirect)
@@ -635,6 +637,49 @@ got('https://api.github.com/some-endpoint', {
 });
 ```
 
+##### \_pagination
+
+Type: `object`
+
+**Note:** This feature is marked as experimental as we're [looking for feedback](https://github.com/sindresorhus/got/issues/1052) on the API and how it works. The feature itself is stable, but the API may change based on feedback. So if you decide to try it out, we suggest locking down the `got` dependency semver range or use a lockfile.
+
+###### \_pagination.transform
+
+Type: `Function`\
+Default: `response => JSON.parse(response.body)`
+
+A function that transform [`Response`](#response) into an array of items. This is where you should do the parsing.
+
+###### \_pagination.paginate
+
+Type: `Function`\
+Default: [`Link` header logic](source/index.ts)
+
+A function that returns an object representing Got options pointing to the next page. If there are no more pages, `false` should be returned.
+
+###### \_pagination.filter
+
+Type: `Function`\
+Default: `(item, allItems) => true`
+
+Checks whether the item should be emitted or not.
+
+###### \_pagination.shouldContinue
+
+Type: `Function`\
+Default: `(item, allItems) => true`
+
+Checks whether the pagination should continue.
+
+For example, if you need to stop **before** emitting an entry with some flag, you should use `(item, allItems) => !item.flag`. If you want to stop **after** emitting the entry, you should use `(item, allItems) => allItems.some(entry => entry.flag)` instead.
+
+###### \_pagination.countLimit
+
+Type: `number`\
+Default: `Infinity`
+
+The maximum amount of items that should be emitted.
+
 #### Response
 
 The response object will typically be a [Node.js HTTP response stream](https://nodejs.org/api/http.html#http_class_http_incomingmessage), however, if returned from the cache it will be a [response-like object](https://github.com/lukechilds/responselike) which behaves in the same way.
@@ -784,6 +829,30 @@ If it's not possible to retrieve the body size (can happen when streaming), `tot
 ##### .on('error', error, body, response)
 
 The `error` event emitted in case of a protocol error (like `ENOTFOUND` etc.) or status error (4xx or 5xx). The second argument is the body of the server response in case of status error. The third argument is a response object.
+
+#### Pagination
+
+#### got.paginate(url, options?)
+
+Returns an async iterator:
+
+```js
+(async () => {
+	const countLimit = 10;
+
+	const pagination = got.paginate('https://api.github.com/repos/sindresorhus/got/commits', {
+		_pagination: {countLimit}
+	});
+
+	console.log(`Printing latest ${countLimit} Got commits (newest to oldest):`);
+
+	for await (const commitData of pagination) {
+		console.log(commitData.commit.message);
+	}
+})();
+```
+
+See [`options._pagination`](#_pagination) for more pagination options.
 
 #### got.get(url, options?)
 #### got.post(url, options?)
@@ -1462,6 +1531,7 @@ Some of the Got features may not work properly. See [#899](https://github.com/si
 | Browser support       | :x:                | :x:                | :heavy_check_mark:\* | :heavy_check_mark:       | :heavy_check_mark: | :heavy_check_mark:     |
 | Promise API           | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark:   | :heavy_check_mark:       | :heavy_check_mark: | :heavy_check_mark:     |
 | Stream API            | :heavy_check_mark: | :heavy_check_mark: | Node.js only         | :x:                      | :x:                | :heavy_check_mark:     |
+| Pagination API        | :sparkle:          | :x:                | :x:                  | :x:                      | :x:                | :x:                    |
 | Request cancelation   | :heavy_check_mark: | :x:                | :heavy_check_mark:   | :heavy_check_mark:       | :heavy_check_mark: | :heavy_check_mark:     |
 | RFC compliant caching | :heavy_check_mark: | :x:                | :x:                  | :x:                      | :x:                | :x:                    |
 | Cookies (out-of-box)  | :heavy_check_mark: | :heavy_check_mark: | :x:                  | :x:                      | :x:                | :x:                    |
@@ -1488,7 +1558,8 @@ Some of the Got features may not work properly. See [#899](https://github.com/si
 \* It's almost API compatible with the browser `fetch` API.\
 \*\* Need to switch the protocol manually. Doesn't accept PUSH streams and doesn't reuse HTTP/2 sessions.\
 \*\*\* Currently, only `DownloadProgress` event is supported, `UploadProgress` event is not supported.\
-:grey_question: Experimental support.
+:sparkle: Almost-stable feature, but the API may change. Don't hestitate to try it out!\
+:grey_question: Feature in early stage of development. Very experimental.
 
 <!-- GITHUB -->
 [k0]: https://github.com/sindresorhus/ky
