@@ -1,3 +1,4 @@
+import {ReadStream} from 'fs';
 import CacheableRequest = require('cacheable-request');
 import EventEmitter = require('events');
 import http = require('http');
@@ -15,6 +16,7 @@ import {createProgressStream} from './progress';
 import timedOut, {TimeoutError as TimedOutTimeoutError} from './utils/timed-out';
 import {GeneralError, NormalizedOptions, Response, requestSymbol} from './types';
 import urlToOptions from './utils/url-to-options';
+import pEvent = require('p-event');
 
 const setImmediateAsync = async (): Promise<void> => new Promise(resolve => setImmediate(resolve));
 const pipeline = promisify(stream.pipeline);
@@ -301,13 +303,17 @@ export default (options: NormalizedOptions): RequestAsEventEmitter => {
 	};
 
 	(async () => {
-		// Promises are executed immediately.
-		// If there were no `setImmediate` here,
-		// `promise.json()` would have no effect
-		// as the request would be sent already.
-		await setImmediateAsync();
-
 		try {
+			if (options.body instanceof ReadStream) {
+				await pEvent(options.body, 'open');
+			}
+
+			// Promises are executed immediately.
+			// If there were no `setImmediate` here,
+			// `promise.json()` would have no effect
+			// as the request would be sent already.
+			await setImmediateAsync();
+
 			for (const hook of options.hooks.beforeRequest) {
 				// eslint-disable-next-line no-await-in-loop
 				await hook(options);
