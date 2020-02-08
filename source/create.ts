@@ -198,8 +198,8 @@ const create = (defaults: Defaults): Got => {
 	}
 
 	// @ts-ignore The missing property is added below
-	got.paginate = async function * <T>(url: URLOrOptions & PaginationOptions<T>, options?: Options & PaginationOptions<T>) {
-		let normalizedOptions = normalizeArguments(url, options, defaults) as NormalizedOptions & PaginationOptions<T>;
+	got.paginate = async function * <T>(url: URLOrOptions, options?: Options) {
+		let normalizedOptions = normalizeArguments(url, options, defaults);
 
 		const pagination = normalizedOptions._pagination!;
 
@@ -240,16 +240,16 @@ const create = (defaults: Defaults): Got => {
 			}
 
 			if (optionsToMerge !== undefined) {
-				normalizedOptions = normalizeArguments(normalizedOptions, optionsToMerge) as NormalizedOptions & PaginationOptions<T>;
+				normalizedOptions = normalizeArguments(normalizedOptions, optionsToMerge);
 			}
 		}
 	};
 
-	got.paginate.all = async <T>(url: URLOrOptions & PaginationOptions<T>, options?: Options & PaginationOptions<T>) => {
+	got.paginate.all = async <T>(url: URLOrOptions, options?: Options) => {
 		const results: T[] = [];
 
-		for await (const item of got.paginate<T>(url, options)) {
-			results.push(item);
+		for await (const item of got.paginate<unknown>(url, options)) {
+			results.push(item as T);
 		}
 
 		return results;

@@ -55,6 +55,18 @@ test('points to defaults when extending Got without custom `_pagination`', withS
 	t.deepEqual(result, [1, 2]);
 });
 
+test('pagination options can be extended', withServer, async (t, server, got) => {
+	attachHandler(server, 2);
+
+	const result = await got.extend({
+		_pagination: {
+			shouldContinue: () => false
+		}
+	}).paginate.all('');
+
+	t.deepEqual(result, []);
+});
+
 test('filters elements', withServer, async (t, server, got) => {
 	attachHandler(server, 3);
 
@@ -159,7 +171,7 @@ test('`countLimit` works', withServer, async (t, server, got) => {
 
 test('throws if no `pagination` option', async t => {
 	const iterator = got.extend({
-		_pagination: undefined
+		_pagination: false as any
 	}).paginate('', {
 		prefixUrl: 'https://example.com'
 	});

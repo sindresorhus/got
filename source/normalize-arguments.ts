@@ -200,29 +200,22 @@ export const preNormalizeArguments = (options: Options, defaults?: NormalizedOpt
 
 	// `options._pagination`
 	if (is.object(options._pagination)) {
-		if (defaults && !(Reflect.has(options, '_pagination') && is.undefined(options._pagination))) {
-			options._pagination = {
-				...defaults.pagination,
-				...options._pagination
-			};
-		}
-
-		const pagination = options._pagination!;
+		const {_pagination: pagination} = options;
 
 		if (!is.function_(pagination.transform)) {
-			throw new Error('`options._pagination.transform` must be implemented');
+			throw new TypeError('`options._pagination.transform` must be implemented');
 		}
 
 		if (!is.function_(pagination.shouldContinue)) {
-			throw new Error('`options._pagination.shouldContinue` must be implemented');
+			throw new TypeError('`options._pagination.shouldContinue` must be implemented');
 		}
 
 		if (!is.function_(pagination.filter)) {
-			throw new Error('`options._pagination.filter` must be implemented');
+			throw new TypeError('`options._pagination.filter` must be implemented');
 		}
 
 		if (!is.function_(pagination.paginate)) {
-			throw new Error('`options._pagination.paginate` must be implemented');
+			throw new TypeError('`options._pagination.paginate` must be implemented');
 		}
 	}
 
