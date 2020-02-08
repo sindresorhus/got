@@ -200,7 +200,7 @@ export const preNormalizeArguments = (options: Options, defaults?: NormalizedOpt
 
 	// `options._pagination`
 	if (is.object(options._pagination)) {
-		if (defaults && !(Reflect.has(options, 'pagination') && is.undefined(options._pagination))) {
+		if (defaults && !(Reflect.has(options, '_pagination') && is.undefined(options._pagination))) {
 			options._pagination = {
 				...defaults.pagination,
 				...options._pagination
