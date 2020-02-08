@@ -113,9 +113,18 @@ const create = (defaults: Defaults): Got => {
 			return root;
 		});
 
-		if (result !== root && !options.isStream) {
-			Object.setPrototypeOf(result, Object.getPrototypeOf(root));
-			Object.defineProperties(result, Object.getOwnPropertyDescriptors(root));
+		if (result !== root && !options.isStream && root) {
+			const typedResult = result as Promise<unknown>;
+
+			const {then: promiseThen, catch: promiseCatch, finally: promiseFianlly} = typedResult;
+			Object.setPrototypeOf(typedResult, Object.getPrototypeOf(root));
+			Object.defineProperties(typedResult, Object.getOwnPropertyDescriptors(root));
+
+			// These should point to the new promise
+			// eslint-disable-next-line promise/prefer-await-to-then
+			typedResult.then = promiseThen;
+			typedResult.catch = promiseCatch;
+			typedResult.finally = promiseFianlly;
 		}
 
 		return result;

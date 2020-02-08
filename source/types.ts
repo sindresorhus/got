@@ -8,7 +8,7 @@ import {URL} from 'url';
 import {Readable as ReadableStream} from 'stream';
 import {Timings, IncomingMessageWithTimings} from '@szmarczak/http-timer';
 import CacheableLookup from 'cacheable-lookup';
-import {Except, Merge, Promisable} from 'type-fest';
+import {Except, Merge} from 'type-fest';
 import {GotReturn} from './create';
 import {GotError, HTTPError, MaxRedirectsError, ParseError, TimeoutError, RequestError} from './errors';
 import {Hooks} from './known-hook-events';
@@ -77,7 +77,7 @@ export interface RetryObject {
 
 export type RetryFunction = (retryObject: RetryObject) => number;
 
-export type HandlerFunction = <T extends GotReturn>(options: NormalizedOptions, next: (options: NormalizedOptions) => T) => Promisable<T>;
+export type HandlerFunction = <T extends GotReturn>(options: NormalizedOptions, next: (options: NormalizedOptions) => T) => T | Promise<T>;
 
 export interface DefaultRetryOptions {
 	limit: number;

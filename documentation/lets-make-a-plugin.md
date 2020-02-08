@@ -161,7 +161,7 @@ Umm... `response.headers['x-ratelimit-remaining']` doesn't look good. What about
 Yeah, definitely. Since `response.headers` is an object, we can easily parse these:
 
 ```js
-const getRateLimit = ({headers}) => ({
+const getRateLimit = (headers) => ({
 	limit: parseInt(headers['x-ratelimit-limit'], 10),
 	remaining: parseInt(headers['x-ratelimit-remaining'], 10),
 	reset: new Date(parseInt(headers['x-ratelimit-reset'], 10) * 1000)
@@ -182,7 +182,7 @@ getRateLimit({
 Let's integrate it:
 
 ```js
-const getRateLimit = ({headers}) => ({
+const getRateLimit = (headers) => ({
 	limit: parseInt(headers['x-ratelimit-limit'], 10),
 	remaining: parseInt(headers['x-ratelimit-remaining'], 10),
 	reset: new Date(parseInt(headers['x-ratelimit-reset'], 10) * 1000)

@@ -296,3 +296,17 @@ test('async handlers', withServer, async (t, server, got) => {
 	// @ts-ignore Manual tests
 	t.true((await promise).modified);
 });
+
+test('async handlers can throw', async t => {
+	const message = 'meh';
+
+	const instance = got.extend({
+		handlers: [
+			async () => {
+				throw new Error(message);
+			}
+		]
+	});
+
+	await t.throwsAsync(instance('https://example.com'), {message});
+});

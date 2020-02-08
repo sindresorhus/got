@@ -2,7 +2,7 @@
 const got = require('../..');
 const package = require('../../package');
 
-const getRateLimit = ({headers}) => ({
+const getRateLimit = (headers) => ({
 	limit: parseInt(headers['x-ratelimit-limit'], 10),
 	remaining: parseInt(headers['x-ratelimit-remaining'], 10),
 	reset: new Date(parseInt(headers['x-ratelimit-reset'], 10) * 1000)
