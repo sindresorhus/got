@@ -810,7 +810,7 @@ Progress events for uploading (sending a request) and downloading (receiving a r
 }
 ```
 
-If it's not possible to retrieve the body size (can happen when streaming), `total` will be `undefined`.
+If the `content-length` header is missing, `total` will be `undefined`.
 
 ```js
 (async () => {
