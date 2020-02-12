@@ -248,7 +248,7 @@ Default: `'text'`
 
 The parsing method. Can be `'text'`, `'json'` or `'buffer'`.
 
-The promise also has `.text()`, `.json()` and `.buffer()` methods which return another Got promise returning the parsed body. It's like settings the `resolveBodyOnly` option but without affecting the main Got promise. Example:
+The promise also has `.text()`, `.json()` and `.buffer()` methods which return another Got promise returning the parsed body. It's like setting the options to `{responseType, resolveBodyOnly: true}` but without affecting the main Got promise. Example:
 
 ```js
 (async () => {
