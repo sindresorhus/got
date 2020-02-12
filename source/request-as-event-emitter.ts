@@ -101,6 +101,7 @@ export default (options: NormalizedOptions): RequestAsEventEmitter => {
 				if (options.followRedirect && Reflect.has(typedResponse.headers, 'location') && redirectCodes.has(statusCode)) {
 					typedResponse.resume(); // We're being redirected, we don't care about the response.
 
+					// eslint-disable-next-line @typescript-eslint/no-unnecessary-boolean-literal-compare
 					if (statusCode === 303 || options.methodRewriting === false) {
 						if (options.method !== 'GET' && options.method !== 'HEAD') {
 							// Server responded with "see other", indicating that the resource exists at another location,
