@@ -186,15 +186,18 @@ test('catches beforeError errors', async t => {
 test('init is called with options', withServer, async (t, server, got) => {
 	server.get('/', echoHeaders);
 
+	const context = {};
+
 	await got({
 		hooks: {
 			init: [
 				options => {
-					t.is(options.url.pathname, '/');
-					t.is(options.url.hostname, 'localhost');
+					t.is(options.url, undefined);
+					t.is(options.context, context);
 				}
 			]
-		}
+		},
+		context
 	});
 });
 
@@ -203,11 +206,13 @@ test('init allows modifications', withServer, async (t, server, got) => {
 		response.end(request.headers.foo);
 	});
 
-	const {body} = await got({
+	const {body} = await got('meh', {
+		headers: {},
 		hooks: {
 			init: [
 				options => {
-					options.headers.foo = 'bar';
+					options.url = '';
+					options.headers!.foo = 'bar';
 				}
 			]
 		}
@@ -679,7 +684,7 @@ test('timeout can be modified using a hook', withServer, async (t, server, got) 
 	await t.throwsAsync(got({
 		timeout: 1000,
 		hooks: {
-			init: [
+			beforeRequest: [
 				options => {
 					options.timeout.request = 500;
 				}

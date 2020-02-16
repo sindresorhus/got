@@ -7,7 +7,7 @@ Called with plain request options, right before their normalization. This is esp
 
 @see [Request migration guide](https://github.com/sindresorhus/got/blob/master/migration-guides.md#breaking-changes) for an example.
 */
-export type InitHook = (options: NormalizedOptions) => void;
+export type InitHook = (options: Options) => void;
 
 /**
 Called with normalized [request options](https://github.com/sindresorhus/got#options). Got will make no further changes to the request before it is sent (except the body serialization). This is especially useful in conjunction with [`got.extend()`](https://github.com/sindresorhus/got#instances) when you want to create an API client that, for example, uses HMAC-signing.

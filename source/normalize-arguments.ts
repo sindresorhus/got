@@ -11,7 +11,7 @@ import is from '@sindresorhus/is';
 import CacheableLookup from 'cacheable-lookup';
 import {Merge} from 'type-fest';
 import {UnsupportedProtocolError} from './errors';
-import knownHookEvents from './known-hook-events';
+import knownHookEvents, {InitHook} from './known-hook-events';
 import dynamicRequire from './utils/dynamic-require';
 import getBodySize from './utils/get-body-size';
 import isFormData from './utils/is-form-data';
@@ -274,7 +274,20 @@ export const normalizeArguments = (url: URLOrOptions, options?: Options, default
 		options = {};
 	}
 
-	if (is.urlInstance(url) || is.string(url)) {
+	const runInitHooks = (hooks?: InitHook[], options?: Options): void => {
+		if (hooks) {
+			for (const hook of hooks) {
+				const result = hook(options!);
+
+				if (is.promise(result)) {
+					throw new TypeError('The `init` hook must be a synchronous function');
+				}
+			}
+		}
+	};
+
+	const hasUrl = is.urlInstance(url) || is.string(url);
+	if (hasUrl) {
 		if (Reflect.has(options, 'url')) {
 			throw new TypeError('The `url` option cannot be used if the input is a valid URL.');
 		}
@@ -282,13 +295,18 @@ export const normalizeArguments = (url: URLOrOptions, options?: Options, default
 		// @ts-ignore URL is not URL
 		options.url = url;
 
+		runInitHooks(options.hooks?.init, options);
+	} else if (Reflect.has(url as object, 'resolve')) {
+		throw new Error('The legacy `url.Url` is deprecated. Use `URL` instead.');
+	} else {
+		runInitHooks((url as Options).hooks?.init, url as Options);
+		runInitHooks(options.hooks?.init, options);
+	}
+
+	if (hasUrl) {
 		options = mergeOptions(defaults?.options ?? {}, options);
 	} else {
-		if (Reflect.has(url, 'resolve')) {
-			throw new Error('The legacy `url.Url` is deprecated. Use `URL` instead.');
-		}
-
-		options = mergeOptions(defaults?.options ?? {}, url, options);
+		options = mergeOptions(defaults?.options ?? {}, url as object, options);
 	}
 
 	// Normalize URL
@@ -332,14 +350,6 @@ export const normalizeArguments = (url: URLOrOptions, options?: Options, default
 		if (is.undefined(value)) {
 			// eslint-disable-next-line @typescript-eslint/no-dynamic-delete
 			delete normalizedOptions.headers[key];
-		}
-	}
-
-	for (const hook of normalizedOptions.hooks.init) {
-		const result = hook(normalizedOptions);
-
-		if (is.promise(result)) {
-			throw new TypeError('The `init` hook must be a synchronous function');
 		}
 	}
 

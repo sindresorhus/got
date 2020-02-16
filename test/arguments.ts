@@ -330,7 +330,7 @@ test('`context` option is accessible when using hooks', withServer, async (t, se
 	await got({
 		context,
 		hooks: {
-			init: [
+			beforeRequest: [
 				options => {
 					t.is(options.context, context);
 					t.false({}.propertyIsEnumerable.call(options, 'context'));
