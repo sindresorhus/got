@@ -270,14 +270,10 @@ export const normalizeArguments = (url: URLOrOptions, options?: Options, default
 		throw new TypeError('Missing `url` argument');
 	}
 
-	if (typeof options === 'undefined') {
-		options = {};
-	}
-
 	const runInitHooks = (hooks?: InitHook[], options?: Options): void => {
-		if (hooks) {
+		if (hooks && options) {
 			for (const hook of hooks) {
-				const result = hook(options!);
+				const result = hook(options);
 
 				if (is.promise(result)) {
 					throw new TypeError('The `init` hook must be a synchronous function');
@@ -288,25 +284,35 @@ export const normalizeArguments = (url: URLOrOptions, options?: Options, default
 
 	const hasUrl = is.urlInstance(url) || is.string(url);
 	if (hasUrl) {
-		if (Reflect.has(options, 'url')) {
-			throw new TypeError('The `url` option cannot be used if the input is a valid URL.');
+		if (options) {
+			if (Reflect.has(options, 'url')) {
+				throw new TypeError('The `url` option cannot be used if the input is a valid URL.');
+			}
+		} else {
+			options = {};
 		}
 
 		// @ts-ignore URL is not URL
 		options.url = url;
 
+		runInitHooks(defaults?.options.hooks.init, options);
 		runInitHooks(options.hooks?.init, options);
 	} else if (Reflect.has(url as object, 'resolve')) {
 		throw new Error('The legacy `url.Url` is deprecated. Use `URL` instead.');
 	} else {
+		runInitHooks(defaults?.options.hooks.init, url as Options);
 		runInitHooks((url as Options).hooks?.init, url as Options);
-		runInitHooks(options.hooks?.init, options);
+
+		if (options) {
+			runInitHooks(defaults?.options.hooks.init, options);
+			runInitHooks(options.hooks?.init, options);
+		}
 	}
 
 	if (hasUrl) {
-		options = mergeOptions(defaults?.options ?? {}, options);
+		options = mergeOptions(defaults?.options ?? {}, options ?? {});
 	} else {
-		options = mergeOptions(defaults?.options ?? {}, url as object, options);
+		options = mergeOptions(defaults?.options ?? {}, url as object, options ?? {});
 	}
 
 	// Normalize URL

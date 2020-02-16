@@ -201,6 +201,25 @@ test('init is called with options', withServer, async (t, server, got) => {
 	});
 });
 
+test('init from defaults is called with options', withServer, async (t, server, got) => {
+	server.get('/', echoHeaders);
+
+	const context = {};
+
+	const instance = got.extend({
+		hooks: {
+			init: [
+				options => {
+					t.is(options.url, undefined);
+					t.is(options.context, context);
+				}
+			]
+		}
+	});
+
+	await instance({context});
+});
+
 test('init allows modifications', withServer, async (t, server, got) => {
 	server.get('/', (request, response) => {
 		response.end(request.headers.foo);
