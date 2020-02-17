@@ -26,6 +26,7 @@ For browser usage, we recommend [Ky](https://github.com/sindresorhus/ky) by the 
 
 ## Highlights
 
+- [Partial support of the RFC] (#partial)
 - [Promise API](#api)
 - [Stream API](#streams)
 - [Pagination API (experimental)](#pagination)
@@ -69,6 +70,9 @@ const got = require('got');
 	}
 })();
 ```
+###### Partial support of the RFC
+
+GOT, support *most of the rfc7231* but the goal of GOT is not to fully support the RFC and some of the HTTP features won't be developped. If you need a full support of the Http protocol GOT is not the appropriate library.
 
 ###### Streams
 
