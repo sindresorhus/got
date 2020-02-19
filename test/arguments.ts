@@ -158,8 +158,15 @@ test('throws when passing body with a non payload method', async t => {
 	// @ts-ignore Error tests
 	await t.throwsAsync(got('https://example.com', {body: 'asdf'}), {
 		instanceOf: TypeError,
-		message: 'The `GET` method cannot be used with a body'
+		message: 'The `GET` method cannot be used with a body unless `allowGetBody` option is set to true(Not reccomended)'
 	});
+});
+
+test('passes when passing option allowGetBody with a GET method', withServer, async (t, server, got) => {
+	server.get('/test', echoUrl);
+
+	const url = new URL(`${server.url}/test`);
+	await t.notThrowsAsync(got(url, {body: 'asdf', allowGetBody: true}));
 });
 
 test('WHATWG URL support', withServer, async (t, server, got) => {

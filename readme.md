@@ -410,6 +410,15 @@ Default: `true`
 
 By default, redirects will use [method rewriting](https://tools.ietf.org/html/rfc7231#section-6.4). For example, when sending a POST request and receiving a `302`, it will resend the body to the new location using the same HTTP method (`POST` in this case).
 
+###### allowGetBody
+
+Type: `boolean`\
+Default: `false`
+
+By default, GET methods are not allowed to have a body. This option is to force GET requests to have a body. Please note that this is an [anti-pattern](https://en.wikipedia.org/wiki/Anti-pattern) and NOT RECOMMENDED. In many servers, the body in a GET request could be ignored or even lead to errors. Please note this option is only enabled for interacting with non-compliant servers when you have no other choice.
+
+**Note:** Not Reccomended
+
 ###### maxRedirects
 
 Type: `number`\

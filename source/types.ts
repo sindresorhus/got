@@ -199,6 +199,7 @@ export interface GotOptions extends PaginationOptions<unknown> {
 	context?: {[key: string]: any};
 	maxRedirects?: number;
 	lookup?: CacheableLookup['lookup'];
+	allowGetBody?: boolean;
 	methodRewriting?: boolean;
 }
 
@@ -232,6 +233,7 @@ export interface NormalizedOptions extends Options {
 	followRedirect: boolean;
 	useElectronNet: boolean;
 	methodRewriting: boolean;
+	allowGetBody: boolean;
 	context: {[key: string]: any};
 
 	// UNIX socket support
