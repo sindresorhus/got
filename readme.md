@@ -188,7 +188,7 @@ Type: `string | Buffer | stream.Readable` or [`form-data` instance](https://gith
 
 **Note #2:** If you provide this option, `got.stream()` will be read-only.
 
-**Note #3:** If you provide a payload with the `GET` or `HEAD` method, it will throw a `TypeError`.
+**Note #3:** If you provide a payload with the `HEAD` method, it will throw a `TypeError`. If you provide a a payload with a 'GET' method, without specifying `allowGetBody` as true, it will also throw a `TypeError`. See [here](https://github.com/dopecodez/got#allowgetbody) for more information regarding this.
 
 The `content-length` header will be automatically set if `body` is a `string` / `Buffer` / `fs.createReadStream` instance / [`form-data` instance](https://github.com/form-data/form-data), and `content-length` and `transfer-encoding` are not manually set in `options.headers`.
 
@@ -415,7 +415,7 @@ By default, redirects will use [method rewriting](https://tools.ietf.org/html/rf
 Type: `boolean`\
 Default: `false`
 
-By default, GET methods are not allowed to have a body. This option is to force GET requests to have a body. Please note that this is an [anti-pattern](https://en.wikipedia.org/wiki/Anti-pattern) and NOT RECOMMENDED. In many servers, the body in a GET request could be ignored or even lead to errors. Please read the [RF 7321](https://tools.ietf.org/html/rfc7231#section-4.3.1) docs for more information. Please note this option is only enabled for interacting with non-compliant servers when you have no other choice.
+By default, GET methods are not allowed to have a payload. This option is to force GET requests to have a payload. Please note that this is an [anti-pattern](https://en.wikipedia.org/wiki/Anti-pattern) and NOT RECOMMENDED. In many servers, the payload in a GET request could be ignored or even lead to errors. Please read the [RF 7321](https://tools.ietf.org/html/rfc7231#section-4.3.1) docs for more information. Please note this option is only enabled for interacting with non-compliant servers when you have no other choice.
 
 **Note:**  **Not Reccomended**
 
