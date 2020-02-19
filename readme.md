@@ -188,7 +188,7 @@ Type: `string | Buffer | stream.Readable` or [`form-data` instance](https://gith
 
 **Note #2:** If you provide this option, `got.stream()` will be read-only.
 
-**Note #3:** If you provide a payload with the `HEAD` method, it will throw a `TypeError`. If you provide a a payload with a 'GET' method, without specifying `allowGetBody` as true, it will also throw a `TypeError`. See [here](https://github.com/dopecodez/got#allowgetbody) for more information regarding this.
+**Note #3:** If you provide a payload with the `HEAD` method, it will throw a `TypeError`. If you provide a a payload with a `GET` method, without specifying `allowGetBody` as true, it will also throw a `TypeError`. See [here](https://github.com/sindresorhus/got#allowgetbody) for more information regarding this.
 
 The `content-length` header will be automatically set if `body` is a `string` / `Buffer` / `fs.createReadStream` instance / [`form-data` instance](https://github.com/form-data/form-data), and `content-length` and `transfer-encoding` are not manually set in `options.headers`.
 
