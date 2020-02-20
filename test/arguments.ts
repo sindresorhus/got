@@ -158,7 +158,7 @@ test('throws when passing body with a non payload method', async t => {
 	// @ts-ignore Error tests
 	await t.throwsAsync(got('https://example.com', {body: 'asdf'}), {
 		instanceOf: TypeError,
-		message: 'The `GET` method cannot be used with a body unless `allowGetBody` option is set to true(Not reccomended)'
+		message: 'The `GET` method cannot be used with a body'
 	});
 });
 
