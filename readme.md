@@ -188,7 +188,7 @@ Type: `string | Buffer | stream.Readable` or [`form-data` instance](https://gith
 
 **Note #2:** If you provide this option, `got.stream()` will be read-only.
 
-**Note #3:** If you provide a payload with the `GET` or `HEAD` method, it will throw a `TypeError`.
+**Note #3:** If you provide a payload with the `GET` or `HEAD` method, it will throw a `TypeError` unless the method is `GET` and the `allowGetBody` option is set to `true`.
 
 The `content-length` header will be automatically set if `body` is a `string` / `Buffer` / `fs.createReadStream` instance / [`form-data` instance](https://github.com/form-data/form-data), and `content-length` and `transfer-encoding` are not manually set in `options.headers`.
 
@@ -409,6 +409,15 @@ Type: `boolean`\
 Default: `true`
 
 By default, redirects will use [method rewriting](https://tools.ietf.org/html/rfc7231#section-6.4). For example, when sending a POST request and receiving a `302`, it will resend the body to the new location using the same HTTP method (`POST` in this case).
+
+###### allowGetBody
+
+Type: `boolean`\
+Default: `false`
+
+**Note:** The [RFC 7321](https://tools.ietf.org/html/rfc7231#section-4.3.1) doesn't specify any particular behavior for the GET method having a payload, therefore **it's considered an [anti-pattern](https://en.wikipedia.org/wiki/Anti-pattern)**.
+
+Set this to `true` to allow sending body for the `GET` method. However, the [HTTP/2 specification](https://tools.ietf.org/html/rfc7540#section-8.1.3) says that `An HTTP GET request includes request header fields and no payload body`, therefore when using the HTTP/2 protocol this option will have no effect. This option is only meant to interact with non-compliant servers when you have no other choice.
 
 ###### maxRedirects
 
