@@ -389,7 +389,7 @@ export const normalizeRequestArguments = async (options: NormalizedOptions): Pro
 		}
 
 		if (!options.allowGetBody && (isBody || isForm || isJson) && withoutBodyUnlessSpecified === options.method) {
-			throw new TypeError(`The \`${options.method}\` method cannot be used with a body unless \`allowGetBody\` option is set to true(Not reccomended)`);
+			throw new TypeError(`The \`${options.method}\` method cannot be used with a body`);
 		}
 
 		if ([isBody, isForm, isJson].filter(isTrue => isTrue).length > 1) {
