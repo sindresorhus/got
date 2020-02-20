@@ -417,7 +417,6 @@ Default: `false`
 
 By default, GET methods are not allowed to have a payload. This option is to force GET requests to have a payload. Please note that this is an [anti-pattern](https://en.wikipedia.org/wiki/Anti-pattern) and NOT RECOMMENDED. In many servers, the payload in a GET request could be ignored or even lead to errors. Please read the [RF 7321](https://tools.ietf.org/html/rfc7231#section-4.3.1) docs for more information. Please note this option is only enabled for interacting with non-compliant servers when you have no other choice.
 
-**Note:**  **Not Reccomended**
 
 ###### maxRedirects
 
