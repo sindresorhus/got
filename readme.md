@@ -266,26 +266,11 @@ Example:
 })();
 ```
 
-Or if you don't care about the Response object:
-
-```js
-(async () => {
-	const bufferPromise = got(url).buffer();
-	const jsonPromise = bufferPromise.json();
-
-	const [buffer, json] = Promise.all([bufferPromise, jsonPromise]);
-	// `buffer` is an instance of Buffer
-	// `json` is an object
-})();
-```
-
-Example:
-
 ```js
 // This
 const body = await got(url).json();
 
-// is the same as this
+// is semantically the same as this
 const body = await got(url, {responseType: 'json', resolveBodyOnly: true});
 ```
 
