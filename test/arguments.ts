@@ -162,7 +162,7 @@ test('throws when passing body with a non payload method', async t => {
 	});
 });
 
-test('passes when passing option allowGetBody with a GET method', withServer, async (t, server, got) => {
+test('`allowGetBody` option', withServer, async (t, server, got) => {
 	server.get('/test', echoUrl);
 
 	const url = new URL(`${server.url}/test`);
