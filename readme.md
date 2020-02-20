@@ -248,15 +248,29 @@ Default: `'text'`
 
 The parsing method. Can be `'text'`, `'json'` or `'buffer'`.
 
-The promise also has `.text()`, `.json()` and `.buffer()` methods which sets this and the `resolveBodyOnly` option automatically.
+The promise also has `.text()`, `.json()` and `.buffer()` methods which return another Got promise for the parsed body.\
+It's like setting the options to `{responseType: 'json', resolveBodyOnly: true}` but without affecting the main Got promise.
 
 Example:
+
+```js
+(async () => {
+	const responsePromise = got(url);
+	const bufferPromise = responsePromise.buffer();
+	const jsonPromise = responsePromise.json();
+
+	const [response, buffer, json] = Promise.all([responsePromise, bufferPromise, jsonPromise]);
+	// `response` is an instance of Got Response
+	// `buffer` is an instance of Buffer
+	// `json` is an object
+})();
+```
 
 ```js
 // This
 const body = await got(url).json();
 
-// is the same as this
+// is semantically the same as this
 const body = await got(url, {responseType: 'json', resolveBodyOnly: true});
 ```
 
