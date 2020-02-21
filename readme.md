@@ -276,7 +276,7 @@ const body = await got(url, {responseType: 'json', resolveBodyOnly: true});
 
 ###### resolveBodyOnly
 
-Type: `string`\
+Type: `boolean`\
 Default: `false`
 
 When set to `true` the promise will return the [Response body](#body-1) instead of the [Response](#response) object.
