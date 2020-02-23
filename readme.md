@@ -1026,6 +1026,13 @@ Options are deeply merged to a new object. The value of each key is determined a
 	- If the parent property is a plain `object` too, both values are merged recursively into a new `object`.
 	- Otherwise, only the new value is deeply cloned.
 - If the new property is an `Array`, it overwrites the old one with a deep clone of the new property.
+- Properties that are not enumerable, such as `context`, `body`, `json`, and `form`, will not be merged.
+```js
+const a = {json: {cat: 'meow'}}
+const b = {json: {cow: 'moo'}}
+
+got.mergeOptions(a, b) // => {json: {cow: 'moo'}}
+```
 - Otherwise, the new value is assigned to the key.
 
 #### got.defaults
