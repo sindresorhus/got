@@ -190,7 +190,7 @@ Type: `string | Buffer | stream.Readable` or [`form-data` instance](https://gith
 
 **Note #3:** If you provide a payload with the `GET` or `HEAD` method, it will throw a `TypeError` unless the method is `GET` and the `allowGetBody` option is set to `true`.
 
-**Note #4:** The `body` option is not enumerable and it will not be merged.
+**Note #4:** The `body` option is not enumerable and it will not be merged with the instance defaults.
 
 The `content-length` header will be automatically set if `body` is a `string` / `Buffer` / `fs.createReadStream` instance / [`form-data` instance](https://github.com/form-data/form-data), and `content-length` and `transfer-encoding` are not manually set in `options.headers`.
 
