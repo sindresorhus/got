@@ -190,13 +190,16 @@ Type: `string | Buffer | stream.Readable` or [`form-data` instance](https://gith
 
 **Note #3:** If you provide a payload with the `GET` or `HEAD` method, it will throw a `TypeError` unless the method is `GET` and the `allowGetBody` option is set to `true`.
 
+**Note #4:** This option is not enumerable and will not be merged with the instance defaults.
+
 The `content-length` header will be automatically set if `body` is a `string` / `Buffer` / `fs.createReadStream` instance / [`form-data` instance](https://github.com/form-data/form-data), and `content-length` and `transfer-encoding` are not manually set in `options.headers`.
 
 ###### json
 
 Type: `object | Array | number | string | boolean | null` *(JSON-serializable values)*
 
-**Note:** If you provide this option, `got.stream()` will be read-only.
+**Note #1:** If you provide this option, `got.stream()` will be read-only.
+**Note #2:** This option is not enumerable and will not be merged with the instance defaults.
 
 JSON body. If the `Content-Type` header is not set, it will be set to `application/json`.
 
@@ -321,7 +324,8 @@ To get a [`Buffer`](https://nodejs.org/api/buffer.html), you need to set [`respo
 
 Type: `object | true`
 
-**Note:** If you provide this option, `got.stream()` will be read-only.
+**Note #1:** If you provide this option, `got.stream()` will be read-only.
+**Note #2:** This option is not enumerable and will not be merged with the instance defaults.
 
 The form body is converted to query string using [`(new URLSearchParams(object)).toString()`](https://nodejs.org/api/url.html#url_constructor_new_urlsearchparams_obj).
 
@@ -1026,6 +1030,14 @@ Options are deeply merged to a new object. The value of each key is determined a
 	- If the parent property is a plain `object` too, both values are merged recursively into a new `object`.
 	- Otherwise, only the new value is deeply cloned.
 - If the new property is an `Array`, it overwrites the old one with a deep clone of the new property.
+- Properties that are not enumerable, such as `context`, `body`, `json`, and `form`, will not be merged.
+```js
+const a = {json: {cat: 'meow'}};
+const b = {json: {cow: 'moo'}};
+
+got.mergeOptions(a, b);
+//=> {json: {cow: 'moo'}}
+```
 - Otherwise, the new value is assigned to the key.
 
 #### got.defaults
