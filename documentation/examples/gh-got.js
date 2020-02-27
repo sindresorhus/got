@@ -43,7 +43,7 @@ const instance = got.extend({
 					// Nicer errors
 					if (response && response.body) {
 						error.name = 'GitHubError';
-						error.message = `${response.body.message} (${error.statusCode} status code)`;
+						error.message = `${response.body.message} (${response.statusCode} status code)`;
 					}
 
 					// Rate limit for errors

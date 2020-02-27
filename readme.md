@@ -654,7 +654,7 @@ got('https://api.github.com/some-endpoint', {
 				const {response} = error;
  				if (response && response.body) {
 					error.name = 'GitHubError';
-					error.message = `${response.body.message} (${error.statusCode})`;
+					error.message = `${response.body.message} (${response.statusCode})`;
 				}
 
  				return error;

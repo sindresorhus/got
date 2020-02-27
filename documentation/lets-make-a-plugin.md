@@ -144,7 +144,7 @@ We should name our errors, just to know if the error is from the API response. S
 					// Nicer errors
 					if (response && response.body) {
 						error.name = 'GitHubError';
-						error.message = `${response.body.message} (${error.statusCode} status code)`;
+						error.message = `${response.body.message} (${response.statusCode} status code)`;
 					}
 
 					throw error;
@@ -216,7 +216,7 @@ const getRateLimit = (headers) => ({
 					// Nicer errors
 					if (response && response.body) {
 						error.name = 'GitHubError';
-						error.message = `${response.body.message} (${error.statusCode} status code)`;
+						error.message = `${response.body.message} (${response.statusCode} status code)`;
 					}
 
 					// Rate limit for errors
