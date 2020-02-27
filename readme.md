@@ -578,7 +578,7 @@ got.post('https://example.com', {
 	hooks: {
 		beforeRetry: [
 			(options, error, retryCount) => {
-				if (error.statusCode === 413) { // Payload too large
+				if (error.response.statusCode === 413) { // Payload too large
 					options.body = getNewBody();
 				}
 			}
