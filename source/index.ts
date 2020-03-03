@@ -69,7 +69,7 @@ const defaults: Defaults = {
 		context: {},
 		_pagination: {
 			transform: (response: Response) => {
-				if (response.request.optinos.responseType === 'json') {
+				if (response.request.options.responseType === 'json') {
 					return response.body;
 				}
 
