@@ -218,8 +218,8 @@ const create = (defaults: Defaults): Got => {
 			const parsed = await pagination.transform!(result);
 			const current: T[] = [];
 			for (const item of parsed) {
-				if (pagination.filter!(item, all)) {
-					if (!pagination.shouldContinue!(item, all)) {
+				if (pagination.filter!(item, all, current)) {
+					if (!pagination.shouldContinue!(item, all, current)) {
 						return;
 					}
 
