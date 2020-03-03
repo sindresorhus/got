@@ -61,7 +61,7 @@ export interface GotRequestMethod {
 	<T>(url: string | Merge<Options, {isStream: true}>, options?: Merge<Options, {isStream: true}>): ProxyStream<T>;
 }
 
-export type GotPaginateOptions<T> = Except<Options, keyof PaginationOptions<unknown>> & PaginationOptions<T>
+export type GotPaginateOptions<T> = Except<Options, keyof PaginationOptions<unknown>> & PaginationOptions<T>;
 
 export interface GotPaginate {
 	<T>(url: string | GotPaginateOptions<T>, options?: GotPaginateOptions<T>): AsyncIterableIterator<T>;
