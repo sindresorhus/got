@@ -73,12 +73,8 @@ test('filters elements', withServer, async (t, server, got) => {
 	const result = await got.paginate.all({
 		_pagination: {
 			filter: (element, allItems, currentItems) => {
-				if (!Array.isArray(allItems)) {
-					throw new Error('allItems is not an array');
-				}
-				if (!Array.isArray(currentItems)) {
-					throw new Error('currentItems is not an array');
-				}
+				t.true(is.array(allItems));
+				t.true(is.array(currentItems));
 
 				return element !== 2
 			}
