@@ -47,6 +47,16 @@ test('retrieves all elements', withServer, async (t, server, got) => {
 	t.deepEqual(result, [1, 2]);
 });
 
+test('retrieves all elements with JSON responseType', withServer, async (t, server, got) => {
+	attachHandler(server, 2);
+
+	const result = await got.extend({
+		responseType: 'json'
+	}).paginate.all('');
+
+	t.deepEqual(result, [1, 2]);
+});
+
 test('points to defaults when extending Got without custom `_pagination`', withServer, async (t, server, got) => {
 	attachHandler(server, 2);
 

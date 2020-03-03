@@ -69,6 +69,10 @@ const defaults: Defaults = {
 		context: {},
 		_pagination: {
 			transform: (response: Response) => {
+				if (response.request.options.responseType === 'json') {
+					return response.body;
+				}
+
 				return JSON.parse(response.body as string);
 			},
 			paginate: response => {
