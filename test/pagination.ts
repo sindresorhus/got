@@ -72,7 +72,16 @@ test('filters elements', withServer, async (t, server, got) => {
 
 	const result = await got.paginate.all({
 		_pagination: {
-			filter: element => element !== 2
+			filter: (element, allItems, currentItems) => {
+				if (!Array.isArray(allItems)) {
+					throw new Error('allItems is not an array');
+				}
+				if (!Array.isArray(currentItems)) {
+					throw new Error('currentItems is not an array');
+				}
+
+				return element !== 2
+			}
 		}
 	});
 
@@ -174,7 +183,16 @@ test('`shouldContinue` works', withServer, async (t, server, got) => {
 
 	const options = {
 		_pagination: {
-			shouldContinue: () => false
+			shouldContinue: (element: any, allItems: any, currentItems: any) => {
+				if (!Array.isArray(allItems)) {
+					throw new Error('allItems is not an array');
+				}
+				if (!Array.isArray(currentItems)) {
+					throw new Error('currentItems is not an array');
+				}
+
+				return false
+			}
 		}
 	};
 
