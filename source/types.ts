@@ -164,7 +164,7 @@ export interface PaginationOptions<T> {
 	_pagination?: {
 		transform?: (response: Response) => Promise<T[]> | T[];
 		filter?: (item: T, allItems: T[]) => boolean;
-		paginate?: (response: Response) => Options | false;
+		paginate?: (response: Response, allItems: T[], currentItems: T[]) => Options | false;
 		shouldContinue?: (item: T, allItems: T[]) => boolean;
 		countLimit?: number;
 	};

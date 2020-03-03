@@ -121,6 +121,42 @@ test('custom paginate function', withServer, async (t, server, got) => {
 	t.deepEqual(result, [1, 3]);
 });
 
+test('custom paginate function using allItems', withServer, async (t, server, got) => {
+	attachHandler(server, 3);
+
+	const result = await got.paginate.all({
+		_pagination: {
+			paginate: (_response, allItems) => {
+				if (allItems.length === 2) {
+					return false;
+				}
+
+				return {path: '/?page=3'};
+			}
+		}
+	});
+
+	t.deepEqual(result, [1, 3]);
+});
+
+test('custom paginate function using currentItems', withServer, async (t, server, got) => {
+	attachHandler(server, 3);
+
+	const result = await got.paginate.all({
+		_pagination: {
+			paginate: (_response, _allItems, currentItems) => {
+				if (currentItems[0] === 3) {
+					return false;
+				}
+
+				return {path: '/?page=3'};
+			}
+		}
+	});
+
+	t.deepEqual(result, [1, 3]);
+});
+
 test('iterator works', withServer, async (t, server, got) => {
 	attachHandler(server, 5);
 
