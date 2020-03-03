@@ -180,12 +180,8 @@ test('`shouldContinue` works', withServer, async (t, server, got) => {
 	const options = {
 		_pagination: {
 			shouldContinue: (_element: any, allItems: any, currentItems: any) => {
-				if (!Array.isArray(allItems)) {
-					throw new Error('allItems is not an array');
-				}
-				if (!Array.isArray(currentItems)) {
-					throw new Error('currentItems is not an array');
-				}
+				t.true(is.array(allItems));
+				t.true(is.array(currentItems));
 
 				return false
 			}
