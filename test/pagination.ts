@@ -73,8 +73,8 @@ test('filters elements', withServer, async (t, server, got) => {
 	const result = await got.paginate.all({
 		_pagination: {
 			filter: (element, allItems, currentItems) => {
-				t.true(is.array(allItems));
-				t.true(is.array(currentItems));
+				t.true(Array.isArray(allItems));
+				t.true(Array.isArray(currentItems));
 
 				return element !== 2
 			}
@@ -180,8 +180,8 @@ test('`shouldContinue` works', withServer, async (t, server, got) => {
 	const options = {
 		_pagination: {
 			shouldContinue: (_element: any, allItems: any, currentItems: any) => {
-				t.true(is.array(allItems));
-				t.true(is.array(currentItems));
+				t.true(Array.isArray(allItems));
+				t.true(Array.isArray(currentItems));
 
 				return false
 			}
@@ -194,7 +194,7 @@ test('`shouldContinue` works', withServer, async (t, server, got) => {
 		results.push(item);
 	}
 
-	t.deepEqual(results, []);
+llup tig	t.deepEqual(results, []);
 });
 
 test('`countLimit` works', withServer, async (t, server, got) => {
