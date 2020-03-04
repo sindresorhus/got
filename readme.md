@@ -689,7 +689,7 @@ A function that returns an object representing Got options pointing to the next 
 Type: `Function`\
 Default: `(item, allItems, currentItems) => true`
 
-Checks whether the item should be emitted or not. `currentItems` is an array of the emitted of items of the current response and `allItems` is an error of _all_ the previously emitted items.
+Checks whether the item should be emitted or not. `allItems` is an array of the all emitted items, while `currentItems` is an array of the current response items.
 
 ###### \_pagination.shouldContinue
 
