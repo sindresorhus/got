@@ -76,7 +76,7 @@ test('filters elements', withServer, async (t, server, got) => {
 				t.true(Array.isArray(allItems));
 				t.true(Array.isArray(currentItems));
 
-				return element !== 2
+				return element !== 2;
 			}
 		}
 	});
@@ -183,7 +183,7 @@ test('`shouldContinue` works', withServer, async (t, server, got) => {
 				t.true(Array.isArray(allItems));
 				t.true(Array.isArray(currentItems));
 
-				return false
+				return false;
 			}
 		}
 	};
