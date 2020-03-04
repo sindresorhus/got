@@ -687,18 +687,18 @@ A function that returns an object representing Got options pointing to the next 
 ###### \_pagination.filter
 
 Type: `Function`\
-Default: `(item, allItems) => true`
+Default: `(item, allItems, currentItems) => true`
 
-Checks whether the item should be emitted or not.
+Checks whether the item should be emitted or not. `currentItems` is an array of the emitted of items of the current response and `allItems` is an error of _all_ the previously emitted items.
 
 ###### \_pagination.shouldContinue
 
 Type: `Function`\
-Default: `(item, allItems) => true`
+Default: `(item, allItems, currentItems) => true`
 
-Checks whether the pagination should continue.
+Checks whether the pagination should continue. `currentItems` is an array of the emitted of items of the current response and `allItems` is an error of _all_ the previously emitted items.
 
-For example, if you need to stop **before** emitting an entry with some flag, you should use `(item, allItems) => !item.flag`. If you want to stop **after** emitting the entry, you should use `(item, allItems) => allItems.some(entry => entry.flag)` instead.
+For example, if you need to stop **before** emitting an entry with some flag, you should use `(item, allItems, currentItems) => !item.flag`. If you want to stop **after** emitting the entry, you should use `(item, allItems) => allItems.some(entry => entry.flag)` instead.
 
 ###### \_pagination.countLimit
 
