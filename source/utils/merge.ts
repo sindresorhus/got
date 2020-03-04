@@ -3,7 +3,7 @@ import is from '@sindresorhus/is';
 import {Merge} from 'type-fest';
 import caseless = require('caseless');
 
-const headerFuncRe = /^([gs]et|has|remove)Header$/;
+const headerFuncRe = /^(?:[gs]et|has|remove)Header$/;
 const isHttpified = (obj: {[key: string]: any}): obj is caseless.Httpified =>
 	Reflect.has(obj, 'headers') && is.function_(obj.setHeader);
 
