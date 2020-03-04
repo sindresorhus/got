@@ -236,6 +236,13 @@ export interface NormalizedOptions extends Options {
 
 	// UNIX socket support
 	path?: string;
+
+	// Caseless headers
+	setHeader(name: string, value: string | string[], clobber?: boolean): string | false;
+	setHeader(headers: Headers): void;
+	hasHeader(name: string): string | false;
+	getHeader(name: string): string | string[] | undefined;
+	removeHeader(name: string): boolean;
 }
 
 export interface ExtendOptions extends Options {

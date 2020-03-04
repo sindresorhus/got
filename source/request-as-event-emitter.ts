@@ -131,8 +131,8 @@ export default (options: NormalizedOptions): RequestAsEventEmitter => {
 					const redirectUrl = new URL(redirectBuffer, options.url);
 
 					// Redirecting to a different site, clear cookies.
-					if (redirectUrl.hostname !== options.url.hostname && Reflect.has(options.headers, 'cookie')) {
-						delete options.headers.cookie;
+					if (redirectUrl.hostname !== options.url.hostname && options.hasHeader('cookie')) {
+						options.removeHeader('cookie');
 					}
 
 					redirects.push(redirectUrl.toString());

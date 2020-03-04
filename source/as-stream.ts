@@ -131,10 +131,12 @@ export default function asStream<T>(options: NormalizedOptions): ProxyStream<T> 
 
 	proxy.on('pipe', source => {
 		if (source instanceof IncomingMessage) {
-			options.headers = {
-				...source.headers,
-				...options.headers
-			};
+			const sourceHeaders = source.headers;
+			for (const k of Object.keys(sourceHeaders)) {
+				if (!options.hasHeader(k)) {
+					options.setHeader(k, sourceHeaders[k]!);
+				}
+			}
 		}
 	});
 

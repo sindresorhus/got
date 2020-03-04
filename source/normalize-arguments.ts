@@ -4,7 +4,7 @@ import CacheableRequest = require('cacheable-request');
 import http = require('http');
 import https = require('https');
 import Keyv = require('keyv');
-import lowercaseKeys = require('lowercase-keys');
+import caseless = require('caseless');
 import stream = require('stream');
 import toReadableStream = require('to-readable-stream');
 import is from '@sindresorhus/is';
@@ -46,13 +46,10 @@ const isAgentByProtocol = (agent: Options['agent']): agent is AgentByProtocol =>
 // TODO: `preNormalizeArguments` should merge `options` & `defaults`
 export const preNormalizeArguments = (options: Options, defaults?: NormalizedOptions): NormalizedOptions => {
 	// `options.headers`
-	if (is.undefined(options.headers)) {
-		options.headers = {};
-	} else {
-		options.headers = lowercaseKeys(options.headers);
-	}
+	// Caseless's typing's second argument is incorrect
+	caseless.httpify(options, options.headers!);
 
-	for (const [key, value] of Object.entries(options.headers)) {
+	for (const [key, value] of Object.entries(options.headers!)) {
 		if (is.null_(value)) {
 			throw new TypeError(`Use \`undefined\` instead of \`null\` to delete the \`${key}\` header`);
 		}
@@ -374,8 +371,7 @@ export const normalizeRequestArguments = async (options: NormalizedOptions): Pro
 	options = mergeOptions(options);
 
 	// Serialize body
-	const {headers} = options;
-	const hasNoContentType = is.undefined(headers['content-type']);
+	const hasNoContentType = is.undefined(options.getHeader('content-type'));
 
 	{
 		// TODO: these checks should be moved to `preNormalizeArguments`
@@ -408,17 +404,17 @@ export const normalizeRequestArguments = async (options: NormalizedOptions): Pro
 	if (options.body) {
 		// Special case for https://github.com/form-data/form-data
 		if (is.object(options.body) && isFormData(options.body) && hasNoContentType) {
-			headers['content-type'] = `multipart/form-data; boundary=${options.body.getBoundary()}`;
+			options.setHeader('content-type', `multipart/form-data; boundary=${options.body.getBoundary()}`);
 		}
 	} else if (options.form) {
 		if (hasNoContentType) {
-			headers['content-type'] = 'application/x-www-form-urlencoded';
+			options.setHeader('content-type', 'application/x-www-form-urlencoded');
 		}
 
 		options.body = (new URLSearchParams(options.form as Record<string, string>)).toString();
 	} else if (options.json) {
 		if (hasNoContentType) {
-			headers['content-type'] = 'application/json';
+			options.setHeader('content-type', 'application/json');
 		}
 
 		options.body = JSON.stringify(options.json);
@@ -439,22 +435,21 @@ export const normalizeRequestArguments = async (options: NormalizedOptions): Pro
 	// Content-Length header field when the request message does not contain
 	// a payload body and the method semantics do not anticipate such a
 	// body.
-	if (is.undefined(headers['content-length']) && is.undefined(headers['transfer-encoding'])) {
+	if (is.undefined(options.getHeader('content-length')) && is.undefined(options.getHeader('transfer-encoding'))) {
 		if (
 			(options.method === 'POST' || options.method === 'PUT' || options.method === 'PATCH' || options.method === 'DELETE') &&
 			!is.undefined(uploadBodySize)
 		) {
-			// @ts-ignore We assign if it is undefined, so this IS correct
-			headers['content-length'] = String(uploadBodySize);
+			options.setHeader('content-length', String(uploadBodySize));
 		}
 	}
 
-	if (!options.isStream && options.responseType === 'json' && is.undefined(headers.accept)) {
-		headers.accept = 'application/json';
+	if (!options.isStream && options.responseType === 'json' && is.undefined(options.getHeader('accept'))) {
+		options.setHeader('accept', 'application/json');
 	}
 
-	if (options.decompress && is.undefined(headers['accept-encoding'])) {
-		headers['accept-encoding'] = supportsBrotli ? 'gzip, deflate, br' : 'gzip, deflate';
+	if (options.decompress && is.undefined(options.getHeader('accept-encoding'))) {
+		options.setHeader('accept-encoding', supportsBrotli ? 'gzip, deflate, br' : 'gzip, deflate');
 	}
 
 	// Validate URL
@@ -517,9 +512,9 @@ export const normalizeRequestArguments = async (options: NormalizedOptions): Pro
 		const cookieString = await options.cookieJar.getCookieString(options.url.toString());
 
 		if (is.nonEmptyString(cookieString)) {
-			options.headers.cookie = cookieString;
+			options.setHeader('cookie', cookieString);
 		} else {
-			delete options.headers.cookie;
+			options.removeHeader('cookie');
 		}
 	}
 

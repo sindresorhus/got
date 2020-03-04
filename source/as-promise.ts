@@ -168,8 +168,8 @@ export default function asPromise<T>(options: NormalizedOptions): CancelableRequ
 	};
 
 	promise.json = () => {
-		if (is.undefined(body) && is.undefined(options.headers.accept)) {
-			options.headers.accept = 'application/json';
+		if (is.undefined(body) && is.undefined(options.getHeader('accept'))) {
+			options.setHeader('accept', 'application/json');
 		}
 
 		return shortcut('json');

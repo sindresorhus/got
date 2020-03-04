@@ -102,8 +102,8 @@ const instance = got.extend({
 	handlers: [
 		(options, next) => {
 			// Authorization
-			if (options.token && !options.headers.authorization) {
-				options.headers.authorization = `token ${options.token}`;
+			if (options.token && !options.getHeader('authorization')) {
+				options.setHeader('authorization', `token ${options.token}`);
 			}
 
 			return next(options);
@@ -123,8 +123,8 @@ We should name our errors, just to know if the error is from the API response. S
 	handlers: [
 		(options, next) => {
 			// Authorization
-			if (options.token && !options.headers.authorization) {
-				options.headers.authorization = `token ${options.token}`;
+			if (options.token && !options.getHeader('authorization')) {
+				options.setHeader('authorization', `token ${options.token}`);
 			}
 
 			// Don't touch streams
@@ -192,8 +192,8 @@ const getRateLimit = (headers) => ({
 	handlers: [
 		(options, next) => {
 			// Authorization
-			if (options.token && !options.headers.authorization) {
-				options.headers.authorization = `token ${options.token}`;
+			if (options.token && !options.getHeader('authorization')) {
+				options.setHeader('authorization', `token ${options.token}`);
 			}
 
 			// Don't touch streams

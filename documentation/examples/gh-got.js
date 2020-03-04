@@ -20,7 +20,7 @@ const instance = got.extend({
 		(options, next) => {
 			// Authorization
 			if (options.token && !options.headers.authorization) {
-				options.headers.authorization = `token ${options.token}`;
+				options.setHeader('authorization', `token ${options.token}`);
 			}
 
 			// Don't touch streams

@@ -204,6 +204,21 @@ test('`content-type` header is not overriden when object in `options.body`', wit
 	t.is(headers['content-type'], 'doge');
 });
 
+test('`content-type` header is not overriden when object in `options.body` (with casing)', withServer, async (t, server, got) => {
+	server.post('/', echoHeaders);
+
+	const {body: headers} = await got.post({
+		headers: {
+			'Content-Type': 'doge'
+		},
+		json: {
+			such: 'wow'
+		},
+		responseType: 'json'
+	});
+	t.is(headers['content-type'], 'doge');
+});
+
 test('throws when form body is not a plain object or array', async t => {
 	// @ts-ignore Manual test
 	await t.throwsAsync(got.post('https://example.com', {form: 'such=wow'}), {

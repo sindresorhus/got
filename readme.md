@@ -221,7 +221,7 @@ const instance = got.extend({
 					throw new Error('Token required');
 				}
 
-				options.headers.token = options.context.token;
+				options.setHeader('token') = options.context.token;
 			}
 		]
 	}
@@ -919,7 +919,7 @@ const mutableGot = got.extend({mutableDefaults: true});
 const mergedHandlers = got.extend({
 	handlers: [
 		(options, next) => {
-			delete options.headers.referer;
+			options.getHeader('referer');
 
 			return next(options);
 		}

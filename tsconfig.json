@@ -5,7 +5,8 @@
 		"target": "es2018", // Node.js 10
 		"lib": [
 			"es2018"
-		]
+		],
+		"sourceMap": true
 	},
 	"include": [
 		"source",
