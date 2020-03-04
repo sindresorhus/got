@@ -64,6 +64,7 @@ const defaults: Defaults = {
 		maxRedirects: 10,
 		prefixUrl: '',
 		methodRewriting: true,
+		allowGetBody: false,
 		ignoreInvalidCookies: false,
 		context: {},
 		_pagination: {

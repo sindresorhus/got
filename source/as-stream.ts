@@ -23,7 +23,7 @@ export default function asStream<T>(options: NormalizedOptions): ProxyStream<T> 
 			proxy.destroy();
 			throw new Error('Got\'s stream is not writable when the `body`, `json` or `form` option is used');
 		};
-	} else if (options.method === 'POST' || options.method === 'PUT' || options.method === 'PATCH') {
+	} else if (options.method === 'POST' || options.method === 'PUT' || options.method === 'PATCH' || (options.allowGetBody && options.method === 'GET')) {
 		options.body = input;
 	} else {
 		proxy.write = () => {

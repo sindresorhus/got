@@ -162,6 +162,13 @@ test('throws when passing body with a non payload method', async t => {
 	});
 });
 
+test('`allowGetBody` option', withServer, async (t, server, got) => {
+	server.get('/test', echoUrl);
+
+	const url = new URL(`${server.url}/test`);
+	await t.notThrowsAsync(got(url, {body: 'asdf', allowGetBody: true}));
+});
+
 test('WHATWG URL support', withServer, async (t, server, got) => {
 	server.get('/test', echoUrl);
 

@@ -228,6 +228,7 @@ export const preNormalizeArguments = (options: Options, defaults?: NormalizedOpt
 	options.dnsCache = options.dnsCache ?? false;
 	options.useElectronNet = Boolean(options.useElectronNet);
 	options.methodRewriting = Boolean(options.methodRewriting);
+	options.allowGetBody = Boolean(options.allowGetBody);
 	options.context = options.context ?? {};
 
 	return options as NormalizedOptions;
@@ -359,7 +360,8 @@ export const normalizeArguments = (url: URLOrOptions, options?: Options, default
 	return normalizedOptions;
 };
 
-const withoutBody: ReadonlySet<string> = new Set(['GET', 'HEAD']);
+const withoutBody: ReadonlySet<string> = new Set(['HEAD']);
+const withoutBodyUnlessSpecified = 'GET';
 
 export type NormalizedRequestArguments = Merge<https.RequestOptions, {
 	body?: stream.Readable;
@@ -379,6 +381,10 @@ export const normalizeRequestArguments = async (options: NormalizedOptions): Pro
 		const isJson = !is.undefined(options.json);
 		const isBody = !is.undefined(options.body);
 		if ((isBody || isForm || isJson) && withoutBody.has(options.method)) {
+			throw new TypeError(`The \`${options.method}\` method cannot be used with a body`);
+		}
+
+		if (!options.allowGetBody && (isBody || isForm || isJson) && withoutBodyUnlessSpecified === options.method) {
 			throw new TypeError(`The \`${options.method}\` method cannot be used with a body`);
 		}
 
@@ -437,7 +443,7 @@ export const normalizeRequestArguments = async (options: NormalizedOptions): Pro
 	// body.
 	if (is.undefined(options.getHeader('content-length')) && is.undefined(options.getHeader('transfer-encoding'))) {
 		if (
-			(options.method === 'POST' || options.method === 'PUT' || options.method === 'PATCH' || options.method === 'DELETE') &&
+			(options.method === 'POST' || options.method === 'PUT' || options.method === 'PATCH' || options.method === 'DELETE' || (options.allowGetBody && options.method === 'GET')) &&
 			!is.undefined(uploadBodySize)
 		) {
 			options.setHeader('content-length', String(uploadBodySize));
