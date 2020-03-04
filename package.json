@@ -94,7 +94,6 @@
 	"types": "dist/source",
 	"sideEffects": false,
 	"browser": {
-		"decompress-response": false,
 		"electron": false
 	},
 	"ava": {
