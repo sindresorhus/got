@@ -179,7 +179,7 @@ test('`shouldContinue` works', withServer, async (t, server, got) => {
 
 	const options = {
 		_pagination: {
-			shouldContinue: (_element: any, allItems: any, currentItems: any) => {
+			shouldContinue: (_element: unknown, allItems: unknown[], currentItems: unknown[]) => {
 				t.true(Array.isArray(allItems));
 				t.true(Array.isArray(currentItems));
 
