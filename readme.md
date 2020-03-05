@@ -690,7 +690,8 @@ The function takes three arguments:
 It should return an object representing Got options pointing to the next page. If there are no more pages, `false` should be returned.
 
 For example, if you want to stop when the response contains less items than expected, you should use:
-```
+
+```js
 (response, allItems, currentItems) => {
 	const entriesPerPage = response.request.options.searchParams.get('entriesPerPage');
 
