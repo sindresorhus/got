@@ -685,7 +685,18 @@ Default: [`Link` header logic](source/index.ts)
 The function takes three arguments: `response` (response object), `allItems` (array) and `currentItems` (array).
 It should return an object representing Got options pointing to the next page. If there are no more pages, `false` should be returned.
 
-For example, if you want to stop when the response contains less items than expected, you should use `(response, allItems, currentItems) => currentItems.length < response.request.options.searchParams.entriesPerPage ? false : { url: getNextLink(response, allItems, currentItems) }`.
+For example, if you want to stop when the response contains less items than expected, you should use:
+```
+(response, allItems, currentItems) => {
+	if (currentItems.length < response.request.options.searchParams.entriesPerPage) {
+		return false;
+	}
+  
+	return { 
+		url: getNextLink(response, allItems, currentItems) 
+	};
+}
+```
 
 ###### \_pagination.filter
 
