@@ -217,6 +217,7 @@ const create = (defaults: Defaults): Got => {
 			// eslint-disable-next-line no-await-in-loop
 			const parsed = await pagination.transform!(result);
 			const current: T[] = [];
+
 			for (const item of parsed) {
 				if (pagination.filter!(item, all, current)) {
 					if (!pagination.shouldContinue!(item, all, current)) {
