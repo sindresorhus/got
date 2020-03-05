@@ -682,7 +682,11 @@ A function that transform [`Response`](#response) into an array of items. This i
 Type: `Function`\
 Default: [`Link` header logic](source/index.ts)
 
-The function takes three arguments: `response` (response object), `allItems` (array) and `currentItems` (array).
+The function takes three arguments:
+- `response` (the current response object)
+- `allItems` (an array of the emitted items)
+- `currentItems` (items from the current response).
+
 It should return an object representing Got options pointing to the next page. If there are no more pages, `false` should be returned.
 
 For example, if you want to stop when the response contains less items than expected, you should use:
@@ -705,14 +709,14 @@ For example, if you want to stop when the response contains less items than expe
 Type: `Function`\
 Default: `(item, allItems, currentItems) => true`
 
-Checks whether the item should be emitted or not. `allItems` is an array of the all emitted items, while `currentItems` is an array of the current response items.
+Checks whether the item should be emitted or not.
 
 ###### \_pagination.shouldContinue
 
 Type: `Function`\
 Default: `(item, allItems, currentItems) => true`
 
-Checks whether the pagination should continue. `allItems` is an array of the all emitted items, while `currentItems` is an array of the current response items.
+Checks whether the pagination should continue.
 
 For example, if you need to stop **before** emitting an entry with some flag, you should use `(item, allItems, currentItems) => !item.flag`. If you want to stop **after** emitting the entry, you should use `(item, allItems, currentItems) => allItems.some(entry => entry.flag)` instead.
 
