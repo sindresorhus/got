@@ -680,11 +680,12 @@ A function that transform [`Response`](#response) into an array of items. This i
 ###### \_pagination.paginate
 
 Type: `Function`\
-Default: `(response, allItems, currentItems) => getLinkFromHeaders(response)` (find details [here](source/index.ts))
+Default: [`Link` header logic](source/index.ts)
 
-A function that returns an object representing Got options pointing to the next page. If there are no more pages, `false` should be returned.
+The function takes three arguments: `response` (response object), `allItems` (array) and `currentItems` (array).
+It should return an object representing Got options pointing to the next page. If there are no more pages, `false` should be returned.
 
-For example, if you want to stop when the response contains less items that expected, you should use `(response, allItems, currentItems) => currentItems.length < LIMIT ? false : { url: getNextLink(response, allItems, currentItems) }`.
+For example, if you want to stop when the response contains less items than expected, you should use `(response, allItems, currentItems) => currentItems.length < response.request.options.searchParams.entriesPerPage ? false : { url: getNextLink(response, allItems, currentItems) }`.
 
 ###### \_pagination.filter
 
