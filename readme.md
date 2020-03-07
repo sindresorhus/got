@@ -683,9 +683,9 @@ Type: `Function`\
 Default: [`Link` header logic](source/index.ts)
 
 The function takes three arguments:
-- `response` (the current response object)
-- `allItems` (an array of the emitted items)
-- `currentItems` (items from the current response).
+- `response` - The current response object.
+- `allItems` - An array of the emitted items.
+- `currentItems` - Items from the current response.
 
 It should return an object representing Got options pointing to the next page. If there are no more pages, `false` should be returned.
 
