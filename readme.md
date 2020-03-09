@@ -692,36 +692,36 @@ It should return an object representing Got options pointing to the next page. I
 For example, if you want to stop when the response contains less items than expected, you can use something like this:
 
 ```js
-import got from 'got';
+const got = require('got');
 
 (async () => {
 	const limit = 10;
 
-	const items = got.paginate('/items', {
+	const items = got.paginate('https://example.com/items', {
 		searchParams: {
 			limit,
-			offset: 0,
+			offset: 0
 		},
 		_pagination: {
 			paginate: (response, allItems, currentItems) => {
 				const previousSearchParams = response.request.options.searchParams;
-				const { offset: previousOffset } = previousSearchParams;
+				const {offset: previousOffset} = previousSearchParams;
 
 				if (currentItems.length < limit) {
 					return false;
 				}
 
-				return { 
-				      searchParams: {
-					...previousSearchParams,
-					offset: previousOffset + limit,
-				      },
+				return {
+					searchParams: {
+						...previousSearchParams,
+						offset: previousOffset + limit,
+					}
 				};
 			}
 		}
 	});
-	
-	console.log('Items from all pages: %o', items);
+
+	console.log('Items from all pages:', items);
 })();
 ```
 
