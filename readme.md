@@ -692,17 +692,33 @@ It should return an object representing Got options pointing to the next page. I
 For example, if you want to stop when the response contains less items than expected, you can use something like this:
 
 ```js
-(response, allItems, currentItems) => {
-	const entriesPerPage = response.request.options.searchParams.get('entriesPerPage');
+(async () => {
+	const limit = 10;
 
-	if (entriesPerPage !== undefined && currentItems.length < entriesPerPage) {
-		return false;
-	}
-  
-	return { 
-		url: getNextLink(response, allItems, currentItems) 
-	};
-}
+	const items = got.paginate('/items', {
+		searchParams: {
+			limit,
+			offset: 0,
+		},
+		_pagination: {
+			paginate: (response, allItems, currentItems) => {
+				const previousSearchParams = response.request.options.searchParams;
+				const { offset: previousOffset } = previousSearchParams;
+
+				if (currentItems.length < limit) {
+					return false;
+				}
+
+				return { 
+				      searchParams: {
+					...previousSearchParams,
+					offset: previousOffset + limit,
+				      },
+				};
+			}
+		}
+	});
+})();
 ```
 
 ###### \_pagination.filter
