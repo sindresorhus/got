@@ -692,6 +692,8 @@ It should return an object representing Got options pointing to the next page. I
 For example, if you want to stop when the response contains less items than expected, you can use something like this:
 
 ```js
+import got from 'got';
+
 (async () => {
 	const limit = 10;
 
@@ -718,6 +720,8 @@ For example, if you want to stop when the response contains less items than expe
 			}
 		}
 	});
+	
+	console.log('Items from all pages: %o', items);
 })();
 ```
 
