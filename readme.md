@@ -682,23 +682,64 @@ A function that transform [`Response`](#response) into an array of items. This i
 Type: `Function`\
 Default: [`Link` header logic](source/index.ts)
 
-A function that returns an object representing Got options pointing to the next page. If there are no more pages, `false` should be returned.
+The function takes three arguments:
+- `response` - The current response object.
+- `allItems` - An array of the emitted items.
+- `currentItems` - Items from the current response.
+
+It should return an object representing Got options pointing to the next page. If there are no more pages, `false` should be returned.
+
+For example, if you want to stop when the response contains less items than expected, you can use something like this:
+
+```js
+const got = require('got');
+
+(async () => {
+	const limit = 10;
+
+	const items = got.paginate('https://example.com/items', {
+		searchParams: {
+			limit,
+			offset: 0
+		},
+		_pagination: {
+			paginate: (response, allItems, currentItems) => {
+				const previousSearchParams = response.request.options.searchParams;
+				const {offset: previousOffset} = previousSearchParams;
+
+				if (currentItems.length < limit) {
+					return false;
+				}
+
+				return {
+					searchParams: {
+						...previousSearchParams,
+						offset: previousOffset + limit,
+					}
+				};
+			}
+		}
+	});
+
+	console.log('Items from all pages:', items);
+})();
+```
 
 ###### \_pagination.filter
 
 Type: `Function`\
-Default: `(item, allItems) => true`
+Default: `(item, allItems, currentItems) => true`
 
 Checks whether the item should be emitted or not.
 
 ###### \_pagination.shouldContinue
 
 Type: `Function`\
-Default: `(item, allItems) => true`
+Default: `(item, allItems, currentItems) => true`
 
 Checks whether the pagination should continue.
 
-For example, if you need to stop **before** emitting an entry with some flag, you should use `(item, allItems) => !item.flag`. If you want to stop **after** emitting the entry, you should use `(item, allItems) => allItems.some(entry => entry.flag)` instead.
+For example, if you need to stop **before** emitting an entry with some flag, you should use `(item, allItems, currentItems) => !item.flag`. If you want to stop **after** emitting the entry, you should use `(item, allItems, currentItems) => allItems.some(entry => entry.flag)` instead.
 
 ###### \_pagination.countLimit
 

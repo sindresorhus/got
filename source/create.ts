@@ -216,16 +216,18 @@ const create = (defaults: Defaults): Got => {
 
 			// eslint-disable-next-line no-await-in-loop
 			const parsed = await pagination.transform!(result);
+			const current: T[] = [];
 
 			for (const item of parsed) {
-				if (pagination.filter!(item, all)) {
-					if (!pagination.shouldContinue!(item, all)) {
+				if (pagination.filter!(item, all, current)) {
+					if (!pagination.shouldContinue!(item, all, current)) {
 						return;
 					}
 
 					yield item;
 
 					all.push(item as T);
+					current.push(item as T);
 
 					if (all.length === pagination.countLimit) {
 						return;
@@ -233,7 +235,7 @@ const create = (defaults: Defaults): Got => {
 				}
 			}
 
-			const optionsToMerge = pagination.paginate!(result);
+			const optionsToMerge = pagination.paginate!(result, all, current);
 
 			if (optionsToMerge === false) {
 				return;
