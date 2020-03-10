@@ -220,7 +220,7 @@ const instance = got.extend({
 	hooks: {
 		beforeRequest: [
 			options => {
-				if (!options.context && !options.context.token) {
+				if (!options.context || !options.context.token) {
 					throw new Error('Token required');
 				}
 
