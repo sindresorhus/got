@@ -115,7 +115,6 @@ const gotInstance = got.extend({
 				if (options.responseType === 'json' && options.jsonReviver) {
 					options.responseType = 'text';
 					options.customJsonResponse = true;
-					console.log(options.context);
 				}
 			}
 		],
