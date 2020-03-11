@@ -110,11 +110,18 @@ const gotInstance = got.extend({
 				}
 			}
 		],
+		beforeRequest: [
+			options => {
+				if (options.responseType === 'json' && options.jsonReviver) {
+					options.responseType = 'text';
+					options.customJsonResponse = true;
+				}
+			}
+		],
 		afterResponse: [
 			response => {
 				const {options} = response.request;
-				if (options.jsonReviver && options.responseType === 'json') {
-					options.responseType = 'text';
+				if (options.jsonReviver && options.customJsonResponse) {
 					response.body = JSON.parse(response.body, options.jsonReviver);
 				}
 
