@@ -114,7 +114,6 @@ const gotInstance = got.extend({
 			response => {
 				const {options} = response.request;
 				if (options.jsonReviver && options.responseType === 'json') {
-					options.responseType = 'text';
 					response.body = JSON.parse(response.body, options.jsonReviver);
 				}
 
