@@ -410,6 +410,37 @@ test('afterResponse allows to retry', withServer, async (t, server, got) => {
 	t.is(statusCode, 200);
 });
 
+test.failing('afterResponse with retry has correct `.text()`', withServer, async (t, server, got) => {
+	server.get('/', (request, response) => {
+		if (request.headers.token === 'unicorn') {
+			response.end('hello world');
+		} else {
+			response.statusCode = 401;
+			response.end('hello nasty');
+		}
+	});
+
+	const body = await got({
+		hooks: {
+			afterResponse: [
+				(response, retryWithMergedOptions) => {
+					if (response.statusCode === 401) {
+						return retryWithMergedOptions({
+							headers: {
+								token: 'unicorn'
+							}
+						});
+					}
+
+					return response;
+				}
+			]
+		}
+	}).text();
+
+	t.is(body, 'hello world');
+});
+
 test.failing('afterResponse with retry has correct `.json()`', withServer, async (t, server, got) => {
 	server.get('/', (request, response) => {
 		if (request.headers.token === 'unicorn') {
@@ -439,6 +470,37 @@ test.failing('afterResponse with retry has correct `.json()`', withServer, async
 	}).json() as any;
 
 	t.is(body.hello, 'world');
+});
+
+test.failing('afterResponse with retry has correct `.buffer()`', withServer, async (t, server, got) => {
+	server.get('/', (request, response) => {
+		if (request.headers.token === 'unicorn') {
+			response.end('hello world');
+		} else {
+			response.statusCode = 401;
+			response.end('hello nasty');
+		}
+	});
+
+	const body = await got({
+		hooks: {
+			afterResponse: [
+				(response, retryWithMergedOptions) => {
+					if (response.statusCode === 401) {
+						return retryWithMergedOptions({
+							headers: {
+								token: 'unicorn'
+							}
+						});
+					}
+
+					return response;
+				}
+			]
+		}
+	}).buffer();
+
+	t.is(body.toString(), 'hello world');
 });
 
 test('cancelling the request after retrying in a afterResponse hook', withServer, async (t, server, got) => {
