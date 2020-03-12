@@ -410,6 +410,36 @@ test('afterResponse allows to retry', withServer, async (t, server, got) => {
 	t.is(statusCode, 200);
 });
 
+test('afterResponse with retry as correct .json()', withServer, async (t, server, got) => {
+	server.get('/', (request, response) => {
+		if (request.headers.token !== 'unicorn') {
+			response.statusCode = 401;
+			response.end(JSON.stringify({hello: 'nasty'}));
+		} else {
+			response.end(JSON.stringify({hello: 'world'}));
+		}
+	});
+
+	const body = await got({
+		hooks: {
+			afterResponse: [
+				(response, retryWithMergedOptions) => {
+					if (response.statusCode === 401) {
+						return retryWithMergedOptions({
+							headers: {
+								token: 'unicorn'
+							}
+						});
+					}
+
+					return response;
+				}
+			]
+		}
+	}).json() as any;
+	t.is(body.hello, 'world');
+});
+
 test('cancelling the request after retrying in a afterResponse hook', withServer, async (t, server, got) => {
 	let requests = 0;
 	server.get('/', (_request, response) => {
