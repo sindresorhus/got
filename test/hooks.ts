@@ -410,13 +410,13 @@ test('afterResponse allows to retry', withServer, async (t, server, got) => {
 	t.is(statusCode, 200);
 });
 
-test.failing('afterResponse with retry as correct `.json()`', withServer, async (t, server, got) => {
+test.failing('afterResponse with retry has correct `.json()`', withServer, async (t, server, got) => {
 	server.get('/', (request, response) => {
-		if (request.headers.token !== 'unicorn') {
+		if (request.headers.token === 'unicorn') {
+			response.end(JSON.stringify({hello: 'world'}));
+		} else {
 			response.statusCode = 401;
 			response.end(JSON.stringify({hello: 'nasty'}));
-		} else {
-			response.end(JSON.stringify({hello: 'world'}));
 		}
 	});
 
