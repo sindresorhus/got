@@ -7,17 +7,17 @@ import {normalizeArguments, mergeOptions} from './normalize-arguments';
 import requestAsEventEmitter, {proxyEvents} from './request-as-event-emitter';
 import {CancelableRequest, GeneralError, NormalizedOptions, Response} from './types';
 
-const parseBody = (body: Buffer, responseType: NormalizedOptions['responseType'], encoding: NormalizedOptions['encoding']): unknown => {
+const parseBody = (kludge: {body: Buffer}, responseType: NormalizedOptions['responseType'], encoding: NormalizedOptions['encoding']): unknown => {
 	if (responseType === 'json') {
-		return body.length === 0 ? '' : JSON.parse(body.toString());
+		return kludge.body.length === 0 ? '' : JSON.parse(kludge.body.toString());
 	}
 
 	if (responseType === 'buffer') {
-		return Buffer.from(body);
+		return Buffer.from(kludge.body);
 	}
 
 	if (responseType === 'text') {
-		return body.toString(encoding);
+		return kludge.body.toString(encoding);
 	}
 
 	throw new TypeError(`Unknown body type '${responseType as string}'`);
@@ -35,9 +35,8 @@ export function createRejection(error: Error): CancelableRequest<never> {
 	return promise;
 }
 
-export default function asPromise<T>(options: NormalizedOptions): CancelableRequest<T> {
+export default function asPromise<T>(options: NormalizedOptions, kludge = {body: Buffer.from('')}): CancelableRequest<T> {
 	const proxy = new EventEmitter();
-	let body: Buffer;
 
 	const promise = new PCancelable<Response | Response['body']>((resolve, reject, onCancel) => {
 		const emitter = requestAsEventEmitter(options);
@@ -61,7 +60,7 @@ export default function asPromise<T>(options: NormalizedOptions): CancelableRequ
 
 			// Download body
 			try {
-				body = await getStream.buffer(response, {encoding: 'binary'});
+				kludge.body = await getStream.buffer(response, {encoding: 'binary'});
 			} catch (error) {
 				emitError(new ReadError(error, options));
 				return;
@@ -81,10 +80,10 @@ export default function asPromise<T>(options: NormalizedOptions): CancelableRequ
 
 			// Parse body
 			try {
-				response.body = parseBody(body, options.responseType, options.encoding);
+				response.body = parseBody(kludge, options.responseType, options.encoding);
 			} catch (error) {
 				// Fall back to `utf8`
-				response.body = body.toString();
+				response.body = kludge.body.toString();
 
 				if (isOk()) {
 					const parseError = new ParseError(error, response, options);
@@ -116,7 +115,7 @@ export default function asPromise<T>(options: NormalizedOptions): CancelableRequ
 							await hook(typedOptions);
 						}
 
-						const promise = asPromise(typedOptions);
+						const promise = asPromise(typedOptions, kludge);
 
 						onCancel(() => {
 							promise.catch(() => {});
@@ -160,7 +159,7 @@ export default function asPromise<T>(options: NormalizedOptions): CancelableRequ
 
 	const shortcut = <T>(responseType: NormalizedOptions['responseType']): CancelableRequest<T> => {
 		// eslint-disable-next-line promise/prefer-await-to-then
-		const newPromise = promise.then(() => parseBody(body, responseType, options.encoding));
+		const newPromise = promise.then(() => parseBody(kludge, responseType, options.encoding));
 
 		Object.defineProperties(newPromise, Object.getOwnPropertyDescriptors(promise));
 
@@ -168,7 +167,7 @@ export default function asPromise<T>(options: NormalizedOptions): CancelableRequ
 	};
 
 	promise.json = () => {
-		if (is.undefined(body) && is.undefined(options.headers.accept)) {
+		if (is.undefined(kludge.body) && is.undefined(options.headers.accept)) {
 			options.headers.accept = 'application/json';
 		}
 
