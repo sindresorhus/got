@@ -286,7 +286,7 @@ export const normalizeArguments = (url: URLOrOptions, options?: Options, default
 	const hasUrl = is.urlInstance(url) || is.string(url);
 	if (hasUrl) {
 		if (options) {
-			if (Reflect.has(options, 'url')) {
+			if (options.url) {
 				throw new TypeError('The `url` option cannot be used if the input is a valid URL.');
 			}
 		} else {
