@@ -301,7 +301,7 @@ export const normalizeArguments = (url: URLOrOptions, options?: Options, default
 		runInitHooks(defaults?.options.hooks.init, options);
 		runInitHooks(options.hooks?.init, options);
 
-		url = options.url;
+		url = options.url as URLOrOptions;
 		options.url = optionsUrl;
 	} else if (Reflect.has(url as object, 'resolve')) {
 		throw new Error('The legacy `url.Url` is deprecated. Use `URL` instead.');
