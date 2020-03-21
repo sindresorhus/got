@@ -1,5 +1,6 @@
 import test from 'ava';
-import got from '../source';
+import got, {Options} from '../source';
+import {normalizeArguments} from "../source/normalize-arguments";
 
 test('should merge options replacing responseType', t => {
 	const responseType = 'json';
@@ -8,4 +9,15 @@ test('should merge options replacing responseType', t => {
 	});
 
 	t.is(options.responseType, responseType);
+});
+
+test('should be able to reuse options', t => {
+	const  options: Options = {};
+	normalizeArguments("http://localhost", options);
+	t.notThrows(() => normalizeArguments("http://localhost", options));
+});
+
+test('should handle frozen objects', t => {
+	const options: Options = Object.freeze({});
+	t.notThrows(() => normalizeArguments("http://localhost", options));
 });

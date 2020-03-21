@@ -285,36 +285,20 @@ export const normalizeArguments = (url: URLOrOptions, options?: Options, default
 
 	const hasUrl = is.urlInstance(url) || is.string(url);
 	if (hasUrl) {
-		if (options) {
-			if (Reflect.has(options, 'url')) {
-				throw new TypeError('The `url` option cannot be used if the input is a valid URL.');
-			}
-		} else {
-			options = {};
+		options = mergeOptions(defaults?.options ?? {}, options ?? {});
+		if (Reflect.has(options, 'url')) {
+			throw new TypeError('The `url` option cannot be used if the input is a valid URL.');
 		}
-
 		// @ts-ignore URL is not URL
 		options.url = url;
-
-		runInitHooks(defaults?.options.hooks.init, options);
-		runInitHooks(options.hooks?.init, options);
 	} else if (Reflect.has(url as object, 'resolve')) {
 		throw new Error('The legacy `url.Url` is deprecated. Use `URL` instead.');
 	} else {
-		runInitHooks(defaults?.options.hooks.init, url as Options);
-		runInitHooks((url as Options).hooks?.init, url as Options);
-
-		if (options) {
-			runInitHooks(defaults?.options.hooks.init, options);
-			runInitHooks(options.hooks?.init, options);
-		}
-	}
-
-	if (hasUrl) {
-		options = mergeOptions(defaults?.options ?? {}, options ?? {});
-	} else {
 		options = mergeOptions(defaults?.options ?? {}, url as object, options ?? {});
 	}
+
+	runInitHooks(defaults?.options.hooks.init, options);
+	runInitHooks(options.hooks?.init, options);
 
 	// Normalize URL
 	// TODO: drop `optionsToUrl` in Got 12
