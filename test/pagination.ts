@@ -42,7 +42,7 @@ test('the link header has no next value', withServer, async (t, server, got) => 
 test('retrieves all elements', withServer, async (t, server, got) => {
 	attachHandler(server, 2);
 
-	const result = await got.paginate.all('');
+	const result = await got.paginate.all<number>('');
 
 	t.deepEqual(result, [1, 2]);
 });
@@ -60,7 +60,7 @@ test('retrieves all elements with JSON responseType', withServer, async (t, serv
 test('points to defaults when extending Got without custom `_pagination`', withServer, async (t, server, got) => {
 	attachHandler(server, 2);
 
-	const result = await got.extend().paginate.all('');
+	const result = await got.extend().paginate.all<number>('');
 
 	t.deepEqual(result, [1, 2]);
 });
@@ -72,7 +72,7 @@ test('pagination options can be extended', withServer, async (t, server, got) =>
 		_pagination: {
 			shouldContinue: () => false
 		}
-	}).paginate.all('');
+	}).paginate.all<number>('');
 
 	t.deepEqual(result, []);
 });
@@ -80,7 +80,7 @@ test('pagination options can be extended', withServer, async (t, server, got) =>
 test('filters elements', withServer, async (t, server, got) => {
 	attachHandler(server, 3);
 
-	const result = await got.paginate.all({
+	const result = await got.paginate.all<number>({
 		_pagination: {
 			filter: (element, allItems, currentItems) => {
 				t.true(Array.isArray(allItems));
@@ -97,7 +97,7 @@ test('filters elements', withServer, async (t, server, got) => {
 test('parses elements', withServer, async (t, server, got) => {
 	attachHandler(server, 100);
 
-	const result = await got.paginate.all('?page=100', {
+	const result = await got.paginate.all<number>('?page=100', {
 		_pagination: {
 			transform: (response: Response) => [(response as Response<string>).body.length]
 		}
@@ -109,7 +109,7 @@ test('parses elements', withServer, async (t, server, got) => {
 test('parses elements - async function', withServer, async (t, server, got) => {
 	attachHandler(server, 100);
 
-	const result = await got.paginate.all('?page=100', {
+	const result = await got.paginate.all<number>('?page=100', {
 		_pagination: {
 			transform: async (response: Response) => [(response as Response<string>).body.length]
 		}
@@ -121,7 +121,7 @@ test('parses elements - async function', withServer, async (t, server, got) => {
 test('custom paginate function', withServer, async (t, server, got) => {
 	attachHandler(server, 3);
 
-	const result = await got.paginate.all({
+	const result = await got.paginate.all<number>({
 		_pagination: {
 			paginate: response => {
 				if (response.request.options.path === '/?page=3') {
@@ -198,9 +198,9 @@ test('`shouldContinue` works', withServer, async (t, server, got) => {
 		}
 	};
 
-	const results = [];
+	const results: number[] = [];
 
-	for await (const item of got.paginate(options)) {
+	for await (const item of got.paginate<number>(options)) {
 		results.push(item);
 	}
 
@@ -216,9 +216,9 @@ test('`countLimit` works', withServer, async (t, server, got) => {
 		}
 	};
 
-	const results = [];
+	const results: number[] = [];
 
-	for await (const item of got.paginate(options)) {
+	for await (const item of got.paginate<number>(options)) {
 		results.push(item);
 	}
 

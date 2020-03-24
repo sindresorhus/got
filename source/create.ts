@@ -1,4 +1,4 @@
-import {Merge} from 'type-fest';
+import {Merge, Except} from 'type-fest';
 import is from '@sindresorhus/is';
 import asPromise, {createRejection} from './as-promise';
 import asStream, {ProxyStream} from './as-stream';
@@ -61,9 +61,12 @@ export interface GotRequestMethod {
 	<T>(url: string | Merge<Options, {isStream: true}>, options?: Merge<Options, {isStream: true}>): ProxyStream<T>;
 }
 
+export type GotPaginateOptions<T> = Except<Options, keyof PaginationOptions<unknown>> & PaginationOptions<T>;
+export type URLOrGotPaginateOptions<T> = string | GotPaginateOptions<T>;
+
 export interface GotPaginate {
-	<T>(url: URLOrOptions & PaginationOptions<T>, options?: Options & PaginationOptions<T>): AsyncIterableIterator<T>;
-	all<T>(url: URLOrOptions & PaginationOptions<T>, options?: Options & PaginationOptions<T>): Promise<T[]>;
+	<T>(url: URLOrGotPaginateOptions<T>, options?: GotPaginateOptions<T>): AsyncIterableIterator<T>;
+	all<T>(url: URLOrGotPaginateOptions<T>, options?: GotPaginateOptions<T>): Promise<T[]>;
 }
 
 export interface Got extends Record<HTTPAlias, GotRequestMethod>, GotRequestMethod {
@@ -198,8 +201,8 @@ const create = (defaults: Defaults): Got => {
 	}
 
 	// @ts-ignore The missing property is added below
-	got.paginate = async function * <T>(url: URLOrOptions, options?: Options) {
-		let normalizedOptions = normalizeArguments(url, options, defaults);
+	got.paginate = async function * <T>(url: URLOrGotPaginateOptions<T>, options?: GotPaginateOptions<T>) {
+		let normalizedOptions = normalizeArguments(url as URLOrOptions, options as Options, defaults);
 
 		const pagination = normalizedOptions._pagination!;
 
@@ -247,11 +250,11 @@ const create = (defaults: Defaults): Got => {
 		}
 	};
 
-	got.paginate.all = async <T>(url: URLOrOptions, options?: Options) => {
+	got.paginate.all = async <T>(url: URLOrGotPaginateOptions<T>, options?: GotPaginateOptions<T>) => {
 		const results: T[] = [];
 
-		for await (const item of got.paginate<unknown>(url, options)) {
-			results.push(item as T);
+		for await (const item of got.paginate<T>(url, options)) {
+			results.push(item);
 		}
 
 		return results;
