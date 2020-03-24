@@ -62,10 +62,11 @@ export interface GotRequestMethod {
 }
 
 export type GotPaginateOptions<T> = Except<Options, keyof PaginationOptions<unknown>> & PaginationOptions<T>;
+export type URLOrGotPaginateOptions<T> = string | GotPaginateOptions<T>;
 
 export interface GotPaginate {
-	<T>(url: string | GotPaginateOptions<T>, options?: GotPaginateOptions<T>): AsyncIterableIterator<T>;
-	all<T>(url: string | GotPaginateOptions<T>, options?: GotPaginateOptions<T>): Promise<T[]>;
+	<T>(url: URLOrGotPaginateOptions<T>, options?: GotPaginateOptions<T>): AsyncIterableIterator<T>;
+	all<T>(url: URLOrGotPaginateOptions<T>, options?: GotPaginateOptions<T>): Promise<T[]>;
 }
 
 export interface Got extends Record<HTTPAlias, GotRequestMethod>, GotRequestMethod {
@@ -200,7 +201,7 @@ const create = (defaults: Defaults): Got => {
 	}
 
 	// @ts-ignore The missing property is added below
-	got.paginate = async function * <T>(url: string | GotPaginateOptions<T>, options?: GotPaginateOptions<T>) {
+	got.paginate = async function * <T>(url: URLOrGotPaginateOptions<T>, options?: GotPaginateOptions<T>) {
 		let normalizedOptions = normalizeArguments(url as URLOrOptions, options as Options, defaults);
 
 		const pagination = normalizedOptions._pagination!;
@@ -247,7 +248,7 @@ const create = (defaults: Defaults): Got => {
 		}
 	};
 
-	got.paginate.all = async <T>(url: string | GotPaginateOptions<T>, options?: GotPaginateOptions<T>) => {
+	got.paginate.all = async <T>(url: URLOrGotPaginateOptions<T>, options?: GotPaginateOptions<T>) => {
 		const results: T[] = [];
 
 		for await (const item of got.paginate<T>(url, options)) {
