@@ -11,7 +11,7 @@ import CacheableLookup from 'cacheable-lookup';
 import {Handler} from 'express';
 import pEvent = require('p-event');
 import got, {TimeoutError} from '../source';
-import timedOut from '../source/utils/timed-out';
+import timedOut from '../source/core/utils/timed-out';
 import slowDataStream from './helpers/slow-data-stream';
 import {GlobalClock} from './helpers/types';
 import withServer, {withServerAndLolex} from './helpers/with-server';
@@ -87,7 +87,7 @@ test.serial('socket timeout', async t => {
 				const stream = new PassThroughStream();
 				// @ts-ignore Mocking the behaviour of a ClientRequest
 				stream.setTimeout = (ms, callback) => {
-					callback();
+					process.nextTick(callback);
 				};
 
 				// @ts-ignore Mocking the behaviour of a ClientRequest
@@ -133,11 +133,13 @@ test.serial('send timeout (keepalive)', withServerAndLolex, async (t, server, go
 		response.end('ok');
 	});
 
-	await got('prime', {agent: keepAliveAgent});
+	await got('prime', {agent: {http: keepAliveAgent}});
 
 	await t.throwsAsync(
 		got.post({
-			agent: keepAliveAgent,
+			agent: {
+				http: keepAliveAgent
+			},
 			timeout: {send: 1},
 			retry: 0,
 			body: slowDataStream(clock)
@@ -198,10 +200,12 @@ test.serial('response timeout (keepalive)', withServerAndLolex, async (t, server
 		response.end('ok');
 	});
 
-	await got('prime', {agent: keepAliveAgent});
+	await got('prime', {agent: {http: keepAliveAgent}});
 
 	const request = got({
-		agent: keepAliveAgent,
+		agent: {
+			http: keepAliveAgent
+		},
 		timeout: {response: 1},
 		retry: 0
 	}).on('request', (request: http.ClientRequest) => {
@@ -248,7 +252,8 @@ test.serial('connect timeout', withServerAndLolex, async (t, _server, got, clock
 test.serial('connect timeout (ip address)', withServerAndLolex, async (t, _server, got, clock) => {
 	await t.throwsAsync(
 		got({
-			hostname: '127.0.0.1',
+			url: 'http://127.0.0.1',
+			prefixUrl: '',
 			createConnection: options => {
 				const socket = new net.Socket(options as object as net.SocketConstructorOpts);
 				// @ts-ignore We know that it is readonly, but we have to test it
@@ -336,7 +341,8 @@ test.serial('lookup timeout no error (ip address)', withServerAndLolex, async (t
 	server.get('/', defaultHandler(clock));
 
 	await t.notThrowsAsync(got({
-		hostname: '127.0.0.1',
+		url: `http://127.0.0.1:${server.port}`,
+		prefixUrl: '',
 		timeout: {lookup: 1},
 		retry: 0
 	}));
@@ -348,9 +354,9 @@ test.serial('lookup timeout no error (keepalive)', withServerAndLolex, async (t,
 		response.end('ok');
 	});
 
-	await got('prime', {agent: keepAliveAgent});
+	await got('prime', {agent: {http: keepAliveAgent}});
 	await t.notThrowsAsync(got({
-		agent: keepAliveAgent,
+		agent: {http: keepAliveAgent},
 		timeout: {lookup: 1},
 		retry: 0
 	}).on('request', (request: http.ClientRequest) => {
@@ -358,10 +364,12 @@ test.serial('lookup timeout no error (keepalive)', withServerAndLolex, async (t,
 			t.fail('connect event fired, invalidating test');
 		});
 	}));
+
+	keepAliveAgent.destroy();
 });
 
-test.serial('retries on timeout', withServerAndLolex, async (t, server, got, clock) => {
-	server.get('/', defaultHandler(clock));
+test.serial('retries on timeout', withServer, async (t, server, got) => {
+	server.get('/', () => {});
 
 	let hasTried = false;
 	await t.throwsAsync(got({
@@ -502,8 +510,7 @@ test.serial('socket timeout is canceled on error', withServerAndLolex, async (t,
 		timeout: {socket: 50},
 		retry: 0
 	}).on('request', (request: http.ClientRequest) => {
-		request.abort();
-		request.emit('error', new Error(message));
+		request.destroy(new Error(message));
 	});
 
 	await t.throwsAsync(promise, {message});
@@ -516,7 +523,7 @@ test.serial('no memory leak when using socket timeout and keepalive agent', with
 	server.get('/', defaultHandler(clock));
 
 	const promise = got({
-		agent: keepAliveAgent,
+		agent: {http: keepAliveAgent},
 		timeout: {socket: requestDelay * 2}
 	});
 
@@ -530,6 +537,8 @@ test.serial('no memory leak when using socket timeout and keepalive agent', with
 	await promise;
 
 	t.is(socket.listenerCount('timeout'), 0);
+
+	keepAliveAgent.destroy();
 });
 
 test('ensure there are no new timeouts after cancelation', t => {

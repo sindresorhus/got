@@ -1,4 +1,4 @@
-import EventEmitter = require('events');
+import {EventEmitter} from 'events';
 
 type Origin = EventEmitter;
 type Event = string | symbol;

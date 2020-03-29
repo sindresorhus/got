@@ -22,7 +22,7 @@ const createSocketTimeoutStream = (): http.ClientRequest => {
 	const stream = new PassThroughStream();
 	// @ts-ignore Mocking the behaviour of a ClientRequest
 	stream.setTimeout = (ms, callback) => {
-		callback();
+		process.nextTick(callback);
 	};
 
 	// @ts-ignore Mocking the behaviour of a ClientRequest
@@ -132,6 +132,7 @@ test('custom error codes', async t => {
 	const error = await t.throwsAsync<Error & {code: typeof errorCode}>(got('https://example.com', {
 		request: () => {
 			const emitter = new EventEmitter() as http.ClientRequest;
+			emitter.abort = () => {};
 			emitter.end = () => {};
 
 			const error = new Error('Snap!');
@@ -204,7 +205,7 @@ test('doesn\'t retry on 413 with empty statusCodes and methods', withServer, asy
 	const {statusCode, retryCount} = await got({
 		throwHttpErrors: false,
 		retry: {
-			retries: 1,
+			limit: 1,
 			statusCodes: [],
 			methods: []
 		}
@@ -219,7 +220,7 @@ test('doesn\'t retry on 413 with empty methods', withServer, async (t, server, g
 	const {statusCode, retryCount} = await got({
 		throwHttpErrors: false,
 		retry: {
-			retries: 1,
+			limit: 1,
 			statusCodes: [413],
 			methods: []
 		}

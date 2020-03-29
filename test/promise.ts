@@ -1,5 +1,4 @@
-import {ClientRequest} from 'http';
-import {Transform as TransformStream} from 'stream';
+import {ClientRequest, IncomingMessage} from 'http';
 import test from 'ava';
 import {Response} from '../source';
 import withServer from './helpers/with-server';
@@ -22,7 +21,7 @@ test('emits response event as promise', withServer, async (t, server, got) => {
 	});
 
 	await got('').json().on('response', (response: Response) => {
-		t.true(response instanceof TransformStream);
+		t.true(response instanceof IncomingMessage);
 		t.true(response.readable);
 		t.is(response.statusCode, 200);
 		t.is(response.ip, '127.0.0.1');

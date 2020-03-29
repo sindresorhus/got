@@ -31,7 +31,7 @@ if (process.platform !== 'win32') {
 	});
 
 	test('throws on invalid URL', async t => {
-		await t.throwsAsync(got('unix:'), {
+		await t.throwsAsync(got('unix:', {retry: 0}), {
 			instanceOf: got.RequestError,
 			code: 'ENOTFOUND'
 		});
@@ -43,5 +43,12 @@ if (process.platform !== 'win32') {
 		const url = format('unix:%s:%s', server.socketPath, '/');
 		const instance = got.extend({prefixUrl: url});
 		t.is((await instance('')).body, 'ok');
+	});
+
+	test('passes search params', withSocketServer, async (t, server) => {
+		server.on('/?a=1', okHandler);
+
+		const url = format('http://unix:%s:%s', server.socketPath, '/?a=1');
+		t.is((await got(url)).body, 'ok');
 	});
 }

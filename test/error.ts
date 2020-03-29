@@ -2,8 +2,7 @@ import {promisify} from 'util';
 import http = require('http');
 import stream = require('stream');
 import test from 'ava';
-import proxyquire = require('proxyquire');
-import got, {GotError, HTTPError} from '../source';
+import got, {RequestError, HTTPError} from '../source';
 import withServer from './helpers/with-server';
 
 const pStreamPipeline = promisify(stream.pipeline);
@@ -34,9 +33,9 @@ test('properties', withServer, async (t, server, got) => {
 });
 
 test('catches dns errors', async t => {
-	const error = await t.throwsAsync<GotError>(got('http://doesntexist', {retry: 0}));
+	const error = await t.throwsAsync<RequestError>(got('http://doesntexist', {retry: 0}));
 	t.truthy(error);
-	t.regex(error.message, /getaddrinfo ENOTFOUND/);
+	t.regex(error.message, /ENOTFOUND/);
 	t.is(error.options.url.host, 'doesntexist');
 	t.is(error.options.method, 'GET');
 });
@@ -102,11 +101,11 @@ test('contains Got options', withServer, async (t, server, got) => {
 		response.end();
 	});
 
-	const options = {
+	const options: {agent: false} = {
 		agent: false
 	};
 
-	const error = await t.throwsAsync<GotError>(got(options));
+	const error = await t.throwsAsync<RequestError>(got(options));
 	t.is(error.options.agent, options.agent);
 });
 
@@ -140,10 +139,23 @@ test('`http.request` pipe error', async t => {
 		// @ts-ignore Error tests
 		request: () => {
 			const proxy = new stream.PassThrough();
+
+			const anyProxy = proxy as any;
+			anyProxy.socket = {
+				remoteAddress: '',
+				prependOnceListener: () => {}
+			};
+
+			anyProxy.headers = {};
+
+			anyProxy.abort = () => {};
+
 			proxy.resume();
-			proxy.once('pipe', () => {
+			proxy.read = () => {
 				proxy.destroy(new Error(message));
-			});
+
+				return null;
+			};
 
 			return proxy;
 		},
@@ -166,30 +178,12 @@ test('`http.request` error through CacheableRequest', async t => {
 	});
 });
 
-test('catches error in mimicResponse', withServer, async (t, server) => {
-	server.get('/', (_request, response) => {
-		response.end('ok');
-	});
-
-	const mimicResponse = (): never => {
-		throw new Error('Error in mimic-response');
-	};
-
-	mimicResponse['@global'] = true;
-
-	const proxiedGot = proxyquire('../source', {
-		'mimic-response': mimicResponse
-	});
-
-	await t.throwsAsync(proxiedGot(server.url), {message: 'Error in mimic-response'});
-});
-
 test('errors are thrown directly when options.stream is true', t => {
 	t.throws(() => {
 		// @ts-ignore Error tests
 		got('https://example.com', {isStream: true, hooks: false});
 	}, {
-		message: 'Parameter `hooks` must be an Object, not boolean'
+		message: 'Expected value which is `predicate returns truthy for any value`, received value of type `Array`.'
 	});
 });
 

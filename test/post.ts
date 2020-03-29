@@ -6,7 +6,7 @@ import delay = require('delay');
 import {Handler} from 'express';
 import getStream = require('get-stream');
 import toReadableStream = require('to-readable-stream');
-import got from '../source';
+import got, {UploadError} from '../source';
 import withServer from './helpers/with-server';
 
 const pStreamPipeline = promisify(stream.pipeline);
@@ -37,7 +37,6 @@ test('invalid body', async t => {
 		// @ts-ignore Error tests
 		got.post('https://example.com', {body: {}}),
 		{
-			instanceOf: TypeError,
 			message: 'The `body` option must be a stream.Readable, string or Buffer'
 		}
 	);
@@ -80,7 +79,6 @@ test('does NOT support sending arrays as forms', withServer, async (t, server, g
 	await t.throwsAsync(got.post({
 		form: ['such', 'wow']
 	}), {
-		instanceOf: TypeError,
 		message: 'Each query pair must be an iterable [name, value] tuple'
 	});
 });
@@ -213,7 +211,6 @@ test('`content-type` header is not overriden when object in `options.body`', wit
 test('throws when form body is not a plain object or array', async t => {
 	// @ts-ignore Manual test
 	await t.throwsAsync(got.post('https://example.com', {form: 'such=wow'}), {
-		instanceOf: TypeError,
 		message: 'The `form` option must be an Object'
 	});
 });
@@ -305,4 +302,27 @@ test('catches body errors before calling pipeline() - stream', withServer, async
 
 	// Wait for unhandled errors
 	await delay(100);
+});
+
+test('throws on upload error', withServer, async (t, server, got) => {
+	server.post('/', defaultEndpoint);
+
+	const body = new stream.PassThrough();
+	const message = 'oh no';
+
+	await t.throwsAsync(getStream(got.stream.post({
+		body,
+		hooks: {
+			beforeRequest: [
+				() => {
+					process.nextTick(() => {
+						body.destroy(new Error(message));
+					});
+				}
+			]
+		}
+	})), {
+		instanceOf: UploadError,
+		message
+	});
 });

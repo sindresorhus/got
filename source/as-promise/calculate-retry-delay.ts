@@ -1,6 +1,10 @@
-import is from '@sindresorhus/is';
-import {HTTPError, ParseError, MaxRedirectsError} from './errors';
-import {RetryFunction, RetryObject} from './types';
+import {
+	ParseError,
+	HTTPError,
+	MaxRedirectsError,
+	RetryObject,
+	RetryFunction
+} from './types';
 
 const retryAfterStatusCodes: ReadonlySet<number> = new Set([413, 429, 503]);
 
@@ -14,7 +18,7 @@ const calculateRetryDelay: RetryFunction = ({attemptCount, retryOptions, error})
 	}
 
 	const hasMethod = retryOptions.methods.includes(error.options.method);
-	const hasErrorCode = Reflect.has(error, 'code') && retryOptions.errorCodes.includes(error.code);
+	const hasErrorCode = retryOptions.errorCodes.includes(error.code!);
 	const hasStatusCode = isErrorWithResponse(error) && retryOptions.statusCodes.includes(error.response.statusCode);
 	if (!hasMethod || (!hasErrorCode && !hasStatusCode)) {
 		return 0;
@@ -22,15 +26,15 @@ const calculateRetryDelay: RetryFunction = ({attemptCount, retryOptions, error})
 
 	if (isErrorWithResponse(error)) {
 		const {response} = error;
-		if (response && Reflect.has(response.headers, 'retry-after') && retryAfterStatusCodes.has(response.statusCode)) {
+		if (response && 'retry-after' in response.headers && retryAfterStatusCodes.has(response.statusCode)) {
 			let after = Number(response.headers['retry-after']);
-			if (is.nan(after)) {
+			if (isNaN(after)) {
 				after = Date.parse(response.headers['retry-after']!) - Date.now();
 			} else {
 				after *= 1000;
 			}
 
-			if (after > retryOptions.maxRetryAfter) {
+			if (retryOptions.maxRetryAfter === undefined || after > retryOptions.maxRetryAfter) {
 				return 0;
 			}
 

@@ -4,11 +4,13 @@
 		"outDir": "dist",
 		"target": "es2018", // Node.js 10
 		"lib": [
-			"es2018"
+			"es2018",
+			"es2019.string"
 		]
 	},
 	"include": [
 		"source",
-		"test"
+		"test",
+		"benchmark"
 	]
 }

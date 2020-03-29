@@ -5,8 +5,9 @@ import test from 'ava';
 import {Handler} from 'express';
 import FormData = require('form-data');
 import got, {Headers} from '../source';
-import supportsBrotli from '../source/utils/supports-brotli';
 import withServer from './helpers/with-server';
+
+const supportsBrotli = typeof (process.versions as any).brotli === 'string';
 
 const echoHeaders: Handler = (request, response) => {
 	request.resume();
@@ -42,10 +43,8 @@ test('does not remove user headers from `url` object argument', withServer, asyn
 	server.get('/', echoHeaders);
 
 	const headers = (await got<Headers>({
-		hostname: server.hostname,
-		port: server.port,
+		url: `http://${server.hostname}:${server.port}`,
 		responseType: 'json',
-		protocol: 'http:',
 		headers: {
 			'X-Request-Id': 'value'
 		}
@@ -123,6 +122,21 @@ test('sets `content-length` to `0` when requesting PUT with empty body', withSer
 	t.is(headers['content-length'], '0');
 });
 
+test('form manual `content-type` header', withServer, async (t, server, got) => {
+	server.post('/', echoHeaders);
+
+	const {body} = await got.post({
+		headers: {
+			'content-type': 'custom'
+		},
+		form: {
+			a: 1
+		}
+	});
+	const headers = JSON.parse(body);
+	t.is(headers['content-type'], 'custom');
+});
+
 test('form-data manual `content-type` header', withServer, async (t, server, got) => {
 	server.post('/', echoHeaders);
 
@@ -184,13 +198,13 @@ test('buffer as `options.body` sets `content-length` header', withServer, async 
 });
 
 test('throws on null value headers', async t => {
-	// @ts-ignore Error tests
 	await t.throwsAsync(got({
+		url: 'https://example.com',
+		// @ts-ignore Testing purposes
 		headers: {
 			'user-agent': null
 		}
 	}), {
-		instanceOf: TypeError,
 		message: 'Use `undefined` instead of `null` to delete the `user-agent` header'
 	});
 });

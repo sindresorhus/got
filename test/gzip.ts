@@ -72,7 +72,7 @@ test('decompress option opts out of decompressing', withServer, async (t, server
 		response.end(gzipData);
 	});
 
-	const {body} = await got({decompress: false});
+	const {body} = await got({decompress: false, responseType: 'buffer'});
 	t.is(Buffer.compare(body, gzipData), 0);
 });
 

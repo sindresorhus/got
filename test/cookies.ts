@@ -159,7 +159,7 @@ test('accepts custom `cookieJar` object', withServer, async (t, server, got) => 
 		async getCookieString(url: string) {
 			t.is(typeof url, 'string');
 
-			return cookies[url];
+			return cookies[url] || '';
 		},
 
 		async setCookie(rawCookie: string, url: string) {
