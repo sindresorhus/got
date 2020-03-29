@@ -47,16 +47,18 @@ export type OptionsOfBufferResponseBody = Options & {isStream?: false; resolveBo
 export type StrictOptions = Except<Options, 'isStream' | 'responseType' | 'resolveBodyOnly'>;
 type ResponseBodyOnly = {resolveBodyOnly: true};
 
+export type OptionsWithPagination<T = unknown> = Merge<Options, PaginationOptions<T>>;
+
 export interface GotPaginate {
-	<T>(url: string | URL, options?: Merge<Options, PaginationOptions<T>>): AsyncIterableIterator<T>;
-	all<T>(url: string | URL, options?: Merge<Options, PaginationOptions<T>>): Promise<T[]>;
+	<T>(url: string | URL, options?: OptionsWithPagination<T>): AsyncIterableIterator<T>;
+	all<T>(url: string | URL, options?: OptionsWithPagination<T>): Promise<T[]>;
 
 	// A bug.
 	// eslint-disable-next-line @typescript-eslint/adjacent-overload-signatures
-	<T>(options?: Merge<Options, PaginationOptions<T>>): AsyncIterableIterator<T>;
+	<T>(options?: OptionsWithPagination<T>): AsyncIterableIterator<T>;
 	// A bug.
 	// eslint-disable-next-line @typescript-eslint/adjacent-overload-signatures
-	all<T>(options?: Merge<Options, PaginationOptions<T>>): Promise<T[]>;
+	all<T>(options?: OptionsWithPagination<T>): Promise<T[]>;
 }
 
 export interface GotRequestFunction {

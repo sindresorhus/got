@@ -33,7 +33,8 @@ import {
 	InstanceDefaults,
 	GotPaginate,
 	GotStream,
-	GotRequestFunction
+	GotRequestFunction,
+	OptionsWithPagination
 } from './types';
 import createRejection from './as-promise/create-rejection';
 import Request, {kIsNormalizedAlready} from './core';
@@ -192,7 +193,7 @@ const create = (defaults: InstanceDefaults): Got => {
 		});
 	};
 
-	got.paginate = (async function * <T>(url: string | URL, options?: Options) {
+	got.paginate = (async function * <T>(url: string | URL, options?: OptionsWithPagination<T>) {
 		let normalizedOptions = normalizeArguments(url, options, defaults.options);
 
 		const pagination = normalizedOptions.pagination!;
@@ -241,7 +242,7 @@ const create = (defaults: InstanceDefaults): Got => {
 		}
 	}) as GotPaginate;
 
-	got.paginate.all = (async <T>(url: string | URL, options?: Options) => {
+	got.paginate.all = (async <T>(url: string | URL, options?: OptionsWithPagination<T>) => {
 		const results: T[] = [];
 
 		for await (const item of got.paginate<T>(url, options)) {
