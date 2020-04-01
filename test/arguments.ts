@@ -60,7 +60,7 @@ test('string url with searchParams is preserved', withServer, async (t, server, 
 
 	const path = '?test=http://example.com?foo=bar';
 	const {body} = await got(path);
-	t.is(body, `/${path}`);
+	t.is(body, '/?test=http%3A%2F%2Fexample.com%3Ffoo%3Dbar');
 });
 
 test('options are optional', withServer, async (t, server, got) => {
@@ -462,4 +462,23 @@ test('normalizes search params included in input', t => {
 	});
 
 	t.is(url.search, '?a=b+c');
+});
+
+test('reuse options while using init hook', withServer, async (t, server, got) => {
+	t.plan(2);
+
+	server.get('/', echoUrl);
+
+	const options = {
+		hooks: {
+			init: [
+				() => {
+					t.pass();
+				}
+			]
+		}
+	};
+
+	await got('', options);
+	await got('', options);
 });
