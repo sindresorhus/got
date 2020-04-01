@@ -195,6 +195,7 @@ const create = (defaults: InstanceDefaults): Got => {
 
 	got.paginate = (async function * <T>(url: string | URL, options?: OptionsWithPagination<T>) {
 		let normalizedOptions = normalizeArguments(url, options, defaults.options);
+		normalizedOptions.resolveBodyOnly = false;
 
 		const pagination = normalizedOptions.pagination!;
 

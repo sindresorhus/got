@@ -298,3 +298,13 @@ test('throws if the `pagination` option does not have `paginate` property', asyn
 		message: '`options.pagination.paginate` must be implemented'
 	});
 });
+
+test('ignores the `resolveBodyOnly` option', withServer, async (t, server, got) => {
+	attachHandler(server, 2);
+
+	const items = await got.paginate.all('', {
+		resolveBodyOnly: true
+	});
+
+	t.deepEqual(items, [1, 2]);
+});
