@@ -333,3 +333,25 @@ test('works with pipeline', async t => {
 		message: 'connect ECONNREFUSED 127.0.0.1:7777'
 	});
 });
+
+test('errors have body', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.setHeader('set-cookie', 'foo=bar');
+		response.end('yay');
+	});
+
+	const error = await t.throwsAsync<RequestError>(getStream(got.stream('', {
+		cookieJar: {
+			setCookie: (_, __) => {
+				throw new Error('snap');
+			},
+			getCookieString: _ => {
+				return '';
+			}
+		}
+	})));
+
+	t.is(error.message, 'snap');
+	console.log(error.response);
+	t.is(error.response?.body, 'yay');
+});

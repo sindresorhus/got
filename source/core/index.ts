@@ -348,17 +348,23 @@ export class RequestError extends Error {
 				value: requestOrResponse
 			});
 
-			requestOrResponse = requestOrResponse.request;
-		}
-
-		if (requestOrResponse instanceof Request) {
+			Object.defineProperty(this, 'request', {
+				enumerable: false,
+				value: requestOrResponse.request
+			});
+		} else if (requestOrResponse instanceof Request) {
 			Object.defineProperty(this, 'request', {
 				enumerable: false,
 				value: requestOrResponse
 			});
 
-			this.timings = requestOrResponse.timings;
+			Object.defineProperty(this, 'response', {
+				enumerable: false,
+				value: requestOrResponse[kResponse]
+			});
 		}
+
+		this.timings = this.request?.timings;
 
 		// Recover the original stacktrace
 		if (!is.undefined(error.stack)) {
@@ -476,6 +482,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	declare requestUrl: string;
 	finalized: boolean;
 	redirects: string[];
+	errored: boolean;
 
 	constructor(url: string | URL, options: Options = {}, defaults?: Defaults) {
 		super({
@@ -488,6 +495,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		this.finalized = false;
 		this[kServerResponsesPiped] = new Set<ServerResponse>();
 		this.redirects = [];
+		this.errored = false;
 
 		// TODO: Remove this when targeting Node.js >= 12
 		this._progressCallbacks = [];
@@ -948,6 +956,20 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 		this[kIsFromCache] = typedResponse.isFromCache;
 
+		this[kResponseSize] = Number(response.headers['content-length']) || undefined;
+		this[kResponse] = response;
+
+		response.once('end', () => {
+			this[kResponseSize] = this[kDownloadedSize];
+			this.emit('downloadProgress', this.downloadProgress);
+		});
+
+		response.on('error', (error: Error) => {
+			this._beforeError(new ReadError(error, options, response as Response));
+		});
+
+		this.emit('downloadProgress', this.downloadProgress);
+
 		const rawCookies = response.headers['set-cookie'];
 		if (is.object(options.cookieJar) && rawCookies) {
 			let promises: Array<Promise<unknown>> = rawCookies.map(async (rawCookie: string) => (options.cookieJar as PromiseCookieJar).setCookie(rawCookie, url.toString()));
@@ -1054,9 +1076,6 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			}
 		}
 
-		this[kResponseSize] = Number(response.headers['content-length']) || undefined;
-		this[kResponse] = response;
-
 		// We need to call `_read()` only when the Request stream is flowing
 		response.on('readable', () => {
 			if ((this as any).readableFlowing) {
@@ -1073,14 +1092,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		});
 
 		response.once('end', () => {
-			this[kResponseSize] = this[kDownloadedSize];
-			this.emit('downloadProgress', this.downloadProgress);
-
 			this.push(null);
-		});
-
-		response.on('error', (error: Error) => {
-			this._beforeError(new ReadError(error, options, response as Response));
 		});
 
 		for (const destination of this[kServerResponsesPiped]) {
@@ -1101,7 +1113,6 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			destination.statusCode = statusCode;
 		}
 
-		this.emit('downloadProgress', this.downloadProgress);
 		this.emit('response', response);
 	}
 
@@ -1276,28 +1287,37 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		}
 	}
 
-	async _beforeError(error: RequestError): Promise<void> {
+	async _beforeError(error: Error): Promise<void> {
+		this.errored = true;
+
+		if (!(error instanceof RequestError)) {
+			error = new RequestError(error.message, error, this.options, this);
+		}
+
 		try {
-			const {response} = error;
+			const {response} = error as RequestError;
 			if (response && is.undefined(response.body)) {
-				response.body = await getStream.buffer(response, this.options);
+				response.body = await getStream(response, {
+					...this.options,
+					encoding: (this as any)._readableState.encoding
+				});
 			}
 		} catch (_) {}
 
 		try {
 			for (const hook of this.options.hooks.beforeError) {
 				// eslint-disable-next-line no-await-in-loop
-				error = await hook(error);
+				error = await hook(error as RequestError);
 			}
 		} catch (error_) {
-			error = error_;
+			error = new RequestError(error_.message, error_, this.options, this);
 		}
 
 		this.destroy(error);
 	}
 
 	_read(): void {
-		if (kResponse in this) {
+		if (kResponse in this && !this.errored) {
 			let data;
 
 			while ((data = this[kResponse]!.read()) !== null) {
@@ -1392,7 +1412,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		}
 
 		if (error !== null && !is.undefined(error) && !(error instanceof RequestError)) {
-			error = new RequestError(error.message, error, this.options);
+			error = new RequestError(error.message, error, this.options, this);
 		}
 
 		callback(error);
