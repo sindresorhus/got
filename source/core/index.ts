@@ -1102,6 +1102,8 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			this.push(null);
 		});
 
+		this.emit('response', response);
+
 		for (const destination of this[kServerResponsesPiped]) {
 			if (destination.headersSent) {
 				continue;
@@ -1119,8 +1121,6 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 			destination.statusCode = statusCode;
 		}
-
-		this.emit('response', response);
 	}
 
 	_onRequest(request: ClientRequest): void {

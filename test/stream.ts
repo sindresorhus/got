@@ -352,6 +352,21 @@ test('errors have body', withServer, async (t, server, got) => {
 	})));
 
 	t.is(error.message, 'snap');
-	console.log(error.response);
 	t.is(error.response?.body, 'yay');
+});
+
+test('pipe can send modified headers', withServer, async (t, server, got) => {
+	server.get('/foobar', (_request, response) => {
+		response.setHeader('foo', 'bar');
+		response.end();
+	});
+
+	server.get('/', (_request, response) => {
+		got.stream('foobar').on('response', response => {
+			response.headers.foo = 'boo';
+		}).pipe(response);
+	});
+
+	const {headers} = await got('');
+	t.is(headers.foo, 'boo');
 });
