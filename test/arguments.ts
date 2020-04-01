@@ -455,3 +455,11 @@ test('does not throw on frozen options', withServer, async (t, server, got) => {
 
 	t.is(body, '/');
 });
+
+test('normalizes search params included in input', t => {
+	const {url} = got.mergeOptions({
+		url: new URL('https://example.com/?a=b c')
+	});
+
+	t.is(url.search, '?a=b+c');
+});

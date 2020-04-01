@@ -701,6 +701,13 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 				options.url = new URL(`http://unix${options.url.pathname}${options.url.search}`);
 			}
 
+			if (options.url.search) {
+				const triggerSearchParams = '_GOT_INTERNAL_TRIGGER_NORMALIZATION';
+
+				options.url.searchParams.append(triggerSearchParams, '');
+				options.url.searchParams.delete(triggerSearchParams);
+			}
+
 			if (protocol !== 'http:' && protocol !== 'https:') {
 				throw new UnsupportedProtocolError(options as NormalizedOptions);
 			}
