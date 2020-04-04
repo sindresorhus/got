@@ -141,9 +141,9 @@ Hooks are powerful, aren't they? [Read more](../readme.md#hooks) to see what els
 Let's take a quick look at another example from Request's readme:
 
 ```js
-http.createServer((request, response) => {
-	if (request.url === '/doodle.png') {
-		request.pipe(request('https://example.com/doodle.png')).pipe(response);
+http.createServer((serverRequest, serverResponse) => {
+	if (serverRequest.url === '/doodle.png') {
+		serverRequest.pipe(request('https://example.com/doodle.png')).pipe(serverResponse);
 	}
 });
 ```
@@ -157,15 +157,15 @@ const got = require('got');
 
 const pipeline = promisify(stream.pipeline);
 
-http.createServer(async (request, response) => {
-	if (request.url === '/doodle.png') {
+http.createServer(async (serverRequest, serverResponse) => {
+	if (serverRequest.url === '/doodle.png') {
 		// When someone makes a request to our server, we receive a body and some headers.
 		// These are passed to Got. Got proxies downloaded data to our server response,
 		// so you don't have to do `response.writeHead(statusCode, headers)` and `response.end(body)`.
 		// It's done automatically.
 		await pipeline(
 			got.stream('https://example.com/doodle.png'),
-			response
+			serverResponse
 		);
 	}
 });
