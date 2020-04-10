@@ -485,12 +485,11 @@ export const normalizeRequestArguments = async (options: NormalizedOptions): Pro
 		if (matches?.groups) {
 			const {socketPath, path} = matches.groups;
 
-			options = {
-				...options,
+			Object.assign(options, {
 				socketPath,
 				path,
 				host: ''
-			};
+			});
 		}
 	}
 
