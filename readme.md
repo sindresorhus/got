@@ -688,7 +688,7 @@ got('https://api.github.com/some-endpoint', {
 
 Type: `object`
 
-**Note:** This feature is marked as experimental as we're [looking for feedback](https://github.com/sindresorhus/got/issues/1052) on the API and how it works. The feature itself is stable, but the API may change based on feedback. So if you decide to try it out, we suggest locking down the `got` dependency semver range or use a lockfile.
+**Note:** We're [looking for feedback](https://github.com/sindresorhus/got/issues/1052), any ideas on how to improve the API are welcome.
 
 ###### pagination.transform
 
