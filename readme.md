@@ -359,20 +359,6 @@ console.log(searchParams.toString());
 //=> 'key=a&key=b'
 ```
 
-And if you need a different array format, you could use the [`query-string`](https://github.com/sindresorhus/query-string) package:
-
-```js
-const got = require('got');
-const queryString = require('query-string');
-
-const searchParams = queryString.stringify({key: ['a', 'b']}, {arrayFormat: 'bracket'});
-
-got('https://example.com', {searchParams});
-
-console.log(searchParams);
-//=> 'key[]=a&key[]=b'
-```
-
 ###### timeout
 
 Type: `number | object`
