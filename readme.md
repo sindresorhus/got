@@ -333,7 +333,7 @@ To get a [`Buffer`](https://nodejs.org/api/buffer.html), you need to set [`respo
 
 Type: `object`
 
-**Note #1:** If you provide this option, `got.stream()` will be read-only.
+**Note #1:** If you provide this option, `got.stream()` will be read-only.\
 **Note #2:** This option is not enumerable and will not be merged with the instance defaults.
 
 The form body is converted to query string using [`(new URLSearchParams(object)).toString()`](https://nodejs.org/api/url.html#url_constructor_new_urlsearchparams_obj).
