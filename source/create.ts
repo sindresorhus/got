@@ -1,6 +1,6 @@
 import {URL} from 'url';
 import {CancelError} from 'p-cancelable';
-import is from '@sindresorhus/is/dist';
+import is from '@sindresorhus/is';
 import asPromise, {
 	// Request & Response
 	PromisableRequest,
