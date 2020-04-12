@@ -932,7 +932,6 @@ Indicates whether the request has been aborted or not.
 
 The same as `response.timings`.
 
-
 ##### .isFromCache
 
 The same as `response.isFromCache`.
