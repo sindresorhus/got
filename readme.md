@@ -143,7 +143,7 @@ A trailing slash `/` is optional - one will be added automatically.
 
 **Note:** Leading slashes in `input` are disallowed when using this option to enforce consistency and avoid confusion. For example, when the prefix URL is `https://example.com/foo` and the input is `/bar`, there's ambiguity whether the resulting URL would become `https://example.com/foo/bar` or `https://example.com/bar`. The latter is used by browsers.
 
-**Tip:** Useful when used with [`got.extend()`](#custom-endpoints) to create niche-specific Got-instances.
+**Tip:** Useful when used with [`got.extend()`](#custom-endpoints) to create niche-specific Got instances.
 
 **Tip:** You can change `prefixUrl` using hooks as long as the URL still includes the `prefixUrl`. If the URL doesn't include it anymore, it will throw.
 
