@@ -28,7 +28,8 @@ For browser usage, we recommend [Ky](https://github.com/sindresorhus/ky) by the 
 
 - [Promise API](#api)
 - [Stream API](#streams)
-- [Pagination API (experimental)](#pagination)
+- [Pagination API](#pagination)
+- [HTTP2 support](#http2)
 - [Request cancelation](#aborting-the-request)
 - [RFC compliant caching](#cache-adapters)
 - [Follows redirects](#followredirect)
@@ -44,8 +45,8 @@ For browser usage, we recommend [Ky](https://github.com/sindresorhus/ky) by the 
 - [Types](#types)
 - [Composable](documentation/advanced-creation.md#merging-instances)
 - [Plugins](documentation/lets-make-a-plugin.md)
-- [Used by 3000+ packages and 1.6M+ repos](https://github.com/sindresorhus/got/network/dependents)
-- Actively maintained
+- [Used by 4K+ packages and 1.8M+ repos](https://github.com/sindresorhus/got/network/dependents)
+- [Actively maintained](https://github.com/sindresorhus/got/graphs/contributors)
 
 ## Install
 
@@ -885,7 +886,9 @@ The `response` event to get the response object of the final request.
 The `redirect` event to get the response object of a redirect. The second argument is options for the next request to the redirect location.
 
 ##### .on('uploadProgress', progress)
+##### .uploadProgress
 ##### .on('downloadProgress', progress)
+##### .downloadProgress
 
 Progress events for uploading (sending a request) and downloading (receiving a response). The `progress` argument is an object like:
 
@@ -912,6 +915,27 @@ If the `content-length` header is missing, `total` will be `undefined`.
 	console.log(response);
 })();
 ```
+
+##### .ip
+
+Type: `string`
+
+The remote IP address.
+
+##### .aborted
+
+Type: `boolean`
+
+Indicates whether the request has been aborted or not.
+
+##### .timings
+
+The same as `response.timings`.
+
+
+##### .isFromCache
+
+The same as `response.isFromCache`.
 
 ##### .on('error', error)
 
