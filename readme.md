@@ -125,6 +125,13 @@ Any of the [`https.request`](https://nodejs.org/api/https.html#https_https_reque
 
 **Note:** Legacy URL support is disabled. `options.path` is supported only for backwards compatibility. Use `options.pathname` and `options.searchParams` instead. `options.auth` has been replaced with `options.username` & `options.password`.
 
+###### method
+
+Type: `string`\
+Default: `GET`
+
+The HTTP method used to make the request.
+
 ###### prefixUrl
 
 Type: `string | URL`
@@ -765,6 +772,12 @@ Type: `number`\
 Default: `Infinity`
 
 The maximum amount of items that should be emitted.
+
+##### localAddress
+
+Type: `string`
+
+The IP address used to send the request from.
 
 #### Response
 
