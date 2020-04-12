@@ -205,7 +205,7 @@ The `content-length` header will be automatically set if `body` is a `string` / 
 
 Type: `object | Array | number | string | boolean | null` *(JSON-serializable values)*
 
-**Note #1:** If you provide this option, `got.stream()` will be read-only.
+**Note #1:** If you provide this option, `got.stream()` will be read-only.\
 **Note #2:** This option is not enumerable and will not be merged with the instance defaults.
 
 JSON body. If the `Content-Type` header is not set, it will be set to `application/json`.
