@@ -99,13 +99,13 @@ const pipeline = promisify(stream.pipeline);
 
 ### API
 
-It's a `GET` request by default, but can be changed by using different methods or via `options.method`.
+It's a `GET` request by default, but can be changed by using different methods or via [`options.method`](#method).
 
 **By default, Got will retry on failure. To disable this option, set [`options.retry`](#retry) to `0`.**
 
 #### got(url?, options?)
 
-Returns a Promise for a [`response` object](#response) or a [stream](#streams-1) if `options.isStream` is set to true.
+Returns a Promise giving a [Response object](#response) or a [Got Stream](#streams-1) if `options.isStream` is set to true.
 
 ##### url
 
@@ -116,8 +116,6 @@ The URL to request, as a string, a [`https.request` options object](https://node
 Properties from `options` will override properties in the parsed `url`.
 
 If no protocol is specified, it will throw a `TypeError`.
-
-**Note:** this can also be an option.
 
 ##### options
 
@@ -971,7 +969,7 @@ See [`options.pagination`](#pagination) for more pagination options.
 #### got.head(url, options?)
 #### got.delete(url, options?)
 
-Sets `options.method` to the method name and makes a request.
+Sets [`options.method`](#method) to the method name and makes a request.
 
 ### Instances
 
