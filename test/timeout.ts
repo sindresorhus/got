@@ -522,21 +522,16 @@ test.serial('socket timeout is canceled on error', withServerAndLolex, async (t,
 test.serial('no memory leak when using socket timeout and keepalive agent', withServerAndLolex, async (t, server, got, clock) => {
 	server.get('/', defaultHandler(clock));
 
-	const promise = got({
+	let request: any;
+
+	await got({
 		agent: {http: keepAliveAgent},
 		timeout: {socket: requestDelay * 2}
+	}).on('request', _request => {
+		request = _request;
 	});
 
-	let socket!: net.Socket;
-	promise.on('request', (request: http.ClientRequest) => {
-		request.on('socket', () => {
-			socket = request.socket;
-		});
-	});
-
-	await promise;
-
-	t.is(socket.listenerCount('timeout'), 0);
+	t.is(request.timeoutCb, null);
 
 	keepAliveAgent.destroy();
 });
