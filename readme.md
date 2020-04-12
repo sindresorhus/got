@@ -178,7 +178,8 @@ Default: `{}`
 
 Request headers.
 
-Existing headers will be overwritten. Headers set to `undefined` will be omitted.
+Header capitalization is preserved.
+Existing headers, even with different capitalization, will be overwritten. Headers set to `undefined` will be omitted.
 
 ###### isStream
 
