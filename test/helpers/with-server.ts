@@ -4,7 +4,7 @@ import http = require('http');
 import tempy = require('tempy');
 import createTestServer = require('create-test-server');
 import lolex = require('lolex');
-import got, {Defaults} from '../../source';
+import got, {InstanceDefaults} from '../../source';
 import {ExtendedGot, ExtendedHttpServer, ExtendedTestServer, GlobalClock, InstalledClock} from './types';
 
 export type RunTestWithServer = (t: test.ExecutionContext, server: ExtendedTestServer, got: ExtendedGot, clock: GlobalClock) => Promise<void> | void;
@@ -19,7 +19,7 @@ const generateHook = ({install}: {install?: boolean}): test.Macro<[RunTestWithSe
 		}
 	}) as ExtendedTestServer;
 
-	const options: Defaults = {
+	const options: InstanceDefaults = {
 		// @ts-ignore Augmenting for test detection
 		avaTest: t.title,
 		handlers: [

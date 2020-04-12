@@ -101,7 +101,7 @@ test('parses non-200 responses', withServer, async (t, server, got) => {
 		response.end(jsonResponse);
 	});
 
-	const error = await t.throwsAsync<HTTPError>(got({responseType: 'json'}), {instanceOf: HTTPError});
+	const error = await t.throwsAsync<HTTPError>(got({responseType: 'json', retry: 0}), {instanceOf: HTTPError});
 	t.deepEqual(error.response.body, dog);
 });
 
@@ -111,7 +111,7 @@ test('ignores errors on invalid non-200 responses', withServer, async (t, server
 		response.end('Internal error');
 	});
 
-	const error = await t.throwsAsync<HTTPError>(got({responseType: 'json'}), {
+	const error = await t.throwsAsync<HTTPError>(got({responseType: 'json', retry: 0}), {
 		instanceOf: got.HTTPError,
 		message: 'Response code 500 (Internal Server Error)'
 	});

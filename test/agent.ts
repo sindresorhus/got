@@ -47,7 +47,9 @@ test('non-object agent option works with http', withServer, async (t, server, go
 
 	t.truthy((await got({
 		rejectUnauthorized: false,
-		agent
+		agent: {
+			http: agent
+		}
 	})).body);
 	t.true(spy.calledOnce);
 
@@ -64,7 +66,9 @@ test('non-object agent option works with https', withServer, async (t, server, g
 
 	t.truthy((await got.secure({
 		rejectUnauthorized: false,
-		agent
+		agent: {
+			https: agent
+		}
 	})).body);
 	t.true(spy.calledOnce);
 
@@ -126,7 +130,9 @@ test('socket connect listener cleaned up after request', withServer, async (t, s
 		// eslint-disable-next-line no-await-in-loop
 		await got.secure({
 			rejectUnauthorized: false,
-			agent
+			agent: {
+				https: agent
+			}
 		});
 	}
 

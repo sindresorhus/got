@@ -43,7 +43,7 @@ export class TimeoutError extends Error {
 }
 
 export default (request: ClientRequest, delays: Delays, options: TimedOutOptions): () => void => {
-	if (Reflect.has(request, reentry)) {
+	if (reentry in request) {
 		return noop;
 	}
 
@@ -69,12 +69,10 @@ export default (request: ClientRequest, delays: Delays, options: TimedOutOptions
 
 	const timeoutHandler = (delay: number, event: string): void => {
 		if (request.socket) {
-			// @ts-ignore We do not want the `socket hang up` error
-			request.socket._hadError = true;
+			(request.socket as any)._hadError = true;
 		}
 
-		request.abort();
-		request.emit('error', new TimeoutError(delay, event));
+		request.destroy(new TimeoutError(delay, event));
 	};
 
 	const cancelTimeouts = (): void => {
@@ -120,8 +118,7 @@ export default (request: ClientRequest, delays: Delays, options: TimedOutOptions
 	}
 
 	once(request, 'socket', (socket: net.Socket): void => {
-		// @ts-ignore Node typings doesn't have this property
-		const {socketPath} = request;
+		const {socketPath} = request as ClientRequest & {socketPath?: string};
 
 		/* istanbul ignore next: hard to test */
 		if (socket.connecting) {

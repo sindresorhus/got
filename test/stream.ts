@@ -9,7 +9,7 @@ import getStream = require('get-stream');
 import pEvent = require('p-event');
 import FormData = require('form-data');
 import is from '@sindresorhus/is';
-import got from '../source';
+import got, {RequestError} from '../source';
 import withServer from './helpers/with-server';
 
 const pStreamPipeline = promisify(stream.pipeline);
@@ -68,23 +68,21 @@ test('returns writeable stream', withServer, async (t, server, got) => {
 test('throws on write if body is specified', withServer, (t, server, got) => {
 	server.post('/', postHandler);
 
-	t.throws(() => {
-		got.stream.post({body: 'wow'}).end('wow');
-	}, {
-		message: 'Got\'s stream is not writable when the `body`, `json` or `form` option is used'
-	});
+	const streams = [
+		got.stream.post({body: 'wow'}),
+		got.stream.post({json: {}}),
+		got.stream.post({form: {}})
+	];
 
-	t.throws(() => {
-		got.stream.post({json: {}}).end('wow');
-	}, {
-		message: 'Got\'s stream is not writable when the `body`, `json` or `form` option is used'
-	});
+	for (const stream of streams) {
+		t.throws(() => {
+			stream.end('wow');
+		}, {
+			message: 'The payload has been already provided'
+		});
 
-	t.throws(() => {
-		got.stream.post({form: {}}).end('wow');
-	}, {
-		message: 'Got\'s stream is not writable when the `body`, `json` or `form` option is used'
-	});
+		stream.destroy();
+	}
 });
 
 test('does not throw if using stream and passing a json option', withServer, async (t, server, got) => {
@@ -102,11 +100,15 @@ test('does not throw if using stream and passing a form option', withServer, asy
 test('throws on write if no payload method is present', withServer, (t, server, got) => {
 	server.post('/', postHandler);
 
+	const stream = got.stream.get('');
+
 	t.throws(() => {
-		got.stream.get('').end('wow');
+		stream.end('wow');
 	}, {
-		message: 'The `GET` method cannot be used with a body'
+		message: 'The payload has been already provided'
 	});
+
+	stream.destroy();
 });
 
 test('has request event', withServer, async (t, server, got) => {
@@ -316,4 +318,55 @@ test('no unhandled body stream errors', async t => {
 	}), {
 		code: 'ENOTFOUND'
 	});
+});
+
+test('works with pipeline', async t => {
+	await t.throwsAsync(pStreamPipeline(
+		new stream.Readable({
+			read() {
+				this.push(null);
+			}
+		}),
+		got.stream.put('http://localhost:7777')
+	), {
+		instanceOf: RequestError,
+		message: 'connect ECONNREFUSED 127.0.0.1:7777'
+	});
+});
+
+test('errors have body', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.setHeader('set-cookie', 'foo=bar');
+		response.end('yay');
+	});
+
+	const error = await t.throwsAsync<RequestError>(getStream(got.stream('', {
+		cookieJar: {
+			setCookie: (_, __) => {
+				throw new Error('snap');
+			},
+			getCookieString: _ => {
+				return '';
+			}
+		}
+	})));
+
+	t.is(error.message, 'snap');
+	t.is(error.response?.body, 'yay');
+});
+
+test('pipe can send modified headers', withServer, async (t, server, got) => {
+	server.get('/foobar', (_request, response) => {
+		response.setHeader('foo', 'bar');
+		response.end();
+	});
+
+	server.get('/', (_request, response) => {
+		got.stream('foobar').on('response', response => {
+			response.headers.foo = 'boo';
+		}).pipe(response);
+	});
+
+	const {headers} = await got('');
+	t.is(headers.foo, 'boo');
 });

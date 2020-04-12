@@ -1,3 +1,4 @@
+import {URL} from 'url';
 import test from 'ava';
 import got, {Response} from '../source';
 import withServer from './helpers/with-server';
@@ -52,12 +53,12 @@ test('retrieves all elements with JSON responseType', withServer, async (t, serv
 
 	const result = await got.extend({
 		responseType: 'json'
-	}).paginate.all('');
+	}).paginate.all<number>('');
 
 	t.deepEqual(result, [1, 2]);
 });
 
-test('points to defaults when extending Got without custom `_pagination`', withServer, async (t, server, got) => {
+test('points to defaults when extending Got without custom `pagination`', withServer, async (t, server, got) => {
 	attachHandler(server, 2);
 
 	const result = await got.extend().paginate.all<number>('');
@@ -69,7 +70,7 @@ test('pagination options can be extended', withServer, async (t, server, got) =>
 	attachHandler(server, 2);
 
 	const result = await got.extend({
-		_pagination: {
+		pagination: {
 			shouldContinue: () => false
 		}
 	}).paginate.all<number>('');
@@ -81,8 +82,8 @@ test('filters elements', withServer, async (t, server, got) => {
 	attachHandler(server, 3);
 
 	const result = await got.paginate.all<number>({
-		_pagination: {
-			filter: (element, allItems, currentItems) => {
+		pagination: {
+			filter: (element: number, allItems: number[], currentItems: number[]) => {
 				t.true(Array.isArray(allItems));
 				t.true(Array.isArray(currentItems));
 
@@ -98,7 +99,7 @@ test('parses elements', withServer, async (t, server, got) => {
 	attachHandler(server, 100);
 
 	const result = await got.paginate.all<number>('?page=100', {
-		_pagination: {
+		pagination: {
 			transform: (response: Response) => [(response as Response<string>).body.length]
 		}
 	});
@@ -110,7 +111,7 @@ test('parses elements - async function', withServer, async (t, server, got) => {
 	attachHandler(server, 100);
 
 	const result = await got.paginate.all<number>('?page=100', {
-		_pagination: {
+		pagination: {
 			transform: async (response: Response) => [(response as Response<string>).body.length]
 		}
 	});
@@ -122,13 +123,17 @@ test('custom paginate function', withServer, async (t, server, got) => {
 	attachHandler(server, 3);
 
 	const result = await got.paginate.all<number>({
-		_pagination: {
-			paginate: response => {
-				if (response.request.options.path === '/?page=3') {
+		pagination: {
+			paginate: (response: Response) => {
+				const url = new URL(response.url);
+
+				if (url.search === '?page=3') {
 					return false;
 				}
 
-				return {path: '/?page=3'};
+				url.search = '?page=3';
+
+				return {url};
 			}
 		}
 	});
@@ -139,9 +144,9 @@ test('custom paginate function', withServer, async (t, server, got) => {
 test('custom paginate function using allItems', withServer, async (t, server, got) => {
 	attachHandler(server, 3);
 
-	const result = await got.paginate.all({
-		_pagination: {
-			paginate: (_response, allItems) => {
+	const result = await got.paginate.all<number>({
+		pagination: {
+			paginate: (_response: Response, allItems: number[]) => {
 				if (allItems.length === 2) {
 					return false;
 				}
@@ -157,9 +162,9 @@ test('custom paginate function using allItems', withServer, async (t, server, go
 test('custom paginate function using currentItems', withServer, async (t, server, got) => {
 	attachHandler(server, 3);
 
-	const result = await got.paginate.all({
-		_pagination: {
-			paginate: (_response, _allItems, currentItems) => {
+	const result = await got.paginate.all<number>({
+		pagination: {
+			paginate: (_response: Response, _allItems: number[], currentItems: number[]) => {
 				if (currentItems[0] === 3) {
 					return false;
 				}
@@ -175,9 +180,9 @@ test('custom paginate function using currentItems', withServer, async (t, server
 test('iterator works', withServer, async (t, server, got) => {
 	attachHandler(server, 5);
 
-	const results = [];
+	const results: number[] = [];
 
-	for await (const item of got.paginate('')) {
+	for await (const item of got.paginate<number>('')) {
 		results.push(item);
 	}
 
@@ -188,8 +193,8 @@ test('`shouldContinue` works', withServer, async (t, server, got) => {
 	attachHandler(server, 2);
 
 	const options = {
-		_pagination: {
-			shouldContinue: (_element: unknown, allItems: unknown[], currentItems: unknown[]) => {
+		pagination: {
+			shouldContinue: (_item: unknown, allItems: unknown[], currentItems: unknown[]) => {
 				t.true(Array.isArray(allItems));
 				t.true(Array.isArray(currentItems));
 
@@ -211,7 +216,7 @@ test('`countLimit` works', withServer, async (t, server, got) => {
 	attachHandler(server, 2);
 
 	const options = {
-		_pagination: {
+		pagination: {
 			countLimit: 1
 		}
 	};
@@ -227,30 +232,30 @@ test('`countLimit` works', withServer, async (t, server, got) => {
 
 test('throws if no `pagination` option', async t => {
 	const iterator = got.extend({
-		_pagination: false as any
+		pagination: false as any
 	}).paginate('', {
 		prefixUrl: 'https://example.com'
 	});
 
 	await t.throwsAsync(iterator.next(), {
-		message: '`options._pagination` must be implemented'
+		message: '`options.pagination` must be implemented'
 	});
 });
 
 test('throws if the `pagination` option does not have `transform` property', async t => {
 	const iterator = got.paginate('', {
-		_pagination: {...resetPagination},
+		pagination: {...resetPagination},
 		prefixUrl: 'https://example.com'
 	});
 
 	await t.throwsAsync(iterator.next(), {
-		message: '`options._pagination.transform` must be implemented'
+		message: '`options.pagination.transform` must be implemented'
 	});
 });
 
 test('throws if the `pagination` option does not have `shouldContinue` property', async t => {
 	const iterator = got.paginate('', {
-		_pagination: {
+		pagination: {
 			...resetPagination,
 			transform: thrower
 		},
@@ -258,28 +263,29 @@ test('throws if the `pagination` option does not have `shouldContinue` property'
 	});
 
 	await t.throwsAsync(iterator.next(), {
-		message: '`options._pagination.shouldContinue` must be implemented'
+		message: '`options.pagination.shouldContinue` must be implemented'
 	});
 });
 
 test('throws if the `pagination` option does not have `filter` property', async t => {
 	const iterator = got.paginate('', {
-		_pagination: {
+		pagination: {
 			...resetPagination,
 			transform: thrower,
-			shouldContinue: thrower
+			shouldContinue: thrower,
+			paginate: thrower
 		},
 		prefixUrl: 'https://example.com'
 	});
 
 	await t.throwsAsync(iterator.next(), {
-		message: '`options._pagination.filter` must be implemented'
+		message: '`options.pagination.filter` must be implemented'
 	});
 });
 
 test('throws if the `pagination` option does not have `paginate` property', async t => {
 	const iterator = got.paginate('', {
-		_pagination: {
+		pagination: {
 			...resetPagination,
 			transform: thrower,
 			shouldContinue: thrower,
@@ -289,6 +295,16 @@ test('throws if the `pagination` option does not have `paginate` property', asyn
 	});
 
 	await t.throwsAsync(iterator.next(), {
-		message: '`options._pagination.paginate` must be implemented'
+		message: '`options.pagination.paginate` must be implemented'
 	});
+});
+
+test('ignores the `resolveBodyOnly` option', withServer, async (t, server, got) => {
+	attachHandler(server, 2);
+
+	const items = await got.paginate.all('', {
+		resolveBodyOnly: true
+	});
+
+	t.deepEqual(items, [1, 2]);
 });

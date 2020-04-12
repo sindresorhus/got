@@ -1,8 +1,9 @@
 import {URL} from 'url';
-import create, {defaultHandler} from './create';
-import {Defaults, Response, GotOptions} from './types';
+import CacheableLookup from 'cacheable-lookup';
+import {Response, Options} from './as-promise';
+import create, {defaultHandler, InstanceDefaults} from './create';
 
-const defaults: Defaults = {
+const defaults: InstanceDefaults = {
 	options: {
 		method: 'GET',
 		retry: {
@@ -52,22 +53,24 @@ const defaults: Defaults = {
 			beforeError: [],
 			afterResponse: []
 		},
+		cache: undefined,
+		dnsCache: new CacheableLookup(),
 		decompress: true,
 		throwHttpErrors: true,
 		followRedirect: true,
 		isStream: false,
-		cache: false,
-		dnsCache: false,
-		useElectronNet: false,
 		responseType: 'text',
 		resolveBodyOnly: false,
 		maxRedirects: 10,
 		prefixUrl: '',
 		methodRewriting: true,
-		allowGetBody: false,
 		ignoreInvalidCookies: false,
 		context: {},
-		_pagination: {
+		// TODO: Set this to `true` when Got 12 gets released
+		http2: false,
+		allowGetBody: false,
+		rejectUnauthorized: true,
+		pagination: {
 			transform: (response: Response) => {
 				if (response.request.options.responseType === 'json') {
 					return response.body;
@@ -94,7 +97,7 @@ const defaults: Defaults = {
 				}
 
 				if (next) {
-					const options: GotOptions = {
+					const options: Options = {
 						url: new URL(next)
 					};
 
@@ -120,42 +123,5 @@ export default got;
 module.exports = got;
 module.exports.default = got;
 
-// Export types
-export * from './types';
-
-export {
-	Got,
-	GotStream,
-	ReturnStream,
-	GotRequestMethod,
-	GotReturn
-} from './create';
-
-export {
-	ProxyStream as ResponseStream
-} from './as-stream';
-
-export {
-	GotError,
-	CacheError,
-	RequestError,
-	ReadError,
-	ParseError,
-	HTTPError,
-	MaxRedirectsError,
-	UnsupportedProtocolError,
-	TimeoutError,
-	CancelError
-} from './errors';
-
-export {
-	InitHook,
-	BeforeRequestHook,
-	BeforeRedirectHook,
-	BeforeRetryHook,
-	BeforeErrorHook,
-	AfterResponseHook,
-	HookType,
-	Hooks,
-	HookEvent
-} from './known-hook-events';
+export * from './create';
+export * from './as-promise';

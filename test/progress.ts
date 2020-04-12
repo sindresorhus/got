@@ -22,16 +22,20 @@ const checkEvents: Macro<[Progress[], number?]> = (t, events, bodySize = undefin
 	}
 
 	for (const [index, event] of events.entries()) {
+		const isLastEvent = index === events.length - 1;
+
 		if (is.number(bodySize)) {
 			t.is(event.percent, event.transferred / bodySize);
 			t.true(event.percent > lastEvent.percent);
+			t.true(event.transferred > lastEvent.transferred);
+		} else if (isLastEvent) {
+			t.is(event.percent, 1);
+			t.is(event.transferred, lastEvent.transferred);
+			t.is(event.total, event.transferred);
 		} else {
-			const isLastEvent = index === events.length - 1;
-			t.is(event.percent, isLastEvent ? 1 : 0);
+			t.is(event.percent, 0);
+			t.true(event.transferred > lastEvent.transferred);
 		}
-
-		t.true(event.transferred >= lastEvent.transferred);
-		t.is(event.total, bodySize);
 
 		lastEvent = event;
 	}
@@ -199,7 +203,7 @@ test('upload progress - no body', withServer, async (t, server, got) => {
 		{
 			percent: 0,
 			transferred: 0,
-			total: 0
+			total: undefined
 		},
 		{
 			percent: 1,

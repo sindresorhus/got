@@ -115,16 +115,6 @@ test('searchParams are not breaking redirects', withServer, async (t, server, go
 	t.is((await got('relativeSearchParam', {searchParams: 'bang=1'})).body, 'reached');
 });
 
-test('hostname + pathname are not breaking redirects', withServer, async (t, server, got) => {
-	server.get('/', reachedHandler);
-	server.get('/relative', relativeHandler);
-
-	t.is((await got('relative', {
-		hostname: server.hostname,
-		pathname: '/relative'
-	})).body, 'reached');
-});
-
 test('redirects GET and HEAD requests', withServer, async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.writeHead(308, {
@@ -282,7 +272,7 @@ test('throws on malformed redirect URI', withServer, async (t, server, got) => {
 	});
 
 	await t.throwsAsync(got(''), {
-		name: 'URIError'
+		message: 'URI malformed'
 	});
 });
 
@@ -385,7 +375,7 @@ test('body is passed on POST redirect', withServer, async (t, server, got) => {
 	t.is(body, 'foobar');
 });
 
-test('method overwriting can be turned off', withServer, async (t, server, got) => {
+test('method rewriting can be turned off', withServer, async (t, server, got) => {
 	server.post('/redirect', (_request, response) => {
 		response.writeHead(302, {
 			location: '/'
@@ -410,4 +400,35 @@ test('method overwriting can be turned off', withServer, async (t, server, got) 
 	});
 
 	t.is(body, '');
+});
+
+test('clears username and password when redirecting to a different hostname', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.writeHead(302, {
+			location: 'https://httpbin.org/anything'
+		});
+		response.end();
+	});
+
+	const {headers} = await got('', {
+		username: 'hello',
+		password: 'world'
+	}).json();
+	t.is(headers.Authorization, undefined);
+});
+
+test('clears the authorization header when redirecting to a different hostname', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.writeHead(302, {
+			location: 'https://httpbin.org/anything'
+		});
+		response.end();
+	});
+
+	const {headers} = await got('', {
+		headers: {
+			authorization: 'Basic aGVsbG86d29ybGQ='
+		}
+	}).json();
+	t.is(headers.Authorization, undefined);
 });

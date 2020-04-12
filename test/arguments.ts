@@ -3,7 +3,7 @@ import {parse, URL, URLSearchParams} from 'url';
 import test from 'ava';
 import {Handler} from 'express';
 import pEvent = require('p-event');
-import got from '../source';
+import got, {StrictOptions} from '../source';
 import withServer from './helpers/with-server';
 
 const echoUrl: Handler = (request, response) => {
@@ -12,10 +12,17 @@ const echoUrl: Handler = (request, response) => {
 
 test('`url` is required', async t => {
 	await t.throwsAsync(
-		// @ts-ignore Error tests
 		got(''),
 		{
-			instanceOf: TypeError,
+			message: 'Missing `url` property'
+		}
+	);
+
+	await t.throwsAsync(
+		got({
+			url: ''
+		}),
+		{
 			message: 'No URL protocol specified'
 		}
 	);
@@ -33,8 +40,7 @@ test('`url` should be utf-8 encoded', async t => {
 test('throws if no arguments provided', async t => {
 	// @ts-ignore Error tests
 	await t.throwsAsync(got(), {
-		instanceOf: TypeError,
-		message: 'Missing `url` argument'
+		message: 'Missing `url` property'
 	});
 });
 
@@ -45,13 +51,7 @@ test('throws an error if the protocol is not specified', async t => {
 	});
 
 	await t.throwsAsync(got({}), {
-		instanceOf: TypeError,
-		message: 'No URL protocol specified'
-	});
-
-	await t.throwsAsync(got({}), {
-		instanceOf: TypeError,
-		message: 'No URL protocol specified'
+		message: 'Missing `url` property'
 	});
 });
 
@@ -60,7 +60,7 @@ test('string url with searchParams is preserved', withServer, async (t, server, 
 
 	const path = '?test=http://example.com?foo=bar';
 	const {body} = await got(path);
-	t.is(body, `/${path}`);
+	t.is(body, '/?test=http%3A%2F%2Fexample.com%3Ffoo%3Dbar');
 });
 
 test('options are optional', withServer, async (t, server, got) => {
@@ -89,14 +89,38 @@ test('methods are normalized', withServer, async (t, server, got) => {
 	await instance('test', {method: 'post'});
 });
 
-test('throws an error when legacy URL is passed', withServer, async (t, server, got) => {
+test.failing('throws an error when legacy URL is passed', withServer, async (t, server, got) => {
 	server.get('/test', echoUrl);
 
 	await t.throwsAsync(
 		// @ts-ignore Error tests
-		got(parse(`${server.url}/test`)),
-		{message: 'The legacy `url.Url` is deprecated. Use `URL` instead.'}
+		got(parse(`${server.url}/test`), {prefixUrl: ''}),
+		{message: 'The legacy `url.Url` has been deprecated. Use `URL` instead.'}
 	);
+
+	await t.throwsAsync(
+		got({
+			protocol: 'http:',
+			hostname: 'localhost',
+			port: server.port,
+			prefixUrl: ''
+		}),
+		{message: 'The legacy `url.Url` has been deprecated. Use `URL` instead.'}
+	);
+});
+
+test('accepts legacy URL options', withServer, async (t, server, got) => {
+	server.get('/test', echoUrl);
+
+	const {body: secondBody} = await got({
+		protocol: 'http:',
+		hostname: 'localhost',
+		port: server.port,
+		pathname: '/test',
+		prefixUrl: ''
+	});
+
+	t.is(secondBody, '/test');
 });
 
 test('overrides `searchParams` from options', withServer, async (t, server, got) => {
@@ -107,20 +131,6 @@ test('overrides `searchParams` from options', withServer, async (t, server, got)
 		{
 			searchParams: {
 				test: 'wow'
-			},
-			cache: {
-				get(key: string) {
-					t.is(key, `cacheable-request:GET:${server.url}/?test=wow`);
-				},
-				set(key: string) {
-					t.is(key, `cacheable-request:GET:${server.url}/?test=wow`);
-				},
-				delete() {
-					return true;
-				},
-				clear() {
-					return undefined;
-				}
 			}
 		}
 	);
@@ -157,7 +167,6 @@ test('ignores empty searchParams object', withServer, async (t, server, got) => 
 test('throws when passing body with a non payload method', async t => {
 	// @ts-ignore Error tests
 	await t.throwsAsync(got('https://example.com', {body: 'asdf'}), {
-		instanceOf: TypeError,
 		message: 'The `GET` method cannot be used with a body'
 	});
 });
@@ -202,8 +211,7 @@ test('throws TypeError when `options.hooks` is not an object', async t => {
 		// @ts-ignore Error tests
 		got('https://example.com', {hooks: 'not object'}),
 		{
-			instanceOf: TypeError,
-			message: 'Parameter `hooks` must be an Object, not string'
+			message: 'Expected value which is `predicate returns truthy for any value`, received value of type `Array`.'
 		}
 	);
 });
@@ -213,8 +221,7 @@ test('throws TypeError when known `options.hooks` value is not an array', async 
 		// @ts-ignore Error tests
 		got('https://example.com', {hooks: {beforeRequest: {}}}),
 		{
-			instanceOf: TypeError,
-			message: 'Parameter `beforeRequest` must be an Array, not Object'
+			message: 'Parameter `beforeRequest` must be an Array, got Object'
 		}
 	);
 });
@@ -225,7 +232,6 @@ test('throws TypeError when known `options.hooks` array item is not a function',
 		// @ts-ignore Error tests
 		got('https://example.com', {hooks: {beforeRequest: [{}]}}),
 		{
-			instanceOf: TypeError,
 			message: 'hook is not a function'
 		}
 	);
@@ -368,5 +374,111 @@ test('throws if `options.encoding` is `null`', async t => {
 test('`url` option and input argument are mutually exclusive', async t => {
 	await t.throwsAsync(got('https://example.com', {
 		url: 'https://example.com'
-	}), {message: 'The `url` option cannot be used if the input is a valid URL.'});
+	}), {message: 'The `url` option is mutually exclusive with the `input` argument'});
+});
+
+test('throws a helpful error when passing `followRedirects`', async t => {
+	await t.throwsAsync(got('https://example.com', {
+		// @ts-ignore For testing purposes
+		followRedirects: true
+	}), {message: 'The `followRedirects` option does not exist. Use `followRedirect` instead.'});
+});
+
+test('merges `searchParams` instances', t => {
+	const instance = got.extend({
+		searchParams: new URLSearchParams('a=1')
+	}, {
+		searchParams: new URLSearchParams('b=2')
+	});
+
+	t.is(instance.defaults.options.searchParams!.get('a'), '1');
+	t.is(instance.defaults.options.searchParams!.get('b'), '2');
+});
+
+test('throws a helpful error when passing `auth`', async t => {
+	await t.throwsAsync(got('https://example.com', {
+		// @ts-ignore For testing purposes
+		auth: 'username:password'
+	}), {
+		message: 'Parameter `auth` is deprecated. Use `username` / `password` instead.'
+	});
+});
+
+test('throws on leading slashes', async t => {
+	await t.throwsAsync(got('/asdf', {prefixUrl: 'https://example.com'}), {
+		message: '`input` must not start with a slash when using `prefixUrl`'
+	});
+});
+
+test('throws on invalid `dnsCache` option', async t => {
+	// @ts-ignore Error tests
+	await t.throwsAsync(got('https://example.com', {
+		dnsCache: 123
+	}), {message: 'Parameter `dnsCache` must be a CacheableLookup instance or a boolean, got number'});
+});
+
+test('throws on invalid `agent` option', async t => {
+	await t.throwsAsync(got('https://example.com', {
+		agent: {
+			// @ts-ignore Error tests
+			asdf: 123
+		}
+	}), {message: 'Expected the `options.agent` properties to be `http`, `https` or `http2`, got `asdf`'});
+});
+
+test('fallbacks to native http if `request(...)` returns undefined', withServer, async (t, server, got) => {
+	server.get('/', echoUrl);
+
+	const {body} = await got('', {request: () => undefined});
+
+	t.is(body, '/');
+});
+
+test('strict options', withServer, async (t, server, got) => {
+	server.get('/', echoUrl);
+
+	const options: StrictOptions = {};
+
+	const {body} = await got(options);
+
+	t.is(body, '/');
+});
+
+test('does not throw on frozen options', withServer, async (t, server, got) => {
+	server.get('/', echoUrl);
+
+	const options: StrictOptions = {};
+
+	Object.freeze(options);
+
+	const {body} = await got(options);
+
+	t.is(body, '/');
+});
+
+test('normalizes search params included in input', t => {
+	const {url} = got.mergeOptions({
+		url: new URL('https://example.com/?a=b c')
+	});
+
+	t.is(url.search, '?a=b+c');
+});
+
+test('reuse options while using init hook', withServer, async (t, server, got) => {
+	t.plan(2);
+
+	server.get('/', echoUrl);
+
+	const options = {
+		hooks: {
+			init: [
+				() => {
+					t.pass();
+				}
+			]
+		}
+	};
+
+	await got('', options);
+	await got('', options);
 });

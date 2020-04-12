@@ -1,4 +1,5 @@
 import test from 'ava';
+import getStream = require('get-stream');
 import got, {HTTPError, UnsupportedProtocolError} from '../source';
 import withServer from './helpers/with-server';
 
@@ -82,6 +83,28 @@ test('custom `options.encoding`', withServer, async (t, server, got) => {
 	t.is(data, Buffer.from(string).toString('base64'));
 });
 
+test('`options.encoding` doesn\'t affect streams', withServer, async (t, server, got) => {
+	const string = 'ok';
+
+	server.get('/', (_request, response) => {
+		response.end(string);
+	});
+
+	const data = await getStream(got.stream({encoding: 'base64'}));
+	t.is(data, string);
+});
+
+test('`got.stream(...).setEncoding(...)` works', withServer, async (t, server, got) => {
+	const string = 'ok';
+
+	server.get('/', (_request, response) => {
+		response.end(string);
+	});
+
+	const data = await getStream(got.stream('').setEncoding('base64'));
+	t.is(data, Buffer.from(string).toString('base64'));
+});
+
 test('`searchParams` option', withServer, async (t, server, got) => {
 	server.get('/', (request, response) => {
 		t.is(request.query.recent, 'true');
@@ -90,15 +113,6 @@ test('`searchParams` option', withServer, async (t, server, got) => {
 
 	t.is((await got({searchParams: {recent: true}})).body, 'recent');
 	t.is((await got({searchParams: 'recent=true'})).body, 'recent');
-});
-
-test('response has `requestUrl` property even if `url` is an object', withServer, async (t, server, got) => {
-	server.get('/', (_request, response) => {
-		response.end('ok');
-	});
-
-	t.is((await got({hostname: server.hostname, port: server.port})).requestUrl, `${server.url}/`);
-	t.is((await got({hostname: server.hostname, port: server.port, protocol: 'http:'})).requestUrl, `${server.url}/`);
 });
 
 test('response contains url', withServer, async (t, server, got) => {
@@ -114,11 +128,39 @@ test('response contains got options', withServer, async (t, server, got) => {
 		response.end('ok');
 	});
 
-	const options = {
-		username: 'foo'
-	};
+	{
+		const options = {
+			username: 'foo',
+			password: 'bar'
+		};
 
-	t.is((await got(options)).request.options.username, options.username);
+		const {options: normalizedOptions} = (await got(options)).request;
+
+		t.is(normalizedOptions.username, options.username);
+		t.is(normalizedOptions.password, options.password);
+	}
+
+	{
+		const options = {
+			username: 'foo'
+		};
+
+		const {options: normalizedOptions} = (await got(options)).request;
+
+		t.is(normalizedOptions.username, options.username);
+		t.is(normalizedOptions.password, '');
+	}
+
+	{
+		const options = {
+			password: 'bar'
+		};
+
+		const {options: normalizedOptions} = (await got(options)).request;
+
+		t.is(normalizedOptions.username, '');
+		t.is(normalizedOptions.password, options.password);
+	}
 });
 
 test('socket destroyed by the server throws ECONNRESET', withServer, async (t, server, got) => {
@@ -129,4 +171,15 @@ test('socket destroyed by the server throws ECONNRESET', withServer, async (t, s
 	await t.throwsAsync(got('', {retry: 0}), {
 		code: 'ECONNRESET'
 	});
+});
+
+test('the response contains timings property', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.end('ok');
+	});
+
+	const {timings} = await got('');
+
+	t.truthy(timings);
+	t.true(timings.phases.total! >= 0);
 });
