@@ -462,7 +462,7 @@ Default: `false`
 Type: `object`\
 Default: `new CacheableLookup()`
 
-An instance of [`CacheableLookup`])(https://github.com/szmarczak/cacheable-lookup) used for making DNS lookups.
+An instance of [`CacheableLookup`](https://github.com/szmarczak/cacheable-lookup) used for making DNS lookups.
 
 ###### request
 
