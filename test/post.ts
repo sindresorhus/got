@@ -1,6 +1,7 @@
 import {promisify} from 'util';
 import stream = require('stream');
 import fs = require('fs');
+import path = require('path');
 import test from 'ava';
 import delay = require('delay');
 import {Handler} from 'express';
@@ -302,6 +303,19 @@ test('catches body errors before calling pipeline() - stream', withServer, async
 
 	// Wait for unhandled errors
 	await delay(100);
+});
+
+test('body - file read stream', withServer, async (t, server, got) => {
+	server.post('/', defaultEndpoint);
+
+	const fullPath = path.resolve('test/fixtures/ok');
+	const toSend = await getStream(fs.createReadStream(fullPath));
+
+	const body = await got.post({
+		body: fs.createReadStream(fullPath)
+	}).text();
+
+	t.is(toSend, body);
 });
 
 test('throws on upload error', withServer, async (t, server, got) => {
