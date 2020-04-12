@@ -103,7 +103,7 @@ test('preserve header key capitalization', withServer, async (t, server, got) =>
 		headers: {
 			'ACCEPT-ENCODING': 'abc'
 		}
-	}).json<Array<string>>();
+	}).json<string[]>();
 
 	let key;
 	let value;
@@ -119,6 +119,7 @@ test('preserve header key capitalization', withServer, async (t, server, got) =>
 			}
 		}
 	}
+
 	t.is(key, 'ACCEPT-ENCODING');
 	t.is(value, 'abc');
 });
