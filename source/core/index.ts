@@ -13,7 +13,6 @@ import CacheableLookup from 'cacheable-lookup';
 import CacheableRequest = require('cacheable-request');
 // @ts-ignore Missing types
 import http2wrapper = require('http2-wrapper');
-import lowercaseKeys = require('lowercase-keys');
 import ResponseLike = require('responselike');
 import getStream = require('get-stream');
 import is, {assert} from '@sindresorhus/is';
@@ -23,6 +22,7 @@ import proxyEvents from './utils/proxy-events';
 import timedOut, {Delays, TimeoutError as TimedOutTimeoutError} from './utils/timed-out';
 import urlToOptions from './utils/url-to-options';
 import optionsToUrl, {URLOptions} from './utils/options-to-url';
+import normalizeHeaders from './utils/normalize-headers';
 
 type HttpRequestFunction = typeof httpRequest;
 type Error = NodeJS.ErrnoException;
@@ -634,7 +634,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		if (is.undefined(options.headers)) {
 			options.headers = {};
 		} else {
-			options.headers = lowercaseKeys({...(defaults?.headers), ...options.headers});
+			options.headers = normalizeHeaders({...(defaults?.headers), ...options.headers});
 		}
 
 		// Disallow legacy `url.Url`
@@ -1186,8 +1186,11 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			}
 		}
 
-		if (options.decompress && is.undefined(headers['accept-encoding'])) {
-			headers['accept-encoding'] = supportsBrotli ? 'gzip, deflate, br' : 'gzip, deflate';
+		if (options.decompress) {
+			const hasAcceptEncoding = Object.keys(headers).some(key => key.toLowerCase() === 'accept-encoding');
+			if (!hasAcceptEncoding) {
+				headers['accept-encoding'] = supportsBrotli ? 'gzip, deflate, br' : 'gzip, deflate';
+			}
 		}
 
 		// Set cookies

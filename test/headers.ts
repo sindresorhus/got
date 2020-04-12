@@ -14,6 +14,11 @@ const echoHeaders: Handler = (request, response) => {
 	response.end(JSON.stringify(request.headers));
 };
 
+const echoRawHeaders: Handler = (request, response) => {
+	request.resume();
+	response.end(JSON.stringify(request.rawHeaders));
+};
+
 test('`user-agent`', withServer, async (t, server, got) => {
 	server.get('/', echoHeaders);
 
@@ -87,16 +92,35 @@ test('`host` header', withServer, async (t, server, got) => {
 	t.is(headers.host, `localhost:${server.port}`);
 });
 
-test('transforms names to lowercase', withServer, async (t, server, got) => {
-	server.get('/', echoHeaders);
+test('preserve header key capitalization', withServer, async (t, server, got) => {
+	server.get('/', echoRawHeaders);
 
-	const headers = (await got<Headers>({
+	const rawHeaders = await got.extend({
 		headers: {
-			'ACCEPT-ENCODING': 'identity'
-		},
-		responseType: 'json'
-	})).body;
-	t.is(headers['accept-encoding'], 'identity');
+			'Accept-ENCOding': '123'
+		}
+	})('', {
+		headers: {
+			'ACCEPT-ENCODING': 'abc'
+		}
+	}).json<Array<string>>();
+
+	let key;
+	let value;
+	for (let i = 0; i < rawHeaders.length; i += 2) {
+		const currentKey = rawHeaders[i];
+		const currentValue = rawHeaders[i + 1];
+		if (currentKey.toLowerCase() === 'accept-encoding') {
+			if (key) {
+				t.fail('found 2 accept-encoding headers');
+			} else {
+				key = currentKey;
+				value = currentValue;
+			}
+		}
+	}
+	t.is(key, 'ACCEPT-ENCODING');
+	t.is(value, 'abc');
 });
 
 test('setting `content-length` to 0', withServer, async (t, server, got) => {
