@@ -136,7 +136,8 @@ The HTTP method used to make the request.
 
 Type: `string | URL`
 
-When specified, `prefixUrl` will be prepended to `url`. The prefix can be any valid URL, either relative or absolute. A trailing slash `/` is optional - one will be added automatically.
+When specified, `prefixUrl` will be prepended to `url`. The prefix can be any valid URL, either relative or absolute.\
+A trailing slash `/` is optional - one will be added automatically.
 
 **Note:** `prefixUrl` will be ignored if the `url` argument is a URL instance.
 
