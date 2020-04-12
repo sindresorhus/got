@@ -28,7 +28,7 @@ const calculateRetryDelay: RetryFunction = ({attemptCount, retryOptions, error})
 		const {response} = error;
 		if (response && 'retry-after' in response.headers && retryAfterStatusCodes.has(response.statusCode)) {
 			let after = Number(response.headers['retry-after']);
-			if (isNaN(after)) {
+			if (Number.isNaN(after)) {
 				after = Date.parse(response.headers['retry-after']!) - Date.now();
 			} else {
 				after *= 1000;

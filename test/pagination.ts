@@ -17,8 +17,8 @@ const resetPagination = {
 
 const attachHandler = (server: ExtendedTestServer, count: number): void => {
 	server.get('/', (request, response) => {
-		const searchParams = new URLSearchParams(request.url.split('?')[1]);
-		const page = Number(searchParams.get('page')) || 1;
+		const searchParameters = new URLSearchParams(request.url.split('?')[1]);
+		const page = Number(searchParameters.get('page')) || 1;
 
 		if (page < count) {
 			response.setHeader('link', `<${server.url}/?page=${page + 1}>; rel="next"`);

@@ -229,10 +229,10 @@ export interface RequestEvents<T> {
 	on(name: 'uploadProgress' | 'downloadProgress', listener: (progress: Progress) => void): T;
 }
 
-function validateSearchParams(searchParams: Record<string, unknown>): asserts searchParams is Record<string, string | number | boolean | null> {
+function validateSearchParameters(searchParameters: Record<string, unknown>): asserts searchParameters is Record<string, string | number | boolean | null> {
 	// eslint-disable-next-line guard-for-in
-	for (const key in searchParams) {
-		const value = searchParams[key];
+	for (const key in searchParameters) {
+		const value = searchParameters[key];
 
 		if (!is.string(value) && !is.number(value) && !is.boolean(value) && !is.null_(value)) {
 			throw new TypeError(`The \`searchParams\` value '${String(value)}' must be a string, number, boolean or null`);
@@ -695,10 +695,10 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			}
 
 			if (options.url.search) {
-				const triggerSearchParams = '_GOT_INTERNAL_TRIGGER_NORMALIZATION';
+				const triggerSearchParameters = '_GOT_INTERNAL_TRIGGER_NORMALIZATION';
 
-				options.url.searchParams.append(triggerSearchParams, '');
-				options.url.searchParams.delete(triggerSearchParams);
+				options.url.searchParams.append(triggerSearchParameters, '');
+				options.url.searchParams.delete(triggerSearchParameters);
 			}
 
 			if (protocol !== 'http:' && protocol !== 'https:') {
@@ -735,7 +735,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		// `options.searchParams`
 		if (options.searchParams) {
 			if (!is.string(options.searchParams) && !(options.searchParams instanceof URLSearchParams)) {
-				validateSearchParams(options.searchParams);
+				validateSearchParameters(options.searchParams);
 			}
 
 			options.searchParams = new URLSearchParams(options.searchParams as Record<string, string>);

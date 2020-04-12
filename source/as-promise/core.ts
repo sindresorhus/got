@@ -21,7 +21,7 @@ export const parseBody = (body: Buffer, responseType: ResponseType, encoding?: s
 	}
 
 	if (responseType === 'json') {
-		return body.length === 0 ? '' : JSON.parse(body.toString());
+		return body.length === 0 ? '' : JSON.parse(body.toString()) as unknown;
 	}
 
 	if (responseType === 'buffer') {

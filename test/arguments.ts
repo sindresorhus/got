@@ -153,8 +153,8 @@ test('escapes `searchParams` parameter values', withServer, async (t, server, go
 test('the `searchParams` option can be a URLSearchParams', withServer, async (t, server, got) => {
 	server.get('/', echoUrl);
 
-	const searchParams = new URLSearchParams({test: 'wow'});
-	const {body} = await got({searchParams});
+	const searchParameters = new URLSearchParams({test: 'wow'});
+	const {body} = await got({searchParams: searchParameters});
 	t.is(body, '/?test=wow');
 });
 

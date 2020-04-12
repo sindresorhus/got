@@ -54,8 +54,8 @@ test('follows 307, 308 redirect', withServer, async (t, server, got) => {
 		response.end();
 	});
 
-	const tempBody = (await got('temporary')).body;
-	t.is(tempBody, 'reached');
+	const temporaryBody = (await got('temporary')).body;
+	t.is(temporaryBody, 'reached');
 
 	const permBody = (await got('permanent')).body;
 	t.is(permBody, 'reached');
