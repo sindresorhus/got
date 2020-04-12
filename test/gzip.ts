@@ -3,6 +3,7 @@ import zlib = require('zlib');
 import test from 'ava';
 import getStream = require('get-stream');
 import withServer from './helpers/with-server';
+import {HTTPError} from '../source';
 
 const testContent = 'Compressible response content.\n';
 const testContentUncompressed = 'Uncompressed response content.\n';
@@ -19,6 +20,18 @@ test('decompress content', withServer, async (t, server, got) => {
 	});
 
 	t.is((await got('')).body, testContent);
+});
+
+test('decompress content on error', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.setHeader('Content-Encoding', 'gzip');
+		response.status(404);
+		response.end(gzipData);
+	});
+
+	const error = await t.throwsAsync<HTTPError>(got(''));
+
+	t.is(error.response.body, testContent);
 });
 
 test('decompress content - stream', withServer, async (t, server, got) => {
