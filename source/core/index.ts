@@ -111,13 +111,12 @@ export interface Options extends URLOptions, SecureContextOptions {
 	decompress?: boolean;
 	timeout?: Delays | number;
 	prefixUrl?: string | URL;
-	body?: unknown;
+	body?: string | Buffer | Readable;
 	form?: {[key: string]: any};
 	json?: {[key: string]: any};
 	url?: string | URL;
 	cookieJar?: PromiseCookieJar | ToughCookieJar;
 	ignoreInvalidCookies?: boolean;
-	encoding?: BufferEncoding;
 	searchParams?: string | {[key: string]: string | number | boolean | null} | URLSearchParams;
 	dnsCache?: CacheableLookup | boolean;
 	context?: object;
@@ -138,7 +137,7 @@ export interface Options extends URLOptions, SecureContextOptions {
 	// From http.RequestOptions
 	localAddress?: string;
 	socketPath?: string;
-	method?: string;
+	method?: Method;
 	createConnection?: (options: http.RequestOptions, oncreate: (error: Error, socket: Socket) => void) => Socket;
 }
 
@@ -600,11 +599,6 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 		// TODO: Deprecate URL options in Got 12.
 
-		// Verify types
-		if (is.null_(options.encoding)) {
-			throw new TypeError('To get a Buffer, set `options.responseType` to `buffer` instead');
-		}
-
 		// Support extend-specific options
 		if (options.cache === false) {
 			options.cache = undefined;
@@ -622,7 +616,6 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		assert.any([is.object, is.undefined], options.hooks);
 		assert.any([is.boolean, is.undefined], options.decompress);
 		assert.any([is.boolean, is.undefined], options.ignoreInvalidCookies);
-		assert.any([is.string, is.undefined], options.encoding);
 		assert.any([is.boolean, is.undefined], options.followRedirect);
 		assert.any([is.number, is.undefined], options.maxRedirects);
 		assert.any([is.boolean, is.undefined], options.throwHttpErrors);
@@ -632,7 +625,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 		// `options.method`
 		if (is.string(options.method)) {
-			options.method = options.method.toUpperCase();
+			options.method = options.method.toUpperCase() as Method;
 		} else {
 			options.method = 'GET';
 		}

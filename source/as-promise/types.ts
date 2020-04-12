@@ -84,6 +84,7 @@ export interface Options extends RequestOptions, PaginationOptions<unknown> {
 	resolveBodyOnly?: boolean;
 	retry?: Partial<RequiredRetryOptions> | number;
 	isStream?: boolean;
+	encoding?: BufferEncoding;
 }
 
 export interface NormalizedOptions extends RequestNormalizedOptions {
@@ -92,6 +93,7 @@ export interface NormalizedOptions extends RequestNormalizedOptions {
 	resolveBodyOnly: boolean;
 	retry: RequiredRetryOptions;
 	isStream: boolean;
+	encoding?: BufferEncoding;
 	pagination?: Required<PaginationOptions<unknown>['pagination']>;
 }
 

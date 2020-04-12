@@ -41,6 +41,11 @@ export default class PromisableRequest extends Request {
 	static normalizeArguments(url?: string | URL, nonNormalizedOptions?: Options, defaults?: Defaults): NormalizedOptions {
 		const options = super.normalizeArguments(url, nonNormalizedOptions, defaults) as NormalizedOptions;
 
+		if (is.null_(options.encoding)) {
+			throw new TypeError('To get a Buffer, set `options.responseType` to `buffer` instead');
+		}
+
+		assert.any([is.string, is.undefined], options.encoding);
 		assert.any([is.boolean, is.undefined], options.resolveBodyOnly);
 		assert.any([is.boolean, is.undefined], options.methodRewriting);
 		assert.any([is.boolean, is.undefined], options.isStream);
