@@ -1,5 +1,6 @@
 import EventEmitter = require('events');
 import {PassThrough as PassThroughStream} from 'stream';
+import {Socket} from 'net';
 import http = require('http');
 import test from 'ava';
 import is from '@sindresorhus/is';
@@ -349,4 +350,36 @@ test('does not break on redirect', withServer, async (t, server, got) => {
 
 	await t.throwsAsync(got('redirect'), {message: 'Response code 500 (Internal Server Error)'});
 	t.is(tries, 1);
+});
+
+test('does not destroy the socket on HTTP error', withServer, async (t, server, got) => {
+	let returnServerError = true;
+
+	server.get('/', (_request, response) => {
+		if (returnServerError) {
+			response.statusCode = 500;
+			returnServerError = false;
+		}
+
+		response.end();
+	});
+
+	const sockets: Socket[] = [];
+
+	const agent = new http.Agent({
+		keepAlive: true
+	});
+
+	await got('', {
+		agent: {
+			http: agent
+		}
+	}).on('request', request => {
+		sockets.push(request.socket);
+	});
+
+	t.is(sockets.length, 2);
+	t.is(sockets[0], sockets[1]);
+
+	agent.destroy();
 });

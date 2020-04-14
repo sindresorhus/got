@@ -139,10 +139,10 @@ export default class PromisableRequest extends Request {
 			return;
 		}
 
-		if (this._throwHttpErrors && !isHTTPError) {
-			this.destroy(error);
-		} else {
+		if (this._throwHttpErrors && isHTTPError) {
 			this.emit('error', error);
+		} else {
+			this.destroy(error);
 		}
 	}
 }
