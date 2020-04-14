@@ -1,3 +1,5 @@
+import {promisify} from 'util';
+import {gzip} from 'zlib';
 import test from 'ava';
 import pEvent = require('p-event');
 import getStream = require('get-stream');
@@ -226,4 +228,34 @@ test('does not break POST requests', withServer, async (t, server, got) => {
 	}).json<{'content-length': string}>();
 
 	t.is(headers['content-length'], '0');
+});
+
+test('decompresses cached responses', withServer, async (t, server, got) => {
+	const etag = 'foobar';
+
+	const payload = JSON.stringify({foo: 'bar'});
+	const compressed = await promisify(gzip)(payload);
+
+	server.get('/', (request, response) => {
+		if (request.headers['if-none-match'] === etag) {
+			response.statusCode = 304;
+			response.end();
+		} else {
+			response.setHeader('content-encoding', 'gzip');
+			response.setHeader('cache-control', 'public, max-age: 60');
+			response.setHeader('etag', 'foobar');
+			response.end(compressed);
+		}
+	});
+
+	const cache = new Map();
+
+	for (let i = 0; i < 2; i++) {
+        await t.notThrowsAsync(got({
+            cache,
+            responseType: 'json',
+            decompress: true,
+            retry: 2
+        }));
+	}
 });
