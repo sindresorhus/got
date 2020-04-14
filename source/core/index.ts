@@ -969,6 +969,10 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		});
 
 		response.once('aborted', () => {
+			if (this.aborted) {
+				return;
+			}
+
 			this._beforeError(new ReadError({
 				name: 'Error',
 				message: 'The server aborted the pending request'
