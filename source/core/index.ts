@@ -1402,7 +1402,10 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 	_destroy(error: Error | null, callback: (error: Error | null) => void): void {
 		if (kRequest in this) {
-			this[kRequest]!.abort();
+			// TODO: Remove the next `if` when https://github.com/nodejs/node/issues/32851 gets fixed
+			if (!(this[kResponse]?.complete)) {
+				this[kRequest]!.abort();
+			}
 		} else {
 			this.once('finalized', (): void => {
 				if (kRequest in this) {
@@ -1424,6 +1427,10 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 	get aborted(): boolean {
 		return Boolean(this[kRequest]?.aborted);
+	}
+
+	get socket(): Socket | undefined {
+		return this[kRequest]?.socket;
 	}
 
 	get downloadProgress(): Progress {

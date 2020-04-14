@@ -370,3 +370,19 @@ test('pipe can send modified headers', withServer, async (t, server, got) => {
 	const {headers} = await got('');
 	t.is(headers.foo, 'boo');
 });
+
+test('the socket is alive on a successful pipeline', withServer, async (t, server, got) => {
+	const payload = 'ok';
+
+	server.get('/', (_request, response) => {
+		response.end(payload);
+	});
+
+	const gotStream = got.stream('');
+
+	const receiver = new stream.PassThrough();
+	await promisify(stream.pipeline)(gotStream, receiver);
+
+	t.is(await getStream(receiver), payload);
+	t.false(gotStream.socket!.destroyed);
+});

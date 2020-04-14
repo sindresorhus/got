@@ -934,6 +934,10 @@ The same as `response.timings`.
 
 The same as `response.isFromCache`.
 
+##### .socket
+
+The same as `response.socket`.
+
 ##### .on('error', error)
 
 The emitted `error` is an instance of [`RequestError`](#got.requesterror).

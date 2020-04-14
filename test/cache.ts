@@ -251,11 +251,12 @@ test('decompresses cached responses', withServer, async (t, server, got) => {
 	const cache = new Map();
 
 	for (let i = 0; i < 2; i++) {
-        await t.notThrowsAsync(got({
-            cache,
-            responseType: 'json',
-            decompress: true,
-            retry: 2
-        }));
+		// eslint-disable-next-line no-await-in-loop
+		await t.notThrowsAsync(got({
+			cache,
+			responseType: 'json',
+			decompress: true,
+			retry: 2
+		}));
 	}
 });
