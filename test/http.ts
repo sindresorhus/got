@@ -183,3 +183,24 @@ test('the response contains timings property', withServer, async (t, server, got
 	t.truthy(timings);
 	t.true(timings.phases.total! >= 0);
 });
+
+test('throws an error if the server aborted the request', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.writeHead(200, {
+			'content-type': 'text/plain'
+		});
+		response.write('chunk 1');
+
+		setImmediate(() => {
+			response.write('chunk 2');
+
+			setImmediate(() => {
+				response.destroy();
+			});
+		});
+	});
+
+	await t.throwsAsync(got(''), {
+		message: 'The server aborted the pending request'
+	});
+});

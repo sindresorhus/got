@@ -968,6 +968,13 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			this._beforeError(new ReadError(error, options, response as Response));
 		});
 
+		response.once('aborted', () => {
+			this._beforeError(new ReadError({
+				name: 'Error',
+				message: 'The server aborted the pending request'
+			}, options, response as Response));
+		});
+
 		this.emit('downloadProgress', this.downloadProgress);
 
 		const rawCookies = response.headers['set-cookie'];
