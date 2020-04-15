@@ -147,7 +147,7 @@ export default class PromisableRequest extends Request {
 			return;
 		}
 
-		// Let the promise handle the error
+		// Let the promise decide whether to abort or not
 		this.emit('error', error);
 	}
 }
