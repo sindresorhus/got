@@ -34,6 +34,10 @@ export default function asPromise<T>(options: NormalizedOptions): CancelableRequ
 			}
 
 			// Support retries
+			// `options.throwHttpErrors` needs to be always true,
+			// so the HTTP errors are caught and the request is retried.
+			// The error is **eventaully** thrown
+			// if the user value `options._throwHttpErrors` is true.
 			const {throwHttpErrors} = options;
 			if (!throwHttpErrors) {
 				options.throwHttpErrors = true;

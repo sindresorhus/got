@@ -38,6 +38,7 @@ const kUnproxyEvents = Symbol('unproxyEvents');
 const kIsFromCache = Symbol('isFromCache');
 const kCancelTimeouts = Symbol('cancelTimeouts');
 const kStartedReading = Symbol('startedReading');
+const kStopReading = Symbol('stopReading');
 export const kIsNormalizedAlready = Symbol('isNormalizedAlready');
 
 const supportsBrotli = is.string((process.versions as any).brotli);
@@ -466,6 +467,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	declare _cannotHaveBody: boolean;
 	[kDownloadedSize]: number;
 	[kUploadedSize]: number;
+	[kStopReading]: boolean;
 	[kBodySize]?: number;
 	[kServerResponsesPiped]: Set<ServerResponse>;
 	[kIsFromCache]?: boolean;
@@ -481,7 +483,6 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	declare requestUrl: string;
 	finalized: boolean;
 	redirects: string[];
-	errored: boolean;
 
 	constructor(url: string | URL, options: Options = {}, defaults?: Defaults) {
 		super({
@@ -494,7 +495,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		this.finalized = false;
 		this[kServerResponsesPiped] = new Set<ServerResponse>();
 		this.redirects = [];
-		this.errored = false;
+		this[kStopReading] = false;
 
 		// TODO: Remove this when targeting Node.js >= 12
 		this._progressCallbacks = [];
@@ -1299,7 +1300,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	}
 
 	async _beforeError(error: Error): Promise<void> {
-		this.errored = true;
+		this[kStopReading] = true;
 
 		if (!(error instanceof RequestError)) {
 			error = new RequestError(error.message, error, this.options, this);
@@ -1328,7 +1329,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	}
 
 	_read(): void {
-		if (kResponse in this && !this.errored) {
+		if (kResponse in this && !this[kStopReading]) {
 			let data;
 
 			while ((data = this[kResponse]!.read()) !== null) {

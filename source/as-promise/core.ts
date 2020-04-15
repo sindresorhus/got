@@ -6,7 +6,7 @@ import {
 	Defaults,
 	ResponseType
 } from './types';
-import Request, {knownHookEvents, RequestError, HTTPError, Method} from '../core';
+import Request, {knownHookEvents, RequestError, Method} from '../core';
 
 if (!knownHookEvents.includes('beforeRetry' as any)) {
 	knownHookEvents.push('beforeRetry' as any, 'afterResponse' as any);
@@ -126,23 +126,22 @@ export default class PromisableRequest extends Request {
 		return mergedOptions!;
 	}
 
-	async _beforeError(error: RequestError): Promise<void> {
-		const isHTTPError = error instanceof HTTPError;
+	async _beforeError(error: Error): Promise<void> {
+		if (!(error instanceof RequestError)) {
+			error = new RequestError(error.message, error, this.options, this);
+		}
 
 		try {
 			for (const hook of this.options.hooks.beforeError) {
 				// eslint-disable-next-line no-await-in-loop
-				error = await hook(error);
+				error = await hook(error as RequestError);
 			}
 		} catch (error_) {
-			this.destroy(error_);
+			this.destroy(new RequestError(error_.message, error_, this.options, this));
 			return;
 		}
 
-		if (this._throwHttpErrors && !isHTTPError) {
-			this.destroy(error);
-		} else {
-			this.emit('error', error);
-		}
+		// Let the promise handle the error
+		this.emit('error', error);
 	}
 }
