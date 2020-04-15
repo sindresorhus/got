@@ -171,3 +171,14 @@ test('.buffer() returns binary content', withServer, async (t, server, got) => {
 	const buffer = await got('').buffer();
 	t.is(Buffer.compare(buffer, body), 0);
 });
+
+test('shortcuts throw ParseErrors', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.end('not a json');
+	});
+
+	await t.throwsAsync(got('').json(), {
+		instanceOf: ParseError,
+		message: /^Unexpected token o in JSON at position 1 in/
+	});
+});

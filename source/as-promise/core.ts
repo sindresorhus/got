@@ -4,7 +4,9 @@ import {
 	Options,
 	NormalizedOptions,
 	Defaults,
-	ResponseType
+	ResponseType,
+	ParseError,
+	Response
 } from './types';
 import Request, {knownHookEvents, RequestError, Method} from '../core';
 
@@ -15,21 +17,25 @@ if (!knownHookEvents.includes('beforeRetry' as any)) {
 export const knownBodyTypes = ['json', 'buffer', 'text'];
 
 // @ts-ignore The error is: Not all code paths return a value.
-export const parseBody = (body: Buffer, responseType: ResponseType, encoding?: string): unknown => {
-	if (responseType === 'text') {
-		return body.toString(encoding);
-	}
+export const parseBody = (body: Buffer, response: Response, responseType: ResponseType, encoding?: string): unknown => {
+	try {
+		if (responseType === 'text') {
+			return body.toString(encoding);
+		}
 
-	if (responseType === 'json') {
-		return body.length === 0 ? '' : JSON.parse(body.toString()) as unknown;
-	}
+		if (responseType === 'json') {
+			return body.length === 0 ? '' : JSON.parse(body.toString()) as unknown;
+		}
 
-	if (responseType === 'buffer') {
-		return Buffer.from(body);
-	}
+		if (responseType === 'buffer') {
+			return Buffer.from(body);
+		}
 
-	if (!knownBodyTypes.includes(responseType)) {
-		throw new TypeError(`Unknown body type '${responseType as string}'`);
+		if (!knownBodyTypes.includes(responseType)) {
+			throw new TypeError(`Unknown body type '${responseType as string}'`);
+		}
+	} catch (error) {
+		throw new ParseError(error, response);
 	}
 };
 

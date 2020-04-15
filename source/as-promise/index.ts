@@ -8,8 +8,7 @@ import {
 	Response,
 	RequestError,
 	HTTPError,
-	ReadError,
-	ParseError
+	ReadError
 } from './types';
 import PromisableRequest, {parseBody} from './core';
 import proxyEvents from '../core/utils/proxy-events';
@@ -25,6 +24,7 @@ const proxiedRequestEvents = [
 export default function asPromise<T>(options: NormalizedOptions): CancelableRequest<T> {
 	let retryCount = 0;
 	let body: Buffer;
+	let currentResponse: Response;
 	const emitter = new EventEmitter();
 
 	const promise = new PCancelable<T>((resolve, reject, onCancel) => {
@@ -49,6 +49,8 @@ export default function asPromise<T>(options: NormalizedOptions): CancelableRequ
 			onCancel(() => request.destroy());
 
 			request.once('response', async (response: Response) => {
+				currentResponse = response;
+
 				response.retryCount = retryCount;
 
 				if (response.request.aborted) {
@@ -73,14 +75,13 @@ export default function asPromise<T>(options: NormalizedOptions): CancelableRequ
 
 				// Parse body
 				try {
-					response.body = parseBody(body, options.responseType, options.encoding);
+					response.body = parseBody(body, response, options.responseType, options.encoding);
 				} catch (error) {
 					// Fallback to `utf8`
 					response.body = body.toString('utf8');
 
 					if (isOk()) {
-						const parseError = new ParseError(error, response, options);
-						request._beforeError(parseError);
+						request._beforeError(error);
 						return;
 					}
 				}
@@ -221,8 +222,10 @@ export default function asPromise<T>(options: NormalizedOptions): CancelableRequ
 
 	const shortcut = <T>(responseType: NormalizedOptions['responseType']): CancelableRequest<T> => {
 		const newPromise = (async () => {
+			// Wait until downloading has ended
 			await promise;
-			return parseBody(body, responseType);
+
+			return parseBody(body, currentResponse, responseType);
 		})();
 
 		Object.defineProperties(newPromise, Object.getOwnPropertyDescriptors(promise));

@@ -109,7 +109,9 @@ export interface Defaults extends RequestDefaults {
 export class ParseError extends RequestError {
 	declare readonly response: Response;
 
-	constructor(error: Error, response: Response, options: NormalizedOptions) {
+	constructor(error: Error, response: Response) {
+		const {options} = response.request;
+
 		super(`${error.message} in "${options.url.toString()}"`, error, options);
 		this.name = 'ParseError';
 
