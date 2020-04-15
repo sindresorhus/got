@@ -17,18 +17,20 @@ if (!knownHookEvents.includes('beforeRetry' as any)) {
 export const knownBodyTypes = ['json', 'buffer', 'text'];
 
 // @ts-ignore The error is: Not all code paths return a value.
-export const parseBody = (body: Buffer, response: Response, responseType: ResponseType, encoding?: string): unknown => {
+export const parseBody = (response: Response, responseType: ResponseType, encoding?: string): unknown => {
+	const {rawBody} = response;
+
 	try {
 		if (responseType === 'text') {
-			return body.toString(encoding);
+			return rawBody.toString(encoding);
 		}
 
 		if (responseType === 'json') {
-			return body.length === 0 ? '' : JSON.parse(body.toString()) as unknown;
+			return rawBody.length === 0 ? '' : JSON.parse(rawBody.toString()) as unknown;
 		}
 
 		if (responseType === 'buffer') {
-			return Buffer.from(body);
+			return Buffer.from(rawBody);
 		}
 
 		if (!knownBodyTypes.includes(responseType)) {
@@ -42,7 +44,6 @@ export const parseBody = (body: Buffer, response: Response, responseType: Respon
 export default class PromisableRequest extends Request {
 	['constructor']: typeof PromisableRequest;
 	declare options: NormalizedOptions;
-	declare _throwHttpErrors: boolean;
 
 	static normalizeArguments(url?: string | URL, nonNormalizedOptions?: Options, defaults?: Defaults): NormalizedOptions {
 		const options = super.normalizeArguments(url, nonNormalizedOptions, defaults) as NormalizedOptions;
@@ -117,6 +118,11 @@ export default class PromisableRequest extends Request {
 			if (!is.function_(pagination.paginate)) {
 				throw new Error('`options.pagination.paginate` must be implemented');
 			}
+		}
+
+		// JSON mode
+		if (options.responseType === 'json' && options.headers.accept === undefined) {
+			options.headers.accept = 'application/json';
 		}
 
 		return options;

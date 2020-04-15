@@ -182,3 +182,43 @@ test('shortcuts throw ParseErrors', withServer, async (t, server, got) => {
 		message: /^Unexpected token o in JSON at position 1 in/
 	});
 });
+
+test('shortcuts result properly when retrying in afterResponse', withServer, async (t, server, got) => {
+	const nasty = JSON.stringify({hello: 'nasty'});
+	const proper = JSON.stringify({hello: 'world'});
+
+	server.get('/', (request, response) => {
+		if (request.headers.token === 'unicorn') {
+			response.end(proper);
+		} else {
+			response.statusCode = 401;
+			response.end(nasty);
+		}
+	});
+
+	const promise = got({
+		hooks: {
+			afterResponse: [
+				(response, retryWithMergedOptions) => {
+					if (response.statusCode === 401) {
+						return retryWithMergedOptions({
+							headers: {
+								token: 'unicorn'
+							}
+						});
+					}
+
+					return response;
+				}
+			]
+		}
+	});
+
+	const json = await promise.json<{hello: string}>();
+	const text = await promise.text();
+	const buffer = await promise.buffer();
+
+	t.is(json.hello, 'world');
+	t.is(text, proper);
+	t.is(buffer.compare(Buffer.from(proper)), 0);
+});

@@ -221,6 +221,7 @@ export interface PlainResponse extends IncomingMessageWithTimings {
 // For Promise support
 export interface Response<T = unknown> extends PlainResponse {
 	body: T;
+	rawBody: Buffer;
 	retryCount: number;
 }
 
@@ -1313,11 +1314,12 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 		try {
 			const {response} = error as RequestError;
-			if (response && is.undefined(response.body)) {
-				response.body = await getStream(response, {
-					...this.options,
-					encoding: (this as any)._readableState.encoding
-				});
+
+			if (response) {
+				response.setEncoding((this as any)._readableState.encoding);
+
+				response.rawBody = await getStream.buffer(response);
+				response.body = response.rawBody.toString();
 			}
 		} catch (_) {}
 

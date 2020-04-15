@@ -23,34 +23,28 @@ const proxiedRequestEvents = [
 
 export default function asPromise<T>(options: NormalizedOptions): CancelableRequest<T> {
 	let retryCount = 0;
-	let body: Buffer;
-	let currentResponse: Response;
+	let globalRequest: PromisableRequest;
+	let globalResponse: Response;
 	const emitter = new EventEmitter();
 
 	const promise = new PCancelable<T>((resolve, reject, onCancel) => {
 		const makeRequest = (): void => {
-			if (options.responseType === 'json' && options.headers.accept === undefined) {
-				options.headers.accept = 'application/json';
-			}
-
 			// Support retries
 			// `options.throwHttpErrors` needs to be always true,
 			// so the HTTP errors are caught and the request is retried.
-			// The error is **eventaully** thrown
-			// if the user value `options._throwHttpErrors` is true.
+			// The error is **eventually** thrown if the user value is true.
 			const {throwHttpErrors} = options;
 			if (!throwHttpErrors) {
 				options.throwHttpErrors = true;
 			}
 
 			const request = new PromisableRequest(options.url, options);
-			request._throwHttpErrors = throwHttpErrors;
 			request._noPipe = true;
 			onCancel(() => request.destroy());
 
-			request.once('response', async (response: Response) => {
-				currentResponse = response;
+			globalRequest = request;
 
+			request.once('response', async (response: Response) => {
 				response.retryCount = retryCount;
 
 				if (response.request.aborted) {
@@ -66,8 +60,11 @@ export default function asPromise<T>(options: NormalizedOptions): CancelableRequ
 				};
 
 				// Download body
+				let rawBody;
 				try {
-					body = await getStream.buffer(request);
+					rawBody = await getStream.buffer(request);
+
+					response.rawBody = rawBody;
 				} catch (error) {
 					request._beforeError(new ReadError(error, options, response));
 					return;
@@ -75,10 +72,10 @@ export default function asPromise<T>(options: NormalizedOptions): CancelableRequ
 
 				// Parse body
 				try {
-					response.body = parseBody(body, response, options.responseType, options.encoding);
+					response.body = parseBody(response, options.responseType, options.encoding);
 				} catch (error) {
 					// Fallback to `utf8`
-					response.body = body.toString('utf8');
+					response.body = rawBody.toString();
 
 					if (isOk()) {
 						request._beforeError(error);
@@ -130,6 +127,8 @@ export default function asPromise<T>(options: NormalizedOptions): CancelableRequ
 					reject(new HTTPError(response, options));
 					return;
 				}
+
+				globalResponse = response;
 
 				resolve(options.resolveBodyOnly ? response.body as T : response as unknown as T);
 			});
@@ -225,7 +224,7 @@ export default function asPromise<T>(options: NormalizedOptions): CancelableRequ
 			// Wait until downloading has ended
 			await promise;
 
-			return parseBody(body, currentResponse, responseType);
+			return parseBody(globalResponse, responseType, options.encoding);
 		})();
 
 		Object.defineProperties(newPromise, Object.getOwnPropertyDescriptors(promise));
@@ -234,7 +233,7 @@ export default function asPromise<T>(options: NormalizedOptions): CancelableRequ
 	};
 
 	promise.json = () => {
-		if (body === undefined && options.headers.accept === undefined) {
+		if (!globalRequest.writableFinished && options.headers.accept === undefined) {
 			options.headers.accept = 'application/json';
 		}
 

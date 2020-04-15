@@ -784,6 +784,12 @@ Type: `string | object | Buffer` *(Depending on `options.responseType`)*
 
 The result of the request.
 
+##### rawBody
+
+Type: `Buffer`
+
+The raw result of the request.
+
 ##### url
 
 Type: `string`
