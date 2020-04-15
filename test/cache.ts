@@ -242,7 +242,7 @@ test('decompresses cached responses', withServer, async (t, server, got) => {
 			response.end();
 		} else {
 			response.setHeader('content-encoding', 'gzip');
-			response.setHeader('cache-control', 'public, max-age: 60');
+			response.setHeader('cache-control', 'public, max-age=60');
 			response.setHeader('etag', 'foobar');
 			response.end(compressed);
 		}
@@ -259,4 +259,29 @@ test('decompresses cached responses', withServer, async (t, server, got) => {
 			retry: 2
 		}));
 	}
+
+	t.is(cache.size, 1);
+});
+
+test('can replace the instance\'s HTTP cache', withServer, async (t, server, got) => {
+	server.get('/', cacheEndpoint);
+
+	const cache = new Map();
+	const secondCache = new Map();
+
+	const instance = got.extend({
+		mutableDefaults: true,
+		cache
+	});
+
+	await t.notThrowsAsync(instance(''));
+	await t.notThrowsAsync(instance(''));
+
+	instance.defaults.options.cache = secondCache;
+
+	await t.notThrowsAsync(instance(''));
+	await t.notThrowsAsync(instance(''));
+
+	t.is(cache.size, 1);
+	t.is(secondCache.size, 1);
 });

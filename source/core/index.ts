@@ -23,6 +23,7 @@ import proxyEvents from './utils/proxy-events';
 import timedOut, {Delays, TimeoutError as TimedOutTimeoutError} from './utils/timed-out';
 import urlToOptions from './utils/url-to-options';
 import optionsToUrl, {URLOptions} from './utils/options-to-url';
+import WeakableMap from './utils/weakable-map';
 
 type HttpRequestFunction = typeof httpRequest;
 type Error = NodeJS.ErrnoException;
@@ -107,6 +108,11 @@ export type RequestFunction = (url: URL, options: RequestOptions, callback?: (re
 
 export type Headers = Record<string, string | string[] | undefined>;
 
+type CacheableRequestFn = (
+	opts: string | URL | RequestOptions,
+	cb?: (response: ServerResponse | ResponseLike) => void
+) => CacheableRequest.Emitter;
+
 export interface Options extends URLOptions, SecureContextOptions {
 	request?: RequestFunction;
 	agent?: Agents | false;
@@ -160,7 +166,6 @@ export interface NormalizedOptions extends Options {
 	cache?: string | CacheableRequest.StorageAdapter;
 	throwHttpErrors: boolean;
 	dnsCache?: CacheableLookup;
-	cacheableRequest?: (options: string | URL | http.RequestOptions, callback?: (response: http.ServerResponse | ResponseLike) => void) => CacheableRequest.Emitter;
 	http2: boolean;
 	allowGetBody: boolean;
 	rejectUnauthorized: boolean;
@@ -247,6 +252,8 @@ function isClientRequest(clientRequest: unknown): clientRequest is ClientRequest
 	return is.object(clientRequest) && !('statusCode' in clientRequest);
 }
 
+const cacheableStore = new WeakableMap<string | CacheableRequest.StorageAdapter, CacheableRequestFn>();
+
 const cacheFn = async (url: URL, options: RequestOptions): Promise<ClientRequest | ResponseLike> => new Promise<ClientRequest | ResponseLike>((resolve, reject) => {
 	// TODO: Remove `utils/url-to-options.ts` when `cacheable-request` is fixed
 	Object.assign(options, urlToOptions(url));
@@ -254,8 +261,8 @@ const cacheFn = async (url: URL, options: RequestOptions): Promise<ClientRequest
 	// `http-cache-semantics` checks this
 	delete (options as unknown as NormalizedOptions).url;
 
-	// TODO: `cacheable-request` is incorrectly typed
-	const cacheRequest = (options as Pick<NormalizedOptions, 'cacheableRequest'>).cacheableRequest!(options, resolve as any);
+	// This is ugly
+	const cacheRequest = cacheableStore.get((options as any).cache)!(options, resolve as any);
 
 	// Restore options
 	(options as unknown as NormalizedOptions).url = url;
@@ -762,12 +769,14 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		}
 
 		// `options.cache`
-		if (options.cache && !(options as NormalizedOptions).cacheableRequest) {
-			// Better memory management, so we don't have to generate a new object every time
-			(options as NormalizedOptions).cacheableRequest = new CacheableRequest(
-				((requestOptions: RequestOptions, handler?: (response: IncomingMessage) => void): ClientRequest => (requestOptions as Pick<NormalizedOptions, typeof kRequest>)[kRequest](requestOptions, handler)) as HttpRequestFunction,
-				options.cache
-			);
+		let {cache} = options;
+		if (cache) {
+			if (!cacheableStore.has(cache)) {
+				cacheableStore.set(cache, new CacheableRequest(
+					((requestOptions: RequestOptions, handler?: (response: IncomingMessage) => void): ClientRequest => (requestOptions as Pick<NormalizedOptions, typeof kRequest>)[kRequest](requestOptions, handler)) as HttpRequestFunction,
+					cache as CacheableRequest.StorageAdapter
+				));
+			}
 		}
 
 		// `options.dnsCache`
@@ -1257,7 +1266,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		}
 
 		const realFn = options.request ?? fallbackFn;
-		const fn = options.cacheableRequest ? cacheFn : realFn;
+		const fn = options.cache ? cacheFn : realFn;
 
 		if (agent && !options.http2) {
 			(options as unknown as RequestOptions).agent = agent[isHttps ? 'https' : 'http'];
