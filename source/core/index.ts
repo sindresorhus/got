@@ -717,8 +717,9 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		}
 
 		// `options.cookieJar`
-		if (options.cookieJar) {
-			let {setCookie, getCookieString} = options.cookieJar;
+		const {cookieJar} = options;
+		if (cookieJar) {
+			let {setCookie, getCookieString} = cookieJar;
 
 			assert.function_(setCookie);
 			assert.function_(getCookieString);
@@ -727,9 +728,12 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			if (setCookie.length === 4 && getCookieString.length === 0) {
 				setCookie = promisify(setCookie.bind(options.cookieJar));
 				getCookieString = promisify(getCookieString.bind(options.cookieJar));
-			}
 
-			options.cookieJar = {setCookie, getCookieString};
+				options.cookieJar = {
+					setCookie: setCookie.bind(cookieJar),
+					getCookieString: getCookieString.bind(getCookieString)
+				};
+			}
 		}
 
 		// `options.searchParams`

@@ -89,7 +89,7 @@ test('does not throw on invalid cookies when options.ignoreInvalidCookies is set
 test('catches store errors', async t => {
 	const error = 'Some error';
 	const cookieJar = new toughCookie.CookieJar({
-		findCookies: (_, __, callback) => {
+		findCookies: (_, __, ___, callback) => {
 			callback(new Error(error), []);
 		},
 		findCookie: () => {},
@@ -97,7 +97,8 @@ test('catches store errors', async t => {
 		putCookie: () => {},
 		removeCookies: () => {},
 		removeCookie: () => {},
-		updateCookie: () => {}
+		updateCookie: () => {},
+		synchronous: false
 	});
 
 	await t.throwsAsync(got('https://example.com', {cookieJar}), {message: error});
