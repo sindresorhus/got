@@ -39,6 +39,7 @@ const kIsFromCache = Symbol('isFromCache');
 const kCancelTimeouts = Symbol('cancelTimeouts');
 const kStartedReading = Symbol('startedReading');
 const kStopReading = Symbol('stopReading');
+const kTriggerRead = Symbol('triggerRead');
 export const kIsNormalizedAlready = Symbol('isNormalizedAlready');
 
 const supportsBrotli = is.string((process.versions as any).brotli);
@@ -468,6 +469,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	[kDownloadedSize]: number;
 	[kUploadedSize]: number;
 	[kStopReading]: boolean;
+	[kTriggerRead]: boolean;
 	[kBodySize]?: number;
 	[kServerResponsesPiped]: Set<ServerResponse>;
 	[kIsFromCache]?: boolean;
@@ -496,6 +498,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		this[kServerResponsesPiped] = new Set<ServerResponse>();
 		this.redirects = [];
 		this[kStopReading] = false;
+		this[kTriggerRead] = false;
 
 		// TODO: Remove this when targeting Node.js >= 12
 		this._progressCallbacks = [];
@@ -1091,9 +1094,8 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			}
 		}
 
-		// We need to call `_read()` only when the Request stream is flowing
 		response.on('readable', () => {
-			if ((this as any).readableFlowing) {
+			if (this[kTriggerRead]) {
 				this._read();
 			}
 		});
@@ -1332,10 +1334,18 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	}
 
 	_read(): void {
-		if (kResponse in this && !this[kStopReading]) {
-			let data;
+		this[kTriggerRead] = true;
 
-			while ((data = this[kResponse]!.read()) !== null) {
+		const response = this[kResponse];
+		if (response && !this[kStopReading]) {
+			// We cannot put this in the `if` above
+			// because `.read()` also triggers the `end` event
+			if (response.readableLength) {
+				this[kTriggerRead] = false;
+			}
+
+			let data;
+			while ((data = response.read()) !== null) {
 				this[kDownloadedSize] += data.length;
 				this[kStartedReading] = true;
 

@@ -386,3 +386,20 @@ test('the socket is alive on a successful pipeline', withServer, async (t, serve
 	t.is(await getStream(receiver), payload);
 	t.false(gotStream.socket!.destroyed);
 });
+
+test('async iterator works', withServer, async (t, server, got) => {
+	const payload = 'ok';
+
+	server.get('/', (_request, response) => {
+		response.end(payload);
+	});
+
+	const gotStream = got.stream('');
+	const chunks = [];
+
+	for await (const chunk of gotStream) {
+		chunks.push(chunk);
+	}
+
+	t.is(Buffer.concat(chunks).toString(), payload);
+});
