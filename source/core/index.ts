@@ -769,7 +769,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		}
 
 		// `options.cache`
-		let {cache} = options;
+		const {cache} = options;
 		if (cache) {
 			if (!cacheableStore.has(cache)) {
 				cacheableStore.set(cache, new CacheableRequest(
