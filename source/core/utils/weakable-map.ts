@@ -18,16 +18,16 @@ export default class WeakableMap<K, V> {
 	get(key: K): V | undefined {
 		if (typeof key === 'object') {
 			return this.weakMap.get(key as unknown as object);
-		} else {
-			return this.map.get(key);
 		}
+
+		return this.map.get(key);
 	}
 
 	has(key: K): boolean {
 		if (typeof key === 'object') {
 			return this.weakMap.has(key as unknown as object);
-		} else {
-			return this.map.has(key);
 		}
+
+		return this.map.has(key);
 	}
 }
