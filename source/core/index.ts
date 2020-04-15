@@ -720,14 +720,13 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		if (options.cookieJar) {
 			let {setCookie, getCookieString} = options.cookieJar;
 
-			// Horrible `tough-cookie` check
+			assert.function_(setCookie);
+			assert.function_(getCookieString);
+
+			/* istanbul ignore next: Horrible `tough-cookie` v3 check */
 			if (setCookie.length === 4 && getCookieString.length === 0) {
 				setCookie = promisify(setCookie.bind(options.cookieJar));
 				getCookieString = promisify(getCookieString.bind(options.cookieJar));
-			} else if (setCookie.length !== 2) {
-				throw new TypeError('`options.cookieJar.setCookie` needs to be an async function with 2 arguments');
-			} else if (getCookieString.length !== 1) {
-				throw new TypeError('`options.cookieJar.getCookieString` needs to be an async function with 1 argument');
 			}
 
 			options.cookieJar = {setCookie, getCookieString};

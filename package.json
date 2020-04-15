@@ -66,7 +66,7 @@
 		"@types/node-fetch": "^2.5.5",
 		"@types/request": "^2.48.4",
 		"@types/sinon": "^9.0.0",
-		"@types/tough-cookie": "^2.3.5",
+		"@types/tough-cookie": "^4.0.0",
 		"@typescript-eslint/eslint-plugin": "^2.27.0",
 		"@typescript-eslint/parser": "^2.27.0",
 		"ava": "^3.6.0",
@@ -89,7 +89,7 @@
 		"slow-stream": "0.0.4",
 		"tempy": "^0.5.0",
 		"to-readable-stream": "^2.1.0",
-		"tough-cookie": "^3.0.0",
+		"tough-cookie": "^4.0.0",
 		"typescript": "3.7.5",
 		"xo": "^0.29.0"
 	},

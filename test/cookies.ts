@@ -178,19 +178,19 @@ test('throws on invalid `options.cookieJar.setCookie`', async t => {
 	// @ts-ignore Error tests
 	await t.throwsAsync(got('https://example.com', {
 		cookieJar: {
-			setCookie: () => {}
+			setCookie: 123
 		}
-	}), {message: '`options.cookieJar.setCookie` needs to be an async function with 2 arguments'});
+	}), {message: 'Expected value which is `Function`, received value of type `number`.'});
 });
 
 test('throws on invalid `options.cookieJar.getCookieString`', async t => {
 	// @ts-ignore Error tests
 	await t.throwsAsync(got('https://example.com', {
 		cookieJar: {
-			setCookie: async (_rawCookie: string, _url: string) => {},
-			getCookieString: () => {}
+			setCookie: async () => {},
+			getCookieString: 123
 		}
-	}), {message: '`options.cookieJar.getCookieString` needs to be an async function with 1 argument'});
+	}), {message: 'Expected value which is `Function`, received value of type `number`.'});
 });
 
 test('cookies are cleared when redirecting to a different hostname (no cookieJar)', withServer, async (t, server, got) => {
