@@ -140,7 +140,7 @@ export default class PromisableRequest extends Request {
 
 	async _beforeError(error: Error): Promise<void> {
 		if (!(error instanceof RequestError)) {
-			error = new RequestError(error.message, error, this.options, this);
+			error = new RequestError(error.message, error, this);
 		}
 
 		try {
@@ -149,7 +149,7 @@ export default class PromisableRequest extends Request {
 				error = await hook(error as RequestError);
 			}
 		} catch (error_) {
-			this.destroy(new RequestError(error_.message, error_, this.options, this));
+			this.destroy(new RequestError(error_.message, error_, this));
 			return;
 		}
 

@@ -192,6 +192,18 @@ test('normalization errors using convenience methods', async t => {
 	await t.throwsAsync(got(url).json().text().buffer(), {message: `Invalid URL: ${url}`});
 });
 
+test('errors can have request property', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.statusCode = 404;
+		response.end();
+	});
+
+	const error = await t.throwsAsync<HTTPError>(got(''));
+
+	t.truthy(error.response);
+	t.truthy(error.request!.downloadProgress);
+});
+
 // Fails randomly on Node 10:
 // Blocked by https://github.com/istanbuljs/nyc/issues/619
 // eslint-disable-next-line ava/no-skip-test

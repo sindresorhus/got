@@ -254,32 +254,6 @@ function isClientRequest(clientRequest: unknown): clientRequest is ClientRequest
 
 const cacheableStore = new WeakableMap<string | CacheableRequest.StorageAdapter, CacheableRequestFn>();
 
-const cacheFn = async (url: URL, options: RequestOptions): Promise<ClientRequest | ResponseLike> => new Promise<ClientRequest | ResponseLike>((resolve, reject) => {
-	// TODO: Remove `utils/url-to-options.ts` when `cacheable-request` is fixed
-	Object.assign(options, urlToOptions(url));
-
-	// `http-cache-semantics` checks this
-	delete (options as unknown as NormalizedOptions).url;
-
-	// This is ugly
-	const cacheRequest = cacheableStore.get((options as any).cache)!(options, resolve as any);
-
-	// Restore options
-	(options as unknown as NormalizedOptions).url = url;
-
-	cacheRequest.once('error', (error: Error) => {
-		if (error instanceof CacheableRequest.RequestError) {
-			// TODO: `options` should be `normalizedOptions`
-			reject(new RequestError(error.message, error, options as unknown as NormalizedOptions));
-			return;
-		}
-
-		// TODO: `options` should be `normalizedOptions`
-		reject(new CacheError(error, options as unknown as NormalizedOptions));
-	});
-	cacheRequest.once('request', resolve);
-});
-
 const waitForOpenFile = async (file: ReadStream): Promise<void> => new Promise((resolve, reject) => {
 	const onError = (error: Error): void => {
 		reject(error);
@@ -337,39 +311,36 @@ export class RequestError extends Error {
 	readonly request?: Request;
 	readonly timings?: Timings;
 
-	constructor(message: string, error: Partial<Error & {code?: string}>, options: NormalizedOptions, requestOrResponse?: Request | Response) {
+	constructor(message: string, error: Partial<Error & {code?: string}>, self: Request | NormalizedOptions) {
 		super(message);
 		Error.captureStackTrace(this, this.constructor);
 
 		this.name = 'RequestError';
 		this.code = error.code;
 
-		Object.defineProperty(this, 'options', {
-			// This fails because of TS 3.7.2 useDefineForClassFields
-			// Ref: https://github.com/microsoft/TypeScript/issues/34972
-			enumerable: false,
-			value: options
-		});
-
-		if (requestOrResponse instanceof IncomingMessage) {
-			Object.defineProperty(this, 'response', {
-				enumerable: false,
-				value: requestOrResponse
-			});
-
+		if (self instanceof Request) {
 			Object.defineProperty(this, 'request', {
 				enumerable: false,
-				value: requestOrResponse.request
-			});
-		} else if (requestOrResponse instanceof Request) {
-			Object.defineProperty(this, 'request', {
-				enumerable: false,
-				value: requestOrResponse
+				value: self
 			});
 
 			Object.defineProperty(this, 'response', {
 				enumerable: false,
-				value: requestOrResponse[kResponse]
+				value: self[kResponse]
+			});
+
+			Object.defineProperty(this, 'options', {
+				// This fails because of TS 3.7.2 useDefineForClassFields
+				// Ref: https://github.com/microsoft/TypeScript/issues/34972
+				enumerable: false,
+				value: self.options
+			});
+		} else {
+			Object.defineProperty(this, 'options', {
+				// This fails because of TS 3.7.2 useDefineForClassFields
+				// Ref: https://github.com/microsoft/TypeScript/issues/34972
+				enumerable: false,
+				value: self
 			});
 		}
 
@@ -394,41 +365,31 @@ export class RequestError extends Error {
 export class MaxRedirectsError extends RequestError {
 	declare readonly response: Response;
 
-	constructor(response: Response, maxRedirects: number, options: NormalizedOptions) {
-		super(`Redirected ${maxRedirects} times. Aborting.`, {}, options);
+	constructor(request: Request) {
+		super(`Redirected ${request.options.maxRedirects} times. Aborting.`, {}, request);
 		this.name = 'MaxRedirectsError';
-
-		Object.defineProperty(this, 'response', {
-			enumerable: false,
-			value: response
-		});
 	}
 }
 
 export class HTTPError extends RequestError {
 	declare readonly response: Response;
 
-	constructor(response: Response, options: NormalizedOptions) {
-		super(`Response code ${response.statusCode} (${response.statusMessage!})`, {}, options);
+	constructor(response: Response) {
+		super(`Response code ${response.statusCode} (${response.statusMessage!})`, {}, response.request);
 		this.name = 'HTTPError';
-
-		Object.defineProperty(this, 'response', {
-			enumerable: false,
-			value: response
-		});
 	}
 }
 
 export class CacheError extends RequestError {
-	constructor(error: Error, options: NormalizedOptions) {
-		super(error.message, error, options);
+	constructor(error: Error, request: Request) {
+		super(error.message, error, request);
 		this.name = 'CacheError';
 	}
 }
 
 export class UploadError extends RequestError {
-	constructor(error: Error, options: NormalizedOptions, request: Request) {
-		super(error.message, error, options, request);
+	constructor(error: Error, request: Request) {
+		super(error.message, error, request);
 		this.name = 'UploadError';
 	}
 }
@@ -437,8 +398,8 @@ export class TimeoutError extends RequestError {
 	readonly timings: Timings;
 	readonly event: string;
 
-	constructor(error: TimedOutTimeoutError, timings: Timings, options: NormalizedOptions) {
-		super(error.message, error, options);
+	constructor(error: TimedOutTimeoutError, timings: Timings, request: Request) {
+		super(error.message, error, request);
 		this.name = 'TimeoutError';
 		this.event = error.event;
 		this.timings = timings;
@@ -446,8 +407,8 @@ export class TimeoutError extends RequestError {
 }
 
 export class ReadError extends RequestError {
-	constructor(error: Error, options: NormalizedOptions, response: Response) {
-		super(error.message, error, options, response);
+	constructor(error: Error, request: Request) {
+		super(error.message, error, request);
 		this.name = 'ReadError';
 	}
 }
@@ -982,7 +943,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		});
 
 		response.on('error', (error: Error) => {
-			this._beforeError(new ReadError(error, options, response as Response));
+			this._beforeError(new ReadError(error, this));
 		});
 
 		response.once('aborted', () => {
@@ -993,7 +954,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			this._beforeError(new ReadError({
 				name: 'Error',
 				message: 'The server aborted the pending request'
-			}, options, response as Response));
+			}, this));
 		});
 
 		this.emit('downloadProgress', this.downloadProgress);
@@ -1048,7 +1009,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			}
 
 			if (this.redirects.length >= options.maxRedirects) {
-				this._beforeError(new MaxRedirectsError(typedResponse, options.maxRedirects, options));
+				this._beforeError(new MaxRedirectsError(this));
 				return;
 			}
 
@@ -1097,7 +1058,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		const limitStatusCode = options.followRedirect ? 299 : 399;
 		const isOk = (statusCode >= 200 && statusCode <= limitStatusCode) || statusCode === 304;
 		if (options.throwHttpErrors && !isOk) {
-			await this._beforeError(new HTTPError(typedResponse, options));
+			await this._beforeError(new HTTPError(typedResponse));
 
 			if (this.destroyed) {
 				return;
@@ -1157,9 +1118,9 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 		request.once('error', (error: Error) => {
 			if (error instanceof TimedOutTimeoutError) {
-				error = new TimeoutError(error, this.timings!, options);
+				error = new TimeoutError(error, this.timings!, this);
 			} else {
-				error = new RequestError(error.message, error, options, this);
+				error = new RequestError(error.message, error, this);
 			}
 
 			this._beforeError(error as RequestError);
@@ -1176,7 +1137,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		if (is.nodeStream(options.body)) {
 			options.body.pipe(currentRequest);
 			options.body.once('error', (error: NodeJS.ErrnoException) => {
-				this._beforeError(new UploadError(error, options, this));
+				this._beforeError(new UploadError(error, this));
 			});
 
 			options.body.once('end', () => {
@@ -1198,6 +1159,34 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		}
 
 		this.emit('request', request);
+	}
+
+	async _createCacheableRequest(url: URL, options: RequestOptions): Promise<ClientRequest | ResponseLike> {
+		return new Promise<ClientRequest | ResponseLike>((resolve, reject) => {
+			// TODO: Remove `utils/url-to-options.ts` when `cacheable-request` is fixed
+			Object.assign(options, urlToOptions(url));
+
+			// `http-cache-semantics` checks this
+			delete (options as unknown as NormalizedOptions).url;
+
+			// This is ugly
+			const cacheRequest = cacheableStore.get((options as any).cache)!(options, resolve as any);
+
+			// Restore options
+			(options as unknown as NormalizedOptions).url = url;
+
+			cacheRequest.once('error', (error: Error) => {
+				if (error instanceof CacheableRequest.RequestError) {
+					// TODO: `options` should be `normalizedOptions`
+					reject(new RequestError(error.message, error, this));
+					return;
+				}
+
+				// TODO: `options` should be `normalizedOptions`
+				reject(new CacheError(error, this));
+			});
+			cacheRequest.once('request', resolve);
+		});
 	}
 
 	async _makeRequest(): Promise<void> {
@@ -1266,7 +1255,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		}
 
 		const realFn = options.request ?? fallbackFn;
-		const fn = options.cache ? cacheFn : realFn;
+		const fn = options.cache ? this._createCacheableRequest.bind(this) : realFn;
 
 		if (agent && !options.http2) {
 			(options as unknown as RequestOptions).agent = agent[isHttps ? 'https' : 'http'];
@@ -1310,7 +1299,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 				throw error;
 			}
 
-			throw new RequestError(error.message, error, options, this);
+			throw new RequestError(error.message, error, this);
 		}
 	}
 
@@ -1318,7 +1307,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		this[kStopReading] = true;
 
 		if (!(error instanceof RequestError)) {
-			error = new RequestError(error.message, error, this.options, this);
+			error = new RequestError(error.message, error, this);
 		}
 
 		try {
@@ -1338,7 +1327,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 				error = await hook(error as RequestError);
 			}
 		} catch (error_) {
-			error = new RequestError(error_.message, error_, this.options, this);
+			error = new RequestError(error_.message, error_, this);
 		}
 
 		this.destroy(error);
@@ -1451,7 +1440,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		}
 
 		if (error !== null && !is.undefined(error) && !(error instanceof RequestError)) {
-			error = new RequestError(error.message, error, this.options, this);
+			error = new RequestError(error.message, error, this);
 		}
 
 		callback(error);

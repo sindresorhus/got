@@ -112,7 +112,7 @@ export class ParseError extends RequestError {
 	constructor(error: Error, response: Response) {
 		const {options} = response.request;
 
-		super(`${error.message} in "${options.url.toString()}"`, error, options);
+		super(`${error.message} in "${options.url.toString()}"`, error, response.request);
 		this.name = 'ParseError';
 
 		Object.defineProperty(this, 'response', {

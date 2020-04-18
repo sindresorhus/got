@@ -66,7 +66,7 @@ export default function asPromise<T>(options: NormalizedOptions): CancelableRequ
 
 					response.rawBody = rawBody;
 				} catch (error) {
-					request._beforeError(new ReadError(error, options, response));
+					request._beforeError(new ReadError(error, request));
 					return;
 				}
 
@@ -124,7 +124,7 @@ export default function asPromise<T>(options: NormalizedOptions): CancelableRequ
 				}
 
 				if (throwHttpErrors && !isOk()) {
-					reject(new HTTPError(response, options));
+					reject(new HTTPError(response));
 					return;
 				}
 
@@ -163,7 +163,7 @@ export default function asPromise<T>(options: NormalizedOptions): CancelableRequ
 					// Don't emit the `response` event
 					request.destroy();
 
-					reject(new RequestError(error_.message, error, request.options));
+					reject(new RequestError(error_.message, error, request));
 					return;
 				}
 
@@ -183,7 +183,7 @@ export default function asPromise<T>(options: NormalizedOptions): CancelableRequ
 							// Don't emit the `response` event
 							request.destroy();
 
-							reject(new RequestError(error_.message, error, request.options));
+							reject(new RequestError(error_.message, error, request));
 							return;
 						}
 
