@@ -1176,14 +1176,12 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			(options as unknown as NormalizedOptions).url = url;
 
 			cacheRequest.once('error', (error: Error) => {
-				if (error instanceof CacheableRequest.RequestError) {
-					// TODO: `options` should be `normalizedOptions`
-					reject(new RequestError(error.message, error, this));
+				if (error instanceof CacheableRequest.CacheError) {
+					reject(new CacheError(error, this));
 					return;
 				}
 
-				// TODO: `options` should be `normalizedOptions`
-				reject(new CacheError(error, this));
+				reject(error);
 			});
 			cacheRequest.once('request', resolve);
 		});
