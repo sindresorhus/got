@@ -66,7 +66,7 @@ const limitDownloadUpload = got.extend({
 ```js
 const noUserAgent = got.extend({
 	headers: {
-		'user-agent': null
+		'user-agent': undefined
 	}
 });
 ```
@@ -117,7 +117,7 @@ const merged = got.extend(controlRedirects, limitDownloadUpload, httpbin, signRe
 	 */
 
 	const MEGABYTE = 1048576;
-	await merged('http://ipv4.download.thinkbroadband.com/5MB.zip', {downloadLimit: MEGABYTE, prefixUrl: ''});
+	await merged('https://ipv4.download.thinkbroadband.com/5MB.zip', {downloadLimit: MEGABYTE, prefixUrl: ''});
 	// CancelError: Exceeded the download limit of 1048576 bytes
 
 	await merged('https://jigsaw.w3.org/HTTP/300/301.html', {allowedHosts: ['google.com'], prefixUrl: ''});
