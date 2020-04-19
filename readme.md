@@ -1049,7 +1049,7 @@ const mergedHandlers = got.extend({
 
 ```js
 const handler = (options, next) => {
-	if (options.stream) {
+	if (options.isStream) {
 		// It's a Stream
 		return next(options);
 	}
