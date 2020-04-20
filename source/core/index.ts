@@ -364,6 +364,8 @@ export class RequestError extends Error {
 
 export class MaxRedirectsError extends RequestError {
 	declare readonly response: Response;
+	declare readonly request: Request;
+	declare readonly timings: Timings;
 
 	constructor(request: Request) {
 		super(`Redirected ${request.options.maxRedirects} times. Aborting.`, {}, request);
@@ -373,6 +375,8 @@ export class MaxRedirectsError extends RequestError {
 
 export class HTTPError extends RequestError {
 	declare readonly response: Response;
+	declare readonly request: Request;
+	declare readonly timings: Timings;
 
 	constructor(response: Response) {
 		super(`Response code ${response.statusCode} (${response.statusMessage!})`, {}, response.request);
@@ -381,6 +385,8 @@ export class HTTPError extends RequestError {
 }
 
 export class CacheError extends RequestError {
+	declare readonly request: Request;
+
 	constructor(error: Error, request: Request) {
 		super(error.message, error, request);
 		this.name = 'CacheError';
@@ -388,6 +394,8 @@ export class CacheError extends RequestError {
 }
 
 export class UploadError extends RequestError {
+	declare readonly request: Request;
+
 	constructor(error: Error, request: Request) {
 		super(error.message, error, request);
 		this.name = 'UploadError';
@@ -395,6 +403,7 @@ export class UploadError extends RequestError {
 }
 
 export class TimeoutError extends RequestError {
+	declare readonly request: Request;
 	readonly timings: Timings;
 	readonly event: string;
 
@@ -407,6 +416,10 @@ export class TimeoutError extends RequestError {
 }
 
 export class ReadError extends RequestError {
+	declare readonly request: Request;
+	declare readonly response: Response;
+	declare readonly timings: Timings;
+
 	constructor(error: Error, request: Request) {
 		super(error.message, error, request);
 		this.name = 'ReadError';
@@ -606,6 +619,8 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		// `options.headers`
 		if (is.undefined(options.headers)) {
 			options.headers = {};
+		} else if (options.headers === defaults?.headers) {
+			options.headers = {...options.headers};
 		} else {
 			options.headers = lowercaseKeys({...(defaults?.headers), ...options.headers});
 		}
@@ -702,8 +717,8 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 				getCookieString = promisify(getCookieString.bind(options.cookieJar));
 
 				options.cookieJar = {
-					setCookie: setCookie.bind(cookieJar),
-					getCookieString: getCookieString.bind(getCookieString)
+					setCookie,
+					getCookieString
 				};
 			}
 		}
@@ -750,7 +765,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		// `options.timeout`
 		if (is.number(options.timeout)) {
 			options.timeout = {request: options.timeout};
-		} else if (defaults) {
+		} else if (defaults && options.timeout !== defaults.timeout) {
 			options.timeout = {
 				...defaults.timeout,
 				...options.timeout
@@ -765,6 +780,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		}
 
 		// `options.hooks`
+		const areHooksUserDefined = options.hooks !== defaults?.hooks;
 		options.hooks = {...options.hooks};
 
 		for (const event of knownHookEvents) {
@@ -780,7 +796,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			}
 		}
 
-		if (defaults) {
+		if (defaults && areHooksUserDefined) {
 			for (const event of knownHookEvents) {
 				const defaultHooks = defaults.hooks[event];
 

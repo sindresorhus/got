@@ -27,7 +27,7 @@ export default function asPromise<T>(options: NormalizedOptions): CancelableRequ
 	let globalResponse: Response;
 	const emitter = new EventEmitter();
 
-	const promise = new PCancelable<T>((resolve, reject, onCancel) => {
+	const promise = new PCancelable<T>((resolve, _reject, onCancel) => {
 		const makeRequest = (): void => {
 			// Support retries
 			// `options.throwHttpErrors` needs to be always true,
@@ -38,9 +38,24 @@ export default function asPromise<T>(options: NormalizedOptions): CancelableRequ
 				options.throwHttpErrors = true;
 			}
 
+			// Note from @szmarczak: I think we should use `request.options` instead of the local options
 			const request = new PromisableRequest(options.url, options);
 			request._noPipe = true;
 			onCancel(() => request.destroy());
+
+			const reject = async (error: RequestError) => {
+				try {
+					for (const hook of options.hooks.beforeError) {
+						// eslint-disable-next-line no-await-in-loop
+						error = await hook(error);
+					}
+				} catch (error_) {
+					_reject(new RequestError(error_.message, error_, request));
+					return;
+				}
+
+				_reject(error);
+			};
 
 			globalRequest = request;
 

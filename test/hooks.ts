@@ -1,10 +1,11 @@
 import {URL} from 'url';
 import test from 'ava';
+import nock = require('nock');
 import getStream from 'get-stream';
 import delay = require('delay');
 import {Handler} from 'express';
 import Responselike = require('responselike');
-import got, {RequestError} from '../source';
+import got, {RequestError, HTTPError} from '../source';
 import withServer from './helpers/with-server';
 
 const errorString = 'oops';
@@ -828,4 +829,45 @@ test('beforeRequest hook is called before each request', withServer, async (t, s
 	});
 
 	t.is(counts, 2);
+});
+
+test('beforeError emits valid promise `HTTPError`s', async t => {
+	t.plan(3);
+
+	nock('https://ValidHTTPErrors.com').get('/').reply(() => [422, 'no']);
+
+	const instance = got.extend({
+		hooks: {
+			beforeError: [
+				error => {
+					t.true(error instanceof HTTPError);
+					t.truthy(error.response!.body);
+
+					return error;
+				}
+			]
+		},
+		retry: 0
+	});
+
+	await t.throwsAsync(instance('https://ValidHTTPErrors.com'));
+});
+
+test('hooks are not duplicated', withServer, async (t, _server, got) => {
+	let calls = 0;
+
+	await t.throwsAsync(got({
+		hooks: {
+			beforeError: [
+				error => {
+					calls++;
+
+					return error;
+				}
+			]
+		},
+		retry: 0
+	}), {message: 'Response code 404 (Not Found)'});
+
+	t.is(calls, 1);
 });

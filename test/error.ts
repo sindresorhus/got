@@ -201,7 +201,7 @@ test('errors can have request property', withServer, async (t, server, got) => {
 	const error = await t.throwsAsync<HTTPError>(got(''));
 
 	t.truthy(error.response);
-	t.truthy(error.request!.downloadProgress);
+	t.truthy(error.request.downloadProgress);
 });
 
 // Fails randomly on Node 10:

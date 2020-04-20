@@ -143,17 +143,8 @@ export default class PromisableRequest extends Request {
 			error = new RequestError(error.message, error, this);
 		}
 
-		try {
-			for (const hook of this.options.hooks.beforeError) {
-				// eslint-disable-next-line no-await-in-loop
-				error = await hook(error as RequestError);
-			}
-		} catch (error_) {
-			this.destroy(new RequestError(error_.message, error_, this));
-			return;
-		}
-
 		// Let the promise decide whether to abort or not
+		// It is also responsible for the `beforeError` hook
 		this.emit('error', error);
 	}
 }
