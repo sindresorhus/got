@@ -1196,10 +1196,10 @@ Got exports some handy TypeScript types and interfaces. See the type definition 
 TypeScript will automatically infer types for Got instances, but in case you want to define something like dependencies, you can import the available types directly from Got.
 
 ```ts
-import {GotRequestMethod} from 'got';
+import {GotRequestFunction} from 'got';
 
 interface Dependencies {
-	readonly post: GotRequestMethod
+	readonly post: GotRequestFunction
 }
 ```
 

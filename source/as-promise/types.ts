@@ -29,9 +29,11 @@ import {
 	Progress,
 	Headers,
 	RequestFunction,
+	Agents,
+	Method,
+	PromiseCookieJar,
 
 	// Types that will not be exported
-	Method,
 	RequestEvents
 } from '../core';
 import PromisableRequest from './core';
@@ -152,5 +154,8 @@ export {
 export {
 	Progress,
 	Headers,
-	RequestFunction
+	RequestFunction,
+	Agents,
+	Method,
+	PromiseCookieJar
 };
