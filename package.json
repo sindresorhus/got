@@ -51,7 +51,7 @@
 		"cacheable-request": "^7.0.1",
 		"decompress-response": "^5.0.0",
 		"get-stream": "^5.0.0",
-		"http2-wrapper": "^1.0.0-beta.4.3",
+		"http2-wrapper": "^1.0.0-beta.4.4",
 		"lowercase-keys": "^2.0.0",
 		"p-cancelable": "^2.0.0",
 		"responselike": "^2.0.0"
