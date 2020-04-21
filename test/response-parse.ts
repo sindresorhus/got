@@ -13,7 +13,7 @@ const defaultHandler: Handler = (_request, response) => {
 test('`options.resolveBodyOnly` works', withServer, async (t, server, got) => {
 	server.get('/', defaultHandler);
 
-	t.deepEqual(await got({responseType: 'json', resolveBodyOnly: true}), dog);
+	t.deepEqual(await got<object>({responseType: 'json', resolveBodyOnly: true}), dog);
 });
 
 test('`options.resolveBodyOnly` combined with `options.throwHttpErrors`', withServer, async (t, server, got) => {

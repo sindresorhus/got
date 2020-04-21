@@ -41,10 +41,11 @@ export interface ExtendOptions extends Options {
 	mutableDefaults?: boolean;
 }
 
-export type OptionsOfTextResponseBody = Options & {isStream?: false; resolveBodyOnly?: false; responseType?: 'text'};
-export type OptionsOfJSONResponseBody = Options & {isStream?: false; resolveBodyOnly?: false; responseType: 'json'};
-export type OptionsOfBufferResponseBody = Options & {isStream?: false; resolveBodyOnly?: false; responseType: 'buffer'};
+export type OptionsOfTextResponseBody = Merge<Options, {isStream?: false; resolveBodyOnly?: false; responseType?: 'text'}>;
+export type OptionsOfJSONResponseBody = Merge<Options, {isStream?: false; resolveBodyOnly?: false; responseType: 'json'}>;
+export type OptionsOfBufferResponseBody = Merge<Options, {isStream?: false; resolveBodyOnly?: false; responseType: 'buffer'}>;
 export type StrictOptions = Except<Options, 'isStream' | 'responseType' | 'resolveBodyOnly'>;
+export type StreamOptions = Merge<Options, {isStream?: true}>;
 type ResponseBodyOnly = {resolveBodyOnly: true};
 
 export type OptionsWithPagination<T = unknown> = Merge<Options, PaginationOptions<T>>;
@@ -72,18 +73,18 @@ export interface GotRequestFunction {
 	(options: OptionsOfBufferResponseBody): CancelableRequest<Response<Buffer>>;
 
 	// `resolveBodyOnly` usage
-	(url: string | URL, options?: (OptionsOfTextResponseBody & ResponseBodyOnly)): CancelableRequest<string>;
-	<T>(url: string | URL, options?: (OptionsOfJSONResponseBody & ResponseBodyOnly)): CancelableRequest<T>;
-	(url: string | URL, options?: (OptionsOfBufferResponseBody & ResponseBodyOnly)): CancelableRequest<Buffer>;
+	(url: string | URL, options?: (Merge<OptionsOfTextResponseBody, ResponseBodyOnly>)): CancelableRequest<string>;
+	<T>(url: string | URL, options?: (Merge<OptionsOfJSONResponseBody, ResponseBodyOnly>)): CancelableRequest<T>;
+	(url: string | URL, options?: (Merge<OptionsOfBufferResponseBody, ResponseBodyOnly>)): CancelableRequest<Buffer>;
 
-	(options: (OptionsOfTextResponseBody & ResponseBodyOnly)): CancelableRequest<string>;
-	<T>(options: (OptionsOfJSONResponseBody & ResponseBodyOnly)): CancelableRequest<T>;
-	(options: (OptionsOfBufferResponseBody & ResponseBodyOnly)): CancelableRequest<Buffer>;
+	(options: (Merge<OptionsOfTextResponseBody, ResponseBodyOnly>)): CancelableRequest<string>;
+	<T>(options: (Merge<OptionsOfJSONResponseBody, ResponseBodyOnly>)): CancelableRequest<T>;
+	(options: (Merge<OptionsOfBufferResponseBody, ResponseBodyOnly>)): CancelableRequest<Buffer>;
 
 	// `asStream` usage
-	(url: string | URL, options?: Options & {isStream: true}): Request;
+	(url: string | URL, options?: Merge<Options, {isStream: true}>): Request;
 
-	(options: Options & {isStream: true}): Request;
+	(options: Merge<Options, {isStream: true}>): Request;
 
 	// Fallback
 	(url: string | URL, options?: Options): CancelableRequest | Request;
@@ -100,8 +101,8 @@ export type HTTPAlias =
 	| 'delete';
 
 interface GotStreamFunction {
-	(url: string | URL, options?: Options & {isStream?: true}): Request;
-	(options?: Options & {isStream?: true}): Request;
+	(url: string | URL, options?: Merge<Options, {isStream?: true}>): Request;
+	(options?: Merge<Options, {isStream?: true}>): Request;
 }
 
 export type GotStream = GotStreamFunction & Record<HTTPAlias, GotStreamFunction>;

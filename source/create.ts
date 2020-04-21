@@ -34,7 +34,8 @@ import {
 	GotPaginate,
 	GotStream,
 	GotRequestFunction,
-	OptionsWithPagination
+	OptionsWithPagination,
+	StreamOptions
 } from './types';
 import createRejection from './as-promise/create-rejection';
 import Request, {kIsNormalizedAlready} from './core';
@@ -253,12 +254,12 @@ const create = (defaults: InstanceDefaults): Got => {
 		return results;
 	}) as GotPaginate['all'];
 
-	got.stream = ((url: string | URL, options?: Options) => got(url, {...options, isStream: true})) as GotStream;
+	got.stream = ((url: string | URL, options?: StreamOptions) => got(url, {...options, isStream: true})) as GotStream;
 
 	for (const method of aliases) {
 		got[method] = ((url: string | URL, options?: Options): GotReturn => got(url, {...options, method})) as GotRequestFunction;
 
-		got.stream[method] = ((url: string | URL, options?: Options & {isStream: true}) => {
+		got.stream[method] = ((url: string | URL, options?: StreamOptions) => {
 			return got(url, {...options, method, isStream: true});
 		}) as GotStream;
 	}
