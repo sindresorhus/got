@@ -940,7 +940,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		const statusCode = response.statusCode!;
 		const typedResponse = response as Response;
 
-		typedResponse.statusMessage = typedResponse.statusMessage === '' ? http.STATUS_CODES[statusCode] : typedResponse.statusMessage;
+		typedResponse.statusMessage = typedResponse.statusMessage ? typedResponse.statusMessage : http.STATUS_CODES[statusCode];
 		typedResponse.url = options.url.toString();
 		typedResponse.requestUrl = this.requestUrl;
 		typedResponse.redirectUrls = this.redirects;

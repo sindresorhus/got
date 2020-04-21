@@ -1,4 +1,6 @@
+import {STATUS_CODES} from 'http';
 import test from 'ava';
+import nock = require('nock');
 import getStream = require('get-stream');
 import got, {HTTPError, UnsupportedProtocolError} from '../source';
 import withServer from './helpers/with-server';
@@ -203,4 +205,15 @@ test('throws an error if the server aborted the request', withServer, async (t, 
 	await t.throwsAsync(got(''), {
 		message: 'The server aborted the pending request'
 	});
+});
+
+test('statusMessage fallback', async t => {
+	nock('http://statusMessageFallback').get('/').reply(503);
+
+	const {statusMessage} = await got('http://statusMessageFallback', {
+		throwHttpErrors: false,
+		retry: 0
+	});
+
+	t.is(statusMessage, STATUS_CODES[503]);
 });
