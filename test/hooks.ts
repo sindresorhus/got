@@ -871,3 +871,32 @@ test('hooks are not duplicated', withServer, async (t, _server, got) => {
 
 	t.is(calls, 1);
 });
+
+test('async afterResponse allows to retry with allowGetBody and json payload', withServer, async (t, server, got) => {
+	server.get('/', (request, response) => {
+		if (request.headers.token !== 'unicorn') {
+			response.statusCode = 401;
+		}
+
+		response.end();
+	});
+
+	const {statusCode} = await got({
+		allowGetBody: true,
+		json: {hello: 'world'},
+		hooks: {
+			afterResponse: [
+				(response, retryWithMergedOptions) => {
+					if (response.statusCode === 401) {
+						return retryWithMergedOptions({headers: {token: 'unicorn'}});
+					}
+
+					return response;
+				}
+			]
+		},
+		retry: 0,
+		throwHttpErrors: false
+	});
+	t.is(statusCode, 200);
+});

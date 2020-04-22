@@ -81,7 +81,8 @@ export default function asPromise<T>(options: NormalizedOptions): CancelableRequ
 
 					response.rawBody = rawBody;
 				} catch (error) {
-					request._beforeError(new ReadError(error, request));
+					// TODO: Call `request._beforeError`, see https://github.com/nodejs/node/issues/32995
+					reject(new ReadError(error, request));
 					return;
 				}
 
@@ -93,7 +94,8 @@ export default function asPromise<T>(options: NormalizedOptions): CancelableRequ
 					response.body = rawBody.toString();
 
 					if (isOk()) {
-						request._beforeError(error);
+						// TODO: Call `request._beforeError`, see https://github.com/nodejs/node/issues/32995
+						reject(error);
 						return;
 					}
 				}
@@ -134,7 +136,13 @@ export default function asPromise<T>(options: NormalizedOptions): CancelableRequ
 						});
 					}
 				} catch (error) {
-					request._beforeError(error);
+					// TODO: Call `request._beforeError`, see https://github.com/nodejs/node/issues/32995
+					if (error instanceof RequestError) {
+						reject(error);
+					} else {
+						reject(new RequestError(error.message, error, request));
+					}
+
 					return;
 				}
 

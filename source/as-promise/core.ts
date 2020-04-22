@@ -34,7 +34,10 @@ export const parseBody = (response: Response, responseType: ResponseType, encodi
 		}
 
 		if (!knownBodyTypes.includes(responseType)) {
-			throw new TypeError(`Unknown body type '${responseType as string}'`);
+			throw new ParseError({
+				message: `Unknown body type '${responseType as string}'`,
+				name: 'Error'
+			}, response);
 		}
 	} catch (error) {
 		throw new ParseError(error, response);
