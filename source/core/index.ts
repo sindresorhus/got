@@ -41,6 +41,7 @@ const kCancelTimeouts = Symbol('cancelTimeouts');
 const kStartedReading = Symbol('startedReading');
 const kStopReading = Symbol('stopReading');
 const kTriggerRead = Symbol('triggerRead');
+const kBody = Symbol('body');
 export const kIsNormalizedAlready = Symbol('isNormalizedAlready');
 
 const supportsBrotli = is.string((process.versions as any).brotli);
@@ -452,6 +453,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	[kUploadedSize]: number;
 	[kStopReading]: boolean;
 	[kTriggerRead]: boolean;
+	[kBody]: Options['body'];
 	[kBodySize]?: number;
 	[kServerResponsesPiped]: Set<ServerResponse>;
 	[kIsFromCache]?: boolean;
@@ -889,21 +891,23 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 					if (isFormData(options.body) && noContentType) {
 						headers['content-type'] = `multipart/form-data; boundary=${options.body.getBoundary()}`;
 					}
+
+					this[kBody] = options.body;
 				} else if (isForm) {
 					if (noContentType) {
 						headers['content-type'] = 'application/x-www-form-urlencoded';
 					}
 
-					options.body = (new URLSearchParams(options.form as Record<string, string>)).toString();
+					this[kBody] = (new URLSearchParams(options.form as Record<string, string>)).toString();
 				} else {
 					if (noContentType) {
 						headers['content-type'] = 'application/json';
 					}
 
-					options.body = JSON.stringify(options.json);
+					this[kBody] = JSON.stringify(options.json);
 				}
 
-				const uploadBodySize = await getBodySize(options);
+				const uploadBodySize = await getBodySize(this[kBody], options.headers);
 
 				// See https://tools.ietf.org/html/rfc7230#section-3.3.2
 				// A user agent SHOULD send a Content-Length in a request message when
@@ -1149,21 +1153,23 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		this.emit('uploadProgress', this.uploadProgress);
 
 		// Send body
+		const body = this[kBody];
 		const currentRequest = this.redirects.length === 0 ? this : request;
-		if (is.nodeStream(options.body)) {
-			options.body.pipe(currentRequest);
-			options.body.once('error', (error: NodeJS.ErrnoException) => {
+
+		if (is.nodeStream(body)) {
+			body.pipe(currentRequest);
+			body.once('error', (error: NodeJS.ErrnoException) => {
 				this._beforeError(new UploadError(error, this));
 			});
 
-			options.body.once('end', () => {
+			body.once('end', () => {
 				delete options.body;
 			});
 		} else {
 			this._unlockWrite();
 
-			if (!is.undefined(options.body)) {
-				this._writeRequest(options.body, null as unknown as string, () => {});
+			if (!is.undefined(body)) {
+				this._writeRequest(body, null as unknown as string, () => {});
 				currentRequest.end();
 
 				this._lockWrite();

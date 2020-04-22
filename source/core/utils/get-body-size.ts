@@ -4,16 +4,9 @@ import {ClientRequestArgs} from 'http';
 import is from '@sindresorhus/is';
 import isFormData from './is-form-data';
 
-interface Options {
-	body?: unknown;
-	headers: ClientRequestArgs['headers'];
-}
-
 const statAsync = promisify(stat);
 
-export default async (options: Options): Promise<number | undefined> => {
-	const {body, headers} = options;
-
+export default async (body: unknown, headers: ClientRequestArgs['headers']): Promise<number | undefined> => {
 	if (headers && 'content-length' in headers) {
 		return Number(headers['content-length']);
 	}
