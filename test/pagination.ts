@@ -308,3 +308,21 @@ test('ignores the `resolveBodyOnly` option', withServer, async (t, server, got) 
 
 	t.deepEqual(items, [1, 2]);
 });
+
+test('`requestLimit` works', withServer, async (t, server, got) => {
+	attachHandler(server, 2);
+
+	const options = {
+		pagination: {
+			requestLimit: 1
+		}
+	};
+
+	const results: number[] = [];
+
+	for await (const item of got.paginate<number>(options)) {
+		results.push(item);
+	}
+
+	t.deepEqual(results, [1]);
+});

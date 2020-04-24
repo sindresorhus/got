@@ -760,6 +760,13 @@ Default: `Infinity`
 
 The maximum amount of items that should be emitted.
 
+###### pagination.requestLimit
+
+Type: `number`\
+Default: `100`
+
+The maximum amount of request that should be triggered.
+
 ##### localAddress
 
 Type: `string`
