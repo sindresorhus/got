@@ -207,7 +207,7 @@ const create = (defaults: InstanceDefaults): Got => {
 		const all: T[] = [];
 
 		let numberOfRequests = 0;
-		while (numberOfRequests <= pagination.requestLimit) {
+		while (numberOfRequests < pagination.requestLimit) {
 			// TODO: Throw when result is not an instance of Response
 			// eslint-disable-next-line no-await-in-loop
 			const result = (await got('', normalizedOptions)) as Response;
