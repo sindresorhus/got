@@ -763,9 +763,11 @@ The maximum amount of items that should be emitted.
 ###### pagination.requestLimit
 
 Type: `number`\
-Default: `100`
+Default: `10000`
 
 The maximum amount of request that should be triggered.
+
+For example, if you need the first 10 pages but don't know how many items there are per page. It can also be helpful during development to avoid an infinite number of requests.
 
 ##### localAddress
 

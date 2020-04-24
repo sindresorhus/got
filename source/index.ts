@@ -109,7 +109,7 @@ const defaults: InstanceDefaults = {
 			filter: () => true,
 			shouldContinue: () => true,
 			countLimit: Infinity,
-			requestLimit: 100
+			requestLimit: 10000
 		}
 	},
 	handlers: [defaultHandler],
