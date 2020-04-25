@@ -67,8 +67,6 @@
 		"@types/request": "^2.48.4",
 		"@types/sinon": "^9.0.0",
 		"@types/tough-cookie": "^4.0.0",
-		"@typescript-eslint/eslint-plugin": "^2.27.0",
-		"@typescript-eslint/parser": "^2.27.0",
 		"ava": "^3.6.0",
 		"axios": "^0.19.2",
 		"benchmark": "^2.1.4",
@@ -76,7 +74,6 @@
 		"create-test-server": "^3.0.1",
 		"del-cli": "^3.0.0",
 		"delay": "^4.3.0",
-		"eslint-config-xo-typescript": "^0.27.0",
 		"express": "^4.17.1",
 		"form-data": "^3.0.0",
 		"lolex": "^6.0.0",
@@ -90,8 +87,8 @@
 		"tempy": "^0.5.0",
 		"to-readable-stream": "^2.1.0",
 		"tough-cookie": "^4.0.0",
-		"typescript": "3.7.5",
-		"xo": "^0.29.0"
+		"typescript": "3.8.3",
+		"xo": "^0.30.0"
 	},
 	"types": "dist/source",
 	"sideEffects": false,
@@ -115,10 +112,6 @@
 		]
 	},
 	"xo": {
-		"extends": "xo-typescript",
-		"extensions": [
-			"ts"
-		],
 		"ignores": [
 			"documentation/examples/*"
 		],
@@ -127,11 +120,10 @@
 			"@typescript-eslint/no-base-to-string": "off",
 			"node/prefer-global/url": "off",
 			"node/prefer-global/url-search-params": "off",
-			"unicorn/string-content": "off",
 			"@typescript-eslint/prefer-readonly-parameter-types": "off",
-			"@typescript-eslint/no-unsafe-member-access": "off",
-			"@typescript-eslint/no-unsafe-call": "off",
-			"@typescript-eslint/no-unsafe-return": "off"
+			"@typescript-eslint/no-floating-promises": "off",
+			"@typescript-eslint/method-signature-style": "off",
+			"unicorn/no-fn-reference-in-iterator": "off"
 		}
 	}
 }

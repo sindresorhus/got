@@ -197,7 +197,7 @@ test('`content-length` header disabled for chunked transfer-encoding', withServe
 test('`content-type` header is not overriden when object in `options.body`', withServer, async (t, server, got) => {
 	server.post('/', echoHeaders);
 
-	const {body: headers} = await got.post({
+	const {body: headers} = await got.post<Record<string, string>>({
 		headers: {
 			'content-type': 'doge'
 		},

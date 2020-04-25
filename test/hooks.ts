@@ -39,7 +39,7 @@ const redirectEndpoint: Handler = (_request, response) => {
 test('async hooks', withServer, async (t, server, got) => {
 	server.get('/', echoHeaders);
 
-	const {body} = await got({
+	const {body} = await got<Record<string, string>>({
 		responseType: 'json',
 		hooks: {
 			beforeRequest: [
@@ -325,7 +325,7 @@ test('beforeRequest is called with options', withServer, async (t, server, got) 
 test('beforeRequest allows modifications', withServer, async (t, server, got) => {
 	server.get('/', echoHeaders);
 
-	const {body} = await got({
+	const {body} = await got<Record<string, string>>({
 		responseType: 'json',
 		hooks: {
 			beforeRequest: [
@@ -386,7 +386,7 @@ test('beforeRedirect allows modifications', withServer, async (t, server, got) =
 	server.get('/', echoHeaders);
 	server.get('/redirect', redirectEndpoint);
 
-	const {body} = await got('redirect', {
+	const {body} = await got<Record<string, string>>('redirect', {
 		responseType: 'json',
 		hooks: {
 			beforeRedirect: [
@@ -427,7 +427,7 @@ test('beforeRetry allows modifications', withServer, async (t, server, got) => {
 	server.get('/', echoHeaders);
 	server.get('/retry', retryEndpoint);
 
-	const {body} = await got('retry', {
+	const {body} = await got<Record<string, string>>('retry', {
 		responseType: 'json',
 		hooks: {
 			beforeRetry: [
@@ -460,13 +460,12 @@ test('afterResponse is called with response', withServer, async (t, server, got)
 test('afterResponse allows modifications', withServer, async (t, server, got) => {
 	server.get('/', echoHeaders);
 
-	const {body} = await got({
+	const {body} = await got<Record<string, string>>({
 		responseType: 'json',
 		hooks: {
 			afterResponse: [
 				response => {
 					response.body = {hello: 'world'};
-
 					return response;
 				}
 			]

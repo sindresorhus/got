@@ -136,7 +136,7 @@ test('sets correct headers', withServer, async (t, server, got) => {
 		response.end(JSON.stringify(request.headers));
 	});
 
-	const {body: headers} = await got.post({responseType: 'json', json: {}});
+	const {body: headers} = await got.post<Record<string, string>>({responseType: 'json', json: {}});
 	t.is(headers['content-type'], 'application/json');
 	t.is(headers.accept, 'application/json');
 });

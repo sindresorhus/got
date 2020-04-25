@@ -31,7 +31,7 @@ const prepareServer = (server: ExtendedTestServer): void => {
 	});
 };
 
-const createAgentSpy = <T extends HttpAgent>(AgentClass: Constructor): {agent: T; spy: sinon.SinonSpy} => {
+const createAgentSpy = <T extends HttpsAgent>(AgentClass: Constructor): {agent: T; spy: sinon.SinonSpy} => {
 	const agent: T = new AgentClass({keepAlive: true});
 	// @ts-ignore This IS correct
 	const spy = sinon.spy(agent, 'addRequest');
@@ -136,6 +136,7 @@ test('socket connect listener cleaned up after request', withServer, async (t, s
 		});
 	}
 
+	// @ts-ignore
 	for (const value of Object.values(agent.freeSockets) as [Socket[]]) {
 		for (const sock of value) {
 			t.is(sock.listenerCount('connect'), 0);

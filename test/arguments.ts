@@ -303,8 +303,8 @@ test('throws if cannot change `prefixUrl`', async t => {
 test('throws if the `searchParams` value is invalid', async t => {
 	// @ts-ignore Error tests
 	await t.throwsAsync(got('https://example.com', {
-		// @ts-ignore Error tests
 		searchParams: {
+			// @ts-ignore Error tests
 			foo: []
 		}
 	}), {
@@ -367,6 +367,7 @@ test('`context` option is accessible when extending instances', t => {
 test('throws if `options.encoding` is `null`', async t => {
 	// @ts-ignore Error tests
 	await t.throwsAsync(got('https://example.com', {
+		// @ts-ignore For testing purposes
 		encoding: null
 	}), {message: 'To get a Buffer, set `options.responseType` to `buffer` instead'});
 });
@@ -411,8 +412,8 @@ test('throws on leading slashes', async t => {
 });
 
 test('throws on invalid `dnsCache` option', async t => {
-	// @ts-ignore Error tests
 	await t.throwsAsync(got('https://example.com', {
+		// @ts-ignore Error tests
 		dnsCache: 123
 	}), {message: 'Parameter `dnsCache` must be a CacheableLookup instance or a boolean, got number'});
 });
