@@ -4,7 +4,7 @@ import test from 'ava';
 import {Handler} from 'express';
 import pEvent = require('p-event');
 import got, {StrictOptions} from '../source';
-import withServer from './helpers/with-server';
+import withServer, {withBodyParsingServer} from './helpers/with-server';
 
 const echoUrl: Handler = (request, response) => {
 	response.end(request.url);
@@ -136,6 +136,18 @@ test('overrides `searchParams` from options', withServer, async (t, server, got)
 	);
 
 	t.is(body, '/?test=wow');
+});
+
+test('does not duplicate `searchParams`', withServer, async (t, server, got) => {
+	server.get('/', echoUrl);
+
+	const instance = got.extend({
+		searchParams: new URLSearchParams({foo: '123'})
+	});
+
+	const body = await instance('?bar=456').text();
+
+	t.is(body, '/?foo=123');
 });
 
 test('escapes `searchParams` parameter values', withServer, async (t, server, got) => {
@@ -303,8 +315,8 @@ test('throws if cannot change `prefixUrl`', async t => {
 test('throws if the `searchParams` value is invalid', async t => {
 	// @ts-ignore Error tests
 	await t.throwsAsync(got('https://example.com', {
-		// @ts-ignore Error tests
 		searchParams: {
+			// @ts-ignore Error tests
 			foo: []
 		}
 	}), {
@@ -367,6 +379,7 @@ test('`context` option is accessible when extending instances', t => {
 test('throws if `options.encoding` is `null`', async t => {
 	// @ts-ignore Error tests
 	await t.throwsAsync(got('https://example.com', {
+		// @ts-ignore For testing purposes
 		encoding: null
 	}), {message: 'To get a Buffer, set `options.responseType` to `buffer` instead'});
 });
@@ -411,8 +424,8 @@ test('throws on leading slashes', async t => {
 });
 
 test('throws on invalid `dnsCache` option', async t => {
-	// @ts-ignore Error tests
 	await t.throwsAsync(got('https://example.com', {
+		// @ts-ignore Error tests
 		dnsCache: 123
 	}), {message: 'Parameter `dnsCache` must be a CacheableLookup instance or a boolean, got number'});
 });
@@ -481,4 +494,22 @@ test('reuse options while using init hook', withServer, async (t, server, got) =
 
 	await got('', options);
 	await got('', options);
+});
+
+test('allowGetBody sends json payload', withBodyParsingServer, async (t, server, got) => {
+	server.get('/', (request, response) => {
+		if (request.body.hello !== 'world') {
+			response.statusCode = 400;
+		}
+
+		response.end();
+	});
+
+	const {statusCode} = await got({
+		allowGetBody: true,
+		json: {hello: 'world'},
+		retry: 0,
+		throwHttpErrors: false
+	});
+	t.is(statusCode, 200);
 });

@@ -572,12 +572,12 @@ test.serial('doesn\'t throw on early lookup', withServerAndLolex, async (t, serv
 		response.end('ok');
 	});
 
-	// @ts-ignore
 	await t.notThrowsAsync(got('', {
 		timeout: {
 			lookup: 1
 		},
 		retry: 0,
+		// @ts-ignore
 		lookup: (...[_hostname, options, callback]: Parameters<CacheableLookup['lookup']>) => {
 			if (typeof options === 'function') {
 				callback = options;

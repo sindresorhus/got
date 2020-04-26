@@ -68,10 +68,6 @@ export default (request: ClientRequest, delays: Delays, options: TimedOutOptions
 	const {host, hostname} = options;
 
 	const timeoutHandler = (delay: number, event: string): void => {
-		if (request.socket) {
-			(request.socket as any)._hadError = true;
-		}
-
 		request.destroy(new TimeoutError(delay, event));
 	};
 
