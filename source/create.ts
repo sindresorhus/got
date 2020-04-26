@@ -206,7 +206,8 @@ const create = (defaults: InstanceDefaults): Got => {
 
 		const all: T[] = [];
 
-		while (true) {
+		let numberOfRequests = 0;
+		while (numberOfRequests < pagination.requestLimit) {
 			// TODO: Throw when result is not an instance of Response
 			// eslint-disable-next-line no-await-in-loop
 			const result = (await got('', normalizedOptions)) as Response;
@@ -241,6 +242,8 @@ const create = (defaults: InstanceDefaults): Got => {
 			if (optionsToMerge !== undefined) {
 				normalizedOptions = normalizeArguments(undefined, optionsToMerge, normalizedOptions);
 			}
+
+			numberOfRequests++;
 		}
 	}) as GotPaginate;
 

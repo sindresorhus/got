@@ -760,6 +760,15 @@ Default: `Infinity`
 
 The maximum amount of items that should be emitted.
 
+###### pagination.requestLimit
+
+Type: `number`\
+Default: `10000`
+
+The maximum amount of request that should be triggered. [Retries on failure](#retry) are not counted towards this limit.
+
+For example, it can be helpful during development to avoid an infinite number of requests.
+
 ##### localAddress
 
 Type: `string`
