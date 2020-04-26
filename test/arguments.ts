@@ -138,6 +138,18 @@ test('overrides `searchParams` from options', withServer, async (t, server, got)
 	t.is(body, '/?test=wow');
 });
 
+test('does not duplicate `searchParams`', withServer, async (t, server, got) => {
+	server.get('/', echoUrl);
+
+	const instance = got.extend({
+		searchParams: new URLSearchParams({foo: '123'})
+	});
+
+	const body = await instance('?bar=456').text();
+
+	t.is(body, '/?foo=123');
+});
+
 test('escapes `searchParams` parameter values', withServer, async (t, server, got) => {
 	server.get('/', echoUrl);
 

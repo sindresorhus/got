@@ -178,7 +178,7 @@ test('`http.request` error through CacheableRequest', async t => {
 	});
 });
 
-test('errors are thrown directly when options.stream is true', t => {
+test('errors are thrown directly when options.isStream is true', t => {
 	t.throws(() => {
 		// @ts-ignore Error tests
 		got('https://example.com', {isStream: true, hooks: false});

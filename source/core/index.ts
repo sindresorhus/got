@@ -560,21 +560,37 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 	static normalizeArguments(url?: string | URL, options?: Options, defaults?: Defaults): NormalizedOptions {
 		const rawOptions = options;
+		const searchParameters = options?.searchParams;
+		const hooks = options?.hooks;
 
 		if (is.object(url) && !is.urlInstance(url)) {
-			options = {...defaults as NormalizedOptions, ...(url as Options), ...options};
+			options = {...defaults, ...(url as Options), ...options};
 		} else {
 			if (url && options && options.url) {
 				throw new TypeError('The `url` option is mutually exclusive with the `input` argument');
 			}
 
-			options = {...defaults as NormalizedOptions, ...options};
+			options = {...defaults, ...options};
 
 			if (url) {
 				options.url = url;
 			}
 		}
 
+		// Prevent duplicating default search params & hooks
+		if (searchParameters === undefined) {
+			delete options.searchParams;
+		} else {
+			options.searchParams = searchParameters;
+		}
+
+		if (hooks === undefined) {
+			delete options.hooks;
+		} else {
+			options.hooks = hooks;
+		}
+
+		// Setting options to `undefined` turns off its functionalities
 		if (rawOptions && defaults) {
 			for (const key in rawOptions) {
 				// @ts-ignore Dear TypeScript, all object keys are strings (or symbols which are NOT enumerable).
@@ -637,6 +653,28 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			throw new TypeError('Parameter `auth` is deprecated. Use `username` / `password` instead.');
 		}
 
+		// `options.searchParams`
+		if (options.searchParams) {
+			if (!is.string(options.searchParams) && !(options.searchParams instanceof URLSearchParams)) {
+				validateSearchParameters(options.searchParams);
+			}
+
+			options.searchParams = new URLSearchParams(options.searchParams as Record<string, string>);
+
+			// `normalizeArguments()` is also used to merge options
+			if (defaults?.searchParams) {
+				defaults.searchParams.forEach((value, key) => {
+					(options!.searchParams as URLSearchParams).append(key, value);
+				});
+			}
+		} else {
+			options.searchParams = defaults?.searchParams;
+		}
+
+		// `options.username` & `options.password`
+		options.username = options.username ?? '';
+		options.password = options.password ?? '';
+
 		// `options.prefixUrl` & `options.url`
 		if (options.prefixUrl) {
 			options.prefixUrl = options.prefixUrl.toString();
@@ -675,7 +713,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 				get: () => prefixUrl
 			});
 
-			// Protocol check
+			// Support UNIX sockets
 			let {protocol} = options.url;
 
 			if (protocol === 'unix:') {
@@ -684,6 +722,12 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 				options.url = new URL(`http://unix${options.url.pathname}${options.url.search}`);
 			}
 
+			// Set search params
+			if (options.searchParams) {
+				options.url.search = options.searchParams.toString();
+			}
+
+			// Trigger search params normalization
 			if (options.url.search) {
 				const triggerSearchParameters = '_GOT_INTERNAL_TRIGGER_NORMALIZATION';
 
@@ -691,16 +735,12 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 				options.url.searchParams.delete(triggerSearchParameters);
 			}
 
+			// Protocol check
 			if (protocol !== 'http:' && protocol !== 'https:') {
 				throw new UnsupportedProtocolError(options as NormalizedOptions);
 			}
-		}
 
-		// `options.username` & `options.password`
-		options.username = options.username ?? '';
-		options.password = options.password ?? '';
-
-		if (options.url) {
+			// Update `username` & `password`
 			options.url.username = options.username;
 			options.url.password = options.password;
 		}
@@ -722,27 +762,6 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 					setCookie,
 					getCookieString
 				};
-			}
-		}
-
-		// `options.searchParams`
-		if (options.searchParams) {
-			if (!is.string(options.searchParams) && !(options.searchParams instanceof URLSearchParams)) {
-				validateSearchParameters(options.searchParams);
-			}
-
-			options.searchParams = new URLSearchParams(options.searchParams as Record<string, string>);
-
-			// `normalizeArguments()` is also used to merge options
-			const defaultsAsOptions = defaults as Options | undefined;
-			if (defaultsAsOptions && defaultsAsOptions.searchParams instanceof URLSearchParams) {
-				defaultsAsOptions.searchParams.forEach((value, key) => {
-					(options!.searchParams as URLSearchParams).append(key, value);
-				});
-			}
-
-			if (options.url) {
-				options.url.search = options.searchParams.toString();
 			}
 		}
 
@@ -782,7 +801,6 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		}
 
 		// `options.hooks`
-		const areHooksUserDefined = options.hooks !== defaults?.hooks;
 		options.hooks = {...options.hooks};
 
 		for (const event of knownHookEvents) {
@@ -798,7 +816,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			}
 		}
 
-		if (defaults && areHooksUserDefined) {
+		if (defaults) {
 			for (const event of knownHookEvents) {
 				const defaultHooks = defaults.hooks[event];
 
