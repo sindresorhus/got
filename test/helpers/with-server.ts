@@ -1,5 +1,6 @@
 import {promisify} from 'util';
 import * as test from 'ava';
+import is from '@sindresorhus/is';
 import http = require('http');
 import tempy = require('tempy');
 import createTestServer = require('create-test-server');
@@ -10,10 +11,11 @@ import {ExtendedGot, ExtendedHttpServer, ExtendedTestServer, GlobalClock, Instal
 export type RunTestWithServer = (t: test.ExecutionContext, server: ExtendedTestServer, got: ExtendedGot, clock: GlobalClock) => Promise<void> | void;
 export type RunTestWithSocket = (t: test.ExecutionContext, server: ExtendedHttpServer) => Promise<void> | void;
 
-const generateHook = ({install}: {install?: boolean}): test.Macro<[RunTestWithServer]> => async (t, run) => {
+const generateHook = ({install, options: testServerOptions}: {install?: boolean; options?: unknown}): test.Macro<[RunTestWithServer]> => async (t, run) => {
 	const clock: GlobalClock = install ? lolex.install() : lolex.createClock();
 
-	const server = await createTestServer({
+	// Re-enable body parsing to investigate https://github.com/sindresorhus/got/issues/1186
+	const server = await createTestServer(is.plainObject(testServerOptions) ? testServerOptions : {
 		bodyParser: {
 			type: () => false
 		}
@@ -55,6 +57,7 @@ const generateHook = ({install}: {install?: boolean}): test.Macro<[RunTestWithSe
 	}
 };
 
+export const withBodyParsingServer = generateHook({install: false, options: {}});
 export default generateHook({install: false});
 
 export const withServerAndLolex = generateHook({install: true});
