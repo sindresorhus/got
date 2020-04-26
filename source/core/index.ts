@@ -1447,12 +1447,14 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 	_destroy(error: Error | null, callback: (error: Error | null) => void): void {
 		if (kRequest in this) {
-			// TODO: Remove the next `if` when https://github.com/nodejs/node/issues/32851 gets fixed
-			if (!(this[kResponse]?.complete)) {
+			// TODO: Remove the next `if` when these get fixed:
+			// - https://github.com/nodejs/node/issues/32851
+			// - https://github.com/nock/nock/issues/1981
+			if (!this[kResponse]?.complete && !this[kRequest]?.destroyed) {
 				this[kRequest]!.abort();
 			}
 		} else {
-			this.once('finalized', (): void => {
+			this.prependOnceListener('finalized', (): void => {
 				if (kRequest in this) {
 					this[kRequest]!.abort();
 				}
