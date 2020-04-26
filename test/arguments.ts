@@ -4,7 +4,7 @@ import test from 'ava';
 import {Handler} from 'express';
 import pEvent = require('p-event');
 import got, {StrictOptions} from '../source';
-import withServer from './helpers/with-server';
+import withServer, {withBodyParsingServer} from './helpers/with-server';
 
 const echoUrl: Handler = (request, response) => {
 	response.end(request.url);
@@ -494,4 +494,22 @@ test('reuse options while using init hook', withServer, async (t, server, got) =
 
 	await got('', options);
 	await got('', options);
+});
+
+test('allowGetBody sends json payload', withBodyParsingServer, async (t, server, got) => {
+	server.get('/', (request, response) => {
+		if (request.body.hello !== 'world') {
+			response.statusCode = 400;
+		}
+
+		response.end();
+	});
+
+	const {statusCode} = await got({
+		allowGetBody: true,
+		json: {hello: 'world'},
+		retry: 0,
+		throwHttpErrors: false
+	});
+	t.is(statusCode, 200);
 });

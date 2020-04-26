@@ -1,7 +1,7 @@
 import {URL} from 'url';
 import test from 'ava';
 import got, {Response} from '../source';
-import withServer from './helpers/with-server';
+import withServer, {withBodyParsingServer} from './helpers/with-server';
 import {ExtendedTestServer} from './helpers/types';
 
 const thrower = (): any => {
@@ -307,4 +307,24 @@ test('ignores the `resolveBodyOnly` option', withServer, async (t, server, got) 
 	});
 
 	t.deepEqual(items, [1, 2]);
+});
+
+test.failing('allowGetBody sends json payload with .paginate()', withBodyParsingServer, async (t, server, got) => {
+	server.get('/', (request, response) => {
+		if (request.body.hello !== 'world') {
+			response.statusCode = 400;
+		}
+
+		response.end(JSON.stringify([1, 2, 3]));
+	});
+
+	const iterator = got.paginate({
+		allowGetBody: true,
+		json: {hello: 'world'},
+		retry: 0
+	});
+
+	const result = await iterator.next();
+
+	t.deepEqual(result.value, [1, 2, 3]);
 });
