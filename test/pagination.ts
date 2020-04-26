@@ -326,5 +326,5 @@ test.failing('allowGetBody sends json payload with .paginate()', withBodyParsing
 
 	const result = await iterator.next();
 
-	t.is(result.value, 1);
+	t.deepEqual(result.value, [1, 2, 3]);
 });
