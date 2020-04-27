@@ -1,6 +1,7 @@
+import {Agent as HttpsAgent} from 'https';
 import {URL} from 'url';
 import test from 'ava';
-import got, {Response} from '../source';
+import got, {ExtendOptions, Response} from '../source';
 import withServer, {withBodyParsingServer} from './helpers/with-server';
 import {ExtendedTestServer} from './helpers/types';
 
@@ -345,4 +346,71 @@ test('`requestLimit` works', withServer, async (t, server, got) => {
 	}
 
 	t.deepEqual(results, [1]);
+});
+
+test('keepAlive and .paginate()', withServer, async (t, server, got) => {
+	server.get('/', (request, response) => {
+		if (request.headers.token !== 'unicorn') {
+			response.statusCode = 401;
+		}
+
+		response.end(JSON.stringify([1, 2, 3]));
+	});
+
+	server.post('/', (_request, response) => {
+		response.end(JSON.stringify({access_token: 'unicorn'}));
+	});
+
+	const baseOptions: ExtendOptions = {agent: {https: new HttpsAgent({keepAlive: true})}};
+	const authOptions: ExtendOptions = {
+		method: 'POST',
+		json: {}
+	};
+
+	const authenticationInstance = got.extend(baseOptions, authOptions);
+
+	const getNewAuthToken = async (): Promise<string> => {
+		const responsePromise = authenticationInstance('');
+		const body: {access_token: string} = await responsePromise.json();
+		return body.access_token;
+	};
+
+	const authenticatedInstance = got.extend(baseOptions, {
+		allowGetBody: true,
+		hooks: {
+			afterResponse: [
+				async (response, retryWithMergedOptions) => {
+					// Unauthorized
+					if (response.statusCode === 401) {
+						const updatedOptions: ExtendOptions = {headers: {token: await getNewAuthToken()}};
+
+						// Save for further requests
+						authenticatedInstance.defaults.options = got.mergeOptions(
+							authenticatedInstance.defaults.options,
+							updatedOptions
+						);
+
+						return retryWithMergedOptions(updatedOptions);
+					}
+
+					// No changes otherwise
+					return response;
+				}
+			]
+		},
+		mutableDefaults: true
+	});
+
+	const iterator = authenticatedInstance.paginate({
+		// TODO: cleanup
+		rejectUnauthorized: false,
+		allowGetBody: true,
+		json: {hello: 'world'},
+		retry: 0
+	});
+
+	let i = 0;
+	for await (const value of iterator) {
+		t.is(value, i += 1);
+	}
 });
