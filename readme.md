@@ -56,7 +56,7 @@ $ npm install got
 
 ## Usage
 
-### Promise
+###### Promise
 
 ```js
 const got = require('got');
@@ -73,7 +73,7 @@ const got = require('got');
 })();
 ```
 
-### JSON
+###### JSON
 
 ```js
 const got = require('got');
