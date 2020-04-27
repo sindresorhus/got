@@ -452,14 +452,14 @@ If this is disabled, a compressed response is returned as a `Buffer`. This may b
 
 ###### cache
 
-Type: `object`\
+Type: `object | false`\
 Default: `false`
 
 [Cache adapter instance](#cache-adapters) for storing cached response data.
 
 ###### dnsCache
 
-Type: `object`\
+Type: `object | false`\
 Default: `new CacheableLookup()`
 
 An instance of [`CacheableLookup`](https://github.com/szmarczak/cacheable-lookup) used for making DNS lookups.
