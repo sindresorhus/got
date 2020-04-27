@@ -56,6 +56,8 @@ $ npm install got
 
 ## Usage
 
+### Promise
+
 ```js
 const got = require('got');
 
@@ -71,7 +73,7 @@ const got = require('got');
 })();
 ```
 
-And as a JSON client:
+### JSON
 
 ```js
 const got = require('got');
@@ -85,11 +87,11 @@ const got = require('got');
 	});
 
 	console.log(body.data);
-	//=> '{"hello":"world"}'
+	//=> {hello: 'world'}
 })();
 ```
 
-See [JSON mode](#json-mode) for  more details.
+See [JSON mode](#json-mode) for more details.
 
 ###### Streams
 
@@ -1003,7 +1005,7 @@ See [`options.pagination`](#pagination) for more pagination options.
 
 #### got.paginate.all(url, options?)
 
-Returns a Promise for an array of every results:
+Returns a Promise for an array of all results:
 
 ```js
 (async () => {
