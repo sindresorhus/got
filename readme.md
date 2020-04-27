@@ -56,6 +56,8 @@ $ npm install got
 
 ## Usage
 
+### Promise
+
 ```js
 const got = require('got');
 
@@ -70,6 +72,26 @@ const got = require('got');
 	}
 })();
 ```
+
+### JSON
+
+```js
+const got = require('got');
+
+(async () => {
+	const {body} = await got.post('https://httpbin.org/anything', {
+		json: {
+			hello: 'world'
+		},
+		responseType: 'json'
+	});
+
+	console.log(body.data);
+	//=> {hello: 'world'}
+})();
+```
+
+See [JSON mode](#json-mode) for more details.
 
 ###### Streams
 
@@ -981,6 +1003,25 @@ Returns an async iterator:
 
 See [`options.pagination`](#pagination) for more pagination options.
 
+#### got.paginate.all(url, options?)
+
+Returns a Promise for an array of all results:
+
+```js
+(async () => {
+	const countLimit = 10;
+
+	const results = await got.paginate.all('https://api.github.com/repos/sindresorhus/got/commits', {
+		pagination: {countLimit}
+	});
+
+	console.log(`Printing latest ${countLimit} Got commits (newest to oldest):`);
+	console.log(results);
+})();
+```
+
+See [`options.pagination`](#pagination) for more pagination options.
+
 #### got.get(url, options?)
 #### got.post(url, options?)
 #### got.put(url, options?)
@@ -1391,11 +1432,13 @@ const got = require('got');
 const tunnel = require('tunnel');
 
 got('https://sindresorhus.com', {
-	agent: tunnel.httpOverHttp({
-		proxy: {
-			host: 'localhost'
-		}
-	})
+	agent: {
+		https: tunnel.httpOverHttp({
+			proxy: {
+				host: 'localhost'
+			}
+		})
+	}
 });
 ```
 
