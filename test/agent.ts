@@ -159,12 +159,12 @@ test('no socket hung up regression', withServer, async (t, server, got) => {
 		}
 
 		response.end('ok');
-	})
+	});
 
 	const {body} = await got({
 		prefixUrl: 'http://127.0.0.1:3000',
 		agent: {
-			http: agent,
+			http: agent
 		},
 		hooks: {
 			afterResponse: [
@@ -183,8 +183,8 @@ test('no socket hung up regression', withServer, async (t, server, got) => {
 
 					// No changes otherwise
 					return response;
-				},
-			],
+				}
+			]
 		},
 		// Disable automatic retries, manual retries are allowed
 		retry: 0
