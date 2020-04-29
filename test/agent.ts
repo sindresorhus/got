@@ -147,50 +147,54 @@ test('socket connect listener cleaned up after request', withServer, async (t, s
 	agent.destroy();
 });
 
-test('no socket hung up regression', withServer, async (t, server, got) => {
-	const agent = new HttpAgent({keepAlive: true});
-	const token = 'helloworld';
+{
+	const testFn = Number(process.versions.node.split('.')[0]) < 12 ? test.failing : test;
 
-	server.get('/', (request, response) => {
-		if (request.headers.token !== token) {
-			response.statusCode = 401;
-			response.end();
-			return;
-		}
+	testFn('no socket hung up regression', withServer, async (t, server, got) => {
+		const agent = new HttpAgent({keepAlive: true});
+		const token = 'helloworld';
 
-		response.end('ok');
-	});
+		server.get('/', (request, response) => {
+			if (request.headers.token !== token) {
+				response.statusCode = 401;
+				response.end();
+				return;
+			}
 
-	const {body} = await got({
-		prefixUrl: 'http://127.0.0.1:3000',
-		agent: {
-			http: agent
-		},
-		hooks: {
-			afterResponse: [
-				async (response, retryWithMergedOptions) => {
-					// Force clean-up
-					response.socket.destroy();
+			response.end('ok');
+		});
 
-					// Unauthorized
-					if (response.statusCode === 401) {
-						return retryWithMergedOptions({
-							headers: {
-								token
-							}
-						});
+		const {body} = await got({
+			prefixUrl: 'http://127.0.0.1:3000',
+			agent: {
+				http: agent
+			},
+			hooks: {
+				afterResponse: [
+					async (response, retryWithMergedOptions) => {
+						// Force clean-up
+						response.socket.destroy();
+
+						// Unauthorized
+						if (response.statusCode === 401) {
+							return retryWithMergedOptions({
+								headers: {
+									token
+								}
+							});
+						}
+
+						// No changes otherwise
+						return response;
 					}
+				]
+			},
+			// Disable automatic retries, manual retries are allowed
+			retry: 0
+		});
 
-					// No changes otherwise
-					return response;
-				}
-			]
-		},
-		// Disable automatic retries, manual retries are allowed
-		retry: 0
+		t.is(body, 'ok');
+
+		agent.destroy();
 	});
-
-	t.is(body, 'ok');
-
-	agent.destroy();
-});
+}
