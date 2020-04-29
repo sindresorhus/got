@@ -146,3 +146,51 @@ test('socket connect listener cleaned up after request', withServer, async (t, s
 	// Make sure to close all open sockets
 	agent.destroy();
 });
+
+test('no socket hung up regression', withServer, async (t, server, got) => {
+	const agent = new HttpAgent({keepAlive: true});
+	const token = 'helloworld';
+
+	server.get('/', (request, response) => {
+		if (request.headers.token !== token) {
+			response.statusCode = 401;
+			response.end();
+			return;
+		}
+
+		response.end('ok');
+	})
+
+	const {body} = await got({
+		prefixUrl: 'http://127.0.0.1:3000',
+		agent: {
+			http: agent,
+		},
+		hooks: {
+			afterResponse: [
+				async (response, retryWithMergedOptions) => {
+					// Force clean-up
+					response.socket.destroy();
+
+					// Unauthorized
+					if (response.statusCode === 401) {
+						return retryWithMergedOptions({
+							headers: {
+								token
+							}
+						});
+					}
+
+					// No changes otherwise
+					return response;
+				},
+			],
+		},
+		// Disable automatic retries, manual retries are allowed
+		retry: 0
+	});
+
+	t.is(body, 'ok');
+
+	agent.destroy();
+});
