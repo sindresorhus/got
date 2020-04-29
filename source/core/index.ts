@@ -42,6 +42,7 @@ const kStartedReading = Symbol('startedReading');
 const kStopReading = Symbol('stopReading');
 const kTriggerRead = Symbol('triggerRead');
 const kBody = Symbol('body');
+const kJobs = Symbol('jobs');
 export const kIsNormalizedAlready = Symbol('isNormalizedAlready');
 
 const supportsBrotli = is.string((process.versions as any).brotli);
@@ -454,6 +455,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	[kStopReading]: boolean;
 	[kTriggerRead]: boolean;
 	[kBody]: Options['body'];
+	[kJobs]: Array<() => void>;
 	[kBodySize]?: number;
 	[kServerResponsesPiped]: Set<ServerResponse>;
 	[kIsFromCache]?: boolean;
@@ -483,6 +485,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		this.redirects = [];
 		this[kStopReading] = false;
 		this[kTriggerRead] = false;
+		this[kJobs] = [];
 
 		// TODO: Remove this when targeting Node.js >= 12
 		this._progressCallbacks = [];
@@ -545,8 +548,17 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 				await this._finalizeBody();
 				await this._makeRequest();
 
+				if (this.destroyed) {
+					this[kRequest]?.abort();
+					return;
+				}
+
+				// Queued writes etc.
+				for (const job of this[kJobs]) {
+					job();
+				}
+
 				this.finalized = true;
-				this.emit('finalized');
 			} catch (error) {
 				if (error instanceof RequestError) {
 					this._beforeError(error);
@@ -1406,7 +1418,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		if (this.finalized) {
 			write();
 		} else {
-			this.once('finalized', write);
+			this[kJobs].push(write);
 		}
 	}
 
@@ -1420,6 +1432,8 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 				this.emit('uploadProgress', progress);
 			}
 		});
+
+		// TODO: What happens if it's from cache? Then this[kRequest] won't be defined.
 
 		this[kRequest]!.write(chunk, encoding, (error?: Error | null) => {
 			if (!error && this._progressCallbacks.length !== 0) {
@@ -1459,7 +1473,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		if (this.finalized) {
 			endRequest();
 		} else {
-			this.once('finalized', endRequest);
+			this[kJobs].push(endRequest);
 		}
 	}
 
@@ -1468,15 +1482,9 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			// TODO: Remove the next `if` when these get fixed:
 			// - https://github.com/nodejs/node/issues/32851
 			// - https://github.com/nock/nock/issues/1981
-			if (!this[kResponse]?.complete && !this[kRequest]?.destroyed) {
+			if (!this[kResponse]?.complete && !this[kRequest]!.destroyed) {
 				this[kRequest]!.abort();
 			}
-		} else {
-			this.prependOnceListener('finalized', (): void => {
-				if (kRequest in this) {
-					this[kRequest]!.abort();
-				}
-			});
 		}
 
 		if (error !== null && !is.undefined(error) && !(error instanceof RequestError)) {
