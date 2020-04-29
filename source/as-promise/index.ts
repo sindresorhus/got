@@ -105,8 +105,6 @@ export default function asPromise<T>(options: NormalizedOptions): CancelableRequ
 						// @ts-ignore TS doesn't notice that CancelableRequest is a Promise
 						// eslint-disable-next-line no-await-in-loop
 						response = await hook(response, async (updatedOptions): CancelableRequest<Response> => {
-							request.destroy();
-
 							const typedOptions = PromisableRequest.normalizeArguments(undefined, {
 								...updatedOptions,
 								retry: {
