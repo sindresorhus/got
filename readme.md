@@ -748,7 +748,7 @@ const got = require('got');
 				return {
 					searchParams: {
 						...previousSearchParams,
-						offset: parseInt(previousOffset, 10) + limit,
+						offset: Number(previousOffset) + limit,
 					}
 				};
 			}
