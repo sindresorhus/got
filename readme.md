@@ -1736,7 +1736,7 @@ The Electron `net` module is not consistent with the Node.js `http` module. See 
 <!-- GITHUB -->
 [k0]: https://github.com/sindresorhus/ky
 [r0]: https://github.com/request/request
-[n0]: https://github.com/bitinn/node-fetch
+[n0]: https://github.com/node-fetch/node-fetch
 [a0]: https://github.com/axios/axios
 [s0]: https://github.com/visionmedia/superagent
 
