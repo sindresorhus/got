@@ -674,9 +674,9 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			options.searchParams = new URLSearchParams(options.searchParams as Record<string, string>);
 
 			// `normalizeArguments()` is also used to merge options
-			const defaultSearchParams = defaults?.searchParams;
-			if (defaultSearchParams && defaultSearchParams instanceof URLSearchParams) {
-				defaultSearchParams.forEach((value, key) => {
+			const defaultSearchParameters = defaults?.searchParams;
+			if (defaultSearchParameters && defaultSearchParameters instanceof URLSearchParams) {
+				defaultSearchParameters.forEach((value, key) => {
 					(options!.searchParams as URLSearchParams).append(key, value);
 				});
 			}
