@@ -455,6 +455,31 @@ test.serial('no unhandled timeout errors', withServer, async (t, _server, got) =
 	await delay(200);
 });
 
+// TODO: use lolex here
+test.serial('no unhandled timeout errors #2', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.write('Hello world!');
+	});
+
+	const gotPromise = got('', {
+		timeout: 20,
+		retry: {
+			calculateDelay: ({computedValue}) => {
+				if (computedValue) {
+					return 10;
+				}
+
+				return 0;
+			},
+			limit: 1
+		}
+	});
+
+	await t.throwsAsync(gotPromise, {instanceOf: TimeoutError});
+
+	await delay(100);
+});
+
 test.serial('no more timeouts after an error', withServer, async (t, _server, got) => {
 	const {setTimeout} = global;
 	const {clearTimeout} = global;

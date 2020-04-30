@@ -477,6 +477,15 @@ test('normalizes search params included in input', t => {
 	t.is(url.search, '?a=b+c');
 });
 
+test('normalizes search params included in options', t => {
+	const {url} = got.mergeOptions({
+		url: new URL('https://example.com'),
+		searchParams: 'a=b c'
+	});
+
+	t.is(url.search, '?a=b+c');
+});
+
 test('reuse options while using init hook', withServer, async (t, server, got) => {
 	t.plan(2);
 

@@ -73,10 +73,10 @@ const aliases: readonly HTTPAlias[] = [
 
 export const defaultHandler: HandlerFunction = (options, next) => next(options);
 
-const callInitHooks = (hooks: InitHook[] | undefined, options: Options): void => {
+const callInitHooks = (hooks: InitHook[] | undefined, options?: Options): void => {
 	if (hooks) {
 		for (const hook of hooks) {
-			hook(options);
+			hook(options!);
 		}
 	}
 };
@@ -110,7 +110,7 @@ const create = (defaults: InstanceDefaults): Got => {
 		return result;
 	}));
 
-	const got: Got = ((url: string | URL, options: Options = {}): GotReturn => {
+	const got: Got = ((url: string | URL, options?: Options): GotReturn => {
 		let iteration = 0;
 		const iterateHandlers = (newOptions: NormalizedOptions): GotReturn => {
 			return defaults.handlers[iteration++](

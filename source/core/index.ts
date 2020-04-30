@@ -469,7 +469,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 	declare options: NormalizedOptions;
 	declare requestUrl: string;
-	finalized: boolean;
+	requestInitialized: boolean;
 	redirects: string[];
 
 	constructor(url: string | URL, options: Options = {}, defaults?: Defaults) {
@@ -480,7 +480,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 		this[kDownloadedSize] = 0;
 		this[kUploadedSize] = 0;
-		this.finalized = false;
+		this.requestInitialized = false;
 		this[kServerResponsesPiped] = new Set<ServerResponse>();
 		this.redirects = [];
 		this[kStopReading] = false;
@@ -558,7 +558,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 					job();
 				}
 
-				this.finalized = true;
+				this.requestInitialized = true;
 			} catch (error) {
 				if (error instanceof RequestError) {
 					this._beforeError(error);
@@ -674,11 +674,9 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			options.searchParams = new URLSearchParams(options.searchParams as Record<string, string>);
 
 			// `normalizeArguments()` is also used to merge options
-			if (defaults?.searchParams) {
-				defaults.searchParams.forEach((value, key) => {
-					(options!.searchParams as URLSearchParams).append(key, value);
-				});
-			}
+			defaults?.searchParams?.forEach((value, key) => {
+				(options!.searchParams as URLSearchParams).append(key, value);
+			});
 		} else {
 			options.searchParams = defaults?.searchParams;
 		}
@@ -992,7 +990,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			this.emit('downloadProgress', this.downloadProgress);
 		});
 
-		response.on('error', (error: Error) => {
+		response.once('error', (error: Error) => {
 			this._beforeError(new ReadError(error, this));
 		});
 
@@ -1415,7 +1413,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			this._writeRequest(chunk, encoding, callback);
 		};
 
-		if (this.finalized) {
+		if (this.requestInitialized) {
 			write();
 		} else {
 			this[kJobs].push(write);
@@ -1470,7 +1468,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			});
 		};
 
-		if (this.finalized) {
+		if (this.requestInitialized) {
 			endRequest();
 		} else {
 			this[kJobs].push(endRequest);
@@ -1479,6 +1477,8 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 	_destroy(error: Error | null, callback: (error: Error | null) => void): void {
 		if (kRequest in this) {
+			this[kCancelTimeouts]!();
+
 			// TODO: Remove the next `if` when these get fixed:
 			// - https://github.com/nodejs/node/issues/32851
 			// - https://github.com/nock/nock/issues/1981

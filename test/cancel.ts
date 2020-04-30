@@ -2,6 +2,7 @@ import {EventEmitter} from 'events';
 import {Readable as ReadableStream} from 'stream';
 import stream = require('stream');
 import test from 'ava';
+import delay = require('delay');
 import pEvent = require('p-event');
 import getStream = require('get-stream');
 import {Handler} from 'express';
@@ -73,6 +74,31 @@ test.serial('does not retry after cancelation', withServerAndLolex, async (t, se
 
 	await t.throwsAsync(gotPromise, {instanceOf: CancelError});
 	await t.notThrowsAsync(promise, 'Request finished instead of aborting.');
+});
+
+test.serial('cleans up request timeouts', withServer, async (t, server, got) => {
+	server.get('/', () => {});
+
+	const gotPromise = got('redirect', {
+		timeout: 10,
+		retry: {
+			calculateDelay: ({computedValue}) => {
+				process.nextTick(() => gotPromise.cancel());
+
+				if (computedValue) {
+					return 20;
+				}
+
+				return 0;
+			},
+			limit: 1
+		}
+	});
+
+	await t.throwsAsync(gotPromise, {instanceOf: CancelError});
+
+	// Wait for unhandled errors
+	await delay(40);
 });
 
 test.serial('cancels in-progress request', withServerAndLolex, async (t, server, got, clock) => {
@@ -216,6 +242,21 @@ test('throws when canceling cached request', withServer, async (t, server, got) 
 	const promise = got({cache}).on('response', () => {
 		promise.cancel();
 	});
+
+	await t.throwsAsync(promise, {instanceOf: got.CancelError});
+});
+
+test('throws when canceling cached request #2', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.setHeader('Cache-Control', 'public, max-age=60');
+		response.end(Date.now().toString());
+	});
+
+	const cache = new Map();
+	await got({cache});
+
+	const promise = got({cache});
+	promise.cancel();
 
 	await t.throwsAsync(promise, {instanceOf: got.CancelError});
 });

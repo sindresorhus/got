@@ -83,6 +83,7 @@ export default (request: ClientRequest, delays: Delays, options: TimedOutOptions
 		cancelTimeouts();
 
 		// Save original behavior
+		/* istanbul ignore next */
 		if (request.listenerCount('error') === 0) {
 			throw error;
 		}

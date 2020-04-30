@@ -183,18 +183,18 @@ const internalBenchmark = (): void => {
 };
 
 // Results (i7-7700k, CPU governor: performance):
-// got - promise                          x 3,092 ops/sec ±5.25% (73 runs sampled)
-// got - stream                           x 4,313 ops/sec ±5.61% (72 runs sampled)
-// got - promise core                     x 6,756 ops/sec ±5.32% (80 runs sampled)
-// got - stream core                      x 6,863 ops/sec ±4.68% (76 runs sampled)
-// got - stream core - normalized options x 7,960 ops/sec ±3.83% (81 runs sampled)
-// request - callback                     x 6,912 ops/sec ±6.50% (76 runs sampled)
-// request - stream                       x 7,821 ops/sec ±4.28% (80 runs sampled)
-// node-fetch - promise                   x 7,036 ops/sec ±8.17% (78 runs sampled)
-// node-fetch - stream                    x 7,877 ops/sec ±4.17% (80 runs sampled)
-// axios - promise                        x 6,613 ops/sec ±3.22% (76 runs sampled)
-// axios - stream                         x 8,642 ops/sec ±2.84% (79 runs sampled)
-// https - stream                         x 9,955 ops/sec ±6.36% (76 runs sampled)
+// got - promise                          x 3,204 ops/sec ±5.27% (73 runs sampled)
+// got - stream                           x 5,045 ops/sec ±3.85% (77 runs sampled)
+// got - promise core                     x 6,499 ops/sec ±3.67% (77 runs sampled)
+// got - stream core                      x 7,047 ops/sec ±2.32% (83 runs sampled)
+// got - stream core - normalized options x 7,313 ops/sec ±2.79% (85 runs sampled)
+// request - callback                     x 6,918 ops/sec ±5.76% (73 runs sampled)
+// request - stream                       x 7,746 ops/sec ±3.20% (82 runs sampled)
+// node-fetch - promise                   x 7,011 ops/sec ±7.54% (75 runs sampled)
+// node-fetch - stream                    x 7,941 ops/sec ±4.52% (82 runs sampled)
+// axios - promise                        x 6,788 ops/sec ±3.32% (80 runs sampled)
+// axios - stream                         x 8,584 ops/sec ±2.23% (81 runs sampled)
+// https - stream                         x 10,465 ops/sec ±2.89% (73 runs sampled)
 // Fastest is https - stream
 
 // got - normalize options x 166,389 ops/sec ±0.63% (91 runs sampled)

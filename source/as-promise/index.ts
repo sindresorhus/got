@@ -7,8 +7,7 @@ import {
 	CancelableRequest,
 	Response,
 	RequestError,
-	HTTPError,
-	ReadError
+	HTTPError
 } from './types';
 import PromisableRequest, {parseBody} from './core';
 import proxyEvents from '../core/utils/proxy-events';
@@ -80,9 +79,9 @@ export default function asPromise<T>(options: NormalizedOptions): CancelableRequ
 					rawBody = await getStream.buffer(request);
 
 					response.rawBody = rawBody;
-				} catch (error) {
-					// TODO: Call `request._beforeError`, see https://github.com/nodejs/node/issues/32995
-					reject(new ReadError(error, request));
+				} catch (_) {
+					// The same error is caught below.
+					// See request.once('error')
 					return;
 				}
 
@@ -135,12 +134,7 @@ export default function asPromise<T>(options: NormalizedOptions): CancelableRequ
 					}
 				} catch (error) {
 					// TODO: Call `request._beforeError`, see https://github.com/nodejs/node/issues/32995
-					if (error instanceof RequestError) {
-						reject(error);
-					} else {
-						reject(new RequestError(error.message, error, request));
-					}
-
+					reject(new RequestError(error.message, error, request));
 					return;
 				}
 

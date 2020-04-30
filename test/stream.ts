@@ -379,11 +379,13 @@ test('the socket is alive on a successful pipeline', withServer, async (t, serve
 	});
 
 	const gotStream = got.stream('');
+	t.is(gotStream.socket, undefined);
 
 	const receiver = new stream.PassThrough();
 	await promisify(stream.pipeline)(gotStream, receiver);
 
 	t.is(await getStream(receiver), payload);
+	t.truthy(gotStream.socket);
 	t.false(gotStream.socket!.destroyed);
 });
 
