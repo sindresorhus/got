@@ -1,6 +1,6 @@
 import {URL} from 'url';
 import test from 'ava';
-import got, {Response} from '../source';
+import got from '../source';
 import withServer, {withBodyParsingServer} from './helpers/with-server';
 import {ExtendedTestServer} from './helpers/types';
 
@@ -98,9 +98,9 @@ test('filters elements', withServer, async (t, server, got) => {
 test('parses elements', withServer, async (t, server, got) => {
 	attachHandler(server, 100);
 
-	const result = await got.paginate.all<number>('?page=100', {
+	const result = await got.paginate.all<number, string>('?page=100', {
 		pagination: {
-			transform: (response: Response) => [(response as Response<string>).body.length]
+			transform: response => [response.body.length]
 		}
 	});
 
@@ -110,9 +110,9 @@ test('parses elements', withServer, async (t, server, got) => {
 test('parses elements - async function', withServer, async (t, server, got) => {
 	attachHandler(server, 100);
 
-	const result = await got.paginate.all<number>('?page=100', {
+	const result = await got.paginate.all<number, string>('?page=100', {
 		pagination: {
-			transform: async (response: Response) => [(response as Response<string>).body.length]
+			transform: async response => [response.body.length]
 		}
 	});
 
@@ -124,7 +124,7 @@ test('custom paginate function', withServer, async (t, server, got) => {
 
 	const result = await got.paginate.all<number>({
 		pagination: {
-			paginate: (response: Response) => {
+			paginate: response => {
 				const url = new URL(response.url);
 
 				if (url.search === '?page=3') {
@@ -146,7 +146,7 @@ test('custom paginate function using allItems', withServer, async (t, server, go
 
 	const result = await got.paginate.all<number>({
 		pagination: {
-			paginate: (_response: Response, allItems: number[]) => {
+			paginate: (_response, allItems: number[]) => {
 				if (allItems.length === 2) {
 					return false;
 				}
@@ -164,7 +164,7 @@ test('custom paginate function using currentItems', withServer, async (t, server
 
 	const result = await got.paginate.all<number>({
 		pagination: {
-			paginate: (_response: Response, _allItems: number[], currentItems: number[]) => {
+			paginate: (_response, _allItems: number[], currentItems: number[]) => {
 				if (currentItems[0] === 3) {
 					return false;
 				}

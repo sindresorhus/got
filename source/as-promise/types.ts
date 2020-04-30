@@ -70,18 +70,18 @@ export interface Hooks extends RequestHooks {
 	afterResponse?: AfterResponseHook[];
 }
 
-export interface PaginationOptions<T> {
+export interface PaginationOptions<T, R> {
 	pagination?: {
-		transform?: (response: Response) => Promise<T[]> | T[];
+		transform?: (response: Response<R>) => Promise<T[]> | T[];
 		filter?: (item: T, allItems: T[], currentItems: T[]) => boolean;
-		paginate?: (response: Response, allItems: T[], currentItems: T[]) => Options | false;
+		paginate?: (response: Response<R>, allItems: T[], currentItems: T[]) => Options | false;
 		shouldContinue?: (item: T, allItems: T[], currentItems: T[]) => boolean;
 		countLimit?: number;
 		requestLimit?: number;
 	};
 }
 
-export interface Options extends RequestOptions, PaginationOptions<unknown> {
+export interface Options extends RequestOptions, PaginationOptions<unknown, unknown> {
 	hooks?: Hooks;
 	responseType?: ResponseType;
 	resolveBodyOnly?: boolean;
@@ -97,7 +97,7 @@ export interface NormalizedOptions extends RequestNormalizedOptions {
 	retry: RequiredRetryOptions;
 	isStream: boolean;
 	encoding?: BufferEncoding;
-	pagination?: Required<PaginationOptions<unknown>['pagination']>;
+	pagination?: Required<PaginationOptions<unknown, unknown>['pagination']>;
 }
 
 export interface Defaults extends RequestDefaults {
@@ -106,7 +106,7 @@ export interface Defaults extends RequestDefaults {
 	resolveBodyOnly: boolean;
 	retry: RequiredRetryOptions;
 	isStream: boolean;
-	pagination?: Required<PaginationOptions<unknown>['pagination']>;
+	pagination?: Required<PaginationOptions<unknown, unknown>['pagination']>;
 }
 
 export class ParseError extends RequestError {
