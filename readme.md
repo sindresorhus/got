@@ -739,7 +739,7 @@ const got = require('got');
 		pagination: {
 			paginate: (response, allItems, currentItems) => {
 				const previousSearchParams = response.request.options.searchParams;
-				const {offset: previousOffset} = previousSearchParams;
+				const previousOffset = previousSearchParams.get('offset');
 
 				if (currentItems.length < limit) {
 					return false;
@@ -748,7 +748,7 @@ const got = require('got');
 				return {
 					searchParams: {
 						...previousSearchParams,
-						offset: previousOffset + limit,
+						offset: Number(previousOffset) + limit,
 					}
 				};
 			}
