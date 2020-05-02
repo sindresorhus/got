@@ -1160,7 +1160,9 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 		this[kCancelTimeouts] = timedOut(request, timeout, url);
 
-		request.once('response', response => {
+		const responseEventName = options.cache ? 'cacheableResponse' : 'response';
+
+		request.once(responseEventName, (response: IncomingMessage) => {
 			this._onResponse(response);
 		});
 
@@ -1220,19 +1222,21 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			delete (options as unknown as NormalizedOptions).url;
 
 			// This is ugly
-			const cacheRequest = cacheableStore.get((options as any).cache)!(options, resolve as any);
+			const cacheRequest = cacheableStore.get((options as any).cache)!(options, response => {
+				const typedResponse = response as unknown as IncomingMessage & {req: ClientRequest};
+				const {req} = typedResponse;
+
+				if (req) {
+					req.emit('cacheableResponse', typedResponse);
+				}
+
+				resolve(typedResponse as unknown as ResponseLike);
+			});
 
 			// Restore options
 			(options as unknown as NormalizedOptions).url = url;
 
-			cacheRequest.once('error', (error: Error) => {
-				if (error instanceof CacheableRequest.CacheError) {
-					reject(new CacheError(error, this));
-					return;
-				}
-
-				reject(error);
-			});
+			cacheRequest.once('error', reject);
 			cacheRequest.once('request', resolve);
 		});
 	}
@@ -1295,6 +1299,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 		const isHttps = url.protocol === 'https:';
 
+		// Fallback function
 		let fallbackFn: HttpRequestFunction;
 		if (options.http2) {
 			fallbackFn = http2wrapper.auto;
@@ -1303,20 +1308,22 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		}
 
 		const realFn = options.request ?? fallbackFn;
-		const fn = options.cache ? this._createCacheableRequest.bind(this) : realFn;
 
+		// Cache support
+		const fn = options.cache ? this._createCacheableRequest : realFn;
+
+		// Pass an agent directly when HTTP2 is disabled
 		if (agent && !options.http2) {
 			(options as unknown as RequestOptions).agent = agent[isHttps ? 'https' : 'http'];
 		}
 
+		// Prepare plain HTTP request options
 		options[kRequest] = realFn as HttpRequestFunction;
 		delete options.request;
 		delete options.timeout;
 
-		let requestOrResponse: ReturnType<RequestFunction>;
-
 		try {
-			requestOrResponse = await fn(url, options as unknown as RequestOptions);
+			let requestOrResponse = await fn(url, options as unknown as RequestOptions);
 
 			if (is.undefined(requestOrResponse)) {
 				requestOrResponse = fallbackFn(url, options as unknown as RequestOptions);
@@ -1343,8 +1350,8 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 				this._onResponse(requestOrResponse as IncomingMessage);
 			}
 		} catch (error) {
-			if (error instanceof RequestError) {
-				throw error;
+			if (error instanceof CacheableRequest.CacheError) {
+				throw new CacheError(error, this);
 			}
 
 			throw new RequestError(error.message, error, this);
