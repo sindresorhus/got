@@ -309,7 +309,7 @@ test('ignores the `resolveBodyOnly` option', withServer, async (t, server, got) 
 	t.deepEqual(items, [1, 2]);
 });
 
-test.failing('allowGetBody sends json payload with .paginate()', withBodyParsingServer, async (t, server, got) => {
+test('allowGetBody sends json payload with .paginate()', withBodyParsingServer, async (t, server, got) => {
 	server.get('/', (request, response) => {
 		if (request.body.hello !== 'world') {
 			response.statusCode = 400;
@@ -318,15 +318,19 @@ test.failing('allowGetBody sends json payload with .paginate()', withBodyParsing
 		response.end(JSON.stringify([1, 2, 3]));
 	});
 
-	const iterator = got.paginate({
+	const iterator = got.paginate<number>({
 		allowGetBody: true,
 		json: {hello: 'world'},
 		retry: 0
 	});
 
-	const result = await iterator.next();
+	const results: number[] = [];
 
-	t.deepEqual(result.value, [1, 2, 3]);
+	for await (const item of iterator) {
+		results.push(item);
+	}
+
+	t.deepEqual(results, [1, 2, 3]);
 });
 
 test('`requestLimit` works', withServer, async (t, server, got) => {

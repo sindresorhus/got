@@ -856,7 +856,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		options.maxRedirects = options.maxRedirects ?? 0;
 
 		// Set non-enumerable properties
-		setNonEnumerableProperties([defaults, options], options);
+		setNonEnumerableProperties([defaults, rawOptions], options);
 
 		return options as NormalizedOptions;
 	}

@@ -9,3 +9,14 @@ test('should merge options replacing responseType', t => {
 
 	t.is(options.responseType, responseType);
 });
+
+test('should copy non-numerable properties', t => {
+	const options = {
+		json: {hello: '123'}
+	};
+
+	const merged = got.mergeOptions(got.defaults.options, options);
+	const mergedTwice = got.mergeOptions(got.defaults.options, merged);
+
+	t.is(mergedTwice.json, options.json);
+});
