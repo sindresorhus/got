@@ -350,3 +350,59 @@ test('`requestLimit` works', withServer, async (t, server, got) => {
 
 	t.deepEqual(results, [1]);
 });
+
+test('`stackAllItems` set to true', withServer, async (t, server, got) => {
+	attachHandler(server, 3);
+
+	let itemCount = 0;
+	const result = await got.paginate.all<number>({
+		pagination: {
+			stackAllItems: true,
+			filter: (_item, allItems, _currentItems) => {
+				t.is(allItems.length, itemCount);
+
+				return true;
+			},
+			shouldContinue: (_item, allItems, _currentItems) => {
+				t.is(allItems.length, itemCount);
+
+				return true;
+			},
+			paginate: (response, allItems, currentItems) => {
+				itemCount += 1;
+				t.is(allItems.length, itemCount);
+
+				return got.defaults.options.pagination!.paginate(response, allItems, currentItems);
+			}
+		}
+	});
+
+	t.deepEqual(result, [1, 2, 3]);
+});
+
+test('`stackAllItems` set to false', withServer, async (t, server, got) => {
+	attachHandler(server, 3);
+
+	const result = await got.paginate.all<number>({
+		pagination: {
+			stackAllItems: false,
+			filter: (_item, allItems, _currentItems) => {
+				t.is(allItems.length, 0);
+
+				return true;
+			},
+			shouldContinue: (_item, allItems, _currentItems) => {
+				t.is(allItems.length, 0);
+
+				return true;
+			},
+			paginate: (response, allItems, currentItems) => {
+				t.is(allItems.length, 0);
+
+				return got.defaults.options.pagination!.paginate(response, allItems, currentItems);
+			}
+		}
+	});
+
+	t.deepEqual(result, [1, 2, 3]);
+});

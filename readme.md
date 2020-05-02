@@ -791,6 +791,15 @@ The maximum amount of request that should be triggered. [Retries on failure](#re
 
 For example, it can be helpful during development to avoid an infinite number of requests.
 
+###### pagination.stackAllItems
+
+Type: `boolean`\
+Default: `true`
+
+Defines how the parameter `allItems` in [pagination.paginate](#pagination.paginate), [pagination.filter](#pagination.filter) and [pagination.shouldContinue](#pagination.shouldContinue) is managed. When set to `false`, the parameter `allItems` is always an empty array.
+
+This option can be helpful to save on memory usage when working with a large dataset.
+
 ##### localAddress
 
 Type: `string`
