@@ -205,6 +205,7 @@ const create = (defaults: InstanceDefaults): Got => {
 		}
 
 		const all: T[] = [];
+		let {countLimit} = pagination;
 
 		let numberOfRequests = 0;
 		while (numberOfRequests < pagination.requestLimit) {
@@ -224,10 +225,13 @@ const create = (defaults: InstanceDefaults): Got => {
 
 					yield item;
 
-					all.push(item as T);
+					if (pagination.stackAllItems) {
+						all.push(item as T);
+					}
+
 					current.push(item as T);
 
-					if (all.length === pagination.countLimit) {
+					if (--countLimit <= 0) {
 						return;
 					}
 				}
