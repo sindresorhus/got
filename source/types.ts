@@ -42,7 +42,7 @@ export interface ExtendOptions extends Options {
 }
 
 export type OptionsOfTextResponseBody = Merge<Options, {isStream?: false; resolveBodyOnly?: false; responseType?: 'text'}>;
-export type OptionsOfJSONResponseBody = Merge<Options, {isStream?: false; resolveBodyOnly?: false; responseType: 'json'}>;
+export type OptionsOfJSONResponseBody = Merge<Options, {isStream?: false; resolveBodyOnly?: false; responseType?: 'json'}>;
 export type OptionsOfBufferResponseBody = Merge<Options, {isStream?: false; resolveBodyOnly?: false; responseType: 'buffer'}>;
 export type StrictOptions = Except<Options, 'isStream' | 'responseType' | 'resolveBodyOnly'>;
 export type StreamOptions = Merge<Options, {isStream?: true}>;
