@@ -455,3 +455,53 @@ test('next url in json response', withServer, async (t, server, got) => {
 		'/?page=3'
 	]);
 });
+
+test.failing('pagiantion using searchParams', withServer, async (t, server, got) => {
+	server.get('/', (request, response) => {
+		const parameters = new URLSearchParams(request.url.slice(2));
+		const page = Number(parameters.get('page') ?? 0);
+
+		response.end(JSON.stringify({
+			currentUrl: request.url,
+			next: page < 3
+		}));
+	});
+
+	interface Page {
+		currentUrl: string;
+		next?: string;
+	}
+
+	const all = await got.paginate.all('', {
+		searchParams: {
+			page: 0
+		},
+		responseType: 'json',
+		pagination: {
+			transform: (response: Response<Page>) => {
+				return [response.body.currentUrl];
+			},
+			paginate: (response: Response<Page>) => {
+				const {next} = response.body;
+				const previousPage = Number(response.request.options.searchParams!.get('page'));
+
+				if (!next) {
+					return false;
+				}
+
+				return {
+					searchParams: {
+						page: previousPage + 1
+					}
+				};
+			}
+		}
+	});
+
+	t.deepEqual(all, [
+		'/?page=0',
+		'/?page=1',
+		'/?page=2',
+		'/?page=3'
+	]);
+});
