@@ -1,3 +1,4 @@
+import {URL, URLSearchParams} from 'url';
 import test from 'ava';
 import got from '../source';
 
@@ -19,4 +20,27 @@ test('should copy non-numerable properties', t => {
 	const mergedTwice = got.mergeOptions(got.defaults.options, merged);
 
 	t.is(mergedTwice.json, options.json);
+});
+
+test('should replace URLs', t => {
+	const options = got.mergeOptions({
+		url: new URL('http://localhost:41285'),
+		searchParams: new URLSearchParams('page=0')
+	}, {
+		url: 'http://localhost:41285/?page=1',
+		searchParams: undefined
+	});
+
+	const otherOptions = got.mergeOptions({
+		url: new URL('http://localhost:41285'),
+		searchParams: {
+			page: 0
+		}
+	}, {
+		url: 'http://localhost:41285/?page=1',
+		searchParams: undefined
+	});
+
+	t.is(options.url.href, 'http://localhost:41285/?page=1');
+	t.is(otherOptions.url.href, 'http://localhost:41285/?page=1');
 });

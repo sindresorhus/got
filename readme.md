@@ -1132,16 +1132,11 @@ const handler = (options, next) => {
 const instance = got.extend({handlers: [handler]});
 ```
 
-#### got.extend(...instances)
-
-Merges many instances into a single one:
-- options are merged using [`got.mergeOptions()`](#gotmergeoptionsparentoptions-newoptions) (+ hooks are merged too),
-- handlers are stored in an array (you can access them through `instance.defaults.handlers`).
-
 #### got.extend(...options, ...instances, ...)
 
-It's possible to combine options and instances.\
-It gives the same effect as `got.extend(...options).extend(...instances)`:
+Merges many instances into a single one:
+- options are merged using [`got.mergeOptions()`](#gotmergeoptionsparentoptions-newoptions) (including hooks),
+- handlers are stored in an array (you can access them through `instance.defaults.handlers`).
 
 ```js
 const a = {headers: {cat: 'meow'}};
@@ -1159,7 +1154,7 @@ got.extend(a, b);
 //=> {headers: {cat: 'meow', cow: 'moo'}}
 ```
 
-#### got.mergeOptions(parentOptions, newOptions)
+#### got.mergeOptions(parent, ...sources)
 
 Extends parent options. Avoid using [object spread](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Spread_syntax#Spread_in_object_literals) as it doesn't work recursively:
 
@@ -1171,16 +1166,24 @@ const b = {headers: {cow: 'moo', wolf: ['auuu']}};
 got.mergeOptions(a, b)  // => {headers: {cat: 'meow', cow: 'moo', wolf: ['auuu']}}
 ```
 
+**Note:** Only Got options are merged! Custom user options should be defined via [`options.context`](#context).
+
 Options are deeply merged to a new object. The value of each key is determined as follows:
 
-- If the new property is set to `undefined`, it keeps the old one.
-- If both properties are an instances of `URLSearchParams`, a new URLSearchParams instance is created. The values are merged using [`urlSearchParams.append(key, value)`](https://developer.mozilla.org/en-US/docs/Web/API/URLSearchParams/append).
-- If the parent property is an instance of `URL` and the new value is a `string` or `URL`, a new URL instance is created: [`new URL(new, parent)`](https://developer.mozilla.org/en-US/docs/Web/API/URL/URL#Syntax).
+- If the new property is not defined, the old value is used.
+- If the new property is explicitly set to `undefined`:
+	- If the parent property is a plain `object`, the parent value is deeply cloned.
+	- Otherwise, `undefined` is used.
+- If the parent value is an instance of `URLSearchParams`:
+	- If the new value is a `string`, an `object` or an instance of `URLSearchParams`, a new `URLSearchParams` instance is created. The values are merged using [`urlSearchParams.append(key, value)`](https://developer.mozilla.org/en-US/docs/Web/API/URLSearchParams/append).
+	- Otherwise, the only available value is `undefined`.
 - If the new property is a plain `object`:
 	- If the parent property is a plain `object` too, both values are merged recursively into a new `object`.
 	- Otherwise, only the new value is deeply cloned.
 - If the new property is an `Array`, it overwrites the old one with a deep clone of the new property.
 - Properties that are not enumerable, such as `context`, `body`, `json`, and `form`, will not be merged.
+- Otherwise, the new value is assigned to the key.
+
 ```js
 const a = {json: {cat: 'meow'}};
 const b = {json: {cow: 'moo'}};
@@ -1188,7 +1191,6 @@ const b = {json: {cow: 'moo'}};
 got.mergeOptions(a, b);
 //=> {json: {cow: 'moo'}}
 ```
-- Otherwise, the new value is assigned to the key.
 
 #### got.defaults
 
@@ -1203,7 +1205,7 @@ The Got defaults used in that instance.
 Type: `Function[]`\
 Default: `[]`
 
-An array of functions. You execute them directly by calling `got()`. They are some sort of "global hooks" - these functions are called first. The last handler (*it's hidden*) is either [`asPromise`](source/as-promise.ts) or [`asStream`](source/as-stream.ts), depending on the `options.isStream` property.
+An array of functions. You execute them directly by calling `got()`. They are some sort of "global hooks" - these functions are called first. The last handler (*it's hidden*) is either [`asPromise`](source/core/as-promise/index.ts) or [`asStream`](source/core/index.ts), depending on the `options.isStream` property.
 
 Each handler takes two arguments:
 

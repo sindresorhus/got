@@ -1,6 +1,6 @@
 import {URL} from 'url';
 import test from 'ava';
-import got from '../source';
+import got, {Response} from '../source';
 import withServer, {withBodyParsingServer} from './helpers/with-server';
 import {ExtendedTestServer} from './helpers/types';
 
@@ -405,4 +405,53 @@ test('`stackAllItems` set to false', withServer, async (t, server, got) => {
 	});
 
 	t.deepEqual(result, [1, 2, 3]);
+});
+
+test('next url in json response', withServer, async (t, server, got) => {
+	server.get('/', (request, response) => {
+		const parameters = new URLSearchParams(request.url.slice(2));
+		const page = Number(parameters.get('page') ?? 0);
+
+		response.end(JSON.stringify({
+			currentUrl: request.url,
+			next: page < 3 ? `${server.url}/?page=${page + 1}` : undefined
+		}));
+	});
+
+	interface Page {
+		currentUrl: string;
+		next?: string;
+	}
+
+	const all = await got.paginate.all('', {
+		searchParams: {
+			page: 0
+		},
+		responseType: 'json',
+		pagination: {
+			transform: (response: Response<Page>) => {
+				return [response.body.currentUrl];
+			},
+			paginate: (response: Response<Page>) => {
+				const {next} = response.body;
+
+				if (!next) {
+					return false;
+				}
+
+				return {
+					url: next,
+					prefixUrl: '',
+					searchParams: undefined
+				};
+			}
+		}
+	});
+
+	t.deepEqual(all, [
+		'/?page=0',
+		'/?page=1',
+		'/?page=2',
+		'/?page=3'
+	]);
 });

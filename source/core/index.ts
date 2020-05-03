@@ -572,8 +572,6 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 	static normalizeArguments(url?: string | URL, options?: Options, defaults?: Defaults): NormalizedOptions {
 		const rawOptions = options;
-		const searchParameters = options?.searchParams;
-		const hooks = options?.hooks;
 
 		if (is.object(url) && !is.urlInstance(url)) {
 			options = {...defaults, ...(url as Options), ...options};
@@ -586,30 +584,6 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 			if (url) {
 				options.url = url;
-			}
-		}
-
-		// Prevent duplicating default search params & hooks
-		if (searchParameters === undefined) {
-			delete options.searchParams;
-		} else {
-			options.searchParams = searchParameters;
-		}
-
-		if (hooks === undefined) {
-			delete options.hooks;
-		} else {
-			options.hooks = hooks;
-		}
-
-		// Setting options to `undefined` turns off its functionalities
-		if (rawOptions && defaults) {
-			for (const key in rawOptions) {
-				// @ts-ignore Dear TypeScript, all object keys are strings (or symbols which are NOT enumerable).
-				if (is.undefined(rawOptions[key]) && !is.undefined(defaults[key])) {
-					// @ts-ignore See the note above
-					options[key] = defaults[key];
-				}
 			}
 		}
 
@@ -647,9 +621,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		}
 
 		// `options.headers`
-		if (is.undefined(options.headers)) {
-			options.headers = {};
-		} else if (options.headers === defaults?.headers) {
+		if (options.headers === defaults?.headers) {
 			options.headers = {...options.headers};
 		} else {
 			options.headers = lowercaseKeys({...(defaults?.headers), ...options.headers});
@@ -666,19 +638,19 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		}
 
 		// `options.searchParams`
-		if (options.searchParams) {
-			if (!is.string(options.searchParams) && !(options.searchParams instanceof URLSearchParams)) {
-				validateSearchParameters(options.searchParams);
+		if ('searchParams' in options) {
+			if (options.searchParams && options.searchParams !== defaults?.searchParams) {
+				if (!is.string(options.searchParams) && !(options.searchParams instanceof URLSearchParams)) {
+					validateSearchParameters(options.searchParams);
+				}
+
+				options.searchParams = new URLSearchParams(options.searchParams as Record<string, string>);
+
+				// `normalizeArguments()` is also used to merge options
+				defaults?.searchParams?.forEach((value, key) => {
+					(options!.searchParams as URLSearchParams).append(key, value);
+				});
 			}
-
-			options.searchParams = new URLSearchParams(options.searchParams as Record<string, string>);
-
-			// `normalizeArguments()` is also used to merge options
-			defaults?.searchParams?.forEach((value, key) => {
-				(options!.searchParams as URLSearchParams).append(key, value);
-			});
-		} else {
-			options.searchParams = defaults?.searchParams;
 		}
 
 		// `options.username` & `options.password`
@@ -811,6 +783,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		}
 
 		// `options.hooks`
+		const areHooksDefault = options.hooks === defaults?.hooks;
 		options.hooks = {...options.hooks};
 
 		for (const event of knownHookEvents) {
@@ -826,7 +799,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			}
 		}
 
-		if (defaults) {
+		if (defaults && !areHooksDefault) {
 			for (const event of knownHookEvents) {
 				const defaultHooks = defaults.hooks[event];
 
