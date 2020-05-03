@@ -1,4 +1,4 @@
-import EventEmitter = require('events');
+import {EventEmitter} from 'events';
 import {PassThrough as PassThroughStream} from 'stream';
 import {Socket} from 'net';
 import http = require('http');
@@ -135,6 +135,7 @@ test('custom error codes', async t => {
 			const emitter = new EventEmitter() as http.ClientRequest;
 			emitter.abort = () => {};
 			emitter.end = () => {};
+			emitter.destroy = () => {};
 
 			const error = new Error('Snap!');
 			(error as Error & {code: typeof errorCode}).code = errorCode;

@@ -1,5 +1,5 @@
 import {promisify} from 'util';
-import EventEmitter = require('events');
+import {EventEmitter} from 'events';
 import {PassThrough as PassThroughStream} from 'stream';
 import stream = require('stream');
 import http = require('http');

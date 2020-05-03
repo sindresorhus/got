@@ -964,6 +964,10 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		});
 
 		response.once('error', (error: Error) => {
+			// Force clean-up, because some packages don't do this.
+			// TODO: Fix decompress-response
+			response.destroy();
+
 			this._beforeError(new ReadError(error, this));
 		});
 
@@ -1140,6 +1144,9 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		});
 
 		request.once('error', (error: Error) => {
+			// Force clean-up, because some packages (e.g. nock) don't do this.
+			request.destroy();
+
 			if (error instanceof TimedOutTimeoutError) {
 				error = new TimeoutError(error, this.timings!, this);
 			} else {

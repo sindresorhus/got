@@ -173,7 +173,7 @@ test('socket connect listener cleaned up after request', withServer, async (t, s
 				afterResponse: [
 					async (response, retryWithMergedOptions) => {
 						// Force clean-up
-						response.socket.destroy();
+						response.socket?.destroy();
 
 						// Unauthorized
 						if (response.statusCode === 401) {
