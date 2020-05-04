@@ -456,7 +456,7 @@ test('next url in json response', withServer, async (t, server, got) => {
 	]);
 });
 
-test.failing('pagiantion using searchParams', withServer, async (t, server, got) => {
+test('pagination using searchParams', withServer, async (t, server, got) => {
 	server.get('/', (request, response) => {
 		const parameters = new URLSearchParams(request.url.slice(2));
 		const page = Number(parameters.get('page') ?? 0);
