@@ -11,7 +11,7 @@ test('should merge options replacing responseType', t => {
 	t.is(options.responseType, responseType);
 });
 
-test('should merge searchParams', t => {
+test('no duplicated searchParams values', t => {
 	const options = got.mergeOptions(got.defaults.options, {
 		searchParams: 'string=true&noDuplication=true'
 	}, {
