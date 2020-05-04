@@ -1,5 +1,6 @@
 import test from 'ava';
 import {Handler} from 'express';
+import getStream = require('get-stream');
 import {HTTPError, ParseError} from '../source';
 import withServer from './helpers/with-server';
 
@@ -221,4 +222,17 @@ test('shortcuts result properly when retrying in afterResponse', withServer, asy
 	t.is(json.hello, 'world');
 	t.is(text, proper);
 	t.is(buffer.compare(Buffer.from(proper)), 0);
+});
+
+test('responseType is optional when using template', withServer, async (t, server, got) => {
+	const data = {hello: 'world'};
+
+	server.post('/', async (request, response) => {
+		response.end(await getStream(request));
+	});
+
+	const jsonClient = got.extend({responseType: 'json'});
+	const {body} = await jsonClient.post<typeof data>('', {json: data});
+
+	t.deepEqual(body, data);
 });

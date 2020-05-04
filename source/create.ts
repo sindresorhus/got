@@ -194,7 +194,7 @@ const create = (defaults: InstanceDefaults): Got => {
 		});
 	};
 
-	got.paginate = (async function * <T>(url: string | URL, options?: OptionsWithPagination<T>) {
+	got.paginate = (async function * <T, R>(url: string | URL, options?: OptionsWithPagination<T, R>) {
 		let normalizedOptions = normalizeArguments(url, options, defaults.options);
 		normalizedOptions.resolveBodyOnly = false;
 
@@ -205,6 +205,7 @@ const create = (defaults: InstanceDefaults): Got => {
 		}
 
 		const all: T[] = [];
+		let {countLimit} = pagination;
 
 		let numberOfRequests = 0;
 		while (numberOfRequests < pagination.requestLimit) {
@@ -224,10 +225,13 @@ const create = (defaults: InstanceDefaults): Got => {
 
 					yield item;
 
-					all.push(item as T);
+					if (pagination.stackAllItems) {
+						all.push(item as T);
+					}
+
 					current.push(item as T);
 
-					if (all.length === pagination.countLimit) {
+					if (--countLimit <= 0) {
 						return;
 					}
 				}
@@ -247,10 +251,10 @@ const create = (defaults: InstanceDefaults): Got => {
 		}
 	}) as GotPaginate;
 
-	got.paginate.all = (async <T>(url: string | URL, options?: OptionsWithPagination<T>) => {
+	got.paginate.all = (async <T, R>(url: string | URL, options?: OptionsWithPagination<T, R>) => {
 		const results: T[] = [];
 
-		for await (const item of got.paginate<T>(url, options)) {
+		for await (const item of got.paginate<T, R>(url, options)) {
 			results.push(item);
 		}
 

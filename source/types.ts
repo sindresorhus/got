@@ -42,24 +42,24 @@ export interface ExtendOptions extends Options {
 }
 
 export type OptionsOfTextResponseBody = Merge<Options, {isStream?: false; resolveBodyOnly?: false; responseType?: 'text'}>;
-export type OptionsOfJSONResponseBody = Merge<Options, {isStream?: false; resolveBodyOnly?: false; responseType: 'json'}>;
+export type OptionsOfJSONResponseBody = Merge<Options, {isStream?: false; resolveBodyOnly?: false; responseType?: 'json'}>;
 export type OptionsOfBufferResponseBody = Merge<Options, {isStream?: false; resolveBodyOnly?: false; responseType: 'buffer'}>;
 export type StrictOptions = Except<Options, 'isStream' | 'responseType' | 'resolveBodyOnly'>;
 export type StreamOptions = Merge<Options, {isStream?: true}>;
 type ResponseBodyOnly = {resolveBodyOnly: true};
 
-export type OptionsWithPagination<T = unknown> = Merge<Options, PaginationOptions<T>>;
+export type OptionsWithPagination<T = unknown, R = unknown> = Merge<Options, PaginationOptions<T, R>>;
 
 export interface GotPaginate {
-	<T>(url: string | URL, options?: OptionsWithPagination<T>): AsyncIterableIterator<T>;
-	all<T>(url: string | URL, options?: OptionsWithPagination<T>): Promise<T[]>;
+	<T, R = unknown>(url: string | URL, options?: OptionsWithPagination<T, R>): AsyncIterableIterator<T>;
+	all<T, R = unknown>(url: string | URL, options?: OptionsWithPagination<T, R>): Promise<T[]>;
 
 	// A bug.
 	// eslint-disable-next-line @typescript-eslint/adjacent-overload-signatures
-	<T>(options?: OptionsWithPagination<T>): AsyncIterableIterator<T>;
+	<T, R = unknown>(options?: OptionsWithPagination<T, R>): AsyncIterableIterator<T>;
 	// A bug.
 	// eslint-disable-next-line @typescript-eslint/adjacent-overload-signatures
-	all<T>(options?: OptionsWithPagination<T>): Promise<T[]>;
+	all<T, R = unknown>(options?: OptionsWithPagination<T, R>): Promise<T[]>;
 }
 
 export interface GotRequestFunction {

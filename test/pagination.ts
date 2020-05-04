@@ -98,9 +98,9 @@ test('filters elements', withServer, async (t, server, got) => {
 test('parses elements', withServer, async (t, server, got) => {
 	attachHandler(server, 100);
 
-	const result = await got.paginate.all<number>('?page=100', {
+	const result = await got.paginate.all<number, string>('?page=100', {
 		pagination: {
-			transform: (response: Response) => [(response as Response<string>).body.length]
+			transform: response => [response.body.length]
 		}
 	});
 
@@ -110,9 +110,9 @@ test('parses elements', withServer, async (t, server, got) => {
 test('parses elements - async function', withServer, async (t, server, got) => {
 	attachHandler(server, 100);
 
-	const result = await got.paginate.all<number>('?page=100', {
+	const result = await got.paginate.all<number, string>('?page=100', {
 		pagination: {
-			transform: async (response: Response) => [(response as Response<string>).body.length]
+			transform: async response => [response.body.length]
 		}
 	});
 
@@ -124,7 +124,7 @@ test('custom paginate function', withServer, async (t, server, got) => {
 
 	const result = await got.paginate.all<number>({
 		pagination: {
-			paginate: (response: Response) => {
+			paginate: response => {
 				const url = new URL(response.url);
 
 				if (url.search === '?page=3') {
@@ -146,7 +146,7 @@ test('custom paginate function using allItems', withServer, async (t, server, go
 
 	const result = await got.paginate.all<number>({
 		pagination: {
-			paginate: (_response: Response, allItems: number[]) => {
+			paginate: (_response, allItems: number[]) => {
 				if (allItems.length === 2) {
 					return false;
 				}
@@ -164,7 +164,7 @@ test('custom paginate function using currentItems', withServer, async (t, server
 
 	const result = await got.paginate.all<number>({
 		pagination: {
-			paginate: (_response: Response, _allItems: number[], currentItems: number[]) => {
+			paginate: (_response, _allItems: number[], currentItems: number[]) => {
 				if (currentItems[0] === 3) {
 					return false;
 				}
@@ -309,7 +309,7 @@ test('ignores the `resolveBodyOnly` option', withServer, async (t, server, got) 
 	t.deepEqual(items, [1, 2]);
 });
 
-test.failing('allowGetBody sends json payload with .paginate()', withBodyParsingServer, async (t, server, got) => {
+test('allowGetBody sends json payload with .paginate()', withBodyParsingServer, async (t, server, got) => {
 	server.get('/', (request, response) => {
 		if (request.body.hello !== 'world') {
 			response.statusCode = 400;
@@ -318,15 +318,19 @@ test.failing('allowGetBody sends json payload with .paginate()', withBodyParsing
 		response.end(JSON.stringify([1, 2, 3]));
 	});
 
-	const iterator = got.paginate({
+	const iterator = got.paginate<number>({
 		allowGetBody: true,
 		json: {hello: 'world'},
 		retry: 0
 	});
 
-	const result = await iterator.next();
+	const results: number[] = [];
 
-	t.deepEqual(result.value, [1, 2, 3]);
+	for await (const item of iterator) {
+		results.push(item);
+	}
+
+	t.deepEqual(results, [1, 2, 3]);
 });
 
 test('`requestLimit` works', withServer, async (t, server, got) => {
@@ -345,4 +349,159 @@ test('`requestLimit` works', withServer, async (t, server, got) => {
 	}
 
 	t.deepEqual(results, [1]);
+});
+
+test('`stackAllItems` set to true', withServer, async (t, server, got) => {
+	attachHandler(server, 3);
+
+	let itemCount = 0;
+	const result = await got.paginate.all<number>({
+		pagination: {
+			stackAllItems: true,
+			filter: (_item, allItems, _currentItems) => {
+				t.is(allItems.length, itemCount);
+
+				return true;
+			},
+			shouldContinue: (_item, allItems, _currentItems) => {
+				t.is(allItems.length, itemCount);
+
+				return true;
+			},
+			paginate: (response, allItems, currentItems) => {
+				itemCount += 1;
+				t.is(allItems.length, itemCount);
+
+				return got.defaults.options.pagination!.paginate(response, allItems, currentItems);
+			}
+		}
+	});
+
+	t.deepEqual(result, [1, 2, 3]);
+});
+
+test('`stackAllItems` set to false', withServer, async (t, server, got) => {
+	attachHandler(server, 3);
+
+	const result = await got.paginate.all<number>({
+		pagination: {
+			stackAllItems: false,
+			filter: (_item, allItems, _currentItems) => {
+				t.is(allItems.length, 0);
+
+				return true;
+			},
+			shouldContinue: (_item, allItems, _currentItems) => {
+				t.is(allItems.length, 0);
+
+				return true;
+			},
+			paginate: (response, allItems, currentItems) => {
+				t.is(allItems.length, 0);
+
+				return got.defaults.options.pagination!.paginate(response, allItems, currentItems);
+			}
+		}
+	});
+
+	t.deepEqual(result, [1, 2, 3]);
+});
+
+test('next url in json response', withServer, async (t, server, got) => {
+	server.get('/', (request, response) => {
+		const parameters = new URLSearchParams(request.url.slice(2));
+		const page = Number(parameters.get('page') ?? 0);
+
+		response.end(JSON.stringify({
+			currentUrl: request.url,
+			next: page < 3 ? `${server.url}/?page=${page + 1}` : undefined
+		}));
+	});
+
+	interface Page {
+		currentUrl: string;
+		next?: string;
+	}
+
+	const all = await got.paginate.all('', {
+		searchParams: {
+			page: 0
+		},
+		responseType: 'json',
+		pagination: {
+			transform: (response: Response<Page>) => {
+				return [response.body.currentUrl];
+			},
+			paginate: (response: Response<Page>) => {
+				const {next} = response.body;
+
+				if (!next) {
+					return false;
+				}
+
+				return {
+					url: next,
+					prefixUrl: '',
+					searchParams: undefined
+				};
+			}
+		}
+	});
+
+	t.deepEqual(all, [
+		'/?page=0',
+		'/?page=1',
+		'/?page=2',
+		'/?page=3'
+	]);
+});
+
+test.failing('pagiantion using searchParams', withServer, async (t, server, got) => {
+	server.get('/', (request, response) => {
+		const parameters = new URLSearchParams(request.url.slice(2));
+		const page = Number(parameters.get('page') ?? 0);
+
+		response.end(JSON.stringify({
+			currentUrl: request.url,
+			next: page < 3
+		}));
+	});
+
+	interface Page {
+		currentUrl: string;
+		next?: string;
+	}
+
+	const all = await got.paginate.all('', {
+		searchParams: {
+			page: 0
+		},
+		responseType: 'json',
+		pagination: {
+			transform: (response: Response<Page>) => {
+				return [response.body.currentUrl];
+			},
+			paginate: (response: Response<Page>) => {
+				const {next} = response.body;
+				const previousPage = Number(response.request.options.searchParams!.get('page'));
+
+				if (!next) {
+					return false;
+				}
+
+				return {
+					searchParams: {
+						page: previousPage + 1
+					}
+				};
+			}
+		}
+	});
+
+	t.deepEqual(all, [
+		'/?page=0',
+		'/?page=1',
+		'/?page=2',
+		'/?page=3'
+	]);
 });

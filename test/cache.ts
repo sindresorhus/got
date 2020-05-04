@@ -7,6 +7,7 @@ import {Handler} from 'express';
 import {Response} from '../source';
 import withServer from './helpers/with-server';
 import CacheableLookup from 'cacheable-lookup';
+import delay = require('delay');
 
 const cacheEndpoint: Handler = (_request, response) => {
 	response.setHeader('Cache-Control', 'public, max-age=60');
@@ -284,4 +285,28 @@ test('can replace the instance\'s HTTP cache', withServer, async (t, server, got
 
 	t.is(cache.size, 1);
 	t.is(secondCache.size, 1);
+});
+
+test('does not hang on huge response', withServer, async (t, server, got) => {
+	const bufferSize = 3 * 16 * 1024;
+	const times = 10;
+
+	const buffer = Buffer.alloc(bufferSize);
+
+	server.get('/', async (_request, response) => {
+		for (let i = 0; i < 10; i++) {
+			response.write(buffer);
+
+			// eslint-disable-next-line no-await-in-loop
+			await delay(100);
+		}
+
+		response.end();
+	});
+
+	const body = await got('', {
+		cache: new Map()
+	}).buffer();
+
+	t.is(body.length, bufferSize * times);
 });

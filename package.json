@@ -1,6 +1,6 @@
 {
 	"name": "got",
-	"version": "11.0.3",
+	"version": "11.1.0",
 	"description": "Human-friendly and powerful HTTP request library for Node.js",
 	"license": "MIT",
 	"repository": "sindresorhus/got",
@@ -62,7 +62,7 @@
 		"@types/benchmark": "^1.0.31",
 		"@types/express": "^4.17.6",
 		"@types/lolex": "^5.1.0",
-		"@types/node": "13.1.2",
+		"@types/node": "^13.13.4",
 		"@types/node-fetch": "^2.5.5",
 		"@types/request": "^2.48.4",
 		"@types/sinon": "^9.0.0",

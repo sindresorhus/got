@@ -572,8 +572,6 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 	static normalizeArguments(url?: string | URL, options?: Options, defaults?: Defaults): NormalizedOptions {
 		const rawOptions = options;
-		const searchParameters = options?.searchParams;
-		const hooks = options?.hooks;
 
 		if (is.object(url) && !is.urlInstance(url)) {
 			options = {...defaults, ...(url as Options), ...options};
@@ -586,30 +584,6 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 			if (url) {
 				options.url = url;
-			}
-		}
-
-		// Prevent duplicating default search params & hooks
-		if (searchParameters === undefined) {
-			delete options.searchParams;
-		} else {
-			options.searchParams = searchParameters;
-		}
-
-		if (hooks === undefined) {
-			delete options.hooks;
-		} else {
-			options.hooks = hooks;
-		}
-
-		// Setting options to `undefined` turns off its functionalities
-		if (rawOptions && defaults) {
-			for (const key in rawOptions) {
-				// @ts-ignore Dear TypeScript, all object keys are strings (or symbols which are NOT enumerable).
-				if (is.undefined(rawOptions[key]) && !is.undefined(defaults[key])) {
-					// @ts-ignore See the note above
-					options[key] = defaults[key];
-				}
 			}
 		}
 
@@ -647,9 +621,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		}
 
 		// `options.headers`
-		if (is.undefined(options.headers)) {
-			options.headers = {};
-		} else if (options.headers === defaults?.headers) {
+		if (options.headers === defaults?.headers) {
 			options.headers = {...options.headers};
 		} else {
 			options.headers = lowercaseKeys({...(defaults?.headers), ...options.headers});
@@ -666,22 +638,19 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		}
 
 		// `options.searchParams`
-		if (options.searchParams) {
-			if (!is.string(options.searchParams) && !(options.searchParams instanceof URLSearchParams)) {
-				validateSearchParameters(options.searchParams);
-			}
+		if ('searchParams' in options) {
+			if (options.searchParams && options.searchParams !== defaults?.searchParams) {
+				if (!is.string(options.searchParams) && !(options.searchParams instanceof URLSearchParams)) {
+					validateSearchParameters(options.searchParams);
+				}
 
-			options.searchParams = new URLSearchParams(options.searchParams as Record<string, string>);
+				options.searchParams = new URLSearchParams(options.searchParams as Record<string, string>);
 
-			// `normalizeArguments()` is also used to merge options
-			const defaultSearchParameters = defaults?.searchParams;
-			if (defaultSearchParameters && defaultSearchParameters instanceof URLSearchParams) {
-				defaultSearchParameters.forEach((value, key) => {
+				// `normalizeArguments()` is also used to merge options
+				defaults?.searchParams?.forEach((value, key) => {
 					(options!.searchParams as URLSearchParams).append(key, value);
 				});
 			}
-		} else {
-			options.searchParams = defaults?.searchParams;
 		}
 
 		// `options.username` & `options.password`
@@ -814,6 +783,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		}
 
 		// `options.hooks`
+		const areHooksDefault = options.hooks === defaults?.hooks;
 		options.hooks = {...options.hooks};
 
 		for (const event of knownHookEvents) {
@@ -829,7 +799,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			}
 		}
 
-		if (defaults) {
+		if (defaults && !areHooksDefault) {
 			for (const event of knownHookEvents) {
 				const defaultHooks = defaults.hooks[event];
 
@@ -859,7 +829,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		options.maxRedirects = options.maxRedirects ?? 0;
 
 		// Set non-enumerable properties
-		setNonEnumerableProperties([defaults, options], options);
+		setNonEnumerableProperties([defaults, rawOptions], options);
 
 		return options as NormalizedOptions;
 	}
@@ -994,6 +964,10 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		});
 
 		response.once('error', (error: Error) => {
+			// Force clean-up, because some packages don't do this.
+			// TODO: Fix decompress-response
+			response.destroy();
+
 			this._beforeError(new ReadError(error, this));
 		});
 
@@ -1163,11 +1137,16 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 		this[kCancelTimeouts] = timedOut(request, timeout, url);
 
-		request.once('response', response => {
+		const responseEventName = options.cache ? 'cacheableResponse' : 'response';
+
+		request.once(responseEventName, (response: IncomingMessage) => {
 			this._onResponse(response);
 		});
 
 		request.once('error', (error: Error) => {
+			// Force clean-up, because some packages (e.g. nock) don't do this.
+			request.destroy();
+
 			if (error instanceof TimedOutTimeoutError) {
 				error = new TimeoutError(error, this.timings!, this);
 			} else {
@@ -1223,19 +1202,21 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			delete (options as unknown as NormalizedOptions).url;
 
 			// This is ugly
-			const cacheRequest = cacheableStore.get((options as any).cache)!(options, resolve as any);
+			const cacheRequest = cacheableStore.get((options as any).cache)!(options, response => {
+				const typedResponse = response as unknown as IncomingMessage & {req: ClientRequest};
+				const {req} = typedResponse;
+
+				if (req) {
+					req.emit('cacheableResponse', typedResponse);
+				}
+
+				resolve(typedResponse as unknown as ResponseLike);
+			});
 
 			// Restore options
 			(options as unknown as NormalizedOptions).url = url;
 
-			cacheRequest.once('error', (error: Error) => {
-				if (error instanceof CacheableRequest.CacheError) {
-					reject(new CacheError(error, this));
-					return;
-				}
-
-				reject(error);
-			});
+			cacheRequest.once('error', reject);
 			cacheRequest.once('request', resolve);
 		});
 	}
@@ -1298,6 +1279,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 		const isHttps = url.protocol === 'https:';
 
+		// Fallback function
 		let fallbackFn: HttpRequestFunction;
 		if (options.http2) {
 			fallbackFn = http2wrapper.auto;
@@ -1306,20 +1288,22 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		}
 
 		const realFn = options.request ?? fallbackFn;
-		const fn = options.cache ? this._createCacheableRequest.bind(this) : realFn;
 
+		// Cache support
+		const fn = options.cache ? this._createCacheableRequest : realFn;
+
+		// Pass an agent directly when HTTP2 is disabled
 		if (agent && !options.http2) {
 			(options as unknown as RequestOptions).agent = agent[isHttps ? 'https' : 'http'];
 		}
 
+		// Prepare plain HTTP request options
 		options[kRequest] = realFn as HttpRequestFunction;
 		delete options.request;
 		delete options.timeout;
 
-		let requestOrResponse: ReturnType<RequestFunction>;
-
 		try {
-			requestOrResponse = await fn(url, options as unknown as RequestOptions);
+			let requestOrResponse = await fn(url, options as unknown as RequestOptions);
 
 			if (is.undefined(requestOrResponse)) {
 				requestOrResponse = fallbackFn(url, options as unknown as RequestOptions);
@@ -1346,8 +1330,8 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 				this._onResponse(requestOrResponse as IncomingMessage);
 			}
 		} catch (error) {
-			if (error instanceof RequestError) {
-				throw error;
+			if (error instanceof CacheableRequest.CacheError) {
+				throw new CacheError(error, this);
 			}
 
 			throw new RequestError(error.message, error, this);
