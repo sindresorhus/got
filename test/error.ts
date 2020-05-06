@@ -1,5 +1,6 @@
 import {promisify} from 'util';
 import http = require('http');
+import nock = require('nock');
 import stream = require('stream');
 import test from 'ava';
 import got, {RequestError, HTTPError} from '../source';
@@ -219,4 +220,12 @@ test.skip('the old stacktrace is recovered', async t => {
 	// The first `at get` points to where the error was wrapped,
 	// the second `at get` points to the real cause.
 	t.not(error.stack!.indexOf('at get'), error.stack!.lastIndexOf('at get'));
+});
+
+test('nock bug: socket hang up', async t => {
+	nock('http://example.com').get('/foo').reply(200);
+
+	const error = await t.throwsAsync(got('http://example.com/bar'));
+
+	t.true(error.message.includes('Nock: No match for request'));
 });
