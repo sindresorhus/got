@@ -333,6 +333,81 @@ test('allowGetBody sends json payload with .paginate()', withBodyParsingServer, 
 	t.deepEqual(results, [1, 2, 3]);
 });
 
+test.failing('`hooks` are not duplicated', withBodyParsingServer, async (t, server, got) => {
+	let page = 1;
+	server.get('/', (_request, response) => {
+		response.end(JSON.stringify([page++]));
+	});
+
+	const nopHook = () => {};
+
+	const result = await got.paginate.all<number>({
+		pagination: {
+			paginate: response => {
+				if ((response.body as string) === '[3]') {
+					return false; // Stop after page 3
+				}
+
+				const {options} = response.request;
+				const {init, beforeRequest, beforeRedirect, beforeRetry, afterResponse, beforeError} = options.hooks;
+				const hooksCount = [init, beforeRequest, beforeRedirect, beforeRetry, afterResponse, beforeError].map(a => a.length);
+
+				t.deepEqual(hooksCount, [1, 1, 1, 1, 1, 1]);
+
+				return options;
+			}
+		},
+		hooks: {
+			init: [nopHook],
+			beforeRequest: [nopHook],
+			beforeRedirect: [nopHook],
+			beforeRetry: [nopHook],
+			afterResponse: [response => response],
+			beforeError: [error => error]
+		}
+	});
+
+	t.deepEqual(result, [1, 2, 3]);
+});
+
+test.failing('allowGetBody sends correct json payload with .paginate()', withBodyParsingServer, async (t, server, got) => {
+	let page = 1;
+	server.get('/', (request, response) => {
+		try {
+			JSON.parse(request.body);
+		} catch {
+			response.statusCode = 422;
+		}
+
+		response.end(JSON.stringify([page++]));
+	});
+
+	const iterator = got.paginate<number>({
+		allowGetBody: true,
+		json: {boing: 'boom tschak'},
+		retry: 0,
+		pagination: {
+			paginate: response => {
+				if ((response.body as string) === '[3]') {
+					return false; // Stop after page 3
+				}
+
+				const {json, ...otherOptions}: any = response.request.options;
+
+				return {json: {...json, page}, ...otherOptions};
+			}
+		}
+	});
+
+	const results: number[] = [];
+
+	for await (const item of iterator) {
+		results.push(item);
+	}
+
+	t.deepEqual(results, [1, 2, 3]);
+});
+
 test('`requestLimit` works', withServer, async (t, server, got) => {
 	attachHandler(server, 2);
 
@@ -456,7 +531,7 @@ test('next url in json response', withServer, async (t, server, got) => {
 	]);
 });
 
-test.failing('pagiantion using searchParams', withServer, async (t, server, got) => {
+test.failing('pagination using searchParams', withServer, async (t, server, got) => {
 	server.get('/', (request, response) => {
 		const parameters = new URLSearchParams(request.url.slice(2));
 		const page = Number(parameters.get('page') ?? 0);
