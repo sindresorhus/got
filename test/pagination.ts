@@ -357,7 +357,14 @@ test.failing('`hooks` are not duplicated', withBodyParsingServer, async (t, serv
 				return options;
 			}
 		},
-		hooks: {init: [nopHook], beforeRequest: [nopHook], beforeRedirect: [nopHook], beforeRetry: [nopHook], afterResponse: [r => r], beforeError: [error => error]}
+		hooks: {
+			init: [nopHook],
+			beforeRequest: [nopHook],
+			beforeRedirect: [nopHook],
+			beforeRetry: [nopHook],
+			afterResponse: [response => response],
+			beforeError: [error => error]
+		}
 	});
 
 	t.deepEqual(result, [1, 2, 3]);
