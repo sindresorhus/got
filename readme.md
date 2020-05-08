@@ -481,10 +481,13 @@ Default: `false`
 
 ###### dnsCache
 
-Type: `object | false`\
-Default: `new CacheableLookup()`
+Type: `CacheableLookup | false`\
+Default: `false`
 
-An instance of [`CacheableLookup`](https://github.com/szmarczak/cacheable-lookup) used for making DNS lookups.
+An instance of [`CacheableLookup`](https://github.com/szmarczak/cacheable-lookup) used for making DNS lookups. Useful when making lots of requests to different *public* hostnames.
+
+**Note:** This should stay disabled when making requests to internal hostnames such as `localhost`, `database.local` etc.\
+`CacheableLookup` uses `dns.resolver4(..)` and `dns.resolver6(...)` under the hood and fall backs to `dns.lookup(...)` when the first two fail, which may lead to additional delay.
 
 ###### request
 
