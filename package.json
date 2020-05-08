@@ -43,15 +43,15 @@
 		"ky"
 	],
 	"dependencies": {
-		"@sindresorhus/is": "^2.1.0",
-		"@szmarczak/http-timer": "^4.0.0",
+		"@sindresorhus/is": "^2.1.1",
+		"@szmarczak/http-timer": "^4.0.5",
 		"@types/cacheable-request": "^6.0.1",
 		"@types/responselike": "^1.0.0",
-		"cacheable-lookup": "^4.1.1",
+		"cacheable-lookup": "^4.3.0",
 		"cacheable-request": "^7.0.1",
 		"decompress-response": "^5.0.0",
-		"get-stream": "^5.0.0",
-		"http2-wrapper": "^1.0.0-beta.4.4",
+		"get-stream": "^5.1.0",
+		"http2-wrapper": "^1.0.0-beta.4.5",
 		"lowercase-keys": "^2.0.0",
 		"p-cancelable": "^2.0.0",
 		"responselike": "^2.0.0"
