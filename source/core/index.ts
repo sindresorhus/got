@@ -595,7 +595,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		}
 
 		if (options.dnsCache === false) {
-			options.cache = undefined;
+			options.dnsCache = undefined;
 		}
 
 		// Nice type assertions
