@@ -1054,7 +1054,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 					if ('host' in options.headers) {
 						delete options.headers.host;
 					}
-					
+
 					if ('cookie' in options.headers) {
 						delete options.headers.cookie;
 					}
