@@ -43,6 +43,7 @@ const kStopReading = Symbol('stopReading');
 const kTriggerRead = Symbol('triggerRead');
 const kBody = Symbol('body');
 const kJobs = Symbol('jobs');
+const kOriginalResponse = Symbol('originalResponse');
 export const kIsNormalizedAlready = Symbol('isNormalizedAlready');
 
 const supportsBrotli = is.string((process.versions as any).brotli);
@@ -462,6 +463,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	[kCancelTimeouts]?: () => void;
 	[kResponseSize]?: number;
 	[kResponse]?: IncomingMessage;
+	[kOriginalResponse]?: IncomingMessage;
 	[kRequest]?: ClientRequest;
 	_noPipe?: boolean;
 	_progressCallbacks: Array<() => void>;
@@ -940,6 +942,8 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	async _onResponse(response: IncomingMessage): Promise<void> {
 		const {options} = this;
 		const {url} = options;
+
+		this[kOriginalResponse] = response;
 
 		if (options.decompress) {
 			response = decompressResponse(response);
@@ -1489,7 +1493,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	}
 
 	get aborted(): boolean {
-		return Boolean(this[kRequest]?.destroyed);
+		return (this[kRequest]?.destroyed ?? this.destroyed) && !(this[kOriginalResponse]?.complete);
 	}
 
 	get socket(): Socket | undefined {
