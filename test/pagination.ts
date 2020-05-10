@@ -1,5 +1,6 @@
 import {URL} from 'url';
 import test from 'ava';
+import getStream = require('get-stream');
 import got, {Response} from '../source';
 import withServer, {withBodyParsingServer} from './helpers/with-server';
 import {ExtendedTestServer} from './helpers/types';
@@ -333,7 +334,7 @@ test('allowGetBody sends json payload with .paginate()', withBodyParsingServer, 
 	t.deepEqual(results, [1, 2, 3]);
 });
 
-test('`hooks` are not duplicated', withBodyParsingServer, async (t, server, got) => {
+test('`hooks` are not duplicated', withServer, async (t, server, got) => {
 	let page = 1;
 	server.get('/', (_request, response) => {
 		response.end(JSON.stringify([page++]));
@@ -370,11 +371,11 @@ test('`hooks` are not duplicated', withBodyParsingServer, async (t, server, got)
 	t.deepEqual(result, [1, 2, 3]);
 });
 
-test.failing('allowGetBody sends correct json payload with .paginate()', withBodyParsingServer, async (t, server, got) => {
+test('allowGetBody sends correct json payload with .paginate()', withServer, async (t, server, got) => {
 	let page = 1;
-	server.get('/', (request, response) => {
+	server.get('/', async (request, response) => {
 		try {
-			JSON.parse(request.body);
+			JSON.parse(await getStream(request));
 		} catch {
 			response.statusCode = 422;
 		}
@@ -392,9 +393,11 @@ test.failing('allowGetBody sends correct json payload with .paginate()', withBod
 					return false; // Stop after page 3
 				}
 
-				const {json, ...otherOptions}: any = response.request.options;
+				const {json} = response.request.options;
 
-				return {json: {...json, page}, ...otherOptions};
+				return {
+					json: {...json, page}
+				};
 			}
 		}
 	});

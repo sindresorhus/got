@@ -724,7 +724,7 @@ The function takes three arguments:
 - `allItems` - An array of the emitted items.
 - `currentItems` - Items from the current response.
 
-It should return an object representing Got options pointing to the next page. If there are no more pages, `false` should be returned.
+It should return an object representing Got options pointing to the next page. The options are merged automatically with the previous request, therefore the options returned `pagination.paginate(...)` must reflect changes only. If there are no more pages, `false` should be returned.
 
 For example, if you want to stop when the response contains less items than expected, you can use something like this:
 
