@@ -523,7 +523,7 @@ const got = require('got');
 Type: `boolean`\
 Default: `true`
 
-Determines if a `got.HTTPError` is thrown for error responses (non-2xx status codes).
+Determines if a [`got.HTTPError`](#gothttperror) is thrown for unsuccessful responses.
 
 If this is disabled, requests that encounter an error status code will be resolved with the `response` instead of throwing. This may be useful if you are checking for resource availability and are expecting error responses.
 
@@ -1302,7 +1302,7 @@ When server response code is 2xx, and parsing body fails. Includes a `response` 
 
 #### got.HTTPError
 
-When the server response code is not 2xx. Includes a `response` property.
+When the server response code is not 2xx nor 3xx if `options.followRedirect` is `true`, but always except for 304. Includes a `response` property.
 
 #### got.MaxRedirectsError
 
