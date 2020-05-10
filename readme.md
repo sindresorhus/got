@@ -1298,13 +1298,11 @@ When reading from response stream fails.
 
 #### got.ParseError
 
-> *ok*: 2xx or 304, and includes other 3xx if `options.followRedirect` is set
-
-When server response code is ***ok***, and parsing body fails. Includes a `response` property.
+When server response code is 2xx, and parsing body fails. Includes a `response` property.
 
 #### got.HTTPError
 
-When the server response code is not ***ok***. Includes a `response` property.
+When the server response code is not 2xx nor 3xx if `options.followRedirect` is `true`, but always except for 304. Includes a `response` property.
 
 #### got.MaxRedirectsError
 
