@@ -102,3 +102,17 @@ test('default handlers are not duplicated', t => {
 	const instance = got.extend(got);
 	t.is(instance.defaults.handlers.length, 1);
 });
+
+test('URL is not polluted', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.end('ok');
+	});
+
+	await got({
+		username: 'foo'
+	});
+
+	const {options: normalizedOptions} = (await got({})).request;
+
+	t.is(normalizedOptions.username, '');
+});
