@@ -921,7 +921,7 @@ Returns a [duplex stream](https://nodejs.org/api/stream.html#stream_class_stream
 
 ```js
 got.stream('https://github.com')
-	.on('request', request => setTimeout(() => request.abort(), 50));
+	.on('request', request => setTimeout(() => request.destroy(), 50));
 ```
 
 ##### .on('response', response)
