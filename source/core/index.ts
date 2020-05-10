@@ -1057,6 +1057,10 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 				// Redirecting to a different site, clear sensitive data.
 				if (redirectUrl.hostname !== url.hostname) {
+					if ('host' in options.headers) {
+						delete options.headers.host;
+					}
+
 					if ('cookie' in options.headers) {
 						delete options.headers.cookie;
 					}
