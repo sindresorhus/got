@@ -437,7 +437,6 @@ export class UnsupportedProtocolError extends RequestError {
 
 const proxiedRequestEvents = [
 	'socket',
-	'abort',
 	'connect',
 	'continue',
 	'information',
@@ -549,7 +548,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 				await this._makeRequest();
 
 				if (this.destroyed) {
-					this[kRequest]?.abort();
+					this[kRequest]?.destroy();
 					return;
 				}
 
@@ -1474,7 +1473,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			// - https://github.com/nodejs/node/issues/32851
 			// - https://github.com/nock/nock/issues/1981
 			if (!this[kResponse]?.complete && !this[kRequest]!.destroyed) {
-				this[kRequest]!.abort();
+				this[kRequest]!.destroy();
 			}
 		}
 
