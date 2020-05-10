@@ -585,6 +585,10 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			if (url) {
 				options.url = url;
 			}
+
+			if (is.urlInstance(options.url)) {
+				options.url = new URL(options.url.toString());
+			}
 		}
 
 		// TODO: Deprecate URL options in Got 12.
