@@ -44,3 +44,38 @@ test('should replace URLs', t => {
 	t.is(options.url.href, 'http://localhost:41285/?page=1');
 	t.is(otherOptions.url.href, 'http://localhost:41285/?page=1');
 });
+
+test('should get username and password from the URL', t => {
+	const options = got.mergeOptions({
+		url: 'http://user:pass@localhost:41285'
+	});
+
+	t.is(options.username, 'user');
+	t.is(options.password, 'pass');
+});
+
+test('should get username and password from the options', t => {
+	const options = got.mergeOptions({
+		url: 'http://user:pass@localhost:41285',
+		username: 'user_OPT',
+		password: 'pass_OPT'
+	});
+
+	t.is(options.username, 'user_OPT');
+	t.is(options.password, 'pass_OPT');
+});
+
+test('should get username and password from the merged options', t => {
+	const options = got.mergeOptions(
+		{
+			url: 'http://user:pass@localhost:41285'
+		},
+		{
+			username: 'user_OPT_MERGE',
+			password: 'pass_OPT_MERGE'
+		}
+	);
+
+	t.is(options.username, 'user_OPT_MERGE');
+	t.is(options.password, 'pass_OPT_MERGE');
+});

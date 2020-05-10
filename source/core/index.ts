@@ -589,6 +589,10 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			if (url) {
 				options.url = url;
 			}
+
+			if (is.urlInstance(options.url)) {
+				options.url = new URL(options.url.toString());
+			}
 		}
 
 		// TODO: Deprecate URL options in Got 12.
@@ -730,9 +734,19 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 				throw new UnsupportedProtocolError(options as NormalizedOptions);
 			}
 
-			// Update `username` & `password`
-			options.url.username = options.username;
-			options.url.password = options.password;
+			// Update `username`
+			if (options.username === '') {
+				options.username = options.url.username;
+			} else {
+				options.url.username = options.username;
+			}
+
+			// Update `password`
+			if (options.password === '') {
+				options.password = options.url.password;
+			} else {
+				options.url.password = options.password;
+			}
 		}
 
 		// `options.cookieJar`
