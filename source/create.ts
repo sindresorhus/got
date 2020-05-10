@@ -146,15 +146,11 @@ const create = (defaults: InstanceDefaults): Got => {
 				throw new RequestError(initHookError.message, initHookError, normalizedOptions);
 			}
 
-			// A bug.
-			// eslint-disable-next-line @typescript-eslint/return-await
 			return iterateHandlers(normalizedOptions);
 		} catch (error) {
 			if (options?.isStream) {
 				throw error;
 			} else {
-				// A bug.
-				// eslint-disable-next-line @typescript-eslint/return-await
 				return createRejection(error, defaults.options.hooks.beforeError, options?.hooks?.beforeError);
 			}
 		}

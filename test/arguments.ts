@@ -522,3 +522,22 @@ test('allowGetBody sends json payload', withBodyParsingServer, async (t, server,
 	});
 	t.is(statusCode, 200);
 });
+
+test('no URL pollution', withServer, async (t, server) => {
+	server.get('/ok', echoUrl);
+
+	const url = new URL(server.url);
+
+	const {body} = await got(url, {
+		hooks: {
+			beforeRequest: [
+				options => {
+					options.url.pathname = '/ok';
+				}
+			]
+		}
+	});
+
+	t.is(url.pathname, '/');
+	t.is(body, '/ok');
+});

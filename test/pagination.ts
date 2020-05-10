@@ -333,6 +333,81 @@ test('allowGetBody sends json payload with .paginate()', withBodyParsingServer, 
 	t.deepEqual(results, [1, 2, 3]);
 });
 
+test.failing('`hooks` are not duplicated', withBodyParsingServer, async (t, server, got) => {
+	let page = 1;
+	server.get('/', (_request, response) => {
+		response.end(JSON.stringify([page++]));
+	});
+
+	const nopHook = () => {};
+
+	const result = await got.paginate.all<number>({
+		pagination: {
+			paginate: response => {
+				if ((response.body as string) === '[3]') {
+					return false; // Stop after page 3
+				}
+
+				const {options} = response.request;
+				const {init, beforeRequest, beforeRedirect, beforeRetry, afterResponse, beforeError} = options.hooks;
+				const hooksCount = [init, beforeRequest, beforeRedirect, beforeRetry, afterResponse, beforeError].map(a => a.length);
+
+				t.deepEqual(hooksCount, [1, 1, 1, 1, 1, 1]);
+
+				return options;
+			}
+		},
+		hooks: {
+			init: [nopHook],
+			beforeRequest: [nopHook],
+			beforeRedirect: [nopHook],
+			beforeRetry: [nopHook],
+			afterResponse: [response => response],
+			beforeError: [error => error]
+		}
+	});
+
+	t.deepEqual(result, [1, 2, 3]);
+});
+
+test.failing('allowGetBody sends correct json payload with .paginate()', withBodyParsingServer, async (t, server, got) => {
+	let page = 1;
+	server.get('/', (request, response) => {
+		try {
+			JSON.parse(request.body);
+		} catch {
+			response.statusCode = 422;
+		}
+
+		response.end(JSON.stringify([page++]));
+	});
+
+	const iterator = got.paginate<number>({
+		allowGetBody: true,
+		json: {boing: 'boom tschak'},
+		retry: 0,
+		pagination: {
+			paginate: response => {
+				if ((response.body as string) === '[3]') {
+					return false; // Stop after page 3
+				}
+
+				const {json, ...otherOptions}: any = response.request.options;
+
+				return {json: {...json, page}, ...otherOptions};
+			}
+		}
+	});
+
+	const results: number[] = [];
+
+	for await (const item of iterator) {
+		results.push(item);
+	}
+
+	t.deepEqual(results, [1, 2, 3]);
+});
+
 test('`requestLimit` works', withServer, async (t, server, got) => {
 	attachHandler(server, 2);
 
@@ -503,5 +578,61 @@ test('pagination using searchParams', withServer, async (t, server, got) => {
 		'/?page=1',
 		'/?page=2',
 		'/?page=3'
+	]);
+});
+
+test('pagination using extended searchParams', withServer, async (t, server, got) => {
+	server.get('/', (request, response) => {
+		const parameters = new URLSearchParams(request.url.slice(2));
+		const page = Number(parameters.get('page') ?? 0);
+
+		response.end(JSON.stringify({
+			currentUrl: request.url,
+			next: page < 3
+		}));
+	});
+
+	interface Page {
+		currentUrl: string;
+		next?: string;
+	}
+
+	const client = got.extend({
+		searchParams: {
+			limit: 10
+		}
+	});
+
+	const all = await client.paginate.all('', {
+		searchParams: {
+			page: 0
+		},
+		responseType: 'json',
+		pagination: {
+			transform: (response: Response<Page>) => {
+				return [response.body.currentUrl];
+			},
+			paginate: (response: Response<Page>) => {
+				const {next} = response.body;
+				const previousPage = Number(response.request.options.searchParams!.get('page'));
+
+				if (!next) {
+					return false;
+				}
+
+				return {
+					searchParams: {
+						page: previousPage + 1
+					}
+				};
+			}
+		}
+	});
+
+	t.deepEqual(all, [
+		'/?page=0&limit=10',
+		'/?page=1&limit=10',
+		'/?page=2&limit=10',
+		'/?page=3&limit=10'
 	]);
 });
