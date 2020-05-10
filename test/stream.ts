@@ -273,16 +273,16 @@ test('proxies `content-encoding` header when `options.decompress` is false', wit
 	t.is(headers['content-encoding'], 'gzip');
 });
 
-test('destroying got.stream() cancels the request - `request` event', withServer, async (t, server, got) => {
+test('destroying got.stream() destroys the request - `request` event', withServer, async (t, server, got) => {
 	server.get('/', defaultHandler);
 
 	const stream = got.stream('');
 	const request = await pEvent(stream, 'request');
 	stream.destroy();
-	t.truthy(request.aborted);
+	t.truthy(request.destroyed);
 });
 
-test('destroying got.stream() cancels the request - `response` event', withServer, async (t, server, got) => {
+test('destroying got.stream() destroys the request - `response` event', withServer, async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.write('hello');
 	});
@@ -291,7 +291,7 @@ test('destroying got.stream() cancels the request - `response` event', withServe
 	const request = await pEvent(stream, 'request');
 	await pEvent(stream, 'response');
 	stream.destroy();
-	t.truthy(request.aborted);
+	t.truthy(request.destroyed);
 });
 
 test('piping to got.stream.put()', withServer, async (t, server, got) => {
