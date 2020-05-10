@@ -1475,8 +1475,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 			// TODO: Remove the next `if` when these get fixed:
 			// - https://github.com/nodejs/node/issues/32851
-			// - https://github.com/nock/nock/issues/1981
-			if (!this[kResponse]?.complete && !this[kRequest]!.destroyed) {
+			if (!this[kResponse]?.complete) {
 				this[kRequest]!.destroy();
 			}
 		}
