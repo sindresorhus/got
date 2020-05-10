@@ -566,7 +566,10 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 					return;
 				}
 
-				this.destroy(error);
+				// This is a workaround for https://github.com/nodejs/node/issues/33335
+				if (!this.destroyed) {
+					this.destroy(error);
+				}
 			}
 		})(options);
 	}
@@ -1372,7 +1375,10 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			error = new RequestError(error_.message, error_, this);
 		}
 
-		this.destroy(error);
+		// This is a workaround for https://github.com/nodejs/node/issues/33335
+		if (!this.destroyed) {
+			this.destroy(error);
+		}
 	}
 
 	_read(): void {
