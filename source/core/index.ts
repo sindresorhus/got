@@ -1489,7 +1489,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	}
 
 	get aborted(): boolean {
-		return Boolean(this[kRequest]?.aborted);
+		return Boolean(this[kRequest]?.destroyed);
 	}
 
 	get socket(): Socket | undefined {
