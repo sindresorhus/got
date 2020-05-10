@@ -726,13 +726,18 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 				throw new UnsupportedProtocolError(options as NormalizedOptions);
 			}
 
-			// Update `username` & `password`
+			// Update `username`
 			if (options.username !== '') {
 				options.url.username = options.username;
+			} else {
+				options.username = options.url.username;
 			}
 
+			// Update `password`
 			if (options.password !== '') {
 				options.url.password = options.password;
+			} else {
+				options.password = options.url.password;
 			}
 		}
 
