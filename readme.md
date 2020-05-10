@@ -1178,7 +1178,7 @@ Options are deeply merged to a new object. The value of each key is determined a
 	- If the parent property is a plain `object`, the parent value is deeply cloned.
 	- Otherwise, `undefined` is used.
 - If the parent value is an instance of `URLSearchParams`:
-	- If the new value is a `string`, an `object` or an instance of `URLSearchParams`, a new `URLSearchParams` instance is created. The values are merged using [`urlSearchParams.append(key, value)`](https://developer.mozilla.org/en-US/docs/Web/API/URLSearchParams/append).
+	- If the new value is a `string`, an `object` or an instance of `URLSearchParams`, a new `URLSearchParams` instance is created. The values are merged using [`urlSearchParams.append(key, value)`](https://developer.mozilla.org/en-US/docs/Web/API/URLSearchParams/append). The keys defined in the new value override the keys defined in the parent value.
 	- Otherwise, the only available value is `undefined`.
 - If the new property is a plain `object`:
 	- If the parent property is a plain `object` too, both values are merged recursively into a new `object`.
