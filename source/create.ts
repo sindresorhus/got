@@ -239,7 +239,9 @@ const create = (defaults: InstanceDefaults): Got => {
 				return;
 			}
 
-			if (optionsToMerge !== undefined) {
+			if (optionsToMerge === result.request.options) {
+				normalizedOptions = result.request.options;
+			} else if (optionsToMerge !== undefined) {
 				normalizedOptions = normalizeArguments(undefined, optionsToMerge, normalizedOptions);
 			}
 

@@ -333,7 +333,7 @@ test('allowGetBody sends json payload with .paginate()', withBodyParsingServer, 
 	t.deepEqual(results, [1, 2, 3]);
 });
 
-test.failing('`hooks` are not duplicated', withBodyParsingServer, async (t, server, got) => {
+test('`hooks` are not duplicated', withBodyParsingServer, async (t, server, got) => {
 	let page = 1;
 	server.get('/', (_request, response) => {
 		response.end(JSON.stringify([page++]));
