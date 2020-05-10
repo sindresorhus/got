@@ -523,7 +523,7 @@ const got = require('got');
 Type: `boolean`\
 Default: `true`
 
-Determines if a [`got.HTTPError`](#gothttperror) is thrown for error responses.
+Determines if a [`got.HTTPError`](#gothttperror) is thrown for unsuccessful responses.
 
 If this is disabled, requests that encounter an error status code will be resolved with the `response` instead of throwing. This may be useful if you are checking for resource availability and are expecting error responses.
 
