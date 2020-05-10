@@ -481,10 +481,13 @@ Default: `false`
 
 ###### dnsCache
 
-Type: `object | false`\
-Default: `new CacheableLookup()`
+Type: `CacheableLookup | false`\
+Default: `false`
 
-An instance of [`CacheableLookup`](https://github.com/szmarczak/cacheable-lookup) used for making DNS lookups.
+An instance of [`CacheableLookup`](https://github.com/szmarczak/cacheable-lookup) used for making DNS lookups. Useful when making lots of requests to different *public* hostnames.
+
+**Note:** This should stay disabled when making requests to internal hostnames such as `localhost`, `database.local` etc.\
+`CacheableLookup` uses `dns.resolver4(..)` and `dns.resolver6(...)` under the hood and fall backs to `dns.lookup(...)` when the first two fail, which may lead to additional delay.
 
 ###### request
 
@@ -918,7 +921,7 @@ Returns a [duplex stream](https://nodejs.org/api/stream.html#stream_class_stream
 
 ```js
 got.stream('https://github.com')
-	.on('request', request => setTimeout(() => request.abort(), 50));
+	.on('request', request => setTimeout(() => request.destroy(), 50));
 ```
 
 ##### .on('response', response)

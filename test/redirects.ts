@@ -2,7 +2,7 @@ import {TLSSocket} from 'tls';
 import test from 'ava';
 import {Handler} from 'express';
 import nock = require('nock');
-import {MaxRedirectsError} from '../source';
+import got, {MaxRedirectsError} from '../source';
 import withServer from './helpers/with-server';
 
 const reachedHandler: Handler = (_request, response) => {
@@ -431,4 +431,14 @@ test('clears the authorization header when redirecting to a different hostname',
 		}
 	}).json();
 	t.is(headers.Authorization, undefined);
+});
+
+test('clears the host header when redirecting to a different hostname', async t => {
+	nock('https://testweb.com').get('/redirect').reply(302, undefined, {location: 'https://webtest.com/'});
+	nock('https://webtest.com').get('/').reply(function (_uri, _body) {
+		return [200, this.req.getHeader('host')];
+	});
+
+	const resp = await got('https://testweb.com/redirect', {headers: {host: 'wrongsite.com'}});
+	t.is(resp.body, 'webtest.com');
 });

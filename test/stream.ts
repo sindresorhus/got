@@ -273,26 +273,31 @@ test('proxies `content-encoding` header when `options.decompress` is false', wit
 	t.is(headers['content-encoding'], 'gzip');
 });
 
-test('destroying got.stream() cancels the request - `request` event', withServer, async (t, server, got) => {
-	server.get('/', defaultHandler);
+{
+	const nodejsMajorVersion = Number(process.versions.node.split('.')[0]);
+	const testFn = nodejsMajorVersion < 14 ? test.failing : test;
 
-	const stream = got.stream('');
-	const request = await pEvent(stream, 'request');
-	stream.destroy();
-	t.truthy(request.aborted);
-});
+	testFn('destroying got.stream() destroys the request - `request` event', withServer, async (t, server, got) => {
+		server.get('/', defaultHandler);
 
-test('destroying got.stream() cancels the request - `response` event', withServer, async (t, server, got) => {
-	server.get('/', (_request, response) => {
-		response.write('hello');
+		const stream = got.stream('');
+		const request = await pEvent(stream, 'request');
+		stream.destroy();
+		t.truthy(request.destroyed);
 	});
 
-	const stream = got.stream('');
-	const request = await pEvent(stream, 'request');
-	await pEvent(stream, 'response');
-	stream.destroy();
-	t.truthy(request.aborted);
-});
+	testFn('destroying got.stream() destroys the request - `response` event', withServer, async (t, server, got) => {
+		server.get('/', (_request, response) => {
+			response.write('hello');
+		});
+
+		const stream = got.stream('');
+		const request = await pEvent(stream, 'request');
+		await pEvent(stream, 'response');
+		stream.destroy();
+		t.truthy(request.destroyed);
+	});
+}
 
 test('piping to got.stream.put()', withServer, async (t, server, got) => {
 	server.get('/', defaultHandler);

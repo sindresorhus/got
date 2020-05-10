@@ -43,6 +43,7 @@ const kStopReading = Symbol('stopReading');
 const kTriggerRead = Symbol('triggerRead');
 const kBody = Symbol('body');
 const kJobs = Symbol('jobs');
+const kOriginalResponse = Symbol('originalResponse');
 export const kIsNormalizedAlready = Symbol('isNormalizedAlready');
 
 const supportsBrotli = is.string((process.versions as any).brotli);
@@ -437,7 +438,6 @@ export class UnsupportedProtocolError extends RequestError {
 
 const proxiedRequestEvents = [
 	'socket',
-	'abort',
 	'connect',
 	'continue',
 	'information',
@@ -463,6 +463,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	[kCancelTimeouts]?: () => void;
 	[kResponseSize]?: number;
 	[kResponse]?: IncomingMessage;
+	[kOriginalResponse]?: IncomingMessage;
 	[kRequest]?: ClientRequest;
 	_noPipe?: boolean;
 	_progressCallbacks: Array<() => void>;
@@ -549,7 +550,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 				await this._makeRequest();
 
 				if (this.destroyed) {
-					this[kRequest]?.abort();
+					this[kRequest]?.destroy();
 					return;
 				}
 
@@ -565,7 +566,10 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 					return;
 				}
 
-				this.destroy(error);
+				// This is a workaround for https://github.com/nodejs/node/issues/33335
+				if (!this.destroyed) {
+					this.destroy(error);
+				}
 			}
 		})(options);
 	}
@@ -585,6 +589,10 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			if (url) {
 				options.url = url;
 			}
+
+			if (is.urlInstance(options.url)) {
+				options.url = new URL(options.url.toString());
+			}
 		}
 
 		// TODO: Deprecate URL options in Got 12.
@@ -592,6 +600,10 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		// Support extend-specific options
 		if (options.cache === false) {
 			options.cache = undefined;
+		}
+
+		if (options.dnsCache === false) {
+			options.dnsCache = undefined;
 		}
 
 		// Nice type assertions
@@ -727,9 +739,19 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 				throw new UnsupportedProtocolError(options as NormalizedOptions);
 			}
 
-			// Update `username` & `password`
-			options.url.username = options.username;
-			options.url.password = options.password;
+			// Update `username`
+			if (options.username === '') {
+				options.username = options.url.username;
+			} else {
+				options.url.username = options.username;
+			}
+
+			// Update `password`
+			if (options.password === '') {
+				options.password = options.url.password;
+			} else {
+				options.url.password = options.password;
+			}
 		}
 
 		// `options.cookieJar`
@@ -766,7 +788,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		// `options.dnsCache`
 		if (options.dnsCache === true) {
 			options.dnsCache = new CacheableLookup();
-		} else if (!is.undefined(options.dnsCache) && options.dnsCache !== false && !(options.dnsCache instanceof CacheableLookup)) {
+		} else if (!is.undefined(options.dnsCache) && !(options.dnsCache instanceof CacheableLookup)) {
 			throw new TypeError(`Parameter \`dnsCache\` must be a CacheableLookup instance or a boolean, got ${is(options.dnsCache)}`);
 		}
 
@@ -943,6 +965,8 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		const {options} = this;
 		const {url} = options;
 
+		this[kOriginalResponse] = response;
+
 		if (options.decompress) {
 			response = decompressResponse(response);
 		}
@@ -1052,6 +1076,10 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 				// Redirecting to a different site, clear sensitive data.
 				if (redirectUrl.hostname !== url.hostname) {
+					if ('host' in options.headers) {
+						delete options.headers.host;
+					}
+
 					if ('cookie' in options.headers) {
 						delete options.headers.cookie;
 					}
@@ -1370,7 +1398,10 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			error = new RequestError(error_.message, error_, this);
 		}
 
-		this.destroy(error);
+		// This is a workaround for https://github.com/nodejs/node/issues/33335
+		if (!this.destroyed) {
+			this.destroy(error);
+		}
 	}
 
 	_read(): void {
@@ -1473,9 +1504,8 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 			// TODO: Remove the next `if` when these get fixed:
 			// - https://github.com/nodejs/node/issues/32851
-			// - https://github.com/nock/nock/issues/1981
-			if (!this[kResponse]?.complete && !this[kRequest]!.destroyed) {
-				this[kRequest]!.abort();
+			if (!this[kResponse]?.complete) {
+				this[kRequest]!.destroy();
 			}
 		}
 
@@ -1491,7 +1521,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	}
 
 	get aborted(): boolean {
-		return Boolean(this[kRequest]?.aborted);
+		return (this[kRequest]?.destroyed ?? this.destroyed) && !(this[kOriginalResponse]?.complete);
 	}
 
 	get socket(): Socket | undefined {
