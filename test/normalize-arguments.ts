@@ -11,6 +11,21 @@ test('should merge options replacing responseType', t => {
 	t.is(options.responseType, responseType);
 });
 
+test('no duplicated searchParams values', t => {
+	const options = got.mergeOptions(got.defaults.options, {
+		searchParams: 'string=true&noDuplication=true'
+	}, {
+		searchParams: new URLSearchParams({
+			instance: 'true',
+			noDuplication: 'true'
+		})
+	});
+
+	t.is(options.searchParams?.get('string'), 'true');
+	t.is(options.searchParams?.get('instance'), 'true');
+	t.is(options.searchParams?.getAll('noDuplication').length, 1);
+});
+
 test('should copy non-numerable properties', t => {
 	const options = {
 		json: {hello: '123'}
