@@ -374,29 +374,37 @@ test('`hooks` are not duplicated', withServer, async (t, server, got) => {
 test('allowGetBody sends correct json payload with .paginate()', withServer, async (t, server, got) => {
 	let page = 1;
 	server.get('/', async (request, response) => {
+		const payload = await getStream(request);
+
 		try {
-			JSON.parse(await getStream(request));
+			JSON.parse(payload);
 		} catch {
 			response.statusCode = 422;
+		}
+
+		if (request.headers['content-length']) {
+			t.is(Number(request.headers['content-length'] || 0), Buffer.byteLength(payload));
 		}
 
 		response.end(JSON.stringify([page++]));
 	});
 
+	let body = '';
+
 	const iterator = got.paginate<number>({
 		allowGetBody: true,
-		json: {boing: 'boom tschak'},
 		retry: 0,
+		json: {body},
 		pagination: {
-			paginate: response => {
-				if ((response.body as string) === '[3]') {
-					return false; // Stop after page 3
+			paginate: () => {
+				if (body.length === 2) {
+					return false;
 				}
 
-				const {json} = response.request.options;
+				body += 'a';
 
 				return {
-					json: {...json, page}
+					json: {body}
 				};
 			}
 		}
