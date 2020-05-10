@@ -601,7 +601,7 @@ test('pagination using extended searchParams', withServer, async (t, server, got
 		searchParams: {
 			limit: 10
 		}
-	})
+	});
 
 	const all = await client.paginate.all('', {
 		searchParams: {
