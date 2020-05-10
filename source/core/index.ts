@@ -727,17 +727,17 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			}
 
 			// Update `username`
-			if (options.username !== '') {
-				options.url.username = options.username;
-			} else {
+			if (options.username === '') {
 				options.username = options.url.username;
+			} else {
+				options.url.username = options.username;
 			}
 
 			// Update `password`
-			if (options.password !== '') {
-				options.url.password = options.password;
-			} else {
+			if (options.password === '') {
 				options.password = options.url.password;
+			} else {
+				options.url.password = options.password;
 			}
 		}
 
