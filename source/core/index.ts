@@ -8,7 +8,6 @@ import http = require('http');
 import {ClientRequest, RequestOptions, IncomingMessage, ServerResponse, request as httpRequest} from 'http';
 import https = require('https');
 import timer, {ClientRequestWithTimings, Timings, IncomingMessageWithTimings} from '@szmarczak/http-timer';
-import decompressResponse = require('decompress-response');
 import CacheableLookup from 'cacheable-lookup';
 import CacheableRequest = require('cacheable-request');
 // @ts-ignore Missing types
@@ -24,6 +23,7 @@ import timedOut, {Delays, TimeoutError as TimedOutTimeoutError} from './utils/ti
 import urlToOptions from './utils/url-to-options';
 import optionsToUrl, {URLOptions} from './utils/options-to-url';
 import WeakableMap from './utils/weakable-map';
+import decompressResponse from './utils/decompress-response';
 
 type HttpRequestFunction = typeof httpRequest;
 type Error = NodeJS.ErrnoException;
