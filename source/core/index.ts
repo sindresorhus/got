@@ -728,10 +728,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 			// Trigger search params normalization
 			if (options.url.search) {
-				const triggerSearchParameters = '_GOT_INTERNAL_TRIGGER_NORMALIZATION';
-
-				options.url.searchParams.append(triggerSearchParameters, '');
-				options.url.searchParams.delete(triggerSearchParameters);
+				options.url.search = decodeURIComponent(options.url.search.toString());
 			}
 
 			// Protocol check
@@ -1068,8 +1065,10 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			}
 
 			try {
-				// Handles invalid URLs. See https://github.com/sindresorhus/got/issues/604
+				// Do not remove. See https://github.com/sindresorhus/got/pull/214
 				const redirectBuffer = Buffer.from(response.headers.location, 'binary').toString();
+
+				// Handles invalid URLs. See https://github.com/sindresorhus/got/issues/604
 				const redirectUrl = new URL(redirectBuffer, url);
 				const redirectString = redirectUrl.toString();
 				decodeURI(redirectString);
