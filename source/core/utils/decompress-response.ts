@@ -1,7 +1,7 @@
 'use strict';
 import {IncomingMessage} from 'http';
 import {Transform, PassThrough} from 'stream';
-const zlib = require('zlib');
+import zlib = require('zlib');
 
 const knownProperties = [
 	'aborted',
@@ -23,7 +23,7 @@ const knownProperties = [
 ];
 
 const decompressResponse = (response: IncomingMessage): IncomingMessage => {
-	const contentEncoding = (response.headers['content-encoding'] || '').toLowerCase();
+	const contentEncoding = (response.headers['content-encoding'] ?? '').toLowerCase();
 
 	if (!['gzip', 'deflate', 'br'].includes(contentEncoding)) {
 		return response;
