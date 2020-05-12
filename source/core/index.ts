@@ -3,7 +3,7 @@ import {Duplex, Writable, Readable} from 'stream';
 import {ReadStream} from 'fs';
 import {URL, URLSearchParams} from 'url';
 import {Socket} from 'net';
-import {SecureContextOptions, PeerCertificate} from 'tls';
+import {SecureContextOptions, DetailedPeerCertificate} from 'tls';
 import http = require('http');
 import {ClientRequest, RequestOptions, IncomingMessage, ServerResponse, request as httpRequest} from 'http';
 import https = require('https');
@@ -142,7 +142,7 @@ export interface Options extends URLOptions, SecureContextOptions {
 	allowGetBody?: boolean;
 	lookup?: CacheableLookup['lookup'];
 	rejectUnauthorized?: boolean;
-	checkServerIdentity?: (hostname: string, certificate: PeerCertificate) => Error | void;
+	checkServerIdentity?: (hostname: string, certificate: DetailedPeerCertificate) => Error | void;
 	headers?: Headers;
 	methodRewriting?: boolean;
 
