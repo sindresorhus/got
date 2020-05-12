@@ -144,6 +144,9 @@ If no protocol is specified, it will throw a `TypeError`.
 ```
 got('https://example.com/?query=a b'); //=> https://example.com/?query=a%20b
 got('https://example.com/', {searchParams: {query: 'a b'}}); //=> https://example.com/?query=a+b
+
+// The query string is overridden by `searchParams`
+got('https://example.com/?query=a b', {searchParams: {query: 'a b'}}); //=> https://example.com/?query=a+b
 ```
 
 ##### options
