@@ -1,5 +1,4 @@
 import {EventEmitter} from 'events';
-import getStream = require('get-stream');
 import PCancelable = require('p-cancelable');
 import calculateRetryDelay from './calculate-retry-delay';
 import {
@@ -11,6 +10,7 @@ import {
 } from './types';
 import PromisableRequest, {parseBody} from './core';
 import proxyEvents from '../core/utils/proxy-events';
+import getBuffer from '../core/utils/get-buffer';
 
 const proxiedRequestEvents = [
 	'request',
@@ -76,7 +76,7 @@ export default function asPromise<T>(options: NormalizedOptions): CancelableRequ
 				// Download body
 				let rawBody;
 				try {
-					rawBody = await getStream.buffer(request);
+					rawBody = await getBuffer(request);
 
 					response.rawBody = rawBody;
 				} catch (_) {

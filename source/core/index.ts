@@ -14,7 +14,6 @@ import CacheableRequest = require('cacheable-request');
 import http2wrapper = require('http2-wrapper');
 import lowercaseKeys = require('lowercase-keys');
 import ResponseLike = require('responselike');
-import getStream = require('get-stream');
 import is, {assert} from '@sindresorhus/is';
 import getBodySize from './utils/get-body-size';
 import isFormData from './utils/is-form-data';
@@ -24,6 +23,7 @@ import urlToOptions from './utils/url-to-options';
 import optionsToUrl, {URLOptions} from './utils/options-to-url';
 import WeakableMap from './utils/weakable-map';
 import decompressResponse from './utils/decompress-response';
+import getBuffer from './utils/get-buffer';
 
 type HttpRequestFunction = typeof httpRequest;
 type Error = NodeJS.ErrnoException;
@@ -1385,7 +1385,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			if (response) {
 				response.setEncoding((this as any)._readableState.encoding);
 
-				response.rawBody = await getStream.buffer(response);
+				response.rawBody = await getBuffer(response);
 				response.body = response.rawBody.toString();
 			}
 		} catch (_) {}
