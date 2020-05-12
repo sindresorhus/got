@@ -14,7 +14,7 @@ const getBuffer = async (stream: Readable) => {
 	if (Buffer.isBuffer(chunks[0])) {
 		return Buffer.concat(chunks, length);
 	}
-	
+
 	return Buffer.from(chunks.join(''));
 };
 
