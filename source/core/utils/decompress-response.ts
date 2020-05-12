@@ -21,6 +21,7 @@ const knownProperties = [
 	'url'
 ];
 
+// TODO: Switch back to the `decompress-response` package when it's fixed
 const decompressResponse = (response: IncomingMessage): IncomingMessage => {
 	const contentEncoding = (response.headers['content-encoding'] ?? '').toLowerCase();
 
