@@ -1,7 +1,8 @@
-import {STATUS_CODES} from 'http';
+import {STATUS_CODES, Agent} from 'http';
 import test from 'ava';
 import nock = require('nock');
 import getStream = require('get-stream');
+import pEvent = require('p-event');
 import got, {HTTPError, UnsupportedProtocolError} from '../source';
 import withServer from './helpers/with-server';
 
@@ -216,4 +217,41 @@ test('statusMessage fallback', async t => {
 	});
 
 	t.is(statusMessage, STATUS_CODES[503]);
+});
+
+test('does not destroy completed requests', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.setHeader('content-encoding', 'gzip');
+		response.end('');
+	});
+
+	const options = {
+		agent: {
+			http: new Agent({keepAlive: true})
+		},
+		retry: 0
+	};
+
+	const stream = got.stream(options);
+	stream.resume();
+
+	const endPromise = pEvent(stream, 'end');
+
+	const socket = await pEvent(stream, 'socket');
+
+	const closeListener = () => {
+		t.fail('Socket has been destroyed');
+	};
+
+	socket.once('close', closeListener);
+
+	await new Promise(resolve => setTimeout(resolve, 10));
+
+	socket.off('close', closeListener);
+
+	await endPromise;
+
+	options.agent.http.destroy();
+
+	t.pass();
 });
