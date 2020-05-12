@@ -1067,7 +1067,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 				const redirectUrl = new URL(redirectBuffer, url);
 				const redirectString = redirectUrl.toString();
 				decodeURI(redirectString);
-				
+
 				// Redirecting to a different site, clear sensitive data.
 				if (redirectUrl.hostname !== url.hostname) {
 					if ('host' in options.headers) {
