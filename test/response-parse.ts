@@ -44,6 +44,12 @@ test('Text response', withServer, async (t, server, got) => {
 	t.is((await got({responseType: 'text'})).body, jsonResponse);
 });
 
+test('Text response #2', withServer, async (t, server, got) => {
+	server.get('/', defaultHandler);
+
+	t.is((await got({responseType: undefined})).body, jsonResponse);
+});
+
 test('JSON response - promise.json()', withServer, async (t, server, got) => {
 	server.get('/', defaultHandler);
 

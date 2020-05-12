@@ -624,6 +624,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		assert.any([is.boolean, is.undefined], options.http2);
 		assert.any([is.boolean, is.undefined], options.allowGetBody);
 		assert.any([is.boolean, is.undefined], options.rejectUnauthorized);
+		assert.any([is.string, is.undefined], options.localAddress);
 
 		// `options.method`
 		if (is.string(options.method)) {
