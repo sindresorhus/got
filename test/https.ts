@@ -7,7 +7,7 @@ test('https request without ca', withServer, async (t, server, got) => {
 		response.end('ok');
 	});
 
-	t.truthy((await got({rejectUnauthorized: false})).body);
+	t.truthy((await got.secure({rejectUnauthorized: false})).body);
 });
 
 test('https request with ca', withServer, async (t, server, got) => {
@@ -15,10 +15,11 @@ test('https request with ca', withServer, async (t, server, got) => {
 		response.end('ok');
 	});
 
-	const {body} = await got({
+	const {body} = await got.secure({
 		ca: server.caCert,
-		headers: {host: 'sindresorhus.com'}
+		headers: {host: 'example.com'}
 	});
+
 	t.is(body, 'ok');
 });
 

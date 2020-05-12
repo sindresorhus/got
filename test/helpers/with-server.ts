@@ -18,7 +18,8 @@ const generateHook = ({install, options: testServerOptions}: {install?: boolean;
 	const server = await createTestServer(is.plainObject(testServerOptions) ? testServerOptions : {
 		bodyParser: {
 			type: () => false
-		}
+		},
+		certificate: 'example.com'
 	}) as ExtendedTestServer;
 
 	const options: InstanceDefaults = {
