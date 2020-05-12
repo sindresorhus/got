@@ -139,6 +139,16 @@ Properties from `options` will override properties in the parsed `url`.
 
 If no protocol is specified, it will throw a `TypeError`.
 
+**Note:** The query string is **not** parsed as search params. Example:
+
+```
+got('https://example.com/?query=a b'); //=> https://example.com/?query=a%20b
+got('https://example.com/', {searchParams: {query: 'a b'}}); //=> https://example.com/?query=a+b
+
+// The query string is overridden by `searchParams`
+got('https://example.com/?query=a b', {searchParams: {query: 'a b'}}); //=> https://example.com/?query=a+b
+```
+
 ##### options
 
 Type: `object`

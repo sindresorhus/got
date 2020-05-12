@@ -55,12 +55,12 @@ test('throws an error if the protocol is not specified', async t => {
 	});
 });
 
-test('string url with searchParams is preserved', withServer, async (t, server, got) => {
+test('properly encodes query string', withServer, async (t, server, got) => {
 	server.get('/', echoUrl);
 
 	const path = '?test=http://example.com?foo=bar';
 	const {body} = await got(path);
-	t.is(body, '/?test=http%3A%2F%2Fexample.com%3Ffoo%3Dbar');
+	t.is(body, '/?test=http://example.com?foo=bar');
 });
 
 test('options are optional', withServer, async (t, server, got) => {
@@ -469,12 +469,12 @@ test('does not throw on frozen options', withServer, async (t, server, got) => {
 	t.is(body, '/');
 });
 
-test('normalizes search params included in input', t => {
+test('encodes query string included in input', t => {
 	const {url} = got.mergeOptions({
 		url: new URL('https://example.com/?a=b c')
 	});
 
-	t.is(url.search, '?a=b+c');
+	t.is(url.search, '?a=b%20c');
 });
 
 test('normalizes search params included in options', t => {
