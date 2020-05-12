@@ -110,6 +110,7 @@ const create = (defaults: InstanceDefaults): Got => {
 		return result;
 	}));
 
+	// Got interface
 	const got: Got = ((url: string | URL, options?: Options): GotReturn => {
 		let iteration = 0;
 		const iterateHandlers = (newOptions: NormalizedOptions): GotReturn => {
@@ -190,7 +191,8 @@ const create = (defaults: InstanceDefaults): Got => {
 		});
 	};
 
-	got.paginate = (async function * <T, R>(url: string | URL, options?: OptionsWithPagination<T, R>) {
+	// Pagination
+	const paginateEach = (async function * <T, R>(url: string | URL, options?: OptionsWithPagination<T, R>) {
 		let normalizedOptions = normalizeArguments(url, options, defaults.options);
 		normalizedOptions.resolveBodyOnly = false;
 
@@ -247,6 +249,10 @@ const create = (defaults: InstanceDefaults): Got => {
 
 			numberOfRequests++;
 		}
+	});
+
+	got.paginate = (<T, R>(url: string | URL, options?: OptionsWithPagination<T, R>) => {
+		return paginateEach(url, options);
 	}) as GotPaginate;
 
 	got.paginate.all = (async <T, R>(url: string | URL, options?: OptionsWithPagination<T, R>) => {
@@ -259,8 +265,13 @@ const create = (defaults: InstanceDefaults): Got => {
 		return results;
 	}) as GotPaginate['all'];
 
+	// For those who like very descriptive names
+	got.paginate.each = paginateEach as GotPaginate['each'];
+
+	// Stream API
 	got.stream = ((url: string | URL, options?: StreamOptions) => got(url, {...options, isStream: true})) as GotStream;
 
+	// Shortcuts
 	for (const method of aliases) {
 		got[method] = ((url: string | URL, options?: Options): GotReturn => got(url, {...options, method})) as GotRequestFunction;
 

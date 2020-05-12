@@ -190,6 +190,18 @@ test('iterator works', withServer, async (t, server, got) => {
 	t.deepEqual(results, [1, 2, 3, 4, 5]);
 });
 
+test('iterator works #2', withServer, async (t, server, got) => {
+	attachHandler(server, 5);
+
+	const results: number[] = [];
+
+	for await (const item of got.paginate.each<number>('')) {
+		results.push(item);
+	}
+
+	t.deepEqual(results, [1, 2, 3, 4, 5]);
+});
+
 test('`shouldContinue` works', withServer, async (t, server, got) => {
 	attachHandler(server, 2);
 

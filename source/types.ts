@@ -52,13 +52,12 @@ export type OptionsWithPagination<T = unknown, R = unknown> = Merge<Options, Pag
 
 export interface GotPaginate {
 	<T, R = unknown>(url: string | URL, options?: OptionsWithPagination<T, R>): AsyncIterableIterator<T>;
-	all<T, R = unknown>(url: string | URL, options?: OptionsWithPagination<T, R>): Promise<T[]>;
-
-	// A bug.
-	// eslint-disable-next-line @typescript-eslint/adjacent-overload-signatures
 	<T, R = unknown>(options?: OptionsWithPagination<T, R>): AsyncIterableIterator<T>;
-	// A bug.
-	// eslint-disable-next-line @typescript-eslint/adjacent-overload-signatures
+
+	each<T, R = unknown>(url: string | URL, options?: OptionsWithPagination<T, R>): AsyncIterableIterator<T>;
+	each<T, R = unknown>(options?: OptionsWithPagination<T, R>): AsyncIterableIterator<T>;
+
+	all<T, R = unknown>(url: string | URL, options?: OptionsWithPagination<T, R>): Promise<T[]>;
 	all<T, R = unknown>(options?: OptionsWithPagination<T, R>): Promise<T[]>;
 }
 
