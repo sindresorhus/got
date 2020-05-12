@@ -235,6 +235,8 @@ test('does not destroy completed requests', withServer, async (t, server, got) =
 	const stream = got.stream(options);
 	stream.resume();
 
+	const endPromise = pEvent(stream, 'end');
+
 	const socket = await pEvent(stream, 'socket');
 
 	const closeListener = () => {
@@ -246,6 +248,8 @@ test('does not destroy completed requests', withServer, async (t, server, got) =
 	await new Promise(resolve => setTimeout(resolve, 10));
 
 	socket.off('close', closeListener);
+
+	await endPromise;
 
 	options.agent.http.destroy();
 
