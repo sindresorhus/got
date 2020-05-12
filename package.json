@@ -125,5 +125,6 @@
 			"@typescript-eslint/method-signature-style": "off",
 			"unicorn/no-fn-reference-in-iterator": "off"
 		}
-	}
+	},
+	"runkitExampleFilename": "./documentation/examples/runkit-example.js"
 }
