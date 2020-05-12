@@ -6,7 +6,6 @@ import zlib = require('zlib');
 const knownProperties = [
 	'aborted',
 	'complete',
-	'destroy',
 	'headers',
 	'httpVersion',
 	'httpVersionMinor',
@@ -36,11 +35,11 @@ const decompressResponse = (response: IncomingMessage): IncomingMessage => {
 		return response;
 	}
 
-	let empty = true;
+	let isEmpty = true;
 
 	const checker = new Transform({
 		transform(data, _encoding, callback) {
-			empty = false;
+			isEmpty = false;
 
 			callback(null, data);
 		},
@@ -51,13 +50,18 @@ const decompressResponse = (response: IncomingMessage): IncomingMessage => {
 	});
 
 	const stream = new PassThrough({
-		autoDestroy: false
+		autoDestroy: false,
+		destroy(error, callback) {
+			response.destroy();
+
+			callback(error);
+		}
 	});
 
 	const decompressStream = isBrotli ? zlib.createBrotliDecompress() : zlib.createUnzip();
 
 	decompressStream.once('error', (error: Error) => {
-		if (empty) {
+		if (isEmpty) {
 			stream.end();
 			return;
 		}
