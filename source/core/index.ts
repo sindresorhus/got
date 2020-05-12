@@ -726,11 +726,6 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 				options.url.search = options.searchParams.toString();
 			}
 
-			// Trigger search params normalization
-			if (options.url.search) {
-				options.url.search = decodeURIComponent(options.url.search.toString());
-			}
-
 			// Protocol check
 			if (protocol !== 'http:' && protocol !== 'https:') {
 				throw new UnsupportedProtocolError(options as NormalizedOptions);
@@ -1069,9 +1064,8 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 				const redirectBuffer = Buffer.from(response.headers.location, 'binary').toString();
 
 				// Handles invalid URLs. See https://github.com/sindresorhus/got/issues/604
-				const redirectUrl = new URL(redirectBuffer, url);
+				const redirectUrl = new URL(decodeURI(redirectBuffer), url);
 				const redirectString = redirectUrl.toString();
-				decodeURI(redirectString);
 
 				// Redirecting to a different site, clear sensitive data.
 				if (redirectUrl.hostname !== url.hostname) {

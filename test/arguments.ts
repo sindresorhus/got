@@ -55,7 +55,7 @@ test('throws an error if the protocol is not specified', async t => {
 	});
 });
 
-test('properly encodes search params', withServer, async (t, server, got) => {
+test('properly encodes query string', withServer, async (t, server, got) => {
 	server.get('/', echoUrl);
 
 	const path = '?test=http://example.com?foo=bar';
