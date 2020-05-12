@@ -4,12 +4,18 @@ import {Readable} from 'stream';
 
 const getBuffer = async (stream: Readable) => {
 	const chunks = [];
+	let length = 0;
 
 	for await (const chunk of stream) {
-		chunks.push(Buffer.from(chunk));
+		chunks.push(chunk);
+		length += chunk.length;
 	}
 
-	return Buffer.concat(chunks);
+	if (Buffer.isBuffer(chunks[0])) {
+		return Buffer.concat(chunks, length);
+	}
+	
+	return Buffer.from(chunks.join(''));
 };
 
 export default getBuffer;
