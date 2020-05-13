@@ -864,7 +864,6 @@ Type: `string`
 
 The passphrase to decrypt the `key` (if different keys have different passphrases refer to `key` documentation).
 
-
 ##### Examples for key, cert and passphrase
 
 ```js
