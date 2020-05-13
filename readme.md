@@ -40,6 +40,7 @@ For browser usage, we recommend [Ky](https://github.com/sindresorhus/ky) by the 
 - [Errors with metadata](#errors)
 - [JSON mode](#json-mode)
 - [WHATWG URL support](#url)
+- [HTTPS](#https)
 - [Hooks](#hooks)
 - [Instances with custom defaults](#instances)
 - [Types](#types)
@@ -808,6 +809,142 @@ This option can be helpful to save on memory usage when working with a large dat
 Type: `string`
 
 The IP address used to send the request from.
+
+### HTTPS
+
+##### ca
+
+Type: `string` | `string[]` | `Buffer` | `Buffer[]`
+
+Override the default CAs ([from Mozilla](https://ccadb-public.secure.force.com/mozilla/IncludedCACertificateReport))
+
+```js
+// Single CA
+got('https://example.com', {ca: fs.readFileSync('./my_ca.pem')});
+
+// Multiple CAs
+got('https://example.com', {
+	ca: [
+		fs.readFileSync('./my_ca1.pem'),
+		fs.readFileSync('./my_ca2.pem')
+	]
+});
+```
+
+##### key
+
+Type: `string` | `string[]` | `Buffer` | `Buffer[]` | `Object[]`
+
+Private keys in PEM format.\
+PEM allows the option of private keys being encrypted. Encrypted keys will be decrypted with `options.passphrase`.\
+Multiple keys with different passphrases can be provided as an array of `{pem: <string|Buffer>, passphrase: <string>}`
+
+##### cert
+
+Type: `string` | `string[]` | `Buffer` | `Buffer[]`
+
+Cert chains in PEM format.\
+One cert chain should be provided per private key (`options.key`).\
+When providing multiple cert chains, they do not have to be in the same order as their private keys in `options.key`.\
+If the intermediate certificates are not provided, the peer will not be able to validate the certificate, and the handshake will fail.
+
+##### passphrase
+
+Type: `string`
+
+The passphrase to decrypt the `key` (if different keys have different passphrases refer to `key` documentation).
+
+
+##### Examples for key, cert and passphrase
+
+```js
+// Single key with cert
+got('https://example.com', {
+	key: fs.readFileSync('./client_key.pem'),
+	cert: fs.readFileSync('./client_cert.pem'),
+});
+
+// Multiple keys with certs (out of order)
+got('https://example.com', {
+	key: [
+		fs.readFileSync('./client_key1.pem'),
+		fs.readFileSync('./client_key2.pem')
+	],
+	cert: [
+		fs.readFileSync('./client_cert2.pem'),
+		fs.readFileSync('./client_cert1.pem')
+	]
+});
+
+// Single key with passphrase
+got('https://example.com', {
+	key: fs.readFileSync('./client_key.pem'),
+	cert: fs.readFileSync('./client_cert.pem'),
+	passphrase: 'client_key_passphrase'
+});
+
+// Multiple keys with different passphrases
+got('https://example.com', {
+	key: [
+		{pem: fs.readFileSync('./client_key1.pem'), passphrase: 'passphrase1'},
+		{pem: fs.readFileSync('./client_key2.pem'), passphrase: 'passphrase2'},
+	],
+	cert: [
+		fs.readFileSync('./client_cert1.pem'),
+		fs.readFileSync('./client_cert2.pem')
+	]
+});
+```
+
+##### rejectUnauthorized
+
+Type: `boolean`\
+Default: `true`
+
+If set to `false`, all invalid SSL certificates will be ignored and no error will be thrown.\
+If set to `true`, it will throw an error whenever an invalid SSL certificate is detected.
+
+We strongly recommend to have this set to `true` for security reasons.
+
+```js
+const got = require('got');
+
+(async () => {
+	// Correct:
+	await got('https://example.com', {rejectUnauthorized: true});
+
+	// You can disable it when developing an HTTPS app:
+	await got('https://localhost', {rejectUnauthorized: false});
+
+	// Never do this:
+	await got('https://example.com', {rejectUnauthorized: false});
+})();
+```
+
+##### checkServerIdentity
+
+Type: `Function`\
+Signature: `(hostname: string, certificate: DetailedPeerCertificate) => Error | undefined`\
+Default: `tls.checkServerIdentity` (from the `tls` module)
+
+This function enable a custom check of the certificate.\
+N.B. In order to have the function called the certificate must not be `expired`, `self-signed` or with an `untrusted-root`.\
+The function parameters are
+- `hostname`: the server hostname (used when connecting)
+- `certificate`: the server certificate
+
+The function must return `undefined` if the check succeeded or and `Error` if it failed.
+
+```js
+await got('https://example.com', {
+	checkServerIdentity: (hostname, certificate) => {
+		if (hostname === 'example.com')
+			return; // Certificate OK
+		
+		return new Error('Invalid Hostname');
+	}
+});
+```
 
 #### Response
 
