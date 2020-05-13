@@ -824,7 +824,7 @@ The IP address used to send the request from.
 
 ##### ca
 
-Type: `string` | `string[]` | `Buffer` | `Buffer[]`
+Type: `string | string[] | Buffer | Buffer[]`
 
 Override the default CAs ([from Mozilla](https://ccadb-public.secure.force.com/mozilla/IncludedCACertificateReport))
 
