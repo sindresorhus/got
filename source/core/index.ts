@@ -1333,7 +1333,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		delete options.request;
 		delete options.timeout;
 
-		const requestOptions = options as any; //Temporary workaround
+		const requestOptions = options as any; // Temporary workaround
 
 		requestOptions.ca = options.certificateAuthority;
 		requestOptions.cert = options.certificate;
