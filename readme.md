@@ -822,11 +822,11 @@ The IP address used to send the request from.
 
 ### HTTPS
 
-##### ca
+##### certificateAuthority
 
 Type: `string | string[] | Buffer | Buffer[]`
 
-Override the default CAs ([from Mozilla](https://ccadb-public.secure.force.com/mozilla/IncludedCACertificateReport))
+Override the default Certificate Authorities ([from Mozilla](https://ccadb-public.secure.force.com/mozilla/IncludedCACertificateReport))
 
 ```js
 // Single CA
@@ -843,17 +843,17 @@ got('https://example.com', {
 
 ##### key
 
-Type: `string` | `string[]` | `Buffer` | `Buffer[]` | `Object[]`
+Type: `string | string[] | Buffer | Buffer[] | Object[]`
 
 Private keys in PEM format.\
 PEM allows the option of private keys being encrypted. Encrypted keys will be decrypted with `options.passphrase`.\
 Multiple keys with different passphrases can be provided as an array of `{pem: <string | Buffer>, passphrase: <string>}`
 
-##### cert
+##### certificate
 
-Type: `string` | `string[]` | `Buffer` | `Buffer[]`
+Type: `string | string[] | Buffer | Buffer[]`
 
-Cert chains in PEM format.\
+Certificate chains in PEM format.\
 One cert chain should be provided per private key (`options.key`).\
 When providing multiple cert chains, they do not have to be in the same order as their private keys in `options.key`.\
 If the intermediate certificates are not provided, the peer will not be able to validate the certificate, and the handshake will fail.
@@ -937,7 +937,7 @@ Signature: `(hostname: string, certificate: DetailedPeerCertificate) => Error | 
 Default: `tls.checkServerIdentity` (from the `tls` module)
 
 This function enable a custom check of the certificate.\
-N.B. In order to have the function called the certificate must not be `expired`, `self-signed` or with an `untrusted-root`.\
+Note: In order to have the function called the certificate must not be `expired`, `self-signed` or with an `untrusted-root`.\
 The function parameters are
 - `hostname`: the server hostname (used when connecting)
 - `certificate`: the server certificate

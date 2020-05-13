@@ -17,7 +17,7 @@ test('https request with ca', withServer, async (t, server, got) => {
 	});
 
 	const {body} = await got.secure({
-		ca: server.caCert,
+		certificateAuthority: server.caCert,
 		headers: {host: 'example.com'}
 	});
 
@@ -30,7 +30,7 @@ test('https request with checkServerIdentity OK', withServer, async (t, server, 
 	});
 
 	const {body} = await got.secure({
-		ca: server.caCert,
+		certificateAuthority: server.caCert,
 		checkServerIdentity: (hostname: string, certificate: PeerCertificate) => {
 			t.is(hostname, 'example.com');
 			t.is(certificate.subject.CN, 'example.com');
@@ -48,7 +48,7 @@ test('https request with checkServerIdentity NOT OK', withServer, async (t, serv
 	});
 
 	const promise = got.secure({
-		ca: server.caCert,
+		certificateAuthority: server.caCert,
 		checkServerIdentity: (hostname: string, certificate: PeerCertificate) => {
 			t.is(hostname, 'example.com');
 			t.is(certificate.subject.CN, 'example.com');

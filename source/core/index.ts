@@ -116,7 +116,7 @@ type CacheableRequestFn = (
 	cb?: (response: ServerResponse | ResponseLike) => void
 ) => CacheableRequest.Emitter;
 
-export interface Options extends URLOptions, SecureContextOptions {
+export interface Options extends URLOptions {
 	request?: RequestFunction;
 	agent?: Agents | false;
 	decompress?: boolean;
@@ -142,6 +142,8 @@ export interface Options extends URLOptions, SecureContextOptions {
 	allowGetBody?: boolean;
 	lookup?: CacheableLookup['lookup'];
 	rejectUnauthorized?: boolean;
+	certificateAuthority?: SecureContextOptions['ca'];
+	certificate?: SecureContextOptions['cert'];
 	checkServerIdentity?: (hostname: string, certificate: DetailedPeerCertificate) => Error | void;
 	headers?: Headers;
 	methodRewriting?: boolean;
@@ -1331,17 +1333,24 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		delete options.request;
 		delete options.timeout;
 
+		const requestOptions = options as any; //Temporary workaround
+
+		requestOptions.ca = options.certificateAuthority;
+		requestOptions.cert = options.certificate;
+
 		try {
-			let requestOrResponse = await fn(url, options as unknown as RequestOptions);
+			let requestOrResponse = await fn(url, requestOptions as RequestOptions);
 
 			if (is.undefined(requestOrResponse)) {
-				requestOrResponse = fallbackFn(url, options as unknown as RequestOptions);
+				requestOrResponse = fallbackFn(url, requestOptions as RequestOptions);
 			}
 
 			// Restore options
 			options.request = request;
 			options.timeout = timeout;
 			options.agent = agent;
+			delete requestOptions.ca;
+			delete requestOptions.cert;
 
 			if (isClientRequest(requestOrResponse)) {
 				this._onRequest(requestOrResponse);
