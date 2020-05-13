@@ -847,7 +847,7 @@ Type: `string` | `string[]` | `Buffer` | `Buffer[]` | `Object[]`
 
 Private keys in PEM format.\
 PEM allows the option of private keys being encrypted. Encrypted keys will be decrypted with `options.passphrase`.\
-Multiple keys with different passphrases can be provided as an array of `{pem: <string|Buffer>, passphrase: <string>}`
+Multiple keys with different passphrases can be provided as an array of `{pem: <string | Buffer>, passphrase: <string>}`
 
 ##### cert
 
