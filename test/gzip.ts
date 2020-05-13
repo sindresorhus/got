@@ -3,7 +3,7 @@ import zlib = require('zlib');
 import test from 'ava';
 import getStream = require('get-stream');
 import withServer from './helpers/with-server';
-import {HTTPError} from '../source';
+import {HTTPError, ReadError} from '../source';
 
 const testContent = 'Compressible response content.\n';
 const testContentUncompressed = 'Uncompressed response content.\n';
@@ -115,13 +115,16 @@ test('does not break HEAD responses', withServer, async (t, server, got) => {
 	t.is((await got.head('')).body, '');
 });
 
-test('ignore missing data', withServer, async (t, server, got) => {
+test('does not ignore missing data', withServer, async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.setHeader('Content-Encoding', 'gzip');
 		response.end(gzipData.slice(0, -1));
 	});
 
-	t.is((await got('')).body, testContent);
+	await t.throwsAsync(got(''), {
+		instanceOf: ReadError,
+		message: 'unexpected end of file'
+	});
 });
 
 test('response has `url` and `requestUrl` properties', withServer, async (t, server, got) => {

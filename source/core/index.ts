@@ -8,7 +8,6 @@ import http = require('http');
 import {ClientRequest, RequestOptions, IncomingMessage, ServerResponse, request as httpRequest} from 'http';
 import https = require('https');
 import timer, {ClientRequestWithTimings, Timings, IncomingMessageWithTimings} from '@szmarczak/http-timer';
-import decompressResponse = require('decompress-response');
 import CacheableLookup from 'cacheable-lookup';
 import CacheableRequest = require('cacheable-request');
 // @ts-ignore Missing types
@@ -24,6 +23,7 @@ import timedOut, {Delays, TimeoutError as TimedOutTimeoutError} from './utils/ti
 import urlToOptions from './utils/url-to-options';
 import optionsToUrl, {URLOptions} from './utils/options-to-url';
 import WeakableMap from './utils/weakable-map';
+import decompressResponse from './utils/decompress-response';
 
 type HttpRequestFunction = typeof httpRequest;
 type Error = NodeJS.ErrnoException;
@@ -625,6 +625,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		assert.any([is.boolean, is.undefined], options.http2);
 		assert.any([is.boolean, is.undefined], options.allowGetBody);
 		assert.any([is.boolean, is.undefined], options.rejectUnauthorized);
+		assert.any([is.string, is.undefined], options.localAddress);
 
 		// `options.method`
 		if (is.string(options.method)) {
@@ -725,14 +726,6 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			// Set search params
 			if (options.searchParams) {
 				options.url.search = options.searchParams.toString();
-			}
-
-			// Trigger search params normalization
-			if (options.url.search) {
-				const triggerSearchParameters = '_GOT_INTERNAL_TRIGGER_NORMALIZATION';
-
-				options.url.searchParams.append(triggerSearchParameters, '');
-				options.url.searchParams.delete(triggerSearchParameters);
 			}
 
 			// Protocol check
@@ -1069,8 +1062,10 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			}
 
 			try {
-				// Handles invalid URLs. See https://github.com/sindresorhus/got/issues/604
+				// Do not remove. See https://github.com/sindresorhus/got/pull/214
 				const redirectBuffer = Buffer.from(response.headers.location, 'binary').toString();
+
+				// Handles invalid URLs. See https://github.com/sindresorhus/got/issues/604
 				const redirectUrl = new URL(redirectBuffer, url);
 				const redirectString = redirectUrl.toString();
 				decodeURI(redirectString);
