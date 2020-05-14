@@ -633,6 +633,9 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		assert.any([is.boolean, is.undefined], options.allowGetBody);
 		assert.any([is.boolean, is.undefined], options.rejectUnauthorized);
 		assert.any([is.string, is.undefined], options.localAddress);
+		assert.any([is.string, is.object, is.array, is.undefined], options.certificateAuthority);
+		assert.any([is.string, is.object, is.array, is.undefined], options.key);
+		assert.any([is.string, is.object, is.array, is.undefined], options.certificate);
 
 		// `options.method`
 		if (is.string(options.method)) {
@@ -839,6 +842,15 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 					];
 				}
 			}
+		}
+
+		// HTTPS options
+		if ('ca' in options) {
+			console.warn('"options.ca" was never documented, please use "options.certificateAuthority"');
+		}
+
+		if ('cert' in options) {
+			console.warn('"options.cert" was never documented, please use "options.certificate"');
 		}
 
 		// Other options
@@ -1338,7 +1350,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		delete options.request;
 		delete options.timeout;
 
-		const requestOptions = options as any; // Temporary workaround
+		const requestOptions = options as unknown as https.RequestOptions;
 
 		if (options.certificateAuthority) {
 			requestOptions.ca = options.certificateAuthority;
@@ -1349,18 +1361,16 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		}
 
 		try {
-			let requestOrResponse = await fn(url, requestOptions as RequestOptions);
+			let requestOrResponse = await fn(url, requestOptions);
 
 			if (is.undefined(requestOrResponse)) {
-				requestOrResponse = fallbackFn(url, requestOptions as RequestOptions);
+				requestOrResponse = fallbackFn(url, requestOptions);
 			}
 
 			// Restore options
 			options.request = request;
 			options.timeout = timeout;
 			options.agent = agent;
-			delete requestOptions.ca;
-			delete requestOptions.cert;
 
 			if (isClientRequest(requestOrResponse)) {
 				this._onRequest(requestOrResponse);
