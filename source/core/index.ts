@@ -206,6 +206,7 @@ export interface Defaults {
 	searchParams?: URLSearchParams;
 	lookup?: CacheableLookup['lookup'];
 	localAddress?: string;
+	family?: 0 | 4 | 6; // Enforce the possible values
 	createConnection?: Options['createConnection'];
 }
 

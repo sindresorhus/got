@@ -499,6 +499,17 @@ An instance of [`CacheableLookup`](https://github.com/szmarczak/cacheable-lookup
 **Note:** This should stay disabled when making requests to internal hostnames such as `localhost`, `database.local` etc.\
 `CacheableLookup` uses `dns.resolver4(..)` and `dns.resolver6(...)` under the hood and fall backs to `dns.lookup(...)` when the first two fail, which may lead to additional delay.
 
+###### family
+
+Type: `0 | 4 | 6`\
+Default: `0`
+
+Indicates which DNS record family to use.\
+Values:
+ - `0`: IPv4 (if present) or IPv6
+ - `4`: only IPv4
+ - `6`: only IPv6
+
 ###### request
 
 Type: `Function`\
