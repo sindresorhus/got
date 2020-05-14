@@ -412,7 +412,7 @@ This also accepts an `object` with the following fields to constrain the duratio
 Type: `number | object`\
 Default:
 - limit: `2`
-- calculateDelay: `({attemptCount, retryOptions, error, computedValue}) => computedValue`
+- calculateDelay: `({attemptCount, retryOptions, error, computedValue}) => computedValue | Promise<computedValue>`
 - methods: `GET` `PUT` `HEAD` `DELETE` `OPTIONS` `TRACE`
 - statusCodes: [`408`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/408) [`413`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/413) [`429`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429) [`500`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/500) [`502`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/502) [`503`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/503) [`504`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/504) [`521`](https://support.cloudflare.com/hc/en-us/articles/115003011431#521error) [`522`](https://support.cloudflare.com/hc/en-us/articles/115003011431#522error) [`524`](https://support.cloudflare.com/hc/en-us/articles/115003011431#524error)
 - maxRetryAfter: `undefined`
@@ -427,7 +427,7 @@ If [`Retry-After`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Ret
 
 Delays between retries counts with function `1000 * Math.pow(2, retry) + Math.random() * 100`, where `retry` is attempt number (starts from 1).
 
-The `calculateDelay` property is a `function` that receives an object with `attemptCount`, `retryOptions`, `error` and `computedValue` properties for current retry count, the retry options, error and default computed value. The function must return a delay in milliseconds (`0` return value cancels retry).
+The `calculateDelay` property is a `function` that receives an object with `attemptCount`, `retryOptions`, `error` and `computedValue` properties for current retry count, the retry options, error and default computed value. The function must return a delay in milliseconds (or a Promise resolving with it) (`0` return value cancels retry).
 
 By default, it retries *only* on the specified methods, status codes, and on these network errors:
 - `ETIMEDOUT`: One of the [timeout](#timeout) limits were reached.

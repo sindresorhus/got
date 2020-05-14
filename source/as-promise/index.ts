@@ -148,7 +148,7 @@ export default function asPromise<T>(options: NormalizedOptions): CancelableRequ
 				resolve(options.resolveBodyOnly ? response.body as T : response as unknown as T);
 			});
 
-			request.once('error', (error: RequestError) => {
+			request.once('error', async (error: RequestError) => {
 				if (promise.isCanceled) {
 					return;
 				}
@@ -163,7 +163,7 @@ export default function asPromise<T>(options: NormalizedOptions): CancelableRequ
 				retryCount++;
 
 				try {
-					backoff = options.retry.calculateDelay({
+					backoff = await options.retry.calculateDelay({
 						attemptCount: retryCount,
 						retryOptions: options.retry,
 						error,
