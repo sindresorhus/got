@@ -847,15 +847,15 @@ got('https://example.com', {
 
 Type: `string | string[] | Buffer | Buffer[] | Object[]`
 
-Private keys in PEM format.\
-PEM allows the option of private keys being encrypted. Encrypted keys will be decrypted with `options.passphrase`.\
+Private keys in [PEM](https://en.wikipedia.org/wiki/Privacy-Enhanced_Mail) format.\
+[PEM](https://en.wikipedia.org/wiki/Privacy-Enhanced_Mail) allows the option of private keys being encrypted. Encrypted keys will be decrypted with `options.passphrase`.\
 Multiple keys with different passphrases can be provided as an array of `{pem: <string | Buffer>, passphrase: <string>}`
 
 ##### certificate
 
 Type: `string | string[] | Buffer | Buffer[]`
 
-Certificate chains in PEM format.\
+[Certificate chains](https://en.wikipedia.org/wiki/X.509#Certificate_chains_and_cross-certification) in [PEM](https://en.wikipedia.org/wiki/Privacy-Enhanced_Mail) format.\
 One cert chain should be provided per private key (`options.key`).\
 When providing multiple cert chains, they do not have to be in the same order as their private keys in `options.key`.\
 If the intermediate certificates are not provided, the peer will not be able to validate the certificate, and the handshake will fail.
