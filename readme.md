@@ -822,6 +822,8 @@ The IP address used to send the request from.
 
 ### HTTPS
 
+Note: If the request is not HTTPS these options will be ignored.
+
 ##### certificateAuthority
 
 Type: `string | string[] | Buffer | Buffer[]`

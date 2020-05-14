@@ -141,10 +141,6 @@ export interface Options extends URLOptions {
 	http2?: boolean;
 	allowGetBody?: boolean;
 	lookup?: CacheableLookup['lookup'];
-	rejectUnauthorized?: boolean;
-	certificateAuthority?: SecureContextOptions['ca'];
-	certificate?: SecureContextOptions['cert'];
-	checkServerIdentity?: (hostname: string, certificate: DetailedPeerCertificate) => Error | void;
 	headers?: Headers;
 	methodRewriting?: boolean;
 
@@ -153,6 +149,15 @@ export interface Options extends URLOptions {
 	socketPath?: string;
 	method?: Method;
 	createConnection?: (options: http.RequestOptions, oncreate: (error: Error, socket: Socket) => void) => Socket;
+
+	// From tls.ConnectionOptions
+	checkServerIdentity?: (hostname: string, certificate: DetailedPeerCertificate) => Error | void;
+
+	// From tls.SecureContextOptions
+	rejectUnauthorized?: boolean;
+	certificateAuthority?: SecureContextOptions['ca'];
+	key?: SecureContextOptions['key'];
+	certificate?: SecureContextOptions['cert'];
 }
 
 export interface NormalizedOptions extends Options {
@@ -1335,8 +1340,13 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 		const requestOptions = options as any; // Temporary workaround
 
-		requestOptions.ca = options.certificateAuthority;
-		requestOptions.cert = options.certificate;
+		if (options.certificateAuthority) {
+			requestOptions.ca = options.certificateAuthority;
+		}
+
+		if (options.certificate) {
+			requestOptions.cert = options.certificate;
+		}
 
 		try {
 			let requestOrResponse = await fn(url, requestOptions as RequestOptions);
