@@ -1474,6 +1474,11 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 				return;
 			}
 
+			if (this[kRequest]!.destroyed) {
+				callback();
+				return;
+			}
+
 			this[kRequest]!.end((error?: Error | null) => {
 				if (!error) {
 					this[kBodySize] = this[kUploadedSize];
