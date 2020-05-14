@@ -1,10 +1,15 @@
 import {STATUS_CODES, Agent} from 'http';
 import test from 'ava';
+import {Handler} from 'express';
 import nock = require('nock');
 import getStream = require('get-stream');
 import pEvent = require('p-event');
 import got, {HTTPError, UnsupportedProtocolError} from '../source';
 import withServer from './helpers/with-server';
+
+const echoIp: Handler = (request, response) => {
+	response.end(request.connection.remoteAddress);
+};
 
 test('simple request', withServer, async (t, server, got) => {
 	server.get('/', (_request, response) => {
@@ -254,4 +259,12 @@ test('does not destroy completed requests', withServer, async (t, server, got) =
 	options.agent.http.destroy();
 
 	t.pass();
+});
+
+test('IPv6 request', withServer, async (t, server) => {
+	server.get('/ok', echoIp);
+
+	const response = await got(`http://[::1]:${server.port}/ok`);
+
+	t.is(response.body, '::1');
 });
