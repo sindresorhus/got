@@ -117,10 +117,6 @@ type CacheableRequestFn = (
 	cb?: (response: ServerResponse | ResponseLike) => void
 ) => CacheableRequest.Emitter;
 
-interface RealRequestOptions extends RequestOptions {
-	// Fill me with options missing from DefinitelyTyped
-}
-
 export interface Options extends URLOptions, SecureContextOptions {
 	request?: RequestFunction;
 	agent?: Agents | false;
@@ -1338,7 +1334,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		delete options.request;
 		delete options.timeout;
 
-		const requestOptions = options as unknown as RealRequestOptions;
+		const requestOptions = options as unknown as https.RequestOptions;
 
 		// If `ipVersion` is not present do not override `family`
 		if (options.ipVersion !== undefined) {
