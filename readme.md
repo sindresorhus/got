@@ -510,6 +510,8 @@ Values:
  - `ipv4`: only IPv4
  - `ipv6`: only IPv6
 
+Note: if you are using the undocumented option `family`, `ipVersion` will override it.
+
 ###### request
 
 Type: `Function`\

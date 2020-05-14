@@ -24,6 +24,7 @@ import urlToOptions from './utils/url-to-options';
 import optionsToUrl, {URLOptions} from './utils/options-to-url';
 import WeakableMap from './utils/weakable-map';
 import decompressResponse from './utils/decompress-response';
+import {IpVersion, isIpVersion, ipVersionToFamily} from './utils/ipversion-utils';
 
 type HttpRequestFunction = typeof httpRequest;
 type Error = NodeJS.ErrnoException;
@@ -116,6 +117,10 @@ type CacheableRequestFn = (
 	cb?: (response: ServerResponse | ResponseLike) => void
 ) => CacheableRequest.Emitter;
 
+interface RealRequestOptions extends RequestOptions {
+	// Fill me with options missing from DefinitelyTyped
+}
+
 export interface Options extends URLOptions, SecureContextOptions {
 	request?: RequestFunction;
 	agent?: Agents | false;
@@ -151,7 +156,7 @@ export interface Options extends URLOptions, SecureContextOptions {
 	method?: Method;
 	createConnection?: (options: http.RequestOptions, oncreate: (error: Error, socket: Socket) => void) => Socket;
 
-	ipVersion?: 'auto' | 'ipv4' | 'ipv6';
+	ipVersion?: IpVersion;
 }
 
 export interface NormalizedOptions extends Options {
@@ -209,7 +214,6 @@ export interface Defaults {
 	lookup?: CacheableLookup['lookup'];
 	localAddress?: string;
 	createConnection?: Options['createConnection'];
-	ipVersion?: Options['ipVersion'];
 }
 
 export interface Progress {
@@ -628,6 +632,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		assert.any([is.boolean, is.undefined], options.allowGetBody);
 		assert.any([is.boolean, is.undefined], options.rejectUnauthorized);
 		assert.any([is.string, is.undefined], options.localAddress);
+		assert.any([isIpVersion, is.undefined], options.ipVersion);
 
 		// `options.method`
 		if (is.string(options.method)) {
@@ -1333,22 +1338,18 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		delete options.request;
 		delete options.timeout;
 
-		const requestOptions = options as any; // Temporary workaround
+		const requestOptions = options as unknown as RealRequestOptions;
 
 		// If `ipVersion` is not present do not override `family`
-		if (options.ipVersion === 'ipv4') {
-			requestOptions.family = 4;
-		} else if (options.ipVersion === 'ipv6') {
-			requestOptions.family = 6;
-		} else if (options.ipVersion === 'auto') {
-			requestOptions.family = 0;
+		if (options.ipVersion !== undefined) {
+			requestOptions.family = ipVersionToFamily(options.ipVersion);
 		}
 
 		try {
-			let requestOrResponse = await fn(url, options as unknown as RequestOptions);
+			let requestOrResponse = await fn(url, requestOptions);
 
 			if (is.undefined(requestOrResponse)) {
-				requestOrResponse = fallbackFn(url, options as unknown as RequestOptions);
+				requestOrResponse = fallbackFn(url, requestOptions);
 			}
 
 			// Restore options
