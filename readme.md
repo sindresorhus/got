@@ -820,7 +820,7 @@ Type: `string`
 
 The IP address used to send the request from.
 
-### HTTPS
+### Advanced HTTPS API
 
 Note: If the request is not HTTPS these options will be ignored.
 
