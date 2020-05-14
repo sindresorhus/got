@@ -150,6 +150,8 @@ export interface Options extends URLOptions, SecureContextOptions {
 	socketPath?: string;
 	method?: Method;
 	createConnection?: (options: http.RequestOptions, oncreate: (error: Error, socket: Socket) => void) => Socket;
+
+	ipFamily?: 'auto' | 'ipv4' | 'ipv6';
 }
 
 export interface NormalizedOptions extends Options {
@@ -206,8 +208,8 @@ export interface Defaults {
 	searchParams?: URLSearchParams;
 	lookup?: CacheableLookup['lookup'];
 	localAddress?: string;
-	family?: 0 | 4 | 6; // Enforce the possible values
 	createConnection?: Options['createConnection'];
+	ipFamily?: Options['ipFamily'];
 }
 
 export interface Progress {
@@ -1330,6 +1332,17 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		options[kRequest] = realFn as HttpRequestFunction;
 		delete options.request;
 		delete options.timeout;
+
+		const requestOptions = options as any; // Temporary workaround
+
+		// If `ipFamily` is not present do not override `family`
+		if (options.ipFamily === 'ipv4') {
+			requestOptions.family = 4;
+		} else if (options.ipFamily === 'ipv6') {
+			requestOptions.family = 6;
+		} else if (options.ipFamily === 'auto') {
+			requestOptions.family = 0;
+		}
 
 		try {
 			let requestOrResponse = await fn(url, options as unknown as RequestOptions);

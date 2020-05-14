@@ -110,7 +110,8 @@ const defaults: InstanceDefaults = {
 			countLimit: Infinity,
 			requestLimit: 10000,
 			stackAllItems: true
-		}
+		},
+		ipFamily: 'auto'
 	},
 	handlers: [defaultHandler],
 	mutableDefaults: false
