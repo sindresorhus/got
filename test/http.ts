@@ -1,6 +1,7 @@
 import {STATUS_CODES, Agent} from 'http';
 import test from 'ava';
 import {Handler} from 'express';
+import {isIPv4, isIPv6} from 'net';
 import nock = require('nock');
 import getStream = require('get-stream');
 import pEvent = require('p-event');
@@ -8,7 +9,17 @@ import got, {HTTPError, UnsupportedProtocolError} from '../source';
 import withServer from './helpers/with-server';
 
 const echoIp: Handler = (request, response) => {
-	response.end(request.connection.remoteAddress);
+	const address = request.connection.remoteAddress;
+	if (address === undefined) {
+		return response.end();
+	}
+
+	// IPv4 address mapped to IPv6
+	if (address === '::ffff:127.0.0.1') {
+		response.end('127.0.0.1');
+	} else {
+		response.end(address);
+	}
 };
 
 test('simple request', withServer, async (t, server, got) => {
@@ -267,4 +278,39 @@ test('IPv6 request', withServer, async (t, server) => {
 	const response = await got(`http://[::1]:${server.port}/ok`);
 
 	t.is(response.body, '::1');
+});
+
+test('DNS auto', withServer, async (t, server, got) => {
+	server.get('/ok', echoIp);
+
+	const response = await got('ok', {
+		ipVersion: 'auto'
+	});
+
+	t.true(isIPv4(response.body));
+});
+
+test('DNS IPv4', withServer, async (t, server, got) => {
+	server.get('/ok', echoIp);
+
+	const response = await got('ok', {
+		ipVersion: 'ipv4'
+	});
+
+	t.true(isIPv4(response.body));
+});
+
+test('DNS IPv6', withServer, async (t, server, got) => {
+	server.get('/ok', echoIp);
+
+	try {
+		const response = await got('ok', {
+			ipVersion: 'ipv6'
+		});
+
+		t.true(isIPv6(response.body));
+	} catch {
+		// Assumes that IPv6 is not supported
+		t.pass();
+	}
 });
