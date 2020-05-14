@@ -111,7 +111,7 @@ const defaults: InstanceDefaults = {
 			requestLimit: 10000,
 			stackAllItems: true
 		},
-		ipFamily: 'auto'
+		ipVersion: 'auto'
 	},
 	handlers: [defaultHandler],
 	mutableDefaults: false

@@ -151,7 +151,7 @@ export interface Options extends URLOptions, SecureContextOptions {
 	method?: Method;
 	createConnection?: (options: http.RequestOptions, oncreate: (error: Error, socket: Socket) => void) => Socket;
 
-	ipFamily?: 'auto' | 'ipv4' | 'ipv6';
+	ipVersion?: 'auto' | 'ipv4' | 'ipv6';
 }
 
 export interface NormalizedOptions extends Options {
@@ -209,7 +209,7 @@ export interface Defaults {
 	lookup?: CacheableLookup['lookup'];
 	localAddress?: string;
 	createConnection?: Options['createConnection'];
-	ipFamily?: Options['ipFamily'];
+	ipVersion?: Options['ipVersion'];
 }
 
 export interface Progress {
@@ -1335,12 +1335,12 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 		const requestOptions = options as any; // Temporary workaround
 
-		// If `ipFamily` is not present do not override `family`
-		if (options.ipFamily === 'ipv4') {
+		// If `ipVersion` is not present do not override `family`
+		if (options.ipVersion === 'ipv4') {
 			requestOptions.family = 4;
-		} else if (options.ipFamily === 'ipv6') {
+		} else if (options.ipVersion === 'ipv6') {
 			requestOptions.family = 6;
-		} else if (options.ipFamily === 'auto') {
+		} else if (options.ipVersion === 'auto') {
 			requestOptions.family = 0;
 		}
 
