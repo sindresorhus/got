@@ -11,6 +11,7 @@ import {
 } from './types';
 import PromisableRequest, {parseBody} from './core';
 import proxyEvents from '../core/utils/proxy-events';
+import EventListenerReorderer from './utils/event-listeners-reorderer';
 
 const proxiedRequestEvents = [
 	'request',
@@ -19,26 +20,6 @@ const proxiedRequestEvents = [
 	'uploadProgress',
 	'downloadProgress'
 ];
-
-// Thanks https://github.com/drpicox/async-barrier
-/* eslint-disable no-undef-init */
-function makeAsyncBarrier() {
-	let barrierCalls = 0;
-	let barrierResolve: any | undefined = undefined;
-	const barrierPromise = new Promise(resolve => {
-		barrierResolve = resolve;
-	});
-
-	return async () => {
-		barrierCalls++;
-		if (barrierCalls === 2) {
-			barrierResolve();
-		}
-
-		return barrierPromise;
-	};
-}
-/* eslint-enable no-undef-init */
 
 export default function asPromise<T>(options: NormalizedOptions): CancelableRequest<T> {
 	let retryCount = 0;
@@ -78,19 +59,9 @@ export default function asPromise<T>(options: NormalizedOptions): CancelableRequ
 
 			globalRequest = request;
 
-			let ignoreResponseEvent = false;
-			let errored = false;
-			const responseBarrier = makeAsyncBarrier();
+			const eventListenersReorderer = new EventListenerReorderer();
 
-			request.once('response', async (response: Response) => {
-				if (errored) {
-					await responseBarrier();
-				}
-
-				if (ignoreResponseEvent) {
-					return;
-				}
-
+			request.once('response', eventListenersReorderer.secondWrapper(async (response: Response) => {
 				response.retryCount = retryCount;
 
 				if (response.request.aborted) {
@@ -178,93 +149,82 @@ export default function asPromise<T>(options: NormalizedOptions): CancelableRequ
 				globalResponse = response;
 
 				resolve(options.resolveBodyOnly ? response.body as T : response as unknown as T);
-			});
+			}));
 
-			request.once('error', (error: RequestError) => {
-				errored = true;
-				(async () => {
-					if (promise.isCanceled) {
-						responseBarrier();
-						return;
-					}
+			request.once('error', eventListenersReorderer.firstWrapper(async (error: RequestError) => {
+				if (promise.isCanceled) {
+					return;
+				}
 
-					if (!request.options) {
-						reject(error);
-						responseBarrier();
-						return;
-					}
+				if (!request.options) {
+					reject(error);
+					return;
+				}
 
-					let backoff: number;
+				let backoff: number;
 
-					retryCount++;
+				retryCount++;
 
-					try {
-						backoff = await options.retry.calculateDelay({
+				try {
+					backoff = await options.retry.calculateDelay({
+						attemptCount: retryCount,
+						retryOptions: options.retry,
+						error,
+						computedValue: calculateRetryDelay({
 							attemptCount: retryCount,
 							retryOptions: options.retry,
 							error,
-							computedValue: calculateRetryDelay({
-								attemptCount: retryCount,
-								retryOptions: options.retry,
-								error,
-								computedValue: 0
-							})
-						});
-					} catch (error_) {
-						// Don't emit the `response` event
-						ignoreResponseEvent = true;
-						responseBarrier();
-
-						reject(new RequestError(error_.message, error, request));
-						return;
-					}
-
-					if (backoff) {
-						// Don't emit the `response` event
-						ignoreResponseEvent = true;
-						responseBarrier();
-
-						const retry = async (): Promise<void> => {
-							options.throwHttpErrors = throwHttpErrors;
-
-							try {
-								for (const hook of options.hooks.beforeRetry) {
-									// eslint-disable-next-line no-await-in-loop
-									await hook(options, error, retryCount);
-								}
-							} catch (error_) {
-								// Don't emit the `response` event
-								ignoreResponseEvent = true;
-								responseBarrier();
-
-								reject(new RequestError(error_.message, error, request));
-								return;
-							}
-
-							makeRequest();
-						};
-
-						setTimeout(retry, backoff);
-						responseBarrier();
-						return;
-					}
-
-					// The retry has not been made
-					retryCount--;
-
-					if (error instanceof HTTPError) {
-						// It will be handled by the `response` event
-						responseBarrier();
-						return;
-					}
-
+							computedValue: 0
+						})
+					});
+				} catch (error_) {
 					// Don't emit the `response` event
-					ignoreResponseEvent = true;
-					responseBarrier();
+					eventListenersReorderer.ignoreSecond();
 
-					reject(error);
-				})();
-			});
+					reject(new RequestError(error_.message, error, request));
+					return;
+				}
+
+				if (backoff) {
+					// Don't emit the `response` event
+					eventListenersReorderer.ignoreSecond();
+
+					const retry = async (): Promise<void> => {
+						options.throwHttpErrors = throwHttpErrors;
+
+						try {
+							for (const hook of options.hooks.beforeRetry) {
+								// eslint-disable-next-line no-await-in-loop
+								await hook(options, error, retryCount);
+							}
+						} catch (error_) {
+							// Don't emit the `response` event
+							eventListenersReorderer.ignoreSecond();
+
+							reject(new RequestError(error_.message, error, request));
+							return;
+						}
+
+						makeRequest();
+					};
+
+					setTimeout(retry, backoff);
+					return;
+				}
+
+				// The retry has not been made
+				retryCount--;
+
+				if (error instanceof HTTPError) {
+					// It will be handled by the `response` event
+					return;
+				}
+
+				// Don't emit the `response` event
+				eventListenersReorderer.ignoreSecond();
+
+				reject(error);
+			}));
 
 			proxyEvents(request, emitter, proxiedRequestEvents);
 		};
