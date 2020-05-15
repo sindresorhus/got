@@ -846,11 +846,11 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 		// HTTPS options
 		if ('ca' in options) {
-			console.warn('"options.ca" was never documented, please use "options.certificateAuthority"');
+			console.warn('WARNING: "options.ca" was never documented, please use "options.certificateAuthority"');
 		}
 
 		if ('cert' in options) {
-			console.warn('"options.cert" was never documented, please use "options.certificate"');
+			console.warn('WARNING: "options.cert" was never documented, please use "options.certificate"');
 		}
 
 		// Other options
