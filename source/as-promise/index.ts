@@ -11,7 +11,6 @@ import {
 } from './types';
 import PromisableRequest, {parseBody} from './core';
 import proxyEvents from '../core/utils/proxy-events';
-import EventListenerReorderer from './utils/event-listeners-reorderer';
 
 const proxiedRequestEvents = [
 	'request',
@@ -59,9 +58,7 @@ export default function asPromise<T>(options: NormalizedOptions): CancelableRequ
 
 			globalRequest = request;
 
-			const eventListenersReorderer = new EventListenerReorderer();
-
-			request.once('response', eventListenersReorderer.secondWrapper(async (response: Response) => {
+			const onResponse = async (response: Response) => {
 				response.retryCount = retryCount;
 
 				if (response.request.aborted) {
@@ -149,9 +146,11 @@ export default function asPromise<T>(options: NormalizedOptions): CancelableRequ
 				globalResponse = response;
 
 				resolve(options.resolveBodyOnly ? response.body as T : response as unknown as T);
-			}));
+			};
 
-			request.once('error', eventListenersReorderer.firstWrapper(async (error: RequestError) => {
+			request.once('response', onResponse);
+
+			request.once('error', async (error: RequestError) => {
 				if (promise.isCanceled) {
 					return;
 				}
@@ -160,6 +159,8 @@ export default function asPromise<T>(options: NormalizedOptions): CancelableRequ
 					reject(error);
 					return;
 				}
+
+				request.off('response', onResponse);
 
 				let backoff: number;
 
@@ -175,11 +176,11 @@ export default function asPromise<T>(options: NormalizedOptions): CancelableRequ
 							retryOptions: options.retry,
 							error,
 							computedValue: 0
-						})
+						}) as number
 					});
 				} catch (error_) {
 					// Don't emit the `response` event
-					eventListenersReorderer.ignoreSecond();
+					request.destroy();
 
 					reject(new RequestError(error_.message, error, request));
 					return;
@@ -187,7 +188,7 @@ export default function asPromise<T>(options: NormalizedOptions): CancelableRequ
 
 				if (backoff) {
 					// Don't emit the `response` event
-					eventListenersReorderer.ignoreSecond();
+					request.destroy();
 
 					const retry = async (): Promise<void> => {
 						options.throwHttpErrors = throwHttpErrors;
@@ -199,7 +200,7 @@ export default function asPromise<T>(options: NormalizedOptions): CancelableRequ
 							}
 						} catch (error_) {
 							// Don't emit the `response` event
-							eventListenersReorderer.ignoreSecond();
+							request.destroy();
 
 							reject(new RequestError(error_.message, error, request));
 							return;
@@ -216,15 +217,16 @@ export default function asPromise<T>(options: NormalizedOptions): CancelableRequ
 				retryCount--;
 
 				if (error instanceof HTTPError) {
-					// It will be handled by the `response` event
+					// The error will be handled by the `response` event
+					onResponse(request._response as Response);
 					return;
 				}
 
 				// Don't emit the `response` event
-				eventListenersReorderer.ignoreSecond();
+				request.destroy();
 
 				reject(error);
-			}));
+			});
 
 			proxyEvents(request, emitter, proxiedRequestEvents);
 		};

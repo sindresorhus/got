@@ -51,15 +51,14 @@ export interface RetryObject {
 	computedValue: number;
 }
 
-export type RetryFunction = (retryObject: RetryObject) => number;
-export type PromisableRetryFunction = (retryObject: RetryObject) => number | Promise<number>;
+export type RetryFunction = (retryObject: RetryObject) => number | Promise<number>;
 
 export interface RequiredRetryOptions {
 	limit: number;
 	methods: Method[];
 	statusCodes: number[];
 	errorCodes: string[];
-	calculateDelay: PromisableRetryFunction;
+	calculateDelay: RetryFunction;
 	maxRetryAfter?: number;
 }
 
