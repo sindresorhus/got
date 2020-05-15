@@ -14,7 +14,7 @@ import got, {TimeoutError} from '../source';
 import timedOut from '../source/core/utils/timed-out';
 import slowDataStream from './helpers/slow-data-stream';
 import {GlobalClock} from './helpers/types';
-import withServer, {withServerAndLolex} from './helpers/with-server';
+import withServer, {withServerAndFakeTimers} from './helpers/with-server';
 
 const pStreamPipeline = promisify(stream.pipeline);
 
@@ -48,7 +48,7 @@ const downloadHandler = (clock: GlobalClock): Handler => (_request, response) =>
 	});
 };
 
-test.serial('timeout option', withServerAndLolex, async (t, server, got, clock) => {
+test.serial('timeout option', withServerAndFakeTimers, async (t, server, got, clock) => {
 	server.get('/', defaultHandler(clock));
 
 	await t.throwsAsync(
@@ -63,7 +63,7 @@ test.serial('timeout option', withServerAndLolex, async (t, server, got, clock) 
 	);
 });
 
-test.serial('timeout option as object', withServerAndLolex, async (t, server, got, clock) => {
+test.serial('timeout option as object', withServerAndFakeTimers, async (t, server, got, clock) => {
 	server.get('/', defaultHandler(clock));
 
 	await t.throwsAsync(
@@ -105,7 +105,7 @@ test.serial('socket timeout', async t => {
 	);
 });
 
-test.serial('send timeout', withServerAndLolex, async (t, server, got, clock) => {
+test.serial('send timeout', withServerAndFakeTimers, async (t, server, got, clock) => {
 	server.post('/', defaultHandler(clock));
 
 	await t.throwsAsync(
@@ -127,7 +127,7 @@ test.serial('send timeout', withServerAndLolex, async (t, server, got, clock) =>
 	);
 });
 
-test.serial('send timeout (keepalive)', withServerAndLolex, async (t, server, got, clock) => {
+test.serial('send timeout (keepalive)', withServerAndFakeTimers, async (t, server, got, clock) => {
 	server.post('/', defaultHandler(clock));
 	server.get('/prime', (_request, response) => {
 		response.end('ok');
@@ -159,7 +159,7 @@ test.serial('send timeout (keepalive)', withServerAndLolex, async (t, server, go
 	);
 });
 
-test.serial('response timeout', withServerAndLolex, async (t, server, got, clock) => {
+test.serial('response timeout', withServerAndFakeTimers, async (t, server, got, clock) => {
 	server.get('/', defaultHandler(clock));
 
 	await t.throwsAsync(
@@ -174,7 +174,7 @@ test.serial('response timeout', withServerAndLolex, async (t, server, got, clock
 	);
 });
 
-test.serial('response timeout unaffected by slow upload', withServerAndLolex, async (t, server, got, clock) => {
+test.serial('response timeout unaffected by slow upload', withServerAndFakeTimers, async (t, server, got, clock) => {
 	server.post('/', defaultHandler(clock));
 
 	await t.notThrowsAsync(got.post({
@@ -183,7 +183,7 @@ test.serial('response timeout unaffected by slow upload', withServerAndLolex, as
 	}));
 });
 
-test.serial('response timeout unaffected by slow download', withServerAndLolex, async (t, server, got, clock) => {
+test.serial('response timeout unaffected by slow download', withServerAndFakeTimers, async (t, server, got, clock) => {
 	server.get('/', downloadHandler(clock));
 
 	await t.notThrowsAsync(got({
@@ -194,7 +194,7 @@ test.serial('response timeout unaffected by slow download', withServerAndLolex, 
 	clock.tick(100);
 });
 
-test.serial('response timeout (keepalive)', withServerAndLolex, async (t, server, got, clock) => {
+test.serial('response timeout (keepalive)', withServerAndFakeTimers, async (t, server, got, clock) => {
 	server.get('/', defaultHandler(clock));
 	server.get('/prime', (_request, response) => {
 		response.end('ok');
@@ -223,7 +223,7 @@ test.serial('response timeout (keepalive)', withServerAndLolex, async (t, server
 	});
 });
 
-test.serial('connect timeout', withServerAndLolex, async (t, _server, got, clock) => {
+test.serial('connect timeout', withServerAndFakeTimers, async (t, _server, got, clock) => {
 	await t.throwsAsync(
 		got({
 			createConnection: options => {
@@ -249,7 +249,7 @@ test.serial('connect timeout', withServerAndLolex, async (t, _server, got, clock
 	);
 });
 
-test.serial('connect timeout (ip address)', withServerAndLolex, async (t, _server, got, clock) => {
+test.serial('connect timeout (ip address)', withServerAndFakeTimers, async (t, _server, got, clock) => {
 	await t.throwsAsync(
 		got({
 			url: 'http://127.0.0.1',
@@ -274,7 +274,7 @@ test.serial('connect timeout (ip address)', withServerAndLolex, async (t, _serve
 	);
 });
 
-test.serial('secureConnect timeout', withServerAndLolex, async (t, _server, got, clock) => {
+test.serial('secureConnect timeout', withServerAndFakeTimers, async (t, _server, got, clock) => {
 	await t.throwsAsync(
 		got.secure({
 			createConnection: options => {
@@ -316,7 +316,7 @@ test('secureConnect timeout not breached', withServer, async (t, server, got) =>
 	}));
 });
 
-test.serial('lookup timeout', withServerAndLolex, async (t, server, got, clock) => {
+test.serial('lookup timeout', withServerAndFakeTimers, async (t, server, got, clock) => {
 	server.get('/', defaultHandler(clock));
 
 	await t.throwsAsync(
@@ -337,7 +337,7 @@ test.serial('lookup timeout', withServerAndLolex, async (t, server, got, clock) 
 	);
 });
 
-test.serial('lookup timeout no error (ip address)', withServerAndLolex, async (t, server, got, clock) => {
+test.serial('lookup timeout no error (ip address)', withServerAndFakeTimers, async (t, server, got, clock) => {
 	server.get('/', defaultHandler(clock));
 
 	await t.notThrowsAsync(got({
@@ -348,7 +348,7 @@ test.serial('lookup timeout no error (ip address)', withServerAndLolex, async (t
 	}));
 });
 
-test.serial('lookup timeout no error (keepalive)', withServerAndLolex, async (t, server, got, clock) => {
+test.serial('lookup timeout no error (keepalive)', withServerAndFakeTimers, async (t, server, got, clock) => {
 	server.get('/', defaultHandler(clock));
 	server.get('/prime', (_request, response) => {
 		response.end('ok');
@@ -392,7 +392,7 @@ test.serial('retries on timeout', withServer, async (t, server, got) => {
 	t.true(hasTried);
 });
 
-test.serial('timeout with streams', withServerAndLolex, async (t, server, got, clock) => {
+test.serial('timeout with streams', withServerAndFakeTimers, async (t, server, got, clock) => {
 	server.get('/', defaultHandler(clock));
 
 	const stream = got.stream({
@@ -402,7 +402,7 @@ test.serial('timeout with streams', withServerAndLolex, async (t, server, got, c
 	await t.throwsAsync(pEvent(stream, 'response'), {code: 'ETIMEDOUT'});
 });
 
-test.serial('no error emitted when timeout is not breached (stream)', withServerAndLolex, async (t, server, got, clock) => {
+test.serial('no error emitted when timeout is not breached (stream)', withServerAndFakeTimers, async (t, server, got, clock) => {
 	server.get('/', defaultHandler(clock));
 
 	const stream = got.stream({
@@ -415,7 +415,7 @@ test.serial('no error emitted when timeout is not breached (stream)', withServer
 	await t.notThrowsAsync(getStream(stream));
 });
 
-test.serial('no error emitted when timeout is not breached (promise)', withServerAndLolex, async (t, server, got, clock) => {
+test.serial('no error emitted when timeout is not breached (promise)', withServerAndFakeTimers, async (t, server, got, clock) => {
 	server.get('/', defaultHandler(clock));
 
 	await t.notThrowsAsync(got({
@@ -426,7 +426,7 @@ test.serial('no error emitted when timeout is not breached (promise)', withServe
 	}));
 });
 
-test.serial('no unhandled `socket hung up` errors', withServerAndLolex, async (t, server, got, clock) => {
+test.serial('no unhandled `socket hung up` errors', withServerAndFakeTimers, async (t, server, got, clock) => {
 	server.get('/', defaultHandler(clock));
 
 	await t.throwsAsync(
@@ -435,7 +435,7 @@ test.serial('no unhandled `socket hung up` errors', withServerAndLolex, async (t
 	);
 });
 
-// TODO: use lolex here
+// TODO: use fakeTimers here
 test.serial('no unhandled timeout errors', withServer, async (t, _server, got) => {
 	await t.throwsAsync(got({
 		retry: 0,
@@ -455,7 +455,7 @@ test.serial('no unhandled timeout errors', withServer, async (t, _server, got) =
 	await delay(200);
 });
 
-// TODO: use lolex here
+// TODO: use fakeTimers here
 test.serial('no unhandled timeout errors #2', withServer, async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.write('Hello world!');
@@ -528,7 +528,7 @@ test.serial('no more timeouts after an error', withServer, async (t, _server, go
 	global.clearTimeout = clearTimeout;
 });
 
-test.serial('socket timeout is canceled on error', withServerAndLolex, async (t, _server, got, clock) => {
+test.serial('socket timeout is canceled on error', withServerAndFakeTimers, async (t, _server, got, clock) => {
 	const message = 'oh, snap!';
 
 	const promise = got({
@@ -544,7 +544,7 @@ test.serial('socket timeout is canceled on error', withServerAndLolex, async (t,
 	clock.tick(100);
 });
 
-test.serial('no memory leak when using socket timeout and keepalive agent', withServerAndLolex, async (t, server, got, clock) => {
+test.serial('no memory leak when using socket timeout and keepalive agent', withServerAndFakeTimers, async (t, server, got, clock) => {
 	server.get('/', defaultHandler(clock));
 
 	let request: any;
@@ -592,7 +592,7 @@ test('double calling timedOut has no effect', t => {
 	t.is(emitter.listenerCount('socket'), 1);
 });
 
-test.serial('doesn\'t throw on early lookup', withServerAndLolex, async (t, server, got) => {
+test.serial('doesn\'t throw on early lookup', withServerAndFakeTimers, async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.end('ok');
 	});
@@ -614,7 +614,7 @@ test.serial('doesn\'t throw on early lookup', withServerAndLolex, async (t, serv
 	}));
 });
 
-// TODO: use lolex here
+// TODO: use fakeTimers here
 test.serial('no unhandled `Premature close` error', withServer, async (t, server, got) => {
 	server.get('/', async (_request, response) => {
 		response.write('hello');
@@ -628,7 +628,7 @@ test.serial('no unhandled `Premature close` error', withServer, async (t, server
 	await delay(20);
 });
 
-// TODO: use lolex here
+// TODO: use fakeTimers here
 test.serial('cancelling the request removes timeouts', withServer, async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.write('hello');
