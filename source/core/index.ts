@@ -10,6 +10,7 @@ import https = require('https');
 import timer, {ClientRequestWithTimings, Timings, IncomingMessageWithTimings} from '@szmarczak/http-timer';
 import CacheableLookup from 'cacheable-lookup';
 import CacheableRequest = require('cacheable-request');
+import decompressResponse = require('decompress-response');
 // @ts-ignore Missing types
 import http2wrapper = require('http2-wrapper');
 import lowercaseKeys = require('lowercase-keys');
@@ -23,7 +24,6 @@ import timedOut, {Delays, TimeoutError as TimedOutTimeoutError} from './utils/ti
 import urlToOptions from './utils/url-to-options';
 import optionsToUrl, {URLOptions} from './utils/options-to-url';
 import WeakableMap from './utils/weakable-map';
-import decompressResponse from './utils/decompress-response';
 
 type HttpRequestFunction = typeof httpRequest;
 type Error = NodeJS.ErrnoException;
@@ -1233,6 +1233,9 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			const cacheRequest = cacheableStore.get((options as any).cache)!(options, response => {
 				const typedResponse = response as unknown as IncomingMessage & {req: ClientRequest};
 				const {req} = typedResponse;
+
+				// TODO: Fix `cacheable-response`
+				(typedResponse as any)._readableState.autoDestroy = false;
 
 				if (req) {
 					req.emit('cacheableResponse', typedResponse);
