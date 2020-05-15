@@ -13,7 +13,8 @@
 		"test": "xo && tsc --noEmit && nyc --reporter=html --reporter=text ava",
 		"release": "np",
 		"build": "del-cli dist && tsc",
-		"prepare": "npm run build"
+		"prepare": "npm run build",
+		"clean": "rimraf dist coverage .nyc_output"
 	},
 	"files": [
 		"dist/source"

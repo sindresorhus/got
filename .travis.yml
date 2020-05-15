@@ -6,3 +6,19 @@ node_js:
   - '10'
 after_success:
   - './node_modules/.bin/nyc report --reporter=text-lcov | ./node_modules/.bin/coveralls'
+
+stages:
+  - build
+  - integration-tests
+
+jobs:
+  include:
+    - stage: build
+      name: 'Build'
+      script: 'npm i && npm run build'
+      after_success: [] # Override default
+
+    - stage: integration-tests
+      name: 'Integration tests'
+      script: 'npm prune --production && node ./test/integration/example.js'
+      after_success: [] # Override default
