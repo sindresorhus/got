@@ -1,8 +1,8 @@
 export default class EventListenerReorderer {
-	firstCalled = false;
-	waitPromise: Promise<any>;
-	waitResolve: any;
-	waitCalled = false;
+	isFirstCalled = false;
+	waitPromise: Promise<void>;
+	waitResolve?: (() => void);
+	isWaitCalled = false;
 	_ignoreSecond = false;
 
 	constructor() {
@@ -12,11 +12,11 @@ export default class EventListenerReorderer {
 	}
 
 	async callBarrier() {
-		if (this.waitCalled) {
-			this.waitResolve();
+		if (this.isWaitCalled) {
+			this.waitResolve!();
 		}
 
-		this.waitCalled = true;
+		this.isWaitCalled = true;
 
 		return this.waitPromise;
 	}
@@ -27,7 +27,7 @@ export default class EventListenerReorderer {
 
 	firstWrapper(fn: (...p: any[]) => Promise<any>) {
 		return (...parameters: any[]) => {
-			this.firstCalled = true;
+			this.isFirstCalled = true;
 			(async () => {
 				await fn(...parameters);
 
@@ -42,7 +42,7 @@ export default class EventListenerReorderer {
 				return;
 			}
 
-			if (this.firstCalled) {
+			if (this.isFirstCalled) {
 				(async () => {
 					await this.callBarrier();
 
