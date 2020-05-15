@@ -1,5 +1,5 @@
 export type DnsIpVersion = 'auto' | 'ipv4' | 'ipv6';
-export type DnsIpFamily = 0 | 4 | 6;
+type DnsIpFamily = 0 | 4 | 6;
 
 const conversionTable = {
 	auto: 0,
