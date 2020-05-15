@@ -826,26 +826,20 @@ Note: If the request is not HTTPS these options will be ignored.
 
 ##### certificateAuthority
 
-Type: `string | string[] | Buffer | Buffer[]`
+Type: `string | Buffer | (string | Buffer)[]`
 
 Override the default Certificate Authorities ([from Mozilla](https://ccadb-public.secure.force.com/mozilla/IncludedCACertificateReport))
 
 ```js
-// Single CA
-got('https://example.com', {ca: fs.readFileSync('./my_ca.pem')});
-
-// Multiple CAs
+// Single Certificate Authority
 got('https://example.com', {
-	ca: [
-		fs.readFileSync('./my_ca1.pem'),
-		fs.readFileSync('./my_ca2.pem')
-	]
+	certificateAuthority: fs.readFileSync('./my_ca.pem')
 });
 ```
 
 ##### key
 
-Type: `string | string[] | Buffer | Buffer[] | Object[]`
+Type: `string | Buffer | (string | Buffer)[] | Object[]`
 
 Private keys in [PEM](https://en.wikipedia.org/wiki/Privacy-Enhanced_Mail) format.\
 [PEM](https://en.wikipedia.org/wiki/Privacy-Enhanced_Mail) allows the option of private keys being encrypted. Encrypted keys will be decrypted with `options.passphrase`.\
@@ -853,7 +847,7 @@ Multiple keys with different passphrases can be provided as an array of `{pem: <
 
 ##### certificate
 
-Type: `string | string[] | Buffer | Buffer[]`
+Type: `string | Buffer | (string | Buffer)[]`
 
 [Certificate chains](https://en.wikipedia.org/wiki/X.509#Certificate_chains_and_cross-certification) in [PEM](https://en.wikipedia.org/wiki/Privacy-Enhanced_Mail) format.\
 One cert chain should be provided per private key (`options.key`).\
@@ -866,13 +860,13 @@ Type: `string`
 
 The passphrase to decrypt the `key` (if different keys have different passphrases refer to `key` documentation).
 
-##### Examples for key, cert and passphrase
+##### Examples for key, certificate and passphrase
 
 ```js
 // Single key with cert
 got('https://example.com', {
 	key: fs.readFileSync('./client_key.pem'),
-	cert: fs.readFileSync('./client_cert.pem'),
+	certificate: fs.readFileSync('./client_cert.pem'),
 });
 
 // Multiple keys with certs (out of order)
@@ -881,7 +875,7 @@ got('https://example.com', {
 		fs.readFileSync('./client_key1.pem'),
 		fs.readFileSync('./client_key2.pem')
 	],
-	cert: [
+	certificate: [
 		fs.readFileSync('./client_cert2.pem'),
 		fs.readFileSync('./client_cert1.pem')
 	]
@@ -890,7 +884,7 @@ got('https://example.com', {
 // Single key with passphrase
 got('https://example.com', {
 	key: fs.readFileSync('./client_key.pem'),
-	cert: fs.readFileSync('./client_cert.pem'),
+	certificate: fs.readFileSync('./client_cert.pem'),
 	passphrase: 'client_key_passphrase'
 });
 
@@ -900,7 +894,7 @@ got('https://example.com', {
 		{pem: fs.readFileSync('./client_key1.pem'), passphrase: 'passphrase1'},
 		{pem: fs.readFileSync('./client_key2.pem'), passphrase: 'passphrase2'},
 	],
-	cert: [
+	certificate: [
 		fs.readFileSync('./client_cert1.pem'),
 		fs.readFileSync('./client_cert2.pem')
 	]
@@ -941,18 +935,19 @@ Default: `tls.checkServerIdentity` (from the `tls` module)
 This function enable a custom check of the certificate.\
 Note: In order to have the function called the certificate must not be `expired`, `self-signed` or with an `untrusted-root`.\
 The function parameters are
-- `hostname`: the server hostname (used when connecting)
-- `certificate`: the server certificate
+- `hostname`: The server hostname (used when connecting)
+- `certificate`: The server certificate
 
 The function must return `undefined` if the check succeeded or and `Error` if it failed.
 
 ```js
 await got('https://example.com', {
 	checkServerIdentity: (hostname, certificate) => {
-		if (hostname === 'example.com')
+		if (hostname === 'example.com') {
 			return; // Certificate OK
+		}
 		
-		return new Error('Invalid Hostname');
+		return new Error('Invalid Hostname'); // Certificate NOT OK
 	}
 });
 ```
