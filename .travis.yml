@@ -9,6 +9,7 @@ after_success:
 
 stages:
   - build
+  - test
   - integration-tests
 
 jobs:
