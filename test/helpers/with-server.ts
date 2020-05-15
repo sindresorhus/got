@@ -4,7 +4,7 @@ import is from '@sindresorhus/is';
 import http = require('http');
 import tempy = require('tempy');
 import createTestServer = require('create-test-server');
-import lolex = require('lolex');
+import FakeTimers = require('@sinonjs/fake-timers');
 import got, {InstanceDefaults} from '../../source';
 import {ExtendedGot, ExtendedHttpServer, ExtendedTestServer, GlobalClock, InstalledClock} from './types';
 
@@ -12,7 +12,7 @@ export type RunTestWithServer = (t: test.ExecutionContext, server: ExtendedTestS
 export type RunTestWithSocket = (t: test.ExecutionContext, server: ExtendedHttpServer) => Promise<void> | void;
 
 const generateHook = ({install, options: testServerOptions}: {install?: boolean; options?: unknown}): test.Macro<[RunTestWithServer]> => async (t, run) => {
-	const clock: GlobalClock = install ? lolex.install() : lolex.createClock();
+	const clock = install ? FakeTimers.install() : FakeTimers.createClock() as GlobalClock;
 
 	// Re-enable body parsing to investigate https://github.com/sindresorhus/got/issues/1186
 	const server = await createTestServer(is.plainObject(testServerOptions) ? testServerOptions : {
@@ -60,7 +60,7 @@ const generateHook = ({install, options: testServerOptions}: {install?: boolean;
 export const withBodyParsingServer = generateHook({install: false, options: {}});
 export default generateHook({install: false});
 
-export const withServerAndLolex = generateHook({install: true});
+export const withServerAndFakeTimers = generateHook({install: true});
 
 // TODO: remove this when `create-test-server` supports custom listen
 export const withSocketServer: test.Macro<[RunTestWithSocket]> = async (t, run) => {
