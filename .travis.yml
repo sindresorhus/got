@@ -20,5 +20,5 @@ jobs:
 
     - stage: integration-tests
       name: 'Integration tests'
-      script: 'npm prune --production && node ./test/integration/example.js'
+      script: 'npm prune --production && node ./integration-test/example.js'
       after_success: [] # Override default
