@@ -289,7 +289,7 @@ test('DNS auto', withServer, async (t, server, got) => {
 	server.get('/ok', echoIp);
 
 	const response = await got('ok', {
-		ipVersion: 'auto'
+		dnsIpVersion: 'auto'
 	});
 
 	t.true(isIPv4(response.body));
@@ -299,7 +299,7 @@ test('DNS IPv4', withServer, async (t, server, got) => {
 	server.get('/ok', echoIp);
 
 	const response = await got('ok', {
-		ipVersion: 'ipv4'
+		dnsIpVersion: 'ipv4'
 	});
 
 	t.true(isIPv4(response.body));
@@ -310,7 +310,7 @@ test('DNS IPv6', withServer, async (t, server, got) => {
 
 	try {
 		const response = await got('ok', {
-			ipVersion: 'ipv6'
+			dnsIpVersion: 'ipv6'
 		});
 
 		t.true(isIPv6(response.body));

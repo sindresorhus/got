@@ -499,7 +499,7 @@ An instance of [`CacheableLookup`](https://github.com/szmarczak/cacheable-lookup
 **Note:** This should stay disabled when making requests to internal hostnames such as `localhost`, `database.local` etc.\
 `CacheableLookup` uses `dns.resolver4(..)` and `dns.resolver6(...)` under the hood and fall backs to `dns.lookup(...)` when the first two fail, which may lead to additional delay.
 
-###### ipVersion
+###### dnsIpVersion
 
 Type: `'auto' | 'ipv4' | 'ipv6'`\
 Default: `'auto'`
@@ -510,7 +510,7 @@ Values:
  - `ipv4`: only IPv4
  - `ipv6`: only IPv6
 
-Note: if you are using the undocumented option `family`, `ipVersion` will override it.
+Note: if you are using the undocumented option `family`, `dnsIpVersion` will override it.
 
 ###### request
 
