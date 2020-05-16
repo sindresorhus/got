@@ -109,11 +109,11 @@ test('http2', async t => {
 });
 
 test.serial('deprecated rejectUnauthorized', withServer, async (t, server, got) => {
-	await new Promise(resolve => {
-		server.get('/', (_request, response) => {
-			response.end('ok');
-		});
+	server.get('/', (_request, response) => {
+		response.end('ok');
+	});
 
+	await new Promise(resolve => {
 		process.once('warning', warn => {
 			t.is(warn.name, 'DeprecationWarning');
 			resolve();
