@@ -164,7 +164,7 @@ export interface Options extends URLOptions {
 export interface HTTPSOptions {
 	// From `http.RequestOptions` and `tls.CommonConnectionOptions`
 	rejectUnauthorized?: https.RequestOptions['rejectUnauthorized'];
-	
+
 	// From `tls.ConnectionOptions`
 	checkServerIdentity?: CheckServerIdentityFn;
 
@@ -867,27 +867,27 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 		// HTTPS options
 		if ('rejectUnauthorized' in options) {
-			deprecationWarning('options.rejectUnauthorized', '"options.rejectUnauthorized" is now deprecated, please use "options.https.rejectUnauthorized"');
+			deprecationWarning('"options.rejectUnauthorized" is now deprecated, please use "options.https.rejectUnauthorized"');
 		}
 
 		if ('checkServerIdentity' in options) {
-			deprecationWarning('options.checkServerIdentity', '"options.checkServerIdentity" was never documented, please use "options.https.checkServerIdentity"');
+			deprecationWarning('"options.checkServerIdentity" was never documented, please use "options.https.checkServerIdentity"');
 		}
 
 		if ('ca' in options) {
-			deprecationWarning('options.ca', '"options.ca" was never documented, please use "options.https.certificateAuthority"');
+			deprecationWarning('"options.ca" was never documented, please use "options.https.certificateAuthority"');
 		}
 
 		if ('key' in options) {
-			deprecationWarning('options.key', '"options.key" was never documented, please use "options.https.key"');
+			deprecationWarning('"options.key" was never documented, please use "options.https.key"');
 		}
 
 		if ('cert' in options) {
-			deprecationWarning('options.cert', '"options.cert" was never documented, please use "options.https.certificate"');
+			deprecationWarning('"options.cert" was never documented, please use "options.https.certificate"');
 		}
 
 		if ('passphrase' in options) {
-			deprecationWarning('options.passphrase', '"options.passphrase" was never documented, please use "options.https.passphrase"');
+			deprecationWarning('"options.passphrase" was never documented, please use "options.https.passphrase"');
 		}
 
 		// Other options

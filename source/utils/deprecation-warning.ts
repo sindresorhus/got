@@ -1,11 +1,11 @@
 const alreadyWarned: string[] = [];
 
-export default (name: string, message: string) => {
-	if (alreadyWarned.includes(name)) {
+export default (message: string) => {
+	if (alreadyWarned.includes(message)) {
 		return;
 	}
 
-	alreadyWarned.push(name);
+	alreadyWarned.push(message);
 
 	// @ts-ignore
 	process.emitWarning(message, {
