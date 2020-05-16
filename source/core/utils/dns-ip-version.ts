@@ -16,7 +16,7 @@ export const isDnsIpVersion = (value: unknown): boolean => {
 };
 
 export const dnsIpVersionToFamily = (dnsIpVersion: DnsIpVersion): DnsIpFamily => {
-	if (isDnsIpVersion(dnsIpVersion)) {
+	if (dnsIpVersion in conversionTable) {
 		return conversionTable[dnsIpVersion] as DnsIpFamily;
 	}
 
