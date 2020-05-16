@@ -312,7 +312,9 @@ test('secureConnect timeout not breached', withServer, async (t, server, got) =>
 	await t.notThrowsAsync(got({
 		timeout: {secureConnect: 200},
 		retry: 0,
-		rejectUnauthorized: false
+		https: {
+			rejectUnauthorized: false
+		}
 	}));
 });
 

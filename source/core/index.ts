@@ -24,6 +24,7 @@ import urlToOptions from './utils/url-to-options';
 import optionsToUrl, {URLOptions} from './utils/options-to-url';
 import WeakableMap from './utils/weakable-map';
 import decompressResponse from './utils/decompress-response';
+import deprecationWarning from '../utils/deprecation-warning';
 
 type HttpRequestFunction = typeof httpRequest;
 type Error = NodeJS.ErrnoException;
@@ -116,6 +117,12 @@ type CacheableRequestFn = (
 	cb?: (response: ServerResponse | ResponseLike) => void
 ) => CacheableRequest.Emitter;
 
+type CheckServerIdentityFn = (hostname: string, certificate: DetailedPeerCertificate) => Error | undefined | void;
+
+interface RealRequestOptions extends https.RequestOptions {
+	checkServerIdentity: CheckServerIdentityFn;
+}
+
 export interface Options extends URLOptions {
 	request?: RequestFunction;
 	agent?: Agents | false;
@@ -150,14 +157,18 @@ export interface Options extends URLOptions {
 	method?: Method;
 	createConnection?: (options: http.RequestOptions, oncreate: (error: Error, socket: Socket) => void) => Socket;
 
-	// From tls.ConnectionOptions
-	checkServerIdentity?: (hostname: string, certificate: DetailedPeerCertificate) => Error | void;
+	https?: HTTPSOptions;
+	rejectUnauthorized?: boolean; // Here for backwards compatibility
+}
 
-	// From tls.SecureContextOptions
-	rejectUnauthorized?: boolean;
+export interface HTTPSOptions {
+	rejectUnauthorized?: https.RequestOptions['rejectUnauthorized'];
+	checkServerIdentity?: CheckServerIdentityFn;
+
 	certificateAuthority?: SecureContextOptions['ca'];
 	key?: SecureContextOptions['key'];
 	certificate?: SecureContextOptions['cert'];
+	passphrase?: SecureContextOptions['passphrase'];
 }
 
 export interface NormalizedOptions extends Options {
@@ -205,7 +216,7 @@ export interface Defaults {
 	throwHttpErrors: boolean;
 	http2: boolean;
 	allowGetBody: boolean;
-	rejectUnauthorized: boolean;
+	https?: HTTPSOptions;
 	methodRewriting: boolean;
 
 	// Optional
@@ -631,11 +642,17 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		assert.any([is.boolean, is.undefined], options.throwHttpErrors);
 		assert.any([is.boolean, is.undefined], options.http2);
 		assert.any([is.boolean, is.undefined], options.allowGetBody);
-		assert.any([is.boolean, is.undefined], options.rejectUnauthorized);
 		assert.any([is.string, is.undefined], options.localAddress);
-		assert.any([is.string, is.object, is.array, is.undefined], options.certificateAuthority);
-		assert.any([is.string, is.object, is.array, is.undefined], options.key);
-		assert.any([is.string, is.object, is.array, is.undefined], options.certificate);
+		assert.any([is.object, is.undefined], options.https);
+		assert.any([is.boolean, is.undefined], options.rejectUnauthorized);
+		if (options.https) {
+			assert.any([is.boolean, is.undefined], options.https.rejectUnauthorized);
+			assert.any([is.function_, is.undefined], options.https.checkServerIdentity);
+			assert.any([is.string, is.object, is.array, is.undefined], options.https.certificateAuthority);
+			assert.any([is.string, is.object, is.array, is.undefined], options.https.key);
+			assert.any([is.string, is.object, is.array, is.undefined], options.https.certificate);
+			assert.any([is.string, is.undefined], options.https.passphrase);
+		}
 
 		// `options.method`
 		if (is.string(options.method)) {
@@ -845,12 +862,28 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		}
 
 		// HTTPS options
+		if ('rejectUnauthorized' in options) {
+			deprecationWarning('options.rejectUnauthorized', '"options.rejectUnauthorized" is now deprecated, please use "options.https.rejectUnauthorized"');
+		}
+
+		if ('checkServerIdentity' in options) {
+			deprecationWarning('options.checkServerIdentity', '"options.checkServerIdentity" was never documented, please use "options.https.checkServerIdentity"');
+		}
+
 		if ('ca' in options) {
-			console.warn('WARNING: "options.ca" was never documented, please use "options.certificateAuthority"');
+			deprecationWarning('options.ca', '"options.ca" was never documented, please use "options.https.certificateAuthority"');
+		}
+
+		if ('key' in options) {
+			deprecationWarning('options.key', '"options.key" was never documented, please use "options.https.key"');
 		}
 
 		if ('cert' in options) {
-			console.warn('WARNING: "options.cert" was never documented, please use "options.certificate"');
+			deprecationWarning('options.cert', '"options.cert" was never documented, please use "options.https.certificate"');
+		}
+
+		if ('passphrase' in options) {
+			deprecationWarning('options.passphrase', '"options.passphrase" was never documented, please use "options.https.passphrase"');
 		}
 
 		// Other options
@@ -1350,14 +1383,33 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		delete options.request;
 		delete options.timeout;
 
-		const requestOptions = options as unknown as https.RequestOptions;
+		const requestOptions = options as unknown as RealRequestOptions;
 
-		if (options.certificateAuthority) {
-			requestOptions.ca = options.certificateAuthority;
-		}
+		// HTTPS options remapping
+		if (options.https) {
+			if ('rejectUnauthorized' in options.https) {
+				requestOptions.rejectUnauthorized = options.https.rejectUnauthorized;
+			}
 
-		if (options.certificate) {
-			requestOptions.cert = options.certificate;
+			if (options.https.checkServerIdentity) {
+				requestOptions.checkServerIdentity = options.https.checkServerIdentity;
+			}
+
+			if (options.https.certificateAuthority) {
+				requestOptions.ca = options.https.certificateAuthority;
+			}
+
+			if (options.https.certificate) {
+				requestOptions.cert = options.https.certificate;
+			}
+
+			if (options.https.key) {
+				requestOptions.key = options.https.key;
+			}
+
+			if (options.https.passphrase) {
+				requestOptions.passphrase = options.https.passphrase;
+			}
 		}
 
 		try {

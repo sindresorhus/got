@@ -1,14 +1,18 @@
 import test from 'ava';
 import got from '../source';
 import withServer from './helpers/with-server';
-import {PeerCertificate} from 'tls';
+import {DetailedPeerCertificate} from 'tls';
 
 test('https request without ca', withServer, async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.end('ok');
 	});
 
-	t.truthy((await got.secure({rejectUnauthorized: false})).body);
+	t.truthy((await got.secure({
+		https: {
+			rejectUnauthorized: false
+		}
+	})).body);
 });
 
 test('https request with ca', withServer, async (t, server, got) => {
@@ -17,7 +21,9 @@ test('https request with ca', withServer, async (t, server, got) => {
 	});
 
 	const {body} = await got.secure({
-		certificateAuthority: server.caCert,
+		https: {
+			certificateAuthority: server.caCert
+		},
 		headers: {host: 'example.com'}
 	});
 
@@ -30,11 +36,13 @@ test('https request with checkServerIdentity OK', withServer, async (t, server, 
 	});
 
 	const {body} = await got.secure({
-		certificateAuthority: server.caCert,
-		checkServerIdentity: (hostname: string, certificate: PeerCertificate) => {
-			t.is(hostname, 'example.com');
-			t.is(certificate.subject.CN, 'example.com');
-			t.is(certificate.issuer.CN, 'localhost');
+		https: {
+			certificateAuthority: server.caCert,
+			checkServerIdentity: (hostname: string, certificate: DetailedPeerCertificate) => {
+				t.is(hostname, 'example.com');
+				t.is(certificate.subject.CN, 'example.com');
+				t.is(certificate.issuer.CN, 'localhost');
+			}
 		},
 		headers: {host: 'example.com'}
 	});
@@ -48,13 +56,15 @@ test('https request with checkServerIdentity NOT OK', withServer, async (t, serv
 	});
 
 	const promise = got.secure({
-		certificateAuthority: server.caCert,
-		checkServerIdentity: (hostname: string, certificate: PeerCertificate) => {
-			t.is(hostname, 'example.com');
-			t.is(certificate.subject.CN, 'example.com');
-			t.is(certificate.issuer.CN, 'localhost');
+		https: {
+			certificateAuthority: server.caCert,
+			checkServerIdentity: (hostname: string, certificate: DetailedPeerCertificate) => {
+				t.is(hostname, 'example.com');
+				t.is(certificate.subject.CN, 'example.com');
+				t.is(certificate.issuer.CN, 'localhost');
 
-			return new Error('CUSTOM_ERROR');
+				return new Error('CUSTOM_ERROR');
+			}
 		},
 		headers: {host: 'example.com'}
 	});
@@ -96,4 +106,68 @@ test('http2', async t => {
 	// @ts-ignore Pseudo headers may not be strings
 	t.is(headers[':status'], 200);
 	t.is(typeof body, 'string');
+});
+
+test('deprecated rejectUnauthorized', withServer, async (t, server, got) => {
+	await new Promise(resolve => {
+		server.get('/', (_request, response) => {
+			response.end('ok');
+		});
+
+		process.once('warning', warn => {
+			t.is(warn.name, 'DeprecationWarning');
+			resolve();
+		});
+
+		(async () => {
+			await got.secure({
+				rejectUnauthorized: false
+			});
+
+			t.fail();
+			resolve();
+		})();
+	});
+});
+
+test('non deprecated rejectUnauthorized', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.end('ok');
+	});
+
+	process.once('warning', warn => {
+		t.not(warn.name, 'DeprecationWarning');
+	});
+
+	await got.secure({
+		https: {
+			rejectUnauthorized: false
+		}
+	});
+
+	t.pass();
+});
+
+test('no double deprecated warning', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.end('ok');
+	});
+
+	process.once('warning', warn => {
+		t.is(warn.name, 'DeprecationWarning');
+	});
+
+	await got.secure({
+		rejectUnauthorized: false
+	});
+
+	process.once('warning', warn => {
+		t.not(warn.name, 'DeprecationWarning');
+	});
+
+	await got.secure({
+		rejectUnauthorized: false
+	});
+
+	t.pass();
 });
