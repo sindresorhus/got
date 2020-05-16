@@ -151,20 +151,24 @@ export interface Options extends URLOptions {
 	headers?: Headers;
 	methodRewriting?: boolean;
 
-	// From http.RequestOptions
+	// From `http.RequestOptions`
 	localAddress?: string;
 	socketPath?: string;
 	method?: Method;
 	createConnection?: (options: http.RequestOptions, oncreate: (error: Error, socket: Socket) => void) => Socket;
+	rejectUnauthorized?: boolean; // Here for backwards compatibility
 
 	https?: HTTPSOptions;
-	rejectUnauthorized?: boolean; // Here for backwards compatibility
 }
 
 export interface HTTPSOptions {
+	// From `http.RequestOptions` and `tls.CommonConnectionOptions`
 	rejectUnauthorized?: https.RequestOptions['rejectUnauthorized'];
+	
+	// From `tls.ConnectionOptions`
 	checkServerIdentity?: CheckServerIdentityFn;
 
+	// From `tls.SecureContextOptions`
 	certificateAuthority?: SecureContextOptions['ca'];
 	key?: SecureContextOptions['key'];
 	certificate?: SecureContextOptions['cert'];

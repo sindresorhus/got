@@ -955,11 +955,11 @@ Default: `tls.checkServerIdentity` (from the `tls` module)
 
 This function enable a custom check of the certificate.\
 Note: In order to have the function called the certificate must not be `expired`, `self-signed` or with an `untrusted-root`.\
-The function parameters are
+The function parameters are:
 - `hostname`: The server hostname (used when connecting)
 - `certificate`: The server certificate
 
-The function must return `undefined` if the check succeeded or and `Error` if it failed.
+The function must return `undefined` if the check succeeded or an `Error` if it failed.
 
 ```js
 await got('https://example.com', {
