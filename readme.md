@@ -512,6 +512,18 @@ Values:
 
 Note: if you are using the undocumented option `family`, `dnsIpVersion` will override it.
 
+```js
+// api6.ipify.org will be resolved as IPv4, the request will be over IPv4 (the website will respond with your public IPv4)
+await got('https://api6.ipify.org', {
+  dnsIpVersion: 'ipv4'
+});
+
+// api6.ipify.org will be resolved as IPv6, the request will be over IPv6 (the website will respond with your public IPv6)
+await got('https://api6.ipify.org', {
+  dnsIpVersion: 'ipv6'
+});
+```
+
 ###### request
 
 Type: `Function`\
