@@ -176,7 +176,7 @@ export default function asPromise<T>(options: NormalizedOptions): CancelableRequ
 							retryOptions: options.retry,
 							error,
 							computedValue: 0
-						}) as number
+						})
 					});
 				} catch (error_) {
 					// Don't emit the `response` event
