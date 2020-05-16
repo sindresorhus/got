@@ -7,7 +7,7 @@ export default (message: string) => {
 
 	alreadyWarned.push(message);
 
-	// @ts-ignore
+	// @ts-ignore Missing types.
 	process.emitWarning(message, {
 		type: 'DeprecationWarning'
 	});
