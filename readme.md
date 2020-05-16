@@ -1029,6 +1029,7 @@ The emitted `error` is an instance of [`RequestError`](#got.requesterror).
 #### Pagination
 
 #### got.paginate(url, options?)
+#### got.paginate.each(url, options?)
 
 Returns an async iterator:
 
