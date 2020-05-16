@@ -10,10 +10,11 @@
 		"node": ">=10.19.0"
 	},
 	"scripts": {
-		"test": "xo && tsc --noEmit && nyc --reporter=html --reporter=text ava",
-		"release": "np",
 		"build": "del-cli dist && tsc",
+		"test": "xo && tsc --noEmit && nyc --reporter=html --reporter=text ava",
+		"coverage": "nyc report --reporter=text-lcov | coveralls",
 		"prepare": "npm run build",
+		"release": "np",
 		"clean": "rimraf dist coverage .nyc_output"
 	},
 	"files": [
