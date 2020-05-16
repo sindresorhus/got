@@ -1,5 +1,5 @@
 import {Readable} from 'stream';
-import {Clock} from 'lolex';
+import {Clock} from '@sinonjs/fake-timers';
 
 export default (clock: Clock): Readable => {
 	let i = 0;
