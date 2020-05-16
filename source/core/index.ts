@@ -104,7 +104,7 @@ export type HookEvent = 'init' | 'beforeRequest' | 'beforeRedirect' | 'beforeErr
 
 export const knownHookEvents: HookEvent[] = ['init', 'beforeRequest', 'beforeRedirect', 'beforeError'];
 
-type AcceptableResponse = IncomingMessage | ResponseLike;
+type AcceptableResponse = IncomingMessageWithTimings | ResponseLike;
 type AcceptableRequestResult = AcceptableResponse | ClientRequest | Promise<AcceptableResponse | ClientRequest> | undefined;
 
 export type RequestFunction = (url: URL, options: RequestOptions, callback?: (response: AcceptableResponse) => void) => AcceptableRequestResult;
@@ -462,8 +462,8 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	[kStartedReading]?: boolean;
 	[kCancelTimeouts]?: () => void;
 	[kResponseSize]?: number;
-	[kResponse]?: IncomingMessage;
-	[kOriginalResponse]?: IncomingMessage;
+	[kResponse]?: IncomingMessageWithTimings;
+	[kOriginalResponse]?: IncomingMessageWithTimings;
 	[kRequest]?: ClientRequest;
 	_noPipe?: boolean;
 	_progressCallbacks: Array<() => void>;
@@ -772,7 +772,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		if (cache) {
 			if (!cacheableStore.has(cache)) {
 				cacheableStore.set(cache, new CacheableRequest(
-					((requestOptions: RequestOptions, handler?: (response: IncomingMessage) => void): ClientRequest => (requestOptions as Pick<NormalizedOptions, typeof kRequest>)[kRequest](requestOptions, handler)) as HttpRequestFunction,
+					((requestOptions: RequestOptions, handler?: (response: IncomingMessageWithTimings) => void): ClientRequest => (requestOptions as Pick<NormalizedOptions, typeof kRequest>)[kRequest](requestOptions, handler)) as HttpRequestFunction,
 					cache as CacheableRequest.StorageAdapter
 				));
 			}
@@ -954,7 +954,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		this[kBodySize] = Number(headers['content-length']) || undefined;
 	}
 
-	async _onResponse(response: IncomingMessage): Promise<void> {
+	async _onResponse(response: IncomingMessageWithTimings): Promise<void> {
 		const {options} = this;
 		const {url} = options;
 
@@ -1167,7 +1167,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 		const responseEventName = options.cache ? 'cacheableResponse' : 'response';
 
-		request.once(responseEventName, (response: IncomingMessage) => {
+		request.once(responseEventName, (response: IncomingMessageWithTimings) => {
 			this._onResponse(response);
 		});
 
@@ -1231,7 +1231,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 			// This is ugly
 			const cacheRequest = cacheableStore.get((options as any).cache)!(options, response => {
-				const typedResponse = response as unknown as IncomingMessage & {req: ClientRequest};
+				const typedResponse = response as unknown as IncomingMessageWithTimings & {req: ClientRequest};
 				const {req} = typedResponse;
 
 				// TODO: Fix `cacheable-response`
@@ -1351,14 +1351,14 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 				// Emit the response after the stream has been ended
 			} else if (this.writable) {
 				this.once('finish', () => {
-					this._onResponse(requestOrResponse as IncomingMessage);
+					this._onResponse(requestOrResponse as IncomingMessageWithTimings);
 				});
 
 				this._unlockWrite();
 				this.end();
 				this._lockWrite();
 			} else {
-				this._onResponse(requestOrResponse as IncomingMessage);
+				this._onResponse(requestOrResponse as IncomingMessageWithTimings);
 			}
 		} catch (error) {
 			if (error instanceof CacheableRequest.CacheError) {
@@ -1477,6 +1477,11 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 				return;
 			}
 
+			if (this[kRequest]!.destroyed) {
+				callback();
+				return;
+			}
+
 			this[kRequest]!.end((error?: Error | null) => {
 				if (!error) {
 					this[kBodySize] = this[kUploadedSize];
@@ -1566,6 +1571,10 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 	get isFromCache(): boolean | undefined {
 		return this[kIsFromCache];
+	}
+
+	get _response(): Response | undefined {
+		return this[kResponse] as Response;
 	}
 
 	pipe<T extends NodeJS.WritableStream>(destination: T, options?: {end?: boolean}): T {
