@@ -1,5 +1,4 @@
 const got = require('../dist/source');
-require('missing-dependency');
 
 (async () => {
 	try {
