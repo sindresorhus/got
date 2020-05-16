@@ -7,16 +7,12 @@ const conversionTable = {
 	ipv6: 6
 };
 
-export const isDnsIpVersion = (value: unknown): boolean => {
-	if (typeof value === 'string') {
-		return value in conversionTable;
-	}
-
-	return false;
+export const isDnsIpVersion = (value: any): boolean => {
+	return value in conversionTable;
 };
 
 export const dnsIpVersionToFamily = (dnsIpVersion: DnsIpVersion): DnsIpFamily => {
-	if (dnsIpVersion in conversionTable) {
+	if (isDnsIpVersion(dnsIpVersion)) {
 		return conversionTable[dnsIpVersion] as DnsIpFamily;
 	}
 
