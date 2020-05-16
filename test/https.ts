@@ -108,7 +108,7 @@ test('http2', async t => {
 	t.is(typeof body, 'string');
 });
 
-test('deprecated rejectUnauthorized', withServer, async (t, server, got) => {
+test.serial('deprecated rejectUnauthorized', withServer, async (t, server, got) => {
 	await new Promise(resolve => {
 		server.get('/', (_request, response) => {
 			response.end('ok');
@@ -130,7 +130,7 @@ test('deprecated rejectUnauthorized', withServer, async (t, server, got) => {
 	});
 });
 
-test('non deprecated rejectUnauthorized', withServer, async (t, server, got) => {
+test.serial('non deprecated rejectUnauthorized', withServer, async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.end('ok');
 	});
@@ -148,7 +148,7 @@ test('non deprecated rejectUnauthorized', withServer, async (t, server, got) => 
 	t.pass();
 });
 
-test('no double deprecated warning', withServer, async (t, server, got) => {
+test.serial('no double deprecated warning', withServer, async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.end('ok');
 	});
