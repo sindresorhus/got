@@ -6,7 +6,7 @@ import {
 	RetryFunction
 } from './types';
 
-type Returns<T extends (...args: any) => any, V> = (...args: Parameters<T>) => V;
+type Returns<T extends (...args: any) => unknown, V> = (...args: Parameters<T>) => V;
 
 const retryAfterStatusCodes: ReadonlySet<number> = new Set([413, 429, 503]);
 
