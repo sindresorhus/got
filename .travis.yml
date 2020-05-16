@@ -6,5 +6,5 @@ node_js:
   - '10'
 
 install: npm i
-script: npm run test && npm run coverage || true
-after_success: npm prune --production && node ./integration-test/example.js
+script: npm run test && npm prune --production && node ./integration-test/example.js
+after_success: npm i && npm run coverage
