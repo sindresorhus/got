@@ -6,4 +6,4 @@ node_js:
   - '10'
 install: npm install
 script: npm run test && npm prune --production && node ./integration-test/example.js
-after_success: npm install && npm run coverage
+after_success: npm install && nyc report --reporter=text-lcov | coveralls

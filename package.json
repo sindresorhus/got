@@ -12,7 +12,6 @@
 	"scripts": {
 		"build": "del-cli dist && tsc",
 		"test": "xo && tsc --noEmit && nyc --reporter=html --reporter=text ava",
-		"coverage": "nyc report --reporter=text-lcov | coveralls",
 		"prepare": "npm run build",
 		"release": "np",
 		"clean": "del-cli dist coverage .nyc_output"
