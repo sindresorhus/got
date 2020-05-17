@@ -4,7 +4,6 @@ node_js:
   - '13'
   - '12'
   - '10'
-
-install: npm i
+install: npm install
 script: npm run test && npm prune --production && node ./integration-test/example.js
-after_success: npm i && npm run coverage
+after_success: npm install && npm run coverage
