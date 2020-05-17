@@ -15,7 +15,7 @@
 		"coverage": "nyc report --reporter=text-lcov | coveralls",
 		"prepare": "npm run build",
 		"release": "np",
-		"clean": "rimraf dist coverage .nyc_output"
+		"clean": "del-cli dist coverage .nyc_output"
 	},
 	"files": [
 		"dist/source"
