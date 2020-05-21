@@ -108,7 +108,7 @@ test('http2', async t => {
 	t.is(typeof body, 'string');
 });
 
-test.serial('deprecated rejectUnauthorized', withServer, async (t, server, got) => {
+test.serial('deprecated `rejectUnauthorized` option', withServer, async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.end('ok');
 	});
