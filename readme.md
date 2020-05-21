@@ -862,7 +862,7 @@ Type: `string`
 
 The passphrase to decrypt the `options.https.key` (if different keys have different passphrases refer to `options.https.key` documentation).
 
-##### Examples for https.key, https.certificate and https.passphrase
+##### Examples for `https.key`, `https.certificate` and `https.passphrase`
 
 ```js
 // Single key with certificate
