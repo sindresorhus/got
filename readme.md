@@ -826,7 +826,7 @@ Note: If the request is not HTTPS, these options will be ignored.
 
 ##### https.certificateAuthority
 
-Type: `string | Buffer | (string | Buffer)[]`
+Type: `string | Buffer | Array<string | Buffer>`
 
 Override the default Certificate Authorities ([from Mozilla](https://ccadb-public.secure.force.com/mozilla/IncludedCACertificateReport))
 
