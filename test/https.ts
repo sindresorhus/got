@@ -50,7 +50,7 @@ test('https request with checkServerIdentity OK', withServer, async (t, server, 
 	t.is(body, 'ok');
 });
 
-test('https request with checkServerIdentity NOT OK', withServer, async (t, server, got) => {
+test('https request with `checkServerIdentity` NOT OK', withServer, async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.end('ok');
 	});
