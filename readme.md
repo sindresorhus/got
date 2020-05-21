@@ -865,7 +865,7 @@ The passphrase to decrypt the `options.https.key` (if different keys have differ
 ##### Examples for https.key, https.certificate and https.passphrase
 
 ```js
-// Single key with cert
+// Single key with certificate
 got('https://example.com', {
 	https: {
 		key: fs.readFileSync('./client_key.pem'),
