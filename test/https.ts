@@ -130,7 +130,7 @@ test.serial('deprecated `rejectUnauthorized` option', withServer, async (t, serv
 	});
 });
 
-test.serial('non deprecated rejectUnauthorized', withServer, async (t, server, got) => {
+test.serial('non-deprecated `rejectUnauthorized` option', withServer, async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.end('ok');
 	});
