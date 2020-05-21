@@ -748,9 +748,58 @@ export interface Response<T = unknown> extends PlainResponse {
 }
 
 export interface RequestEvents<T> {
+	/**
+		`request` event to get the request object of the request.
+
+		 __Tip__: You can use `request` event to abort requests.
+
+		@example
+		```
+		got.stream('https://github.com')
+			.on('request', request => setTimeout(() => request.destroy(), 50));
+		```
+		*/
 	on(name: 'request', listener: (request: http.ClientRequest) => void): T;
+
+	/**
+		The `response` event to get the response object of the final request.
+		*/
 	on<R extends Response>(name: 'response', listener: (response: R) => void): T;
+
+	/**
+		The `redirect` event to get the response object of a redirect. The second argument is options for the next request to the redirect location.
+		*/
 	on<R extends Response, N extends NormalizedOptions>(name: 'redirect', listener: (response: R, nextOptions: N) => void): T;
+
+	/**
+		Progress events for uploading (sending a request) and downloading (receiving a response).
+		The `progress` argument is an object like:
+
+		```js
+		{
+			percent: 0.1,
+			transferred: 1024,
+			total: 10240
+		}
+		```
+
+		If the `content-length` header is missing, `total` will be `undefined`.
+
+		@example
+		```
+		(async () => {
+			const response = await got('https://sindresorhus.com')
+				.on('downloadProgress', progress => {
+					// Report download progress
+				})
+				.on('uploadProgress', progress => {
+					// Report upload progress
+				});
+
+			console.log(response);
+		})();
+		```
+		*/
 	on(name: 'uploadProgress' | 'downloadProgress', listener: (progress: Progress) => void): T;
 }
 
@@ -2119,10 +2168,16 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		callback(error);
 	}
 
+	/**
+		The remote IP address.
+		*/
 	get ip(): string | undefined {
 		return this[kRequest]?.socket.remoteAddress;
 	}
 
+	/**
+		Indicates whether the request has been aborted or not.
+		*/
 	get aborted(): boolean {
 		return (this[kRequest]?.destroyed ?? this.destroyed) && !(this[kOriginalResponse]?.complete);
 	}
@@ -2131,6 +2186,9 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		return this[kRequest]?.socket;
 	}
 
+	/**
+		Progress event for downloading (receiving a response).
+		*/
 	get downloadProgress(): Progress {
 		let percent;
 		if (this[kResponseSize]) {
@@ -2148,6 +2206,9 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		};
 	}
 
+	/**
+		Progress event for uploading (sending a request).
+		*/
 	get uploadProgress(): Progress {
 		let percent;
 		if (this[kBodySize]) {
@@ -2165,10 +2226,40 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		};
 	}
 
+	/**
+		The object contains the following properties:
+
+		- `start` - Time when the request started.
+		- `socket` - Time when a socket was assigned to the request.
+		- `lookup` - Time when the DNS lookup finished.
+		- `connect` - Time when the socket successfully connected.
+		- `secureConnect` - Time when the socket securely connected.
+		- `upload` - Time when the request finished uploading.
+		- `response` - Time when the request fired `response` event.
+		- `end` - Time when the response fired `end` event.
+		- `error` - Time when the request fired `error` event.
+		- `abort` - Time when the request fired `abort` event.
+		- `phases`
+			- `wait` - `timings.socket - timings.start`
+			- `dns` - `timings.lookup - timings.socket`
+			- `tcp` - `timings.connect - timings.lookup`
+			- `tls` - `timings.secureConnect - timings.connect`
+			- `request` - `timings.upload - (timings.secureConnect || timings.connect)`
+			- `firstByte` - `timings.response - timings.upload`
+			- `download` - `timings.end - timings.response`
+			- `total` - `(timings.end || timings.error || timings.abort) - timings.start`
+
+		If something has not been measured yet, it will be `undefined`.
+
+		__Note__: The time is a `number` representing the milliseconds elapsed since the UNIX epoch.
+		*/
 	get timings(): Timings | undefined {
 		return (this[kRequest] as ClientRequestWithTimings)?.timings;
 	}
 
+	/**
+		Whether the response was retrieved from the cache.
+		*/
 	get isFromCache(): boolean | undefined {
 		return this[kIsFromCache];
 	}
