@@ -841,7 +841,7 @@ got('https://example.com', {
 
 ##### https.key
 
-Type: `string | Buffer | (string | Buffer)[] | Object[]`
+Type: `string | Buffer | Array<string | Buffer> | object[]`
 
 Private keys in [PEM](https://en.wikipedia.org/wiki/Privacy-Enhanced_Mail) format.\
 [PEM](https://en.wikipedia.org/wiki/Privacy-Enhanced_Mail) allows the option of private keys being encrypted. Encrypted keys will be decrypted with `options.https.passphrase`.\
