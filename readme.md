@@ -822,7 +822,7 @@ The IP address used to send the request from.
 
 ### Advanced HTTPS API
 
-Note: If the request is not HTTPS these options will be ignored.
+Note: If the request is not HTTPS, these options will be ignored.
 
 ##### https.certificateAuthority
 
