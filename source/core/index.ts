@@ -205,267 +205,267 @@ interface RealRequestOptions extends https.RequestOptions {
 
 export interface Options extends URLOptions {
 	/**
-		Custom request function.
-		The main purpose of this is to [support HTTP2 using a wrapper](https://github.com/szmarczak/http2-wrapper).
+	Custom request function.
+	The main purpose of this is to [support HTTP2 using a wrapper](https://github.com/szmarczak/http2-wrapper).
 
-		@default http.request | https.request
-	  */
+	@default http.request | https.request
+	*/
 	request?: RequestFunction;
 
 	/**
-		An object representing `http`, `https` and `http2` keys for [`http.Agent`](https://nodejs.org/api/http.html#http_class_http_agent), [`https.Agent`](https://nodejs.org/api/https.html#https_class_https_agent) and [`http2wrapper.Agent`](https://github.com/szmarczak/http2-wrapper#new-http2agentoptions) instance.
-		This is necessary because a request to one protocol might redirect to another.
-		In such a scenario, Got will switch over to the right protocol agent for you.
+	An object representing `http`, `https` and `http2` keys for [`http.Agent`](https://nodejs.org/api/http.html#http_class_http_agent), [`https.Agent`](https://nodejs.org/api/https.html#https_class_https_agent) and [`http2wrapper.Agent`](https://github.com/szmarczak/http2-wrapper#new-http2agentoptions) instance.
+	This is necessary because a request to one protocol might redirect to another.
+	In such a scenario, Got will switch over to the right protocol agent for you.
 
-		If a key is not present, it will default to a global agent.
+	If a key is not present, it will default to a global agent.
 
-		@example
-		```
-		const got = require('got');
-		const HttpAgent = require('agentkeepalive');
-		const {HttpsAgent} = HttpAgent;
+	@example
+	```
+	const got = require('got');
+	const HttpAgent = require('agentkeepalive');
+	const {HttpsAgent} = HttpAgent;
 
-		got('https://sindresorhus.com', {
-			agent: {
-				http: new HttpAgent(),
-				https: new HttpsAgent()
-			}
-		});
-		```
-		*/
+	got('https://sindresorhus.com', {
+		agent: {
+			http: new HttpAgent(),
+			https: new HttpsAgent()
+		}
+	});
+	```
+	*/
 	agent?: Agents | false;
 
 	/**
-		Decompress the response automatically.
-		This will set the `accept-encoding` header to `gzip, deflate, br` on Node.js 11.7.0+ or `gzip, deflate` for older Node.js versions, unless you set it yourself.
+	Decompress the response automatically.
+	This will set the `accept-encoding` header to `gzip, deflate, br` on Node.js 11.7.0+ or `gzip, deflate` for older Node.js versions, unless you set it yourself.
 
-		Brotli (`br`) support requires Node.js 11.7.0 or later.
+	Brotli (`br`) support requires Node.js 11.7.0 or later.
 
-		If this is disabled, a compressed response is returned as a `Buffer`.
-		This may be useful if you want to handle decompression yourself or stream the raw compressed data.
+	If this is disabled, a compressed response is returned as a `Buffer`.
+	This may be useful if you want to handle decompression yourself or stream the raw compressed data.
 
-		@default true
-		*/
+	@default true
+	*/
 	decompress?: boolean;
 
 	/**
-		Milliseconds to wait for the server to end the response before aborting the request with `got.TimeoutError` error (a.k.a. `request` property).
-		By default, there's no timeout.
+	Milliseconds to wait for the server to end the response before aborting the request with `got.TimeoutError` error (a.k.a. `request` property).
+	By default, there's no timeout.
 
-		This also accepts an `object` with the following fields to constrain the duration of each phase of the request lifecycle:
+	This also accepts an `object` with the following fields to constrain the duration of each phase of the request lifecycle:
 
-		- `lookup` starts when a socket is assigned and ends when the hostname has been resolved.
-			Does not apply when using a Unix domain socket.
-		- `connect` starts when `lookup` completes (or when the socket is assigned if lookup does not apply to the request) and ends when the socket is connected.
-		- `secureConnect` starts when `connect` completes and ends when the handshaking process completes (HTTPS only).
-		- `socket` starts when the socket is connected. See [request.setTimeout](https://nodejs.org/api/http.html#http_request_settimeout_timeout_callback).
-		- `response` starts when the request has been written to the socket and ends when the response headers are received.
-		- `send` starts when the socket is connected and ends with the request has been written to the socket.
-		- `request` starts when the request is initiated and ends when the response's end event fires.
-		*/
+	- `lookup` starts when a socket is assigned and ends when the hostname has been resolved.
+		Does not apply when using a Unix domain socket.
+	- `connect` starts when `lookup` completes (or when the socket is assigned if lookup does not apply to the request) and ends when the socket is connected.
+	- `secureConnect` starts when `connect` completes and ends when the handshaking process completes (HTTPS only).
+	- `socket` starts when the socket is connected. See [request.setTimeout](https://nodejs.org/api/http.html#http_request_settimeout_timeout_callback).
+	- `response` starts when the request has been written to the socket and ends when the response headers are received.
+	- `send` starts when the socket is connected and ends with the request has been written to the socket.
+	- `request` starts when the request is initiated and ends when the response's end event fires.
+	*/
 	timeout?: Delays | number;
 
 	/**
-		When specified, `prefixUrl` will be prepended to `url`.
-		The prefix can be any valid URL, either relative or absolute.
-		A trailing slash `/` is optional - one will be added automatically.
+	When specified, `prefixUrl` will be prepended to `url`.
+	The prefix can be any valid URL, either relative or absolute.
+	A trailing slash `/` is optional - one will be added automatically.
 
-		__Note__: `prefixUrl` will be ignored if the `url` argument is a URL instance.
+	__Note__: `prefixUrl` will be ignored if the `url` argument is a URL instance.
 
-		__Note__: Leading slashes in `input` are disallowed when using this option to enforce consistency and avoid confusion.
-		For example, when the prefix URL is `https://example.com/foo` and the input is `/bar`, there's ambiguity whether the resulting URL would become `https://example.com/foo/bar` or `https://example.com/bar`.
-		The latter is used by browsers.
+	__Note__: Leading slashes in `input` are disallowed when using this option to enforce consistency and avoid confusion.
+	For example, when the prefix URL is `https://example.com/foo` and the input is `/bar`, there's ambiguity whether the resulting URL would become `https://example.com/foo/bar` or `https://example.com/bar`.
+	The latter is used by browsers.
 
-		__Tip__: Useful when used with `got.extend()` to create niche-specific Got instances.
+	__Tip__: Useful when used with `got.extend()` to create niche-specific Got instances.
 
-		__Tip__: You can change `prefixUrl` using hooks as long as the URL still includes the `prefixUrl`.
-		If the URL doesn't include it anymore, it will throw.
+	__Tip__: You can change `prefixUrl` using hooks as long as the URL still includes the `prefixUrl`.
+	If the URL doesn't include it anymore, it will throw.
 
-		@example
-		```
-		const got = require('got');
+	@example
+	```
+	const got = require('got');
 
-		(async () => {
-			await got('unicorn', {prefixUrl: 'https://cats.com'});
-			//=> 'https://cats.com/unicorn'
+	(async () => {
+		await got('unicorn', {prefixUrl: 'https://cats.com'});
+		//=> 'https://cats.com/unicorn'
 
-			const instance = got.extend({
-				prefixUrl: 'https://google.com'
-			});
+		const instance = got.extend({
+			prefixUrl: 'https://google.com'
+		});
 
-			await instance('unicorn', {
-				hooks: {
-					beforeRequest: [
-						options => {
-							options.prefixUrl = 'https://cats.com';
-						}
-					]
-				}
-			});
-			//=> 'https://cats.com/unicorn'
-		})();
-		```
-		*/
+		await instance('unicorn', {
+			hooks: {
+				beforeRequest: [
+					options => {
+						options.prefixUrl = 'https://cats.com';
+					}
+				]
+			}
+		});
+		//=> 'https://cats.com/unicorn'
+	})();
+	```
+	*/
 	prefixUrl?: string | URL;
 
 	/**
-		__Note #1__: The `body` option cannot be used with the `json` or `form` option.
+	__Note #1__: The `body` option cannot be used with the `json` or `form` option.
 
-		__Note #2__: If you provide this option, `got.stream()` will be read-only.
+	__Note #2__: If you provide this option, `got.stream()` will be read-only.
 
-		__Note #3__: If you provide a payload with the `GET` or `HEAD` method, it will throw a `TypeError` unless the method is `GET` and the `allowGetBody` option is set to `true`.
+	__Note #3__: If you provide a payload with the `GET` or `HEAD` method, it will throw a `TypeError` unless the method is `GET` and the `allowGetBody` option is set to `true`.
 
-		__Note #4__: This option is not enumerable and will not be merged with the instance defaults.
+	__Note #4__: This option is not enumerable and will not be merged with the instance defaults.
 
-		The `content-length` header will be automatically set if `body` is a `string` / `Buffer` / `fs.createReadStream` instance / [`form-data` instance](https://github.com/form-data/form-data), and `content-length` and `transfer-encoding` are not manually set in `options.headers`.
-		*/
+	The `content-length` header will be automatically set if `body` is a `string` / `Buffer` / `fs.createReadStream` instance / [`form-data` instance](https://github.com/form-data/form-data), and `content-length` and `transfer-encoding` are not manually set in `options.headers`.
+	*/
 	body?: string | Buffer | Readable;
 
 	/**
-		The form body is converted to a query string using [`(new URLSearchParams(object)).toString()`](https://nodejs.org/api/url.html#url_constructor_new_urlsearchparams_obj).
+	The form body is converted to a query string using [`(new URLSearchParams(object)).toString()`](https://nodejs.org/api/url.html#url_constructor_new_urlsearchparams_obj).
 
-		If the `Content-Type` header is not present, it will be set to `application/x-www-form-urlencoded`.
+	If the `Content-Type` header is not present, it will be set to `application/x-www-form-urlencoded`.
 
-		__Note #1__: If you provide this option, `got.stream()` will be read-only.
+	__Note #1__: If you provide this option, `got.stream()` will be read-only.
 
-		__Note #2__: This option is not enumerable and will not be merged with the instance defaults.
-		*/
+	__Note #2__: This option is not enumerable and will not be merged with the instance defaults.
+	*/
 	form?: {[key: string]: any};
 
 	/**
-		JSON body. If the `Content-Type` header is not set, it will be set to `application/json`.
+	JSON body. If the `Content-Type` header is not set, it will be set to `application/json`.
 
-		__Note #1__: If you provide this option, `got.stream()` will be read-only.
+	__Note #1__: If you provide this option, `got.stream()` will be read-only.
 
-		__Note #2__: This option is not enumerable and will not be merged with the instance defaults.
-		*/
+	__Note #2__: This option is not enumerable and will not be merged with the instance defaults.
+	*/
 	json?: {[key: string]: any};
 
 	url?: string | URL;
 
 	/**
-		Cookie support. You don't have to care about parsing or how to store them.
+	Cookie support. You don't have to care about parsing or how to store them.
 
-		__Note__: If you provide this option, `options.headers.cookie` will be overridden.
-		*/
+	__Note__: If you provide this option, `options.headers.cookie` will be overridden.
+	*/
 	cookieJar?: PromiseCookieJar | ToughCookieJar;
 
 	/**
-		Ignore invalid cookies instead of throwing an error.
-		Only useful when the `cookieJar` option has been set. Not recommended.
+	Ignore invalid cookies instead of throwing an error.
+	Only useful when the `cookieJar` option has been set. Not recommended.
 
-		@default false
-		*/
+	@default false
+	*/
 	ignoreInvalidCookies?: boolean;
 
 	/**
-		Query string that will be added to the request URL.
-		This will override the query string in `url`.
+	Query string that will be added to the request URL.
+	This will override the query string in `url`.
 
-		If you need to pass in an array, you can do it using a `URLSearchParams` instance.
+	If you need to pass in an array, you can do it using a `URLSearchParams` instance.
 
-		@example
-		```
-		const got = require('got');
+	@example
+	```
+	const got = require('got');
 
-		const searchParams = new URLSearchParams([['key', 'a'], ['key', 'b']]);
+	const searchParams = new URLSearchParams([['key', 'a'], ['key', 'b']]);
 
-		got('https://example.com', {searchParams});
+	got('https://example.com', {searchParams});
 
-		console.log(searchParams.toString());
-		//=> 'key=a&key=b'
-		```
-		*/
+	console.log(searchParams.toString());
+	//=> 'key=a&key=b'
+	```
+	*/
 	searchParams?: string | {[key: string]: string | number | boolean | null} | URLSearchParams;
 
 	/**
-		An instance of [`CacheableLookup`](https://github.com/szmarczak/cacheable-lookup) used for making DNS lookups.
-		Useful when making lots of requests to different *public* hostnames.
+	An instance of [`CacheableLookup`](https://github.com/szmarczak/cacheable-lookup) used for making DNS lookups.
+	Useful when making lots of requests to different *public* hostnames.
 
-		`CacheableLookup` uses `dns.resolver4(..)` and `dns.resolver6(...)` under the hood and fall backs to `dns.lookup(...)` when the first two fail, which may lead to additional delay.
+	`CacheableLookup` uses `dns.resolver4(..)` and `dns.resolver6(...)` under the hood and fall backs to `dns.lookup(...)` when the first two fail, which may lead to additional delay.
 
-		__Note__: This should stay disabled when making requests to internal hostnames such as `localhost`, `database.local` etc.
+	__Note__: This should stay disabled when making requests to internal hostnames such as `localhost`, `database.local` etc.
 
-		@default false
-		*/
+	@default false
+	*/
 	dnsCache?: CacheableLookup | boolean;
 
 	/**
-		User data. In contrast to other options, `context` is not enumerable.
+	User data. In contrast to other options, `context` is not enumerable.
 
-		__Note__: The object is never merged, it's just passed through.
-		Got will not modify the object in any way.
+	__Note__: The object is never merged, it's just passed through.
+	Got will not modify the object in any way.
 
-		@example
-		```
-		const got = require('got');
+	@example
+	```
+	const got = require('got');
 
-		const instance = got.extend({
-			hooks: {
-				beforeRequest: [
-					options => {
-						if (!options.context || !options.context.token) {
-							throw new Error('Token required');
-						}
-
-						options.headers.token = options.context.token;
+	const instance = got.extend({
+		hooks: {
+			beforeRequest: [
+				options => {
+					if (!options.context || !options.context.token) {
+						throw new Error('Token required');
 					}
-				]
-			}
-		});
 
-		(async () => {
-			const context = {
-				token: 'secret'
-			};
+					options.headers.token = options.context.token;
+				}
+			]
+		}
+	});
 
-			const response = await instance('https://httpbin.org/headers', {context});
+	(async () => {
+		const context = {
+			token: 'secret'
+		};
 
-			// Let's see the headers
-			console.log(response.body);
-		})();
-		```
-		*/
+		const response = await instance('https://httpbin.org/headers', {context});
+
+		// Let's see the headers
+		console.log(response.body);
+	})();
+	```
+	*/
 	context?: object;
 
 	/**
-		Hooks allow modifications during the request lifecycle.
-		Hook functions may be async and are run serially.
-		*/
+	Hooks allow modifications during the request lifecycle.
+	Hook functions may be async and are run serially.
+	*/
 	hooks?: Hooks;
 
 	/**
-		Defines if redirect responses should be followed automatically.
+	Defines if redirect responses should be followed automatically.
 
-		Note that if a `303` is sent by the server in response to any request type (`POST`, `DELETE`, etc.), Got will automatically request the resource pointed to in the location header via `GET`.
-		This is in accordance with [the spec](https://tools.ietf.org/html/rfc7231#section-6.4.4).
+	Note that if a `303` is sent by the server in response to any request type (`POST`, `DELETE`, etc.), Got will automatically request the resource pointed to in the location header via `GET`.
+	This is in accordance with [the spec](https://tools.ietf.org/html/rfc7231#section-6.4.4).
 
-		@default true
-		*/
+	@default true
+	*/
 	followRedirect?: boolean;
 
 	/**
-		If exceeded, the request will be aborted and a `MaxRedirectsError` will be thrown.
+	If exceeded, the request will be aborted and a `MaxRedirectsError` will be thrown.
 
-		@default 10
-		*/
+	@default 10
+	*/
 	maxRedirects?: number;
 
 	/**
-		A cache adapter instance for storing cached response data.
+	A cache adapter instance for storing cached response data.
 
-		@default false
-		*/
+	@default false
+	*/
 	cache?: string | CacheableRequest.StorageAdapter | false;
 
 	/**
-		Determines if a `got.HTTPError` is thrown for unsuccessful responses.
+	Determines if a `got.HTTPError` is thrown for unsuccessful responses.
 
-		If this is disabled, requests that encounter an error status code will be resolved with the `response` instead of throwing.
-		This may be useful if you are checking for resource availability and are expecting error responses.
+	If this is disabled, requests that encounter an error status code will be resolved with the `response` instead of throwing.
+	This may be useful if you are checking for resource availability and are expecting error responses.
 
-		@default true
-		*/
+	@default true
+	*/
 	throwHttpErrors?: boolean;
 
 	username?: string;
@@ -473,57 +473,57 @@ export interface Options extends URLOptions {
 	password?: string;
 
 	/**
-		If set to `true`, Got will additionally accept HTTP2 requests.
+	If set to `true`, Got will additionally accept HTTP2 requests.
 
-		It will choose either HTTP/1.1 or HTTP/2 depending on the ALPN protocol.
+	It will choose either HTTP/1.1 or HTTP/2 depending on the ALPN protocol.
 
-		__Note__: Overriding `options.request` will disable HTTP2 support.
+	__Note__: Overriding `options.request` will disable HTTP2 support.
 
-		__Note__: This option will default to `true` in the next upcoming major release.
+	__Note__: This option will default to `true` in the next upcoming major release.
 
-		@default false
+	@default false
 
-		@example
-		```
-		const got = require('got');
+	@example
+	```
+	const got = require('got');
 
-		(async () => {
-			const {headers} = await got('https://nghttp2.org/httpbin/anything', {http2: true});
-			console.log(headers.via);
-			//=> '2 nghttpx'
-		})();
-		```
-	*/
+	(async () => {
+		const {headers} = await got('https://nghttp2.org/httpbin/anything', {http2: true});
+		console.log(headers.via);
+		//=> '2 nghttpx'
+	})();
+	```
+*/
 	http2?: boolean;
 
 	/**
-		Set this to `true` to allow sending body for the `GET` method.
-		However, the [HTTP/2 specification](https://tools.ietf.org/html/rfc7540#section-8.1.3) says that `An HTTP GET request includes request header fields and no payload body`, therefore when using the HTTP/2 protocol this option will have no effect.
-		This option is only meant to interact with non-compliant servers when you have no other choice.
+	Set this to `true` to allow sending body for the `GET` method.
+	However, the [HTTP/2 specification](https://tools.ietf.org/html/rfc7540#section-8.1.3) says that `An HTTP GET request includes request header fields and no payload body`, therefore when using the HTTP/2 protocol this option will have no effect.
+	This option is only meant to interact with non-compliant servers when you have no other choice.
 
-		__Note__: The [RFC 7321](https://tools.ietf.org/html/rfc7231#section-4.3.1) doesn't specify any particular behavior for the GET method having a payload, therefore __it's considered an [anti-pattern](https://en.wikipedia.org/wiki/Anti-pattern)__.
+	__Note__: The [RFC 7321](https://tools.ietf.org/html/rfc7231#section-4.3.1) doesn't specify any particular behavior for the GET method having a payload, therefore __it's considered an [anti-pattern](https://en.wikipedia.org/wiki/Anti-pattern)__.
 
-		@default false
-		*/
+	@default false
+	*/
 	allowGetBody?: boolean;
 
 	lookup?: CacheableLookup['lookup'];
 
 	/**
-		Request headers.
+	Request headers.
 
-		Existing headers will be overwritten. Headers set to `undefined` will be omitted.
+	Existing headers will be overwritten. Headers set to `undefined` will be omitted.
 
-		@default {}
-	 */
+	@default {}
+ */
 	headers?: Headers;
 
 	/**
-		By default, redirects will use [method rewriting](https://tools.ietf.org/html/rfc7231#section-6.4).
-		For example, when sending a POST request and receiving a `302`, it will resend the body to the new location using the same HTTP method (`POST` in this case).
+	By default, redirects will use [method rewriting](https://tools.ietf.org/html/rfc7231#section-6.4).
+	For example, when sending a POST request and receiving a `302`, it will resend the body to the new location using the same HTTP method (`POST` in this case).
 
-		@default true
-		*/
+	@default true
+	*/
 	methodRewriting?: boolean;
 	dnsLookupIpVersion?: DnsLookupIpVersion;
 	parseJson?: ParseJsonFunction;
@@ -531,47 +531,47 @@ export interface Options extends URLOptions {
 
 	// From `http.RequestOptions`
 	/**
-		The IP address used to send the request from.
-		*/
+	The IP address used to send the request from.
+	*/
 	localAddress?: string;
 
 	socketPath?: string;
 
 	/**
-		The HTTP method used to make the request.
+	The HTTP method used to make the request.
 
-		@default 'GET'
-		*/
+	@default 'GET'
+	*/
 	method?: Method;
 
 	createConnection?: (options: http.RequestOptions, oncreate: (error: Error, socket: Socket) => void) => Socket;
 
 	// TODO: remove when Got 12 gets released
 	/**
-		If set to `false`, all invalid SSL certificates will be ignored and no error will be thrown.
+	If set to `false`, all invalid SSL certificates will be ignored and no error will be thrown.
 
-		If set to `true`, it will throw an error whenever an invalid SSL certificate is detected.
+	If set to `true`, it will throw an error whenever an invalid SSL certificate is detected.
 
-		We strongly recommend to have this set to `true` for security reasons.
+	We strongly recommend to have this set to `true` for security reasons.
 
-		@default true
+	@default true
 
-		@example
-		```
-		const got = require('got');
+	@example
+	```
+	const got = require('got');
 
-		(async () => {
-			// Correct:
-			await got('https://example.com', {rejectUnauthorized: true});
+	(async () => {
+		// Correct:
+		await got('https://example.com', {rejectUnauthorized: true});
 
-			// You can disable it when developing an HTTPS app:
-			await got('https://localhost', {rejectUnauthorized: false});
+		// You can disable it when developing an HTTPS app:
+		await got('https://localhost', {rejectUnauthorized: false});
 
-			// Never do this:
-			await got('https://example.com', {rejectUnauthorized: false});
-		})();
-		```
-	  */
+		// Never do this:
+		await got('https://example.com', {rejectUnauthorized: false});
+	})();
+	```
+	*/
 	rejectUnauthorized?: boolean; // Here for backwards compatibility
 
 	https?: HTTPSOptions;
@@ -660,90 +660,90 @@ export interface Progress {
 
 export interface PlainResponse extends IncomingMessageWithTimings {
 	/**
-		The original request URL.
-		*/
+	The original request URL.
+	*/
 	requestUrl: string;
 
 	/**
-		The redirect URLs.
-		*/
+	The redirect URLs.
+	*/
 	redirectUrls: string[];
 
 	/**
-		__Note__: This is not a [http.ClientRequest](https://nodejs.org/api/http.html#http_class_http_clientrequest).
+	- `options` - The Got options that were set on this request.
 
-		- `options` - The Got options that were set on this request.
-		*/
+	__Note__: This is not a [http.ClientRequest](https://nodejs.org/api/http.html#http_class_http_clientrequest).
+	*/
 	request: Request;
 
 	/**
-		The remote IP address.
+	The remote IP address.
 
-		__Note__: Not available when the response is cached.
-		This is hopefully a temporary limitation, see [lukechilds/cacheable-request#86](https://github.com/lukechilds/cacheable-request/issues/86).
-		*/
+	__Note__: Not available when the response is cached.
+	This is hopefully a temporary limitation, see [lukechilds/cacheable-request#86](https://github.com/lukechilds/cacheable-request/issues/86).
+	*/
 	ip?: string;
 
 	/**
-		Whether the response was retrieved from the cache.
-		*/
+	Whether the response was retrieved from the cache.
+	*/
 	isFromCache: boolean;
 
 	/**
-		The status code of the response.
-		*/
+	The status code of the response.
+	*/
 	statusCode: number;
 
 	/**
-		The request URL or the final URL after redirects.
-		*/
+	The request URL or the final URL after redirects.
+	*/
 	url: string;
 
 	/**
-		The object contains the following properties:
+	The object contains the following properties:
 
-		- `start` - Time when the request started.
-		- `socket` - Time when a socket was assigned to the request.
-		- `lookup` - Time when the DNS lookup finished.
-		- `connect` - Time when the socket successfully connected.
-		- `secureConnect` - Time when the socket securely connected.
-		- `upload` - Time when the request finished uploading.
-		- `response` - Time when the request fired `response` event.
-		- `end` - Time when the response fired `end` event.
-		- `error` - Time when the request fired `error` event.
-		- `abort` - Time when the request fired `abort` event.
-		- `phases`
-			- `wait` - `timings.socket - timings.start`
-			- `dns` - `timings.lookup - timings.socket`
-			- `tcp` - `timings.connect - timings.lookup`
-			- `tls` - `timings.secureConnect - timings.connect`
-			- `request` - `timings.upload - (timings.secureConnect || timings.connect)`
-			- `firstByte` - `timings.response - timings.upload`
-			- `download` - `timings.end - timings.response`
-			- `total` - `(timings.end || timings.error || timings.abort) - timings.start`
+	- `start` - Time when the request started.
+	- `socket` - Time when a socket was assigned to the request.
+	- `lookup` - Time when the DNS lookup finished.
+	- `connect` - Time when the socket successfully connected.
+	- `secureConnect` - Time when the socket securely connected.
+	- `upload` - Time when the request finished uploading.
+	- `response` - Time when the request fired `response` event.
+	- `end` - Time when the response fired `end` event.
+	- `error` - Time when the request fired `error` event.
+	- `abort` - Time when the request fired `abort` event.
+	- `phases`
+		- `wait` - `timings.socket - timings.start`
+		- `dns` - `timings.lookup - timings.socket`
+		- `tcp` - `timings.connect - timings.lookup`
+		- `tls` - `timings.secureConnect - timings.connect`
+		- `request` - `timings.upload - (timings.secureConnect || timings.connect)`
+		- `firstByte` - `timings.response - timings.upload`
+		- `download` - `timings.end - timings.response`
+		- `total` - `(timings.end || timings.error || timings.abort) - timings.start`
 
-		If something has not been measured yet, it will be `undefined`.
+	If something has not been measured yet, it will be `undefined`.
 
-		__Note__: The time is a `number` representing the milliseconds elapsed since the UNIX epoch.
-		*/
+	__Note__: The time is a `number` representing the milliseconds elapsed since the UNIX epoch.
+	*/
 	timings: Timings;
 }
 
 // For Promise support
 export interface Response<T = unknown> extends PlainResponse {
 	/**
-		The result of the request.
-		*/
+	The result of the request.
+	*/
 	body: T;
 
 	/**
-		The raw result of the request.
-		*/
+	The raw result of the request.
+	*/
 	rawBody: Buffer;
 
 	/**
-		The number of times the request was retried.
-		*/
+	The number of times the request was retried.
+	*/
 	retryCount: number;
 }
 
@@ -2169,15 +2169,15 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	}
 
 	/**
-		The remote IP address.
-		*/
+	The remote IP address.
+	*/
 	get ip(): string | undefined {
 		return this[kRequest]?.socket.remoteAddress;
 	}
 
 	/**
-		Indicates whether the request has been aborted or not.
-		*/
+	Indicates whether the request has been aborted or not.
+	*/
 	get aborted(): boolean {
 		return (this[kRequest]?.destroyed ?? this.destroyed) && !(this[kOriginalResponse]?.complete);
 	}
@@ -2187,8 +2187,8 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	}
 
 	/**
-		Progress event for downloading (receiving a response).
-		*/
+	Progress event for downloading (receiving a response).
+	*/
 	get downloadProgress(): Progress {
 		let percent;
 		if (this[kResponseSize]) {
@@ -2207,8 +2207,8 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	}
 
 	/**
-		Progress event for uploading (sending a request).
-		*/
+	Progress event for uploading (sending a request).
+	*/
 	get uploadProgress(): Progress {
 		let percent;
 		if (this[kBodySize]) {
@@ -2227,39 +2227,39 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	}
 
 	/**
-		The object contains the following properties:
+	The object contains the following properties:
 
-		- `start` - Time when the request started.
-		- `socket` - Time when a socket was assigned to the request.
-		- `lookup` - Time when the DNS lookup finished.
-		- `connect` - Time when the socket successfully connected.
-		- `secureConnect` - Time when the socket securely connected.
-		- `upload` - Time when the request finished uploading.
-		- `response` - Time when the request fired `response` event.
-		- `end` - Time when the response fired `end` event.
-		- `error` - Time when the request fired `error` event.
-		- `abort` - Time when the request fired `abort` event.
-		- `phases`
-			- `wait` - `timings.socket - timings.start`
-			- `dns` - `timings.lookup - timings.socket`
-			- `tcp` - `timings.connect - timings.lookup`
-			- `tls` - `timings.secureConnect - timings.connect`
-			- `request` - `timings.upload - (timings.secureConnect || timings.connect)`
-			- `firstByte` - `timings.response - timings.upload`
-			- `download` - `timings.end - timings.response`
-			- `total` - `(timings.end || timings.error || timings.abort) - timings.start`
+	- `start` - Time when the request started.
+	- `socket` - Time when a socket was assigned to the request.
+	- `lookup` - Time when the DNS lookup finished.
+	- `connect` - Time when the socket successfully connected.
+	- `secureConnect` - Time when the socket securely connected.
+	- `upload` - Time when the request finished uploading.
+	- `response` - Time when the request fired `response` event.
+	- `end` - Time when the response fired `end` event.
+	- `error` - Time when the request fired `error` event.
+	- `abort` - Time when the request fired `abort` event.
+	- `phases`
+		- `wait` - `timings.socket - timings.start`
+		- `dns` - `timings.lookup - timings.socket`
+		- `tcp` - `timings.connect - timings.lookup`
+		- `tls` - `timings.secureConnect - timings.connect`
+		- `request` - `timings.upload - (timings.secureConnect || timings.connect)`
+		- `firstByte` - `timings.response - timings.upload`
+		- `download` - `timings.end - timings.response`
+		- `total` - `(timings.end || timings.error || timings.abort) - timings.start`
 
-		If something has not been measured yet, it will be `undefined`.
+	If something has not been measured yet, it will be `undefined`.
 
-		__Note__: The time is a `number` representing the milliseconds elapsed since the UNIX epoch.
-		*/
+	__Note__: The time is a `number` representing the milliseconds elapsed since the UNIX epoch.
+	*/
 	get timings(): Timings | undefined {
 		return (this[kRequest] as ClientRequestWithTimings)?.timings;
 	}
 
 	/**
-		Whether the response was retrieved from the cache.
-		*/
+	Whether the response was retrieved from the cache.
+	*/
 	get isFromCache(): boolean | undefined {
 		return this[kIsFromCache];
 	}
