@@ -145,6 +145,8 @@ export interface Hooks {
 
 		__Note__: Errors thrown while normalizing input options are thrown directly and not part of this hook.
 
+		@default []
+
 		@example
 		```
 		const got = require('got');
