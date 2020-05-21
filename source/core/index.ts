@@ -97,27 +97,33 @@ export type BeforeErrorHook = (error: RequestError) => Promisable<RequestError>;
 
 export interface Hooks {
 	/**
-		Called with plain [request options](#options), right before their normalization. This is especially useful in conjunction with [`got.extend()`](#instances) when the input needs custom handling.
+		Called with plain request options, right before their normalization.
+		This is especially useful in conjunction with `got.extend()` when the input needs custom handling.
 
 		__Note #1__: This hook must be synchronous!
 
-		__Note #2__: Errors in this hook will be converted into an instances of [`RequestError`](#got.requesterror).
+		__Note #2__: Errors in this hook will be converted into an instances of `RequestError`.
 
-		__Note #3__: The options object may not have a `url` property. To modify it, use a `beforeRequest` hook instead.
+		__Note #3__: The options object may not have a `url` property.
+		To modify it, use a `beforeRequest` hook instead.
 
 		@default []
 	*/
 	init?: InitHook[];
 
 	/**
-		Called with [normalized](source/core/index.ts) [request options](#options). Got will make no further changes to the request before it is sent. This is especially useful in conjunction with [`got.extend()`](#instances) when you want to create an API client that, for example, uses HMAC-signing.
+		Called with normalized request options.
+		Got will make no further changes to the request before it is sent.
+		This is especially useful in conjunction with `got.extend()` when you want to create an API client that, for example, uses HMAC-signing.
 
 		@default []
 		*/
 	beforeRequest?: BeforeRequestHook[];
 
 	/**
-		Called with [normalized](source/core/index.ts) [request options](#options) and the redirect [response](#response). Got will make no further changes to the request. This is especially useful when you want to avoid dead sites.
+		Called with normalized request options and the redirect response.
+		Got will make no further changes to the request.
+		This is especially useful when you want to avoid dead sites.
 
 		@default []
 
@@ -141,7 +147,9 @@ export interface Hooks {
 	beforeRedirect?: BeforeRedirectHook[];
 
 	/**
-		Called with an `Error` instance. The error is passed to the hook right before it's thrown. This is especially useful when you want to have more detailed errors.
+		Called with an `Error` instance.
+		The error is passed to the hook right before it's thrown.
+		This is especially useful when you want to have more detailed errors.
 
 		__Note__: Errors thrown while normalizing input options are thrown directly and not part of this hook.
 
@@ -197,14 +205,17 @@ interface RealRequestOptions extends https.RequestOptions {
 
 export interface Options extends URLOptions {
 	/**
-		Custom request function. The main purpose of this is to [support HTTP2 using a wrapper](https://github.com/szmarczak/http2-wrapper).
+		Custom request function.
+		The main purpose of this is to [support HTTP2 using a wrapper](https://github.com/szmarczak/http2-wrapper).
 
 		@default http.request | https.request
 	  */
 	request?: RequestFunction;
 
 	/**
-		An object representing `http`, `https` and `http2` keys for [`http.Agent`](https://nodejs.org/api/http.html#http_class_http_agent), [`https.Agent`](https://nodejs.org/api/https.html#https_class_https_agent) and [`http2wrapper.Agent`](https://github.com/szmarczak/http2-wrapper#new-http2agentoptions) instance. This is necessary because a request to one protocol might redirect to another. In such a scenario, Got will switch over to the right protocol agent for you.
+		An object representing `http`, `https` and `http2` keys for [`http.Agent`](https://nodejs.org/api/http.html#http_class_http_agent), [`https.Agent`](https://nodejs.org/api/https.html#https_class_https_agent) and [`http2wrapper.Agent`](https://github.com/szmarczak/http2-wrapper#new-http2agentoptions) instance.
+		This is necessary because a request to one protocol might redirect to another.
+		In such a scenario, Got will switch over to the right protocol agent for you.
 
 		If a key is not present, it will default to a global agent.
 
@@ -225,22 +236,26 @@ export interface Options extends URLOptions {
 	agent?: Agents | false;
 
 	/**
-		Decompress the response automatically. This will set the `accept-encoding` header to `gzip, deflate, br` on Node.js 11.7.0+ or `gzip, deflate` for older Node.js versions, unless you set it yourself.
+		Decompress the response automatically.
+		This will set the `accept-encoding` header to `gzip, deflate, br` on Node.js 11.7.0+ or `gzip, deflate` for older Node.js versions, unless you set it yourself.
 
 		Brotli (`br`) support requires Node.js 11.7.0 or later.
 
-		If this is disabled, a compressed response is returned as a `Buffer`. This may be useful if you want to handle decompression yourself or stream the raw compressed data.
+		If this is disabled, a compressed response is returned as a `Buffer`.
+		This may be useful if you want to handle decompression yourself or stream the raw compressed data.
 
 		@default true
 		*/
 	decompress?: boolean;
 
 	/**
-		Milliseconds to wait for the server to end the response before aborting the request with [`got.TimeoutError`](#gottimeouterror) error (a.k.a. `request` property). By default, there's no timeout.
+		Milliseconds to wait for the server to end the response before aborting the request with `got.TimeoutError` error (a.k.a. `request` property).
+		By default, there's no timeout.
 
 		This also accepts an `object` with the following fields to constrain the duration of each phase of the request lifecycle:
 
-		- `lookup` starts when a socket is assigned and ends when the hostname has been resolved. Does not apply when using a Unix domain socket.
+		- `lookup` starts when a socket is assigned and ends when the hostname has been resolved.
+			Does not apply when using a Unix domain socket.
 		- `connect` starts when `lookup` completes (or when the socket is assigned if lookup does not apply to the request) and ends when the socket is connected.
 		- `secureConnect` starts when `connect` completes and ends when the handshaking process completes (HTTPS only).
 		- `socket` starts when the socket is connected. See [request.setTimeout](https://nodejs.org/api/http.html#http_request_settimeout_timeout_callback).
@@ -251,16 +266,20 @@ export interface Options extends URLOptions {
 	timeout?: Delays | number;
 
 	/**
-		When specified, `prefixUrl` will be prepended to `url`. The prefix can be any valid URL, either relative or absolute.
+		When specified, `prefixUrl` will be prepended to `url`.
+		The prefix can be any valid URL, either relative or absolute.
 		A trailing slash `/` is optional - one will be added automatically.
 
 		__Note__: `prefixUrl` will be ignored if the `url` argument is a URL instance.
 
-		__Note__: Leading slashes in `input` are disallowed when using this option to enforce consistency and avoid confusion. For example, when the prefix URL is `https://example.com/foo` and the input is `/bar`, there's ambiguity whether the resulting URL would become `https://example.com/foo/bar` or `https://example.com/bar`. The latter is used by browsers.
+		__Note__: Leading slashes in `input` are disallowed when using this option to enforce consistency and avoid confusion.
+		For example, when the prefix URL is `https://example.com/foo` and the input is `/bar`, there's ambiguity whether the resulting URL would become `https://example.com/foo/bar` or `https://example.com/bar`.
+		The latter is used by browsers.
 
-		__Tip__: Useful when used with [`got.extend()`](#custom-endpoints) to create niche-specific Got instances.
+		__Tip__: Useful when used with `got.extend()` to create niche-specific Got instances.
 
-		__Tip__: You can change `prefixUrl` using hooks as long as the URL still includes the `prefixUrl`. If the URL doesn't include it anymore, it will throw.
+		__Tip__: You can change `prefixUrl` using hooks as long as the URL still includes the `prefixUrl`.
+		If the URL doesn't include it anymore, it will throw.
 
 		@example
 		```
@@ -332,14 +351,16 @@ export interface Options extends URLOptions {
 	cookieJar?: PromiseCookieJar | ToughCookieJar;
 
 	/**
-		Ignore invalid cookies instead of throwing an error. Only useful when the `cookieJar` option has been set. Not recommended.
+		Ignore invalid cookies instead of throwing an error.
+		Only useful when the `cookieJar` option has been set. Not recommended.
 
 		@default false
 		*/
 	ignoreInvalidCookies?: boolean;
 
 	/**
-		Query string that will be added to the request URL. This will override the query string in `url`.
+		Query string that will be added to the request URL.
+		This will override the query string in `url`.
 
 		If you need to pass in an array, you can do it using a `URLSearchParams` instance.
 
@@ -358,11 +379,12 @@ export interface Options extends URLOptions {
 	searchParams?: string | {[key: string]: string | number | boolean | null} | URLSearchParams;
 
 	/**
-		An instance of [`CacheableLookup`](https://github.com/szmarczak/cacheable-lookup) used for making DNS lookups. Useful when making lots of requests to different *public* hostnames.
-
-		__Note__: This should stay disabled when making requests to internal hostnames such as `localhost`, `database.local` etc.
+		An instance of [`CacheableLookup`](https://github.com/szmarczak/cacheable-lookup) used for making DNS lookups.
+		Useful when making lots of requests to different *public* hostnames.
 
 		`CacheableLookup` uses `dns.resolver4(..)` and `dns.resolver6(...)` under the hood and fall backs to `dns.lookup(...)` when the first two fail, which may lead to additional delay.
+
+		__Note__: This should stay disabled when making requests to internal hostnames such as `localhost`, `database.local` etc.
 
 		@default false
 		*/
@@ -371,7 +393,8 @@ export interface Options extends URLOptions {
 	/**
 		User data. In contrast to other options, `context` is not enumerable.
 
-		__Note__: The object is never merged, it's just passed through. Got will not modify the object in any way.
+		__Note__: The object is never merged, it's just passed through.
+		Got will not modify the object in any way.
 
 		@example
 		```
@@ -406,7 +429,8 @@ export interface Options extends URLOptions {
 	context?: object;
 
 	/**
-		Hooks allow modifications during the request lifecycle. Hook functions may be async and are run serially.
+		Hooks allow modifications during the request lifecycle.
+		Hook functions may be async and are run serially.
 		*/
 	hooks?: Hooks;
 
@@ -428,16 +452,17 @@ export interface Options extends URLOptions {
 	maxRedirects?: number;
 
 	/**
-		[Cache adapter instance](#cache-adapters) for storing cached response data.
+		A cache adapter instance for storing cached response data.
 
 		@default false
 		*/
 	cache?: string | CacheableRequest.StorageAdapter | false;
 
 	/**
-		Determines if a [`got.HTTPError`](#gothttperror) is thrown for unsuccessful responses.
+		Determines if a `got.HTTPError` is thrown for unsuccessful responses.
 
-		If this is disabled, requests that encounter an error status code will be resolved with the `response` instead of throwing. This may be useful if you are checking for resource availability and are expecting error responses.
+		If this is disabled, requests that encounter an error status code will be resolved with the `response` instead of throwing.
+		This may be useful if you are checking for resource availability and are expecting error responses.
 
 		@default true
 		*/
@@ -472,7 +497,9 @@ export interface Options extends URLOptions {
 	http2?: boolean;
 
 	/**
-		Set this to `true` to allow sending body for the `GET` method. However, the [HTTP/2 specification](https://tools.ietf.org/html/rfc7540#section-8.1.3) says that `An HTTP GET request includes request header fields and no payload body`, therefore when using the HTTP/2 protocol this option will have no effect. This option is only meant to interact with non-compliant servers when you have no other choice.
+		Set this to `true` to allow sending body for the `GET` method.
+		However, the [HTTP/2 specification](https://tools.ietf.org/html/rfc7540#section-8.1.3) says that `An HTTP GET request includes request header fields and no payload body`, therefore when using the HTTP/2 protocol this option will have no effect.
+		This option is only meant to interact with non-compliant servers when you have no other choice.
 
 		__Note__: The [RFC 7321](https://tools.ietf.org/html/rfc7231#section-4.3.1) doesn't specify any particular behavior for the GET method having a payload, therefore __it's considered an [anti-pattern](https://en.wikipedia.org/wiki/Anti-pattern)__.
 
@@ -652,7 +679,8 @@ export interface PlainResponse extends IncomingMessageWithTimings {
 	/**
 		The remote IP address.
 
-		__Note__: Not available when the response is cached. This is hopefully a temporary limitation, see [lukechilds/cacheable-request#86](https://github.com/lukechilds/cacheable-request/issues/86).
+		__Note__: Not available when the response is cached.
+		This is hopefully a temporary limitation, see [lukechilds/cacheable-request#86](https://github.com/lukechilds/cacheable-request/issues/86).
 		*/
 	ip?: string;
 
