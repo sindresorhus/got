@@ -18,7 +18,8 @@ import {
 	ReadError,
 	HTTPError,
 	MaxRedirectsError,
-	TimeoutError
+	TimeoutError,
+	UnsupportedProtocolError
 } from './as-promise';
 import Request from './core';
 
@@ -28,7 +29,22 @@ type Merge<FirstType, SecondType> = Except<FirstType, Extract<keyof FirstType, k
 
 export interface InstanceDefaults {
 	options: DefaultOptions;
+
+	/**
+	An array of functions. You execute them directly by calling `got()`.
+	They are some sort of "global hooks" - these functions are called first.
+	The last handler (*it's hidden*) is either `asPromise` or `asStream`, depending on the `options.isStream` property.
+
+	@default []
+	*/
 	handlers: HandlerFunction[];
+
+	/**
+	A read-only boolean describing whether the defaults are mutable or not.
+	If set to `true`, you can update headers over time, for example, update an access token when it expires.
+
+	@default false
+	*/
 	mutableDefaults: boolean;
 	_rawHandlers?: HandlerFunction[];
 }
@@ -55,9 +71,50 @@ export interface GotPaginate {
 	<T, R = unknown>(url: string | URL, options?: OptionsWithPagination<T, R>): AsyncIterableIterator<T>;
 	<T, R = unknown>(options?: OptionsWithPagination<T, R>): AsyncIterableIterator<T>;
 
+	/**
+	Returns an async iterator.
+
+	See pagination.options for more pagination options.
+
+	@example
+	```
+	(async () => {
+		const countLimit = 10;
+
+		const pagination = got.paginate('https://api.github.com/repos/sindresorhus/got/commits', {
+			pagination: {countLimit}
+		});
+
+		console.log(`Printing latest ${countLimit} Got commits (newest to oldest):`);
+
+		for await (const commitData of pagination) {
+			console.log(commitData.commit.message);
+		}
+	})();
+	```
+	*/
 	each<T, R = unknown>(url: string | URL, options?: OptionsWithPagination<T, R>): AsyncIterableIterator<T>;
 	each<T, R = unknown>(options?: OptionsWithPagination<T, R>): AsyncIterableIterator<T>;
 
+	/**
+	Returns a Promise for an array of all results.
+
+	See pagination.options for more pagination options.
+
+	@example
+	```
+	(async () => {
+		const countLimit = 10;
+
+		const results = await got.paginate.all('https://api.github.com/repos/sindresorhus/got/commits', {
+			pagination: {countLimit}
+		});
+
+		console.log(`Printing latest ${countLimit} Got commits (newest to oldest):`);
+		console.log(results);
+	})();
+	```
+	*/
 	all<T, R = unknown>(url: string | URL, options?: OptionsWithPagination<T, R>): Promise<T[]>;
 	all<T, R = unknown>(options?: OptionsWithPagination<T, R>): Promise<T[]>;
 }
@@ -110,19 +167,135 @@ interface GotStreamFunction {
 export type GotStream = GotStreamFunction & Record<HTTPAlias, GotStreamFunction>;
 
 export interface Got extends Record<HTTPAlias, GotRequestFunction>, GotRequestFunction {
+	/**
+	Sets `options.isStream` to `true`.
+
+	Returns a [duplex stream](https://nodejs.org/api/stream.html#stream_class_stream_duplex) with additional events:
+	- request
+	- response
+	- redirect
+	- uploadProgress
+	- downloadProgress
+	- error
+	*/
 	stream: GotStream;
+
+	/**
+	Returns an async iterator.
+
+	See pagination.options for more pagination options.
+
+	@example
+	```
+	(async () => {
+		const countLimit = 10;
+
+		const pagination = got.paginate('https://api.github.com/repos/sindresorhus/got/commits', {
+			pagination: {countLimit}
+		});
+
+		console.log(`Printing latest ${countLimit} Got commits (newest to oldest):`);
+
+		for await (const commitData of pagination) {
+			console.log(commitData.commit.message);
+		}
+	})();
+	```
+	*/
 	paginate: GotPaginate;
+
+	/**
+	The Got defaults used in that instance.
+	*/
 	defaults: InstanceDefaults;
+
+	/**
+	An error to be thrown when a cache method fails.
+	For example, if the database goes down or there's a filesystem error.
+	*/
 	CacheError: typeof CacheError;
+
+	/**
+	An error to be thrown when a request fails.
+	Contains a `code` property with error class code, like `ECONNREFUSED`.
+	*/
 	RequestError: typeof RequestError;
+
+	/**
+	An error to be thrown when reading from response stream fails.
+	*/
 	ReadError: typeof ReadError;
+
+	/**
+	An error to be thrown when server response code is 2xx, and parsing body fails.
+	Includes a `response` property.
+	*/
 	ParseError: typeof ParseError;
+
+	/**
+	An error to be thrown when the server response code is not 2xx nor 3xx if `options.followRedirect` is `true`, but always except for 304.
+	Includes a `response` property.
+	*/
 	HTTPError: typeof HTTPError;
+
+	/**
+	An error to be thrown when the server redirects you more than ten times.
+	Includes a `response` property.
+	*/
 	MaxRedirectsError: typeof MaxRedirectsError;
+
+	/**
+	An error to be thrown when given an unsupported protocol.
+	*/
+	UnsupportedProtocolError: typeof UnsupportedProtocolError;
+
+	/**
+	An error to be thrown when the request is aborted due to a timeout.
+	Includes an `event` and `timings` property.
+	*/
 	TimeoutError: typeof TimeoutError;
+
+	/**
+	An error to be thrown when the request is aborted with `.cancel()`.
+	*/
 	CancelError: typeof CancelError;
 
 	extend(...instancesOrOptions: Array<Got | ExtendOptions>): Got;
+
 	mergeInstances(parent: Got, ...instances: Got[]): Got;
+
+	/**
+	Extends parent options.
+	Avoid using [object spread](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Spread_syntax#Spread_in_object_literals) as it doesn't work recursively.
+
+	Options are deeply merged to a new object. The value of each key is determined as follows:
+
+	- If the new property is not defined, the old value is used.
+	- If the new property is explicitly set to `undefined`:
+		- If the parent property is a plain `object`, the parent value is deeply cloned.
+		- Otherwise, `undefined` is used.
+	- If the parent value is an instance of `URLSearchParams`:
+		- If the new value is a `string`, an `object` or an instance of `URLSearchParams`, a new `URLSearchParams` instance is created.
+			The values are merged using [`urlSearchParams.append(key, value)`](https://developer.mozilla.org/en-US/docs/Web/API/URLSearchParams/append).
+			The keys defined in the new value override the keys defined in the parent value.
+		- Otherwise, the only available value is `undefined`.
+	- If the new property is a plain `object`:
+		- If the parent property is a plain `object` too, both values are merged recursively into a new `object`.
+		- Otherwise, only the new value is deeply cloned.
+	- If the new property is an `Array`, it overwrites the old one with a deep clone of the new property.
+	- Properties that are not enumerable, such as `context`, `body`, `json`, and `form`, will not be merged.
+	- Otherwise, the new value is assigned to the key.
+
+	**Note:** Only Got options are merged! Custom user options should be defined via [`options.context`](#context).
+
+	@example
+	```
+	const a = {headers: {cat: 'meow', wolf: ['bark', 'wrrr']}};
+	const b = {headers: {cow: 'moo', wolf: ['auuu']}};
+
+	{...a, ...b}            // => {headers: {cow: 'moo', wolf: ['auuu']}}
+	got.mergeOptions(a, b)  // => {headers: {cat: 'meow', cow: 'moo', wolf: ['auuu']}}
+	```
+	*/
 	mergeOptions(...sources: Options[]): NormalizedOptions;
 }
