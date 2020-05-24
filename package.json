@@ -10,7 +10,7 @@
 		"node": ">=10.19.0"
 	},
 	"scripts": {
-		"test": "xo && tsc --noEmit && nyc --reporter=html --reporter=text ava",
+		"test": "xo && tsc --noEmit && npm run build && nyc --reporter=html --reporter=text ava",
 		"release": "np",
 		"build": "del-cli dist && tsc",
 		"prepare": "npm run build"
