@@ -62,6 +62,7 @@ const defaults: InstanceDefaults = {
 		resolveBodyOnly: false,
 		maxRedirects: 10,
 		prefixUrl: '',
+		allowLeadingSlash: false,
 		methodRewriting: true,
 		ignoreInvalidCookies: false,
 		context: {},

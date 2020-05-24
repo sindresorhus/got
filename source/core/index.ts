@@ -122,6 +122,7 @@ export interface Options extends URLOptions, SecureContextOptions {
 	decompress?: boolean;
 	timeout?: Delays | number;
 	prefixUrl?: string | URL;
+	allowLeadingSlash?: boolean;
 	body?: string | Buffer | Readable;
 	form?: {[key: string]: any};
 	json?: {[key: string]: any};
@@ -157,6 +158,7 @@ export interface NormalizedOptions extends Options {
 	url: URL;
 	timeout: Delays;
 	prefixUrl: string;
+	allowLeadingSlash: boolean;
 	ignoreInvalidCookies: boolean;
 	decompress: boolean;
 	searchParams?: URLSearchParams;
@@ -183,6 +185,7 @@ export interface NormalizedOptions extends Options {
 export interface Defaults {
 	timeout: Delays;
 	prefixUrl: string;
+	allowLeadingSlash: boolean;
 	method: Method;
 	ignoreInvalidCookies: boolean;
 	decompress: boolean;
@@ -688,7 +691,11 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 		if (is.string(options.url)) {
 			if (options.url.startsWith('/')) {
-				throw new Error('`input` must not start with a slash when using `prefixUrl`');
+				if (options.allowLeadingSlash) {
+					options.url = options.url.slice(1);
+				} else {
+					throw new Error('`input` must not start with a slash when using `prefixUrl`');
+				}
 			}
 
 			options.url = optionsToUrl(options.prefixUrl + options.url, options as Options & {searchParams?: URLSearchParams});
