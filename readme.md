@@ -507,20 +507,20 @@ Default: `'auto'`
 Indicates which DNS record family to use.\
 Values:
  - `auto`: IPv4 (if present) or IPv6
- - `ipv4`: only IPv4
- - `ipv6`: only IPv6
+ - `ipv4`: Only IPv4
+ - `ipv6`: Only IPv6
 
-Note: if you are using the undocumented option `family`, `dnsIpVersion` will override it.
+Note: If you are using the undocumented option `family`, `dnsIpVersion` will override it.
 
 ```js
-// api6.ipify.org will be resolved as IPv4, the request will be over IPv4 (the website will respond with your public IPv4)
+// `api6.ipify.org` will be resolved as IPv4 and the request will be over IPv4 (the website will respond with your public IPv4)
 await got('https://api6.ipify.org', {
-  dnsIpVersion: 'ipv4'
+	dnsIpVersion: 'ipv4'
 });
 
-// api6.ipify.org will be resolved as IPv6, the request will be over IPv6 (the website will respond with your public IPv6)
+// `api6.ipify.org` will be resolved as IPv6 and the request will be over IPv6 (the website will respond with your public IPv6)
 await got('https://api6.ipify.org', {
-  dnsIpVersion: 'ipv6'
+	dnsIpVersion: 'ipv6'
 });
 ```
 
