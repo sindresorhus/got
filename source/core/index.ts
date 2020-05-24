@@ -24,7 +24,7 @@ import timedOut, {Delays, TimeoutError as TimedOutTimeoutError} from './utils/ti
 import urlToOptions from './utils/url-to-options';
 import optionsToUrl, {URLOptions} from './utils/options-to-url';
 import WeakableMap from './utils/weakable-map';
-import {DnsIpVersion, isDnsIpVersion, dnsIpVersionToFamily} from './utils/dns-ip-version';
+import {DnsLookupIpVersion, isDnsLookupIpVersion, dnsLookupIpVersionToFamily} from './utils/dns-ip-version';
 
 type HttpRequestFunction = typeof httpRequest;
 type Error = NodeJS.ErrnoException;
@@ -152,7 +152,7 @@ export interface Options extends URLOptions, SecureContextOptions {
 	method?: Method;
 	createConnection?: (options: http.RequestOptions, oncreate: (error: Error, socket: Socket) => void) => Socket;
 
-	dnsIpVersion?: DnsIpVersion;
+	dnsLookupIpVersion?: DnsLookupIpVersion;
 }
 
 export interface NormalizedOptions extends Options {
@@ -628,7 +628,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		assert.any([is.boolean, is.undefined], options.allowGetBody);
 		assert.any([is.boolean, is.undefined], options.rejectUnauthorized);
 		assert.any([is.string, is.undefined], options.localAddress);
-		assert.any([isDnsIpVersion, is.undefined], options.dnsIpVersion);
+		assert.any([isDnsLookupIpVersion, is.undefined], options.dnsLookupIpVersion);
 
 		// `options.method`
 		if (is.string(options.method)) {
@@ -1339,9 +1339,9 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 		const requestOptions = options as unknown as https.RequestOptions;
 
-		// If `dnsIpVersion` is not present do not override `family`
-		if (options.dnsIpVersion !== undefined) {
-			requestOptions.family = dnsIpVersionToFamily(options.dnsIpVersion);
+		// If `dnsLookupIpVersion` is not present do not override `family`
+		if (options.dnsLookupIpVersion !== undefined) {
+			requestOptions.family = dnsLookupIpVersionToFamily(options.dnsLookupIpVersion);
 		}
 
 		try {

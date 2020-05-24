@@ -1,4 +1,4 @@
-export type DnsIpVersion = 'auto' | 'ipv4' | 'ipv6';
+export type DnsLookupIpVersion = 'auto' | 'ipv4' | 'ipv6';
 type DnsIpFamily = 0 | 4 | 6;
 
 const conversionTable = {
@@ -7,14 +7,14 @@ const conversionTable = {
 	ipv6: 6
 };
 
-export const isDnsIpVersion = (value: any): boolean => {
+export const isDnsLookupIpVersion = (value: any): boolean => {
 	return value in conversionTable;
 };
 
-export const dnsIpVersionToFamily = (dnsIpVersion: DnsIpVersion): DnsIpFamily => {
-	if (isDnsIpVersion(dnsIpVersion)) {
-		return conversionTable[dnsIpVersion] as DnsIpFamily;
+export const dnsLookupIpVersionToFamily = (dnsLookupIpVersion: DnsLookupIpVersion): DnsIpFamily => {
+	if (isDnsLookupIpVersion(dnsLookupIpVersion)) {
+		return conversionTable[dnsLookupIpVersion] as DnsIpFamily;
 	}
 
-	throw new Error('Invalid DnsIpVersion');
+	throw new Error('Invalid DnsLookupIpVersion');
 };
