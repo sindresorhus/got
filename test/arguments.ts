@@ -423,6 +423,22 @@ test('throws on leading slashes', async t => {
 	});
 });
 
+test('leading slashes work with `allowLeadingSlash: true`', withServer, async (t, server, got) => {
+	server.get('/test/foobar', echoUrl);
+
+	const instanceA = got.extend({prefixUrl: `${server.url}`, allowLeadingSlash: true});
+	const {body} = await instanceA('/test/foobar');
+	t.is(body, '/test/foobar');
+});
+
+test('leading slash does not overwrite path with `allowLeadingSlash: true`', withServer, async (t, server, got) => {
+	server.get('/test/foobar', echoUrl);
+
+	const instanceA = got.extend({prefixUrl: `${server.url}/test/`, allowLeadingSlash: true});
+	const {body} = await instanceA('/foobar');
+	t.is(body, '/test/foobar');
+});
+
 test('throws on invalid `dnsCache` option', async t => {
 	await t.throwsAsync(got('https://example.com', {
 		// @ts-ignore Error tests
