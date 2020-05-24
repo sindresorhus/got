@@ -173,7 +173,7 @@ A trailing slash `/` is optional - one will be added automatically.
 
 **Note:** `prefixUrl` will be ignored if the `url` argument is a URL instance.
 
-**Note:** Leading slashes in `input` are disallowed when using this option to enforce consistency and avoid confusion. For example, when the prefix URL is `https://example.com/foo` and the input is `/bar`, there's ambiguity whether the resulting URL would become `https://example.com/foo/bar` or `https://example.com/bar`. The latter is used by browsers.
+**Note:** Leading slashes in `input` are disallowed when using this option unless `allowLeadingSlash` is `true`. This is the default behavior to enforce consistency and avoid confusion. For example, when the prefix URL is `https://example.com/foo` and the input is `/bar`, there's ambiguity whether the resulting URL would become `https://example.com/foo/bar` or `https://example.com/bar`. The latter is used by browsers.
 
 **Tip:** Useful when used with [`got.extend()`](#custom-endpoints) to create niche-specific Got instances.
 
@@ -200,6 +200,31 @@ const got = require('got');
 		}
 	});
 	//=> 'https://cats.com/unicorn'
+})();
+```
+
+###### allowLeadingSlash
+
+Type: `boolean`
+
+When specified, leading slashes are allowed when a `prefixUrl` is given. Its behavior is the same as if you omitted the leading slash and it is implemented by removing the leading slash from the input.
+
+```js
+const got = require('got');
+
+(async () => {
+	await got('/unicorn', {prefixUrl: 'https://cats.com'});
+	//=> throws Error: `input` must not start with a slash when using `prefixUrl`
+
+	await got('/unicorn', {prefixUrl: 'https://cats.com', allowLeadingSlash: true});
+	//=> https://cats.com/unicorn
+
+	const instance = got.extend({
+		prefixUrl: 'https://cats.com/foo/'
+	});
+
+	await instance('/bar');
+	//=> 'https://cats.com/foo/bar'
 })();
 ```
 
