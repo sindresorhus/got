@@ -318,6 +318,26 @@ test('body - file read stream', withServer, async (t, server, got) => {
 	t.is(toSend, body);
 });
 
+test('body - file read stream, wait for `open` event', withServer, async (t, server, got) => {
+	server.post('/', defaultEndpoint);
+
+	const fullPath = path.resolve('test/fixtures/ok');
+	const toSend = await getStream(fs.createReadStream(fullPath));
+	const ifStream = fs.createReadStream(fullPath);
+
+	await new Promise(resolve => ifStream.on('open', () => {
+		(async () => {
+			const body = await got.post({
+				body: ifStream
+			}).text();
+
+			t.is(toSend, body);
+
+			resolve();
+		})();
+	}));
+});
+
 test('throws on upload error', withServer, async (t, server, got) => {
 	server.post('/', defaultEndpoint);
 
