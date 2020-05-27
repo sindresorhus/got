@@ -4,6 +4,7 @@ import fs = require('fs');
 import path = require('path');
 import test from 'ava';
 import delay = require('delay');
+import pEvent = require('p-event');
 import {Handler} from 'express';
 import getStream = require('get-stream');
 import toReadableStream = require('to-readable-stream');
@@ -325,17 +326,13 @@ test('body - file read stream, wait for `ready` event', withServer, async (t, se
 	const toSend = await getStream(fs.createReadStream(fullPath));
 	const ifStream = fs.createReadStream(fullPath);
 
-	await new Promise(resolve => ifStream.on('ready', () => {
-		(async () => {
-			const body = await got.post({
-				body: ifStream
-			}).text();
+	await pEvent(ifStream, 'ready');
 
-			t.is(toSend, body);
+	const body = await got.post({
+		body: ifStream
+	}).text();
 
-			resolve();
-		})();
-	}));
+	t.is(toSend, body);
 });
 
 test('throws on upload error', withServer, async (t, server, got) => {
