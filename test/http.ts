@@ -15,11 +15,7 @@ const echoIp: Handler = (request, response) => {
 	}
 
 	// IPv4 address mapped to IPv6
-	if (address === '::ffff:127.0.0.1') {
-		response.end('127.0.0.1');
-	} else {
-		response.end(address);
-	}
+	response.end(address === '::ffff:127.0.0.1' ? '127.0.0.1' : address);
 };
 
 test('simple request', withServer, async (t, server, got) => {
