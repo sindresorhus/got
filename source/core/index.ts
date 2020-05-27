@@ -3,7 +3,7 @@ import {Duplex, Writable, Readable} from 'stream';
 import {ReadStream} from 'fs';
 import {URL, URLSearchParams} from 'url';
 import {Socket} from 'net';
-import {SecureContextOptions} from 'tls';
+import {SecureContextOptions, DetailedPeerCertificate} from 'tls';
 import http = require('http');
 import {ClientRequest, RequestOptions, IncomingMessage, ServerResponse, request as httpRequest} from 'http';
 import https = require('https');
@@ -24,6 +24,7 @@ import timedOut, {Delays, TimeoutError as TimedOutTimeoutError} from './utils/ti
 import urlToOptions from './utils/url-to-options';
 import optionsToUrl, {URLOptions} from './utils/options-to-url';
 import WeakableMap from './utils/weakable-map';
+import deprecationWarning from '../utils/deprecation-warning';
 
 type HttpRequestFunction = typeof httpRequest;
 type Error = NodeJS.ErrnoException;
@@ -116,7 +117,13 @@ type CacheableRequestFn = (
 	cb?: (response: ServerResponse | ResponseLike) => void
 ) => CacheableRequest.Emitter;
 
-export interface Options extends URLOptions, SecureContextOptions {
+type CheckServerIdentityFn = (hostname: string, certificate: DetailedPeerCertificate) => Error | void;
+
+interface RealRequestOptions extends https.RequestOptions {
+	checkServerIdentity: CheckServerIdentityFn;
+}
+
+export interface Options extends URLOptions {
 	request?: RequestFunction;
 	agent?: Agents | false;
 	decompress?: boolean;
@@ -141,15 +148,33 @@ export interface Options extends URLOptions, SecureContextOptions {
 	http2?: boolean;
 	allowGetBody?: boolean;
 	lookup?: CacheableLookup['lookup'];
-	rejectUnauthorized?: boolean;
 	headers?: Headers;
 	methodRewriting?: boolean;
 
-	// From http.RequestOptions
+	// From `http.RequestOptions`
 	localAddress?: string;
 	socketPath?: string;
 	method?: Method;
 	createConnection?: (options: http.RequestOptions, oncreate: (error: Error, socket: Socket) => void) => Socket;
+
+	// TODO: remove when Got 12 gets released
+	rejectUnauthorized?: boolean; // Here for backwards compatibility
+
+	https?: HTTPSOptions;
+}
+
+export interface HTTPSOptions {
+	// From `http.RequestOptions` and `tls.CommonConnectionOptions`
+	rejectUnauthorized?: https.RequestOptions['rejectUnauthorized'];
+
+	// From `tls.ConnectionOptions`
+	checkServerIdentity?: CheckServerIdentityFn;
+
+	// From `tls.SecureContextOptions`
+	certificateAuthority?: SecureContextOptions['ca'];
+	key?: SecureContextOptions['key'];
+	certificate?: SecureContextOptions['cert'];
+	passphrase?: SecureContextOptions['passphrase'];
 }
 
 export interface NormalizedOptions extends Options {
@@ -197,7 +222,7 @@ export interface Defaults {
 	throwHttpErrors: boolean;
 	http2: boolean;
 	allowGetBody: boolean;
-	rejectUnauthorized: boolean;
+	https?: HTTPSOptions;
 	methodRewriting: boolean;
 
 	// Optional
@@ -623,8 +648,17 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		assert.any([is.boolean, is.undefined], options.throwHttpErrors);
 		assert.any([is.boolean, is.undefined], options.http2);
 		assert.any([is.boolean, is.undefined], options.allowGetBody);
-		assert.any([is.boolean, is.undefined], options.rejectUnauthorized);
 		assert.any([is.string, is.undefined], options.localAddress);
+		assert.any([is.object, is.undefined], options.https);
+		assert.any([is.boolean, is.undefined], options.rejectUnauthorized);
+		if (options.https) {
+			assert.any([is.boolean, is.undefined], options.https.rejectUnauthorized);
+			assert.any([is.function_, is.undefined], options.https.checkServerIdentity);
+			assert.any([is.string, is.object, is.array, is.undefined], options.https.certificateAuthority);
+			assert.any([is.string, is.object, is.array, is.undefined], options.https.key);
+			assert.any([is.string, is.object, is.array, is.undefined], options.https.certificate);
+			assert.any([is.string, is.undefined], options.https.passphrase);
+		}
 
 		// `options.method`
 		if (is.string(options.method)) {
@@ -831,6 +865,31 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 					];
 				}
 			}
+		}
+
+		// HTTPS options
+		if ('rejectUnauthorized' in options) {
+			deprecationWarning('"options.rejectUnauthorized" is now deprecated, please use "options.https.rejectUnauthorized"');
+		}
+
+		if ('checkServerIdentity' in options) {
+			deprecationWarning('"options.checkServerIdentity" was never documented, please use "options.https.checkServerIdentity"');
+		}
+
+		if ('ca' in options) {
+			deprecationWarning('"options.ca" was never documented, please use "options.https.certificateAuthority"');
+		}
+
+		if ('key' in options) {
+			deprecationWarning('"options.key" was never documented, please use "options.https.key"');
+		}
+
+		if ('cert' in options) {
+			deprecationWarning('"options.cert" was never documented, please use "options.https.certificate"');
+		}
+
+		if ('passphrase' in options) {
+			deprecationWarning('"options.passphrase" was never documented, please use "options.https.passphrase"');
 		}
 
 		// Other options
@@ -1333,11 +1392,40 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		delete options.request;
 		delete options.timeout;
 
+		const requestOptions = options as unknown as RealRequestOptions;
+
+		// HTTPS options remapping
+		if (options.https) {
+			if ('rejectUnauthorized' in options.https) {
+				requestOptions.rejectUnauthorized = options.https.rejectUnauthorized;
+			}
+
+			if (options.https.checkServerIdentity) {
+				requestOptions.checkServerIdentity = options.https.checkServerIdentity;
+			}
+
+			if (options.https.certificateAuthority) {
+				requestOptions.ca = options.https.certificateAuthority;
+			}
+
+			if (options.https.certificate) {
+				requestOptions.cert = options.https.certificate;
+			}
+
+			if (options.https.key) {
+				requestOptions.key = options.https.key;
+			}
+
+			if (options.https.passphrase) {
+				requestOptions.passphrase = options.https.passphrase;
+			}
+		}
+
 		try {
-			let requestOrResponse = await fn(url, options as unknown as RequestOptions);
+			let requestOrResponse = await fn(url, requestOptions);
 
 			if (is.undefined(requestOrResponse)) {
-				requestOrResponse = fallbackFn(url, options as unknown as RequestOptions);
+				requestOrResponse = fallbackFn(url, requestOptions);
 			}
 
 			// Restore options

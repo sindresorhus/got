@@ -40,6 +40,7 @@ For browser usage, we recommend [Ky](https://github.com/sindresorhus/ky) by the 
 - [Errors with metadata](#errors)
 - [JSON mode](#json-mode)
 - [WHATWG URL support](#url)
+- [HTTPS API](#https)
 - [Hooks](#hooks)
 - [Instances with custom defaults](#instances)
 - [Types](#types)
@@ -819,7 +820,98 @@ Type: `string`
 
 The IP address used to send the request from.
 
-##### rejectUnauthorized
+### Advanced HTTPS API
+
+Note: If the request is not HTTPS, these options will be ignored.
+
+##### https.certificateAuthority
+
+Type: `string | Buffer | Array<string | Buffer>`
+
+Override the default Certificate Authorities ([from Mozilla](https://ccadb-public.secure.force.com/mozilla/IncludedCACertificateReport))
+
+```js
+// Single Certificate Authority
+got('https://example.com', {
+	https: {
+		certificateAuthority: fs.readFileSync('./my_ca.pem')
+	}
+});
+```
+
+##### https.key
+
+Type: `string | Buffer | Array<string | Buffer> | object[]`
+
+Private keys in [PEM](https://en.wikipedia.org/wiki/Privacy-Enhanced_Mail) format.\
+[PEM](https://en.wikipedia.org/wiki/Privacy-Enhanced_Mail) allows the option of private keys being encrypted. Encrypted keys will be decrypted with `options.https.passphrase`.\
+Multiple keys with different passphrases can be provided as an array of `{pem: <string | Buffer>, passphrase: <string>}`
+
+##### https.certificate
+
+Type: `string | Buffer | (string | Buffer)[]`
+
+[Certificate chains](https://en.wikipedia.org/wiki/X.509#Certificate_chains_and_cross-certification) in [PEM](https://en.wikipedia.org/wiki/Privacy-Enhanced_Mail) format.\
+One cert chain should be provided per private key (`options.https.key`).\
+When providing multiple cert chains, they do not have to be in the same order as their private keys in `options.https.key`.\
+If the intermediate certificates are not provided, the peer will not be able to validate the certificate, and the handshake will fail.
+
+##### https.passphrase
+
+Type: `string`
+
+The passphrase to decrypt the `options.https.key` (if different keys have different passphrases refer to `options.https.key` documentation).
+
+##### Examples for `https.key`, `https.certificate` and `https.passphrase`
+
+```js
+// Single key with certificate
+got('https://example.com', {
+	https: {
+		key: fs.readFileSync('./client_key.pem'),
+		certificate: fs.readFileSync('./client_cert.pem')
+	}
+});
+
+// Multiple keys with certificates (out of order)
+got('https://example.com', {
+	https: {
+		key: [
+			fs.readFileSync('./client_key1.pem'),
+			fs.readFileSync('./client_key2.pem')
+		],
+		certificate: [
+			fs.readFileSync('./client_cert2.pem'),
+			fs.readFileSync('./client_cert1.pem')
+		]
+	}
+});
+
+// Single key with passphrase
+got('https://example.com', {
+	https: {
+		key: fs.readFileSync('./client_key.pem'),
+		certificate: fs.readFileSync('./client_cert.pem'),
+		passphrase: 'client_key_passphrase'
+	}
+});
+
+// Multiple keys with different passphrases
+got('https://example.com', {
+	https: {
+		key: [
+			{pem: fs.readFileSync('./client_key1.pem'), passphrase: 'passphrase1'},
+			{pem: fs.readFileSync('./client_key2.pem'), passphrase: 'passphrase2'},
+		],
+		certificate: [
+			fs.readFileSync('./client_cert1.pem'),
+			fs.readFileSync('./client_cert2.pem')
+		]
+	}
+});
+```
+
+##### https.rejectUnauthorized
 
 Type: `boolean`\
 Default: `true`
@@ -834,14 +926,53 @@ const got = require('got');
 
 (async () => {
 	// Correct:
-	await got('https://example.com', {rejectUnauthorized: true});
+	await got('https://example.com', {
+		https: {
+			rejectUnauthorized: true
+		}
+	});
 
 	// You can disable it when developing an HTTPS app:
-	await got('https://localhost', {rejectUnauthorized: false});
+	await got('https://localhost', {
+		https: {
+			rejectUnauthorized: false
+		}
+	});
 
 	// Never do this:
-	await got('https://example.com', {rejectUnauthorized: false});
-})();
+	await got('https://example.com', {
+		https: {
+			rejectUnauthorized: false
+		}
+	});
+```
+
+##### https.checkServerIdentity
+
+Type: `Function`\
+Signature: `(hostname: string, certificate: DetailedPeerCertificate) => Error | undefined`\
+Default: `tls.checkServerIdentity` (from the `tls` module)
+
+This function enable a custom check of the certificate.\
+Note: In order to have the function called the certificate must not be `expired`, `self-signed` or with an `untrusted-root`.\
+The function parameters are:
+- `hostname`: The server hostname (used when connecting)
+- `certificate`: The server certificate
+
+The function must return `undefined` if the check succeeded or an `Error` if it failed.
+
+```js
+await got('https://example.com', {
+	https: {
+		checkServerIdentity: (hostname, certificate) => {
+			if (hostname === 'example.com') {
+				return; // Certificate OK
+			}
+			
+			return new Error('Invalid Hostname'); // Certificate NOT OK
+		}
+	}
+});
 ```
 
 #### Response
