@@ -117,7 +117,7 @@ type CacheableRequestFn = (
 	cb?: (response: ServerResponse | ResponseLike) => void
 ) => CacheableRequest.Emitter;
 
-type CheckServerIdentityFn = (hostname: string, certificate: DetailedPeerCertificate) => Error | undefined | void;
+type CheckServerIdentityFn = (hostname: string, certificate: DetailedPeerCertificate) => Error | void;
 
 interface RealRequestOptions extends https.RequestOptions {
 	checkServerIdentity: CheckServerIdentityFn;
@@ -156,6 +156,8 @@ export interface Options extends URLOptions {
 	socketPath?: string;
 	method?: Method;
 	createConnection?: (options: http.RequestOptions, oncreate: (error: Error, socket: Socket) => void) => Socket;
+
+	// TODO: remove when Got 12 gets released
 	rejectUnauthorized?: boolean; // Here for backwards compatibility
 
 	https?: HTTPSOptions;

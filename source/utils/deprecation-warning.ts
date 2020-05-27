@@ -1,11 +1,11 @@
-const alreadyWarned: string[] = [];
+const alreadyWarned: Set<string> = new Set();
 
 export default (message: string) => {
-	if (alreadyWarned.includes(message)) {
+	if (alreadyWarned.has(message)) {
 		return;
 	}
 
-	alreadyWarned.push(message);
+	alreadyWarned.add(message);
 
 	// @ts-ignore Missing types.
 	process.emitWarning(`Got: ${message}`, {
