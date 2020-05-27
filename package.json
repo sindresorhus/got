@@ -10,7 +10,7 @@
 		"node": ">=10.19.0"
 	},
 	"scripts": {
-		"test": "xo && tsc --noEmit && npm run build && nyc --reporter=html --reporter=text ava",
+		"test": "tsc --noEmit && npm run build && nyc --reporter=html --reporter=text ava",
 		"release": "np",
 		"build": "del-cli dist && tsc",
 		"prepare": "npm run build"
@@ -86,7 +86,7 @@
 		"tempy": "^0.5.0",
 		"to-readable-stream": "^2.1.0",
 		"tough-cookie": "^4.0.0",
-		"typescript": "3.9.3",
+		"typescript": "https://typescript.visualstudio.com/cf7ac146-d525-443c-b23c-0d58337efebc/_apis/build/builds/75073/artifacts?artifactName=tgz&fileId=6C00FE3605AD1F9E537C858359588BAD1248C4EF90BBFF217AA57949BBD75F0F02&fileName=/typescript-4.0.0-insiders.20200527.tgz",
 		"xo": "^0.30.0"
 	},
 	"types": "dist/source",

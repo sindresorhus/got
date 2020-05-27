@@ -1215,7 +1215,10 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 					}
 
 					if (options.username || options.password) {
+						// @ts-ignore
 						delete options.username;
+
+						// @ts-ignore
 						delete options.password;
 					}
 				}
@@ -1358,6 +1361,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			Object.assign(options, urlToOptions(url));
 
 			// `http-cache-semantics` checks this
+			// @ts-ignore
 			delete (options as unknown as NormalizedOptions).url;
 
 			let request: ClientRequest | Promise<ClientRequest>;
@@ -1467,6 +1471,8 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		// Prepare plain HTTP request options
 		options[kRequest] = realFn as HttpRequestFunction;
 		delete options.request;
+
+		// @ts-ignore
 		delete options.timeout;
 
 		const requestOptions = options as unknown as RealRequestOptions;
