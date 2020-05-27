@@ -873,7 +873,7 @@ got('https://example.com', {
 	}
 });
 
-// Multiple keys with certs (out of order)
+// Multiple keys with certificates (out of order)
 got('https://example.com', {
 	https: {
 		key: [
