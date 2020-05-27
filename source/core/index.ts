@@ -117,7 +117,7 @@ type CacheableRequestFn = (
 	cb?: (response: ServerResponse | ResponseLike) => void
 ) => CacheableRequest.Emitter;
 
-type CheckServerIdentityFn = (hostname: string, certificate: DetailedPeerCertificate) => Error | undefined | void;
+type CheckServerIdentityFn = (hostname: string, certificate: DetailedPeerCertificate) => Error | void;
 
 interface RealRequestOptions extends https.RequestOptions {
 	checkServerIdentity: CheckServerIdentityFn;
