@@ -2,6 +2,7 @@ import test from 'ava';
 import got from '../source';
 import withServer from './helpers/with-server';
 import {DetailedPeerCertificate} from 'tls';
+import pEvent from 'p-event';
 
 test('https request without ca', withServer, async (t, server, got) => {
 	server.get('/', (_request, response) => {
@@ -114,10 +115,11 @@ test.serial('deprecated `rejectUnauthorized` option', withServer, async (t, serv
 	});
 
 	await new Promise(resolve => {
-		process.once('warning', warn => {
-			t.is(warn.name, 'DeprecationWarning');
+		(async () => {
+			const warning = await pEvent(process, 'warning');
+			t.is(warning.name, 'DeprecationWarning');
 			resolve();
-		});
+		})();
 
 		(async () => {
 			await got.secure({
@@ -135,9 +137,10 @@ test.serial('non-deprecated `rejectUnauthorized` option', withServer, async (t, 
 		response.end('ok');
 	});
 
-	process.once('warning', warn => {
-		t.not(warn.name, 'DeprecationWarning');
-	});
+	(async () => {
+		const warning = await pEvent(process, 'warning');
+		t.not(warning.name, 'DeprecationWarning');
+	})();
 
 	await got.secure({
 		https: {
@@ -153,17 +156,19 @@ test.serial('no double deprecated warning', withServer, async (t, server, got) =
 		response.end('ok');
 	});
 
-	process.once('warning', warn => {
-		t.is(warn.name, 'DeprecationWarning');
-	});
+	(async () => {
+		const warning = await pEvent(process, 'warning');
+		t.is(warning.name, 'DeprecationWarning');
+	})();
 
 	await got.secure({
 		rejectUnauthorized: false
 	});
 
-	process.once('warning', warn => {
-		t.not(warn.name, 'DeprecationWarning');
-	});
+	(async () => {
+		const warning = await pEvent(process, 'warning');
+		t.not(warning.name, 'DeprecationWarning');
+	})();
 
 	await got.secure({
 		rejectUnauthorized: false
