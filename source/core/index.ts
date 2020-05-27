@@ -267,7 +267,7 @@ const waitForOpenFile = async (file: ReadStream): Promise<void> => new Promise((
 	}
 
 	file.once('error', onError);
-	file.once('open', () => {
+	file.once('ready', () => {
 		file.off('error', onError);
 		resolve();
 	});
