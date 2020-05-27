@@ -4,6 +4,7 @@ import fs = require('fs');
 import path = require('path');
 import test from 'ava';
 import delay = require('delay');
+import pEvent = require('p-event');
 import {Handler} from 'express';
 import getStream = require('get-stream');
 import toReadableStream = require('to-readable-stream');
@@ -313,6 +314,22 @@ test('body - file read stream', withServer, async (t, server, got) => {
 
 	const body = await got.post({
 		body: fs.createReadStream(fullPath)
+	}).text();
+
+	t.is(toSend, body);
+});
+
+test('body - file read stream, wait for `ready` event', withServer, async (t, server, got) => {
+	server.post('/', defaultEndpoint);
+
+	const fullPath = path.resolve('test/fixtures/ok');
+	const toSend = await getStream(fs.createReadStream(fullPath));
+	const ifStream = fs.createReadStream(fullPath);
+
+	await pEvent(ifStream, 'ready');
+
+	const body = await got.post({
+		body: ifStream
 	}).text();
 
 	t.is(toSend, body);
