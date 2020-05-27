@@ -31,7 +31,7 @@ test('https request with ca', withServer, async (t, server, got) => {
 	t.is(body, 'ok');
 });
 
-test('https request with checkServerIdentity OK', withServer, async (t, server, got) => {
+test('https request with `checkServerIdentity` OK', withServer, async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.end('ok');
 	});
