@@ -933,7 +933,6 @@ test('beforeRequest hook respect `agent` option', withServer, async (t, server, 
 	agent.destroy();
 });
 
-
 test('beforeRequest hook respect `url` option', withServer, async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.end('ko');
@@ -947,7 +946,7 @@ test('beforeRequest hook respect `url` option', withServer, async (t, server, go
 		hooks: {
 			beforeRequest: [
 				options => {
-					options.url = new URL(server.url + '/changed')
+					options.url = new URL(server.url + '/changed');
 				}
 			]
 		}
