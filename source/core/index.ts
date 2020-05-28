@@ -874,6 +874,11 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			}
 		}
 
+		// DNS options
+		if ('family' in options) {
+			deprecationWarning('"options.family" was never documented, please use "options.dnsLookupIpVersion"');
+		}
+
 		// HTTPS options
 		if ('rejectUnauthorized' in options) {
 			deprecationWarning('"options.rejectUnauthorized" is now deprecated, please use "options.https.rejectUnauthorized"');

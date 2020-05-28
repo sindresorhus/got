@@ -291,6 +291,7 @@ test('does not destroy completed requests', withServer, async (t, server, got) =
 
 test('IPv6 request', withServer, async (t, server) => {
 	if (!IPv6supported) {
+		t.pass();
 		return;
 	}
 
@@ -323,6 +324,7 @@ test('DNS IPv4', withServer, async (t, server, got) => {
 
 test('DNS IPv6', withServer, async (t, server, got) => {
 	if (!IPv6supported) {
+		t.pass();
 		return;
 	}
 
@@ -341,4 +343,27 @@ test('invalid dnsLookupIpVersion', withServer, async (t, server, got) => {
 	await t.throwsAsync(got('ok', {
 		dnsLookupIpVersion: 'test'
 	} as any));
+});
+
+test.serial('deprecated `family` option', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.end('ok');
+	});
+
+	await new Promise(resolve => {
+		(async () => {
+			const warning = await pEvent(process, 'warning');
+			t.is(warning.name, 'DeprecationWarning');
+			resolve();
+		})();
+
+		(async () => {
+			await got.secure({
+				family: '4'
+			} as any);
+
+			t.fail();
+			resolve();
+		})();
+	});
 });
