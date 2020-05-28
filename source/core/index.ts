@@ -151,19 +151,18 @@ export interface Options extends URLOptions {
 	lookup?: CacheableLookup['lookup'];
 	headers?: Headers;
 	methodRewriting?: boolean;
+	dnsLookupIpVersion?: DnsLookupIpVersion;
 
 	// From `http.RequestOptions`
 	localAddress?: string;
 	socketPath?: string;
 	method?: Method;
 	createConnection?: (options: http.RequestOptions, oncreate: (error: Error, socket: Socket) => void) => Socket;
-  
+
 	// TODO: remove when Got 12 gets released
 	rejectUnauthorized?: boolean; // Here for backwards compatibility
 
 	https?: HTTPSOptions;
-
-	dnsLookupIpVersion?: DnsLookupIpVersion;
 }
 
 export interface HTTPSOptions {
@@ -1408,8 +1407,8 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 				requestOptions.family = dnsLookupIpVersionToFamily(options.dnsLookupIpVersion);
 			} catch {
 				throw new Error('Invalid `dnsLookupIpVersion` option value');
-      }
-    }
+			}
+		}
 
 		// HTTPS options remapping
 		if (options.https) {
