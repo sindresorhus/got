@@ -116,9 +116,43 @@ test('custom retries', withServer, async (t, server, got) => {
 				}
 
 				return 0;
-			}, methods: [
+			},
+			methods: [
 				'GET'
-			], statusCodes: [
+			],
+			statusCodes: [
+				500
+			]
+		}
+	}));
+	t.is(error.response.statusCode, 500);
+	t.true(hasTried);
+});
+
+test('custom retries async', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.statusCode = 500;
+		response.end();
+	});
+
+	let hasTried = false;
+	const error = await t.throwsAsync<HTTPError>(got({
+		throwHttpErrors: true,
+		retry: {
+			calculateDelay: async ({attemptCount}) => {
+				/* eslint-disable-next-line promise/param-names */
+				await new Promise((resolve, _) => setTimeout(resolve, 1000));
+				if (attemptCount === 1) {
+					hasTried = true;
+					return 1;
+				}
+
+				return 0;
+			},
+			methods: [
+				'GET'
+			],
+			statusCodes: [
 				500
 			]
 		}

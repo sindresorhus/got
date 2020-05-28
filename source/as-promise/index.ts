@@ -58,7 +58,7 @@ export default function asPromise<T>(options: NormalizedOptions): CancelableRequ
 
 			globalRequest = request;
 
-			request.once('response', async (response: Response) => {
+			const onResponse = async (response: Response) => {
 				response.retryCount = retryCount;
 
 				if (response.request.aborted) {
@@ -146,9 +146,11 @@ export default function asPromise<T>(options: NormalizedOptions): CancelableRequ
 				globalResponse = response;
 
 				resolve(options.resolveBodyOnly ? response.body as T : response as unknown as T);
-			});
+			};
 
-			request.once('error', (error: RequestError) => {
+			request.once('response', onResponse);
+
+			request.once('error', async (error: RequestError) => {
 				if (promise.isCanceled) {
 					return;
 				}
@@ -158,12 +160,14 @@ export default function asPromise<T>(options: NormalizedOptions): CancelableRequ
 					return;
 				}
 
+				request.off('response', onResponse);
+
 				let backoff: number;
 
 				retryCount++;
 
 				try {
-					backoff = options.retry.calculateDelay({
+					backoff = await options.retry.calculateDelay({
 						attemptCount: retryCount,
 						retryOptions: options.retry,
 						error,
@@ -213,7 +217,8 @@ export default function asPromise<T>(options: NormalizedOptions): CancelableRequ
 				retryCount--;
 
 				if (error instanceof HTTPError) {
-					// It will be handled by the `response` event
+					// The error will be handled by the `response` event
+					onResponse(request._response as Response);
 					return;
 				}
 

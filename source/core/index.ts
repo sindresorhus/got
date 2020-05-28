@@ -3,7 +3,7 @@ import {Duplex, Writable, Readable} from 'stream';
 import {ReadStream} from 'fs';
 import {URL, URLSearchParams} from 'url';
 import {Socket} from 'net';
-import {SecureContextOptions} from 'tls';
+import {SecureContextOptions, DetailedPeerCertificate} from 'tls';
 import http = require('http');
 import {ClientRequest, RequestOptions, IncomingMessage, ServerResponse, request as httpRequest} from 'http';
 import https = require('https');
@@ -25,6 +25,7 @@ import urlToOptions from './utils/url-to-options';
 import optionsToUrl, {URLOptions} from './utils/options-to-url';
 import WeakableMap from './utils/weakable-map';
 import {DnsLookupIpVersion, isDnsLookupIpVersion, dnsLookupIpVersionToFamily} from './utils/dns-ip-version';
+import deprecationWarning from '../utils/deprecation-warning';
 
 type HttpRequestFunction = typeof httpRequest;
 type Error = NodeJS.ErrnoException;
@@ -105,7 +106,7 @@ export type HookEvent = 'init' | 'beforeRequest' | 'beforeRedirect' | 'beforeErr
 
 export const knownHookEvents: HookEvent[] = ['init', 'beforeRequest', 'beforeRedirect', 'beforeError'];
 
-type AcceptableResponse = IncomingMessage | ResponseLike;
+type AcceptableResponse = IncomingMessageWithTimings | ResponseLike;
 type AcceptableRequestResult = AcceptableResponse | ClientRequest | Promise<AcceptableResponse | ClientRequest> | undefined;
 
 export type RequestFunction = (url: URL, options: RequestOptions, callback?: (response: AcceptableResponse) => void) => AcceptableRequestResult;
@@ -117,7 +118,13 @@ type CacheableRequestFn = (
 	cb?: (response: ServerResponse | ResponseLike) => void
 ) => CacheableRequest.Emitter;
 
-export interface Options extends URLOptions, SecureContextOptions {
+type CheckServerIdentityFn = (hostname: string, certificate: DetailedPeerCertificate) => Error | void;
+
+interface RealRequestOptions extends https.RequestOptions {
+	checkServerIdentity: CheckServerIdentityFn;
+}
+
+export interface Options extends URLOptions {
 	request?: RequestFunction;
 	agent?: Agents | false;
 	decompress?: boolean;
@@ -142,17 +149,35 @@ export interface Options extends URLOptions, SecureContextOptions {
 	http2?: boolean;
 	allowGetBody?: boolean;
 	lookup?: CacheableLookup['lookup'];
-	rejectUnauthorized?: boolean;
 	headers?: Headers;
 	methodRewriting?: boolean;
 
-	// From http.RequestOptions
+	// From `http.RequestOptions`
 	localAddress?: string;
 	socketPath?: string;
 	method?: Method;
 	createConnection?: (options: http.RequestOptions, oncreate: (error: Error, socket: Socket) => void) => Socket;
+  
+	// TODO: remove when Got 12 gets released
+	rejectUnauthorized?: boolean; // Here for backwards compatibility
+
+	https?: HTTPSOptions;
 
 	dnsLookupIpVersion?: DnsLookupIpVersion;
+}
+
+export interface HTTPSOptions {
+	// From `http.RequestOptions` and `tls.CommonConnectionOptions`
+	rejectUnauthorized?: https.RequestOptions['rejectUnauthorized'];
+
+	// From `tls.ConnectionOptions`
+	checkServerIdentity?: CheckServerIdentityFn;
+
+	// From `tls.SecureContextOptions`
+	certificateAuthority?: SecureContextOptions['ca'];
+	key?: SecureContextOptions['key'];
+	certificate?: SecureContextOptions['cert'];
+	passphrase?: SecureContextOptions['passphrase'];
 }
 
 export interface NormalizedOptions extends Options {
@@ -200,7 +225,7 @@ export interface Defaults {
 	throwHttpErrors: boolean;
 	http2: boolean;
 	allowGetBody: boolean;
-	rejectUnauthorized: boolean;
+	https?: HTTPSOptions;
 	methodRewriting: boolean;
 
 	// Optional
@@ -265,8 +290,12 @@ const waitForOpenFile = async (file: ReadStream): Promise<void> => new Promise((
 		reject(error);
 	};
 
+	if (!file.pending) {
+		resolve();
+	}
+
 	file.once('error', onError);
-	file.once('open', () => {
+	file.once('ready', () => {
 		file.off('error', onError);
 		resolve();
 	});
@@ -465,8 +494,8 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	[kStartedReading]?: boolean;
 	[kCancelTimeouts]?: () => void;
 	[kResponseSize]?: number;
-	[kResponse]?: IncomingMessage;
-	[kOriginalResponse]?: IncomingMessage;
+	[kResponse]?: IncomingMessageWithTimings;
+	[kOriginalResponse]?: IncomingMessageWithTimings;
 	[kRequest]?: ClientRequest;
 	_noPipe?: boolean;
 	_progressCallbacks: Array<() => void>;
@@ -626,9 +655,18 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		assert.any([is.boolean, is.undefined], options.throwHttpErrors);
 		assert.any([is.boolean, is.undefined], options.http2);
 		assert.any([is.boolean, is.undefined], options.allowGetBody);
-		assert.any([is.boolean, is.undefined], options.rejectUnauthorized);
 		assert.any([is.string, is.undefined], options.localAddress);
 		assert.any([isDnsLookupIpVersion, is.undefined], options.dnsLookupIpVersion);
+		assert.any([is.object, is.undefined], options.https);
+		assert.any([is.boolean, is.undefined], options.rejectUnauthorized);
+		if (options.https) {
+			assert.any([is.boolean, is.undefined], options.https.rejectUnauthorized);
+			assert.any([is.function_, is.undefined], options.https.checkServerIdentity);
+			assert.any([is.string, is.object, is.array, is.undefined], options.https.certificateAuthority);
+			assert.any([is.string, is.object, is.array, is.undefined], options.https.key);
+			assert.any([is.string, is.object, is.array, is.undefined], options.https.certificate);
+			assert.any([is.string, is.undefined], options.https.passphrase);
+		}
 
 		// `options.method`
 		if (is.string(options.method)) {
@@ -776,7 +814,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		if (cache) {
 			if (!cacheableStore.has(cache)) {
 				cacheableStore.set(cache, new CacheableRequest(
-					((requestOptions: RequestOptions, handler?: (response: IncomingMessage) => void): ClientRequest => (requestOptions as Pick<NormalizedOptions, typeof kRequest>)[kRequest](requestOptions, handler)) as HttpRequestFunction,
+					((requestOptions: RequestOptions, handler?: (response: IncomingMessageWithTimings) => void): ClientRequest => (requestOptions as Pick<NormalizedOptions, typeof kRequest>)[kRequest](requestOptions, handler)) as HttpRequestFunction,
 					cache as CacheableRequest.StorageAdapter
 				));
 			}
@@ -835,6 +873,31 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 					];
 				}
 			}
+		}
+
+		// HTTPS options
+		if ('rejectUnauthorized' in options) {
+			deprecationWarning('"options.rejectUnauthorized" is now deprecated, please use "options.https.rejectUnauthorized"');
+		}
+
+		if ('checkServerIdentity' in options) {
+			deprecationWarning('"options.checkServerIdentity" was never documented, please use "options.https.checkServerIdentity"');
+		}
+
+		if ('ca' in options) {
+			deprecationWarning('"options.ca" was never documented, please use "options.https.certificateAuthority"');
+		}
+
+		if ('key' in options) {
+			deprecationWarning('"options.key" was never documented, please use "options.https.key"');
+		}
+
+		if ('cert' in options) {
+			deprecationWarning('"options.cert" was never documented, please use "options.https.certificate"');
+		}
+
+		if ('passphrase' in options) {
+			deprecationWarning('"options.passphrase" was never documented, please use "options.https.passphrase"');
 		}
 
 		// Other options
@@ -958,7 +1021,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		this[kBodySize] = Number(headers['content-length']) || undefined;
 	}
 
-	async _onResponse(response: IncomingMessage): Promise<void> {
+	async _onResponse(response: IncomingMessageWithTimings): Promise<void> {
 		const {options} = this;
 		const {url} = options;
 
@@ -1171,7 +1234,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 		const responseEventName = options.cache ? 'cacheableResponse' : 'response';
 
-		request.once(responseEventName, (response: IncomingMessage) => {
+		request.once(responseEventName, (response: IncomingMessageWithTimings) => {
 			this._onResponse(response);
 		});
 
@@ -1235,7 +1298,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 			// This is ugly
 			const cacheRequest = cacheableStore.get((options as any).cache)!(options, response => {
-				const typedResponse = response as unknown as IncomingMessage & {req: ClientRequest};
+				const typedResponse = response as unknown as IncomingMessageWithTimings & {req: ClientRequest};
 				const {req} = typedResponse;
 
 				// TODO: Fix `cacheable-response`
@@ -1337,7 +1400,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		delete options.request;
 		delete options.timeout;
 
-		const requestOptions = options as unknown as https.RequestOptions;
+		const requestOptions = options as unknown as RealRequestOptions;
 
 		// If `dnsLookupIpVersion` is not present do not override `family`
 		if (options.dnsLookupIpVersion !== undefined) {
@@ -1345,6 +1408,33 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 				requestOptions.family = dnsLookupIpVersionToFamily(options.dnsLookupIpVersion);
 			} catch {
 				throw new Error('Invalid `dnsLookupIpVersion` option value');
+      }
+    }
+
+		// HTTPS options remapping
+		if (options.https) {
+			if ('rejectUnauthorized' in options.https) {
+				requestOptions.rejectUnauthorized = options.https.rejectUnauthorized;
+			}
+
+			if (options.https.checkServerIdentity) {
+				requestOptions.checkServerIdentity = options.https.checkServerIdentity;
+			}
+
+			if (options.https.certificateAuthority) {
+				requestOptions.ca = options.https.certificateAuthority;
+			}
+
+			if (options.https.certificate) {
+				requestOptions.cert = options.https.certificate;
+			}
+
+			if (options.https.key) {
+				requestOptions.key = options.https.key;
+			}
+
+			if (options.https.passphrase) {
+				requestOptions.passphrase = options.https.passphrase;
 			}
 		}
 
@@ -1366,14 +1456,14 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 				// Emit the response after the stream has been ended
 			} else if (this.writable) {
 				this.once('finish', () => {
-					this._onResponse(requestOrResponse as IncomingMessage);
+					this._onResponse(requestOrResponse as IncomingMessageWithTimings);
 				});
 
 				this._unlockWrite();
 				this.end();
 				this._lockWrite();
 			} else {
-				this._onResponse(requestOrResponse as IncomingMessage);
+				this._onResponse(requestOrResponse as IncomingMessageWithTimings);
 			}
 		} catch (error) {
 			if (error instanceof CacheableRequest.CacheError) {
@@ -1492,6 +1582,11 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 				return;
 			}
 
+			if (this[kRequest]!.destroyed) {
+				callback();
+				return;
+			}
+
 			this[kRequest]!.end((error?: Error | null) => {
 				if (!error) {
 					this[kBodySize] = this[kUploadedSize];
@@ -1581,6 +1676,10 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 	get isFromCache(): boolean | undefined {
 		return this[kIsFromCache];
+	}
+
+	get _response(): Response | undefined {
+		return this[kResponse] as Response;
 	}
 
 	pipe<T extends NodeJS.WritableStream>(destination: T, options?: {end?: boolean}): T {

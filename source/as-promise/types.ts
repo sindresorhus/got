@@ -51,7 +51,7 @@ export interface RetryObject {
 	computedValue: number;
 }
 
-export type RetryFunction = (retryObject: RetryObject) => number;
+export type RetryFunction = (retryObject: RetryObject) => number | Promise<number>;
 
 export interface RequiredRetryOptions {
 	limit: number;
