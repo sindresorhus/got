@@ -9,25 +9,7 @@ import got, {HTTPError, UnsupportedProtocolError} from '../source';
 import withServer from './helpers/with-server';
 import os = require('os');
 
-const ifaces = os.networkInterfaces();
-let IPv6supported = false;
-for (const ifname in ifaces) {
-	if (!Object.prototype.hasOwnProperty.call(ifaces, ifname)) {
-		continue;
-	}
-
-	const iface = ifaces[ifname]!;
-	for (const addr of iface) {
-		if (addr.family === 'IPv6' && addr.internal) {
-			IPv6supported = true;
-			break;
-		}
-	}
-
-	if (IPv6supported) {
-		break;
-	}
-}
+const IPv6supported = Object.values(os.networkInterfaces()).some(iface => iface?.some(addr => !addr.internal && addr.family === 'IPv6'));
 
 const echoIp: Handler = (request, response) => {
 	const address = request.connection.remoteAddress;
@@ -289,18 +271,15 @@ test('does not destroy completed requests', withServer, async (t, server, got) =
 	t.pass();
 });
 
-test('IPv6 request', withServer, async (t, server) => {
-	if (!IPv6supported) {
-		t.pass();
-		return;
-	}
+if (!IPv6supported) {
+	test('IPv6 request', withServer, async (t, server) => {
+		server.get('/ok', echoIp);
 
-	server.get('/ok', echoIp);
+		const response = await got(`http://[::1]:${server.port}/ok`);
 
-	const response = await got(`http://[::1]:${server.port}/ok`);
-
-	t.is(response.body, '::1');
-});
+		t.is(response.body, '::1');
+	});
+}
 
 test('DNS auto', withServer, async (t, server, got) => {
 	server.get('/ok', echoIp);
@@ -322,20 +301,17 @@ test('DNS IPv4', withServer, async (t, server, got) => {
 	t.true(isIPv4(response.body));
 });
 
-test('DNS IPv6', withServer, async (t, server, got) => {
-	if (!IPv6supported) {
-		t.pass();
-		return;
-	}
+if (!IPv6supported) {
+	test('DNS IPv6', withServer, async (t, server, got) => {
+		server.get('/ok', echoIp);
 
-	server.get('/ok', echoIp);
+		const response = await got('ok', {
+			dnsLookupIpVersion: 'ipv6'
+		});
 
-	const response = await got('ok', {
-		dnsLookupIpVersion: 'ipv6'
+		t.true(isIPv6(response.body));
 	});
-
-	t.true(isIPv6(response.body));
-});
+}
 
 test('invalid dnsLookupIpVersion', withServer, async (t, server, got) => {
 	server.get('/ok', echoIp);
