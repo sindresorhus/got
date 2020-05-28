@@ -16,5 +16,5 @@ export const dnsLookupIpVersionToFamily = (dnsLookupIpVersion: DnsLookupIpVersio
 		return conversionTable[dnsLookupIpVersion] as DnsIpFamily;
 	}
 
-	throw new Error('Invalid DnsLookupIpVersion');
+	throw new Error('Invalid DNS lookup IP version');
 };
