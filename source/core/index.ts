@@ -1341,7 +1341,11 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 		// If `dnsLookupIpVersion` is not present do not override `family`
 		if (options.dnsLookupIpVersion !== undefined) {
-			requestOptions.family = dnsLookupIpVersionToFamily(options.dnsLookupIpVersion);
+			try {
+				requestOptions.family = dnsLookupIpVersionToFamily(options.dnsLookupIpVersion);
+			} catch {
+				throw new Error('Invalid `dnsLookupIpVersion` option value');
+			}
 		}
 
 		try {

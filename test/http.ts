@@ -334,3 +334,11 @@ test('DNS IPv6', withServer, async (t, server, got) => {
 
 	t.true(isIPv6(response.body));
 });
+
+test('invalid dnsLookupIpVersion', withServer, async (t, server, got) => {
+	server.get('/ok', echoIp);
+
+	await t.throwsAsync(got('ok', {
+		dnsLookupIpVersion: 'test'
+	} as any));
+});
