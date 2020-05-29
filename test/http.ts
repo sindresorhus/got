@@ -271,7 +271,7 @@ test('does not destroy completed requests', withServer, async (t, server, got) =
 	t.pass();
 });
 
-if (!IPv6supported) {
+if (IPv6supported) {
 	test('IPv6 request', withServer, async (t, server) => {
 		server.get('/ok', echoIp);
 
@@ -301,7 +301,7 @@ test('DNS IPv4', withServer, async (t, server, got) => {
 	t.true(isIPv4(response.body));
 });
 
-if (!IPv6supported) {
+if (IPv6supported) {
 	test('DNS IPv6', withServer, async (t, server, got) => {
 		server.get('/ok', echoIp);
 
