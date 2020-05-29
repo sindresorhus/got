@@ -1458,6 +1458,10 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	}
 
 	async _beforeError(error: Error): Promise<void> {
+		if (this.destroyed) {
+			return;
+		}
+
 		this[kStopReading] = true;
 
 		if (!(error instanceof RequestError)) {
@@ -1484,10 +1488,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			error = new RequestError(error_.message, error_, this);
 		}
 
-		// This is a workaround for https://github.com/nodejs/node/issues/33335
-		if (!this.destroyed) {
-			this.destroy(error);
-		}
+		this.destroy(error);
 	}
 
 	_read(): void {
