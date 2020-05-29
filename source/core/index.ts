@@ -1057,10 +1057,6 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		});
 
 		response.once('aborted', () => {
-			if (this.aborted) {
-				return;
-			}
-
 			this._beforeError(new ReadError({
 				name: 'Error',
 				message: 'The server aborted the pending request'
@@ -1596,6 +1592,12 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	_destroy(error: Error | null, callback: (error: Error | null) => void): void {
 		if (kRequest in this) {
 			this[kCancelTimeouts]!();
+
+			// TODO: Remove the next `if` when these get fixed:
+			// - https://github.com/nodejs/node/issues/32851
+			if (!this[kResponse]?.complete) {
+				this[kRequest]!.destroy();
+			}
 		}
 
 		if (error !== null && !is.undefined(error) && !(error instanceof RequestError)) {
