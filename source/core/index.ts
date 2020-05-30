@@ -118,6 +118,7 @@ type CacheableRequestFn = (
 ) => CacheableRequest.Emitter;
 
 type CheckServerIdentityFn = (hostname: string, certificate: DetailedPeerCertificate) => Error | void;
+export type ParseJsonFn = (text: string) => unknown;
 
 interface RealRequestOptions extends https.RequestOptions {
 	checkServerIdentity: CheckServerIdentityFn;
@@ -150,6 +151,7 @@ export interface Options extends URLOptions {
 	lookup?: CacheableLookup['lookup'];
 	headers?: Headers;
 	methodRewriting?: boolean;
+	parseJson?: ParseJsonFn;
 
 	// From `http.RequestOptions`
 	localAddress?: string;
@@ -201,6 +203,7 @@ export interface NormalizedOptions extends Options {
 	methodRewriting: boolean;
 	username: string;
 	password: string;
+	parseJson: ParseJsonFn;
 	[kRequest]: HttpRequestFunction;
 	[kIsNormalizedAlready]?: boolean;
 }
@@ -224,6 +227,7 @@ export interface Defaults {
 	allowGetBody: boolean;
 	https?: HTTPSOptions;
 	methodRewriting: boolean;
+	parseJson?: ParseJsonFn;
 
 	// Optional
 	agent?: Agents | false;

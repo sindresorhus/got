@@ -242,3 +242,12 @@ test('responseType is optional when using template', withServer, async (t, serve
 
 	t.deepEqual(body, data);
 });
+
+test('JSON response custom parser', withServer, async (t, server, got) => {
+	server.get('/', defaultHandler);
+
+	t.deepEqual((await got({
+		responseType: 'json',
+		parseJson: text => ({...JSON.parse(text), custom: 'parser'})
+	})).body, {...dog, custom: 'parser'});
+});
