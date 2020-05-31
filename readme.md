@@ -327,10 +327,10 @@ Function used to parse JSON responses.
 Example:
 
 ```js
-import bourne from '@hapijs/bourne';
+const Bourne = require('@hapi/bourne');
 
 const parsed = await got('https://example.com', {
-	parseJson: text => bourne(text)
+	parseJson: text => Bourne.parse(text)
 }).json();
 ```
 
