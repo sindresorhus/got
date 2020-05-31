@@ -227,7 +227,7 @@ export interface Defaults {
 	allowGetBody: boolean;
 	https?: HTTPSOptions;
 	methodRewriting: boolean;
-	parseJson?: ParseJsonFn;
+	parseJson: ParseJsonFn;
 
 	// Optional
 	agent?: Agents | false;
