@@ -1313,7 +1313,8 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 	async _makeRequest(): Promise<void> {
 		const {options} = this;
-		const {url, headers, request, agent, timeout} = options;
+
+		const {headers} = options;
 
 		for (const key in headers) {
 			if (is.undefined(headers[key])) {
@@ -1347,6 +1348,8 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 				break;
 			}
 		}
+
+		const {agent, request, timeout, url} = options;
 
 		if (options.dnsCache && !('lookup' in options)) {
 			options.lookup = options.dnsCache.lookup;
