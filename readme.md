@@ -317,6 +317,23 @@ const body = await got(url).json();
 const body = await got(url, {responseType: 'json', resolveBodyOnly: true});
 ```
 
+###### parseJson
+
+Type: `(text: string) => unknown`\
+Default: `(text) => JSON.parse(text)`
+
+Function used to parse JSON responses.
+
+Example:
+
+```js
+import bourne from '@hapijs/bourne';
+
+const parsed = await got('https://example.com', {
+	parseJson: text => bourne(text)
+}).json();
+```
+
 ###### resolveBodyOnly
 
 Type: `boolean`\
