@@ -327,6 +327,7 @@ Function used to parse JSON responses.
 Example:
 
 ```js
+const got = require('got');
 const Bourne = require('@hapi/bourne');
 
 const parsed = await got('https://example.com', {
