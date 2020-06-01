@@ -320,7 +320,7 @@ const body = await got(url, {responseType: 'json', resolveBodyOnly: true});
 ###### parseJson
 
 Type: `(text: string) => unknown`\
-Default: `(text) => JSON.parse(text)`
+Default: `(text: string) => JSON.parse(text)`
 
 Function used to parse JSON responses.
 
