@@ -8,7 +8,7 @@ import {
 	ParseError,
 	Response
 } from './types';
-import Request, {knownHookEvents, RequestError, Method, ParseJsonFn} from '../core';
+import Request, {knownHookEvents, RequestError, Method, ParseJsonFunction} from '../core';
 
 if (!knownHookEvents.includes('beforeRetry' as any)) {
 	knownHookEvents.push('beforeRetry' as any, 'afterResponse' as any);
@@ -17,7 +17,7 @@ if (!knownHookEvents.includes('beforeRetry' as any)) {
 export const knownBodyTypes = ['json', 'buffer', 'text'];
 
 // @ts-ignore The error is: Not all code paths return a value.
-export const parseBody = (response: Response, responseType: ResponseType, parseJson: ParseJsonFn, encoding?: string): unknown => {
+export const parseBody = (response: Response, responseType: ResponseType, parseJson: ParseJsonFunction, encoding?: string): unknown => {
 	const {rawBody} = response;
 
 	try {
