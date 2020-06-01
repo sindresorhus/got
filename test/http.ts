@@ -4,8 +4,8 @@ import {Handler} from 'express';
 import {isIPv4, isIPv6} from 'net';
 import nock = require('nock');
 import getStream = require('get-stream');
-import pEvent = require('p-event');
-import got, {HTTPError, UnsupportedProtocolError} from '../source';
+import pEvent from 'p-event';
+import got, {HTTPError, UnsupportedProtocolError, CancelableRequest} from '../source';
 import withServer from './helpers/with-server';
 import os = require('os');
 
@@ -327,18 +327,26 @@ test.serial('deprecated `family` option', withServer, async (t, server, got) => 
 	});
 
 	await new Promise(resolve => {
+		let request: CancelableRequest;
 		(async () => {
 			const warning = await pEvent(process, 'warning');
 			t.is(warning.name, 'DeprecationWarning');
+			request!.cancel();
 			resolve();
 		})();
 
 		(async () => {
-			await got.secure({
+			request = got({
 				family: '4'
 			} as any);
 
-			t.fail();
+			try {
+				await request;
+				t.fail();
+			} catch {
+				t.true(request!.isCanceled);
+			}
+
 			resolve();
 		})();
 	});
