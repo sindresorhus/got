@@ -500,6 +500,31 @@ An instance of [`CacheableLookup`](https://github.com/szmarczak/cacheable-lookup
 **Note:** This should stay disabled when making requests to internal hostnames such as `localhost`, `database.local` etc.\
 `CacheableLookup` uses `dns.resolver4(..)` and `dns.resolver6(...)` under the hood and fall backs to `dns.lookup(...)` when the first two fail, which may lead to additional delay.
 
+###### dnsLookupIpVersion
+
+Type: `'auto' | 'ipv4' | 'ipv6'`\
+Default: `'auto'`
+
+Indicates which DNS record family to use.\
+Values:
+ - `auto`: IPv4 (if present) or IPv6
+ - `ipv4`: Only IPv4
+ - `ipv6`: Only IPv6
+
+Note: If you are using the undocumented option `family`, `dnsLookupIpVersion` will override it.
+
+```js
+// `api6.ipify.org` will be resolved as IPv4 and the request will be over IPv4 (the website will respond with your public IPv4)
+await got('https://api6.ipify.org', {
+	dnsLookupIpVersion: 'ipv4'
+});
+
+// `api6.ipify.org` will be resolved as IPv6 and the request will be over IPv6 (the website will respond with your public IPv6)
+await got('https://api6.ipify.org', {
+	dnsLookupIpVersion: 'ipv6'
+});
+```
+
 ###### request
 
 Type: `Function`\

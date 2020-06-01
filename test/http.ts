@@ -1,10 +1,25 @@
 import {STATUS_CODES, Agent} from 'http';
 import test from 'ava';
+import {Handler} from 'express';
+import {isIPv4, isIPv6} from 'net';
 import nock = require('nock');
 import getStream = require('get-stream');
-import pEvent = require('p-event');
-import got, {HTTPError, UnsupportedProtocolError} from '../source';
+import pEvent from 'p-event';
+import got, {HTTPError, UnsupportedProtocolError, CancelableRequest} from '../source';
 import withServer from './helpers/with-server';
+import os = require('os');
+
+const IPv6supported = Object.values(os.networkInterfaces()).some(iface => iface?.some(addr => !addr.internal && addr.family === 'IPv6'));
+
+const echoIp: Handler = (request, response) => {
+	const address = request.connection.remoteAddress;
+	if (address === undefined) {
+		return response.end();
+	}
+
+	// IPv4 address mapped to IPv6
+	response.end(address === '::ffff:127.0.0.1' ? '127.0.0.1' : address);
+};
 
 test('simple request', withServer, async (t, server, got) => {
 	server.get('/', (_request, response) => {
@@ -254,4 +269,85 @@ test('does not destroy completed requests', withServer, async (t, server, got) =
 	options.agent.http.destroy();
 
 	t.pass();
+});
+
+if (IPv6supported) {
+	test('IPv6 request', withServer, async (t, server) => {
+		server.get('/ok', echoIp);
+
+		const response = await got(`http://[::1]:${server.port}/ok`);
+
+		t.is(response.body, '::1');
+	});
+}
+
+test('DNS auto', withServer, async (t, server, got) => {
+	server.get('/ok', echoIp);
+
+	const response = await got('ok', {
+		dnsLookupIpVersion: 'auto'
+	});
+
+	t.true(isIPv4(response.body));
+});
+
+test('DNS IPv4', withServer, async (t, server, got) => {
+	server.get('/ok', echoIp);
+
+	const response = await got('ok', {
+		dnsLookupIpVersion: 'ipv4'
+	});
+
+	t.true(isIPv4(response.body));
+});
+
+if (IPv6supported) {
+	test('DNS IPv6', withServer, async (t, server, got) => {
+		server.get('/ok', echoIp);
+
+		const response = await got('ok', {
+			dnsLookupIpVersion: 'ipv6'
+		});
+
+		t.true(isIPv6(response.body));
+	});
+}
+
+test('invalid dnsLookupIpVersion', withServer, async (t, server, got) => {
+	server.get('/ok', echoIp);
+
+	await t.throwsAsync(got('ok', {
+		dnsLookupIpVersion: 'test'
+	} as any));
+});
+
+test.serial('deprecated `family` option', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.end('ok');
+	});
+
+	await new Promise(resolve => {
+		let request: CancelableRequest;
+		(async () => {
+			const warning = await pEvent(process, 'warning');
+			t.is(warning.name, 'DeprecationWarning');
+			request!.cancel();
+			resolve();
+		})();
+
+		(async () => {
+			request = got({
+				family: '4'
+			} as any);
+
+			try {
+				await request;
+				t.fail();
+			} catch {
+				t.true(request!.isCanceled);
+			}
+
+			resolve();
+		})();
+	});
 });

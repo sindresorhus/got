@@ -24,6 +24,7 @@ import timedOut, {Delays, TimeoutError as TimedOutTimeoutError} from './utils/ti
 import urlToOptions from './utils/url-to-options';
 import optionsToUrl, {URLOptions} from './utils/options-to-url';
 import WeakableMap from './utils/weakable-map';
+import {DnsLookupIpVersion, isDnsLookupIpVersion, dnsLookupIpVersionToFamily} from './utils/dns-ip-version';
 import deprecationWarning from '../utils/deprecation-warning';
 
 type HttpRequestFunction = typeof httpRequest;
@@ -150,6 +151,7 @@ export interface Options extends URLOptions {
 	lookup?: CacheableLookup['lookup'];
 	headers?: Headers;
 	methodRewriting?: boolean;
+	dnsLookupIpVersion?: DnsLookupIpVersion;
 
 	// From `http.RequestOptions`
 	localAddress?: string;
@@ -653,6 +655,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		assert.any([is.boolean, is.undefined], options.http2);
 		assert.any([is.boolean, is.undefined], options.allowGetBody);
 		assert.any([is.string, is.undefined], options.localAddress);
+		assert.any([isDnsLookupIpVersion, is.undefined], options.dnsLookupIpVersion);
 		assert.any([is.object, is.undefined], options.https);
 		assert.any([is.boolean, is.undefined], options.rejectUnauthorized);
 		if (options.https) {
@@ -869,6 +872,11 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 					];
 				}
 			}
+		}
+
+		// DNS options
+		if ('family' in options) {
+			deprecationWarning('"options.family" was never documented, please use "options.dnsLookupIpVersion"');
 		}
 
 		// HTTPS options
@@ -1396,6 +1404,15 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		delete options.timeout;
 
 		const requestOptions = options as unknown as RealRequestOptions;
+
+		// If `dnsLookupIpVersion` is not present do not override `family`
+		if (options.dnsLookupIpVersion !== undefined) {
+			try {
+				requestOptions.family = dnsLookupIpVersionToFamily(options.dnsLookupIpVersion);
+			} catch {
+				throw new Error('Invalid `dnsLookupIpVersion` option value');
+			}
+		}
 
 		// HTTPS options remapping
 		if (options.https) {
