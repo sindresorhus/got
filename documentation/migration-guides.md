@@ -97,6 +97,17 @@ const gotInstance = got.extend({
 gotInstance(url, options);
 ```
 
+- No `jsonReviver`/`jsonReplacer` option, but you can use `parseJson`/`stringifyJson` for that:
+
+```js
+const gotInstance = got.extend({
+	parseJson: text => JSON.parse(text, myJsonReviver),
+	stringifyJson: object => JSON.stringify(object, myJsonReplacer)
+});
+
+gotInstance(url, options);
+```
+
 Hooks are powerful, aren't they? [Read more](../readme.md#hooks) to see what else you achieve using hooks.
 
 #### More about streams
