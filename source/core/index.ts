@@ -112,16 +112,16 @@ export type RequestFunction = (url: URL, options: RequestOptions, callback?: (re
 
 export type Headers = Record<string, string | string[] | undefined>;
 
-type CacheableRequestFn = (
+type CacheableRequestFunction = (
 	opts: string | URL | RequestOptions,
 	cb?: (response: ServerResponse | ResponseLike) => void
 ) => CacheableRequest.Emitter;
 
-type CheckServerIdentityFn = (hostname: string, certificate: DetailedPeerCertificate) => Error | void;
+type CheckServerIdentityFunction = (hostname: string, certificate: DetailedPeerCertificate) => Error | void;
 export type ParseJsonFunction = (text: string) => unknown;
 
 interface RealRequestOptions extends https.RequestOptions {
-	checkServerIdentity: CheckServerIdentityFn;
+	checkServerIdentity: CheckServerIdentityFunction;
 }
 
 export interface Options extends URLOptions {
@@ -170,7 +170,7 @@ export interface HTTPSOptions {
 	rejectUnauthorized?: https.RequestOptions['rejectUnauthorized'];
 
 	// From `tls.ConnectionOptions`
-	checkServerIdentity?: CheckServerIdentityFn;
+	checkServerIdentity?: CheckServerIdentityFunction;
 
 	// From `tls.SecureContextOptions`
 	certificateAuthority?: SecureContextOptions['ca'];
@@ -284,7 +284,7 @@ function isClientRequest(clientRequest: unknown): clientRequest is ClientRequest
 	return is.object(clientRequest) && !('statusCode' in clientRequest);
 }
 
-const cacheableStore = new WeakableMap<string | CacheableRequest.StorageAdapter, CacheableRequestFn>();
+const cacheableStore = new WeakableMap<string | CacheableRequest.StorageAdapter, CacheableRequestFunction>();
 
 const waitForOpenFile = async (file: ReadStream): Promise<void> => new Promise((resolve, reject) => {
 	const onError = (error: Error): void => {

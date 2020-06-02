@@ -97,7 +97,7 @@ const gotInstance = got.extend({
 gotInstance(url, options);
 ```
 
-- No `jsonReviver`/`jsonReplacer` option, but you can use hooks for that too:
+- No `jsonReplacer` option, but you can use hooks for that too:
 
 ```js
 const gotInstance = got.extend({
@@ -108,24 +108,6 @@ const gotInstance = got.extend({
 					options.body = JSON.stringify(options.json, options.jsonReplacer);
 					delete options.json;
 				}
-			}
-		],
-		beforeRequest: [
-			options => {
-				if (options.responseType === 'json' && options.jsonReviver) {
-					options.responseType = 'text';
-					options.customJsonResponse = true;
-				}
-			}
-		],
-		afterResponse: [
-			response => {
-				const {options} = response.request;
-				if (options.jsonReviver && options.customJsonResponse) {
-					response.body = JSON.parse(response.body, options.jsonReviver);
-				}
-
-				return response;
 			}
 		]
 	}
