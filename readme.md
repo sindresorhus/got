@@ -317,6 +317,44 @@ const body = await got(url).json();
 const body = await got(url, {responseType: 'json', resolveBodyOnly: true});
 ```
 
+###### parseJson
+
+Type: `(text: string) => unknown`\
+Default: `(text: string) => JSON.parse(text)`
+
+Function used to parse JSON responses.
+
+Example:
+
+```js
+const got = require('got');
+const Bourne = require('@hapi/bourne');
+
+const parsed = await got('https://example.com', {
+	parseJson: text => Bourne.parse(text)
+}).json();
+```
+
+###### stringifyJson
+
+Type: `(object: any) => string`\
+Default: `(object: any) => JSON.stringify(object)`
+
+Function used to stringify JSON requests body.
+
+Example:
+
+```js
+const got = require('got');
+
+await got.post('https://example.com', {
+	stringifyJson: object => JSON.stringify(object),
+	json: {
+		some: 'payload'
+	}
+});
+```
+
 ###### resolveBodyOnly
 
 Type: `boolean`\
@@ -993,7 +1031,7 @@ await got('https://example.com', {
 			if (hostname === 'example.com') {
 				return; // Certificate OK
 			}
-			
+
 			return new Error('Invalid Hostname'); // Certificate NOT OK
 		}
 	}
