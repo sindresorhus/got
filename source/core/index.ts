@@ -120,6 +120,7 @@ type CacheableRequestFunction = (
 
 type CheckServerIdentityFunction = (hostname: string, certificate: DetailedPeerCertificate) => Error | void;
 export type ParseJsonFunction = (text: string) => unknown;
+export type StringifyJsonFunction = (object: any) => string;
 
 interface RealRequestOptions extends https.RequestOptions {
 	checkServerIdentity: CheckServerIdentityFunction;
@@ -154,6 +155,7 @@ export interface Options extends URLOptions {
 	methodRewriting?: boolean;
 	dnsLookupIpVersion?: DnsLookupIpVersion;
 	parseJson?: ParseJsonFunction;
+	stringifyJson?: StringifyJsonFunction;
 
 	// From `http.RequestOptions`
 	localAddress?: string;
@@ -206,6 +208,7 @@ export interface NormalizedOptions extends Options {
 	username: string;
 	password: string;
 	parseJson: ParseJsonFunction;
+	stringifyJson: StringifyJsonFunction;
 	[kRequest]: HttpRequestFunction;
 	[kIsNormalizedAlready]?: boolean;
 }
@@ -230,6 +233,7 @@ export interface Defaults {
 	https?: HTTPSOptions;
 	methodRewriting: boolean;
 	parseJson: ParseJsonFunction;
+	stringifyJson: StringifyJsonFunction;
 
 	// Optional
 	agent?: Agents | false;
@@ -1000,7 +1004,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 						headers['content-type'] = 'application/json';
 					}
 
-					this[kBody] = JSON.stringify(options.json);
+					this[kBody] = options.stringifyJson(options.json);
 				}
 
 				const uploadBodySize = await getBodySize(this[kBody], options.headers);

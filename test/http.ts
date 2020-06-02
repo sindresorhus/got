@@ -21,6 +21,10 @@ const echoIp: Handler = (request, response) => {
 	response.end(address === '::ffff:127.0.0.1' ? '127.0.0.1' : address);
 };
 
+const echoBody: Handler = async (request, response) => {
+	response.end(await getStream(request));
+};
+
 test('simple request', withServer, async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.end('ok');
@@ -350,4 +354,16 @@ test.serial('deprecated `family` option', withServer, async (t, server, got) => 
 			resolve();
 		})();
 	});
+});
+
+test('JSON request custom stringifier', withServer, async (t, server, got) => {
+	server.post('/', echoBody);
+
+	const payload = {a: 'b'};
+	const customStringify = (object: any) => JSON.stringify({...object, c: 'd'});
+
+	t.deepEqual((await got.post({
+		stringifyJson: customStringify,
+		json: payload
+	})).body, customStringify(payload));
 });

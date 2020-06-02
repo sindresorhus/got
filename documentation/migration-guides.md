@@ -97,25 +97,6 @@ const gotInstance = got.extend({
 gotInstance(url, options);
 ```
 
-- No `jsonReplacer` option, but you can use hooks for that too:
-
-```js
-const gotInstance = got.extend({
-	hooks: {
-		init: [
-			options => {
-				if (options.jsonReplacer && options.json) {
-					options.body = JSON.stringify(options.json, options.jsonReplacer);
-					delete options.json;
-				}
-			}
-		]
-	}
-});
-
-gotInstance(url, options);
-```
-
 Hooks are powerful, aren't they? [Read more](../readme.md#hooks) to see what else you achieve using hooks.
 
 #### More about streams

@@ -111,7 +111,8 @@ const defaults: InstanceDefaults = {
 			requestLimit: 10000,
 			stackAllItems: true
 		},
-		parseJson: (text: string) => JSON.parse(text)
+		parseJson: (text: string) => JSON.parse(text),
+		stringifyJson: (object: any) => JSON.stringify(object)
 	},
 	handlers: [defaultHandler],
 	mutableDefaults: false

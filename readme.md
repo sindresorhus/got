@@ -335,6 +335,24 @@ const parsed = await got('https://example.com', {
 }).json();
 ```
 
+###### stringifyJson
+
+Type: `(object: any) => string`\
+Default: `(object: any) => JSON.stringify(object)`
+
+Function used to stringify JSON requests body.
+
+Example:
+
+```js
+const got = require('got');
+
+await got.post('https://example.com', {
+	stringifyJson: object => JSON.stringify(object),
+	json: {some: 'payload'}
+});
+```
+
 ###### resolveBodyOnly
 
 Type: `boolean`\
