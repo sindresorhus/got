@@ -24,6 +24,7 @@ import timedOut, {Delays, TimeoutError as TimedOutTimeoutError} from './utils/ti
 import urlToOptions from './utils/url-to-options';
 import optionsToUrl, {URLOptions} from './utils/options-to-url';
 import WeakableMap from './utils/weakable-map';
+import {DnsLookupIpVersion, isDnsLookupIpVersion, dnsLookupIpVersionToFamily} from './utils/dns-ip-version';
 import deprecationWarning from '../utils/deprecation-warning';
 
 type HttpRequestFunction = typeof httpRequest;
@@ -151,6 +152,7 @@ export interface Options extends URLOptions {
 	lookup?: CacheableLookup['lookup'];
 	headers?: Headers;
 	methodRewriting?: boolean;
+	dnsLookupIpVersion?: DnsLookupIpVersion;
 	parseJson?: ParseJsonFunction;
 
 	// From `http.RequestOptions`
@@ -657,6 +659,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		assert.any([is.boolean, is.undefined], options.http2);
 		assert.any([is.boolean, is.undefined], options.allowGetBody);
 		assert.any([is.string, is.undefined], options.localAddress);
+		assert.any([isDnsLookupIpVersion, is.undefined], options.dnsLookupIpVersion);
 		assert.any([is.object, is.undefined], options.https);
 		assert.any([is.boolean, is.undefined], options.rejectUnauthorized);
 		if (options.https) {
@@ -875,6 +878,11 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			}
 		}
 
+		// DNS options
+		if ('family' in options) {
+			deprecationWarning('"options.family" was never documented, please use "options.dnsLookupIpVersion"');
+		}
+
 		// HTTPS options
 		if ('rejectUnauthorized' in options) {
 			deprecationWarning('"options.rejectUnauthorized" is now deprecated, please use "options.https.rejectUnauthorized"');
@@ -1061,10 +1069,6 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		});
 
 		response.once('aborted', () => {
-			if (this.aborted) {
-				return;
-			}
-
 			this._beforeError(new ReadError({
 				name: 'Error',
 				message: 'The server aborted the pending request'
@@ -1321,7 +1325,8 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 	async _makeRequest(): Promise<void> {
 		const {options} = this;
-		const {url, headers, request, agent, timeout} = options;
+
+		const {headers} = options;
 
 		for (const key in headers) {
 			if (is.undefined(headers[key])) {
@@ -1355,6 +1360,8 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 				break;
 			}
 		}
+
+		const {agent, request, timeout, url} = options;
 
 		if (options.dnsCache && !('lookup' in options)) {
 			options.lookup = options.dnsCache.lookup;
@@ -1401,6 +1408,15 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		delete options.timeout;
 
 		const requestOptions = options as unknown as RealRequestOptions;
+
+		// If `dnsLookupIpVersion` is not present do not override `family`
+		if (options.dnsLookupIpVersion !== undefined) {
+			try {
+				requestOptions.family = dnsLookupIpVersionToFamily(options.dnsLookupIpVersion);
+			} catch {
+				throw new Error('Invalid `dnsLookupIpVersion` option value');
+			}
+		}
 
 		// HTTPS options remapping
 		if (options.https) {
@@ -1466,6 +1482,10 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	}
 
 	async _beforeError(error: Error): Promise<void> {
+		if (this.destroyed) {
+			return;
+		}
+
 		this[kStopReading] = true;
 
 		if (!(error instanceof RequestError)) {
@@ -1492,10 +1512,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			error = new RequestError(error_.message, error_, this);
 		}
 
-		// This is a workaround for https://github.com/nodejs/node/issues/33335
-		if (!this.destroyed) {
-			this.destroy(error);
-		}
+		this.destroy(error);
 	}
 
 	_read(): void {

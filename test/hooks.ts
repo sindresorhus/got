@@ -1,7 +1,9 @@
 import {URL} from 'url';
-import test from 'ava';
+import {Agent as HttpAgent} from 'http';
+import test, {Constructor} from 'ava';
 import nock = require('nock');
 import getStream from 'get-stream';
+import sinon = require('sinon');
 import delay = require('delay');
 import {Handler} from 'express';
 import Responselike = require('responselike');
@@ -34,6 +36,13 @@ const redirectEndpoint: Handler = (_request, response) => {
 	response.statusCode = 302;
 	response.setHeader('location', '/');
 	response.end();
+};
+
+const createAgentSpy = <T extends HttpAgent>(AgentClass: Constructor): {agent: T; spy: sinon.SinonSpy} => {
+	const agent: T = new AgentClass({keepAlive: true});
+	// @ts-ignore This IS correct
+	const spy = sinon.spy(agent, 'addRequest');
+	return {agent, spy};
 };
 
 test('async hooks', withServer, async (t, server, got) => {
@@ -898,4 +907,48 @@ test('async afterResponse allows to retry with allowGetBody and json payload', w
 		throwHttpErrors: false
 	});
 	t.is(statusCode, 200);
+});
+
+test('beforeRequest hook respect `agent` option', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.end('ok');
+	});
+
+	const {agent, spy} = createAgentSpy(HttpAgent);
+
+	t.truthy((await got({
+		hooks: {
+			beforeRequest: [
+				options => {
+					options.agent = {
+						http: agent
+					};
+				}
+			]
+		}
+	})).body);
+	t.true(spy.calledOnce);
+
+	// Make sure to close all open sockets
+	agent.destroy();
+});
+
+test('beforeRequest hook respect `url` option', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.end('ko');
+	});
+
+	server.get('/changed', (_request, response) => {
+		response.end('ok');
+	});
+
+	t.is((await got(server.sslHostname, {
+		hooks: {
+			beforeRequest: [
+				options => {
+					options.url = new URL(server.url + '/changed');
+				}
+			]
+		}
+	})).body, 'ok');
 });

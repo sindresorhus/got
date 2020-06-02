@@ -44,6 +44,7 @@ export interface ExtendOptions extends Options {
 export type OptionsOfTextResponseBody = Merge<Options, {isStream?: false; resolveBodyOnly?: false; responseType?: 'text'}>;
 export type OptionsOfJSONResponseBody = Merge<Options, {isStream?: false; resolveBodyOnly?: false; responseType?: 'json'}>;
 export type OptionsOfBufferResponseBody = Merge<Options, {isStream?: false; resolveBodyOnly?: false; responseType: 'buffer'}>;
+export type OptionsOfUnknownResponseBody = Merge<Options, {isStream?: false; resolveBodyOnly?: false}>;
 export type StrictOptions = Except<Options, 'isStream' | 'responseType' | 'resolveBodyOnly'>;
 export type StreamOptions = Merge<Options, {isStream?: true}>;
 type ResponseBodyOnly = {resolveBodyOnly: true};
@@ -66,10 +67,12 @@ export interface GotRequestFunction {
 	(url: string | URL, options?: OptionsOfTextResponseBody): CancelableRequest<Response<string>>;
 	<T>(url: string | URL, options?: OptionsOfJSONResponseBody): CancelableRequest<Response<T>>;
 	(url: string | URL, options?: OptionsOfBufferResponseBody): CancelableRequest<Response<Buffer>>;
+	(url: string | URL, options?: OptionsOfUnknownResponseBody): CancelableRequest<Response>;
 
 	(options: OptionsOfTextResponseBody): CancelableRequest<Response<string>>;
 	<T>(options: OptionsOfJSONResponseBody): CancelableRequest<Response<T>>;
 	(options: OptionsOfBufferResponseBody): CancelableRequest<Response<Buffer>>;
+	(options: OptionsOfUnknownResponseBody): CancelableRequest<Response>;
 
 	// `resolveBodyOnly` usage
 	(url: string | URL, options?: (Merge<OptionsOfTextResponseBody, ResponseBodyOnly>)): CancelableRequest<string>;

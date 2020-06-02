@@ -1,5 +1,5 @@
 import test from 'ava';
-import got from '../source';
+import got, {CancelableRequest} from '../source';
 import withServer from './helpers/with-server';
 import {DetailedPeerCertificate} from 'tls';
 import pEvent from 'p-event';
@@ -115,18 +115,26 @@ test.serial('deprecated `rejectUnauthorized` option', withServer, async (t, serv
 	});
 
 	await new Promise(resolve => {
+		let request: CancelableRequest;
 		(async () => {
 			const warning = await pEvent(process, 'warning');
 			t.is(warning.name, 'DeprecationWarning');
+			request!.cancel();
 			resolve();
 		})();
 
 		(async () => {
-			await got.secure({
+			request = got.secure({
 				rejectUnauthorized: false
 			});
 
-			t.fail();
+			try {
+				await request;
+				t.fail();
+			} catch {
+				t.true(request!.isCanceled);
+			}
+
 			resolve();
 		})();
 	});
