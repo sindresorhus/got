@@ -349,7 +349,9 @@ const got = require('got');
 
 await got.post('https://example.com', {
 	stringifyJson: object => JSON.stringify(object),
-	json: {some: 'payload'}
+	json: {
+		some: 'payload'
+	}
 });
 ```
 
@@ -1029,7 +1031,7 @@ await got('https://example.com', {
 			if (hostname === 'example.com') {
 				return; // Certificate OK
 			}
-			
+
 			return new Error('Invalid Hostname'); // Certificate NOT OK
 		}
 	}
