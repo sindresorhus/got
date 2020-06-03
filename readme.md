@@ -337,8 +337,8 @@ const parsed = await got('https://example.com', {
 
 ###### stringifyJson
 
-Type: `(object: any) => string`\
-Default: `(object: any) => JSON.stringify(object)`
+Type: `(object: unknown) => string`\
+Default: `(object: unknown) => JSON.stringify(object)`
 
 Function used to stringify JSON requests body.
 

@@ -120,7 +120,7 @@ type CacheableRequestFunction = (
 
 type CheckServerIdentityFunction = (hostname: string, certificate: DetailedPeerCertificate) => Error | void;
 export type ParseJsonFunction = (text: string) => unknown;
-export type StringifyJsonFunction = (object: any) => string;
+export type StringifyJsonFunction = (object: unknown) => string;
 
 interface RealRequestOptions extends https.RequestOptions {
 	checkServerIdentity: CheckServerIdentityFunction;
