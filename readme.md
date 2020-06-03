@@ -326,13 +326,18 @@ Function used to parse JSON responses.
 
 Example:
 
+Using Bourne to prevent prototype pollution
 ```js
 const got = require('got');
 const Bourne = require('@hapi/bourne');
 
-const parsed = await got('https://example.com', {
-	parseJson: text => Bourne.parse(text)
-}).json();
+(async () => {
+	const parsed = await got('https://example.com', {
+		parseJson: text => Bourne.parse(text)
+	}).json();
+
+	console.log(parsed);
+})();
 ```
 
 ###### stringifyJson
@@ -344,15 +349,22 @@ Function used to stringify JSON requests body.
 
 Example:
 
+All numbers as strings
 ```js
 const got = require('got');
 
-await got.post('https://example.com', {
-	stringifyJson: object => JSON.stringify(object),
-	json: {
-		some: 'payload'
-	}
-});
+(async () => {
+	await got.post('https://example.com', {
+		stringifyJson: object => JSON.stringify(object, (key, value) => {
+			if (typeof value === "number") return value.toString();
+			return value;
+		}),
+		json: {
+			some: 'payload',
+			number: 1
+		}
+	});
+})();
 ```
 
 ###### resolveBodyOnly
