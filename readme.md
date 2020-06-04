@@ -326,7 +326,8 @@ Function used to parse JSON responses.
 
 Example:
 
-Using Bourne to prevent prototype pollution
+- Using Bourne to prevent prototype pollution:
+
 ```js
 const got = require('got');
 const Bourne = require('@hapi/bourne');
