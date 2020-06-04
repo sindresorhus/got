@@ -349,7 +349,8 @@ Function used to stringify JSON requests body.
 
 Example:
 
-All numbers as strings
+- All numbers as strings:
+
 ```js
 const got = require('got');
 
