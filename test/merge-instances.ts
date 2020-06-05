@@ -119,11 +119,11 @@ test('URL is not polluted', withServer, async (t, server, got) => {
 
 test('merging instances with HTTPS options', t => {
 	const instanceA = got.extend({https: {
-			rejectUnauthorized: true,
-			certificate: 'FIRST'
+		rejectUnauthorized: true,
+		certificate: 'FIRST'
 	}});
 	const instanceB = got.extend({https: {
-			certificate: 'SECOND'
+		certificate: 'SECOND'
 	}});
 
 	const merged = instanceA.extend(instanceB);
@@ -134,11 +134,11 @@ test('merging instances with HTTPS options', t => {
 
 test('merging instances with HTTPS options undefined', t => {
 	const instanceA = got.extend({https: {
-			rejectUnauthorized: true,
-			certificate: 'FIRST'
+		rejectUnauthorized: true,
+		certificate: 'FIRST'
 	}});
 	const instanceB = got.extend({https: {
-			certificate: undefined
+		certificate: undefined
 	}});
 
 	const merged = instanceA.extend(instanceB);
