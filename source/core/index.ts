@@ -1341,7 +1341,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			this._unlockWrite();
 
 			if (!is.undefined(body)) {
-				this._writeRequest(body, null as unknown as string, () => {});
+				this._writeRequest(body, undefined, () => {});
 				currentRequest.end();
 
 				this._lockWrite();
@@ -1610,7 +1610,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		}
 	}
 
-	_write(chunk: any, encoding: string, callback: (error?: Error | null) => void): void {
+	_write(chunk: any, encoding: BufferEncoding | undefined, callback: (error?: Error | null) => void): void {
 		const write = (): void => {
 			this._writeRequest(chunk, encoding, callback);
 		};
@@ -1622,9 +1622,9 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		}
 	}
 
-	_writeRequest(chunk: any, encoding: string, callback: (error?: Error | null) => void): void {
+	_writeRequest(chunk: any, encoding: BufferEncoding | undefined, callback: (error?: Error | null) => void): void {
 		this._progressCallbacks.push((): void => {
-			this[kUploadedSize] += Buffer.byteLength(chunk, encoding as BufferEncoding);
+			this[kUploadedSize] += Buffer.byteLength(chunk, encoding);
 
 			const progress = this.uploadProgress;
 
@@ -1635,7 +1635,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 		// TODO: What happens if it's from cache? Then this[kRequest] won't be defined.
 
-		this[kRequest]!.write(chunk, encoding, (error?: Error | null) => {
+		this[kRequest]!.write(chunk, encoding!, (error?: Error | null) => {
 			if (!error && this._progressCallbacks.length !== 0) {
 				this._progressCallbacks.shift()!();
 			}

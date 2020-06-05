@@ -22,7 +22,7 @@ if (!knownHookEvents.includes('beforeRetry' as any)) {
 export const knownBodyTypes = ['json', 'buffer', 'text'];
 
 // @ts-ignore The error is: Not all code paths return a value.
-export const parseBody = (response: Response, responseType: ResponseType, parseJson: ParseJsonFunction, encoding?: string): unknown => {
+export const parseBody = (response: Response, responseType: ResponseType, parseJson: ParseJsonFunction, encoding?: BufferEncoding): unknown => {
 	const {rawBody} = response;
 
 	try {
