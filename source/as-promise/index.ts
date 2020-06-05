@@ -87,7 +87,7 @@ export default function asPromise<T>(options: NormalizedOptions): CancelableRequ
 
 				// Parse body
 				try {
-					response.body = parseBody(response, options.responseType, options.encoding);
+					response.body = parseBody(response, options.responseType, options.parseJson, options.encoding);
 				} catch (error) {
 					// Fallback to `utf8`
 					response.body = rawBody.toString();
@@ -244,7 +244,7 @@ export default function asPromise<T>(options: NormalizedOptions): CancelableRequ
 			// Wait until downloading has ended
 			await promise;
 
-			return parseBody(globalResponse, responseType, options.encoding);
+			return parseBody(globalResponse, responseType, options.parseJson, options.encoding);
 		})();
 
 		Object.defineProperties(newPromise, Object.getOwnPropertyDescriptors(promise));

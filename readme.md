@@ -317,6 +317,87 @@ const body = await got(url).json();
 const body = await got(url, {responseType: 'json', resolveBodyOnly: true});
 ```
 
+###### parseJson
+
+Type: `(text: string) => unknown`\
+Default: `(text: string) => JSON.parse(text)`
+
+A function used to parse JSON responses.
+
+<details>
+<summary>Example</summary>
+
+Using [`bourne`](https://github.com/hapijs/bourne) to prevent prototype pollution:
+
+```js
+const got = require('got');
+const Bourne = require('@hapi/bourne');
+
+(async () => {
+	const parsed = await got('https://example.com', {
+		parseJson: text => Bourne.parse(text)
+	}).json();
+
+	console.log(parsed);
+})();
+```
+</details>
+
+###### stringifyJson
+
+Type: `(object: unknown) => string`\
+Default: `(object: unknown) => JSON.stringify(object)`
+
+A function used to stringify the body of JSON requests.
+
+<details>
+<summary>Examples</summary>
+
+Ignore properties starting with `_`:
+
+```js
+const got = require('got');
+
+(async () => {
+	await got.post('https://example.com', {
+		stringifyJson: object => JSON.stringify(object, (key, value) => {
+			if (key.startsWith('_')) {
+				return;
+			}
+
+			return value;
+		}),
+		json: {
+			some: 'payload',
+			_ignoreMe: 1234
+		}
+	});
+})();
+```
+
+All numbers as strings:
+
+```js
+const got = require('got');
+
+(async () => {
+	await got.post('https://example.com', {
+		stringifyJson: object => JSON.stringify(object, (key, value) => {
+			if (typeof value === 'number') {
+				return value.toString();
+			}
+
+			return value;
+		}),
+		json: {
+			some: 'payload',
+			number: 1
+		}
+	});
+})();
+```
+</details>
+
 ###### resolveBodyOnly
 
 Type: `boolean`\
@@ -993,7 +1074,7 @@ await got('https://example.com', {
 			if (hostname === 'example.com') {
 				return; // Certificate OK
 			}
-			
+
 			return new Error('Invalid Hostname'); // Certificate NOT OK
 		}
 	}
