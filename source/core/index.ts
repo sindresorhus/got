@@ -888,6 +888,10 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		}
 
 		// HTTPS options
+		if (defaults?.https) {
+			options.https = {...defaults.https, ...options.https};
+		}
+
 		if ('rejectUnauthorized' in options) {
 			deprecationWarning('"options.rejectUnauthorized" is now deprecated, please use "options.https.rejectUnauthorized"');
 		}

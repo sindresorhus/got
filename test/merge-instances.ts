@@ -116,3 +116,33 @@ test('URL is not polluted', withServer, async (t, server, got) => {
 
 	t.is(normalizedOptions.username, '');
 });
+
+test('merging instances with HTTPS options', t => {
+	const instanceA = got.extend({https: {
+		rejectUnauthorized: true,
+		certificate: 'FIRST'
+	}});
+	const instanceB = got.extend({https: {
+		certificate: 'SECOND'
+	}});
+
+	const merged = instanceA.extend(instanceB);
+
+	t.true(merged.defaults.options.https?.rejectUnauthorized);
+	t.is(merged.defaults.options.https?.certificate, 'SECOND');
+});
+
+test('merging instances with HTTPS options undefined', t => {
+	const instanceA = got.extend({https: {
+		rejectUnauthorized: true,
+		certificate: 'FIRST'
+	}});
+	const instanceB = got.extend({https: {
+		certificate: undefined
+	}});
+
+	const merged = instanceA.extend(instanceB);
+
+	t.true(merged.defaults.options.https?.rejectUnauthorized);
+	t.is(merged.defaults.options.https?.certificate, undefined);
+});
