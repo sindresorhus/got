@@ -1318,7 +1318,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			cacheRequest.once('error', reject);
 			cacheRequest.once('request', r => {
 				request = r;
-				resolve();
+				resolve(r);
 			});
 		});
 	}
