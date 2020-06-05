@@ -324,9 +324,9 @@ Default: `(text: string) => JSON.parse(text)`
 
 A function used to parse JSON responses.
 
-Example:
-
-- Using [`bourne`](https://github.com/hapijs/bourne) to prevent prototype pollution:
+<details>
+<summary>Example</summary>
+Using [`bourne`](https://github.com/hapijs/bourne) to prevent prototype pollution:
 
 ```js
 const got = require('got');
@@ -340,6 +340,7 @@ const Bourne = require('@hapi/bourne');
 	console.log(parsed);
 })();
 ```
+</details>
 
 ###### stringifyJson
 
@@ -348,9 +349,9 @@ Default: `(object: unknown) => JSON.stringify(object)`
 
 A function used to stringify the body of JSON requests.
 
-Example:
-
-- Ignore properties starting with `_`:
+<details>
+<summary>Examples</summary>
+Ignore properties starting with `_`:
 
 ```js
 const got = require('got');
@@ -372,7 +373,7 @@ const got = require('got');
 })();
 ```
 
-- All numbers as strings:
+All numbers as strings:
 
 ```js
 const got = require('got');
@@ -393,6 +394,7 @@ const got = require('got');
 	});
 })();
 ```
+</details>
 
 ###### resolveBodyOnly
 
