@@ -350,6 +350,28 @@ A function used to stringify the body of JSON requests.
 
 Example:
 
+- Ignore properties starting with `_`:
+
+```js
+const got = require('got');
+
+(async () => {
+	await got.post('https://example.com', {
+		stringifyJson: object => JSON.stringify(object, (key, value) => {
+			if (key.startsWith('_')) {
+				return;
+			}
+
+			return value;
+		}),
+		json: {
+			some: 'payload',
+			_ignoreMe: 1234
+		}
+	});
+})();
+```
+
 - All numbers as strings:
 
 ```js
