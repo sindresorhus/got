@@ -322,11 +322,11 @@ const body = await got(url, {responseType: 'json', resolveBodyOnly: true});
 Type: `(text: string) => unknown`\
 Default: `(text: string) => JSON.parse(text)`
 
-Function used to parse JSON responses.
+A function used to parse JSON responses.
 
 Example:
 
-- Using Bourne to prevent prototype pollution:
+- Using [`bourne`](https://github.com/hapijs/bourne) to prevent prototype pollution:
 
 ```js
 const got = require('got');
@@ -346,7 +346,7 @@ const Bourne = require('@hapi/bourne');
 Type: `(object: unknown) => string`\
 Default: `(object: unknown) => JSON.stringify(object)`
 
-Function used to stringify JSON requests body.
+A function used to stringify the body of JSON requests.
 
 Example:
 
@@ -358,7 +358,10 @@ const got = require('got');
 (async () => {
 	await got.post('https://example.com', {
 		stringifyJson: object => JSON.stringify(object, (key, value) => {
-			if (typeof value === "number") return value.toString();
+			if (typeof value === 'number') {
+				return value.toString();
+			}
+
 			return value;
 		}),
 		json: {
