@@ -326,6 +326,7 @@ A function used to parse JSON responses.
 
 <details>
 <summary>Example</summary>
+
 Using [`bourne`](https://github.com/hapijs/bourne) to prevent prototype pollution:
 
 ```js
@@ -351,6 +352,7 @@ A function used to stringify the body of JSON requests.
 
 <details>
 <summary>Examples</summary>
+
 Ignore properties starting with `_`:
 
 ```js
