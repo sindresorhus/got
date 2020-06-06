@@ -317,7 +317,7 @@ test('cached response ETag', withServer, async (t, server, got) => {
 
 	server.get('/', (request, response) => {
 		if (request.headers['if-none-match'] === etag) {
-			response.writeHead(304, {ETag: 'asdf'});
+			response.writeHead(304);
 			response.end();
 		} else {
 			response.writeHead(200, {ETag: etag});
