@@ -331,6 +331,9 @@ test('cached response ETag', withServer, async (t, server, got) => {
 
 	t.false(originalResponse.isFromCache);
 	t.is(originalResponse.body, body);
+
+	await delay(100); // Added small delay in order to wait the cache to be populated
+
 	t.is(cache.size, 1);
 
 	const cachedResponse = await got({cache});
