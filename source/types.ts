@@ -28,6 +28,9 @@ type Except<ObjectType, KeysType extends keyof ObjectType> = Pick<ObjectType, Ex
 type Merge<FirstType, SecondType> = Except<FirstType, Extract<keyof FirstType, keyof SecondType>> & SecondType;
 
 export interface InstanceDefaults {
+	/**
+  An object containing the default options of Got.
+	*/
 	options: DefaultOptions;
 
 	/**
@@ -46,12 +49,24 @@ export interface InstanceDefaults {
 	@default false
 	*/
 	mutableDefaults: boolean;
+
 	_rawHandlers?: HandlerFunction[];
 }
 
+/**
+A Request object returned by calling Got, or any of the Got HTTP alias request functions.
+*/
 export type GotReturn = Request | CancelableRequest;
+
+/**
+A function to handle options and returns a Request object.
+It acts sort of like a "global hook", and will be called before any actual request is made.
+*/
 export type HandlerFunction = <T extends GotReturn>(options: NormalizedOptions, next: (options: NormalizedOptions) => T) => T | Promise<T>;
 
+/**
+The options available for `got.extend()`.
+*/
 export interface ExtendOptions extends Options {
 	handlers?: HandlerFunction[];
 	mutableDefaults?: boolean;
@@ -151,6 +166,9 @@ export interface GotRequestFunction {
 	(options: Options): CancelableRequest | Request;
 }
 
+/**
+All available HTTP request methods provided by Got.
+*/
 export type HTTPAlias =
 	| 'get'
 	| 'post'
@@ -260,6 +278,34 @@ export interface Got extends Record<HTTPAlias, GotRequestFunction>, GotRequestFu
 	*/
 	CancelError: typeof CancelError;
 
+	/**
+  Configure a new `got` instance with default `options`.
+	The `options` are merged with the parent instance's `defaults.options` using `got.mergeOptions`.
+	You can access the resolved options with the `.defaults` property on the instance.
+
+	Additionally, `got.extend()` accepts two properties from the `defaults` object: `mutableDefaults` and `handlers`.
+
+	It is also possible to merges many instances into a single one:
+	- options are merged using `got.mergeOptions()` (including hooks),
+  - handlers are stored in an array (you can access them through `instance.defaults.handlers`).
+
+	@example
+	```js
+	const client = got.extend({
+		prefixUrl: 'https://example.com',
+		headers: {
+			'x-unicorn': 'rainbow'
+		}
+	});
+
+	client.get('demo');
+
+	// HTTP Request =>
+	// GET /demo HTTP/1.1
+	// Host: example.com
+	// x-unicorn: rainbow
+	```
+	*/
 	extend(...instancesOrOptions: Array<Got | ExtendOptions>): Got;
 
 	mergeInstances(parent: Got, ...instances: Got[]): Got;

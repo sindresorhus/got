@@ -42,6 +42,9 @@ export const parseBody = (response: Response, responseType: ResponseType, parseJ
 	}
 };
 
+/**
+A Got request sub-class that will return a promise.
+*/
 export default class PromisableRequest extends Request {
 	['constructor']: typeof PromisableRequest;
 	declare options: NormalizedOptions;
