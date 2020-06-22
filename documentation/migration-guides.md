@@ -149,4 +149,4 @@ Nothing has really changed. Just remember to use `got.stream(url, options)` or `
 
 #### You're good to go!
 
-Well, you have already come this far :tada: Take a look at the [documentation](../readme.md#highlights). It's worth the time to read it. There are [some great tips](../readme.md#aborting-the-request). If something is unclear or doesn't work as it should, don't hesitate to open an issue.
+Well, you have already come this far :tada: Take a look at the [documentation](../readme.md#highlights). It's worth the time to read it. There are [some great tips](../readme.md#aborting-the-request). If something is unclear or doesn't work as it should, don't hesitate to [open an issue](https://github.com/sindresorhus/got/issues/new/choose).
