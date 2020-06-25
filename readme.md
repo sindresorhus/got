@@ -1183,13 +1183,13 @@ The number of times the request was retried.
 
 Sets `options.isStream` to `true`.
 
-Returns a [duplex stream](https://nodejs.org/api/stream.html#stream_class_stream_duplex) with additional events:
+Returns a [duplex stream](https://nodejs.org/api/stream.html#stream_class_stream_duplex) with additional events. This stream can be read from (e.g. listening to the `data` and `end` events) for retrieving the response body, and can be written to (e.g. calling `write(data)` and `end`). If the stream is not read from then the response body will not be downloaded. The additional events expose request and response metadata:
 
 ##### .on('request', request)
 
 `request` event to get the request object of the request.
 
-**Tip:** You can use `request` event to abort request:
+**Tip:** You can use `request` event to abort request (you can also call `destroy` on the stream to abort):
 
 ```js
 got.stream('https://github.com')
@@ -1199,6 +1199,8 @@ got.stream('https://github.com')
 ##### .on('response', response)
 
 The `response` event to get the response object of the final request.
+
+**Note:** This will not include the response body. If you want to download the response body you will need to listen to the `on('data')` and `.on('end')` events.
 
 ##### .on('redirect', response, nextOptions)
 
