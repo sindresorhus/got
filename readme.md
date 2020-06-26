@@ -2107,14 +2107,14 @@ The Electron `net` module is not consistent with the Node.js `http` module. See 
 [kbg]: https://badgen.net/github/label-issues/sindresorhus/ky/bug/open?label
 [rbg]: https://badgen.net/github/label-issues/request/request/Needs%20investigation/open?label
 [nbg]: https://badgen.net/github/label-issues/bitinn/node-fetch/bug/open?label
-[abg]: https://badgen.net/github/label-issues/axios/axios/type:bug/open?label
+[abg]: https://badgen.net/github/label-issues/axios/axios/type:confirmed%20bug/open?label
 [sbg]: https://badgen.net/github/label-issues/visionmedia/superagent/Bug/open?label
 
 [g6]: https://github.com/sindresorhus/got/issues?q=is%3Aissue+is%3Aopen+sort%3Aupdated-desc+label%3Abug
 [k6]: https://github.com/sindresorhus/ky/issues?q=is%3Aissue+is%3Aopen+sort%3Aupdated-desc+label%3Abug
 [r6]: https://github.com/request/request/issues?q=is%3Aissue+is%3Aopen+sort%3Aupdated-desc+label%3A"Needs+investigation"
 [n6]: https://github.com/bitinn/node-fetch/issues?q=is%3Aissue+is%3Aopen+sort%3Aupdated-desc+label%3Abug
-[a6]: https://github.com/axios/axios/issues?q=is%3Aissue+is%3Aopen+sort%3Aupdated-desc+label%3Atype:bug
+[a6]: https://github.com/axios/axios/issues?q=is%3Aissue+is%3Aopen+sort%3Aupdated-desc+label%3A%22type%3Aconfirmed+bug%22
 [s6]: https://github.com/visionmedia/superagent/issues?q=is%3Aissue+is%3Aopen+sort%3Aupdated-desc+label%3ABug
 
 <!-- DEPENDENTS -->
