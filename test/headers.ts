@@ -87,7 +87,7 @@ test('`host` header', withServer, async (t, server, got) => {
 	t.is(headers.host, `localhost:${server.port}`);
 });
 
-test('transforms names to lowercase', withServer, async (t, server, got) => {
+test('transforms names to lowercase by default', withServer, async (t, server, got) => {
 	server.get('/', echoHeaders);
 
 	const headers = (await got<Headers>({
@@ -97,6 +97,19 @@ test('transforms names to lowercase', withServer, async (t, server, got) => {
 		responseType: 'json'
 	})).body;
 	t.is(headers['accept-encoding'], 'identity');
+});
+
+test('does not transforms names to lowercase with option', withServer, async (t, server, got) => {
+	server.get('/', echoHeaders);
+
+	const headers = (await got<Headers>({
+		headers: {
+			'ACCEPT-ENCODING': 'identity'
+		},
+		forceHeaderKeysLowercase: false,
+		responseType: 'json'
+	})).body;
+	t.is(headers['ACCEPT-ENCODING'], 'identity');
 });
 
 test('setting `content-length` to 0', withServer, async (t, server, got) => {

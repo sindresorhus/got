@@ -152,6 +152,7 @@ export interface Options extends URLOptions {
 	allowGetBody?: boolean;
 	lookup?: CacheableLookup['lookup'];
 	headers?: Headers;
+	forceHeaderKeysLowercase?: boolean;
 	methodRewriting?: boolean;
 	dnsLookupIpVersion?: DnsLookupIpVersion;
 	parseJson?: ParseJsonFunction;
@@ -193,6 +194,7 @@ export interface NormalizedOptions extends Options {
 	searchParams?: URLSearchParams;
 	cookieJar?: PromiseCookieJar;
 	headers: Headers;
+	forceHeaderKeysLowercase: boolean;
 	context: object;
 	hooks: Required<Hooks>;
 	followRedirect: boolean;
@@ -223,6 +225,7 @@ export interface Defaults {
 	cookieJar?: PromiseCookieJar | ToughCookieJar;
 	dnsCache?: CacheableLookup;
 	headers: Headers;
+	forceHeaderKeysLowercase: boolean;
 	hooks: Required<Hooks>;
 	followRedirect: boolean;
 	maxRedirects: number;
@@ -686,7 +689,8 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		if (options.headers === defaults?.headers) {
 			options.headers = {...options.headers};
 		} else {
-			options.headers = lowercaseKeys({...(defaults?.headers), ...options.headers});
+			const mergedHeaders = {...(defaults?.headers), ...options.headers}
+			options.headers = options.forceHeaderKeysLowercase ? lowercaseKeys(mergedHeaders) : mergedHeaders;
 		}
 
 		// Disallow legacy `url.Url`

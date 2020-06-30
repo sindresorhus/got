@@ -44,6 +44,7 @@ const defaults: InstanceDefaults = {
 		headers: {
 			'user-agent': 'got (https://github.com/sindresorhus/got)'
 		},
+		forceHeaderKeysLowercase: true,
 		hooks: {
 			init: [],
 			beforeRequest: [],

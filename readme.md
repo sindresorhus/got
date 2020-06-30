@@ -213,6 +213,15 @@ Request headers.
 
 Existing headers will be overwritten. Headers set to `undefined` will be omitted.
 
+###### forceHeaderKeysLowercase
+
+Type: `boolean`\
+Default: `true`
+
+Force header keys to be lowercase.
+
+Set to `false` to keep the case as is.
+
 ###### isStream
 
 Type: `boolean`\
