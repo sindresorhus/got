@@ -689,7 +689,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		if (options.headers === defaults?.headers) {
 			options.headers = {...options.headers};
 		} else {
-			const mergedHeaders = {...(defaults?.headers), ...options.headers}
+			const mergedHeaders = {...(defaults?.headers), ...options.headers};
 			options.headers = options.forceHeaderKeysLowercase ? lowercaseKeys(mergedHeaders) : mergedHeaders;
 		}
 
