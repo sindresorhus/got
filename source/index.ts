@@ -68,7 +68,7 @@ const defaults: InstanceDefaults = {
 		// TODO: Set this to `true` when Got 12 gets released
 		http2: false,
 		allowGetBody: false,
-		rejectUnauthorized: true,
+		https: undefined,
 		pagination: {
 			transform: (response: Response) => {
 				if (response.request.options.responseType === 'json') {
@@ -110,7 +110,9 @@ const defaults: InstanceDefaults = {
 			countLimit: Infinity,
 			requestLimit: 10000,
 			stackAllItems: true
-		}
+		},
+		parseJson: (text: string) => JSON.parse(text),
+		stringifyJson: (object: unknown) => JSON.stringify(object)
 	},
 	handlers: [defaultHandler],
 	mutableDefaults: false

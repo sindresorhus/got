@@ -24,7 +24,9 @@ const gotOptions = {
 	agent: {
 		https: httpsAgent
 	},
-	rejectUnauthorized: false,
+	https: {
+		rejectUnauthorized: false
+	},
 	retry: 0
 };
 
@@ -43,7 +45,9 @@ const fetchOptions = {
 const axiosOptions = {
 	url: urlString,
 	httpsAgent,
-	rejectUnauthorized: false
+	https: {
+		rejectUnauthorized: false
+	}
 };
 
 const axiosStreamOptions: typeof axiosOptions & {responseType: 'stream'} = {
@@ -52,7 +56,9 @@ const axiosStreamOptions: typeof axiosOptions & {responseType: 'stream'} = {
 };
 
 const httpsOptions = {
-	rejectUnauthorized: false,
+	https: {
+		rejectUnauthorized: false
+	},
 	agent: httpsAgent
 };
 

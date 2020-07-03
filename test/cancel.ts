@@ -9,7 +9,7 @@ import {Handler} from 'express';
 import got, {CancelError} from '../source';
 import slowDataStream from './helpers/slow-data-stream';
 import {ExtendedTestServer, GlobalClock} from './helpers/types';
-import withServer, {withServerAndLolex} from './helpers/with-server';
+import withServer, {withServerAndFakeTimers} from './helpers/with-server';
 
 const prepareServer = (server: ExtendedTestServer, clock: GlobalClock): {emitter: EventEmitter; promise: Promise<unknown>} => {
 	const emitter = new EventEmitter();
@@ -56,7 +56,7 @@ const downloadHandler = (clock: GlobalClock): Handler => (_request, response) =>
 	);
 };
 
-test.serial('does not retry after cancelation', withServerAndLolex, async (t, server, got, clock) => {
+test.serial('does not retry after cancelation', withServerAndFakeTimers, async (t, server, got, clock) => {
 	const {emitter, promise} = prepareServer(server, clock);
 
 	const gotPromise = got('redirect', {
@@ -101,7 +101,7 @@ test.serial('cleans up request timeouts', withServer, async (t, server, got) => 
 	await delay(40);
 });
 
-test.serial('cancels in-progress request', withServerAndLolex, async (t, server, got, clock) => {
+test.serial('cancels in-progress request', withServerAndFakeTimers, async (t, server, got, clock) => {
 	const {emitter, promise} = prepareServer(server, clock);
 
 	const body = new ReadableStream({
@@ -121,7 +121,7 @@ test.serial('cancels in-progress request', withServerAndLolex, async (t, server,
 	await t.notThrowsAsync(promise, 'Request finished instead of aborting.');
 });
 
-test.serial('cancels in-progress request with timeout', withServerAndLolex, async (t, server, got, clock) => {
+test.serial('cancels in-progress request with timeout', withServerAndFakeTimers, async (t, server, got, clock) => {
 	const {emitter, promise} = prepareServer(server, clock);
 
 	const body = new ReadableStream({
@@ -141,7 +141,7 @@ test.serial('cancels in-progress request with timeout', withServerAndLolex, asyn
 	await t.notThrowsAsync(promise, 'Request finished instead of aborting.');
 });
 
-test.serial('cancel immediately', withServerAndLolex, async (t, server, got, clock) => {
+test.serial('cancel immediately', withServerAndFakeTimers, async (t, server, got, clock) => {
 	const promise = new Promise((resolve, reject) => {
 		// We won't get an abort or even a connection
 		// We assume no request within 1000ms equals a (client side) aborted request
@@ -193,7 +193,7 @@ test('recover from cancellation using error instance', async t => {
 	await t.notThrowsAsync(recover);
 });
 
-test.serial('throws on incomplete (canceled) response - promise', withServerAndLolex, async (t, server, got, clock) => {
+test.serial('throws on incomplete (canceled) response - promise', withServerAndFakeTimers, async (t, server, got, clock) => {
 	server.get('/', downloadHandler(clock));
 
 	await t.throwsAsync(
@@ -205,7 +205,7 @@ test.serial('throws on incomplete (canceled) response - promise', withServerAndL
 	);
 });
 
-test.serial('throws on incomplete (canceled) response - promise #2', withServerAndLolex, async (t, server, got, clock) => {
+test.serial('throws on incomplete (canceled) response - promise #2', withServerAndFakeTimers, async (t, server, got, clock) => {
 	server.get('/', downloadHandler(clock));
 
 	const promise = got('').on('response', () => {
@@ -216,7 +216,7 @@ test.serial('throws on incomplete (canceled) response - promise #2', withServerA
 	await t.throwsAsync(promise, {instanceOf: got.CancelError});
 });
 
-test.serial('throws on incomplete (canceled) response - stream', withServerAndLolex, async (t, server, got, clock) => {
+test.serial('throws on incomplete (canceled) response - stream', withServerAndFakeTimers, async (t, server, got, clock) => {
 	server.get('/', downloadHandler(clock));
 
 	const errorString = 'Foobar';

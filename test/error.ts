@@ -2,7 +2,7 @@ import {promisify} from 'util';
 import http = require('http');
 import stream = require('stream');
 import test from 'ava';
-import got, {RequestError, HTTPError} from '../source';
+import got, {RequestError, HTTPError, TimeoutError} from '../source';
 import withServer from './helpers/with-server';
 
 const pStreamPipeline = promisify(stream.pipeline);
@@ -202,6 +202,19 @@ test('errors can have request property', withServer, async (t, server, got) => {
 
 	t.truthy(error.response);
 	t.truthy(error.request.downloadProgress);
+});
+
+test('promise does not hang on timeout on HTTP error', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.statusCode = 404;
+		response.write('asdf');
+	});
+
+	await t.throwsAsync(got({
+		timeout: 100
+	}), {
+		instanceOf: TimeoutError
+	});
 });
 
 // Fails randomly on Node 10:
