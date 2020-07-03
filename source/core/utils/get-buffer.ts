@@ -1,6 +1,6 @@
 import {Readable} from 'stream';
 
-// TODO: Update `get-stream`
+// TODO: Update https://github.com/sindresorhus/get-stream
 
 const getBuffer = async (stream: Readable) => {
 	const chunks = [];
