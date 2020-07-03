@@ -8,7 +8,7 @@ const getBuffer = async (stream: Readable) => {
 
 	for await (const chunk of stream) {
 		chunks.push(chunk);
-		length += chunk.length;
+		length += Buffer.byteLength(chunk);
 	}
 
 	if (Buffer.isBuffer(chunks[0])) {
