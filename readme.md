@@ -439,7 +439,7 @@ Default: `'utf8'`
 
 [Encoding](https://nodejs.org/api/buffer.html#buffer_buffers_and_character_encodings) to be used on `setEncoding` of the response data.
 
-To get a [`Buffer`](https://nodejs.org/api/buffer.html), you need to set [`responseType`](#responseType) to `buffer` instead.
+To get a [`Buffer`](https://nodejs.org/api/buffer.html), you need to set [`responseType`](#responseType) to `buffer` instead. Don't set this option to `null`.
 
 **Note:** This doesn't affect streams! Instead, you need to do `got.stream(...).setEncoding(encoding)`.
 
