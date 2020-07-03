@@ -5,7 +5,7 @@ import {isIPv4, isIPv6} from 'net';
 import nock = require('nock');
 import getStream = require('get-stream');
 import pEvent from 'p-event';
-import got, {HTTPError, UnsupportedProtocolError, CancelableRequest} from '../source';
+import got, {HTTPError, UnsupportedProtocolError, CancelableRequest, ReadError} from '../source';
 import withServer from './helpers/with-server';
 import os = require('os');
 
@@ -222,9 +222,11 @@ test('throws an error if the server aborted the request', withServer, async (t, 
 		});
 	});
 
-	await t.throwsAsync(got(''), {
+	const error = await t.throwsAsync<ReadError>(got(''), {
 		message: 'The server aborted pending request'
 	});
+
+	t.truthy(error.response.retryCount);
 });
 
 test('statusMessage fallback', async t => {
