@@ -8,7 +8,12 @@ import {
 	ParseError,
 	Response
 } from './types';
-import Request, {knownHookEvents, RequestError, Method, ParseJsonFunction} from '../core';
+import Request, {
+	knownHookEvents,
+	RequestError,
+	Method,
+	ParseJsonFunction
+} from '../core';
 
 if (!knownHookEvents.includes('beforeRetry' as any)) {
 	knownHookEvents.push('beforeRetry' as any, 'afterResponse' as any);
@@ -146,6 +151,10 @@ export default class PromisableRequest extends Request {
 	}
 
 	async _beforeError(error: Error): Promise<void> {
+		if (this.destroyed) {
+			return;
+		}
+
 		if (!(error instanceof RequestError)) {
 			error = new RequestError(error.message, error, this);
 		}

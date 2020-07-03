@@ -37,3 +37,16 @@ test('returns buffer on compressed response', withServer, async (t, server, got)
 	const {body} = await got({decompress: false});
 	t.true(Buffer.isBuffer(body));
 });
+
+test('no unhandled `The server aborted pending request` rejection', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.statusCode = 503;
+		response.write('asdf');
+
+		setTimeout(() => {
+			response.end();
+		}, 100);
+	});
+
+	await t.throwsAsync(got(''));
+});

@@ -223,7 +223,7 @@ test('throws an error if the server aborted the request', withServer, async (t, 
 	});
 
 	await t.throwsAsync(got(''), {
-		message: 'The server aborted the pending request'
+		message: 'The server aborted pending request'
 	});
 });
 
