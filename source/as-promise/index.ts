@@ -86,16 +86,23 @@ export default function asPromise<T>(options: NormalizedOptions): CancelableRequ
 				}
 
 				// Parse body
-				try {
-					response.body = parseBody(response, options.responseType, options.parseJson, options.encoding);
-				} catch (error) {
-					// Fallback to `utf8`
-					response.body = rawBody.toString();
+				const contentEncoding = (response.headers['content-encoding'] ?? '').toLowerCase();
+				const isCompressed = ['gzip', 'deflate', 'br'].includes(contentEncoding);
 
-					if (isOk()) {
-						// TODO: Call `request._beforeError`, see https://github.com/nodejs/node/issues/32995
-						reject(error);
-						return;
+				if (isCompressed && !options.decompress) {
+					response.body = rawBody;
+				} else {
+					try {
+						response.body = parseBody(response, options.responseType, options.parseJson, options.encoding);
+					} catch (error) {
+						// Fallback to `utf8`
+						response.body = rawBody.toString();
+
+						if (isOk()) {
+							// TODO: Call `request._beforeError`, see https://github.com/nodejs/node/issues/32995
+							reject(error);
+							return;
+						}
 					}
 				}
 
