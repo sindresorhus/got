@@ -94,3 +94,25 @@ test('should get username and password from the merged options', t => {
 	t.is(options.username, 'user_OPT_MERGE');
 	t.is(options.password, 'pass_OPT_MERGE');
 });
+
+test('null value in search params means empty', t => {
+	const options = got.mergeOptions({
+		url: new URL('http://localhost'),
+		searchParams: {
+			foo: null
+		}
+	});
+
+	t.is(options.url.href, 'http://localhost/?foo=');
+});
+
+test('undefined value in search params means it does not exist', t => {
+	const options = got.mergeOptions({
+		url: new URL('http://localhost'),
+		searchParams: {
+			foo: undefined
+		}
+	});
+
+	t.is(options.url.href, 'http://localhost/');
+});

@@ -209,7 +209,7 @@ const create = (defaults: InstanceDefaults): Got => {
 		while (numberOfRequests < pagination.requestLimit) {
 			// TODO: Throw when result is not an instance of Response
 			// eslint-disable-next-line no-await-in-loop
-			const result = (await got('', normalizedOptions)) as Response;
+			const result = (await got(normalizedOptions)) as Response;
 
 			// eslint-disable-next-line no-await-in-loop
 			const parsed = await pagination.transform(result);

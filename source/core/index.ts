@@ -138,7 +138,7 @@ export interface Options extends URLOptions {
 	url?: string | URL;
 	cookieJar?: PromiseCookieJar | ToughCookieJar;
 	ignoreInvalidCookies?: boolean;
-	searchParams?: string | {[key: string]: string | number | boolean | null} | URLSearchParams;
+	searchParams?: string | {[key: string]: string | number | boolean | null | undefined} | URLSearchParams;
 	dnsCache?: CacheableLookup | boolean;
 	context?: object;
 	hooks?: Hooks;
@@ -275,12 +275,12 @@ export interface RequestEvents<T> {
 	on(name: 'uploadProgress' | 'downloadProgress', listener: (progress: Progress) => void): T;
 }
 
-function validateSearchParameters(searchParameters: Record<string, unknown>): asserts searchParameters is Record<string, string | number | boolean | null> {
+function validateSearchParameters(searchParameters: Record<string, unknown>): asserts searchParameters is Record<string, string | number | boolean | null | undefined> {
 	// eslint-disable-next-line guard-for-in
 	for (const key in searchParameters) {
 		const value = searchParameters[key];
 
-		if (!is.string(value) && !is.number(value) && !is.boolean(value) && !is.null_(value)) {
+		if (!is.string(value) && !is.number(value) && !is.boolean(value) && !is.null_(value) && !is.undefined(value)) {
 			throw new TypeError(`The \`searchParams\` value '${String(value)}' must be a string, number, boolean or null`);
 		}
 	}
@@ -702,11 +702,26 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		// `options.searchParams`
 		if ('searchParams' in options) {
 			if (options.searchParams && options.searchParams !== defaults?.searchParams) {
-				if (!is.string(options.searchParams) && !(options.searchParams instanceof URLSearchParams)) {
-					validateSearchParameters(options.searchParams);
-				}
+				let searchParameters: URLSearchParams;
 
-				const searchParameters = new URLSearchParams(options.searchParams as Record<string, string>);
+				if (is.string(options.searchParams) || (options.searchParams instanceof URLSearchParams)) {
+					searchParameters = new URLSearchParams(options.searchParams);
+				} else {
+					validateSearchParameters(options.searchParams);
+
+					searchParameters = new URLSearchParams();
+
+					// eslint-disable-next-line guard-for-in
+					for (const key in options.searchParams) {
+						const value = options.searchParams[key];
+
+						if (value === null) {
+							searchParameters.append(key, '');
+						} else if (value !== undefined) {
+							searchParameters.append(key, value as string);
+						}
+					}
+				}
 
 				// `normalizeArguments()` is also used to merge options
 				defaults?.searchParams?.forEach((value, key) => {

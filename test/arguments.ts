@@ -559,8 +559,8 @@ test('prefixUrl is properly replaced when extending', withServer, async (t, serv
 		response.end(request.url);
 	});
 
-	const parent = got.extend({ prefixUrl: server.url });
-	const child = parent.extend({ prefixUrl: `${server.url}/other/path/` });
+	const parent = got.extend({prefixUrl: server.url});
+	const child = parent.extend({prefixUrl: `${server.url}/other/path/`});
 
 	t.is(await child.get('').text(), '/other/path/');
 });
