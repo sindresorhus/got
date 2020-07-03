@@ -148,9 +148,7 @@ export default function asPromise<T>(options: NormalizedOptions): CancelableRequ
 				resolve(options.resolveBodyOnly ? response.body as T : response as unknown as T);
 			};
 
-			request.once('response', onResponse);
-
-			request.once('error', async (error: RequestError) => {
+			const onError = async (error: RequestError) => {
 				if (promise.isCanceled) {
 					return;
 				}
@@ -219,6 +217,11 @@ export default function asPromise<T>(options: NormalizedOptions): CancelableRequ
 				if (error instanceof HTTPError) {
 					// The error will be handled by the `response` event
 					onResponse(request._response as Response);
+
+					// Reattach the error handler, because there may be a timeout later.
+					process.nextTick(() => {
+						request.once('error', onError);
+					});
 					return;
 				}
 
@@ -226,7 +229,10 @@ export default function asPromise<T>(options: NormalizedOptions): CancelableRequ
 				request.destroy();
 
 				reject(error);
-			});
+			};
+
+			request.once('response', onResponse);
+			request.once('error', onError);
 
 			proxyEvents(request, emitter, proxiedRequestEvents);
 		};
