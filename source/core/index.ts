@@ -619,13 +619,13 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		if (is.object(url) && !is.urlInstance(url)) {
 			options = {...defaults, ...(url as Options), ...options};
 		} else {
-			if (url && options && options.url) {
+			if (url && options && options.url !== undefined) {
 				throw new TypeError('The `url` option is mutually exclusive with the `input` argument');
 			}
 
 			options = {...defaults, ...options};
 
-			if (url) {
+			if (url !== undefined) {
 				options.url = url;
 			}
 

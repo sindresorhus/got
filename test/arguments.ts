@@ -12,9 +12,17 @@ const echoUrl: Handler = (request, response) => {
 
 test('`url` is required', async t => {
 	await t.throwsAsync(
-		got(''),
+		// @ts-ignore No argument on purpose.
+		got(),
 		{
 			message: 'Missing `url` property'
+		}
+	);
+
+	await t.throwsAsync(
+		got(''),
+		{
+			message: 'No URL protocol specified'
 		}
 	);
 
@@ -540,4 +548,19 @@ test('no URL pollution', withServer, async (t, server) => {
 
 	t.is(url.pathname, '/');
 	t.is(body, '/ok');
+});
+
+test('prefixUrl is properly replaced when extending', withServer, async (t, server) => {
+	server.get('/', (request, response) => {
+		response.end(request.url);
+	});
+
+	server.get('/other/path/', (request, response) => {
+		response.end(request.url);
+	});
+
+	const parent = got.extend({ prefixUrl: server.url });
+	const child = parent.extend({ prefixUrl: `${server.url}/other/path/` });
+
+	t.is(await child.get('').text(), '/other/path/');
 });
