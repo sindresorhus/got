@@ -120,6 +120,8 @@ const pipeline = promisify(stream.pipeline);
 
 **Tip:** `from.pipe(to)` doesn't forward errors. Instead, use [`stream.pipeline(from, ..., to, callback)`](https://nodejs.org/api/stream.html#stream_stream_pipeline_streams_callback).
 
+**Note:** While `got.post('https://example.com')` resolves, `got.stream.post('https://example.com')` will hang indefinitely until a body is provided. If there's no body on purpose, remember to `.end()` the stream or set the [`body`](#body) option to an empty string.
+
 ### API
 
 It's a `GET` request by default, but can be changed by using different methods or via [`options.method`](#method).
