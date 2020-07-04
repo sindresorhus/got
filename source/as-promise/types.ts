@@ -1,5 +1,6 @@
 import PCancelable = require('p-cancelable');
 import {CancelError} from 'p-cancelable';
+import ResponseLike = require('responselike');
 import {
 	// Interfaces to be extended
 	Options as RequestOptions,
@@ -20,9 +21,6 @@ import {
 
 	// Hooks to be exported
 	HookEvent as RequestHookEvent,
-	InitHook,
-	BeforeRequestHook,
-	BeforeRedirectHook,
 	BeforeErrorHook,
 
 	// Other types to be exported
@@ -62,10 +60,23 @@ export interface RequiredRetryOptions {
 	maxRetryAfter?: number;
 }
 
+type Promisable<T> = T | Promise<T>;
+
+// These need to be overriden from `core/index.ts`,
+// in order to provide correct Options and NormalizedOptions.
+export type InitHook = (options: Options) => Promisable<void>;
+export type BeforeRequestHook = (options: NormalizedOptions) => Promisable<void | Response | ResponseLike>;
+export type BeforeRedirectHook = (options: NormalizedOptions, response: Response) => Promisable<void>;
+
+// Promise-only hooks
 export type BeforeRetryHook = (options: NormalizedOptions, error?: RequestError, retryCount?: number) => void | Promise<void>;
 export type AfterResponseHook = (response: Response, retryWithMergedOptions: (options: Options) => CancelableRequest<Response>) => Response | CancelableRequest<Response> | Promise<Response | CancelableRequest<Response>>;
 
-export interface Hooks extends RequestHooks {
+export interface Hooks {
+	init?: InitHook[];
+	beforeRequest?: BeforeRequestHook[];
+	beforeRedirect?: BeforeRedirectHook[];
+	beforeError?: BeforeErrorHook[];
 	beforeRetry?: BeforeRetryHook[];
 	afterResponse?: AfterResponseHook[];
 }
@@ -82,7 +93,7 @@ export interface PaginationOptions<T, R> {
 	};
 }
 
-export interface Options extends RequestOptions, PaginationOptions<unknown, unknown> {
+export interface Options extends Omit<RequestOptions, 'hooks'>, PaginationOptions<unknown, unknown> {
 	hooks?: Hooks;
 	responseType?: ResponseType;
 	resolveBodyOnly?: boolean;
@@ -91,7 +102,7 @@ export interface Options extends RequestOptions, PaginationOptions<unknown, unkn
 	encoding?: BufferEncoding;
 }
 
-export interface NormalizedOptions extends RequestNormalizedOptions {
+export interface NormalizedOptions extends Omit<RequestNormalizedOptions, 'hooks'> {
 	hooks: Required<Hooks>;
 	responseType: ResponseType;
 	resolveBodyOnly: boolean;
@@ -101,7 +112,7 @@ export interface NormalizedOptions extends RequestNormalizedOptions {
 	pagination?: Required<PaginationOptions<unknown, unknown>['pagination']>;
 }
 
-export interface Defaults extends RequestDefaults {
+export interface Defaults extends Omit<RequestDefaults, 'hooks'> {
 	hooks: Required<Hooks>;
 	responseType: ResponseType;
 	resolveBodyOnly: boolean;
@@ -147,9 +158,6 @@ export {
 };
 
 export {
-	InitHook,
-	BeforeRequestHook,
-	BeforeRedirectHook,
 	BeforeErrorHook
 };
 
