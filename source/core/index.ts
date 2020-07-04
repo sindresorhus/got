@@ -836,7 +836,33 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		if (cache) {
 			if (!cacheableStore.has(cache)) {
 				cacheableStore.set(cache, new CacheableRequest(
-					((requestOptions: RequestOptions, handler?: (response: IncomingMessageWithTimings) => void): ClientRequest => (requestOptions as Pick<NormalizedOptions, typeof kRequest>)[kRequest](requestOptions, handler)) as HttpRequestFunction,
+					((requestOptions: RequestOptions, handler?: (response: IncomingMessageWithTimings) => void): ClientRequest => {
+						const result = (requestOptions as Pick<NormalizedOptions, typeof kRequest>)[kRequest](requestOptions, handler);
+
+						// TODO: remove this when `cacheable-request` supports async request functions.
+						if (is.promise(result)) {
+							// @ts-ignore
+							// We only need to implement the error handler in order to support HTTP2 caching.
+							// The result will be a promise anyway.
+							result.once = (event: string, handler: (reason: unknown) => void) => {
+								if (event === 'error') {
+									result.catch(handler);
+								} else if (event === 'abort') {
+									// eslint-disable-next-line promise/prefer-await-to-then
+									result.then((request: unknown): void => {
+										(request as ClientRequest).once('abort', handler);
+									});
+								} else {
+									/* istanbul ignore next: safety check */
+									throw new Error(`Unknown HTTP2 promise event: ${event}`);
+								}
+
+								return result;
+							};
+						}
+
+						return result;
+					}) as HttpRequestFunction,
 					cache as CacheableRequest.StorageAdapter
 				));
 			}
@@ -1324,29 +1350,27 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			// `http-cache-semantics` checks this
 			delete (options as unknown as NormalizedOptions).url;
 
-			let request: ClientRequest;
+			let request: ClientRequest | Promise<ClientRequest>;
 
 			// This is ugly
-			const cacheRequest = cacheableStore.get((options as any).cache)!(options, response => {
-				const typedResponse = response as unknown as IncomingMessageWithTimings & {req: ClientRequest};
-
+			const cacheRequest = cacheableStore.get((options as any).cache)!(options, async response => {
 				// TODO: Fix `cacheable-response`
-				(typedResponse as any)._readableState.autoDestroy = false;
+				(response as any)._readableState.autoDestroy = false;
 
 				if (request) {
-					request.emit('cacheableResponse', typedResponse);
+					(await request).emit('cacheableResponse', response);
 				}
 
-				resolve(typedResponse as unknown as ResponseLike);
+				resolve(response as unknown as ResponseLike);
 			});
 
 			// Restore options
 			(options as unknown as NormalizedOptions).url = url;
 
 			cacheRequest.once('error', reject);
-			cacheRequest.once('request', r => {
-				request = r;
-				resolve(r);
+			cacheRequest.once('request', async (requestOrPromise: ClientRequest | Promise<ClientRequest>) => {
+				request = requestOrPromise;
+				resolve(request);
 			});
 		});
 	}

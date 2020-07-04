@@ -4,7 +4,7 @@ import test from 'ava';
 import pEvent = require('p-event');
 import getStream = require('get-stream');
 import {Handler} from 'express';
-import {Response} from '../source';
+import got, {Response} from '../source';
 import withServer from './helpers/with-server';
 import CacheableLookup from 'cacheable-lookup';
 import delay = require('delay');
@@ -340,4 +340,15 @@ test('cached response ETag', withServer, async (t, server, got) => {
 
 	t.true(cachedResponse.isFromCache);
 	t.is(cachedResponse.body, body);
+});
+
+test('works with http2', async t => {
+	const cache = new Map();
+
+	const client = got.extend({
+		http2: true,
+		cache
+	});
+
+	await t.notThrowsAsync(client('https://httpbin.org/anything'));
 });
