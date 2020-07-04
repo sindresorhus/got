@@ -701,6 +701,8 @@ Called with [normalized](source/core/index.ts) [request options](#options). Got 
 
 See the [AWS section](#aws) for an example.
 
+**Tip:** You can override the `request` function by returning a [`ClientRequest`-like](https://nodejs.org/api/http.html#http_class_http_clientrequest) instance or a [`IncomingMessage`-like](https://nodejs.org/api/http.html#http_class_http_incomingmessage) instance. This is very useful when creating a custom cache mechanism.
+
 ###### hooks.beforeRedirect
 
 Type: `Function[]`\
