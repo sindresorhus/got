@@ -38,7 +38,7 @@ import PromisableRequest from './core';
 
 export type ResponseType = 'json' | 'buffer' | 'text';
 
-export interface Response<T = unknown> extends RequestResponse<T> {
+export interface Response<T = unknown> extends Omit<RequestResponse<T>, 'request'> {
 	request: PromisableRequest;
 }
 
