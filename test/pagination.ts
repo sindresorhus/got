@@ -383,7 +383,7 @@ test('`hooks` are not duplicated', withServer, async (t, server, got) => {
 	t.deepEqual(result, [1, 2, 3]);
 });
 
-test.failing('allowGetBody sends correct json payload with .paginate()', withServer, async (t, server, got) => {
+test('allowGetBody sends correct json payload with .paginate()', withServer, async (t, server, got) => {
 	let page = 1;
 	server.get('/', async (request, response) => {
 		const payload = await getStream(request);

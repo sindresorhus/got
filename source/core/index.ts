@@ -318,7 +318,7 @@ const nonEnumerableProperties: NonEnumerableProperty[] = [
 	'form'
 ];
 
-const setNonEnumerableProperties = (sources: Array<Options | Defaults | undefined>, to: Options): void => {
+export const setNonEnumerableProperties = (sources: Array<Options | Defaults | undefined>, to: Options): void => {
 	// Non enumerable properties shall not be merged
 	const properties: Partial<{[Key in NonEnumerableProperty]: any}> = {};
 

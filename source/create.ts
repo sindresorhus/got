@@ -38,7 +38,7 @@ import {
 	StreamOptions
 } from './types';
 import createRejection from './as-promise/create-rejection';
-import Request, {kIsNormalizedAlready} from './core';
+import Request, {kIsNormalizedAlready, setNonEnumerableProperties} from './core';
 import deepFreeze from './utils/deep-freeze';
 
 const errors = {
@@ -120,12 +120,16 @@ const create = (defaults: InstanceDefaults): Got => {
 			) as GotReturn;
 		};
 
+		// TODO: remove this in Got 12
 		if (is.plainObject(url)) {
-			options = {
+			const mergedOptions = {
 				...url as Options,
 				...options
 			};
 
+			setNonEnumerableProperties([url, options], mergedOptions);
+
+			options = mergedOptions;
 			url = undefined as any;
 		}
 
