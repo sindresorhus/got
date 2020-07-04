@@ -1324,16 +1324,17 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			// `http-cache-semantics` checks this
 			delete (options as unknown as NormalizedOptions).url;
 
+			let request: ClientRequest;
+
 			// This is ugly
 			const cacheRequest = cacheableStore.get((options as any).cache)!(options, response => {
 				const typedResponse = response as unknown as IncomingMessageWithTimings & {req: ClientRequest};
-				const {req} = typedResponse;
 
 				// TODO: Fix `cacheable-response`
 				(typedResponse as any)._readableState.autoDestroy = false;
 
-				if (req) {
-					req.emit('cacheableResponse', typedResponse);
+				if (request) {
+					request.emit('cacheableResponse', typedResponse);
 				}
 
 				resolve(typedResponse as unknown as ResponseLike);
@@ -1343,7 +1344,10 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			(options as unknown as NormalizedOptions).url = url;
 
 			cacheRequest.once('error', reject);
-			cacheRequest.once('request', resolve);
+			cacheRequest.once('request', r => {
+				request = r;
+				resolve(r);
+			});
 		});
 	}
 
