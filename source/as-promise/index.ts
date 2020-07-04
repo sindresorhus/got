@@ -85,10 +85,6 @@ export default function asPromise<T>(options: NormalizedOptions): CancelableRequ
 					return;
 				}
 
-				// There should be no error when the response has been downloaded.
-				// If there is, an uncaught exception error will be thrown.
-				request.off('error', onError);
-
 				// Parse body
 				const contentEncoding = (response.headers['content-encoding'] ?? '').toLowerCase();
 				const isCompressed = ['gzip', 'deflate', 'br'].includes(contentEncoding);
