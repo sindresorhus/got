@@ -119,7 +119,6 @@
 			"node/prefer-global/url": "off",
 			"node/prefer-global/url-search-params": "off",
 			"import/no-anonymous-default-export": "off",
-			"@typescript-eslint/no-floating-promises": "off",
 			"@typescript-eslint/no-invalid-void-type": "off"
 		}
 	},
