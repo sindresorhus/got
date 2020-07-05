@@ -104,7 +104,7 @@ test('http2', async t => {
 	const {headers, body} = await promise;
 	await promise.json();
 
-	// @ts-ignore Pseudo headers may not be strings
+	// @ts-expect-error Pseudo headers may not be strings
 	t.is(headers[':status'], 200);
 	t.is(typeof body, 'string');
 });

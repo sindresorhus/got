@@ -181,7 +181,7 @@ test('defaults are cloned on instance creation', t => {
 		delete options.hooks.beforeRequest[0];
 	});
 
-	// @ts-ignore This IS correct
+	// @ts-expect-error This IS correct
 	t.not(options.foo, instance.defaults.options.foo);
 	t.not(options.hooks.beforeRequest, instance.defaults.options.hooks.beforeRequest);
 });
@@ -197,7 +197,7 @@ test('ability to pass a custom request method', withServer, async (t, server, go
 		((res: IncomingMessage) => void)?
 	]) => {
 		isCalled = true;
-		// @ts-ignore Overload error
+		// @ts-expect-error Overload error
 		return httpRequest(...args);
 	};
 
@@ -221,7 +221,7 @@ test('does not include the `request` option in normalized `http` options', withS
 
 		t.false(Reflect.has(args[0] as RequestOptions, 'request'));
 
-		// @ts-ignore Overload error
+		// @ts-expect-error Overload error
 		return httpRequest(...args);
 	};
 
@@ -285,7 +285,7 @@ test('async handlers', withServer, async (t, server, got) => {
 		handlers: [
 			async (options, next) => {
 				const result = await next(options);
-				// @ts-ignore Manual tests
+				// @ts-expect-error Manual tests
 				result.modified = true;
 
 				return result;
@@ -295,7 +295,7 @@ test('async handlers', withServer, async (t, server, got) => {
 
 	const promise = instance('');
 	t.true(is.function_(promise.cancel));
-	// @ts-ignore Manual tests
+	// @ts-expect-error Manual tests
 	t.true((await promise).modified);
 });
 

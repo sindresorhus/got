@@ -11,7 +11,7 @@ import timer, {ClientRequestWithTimings, Timings, IncomingMessageWithTimings} fr
 import CacheableLookup from 'cacheable-lookup';
 import CacheableRequest = require('cacheable-request');
 import decompressResponse = require('decompress-response');
-// @ts-ignore Missing types
+// @ts-expect-error Missing types
 import http2wrapper = require('http2-wrapper');
 import lowercaseKeys = require('lowercase-keys');
 import ResponseLike = require('responselike');
@@ -60,15 +60,13 @@ export interface Agents {
 export const withoutBody: ReadonlySet<string> = new Set(['GET', 'HEAD']);
 
 export interface ToughCookieJar {
-	getCookieString(currentUrl: string, options: {[key: string]: unknown}, cb: (err: Error | null, cookies: string) => void): void;
-	getCookieString(url: string, callback: (error: Error | null, cookieHeader: string) => void): void;
-	setCookie(cookieOrString: unknown, currentUrl: string, options: {[key: string]: unknown}, cb: (err: Error | null, cookie: unknown) => void): void;
-	setCookie(rawCookie: string, url: string, callback: (error: Error | null, result: unknown) => void): void;
+	getCookieString: ((currentUrl: string, options: {[key: string]: unknown}, cb: (err: Error | null, cookies: string) => void) => void) & ((url: string, callback: (error: Error | null, cookieHeader: string) => void) => void);
+	setCookie: ((cookieOrString: unknown, currentUrl: string, options: {[key: string]: unknown}, cb: (err: Error | null, cookie: unknown) => void) => void) & ((rawCookie: string, url: string, callback: (error: Error | null, result: unknown) => void) => void);
 }
 
 export interface PromiseCookieJar {
-	getCookieString(url: string): Promise<string>;
-	setCookie(rawCookie: string, url: string): Promise<unknown>;
+	getCookieString: (url: string) => Promise<string>;
+	setCookie: (rawCookie: string, url: string) => Promise<unknown>;
 }
 
 export type Method =
@@ -144,7 +142,7 @@ interface PlainOptions extends URLOptions {
 	ignoreInvalidCookies?: boolean;
 	searchParams?: string | {[key: string]: string | number | boolean | null | undefined} | URLSearchParams;
 	dnsCache?: CacheableLookup | boolean;
-	context?: object;
+	context?: Record<string, unknown>;
 	hooks?: Hooks;
 	followRedirect?: boolean;
 	maxRedirects?: number;
@@ -199,7 +197,7 @@ interface NormalizedPlainOptions extends PlainOptions {
 	searchParams?: URLSearchParams;
 	cookieJar?: PromiseCookieJar;
 	headers: Headers;
-	context: object;
+	context: Record<string, unknown>;
 	hooks: Required<Hooks>;
 	followRedirect: boolean;
 	maxRedirects: number;
@@ -227,7 +225,7 @@ interface PlainDefaults {
 	method: Method;
 	ignoreInvalidCookies: boolean;
 	decompress: boolean;
-	context: object;
+	context: Record<string, unknown>;
 	cookieJar?: PromiseCookieJar | ToughCookieJar;
 	dnsCache?: CacheableLookup;
 	headers: Headers;
@@ -279,10 +277,7 @@ export interface Response<T = unknown> extends PlainResponse {
 }
 
 export interface RequestEvents<T> {
-	on(name: 'request', listener: (request: http.ClientRequest) => void): T;
-	on<R extends Response>(name: 'response', listener: (response: R) => void): T;
-	on<R extends Response, N extends NormalizedOptions>(name: 'redirect', listener: (response: R, nextOptions: N) => void): T;
-	on(name: 'uploadProgress' | 'downloadProgress', listener: (progress: Progress) => void): T;
+	on: ((name: 'request', listener: (request: http.ClientRequest) => void) => T) & (<R extends Response>(name: 'response', listener: (response: R) => void) => T) & (<R extends Response, N extends NormalizedOptions>(name: 'redirect', listener: (response: R, nextOptions: N) => void) => T) & ((name: 'uploadProgress' | 'downloadProgress', listener: (progress: Progress) => void) => T);
 }
 
 function validateSearchParameters(searchParameters: Record<string, unknown>): asserts searchParameters is Record<string, string | number | boolean | null | undefined> {
@@ -346,7 +341,7 @@ export const setNonEnumerableProperties = (sources: Array<Options | Defaults | u
 				writable: true,
 				configurable: true,
 				enumerable: false,
-				// @ts-ignore TS doesn't see the check above
+				// @ts-expect-error TS doesn't see the check above
 				value: source[name]
 			};
 		}
@@ -582,7 +577,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 				if (kIsNormalizedAlready in nonNormalizedOptions) {
 					this.options = nonNormalizedOptions as NormalizedOptions;
 				} else {
-					// @ts-ignore Common TypeScript bug saying that `this.constructor` is not accessible
+					// @ts-expect-error Common TypeScript bug saying that `this.constructor` is not accessible
 					this.options = this.constructor.normalizeArguments(url, nonNormalizedOptions, defaults);
 				}
 
@@ -798,6 +793,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 			// Set search params
 			if (options.searchParams) {
+				// eslint-disable-next-line @typescript-eslint/no-base-to-string
 				options.url.search = options.searchParams.toString();
 			}
 
@@ -836,6 +832,8 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 				options.cookieJar = {
 					setCookie,
+					// TODO: Fix this when upgrading to TypeScript 4.
+					// @ts-expect-error
 					getCookieString
 				};
 			}
@@ -851,7 +849,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 						// TODO: remove this when `cacheable-request` supports async request functions.
 						if (is.promise(result)) {
-							// @ts-ignore
+							// @ts-expect-error
 							// We only need to implement the error handler in order to support HTTP2 caching.
 							// The result will be a promise anyway.
 							result.once = (event: string, handler: (reason: unknown) => void) => {
@@ -1417,7 +1415,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			const result = await hook(options);
 
 			if (!is.undefined(result)) {
-				// @ts-ignore Skip the type mismatch to support abstract responses
+				// @ts-expect-error Skip the type mismatch to support abstract responses
 				options.request = () => result;
 				break;
 			}
@@ -1563,7 +1561,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 				response.rawBody = await getBuffer(response);
 				response.body = response.rawBody.toString();
 			}
-		} catch (_) {}
+		} catch {}
 
 		try {
 			for (const hook of this.options.hooks.beforeError) {

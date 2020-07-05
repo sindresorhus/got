@@ -40,7 +40,7 @@ const redirectEndpoint: Handler = (_request, response) => {
 
 const createAgentSpy = <T extends HttpAgent>(AgentClass: Constructor): {agent: T; spy: sinon.SinonSpy} => {
 	const agent: T = new AgentClass({keepAlive: true});
-	// @ts-ignore This IS correct
+	// @ts-expect-error This IS correct
 	const spy = sinon.spy(agent, 'addRequest');
 	return {agent, spy};
 };
@@ -246,9 +246,7 @@ test('catches afterResponse promise rejections', withServer, async (t, server, g
 });
 
 test('catches beforeError errors', async t => {
-	// @ts-ignore Error tests
 	await t.throwsAsync(got('https://example.com', {
-		// @ts-ignore Error tests
 		request: () => {
 			throw new Error('No way');
 		},

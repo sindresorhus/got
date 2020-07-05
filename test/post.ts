@@ -36,7 +36,7 @@ test('GET can have body with option allowGetBody', withServer, async (t, server,
 
 test('invalid body', async t => {
 	await t.throwsAsync(
-		// @ts-ignore Error tests
+		// @ts-expect-error Error tests
 		got.post('https://example.com', {body: {}}),
 		{
 			message: 'The `body` option must be a stream.Readable, string or Buffer'
@@ -211,7 +211,7 @@ test('`content-type` header is not overriden when object in `options.body`', wit
 });
 
 test('throws when form body is not a plain object or array', async t => {
-	// @ts-ignore Manual test
+	// @ts-expect-error Manual test
 	await t.throwsAsync(got.post('https://example.com', {form: 'such=wow'}), {
 		message: 'The `form` option must be an Object'
 	});

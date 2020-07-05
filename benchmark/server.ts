@@ -1,6 +1,6 @@
 import {AddressInfo} from 'net';
 import https = require('https');
-// @ts-ignore No types
+// @ts-expect-error No types
 import createCert = require('create-cert');
 
 (async () => {

@@ -12,7 +12,7 @@ const echoUrl: Handler = (request, response) => {
 
 test('`url` is required', async t => {
 	await t.throwsAsync(
-		// @ts-ignore No argument on purpose.
+		// @ts-expect-error No argument on purpose.
 		got(),
 		{
 			message: 'Missing `url` property'
@@ -46,7 +46,7 @@ test('`url` should be utf-8 encoded', async t => {
 });
 
 test('throws if no arguments provided', async t => {
-	// @ts-ignore Error tests
+	// @ts-expect-error Error tests
 	await t.throwsAsync(got(), {
 		message: 'Missing `url` property'
 	});
@@ -101,7 +101,7 @@ test.failing('throws an error when legacy URL is passed', withServer, async (t, 
 	server.get('/test', echoUrl);
 
 	await t.throwsAsync(
-		// @ts-ignore Error tests
+		// @ts-expect-error Error tests
 		got(parse(`${server.url}/test`), {prefixUrl: ''}),
 		{message: 'The legacy `url.Url` has been deprecated. Use `URL` instead.'}
 	);
@@ -185,7 +185,6 @@ test('ignores empty searchParams object', withServer, async (t, server, got) => 
 });
 
 test('throws when passing body with a non payload method', async t => {
-	// @ts-ignore Error tests
 	await t.throwsAsync(got('https://example.com', {body: 'asdf'}), {
 		message: 'The `GET` method cannot be used with a body'
 	});
@@ -228,7 +227,7 @@ test('can omit `url` option if using `prefixUrl`', withServer, async (t, server,
 
 test('throws TypeError when `options.hooks` is not an object', async t => {
 	await t.throwsAsync(
-		// @ts-ignore Error tests
+		// @ts-expect-error Error tests
 		got('https://example.com', {hooks: 'not object'}),
 		{
 			message: 'Expected value which is `predicate returns truthy for any value`, received value of type `Array`.'
@@ -238,7 +237,7 @@ test('throws TypeError when `options.hooks` is not an object', async t => {
 
 test('throws TypeError when known `options.hooks` value is not an array', async t => {
 	await t.throwsAsync(
-		// @ts-ignore Error tests
+		// @ts-expect-error Error tests
 		got('https://example.com', {hooks: {beforeRequest: {}}}),
 		{
 			message: 'Parameter `beforeRequest` must be an Array, got Object'
@@ -247,9 +246,8 @@ test('throws TypeError when known `options.hooks` value is not an array', async 
 });
 
 test('throws TypeError when known `options.hooks` array item is not a function', async t => {
-	// @ts-ignore Error tests
 	await t.throwsAsync(
-		// @ts-ignore Error tests
+		// @ts-expect-error Error tests
 		got('https://example.com', {hooks: {beforeRequest: [{}]}}),
 		{
 			message: 'hook is not a function'
@@ -260,7 +258,7 @@ test('throws TypeError when known `options.hooks` array item is not a function',
 test('allows extra keys in `options.hooks`', withServer, async (t, server, got) => {
 	server.get('/test', echoUrl);
 
-	// @ts-ignore We do not allow extra keys in hooks but this won't throw
+	// @ts-expect-error We do not allow extra keys in hooks but this won't throw
 	await t.notThrowsAsync(got('test', {hooks: {extra: []}}));
 });
 
@@ -321,10 +319,9 @@ test('throws if cannot change `prefixUrl`', async t => {
 });
 
 test('throws if the `searchParams` value is invalid', async t => {
-	// @ts-ignore Error tests
 	await t.throwsAsync(got('https://example.com', {
 		searchParams: {
-			// @ts-ignore Error tests
+			// @ts-expect-error Error tests
 			foo: []
 		}
 	}), {
@@ -385,9 +382,8 @@ test('`context` option is accessible when extending instances', t => {
 });
 
 test('throws if `options.encoding` is `null`', async t => {
-	// @ts-ignore Error tests
 	await t.throwsAsync(got('https://example.com', {
-		// @ts-ignore For testing purposes
+		// @ts-expect-error For testing purposes
 		encoding: null
 	}), {message: 'To get a Buffer, set `options.responseType` to `buffer` instead'});
 });
@@ -400,7 +396,7 @@ test('`url` option and input argument are mutually exclusive', async t => {
 
 test('throws a helpful error when passing `followRedirects`', async t => {
 	await t.throwsAsync(got('https://example.com', {
-		// @ts-ignore For testing purposes
+		// @ts-expect-error For testing purposes
 		followRedirects: true
 	}), {message: 'The `followRedirects` option does not exist. Use `followRedirect` instead.'});
 });
@@ -418,7 +414,7 @@ test('merges `searchParams` instances', t => {
 
 test('throws a helpful error when passing `auth`', async t => {
 	await t.throwsAsync(got('https://example.com', {
-		// @ts-ignore For testing purposes
+		// @ts-expect-error For testing purposes
 		auth: 'username:password'
 	}), {
 		message: 'Parameter `auth` is deprecated. Use `username` / `password` instead.'
@@ -433,7 +429,7 @@ test('throws on leading slashes', async t => {
 
 test('throws on invalid `dnsCache` option', async t => {
 	await t.throwsAsync(got('https://example.com', {
-		// @ts-ignore Error tests
+		// @ts-expect-error Error tests
 		dnsCache: 123
 	}), {message: 'Parameter `dnsCache` must be a CacheableLookup instance or a boolean, got number'});
 });
@@ -441,7 +437,7 @@ test('throws on invalid `dnsCache` option', async t => {
 test('throws on invalid `agent` option', async t => {
 	await t.throwsAsync(got('https://example.com', {
 		agent: {
-			// @ts-ignore Error tests
+			// @ts-expect-error Error tests
 			asdf: 123
 		}
 	}), {message: 'Expected the `options.agent` properties to be `http`, `https` or `http2`, got `asdf`'});
