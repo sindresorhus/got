@@ -26,6 +26,7 @@ import WeakableMap from './utils/weakable-map';
 import getBuffer from './utils/get-buffer';
 import {DnsLookupIpVersion, isDnsLookupIpVersion, dnsLookupIpVersionToFamily} from './utils/dns-ip-version';
 import deprecationWarning from '../utils/deprecation-warning';
+import {PromiseOnly} from '../as-promise/types';
 
 type HttpRequestFunction = typeof httpRequest;
 type Error = NodeJS.ErrnoException;
@@ -95,14 +96,17 @@ export type BeforeRequestHook = (options: NormalizedOptions) => Promisable<void 
 export type BeforeRedirectHook = (options: NormalizedOptions, response: Response) => Promisable<void>;
 export type BeforeErrorHook = (error: RequestError) => Promisable<RequestError>;
 
-export interface Hooks {
+interface PlainHooks {
 	init?: InitHook[];
 	beforeRequest?: BeforeRequestHook[];
 	beforeRedirect?: BeforeRedirectHook[];
 	beforeError?: BeforeErrorHook[];
 }
 
-export type HookEvent = 'init' | 'beforeRequest' | 'beforeRedirect' | 'beforeError';
+export interface Hooks extends PromiseOnly.Hooks, PlainHooks {}
+
+type PlainHookEvent = 'init' | 'beforeRequest' | 'beforeRedirect' | 'beforeError';
+export type HookEvent = PromiseOnly.HookEvent | PlainHookEvent;
 
 export const knownHookEvents: HookEvent[] = ['init', 'beforeRequest', 'beforeRedirect', 'beforeError'];
 
@@ -126,7 +130,7 @@ interface RealRequestOptions extends https.RequestOptions {
 	checkServerIdentity: CheckServerIdentityFunction;
 }
 
-export interface Options extends URLOptions {
+interface PlainOptions extends URLOptions {
 	request?: RequestFunction;
 	agent?: Agents | false;
 	decompress?: boolean;
@@ -169,6 +173,8 @@ export interface Options extends URLOptions {
 	https?: HTTPSOptions;
 }
 
+export interface Options extends PromiseOnly.Options, PlainOptions {}
+
 export interface HTTPSOptions {
 	// From `http.RequestOptions` and `tls.CommonConnectionOptions`
 	rejectUnauthorized?: https.RequestOptions['rejectUnauthorized'];
@@ -183,7 +189,7 @@ export interface HTTPSOptions {
 	passphrase?: SecureContextOptions['passphrase'];
 }
 
-export interface NormalizedOptions extends Options {
+interface NormalizedPlainOptions extends PlainOptions {
 	method: Method;
 	url: URL;
 	timeout: Delays;
@@ -213,7 +219,9 @@ export interface NormalizedOptions extends Options {
 	[kIsNormalizedAlready]?: boolean;
 }
 
-export interface Defaults {
+export interface NormalizedOptions extends PromiseOnly.NormalizedOptions, NormalizedPlainOptions {}
+
+interface PlainDefaults {
 	timeout: Delays;
 	prefixUrl: string;
 	method: Method;
@@ -243,6 +251,8 @@ export interface Defaults {
 	localAddress?: string;
 	createConnection?: Options['createConnection'];
 }
+
+export interface Defaults extends PromiseOnly.Defaults, PlainDefaults {}
 
 export interface Progress {
 	percent: number;
