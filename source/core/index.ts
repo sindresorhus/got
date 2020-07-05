@@ -91,7 +91,7 @@ export type Method =
 
 type Promisable<T> = T | Promise<T>;
 
-export type InitHook = (options: Options) => Promisable<void>;
+export type InitHook = (options: Options) => void;
 export type BeforeRequestHook = (options: NormalizedOptions) => Promisable<void | Response | ResponseLike>;
 export type BeforeRedirectHook = (options: NormalizedOptions, response: Response) => Promisable<void>;
 export type BeforeErrorHook = (error: RequestError) => Promisable<RequestError>;
@@ -839,7 +839,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 					setCookie,
 					// TODO: Fix this when upgrading to TypeScript 4.
 					// @ts-expect-error TypeScript thinks that promisifying callback(error, string) will result in Promise<void>
-					getCookieString: getCookieString
+					getCookieString
 				};
 			}
 		}
@@ -862,7 +862,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 									result.catch(handler);
 								} else if (event === 'abort') {
 									// eslint-disable-next-line promise/prefer-await-to-then
-									result.then((request: unknown): void => {
+									void result.then((request: unknown): void => {
 										(request as ClientRequest).once('abort', handler);
 									});
 								} else {
@@ -1245,9 +1245,12 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		const limitStatusCode = options.followRedirect ? 299 : 399;
 		const isOk = (statusCode >= 200 && statusCode <= limitStatusCode) || statusCode === 304;
 		if (options.throwHttpErrors && !isOk) {
-			await this._beforeError(new HTTPError(typedResponse));
+			// Normally we would have to use `void [await] this._beforeError(error)` everywhere,
+			// but since there's `void (async () => { ... })()` inside of it, we don't have to.
+			this._beforeError(new HTTPError(typedResponse));
 
-			if (this.destroyed) {
+			// This is equivalent to this.destroyed
+			if (this[kStopReading]) {
 				return;
 			}
 		}
@@ -1302,7 +1305,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		const responseEventName = options.cache ? 'cacheableResponse' : 'response';
 
 		request.once(responseEventName, (response: IncomingMessageWithTimings) => {
-			this._onResponse(response);
+			void this._onResponse(response);
 		});
 
 		request.once('error', (error: Error) => {
@@ -1528,14 +1531,14 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 				// Emit the response after the stream has been ended
 			} else if (this.writable) {
 				this.once('finish', () => {
-					this._onResponse(requestOrResponse as IncomingMessageWithTimings);
+					void this._onResponse(requestOrResponse as IncomingMessageWithTimings);
 				});
 
 				this._unlockWrite();
 				this.end();
 				this._lockWrite();
 			} else {
-				this._onResponse(requestOrResponse as IncomingMessageWithTimings);
+				void this._onResponse(requestOrResponse as IncomingMessageWithTimings);
 			}
 		} catch (error) {
 			if (error instanceof CacheableRequest.CacheError) {
@@ -1546,7 +1549,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		}
 	}
 
-	async _beforeError(error: Error): Promise<void> {
+	_beforeError(error: Error): void {
 		if (this.destroyed) {
 			return;
 		}
@@ -1557,27 +1560,29 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			error = new RequestError(error.message, error, this);
 		}
 
-		try {
-			const {response} = error as RequestError;
+		void (async () => {
+			try {
+				const {response} = error as RequestError;
 
-			if (response) {
-				response.setEncoding((this as any)._readableState.encoding);
+				if (response) {
+					response.setEncoding((this as any)._readableState.encoding);
 
-				response.rawBody = await getBuffer(response);
-				response.body = response.rawBody.toString();
+					response.rawBody = await getBuffer(response);
+					response.body = response.rawBody.toString();
+				}
+			} catch {}
+
+			try {
+				for (const hook of this.options.hooks.beforeError) {
+					// eslint-disable-next-line no-await-in-loop
+					error = await hook(error as RequestError);
+				}
+			} catch (error_) {
+				error = new RequestError(error_.message, error_, this);
 			}
-		} catch {}
 
-		try {
-			for (const hook of this.options.hooks.beforeError) {
-				// eslint-disable-next-line no-await-in-loop
-				error = await hook(error as RequestError);
-			}
-		} catch (error_) {
-			error = new RequestError(error_.message, error_, this);
-		}
-
-		this.destroy(error);
+			this.destroy(error);
+		})();
 	}
 
 	_read(): void {
@@ -1680,6 +1685,8 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	}
 
 	_destroy(error: Error | null, callback: (error: Error | null) => void): void {
+		this[kStopReading] = true;
+
 		if (kRequest in this) {
 			this[kCancelTimeouts]!();
 

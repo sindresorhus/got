@@ -180,7 +180,7 @@ test('`http.request` error through CacheableRequest', async t => {
 test('errors are thrown directly when options.isStream is true', t => {
 	t.throws(() => {
 		// @ts-expect-error Error tests
-		got('https://example.com', {isStream: true, hooks: false});
+		void got('https://example.com', {isStream: true, hooks: false});
 	}, {
 		message: 'Expected value which is `predicate returns truthy for any value`, received value of type `Array`.'
 	});
