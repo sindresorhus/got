@@ -127,8 +127,7 @@ const create = (defaults: InstanceDefaults): Got => {
 				...options
 			};
 
-			// @ts-expect-error
-			setNonEnumerableProperties([url, options], mergedOptions);
+			setNonEnumerableProperties([url as Options, options], mergedOptions);
 
 			options = mergedOptions;
 			url = undefined as any;
@@ -199,6 +198,7 @@ const create = (defaults: InstanceDefaults): Got => {
 	// Pagination
 	const paginateEach = (async function * <T, R>(url: string | URL, options?: OptionsWithPagination<T, R>) {
 		// @ts-expect-error
+		// FIMXE: Argument of type 'Merge<Options, PaginationOptions<T, R>> | undefined' is not assignable to parameter of type 'Options | undefined'.
 		let normalizedOptions = normalizeArguments(url, options, defaults.options);
 		normalizedOptions.resolveBodyOnly = false;
 
