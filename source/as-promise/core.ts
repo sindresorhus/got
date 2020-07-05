@@ -52,7 +52,7 @@ export default class PromisableRequest extends Request {
 	declare options: NormalizedOptions;
 
 	static normalizeArguments(url?: string | URL, nonNormalizedOptions?: Options, defaults?: Defaults): NormalizedOptions {
-		const options = super.normalizeArguments(url, nonNormalizedOptions, defaults) as NormalizedOptions;
+		const options = super.normalizeArguments(url, nonNormalizedOptions, defaults);
 
 		if (is.null_(options.encoding)) {
 			throw new TypeError('To get a Buffer, set `options.responseType` to `buffer` instead');
