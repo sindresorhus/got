@@ -197,8 +197,9 @@ const create = (defaults: InstanceDefaults): Got => {
 
 	// Pagination
 	const paginateEach = (async function * <T, R>(url: string | URL, options?: OptionsWithPagination<T, R>) {
+		// TODO: Remove this `@ts-expect-error` when upgrading to TypeScript 4.
+		// Error: Argument of type 'Merge<Options, PaginationOptions<T, R>> | undefined' is not assignable to parameter of type 'Options | undefined'.
 		// @ts-expect-error
-		// FIMXE: Argument of type 'Merge<Options, PaginationOptions<T, R>> | undefined' is not assignable to parameter of type 'Options | undefined'.
 		let normalizedOptions = normalizeArguments(url, options, defaults.options);
 		normalizedOptions.resolveBodyOnly = false;
 
