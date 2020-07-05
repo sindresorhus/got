@@ -10,7 +10,7 @@
 		"node": ">=10.19.0"
 	},
 	"scripts": {
-		"test": "tsc --noEmit && npm run build && nyc --reporter=html --reporter=text ava",
+		"test": "xo && tsc --noEmit && npm run build && nyc --reporter=html --reporter=text ava",
 		"release": "np",
 		"build": "del-cli dist && tsc",
 		"prepare": "npm run build"
@@ -86,7 +86,7 @@
 		"tempy": "^0.5.0",
 		"to-readable-stream": "^2.1.0",
 		"tough-cookie": "^4.0.0",
-		"typescript": "3.9.5",
+		"typescript": "3.9.6",
 		"xo": "^0.30.0"
 	},
 	"types": "dist/source",

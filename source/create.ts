@@ -120,13 +120,14 @@ const create = (defaults: InstanceDefaults): Got => {
 			) as GotReturn;
 		};
 
-		// TODO: remove this in Got 12
+		// TODO: Remove this in Got 12.
 		if (is.plainObject(url)) {
 			const mergedOptions = {
 				...url as Options,
 				...options
 			};
 
+			// @ts-expect-error
 			setNonEnumerableProperties([url, options], mergedOptions);
 
 			options = mergedOptions;
