@@ -432,7 +432,7 @@ if (process.versions.node.split('.')[0] <= '12') {
 					]
 				}
 			}).once('end', () => {
-				reject('Stream has ended before erroring');
+				reject(new Error('Stream has ended before erroring'));
 			}).once('error', resolve).resume();
 		}));
 	});
