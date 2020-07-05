@@ -120,14 +120,14 @@ const create = (defaults: InstanceDefaults): Got => {
 			) as GotReturn;
 		};
 
-		// TODO: remove this in Got 12
+		// TODO: Remove this in Got 12.
 		if (is.plainObject(url)) {
 			const mergedOptions = {
 				...url as Options,
 				...options
 			};
 
-			setNonEnumerableProperties([url, options], mergedOptions);
+			setNonEnumerableProperties([url as Options, options], mergedOptions);
 
 			options = mergedOptions;
 			url = undefined as any;
@@ -197,6 +197,9 @@ const create = (defaults: InstanceDefaults): Got => {
 
 	// Pagination
 	const paginateEach = (async function * <T, R>(url: string | URL, options?: OptionsWithPagination<T, R>) {
+		// TODO: Remove this `@ts-expect-error` when upgrading to TypeScript 4.
+		// Error: Argument of type 'Merge<Options, PaginationOptions<T, R>> | undefined' is not assignable to parameter of type 'Options | undefined'.
+		// @ts-expect-error
 		let normalizedOptions = normalizeArguments(url, options, defaults.options);
 		normalizedOptions.resolveBodyOnly = false;
 
