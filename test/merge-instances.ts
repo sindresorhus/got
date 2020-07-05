@@ -1,6 +1,6 @@
 import test from 'ava';
 import {Handler} from 'express';
-import got, {BeforeRequestHook, Got, Headers} from '../source';
+import got, {BeforeRequestHook, Got, Headers, NormalizedOptions} from '../source';
 import withServer from './helpers/with-server';
 
 const echoHeaders: Handler = (request, response) => {
@@ -145,4 +145,18 @@ test('merging instances with HTTPS options undefined', t => {
 
 	t.true(merged.defaults.options.https?.rejectUnauthorized);
 	t.is(merged.defaults.options.https?.certificate, undefined);
+});
+
+test('accepts options for promise API', t => {
+	got.extend({
+		hooks: {
+			beforeRequest: [
+				(options: NormalizedOptions): void => {
+					options.responseType = 'buffer';
+				}
+			]
+		}
+	});
+
+	t.pass();
 });
