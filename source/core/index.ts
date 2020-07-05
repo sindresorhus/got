@@ -837,8 +837,9 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 				options.cookieJar = {
 					setCookie,
-					// TypeScript thinks that promisifying callback(error, string) will result in Promise<void>
-					getCookieString: getCookieString as PromiseCookieJar['getCookieString']
+					// TODO: Fix this when upgrading to TypeScript 4.
+					// @ts-expect-error TypeScript thinks that promisifying callback(error, string) will result in Promise<void>
+					getCookieString: getCookieString
 				};
 			}
 		}
