@@ -60,8 +60,10 @@ export interface Agents {
 export const withoutBody: ReadonlySet<string> = new Set(['GET', 'HEAD']);
 
 export interface ToughCookieJar {
-	getCookieString: ((currentUrl: string, options: {[key: string]: unknown}, cb: (err: Error | null, cookies: string) => void) => void) & ((url: string, callback: (error: Error | null, cookieHeader: string) => void) => void);
-	setCookie: ((cookieOrString: unknown, currentUrl: string, options: {[key: string]: unknown}, cb: (err: Error | null, cookie: unknown) => void) => void) & ((rawCookie: string, url: string, callback: (error: Error | null, result: unknown) => void) => void);
+	getCookieString: ((currentUrl: string, options: {[key: string]: unknown}, cb: (err: Error | null, cookies: string) => void) => void)
+	& ((url: string, callback: (error: Error | null, cookieHeader: string) => void) => void);
+	setCookie: ((cookieOrString: unknown, currentUrl: string, options: {[key: string]: unknown}, cb: (err: Error | null, cookie: unknown) => void) => void)
+	& ((rawCookie: string, url: string, callback: (error: Error | null, result: unknown) => void) => void);
 }
 
 export interface PromiseCookieJar {
@@ -277,7 +279,10 @@ export interface Response<T = unknown> extends PlainResponse {
 }
 
 export interface RequestEvents<T> {
-	on: ((name: 'request', listener: (request: http.ClientRequest) => void) => T) & (<R extends Response>(name: 'response', listener: (response: R) => void) => T) & (<R extends Response, N extends NormalizedOptions>(name: 'redirect', listener: (response: R, nextOptions: N) => void) => T) & ((name: 'uploadProgress' | 'downloadProgress', listener: (progress: Progress) => void) => T);
+	on: ((name: 'request', listener: (request: http.ClientRequest) => void) => T)
+	& (<R extends Response>(name: 'response', listener: (response: R) => void) => T)
+	& (<R extends Response, N extends NormalizedOptions>(name: 'redirect', listener: (response: R, nextOptions: N) => void) => T)
+	& ((name: 'uploadProgress' | 'downloadProgress', listener: (progress: Progress) => void) => T);
 }
 
 function validateSearchParameters(searchParameters: Record<string, unknown>): asserts searchParameters is Record<string, string | number | boolean | null | undefined> {

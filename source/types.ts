@@ -52,9 +52,11 @@ type ResponseBodyOnly = {resolveBodyOnly: true};
 export type OptionsWithPagination<T = unknown, R = unknown> = Merge<Options, PaginationOptions<T, R>>;
 
 export interface GotPaginate {
-	each: (<T, R = unknown>(url: string | URL, options?: OptionsWithPagination<T, R>) => AsyncIterableIterator<T>) & (<T, R = unknown>(options?: OptionsWithPagination<T, R>) => AsyncIterableIterator<T>);
+	each: (<T, R = unknown>(url: string | URL, options?: OptionsWithPagination<T, R>) => AsyncIterableIterator<T>)
+	& (<T, R = unknown>(options?: OptionsWithPagination<T, R>) => AsyncIterableIterator<T>);
 
-	all: (<T, R = unknown>(url: string | URL, options?: OptionsWithPagination<T, R>) => Promise<T[]>) & (<T, R = unknown>(options?: OptionsWithPagination<T, R>) => Promise<T[]>);
+	all: (<T, R = unknown>(url: string | URL, options?: OptionsWithPagination<T, R>) => Promise<T[]>)
+	& (<T, R = unknown>(options?: OptionsWithPagination<T, R>) => Promise<T[]>);
 
 	<T, R = unknown>(url: string | URL, options?: OptionsWithPagination<T, R>): AsyncIterableIterator<T>;
 	<T, R = unknown>(options?: OptionsWithPagination<T, R>): AsyncIterableIterator<T>;
