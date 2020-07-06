@@ -912,6 +912,13 @@ Default: `Infinity`
 
 The maximum amount of items that should be emitted.
 
+###### pagination.backoff
+
+Type: `number`\
+Default: `0`
+
+Milliseconds to wait before the next request is triggered.
+
 ###### pagination.requestLimit
 
 Type: `number`\

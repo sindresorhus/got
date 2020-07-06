@@ -54,6 +54,9 @@ const errors = {
 	UploadError
 };
 
+// The `delay` package weighs 10KB (!)
+const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
 const {normalizeArguments, mergeOptions} = PromisableRequest;
 
 const getPromiseOrStream = (options: NormalizedOptions): GotReturn => options.isStream ? new Request(options.url, options) : asPromise(options);
@@ -254,6 +257,8 @@ const create = (defaults: InstanceDefaults): Got => {
 				normalizedOptions = normalizeArguments(undefined, optionsToMerge, normalizedOptions);
 			}
 
+			// eslint-disable-next-line no-await-in-loop
+			await delay(pagination.backoff);
 			numberOfRequests++;
 		}
 	});

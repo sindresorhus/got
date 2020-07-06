@@ -2,7 +2,7 @@ import {URL} from 'url';
 import test from 'ava';
 import getStream = require('get-stream');
 import got, {Response} from '../source';
-import withServer, {withBodyParsingServer} from './helpers/with-server';
+import withServer, {withBodyParsingServer, withServerAndLolex} from './helpers/with-server';
 import {ExtendedTestServer} from './helpers/types';
 
 const thrower = (): any => {
@@ -447,6 +447,33 @@ test('`requestLimit` works', withServer, async (t, server, got) => {
 	}
 
 	t.deepEqual(results, [1]);
+});
+
+test.cb('`backoff` works', withServerAndLolex, (t, server, got, clock) => {
+	attachHandler(server, 2);
+
+	let result: number[] = [];
+
+	const backoff = 10000;
+
+	(async () => {
+		result = await got.paginate.all<number>('', {
+			pagination: {
+				backoff
+			}
+		});
+	})();
+
+	clock.tick(backoff / 2);
+
+	t.deepEqual(result, []);
+
+	clock.tick(backoff);
+
+	t.deepEqual(result, [1, 2, 3, 4, 5]);
+
+	// @ts-ignore
+	t.end();
 });
 
 test('`stackAllItems` set to true', withServer, async (t, server, got) => {

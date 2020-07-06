@@ -37,6 +37,7 @@ export interface PaginationOptions<T, R> {
 		paginate?: (response: Response<R>, allItems: T[], currentItems: T[]) => Options | false;
 		shouldContinue?: (item: T, allItems: T[], currentItems: T[]) => boolean;
 		countLimit?: number;
+		backoff?: number;
 		requestLimit?: number;
 		stackAllItems?: boolean;
 	};
