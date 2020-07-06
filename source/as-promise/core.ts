@@ -8,7 +8,12 @@ import {
 	ParseError,
 	Response
 } from './types';
-import Request, {knownHookEvents, RequestError, Method} from '../core';
+import Request, {
+	knownHookEvents,
+	RequestError,
+	Method,
+	ParseJsonFunction
+} from '../core';
 
 if (!knownHookEvents.includes('beforeRetry' as any)) {
 	knownHookEvents.push('beforeRetry' as any, 'afterResponse' as any);
@@ -17,7 +22,7 @@ if (!knownHookEvents.includes('beforeRetry' as any)) {
 export const knownBodyTypes = ['json', 'buffer', 'text'];
 
 // @ts-ignore The error is: Not all code paths return a value.
-export const parseBody = (response: Response, responseType: ResponseType, encoding?: string): unknown => {
+export const parseBody = (response: Response, responseType: ResponseType, parseJson: ParseJsonFunction, encoding?: BufferEncoding): unknown => {
 	const {rawBody} = response;
 
 	try {
@@ -26,7 +31,7 @@ export const parseBody = (response: Response, responseType: ResponseType, encodi
 		}
 
 		if (responseType === 'json') {
-			return rawBody.length === 0 ? '' : JSON.parse(rawBody.toString()) as unknown;
+			return rawBody.length === 0 ? '' : parseJson(rawBody.toString());
 		}
 
 		if (responseType === 'buffer') {
@@ -47,7 +52,7 @@ export default class PromisableRequest extends Request {
 	declare options: NormalizedOptions;
 
 	static normalizeArguments(url?: string | URL, nonNormalizedOptions?: Options, defaults?: Defaults): NormalizedOptions {
-		const options = super.normalizeArguments(url, nonNormalizedOptions, defaults) as NormalizedOptions;
+		const options = super.normalizeArguments(url, nonNormalizedOptions, defaults);
 
 		if (is.null_(options.encoding)) {
 			throw new TypeError('To get a Buffer, set `options.responseType` to `buffer` instead');
@@ -146,6 +151,10 @@ export default class PromisableRequest extends Request {
 	}
 
 	async _beforeError(error: Error): Promise<void> {
+		if (this.destroyed) {
+			return;
+		}
+
 		if (!(error instanceof RequestError)) {
 			error = new RequestError(error.message, error, this);
 		}

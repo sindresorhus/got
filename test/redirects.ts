@@ -188,7 +188,11 @@ test('redirects from http to https work', withServer, async (t, server, got) => 
 		response.end();
 	});
 
-	t.is((await got('httpToHttps', {rejectUnauthorized: false})).body, 'https');
+	t.is((await got('httpToHttps', {
+		https: {
+			rejectUnauthorized: false
+		}
+	})).body, 'https');
 });
 
 test('redirects from https to http work', withServer, async (t, server, got) => {
@@ -207,7 +211,11 @@ test('redirects from https to http work', withServer, async (t, server, got) => 
 		response.end();
 	});
 
-	t.truthy((await got.secure('httpsToHttp', {rejectUnauthorized: false})).body);
+	t.truthy((await got.secure('httpsToHttp', {
+		https: {
+			rejectUnauthorized: false
+		}
+	})).body);
 });
 
 test('redirects works with lowercase method', withServer, async (t, server, got) => {

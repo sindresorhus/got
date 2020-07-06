@@ -1,5 +1,4 @@
 import {EventEmitter} from 'events';
-import getStream = require('get-stream');
 import PCancelable = require('p-cancelable');
 import calculateRetryDelay from './calculate-retry-delay';
 import {
@@ -11,6 +10,7 @@ import {
 } from './types';
 import PromisableRequest, {parseBody} from './core';
 import proxyEvents from '../core/utils/proxy-events';
+import getBuffer from '../core/utils/get-buffer';
 
 const proxiedRequestEvents = [
 	'request',
@@ -58,7 +58,7 @@ export default function asPromise<T>(options: NormalizedOptions): CancelableRequ
 
 			globalRequest = request;
 
-			request.once('response', async (response: Response) => {
+			const onResponse = async (response: Response) => {
 				response.retryCount = retryCount;
 
 				if (response.request.aborted) {
@@ -76,7 +76,7 @@ export default function asPromise<T>(options: NormalizedOptions): CancelableRequ
 				// Download body
 				let rawBody;
 				try {
-					rawBody = await getStream.buffer(request);
+					rawBody = await getBuffer(request);
 
 					response.rawBody = rawBody;
 				} catch (_) {
@@ -86,16 +86,23 @@ export default function asPromise<T>(options: NormalizedOptions): CancelableRequ
 				}
 
 				// Parse body
-				try {
-					response.body = parseBody(response, options.responseType, options.encoding);
-				} catch (error) {
-					// Fallback to `utf8`
-					response.body = rawBody.toString();
+				const contentEncoding = (response.headers['content-encoding'] ?? '').toLowerCase();
+				const isCompressed = ['gzip', 'deflate', 'br'].includes(contentEncoding);
 
-					if (isOk()) {
-						// TODO: Call `request._beforeError`, see https://github.com/nodejs/node/issues/32995
-						reject(error);
-						return;
+				if (isCompressed && !options.decompress) {
+					response.body = rawBody;
+				} else {
+					try {
+						response.body = parseBody(response, options.responseType, options.parseJson, options.encoding);
+					} catch (error) {
+						// Fallback to `utf8`
+						response.body = rawBody.toString();
+
+						if (isOk()) {
+							// TODO: Call `request._beforeError`, see https://github.com/nodejs/node/issues/32995
+							reject(error);
+							return;
+						}
 					}
 				}
 
@@ -146,9 +153,9 @@ export default function asPromise<T>(options: NormalizedOptions): CancelableRequ
 				globalResponse = response;
 
 				resolve(options.resolveBodyOnly ? response.body as T : response as unknown as T);
-			});
+			};
 
-			request.once('error', (error: RequestError) => {
+			const onError = async (error: RequestError) => {
 				if (promise.isCanceled) {
 					return;
 				}
@@ -158,12 +165,14 @@ export default function asPromise<T>(options: NormalizedOptions): CancelableRequ
 					return;
 				}
 
+				request.off('response', onResponse);
+
 				let backoff: number;
 
 				retryCount++;
 
 				try {
-					backoff = options.retry.calculateDelay({
+					backoff = await options.retry.calculateDelay({
 						attemptCount: retryCount,
 						retryOptions: options.retry,
 						error,
@@ -213,7 +222,13 @@ export default function asPromise<T>(options: NormalizedOptions): CancelableRequ
 				retryCount--;
 
 				if (error instanceof HTTPError) {
-					// It will be handled by the `response` event
+					// The error will be handled by the `response` event
+					onResponse(request._response as Response);
+
+					// Reattach the error handler, because there may be a timeout later.
+					process.nextTick(() => {
+						request.once('error', onError);
+					});
 					return;
 				}
 
@@ -221,7 +236,10 @@ export default function asPromise<T>(options: NormalizedOptions): CancelableRequ
 				request.destroy();
 
 				reject(error);
-			});
+			};
+
+			request.once('response', onResponse);
+			request.once('error', onError);
 
 			proxyEvents(request, emitter, proxiedRequestEvents);
 		};
@@ -239,7 +257,7 @@ export default function asPromise<T>(options: NormalizedOptions): CancelableRequ
 			// Wait until downloading has ended
 			await promise;
 
-			return parseBody(globalResponse, responseType, options.encoding);
+			return parseBody(globalResponse, responseType, options.parseJson, options.encoding);
 		})();
 
 		Object.defineProperties(newPromise, Object.getOwnPropertyDescriptors(promise));

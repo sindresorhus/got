@@ -6,13 +6,15 @@ import {
 	RetryFunction
 } from './types';
 
+type Returns<T extends (...args: any) => unknown, V> = (...args: Parameters<T>) => V;
+
 const retryAfterStatusCodes: ReadonlySet<number> = new Set([413, 429, 503]);
 
 const isErrorWithResponse = (error: RetryObject['error']): error is HTTPError | ParseError | MaxRedirectsError => (
 	error instanceof HTTPError || error instanceof ParseError || error instanceof MaxRedirectsError
 );
 
-const calculateRetryDelay: RetryFunction = ({attemptCount, retryOptions, error}) => {
+const calculateRetryDelay: Returns<RetryFunction, number> = ({attemptCount, retryOptions, error}) => {
 	if (attemptCount > retryOptions.limit) {
 		return 0;
 	}

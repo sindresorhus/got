@@ -4,7 +4,7 @@ import test from 'ava';
 import pEvent = require('p-event');
 import getStream = require('get-stream');
 import {Handler} from 'express';
-import {Response} from '../source';
+import got, {Response} from '../source';
 import withServer from './helpers/with-server';
 import CacheableLookup from 'cacheable-lookup';
 import delay = require('delay');
@@ -244,7 +244,7 @@ test('decompresses cached responses', withServer, async (t, server, got) => {
 		} else {
 			response.setHeader('content-encoding', 'gzip');
 			response.setHeader('cache-control', 'public, max-age=60');
-			response.setHeader('etag', 'foobar');
+			response.setHeader('etag', etag);
 			response.end(compressed);
 		}
 	});
@@ -309,4 +309,46 @@ test('does not hang on huge response', withServer, async (t, server, got) => {
 	}).buffer();
 
 	t.is(body.length, bufferSize * times);
+});
+
+test('cached response ETag', withServer, async (t, server, got) => {
+	const etag = 'foobar';
+	const body = 'responseBody';
+
+	server.get('/', (request, response) => {
+		if (request.headers['if-none-match'] === etag) {
+			response.writeHead(304);
+			response.end();
+		} else {
+			response.writeHead(200, {ETag: etag});
+			response.end(body);
+		}
+	});
+
+	const cache = new Map();
+
+	const originalResponse = await got({cache});
+
+	t.false(originalResponse.isFromCache);
+	t.is(originalResponse.body, body);
+
+	await delay(100); // Added small delay in order to wait the cache to be populated
+
+	t.is(cache.size, 1);
+
+	const cachedResponse = await got({cache});
+
+	t.true(cachedResponse.isFromCache);
+	t.is(cachedResponse.body, body);
+});
+
+test('works with http2', async t => {
+	const cache = new Map();
+
+	const client = got.extend({
+		http2: true,
+		cache
+	});
+
+	await t.notThrowsAsync(client('https://httpbin.org/anything'));
 });

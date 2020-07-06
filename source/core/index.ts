@@ -3,7 +3,7 @@ import {Duplex, Writable, Readable} from 'stream';
 import {ReadStream} from 'fs';
 import {URL, URLSearchParams} from 'url';
 import {Socket} from 'net';
-import {SecureContextOptions} from 'tls';
+import {SecureContextOptions, DetailedPeerCertificate} from 'tls';
 import http = require('http');
 import {ClientRequest, RequestOptions, IncomingMessage, ServerResponse, request as httpRequest} from 'http';
 import https = require('https');
@@ -15,7 +15,6 @@ import decompressResponse = require('decompress-response');
 import http2wrapper = require('http2-wrapper');
 import lowercaseKeys = require('lowercase-keys');
 import ResponseLike = require('responselike');
-import getStream = require('get-stream');
 import is, {assert} from '@sindresorhus/is';
 import getBodySize from './utils/get-body-size';
 import isFormData from './utils/is-form-data';
@@ -24,6 +23,10 @@ import timedOut, {Delays, TimeoutError as TimedOutTimeoutError} from './utils/ti
 import urlToOptions from './utils/url-to-options';
 import optionsToUrl, {URLOptions} from './utils/options-to-url';
 import WeakableMap from './utils/weakable-map';
+import getBuffer from './utils/get-buffer';
+import {DnsLookupIpVersion, isDnsLookupIpVersion, dnsLookupIpVersionToFamily} from './utils/dns-ip-version';
+import deprecationWarning from '../utils/deprecation-warning';
+import {PromiseOnly} from '../as-promise/types';
 
 type HttpRequestFunction = typeof httpRequest;
 type Error = NodeJS.ErrnoException;
@@ -93,30 +96,41 @@ export type BeforeRequestHook = (options: NormalizedOptions) => Promisable<void 
 export type BeforeRedirectHook = (options: NormalizedOptions, response: Response) => Promisable<void>;
 export type BeforeErrorHook = (error: RequestError) => Promisable<RequestError>;
 
-export interface Hooks {
+interface PlainHooks {
 	init?: InitHook[];
 	beforeRequest?: BeforeRequestHook[];
 	beforeRedirect?: BeforeRedirectHook[];
 	beforeError?: BeforeErrorHook[];
 }
 
-export type HookEvent = 'init' | 'beforeRequest' | 'beforeRedirect' | 'beforeError';
+export interface Hooks extends PromiseOnly.Hooks, PlainHooks {}
+
+type PlainHookEvent = 'init' | 'beforeRequest' | 'beforeRedirect' | 'beforeError';
+export type HookEvent = PromiseOnly.HookEvent | PlainHookEvent;
 
 export const knownHookEvents: HookEvent[] = ['init', 'beforeRequest', 'beforeRedirect', 'beforeError'];
 
-type AcceptableResponse = IncomingMessage | ResponseLike;
+type AcceptableResponse = IncomingMessageWithTimings | ResponseLike;
 type AcceptableRequestResult = AcceptableResponse | ClientRequest | Promise<AcceptableResponse | ClientRequest> | undefined;
 
 export type RequestFunction = (url: URL, options: RequestOptions, callback?: (response: AcceptableResponse) => void) => AcceptableRequestResult;
 
 export type Headers = Record<string, string | string[] | undefined>;
 
-type CacheableRequestFn = (
+type CacheableRequestFunction = (
 	opts: string | URL | RequestOptions,
 	cb?: (response: ServerResponse | ResponseLike) => void
 ) => CacheableRequest.Emitter;
 
-export interface Options extends URLOptions, SecureContextOptions {
+type CheckServerIdentityFunction = (hostname: string, certificate: DetailedPeerCertificate) => Error | void;
+export type ParseJsonFunction = (text: string) => unknown;
+export type StringifyJsonFunction = (object: unknown) => string;
+
+interface RealRequestOptions extends https.RequestOptions {
+	checkServerIdentity: CheckServerIdentityFunction;
+}
+
+interface PlainOptions extends URLOptions {
 	request?: RequestFunction;
 	agent?: Agents | false;
 	decompress?: boolean;
@@ -128,7 +142,7 @@ export interface Options extends URLOptions, SecureContextOptions {
 	url?: string | URL;
 	cookieJar?: PromiseCookieJar | ToughCookieJar;
 	ignoreInvalidCookies?: boolean;
-	searchParams?: string | {[key: string]: string | number | boolean | null} | URLSearchParams;
+	searchParams?: string | {[key: string]: string | number | boolean | null | undefined} | URLSearchParams;
 	dnsCache?: CacheableLookup | boolean;
 	context?: object;
 	hooks?: Hooks;
@@ -141,18 +155,41 @@ export interface Options extends URLOptions, SecureContextOptions {
 	http2?: boolean;
 	allowGetBody?: boolean;
 	lookup?: CacheableLookup['lookup'];
-	rejectUnauthorized?: boolean;
 	headers?: Headers;
 	methodRewriting?: boolean;
+	dnsLookupIpVersion?: DnsLookupIpVersion;
+	parseJson?: ParseJsonFunction;
+	stringifyJson?: StringifyJsonFunction;
 
-	// From http.RequestOptions
+	// From `http.RequestOptions`
 	localAddress?: string;
 	socketPath?: string;
 	method?: Method;
 	createConnection?: (options: http.RequestOptions, oncreate: (error: Error, socket: Socket) => void) => Socket;
+
+	// TODO: remove when Got 12 gets released
+	rejectUnauthorized?: boolean; // Here for backwards compatibility
+
+	https?: HTTPSOptions;
 }
 
-export interface NormalizedOptions extends Options {
+export interface Options extends PromiseOnly.Options, PlainOptions {}
+
+export interface HTTPSOptions {
+	// From `http.RequestOptions` and `tls.CommonConnectionOptions`
+	rejectUnauthorized?: https.RequestOptions['rejectUnauthorized'];
+
+	// From `tls.ConnectionOptions`
+	checkServerIdentity?: CheckServerIdentityFunction;
+
+	// From `tls.SecureContextOptions`
+	certificateAuthority?: SecureContextOptions['ca'];
+	key?: SecureContextOptions['key'];
+	certificate?: SecureContextOptions['cert'];
+	passphrase?: SecureContextOptions['passphrase'];
+}
+
+interface NormalizedPlainOptions extends PlainOptions {
 	method: Method;
 	url: URL;
 	timeout: Delays;
@@ -176,11 +213,15 @@ export interface NormalizedOptions extends Options {
 	methodRewriting: boolean;
 	username: string;
 	password: string;
+	parseJson: ParseJsonFunction;
+	stringifyJson: StringifyJsonFunction;
 	[kRequest]: HttpRequestFunction;
 	[kIsNormalizedAlready]?: boolean;
 }
 
-export interface Defaults {
+export interface NormalizedOptions extends PromiseOnly.NormalizedOptions, NormalizedPlainOptions {}
+
+interface PlainDefaults {
 	timeout: Delays;
 	prefixUrl: string;
 	method: Method;
@@ -197,8 +238,10 @@ export interface Defaults {
 	throwHttpErrors: boolean;
 	http2: boolean;
 	allowGetBody: boolean;
-	rejectUnauthorized: boolean;
+	https?: HTTPSOptions;
 	methodRewriting: boolean;
+	parseJson: ParseJsonFunction;
+	stringifyJson: StringifyJsonFunction;
 
 	// Optional
 	agent?: Agents | false;
@@ -208,6 +251,8 @@ export interface Defaults {
 	localAddress?: string;
 	createConnection?: Options['createConnection'];
 }
+
+export interface Defaults extends PromiseOnly.Defaults, PlainDefaults {}
 
 export interface Progress {
 	percent: number;
@@ -240,12 +285,12 @@ export interface RequestEvents<T> {
 	on(name: 'uploadProgress' | 'downloadProgress', listener: (progress: Progress) => void): T;
 }
 
-function validateSearchParameters(searchParameters: Record<string, unknown>): asserts searchParameters is Record<string, string | number | boolean | null> {
+function validateSearchParameters(searchParameters: Record<string, unknown>): asserts searchParameters is Record<string, string | number | boolean | null | undefined> {
 	// eslint-disable-next-line guard-for-in
 	for (const key in searchParameters) {
 		const value = searchParameters[key];
 
-		if (!is.string(value) && !is.number(value) && !is.boolean(value) && !is.null_(value)) {
+		if (!is.string(value) && !is.number(value) && !is.boolean(value) && !is.null_(value) && !is.undefined(value)) {
 			throw new TypeError(`The \`searchParams\` value '${String(value)}' must be a string, number, boolean or null`);
 		}
 	}
@@ -255,15 +300,19 @@ function isClientRequest(clientRequest: unknown): clientRequest is ClientRequest
 	return is.object(clientRequest) && !('statusCode' in clientRequest);
 }
 
-const cacheableStore = new WeakableMap<string | CacheableRequest.StorageAdapter, CacheableRequestFn>();
+const cacheableStore = new WeakableMap<string | CacheableRequest.StorageAdapter, CacheableRequestFunction>();
 
 const waitForOpenFile = async (file: ReadStream): Promise<void> => new Promise((resolve, reject) => {
 	const onError = (error: Error): void => {
 		reject(error);
 	};
 
+	if (!file.pending) {
+		resolve();
+	}
+
 	file.once('error', onError);
-	file.once('open', () => {
+	file.once('ready', () => {
 		file.off('error', onError);
 		resolve();
 	});
@@ -279,7 +328,7 @@ const nonEnumerableProperties: NonEnumerableProperty[] = [
 	'form'
 ];
 
-const setNonEnumerableProperties = (sources: Array<Options | Defaults | undefined>, to: Options): void => {
+export const setNonEnumerableProperties = (sources: Array<Options | Defaults | undefined>, to: Options): void => {
 	// Non enumerable properties shall not be merged
 	const properties: Partial<{[Key in NonEnumerableProperty]: any}> = {};
 
@@ -462,8 +511,8 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	[kStartedReading]?: boolean;
 	[kCancelTimeouts]?: () => void;
 	[kResponseSize]?: number;
-	[kResponse]?: IncomingMessage;
-	[kOriginalResponse]?: IncomingMessage;
+	[kResponse]?: IncomingMessageWithTimings;
+	[kOriginalResponse]?: IncomingMessageWithTimings;
 	[kRequest]?: ClientRequest;
 	_noPipe?: boolean;
 	_progressCallbacks: Array<() => void>;
@@ -580,13 +629,13 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		if (is.object(url) && !is.urlInstance(url)) {
 			options = {...defaults, ...(url as Options), ...options};
 		} else {
-			if (url && options && options.url) {
+			if (url && options && options.url !== undefined) {
 				throw new TypeError('The `url` option is mutually exclusive with the `input` argument');
 			}
 
 			options = {...defaults, ...options};
 
-			if (url) {
+			if (url !== undefined) {
 				options.url = url;
 			}
 
@@ -623,8 +672,18 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		assert.any([is.boolean, is.undefined], options.throwHttpErrors);
 		assert.any([is.boolean, is.undefined], options.http2);
 		assert.any([is.boolean, is.undefined], options.allowGetBody);
-		assert.any([is.boolean, is.undefined], options.rejectUnauthorized);
 		assert.any([is.string, is.undefined], options.localAddress);
+		assert.any([isDnsLookupIpVersion, is.undefined], options.dnsLookupIpVersion);
+		assert.any([is.object, is.undefined], options.https);
+		assert.any([is.boolean, is.undefined], options.rejectUnauthorized);
+		if (options.https) {
+			assert.any([is.boolean, is.undefined], options.https.rejectUnauthorized);
+			assert.any([is.function_, is.undefined], options.https.checkServerIdentity);
+			assert.any([is.string, is.object, is.array, is.undefined], options.https.certificateAuthority);
+			assert.any([is.string, is.object, is.array, is.undefined], options.https.key);
+			assert.any([is.string, is.object, is.array, is.undefined], options.https.certificate);
+			assert.any([is.string, is.undefined], options.https.passphrase);
+		}
 
 		// `options.method`
 		if (is.string(options.method)) {
@@ -653,11 +712,26 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		// `options.searchParams`
 		if ('searchParams' in options) {
 			if (options.searchParams && options.searchParams !== defaults?.searchParams) {
-				if (!is.string(options.searchParams) && !(options.searchParams instanceof URLSearchParams)) {
-					validateSearchParameters(options.searchParams);
-				}
+				let searchParameters: URLSearchParams;
 
-				const searchParameters = new URLSearchParams(options.searchParams as Record<string, string>);
+				if (is.string(options.searchParams) || (options.searchParams instanceof URLSearchParams)) {
+					searchParameters = new URLSearchParams(options.searchParams);
+				} else {
+					validateSearchParameters(options.searchParams);
+
+					searchParameters = new URLSearchParams();
+
+					// eslint-disable-next-line guard-for-in
+					for (const key in options.searchParams) {
+						const value = options.searchParams[key];
+
+						if (value === null) {
+							searchParameters.append(key, '');
+						} else if (value !== undefined) {
+							searchParameters.append(key, value as string);
+						}
+					}
+				}
 
 				// `normalizeArguments()` is also used to merge options
 				defaults?.searchParams?.forEach((value, key) => {
@@ -772,7 +846,33 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		if (cache) {
 			if (!cacheableStore.has(cache)) {
 				cacheableStore.set(cache, new CacheableRequest(
-					((requestOptions: RequestOptions, handler?: (response: IncomingMessage) => void): ClientRequest => (requestOptions as Pick<NormalizedOptions, typeof kRequest>)[kRequest](requestOptions, handler)) as HttpRequestFunction,
+					((requestOptions: RequestOptions, handler?: (response: IncomingMessageWithTimings) => void): ClientRequest => {
+						const result = (requestOptions as Pick<NormalizedOptions, typeof kRequest>)[kRequest](requestOptions, handler);
+
+						// TODO: remove this when `cacheable-request` supports async request functions.
+						if (is.promise(result)) {
+							// @ts-ignore
+							// We only need to implement the error handler in order to support HTTP2 caching.
+							// The result will be a promise anyway.
+							result.once = (event: string, handler: (reason: unknown) => void) => {
+								if (event === 'error') {
+									result.catch(handler);
+								} else if (event === 'abort') {
+									// eslint-disable-next-line promise/prefer-await-to-then
+									result.then((request: unknown): void => {
+										(request as ClientRequest).once('abort', handler);
+									});
+								} else {
+									/* istanbul ignore next: safety check */
+									throw new Error(`Unknown HTTP2 promise event: ${event}`);
+								}
+
+								return result;
+							};
+						}
+
+						return result;
+					}) as HttpRequestFunction,
 					cache as CacheableRequest.StorageAdapter
 				));
 			}
@@ -831,6 +931,40 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 					];
 				}
 			}
+		}
+
+		// DNS options
+		if ('family' in options) {
+			deprecationWarning('"options.family" was never documented, please use "options.dnsLookupIpVersion"');
+		}
+
+		// HTTPS options
+		if (defaults?.https) {
+			options.https = {...defaults.https, ...options.https};
+		}
+
+		if ('rejectUnauthorized' in options) {
+			deprecationWarning('"options.rejectUnauthorized" is now deprecated, please use "options.https.rejectUnauthorized"');
+		}
+
+		if ('checkServerIdentity' in options) {
+			deprecationWarning('"options.checkServerIdentity" was never documented, please use "options.https.checkServerIdentity"');
+		}
+
+		if ('ca' in options) {
+			deprecationWarning('"options.ca" was never documented, please use "options.https.certificateAuthority"');
+		}
+
+		if ('key' in options) {
+			deprecationWarning('"options.key" was never documented, please use "options.https.key"');
+		}
+
+		if ('cert' in options) {
+			deprecationWarning('"options.cert" was never documented, please use "options.https.certificate"');
+		}
+
+		if ('passphrase' in options) {
+			deprecationWarning('"options.passphrase" was never documented, please use "options.https.passphrase"');
 		}
 
 		// Other options
@@ -925,7 +1059,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 						headers['content-type'] = 'application/json';
 					}
 
-					this[kBody] = JSON.stringify(options.json);
+					this[kBody] = options.stringifyJson(options.json);
 				}
 
 				const uploadBodySize = await getBodySize(this[kBody], options.headers);
@@ -954,7 +1088,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		this[kBodySize] = Number(headers['content-length']) || undefined;
 	}
 
-	async _onResponse(response: IncomingMessage): Promise<void> {
+	async _onResponse(response: IncomingMessageWithTimings): Promise<void> {
 		const {options} = this;
 		const {url} = options;
 
@@ -994,13 +1128,10 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		});
 
 		response.once('aborted', () => {
-			if (this.aborted) {
-				return;
-			}
-
 			this._beforeError(new ReadError({
 				name: 'Error',
-				message: 'The server aborted the pending request'
+				message: 'The server aborted pending request',
+				code: 'ECONNRESET'
 			}, this));
 		});
 
@@ -1167,13 +1298,16 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 		const responseEventName = options.cache ? 'cacheableResponse' : 'response';
 
-		request.once(responseEventName, (response: IncomingMessage) => {
+		request.once(responseEventName, (response: IncomingMessageWithTimings) => {
 			this._onResponse(response);
 		});
 
 		request.once('error', (error: Error) => {
 			// Force clean-up, because some packages (e.g. nock) don't do this.
 			request.destroy();
+
+			// Node.js <= 12.18.2 mistakenly emits the response `end` first.
+			(request as ClientRequest & {res: IncomingMessage | undefined}).res?.removeAllListeners('end');
 
 			if (error instanceof TimedOutTimeoutError) {
 				error = new TimeoutError(error, this.timings!, this);
@@ -1207,7 +1341,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			this._unlockWrite();
 
 			if (!is.undefined(body)) {
-				this._writeRequest(body, null as unknown as string, () => {});
+				this._writeRequest(body, undefined, () => {});
 				currentRequest.end();
 
 				this._lockWrite();
@@ -1229,32 +1363,35 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			// `http-cache-semantics` checks this
 			delete (options as unknown as NormalizedOptions).url;
 
+			let request: ClientRequest | Promise<ClientRequest>;
+
 			// This is ugly
-			const cacheRequest = cacheableStore.get((options as any).cache)!(options, response => {
-				const typedResponse = response as unknown as IncomingMessage & {req: ClientRequest};
-				const {req} = typedResponse;
-
+			const cacheRequest = cacheableStore.get((options as any).cache)!(options, async response => {
 				// TODO: Fix `cacheable-response`
-				(typedResponse as any)._readableState.autoDestroy = false;
+				(response as any)._readableState.autoDestroy = false;
 
-				if (req) {
-					req.emit('cacheableResponse', typedResponse);
+				if (request) {
+					(await request).emit('cacheableResponse', response);
 				}
 
-				resolve(typedResponse as unknown as ResponseLike);
+				resolve(response as unknown as ResponseLike);
 			});
 
 			// Restore options
 			(options as unknown as NormalizedOptions).url = url;
 
 			cacheRequest.once('error', reject);
-			cacheRequest.once('request', resolve);
+			cacheRequest.once('request', async (requestOrPromise: ClientRequest | Promise<ClientRequest>) => {
+				request = requestOrPromise;
+				resolve(request);
+			});
 		});
 	}
 
 	async _makeRequest(): Promise<void> {
 		const {options} = this;
-		const {url, headers, request, agent, timeout} = options;
+
+		const {headers} = options;
 
 		for (const key in headers) {
 			if (is.undefined(headers[key])) {
@@ -1288,6 +1425,8 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 				break;
 			}
 		}
+
+		const {agent, request, timeout, url} = options;
 
 		if (options.dnsCache && !('lookup' in options)) {
 			options.lookup = options.dnsCache.lookup;
@@ -1333,11 +1472,49 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		delete options.request;
 		delete options.timeout;
 
+		const requestOptions = options as unknown as RealRequestOptions;
+
+		// If `dnsLookupIpVersion` is not present do not override `family`
+		if (options.dnsLookupIpVersion !== undefined) {
+			try {
+				requestOptions.family = dnsLookupIpVersionToFamily(options.dnsLookupIpVersion);
+			} catch {
+				throw new Error('Invalid `dnsLookupIpVersion` option value');
+			}
+		}
+
+		// HTTPS options remapping
+		if (options.https) {
+			if ('rejectUnauthorized' in options.https) {
+				requestOptions.rejectUnauthorized = options.https.rejectUnauthorized;
+			}
+
+			if (options.https.checkServerIdentity) {
+				requestOptions.checkServerIdentity = options.https.checkServerIdentity;
+			}
+
+			if (options.https.certificateAuthority) {
+				requestOptions.ca = options.https.certificateAuthority;
+			}
+
+			if (options.https.certificate) {
+				requestOptions.cert = options.https.certificate;
+			}
+
+			if (options.https.key) {
+				requestOptions.key = options.https.key;
+			}
+
+			if (options.https.passphrase) {
+				requestOptions.passphrase = options.https.passphrase;
+			}
+		}
+
 		try {
-			let requestOrResponse = await fn(url, options as unknown as RequestOptions);
+			let requestOrResponse = await fn(url, requestOptions);
 
 			if (is.undefined(requestOrResponse)) {
-				requestOrResponse = fallbackFn(url, options as unknown as RequestOptions);
+				requestOrResponse = fallbackFn(url, requestOptions);
 			}
 
 			// Restore options
@@ -1351,14 +1528,14 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 				// Emit the response after the stream has been ended
 			} else if (this.writable) {
 				this.once('finish', () => {
-					this._onResponse(requestOrResponse as IncomingMessage);
+					this._onResponse(requestOrResponse as IncomingMessageWithTimings);
 				});
 
 				this._unlockWrite();
 				this.end();
 				this._lockWrite();
 			} else {
-				this._onResponse(requestOrResponse as IncomingMessage);
+				this._onResponse(requestOrResponse as IncomingMessageWithTimings);
 			}
 		} catch (error) {
 			if (error instanceof CacheableRequest.CacheError) {
@@ -1370,6 +1547,10 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	}
 
 	async _beforeError(error: Error): Promise<void> {
+		if (this.destroyed) {
+			return;
+		}
+
 		this[kStopReading] = true;
 
 		if (!(error instanceof RequestError)) {
@@ -1382,7 +1563,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			if (response) {
 				response.setEncoding((this as any)._readableState.encoding);
 
-				response.rawBody = await getStream.buffer(response);
+				response.rawBody = await getBuffer(response);
 				response.body = response.rawBody.toString();
 			}
 		} catch (_) {}
@@ -1396,10 +1577,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			error = new RequestError(error_.message, error_, this);
 		}
 
-		// This is a workaround for https://github.com/nodejs/node/issues/33335
-		if (!this.destroyed) {
-			this.destroy(error);
-		}
+		this.destroy(error);
 	}
 
 	_read(): void {
@@ -1429,7 +1607,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		}
 	}
 
-	_write(chunk: any, encoding: string, callback: (error?: Error | null) => void): void {
+	_write(chunk: any, encoding: BufferEncoding | undefined, callback: (error?: Error | null) => void): void {
 		const write = (): void => {
 			this._writeRequest(chunk, encoding, callback);
 		};
@@ -1441,9 +1619,9 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		}
 	}
 
-	_writeRequest(chunk: any, encoding: string, callback: (error?: Error | null) => void): void {
+	_writeRequest(chunk: any, encoding: BufferEncoding | undefined, callback: (error?: Error | null) => void): void {
 		this._progressCallbacks.push((): void => {
-			this[kUploadedSize] += Buffer.byteLength(chunk, encoding as BufferEncoding);
+			this[kUploadedSize] += Buffer.byteLength(chunk, encoding);
 
 			const progress = this.uploadProgress;
 
@@ -1454,7 +1632,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 		// TODO: What happens if it's from cache? Then this[kRequest] won't be defined.
 
-		this[kRequest]!.write(chunk, encoding, (error?: Error | null) => {
+		this[kRequest]!.write(chunk, encoding!, (error?: Error | null) => {
 			if (!error && this._progressCallbacks.length !== 0) {
 				this._progressCallbacks.shift()!();
 			}
@@ -1473,6 +1651,11 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			// We need to check if `this[kRequest]` is present,
 			// because it isn't when we use cache.
 			if (!(kRequest in this)) {
+				callback();
+				return;
+			}
+
+			if (this[kRequest]!.destroyed) {
 				callback();
 				return;
 			}
@@ -1566,6 +1749,10 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 	get isFromCache(): boolean | undefined {
 		return this[kIsFromCache];
+	}
+
+	get _response(): Response | undefined {
+		return this[kResponse] as Response;
 	}
 
 	pipe<T extends NodeJS.WritableStream>(destination: T, options?: {end?: boolean}): T {

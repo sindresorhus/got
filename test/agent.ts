@@ -46,7 +46,9 @@ test('non-object agent option works with http', withServer, async (t, server, go
 	const {agent, spy} = createAgentSpy(HttpAgent);
 
 	t.truthy((await got({
-		rejectUnauthorized: false,
+		https: {
+			rejectUnauthorized: false
+		},
 		agent: {
 			http: agent
 		}
@@ -65,7 +67,9 @@ test('non-object agent option works with https', withServer, async (t, server, g
 	const {agent, spy} = createAgentSpy(HttpsAgent);
 
 	t.truthy((await got.secure({
-		rejectUnauthorized: false,
+		https: {
+			rejectUnauthorized: false
+		},
 		agent: {
 			https: agent
 		}
@@ -83,7 +87,9 @@ test('redirects from http to https work with an agent object', withServer, async
 	const {agent: httpsAgent, spy: httpsSpy} = createAgentSpy<HttpsAgent>(HttpsAgent);
 
 	t.truthy((await got('httpToHttps', {
-		rejectUnauthorized: false,
+		https: {
+			rejectUnauthorized: false
+		},
 		agent: {
 			http: httpAgent,
 			https: httpsAgent
@@ -104,7 +110,9 @@ test('redirects from https to http work with an agent object', withServer, async
 	const {agent: httpsAgent, spy: httpsSpy} = createAgentSpy(HttpsAgent);
 
 	t.truthy((await got.secure('httpsToHttp', {
-		rejectUnauthorized: false,
+		https: {
+			rejectUnauthorized: false
+		},
 		agent: {
 			http: httpAgent,
 			https: httpsAgent
@@ -129,7 +137,9 @@ test('socket connect listener cleaned up after request', withServer, async (t, s
 	for (let i = 0; i < 20; i++) {
 		// eslint-disable-next-line no-await-in-loop
 		await got.secure({
-			rejectUnauthorized: false,
+			https: {
+				rejectUnauthorized: false
+			},
 			agent: {
 				https: agent
 			}

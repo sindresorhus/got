@@ -13,7 +13,7 @@
 
 > Human-friendly and powerful HTTP request library for Node.js
 
-[![Build Status: Linux](https://travis-ci.org/sindresorhus/got.svg?branch=master)](https://travis-ci.org/sindresorhus/got)
+[![Build Status: Linux](https://travis-ci.com/sindresorhus/got.svg?branch=master)](https://travis-ci.com/github/sindresorhus/got)
 [![Coverage Status](https://coveralls.io/repos/github/sindresorhus/got/badge.svg?branch=master)](https://coveralls.io/github/sindresorhus/got?branch=master)
 [![Downloads](https://img.shields.io/npm/dm/got.svg)](https://npmjs.com/got)
 [![Install size](https://packagephobia.now.sh/badge?p=got)](https://packagephobia.now.sh/result?p=got)
@@ -40,6 +40,7 @@ For browser usage, we recommend [Ky](https://github.com/sindresorhus/ky) by the 
 - [Errors with metadata](#errors)
 - [JSON mode](#json-mode)
 - [WHATWG URL support](#url)
+- [HTTPS API](#https)
 - [Hooks](#hooks)
 - [Instances with custom defaults](#instances)
 - [Types](#types)
@@ -118,6 +119,8 @@ const pipeline = promisify(stream.pipeline);
 ```
 
 **Tip:** `from.pipe(to)` doesn't forward errors. Instead, use [`stream.pipeline(from, ..., to, callback)`](https://nodejs.org/api/stream.html#stream_stream_pipeline_streams_callback).
+
+**Note:** While `got.post('https://example.com')` resolves, `got.stream.post('https://example.com')` will hang indefinitely until a body is provided. If there's no body on purpose, remember to `.end()` the stream or set the [`body`](#body) option to an empty string.
 
 ### API
 
@@ -316,6 +319,87 @@ const body = await got(url).json();
 const body = await got(url, {responseType: 'json', resolveBodyOnly: true});
 ```
 
+###### parseJson
+
+Type: `(text: string) => unknown`\
+Default: `(text: string) => JSON.parse(text)`
+
+A function used to parse JSON responses.
+
+<details>
+<summary>Example</summary>
+
+Using [`bourne`](https://github.com/hapijs/bourne) to prevent prototype pollution:
+
+```js
+const got = require('got');
+const Bourne = require('@hapi/bourne');
+
+(async () => {
+	const parsed = await got('https://example.com', {
+		parseJson: text => Bourne.parse(text)
+	}).json();
+
+	console.log(parsed);
+})();
+```
+</details>
+
+###### stringifyJson
+
+Type: `(object: unknown) => string`\
+Default: `(object: unknown) => JSON.stringify(object)`
+
+A function used to stringify the body of JSON requests.
+
+<details>
+<summary>Examples</summary>
+
+Ignore properties starting with `_`:
+
+```js
+const got = require('got');
+
+(async () => {
+	await got.post('https://example.com', {
+		stringifyJson: object => JSON.stringify(object, (key, value) => {
+			if (key.startsWith('_')) {
+				return;
+			}
+
+			return value;
+		}),
+		json: {
+			some: 'payload',
+			_ignoreMe: 1234
+		}
+	});
+})();
+```
+
+All numbers as strings:
+
+```js
+const got = require('got');
+
+(async () => {
+	await got.post('https://example.com', {
+		stringifyJson: object => JSON.stringify(object, (key, value) => {
+			if (typeof value === 'number') {
+				return value.toString();
+			}
+
+			return value;
+		}),
+		json: {
+			some: 'payload',
+			number: 1
+		}
+	});
+})();
+```
+</details>
+
 ###### resolveBodyOnly
 
 Type: `boolean`\
@@ -357,7 +441,7 @@ Default: `'utf8'`
 
 [Encoding](https://nodejs.org/api/buffer.html#buffer_buffers_and_character_encodings) to be used on `setEncoding` of the response data.
 
-To get a [`Buffer`](https://nodejs.org/api/buffer.html), you need to set [`responseType`](#responseType) to `buffer` instead.
+To get a [`Buffer`](https://nodejs.org/api/buffer.html), you need to set [`responseType`](#responseType) to `buffer` instead. Don't set this option to `null`.
 
 **Note:** This doesn't affect streams! Instead, you need to do `got.stream(...).setEncoding(encoding)`.
 
@@ -391,6 +475,12 @@ console.log(searchParams.toString());
 //=> 'key=a&key=b'
 ```
 
+There are some exceptions in regards to `URLSearchParams` behavior:
+
+**Note #1:** `null` values are not stringified, an empty string is used instead.
+
+**Note #2:** `undefined` values are not stringified, the entry is skipped instead.
+
 ###### timeout
 
 Type: `number | object`
@@ -412,7 +502,7 @@ This also accepts an `object` with the following fields to constrain the duratio
 Type: `number | object`\
 Default:
 - limit: `2`
-- calculateDelay: `({attemptCount, retryOptions, error, computedValue}) => computedValue`
+- calculateDelay: `({attemptCount, retryOptions, error, computedValue}) => computedValue | Promise<computedValue>`
 - methods: `GET` `PUT` `HEAD` `DELETE` `OPTIONS` `TRACE`
 - statusCodes: [`408`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/408) [`413`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/413) [`429`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429) [`500`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/500) [`502`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/502) [`503`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/503) [`504`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/504) [`521`](https://support.cloudflare.com/hc/en-us/articles/115003011431#521error) [`522`](https://support.cloudflare.com/hc/en-us/articles/115003011431#522error) [`524`](https://support.cloudflare.com/hc/en-us/articles/115003011431#524error)
 - maxRetryAfter: `undefined`
@@ -427,7 +517,7 @@ If [`Retry-After`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Ret
 
 Delays between retries counts with function `1000 * Math.pow(2, retry) + Math.random() * 100`, where `retry` is attempt number (starts from 1).
 
-The `calculateDelay` property is a `function` that receives an object with `attemptCount`, `retryOptions`, `error` and `computedValue` properties for current retry count, the retry options, error and default computed value. The function must return a delay in milliseconds (`0` return value cancels retry).
+The `calculateDelay` property is a `function` that receives an object with `attemptCount`, `retryOptions`, `error` and `computedValue` properties for current retry count, the retry options, error and default computed value. The function must return a delay in milliseconds (or a Promise resolving with it) (`0` return value cancels retry).
 
 By default, it retries *only* on the specified methods, status codes, and on these network errors:
 - `ETIMEDOUT`: One of the [timeout](#timeout) limits were reached.
@@ -498,6 +588,31 @@ An instance of [`CacheableLookup`](https://github.com/szmarczak/cacheable-lookup
 
 **Note:** This should stay disabled when making requests to internal hostnames such as `localhost`, `database.local` etc.\
 `CacheableLookup` uses `dns.resolver4(..)` and `dns.resolver6(...)` under the hood and fall backs to `dns.lookup(...)` when the first two fail, which may lead to additional delay.
+
+###### dnsLookupIpVersion
+
+Type: `'auto' | 'ipv4' | 'ipv6'`\
+Default: `'auto'`
+
+Indicates which DNS record family to use.\
+Values:
+ - `auto`: IPv4 (if present) or IPv6
+ - `ipv4`: Only IPv4
+ - `ipv6`: Only IPv6
+
+Note: If you are using the undocumented option `family`, `dnsLookupIpVersion` will override it.
+
+```js
+// `api6.ipify.org` will be resolved as IPv4 and the request will be over IPv4 (the website will respond with your public IPv4)
+await got('https://api6.ipify.org', {
+	dnsLookupIpVersion: 'ipv4'
+});
+
+// `api6.ipify.org` will be resolved as IPv6 and the request will be over IPv6 (the website will respond with your public IPv6)
+await got('https://api6.ipify.org', {
+	dnsLookupIpVersion: 'ipv6'
+});
+```
 
 ###### request
 
@@ -585,6 +700,8 @@ Default: `[]`
 Called with [normalized](source/core/index.ts) [request options](#options). Got will make no further changes to the request before it is sent. This is especially useful in conjunction with [`got.extend()`](#instances) when you want to create an API client that, for example, uses HMAC-signing.
 
 See the [AWS section](#aws) for an example.
+
+**Tip:** You can override the `request` function by returning a [`ClientRequest`-like](https://nodejs.org/api/http.html#http_class_http_clientrequest) instance or a [`IncomingMessage`-like](https://nodejs.org/api/http.html#http_class_http_incomingmessage) instance. This is very useful when creating a custom cache mechanism.
 
 ###### hooks.beforeRedirect
 
@@ -795,6 +912,13 @@ Default: `Infinity`
 
 The maximum amount of items that should be emitted.
 
+###### pagination.backoff
+
+Type: `number`\
+Default: `0`
+
+Milliseconds to wait before the next request is triggered.
+
 ###### pagination.requestLimit
 
 Type: `number`\
@@ -819,7 +943,98 @@ Type: `string`
 
 The IP address used to send the request from.
 
-##### rejectUnauthorized
+### Advanced HTTPS API
+
+Note: If the request is not HTTPS, these options will be ignored.
+
+##### https.certificateAuthority
+
+Type: `string | Buffer | Array<string | Buffer>`
+
+Override the default Certificate Authorities ([from Mozilla](https://ccadb-public.secure.force.com/mozilla/IncludedCACertificateReport))
+
+```js
+// Single Certificate Authority
+got('https://example.com', {
+	https: {
+		certificateAuthority: fs.readFileSync('./my_ca.pem')
+	}
+});
+```
+
+##### https.key
+
+Type: `string | Buffer | Array<string | Buffer> | object[]`
+
+Private keys in [PEM](https://en.wikipedia.org/wiki/Privacy-Enhanced_Mail) format.\
+[PEM](https://en.wikipedia.org/wiki/Privacy-Enhanced_Mail) allows the option of private keys being encrypted. Encrypted keys will be decrypted with `options.https.passphrase`.\
+Multiple keys with different passphrases can be provided as an array of `{pem: <string | Buffer>, passphrase: <string>}`
+
+##### https.certificate
+
+Type: `string | Buffer | (string | Buffer)[]`
+
+[Certificate chains](https://en.wikipedia.org/wiki/X.509#Certificate_chains_and_cross-certification) in [PEM](https://en.wikipedia.org/wiki/Privacy-Enhanced_Mail) format.\
+One cert chain should be provided per private key (`options.https.key`).\
+When providing multiple cert chains, they do not have to be in the same order as their private keys in `options.https.key`.\
+If the intermediate certificates are not provided, the peer will not be able to validate the certificate, and the handshake will fail.
+
+##### https.passphrase
+
+Type: `string`
+
+The passphrase to decrypt the `options.https.key` (if different keys have different passphrases refer to `options.https.key` documentation).
+
+##### Examples for `https.key`, `https.certificate` and `https.passphrase`
+
+```js
+// Single key with certificate
+got('https://example.com', {
+	https: {
+		key: fs.readFileSync('./client_key.pem'),
+		certificate: fs.readFileSync('./client_cert.pem')
+	}
+});
+
+// Multiple keys with certificates (out of order)
+got('https://example.com', {
+	https: {
+		key: [
+			fs.readFileSync('./client_key1.pem'),
+			fs.readFileSync('./client_key2.pem')
+		],
+		certificate: [
+			fs.readFileSync('./client_cert2.pem'),
+			fs.readFileSync('./client_cert1.pem')
+		]
+	}
+});
+
+// Single key with passphrase
+got('https://example.com', {
+	https: {
+		key: fs.readFileSync('./client_key.pem'),
+		certificate: fs.readFileSync('./client_cert.pem'),
+		passphrase: 'client_key_passphrase'
+	}
+});
+
+// Multiple keys with different passphrases
+got('https://example.com', {
+	https: {
+		key: [
+			{pem: fs.readFileSync('./client_key1.pem'), passphrase: 'passphrase1'},
+			{pem: fs.readFileSync('./client_key2.pem'), passphrase: 'passphrase2'},
+		],
+		certificate: [
+			fs.readFileSync('./client_cert1.pem'),
+			fs.readFileSync('./client_cert2.pem')
+		]
+	}
+});
+```
+
+##### https.rejectUnauthorized
 
 Type: `boolean`\
 Default: `true`
@@ -834,14 +1049,53 @@ const got = require('got');
 
 (async () => {
 	// Correct:
-	await got('https://example.com', {rejectUnauthorized: true});
+	await got('https://example.com', {
+		https: {
+			rejectUnauthorized: true
+		}
+	});
 
 	// You can disable it when developing an HTTPS app:
-	await got('https://localhost', {rejectUnauthorized: false});
+	await got('https://localhost', {
+		https: {
+			rejectUnauthorized: false
+		}
+	});
 
 	// Never do this:
-	await got('https://example.com', {rejectUnauthorized: false});
-})();
+	await got('https://example.com', {
+		https: {
+			rejectUnauthorized: false
+		}
+	});
+```
+
+##### https.checkServerIdentity
+
+Type: `Function`\
+Signature: `(hostname: string, certificate: DetailedPeerCertificate) => Error | undefined`\
+Default: `tls.checkServerIdentity` (from the `tls` module)
+
+This function enable a custom check of the certificate.\
+Note: In order to have the function called the certificate must not be `expired`, `self-signed` or with an `untrusted-root`.\
+The function parameters are:
+- `hostname`: The server hostname (used when connecting)
+- `certificate`: The server certificate
+
+The function must return `undefined` if the check succeeded or an `Error` if it failed.
+
+```js
+await got('https://example.com', {
+	https: {
+		checkServerIdentity: (hostname, certificate) => {
+			if (hostname === 'example.com') {
+				return; // Certificate OK
+			}
+
+			return new Error('Invalid Hostname'); // Certificate NOT OK
+		}
+	}
+});
 ```
 
 #### Response
@@ -1029,6 +1283,7 @@ The emitted `error` is an instance of [`RequestError`](#got.requesterror).
 #### Pagination
 
 #### got.paginate(url, options?)
+#### got.paginate.each(url, options?)
 
 Returns an async iterator:
 
@@ -1213,7 +1468,7 @@ Options are deeply merged to a new object. The value of each key is determined a
 	- If the parent property is a plain `object`, the parent value is deeply cloned.
 	- Otherwise, `undefined` is used.
 - If the parent value is an instance of `URLSearchParams`:
-	- If the new value is a `string`, an `object` or an instance of `URLSearchParams`, a new `URLSearchParams` instance is created. The values are merged using [`urlSearchParams.append(key, value)`](https://developer.mozilla.org/en-US/docs/Web/API/URLSearchParams/append). The keys defined in the new value override the keys defined in the parent value.
+	- If the new value is a `string`, an `object` or an instance of `URLSearchParams`, a new `URLSearchParams` instance is created. The values are merged using [`urlSearchParams.append(key, value)`](https://developer.mozilla.org/en-US/docs/Web/API/URLSearchParams/append). The keys defined in the new value override the keys defined in the parent value. Please note that `null` values point to an empty string and `undefined` values will exclude the entry.
 	- Otherwise, the only available value is `undefined`.
 - If the new property is a plain `object`:
 	- If the parent property is a plain `object` too, both values are merged recursively into a new `object`.
@@ -1869,14 +2124,14 @@ The Electron `net` module is not consistent with the Node.js `http` module. See 
 [kbg]: https://badgen.net/github/label-issues/sindresorhus/ky/bug/open?label
 [rbg]: https://badgen.net/github/label-issues/request/request/Needs%20investigation/open?label
 [nbg]: https://badgen.net/github/label-issues/bitinn/node-fetch/bug/open?label
-[abg]: https://badgen.net/github/label-issues/axios/axios/type:bug/open?label
+[abg]: https://badgen.net/github/label-issues/axios/axios/type:confirmed%20bug/open?label
 [sbg]: https://badgen.net/github/label-issues/visionmedia/superagent/Bug/open?label
 
 [g6]: https://github.com/sindresorhus/got/issues?q=is%3Aissue+is%3Aopen+sort%3Aupdated-desc+label%3Abug
 [k6]: https://github.com/sindresorhus/ky/issues?q=is%3Aissue+is%3Aopen+sort%3Aupdated-desc+label%3Abug
 [r6]: https://github.com/request/request/issues?q=is%3Aissue+is%3Aopen+sort%3Aupdated-desc+label%3A"Needs+investigation"
 [n6]: https://github.com/bitinn/node-fetch/issues?q=is%3Aissue+is%3Aopen+sort%3Aupdated-desc+label%3Abug
-[a6]: https://github.com/axios/axios/issues?q=is%3Aissue+is%3Aopen+sort%3Aupdated-desc+label%3Atype:bug
+[a6]: https://github.com/axios/axios/issues?q=is%3Aissue+is%3Aopen+sort%3Aupdated-desc+label%3A%22type%3Aconfirmed+bug%22
 [s6]: https://github.com/visionmedia/superagent/issues?q=is%3Aissue+is%3Aopen+sort%3Aupdated-desc+label%3ABug
 
 <!-- DEPENDENTS -->
