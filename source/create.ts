@@ -217,6 +217,11 @@ const create = (defaults: InstanceDefaults): Got => {
 
 		let numberOfRequests = 0;
 		while (numberOfRequests < pagination.requestLimit) {
+			if (numberOfRequests !== 0) {
+				// eslint-disable-next-line no-await-in-loop
+				await delay(pagination.backoff);
+			}
+
 			// TODO: Throw when result is not an instance of Response
 			// eslint-disable-next-line no-await-in-loop
 			const result = (await got(normalizedOptions)) as Response;
@@ -257,8 +262,6 @@ const create = (defaults: InstanceDefaults): Got => {
 				normalizedOptions = normalizeArguments(undefined, optionsToMerge, normalizedOptions);
 			}
 
-			// eslint-disable-next-line no-await-in-loop
-			await delay(pagination.backoff);
 			numberOfRequests++;
 		}
 	});

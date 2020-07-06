@@ -1,8 +1,9 @@
 import {URL} from 'url';
 import test from 'ava';
+import delay = require('delay');
 import getStream = require('get-stream');
 import got, {Response} from '../source';
-import withServer, {withBodyParsingServer, withServerAndLolex} from './helpers/with-server';
+import withServer, {withBodyParsingServer} from './helpers/with-server';
 import {ExtendedTestServer} from './helpers/types';
 
 const thrower = (): any => {
@@ -449,31 +450,31 @@ test('`requestLimit` works', withServer, async (t, server, got) => {
 	t.deepEqual(results, [1]);
 });
 
-test.cb('`backoff` works', withServerAndLolex, (t, server, got, clock) => {
+test('`backoff` works', withServer, async (t, server, got) => {
 	attachHandler(server, 2);
 
-	let result: number[] = [];
+	const backoff = 200;
 
-	const backoff = 10000;
+	const asyncIterator: AsyncIterator<number> = got.paginate<number>('', {
+		pagination: {
+			backoff
+		}
+	});;
 
+	t.is((await asyncIterator.next()).value, 1);
+
+	let receivedLastOne = false;
+	const promise = asyncIterator.next();
 	(async () => {
-		result = await got.paginate.all<number>('', {
-			pagination: {
-				backoff
-			}
-		});
+		await promise;
+		receivedLastOne = true;
 	})();
 
-	clock.tick(backoff / 2);
+	await delay(backoff / 2);
+	t.false(receivedLastOne);
 
-	t.deepEqual(result, []);
-
-	clock.tick(backoff);
-
-	t.deepEqual(result, [1, 2, 3, 4, 5]);
-
-	// @ts-ignore
-	t.end();
+	await delay(backoff / 2 + 100);
+	t.true(receivedLastOne);
 });
 
 test('`stackAllItems` set to true', withServer, async (t, server, got) => {
