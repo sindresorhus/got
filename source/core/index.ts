@@ -1312,6 +1312,9 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			// Force clean-up, because some packages (e.g. nock) don't do this.
 			request.destroy();
 
+			// Node.js <= 12.18.2 mistakenly emits the response `end` first.
+			(request as ClientRequest & {res: IncomingMessage | undefined}).res?.removeAllListeners('end');
+
 			if (error instanceof TimedOutTimeoutError) {
 				error = new TimeoutError(error, this.timings!, this);
 			} else {
