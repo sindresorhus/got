@@ -459,7 +459,7 @@ test('`backoff` works', withServer, async (t, server, got) => {
 		pagination: {
 			backoff
 		}
-	});;
+	});
 
 	t.is((await asyncIterator.next()).value, 1);
 
@@ -473,7 +473,7 @@ test('`backoff` works', withServer, async (t, server, got) => {
 	await delay(backoff / 2);
 	t.false(receivedLastOne);
 
-	await delay(backoff / 2 + 100);
+	await delay((backoff / 2) + 100);
 	t.true(receivedLastOne);
 });
 
