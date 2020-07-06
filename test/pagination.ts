@@ -1,5 +1,6 @@
 import {URL} from 'url';
 import test from 'ava';
+import delay = require('delay');
 import getStream = require('get-stream');
 import got, {Response} from '../source';
 import withServer, {withBodyParsingServer} from './helpers/with-server';
@@ -447,6 +448,33 @@ test('`requestLimit` works', withServer, async (t, server, got) => {
 	}
 
 	t.deepEqual(results, [1]);
+});
+
+test('`backoff` works', withServer, async (t, server, got) => {
+	attachHandler(server, 2);
+
+	const backoff = 200;
+
+	const asyncIterator: AsyncIterator<number> = got.paginate<number>('', {
+		pagination: {
+			backoff
+		}
+	});
+
+	t.is((await asyncIterator.next()).value, 1);
+
+	let receivedLastOne = false;
+	const promise = asyncIterator.next();
+	(async () => {
+		await promise;
+		receivedLastOne = true;
+	})();
+
+	await delay(backoff / 2);
+	t.false(receivedLastOne);
+
+	await delay((backoff / 2) + 100);
+	t.true(receivedLastOne);
 });
 
 test('`stackAllItems` set to true', withServer, async (t, server, got) => {

@@ -108,6 +108,7 @@ const defaults: InstanceDefaults = {
 			filter: () => true,
 			shouldContinue: () => true,
 			countLimit: Infinity,
+			backoff: 0,
 			requestLimit: 10000,
 			stackAllItems: true
 		},
