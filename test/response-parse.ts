@@ -14,7 +14,7 @@ const defaultHandler: Handler = (_request, response) => {
 test('`options.resolveBodyOnly` works', withServer, async (t, server, got) => {
 	server.get('/', defaultHandler);
 
-	t.deepEqual(await got<object>({responseType: 'json', resolveBodyOnly: true}), dog);
+	t.deepEqual(await got<Record<string, unknown>>({responseType: 'json', resolveBodyOnly: true}), dog);
 });
 
 test('`options.resolveBodyOnly` combined with `options.throwHttpErrors`', withServer, async (t, server, got) => {
@@ -85,7 +85,7 @@ test('works if promise has been already resolved', withServer, async (t, server,
 test('throws an error on invalid response type', withServer, async (t, server, got) => {
 	server.get('/', defaultHandler);
 
-	// @ts-ignore Error tests
+	// @ts-expect-error Error tests
 	const error = await t.throwsAsync<ParseError>(got({responseType: 'invalid'}));
 	t.regex(error.message, /^Unknown body type 'invalid'/);
 	t.true(error.message.includes(error.options.url.hostname));

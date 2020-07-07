@@ -7,12 +7,12 @@ import getStream = require('get-stream');
 import FormData = require('form-data');
 import tempy = require('tempy');
 import is from '@sindresorhus/is';
-import test, {Macro} from 'ava';
+import test, {ExecutionContext} from 'ava';
 import {Handler} from 'express';
 import {Progress} from '../source';
 import withServer from './helpers/with-server';
 
-const checkEvents: Macro<[Progress[], number?]> = (t, events, bodySize = undefined) => {
+const checkEvents = (t: ExecutionContext, events: Progress[], bodySize?: number) => {
 	t.true(events.length >= 2);
 
 	let lastEvent = events.shift()!;

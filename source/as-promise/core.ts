@@ -21,7 +21,6 @@ if (!knownHookEvents.includes('beforeRetry' as any)) {
 
 export const knownBodyTypes = ['json', 'buffer', 'text'];
 
-// @ts-ignore The error is: Not all code paths return a value.
 export const parseBody = (response: Response, responseType: ResponseType, parseJson: ParseJsonFunction, encoding?: BufferEncoding): unknown => {
 	const {rawBody} = response;
 
@@ -100,6 +99,8 @@ export default class PromisableRequest extends Request {
 
 		if (is.undefined(options.retry.maxRetryAfter)) {
 			options.retry.maxRetryAfter = Math.min(
+				// TypeScript is not smart enough to handle `.filter(x => is.number(x))`.
+				// eslint-disable-next-line unicorn/no-fn-reference-in-iterator
 				...[options.timeout.request, options.timeout.connect].filter(is.number)
 			);
 		}
@@ -150,7 +151,7 @@ export default class PromisableRequest extends Request {
 		return mergedOptions!;
 	}
 
-	async _beforeError(error: Error): Promise<void> {
+	_beforeError(error: Error): void {
 		if (this.destroyed) {
 			return;
 		}

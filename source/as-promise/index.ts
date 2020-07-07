@@ -42,18 +42,20 @@ export default function asPromise<T>(options: NormalizedOptions): CancelableRequ
 			request._noPipe = true;
 			onCancel(() => request.destroy());
 
-			const reject = async (error: RequestError) => {
-				try {
-					for (const hook of options.hooks.beforeError) {
-						// eslint-disable-next-line no-await-in-loop
-						error = await hook(error);
+			const reject = (error: RequestError): void => {
+				void (async () => {
+					try {
+						for (const hook of options.hooks.beforeError) {
+							// eslint-disable-next-line no-await-in-loop
+							error = await hook(error);
+						}
+					} catch (error_) {
+						_reject(new RequestError(error_.message, error_, request));
+						return;
 					}
-				} catch (error_) {
-					_reject(new RequestError(error_.message, error_, request));
-					return;
-				}
 
-				_reject(error);
+					_reject(error);
+				})();
 			};
 
 			globalRequest = request;
@@ -79,7 +81,7 @@ export default function asPromise<T>(options: NormalizedOptions): CancelableRequ
 					rawBody = await getBuffer(request);
 
 					response.rawBody = rawBody;
-				} catch (_) {
+				} catch {
 					// The same error is caught below.
 					// See request.once('error')
 					return;
@@ -108,7 +110,7 @@ export default function asPromise<T>(options: NormalizedOptions): CancelableRequ
 
 				try {
 					for (const [index, hook] of options.hooks.afterResponse.entries()) {
-						// @ts-ignore TS doesn't notice that CancelableRequest is a Promise
+						// @ts-expect-error TS doesn't notice that CancelableRequest is a Promise
 						// eslint-disable-next-line no-await-in-loop
 						response = await hook(response, async (updatedOptions): CancelableRequest<Response> => {
 							const typedOptions = PromisableRequest.normalizeArguments(undefined, {
@@ -223,7 +225,7 @@ export default function asPromise<T>(options: NormalizedOptions): CancelableRequ
 
 				if (error instanceof HTTPError) {
 					// The error will be handled by the `response` event
-					onResponse(request._response as Response);
+					void onResponse(request._response as Response);
 
 					// Reattach the error handler, because there may be a timeout later.
 					process.nextTick(() => {

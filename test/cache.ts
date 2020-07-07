@@ -119,7 +119,7 @@ test('cache error throws `got.CacheError`', withServer, async (t, server, got) =
 
 	const cache = {};
 
-	// @ts-ignore Error tests
+	// @ts-expect-error Error tests
 	await t.throwsAsync(got({cache}), {instanceOf: got.CacheError});
 });
 
@@ -151,7 +151,7 @@ test('DNS cache works', withServer, async (t, _server, got) => {
 
 	await t.notThrowsAsync(instance('https://example.com'));
 
-	// @ts-ignore
+	// @ts-expect-error
 	t.is(instance.defaults.options.dnsCache!._cache.size, 1);
 });
 

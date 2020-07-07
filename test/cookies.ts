@@ -178,7 +178,7 @@ test('accepts custom `cookieJar` object', withServer, async (t, server, got) => 
 test('throws on invalid `options.cookieJar.setCookie`', async t => {
 	await t.throwsAsync(got('https://example.com', {
 		cookieJar: {
-			// @ts-ignore Error tests
+			// @ts-expect-error Error tests
 			setCookie: 123
 		}
 	}), {message: 'Expected value which is `Function`, received value of type `number`.'});
@@ -188,7 +188,7 @@ test('throws on invalid `options.cookieJar.getCookieString`', async t => {
 	await t.throwsAsync(got('https://example.com', {
 		cookieJar: {
 			setCookie: async () => {},
-			// @ts-ignore Error tests
+			// @ts-expect-error Error tests
 			getCookieString: 123
 		}
 	}), {message: 'Expected value which is `Function`, received value of type `number`.'});

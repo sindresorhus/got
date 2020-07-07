@@ -13,7 +13,7 @@ declare module 'create-test-server' {
 			sslPort: number;
 			sslUrl: string;
 
-			close(): Promise<void>;
+			close: () => Promise<void>;
 		}
 	}
 }

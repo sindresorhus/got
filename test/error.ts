@@ -41,7 +41,7 @@ test('catches dns errors', async t => {
 });
 
 test('`options.body` form error message', async t => {
-	// @ts-ignore Error tests
+	// @ts-expect-error Error tests
 	await t.throwsAsync(got.post('https://example.com', {body: Buffer.from('test'), form: ''}), {
 		message: 'The `body`, `json` and `form` options are mutually exclusive'
 	});
@@ -134,9 +134,8 @@ test('`http.request` error', async t => {
 test('`http.request` pipe error', async t => {
 	const message = 'snap!';
 
-	// @ts-ignore Error tests
 	await t.throwsAsync(got('https://example.com', {
-		// @ts-ignore Error tests
+		// @ts-expect-error Error tests
 		request: () => {
 			const proxy = new stream.PassThrough();
 
@@ -180,8 +179,8 @@ test('`http.request` error through CacheableRequest', async t => {
 
 test('errors are thrown directly when options.isStream is true', t => {
 	t.throws(() => {
-		// @ts-ignore Error tests
-		got('https://example.com', {isStream: true, hooks: false});
+		// @ts-expect-error Error tests
+		void got('https://example.com', {isStream: true, hooks: false});
 	}, {
 		message: 'Expected value which is `predicate returns truthy for any value`, received value of type `Array`.'
 	});

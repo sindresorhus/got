@@ -11,7 +11,7 @@ import timer, {ClientRequestWithTimings, Timings, IncomingMessageWithTimings} fr
 import CacheableLookup from 'cacheable-lookup';
 import CacheableRequest = require('cacheable-request');
 import decompressResponse = require('decompress-response');
-// @ts-ignore Missing types
+// @ts-expect-error Missing types
 import http2wrapper = require('http2-wrapper');
 import lowercaseKeys = require('lowercase-keys');
 import ResponseLike = require('responselike');
@@ -60,15 +60,15 @@ export interface Agents {
 export const withoutBody: ReadonlySet<string> = new Set(['GET', 'HEAD']);
 
 export interface ToughCookieJar {
-	getCookieString(currentUrl: string, options: {[key: string]: unknown}, cb: (err: Error | null, cookies: string) => void): void;
-	getCookieString(url: string, callback: (error: Error | null, cookieHeader: string) => void): void;
-	setCookie(cookieOrString: unknown, currentUrl: string, options: {[key: string]: unknown}, cb: (err: Error | null, cookie: unknown) => void): void;
-	setCookie(rawCookie: string, url: string, callback: (error: Error | null, result: unknown) => void): void;
+	getCookieString: ((currentUrl: string, options: {[key: string]: unknown}, cb: (err: Error | null, cookies: string) => void) => void)
+	& ((url: string, callback: (error: Error | null, cookieHeader: string) => void) => void);
+	setCookie: ((cookieOrString: unknown, currentUrl: string, options: {[key: string]: unknown}, cb: (err: Error | null, cookie: unknown) => void) => void)
+	& ((rawCookie: string, url: string, callback: (error: Error | null, result: unknown) => void) => void);
 }
 
 export interface PromiseCookieJar {
-	getCookieString(url: string): Promise<string>;
-	setCookie(rawCookie: string, url: string): Promise<unknown>;
+	getCookieString: (url: string) => Promise<string>;
+	setCookie: (rawCookie: string, url: string) => Promise<unknown>;
 }
 
 export type Method =
@@ -91,7 +91,7 @@ export type Method =
 
 type Promisable<T> = T | Promise<T>;
 
-export type InitHook = (options: Options) => Promisable<void>;
+export type InitHook = (options: Options) => void;
 export type BeforeRequestHook = (options: NormalizedOptions) => Promisable<void | Response | ResponseLike>;
 export type BeforeRedirectHook = (options: NormalizedOptions, response: Response) => Promisable<void>;
 export type BeforeErrorHook = (error: RequestError) => Promisable<RequestError>;
@@ -144,7 +144,7 @@ interface PlainOptions extends URLOptions {
 	ignoreInvalidCookies?: boolean;
 	searchParams?: string | {[key: string]: string | number | boolean | null | undefined} | URLSearchParams;
 	dnsCache?: CacheableLookup | boolean;
-	context?: object;
+	context?: Record<string, unknown>;
 	hooks?: Hooks;
 	followRedirect?: boolean;
 	maxRedirects?: number;
@@ -199,7 +199,7 @@ interface NormalizedPlainOptions extends PlainOptions {
 	searchParams?: URLSearchParams;
 	cookieJar?: PromiseCookieJar;
 	headers: Headers;
-	context: object;
+	context: Record<string, unknown>;
 	hooks: Required<Hooks>;
 	followRedirect: boolean;
 	maxRedirects: number;
@@ -227,7 +227,7 @@ interface PlainDefaults {
 	method: Method;
 	ignoreInvalidCookies: boolean;
 	decompress: boolean;
-	context: object;
+	context: Record<string, unknown>;
 	cookieJar?: PromiseCookieJar | ToughCookieJar;
 	dnsCache?: CacheableLookup;
 	headers: Headers;
@@ -279,10 +279,10 @@ export interface Response<T = unknown> extends PlainResponse {
 }
 
 export interface RequestEvents<T> {
-	on(name: 'request', listener: (request: http.ClientRequest) => void): T;
-	on<R extends Response>(name: 'response', listener: (response: R) => void): T;
-	on<R extends Response, N extends NormalizedOptions>(name: 'redirect', listener: (response: R, nextOptions: N) => void): T;
-	on(name: 'uploadProgress' | 'downloadProgress', listener: (progress: Progress) => void): T;
+	on: ((name: 'request', listener: (request: http.ClientRequest) => void) => T)
+	& (<R extends Response>(name: 'response', listener: (response: R) => void) => T)
+	& (<R extends Response, N extends NormalizedOptions>(name: 'redirect', listener: (response: R, nextOptions: N) => void) => T)
+	& ((name: 'uploadProgress' | 'downloadProgress', listener: (progress: Progress) => void) => T);
 }
 
 function validateSearchParameters(searchParameters: Record<string, unknown>): asserts searchParameters is Record<string, string | number | boolean | null | undefined> {
@@ -346,7 +346,7 @@ export const setNonEnumerableProperties = (sources: Array<Options | Defaults | u
 				writable: true,
 				configurable: true,
 				enumerable: false,
-				// @ts-ignore TS doesn't see the check above
+				// @ts-expect-error TS doesn't see the check above
 				value: source[name]
 			};
 		}
@@ -582,7 +582,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 				if (kIsNormalizedAlready in nonNormalizedOptions) {
 					this.options = nonNormalizedOptions as NormalizedOptions;
 				} else {
-					// @ts-ignore Common TypeScript bug saying that `this.constructor` is not accessible
+					// @ts-expect-error Common TypeScript bug saying that `this.constructor` is not accessible
 					this.options = this.constructor.normalizeArguments(url, nonNormalizedOptions, defaults);
 				}
 
@@ -798,6 +798,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 			// Set search params
 			if (options.searchParams) {
+				// eslint-disable-next-line @typescript-eslint/no-base-to-string
 				options.url.search = options.searchParams.toString();
 			}
 
@@ -836,6 +837,8 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 				options.cookieJar = {
 					setCookie,
+					// TODO: Fix this when upgrading to TypeScript 4.
+					// @ts-expect-error TypeScript thinks that promisifying callback(error, string) will result in Promise<void>
 					getCookieString
 				};
 			}
@@ -851,17 +854,21 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 						// TODO: remove this when `cacheable-request` supports async request functions.
 						if (is.promise(result)) {
-							// @ts-ignore
+							// @ts-expect-error
 							// We only need to implement the error handler in order to support HTTP2 caching.
 							// The result will be a promise anyway.
 							result.once = (event: string, handler: (reason: unknown) => void) => {
 								if (event === 'error') {
 									result.catch(handler);
 								} else if (event === 'abort') {
-									// eslint-disable-next-line promise/prefer-await-to-then
-									result.then((request: unknown): void => {
-										(request as ClientRequest).once('abort', handler);
-									});
+									// The empty catch is needed here in case when
+									// it rejects before it's `await`ed in `_makeRequest`.
+									(async () => {
+										try {
+											const request = (await result) as ClientRequest;
+											request.once('abort', handler);
+										} catch {}
+									})();
 								} else {
 									/* istanbul ignore next: safety check */
 									throw new Error(`Unknown HTTP2 promise event: ${event}`);
@@ -1088,7 +1095,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		this[kBodySize] = Number(headers['content-length']) || undefined;
 	}
 
-	async _onResponse(response: IncomingMessageWithTimings): Promise<void> {
+	async _onResponseBase(response: IncomingMessageWithTimings): Promise<void> {
 		const {options} = this;
 		const {url} = options;
 
@@ -1242,9 +1249,12 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		const limitStatusCode = options.followRedirect ? 299 : 399;
 		const isOk = (statusCode >= 200 && statusCode <= limitStatusCode) || statusCode === 304;
 		if (options.throwHttpErrors && !isOk) {
-			await this._beforeError(new HTTPError(typedResponse));
+			// Normally we would have to use `void [await] this._beforeError(error)` everywhere,
+			// but since there's `void (async () => { ... })()` inside of it, we don't have to.
+			this._beforeError(new HTTPError(typedResponse));
 
-			if (this.destroyed) {
+			// This is equivalent to this.destroyed
+			if (this[kStopReading]) {
 				return;
 			}
 		}
@@ -1288,6 +1298,14 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		}
 	}
 
+	async _onResponse(response: IncomingMessageWithTimings): Promise<void> {
+		try {
+			await this._onResponseBase(response);
+		} catch (error) {
+			this._beforeError(error);
+		}
+	}
+
 	_onRequest(request: ClientRequest): void {
 		const {options} = this;
 		const {timeout, url} = options;
@@ -1299,7 +1317,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		const responseEventName = options.cache ? 'cacheableResponse' : 'response';
 
 		request.once(responseEventName, (response: IncomingMessageWithTimings) => {
-			this._onResponse(response);
+			void this._onResponse(response);
 		});
 
 		request.once('error', (error: Error) => {
@@ -1420,7 +1438,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			const result = await hook(options);
 
 			if (!is.undefined(result)) {
-				// @ts-ignore Skip the type mismatch to support abstract responses
+				// @ts-expect-error Skip the type mismatch to support abstract responses
 				options.request = () => result;
 				break;
 			}
@@ -1528,14 +1546,14 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 				// Emit the response after the stream has been ended
 			} else if (this.writable) {
 				this.once('finish', () => {
-					this._onResponse(requestOrResponse as IncomingMessageWithTimings);
+					void this._onResponse(requestOrResponse as IncomingMessageWithTimings);
 				});
 
 				this._unlockWrite();
 				this.end();
 				this._lockWrite();
 			} else {
-				this._onResponse(requestOrResponse as IncomingMessageWithTimings);
+				void this._onResponse(requestOrResponse as IncomingMessageWithTimings);
 			}
 		} catch (error) {
 			if (error instanceof CacheableRequest.CacheError) {
@@ -1546,7 +1564,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		}
 	}
 
-	async _beforeError(error: Error): Promise<void> {
+	_beforeError(error: Error): void {
 		if (this.destroyed) {
 			return;
 		}
@@ -1557,27 +1575,29 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			error = new RequestError(error.message, error, this);
 		}
 
-		try {
-			const {response} = error as RequestError;
+		void (async () => {
+			try {
+				const {response} = error as RequestError;
 
-			if (response) {
-				response.setEncoding((this as any)._readableState.encoding);
+				if (response) {
+					response.setEncoding((this as any)._readableState.encoding);
 
-				response.rawBody = await getBuffer(response);
-				response.body = response.rawBody.toString();
+					response.rawBody = await getBuffer(response);
+					response.body = response.rawBody.toString();
+				}
+			} catch {}
+
+			try {
+				for (const hook of this.options.hooks.beforeError) {
+					// eslint-disable-next-line no-await-in-loop
+					error = await hook(error as RequestError);
+				}
+			} catch (error_) {
+				error = new RequestError(error_.message, error_, this);
 			}
-		} catch (_) {}
 
-		try {
-			for (const hook of this.options.hooks.beforeError) {
-				// eslint-disable-next-line no-await-in-loop
-				error = await hook(error as RequestError);
-			}
-		} catch (error_) {
-			error = new RequestError(error_.message, error_, this);
-		}
-
-		this.destroy(error);
+			this.destroy(error);
+		})();
 	}
 
 	_read(): void {
@@ -1680,6 +1700,8 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	}
 
 	_destroy(error: Error | null, callback: (error: Error | null) => void): void {
+		this[kStopReading] = true;
+
 		if (kRequest in this) {
 			this[kCancelTimeouts]!();
 
