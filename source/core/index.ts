@@ -863,10 +863,12 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 								} else if (event === 'abort') {
 									// The empty catch is needed here in case when
 									// it rejects before it's `await`ed in `_makeRequest`.
-									// eslint-disable-next-line promise/prefer-await-to-then
-									result.then((request: unknown): void => {
-										(request as ClientRequest).once('abort', handler);
-									}).catch(() => {});
+									(async () => {
+										try {
+											const request = (await result) as ClientRequest;
+											request.once('abort', handler);
+										} catch {}
+									})();
 								} else {
 									/* istanbul ignore next: safety check */
 									throw new Error(`Unknown HTTP2 promise event: ${event}`);
@@ -1093,7 +1095,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		this[kBodySize] = Number(headers['content-length']) || undefined;
 	}
 
-	async _onResponse(response: IncomingMessageWithTimings): Promise<void> {
+	async _onResponseBase(response: IncomingMessageWithTimings): Promise<void> {
 		const {options} = this;
 		const {url} = options;
 
@@ -1293,6 +1295,14 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			}
 
 			destination.statusCode = statusCode;
+		}
+	}
+
+	async _onResponse(response: IncomingMessageWithTimings): Promise<void> {
+		try {
+			await this._onResponseBase(response);
+		} catch (error) {
+			this._beforeError(error);
 		}
 	}
 

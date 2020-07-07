@@ -151,7 +151,7 @@ export default class PromisableRequest extends Request {
 		return mergedOptions!;
 	}
 
-	async _beforeError(error: Error): Promise<void> {
+	_beforeError(error: Error): void {
 		if (this.destroyed) {
 			return;
 		}
