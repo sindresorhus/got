@@ -464,6 +464,7 @@ test('`backoff` works', withServer, async (t, server, got) => {
 	t.is((await asyncIterator.next()).value, 1);
 
 	let receivedLastOne = false;
+	const start = Date.now();
 	const promise = asyncIterator.next();
 	(async () => {
 		await promise;
@@ -473,8 +474,8 @@ test('`backoff` works', withServer, async (t, server, got) => {
 	await delay(backoff / 2);
 	t.false(receivedLastOne);
 
-	await delay((backoff / 2) + 100);
-	t.true(receivedLastOne);
+	await promise;
+	t.true(Date.now() - start >= backoff);
 });
 
 test('`stackAllItems` set to true', withServer, async (t, server, got) => {
