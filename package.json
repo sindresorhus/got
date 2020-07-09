@@ -50,7 +50,7 @@
 		"cacheable-lookup": "^5.0.3",
 		"cacheable-request": "^7.0.1",
 		"decompress-response": "^6.0.0",
-		"http2-wrapper": "^1.0.0-beta.4.8",
+		"http2-wrapper": "^1.0.0-beta.5.0",
 		"lowercase-keys": "^2.0.0",
 		"p-cancelable": "^2.0.0",
 		"responselike": "^2.0.0"
