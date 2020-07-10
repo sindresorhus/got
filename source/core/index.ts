@@ -1627,6 +1627,8 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		}
 	}
 
+	// eslint-disable-next-line @typescript-eslint/prefer-ts-expect-error
+	// @ts-ignore Node.js 12 has incorrect typing
 	_write(chunk: any, encoding: BufferEncoding | undefined, callback: (error?: Error | null) => void): void {
 		const write = (): void => {
 			this._writeRequest(chunk, encoding, callback);
