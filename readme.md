@@ -1748,6 +1748,8 @@ got('https://sindresorhus.com', {
 
 Alternatively, use [`global-agent`](https://github.com/gajus/global-agent) to configure a global proxy for all HTTP/HTTPS traffic in your program.
 
+Read the [`http2-wrapper`](https://github.com/szmarczak/http2-wrapper/#proxy-support) docs to learn about proxying for HTTP/2.
+
 ## Cookies
 
 You can use the [`tough-cookie`](https://github.com/salesforce/tough-cookie) package:
