@@ -2032,6 +2032,7 @@ The Electron `net` module is not consistent with the Node.js `http` module. See 
 | Bugs                  | [![][gbg]][g6]     | [![][rbg]][r6]     | [![][nbg]][n6]       | [![][kbg]][k6]           | [![][abg]][a6]     | [![][sbg]][s6]         |
 | Dependents            | [![][gdp]][g7]     | [![][rdp]][r7]     | [![][ndp]][n7]       | [![][kdp]][k7]           | [![][adp]][a7]     | [![][sdp]][s7]         |
 | Install size          | [![][gis]][g8]     | [![][ris]][r8]     | [![][nis]][n8]       | [![][kis]][k8]           | [![][ais]][a8]     | [![][sis]][s8]         |
+| GitHub stars          | [![][gs]][g9]      | [![][rs]][r9]      | [![][ns]][n9]        | [![][ks]][k9]            | [![][as]][a9]      | [![][ss]][s9]          |
 
 \* It's almost API compatible with the browser `fetch` API.\
 \*\* Need to switch the protocol manually. Doesn't accept PUSH streams and doesn't reuse HTTP/2 sessions.\
@@ -2166,9 +2167,24 @@ The Electron `net` module is not consistent with the Node.js `http` module. See 
 [a8]: https://packagephobia.now.sh/result?p=axios
 [s8]: https://packagephobia.now.sh/result?p=superagent
 
+<!-- GITHUB STARS -->
+[gs]: https://badgen.net/github/stars/sindresorhus/got?label
+[ks]: https://badgen.net/github/stars/sindresorhus/ky?label
+[rs]: https://badgen.net/github/stars/request/request?label
+[ns]: https://badgen.net/github/stars/bitinn/node-fetch?label
+[as]: https://badgen.net/github/stars/axios/axios?label
+[ss]: https://badgen.net/github/stars/visionmedia/superagent?label
+
+[g9]: https://github.com/sindresorhus/got
+[k9]: https://github.com/sindresorhus/ky
+[r9]: https://github.com/request/request
+[n9]: https://github.com/node-fetch/node-fetch
+[a9]: https://github.com/axios/axios
+[s9]: https://github.com/visionmedia/superagent
+
 [Click here][InstallSizeOfTheDependencies] to see the install size of the Got dependencies.
 
-[InstallSizeOfTheDependencies]: https://packagephobia.now.sh/result?p=@sindresorhus/is@1.0.0,@szmarczak/http-timer@3.1.0,@types/cacheable-request@6.0.1,cacheable-lookup@0.2.1,cacheable-request@7.0.0,decompress-response@5.0.0,duplexer3@0.1.4,get-stream@5.0.0,lowercase-keys@2.0.0,mimic-response@2.0.0,p-cancelable@2.0.0,responselike@2.0.0,to-readable-stream@2.0.0,type-fest@0.8.0
+[InstallSizeOfTheDependencies]: https://packagephobia.com/result?p=@sindresorhus/is@3.0.0,@szmarczak/http-timer@4.0.5,@types/cacheable-request@6.0.1,@types/responselike@1.0.0,cacheable-lookup@5.0.3,cacheable-request@7.0.1,decompress-response@6.0.0,http2-wrapper@1.0.0,lowercase-keys@2.0.0,p-cancelable@2.0.0,responselike@2.0.0
 
 ## Related
 
