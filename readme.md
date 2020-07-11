@@ -2033,6 +2033,8 @@ The Electron `net` module is not consistent with the Node.js `http` module. See 
 | Dependents            | [![][gdp]][g7]     | [![][rdp]][r7]     | [![][ndp]][n7]       | [![][kdp]][k7]           | [![][adp]][a7]     | [![][sdp]][s7]         |
 | Install size          | [![][gis]][g8]     | [![][ris]][r8]     | [![][nis]][n8]       | [![][kis]][k8]           | [![][ais]][a8]     | [![][sis]][s8]         |
 | GitHub stars          | [![][gs]][g9]      | [![][rs]][r9]      | [![][ns]][n9]        | [![][ks]][k9]            | [![][as]][a9]      | [![][ss]][s9]          |
+| TypeScript support    | [![][gts]][g10]    | [![][rts]][r10]    | [![][nts]][n10]      | [![][kts]][k10]          | [![][ats]][a10]    | [![][sts]][s11]        |
+| Last commit           | [![][glc]][g11]    | [![][rlc]][r11]    | [![][nlc]][n11]      | [![][klc]][k11]          | [![][alc]][a11]    | [![][slc]][s11]        |
 
 \* It's almost API compatible with the browser `fetch` API.\
 \*\* Need to switch the protocol manually. Doesn't accept PUSH streams and doesn't reuse HTTP/2 sessions.\
@@ -2181,6 +2183,36 @@ The Electron `net` module is not consistent with the Node.js `http` module. See 
 [n9]: https://github.com/node-fetch/node-fetch
 [a9]: https://github.com/axios/axios
 [s9]: https://github.com/visionmedia/superagent
+
+<!-- TYPESCRIPT SUPPORT -->
+[gts]: https://badgen.net/npm/types/got?label
+[kts]: https://badgen.net/npm/types/ky?label
+[rts]: https://badgen.net/npm/types/request?label
+[nts]: https://badgen.net/npm/types/node-fetch?label
+[ats]: https://badgen.net/npm/types/axios?label
+[sts]: https://badgen.net/npm/types/superagent?label
+
+[g10]: https://github.com/sindresorhus/got
+[k10]: https://github.com/sindresorhus/ky
+[r10]: https://github.com/request/request
+[n10]: https://github.com/node-fetch/node-fetch
+[a10]: https://github.com/axios/axios
+[s10]: https://github.com/visionmedia/superagent
+
+<!-- LAST COMMIT -->
+[glc]: https://badgen.net/github/last-commit/sindresorhus/got?label
+[klc]: https://badgen.net/github/last-commit/sindresorhus/ky?label
+[rlc]: https://badgen.net/github/last-commit/request/request?label
+[nlc]: https://badgen.net/github/last-commit/bitinn/node-fetch?label
+[alc]: https://badgen.net/github/last-commit/axios/axios?label
+[slc]: https://badgen.net/github/last-commit/visionmedia/superagent?label
+
+[g11]: https://github.com/sindresorhus/got/commits
+[k11]: https://github.com/sindresorhus/ky/commits
+[r11]: https://github.com/request/request/commits
+[n11]: https://github.com/node-fetch/node-fetch/commits
+[a11]: https://github.com/axios/axios/commits
+[s11]: https://github.com/visionmedia/superagent/commits
 
 [Click here][InstallSizeOfTheDependencies] to see the install size of the Got dependencies.
 
