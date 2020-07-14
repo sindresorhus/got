@@ -307,7 +307,8 @@ const waitForOpenFile = async (file: ReadStream): Promise<void> => new Promise((
 		reject(error);
 	};
 
-	if (!file.pending) {
+	// Node.js 12 has incomplete types
+	if (!(file as any).pending) {
 		resolve();
 	}
 
@@ -1627,11 +1628,10 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		}
 	}
 
-	// eslint-disable-next-line @typescript-eslint/prefer-ts-expect-error
-	// @ts-ignore Node.js 12 has incorrect typing
-	_write(chunk: any, encoding: BufferEncoding | undefined, callback: (error?: Error | null) => void): void {
+	// Node.js 12 has incorrect types, so the encoding must be a string
+	_write(chunk: any, encoding: string | undefined, callback: (error?: Error | null) => void): void {
 		const write = (): void => {
-			this._writeRequest(chunk, encoding, callback);
+			this._writeRequest(chunk, encoding as BufferEncoding, callback);
 		};
 
 		if (this.requestInitialized) {

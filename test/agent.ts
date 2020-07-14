@@ -146,7 +146,8 @@ test('socket connect listener cleaned up after request', withServer, async (t, s
 		});
 	}
 
-	for (const value of Object.values(agent.freeSockets) as [Socket[]]) {
+	// Node.js 12 has incomplete types
+	for (const value of Object.values((agent as any).freeSockets) as [Socket[]]) {
 		for (const sock of value) {
 			t.is(sock.listenerCount('connect'), 0);
 		}
