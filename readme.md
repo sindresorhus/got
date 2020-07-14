@@ -1590,6 +1590,10 @@ When reading from response stream fails.
 
 When server response code is 2xx, and parsing body fails. Includes a `response` property.
 
+#### got.UploadError
+
+When the request body is a stream and an error occurs while reading from that stream.
+
 #### got.HTTPError
 
 When the server response code is not 2xx nor 3xx if `options.followRedirect` is `true`, but always except for 304. Includes a `response` property.
