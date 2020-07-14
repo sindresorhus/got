@@ -239,7 +239,7 @@ test('no uncaught parse errors', async t => {
 	});
 
 	await t.throwsAsync(got.head(`http://localhost:${(server.address() as net.AddressInfo).port}`), {
-		message: 'Parse Error'
+		message: /^Parse Error/
 	});
 
 	await close();
