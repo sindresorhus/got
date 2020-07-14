@@ -1574,13 +1574,13 @@ const addAccessToken = (accessToken: string): BeforeRequestHook => options => {
 Each error contains an `options` property which are the options Got used to create a request - just to make debugging easier.\
 Additionaly, the errors may have `request` (Got Stream) and `response` (Got Response) properties depending on which phase of the request failed.
 
+#### got.RequestError
+
+When a request fails. Contains a `code` property with error class code, like `ECONNREFUSED`. Note that all other types of errors listed below are subclasses of this one, with the exception of `CancelError`.
+
 #### got.CacheError
 
 When a cache method fails, for example, if the database goes down or there's a filesystem error.
-
-#### got.RequestError
-
-When a request fails. Contains a `code` property with error class code, like `ECONNREFUSED`.
 
 #### got.ReadError
 
@@ -1589,6 +1589,10 @@ When reading from response stream fails.
 #### got.ParseError
 
 When server response code is 2xx, and parsing body fails. Includes a `response` property.
+
+#### got.UploadError
+
+When the request body is a stream and an error occurs while reading from that stream.
 
 #### got.HTTPError
 
@@ -1602,13 +1606,13 @@ When the server redirects you more than ten times. Includes a `response` propert
 
 When given an unsupported protocol.
 
-#### got.CancelError
-
-When the request is aborted with `.cancel()`.
-
 #### got.TimeoutError
 
 When the request is aborted due to a [timeout](#timeout). Includes an `event` and `timings` property.
+
+#### got.CancelError
+
+When the request is aborted with `.cancel()`. This type is not a subclass of `RequestError` as it is re-exported from the `p-cancelable` package.
 
 ## Aborting the request
 
