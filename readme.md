@@ -1741,7 +1741,7 @@ const tunnel = require('tunnel');
 
 got('https://sindresorhus.com', {
 	agent: {
-		https: tunnel.httpOverHttp({
+		https: tunnel.httpsOverHttp({
 			proxy: {
 				host: 'localhost'
 			}
