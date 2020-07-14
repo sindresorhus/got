@@ -169,6 +169,16 @@ export default function asPromise<T>(options: NormalizedOptions): CancelableRequ
 
 				request.off('response', onResponse);
 
+				let gotUnexpectedError = false;
+				const onUnexpectedError = (error: RequestError) => {
+					gotUnexpectedError = true;
+
+					reject(error);
+				};
+
+				// If this is an HTTP error, then it can throw again with `ECONNRESET` or `Parse Error`
+				request.once('error', onUnexpectedError);
+
 				let backoff: number;
 
 				retryCount++;
@@ -192,6 +202,13 @@ export default function asPromise<T>(options: NormalizedOptions): CancelableRequ
 					reject(new RequestError(error_.message, error, request));
 					return;
 				}
+
+				// Another error was thrown already
+				if (gotUnexpectedError) {
+					return;
+				}
+
+				request.off('error', onUnexpectedError);
 
 				if (backoff) {
 					// Don't emit the `response` event
@@ -228,9 +245,7 @@ export default function asPromise<T>(options: NormalizedOptions): CancelableRequ
 					void onResponse(request._response as Response);
 
 					// Reattach the error handler, because there may be a timeout later.
-					process.nextTick(() => {
-						request.once('error', onError);
-					});
+					request.once('error', onError);
 					return;
 				}
 

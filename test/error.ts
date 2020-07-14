@@ -1,4 +1,5 @@
 import {promisify} from 'util';
+import net = require('net');
 import http = require('http');
 import stream = require('stream');
 import test from 'ava';
@@ -214,6 +215,34 @@ test('promise does not hang on timeout on HTTP error', withServer, async (t, ser
 	}), {
 		instanceOf: TimeoutError
 	});
+});
+
+test('no uncaught parse errors', async t => {
+	const server = net.createServer();
+
+	const listen = promisify(server.listen.bind(server));
+	const close = promisify(server.close.bind(server));
+
+	// @ts-expect-error TS is sooo dumb. It doesn't need an argument at all.
+	await listen();
+
+	server.on('connection', socket => {
+		socket.resume();
+		socket.end([
+			'HTTP/1.1 404 Not Found',
+			'transfer-encoding: chunked',
+			'',
+			'0',
+			'',
+			''
+		].join('\r\n'));
+	});
+
+	await t.throwsAsync(got.head(`http://localhost:${(server.address() as net.AddressInfo).port}`), {
+		message: 'Parse Error'
+	});
+
+	await close();
 });
 
 // Fails randomly on Node 10:
