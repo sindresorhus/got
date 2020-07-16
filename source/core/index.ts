@@ -187,6 +187,7 @@ export interface HTTPSOptions {
 	key?: SecureContextOptions['key'];
 	certificate?: SecureContextOptions['cert'];
 	passphrase?: SecureContextOptions['passphrase'];
+	pfx?: SecureContextOptions['pfx'];
 }
 
 interface NormalizedPlainOptions extends PlainOptions {
@@ -975,6 +976,10 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			deprecationWarning('"options.passphrase" was never documented, please use "options.https.passphrase"');
 		}
 
+		if ('pfx' in options) {
+			deprecationWarning('"options.pfx" was never documented, please use "options.https.pfx"');
+		}
+
 		// Other options
 		if ('followRedirects' in options) {
 			throw new TypeError('The `followRedirects` option does not exist. Use `followRedirect` instead.');
@@ -1526,6 +1531,10 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 			if (options.https.passphrase) {
 				requestOptions.passphrase = options.https.passphrase;
+			}
+
+			if (options.https.pfx) {
+				requestOptions.pfx = options.https.pfx;
 			}
 		}
 
