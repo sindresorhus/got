@@ -159,6 +159,25 @@ test.serial('non-deprecated `rejectUnauthorized` option', withServer, async (t, 
 	t.pass();
 });
 
+test.serial('non-deprecated `pfx` option', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.end('ok');
+	});
+
+	(async () => {
+		const warning = await pEvent(process, 'warning');
+		t.not(warning.name, 'DeprecationWarning');
+	})();
+
+	await got.secure({
+		https: {
+			pfx: 'fake-pfx'
+		}
+	});
+
+	t.pass();
+});
+
 test.serial('no double deprecated warning', withServer, async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.end('ok');
