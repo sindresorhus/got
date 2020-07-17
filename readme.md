@@ -985,6 +985,18 @@ Type: `string`
 
 The passphrase to decrypt the `options.https.key` (if different keys have different passphrases refer to `options.https.key` documentation).
 
+##### https.pfx
+
+Type: `string | Buffer | (string | Buffer | object)[]`
+
+PFX or PKCS12 encoded private key and certificate chain. `pfx` is an alternative to providing `options.https.key` and `options.https.certificate` individually. PFX is usually encrypted, if it is, `options.https.passphrase` will be used to decrypt it.
+
+Multiple PFX can be be provided as an array of unencrypted buffers or an array of objects like:
+
+`{buf: <string|buffer>[, passphrase: <string>]}`
+
+If the provided buffers are encrypted, `object.passphrase` can be used to decrypt them. If `object.passphrase` is not provided, `options.https.passphrase` will be used for decryption.
+
 ##### Examples for `https.key`, `https.certificate` and `https.passphrase`
 
 ```js
