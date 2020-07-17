@@ -1750,6 +1750,26 @@ got('https://sindresorhus.com', {
 });
 ```
 
+Otherwise, you can use the [`hpagent`](https://github.com/delvedor/hpagent) package, which keeps the internal sockets alive to be reused.
+
+```js
+const got = require('got');
+const {HttpsProxyAgent} = require('hpagent');
+
+got('https://sindresorhus.com', {
+	agent: {
+		https: new HttpsProxyAgent({
+			keepAlive: true,
+			keepAliveMsecs: 1000,
+			maxSockets: 256,
+			maxFreeSockets: 256,
+			scheduling: 'lifo',
+			proxy: 'https://localhost:8080'
+		})
+	}
+});
+```
+
 Alternatively, use [`global-agent`](https://github.com/gajus/global-agent) to configure a global proxy for all HTTP/HTTPS traffic in your program.
 
 Read the [`http2-wrapper`](https://github.com/szmarczak/http2-wrapper/#proxy-support) docs to learn about proxying for HTTP/2.
