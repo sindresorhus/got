@@ -993,7 +993,12 @@ PFX or PKCS12 encoded private key and certificate chain. `pfx` is an alternative
 
 Multiple PFX's can be be provided as an array of unencrypted buffers or an array of objects like:
 
-`{buf: <string|buffer>[, passphrase: <string>]}`
+`
+{
+	buffer: string | Buffer,
+	passphrase?: string
+}
+`
 
 If the provided buffers are encrypted, `object.passphrase` can be used to decrypt them. If `object.passphrase` is not provided, `options.https.passphrase` will be used for decryption.
 
