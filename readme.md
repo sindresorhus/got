@@ -989,7 +989,7 @@ The passphrase to decrypt the `options.https.key` (if different keys have differ
 
 Type: `string | Buffer | (string | Buffer | object)[]`
 
-PFX or PKCS12 encoded private key and certificate chain. `pfx` is an alternative to providing `options.https.key` and `options.https.certificate` individually. PFX is usually encrypted, if it is, `options.https.passphrase` will be used to decrypt it.
+PFX or PKCS12 encoded private key and certificate chain. `pfx` is an alternative to providing `options.https.key` and `options.https.certificate` individually. PFX is usually encrypted, and if it is, `options.https.passphrase` will be used to decrypt it.
 
 Multiple PFX's can be be provided as an array of unencrypted buffers or an array of objects like:
 
