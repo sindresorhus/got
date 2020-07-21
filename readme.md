@@ -989,16 +989,16 @@ The passphrase to decrypt the `options.https.key` (if different keys have differ
 
 Type: `string | Buffer | (string | Buffer | object)[]`
 
-PFX or PKCS12 encoded private key and certificate chain. `pfx` is an alternative to providing `options.https.key` and `options.https.certificate` individually. PFX is usually encrypted, and if it is, `options.https.passphrase` will be used to decrypt it.
+[PFX or PKCS12](https://en.wikipedia.org/wiki/PKCS_12) encoded private key and certificate chain. `pfx` is an alternative to providing `options.https.key` and `options.https.certificate` individually. PFX is usually encrypted, and if it is, `options.https.passphrase` will be used to decrypt it.
 
 Multiple PFX's can be be provided as an array of unencrypted buffers or an array of objects like:
 
-`
+```typescript
 {
-	buffer: string | Buffer,
-	passphrase?: string
+  buffer: string | Buffer,
+  passphrase?: string
 }
-`
+```
 
 If the provided buffers are encrypted, `object.passphrase` can be used to decrypt them. If `object.passphrase` is not provided, `options.https.passphrase` will be used for decryption.
 
