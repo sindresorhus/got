@@ -48,6 +48,7 @@ const kBody = Symbol('body');
 const kJobs = Symbol('jobs');
 const kOriginalResponse = Symbol('originalResponse');
 export const kIsNormalizedAlready = Symbol('isNormalizedAlready');
+export const kHooksNormalizedAlready = Symbol('hooksNormalizedAlready');
 
 const supportsBrotli = is.string((process.versions as any).brotli);
 
@@ -217,6 +218,7 @@ interface NormalizedPlainOptions extends PlainOptions {
 	stringifyJson: StringifyJsonFunction;
 	[kRequest]: HttpRequestFunction;
 	[kIsNormalizedAlready]?: boolean;
+	[kHooksNormalizedAlready]?: boolean;
 }
 
 export interface NormalizedOptions extends PromiseOnly.NormalizedOptions, NormalizedPlainOptions {}
@@ -927,7 +929,9 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			}
 		}
 
-		if (defaults && !areHooksDefault) {
+		const hooksNormalizedAlready = options && (options as NormalizedOptions)[kHooksNormalizedAlready];
+
+		if (defaults && !areHooksDefault && !hooksNormalizedAlready) {
 			for (const event of knownHookEvents) {
 				const defaultHooks = defaults.hooks[event];
 				if (defaultHooks.length !== 0) {

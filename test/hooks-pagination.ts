@@ -42,7 +42,6 @@ test('no duplicate hook calls in single-page paginated requests', withServer, as
 		hooks,
 		pagination: {
 			paginate: () => false,
-			countLimit: 2009,
 			transform: response => [response]
 		}
 	});
@@ -96,7 +95,6 @@ test('no duplicate hook calls in sequential paginated requests', withServer, asy
 		hooks,
 		pagination: {
 			paginate,
-			countLimit: 2009,
 			transform: response => [response]
 		}
 	});

@@ -38,7 +38,7 @@ import {
 	StreamOptions
 } from './types';
 import createRejection from './as-promise/create-rejection';
-import Request, {kIsNormalizedAlready, setNonEnumerableProperties} from './core';
+import Request, {kIsNormalizedAlready, kHooksNormalizedAlready, setNonEnumerableProperties} from './core';
 import deepFreeze from './utils/deep-freeze';
 
 const errors = {
@@ -147,8 +147,11 @@ const create = (defaults: InstanceDefaults): Got => {
 			}
 
 			// Normalize options & call handlers
-			const isNormalizedAlready = options && (options as NormalizedOptions)[kIsNormalizedAlready];
-			const normalizedOptions = isNormalizedAlready ? options as NormalizedOptions : normalizeArguments(url, options, defaults.options);
+			// const hooksNormalizedAlready = options && (options as NormalizedOptions)[kHooksNormalizedAlready];
+			// const normalizedOptions = hooksNormalizedAlready ? options as NormalizedOptions : normalizeArguments(url, options, defaults.options);
+			// normalizedOptions[kIsNormalizedAlready] = true;
+
+			const normalizedOptions = normalizeArguments(url, options, defaults.options);
 			normalizedOptions[kIsNormalizedAlready] = true;
 
 			if (initHookError) {
@@ -205,7 +208,7 @@ const create = (defaults: InstanceDefaults): Got => {
 		// Error: Argument of type 'Merge<Options, PaginationOptions<T, R>> | undefined' is not assignable to parameter of type 'Options | undefined'.
 		// @ts-expect-error
 		let normalizedOptions = normalizeArguments(url, options, defaults.options);
-		normalizedOptions[kIsNormalizedAlready] = true;
+		normalizedOptions[kHooksNormalizedAlready] = true;
 		normalizedOptions.resolveBodyOnly = false;
 
 		const pagination = normalizedOptions.pagination!;
