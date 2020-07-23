@@ -147,10 +147,8 @@ const create = (defaults: InstanceDefaults): Got => {
 			}
 
 			// Normalize options & call handlers
-			// @ts-ignore
-			const isNormalizedAlready: boolean = options[kIsNormalizedAlready] === true;
+			const isNormalizedAlready = options && (options as NormalizedOptions)[kIsNormalizedAlready];
 			const normalizedOptions = isNormalizedAlready ? options as NormalizedOptions : normalizeArguments(url, options, defaults.options);
-			// @ts-ignore
 			normalizedOptions[kIsNormalizedAlready] = true;
 
 			if (initHookError) {
@@ -207,7 +205,7 @@ const create = (defaults: InstanceDefaults): Got => {
 		// Error: Argument of type 'Merge<Options, PaginationOptions<T, R>> | undefined' is not assignable to parameter of type 'Options | undefined'.
 		// @ts-expect-error
 		let normalizedOptions = normalizeArguments(url, options, defaults.options);
-		normalizedOptions[kIsNormalizedAlready]=true;
+		normalizedOptions[kIsNormalizedAlready] = true;
 		normalizedOptions.resolveBodyOnly = false;
 
 		const pagination = normalizedOptions.pagination!;
@@ -292,7 +290,10 @@ const create = (defaults: InstanceDefaults): Got => {
 
 	// Shortcuts
 	for (const method of aliases) {
-		got[method] = ((url: string | URL, options?: Options): GotReturn => got(url, {...options, method})) as GotRequestFunction;
+		got[method] = ((url: string | URL, options?: Options): GotReturn => got(url, {
+			...options,
+			method
+		})) as GotRequestFunction;
 
 		got.stream[method] = ((url: string | URL, options?: StreamOptions) => {
 			return got(url, {...options, method, isStream: true});
