@@ -51,6 +51,7 @@ export default class PromisableRequest extends Request {
 	declare options: NormalizedOptions;
 
 	static normalizeArguments(url?: string | URL, nonNormalizedOptions?: Options, defaults?: Defaults): NormalizedOptions {
+		console.log('normalize');
 		const options = super.normalizeArguments(url, nonNormalizedOptions, defaults);
 
 		if (is.null_(options.encoding)) {

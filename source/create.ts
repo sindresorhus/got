@@ -147,7 +147,10 @@ const create = (defaults: InstanceDefaults): Got => {
 			}
 
 			// Normalize options & call handlers
-			const normalizedOptions = normalizeArguments(url, options, defaults.options);
+			// @ts-ignore
+			const isNormalizedAlready: boolean = options[kIsNormalizedAlready] === true;
+			const normalizedOptions = isNormalizedAlready ? options as NormalizedOptions : normalizeArguments(url, options, defaults.options);
+			// @ts-ignore
 			normalizedOptions[kIsNormalizedAlready] = true;
 
 			if (initHookError) {
@@ -204,6 +207,7 @@ const create = (defaults: InstanceDefaults): Got => {
 		// Error: Argument of type 'Merge<Options, PaginationOptions<T, R>> | undefined' is not assignable to parameter of type 'Options | undefined'.
 		// @ts-expect-error
 		let normalizedOptions = normalizeArguments(url, options, defaults.options);
+		normalizedOptions[kIsNormalizedAlready]=true;
 		normalizedOptions.resolveBodyOnly = false;
 
 		const pagination = normalizedOptions.pagination!;

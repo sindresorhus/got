@@ -932,7 +932,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 				const defaultHooks = defaults.hooks[event];
 				if (defaultHooks.length !== 0) {
 					let optionsHooks = options.hooks[event] as any[];
-					if (optionsHooks && optionsHooks.length !== 0) {
+					if (0&&optionsHooks && optionsHooks.length !== 0) {
 						optionsHooks = optionsHooks.filter(hook => !(defaultHooks as any[]).includes(hook));
 					}
 
