@@ -1073,3 +1073,74 @@ test('no duplicate hook calls in sequential paginated requests', withServer, asy
 	t.is(beforeHookCount, 4);
 	t.is(afterHookCount, 4);
 });
+
+test('intentional duplicate hooks in pagination with extended instance', withServer, async (t, server, got) => {
+	server.get('/get', (_request, response) => {
+		response.end('<3');
+	});
+
+	let beforeCount = 0; // Number of times the hooks from `extend` are called
+	let afterCount = 0;
+	let beforeCountAdditional = 0; // Number of times the added hooks are called
+	let afterCountAdditional = 0;
+
+	// Add duplicate hooks to extend
+	const beforeHook = () => {
+		beforeCount++;
+	};
+
+	const afterHook = (response: any) => {
+		afterCount++;
+		return response;
+	};
+
+	const hooks = {
+		beforeRequest: [
+			beforeHook,
+			beforeHook
+		],
+		afterResponse: [
+			afterHook,
+			afterHook
+		]
+	};
+
+	const instance = got.extend({
+		hooks,
+		pagination: {
+			paginate: () => false,
+			countLimit: 2009,
+			transform: response => [response]
+		}
+	});
+
+	// Add duplicate hooks when calling paginate
+	const beforeHookAdditional = () => {
+		beforeCountAdditional++;
+	};
+
+	const afterHookAdditional = (response: { url: any }) => {
+		afterCountAdditional++;
+		return response;
+	};
+
+	await instance.paginate.all('get', {
+		hooks: {
+			beforeRequest: [
+				beforeHookAdditional,
+				beforeHookAdditional
+			],
+			afterResponse: [
+				// @ts-expect-error
+				afterHookAdditional,
+				// @ts-expect-error
+				afterHookAdditional
+			]
+		}
+	});
+
+	t.is(beforeCount, 2);
+	t.is(afterCount, 2);
+	t.is(beforeCountAdditional, 2);
+	t.is(afterCountAdditional, 2);
+});
