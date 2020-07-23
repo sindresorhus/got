@@ -28,7 +28,7 @@ test('no duplicate hooks in paginated requests', withServer, async (t, server, g
 		pagination: {
 			paginate: () => false,
 			countLimit: 2009,
-			transform: (response) => [response]
+			transform: response => [response]
 		}
 	});
 
