@@ -23,6 +23,7 @@ test('no duplicate hook calls in single-page paginated requests', withServer, as
 		]
 	};
 
+	// Test only one request
 	const instance = got.extend({
 		hooks,
 		pagination: {
@@ -55,7 +56,7 @@ test('no duplicate hook calls in sequential paginated requests', withServer, asy
 		response.end('i <3 unicorns');
 	});
 
-	let reqNum = 0;
+	let requestNumber = 0;
 	let beforeHookCount = 0;
 	let afterHookCount = 0;
 
@@ -73,7 +74,8 @@ test('no duplicate hook calls in sequential paginated requests', withServer, asy
 		]
 	};
 
-	const paginate = () => reqNum++ === 0 ? {} : false;
+	// Test only two requests, one after another
+	const paginate = () => requestNumber++ === 0 ? {} : false;
 
 	const instance = got.extend({
 		hooks,
@@ -88,7 +90,7 @@ test('no duplicate hook calls in sequential paginated requests', withServer, asy
 
 	t.is(beforeHookCount, 2);
 	t.is(afterHookCount, 2);
-	reqNum = 0;
+	requestNumber = 0;
 
 	await got.paginate.all('get', {
 		hooks,
