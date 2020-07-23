@@ -147,10 +147,6 @@ const create = (defaults: InstanceDefaults): Got => {
 			}
 
 			// Normalize options & call handlers
-			// const hooksNormalizedAlready = options && (options as NormalizedOptions)[kHooksNormalizedAlready];
-			// const normalizedOptions = hooksNormalizedAlready ? options as NormalizedOptions : normalizeArguments(url, options, defaults.options);
-			// normalizedOptions[kIsNormalizedAlready] = true;
-
 			const normalizedOptions = normalizeArguments(url, options, defaults.options);
 			normalizedOptions[kIsNormalizedAlready] = true;
 
