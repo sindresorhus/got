@@ -931,18 +931,15 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			for (const event of knownHookEvents) {
 				const defaultHooks = defaults.hooks[event];
 				if (defaultHooks.length !== 0) {
-					let optionsHooks = options.hooks[event] as Array<any>;
-
-					if (optionsHooks && optionsHooks.length) {
-						console.log(event, defaultHooks, optionsHooks);
-						optionsHooks = optionsHooks.filter(hook => !(<Array<any>>defaultHooks).includes(hook));
-						console.log(event, optionsHooks);
+					let optionsHooks = options.hooks[event] as any[];
+					if (optionsHooks && optionsHooks.length !== 0) {
+						optionsHooks = optionsHooks.filter(hook => !(defaultHooks as any[]).includes(hook));
 					}
 
 					// See https://github.com/microsoft/TypeScript/issues/31445#issuecomment-576929044
 					(options.hooks as any)[event] = [
 						...defaults.hooks[event],
-						...optionsHooks!
+						...optionsHooks
 					];
 				}
 			}
