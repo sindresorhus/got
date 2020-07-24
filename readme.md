@@ -987,7 +987,7 @@ The passphrase to decrypt the `options.https.key` (if different keys have differ
 
 ##### https.pfx
 
-Type: `string | Buffer | (string | Buffer | object)[]`
+Type: `string | Buffer | Array<string | Buffer | object>`
 
 [PFX or PKCS12](https://en.wikipedia.org/wiki/PKCS_12) encoded private key and certificate chain. Using `options.https.pfx` is an alternative to providing `options.https.key` and `options.https.certificate` individually. A PFX is usually encrypted, and if it is, `options.https.passphrase` will be used to decrypt it.
 
