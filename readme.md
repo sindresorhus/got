@@ -1000,7 +1000,7 @@ Multiple PFX's can be be provided as an array of unencrypted buffers or an array
 }
 ```
 
-If the provided buffers are encrypted, `object.passphrase` can be used to decrypt them. If `object.passphrase` is not provided, `options.https.passphrase` will be used for decryption.
+This object form can only occur in an array. If the provided buffers are encrypted, `object.passphrase` can be used to decrypt them. If `object.passphrase` is not provided, `options.https.passphrase` will be used for decryption.
 
 ##### Examples for `https.key`, `https.certificate`, `https.passphrase`, and `https.pfx`
 
