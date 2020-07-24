@@ -1094,19 +1094,17 @@ test('intentional duplicate hooks in pagination with extended instance', withSer
 		return response;
 	};
 
-	const hooks = {
-		beforeRequest: [
-			beforeHook,
-			beforeHook
-		],
-		afterResponse: [
-			afterHook,
-			afterHook
-		]
-	};
-
 	const instance = got.extend({
-		hooks,
+		hooks: {
+			beforeRequest: [
+				beforeHook,
+				beforeHook
+			],
+			afterResponse: [
+				afterHook,
+				afterHook
+			]
+		},
 		pagination: {
 			paginate: () => false,
 			countLimit: 2009,
@@ -1119,7 +1117,7 @@ test('intentional duplicate hooks in pagination with extended instance', withSer
 		beforeCountAdditional++;
 	};
 
-	const afterHookAdditional = (response: { url: any }) => {
+	const afterHookAdditional = (response: any) => {
 		afterCountAdditional++;
 		return response;
 	};
@@ -1127,20 +1125,20 @@ test('intentional duplicate hooks in pagination with extended instance', withSer
 	await instance.paginate.all('get', {
 		hooks: {
 			beforeRequest: [
+				beforeHook,
 				beforeHookAdditional,
 				beforeHookAdditional
 			],
 			afterResponse: [
-				// @ts-expect-error
+				afterHook,
 				afterHookAdditional,
-				// @ts-expect-error
 				afterHookAdditional
 			]
 		}
 	});
 
-	t.is(beforeCount, 2);
-	t.is(afterCount, 2);
+	t.is(beforeCount, 3);
+	t.is(afterCount, 3);
 	t.is(beforeCountAdditional, 2);
 	t.is(afterCountAdditional, 2);
 });

@@ -929,7 +929,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			}
 		}
 
-		const hooksNormalizedAlready = options && (options as NormalizedOptions)[kHooksNormalizedAlready];
+		const hooksNormalizedAlready = (options as NormalizedOptions)?.[kHooksNormalizedAlready];
 
 		if (defaults && !areHooksDefault && !hooksNormalizedAlready) {
 			for (const event of knownHookEvents) {
