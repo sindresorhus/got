@@ -993,10 +993,10 @@ Type: `string | Buffer | (string | Buffer | object)[]`
 
 Multiple PFX's can be be provided as an array of unencrypted buffers or an array of objects like:
 
-```typescript
+```ts
 {
-  buffer: string | Buffer,
-  passphrase?: string
+	buffer: string | Buffer,
+	passphrase?: string
 }
 ```
 
