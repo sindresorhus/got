@@ -1,5 +1,5 @@
-import { URL } from 'url';
-import { CancelError } from 'p-cancelable';
+import {URL} from 'url';
+import {CancelError} from 'p-cancelable';
 import is from '@sindresorhus/is';
 import asPromise, {
 	// Request & Response
@@ -38,7 +38,7 @@ import {
 	StreamOptions
 } from './types';
 import createRejection from './as-promise/create-rejection';
-import Request, { kIsNormalizedAlready, setNonEnumerableProperties } from './core';
+import Request, {kIsNormalizedAlready, setNonEnumerableProperties} from './core';
 import deepFreeze from './utils/deep-freeze';
 
 const errors = {
@@ -199,12 +199,12 @@ const create = (defaults: InstanceDefaults): Got => {
 	};
 
 	// Pagination
-	const paginateEach = async function* <T, R>(url: string | URL, options?: OptionsWithPagination<T, R>) {
+	const paginateEach = async function * <T, R>(url: string | URL, options?: OptionsWithPagination<T, R>) {
 		// TODO: Remove this `@ts-expect-error` when upgrading to TypeScript 4.
 		// Error: Argument of type 'Merge<Options, PaginationOptions<T, R>> | undefined' is not assignable to parameter of type 'Options | undefined'.
 		// @ts-expect-error
 		const normalizedOptions = normalizeArguments(url, options, defaults.options);
-		// const optionsHooks = url?.hooks || options?.hooks;
+		// Const optionsHooks = url?.hooks || options?.hooks;
 		options = {...options, resolveBodyOnly: false};
 
 		const pagination = normalizedOptions.pagination!;
