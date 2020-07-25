@@ -1061,13 +1061,16 @@ got('https://example.com', {
 // Multiple encrypted PFX's with different passphrases
 got('https://example.com', {
 	https: {
-		pfx: [{
-			buffer: fs.readFileSync('./key1.pfx'),
-			passphrase: 'passphrase1'
-		}, {
-			buffer: fs.readFileSync('./key2.pfx'),
-			passphrase: 'passphrase2'
-		}]
+		pfx: [
+			{
+				buffer: fs.readFileSync('./key1.pfx'),
+				passphrase: 'passphrase1'
+			},
+			{
+				buffer: fs.readFileSync('./key2.pfx'),
+				passphrase: 'passphrase2'
+			}
+		]
 	}
 });
 
@@ -1075,11 +1078,14 @@ got('https://example.com', {
 got('https://example.com', {
 	https: {
 		passphrase: 'passphrase',
-		pfx: [{
-			buffer: fs.readFileSync('./key1.pfx')
-		}, {
-			buffer: fs.readFileSync('./key2.pfx')
-		}]
+		pfx: [
+			{
+				buffer: fs.readFileSync('./key1.pfx')
+			},
+			{
+				buffer: fs.readFileSync('./key2.pfx')
+			}
+		]
 	}
 });
 ```
