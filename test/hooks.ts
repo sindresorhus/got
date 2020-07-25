@@ -1084,7 +1084,6 @@ test('intentional duplicate hooks in pagination with extended instance', withSer
 	let beforeCountAdditional = 0; // Number of times the added hooks are called
 	let afterCountAdditional = 0;
 
-	// Add duplicate hooks to extend
 	const beforeHook = () => {
 		beforeCount++;
 	};
