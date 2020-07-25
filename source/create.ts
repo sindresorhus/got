@@ -260,7 +260,7 @@ const create = (defaults: InstanceDefaults): Got => {
 			if (optionsToMerge === result.request.options) {
 				nextOptions = result.request.options;
 			} else if (optionsToMerge !== undefined) {
-				nextOptions = mergeOptions(optionsToMerge, normalizedOptions);
+				nextOptions = mergeOptions(normalizedOptions, optionsToMerge);
 			}
 
 			if (nextOptions) {
