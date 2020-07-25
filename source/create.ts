@@ -204,7 +204,6 @@ const create = (defaults: InstanceDefaults): Got => {
 		// Error: Argument of type 'Merge<Options, PaginationOptions<T, R>> | undefined' is not assignable to parameter of type 'Options | undefined'.
 		// @ts-expect-error
 		const normalizedOptions = normalizeArguments(url, options, defaults.options);
-		// Const optionsHooks = url?.hooks || options?.hooks;
 		options = {...options, resolveBodyOnly: false};
 
 		const pagination = normalizedOptions.pagination!;
@@ -266,6 +265,7 @@ const create = (defaults: InstanceDefaults): Got => {
 
 			if (nextOptions) {
 				nextOptions.hooks = options?.hooks;
+				nextOptions.resolveBodyOnly = false;
 			}
 
 			numberOfRequests++;

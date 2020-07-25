@@ -332,7 +332,7 @@ test('allowGetBody sends json payload with .paginate()', withBodyParsingServer, 
 		response.end(JSON.stringify([1, 2, 3]));
 	});
 
-	const iterator = got.paginate<number>({
+	const iterator = got.paginate<number>('', {
 		allowGetBody: true,
 		json: {hello: 'world'},
 		retry: 0
@@ -355,7 +355,7 @@ test('`hooks` are not duplicated', withServer, async (t, server, got) => {
 
 	const nopHook = () => {};
 
-	const result = await got.paginate.all<number>({
+	const result = await got.paginate.all<number>('', {
 		pagination: {
 			paginate: response => {
 				if ((response.body as string) === '[3]') {
