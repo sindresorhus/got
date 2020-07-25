@@ -38,7 +38,7 @@ import {
 	StreamOptions
 } from './types';
 import createRejection from './as-promise/create-rejection';
-import Request, {kIsNormalizedAlready, kHooksNormalizedAlready, setNonEnumerableProperties} from './core';
+import Request, {kIsNormalizedAlready, setNonEnumerableProperties} from './core';
 import deepFreeze from './utils/deep-freeze';
 
 const errors = {
@@ -204,8 +204,7 @@ const create = (defaults: InstanceDefaults): Got => {
 		// Error: Argument of type 'Merge<Options, PaginationOptions<T, R>> | undefined' is not assignable to parameter of type 'Options | undefined'.
 		// @ts-expect-error
 		let normalizedOptions = normalizeArguments(url, options, defaults.options);
-		normalizedOptions[kHooksNormalizedAlready] = true;
-		normalizedOptions.resolveBodyOnly = false;
+		options = {...options, resolveBodyOnly: false};
 
 		const pagination = normalizedOptions.pagination!;
 
@@ -225,7 +224,7 @@ const create = (defaults: InstanceDefaults): Got => {
 
 			// TODO: Throw when result is not an instance of Response
 			// eslint-disable-next-line no-await-in-loop
-			const result = (await got(normalizedOptions)) as Response;
+			const result = (await got(url, options as OptionsWithPagination)) as Response;
 
 			// eslint-disable-next-line no-await-in-loop
 			const parsed = await pagination.transform(result);
