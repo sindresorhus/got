@@ -199,11 +199,12 @@ const create = (defaults: InstanceDefaults): Got => {
 	};
 
 	// Pagination
-	const paginateEach = async function * <T, R>(url: string | URL, options?: OptionsWithPagination<T, R>) {
+	const paginateEach = (async function * <T, R>(url: string | URL, options?: OptionsWithPagination<T, R>) {
 		// TODO: Remove this `@ts-expect-error` when upgrading to TypeScript 4.
 		// Error: Argument of type 'Merge<Options, PaginationOptions<T, R>> | undefined' is not assignable to parameter of type 'Options | undefined'.
 		// @ts-expect-error
 		const normalizedOptions = normalizeArguments(url, options, defaults.options);
+		const optionsHooks = options?.hooks;
 		options = {...options, resolveBodyOnly: false};
 
 		const pagination = normalizedOptions.pagination!;
@@ -264,13 +265,13 @@ const create = (defaults: InstanceDefaults): Got => {
 			}
 
 			if (nextOptions) {
-				nextOptions.hooks = options?.hooks;
+				nextOptions.hooks = optionsHooks;
 				nextOptions.resolveBodyOnly = false;
 			}
 
 			numberOfRequests++;
 		}
-	};
+	});
 
 	got.paginate = (<T, R>(url: string | URL, options?: OptionsWithPagination<T, R>) => {
 		return paginateEach(url, options);
@@ -294,10 +295,7 @@ const create = (defaults: InstanceDefaults): Got => {
 
 	// Shortcuts
 	for (const method of aliases) {
-		got[method] = ((url: string | URL, options?: Options): GotReturn => got(url, {
-			...options,
-			method
-		})) as GotRequestFunction;
+		got[method] = ((url: string | URL, options?: Options): GotReturn => got(url, {...options, method})) as GotRequestFunction;
 
 		got.stream[method] = ((url: string | URL, options?: StreamOptions) => {
 			return got(url, {...options, method, isStream: true});
