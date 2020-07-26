@@ -699,8 +699,6 @@ Default: `[]`
 
 Called with [normalized](source/core/index.ts) [request options](#options). Got will make no further changes to the request before it is sent. This is especially useful in conjunction with [`got.extend()`](#instances) when you want to create an API client that, for example, uses HMAC-signing.
 
-See the [AWS section](#aws) for an example.
-
 **Tip:** You can override the `request` function by returning a [`ClientRequest`-like](https://nodejs.org/api/http.html#http_class_http_clientrequest) instance or a [`IncomingMessage`-like](https://nodejs.org/api/http.html#http_class_http_incomingmessage) instance. This is very useful when creating a custom cache mechanism.
 
 ###### hooks.beforeRedirect
@@ -1860,29 +1858,14 @@ got('unix:/var/run/docker.sock:/containers/json');
 
 ## AWS
 
-Requests to AWS services need to have their headers signed. This can be accomplished by using the [`aws4`](https://www.npmjs.com/package/aws4) package. This is an example for querying an ["API Gateway"](https://docs.aws.amazon.com/apigateway/api-reference/signing-requests/) with a signed request.
+Requests to AWS services need to have their headers signed. This can be accomplished by using the [`got4aws`](https://www.npmjs.com/package/got4aws) package. This is an example for querying an ["API Gateway"](https://docs.aws.amazon.com/apigateway/api-reference/signing-requests/) with a signed request.
 
 ```js
-const got = require('got');
-const AWS = require('aws-sdk');
-const aws4 = require('aws4');
+const got4aws = require('got4aws');;
 
-const chain = new AWS.CredentialProviderChain();
+const awsClient = got4aws();
 
-// Create a Got instance to use relative paths and signed requests
-const awsClient = got.extend({
-	prefixUrl: 'https://<api-id>.execute-api.<api-region>.amazonaws.com/<stage>/',
-	hooks: {
-		beforeRequest: [
-			async options => {
-				const credentials = await chain.resolvePromise();
-				aws4.sign(options, credentials);
-			}
-		]
-	}
-});
-
-const response = await awsClient('endpoint/path', {
+const response = await awsClient('https://<api-id>.execute-api.<api-region>.amazonaws.com/<stage>/endpoint/path', {
 	// Request-specific options
 });
 ```
