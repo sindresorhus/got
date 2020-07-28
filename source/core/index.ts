@@ -210,6 +210,11 @@ interface RealRequestOptions extends https.RequestOptions {
 }
 
 interface PlainOptions extends URLOptions {
+	/**	
+	Custom request function.	
+	The main purpose of this is to [support HTTP2 using a wrapper](https://github.com/szmarczak/http2-wrapper).	
+	@default http.request | https.request	
+	*/
 	request?: RequestFunction;
 
 	/**
