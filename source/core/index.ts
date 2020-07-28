@@ -28,6 +28,8 @@ import {DnsLookupIpVersion, isDnsLookupIpVersion, dnsLookupIpVersionToFamily} fr
 import deprecationWarning from '../utils/deprecation-warning';
 import {PromiseOnly} from '../as-promise/types';
 
+const globalDnsCache = new CacheableLookup();
+
 type HttpRequestFunction = typeof httpRequest;
 type Error = NodeJS.ErrnoException;
 
@@ -888,7 +890,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 		// `options.dnsCache`
 		if (options.dnsCache === true) {
-			options.dnsCache = new CacheableLookup();
+			options.dnsCache = globalDnsCache;
 		} else if (!is.undefined(options.dnsCache) && !options.dnsCache.lookup) {
 			throw new TypeError(`Parameter \`dnsCache\` must be a CacheableLookup instance or a boolean, got ${is(options.dnsCache)}`);
 		}
