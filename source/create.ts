@@ -38,7 +38,7 @@ import {
 	StreamOptions
 } from './types';
 import createRejection from './as-promise/create-rejection';
-import Request, {kIsNormalizedAlready, setNonEnumerableProperties} from './core';
+import Request, {kIsNormalizedAlready, setNonEnumerableProperties, Defaults} from './core';
 import deepFreeze from './utils/deep-freeze';
 
 const errors = {
@@ -114,7 +114,7 @@ const create = (defaults: InstanceDefaults): Got => {
 	}));
 
 	// Got interface
-	const got: Got = ((url: string | URL, options?: Options): GotReturn => {
+	const got: Got = ((url: string | URL, options?: Options, _defaults?: Defaults): GotReturn => {
 		let iteration = 0;
 		const iterateHandlers = (newOptions: NormalizedOptions): GotReturn => {
 			return defaults.handlers[iteration++](
@@ -147,7 +147,7 @@ const create = (defaults: InstanceDefaults): Got => {
 			}
 
 			// Normalize options & call handlers
-			const normalizedOptions = normalizeArguments(url, options, defaults.options);
+			const normalizedOptions = normalizeArguments(url, options, _defaults ?? defaults.options);
 			normalizedOptions[kIsNormalizedAlready] = true;
 
 			if (initHookError) {
@@ -199,7 +199,7 @@ const create = (defaults: InstanceDefaults): Got => {
 	};
 
 	// Pagination
-	const paginateEach = (async function * <T, R>(url: string | URL, options?: OptionsWithPagination<T, R>) {
+	const paginateEach = (async function * <T, R>(url: string | URL, options?: OptionsWithPagination<T, R>): AsyncIterableIterator<T> {
 		// TODO: Remove this `@ts-expect-error` when upgrading to TypeScript 4.
 		// Error: Argument of type 'Merge<Options, PaginationOptions<T, R>> | undefined' is not assignable to parameter of type 'Options | undefined'.
 		// @ts-expect-error
@@ -222,9 +222,10 @@ const create = (defaults: InstanceDefaults): Got => {
 				await delay(pagination.backoff);
 			}
 
+			// @ts-expect-error FIXME!
 			// TODO: Throw when result is not an instance of Response
 			// eslint-disable-next-line no-await-in-loop
-			const result = (await got(normalizedOptions)) as Response;
+			const result = (await got(undefined, undefined, normalizedOptions)) as Response;
 
 			// eslint-disable-next-line no-await-in-loop
 			const parsed = await pagination.transform(result);
@@ -236,7 +237,7 @@ const create = (defaults: InstanceDefaults): Got => {
 						return;
 					}
 
-					yield item;
+					yield item as T;
 
 					if (pagination.stackAllItems) {
 						all.push(item as T);
@@ -266,14 +267,12 @@ const create = (defaults: InstanceDefaults): Got => {
 		}
 	});
 
-	got.paginate = (<T, R>(url: string | URL, options?: OptionsWithPagination<T, R>) => {
-		return paginateEach(url, options);
-	}) as GotPaginate;
+	got.paginate = paginateEach as GotPaginate;
 
 	got.paginate.all = (async <T, R>(url: string | URL, options?: OptionsWithPagination<T, R>) => {
 		const results: T[] = [];
 
-		for await (const item of got.paginate<T, R>(url, options)) {
+		for await (const item of paginateEach<T, R>(url, options)) {
 			results.push(item);
 		}
 
