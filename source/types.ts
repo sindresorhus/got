@@ -282,7 +282,7 @@ export interface Got extends Record<HTTPAlias, GotRequestFunction>, GotRequestFu
 	CancelError: typeof CancelError;
 
 	/**
-  Configure a new `got` instance with default `options`.
+	Configure a new `got` instance with default `options`.
 	The `options` are merged with the parent instance's `defaults.options` using `got.mergeOptions`.
 	You can access the resolved options with the `.defaults` property on the instance.
 
@@ -290,7 +290,7 @@ export interface Got extends Record<HTTPAlias, GotRequestFunction>, GotRequestFu
 
 	It is also possible to merges many instances into a single one:
 	- options are merged using `got.mergeOptions()` (including hooks),
-  - handlers are stored in an array (you can access them through `instance.defaults.handlers`).
+	- handlers are stored in an array (you can access them through `instance.defaults.handlers`).
 
 	@example
 	```js
