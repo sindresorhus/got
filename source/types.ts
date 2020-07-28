@@ -105,9 +105,6 @@ export interface GotPaginate {
 	})();
 	```
 	*/
-	<T, R = unknown>(url: string | URL, options?: OptionsWithPagination<T, R>): AsyncIterableIterator<T>;
-	<T, R = unknown>(options?: OptionsWithPagination<T, R>): AsyncIterableIterator<T>;
-
 	each: (<T, R = unknown>(url: string | URL, options?: OptionsWithPagination<T, R>) => AsyncIterableIterator<T>)
 	& (<T, R = unknown>(options?: OptionsWithPagination<T, R>) => AsyncIterableIterator<T>);
 
@@ -132,6 +129,12 @@ export interface GotPaginate {
 	*/
 	all: (<T, R = unknown>(url: string | URL, options?: OptionsWithPagination<T, R>) => Promise<T[]>)
 	& (<T, R = unknown>(options?: OptionsWithPagination<T, R>) => Promise<T[]>);
+
+	/**
+	Same as `GotPaginate.each`.
+	*/
+	<T, R = unknown>(url: string | URL, options?: OptionsWithPagination<T, R>): AsyncIterableIterator<T>;
+	<T, R = unknown>(options?: OptionsWithPagination<T, R>): AsyncIterableIterator<T>;
 }
 
 export interface GotRequestFunction {
