@@ -108,6 +108,7 @@ const defaults: InstanceDefaults = {
 			filter: () => true,
 			shouldContinue: () => true,
 			countLimit: Infinity,
+			backoff: 0,
 			requestLimit: 10000,
 			stackAllItems: true
 		},
@@ -125,6 +126,7 @@ export default got;
 // For CommonJS default export support
 module.exports = got;
 module.exports.default = got;
+module.exports.__esModule = true; // Workaround for TS issue: https://github.com/sindresorhus/got/pull/1267
 
 export * from './create';
 export * from './as-promise';

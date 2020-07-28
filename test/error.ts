@@ -1,8 +1,9 @@
 import {promisify} from 'util';
+import net = require('net');
 import http = require('http');
 import stream = require('stream');
 import test from 'ava';
-import got, {RequestError, HTTPError} from '../source';
+import got, {RequestError, HTTPError, TimeoutError} from '../source';
 import withServer from './helpers/with-server';
 
 const pStreamPipeline = promisify(stream.pipeline);
@@ -41,7 +42,7 @@ test('catches dns errors', async t => {
 });
 
 test('`options.body` form error message', async t => {
-	// @ts-ignore Error tests
+	// @ts-expect-error Error tests
 	await t.throwsAsync(got.post('https://example.com', {body: Buffer.from('test'), form: ''}), {
 		message: 'The `body`, `json` and `form` options are mutually exclusive'
 	});
@@ -134,9 +135,8 @@ test('`http.request` error', async t => {
 test('`http.request` pipe error', async t => {
 	const message = 'snap!';
 
-	// @ts-ignore Error tests
 	await t.throwsAsync(got('https://example.com', {
-		// @ts-ignore Error tests
+		// @ts-expect-error Error tests
 		request: () => {
 			const proxy = new stream.PassThrough();
 
@@ -180,8 +180,8 @@ test('`http.request` error through CacheableRequest', async t => {
 
 test('errors are thrown directly when options.isStream is true', t => {
 	t.throws(() => {
-		// @ts-ignore Error tests
-		got('https://example.com', {isStream: true, hooks: false});
+		// @ts-expect-error Error tests
+		void got('https://example.com', {isStream: true, hooks: false});
 	}, {
 		message: 'Expected value which is `predicate returns truthy for any value`, received value of type `Array`.'
 	});
@@ -202,6 +202,47 @@ test('errors can have request property', withServer, async (t, server, got) => {
 
 	t.truthy(error.response);
 	t.truthy(error.request.downloadProgress);
+});
+
+test('promise does not hang on timeout on HTTP error', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.statusCode = 404;
+		response.write('asdf');
+	});
+
+	await t.throwsAsync(got({
+		timeout: 100
+	}), {
+		instanceOf: TimeoutError
+	});
+});
+
+test('no uncaught parse errors', async t => {
+	const server = net.createServer();
+
+	const listen = promisify(server.listen.bind(server));
+	const close = promisify(server.close.bind(server));
+
+	// @ts-expect-error TS is sooo dumb. It doesn't need an argument at all.
+	await listen();
+
+	server.on('connection', socket => {
+		socket.resume();
+		socket.end([
+			'HTTP/1.1 404 Not Found',
+			'transfer-encoding: chunked',
+			'',
+			'0',
+			'',
+			''
+		].join('\r\n'));
+	});
+
+	await t.throwsAsync(got.head(`http://localhost:${(server.address() as net.AddressInfo).port}`), {
+		message: /^Parse Error/
+	});
+
+	await close();
 });
 
 // Fails randomly on Node 10:

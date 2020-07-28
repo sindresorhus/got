@@ -1,48 +1,16 @@
 import PCancelable = require('p-cancelable');
 import {CancelError} from 'p-cancelable';
 import {
-	// Interfaces to be extended
-	Options as RequestOptions,
-	NormalizedOptions as RequestNormalizedOptions,
-	Defaults as RequestDefaults,
-	Hooks as RequestHooks,
-	Response as RequestResponse,
-
-	// Errors to be exported
-	RequestError,
-	MaxRedirectsError,
-	CacheError,
-	UploadError,
-	TimeoutError,
-	HTTPError,
-	ReadError,
-	UnsupportedProtocolError,
-
-	// Hooks to be exported
-	HookEvent as RequestHookEvent,
-	InitHook,
-	BeforeRequestHook,
-	BeforeRedirectHook,
-	BeforeErrorHook,
-
-	// Other types to be exported
-	Progress,
-	Headers,
-	RequestFunction,
-	Agents,
+	NormalizedOptions,
+	Options,
+	Response,
 	Method,
-	PromiseCookieJar,
-
-	// Types that will not be exported
+	TimeoutError,
+	RequestError,
 	RequestEvents
 } from '../core';
-import PromisableRequest from './core';
 
 export type ResponseType = 'json' | 'buffer' | 'text';
-
-export interface Response<T = unknown> extends RequestResponse<T> {
-	request: PromisableRequest;
-}
 
 export interface RetryObject {
 	attemptCount: number;
@@ -60,14 +28,6 @@ export interface RequiredRetryOptions {
 	errorCodes: string[];
 	calculateDelay: RetryFunction;
 	maxRetryAfter?: number;
-}
-
-export type BeforeRetryHook = (options: NormalizedOptions, error?: RequestError, retryCount?: number) => void | Promise<void>;
-export type AfterResponseHook = (response: Response, retryWithMergedOptions: (options: Options) => CancelableRequest<Response>) => Response | CancelableRequest<Response> | Promise<Response | CancelableRequest<Response>>;
-
-export interface Hooks extends RequestHooks {
-	beforeRetry?: BeforeRetryHook[];
-	afterResponse?: AfterResponseHook[];
 }
 
 export interface PaginationOptions<T, R> {
@@ -152,6 +112,12 @@ export interface PaginationOptions<T, R> {
 		countLimit?: number;
 
 		/**
+		Milliseconds to wait before the next request is triggered.
+
+		@default 0
+		*/
+		backoff?: number;
+		/**
 		The maximum amount of request that should be triggered.
 		Retries on failure are not counted towards this limit.
 
@@ -171,32 +137,42 @@ export interface PaginationOptions<T, R> {
 	};
 }
 
-export interface Options extends RequestOptions, PaginationOptions<unknown, unknown> {
-	hooks?: Hooks;
-	responseType?: ResponseType;
-	resolveBodyOnly?: boolean;
-	retry?: Partial<RequiredRetryOptions> | number;
-	isStream?: boolean;
-	encoding?: BufferEncoding;
-}
+export type BeforeRetryHook = (options: NormalizedOptions, error?: RequestError, retryCount?: number) => void | Promise<void>;
+export type AfterResponseHook = (response: Response, retryWithMergedOptions: (options: Options) => CancelableRequest<Response>) => Response | CancelableRequest<Response> | Promise<Response | CancelableRequest<Response>>;
 
-export interface NormalizedOptions extends RequestNormalizedOptions {
-	hooks: Required<Hooks>;
-	responseType: ResponseType;
-	resolveBodyOnly: boolean;
-	retry: RequiredRetryOptions;
-	isStream: boolean;
-	encoding?: BufferEncoding;
-	pagination?: Required<PaginationOptions<unknown, unknown>['pagination']>;
-}
+// These should be merged into Options in core/index.ts
+export namespace PromiseOnly {
+	export interface Hooks {
+		beforeRetry?: BeforeRetryHook[];
+		afterResponse?: AfterResponseHook[];
+	}
 
-export interface Defaults extends RequestDefaults {
-	hooks: Required<Hooks>;
-	responseType: ResponseType;
-	resolveBodyOnly: boolean;
-	retry: RequiredRetryOptions;
-	isStream: boolean;
-	pagination?: Required<PaginationOptions<unknown, unknown>['pagination']>;
+	export interface Options extends PaginationOptions<unknown, unknown> {
+		responseType?: ResponseType;
+		resolveBodyOnly?: boolean;
+		retry?: Partial<RequiredRetryOptions> | number;
+		isStream?: boolean;
+		encoding?: BufferEncoding;
+	}
+
+	export interface NormalizedOptions {
+		responseType: ResponseType;
+		resolveBodyOnly: boolean;
+		retry: RequiredRetryOptions;
+		isStream: boolean;
+		encoding?: BufferEncoding;
+		pagination?: Required<PaginationOptions<unknown, unknown>['pagination']>;
+	}
+
+	export interface Defaults {
+		responseType: ResponseType;
+		resolveBodyOnly: boolean;
+		retry: RequiredRetryOptions;
+		isStream: boolean;
+		pagination?: Required<PaginationOptions<unknown, unknown>['pagination']>;
+	}
+
+	export type HookEvent = 'beforeRetry' | 'afterResponse';
 }
 
 export class ParseError extends RequestError {
@@ -216,37 +192,10 @@ export class ParseError extends RequestError {
 }
 
 export interface CancelableRequest<T extends Response | Response['body'] = Response['body']> extends PCancelable<T>, RequestEvents<CancelableRequest<T>> {
-	json<ReturnType>(): CancelableRequest<ReturnType>;
-	buffer(): CancelableRequest<Buffer>;
-	text(): CancelableRequest<string>;
+	json: <ReturnType>() => CancelableRequest<ReturnType>;
+	buffer: () => CancelableRequest<Buffer>;
+	text: () => CancelableRequest<string>;
 }
 
-export type HookEvent = RequestHookEvent | 'beforeRetry' | 'afterResponse';
-
-export {
-	RequestError,
-	MaxRedirectsError,
-	CacheError,
-	UploadError,
-	TimeoutError,
-	HTTPError,
-	ReadError,
-	UnsupportedProtocolError,
-	CancelError
-};
-
-export {
-	InitHook,
-	BeforeRequestHook,
-	BeforeRedirectHook,
-	BeforeErrorHook
-};
-
-export {
-	Progress,
-	Headers,
-	RequestFunction,
-	Agents,
-	Method,
-	PromiseCookieJar
-};
+export {CancelError};
+export * from '../core';

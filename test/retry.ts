@@ -21,12 +21,12 @@ const handler413: Handler = (_request, response) => {
 
 const createSocketTimeoutStream = (): http.ClientRequest => {
 	const stream = new PassThroughStream();
-	// @ts-ignore Mocking the behaviour of a ClientRequest
+	// @ts-expect-error Mocking the behaviour of a ClientRequest
 	stream.setTimeout = (ms, callback) => {
 		process.nextTick(callback);
 	};
 
-	// @ts-ignore Mocking the behaviour of a ClientRequest
+	// @ts-expect-error Mocking the behaviour of a ClientRequest
 	stream.abort = () => {};
 	stream.resume();
 
@@ -49,7 +49,7 @@ test('works on timeout', withServer, async (t, server, got) => {
 			((res: http.IncomingMessage) => void)?
 		]) => {
 			if (knocks === 1) {
-				// @ts-ignore Overload error
+				// @ts-expect-error Overload error
 				return http.request(...args);
 			}
 
@@ -293,7 +293,7 @@ test('retries on 503 without Retry-After header', withServer, async (t, server, 
 test('doesn\'t retry on streams', withServer, async (t, server, got) => {
 	server.get('/', () => {});
 
-	// @ts-ignore Error tests
+	// @ts-expect-error Error tests
 	const stream = got.stream({
 		timeout: 1,
 		retry: {

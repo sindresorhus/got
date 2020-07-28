@@ -42,6 +42,10 @@ const headersHandler: Handler = (request, response) => {
 	response.end(JSON.stringify(request.headers));
 };
 
+const infiniteHandler: Handler = (_request, response) => {
+	response.write('foobar');
+};
+
 test('`options.responseType` is ignored', withServer, async (t, server, got) => {
 	server.get('/', defaultHandler);
 
@@ -347,12 +351,10 @@ test('errors have body', withServer, async (t, server, got) => {
 
 	const error = await t.throwsAsync<RequestError>(getStream(got.stream('', {
 		cookieJar: {
-			setCookie: (_, __) => {
+			setCookie: async (_, __) => {
 				throw new Error('snap');
 			},
-			getCookieString: _ => {
-				return '';
-			}
+			getCookieString: async _ => ''
 		}
 	})));
 
@@ -410,3 +412,26 @@ test('async iterator works', withServer, async (t, server, got) => {
 
 	t.is(Buffer.concat(chunks).toString(), payload);
 });
+
+if (process.versions.node.split('.')[0] <= '12') {
+	test('does not emit end event on error', withServer, async (t, server, got) => {
+		server.get('/', infiniteHandler);
+
+		await t.notThrowsAsync(new Promise((resolve, reject) => {
+			got.stream({
+				timeout: 100,
+				hooks: {
+					beforeError: [
+						async error => {
+							await new Promise(resolve => setTimeout(resolve, 50));
+
+							return error;
+						}
+					]
+				}
+			}).once('end', () => {
+				reject(new Error('Stream has ended before erroring'));
+			}).once('error', resolve).resume();
+		}));
+	});
+}

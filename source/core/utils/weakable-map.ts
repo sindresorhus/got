@@ -1,5 +1,5 @@
 export default class WeakableMap<K, V> {
-	weakMap: WeakMap<object, V>;
+	weakMap: WeakMap<Record<string, unknown>, V>;
 	map: Map<K, V>;
 
 	constructor() {
@@ -9,7 +9,7 @@ export default class WeakableMap<K, V> {
 
 	set(key: K, value: V): void {
 		if (typeof key === 'object') {
-			this.weakMap.set(key as unknown as object, value);
+			this.weakMap.set(key as unknown as Record<string, unknown>, value);
 		} else {
 			this.map.set(key, value);
 		}
@@ -17,7 +17,7 @@ export default class WeakableMap<K, V> {
 
 	get(key: K): V | undefined {
 		if (typeof key === 'object') {
-			return this.weakMap.get(key as unknown as object);
+			return this.weakMap.get(key as unknown as Record<string, unknown>);
 		}
 
 		return this.map.get(key);
@@ -25,7 +25,7 @@ export default class WeakableMap<K, V> {
 
 	has(key: K): boolean {
 		if (typeof key === 'object') {
-			return this.weakMap.has(key as unknown as object);
+			return this.weakMap.has(key as unknown as Record<string, unknown>);
 		}
 
 		return this.map.has(key);

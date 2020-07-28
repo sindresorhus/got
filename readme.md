@@ -120,6 +120,8 @@ const pipeline = promisify(stream.pipeline);
 
 **Tip:** `from.pipe(to)` doesn't forward errors. Instead, use [`stream.pipeline(from, ..., to, callback)`](https://nodejs.org/api/stream.html#stream_stream_pipeline_streams_callback).
 
+**Note:** While `got.post('https://example.com')` resolves, `got.stream.post('https://example.com')` will hang indefinitely until a body is provided. If there's no body on purpose, remember to `.end()` the stream or set the [`body`](#body) option to an empty string.
+
 ### API
 
 It's a `GET` request by default, but can be changed by using different methods or via [`options.method`](#method).
@@ -439,7 +441,7 @@ Default: `'utf8'`
 
 [Encoding](https://nodejs.org/api/buffer.html#buffer_buffers_and_character_encodings) to be used on `setEncoding` of the response data.
 
-To get a [`Buffer`](https://nodejs.org/api/buffer.html), you need to set [`responseType`](#responseType) to `buffer` instead.
+To get a [`Buffer`](https://nodejs.org/api/buffer.html), you need to set [`responseType`](#responseType) to `buffer` instead. Don't set this option to `null`.
 
 **Note:** This doesn't affect streams! Instead, you need to do `got.stream(...).setEncoding(encoding)`.
 
@@ -472,6 +474,12 @@ got('https://example.com', {searchParams});
 console.log(searchParams.toString());
 //=> 'key=a&key=b'
 ```
+
+There are some exceptions in regards to `URLSearchParams` behavior:
+
+**Note #1:** `null` values are not stringified, an empty string is used instead.
+
+**Note #2:** `undefined` values are not stringified, the entry is skipped instead.
 
 ###### timeout
 
@@ -691,7 +699,7 @@ Default: `[]`
 
 Called with [normalized](source/core/index.ts) [request options](#options). Got will make no further changes to the request before it is sent. This is especially useful in conjunction with [`got.extend()`](#instances) when you want to create an API client that, for example, uses HMAC-signing.
 
-See the [AWS section](#aws) for an example.
+**Tip:** You can override the `request` function by returning a [`ClientRequest`-like](https://nodejs.org/api/http.html#http_class_http_clientrequest) instance or a [`IncomingMessage`-like](https://nodejs.org/api/http.html#http_class_http_incomingmessage) instance. This is very useful when creating a custom cache mechanism.
 
 ###### hooks.beforeRedirect
 
@@ -901,6 +909,13 @@ Type: `number`\
 Default: `Infinity`
 
 The maximum amount of items that should be emitted.
+
+###### pagination.backoff
+
+Type: `number`\
+Default: `0`
+
+Milliseconds to wait before the next request is triggered.
 
 ###### pagination.requestLimit
 
@@ -1451,7 +1466,7 @@ Options are deeply merged to a new object. The value of each key is determined a
 	- If the parent property is a plain `object`, the parent value is deeply cloned.
 	- Otherwise, `undefined` is used.
 - If the parent value is an instance of `URLSearchParams`:
-	- If the new value is a `string`, an `object` or an instance of `URLSearchParams`, a new `URLSearchParams` instance is created. The values are merged using [`urlSearchParams.append(key, value)`](https://developer.mozilla.org/en-US/docs/Web/API/URLSearchParams/append). The keys defined in the new value override the keys defined in the parent value.
+	- If the new value is a `string`, an `object` or an instance of `URLSearchParams`, a new `URLSearchParams` instance is created. The values are merged using [`urlSearchParams.append(key, value)`](https://developer.mozilla.org/en-US/docs/Web/API/URLSearchParams/append). The keys defined in the new value override the keys defined in the parent value. Please note that `null` values point to an empty string and `undefined` values will exclude the entry.
 	- Otherwise, the only available value is `undefined`.
 - If the new property is a plain `object`:
 	- If the parent property is a plain `object` too, both values are merged recursively into a new `object`.
@@ -1557,13 +1572,13 @@ const addAccessToken = (accessToken: string): BeforeRequestHook => options => {
 Each error contains an `options` property which are the options Got used to create a request - just to make debugging easier.\
 Additionaly, the errors may have `request` (Got Stream) and `response` (Got Response) properties depending on which phase of the request failed.
 
+#### got.RequestError
+
+When a request fails. Contains a `code` property with error class code, like `ECONNREFUSED`. Note that all other types of errors listed below are subclasses of this one, with the exception of `CancelError`.
+
 #### got.CacheError
 
 When a cache method fails, for example, if the database goes down or there's a filesystem error.
-
-#### got.RequestError
-
-When a request fails. Contains a `code` property with error class code, like `ECONNREFUSED`.
 
 #### got.ReadError
 
@@ -1572,6 +1587,10 @@ When reading from response stream fails.
 #### got.ParseError
 
 When server response code is 2xx, and parsing body fails. Includes a `response` property.
+
+#### got.UploadError
+
+When the request body is a stream and an error occurs while reading from that stream.
 
 #### got.HTTPError
 
@@ -1585,13 +1604,13 @@ When the server redirects you more than ten times. Includes a `response` propert
 
 When given an unsupported protocol.
 
-#### got.CancelError
-
-When the request is aborted with `.cancel()`.
-
 #### got.TimeoutError
 
 When the request is aborted due to a [timeout](#timeout). Includes an `event` and `timings` property.
+
+#### got.CancelError
+
+When the request is aborted with `.cancel()`. This type is not a subclass of `RequestError` as it is re-exported from the `p-cancelable` package.
 
 ## Aborting the request
 
@@ -1720,7 +1739,7 @@ const tunnel = require('tunnel');
 
 got('https://sindresorhus.com', {
 	agent: {
-		https: tunnel.httpOverHttp({
+		https: tunnel.httpsOverHttp({
 			proxy: {
 				host: 'localhost'
 			}
@@ -1729,7 +1748,29 @@ got('https://sindresorhus.com', {
 });
 ```
 
+Otherwise, you can use the [`hpagent`](https://github.com/delvedor/hpagent) package, which keeps the internal sockets alive to be reused.
+
+```js
+const got = require('got');
+const {HttpsProxyAgent} = require('hpagent');
+
+got('https://sindresorhus.com', {
+	agent: {
+		https: new HttpsProxyAgent({
+			keepAlive: true,
+			keepAliveMsecs: 1000,
+			maxSockets: 256,
+			maxFreeSockets: 256,
+			scheduling: 'lifo',
+			proxy: 'https://localhost:8080'
+		})
+	}
+});
+```
+
 Alternatively, use [`global-agent`](https://github.com/gajus/global-agent) to configure a global proxy for all HTTP/HTTPS traffic in your program.
+
+Read the [`http2-wrapper`](https://github.com/szmarczak/http2-wrapper/#proxy-support) docs to learn about proxying for HTTP/2.
 
 ## Cookies
 
@@ -1817,29 +1858,14 @@ got('unix:/var/run/docker.sock:/containers/json');
 
 ## AWS
 
-Requests to AWS services need to have their headers signed. This can be accomplished by using the [`aws4`](https://www.npmjs.com/package/aws4) package. This is an example for querying an ["API Gateway"](https://docs.aws.amazon.com/apigateway/api-reference/signing-requests/) with a signed request.
+Requests to AWS services need to have their headers signed. This can be accomplished by using the [`got4aws`](https://www.npmjs.com/package/got4aws) package. This is an example for querying an ["API Gateway"](https://docs.aws.amazon.com/apigateway/api-reference/signing-requests/) with a signed request.
 
 ```js
-const got = require('got');
-const AWS = require('aws-sdk');
-const aws4 = require('aws4');
+const got4aws = require('got4aws');;
 
-const chain = new AWS.CredentialProviderChain();
+const awsClient = got4aws();
 
-// Create a Got instance to use relative paths and signed requests
-const awsClient = got.extend({
-	prefixUrl: 'https://<api-id>.execute-api.<api-region>.amazonaws.com/<stage>/',
-	hooks: {
-		beforeRequest: [
-			async options => {
-				const credentials = await chain.resolvePromise();
-				aws4.sign(options, credentials);
-			}
-		]
-	}
-});
-
-const response = await awsClient('endpoint/path', {
+const response = await awsClient('https://<api-id>.execute-api.<api-region>.amazonaws.com/<stage>/endpoint/path', {
 	// Request-specific options
 });
 ```
@@ -2013,6 +2039,9 @@ The Electron `net` module is not consistent with the Node.js `http` module. See 
 | Bugs                  | [![][gbg]][g6]     | [![][rbg]][r6]     | [![][nbg]][n6]       | [![][kbg]][k6]           | [![][abg]][a6]     | [![][sbg]][s6]         |
 | Dependents            | [![][gdp]][g7]     | [![][rdp]][r7]     | [![][ndp]][n7]       | [![][kdp]][k7]           | [![][adp]][a7]     | [![][sdp]][s7]         |
 | Install size          | [![][gis]][g8]     | [![][ris]][r8]     | [![][nis]][n8]       | [![][kis]][k8]           | [![][ais]][a8]     | [![][sis]][s8]         |
+| GitHub stars          | [![][gs]][g9]      | [![][rs]][r9]      | [![][ns]][n9]        | [![][ks]][k9]            | [![][as]][a9]      | [![][ss]][s9]          |
+| TypeScript support    | [![][gts]][g10]    | [![][rts]][r10]    | [![][nts]][n10]      | [![][kts]][k10]          | [![][ats]][a10]    | [![][sts]][s11]        |
+| Last commit           | [![][glc]][g11]    | [![][rlc]][r11]    | [![][nlc]][n11]      | [![][klc]][k11]          | [![][alc]][a11]    | [![][slc]][s11]        |
 
 \* It's almost API compatible with the browser `fetch` API.\
 \*\* Need to switch the protocol manually. Doesn't accept PUSH streams and doesn't reuse HTTP/2 sessions.\
@@ -2107,14 +2136,14 @@ The Electron `net` module is not consistent with the Node.js `http` module. See 
 [kbg]: https://badgen.net/github/label-issues/sindresorhus/ky/bug/open?label
 [rbg]: https://badgen.net/github/label-issues/request/request/Needs%20investigation/open?label
 [nbg]: https://badgen.net/github/label-issues/bitinn/node-fetch/bug/open?label
-[abg]: https://badgen.net/github/label-issues/axios/axios/type:bug/open?label
+[abg]: https://badgen.net/github/label-issues/axios/axios/type:confirmed%20bug/open?label
 [sbg]: https://badgen.net/github/label-issues/visionmedia/superagent/Bug/open?label
 
 [g6]: https://github.com/sindresorhus/got/issues?q=is%3Aissue+is%3Aopen+sort%3Aupdated-desc+label%3Abug
 [k6]: https://github.com/sindresorhus/ky/issues?q=is%3Aissue+is%3Aopen+sort%3Aupdated-desc+label%3Abug
 [r6]: https://github.com/request/request/issues?q=is%3Aissue+is%3Aopen+sort%3Aupdated-desc+label%3A"Needs+investigation"
 [n6]: https://github.com/bitinn/node-fetch/issues?q=is%3Aissue+is%3Aopen+sort%3Aupdated-desc+label%3Abug
-[a6]: https://github.com/axios/axios/issues?q=is%3Aissue+is%3Aopen+sort%3Aupdated-desc+label%3Atype:bug
+[a6]: https://github.com/axios/axios/issues?q=is%3Aissue+is%3Aopen+sort%3Aupdated-desc+label%3A%22type%3Aconfirmed+bug%22
 [s6]: https://github.com/visionmedia/superagent/issues?q=is%3Aissue+is%3Aopen+sort%3Aupdated-desc+label%3ABug
 
 <!-- DEPENDENTS -->
@@ -2147,9 +2176,54 @@ The Electron `net` module is not consistent with the Node.js `http` module. See 
 [a8]: https://packagephobia.now.sh/result?p=axios
 [s8]: https://packagephobia.now.sh/result?p=superagent
 
+<!-- GITHUB STARS -->
+[gs]: https://badgen.net/github/stars/sindresorhus/got?label
+[ks]: https://badgen.net/github/stars/sindresorhus/ky?label
+[rs]: https://badgen.net/github/stars/request/request?label
+[ns]: https://badgen.net/github/stars/bitinn/node-fetch?label
+[as]: https://badgen.net/github/stars/axios/axios?label
+[ss]: https://badgen.net/github/stars/visionmedia/superagent?label
+
+[g9]: https://github.com/sindresorhus/got
+[k9]: https://github.com/sindresorhus/ky
+[r9]: https://github.com/request/request
+[n9]: https://github.com/node-fetch/node-fetch
+[a9]: https://github.com/axios/axios
+[s9]: https://github.com/visionmedia/superagent
+
+<!-- TYPESCRIPT SUPPORT -->
+[gts]: https://badgen.net/npm/types/got?label
+[kts]: https://badgen.net/npm/types/ky?label
+[rts]: https://badgen.net/npm/types/request?label
+[nts]: https://badgen.net/npm/types/node-fetch?label
+[ats]: https://badgen.net/npm/types/axios?label
+[sts]: https://badgen.net/npm/types/superagent?label
+
+[g10]: https://github.com/sindresorhus/got
+[k10]: https://github.com/sindresorhus/ky
+[r10]: https://github.com/request/request
+[n10]: https://github.com/node-fetch/node-fetch
+[a10]: https://github.com/axios/axios
+[s10]: https://github.com/visionmedia/superagent
+
+<!-- LAST COMMIT -->
+[glc]: https://badgen.net/github/last-commit/sindresorhus/got?label
+[klc]: https://badgen.net/github/last-commit/sindresorhus/ky?label
+[rlc]: https://badgen.net/github/last-commit/request/request?label
+[nlc]: https://badgen.net/github/last-commit/bitinn/node-fetch?label
+[alc]: https://badgen.net/github/last-commit/axios/axios?label
+[slc]: https://badgen.net/github/last-commit/visionmedia/superagent?label
+
+[g11]: https://github.com/sindresorhus/got/commits
+[k11]: https://github.com/sindresorhus/ky/commits
+[r11]: https://github.com/request/request/commits
+[n11]: https://github.com/node-fetch/node-fetch/commits
+[a11]: https://github.com/axios/axios/commits
+[s11]: https://github.com/visionmedia/superagent/commits
+
 [Click here][InstallSizeOfTheDependencies] to see the install size of the Got dependencies.
 
-[InstallSizeOfTheDependencies]: https://packagephobia.now.sh/result?p=@sindresorhus/is@1.0.0,@szmarczak/http-timer@3.1.0,@types/cacheable-request@6.0.1,cacheable-lookup@0.2.1,cacheable-request@7.0.0,decompress-response@5.0.0,duplexer3@0.1.4,get-stream@5.0.0,lowercase-keys@2.0.0,mimic-response@2.0.0,p-cancelable@2.0.0,responselike@2.0.0,to-readable-stream@2.0.0,type-fest@0.8.0
+[InstallSizeOfTheDependencies]: https://packagephobia.com/result?p=@sindresorhus/is@3.0.0,@szmarczak/http-timer@4.0.5,@types/cacheable-request@6.0.1,@types/responselike@1.0.0,cacheable-lookup@5.0.3,cacheable-request@7.0.1,decompress-response@6.0.0,http2-wrapper@1.0.0,lowercase-keys@2.0.0,p-cancelable@2.0.0,responselike@2.0.0
 
 ## Related
 

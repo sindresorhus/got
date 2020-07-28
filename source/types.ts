@@ -83,9 +83,6 @@ type ResponseBodyOnly = {resolveBodyOnly: true};
 export type OptionsWithPagination<T = unknown, R = unknown> = Merge<Options, PaginationOptions<T, R>>;
 
 export interface GotPaginate {
-	<T, R = unknown>(url: string | URL, options?: OptionsWithPagination<T, R>): AsyncIterableIterator<T>;
-	<T, R = unknown>(options?: OptionsWithPagination<T, R>): AsyncIterableIterator<T>;
-
 	/**
 	Returns an async iterator.
 
@@ -108,8 +105,11 @@ export interface GotPaginate {
 	})();
 	```
 	*/
-	each<T, R = unknown>(url: string | URL, options?: OptionsWithPagination<T, R>): AsyncIterableIterator<T>;
-	each<T, R = unknown>(options?: OptionsWithPagination<T, R>): AsyncIterableIterator<T>;
+	<T, R = unknown>(url: string | URL, options?: OptionsWithPagination<T, R>): AsyncIterableIterator<T>;
+	<T, R = unknown>(options?: OptionsWithPagination<T, R>): AsyncIterableIterator<T>;
+
+	each: (<T, R = unknown>(url: string | URL, options?: OptionsWithPagination<T, R>) => AsyncIterableIterator<T>)
+	& (<T, R = unknown>(options?: OptionsWithPagination<T, R>) => AsyncIterableIterator<T>);
 
 	/**
 	Returns a Promise for an array of all results.
@@ -130,8 +130,8 @@ export interface GotPaginate {
 	})();
 	```
 	*/
-	all<T, R = unknown>(url: string | URL, options?: OptionsWithPagination<T, R>): Promise<T[]>;
-	all<T, R = unknown>(options?: OptionsWithPagination<T, R>): Promise<T[]>;
+	all: (<T, R = unknown>(url: string | URL, options?: OptionsWithPagination<T, R>) => Promise<T[]>)
+	& (<T, R = unknown>(options?: OptionsWithPagination<T, R>) => Promise<T[]>);
 }
 
 export interface GotRequestFunction {
@@ -306,9 +306,9 @@ export interface Got extends Record<HTTPAlias, GotRequestFunction>, GotRequestFu
 	// x-unicorn: rainbow
 	```
 	*/
-	extend(...instancesOrOptions: Array<Got | ExtendOptions>): Got;
+	extend: (...instancesOrOptions: Array<Got | ExtendOptions>) => Got;
 
-	mergeInstances(parent: Got, ...instances: Got[]): Got;
+	mergeInstances: (parent: Got, ...instances: Got[]) => Got;
 
 	/**
 	Extends parent options.
@@ -343,5 +343,5 @@ export interface Got extends Record<HTTPAlias, GotRequestFunction>, GotRequestFu
 	got.mergeOptions(a, b)  // => {headers: {cat: 'meow', cow: 'moo', wolf: ['auuu']}}
 	```
 	*/
-	mergeOptions(...sources: Options[]): NormalizedOptions;
+	mergeOptions: (...sources: Options[]) => NormalizedOptions;
 }

@@ -1,5 +1,4 @@
 import {EventEmitter} from 'events';
-import getStream = require('get-stream');
 import PCancelable = require('p-cancelable');
 import calculateRetryDelay from './calculate-retry-delay';
 import {
@@ -11,6 +10,7 @@ import {
 } from './types';
 import PromisableRequest, {parseBody} from './core';
 import proxyEvents from '../core/utils/proxy-events';
+import getBuffer from '../core/utils/get-buffer';
 
 const proxiedRequestEvents = [
 	'request',
@@ -42,18 +42,20 @@ export default function asPromise<T>(options: NormalizedOptions): CancelableRequ
 			request._noPipe = true;
 			onCancel(() => request.destroy());
 
-			const reject = async (error: RequestError) => {
-				try {
-					for (const hook of options.hooks.beforeError) {
-						// eslint-disable-next-line no-await-in-loop
-						error = await hook(error);
+			const reject = (error: RequestError): void => {
+				void (async () => {
+					try {
+						for (const hook of options.hooks.beforeError) {
+							// eslint-disable-next-line no-await-in-loop
+							error = await hook(error);
+						}
+					} catch (error_) {
+						_reject(new RequestError(error_.message, error_, request));
+						return;
 					}
-				} catch (error_) {
-					_reject(new RequestError(error_.message, error_, request));
-					return;
-				}
 
-				_reject(error);
+					_reject(error);
+				})();
 			};
 
 			globalRequest = request;
@@ -76,32 +78,39 @@ export default function asPromise<T>(options: NormalizedOptions): CancelableRequ
 				// Download body
 				let rawBody;
 				try {
-					rawBody = await getStream.buffer(request);
+					rawBody = await getBuffer(request);
 
 					response.rawBody = rawBody;
-				} catch (_) {
+				} catch {
 					// The same error is caught below.
 					// See request.once('error')
 					return;
 				}
 
 				// Parse body
-				try {
-					response.body = parseBody(response, options.responseType, options.parseJson, options.encoding);
-				} catch (error) {
-					// Fallback to `utf8`
-					response.body = rawBody.toString();
+				const contentEncoding = (response.headers['content-encoding'] ?? '').toLowerCase();
+				const isCompressed = ['gzip', 'deflate', 'br'].includes(contentEncoding);
 
-					if (isOk()) {
-						// TODO: Call `request._beforeError`, see https://github.com/nodejs/node/issues/32995
-						reject(error);
-						return;
+				if (isCompressed && !options.decompress) {
+					response.body = rawBody;
+				} else {
+					try {
+						response.body = parseBody(response, options.responseType, options.parseJson, options.encoding);
+					} catch (error) {
+						// Fallback to `utf8`
+						response.body = rawBody.toString();
+
+						if (isOk()) {
+							// TODO: Call `request._beforeError`, see https://github.com/nodejs/node/issues/32995
+							reject(error);
+							return;
+						}
 					}
 				}
 
 				try {
 					for (const [index, hook] of options.hooks.afterResponse.entries()) {
-						// @ts-ignore TS doesn't notice that CancelableRequest is a Promise
+						// @ts-expect-error TS doesn't notice that CancelableRequest is a Promise
 						// eslint-disable-next-line no-await-in-loop
 						response = await hook(response, async (updatedOptions): CancelableRequest<Response> => {
 							const typedOptions = PromisableRequest.normalizeArguments(undefined, {
@@ -148,9 +157,7 @@ export default function asPromise<T>(options: NormalizedOptions): CancelableRequ
 				resolve(options.resolveBodyOnly ? response.body as T : response as unknown as T);
 			};
 
-			request.once('response', onResponse);
-
-			request.once('error', async (error: RequestError) => {
+			const onError = async (error: RequestError) => {
 				if (promise.isCanceled) {
 					return;
 				}
@@ -161,6 +168,16 @@ export default function asPromise<T>(options: NormalizedOptions): CancelableRequ
 				}
 
 				request.off('response', onResponse);
+
+				let gotUnexpectedError = false;
+				const onUnexpectedError = (error: RequestError) => {
+					gotUnexpectedError = true;
+
+					reject(error);
+				};
+
+				// If this is an HTTP error, then it can throw again with `ECONNRESET` or `Parse Error`
+				request.once('error', onUnexpectedError);
 
 				let backoff: number;
 
@@ -185,6 +202,13 @@ export default function asPromise<T>(options: NormalizedOptions): CancelableRequ
 					reject(new RequestError(error_.message, error, request));
 					return;
 				}
+
+				// Another error was thrown already
+				if (gotUnexpectedError) {
+					return;
+				}
+
+				request.off('error', onUnexpectedError);
 
 				if (backoff) {
 					// Don't emit the `response` event
@@ -218,7 +242,10 @@ export default function asPromise<T>(options: NormalizedOptions): CancelableRequ
 
 				if (error instanceof HTTPError) {
 					// The error will be handled by the `response` event
-					onResponse(request._response as Response);
+					void onResponse(request._response as Response);
+
+					// Reattach the error handler, because there may be a timeout later.
+					request.once('error', onError);
 					return;
 				}
 
@@ -226,7 +253,10 @@ export default function asPromise<T>(options: NormalizedOptions): CancelableRequ
 				request.destroy();
 
 				reject(error);
-			});
+			};
+
+			request.once('response', onResponse);
+			request.once('error', onError);
 
 			proxyEvents(request, emitter, proxiedRequestEvents);
 		};
