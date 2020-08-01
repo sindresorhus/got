@@ -555,6 +555,9 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 	constructor(url: string | URL | undefined, options: Options = {}, defaults?: Defaults) {
 		super({
+			// This must be false, to enable throwing after destroy
+			// It is used for retry logic in Promise API
+			autoDestroy: false,
 			// It needs to be zero because we're just proxying the data to another stream
 			highWaterMark: 0
 		});
@@ -1283,14 +1286,6 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		}
 
 		if (options.isStream && options.throwHttpErrors && !isResponseOk(typedResponse)) {
-			typedResponse.setEncoding((this as any)._readableState.encoding);
-
-			try {
-				typedResponse.rawBody = await getBuffer(response);
-			} catch {}
-
-			typedResponse.body = typedResponse.rawBody.toString();
-
 			this._beforeError(new HTTPError(typedResponse));
 			return;
 		}
@@ -1338,6 +1333,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		try {
 			await this._onResponseBase(response);
 		} catch (error) {
+			/* istanbul ignore next: better safe than sorry */
 			this._beforeError(error);
 		}
 	}
@@ -1641,8 +1637,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	}
 
 	_beforeError(error: Error): void {
-		console.log('before', this[kStopReading], error);
-		if (this.destroyed || this[kStopReading]) {
+		if (this[kStopReading]) {
 			return;
 		}
 
@@ -1655,7 +1650,20 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			error = new RequestError(error.message, error, this);
 		}
 
+		const typedError = error as RequestError;
+		const {response} = typedError;
+
 		void (async () => {
+			if (response && !response.body) {
+				response.setEncoding((this as any)._readableState.encoding);
+
+				try {
+					response.rawBody = await getBuffer(response);
+				} catch {}
+
+				response.body = response.rawBody.toString();
+			}
+
 			if (this.listenerCount('retry') !== 0) {
 				let backoff: number;
 
@@ -1663,11 +1671,11 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 					backoff = await options.retry.calculateDelay({
 						attemptCount: retryCount,
 						retryOptions: options.retry,
-						error: error as RequestError,
+						error: typedError,
 						computedValue: calculateRetryDelay({
 							attemptCount: retryCount,
 							retryOptions: options.retry,
-							error: error as RequestError,
+							error: typedError,
 							computedValue: 0
 						})
 					});
@@ -1681,7 +1689,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 						try {
 							for (const hook of this.options.hooks.beforeRetry) {
 								// eslint-disable-next-line no-await-in-loop
-								await hook(this.options, error as RequestError, retryCount);
+								await hook(this.options, typedError, retryCount);
 							}
 						} catch (error_) {
 							void this._error(new RequestError(error_.message, error, this));
@@ -1697,7 +1705,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 				}
 			}
 
-			void this._error(error as RequestError);
+			void this._error(typedError);
 		})();
 	}
 
@@ -1821,6 +1829,10 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		callback(error);
 	}
 
+	get _isAboutToError() {
+		return this[kStopReading];
+	}
+
 	get ip(): string | undefined {
 		return this[kRequest]?.socket.remoteAddress;
 	}
@@ -1873,10 +1885,6 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 	get isFromCache(): boolean | undefined {
 		return this[kIsFromCache];
-	}
-
-	get _response(): Response | undefined {
-		return this[kResponse] as Response;
 	}
 
 	pipe<T extends NodeJS.WritableStream>(destination: T, options?: {end?: boolean}): T {

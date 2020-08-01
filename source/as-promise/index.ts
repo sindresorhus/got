@@ -38,6 +38,11 @@ export default function asPromise<T>(options: NormalizedOptions): CancelableRequ
 			request.once('response', async (response: Response) => {
 				response.retryCount = retryCount;
 
+				if (response.request.aborted) {
+					// Canceled while downloading - will throw a `CancelError` or `TimeoutError` error
+					return;
+				}
+
 				// Download body
 				let rawBody;
 				try {
@@ -49,8 +54,7 @@ export default function asPromise<T>(options: NormalizedOptions): CancelableRequ
 					return;
 				}
 
-				if (response.request.aborted) {
-					// Canceled while downloading - will throw a `CancelError` or `TimeoutError` error
+				if (request._isAboutToError) {
 					return;
 				}
 
