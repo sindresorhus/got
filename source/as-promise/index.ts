@@ -131,8 +131,10 @@ export default function asPromise<T>(options: NormalizedOptions): CancelableRequ
 					return;
 				}
 
-				const {response} = error;
-				if (response && !request.options.throwHttpErrors) {
+				const {options} = request;
+
+				if (error instanceof HTTPError && !options.throwHttpErrors) {
+					const {response} = error;
 					resolve(request.options.resolveBodyOnly ? response.body as T : response as unknown as T);
 					return;
 				}
