@@ -10,7 +10,6 @@ import {
 } from './types';
 import Request, {
 	knownHookEvents,
-	RequestError,
 	Method,
 	ParseJsonFunction
 } from '../core';
@@ -149,19 +148,5 @@ export default class PromisableRequest extends Request {
 		}
 
 		return mergedOptions!;
-	}
-
-	_beforeError(error: Error): void {
-		if (this.destroyed) {
-			return;
-		}
-
-		if (!(error instanceof RequestError)) {
-			error = new RequestError(error.message, error, this);
-		}
-
-		// Let the promise decide whether to abort or not
-		// It is also responsible for the `beforeError` hook
-		this.emit('error', error);
 	}
 }

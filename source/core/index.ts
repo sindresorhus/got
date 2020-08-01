@@ -25,8 +25,10 @@ import optionsToUrl, {URLOptions} from './utils/options-to-url';
 import WeakableMap from './utils/weakable-map';
 import getBuffer from './utils/get-buffer';
 import {DnsLookupIpVersion, isDnsLookupIpVersion, dnsLookupIpVersionToFamily} from './utils/dns-ip-version';
+import {isResponseOk} from './utils/is-response-ok';
 import deprecationWarning from '../utils/deprecation-warning';
 import {PromiseOnly} from '../as-promise/types';
+import calculateRetryDelay from './calculate-retry-delay';
 
 const globalDnsCache = new CacheableLookup();
 
@@ -132,6 +134,24 @@ interface RealRequestOptions extends https.RequestOptions {
 	checkServerIdentity: CheckServerIdentityFunction;
 }
 
+export interface RetryObject {
+	attemptCount: number;
+	retryOptions: RequiredRetryOptions;
+	error: TimeoutError | RequestError;
+	computedValue: number;
+}
+
+export type RetryFunction = (retryObject: RetryObject) => number | Promise<number>;
+
+export interface RequiredRetryOptions {
+	limit: number;
+	methods: Method[];
+	statusCodes: number[];
+	errorCodes: string[];
+	calculateDelay: RetryFunction;
+	maxRetryAfter?: number;
+}
+
 interface PlainOptions extends URLOptions {
 	request?: RequestFunction;
 	agent?: Agents | false;
@@ -162,6 +182,7 @@ interface PlainOptions extends URLOptions {
 	dnsLookupIpVersion?: DnsLookupIpVersion;
 	parseJson?: ParseJsonFunction;
 	stringifyJson?: StringifyJsonFunction;
+	retry?: Partial<RequiredRetryOptions> | number;
 
 	// From `http.RequestOptions`
 	localAddress?: string;
@@ -217,6 +238,7 @@ interface NormalizedPlainOptions extends PlainOptions {
 	password: string;
 	parseJson: ParseJsonFunction;
 	stringifyJson: StringifyJsonFunction;
+	retry: RequiredRetryOptions;
 	[kRequest]: HttpRequestFunction;
 	[kIsNormalizedAlready]?: boolean;
 }
@@ -244,6 +266,7 @@ interface PlainDefaults {
 	methodRewriting: boolean;
 	parseJson: ParseJsonFunction;
 	stringifyJson: StringifyJsonFunction;
+	retry: RequiredRetryOptions;
 
 	// Optional
 	agent?: Agents | false;
@@ -271,13 +294,17 @@ export interface PlainResponse extends IncomingMessageWithTimings {
 	statusCode: number;
 	url: string;
 	timings: Timings;
+	retryCount: number;
+
+	// Defined only if request errored
+	rawBody?: Buffer;
+	body?: unknown;
 }
 
 // For Promise support
 export interface Response<T = unknown> extends PlainResponse {
 	body: T;
 	rawBody: Buffer;
-	retryCount: number;
 }
 
 export interface RequestEvents<T> {
@@ -524,8 +551,9 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	declare requestUrl: string;
 	requestInitialized: boolean;
 	redirects: string[];
+	retryCount: number;
 
-	constructor(url: string | URL, options: Options = {}, defaults?: Defaults) {
+	constructor(url: string | URL | undefined, options: Options = {}, defaults?: Defaults) {
 		super({
 			// It needs to be zero because we're just proxying the data to another stream
 			highWaterMark: 0
@@ -539,6 +567,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		this[kStopReading] = false;
 		this[kTriggerRead] = false;
 		this[kJobs] = [];
+		this.retryCount = 0;
 
 		// TODO: Remove this when targeting Node.js >= 12
 		this._progressCallbacks = [];
@@ -610,6 +639,9 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 				for (const job of this[kJobs]) {
 					job();
 				}
+
+				// Prevent memory leak
+				this[kJobs].length = 0;
 
 				this.requestInitialized = true;
 			} catch (error) {
@@ -1118,6 +1150,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		typedResponse.request = this;
 		typedResponse.isFromCache = (response as any).fromCache || false;
 		typedResponse.ip = this.ip;
+		typedResponse.retryCount = this.retryCount;
 
 		this[kIsFromCache] = typedResponse.isFromCache;
 
@@ -1249,17 +1282,17 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			return;
 		}
 
-		const limitStatusCode = options.followRedirect ? 299 : 399;
-		const isOk = (statusCode >= 200 && statusCode <= limitStatusCode) || statusCode === 304;
-		if (options.throwHttpErrors && !isOk) {
-			// Normally we would have to use `void [await] this._beforeError(error)` everywhere,
-			// but since there's `void (async () => { ... })()` inside of it, we don't have to.
-			this._beforeError(new HTTPError(typedResponse));
+		if (options.isStream && options.throwHttpErrors && !isResponseOk(typedResponse)) {
+			typedResponse.setEncoding((this as any)._readableState.encoding);
 
-			// This is equivalent to this.destroyed
-			if (this[kStopReading]) {
-				return;
-			}
+			try {
+				typedResponse.rawBody = await getBuffer(response);
+			} catch {}
+
+			typedResponse.body = typedResponse.rawBody.toString();
+
+			this._beforeError(new HTTPError(typedResponse));
+			return;
 		}
 
 		response.on('readable', () => {
@@ -1594,10 +1627,31 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		}
 	}
 
-	_beforeError(error: Error): void {
-		if (this.destroyed) {
+	async _error(error: RequestError, _bypass?: boolean): Promise<void> {
+		try {
+			for (const hook of this.options.hooks.beforeError) {
+				// eslint-disable-next-line no-await-in-loop
+				error = await hook(error);
+			}
+		} catch (error_) {
+			error = new RequestError(error_.message, error_, this);
+		}
+
+		if (_bypass) {
+			this.emit('error', error);
+			this.destroy();
+		} else {
+			this.destroy(error);
+		}
+	}
+
+	_beforeError(error: Error, _bypass?: boolean): void {
+		if (this.destroyed && !_bypass) {
 			return;
 		}
+
+		const {options} = this;
+		const retryCount = this.retryCount + 1;
 
 		this[kStopReading] = true;
 
@@ -1606,27 +1660,48 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		}
 
 		void (async () => {
-			try {
-				const {response} = error as RequestError;
+			if (this.listenerCount('retry') !== 0) {
+				let backoff: number;
 
-				if (response) {
-					response.setEncoding((this as any)._readableState.encoding);
-
-					response.rawBody = await getBuffer(response);
-					response.body = response.rawBody.toString();
+				try {
+					backoff = await options.retry.calculateDelay({
+						attemptCount: retryCount,
+						retryOptions: options.retry,
+						error: error as RequestError,
+						computedValue: calculateRetryDelay({
+							attemptCount: retryCount,
+							retryOptions: options.retry,
+							error: error as RequestError,
+							computedValue: 0
+						})
+					});
+				} catch (error_) {
+					void this._error(new RequestError(error_.message, error_, this), _bypass);
+					return;
 				}
-			} catch {}
 
-			try {
-				for (const hook of this.options.hooks.beforeError) {
-					// eslint-disable-next-line no-await-in-loop
-					error = await hook(error as RequestError);
+				if (backoff) {
+					const retry = async (): Promise<void> => {
+						try {
+							for (const hook of this.options.hooks.beforeRetry) {
+								// eslint-disable-next-line no-await-in-loop
+								await hook(this.options, error as RequestError, retryCount);
+							}
+						} catch (error_) {
+							void this._error(new RequestError(error_.message, error, this), _bypass);
+							return;
+						}
+
+						this.destroy();
+						this.emit('retry', retryCount);
+					};
+
+					setTimeout(retry, backoff);
+					return;
 				}
-			} catch (error_) {
-				error = new RequestError(error_.message, error_, this);
 			}
 
-			this.destroy(error);
+			void this._error(error as RequestError, _bypass);
 		})();
 	}
 

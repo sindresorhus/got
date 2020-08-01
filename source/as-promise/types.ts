@@ -4,31 +4,11 @@ import {
 	NormalizedOptions,
 	Options,
 	Response,
-	Method,
-	TimeoutError,
 	RequestError,
 	RequestEvents
 } from '../core';
 
 export type ResponseType = 'json' | 'buffer' | 'text';
-
-export interface RetryObject {
-	attemptCount: number;
-	retryOptions: RequiredRetryOptions;
-	error: TimeoutError | RequestError;
-	computedValue: number;
-}
-
-export type RetryFunction = (retryObject: RetryObject) => number | Promise<number>;
-
-export interface RequiredRetryOptions {
-	limit: number;
-	methods: Method[];
-	statusCodes: number[];
-	errorCodes: string[];
-	calculateDelay: RetryFunction;
-	maxRetryAfter?: number;
-}
 
 export interface PaginationOptions<T, R> {
 	pagination?: {
@@ -56,7 +36,6 @@ export namespace PromiseOnly {
 	export interface Options extends PaginationOptions<unknown, unknown> {
 		responseType?: ResponseType;
 		resolveBodyOnly?: boolean;
-		retry?: Partial<RequiredRetryOptions> | number;
 		isStream?: boolean;
 		encoding?: BufferEncoding;
 	}
@@ -64,7 +43,6 @@ export namespace PromiseOnly {
 	export interface NormalizedOptions {
 		responseType: ResponseType;
 		resolveBodyOnly: boolean;
-		retry: RequiredRetryOptions;
 		isStream: boolean;
 		encoding?: BufferEncoding;
 		pagination?: Required<PaginationOptions<unknown, unknown>['pagination']>;
@@ -73,7 +51,6 @@ export namespace PromiseOnly {
 	export interface Defaults {
 		responseType: ResponseType;
 		resolveBodyOnly: boolean;
-		retry: RequiredRetryOptions;
 		isStream: boolean;
 		pagination?: Required<PaginationOptions<unknown, unknown>['pagination']>;
 	}
