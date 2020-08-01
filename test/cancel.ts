@@ -79,7 +79,7 @@ test.serial('does not retry after cancelation', withServerAndFakeTimers, async (
 test.serial('cleans up request timeouts', withServer, async (t, server, got) => {
 	server.get('/', () => {});
 
-	const gotPromise = got('redirect', {
+	const gotPromise = got({
 		timeout: 10,
 		retry: {
 			calculateDelay: ({computedValue}) => {

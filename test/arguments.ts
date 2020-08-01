@@ -97,7 +97,7 @@ test('methods are normalized', withServer, async (t, server, got) => {
 	await instance('test', {method: 'post'});
 });
 
-test.failing('throws an error when legacy URL is passed', withServer, async (t, server, got) => {
+test.failing.only('throws an error when legacy URL is passed', withServer, async (t, server, got) => {
 	server.get('/test', echoUrl);
 
 	await t.throwsAsync(

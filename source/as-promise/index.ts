@@ -38,20 +38,19 @@ export default function asPromise<T>(options: NormalizedOptions): CancelableRequ
 			request.once('response', async (response: Response) => {
 				response.retryCount = retryCount;
 
-				if (response.request.aborted) {
-					// Canceled while downloading - will throw a `CancelError` or `TimeoutError` error
-					return;
-				}
-
 				// Download body
 				let rawBody;
 				try {
 					rawBody = await getBuffer(request);
-
 					response.rawBody = rawBody;
 				} catch {
 					// The same error is caught below.
 					// See request.once('error')
+					return;
+				}
+
+				if (response.request.aborted) {
+					// Canceled while downloading - will throw a `CancelError` or `TimeoutError` error
 					return;
 				}
 
@@ -114,7 +113,7 @@ export default function asPromise<T>(options: NormalizedOptions): CancelableRequ
 				}
 
 				if (!isResponseOk(response)) {
-					request._beforeError(new HTTPError(response), true);
+					request._beforeError(new HTTPError(response));
 					return;
 				}
 

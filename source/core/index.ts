@@ -1627,7 +1627,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		}
 	}
 
-	async _error(error: RequestError, _bypass?: boolean): Promise<void> {
+	async _error(error: RequestError): Promise<void> {
 		try {
 			for (const hook of this.options.hooks.beforeError) {
 				// eslint-disable-next-line no-await-in-loop
@@ -1637,16 +1637,12 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			error = new RequestError(error_.message, error_, this);
 		}
 
-		if (_bypass) {
-			this.emit('error', error);
-			this.destroy();
-		} else {
-			this.destroy(error);
-		}
+		this.destroy(error);
 	}
 
-	_beforeError(error: Error, _bypass?: boolean): void {
-		if (this.destroyed && !_bypass) {
+	_beforeError(error: Error): void {
+		console.log('before', this[kStopReading], error);
+		if (this.destroyed || this[kStopReading]) {
 			return;
 		}
 
@@ -1676,7 +1672,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 						})
 					});
 				} catch (error_) {
-					void this._error(new RequestError(error_.message, error_, this), _bypass);
+					void this._error(new RequestError(error_.message, error_, this));
 					return;
 				}
 
@@ -1688,7 +1684,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 								await hook(this.options, error as RequestError, retryCount);
 							}
 						} catch (error_) {
-							void this._error(new RequestError(error_.message, error, this), _bypass);
+							void this._error(new RequestError(error_.message, error, this));
 							return;
 						}
 
@@ -1701,7 +1697,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 				}
 			}
 
-			void this._error(error as RequestError, _bypass);
+			void this._error(error as RequestError);
 		})();
 	}
 
