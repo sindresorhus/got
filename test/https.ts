@@ -42,12 +42,12 @@ test('https request with ca and afterResponse hook', withServer, async (t, serve
 			warning.message === 'Got: "options.ca" was never documented, please use ' +
 				'"options.https.certificateAuthority"'
 		) {
-			process.removeListener('warning', warningListener);
+			process.off('warning', warningListener);
 			t.fail('unexpected deprecation warning');
 		}
 	};
 
-	process.on('warning', warningListener);
+	process.once('warning', warningListener);
 
 	let shouldRetry = true;
 	const {body} = await got.secure({
@@ -60,7 +60,6 @@ test('https request with ca and afterResponse hook', withServer, async (t, serve
 				(response, retry) => {
 					if (shouldRetry) {
 						shouldRetry = false;
-						console.log('retry');
 
 						return retry({});
 					}
