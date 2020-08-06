@@ -1609,7 +1609,7 @@ Additionaly, the errors may have `request` (Got Stream) and `response` (Got Resp
 
 #### got.RequestError
 
-When a request fails. Contains a `code` property with error class code, like `ECONNREFUSED`. Note that all other types of errors listed below are subclasses of this one, with the exception of `CancelError`.
+When a request fails. Contains a `code` property with error class code, like `ECONNREFUSED`. All the errors below inherit this one.
 
 #### got.CacheError
 
@@ -1645,7 +1645,7 @@ When the request is aborted due to a [timeout](#timeout). Includes an `event` an
 
 #### got.CancelError
 
-When the request is aborted with `.cancel()`. This type is not a subclass of `RequestError` as it is re-exported from the `p-cancelable` package.
+When the request is aborted with `.cancel()`.
 
 ## Aborting the request
 
