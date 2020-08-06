@@ -1,10 +1,12 @@
 import {
 	ParseError,
 	HTTPError,
-	MaxRedirectsError,
+	MaxRedirectsError
+} from '../as-promise/types';
+import {
 	RetryObject,
 	RetryFunction
-} from './types';
+} from '.';
 
 type Returns<T extends (...args: any) => unknown, V> = (...args: Parameters<T>) => V;
 

@@ -59,7 +59,7 @@ const delay = async (ms: number) => new Promise(resolve => setTimeout(resolve, m
 
 const {normalizeArguments, mergeOptions} = PromisableRequest;
 
-const getPromiseOrStream = (options: NormalizedOptions): GotReturn => options.isStream ? new Request(options.url, options) : asPromise(options);
+const getPromiseOrStream = (options: NormalizedOptions): GotReturn => options.isStream ? new Request(undefined, options) : asPromise(options);
 
 const isGotInstance = (value: Got | ExtendOptions): value is Got => (
 	'defaults' in value && 'options' in value.defaults
