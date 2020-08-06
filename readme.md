@@ -1924,6 +1924,32 @@ nock('https://sindresorhus.com')
 })();
 ```
 
+Bear in mind, that by default `nock` mocks only one request. Got will [retry](#retry) on failed requests by default, causing a `No match for request ...` error. The solution is to either disable retrying (set `options.retry` to `0`) or call `.persist()` on the mocked request.
+
+```js
+const got = require('got');
+const nock = require('nock');
+
+const scope = nock('https://sindresorhus.com')
+	.get('/')
+	.reply(500, 'Internal server error')
+	.persist();
+
+(async () => {
+	try {
+		await got('https://sindresorhus.com')
+	} catch (error) {
+		console.log(error.response.body);
+		//=> 'Internal server error'
+
+		console.log(error.response.retryCount);
+		//=> 2
+	}
+
+	scope.persist(false);
+})();
+```
+
 For real integration testing we recommend using [`ava`](https://github.com/avajs/ava) with [`create-test-server`](https://github.com/lukechilds/create-test-server). We're using a macro so we don't have to `server.listen()` and `server.close()` every test. Take a look at one of our tests:
 
 ```js
