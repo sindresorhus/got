@@ -12,7 +12,7 @@ type Returns<T extends (...args: any) => unknown, V> = (...args: Parameters<T>) 
 
 const retryAfterStatusCodes: ReadonlySet<number> = new Set([413, 429, 503]);
 
-const isErrorWithResponse = (error: RetryObject['error']): error is HTTPError | ParseError | MaxRedirectsError => (
+export const isErrorWithResponse = (error: RetryObject['error']): error is HTTPError | ParseError | MaxRedirectsError => (
 	error instanceof HTTPError || error instanceof ParseError || error instanceof MaxRedirectsError
 );
 
