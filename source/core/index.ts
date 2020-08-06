@@ -202,6 +202,12 @@ interface PlainOptions extends URLOptions {
 	method?: Method;
 	createConnection?: (options: http.RequestOptions, oncreate: (error: Error, socket: Socket) => void) => Socket;
 
+	// From `http-cache-semantics`
+	shared?: boolean;
+	cacheHeuristic?: number;
+	immutableMinTimeToLive?: number;
+	ignoreCargoCult?: boolean;
+
 	// TODO: remove when Got 12 gets released
 	rejectUnauthorized?: boolean; // Here for backwards compatibility
 
@@ -287,6 +293,12 @@ interface PlainDefaults {
 	lookup?: CacheableLookup['lookup'];
 	localAddress?: string;
 	createConnection?: Options['createConnection'];
+
+	// From `http-cache-semantics`
+	shared?: boolean;
+	cacheHeuristic?: number;
+	immutableMinTimeToLive?: number;
+	ignoreCargoCult?: boolean;
 }
 
 export interface Defaults extends PromiseOnly.Defaults, PlainDefaults {}

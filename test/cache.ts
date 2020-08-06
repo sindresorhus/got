@@ -352,3 +352,9 @@ test('works with http2', async t => {
 
 	await t.notThrowsAsync(client('https://httpbin.org/anything'));
 });
+
+test('http-cache-semantics typings', t => {
+	const instance = got.extend({shared: false});
+
+	t.is(instance.defaults.options.shared, false);
+});
