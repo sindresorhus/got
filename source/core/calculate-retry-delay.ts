@@ -1,51 +1,31 @@
-import {
-	ParseError,
-	HTTPError,
-	MaxRedirectsError
-} from '../as-promise/types';
-import {
-	RetryObject,
-	RetryFunction
-} from '.';
+import {RetryFunction} from '.';
 
 type Returns<T extends (...args: any) => unknown, V> = (...args: Parameters<T>) => V;
 
-const retryAfterStatusCodes: ReadonlySet<number> = new Set([413, 429, 503]);
+export const retryAfterStatusCodes: ReadonlySet<number> = new Set([413, 429, 503]);
 
-export const isErrorWithResponse = (error: RetryObject['error']): error is HTTPError | ParseError | MaxRedirectsError => (
-	error instanceof HTTPError || error instanceof ParseError || error instanceof MaxRedirectsError
-);
-
-const calculateRetryDelay: Returns<RetryFunction, number> = ({attemptCount, retryOptions, error}) => {
+const calculateRetryDelay: Returns<RetryFunction, number> = ({attemptCount, retryOptions, error, retryAfter}) => {
 	if (attemptCount > retryOptions.limit) {
 		return 0;
 	}
 
 	const hasMethod = retryOptions.methods.includes(error.options.method);
 	const hasErrorCode = retryOptions.errorCodes.includes(error.code!);
-	const hasStatusCode = isErrorWithResponse(error) && retryOptions.statusCodes.includes(error.response.statusCode);
+	const hasStatusCode = error.response && retryOptions.statusCodes.includes(error.response.statusCode);
 	if (!hasMethod || (!hasErrorCode && !hasStatusCode)) {
 		return 0;
 	}
 
-	if (isErrorWithResponse(error)) {
-		const {response} = error;
-		if (response && 'retry-after' in response.headers && retryAfterStatusCodes.has(response.statusCode)) {
-			let after = Number(response.headers['retry-after']);
-			if (Number.isNaN(after)) {
-				after = Date.parse(response.headers['retry-after']!) - Date.now();
-			} else {
-				after *= 1000;
-			}
-
-			if (retryOptions.maxRetryAfter === undefined || after > retryOptions.maxRetryAfter) {
+	if (error.response) {
+		if (retryAfter) {
+			if (retryOptions.maxRetryAfter === undefined || retryAfter > retryOptions.maxRetryAfter) {
 				return 0;
 			}
 
-			return after;
+			return retryAfter;
 		}
 
-		if (response.statusCode === 413) {
+		if (error.response.statusCode === 413) {
 			return 0;
 		}
 	}

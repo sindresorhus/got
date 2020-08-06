@@ -152,6 +152,7 @@ export interface RetryObject {
 	retryOptions: RequiredRetryOptions;
 	error: TimeoutError | RequestError;
 	computedValue: number;
+	retryAfter?: number;
 }
 
 export type RetryFunction = (retryObject: RetryObject) => number | Promise<number>;
@@ -1689,14 +1690,30 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 				let backoff: number;
 
 				try {
+					let retryAfter;
+					if (response && 'retry-after' in response.headers) {
+						retryAfter = Number(response.headers['retry-after']);
+						if (Number.isNaN(retryAfter)) {
+							retryAfter = Date.parse(response.headers['retry-after']!) - Date.now();
+
+							if (retryAfter <= 0) {
+								retryAfter = 1;
+							}
+						} else {
+							retryAfter *= 1000;
+						}
+					}
+
 					backoff = await options.retry.calculateDelay({
 						attemptCount: retryCount,
 						retryOptions: options.retry,
 						error: typedError,
+						retryAfter,
 						computedValue: calculateRetryDelay({
 							attemptCount: retryCount,
 							retryOptions: options.retry,
 							error: typedError,
+							retryAfter,
 							computedValue: 0
 						})
 					});
