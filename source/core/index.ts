@@ -27,6 +27,7 @@ import getBuffer from './utils/get-buffer';
 import {DnsLookupIpVersion, isDnsLookupIpVersion, dnsLookupIpVersionToFamily} from './utils/dns-ip-version';
 import {isResponseOk} from './utils/is-response-ok';
 import deprecationWarning from '../utils/deprecation-warning';
+import normalizePromiseArguments from '../as-promise/normalize-arguments';
 import {PromiseOnly} from '../as-promise/types';
 import calculateRetryDelay from './calculate-retry-delay';
 
@@ -99,20 +100,31 @@ export type InitHook = (options: Options) => void;
 export type BeforeRequestHook = (options: NormalizedOptions) => Promisable<void | Response | ResponseLike>;
 export type BeforeRedirectHook = (options: NormalizedOptions, response: Response) => Promisable<void>;
 export type BeforeErrorHook = (error: RequestError) => Promisable<RequestError>;
+export type BeforeRetryHook = (options: NormalizedOptions, error?: RequestError, retryCount?: number) => void | Promise<void>;
 
 interface PlainHooks {
 	init?: InitHook[];
 	beforeRequest?: BeforeRequestHook[];
 	beforeRedirect?: BeforeRedirectHook[];
 	beforeError?: BeforeErrorHook[];
+	beforeRetry?: BeforeRetryHook[];
 }
 
 export interface Hooks extends PromiseOnly.Hooks, PlainHooks {}
 
-type PlainHookEvent = 'init' | 'beforeRequest' | 'beforeRedirect' | 'beforeError';
+type PlainHookEvent = 'init' | 'beforeRequest' | 'beforeRedirect' | 'beforeError' | 'beforeRetry';
 export type HookEvent = PromiseOnly.HookEvent | PlainHookEvent;
 
-export const knownHookEvents: HookEvent[] = ['init', 'beforeRequest', 'beforeRedirect', 'beforeError'];
+export const knownHookEvents: HookEvent[] = [
+	'init',
+	'beforeRequest',
+	'beforeRedirect',
+	'beforeError',
+	'beforeRetry',
+
+	// Promise-Only
+	'afterResponse'
+];
 
 type AcceptableResponse = IncomingMessageWithTimings | ResponseLike;
 type AcceptableRequestResult = AcceptableResponse | ClientRequest | Promise<AcceptableResponse | ClientRequest> | undefined;
@@ -311,7 +323,8 @@ export interface RequestEvents<T> {
 	on: ((name: 'request', listener: (request: http.ClientRequest) => void) => T)
 	& (<R extends Response>(name: 'response', listener: (response: R) => void) => T)
 	& (<R extends Response, N extends NormalizedOptions>(name: 'redirect', listener: (response: R, nextOptions: N) => void) => T)
-	& ((name: 'uploadProgress' | 'downloadProgress', listener: (progress: Progress) => void) => T);
+	& ((name: 'uploadProgress' | 'downloadProgress', listener: (progress: Progress) => void) => T)
+	& ((name: 'retry', listener: (retryCount: number, error: RequestError) => void) => T);
 }
 
 function validateSearchParameters(searchParameters: Record<string, unknown>): asserts searchParameters is Record<string, string | number | boolean | null | undefined> {
@@ -875,9 +888,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 				options.cookieJar = {
 					setCookie,
-					// TODO: Fix this when upgrading to TypeScript 4.
-					// @ts-expect-error TypeScript thinks that promisifying callback(error, string) will result in Promise<void>
-					getCookieString
+					getCookieString: getCookieString as PromiseCookieJar['getCookieString']
 				};
 			}
 		}
@@ -1030,7 +1041,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		// Set non-enumerable properties
 		setNonEnumerableProperties([defaults, rawOptions], options);
 
-		return options as NormalizedOptions;
+		return normalizePromiseArguments(options as NormalizedOptions, defaults);
 	}
 
 	_lockWrite(): void {
@@ -1201,7 +1212,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 		if (options.followRedirect && response.headers.location && redirectCodes.has(statusCode)) {
 			// We're being redirected, we don't care about the response.
-			// It'd be besto to abort the request, but we can't because
+			// It'd be best to abort the request, but we can't because
 			// we would have to sacrifice the TCP connection. We don't want that.
 			response.resume();
 
@@ -1697,7 +1708,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 						}
 
 						this.destroy();
-						this.emit('retry', retryCount);
+						this.emit('retry', retryCount, error);
 					};
 
 					setTimeout(retry, backoff);

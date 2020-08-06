@@ -7,7 +7,8 @@ import {
 	RequestError,
 	HTTPError
 } from './types';
-import PromisableRequest, {parseBody} from './core';
+import parseBody from './parse-body';
+import Request from '../core';
 import proxyEvents from '../core/utils/proxy-events';
 import getBuffer from '../core/utils/get-buffer';
 import {isResponseOk} from '../core/utils/is-response-ok';
@@ -20,15 +21,14 @@ const proxiedRequestEvents = [
 	'downloadProgress'
 ];
 
-export default function asPromise<T>(options: NormalizedOptions): CancelableRequest<T> {
-	let globalRequest: PromisableRequest;
+export default function asPromise<T>(normalizedOptions: NormalizedOptions): CancelableRequest<T> {
+	let globalRequest: Request;
 	let globalResponse: Response;
 	const emitter = new EventEmitter();
 
 	const promise = new PCancelable<T>((resolve, reject, onCancel) => {
 		const makeRequest = (retryCount: number): void => {
-			// Note from @szmarczak: I think we should use `request.options` instead of the local options
-			const request = new PromisableRequest(options.url, options);
+			const request = new Request(undefined, normalizedOptions);
 			request.retryCount = retryCount;
 			request._noPipe = true;
 			onCancel(() => request.destroy());
@@ -62,6 +62,8 @@ export default function asPromise<T>(options: NormalizedOptions): CancelableRequ
 				const contentEncoding = (response.headers['content-encoding'] ?? '').toLowerCase();
 				const isCompressed = ['gzip', 'deflate', 'br'].includes(contentEncoding);
 
+				const {options} = request;
+
 				if (isCompressed && !options.decompress) {
 					response.body = rawBody;
 				} else {
@@ -83,7 +85,7 @@ export default function asPromise<T>(options: NormalizedOptions): CancelableRequ
 						// @ts-expect-error TS doesn't notice that CancelableRequest is a Promise
 						// eslint-disable-next-line no-await-in-loop
 						response = await hook(response, async (updatedOptions): CancelableRequest<Response> => {
-							const typedOptions = PromisableRequest.normalizeArguments(undefined, {
+							const typedOptions = Request.normalizeArguments(undefined, {
 								...updatedOptions,
 								retry: {
 									calculateDelay: () => 0
@@ -162,6 +164,8 @@ export default function asPromise<T>(options: NormalizedOptions): CancelableRequ
 			// Wait until downloading has ended
 			await promise;
 
+			const {options} = globalResponse.request;
+
 			return parseBody(globalResponse, responseType, options.parseJson, options.encoding);
 		})();
 
@@ -187,4 +191,3 @@ export default function asPromise<T>(options: NormalizedOptions): CancelableRequ
 }
 
 export * from './types';
-export {PromisableRequest};

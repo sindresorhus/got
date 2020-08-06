@@ -1278,7 +1278,7 @@ If the `content-length` header is missing, `total` will be `undefined`.
 })();
 ```
 
-##### .once('retry', retryCount)
+##### .once('retry', retryCount, error)
 
 To enable retrying on a Got stream, it is required to have a `retry` handler attached.\
 When this event is emitted, you should reset the stream you were writing to and prepare the body again.

@@ -1,7 +1,6 @@
 import PCancelable = require('p-cancelable');
 import {CancelError} from 'p-cancelable';
 import {
-	NormalizedOptions,
 	Options,
 	Response,
 	RequestError,
@@ -23,13 +22,11 @@ export interface PaginationOptions<T, R> {
 	};
 }
 
-export type BeforeRetryHook = (options: NormalizedOptions, error?: RequestError, retryCount?: number) => void | Promise<void>;
 export type AfterResponseHook = (response: Response, retryWithMergedOptions: (options: Options) => CancelableRequest<Response>) => Response | CancelableRequest<Response> | Promise<Response | CancelableRequest<Response>>;
 
 // These should be merged into Options in core/index.ts
 export namespace PromiseOnly {
 	export interface Hooks {
-		beforeRetry?: BeforeRetryHook[];
 		afterResponse?: AfterResponseHook[];
 	}
 
@@ -55,7 +52,7 @@ export namespace PromiseOnly {
 		pagination?: Required<PaginationOptions<unknown, unknown>['pagination']>;
 	}
 
-	export type HookEvent = 'beforeRetry' | 'afterResponse';
+	export type HookEvent = 'afterResponse';
 }
 
 export class ParseError extends RequestError {
