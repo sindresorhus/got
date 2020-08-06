@@ -1543,6 +1543,33 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			options.timeout = timeout;
 			options.agent = agent;
 
+			// HTTPS options restore
+			if (options.https) {
+				if ('rejectUnauthorized' in options.https) {
+					delete requestOptions.rejectUnauthorized;
+				}
+
+				if (options.https.checkServerIdentity) {
+					delete requestOptions.checkServerIdentity;
+				}
+
+				if (options.https.certificateAuthority) {
+					delete requestOptions.ca;
+				}
+
+				if (options.https.certificate) {
+					delete requestOptions.cert;
+				}
+
+				if (options.https.key) {
+					delete requestOptions.key;
+				}
+
+				if (options.https.passphrase) {
+					delete requestOptions.passphrase;
+				}
+			}
+
 			if (isClientRequest(requestOrResponse)) {
 				this._onRequest(requestOrResponse);
 
