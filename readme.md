@@ -510,8 +510,6 @@ Default:
 
 An object representing `limit`, `calculateDelay`, `methods`, `statusCodes`, `maxRetryAfter` and `errorCodes` fields for maximum retry count, retry handler, allowed methods, allowed status codes, maximum [`Retry-After`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Retry-After) time and allowed error codes.
 
-**Note:** When using streams, this option is ignored. If the connection is reset when downloading, you need to catch the error and clear the file you were writing into to prevent duplicated content.
-
 If `maxRetryAfter` is set to `undefined`, it will use `options.timeout`.\
 If [`Retry-After`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Retry-After) header is greater than `maxRetryAfter`, it will cancel the request.
 
@@ -528,6 +526,36 @@ By default, it retries *only* on the specified methods, status codes, and on the
 - `ENOTFOUND`: Couldn't resolve the hostname to an IP address.
 - `ENETUNREACH`: No internet connection.
 - `EAI_AGAIN`: DNS lookup timed out.
+
+<a name="retry-stream"></a>
+
+You can retry Got streams too. The implementation looks like this:
+
+```js
+const got = require('got');
+const fs = require('fs');
+
+let writeStream;
+
+const fn = (retryCount = 0) => {
+	const stream = got.stream('https://example.com');
+	stream.retryCount = retryCount;
+
+	if (writeStream) {
+		writeStream.destroy();
+	}
+
+	writeStream = fs.createWriteStream('example.com');
+
+	stream.pipe(writeStream);
+
+	// If you don't attach the listener, it will NOT make a retry.
+	// It automatically checks the listener count so it knows whether to retry or not :)
+	stream.once('retry', fn);
+};
+
+fn();
+```
 
 ###### followRedirect
 
@@ -1249,6 +1277,13 @@ If the `content-length` header is missing, `total` will be `undefined`.
 	console.log(response);
 })();
 ```
+
+##### .once('retry', retryCount)
+
+To enable retrying on a Got stream, it is required to have a `retry` handler attached.\
+When this event is emitted, you should reset the stream you were writing to and prepare the body again.
+
+See the [`retry`](#retry-stream) option for an example implementation.
 
 ##### .ip
 
