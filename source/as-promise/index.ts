@@ -6,7 +6,8 @@ import {
 	CancelableRequest,
 	Response,
 	RequestError,
-	HTTPError
+	HTTPError,
+	CancelError
 } from './types';
 import parseBody from './parse-body';
 import Request from '../core';
@@ -32,7 +33,11 @@ export default function asPromise<T>(normalizedOptions: NormalizedOptions): Canc
 			const request = new Request(undefined, normalizedOptions);
 			request.retryCount = retryCount;
 			request._noPipe = true;
+
 			onCancel(() => request.destroy());
+
+			onCancel.shouldReject = false;
+			onCancel(() => reject(new CancelError(request)));
 
 			globalRequest = request;
 

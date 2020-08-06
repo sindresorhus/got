@@ -1,5 +1,4 @@
 import {URL} from 'url';
-import {CancelError} from 'p-cancelable';
 import is from '@sindresorhus/is';
 import asPromise, {
 	// Response
@@ -21,7 +20,8 @@ import asPromise, {
 	MaxRedirectsError,
 	TimeoutError,
 	UnsupportedProtocolError,
-	UploadError
+	UploadError,
+	CancelError
 } from './as-promise';
 import {
 	GotReturn,

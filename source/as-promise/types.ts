@@ -1,6 +1,5 @@
 import PCancelable = require('p-cancelable');
-import {CancelError} from 'p-cancelable';
-import {
+import Request, {
 	Options,
 	Response,
 	RequestError,
@@ -63,11 +62,19 @@ export class ParseError extends RequestError {
 
 		super(`${error.message} in "${options.url.toString()}"`, error, response.request);
 		this.name = 'ParseError';
+	}
+}
 
-		Object.defineProperty(this, 'response', {
-			enumerable: false,
-			value: response
-		});
+export class CancelError extends RequestError {
+	declare readonly response: Response;
+
+	constructor(request: Request) {
+		super('Promise was canceled', {}, request);
+		this.name = 'CancelError';
+	}
+
+	get isCanceled() {
+		return true;
 	}
 }
 
@@ -77,5 +84,4 @@ export interface CancelableRequest<T extends Response | Response['body'] = Respo
 	text: () => CancelableRequest<string>;
 }
 
-export {CancelError};
 export * from '../core';

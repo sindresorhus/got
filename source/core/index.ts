@@ -52,6 +52,7 @@ const kTriggerRead = Symbol('triggerRead');
 const kBody = Symbol('body');
 const kJobs = Symbol('jobs');
 const kOriginalResponse = Symbol('originalResponse');
+const kRetryTimeout = Symbol('retryTimeout');
 export const kIsNormalizedAlready = Symbol('isNormalizedAlready');
 
 const supportsBrotli = is.string((process.versions as any).brotli);
@@ -560,6 +561,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	[kTriggerRead]: boolean;
 	[kBody]: Options['body'];
 	[kJobs]: Array<() => void>;
+	[kRetryTimeout]?: NodeJS.Timeout;
 	[kBodySize]?: number;
 	[kServerResponsesPiped]: Set<ServerResponse>;
 	[kIsFromCache]?: boolean;
@@ -1715,11 +1717,16 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 							return;
 						}
 
+						// Something forced us to abort the retry
+						if (this.destroyed) {
+							return;
+						}
+
 						this.destroy();
 						this.emit('retry', retryCount, error);
 					};
 
-					setTimeout(retry, backoff);
+					this[kRetryTimeout] = setTimeout(retry, backoff);
 					return;
 				}
 			}
@@ -1830,6 +1837,9 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 	_destroy(error: Error | null, callback: (error: Error | null) => void): void {
 		this[kStopReading] = true;
+
+		// Prevent further retries
+		clearTimeout(this[kRetryTimeout] as NodeJS.Timeout);
 
 		if (kRequest in this) {
 			this[kCancelTimeouts]!();
