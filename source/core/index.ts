@@ -1394,10 +1394,6 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			body.once('error', (error: NodeJS.ErrnoException) => {
 				this._beforeError(new UploadError(error, this));
 			});
-
-			body.once('end', () => {
-				delete options.body;
-			});
 		} else {
 			this._unlockWrite();
 

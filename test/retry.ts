@@ -509,3 +509,23 @@ test('throws when cannot retry a Got stream', withServer, async (t, server, got)
 	t.is(error.response.body, 'not ok');
 	t.is(globalRetryCount, 2);
 });
+
+test('promise does not retry when body is a stream', withServer, async (t, server, got) => {
+	server.post('/', (_request, response) => {
+		response.statusCode = 500;
+		response.end('not ok');
+	});
+
+	const body = new PassThroughStream();
+	body.end('hello');
+
+	const response = await got.post({
+		retry: {
+			methods: ['POST']
+		},
+		body,
+		throwHttpErrors: false
+	});
+
+	t.is(response.retryCount, 0);
+});

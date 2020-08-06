@@ -1,4 +1,5 @@
 import {EventEmitter} from 'events';
+import is from '@sindresorhus/is';
 import PCancelable = require('p-cancelable');
 import {
 	NormalizedOptions,
@@ -128,7 +129,7 @@ export default function asPromise<T>(normalizedOptions: NormalizedOptions): Canc
 				resolve(request.options.resolveBodyOnly ? response.body as T : response as unknown as T);
 			});
 
-			request.once('error', async (error: RequestError) => {
+			const onError = (error: RequestError) => {
 				if (promise.isCanceled) {
 					return;
 				}
@@ -142,9 +143,16 @@ export default function asPromise<T>(normalizedOptions: NormalizedOptions): Canc
 				}
 
 				reject(error);
-			});
+			};
 
-			request.once('retry', (newRetryCount: number) => {
+			request.once('error', onError);
+
+			request.once('retry', (newRetryCount: number, error: RequestError) => {
+				if (is.nodeStream(error.request?.options.body)) {
+					onError(error);
+					return;
+				}
+
 				makeRequest(newRetryCount);
 			});
 
