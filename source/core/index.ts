@@ -846,7 +846,6 @@ export interface HTTPSOptions {
 
 	When providing multiple cert chains, they do not have to be in the same order as their private keys in `options.https.key`.
 
-
 	If the intermediate certificates are not provided, the peer will not be able to validate the certificate, and the handshake will fail.
 	*/
 	certificate?: SecureContextOptions['cert'];
