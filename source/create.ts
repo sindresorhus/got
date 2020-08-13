@@ -1,9 +1,7 @@
 import {URL} from 'url';
-import {CancelError} from 'p-cancelable';
 import is from '@sindresorhus/is';
 import asPromise, {
-	// Request & Response
-	PromisableRequest,
+	// Response
 	Response,
 
 	// Options
@@ -22,7 +20,8 @@ import asPromise, {
 	MaxRedirectsError,
 	TimeoutError,
 	UnsupportedProtocolError,
-	UploadError
+	UploadError,
+	CancelError
 } from './as-promise';
 import {
 	GotReturn,
@@ -57,9 +56,19 @@ const errors = {
 // The `delay` package weighs 10KB (!)
 const delay = async (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-const {normalizeArguments, mergeOptions} = PromisableRequest;
+const {normalizeArguments} = Request;
 
-const getPromiseOrStream = (options: NormalizedOptions): GotReturn => options.isStream ? new Request(options.url, options) : asPromise(options);
+const mergeOptions = (...sources: Options[]): NormalizedOptions => {
+	let mergedOptions: NormalizedOptions | undefined;
+
+	for (const source of sources) {
+		mergedOptions = normalizeArguments(undefined, source, mergedOptions);
+	}
+
+	return mergedOptions!;
+};
+
+const getPromiseOrStream = (options: NormalizedOptions): GotReturn => options.isStream ? new Request(undefined, options) : asPromise(options);
 
 const isGotInstance = (value: Got | ExtendOptions): value is Got => (
 	'defaults' in value && 'options' in value.defaults
@@ -294,13 +303,15 @@ const create = (defaults: InstanceDefaults): Got => {
 		}) as GotStream;
 	}
 
-	Object.assign(got, {...errors, mergeOptions});
+	Object.assign(got, errors);
 	Object.defineProperty(got, 'defaults', {
 		value: defaults.mutableDefaults ? defaults : deepFreeze(defaults),
 		writable: defaults.mutableDefaults,
 		configurable: defaults.mutableDefaults,
 		enumerable: true
 	});
+
+	got.mergeOptions = mergeOptions;
 
 	return got;
 };

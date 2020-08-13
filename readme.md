@@ -510,8 +510,6 @@ Default:
 
 An object representing `limit`, `calculateDelay`, `methods`, `statusCodes`, `maxRetryAfter` and `errorCodes` fields for maximum retry count, retry handler, allowed methods, allowed status codes, maximum [`Retry-After`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Retry-After) time and allowed error codes.
 
-**Note:** When using streams, this option is ignored. If the connection is reset when downloading, you need to catch the error and clear the file you were writing into to prevent duplicated content.
-
 If `maxRetryAfter` is set to `undefined`, it will use `options.timeout`.\
 If [`Retry-After`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Retry-After) header is greater than `maxRetryAfter`, it will cancel the request.
 
@@ -528,6 +526,36 @@ By default, it retries *only* on the specified methods, status codes, and on the
 - `ENOTFOUND`: Couldn't resolve the hostname to an IP address.
 - `ENETUNREACH`: No internet connection.
 - `EAI_AGAIN`: DNS lookup timed out.
+
+<a name="retry-stream"></a>
+
+You can retry Got streams too. The implementation looks like this:
+
+```js
+const got = require('got');
+const fs = require('fs');
+
+let writeStream;
+
+const fn = (retryCount = 0) => {
+	const stream = got.stream('https://example.com');
+	stream.retryCount = retryCount;
+
+	if (writeStream) {
+		writeStream.destroy();
+	}
+
+	writeStream = fs.createWriteStream('example.com');
+
+	stream.pipe(writeStream);
+
+	// If you don't attach the listener, it will NOT make a retry.
+	// It automatically checks the listener count so it knows whether to retry or not :)
+	stream.once('retry', fn);
+};
+
+fn();
+```
 
 ###### followRedirect
 
@@ -1250,6 +1278,13 @@ If the `content-length` header is missing, `total` will be `undefined`.
 })();
 ```
 
+##### .once('retry', retryCount, error)
+
+To enable retrying on a Got stream, it is required to have a `retry` handler attached.\
+When this event is emitted, you should reset the stream you were writing to and prepare the body again.
+
+See the [`retry`](#retry-stream) option for an example implementation.
+
 ##### .ip
 
 Type: `string`
@@ -1574,7 +1609,7 @@ Additionaly, the errors may have `request` (Got Stream) and `response` (Got Resp
 
 #### got.RequestError
 
-When a request fails. Contains a `code` property with error class code, like `ECONNREFUSED`. Note that all other types of errors listed below are subclasses of this one, with the exception of `CancelError`.
+When a request fails. Contains a `code` property with error class code, like `ECONNREFUSED`. All the errors below inherit this one.
 
 #### got.CacheError
 
@@ -1610,7 +1645,7 @@ When the request is aborted due to a [timeout](#timeout). Includes an `event` an
 
 #### got.CancelError
 
-When the request is aborted with `.cancel()`. This type is not a subclass of `RequestError` as it is re-exported from the `p-cancelable` package.
+When the request is aborted with `.cancel()`.
 
 ## Aborting the request
 
@@ -1886,6 +1921,32 @@ nock('https://sindresorhus.com')
 	const response = await got('https://sindresorhus.com');
 	console.log(response.body);
 	//=> 'Hello world!'
+})();
+```
+
+Bear in mind, that by default `nock` mocks only one request. Got will [retry](#retry) on failed requests by default, causing a `No match for request ...` error. The solution is to either disable retrying (set `options.retry` to `0`) or call `.persist()` on the mocked request.
+
+```js
+const got = require('got');
+const nock = require('nock');
+
+const scope = nock('https://sindresorhus.com')
+	.get('/')
+	.reply(500, 'Internal server error')
+	.persist();
+
+(async () => {
+	try {
+		await got('https://sindresorhus.com')
+	} catch (error) {
+		console.log(error.response.body);
+		//=> 'Internal server error'
+
+		console.log(error.response.retryCount);
+		//=> 2
+	}
+
+	scope.persist(false);
 })();
 ```
 

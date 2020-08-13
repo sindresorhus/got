@@ -31,6 +31,48 @@ test('https request with ca', withServer, async (t, server, got) => {
 	t.is(body, 'ok');
 });
 
+test('https request with ca and afterResponse hook', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.end('ok');
+	});
+
+	const warningListener = (warning: any) => {
+		if (
+			warning.name === 'DeprecationWarning' &&
+			warning.message === 'Got: "options.ca" was never documented, please use ' +
+				'"options.https.certificateAuthority"'
+		) {
+			process.off('warning', warningListener);
+			t.fail('unexpected deprecation warning');
+		}
+	};
+
+	process.once('warning', warningListener);
+
+	let shouldRetry = true;
+	const {body} = await got.secure({
+		https: {
+			certificateAuthority: server.caCert
+		},
+		headers: {host: 'example.com'},
+		hooks: {
+			afterResponse: [
+				(response, retry) => {
+					if (shouldRetry) {
+						shouldRetry = false;
+
+						return retry({});
+					}
+
+					return response;
+				}
+			]
+		}
+	});
+
+	t.is(body, 'ok');
+});
+
 test('https request with `checkServerIdentity` OK', withServer, async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.end('ok');

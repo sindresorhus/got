@@ -75,6 +75,7 @@ To use streams, just call `got.stream(url, options)` or `got(url, {isStream: tru
 
 - The `json` option is not a `boolean`, it's an `Object`. It will be stringified and used as a body.
 - The `form` option is an `Object`. It can be a plain object or a [`form-data` instance](https://github.com/sindresorhus/got/#form-data).
+- Got will lowercase all custom headers, even if they are specified to not be.
 - No `oauth`/`hawk`/`aws`/`httpSignature` option. To sign requests, you need to create a [custom instance](advanced-creation.md#signing-requests).
 - No `agentClass`/`agentOptions`/`pool` option.
 - No `forever` option. You need to use [forever-agent](https://github.com/request/forever-agent).

@@ -1,34 +1,12 @@
 import PCancelable = require('p-cancelable');
-import {CancelError} from 'p-cancelable';
-import {
-	NormalizedOptions,
+import Request, {
 	Options,
 	Response,
-	Method,
-	TimeoutError,
 	RequestError,
 	RequestEvents
 } from '../core';
 
 export type ResponseType = 'json' | 'buffer' | 'text';
-
-export interface RetryObject {
-	attemptCount: number;
-	retryOptions: RequiredRetryOptions;
-	error: TimeoutError | RequestError;
-	computedValue: number;
-}
-
-export type RetryFunction = (retryObject: RetryObject) => number | Promise<number>;
-
-export interface RequiredRetryOptions {
-	limit: number;
-	methods: Method[];
-	statusCodes: number[];
-	errorCodes: string[];
-	calculateDelay: RetryFunction;
-	maxRetryAfter?: number;
-}
 
 export interface PaginationOptions<T, R> {
 	pagination?: {
@@ -137,20 +115,17 @@ export interface PaginationOptions<T, R> {
 	};
 }
 
-export type BeforeRetryHook = (options: NormalizedOptions, error?: RequestError, retryCount?: number) => void | Promise<void>;
 export type AfterResponseHook = (response: Response, retryWithMergedOptions: (options: Options) => CancelableRequest<Response>) => Response | CancelableRequest<Response> | Promise<Response | CancelableRequest<Response>>;
 
 // These should be merged into Options in core/index.ts
 export namespace PromiseOnly {
 	export interface Hooks {
-		beforeRetry?: BeforeRetryHook[];
 		afterResponse?: AfterResponseHook[];
 	}
 
 	export interface Options extends PaginationOptions<unknown, unknown> {
 		responseType?: ResponseType;
 		resolveBodyOnly?: boolean;
-		retry?: Partial<RequiredRetryOptions> | number;
 		isStream?: boolean;
 		encoding?: BufferEncoding;
 	}
@@ -158,7 +133,6 @@ export namespace PromiseOnly {
 	export interface NormalizedOptions {
 		responseType: ResponseType;
 		resolveBodyOnly: boolean;
-		retry: RequiredRetryOptions;
 		isStream: boolean;
 		encoding?: BufferEncoding;
 		pagination?: Required<PaginationOptions<unknown, unknown>['pagination']>;
@@ -167,12 +141,11 @@ export namespace PromiseOnly {
 	export interface Defaults {
 		responseType: ResponseType;
 		resolveBodyOnly: boolean;
-		retry: RequiredRetryOptions;
 		isStream: boolean;
 		pagination?: Required<PaginationOptions<unknown, unknown>['pagination']>;
 	}
 
-	export type HookEvent = 'beforeRetry' | 'afterResponse';
+	export type HookEvent = 'afterResponse';
 }
 
 export class ParseError extends RequestError {
@@ -183,11 +156,19 @@ export class ParseError extends RequestError {
 
 		super(`${error.message} in "${options.url.toString()}"`, error, response.request);
 		this.name = 'ParseError';
+	}
+}
 
-		Object.defineProperty(this, 'response', {
-			enumerable: false,
-			value: response
-		});
+export class CancelError extends RequestError {
+	declare readonly response: Response;
+
+	constructor(request: Request) {
+		super('Promise was canceled', {}, request);
+		this.name = 'CancelError';
+	}
+
+	get isCanceled() {
+		return true;
 	}
 }
 
@@ -197,5 +178,4 @@ export interface CancelableRequest<T extends Response | Response['body'] = Respo
 	text: () => CancelableRequest<string>;
 }
 
-export {CancelError};
 export * from '../core';
