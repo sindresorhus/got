@@ -77,6 +77,9 @@ export interface PromiseCookieJar {
 	setCookie: (rawCookie: string, url: string) => Promise<unknown>;
 }
 
+/**
+All available HTTP request methods provided by Got.
+*/
 export type Method =
 	| 'GET'
 	| 'POST'
@@ -105,92 +108,127 @@ export type BeforeRetryHook = (options: NormalizedOptions, error?: RequestError,
 
 interface PlainHooks {
 	/**
-		Called with plain request options, right before their normalization.
-		This is especially useful in conjunction with `got.extend()` when the input needs custom handling.
+	Called with plain request options, right before their normalization.
+	This is especially useful in conjunction with `got.extend()` when the input needs custom handling.
 
-		__Note #1__: This hook must be synchronous!
+	__Note #1__: This hook must be synchronous!
 
-		__Note #2__: Errors in this hook will be converted into an instances of `RequestError`.
+	__Note #2__: Errors in this hook will be converted into an instances of `RequestError`.
 
-		__Note #3__: The options object may not have a `url` property.
-		To modify it, use a `beforeRequest` hook instead.
+	__Note #3__: The options object may not have a `url` property.
+	To modify it, use a `beforeRequest` hook instead.
 
-		@default []
+	@default []
 	*/
 	init?: InitHook[];
 
 	/**
-		Called with normalized request options.
-		Got will make no further changes to the request before it is sent.
-		This is especially useful in conjunction with `got.extend()` when you want to create an API client that, for example, uses HMAC-signing.
+	Called with normalized request options.
+	Got will make no further changes to the request before it is sent.
+	This is especially useful in conjunction with `got.extend()` when you want to create an API client that, for example, uses HMAC-signing.
 
-		@default []
-		*/
+	@default []
+	*/
 	beforeRequest?: BeforeRequestHook[];
 
 	/**
-		Called with normalized request options and the redirect response.
-		Got will make no further changes to the request.
-		This is especially useful when you want to avoid dead sites.
+	Called with normalized request options and the redirect response.
+	Got will make no further changes to the request.
+	This is especially useful when you want to avoid dead sites.
 
-		@default []
+	@default []
 
-		@example
-		```
-		const got = require('got');
+	@example
+	```
+	const got = require('got');
 
-		got('https://example.com', {
-			hooks: {
-				beforeRedirect: [
-					(options, response) => {
-						if (options.hostname === 'deadSite') {
-							options.hostname = 'fallbackSite';
-						}
+	got('https://example.com', {
+		hooks: {
+			beforeRedirect: [
+				(options, response) => {
+					if (options.hostname === 'deadSite') {
+						options.hostname = 'fallbackSite';
 					}
-				]
-			}
-		});
-		```
-		*/
+				}
+			]
+		}
+	});
+	```
+	*/
 	beforeRedirect?: BeforeRedirectHook[];
 
 	/**
-		Called with an `Error` instance.
-		The error is passed to the hook right before it's thrown.
-		This is especially useful when you want to have more detailed errors.
+	Called with an `Error` instance.
+	The error is passed to the hook right before it's thrown.
+	This is especially useful when you want to have more detailed errors.
 
-		__Note__: Errors thrown while normalizing input options are thrown directly and not part of this hook.
+	__Note__: Errors thrown while normalizing input options are thrown directly and not part of this hook.
 
-		@default []
+	@default []
 
-		@example
-		```
-		const got = require('got');
+	@example
+	```
+	const got = require('got');
 
-		got('https://api.github.com/some-endpoint', {
-			hooks: {
-				beforeError: [
-					error => {
-						const {response} = error;
-						if (response && response.body) {
-							error.name = 'GitHubError';
-							error.message = `${response.body.message} (${response.statusCode})`;
-						}
-
-						return error;
+	got('https://api.github.com/some-endpoint', {
+		hooks: {
+			beforeError: [
+				error => {
+					const {response} = error;
+					if (response && response.body) {
+						error.name = 'GitHubError';
+						error.message = `${response.body.message} (${response.statusCode})`;
 					}
-				]
-			}
-		});
-		```
-		*/
+
+					return error;
+				}
+			]
+		}
+	});
+	```
+	*/
 	beforeError?: BeforeErrorHook[];
+
+	/**
+	Called with normalized request options, the error and the retry count.
+  Got will make no further changes to the request.
+	This is especially useful when some extra work is required before the next try.
+
+	__Note__: When using streams, this hook is ignored.
+	__Note__: When retrying in a `afterResponse` hook, all remaining `beforeRetry` hooks will be called without the `error` and `retryCount` arguments.
+
+	@default []
+
+	@example
+	```
+	const got = require('got');
+
+	got.post('https://example.com', {
+		hooks: {
+			beforeRetry: [
+				(options, error, retryCount) => {
+					if (error.response.statusCode === 413) { // Payload too large
+						options.body = getNewBody();
+					}
+				}
+			]
+		}
+	});
+	```
+	*/
 	beforeRetry?: BeforeRetryHook[];
 }
 
+/**
+All available hook of Got.
+*/
 export interface Hooks extends PromiseOnly.Hooks, PlainHooks {}
 
 type PlainHookEvent = 'init' | 'beforeRequest' | 'beforeRedirect' | 'beforeError' | 'beforeRetry';
+
+/**
+All hook events acceptable by Got.
+*/
 export type HookEvent = PromiseOnly.HookEvent | PlainHookEvent;
 
 export const knownHookEvents: HookEvent[] = [
@@ -234,6 +272,27 @@ export interface RetryObject {
 
 export type RetryFunction = (retryObject: RetryObject) => number | Promise<number>;
 
+/**
+An object representing `limit`, `calculateDelay`, `methods`, `statusCodes`, `maxRetryAfter` and `errorCodes` fields for maximum retry count, retry handler, allowed methods, allowed status codes, maximum [`Retry-After`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Retry-After) time and allowed error codes.
+
+Delays between retries counts with function `1000 * Math.pow(2, retry) + Math.random() * 100`, where `retry` is attempt number (starts from 1).
+
+The `calculateDelay` property is a `function` that receives an object with `attemptCount`, `retryOptions`, `error` and `computedValue` properties for current retry count, the retry options, error and default computed value.
+The function must return a delay in milliseconds (or a Promise resolving with it) (`0` return value cancels retry).
+
+By default, it retries *only* on the specified methods, status codes, and on these network errors:
+- `ETIMEDOUT`: One of the [timeout](#timeout) limits were reached.
+- `ECONNRESET`: Connection was forcibly closed by a peer.
+- `EADDRINUSE`: Could not bind to any free port.
+- `ECONNREFUSED`: Connection was refused by the server.
+- `EPIPE`: The remote side of the stream being written has been closed.
+- `ENOTFOUND`: Couldn't resolve the hostname to an IP address.
+- `ENETUNREACH`: No internet connection.
+- `EAI_AGAIN`: DNS lookup timed out.
+
+__Note__: If `maxRetryAfter` is set to `undefined`, it will use `options.timeout`.
+__Note__: If [`Retry-After`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Retry-After) header is greater than `maxRetryAfter`, it will cancel the request.
+*/
 export interface RequiredRetryOptions {
 	limit: number;
 	methods: Method[];
@@ -247,6 +306,7 @@ interface PlainOptions extends URLOptions {
 	/**
 	Custom request function.
 	The main purpose of this is to [support HTTP2 using a wrapper](https://github.com/szmarczak/http2-wrapper).
+
 	@default http.request | https.request
 	*/
 	request?: RequestFunction;
@@ -380,6 +440,24 @@ interface PlainOptions extends URLOptions {
 	*/
 	json?: {[key: string]: any};
 
+	/**
+	The URL to request, as a string, a [`https.request` options object](https://nodejs.org/api/https.html#https_https_request_options_callback), or a [WHATWG `URL`](https://nodejs.org/api/url.html#url_class_url).
+
+	Properties from `options` will override properties in the parsed `url`.
+
+	If no protocol is specified, it will throw a `TypeError`.
+
+	__Note__: The query string is **not** parsed as search params.
+
+	@example
+	```
+	got('https://example.com/?query=a b'); //=> https://example.com/?query=a%20b
+	got('https://example.com/', {searchParams: {query: 'a b'}}); //=> https://example.com/?query=a+b
+
+	// The query string is overridden by `searchParams`
+	got('https://example.com/?query=a b', {searchParams: {query: 'a b'}}); //=> https://example.com/?query=a+b
+	```
+	*/
 	url?: string | URL;
 
 	/**
@@ -532,7 +610,7 @@ interface PlainOptions extends URLOptions {
 		//=> '2 nghttpx'
 	})();
 	```
-*/
+	*/
 	http2?: boolean;
 
 	/**
@@ -554,7 +632,7 @@ interface PlainOptions extends URLOptions {
 	Existing headers will be overwritten. Headers set to `undefined` will be omitted.
 
 	@default {}
- */
+	*/
 	headers?: Headers;
 
 	/**
@@ -564,9 +642,109 @@ interface PlainOptions extends URLOptions {
 	@default true
 	*/
 	methodRewriting?: boolean;
+
+	/**
+	Indicates which DNS record family to use.
+
+	Values:
+	- `auto`: IPv4 (if present) or IPv6
+	- `ipv4`: Only IPv4
+	- `ipv6`: Only IPv6
+
+	__Note__: If you are using the undocumented option `family`, `dnsLookupIpVersion` will override it.
+
+	@default 'auto'
+	*/
 	dnsLookupIpVersion?: DnsLookupIpVersion;
+
+	/**
+	A function used to parse JSON responses.
+
+	@example
+	```
+	const got = require('got');
+	const Bourne = require('@hapi/bourne');
+
+	(async () => {
+		const parsed = await got('https://example.com', {
+			parseJson: text => Bourne.parse(text)
+		}).json();
+
+		console.log(parsed);
+	})();
+	```
+	*/
 	parseJson?: ParseJsonFunction;
+
+	/**
+	A function used to stringify the body of JSON requests.
+
+	@example
+	```
+	const got = require('got');
+
+	(async () => {
+		await got.post('https://example.com', {
+			stringifyJson: object => JSON.stringify(object, (key, value) => {
+				if (key.startsWith('_')) {
+					return;
+				}
+
+				return value;
+			}),
+			json: {
+				some: 'payload',
+				_ignoreMe: 1234
+			}
+		});
+	})();
+	```
+
+	@example
+	```
+	const got = require('got');
+
+	(async () => {
+		await got.post('https://example.com', {
+			stringifyJson: object => JSON.stringify(object, (key, value) => {
+				if (typeof value === 'number') {
+					return value.toString();
+				}
+
+				return value;
+			}),
+			json: {
+				some: 'payload',
+				number: 1
+			}
+		});
+	})();
+	```
+	*/
 	stringifyJson?: StringifyJsonFunction;
+
+	/**
+	An object representing `limit`, `calculateDelay`, `methods`, `statusCodes`, `maxRetryAfter` and `errorCodes` fields for maximum retry count, retry handler, allowed methods, allowed status codes, maximum [`Retry-After`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Retry-After) time and allowed error codes.
+
+	Delays between retries counts with function `1000 * Math.pow(2, retry) + Math.random() * 100`, where `retry` is attempt number (starts from 1).
+
+	The `calculateDelay` property is a `function` that receives an object with `attemptCount`, `retryOptions`, `error` and `computedValue` properties for current retry count, the retry options, error and default computed value.
+	The function must return a delay in milliseconds (or a Promise resolving with it) (`0` return value cancels retry).
+
+	By default, it retries *only* on the specified methods, status codes, and on these network errors:
+
+	- `ETIMEDOUT`: One of the [timeout](#timeout) limits were reached.
+	- `ECONNRESET`: Connection was forcibly closed by a peer.
+	- `EADDRINUSE`: Could not bind to any free port.
+	- `ECONNREFUSED`: Connection was refused by the server.
+	- `EPIPE`: The remote side of the stream being written has been closed.
+	- `ENOTFOUND`: Couldn't resolve the hostname to an IP address.
+	- `ENETUNREACH`: No internet connection.
+	- `EAI_AGAIN`: DNS lookup timed out.
+
+	__Note__: If `maxRetryAfter` is set to `undefined`, it will use `options.timeout`.
+	__Note__: If [`Retry-After`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Retry-After) header is greater than `maxRetryAfter`, it will cancel the request.
+	*/
 	retry?: Partial<RequiredRetryOptions> | number;
 
 	// From `http.RequestOptions`
@@ -620,6 +798,9 @@ interface PlainOptions extends URLOptions {
 	*/
 	rejectUnauthorized?: boolean; // Here for backwards compatibility
 
+	/**
+	Options for the advanced HTTPS API.
+	*/
 	https?: HTTPSOptions;
 }
 
@@ -633,9 +814,46 @@ export interface HTTPSOptions {
 	checkServerIdentity?: CheckServerIdentityFunction;
 
 	// From `tls.SecureContextOptions`
+	/**
+	Override the default Certificate Authorities ([from Mozilla](https://ccadb-public.secure.force.com/mozilla/IncludedCACertificateReport)).
+
+	@example
+	```
+	// Single Certificate Authority
+	got('https://example.com', {
+		https: {
+			certificateAuthority: fs.readFileSync('./my_ca.pem')
+		}
+	});
+	```
+	*/
 	certificateAuthority?: SecureContextOptions['ca'];
+
+	/**
+	Private keys in [PEM](https://en.wikipedia.org/wiki/Privacy-Enhanced_Mail) format.
+
+	[PEM](https://en.wikipedia.org/wiki/Privacy-Enhanced_Mail) allows the option of private keys being encrypted.
+	Encrypted keys will be decrypted with `options.https.passphrase`.
+
+	Multiple keys with different passphrases can be provided as an array of `{pem: <string | Buffer>, passphrase: <string>}`
+	*/
 	key?: SecureContextOptions['key'];
+
+	/**
+	[Certificate chains](https://en.wikipedia.org/wiki/X.509#Certificate_chains_and_cross-certification) in [PEM](https://en.wikipedia.org/wiki/Privacy-Enhanced_Mail) format.
+
+	One cert chain should be provided per private key (`options.https.key`).
+
+	When providing multiple cert chains, they do not have to be in the same order as their private keys in `options.https.key`.
+
+
+	If the intermediate certificates are not provided, the peer will not be able to validate the certificate, and the handshake will fail.
+	*/
 	certificate?: SecureContextOptions['cert'];
+
+	/**
+	The passphrase to decrypt the `options.https.key` (if different keys have different passphrases refer to `options.https.key` documentation).
+	*/
 	passphrase?: SecureContextOptions['passphrase'];
 }
 
@@ -739,8 +957,9 @@ export interface PlainResponse extends IncomingMessageWithTimings {
 	/**
 	The remote IP address.
 
-	__Note__: Not available when the response is cached.
 	This is hopefully a temporary limitation, see [lukechilds/cacheable-request#86](https://github.com/lukechilds/cacheable-request/issues/86).
+
+	__Note__: Not available when the response is cached.
 	*/
 	ip?: string;
 
@@ -794,7 +1013,14 @@ export interface PlainResponse extends IncomingMessageWithTimings {
 	retryCount: number;
 
 	// Defined only if request errored
+	/**
+	The raw result of the request.
+	*/
 	rawBody?: Buffer;
+
+	/**
+	The result of the request.
+	*/
 	body?: unknown;
 }
 
@@ -865,7 +1091,14 @@ export interface RequestEvents<T> {
 	```
 	*/
 	& ((name: 'uploadProgress' | 'downloadProgress', listener: (progress: Progress) => void) => T)
-		& ((name: 'retry', listener: (retryCount: number, error: RequestError) => void) => T);
+	/**
+	To enable retrying on a Got stream, it is required to have a `retry` handler attached.
+
+	When this event is emitted, you should reset the stream you were writing to and prepare the body again.
+
+	See `got.options.retry` for more information.
+	*/
+	& ((name: 'retry', listener: (retryCount: number, error: RequestError) => void) => T);
 }
 
 function validateSearchParameters(searchParameters: Record<string, unknown>): asserts searchParameters is Record<string, string | number | boolean | null | undefined> {
@@ -939,6 +1172,10 @@ export const setNonEnumerableProperties = (sources: Array<Options | Defaults | u
 	Object.defineProperties(to, properties);
 };
 
+/**
+An error to be thrown when a request fails.
+Contains a `code` property with error class code, like `ECONNREFUSED`.
+*/
 export class RequestError extends Error {
 	code?: string;
 	stack!: string;
@@ -998,6 +1235,10 @@ export class RequestError extends Error {
 	}
 }
 
+/**
+An error to be thrown when the server redirects you more than ten times.
+Includes a `response` property.
+*/
 export class MaxRedirectsError extends RequestError {
 	declare readonly response: Response;
 	declare readonly request: Request;
@@ -1009,6 +1250,10 @@ export class MaxRedirectsError extends RequestError {
 	}
 }
 
+/**
+An error to be thrown when the server response code is not 2xx nor 3xx if `options.followRedirect` is `true`, but always except for 304.
+Includes a `response` property.
+*/
 export class HTTPError extends RequestError {
 	declare readonly response: Response;
 	declare readonly request: Request;
@@ -1019,7 +1264,10 @@ export class HTTPError extends RequestError {
 		this.name = 'HTTPError';
 	}
 }
-
+/**
+An error to be thrown when a cache method fails.
+For example, if the database goes down or there's a filesystem error.
+*/
 export class CacheError extends RequestError {
 	declare readonly request: Request;
 
@@ -1029,6 +1277,9 @@ export class CacheError extends RequestError {
 	}
 }
 
+/**
+An error to be thrown when the request body is a stream and an error occurs while reading from that stream.
+*/
 export class UploadError extends RequestError {
 	declare readonly request: Request;
 
@@ -1038,6 +1289,10 @@ export class UploadError extends RequestError {
 	}
 }
 
+/**
+An error to be thrown when the request is aborted due to a timeout.
+Includes an `event` and `timings` property.
+*/
 export class TimeoutError extends RequestError {
 	declare readonly request: Request;
 	readonly timings: Timings;
@@ -1051,6 +1306,9 @@ export class TimeoutError extends RequestError {
 	}
 }
 
+/**
+An error to be thrown when reading from response stream fails.
+*/
 export class ReadError extends RequestError {
 	declare readonly request: Request;
 	declare readonly response: Response;
@@ -1062,6 +1320,9 @@ export class ReadError extends RequestError {
 	}
 }
 
+/**
+An error to be thrown when given an unsupported protocol.
+*/
 export class UnsupportedProtocolError extends RequestError {
 	constructor(options: NormalizedOptions) {
 		super(`Unsupported protocol "${options.url.protocol}"`, {}, options);

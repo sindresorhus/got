@@ -19,7 +19,8 @@ import {
 	HTTPError,
 	MaxRedirectsError,
 	TimeoutError,
-	UnsupportedProtocolError
+	UnsupportedProtocolError,
+	UploadError
 } from './as-promise';
 import Request from './core';
 
@@ -27,6 +28,9 @@ import Request from './core';
 type Except<ObjectType, KeysType extends keyof ObjectType> = Pick<ObjectType, Exclude<keyof ObjectType, KeysType>>;
 type Merge<FirstType, SecondType> = Except<FirstType, Extract<keyof FirstType, keyof SecondType>> & SecondType;
 
+/**
+Defaults for each Got instance.
+*/
 export interface InstanceDefaults {
 	/**
   An object containing the default options of Got.
@@ -68,7 +72,21 @@ export type HandlerFunction = <T extends GotReturn>(options: NormalizedOptions, 
 The options available for `got.extend()`.
 */
 export interface ExtendOptions extends Options {
+	/**
+	An array of functions. You execute them directly by calling `got()`.
+	They are some sort of "global hooks" - these functions are called first.
+	The last handler (*it's hidden*) is either `asPromise` or `asStream`, depending on the `options.isStream` property.
+
+	@default []
+	*/
 	handlers?: HandlerFunction[];
+
+	/**
+	A read-only boolean describing whether the defaults are mutable or not.
+	If set to `true`, you can update headers over time, for example, update an access token when it expires.
+
+	@default false
+	*/
 	mutableDefaults?: boolean;
 }
 
@@ -82,6 +100,9 @@ type ResponseBodyOnly = {resolveBodyOnly: true};
 
 export type OptionsWithPagination<T = unknown, R = unknown> = Merge<Options, PaginationOptions<T, R>>;
 
+/**
+An instance of `got.paginate`.
+*/
 export interface GotPaginate {
 	/**
 	Returns an async iterator.
@@ -134,6 +155,10 @@ export interface GotPaginate {
 	Same as `GotPaginate.each`.
 	*/
 	<T, R = unknown>(url: string | URL, options?: OptionsWithPagination<T, R>): AsyncIterableIterator<T>;
+
+	/**
+	Same as `GotPaginate.each`.
+	*/
 	<T, R = unknown>(options?: OptionsWithPagination<T, R>): AsyncIterableIterator<T>;
 }
 
@@ -185,8 +210,14 @@ interface GotStreamFunction {
 	(options?: Merge<Options, {isStream?: true}>): Request;
 }
 
+/**
+An instance of `got.stream()`.
+*/
 export type GotStream = GotStreamFunction & Record<HTTPAlias, GotStreamFunction>;
 
+/**
+An instance of `got`.
+*/
 export interface Got extends Record<HTTPAlias, GotRequestFunction>, GotRequestFunction {
 	/**
 	Sets `options.isStream` to `true`.
@@ -277,6 +308,11 @@ export interface Got extends Record<HTTPAlias, GotRequestFunction>, GotRequestFu
 	TimeoutError: typeof TimeoutError;
 
 	/**
+	An error to be thrown when the request body is a stream and an error occurs while reading from that stream.
+	*/
+	UploadError: typeof UploadError;
+
+	/**
 	An error to be thrown when the request is aborted with `.cancel()`.
 	*/
 	CancelError: typeof CancelError;
@@ -311,6 +347,9 @@ export interface Got extends Record<HTTPAlias, GotRequestFunction>, GotRequestFu
 	*/
 	extend: (...instancesOrOptions: Array<Got | ExtendOptions>) => Got;
 
+	/**
+	Merges multiple `got` instances into the parent.
+	*/
 	mergeInstances: (parent: Got, ...instances: Got[]) => Got;
 
 	/**
