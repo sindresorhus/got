@@ -286,7 +286,7 @@ export class CancelError extends RequestError {
 	}
 }
 
-export interface CancelableRequest<T extends Response | Response['body'] = Response['body']> extends PCancelable<T>, RequestEvents<CancelableRequest<T>> {
+export interface CancelableRequest<T extends Response | Response['body'] = Response['body']> extends PCancelable<T>, Promise<T>, RequestEvents<CancelableRequest<T>> {
 	json: <ReturnType>() => CancelableRequest<ReturnType>;
 	buffer: () => CancelableRequest<Buffer>;
 	text: () => CancelableRequest<string>;
