@@ -54,7 +54,9 @@ const errors = {
 };
 
 // The `delay` package weighs 10KB (!)
-const delay = async (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+const delay = async (ms: number) => new Promise(resolve => {
+	setTimeout(resolve, ms);
+});
 
 const {normalizeArguments} = Request;
 

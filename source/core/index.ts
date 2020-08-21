@@ -2074,7 +2074,10 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 					}
 
 					if (options.username || options.password) {
+						// TODO: Fix this ignore.
+						// @ts-expect-error
 						delete options.username;
+						// @ts-expect-error
 						delete options.password;
 					}
 				}
@@ -2220,6 +2223,8 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			Object.assign(options, urlToOptions(url));
 
 			// `http-cache-semantics` checks this
+			// TODO: Fix this ignore.
+			// @ts-expect-error
 			delete (options as unknown as NormalizedOptions).url;
 
 			let request: ClientRequest | Promise<ClientRequest>;
@@ -2329,6 +2334,8 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		// Prepare plain HTTP request options
 		options[kRequest] = realFn as HttpRequestFunction;
 		delete options.request;
+		// TODO: Fix this ignore.
+		// @ts-expect-error
 		delete options.timeout;
 
 		const requestOptions = options as unknown as RealRequestOptions;
@@ -2388,6 +2395,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 				}
 
 				if (options.https.checkServerIdentity) {
+					// @ts-expect-error - This one will be removed when we remove the alias.
 					delete requestOptions.checkServerIdentity;
 				}
 

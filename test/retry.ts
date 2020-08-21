@@ -141,8 +141,10 @@ test('custom retries async', withServer, async (t, server, got) => {
 		throwHttpErrors: true,
 		retry: {
 			calculateDelay: async ({attemptCount}) => {
-				/* eslint-disable-next-line promise/param-names */
-				await new Promise((resolve, _) => setTimeout(resolve, 1000));
+				await new Promise(resolve => {
+					setTimeout(resolve, 1000);
+				});
+
 				if (attemptCount === 1) {
 					hasTried = true;
 					return 1;
