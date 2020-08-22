@@ -423,7 +423,9 @@ if (process.versions.node.split('.')[0] <= '12') {
 				hooks: {
 					beforeError: [
 						async error => {
-							await new Promise(resolve => setTimeout(resolve, 50));
+							await new Promise(resolve => {
+								setTimeout(resolve, 50);
+							});
 
 							return error;
 						}

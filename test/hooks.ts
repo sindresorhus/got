@@ -2,7 +2,7 @@ import {URL} from 'url';
 import {Agent as HttpAgent} from 'http';
 import test, {Constructor} from 'ava';
 import nock = require('nock');
-import getStream from 'get-stream';
+import getStream = require('get-stream');
 import sinon = require('sinon');
 import delay = require('delay');
 import {Handler} from 'express';
