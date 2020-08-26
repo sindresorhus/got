@@ -1883,7 +1883,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 			if (
 				isBody &&
-				!(options.body instanceof Readable) &&
+				!is.nodeStream(options.body) &&
 				!is.string(options.body) &&
 				!is.buffer(options.body) &&
 				!isFormData(options.body)
