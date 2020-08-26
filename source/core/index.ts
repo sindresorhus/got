@@ -2257,6 +2257,10 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 		const {headers} = options;
 
+		if (options.decompress && !('accept-encoding' in headers)) {
+			headers['accept-encoding'] = supportsBrotli ? 'gzip, deflate, br' : 'gzip, deflate';
+		}
+
 		for (const key in headers) {
 			if (is.undefined(headers[key])) {
 				// eslint-disable-next-line @typescript-eslint/no-dynamic-delete
@@ -2264,10 +2268,6 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			} else if (is.null_(headers[key])) {
 				throw new TypeError(`Use \`undefined\` instead of \`null\` to delete the \`${key}\` header`);
 			}
-		}
-
-		if (options.decompress && is.undefined(headers['accept-encoding'])) {
-			headers['accept-encoding'] = supportsBrotli ? 'gzip, deflate, br' : 'gzip, deflate';
 		}
 
 		// Set cookies
