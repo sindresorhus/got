@@ -513,7 +513,7 @@ An object representing `limit`, `calculateDelay`, `methods`, `statusCodes`, `max
 If `maxRetryAfter` is set to `undefined`, it will use `options.timeout`.\
 If [`Retry-After`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Retry-After) header is greater than `maxRetryAfter`, it will cancel the request.
 
-Delays between retries counts with function `1000 * Math.pow(2, retry) + Math.random() * 100`, where `retry` is attempt number (starts from 1).
+Delays between retries counts with function `1000 * Math.pow(2, retry - 1) + Math.random() * 100`, where `retry` is attempt number (starts from 1).
 
 The `calculateDelay` property is a `function` that receives an object with `attemptCount`, `retryOptions`, `error` and `computedValue` properties for current retry count, the retry options, error and default computed value. The function must return a delay in milliseconds (or a Promise resolving with it) (`0` return value cancels retry).
 
