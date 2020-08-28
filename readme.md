@@ -2107,7 +2107,7 @@ The Electron `net` module is not consistent with the Node.js `http` module. See 
 \* It's almost API compatible with the browser `fetch` API.\
 \*\* Need to switch the protocol manually. Doesn't accept PUSH streams and doesn't reuse HTTP/2 sessions.\
 \*\*\* Currently, only `DownloadProgress` event is supported, `UploadProgress` event is not supported.\
-:sparkle: Almost-stable feature, but the API may change. Don't hestitate to try it out!\
+:sparkle: Almost-stable feature, but the API may change. Don't hesitate to try it out!\
 :grey_question: Feature in early stage of development. Very experimental.
 
 <!-- GITHUB -->
