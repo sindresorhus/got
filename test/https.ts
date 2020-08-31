@@ -3,6 +3,8 @@ import got, {CancelableRequest} from '../source';
 import withServer, {withCertServer} from './helpers/with-server';
 import {DetailedPeerCertificate} from 'tls';
 import pEvent from 'p-event';
+import pify = require('pify');
+import pem = require('pem');
 
 test('https request without ca', withServer, async (t, server, got) => {
 	server.get('/', (_request, response) => {
@@ -229,13 +231,101 @@ test.serial('no double deprecated warning', withServer, async (t, server, got) =
 
 test('client certificate', withCertServer, async (t, server, got) => {
 	server.get('/', (request, response) => {
-		const cert = (request.socket as any).getPeerCertificate(true);
+		const peerCertificate = (request.socket as any).getPeerCertificate(true);
+		peerCertificate.issuerCertificate = undefined; // Circular structure
 
-		t.is(cert.subject.CN, 'client');
-		t.is(cert.issuer.CN, 'authority');
-
-		response.end('ok');
+		response.json({
+			authorized: (request.socket as any).authorized,
+			peerCertificate
+		});
 	});
 
-	t.truthy((await got.secure({})).body);
+	const response: any = await got.secure({}).json();
+
+	t.true(response.authorized);
+	t.is(response.peerCertificate.subject.CN, 'client');
+	t.is(response.peerCertificate.issuer.CN, 'authority');
+});
+
+test('invalid client certificate (self-signed)', withCertServer, async (t, server, got) => {
+	server.get('/', (request, response) => {
+		const peerCertificate = (request.socket as any).getPeerCertificate(true);
+		peerCertificate.issuerCertificate = undefined; // Circular structure
+
+		response.json({
+			authorized: (request.socket as any).authorized,
+			peerCertificate
+		});
+	});
+
+	const createCSR = pify(pem.createCSR);
+	const createCertificate = pify(pem.createCertificate);
+
+	const clientCSRResult = await createCSR({commonName: 'other-client'});
+	const clientResult = await createCertificate({
+		csr: clientCSRResult.csr,
+		clientKey: clientCSRResult.clientKey,
+		selfSigned: true
+	});
+	// eslint-disable-next-line prefer-destructuring
+	const clientKey = clientResult.clientKey;
+	const clientCert = clientResult.certificate;
+
+	const response: any = await got.secure({
+		https: {
+			certificateAuthority: clientCert,
+			key: clientKey,
+			certificate: clientCert,
+			rejectUnauthorized: false
+		}
+	}).json();
+
+	t.is(response.authorized, false);
+});
+
+test('invalid client certificate (other CA)', withCertServer, async (t, server, got) => {
+	server.get('/', (request, response) => {
+		const peerCertificate = (request.socket as any).getPeerCertificate(true);
+
+		response.json({
+			authorized: (request.socket as any).authorized,
+			peerCertificate
+		});
+	});
+
+	const createCSR = pify(pem.createCSR);
+	const createCertificate = pify(pem.createCertificate);
+
+	const caCSRResult = await createCSR({commonName: 'other-authority'});
+	const caResult = await createCertificate({
+		csr: caCSRResult.csr,
+		clientKey: caCSRResult.clientKey,
+		selfSigned: true
+	});
+	const caKey = caResult.clientKey;
+	const caCert = caResult.certificate;
+
+	const clientCSRResult = await createCSR({commonName: 'other-client'});
+	const clientResult = await createCertificate({
+		csr: clientCSRResult.csr,
+		clientKey: clientCSRResult.clientKey,
+		serviceKey: caKey,
+		serviceCertificate: caCert
+	});
+	// eslint-disable-next-line prefer-destructuring
+	const clientKey = clientResult.clientKey;
+	const clientCert = clientResult.certificate;
+
+	const response: any = await got.secure({
+		https: {
+			certificateAuthority: caCert,
+			key: clientKey,
+			certificate: clientCert,
+			rejectUnauthorized: false
+		}
+	}).json();
+
+	t.false(response.authorized);
+	t.is(response.peerCertificate.subject.CN, 'other-client');
+	t.is(response.peerCertificate.issuer.CN, 'other-authority');
 });

@@ -33,7 +33,8 @@ const createCertTestServer = async () => {
 		serviceKey: caKey,
 		serviceCertificate: caCert
 	});
-	const {clientKey} = clientResult;
+	// eslint-disable-next-line prefer-destructuring
+	const clientKey = clientResult.clientKey;
 	const clientCert = clientResult.certificate;
 
 	const server = express();
@@ -43,7 +44,7 @@ const createCertTestServer = async () => {
 			cert: serverCert,
 			ca: caCert,
 			requestCert: true,
-			rejectUnauthorized: true
+			rejectUnauthorized: false // This should be checked by the test
 		},
 		server
 	);
