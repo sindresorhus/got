@@ -2424,6 +2424,10 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 				if (options.https.passphrase) {
 					delete requestOptions.passphrase;
 				}
+
+				if (options.https.pfx) {
+					delete requestOptions.pfx;
+				}
 			}
 
 			if (isClientRequest(requestOrResponse)) {
