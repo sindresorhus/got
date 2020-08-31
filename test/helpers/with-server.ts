@@ -3,14 +3,14 @@ import * as test from 'ava';
 import is from '@sindresorhus/is';
 import http = require('http');
 import tempy = require('tempy');
-import createHttpsTestServer, {HttpsServerOptions} from './create-https-test-server';
+import createHttpsTestServer, {ExtendedHttpsTestServer, HttpsServerOptions} from './create-https-test-server';
 import createTestServer = require('create-test-server');
 import FakeTimers = require('@sinonjs/fake-timers');
 import got, {InstanceDefaults} from '../../source';
 import {ExtendedGot, ExtendedHttpServer, ExtendedTestServer, GlobalClock, InstalledClock} from './types';
 
 export type RunTestWithServer = (t: test.ExecutionContext, server: ExtendedTestServer, got: ExtendedGot, clock: GlobalClock) => Promise<void> | void;
-export type RunTestWithHttpsServer = (t: test.ExecutionContext, server: ExtendedTestServer, got: ExtendedGot) => Promise<void> | void;
+export type RunTestWithHttpsServer = (t: test.ExecutionContext, server: ExtendedHttpsTestServer, got: ExtendedGot) => Promise<void> | void;
 export type RunTestWithSocket = (t: test.ExecutionContext, server: ExtendedHttpServer) => Promise<void> | void;
 
 const generateHook = ({install, options: testServerOptions}: {install?: boolean; options?: unknown}): test.Macro<[RunTestWithServer]> => async (t, run) => {
@@ -66,7 +66,7 @@ export default generateHook({install: false});
 export const withServerAndFakeTimers = generateHook({install: true});
 
 const generateHttpsHook = (options?: HttpsServerOptions): test.Macro<[RunTestWithHttpsServer]> => async (t, run) => {
-	const server = await createHttpsTestServer(options) as ExtendedTestServer;
+	const server = await createHttpsTestServer(options) as ExtendedHttpsTestServer;
 
 	const preparedGot = got.extend({
 		// @ts-expect-error Augmenting for test detection

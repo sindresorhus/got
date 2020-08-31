@@ -1,4 +1,5 @@
 import https = require('https');
+import net = require('net');
 import express = require('express');
 import pify = require('pify');
 import pem = require('pem');
@@ -7,6 +8,15 @@ export type HttpsServerOptions = {
 	commonName?: string;
 	days?: number;
 };
+
+export interface ExtendedHttpsTestServer extends express.Express {
+	https: https.Server,
+	caKey: Buffer,
+	caCert: Buffer,
+	url: string,
+	port: number,
+	close: () => any
+}
 
 const createHttpsTestServer = async (options: HttpsServerOptions = {}) => {
 	const createCSR = pify(pem.createCSR);
@@ -32,8 +42,8 @@ const createHttpsTestServer = async (options: HttpsServerOptions = {}) => {
 	const serverKey = serverResult.clientKey;
 	const serverCert = serverResult.certificate;
 
-	const server = express();
-	(server as any).https = https.createServer(
+	const server = express() as ExtendedHttpsTestServer;
+	server.https = https.createServer(
 		{
 			key: serverKey,
 			cert: serverCert,
@@ -46,15 +56,15 @@ const createHttpsTestServer = async (options: HttpsServerOptions = {}) => {
 
 	server.set('etag', false);
 
-	await pify((server as any).https.listen.bind((server as any).https))();
+	await pify(server.https.listen.bind(server.https))();
 
-	(server as any).caKey = caKey;
-	(server as any).caCert = caCert;
-	(server as any).port = (server as any).https.address().port;
-	(server as any).url = `https://localhost:${((server as any).port as number)}`;
+	server.caKey = caKey;
+	server.caCert = caCert;
+	server.port = (server.https.address() as net.AddressInfo).port;
+	server.url = `https://localhost:${(server.port as number)}`;
 
-	(server as any).close = () =>
-		pify((server as any).https.close.bind((server as any).https))();
+	server.close = () =>
+		pify(server.https.close.bind(server.https))();
 
 	return server;
 };
