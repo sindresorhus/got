@@ -413,13 +413,26 @@ test('invalid key passphrase', withCertServer, async (t, server, got) => {
 	});
 	const clientCert = clientResult.certificate;
 
-	await t.throwsAsync(got.secure({
+	const NODE_10 = process.versions.node.split('.')[0] === '10';
+
+	const request = got.secure({
 		https: {
 			key: clientKey,
 			passphrase: 'wrongPassword',
 			certificate: clientCert
 		}
-	}), {
-		code: 'ERR_OSSL_EVP_BAD_DECRYPT'
 	});
+
+	// Node.JS 10 does not have an error code, it only has a mesage
+	if (NODE_10) {
+		try {
+			await request;
+		} catch (error) {
+			t.true((error.message as string).includes('bad decrypt'));
+		}
+	} else {
+		await t.throwsAsync(request, {
+			code: 'ERR_OSSL_EVP_BAD_DECRYPT'
+		});
+	}
 });
