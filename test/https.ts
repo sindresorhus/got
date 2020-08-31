@@ -232,7 +232,7 @@ test.serial('no double deprecated warning', withServer, async (t, server, got) =
 test('client certificate', withCertServer, async (t, server, got) => {
 	server.get('/', (request, response) => {
 		const peerCertificate = (request.socket as any).getPeerCertificate(true);
-		peerCertificate.issuerCertificate = undefined; // Circular structure
+		peerCertificate.issuerCertificate.issuerCertificate = undefined; // Circular structure
 
 		response.json({
 			authorized: (request.socket as any).authorized,
@@ -273,10 +273,8 @@ test('invalid client certificate (self-signed)', withCertServer, async (t, serve
 
 	const response: any = await got.secure({
 		https: {
-			certificateAuthority: clientCert,
 			key: clientKey,
-			certificate: clientCert,
-			rejectUnauthorized: false
+			certificate: clientCert
 		}
 	}).json();
 
@@ -318,10 +316,8 @@ test('invalid client certificate (other CA)', withCertServer, async (t, server, 
 
 	const response: any = await got.secure({
 		https: {
-			certificateAuthority: caCert,
 			key: clientKey,
-			certificate: clientCert,
-			rejectUnauthorized: false
+			certificate: clientCert
 		}
 	}).json();
 
