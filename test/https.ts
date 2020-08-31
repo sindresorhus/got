@@ -9,6 +9,7 @@ import pem = require('pem');
 const createPrivateKey = pify(pem.createPrivateKey);
 const createCSR = pify(pem.createCSR);
 const createCertificate = pify(pem.createCertificate);
+const createPkcs12 = pify(pem.createPkcs12);
 
 test('https request without ca', withServer, async (t, server, got) => {
 	server.get('/', (_request, response) => {
@@ -435,4 +436,39 @@ test('invalid key passphrase', withCertServer, async (t, server, got) => {
 			code: 'ERR_OSSL_EVP_BAD_DECRYPT'
 		});
 	}
+});
+
+test('client certificate PFX', withCertServer, async (t, server, got) => {
+	server.get('/', (request, response) => {
+		const peerCertificate = (request.socket as any).getPeerCertificate(true);
+		peerCertificate.issuerCertificate = undefined; // Circular structure
+
+		response.json({
+			authorized: (request.socket as any).authorized,
+			peerCertificate
+		});
+	});
+
+	const clientCSRResult = await createCSR({commonName: 'client'});
+	const clientResult = await createCertificate({
+		csr: clientCSRResult.csr,
+		clientKey: clientCSRResult.clientKey,
+		serviceKey: (server as any).caKey,
+		serviceCertificate: (server as any).caCert
+	});
+	// eslint-disable-next-line prefer-destructuring
+	const clientKey = clientResult.clientKey;
+	const clientCert = clientResult.certificate;
+
+	const {pkcs12} = await createPkcs12(clientKey, clientCert, 'randomPassword');
+
+	// Change me on PR #1364
+	const response: any = await got.secure({
+		pfx: pkcs12,
+		passphrase: 'randomPassword'
+	} as any).json();
+
+	t.true(response.authorized);
+	t.is(response.peerCertificate.subject.CN, 'client');
+	t.is(response.peerCertificate.issuer.CN, 'authority');
 });
