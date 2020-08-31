@@ -1,28 +1,8 @@
 import test from 'ava';
-import { readFileSync } from 'fs';
-import { createServer } from 'https';
-import * as path from 'path';
 import got, {CancelableRequest} from '../source';
 import withServer from './helpers/with-server';
 import {DetailedPeerCertificate} from 'tls';
 import pEvent from 'p-event';
-// import { resetBehavior } from 'sinon';
-
-test.serial.only('testing', async (t) => {
-	const options = {
-		pfx: readFileSync(path.resolve('test/fixtures/test.pfx')),
-		passphrase: 'test'
-	};
-
-	const server = createServer(options, (_, res) => {
-		res.end('ok');
-	})
-	server.listen(9189);
-
-	await got('http://localhost:9189');
-
-	t.pass();
-});
 
 test('https request without ca', withServer, async (t, server, got) => {
 	server.get('/', (_request, response) => {
