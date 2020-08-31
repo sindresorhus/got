@@ -6,6 +6,10 @@ import pEvent from 'p-event';
 import pify = require('pify');
 import pem = require('pem');
 
+const createPrivateKey = pify(pem.createPrivateKey);
+const createCSR = pify(pem.createCSR);
+const createCertificate = pify(pem.createCertificate);
+
 test('https request without ca', withServer, async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.end('ok');
@@ -240,7 +244,23 @@ test('client certificate', withCertServer, async (t, server, got) => {
 		});
 	});
 
-	const response: any = await got.secure({}).json();
+	const clientCSRResult = await createCSR({commonName: 'client'});
+	const clientResult = await createCertificate({
+		csr: clientCSRResult.csr,
+		clientKey: clientCSRResult.clientKey,
+		serviceKey: (server as any).caKey,
+		serviceCertificate: (server as any).caCert
+	});
+	// eslint-disable-next-line prefer-destructuring
+	const clientKey = clientResult.clientKey;
+	const clientCert = clientResult.certificate;
+
+	const response: any = await got.secure({
+		https: {
+			key: clientKey,
+			certificate: clientCert
+		}
+	}).json();
 
 	t.true(response.authorized);
 	t.is(response.peerCertificate.subject.CN, 'client');
@@ -257,9 +277,6 @@ test('invalid client certificate (self-signed)', withCertServer, async (t, serve
 			peerCertificate
 		});
 	});
-
-	const createCSR = pify(pem.createCSR);
-	const createCertificate = pify(pem.createCertificate);
 
 	const clientCSRResult = await createCSR({commonName: 'other-client'});
 	const clientResult = await createCertificate({
@@ -291,9 +308,6 @@ test('invalid client certificate (other CA)', withCertServer, async (t, server, 
 		});
 	});
 
-	const createCSR = pify(pem.createCSR);
-	const createCertificate = pify(pem.createCertificate);
-
 	const caCSRResult = await createCSR({commonName: 'other-authority'});
 	const caResult = await createCertificate({
 		csr: caCSRResult.csr,
@@ -324,4 +338,88 @@ test('invalid client certificate (other CA)', withCertServer, async (t, server, 
 	t.false(response.authorized);
 	t.is(response.peerCertificate.subject.CN, 'other-client');
 	t.is(response.peerCertificate.issuer.CN, 'other-authority');
+});
+
+test('key passphrase', withCertServer, async (t, server, got) => {
+	server.get('/', (request, response) => {
+		const peerCertificate = (request.socket as any).getPeerCertificate(true);
+		peerCertificate.issuerCertificate.issuerCertificate = undefined; // Circular structure
+
+		response.json({
+			authorized: (request.socket as any).authorized,
+			peerCertificate
+		});
+	});
+
+	const {key: clientKey} = await createPrivateKey(2048, {
+		cipher: 'aes256',
+		password: 'randomPassword'
+	});
+	const clientCSRResult = await createCSR({
+		// eslint-disable-next-line object-shorthand
+		clientKey: clientKey,
+		clientKeyPassword: 'randomPassword',
+		commonName: 'client'
+	});
+	const clientResult = await createCertificate({
+		csr: clientCSRResult.csr,
+		clientKey: clientCSRResult.clientKey,
+		clientKeyPassword: 'randomPassword',
+		serviceKey: (server as any).caKey,
+		serviceCertificate: (server as any).caCert
+	});
+	const clientCert = clientResult.certificate;
+
+	const response: any = await got.secure({
+		https: {
+			key: clientKey,
+			passphrase: 'randomPassword',
+			certificate: clientCert
+		}
+	}).json();
+
+	t.true(response.authorized);
+	t.is(response.peerCertificate.subject.CN, 'client');
+	t.is(response.peerCertificate.issuer.CN, 'authority');
+});
+
+test('invalid key passphrase', withCertServer, async (t, server, got) => {
+	server.get('/', (request, response) => {
+		const peerCertificate = (request.socket as any).getPeerCertificate(true);
+		peerCertificate.issuerCertificate.issuerCertificate = undefined; // Circular structure
+
+		response.json({
+			authorized: (request.socket as any).authorized,
+			peerCertificate
+		});
+	});
+
+	const {key: clientKey} = await createPrivateKey(2048, {
+		cipher: 'aes256',
+		password: 'randomPassword'
+	});
+	const clientCSRResult = await createCSR({
+		// eslint-disable-next-line object-shorthand
+		clientKey: clientKey,
+		clientKeyPassword: 'randomPassword',
+		commonName: 'client'
+	});
+	const clientResult = await createCertificate({
+		csr: clientCSRResult.csr,
+		clientKey: clientCSRResult.clientKey,
+		clientKeyPassword: 'randomPassword',
+		serviceKey: (server as any).caKey,
+		serviceCertificate: (server as any).caCert
+	});
+	const clientCert = clientResult.certificate;
+
+	await t.throwsAsync(got.secure({
+		https: {
+			key: clientKey,
+			passphrase: 'wrongPassword',
+			certificate: clientCert
+		}
+	}), {
+		code: 'ERR_OSSL_EVP_BAD_DECRYPT'
+	});
 });

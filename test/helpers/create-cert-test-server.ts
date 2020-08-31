@@ -26,17 +26,6 @@ const createCertTestServer = async () => {
 	const serverKey = serverResult.clientKey;
 	const serverCert = serverResult.certificate;
 
-	const clientCSRResult = await createCSR({commonName: 'client'});
-	const clientResult = await createCertificate({
-		csr: clientCSRResult.csr,
-		clientKey: clientCSRResult.clientKey,
-		serviceKey: caKey,
-		serviceCertificate: caCert
-	});
-	// eslint-disable-next-line prefer-destructuring
-	const clientKey = clientResult.clientKey;
-	const clientCert = clientResult.certificate;
-
 	const server = express();
 	(server as any).https = https.createServer(
 		{
@@ -53,9 +42,8 @@ const createCertTestServer = async () => {
 
 	await pify((server as any).https.listen.bind((server as any).https))();
 
+	(server as any).caKey = caKey;
 	(server as any).caCert = caCert;
-	(server as any).clientCert = clientCert;
-	(server as any).clientKey = clientKey;
 	(server as any).sslPort = (server as any).https.address().port;
 	(server as any).sslUrl = `https://localhost:${((server as any).sslPort as number)}`;
 

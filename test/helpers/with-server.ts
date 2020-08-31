@@ -46,8 +46,6 @@ const generateHook = ({install, selfSigned, options: testServerOptions}: {instal
 	if (selfSigned) {
 		preparedGot.secure = got.extend({prefixUrl: server.sslUrl, https: {
 			certificateAuthority: (server as any).caCert,
-			key: (server as any).clientKey,
-			certificate: (server as any).clientCert,
 			rejectUnauthorized: true
 		}, ...options});
 	} else {
