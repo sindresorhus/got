@@ -266,7 +266,9 @@ test('does not destroy completed requests', withServer, async (t, server, got) =
 
 	socket.once('close', closeListener);
 
-	await new Promise(resolve => setTimeout(resolve, 10));
+	await new Promise(resolve => {
+		setTimeout(resolve, 10);
+	});
 
 	socket.off('close', closeListener);
 

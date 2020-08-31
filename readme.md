@@ -510,12 +510,10 @@ Default:
 
 An object representing `limit`, `calculateDelay`, `methods`, `statusCodes`, `maxRetryAfter` and `errorCodes` fields for maximum retry count, retry handler, allowed methods, allowed status codes, maximum [`Retry-After`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Retry-After) time and allowed error codes.
 
-**Note:** When using streams, this option is ignored. If the connection is reset when downloading, you need to catch the error and clear the file you were writing into to prevent duplicated content.
-
 If `maxRetryAfter` is set to `undefined`, it will use `options.timeout`.\
 If [`Retry-After`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Retry-After) header is greater than `maxRetryAfter`, it will cancel the request.
 
-Delays between retries counts with function `1000 * Math.pow(2, retry) + Math.random() * 100`, where `retry` is attempt number (starts from 1).
+Delays between retries counts with function `1000 * Math.pow(2, retry - 1) + Math.random() * 100`, where `retry` is attempt number (starts from 1).
 
 The `calculateDelay` property is a `function` that receives an object with `attemptCount`, `retryOptions`, `error` and `computedValue` properties for current retry count, the retry options, error and default computed value. The function must return a delay in milliseconds (or a Promise resolving with it) (`0` return value cancels retry).
 
@@ -528,6 +526,36 @@ By default, it retries *only* on the specified methods, status codes, and on the
 - `ENOTFOUND`: Couldn't resolve the hostname to an IP address.
 - `ENETUNREACH`: No internet connection.
 - `EAI_AGAIN`: DNS lookup timed out.
+
+<a name="retry-stream"></a>
+
+You can retry Got streams too. The implementation looks like this:
+
+```js
+const got = require('got');
+const fs = require('fs');
+
+let writeStream;
+
+const fn = (retryCount = 0) => {
+	const stream = got.stream('https://example.com');
+	stream.retryCount = retryCount;
+
+	if (writeStream) {
+		writeStream.destroy();
+	}
+
+	writeStream = fs.createWriteStream('example.com');
+
+	stream.pipe(writeStream);
+
+	// If you don't attach the listener, it will NOT make a retry.
+	// It automatically checks the listener count so it knows whether to retry or not :)
+	stream.once('retry', fn);
+};
+
+fn();
+```
 
 ###### followRedirect
 
@@ -698,8 +726,6 @@ Type: `Function[]`\
 Default: `[]`
 
 Called with [normalized](source/core/index.ts) [request options](#options). Got will make no further changes to the request before it is sent. This is especially useful in conjunction with [`got.extend()`](#instances) when you want to create an API client that, for example, uses HMAC-signing.
-
-See the [AWS section](#aws) for an example.
 
 **Tip:** You can override the `request` function by returning a [`ClientRequest`-like](https://nodejs.org/api/http.html#http_class_http_clientrequest) instance or a [`IncomingMessage`-like](https://nodejs.org/api/http.html#http_class_http_incomingmessage) instance. This is very useful when creating a custom cache mechanism.
 
@@ -1308,6 +1334,13 @@ If the `content-length` header is missing, `total` will be `undefined`.
 })();
 ```
 
+##### .once('retry', retryCount, error)
+
+To enable retrying on a Got stream, it is required to have a `retry` handler attached.\
+When this event is emitted, you should reset the stream you were writing to and prepare the body again.
+
+See the [`retry`](#retry-stream) option for an example implementation.
+
 ##### .ip
 
 Type: `string`
@@ -1632,7 +1665,7 @@ Additionaly, the errors may have `request` (Got Stream) and `response` (Got Resp
 
 #### got.RequestError
 
-When a request fails. Contains a `code` property with error class code, like `ECONNREFUSED`. Note that all other types of errors listed below are subclasses of this one, with the exception of `CancelError`.
+When a request fails. Contains a `code` property with error class code, like `ECONNREFUSED`. All the errors below inherit this one.
 
 #### got.CacheError
 
@@ -1668,7 +1701,7 @@ When the request is aborted due to a [timeout](#timeout). Includes an `event` an
 
 #### got.CancelError
 
-When the request is aborted with `.cancel()`. This type is not a subclass of `RequestError` as it is re-exported from the `p-cancelable` package.
+When the request is aborted with `.cancel()`.
 
 ## Aborting the request
 
@@ -1806,6 +1839,26 @@ got('https://sindresorhus.com', {
 });
 ```
 
+Otherwise, you can use the [`hpagent`](https://github.com/delvedor/hpagent) package, which keeps the internal sockets alive to be reused.
+
+```js
+const got = require('got');
+const {HttpsProxyAgent} = require('hpagent');
+
+got('https://sindresorhus.com', {
+	agent: {
+		https: new HttpsProxyAgent({
+			keepAlive: true,
+			keepAliveMsecs: 1000,
+			maxSockets: 256,
+			maxFreeSockets: 256,
+			scheduling: 'lifo',
+			proxy: 'https://localhost:8080'
+		})
+	}
+});
+```
+
 Alternatively, use [`global-agent`](https://github.com/gajus/global-agent) to configure a global proxy for all HTTP/HTTPS traffic in your program.
 
 Read the [`http2-wrapper`](https://github.com/szmarczak/http2-wrapper/#proxy-support) docs to learn about proxying for HTTP/2.
@@ -1896,29 +1949,14 @@ got('unix:/var/run/docker.sock:/containers/json');
 
 ## AWS
 
-Requests to AWS services need to have their headers signed. This can be accomplished by using the [`aws4`](https://www.npmjs.com/package/aws4) package. This is an example for querying an ["API Gateway"](https://docs.aws.amazon.com/apigateway/api-reference/signing-requests/) with a signed request.
+Requests to AWS services need to have their headers signed. This can be accomplished by using the [`got4aws`](https://www.npmjs.com/package/got4aws) package. This is an example for querying an ["API Gateway"](https://docs.aws.amazon.com/apigateway/api-reference/signing-requests/) with a signed request.
 
 ```js
-const got = require('got');
-const AWS = require('aws-sdk');
-const aws4 = require('aws4');
+const got4aws = require('got4aws');;
 
-const chain = new AWS.CredentialProviderChain();
+const awsClient = got4aws();
 
-// Create a Got instance to use relative paths and signed requests
-const awsClient = got.extend({
-	prefixUrl: 'https://<api-id>.execute-api.<api-region>.amazonaws.com/<stage>/',
-	hooks: {
-		beforeRequest: [
-			async options => {
-				const credentials = await chain.resolvePromise();
-				aws4.sign(options, credentials);
-			}
-		]
-	}
-});
-
-const response = await awsClient('endpoint/path', {
+const response = await awsClient('https://<api-id>.execute-api.<api-region>.amazonaws.com/<stage>/endpoint/path', {
 	// Request-specific options
 });
 ```
@@ -1939,6 +1977,32 @@ nock('https://sindresorhus.com')
 	const response = await got('https://sindresorhus.com');
 	console.log(response.body);
 	//=> 'Hello world!'
+})();
+```
+
+Bear in mind, that by default `nock` mocks only one request. Got will [retry](#retry) on failed requests by default, causing a `No match for request ...` error. The solution is to either disable retrying (set `options.retry` to `0`) or call `.persist()` on the mocked request.
+
+```js
+const got = require('got');
+const nock = require('nock');
+
+const scope = nock('https://sindresorhus.com')
+	.get('/')
+	.reply(500, 'Internal server error')
+	.persist();
+
+(async () => {
+	try {
+		await got('https://sindresorhus.com')
+	} catch (error) {
+		console.log(error.response.body);
+		//=> 'Internal server error'
+
+		console.log(error.response.retryCount);
+		//=> 2
+	}
+
+	scope.persist(false);
 })();
 ```
 
@@ -2099,7 +2163,7 @@ The Electron `net` module is not consistent with the Node.js `http` module. See 
 \* It's almost API compatible with the browser `fetch` API.\
 \*\* Need to switch the protocol manually. Doesn't accept PUSH streams and doesn't reuse HTTP/2 sessions.\
 \*\*\* Currently, only `DownloadProgress` event is supported, `UploadProgress` event is not supported.\
-:sparkle: Almost-stable feature, but the API may change. Don't hestitate to try it out!\
+:sparkle: Almost-stable feature, but the API may change. Don't hesitate to try it out!\
 :grey_question: Feature in early stage of development. Very experimental.
 
 <!-- GITHUB -->

@@ -312,3 +312,15 @@ test('async handlers can throw', async t => {
 
 	await t.throwsAsync(instance('https://example.com'), {message});
 });
+
+test('setting dnsCache to true points to global cache', t => {
+	const a = got.extend({
+		dnsCache: true
+	});
+
+	const b = got.extend({
+		dnsCache: true
+	});
+
+	t.is(a.defaults.options.dnsCache, b.defaults.options.dnsCache);
+});

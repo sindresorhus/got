@@ -5,6 +5,7 @@ import http = require('http');
 import test from 'ava';
 import is from '@sindresorhus/is';
 import {Handler} from 'express';
+import getStream = require('get-stream');
 import pEvent = require('p-event');
 import got, {HTTPError} from '../source';
 import withServer from './helpers/with-server';
@@ -140,8 +141,10 @@ test('custom retries async', withServer, async (t, server, got) => {
 		throwHttpErrors: true,
 		retry: {
 			calculateDelay: async ({attemptCount}) => {
-				/* eslint-disable-next-line promise/param-names */
-				await new Promise((resolve, _) => setTimeout(resolve, 1000));
+				await new Promise(resolve => {
+					setTimeout(resolve, 1000);
+				});
+
 				if (attemptCount === 1) {
 					hasTried = true;
 					return 1;
@@ -417,4 +420,114 @@ test('does not destroy the socket on HTTP error', withServer, async (t, server, 
 	t.is(sockets[0], sockets[1]);
 
 	agent.destroy();
+});
+
+test('can retry a Got stream', withServer, async (t, server, got) => {
+	let returnServerError = true;
+
+	server.get('/', (_request, response) => {
+		if (returnServerError) {
+			response.statusCode = 500;
+			response.end('not ok');
+
+			returnServerError = false;
+			return;
+		}
+
+		response.end('ok');
+	});
+
+	let globalRetryCount = 0;
+
+	const responseStreamPromise = new Promise<PassThroughStream>((resolve, reject) => {
+		let writeStream: PassThroughStream;
+
+		const fn = (retryCount = 0) => {
+			const stream = got.stream('');
+			stream.retryCount = retryCount;
+
+			globalRetryCount = retryCount;
+
+			if (writeStream) {
+				writeStream.destroy();
+			}
+
+			writeStream = new PassThroughStream();
+
+			stream.pipe(writeStream);
+
+			stream.once('retry', fn);
+
+			stream.once('error', reject);
+			stream.once('end', () => {
+				resolve(writeStream);
+			});
+		};
+
+		fn();
+	});
+
+	const responseStream = await responseStreamPromise;
+	const data = await getStream(responseStream);
+
+	t.is(data, 'ok');
+	t.is(globalRetryCount, 1);
+});
+
+test('throws when cannot retry a Got stream', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.statusCode = 500;
+		response.end('not ok');
+	});
+
+	let globalRetryCount = 0;
+
+	const streamPromise = new Promise<PassThroughStream>((resolve, reject) => {
+		const fn = (retryCount = 0) => {
+			const stream = got.stream('');
+			stream.retryCount = retryCount;
+
+			globalRetryCount = retryCount;
+
+			stream.resume();
+			stream.once('retry', fn);
+
+			stream.once('data', () => {
+				stream.destroy(new Error('data event has been emitted'));
+			});
+
+			stream.once('error', reject);
+			stream.once('end', resolve);
+		};
+
+		fn();
+	});
+
+	const error = await t.throwsAsync<HTTPError>(streamPromise, {
+		instanceOf: HTTPError
+	});
+
+	t.is(error.response.statusCode, 500);
+	t.is(error.response.body, 'not ok');
+	t.is(globalRetryCount, 2);
+});
+
+test('promise does not retry when body is a stream', withServer, async (t, server, got) => {
+	server.post('/', (_request, response) => {
+		response.statusCode = 500;
+		response.end('not ok');
+	});
+
+	const body = new PassThroughStream();
+	body.end('hello');
+
+	const response = await got.post({
+		retry: {
+			methods: ['POST']
+		},
+		body,
+		throwHttpErrors: false
+	});
+
+	t.is(response.retryCount, 0);
 });

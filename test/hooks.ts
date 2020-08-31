@@ -2,12 +2,12 @@ import {URL} from 'url';
 import {Agent as HttpAgent} from 'http';
 import test, {Constructor} from 'ava';
 import nock = require('nock');
-import getStream from 'get-stream';
+import getStream = require('get-stream');
 import sinon = require('sinon');
 import delay = require('delay');
 import {Handler} from 'express';
 import Responselike = require('responselike');
-import got, {RequestError, HTTPError} from '../source';
+import got, {RequestError, HTTPError, Response} from '../source';
 import withServer from './helpers/with-server';
 
 const errorString = 'oops';
@@ -949,4 +949,248 @@ test('beforeRequest hook respect `url` option', withServer, async (t, server, go
 			]
 		}
 	})).body, 'ok');
+});
+
+test('no duplicate hook calls in single-page paginated requests', withServer, async (t, server, got) => {
+	server.get('/get', (_request, response) => {
+		response.end('i <3 koalas');
+	});
+
+	let beforeHookCount = 0;
+	let beforeHookCountAdditional = 0;
+	let afterHookCount = 0;
+	let afterHookCountAdditional = 0;
+
+	const hooks = {
+		beforeRequest: [
+			() => {
+				beforeHookCount++;
+			}
+		],
+		afterResponse: [
+			(response: any) => {
+				afterHookCount++;
+				return response;
+			}
+		]
+	};
+
+	// Test only one request
+	const instance = got.extend({
+		hooks,
+		pagination: {
+			paginate: () => false,
+			countLimit: 2009,
+			transform: response => [response]
+		}
+	});
+
+	await instance.paginate.all('get');
+	t.is(beforeHookCount, 1);
+	t.is(afterHookCount, 1);
+
+	await instance.paginate.all('get', {
+		hooks: {
+			beforeRequest: [
+				() => {
+					beforeHookCountAdditional++;
+				}
+			],
+			afterResponse: [
+				(response: any) => {
+					afterHookCountAdditional++;
+					return response;
+				}
+			]
+		}
+	});
+	t.is(beforeHookCount, 2);
+	t.is(afterHookCount, 2);
+	t.is(beforeHookCountAdditional, 1);
+	t.is(afterHookCountAdditional, 1);
+
+	await got.paginate.all('get', {
+		hooks,
+		pagination: {
+			paginate: () => false,
+			transform: response => [response]
+		}
+	});
+
+	t.is(beforeHookCount, 3);
+	t.is(afterHookCount, 3);
+});
+
+test('no duplicate hook calls in sequential paginated requests', withServer, async (t, server, got) => {
+	server.get('/get', (_request, response) => {
+		response.end('i <3 unicorns');
+	});
+
+	let requestNumber = 0;
+	let beforeHookCount = 0;
+	let afterHookCount = 0;
+
+	const hooks = {
+		beforeRequest: [
+			() => {
+				beforeHookCount++;
+			}
+		],
+		afterResponse: [
+			(response: any) => {
+				afterHookCount++;
+				return response;
+			}
+		]
+	};
+
+	// Test only two requests, one after another
+	const paginate = () => requestNumber++ === 0 ? {} : false;
+
+	const instance = got.extend({
+		hooks,
+		pagination: {
+			paginate,
+			countLimit: 2009,
+			transform: response => [response]
+		}
+	});
+
+	await instance.paginate.all('get');
+
+	t.is(beforeHookCount, 2);
+	t.is(afterHookCount, 2);
+	requestNumber = 0;
+
+	await got.paginate.all('get', {
+		hooks,
+		pagination: {
+			paginate,
+			transform: response => [response]
+		}
+	});
+
+	t.is(beforeHookCount, 4);
+	t.is(afterHookCount, 4);
+});
+
+test('intentional duplicate hooks in pagination with extended instance', withServer, async (t, server, got) => {
+	server.get('/get', (_request, response) => {
+		response.end('<3');
+	});
+
+	let beforeCount = 0; // Number of times the hooks from `extend` are called
+	let afterCount = 0;
+	let beforeCountAdditional = 0; // Number of times the added hooks are called
+	let afterCountAdditional = 0;
+
+	const beforeHook = () => {
+		beforeCount++;
+	};
+
+	const afterHook = (response: any) => {
+		afterCount++;
+		return response;
+	};
+
+	const instance = got.extend({
+		hooks: {
+			beforeRequest: [
+				beforeHook,
+				beforeHook
+			],
+			afterResponse: [
+				afterHook,
+				afterHook
+			]
+		},
+		pagination: {
+			paginate: () => false,
+			countLimit: 2009,
+			transform: response => [response]
+		}
+	});
+
+	// Add duplicate hooks when calling paginate
+	const beforeHookAdditional = () => {
+		beforeCountAdditional++;
+	};
+
+	const afterHookAdditional = (response: any) => {
+		afterCountAdditional++;
+		return response;
+	};
+
+	await instance.paginate.all('get', {
+		hooks: {
+			beforeRequest: [
+				beforeHook,
+				beforeHookAdditional,
+				beforeHookAdditional
+			],
+			afterResponse: [
+				afterHook,
+				afterHookAdditional,
+				afterHookAdditional
+			]
+		}
+	});
+
+	t.is(beforeCount, 3);
+	t.is(afterCount, 3);
+	t.is(beforeCountAdditional, 2);
+	t.is(afterCountAdditional, 2);
+});
+
+test('no duplicate hook calls when returning original request options', withServer, async (t, server, got) => {
+	server.get('/get', (_request, response) => {
+		response.end('i <3 unicorns');
+	});
+
+	let requestNumber = 0;
+	let beforeHookCount = 0;
+	let afterHookCount = 0;
+
+	const hooks = {
+		beforeRequest: [
+			() => {
+				beforeHookCount++;
+			}
+		],
+		afterResponse: [
+			(response: any) => {
+				afterHookCount++;
+				return response;
+			}
+		]
+	};
+
+	// Test only two requests, one after another
+	const paginate = (response: Response) => requestNumber++ === 0 ? response.request.options : false;
+
+	const instance = got.extend({
+		hooks,
+		pagination: {
+			paginate,
+			countLimit: 2009,
+			transform: response => [response]
+		}
+	});
+
+	await instance.paginate.all('get');
+
+	t.is(beforeHookCount, 2);
+	t.is(afterHookCount, 2);
+	requestNumber = 0;
+
+	await got.paginate.all('get', {
+		hooks,
+		pagination: {
+			paginate,
+			transform: response => [response]
+		}
+	});
+
+	t.is(beforeHookCount, 4);
+	t.is(afterHookCount, 4);
 });

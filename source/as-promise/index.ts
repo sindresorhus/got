@@ -1,16 +1,19 @@
 import {EventEmitter} from 'events';
+import is from '@sindresorhus/is';
 import PCancelable = require('p-cancelable');
-import calculateRetryDelay from './calculate-retry-delay';
 import {
 	NormalizedOptions,
 	CancelableRequest,
 	Response,
 	RequestError,
-	HTTPError
+	HTTPError,
+	CancelError
 } from './types';
-import PromisableRequest, {parseBody} from './core';
+import parseBody from './parse-body';
+import Request from '../core';
 import proxyEvents from '../core/utils/proxy-events';
 import getBuffer from '../core/utils/get-buffer';
+import {isResponseOk} from '../core/utils/is-response-ok';
 
 const proxiedRequestEvents = [
 	'request',
@@ -20,47 +23,25 @@ const proxiedRequestEvents = [
 	'downloadProgress'
 ];
 
-export default function asPromise<T>(options: NormalizedOptions): CancelableRequest<T> {
-	let retryCount = 0;
-	let globalRequest: PromisableRequest;
+export default function asPromise<T>(normalizedOptions: NormalizedOptions): CancelableRequest<T> {
+	let globalRequest: Request;
 	let globalResponse: Response;
 	const emitter = new EventEmitter();
 
-	const promise = new PCancelable<T>((resolve, _reject, onCancel) => {
-		const makeRequest = (): void => {
-			// Support retries
-			// `options.throwHttpErrors` needs to be always true,
-			// so the HTTP errors are caught and the request is retried.
-			// The error is **eventually** thrown if the user value is true.
-			const {throwHttpErrors} = options;
-			if (!throwHttpErrors) {
-				options.throwHttpErrors = true;
-			}
-
-			// Note from @szmarczak: I think we should use `request.options` instead of the local options
-			const request = new PromisableRequest(options.url, options);
+	const promise = new PCancelable<T>((resolve, reject, onCancel) => {
+		const makeRequest = (retryCount: number): void => {
+			const request = new Request(undefined, normalizedOptions);
+			request.retryCount = retryCount;
 			request._noPipe = true;
+
 			onCancel(() => request.destroy());
 
-			const reject = (error: RequestError): void => {
-				void (async () => {
-					try {
-						for (const hook of options.hooks.beforeError) {
-							// eslint-disable-next-line no-await-in-loop
-							error = await hook(error);
-						}
-					} catch (error_) {
-						_reject(new RequestError(error_.message, error_, request));
-						return;
-					}
-
-					_reject(error);
-				})();
-			};
+			onCancel.shouldReject = false;
+			onCancel(() => reject(new CancelError(request)));
 
 			globalRequest = request;
 
-			const onResponse = async (response: Response) => {
+			request.once('response', async (response: Response) => {
 				response.retryCount = retryCount;
 
 				if (response.request.aborted) {
@@ -68,18 +49,10 @@ export default function asPromise<T>(options: NormalizedOptions): CancelableRequ
 					return;
 				}
 
-				const isOk = (): boolean => {
-					const {statusCode} = response;
-					const limitStatusCode = options.followRedirect ? 299 : 399;
-
-					return (statusCode >= 200 && statusCode <= limitStatusCode) || statusCode === 304;
-				};
-
 				// Download body
 				let rawBody;
 				try {
 					rawBody = await getBuffer(request);
-
 					response.rawBody = rawBody;
 				} catch {
 					// The same error is caught below.
@@ -87,9 +60,15 @@ export default function asPromise<T>(options: NormalizedOptions): CancelableRequ
 					return;
 				}
 
+				if (request._isAboutToError) {
+					return;
+				}
+
 				// Parse body
 				const contentEncoding = (response.headers['content-encoding'] ?? '').toLowerCase();
 				const isCompressed = ['gzip', 'deflate', 'br'].includes(contentEncoding);
+
+				const {options} = request;
 
 				if (isCompressed && !options.decompress) {
 					response.body = rawBody;
@@ -100,9 +79,8 @@ export default function asPromise<T>(options: NormalizedOptions): CancelableRequ
 						// Fallback to `utf8`
 						response.body = rawBody.toString();
 
-						if (isOk()) {
-							// TODO: Call `request._beforeError`, see https://github.com/nodejs/node/issues/32995
-							reject(error);
+						if (isResponseOk(response)) {
+							request._beforeError(error);
 							return;
 						}
 					}
@@ -113,7 +91,7 @@ export default function asPromise<T>(options: NormalizedOptions): CancelableRequ
 						// @ts-expect-error TS doesn't notice that CancelableRequest is a Promise
 						// eslint-disable-next-line no-await-in-loop
 						response = await hook(response, async (updatedOptions): CancelableRequest<Response> => {
-							const typedOptions = PromisableRequest.normalizeArguments(undefined, {
+							const typedOptions = Request.normalizeArguments(undefined, {
 								...updatedOptions,
 								retry: {
 									calculateDelay: () => 0
@@ -142,126 +120,51 @@ export default function asPromise<T>(options: NormalizedOptions): CancelableRequ
 						});
 					}
 				} catch (error) {
-					// TODO: Call `request._beforeError`, see https://github.com/nodejs/node/issues/32995
-					reject(new RequestError(error.message, error, request));
+					request._beforeError(new RequestError(error.message, error, request));
 					return;
 				}
 
-				if (throwHttpErrors && !isOk()) {
-					reject(new HTTPError(response));
+				if (!isResponseOk(response)) {
+					request._beforeError(new HTTPError(response));
 					return;
 				}
 
 				globalResponse = response;
 
-				resolve(options.resolveBodyOnly ? response.body as T : response as unknown as T);
-			};
+				resolve(request.options.resolveBodyOnly ? response.body as T : response as unknown as T);
+			});
 
-			const onError = async (error: RequestError) => {
+			const onError = (error: RequestError) => {
 				if (promise.isCanceled) {
 					return;
 				}
 
-				if (!request.options) {
-					reject(error);
+				const {options} = request;
+
+				if (error instanceof HTTPError && !options.throwHttpErrors) {
+					const {response} = error;
+					resolve(request.options.resolveBodyOnly ? response.body as T : response as unknown as T);
 					return;
 				}
-
-				request.off('response', onResponse);
-
-				let gotUnexpectedError = false;
-				const onUnexpectedError = (error: RequestError) => {
-					gotUnexpectedError = true;
-
-					reject(error);
-				};
-
-				// If this is an HTTP error, then it can throw again with `ECONNRESET` or `Parse Error`
-				request.once('error', onUnexpectedError);
-
-				let backoff: number;
-
-				retryCount++;
-
-				try {
-					backoff = await options.retry.calculateDelay({
-						attemptCount: retryCount,
-						retryOptions: options.retry,
-						error,
-						computedValue: calculateRetryDelay({
-							attemptCount: retryCount,
-							retryOptions: options.retry,
-							error,
-							computedValue: 0
-						})
-					});
-				} catch (error_) {
-					// Don't emit the `response` event
-					request.destroy();
-
-					reject(new RequestError(error_.message, error, request));
-					return;
-				}
-
-				// Another error was thrown already
-				if (gotUnexpectedError) {
-					return;
-				}
-
-				request.off('error', onUnexpectedError);
-
-				if (backoff) {
-					// Don't emit the `response` event
-					request.destroy();
-
-					const retry = async (): Promise<void> => {
-						options.throwHttpErrors = throwHttpErrors;
-
-						try {
-							for (const hook of options.hooks.beforeRetry) {
-								// eslint-disable-next-line no-await-in-loop
-								await hook(options, error, retryCount);
-							}
-						} catch (error_) {
-							// Don't emit the `response` event
-							request.destroy();
-
-							reject(new RequestError(error_.message, error, request));
-							return;
-						}
-
-						makeRequest();
-					};
-
-					setTimeout(retry, backoff);
-					return;
-				}
-
-				// The retry has not been made
-				retryCount--;
-
-				if (error instanceof HTTPError) {
-					// The error will be handled by the `response` event
-					void onResponse(request._response as Response);
-
-					// Reattach the error handler, because there may be a timeout later.
-					request.once('error', onError);
-					return;
-				}
-
-				// Don't emit the `response` event
-				request.destroy();
 
 				reject(error);
 			};
 
-			request.once('response', onResponse);
 			request.once('error', onError);
+
+			request.once('retry', (newRetryCount: number, error: RequestError) => {
+				if (is.nodeStream(error.request?.options.body)) {
+					onError(error);
+					return;
+				}
+
+				makeRequest(newRetryCount);
+			});
 
 			proxyEvents(request, emitter, proxiedRequestEvents);
 		};
 
-		makeRequest();
+		makeRequest(0);
 	}) as CancelableRequest<T>;
 
 	promise.on = (event: string, fn: (...args: any[]) => void) => {
@@ -274,6 +177,8 @@ export default function asPromise<T>(options: NormalizedOptions): CancelableRequ
 			// Wait until downloading has ended
 			await promise;
 
+			const {options} = globalResponse.request;
+
 			return parseBody(globalResponse, responseType, options.parseJson, options.encoding);
 		})();
 
@@ -283,8 +188,10 @@ export default function asPromise<T>(options: NormalizedOptions): CancelableRequ
 	};
 
 	promise.json = () => {
-		if (!globalRequest.writableFinished && options.headers.accept === undefined) {
-			options.headers.accept = 'application/json';
+		const {headers} = globalRequest.options;
+
+		if (!globalRequest.writableFinished && headers.accept === undefined) {
+			headers.accept = 'application/json';
 		}
 
 		return shortcut('json');
@@ -297,4 +204,3 @@ export default function asPromise<T>(options: NormalizedOptions): CancelableRequ
 }
 
 export * from './types';
-export {PromisableRequest};
