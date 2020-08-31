@@ -40,7 +40,7 @@ For browser usage, we recommend [Ky](https://github.com/sindresorhus/ky) by the 
 - [Errors with metadata](#errors)
 - [JSON mode](#json-mode)
 - [WHATWG URL support](#url)
-- [HTTPS API](#https)
+- [HTTPS API](#advanced-https-api)
 - [Hooks](#hooks)
 - [Instances with custom defaults](#instances)
 - [Types](#types)
