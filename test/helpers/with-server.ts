@@ -66,7 +66,7 @@ export default generateHook({install: false});
 export const withServerAndFakeTimers = generateHook({install: true});
 
 const generateHttpsHook = (options?: HttpsServerOptions): test.Macro<[RunTestWithHttpsServer]> => async (t, run) => {
-	const server = await createHttpsTestServer(options) as ExtendedHttpsTestServer;
+	const server = await createHttpsTestServer(options);
 
 	const preparedGot = got.extend({
 		// @ts-expect-error Augmenting for test detection

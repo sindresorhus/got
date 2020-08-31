@@ -10,15 +10,15 @@ export type HttpsServerOptions = {
 };
 
 export interface ExtendedHttpsTestServer extends express.Express {
-	https: https.Server,
-	caKey: Buffer,
-	caCert: Buffer,
-	url: string,
-	port: number,
-	close: () => any
+	https: https.Server;
+	caKey: Buffer;
+	caCert: Buffer;
+	url: string;
+	port: number;
+	close: () => Promise<any>;
 }
 
-const createHttpsTestServer = async (options: HttpsServerOptions = {}) => {
+const createHttpsTestServer = async (options: HttpsServerOptions = {}): Promise<ExtendedHttpsTestServer> => {
 	const createCSR = pify(pem.createCSR);
 	const createCertificate = pify(pem.createCertificate);
 
@@ -61,9 +61,9 @@ const createHttpsTestServer = async (options: HttpsServerOptions = {}) => {
 	server.caKey = caKey;
 	server.caCert = caCert;
 	server.port = (server.https.address() as net.AddressInfo).port;
-	server.url = `https://localhost:${(server.port as number)}`;
+	server.url = `https://localhost:${(server.port)}`;
 
-	server.close = () =>
+	server.close = async () =>
 		pify(server.https.close.bind(server.https))();
 
 	return server;
