@@ -3,7 +3,12 @@ import express = require('express');
 import pify = require('pify');
 import pem = require('pem');
 
-const createCertTestServer = async () => {
+export type HttpsServerOptions = {
+	commonName?: string;
+	days?: number;
+};
+
+const createHttpsTestServer = async (options: HttpsServerOptions = {}) => {
 	const createCSR = pify(pem.createCSR);
 	const createCertificate = pify(pem.createCertificate);
 
@@ -16,12 +21,13 @@ const createCertTestServer = async () => {
 	const caKey = caResult.clientKey;
 	const caCert = caResult.certificate;
 
-	const serverCSRResult = await createCSR({commonName: 'localhost'});
+	const serverCSRResult = await createCSR({commonName: options.commonName ?? 'localhost'});
 	const serverResult = await createCertificate({
 		csr: serverCSRResult.csr,
 		clientKey: serverCSRResult.clientKey,
 		serviceKey: caKey,
-		serviceCertificate: caCert
+		serviceCertificate: caCert,
+		days: options.days ?? 365
 	});
 	const serverKey = serverResult.clientKey;
 	const serverCert = serverResult.certificate;
@@ -44,8 +50,8 @@ const createCertTestServer = async () => {
 
 	(server as any).caKey = caKey;
 	(server as any).caCert = caCert;
-	(server as any).sslPort = (server as any).https.address().port;
-	(server as any).sslUrl = `https://localhost:${((server as any).sslPort as number)}`;
+	(server as any).port = (server as any).https.address().port;
+	(server as any).url = `https://localhost:${((server as any).port as number)}`;
 
 	(server as any).close = () =>
 		pify((server as any).https.close.bind((server as any).https))();
@@ -53,4 +59,4 @@ const createCertTestServer = async () => {
 	return server;
 };
 
-export default createCertTestServer;
+export default createHttpsTestServer;

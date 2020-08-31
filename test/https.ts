@@ -1,6 +1,6 @@
 import test from 'ava';
 import got, {CancelableRequest} from '../source';
-import withServer, {withCertServer} from './helpers/with-server';
+import {withHttpsServer} from './helpers/with-server';
 import {DetailedPeerCertificate} from 'tls';
 import pEvent from 'p-event';
 import pify = require('pify');
@@ -11,34 +11,30 @@ const createCSR = pify(pem.createCSR);
 const createCertificate = pify(pem.createCertificate);
 const createPkcs12 = pify(pem.createPkcs12);
 
-test('https request without ca', withServer, async (t, server, got) => {
+test('https request without ca', withHttpsServer(), async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.end('ok');
 	});
 
-	t.truthy((await got.secure({
+	t.truthy((await got({
 		https: {
+			certificateAuthority: [],
 			rejectUnauthorized: false
 		}
 	})).body);
 });
 
-test('https request with ca', withServer, async (t, server, got) => {
+test('https request with ca', withHttpsServer(), async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.end('ok');
 	});
 
-	const {body} = await got.secure({
-		https: {
-			certificateAuthority: server.caCert
-		},
-		headers: {host: 'example.com'}
-	});
+	const {body} = await got({});
 
 	t.is(body, 'ok');
 });
 
-test('https request with ca and afterResponse hook', withServer, async (t, server, got) => {
+test('https request with ca and afterResponse hook', withHttpsServer(), async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.end('ok');
 	});
@@ -57,11 +53,7 @@ test('https request with ca and afterResponse hook', withServer, async (t, serve
 	process.once('warning', warningListener);
 
 	let shouldRetry = true;
-	const {body} = await got.secure({
-		https: {
-			certificateAuthority: server.caCert
-		},
-		headers: {host: 'example.com'},
+	const {body} = await got({
 		hooks: {
 			afterResponse: [
 				(response, retry) => {
@@ -80,43 +72,39 @@ test('https request with ca and afterResponse hook', withServer, async (t, serve
 	t.is(body, 'ok');
 });
 
-test('https request with `checkServerIdentity` OK', withServer, async (t, server, got) => {
+test('https request with `checkServerIdentity` OK', withHttpsServer(), async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.end('ok');
 	});
 
-	const {body} = await got.secure({
+	const {body} = await got({
 		https: {
-			certificateAuthority: server.caCert,
 			checkServerIdentity: (hostname: string, certificate: DetailedPeerCertificate) => {
-				t.is(hostname, 'example.com');
-				t.is(certificate.subject.CN, 'example.com');
-				t.is(certificate.issuer.CN, 'localhost');
+				t.is(hostname, 'localhost');
+				t.is(certificate.subject.CN, 'localhost');
+				t.is(certificate.issuer.CN, 'authority');
 			}
-		},
-		headers: {host: 'example.com'}
+		}
 	});
 
 	t.is(body, 'ok');
 });
 
-test('https request with `checkServerIdentity` NOT OK', withServer, async (t, server, got) => {
+test('https request with `checkServerIdentity` NOT OK', withHttpsServer(), async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.end('ok');
 	});
 
-	const promise = got.secure({
+	const promise = got({
 		https: {
-			certificateAuthority: server.caCert,
 			checkServerIdentity: (hostname: string, certificate: DetailedPeerCertificate) => {
-				t.is(hostname, 'example.com');
-				t.is(certificate.subject.CN, 'example.com');
-				t.is(certificate.issuer.CN, 'localhost');
+				t.is(hostname, 'localhost');
+				t.is(certificate.subject.CN, 'localhost');
+				t.is(certificate.issuer.CN, 'authority');
 
 				return new Error('CUSTOM_ERROR');
 			}
-		},
-		headers: {host: 'example.com'}
+		}
 	});
 
 	await t.throwsAsync(
@@ -127,18 +115,18 @@ test('https request with `checkServerIdentity` NOT OK', withServer, async (t, se
 	);
 });
 
-test('https request with expired certificate', async t => {
+test('https request with expired certificate', withHttpsServer({days: -1}), async (t, _server, got) => {
 	await t.throwsAsync(
-		got('https://expired.badssl.com/'),
+		got({}),
 		{
 			code: 'CERT_HAS_EXPIRED'
 		}
 	);
 });
 
-test('https request with wrong host', async t => {
+test('https request with wrong host', withHttpsServer({commonName: 'not-localhost.com'}), async (t, _server, got) => {
 	await t.throwsAsync(
-		got('https://wrong.host.badssl.com/'),
+		got({}),
 		{
 			code: 'ERR_TLS_CERT_ALTNAME_INVALID'
 		}
@@ -158,7 +146,7 @@ test('http2', async t => {
 	t.is(typeof body, 'string');
 });
 
-test.serial('deprecated `rejectUnauthorized` option', withServer, async (t, server, got) => {
+test.serial('deprecated `rejectUnauthorized` option', withHttpsServer(), async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.end('ok');
 	});
@@ -173,7 +161,7 @@ test.serial('deprecated `rejectUnauthorized` option', withServer, async (t, serv
 		})();
 
 		(async () => {
-			request = got.secure({
+			request = got({
 				rejectUnauthorized: false
 			});
 
@@ -189,7 +177,7 @@ test.serial('deprecated `rejectUnauthorized` option', withServer, async (t, serv
 	});
 });
 
-test.serial('non-deprecated `rejectUnauthorized` option', withServer, async (t, server, got) => {
+test.serial('non-deprecated `rejectUnauthorized` option', withHttpsServer(), async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.end('ok');
 	});
@@ -199,7 +187,7 @@ test.serial('non-deprecated `rejectUnauthorized` option', withServer, async (t, 
 		t.not(warning.name, 'DeprecationWarning');
 	})();
 
-	await got.secure({
+	await got({
 		https: {
 			rejectUnauthorized: false
 		}
@@ -208,7 +196,7 @@ test.serial('non-deprecated `rejectUnauthorized` option', withServer, async (t, 
 	t.pass();
 });
 
-test.serial('no double deprecated warning', withServer, async (t, server, got) => {
+test.serial('no double deprecated warning', withHttpsServer(), async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.end('ok');
 	});
@@ -218,7 +206,7 @@ test.serial('no double deprecated warning', withServer, async (t, server, got) =
 		t.is(warning.name, 'DeprecationWarning');
 	})();
 
-	await got.secure({
+	await got({
 		rejectUnauthorized: false
 	});
 
@@ -227,14 +215,14 @@ test.serial('no double deprecated warning', withServer, async (t, server, got) =
 		t.not(warning.name, 'DeprecationWarning');
 	})();
 
-	await got.secure({
+	await got({
 		rejectUnauthorized: false
 	});
 
 	t.pass();
 });
 
-test('client certificate', withCertServer, async (t, server, got) => {
+test('client certificate', withHttpsServer(), async (t, server, got) => {
 	server.get('/', (request, response) => {
 		const peerCertificate = (request.socket as any).getPeerCertificate(true);
 		peerCertificate.issuerCertificate.issuerCertificate = undefined; // Circular structure
@@ -256,7 +244,7 @@ test('client certificate', withCertServer, async (t, server, got) => {
 	const clientKey = clientResult.clientKey;
 	const clientCert = clientResult.certificate;
 
-	const response: any = await got.secure({
+	const response: any = await got({
 		https: {
 			key: clientKey,
 			certificate: clientCert
@@ -268,7 +256,7 @@ test('client certificate', withCertServer, async (t, server, got) => {
 	t.is(response.peerCertificate.issuer.CN, 'authority');
 });
 
-test('invalid client certificate (self-signed)', withCertServer, async (t, server, got) => {
+test('invalid client certificate (self-signed)', withHttpsServer(), async (t, server, got) => {
 	server.get('/', (request, response) => {
 		const peerCertificate = (request.socket as any).getPeerCertificate(true);
 		peerCertificate.issuerCertificate = undefined; // Circular structure
@@ -289,7 +277,7 @@ test('invalid client certificate (self-signed)', withCertServer, async (t, serve
 	const clientKey = clientResult.clientKey;
 	const clientCert = clientResult.certificate;
 
-	const response: any = await got.secure({
+	const response: any = await got({
 		https: {
 			key: clientKey,
 			certificate: clientCert
@@ -299,7 +287,7 @@ test('invalid client certificate (self-signed)', withCertServer, async (t, serve
 	t.is(response.authorized, false);
 });
 
-test('invalid client certificate (other CA)', withCertServer, async (t, server, got) => {
+test('invalid client certificate (other CA)', withHttpsServer(), async (t, server, got) => {
 	server.get('/', (request, response) => {
 		const peerCertificate = (request.socket as any).getPeerCertificate(true);
 
@@ -329,7 +317,7 @@ test('invalid client certificate (other CA)', withCertServer, async (t, server, 
 	const clientKey = clientResult.clientKey;
 	const clientCert = clientResult.certificate;
 
-	const response: any = await got.secure({
+	const response: any = await got({
 		https: {
 			key: clientKey,
 			certificate: clientCert
@@ -341,7 +329,7 @@ test('invalid client certificate (other CA)', withCertServer, async (t, server, 
 	t.is(response.peerCertificate.issuer.CN, 'other-authority');
 });
 
-test('key passphrase', withCertServer, async (t, server, got) => {
+test('key passphrase', withHttpsServer(), async (t, server, got) => {
 	server.get('/', (request, response) => {
 		const peerCertificate = (request.socket as any).getPeerCertificate(true);
 		peerCertificate.issuerCertificate.issuerCertificate = undefined; // Circular structure
@@ -371,7 +359,7 @@ test('key passphrase', withCertServer, async (t, server, got) => {
 	});
 	const clientCert = clientResult.certificate;
 
-	const response: any = await got.secure({
+	const response: any = await got({
 		https: {
 			key: clientKey,
 			passphrase: 'randomPassword',
@@ -384,7 +372,7 @@ test('key passphrase', withCertServer, async (t, server, got) => {
 	t.is(response.peerCertificate.issuer.CN, 'authority');
 });
 
-test('invalid key passphrase', withCertServer, async (t, server, got) => {
+test('invalid key passphrase', withHttpsServer(), async (t, server, got) => {
 	server.get('/', (request, response) => {
 		const peerCertificate = (request.socket as any).getPeerCertificate(true);
 		peerCertificate.issuerCertificate.issuerCertificate = undefined; // Circular structure
@@ -416,7 +404,7 @@ test('invalid key passphrase', withCertServer, async (t, server, got) => {
 
 	const NODE_10 = process.versions.node.split('.')[0] === '10';
 
-	const request = got.secure({
+	const request = got({
 		https: {
 			key: clientKey,
 			passphrase: 'wrongPassword',
@@ -438,7 +426,7 @@ test('invalid key passphrase', withCertServer, async (t, server, got) => {
 	}
 });
 
-test('client certificate PFX', withCertServer, async (t, server, got) => {
+test('client certificate PFX', withHttpsServer(), async (t, server, got) => {
 	server.get('/', (request, response) => {
 		const peerCertificate = (request.socket as any).getPeerCertificate(true);
 		peerCertificate.issuerCertificate = undefined; // Circular structure
@@ -463,7 +451,7 @@ test('client certificate PFX', withCertServer, async (t, server, got) => {
 	const {pkcs12} = await createPkcs12(clientKey, clientCert, 'randomPassword');
 
 	// Change me on PR #1364
-	const response: any = await got.secure({
+	const response: any = await got({
 		pfx: pkcs12,
 		passphrase: 'randomPassword'
 	} as any).json();
