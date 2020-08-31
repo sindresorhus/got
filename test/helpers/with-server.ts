@@ -3,6 +3,7 @@ import * as test from 'ava';
 import is from '@sindresorhus/is';
 import http = require('http');
 import tempy = require('tempy');
+import createCertTestServer from './create-cert-test-server';
 import createTestServer = require('create-test-server');
 import FakeTimers = require('@sinonjs/fake-timers');
 import got, {InstanceDefaults} from '../../source';
@@ -11,11 +12,11 @@ import {ExtendedGot, ExtendedHttpServer, ExtendedTestServer, GlobalClock, Instal
 export type RunTestWithServer = (t: test.ExecutionContext, server: ExtendedTestServer, got: ExtendedGot, clock: GlobalClock) => Promise<void> | void;
 export type RunTestWithSocket = (t: test.ExecutionContext, server: ExtendedHttpServer) => Promise<void> | void;
 
-const generateHook = ({install, options: testServerOptions}: {install?: boolean; options?: unknown}): test.Macro<[RunTestWithServer]> => async (t, run) => {
+const generateHook = ({install, selfSigned, options: testServerOptions}: {install?: boolean; selfSigned?: boolean; options?: unknown}): test.Macro<[RunTestWithServer]> => async (t, run) => {
 	const clock = install ? FakeTimers.install() : FakeTimers.createClock() as GlobalClock;
 
 	// Re-enable body parsing to investigate https://github.com/sindresorhus/got/issues/1186
-	const server = await createTestServer(is.plainObject(testServerOptions) ? testServerOptions : {
+	const server = await (selfSigned ? createCertTestServer : createTestServer)(is.plainObject(testServerOptions) ? testServerOptions : {
 		bodyParser: {
 			type: () => false
 		},
@@ -42,9 +43,18 @@ const generateHook = ({install, options: testServerOptions}: {install?: boolean;
 	};
 
 	const preparedGot = got.extend({prefixUrl: server.url, ...options}) as ExtendedGot;
-	preparedGot.secure = got.extend({prefixUrl: server.sslUrl, ...options});
+	if (selfSigned) {
+		preparedGot.secure = got.extend({prefixUrl: server.sslUrl, https: {
+			certificateAuthority: (server as any).caCert,
+			key: (server as any).clientKey,
+			certificate: (server as any).clientCert,
+			rejectUnauthorized: true
+		}, ...options});
+	} else {
+		preparedGot.secure = got.extend({prefixUrl: server.sslUrl, ...options});
+		server.hostname = (new URL(server.url)).hostname;
+	}
 
-	server.hostname = (new URL(server.url)).hostname;
 	server.sslHostname = (new URL(server.sslUrl)).hostname;
 
 	try {
@@ -59,6 +69,7 @@ const generateHook = ({install, options: testServerOptions}: {install?: boolean;
 };
 
 export const withBodyParsingServer = generateHook({install: false, options: {}});
+export const withCertServer = generateHook({install: false, selfSigned: true, options: {}});
 export default generateHook({install: false});
 
 export const withServerAndFakeTimers = generateHook({install: true});

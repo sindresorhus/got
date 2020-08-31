@@ -1,6 +1,6 @@
 import test from 'ava';
 import got, {CancelableRequest} from '../source';
-import withServer from './helpers/with-server';
+import withServer, {withCertServer} from './helpers/with-server';
 import {DetailedPeerCertificate} from 'tls';
 import pEvent from 'p-event';
 
@@ -225,4 +225,17 @@ test.serial('no double deprecated warning', withServer, async (t, server, got) =
 	});
 
 	t.pass();
+});
+
+test('client certificate', withCertServer, async (t, server, got) => {
+	server.get('/', (request, response) => {
+		const cert = (request.socket as any).getPeerCertificate(true);
+
+		t.is(cert.subject.CN, 'client');
+		t.is(cert.issuer.CN, 'authority');
+
+		response.end('ok');
+	});
+
+	t.truthy((await got.secure({})).body);
 });
