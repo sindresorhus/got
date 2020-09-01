@@ -416,6 +416,7 @@ test('invalid key passphrase', withHttpsServer(), async (t, server, got) => {
 	if (NODE_10) {
 		try {
 			await request;
+			t.fail();
 		} catch (error) {
 			t.true((error.message as string).includes('bad decrypt'));
 		}
