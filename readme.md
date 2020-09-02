@@ -5,8 +5,9 @@
 	<br>
 	<br>
 	<br>
-	<p align="center">Huge thanks to <a href="https://moxy.studio"><img src="https://sindresorhus.com/assets/thanks/moxy-logo.svg" width="150"></a> for sponsoring Sindre Sorhus! (and yeah, they love Got too!)
+	<p align="center">Huge thanks to <a href="https://moxy.studio"><img src="https://sindresorhus.com/assets/thanks/moxy-logo.svg" valign="middle" width="150"></a> for sponsoring Sindre Sorhus!
 	</p>
+	<p align="center"><sup>(they love Got too!)</sup></p>
 	<br>
 	<br>
 </div>
