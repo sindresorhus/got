@@ -354,7 +354,11 @@ test('works with http2', async t => {
 });
 
 test('http-cache-semantics typings', t => {
-	const instance = got.extend({shared: false});
+	const instance = got.extend({
+		cacheOptions: {
+			shared: false
+		}
+	});
 
-	t.is(instance.defaults.options.shared, false);
+	t.is(instance.defaults.options.cacheOptions.shared, false);
 });

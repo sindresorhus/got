@@ -607,6 +607,13 @@ Default: `false`
 
 [Cache adapter instance](#cache-adapters) for storing cached response data.
 
+###### cacheOptions
+
+Type: `object | undefined`\
+Default: `{}`
+
+[Cache options](https://github.com/kornelski/http-cache-semantics#constructor-options) used for the specified request.
+
 ###### dnsCache
 
 Type: `CacheableLookup | false`\

@@ -113,7 +113,8 @@ const defaults: InstanceDefaults = {
 			stackAllItems: true
 		},
 		parseJson: (text: string) => JSON.parse(text),
-		stringifyJson: (object: unknown) => JSON.stringify(object)
+		stringifyJson: (object: unknown) => JSON.stringify(object),
+		cacheOptions: {}
 	},
 	handlers: [defaultHandler],
 	mutableDefaults: false

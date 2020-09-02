@@ -302,6 +302,13 @@ export interface RequiredRetryOptions {
 	maxRetryAfter?: number;
 }
 
+export interface CacheOptions {
+	shared?: boolean;
+	cacheHeuristic?: number;
+	immutableMinTimeToLive?: number;
+	ignoreCargoCult?: boolean;
+}
+
 interface PlainOptions extends URLOptions {
 	/**
 	Custom request function.
@@ -765,10 +772,7 @@ interface PlainOptions extends URLOptions {
 	createConnection?: (options: http.RequestOptions, oncreate: (error: Error, socket: Socket) => void) => Socket;
 
 	// From `http-cache-semantics`
-	shared?: boolean;
-	cacheHeuristic?: number;
-	immutableMinTimeToLive?: number;
-	ignoreCargoCult?: boolean;
+	cacheOptions?: CacheOptions;
 
 	// TODO: remove when Got 12 gets released
 	/**
@@ -883,6 +887,7 @@ interface NormalizedPlainOptions extends PlainOptions {
 	parseJson: ParseJsonFunction;
 	stringifyJson: StringifyJsonFunction;
 	retry: RequiredRetryOptions;
+	cacheOptions: CacheOptions;
 	[kRequest]: HttpRequestFunction;
 	[kIsNormalizedAlready]?: boolean;
 }
@@ -921,10 +926,7 @@ interface PlainDefaults {
 	createConnection?: Options['createConnection'];
 
 	// From `http-cache-semantics`
-	shared?: boolean;
-	cacheHeuristic?: number;
-	immutableMinTimeToLive?: number;
-	ignoreCargoCult?: boolean;
+	cacheOptions: CacheOptions;
 }
 
 export interface Defaults extends PromiseOnly.Defaults, PlainDefaults {}
@@ -1529,6 +1531,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		assert.any([isDnsLookupIpVersion, is.undefined], options.dnsLookupIpVersion);
 		assert.any([is.object, is.undefined], options.https);
 		assert.any([is.boolean, is.undefined], options.rejectUnauthorized);
+
 		if (options.https) {
 			assert.any([is.boolean, is.undefined], options.https.rejectUnauthorized);
 			assert.any([is.function_, is.undefined], options.https.checkServerIdentity);
@@ -1537,6 +1540,8 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			assert.any([is.string, is.object, is.array, is.undefined], options.https.certificate);
 			assert.any([is.string, is.undefined], options.https.passphrase);
 		}
+
+		assert.any([is.object, is.undefined], options.cacheOptions);
 
 		// `options.method`
 		if (is.string(options.method)) {
@@ -1735,6 +1740,9 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 				));
 			}
 		}
+
+		// `options.cacheOptions`
+		options.cacheOptions = {...options.cacheOptions};
 
 		// `options.dnsCache`
 		if (options.dnsCache === true) {
@@ -2338,7 +2346,11 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		// @ts-expect-error
 		delete options.timeout;
 
-		const requestOptions = options as unknown as RealRequestOptions;
+		const requestOptions = options as unknown as (RealRequestOptions & CacheOptions);
+		requestOptions.shared = options.cacheOptions?.shared;
+		requestOptions.cacheHeuristic = options.cacheOptions?.cacheHeuristic;
+		requestOptions.immutableMinTimeToLive = options.cacheOptions?.immutableMinTimeToLive;
+		requestOptions.ignoreCargoCult = options.cacheOptions?.ignoreCargoCult;
 
 		// If `dnsLookupIpVersion` is not present do not override `family`
 		if (options.dnsLookupIpVersion !== undefined) {
