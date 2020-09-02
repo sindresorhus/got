@@ -453,9 +453,11 @@ test('client certificate PFX', withHttpsServer(), async (t, server, got) => {
 
 	// Change me on PR #1364
 	const response: any = await got({
-		pfx: pkcs12,
-		passphrase: 'randomPassword'
-	} as any).json();
+		https: {
+			pfx: pkcs12,
+			passphrase: 'randomPassword'
+		}
+	}).json();
 
 	t.true(response.authorized);
 	t.is(response.peerCertificate.subject.CN, 'client');
