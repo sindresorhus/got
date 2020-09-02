@@ -2331,6 +2331,49 @@ The Electron `net` module is not consistent with the Node.js `http` module. See 
 <a href="https://microlink.io/"><img width="150" valign="middle" src="https://user-images.githubusercontent.com/36894700/91992974-1cc5dc00-ed35-11ea-9d04-f58b42ce6a5e.png"></a>
 <a href="https://radity.com/"><img width="150" valign="middle" src="https://user-images.githubusercontent.com/29518613/91814036-97fb9500-ec44-11ea-8c6c-d198cc23ca29.png"></a>
 
+<br>
+
+> Segment is a happy user of Got! Got powers the main backend API that our app talks to. It's used by our in-house RPC client that we use to communicate with all microservices.
+>
+> — <a href="https://github.com/vadimdemedes">Vadim Demedes</a>
+
+> Antora, a static site generator for creating documentation sites, uses got to download the UI bundle. In Antora, the UI bundle (aka theme) is maintained as a separate project. That project exports the UI as a zip file we call the UI bundle. The main site generator downloads that UI from a URL using got and streams it to vinyl zip to extract the files. Those files go on to be used to create the HTML pages and supporting assets.
+>
+> — <a href="https://github.com/mojavelinux">Dan Allen</a>
+
+> GetVoIP is happily using got in production. One of the unique capabilities of got is the ability to handle Unix sockets which enables us to build a full control interfaces for our docker stack.
+>
+> — <a href="https://github.com/danielkalen">Daniel Kalen</a>
+
+> We're using got inside of Exoframe to handle all the communication between cli and server.
+Exoframe is a self-hosted tool that allows simple one-command deployments using Docker
+>
+> — <a href="https://github.com/yamalight">Tim Ermilov</a>
+
+> Karaoke Mugen uses it to fetch content updates from its online server
+>
+> — <a href="https://github.com/AxelTerizaki">Axel Terizaki</a>
+
+> Renovate uses got, gh-got and gl-got to send millions of queries per day to GitHub, GitLab, npmjs, PyPi, Packagist, Docker Hub, Terraform, CircleCI, and more.
+>
+> — <a href="https://github.com/rarkins">Rhys Arkins</a>
+
+> Resistbot uses Got to communicate from the API frontend where all correspondence ingresses, to the officials lookup database in back.
+>
+> — <a href="https://github.com/chris-erickson">Chris Erickson</a>
+
+> Natural Cycles is using got to communicate with all kinds of 3rd-party REST APIs (over 9000!)
+>
+> — <a href="https://github.com/kirillgroshkov">Kirill Groshkov</a>
+
+> Microlink is a cloud browser as an API service that uses widely got as the main HTTP client, serving ~22M reqs/month every time a network call needs to be performed.
+>
+> — <a href="https://github.com/Kikobeats">Kiko Beats</a>
+
+> We’re using Got at Radity. Thanks for such an amazing work!
+>
+> — <a href="https://github.com/MirzayevFarid">Mirzayev Farid</a>
+
 ## For enterprise
 
 Available as part of the Tidelift Subscription.
