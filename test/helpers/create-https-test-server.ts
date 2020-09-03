@@ -3,7 +3,7 @@ import net = require('net');
 import express = require('express');
 import pify = require('pify');
 import pem = require('pem');
-import { SecureClientSessionOptions } from 'http2';
+import {SecureClientSessionOptions} from 'http2';
 
 export type HttpsServerOptions = {
 	commonName?: string;
