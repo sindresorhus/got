@@ -858,6 +858,12 @@ export interface HTTPSOptions {
 	The passphrase to decrypt the `options.https.key` (if different keys have different passphrases refer to `options.https.key` documentation).
 	*/
 	passphrase?: SecureContextOptions['passphrase'];
+
+	// TODO add comment
+	ciphers?: SecureContextOptions['ciphers'];
+
+	// TODO add comment
+	honorCipherOrder?: SecureContextOptions['honorCipherOrder'];
 }
 
 interface NormalizedPlainOptions extends PlainOptions {
@@ -1804,33 +1810,26 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			deprecationWarning('"options.family" was never documented, please use "options.dnsLookupIpVersion"');
 		}
 
-		// HTTPS options
+		// HTTPS Options
 		if (defaults?.https) {
 			options.https = {...defaults.https, ...options.https};
 		}
 
-		if ('rejectUnauthorized' in options) {
-			deprecationWarning('"options.rejectUnauthorized" is now deprecated, please use "options.https.rejectUnauthorized"');
-		}
+		const deprecatedHttpsOptions = {
+			rejectUnauthorized: 'rejectUnauthorized',
+			checkServerIdentity: 'checkServerIdentity',
+			ca: 'certificateAuthority',
+			key: 'key',
+			cert: 'certificate',
+			passphrase: 'passphrase',
+			ciphers: 'ciphers',
+			honorCipherOrder: 'honorCipherOrder'
+		};
 
-		if ('checkServerIdentity' in options) {
-			deprecationWarning('"options.checkServerIdentity" was never documented, please use "options.https.checkServerIdentity"');
-		}
-
-		if ('ca' in options) {
-			deprecationWarning('"options.ca" was never documented, please use "options.https.certificateAuthority"');
-		}
-
-		if ('key' in options) {
-			deprecationWarning('"options.key" was never documented, please use "options.https.key"');
-		}
-
-		if ('cert' in options) {
-			deprecationWarning('"options.cert" was never documented, please use "options.https.certificate"');
-		}
-
-		if ('passphrase' in options) {
-			deprecationWarning('"options.passphrase" was never documented, please use "options.https.passphrase"');
+		for (const httpsOption in deprecatedHttpsOptions) {
+			if (httpsOption in options) {
+				deprecationWarning(`"options.${httpsOption}" is now deprecated, please use "options.https.${httpsOption}"`);
+			}
 		}
 
 		// Other options
@@ -2386,6 +2385,14 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			if (options.https.passphrase) {
 				requestOptions.passphrase = options.https.passphrase;
 			}
+
+			if (options.https.ciphers) {
+				requestOptions.ciphers = options.https.ciphers;
+			}
+
+			if ('honorCipherOrder' in options.https) {
+				requestOptions.honorCipherOrder = options.https.honorCipherOrder;
+			}
 		}
 
 		try {
@@ -2425,6 +2432,14 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 				if (options.https.passphrase) {
 					delete requestOptions.passphrase;
+				}
+
+				if (options.https.ciphers) {
+					delete requestOptions.ciphers;
+				}
+
+				if ('honorCipherOrder' in options.https) {
+					delete requestOptions.honorCipherOrder;
 				}
 			}
 

@@ -3,10 +3,12 @@ import net = require('net');
 import express = require('express');
 import pify = require('pify');
 import pem = require('pem');
+import { SecureClientSessionOptions } from 'http2';
 
 export type HttpsServerOptions = {
 	commonName?: string;
 	days?: number;
+	ciphers?: SecureClientSessionOptions['ciphers'];
 };
 
 export interface ExtendedHttpsTestServer extends express.Express {
@@ -49,7 +51,8 @@ const createHttpsTestServer = async (options: HttpsServerOptions = {}): Promise<
 			cert: serverCert,
 			ca: caCert,
 			requestCert: true,
-			rejectUnauthorized: false // This should be checked by the test
+			rejectUnauthorized: false, // This should be checked by the test
+			ciphers: options.ciphers
 		},
 		server
 	);

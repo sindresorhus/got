@@ -11,7 +11,29 @@ const createCSR = pify(pem.createCSR);
 const createCertificate = pify(pem.createCertificate);
 const createPkcs12 = pify(pem.createPkcs12);
 
-test('https request without ca', withHttpsServer(), async (t, server, got) => {
+test('https request with empty `certificateAuthority`', withHttpsServer(), async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.end('ok');
+	});
+
+	await t.throwsAsync(got({
+		https: {
+			certificateAuthority: []
+		}
+	}));
+});
+
+test('https request with `certificateAuthority` option', withHttpsServer(), async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.end('ok');
+	});
+
+	const {body} = await got({});
+
+	t.is(body, 'ok');
+});
+
+test('https request with `rejectUnauthorized` false', withHttpsServer(), async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.end('ok');
 	});
@@ -22,16 +44,6 @@ test('https request without ca', withHttpsServer(), async (t, server, got) => {
 			rejectUnauthorized: false
 		}
 	})).body);
-});
-
-test('https request with ca', withHttpsServer(), async (t, server, got) => {
-	server.get('/', (_request, response) => {
-		response.end('ok');
-	});
-
-	const {body} = await got({});
-
-	t.is(body, 'ok');
 });
 
 test('https request with ca and afterResponse hook', withHttpsServer(), async (t, server, got) => {
@@ -133,20 +145,9 @@ test('https request with wrong host', withHttpsServer({commonName: 'not-localhos
 	);
 });
 
-test('http2', async t => {
-	const promise = got('https://httpbin.org/anything', {
-		http2: true
-	});
-
-	const {headers, body} = await promise;
-	await promise.json();
-
-	// @ts-expect-error Pseudo headers may not be strings
-	t.is(headers[':status'], 200);
-	t.is(typeof body, 'string');
-});
-
 test.serial('deprecated `rejectUnauthorized` option', withHttpsServer(), async (t, server, got) => {
+	process.removeAllListeners('warning');
+
 	server.get('/', (_request, response) => {
 		response.end('ok');
 	});
@@ -177,7 +178,9 @@ test.serial('deprecated `rejectUnauthorized` option', withHttpsServer(), async (
 	});
 });
 
-test.serial('non-deprecated `rejectUnauthorized` option', withHttpsServer(), async (t, server, got) => {
+test.serial('non-deprecated `https.rejectUnauthorized` option', withHttpsServer(), async (t, server, got) => {
+	process.removeAllListeners('warning');
+
 	server.get('/', (_request, response) => {
 		response.end('ok');
 	});
@@ -196,7 +199,9 @@ test.serial('non-deprecated `rejectUnauthorized` option', withHttpsServer(), asy
 	t.pass();
 });
 
-test.serial('no double deprecated warning', withHttpsServer(), async (t, server, got) => {
+test.serial('no double deprecated warning on `rejectUnauthorized`', withHttpsServer(), async (t, server, got) => {
+	process.removeAllListeners('warning');
+
 	server.get('/', (_request, response) => {
 		response.end('ok');
 	});
@@ -222,7 +227,7 @@ test.serial('no double deprecated warning', withHttpsServer(), async (t, server,
 	t.pass();
 });
 
-test('client certificate', withHttpsServer(), async (t, server, got) => {
+test('https request with client certificate', withHttpsServer(), async (t, server, got) => {
 	server.get('/', (request, response) => {
 		const peerCertificate = (request.socket as any).getPeerCertificate(true);
 		peerCertificate.issuerCertificate.issuerCertificate = undefined; // Circular structure
@@ -256,7 +261,7 @@ test('client certificate', withHttpsServer(), async (t, server, got) => {
 	t.is(response.peerCertificate.issuer.CN, 'authority');
 });
 
-test('invalid client certificate (self-signed)', withHttpsServer(), async (t, server, got) => {
+test('https request with invalid client certificate (self-signed)', withHttpsServer(), async (t, server, got) => {
 	server.get('/', (request, response) => {
 		const peerCertificate = (request.socket as any).getPeerCertificate(true);
 		peerCertificate.issuerCertificate = undefined; // Circular structure
@@ -287,7 +292,7 @@ test('invalid client certificate (self-signed)', withHttpsServer(), async (t, se
 	t.is(response.authorized, false);
 });
 
-test('invalid client certificate (other CA)', withHttpsServer(), async (t, server, got) => {
+test('https request with invalid client certificate (other CA)', withHttpsServer(), async (t, server, got) => {
 	server.get('/', (request, response) => {
 		const peerCertificate = (request.socket as any).getPeerCertificate(true);
 
@@ -329,7 +334,7 @@ test('invalid client certificate (other CA)', withHttpsServer(), async (t, serve
 	t.is(response.peerCertificate.issuer.CN, 'other-authority');
 });
 
-test('key passphrase', withHttpsServer(), async (t, server, got) => {
+test('https request with `key` and `passphrase` options', withHttpsServer(), async (t, server, got) => {
 	server.get('/', (request, response) => {
 		const peerCertificate = (request.socket as any).getPeerCertificate(true);
 		peerCertificate.issuerCertificate.issuerCertificate = undefined; // Circular structure
@@ -372,7 +377,7 @@ test('key passphrase', withHttpsServer(), async (t, server, got) => {
 	t.is(response.peerCertificate.issuer.CN, 'authority');
 });
 
-test('invalid key passphrase', withHttpsServer(), async (t, server, got) => {
+test('https request with invalid key passphrase', withHttpsServer(), async (t, server, got) => {
 	server.get('/', (request, response) => {
 		const peerCertificate = (request.socket as any).getPeerCertificate(true);
 		peerCertificate.issuerCertificate.issuerCertificate = undefined; // Circular structure
@@ -427,7 +432,7 @@ test('invalid key passphrase', withHttpsServer(), async (t, server, got) => {
 	}
 });
 
-test('client certificate PFX', withHttpsServer(), async (t, server, got) => {
+test('https request with client certificate PFX', withHttpsServer(), async (t, server, got) => {
 	server.get('/', (request, response) => {
 		const peerCertificate = (request.socket as any).getPeerCertificate(true);
 		peerCertificate.issuerCertificate = undefined; // Circular structure
@@ -460,4 +465,52 @@ test('client certificate PFX', withHttpsServer(), async (t, server, got) => {
 	t.true(response.authorized);
 	t.is(response.peerCertificate.subject.CN, 'client');
 	t.is(response.peerCertificate.issuer.CN, 'authority');
+});
+
+// This should be generated every time from `tls.getCiphers()`
+const someCiphers = 'AES128-GCM-SHA256:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-RSA-AES128-GCM-SHA256';
+test('https request with `ciphers` option', withHttpsServer({ciphers: someCiphers}), async (t, server, got) => {
+	server.get('/', (request, response) => {
+		response.json({
+			cipher: (request.socket as any).getCipher().name
+		});
+	});
+
+	const response: any = await got({
+		https: {
+			ciphers: 'ECDHE-RSA-AES256-GCM-SHA384'
+		}
+	}).json();
+
+	t.is(response.cipher, 'ECDHE-RSA-AES256-GCM-SHA384');
+});
+
+test('https request with `honorCipherOrder` option', withHttpsServer({ciphers: 'ECDHE-RSA-AES256-GCM-SHA384:ECDHE-RSA-AES128-GCM-SHA256'}), async (t, server, got) => {
+	server.get('/', (request, response) => {
+		response.json({
+			cipher: (request.socket as any).getCipher().name
+		});
+	});
+
+	const response: any = await got({
+		https: {
+			ciphers: 'ECDHE-RSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-GCM-SHA384',
+			honorCipherOrder: true
+		}
+	}).json();
+
+	t.is(response.cipher, 'ECDHE-RSA-AES256-GCM-SHA384');
+});
+
+test('http2 request', async t => {
+	const promise = got('https://httpbin.org/anything', {
+		http2: true
+	});
+
+	const {headers, body} = await promise;
+	await promise.json();
+
+	// @ts-expect-error Pseudo headers may not be strings
+	t.is(headers[':status'], 200);
+	t.is(typeof body, 'string');
 });

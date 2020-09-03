@@ -65,7 +65,7 @@ export default generateHook({install: false});
 
 export const withServerAndFakeTimers = generateHook({install: true});
 
-const generateHttpsHook = (options?: HttpsServerOptions): test.Macro<[RunTestWithHttpsServer]> => async (t, run) => {
+export const withHttpsServer = (options?: HttpsServerOptions): test.Macro<[RunTestWithHttpsServer]> => async (t, run) => {
 	const server = await createHttpsTestServer(options);
 
 	const preparedGot = got.extend({
@@ -84,8 +84,6 @@ const generateHttpsHook = (options?: HttpsServerOptions): test.Macro<[RunTestWit
 		await server.close();
 	}
 };
-
-export const withHttpsServer = generateHttpsHook;
 
 // TODO: remove this when `create-test-server` supports custom listen
 export const withSocketServer: test.Macro<[RunTestWithSocket]> = async (t, run) => {
