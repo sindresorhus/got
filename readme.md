@@ -2325,12 +2325,19 @@ The Electron `net` module is not consistent with the Node.js `http` module. See 
 <a href="https://antora.org"><img width="120" valign="middle" src="https://user-images.githubusercontent.com/79351/47706840-d874cc80-dbef-11e8-87c6-5f0c60cbf5dc.png"></a>
 &nbsp;&nbsp;&nbsp;&nbsp;
 <a href="https://getvoip.com"><img width="150" valign="middle" src="https://user-images.githubusercontent.com/10832620/47869404-429e9480-dddd-11e8-8a7a-ca43d7f06020.png"></a>
+&nbsp;&nbsp;&nbsp;&nbsp;
 <a href="https://github.com/exoframejs/exoframe"><img width="150" valign="middle" src="https://user-images.githubusercontent.com/365944/47791460-11a95b80-dd1a-11e8-9070-e8f2a215e03a.png"></a>
+&nbsp;&nbsp;&nbsp;&nbsp;
 <a href="http://karaokes.moe"><img width="140" valign="middle" src="https://camo.githubusercontent.com/6860e5fa4684c14d8e1aa65df0aba4e6808ea1a9/687474703a2f2f6b6172616f6b65732e6d6f652f6173736574732f696d616765732f696e6465782e706e67"></a>
+&nbsp;&nbsp;&nbsp;&nbsp;
 <a href="https://github.com/renovatebot/renovate"><img width="150" valign="middle" src="https://camo.githubusercontent.com/206d470ac709b9a702a97b0c08d6f389a086793d/68747470733a2f2f72656e6f76617465626f742e636f6d2f696d616765732f6c6f676f2e737667"></a>
+&nbsp;&nbsp;&nbsp;&nbsp;
 <a href="https://resist.bot"><img width="150" valign="middle" src="https://user-images.githubusercontent.com/3322287/51992724-28736180-2473-11e9-9764-599cfda4b012.png"></a>
-<a href="https://www.naturalcycles.com/"><img width="150" valign="middle" src="https://user-images.githubusercontent.com/4757745/79757430-5f55c180-831c-11ea-95d9-25edb6296067.png"></a>
+&nbsp;&nbsp;&nbsp;&nbsp;
+<a href="https://www.naturalcycles.com"><img width="150" valign="middle" src="https://user-images.githubusercontent.com/4757745/79757430-5f55c180-831c-11ea-95d9-25edb6296067.png"></a>
+&nbsp;&nbsp;&nbsp;&nbsp;
 <a href="https://microlink.io"><img width="150" valign="middle" src="https://user-images.githubusercontent.com/36894700/91992974-1cc5dc00-ed35-11ea-9d04-f58b42ce6a5e.png"></a>
+&nbsp;&nbsp;&nbsp;&nbsp;
 <a href="https://radity.com"><img width="150" valign="middle" src="https://user-images.githubusercontent.com/29518613/91814036-97fb9500-ec44-11ea-8c6c-d198cc23ca29.png"></a>
 
 <br>
