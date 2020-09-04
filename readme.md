@@ -2334,7 +2334,7 @@ The Electron `net` module is not consistent with the Node.js `http` module. See 
 &nbsp;&nbsp;&nbsp;&nbsp;
 <a href="https://resist.bot"><img width="150" valign="middle" src="https://user-images.githubusercontent.com/3322287/51992724-28736180-2473-11e9-9764-599cfda4b012.png"></a>
 &nbsp;&nbsp;&nbsp;&nbsp;
-<a href="https://www.naturalcycles.com"><img width="150" valign="middle" src="https://user-images.githubusercontent.com/4757745/79757430-5f55c180-831c-11ea-95d9-25edb6296067.png"></a>
+<a href="https://www.naturalcycles.com"><img width="150" valign="middle" src="https://user-images.githubusercontent.com/170270/92244143-d0a8a200-eec2-11ea-9fc0-1c07f90b2113.png"></a>
 &nbsp;&nbsp;&nbsp;&nbsp;
 <a href="https://microlink.io"><img width="150" valign="middle" src="https://user-images.githubusercontent.com/36894700/91992974-1cc5dc00-ed35-11ea-9d04-f58b42ce6a5e.png"></a>
 &nbsp;&nbsp;&nbsp;&nbsp;
