@@ -2320,9 +2320,9 @@ The Electron `net` module is not consistent with the Node.js `http` module. See 
 <a name="widely-used"></a>
 ## These amazing companies are using Got
 
-<a href="https://segment.com"><img width="100" valign="middle" src="https://user-images.githubusercontent.com/697676/47693700-ddb62500-dbb7-11e8-8332-716a91010c2d.png"></a>
+<a href="https://segment.com"><img width="90" valign="middle" src="https://user-images.githubusercontent.com/697676/47693700-ddb62500-dbb7-11e8-8332-716a91010c2d.png"></a>
 &nbsp;&nbsp;&nbsp;&nbsp;
-<a href="https://antora.org"><img width="120" valign="middle" src="https://user-images.githubusercontent.com/79351/47706840-d874cc80-dbef-11e8-87c6-5f0c60cbf5dc.png"></a>
+<a href="https://antora.org"><img width="100" valign="middle" src="https://user-images.githubusercontent.com/79351/47706840-d874cc80-dbef-11e8-87c6-5f0c60cbf5dc.png"></a>
 &nbsp;&nbsp;&nbsp;&nbsp;
 <a href="https://getvoip.com"><img width="150" valign="middle" src="https://user-images.githubusercontent.com/10832620/47869404-429e9480-dddd-11e8-8a7a-ca43d7f06020.png"></a>
 &nbsp;&nbsp;&nbsp;&nbsp;
