@@ -2320,8 +2320,10 @@ The Electron `net` module is not consistent with the Node.js `http` module. See 
 <a name="widely-used"></a>
 ## These amazing companies are using Got
 
-<a href="https://segment.com"><img width="100" valign="middle" src="https://user-images.githubusercontent.com/697676/47693700-ddb62500-dbb7-11e8-8332-716a91010c2d.png"></a>&nbsp;&nbsp;
+<a href="https://segment.com"><img width="100" valign="middle" src="https://user-images.githubusercontent.com/697676/47693700-ddb62500-dbb7-11e8-8332-716a91010c2d.png"></a>
+&nbsp;&nbsp;&nbsp;&nbsp;
 <a href="https://antora.org"><img width="120" valign="middle" src="https://user-images.githubusercontent.com/79351/47706840-d874cc80-dbef-11e8-87c6-5f0c60cbf5dc.png"></a>
+&nbsp;&nbsp;&nbsp;&nbsp;
 <a href="https://getvoip.com"><img width="150" valign="middle" src="https://user-images.githubusercontent.com/10832620/47869404-429e9480-dddd-11e8-8a7a-ca43d7f06020.png"></a>
 <a href="https://github.com/exoframejs/exoframe"><img width="150" valign="middle" src="https://user-images.githubusercontent.com/365944/47791460-11a95b80-dd1a-11e8-9070-e8f2a215e03a.png"></a>
 <a href="http://karaokes.moe"><img width="140" valign="middle" src="https://camo.githubusercontent.com/6860e5fa4684c14d8e1aa65df0aba4e6808ea1a9/687474703a2f2f6b6172616f6b65732e6d6f652f6173736574732f696d616765732f696e6465782e706e67"></a>
