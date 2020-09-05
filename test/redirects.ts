@@ -450,3 +450,28 @@ test('clears the host header when redirecting to a different hostname', async t 
 	const resp = await got('https://testweb.com/redirect', {headers: {host: 'wrongsite.com'}});
 	t.is(resp.body, 'webtest.com');
 });
+
+test('correct port on redirect', withServer, async (t, server1, got) => {
+	await withServer(t, async (t, server2) => {
+		server1.get('/redirect', (_request, response) => {
+			response.redirect(`http://${server2.hostname}:${server2.port}/`);
+		});
+
+		server1.get('/', (_request, response) => {
+			response.end('SERVER1');
+		});
+
+		server2.get('/', (_request, response) => {
+			response.end('SERVER2');
+		});
+
+		const response = await got({
+			protocol: 'http:',
+			hostname: server1.hostname,
+			port: server1.port,
+			pathname: '/redirect'
+		});
+
+		t.is(response.body, 'SERVER2');
+	});
+});

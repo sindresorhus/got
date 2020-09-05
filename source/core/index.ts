@@ -2068,7 +2068,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 				decodeURI(redirectString);
 
 				// Redirecting to a different site, clear sensitive data.
-				if (redirectUrl.hostname !== url.hostname) {
+				if (redirectUrl.hostname !== url.hostname || redirectUrl.port !== url.port) {
 					if ('host' in options.headers) {
 						delete options.headers.host;
 					}
@@ -2087,6 +2087,10 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 						delete options.username;
 						// @ts-expect-error
 						delete options.password;
+					}
+
+					if ('port' in options) {
+						delete options.port;
 					}
 				}
 
