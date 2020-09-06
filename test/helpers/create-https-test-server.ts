@@ -56,7 +56,7 @@ const createHttpsTestServer = async (options: HttpsServerOptions = {}): Promise<
 			rejectUnauthorized: false, // This should be checked by the test
 			ciphers: options.ciphers,
 			minVersion: options.minVersion,
-			maxVersion: options.maxVersion,
+			maxVersion: options.maxVersion
 		},
 		server
 	);

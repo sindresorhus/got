@@ -330,6 +330,8 @@ test('invalid dnsLookupIpVersion', withServer, async (t, server, got) => {
 });
 
 test.serial('deprecated `family` option', withServer, async (t, server, got) => {
+	process.removeAllListeners('warning');
+
 	server.get('/', (_request, response) => {
 		response.end('ok');
 	});
