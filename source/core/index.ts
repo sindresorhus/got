@@ -864,6 +864,12 @@ export interface HTTPSOptions {
 
 	// TODO add comment
 	honorCipherOrder?: SecureContextOptions['honorCipherOrder'];
+
+	// TODO add comment
+	minVersion?: SecureContextOptions['minVersion'];
+
+	// TODO add comment
+	maxVersion?: SecureContextOptions['maxVersion'];
 }
 
 interface NormalizedPlainOptions extends PlainOptions {
@@ -1545,6 +1551,10 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			assert.any([is.string, is.object, is.array, is.undefined], options.https.key);
 			assert.any([is.string, is.object, is.array, is.undefined], options.https.certificate);
 			assert.any([is.string, is.undefined], options.https.passphrase);
+			assert.any([is.string, is.undefined], options.https.ciphers);
+			assert.any([is.boolean, is.undefined], options.https.honorCipherOrder);
+			assert.any([is.string, is.undefined], options.https.minVersion);
+			assert.any([is.string, is.undefined], options.https.maxVersion);
 		}
 
 		assert.any([is.object, is.undefined], options.cacheOptions);
@@ -1823,7 +1833,9 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			cert: 'certificate',
 			passphrase: 'passphrase',
 			ciphers: 'ciphers',
-			honorCipherOrder: 'honorCipherOrder'
+			honorCipherOrder: 'honorCipherOrder',
+			minVersion: 'minVersion',
+			maxVersion: 'maxVersion'
 		};
 
 		for (const httpsOption in deprecatedHttpsOptions) {
@@ -2393,6 +2405,14 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			if ('honorCipherOrder' in options.https) {
 				requestOptions.honorCipherOrder = options.https.honorCipherOrder;
 			}
+
+			if (options.https.minVersion) {
+				requestOptions.minVersion = options.https.minVersion;
+			}
+
+			if (options.https.maxVersion) {
+				requestOptions.maxVersion = options.https.maxVersion;
+			}
 		}
 
 		try {
@@ -2440,6 +2460,14 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 				if ('honorCipherOrder' in options.https) {
 					delete requestOptions.honorCipherOrder;
+				}
+
+				if (options.https.minVersion) {
+					delete requestOptions.minVersion;
+				}
+
+				if (options.https.maxVersion) {
+					delete requestOptions.maxVersion;
 				}
 			}
 

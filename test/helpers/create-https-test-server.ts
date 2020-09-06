@@ -9,6 +9,8 @@ export type HttpsServerOptions = {
 	commonName?: string;
 	days?: number;
 	ciphers?: SecureClientSessionOptions['ciphers'];
+	minVersion?: SecureClientSessionOptions['minVersion'];
+	maxVersion?: SecureClientSessionOptions['maxVersion'];
 };
 
 export interface ExtendedHttpsTestServer extends express.Express {
@@ -52,7 +54,9 @@ const createHttpsTestServer = async (options: HttpsServerOptions = {}): Promise<
 			ca: caCert,
 			requestCert: true,
 			rejectUnauthorized: false, // This should be checked by the test
-			ciphers: options.ciphers
+			ciphers: options.ciphers,
+			minVersion: options.minVersion,
+			maxVersion: options.maxVersion,
 		},
 		server
 	);

@@ -502,6 +502,42 @@ test('https request with `honorCipherOrder` option', withHttpsServer({ciphers: '
 	t.is(response.cipher, 'ECDHE-RSA-AES256-GCM-SHA384');
 });
 
+test('https request with `minVersion` option', withHttpsServer({maxVersion: 'TLSv1.2'}), async (t, server, got) => {
+	server.get('/', (request, response) => {
+		response.json({
+			version: (request.socket as any).getCipher().version
+		});
+	});
+
+	const request = got({
+		https: {
+			minVersion: 'TLSv1.3'
+		}
+	});
+
+	await t.throwsAsync(request, {
+		code: 'EPROTO'
+	});
+});
+
+test('https request with `maxVersion` option', withHttpsServer({minVersion: 'TLSv1.2'}), async (t, server, got) => {
+	server.get('/', (request, response) => {
+		response.json({
+			version: (request.socket as any).getCipher().version
+		});
+	});
+
+	const request = got({
+		https: {
+			maxVersion: 'TLSv1.1'
+		}
+	});
+
+	await t.throwsAsync(request, {
+		code: 'ERR_SSL_NO_PROTOCOLS_AVAILABLE'
+	});
+});
+
 test('http2 request', async t => {
 	const promise = got('https://httpbin.org/anything', {
 		http2: true
