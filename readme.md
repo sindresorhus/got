@@ -2306,9 +2306,9 @@ The Electron `net` module is not consistent with the Node.js `http` module. See 
 
 ## Maintainers
 
-[![Sindre Sorhus](https://github.com/sindresorhus.png?size=100)](https://sindresorhus.com) | [![Szymon Marczak](https://github.com/szmarczak.png?size=100)](https://github.com/szmarczak)
----|---
-[Sindre Sorhus](https://sindresorhus.com) | [Szymon Marczak](https://github.com/szmarczak)
+[![Sindre Sorhus](https://github.com/sindresorhus.png?size=100)](https://sindresorhus.com) | [![Szymon Marczak](https://github.com/szmarczak.png?size=100)](https://github.com/szmarczak) | [![Giovanni Minotti](https://github.com/Giotino.png?size=100)](https://github.com/Giotino)
+---|---|---
+[Sindre Sorhus](https://sindresorhus.com) | [Szymon Marczak](https://github.com/szmarczak) | [Giovanni Minotti](https://github.com/Giotino)
 
 ###### Former
 
