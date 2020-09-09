@@ -97,12 +97,12 @@ test('methods are normalized', withServer, async (t, server, got) => {
 	await instance('test', {method: 'post'});
 });
 
-test.failing('throws an error when legacy URL is passed', withServer, async (t, server, got) => {
+test.failing('throws an error when legacy URL is passed', withServer, async (t, server) => {
 	server.get('/test', echoUrl);
 
 	await t.throwsAsync(
 		// @ts-expect-error Error tests
-		got(parse(`${server.url}/test`), {prefixUrl: ''}),
+		got(parse(`${server.url}/test`)),
 		{message: 'The legacy `url.Url` has been deprecated. Use `URL` instead.'}
 	);
 
@@ -110,22 +110,20 @@ test.failing('throws an error when legacy URL is passed', withServer, async (t, 
 		got({
 			protocol: 'http:',
 			hostname: 'localhost',
-			port: server.port,
-			prefixUrl: ''
+			port: server.port
 		}),
 		{message: 'The legacy `url.Url` has been deprecated. Use `URL` instead.'}
 	);
 });
 
-test('accepts legacy URL options', withServer, async (t, server, got) => {
+test('accepts legacy URL options', withServer, async (t, server) => {
 	server.get('/test', echoUrl);
 
 	const {body: secondBody} = await got({
 		protocol: 'http:',
 		hostname: 'localhost',
 		port: server.port,
-		pathname: '/test',
-		prefixUrl: ''
+		pathname: '/test'
 	});
 
 	t.is(secondBody, '/test');
