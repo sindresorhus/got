@@ -214,7 +214,7 @@ test('catches beforeRedirect promise rejections', withServer, async (t, server, 
 	});
 });
 
-test('catches beforeRetry promise rejections', withServer, async (t, server, got) => {
+test.only('catches beforeRetry promise rejections', withServer, async (t, server, got) => {
 	server.get('/retry', retryEndpoint);
 
 	await t.throwsAsync(got('retry', {

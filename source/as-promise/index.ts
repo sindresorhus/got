@@ -80,7 +80,7 @@ export default function asPromise<T>(normalizedOptions: NormalizedOptions): Canc
 						response.body = rawBody.toString();
 
 						if (isResponseOk(response)) {
-							request._beforeError(error);
+							request._beforeError(error, onError);
 							return;
 						}
 					}
@@ -120,12 +120,12 @@ export default function asPromise<T>(normalizedOptions: NormalizedOptions): Canc
 						});
 					}
 				} catch (error) {
-					request._beforeError(new RequestError(error.message, error, request));
+					request._beforeError(new RequestError(error.message, error, request), onError);
 					return;
 				}
 
 				if (!isResponseOk(response)) {
-					request._beforeError(new HTTPError(response));
+					request._beforeError(new HTTPError(response), onError);
 					return;
 				}
 
