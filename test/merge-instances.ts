@@ -160,3 +160,13 @@ test('accepts options for promise API', t => {
 
 	t.pass();
 });
+
+test('merging `prefixUrl`', t => {
+	const instanceA = got.extend({headers: {unicorn: 'rainbow'}});
+	const instanceB = got.extend({prefixUrl: 'http://example.com'});
+	const mergedAonB = instanceB.extend(instanceA);
+	const mergedBonA = instanceA.extend(instanceB);
+
+	t.is(mergedAonB.defaults.options.prefixUrl, 'http://example.com/');
+	t.is(mergedBonA.defaults.options.prefixUrl, 'http://example.com/');
+});
