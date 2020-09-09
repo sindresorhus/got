@@ -48,6 +48,7 @@ const kIsFromCache = Symbol('isFromCache');
 const kCancelTimeouts = Symbol('cancelTimeouts');
 const kStartedReading = Symbol('startedReading');
 const kStopReading = Symbol('stopReading');
+const kIsAboutToError = Symbol('isAboutToError');
 const kTriggerRead = Symbol('triggerRead');
 const kBody = Symbol('body');
 const kJobs = Symbol('jobs');
@@ -1348,6 +1349,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	[kDownloadedSize]: number;
 	[kUploadedSize]: number;
 	[kStopReading]: boolean;
+	[kIsAboutToError]: boolean;
 	[kTriggerRead]: boolean;
 	[kBody]: Options['body'];
 	[kJobs]: Array<() => void>;
@@ -1385,6 +1387,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		this[kServerResponsesPiped] = new Set<ServerResponse>();
 		this.redirects = [];
 		this[kStopReading] = false;
+		this[kIsAboutToError] = false;
 		this[kTriggerRead] = false;
 		this[kJobs] = [];
 		this.retryCount = 0;
@@ -2470,7 +2473,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	}
 
 	_beforeError(error: Error): void {
-		if (this[kStopReading]) {
+		if (this[kStopReading] || this[kIsAboutToError]) {
 			return;
 		}
 
@@ -2478,6 +2481,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		const retryCount = this.retryCount + 1;
 
 		this[kStopReading] = true;
+		this[kIsAboutToError] = true;
 
 		if (!(error instanceof RequestError)) {
 			error = new RequestError(error.message, error, this);
@@ -2680,6 +2684,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		}
 
 		if (error !== null && !is.undefined(error) && !(error instanceof RequestError)) {
+			this[kIsAboutToError] = true;
 			error = new RequestError(error.message, error, this);
 		}
 
@@ -2687,7 +2692,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	}
 
 	get _isAboutToError() {
-		return this[kStopReading];
+		return this[kIsAboutToError];
 	}
 
 	/**
