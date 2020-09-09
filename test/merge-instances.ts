@@ -167,6 +167,6 @@ test('merging `prefixUrl`', t => {
 	const mergedAonB = instanceB.extend(instanceA);
 	const mergedBonA = instanceA.extend(instanceB);
 
-	t.is(mergedAonB.defaults.options.prefixUrl, 'http://example.com/');
+	t.is(mergedAonB.defaults.options.prefixUrl, '');
 	t.is(mergedBonA.defaults.options.prefixUrl, 'http://example.com/');
 });
