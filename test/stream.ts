@@ -154,8 +154,8 @@ test('has error event', withServer, async (t, server, got) => {
 	});
 });
 
-test('has error event #2', withServer, async (t, _server, got) => {
-	const stream = got.stream('http://doesntexist', {prefixUrl: ''});
+test('has error event #2', async t => {
+	const stream = got.stream('http://doesntexist');
 	await t.throwsAsync(pEvent(stream, 'response'), {code: 'ENOTFOUND'});
 });
 
