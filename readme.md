@@ -2194,12 +2194,12 @@ The Electron `net` module is not consistent with the Node.js `http` module. See 
 [ab]: https://badgen.net/travis/axios/axios?label
 [sb]: https://badgen.net/travis/visionmedia/superagent?label
 
-[g5]: https://travis-ci.org/sindresorhus/got
-[k5]: https://travis-ci.org/sindresorhus/ky
-[r5]: https://travis-ci.org/request/request
-[n5]: https://travis-ci.org/bitinn/node-fetch
-[a5]: https://travis-ci.org/axios/axios
-[s5]: https://travis-ci.org/visionmedia/superagent
+[g5]: https://travis-ci.com/github/sindresorhus/got
+[k5]: https://travis-ci.com/github/sindresorhus/ky
+[r5]: https://travis-ci.org/github/request/request
+[n5]: https://travis-ci.org/github/bitinn/node-fetch
+[a5]: https://travis-ci.org/github/axios/axios
+[s5]: https://travis-ci.org/github/visionmedia/superagent
 
 <!-- BUGS -->
 [gbg]: https://badgen.net/github/label-issues/sindresorhus/got/bug/open?label
