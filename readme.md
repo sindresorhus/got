@@ -728,7 +728,7 @@ Called with plain [request options](#options), right before their normalization.
 See the [Request migration guide](documentation/migration-guides.md#breaking-changes) for an example.
 
 **Note #1:** This hook must be synchronous!\
-**Note #2:** Errors in this hook will be converted into an instances of [`RequestError`](#got.requesterror).\
+**Note #2:** Errors in this hook will be converted into an instances of [`RequestError`](#gotrequesterror).\
 **Note #3:** The options object may not have a `url` property. To modify it, use a `beforeRequest` hook instead.
 
 ###### hooks.beforeRequest
@@ -1322,7 +1322,7 @@ The same as `response.socket`.
 
 ##### .on('error', error)
 
-The emitted `error` is an instance of [`RequestError`](#got.requesterror).
+The emitted `error` is an instance of [`RequestError`](#gotrequesterror).
 
 #### Pagination
 
