@@ -534,7 +534,7 @@ test('`stackAllItems` set to false', withServer, async (t, server, got) => {
 	t.deepEqual(result, [1, 2, 3]);
 });
 
-test('next url in json response', withServer, async (t, server, got) => {
+test('next url in json response', withServer, async (t, server) => {
 	server.get('/', (request, response) => {
 		const parameters = new URLSearchParams(request.url.slice(2));
 		const page = Number(parameters.get('page') ?? 0);
@@ -550,7 +550,7 @@ test('next url in json response', withServer, async (t, server, got) => {
 		next?: string;
 	}
 
-	const all = await got.paginate.all('', {
+	const all = await got.paginate.all(server.url, {
 		searchParams: {
 			page: 0
 		},
@@ -568,7 +568,6 @@ test('next url in json response', withServer, async (t, server, got) => {
 
 				return {
 					url: next,
-					prefixUrl: '',
 					searchParams: undefined
 				};
 			}
