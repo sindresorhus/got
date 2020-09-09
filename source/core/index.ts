@@ -1608,7 +1608,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		options.password = options.password ?? '';
 
 		// `options.prefixUrl` & `options.url`
-		if (options.prefixUrl && options.prefixUrl !== '') {
+		if (options.prefixUrl) {
 			options.prefixUrl = options.prefixUrl.toString();
 
 			if (options.prefixUrl !== '' && !options.prefixUrl.endsWith('/')) {
