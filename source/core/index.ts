@@ -2492,9 +2492,8 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 				try {
 					response.rawBody = await getBuffer(response);
+					response.body = response.rawBody.toString();
 				} catch {}
-
-				response.body = response.rawBody.toString();
 			}
 
 			if (this.listenerCount('retry') !== 0) {
@@ -2604,6 +2603,11 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	}
 
 	_writeRequest(chunk: any, encoding: BufferEncoding | undefined, callback: (error?: Error | null) => void): void {
+		if (this[kRequest]!.destroyed) {
+			// Probably the `ClientRequest` instance will throw
+			return;
+		}
+
 		this._progressCallbacks.push((): void => {
 			this[kUploadedSize] += Buffer.byteLength(chunk, encoding);
 
