@@ -1363,6 +1363,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	[kRequest]?: ClientRequest;
 	_noPipe?: boolean;
 	_progressCallbacks: Array<() => void>;
+	_isAboutToError: boolean;
 
 	declare options: NormalizedOptions;
 	declare requestUrl: string;
@@ -1388,6 +1389,8 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		this[kTriggerRead] = false;
 		this[kJobs] = [];
 		this.retryCount = 0;
+
+		this._isAboutToError = false;
 
 		// TODO: Remove this when targeting Node.js >= 12
 		this._progressCallbacks = [];
@@ -2456,7 +2459,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		}
 	}
 
-	async _error(error: RequestError): Promise<void> {
+	async _error(error: RequestError, callback?: (error: RequestError) => void): Promise<void> {
 		try {
 			for (const hook of this.options.hooks.beforeError) {
 				// eslint-disable-next-line no-await-in-loop
@@ -2466,11 +2469,23 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			error = new RequestError(error_.message, error_, this);
 		}
 
+		if (callback) {
+			callback(error);
+			this.destroy();
+		} else if (this.destroyed) {
+			// PANIC!
+			console.error(error, (error.request?.options as any).avaTest);
+			console.error(new Error('To error after destroy, pass a callback.'));
+			// eslint-disable-next-line unicorn/no-process-exit
+			// process.exit(1);
+		}
+
 		this.destroy(error);
 	}
 
-	_beforeError(error: Error): void {
-		if (this[kStopReading]) {
+	_beforeError(error: Error, callback?: (error: RequestError) => void): void {
+		// console.log(this._isAboutToError, error);
+		if (this._isAboutToError) {
 			return;
 		}
 
@@ -2478,6 +2493,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		const retryCount = this.retryCount + 1;
 
 		this[kStopReading] = true;
+		this._isAboutToError = true;
 
 		if (!(error instanceof RequestError)) {
 			error = new RequestError(error.message, error, this);
@@ -2487,7 +2503,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		const {response} = typedError;
 
 		void (async () => {
-			if (response && !response.body) {
+			if (response && !response.body && !response.destroyed) {
 				response.setEncoding((this as any)._readableState.encoding);
 
 				try {
@@ -2559,7 +2575,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 				}
 			}
 
-			void this._error(typedError);
+			void this._error(typedError, callback);
 		})();
 	}
 
@@ -2666,6 +2682,12 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	_destroy(error: Error | null, callback: (error: Error | null) => void): void {
 		this[kStopReading] = true;
 
+		if (error) {
+			this._isAboutToError = true;
+		} else {
+			// Assumes that everything was successful and `autoDestroy` was `true`
+		}
+
 		// Prevent further retries
 		clearTimeout(this[kRetryTimeout] as NodeJS.Timeout);
 
@@ -2684,10 +2706,6 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		}
 
 		callback(error);
-	}
-
-	get _isAboutToError() {
-		return this[kStopReading];
 	}
 
 	/**

@@ -68,6 +68,12 @@ export default (request: ClientRequest, delays: Delays, options: TimedOutOptions
 	const {host, hostname} = options;
 
 	const timeoutHandler = (delay: number, event: string): void => {
+		// Some weird fix. Reading hangs after request.destroy(error)?
+		const {res} = (request as ClientRequest & {res?: IncomingMessage});
+		if (res) {
+			res.destroyed = true;
+		}
+
 		request.destroy(new TimeoutError(delay, event));
 	};
 
