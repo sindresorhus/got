@@ -17,10 +17,16 @@ const prepareServer = (server: ExtendedTestServer, clock: GlobalClock): {emitter
 	const promise = new Promise((resolve, reject) => {
 		server.all('/abort', async (request, response) => {
 			emitter.emit('connection');
+
 			request.once('aborted', resolve);
 			response.once('finish', reject.bind(null, new Error('Request finished instead of aborting.')));
 
-			await pEvent(request, 'end');
+			try {
+				await pEvent(request, 'end');
+			} catch {
+				// Node.js 15.0.0 throws AND emits `aborted`
+			}
+
 			response.end();
 		});
 
