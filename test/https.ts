@@ -5,11 +5,14 @@ import {DetailedPeerCertificate} from 'tls';
 import pEvent from 'p-event';
 import pify = require('pify');
 import pem = require('pem');
+import tls = require('tls');
 
 const createPrivateKey = pify(pem.createPrivateKey);
 const createCSR = pify(pem.createCSR);
 const createCertificate = pify(pem.createCertificate);
 const createPkcs12 = pify(pem.createPkcs12);
+
+const ciphers = tls.getCiphers().map(cipher => cipher.toUpperCase());
 
 test('https request with empty `certificateAuthority`', withHttpsServer(), async (t, server, got) => {
 	server.get('/', (_request, response) => {
@@ -227,7 +230,7 @@ test.serial('no double deprecated warning on `rejectUnauthorized`', withHttpsSer
 	t.pass();
 });
 
-test('https request with client certificate', withHttpsServer(), async (t, server, got) => {
+test('https request with client certificate', withHttpsServer({requestCert: true}), async (t, server, got) => {
 	server.get('/', (request, response) => {
 		const peerCertificate = (request.socket as any).getPeerCertificate(true);
 		peerCertificate.issuerCertificate.issuerCertificate = undefined; // Circular structure
@@ -261,7 +264,7 @@ test('https request with client certificate', withHttpsServer(), async (t, serve
 	t.is(response.peerCertificate.issuer.CN, 'authority');
 });
 
-test('https request with invalid client certificate (self-signed)', withHttpsServer(), async (t, server, got) => {
+test('https request with invalid client certificate (self-signed)', withHttpsServer({requestCert: true}), async (t, server, got) => {
 	server.get('/', (request, response) => {
 		const peerCertificate = (request.socket as any).getPeerCertificate(true);
 		peerCertificate.issuerCertificate = undefined; // Circular structure
@@ -292,7 +295,7 @@ test('https request with invalid client certificate (self-signed)', withHttpsSer
 	t.is(response.authorized, false);
 });
 
-test('https request with invalid client certificate (other CA)', withHttpsServer(), async (t, server, got) => {
+test('https request with invalid client certificate (other CA)', withHttpsServer({requestCert: true}), async (t, server, got) => {
 	server.get('/', (request, response) => {
 		const peerCertificate = (request.socket as any).getPeerCertificate(true);
 
@@ -334,7 +337,7 @@ test('https request with invalid client certificate (other CA)', withHttpsServer
 	t.is(response.peerCertificate.issuer.CN, 'other-authority');
 });
 
-test('https request with `key` and `passphrase` options', withHttpsServer(), async (t, server, got) => {
+test('https request with `key` and `passphrase` options', withHttpsServer({requestCert: true}), async (t, server, got) => {
 	server.get('/', (request, response) => {
 		const peerCertificate = (request.socket as any).getPeerCertificate(true);
 		peerCertificate.issuerCertificate.issuerCertificate = undefined; // Circular structure
@@ -377,7 +380,7 @@ test('https request with `key` and `passphrase` options', withHttpsServer(), asy
 	t.is(response.peerCertificate.issuer.CN, 'authority');
 });
 
-test('https request with invalid key passphrase', withHttpsServer(), async (t, server, got) => {
+test('https request with invalid key passphrase', withHttpsServer({requestCert: true}), async (t, server, got) => {
 	server.get('/', (request, response) => {
 		const peerCertificate = (request.socket as any).getPeerCertificate(true);
 		peerCertificate.issuerCertificate.issuerCertificate = undefined; // Circular structure
@@ -432,7 +435,7 @@ test('https request with invalid key passphrase', withHttpsServer(), async (t, s
 	}
 });
 
-test('https request with client certificate PFX', withHttpsServer(), async (t, server, got) => {
+test('https request with client certificate PFX', withHttpsServer({requestCert: true}), async (t, server, got) => {
 	server.get('/', (request, response) => {
 		const peerCertificate = (request.socket as any).getPeerCertificate(true);
 		peerCertificate.issuerCertificate = undefined; // Circular structure
@@ -467,9 +470,8 @@ test('https request with client certificate PFX', withHttpsServer(), async (t, s
 	t.is(response.peerCertificate.issuer.CN, 'authority');
 });
 
-// This should be generated every time from `tls.getCiphers()`
-const someCiphers = 'AES128-GCM-SHA256:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-RSA-AES128-GCM-SHA256';
-test('https request with `ciphers` option', withHttpsServer({ciphers: someCiphers}), async (t, server, got) => {
+const ciphersOptionCiphers = ciphers[0] + ':' + ciphers[1] + ':' + ciphers[2];
+test('https request with `ciphers` option', withHttpsServer({ciphers: ciphersOptionCiphers}), async (t, server, got) => {
 	server.get('/', (request, response) => {
 		response.json({
 			cipher: (request.socket as any).getCipher().name
@@ -478,14 +480,15 @@ test('https request with `ciphers` option', withHttpsServer({ciphers: someCipher
 
 	const response: any = await got({
 		https: {
-			ciphers: 'ECDHE-RSA-AES256-GCM-SHA384'
+			ciphers: ciphers[0]
 		}
 	}).json();
 
-	t.is(response.cipher, 'ECDHE-RSA-AES256-GCM-SHA384');
+	t.is(response.cipher, ciphers[0]);
 });
 
-test('https request with `honorCipherOrder` option', withHttpsServer({ciphers: 'ECDHE-RSA-AES256-GCM-SHA384:ECDHE-RSA-AES128-GCM-SHA256'}), async (t, server, got) => {
+const honorCipherOrderCiphers = ciphers[0] + ':' + ciphers[1];
+test('https request with `honorCipherOrder` option', withHttpsServer({ciphers: honorCipherOrderCiphers}), async (t, server, got) => {
 	server.get('/', (request, response) => {
 		response.json({
 			cipher: (request.socket as any).getCipher().name
@@ -494,12 +497,12 @@ test('https request with `honorCipherOrder` option', withHttpsServer({ciphers: '
 
 	const response: any = await got({
 		https: {
-			ciphers: 'ECDHE-RSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-GCM-SHA384',
+			ciphers: ciphers[1] + ':' + ciphers[0],
 			honorCipherOrder: true
 		}
 	}).json();
 
-	t.is(response.cipher, 'ECDHE-RSA-AES256-GCM-SHA384');
+	t.is(response.cipher, ciphers[0]);
 });
 
 test('https request with `minVersion` option', withHttpsServer({maxVersion: 'TLSv1.2'}), async (t, server, got) => {
@@ -520,6 +523,8 @@ test('https request with `minVersion` option', withHttpsServer({maxVersion: 'TLS
 	});
 });
 
+// Issue #1455
+/*
 test('https request with `maxVersion` option', withHttpsServer({minVersion: 'TLSv1.2'}), async (t, server, got) => {
 	server.get('/', (request, response) => {
 		response.json({
@@ -537,6 +542,7 @@ test('https request with `maxVersion` option', withHttpsServer({minVersion: 'TLS
 		code: 'ERR_SSL_NO_PROTOCOLS_AVAILABLE'
 	});
 });
+*/
 
 test('http2 request', async t => {
 	const promise = got('https://httpbin.org/anything', {

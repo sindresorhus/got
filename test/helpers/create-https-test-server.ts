@@ -7,6 +7,7 @@ import {SecureClientSessionOptions} from 'http2';
 
 export type HttpsServerOptions = {
 	commonName?: string;
+	requestCert?: SecureClientSessionOptions['requestCert'];
 	days?: number;
 	ciphers?: SecureClientSessionOptions['ciphers'];
 	minVersion?: SecureClientSessionOptions['minVersion'];
@@ -52,7 +53,7 @@ const createHttpsTestServer = async (options: HttpsServerOptions = {}): Promise<
 			key: serverKey,
 			cert: serverCert,
 			ca: caCert,
-			requestCert: true,
+			requestCert: options.requestCert,
 			rejectUnauthorized: false, // This should be checked by the test
 			ciphers: options.ciphers,
 			minVersion: options.minVersion,
