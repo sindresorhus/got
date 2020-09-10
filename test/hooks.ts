@@ -1207,7 +1207,7 @@ test('`beforeRequest` change body', withServer, async (t, server, got) => {
 		hooks: {
 			beforeRequest: [
 				options => {
-					options.body = '{"payload": "new"}';
+					options.body = JSON.stringify({payload: 'new'});
 					options.headers['content-length'] = options.body.length.toString();
 				}
 			]
