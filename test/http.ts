@@ -314,7 +314,8 @@ test('DNS IPv4', withServer, async (t, server, got) => {
 	t.true(isIPv4(response.body));
 });
 
-if (IPv6supported) {
+// Travis CI Ubuntu Focal VM does not resolve IPv6 hostnames
+if (IPv6supported && process.env.TRAVIS_DIST !== 'focal') {
 	test('DNS IPv6', withServer, async (t, server, got) => {
 		server.get('/ok', echoIp);
 

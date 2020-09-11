@@ -29,28 +29,6 @@ const createHttpTestServer = async (options: HttpServerOptions = {}): Promise<Ex
 		server.use(bodyParser.raw({limit: '1mb', type: 'application/octet-stream', ...options.bodyParser}));
 	}
 
-	/* A
-	const send = (fn: express.Handler) => async (request: express.Request, response: express.Response, next: express.NextFunction) => {
-		const cb = typeof fn === 'function' ? fn(request, response, next) : fn;
-
-		(async () => {
-			const value = await Promise.resolve(cb);
-			if (value) {
-				response.send(value);
-			}
-		})();
-	};
-
-	const get = server.get.bind(server);
-	server.get = function (...args: any[]) {
-		const [path, ...handlers] = [...args];
-
-		for (const handler of handlers) {
-			get(path, send(handler));
-		}
-	} as any;
-	*/
-
 	await pify(server.http.listen.bind(server.http))();
 
 	server.port = (server.http.address() as net.AddressInfo).port;
