@@ -11,6 +11,8 @@ import os = require('os');
 
 const IPv6supported = Object.values(os.networkInterfaces()).some(iface => iface?.some(addr => !addr.internal && addr.family === 'IPv6'));
 
+const testIPv6 = (IPv6supported && process.env.TRAVIS_DIST !== 'focal') ? test : test.skip;
+
 const echoIp: Handler = (request, response) => {
 	const address = request.connection.remoteAddress;
 	if (address === undefined) {
@@ -279,20 +281,13 @@ test('does not destroy completed requests', withServer, async (t, server, got) =
 	t.pass();
 });
 
-if (IPv6supported) {
-	test('IPv6 request', withServer, async (t, server) => {
-		server.get('/ok', echoIp);
+testIPv6('IPv6 request', withServer, async (t, server) => {
+	server.get('/ok', echoIp);
 
-		try {
-			const response = await got(`http://[::1]:${server.port}/ok`);
+	const response = await got(`http://[::1]:${server.port}/ok`);
 
-			t.is(response.body, '::1');
-		} catch (error) {
-			// If network unreachable (happens on TravisCI with Ubuntu Bionic and Focal)
-			t.is(error.code, 'ENETUNREACH');
-		}
-	});
-}
+	t.is(response.body, '::1');
+});
 
 test('DNS auto', withServer, async (t, server, got) => {
 	server.get('/ok', echoIp);
@@ -315,22 +310,20 @@ test('DNS IPv4', withServer, async (t, server, got) => {
 });
 
 // Travis CI Ubuntu Focal VM does not resolve IPv6 hostnames
-if (IPv6supported && process.env.TRAVIS_DIST !== 'focal') {
-	test('DNS IPv6', withServer, async (t, server, got) => {
-		server.get('/ok', echoIp);
+testIPv6('DNS IPv6', withServer, async (t, server, got) => {
+	server.get('/ok', echoIp);
 
-		try {
-			const response = await got('ok', {
-				dnsLookupIpVersion: 'ipv6'
-			});
+	try {
+		const response = await got('ok', {
+			dnsLookupIpVersion: 'ipv6'
+		});
 
-			t.true(isIPv6(response.body));
-		} catch (error) {
-			// If network unreachable (happens on TravisCI with Ubuntu Bionic and Focal)
-			t.is(error.code, 'ENETUNREACH');
-		}
-	});
-}
+		t.true(isIPv6(response.body));
+	} catch (error) {
+		// If network unreachable (happens on TravisCI with Ubuntu Bionic and Focal)
+		t.is(error.code, 'ENETUNREACH');
+	}
+});
 
 test('invalid `dnsLookupIpVersion`', withServer, async (t, server, got) => {
 	server.get('/ok', echoIp);
