@@ -57,3 +57,15 @@ jobs:
     - os: linux
       dist: bionic
       node_js: 10
+    - os: linux
+      dist: focal
+      node_js: 14
+    - os: linux
+      dist: focal
+      node_js: 13
+    - os: linux
+      dist: focal
+      node_js: 12
+    - os: linux
+      dist: focal
+      node_js: 10
