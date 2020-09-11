@@ -14,7 +14,7 @@ import got, {TimeoutError} from '../source';
 import timedOut from '../source/core/utils/timed-out';
 import slowDataStream from './helpers/slow-data-stream';
 import {GlobalClock} from './helpers/types';
-import withServer, {withServerAndFakeTimers} from './helpers/with-server';
+import withServer, {withServerAndFakeTimers, withHttpsServer} from './helpers/with-server';
 
 const pStreamPipeline = promisify(stream.pipeline);
 
@@ -273,11 +273,9 @@ test.serial('connect timeout (ip address)', withServerAndFakeTimers, async (t, _
 	);
 });
 
-// TODO this test needs to ported to the new HTTPS Test Server
-/*
-test.serial('secureConnect timeout', withServerAndFakeTimers, async (t, _server, got, clock) => {
+test.serial('secureConnect timeout', withHttpsServer({}, true), async (t, _server, got, clock) => {
 	await t.throwsAsync(
-		got.secure({
+		got({
 			createConnection: options => {
 				const socket = new net.Socket(options as Record<string, unknown> as net.SocketConstructorOpts);
 				// @ts-expect-error We know that it is readonly, but we have to test it
@@ -295,7 +293,7 @@ test.serial('secureConnect timeout', withServerAndFakeTimers, async (t, _server,
 			retry: 0
 		}).on('request', (request: http.ClientRequest) => {
 			request.on('socket', () => {
-				clock.runAll();
+				clock?.runAll();
 			});
 		}),
 		{
@@ -304,7 +302,6 @@ test.serial('secureConnect timeout', withServerAndFakeTimers, async (t, _server,
 		}
 	);
 });
-*/
 
 test('secureConnect timeout not breached', withServer, async (t, server, got) => {
 	server.get('/', (_request, response) => {
