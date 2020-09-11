@@ -1,22 +1,59 @@
 language: node_js
 
-#This applies only to Node.JS 14
+os:
+  - windows
+  - osx
+
+osx_image:
+  # macOS 10.15.5
+  - xcode12
+  # macOS 10.14.6
+  - xcode11.3
+  
+node_js:
+  - 14
+  - 13
+  - 12
+  - 10
+
+after_success:
+  - './node_modules/.bin/nyc report --reporter=text-lcov | ./node_modules/.bin/coveralls'
+
 jobs:
   include:
     - os: linux
       dist: trusty
+      node_js: 14
+    - os: linux
+      dist: trusty
+      node_js: 13
+    - os: linux
+      dist: trusty
+      node_js: 12
+    - os: linux
+      dist: trusty
+      node_js: 10
     - os: linux
       dist: xenial
+      node_js: 14
+    - os: linux
+      dist: xenial
+      node_js: 13
+    - os: linux
+      dist: xenial
+      node_js: 12
+    - os: linux
+      dist: xenial
+      node_js: 10
     - os: linux
       dist: bionic
-    - os: windows
-    - os: osx
-
-node_js:
-  - '14'
-  - '13'
-  - '12'
-  - '10'
-
-after_success:
-  - './node_modules/.bin/nyc report --reporter=text-lcov | ./node_modules/.bin/coveralls'
+      node_js: 14
+    - os: linux
+      dist: bionic
+      node_js: 13
+    - os: linux
+      dist: bionic
+      node_js: 12
+    - os: linux
+      dist: bionic
+      node_js: 10
