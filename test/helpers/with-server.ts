@@ -3,12 +3,14 @@ import * as test from 'ava';
 import is from '@sindresorhus/is';
 import http = require('http');
 import tempy = require('tempy');
+import createHttpsTestServer, {ExtendedHttpsTestServer, HttpsServerOptions} from './create-https-test-server';
 import createTestServer = require('create-test-server');
 import FakeTimers = require('@sinonjs/fake-timers');
 import got, {InstanceDefaults} from '../../source';
 import {ExtendedGot, ExtendedHttpServer, ExtendedTestServer, GlobalClock, InstalledClock} from './types';
 
 export type RunTestWithServer = (t: test.ExecutionContext, server: ExtendedTestServer, got: ExtendedGot, clock: GlobalClock) => Promise<void> | void;
+export type RunTestWithHttpsServer = (t: test.ExecutionContext, server: ExtendedHttpsTestServer, got: ExtendedGot) => Promise<void> | void;
 export type RunTestWithSocket = (t: test.ExecutionContext, server: ExtendedHttpServer) => Promise<void> | void;
 
 const generateHook = ({install, options: testServerOptions}: {install?: boolean; options?: unknown}): test.Macro<[RunTestWithServer]> => async (t, run) => {
@@ -43,8 +45,8 @@ const generateHook = ({install, options: testServerOptions}: {install?: boolean;
 
 	const preparedGot = got.extend({prefixUrl: server.url, ...options}) as ExtendedGot;
 	preparedGot.secure = got.extend({prefixUrl: server.sslUrl, ...options});
-
 	server.hostname = (new URL(server.url)).hostname;
+
 	server.sslHostname = (new URL(server.sslUrl)).hostname;
 
 	try {
@@ -62,6 +64,28 @@ export const withBodyParsingServer = generateHook({install: false, options: {}})
 export default generateHook({install: false});
 
 export const withServerAndFakeTimers = generateHook({install: true});
+
+const generateHttpsHook = (options?: HttpsServerOptions): test.Macro<[RunTestWithHttpsServer]> => async (t, run) => {
+	const server = await createHttpsTestServer(options);
+
+	const preparedGot = got.extend({
+		// @ts-expect-error Augmenting for test detection
+		avaTest: t.title,
+		prefixUrl: server.url,
+		https: {
+			certificateAuthority: (server as any).caCert,
+			rejectUnauthorized: true
+		}
+	}) as ExtendedGot;
+
+	try {
+		await run(t, server, preparedGot);
+	} finally {
+		await server.close();
+	}
+};
+
+export const withHttpsServer = generateHttpsHook;
 
 // TODO: remove this when `create-test-server` supports custom listen
 export const withSocketServer: test.Macro<[RunTestWithSocket]> = async (t, run) => {
