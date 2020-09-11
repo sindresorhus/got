@@ -283,9 +283,14 @@ if (IPv6supported) {
 	test('IPv6 request', withServer, async (t, server) => {
 		server.get('/ok', echoIp);
 
-		const response = await got(`http://[::1]:${server.port}/ok`);
+		try {
+			const response = await got(`http://[::1]:${server.port}/ok`);
 
-		t.is(response.body, '::1');
+			t.is(response.body, '::1');
+		} catch (error) {
+			// If network unreachable (happens on TravisCI with Ubuntu Bionic and Focal)
+			t.is(error.code, 'ENETUNREACH');
+		}
 	});
 }
 
