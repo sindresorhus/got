@@ -1,8 +1,22 @@
 language: node_js
+
+#This applies only to Node.JS 14
+jobs:
+  include:
+    - os: linux
+      dist: trusty
+    - os: linux
+      dist: xenial
+    - os: linux
+      dist: bionic
+    - os: windows
+    - os: osx
+
 node_js:
-  - '14.9.0'
+  - '14'
   - '13'
   - '12'
   - '10'
+
 after_success:
   - './node_modules/.bin/nyc report --reporter=text-lcov | ./node_modules/.bin/coveralls'
