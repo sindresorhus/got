@@ -123,7 +123,8 @@
 			"node/prefer-global/url": "off",
 			"node/prefer-global/url-search-params": "off",
 			"import/no-anonymous-default-export": "off",
-			"@typescript-eslint/no-invalid-void-type": "off"
+			"@typescript-eslint/no-invalid-void-type": "off",
+			"@typescript-eslint/restrict-template-expressions": "off"
 		}
 	},
 	"runkitExampleFilename": "./documentation/examples/runkit-example.js"

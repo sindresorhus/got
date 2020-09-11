@@ -178,7 +178,7 @@ test('redirect response contains old url', withServer, async (t, server, got) =>
 	server.get('/redirect', redirectHandler);
 
 	const {requestUrl} = await pEvent(got.stream('redirect'), 'response');
-	t.is(requestUrl, `${server.url}/redirect`);
+	t.is(requestUrl as string, `${server.url}/redirect`);
 });
 
 test('check for pipe method', withServer, (t, server, got) => {

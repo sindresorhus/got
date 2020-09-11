@@ -273,6 +273,8 @@ test.serial('connect timeout (ip address)', withServerAndFakeTimers, async (t, _
 	);
 });
 
+// TODO this test needs to ported to the new HTTPS Test Server
+/*
 test.serial('secureConnect timeout', withServerAndFakeTimers, async (t, _server, got, clock) => {
 	await t.throwsAsync(
 		got.secure({
@@ -302,6 +304,7 @@ test.serial('secureConnect timeout', withServerAndFakeTimers, async (t, _server,
 		}
 	);
 });
+*/
 
 test('secureConnect timeout not breached', withServer, async (t, server, got) => {
 	server.get('/', (_request, response) => {
