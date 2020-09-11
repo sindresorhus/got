@@ -11,7 +11,7 @@ import os = require('os');
 
 const IPv6supported = Object.values(os.networkInterfaces()).some(iface => iface?.some(addr => !addr.internal && addr.family === 'IPv6'));
 
-const testIPv6 = (IPv6supported && process.env.TRAVIS_DIST !== 'focal') ? test : test.skip;
+const testIPv6 = (IPv6supported && process.env.TRAVIS_DIST !== 'bionic' && process.env.TRAVIS_DIST !== 'focal') ? test : test.skip;
 
 const echoIp: Handler = (request, response) => {
 	const address = request.connection.remoteAddress;
