@@ -54,7 +54,7 @@ test('non-object agent option works with https', withHttpsServer(), async (t, se
 	agent.destroy();
 });
 
-test('redirects from http to https work with an agent object', withServer, async (t, serverHttp, _got) => {
+test('redirects from http to https work with an agent object', withServer, async (t, serverHttp) => {
 	await withHttpsServer()(t, async (t, serverHttps, got) => {
 		serverHttp.get('/', (_request, response) => {
 			response.end('http');
@@ -91,7 +91,7 @@ test('redirects from http to https work with an agent object', withServer, async
 });
 
 test('redirects from https to http work with an agent object', withHttpsServer(), async (t, serverHttps, got) => {
-	await withServer(t, async (t, serverHttp, _got) => {
+	await withServer(t, async (t, serverHttp) => {
 		serverHttp.get('/', (_request, response) => {
 			response.end('http');
 		});

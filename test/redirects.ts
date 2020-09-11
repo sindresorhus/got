@@ -171,7 +171,7 @@ test('redirects on 303 response even on post, put, delete', withServer, async (t
 	t.is(body, 'reached');
 });
 
-test('redirects from http to https work', withServer, async (t, serverHttp, _got) => {
+test('redirects from http to https work', withServer, async (t, serverHttp) => {
 	await withHttpsServer()(t, async (t, serverHttps, got) => {
 		serverHttp.get('/', (_request, response) => {
 			response.end('http');
@@ -195,7 +195,7 @@ test('redirects from http to https work', withServer, async (t, serverHttp, _got
 });
 
 test('redirects from https to http work', withHttpsServer(), async (t, serverHttps, got) => {
-	await withServer(t, async (t, serverHttp, _got) => {
+	await withServer(t, async (t, serverHttp) => {
 		serverHttp.get('/', (_request, response) => {
 			response.end('http');
 		});

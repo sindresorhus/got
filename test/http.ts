@@ -332,7 +332,7 @@ if (IPv6supported && process.env.TRAVIS_DIST !== 'focal') {
 	});
 }
 
-test('invalid dnsLookupIpVersion', withServer, async (t, server, got) => {
+test('invalid `dnsLookupIpVersion`', withServer, async (t, server, got) => {
 	server.get('/ok', echoIp);
 
 	await t.throwsAsync(got('ok', {
