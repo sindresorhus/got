@@ -451,7 +451,6 @@ test('client certificate PFX', withHttpsServer(), async (t, server, got) => {
 
 	const {pkcs12} = await createPkcs12(clientKey, clientCert, 'randomPassword');
 
-	// Change me on PR #1364
 	const response: any = await got({
 		https: {
 			pfx: pkcs12,
