@@ -22,28 +22,16 @@ after_success:
 jobs:
   include:
     - os: linux
-      dist: trusty
+      dist: focal
       node_js: 14
     - os: linux
-      dist: trusty
+      dist: focal
       node_js: 13
     - os: linux
-      dist: trusty
+      dist: focal
       node_js: 12
     - os: linux
-      dist: trusty
-      node_js: 10
-    - os: linux
-      dist: xenial
-      node_js: 14
-    - os: linux
-      dist: xenial
-      node_js: 13
-    - os: linux
-      dist: xenial
-      node_js: 12
-    - os: linux
-      dist: xenial
+      dist: focal
       node_js: 10
     - os: linux
       dist: bionic
@@ -58,14 +46,26 @@ jobs:
       dist: bionic
       node_js: 10
     - os: linux
-      dist: focal
+      dist: xenial
       node_js: 14
     - os: linux
-      dist: focal
+      dist: xenial
       node_js: 13
     - os: linux
-      dist: focal
+      dist: xenial
       node_js: 12
     - os: linux
-      dist: focal
+      dist: xenial
+      node_js: 10
+    - os: linux
+      dist: trusty
+      node_js: 14
+    - os: linux
+      dist: trusty
+      node_js: 13
+    - os: linux
+      dist: trusty
+      node_js: 12
+    - os: linux
+      dist: trusty
       node_js: 10
