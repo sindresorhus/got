@@ -34,7 +34,7 @@ if (process.platform !== 'win32') {
 		try {
 			await got('unix:', {retry: 0});
 		} catch (error) {
-			t.regex(error.code, /(ENOTFOUND|EAI_AGAIN)/);
+			t.regex(error.code, /ENOTFOUND|EAI_AGAIN/);
 		}
 	});
 

@@ -159,7 +159,7 @@ test('has error event #2', async t => {
 	try {
 		await pEvent(stream, 'response');
 	} catch (error) {
-		t.regex(error.code, /(ENOTFOUND|EAI_AGAIN)/);
+		t.regex(error.code, /ENOTFOUND|EAI_AGAIN/);
 	}
 });
 
