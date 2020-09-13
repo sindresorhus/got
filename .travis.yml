@@ -1,21 +1,5 @@
 language: node_js
 
-os:
-  - windows
-  - osx
-
-osx_image:
-  # macOS 10.15.5
-  - xcode12
-  # macOS 10.14.6
-  - xcode11.3
-  
-node_js:
-  - 14
-  - 13
-  - 12
-  - 10
-
 after_success:
   - './node_modules/.bin/nyc report --reporter=text-lcov | ./node_modules/.bin/coveralls'
 
@@ -23,49 +7,34 @@ jobs:
   include:
     - os: linux
       dist: focal
-      node_js: 14
+      node_js: '14'
     - os: linux
       dist: focal
-      node_js: 13
+      node_js: '12'
     - os: linux
       dist: focal
-      node_js: 12
-    - os: linux
-      dist: focal
-      node_js: 10
+      node_js: '10'
     - os: linux
       dist: bionic
-      node_js: 14
+      node_js: '14'
     - os: linux
       dist: bionic
-      node_js: 13
+      node_js: '12'
     - os: linux
       dist: bionic
-      node_js: 12
-    - os: linux
-      dist: bionic
-      node_js: 10
-    - os: linux
-      dist: xenial
-      node_js: 14
-    - os: linux
-      dist: xenial
-      node_js: 13
-    - os: linux
-      dist: xenial
-      node_js: 12
-    - os: linux
-      dist: xenial
-      node_js: 10
-    - os: linux
-      dist: trusty
-      node_js: 14
-    - os: linux
-      dist: trusty
-      node_js: 13
-    - os: linux
-      dist: trusty
-      node_js: 12
-    - os: linux
-      dist: trusty
-      node_js: 10
+      node_js: '10'
+    - os: windows
+      node_js: '14'
+    - os: windows
+      node_js: '12'
+    - os: windows
+      node_js: '10'
+    - os: osx
+      osx_image: xcode12
+      node_js: '14'
+    - os: osx
+      osx_image: xcode12
+      node_js: '12'
+    - os: osx
+      osx_image: xcode12
+      node_js: '10'
