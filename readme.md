@@ -1022,7 +1022,24 @@ Type: `string`
 
 The passphrase to decrypt the `options.https.key` (if different keys have different passphrases refer to `options.https.key` documentation).
 
-##### Examples for `https.key`, `https.certificate` and `https.passphrase`
+##### https.pfx
+
+Type: `string | Buffer | Array<string | Buffer | object>`
+
+[PFX or PKCS12](https://en.wikipedia.org/wiki/PKCS_12) encoded private key and certificate chain. Using `options.https.pfx` is an alternative to providing `options.https.key` and `options.https.certificate` individually. A PFX is usually encrypted, and if it is, `options.https.passphrase` will be used to decrypt it.
+
+Multiple PFX's can be be provided as an array of unencrypted buffers or an array of objects like:
+
+```ts
+{
+	buffer: string | Buffer,
+	passphrase?: string
+}
+```
+
+This object form can only occur in an array. If the provided buffers are encrypted, `object.passphrase` can be used to decrypt them. If `object.passphrase` is not provided, `options.https.passphrase` will be used for decryption.
+
+##### Examples for `https.key`, `https.certificate`, `https.passphrase`, and `https.pfx`
 
 ```js
 // Single key with certificate
@@ -1066,6 +1083,45 @@ got('https://example.com', {
 		certificate: [
 			fs.readFileSync('./client_cert1.pem'),
 			fs.readFileSync('./client_cert2.pem')
+		]
+	}
+});
+
+// Single encrypted PFX with passphrase
+got('https://example.com', {
+	https: {
+		pfx: fs.readFileSync('./fake.pfx'),
+		passphrase: 'passphrase'
+	}
+});
+
+// Multiple encrypted PFX's with different passphrases
+got('https://example.com', {
+	https: {
+		pfx: [
+			{
+				buffer: fs.readFileSync('./key1.pfx'),
+				passphrase: 'passphrase1'
+			},
+			{
+				buffer: fs.readFileSync('./key2.pfx'),
+				passphrase: 'passphrase2'
+			}
+		]
+	}
+});
+
+// Multiple encrypted PFX's with single passphrase
+got('https://example.com', {
+	https: {
+		passphrase: 'passphrase',
+		pfx: [
+			{
+				buffer: fs.readFileSync('./key1.pfx')
+			},
+			{
+				buffer: fs.readFileSync('./key2.pfx')
+			}
 		]
 	}
 });
