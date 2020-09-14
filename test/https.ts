@@ -116,8 +116,9 @@ test('https request with `checkServerIdentity` NOT OK', withHttpsServer(), async
 });
 
 // The built-in `openssl` on macOS does not support negative days.
-if (process.platform !== 'darwin') {
-	test('https request with expired certificate', withHttpsServer({days: -1}), async (t, _server, got) => {
+{
+	const testFn = process.platform === 'darwin' ? test.skip : test;
+	testFn('https request with expired certificate', withHttpsServer({days: -1}), async (t, _server, got) => {
 		await t.throwsAsync(
 			got({}),
 			{
