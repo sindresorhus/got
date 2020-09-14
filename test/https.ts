@@ -421,7 +421,7 @@ test('invalid key passphrase', withHttpsServer(), async (t, server, got) => {
 			await request;
 			t.fail();
 		} catch (error) {
-			t.regex(error.message, /bad decrypt/);
+			t.true((error.message as string).includes('bad decrypt'), error.message);
 		}
 	} else {
 		await t.throwsAsync(request, {

@@ -313,16 +313,11 @@ test('DNS IPv4', withServer, async (t, server, got) => {
 testIPv6('DNS IPv6', withServer, async (t, server, got) => {
 	server.get('/ok', echoIp);
 
-	try {
-		const response = await got('ok', {
-			dnsLookupIpVersion: 'ipv6'
-		});
+	const response = await got('ok', {
+		dnsLookupIpVersion: 'ipv6'
+	});
 
-		t.true(isIPv6(response.body));
-	} catch (error) {
-		// If network unreachable (happens on TravisCI with Ubuntu Bionic and Focal)
-		t.is(error.code, 'ENETUNREACH');
-	}
+	t.true(isIPv6(response.body));
 });
 
 test('invalid `dnsLookupIpVersion`', withServer, async (t, server, got) => {
