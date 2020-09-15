@@ -11,7 +11,7 @@ import slowDataStream from './helpers/slow-data-stream';
 import {withHttpServer, withHttpServerAndFakeTimers, FakeTimer} from './helpers/with-server';
 import {ExtendedHttpServer} from './helpers/http-server';
 
-const prepareServer = (server: ExtendedHttpServer, clock?: FakeTimer): {emitter: EventEmitter; promise: Promise<unknown>} => {
+const prepareServer = (server: ExtendedHttpServer, clock: FakeTimer): {emitter: EventEmitter; promise: Promise<unknown>} => {
 	const emitter = new EventEmitter();
 
 	const promise = new Promise((resolve, reject) => {
@@ -38,7 +38,7 @@ const prepareServer = (server: ExtendedHttpServer, clock?: FakeTimer): {emitter:
 
 			emitter.emit('sentRedirect');
 
-			clock?.tick(3000);
+			clock.tick(3000);
 			resolve();
 		});
 	});
@@ -46,7 +46,7 @@ const prepareServer = (server: ExtendedHttpServer, clock?: FakeTimer): {emitter:
 	return {emitter, promise};
 };
 
-const downloadHandler = (clock?: FakeTimer): Handler => (_request, response) => {
+const downloadHandler = (clock: FakeTimer): Handler => (_request, response) => {
 	response.writeHead(200, {
 		'transfer-encoding': 'chunked'
 	});
@@ -63,7 +63,7 @@ const downloadHandler = (clock?: FakeTimer): Handler => (_request, response) => 
 };
 
 test.serial('does not retry after cancelation', withHttpServerAndFakeTimers(), async (t, server, got, clock) => {
-	const {emitter, promise} = prepareServer(server, clock);
+	const {emitter, promise} = prepareServer(server, clock!);
 
 	const gotPromise = got('redirect', {
 		retry: {
@@ -108,7 +108,7 @@ test.serial('cleans up request timeouts', withHttpServer(), async (t, server, go
 });
 
 test.serial('cancels in-progress request', withHttpServerAndFakeTimers(), async (t, server, got, clock) => {
-	const {emitter, promise} = prepareServer(server, clock);
+	const {emitter, promise} = prepareServer(server, clock!);
 
 	const body = new ReadableStream({
 		read() {}
@@ -128,7 +128,7 @@ test.serial('cancels in-progress request', withHttpServerAndFakeTimers(), async 
 });
 
 test.serial('cancels in-progress request with timeout', withHttpServerAndFakeTimers(), async (t, server, got, clock) => {
-	const {emitter, promise} = prepareServer(server, clock);
+	const {emitter, promise} = prepareServer(server, clock!);
 
 	const body = new ReadableStream({
 		read() {}
@@ -156,7 +156,7 @@ test.serial('cancel immediately', withHttpServerAndFakeTimers(), async (t, serve
 			response.end();
 		});
 
-		clock?.tick(1000);
+		clock!.tick(1000);
 		resolve();
 	});
 
@@ -200,7 +200,7 @@ test('recover from cancellation using error instance', async t => {
 });
 
 test.serial('throws on incomplete (canceled) response - promise', withHttpServerAndFakeTimers(), async (t, server, got, clock) => {
-	server.get('/', downloadHandler(clock));
+	server.get('/', downloadHandler(clock!));
 
 	await t.throwsAsync(
 		got({
@@ -212,10 +212,10 @@ test.serial('throws on incomplete (canceled) response - promise', withHttpServer
 });
 
 test.serial('throws on incomplete (canceled) response - promise #2', withHttpServerAndFakeTimers(), async (t, server, got, clock) => {
-	server.get('/', downloadHandler(clock));
+	server.get('/', downloadHandler(clock!));
 
 	const promise = got('').on('response', () => {
-		clock?.tick(500);
+		clock!.tick(500);
 		promise.cancel();
 	});
 
@@ -223,12 +223,12 @@ test.serial('throws on incomplete (canceled) response - promise #2', withHttpSer
 });
 
 test.serial('throws on incomplete (canceled) response - stream', withHttpServerAndFakeTimers(), async (t, server, got, clock) => {
-	server.get('/', downloadHandler(clock));
+	server.get('/', downloadHandler(clock!));
 
 	const errorString = 'Foobar';
 
 	const stream = got.stream('').on('response', () => {
-		clock?.tick(500);
+		clock!.tick(500);
 		stream.destroy(new Error(errorString));
 	});
 
