@@ -56,6 +56,7 @@ export interface CreateServerFunction {
 	(options: HttpSocketServerOptions): Promise<ExtendedHttpSocketServer>;
 }
 
+// TODO fix types
 export const createServer: CreateServerFunction = async <R extends ExtendedServer>(options: ServerOptions): Promise<R> => {
 	const app = express() as R;
 	app.protocol = options.protocol;
@@ -92,9 +93,7 @@ export const createServer: CreateServerFunction = async <R extends ExtendedServe
 	} else if (options.protocol === 'socket') {
 		const socketPath = tempy.file({extension: 'socket'});
 
-		const server = http.createServer((request, response) => {
-			server.emit(request.url!, request, response);
-		});
+		const server = http.createServer(app);
 
 		await pify(server.listen.bind(server))(socketPath);
 
