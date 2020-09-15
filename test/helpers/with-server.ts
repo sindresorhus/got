@@ -1,5 +1,5 @@
 import FakeTimers = require('@sinonjs/fake-timers');
-import {createServer, HttpServerOptions, HttpsServerOptions, ExtendedHttpServer, ExtendedHttpsServer} from './http-server';
+import {createServer, HttpServerOptions, HttpsServerOptions, ExtendedHttpServer, HttpSocketServerOptions, ExtendedHttpsServer, ExtendedHttpSocketServer} from './http-server';
 import test = require('ava');
 import got, {InstanceDefaults, Got} from '../../source';
 
@@ -7,15 +7,17 @@ type BaseHookOptions = {
 	installFakeTimer?: boolean;
 	installBodyParser?: boolean;
 };
-type HookOptions = BaseHookOptions & HttpServerOptions | BaseHookOptions & HttpsServerOptions;
+type HookOptions = BaseHookOptions & HttpServerOptions | BaseHookOptions & HttpsServerOptions | BaseHookOptions & HttpSocketServerOptions;
 
 type RunTestWithHttpServer = (t: test.ExecutionContext, server: ExtendedHttpServer, got: Got, clock?: FakeTimers.InstalledClock) => Promise<void> | void;
 type RunTestWithHttpsServer = (t: test.ExecutionContext, server: ExtendedHttpsServer, got: Got, clock?: FakeTimers.InstalledClock) => Promise<void> | void;
-type RunTestWithServer = RunTestWithHttpServer | RunTestWithHttpsServer;
+type RunTestWithHttpSocketServer = (t: test.ExecutionContext, server: ExtendedHttpSocketServer, got: Got, clock?: FakeTimers.InstalledClock) => Promise<void> | void;
+type RunTestWithServer = RunTestWithHttpServer | RunTestWithHttpsServer | RunTestWithHttpSocketServer;
 
 export interface WithServerFunction {
 	(options: BaseHookOptions & HttpServerOptions): test.Macro<[RunTestWithHttpServer]>;
 	(options: BaseHookOptions & HttpsServerOptions): test.Macro<[RunTestWithHttpsServer]>;
+	(options: BaseHookOptions & HttpSocketServerOptions): test.Macro<[RunTestWithHttpSocketServer]>;
 }
 
 export const withServer: WithServerFunction = (options: HookOptions): test.Macro<[RunTestWithServer]> => async (t, run) => {
@@ -25,7 +27,9 @@ export const withServer: WithServerFunction = (options: HookOptions): test.Macro
 	let server;
 	if (options.protocol === 'HTTPS') {
 		server = await createServer(options);
-	}	else {
+	} else if (options.protocol === 'socket') {
+		server = await createServer(options);
+	} else {
 		server = await createServer(options);
 	}
 
@@ -58,6 +62,8 @@ export const withServer: WithServerFunction = (options: HookOptions): test.Macro
 			},
 			...gotOptions
 		});
+	} else if (server.protocol === 'socket') {
+		preparedGot = got.extend({...gotOptions});
 	} else {
 		preparedGot = got.extend({prefixUrl: server.url, ...gotOptions});
 	}
@@ -75,6 +81,7 @@ export const withServer: WithServerFunction = (options: HookOptions): test.Macro
 type Except<ObjectType, KeysType extends keyof ObjectType> = Pick<ObjectType, Exclude<keyof ObjectType, KeysType>>;
 export const withHttpServer = (options?: Except<BaseHookOptions & HttpServerOptions, 'protocol'>): test.Macro<[RunTestWithHttpServer]> => withServer({protocol: 'HTTP', ...options});
 export const withHttpsServer = (options?: Except<BaseHookOptions & HttpsServerOptions, 'protocol'>): test.Macro<[RunTestWithHttpsServer]> => withServer({protocol: 'HTTPS', ...options});
+export const withHttpSocketServer = (options?: Except<BaseHookOptions & HttpSocketServerOptions, 'protocol'>): test.Macro<[RunTestWithHttpSocketServer]> => withServer({protocol: 'socket', ...options});
 export const withHttpServerAndFakeTimers = (options?: Except<BaseHookOptions & HttpServerOptions, 'protocol' | 'installFakeTimer'>): test.Macro<[RunTestWithHttpServer]> => withServer({protocol: 'HTTP', installFakeTimer: true, ...options});
 export const withHttpServerWithBodyParser = (options?: Except<BaseHookOptions & HttpServerOptions, 'protocol' | 'installBodyParser'>): test.Macro<[RunTestWithHttpServer]> => withServer({protocol: 'HTTP', installBodyParser: true, ...options});
 
