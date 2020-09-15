@@ -5,7 +5,7 @@ import test from 'ava';
 import {Handler} from 'express';
 import FormData = require('form-data');
 import got, {Headers} from '../source';
-import withServer from './helpers/with-server';
+import {withHttpServer} from './helpers/with-server';
 
 const supportsBrotli = typeof (process.versions as any).brotli === 'string';
 
@@ -14,21 +14,21 @@ const echoHeaders: Handler = (request, response) => {
 	response.end(JSON.stringify(request.headers));
 };
 
-test('`user-agent`', withServer, async (t, server, got) => {
+test('`user-agent`', withHttpServer(), async (t, server, got) => {
 	server.get('/', echoHeaders);
 
 	const headers = await got('').json<Headers>();
 	t.is(headers['user-agent'], 'got (https://github.com/sindresorhus/got)');
 });
 
-test('`accept-encoding`', withServer, async (t, server, got) => {
+test('`accept-encoding`', withHttpServer(), async (t, server, got) => {
 	server.get('/', echoHeaders);
 
 	const headers = await got('').json<Headers>();
 	t.is(headers['accept-encoding'], supportsBrotli ? 'gzip, deflate, br' : 'gzip, deflate');
 });
 
-test('does not override provided `accept-encoding`', withServer, async (t, server, got) => {
+test('does not override provided `accept-encoding`', withHttpServer(), async (t, server, got) => {
 	server.get('/', echoHeaders);
 
 	const headers = await got({
@@ -39,7 +39,7 @@ test('does not override provided `accept-encoding`', withServer, async (t, serve
 	t.is(headers['accept-encoding'], 'gzip');
 });
 
-test('does not remove user headers from `url` object argument', withServer, async (t, server) => {
+test('does not remove user headers from `url` object argument', withHttpServer(), async (t, server) => {
 	server.get('/', echoHeaders);
 
 	const headers = (await got<Headers>({
@@ -56,7 +56,7 @@ test('does not remove user headers from `url` object argument', withServer, asyn
 	t.is(headers['x-request-id'], 'value');
 });
 
-test('does not set `accept-encoding` header when `options.decompress` is false', withServer, async (t, server, got) => {
+test('does not set `accept-encoding` header when `options.decompress` is false', withHttpServer(), async (t, server, got) => {
 	server.get('/', echoHeaders);
 
 	const headers = await got({
@@ -66,7 +66,7 @@ test('does not set `accept-encoding` header when `options.decompress` is false',
 	t.false(Reflect.has(headers, 'accept-encoding'));
 });
 
-test('`accept` header with `json` option', withServer, async (t, server, got) => {
+test('`accept` header with `json` option', withHttpServer(), async (t, server, got) => {
 	server.get('/', echoHeaders);
 
 	let headers = await got('').json<Headers>();
@@ -80,14 +80,14 @@ test('`accept` header with `json` option', withServer, async (t, server, got) =>
 	t.is(headers.accept, '');
 });
 
-test('`host` header', withServer, async (t, server, got) => {
+test('`host` header', withHttpServer(), async (t, server, got) => {
 	server.get('/', echoHeaders);
 
 	const headers = await got('').json<Headers>();
 	t.is(headers.host, `localhost:${server.port}`);
 });
 
-test('transforms names to lowercase', withServer, async (t, server, got) => {
+test('transforms names to lowercase', withHttpServer(), async (t, server, got) => {
 	server.get('/', echoHeaders);
 
 	const headers = (await got<Headers>({
@@ -99,7 +99,7 @@ test('transforms names to lowercase', withServer, async (t, server, got) => {
 	t.is(headers['accept-encoding'], 'identity');
 });
 
-test('setting `content-length` to 0', withServer, async (t, server, got) => {
+test('setting `content-length` to 0', withHttpServer(), async (t, server, got) => {
 	server.post('/', echoHeaders);
 
 	const {body} = await got.post({
@@ -112,7 +112,7 @@ test('setting `content-length` to 0', withServer, async (t, server, got) => {
 	t.is(headers['content-length'], '0');
 });
 
-test('sets `content-length` to `0` when requesting PUT with empty body', withServer, async (t, server, got) => {
+test('sets `content-length` to `0` when requesting PUT with empty body', withHttpServer(), async (t, server, got) => {
 	server.put('/', echoHeaders);
 
 	const {body} = await got({
@@ -122,7 +122,7 @@ test('sets `content-length` to `0` when requesting PUT with empty body', withSer
 	t.is(headers['content-length'], '0');
 });
 
-test('form manual `content-type` header', withServer, async (t, server, got) => {
+test('form manual `content-type` header', withHttpServer(), async (t, server, got) => {
 	server.post('/', echoHeaders);
 
 	const {body} = await got.post({
@@ -137,7 +137,7 @@ test('form manual `content-type` header', withServer, async (t, server, got) => 
 	t.is(headers['content-type'], 'custom');
 });
 
-test('form-data manual `content-type` header', withServer, async (t, server, got) => {
+test('form-data manual `content-type` header', withHttpServer(), async (t, server, got) => {
 	server.post('/', echoHeaders);
 
 	const form = new FormData();
@@ -152,7 +152,7 @@ test('form-data manual `content-type` header', withServer, async (t, server, got
 	t.is(headers['content-type'], 'custom');
 });
 
-test('form-data automatic `content-type` header', withServer, async (t, server, got) => {
+test('form-data automatic `content-type` header', withHttpServer(), async (t, server, got) => {
 	server.post('/', echoHeaders);
 
 	const form = new FormData();
@@ -164,7 +164,7 @@ test('form-data automatic `content-type` header', withServer, async (t, server, 
 	t.is(headers['content-type'], `multipart/form-data; boundary=${form.getBoundary()}`);
 });
 
-test('form-data sets `content-length` header', withServer, async (t, server, got) => {
+test('form-data sets `content-length` header', withHttpServer(), async (t, server, got) => {
 	server.post('/', echoHeaders);
 
 	const form = new FormData();
@@ -174,7 +174,7 @@ test('form-data sets `content-length` header', withServer, async (t, server, got
 	t.is(headers['content-length'], '157');
 });
 
-test('stream as `options.body` sets `content-length` header', withServer, async (t, server, got) => {
+test('stream as `options.body` sets `content-length` header', withHttpServer(), async (t, server, got) => {
 	server.post('/', echoHeaders);
 
 	const fixture = path.resolve('test/fixtures/stream-content-length');
@@ -186,7 +186,7 @@ test('stream as `options.body` sets `content-length` header', withServer, async 
 	t.is(Number(headers['content-length']), size);
 });
 
-test('buffer as `options.body` sets `content-length` header', withServer, async (t, server, got) => {
+test('buffer as `options.body` sets `content-length` header', withHttpServer(), async (t, server, got) => {
 	server.post('/', echoHeaders);
 
 	const buffer = Buffer.from('unicorn');
@@ -209,7 +209,7 @@ test('throws on null value headers', async t => {
 	});
 });
 
-test('removes undefined value headers', withServer, async (t, server, got) => {
+test('removes undefined value headers', withHttpServer(), async (t, server, got) => {
 	server.get('/', echoHeaders);
 
 	const {body} = await got({
@@ -221,7 +221,7 @@ test('removes undefined value headers', withServer, async (t, server, got) => {
 	t.is(headers['user-agent'], undefined);
 });
 
-test('non-existent headers set to undefined are omitted', withServer, async (t, server, got) => {
+test('non-existent headers set to undefined are omitted', withHttpServer(), async (t, server, got) => {
 	server.get('/', echoHeaders);
 
 	const {body} = await got({
@@ -233,7 +233,7 @@ test('non-existent headers set to undefined are omitted', withServer, async (t, 
 	t.false(Reflect.has(headers, 'blah'));
 });
 
-test('preserve port in host header if non-standard port', withServer, async (t, server, got) => {
+test('preserve port in host header if non-standard port', withHttpServer(), async (t, server, got) => {
 	server.get('/', echoHeaders);
 
 	const body = await got('').json<Headers>();

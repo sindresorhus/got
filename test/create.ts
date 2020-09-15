@@ -9,14 +9,14 @@ import got, {
 	Hooks,
 	RequestFunction
 } from '../source';
-import withServer from './helpers/with-server';
+import {withHttpServer} from './helpers/with-server';
 
 const echoHeaders: Handler = (request, response) => {
 	request.resume();
 	response.end(JSON.stringify(request.headers));
 };
 
-test('preserves global defaults', withServer, async (t, server, got) => {
+test('preserves global defaults', withHttpServer(), async (t, server, got) => {
 	server.get('/', echoHeaders);
 
 	const globalHeaders = await got('').json();
@@ -24,7 +24,7 @@ test('preserves global defaults', withServer, async (t, server, got) => {
 	t.deepEqual(instanceHeaders, globalHeaders);
 });
 
-test('supports instance defaults', withServer, async (t, server, got) => {
+test('supports instance defaults', withHttpServer(), async (t, server, got) => {
 	server.get('/', echoHeaders);
 
 	const instance = got.extend({
@@ -36,7 +36,7 @@ test('supports instance defaults', withServer, async (t, server, got) => {
 	t.is(headers['user-agent'], 'custom-ua-string');
 });
 
-test('supports invocation overrides', withServer, async (t, server, got) => {
+test('supports invocation overrides', withHttpServer(), async (t, server, got) => {
 	server.get('/', echoHeaders);
 
 	const instance = got.extend({
@@ -52,7 +52,7 @@ test('supports invocation overrides', withServer, async (t, server, got) => {
 	t.is(headers['user-agent'], 'different-ua-string');
 });
 
-test('carries previous instance defaults', withServer, async (t, server, got) => {
+test('carries previous instance defaults', withHttpServer(), async (t, server, got) => {
 	server.get('/', echoHeaders);
 
 	const instanceA = got.extend({
@@ -70,7 +70,7 @@ test('carries previous instance defaults', withServer, async (t, server, got) =>
 	t.is(headers['x-bar'], 'bar');
 });
 
-test('custom headers (extend)', withServer, async (t, server, got) => {
+test('custom headers (extend)', withHttpServer(), async (t, server, got) => {
 	server.get('/', echoHeaders);
 
 	const options = {headers: {unicorn: 'rainbow'}};
@@ -106,7 +106,7 @@ test('hooks are merged on got.extend()', t => {
 	t.deepEqual(extended.defaults.options.hooks.beforeRequest, hooksA.concat(hooksB));
 });
 
-test('custom endpoint with custom headers (extend)', withServer, async (t, server) => {
+test('custom endpoint with custom headers (extend)', withHttpServer(), async (t, server) => {
 	server.all('/', echoHeaders);
 
 	const instance = got.extend({headers: {unicorn: 'rainbow'}, prefixUrl: server.url});
@@ -157,7 +157,7 @@ test('can set mutable defaults using got.extend', t => {
 	t.true(instance.defaults.options.followRedirect);
 });
 
-test('only plain objects are freezed', withServer, async (t, server, got) => {
+test('only plain objects are freezed', withHttpServer(), async (t, server, got) => {
 	server.get('/', echoHeaders);
 
 	const instance = got.extend({
@@ -186,7 +186,7 @@ test('defaults are cloned on instance creation', t => {
 	t.not(options.hooks.beforeRequest, instance.defaults.options.hooks.beforeRequest);
 });
 
-test('ability to pass a custom request method', withServer, async (t, server, got) => {
+test('ability to pass a custom request method', withHttpServer(), async (t, server, got) => {
 	server.get('/', echoHeaders);
 
 	let isCalled = false;
@@ -207,7 +207,7 @@ test('ability to pass a custom request method', withServer, async (t, server, go
 	t.true(isCalled);
 });
 
-test('does not include the `request` option in normalized `http` options', withServer, async (t, server, got) => {
+test('does not include the `request` option in normalized `http` options', withHttpServer(), async (t, server, got) => {
 	server.get('/', echoHeaders);
 
 	let isCalled = false;
@@ -231,7 +231,7 @@ test('does not include the `request` option in normalized `http` options', withS
 	t.true(isCalled);
 });
 
-test('hooks aren\'t overriden when merging options', withServer, async (t, server, got) => {
+test('hooks aren\'t overriden when merging options', withHttpServer(), async (t, server, got) => {
 	server.get('/', echoHeaders);
 
 	let isCalled = false;
@@ -250,7 +250,7 @@ test('hooks aren\'t overriden when merging options', withServer, async (t, serve
 	t.true(isCalled);
 });
 
-test('extend with custom handlers', withServer, async (t, server, got) => {
+test('extend with custom handlers', withHttpServer(), async (t, server, got) => {
 	server.get('/', echoHeaders);
 
 	const instance = got.extend({
@@ -278,7 +278,7 @@ test('extend with a chain', t => {
 	t.is(b.defaults.options.headers.foo, 'bar');
 });
 
-test('async handlers', withServer, async (t, server, got) => {
+test('async handlers', withHttpServer(), async (t, server, got) => {
 	server.get('/', echoHeaders);
 
 	const instance = got.extend({

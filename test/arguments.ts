@@ -4,7 +4,7 @@ import test from 'ava';
 import {Handler} from 'express';
 import pEvent = require('p-event');
 import got, {StrictOptions} from '../source';
-import withServer, {withBodyParsingServer} from './helpers/with-server';
+import {withHttpServer, withHttpServerWithBodyParser} from './helpers/with-server';
 
 const echoUrl: Handler = (request, response) => {
 	response.end(request.url);
@@ -63,7 +63,7 @@ test('throws an error if the protocol is not specified', async t => {
 	});
 });
 
-test('properly encodes query string', withServer, async (t, server, got) => {
+test('properly encodes query string', withHttpServer(), async (t, server, got) => {
 	server.get('/', echoUrl);
 
 	const path = '?test=http://example.com?foo=bar';
@@ -71,13 +71,13 @@ test('properly encodes query string', withServer, async (t, server, got) => {
 	t.is(body, '/?test=http://example.com?foo=bar');
 });
 
-test('options are optional', withServer, async (t, server, got) => {
+test('options are optional', withHttpServer(), async (t, server, got) => {
 	server.get('/test', echoUrl);
 
 	t.is((await got('test')).body, '/test');
 });
 
-test('methods are normalized', withServer, async (t, server, got) => {
+test('methods are normalized', withHttpServer(), async (t, server, got) => {
 	server.post('/test', echoUrl);
 
 	const instance = got.extend({
@@ -97,7 +97,7 @@ test('methods are normalized', withServer, async (t, server, got) => {
 	await instance('test', {method: 'post'});
 });
 
-test.failing('throws an error when legacy URL is passed', withServer, async (t, server) => {
+test.failing('throws an error when legacy URL is passed', withHttpServer(), async (t, server) => {
 	server.get('/test', echoUrl);
 
 	await t.throwsAsync(
@@ -116,7 +116,7 @@ test.failing('throws an error when legacy URL is passed', withServer, async (t, 
 	);
 });
 
-test('accepts legacy URL options', withServer, async (t, server) => {
+test('accepts legacy URL options', withHttpServer(), async (t, server) => {
 	server.get('/test', echoUrl);
 
 	const {body: secondBody} = await got({
@@ -129,7 +129,7 @@ test('accepts legacy URL options', withServer, async (t, server) => {
 	t.is(secondBody, '/test');
 });
 
-test('overrides `searchParams` from options', withServer, async (t, server, got) => {
+test('overrides `searchParams` from options', withHttpServer(), async (t, server, got) => {
 	server.get('/', echoUrl);
 
 	const {body} = await got(
@@ -144,7 +144,7 @@ test('overrides `searchParams` from options', withServer, async (t, server, got)
 	t.is(body, '/?test=wow');
 });
 
-test('does not duplicate `searchParams`', withServer, async (t, server, got) => {
+test('does not duplicate `searchParams`', withHttpServer(), async (t, server, got) => {
 	server.get('/', echoUrl);
 
 	const instance = got.extend({
@@ -156,7 +156,7 @@ test('does not duplicate `searchParams`', withServer, async (t, server, got) => 
 	t.is(body, '/?foo=123');
 });
 
-test('escapes `searchParams` parameter values', withServer, async (t, server, got) => {
+test('escapes `searchParams` parameter values', withHttpServer(), async (t, server, got) => {
 	server.get('/', echoUrl);
 
 	const {body} = await got({
@@ -168,7 +168,7 @@ test('escapes `searchParams` parameter values', withServer, async (t, server, go
 	t.is(body, '/?test=it%E2%80%99s+ok');
 });
 
-test('the `searchParams` option can be a URLSearchParams', withServer, async (t, server, got) => {
+test('the `searchParams` option can be a URLSearchParams', withHttpServer(), async (t, server, got) => {
 	server.get('/', echoUrl);
 
 	const searchParameters = new URLSearchParams({test: 'wow'});
@@ -176,7 +176,7 @@ test('the `searchParams` option can be a URLSearchParams', withServer, async (t,
 	t.is(body, '/?test=wow');
 });
 
-test('ignores empty searchParams object', withServer, async (t, server, got) => {
+test('ignores empty searchParams object', withHttpServer(), async (t, server, got) => {
 	server.get('/test', echoUrl);
 
 	t.is((await got('test', {searchParams: {}})).requestUrl, `${server.url}/test`);
@@ -188,21 +188,21 @@ test('throws when passing body with a non payload method', async t => {
 	});
 });
 
-test('`allowGetBody` option', withServer, async (t, server, got) => {
+test('`allowGetBody` option', withHttpServer(), async (t, server, got) => {
 	server.get('/test', echoUrl);
 
 	const url = new URL(`${server.url}/test`);
 	await t.notThrowsAsync(got(url, {body: 'asdf', allowGetBody: true}));
 });
 
-test('WHATWG URL support', withServer, async (t, server, got) => {
+test('WHATWG URL support', withHttpServer(), async (t, server, got) => {
 	server.get('/test', echoUrl);
 
 	const url = new URL(`${server.url}/test`);
 	await t.notThrowsAsync(got(url));
 });
 
-test('returns streams when using `isStream` option', withServer, async (t, server, got) => {
+test('returns streams when using `isStream` option', withHttpServer(), async (t, server, got) => {
 	server.get('/stream', (_request, response) => {
 		response.end('ok');
 	});
@@ -211,13 +211,13 @@ test('returns streams when using `isStream` option', withServer, async (t, serve
 	t.is(data.toString(), 'ok');
 });
 
-test('accepts `url` as an option', withServer, async (t, server, got) => {
+test('accepts `url` as an option', withHttpServer(), async (t, server, got) => {
 	server.get('/test', echoUrl);
 
 	await t.notThrowsAsync(got({url: 'test'}));
 });
 
-test('can omit `url` option if using `prefixUrl`', withServer, async (t, server, got) => {
+test('can omit `url` option if using `prefixUrl`', withHttpServer(), async (t, server, got) => {
 	server.get('/', echoUrl);
 
 	await t.notThrowsAsync(got({}));
@@ -253,14 +253,14 @@ test('throws TypeError when known `options.hooks` array item is not a function',
 	);
 });
 
-test('allows extra keys in `options.hooks`', withServer, async (t, server, got) => {
+test('allows extra keys in `options.hooks`', withHttpServer(), async (t, server, got) => {
 	server.get('/test', echoUrl);
 
 	// @ts-expect-error We do not allow extra keys in hooks but this won't throw
 	await t.notThrowsAsync(got('test', {hooks: {extra: []}}));
 });
 
-test('`prefixUrl` option works', withServer, async (t, server, got) => {
+test('`prefixUrl` option works', withHttpServer(), async (t, server, got) => {
 	server.get('/test/foobar', echoUrl);
 
 	const instanceA = got.extend({prefixUrl: `${server.url}/test`});
@@ -268,7 +268,7 @@ test('`prefixUrl` option works', withServer, async (t, server, got) => {
 	t.is(body, '/test/foobar');
 });
 
-test('accepts WHATWG URL as the `prefixUrl` option', withServer, async (t, server, got) => {
+test('accepts WHATWG URL as the `prefixUrl` option', withHttpServer(), async (t, server, got) => {
 	server.get('/test/foobar', echoUrl);
 
 	const instanceA = got.extend({prefixUrl: new URL(`${server.url}/test`)});
@@ -276,7 +276,7 @@ test('accepts WHATWG URL as the `prefixUrl` option', withServer, async (t, serve
 	t.is(body, '/test/foobar');
 });
 
-test('backslash in the end of `prefixUrl` option is optional', withServer, async (t, server) => {
+test('backslash in the end of `prefixUrl` option is optional', withHttpServer(), async (t, server) => {
 	server.get('/test/foobar', echoUrl);
 
 	const instanceA = got.extend({prefixUrl: `${server.url}/test/`});
@@ -284,7 +284,7 @@ test('backslash in the end of `prefixUrl` option is optional', withServer, async
 	t.is(body, '/test/foobar');
 });
 
-test('`prefixUrl` can be changed if the URL contains the old one', withServer, async (t, server) => {
+test('`prefixUrl` can be changed if the URL contains the old one', withHttpServer(), async (t, server) => {
 	server.get('/', echoUrl);
 
 	const instanceA = got.extend({
@@ -328,7 +328,7 @@ test('throws if the `searchParams` value is invalid', async t => {
 	});
 });
 
-test('`context` option is not enumerable', withServer, async (t, server, got) => {
+test('`context` option is not enumerable', withHttpServer(), async (t, server, got) => {
 	server.get('/', echoUrl);
 
 	const context = {
@@ -348,7 +348,7 @@ test('`context` option is not enumerable', withServer, async (t, server, got) =>
 	});
 });
 
-test('`context` option is accessible when using hooks', withServer, async (t, server, got) => {
+test('`context` option is accessible when using hooks', withHttpServer(), async (t, server, got) => {
 	server.get('/', echoUrl);
 
 	const context = {
@@ -441,7 +441,7 @@ test('throws on invalid `agent` option', async t => {
 	}), {message: 'Expected the `options.agent` properties to be `http`, `https` or `http2`, got `asdf`'});
 });
 
-test('fallbacks to native http if `request(...)` returns undefined', withServer, async (t, server, got) => {
+test('fallbacks to native http if `request(...)` returns undefined', withHttpServer(), async (t, server, got) => {
 	server.get('/', echoUrl);
 
 	const {body} = await got('', {request: () => undefined});
@@ -449,7 +449,7 @@ test('fallbacks to native http if `request(...)` returns undefined', withServer,
 	t.is(body, '/');
 });
 
-test('strict options', withServer, async (t, server, got) => {
+test('strict options', withHttpServer(), async (t, server, got) => {
 	server.get('/', echoUrl);
 
 	const options: StrictOptions = {};
@@ -459,7 +459,7 @@ test('strict options', withServer, async (t, server, got) => {
 	t.is(body, '/');
 });
 
-test('does not throw on frozen options', withServer, async (t, server, got) => {
+test('does not throw on frozen options', withHttpServer(), async (t, server, got) => {
 	server.get('/', echoUrl);
 
 	const options: StrictOptions = {};
@@ -488,7 +488,7 @@ test('normalizes search params included in options', t => {
 	t.is(url.search, '?a=b+c');
 });
 
-test('reuse options while using init hook', withServer, async (t, server, got) => {
+test('reuse options while using init hook', withHttpServer(), async (t, server, got) => {
 	t.plan(2);
 
 	server.get('/', echoUrl);
@@ -507,7 +507,7 @@ test('reuse options while using init hook', withServer, async (t, server, got) =
 	await got('', options);
 });
 
-test('allowGetBody sends json payload', withBodyParsingServer, async (t, server, got) => {
+test('allowGetBody sends json payload', withHttpServerWithBodyParser(), async (t, server, got) => {
 	server.get('/', (request, response) => {
 		if (request.body.hello !== 'world') {
 			response.statusCode = 400;
@@ -525,7 +525,7 @@ test('allowGetBody sends json payload', withBodyParsingServer, async (t, server,
 	t.is(statusCode, 200);
 });
 
-test('no URL pollution', withServer, async (t, server) => {
+test('no URL pollution', withHttpServer(), async (t, server) => {
 	server.get('/ok', echoUrl);
 
 	const url = new URL(server.url);
@@ -544,7 +544,7 @@ test('no URL pollution', withServer, async (t, server) => {
 	t.is(body, '/ok');
 });
 
-test('prefixUrl is properly replaced when extending', withServer, async (t, server) => {
+test('prefixUrl is properly replaced when extending', withHttpServer(), async (t, server) => {
 	server.get('/', (request, response) => {
 		response.end(request.url);
 	});

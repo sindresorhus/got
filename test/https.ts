@@ -5,6 +5,7 @@ import {DetailedPeerCertificate} from 'tls';
 import pEvent from 'p-event';
 import pify = require('pify');
 import pem = require('pem');
+import tls = require('tls');
 
 const createPrivateKey = pify(pem.createPrivateKey);
 const createCSR = pify(pem.createCSR);
@@ -227,11 +228,12 @@ test.serial('no double deprecated warning', withHttpsServer(), async (t, server,
 
 test('client certificate', withHttpsServer(), async (t, server, got) => {
 	server.get('/', (request, response) => {
-		const peerCertificate = (request.socket as any).getPeerCertificate(true);
-		peerCertificate.issuerCertificate.issuerCertificate = undefined; // Circular structure
+		const socket = (request.socket as tls.TLSSocket);
+		const peerCertificate = socket.getPeerCertificate(true);
+		(peerCertificate.issuerCertificate.issuerCertificate as any) = undefined; // Circular structure
 
 		response.json({
-			authorized: (request.socket as any).authorized,
+			authorized: socket.authorized,
 			peerCertificate
 		});
 	});
@@ -240,8 +242,8 @@ test('client certificate', withHttpsServer(), async (t, server, got) => {
 	const clientResult = await createCertificate({
 		csr: clientCSRResult.csr,
 		clientKey: clientCSRResult.clientKey,
-		serviceKey: (server as any).caKey,
-		serviceCertificate: (server as any).caCert
+		serviceKey: server.caKey,
+		serviceCertificate: server.caCert
 	});
 	// eslint-disable-next-line prefer-destructuring
 	const clientKey = clientResult.clientKey;
@@ -261,11 +263,12 @@ test('client certificate', withHttpsServer(), async (t, server, got) => {
 
 test('invalid client certificate (self-signed)', withHttpsServer(), async (t, server, got) => {
 	server.get('/', (request, response) => {
-		const peerCertificate = (request.socket as any).getPeerCertificate(true);
-		peerCertificate.issuerCertificate = undefined; // Circular structure
+		const socket = (request.socket as tls.TLSSocket);
+		const peerCertificate = socket.getPeerCertificate(true);
+		(peerCertificate.issuerCertificate as any) = undefined; // Circular structure
 
 		response.json({
-			authorized: (request.socket as any).authorized,
+			authorized: socket.authorized,
 			peerCertificate
 		});
 	});
@@ -292,10 +295,11 @@ test('invalid client certificate (self-signed)', withHttpsServer(), async (t, se
 
 test('invalid client certificate (other CA)', withHttpsServer(), async (t, server, got) => {
 	server.get('/', (request, response) => {
-		const peerCertificate = (request.socket as any).getPeerCertificate(true);
+		const socket = (request.socket as tls.TLSSocket);
+		const peerCertificate = socket.getPeerCertificate(true);
 
 		response.json({
-			authorized: (request.socket as any).authorized,
+			authorized: socket.authorized,
 			peerCertificate
 		});
 	});
@@ -334,11 +338,12 @@ test('invalid client certificate (other CA)', withHttpsServer(), async (t, serve
 
 test('key passphrase', withHttpsServer(), async (t, server, got) => {
 	server.get('/', (request, response) => {
-		const peerCertificate = (request.socket as any).getPeerCertificate(true);
-		peerCertificate.issuerCertificate.issuerCertificate = undefined; // Circular structure
+		const socket = (request.socket as tls.TLSSocket);
+		const peerCertificate = socket.getPeerCertificate(true);
+		(peerCertificate.issuerCertificate.issuerCertificate as any) = undefined; // Circular structure
 
 		response.json({
-			authorized: (request.socket as any).authorized,
+			authorized: socket.authorized,
 			peerCertificate
 		});
 	});
@@ -357,8 +362,8 @@ test('key passphrase', withHttpsServer(), async (t, server, got) => {
 		csr: clientCSRResult.csr,
 		clientKey: clientCSRResult.clientKey,
 		clientKeyPassword: 'randomPassword',
-		serviceKey: (server as any).caKey,
-		serviceCertificate: (server as any).caCert
+		serviceKey: (server).caKey,
+		serviceCertificate: (server).caCert
 	});
 	const clientCert = clientResult.certificate;
 
@@ -377,11 +382,12 @@ test('key passphrase', withHttpsServer(), async (t, server, got) => {
 
 test('invalid key passphrase', withHttpsServer(), async (t, server, got) => {
 	server.get('/', (request, response) => {
-		const peerCertificate = (request.socket as any).getPeerCertificate(true);
-		peerCertificate.issuerCertificate.issuerCertificate = undefined; // Circular structure
+		const socket = (request.socket as tls.TLSSocket);
+		const peerCertificate = socket.getPeerCertificate(true);
+		(peerCertificate.issuerCertificate.issuerCertificate as any) = undefined; // Circular structure
 
 		response.json({
-			authorized: (request.socket as any).authorized,
+			authorized: socket.authorized,
 			peerCertificate
 		});
 	});
@@ -400,8 +406,8 @@ test('invalid key passphrase', withHttpsServer(), async (t, server, got) => {
 		csr: clientCSRResult.csr,
 		clientKey: clientCSRResult.clientKey,
 		clientKeyPassword: 'randomPassword',
-		serviceKey: (server as any).caKey,
-		serviceCertificate: (server as any).caCert
+		serviceKey: (server).caKey,
+		serviceCertificate: (server).caCert
 	});
 	const clientCert = clientResult.certificate;
 
@@ -432,11 +438,12 @@ test('invalid key passphrase', withHttpsServer(), async (t, server, got) => {
 
 test('client certificate PFX', withHttpsServer(), async (t, server, got) => {
 	server.get('/', (request, response) => {
-		const peerCertificate = (request.socket as any).getPeerCertificate(true);
-		peerCertificate.issuerCertificate = undefined; // Circular structure
+		const socket = (request.socket as tls.TLSSocket);
+		const peerCertificate = socket.getPeerCertificate(true);
+		(peerCertificate.issuerCertificate as any) = undefined; // Circular structure
 
 		response.json({
-			authorized: (request.socket as any).authorized,
+			authorized: socket.authorized,
 			peerCertificate
 		});
 	});
@@ -445,8 +452,8 @@ test('client certificate PFX', withHttpsServer(), async (t, server, got) => {
 	const clientResult = await createCertificate({
 		csr: clientCSRResult.csr,
 		clientKey: clientCSRResult.clientKey,
-		serviceKey: (server as any).caKey,
-		serviceCertificate: (server as any).caCert
+		serviceKey: (server).caKey,
+		serviceCertificate: (server).caCert
 	});
 	// eslint-disable-next-line prefer-destructuring
 	const clientKey = clientResult.clientKey;

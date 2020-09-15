@@ -8,11 +8,10 @@ import getStream = require('get-stream');
 import {Handler} from 'express';
 import got, {CancelError} from '../source';
 import slowDataStream from './helpers/slow-data-stream';
-import {GlobalClock} from './helpers/types';
-import {ExtendedHttpTestServer} from './helpers/create-http-test-server';
-import withServer, {withServerAndFakeTimers} from './helpers/with-server';
+import {withHttpServer, withHttpServerAndFakeTimers, FakeTimer} from './helpers/with-server';
+import {ExtendedHttpServer} from './helpers/http-server';
 
-const prepareServer = (server: ExtendedHttpTestServer, clock: GlobalClock): {emitter: EventEmitter; promise: Promise<unknown>} => {
+const prepareServer = (server: ExtendedHttpServer, clock?: FakeTimer): {emitter: EventEmitter; promise: Promise<unknown>} => {
 	const emitter = new EventEmitter();
 
 	const promise = new Promise((resolve, reject) => {
@@ -39,7 +38,7 @@ const prepareServer = (server: ExtendedHttpTestServer, clock: GlobalClock): {emi
 
 			emitter.emit('sentRedirect');
 
-			clock.tick(3000);
+			clock?.tick(3000);
 			resolve();
 		});
 	});
@@ -47,7 +46,7 @@ const prepareServer = (server: ExtendedHttpTestServer, clock: GlobalClock): {emi
 	return {emitter, promise};
 };
 
-const downloadHandler = (clock: GlobalClock): Handler => (_request, response) => {
+const downloadHandler = (clock?: FakeTimer): Handler => (_request, response) => {
 	response.writeHead(200, {
 		'transfer-encoding': 'chunked'
 	});
@@ -63,7 +62,7 @@ const downloadHandler = (clock: GlobalClock): Handler => (_request, response) =>
 	);
 };
 
-test.serial('does not retry after cancelation', withServerAndFakeTimers, async (t, server, got, clock) => {
+test.serial('does not retry after cancelation', withHttpServerAndFakeTimers(), async (t, server, got, clock) => {
 	const {emitter, promise} = prepareServer(server, clock);
 
 	const gotPromise = got('redirect', {
@@ -83,7 +82,7 @@ test.serial('does not retry after cancelation', withServerAndFakeTimers, async (
 	await t.notThrowsAsync(promise, 'Request finished instead of aborting.');
 });
 
-test.serial('cleans up request timeouts', withServer, async (t, server, got) => {
+test.serial('cleans up request timeouts', withHttpServer(), async (t, server, got) => {
 	server.get('/', () => {});
 
 	const gotPromise = got({
@@ -108,7 +107,7 @@ test.serial('cleans up request timeouts', withServer, async (t, server, got) => 
 	await delay(40);
 });
 
-test.serial('cancels in-progress request', withServerAndFakeTimers, async (t, server, got, clock) => {
+test.serial('cancels in-progress request', withHttpServerAndFakeTimers(), async (t, server, got, clock) => {
 	const {emitter, promise} = prepareServer(server, clock);
 
 	const body = new ReadableStream({
@@ -128,7 +127,7 @@ test.serial('cancels in-progress request', withServerAndFakeTimers, async (t, se
 	await t.notThrowsAsync(promise, 'Request finished instead of aborting.');
 });
 
-test.serial('cancels in-progress request with timeout', withServerAndFakeTimers, async (t, server, got, clock) => {
+test.serial('cancels in-progress request with timeout', withHttpServerAndFakeTimers(), async (t, server, got, clock) => {
 	const {emitter, promise} = prepareServer(server, clock);
 
 	const body = new ReadableStream({
@@ -148,7 +147,7 @@ test.serial('cancels in-progress request with timeout', withServerAndFakeTimers,
 	await t.notThrowsAsync(promise, 'Request finished instead of aborting.');
 });
 
-test.serial('cancel immediately', withServerAndFakeTimers, async (t, server, got, clock) => {
+test.serial('cancel immediately', withHttpServerAndFakeTimers(), async (t, server, got, clock) => {
 	const promise = new Promise((resolve, reject) => {
 		// We won't get an abort or even a connection
 		// We assume no request within 1000ms equals a (client side) aborted request
@@ -157,7 +156,7 @@ test.serial('cancel immediately', withServerAndFakeTimers, async (t, server, got
 			response.end();
 		});
 
-		clock.tick(1000);
+		clock?.tick(1000);
 		resolve();
 	});
 
@@ -200,7 +199,7 @@ test('recover from cancellation using error instance', async t => {
 	await t.notThrowsAsync(recover);
 });
 
-test.serial('throws on incomplete (canceled) response - promise', withServerAndFakeTimers, async (t, server, got, clock) => {
+test.serial('throws on incomplete (canceled) response - promise', withHttpServerAndFakeTimers(), async (t, server, got, clock) => {
 	server.get('/', downloadHandler(clock));
 
 	await t.throwsAsync(
@@ -212,24 +211,24 @@ test.serial('throws on incomplete (canceled) response - promise', withServerAndF
 	);
 });
 
-test.serial('throws on incomplete (canceled) response - promise #2', withServerAndFakeTimers, async (t, server, got, clock) => {
+test.serial('throws on incomplete (canceled) response - promise #2', withHttpServerAndFakeTimers(), async (t, server, got, clock) => {
 	server.get('/', downloadHandler(clock));
 
 	const promise = got('').on('response', () => {
-		clock.tick(500);
+		clock?.tick(500);
 		promise.cancel();
 	});
 
 	await t.throwsAsync(promise, {instanceOf: got.CancelError});
 });
 
-test.serial('throws on incomplete (canceled) response - stream', withServerAndFakeTimers, async (t, server, got, clock) => {
+test.serial('throws on incomplete (canceled) response - stream', withHttpServerAndFakeTimers(), async (t, server, got, clock) => {
 	server.get('/', downloadHandler(clock));
 
 	const errorString = 'Foobar';
 
 	const stream = got.stream('').on('response', () => {
-		clock.tick(500);
+		clock?.tick(500);
 		stream.destroy(new Error(errorString));
 	});
 
@@ -237,7 +236,7 @@ test.serial('throws on incomplete (canceled) response - stream', withServerAndFa
 });
 
 // Note: it will throw, but the response is loaded already.
-test('throws when canceling cached request', withServer, async (t, server, got) => {
+test('throws when canceling cached request', withHttpServer(), async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.setHeader('Cache-Control', 'public, max-age=60');
 		response.end(Date.now().toString());
@@ -253,7 +252,7 @@ test('throws when canceling cached request', withServer, async (t, server, got) 
 	await t.throwsAsync(promise, {instanceOf: got.CancelError});
 });
 
-test('throws when canceling cached request #2', withServer, async (t, server, got) => {
+test('throws when canceling cached request #2', withHttpServer(), async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.setHeader('Cache-Control', 'public, max-age=60');
 		response.end(Date.now().toString());

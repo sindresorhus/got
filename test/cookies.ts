@@ -3,9 +3,9 @@ import test from 'ava';
 import toughCookie = require('tough-cookie');
 import delay = require('delay');
 import got from '../source';
-import withServer from './helpers/with-server';
+import {withHttpServer} from './helpers/with-server';
 
-test('reads a cookie', withServer, async (t, server, got) => {
+test('reads a cookie', withHttpServer(), async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.setHeader('set-cookie', 'hello=world');
 		response.end();
@@ -20,7 +20,7 @@ test('reads a cookie', withServer, async (t, server, got) => {
 	t.is(cookie.value, 'world');
 });
 
-test('reads multiple cookies', withServer, async (t, server, got) => {
+test('reads multiple cookies', withHttpServer(), async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.setHeader('set-cookie', ['hello=world', 'foo=bar']);
 		response.end();
@@ -40,7 +40,7 @@ test('reads multiple cookies', withServer, async (t, server, got) => {
 	t.is(cookieB.value, 'bar');
 });
 
-test('cookies doesn\'t break on redirects', withServer, async (t, server, got) => {
+test('cookies doesn\'t break on redirects', withHttpServer(), async (t, server, got) => {
 	server.get('/redirect', (_request, response) => {
 		response.setHeader('set-cookie', ['hello=world', 'foo=bar']);
 		response.setHeader('location', '/');
@@ -58,7 +58,7 @@ test('cookies doesn\'t break on redirects', withServer, async (t, server, got) =
 	t.is(body, 'hello=world; foo=bar');
 });
 
-test('throws on invalid cookies', withServer, async (t, server, got) => {
+test('throws on invalid cookies', withHttpServer(), async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.setHeader('set-cookie', 'hello=world; domain=localhost');
 		response.end();
@@ -69,7 +69,7 @@ test('throws on invalid cookies', withServer, async (t, server, got) => {
 	await t.throwsAsync(got({cookieJar}), {message: 'Cookie has domain set to a public suffix'});
 });
 
-test('does not throw on invalid cookies when options.ignoreInvalidCookies is set', withServer, async (t, server, got) => {
+test('does not throw on invalid cookies when options.ignoreInvalidCookies is set', withHttpServer(), async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.setHeader('set-cookie', 'hello=world; domain=localhost');
 		response.end();
@@ -104,7 +104,7 @@ test('catches store errors', async t => {
 	await t.throwsAsync(got('https://example.com', {cookieJar}), {message: error});
 });
 
-test('overrides options.headers.cookie', withServer, async (t, server, got) => {
+test('overrides options.headers.cookie', withHttpServer(), async (t, server, got) => {
 	server.get('/redirect', (_request, response) => {
 		response.setHeader('set-cookie', ['hello=world', 'foo=bar']);
 		response.setHeader('location', '/');
@@ -149,7 +149,7 @@ test('no unhandled errors', async t => {
 	server.close();
 });
 
-test('accepts custom `cookieJar` object', withServer, async (t, server, got) => {
+test('accepts custom `cookieJar` object', withHttpServer(), async (t, server, got) => {
 	server.get('/', (request, response) => {
 		response.setHeader('set-cookie', ['hello=world']);
 		response.end(request.headers.cookie);
@@ -194,7 +194,7 @@ test('throws on invalid `options.cookieJar.getCookieString`', async t => {
 	}), {message: 'Expected value which is `Function`, received value of type `number`.'});
 });
 
-test('cookies are cleared when redirecting to a different hostname (no cookieJar)', withServer, async (t, server, got) => {
+test('cookies are cleared when redirecting to a different hostname (no cookieJar)', withHttpServer(), async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.writeHead(302, {
 			location: 'https://httpbin.org/anything'

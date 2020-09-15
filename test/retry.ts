@@ -8,7 +8,7 @@ import {Handler} from 'express';
 import getStream = require('get-stream');
 import pEvent = require('p-event');
 import got, {HTTPError} from '../source';
-import withServer from './helpers/with-server';
+import {withHttpServer} from './helpers/with-server';
 
 const retryAfterOn413 = 2;
 const socketTimeout = 300;
@@ -34,7 +34,7 @@ const createSocketTimeoutStream = (): http.ClientRequest => {
 	return stream as unknown as http.ClientRequest;
 };
 
-test('works on timeout', withServer, async (t, server, got) => {
+test('works on timeout', withHttpServer(), async (t, server, got) => {
 	let knocks = 0;
 	server.get('/', (_request, response) => {
 		response.end('who`s there?');
@@ -60,7 +60,7 @@ test('works on timeout', withServer, async (t, server, got) => {
 	})).body, 'who`s there?');
 });
 
-test('retry function gets iteration count', withServer, async (t, server, got) => {
+test('retry function gets iteration count', withHttpServer(), async (t, server, got) => {
 	let knocks = 0;
 	server.get('/', (_request, response) => {
 		if (knocks++ === 1) {
@@ -100,7 +100,7 @@ test('setting to `0` disables retrying', async t => {
 	});
 });
 
-test('custom retries', withServer, async (t, server, got) => {
+test('custom retries', withHttpServer(), async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.statusCode = 500;
 		response.end();
@@ -130,7 +130,7 @@ test('custom retries', withServer, async (t, server, got) => {
 	t.true(hasTried);
 });
 
-test('custom retries async', withServer, async (t, server, got) => {
+test('custom retries async', withHttpServer(), async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.statusCode = 500;
 		response.end();
@@ -199,7 +199,7 @@ test('custom error codes', async t => {
 	t.is(error.code, errorCode);
 });
 
-test('respects 413 Retry-After', withServer, async (t, server, got) => {
+test('respects 413 Retry-After', withHttpServer(), async (t, server, got) => {
 	let lastTried413access = Date.now();
 	server.get('/', (_request, response) => {
 		response.writeHead(413, {
@@ -218,7 +218,7 @@ test('respects 413 Retry-After', withServer, async (t, server, got) => {
 	t.true(Number(body) >= retryAfterOn413 * 1000);
 });
 
-test('respects 413 Retry-After with RFC-1123 timestamp', withServer, async (t, server, got) => {
+test('respects 413 Retry-After with RFC-1123 timestamp', withHttpServer(), async (t, server, got) => {
 	let lastTried413TimestampAccess: string;
 	server.get('/', (_request, response) => {
 		const date = (new Date(Date.now() + (retryAfterOn413 * 1000))).toUTCString();
@@ -238,7 +238,7 @@ test('respects 413 Retry-After with RFC-1123 timestamp', withServer, async (t, s
 	t.true(Date.now() >= Date.parse(body));
 });
 
-test('doesn\'t retry on 413 with empty statusCodes and methods', withServer, async (t, server, got) => {
+test('doesn\'t retry on 413 with empty statusCodes and methods', withHttpServer(), async (t, server, got) => {
 	server.get('/', handler413);
 
 	const {statusCode, retryCount} = await got({
@@ -253,7 +253,7 @@ test('doesn\'t retry on 413 with empty statusCodes and methods', withServer, asy
 	t.is(retryCount, 0);
 });
 
-test('doesn\'t retry on 413 with empty methods', withServer, async (t, server, got) => {
+test('doesn\'t retry on 413 with empty methods', withHttpServer(), async (t, server, got) => {
 	server.get('/', handler413);
 
 	const {statusCode, retryCount} = await got({
@@ -268,7 +268,7 @@ test('doesn\'t retry on 413 with empty methods', withServer, async (t, server, g
 	t.is(retryCount, 0);
 });
 
-test('doesn\'t retry on 413 without Retry-After header', withServer, async (t, server, got) => {
+test('doesn\'t retry on 413 without Retry-After header', withHttpServer(), async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.statusCode = 413;
 		response.end();
@@ -280,7 +280,7 @@ test('doesn\'t retry on 413 without Retry-After header', withServer, async (t, s
 	t.is(retryCount, 0);
 });
 
-test('retries on 503 without Retry-After header', withServer, async (t, server, got) => {
+test('retries on 503 without Retry-After header', withHttpServer(), async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.statusCode = 503;
 		response.end();
@@ -293,7 +293,7 @@ test('retries on 503 without Retry-After header', withServer, async (t, server, 
 	t.is(retryCount, 1);
 });
 
-test('doesn\'t retry on streams', withServer, async (t, server, got) => {
+test('doesn\'t retry on streams', withHttpServer(), async (t, server, got) => {
 	server.get('/', () => {});
 
 	// @ts-expect-error Error tests
@@ -308,7 +308,7 @@ test('doesn\'t retry on streams', withServer, async (t, server, got) => {
 	await t.throwsAsync(pEvent(stream, 'response'));
 });
 
-test('doesn\'t retry if Retry-After header is greater than maxRetryAfter', withServer, async (t, server, got) => {
+test('doesn\'t retry if Retry-After header is greater than maxRetryAfter', withHttpServer(), async (t, server, got) => {
 	server.get('/', handler413);
 
 	const {retryCount} = await got({
@@ -318,7 +318,7 @@ test('doesn\'t retry if Retry-After header is greater than maxRetryAfter', withS
 	t.is(retryCount, 0);
 });
 
-test('doesn\'t retry when set to 0', withServer, async (t, server, got) => {
+test('doesn\'t retry when set to 0', withHttpServer(), async (t, server, got) => {
 	server.get('/', handler413);
 
 	const {statusCode, retryCount} = await got({
@@ -329,7 +329,7 @@ test('doesn\'t retry when set to 0', withServer, async (t, server, got) => {
 	t.is(retryCount, 0);
 });
 
-test('works when defaults.options.retry is a number', withServer, async (t, server, got) => {
+test('works when defaults.options.retry is a number', withHttpServer(), async (t, server, got) => {
 	server.get('/', handler413);
 
 	const instance = got.extend({
@@ -342,7 +342,7 @@ test('works when defaults.options.retry is a number', withServer, async (t, serv
 	t.is(retryCount, 2);
 });
 
-test('retry function can throw', withServer, async (t, server, got) => {
+test('retry function can throw', withHttpServer(), async (t, server, got) => {
 	server.get('/', handler413);
 
 	const error = 'Simple error';
@@ -355,7 +355,7 @@ test('retry function can throw', withServer, async (t, server, got) => {
 	}), {message: error});
 });
 
-test('does not retry on POST', withServer, async (t, server, got) => {
+test('does not retry on POST', withHttpServer(), async (t, server, got) => {
 	server.post('/', () => {});
 
 	await t.throwsAsync(got.post({
@@ -370,7 +370,7 @@ test('does not retry on POST', withServer, async (t, server, got) => {
 	}), {instanceOf: got.TimeoutError});
 });
 
-test('does not break on redirect', withServer, async (t, server, got) => {
+test('does not break on redirect', withHttpServer(), async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.statusCode = 500;
 		response.end();
@@ -390,7 +390,7 @@ test('does not break on redirect', withServer, async (t, server, got) => {
 	t.is(tries, 1);
 });
 
-test('does not destroy the socket on HTTP error', withServer, async (t, server, got) => {
+test('does not destroy the socket on HTTP error', withHttpServer(), async (t, server, got) => {
 	let returnServerError = true;
 
 	server.get('/', (_request, response) => {
@@ -422,7 +422,7 @@ test('does not destroy the socket on HTTP error', withServer, async (t, server, 
 	agent.destroy();
 });
 
-test('can retry a Got stream', withServer, async (t, server, got) => {
+test('can retry a Got stream', withHttpServer(), async (t, server, got) => {
 	let returnServerError = true;
 
 	server.get('/', (_request, response) => {
@@ -474,7 +474,7 @@ test('can retry a Got stream', withServer, async (t, server, got) => {
 	t.is(globalRetryCount, 1);
 });
 
-test('throws when cannot retry a Got stream', withServer, async (t, server, got) => {
+test('throws when cannot retry a Got stream', withHttpServer(), async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.statusCode = 500;
 		response.end('not ok');
@@ -512,7 +512,7 @@ test('throws when cannot retry a Got stream', withServer, async (t, server, got)
 	t.is(globalRetryCount, 2);
 });
 
-test('promise does not retry when body is a stream', withServer, async (t, server, got) => {
+test('promise does not retry when body is a stream', withHttpServer(), async (t, server, got) => {
 	server.post('/', (_request, response) => {
 		response.statusCode = 500;
 		response.end('not ok');

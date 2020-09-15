@@ -1,9 +1,9 @@
 import {ClientRequest, IncomingMessage} from 'http';
 import test from 'ava';
 import {Response} from '../source';
-import withServer from './helpers/with-server';
+import {withHttpServer} from './helpers/with-server';
 
-test('emits request event as promise', withServer, async (t, server, got) => {
+test('emits request event as promise', withHttpServer(), async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.statusCode = 200;
 		response.end('null');
@@ -14,7 +14,7 @@ test('emits request event as promise', withServer, async (t, server, got) => {
 	});
 });
 
-test('emits response event as promise', withServer, async (t, server, got) => {
+test('emits response event as promise', withHttpServer(), async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.statusCode = 200;
 		response.end('null');
@@ -28,7 +28,7 @@ test('emits response event as promise', withServer, async (t, server, got) => {
 	});
 });
 
-test('returns buffer on compressed response', withServer, async (t, server, got) => {
+test('returns buffer on compressed response', withHttpServer(), async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.setHeader('content-encoding', 'gzip');
 		response.end();
@@ -38,7 +38,7 @@ test('returns buffer on compressed response', withServer, async (t, server, got)
 	t.true(Buffer.isBuffer(body));
 });
 
-test('no unhandled `The server aborted pending request` rejection', withServer, async (t, server, got) => {
+test('no unhandled `The server aborted pending request` rejection', withHttpServer(), async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.statusCode = 503;
 		response.write('asdf');

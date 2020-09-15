@@ -1,13 +1,13 @@
 import test from 'ava';
 import {Handler} from 'express';
 import got, {BeforeRequestHook, Got, Headers, NormalizedOptions} from '../source';
-import withServer from './helpers/with-server';
+import {withHttpServer} from './helpers/with-server';
 
 const echoHeaders: Handler = (request, response) => {
 	response.end(JSON.stringify(request.headers));
 };
 
-test('merging instances', withServer, async (t, server) => {
+test('merging instances', withHttpServer(), async (t, server) => {
 	server.get('/', echoHeaders);
 
 	const instanceA = got.extend({headers: {unicorn: 'rainbow'}});
@@ -19,7 +19,7 @@ test('merging instances', withServer, async (t, server) => {
 	t.not(headers['user-agent'], undefined);
 });
 
-test('merges default handlers & custom handlers', withServer, async (t, server) => {
+test('merges default handlers & custom handlers', withHttpServer(), async (t, server) => {
 	server.get('/', echoHeaders);
 
 	const instanceA = got.extend({headers: {unicorn: 'rainbow'}});
@@ -38,7 +38,7 @@ test('merges default handlers & custom handlers', withServer, async (t, server) 
 	t.is(headers.cat, 'meow');
 });
 
-test('merging one group & one instance', withServer, async (t, server) => {
+test('merging one group & one instance', withHttpServer(), async (t, server) => {
 	server.get('/', echoHeaders);
 
 	const instanceA = got.extend({headers: {dog: 'woof'}});
@@ -56,7 +56,7 @@ test('merging one group & one instance', withServer, async (t, server) => {
 	t.is(headers.mouse, 'squeek');
 });
 
-test('merging two groups of merged instances', withServer, async (t, server) => {
+test('merging two groups of merged instances', withHttpServer(), async (t, server) => {
 	server.get('/', echoHeaders);
 
 	const instanceA = got.extend({headers: {dog: 'woof'}});
@@ -103,7 +103,7 @@ test('default handlers are not duplicated', t => {
 	t.is(instance.defaults.handlers.length, 1);
 });
 
-test('URL is not polluted', withServer, async (t, server, got) => {
+test('URL is not polluted', withHttpServer(), async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.end('ok');
 	});

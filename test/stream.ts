@@ -10,7 +10,7 @@ import pEvent = require('p-event');
 import FormData = require('form-data');
 import is from '@sindresorhus/is';
 import got, {RequestError} from '../source';
-import withServer from './helpers/with-server';
+import {withHttpServer} from './helpers/with-server';
 
 const pStreamPipeline = promisify(stream.pipeline);
 
@@ -46,20 +46,20 @@ const infiniteHandler: Handler = (_request, response) => {
 	response.write('foobar');
 };
 
-test('`options.responseType` is ignored', withServer, async (t, server, got) => {
+test('`options.responseType` is ignored', withHttpServer(), async (t, server, got) => {
 	server.get('/', defaultHandler);
 
 	await t.notThrowsAsync(getStream(got.stream({responseType: 'json'})));
 });
 
-test('returns readable stream', withServer, async (t, server, got) => {
+test('returns readable stream', withHttpServer(), async (t, server, got) => {
 	server.get('/', defaultHandler);
 
 	const data = await getStream(got.stream(''));
 	t.is(data, 'ok');
 });
 
-test('returns writeable stream', withServer, async (t, server, got) => {
+test('returns writeable stream', withHttpServer(), async (t, server, got) => {
 	server.post('/', postHandler);
 
 	const stream = got.stream.post('');
@@ -69,7 +69,7 @@ test('returns writeable stream', withServer, async (t, server, got) => {
 	t.is(await promise, 'wow');
 });
 
-test('throws on write if body is specified', withServer, (t, server, got) => {
+test('throws on write if body is specified', withHttpServer(), (t, server, got) => {
 	server.post('/', postHandler);
 
 	const streams = [
@@ -89,19 +89,19 @@ test('throws on write if body is specified', withServer, (t, server, got) => {
 	}
 });
 
-test('does not throw if using stream and passing a json option', withServer, async (t, server, got) => {
+test('does not throw if using stream and passing a json option', withHttpServer(), async (t, server, got) => {
 	server.post('/', postHandler);
 
 	await t.notThrowsAsync(getStream(got.stream.post({json: {}})));
 });
 
-test('does not throw if using stream and passing a form option', withServer, async (t, server, got) => {
+test('does not throw if using stream and passing a form option', withHttpServer(), async (t, server, got) => {
 	server.post('/', postHandler);
 
 	await t.notThrowsAsync(getStream(got.stream.post({form: {}})));
 });
 
-test('throws on write if no payload method is present', withServer, (t, server, got) => {
+test('throws on write if no payload method is present', withHttpServer(), (t, server, got) => {
 	server.post('/', postHandler);
 
 	const stream = got.stream.get('');
@@ -115,7 +115,7 @@ test('throws on write if no payload method is present', withServer, (t, server, 
 	stream.destroy();
 });
 
-test('has request event', withServer, async (t, server, got) => {
+test('has request event', withHttpServer(), async (t, server, got) => {
 	server.get('/', defaultHandler);
 
 	const stream = got.stream('');
@@ -126,7 +126,7 @@ test('has request event', withServer, async (t, server, got) => {
 	await getStream(stream);
 });
 
-test('has redirect event', withServer, async (t, server, got) => {
+test('has redirect event', withHttpServer(), async (t, server, got) => {
 	server.get('/', defaultHandler);
 	server.get('/redirect', redirectHandler);
 
@@ -137,14 +137,14 @@ test('has redirect event', withServer, async (t, server, got) => {
 	await getStream(stream);
 });
 
-test('has response event', withServer, async (t, server, got) => {
+test('has response event', withHttpServer(), async (t, server, got) => {
 	server.get('/', defaultHandler);
 
 	const {statusCode} = await pEvent(got.stream(''), 'response');
 	t.is(statusCode, 200);
 });
 
-test('has error event', withServer, async (t, server, got) => {
+test('has error event', withHttpServer(), async (t, server, got) => {
 	server.get('/', errorHandler);
 
 	const stream = got.stream('');
@@ -163,21 +163,21 @@ test('has error event #2', async t => {
 	}
 });
 
-test('has response event if `options.throwHttpErrors` is false', withServer, async (t, server, got) => {
+test('has response event if `options.throwHttpErrors` is false', withHttpServer(), async (t, server, got) => {
 	server.get('/', errorHandler);
 
 	const {statusCode} = await pEvent(got.stream({throwHttpErrors: false}), 'response');
 	t.is(statusCode, 404);
 });
 
-test('accepts `options.body` as a Stream', withServer, async (t, server, got) => {
+test('accepts `options.body` as a Stream', withHttpServer(), async (t, server, got) => {
 	server.post('/', postHandler);
 
 	const stream = got.stream.post({body: toReadableStream('wow')});
 	t.is(await getStream(stream), 'wow');
 });
 
-test('redirect response contains old url', withServer, async (t, server, got) => {
+test('redirect response contains old url', withHttpServer(), async (t, server, got) => {
 	server.get('/', defaultHandler);
 	server.get('/redirect', redirectHandler);
 
@@ -185,7 +185,7 @@ test('redirect response contains old url', withServer, async (t, server, got) =>
 	t.is(requestUrl, `${server.url}/redirect`);
 });
 
-test('check for pipe method', withServer, (t, server, got) => {
+test('check for pipe method', withHttpServer(), (t, server, got) => {
 	server.get('/', defaultHandler);
 
 	const stream = got.stream('');
@@ -195,14 +195,14 @@ test('check for pipe method', withServer, (t, server, got) => {
 	stream.destroy();
 });
 
-test('piping works', withServer, async (t, server, got) => {
+test('piping works', withHttpServer(), async (t, server, got) => {
 	server.get('/', defaultHandler);
 
 	t.is(await getStream(got.stream('')), 'ok');
 	t.is(await getStream(got.stream('').on('foobar', () => {})), 'ok');
 });
 
-test('proxying headers works', withServer, async (t, server, got) => {
+test('proxying headers works', withHttpServer(), async (t, server, got) => {
 	server.get('/', defaultHandler);
 	server.get('/proxy', async (_request, response) => {
 		await pStreamPipeline(
@@ -217,7 +217,7 @@ test('proxying headers works', withServer, async (t, server, got) => {
 	t.is(body, 'ok');
 });
 
-test('piping server request to Got proxies also headers', withServer, async (t, server, got) => {
+test('piping server request to Got proxies also headers', withHttpServer(), async (t, server, got) => {
 	server.get('/', headersHandler);
 	server.get('/proxy', async (request, response) => {
 		await pStreamPipeline(
@@ -235,7 +235,7 @@ test('piping server request to Got proxies also headers', withServer, async (t, 
 	t.is(foo, 'bar');
 });
 
-test('skips proxying headers after server has sent them already', withServer, async (t, server, got) => {
+test('skips proxying headers after server has sent them already', withHttpServer(), async (t, server, got) => {
 	server.get('/', defaultHandler);
 	server.get('/proxy', async (_request, response) => {
 		response.writeHead(200);
@@ -250,7 +250,7 @@ test('skips proxying headers after server has sent them already', withServer, as
 	t.is(headers.unicorn, undefined);
 });
 
-test('throws when trying to proxy through a closed stream', withServer, async (t, server, got) => {
+test('throws when trying to proxy through a closed stream', withHttpServer(), async (t, server, got) => {
 	server.get('/', defaultHandler);
 
 	const stream = got.stream('');
@@ -267,7 +267,7 @@ test('throws when trying to proxy through a closed stream', withServer, async (t
 	await promise;
 });
 
-test('proxies `content-encoding` header when `options.decompress` is false', withServer, async (t, server, got) => {
+test('proxies `content-encoding` header when `options.decompress` is false', withHttpServer(), async (t, server, got) => {
 	server.get('/', defaultHandler);
 	server.get('/proxy', async (_request, response) => {
 		await pStreamPipeline(
@@ -285,7 +285,7 @@ test('proxies `content-encoding` header when `options.decompress` is false', wit
 	const nodejsMajorVersion = Number(process.versions.node.split('.')[0]);
 	const testFn = nodejsMajorVersion < 14 ? test.failing : test;
 
-	testFn('destroying got.stream() destroys the request - `request` event', withServer, async (t, server, got) => {
+	testFn('destroying got.stream() destroys the request - `request` event', withHttpServer(), async (t, server, got) => {
 		server.get('/', defaultHandler);
 
 		const stream = got.stream('');
@@ -294,7 +294,7 @@ test('proxies `content-encoding` header when `options.decompress` is false', wit
 		t.truthy(request.destroyed);
 	});
 
-	testFn('destroying got.stream() destroys the request - `response` event', withServer, async (t, server, got) => {
+	testFn('destroying got.stream() destroys the request - `response` event', withHttpServer(), async (t, server, got) => {
 		server.get('/', (_request, response) => {
 			response.write('hello');
 		});
@@ -307,7 +307,7 @@ test('proxies `content-encoding` header when `options.decompress` is false', wit
 	});
 }
 
-test('piping to got.stream.put()', withServer, async (t, server, got) => {
+test('piping to got.stream.put()', withHttpServer(), async (t, server, got) => {
 	server.get('/', defaultHandler);
 	server.put('/post', postHandler);
 
@@ -347,7 +347,7 @@ test('works with pipeline', async t => {
 	});
 });
 
-test('errors have body', withServer, async (t, server, got) => {
+test('errors have body', withHttpServer(), async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.setHeader('set-cookie', 'foo=bar');
 		response.end('yay');
@@ -366,7 +366,7 @@ test('errors have body', withServer, async (t, server, got) => {
 	t.is(error.response?.body, 'yay');
 });
 
-test('pipe can send modified headers', withServer, async (t, server, got) => {
+test('pipe can send modified headers', withHttpServer(), async (t, server, got) => {
 	server.get('/foobar', (_request, response) => {
 		response.setHeader('foo', 'bar');
 		response.end();
@@ -382,7 +382,7 @@ test('pipe can send modified headers', withServer, async (t, server, got) => {
 	t.is(headers.foo, 'boo');
 });
 
-test('the socket is alive on a successful pipeline', withServer, async (t, server, got) => {
+test('the socket is alive on a successful pipeline', withHttpServer(), async (t, server, got) => {
 	const payload = 'ok';
 
 	server.get('/', (_request, response) => {
@@ -400,7 +400,7 @@ test('the socket is alive on a successful pipeline', withServer, async (t, serve
 	t.false(gotStream.socket!.destroyed);
 });
 
-test('async iterator works', withServer, async (t, server, got) => {
+test('async iterator works', withHttpServer(), async (t, server, got) => {
 	const payload = 'ok';
 
 	server.get('/', (_request, response) => {
@@ -418,7 +418,7 @@ test('async iterator works', withServer, async (t, server, got) => {
 });
 
 if (process.versions.node.split('.')[0] <= '12') {
-	test('does not emit end event on error', withServer, async (t, server, got) => {
+	test('does not emit end event on error', withHttpServer(), async (t, server, got) => {
 		server.get('/', infiniteHandler);
 
 		await t.notThrowsAsync(new Promise((resolve, reject) => {

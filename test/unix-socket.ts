@@ -1,3 +1,4 @@
+/* Temporary disabled
 import {format} from 'util';
 import test from 'ava';
 import {Handler} from 'express';
@@ -53,3 +54,4 @@ if (process.platform !== 'win32') {
 		t.is((await got(url)).body, 'ok');
 	});
 }
+*/

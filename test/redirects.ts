@@ -2,7 +2,7 @@ import test from 'ava';
 import {Handler} from 'express';
 import nock = require('nock');
 import got, {MaxRedirectsError} from '../source';
-import withServer, {withHttpsServer} from './helpers/with-server';
+import {withHttpServer, withHttpsServer} from './helpers/with-server';
 
 const reachedHandler: Handler = (_request, response) => {
 	const body = 'reached';
@@ -27,7 +27,7 @@ const relativeHandler: Handler = (_request, response) => {
 	response.end();
 };
 
-test('follows redirect', withServer, async (t, server, got) => {
+test('follows redirect', withHttpServer(), async (t, server, got) => {
 	server.get('/', reachedHandler);
 	server.get('/finite', finiteHandler);
 
@@ -36,7 +36,7 @@ test('follows redirect', withServer, async (t, server, got) => {
 	t.deepEqual(redirectUrls, [`${server.url}/`]);
 });
 
-test('follows 307, 308 redirect', withServer, async (t, server, got) => {
+test('follows 307, 308 redirect', withHttpServer(), async (t, server, got) => {
 	server.get('/', reachedHandler);
 
 	server.get('/temporary', (_request, response) => {
@@ -60,20 +60,20 @@ test('follows 307, 308 redirect', withServer, async (t, server, got) => {
 	t.is(permBody, 'reached');
 });
 
-test('does not follow redirect when disabled', withServer, async (t, server, got) => {
+test('does not follow redirect when disabled', withHttpServer(), async (t, server, got) => {
 	server.get('/', finiteHandler);
 
 	t.is((await got({followRedirect: false})).statusCode, 302);
 });
 
-test('relative redirect works', withServer, async (t, server, got) => {
+test('relative redirect works', withHttpServer(), async (t, server, got) => {
 	server.get('/', reachedHandler);
 	server.get('/relative', relativeHandler);
 
 	t.is((await got('relative')).body, 'reached');
 });
 
-test('throws on endless redirects - default behavior', withServer, async (t, server, got) => {
+test('throws on endless redirects - default behavior', withHttpServer(), async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.writeHead(302, {
 			location: server.url
@@ -86,7 +86,7 @@ test('throws on endless redirects - default behavior', withServer, async (t, ser
 	t.deepEqual(error.response.redirectUrls, new Array(10).fill(`${server.url}/`));
 });
 
-test('custom `maxRedirects` option', withServer, async (t, server, got) => {
+test('custom `maxRedirects` option', withHttpServer(), async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.writeHead(302, {
 			location: server.url
@@ -99,7 +99,7 @@ test('custom `maxRedirects` option', withServer, async (t, server, got) => {
 	t.deepEqual(error.response.redirectUrls, new Array(5).fill(`${server.url}/`));
 });
 
-test('searchParams are not breaking redirects', withServer, async (t, server, got) => {
+test('searchParams are not breaking redirects', withHttpServer(), async (t, server, got) => {
 	server.get('/', reachedHandler);
 
 	server.get('/relativeSearchParam', (request, response) => {
@@ -114,7 +114,7 @@ test('searchParams are not breaking redirects', withServer, async (t, server, go
 	t.is((await got('relativeSearchParam', {searchParams: 'bang=1'})).body, 'reached');
 });
 
-test('redirects GET and HEAD requests', withServer, async (t, server, got) => {
+test('redirects GET and HEAD requests', withHttpServer(), async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.writeHead(308, {
 			location: '/'
@@ -127,7 +127,7 @@ test('redirects GET and HEAD requests', withServer, async (t, server, got) => {
 	});
 });
 
-test('redirects POST requests', withServer, async (t, server, got) => {
+test('redirects POST requests', withHttpServer(), async (t, server, got) => {
 	server.post('/', (_request, response) => {
 		response.writeHead(308, {
 			location: '/'
@@ -140,7 +140,7 @@ test('redirects POST requests', withServer, async (t, server, got) => {
 	});
 });
 
-test('redirects on 303 if GET or HEAD', withServer, async (t, server, got) => {
+test('redirects on 303 if GET or HEAD', withHttpServer(), async (t, server, got) => {
 	server.get('/', reachedHandler);
 
 	server.head('/seeOther', (_request, response) => {
@@ -156,7 +156,7 @@ test('redirects on 303 if GET or HEAD', withServer, async (t, server, got) => {
 	t.is(request.options.method, 'HEAD');
 });
 
-test('redirects on 303 response even on post, put, delete', withServer, async (t, server, got) => {
+test('redirects on 303 response even on post, put, delete', withHttpServer(), async (t, server, got) => {
 	server.get('/', reachedHandler);
 
 	server.post('/seeOther', (_request, response) => {
@@ -171,7 +171,7 @@ test('redirects on 303 response even on post, put, delete', withServer, async (t
 	t.is(body, 'reached');
 });
 
-test('redirects from http to https work', withServer, async (t, serverHttp) => {
+test('redirects from http to https work', withHttpServer(), async (t, serverHttp) => {
 	await withHttpsServer()(t, async (t, serverHttps, got) => {
 		serverHttp.get('/', (_request, response) => {
 			response.end('http');
@@ -195,7 +195,7 @@ test('redirects from http to https work', withServer, async (t, serverHttp) => {
 });
 
 test('redirects from https to http work', withHttpsServer(), async (t, serverHttps, got) => {
-	await withServer(t, async (t, serverHttp) => {
+	await withHttpServer()(t, async (t, serverHttp) => {
 		serverHttp.get('/', (_request, response) => {
 			response.end('http');
 		});
@@ -217,7 +217,7 @@ test('redirects from https to http work', withHttpsServer(), async (t, serverHtt
 	});
 });
 
-test('redirects works with lowercase method', withServer, async (t, server, got) => {
+test('redirects works with lowercase method', withHttpServer(), async (t, server, got) => {
 	server.get('/', reachedHandler);
 	server.get('/relative', relativeHandler);
 
@@ -225,7 +225,7 @@ test('redirects works with lowercase method', withServer, async (t, server, got)
 	t.is(body, '');
 });
 
-test('redirect response contains new url', withServer, async (t, server, got) => {
+test('redirect response contains new url', withHttpServer(), async (t, server, got) => {
 	server.get('/', reachedHandler);
 	server.get('/finite', finiteHandler);
 
@@ -233,7 +233,7 @@ test('redirect response contains new url', withServer, async (t, server, got) =>
 	t.is(url, `${server.url}/`);
 });
 
-test('redirect response contains old url', withServer, async (t, server, got) => {
+test('redirect response contains old url', withHttpServer(), async (t, server, got) => {
 	server.get('/', reachedHandler);
 	server.get('/finite', finiteHandler);
 
@@ -241,7 +241,7 @@ test('redirect response contains old url', withServer, async (t, server, got) =>
 	t.is(requestUrl, `${server.url}/finite`);
 });
 
-test('redirect response contains UTF-8 with binary encoding', withServer, async (t, server, got) => {
+test('redirect response contains UTF-8 with binary encoding', withHttpServer(), async (t, server, got) => {
 	server.get('/utf8-url-%C3%A1%C3%A9', reachedHandler);
 
 	server.get('/redirect-with-utf8-binary', (_request, response) => {
@@ -254,7 +254,7 @@ test('redirect response contains UTF-8 with binary encoding', withServer, async 
 	t.is((await got('redirect-with-utf8-binary')).body, 'reached');
 });
 
-test('redirect response contains UTF-8 with URI encoding', withServer, async (t, server, got) => {
+test('redirect response contains UTF-8 with URI encoding', withHttpServer(), async (t, server, got) => {
 	server.get('/', (request, response) => {
 		t.is(request.query.test, 'it’s ok');
 		response.end('reached');
@@ -270,7 +270,7 @@ test('redirect response contains UTF-8 with URI encoding', withServer, async (t,
 	t.is((await got('redirect-with-uri-encoded-location')).body, 'reached');
 });
 
-test('throws on malformed redirect URI', withServer, async (t, server, got) => {
+test('throws on malformed redirect URI', withHttpServer(), async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.writeHead(302, {
 			location: '/%D8'
@@ -283,7 +283,7 @@ test('throws on malformed redirect URI', withServer, async (t, server, got) => {
 	});
 });
 
-test('throws on invalid redirect URL', withServer, async (t, server, got) => {
+test('throws on invalid redirect URL', withHttpServer(), async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.writeHead(302, {
 			location: 'http://'
@@ -296,7 +296,7 @@ test('throws on invalid redirect URL', withServer, async (t, server, got) => {
 	});
 });
 
-test('port is reset on redirect', withServer, async (t, server, got) => {
+test('port is reset on redirect', withHttpServer(), async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.writeHead(307, {
 			location: 'http://localhost'
@@ -310,7 +310,7 @@ test('port is reset on redirect', withServer, async (t, server, got) => {
 	t.is(body, 'ok');
 });
 
-test('body is reset on GET redirect', withServer, async (t, server, got) => {
+test('body is reset on GET redirect', withHttpServer(), async (t, server, got) => {
 	server.post('/', (_request, response) => {
 		response.writeHead(303, {
 			location: '/'
@@ -356,7 +356,7 @@ test('body is reset on GET redirect', withServer, async (t, server, got) => {
 	});
 });
 
-test('body is passed on POST redirect', withServer, async (t, server, got) => {
+test('body is passed on POST redirect', withHttpServer(), async (t, server, got) => {
 	server.post('/redirect', (_request, response) => {
 		response.writeHead(302, {
 			location: '/'
@@ -382,7 +382,7 @@ test('body is passed on POST redirect', withServer, async (t, server, got) => {
 	t.is(body, 'foobar');
 });
 
-test('method rewriting can be turned off', withServer, async (t, server, got) => {
+test('method rewriting can be turned off', withHttpServer(), async (t, server, got) => {
 	server.post('/redirect', (_request, response) => {
 		response.writeHead(302, {
 			location: '/'
@@ -409,7 +409,7 @@ test('method rewriting can be turned off', withServer, async (t, server, got) =>
 	t.is(body, '');
 });
 
-test('clears username and password when redirecting to a different hostname', withServer, async (t, server, got) => {
+test('clears username and password when redirecting to a different hostname', withHttpServer(), async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.writeHead(302, {
 			location: 'https://httpbin.org/anything'
@@ -424,7 +424,7 @@ test('clears username and password when redirecting to a different hostname', wi
 	t.is(headers.Authorization, undefined);
 });
 
-test('clears the authorization header when redirecting to a different hostname', withServer, async (t, server, got) => {
+test('clears the authorization header when redirecting to a different hostname', withHttpServer(), async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.writeHead(302, {
 			location: 'https://httpbin.org/anything'
@@ -450,8 +450,8 @@ test('clears the host header when redirecting to a different hostname', async t 
 	t.is(resp.body, 'webtest.com');
 });
 
-test('correct port on redirect', withServer, async (t, server1, got) => {
-	await withServer(t, async (t, server2) => {
+test('correct port on redirect', withHttpServer(), async (t, server1, got) => {
+	await withHttpServer()(t, async (t, server2) => {
 		server1.get('/redirect', (_request, response) => {
 			response.redirect(`http://${server2.hostname}:${server2.port}/`);
 		});

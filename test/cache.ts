@@ -5,7 +5,7 @@ import pEvent = require('p-event');
 import getStream = require('get-stream');
 import {Handler} from 'express';
 import got, {Response} from '../source';
-import withServer from './helpers/with-server';
+import {withHttpServer} from './helpers/with-server';
 import CacheableLookup from 'cacheable-lookup';
 import delay = require('delay');
 
@@ -14,7 +14,7 @@ const cacheEndpoint: Handler = (_request, response) => {
 	response.end(Date.now().toString());
 };
 
-test('non-cacheable responses are not cached', withServer, async (t, server, got) => {
+test('non-cacheable responses are not cached', withHttpServer(), async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.setHeader('Cache-Control', 'public, no-cache, no-store');
 		response.end(Date.now().toString());
@@ -29,7 +29,7 @@ test('non-cacheable responses are not cached', withServer, async (t, server, got
 	t.true(firstResponseInt < secondResponseInt);
 });
 
-test('cacheable responses are cached', withServer, async (t, server, got) => {
+test('cacheable responses are cached', withHttpServer(), async (t, server, got) => {
 	server.get('/', cacheEndpoint);
 
 	const cache = new Map();
@@ -41,7 +41,7 @@ test('cacheable responses are cached', withServer, async (t, server, got) => {
 	t.is(firstResponse.body, secondResponse.body);
 });
 
-test('cached response is re-encoded to current encoding option', withServer, async (t, server, got) => {
+test('cached response is re-encoded to current encoding option', withHttpServer(), async (t, server, got) => {
 	server.get('/', cacheEndpoint);
 
 	const cache = new Map();
@@ -57,7 +57,7 @@ test('cached response is re-encoded to current encoding option', withServer, asy
 	t.is(secondResponse.body, expectedSecondResponseBody);
 });
 
-test('redirects are cached and re-used internally', withServer, async (t, server, got) => {
+test('redirects are cached and re-used internally', withHttpServer(), async (t, server, got) => {
 	let status301Index = 0;
 	server.get('/301', (_request, response) => {
 		if (status301Index === 0) {
@@ -97,7 +97,7 @@ test('redirects are cached and re-used internally', withServer, async (t, server
 	t.is(B1.body, B2.body);
 });
 
-test('cached response has got options', withServer, async (t, server, got) => {
+test('cached response has got options', withHttpServer(), async (t, server, got) => {
 	server.get('/', cacheEndpoint);
 
 	const cache = new Map();
@@ -112,7 +112,7 @@ test('cached response has got options', withServer, async (t, server, got) => {
 	t.is(secondResponse.request.options.username, options.username);
 });
 
-test('cache error throws `got.CacheError`', withServer, async (t, server, got) => {
+test('cache error throws `got.CacheError`', withHttpServer(), async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.end('ok');
 	});
@@ -123,7 +123,7 @@ test('cache error throws `got.CacheError`', withServer, async (t, server, got) =
 	await t.throwsAsync(got({cache}), {instanceOf: got.CacheError});
 });
 
-test('doesn\'t cache response when received HTTP error', withServer, async (t, server, got) => {
+test('doesn\'t cache response when received HTTP error', withHttpServer(), async (t, server, got) => {
 	let isFirstErrorCalled = false;
 	server.get('/', (_request, response) => {
 		if (!isFirstErrorCalled) {
@@ -161,7 +161,7 @@ test('DNS cache works - CacheableLookup instance', async t => {
 	t.is((cache as any)._cache.size, 1);
 });
 
-test('`isFromCache` stream property is undefined before the `response` event', withServer, async (t, server, got) => {
+test('`isFromCache` stream property is undefined before the `response` event', withHttpServer(), async (t, server, got) => {
 	server.get('/', cacheEndpoint);
 
 	const cache = new Map();
@@ -171,7 +171,7 @@ test('`isFromCache` stream property is undefined before the `response` event', w
 	await getStream(stream);
 });
 
-test('`isFromCache` stream property is false after the `response` event', withServer, async (t, server, got) => {
+test('`isFromCache` stream property is false after the `response` event', withHttpServer(), async (t, server, got) => {
 	server.get('/', cacheEndpoint);
 
 	const cache = new Map();
@@ -184,7 +184,7 @@ test('`isFromCache` stream property is false after the `response` event', withSe
 	await getStream(stream);
 });
 
-test('`isFromCache` stream property is true if the response was cached', withServer, async (t, server, got) => {
+test('`isFromCache` stream property is true if the response was cached', withHttpServer(), async (t, server, got) => {
 	server.get('/', cacheEndpoint);
 
 	const cache = new Map();
@@ -199,7 +199,7 @@ test('`isFromCache` stream property is true if the response was cached', withSer
 	await getStream(stream);
 });
 
-test('can disable cache by extending the instance', withServer, async (t, server, got) => {
+test('can disable cache by extending the instance', withHttpServer(), async (t, server, got) => {
 	server.get('/', cacheEndpoint);
 
 	const cache = new Map();
@@ -216,7 +216,7 @@ test('can disable cache by extending the instance', withServer, async (t, server
 	await getStream(stream);
 });
 
-test('does not break POST requests', withServer, async (t, server, got) => {
+test('does not break POST requests', withHttpServer(), async (t, server, got) => {
 	server.post('/', async (request, response) => {
 		request.resume();
 		response.end(JSON.stringify(request.headers));
@@ -230,7 +230,7 @@ test('does not break POST requests', withServer, async (t, server, got) => {
 	t.is(headers['content-length'], '0');
 });
 
-test('decompresses cached responses', withServer, async (t, server, got) => {
+test('decompresses cached responses', withHttpServer(), async (t, server, got) => {
 	const etag = 'foobar';
 
 	const payload = JSON.stringify({foo: 'bar'});
@@ -263,7 +263,7 @@ test('decompresses cached responses', withServer, async (t, server, got) => {
 	t.is(cache.size, 1);
 });
 
-test('can replace the instance\'s HTTP cache', withServer, async (t, server, got) => {
+test('can replace the instance\'s HTTP cache', withHttpServer(), async (t, server, got) => {
 	server.get('/', cacheEndpoint);
 
 	const cache = new Map();
@@ -286,7 +286,7 @@ test('can replace the instance\'s HTTP cache', withServer, async (t, server, got
 	t.is(secondCache.size, 1);
 });
 
-test('does not hang on huge response', withServer, async (t, server, got) => {
+test('does not hang on huge response', withHttpServer(), async (t, server, got) => {
 	const bufferSize = 3 * 16 * 1024;
 	const times = 10;
 
@@ -310,7 +310,7 @@ test('does not hang on huge response', withServer, async (t, server, got) => {
 	t.is(body.length, bufferSize * times);
 });
 
-test('cached response ETag', withServer, async (t, server, got) => {
+test('cached response ETag', withHttpServer(), async (t, server, got) => {
 	const etag = 'foobar';
 	const body = 'responseBody';
 

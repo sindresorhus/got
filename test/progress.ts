@@ -10,7 +10,7 @@ import is from '@sindresorhus/is';
 import test, {ExecutionContext} from 'ava';
 import {Handler} from 'express';
 import {Progress} from '../source';
-import withServer from './helpers/with-server';
+import {withHttpServer} from './helpers/with-server';
 
 const checkEvents = (t: ExecutionContext, events: Progress[], bodySize?: number) => {
 	t.true(events.length >= 2);
@@ -71,7 +71,7 @@ const uploadEndpoint: Handler = (request, response) => {
 	);
 };
 
-test('download progress', withServer, async (t, server, got) => {
+test('download progress', withHttpServer(), async (t, server, got) => {
 	server.get('/', downloadEndpoint);
 
 	const events: Progress[] = [];
@@ -82,7 +82,7 @@ test('download progress', withServer, async (t, server, got) => {
 	checkEvents(t, events, body.length);
 });
 
-test('download progress - missing total size', withServer, async (t, server, got) => {
+test('download progress - missing total size', withHttpServer(), async (t, server, got) => {
 	server.get('/', noTotalEndpoint);
 
 	const events: Progress[] = [];
@@ -93,7 +93,7 @@ test('download progress - missing total size', withServer, async (t, server, got
 	checkEvents(t, events);
 });
 
-test('download progress - stream', withServer, async (t, server, got) => {
+test('download progress - stream', withHttpServer(), async (t, server, got) => {
 	server.get('/', downloadEndpoint);
 
 	const events: Progress[] = [];
@@ -106,7 +106,7 @@ test('download progress - stream', withServer, async (t, server, got) => {
 	checkEvents(t, events, file.length);
 });
 
-test('upload progress - file', withServer, async (t, server, got) => {
+test('upload progress - file', withHttpServer(), async (t, server, got) => {
 	server.post('/', uploadEndpoint);
 
 	const events: Progress[] = [];
@@ -116,7 +116,7 @@ test('upload progress - file', withServer, async (t, server, got) => {
 	checkEvents(t, events, file.length);
 });
 
-test('upload progress - file stream', withServer, async (t, server, got) => {
+test('upload progress - file stream', withHttpServer(), async (t, server, got) => {
 	server.post('/', uploadEndpoint);
 
 	const path = tempy.file();
@@ -130,7 +130,7 @@ test('upload progress - file stream', withServer, async (t, server, got) => {
 	checkEvents(t, events, file.length);
 });
 
-test('upload progress - form data', withServer, async (t, server, got) => {
+test('upload progress - form data', withHttpServer(), async (t, server, got) => {
 	server.post('/', uploadEndpoint);
 
 	const events: Progress[] = [];
@@ -146,7 +146,7 @@ test('upload progress - form data', withServer, async (t, server, got) => {
 	checkEvents(t, events, size);
 });
 
-test('upload progress - json', withServer, async (t, server, got) => {
+test('upload progress - json', withHttpServer(), async (t, server, got) => {
 	server.post('/', uploadEndpoint);
 
 	const body = JSON.stringify({key: 'value'});
@@ -158,7 +158,7 @@ test('upload progress - json', withServer, async (t, server, got) => {
 	checkEvents(t, events, size);
 });
 
-test('upload progress - stream with known body size', withServer, async (t, server, got) => {
+test('upload progress - stream with known body size', withHttpServer(), async (t, server, got) => {
 	server.post('/', uploadEndpoint);
 
 	const events: Progress[] = [];
@@ -176,7 +176,7 @@ test('upload progress - stream with known body size', withServer, async (t, serv
 	checkEvents(t, events, file.length);
 });
 
-test('upload progress - stream with unknown body size', withServer, async (t, server, got) => {
+test('upload progress - stream with unknown body size', withHttpServer(), async (t, server, got) => {
 	server.post('/', uploadEndpoint);
 
 	const events: Progress[] = [];
@@ -192,7 +192,7 @@ test('upload progress - stream with unknown body size', withServer, async (t, se
 	checkEvents(t, events);
 });
 
-test('upload progress - no body', withServer, async (t, server, got) => {
+test('upload progress - no body', withHttpServer(), async (t, server, got) => {
 	server.post('/', uploadEndpoint);
 
 	const events: Progress[] = [];
