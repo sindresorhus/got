@@ -293,7 +293,7 @@ test.serial('secureConnect timeout', withHttpsServer({}, true), async (t, _serve
 			retry: 0
 		}).on('request', (request: http.ClientRequest) => {
 			request.on('socket', () => {
-				clock?.runAll();
+				clock!.runAll();
 			});
 		}),
 		{
