@@ -115,14 +115,18 @@ test('https request with `checkServerIdentity` NOT OK', withHttpsServer(), async
 	);
 });
 
-test('https request with expired certificate', withHttpsServer({days: -1}), async (t, _server, got) => {
-	await t.throwsAsync(
-		got({}),
-		{
-			code: 'CERT_HAS_EXPIRED'
-		}
-	);
-});
+// The built-in `openssl` on macOS does not support negative days.
+{
+	const testFn = process.platform === 'darwin' ? test.skip : test;
+	testFn('https request with expired certificate', withHttpsServer({days: -1}), async (t, _server, got) => {
+		await t.throwsAsync(
+			got({}),
+			{
+				code: 'CERT_HAS_EXPIRED'
+			}
+		);
+	});
+}
 
 test('https request with wrong host', withHttpsServer({commonName: 'not-localhost.com'}), async (t, _server, got) => {
 	await t.throwsAsync(
@@ -418,7 +422,7 @@ test('invalid key passphrase', withHttpsServer(), async (t, server, got) => {
 			await request;
 			t.fail();
 		} catch (error) {
-			t.true((error.message as string).includes('bad decrypt'));
+			t.true((error.message as string).includes('bad decrypt'), error.message);
 		}
 	} else {
 		await t.throwsAsync(request, {
@@ -451,11 +455,12 @@ test('client certificate PFX', withHttpsServer(), async (t, server, got) => {
 
 	const {pkcs12} = await createPkcs12(clientKey, clientCert, 'randomPassword');
 
-	// Change me on PR #1364
 	const response: any = await got({
-		pfx: pkcs12,
-		passphrase: 'randomPassword'
-	} as any).json();
+		https: {
+			pfx: pkcs12,
+			passphrase: 'randomPassword'
+		}
+	}).json();
 
 	t.true(response.authorized);
 	t.is(response.peerCertificate.subject.CN, 'client');

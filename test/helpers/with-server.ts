@@ -4,25 +4,24 @@ import is from '@sindresorhus/is';
 import http = require('http');
 import tempy = require('tempy');
 import createHttpsTestServer, {ExtendedHttpsTestServer, HttpsServerOptions} from './create-https-test-server';
-import createTestServer = require('create-test-server');
+import createHttpTestServer, {ExtendedHttpTestServer, HttpServerOptions} from './create-http-test-server';
 import FakeTimers = require('@sinonjs/fake-timers');
-import got, {InstanceDefaults} from '../../source';
-import {ExtendedGot, ExtendedHttpServer, ExtendedTestServer, GlobalClock, InstalledClock} from './types';
+import got, {InstanceDefaults, Got} from '../../source';
+import {ExtendedHttpServer, GlobalClock, InstalledClock} from './types';
 
-export type RunTestWithServer = (t: test.ExecutionContext, server: ExtendedTestServer, got: ExtendedGot, clock: GlobalClock) => Promise<void> | void;
-export type RunTestWithHttpsServer = (t: test.ExecutionContext, server: ExtendedHttpsTestServer, got: ExtendedGot) => Promise<void> | void;
+export type RunTestWithServer = (t: test.ExecutionContext, server: ExtendedHttpTestServer, got: Got, clock: GlobalClock) => Promise<void> | void;
+export type RunTestWithHttpsServer = (t: test.ExecutionContext, server: ExtendedHttpsTestServer, got: Got, fakeTimer?: GlobalClock) => Promise<void> | void;
 export type RunTestWithSocket = (t: test.ExecutionContext, server: ExtendedHttpServer) => Promise<void> | void;
 
-const generateHook = ({install, options: testServerOptions}: {install?: boolean; options?: unknown}): test.Macro<[RunTestWithServer]> => async (t, run) => {
+const generateHook = ({install, options: testServerOptions}: {install?: boolean; options?: HttpServerOptions}): test.Macro<[RunTestWithServer]> => async (t, run) => {
 	const clock = install ? FakeTimers.install() : FakeTimers.createClock() as GlobalClock;
 
 	// Re-enable body parsing to investigate https://github.com/sindresorhus/got/issues/1186
-	const server = await createTestServer(is.plainObject(testServerOptions) ? testServerOptions : {
+	const server = await createHttpTestServer(is.plainObject(testServerOptions) ? testServerOptions : {
 		bodyParser: {
 			type: () => false
-		},
-		certificate: 'example.com'
-	}) as ExtendedTestServer;
+		} as any
+	});
 
 	const options: InstanceDefaults = {
 		// @ts-expect-error Augmenting for test detection
@@ -43,11 +42,7 @@ const generateHook = ({install, options: testServerOptions}: {install?: boolean;
 		]
 	};
 
-	const preparedGot = got.extend({prefixUrl: server.url, ...options}) as ExtendedGot;
-	preparedGot.secure = got.extend({prefixUrl: server.sslUrl, ...options});
-	server.hostname = (new URL(server.url)).hostname;
-
-	server.sslHostname = (new URL(server.sslUrl)).hostname;
+	const preparedGot = got.extend({prefixUrl: server.url, ...options});
 
 	try {
 		await run(t, server, preparedGot, clock);
@@ -65,23 +60,43 @@ export default generateHook({install: false});
 
 export const withServerAndFakeTimers = generateHook({install: true});
 
-const generateHttpsHook = (options?: HttpsServerOptions): test.Macro<[RunTestWithHttpsServer]> => async (t, run) => {
+const generateHttpsHook = (options?: HttpsServerOptions, installFakeTimer = false): test.Macro<[RunTestWithHttpsServer]> => async (t, run) => {
+	const fakeTimer = installFakeTimer ? FakeTimers.install() as GlobalClock : undefined;
+
 	const server = await createHttpsTestServer(options);
 
 	const preparedGot = got.extend({
 		// @ts-expect-error Augmenting for test detection
 		avaTest: t.title,
+		handlers: [
+			(options, next) => {
+				const result = next(options);
+
+				fakeTimer?.tick(0);
+
+				// @ts-expect-error FIXME: Incompatible union type signatures
+				result.on('response', () => {
+					fakeTimer?.tick(0);
+				});
+
+				return result;
+			}
+		],
 		prefixUrl: server.url,
 		https: {
 			certificateAuthority: (server as any).caCert,
 			rejectUnauthorized: true
 		}
-	}) as ExtendedGot;
+	});
 
 	try {
-		await run(t, server, preparedGot);
+		await run(t, server, preparedGot, fakeTimer);
 	} finally {
 		await server.close();
+	}
+
+	if (installFakeTimer) {
+		(fakeTimer as InstalledClock).uninstall();
 	}
 };
 

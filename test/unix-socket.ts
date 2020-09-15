@@ -31,10 +31,11 @@ if (process.platform !== 'win32') {
 	});
 
 	test('throws on invalid URL', async t => {
-		await t.throwsAsync(got('unix:', {retry: 0}), {
-			instanceOf: got.RequestError,
-			code: 'ENOTFOUND'
-		});
+		try {
+			await got('unix:', {retry: 0});
+		} catch (error) {
+			t.regex(error.code, /ENOTFOUND|EAI_AGAIN/);
+		}
 	});
 
 	test('works when extending instances', withSocketServer, async (t, server) => {

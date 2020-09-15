@@ -1,35 +1,9 @@
 import {Agent as HttpAgent} from 'http';
 import {Agent as HttpsAgent} from 'https';
 import {Socket} from 'net';
-import {TLSSocket} from 'tls';
 import test, {Constructor} from 'ava';
 import sinon = require('sinon');
-import {ExtendedTestServer} from './helpers/types';
-import withServer from './helpers/with-server';
-
-const prepareServer = (server: ExtendedTestServer): void => {
-	server.get('/', (request, response) => {
-		if (request.socket instanceof TLSSocket) {
-			response.end('https');
-		} else {
-			response.end('http');
-		}
-	});
-
-	server.get('/httpsToHttp', (_request, response) => {
-		response.writeHead(302, {
-			location: server.url
-		});
-		response.end();
-	});
-
-	server.get('/httpToHttps', (_request, response) => {
-		response.writeHead(302, {
-			location: server.sslUrl
-		});
-		response.end();
-	});
-};
+import withServer, {withHttpsServer} from './helpers/with-server';
 
 const createAgentSpy = <T extends HttpsAgent>(AgentClass: Constructor): {agent: T; spy: sinon.SinonSpy} => {
 	const agent: T = new AgentClass({keepAlive: true});
@@ -59,14 +33,14 @@ test('non-object agent option works with http', withServer, async (t, server, go
 	agent.destroy();
 });
 
-test('non-object agent option works with https', withServer, async (t, server, got) => {
+test('non-object agent option works with https', withHttpsServer(), async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.end('ok');
 	});
 
 	const {agent, spy} = createAgentSpy(HttpsAgent);
 
-	t.truthy((await got.secure({
+	t.truthy((await got({
 		https: {
 			rejectUnauthorized: false
 		},
@@ -80,53 +54,79 @@ test('non-object agent option works with https', withServer, async (t, server, g
 	agent.destroy();
 });
 
-test('redirects from http to https work with an agent object', withServer, async (t, server, got) => {
-	prepareServer(server);
+test('redirects from http to https work with an agent object', withServer, async (t, serverHttp) => {
+	await withHttpsServer()(t, async (t, serverHttps, got) => {
+		serverHttp.get('/', (_request, response) => {
+			response.end('http');
+		});
 
-	const {agent: httpAgent, spy: httpSpy} = createAgentSpy(HttpAgent);
-	const {agent: httpsAgent, spy: httpsSpy} = createAgentSpy<HttpsAgent>(HttpsAgent);
+		serverHttps.get('/', (_request, response) => {
+			response.end('https');
+		});
 
-	t.truthy((await got('httpToHttps', {
-		https: {
-			rejectUnauthorized: false
-		},
-		agent: {
-			http: httpAgent,
-			https: httpsAgent
-		}
-	})).body);
-	t.true(httpSpy.calledOnce);
-	t.true(httpsSpy.calledOnce);
+		serverHttp.get('/httpToHttps', (_request, response) => {
+			response.writeHead(302, {
+				location: serverHttps.url
+			});
+			response.end();
+		});
 
-	// Make sure to close all open sockets
-	httpAgent.destroy();
-	httpsAgent.destroy();
+		const {agent: httpAgent, spy: httpSpy} = createAgentSpy(HttpAgent);
+		const {agent: httpsAgent, spy: httpsSpy} = createAgentSpy<HttpsAgent>(HttpsAgent);
+
+		t.truthy((await got('httpToHttps', {
+			prefixUrl: serverHttp.url,
+			agent: {
+				http: httpAgent,
+				https: httpsAgent
+			}
+		})).body);
+		t.true(httpSpy.calledOnce);
+		t.true(httpsSpy.calledOnce);
+
+		// Make sure to close all open sockets
+		httpAgent.destroy();
+		httpsAgent.destroy();
+	});
 });
 
-test('redirects from https to http work with an agent object', withServer, async (t, server, got) => {
-	prepareServer(server);
+test('redirects from https to http work with an agent object', withHttpsServer(), async (t, serverHttps, got) => {
+	await withServer(t, async (t, serverHttp) => {
+		serverHttp.get('/', (_request, response) => {
+			response.end('http');
+		});
 
-	const {agent: httpAgent, spy: httpSpy} = createAgentSpy(HttpAgent);
-	const {agent: httpsAgent, spy: httpsSpy} = createAgentSpy(HttpsAgent);
+		serverHttps.get('/', (_request, response) => {
+			response.end('https');
+		});
 
-	t.truthy((await got.secure('httpsToHttp', {
-		https: {
-			rejectUnauthorized: false
-		},
-		agent: {
-			http: httpAgent,
-			https: httpsAgent
-		}
-	})).body);
-	t.true(httpSpy.calledOnce);
-	t.true(httpsSpy.calledOnce);
+		serverHttps.get('/httpsToHttp', (_request, response) => {
+			response.writeHead(302, {
+				location: serverHttp.url
+			});
+			response.end();
+		});
 
-	// Make sure to close all open sockets
-	httpAgent.destroy();
-	httpsAgent.destroy();
+		const {agent: httpAgent, spy: httpSpy} = createAgentSpy(HttpAgent);
+		const {agent: httpsAgent, spy: httpsSpy} = createAgentSpy(HttpsAgent);
+
+		t.truthy((await got('httpsToHttp', {
+			prefixUrl: serverHttps.url,
+			agent: {
+				http: httpAgent,
+				https: httpsAgent
+			}
+		})).body);
+		t.true(httpSpy.calledOnce);
+		t.true(httpsSpy.calledOnce);
+
+		// Make sure to close all open sockets
+		httpAgent.destroy();
+		httpsAgent.destroy();
+	});
 });
 
-test('socket connect listener cleaned up after request', withServer, async (t, server, got) => {
+test('socket connect listener cleaned up after request', withHttpsServer(), async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.end('ok');
 	});
@@ -136,10 +136,7 @@ test('socket connect listener cleaned up after request', withServer, async (t, s
 	// Make sure there are no memory leaks when reusing keep-alive sockets
 	for (let i = 0; i < 20; i++) {
 		// eslint-disable-next-line no-await-in-loop
-		await got.secure({
-			https: {
-				rejectUnauthorized: false
-			},
+		await got({
 			agent: {
 				https: agent
 			}

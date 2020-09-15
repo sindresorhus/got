@@ -63,8 +63,7 @@ const createHttpsTestServer = async (options: HttpsServerOptions = {}): Promise<
 	server.port = (server.https.address() as net.AddressInfo).port;
 	server.url = `https://localhost:${(server.port)}`;
 
-	server.close = async () =>
-		pify(server.https.close.bind(server.https))();
+	server.close = async () => pify(server.https.close.bind(server.https))();
 
 	return server;
 };

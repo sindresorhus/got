@@ -156,7 +156,11 @@ test('has error event', withServer, async (t, server, got) => {
 
 test('has error event #2', async t => {
 	const stream = got.stream('http://doesntexist');
-	await t.throwsAsync(pEvent(stream, 'response'), {code: 'ENOTFOUND'});
+	try {
+		await pEvent(stream, 'response');
+	} catch (error) {
+		t.regex(error.code, /ENOTFOUND|EAI_AGAIN/);
+	}
 });
 
 test('has response event if `options.throwHttpErrors` is false', withServer, async (t, server, got) => {

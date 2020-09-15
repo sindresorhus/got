@@ -858,6 +858,7 @@ export interface HTTPSOptions {
 	The passphrase to decrypt the `options.https.key` (if different keys have different passphrases refer to `options.https.key` documentation).
 	*/
 	passphrase?: SecureContextOptions['passphrase'];
+	pfx?: SecureContextOptions['pfx'];
 }
 
 interface NormalizedPlainOptions extends PlainOptions {
@@ -1539,6 +1540,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			assert.any([is.string, is.object, is.array, is.undefined], options.https.key);
 			assert.any([is.string, is.object, is.array, is.undefined], options.https.certificate);
 			assert.any([is.string, is.undefined], options.https.passphrase);
+			assert.any([is.string, is.buffer, is.array, is.undefined], options.https.pfx);
 		}
 
 		assert.any([is.object, is.undefined], options.cacheOptions);
@@ -1831,6 +1833,10 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 		if ('passphrase' in options) {
 			deprecationWarning('"options.passphrase" was never documented, please use "options.https.passphrase"');
+		}
+
+		if ('pfx' in options) {
+			deprecationWarning('"options.pfx" was never documented, please use "options.https.pfx"');
 		}
 
 		// Other options
@@ -2394,6 +2400,10 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			if (options.https.passphrase) {
 				requestOptions.passphrase = options.https.passphrase;
 			}
+
+			if (options.https.pfx) {
+				requestOptions.pfx = options.https.pfx;
+			}
 		}
 
 		try {
@@ -2433,6 +2443,10 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 				if (options.https.passphrase) {
 					delete requestOptions.passphrase;
+				}
+
+				if (options.https.pfx) {
+					delete requestOptions.pfx;
 				}
 			}
 
@@ -2496,9 +2510,8 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 				try {
 					response.rawBody = await getBuffer(response);
+					response.body = response.rawBody.toString();
 				} catch {}
-
-				response.body = response.rawBody.toString();
 			}
 
 			if (this.listenerCount('retry') !== 0) {
@@ -2608,6 +2621,11 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	}
 
 	_writeRequest(chunk: any, encoding: BufferEncoding | undefined, callback: (error?: Error | null) => void): void {
+		if (this[kRequest]!.destroyed) {
+			// Probably the `ClientRequest` instance will throw
+			return;
+		}
+
 		this._progressCallbacks.push((): void => {
 			this[kUploadedSize] += Buffer.byteLength(chunk, encoding);
 

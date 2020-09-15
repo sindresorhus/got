@@ -18,7 +18,7 @@ const parseBody = (response: Response, responseType: ResponseType, parseJson: Pa
 		}
 
 		if (responseType === 'buffer') {
-			return Buffer.from(rawBody);
+			return rawBody;
 		}
 
 		throw new ParseError({

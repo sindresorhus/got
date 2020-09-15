@@ -1,9 +1,8 @@
-import {TLSSocket} from 'tls';
 import test from 'ava';
 import {Handler} from 'express';
 import nock = require('nock');
 import got, {MaxRedirectsError} from '../source';
-import withServer from './helpers/with-server';
+import withServer, {withHttpsServer} from './helpers/with-server';
 
 const reachedHandler: Handler = (_request, response) => {
 	const body = 'reached';
@@ -172,50 +171,50 @@ test('redirects on 303 response even on post, put, delete', withServer, async (t
 	t.is(body, 'reached');
 });
 
-test('redirects from http to https work', withServer, async (t, server, got) => {
-	server.get('/', (request, response) => {
-		if (request.socket instanceof TLSSocket) {
-			response.end('https');
-		} else {
+test('redirects from http to https work', withServer, async (t, serverHttp) => {
+	await withHttpsServer()(t, async (t, serverHttps, got) => {
+		serverHttp.get('/', (_request, response) => {
 			response.end('http');
-		}
-	});
-
-	server.get('/httpToHttps', (_request, response) => {
-		response.writeHead(302, {
-			location: server.sslUrl
 		});
-		response.end();
-	});
 
-	t.is((await got('httpToHttps', {
-		https: {
-			rejectUnauthorized: false
-		}
-	})).body, 'https');
+		serverHttps.get('/', (_request, response) => {
+			response.end('https');
+		});
+
+		serverHttp.get('/httpToHttps', (_request, response) => {
+			response.writeHead(302, {
+				location: serverHttps.url
+			});
+			response.end();
+		});
+
+		t.is((await got('httpToHttps', {
+			prefixUrl: serverHttp.url
+		})).body, 'https');
+	});
 });
 
-test('redirects from https to http work', withServer, async (t, server, got) => {
-	server.get('/', (request, response) => {
-		if (request.socket instanceof TLSSocket) {
-			response.end('https');
-		} else {
+test('redirects from https to http work', withHttpsServer(), async (t, serverHttps, got) => {
+	await withServer(t, async (t, serverHttp) => {
+		serverHttp.get('/', (_request, response) => {
 			response.end('http');
-		}
-	});
-
-	server.get('/httpsToHttp', (_request, response) => {
-		response.writeHead(302, {
-			location: server.url
 		});
-		response.end();
-	});
 
-	t.truthy((await got.secure('httpsToHttp', {
-		https: {
-			rejectUnauthorized: false
-		}
-	})).body);
+		serverHttps.get('/', (_request, response) => {
+			response.end('https');
+		});
+
+		serverHttps.get('/httpsToHttp', (_request, response) => {
+			response.writeHead(302, {
+				location: serverHttp.url
+			});
+			response.end();
+		});
+
+		t.is((await got('httpsToHttp', {
+			prefixUrl: serverHttps.url
+		})).body, 'http');
+	});
 });
 
 test('redirects works with lowercase method', withServer, async (t, server, got) => {
