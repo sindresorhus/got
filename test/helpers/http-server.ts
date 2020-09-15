@@ -8,14 +8,13 @@ import bodyParser = require('body-parser');
 import tempy = require('tempy');
 
 export type BaseServerOptions = {
-	protocol: 'HTTP' | 'HTTPS' | 'socket';
 	installBodyParser?: boolean;
 };
 export type HttpServerOptions = BaseServerOptions & {
-	protocol: 'HTTP';
+	protocol: 'http';
 };
 export type HttpsServerOptions = BaseServerOptions & {
-	protocol: 'HTTPS';
+	protocol: 'https';
 	commonName?: string;
 	days?: number;
 };
@@ -25,17 +24,17 @@ export type HttpSocketServerOptions = BaseServerOptions & {
 export type ServerOptions = HttpServerOptions | HttpsServerOptions | HttpSocketServerOptions;
 
 export interface BaseExtendedServer extends express.Express {
-	close: () => Promise<any>;
+	close: () => Promise<unknown>;
 }
 export interface ExtendedHttpServer extends BaseExtendedServer {
-	protocol: 'HTTP';
+	protocol: 'http';
 	url: string;
 	port: number;
 	hostname: string;
 	server: http.Server;
 }
 export interface ExtendedHttpsServer extends BaseExtendedServer {
-	protocol: 'HTTPS';
+	protocol: 'https';
 	url: string;
 	port: number;
 	hostname: string;
@@ -70,7 +69,7 @@ export const createServer: CreateServerFunction = async <R extends ExtendedServe
 		app.use(bodyParser.raw({limit: '1mb', type: 'application/octet-stream'}));
 	}
 
-	if (options.protocol === 'HTTPS') {
+	if (options.protocol === 'https') {
 		const certs = await makeCerts(options);
 		const server = https.createServer({
 			key: certs.key,
