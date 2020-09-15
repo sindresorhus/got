@@ -940,7 +940,7 @@ test('beforeRequest hook respect `url` option', withServer, async (t, server, go
 		response.end('ok');
 	});
 
-	t.is((await got(server.sslHostname, {
+	t.is((await got(server.hostname, {
 		hooks: {
 			beforeRequest: [
 				options => {
