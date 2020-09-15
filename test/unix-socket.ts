@@ -48,8 +48,10 @@ testSkipWindows('works when extending instances', withHttpSocketServer(), async 
 });
 
 testSkipWindows('passes search params', withHttpSocketServer(), async (t, server) => {
-	server.get('/?a=1', okHandler);
+	server.get('/', (request, response) => {
+		response.end(request.query.a);
+	});
 
-	const url = format('http://unix:%s:%s', server.socketPath, '/?a=1');
-	t.is((await got(url)).body, 'ok');
+	const url = format('http://unix:%s:%s', server.socketPath, '/?a=OK');
+	t.is((await got(url)).body, 'OK');
 });
