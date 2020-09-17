@@ -1631,6 +1631,10 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		}
 
 		if (options.url) {
+			if ('port' in options) {
+				delete options.port;
+			}
+
 			// Make it possible to change `options.prefixUrl`
 			let {prefixUrl} = options;
 			Object.defineProperty(options, 'prefixUrl', {
@@ -2088,16 +2092,12 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 					}
 
 					if (options.username || options.password) {
-						// TODO: Fix this ignore.
-						// @ts-expect-error
-						delete options.username;
-						// @ts-expect-error
-						delete options.password;
+						options.username = '';
+						options.password = '';
 					}
-
-					if ('port' in options) {
-						delete options.port;
-					}
+				} else {
+					redirectUrl.username = options.username;
+					redirectUrl.password = options.password;
 				}
 
 				this.redirects.push(redirectString);
