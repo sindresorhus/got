@@ -323,7 +323,7 @@ test('piping to got.stream.put()', withServer, async (t, server, got) => {
 });
 
 // See https://github.com/nodejs/node/issues/35237
-test.failing('no unhandled body stream errors', async t => {
+test.skip('no unhandled body stream errors', async t => {
 	const body = new FormData();
 	body.append('upload', fs.createReadStream('/bin/sh'));
 
