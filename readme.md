@@ -740,8 +740,7 @@ Default: `[]`
 
 Called with [normalized](source/core/index.ts) [request options](#options). Got will make no further changes to the request before it is sent. This is especially useful in conjunction with [`got.extend()`](#instances) when you want to create an API client that, for example, uses HMAC-signing.
 
-**Note:** Changing `options.json` or `options.form` has no effect on the request, you should change `options.body` and, if needed, update the `options.headers` accordingly.\
-Example:
+**Note:** Changing `options.json` or `options.form` has no effect on the request, you should change `options.body` instead. If needed, update the `options.headers` accordingly. Example:
 
 ```js
 const got = require('got');
@@ -749,12 +748,12 @@ const got = require('got');
 got.post({
 	json: {payload: 'old'},
 	hooks: {
-	beforeRequest: [
-		options => {
-		options.body = JSON.stringify({payload: 'new'});
-		options.headers['content-length'] = options.body.length.toString();
-		}
-	]
+		beforeRequest: [
+			options => {
+				options.body = JSON.stringify({payload: 'new'});
+				options.headers['content-length'] = options.body.length.toString();
+			}
+		]
 	}
 });
 ```
