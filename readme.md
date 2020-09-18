@@ -146,7 +146,7 @@ If no protocol is specified, it will throw a `TypeError`.
 
 **Note:** The query string is **not** parsed as search params. Example:
 
-```
+```js
 got('https://example.com/?query=a b'); //=> https://example.com/?query=a%20b
 got('https://example.com/', {searchParams: {query: 'a b'}}); //=> https://example.com/?query=a+b
 
