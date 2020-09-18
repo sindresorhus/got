@@ -745,16 +745,17 @@ Example:
 
 ```js
 const got = require('got');
+
 got.post({
-  json: {payload: 'old'},
-  hooks: {
-    beforeRequest: [
-      options => {
-        options.body = JSON.stringify({payload: 'new'});
-        options.headers['content-length'] = options.body.length.toString();
-      }
-    ]
-  }
+	json: {payload: 'old'},
+	hooks: {
+	beforeRequest: [
+		options => {
+		options.body = JSON.stringify({payload: 'new'});
+		options.headers['content-length'] = options.body.length.toString();
+		}
+	]
+	}
 });
 ```
 
