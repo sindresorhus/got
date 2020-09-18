@@ -57,6 +57,7 @@
 	},
 	"devDependencies": {
 		"@ava/typescript": "^1.1.1",
+		"@istanbuljs/nyc-config-typescript": "^1.0.1",
 		"@sindresorhus/tsconfig": "^0.7.0",
 		"@sinonjs/fake-timers": "^6.0.1",
 		"@types/benchmark": "^1.0.33",
@@ -87,6 +88,7 @@
 		"pify": "^5.0.0",
 		"sinon": "^9.0.3",
 		"slow-stream": "0.0.4",
+		"source-map-support": "^0.5.19",
 		"tempy": "^0.6.0",
 		"to-readable-stream": "^2.1.0",
 		"tough-cookie": "^4.0.0",
@@ -107,6 +109,7 @@
 		}
 	},
 	"nyc": {
+		"extends": "@istanbuljs/nyc-config-typescript",
 		"extension": [
 			".ts"
 		],

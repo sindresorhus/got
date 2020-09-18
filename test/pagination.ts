@@ -3,8 +3,8 @@ import test from 'ava';
 import delay = require('delay');
 import getStream = require('get-stream');
 import got, {Response} from '../source';
-import withServer, {withBodyParsingServer} from './helpers/with-server';
-import {ExtendedHttpTestServer} from './helpers/create-http-test-server';
+import {withHttpServer, withHttpServerWithBodyParser} from './helpers/with-server';
+import {ExtendedHttpServer} from './helpers/http-server';
 
 const thrower = (): any => {
 	throw new Error('This should not be called');
@@ -17,7 +17,7 @@ const resetPagination = {
 	shouldContinue: undefined
 };
 
-const attachHandler = (server: ExtendedHttpTestServer, count: number): void => {
+const attachHandler = (server: ExtendedHttpServer, count: number): void => {
 	server.get('/', (request, response) => {
 		const searchParameters = new URLSearchParams(request.url.split('?')[1]);
 		const page = Number(searchParameters.get('page')) || 1;
@@ -30,7 +30,7 @@ const attachHandler = (server: ExtendedHttpTestServer, count: number): void => {
 	});
 };
 
-test('the link header has no next value', withServer, async (t, server, got) => {
+test('the link header has no next value', withHttpServer(), async (t, server, got) => {
 	const items = [1];
 
 	server.get('/', (_request, response) => {
@@ -42,7 +42,7 @@ test('the link header has no next value', withServer, async (t, server, got) => 
 	t.deepEqual(received, items);
 });
 
-test('retrieves all elements', withServer, async (t, server, got) => {
+test('retrieves all elements', withHttpServer(), async (t, server, got) => {
 	attachHandler(server, 2);
 
 	const result = await got.paginate.all<number>('');
@@ -50,7 +50,7 @@ test('retrieves all elements', withServer, async (t, server, got) => {
 	t.deepEqual(result, [1, 2]);
 });
 
-test('retrieves all elements with JSON responseType', withServer, async (t, server, got) => {
+test('retrieves all elements with JSON responseType', withHttpServer(), async (t, server, got) => {
 	attachHandler(server, 2);
 
 	const result = await got.extend({
@@ -60,7 +60,7 @@ test('retrieves all elements with JSON responseType', withServer, async (t, serv
 	t.deepEqual(result, [1, 2]);
 });
 
-test('points to defaults when extending Got without custom `pagination`', withServer, async (t, server, got) => {
+test('points to defaults when extending Got without custom `pagination`', withHttpServer(), async (t, server, got) => {
 	attachHandler(server, 2);
 
 	const result = await got.extend().paginate.all<number>('');
@@ -68,7 +68,7 @@ test('points to defaults when extending Got without custom `pagination`', withSe
 	t.deepEqual(result, [1, 2]);
 });
 
-test('pagination options can be extended', withServer, async (t, server, got) => {
+test('pagination options can be extended', withHttpServer(), async (t, server, got) => {
 	attachHandler(server, 2);
 
 	const result = await got.extend({
@@ -80,7 +80,7 @@ test('pagination options can be extended', withServer, async (t, server, got) =>
 	t.deepEqual(result, []);
 });
 
-test('filters elements', withServer, async (t, server, got) => {
+test('filters elements', withHttpServer(), async (t, server, got) => {
 	attachHandler(server, 3);
 
 	const result = await got.paginate.all<number>({
@@ -97,7 +97,7 @@ test('filters elements', withServer, async (t, server, got) => {
 	t.deepEqual(result, [1, 3]);
 });
 
-test('parses elements', withServer, async (t, server, got) => {
+test('parses elements', withHttpServer(), async (t, server, got) => {
 	attachHandler(server, 100);
 
 	const result = await got.paginate.all<number, string>('?page=100', {
@@ -109,7 +109,7 @@ test('parses elements', withServer, async (t, server, got) => {
 	t.deepEqual(result, [5]);
 });
 
-test('parses elements - async function', withServer, async (t, server, got) => {
+test('parses elements - async function', withHttpServer(), async (t, server, got) => {
 	attachHandler(server, 100);
 
 	const result = await got.paginate.all<number, string>('?page=100', {
@@ -121,7 +121,7 @@ test('parses elements - async function', withServer, async (t, server, got) => {
 	t.deepEqual(result, [5]);
 });
 
-test('custom paginate function', withServer, async (t, server, got) => {
+test('custom paginate function', withHttpServer(), async (t, server, got) => {
 	attachHandler(server, 3);
 
 	const result = await got.paginate.all<number>({
@@ -143,7 +143,7 @@ test('custom paginate function', withServer, async (t, server, got) => {
 	t.deepEqual(result, [1, 3]);
 });
 
-test('custom paginate function using allItems', withServer, async (t, server, got) => {
+test('custom paginate function using allItems', withHttpServer(), async (t, server, got) => {
 	attachHandler(server, 3);
 
 	const result = await got.paginate.all<number>({
@@ -161,7 +161,7 @@ test('custom paginate function using allItems', withServer, async (t, server, go
 	t.deepEqual(result, [1, 3]);
 });
 
-test('custom paginate function using currentItems', withServer, async (t, server, got) => {
+test('custom paginate function using currentItems', withHttpServer(), async (t, server, got) => {
 	attachHandler(server, 3);
 
 	const result = await got.paginate.all<number>({
@@ -179,7 +179,7 @@ test('custom paginate function using currentItems', withServer, async (t, server
 	t.deepEqual(result, [1, 3]);
 });
 
-test('iterator works', withServer, async (t, server, got) => {
+test('iterator works', withHttpServer(), async (t, server, got) => {
 	attachHandler(server, 5);
 
 	const results: number[] = [];
@@ -191,7 +191,7 @@ test('iterator works', withServer, async (t, server, got) => {
 	t.deepEqual(results, [1, 2, 3, 4, 5]);
 });
 
-test('iterator works #2', withServer, async (t, server, got) => {
+test('iterator works #2', withHttpServer(), async (t, server, got) => {
 	attachHandler(server, 5);
 
 	const results: number[] = [];
@@ -203,7 +203,7 @@ test('iterator works #2', withServer, async (t, server, got) => {
 	t.deepEqual(results, [1, 2, 3, 4, 5]);
 });
 
-test('`shouldContinue` works', withServer, async (t, server, got) => {
+test('`shouldContinue` works', withHttpServer(), async (t, server, got) => {
 	attachHandler(server, 2);
 
 	const options = {
@@ -226,7 +226,7 @@ test('`shouldContinue` works', withServer, async (t, server, got) => {
 	t.deepEqual(results, []);
 });
 
-test('`countLimit` works', withServer, async (t, server, got) => {
+test('`countLimit` works', withHttpServer(), async (t, server, got) => {
 	attachHandler(server, 2);
 
 	const options = {
@@ -313,7 +313,7 @@ test('throws if the `pagination` option does not have `paginate` property', asyn
 	});
 });
 
-test('ignores the `resolveBodyOnly` option', withServer, async (t, server, got) => {
+test('ignores the `resolveBodyOnly` option', withHttpServer(), async (t, server, got) => {
 	attachHandler(server, 2);
 
 	const items = await got.paginate.all('', {
@@ -323,7 +323,7 @@ test('ignores the `resolveBodyOnly` option', withServer, async (t, server, got) 
 	t.deepEqual(items, [1, 2]);
 });
 
-test('allowGetBody sends json payload with .paginate()', withBodyParsingServer, async (t, server, got) => {
+test('allowGetBody sends json payload with .paginate()', withHttpServerWithBodyParser(), async (t, server, got) => {
 	server.get('/', (request, response) => {
 		if (request.body.hello !== 'world') {
 			response.statusCode = 400;
@@ -347,7 +347,7 @@ test('allowGetBody sends json payload with .paginate()', withBodyParsingServer, 
 	t.deepEqual(results, [1, 2, 3]);
 });
 
-test('`hooks` are not duplicated', withServer, async (t, server, got) => {
+test('`hooks` are not duplicated', withHttpServer(), async (t, server, got) => {
 	let page = 1;
 	server.get('/', (_request, response) => {
 		response.end(JSON.stringify([page++]));
@@ -384,7 +384,7 @@ test('`hooks` are not duplicated', withServer, async (t, server, got) => {
 	t.deepEqual(result, [1, 2, 3]);
 });
 
-test('allowGetBody sends correct json payload with .paginate()', withServer, async (t, server, got) => {
+test('allowGetBody sends correct json payload with .paginate()', withHttpServer(), async (t, server, got) => {
 	let page = 1;
 	server.get('/', async (request, response) => {
 		const payload = await getStream(request);
@@ -432,7 +432,7 @@ test('allowGetBody sends correct json payload with .paginate()', withServer, asy
 	t.deepEqual(results, [1, 2, 3]);
 });
 
-test('`requestLimit` works', withServer, async (t, server, got) => {
+test('`requestLimit` works', withHttpServer(), async (t, server, got) => {
 	attachHandler(server, 2);
 
 	const options = {
@@ -450,7 +450,7 @@ test('`requestLimit` works', withServer, async (t, server, got) => {
 	t.deepEqual(results, [1]);
 });
 
-test('`backoff` works', withServer, async (t, server, got) => {
+test('`backoff` works', withHttpServer(), async (t, server, got) => {
 	attachHandler(server, 2);
 
 	const backoff = 200;
@@ -478,7 +478,7 @@ test('`backoff` works', withServer, async (t, server, got) => {
 	t.true(Date.now() - start >= backoff);
 });
 
-test('`stackAllItems` set to true', withServer, async (t, server, got) => {
+test('`stackAllItems` set to true', withHttpServer(), async (t, server, got) => {
 	attachHandler(server, 3);
 
 	let itemCount = 0;
@@ -507,7 +507,7 @@ test('`stackAllItems` set to true', withServer, async (t, server, got) => {
 	t.deepEqual(result, [1, 2, 3]);
 });
 
-test('`stackAllItems` set to false', withServer, async (t, server, got) => {
+test('`stackAllItems` set to false', withHttpServer(), async (t, server, got) => {
 	attachHandler(server, 3);
 
 	const result = await got.paginate.all<number>({
@@ -534,7 +534,7 @@ test('`stackAllItems` set to false', withServer, async (t, server, got) => {
 	t.deepEqual(result, [1, 2, 3]);
 });
 
-test('next url in json response', withServer, async (t, server, got) => {
+test('next url in json response', withHttpServer(), async (t, server, got) => {
 	server.get('/', (request, response) => {
 		const parameters = new URLSearchParams(request.url.slice(2));
 		const page = Number(parameters.get('page') ?? 0);
@@ -583,7 +583,7 @@ test('next url in json response', withServer, async (t, server, got) => {
 	]);
 });
 
-test('pagination using searchParams', withServer, async (t, server, got) => {
+test('pagination using searchParams', withHttpServer(), async (t, server, got) => {
 	server.get('/', (request, response) => {
 		const parameters = new URLSearchParams(request.url.slice(2));
 		const page = Number(parameters.get('page') ?? 0);
@@ -633,7 +633,7 @@ test('pagination using searchParams', withServer, async (t, server, got) => {
 	]);
 });
 
-test('pagination using extended searchParams', withServer, async (t, server, got) => {
+test('pagination using extended searchParams', withHttpServer(), async (t, server, got) => {
 	server.get('/', (request, response) => {
 		const parameters = new URLSearchParams(request.url.slice(2));
 		const page = Number(parameters.get('page') ?? 0);

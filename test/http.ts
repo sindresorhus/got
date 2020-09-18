@@ -6,7 +6,7 @@ import nock = require('nock');
 import getStream = require('get-stream');
 import pEvent from 'p-event';
 import got, {HTTPError, UnsupportedProtocolError, CancelableRequest, ReadError} from '../source';
-import withServer from './helpers/with-server';
+import {withHttpServer} from './helpers/with-server';
 import os = require('os');
 
 const IPv6supported = Object.values(os.networkInterfaces()).some(iface => iface?.some(addr => !addr.internal && addr.family === 'IPv6'));
@@ -27,7 +27,7 @@ const echoBody: Handler = async (request, response) => {
 	response.end(await getStream(request));
 };
 
-test('simple request', withServer, async (t, server, got) => {
+test('simple request', withHttpServer(), async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.end('ok');
 	});
@@ -35,7 +35,7 @@ test('simple request', withServer, async (t, server, got) => {
 	t.is((await got('')).body, 'ok');
 });
 
-test('empty response', withServer, async (t, server, got) => {
+test('empty response', withHttpServer(), async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.end();
 	});
@@ -43,7 +43,7 @@ test('empty response', withServer, async (t, server, got) => {
 	t.is((await got('')).body, '');
 });
 
-test('response has `requestUrl` property', withServer, async (t, server, got) => {
+test('response has `requestUrl` property', withHttpServer(), async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.end('ok');
 	});
@@ -56,7 +56,7 @@ test('response has `requestUrl` property', withServer, async (t, server, got) =>
 	t.is((await got('empty')).requestUrl, `${server.url}/empty`);
 });
 
-test('http errors have `response` property', withServer, async (t, server, got) => {
+test('http errors have `response` property', withHttpServer(), async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.statusCode = 404;
 		response.end('not');
@@ -67,7 +67,7 @@ test('http errors have `response` property', withServer, async (t, server, got) 
 	t.is(error.response.body, 'not');
 });
 
-test('status code 304 doesn\'t throw', withServer, async (t, server, got) => {
+test('status code 304 doesn\'t throw', withHttpServer(), async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.statusCode = 304;
 		response.end();
@@ -80,7 +80,7 @@ test('status code 304 doesn\'t throw', withServer, async (t, server, got) => {
 	t.is(body, '');
 });
 
-test('doesn\'t throw if `options.throwHttpErrors` is false', withServer, async (t, server, got) => {
+test('doesn\'t throw if `options.throwHttpErrors` is false', withHttpServer(), async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.statusCode = 404;
 		response.end('not');
@@ -96,7 +96,7 @@ test('invalid protocol throws', async t => {
 	});
 });
 
-test('custom `options.encoding`', withServer, async (t, server, got) => {
+test('custom `options.encoding`', withHttpServer(), async (t, server, got) => {
 	const string = 'ok';
 
 	server.get('/', (_request, response) => {
@@ -107,7 +107,7 @@ test('custom `options.encoding`', withServer, async (t, server, got) => {
 	t.is(data, Buffer.from(string).toString('base64'));
 });
 
-test('`options.encoding` doesn\'t affect streams', withServer, async (t, server, got) => {
+test('`options.encoding` doesn\'t affect streams', withHttpServer(), async (t, server, got) => {
 	const string = 'ok';
 
 	server.get('/', (_request, response) => {
@@ -118,7 +118,7 @@ test('`options.encoding` doesn\'t affect streams', withServer, async (t, server,
 	t.is(data, string);
 });
 
-test('`got.stream(...).setEncoding(...)` works', withServer, async (t, server, got) => {
+test('`got.stream(...).setEncoding(...)` works', withHttpServer(), async (t, server, got) => {
 	const string = 'ok';
 
 	server.get('/', (_request, response) => {
@@ -129,7 +129,7 @@ test('`got.stream(...).setEncoding(...)` works', withServer, async (t, server, g
 	t.is(data, Buffer.from(string).toString('base64'));
 });
 
-test('`searchParams` option', withServer, async (t, server, got) => {
+test('`searchParams` option', withHttpServer(), async (t, server, got) => {
 	server.get('/', (request, response) => {
 		t.is(request.query.recent, 'true');
 		response.end('recent');
@@ -139,7 +139,7 @@ test('`searchParams` option', withServer, async (t, server, got) => {
 	t.is((await got({searchParams: 'recent=true'})).body, 'recent');
 });
 
-test('response contains url', withServer, async (t, server, got) => {
+test('response contains url', withHttpServer(), async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.end('ok');
 	});
@@ -147,7 +147,7 @@ test('response contains url', withServer, async (t, server, got) => {
 	t.is((await got('')).url, `${server.url}/`);
 });
 
-test('response contains got options', withServer, async (t, server, got) => {
+test('response contains got options', withHttpServer(), async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.end('ok');
 	});
@@ -187,7 +187,7 @@ test('response contains got options', withServer, async (t, server, got) => {
 	}
 });
 
-test('socket destroyed by the server throws ECONNRESET', withServer, async (t, server, got) => {
+test('socket destroyed by the server throws ECONNRESET', withHttpServer(), async (t, server, got) => {
 	server.get('/', request => {
 		request.socket.destroy();
 	});
@@ -197,7 +197,7 @@ test('socket destroyed by the server throws ECONNRESET', withServer, async (t, s
 	});
 });
 
-test('the response contains timings property', withServer, async (t, server, got) => {
+test('the response contains timings property', withHttpServer(), async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.end('ok');
 	});
@@ -208,7 +208,7 @@ test('the response contains timings property', withServer, async (t, server, got
 	t.true(timings.phases.total! >= 0);
 });
 
-test('throws an error if the server aborted the request', withServer, async (t, server, got) => {
+test('throws an error if the server aborted the request', withHttpServer(), async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.writeHead(200, {
 			'content-type': 'text/plain'
@@ -242,7 +242,7 @@ test('statusMessage fallback', async t => {
 	t.is(statusMessage, STATUS_CODES[503]);
 });
 
-test('does not destroy completed requests', withServer, async (t, server, got) => {
+test('does not destroy completed requests', withHttpServer(), async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.setHeader('content-encoding', 'gzip');
 		response.end('');
@@ -281,7 +281,7 @@ test('does not destroy completed requests', withServer, async (t, server, got) =
 	t.pass();
 });
 
-testIPv6('IPv6 request', withServer, async (t, server) => {
+testIPv6('IPv6 request', withHttpServer(), async (t, server) => {
 	server.get('/ok', echoIp);
 
 	const response = await got(`http://[::1]:${server.port}/ok`);
@@ -289,7 +289,7 @@ testIPv6('IPv6 request', withServer, async (t, server) => {
 	t.is(response.body, '::1');
 });
 
-test('DNS auto', withServer, async (t, server, got) => {
+test('DNS auto', withHttpServer(), async (t, server, got) => {
 	server.get('/ok', echoIp);
 
 	const response = await got('ok', {
@@ -299,7 +299,7 @@ test('DNS auto', withServer, async (t, server, got) => {
 	t.true(isIPv4(response.body));
 });
 
-test('DNS IPv4', withServer, async (t, server, got) => {
+test('DNS IPv4', withHttpServer(), async (t, server, got) => {
 	server.get('/ok', echoIp);
 
 	const response = await got('ok', {
@@ -310,7 +310,7 @@ test('DNS IPv4', withServer, async (t, server, got) => {
 });
 
 // Travis CI Ubuntu Focal VM does not resolve IPv6 hostnames
-testIPv6('DNS IPv6', withServer, async (t, server, got) => {
+testIPv6('DNS IPv6', withHttpServer(), async (t, server, got) => {
 	server.get('/ok', echoIp);
 
 	const response = await got('ok', {
@@ -320,7 +320,7 @@ testIPv6('DNS IPv6', withServer, async (t, server, got) => {
 	t.true(isIPv6(response.body));
 });
 
-test('invalid `dnsLookupIpVersion`', withServer, async (t, server, got) => {
+test('invalid `dnsLookupIpVersion`', withHttpServer(), async (t, server, got) => {
 	server.get('/ok', echoIp);
 
 	await t.throwsAsync(got('ok', {
@@ -328,7 +328,7 @@ test('invalid `dnsLookupIpVersion`', withServer, async (t, server, got) => {
 	} as any));
 });
 
-test.serial('deprecated `family` option', withServer, async (t, server, got) => {
+test.serial('deprecated `family` option', withHttpServer(), async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.end('ok');
 	});
@@ -359,7 +359,7 @@ test.serial('deprecated `family` option', withServer, async (t, server, got) => 
 	});
 });
 
-test('JSON request custom stringifier', withServer, async (t, server, got) => {
+test('JSON request custom stringifier', withHttpServer(), async (t, server, got) => {
 	server.post('/', echoBody);
 
 	const payload = {a: 'b'};

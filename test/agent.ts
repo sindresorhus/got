@@ -3,7 +3,7 @@ import {Agent as HttpsAgent} from 'https';
 import {Socket} from 'net';
 import test, {Constructor} from 'ava';
 import sinon = require('sinon');
-import withServer, {withHttpsServer} from './helpers/with-server';
+import {withHttpServer, withHttpsServer} from './helpers/with-server';
 
 const createAgentSpy = <T extends HttpsAgent>(AgentClass: Constructor): {agent: T; spy: sinon.SinonSpy} => {
 	const agent: T = new AgentClass({keepAlive: true});
@@ -12,7 +12,7 @@ const createAgentSpy = <T extends HttpsAgent>(AgentClass: Constructor): {agent: 
 	return {agent, spy};
 };
 
-test('non-object agent option works with http', withServer, async (t, server, got) => {
+test('non-object agent option works with http', withHttpServer(), async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.end('ok');
 	});
@@ -54,7 +54,7 @@ test('non-object agent option works with https', withHttpsServer(), async (t, se
 	agent.destroy();
 });
 
-test('redirects from http to https work with an agent object', withServer, async (t, serverHttp) => {
+test('redirects from http to https work with an agent object', withHttpServer(), async (t, serverHttp) => {
 	await withHttpsServer()(t, async (t, serverHttps, got) => {
 		serverHttp.get('/', (_request, response) => {
 			response.end('http');
@@ -91,7 +91,7 @@ test('redirects from http to https work with an agent object', withServer, async
 });
 
 test('redirects from https to http work with an agent object', withHttpsServer(), async (t, serverHttps, got) => {
-	await withServer(t, async (t, serverHttp) => {
+	await withHttpServer()(t, async (t, serverHttp) => {
 		serverHttp.get('/', (_request, response) => {
 			response.end('http');
 		});
@@ -157,7 +157,7 @@ test('socket connect listener cleaned up after request', withHttpsServer(), asyn
 {
 	const testFn = Number(process.versions.node.split('.')[0]) < 12 ? test.failing : test;
 
-	testFn('no socket hung up regression', withServer, async (t, server, got) => {
+	testFn('no socket hung up regression', withHttpServer(), async (t, server, got) => {
 		const agent = new HttpAgent({keepAlive: true});
 		const token = 'helloworld';
 

@@ -2,7 +2,7 @@ import test from 'ava';
 import {Handler} from 'express';
 import getStream = require('get-stream');
 import {HTTPError, ParseError} from '../source';
-import withServer from './helpers/with-server';
+import {withHttpServer} from './helpers/with-server';
 
 const dog = {data: 'dog'};
 const jsonResponse = JSON.stringify(dog);
@@ -11,13 +11,13 @@ const defaultHandler: Handler = (_request, response) => {
 	response.end(jsonResponse);
 };
 
-test('`options.resolveBodyOnly` works', withServer, async (t, server, got) => {
+test('`options.resolveBodyOnly` works', withHttpServer(), async (t, server, got) => {
 	server.get('/', defaultHandler);
 
 	t.deepEqual(await got<Record<string, unknown>>({responseType: 'json', resolveBodyOnly: true}), dog);
 });
 
-test('`options.resolveBodyOnly` combined with `options.throwHttpErrors`', withServer, async (t, server, got) => {
+test('`options.resolveBodyOnly` combined with `options.throwHttpErrors`', withHttpServer(), async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.statusCode = 404;
 		response.end('/');
@@ -26,55 +26,55 @@ test('`options.resolveBodyOnly` combined with `options.throwHttpErrors`', withSe
 	t.is(await got({resolveBodyOnly: true, throwHttpErrors: false}), '/');
 });
 
-test('JSON response', withServer, async (t, server, got) => {
+test('JSON response', withHttpServer(), async (t, server, got) => {
 	server.get('/', defaultHandler);
 
 	t.deepEqual((await got({responseType: 'json'})).body, dog);
 });
 
-test('Buffer response', withServer, async (t, server, got) => {
+test('Buffer response', withHttpServer(), async (t, server, got) => {
 	server.get('/', defaultHandler);
 
 	t.deepEqual((await got({responseType: 'buffer'})).body, Buffer.from(jsonResponse));
 });
 
-test('Text response', withServer, async (t, server, got) => {
+test('Text response', withHttpServer(), async (t, server, got) => {
 	server.get('/', defaultHandler);
 
 	t.is((await got({responseType: 'text'})).body, jsonResponse);
 });
 
-test('Text response #2', withServer, async (t, server, got) => {
+test('Text response #2', withHttpServer(), async (t, server, got) => {
 	server.get('/', defaultHandler);
 
 	t.is((await got({responseType: undefined})).body, jsonResponse);
 });
 
-test('JSON response - promise.json()', withServer, async (t, server, got) => {
+test('JSON response - promise.json()', withHttpServer(), async (t, server, got) => {
 	server.get('/', defaultHandler);
 
 	t.deepEqual(await got('').json(), dog);
 });
 
-test('Buffer response - promise.buffer()', withServer, async (t, server, got) => {
+test('Buffer response - promise.buffer()', withHttpServer(), async (t, server, got) => {
 	server.get('/', defaultHandler);
 
 	t.deepEqual(await got('').buffer(), Buffer.from(jsonResponse));
 });
 
-test('Text response - promise.text()', withServer, async (t, server, got) => {
+test('Text response - promise.text()', withHttpServer(), async (t, server, got) => {
 	server.get('/', defaultHandler);
 
 	t.is(await got('').text(), jsonResponse);
 });
 
-test('Text response - promise.json().text()', withServer, async (t, server, got) => {
+test('Text response - promise.json().text()', withHttpServer(), async (t, server, got) => {
 	server.get('/', defaultHandler);
 
 	t.is(await got('').json().text(), jsonResponse);
 });
 
-test('works if promise has been already resolved', withServer, async (t, server, got) => {
+test('works if promise has been already resolved', withHttpServer(), async (t, server, got) => {
 	server.get('/', defaultHandler);
 
 	const promise = got('').text();
@@ -82,7 +82,7 @@ test('works if promise has been already resolved', withServer, async (t, server,
 	t.deepEqual(await promise.json(), dog);
 });
 
-test('throws an error on invalid response type', withServer, async (t, server, got) => {
+test('throws an error on invalid response type', withHttpServer(), async (t, server, got) => {
 	server.get('/', defaultHandler);
 
 	// @ts-expect-error Error tests
@@ -92,7 +92,7 @@ test('throws an error on invalid response type', withServer, async (t, server, g
 	t.is(error.options.url.pathname, '/');
 });
 
-test('wraps parsing errors', withServer, async (t, server, got) => {
+test('wraps parsing errors', withHttpServer(), async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.end('/');
 	});
@@ -102,7 +102,7 @@ test('wraps parsing errors', withServer, async (t, server, got) => {
 	t.is(error.options.url.pathname, '/');
 });
 
-test('parses non-200 responses', withServer, async (t, server, got) => {
+test('parses non-200 responses', withHttpServer(), async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.statusCode = 500;
 		response.end(jsonResponse);
@@ -112,7 +112,7 @@ test('parses non-200 responses', withServer, async (t, server, got) => {
 	t.deepEqual(error.response.body, dog);
 });
 
-test('ignores errors on invalid non-200 responses', withServer, async (t, server, got) => {
+test('ignores errors on invalid non-200 responses', withHttpServer(), async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.statusCode = 500;
 		response.end('Internal error');
@@ -127,7 +127,7 @@ test('ignores errors on invalid non-200 responses', withServer, async (t, server
 	t.is(error.options.url.pathname, '/');
 });
 
-test('parse errors have `response` property', withServer, async (t, server, got) => {
+test('parse errors have `response` property', withHttpServer(), async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.end('/');
 	});
@@ -138,7 +138,7 @@ test('parse errors have `response` property', withServer, async (t, server, got)
 	t.is(error.response.body, '/');
 });
 
-test('sets correct headers', withServer, async (t, server, got) => {
+test('sets correct headers', withHttpServer(), async (t, server, got) => {
 	server.post('/', (request, response) => {
 		response.end(JSON.stringify(request.headers));
 	});
@@ -148,7 +148,7 @@ test('sets correct headers', withServer, async (t, server, got) => {
 	t.is(headers.accept, 'application/json');
 });
 
-test('doesn\'t throw on 204 No Content', withServer, async (t, server, got) => {
+test('doesn\'t throw on 204 No Content', withHttpServer(), async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.statusCode = 204;
 		response.end();
@@ -158,7 +158,7 @@ test('doesn\'t throw on 204 No Content', withServer, async (t, server, got) => {
 	t.is(body, '');
 });
 
-test('doesn\'t throw on empty bodies', withServer, async (t, server, got) => {
+test('doesn\'t throw on empty bodies', withHttpServer(), async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.statusCode = 200;
 		response.end();
@@ -168,7 +168,7 @@ test('doesn\'t throw on empty bodies', withServer, async (t, server, got) => {
 	t.is(body, '');
 });
 
-test('.buffer() returns binary content', withServer, async (t, server, got) => {
+test('.buffer() returns binary content', withHttpServer(), async (t, server, got) => {
 	const body = Buffer.from('89504E470D0A1A0A0000000D49484452', 'hex');
 
 	server.get('/', (_request, response) => {
@@ -179,7 +179,7 @@ test('.buffer() returns binary content', withServer, async (t, server, got) => {
 	t.is(Buffer.compare(buffer, body), 0);
 });
 
-test('shortcuts throw ParseErrors', withServer, async (t, server, got) => {
+test('shortcuts throw ParseErrors', withHttpServer(), async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.end('not a json');
 	});
@@ -190,7 +190,7 @@ test('shortcuts throw ParseErrors', withServer, async (t, server, got) => {
 	});
 });
 
-test('shortcuts result properly when retrying in afterResponse', withServer, async (t, server, got) => {
+test('shortcuts result properly when retrying in afterResponse', withHttpServer(), async (t, server, got) => {
 	const nasty = JSON.stringify({hello: 'nasty'});
 	const proper = JSON.stringify({hello: 'world'});
 
@@ -230,7 +230,7 @@ test('shortcuts result properly when retrying in afterResponse', withServer, asy
 	t.is(buffer.compare(Buffer.from(proper)), 0);
 });
 
-test('responseType is optional when using template', withServer, async (t, server, got) => {
+test('responseType is optional when using template', withHttpServer(), async (t, server, got) => {
 	const data = {hello: 'world'};
 
 	server.post('/', async (request, response) => {
@@ -243,7 +243,7 @@ test('responseType is optional when using template', withServer, async (t, serve
 	t.deepEqual(body, data);
 });
 
-test('JSON response custom parser', withServer, async (t, server, got) => {
+test('JSON response custom parser', withHttpServer(), async (t, server, got) => {
 	server.get('/', defaultHandler);
 
 	t.deepEqual((await got({

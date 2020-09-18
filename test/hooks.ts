@@ -8,7 +8,7 @@ import delay = require('delay');
 import {Handler} from 'express';
 import Responselike = require('responselike');
 import got, {RequestError, HTTPError, Response} from '../source';
-import withServer from './helpers/with-server';
+import {withHttpServer} from './helpers/with-server';
 
 const errorString = 'oops';
 const error = new Error(errorString);
@@ -45,7 +45,7 @@ const createAgentSpy = <T extends HttpAgent>(AgentClass: Constructor): {agent: T
 	return {agent, spy};
 };
 
-test('async hooks', withServer, async (t, server, got) => {
+test('async hooks', withHttpServer(), async (t, server, got) => {
 	server.get('/', echoHeaders);
 
 	const {body} = await got<Record<string, string>>({
@@ -123,7 +123,7 @@ test('catches beforeRequest thrown errors', async t => {
 	});
 });
 
-test('catches beforeRedirect thrown errors', withServer, async (t, server, got) => {
+test('catches beforeRedirect thrown errors', withHttpServer(), async (t, server, got) => {
 	server.get('/', echoHeaders);
 	server.get('/redirect', redirectEndpoint);
 
@@ -139,7 +139,7 @@ test('catches beforeRedirect thrown errors', withServer, async (t, server, got) 
 	});
 });
 
-test('catches beforeRetry thrown errors', withServer, async (t, server, got) => {
+test('catches beforeRetry thrown errors', withHttpServer(), async (t, server, got) => {
 	server.get('/', echoHeaders);
 	server.get('/retry', retryEndpoint);
 
@@ -155,7 +155,7 @@ test('catches beforeRetry thrown errors', withServer, async (t, server, got) => 
 	});
 });
 
-test('catches afterResponse thrown errors', withServer, async (t, server, got) => {
+test('catches afterResponse thrown errors', withHttpServer(), async (t, server, got) => {
 	server.get('/', echoHeaders);
 
 	await t.throwsAsync(got({
@@ -197,7 +197,7 @@ test('catches beforeRequest promise rejections', async t => {
 	});
 });
 
-test('catches beforeRedirect promise rejections', withServer, async (t, server, got) => {
+test('catches beforeRedirect promise rejections', withHttpServer(), async (t, server, got) => {
 	server.get('/', redirectEndpoint);
 
 	await t.throwsAsync(got({
@@ -214,7 +214,7 @@ test('catches beforeRedirect promise rejections', withServer, async (t, server, 
 	});
 });
 
-test('catches beforeRetry promise rejections', withServer, async (t, server, got) => {
+test('catches beforeRetry promise rejections', withHttpServer(), async (t, server, got) => {
 	server.get('/retry', retryEndpoint);
 
 	await t.throwsAsync(got('retry', {
@@ -231,7 +231,7 @@ test('catches beforeRetry promise rejections', withServer, async (t, server, got
 	});
 });
 
-test('catches afterResponse promise rejections', withServer, async (t, server, got) => {
+test('catches afterResponse promise rejections', withHttpServer(), async (t, server, got) => {
 	server.get('/', echoHeaders);
 
 	await t.throwsAsync(got({
@@ -260,7 +260,7 @@ test('catches beforeError errors', async t => {
 	}), {message: errorString});
 });
 
-test('init is called with options', withServer, async (t, server, got) => {
+test('init is called with options', withHttpServer(), async (t, server, got) => {
 	server.get('/', echoHeaders);
 
 	const context = {};
@@ -277,7 +277,7 @@ test('init is called with options', withServer, async (t, server, got) => {
 	});
 });
 
-test('init from defaults is called with options', withServer, async (t, server, got) => {
+test('init from defaults is called with options', withHttpServer(), async (t, server, got) => {
 	server.get('/', echoHeaders);
 
 	const context = {};
@@ -295,7 +295,7 @@ test('init from defaults is called with options', withServer, async (t, server, 
 	await instance({context});
 });
 
-test('init allows modifications', withServer, async (t, server, got) => {
+test('init allows modifications', withHttpServer(), async (t, server, got) => {
 	server.get('/', (request, response) => {
 		response.end(request.headers.foo);
 	});
@@ -313,7 +313,7 @@ test('init allows modifications', withServer, async (t, server, got) => {
 	t.is(body, 'bar');
 });
 
-test('beforeRequest is called with options', withServer, async (t, server, got) => {
+test('beforeRequest is called with options', withHttpServer(), async (t, server, got) => {
 	server.get('/', echoHeaders);
 
 	await got({
@@ -329,7 +329,7 @@ test('beforeRequest is called with options', withServer, async (t, server, got) 
 	});
 });
 
-test('beforeRequest allows modifications', withServer, async (t, server, got) => {
+test('beforeRequest allows modifications', withHttpServer(), async (t, server, got) => {
 	server.get('/', echoHeaders);
 
 	const {body} = await got<Record<string, string>>({
@@ -345,7 +345,7 @@ test('beforeRequest allows modifications', withServer, async (t, server, got) =>
 	t.is(body.foo, 'bar');
 });
 
-test('returning HTTP response from a beforeRequest hook', withServer, async (t, server, got) => {
+test('returning HTTP response from a beforeRequest hook', withHttpServer(), async (t, server, got) => {
 	server.get('/', echoUrl);
 
 	const {statusCode, headers, body} = await got({
@@ -368,7 +368,7 @@ test('returning HTTP response from a beforeRequest hook', withServer, async (t, 
 	t.is(body, 'Hi!');
 });
 
-test('beforeRedirect is called with options and response', withServer, async (t, server, got) => {
+test('beforeRedirect is called with options and response', withHttpServer(), async (t, server, got) => {
 	server.get('/', echoHeaders);
 	server.get('/redirect', redirectEndpoint);
 
@@ -389,7 +389,7 @@ test('beforeRedirect is called with options and response', withServer, async (t,
 	});
 });
 
-test('beforeRedirect allows modifications', withServer, async (t, server, got) => {
+test('beforeRedirect allows modifications', withHttpServer(), async (t, server, got) => {
 	server.get('/', echoHeaders);
 	server.get('/redirect', redirectEndpoint);
 
@@ -406,7 +406,7 @@ test('beforeRedirect allows modifications', withServer, async (t, server, got) =
 	t.is(body.foo, 'bar');
 });
 
-test('beforeRetry is called with options', withServer, async (t, server, got) => {
+test('beforeRetry is called with options', withHttpServer(), async (t, server, got) => {
 	server.get('/', echoHeaders);
 	server.get('/retry', retryEndpoint);
 
@@ -430,7 +430,7 @@ test('beforeRetry is called with options', withServer, async (t, server, got) =>
 	});
 });
 
-test('beforeRetry allows modifications', withServer, async (t, server, got) => {
+test('beforeRetry allows modifications', withHttpServer(), async (t, server, got) => {
 	server.get('/', echoHeaders);
 	server.get('/retry', retryEndpoint);
 
@@ -447,7 +447,7 @@ test('beforeRetry allows modifications', withServer, async (t, server, got) => {
 	t.is(body.foo, 'bar');
 });
 
-test('afterResponse is called with response', withServer, async (t, server, got) => {
+test('afterResponse is called with response', withHttpServer(), async (t, server, got) => {
 	server.get('/', echoHeaders);
 
 	await got({
@@ -464,7 +464,7 @@ test('afterResponse is called with response', withServer, async (t, server, got)
 	});
 });
 
-test('afterResponse allows modifications', withServer, async (t, server, got) => {
+test('afterResponse allows modifications', withHttpServer(), async (t, server, got) => {
 	server.get('/', echoHeaders);
 
 	const {body} = await got<Record<string, string>>({
@@ -481,7 +481,7 @@ test('afterResponse allows modifications', withServer, async (t, server, got) =>
 	t.is(body.hello, 'world');
 });
 
-test('afterResponse allows to retry', withServer, async (t, server, got) => {
+test('afterResponse allows to retry', withHttpServer(), async (t, server, got) => {
 	server.get('/', (request, response) => {
 		if (request.headers.token !== 'unicorn') {
 			response.statusCode = 401;
@@ -510,7 +510,7 @@ test('afterResponse allows to retry', withServer, async (t, server, got) => {
 	t.is(statusCode, 200);
 });
 
-test('cancelling the request after retrying in a afterResponse hook', withServer, async (t, server, got) => {
+test('cancelling the request after retrying in a afterResponse hook', withHttpServer(), async (t, server, got) => {
 	let requests = 0;
 	server.get('/', (_request, response) => {
 		requests++;
@@ -543,7 +543,7 @@ test('cancelling the request after retrying in a afterResponse hook', withServer
 	t.is(requests, 1);
 });
 
-test('afterResponse allows to retry - `beforeRetry` hook', withServer, async (t, server, got) => {
+test('afterResponse allows to retry - `beforeRetry` hook', withHttpServer(), async (t, server, got) => {
 	server.get('/', (request, response) => {
 		if (request.headers.token !== 'unicorn') {
 			response.statusCode = 401;
@@ -581,7 +581,7 @@ test('afterResponse allows to retry - `beforeRetry` hook', withServer, async (t,
 	t.true(isCalled);
 });
 
-test('no infinity loop when retrying on afterResponse', withServer, async (t, server, got) => {
+test('no infinity loop when retrying on afterResponse', withHttpServer(), async (t, server, got) => {
 	server.get('/', (request, response) => {
 		if (request.headers.token !== 'unicorn') {
 			response.statusCode = 401;
@@ -606,7 +606,7 @@ test('no infinity loop when retrying on afterResponse', withServer, async (t, se
 	}), {instanceOf: got.HTTPError, message: 'Response code 401 (Unauthorized)'});
 });
 
-test('throws on afterResponse retry failure', withServer, async (t, server, got) => {
+test('throws on afterResponse retry failure', withHttpServer(), async (t, server, got) => {
 	let didVisit401then500: boolean;
 	server.get('/', (_request, response) => {
 		if (didVisit401then500) {
@@ -639,7 +639,7 @@ test('throws on afterResponse retry failure', withServer, async (t, server, got)
 	}), {instanceOf: got.HTTPError, message: 'Response code 500 (Internal Server Error)'});
 });
 
-test('doesn\'t throw on afterResponse retry HTTP failure if throwHttpErrors is false', withServer, async (t, server, got) => {
+test('doesn\'t throw on afterResponse retry HTTP failure if throwHttpErrors is false', withHttpServer(), async (t, server, got) => {
 	let didVisit401then500: boolean;
 	server.get('/', (_request, response) => {
 		if (didVisit401then500) {
@@ -674,7 +674,7 @@ test('doesn\'t throw on afterResponse retry HTTP failure if throwHttpErrors is f
 	t.is(statusCode, 500);
 });
 
-test('throwing in a beforeError hook - promise', withServer, async (t, server, got) => {
+test('throwing in a beforeError hook - promise', withHttpServer(), async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.end('ok');
 	});
@@ -698,7 +698,7 @@ test('throwing in a beforeError hook - promise', withServer, async (t, server, g
 	}), {message: 'foobar'});
 });
 
-test('throwing in a beforeError hook - stream', withServer, async (t, _server, got) => {
+test('throwing in a beforeError hook - stream', withHttpServer(), async (t, _server, got) => {
 	await t.throwsAsync(getStream(got.stream({
 		hooks: {
 			beforeError: [
@@ -713,7 +713,7 @@ test('throwing in a beforeError hook - stream', withServer, async (t, _server, g
 	})), {message: 'foobar'});
 });
 
-test('beforeError is called with an error - promise', withServer, async (t, server, got) => {
+test('beforeError is called with an error - promise', withHttpServer(), async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.end('ok');
 	});
@@ -733,7 +733,7 @@ test('beforeError is called with an error - promise', withServer, async (t, serv
 	}), {message: errorString});
 });
 
-test('beforeError is called with an error - stream', withServer, async (t, _server, got) => {
+test('beforeError is called with an error - stream', withHttpServer(), async (t, _server, got) => {
 	await t.throwsAsync(getStream(got.stream({
 		hooks: {
 			beforeError: [error2 => {
@@ -763,7 +763,7 @@ test('beforeError allows modifications', async t => {
 	}), {message: errorString2});
 });
 
-test('does not break on `afterResponse` hook with JSON mode', withServer, async (t, server, got) => {
+test('does not break on `afterResponse` hook with JSON mode', withHttpServer(), async (t, server, got) => {
 	server.get('/foobar', echoHeaders);
 
 	await t.notThrowsAsync(got('', {
@@ -784,7 +784,7 @@ test('does not break on `afterResponse` hook with JSON mode', withServer, async 
 	}));
 });
 
-test('catches HTTPErrors', withServer, async (t, _server, got) => {
+test('catches HTTPErrors', withHttpServer(), async (t, _server, got) => {
 	t.plan(2);
 
 	await t.throwsAsync(got({
@@ -799,7 +799,7 @@ test('catches HTTPErrors', withServer, async (t, _server, got) => {
 	}));
 });
 
-test('timeout can be modified using a hook', withServer, async (t, server, got) => {
+test('timeout can be modified using a hook', withHttpServer(), async (t, server, got) => {
 	server.get('/', () => {});
 
 	await t.throwsAsync(got({
@@ -815,7 +815,7 @@ test('timeout can be modified using a hook', withServer, async (t, server, got) 
 	}), {message: 'Timeout awaiting \'request\' for 500ms'});
 });
 
-test('beforeRequest hook is called before each request', withServer, async (t, server, got) => {
+test('beforeRequest hook is called before each request', withHttpServer(), async (t, server, got) => {
 	server.post('/', echoUrl);
 	server.post('/redirect', redirectEndpoint);
 
@@ -859,7 +859,7 @@ test('beforeError emits valid promise `HTTPError`s', async t => {
 	await t.throwsAsync(instance('https://ValidHTTPErrors.com'));
 });
 
-test('hooks are not duplicated', withServer, async (t, _server, got) => {
+test('hooks are not duplicated', withHttpServer(), async (t, _server, got) => {
 	let calls = 0;
 
 	await t.throwsAsync(got({
@@ -878,7 +878,7 @@ test('hooks are not duplicated', withServer, async (t, _server, got) => {
 	t.is(calls, 1);
 });
 
-test('async afterResponse allows to retry with allowGetBody and json payload', withServer, async (t, server, got) => {
+test('async afterResponse allows to retry with allowGetBody and json payload', withHttpServer(), async (t, server, got) => {
 	server.get('/', (request, response) => {
 		if (request.headers.token !== 'unicorn') {
 			response.statusCode = 401;
@@ -907,7 +907,7 @@ test('async afterResponse allows to retry with allowGetBody and json payload', w
 	t.is(statusCode, 200);
 });
 
-test('beforeRequest hook respect `agent` option', withServer, async (t, server, got) => {
+test('beforeRequest hook respect `agent` option', withHttpServer(), async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.end('ok');
 	});
@@ -931,7 +931,7 @@ test('beforeRequest hook respect `agent` option', withServer, async (t, server, 
 	agent.destroy();
 });
 
-test('beforeRequest hook respect `url` option', withServer, async (t, server, got) => {
+test('beforeRequest hook respect `url` option', withHttpServer(), async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.end('ko');
 	});
@@ -951,7 +951,7 @@ test('beforeRequest hook respect `url` option', withServer, async (t, server, go
 	})).body, 'ok');
 });
 
-test('no duplicate hook calls in single-page paginated requests', withServer, async (t, server, got) => {
+test('no duplicate hook calls in single-page paginated requests', withHttpServer(), async (t, server, got) => {
 	server.get('/get', (_request, response) => {
 		response.end('i <3 koalas');
 	});
@@ -1021,7 +1021,7 @@ test('no duplicate hook calls in single-page paginated requests', withServer, as
 	t.is(afterHookCount, 3);
 });
 
-test('no duplicate hook calls in sequential paginated requests', withServer, async (t, server, got) => {
+test('no duplicate hook calls in sequential paginated requests', withHttpServer(), async (t, server, got) => {
 	server.get('/get', (_request, response) => {
 		response.end('i <3 unicorns');
 	});
@@ -1074,7 +1074,7 @@ test('no duplicate hook calls in sequential paginated requests', withServer, asy
 	t.is(afterHookCount, 4);
 });
 
-test('intentional duplicate hooks in pagination with extended instance', withServer, async (t, server, got) => {
+test('intentional duplicate hooks in pagination with extended instance', withHttpServer(), async (t, server, got) => {
 	server.get('/get', (_request, response) => {
 		response.end('<3');
 	});
@@ -1142,7 +1142,7 @@ test('intentional duplicate hooks in pagination with extended instance', withSer
 	t.is(afterCountAdditional, 2);
 });
 
-test('no duplicate hook calls when returning original request options', withServer, async (t, server, got) => {
+test('no duplicate hook calls when returning original request options', withHttpServer(), async (t, server, got) => {
 	server.get('/get', (_request, response) => {
 		response.end('i <3 unicorns');
 	});

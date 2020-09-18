@@ -1,8 +1,8 @@
 import test from 'ava';
 import got, {HTTPError} from '../source';
-import withServer from './helpers/with-server';
+import {withHttpServer} from './helpers/with-server';
 
-test('works', withServer, async (t, server) => {
+test('works', withHttpServer(), async (t, server) => {
 	server.get('/', (_request, response) => {
 		response.end('ok');
 	});

@@ -2,7 +2,7 @@ import {promisify} from 'util';
 import zlib = require('zlib');
 import test from 'ava';
 import getStream = require('get-stream');
-import withServer from './helpers/with-server';
+import {withHttpServer} from './helpers/with-server';
 import {HTTPError, ReadError} from '../source';
 
 const testContent = 'Compressible response content.\n';
@@ -13,7 +13,7 @@ test.before('setup', async () => {
 	gzipData = await promisify<string, Buffer>(zlib.gzip)(testContent);
 });
 
-test('decompress content', withServer, async (t, server, got) => {
+test('decompress content', withHttpServer(), async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.setHeader('Content-Encoding', 'gzip');
 		response.end(gzipData);
@@ -22,7 +22,7 @@ test('decompress content', withServer, async (t, server, got) => {
 	t.is((await got('')).body, testContent);
 });
 
-test('decompress content on error', withServer, async (t, server, got) => {
+test('decompress content on error', withHttpServer(), async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.setHeader('Content-Encoding', 'gzip');
 		response.status(404);
@@ -34,7 +34,7 @@ test('decompress content on error', withServer, async (t, server, got) => {
 	t.is(error.response.body, testContent);
 });
 
-test('decompress content - stream', withServer, async (t, server, got) => {
+test('decompress content - stream', withHttpServer(), async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.setHeader('Content-Encoding', 'gzip');
 		response.end(gzipData);
@@ -43,7 +43,7 @@ test('decompress content - stream', withServer, async (t, server, got) => {
 	t.is((await getStream(got.stream(''))), testContent);
 });
 
-test('handles gzip error', withServer, async (t, server, got) => {
+test('handles gzip error', withHttpServer(), async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.setHeader('Content-Encoding', 'gzip');
 		response.end('Not gzipped content');
@@ -55,7 +55,7 @@ test('handles gzip error', withServer, async (t, server, got) => {
 	});
 });
 
-test('no unhandled `Premature close` error', withServer, async (t, server, got) => {
+test('no unhandled `Premature close` error', withHttpServer(), async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.setHeader('Content-Encoding', 'gzip');
 		response.write('Not gzipped content');
@@ -67,7 +67,7 @@ test('no unhandled `Premature close` error', withServer, async (t, server, got) 
 	});
 });
 
-test('handles gzip error - stream', withServer, async (t, server, got) => {
+test('handles gzip error - stream', withHttpServer(), async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.setHeader('Content-Encoding', 'gzip');
 		response.end('Not gzipped content');
@@ -79,7 +79,7 @@ test('handles gzip error - stream', withServer, async (t, server, got) => {
 	});
 });
 
-test('decompress option opts out of decompressing', withServer, async (t, server, got) => {
+test('decompress option opts out of decompressing', withHttpServer(), async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.setHeader('Content-Encoding', 'gzip');
 		response.end(gzipData);
@@ -89,7 +89,7 @@ test('decompress option opts out of decompressing', withServer, async (t, server
 	t.is(Buffer.compare(body, gzipData), 0);
 });
 
-test('decompress option doesn\'t alter encoding of uncompressed responses', withServer, async (t, server, got) => {
+test('decompress option doesn\'t alter encoding of uncompressed responses', withHttpServer(), async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.end(testContentUncompressed);
 	});
@@ -98,7 +98,7 @@ test('decompress option doesn\'t alter encoding of uncompressed responses', with
 	t.is(body, testContentUncompressed);
 });
 
-test('preserves `headers` property', withServer, async (t, server, got) => {
+test('preserves `headers` property', withHttpServer(), async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.setHeader('Content-Encoding', 'gzip');
 		response.end(gzipData);
@@ -107,7 +107,7 @@ test('preserves `headers` property', withServer, async (t, server, got) => {
 	t.truthy((await got('')).headers);
 });
 
-test('does not break HEAD responses', withServer, async (t, server, got) => {
+test('does not break HEAD responses', withHttpServer(), async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.end();
 	});
@@ -115,7 +115,7 @@ test('does not break HEAD responses', withServer, async (t, server, got) => {
 	t.is((await got.head('')).body, '');
 });
 
-test('does not ignore missing data', withServer, async (t, server, got) => {
+test('does not ignore missing data', withHttpServer(), async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.setHeader('Content-Encoding', 'gzip');
 		response.end(gzipData.slice(0, -1));
@@ -127,7 +127,7 @@ test('does not ignore missing data', withServer, async (t, server, got) => {
 	});
 });
 
-test('response has `url` and `requestUrl` properties', withServer, async (t, server, got) => {
+test('response has `url` and `requestUrl` properties', withHttpServer(), async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.setHeader('Content-Encoding', 'gzip');
 		response.end(gzipData);

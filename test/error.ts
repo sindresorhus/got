@@ -4,11 +4,11 @@ import http = require('http');
 import stream = require('stream');
 import test from 'ava';
 import got, {RequestError, HTTPError, TimeoutError} from '../source';
-import withServer from './helpers/with-server';
+import {withHttpServer} from './helpers/with-server';
 
 const pStreamPipeline = promisify(stream.pipeline);
 
-test('properties', withServer, async (t, server, got) => {
+test('properties', withHttpServer(), async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.statusCode = 404;
 		response.end('not');
@@ -48,7 +48,7 @@ test('`options.body` form error message', async t => {
 	});
 });
 
-test('no plain object restriction on json body', withServer, async (t, server, got) => {
+test('no plain object restriction on json body', withHttpServer(), async (t, server, got) => {
 	server.post('/body', async (request, response) => {
 		await pStreamPipeline(request, response);
 	});
@@ -62,7 +62,7 @@ test('no plain object restriction on json body', withServer, async (t, server, g
 	t.deepEqual(body, {a: 123});
 });
 
-test('default status message', withServer, async (t, server, got) => {
+test('default status message', withHttpServer(), async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.statusCode = 400;
 		response.end('body');
@@ -73,7 +73,7 @@ test('default status message', withServer, async (t, server, got) => {
 	t.is(error.response.statusMessage, 'Bad Request');
 });
 
-test('custom status message', withServer, async (t, server, got) => {
+test('custom status message', withHttpServer(), async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.statusCode = 400;
 		response.statusMessage = 'Something Exploded';
@@ -85,7 +85,7 @@ test('custom status message', withServer, async (t, server, got) => {
 	t.is(error.response.statusMessage, 'Something Exploded');
 });
 
-test('custom body', withServer, async (t, server, got) => {
+test('custom body', withHttpServer(), async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.statusCode = 404;
 		response.end('not');
@@ -96,7 +96,7 @@ test('custom body', withServer, async (t, server, got) => {
 	t.is(error.response.body, 'not');
 });
 
-test('contains Got options', withServer, async (t, server, got) => {
+test('contains Got options', withHttpServer(), async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.statusCode = 404;
 		response.end();
@@ -110,7 +110,7 @@ test('contains Got options', withServer, async (t, server, got) => {
 	t.is(error.options.agent, options.agent);
 });
 
-test('empty status message is overriden by the default one', withServer, async (t, server, got) => {
+test('empty status message is overriden by the default one', withHttpServer(), async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.writeHead(400, '');
 		response.end('body');
@@ -192,7 +192,7 @@ test('normalization errors using convenience methods', async t => {
 	await t.throwsAsync(got(url).json().text().buffer(), {message: `Invalid URL: ${url}`});
 });
 
-test('errors can have request property', withServer, async (t, server, got) => {
+test('errors can have request property', withHttpServer(), async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.statusCode = 404;
 		response.end();
@@ -204,7 +204,7 @@ test('errors can have request property', withServer, async (t, server, got) => {
 	t.truthy(error.request.downloadProgress);
 });
 
-test('promise does not hang on timeout on HTTP error', withServer, async (t, server, got) => {
+test('promise does not hang on timeout on HTTP error', withHttpServer(), async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.statusCode = 404;
 		response.write('asdf');
