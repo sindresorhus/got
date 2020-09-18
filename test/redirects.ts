@@ -440,7 +440,7 @@ test('clears the authorization header when redirecting to a different hostname',
 	t.is(headers.Authorization, undefined);
 });
 
-test('preserves userinfo on redirect to the same origin', withServer, async (t, server) => {
+test('preserves userinfo on redirect to the same origin', withHttpServer(), async (t, server) => {
 	server.get('/redirect', (_request, response) => {
 		response.writeHead(303, {
 			location: `http://localhost:${server.port}/`
