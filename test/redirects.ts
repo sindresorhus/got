@@ -156,6 +156,21 @@ test('redirects on 303 if GET or HEAD', withServer, async (t, server, got) => {
 	t.is(request.options.method, 'HEAD');
 });
 
+test('removes body on GET redirect', withServer, async (t, server, got) => {
+	server.get('/', (request, response) => request.pipe(response));
+
+	server.post('/seeOther', (_request, response) => {
+		response.writeHead(303, {
+			location: '/'
+		});
+		response.end();
+	});
+
+	const {headers, body} = await got.post('seeOther', {body: 'hello'});
+	t.is(body, '');
+	t.is(headers['content-length'], '0');
+});
+
 test('redirects on 303 response even on post, put, delete', withServer, async (t, server, got) => {
 	server.get('/', reachedHandler);
 

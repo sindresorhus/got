@@ -2071,6 +2071,9 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 				if ('form' in options) {
 					delete options.form;
 				}
+
+				this[kBody] = undefined;
+				delete options.headers['content-length'];
 			}
 
 			if (this.redirects.length >= options.maxRedirects) {
