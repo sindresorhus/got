@@ -440,6 +440,22 @@ test('clears the authorization header when redirecting to a different hostname',
 	t.is(headers.Authorization, undefined);
 });
 
+test('preserves userinfo on redirect to the same origin', withServer, async (t, server) => {
+	server.get('/redirect', (_request, response) => {
+		response.writeHead(303, {
+			location: `http://localhost:${server.port}/`
+		});
+		response.end();
+	});
+
+	server.get('/', (request, response) => {
+		t.is(request.headers.authorization, 'Basic aGVsbG86d29ybGQ=');
+		response.end();
+	});
+
+	await got(`http://hello:world@localhost:${server.port}/redirect`);
+});
+
 test('clears the host header when redirecting to a different hostname', async t => {
 	nock('https://testweb.com').get('/redirect').reply(302, undefined, {location: 'https://webtest.com/'});
 	nock('https://webtest.com').get('/').reply(function (_uri, _body) {
