@@ -1426,17 +1426,25 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			this._lockWrite();
 		}
 
-		(async (nonNormalizedOptions: Options) => {
+		if (kIsNormalizedAlready in options) {
+			this.options = options as NormalizedOptions;
+		} else {
 			try {
-				if (nonNormalizedOptions.body instanceof ReadStream) {
-					await waitForOpenFile(nonNormalizedOptions.body);
+				// @ts-expect-error Common TypeScript bug saying that `this.constructor` is not accessible
+				this.options = this.constructor.normalizeArguments(url, options, defaults);
+			} catch (error) {
+				if (is.nodeStream(options.body)) {
+					options.body.destroy();
 				}
 
-				if (kIsNormalizedAlready in nonNormalizedOptions) {
-					this.options = nonNormalizedOptions as NormalizedOptions;
-				} else {
-					// @ts-expect-error Common TypeScript bug saying that `this.constructor` is not accessible
-					this.options = this.constructor.normalizeArguments(url, nonNormalizedOptions, defaults);
+				throw error;
+			}
+		}
+
+		(async () => {
+			try {
+				if (this.options.body instanceof ReadStream) {
+					await waitForOpenFile(this.options.body);
 				}
 
 				const {url: normalizedURL} = this.options;
@@ -1476,7 +1484,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 					this.destroy(error);
 				}
 			}
-		})(options);
+		})();
 	}
 
 	static normalizeArguments(url?: string | URL, options?: Options, defaults?: Defaults): NormalizedOptions {

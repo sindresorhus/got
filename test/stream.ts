@@ -328,7 +328,7 @@ test.failing('no unhandled body stream errors', async t => {
 	body.append('upload', fs.createReadStream('/bin/sh'));
 
 	await t.throwsAsync(got.post(`https://offlinesite${Date.now()}.com`, {
-		form: body
+		body
 	}), {
 		code: 'ENOTFOUND'
 	});
