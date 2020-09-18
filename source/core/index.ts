@@ -2308,6 +2308,10 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			}
 		}
 
+		if (options.body && this[kBody] !== options.body) {
+			this[kBody] = options.body;
+		}
+
 		const {agent, request, timeout, url} = options;
 
 		if (options.dnsCache && !('lookup' in options)) {
