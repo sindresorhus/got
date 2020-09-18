@@ -1433,11 +1433,13 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 				// @ts-expect-error Common TypeScript bug saying that `this.constructor` is not accessible
 				this.options = this.constructor.normalizeArguments(url, options, defaults);
 			} catch (error) {
+				// TODO: Move this to `_destroy()`
 				if (is.nodeStream(options.body)) {
 					options.body.destroy();
 				}
 
-				throw error;
+				this.destroy(error);
+				return;
 			}
 		}
 
