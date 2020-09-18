@@ -1,6 +1,7 @@
+import {ReadStream} from 'fs';
 import {ClientRequest, IncomingMessage} from 'http';
 import test from 'ava';
-import {Response} from '../source';
+import {Response, CancelError} from '../source';
 import withServer from './helpers/with-server';
 
 test('emits request event as promise', withServer, async (t, server, got) => {
@@ -49,4 +50,37 @@ test('no unhandled `The server aborted pending request` rejection', withServer, 
 	});
 
 	await t.throwsAsync(got(''));
+});
+
+let p: any;
+process.on('unhandledRejection', (_error, promise) => {
+	console.log(promise === p, p, promise);
+});
+
+test.only('promise.json() can be called before a file stream body is open', withServer, async (t, server, got) => {
+	server.post('/', (request, response) => {
+		request.resume();
+		request.once('end', () => {
+			response.end();
+		});
+	});
+
+	// @ts-ignore @types/node has wrong types.
+	const body = new ReadStream('', {
+		fs: {
+			open: () => {},
+			read: () => {},
+			close: () => {}
+		}
+	});
+
+	const promise = got({body});
+	// @ts-ignore
+	promise.asdf = 123;
+	p = promise;
+	t.notThrows(() => promise.json());
+
+	promise.cancel();
+
+	await t.throwsAsync(promise, {instanceOf: CancelError});;
 });
