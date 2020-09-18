@@ -1199,7 +1199,7 @@ test('no duplicate hook calls when returning original request options', withHttp
 	t.is(afterHookCount, 4);
 });
 
-test('`beforeRequest` change body', withServer, async (t, server, got) => {
+test('`beforeRequest` change body', withHttpServer(), async (t, server, got) => {
 	server.post('/', echoBody);
 
 	const response = await got.post({
