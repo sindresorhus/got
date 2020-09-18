@@ -322,12 +322,13 @@ test('piping to got.stream.put()', withServer, async (t, server, got) => {
 	});
 });
 
-test('no unhandled body stream errors', async t => {
-	const form = new FormData();
-	form.append('upload', fs.createReadStream('/bin/sh'));
+// See https://github.com/nodejs/node/issues/35237
+test.failing('no unhandled body stream errors', async t => {
+	const body = new FormData();
+	body.append('upload', fs.createReadStream('/bin/sh'));
 
 	await t.throwsAsync(got.post(`https://offlinesite${Date.now()}.com`, {
-		form
+		form: body
 	}), {
 		code: 'ENOTFOUND'
 	});
