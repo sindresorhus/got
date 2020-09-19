@@ -78,9 +78,13 @@ test.only('promise.json() can be called before a file stream body is open', with
 	// @ts-ignore
 	promise.asdf = 123;
 	p = promise;
-	t.notThrows(() => promise.json());
+	let jsonPromise: any;
+	t.notThrows(() => {
+		jsonPromise = promise.json()
+	});
 
 	promise.cancel();
 
 	await t.throwsAsync(promise, {instanceOf: CancelError});;
+	await t.throwsAsync(jsonPromise, {instanceOf: CancelError});;
 });
