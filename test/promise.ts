@@ -60,7 +60,7 @@ test('promise.json() can be called before a file stream body is open', withServe
 		});
 	});
 
-	// @ts-ignore @types/node has wrong types.
+	// @ts-expect-error @types/node has wrong types.
 	const body = new ReadStream('', {
 		fs: {
 			open: () => {},
