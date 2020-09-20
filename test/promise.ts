@@ -52,16 +52,11 @@ test('no unhandled `The server aborted pending request` rejection', withServer, 
 	await t.throwsAsync(got(''));
 });
 
-let p: any;
-process.on('unhandledRejection', (_error, promise) => {
-	console.log(promise === p, p, promise);
-});
-
-test.only('promise.json() can be called before a file stream body is open', withServer, async (t, server, got) => {
+test('promise.json() can be called before a file stream body is open', withServer, async (t, server, got) => {
 	server.post('/', (request, response) => {
 		request.resume();
 		request.once('end', () => {
-			response.end();
+			response.end('""');
 		});
 	});
 
@@ -75,16 +70,12 @@ test.only('promise.json() can be called before a file stream body is open', with
 	});
 
 	const promise = got({body});
-	// @ts-ignore
-	promise.asdf = 123;
-	p = promise;
-	let jsonPromise: any;
-	t.notThrows(() => {
-		jsonPromise = promise.json()
-	});
+	const checks = [
+		t.throwsAsync(promise, {instanceOf: CancelError}),
+		t.throwsAsync(promise.json(), {instanceOf: CancelError})
+	];
 
 	promise.cancel();
 
-	await t.throwsAsync(promise, {instanceOf: CancelError});;
-	await t.throwsAsync(jsonPromise, {instanceOf: CancelError});;
+	await Promise.all(checks);
 });
