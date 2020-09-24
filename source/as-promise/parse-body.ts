@@ -14,7 +14,7 @@ const parseBody = (response: Response, responseType: ResponseType, parseJson: Pa
 		}
 
 		if (responseType === 'json') {
-			return rawBody.length === 0 ? '' : parseJson(rawBody.toString());
+			return rawBody.length === 0 ? '' : parseJson(rawBody);
 		}
 
 		if (responseType === 'buffer') {
