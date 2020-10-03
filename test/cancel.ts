@@ -8,19 +8,26 @@ import getStream = require('get-stream');
 import {Handler} from 'express';
 import got, {CancelError} from '../source';
 import slowDataStream from './helpers/slow-data-stream';
-import {ExtendedTestServer, GlobalClock} from './helpers/types';
+import {GlobalClock} from './helpers/types';
+import {ExtendedHttpTestServer} from './helpers/create-http-test-server';
 import withServer, {withServerAndFakeTimers} from './helpers/with-server';
 
-const prepareServer = (server: ExtendedTestServer, clock: GlobalClock): {emitter: EventEmitter; promise: Promise<unknown>} => {
+const prepareServer = (server: ExtendedHttpTestServer, clock: GlobalClock): {emitter: EventEmitter; promise: Promise<unknown>} => {
 	const emitter = new EventEmitter();
 
 	const promise = new Promise((resolve, reject) => {
 		server.all('/abort', async (request, response) => {
 			emitter.emit('connection');
+
 			request.once('aborted', resolve);
 			response.once('finish', reject.bind(null, new Error('Request finished instead of aborting.')));
 
-			await pEvent(request, 'end');
+			try {
+				await pEvent(request, 'end');
+			} catch {
+				// Node.js 15.0.0 throws AND emits `aborted`
+			}
+
 			response.end();
 		});
 

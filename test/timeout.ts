@@ -14,7 +14,7 @@ import got, {TimeoutError} from '../source';
 import timedOut from '../source/core/utils/timed-out';
 import slowDataStream from './helpers/slow-data-stream';
 import {GlobalClock} from './helpers/types';
-import withServer, {withServerAndFakeTimers} from './helpers/with-server';
+import withServer, {withServerAndFakeTimers, withHttpsServer} from './helpers/with-server';
 
 const pStreamPipeline = promisify(stream.pipeline);
 
@@ -249,11 +249,10 @@ test.serial('connect timeout', withServerAndFakeTimers, async (t, _server, got, 
 	);
 });
 
-test.serial('connect timeout (ip address)', withServerAndFakeTimers, async (t, _server, got, clock) => {
+test.serial('connect timeout (ip address)', withServerAndFakeTimers, async (t, _server, _got, clock) => {
 	await t.throwsAsync(
 		got({
 			url: 'http://127.0.0.1',
-			prefixUrl: '',
 			createConnection: options => {
 				const socket = new net.Socket(options as Record<string, unknown> as net.SocketConstructorOpts);
 				// @ts-expect-error We know that it is readonly, but we have to test it
@@ -274,9 +273,9 @@ test.serial('connect timeout (ip address)', withServerAndFakeTimers, async (t, _
 	);
 });
 
-test.serial('secureConnect timeout', withServerAndFakeTimers, async (t, _server, got, clock) => {
+test.serial('secureConnect timeout', withHttpsServer({}, true), async (t, _server, got, clock) => {
 	await t.throwsAsync(
-		got.secure({
+		got({
 			createConnection: options => {
 				const socket = new net.Socket(options as Record<string, unknown> as net.SocketConstructorOpts);
 				// @ts-expect-error We know that it is readonly, but we have to test it
@@ -294,7 +293,7 @@ test.serial('secureConnect timeout', withServerAndFakeTimers, async (t, _server,
 			retry: 0
 		}).on('request', (request: http.ClientRequest) => {
 			request.on('socket', () => {
-				clock.runAll();
+				clock!.runAll();
 			});
 		}),
 		{
@@ -338,12 +337,11 @@ test.serial('lookup timeout', withServerAndFakeTimers, async (t, server, got, cl
 	);
 });
 
-test.serial('lookup timeout no error (ip address)', withServerAndFakeTimers, async (t, server, got, clock) => {
+test.serial('lookup timeout no error (ip address)', withServerAndFakeTimers, async (t, server, _got, clock) => {
 	server.get('/', defaultHandler(clock));
 
 	await t.notThrowsAsync(got({
 		url: `http://127.0.0.1:${server.port}`,
-		prefixUrl: '',
 		timeout: {lookup: 1},
 		retry: 0
 	}));

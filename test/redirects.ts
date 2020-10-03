@@ -1,9 +1,8 @@
-import {TLSSocket} from 'tls';
 import test from 'ava';
 import {Handler} from 'express';
 import nock = require('nock');
 import got, {MaxRedirectsError} from '../source';
-import withServer from './helpers/with-server';
+import withServer, {withHttpsServer} from './helpers/with-server';
 
 const reachedHandler: Handler = (_request, response) => {
 	const body = 'reached';
@@ -157,6 +156,21 @@ test('redirects on 303 if GET or HEAD', withServer, async (t, server, got) => {
 	t.is(request.options.method, 'HEAD');
 });
 
+test('removes body on GET redirect', withServer, async (t, server, got) => {
+	server.get('/', (request, response) => request.pipe(response));
+
+	server.post('/seeOther', (_request, response) => {
+		response.writeHead(303, {
+			location: '/'
+		});
+		response.end();
+	});
+
+	const {headers, body} = await got.post('seeOther', {body: 'hello'});
+	t.is(body, '');
+	t.is(headers['content-length'], '0');
+});
+
 test('redirects on 303 response even on post, put, delete', withServer, async (t, server, got) => {
 	server.get('/', reachedHandler);
 
@@ -172,50 +186,50 @@ test('redirects on 303 response even on post, put, delete', withServer, async (t
 	t.is(body, 'reached');
 });
 
-test('redirects from http to https work', withServer, async (t, server, got) => {
-	server.get('/', (request, response) => {
-		if (request.socket instanceof TLSSocket) {
-			response.end('https');
-		} else {
+test('redirects from http to https work', withServer, async (t, serverHttp) => {
+	await withHttpsServer()(t, async (t, serverHttps, got) => {
+		serverHttp.get('/', (_request, response) => {
 			response.end('http');
-		}
-	});
-
-	server.get('/httpToHttps', (_request, response) => {
-		response.writeHead(302, {
-			location: server.sslUrl
 		});
-		response.end();
-	});
 
-	t.is((await got('httpToHttps', {
-		https: {
-			rejectUnauthorized: false
-		}
-	})).body, 'https');
+		serverHttps.get('/', (_request, response) => {
+			response.end('https');
+		});
+
+		serverHttp.get('/httpToHttps', (_request, response) => {
+			response.writeHead(302, {
+				location: serverHttps.url
+			});
+			response.end();
+		});
+
+		t.is((await got('httpToHttps', {
+			prefixUrl: serverHttp.url
+		})).body, 'https');
+	});
 });
 
-test('redirects from https to http work', withServer, async (t, server, got) => {
-	server.get('/', (request, response) => {
-		if (request.socket instanceof TLSSocket) {
-			response.end('https');
-		} else {
+test('redirects from https to http work', withHttpsServer(), async (t, serverHttps, got) => {
+	await withServer(t, async (t, serverHttp) => {
+		serverHttp.get('/', (_request, response) => {
 			response.end('http');
-		}
-	});
-
-	server.get('/httpsToHttp', (_request, response) => {
-		response.writeHead(302, {
-			location: server.url
 		});
-		response.end();
-	});
 
-	t.truthy((await got.secure('httpsToHttp', {
-		https: {
-			rejectUnauthorized: false
-		}
-	})).body);
+		serverHttps.get('/', (_request, response) => {
+			response.end('https');
+		});
+
+		serverHttps.get('/httpsToHttp', (_request, response) => {
+			response.writeHead(302, {
+				location: serverHttp.url
+			});
+			response.end();
+		});
+
+		t.is((await got('httpsToHttp', {
+			prefixUrl: serverHttps.url
+		})).body, 'http');
+	});
 });
 
 test('redirects works with lowercase method', withServer, async (t, server, got) => {
@@ -441,6 +455,22 @@ test('clears the authorization header when redirecting to a different hostname',
 	t.is(headers.Authorization, undefined);
 });
 
+test('preserves userinfo on redirect to the same origin', withServer, async (t, server) => {
+	server.get('/redirect', (_request, response) => {
+		response.writeHead(303, {
+			location: `http://localhost:${server.port}/`
+		});
+		response.end();
+	});
+
+	server.get('/', (request, response) => {
+		t.is(request.headers.authorization, 'Basic aGVsbG86d29ybGQ=');
+		response.end();
+	});
+
+	await got(`http://hello:world@localhost:${server.port}/redirect`);
+});
+
 test('clears the host header when redirecting to a different hostname', async t => {
 	nock('https://testweb.com').get('/redirect').reply(302, undefined, {location: 'https://webtest.com/'});
 	nock('https://webtest.com').get('/').reply(function (_uri, _body) {
@@ -449,4 +479,29 @@ test('clears the host header when redirecting to a different hostname', async t 
 
 	const resp = await got('https://testweb.com/redirect', {headers: {host: 'wrongsite.com'}});
 	t.is(resp.body, 'webtest.com');
+});
+
+test('correct port on redirect', withServer, async (t, server1, got) => {
+	await withServer(t, async (t, server2) => {
+		server1.get('/redirect', (_request, response) => {
+			response.redirect(`http://${server2.hostname}:${server2.port}/`);
+		});
+
+		server1.get('/', (_request, response) => {
+			response.end('SERVER1');
+		});
+
+		server2.get('/', (_request, response) => {
+			response.end('SERVER2');
+		});
+
+		const response = await got({
+			protocol: 'http:',
+			hostname: server1.hostname,
+			port: server1.port,
+			pathname: '/redirect'
+		});
+
+		t.is(response.body, 'SERVER2');
+	});
 });

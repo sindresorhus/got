@@ -36,7 +36,7 @@ test('properties', withServer, async (t, server, got) => {
 test('catches dns errors', async t => {
 	const error = await t.throwsAsync<RequestError>(got('http://doesntexist', {retry: 0}));
 	t.truthy(error);
-	t.regex(error.message, /ENOTFOUND/);
+	t.regex(error.message, /ENOTFOUND|EAI_AGAIN/);
 	t.is(error.options.url.host, 'doesntexist');
 	t.is(error.options.method, 'GET');
 });

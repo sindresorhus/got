@@ -4,7 +4,7 @@ import delay = require('delay');
 import getStream = require('get-stream');
 import got, {Response} from '../source';
 import withServer, {withBodyParsingServer} from './helpers/with-server';
-import {ExtendedTestServer} from './helpers/types';
+import {ExtendedHttpTestServer} from './helpers/create-http-test-server';
 
 const thrower = (): any => {
 	throw new Error('This should not be called');
@@ -17,7 +17,7 @@ const resetPagination = {
 	shouldContinue: undefined
 };
 
-const attachHandler = (server: ExtendedTestServer, count: number): void => {
+const attachHandler = (server: ExtendedHttpTestServer, count: number): void => {
 	server.get('/', (request, response) => {
 		const searchParameters = new URLSearchParams(request.url.split('?')[1]);
 		const page = Number(searchParameters.get('page')) || 1;

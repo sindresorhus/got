@@ -5,8 +5,9 @@
 	<br>
 	<br>
 	<br>
-	<p align="center">Huge thanks to <a href="https://moxy.studio"><img src="https://sindresorhus.com/assets/thanks/moxy-logo.svg" width="150"></a> for sponsoring Sindre Sorhus!
+	<p align="center">Huge thanks to <a href="https://moxy.studio"><img src="https://sindresorhus.com/assets/thanks/moxy-logo.svg" valign="middle" width="150"></a> for sponsoring Sindre Sorhus!
 	</p>
+	<p align="center"><sup>(they love Got too!)</sup></p>
 	<br>
 	<br>
 </div>
@@ -48,6 +49,7 @@ For browser usage, we recommend [Ky](https://github.com/sindresorhus/ky) by the 
 - [Plugins](documentation/lets-make-a-plugin.md)
 - [Used by 4K+ packages and 1.8M+ repos](https://github.com/sindresorhus/got/network/dependents)
 - [Actively maintained](https://github.com/sindresorhus/got/graphs/contributors)
+- [Trusted by many companies](#widely-used)
 
 ## Install
 
@@ -144,7 +146,7 @@ If no protocol is specified, it will throw a `TypeError`.
 
 **Note:** The query string is **not** parsed as search params. Example:
 
-```
+```js
 got('https://example.com/?query=a b'); //=> https://example.com/?query=a%20b
 got('https://example.com/', {searchParams: {query: 'a b'}}); //=> https://example.com/?query=a+b
 
@@ -318,6 +320,8 @@ const body = await got(url).json();
 // is semantically the same as this
 const body = await got(url, {responseType: 'json', resolveBodyOnly: true});
 ```
+
+**Note:** `buffer` will return the raw body buffer. Modifying it will also alter the result of `promise.text()` and `promise.json()`. Before overwritting the buffer, please copy it first via `Buffer.from(buffer)`. See https://github.com/nodejs/node/issues/27080
 
 ###### parseJson
 
@@ -516,6 +520,8 @@ If [`Retry-After`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Ret
 Delays between retries counts with function `1000 * Math.pow(2, retry - 1) + Math.random() * 100`, where `retry` is attempt number (starts from 1).
 
 The `calculateDelay` property is a `function` that receives an object with `attemptCount`, `retryOptions`, `error` and `computedValue` properties for current retry count, the retry options, error and default computed value. The function must return a delay in milliseconds (or a Promise resolving with it) (`0` return value cancels retry).
+
+**Note:** The `calculateDelay` function is responsible for the entire cache mechanism, including the `limit` property. To support it, you need to check whether `computedValue` is different than `0`.
 
 By default, it retries *only* on the specified methods, status codes, and on these network errors:
 - `ETIMEDOUT`: One of the [timeout](#timeout) limits were reached.
@@ -724,7 +730,7 @@ Called with plain [request options](#options), right before their normalization.
 See the [Request migration guide](documentation/migration-guides.md#breaking-changes) for an example.
 
 **Note #1:** This hook must be synchronous!\
-**Note #2:** Errors in this hook will be converted into an instances of [`RequestError`](#got.requesterror).\
+**Note #2:** Errors in this hook will be converted into an instances of [`RequestError`](#gotrequesterror).\
 **Note #3:** The options object may not have a `url` property. To modify it, use a `beforeRequest` hook instead.
 
 ###### hooks.beforeRequest
@@ -733,6 +739,24 @@ Type: `Function[]`\
 Default: `[]`
 
 Called with [normalized](source/core/index.ts) [request options](#options). Got will make no further changes to the request before it is sent. This is especially useful in conjunction with [`got.extend()`](#instances) when you want to create an API client that, for example, uses HMAC-signing.
+
+**Note:** Changing `options.json` or `options.form` has no effect on the request, you should change `options.body` instead. If needed, update the `options.headers` accordingly. Example:
+
+```js
+const got = require('got');
+
+got.post({
+	json: {payload: 'old'},
+	hooks: {
+		beforeRequest: [
+			options => {
+				options.body = JSON.stringify({payload: 'new'});
+				options.headers['content-length'] = options.body.length.toString();
+			}
+		]
+	}
+});
+```
 
 **Tip:** You can override the `request` function by returning a [`ClientRequest`-like](https://nodejs.org/api/http.html#http_class_http_clientrequest) instance or a [`IncomingMessage`-like](https://nodejs.org/api/http.html#http_class_http_incomingmessage) instance. This is very useful when creating a custom cache mechanism.
 
@@ -1018,7 +1042,24 @@ Type: `string`
 
 The passphrase to decrypt the `options.https.key` (if different keys have different passphrases refer to `options.https.key` documentation).
 
-##### Examples for `https.key`, `https.certificate` and `https.passphrase`
+##### https.pfx
+
+Type: `string | Buffer | Array<string | Buffer | object>`
+
+[PFX or PKCS12](https://en.wikipedia.org/wiki/PKCS_12) encoded private key and certificate chain. Using `options.https.pfx` is an alternative to providing `options.https.key` and `options.https.certificate` individually. A PFX is usually encrypted, and if it is, `options.https.passphrase` will be used to decrypt it.
+
+Multiple PFX's can be be provided as an array of unencrypted buffers or an array of objects like:
+
+```ts
+{
+	buffer: string | Buffer,
+	passphrase?: string
+}
+```
+
+This object form can only occur in an array. If the provided buffers are encrypted, `object.passphrase` can be used to decrypt them. If `object.passphrase` is not provided, `options.https.passphrase` will be used for decryption.
+
+##### Examples for `https.key`, `https.certificate`, `https.passphrase`, and `https.pfx`
 
 ```js
 // Single key with certificate
@@ -1062,6 +1103,45 @@ got('https://example.com', {
 		certificate: [
 			fs.readFileSync('./client_cert1.pem'),
 			fs.readFileSync('./client_cert2.pem')
+		]
+	}
+});
+
+// Single encrypted PFX with passphrase
+got('https://example.com', {
+	https: {
+		pfx: fs.readFileSync('./fake.pfx'),
+		passphrase: 'passphrase'
+	}
+});
+
+// Multiple encrypted PFX's with different passphrases
+got('https://example.com', {
+	https: {
+		pfx: [
+			{
+				buffer: fs.readFileSync('./key1.pfx'),
+				passphrase: 'passphrase1'
+			},
+			{
+				buffer: fs.readFileSync('./key2.pfx'),
+				passphrase: 'passphrase2'
+			}
+		]
+	}
+});
+
+// Multiple encrypted PFX's with single passphrase
+got('https://example.com', {
+	https: {
+		passphrase: 'passphrase',
+		pfx: [
+			{
+				buffer: fs.readFileSync('./key1.pfx')
+			},
+			{
+				buffer: fs.readFileSync('./key2.pfx')
+			}
 		]
 	}
 });
@@ -1318,7 +1398,7 @@ The same as `response.socket`.
 
 ##### .on('error', error)
 
-The emitted `error` is an instance of [`RequestError`](#got.requesterror).
+The emitted `error` is an instance of [`RequestError`](#gotrequesterror).
 
 #### Pagination
 
@@ -2192,12 +2272,12 @@ The Electron `net` module is not consistent with the Node.js `http` module. See 
 [ab]: https://badgen.net/travis/axios/axios?label
 [sb]: https://badgen.net/travis/visionmedia/superagent?label
 
-[g5]: https://travis-ci.org/sindresorhus/got
-[k5]: https://travis-ci.org/sindresorhus/ky
-[r5]: https://travis-ci.org/request/request
-[n5]: https://travis-ci.org/bitinn/node-fetch
-[a5]: https://travis-ci.org/axios/axios
-[s5]: https://travis-ci.org/visionmedia/superagent
+[g5]: https://travis-ci.com/github/sindresorhus/got
+[k5]: https://travis-ci.com/github/sindresorhus/ky
+[r5]: https://travis-ci.org/github/request/request
+[n5]: https://travis-ci.org/github/bitinn/node-fetch
+[a5]: https://travis-ci.org/github/axios/axios
+[s5]: https://travis-ci.org/github/visionmedia/superagent
 
 <!-- BUGS -->
 [gbg]: https://badgen.net/github/label-issues/sindresorhus/got/bug/open?label
@@ -2304,9 +2384,9 @@ The Electron `net` module is not consistent with the Node.js `http` module. See 
 
 ## Maintainers
 
-[![Sindre Sorhus](https://github.com/sindresorhus.png?size=100)](https://sindresorhus.com) | [![Szymon Marczak](https://github.com/szmarczak.png?size=100)](https://github.com/szmarczak)
----|---
-[Sindre Sorhus](https://sindresorhus.com) | [Szymon Marczak](https://github.com/szmarczak)
+[![Sindre Sorhus](https://github.com/sindresorhus.png?size=100)](https://sindresorhus.com) | [![Szymon Marczak](https://github.com/szmarczak.png?size=100)](https://github.com/szmarczak) | [![Giovanni Minotti](https://github.com/Giotino.png?size=100)](https://github.com/Giotino)
+---|---|---
+[Sindre Sorhus](https://sindresorhus.com) | [Szymon Marczak](https://github.com/szmarczak) | [Giovanni Minotti](https://github.com/Giotino)
 
 ###### Former
 
@@ -2314,6 +2394,71 @@ The Electron `net` module is not consistent with the Node.js `http` module. See 
 - [Alexander Tesfamichael](https://github.com/alextes)
 - [Brandon Smith](https://github.com/brandon93s)
 - [Luke Childs](https://github.com/lukechilds)
+
+<a name="widely-used"></a>
+## These amazing companies are using Got
+
+<a href="https://segment.com"><img width="90" valign="middle" src="https://user-images.githubusercontent.com/697676/47693700-ddb62500-dbb7-11e8-8332-716a91010c2d.png"></a>
+&nbsp;&nbsp;&nbsp;&nbsp;
+<a href="https://antora.org"><img width="100" valign="middle" src="https://user-images.githubusercontent.com/79351/47706840-d874cc80-dbef-11e8-87c6-5f0c60cbf5dc.png"></a>
+&nbsp;&nbsp;&nbsp;&nbsp;
+<a href="https://getvoip.com"><img width="150" valign="middle" src="https://user-images.githubusercontent.com/10832620/47869404-429e9480-dddd-11e8-8a7a-ca43d7f06020.png"></a>
+&nbsp;&nbsp;&nbsp;&nbsp;
+<a href="https://github.com/exoframejs/exoframe"><img width="150" valign="middle" src="https://user-images.githubusercontent.com/365944/47791460-11a95b80-dd1a-11e8-9070-e8f2a215e03a.png"></a>
+&nbsp;&nbsp;&nbsp;&nbsp;
+<a href="http://karaokes.moe"><img width="140" valign="middle" src="https://camo.githubusercontent.com/6860e5fa4684c14d8e1aa65df0aba4e6808ea1a9/687474703a2f2f6b6172616f6b65732e6d6f652f6173736574732f696d616765732f696e6465782e706e67"></a>
+&nbsp;&nbsp;&nbsp;&nbsp;
+<a href="https://github.com/renovatebot/renovate"><img width="150" valign="middle" src="https://camo.githubusercontent.com/206d470ac709b9a702a97b0c08d6f389a086793d/68747470733a2f2f72656e6f76617465626f742e636f6d2f696d616765732f6c6f676f2e737667"></a>
+&nbsp;&nbsp;&nbsp;&nbsp;
+<a href="https://resist.bot"><img width="150" valign="middle" src="https://user-images.githubusercontent.com/3322287/51992724-28736180-2473-11e9-9764-599cfda4b012.png"></a>
+&nbsp;&nbsp;&nbsp;&nbsp;
+<a href="https://www.naturalcycles.com"><img width="150" valign="middle" src="https://user-images.githubusercontent.com/170270/92244143-d0a8a200-eec2-11ea-9fc0-1c07f90b2113.png"></a>
+&nbsp;&nbsp;&nbsp;&nbsp;
+<a href="https://microlink.io"><img width="150" valign="middle" src="https://user-images.githubusercontent.com/36894700/91992974-1cc5dc00-ed35-11ea-9d04-f58b42ce6a5e.png"></a>
+&nbsp;&nbsp;&nbsp;&nbsp;
+<a href="https://radity.com"><img width="150" valign="middle" src="https://user-images.githubusercontent.com/29518613/91814036-97fb9500-ec44-11ea-8c6c-d198cc23ca29.png"></a>
+
+<br>
+
+> Segment is a happy user of Got! Got powers the main backend API that our app talks to. It's used by our in-house RPC client that we use to communicate with all microservices.
+>
+> — <a href="https://github.com/vadimdemedes">Vadim Demedes</a>
+
+> Antora, a static site generator for creating documentation sites, uses Got to download the UI bundle. In Antora, the UI bundle (aka theme) is maintained as a separate project. That project exports the UI as a zip file we call the UI bundle. The main site generator downloads that UI from a URL using Got and streams it to vinyl-zip to extract the files. Those files go on to be used to create the HTML pages and supporting assets.
+>
+> — <a href="https://github.com/mojavelinux">Dan Allen</a>
+
+> GetVoIP is happily using Got in production. One of the unique capabilities of Got is the ability to handle Unix sockets which enables us to build a full control interfaces for our docker stack.
+>
+> — <a href="https://github.com/danielkalen">Daniel Kalen</a>
+
+> We're using Got inside of Exoframe to handle all the communication between CLI and server. Exoframe is a self-hosted tool that allows simple one-command deployments using Docker.
+>
+> — <a href="https://github.com/yamalight">Tim Ermilov</a>
+
+> Karaoke Mugen uses Got to fetch content updates from its online server.
+>
+> — <a href="https://github.com/AxelTerizaki">Axel Terizaki</a>
+
+> Renovate uses Got, gh-got and gl-got to send millions of queries per day to GitHub, GitLab, npmjs, PyPi, Packagist, Docker Hub, Terraform, CircleCI, and more.
+>
+> — <a href="https://github.com/rarkins">Rhys Arkins</a>
+
+> Resistbot uses Got to communicate from the API frontend where all correspondence ingresses to the officials lookup database in back.
+>
+> — <a href="https://github.com/chris-erickson">Chris Erickson</a>
+
+> Natural Cycles is using Got to communicate with all kinds of 3rd-party REST APIs (over 9000!).
+>
+> — <a href="https://github.com/kirillgroshkov">Kirill Groshkov</a>
+
+> Microlink is a cloud browser as an API service that uses Got widely as the main HTTP client, serving ~22M requests a month, every time a network call needs to be performed.
+>
+> — <a href="https://github.com/Kikobeats">Kiko Beats</a>
+
+> We’re using Got at Radity. Thanks for such an amazing work!
+>
+> — <a href="https://github.com/MirzayevFarid">Mirzayev Farid</a>
 
 ## For enterprise
 

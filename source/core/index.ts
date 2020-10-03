@@ -870,6 +870,9 @@ export interface HTTPSOptions {
 
 	// TODO add comment
 	maxVersion?: SecureContextOptions['maxVersion'];
+  
+  // TODO add comment
+	pfx?: SecureContextOptions['pfx'];
 }
 
 interface NormalizedPlainOptions extends PlainOptions {
@@ -1437,17 +1440,27 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			this._lockWrite();
 		}
 
-		(async (nonNormalizedOptions: Options) => {
+		if (kIsNormalizedAlready in options) {
+			this.options = options as NormalizedOptions;
+		} else {
 			try {
-				if (nonNormalizedOptions.body instanceof ReadStream) {
-					await waitForOpenFile(nonNormalizedOptions.body);
+				// @ts-expect-error Common TypeScript bug saying that `this.constructor` is not accessible
+				this.options = this.constructor.normalizeArguments(url, options, defaults);
+			} catch (error) {
+				// TODO: Move this to `_destroy()`
+				if (is.nodeStream(options.body)) {
+					options.body.destroy();
 				}
 
-				if (kIsNormalizedAlready in nonNormalizedOptions) {
-					this.options = nonNormalizedOptions as NormalizedOptions;
-				} else {
-					// @ts-expect-error Common TypeScript bug saying that `this.constructor` is not accessible
-					this.options = this.constructor.normalizeArguments(url, nonNormalizedOptions, defaults);
+				this.destroy(error);
+				return;
+			}
+		}
+
+		(async () => {
+			try {
+				if (this.options.body instanceof ReadStream) {
+					await waitForOpenFile(this.options.body);
 				}
 
 				const {url: normalizedURL} = this.options;
@@ -1487,7 +1500,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 					this.destroy(error);
 				}
 			}
-		})(options);
+		})();
 	}
 
 	static normalizeArguments(url?: string | URL, options?: Options, defaults?: Defaults): NormalizedOptions {
@@ -1555,6 +1568,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			assert.any([is.boolean, is.undefined], options.https.honorCipherOrder);
 			assert.any([is.string, is.undefined], options.https.minVersion);
 			assert.any([is.string, is.undefined], options.https.maxVersion);
+			assert.any([is.string, is.buffer, is.array, is.undefined], options.https.pfx);
 		}
 
 		assert.any([is.object, is.undefined], options.cacheOptions);
@@ -1624,14 +1638,14 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		options.password = options.password ?? '';
 
 		// `options.prefixUrl` & `options.url`
-		if (options.prefixUrl) {
+		if (is.undefined(options.prefixUrl)) {
+			options.prefixUrl = defaults?.prefixUrl ?? '';
+		} else {
 			options.prefixUrl = options.prefixUrl.toString();
 
 			if (options.prefixUrl !== '' && !options.prefixUrl.endsWith('/')) {
 				options.prefixUrl += '/';
 			}
-		} else {
-			options.prefixUrl = '';
 		}
 
 		if (is.string(options.url)) {
@@ -1645,6 +1659,10 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		}
 
 		if (options.url) {
+			if ('port' in options) {
+				delete options.port;
+			}
+
 			// Make it possible to change `options.prefixUrl`
 			let {prefixUrl} = options;
 			Object.defineProperty(options, 'prefixUrl', {
@@ -1842,6 +1860,10 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			if (httpsOption in options) {
 				deprecationWarning(`"options.${httpsOption}" is now deprecated, please use "options.https.${httpsOption}"`);
 			}
+		}
+
+		if ('pfx' in options) {
+			deprecationWarning('"options.pfx" was never documented, please use "options.https.pfx"');
 		}
 
 		// Other options
@@ -2062,6 +2084,9 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 				if ('form' in options) {
 					delete options.form;
 				}
+
+				this[kBody] = undefined;
+				delete options.headers['content-length'];
 			}
 
 			if (this.redirects.length >= options.maxRedirects) {
@@ -2079,7 +2104,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 				decodeURI(redirectString);
 
 				// Redirecting to a different site, clear sensitive data.
-				if (redirectUrl.hostname !== url.hostname) {
+				if (redirectUrl.hostname !== url.hostname || redirectUrl.port !== url.port) {
 					if ('host' in options.headers) {
 						delete options.headers.host;
 					}
@@ -2093,12 +2118,12 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 					}
 
 					if (options.username || options.password) {
-						// TODO: Fix this ignore.
-						// @ts-expect-error
-						delete options.username;
-						// @ts-expect-error
-						delete options.password;
+						options.username = '';
+						options.password = '';
 					}
+				} else {
+					redirectUrl.username = options.username;
+					redirectUrl.password = options.password;
 				}
 
 				this.redirects.push(redirectString);
@@ -2309,6 +2334,10 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			}
 		}
 
+		if (options.body && this[kBody] !== options.body) {
+			this[kBody] = options.body;
+		}
+
 		const {agent, request, timeout, url} = options;
 
 		if (options.dnsCache && !('lookup' in options)) {
@@ -2412,6 +2441,10 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 			if (options.https.maxVersion) {
 				requestOptions.maxVersion = options.https.maxVersion;
+      }
+
+			if (options.https.pfx) {
+				requestOptions.pfx = options.https.pfx;
 			}
 		}
 
@@ -2468,6 +2501,10 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 				if (options.https.maxVersion) {
 					delete requestOptions.maxVersion;
+        }
+
+				if (options.https.pfx) {
+					delete requestOptions.pfx;
 				}
 			}
 
@@ -2531,9 +2568,8 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 				try {
 					response.rawBody = await getBuffer(response);
+					response.body = response.rawBody.toString();
 				} catch {}
-
-				response.body = response.rawBody.toString();
 			}
 
 			if (this.listenerCount('retry') !== 0) {
@@ -2643,6 +2679,11 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	}
 
 	_writeRequest(chunk: any, encoding: BufferEncoding | undefined, callback: (error?: Error | null) => void): void {
+		if (this[kRequest]!.destroyed) {
+			// Probably the `ClientRequest` instance will throw
+			return;
+		}
+
 		this._progressCallbacks.push((): void => {
 			this[kUploadedSize] += Buffer.byteLength(chunk, encoding);
 
