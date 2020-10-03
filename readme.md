@@ -665,7 +665,6 @@ Custom lookup function.
 The function signature is the same of `dns.lookup`, please refer to the Node.JS documentation page for more informations https://nodejs.org/api/dns.html#dns_dns_lookup_hostname_options_callback
 
 
-
 ###### request
 
 Type: `Function`\
