@@ -657,7 +657,7 @@ await got('https://api6.ipify.org', {
 
 ###### lookup
 
-Type: `Function`
+Type: `Function`\
 Default: [`dns.lookup`](https://nodejs.org/api/dns.html#dns_dns_lookup_hostname_options_callback)
 
 Custom lookup function.
