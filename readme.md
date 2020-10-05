@@ -660,7 +660,7 @@ await got('https://api6.ipify.org', {
 Type: `Function`\
 Default: [`dns.lookup`](https://nodejs.org/api/dns.html#dns_dns_lookup_hostname_options_callback)
 
-Custom lookup function.
+Custom DNS resolution logic.
 
 The function signature is the same as [`dns.lookup`](https://nodejs.org/api/dns.html#dns_dns_lookup_hostname_options_callback).
 
