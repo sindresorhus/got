@@ -261,3 +261,37 @@ test.skip('the old stacktrace is recovered', async t => {
 	// the second `at get` points to the real cause.
 	t.not(error.stack!.indexOf('at get'), error.stack!.lastIndexOf('at get'));
 });
+
+test('no TypeError when Error.captureStackTrace returns an string or array', withServer, async t => {
+	// Checking default nodejs behavior
+	Error.captureStackTrace = target => {
+		Object.assign(target, {
+			stack: 'Error: Timeout awaiting \'request\' for 1ms\n    at ClientRequest.<anonymous> (E:\\_TMP\\index.js:100:25)\n    at Object.onceWrapper (events.js:422:26)'
+		});
+	};
+
+	const errorString = await t.throwsAsync(got('https://example.com', {timeout: 1, retry: 0}));
+	t.true(errorString.stack!.includes('Error: Timeout awaiting'));
+
+	// Checking fxserver's nodejs behavior
+	Error.captureStackTrace = target => {
+		Object.assign(target, {
+			stack: [
+				{
+					file: 'E:\\_TMP\\got\\dist\\source\\core\\index.js',
+					line: 100,
+					name: 'ClientRequest.<anonymous>'
+				},
+				{
+					file: 'events.js',
+					line: 422,
+					name: 'Object.onceWrapper'
+				}
+			]
+		});
+	};
+
+	const errorArray = await t.throwsAsync(got('https://example.com', {timeout: 1, retry: 0}));
+	t.true(Array.isArray(errorArray.stack));
+});
+
