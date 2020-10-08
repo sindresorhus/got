@@ -306,7 +306,7 @@ Example:
 	const bufferPromise = responsePromise.buffer();
 	const jsonPromise = responsePromise.json();
 
-	const [response, buffer, json] = Promise.all([responsePromise, bufferPromise, jsonPromise]);
+	const [response, buffer, json] = await Promise.all([responsePromise, bufferPromise, jsonPromise]);
 	// `response` is an instance of Got Response
 	// `buffer` is an instance of Buffer
 	// `json` is an object
