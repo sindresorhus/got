@@ -125,7 +125,7 @@ const create = (defaults: InstanceDefaults): Got => {
 	}));
 
 	// Got interface
-	const got: Got = ((url: string | URL, options?: Options, _defaults?: Defaults): GotReturn => {
+	const got: Got = ((url: string | URL, options: Options = {}, _defaults?: Defaults): GotReturn => {
 		let iteration = 0;
 		const iterateHandlers = (newOptions: NormalizedOptions): GotReturn => {
 			return defaults.handlers[iteration++](
@@ -152,7 +152,7 @@ const create = (defaults: InstanceDefaults): Got => {
 			let initHookError: Error | undefined;
 			try {
 				callInitHooks(defaults.options.hooks.init, options);
-				callInitHooks(options?.hooks?.init, options);
+				callInitHooks(options.hooks?.init, options);
 			} catch (error) {
 				initHookError = error;
 			}
@@ -167,10 +167,10 @@ const create = (defaults: InstanceDefaults): Got => {
 
 			return iterateHandlers(normalizedOptions);
 		} catch (error) {
-			if (options?.isStream) {
+			if (options.isStream) {
 				throw error;
 			} else {
-				return createRejection(error, defaults.options.hooks.beforeError, options?.hooks?.beforeError);
+				return createRejection(error, defaults.options.hooks.beforeError, options.hooks?.beforeError);
 			}
 		}
 	}) as Got;
