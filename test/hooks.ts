@@ -459,6 +459,7 @@ test('beforeRetry allows stream body if different from original', withServer, as
 		} else {
 			response.statusCode = 500;
 		}
+
 		response.end();
 	});
 
