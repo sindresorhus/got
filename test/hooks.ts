@@ -456,11 +456,10 @@ test('beforeRetry allows stream body if different from original', withServer, as
 	server.post('/retry', async (request, response) => {
 		if (request.headers.foo) {
 			response.send('test');
-			response.end();
 		} else {
 			response.statusCode = 500;
-			response.end();
 		}
+		response.end();
 	});
 
 	const genBody = () => {
