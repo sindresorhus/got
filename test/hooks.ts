@@ -452,7 +452,7 @@ test('beforeRetry allows modifications', withServer, async (t, server, got) => {
 	t.is(body.foo, 'bar');
 });
 
-test.only('beforeRetry allows stream body if different from original', withServer, async (t, server, got) => {
+test('beforeRetry allows stream body if different from original', withServer, async (t, server, got) => {
 	server.post('/retry', async (request, response) => {
 		if (request.headers.foo) {
 			response.send('test');
