@@ -152,8 +152,10 @@ export default function asPromise<T>(normalizedOptions: NormalizedOptions): Canc
 
 			request.once('error', onError);
 
+			const previusBody = request.options.body;
+
 			request.once('retry', (newRetryCount: number, error: RequestError) => {
-				if (is.nodeStream(error.request?.options.body)) {
+				if (previusBody === error.request?.options.body && is.nodeStream(error.request?.options.body)) {
 					onError(error);
 					return;
 				}
