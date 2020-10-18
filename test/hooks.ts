@@ -463,21 +463,21 @@ test('beforeRetry allows stream body if different from original', withServer, as
 		response.end();
 	});
 
-	const genBody = () => {
+	const generateBody = () => {
 		const form = new FormData();
 		form.append('A', 'B');
 		return form;
 	};
 
 	const {body} = await got.post('retry', {
-		body: genBody(),
+		body: generateBody(),
 		retry: {
 			methods: ['POST']
 		},
 		hooks: {
 			beforeRetry: [
 				options => {
-					const form = genBody();
+					const form = generateBody();
 					options.body = form;
 					options.headers['content-type'] = `multipart/form-data; boundary=${form.getBoundary()}`;
 					options.headers.foo = 'bar';
