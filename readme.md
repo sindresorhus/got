@@ -107,16 +107,16 @@ const got = require('got');
 const pipeline = promisify(stream.pipeline);
 
 (async () => {
-    await pipeline(
-        got.stream('https://sindresorhus.com'),
-        fs.createWriteStream('index.html')
-    );
+	await pipeline(
+		got.stream('https://sindresorhus.com'),
+		fs.createWriteStream('index.html')
+	);
 
-    // For POST, PUT, PATCH, and DELETE methods, `got.stream` returns a `stream.Writable`.
-    await pipeline(
-        fs.createReadStream('index.html'),
-        got.stream.post('https://sindresorhus.com')
-    );
+	// For POST, PUT, PATCH, and DELETE methods, `got.stream` returns a `stream.Writable`.
+	await pipeline(
+		fs.createReadStream('index.html'),
+		got.stream.post('https://sindresorhus.com')
+	);
 })();
 ```
 
@@ -882,12 +882,12 @@ got('https://api.github.com/some-endpoint', {
 		beforeError: [
 			error => {
 				const {response} = error;
- 				if (response && response.body) {
+				if (response && response.body) {
 					error.name = 'GitHubError';
 					error.message = `${response.body.message} (${response.statusCode})`;
 				}
 
- 				return error;
+				return error;
 			}
 		]
 	}
