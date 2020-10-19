@@ -112,7 +112,7 @@ const pipeline = promisify(stream.pipeline);
         fs.createWriteStream('index.html')
     );
 
-    // For POST, PUT, and PATCH methods `got.stream` returns a `stream.Writable`
+    // For POST, PUT, PATCH, and DELETE methods, `got.stream` returns a `stream.Writable`.
     await pipeline(
         fs.createReadStream('index.html'),
         got.stream.post('https://sindresorhus.com')
