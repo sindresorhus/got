@@ -444,7 +444,7 @@ test.serial('no unhandled timeout errors', withServer, async (t, _server, got) =
 			const result = http.request(...args);
 
 			result.once('socket', () => {
-				result.socket.destroy();
+				result.socket?.destroy();
 			});
 
 			return result;

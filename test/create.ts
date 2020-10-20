@@ -193,8 +193,8 @@ test('ability to pass a custom request method', withServer, async (t, server, go
 
 	const request: RequestFunction = (...args: [
 		string | URL | RequestOptions,
-		(RequestOptions | ((res: IncomingMessage) => void))?,
-		((res: IncomingMessage) => void)?
+		(RequestOptions | ((response: IncomingMessage) => void))?,
+		((response: IncomingMessage) => void)?
 	]) => {
 		isCalled = true;
 		// @ts-expect-error Overload error
@@ -214,8 +214,8 @@ test('does not include the `request` option in normalized `http` options', withS
 
 	const request: RequestFunction = (...args: [
 		string | URL | RequestOptions,
-		(RequestOptions | ((res: IncomingMessage) => void))?,
-		((res: IncomingMessage) => void)?
+		(RequestOptions | ((response: IncomingMessage) => void))?,
+		((response: IncomingMessage) => void)?
 	]) => {
 		isCalled = true;
 

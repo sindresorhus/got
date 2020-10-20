@@ -46,8 +46,8 @@ test('works on timeout', withServer, async (t, server, got) => {
 		},
 		request: (...args: [
 			string | URL | http.RequestOptions,
-			(http.RequestOptions | ((res: http.IncomingMessage) => void))?,
-			((res: http.IncomingMessage) => void)?
+			(http.RequestOptions | ((response: http.IncomingMessage) => void))?,
+			((response: http.IncomingMessage) => void)?
 		]) => {
 			if (knocks === 1) {
 				// @ts-expect-error Overload error
@@ -413,7 +413,7 @@ test('does not destroy the socket on HTTP error', withServer, async (t, server, 
 			http: agent
 		}
 	}).on('request', request => {
-		sockets.push(request.socket);
+		sockets.push(request.socket!);
 	});
 
 	t.is(sockets.length, 2);

@@ -66,9 +66,9 @@ export interface Agents {
 export const withoutBody: ReadonlySet<string> = new Set(['GET', 'HEAD']);
 
 export interface ToughCookieJar {
-	getCookieString: ((currentUrl: string, options: {[key: string]: unknown}, cb: (err: Error | null, cookies: string) => void) => void)
+	getCookieString: ((currentUrl: string, options: Record<string, unknown>, cb: (err: Error | null, cookies: string) => void) => void)
 	& ((url: string, callback: (error: Error | null, cookieHeader: string) => void) => void);
-	setCookie: ((cookieOrString: unknown, currentUrl: string, options: {[key: string]: unknown}, cb: (err: Error | null, cookie: unknown) => void) => void)
+	setCookie: ((cookieOrString: unknown, currentUrl: string, options: Record<string, unknown>, cb: (err: Error | null, cookie: unknown) => void) => void)
 	& ((rawCookie: string, url: string, callback: (error: Error | null, result: unknown) => void) => void);
 }
 
@@ -250,7 +250,7 @@ export type RequestFunction = (url: URL, options: RequestOptions, callback?: (re
 export type Headers = Record<string, string | string[] | undefined>;
 
 type CacheableRequestFunction = (
-	opts: string | URL | RequestOptions,
+	options: string | URL | RequestOptions,
 	cb?: (response: ServerResponse | ResponseLike) => void
 ) => CacheableRequest.Emitter;
 
@@ -436,7 +436,7 @@ interface PlainOptions extends URLOptions {
 
 	__Note #2__: This option is not enumerable and will not be merged with the instance defaults.
 	*/
-	form?: {[key: string]: any};
+	form?: Record<string, any>;
 
 	/**
 	JSON body. If the `Content-Type` header is not set, it will be set to `application/json`.
@@ -445,7 +445,7 @@ interface PlainOptions extends URLOptions {
 
 	__Note #2__: This option is not enumerable and will not be merged with the instance defaults.
 	*/
-	json?: {[key: string]: any};
+	json?: Record<string, any>;
 
 	/**
 	The URL to request, as a string, a [`https.request` options object](https://nodejs.org/api/https.html#https_https_request_options_callback), or a [WHATWG `URL`](https://nodejs.org/api/url.html#url_class_url).
@@ -500,7 +500,7 @@ interface PlainOptions extends URLOptions {
 	//=> 'key=a&key=b'
 	```
 	*/
-	searchParams?: string | {[key: string]: string | number | boolean | null | undefined} | URLSearchParams;
+	searchParams?: string | Record<string, string | number | boolean | null | undefined> | URLSearchParams;
 
 	/**
 	An instance of [`CacheableLookup`](https://github.com/szmarczak/cacheable-lookup) used for making DNS lookups.
@@ -1805,7 +1805,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			for (const event of knownHookEvents) {
 				const defaultHooks = defaults.hooks[event];
 
-				if (defaultHooks.length !== 0) {
+				if (defaultHooks.length > 0) {
 					// See https://github.com/microsoft/TypeScript/issues/31445#issuecomment-576929044
 					(options.hooks as any)[event] = [
 						...defaults.hooks[event],
@@ -2206,11 +2206,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			// Node.js <= 12.18.2 mistakenly emits the response `end` first.
 			(request as ClientRequest & {res: IncomingMessage | undefined}).res?.removeAllListeners('end');
 
-			if (error instanceof TimedOutTimeoutError) {
-				error = new TimeoutError(error, this.timings!, this);
-			} else {
-				error = new RequestError(error.message, error, this);
-			}
+			error = error instanceof TimedOutTimeoutError ? new TimeoutError(error, this.timings!, this) : new RequestError(error.message, error, this);
 
 			this._beforeError(error as RequestError);
 		});
@@ -2652,7 +2648,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		// TODO: What happens if it's from cache? Then this[kRequest] won't be defined.
 
 		this[kRequest]!.write(chunk, encoding!, (error?: Error | null) => {
-			if (!error && this._progressCallbacks.length !== 0) {
+			if (!error && this._progressCallbacks.length > 0) {
 				this._progressCallbacks.shift()!();
 			}
 
@@ -2729,7 +2725,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	The remote IP address.
 	*/
 	get ip(): string | undefined {
-		return this[kRequest]?.socket.remoteAddress;
+		return this.socket?.remoteAddress;
 	}
 
 	/**
@@ -2740,7 +2736,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	}
 
 	get socket(): Socket | undefined {
-		return this[kRequest]?.socket;
+		return this[kRequest]?.socket ?? undefined;
 	}
 
 	/**

@@ -1,7 +1,7 @@
 import {EventEmitter} from 'events';
 
 type Fn = (...args: unknown[]) => void;
-type Fns = {[key: string]: Fn};
+type Fns = Record<string, Fn>;
 
 export default function (from: EventEmitter, to: EventEmitter, events: string[]): () => void {
 	const fns: Fns = {};
