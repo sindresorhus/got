@@ -443,3 +443,17 @@ if (process.versions.node.split('.')[0] <= '12') {
 		}));
 	});
 }
+
+// Test only on Linux
+const testFn = process.platform === 'linux' ? test : test.skip;
+testFn('it sends a body of file with size on stat = 0', withServer, async (t, server, got) => {
+	server.post('/', async (request, response) => {
+		response.end(await getStream(request));
+	});
+
+	const response = await got.post({
+		body: fs.createReadStream('/proc/cpuinfo')
+	});
+
+	t.truthy(response.body);
+});

@@ -29,6 +29,11 @@ export default async (body: unknown, headers: ClientRequestArgs['headers']): Pro
 
 	if (body instanceof ReadStream) {
 		const {size} = await statAsync(body.path);
+
+		if (size === 0) {
+			return undefined;
+		}
+
 		return size;
 	}
 
