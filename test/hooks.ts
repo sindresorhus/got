@@ -3,6 +3,7 @@ import {Agent as HttpAgent} from 'http';
 import test, {Constructor} from 'ava';
 import nock = require('nock');
 import getStream = require('get-stream');
+import FormData = require('form-data');
 import sinon = require('sinon');
 import delay = require('delay');
 import {Handler} from 'express';
@@ -449,6 +450,43 @@ test('beforeRetry allows modifications', withServer, async (t, server, got) => {
 		}
 	});
 	t.is(body.foo, 'bar');
+});
+
+test('beforeRetry allows stream body if different from original', withServer, async (t, server, got) => {
+	server.post('/retry', async (request, response) => {
+		if (request.headers.foo) {
+			response.send('test');
+		} else {
+			response.statusCode = 500;
+		}
+
+		response.end();
+	});
+
+	const generateBody = () => {
+		const form = new FormData();
+		form.append('A', 'B');
+		return form;
+	};
+
+	const {body} = await got.post('retry', {
+		body: generateBody(),
+		retry: {
+			methods: ['POST']
+		},
+		hooks: {
+			beforeRetry: [
+				options => {
+					const form = generateBody();
+					options.body = form;
+					options.headers['content-type'] = `multipart/form-data; boundary=${form.getBoundary()}`;
+					options.headers.foo = 'bar';
+				}
+			]
+		}
+	});
+
+	t.is(body, 'test');
 });
 
 test('afterResponse is called with response', withServer, async (t, server, got) => {
