@@ -251,9 +251,7 @@ JSON body. If the `Content-Type` header is not set, it will be set to `applicati
 
 Type: `object`
 
-User data. In contrast to other options, `context` is not enumerable.
-
-**Note:** The object is never merged, it's just passed through. Got will not modify the object in any way.
+User data. `context` is shallow merged and enumerable. If it contains non-enumerable properties they will NOT be merged.
 
 It's very useful for storing auth tokens:
 

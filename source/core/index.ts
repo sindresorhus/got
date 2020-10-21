@@ -515,10 +515,7 @@ interface PlainOptions extends URLOptions {
 	dnsCache?: CacheableLookup | boolean;
 
 	/**
-	User data. In contrast to other options, `context` is not enumerable.
-
-	__Note__: The object is never merged, it's just passed through.
-	Got will not modify the object in any way.
+	User data. `context` is shallow merged and enumerable. If it contains non-enumerable properties they will NOT be merged.
 
 	@example
 	```
@@ -1139,9 +1136,8 @@ const waitForOpenFile = async (file: ReadStream): Promise<void> => new Promise((
 
 const redirectCodes: ReadonlySet<number> = new Set([300, 301, 302, 303, 304, 307, 308]);
 
-type NonEnumerableProperty = 'context' | 'body' | 'json' | 'form';
+type NonEnumerableProperty = 'body' | 'json' | 'form';
 const nonEnumerableProperties: NonEnumerableProperty[] = [
-	'context',
 	'body',
 	'json',
 	'form'
@@ -1780,9 +1776,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		}
 
 		// `options.context`
-		if (!options.context) {
-			options.context = {};
-		}
+		options.context = {...defaults?.context, ...options.context};
 
 		// `options.hooks`
 		const areHooksDefault = options.hooks === defaults?.hooks;
