@@ -27,15 +27,5 @@ export default async (body: unknown, headers: ClientRequestArgs['headers']): Pro
 		return promisify(body.getLength.bind(body))();
 	}
 
-	if (body instanceof ReadStream) {
-		const {size} = await statAsync(body.path);
-
-		if (size === 0) {
-			return undefined;
-		}
-
-		return size;
-	}
-
 	return undefined;
 };
