@@ -122,9 +122,16 @@ test('upload progress - file stream', withServer, async (t, server, got) => {
 	const path = tempy.file();
 	fs.writeFileSync(path, file);
 
+	const {size} = await promisify(fs.stat)(path);
+
 	const events: Progress[] = [];
 
-	await got.post({body: fs.createReadStream(path)})
+	await got.post({
+		body: fs.createReadStream(path),
+		headers: {
+			'content-length': size.toString()
+		}
+	})
 		.on('uploadProgress', (event: Progress) => events.push(event));
 
 	checkEvents(t, events, file.length);

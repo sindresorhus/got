@@ -1,5 +1,4 @@
 import fs = require('fs');
-import {promisify} from 'util';
 import path = require('path');
 import test from 'ava';
 import {Handler} from 'express';
@@ -174,16 +173,15 @@ test('form-data sets `content-length` header', withServer, async (t, server, got
 	t.is(headers['content-length'], '157');
 });
 
-test('stream as `options.body` sets `content-length` header', withServer, async (t, server, got) => {
+test('stream as `options.body` does not set `content-length` header', withServer, async (t, server, got) => {
 	server.post('/', echoHeaders);
 
 	const fixture = path.resolve('test/fixtures/stream-content-length');
-	const {size} = await promisify(fs.stat)(fixture);
 	const {body} = await got.post({
 		body: fs.createReadStream(fixture)
 	});
 	const headers = JSON.parse(body);
-	t.is(Number(headers['content-length']), size);
+	t.is(headers['content-length'], undefined);
 });
 
 test('buffer as `options.body` sets `content-length` header', withServer, async (t, server, got) => {
