@@ -7,6 +7,9 @@ jobs:
   include:
     - os: linux
       dist: focal
+      node_js: '15'
+    - os: linux
+      dist: focal
       node_js: '14'
     - os: linux
       dist: focal
@@ -16,6 +19,9 @@ jobs:
       node_js: '10'
     - os: linux
       dist: bionic
+      node_js: '15'
+    - os: linux
+      dist: bionic
       node_js: '14'
     - os: linux
       dist: bionic
@@ -24,11 +30,16 @@ jobs:
       dist: bionic
       node_js: '10'
     - os: windows
+      node_js: '15'
+    - os: windows
       node_js: '14'
     - os: windows
       node_js: '12'
     - os: windows
       node_js: '10'
+    - os: osx
+      osx_image: xcode12
+      node_js: '15'
     - os: osx
       osx_image: xcode12
       node_js: '14'
