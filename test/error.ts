@@ -3,6 +3,8 @@ import net = require('net');
 import http = require('http');
 import stream = require('stream');
 import test from 'ava';
+import getStream = require('get-stream');
+import is from '@sindresorhus/is';
 import got, {RequestError, HTTPError, TimeoutError} from '../source';
 import withServer from './helpers/with-server';
 
@@ -262,36 +264,69 @@ test.skip('the old stacktrace is recovered', async t => {
 	t.not(error.stack!.indexOf('at get'), error.stack!.lastIndexOf('at get'));
 });
 
-test('no TypeError when Error.captureStackTrace returns an string or array', withServer, async t => {
-	// Checking default nodejs behavior
-	Error.captureStackTrace = target => {
-		Object.assign(target, {
-			stack: 'Error: Timeout awaiting \'request\' for 1ms\n    at ClientRequest.<anonymous> (E:\\_TMP\\index.js:100:25)\n    at Object.onceWrapper (events.js:422:26)'
-		});
+test.serial('custom stack trace', withServer, async (t, _server, got) => {
+	const ErrorCaptureStackTrace = Error.captureStackTrace;
+
+	const enable = () => {
+		Error.captureStackTrace = (target: {stack: any}) => {
+			target.stack = [
+				'line 1',
+				'line 2'
+			];
+		};
 	};
 
-	const errorString = await t.throwsAsync(got('https://example.com', {timeout: 1, retry: 0}));
-	t.true(errorString.stack!.includes('Error: Timeout awaiting'));
-
-	// Checking fxserver's nodejs behavior
-	Error.captureStackTrace = target => {
-		Object.assign(target, {
-			stack: [
-				{
-					file: 'E:\\_TMP\\got\\dist\\source\\core\\index.js',
-					line: 100,
-					name: 'ClientRequest.<anonymous>'
-				},
-				{
-					file: 'events.js',
-					line: 422,
-					name: 'Object.onceWrapper'
-				}
-			]
-		});
+	const disable = () => {
+		Error.captureStackTrace = ErrorCaptureStackTrace;
 	};
 
-	const errorArray = await t.throwsAsync(got('https://example.com', {timeout: 1, retry: 0}));
-	t.true(Array.isArray(errorArray.stack));
+	// Node.js default behavior
+	{
+		const stream = got.stream('');
+		stream.destroy(new Error('oh no'));
+
+		const caught = await t.throwsAsync(getStream(stream));
+		t.is(is(caught.stack), 'string');
+	}
+
+	// Passing a custom error
+	{
+		enable();
+		const error = new Error('oh no');
+		disable();
+
+		const stream = got.stream('');
+		stream.destroy(error);
+
+		const caught = await t.throwsAsync(getStream(stream));
+		t.is(is(caught.stack), 'string');
+	}
+
+	// Custom global behavior
+	{
+		enable();
+		const error = new Error('oh no');
+
+		const stream = got.stream('');
+		stream.destroy(error);
+
+		const caught = await t.throwsAsync(getStream(stream));
+		t.is(is(caught.stack), 'Array');
+
+		disable();
+	}
+
+	// Passing a default error that needs some processing
+	{
+		const error = new Error('oh no');
+		enable();
+
+		const stream = got.stream('');
+		stream.destroy(error);
+
+		const caught = await t.throwsAsync(getStream(stream));
+		t.is(is(caught.stack), 'Array');
+
+		disable();
+	}
 });
-
