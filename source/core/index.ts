@@ -1218,7 +1218,7 @@ export class RequestError extends Error {
 		this.timings = this.request?.timings;
 
 		// Recover the original stacktrace
-		if (!is.undefined(error.stack)) {
+		if (is.string(error.stack) && is.string(this.stack)) {
 			const indexOfMessage = this.stack.indexOf(this.message) + this.message.length;
 			const thisStackTrace = this.stack.slice(indexOfMessage).split('\n').reverse();
 			const errorStackTrace = error.stack.slice(error.stack.indexOf(error.message!) + error.message!.length).split('\n').reverse();
