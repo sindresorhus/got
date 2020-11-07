@@ -342,7 +342,7 @@ export class Options {
 	private _cacheOptions: CacheOptions;
 	private _httpsOptions: HttpsOptions;
 
-	constructor() {
+	constructor(options?: Options) {
 		this._request = undefined;
 		this._agent = {};
 		this._decompress = true;
@@ -419,6 +419,19 @@ export class Options {
 		this._createConnection = undefined;
 		this._cacheOptions = {};
 		this._httpsOptions = {};
+
+		assert.any([is.object, is.undefined], options);
+
+		if (options) {
+			for (const key in options) {
+				if (!(key in this)) {
+					throw new Error(`Key ${key} is not an option`);
+				}
+
+				// @ts-expect-error Type 'unknown' is not assignable to type 'never'.
+				this[key as keyof Options] = options[key as keyof Options];
+			}
+		}
 	}
 
 	/**
