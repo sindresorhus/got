@@ -687,11 +687,11 @@ export class Options {
 	set url(value: string | URL | undefined) {
 		assert.any([is.string, is.urlInstance, is.undefined], value);
 
-		if (!is.undefined(value)) {
+		if (is.undefined(value)) {
+			this._url = undefined;
+		} else {
 			this._url = new URL(`${this.prefixUrl}${value}`);
 		}
-
-		this._url = undefined;
 	}
 
 	/**
