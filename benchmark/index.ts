@@ -7,6 +7,7 @@ import fetch from 'node-fetch';
 import request = require('request');
 import got from '../source';
 import Request, {kIsNormalizedAlready} from '../source/core';
+import {Options} from '../source/core/options';
 
 const {normalizeArguments} = Request;
 
@@ -23,7 +24,7 @@ const gotOptions = {
 	agent: {
 		https: httpsAgent
 	},
-	https: {
+	httpsOptions: {
 		rejectUnauthorized: false
 	},
 	retry: 0
@@ -162,7 +163,14 @@ suite.add('got - promise', {
 	console.log(`Fastest is ${this.filter('fastest').map('name') as string}`);
 
 	internalBenchmark();
-}).run();
+});
+
+try {
+	new Options(url, gotOptions)
+} catch (error) {
+	console.log(error);
+	process.exit();
+}
 
 const internalBenchmark = (): void => {
 	console.log();
@@ -172,12 +180,18 @@ const internalBenchmark = (): void => {
 		fn: () => {
 			normalizeArguments(url, gotOptions);
 		}
+	}).add('got - new options', {
+		fn: () => {
+			new Options(url, gotOptions)
+		}
 	}).on('cycle', (event: Benchmark.Event) => {
 		console.log(String(event.target));
 	});
 
 	internalSuite.run();
 };
+
+internalBenchmark();
 
 // Results (i7-7700k, CPU governor: performance):
 // got - promise                   x 3,003 ops/sec ±6.26% (70 runs sampled)

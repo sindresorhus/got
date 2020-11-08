@@ -1834,7 +1834,7 @@ export class Options<ErrorType extends NodeJS.ErrnoException> {
 	}
 }
 
-// We want all the getters to be enumerable, so people instead doing
+// We want all the properties to be enumerable, so people instead doing
 // `util.inspect(options, {getters: true, showHidden: true})`
 // can do just `util.inspect(options, {getters: true})`.
 const propertyDescriptors: PropertyDescriptorMap = {};
