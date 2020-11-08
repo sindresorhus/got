@@ -20,6 +20,7 @@ import {IncomingMessageWithTimings} from '@szmarczak/http-timer/dist/source';
 import {DnsLookupIpVersion, isDnsLookupIpVersion} from './utils/dns-ip-version';
 import {Delays} from './utils/timed-out';
 import {PromiseOnly} from '../as-promise/types';
+import {Options as OptionsInit} from '.';
 
 type AcceptableResponse = IncomingMessageWithTimings | ResponseLike;
 type AcceptableRequestResult = AcceptableResponse | ClientRequest | Promise<AcceptableResponse | ClientRequest> | undefined;
@@ -342,7 +343,7 @@ export class Options {
 	private _cacheOptions: CacheOptions;
 	private _httpsOptions: HttpsOptions;
 
-	constructor(options?: Options) {
+	constructor(options?: OptionsInit) {
 		this._request = undefined;
 		this._agent = {};
 		this._decompress = true;
@@ -421,6 +422,13 @@ export class Options {
 		this._httpsOptions = {};
 
 		assert.any([is.object, is.undefined], options);
+
+		const initHooks = options?.hooks?.init;
+		if (initHooks) {
+			for (const hook of initHooks) {
+				hook(options!);
+			}
+		}
 
 		if (options) {
 			for (const key in options) {
