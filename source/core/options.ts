@@ -22,7 +22,6 @@ import is, {assert} from '@sindresorhus/is';
 import {IncomingMessageWithTimings, Timings} from '@szmarczak/http-timer';
 import {DnsLookupIpVersion, isDnsLookupIpVersion} from './utils/dns-ip-version';
 import {Delays} from './utils/timed-out';
-import {Options as OptionsInit} from '.';
 
 type AcceptableResponse = IncomingMessageWithTimings | ResponseLike;
 type AcceptableRequestResult = AcceptableResponse | ClientRequest | Promise<AcceptableResponse | ClientRequest> | undefined;
@@ -225,7 +224,7 @@ export interface CancelableRequest<ErrorType extends NodeJS.ErrnoException, T ex
 	text: () => CancelableRequest<ErrorType, string>;
 }
 
-export type InitHook<ErrorType extends NodeJS.ErrnoException> = (options: Options<ErrorType>) => void;
+export type InitHook<ErrorType extends NodeJS.ErrnoException> = (options: Partial<Options<ErrorType>>) => void;
 export type BeforeRequestHook<ErrorType extends NodeJS.ErrnoException> = (options: Options<ErrorType>) => Promisable<void | Response | ResponseLike>;
 export type BeforeRedirectHook<ErrorType extends NodeJS.ErrnoException> = (options: Options<ErrorType>, response: Response) => Promisable<void>;
 export type BeforeErrorHook<ErrorType extends NodeJS.ErrnoException> = (error: ErrorType) => Promisable<ErrorType>;
@@ -680,7 +679,7 @@ export class Options<ErrorType extends NodeJS.ErrnoException> {
 	private _responseType: ResponseType;
 	private _pagination?: PaginationOptions<unknown, unknown, ErrorType>;
 
-	constructor(urlOrOptions?: string | URL | OptionsInit, options?: OptionsInit) {
+	constructor(urlOrOptions?: string | URL | Partial<Options<ErrorType>>, options?: Partial<Options<ErrorType>>) {
 		this._request = undefined;
 		this._agent = {};
 		this._decompress = true;
