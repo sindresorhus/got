@@ -546,7 +546,7 @@ export class Options {
 		if (is.number(value)) {
 			this._timeout.request = value;
 		} else {
-			this._timeout = value;
+			this._timeout = {...value};
 		}
 	}
 
