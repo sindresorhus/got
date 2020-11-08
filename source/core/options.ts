@@ -922,7 +922,7 @@ export class Options {
 	set context(value: Record<string, unknown>) {
 		assert.object(value);
 
-		this._context = value;
+		this._context = {...value};
 	}
 
 	/**
