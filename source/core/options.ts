@@ -18,7 +18,7 @@ import CacheableRequest = require('cacheable-request');
 import lowercaseKeys = require('lowercase-keys');
 import ResponseLike = require('responselike');
 import is, {assert} from '@sindresorhus/is';
-import {IncomingMessageWithTimings} from '@szmarczak/http-timer/dist/source';
+import {IncomingMessageWithTimings, Timings} from '@szmarczak/http-timer';
 import {DnsLookupIpVersion, isDnsLookupIpVersion} from './utils/dns-ip-version';
 import {Delays} from './utils/timed-out';
 import {PromiseOnly} from '../as-promise/types';
@@ -27,6 +27,107 @@ import {Options as OptionsInit} from '.';
 type AcceptableResponse = IncomingMessageWithTimings | ResponseLike;
 type AcceptableRequestResult = AcceptableResponse | ClientRequest | Promise<AcceptableResponse | ClientRequest> | undefined;
 export type RequestFunction = (url: URL, options: RequestOptions, callback?: (response: AcceptableResponse) => void) => AcceptableRequestResult;
+
+export interface PlainResponse extends IncomingMessageWithTimings {
+	/**
+	The original request URL.
+	*/
+	requestUrl: string;
+
+	/**
+	The redirect URLs.
+	*/
+	redirectUrls: string[];
+
+	/**
+	- `options` - The Got options that were set on this request.
+
+	__Note__: This is not a [http.ClientRequest](https://nodejs.org/api/http.html#http_class_http_clientrequest).
+	*/
+	request: Request;
+
+	/**
+	The remote IP address.
+
+	This is hopefully a temporary limitation, see [lukechilds/cacheable-request#86](https://github.com/lukechilds/cacheable-request/issues/86).
+
+	__Note__: Not available when the response is cached.
+	*/
+	ip?: string;
+
+	/**
+	Whether the response was retrieved from the cache.
+	*/
+	isFromCache: boolean;
+
+	/**
+	The status code of the response.
+	*/
+	statusCode: number;
+
+	/**
+	The request URL or the final URL after redirects.
+	*/
+	url: string;
+
+	/**
+	The object contains the following properties:
+
+	- `start` - Time when the request started.
+	- `socket` - Time when a socket was assigned to the request.
+	- `lookup` - Time when the DNS lookup finished.
+	- `connect` - Time when the socket successfully connected.
+	- `secureConnect` - Time when the socket securely connected.
+	- `upload` - Time when the request finished uploading.
+	- `response` - Time when the request fired `response` event.
+	- `end` - Time when the response fired `end` event.
+	- `error` - Time when the request fired `error` event.
+	- `abort` - Time when the request fired `abort` event.
+	- `phases`
+		- `wait` - `timings.socket - timings.start`
+		- `dns` - `timings.lookup - timings.socket`
+		- `tcp` - `timings.connect - timings.lookup`
+		- `tls` - `timings.secureConnect - timings.connect`
+		- `request` - `timings.upload - (timings.secureConnect || timings.connect)`
+		- `firstByte` - `timings.response - timings.upload`
+		- `download` - `timings.end - timings.response`
+		- `total` - `(timings.end || timings.error || timings.abort) - timings.start`
+
+	If something has not been measured yet, it will be `undefined`.
+
+	__Note__: The time is a `number` representing the milliseconds elapsed since the UNIX epoch.
+	*/
+	timings: Timings;
+
+	/**
+	The number of times the request was retried.
+	*/
+	retryCount: number;
+
+	// Defined only if request errored
+	/**
+	The raw result of the request.
+	*/
+	rawBody?: Buffer;
+
+	/**
+	The result of the request.
+	*/
+	body?: unknown;
+}
+
+// For Promise support
+export interface Response<T = unknown> extends PlainResponse {
+	/**
+	The result of the request.
+	*/
+	body: T;
+
+	/**
+	The raw result of the request.
+	*/
+	rawBody: Buffer;
+}
 
 export interface Agents {
 	http?: HttpAgent | false;
@@ -48,13 +149,13 @@ export interface PromiseCookieJar {
 
 type Promisable<T> = T | Promise<T>;
 
-export type InitHook = (options: Options) => void;
-export type BeforeRequestHook = (options: Options) => Promisable<void | Response | ResponseLike>;
-export type BeforeRedirectHook = (options: Options, response: Response) => Promisable<void>;
-export type BeforeErrorHook = (error: NodeJS.ErrnoException) => Promisable<NodeJS.ErrnoException>;
-export type BeforeRetryHook = (options: Options, error?: NodeJS.ErrnoException, retryCount?: number) => void | Promise<void>;
+export type InitHook<ErrorType extends NodeJS.ErrnoException> = (options: Options<ErrorType>) => void;
+export type BeforeRequestHook<ErrorType extends NodeJS.ErrnoException> = (options: Options<ErrorType>) => Promisable<void | Response | ResponseLike>;
+export type BeforeRedirectHook<ErrorType extends NodeJS.ErrnoException> = (options: Options<ErrorType>, response: Response) => Promisable<void>;
+export type BeforeErrorHook<ErrorType extends NodeJS.ErrnoException> = (error: ErrorType) => Promisable<ErrorType>;
+export type BeforeRetryHook<ErrorType extends NodeJS.ErrnoException> = (options: Options<ErrorType>, error?: ErrorType, retryCount?: number) => void | Promise<void>;
 
-interface PlainHooks {
+interface PlainHooks<ErrorType extends NodeJS.ErrnoException> {
 	/**
 	Called with plain request options, right before their normalization.
 	This is especially useful in conjunction with `got.extend()` when the input needs custom handling.
@@ -68,7 +169,7 @@ interface PlainHooks {
 
 	@default []
 	*/
-	init?: InitHook[];
+	init?: InitHook<ErrorType>[];
 
 	/**
 	Called with normalized request options.
@@ -77,7 +178,7 @@ interface PlainHooks {
 
 	@default []
 	*/
-	beforeRequest?: BeforeRequestHook[];
+	beforeRequest?: BeforeRequestHook<ErrorType>[];
 
 	/**
 	Called with normalized request options and the redirect response.
@@ -103,7 +204,7 @@ interface PlainHooks {
 	});
 	```
 	*/
-	beforeRedirect?: BeforeRedirectHook[];
+	beforeRedirect?: BeforeRedirectHook<ErrorType>[];
 
 	/**
 	Called with an `Error` instance.
@@ -135,7 +236,7 @@ interface PlainHooks {
 	});
 	```
 	*/
-	beforeError?: BeforeErrorHook[];
+	beforeError?: BeforeErrorHook<ErrorType>[];
 
 	/**
 	Called with normalized request options, the error and the retry count.
@@ -164,13 +265,13 @@ interface PlainHooks {
 	});
 	```
 	*/
-	beforeRetry?: BeforeRetryHook[];
+	beforeRetry?: BeforeRetryHook<ErrorType>[];
 }
 
 /**
 All available hook of Got.
 */
-export interface Hooks extends PromiseOnly.Hooks, PlainHooks {}
+export interface Hooks<ErrorType extends NodeJS.ErrnoException> extends PromiseOnly.Hooks, PlainHooks<ErrorType> {}
 
 export type ParseJsonFunction = (text: string) => unknown;
 export type StringifyJsonFunction = (object: unknown) => string;
@@ -294,21 +395,21 @@ export interface HttpsOptions {
 	pfx?: SecureContextOptions['pfx'];
 }
 
-export interface PaginationOptions<T, R> {
+export interface PaginationOptions<ItemType, BodyType, ErrorType extends NodeJS.ErrnoException> {
 	/**
 	A function that transform [`Response`](#response) into an array of items.
 	This is where you should do the parsing.
 
 	@default response => JSON.parse(response.body)
 	*/
-	transform?: (response: R) => Promise<T[]> | T[];
+	transform?: (response: Response<BodyType>) => Promise<ItemType[]> | ItemType[];
 
 	/**
 	Checks whether the item should be emitted or not.
 
 	@default (item, allItems, currentItems) => true
 	*/
-	filter?: (item: T, allItems: T[], currentItems: T[]) => boolean;
+	filter?: (item: ItemType, allItems: ItemType[], currentItems: ItemType[]) => boolean;
 
 	/**
 	The function takes three arguments:
@@ -355,7 +456,7 @@ export interface PaginationOptions<T, R> {
 	})();
 	```
 	*/
-	paginate?: (response: R, allItems: T[], currentItems: T[]) => Options | false;
+	paginate?: (response: Response<BodyType>, allItems: ItemType[], currentItems: ItemType[]) => Options<ErrorType> | false;
 
 	/**
 	Checks whether the pagination should continue.
@@ -365,7 +466,7 @@ export interface PaginationOptions<T, R> {
 
 	@default (item, allItems, currentItems) => true
 	*/
-	shouldContinue?: (item: T, allItems: T[], currentItems: T[]) => boolean;
+	shouldContinue?: (item: ItemType, allItems: ItemType[], currentItems: ItemType[]) => boolean;
 
 	/**
 	The maximum amount of items that should be emitted.
@@ -414,7 +515,7 @@ export type ResponseType = 'json' | 'buffer' | 'text';
 
 const globalDnsCache = new CacheableLookup();
 
-export class Options {
+export class Options<ErrorType extends NodeJS.ErrnoException> {
 	private _request?: RequestFunction;
 	private _agent: Agents;
 	private _decompress: boolean;
@@ -429,7 +530,7 @@ export class Options {
 	private _searchParameters?: URLSearchParams;
 	private _dnsCache?: CacheableLookup;
 	private _context: Record<string, unknown>;
-	private _hooks: Required<Hooks>;
+	private _hooks: Required<Hooks<ErrorType>>;
 	private _followRedirect: boolean;
 	private _maxRedirects: number;
 	private _cache?: string | CacheableRequest.StorageAdapter | false;
@@ -455,7 +556,7 @@ export class Options {
 	private _resolveBodyOnly: boolean;
 	private _isStream: boolean;
 	private _responseType: ResponseType;
-	private _pagination?: PaginationOptions<unknown, unknown>;
+	private _pagination?: PaginationOptions<unknown, unknown, ErrorType>;
 
 	constructor(urlOrOptions?: string | URL | OptionsInit, options?: OptionsInit) {
 		this._request = undefined;
@@ -1078,14 +1179,14 @@ export class Options {
 	Hooks allow modifications during the request lifecycle.
 	Hook functions may be async and are run serially.
 	*/
-	get hooks(): Hooks | undefined {
+	get hooks(): Hooks<ErrorType> | undefined {
 		return this._hooks;
 	}
 
-	set hooks(value: Hooks | undefined) {
+	set hooks(value: Hooks<ErrorType> | undefined) {
 		assert.any([is.object, is.undefined], value);
 
-		const hooks: Required<Hooks> = {
+		const hooks: Required<Hooks<ErrorType>> = {
 			init: [],
 			beforeRetry: [],
 			beforeRedirect: [],
@@ -1097,13 +1198,13 @@ export class Options {
 		if (value) {
 			for (const knownHookEvent in hooks) {
 				if (knownHookEvent in value) {
-					const specificHooks: Array<unknown> | undefined = value[knownHookEvent as keyof Hooks];
+					const specificHooks: Array<unknown> | undefined = value[knownHookEvent as keyof Hooks<ErrorType>];
 
 					if (specificHooks) {
 						assert.array(specificHooks);
 					}
 
-					hooks[knownHookEvent as keyof Hooks] = [...specificHooks as any];
+					hooks[knownHookEvent as keyof Hooks<ErrorType>] = [...specificHooks as any];
 				}
 			}
 		}
@@ -1595,14 +1696,14 @@ export class Options {
 		this._responseType = value;
 	}
 
-	get pagination(): PaginationOptions<unknown, unknown> | undefined {
+	get pagination(): PaginationOptions<unknown, unknown, ErrorType> | undefined {
 		return this._pagination;
 	}
 
-	set pagination(value: PaginationOptions<unknown, unknown> | undefined) {
+	set pagination(value: PaginationOptions<unknown, unknown, ErrorType> | undefined) {
 		assert.any([is.object, is.undefined], value);
 
-		const pagination: PaginationOptions<unknown, unknown> = {
+		const pagination: PaginationOptions<unknown, unknown, ErrorType> = {
 			...this._pagination,
 			...value
 		};
