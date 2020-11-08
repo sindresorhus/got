@@ -1351,7 +1351,7 @@ export class Options {
 	set cacheOptions(value: CacheOptions) {
 		assert.any([is.plainObject, is.undefined], value);
 
-		this._cacheOptions = value;
+		this._cacheOptions = {...value};
 	}
 
 	/**
@@ -1374,7 +1374,7 @@ export class Options {
 			assert.any([is.string, is.buffer, is.array, is.undefined], value.pfx);
 		}
 
-		this._httpsOptions = value;
+		this._httpsOptions = {...value};
 	}
 
 	set auth(_value: unknown) {
