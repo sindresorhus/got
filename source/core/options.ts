@@ -169,7 +169,7 @@ interface PlainHooks<ErrorType extends NodeJS.ErrnoException> {
 
 	@default []
 	*/
-	init?: InitHook<ErrorType>[];
+	init: InitHook<ErrorType>[];
 
 	/**
 	Called with normalized request options.
@@ -178,7 +178,7 @@ interface PlainHooks<ErrorType extends NodeJS.ErrnoException> {
 
 	@default []
 	*/
-	beforeRequest?: BeforeRequestHook<ErrorType>[];
+	beforeRequest: BeforeRequestHook<ErrorType>[];
 
 	/**
 	Called with normalized request options and the redirect response.
@@ -204,7 +204,7 @@ interface PlainHooks<ErrorType extends NodeJS.ErrnoException> {
 	});
 	```
 	*/
-	beforeRedirect?: BeforeRedirectHook<ErrorType>[];
+	beforeRedirect: BeforeRedirectHook<ErrorType>[];
 
 	/**
 	Called with an `Error` instance.
@@ -236,7 +236,7 @@ interface PlainHooks<ErrorType extends NodeJS.ErrnoException> {
 	});
 	```
 	*/
-	beforeError?: BeforeErrorHook<ErrorType>[];
+	beforeError: BeforeErrorHook<ErrorType>[];
 
 	/**
 	Called with normalized request options, the error and the retry count.
@@ -265,7 +265,7 @@ interface PlainHooks<ErrorType extends NodeJS.ErrnoException> {
 	});
 	```
 	*/
-	beforeRetry?: BeforeRetryHook<ErrorType>[];
+	beforeRetry: BeforeRetryHook<ErrorType>[];
 }
 
 /**
@@ -296,7 +296,7 @@ export type Method =
 
 export interface RetryObject {
 	attemptCount: number;
-	retryOptions: RequiredRetryOptions;
+	retryOptions: RetryOptions;
 	error: NodeJS.ErrnoException;
 	computedValue: number;
 	retryAfter?: number;
@@ -325,7 +325,7 @@ By default, it retries *only* on the specified methods, status codes, and on the
 __Note__: If `maxRetryAfter` is set to `undefined`, it will use `options.timeout`.
 __Note__: If [`Retry-After`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Retry-After) header is greater than `maxRetryAfter`, it will cancel the request.
 */
-export interface RequiredRetryOptions {
+export interface RetryOptions {
 	limit: number;
 	methods: Method[];
 	statusCodes: number[];
@@ -530,7 +530,7 @@ export class Options<ErrorType extends NodeJS.ErrnoException> {
 	private _searchParameters?: URLSearchParams;
 	private _dnsCache?: CacheableLookup;
 	private _context: Record<string, unknown>;
-	private _hooks: Required<Hooks<ErrorType>>;
+	private _hooks: Hooks<ErrorType>;
 	private _followRedirect: boolean;
 	private _maxRedirects: number;
 	private _cache?: string | CacheableRequest.StorageAdapter | false;
@@ -545,7 +545,7 @@ export class Options<ErrorType extends NodeJS.ErrnoException> {
 	private _dnsLookupIpVersion: DnsLookupIpVersion;
 	private _parseJson?: ParseJsonFunction;
 	private _stringifyJson?: StringifyJsonFunction;
-	private _retry: RequiredRetryOptions;
+	private _retry: RetryOptions;
 	private _localAddress?: string;
 	private _socketPath?: string;
 	private _method: Method;
@@ -1186,7 +1186,7 @@ export class Options<ErrorType extends NodeJS.ErrnoException> {
 	set hooks(value: Hooks<ErrorType> | undefined) {
 		assert.any([is.object, is.undefined], value);
 
-		const hooks: Required<Hooks<ErrorType>> = {
+		const hooks: Hooks<ErrorType> = {
 			init: [],
 			beforeRetry: [],
 			beforeRedirect: [],
@@ -1542,11 +1542,11 @@ export class Options<ErrorType extends NodeJS.ErrnoException> {
 	__Note__: If `maxRetryAfter` is set to `undefined`, it will use `options.timeout`.
 	__Note__: If [`Retry-After`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Retry-After) header is greater than `maxRetryAfter`, it will cancel the request.
 	*/
-	get retry(): RequiredRetryOptions | number {
+	get retry(): RetryOptions | number {
 		return this._retry;
 	}
 
-	set retry(value: RequiredRetryOptions | number) {
+	set retry(value: RetryOptions | number) {
 		assert.any([is.plainObject, is.number], value);
 
 		if (is.number(value)) {
