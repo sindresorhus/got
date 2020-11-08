@@ -16,17 +16,23 @@ import {
 import CacheableLookup from 'cacheable-lookup';
 import CacheableRequest = require('cacheable-request');
 import lowercaseKeys = require('lowercase-keys');
+import PCancelable = require('p-cancelable');
 import ResponseLike = require('responselike');
 import is, {assert} from '@sindresorhus/is';
 import {IncomingMessageWithTimings, Timings} from '@szmarczak/http-timer';
 import {DnsLookupIpVersion, isDnsLookupIpVersion} from './utils/dns-ip-version';
 import {Delays} from './utils/timed-out';
-import {PromiseOnly} from '../as-promise/types';
 import {Options as OptionsInit} from '.';
 
 type AcceptableResponse = IncomingMessageWithTimings | ResponseLike;
 type AcceptableRequestResult = AcceptableResponse | ClientRequest | Promise<AcceptableResponse | ClientRequest> | undefined;
 export type RequestFunction = (url: URL, options: RequestOptions, callback?: (response: AcceptableResponse) => void) => AcceptableRequestResult;
+
+export interface Progress {
+	percent: number;
+	transferred: number;
+	total?: number;
+}
 
 export interface PlainResponse extends IncomingMessageWithTimings {
 	/**
@@ -149,13 +155,87 @@ export interface PromiseCookieJar {
 
 type Promisable<T> = T | Promise<T>;
 
+export interface RequestEvents<T, ErrorType extends NodeJS.ErrnoException> {
+	/**
+	`request` event to get the request object of the request.
+
+	 __Tip__: You can use `request` event to abort requests.
+
+	@example
+	```
+	got.stream('https://github.com')
+		.on('request', request => setTimeout(() => request.destroy(), 50));
+	```
+	*/
+	on: ((name: 'request', listener: (request: ClientRequest) => void) => T)
+
+	/**
+	The `response` event to get the response object of the final request.
+	*/
+	& (<R extends Response>(name: 'response', listener: (response: R) => void) => T)
+
+	/**
+	The `redirect` event to get the response object of a redirect. The second argument is options for the next request to the redirect location.
+	*/
+	& (<R extends Response, N extends Options<ErrorType>>(name: 'redirect', listener: (response: R, nextOptions: N) => void) => T)
+
+	/**
+	Progress events for uploading (sending a request) and downloading (receiving a response).
+	The `progress` argument is an object like:
+
+	```js
+	{
+		percent: 0.1,
+		transferred: 1024,
+		total: 10240
+	}
+	```
+
+	If the `content-length` header is missing, `total` will be `undefined`.
+
+	@example
+	```js
+	(async () => {
+		const response = await got('https://sindresorhus.com')
+			.on('downloadProgress', progress => {
+				// Report download progress
+			})
+			.on('uploadProgress', progress => {
+				// Report upload progress
+			});
+
+		console.log(response);
+	})();
+	```
+	*/
+	& ((name: 'uploadProgress' | 'downloadProgress', listener: (progress: Progress) => void) => T)
+	/**
+	To enable retrying on a Got stream, it is required to have a `retry` handler attached.
+
+	When this event is emitted, you should reset the stream you were writing to and prepare the body again.
+
+	See `got.options.retry` for more information.
+	*/
+	& ((name: 'retry', listener: (retryCount: number, error: ErrorType) => void) => T);
+}
+
+export interface CancelableRequest<ErrorType extends NodeJS.ErrnoException, T extends Response | Response['body'] = Response['body']> extends PCancelable<T>, RequestEvents<CancelableRequest<ErrorType, T>, ErrorType> {
+	json: <ReturnType>() => CancelableRequest<ErrorType, ReturnType>;
+	buffer: () => CancelableRequest<ErrorType, Buffer>;
+	text: () => CancelableRequest<ErrorType, string>;
+}
+
 export type InitHook<ErrorType extends NodeJS.ErrnoException> = (options: Options<ErrorType>) => void;
 export type BeforeRequestHook<ErrorType extends NodeJS.ErrnoException> = (options: Options<ErrorType>) => Promisable<void | Response | ResponseLike>;
 export type BeforeRedirectHook<ErrorType extends NodeJS.ErrnoException> = (options: Options<ErrorType>, response: Response) => Promisable<void>;
 export type BeforeErrorHook<ErrorType extends NodeJS.ErrnoException> = (error: ErrorType) => Promisable<ErrorType>;
 export type BeforeRetryHook<ErrorType extends NodeJS.ErrnoException> = (options: Options<ErrorType>, error?: ErrorType, retryCount?: number) => void | Promise<void>;
+export type AfterResponseHook<ErrorType extends NodeJS.ErrnoException> = (response: Response, retryWithMergedOptions: (options: Options<ErrorType>) => CancelableRequest<ErrorType, Response>) => Response | CancelableRequest<ErrorType, Response> | Promise<Response | CancelableRequest<ErrorType, Response>>;
 
-interface PlainHooks<ErrorType extends NodeJS.ErrnoException> {
+/**
+All available hook of Got.
+*/
+interface Hooks<ErrorType extends NodeJS.ErrnoException> {
 	/**
 	Called with plain request options, right before their normalization.
 	This is especially useful in conjunction with `got.extend()` when the input needs custom handling.
@@ -266,12 +346,54 @@ interface PlainHooks<ErrorType extends NodeJS.ErrnoException> {
 	```
 	*/
 	beforeRetry: BeforeRetryHook<ErrorType>[];
-}
 
-/**
-All available hook of Got.
-*/
-export interface Hooks<ErrorType extends NodeJS.ErrnoException> extends PromiseOnly.Hooks, PlainHooks<ErrorType> {}
+	/**
+	Called with [response object](#response) and a retry function.
+	Calling the retry function will trigger `beforeRetry` hooks.
+
+	Each function should return the response.
+	This is especially useful when you want to refresh an access token.
+
+	__Note__: When using streams, this hook is ignored.
+
+	@example
+	```
+	const got = require('got');
+
+	const instance = got.extend({
+		hooks: {
+			afterResponse: [
+				(response, retryWithMergedOptions) => {
+					if (response.statusCode === 401) { // Unauthorized
+						const updatedOptions = {
+							headers: {
+								token: getNewToken() // Refresh the access token
+							}
+						};
+
+						// Save for further requests
+						instance.defaults.options = got.mergeOptions(instance.defaults.options, updatedOptions);
+
+						// Make a new retry
+						return retryWithMergedOptions(updatedOptions);
+					}
+
+					// No changes otherwise
+					return response;
+				}
+			],
+			beforeRetry: [
+				(options, error, retryCount) => {
+					// This will be called on `retryWithMergedOptions(...)`
+				}
+			]
+		},
+		mutableDefaults: true
+	});
+	```
+	*/
+	afterResponse: AfterResponseHook<ErrorType>[];
+}
 
 export type ParseJsonFunction = (text: string) => unknown;
 export type StringifyJsonFunction = (object: unknown) => string;
