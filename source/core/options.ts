@@ -495,6 +495,12 @@ export class Options {
 	set agent(value: Agents) {
 		assert.plainObject(value);
 
+		for (const key in value) {
+			if (key !== 'http' && key !== 'https' && key !== 'http2') {
+				throw new TypeError(`Expected the \`options.agent\` properties to be \`http\`, \`https\` or \`http2\`, got \`${key}\``);
+			}
+		}
+
 		this._agent = value;
 	}
 
