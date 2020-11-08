@@ -698,7 +698,9 @@ export class Options {
 		if (is.undefined(value)) {
 			this._url = undefined;
 		} else {
-			this._url = new URL(`${this.prefixUrl}${value}`);
+			const urlString = `${this.prefixUrl}${value}`;
+			this._url = new URL(urlString);
+			decodeURI(urlString);
 		}
 	}
 
