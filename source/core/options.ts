@@ -1278,7 +1278,7 @@ export class Options {
 	set method(value: Method) {
 		assert.any([is.string, is.undefined], value);
 
-		this._method = value;
+		this._method = value.toUpperCase() as Method;
 	}
 
 	get createConnection(): CreateConnectionFunction | undefined {
