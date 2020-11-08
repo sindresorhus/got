@@ -723,6 +723,16 @@ export class Options {
 			const urlString = `${this.prefixUrl}${value}`;
 			this._url = new URL(urlString);
 			decodeURI(urlString);
+
+			if (this._url.protocol === 'unix:') {
+				this._url.protocol = 'http:';
+
+				this._url = new URL(`http://unix${this._url.pathname}${this._url.search}`);
+			}
+
+			if (this._searchParameters) {
+				this._url.search = this._searchParameters.toString();
+			}
 		}
 	}
 
@@ -794,6 +804,10 @@ export class Options {
 	```
 	*/
 	get searchParameters(): string | Record<string, string | number | boolean | null | undefined> | URLSearchParams | undefined {
+		if (this._url) {
+			return this._url.searchParams;
+		}
+
 		return this._searchParameters;
 	}
 
@@ -823,8 +837,16 @@ export class Options {
 			}
 
 			this._searchParameters = searchParameters;
+
+			if (this._url) {
+				this._url.search = this._searchParameters.toString();
+			}
 		} else {
 			this._searchParameters = undefined;
+
+			if (this._url) {
+				this._url.search = '';
+			}
 		}
 	}
 
