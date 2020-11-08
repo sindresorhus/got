@@ -1316,6 +1316,16 @@ export class Options {
 	set httpsOptions(value: HttpsOptions) {
 		assert.any([is.plainObject, is.undefined], value);
 
+		if (value) {
+			assert.any([is.boolean, is.undefined], value.rejectUnauthorized);
+			assert.any([is.function_, is.undefined], value.checkServerIdentity);
+			assert.any([is.string, is.object, is.array, is.undefined], value.certificateAuthority);
+			assert.any([is.string, is.object, is.array, is.undefined], value.key);
+			assert.any([is.string, is.object, is.array, is.undefined], value.certificate);
+			assert.any([is.string, is.undefined], value.passphrase);
+			assert.any([is.string, is.buffer, is.array, is.undefined], value.pfx);
+		}
+
 		this._httpsOptions = value;
 	}
 }
