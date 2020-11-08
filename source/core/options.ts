@@ -2,6 +2,7 @@ import {promisify} from 'util';
 import {Readable} from 'stream';
 import {Socket} from 'net';
 import {SecureContextOptions, DetailedPeerCertificate} from 'tls';
+import {URL, URLSearchParams} from 'url';
 import {
 	request as requestHttp,
 	Agent as HttpAgent,
@@ -344,7 +345,7 @@ export class Options {
 	private _cacheOptions: CacheOptions;
 	private _httpsOptions: HttpsOptions;
 
-	constructor(options?: OptionsInit) {
+	constructor(urlOrOptions?: string | URL | OptionsInit, options?: OptionsInit) {
 		this._request = undefined;
 		this._agent = {};
 		this._decompress = true;
@@ -422,7 +423,18 @@ export class Options {
 		this._cacheOptions = {};
 		this._httpsOptions = {};
 
+		assert.any([is.string, is.urlInstance, is.object, is.undefined], urlOrOptions);
 		assert.any([is.object, is.undefined], options);
+
+		if (is.plainObject(urlOrOptions)) {
+			options = {...urlOrOptions, ...options};
+		} else if (urlOrOptions) {
+			if (options?.url !== undefined) {
+				throw new TypeError('The `url` option is mutually exclusive with the `input` argument');
+			}
+
+			this.url = urlOrOptions as (string | URL);
+		}
 
 		const initHooks = options?.hooks?.init;
 		if (initHooks) {
