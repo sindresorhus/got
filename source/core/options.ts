@@ -600,7 +600,13 @@ export class Options {
 	set prefixUrl(value: string | URL) {
 		assert.any([is.urlString, is.urlInstance], value);
 
-		this._prefixUrl = value.toString();
+		value = value.toString();
+
+		if (value !== '' && !value.endsWith('/')) {
+			value += '/';
+		}
+
+		this._prefixUrl = value;
 	}
 
 	/**
