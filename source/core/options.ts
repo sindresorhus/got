@@ -294,6 +294,111 @@ export interface HttpsOptions {
 	pfx?: SecureContextOptions['pfx'];
 }
 
+export interface PaginationOptions<T, R> {
+	/**
+	A function that transform [`Response`](#response) into an array of items.
+	This is where you should do the parsing.
+
+	@default response => JSON.parse(response.body)
+	*/
+	transform?: (response: R) => Promise<T[]> | T[];
+
+	/**
+	Checks whether the item should be emitted or not.
+
+	@default (item, allItems, currentItems) => true
+	*/
+	filter?: (item: T, allItems: T[], currentItems: T[]) => boolean;
+
+	/**
+	The function takes three arguments:
+	- `response` - The current response object.
+	- `allItems` - An array of the emitted items.
+	- `currentItems` - Items from the current response.
+
+	It should return an object representing Got options pointing to the next page.
+	The options are merged automatically with the previous request, therefore the options returned `pagination.paginate(...)` must reflect changes only.
+	If there are no more pages, `false` should be returned.
+
+	@example
+	```
+	const got = require('got');
+
+	(async () => {
+		const limit = 10;
+
+		const items = got.paginate('https://example.com/items', {
+			searchParams: {
+				limit,
+				offset: 0
+			},
+			pagination: {
+				paginate: (response, allItems, currentItems) => {
+					const previousSearchParams = response.request.options.searchParams;
+					const previousOffset = previousSearchParams.get('offset');
+
+					if (currentItems.length < limit) {
+						return false;
+					}
+
+					return {
+						searchParams: {
+							...previousSearchParams,
+							offset: Number(previousOffset) + limit,
+						}
+					};
+				}
+			}
+		});
+
+		console.log('Items from all pages:', items);
+	})();
+	```
+	*/
+	paginate?: (response: R, allItems: T[], currentItems: T[]) => Options | false;
+
+	/**
+	Checks whether the pagination should continue.
+
+	For example, if you need to stop **before** emitting an entry with some flag, you should use `(item, allItems, currentItems) => !item.flag`.
+	If you want to stop **after** emitting the entry, you should use `(item, allItems, currentItems) => allItems.some(entry => entry.flag)` instead.
+
+	@default (item, allItems, currentItems) => true
+	*/
+	shouldContinue?: (item: T, allItems: T[], currentItems: T[]) => boolean;
+
+	/**
+	The maximum amount of items that should be emitted.
+
+	@default Infinity
+	*/
+	countLimit?: number;
+
+	/**
+	Milliseconds to wait before the next request is triggered.
+
+	@default 0
+	*/
+	backoff?: number;
+	/**
+	The maximum amount of request that should be triggered.
+	Retries on failure are not counted towards this limit.
+
+	For example, it can be helpful during development to avoid an infinite number of requests.
+
+	@default 10000
+	*/
+	requestLimit?: number;
+
+	/**
+	Defines how the parameter `allItems` in pagination.paginate, pagination.filter and pagination.shouldContinue is managed.
+	When set to `false`, the parameter `allItems` is always an empty array.
+
+	This option can be helpful to save on memory usage when working with a large dataset.
+	*/
+	stackAllItems?: boolean;
+}
+
 function validateSearchParameters(searchParameters: Record<string, unknown>): asserts searchParameters is Record<string, string | number | boolean | null | undefined> {
 	// eslint-disable-next-line guard-for-in
 	for (const key in searchParameters) {
@@ -304,6 +409,8 @@ function validateSearchParameters(searchParameters: Record<string, unknown>): as
 		}
 	}
 }
+
+export type ResponseType = 'json' | 'buffer' | 'text';
 
 const globalDnsCache = new CacheableLookup();
 
@@ -344,6 +451,11 @@ export class Options {
 	private _createConnection?: CreateConnectionFunction;
 	private _cacheOptions: CacheOptions;
 	private _httpsOptions: HttpsOptions;
+	private _encoding?: BufferEncoding;
+	private _resolveBodyOnly: boolean;
+	private _isStream: boolean;
+	private _responseType: ResponseType;
+	private _pagination?: PaginationOptions<unknown, unknown>;
 
 	constructor(urlOrOptions?: string | URL | OptionsInit, options?: OptionsInit) {
 		this._request = undefined;
@@ -422,6 +534,10 @@ export class Options {
 		this._createConnection = undefined;
 		this._cacheOptions = {};
 		this._httpsOptions = {};
+		this._encoding = undefined;
+		this._resolveBodyOnly = false;
+		this._isStream = false;
+		this._responseType = 'text';
 
 		assert.any([is.string, is.urlInstance, is.object, is.undefined], urlOrOptions);
 		assert.any([is.object, is.undefined], options);
@@ -1184,8 +1300,8 @@ export class Options {
 	}
 
 	/**
-	By default, redirects will use [method rewriting](https://tools.ietf.org/html/rfc7231#section-6.4).
-	For example, when sending a POST request and receiving a `302`, it will redirect using a `GET` method.
+	By default, [method rewriting](https://tools.ietf.org/html/rfc7231#section-6.4) is disabled.
+	If enabled, when sending a POST request and receiving a `302` it will redirect using a `GET` method.
 
 	@default false
 	*/
@@ -1335,7 +1451,14 @@ export class Options {
 		if (is.number(value)) {
 			this._retry.limit = value;
 		} else {
-			this._retry = {...value};
+			this._retry = {
+				...this._retry,
+				...value
+			};
+
+			this._retry.methods = [...new Set(this._retry.methods.map(method => method.toUpperCase() as Method))];
+			this._retry.statusCodes = [...new Set(this._retry.statusCodes)];
+			this._retry.errorCodes = [...new Set(this._retry.errorCodes)];
 		}
 	}
 
@@ -1424,6 +1547,81 @@ export class Options {
 		}
 
 		this._httpsOptions = {...value};
+	}
+
+	get encoding(): BufferEncoding | undefined {
+		return this._encoding;
+	}
+
+	set encoding(value: BufferEncoding | undefined) {
+		if (is.null_(value)) {
+			throw new TypeError('To get a Buffer, set `options.responseType` to `buffer` instead');
+		}
+
+		assert.any([is.string, is.undefined], value);
+
+		this._encoding = value;
+	}
+
+	get resolveBodyOnly(): boolean {
+		return this._resolveBodyOnly;
+	}
+
+	set resolveBodyOnly(value: boolean) {
+		assert.boolean(value);
+
+		this._resolveBodyOnly = value;
+	}
+
+	get isStream(): boolean {
+		return this._isStream;
+	}
+
+	set isStream(value: boolean) {
+		assert.boolean(value);
+
+		this._isStream = value;
+	}
+
+	get responseType(): ResponseType {
+		return this._responseType;
+	}
+
+	set responseType(value: ResponseType) {
+		if (value !== 'text' && value !== 'buffer' && value !== 'json') {
+			throw new Error(`Invalid \`responseType\` option: ${value}`);
+		}
+
+		this._responseType = value;
+	}
+
+	get pagination(): PaginationOptions<unknown, unknown> | undefined {
+		return this._pagination;
+	}
+
+	set pagination(value: PaginationOptions<unknown, unknown> | undefined) {
+		assert.any([is.object, is.undefined], value);
+
+		const pagination: PaginationOptions<unknown, unknown> = {
+			...this._pagination,
+			...value
+		};
+
+		if (!is.function_(pagination.transform)) {
+			throw new Error('`options.pagination.transform` must be implemented');
+		}
+
+		if (!is.function_(pagination.shouldContinue)) {
+			throw new Error('`options.pagination.shouldContinue` must be implemented');
+		}
+
+		if (!is.function_(pagination.filter)) {
+			throw new TypeError('`options.pagination.filter` must be implemented');
+		}
+
+		if (!is.function_(pagination.paginate)) {
+			throw new Error('`options.pagination.paginate` must be implemented');
+		}
 	}
 
 	set auth(_value: unknown) {
