@@ -1,4 +1,4 @@
-import {promisify} from 'util';
+import util = require('util');
 import {Readable} from 'stream';
 import {Socket} from 'net';
 import {SecureContextOptions, DetailedPeerCertificate} from 'tls';
@@ -22,6 +22,8 @@ import is, {assert} from '@sindresorhus/is';
 import {IncomingMessageWithTimings, Timings} from '@szmarczak/http-timer';
 import {DnsLookupIpVersion, isDnsLookupIpVersion} from './utils/dns-ip-version';
 import {Delays} from './utils/timed-out';
+
+const INTERNALS = Symbol('Options internals');
 
 type AcceptableResponse = IncomingMessageWithTimings | ResponseLike;
 type AcceptableRequestResult = AcceptableResponse | ClientRequest | Promise<AcceptableResponse | ClientRequest> | undefined;
@@ -637,129 +639,93 @@ export type ResponseType = 'json' | 'buffer' | 'text';
 const globalDnsCache = new CacheableLookup();
 
 export class Options<ErrorType extends NodeJS.ErrnoException> {
-	private _request?: RequestFunction;
-	private _agent: Agents;
-	private _decompress: boolean;
-	private _timeout: Delays;
-	private _prefixUrl: string;
-	private _body?: string | Buffer | Readable;
-	private _form?: Record<string, any>;
-	private _json?: Record<string, any>;
-	private _url?: URL;
-	private _cookieJar?: PromiseCookieJar | ToughCookieJar;
-	private _ignoreInvalidCookies: boolean;
-	private _searchParameters?: URLSearchParams;
-	private _dnsCache?: CacheableLookup;
-	private _context: Record<string, unknown>;
-	private _hooks: Hooks<ErrorType>;
-	private _followRedirect: boolean;
-	private _maxRedirects: number;
-	private _cache?: string | CacheableRequest.StorageAdapter | false;
-	private _throwHttpErrors: boolean;
-	private _username: string;
-	private _password: string;
-	private _http2: boolean;
-	private _allowGetBody: boolean;
-	private _lookup?: CacheableLookup['lookup'];
-	private _headers: Record<string, string>;
-	private _methodRewriting: boolean;
-	private _dnsLookupIpVersion: DnsLookupIpVersion;
-	private _parseJson?: ParseJsonFunction;
-	private _stringifyJson?: StringifyJsonFunction;
-	private _retry: RetryOptions;
-	private _localAddress?: string;
-	private _socketPath?: string;
-	private _method: Method;
-	private _createConnection?: CreateConnectionFunction;
-	private _cacheOptions: CacheOptions;
-	private _httpsOptions: HttpsOptions;
-	private _encoding?: BufferEncoding;
-	private _resolveBodyOnly: boolean;
-	private _isStream: boolean;
-	private _responseType: ResponseType;
-	private _pagination?: PaginationOptions<unknown, unknown, ErrorType>;
+	private [INTERNALS]: Omit<Options<ErrorType>, typeof INTERNALS | 'followRedirects' | 'auth'>;
 
 	constructor(urlOrOptions?: string | URL | Partial<Options<ErrorType>>, options?: Partial<Options<ErrorType>>) {
-		this._request = undefined;
-		this._agent = {};
-		this._decompress = true;
-		this._timeout = {};
-		this._prefixUrl = '';
-		this._body = undefined;
-		this._form = undefined;
-		this._json = undefined;
-		this._cookieJar = undefined;
-		this._ignoreInvalidCookies = false;
-		this._searchParameters = undefined;
-		this._dnsCache = undefined;
-		this._context = {};
-		this._hooks = {
-			init: [],
-			beforeRequest: [],
-			beforeError: [],
-			beforeRedirect: [],
-			beforeRetry: [],
-			afterResponse: []
+		this[INTERNALS] = {
+			request: undefined,
+			agent: {},
+			decompress: true,
+			timeout: {},
+			prefixUrl: '',
+			body: undefined,
+			form: undefined,
+			json: undefined,
+			cookieJar: undefined,
+			ignoreInvalidCookies: false,
+			searchParameters: undefined,
+			dnsCache: undefined,
+			context: {},
+			hooks: {
+				init: [],
+				beforeRequest: [],
+				beforeError: [],
+				beforeRedirect: [],
+				beforeRetry: [],
+				afterResponse: []
+			},
+			followRedirect: true,
+			maxRedirects: 10,
+			cache: undefined,
+			throwHttpErrors: true,
+			username: '',
+			password: '',
+			http2: false,
+			allowGetBody: false,
+			lookup: undefined,
+			headers: {},
+			methodRewriting: false,
+			dnsLookupIpVersion: 'auto',
+			parseJson: undefined,
+			stringifyJson: undefined,
+			retry: {
+				limit: 2,
+				methods: [
+					'GET',
+					'PUT',
+					'HEAD',
+					'DELETE',
+					'OPTIONS',
+					'TRACE'
+				],
+				statusCodes: [
+					408,
+					413,
+					429,
+					500,
+					502,
+					503,
+					504,
+					521,
+					522,
+					524
+				],
+				errorCodes: [
+					'ETIMEDOUT',
+					'ECONNRESET',
+					'EADDRINUSE',
+					'ECONNREFUSED',
+					'EPIPE',
+					'ENOTFOUND',
+					'ENETUNREACH',
+					'EAI_AGAIN'
+				],
+				maxRetryAfter: undefined,
+				calculateDelay: ({computedValue}) => computedValue
+			},
+			localAddress: undefined,
+			socketPath: undefined,
+			method: 'GET',
+			createConnection: undefined,
+			cacheOptions: {},
+			httpsOptions: {},
+			encoding: undefined,
+			resolveBodyOnly: false,
+			isStream: false,
+			responseType: 'text',
+			url: undefined,
+			pagination: undefined
 		};
-		this._followRedirect = true;
-		this._maxRedirects = 10;
-		this._cache = undefined;
-		this._throwHttpErrors = true;
-		this._username = '';
-		this._password = '';
-		this._http2 = false;
-		this._allowGetBody = false;
-		this._lookup = undefined;
-		this._headers = {};
-		this._methodRewriting = false;
-		this._dnsLookupIpVersion = 'auto';
-		this._parseJson = undefined;
-		this._stringifyJson = undefined;
-		this._retry = {
-			limit: 2,
-			methods: [
-				'GET',
-				'PUT',
-				'HEAD',
-				'DELETE',
-				'OPTIONS',
-				'TRACE'
-			],
-			statusCodes: [
-				408,
-				413,
-				429,
-				500,
-				502,
-				503,
-				504,
-				521,
-				522,
-				524
-			],
-			errorCodes: [
-				'ETIMEDOUT',
-				'ECONNRESET',
-				'EADDRINUSE',
-				'ECONNREFUSED',
-				'EPIPE',
-				'ENOTFOUND',
-				'ENETUNREACH',
-				'EAI_AGAIN'
-			],
-			maxRetryAfter: undefined,
-			calculateDelay: ({computedValue}) => computedValue
-		};
-		this._localAddress = undefined;
-		this._socketPath = undefined;
-		this._method = 'GET';
-		this._createConnection = undefined;
-		this._cacheOptions = {};
-		this._httpsOptions = {};
-		this._encoding = undefined;
-		this._resolveBodyOnly = false;
-		this._isStream = false;
-		this._responseType = 'text';
 
 		assert.any([is.string, is.urlInstance, is.object, is.undefined], urlOrOptions);
 		assert.any([is.object, is.undefined], options);
@@ -804,21 +770,21 @@ export class Options<ErrorType extends NodeJS.ErrnoException> {
 	@default http.request | https.request
 	*/
 	get request(): RequestFunction | undefined {
-		if (!this._request && this._url) {
-			if (this._url.protocol === 'https:') {
+		if (!this[INTERNALS].request && this[INTERNALS].url) {
+			if ((this[INTERNALS].url as URL).protocol === 'https:') {
 				return requestHttps as RequestFunction;
 			} else {
 				return requestHttp as RequestFunction;
 			}
 		}
 
-		return this._request;
+		return this[INTERNALS].request;
 	}
 
 	set request(value: RequestFunction | undefined) {
 		assert.any([is.function_, is.undefined], value);
 
-		this._request = value;
+		this[INTERNALS].request = value;
 	}
 
 	/**
@@ -843,7 +809,7 @@ export class Options<ErrorType extends NodeJS.ErrnoException> {
 	```
 	*/
 	get agent(): Agents {
-		return this._agent;
+		return this[INTERNALS].agent;
 	}
 
 	set agent(value: Agents) {
@@ -855,7 +821,7 @@ export class Options<ErrorType extends NodeJS.ErrnoException> {
 			}
 		}
 
-		this._agent = value;
+		this[INTERNALS].agent = value;
 	}
 
 	/**
@@ -870,13 +836,13 @@ export class Options<ErrorType extends NodeJS.ErrnoException> {
 	@default true
 	*/
 	get decompress(): boolean {
-		return this._decompress;
+		return this[INTERNALS].decompress;
 	}
 
 	set decompress(value: boolean) {
 		assert.boolean(value);
 
-		this._decompress = value;
+		this[INTERNALS].decompress = value;
 	}
 
 	/**
@@ -897,16 +863,16 @@ export class Options<ErrorType extends NodeJS.ErrnoException> {
 	get timeout(): Delays | number {
 		// We always return `Delays` here.
 		// It has to be `Delays | number`, otherwise TypeScript will error because the getter and the setter have incompatible types.
-		return this._timeout;
+		return this[INTERNALS].timeout;
 	}
 
 	set timeout(value: Delays | number) {
 		assert.any([is.plainObject, is.number], value);
 
 		if (is.number(value)) {
-			this._timeout.request = value;
+			(this[INTERNALS].timeout as Delays).request = value;
 		} else {
-			this._timeout = {...value};
+			this[INTERNALS].timeout = {...value};
 		}
 	}
 
@@ -954,7 +920,7 @@ export class Options<ErrorType extends NodeJS.ErrnoException> {
 	get prefixUrl(): string | URL {
 		// We always return `string` here.
 		// It has to be `string | URL`, otherwise TypeScript will error because the getter and the setter have incompatible types.
-		return this._prefixUrl;
+		return this[INTERNALS].prefixUrl;
 	}
 
 	set prefixUrl(value: string | URL) {
@@ -966,18 +932,18 @@ export class Options<ErrorType extends NodeJS.ErrnoException> {
 			value += '/';
 		}
 
-		if (this._prefixUrl && this._url) {
+		if (this[INTERNALS].prefixUrl && this[INTERNALS].url) {
 			const {href} = this.url as URL;
 
 			if (!href.startsWith(value)) {
-				throw new Error(`Cannot change \`prefixUrl\` from ${this._prefixUrl} to ${value}: ${href}`);
+				throw new Error(`Cannot change \`prefixUrl\` from ${this[INTERNALS].prefixUrl} to ${value}: ${href}`);
 			}
 
-			this._url = new URL(value + href.slice(this._prefixUrl.length));
-			this._prefixUrl = value;
+			this[INTERNALS].url = new URL(value + href.slice((this[INTERNALS].prefixUrl as string).length));
+			this[INTERNALS].prefixUrl = value;
 		}
 
-		this._prefixUrl = value;
+		this[INTERNALS].prefixUrl = value;
 	}
 
 	/**
@@ -992,7 +958,7 @@ export class Options<ErrorType extends NodeJS.ErrnoException> {
 	The `content-length` header will be automatically set if `body` is a `string` / `Buffer` / `fs.createReadStream` instance / [`form-data` instance](https://github.com/form-data/form-data), and `content-length` and `transfer-encoding` are not manually set in `options.headers`.
 	*/
 	get body(): string | Buffer | Readable | undefined {
-		return this._body;
+		return this[INTERNALS].body;
 	}
 
 	set body(value: string | Buffer | Readable | undefined) {
@@ -1002,10 +968,10 @@ export class Options<ErrorType extends NodeJS.ErrnoException> {
 			assert.truthy(value.readable);
 		}
 
-		assert.undefined(this._form);
-		assert.undefined(this._json);
+		assert.undefined(this[INTERNALS].form);
+		assert.undefined(this[INTERNALS].json);
 
-		this._body = value;
+		this[INTERNALS].body = value;
 	}
 
 	/**
@@ -1018,15 +984,15 @@ export class Options<ErrorType extends NodeJS.ErrnoException> {
 	__Note #2__: This option is not enumerable and will not be merged with the instance defaults.
 	*/
 	get form(): Record<string, any> | undefined {
-		return this._form;
+		return this[INTERNALS].form;
 	}
 
 	set form(value: Record<string, any> | undefined) {
 		assert.any([is.plainObject, is.undefined], value);
-		assert.undefined(this._body);
-		assert.undefined(this._json);
+		assert.undefined(this[INTERNALS].body);
+		assert.undefined(this[INTERNALS].json);
 
-		this._form = value;
+		this[INTERNALS].form = value;
 	}
 
 	/**
@@ -1037,15 +1003,15 @@ export class Options<ErrorType extends NodeJS.ErrnoException> {
 	__Note #2__: This option is not enumerable and will not be merged with the instance defaults.
 	*/
 	get json(): Record<string, any> | undefined {
-		return this._json;
+		return this[INTERNALS].json;
 	}
 
 	set json(value: Record<string, any> | undefined) {
 		assert.any([is.object, is.undefined], value);
-		assert.undefined(this._body);
-		assert.undefined(this._form);
+		assert.undefined(this[INTERNALS].body);
+		assert.undefined(this[INTERNALS].form);
 
-		this._json = value;
+		this[INTERNALS].json = value;
 	}
 
 	/**
@@ -1067,46 +1033,45 @@ export class Options<ErrorType extends NodeJS.ErrnoException> {
 	```
 	*/
 	get url(): string | URL | undefined {
-		return this._url;
+		return this[INTERNALS].url;
 	}
 
 	set url(value: string | URL | undefined) {
 		assert.any([is.string, is.urlInstance, is.undefined], value);
 
 		if (is.undefined(value)) {
-			this._url = undefined;
+			this[INTERNALS].url = undefined;
 		} else {
 			if (is.string(value) && value[0] === '/') {
 				throw new Error('`url` must not start with a slash');
 			}
 
 			const urlString = `${this.prefixUrl}${value}`;
-			this._url = new URL(urlString);
+			const url = new URL(urlString);
+			this[INTERNALS].url = url;
 			decodeURI(urlString);
 
-			if (this._url.protocol === 'unix:') {
-				this._url.protocol = 'http:';
-
-				this._url = new URL(`http://unix${this._url.pathname}${this._url.search}`);
+			if (url.protocol === 'unix:') {
+				url.href = `http://unix${url.pathname}${url.search}`;
 			}
 
-			if (this._url.protocol !== 'http:' && this._url.protocol !== 'https:') {
-				throw new Error(`Unsupported protocol: ${this._url.protocol}`);
+			if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+				throw new Error(`Unsupported protocol: ${url.protocol}`);
 			}
 
-			if (this._username) {
-				this._url.username = this._username;
-				this._username = '';
+			if (this[INTERNALS].username) {
+				url.username = this[INTERNALS].username;
+				this[INTERNALS].username = '';
 			}
 
-			if (this._password) {
-				this._url.password = this._password;
-				this._password = '';
+			if (this[INTERNALS].password) {
+				url.password = this[INTERNALS].password;
+				this[INTERNALS].password = '';
 			}
 
-			if (this._searchParameters) {
-				this._url.search = this._searchParameters.toString();
-				this._searchParameters = undefined;
+			if (this[INTERNALS].searchParameters) {
+				url.search = this[INTERNALS].searchParameters!.toString();
+				this[INTERNALS].searchParameters = undefined;
 			}
 		}
 	}
@@ -1117,7 +1082,7 @@ export class Options<ErrorType extends NodeJS.ErrnoException> {
 	__Note__: If you provide this option, `options.headers.cookie` will be overridden.
 	*/
 	get cookieJar(): PromiseCookieJar | ToughCookieJar | undefined {
-		return this._cookieJar;
+		return this[INTERNALS].cookieJar;
 	}
 
 	set cookieJar(value: PromiseCookieJar | ToughCookieJar | undefined) {
@@ -1131,16 +1096,16 @@ export class Options<ErrorType extends NodeJS.ErrnoException> {
 
 			/* istanbul ignore next: Horrible `tough-cookie` v3 check */
 			if (setCookie.length === 4 && getCookieString.length === 0) {
-				setCookie = promisify(setCookie.bind(value));
-				getCookieString = promisify(getCookieString.bind(value));
+				setCookie = util.promisify(setCookie.bind(value));
+				getCookieString = util.promisify(getCookieString.bind(value));
 
-				this._cookieJar = {
+				this[INTERNALS].cookieJar = {
 					setCookie,
 					getCookieString: getCookieString as PromiseCookieJar['getCookieString']
 				};
 			}
 		} else {
-			this._cookieJar = undefined;
+			this[INTERNALS].cookieJar = undefined;
 		}
 	}
 
@@ -1151,13 +1116,13 @@ export class Options<ErrorType extends NodeJS.ErrnoException> {
 	@default false
 	*/
 	get ignoreInvalidCookies(): boolean {
-		return this._ignoreInvalidCookies;
+		return this[INTERNALS].ignoreInvalidCookies;
 	}
 
 	set ignoreInvalidCookies(value: boolean) {
 		assert.boolean(value);
 
-		this._ignoreInvalidCookies = value;
+		this[INTERNALS].ignoreInvalidCookies = value;
 	}
 
 	/**
@@ -1179,15 +1144,17 @@ export class Options<ErrorType extends NodeJS.ErrnoException> {
 	```
 	*/
 	get searchParameters(): string | Record<string, string | number | boolean | null | undefined> | URLSearchParams | undefined {
-		if (this._url) {
-			return this._url.searchParams;
+		if (this[INTERNALS].url) {
+			return (this[INTERNALS].url as URL).searchParams;
 		}
 
-		return this._searchParameters;
+		return this[INTERNALS].searchParameters;
 	}
 
 	set searchParameters(value: string | Record<string, string | number | boolean | null | undefined> | URLSearchParams | undefined) {
 		assert.any([is.string, is.object, is.undefined]);
+
+		const url = this[INTERNALS].url as URL;
 
 		if (value) {
 			let searchParameters: URLSearchParams;
@@ -1211,16 +1178,16 @@ export class Options<ErrorType extends NodeJS.ErrnoException> {
 				}
 			}
 
-			if (this._url) {
-				this._url.search = searchParameters.toString();
+			if (url) {
+				url.search = searchParameters.toString();
 			} else {
-				this._searchParameters = searchParameters;
+				this[INTERNALS].searchParameters = searchParameters;
 			}
 		} else {
-			this._searchParameters = undefined;
+			this[INTERNALS].searchParameters = undefined;
 
-			if (this._url) {
-				this._url.search = '';
+			if (url) {
+				url.search = '';
 			}
 		}
 	}
@@ -1236,18 +1203,18 @@ export class Options<ErrorType extends NodeJS.ErrnoException> {
 	@default false
 	*/
 	get dnsCache(): CacheableLookup | boolean | undefined {
-		return this._dnsCache;
+		return this[INTERNALS].dnsCache;
 	}
 
 	set dnsCache(value: CacheableLookup | boolean | undefined) {
 		assert.any([is.object, is.boolean, is.undefined], value);
 
 		if (value === true) {
-			this._dnsCache = globalDnsCache;
+			this[INTERNALS].dnsCache = globalDnsCache;
 		} else if (value === false) {
-			this._dnsCache = undefined;
+			this[INTERNALS].dnsCache = undefined;
 		} else if (value instanceof CacheableLookup) {
-			this._dnsCache = value;
+			this[INTERNALS].dnsCache = value;
 		} else {
 			throw new TypeError(`Parameter \`dnsCache\` must be a CacheableLookup instance or a boolean, got ${is(value)}`);
 		}
@@ -1287,13 +1254,13 @@ export class Options<ErrorType extends NodeJS.ErrnoException> {
 	```
 	*/
 	get context(): Record<string, unknown> {
-		return this._context;
+		return this[INTERNALS].context;
 	}
 
 	set context(value: Record<string, unknown>) {
 		assert.object(value);
 
-		this._context = {...value};
+		this[INTERNALS].context = {...value};
 	}
 
 	/**
@@ -1301,7 +1268,7 @@ export class Options<ErrorType extends NodeJS.ErrnoException> {
 	Hook functions may be async and are run serially.
 	*/
 	get hooks(): Hooks<ErrorType> | undefined {
-		return this._hooks;
+		return this[INTERNALS].hooks;
 	}
 
 	set hooks(value: Hooks<ErrorType> | undefined) {
@@ -1330,7 +1297,7 @@ export class Options<ErrorType extends NodeJS.ErrnoException> {
 			}
 		}
 
-		this._hooks = hooks;
+		this[INTERNALS].hooks = hooks;
 	}
 
 	/**
@@ -1342,13 +1309,13 @@ export class Options<ErrorType extends NodeJS.ErrnoException> {
 	@default true
 	*/
 	get followRedirect(): boolean {
-		return this._followRedirect;
+		return this[INTERNALS].followRedirect;
 	}
 
 	set followRedirect(value: boolean) {
 		assert.boolean(value);
 
-		this._followRedirect = value;
+		this[INTERNALS].followRedirect = value;
 	}
 
 	get followRedirects() {
@@ -1365,13 +1332,13 @@ export class Options<ErrorType extends NodeJS.ErrnoException> {
 	@default 10
 	*/
 	get maxRedirects(): number {
-		return this._maxRedirects;
+		return this[INTERNALS].maxRedirects;
 	}
 
 	set maxRedirects(value: number) {
 		assert.number(value);
 
-		this._maxRedirects = value;
+		this[INTERNALS].maxRedirects = value;
 	}
 
 	/**
@@ -1380,13 +1347,13 @@ export class Options<ErrorType extends NodeJS.ErrnoException> {
 	@default false
 	*/
 	get cache(): string | CacheableRequest.StorageAdapter | false | undefined {
-		return this._cache;
+		return this[INTERNALS].cache;
 	}
 
 	set cache(value: string | CacheableRequest.StorageAdapter | false | undefined) {
 		assert.any([is.object, is.string, is.falsy, is.undefined], value);
 
-		this._cache = value;
+		this[INTERNALS].cache = value;
 	}
 
 	/**
@@ -1398,48 +1365,56 @@ export class Options<ErrorType extends NodeJS.ErrnoException> {
 	@default true
 	*/
 	get throwHttpErrors(): boolean {
-		return this._throwHttpErrors;
+		return this[INTERNALS].throwHttpErrors;
 	}
 
 	set throwHttpErrors(value: boolean) {
 		assert.boolean(value);
 
-		this._throwHttpErrors = value;
+		this[INTERNALS].throwHttpErrors = value;
 	}
 
 	get username(): string {
-		if (this._url) {
-			return this._url.username;
+		const url = this[INTERNALS].url as URL;
+
+		if (url) {
+			return url.username;
 		}
 
-		return this._username;
+		return this[INTERNALS].username;
 	}
 
 	set username(value: string) {
 		assert.string(value);
 
-		if (this._url) {
-			this._url.username = value;
+		const url = this[INTERNALS].url as URL;
+
+		if (url) {
+			url.username = value;
 		} else {
-			this._username = value;
+			this[INTERNALS].username = value;
 		}
 	}
 
 	get password(): string {
-		if (this._url) {
-			return this._url.password;
+		const url = this[INTERNALS].url as URL;
+
+		if (url) {
+			return url.password;
 		}
 
-		return this._password;
+		return this[INTERNALS].password;
 	}
 
 	set password(value: string) {
 		assert.string(value);
 
-		if (this._url) {
-			this._url.password = value;
+		const url = this[INTERNALS].url as URL;
+
+		if (url) {
+			url.password = value;
 		} else {
-			this._password = value;
+			this[INTERNALS].password = value;
 		}
 	}
 
@@ -1466,13 +1441,13 @@ export class Options<ErrorType extends NodeJS.ErrnoException> {
 	```
 	*/
 	get http2(): boolean {
-		return this._http2;
+		return this[INTERNALS].http2;
 	}
 
 	set http2(value: boolean) {
 		assert.boolean(value);
 
-		this._http2 = value;
+		this[INTERNALS].http2 = value;
 	}
 
 	/**
@@ -1485,23 +1460,23 @@ export class Options<ErrorType extends NodeJS.ErrnoException> {
 	@default false
 	*/
 	get allowGetBody(): boolean {
-		return this._allowGetBody;
+		return this[INTERNALS].allowGetBody;
 	}
 
 	set allowGetBody(value: boolean) {
 		assert.boolean(value);
 
-		this._allowGetBody = value;
+		this[INTERNALS].allowGetBody = value;
 	}
 
 	get lookup(): CacheableLookup['lookup'] | undefined {
-		return this._lookup;
+		return this[INTERNALS].lookup;
 	}
 
 	set lookup(value: CacheableLookup['lookup'] | undefined) {
 		assert.any([is.function_, is.undefined], value);
 
-		this._lookup = value;
+		this[INTERNALS].lookup = value;
 	}
 
 	/**
@@ -1512,13 +1487,13 @@ export class Options<ErrorType extends NodeJS.ErrnoException> {
 	@default {}
 	*/
 	get headers(): Record<string, string> {
-		return this._headers;
+		return this[INTERNALS].headers;
 	}
 
 	set headers(value: Record<string, string>) {
 		assert.any([is.plainObject, is.undefined], value);
 
-		this._headers = lowercaseKeys(value);
+		this[INTERNALS].headers = lowercaseKeys(value);
 	}
 
 	/**
@@ -1528,13 +1503,13 @@ export class Options<ErrorType extends NodeJS.ErrnoException> {
 	@default false
 	*/
 	get methodRewriting(): boolean {
-		return this._methodRewriting;
+		return this[INTERNALS].methodRewriting;
 	}
 
 	set methodRewriting(value: boolean) {
 		assert.boolean(value);
 
-		this._methodRewriting = value;
+		this[INTERNALS].methodRewriting = value;
 	}
 
 	/**
@@ -1550,13 +1525,13 @@ export class Options<ErrorType extends NodeJS.ErrnoException> {
 	@default 'auto'
 	*/
 	get dnsLookupIpVersion(): DnsLookupIpVersion {
-		return this._dnsLookupIpVersion;
+		return this[INTERNALS].dnsLookupIpVersion;
 	}
 
 	set dnsLookupIpVersion(value: DnsLookupIpVersion) {
 		assert.any([isDnsLookupIpVersion], value);
 
-		this._dnsLookupIpVersion = value;
+		this[INTERNALS].dnsLookupIpVersion = value;
 	}
 
 	/**
@@ -1577,13 +1552,13 @@ export class Options<ErrorType extends NodeJS.ErrnoException> {
 	```
 	*/
 	get parseJson(): ParseJsonFunction | undefined {
-		return this._parseJson;
+		return this[INTERNALS].parseJson;
 	}
 
 	set parseJson(value: ParseJsonFunction | undefined) {
 		assert.any([is.function_, is.undefined], value);
 
-		this._parseJson = value;
+		this[INTERNALS].parseJson = value;
 	}
 
 	/**
@@ -1632,13 +1607,13 @@ export class Options<ErrorType extends NodeJS.ErrnoException> {
 	```
 	*/
 	get stringifyJson(): StringifyJsonFunction | undefined {
-		return this._stringifyJson;
+		return this[INTERNALS].stringifyJson;
 	}
 
 	set stringifyJson(value: StringifyJsonFunction | undefined) {
 		assert.any([is.function_, is.undefined], value);
 
-		this._stringifyJson = value;
+		this[INTERNALS].stringifyJson = value;
 	}
 
 	/**
@@ -1664,23 +1639,27 @@ export class Options<ErrorType extends NodeJS.ErrnoException> {
 	__Note__: If [`Retry-After`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Retry-After) header is greater than `maxRetryAfter`, it will cancel the request.
 	*/
 	get retry(): RetryOptions | number {
-		return this._retry;
+		return this[INTERNALS].retry;
 	}
 
 	set retry(value: RetryOptions | number) {
 		assert.any([is.plainObject, is.number], value);
 
+		let retry = this[INTERNALS].retry as RetryOptions;
+
 		if (is.number(value)) {
-			this._retry.limit = value;
+			retry.limit = value;
 		} else {
-			this._retry = {
-				...this._retry,
+			retry = {
+				...retry,
 				...value
 			};
 
-			this._retry.methods = [...new Set(this._retry.methods.map(method => method.toUpperCase() as Method))];
-			this._retry.statusCodes = [...new Set(this._retry.statusCodes)];
-			this._retry.errorCodes = [...new Set(this._retry.errorCodes)];
+			retry.methods = [...new Set(retry.methods.map(method => method.toUpperCase() as Method))];
+			retry.statusCodes = [...new Set(retry.statusCodes)];
+			retry.errorCodes = [...new Set(retry.errorCodes)];
+
+			this[INTERNALS].retry = retry;
 		}
 	}
 
@@ -1689,23 +1668,23 @@ export class Options<ErrorType extends NodeJS.ErrnoException> {
 	The IP address used to send the request from.
 	*/
 	get localAddress(): string | undefined {
-		return this._localAddress;
+		return this[INTERNALS].localAddress;
 	}
 
 	set localAddress(value: string | undefined) {
 		assert.any([is.string, is.undefined], value);
 
-		this._localAddress = value;
+		this[INTERNALS].localAddress = value;
 	}
 
 	get socketPath(): string | undefined {
-		return this._socketPath;
+		return this[INTERNALS].socketPath;
 	}
 
 	set socketPath(value: string | undefined) {
 		assert.any([is.string, is.undefined], value);
 
-		this._socketPath = value;
+		this[INTERNALS].socketPath = value;
 	}
 
 	/**
@@ -1714,23 +1693,23 @@ export class Options<ErrorType extends NodeJS.ErrnoException> {
 	@default 'GET'
 	*/
 	get method(): Method {
-		return this._method;
+		return this[INTERNALS].method;
 	}
 
 	set method(value: Method) {
 		assert.any([is.string, is.undefined], value);
 
-		this._method = value.toUpperCase() as Method;
+		this[INTERNALS].method = value.toUpperCase() as Method;
 	}
 
 	get createConnection(): CreateConnectionFunction | undefined {
-		return this._createConnection;
+		return this[INTERNALS].createConnection;
 	}
 
 	set createConnection(value: CreateConnectionFunction | undefined) {
 		assert.any([is.function_, is.undefined], value);
 
-		this._createConnection = value;
+		this[INTERNALS].createConnection = value;
 	}
 
 	/**
@@ -1739,20 +1718,20 @@ export class Options<ErrorType extends NodeJS.ErrnoException> {
 	@default {}
 	*/
 	get cacheOptions(): CacheOptions {
-		return this._cacheOptions;
+		return this[INTERNALS].cacheOptions;
 	}
 
 	set cacheOptions(value: CacheOptions) {
 		assert.any([is.plainObject, is.undefined], value);
 
-		this._cacheOptions = {...value};
+		this[INTERNALS].cacheOptions = {...value};
 	}
 
 	/**
 	Options for the advanced HTTPS API.
 	*/
 	get httpsOptions(): HttpsOptions {
-		return this._httpsOptions;
+		return this[INTERNALS].httpsOptions;
 	}
 
 	set httpsOptions(value: HttpsOptions) {
@@ -1768,11 +1747,11 @@ export class Options<ErrorType extends NodeJS.ErrnoException> {
 			assert.any([is.string, is.buffer, is.array, is.undefined], value.pfx);
 		}
 
-		this._httpsOptions = {...value};
+		this[INTERNALS].httpsOptions = {...value};
 	}
 
 	get encoding(): BufferEncoding | undefined {
-		return this._encoding;
+		return this[INTERNALS].encoding;
 	}
 
 	set encoding(value: BufferEncoding | undefined) {
@@ -1782,31 +1761,31 @@ export class Options<ErrorType extends NodeJS.ErrnoException> {
 
 		assert.any([is.string, is.undefined], value);
 
-		this._encoding = value;
+		this[INTERNALS].encoding = value;
 	}
 
 	get resolveBodyOnly(): boolean {
-		return this._resolveBodyOnly;
+		return this[INTERNALS].resolveBodyOnly;
 	}
 
 	set resolveBodyOnly(value: boolean) {
 		assert.boolean(value);
 
-		this._resolveBodyOnly = value;
+		this[INTERNALS].resolveBodyOnly = value;
 	}
 
 	get isStream(): boolean {
-		return this._isStream;
+		return this[INTERNALS].isStream;
 	}
 
 	set isStream(value: boolean) {
 		assert.boolean(value);
 
-		this._isStream = value;
+		this[INTERNALS].isStream = value;
 	}
 
 	get responseType(): ResponseType {
-		return this._responseType;
+		return this[INTERNALS].responseType;
 	}
 
 	set responseType(value: ResponseType) {
@@ -1814,18 +1793,18 @@ export class Options<ErrorType extends NodeJS.ErrnoException> {
 			throw new Error(`Invalid \`responseType\` option: ${value}`);
 		}
 
-		this._responseType = value;
+		this[INTERNALS].responseType = value;
 	}
 
 	get pagination(): PaginationOptions<unknown, unknown, ErrorType> | undefined {
-		return this._pagination;
+		return this[INTERNALS].pagination;
 	}
 
 	set pagination(value: PaginationOptions<unknown, unknown, ErrorType> | undefined) {
 		assert.any([is.object, is.undefined], value);
 
 		const pagination: PaginationOptions<unknown, unknown, ErrorType> = {
-			...this._pagination,
+			...this[INTERNALS].pagination,
 			...value
 		};
 
@@ -1854,3 +1833,15 @@ export class Options<ErrorType extends NodeJS.ErrnoException> {
 		throw new Error('Parameter `auth` is deprecated. Use `username` / `password` instead.');
 	}
 }
+
+// We want all the getters to be enumerable, so people instead doing
+// `util.inspect(options, {getters: true, showHidden: true})`
+// can do just `util.inspect(options, {getters: true})`.
+const propertyDescriptors: PropertyDescriptorMap = {};
+const keys = Object.getOwnPropertyNames(Options.prototype).slice(1);
+
+for (const key of keys) {
+	propertyDescriptors[key] = {enumerable: true};
+}
+
+Object.defineProperties(Options.prototype, propertyDescriptors);
