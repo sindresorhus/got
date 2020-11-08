@@ -14,6 +14,7 @@ import {
 } from 'https';
 import CacheableLookup from 'cacheable-lookup';
 import CacheableRequest = require('cacheable-request');
+import lowercaseKeys = require('lowercase-keys');
 import ResponseLike = require('responselike');
 import is, {assert} from '@sindresorhus/is';
 import {IncomingMessageWithTimings} from '@szmarczak/http-timer/dist/source';
@@ -1083,7 +1084,7 @@ export class Options {
 	set headers(value: Record<string, string>) {
 		assert.any([is.plainObject, is.undefined], value);
 
-		this._headers = value;
+		this._headers = lowercaseKeys(value);
 	}
 
 	/**
