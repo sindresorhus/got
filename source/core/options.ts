@@ -624,8 +624,8 @@ export class Options {
 			assert.truthy(value.readable);
 		}
 
-		assert.falsy(this._form);
-		assert.falsy(this._json);
+		assert.undefined(this._form);
+		assert.undefined(this._json);
 
 		this._body = value;
 	}
@@ -645,8 +645,8 @@ export class Options {
 
 	set form(value: Record<string, any> | undefined) {
 		assert.any([is.plainObject, is.undefined], value);
-		assert.falsy(this._body);
-		assert.falsy(this._json);
+		assert.undefined(this._body);
+		assert.undefined(this._json);
 
 		this._form = value;
 	}
@@ -664,8 +664,8 @@ export class Options {
 
 	set json(value: Record<string, any> | undefined) {
 		assert.any([is.object, is.undefined], value);
-		assert.falsy(this._body);
-		assert.falsy(this._form);
+		assert.undefined(this._body);
+		assert.undefined(this._form);
 
 		this._json = value;
 	}
