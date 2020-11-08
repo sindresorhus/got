@@ -1329,4 +1329,12 @@ export class Options {
 
 		this._httpsOptions = value;
 	}
+
+	set auth(_value: unknown) {
+		throw new Error('Parameter `auth` is deprecated. Use `username` / `password` instead.');
+	}
+
+	get auth() {
+		throw new Error('Parameter `auth` is deprecated. Use `username` / `password` instead.');
+	}
 }
