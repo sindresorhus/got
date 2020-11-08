@@ -733,6 +733,10 @@ export class Options {
 			if (this._searchParameters) {
 				this._url.search = this._searchParameters.toString();
 			}
+
+			if (this._url.protocol !== 'http:' && this._url.protocol !== 'https:') {
+				throw new Error(`Unsupported protocol: ${this._url.protocol}`);
+			}
 		}
 	}
 
