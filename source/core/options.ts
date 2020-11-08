@@ -636,96 +636,103 @@ function validateSearchParameters(searchParameters: Record<string, unknown>): as
 
 export type ResponseType = 'json' | 'buffer' | 'text';
 
+export type InternalsType<ErrorType extends NodeJS.ErrnoException> = Omit<Options<ErrorType>, typeof INTERNALS | 'followRedirects' | 'auth' | typeof util.inspect.custom | 'toJSON'>;
+
 const globalDnsCache = new CacheableLookup();
 
 export class Options<ErrorType extends NodeJS.ErrnoException> {
-	private [INTERNALS]: Omit<Options<ErrorType>, typeof INTERNALS | 'followRedirects' | 'auth'>;
+	private [INTERNALS]: InternalsType<ErrorType>;
 
 	constructor(urlOrOptions?: string | URL | Partial<Options<ErrorType>>, options?: Partial<Options<ErrorType>>) {
-		this[INTERNALS] = {
-			request: undefined,
-			agent: {},
-			decompress: true,
-			timeout: {},
-			prefixUrl: '',
-			body: undefined,
-			form: undefined,
-			json: undefined,
-			cookieJar: undefined,
-			ignoreInvalidCookies: false,
-			searchParameters: undefined,
-			dnsCache: undefined,
-			context: {},
-			hooks: {
-				init: [],
-				beforeRequest: [],
-				beforeError: [],
-				beforeRedirect: [],
-				beforeRetry: [],
-				afterResponse: []
-			},
-			followRedirect: true,
-			maxRedirects: 10,
-			cache: undefined,
-			throwHttpErrors: true,
-			username: '',
-			password: '',
-			http2: false,
-			allowGetBody: false,
-			lookup: undefined,
-			headers: {},
-			methodRewriting: false,
-			dnsLookupIpVersion: 'auto',
-			parseJson: undefined,
-			stringifyJson: undefined,
-			retry: {
-				limit: 2,
-				methods: [
-					'GET',
-					'PUT',
-					'HEAD',
-					'DELETE',
-					'OPTIONS',
-					'TRACE'
-				],
-				statusCodes: [
-					408,
-					413,
-					429,
-					500,
-					502,
-					503,
-					504,
-					521,
-					522,
-					524
-				],
-				errorCodes: [
-					'ETIMEDOUT',
-					'ECONNRESET',
-					'EADDRINUSE',
-					'ECONNREFUSED',
-					'EPIPE',
-					'ENOTFOUND',
-					'ENETUNREACH',
-					'EAI_AGAIN'
-				],
-				maxRetryAfter: undefined,
-				calculateDelay: ({computedValue}) => computedValue
-			},
-			localAddress: undefined,
-			socketPath: undefined,
-			method: 'GET',
-			createConnection: undefined,
-			cacheOptions: {},
-			httpsOptions: {},
-			encoding: undefined,
-			resolveBodyOnly: false,
-			isStream: false,
-			responseType: 'text',
-			url: undefined,
-			pagination: undefined
-		};
+		Object.defineProperty(this, INTERNALS, {
+			enumerable: false,
+			writable: true,
+			configurable: false,
+			value: {
+				request: undefined,
+				agent: {},
+				decompress: true,
+				timeout: {},
+				prefixUrl: '',
+				body: undefined,
+				form: undefined,
+				json: undefined,
+				cookieJar: undefined,
+				ignoreInvalidCookies: false,
+				searchParameters: undefined,
+				dnsCache: undefined,
+				context: {},
+				hooks: {
+					init: [],
+					beforeRequest: [],
+					beforeError: [],
+					beforeRedirect: [],
+					beforeRetry: [],
+					afterResponse: []
+				},
+				followRedirect: true,
+				maxRedirects: 10,
+				cache: undefined,
+				throwHttpErrors: true,
+				username: '',
+				password: '',
+				http2: false,
+				allowGetBody: false,
+				lookup: undefined,
+				headers: {},
+				methodRewriting: false,
+				dnsLookupIpVersion: 'auto',
+				parseJson: undefined,
+				stringifyJson: undefined,
+				retry: {
+					limit: 2,
+					methods: [
+						'GET',
+						'PUT',
+						'HEAD',
+						'DELETE',
+						'OPTIONS',
+						'TRACE'
+					],
+					statusCodes: [
+						408,
+						413,
+						429,
+						500,
+						502,
+						503,
+						504,
+						521,
+						522,
+						524
+					],
+					errorCodes: [
+						'ETIMEDOUT',
+						'ECONNRESET',
+						'EADDRINUSE',
+						'ECONNREFUSED',
+						'EPIPE',
+						'ENOTFOUND',
+						'ENETUNREACH',
+						'EAI_AGAIN'
+					],
+					maxRetryAfter: undefined,
+					calculateDelay: ({computedValue}) => computedValue
+				},
+				localAddress: undefined,
+				socketPath: undefined,
+				method: 'GET',
+				createConnection: undefined,
+				cacheOptions: {},
+				httpsOptions: {},
+				encoding: undefined,
+				resolveBodyOnly: false,
+				isStream: false,
+				responseType: 'text',
+				url: undefined,
+				pagination: undefined
+			} as Options<ErrorType>[typeof INTERNALS]
+		});
 
 		assert.any([is.string, is.urlInstance, is.object, is.undefined], urlOrOptions);
 		assert.any([is.object, is.undefined], options);
@@ -1832,13 +1839,27 @@ export class Options<ErrorType extends NodeJS.ErrnoException> {
 	get auth() {
 		throw new Error('Parameter `auth` is deprecated. Use `username` / `password` instead.');
 	}
+
+	toJSON() {
+		return {...this[INTERNALS]};
+	}
 }
+
+const nonEnumerableProperties = [
+	'constructor',
+	'toJSON',
+	'body',
+	'form',
+	'json',
+	'auth',
+	'followRedirects'
+];
 
 // We want all the properties to be enumerable, so people instead doing
 // `util.inspect(options, {getters: true, showHidden: true})`
 // can do just `util.inspect(options, {getters: true})`.
 const propertyDescriptors: PropertyDescriptorMap = {};
-const keys = Object.getOwnPropertyNames(Options.prototype).slice(1);
+const keys = Object.getOwnPropertyNames(Options.prototype).filter(property => !nonEnumerableProperties.includes(property));
 
 for (const key of keys) {
 	propertyDescriptors[key] = {enumerable: true};
