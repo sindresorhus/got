@@ -756,9 +756,20 @@ export class Options {
 				throw new Error(`Unsupported protocol: ${this._url.protocol}`);
 			}
 
-			this._searchParameters = undefined;
-			this._username = '';
-			this._password = '';
+			if (this._username) {
+				this._url.username = this._username;
+				this._username = '';
+			}
+
+			if (this._password) {
+				this._url.password = this._password;
+				this._password = '';
+			}
+
+			if (this._searchParameters) {
+				this._url.search = this._searchParameters.toString();
+				this._searchParameters = undefined;
+			}
 		}
 	}
 
@@ -840,9 +851,9 @@ export class Options {
 	set searchParameters(value: string | Record<string, string | number | boolean | null | undefined> | URLSearchParams | undefined) {
 		assert.any([is.string, is.object, is.undefined]);
 
-		let searchParameters: URLSearchParams;
-
 		if (value) {
+			let searchParameters: URLSearchParams;
+
 			if (is.string(value) || (value instanceof URLSearchParams)) {
 				searchParameters = new URLSearchParams(value);
 			} else {
@@ -862,10 +873,10 @@ export class Options {
 				}
 			}
 
-			this._searchParameters = searchParameters;
-
 			if (this._url) {
-				this._url.search = this._searchParameters.toString();
+				this._url.search = searchParameters.toString();
+			} else {
+				this._searchParameters = searchParameters;
 			}
 		} else {
 			this._searchParameters = undefined;
