@@ -752,13 +752,13 @@ export class Options {
 				this._url = new URL(`http://unix${this._url.pathname}${this._url.search}`);
 			}
 
-			if (this._searchParameters) {
-				this._url.search = this._searchParameters.toString();
-			}
-
 			if (this._url.protocol !== 'http:' && this._url.protocol !== 'https:') {
 				throw new Error(`Unsupported protocol: ${this._url.protocol}`);
 			}
+
+			this._searchParameters = undefined;
+			this._username = '';
+			this._password = '';
 		}
 	}
 
@@ -1059,23 +1059,39 @@ export class Options {
 	}
 
 	get username(): string {
+		if (this._url) {
+			return this._url.username;
+		}
+
 		return this._username;
 	}
 
 	set username(value: string) {
 		assert.string(value);
 
-		this._username = value;
+		if (this._url) {
+			this._url.username = value;
+		} else {
+			this._username = value;
+		}
 	}
 
 	get password(): string {
+		if (this._url) {
+			return this._url.password;
+		}
+
 		return this._password;
 	}
 
 	set password(value: string) {
 		assert.string(value);
 
-		this._password = value;
+		if (this._url) {
+			this._url.password = value;
+		} else {
+			this._password = value;
+		}
 	}
 
 	/**
