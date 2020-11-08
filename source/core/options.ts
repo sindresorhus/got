@@ -705,6 +705,10 @@ export class Options {
 		if (is.undefined(value)) {
 			this._url = undefined;
 		} else {
+			if (is.string(value) && value[0] === '/') {
+				throw new Error('`url` must not start with a slash');
+			}
+
 			const urlString = `${this.prefixUrl}${value}`;
 			this._url = new URL(urlString);
 			decodeURI(urlString);
