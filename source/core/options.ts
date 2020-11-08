@@ -427,7 +427,11 @@ export class Options {
 		assert.any([is.object, is.undefined], options);
 
 		if (is.plainObject(urlOrOptions)) {
-			options = {...urlOrOptions, ...options};
+			if (options) {
+				throw new Error('There can be only one options argument');
+			}
+
+			options = urlOrOptions;
 		} else if (urlOrOptions) {
 			if (options?.url !== undefined) {
 				throw new TypeError('The `url` option is mutually exclusive with the `input` argument');
