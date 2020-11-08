@@ -606,6 +606,17 @@ export class Options {
 			value += '/';
 		}
 
+		if (this._prefixUrl && this._url) {
+			const {href} = this.url as URL;
+
+			if (!href.startsWith(value)) {
+				throw new Error(`Cannot change \`prefixUrl\` from ${this._prefixUrl} to ${value}: ${href}`);
+			}
+
+			this._url = new URL(value + href.slice(this._prefixUrl.length));
+			this._prefixUrl = value;
+		}
+
 		this._prefixUrl = value;
 	}
 
