@@ -1810,6 +1810,11 @@ export class Options<ErrorType extends NodeJS.ErrnoException> {
 	set pagination(value: PaginationOptions<unknown, unknown, ErrorType> | undefined) {
 		assert.any([is.object, is.undefined], value);
 
+		if (is.undefined(value)) {
+			this[INTERNALS].pagination = undefined;
+			return;
+		}
+
 		const pagination: PaginationOptions<unknown, unknown, ErrorType> = {
 			...this[INTERNALS].pagination,
 			...value
