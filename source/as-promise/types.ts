@@ -171,7 +171,7 @@ export namespace PromiseOnly {
 		});
 		```
 		*/
-		afterResponse?: AfterResponseHook[];
+		afterResponse: AfterResponseHook[];
 	}
 
 	export interface Options extends PaginationOptions<unknown, unknown> {
