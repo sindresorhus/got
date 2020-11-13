@@ -636,14 +636,16 @@ function validateSearchParameters(searchParameters: Record<string, unknown>): as
 
 export type ResponseType = 'json' | 'buffer' | 'text';
 
-export type InternalsType<ErrorType extends NodeJS.ErrnoException> = Omit<Options<ErrorType>, typeof INTERNALS | 'followRedirects' | 'auth' | typeof util.inspect.custom | 'toJSON'>;
+type InternalsType<ErrorType extends NodeJS.ErrnoException> = Omit<Options<ErrorType>, typeof INTERNALS | 'followRedirects' | 'auth' | typeof util.inspect.custom | 'toJSON'>;
+
+export type OptionsInit<ErrorType extends NodeJS.ErrnoException> = Partial<InternalsType<ErrorType>>;
 
 const globalDnsCache = new CacheableLookup();
 
 export class Options<ErrorType extends NodeJS.ErrnoException> {
 	private [INTERNALS]: InternalsType<ErrorType>;
 
-	constructor(urlOrOptions?: string | URL | Partial<Options<ErrorType>>, options?: Partial<Options<ErrorType>>) {
+	constructor(urlOrOptions?: string | URL | OptionsInit<ErrorType>, options?: OptionsInit<ErrorType>) {
 		Object.defineProperty(this, INTERNALS, {
 			enumerable: false,
 			writable: true,
