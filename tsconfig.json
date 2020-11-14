@@ -9,8 +9,9 @@
 		]
 	},
 	"include": [
-		"source",
-		"test",
-		"benchmark"
+		// "source",
+		// "test",
+		// "benchmark"
+		"source/core"
 	]
 }

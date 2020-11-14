@@ -34,6 +34,8 @@ import Options, {
 	Progress
 } from './options';
 
+export * from './options';
+
 type Error = NodeJS.ErrnoException;
 
 const kRequest = Symbol('request');

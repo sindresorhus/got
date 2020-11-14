@@ -40,9 +40,8 @@ export interface Progress {
 	total?: number;
 }
 
-type Error = NodeJS.ErrnoException;
-
-declare class RequestError extends Error {
+declare class RequestError extends Error implements NodeJS.ErrnoException {
+	code?: string;
 	stack: string;
 	readonly options: Options;
 	readonly response?: Response;
@@ -443,7 +442,7 @@ export type Method =
 export interface RetryObject {
 	attemptCount: number;
 	retryOptions: RetryOptions;
-	error: NodeJS.ErrnoException;
+	error: RequestError;
 	computedValue: number;
 	retryAfter?: number;
 }
