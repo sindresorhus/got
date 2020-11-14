@@ -31,7 +31,8 @@ import Options, {
 	requestOptionsHandler,
 	RequestOptions,
 	RetryOptions,
-	Progress
+	Progress,
+	INTERNALS
 } from './options';
 
 export * from './options';
@@ -335,6 +336,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		});
 
 		this.options = new Options(url, options);
+		this.options[INTERNALS].isStream = true;
 
 		const {json, body, form} = this.options;
 		if (json || body || form) {
