@@ -3,7 +3,7 @@ import {ReadStream} from 'fs';
 import {URL, URLSearchParams} from 'url';
 import {Socket} from 'net';
 import http = require('http');
-import {ClientRequest, IncomingMessage, ServerResponse, request as httpRequest} from 'http';
+import {ClientRequest, IncomingMessage, ServerResponse} from 'http';
 import https = require('https');
 import timer, {ClientRequestWithTimings, Timings, IncomingMessageWithTimings} from '@szmarczak/http-timer';
 import CacheableRequest = require('cacheable-request');
