@@ -519,7 +519,7 @@ Delays between retries counts with function `1000 * Math.pow(2, retry - 1) + Mat
 
 The `calculateDelay` property is a `function` that receives an object with `attemptCount`, `retryOptions`, `error` and `computedValue` properties for current retry count, the retry options, error and default computed value. The function must return a delay in milliseconds (or a Promise resolving with it) (`0` return value cancels retry).
 
-**Note:** The `calculateDelay` function is responsible for the entire cache mechanism, including the `limit` property. To support it, you need to check whether `computedValue` is different than `0`.
+**Note:** The `calculateDelay` function is responsible for the entire retry mechanism, including the `limit` property. To support the `limit` property, you need to check whether `computedValue` is different than `0`.
 
 By default, it retries *only* on the specified methods, status codes, and on these network errors:
 - `ETIMEDOUT`: One of the [timeout](#timeout) limits were reached.
