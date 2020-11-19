@@ -31,7 +31,7 @@ import normalizePromiseArguments from '../as-promise/normalize-arguments';
 import {PromiseOnly} from '../as-promise/types';
 import calculateRetryDelay from './calculate-retry-delay';
 
-let globalDnsCache;
+let globalDnsCache : CacheableLookup;
 
 type HttpRequestFunction = typeof httpRequest;
 type Error = NodeJS.ErrnoException;
