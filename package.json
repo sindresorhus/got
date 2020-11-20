@@ -10,7 +10,7 @@
 		"node": ">=10.19.0"
 	},
 	"scripts": {
-		"test": "xo && npm run build && nyc --reporter=html --reporter=text ava",
+		"test": "xo && npm run build && nyc ava",
 		"release": "np",
 		"build": "del-cli dist && tsc",
 		"prepare": "npm run build"
@@ -71,7 +71,6 @@
 		"ava": "^3.13.0",
 		"axios": "^0.21.0",
 		"benchmark": "^2.1.4",
-		"coveralls": "^3.1.0",
 		"create-test-server": "^3.0.1",
 		"del-cli": "^3.0.1",
 		"delay": "^4.4.0",
@@ -107,6 +106,11 @@
 		}
 	},
 	"nyc": {
+		"reporter": [
+			"text",
+			"html",
+			"lcov"
+		],
 		"extension": [
 			".ts"
 		],
