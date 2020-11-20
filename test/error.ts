@@ -225,7 +225,6 @@ test('no uncaught parse errors', async t => {
 	const listen = promisify(server.listen.bind(server));
 	const close = promisify(server.close.bind(server));
 
-	// @ts-expect-error TS is sooo dumb. It doesn't need an argument at all.
 	await listen();
 
 	server.on('connection', socket => {

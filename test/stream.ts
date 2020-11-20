@@ -419,7 +419,7 @@ test('async iterator works', withServer, async (t, server, got) => {
 	t.is(Buffer.concat(chunks).toString(), payload);
 });
 
-if (process.versions.node.split('.')[0] <= '12') {
+if (Number.parseInt(process.versions.node.split('.')[0]!, 10) <= 12) {
 	test('does not emit end event on error', withServer, async (t, server, got) => {
 		server.get('/', infiniteHandler);
 

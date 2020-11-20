@@ -89,7 +89,7 @@ test('download progress - missing total size', withServer, async (t, server, got
 
 	await got('').on('downloadProgress', (event: Progress) => events.push(event));
 
-	t.is(events[0].total, undefined);
+	t.is(events[0]?.total, undefined);
 	checkEvents(t, events);
 });
 
@@ -188,7 +188,7 @@ test('upload progress - stream with unknown body size', withServer, async (t, se
 		stream.pipeline(toReadableStream(file), request, () => {})
 	);
 
-	t.is(events[0].total, undefined);
+	t.is(events[0]?.total, undefined);
 	checkEvents(t, events);
 });
 

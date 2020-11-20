@@ -15,7 +15,7 @@ test('reads a cookie', withServer, async (t, server, got) => {
 
 	await got({cookieJar});
 
-	const cookie = cookieJar.getCookiesSync(server.url)[0];
+	const cookie = cookieJar.getCookiesSync(server.url)[0]!;
 	t.is(cookie.key, 'hello');
 	t.is(cookie.value, 'world');
 });
@@ -30,14 +30,11 @@ test('reads multiple cookies', withServer, async (t, server, got) => {
 
 	await got({cookieJar});
 
-	const cookies = cookieJar.getCookiesSync(server.url);
-	const cookieA = cookies[0];
-	t.is(cookieA.key, 'hello');
-	t.is(cookieA.value, 'world');
-
-	const cookieB = cookies[1];
-	t.is(cookieB.key, 'foo');
-	t.is(cookieB.value, 'bar');
+	const [cookieA, cookieB] = cookieJar.getCookiesSync(server.url);
+	t.is(cookieA!.key, 'hello');
+	t.is(cookieA!.value, 'world');
+	t.is(cookieB!.key, 'foo');
+	t.is(cookieB!.value, 'bar');
 });
 
 test('cookies doesn\'t break on redirects', withServer, async (t, server, got) => {
@@ -159,8 +156,7 @@ test('accepts custom `cookieJar` object', withServer, async (t, server, got) => 
 	const cookieJar = {
 		async getCookieString(url: string) {
 			t.is(typeof url, 'string');
-
-			return cookies[url] || '';
+			return cookies[url] ?? '';
 		},
 
 		async setCookie(rawCookie: string, url: string) {
