@@ -128,7 +128,8 @@ const create = (defaults: InstanceDefaults): Got => {
 	const got: Got = ((url: string | URL, options: Options = {}, _defaults?: Defaults): GotReturn => {
 		let iteration = 0;
 		const iterateHandlers = (newOptions: NormalizedOptions): GotReturn => {
-			return defaults.handlers[iteration++](
+			// TODO: Remove the `!`. This could probably be simplified to not use index access.
+			return defaults.handlers[iteration++]!(
 				newOptions,
 				iteration === defaults.handlers.length ? getPromiseOrStream : iterateHandlers
 			) as GotReturn;

@@ -155,7 +155,7 @@ test.serial('deprecated `rejectUnauthorized` option', withHttpsServer(), async (
 		response.end('ok');
 	});
 
-	await new Promise(resolve => {
+	await new Promise<void>(resolve => {
 		let request: CancelableRequest;
 		(async () => {
 			const warning = await pEvent(process, 'warning');

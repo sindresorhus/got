@@ -112,6 +112,7 @@ export const withSocketServer: test.Macro<[RunTestWithSocket]> = async (t, run) 
 
 	server.socketPath = socketPath;
 
+	// @ts-expect-error - TS 4.1 bug.
 	await promisify(server.listen.bind(server))(socketPath);
 
 	try {

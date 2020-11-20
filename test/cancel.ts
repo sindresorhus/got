@@ -15,7 +15,7 @@ import withServer, {withServerAndFakeTimers} from './helpers/with-server';
 const prepareServer = (server: ExtendedHttpTestServer, clock: GlobalClock): {emitter: EventEmitter; promise: Promise<unknown>} => {
 	const emitter = new EventEmitter();
 
-	const promise = new Promise((resolve, reject) => {
+	const promise = new Promise<void>((resolve, reject) => {
 		server.all('/abort', async (request, response) => {
 			emitter.emit('connection');
 
@@ -149,7 +149,7 @@ test.serial('cancels in-progress request with timeout', withServerAndFakeTimers,
 });
 
 test.serial('cancel immediately', withServerAndFakeTimers, async (t, server, got, clock) => {
-	const promise = new Promise((resolve, reject) => {
+	const promise = new Promise<void>((resolve, reject) => {
 		// We won't get an abort or even a connection
 		// We assume no request within 1000ms equals a (client side) aborted request
 		server.get('/abort', (_request, response) => {

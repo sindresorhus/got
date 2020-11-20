@@ -86,11 +86,14 @@ const defaults: InstanceDefaults = {
 
 				let next: string | undefined;
 				for (const item of items) {
+					// TODO: Use destructuring here.
 					const parsed = item.split(';');
 
-					if (parsed[1].includes('next')) {
-						next = parsed[0].trimStart().trim();
-						next = next.slice(1, -1);
+					if (parsed[1]?.includes('next')) {
+						next = parsed[0]!
+							.trim()
+							.slice(1, -1);
+
 						break;
 					}
 				}
