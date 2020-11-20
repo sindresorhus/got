@@ -31,7 +31,7 @@ import normalizePromiseArguments from '../as-promise/normalize-arguments';
 import {PromiseOnly} from '../as-promise/types';
 import calculateRetryDelay from './calculate-retry-delay';
 
-const globalDnsCache = new CacheableLookup();
+let globalDnsCache: CacheableLookup;
 
 type HttpRequestFunction = typeof httpRequest;
 type Error = NodeJS.ErrnoException;
@@ -1218,7 +1218,7 @@ export class RequestError extends Error {
 		this.timings = this.request?.timings;
 
 		// Recover the original stacktrace
-		if (!is.undefined(error.stack)) {
+		if (is.string(error.stack) && is.string(this.stack)) {
 			const indexOfMessage = this.stack.indexOf(this.message) + this.message.length;
 			const thisStackTrace = this.stack.slice(indexOfMessage).split('\n').reverse();
 			const errorStackTrace = error.stack.slice(error.stack.indexOf(error.message!) + error.message!.length).split('\n').reverse();
@@ -1758,6 +1758,10 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 		// `options.dnsCache`
 		if (options.dnsCache === true) {
+			if (!globalDnsCache) {
+				globalDnsCache = new CacheableLookup();
+			}
+
 			options.dnsCache = globalDnsCache;
 		} else if (!is.undefined(options.dnsCache) && !options.dnsCache.lookup) {
 			throw new TypeError(`Parameter \`dnsCache\` must be a CacheableLookup instance or a boolean, got ${is(options.dnsCache)}`);
