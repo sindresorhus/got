@@ -238,6 +238,8 @@ Type: `string | Buffer | stream.Readable` or [`form-data` instance](https://gith
 
 The `content-length` header will be automatically set if `body` is a `string` / `Buffer` / [`form-data` instance](https://github.com/form-data/form-data), and `content-length` and `transfer-encoding` are not manually set in `options.headers`.
 
+The `content-length` is no more automatically set when `body` is a `fs.createReadStream`.
+
 ###### json
 
 Type: `object | Array | number | string | boolean | null` *(JSON-serializable values)*
