@@ -14,8 +14,8 @@
 
 > Human-friendly and powerful HTTP request library for Node.js
 
-[![Build Status: Linux](https://travis-ci.com/sindresorhus/got.svg?branch=master)](https://travis-ci.com/github/sindresorhus/got)
-[![Coverage Status](https://coveralls.io/repos/github/sindresorhus/got/badge.svg?branch=master)](https://coveralls.io/github/sindresorhus/got?branch=master)
+[![Build Status](https://github.com/sindresorhus/got/workflows/CI/badge.svg?branch=master)](https://github.com/sindresorhus/got/actions?query=branch%3Amaster+workflow%3ACI)
+[![Coverage Status](https://codecov.io/gh/sindresorhus/got/branch/master/graph/badge.svg)](https://codecov.io/gh/sindresorhus/got/branch/master)
 [![Downloads](https://img.shields.io/npm/dm/got.svg)](https://npmjs.com/got)
 [![Install size](https://packagephobia.now.sh/badge?p=got)](https://packagephobia.now.sh/result?p=got)
 
