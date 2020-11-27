@@ -79,3 +79,13 @@ test('promise.json() can be called before a file stream body is open', withServe
 
 	await Promise.all(checks);
 });
+
+test.failing('promise.json() does not fail when server returns an error', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.statusCode = 400;
+		response.end('{}');
+	});
+
+	const promise = got('', {throwHttpErrors: false});
+	await t.notThrowsAsync(promise.json());
+});
