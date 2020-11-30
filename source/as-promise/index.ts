@@ -124,12 +124,12 @@ export default function asPromise<T>(normalizedOptions: NormalizedOptions): Canc
 					return;
 				}
 
+				globalResponse = response;
+
 				if (!isResponseOk(response)) {
 					request._beforeError(new HTTPError(response));
 					return;
 				}
-
-				globalResponse = response;
 
 				resolve(request.options.resolveBodyOnly ? response.body as T : response as unknown as T);
 			});
