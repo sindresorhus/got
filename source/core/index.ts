@@ -1178,6 +1178,13 @@ Contains a `code` property with error class code, like `ECONNREFUSED`.
 */
 export class RequestError extends Error {
 	code?: string;
+	url?: string;
+	method?: string;
+	ip?: string;
+	requestHeaders?: Headers;
+	requestBody?: unknown;
+	responseHeaders?: Headers;
+	responseBody?: unknown;
 	stack!: string;
 	declare readonly options: NormalizedOptions;
 	readonly response?: Response;
@@ -1218,6 +1225,13 @@ export class RequestError extends Error {
 		}
 
 		this.timings = this.request?.timings;
+		this.url = this.request?.requestUrl;
+		this.method = this.request?.options.method;
+		this.ip = this.request?.ip;
+		this.requestHeaders = this.request?.options.headers;
+		this.requestBody = this.request?.options.body;
+		this.responseHeaders = this.response?.headers;
+		this.responseBody = this.response?.body;
 
 		// Recover the original stacktrace
 		if (is.string(error.stack) && is.string(this.stack)) {

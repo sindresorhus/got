@@ -33,6 +33,7 @@ test('properties', withServer, async (t, server, got) => {
 	t.deepEqual(error.options.url, url);
 	t.is(error.response.headers.connection, 'close');
 	t.is(error.response.body, 'not');
+	t.is(error.url, error.request.requestUrl);
 });
 
 test('catches dns errors', async t => {
