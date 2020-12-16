@@ -30,7 +30,7 @@ For browser usage, we recommend [Ky](https://github.com/sindresorhus/ky) by the 
 - [Stream API](#streams)
 - [Pagination API](#pagination)
 - [HTTP2 support](#http2)
-- [Request cancelation](#aborting-the-request)
+- [Request cancellation](#aborting-the-request)
 - [RFC compliant caching](#cache-adapters)
 - [Follows redirects](#followredirect)
 - [Retries on failure](#retry)
@@ -214,7 +214,7 @@ Default: `{}`
 
 Request headers.
 
-Existing headers will be overwritten. Headers set to `undefined` will be omitted.
+Existing headers will be overridden. Headers set to `undefined` will be omitted.
 
 ###### isStream
 
@@ -320,7 +320,7 @@ const body = await got(url).json();
 const body = await got(url, {responseType: 'json', resolveBodyOnly: true});
 ```
 
-**Note:** `buffer` will return the raw body buffer. Modifying it will also alter the result of `promise.text()` and `promise.json()`. Before overwritting the buffer, please copy it first via `Buffer.from(buffer)`. See https://github.com/nodejs/node/issues/27080
+**Note:** `buffer` will return the raw body buffer. Modifying it will also alter the result of `promise.text()` and `promise.json()`. Before overwriting the buffer, please copy it first via `Buffer.from(buffer)`. See https://github.com/nodejs/node/issues/27080
 
 ###### parseJson
 
@@ -1700,7 +1700,7 @@ const addAccessToken = (accessToken: string): BeforeRequestHook => options => {
 ## Errors
 
 Each error contains an `options` property which are the options Got used to create a request - just to make debugging easier.\
-Additionaly, the errors may have `request` (Got Stream) and `response` (Got Response) properties depending on which phase of the request failed.
+Additionally, the errors may have `request` (Got Stream) and `response` (Got Response) properties depending on which phase of the request failed.
 
 #### got.RequestError
 
@@ -1763,7 +1763,7 @@ The promise returned by Got has a [`.cancel()`](https://github.com/sindresorhus/
 		await request;
 	} catch (error) {
 		if (request.isCanceled) { // Or `error instanceof got.CancelError`
-			// Handle cancelation
+			// Handle cancellation
 		}
 
 		// Handle other errors
@@ -2173,7 +2173,7 @@ The Electron `net` module is not consistent with the Node.js `http` module. See 
 | Promise API           | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark:   | :heavy_check_mark:       | :heavy_check_mark: | :heavy_check_mark:     |
 | Stream API            | :heavy_check_mark: | :heavy_check_mark: | Node.js only         | :x:                      | :x:                | :heavy_check_mark:     |
 | Pagination API        | :heavy_check_mark: | :x:                | :x:                  | :x:                      | :x:                | :x:                    |
-| Request cancelation   | :heavy_check_mark: | :x:                | :heavy_check_mark:   | :heavy_check_mark:       | :heavy_check_mark: | :heavy_check_mark:     |
+| Request cancellation   | :heavy_check_mark: | :x:                | :heavy_check_mark:   | :heavy_check_mark:       | :heavy_check_mark: | :heavy_check_mark:     |
 | RFC compliant caching | :heavy_check_mark: | :x:                | :x:                  | :x:                      | :x:                | :x:                    |
 | Cookies (out-of-box)  | :heavy_check_mark: | :heavy_check_mark: | :x:                  | :x:                      | :x:                | :x:                    |
 | Follows redirects     | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark:   | :heavy_check_mark:       | :heavy_check_mark: | :heavy_check_mark:     |
