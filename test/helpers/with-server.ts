@@ -102,7 +102,7 @@ const generateHttpsHook = (options?: HttpsServerOptions, installFakeTimer = fals
 
 export const withHttpsServer = generateHttpsHook;
 
-// TODO: remove this when `create-test-server` supports custom listen
+// TODO: Remove this when `create-test-server` supports custom listen.
 export const withSocketServer: test.Macro<[RunTestWithSocket]> = async (t, run) => {
 	const socketPath = tempy.file({extension: 'socket'});
 
