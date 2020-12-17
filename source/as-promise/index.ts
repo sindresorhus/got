@@ -185,6 +185,7 @@ export default function asPromise<T>(normalizedOptions: NormalizedOptions): Canc
 		})();
 
 		Object.defineProperties(newPromise, Object.getOwnPropertyDescriptors(promise));
+		Object.setPrototypeOf(newPromise, Object.getPrototypeOf(promise));
 
 		return newPromise as CancelableRequest<T>;
 	};
