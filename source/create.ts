@@ -135,7 +135,8 @@ const create = (defaults: InstanceDefaults): Got => {
 			) as GotReturn;
 		};
 
-		// TODO: Remove this in Got 12.
+		// TODO: Throw an error in Got 12.
+		// TODO: Remove this in Got 13.
 		if (is.plainObject(url)) {
 			const mergedOptions = {
 				...url as Options,

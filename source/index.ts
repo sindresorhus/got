@@ -65,7 +65,7 @@ const defaults: InstanceDefaults = {
 		methodRewriting: true,
 		ignoreInvalidCookies: false,
 		context: {},
-		// TODO: Set this to `true` when Got 12 gets released
+		// TODO: Set this to `true` for Got 13.
 		http2: false,
 		allowGetBody: false,
 		https: undefined,
@@ -86,11 +86,11 @@ const defaults: InstanceDefaults = {
 
 				let next: string | undefined;
 				for (const item of items) {
-					// TODO: Use destructuring here.
-					const parsed = item.split(';');
+					// TODO: Give these more semantic names.
+					const [first, second] = item.split(';');
 
-					if (parsed[1]?.includes('next')) {
-						next = parsed[0]!
+					if (first && second?.includes('next')) {
+						next = first
 							.trim()
 							.slice(1, -1);
 

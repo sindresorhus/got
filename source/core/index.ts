@@ -1992,7 +1992,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		typedResponse.requestUrl = this.requestUrl;
 		typedResponse.redirectUrls = this.redirects;
 		typedResponse.request = this;
-		typedResponse.isFromCache = (response as any).fromCache || false;
+		typedResponse.isFromCache = (response as any).fromCache ?? false;
 		typedResponse.ip = this.ip;
 		typedResponse.retryCount = this.retryCount;
 

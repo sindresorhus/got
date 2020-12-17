@@ -1,17 +1,15 @@
 name: CI
-
 on:
   - push
   - pull_request
-
 jobs:
   test:
-    name: Node.js ${{ matrix.node_version }} on ${{ matrix.os }}
+    name: Node.js ${{ matrix.node-version }} on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        node_version:
+        node-version:
           - 15
           - 14
           - 12
@@ -24,10 +22,10 @@ jobs:
       - uses: actions/checkout@v2
       - uses: actions/setup-node@v1
         with:
-          node-version: ${{ matrix.node_version }}
+          node-version: ${{ matrix.node-version }}
       - run: npm install
       - run: npm test
       - uses: codecov/codecov-action@v1
-        if: matrix.os == 'ubuntu-latest' && matrix.node_version == 14
+        if: matrix.os == 'ubuntu-latest' && matrix.node-version == 14
         with:
           fail_ci_if_error: true
