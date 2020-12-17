@@ -175,14 +175,19 @@ export default function asPromise<T>(normalizedOptions: NormalizedOptions): Canc
 	};
 
 	const shortcut = <T>(responseType: NormalizedOptions['responseType']): CancelableRequest<T> => {
-		const newPromise = (async () => {
-			// Wait until downloading has ended
-			await promise;
+		const newPromise = new PCancelable(async (resolve, reject, onCancel) => {
+			onCancel(() => promise.cancel());
+			try {
+				// Wait until downloading has ended
+				await promise;
+			
+				const {options} = globalResponse.request;
 
-			const {options} = globalResponse.request;
-
-			return parseBody(globalResponse, responseType, options.parseJson, options.encoding);
-		})();
+				resolve(parseBody(globalResponse, responseType, options.parseJson, options.encoding));
+			catch (error) {
+				reject(error);
+			}
+		});
 
 		Object.defineProperties(newPromise, Object.getOwnPropertyDescriptors(promise));
 
