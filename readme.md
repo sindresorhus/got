@@ -320,7 +320,7 @@ const body = await got(url).json();
 const body = await got(url, {responseType: 'json', resolveBodyOnly: true});
 ```
 
-**Note:** `buffer` will return the raw body buffer. Modifying it will also alter the result of `promise.text()` and `promise.json()`. Before overwritting the buffer, please copy it first via `Buffer.from(buffer)`. See https://github.com/nodejs/node/issues/27080
+**Note:** `buffer` will return the raw body buffer. Modifying it will also alter the result of `promise.text()` and `promise.json()`. Before overwriting the buffer, please copy it first via `Buffer.from(buffer)`. See https://github.com/nodejs/node/issues/27080
 
 ###### parseJson
 
@@ -1700,7 +1700,7 @@ const addAccessToken = (accessToken: string): BeforeRequestHook => options => {
 ## Errors
 
 Each error contains an `options` property which are the options Got used to create a request - just to make debugging easier.\
-Additionaly, the errors may have `request` (Got Stream) and `response` (Got Response) properties depending on which phase of the request failed.
+Additionally, the errors may have `request` (Got Stream) and `response` (Got Response) properties depending on which phase of the request failed.
 
 #### got.RequestError
 
