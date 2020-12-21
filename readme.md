@@ -114,7 +114,8 @@ const pipeline = promisify(stream.pipeline);
 	// For POST, PUT, PATCH, and DELETE methods, `got.stream` returns a `stream.Writable`.
 	await pipeline(
 		fs.createReadStream('index.html'),
-		got.stream.post('https://sindresorhus.com')
+		got.stream.post('https://sindresorhus.com'),
+		new stream.PassThrough() // OPTIONAL: We use a PassThrough in order to catch error on response (e.g. HTTP 500)
 	);
 })();
 ```
