@@ -1,14 +1,14 @@
 import {URL} from 'url';
 import {Agent as HttpAgent} from 'http';
 import test, {Constructor} from 'ava';
-import nock = require('nock');
-import getStream = require('get-stream');
-import FormData = require('form-data');
-import sinon = require('sinon');
-import delay = require('delay');
+import * as nock from 'nock';
+import * as getStream from 'get-stream';
+import * as FormData from 'form-data';
+import * as sinon from 'sinon';
+import * as delay from 'delay';
 import {Handler} from 'express';
 import Responselike = require('responselike');
-import got, {RequestError, HTTPError, Response} from '../source';
+import got, {RequestError, HTTPError, Response} from '../source/index';
 import withServer from './helpers/with-server';
 
 const errorString = 'oops';

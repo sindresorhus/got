@@ -8,7 +8,7 @@ import got, {
 	Headers,
 	Hooks,
 	RequestFunction
-} from '../source';
+} from '../source/index';
 import withServer from './helpers/with-server';
 
 const echoHeaders: Handler = (request, response) => {

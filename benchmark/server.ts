@@ -1,7 +1,7 @@
 import {AddressInfo} from 'net';
-import https = require('https');
+import * as https from 'https';
 // @ts-expect-error No types
-import createCert = require('create-cert');
+import * as createCert from 'create-cert';
 
 (async () => {
 	const keys = await createCert({days: 365, commonName: 'localhost'});

@@ -1,7 +1,7 @@
 import test from 'ava';
 import {Handler} from 'express';
-import nock = require('nock');
-import got, {MaxRedirectsError} from '../source';
+import * as nock from 'nock';
+import got, {MaxRedirectsError} from '../source/index';
 import withServer, {withHttpsServer} from './helpers/with-server';
 
 const reachedHandler: Handler = (_request, response) => {

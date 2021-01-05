@@ -1,5 +1,5 @@
 import test from 'ava';
-import got, {HTTPError} from '../source';
+import got, {HTTPError} from '../source/index';
 import withServer from './helpers/with-server';
 
 test('works', withServer, async (t, server) => {

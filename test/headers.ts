@@ -1,9 +1,9 @@
-import fs = require('fs');
-import path = require('path');
+import * as fs from 'fs';
+import * as path from 'path';
 import test from 'ava';
 import {Handler} from 'express';
-import FormData = require('form-data');
-import got, {Headers} from '../source';
+import * as FormData from 'form-data';
+import got, {Headers} from '../source/index';
 import withServer from './helpers/with-server';
 
 const supportsBrotli = typeof (process.versions as any).brotli === 'string';

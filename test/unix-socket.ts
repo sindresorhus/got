@@ -1,7 +1,7 @@
 import {format} from 'util';
 import test from 'ava';
 import {Handler} from 'express';
-import got from '../source';
+import got from '../source/index';
 import {withSocketServer} from './helpers/with-server';
 
 const okHandler: Handler = (_request, response) => {

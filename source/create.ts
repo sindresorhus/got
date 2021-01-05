@@ -37,7 +37,7 @@ import {
 	StreamOptions
 } from './types';
 import createRejection from './as-promise/create-rejection';
-import Request, {kIsNormalizedAlready, setNonEnumerableProperties, Defaults} from './core';
+import Request, {kIsNormalizedAlready, setNonEnumerableProperties, Defaults} from './core/index';
 import deepFreeze from './utils/deep-freeze';
 
 const errors = {

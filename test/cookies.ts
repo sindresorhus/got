@@ -1,8 +1,8 @@
-import net = require('net');
+import * as net from 'net';
 import test from 'ava';
-import toughCookie = require('tough-cookie');
-import delay = require('delay');
-import got from '../source';
+import * as toughCookie from 'tough-cookie';
+import * as delay from 'delay';
+import got from '../source/index';
 import withServer from './helpers/with-server';
 
 test('reads a cookie', withServer, async (t, server, got) => {

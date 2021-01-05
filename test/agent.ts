@@ -2,7 +2,7 @@ import {Agent as HttpAgent} from 'http';
 import {Agent as HttpsAgent} from 'https';
 import {Socket} from 'net';
 import test, {Constructor} from 'ava';
-import sinon = require('sinon');
+import * as sinon from 'sinon';
 import withServer, {withHttpsServer} from './helpers/with-server';
 
 const createAgentSpy = <T extends HttpsAgent>(AgentClass: Constructor): {agent: T; spy: sinon.SinonSpy} => {

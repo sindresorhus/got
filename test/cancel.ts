@@ -1,12 +1,12 @@
 import {EventEmitter} from 'events';
 import {Readable as ReadableStream} from 'stream';
-import stream = require('stream');
+import * as stream from 'stream';
 import test from 'ava';
-import delay = require('delay');
-import pEvent = require('p-event');
-import getStream = require('get-stream');
+import * as delay from 'delay';
+import * as pEvent from 'p-event';
+import * as getStream from 'get-stream';
 import {Handler} from 'express';
-import got, {CancelError} from '../source';
+import got, {CancelError} from '../source/index';
 import slowDataStream from './helpers/slow-data-stream';
 import {GlobalClock} from './helpers/types';
 import {ExtendedHttpTestServer} from './helpers/create-http-test-server';

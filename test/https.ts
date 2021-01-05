@@ -1,10 +1,10 @@
 import test from 'ava';
-import got, {CancelableRequest} from '../source';
-import {withHttpsServer} from './helpers/with-server';
 import {DetailedPeerCertificate} from 'tls';
 import pEvent from 'p-event';
-import pify = require('pify');
-import pem = require('pem');
+import * as pify from 'pify';
+import * as pem from 'pem';
+import got, {CancelableRequest} from '../source/index';
+import {withHttpsServer} from './helpers/with-server';
 
 const createPrivateKey = pify(pem.createPrivateKey);
 const createCSR = pify(pem.createCSR);

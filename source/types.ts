@@ -22,7 +22,7 @@ import {
 	UnsupportedProtocolError,
 	UploadError
 } from './as-promise';
-import Request from './core';
+import Request from './core/index';
 
 // `type-fest` utilities
 type Except<ObjectType, KeysType extends keyof ObjectType> = Pick<ObjectType, Exclude<keyof ObjectType, KeysType>>;

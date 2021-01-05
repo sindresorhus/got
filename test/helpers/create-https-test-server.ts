@@ -1,8 +1,8 @@
-import https = require('https');
-import net = require('net');
-import express = require('express');
-import pify = require('pify');
-import pem = require('pem');
+import * as https from 'https';
+import * as net from 'net';
+import * as express from 'express';
+import * as pify from 'pify';
+import * as pem from 'pem';
 
 export type HttpsServerOptions = {
 	commonName?: string;
