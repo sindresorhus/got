@@ -2658,11 +2658,6 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 	_final(callback: (error?: Error | null) => void): void {
 		const endRequest = (): void => {
-			// FIX: Node.js 10 calls the write callback AFTER the end callback!
-			while (this._progressCallbacks.length !== 0) {
-				this._progressCallbacks.shift()!();
-			}
-
 			// We need to check if `this[kRequest]` is present,
 			// because it isn't when we use cache.
 			if (!(kRequest in this)) {
@@ -2703,8 +2698,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		if (kRequest in this) {
 			this[kCancelTimeouts]!();
 
-			// TODO: Remove the next `if` when these get fixed:
-			// - https://github.com/nodejs/node/issues/32851
+			// TODO: Remove the next `if` when targeting Node.js 14.
 			if (!this[kResponse]?.complete) {
 				this[kRequest]!.destroy();
 			}

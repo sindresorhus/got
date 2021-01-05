@@ -7,7 +7,7 @@
 	"funding": "https://github.com/sindresorhus/got?sponsor=1",
 	"main": "dist/source",
 	"engines": {
-		"node": ">=10.19.0"
+		"node": ">=12.13"
 	},
 	"scripts": {
 		"test": "xo && npm run build && nyc ava",
