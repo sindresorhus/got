@@ -1361,7 +1361,6 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	[kOriginalResponse]?: IncomingMessageWithTimings;
 	[kRequest]?: ClientRequest;
 	_noPipe?: boolean;
-	_progressCallbacks: Array<() => void>;
 
 	declare options: NormalizedOptions;
 	declare requestUrl: string;
@@ -1387,9 +1386,6 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		this[kTriggerRead] = false;
 		this[kJobs] = [];
 		this.retryCount = 0;
-
-		// TODO: Remove this when targeting Node.js >= 12
-		this._progressCallbacks = [];
 
 		const unlockWrite = (): void => this._unlockWrite();
 		const lockWrite = (): void => this._lockWrite();
@@ -2635,21 +2631,17 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			return;
 		}
 
-		this._progressCallbacks.push((): void => {
-			this[kUploadedSize] += Buffer.byteLength(chunk, encoding);
-
-			const progress = this.uploadProgress;
-
-			if (progress.percent < 1) {
-				this.emit('uploadProgress', progress);
-			}
-		});
-
 		// TODO: What happens if it's from cache? Then this[kRequest] won't be defined.
 
 		this[kRequest]!.write(chunk, encoding!, (error?: Error | null) => {
-			if (!error && this._progressCallbacks.length > 0) {
-				this._progressCallbacks.shift()!();
+			if (!error) {
+				this[kUploadedSize] += Buffer.byteLength(chunk, encoding);
+
+				const progress = this.uploadProgress;
+
+				if (progress.percent < 1) {
+					this.emit('uploadProgress', progress);
+				}
 			}
 
 			callback(error);
