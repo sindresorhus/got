@@ -1,9 +1,8 @@
-/* eslint-disable node/no-deprecated-api */
 import {parse, URL, URLSearchParams} from 'url';
 import test from 'ava';
 import {Handler} from 'express';
-import pEvent = require('p-event');
-import got, {StrictOptions} from '../source';
+import * as pEvent from 'p-event';
+import got, {StrictOptions} from '../source/index';
 import withServer, {withBodyParsingServer} from './helpers/with-server';
 
 const echoUrl: Handler = (request, response) => {

@@ -1,12 +1,11 @@
-'use strict';
 import {URL} from 'url';
-import https = require('https');
+import * as https from 'https';
 import axios from 'axios';
-import Benchmark = require('benchmark');
+import * as Benchmark from 'benchmark';
 import fetch from 'node-fetch';
-import request = require('request');
-import got from '../source';
-import Request, {kIsNormalizedAlready} from '../source/core';
+import * as request from 'request';
+import got from '../source/index';
+import Request, {kIsNormalizedAlready} from '../source/core/index';
 
 const {normalizeArguments} = Request;
 

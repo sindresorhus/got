@@ -1,7 +1,7 @@
 import {ReadStream} from 'fs';
 import {ClientRequest, IncomingMessage} from 'http';
 import test from 'ava';
-import {Response, CancelError} from '../source';
+import {Response, CancelError} from '../source/index';
 import withServer from './helpers/with-server';
 
 test('emits request event as promise', withServer, async (t, server, got) => {

@@ -4,15 +4,15 @@ import {ReadStream} from 'fs';
 import {URL, URLSearchParams} from 'url';
 import {Socket} from 'net';
 import {SecureContextOptions, DetailedPeerCertificate} from 'tls';
-import http = require('http');
+import * as http from 'http';
 import {ClientRequest, RequestOptions, IncomingMessage, ServerResponse, request as httpRequest} from 'http';
-import https = require('https');
+import * as https from 'https';
 import timer, {ClientRequestWithTimings, Timings, IncomingMessageWithTimings} from '@szmarczak/http-timer';
 import CacheableLookup from 'cacheable-lookup';
-import CacheableRequest = require('cacheable-request');
+import * as CacheableRequest from 'cacheable-request';
 import decompressResponse = require('decompress-response');
 // @ts-expect-error Missing types
-import http2wrapper = require('http2-wrapper');
+import * as http2wrapper from 'http2-wrapper';
 import lowercaseKeys = require('lowercase-keys');
 import ResponseLike = require('responselike');
 import is, {assert} from '@sindresorhus/is';
@@ -1361,7 +1361,6 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	[kOriginalResponse]?: IncomingMessageWithTimings;
 	[kRequest]?: ClientRequest;
 	_noPipe?: boolean;
-	_progressCallbacks: Array<() => void>;
 
 	declare options: NormalizedOptions;
 	declare requestUrl: string;
@@ -1387,9 +1386,6 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		this[kTriggerRead] = false;
 		this[kJobs] = [];
 		this.retryCount = 0;
-
-		// TODO: Remove this when targeting Node.js >= 12
-		this._progressCallbacks = [];
 
 		const unlockWrite = (): void => this._unlockWrite();
 		const lockWrite = (): void => this._lockWrite();
@@ -2635,21 +2631,17 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			return;
 		}
 
-		this._progressCallbacks.push((): void => {
-			this[kUploadedSize] += Buffer.byteLength(chunk, encoding);
-
-			const progress = this.uploadProgress;
-
-			if (progress.percent < 1) {
-				this.emit('uploadProgress', progress);
-			}
-		});
-
 		// TODO: What happens if it's from cache? Then this[kRequest] won't be defined.
 
 		this[kRequest]!.write(chunk, encoding!, (error?: Error | null) => {
-			if (!error && this._progressCallbacks.length > 0) {
-				this._progressCallbacks.shift()!();
+			if (!error) {
+				this[kUploadedSize] += Buffer.byteLength(chunk, encoding);
+
+				const progress = this.uploadProgress;
+
+				if (progress.percent < 1) {
+					this.emit('uploadProgress', progress);
+				}
 			}
 
 			callback(error);
@@ -2658,11 +2650,6 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 	_final(callback: (error?: Error | null) => void): void {
 		const endRequest = (): void => {
-			// FIX: Node.js 10 calls the write callback AFTER the end callback!
-			while (this._progressCallbacks.length !== 0) {
-				this._progressCallbacks.shift()!();
-			}
-
 			// We need to check if `this[kRequest]` is present,
 			// because it isn't when we use cache.
 			if (!(kRequest in this)) {
@@ -2703,8 +2690,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		if (kRequest in this) {
 			this[kCancelTimeouts]!();
 
-			// TODO: Remove the next `if` when these get fixed:
-			// - https://github.com/nodejs/node/issues/32851
+			// TODO: Remove the next `if` when targeting Node.js 14.
 			if (!this[kResponse]?.complete) {
 				this[kRequest]!.destroy();
 			}

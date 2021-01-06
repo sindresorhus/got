@@ -2,12 +2,14 @@
 	"extends": "@sindresorhus/tsconfig",
 	"compilerOptions": {
 		"outDir": "dist",
-		"target": "es2018", // Node.js 10
+		"target": "es2019", // Node.js 12
 		"lib": [
-			"es2018",
-			"es2019.string"
+			"es2019"
 		],
-		"useDefineForClassFields": false
+		"useDefineForClassFields": false,
+		// "allowSyntheticDefaultImports": true,
+		// "esModuleInterop": true
+		// "module": "es2020"
 	},
 	"include": [
 		"source",

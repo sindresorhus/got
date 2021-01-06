@@ -7,7 +7,7 @@
 	"funding": "https://github.com/sindresorhus/got?sponsor=1",
 	"main": "dist/source",
 	"engines": {
-		"node": ">=10.19.0"
+		"node": ">=12.13"
 	},
 	"scripts": {
 		"test": "xo && npm run build && nyc ava",
@@ -68,9 +68,11 @@
 		"@types/request": "^2.48.5",
 		"@types/sinon": "^9.0.9",
 		"@types/tough-cookie": "^4.0.0",
-		"ava": "^3.14.0",
+		"ava": "^3.15.0",
 		"axios": "^0.21.0",
 		"benchmark": "^2.1.4",
+		"body-parser": "^1.19.0",
+		"create-cert": "^1.0.6",
 		"create-test-server": "^3.0.1",
 		"del-cli": "^3.0.1",
 		"delay": "^4.4.0",
@@ -84,6 +86,7 @@
 		"p-event": "^4.2.0",
 		"pem": "^1.14.4",
 		"pify": "^5.0.0",
+		"request": "^2.88.2",
 		"sinon": "^9.2.2",
 		"slow-stream": "0.0.4",
 		"tempy": "^1.0.0",
@@ -103,6 +106,9 @@
 			"rewritePaths": {
 				"test/": "dist/test/"
 			}
+		},
+		"nonSemVerExperiments": {
+			"nextGenConfig": true
 		}
 	},
 	"nyc": {
@@ -124,10 +130,14 @@
 		],
 		"rules": {
 			"@typescript-eslint/no-empty-function": "off",
+			"@typescript-eslint/no-duplicate-imports": "off",
+			"node/no-deprecated-api": "off",
 			"node/prefer-global/url": "off",
 			"node/prefer-global/url-search-params": "off",
 			"import/no-anonymous-default-export": "off",
-			"@typescript-eslint/no-implicit-any-catch": "off"
+			"@typescript-eslint/no-implicit-any-catch": "off",
+			"unicorn/import-index": "off",
+			"import/no-useless-path-segments": "off"
 		}
 	},
 	"runkitExampleFilename": "./documentation/examples/runkit-example.js"

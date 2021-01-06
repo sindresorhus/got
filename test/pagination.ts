@@ -1,8 +1,8 @@
 import {URL} from 'url';
 import test from 'ava';
-import delay = require('delay');
-import getStream = require('get-stream');
-import got, {Response} from '../source';
+import * as delay from 'delay';
+import * as getStream from 'get-stream';
+import got, {Response} from '../source/index';
 import withServer, {withBodyParsingServer} from './helpers/with-server';
 import {ExtendedHttpTestServer} from './helpers/create-http-test-server';
 

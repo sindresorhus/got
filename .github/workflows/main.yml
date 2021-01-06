@@ -13,7 +13,6 @@ jobs:
           - 15
           - 14
           - 12
-          - 10
         os:
           - ubuntu-latest
           - macos-latest

@@ -1,11 +1,11 @@
 import {promisify} from 'util';
-import net = require('net');
-import http = require('http');
-import stream = require('stream');
+import * as net from 'net';
+import * as http from 'http';
+import * as stream from 'stream';
 import test from 'ava';
-import getStream = require('get-stream');
+import * as getStream from 'get-stream';
 import is from '@sindresorhus/is';
-import got, {RequestError, HTTPError, TimeoutError} from '../source';
+import got, {RequestError, HTTPError, TimeoutError} from '../source/index';
 import withServer from './helpers/with-server';
 
 const pStreamPipeline = promisify(stream.pipeline);

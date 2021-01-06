@@ -1,10 +1,10 @@
-import PCancelable = require('p-cancelable');
+import * as PCancelable from 'p-cancelable';
 import Request, {
 	Options,
 	Response,
 	RequestError,
 	RequestEvents
-} from '../core';
+} from '../core/index';
 
 /**
 All parsing methods supported by Got.

@@ -1,13 +1,13 @@
 import {EventEmitter} from 'events';
 import {PassThrough as PassThroughStream} from 'stream';
 import {Socket} from 'net';
-import http = require('http');
+import * as http from 'http';
 import test from 'ava';
 import is from '@sindresorhus/is';
 import {Handler} from 'express';
-import getStream = require('get-stream');
-import pEvent = require('p-event');
-import got, {HTTPError} from '../source';
+import * as getStream from 'get-stream';
+import * as pEvent from 'p-event';
+import got, {HTTPError} from '../source/index';
 import withServer from './helpers/with-server';
 
 const retryAfterOn413 = 2;

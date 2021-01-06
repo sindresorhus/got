@@ -1,6 +1,6 @@
 import {EventEmitter} from 'events';
 import is from '@sindresorhus/is';
-import PCancelable = require('p-cancelable');
+import * as PCancelable from 'p-cancelable';
 import {
 	NormalizedOptions,
 	CancelableRequest,
@@ -10,7 +10,7 @@ import {
 	CancelError
 } from './types';
 import parseBody from './parse-body';
-import Request from '../core';
+import Request from '../core/index';
 import proxyEvents from '../core/utils/proxy-events';
 import getBuffer from '../core/utils/get-buffer';
 import {isResponseOk} from '../core/utils/is-response-ok';

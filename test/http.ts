@@ -1,13 +1,13 @@
 import {STATUS_CODES, Agent} from 'http';
+import * as os from 'os';
+import {isIPv4, isIPv6} from 'net';
 import test from 'ava';
 import {Handler} from 'express';
-import {isIPv4, isIPv6} from 'net';
-import nock = require('nock');
-import getStream = require('get-stream');
+import * as nock from 'nock';
+import * as getStream from 'get-stream';
 import pEvent from 'p-event';
-import got, {HTTPError, UnsupportedProtocolError, CancelableRequest, ReadError} from '../source';
+import got, {HTTPError, UnsupportedProtocolError, CancelableRequest, ReadError} from '../source/index';
 import withServer from './helpers/with-server';
-import os = require('os');
 
 const IPv6supported = Object.values(os.networkInterfaces()).some(iface => iface?.some(addr => !addr.internal && addr.family === 'IPv6'));
 
