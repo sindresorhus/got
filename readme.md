@@ -675,12 +675,13 @@ Custom request function. The main purpose of this is to [support HTTP2 using a w
 Type: `boolean`\
 Default: `false`
 
-If set to `true`, Got will additionally accept HTTP2 requests.\
+If set to `true`, Got will additionally accept HTTP2 requests.
+
 It will choose either HTTP/1.1 or HTTP/2 depending on the ALPN protocol.
 
-**Note:** Overriding `options.request` will disable HTTP2 support.
+**Note:** This option requires Node.js 15 or later as HTTP2 support on older Node.js versions are very buggy.
 
-**Note:** This option will default to `true` in the next upcoming major release.
+**Note:** Overriding `options.request` will disable HTTP2 support.
 
 ```js
 const got = require('got');

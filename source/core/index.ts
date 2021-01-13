@@ -600,9 +600,9 @@ interface PlainOptions extends URLOptions {
 
 	It will choose either HTTP/1.1 or HTTP/2 depending on the ALPN protocol.
 
-	__Note__: Overriding `options.request` will disable HTTP2 support.
+	__Note__: This option requires Node.js 15 or later as HTTP2 support on older Node.js versions are very buggy.
 
-	__Note__: This option will default to `true` in the next upcoming major release.
+	__Note__: Overriding `options.request` will disable HTTP2 support.
 
 	@default false
 
