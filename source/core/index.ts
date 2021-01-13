@@ -869,8 +869,8 @@ export interface HTTPSOptions {
 
 	// TODO add comment
 	maxVersion?: SecureContextOptions['maxVersion'];
-  
-  // TODO add comment
+
+	// TODO add comment
 	pfx?: SecureContextOptions['pfx'];
 }
 
@@ -2433,7 +2433,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 			if (options.https.maxVersion) {
 				requestOptions.maxVersion = options.https.maxVersion;
-      }
+			}
 
 			if (options.https.pfx) {
 				requestOptions.pfx = options.https.pfx;
@@ -2493,7 +2493,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 				if (options.https.maxVersion) {
 					delete requestOptions.maxVersion;
-        }
+				}
 
 				if (options.https.pfx) {
 					delete requestOptions.pfx;

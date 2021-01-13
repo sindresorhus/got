@@ -1,5 +1,5 @@
 import test from 'ava';
-import * as tls, {DetailedPeerCertificate} from 'tls';
+import * as tls from 'tls';
 import pEvent from 'p-event';
 import * as pify from 'pify';
 import * as pem from 'pem';
@@ -93,7 +93,7 @@ test('https request with `checkServerIdentity` OK', withHttpsServer(), async (t,
 
 	const {body} = await got({
 		https: {
-			checkServerIdentity: (hostname: string, certificate: DetailedPeerCertificate) => {
+			checkServerIdentity: (hostname: string, certificate: tls.DetailedPeerCertificate) => {
 				t.is(hostname, 'localhost');
 				t.is(certificate.subject.CN, 'localhost');
 				t.is(certificate.issuer.CN, 'authority');
@@ -111,7 +111,7 @@ test('https request with `checkServerIdentity` NOT OK', withHttpsServer(), async
 
 	const promise = got({
 		https: {
-			checkServerIdentity: (hostname: string, certificate: DetailedPeerCertificate) => {
+			checkServerIdentity: (hostname: string, certificate: tls.DetailedPeerCertificate) => {
 				t.is(hostname, 'localhost');
 				t.is(certificate.subject.CN, 'localhost');
 				t.is(certificate.issuer.CN, 'authority');
@@ -462,7 +462,7 @@ test('https request with client certificate PFX', withHttpsServer({requestCert: 
 	t.is(response.peerCertificate.issuer.CN, 'authority');
 });
 
-const ciphersOptionCiphers = ciphers[0] + ':' + ciphers[1] + ':' + ciphers[2];
+const ciphersOptionCiphers = `${ciphers[0]!}:${ciphers[1]!}:${ciphers[2]!}`;
 test('https request with `ciphers` option', withHttpsServer({ciphers: ciphersOptionCiphers}), async (t, server, got) => {
 	server.get('/', (request, response) => {
 		response.json({
@@ -479,7 +479,7 @@ test('https request with `ciphers` option', withHttpsServer({ciphers: ciphersOpt
 	t.is(response.cipher, ciphers[0]);
 });
 
-const honorCipherOrderCiphers = ciphers[0] + ':' + ciphers[1];
+const honorCipherOrderCiphers = `${ciphers[0]!}:${ciphers[1]!}`;
 test('https request with `honorCipherOrder` option', withHttpsServer({ciphers: honorCipherOrderCiphers}), async (t, server, got) => {
 	server.get('/', (request, response) => {
 		response.json({
@@ -489,7 +489,7 @@ test('https request with `honorCipherOrder` option', withHttpsServer({ciphers: h
 
 	const response: any = await got({
 		https: {
-			ciphers: ciphers[1] + ':' + ciphers[0],
+			ciphers: `${ciphers[1]!}:${ciphers[0]!}`,
 			honorCipherOrder: true
 		}
 	}).json();

@@ -60,7 +60,9 @@ export default generateHook({install: false});
 
 export const withServerAndFakeTimers = generateHook({install: true});
 
-export const withHttpsServer = (options?: HttpsServerOptions): test.Macro<[RunTestWithHttpsServer]> => async (t, run) => {
+export const withHttpsServer = (options?: HttpsServerOptions, installFakeTimer?: boolean): test.Macro<[RunTestWithHttpsServer]> => async (t, run) => {
+	const clock = installFakeTimer ? FakeTimers.install() : undefined;
+
 	const server = await createHttpsTestServer(options);
 
 	const preparedGot = got.extend({
@@ -70,11 +72,11 @@ export const withHttpsServer = (options?: HttpsServerOptions): test.Macro<[RunTe
 			(options, next) => {
 				const result = next(options);
 
-				fakeTimer?.tick(0);
+				clock?.tick(0);
 
 				// @ts-expect-error FIXME: Incompatible union type signatures
 				result.on('response', () => {
-					fakeTimer?.tick(0);
+					clock?.tick(0);
 				});
 
 				return result;
@@ -88,13 +90,13 @@ export const withHttpsServer = (options?: HttpsServerOptions): test.Macro<[RunTe
 	});
 
 	try {
-		await run(t, server, preparedGot, fakeTimer);
+		await run(t, server, preparedGot, clock);
 	} finally {
 		await server.close();
 	}
 
 	if (installFakeTimer) {
-		(fakeTimer as InstalledClock).uninstall();
+		clock!.uninstall();
 	}
 };
 
