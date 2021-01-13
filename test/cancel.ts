@@ -1,12 +1,12 @@
 import {EventEmitter} from 'events';
 import {Readable as ReadableStream} from 'stream';
-import stream = require('stream');
+import * as stream from 'stream';
 import test from 'ava';
-import delay = require('delay');
-import pEvent = require('p-event');
-import getStream = require('get-stream');
+import * as delay from 'delay';
+import * as pEvent from 'p-event';
+import * as getStream from 'get-stream';
 import {Handler} from 'express';
-import got, {CancelError} from '../source';
+import got, {CancelError} from '../source/index';
 import slowDataStream from './helpers/slow-data-stream';
 import {GlobalClock} from './helpers/types';
 import {ExtendedHttpTestServer} from './helpers/create-http-test-server';
@@ -15,7 +15,7 @@ import withServer, {withServerAndFakeTimers} from './helpers/with-server';
 const prepareServer = (server: ExtendedHttpTestServer, clock: GlobalClock): {emitter: EventEmitter; promise: Promise<unknown>} => {
 	const emitter = new EventEmitter();
 
-	const promise = new Promise((resolve, reject) => {
+	const promise = new Promise<void>((resolve, reject) => {
 		server.all('/abort', async (request, response) => {
 			emitter.emit('connection');
 
@@ -149,7 +149,7 @@ test.serial('cancels in-progress request with timeout', withServerAndFakeTimers,
 });
 
 test.serial('cancel immediately', withServerAndFakeTimers, async (t, server, got, clock) => {
-	const promise = new Promise((resolve, reject) => {
+	const promise = new Promise<void>((resolve, reject) => {
 		// We won't get an abort or even a connection
 		// We assume no request within 1000ms equals a (client side) aborted request
 		server.get('/abort', (_request, response) => {

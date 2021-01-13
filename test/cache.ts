@@ -1,13 +1,13 @@
 import {promisify} from 'util';
 import {gzip} from 'zlib';
 import test from 'ava';
-import pEvent = require('p-event');
-import getStream = require('get-stream');
+import * as pEvent from 'p-event';
+import * as getStream from 'get-stream';
 import {Handler} from 'express';
-import got, {Response} from '../source';
-import withServer from './helpers/with-server';
 import CacheableLookup from 'cacheable-lookup';
-import delay = require('delay');
+import * as delay from 'delay';
+import got, {Response} from '../source/index';
+import withServer from './helpers/with-server';
 
 const cacheEndpoint: Handler = (_request, response) => {
 	response.setHeader('Cache-Control', 'public, max-age=60');

@@ -1,12 +1,12 @@
 import {promisify} from 'util';
 import * as test from 'ava';
 import is from '@sindresorhus/is';
-import http = require('http');
-import tempy = require('tempy');
+import * as http from 'http';
+import * as tempy from 'tempy';
 import createHttpsTestServer, {ExtendedHttpsTestServer, HttpsServerOptions} from './create-https-test-server';
 import createHttpTestServer, {ExtendedHttpTestServer, HttpServerOptions} from './create-http-test-server';
-import FakeTimers = require('@sinonjs/fake-timers');
-import got, {InstanceDefaults, Got} from '../../source';
+import * as FakeTimers from '@sinonjs/fake-timers';
+import got, {InstanceDefaults, Got} from '../../source/index';
 import {ExtendedHttpServer, GlobalClock, InstalledClock} from './types';
 
 export type RunTestWithServer = (t: test.ExecutionContext, server: ExtendedHttpTestServer, got: Got, clock: GlobalClock) => Promise<void> | void;
@@ -98,7 +98,7 @@ export const withHttpsServer = (options?: HttpsServerOptions): test.Macro<[RunTe
 	}
 };
 
-// TODO: remove this when `create-test-server` supports custom listen
+// TODO: Remove this when `create-test-server` supports custom listen.
 export const withSocketServer: test.Macro<[RunTestWithSocket]> = async (t, run) => {
 	const socketPath = tempy.file({extension: 'socket'});
 
@@ -108,6 +108,7 @@ export const withSocketServer: test.Macro<[RunTestWithSocket]> = async (t, run) 
 
 	server.socketPath = socketPath;
 
+	// @ts-expect-error - TS 4.1 bug.
 	await promisify(server.listen.bind(server))(socketPath);
 
 	try {

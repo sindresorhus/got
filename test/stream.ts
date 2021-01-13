@@ -1,15 +1,15 @@
 import {promisify} from 'util';
-import fs = require('fs');
+import * as fs from 'fs';
 import {PassThrough as PassThroughStream} from 'stream';
-import stream = require('stream');
+import * as stream from 'stream';
 import test from 'ava';
 import {Handler} from 'express';
-import toReadableStream = require('to-readable-stream');
-import getStream = require('get-stream');
-import pEvent = require('p-event');
-import FormData = require('form-data');
+import * as toReadableStream from 'to-readable-stream';
+import * as getStream from 'get-stream';
+import * as pEvent from 'p-event';
+import * as FormData from 'form-data';
 import is from '@sindresorhus/is';
-import got, {RequestError} from '../source';
+import got, {RequestError} from '../source/index';
 import withServer from './helpers/with-server';
 
 const pStreamPipeline = promisify(stream.pipeline);
@@ -419,7 +419,7 @@ test('async iterator works', withServer, async (t, server, got) => {
 	t.is(Buffer.concat(chunks).toString(), payload);
 });
 
-if (process.versions.node.split('.')[0] <= '12') {
+if (Number.parseInt(process.versions.node.split('.')[0]!, 10) <= 12) {
 	test('does not emit end event on error', withServer, async (t, server, got) => {
 		server.get('/', infiniteHandler);
 
@@ -443,3 +443,17 @@ if (process.versions.node.split('.')[0] <= '12') {
 		}));
 	});
 }
+
+// Test only on Linux
+const testFn = process.platform === 'linux' ? test : test.skip;
+testFn('it sends a body of file with size on stat = 0', withServer, async (t, server, got) => {
+	server.post('/', async (request, response) => {
+		response.end(await getStream(request));
+	});
+
+	const response = await got.post({
+		body: fs.createReadStream('/proc/cpuinfo')
+	});
+
+	t.truthy(response.body);
+});

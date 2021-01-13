@@ -1,6 +1,6 @@
 import {EventEmitter} from 'events';
 import is from '@sindresorhus/is';
-import PCancelable = require('p-cancelable');
+import * as PCancelable from 'p-cancelable';
 import {
 	NormalizedOptions,
 	CancelableRequest,
@@ -10,7 +10,7 @@ import {
 	CancelError
 } from './types';
 import parseBody from './parse-body';
-import Request from '../core';
+import Request from '../core/index';
 import proxyEvents from '../core/utils/proxy-events';
 import getBuffer from '../core/utils/get-buffer';
 import {isResponseOk} from '../core/utils/is-response-ok';
@@ -124,12 +124,12 @@ export default function asPromise<T>(normalizedOptions: NormalizedOptions): Canc
 					return;
 				}
 
+				globalResponse = response;
+
 				if (!isResponseOk(response)) {
 					request._beforeError(new HTTPError(response));
 					return;
 				}
-
-				globalResponse = response;
 
 				resolve(request.options.resolveBodyOnly ? response.body as T : response as unknown as T);
 			});
@@ -152,8 +152,10 @@ export default function asPromise<T>(normalizedOptions: NormalizedOptions): Canc
 
 			request.once('error', onError);
 
+			const previousBody = request.options.body;
+
 			request.once('retry', (newRetryCount: number, error: RequestError) => {
-				if (is.nodeStream(error.request?.options.body)) {
+				if (previousBody === error.request?.options.body && is.nodeStream(error.request?.options.body)) {
 					onError(error);
 					return;
 				}

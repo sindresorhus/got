@@ -1,15 +1,15 @@
 import {promisify} from 'util';
-import stream = require('stream');
-import fs = require('fs');
-import SlowStream = require('slow-stream');
-import toReadableStream = require('to-readable-stream');
-import getStream = require('get-stream');
-import FormData = require('form-data');
-import tempy = require('tempy');
+import * as stream from 'stream';
+import * as fs from 'fs';
+import * as SlowStream from 'slow-stream';
+import * as toReadableStream from 'to-readable-stream';
+import * as getStream from 'get-stream';
+import * as FormData from 'form-data';
+import * as tempy from 'tempy';
 import is from '@sindresorhus/is';
 import test, {ExecutionContext} from 'ava';
 import {Handler} from 'express';
-import {Progress} from '../source';
+import {Progress} from '../source/index';
 import withServer from './helpers/with-server';
 
 const checkEvents = (t: ExecutionContext, events: Progress[], bodySize?: number) => {
@@ -89,7 +89,7 @@ test('download progress - missing total size', withServer, async (t, server, got
 
 	await got('').on('downloadProgress', (event: Progress) => events.push(event));
 
-	t.is(events[0].total, undefined);
+	t.is(events[0]?.total, undefined);
 	checkEvents(t, events);
 });
 
@@ -122,9 +122,16 @@ test('upload progress - file stream', withServer, async (t, server, got) => {
 	const path = tempy.file();
 	fs.writeFileSync(path, file);
 
+	const {size} = await promisify(fs.stat)(path);
+
 	const events: Progress[] = [];
 
-	await got.post({body: fs.createReadStream(path)})
+	await got.post({
+		body: fs.createReadStream(path),
+		headers: {
+			'content-length': size.toString()
+		}
+	})
 		.on('uploadProgress', (event: Progress) => events.push(event));
 
 	checkEvents(t, events, file.length);
@@ -188,7 +195,7 @@ test('upload progress - stream with unknown body size', withServer, async (t, se
 		stream.pipeline(toReadableStream(file), request, () => {})
 	);
 
-	t.is(events[0].total, undefined);
+	t.is(events[0]?.total, undefined);
 	checkEvents(t, events);
 });
 

@@ -31,7 +31,7 @@ export default (url: URL | UrlWithStringQuery): LegacyUrlOptions => {
 		path: `${url.pathname || ''}${url.search || ''}`
 	};
 
-	if (is.string(url.port) && url.port.length !== 0) {
+	if (is.string(url.port) && url.port.length > 0) {
 		options.port = Number(url.port);
 	}
 

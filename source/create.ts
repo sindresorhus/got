@@ -37,7 +37,7 @@ import {
 	StreamOptions
 } from './types';
 import createRejection from './as-promise/create-rejection';
-import Request, {kIsNormalizedAlready, setNonEnumerableProperties, Defaults} from './core';
+import Request, {kIsNormalizedAlready, setNonEnumerableProperties, Defaults} from './core/index';
 import deepFreeze from './utils/deep-freeze';
 
 const errors = {
@@ -125,16 +125,18 @@ const create = (defaults: InstanceDefaults): Got => {
 	}));
 
 	// Got interface
-	const got: Got = ((url: string | URL, options?: Options, _defaults?: Defaults): GotReturn => {
+	const got: Got = ((url: string | URL, options: Options = {}, _defaults?: Defaults): GotReturn => {
 		let iteration = 0;
 		const iterateHandlers = (newOptions: NormalizedOptions): GotReturn => {
-			return defaults.handlers[iteration++](
+			// TODO: Remove the `!`. This could probably be simplified to not use index access.
+			return defaults.handlers[iteration++]!(
 				newOptions,
 				iteration === defaults.handlers.length ? getPromiseOrStream : iterateHandlers
 			) as GotReturn;
 		};
 
-		// TODO: Remove this in Got 12.
+		// TODO: Throw an error in Got 12.
+		// TODO: Remove this in Got 13.
 		if (is.plainObject(url)) {
 			const mergedOptions = {
 				...url as Options,
@@ -152,7 +154,7 @@ const create = (defaults: InstanceDefaults): Got => {
 			let initHookError: Error | undefined;
 			try {
 				callInitHooks(defaults.options.hooks.init, options);
-				callInitHooks(options?.hooks?.init, options);
+				callInitHooks(options.hooks?.init, options);
 			} catch (error) {
 				initHookError = error;
 			}
@@ -167,10 +169,10 @@ const create = (defaults: InstanceDefaults): Got => {
 
 			return iterateHandlers(normalizedOptions);
 		} catch (error) {
-			if (options?.isStream) {
+			if (options.isStream) {
 				throw error;
 			} else {
-				return createRejection(error, defaults.options.hooks.beforeError, options?.hooks?.beforeError);
+				return createRejection(error, defaults.options.hooks.beforeError, options.hooks?.beforeError);
 			}
 		}
 	}) as Got;

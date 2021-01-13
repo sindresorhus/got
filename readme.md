@@ -14,8 +14,7 @@
 
 > Human-friendly and powerful HTTP request library for Node.js
 
-[![Build Status: Linux](https://travis-ci.com/sindresorhus/got.svg?branch=master)](https://travis-ci.com/github/sindresorhus/got)
-[![Coverage Status](https://coveralls.io/repos/github/sindresorhus/got/badge.svg?branch=master)](https://coveralls.io/github/sindresorhus/got?branch=master)
+[![Coverage Status](https://codecov.io/gh/sindresorhus/got/branch/master/graph/badge.svg)](https://codecov.io/gh/sindresorhus/got/branch/master)
 [![Downloads](https://img.shields.io/npm/dm/got.svg)](https://npmjs.com/got)
 [![Install size](https://packagephobia.now.sh/badge?p=got)](https://packagephobia.now.sh/result?p=got)
 
@@ -107,16 +106,16 @@ const got = require('got');
 const pipeline = promisify(stream.pipeline);
 
 (async () => {
-    await pipeline(
-        got.stream('https://sindresorhus.com'),
-        fs.createWriteStream('index.html')
-    );
+	await pipeline(
+		got.stream('https://sindresorhus.com'),
+		fs.createWriteStream('index.html')
+	);
 
-    // For POST, PUT, and PATCH methods `got.stream` returns a `stream.Writable`
-    await pipeline(
-        fs.createReadStream('index.html'),
-        got.stream.post('https://sindresorhus.com')
-    );
+	// For POST, PUT, PATCH, and DELETE methods, `got.stream` returns a `stream.Writable`.
+	await pipeline(
+		fs.createReadStream('index.html'),
+		got.stream.post('https://sindresorhus.com')
+	);
 })();
 ```
 
@@ -236,7 +235,9 @@ Type: `string | Buffer | stream.Readable` or [`form-data` instance](https://gith
 
 **Note #4:** This option is not enumerable and will not be merged with the instance defaults.
 
-The `content-length` header will be automatically set if `body` is a `string` / `Buffer` / `fs.createReadStream` instance / [`form-data` instance](https://github.com/form-data/form-data), and `content-length` and `transfer-encoding` are not manually set in `options.headers`.
+The `content-length` header will be automatically set if `body` is a `string` / `Buffer` / [`form-data` instance](https://github.com/form-data/form-data), and `content-length` and `transfer-encoding` are not manually set in `options.headers`.
+
+Since Got 12, the `content-length` is not automatically set when `body` is a `fs.createReadStream`.
 
 ###### json
 
@@ -251,9 +252,7 @@ JSON body. If the `Content-Type` header is not set, it will be set to `applicati
 
 Type: `object`
 
-User data. In contrast to other options, `context` is not enumerable.
-
-**Note:** The object is never merged, it's just passed through. Got will not modify the object in any way.
+User data. `context` is shallow merged and enumerable. If it contains non-enumerable properties they will NOT be merged.
 
 It's very useful for storing auth tokens:
 
@@ -306,7 +305,7 @@ Example:
 	const bufferPromise = responsePromise.buffer();
 	const jsonPromise = responsePromise.json();
 
-	const [response, buffer, json] = Promise.all([responsePromise, bufferPromise, jsonPromise]);
+	const [response, buffer, json] = await Promise.all([responsePromise, bufferPromise, jsonPromise]);
 	// `response` is an instance of Got Response
 	// `buffer` is an instance of Buffer
 	// `json` is an object
@@ -321,7 +320,7 @@ const body = await got(url).json();
 const body = await got(url, {responseType: 'json', resolveBodyOnly: true});
 ```
 
-**Note:** `buffer` will return the raw body buffer. Modifying it will also alter the result of `promise.text()` and `promise.json()`. Before overwritting the buffer, please copy it first via `Buffer.from(buffer)`. See https://github.com/nodejs/node/issues/27080
+**Note:** `buffer` will return the raw body buffer. Modifying it will also alter the result of `promise.text()` and `promise.json()`. Before overwriting the buffer, please copy it first via `Buffer.from(buffer)`. See https://github.com/nodejs/node/issues/27080
 
 ###### parseJson
 
@@ -521,7 +520,7 @@ Delays between retries counts with function `1000 * Math.pow(2, retry - 1) + Mat
 
 The `calculateDelay` property is a `function` that receives an object with `attemptCount`, `retryOptions`, `error` and `computedValue` properties for current retry count, the retry options, error and default computed value. The function must return a delay in milliseconds (or a Promise resolving with it) (`0` return value cancels retry).
 
-**Note:** The `calculateDelay` function is responsible for the entire cache mechanism, including the `limit` property. To support it, you need to check whether `computedValue` is different than `0`.
+**Note:** The `calculateDelay` function is responsible for the entire retry mechanism, including the `limit` property. To support the `limit` property, you need to check whether `computedValue` is different than `0`.
 
 By default, it retries *only* on the specified methods, status codes, and on these network errors:
 - `ETIMEDOUT`: One of the [timeout](#timeout) limits were reached.
@@ -655,6 +654,15 @@ await got('https://api6.ipify.org', {
 });
 ```
 
+###### lookup
+
+Type: `Function`\
+Default: [`dns.lookup`](https://nodejs.org/api/dns.html#dns_dns_lookup_hostname_options_callback)
+
+Custom DNS resolution logic.
+
+The function signature is the same as [`dns.lookup`](https://nodejs.org/api/dns.html#dns_dns_lookup_hostname_options_callback).
+
 ###### request
 
 Type: `Function`\
@@ -667,12 +675,13 @@ Custom request function. The main purpose of this is to [support HTTP2 using a w
 Type: `boolean`\
 Default: `false`
 
-If set to `true`, Got will additionally accept HTTP2 requests.\
+If set to `true`, Got will additionally accept HTTP2 requests.
+
 It will choose either HTTP/1.1 or HTTP/2 depending on the ALPN protocol.
 
-**Note:** Overriding `options.request` will disable HTTP2 support.
+**Note:** This option requires Node.js 15 or later as HTTP2 support on older Node.js versions are very buggy.
 
-**Note:** This option will default to `true` in the next upcoming major release.
+**Note:** Overriding `options.request` will disable HTTP2 support.
 
 ```js
 const got = require('got');
@@ -873,12 +882,12 @@ got('https://api.github.com/some-endpoint', {
 		beforeError: [
 			error => {
 				const {response} = error;
- 				if (response && response.body) {
+				if (response && response.body) {
 					error.name = 'GitHubError';
 					error.message = `${response.body.message} (${response.statusCode})`;
 				}
 
- 				return error;
+				return error;
 			}
 		]
 	}
@@ -1692,7 +1701,7 @@ const addAccessToken = (accessToken: string): BeforeRequestHook => options => {
 ## Errors
 
 Each error contains an `options` property which are the options Got used to create a request - just to make debugging easier.\
-Additionaly, the errors may have `request` (Got Stream) and `response` (Got Response) properties depending on which phase of the request failed.
+Additionally, the errors may have `request` (Got Stream) and `response` (Got Response) properties depending on which phase of the request failed.
 
 #### got.RequestError
 

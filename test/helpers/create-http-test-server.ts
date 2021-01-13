@@ -1,8 +1,8 @@
-import http = require('http');
-import net = require('net');
-import express = require('express');
-import pify = require('pify');
-import bodyParser = require('body-parser');
+import * as http from 'http';
+import * as net from 'net';
+import * as express from 'express';
+import * as pify from 'pify';
+import * as bodyParser from 'body-parser';
 
 export type HttpServerOptions = {
 	bodyParser?: express.NextFunction | false;

@@ -1,7 +1,7 @@
 import test from 'ava';
 import {Handler} from 'express';
-import getStream = require('get-stream');
-import {HTTPError, ParseError} from '../source';
+import * as getStream from 'get-stream';
+import {HTTPError, ParseError} from '../source/index';
 import withServer from './helpers/with-server';
 
 const dog = {data: 'dog'};

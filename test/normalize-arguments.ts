@@ -1,6 +1,6 @@
 import {URL, URLSearchParams} from 'url';
 import test from 'ava';
-import got from '../source';
+import got from '../source/index';
 
 test('should merge options replacing responseType', t => {
 	const responseType = 'json';

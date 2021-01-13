@@ -8,7 +8,7 @@ import got, {
 	Headers,
 	Hooks,
 	RequestFunction
-} from '../source';
+} from '../source/index';
 import withServer from './helpers/with-server';
 
 const echoHeaders: Handler = (request, response) => {
@@ -193,8 +193,8 @@ test('ability to pass a custom request method', withServer, async (t, server, go
 
 	const request: RequestFunction = (...args: [
 		string | URL | RequestOptions,
-		(RequestOptions | ((res: IncomingMessage) => void))?,
-		((res: IncomingMessage) => void)?
+		(RequestOptions | ((response: IncomingMessage) => void))?,
+		((response: IncomingMessage) => void)?
 	]) => {
 		isCalled = true;
 		// @ts-expect-error Overload error
@@ -214,8 +214,8 @@ test('does not include the `request` option in normalized `http` options', withS
 
 	const request: RequestFunction = (...args: [
 		string | URL | RequestOptions,
-		(RequestOptions | ((res: IncomingMessage) => void))?,
-		((res: IncomingMessage) => void)?
+		(RequestOptions | ((response: IncomingMessage) => void))?,
+		((response: IncomingMessage) => void)?
 	]) => {
 		isCalled = true;
 
@@ -229,6 +229,24 @@ test('does not include the `request` option in normalized `http` options', withS
 	await instance('');
 
 	t.true(isCalled);
+});
+
+test('should pass an options object into an initialization hook after .extend', withServer, async (t, server, got) => {
+	t.plan(1);
+
+	server.get('/', echoHeaders);
+
+	const instance = got.extend({
+		hooks: {
+			init: [
+				options => {
+					t.deepEqual(options, {});
+				}
+			]
+		}
+	});
+
+	await instance('');
 });
 
 test('hooks aren\'t overriden when merging options', withServer, async (t, server, got) => {

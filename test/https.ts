@@ -1,11 +1,10 @@
 import test from 'ava';
-import got, {CancelableRequest} from '../source';
-import {withHttpsServer} from './helpers/with-server';
-import {DetailedPeerCertificate} from 'tls';
+import * as tls, {DetailedPeerCertificate} from 'tls';
 import pEvent from 'p-event';
-import pify = require('pify');
-import pem = require('pem');
-import tls = require('tls');
+import * as pify from 'pify';
+import * as pem from 'pem';
+import got, {CancelableRequest} from '../source/index';
+import {withHttpsServer} from './helpers/with-server';
 
 const createPrivateKey = pify(pem.createPrivateKey);
 const createCSR = pify(pem.createCSR);
@@ -159,7 +158,7 @@ test.serial('deprecated `rejectUnauthorized` option', withHttpsServer(), async (
 		response.end('ok');
 	});
 
-	await new Promise(resolve => {
+	await new Promise<void>(resolve => {
 		let request: CancelableRequest;
 		(async () => {
 			const warning = await pEvent(process, 'warning');
@@ -414,8 +413,6 @@ test('https request with invalid key passphrase', withHttpsServer({requestCert: 
 	});
 	const clientCert = clientResult.certificate;
 
-	const NODE_10 = process.versions.node.split('.')[0] === '10';
-
 	const request = got({
 		https: {
 			key: clientKey,
@@ -424,19 +421,9 @@ test('https request with invalid key passphrase', withHttpsServer({requestCert: 
 		}
 	});
 
-	// Node.JS 10 does not have an error code, it only has a mesage
-	if (NODE_10) {
-		try {
-			await request;
-			t.fail();
-		} catch (error) {
-			t.true((error.message as string).includes('bad decrypt'), error.message);
-		}
-	} else {
-		await t.throwsAsync(request, {
-			code: 'ERR_OSSL_EVP_BAD_DECRYPT'
-		});
-	}
+	await t.throwsAsync(request, {
+		code: 'ERR_OSSL_EVP_BAD_DECRYPT'
+	});
 });
 
 test('https request with client certificate PFX', withHttpsServer({requestCert: true}), async (t, server, got) => {

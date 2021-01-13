@@ -1,11 +1,10 @@
-import url = require('url');
-import {URL} from 'url';
+import {parse as urlParse, URL} from 'url';
 import test from 'ava';
 import urlToOptions from '../source/core/utils/url-to-options';
 
 test('converts node legacy URL to options', t => {
 	const exampleUrl = 'https://user:password@github.com:443/say?hello=world#bang';
-	const parsedUrl = url.parse(exampleUrl);
+	const parsedUrl = urlParse(exampleUrl);
 	const options = urlToOptions(parsedUrl);
 	const expected = {
 		hash: '#bang',
@@ -80,7 +79,7 @@ test('only adds port to options for URLs with ports', t => {
 
 test('does not concat null search to path', t => {
 	const exampleUrl = 'https://github.com/';
-	const parsedUrl = url.parse(exampleUrl);
+	const parsedUrl = urlParse(exampleUrl);
 
 	t.is(parsedUrl.search, null);
 
@@ -101,7 +100,7 @@ test('does not concat null search to path', t => {
 
 test('does not add null port to options', t => {
 	const exampleUrl = 'https://github.com/';
-	const parsedUrl = url.parse(exampleUrl);
+	const parsedUrl = urlParse(exampleUrl);
 
 	t.is(parsedUrl.port, null);
 

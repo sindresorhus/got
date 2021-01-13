@@ -1,7 +1,7 @@
 import {ReadStream} from 'fs';
 import {ClientRequest, IncomingMessage} from 'http';
 import test from 'ava';
-import {Response, CancelError} from '../source';
+import {Response, CancelError} from '../source/index';
 import withServer from './helpers/with-server';
 
 test('emits request event as promise', withServer, async (t, server, got) => {
@@ -78,4 +78,14 @@ test('promise.json() can be called before a file stream body is open', withServe
 	promise.cancel();
 
 	await Promise.all(checks);
+});
+
+test('promise.json() does not fail when server returns an error', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.statusCode = 400;
+		response.end('{}');
+	});
+
+	const promise = got('', {throwHttpErrors: false});
+	await t.notThrowsAsync(promise.json());
 });

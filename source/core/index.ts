@@ -4,15 +4,15 @@ import {ReadStream} from 'fs';
 import {URL, URLSearchParams} from 'url';
 import {Socket} from 'net';
 import {SecureContextOptions, DetailedPeerCertificate} from 'tls';
-import http = require('http');
+import * as http from 'http';
 import {ClientRequest, RequestOptions, IncomingMessage, ServerResponse, request as httpRequest} from 'http';
-import https = require('https');
+import * as https from 'https';
 import timer, {ClientRequestWithTimings, Timings, IncomingMessageWithTimings} from '@szmarczak/http-timer';
 import CacheableLookup from 'cacheable-lookup';
-import CacheableRequest = require('cacheable-request');
+import * as CacheableRequest from 'cacheable-request';
 import decompressResponse = require('decompress-response');
 // @ts-expect-error Missing types
-import http2wrapper = require('http2-wrapper');
+import * as http2wrapper from 'http2-wrapper';
 import lowercaseKeys = require('lowercase-keys');
 import ResponseLike = require('responselike');
 import is, {assert} from '@sindresorhus/is';
@@ -31,7 +31,7 @@ import normalizePromiseArguments from '../as-promise/normalize-arguments';
 import {PromiseOnly} from '../as-promise/types';
 import calculateRetryDelay from './calculate-retry-delay';
 
-const globalDnsCache = new CacheableLookup();
+let globalDnsCache: CacheableLookup;
 
 type HttpRequestFunction = typeof httpRequest;
 type Error = NodeJS.ErrnoException;
@@ -66,9 +66,9 @@ export interface Agents {
 export const withoutBody: ReadonlySet<string> = new Set(['GET', 'HEAD']);
 
 export interface ToughCookieJar {
-	getCookieString: ((currentUrl: string, options: {[key: string]: unknown}, cb: (err: Error | null, cookies: string) => void) => void)
+	getCookieString: ((currentUrl: string, options: Record<string, unknown>, cb: (err: Error | null, cookies: string) => void) => void)
 	& ((url: string, callback: (error: Error | null, cookieHeader: string) => void) => void);
-	setCookie: ((cookieOrString: unknown, currentUrl: string, options: {[key: string]: unknown}, cb: (err: Error | null, cookie: unknown) => void) => void)
+	setCookie: ((cookieOrString: unknown, currentUrl: string, options: Record<string, unknown>, cb: (err: Error | null, cookie: unknown) => void) => void)
 	& ((rawCookie: string, url: string, callback: (error: Error | null, result: unknown) => void) => void);
 }
 
@@ -250,7 +250,7 @@ export type RequestFunction = (url: URL, options: RequestOptions, callback?: (re
 export type Headers = Record<string, string | string[] | undefined>;
 
 type CacheableRequestFunction = (
-	opts: string | URL | RequestOptions,
+	options: string | URL | RequestOptions,
 	cb?: (response: ServerResponse | ResponseLike) => void
 ) => CacheableRequest.Emitter;
 
@@ -423,7 +423,9 @@ interface PlainOptions extends URLOptions {
 
 	__Note #4__: This option is not enumerable and will not be merged with the instance defaults.
 
-	The `content-length` header will be automatically set if `body` is a `string` / `Buffer` / `fs.createReadStream` instance / [`form-data` instance](https://github.com/form-data/form-data), and `content-length` and `transfer-encoding` are not manually set in `options.headers`.
+	The `content-length` header will be automatically set if `body` is a `string` / `Buffer` / [`form-data` instance](https://github.com/form-data/form-data), and `content-length` and `transfer-encoding` are not manually set in `options.headers`.
+
+	Since Got 12, the `content-length` is not automatically set when `body` is a `fs.createReadStream`.
 	*/
 	body?: string | Buffer | Readable;
 
@@ -436,7 +438,7 @@ interface PlainOptions extends URLOptions {
 
 	__Note #2__: This option is not enumerable and will not be merged with the instance defaults.
 	*/
-	form?: {[key: string]: any};
+	form?: Record<string, any>;
 
 	/**
 	JSON body. If the `Content-Type` header is not set, it will be set to `application/json`.
@@ -445,7 +447,7 @@ interface PlainOptions extends URLOptions {
 
 	__Note #2__: This option is not enumerable and will not be merged with the instance defaults.
 	*/
-	json?: {[key: string]: any};
+	json?: Record<string, any>;
 
 	/**
 	The URL to request, as a string, a [`https.request` options object](https://nodejs.org/api/https.html#https_https_request_options_callback), or a [WHATWG `URL`](https://nodejs.org/api/url.html#url_class_url).
@@ -500,7 +502,7 @@ interface PlainOptions extends URLOptions {
 	//=> 'key=a&key=b'
 	```
 	*/
-	searchParams?: string | {[key: string]: string | number | boolean | null | undefined} | URLSearchParams;
+	searchParams?: string | Record<string, string | number | boolean | null | undefined> | URLSearchParams;
 
 	/**
 	An instance of [`CacheableLookup`](https://github.com/szmarczak/cacheable-lookup) used for making DNS lookups.
@@ -515,10 +517,7 @@ interface PlainOptions extends URLOptions {
 	dnsCache?: CacheableLookup | boolean;
 
 	/**
-	User data. In contrast to other options, `context` is not enumerable.
-
-	__Note__: The object is never merged, it's just passed through.
-	Got will not modify the object in any way.
+	User data. `context` is shallow merged and enumerable. If it contains non-enumerable properties they will NOT be merged.
 
 	@example
 	```
@@ -601,9 +600,9 @@ interface PlainOptions extends URLOptions {
 
 	It will choose either HTTP/1.1 or HTTP/2 depending on the ALPN protocol.
 
-	__Note__: Overriding `options.request` will disable HTTP2 support.
+	__Note__: This option requires Node.js 15 or later as HTTP2 support on older Node.js versions are very buggy.
 
-	__Note__: This option will default to `true` in the next upcoming major release.
+	__Note__: Overriding `options.request` will disable HTTP2 support.
 
 	@default false
 
@@ -1153,9 +1152,8 @@ const waitForOpenFile = async (file: ReadStream): Promise<void> => new Promise((
 
 const redirectCodes: ReadonlySet<number> = new Set([300, 301, 302, 303, 304, 307, 308]);
 
-type NonEnumerableProperty = 'context' | 'body' | 'json' | 'form';
+type NonEnumerableProperty = 'body' | 'json' | 'form';
 const nonEnumerableProperties: NonEnumerableProperty[] = [
-	'context',
 	'body',
 	'json',
 	'form'
@@ -1236,7 +1234,7 @@ export class RequestError extends Error {
 		this.timings = this.request?.timings;
 
 		// Recover the original stacktrace
-		if (!is.undefined(error.stack)) {
+		if (is.string(error.stack) && is.string(this.stack)) {
 			const indexOfMessage = this.stack.indexOf(this.message) + this.message.length;
 			const thisStackTrace = this.stack.slice(indexOfMessage).split('\n').reverse();
 			const errorStackTrace = error.stack.slice(error.stack.indexOf(error.message!) + error.message!.length).split('\n').reverse();
@@ -1377,7 +1375,6 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	[kOriginalResponse]?: IncomingMessageWithTimings;
 	[kRequest]?: ClientRequest;
 	_noPipe?: boolean;
-	_progressCallbacks: Array<() => void>;
 
 	declare options: NormalizedOptions;
 	declare requestUrl: string;
@@ -1403,9 +1400,6 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		this[kTriggerRead] = false;
 		this[kJobs] = [];
 		this.retryCount = 0;
-
-		// TODO: Remove this when targeting Node.js >= 12
-		this._progressCallbacks = [];
 
 		const unlockWrite = (): void => this._unlockWrite();
 		const lockWrite = (): void => this._lockWrite();
@@ -1780,6 +1774,10 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 		// `options.dnsCache`
 		if (options.dnsCache === true) {
+			if (!globalDnsCache) {
+				globalDnsCache = new CacheableLookup();
+			}
+
 			options.dnsCache = globalDnsCache;
 		} else if (!is.undefined(options.dnsCache) && !options.dnsCache.lookup) {
 			throw new TypeError(`Parameter \`dnsCache\` must be a CacheableLookup instance or a boolean, got ${is(options.dnsCache)}`);
@@ -1798,9 +1796,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		}
 
 		// `options.context`
-		if (!options.context) {
-			options.context = {};
-		}
+		options.context = {...defaults?.context, ...options.context};
 
 		// `options.hooks`
 		const areHooksDefault = options.hooks === defaults?.hooks;
@@ -1823,7 +1819,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			for (const event of knownHookEvents) {
 				const defaultHooks = defaults.hooks[event];
 
-				if (defaultHooks.length !== 0) {
+				if (defaultHooks.length > 0) {
 					// See https://github.com/microsoft/TypeScript/issues/31445#issuecomment-576929044
 					(options.hooks as any)[event] = [
 						...defaults.hooks[event],
@@ -2005,7 +2001,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		typedResponse.requestUrl = this.requestUrl;
 		typedResponse.redirectUrls = this.redirects;
 		typedResponse.request = this;
-		typedResponse.isFromCache = (response as any).fromCache || false;
+		typedResponse.isFromCache = (response as any).fromCache ?? false;
 		typedResponse.ip = this.ip;
 		typedResponse.retryCount = this.retryCount;
 
@@ -2219,11 +2215,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			// Node.js <= 12.18.2 mistakenly emits the response `end` first.
 			(request as ClientRequest & {res: IncomingMessage | undefined}).res?.removeAllListeners('end');
 
-			if (error instanceof TimedOutTimeoutError) {
-				error = new TimeoutError(error, this.timings!, this);
-			} else {
-				error = new RequestError(error.message, error, this);
-			}
+			error = error instanceof TimedOutTimeoutError ? new TimeoutError(error, this.timings!, this) : new RequestError(error.message, error, this);
 
 			this._beforeError(error as RequestError);
 		});
@@ -2684,21 +2676,17 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			return;
 		}
 
-		this._progressCallbacks.push((): void => {
-			this[kUploadedSize] += Buffer.byteLength(chunk, encoding);
-
-			const progress = this.uploadProgress;
-
-			if (progress.percent < 1) {
-				this.emit('uploadProgress', progress);
-			}
-		});
-
 		// TODO: What happens if it's from cache? Then this[kRequest] won't be defined.
 
 		this[kRequest]!.write(chunk, encoding!, (error?: Error | null) => {
-			if (!error && this._progressCallbacks.length !== 0) {
-				this._progressCallbacks.shift()!();
+			if (!error) {
+				this[kUploadedSize] += Buffer.byteLength(chunk, encoding);
+
+				const progress = this.uploadProgress;
+
+				if (progress.percent < 1) {
+					this.emit('uploadProgress', progress);
+				}
 			}
 
 			callback(error);
@@ -2707,11 +2695,6 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 	_final(callback: (error?: Error | null) => void): void {
 		const endRequest = (): void => {
-			// FIX: Node.js 10 calls the write callback AFTER the end callback!
-			while (this._progressCallbacks.length !== 0) {
-				this._progressCallbacks.shift()!();
-			}
-
 			// We need to check if `this[kRequest]` is present,
 			// because it isn't when we use cache.
 			if (!(kRequest in this)) {
@@ -2752,8 +2735,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		if (kRequest in this) {
 			this[kCancelTimeouts]!();
 
-			// TODO: Remove the next `if` when these get fixed:
-			// - https://github.com/nodejs/node/issues/32851
+			// TODO: Remove the next `if` when targeting Node.js 14.
 			if (!this[kResponse]?.complete) {
 				this[kRequest]!.destroy();
 			}
@@ -2774,7 +2756,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	The remote IP address.
 	*/
 	get ip(): string | undefined {
-		return this[kRequest]?.socket.remoteAddress;
+		return this.socket?.remoteAddress;
 	}
 
 	/**
@@ -2785,7 +2767,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	}
 
 	get socket(): Socket | undefined {
-		return this[kRequest]?.socket;
+		return this[kRequest]?.socket ?? undefined;
 	}
 
 	/**

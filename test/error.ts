@@ -1,9 +1,11 @@
 import {promisify} from 'util';
-import net = require('net');
-import http = require('http');
-import stream = require('stream');
+import * as net from 'net';
+import * as http from 'http';
+import * as stream from 'stream';
 import test from 'ava';
-import got, {RequestError, HTTPError, TimeoutError} from '../source';
+import * as getStream from 'get-stream';
+import is from '@sindresorhus/is';
+import got, {RequestError, HTTPError, TimeoutError} from '../source/index';
 import withServer from './helpers/with-server';
 
 const pStreamPipeline = promisify(stream.pipeline);
@@ -223,7 +225,6 @@ test('no uncaught parse errors', async t => {
 	const listen = promisify(server.listen.bind(server));
 	const close = promisify(server.close.bind(server));
 
-	// @ts-expect-error TS is sooo dumb. It doesn't need an argument at all.
 	await listen();
 
 	server.on('connection', socket => {
@@ -260,4 +261,71 @@ test.skip('the old stacktrace is recovered', async t => {
 	// The first `at get` points to where the error was wrapped,
 	// the second `at get` points to the real cause.
 	t.not(error.stack!.indexOf('at get'), error.stack!.lastIndexOf('at get'));
+});
+
+test.serial('custom stack trace', withServer, async (t, _server, got) => {
+	const ErrorCaptureStackTrace = Error.captureStackTrace;
+
+	const enable = () => {
+		Error.captureStackTrace = (target: {stack: any}) => {
+			target.stack = [
+				'line 1',
+				'line 2'
+			];
+		};
+	};
+
+	const disable = () => {
+		Error.captureStackTrace = ErrorCaptureStackTrace;
+	};
+
+	// Node.js default behavior
+	{
+		const stream = got.stream('');
+		stream.destroy(new Error('oh no'));
+
+		const caught = await t.throwsAsync(getStream(stream));
+		t.is(is(caught.stack), 'string');
+	}
+
+	// Passing a custom error
+	{
+		enable();
+		const error = new Error('oh no');
+		disable();
+
+		const stream = got.stream('');
+		stream.destroy(error);
+
+		const caught = await t.throwsAsync(getStream(stream));
+		t.is(is(caught.stack), 'string');
+	}
+
+	// Custom global behavior
+	{
+		enable();
+		const error = new Error('oh no');
+
+		const stream = got.stream('');
+		stream.destroy(error);
+
+		const caught = await t.throwsAsync(getStream(stream));
+		t.is(is(caught.stack), 'Array');
+
+		disable();
+	}
+
+	// Passing a default error that needs some processing
+	{
+		const error = new Error('oh no');
+		enable();
+
+		const stream = got.stream('');
+		stream.destroy(error);
+
+		const caught = await t.throwsAsync(getStream(stream));
+		t.is(is(caught.stack), 'Array');
+
+		disable();
+	}
 });
