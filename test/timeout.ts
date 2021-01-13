@@ -668,7 +668,7 @@ test.serial('cancelling the request removes timeouts', withServer, async (t, ser
 
 test('timeouts are emitted ASAP', async t => {
 	const timeout = 500;
-	const marginOfError = 100;
+	const marginOfError = process.env.CI ? 200 : 100;
 
 	const error = await t.throwsAsync<TimeoutError>(got('http://192.0.2.1/test', {
 		retry: 0,
