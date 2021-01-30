@@ -5,9 +5,27 @@
 	<br>
 	<br>
 	<br>
-	<p align="center">Huge thanks to <a href="https://moxy.studio"><img src="https://sindresorhus.com/assets/thanks/moxy-logo.svg" valign="middle" width="150"></a> for sponsoring Sindre Sorhus!
+	<p>
+		<p>
+			<sup>
+				Sindre's open source work is supported by the community.<br>Special thanks to:
+			</sup>
+		</p>
+		<br>
+		<a href="https://moxy.studio">
+			<img src="https://sindresorhus.com/assets/thanks/moxy-logo.svg" width="160">
+		</a>
+		<br>
+		<br>
+		<a href="https://retool.com/?utm_campaign=sindresorhus">
+			<img src="https://sindresorhus.com/assets/thanks/retool-logo.svg" width="210">
+		</a>
+		<br>
+		<br>
 	</p>
-	<p align="center"><sup>(they love Got too!)</sup></p>
+	<!-- <p align="center">Huge thanks to <a href="https://moxy.studio"><img src="https://sindresorhus.com/assets/thanks/moxy-logo.svg" valign="middle" width="150"></a> for sponsoring Sindre Sorhus!
+	</p>
+	<p align="center"><sup>(they love Got too!)</sup></p> -->
 	<br>
 	<br>
 </div>
