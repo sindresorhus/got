@@ -42,6 +42,8 @@
 
 For browser usage, we recommend [Ky](https://github.com/sindresorhus/ky) by the same people.
 
+**Support questions should be asked [here](https://github.com/sindresorhus/got/discussions).**
+
 ## Highlights
 
 - [Promise API](#api)
