@@ -54,7 +54,7 @@ const normalizeArguments = (options: NormalizedOptions, defaults?: Defaults): No
 	if (is.undefined(options.retry.maxRetryAfter)) {
 		options.retry.maxRetryAfter = Math.min(
 			// TypeScript is not smart enough to handle `.filter(x => is.number(x))`.
-			// eslint-disable-next-line unicorn/no-fn-reference-in-iterator
+			// eslint-disable-next-line unicorn/no-array-callback-reference
 			...[options.timeout.request, options.timeout.connect].filter(is.number)
 		);
 	}

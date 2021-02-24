@@ -66,9 +66,9 @@ export interface Agents {
 export const withoutBody: ReadonlySet<string> = new Set(['GET', 'HEAD']);
 
 export interface ToughCookieJar {
-	getCookieString: ((currentUrl: string, options: Record<string, unknown>, cb: (err: Error | null, cookies: string) => void) => void)
+	getCookieString: ((currentUrl: string, options: Record<string, unknown>, cb: (error: Error | null, cookies: string) => void) => void)
 	& ((url: string, callback: (error: Error | null, cookieHeader: string) => void) => void);
-	setCookie: ((cookieOrString: unknown, currentUrl: string, options: Record<string, unknown>, cb: (err: Error | null, cookie: unknown) => void) => void)
+	setCookie: ((cookieOrString: unknown, currentUrl: string, options: Record<string, unknown>, cb: (error: Error | null, cookie: unknown) => void) => void)
 	& ((rawCookie: string, url: string, callback: (error: Error | null, result: unknown) => void) => void);
 }
 
@@ -1226,7 +1226,7 @@ export class RequestError extends Error {
 			const errorStackTrace = error.stack.slice(error.stack.indexOf(error.message!) + error.message!.length).split('\n').reverse();
 
 			// Remove duplicated traces
-			while (errorStackTrace.length !== 0 && errorStackTrace[0] === thisStackTrace[0]) {
+			while (errorStackTrace.length > 0 && errorStackTrace[0] === thisStackTrace[0]) {
 				thisStackTrace.shift();
 			}
 
@@ -1387,8 +1387,13 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		this[kJobs] = [];
 		this.retryCount = 0;
 
-		const unlockWrite = (): void => this._unlockWrite();
-		const lockWrite = (): void => this._lockWrite();
+		const unlockWrite = (): void => {
+			this._unlockWrite();
+		};
+
+		const lockWrite = (): void => {
+			this._lockWrite();
+		};
 
 		this.on('pipe', (source: Writable) => {
 			source.prependListener('data', unlockWrite);
@@ -1574,39 +1579,37 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		}
 
 		// `options.searchParams`
-		if ('searchParams' in options) {
-			if (options.searchParams && options.searchParams !== defaults?.searchParams) {
-				let searchParameters: URLSearchParams;
+		if ('searchParams' in options && options.searchParams && options.searchParams !== defaults?.searchParams) {
+			let searchParameters: URLSearchParams;
 
-				if (is.string(options.searchParams) || (options.searchParams instanceof URLSearchParams)) {
-					searchParameters = new URLSearchParams(options.searchParams);
-				} else {
-					validateSearchParameters(options.searchParams);
+			if (is.string(options.searchParams) || (options.searchParams instanceof URLSearchParams)) {
+				searchParameters = new URLSearchParams(options.searchParams);
+			} else {
+				validateSearchParameters(options.searchParams);
 
-					searchParameters = new URLSearchParams();
+				searchParameters = new URLSearchParams();
 
-					// eslint-disable-next-line guard-for-in
-					for (const key in options.searchParams) {
-						const value = options.searchParams[key];
+				// eslint-disable-next-line guard-for-in
+				for (const key in options.searchParams) {
+					const value = options.searchParams[key];
 
-						if (value === null) {
-							searchParameters.append(key, '');
-						} else if (value !== undefined) {
-							searchParameters.append(key, value as string);
-						}
+					if (value === null) {
+						searchParameters.append(key, '');
+					} else if (value !== undefined) {
+						searchParameters.append(key, value as string);
 					}
 				}
-
-				// `normalizeArguments()` is also used to merge options
-				defaults?.searchParams?.forEach((value, key) => {
-					// Only use default if one isn't already defined
-					if (!searchParameters.has(key)) {
-						searchParameters.append(key, value);
-					}
-				});
-
-				options.searchParams = searchParameters;
 			}
+
+			// `normalizeArguments()` is also used to merge options
+			for (const [key, value] of defaults?.searchParams ?? []) {
+				// Only use default if one isn't already defined
+				if (!searchParameters.has(key)) {
+					searchParameters.append(key, value);
+				}
+			}
+
+			options.searchParams = searchParameters;
 		}
 
 		// `options.username` & `options.password`
@@ -1712,43 +1715,41 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 		// `options.cache`
 		const {cache} = options;
-		if (cache) {
-			if (!cacheableStore.has(cache)) {
-				cacheableStore.set(cache, new CacheableRequest(
-					((requestOptions: RequestOptions, handler?: (response: IncomingMessageWithTimings) => void): ClientRequest => {
-						const result = (requestOptions as Pick<NormalizedOptions, typeof kRequest>)[kRequest](requestOptions, handler);
+		if (cache && !cacheableStore.has(cache)) {
+			cacheableStore.set(cache, new CacheableRequest(
+				((requestOptions: RequestOptions, handler?: (response: IncomingMessageWithTimings) => void): ClientRequest => {
+					const result = (requestOptions as Pick<NormalizedOptions, typeof kRequest>)[kRequest](requestOptions, handler);
 
-						// TODO: remove this when `cacheable-request` supports async request functions.
-						if (is.promise(result)) {
-							// @ts-expect-error
-							// We only need to implement the error handler in order to support HTTP2 caching.
-							// The result will be a promise anyway.
-							result.once = (event: string, handler: (reason: unknown) => void) => {
-								if (event === 'error') {
-									result.catch(handler);
-								} else if (event === 'abort') {
-									// The empty catch is needed here in case when
-									// it rejects before it's `await`ed in `_makeRequest`.
-									(async () => {
-										try {
-											const request = (await result) as ClientRequest;
-											request.once('abort', handler);
-										} catch {}
-									})();
-								} else {
-									/* istanbul ignore next: safety check */
-									throw new Error(`Unknown HTTP2 promise event: ${event}`);
-								}
+					// TODO: remove this when `cacheable-request` supports async request functions.
+					if (is.promise(result)) {
+						// @ts-expect-error
+						// We only need to implement the error handler in order to support HTTP2 caching.
+						// The result will be a promise anyway.
+						result.once = (event: string, handler: (reason: unknown) => void) => {
+							if (event === 'error') {
+								result.catch(handler);
+							} else if (event === 'abort') {
+								// The empty catch is needed here in case when
+								// it rejects before it's `await`ed in `_makeRequest`.
+								(async () => {
+									try {
+										const request = (await result) as ClientRequest;
+										request.once('abort', handler);
+									} catch {}
+								})();
+							} else {
+								/* istanbul ignore next: safety check */
+								throw new Error(`Unknown HTTP2 promise event: ${event}`);
+							}
 
-								return result;
-							};
-						}
+							return result;
+						};
+					}
 
-						return result;
-					}) as HttpRequestFunction,
-					cache as CacheableRequest.StorageAdapter
-				));
-			}
+					return result;
+				}) as HttpRequestFunction,
+				cache as CacheableRequest.StorageAdapter
+			));
 		}
 
 		// `options.cacheOptions`
@@ -1955,10 +1956,8 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 				// Content-Length header field when the request message does not contain
 				// a payload body and the method semantics do not anticipate such a
 				// body.
-				if (is.undefined(headers['content-length']) && is.undefined(headers['transfer-encoding'])) {
-					if (!cannotHaveBody && !is.undefined(uploadBodySize)) {
-						headers['content-length'] = String(uploadBodySize);
-					}
+				if (is.undefined(headers['content-length']) && is.undefined(headers['transfer-encoding']) && !cannotHaveBody && !is.undefined(uploadBodySize)) {
+					headers['content-length'] = String(uploadBodySize);
 				}
 			}
 		} else if (cannotHaveBody) {
@@ -2022,7 +2021,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 		const rawCookies = response.headers['set-cookie'];
 		if (is.object(options.cookieJar) && rawCookies) {
-			let promises: Array<Promise<unknown>> = rawCookies.map(async (rawCookie: string) => (options.cookieJar as PromiseCookieJar).setCookie(rawCookie, url.toString()));
+			let promises: Array<Promise<unknown>> = rawCookies.map(async (rawCookie: string) => options.cookieJar!.setCookie(rawCookie, url.toString()));
 
 			if (options.ignoreInvalidCookies) {
 				promises = promises.map(async p => p.catch(() => {}));
@@ -2685,7 +2684,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		this[kStopReading] = true;
 
 		// Prevent further retries
-		clearTimeout(this[kRetryTimeout] as NodeJS.Timeout);
+		clearTimeout(this[kRetryTimeout]!);
 
 		if (kRequest in this) {
 			this[kCancelTimeouts]!();

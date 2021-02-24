@@ -34,10 +34,14 @@ export default function asPromise<T>(normalizedOptions: NormalizedOptions): Canc
 			request.retryCount = retryCount;
 			request._noPipe = true;
 
-			onCancel(() => request.destroy());
+			onCancel(() => {
+				request.destroy();
+			});
 
 			onCancel.shouldReject = false;
-			onCancel(() => reject(new CancelError(request)));
+			onCancel(() => {
+				reject(new CancelError(request));
+			});
 
 			globalRequest = request;
 
