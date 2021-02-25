@@ -2223,7 +2223,7 @@ The Electron `net` module is not consistent with the Node.js `http` module. See 
 \* It's almost API compatible with the browser `fetch` API.\
 \*\* Need to switch the protocol manually. Doesn't accept PUSH streams and doesn't reuse HTTP/2 sessions.\
 \*\*\* Currently, only `DownloadProgress` event is supported, `UploadProgress` event is not supported.\
-¹ Requires Node.js 15.10.0 or above. The `http2-wrapper@1.0.0` package needs to be installed manually.\
+¹ Requires Node.js 15.10.0 or above.
 :sparkle: Almost-stable feature, but the API may change. Don't hesitate to try it out!\
 :grey_question: Feature in early stage of development. Very experimental.
 
