@@ -103,7 +103,7 @@ test('hooks are merged on got.extend()', t => {
 	const instanceA = got.extend({hooks: {beforeRequest: hooksA}});
 
 	const extended = instanceA.extend({hooks: {beforeRequest: hooksB}});
-	t.deepEqual(extended.defaults.options.hooks.beforeRequest, hooksA.concat(hooksB));
+	t.deepEqual(extended.defaults.options.hooks.beforeRequest, [...hooksA, ...hooksB]);
 });
 
 test('custom endpoint with custom headers (extend)', withServer, async (t, server) => {

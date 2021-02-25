@@ -16,7 +16,8 @@ const testIPv6 = (IPv6supported && process.env.TRAVIS_DIST !== 'bionic' && proce
 const echoIp: Handler = (request, response) => {
 	const address = request.connection.remoteAddress;
 	if (address === undefined) {
-		return response.end();
+		response.end();
+		return;
 	}
 
 	// IPv4 address mapped to IPv6

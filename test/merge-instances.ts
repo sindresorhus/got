@@ -95,7 +95,7 @@ test('hooks are merged', t => {
 	}});
 
 	const merged = instanceA.extend(instanceB);
-	t.deepEqual(getBeforeRequestHooks(merged), getBeforeRequestHooks(instanceA).concat(getBeforeRequestHooks(instanceB)));
+	t.deepEqual(getBeforeRequestHooks(merged), [...getBeforeRequestHooks(instanceA), ...getBeforeRequestHooks(instanceB)]);
 });
 
 test('default handlers are not duplicated', t => {

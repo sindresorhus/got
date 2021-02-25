@@ -90,7 +90,9 @@ test.serial('cleans up request timeouts', withServer, async (t, server, got) => 
 		timeout: 10,
 		retry: {
 			calculateDelay: ({computedValue}) => {
-				process.nextTick(() => gotPromise.cancel());
+				process.nextTick(() => {
+					gotPromise.cancel();
+				});
 
 				if (computedValue) {
 					return 20;

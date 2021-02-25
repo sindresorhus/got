@@ -180,6 +180,7 @@ test('socket connect listener cleaned up after request', withHttpsServer(), asyn
 				afterResponse: [
 					async (response, retryWithMergedOptions) => {
 						// Force clean-up
+						// eslint-disable-next-line @typescript-eslint/no-confusing-void-expression
 						response.socket?.destroy();
 
 						// Unauthorized
