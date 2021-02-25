@@ -142,12 +142,24 @@ test('http2', async t => {
 		http2: true
 	});
 
-	const {headers, body} = await promise;
-	await promise.json();
+	try {
+		const {headers, body} = await promise;
+		await promise.json();
 
-	// @ts-expect-error Pseudo headers may not be strings
-	t.is(headers[':status'], 200);
-	t.is(typeof body, 'string');
+		// @ts-expect-error Pseudo headers may not be strings
+		t.is(headers[':status'], 200);
+		t.is(typeof body, 'string');
+
+		t.pass();
+	} catch (error) {
+		if (error.message.includes('install Node.js')) {
+			t.pass();
+
+			return;
+		}
+
+		t.fail(error);
+	}
 });
 
 test.serial('deprecated `rejectUnauthorized` option', withHttpsServer(), async (t, server, got) => {

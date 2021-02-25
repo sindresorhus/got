@@ -29,7 +29,7 @@ import normalizePromiseArguments from '../as-promise/normalize-arguments';
 import {PromiseOnly} from '../as-promise/types';
 import calculateRetryDelay from './calculate-retry-delay';
 
-const [major, minor, patch] = process.versions.node.split('.').map(x => Number(x)) as [number, number, number];
+const [major, minor] = process.versions.node.split('.').map(x => Number(x)) as [number, number, number];
 
 let http2wrapper: unknown;
 try {
