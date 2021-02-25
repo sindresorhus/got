@@ -699,9 +699,11 @@ If set to `true`, Got will additionally accept HTTP2 requests.
 
 It will choose either HTTP/1.1 or HTTP/2 depending on the ALPN protocol.
 
-**Note:** This option requires Node.js 15 or later as HTTP2 support on older Node.js versions are very buggy.
+**Note:** This option requires Node.js 15.10.0 or newer as HTTP/2 support on older Node.js versions is very buggy.
 
 **Note:** Overriding `options.request` will disable HTTP2 support.
+
+**Note:** To use this option, you need to manually install `http2-wrapper` first.
 
 ```js
 const got = require('got');
