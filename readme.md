@@ -703,8 +703,6 @@ It will choose either HTTP/1.1 or HTTP/2 depending on the ALPN protocol.
 
 **Note:** Overriding `options.request` will disable HTTP2 support.
 
-**Note:** To use this option, you need to manually install `http2-wrapper` first.
-
 ```js
 const got = require('got');
 
