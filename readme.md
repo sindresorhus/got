@@ -2486,7 +2486,7 @@ The Electron `net` module is not consistent with the Node.js `http` module. See 
 		</td>
 	</tr>
 </tbody>
-</table
+</table>
 
 <br>
 
