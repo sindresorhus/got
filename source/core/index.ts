@@ -11,8 +11,6 @@ import timer, {ClientRequestWithTimings, Timings, IncomingMessageWithTimings} fr
 import CacheableLookup from 'cacheable-lookup';
 import * as CacheableRequest from 'cacheable-request';
 import decompressResponse = require('decompress-response');
-// @ts-expect-error Missing types
-import * as http2wrapper from 'http2-wrapper';
 import lowercaseKeys = require('lowercase-keys');
 import ResponseLike = require('responselike');
 import is, {assert} from '@sindresorhus/is';
@@ -30,6 +28,13 @@ import deprecationWarning from '../utils/deprecation-warning';
 import normalizePromiseArguments from '../as-promise/normalize-arguments';
 import {PromiseOnly} from '../as-promise/types';
 import calculateRetryDelay from './calculate-retry-delay';
+
+const [major, minor, patch] = process.versions.node.split('.').map(x => Number(x)) as [number, number, number];
+
+let http2wrapper: unknown;
+try {
+	http2wrapper = require('http2-wrapper');
+} catch {}
 
 let globalDnsCache: CacheableLookup;
 
@@ -2342,7 +2347,15 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		// Fallback function
 		let fallbackFn: HttpRequestFunction;
 		if (options.http2) {
-			fallbackFn = http2wrapper.auto;
+			if (major < 15 || (major === 15 && minor < 10)) {
+				throw new Error('To use the `http2` option, install Node.js 15.10.0 or above');
+			}
+
+			if (!http2wrapper) {
+				throw new Error('The `http2-wrapper` module is not installed');
+			}
+
+			fallbackFn = (http2wrapper as any).auto;
 		} else {
 			fallbackFn = isHttps ? https.request : http.request;
 		}
