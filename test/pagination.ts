@@ -154,7 +154,8 @@ test('custom paginate function using allItems', withServer, async (t, server, go
 				}
 
 				return {path: '/?page=3'};
-			}
+			},
+			stackAllItems: true
 		}
 	});
 
