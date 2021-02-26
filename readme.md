@@ -1028,7 +1028,7 @@ Defines how the property `allItems` in [pagination.paginate](#pagination.paginat
 
 By default, the property `allItems` is always an empty array. This setting can be helpful to save on memory usage when working with a large dataset.
 
-When set to `true`, the property `allItems` is an array of the emitted items.
+When set to `false`, the parameter `allItems` is always an empty array.
 
 
 ##### localAddress
