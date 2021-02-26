@@ -643,7 +643,7 @@ test.serial('no unhandled `Premature close` error', withServer, async (t, server
 });
 
 // TODO: use fakeTimers here
-test.serial.failing('`read` timeout - promise', withServer, async (t, server, got) => {
+test.serial('`read` timeout - promise', withServer, async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.write('o');
 	});
@@ -658,6 +658,8 @@ test.serial.failing('`read` timeout - promise', withServer, async (t, server, go
 
 // TODO: use fakeTimers here
 test.serial.failing('`read` timeout - stream', withServer, async (t, server, got) => {
+	t.timeout(100);
+
 	server.get('/', (_request, response) => {
 		response.end('ok');
 	});
