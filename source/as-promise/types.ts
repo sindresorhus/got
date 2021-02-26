@@ -47,7 +47,7 @@ export interface PaginationOptions<ElementType, BodyType> {
 		The function takes an object with the following properties:
 		- `response` - The current response object.
 		- `currentItems` - Items from the current response.
-		- `allItems` - An array of the emitted items if `pagination.stackAllItems` is set to `true`. An empty array otherwise.
+		- `allItems` - An empty array, unless when `pagination.stackAllItems` is set to `true`. In the later case, an array of the emitted items.
 
 		It should return an object representing Got options pointing to the next page.
 		The options are merged automatically with the previous request, therefore the options returned `pagination.paginate(...)` must reflect changes only.
@@ -126,10 +126,11 @@ export interface PaginationOptions<ElementType, BodyType> {
 		requestLimit?: number;
 
 		/**
-		Defines how the parameter `allItems` in pagination.paginate, pagination.filter and pagination.shouldContinue is managed.
-		When set to `true`, the parameter `allItems` is an of the emitted items.
+		Defines how the property `allItems` in pagination.paginate, pagination.filter and pagination.shouldContinue is managed.
 
-		When set to `false`, the parameter `allItems` is always an empty array. This option can be helpful to save on memory usage when working with a large dataset.
+		By default, the property `allItems` is always an empty array. This setting can be helpful to save on memory usage when working with a large dataset.
+
+		When set to `true`, the property `allItems` is an array of the emitted items.
 		*/
 		stackAllItems?: boolean;
 	};

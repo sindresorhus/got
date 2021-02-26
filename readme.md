@@ -940,7 +940,7 @@ Default: [`Link` header logic](source/index.ts)
 The function takes an object with the following properties:
 - `response` - The current response object.
 - `currentItems` - Items from the current response.
-- `allItems` - An array of the emitted items if [pagination.stackAllItems](#pagination.stackAllItems) is set to `true`. An empty array otherwise.
+- `allItems` - An empty array, unless when [pagination.stackAllItems](#pagination.stackAllItems) is set to `true`. In the later case, an array of the emitted items.
 
 It should return an object representing Got options pointing to the next page. The options are merged automatically with the previous request, therefore the options returned `pagination.paginate(...)` must reflect changes only. If there are no more pages, `false` should be returned.
 
@@ -1024,9 +1024,12 @@ For example, it can be helpful during development to avoid an infinite number of
 Type: `boolean`\
 Default: `false`
 
-Defines how the parameter `allItems` in [pagination.paginate](#pagination.paginate), [pagination.filter](#pagination.filter) and [pagination.shouldContinue](#pagination.shouldContinue) is managed. When set to `true`, the parameter `allItems` is an of the emitted items.
+Defines how the property `allItems` in [pagination.paginate](#pagination.paginate), [pagination.filter](#pagination.filter) and [pagination.shouldContinue](#pagination.shouldContinue) is managed.
 
-When set to `false`, the parameter `allItems` is always an empty array. This option can be helpful to save on memory usage when working with a large dataset.
+By default, the property `allItems` is always an empty array. This setting can be helpful to save on memory usage when working with a large dataset.
+
+When set to `true`, the property `allItems` is an array of the emitted items.
+
 
 ##### localAddress
 
