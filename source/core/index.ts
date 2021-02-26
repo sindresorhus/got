@@ -196,7 +196,7 @@ interface PlainHooks {
 	This is especially useful when some extra work is required before the next try.
 
 	__Note__: When using streams, this hook is ignored.
-	__Note__: When retrying in a `afterResponse` hook, all remaining `beforeRetry` hooks will be called without the `error` and `retryCount` arguments.
+	__Note__: When retrying in a `afterResponse` hook, all remaining `beforeRetry` hooks will be called without the `error` argument.
 
 	@default []
 
@@ -207,7 +207,7 @@ interface PlainHooks {
 	got.post('https://example.com', {
 		hooks: {
 			beforeRetry: [
-				(options, error, retryCount) => {
+				(options, retryCount, error) => {
 					if (error.response.statusCode === 413) { // Payload too large
 						options.body = getNewBody();
 					}
