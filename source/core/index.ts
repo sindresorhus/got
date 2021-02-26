@@ -105,7 +105,7 @@ export type InitHook = (options: Options) => void;
 export type BeforeRequestHook = (options: NormalizedOptions) => Promisable<void | Response | ResponseLike>;
 export type BeforeRedirectHook = (options: NormalizedOptions, response: Response) => Promisable<void>;
 export type BeforeErrorHook = (error: RequestError) => Promisable<RequestError>;
-export type BeforeRetryHook = (options: NormalizedOptions, error?: RequestError, retryCount?: number) => void | Promise<void>;
+export type BeforeRetryHook = (options: NormalizedOptions, retryCount: number, error?: RequestError) => void | Promise<void>;
 
 interface PlainHooks {
 	/**
@@ -2566,7 +2566,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 						try {
 							for (const hook of this.options.hooks.beforeRetry) {
 								// eslint-disable-next-line no-await-in-loop
-								await hook(this.options, typedError, retryCount);
+								await hook(this.options, retryCount, typedError);
 							}
 						} catch (error_) {
 							void this._error(new RequestError(error_.message, error, this));

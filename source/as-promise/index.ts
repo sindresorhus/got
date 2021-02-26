@@ -110,8 +110,10 @@ export default function asPromise<T>(normalizedOptions: NormalizedOptions): Canc
 
 							for (const hook of typedOptions.hooks.beforeRetry) {
 								// eslint-disable-next-line no-await-in-loop
-								await hook(typedOptions);
+								await hook(typedOptions, request.retryCount);
 							}
+
+							request.retryCount++;
 
 							const promise: CancelableRequest<Response> = asPromise(typedOptions);
 
