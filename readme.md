@@ -939,8 +939,8 @@ Default: [`Link` header logic](source/index.ts)
 
 The function takes an object with the following properties:
 - `response` - The current response object.
-- `allItems` - An array of the emitted items.
 - `currentItems` - Items from the current response.
+- `allItems` - An empty array, unless [`pagination.stackAllItems`](#pagination.stackAllItems) is set to `true`, in which case, it's an array of the emitted items.
 
 It should return an object representing Got options pointing to the next page. The options are merged automatically with the previous request, therefore the options returned `pagination.paginate(...)` must reflect changes only. If there are no more pages, `false` should be returned.
 
@@ -958,7 +958,7 @@ const got = require('got');
 			offset: 0
 		},
 		pagination: {
-			paginate: ({response, allItems, currentItems}) => {
+			paginate: ({response, currentItems, allItems}) => {
 				const previousSearchParams = response.request.options.searchParams;
 				const previousOffset = previousSearchParams.get('offset');
 
@@ -983,14 +983,14 @@ const got = require('got');
 ###### pagination.filter
 
 Type: `Function`\
-Default: `({item, allItems, currentItems}) => true`
+Default: `({item, currentItems, allItems}) => true`
 
 Checks whether the item should be emitted or not.
 
 ###### pagination.shouldContinue
 
 Type: `Function`\
-Default: `({item, allItems, currentItems}) => true`
+Default: `({item, currentItems, allItems}) => true`
 
 Checks whether the pagination should continue.
 
@@ -1022,11 +1022,12 @@ For example, it can be helpful during development to avoid an infinite number of
 ###### pagination.stackAllItems
 
 Type: `boolean`\
-Default: `true`
+Default: `false`
 
-Defines how the parameter `allItems` in [pagination.paginate](#pagination.paginate), [pagination.filter](#pagination.filter) and [pagination.shouldContinue](#pagination.shouldContinue) is managed. When set to `false`, the parameter `allItems` is always an empty array.
+Defines how the property `allItems` in [`pagination.paginate`](#pagination.paginate), [`pagination.filter`](#pagination.filter) and [`pagination.shouldContinue`](#pagination.shouldContinue) is managed.
 
-This option can be helpful to save on memory usage when working with a large dataset.
+When set to `false`, the `allItems` parameter is always an empty array. If `true`, it can hugely increase memory usage when working with a large dataset.
+
 
 ##### localAddress
 

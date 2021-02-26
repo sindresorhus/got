@@ -113,7 +113,7 @@ const defaults: InstanceDefaults = {
 			countLimit: Number.POSITIVE_INFINITY,
 			backoff: 0,
 			requestLimit: 10000,
-			stackAllItems: true
+			stackAllItems: false
 		},
 		parseJson: (text: string) => JSON.parse(text),
 		stringifyJson: (object: unknown) => JSON.stringify(object),
