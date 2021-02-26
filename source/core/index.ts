@@ -1648,6 +1648,10 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 				delete options.port;
 			}
 
+			if ('protocol' in options) {
+				delete options.protocol;
+			}
+
 			// Make it possible to change `options.prefixUrl`
 			let {prefixUrl} = options;
 			Object.defineProperty(options, 'prefixUrl', {

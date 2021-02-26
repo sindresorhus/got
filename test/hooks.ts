@@ -552,6 +552,38 @@ test('afterResponse allows to retry', withServer, async (t, server, got) => {
 	t.is(statusCode, 200);
 });
 
+test('afterResponse allows to retry without losing the port', withServer, async (t, server) => {
+	server.get('/', (request, response) => {
+		if (request.headers.token !== 'unicorn') {
+			response.statusCode = 401;
+		}
+
+		response.end();
+	});
+
+	const {statusCode} = await got({
+		protocol: 'http:',
+		hostname: server.hostname,
+		port: server.port,
+		hooks: {
+			afterResponse: [
+				(response, retryWithMergedOptions) => {
+					if (response.statusCode === 401) {
+						return retryWithMergedOptions({
+							headers: {
+								token: 'unicorn'
+							}
+						});
+					}
+
+					return response;
+				}
+			]
+		}
+	});
+	t.is(statusCode, 200);
+});
+
 test('cancelling the request after retrying in a afterResponse hook', withServer, async (t, server, got) => {
 	let requests = 0;
 	server.get('/', (_request, response) => {
@@ -946,6 +978,7 @@ test('async afterResponse allows to retry with allowGetBody and json payload', w
 		retry: 0,
 		throwHttpErrors: false
 	});
+
 	t.is(statusCode, 200);
 });
 
