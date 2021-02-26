@@ -897,6 +897,8 @@ Default: `[]`
 
 Called with an `Error` instance. The error is passed to the hook right before it's thrown. This is especially useful when you want to have more detailed errors.
 
+**Note:** `RequestError` instances have an `ownContext` property. By default, it is `undefined`. You can freely modify it to gather any data you need to catch.
+
 **Note:** Errors thrown while normalizing input options are thrown directly and not part of this hook.
 
 ```js

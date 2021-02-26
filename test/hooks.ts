@@ -265,6 +265,27 @@ test('catches beforeError errors', async t => {
 	}), {message: errorString});
 });
 
+test('errors have their own context', async t => {
+	const error = await t.throwsAsync<RequestError>(got('https://example.com', {
+		request: () => {
+			throw new Error('No way');
+		},
+		hooks: {
+			beforeError: [
+				error => {
+					error.ownContext = {
+						foo: 'bar'
+					};
+
+					return error;
+				}
+			]
+		}
+	}), {message: errorString});
+
+	t.is(error.ownContext?.foo, 'bar');
+});
+
 test('init is called with options', withServer, async (t, server, got) => {
 	server.get('/', echoHeaders);
 

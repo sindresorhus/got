@@ -1186,6 +1186,7 @@ export class RequestError extends Error {
 	readonly response?: Response;
 	readonly request?: Request;
 	readonly timings?: Timings;
+	ownContext?: Record<string, unknown>;
 
 	constructor(message: string, error: Partial<Error & {code?: string}>, self: Request | NormalizedOptions) {
 		super(message);
