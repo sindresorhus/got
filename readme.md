@@ -519,7 +519,7 @@ This also accepts an `object` with the following fields to constrain the duratio
 - `response` starts when the request has been written to the socket and ends when the response headers are received.
 - `send` starts when the socket is connected and ends with the request has been written to the socket.
 - `request` starts when the request is initiated and ends when the response's `end` event fires.
-- `read` starts when the `response` event is emitted and ends when the response's `end` event fires.
+- ~~`read` starts when the `response` event is emitted and ends when the response's `end` event fires.~~
 
 **Note:** The `read` timeout is blocked by https://github.com/nodejs/node/issues/35923
 
