@@ -11,7 +11,25 @@ All parsing methods supported by Got.
 */
 export type ResponseType = 'json' | 'buffer' | 'text';
 
-export interface PaginationOptions<T, R> {
+export interface FilterData<ElementType> {
+	item: ElementType;
+	allItems: ElementType[];
+	currentItems: ElementType[]
+}
+
+export interface PaginateData<BodyType, ElementType> {
+	response: Response<BodyType>;
+	allItems: ElementType[];
+	currentItems: ElementType[]
+}
+
+export interface ShouldContinueData<ElementType> {
+	item: ElementType;
+	allItems: ElementType[];
+	currentItems: ElementType[]
+}
+
+export interface PaginationOptions<ElementType, BodyType> {
 	/**
 	All options accepted by `got.paginate()`.
 	*/
@@ -22,14 +40,14 @@ export interface PaginationOptions<T, R> {
 
 		@default response => JSON.parse(response.body)
 		*/
-		transform?: (response: Response<R>) => Promise<T[]> | T[];
+		transform?: (response: Response<BodyType>) => Promise<ElementType[]> | ElementType[];
 
 		/**
 		Checks whether the item should be emitted or not.
 
 		@default (item, allItems, currentItems) => true
 		*/
-		filter?: (parameters: {item: T; allItems: T[]; currentItems: T[]}) => boolean;
+		filter?: (parameters: FilterData<ElementType>) => boolean;
 
 		/**
 		The function takes three arguments:
@@ -76,7 +94,7 @@ export interface PaginationOptions<T, R> {
 		})();
 		```
 		*/
-		paginate?: (parameters: {response: Response<R>; allItems: T[]; currentItems: T[]}) => Options | false;
+		paginate?: (parameters: PaginateData<BodyType, ElementType>) => Options | false;
 
 		/**
 		Checks whether the pagination should continue.
@@ -86,7 +104,7 @@ export interface PaginationOptions<T, R> {
 
 		@default (item, allItems, currentItems) => true
 		*/
-		shouldContinue?: (parameters: {item: T; allItems: T[]; currentItems: T[]}) => boolean;
+		shouldContinue?: (parameters: ShouldContinueData<ElementType>) => boolean;
 
 		/**
 		The maximum amount of items that should be emitted.
