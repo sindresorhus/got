@@ -85,11 +85,11 @@ test('filters elements', withServer, async (t, server, got) => {
 
 	const result = await got.paginate.all<number>({
 		pagination: {
-			filter: (element: number, allItems: number[], currentItems: number[]) => {
+			filter: ({item, allItems, currentItems}: {item: number; allItems: number[]; currentItems: number[]}) => {
 				t.true(Array.isArray(allItems));
 				t.true(Array.isArray(currentItems));
 
-				return element !== 2;
+				return item !== 2;
 			}
 		}
 	});
@@ -126,7 +126,7 @@ test('custom paginate function', withServer, async (t, server, got) => {
 
 	const result = await got.paginate.all<number>({
 		pagination: {
-			paginate: response => {
+			paginate: ({response}) => {
 				const url = new URL(response.url);
 
 				if (url.search === '?page=3') {
@@ -148,7 +148,7 @@ test('custom paginate function using allItems', withServer, async (t, server, go
 
 	const result = await got.paginate.all<number>({
 		pagination: {
-			paginate: (_response, allItems: number[]) => {
+			paginate: ({allItems}: {allItems: number[]}) => {
 				if (allItems.length === 2) {
 					return false;
 				}
@@ -166,7 +166,7 @@ test('custom paginate function using currentItems', withServer, async (t, server
 
 	const result = await got.paginate.all<number>({
 		pagination: {
-			paginate: (_response, _allItems: number[], currentItems: number[]) => {
+			paginate: ({currentItems}: {currentItems: number[]}) => {
 				if (currentItems[0] === 3) {
 					return false;
 				}
@@ -208,7 +208,7 @@ test('`shouldContinue` works', withServer, async (t, server, got) => {
 
 	const options = {
 		pagination: {
-			shouldContinue: (_item: unknown, allItems: unknown[], currentItems: unknown[]) => {
+			shouldContinue: ({allItems, currentItems}: {item: unknown; allItems: unknown[]; currentItems: unknown[]}) => {
 				t.true(Array.isArray(allItems));
 				t.true(Array.isArray(currentItems));
 
@@ -357,7 +357,7 @@ test('`hooks` are not duplicated', withServer, async (t, server, got) => {
 
 	const result = await got.paginate.all<number>({
 		pagination: {
-			paginate: response => {
+			paginate: ({response}) => {
 				if ((response.body as string) === '[3]') {
 					return false; // Stop after page 3
 				}
@@ -485,21 +485,21 @@ test('`stackAllItems` set to true', withServer, async (t, server, got) => {
 	const result = await got.paginate.all<number>({
 		pagination: {
 			stackAllItems: true,
-			filter: (_item, allItems, _currentItems) => {
+			filter: ({allItems}) => {
 				t.is(allItems.length, itemCount);
 
 				return true;
 			},
-			shouldContinue: (_item, allItems, _currentItems) => {
+			shouldContinue: ({allItems}) => {
 				t.is(allItems.length, itemCount);
 
 				return true;
 			},
-			paginate: (response, allItems, currentItems) => {
+			paginate: ({response, allItems, currentItems}) => {
 				itemCount += 1;
 				t.is(allItems.length, itemCount);
 
-				return got.defaults.options.pagination!.paginate(response, allItems, currentItems);
+				return got.defaults.options.pagination!.paginate({response, allItems, currentItems});
 			}
 		}
 	});
@@ -513,20 +513,20 @@ test('`stackAllItems` set to false', withServer, async (t, server, got) => {
 	const result = await got.paginate.all<number>({
 		pagination: {
 			stackAllItems: false,
-			filter: (_item, allItems, _currentItems) => {
+			filter: ({allItems}) => {
 				t.is(allItems.length, 0);
 
 				return true;
 			},
-			shouldContinue: (_item, allItems, _currentItems) => {
+			shouldContinue: ({allItems}) => {
 				t.is(allItems.length, 0);
 
 				return true;
 			},
-			paginate: (response, allItems, currentItems) => {
+			paginate: ({response, allItems, currentItems}) => {
 				t.is(allItems.length, 0);
 
-				return got.defaults.options.pagination!.paginate(response, allItems, currentItems);
+				return got.defaults.options.pagination!.paginate({response, allItems, currentItems});
 			}
 		}
 	});
@@ -559,7 +559,7 @@ test('next url in json response', withServer, async (t, server, got) => {
 			transform: (response: Response<Page>) => {
 				return [response.body.currentUrl];
 			},
-			paginate: (response: Response<Page>) => {
+			paginate: ({response}: {response: Response<Page>}) => {
 				const {next} = response.body;
 
 				if (!next) {
@@ -608,7 +608,7 @@ test('pagination using searchParams', withServer, async (t, server, got) => {
 			transform: (response: Response<Page>) => {
 				return [response.body.currentUrl];
 			},
-			paginate: (response: Response<Page>) => {
+			paginate: ({response}: {response: Response<Page>}) => {
 				const {next} = response.body;
 				const previousPage = Number(response.request.options.searchParams!.get('page'));
 
@@ -664,7 +664,7 @@ test('pagination using extended searchParams', withServer, async (t, server, got
 			transform: (response: Response<Page>) => {
 				return [response.body.currentUrl];
 			},
-			paginate: (response: Response<Page>) => {
+			paginate: ({response}: {response: Response<Page>}) => {
 				const {next} = response.body;
 				const previousPage = Number(response.request.options.searchParams!.get('page'));
 

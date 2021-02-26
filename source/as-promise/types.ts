@@ -29,7 +29,7 @@ export interface PaginationOptions<T, R> {
 
 		@default (item, allItems, currentItems) => true
 		*/
-		filter?: (item: T, allItems: T[], currentItems: T[]) => boolean;
+		filter?: (parameters: {item: T; allItems: T[]; currentItems: T[]}) => boolean;
 
 		/**
 		The function takes three arguments:
@@ -76,7 +76,7 @@ export interface PaginationOptions<T, R> {
 		})();
 		```
 		*/
-		paginate?: (response: Response<R>, allItems: T[], currentItems: T[]) => Options | false;
+		paginate?: (parameters: {response: Response<R>; allItems: T[]; currentItems: T[]}) => Options | false;
 
 		/**
 		Checks whether the pagination should continue.
@@ -86,7 +86,7 @@ export interface PaginationOptions<T, R> {
 
 		@default (item, allItems, currentItems) => true
 		*/
-		shouldContinue?: (item: T, allItems: T[], currentItems: T[]) => boolean;
+		shouldContinue?: (parameters: {item: T; allItems: T[]; currentItems: T[]}) => boolean;
 
 		/**
 		The maximum amount of items that should be emitted.
