@@ -13,11 +13,12 @@ interface TimedOutOptions {
 
 export interface Delays {
 	lookup?: number;
+	socket?: number;
 	connect?: number;
 	secureConnect?: number;
-	socket?: number;
-	response?: number;
 	send?: number;
+	response?: number;
+	read?: number;
 	request?: number;
 }
 
@@ -89,14 +90,12 @@ export default (request: ClientRequest, delays: Delays, options: TimedOutOptions
 		}
 	});
 
-	request.once('close', cancelTimeouts);
-
-	once(request, 'response', (response: IncomingMessage): void => {
-		once(response, 'end', cancelTimeouts);
-	});
-
 	if (typeof delays.request !== 'undefined') {
-		addTimeout(delays.request, timeoutHandler, 'request');
+		const cancelTimeout = addTimeout(delays.request, timeoutHandler, 'request');
+
+		once(request, 'response', (response: IncomingMessage): void => {
+			once(response, 'end', cancelTimeout);
+		});
 	}
 
 	if (typeof delays.socket !== 'undefined') {
@@ -165,6 +164,13 @@ export default (request: ClientRequest, delays: Delays, options: TimedOutOptions
 		once(request, 'upload-complete', (): void => {
 			const cancelTimeout = addTimeout(delays.response!, timeoutHandler, 'response');
 			once(request, 'response', cancelTimeout);
+		});
+	}
+
+	if (typeof delays.read !== 'undefined') {
+		once(request, 'response', (response: IncomingMessage): void => {
+			const cancelTimeout = addTimeout(delays.read!, timeoutHandler, 'read');
+			once(response, 'end', cancelTimeout);
 		});
 	}
 
