@@ -11,6 +11,7 @@ import * as FormData from 'form-data';
 import is from '@sindresorhus/is';
 import got, {RequestError} from '../source/index';
 import withServer from './helpers/with-server';
+import delay = require('delay');
 
 const pStreamPipeline = promisify(stream.pipeline);
 
@@ -417,6 +418,22 @@ test('async iterator works', withServer, async (t, server, got) => {
 	}
 
 	t.is(Buffer.concat(chunks).toString(), payload);
+});
+
+test('destroys only once', async t => {
+	const stream = got.stream('https://example.com');
+	stream.destroy();
+	stream.destroy(new Error('oh no'));
+
+	let errored = false;
+
+	stream.once('error', () => {
+		errored = true;
+	});
+
+	await delay(1);
+
+	t.false(errored);
 });
 
 if (Number.parseInt(process.versions.node.split('.')[0]!, 10) <= 12) {

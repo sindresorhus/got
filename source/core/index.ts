@@ -15,6 +15,7 @@ import http2wrapper = require('http2-wrapper');
 import lowercaseKeys = require('lowercase-keys');
 import ResponseLike = require('responselike');
 import is, {assert} from '@sindresorhus/is';
+import applyDestroyPatch from './utils/apply-destroy-patch';
 import getBodySize from './utils/get-body-size';
 import isFormData from './utils/is-form-data';
 import proxyEvents from './utils/proxy-events';
@@ -1378,6 +1379,9 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			// It needs to be zero because we're just proxying the data to another stream
 			highWaterMark: 0
 		});
+
+		// TODO: Remove this when targeting Node.js 14
+		applyDestroyPatch(this);
 
 		this[kDownloadedSize] = 0;
 		this[kUploadedSize] = 0;
