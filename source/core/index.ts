@@ -206,7 +206,7 @@ interface PlainHooks {
 	got.post('https://example.com', {
 		hooks: {
 			beforeRetry: [
-				(options, retryCount, error) => {
+				(options, error, retryCount) => {
 					if (error.response.statusCode === 413) { // Payload too large
 						options.body = getNewBody();
 					}
