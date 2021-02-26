@@ -940,6 +940,7 @@ test('async afterResponse allows to retry with allowGetBody and json payload', w
 		retry: 0,
 		throwHttpErrors: false
 	});
+
 	t.is(statusCode, 200);
 });
 
