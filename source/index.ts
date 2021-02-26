@@ -77,7 +77,7 @@ const defaults: InstanceDefaults = {
 
 				return JSON.parse(response.body as string);
 			},
-			paginate: response => {
+			paginate: ({response}) => {
 				if (!Reflect.has(response.headers, 'link')) {
 					return false;
 				}

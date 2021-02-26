@@ -225,7 +225,7 @@ const create = (defaults: InstanceDefaults): Got => {
 			throw new TypeError('`options.pagination` must be implemented');
 		}
 
-		const all: T[] = [];
+		const allItems: T[] = [];
 		let {countLimit} = pagination;
 
 		let numberOfRequests = 0;
@@ -236,27 +236,27 @@ const create = (defaults: InstanceDefaults): Got => {
 			}
 
 			// @ts-expect-error FIXME!
-			// TODO: Throw when result is not an instance of Response
+			// TODO: Throw when response is not an instance of Response
 			// eslint-disable-next-line no-await-in-loop
-			const result = (await got(undefined, undefined, normalizedOptions)) as Response;
+			const response = (await got(undefined, undefined, normalizedOptions)) as Response;
 
 			// eslint-disable-next-line no-await-in-loop
-			const parsed = await pagination.transform(result);
-			const current: T[] = [];
+			const parsed = await pagination.transform(response);
+			const currentItems: T[] = [];
 
 			for (const item of parsed) {
-				if (pagination.filter(item, all, current)) {
-					if (!pagination.shouldContinue(item, all, current)) {
+				if (pagination.filter({item, allItems, currentItems})) {
+					if (!pagination.shouldContinue({item, allItems, currentItems})) {
 						return;
 					}
 
 					yield item as T;
 
 					if (pagination.stackAllItems) {
-						all.push(item as T);
+						allItems.push(item as T);
 					}
 
-					current.push(item as T);
+					currentItems.push(item as T);
 
 					if (--countLimit <= 0) {
 						return;
@@ -264,14 +264,18 @@ const create = (defaults: InstanceDefaults): Got => {
 				}
 			}
 
-			const optionsToMerge = pagination.paginate(result, all, current);
+			const optionsToMerge = pagination.paginate({
+				response,
+				allItems,
+				currentItems
+			});
 
 			if (optionsToMerge === false) {
 				return;
 			}
 
-			if (optionsToMerge === result.request.options) {
-				normalizedOptions = result.request.options;
+			if (optionsToMerge === response.request.options) {
+				normalizedOptions = response.request.options;
 			} else if (optionsToMerge !== undefined) {
 				normalizedOptions = normalizeArguments(undefined, optionsToMerge, normalizedOptions);
 			}

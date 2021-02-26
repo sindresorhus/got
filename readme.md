@@ -937,7 +937,7 @@ A function that transform [`Response`](#response) into an array of items. This i
 Type: `Function`\
 Default: [`Link` header logic](source/index.ts)
 
-The function takes three arguments:
+The function takes an object with the following properties:
 - `response` - The current response object.
 - `allItems` - An array of the emitted items.
 - `currentItems` - Items from the current response.
@@ -958,7 +958,7 @@ const got = require('got');
 			offset: 0
 		},
 		pagination: {
-			paginate: (response, allItems, currentItems) => {
+			paginate: ({response, allItems, currentItems}) => {
 				const previousSearchParams = response.request.options.searchParams;
 				const previousOffset = previousSearchParams.get('offset');
 
@@ -983,18 +983,18 @@ const got = require('got');
 ###### pagination.filter
 
 Type: `Function`\
-Default: `(item, allItems, currentItems) => true`
+Default: `({item, allItems, currentItems}) => true`
 
 Checks whether the item should be emitted or not.
 
 ###### pagination.shouldContinue
 
 Type: `Function`\
-Default: `(item, allItems, currentItems) => true`
+Default: `({item, allItems, currentItems}) => true`
 
 Checks whether the pagination should continue.
 
-For example, if you need to stop **before** emitting an entry with some flag, you should use `(item, allItems, currentItems) => !item.flag`. If you want to stop **after** emitting the entry, you should use `(item, allItems, currentItems) => allItems.some(entry => entry.flag)` instead.
+For example, if you need to stop **before** emitting an entry with some flag, you should use `({item}) => !item.flag`. If you want to stop **after** emitting the entry, you should use `({item, allItems}) => allItems.some(item => item.flag)` instead.
 
 ###### pagination.countLimit
 

@@ -11,7 +11,19 @@ All parsing methods supported by Got.
 */
 export type ResponseType = 'json' | 'buffer' | 'text';
 
-export interface PaginationOptions<T, R> {
+export interface PaginateData<BodyType, ElementType> {
+	response: Response<BodyType>;
+	allItems: ElementType[];
+	currentItems: ElementType[];
+}
+
+export interface FilterData<ElementType> {
+	item: ElementType;
+	allItems: ElementType[];
+	currentItems: ElementType[];
+}
+
+export interface PaginationOptions<ElementType, BodyType> {
 	/**
 	All options accepted by `got.paginate()`.
 	*/
@@ -22,17 +34,17 @@ export interface PaginationOptions<T, R> {
 
 		@default response => JSON.parse(response.body)
 		*/
-		transform?: (response: Response<R>) => Promise<T[]> | T[];
+		transform?: (response: Response<BodyType>) => Promise<ElementType[]> | ElementType[];
 
 		/**
 		Checks whether the item should be emitted or not.
 
-		@default (item, allItems, currentItems) => true
+		@default ({item, allItems, currentItems}) => true
 		*/
-		filter?: (item: T, allItems: T[], currentItems: T[]) => boolean;
+		filter?: (data: FilterData<ElementType>) => boolean;
 
 		/**
-		The function takes three arguments:
+		The function takes an object with the following properties:
 		- `response` - The current response object.
 		- `allItems` - An array of the emitted items.
 		- `currentItems` - Items from the current response.
@@ -76,17 +88,19 @@ export interface PaginationOptions<T, R> {
 		})();
 		```
 		*/
-		paginate?: (response: Response<R>, allItems: T[], currentItems: T[]) => Options | false;
+		paginate?: (data: PaginateData<BodyType, ElementType>) => Options | false;
 
 		/**
 		Checks whether the pagination should continue.
 
-		For example, if you need to stop **before** emitting an entry with some flag, you should use `(item, allItems, currentItems) => !item.flag`.
-		If you want to stop **after** emitting the entry, you should use `(item, allItems, currentItems) => allItems.some(entry => entry.flag)` instead.
+		For example, if you need to stop **before** emitting an entry with some flag, you should use `({item}) => !item.flag`.
 
-		@default (item, allItems, currentItems) => true
+		If you want to stop **after** emitting the entry, you should use
+		`({item, allItems}) => allItems.some(item => item.flag)` instead.
+
+		@default ({item, allItems, currentItems}) => true
 		*/
-		shouldContinue?: (item: T, allItems: T[], currentItems: T[]) => boolean;
+		shouldContinue?: (data: FilterData<ElementType>) => boolean;
 
 		/**
 		The maximum amount of items that should be emitted.
