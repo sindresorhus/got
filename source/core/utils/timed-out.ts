@@ -19,7 +19,6 @@ export interface Delays {
 	send?: number;
 	response?: number;
 	read?: number;
-
 	request?: number;
 }
 
