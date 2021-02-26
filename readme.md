@@ -699,7 +699,7 @@ If set to `true`, Got will additionally accept HTTP2 requests.
 
 It will choose either HTTP/1.1 or HTTP/2 depending on the ALPN protocol.
 
-**Note:** This option requires Node.js 15 or later as HTTP2 support on older Node.js versions are very buggy.
+**Note:** This option requires Node.js 15.10.0 or newer as HTTP/2 support on older Node.js versions is very buggy.
 
 **Note:** Overriding `options.request` will disable HTTP2 support.
 
@@ -2187,42 +2187,43 @@ The Electron `net` module is not consistent with the Node.js `http` module. See 
 
 ## Comparison
 
-|                       | `got`              | [`request`][r0]    | [`node-fetch`][n0]   | [`ky`][k0]               | [`axios`][a0]      | [`superagent`][s0]     |
-|-----------------------|:------------------:|:------------------:|:--------------------:|:------------------------:|:------------------:|:----------------------:|
-| HTTP/2 support        | :sparkle:          | :x:                | :x:                  | :x:                      | :x:                | :heavy_check_mark:\*\* |
-| Browser support       | :x:                | :x:                | :heavy_check_mark:\* | :heavy_check_mark:       | :heavy_check_mark: | :heavy_check_mark:     |
-| Promise API           | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark:   | :heavy_check_mark:       | :heavy_check_mark: | :heavy_check_mark:     |
-| Stream API            | :heavy_check_mark: | :heavy_check_mark: | Node.js only         | :x:                      | :x:                | :heavy_check_mark:     |
-| Pagination API        | :heavy_check_mark: | :x:                | :x:                  | :x:                      | :x:                | :x:                    |
-| Request cancelation   | :heavy_check_mark: | :x:                | :heavy_check_mark:   | :heavy_check_mark:       | :heavy_check_mark: | :heavy_check_mark:     |
-| RFC compliant caching | :heavy_check_mark: | :x:                | :x:                  | :x:                      | :x:                | :x:                    |
-| Cookies (out-of-box)  | :heavy_check_mark: | :heavy_check_mark: | :x:                  | :x:                      | :x:                | :x:                    |
-| Follows redirects     | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark:   | :heavy_check_mark:       | :heavy_check_mark: | :heavy_check_mark:     |
-| Retries on failure    | :heavy_check_mark: | :x:                | :x:                  | :heavy_check_mark:       | :x:                | :heavy_check_mark:     |
-| Progress events       | :heavy_check_mark: | :x:                | :x:                  | :heavy_check_mark:\*\*\* | Browser only       | :heavy_check_mark:     |
-| Handles gzip/deflate  | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark:   | :heavy_check_mark:       | :heavy_check_mark: | :heavy_check_mark:     |
-| Advanced timeouts     | :heavy_check_mark: | :x:                | :x:                  | :x:                      | :x:                | :x:                    |
-| Timings               | :heavy_check_mark: | :heavy_check_mark: | :x:                  | :x:                      | :x:                | :x:                    |
-| Errors with metadata  | :heavy_check_mark: | :x:                | :x:                  | :heavy_check_mark:       | :heavy_check_mark: | :x:                    |
-| JSON mode             | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark:   | :heavy_check_mark:       | :heavy_check_mark: | :heavy_check_mark:     |
-| Custom defaults       | :heavy_check_mark: | :heavy_check_mark: | :x:                  | :heavy_check_mark:       | :heavy_check_mark: | :x:                    |
-| Composable            | :heavy_check_mark: | :x:                | :x:                  | :x:                      | :x:                | :heavy_check_mark:     |
-| Hooks                 | :heavy_check_mark: | :x:                | :x:                  | :heavy_check_mark:       | :heavy_check_mark: | :x:                    |
-| Issues open           | [![][gio]][g1]     | [![][rio]][r1]     | [![][nio]][n1]       | [![][kio]][k1]           | [![][aio]][a1]     | [![][sio]][s1]         |
-| Issues closed         | [![][gic]][g2]     | [![][ric]][r2]     | [![][nic]][n2]       | [![][kic]][k2]           | [![][aic]][a2]     | [![][sic]][s2]         |
-| Downloads             | [![][gd]][g3]      | [![][rd]][r3]      | [![][nd]][n3]        | [![][kd]][k3]            | [![][ad]][a3]      | [![][sd]][s3]          |
-| Coverage              | [![][gc]][g4]      | [![][rc]][r4]      | [![][nc]][n4]        | [![][kc]][k4]            | [![][ac]][a4]      | [![][sc]][s4]          |
-| Build                 | [![][gb]][g5]      | [![][rb]][r5]      | [![][nb]][n5]        | [![][kb]][k5]            | [![][ab]][a5]      | [![][sb]][s5]          |
-| Bugs                  | [![][gbg]][g6]     | [![][rbg]][r6]     | [![][nbg]][n6]       | [![][kbg]][k6]           | [![][abg]][a6]     | [![][sbg]][s6]         |
-| Dependents            | [![][gdp]][g7]     | [![][rdp]][r7]     | [![][ndp]][n7]       | [![][kdp]][k7]           | [![][adp]][a7]     | [![][sdp]][s7]         |
-| Install size          | [![][gis]][g8]     | [![][ris]][r8]     | [![][nis]][n8]       | [![][kis]][k8]           | [![][ais]][a8]     | [![][sis]][s8]         |
-| GitHub stars          | [![][gs]][g9]      | [![][rs]][r9]      | [![][ns]][n9]        | [![][ks]][k9]            | [![][as]][a9]      | [![][ss]][s9]          |
-| TypeScript support    | [![][gts]][g10]    | [![][rts]][r10]    | [![][nts]][n10]      | [![][kts]][k10]          | [![][ats]][a10]    | [![][sts]][s11]        |
-| Last commit           | [![][glc]][g11]    | [![][rlc]][r11]    | [![][nlc]][n11]      | [![][klc]][k11]          | [![][alc]][a11]    | [![][slc]][s11]        |
+|                       | `got`               | [`request`][r0]    | [`node-fetch`][n0]   | [`ky`][k0]               | [`axios`][a0]      | [`superagent`][s0]     |
+|-----------------------|:-------------------:|:------------------:|:--------------------:|:------------------------:|:------------------:|:----------------------:|
+| HTTP/2 support        | :heavy_check_mark:¹ | :x:                | :x:                  | :x:                      | :x:                | :heavy_check_mark:\*\* |
+| Browser support       | :x:                 | :x:                | :heavy_check_mark:\* | :heavy_check_mark:       | :heavy_check_mark: | :heavy_check_mark:     |
+| Promise API           | :heavy_check_mark:  | :heavy_check_mark: | :heavy_check_mark:   | :heavy_check_mark:       | :heavy_check_mark: | :heavy_check_mark:     |
+| Stream API            | :heavy_check_mark:  | :heavy_check_mark: | Node.js only         | :x:                      | :x:                | :heavy_check_mark:     |
+| Pagination API        | :heavy_check_mark:  | :x:                | :x:                  | :x:                      | :x:                | :x:                    |
+| Request cancelation   | :heavy_check_mark:  | :x:                | :heavy_check_mark:   | :heavy_check_mark:       | :heavy_check_mark: | :heavy_check_mark:     |
+| RFC compliant caching | :heavy_check_mark:  | :x:                | :x:                  | :x:                      | :x:                | :x:                    |
+| Cookies (out-of-box)  | :heavy_check_mark:  | :heavy_check_mark: | :x:                  | :x:                      | :x:                | :x:                    |
+| Follows redirects     | :heavy_check_mark:  | :heavy_check_mark: | :heavy_check_mark:   | :heavy_check_mark:       | :heavy_check_mark: | :heavy_check_mark:     |
+| Retries on failure    | :heavy_check_mark:  | :x:                | :x:                  | :heavy_check_mark:       | :x:                | :heavy_check_mark:     |
+| Progress events       | :heavy_check_mark:  | :x:                | :x:                  | :heavy_check_mark:\*\*\* | Browser only       | :heavy_check_mark:     |
+| Handles gzip/deflate  | :heavy_check_mark:  | :heavy_check_mark: | :heavy_check_mark:   | :heavy_check_mark:       | :heavy_check_mark: | :heavy_check_mark:     |
+| Advanced timeouts     | :heavy_check_mark:  | :x:                | :x:                  | :x:                      | :x:                | :x:                    |
+| Timings               | :heavy_check_mark:  | :heavy_check_mark: | :x:                  | :x:                      | :x:                | :x:                    |
+| Errors with metadata  | :heavy_check_mark:  | :x:                | :x:                  | :heavy_check_mark:       | :heavy_check_mark: | :x:                    |
+| JSON mode             | :heavy_check_mark:  | :heavy_check_mark: | :heavy_check_mark:   | :heavy_check_mark:       | :heavy_check_mark: | :heavy_check_mark:     |
+| Custom defaults       | :heavy_check_mark:  | :heavy_check_mark: | :x:                  | :heavy_check_mark:       | :heavy_check_mark: | :x:                    |
+| Composable            | :heavy_check_mark:  | :x:                | :x:                  | :x:                      | :x:                | :heavy_check_mark:     |
+| Hooks                 | :heavy_check_mark:  | :x:                | :x:                  | :heavy_check_mark:       | :heavy_check_mark: | :x:                    |
+| Issues open           | [![][gio]][g1]      | [![][rio]][r1]     | [![][nio]][n1]       | [![][kio]][k1]           | [![][aio]][a1]     | [![][sio]][s1]         |
+| Issues closed         | [![][gic]][g2]      | [![][ric]][r2]     | [![][nic]][n2]       | [![][kic]][k2]           | [![][aic]][a2]     | [![][sic]][s2]         |
+| Downloads             | [![][gd]][g3]       | [![][rd]][r3]      | [![][nd]][n3]        | [![][kd]][k3]            | [![][ad]][a3]      | [![][sd]][s3]          |
+| Coverage              | [![][gc]][g4]       | [![][rc]][r4]      | [![][nc]][n4]        | [![][kc]][k4]            | [![][ac]][a4]      | [![][sc]][s4]          |
+| Build                 | [![][gb]][g5]       | [![][rb]][r5]      | [![][nb]][n5]        | [![][kb]][k5]            | [![][ab]][a5]      | [![][sb]][s5]          |
+| Bugs                  | [![][gbg]][g6]      | [![][rbg]][r6]     | [![][nbg]][n6]       | [![][kbg]][k6]           | [![][abg]][a6]     | [![][sbg]][s6]         |
+| Dependents            | [![][gdp]][g7]      | [![][rdp]][r7]     | [![][ndp]][n7]       | [![][kdp]][k7]           | [![][adp]][a7]     | [![][sdp]][s7]         |
+| Install size          | [![][gis]][g8]      | [![][ris]][r8]     | [![][nis]][n8]       | [![][kis]][k8]           | [![][ais]][a8]     | [![][sis]][s8]         |
+| GitHub stars          | [![][gs]][g9]       | [![][rs]][r9]      | [![][ns]][n9]        | [![][ks]][k9]            | [![][as]][a9]      | [![][ss]][s9]          |
+| TypeScript support    | [![][gts]][g10]     | [![][rts]][r10]    | [![][nts]][n10]      | [![][kts]][k10]          | [![][ats]][a10]    | [![][sts]][s11]        |
+| Last commit           | [![][glc]][g11]     | [![][rlc]][r11]    | [![][nlc]][n11]      | [![][klc]][k11]          | [![][alc]][a11]    | [![][slc]][s11]        |
 
 \* It's almost API compatible with the browser `fetch` API.\
 \*\* Need to switch the protocol manually. Doesn't accept PUSH streams and doesn't reuse HTTP/2 sessions.\
 \*\*\* Currently, only `DownloadProgress` event is supported, `UploadProgress` event is not supported.\
+¹ Requires Node.js 15.10.0 or above.
 :sparkle: Almost-stable feature, but the API may change. Don't hesitate to try it out!\
 :grey_question: Feature in early stage of development. Very experimental.
 

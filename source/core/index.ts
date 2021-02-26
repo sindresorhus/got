@@ -11,8 +11,7 @@ import timer, {ClientRequestWithTimings, Timings, IncomingMessageWithTimings} fr
 import CacheableLookup from 'cacheable-lookup';
 import * as CacheableRequest from 'cacheable-request';
 import decompressResponse = require('decompress-response');
-// @ts-expect-error Missing types
-import * as http2wrapper from 'http2-wrapper';
+import http2wrapper = require('http2-wrapper');
 import lowercaseKeys = require('lowercase-keys');
 import ResponseLike = require('responselike');
 import is, {assert} from '@sindresorhus/is';
@@ -30,6 +29,8 @@ import deprecationWarning from '../utils/deprecation-warning';
 import normalizePromiseArguments from '../as-promise/normalize-arguments';
 import {PromiseOnly} from '../as-promise/types';
 import calculateRetryDelay from './calculate-retry-delay';
+
+const [major, minor] = process.versions.node.split('.').map(x => Number(x)) as [number, number, number];
 
 let globalDnsCache: CacheableLookup;
 
@@ -600,7 +601,7 @@ interface PlainOptions extends URLOptions {
 
 	It will choose either HTTP/1.1 or HTTP/2 depending on the ALPN protocol.
 
-	__Note__: This option requires Node.js 15 or later as HTTP2 support on older Node.js versions are very buggy.
+	__Note__: This option requires Node.js 15.10.0 or newer as HTTP/2 support on older Node.js versions is very buggy.
 
 	__Note__: Overriding `options.request` will disable HTTP2 support.
 
@@ -2342,6 +2343,11 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		// Fallback function
 		let fallbackFn: HttpRequestFunction;
 		if (options.http2) {
+			if (major < 15 || (major === 15 && minor < 10)) {
+				throw new Error('To use the `http2` option, install Node.js 15.10.0 or above');
+			}
+
+			// @ts-expect-error TS bug?
 			fallbackFn = http2wrapper.auto;
 		} else {
 			fallbackFn = isHttps ? https.request : http.request;

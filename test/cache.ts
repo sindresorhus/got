@@ -349,7 +349,19 @@ test('works with http2', async t => {
 		cache
 	});
 
-	await t.notThrowsAsync(client('https://httpbin.org/anything'));
+	try {
+		await client('https://httpbin.org/anything');
+
+		t.pass();
+	} catch (error) {
+		if (error.message.includes('install Node.js')) {
+			t.pass();
+
+			return;
+		}
+
+		t.fail(error);
+	}
 });
 
 test('http-cache-semantics typings', t => {
