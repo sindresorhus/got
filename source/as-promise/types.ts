@@ -13,14 +13,14 @@ export type ResponseType = 'json' | 'buffer' | 'text';
 
 export interface PaginateData<BodyType, ElementType> {
 	response: Response<BodyType>;
-	allItems: ElementType[];
 	currentItems: ElementType[];
+	allItems: ElementType[];
 }
 
 export interface FilterData<ElementType> {
 	item: ElementType;
-	allItems: ElementType[];
 	currentItems: ElementType[];
+	allItems: ElementType[];
 }
 
 export interface PaginationOptions<ElementType, BodyType> {
@@ -39,15 +39,15 @@ export interface PaginationOptions<ElementType, BodyType> {
 		/**
 		Checks whether the item should be emitted or not.
 
-		@default ({item, allItems, currentItems}) => true
+		@default ({item, currentItems, allItems}) => true
 		*/
 		filter?: (data: FilterData<ElementType>) => boolean;
 
 		/**
 		The function takes an object with the following properties:
 		- `response` - The current response object.
-		- `allItems` - An array of the emitted items if `pagination.stackAllItems` is set to `true`. An empty array otherwise.
 		- `currentItems` - Items from the current response.
+		- `allItems` - An array of the emitted items if `pagination.stackAllItems` is set to `true`. An empty array otherwise.
 
 		It should return an object representing Got options pointing to the next page.
 		The options are merged automatically with the previous request, therefore the options returned `pagination.paginate(...)` must reflect changes only.
@@ -66,7 +66,7 @@ export interface PaginationOptions<ElementType, BodyType> {
 					offset: 0
 				},
 				pagination: {
-					paginate: (response, allItems, currentItems) => {
+					paginate: ({response, currentItems}) => {
 						const previousSearchParams = response.request.options.searchParams;
 						const previousOffset = previousSearchParams.get('offset');
 
@@ -98,7 +98,7 @@ export interface PaginationOptions<ElementType, BodyType> {
 		If you want to stop **after** emitting the entry, you should use
 		`({item, allItems}) => allItems.some(item => item.flag)` instead.
 
-		@default ({item, allItems, currentItems}) => true
+		@default ({item, currentItems, allItems}) => true
 		*/
 		shouldContinue?: (data: FilterData<ElementType>) => boolean;
 
