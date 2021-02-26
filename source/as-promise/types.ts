@@ -14,19 +14,19 @@ export type ResponseType = 'json' | 'buffer' | 'text';
 export interface FilterData<ElementType> {
 	item: ElementType;
 	allItems: ElementType[];
-	currentItems: ElementType[]
+	currentItems: ElementType[];
 }
 
 export interface PaginateData<BodyType, ElementType> {
 	response: Response<BodyType>;
 	allItems: ElementType[];
-	currentItems: ElementType[]
+	currentItems: ElementType[];
 }
 
 export interface ShouldContinueData<ElementType> {
 	item: ElementType;
 	allItems: ElementType[];
-	currentItems: ElementType[]
+	currentItems: ElementType[];
 }
 
 export interface PaginationOptions<ElementType, BodyType> {
