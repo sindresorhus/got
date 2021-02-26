@@ -17,6 +17,12 @@ export interface PaginateData<BodyType, ElementType> {
 	currentItems: ElementType[];
 }
 
+export interface FilterData<ElementType> {
+	item: ElementType;
+	allItems: ElementType[];
+	currentItems: ElementType[];
+}
+
 export interface PaginationOptions<ElementType, BodyType> {
 	/**
 	All options accepted by `got.paginate()`.
@@ -33,9 +39,9 @@ export interface PaginationOptions<ElementType, BodyType> {
 		/**
 		Checks whether the item should be emitted or not.
 
-		@default (item, allItems, currentItems) => true
+		@default ({item, allItems, currentItems}) => true
 		*/
-		filter?: (item: ElementType, allItems: ElementType[], currentItems: ElementType[]) => boolean;
+		filter?: (data: FilterData<ElementType>) => boolean;
 
 		/**
 		The function takes an object with the following properties:
@@ -82,17 +88,19 @@ export interface PaginationOptions<ElementType, BodyType> {
 		})();
 		```
 		*/
-		paginate?: (paginate: PaginateData<BodyType, ElementType>) => Options | false;
+		paginate?: (data: PaginateData<BodyType, ElementType>) => Options | false;
 
 		/**
 		Checks whether the pagination should continue.
 
-		For example, if you need to stop **before** emitting an entry with some flag, you should use `(item, allItems, currentItems) => !item.flag`.
-		If you want to stop **after** emitting the entry, you should use `(item, allItems, currentItems) => allItems.some(entry => entry.flag)` instead.
+		For example, if you need to stop **before** emitting an entry with some flag, you should use `({item}) => !item.flag`.
 
-		@default (item, allItems, currentItems) => true
+		If you want to stop **after** emitting the entry, you should use
+		`({item, allItems}) => allItems.some(item => item.flag)` instead.
+
+		@default ({item, allItems, currentItems}) => true
 		*/
-		shouldContinue?: (item: ElementType, allItems: ElementType[], currentItems: ElementType[]) => boolean;
+		shouldContinue?: (data: FilterData<ElementType>) => boolean;
 
 		/**
 		The maximum amount of items that should be emitted.

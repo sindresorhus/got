@@ -85,11 +85,11 @@ test('filters elements', withServer, async (t, server, got) => {
 
 	const result = await got.paginate.all<number>({
 		pagination: {
-			filter: (element: number, allItems: number[], currentItems: number[]) => {
+			filter: ({item, allItems, currentItems}) => {
 				t.true(Array.isArray(allItems));
 				t.true(Array.isArray(currentItems));
 
-				return element !== 2;
+				return item !== 2;
 			}
 		}
 	});
@@ -209,7 +209,7 @@ test('`shouldContinue` works', withServer, async (t, server, got) => {
 
 	const options = {
 		pagination: {
-			shouldContinue: (_item: unknown, allItems: unknown[], currentItems: unknown[]) => {
+			shouldContinue: ({allItems, currentItems}: {allItems: number[]; currentItems: number[]}) => {
 				t.true(Array.isArray(allItems));
 				t.true(Array.isArray(currentItems));
 
@@ -486,12 +486,12 @@ test('`stackAllItems` set to true', withServer, async (t, server, got) => {
 	const result = await got.paginate.all<number>({
 		pagination: {
 			stackAllItems: true,
-			filter: (_item, allItems, _currentItems) => {
+			filter: ({allItems}) => {
 				t.is(allItems.length, itemCount);
 
 				return true;
 			},
-			shouldContinue: (_item, allItems, _currentItems) => {
+			shouldContinue: ({allItems}) => {
 				t.is(allItems.length, itemCount);
 
 				return true;
@@ -514,12 +514,12 @@ test('`stackAllItems` set to false', withServer, async (t, server, got) => {
 	const result = await got.paginate.all<number>({
 		pagination: {
 			stackAllItems: false,
-			filter: (_item, allItems, _currentItems) => {
+			filter: ({allItems}) => {
 				t.is(allItems.length, 0);
 
 				return true;
 			},
-			shouldContinue: (_item, allItems, _currentItems) => {
+			shouldContinue: ({allItems}) => {
 				t.is(allItems.length, 0);
 
 				return true;

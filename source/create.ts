@@ -245,8 +245,8 @@ const create = (defaults: InstanceDefaults): Got => {
 			const currentItems: T[] = [];
 
 			for (const item of parsed) {
-				if (pagination.filter(item, allItems, currentItems)) {
-					if (!pagination.shouldContinue(item, allItems, currentItems)) {
+				if (pagination.filter({item, allItems, currentItems})) {
+					if (!pagination.shouldContinue({item, allItems, currentItems})) {
 						return;
 					}
 
