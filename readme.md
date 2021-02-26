@@ -940,7 +940,7 @@ Default: [`Link` header logic](source/index.ts)
 The function takes an object with the following properties:
 - `response` - The current response object.
 - `currentItems` - Items from the current response.
-- `allItems` - An empty array, unless when [pagination.stackAllItems](#pagination.stackAllItems) is set to `true`. In the later case, an array of the emitted items.
+- `allItems` - An empty array, unless when [`pagination.stackAllItems`](#pagination.stackAllItems) is set to `true`. In the later case, an array of the emitted items.
 
 It should return an object representing Got options pointing to the next page. The options are merged automatically with the previous request, therefore the options returned `pagination.paginate(...)` must reflect changes only. If there are no more pages, `false` should be returned.
 
