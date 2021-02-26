@@ -1024,7 +1024,7 @@ For example, it can be helpful during development to avoid an infinite number of
 Type: `boolean`\
 Default: `false`
 
-Defines how the property `allItems` in [pagination.paginate](#pagination.paginate), [pagination.filter](#pagination.filter) and [pagination.shouldContinue](#pagination.shouldContinue) is managed.
+Defines how the property `allItems` in [`pagination.paginate`](#pagination.paginate), [`pagination.filter`](#pagination.filter) and [`pagination.shouldContinue`](#pagination.shouldContinue) is managed.
 
 By default, the property `allItems` is always an empty array. This setting can be helpful to save on memory usage when working with a large dataset.
 
