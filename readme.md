@@ -879,7 +879,7 @@ const instance = got.extend({
 			}
 		],
 		beforeRetry: [
-			(options, retryCount, error) => {
+			(options, error, retryCount) => {
 				// This will be called on `retryWithMergedOptions(...)`
 			}
 		]
