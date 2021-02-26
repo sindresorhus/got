@@ -62,7 +62,7 @@ const defaults: InstanceDefaults = {
 		resolveBodyOnly: false,
 		maxRedirects: 10,
 		prefixUrl: '',
-		methodRewriting: true,
+		methodRewriting: false,
 		ignoreInvalidCookies: false,
 		context: {},
 		// TODO: Set this to `true` for Got 13.
@@ -77,7 +77,7 @@ const defaults: InstanceDefaults = {
 
 				return JSON.parse(response.body as string);
 			},
-			paginate: response => {
+			paginate: ({response}) => {
 				if (!Reflect.has(response.headers, 'link')) {
 					return false;
 				}

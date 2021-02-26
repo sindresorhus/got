@@ -1208,7 +1208,7 @@ test('no duplicate hook calls when returning original request options', withServ
 	};
 
 	// Test only two requests, one after another
-	const paginate = (response: Response) => requestNumber++ === 0 ? response.request.options : false;
+	const paginate = ({response}: {response: Response}) => requestNumber++ === 0 ? response.request.options : false;
 
 	const instance = got.extend({
 		hooks,

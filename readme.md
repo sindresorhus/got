@@ -518,7 +518,10 @@ This also accepts an `object` with the following fields to constrain the duratio
 - `socket` starts when the socket is connected. See [request.setTimeout](https://nodejs.org/api/http.html#http_request_settimeout_timeout_callback).
 - `response` starts when the request has been written to the socket and ends when the response headers are received.
 - `send` starts when the socket is connected and ends with the request has been written to the socket.
-- `request` starts when the request is initiated and ends when the response's end event fires.
+- `request` starts when the request is initiated and ends when the response's `end` event fires.
+- ~~`read` starts when the `response` event is emitted and ends when the response's `end` event fires.~~
+
+**Note:** The `read` timeout is blocked by https://github.com/nodejs/node/issues/35923
 
 ###### retry
 
@@ -596,7 +599,9 @@ Note that if a `303` is sent by the server in response to any request type (`POS
 Type: `boolean`\
 Default: `true`
 
-By default, redirects will use [method rewriting](https://tools.ietf.org/html/rfc7231#section-6.4). For example, when sending a POST request and receiving a `302`, it will resend the body to the new location using the same HTTP method (`POST` in this case).
+Specifies if the redirects should be [rewritten as `GET`](https://tools.ietf.org/html/rfc7231#section-6.4).
+
+If `false`, when sending a POST request and receiving a `302`, it will resend the body to the new location using the same HTTP method (`POST` in this case).
 
 ###### allowGetBody
 
@@ -932,7 +937,7 @@ A function that transform [`Response`](#response) into an array of items. This i
 Type: `Function`\
 Default: [`Link` header logic](source/index.ts)
 
-The function takes three arguments:
+The function takes an object with the following properties:
 - `response` - The current response object.
 - `allItems` - An array of the emitted items if [pagination.stackAllItems](#pagination.stackAllItems) is set to `true`. An empty array otherwise.
 - `currentItems` - Items from the current response.
@@ -953,7 +958,7 @@ const got = require('got');
 			offset: 0
 		},
 		pagination: {
-			paginate: (response, allItems, currentItems) => {
+			paginate: ({response, allItems, currentItems}) => {
 				const previousSearchParams = response.request.options.searchParams;
 				const previousOffset = previousSearchParams.get('offset');
 
@@ -978,18 +983,18 @@ const got = require('got');
 ###### pagination.filter
 
 Type: `Function`\
-Default: `(item, allItems, currentItems) => true`
+Default: `({item, allItems, currentItems}) => true`
 
 Checks whether the item should be emitted or not.
 
 ###### pagination.shouldContinue
 
 Type: `Function`\
-Default: `(item, allItems, currentItems) => true`
+Default: `({item, allItems, currentItems}) => true`
 
 Checks whether the pagination should continue.
 
-For example, if you need to stop **before** emitting an entry with some flag, you should use `(item, allItems, currentItems) => !item.flag`. If you want to stop **after** emitting the entry, you should use `(item, allItems, currentItems) => allItems.some(entry => entry.flag)` instead.
+For example, if you need to stop **before** emitting an entry with some flag, you should use `({item}) => !item.flag`. If you want to stop **after** emitting the entry, you should use `({item, allItems}) => allItems.some(item => item.flag)` instead.
 
 ###### pagination.countLimit
 
