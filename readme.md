@@ -596,7 +596,9 @@ Note that if a `303` is sent by the server in response to any request type (`POS
 Type: `boolean`\
 Default: `true`
 
-By default, redirects will use [method rewriting](https://tools.ietf.org/html/rfc7231#section-6.4). For example, when sending a POST request and receiving a `302`, it will resend the body to the new location using the same HTTP method (`POST` in this case).
+Specifies if the redirects should be [rewritten as `GET`](https://tools.ietf.org/html/rfc7231#section-6.4).
+
+If `false`, when sending a POST request and receiving a `302`, it will resend the body to the new location using the same HTTP method (`POST` in this case).
 
 ###### allowGetBody
 

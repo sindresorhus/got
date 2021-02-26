@@ -62,7 +62,7 @@ const defaults: InstanceDefaults = {
 		resolveBodyOnly: false,
 		maxRedirects: 10,
 		prefixUrl: '',
-		methodRewriting: true,
+		methodRewriting: false,
 		ignoreInvalidCookies: false,
 		context: {},
 		// TODO: Set this to `true` for Got 13.
