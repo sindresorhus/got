@@ -1026,8 +1026,6 @@ Default: `false`
 
 Defines how the property `allItems` in [`pagination.paginate`](#pagination.paginate), [`pagination.filter`](#pagination.filter) and [`pagination.shouldContinue`](#pagination.shouldContinue) is managed.
 
-By default, the property `allItems` is always an empty array.
-
 When set to `false`, the `allItems` parameter is always an empty array. If `true`, it can hugely increase memory usage when working with a large dataset.
 
 
