@@ -832,7 +832,7 @@ const got = require('got');
 got.post('https://example.com', {
 	hooks: {
 		beforeRetry: [
-			(options, retryCount, error) => {
+			(options, error, retryCount) => {
 				if (error.response.statusCode === 413) { // Payload too large
 					options.body = getNewBody();
 				}
@@ -841,8 +841,6 @@ got.post('https://example.com', {
 	}
 });
 ```
-
-**Note:** When retrying in a `afterResponse` hook, all remaining `beforeRetry` hooks will be called without the `error` argument.
 
 ###### hooks.afterResponse
 

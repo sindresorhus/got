@@ -108,9 +108,11 @@ export default function asPromise<T>(normalizedOptions: NormalizedOptions): Canc
 							// The loop continues. We don't want duplicates (asPromise recursion).
 							typedOptions.hooks.afterResponse = typedOptions.hooks.afterResponse.slice(0, index);
 
+							const error = new RequestError('Retrying in an `afterResponse` hook', {}, request);
+
 							for (const hook of typedOptions.hooks.beforeRetry) {
 								// eslint-disable-next-line no-await-in-loop
-								await hook(typedOptions, request.retryCount);
+								await hook(typedOptions, error, request.retryCount);
 							}
 
 							request.retryCount++;
