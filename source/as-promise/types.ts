@@ -11,6 +11,12 @@ All parsing methods supported by Got.
 */
 export type ResponseType = 'json' | 'buffer' | 'text';
 
+export interface PaginateData<R, T> {
+	response: Response<R>;
+	allItems: T[];
+	currentItems: T[];
+}
+
 export interface PaginationOptions<T, R> {
 	/**
 	All options accepted by `got.paginate()`.
@@ -76,7 +82,7 @@ export interface PaginationOptions<T, R> {
 		})();
 		```
 		*/
-		paginate?: (response: Response<R>, allItems: T[], currentItems: T[]) => Options | false;
+		paginate?: (paginate: PaginateData<R, T>) => Options | false;
 
 		/**
 		Checks whether the pagination should continue.

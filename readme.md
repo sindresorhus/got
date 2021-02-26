@@ -934,7 +934,7 @@ A function that transform [`Response`](#response) into an array of items. This i
 Type: `Function`\
 Default: [`Link` header logic](source/index.ts)
 
-The function takes three arguments:
+The function takes an object with the following properties:
 - `response` - The current response object.
 - `allItems` - An array of the emitted items.
 - `currentItems` - Items from the current response.
@@ -955,7 +955,7 @@ const got = require('got');
 			offset: 0
 		},
 		pagination: {
-			paginate: (response, allItems, currentItems) => {
+			paginate: ({response, allItems, currentItems}) => {
 				const previousSearchParams = response.request.options.searchParams;
 				const previousOffset = previousSearchParams.get('offset');
 
