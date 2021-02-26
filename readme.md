@@ -934,7 +934,7 @@ Default: [`Link` header logic](source/index.ts)
 
 The function takes three arguments:
 - `response` - The current response object.
-- `allItems` - An array of the emitted items.
+- `allItems` - An array of the emitted items if [pagination.stackAllItems](#pagination.stackAllItems) is set to `true`. An empty array otherwise.
 - `currentItems` - Items from the current response.
 
 It should return an object representing Got options pointing to the next page. The options are merged automatically with the previous request, therefore the options returned `pagination.paginate(...)` must reflect changes only. If there are no more pages, `false` should be returned.
@@ -1017,11 +1017,11 @@ For example, it can be helpful during development to avoid an infinite number of
 ###### pagination.stackAllItems
 
 Type: `boolean`\
-Default: `true`
+Default: `false`
 
-Defines how the parameter `allItems` in [pagination.paginate](#pagination.paginate), [pagination.filter](#pagination.filter) and [pagination.shouldContinue](#pagination.shouldContinue) is managed. When set to `false`, the parameter `allItems` is always an empty array.
+Defines how the parameter `allItems` in [pagination.paginate](#pagination.paginate), [pagination.filter](#pagination.filter) and [pagination.shouldContinue](#pagination.shouldContinue) is managed. When set to `true`, the parameter `allItems` is an of the emitted items.
 
-This option can be helpful to save on memory usage when working with a large dataset.
+When set to `false`, the parameter `allItems` is always an empty array. This option can be helpful to save on memory usage when working with a large dataset.
 
 ##### localAddress
 
