@@ -53,7 +53,8 @@
 		"http2-wrapper": "^2.0.0",
 		"lowercase-keys": "^2.0.0",
 		"p-cancelable": "^2.0.0",
-		"responselike": "^2.0.0"
+		"responselike": "^2.0.0",
+		"yoctodelay": "^1.2.0"
 	},
 	"devDependencies": {
 		"@ava/typescript": "^1.1.1",

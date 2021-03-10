@@ -1,5 +1,6 @@
 import {URL} from 'url';
 import is from '@sindresorhus/is';
+import delay = require('yoctodelay');
 import asPromise, {
 	// Response
 	Response,
@@ -52,11 +53,6 @@ const errors = {
 	UnsupportedProtocolError,
 	UploadError
 };
-
-// The `delay` package weighs 10KB (!)
-const delay = async (ms: number) => new Promise(resolve => {
-	setTimeout(resolve, ms);
-});
 
 const {normalizeArguments} = Request;
 
