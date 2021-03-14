@@ -8,6 +8,8 @@ import * as https from 'https';
 import timer, {ClientRequestWithTimings, Timings, IncomingMessageWithTimings} from '@szmarczak/http-timer';
 import * as CacheableRequest from 'cacheable-request';
 import decompressResponse = require('decompress-response');
+import {request as requestHttp} from 'http';
+import {request as requestHttps} from 'https';
 import http2wrapper = require('http2-wrapper');
 import ResponseLike = require('responselike');
 import is from '@sindresorhus/is';
@@ -21,7 +23,7 @@ import WeakableMap from './utils/weakable-map';
 import getBuffer from './utils/get-buffer';
 import {isResponseOk} from './utils/is-response-ok';
 import calculateRetryDelay from './calculate-retry-delay';
-import type {OptionsInit, PromiseCookieJar, NativeRequestOptions, RetryOptions} from './options';
+import type {OptionsInit, PromiseCookieJar, NativeRequestOptions, RetryOptions, RequestFunction} from './options';
 import Options, {requestOptionsHandler} from './options';
 import type {Response} from './response';
 import type {Delays} from './utils/timed-out';
@@ -166,6 +168,25 @@ const proxiedRequestEvents = [
 	'upgrade',
 	'timeout'
 ];
+
+const getComputedRequest = (options: Options): RequestFunction => {
+	const url = options.url as (URL | undefined);
+	const {request} = options;
+
+	if (!request && url) {
+		if (url.protocol === 'https:') {
+			if (options.http2) {
+				return http2wrapper.auto as RequestFunction;
+			}
+
+			return requestHttps as RequestFunction;
+		} else {
+			return requestHttp as RequestFunction;
+		}
+	}
+
+	return request as RequestFunction;
+};
 
 export default class Request extends Duplex implements RequestEvents<Request> {
 	['constructor']: typeof Request;
@@ -734,7 +755,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			}
 		}
 
-		let {request} = options;
+		let request = getComputedRequest(options);
 
 		for (const hook of options.hooks!.beforeRequest) {
 			// eslint-disable-next-line no-await-in-loop

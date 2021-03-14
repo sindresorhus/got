@@ -1,8 +1,5 @@
 import util = require('util');
 import {URL, URLSearchParams} from 'url';
-import {request as requestHttp} from 'http';
-import {request as requestHttps} from 'https';
-import http2wrapper = require('http2-wrapper');
 import CacheableLookup from 'cacheable-lookup';
 import lowercaseKeys = require('lowercase-keys');
 import is, {assert} from '@sindresorhus/is';
@@ -644,23 +641,6 @@ export default class Options {
 		assert.any([is.function_, is.undefined], value);
 
 		this[INTERNALS].request = value;
-	}
-
-	protected get computedRequest(): RequestFunction | undefined {
-		if (!this[INTERNALS].request && this[INTERNALS].url) {
-			if ((this[INTERNALS].url as URL).protocol === 'https:') {
-				if (this[INTERNALS].http2) {
-					// @ts-expect-error FIXME
-					return http2wrapper.auto;
-				}
-
-				return requestHttps as RequestFunction;
-			} else {
-				return requestHttp as RequestFunction;
-			}
-		}
-
-		return this[INTERNALS].request;
 	}
 
 	/**
