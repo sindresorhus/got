@@ -1,4 +1,4 @@
-const Request = require('./dist/index').default;
+const Request = require('./dist/core/index').default;
 
 const stream = new Request('https://httpbin.org/anything');
 
