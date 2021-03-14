@@ -585,7 +585,9 @@ export default class Options {
 				isStream: false,
 				responseType: 'text',
 				url: undefined,
-				pagination: undefined
+				pagination: undefined,
+				setHost: true,
+				maxHeaderSize: undefined
 			} as Options[typeof INTERNALS]
 		});
 
@@ -1769,67 +1771,58 @@ export default class Options {
 		throw new Error('Parameter `auth` is deprecated. Use `username` / `password` instead.');
 	}
 
+	get setHost() {
+		return this[INTERNALS].setHost;
+	}
+
+	set setHost(value: boolean) {
+		assert.boolean(value);
+
+		this[INTERNALS].setHost = value;
+	}
+
+	get maxHeaderSize() {
+		return this[INTERNALS].maxHeaderSize;
+	}
+
+	set maxHeaderSize(value: number | undefined) {
+		assert.any([is.number, is.undefined], value);
+
+		this[INTERNALS].maxHeaderSize = value;
+	}
+
 	toJSON() {
 		return {...this[INTERNALS]};
 	}
 }
 
-export const requestOptionsHandler = {
-	get: (target: Options, name: string) => {
-		const internals = target[INTERNALS];
+export const createNativeRequestOptions = (options: Options) => {
+	const internals = options[INTERNALS];
+	const url = internals.url as URL;
 
-		if (name === 'timeout') {
-			return undefined;
+	let agent;
+	if (url.protocol === 'https:') {
+		if (internals.http2) {
+			agent = internals.agent.http2;
 		}
 
-		if (name === 'family') {
-			const {dnsLookupIpVersion} = internals;
-
-			if (dnsLookupIpVersion !== undefined) {
-				return dnsLookupIpVersionToFamily(dnsLookupIpVersion);
-			}
-
-			return undefined;
-		}
-
-		if (name === 'agent') {
-			const url = internals.url as URL;
-
-			if (url.protocol === 'https:') {
-				if (internals.http2) {
-					return internals.agent.http2;
-				}
-
-				return internals.agent.https;
-			}
-
-			return internals.agent.http;
-		}
-
-		const unixOptions = target._unixOptions;
-
-		if (unixOptions && name in unixOptions) {
-			return unixOptions;
-		}
-
-		if (name in internals) {
-			return target[name as keyof Options];
-		}
-
-		if (name === 'lookup' && internals.dnsCache) {
-			return (internals.dnsCache as CacheableLookup).lookup;
-		}
-
-		if (name in internals.httpsOptions) {
-			return target.httpsOptions[name as keyof HttpsOptions];
-		}
-
-		if (name in internals.cacheOptions) {
-			return target.cacheOptions[name as keyof CacheOptions];
-		}
-
-		return undefined;
+		agent = internals.agent.https;
 	}
+
+	agent = internals.agent.http;
+
+	return {
+		...internals.httpsOptions,
+		...internals._unixOptions,
+		family: dnsLookupIpVersionToFamily(internals.dnsLookupIpVersion),
+		agent,
+		setHost: internals.setHost,
+		method: internals.method,
+		maxHeaderSize: internals.maxHeaderSize,
+		localAddress: internals.localAddress,
+		headers: internals.headers,
+		createConnection: internals.createConnection
+	};
 };
 
 const nonEnumerableProperties = [

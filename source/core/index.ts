@@ -24,7 +24,7 @@ import getBuffer from './utils/get-buffer';
 import {isResponseOk} from './utils/is-response-ok';
 import calculateRetryDelay from './calculate-retry-delay';
 import type {OptionsInit, PromiseCookieJar, NativeRequestOptions, RetryOptions, RequestFunction} from './options';
-import Options, {requestOptionsHandler} from './options';
+import Options, {createNativeRequestOptions} from './options';
 import type {Response} from './response';
 import type {Delays} from './utils/timed-out';
 import {
@@ -727,8 +727,6 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	}
 
 	async _makeRequest(): Promise<void> {
-		this._requestOptions = new Proxy(this.options, requestOptionsHandler) as unknown as RequestOptions;
-
 		const {options} = this;
 		const {headers} = options;
 		const cookieJar = options.cookieJar as PromiseCookieJar | undefined;
@@ -773,6 +771,8 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		}
 
 		const url = options.url as URL;
+
+		this._requestOptions = createNativeRequestOptions(options);
 
 		// Cache support
 		const fn = options.cache ? this._createCacheableRequest : request;
