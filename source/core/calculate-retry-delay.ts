@@ -1,4 +1,4 @@
-import {RetryFunction} from './index';
+import type {RetryFunction} from './options';
 
 type Returns<T extends (...args: any) => unknown, V> = (...args: Parameters<T>) => V;
 

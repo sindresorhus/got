@@ -1,14 +1,16 @@
 import {EventEmitter} from 'events';
 import is from '@sindresorhus/is';
 import * as PCancelable from 'p-cancelable';
+import Options from '../core/options';
+import type {Response} from '../core/response';
 import {
-	NormalizedOptions,
-	CancelableRequest,
-	Response,
-	RequestError,
-	HTTPError,
-	CancelError
+	CancelableRequest
 } from './types';
+import {
+	RequestError,
+	HTTPError
+} from '../core/errors';
+import {CancelError} from './types';
 import parseBody from './parse-body';
 import Request from '../core/index';
 import proxyEvents from '../core/utils/proxy-events';
@@ -23,7 +25,7 @@ const proxiedRequestEvents = [
 	'downloadProgress'
 ];
 
-export default function asPromise<T>(normalizedOptions: NormalizedOptions): CancelableRequest<T> {
+export default function asPromise<T>(normalizedOptions: Options): CancelableRequest<T> {
 	let globalRequest: Request;
 	let globalResponse: Response;
 	const emitter = new EventEmitter();
@@ -95,6 +97,7 @@ export default function asPromise<T>(normalizedOptions: NormalizedOptions): Canc
 						// @ts-expect-error TS doesn't notice that CancelableRequest is a Promise
 						// eslint-disable-next-line no-await-in-loop
 						response = await hook(response, async (updatedOptions): CancelableRequest<Response> => {
+							// @ts-expect-error FIXME
 							const typedOptions = Request.normalizeArguments(undefined, {
 								...updatedOptions,
 								retry: {
@@ -178,7 +181,7 @@ export default function asPromise<T>(normalizedOptions: NormalizedOptions): Canc
 		return promise;
 	};
 
-	const shortcut = <T>(responseType: NormalizedOptions['responseType']): CancelableRequest<T> => {
+	const shortcut = <T>(responseType: Options['responseType']): CancelableRequest<T> => {
 		const newPromise = (async () => {
 			// Wait until downloading has ended
 			await promise;

@@ -1,9 +1,6 @@
-import {
-	ResponseType,
-	ParseError,
-	Response,
-	ParseJsonFunction
-} from './types';
+import {ResponseType, ParseJsonFunction} from '../core/options';
+import {ParseError} from './types';
+import type {Response} from '../core/response';
 
 const parseBody = (response: Response, responseType: ResponseType, parseJson: ParseJsonFunction, encoding?: BufferEncoding): unknown => {
 	const {rawBody} = response;

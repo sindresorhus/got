@@ -1,4 +1,4 @@
-import {Response} from '../index';
+import {Response} from '../response';
 
 export const isResponseOk = (response: Response): boolean => {
 	const {statusCode} = response;
