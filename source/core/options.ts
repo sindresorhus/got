@@ -612,9 +612,9 @@ const cloneInternals = (internals: typeof defaultInternals): typeof defaultInter
 		headers: {...internals.headers},
 		retry: {
 			...retry,
-			errorCodes: [...retry.errorCodes],
-			methods: [...retry.methods],
-			statusCodes: [...retry.statusCodes]
+			errorCodes: [...retry.errorCodes!],
+			methods: [...retry.methods!],
+			statusCodes: [...retry.statusCodes!]
 		},
 		timeout: {...internals.timeout},
 		hooks: {
@@ -1596,11 +1596,11 @@ export default class Options {
 	__Note__: If `maxRetryAfter` is set to `undefined`, it will use `options.timeout`.
 	__Note__: If [`Retry-After`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Retry-After) header is greater than `maxRetryAfter`, it will cancel the request.
 	*/
-	get retry(): RetryOptions {
+	get retry(): Partial<RetryOptions> {
 		return this[INTERNALS].retry;
 	}
 
-	set retry(value: RetryOptions) {
+	set retry(value: Partial<RetryOptions>) {
 		assert.plainObject(value);
 
 		if (this[MERGING]) {
@@ -1611,7 +1611,7 @@ export default class Options {
 
 		const {retry} = this[INTERNALS];
 
-		retry.methods = [...new Set(retry.methods.map(method => method.toUpperCase() as Method))];
+		retry.methods = [...new Set(retry.methods!.map(method => method.toUpperCase() as Method))];
 		retry.statusCodes = [...new Set(retry.statusCodes)];
 		retry.errorCodes = [...new Set(retry.errorCodes)];
 	}

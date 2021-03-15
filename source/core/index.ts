@@ -22,7 +22,7 @@ import WeakableMap from './utils/weakable-map';
 import getBuffer from './utils/get-buffer';
 import {isResponseOk} from './utils/is-response-ok';
 import calculateRetryDelay from './calculate-retry-delay';
-import type {OptionsInit, PromiseCookieJar, NativeRequestOptions, RequestFunction} from './options';
+import type {OptionsInit, PromiseCookieJar, NativeRequestOptions, RequestFunction, RetryOptions} from './options';
 import Options, {createNativeRequestOptions} from './options';
 import type {Response} from './response';
 import {
@@ -868,7 +868,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 						}
 					}
 
-					const retryOptions = options.retry;
+					const retryOptions = options.retry as RetryOptions;
 
 					backoff = await retryOptions.calculateDelay({
 						attemptCount: retryCount,

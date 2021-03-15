@@ -14,7 +14,7 @@
 	"include": [
 		// "source",
 		// "test",
-		// "benchmark"
+		// "benchmark",
 		"source/core"
 	]
 }
