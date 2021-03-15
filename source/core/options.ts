@@ -15,6 +15,7 @@ import type {
 	RequestOptions as HttpsRequestOptions,
 	Agent as HttpsAgent
 } from 'https';
+import type {InspectOptions} from 'util';
 import type CacheableRequest = require('cacheable-request');
 import type ResponseLike = require('responselike');
 import type {IncomingMessageWithTimings} from '@szmarczak/http-timer';
@@ -472,6 +473,8 @@ export interface PaginationOptions<ElementType, BodyType> {
 	stackAllItems?: boolean;
 }
 
+export type SearchParameters = Record<string, string | number | boolean | null | undefined>;
+
 function validateSearchParameters(searchParameters: Record<string, unknown>): asserts searchParameters is Record<string, string | number | boolean | null | undefined> {
 	// eslint-disable-next-line guard-for-in
 	for (const key in searchParameters) {
@@ -488,111 +491,154 @@ All parsing methods supported by Got.
 */
 export type ResponseType = 'json' | 'buffer' | 'text';
 
-type InternalsType = Omit<Options, typeof INTERNALS | 'followRedirects' | 'auth' | typeof util.inspect.custom | 'toJSON' | 'constructor' | '_unixDetails'>;
+type InternalsType = Omit<Options, typeof INTERNALS | 'followRedirects' | 'auth' | typeof util.inspect.custom | 'toJSON' | 'constructor' | '_unixDetails' | 'tryMerge'>;
 
 export type OptionsInit = Partial<InternalsType>;
 
-const globalDnsCache = new CacheableLookup();
+const globalCache = new Map();
+let globalDnsCache: CacheableLookup;
+
+const getGlobalDnsCache = (): CacheableLookup => {
+	if (globalDnsCache) {
+		return globalDnsCache;
+	}
+
+	return (globalDnsCache = new CacheableLookup());
+};
+
+const defaultInternals = {
+	request: undefined,
+	agent: {
+		http: undefined,
+		https: undefined,
+		http2: undefined
+	},
+	decompress: true,
+	timeout: {},
+	prefixUrl: '',
+	body: undefined,
+	form: undefined,
+	json: undefined,
+	cookieJar: undefined,
+	ignoreInvalidCookies: false,
+	searchParameters: undefined,
+	dnsCache: undefined,
+	context: {},
+	hooks: {
+		init: [],
+		beforeRequest: [],
+		beforeError: [],
+		beforeRedirect: [],
+		beforeRetry: [],
+		afterResponse: []
+	},
+	followRedirect: true,
+	maxRedirects: 10,
+	cache: undefined,
+	throwHttpErrors: true,
+	username: '',
+	password: '',
+	http2: false,
+	allowGetBody: false,
+	lookup: undefined,
+	headers: {},
+	methodRewriting: false,
+	dnsLookupIpVersion: 'auto',
+	parseJson: JSON.parse,
+	stringifyJson: JSON.stringify,
+	retry: {
+		limit: 2,
+		methods: [
+			'GET',
+			'PUT',
+			'HEAD',
+			'DELETE',
+			'OPTIONS',
+			'TRACE'
+		],
+		statusCodes: [
+			408,
+			413,
+			429,
+			500,
+			502,
+			503,
+			504,
+			521,
+			522,
+			524
+		],
+		errorCodes: [
+			'ETIMEDOUT',
+			'ECONNRESET',
+			'EADDRINUSE',
+			'ECONNREFUSED',
+			'EPIPE',
+			'ENOTFOUND',
+			'ENETUNREACH',
+			'EAI_AGAIN'
+		],
+		maxRetryAfter: undefined,
+		calculateDelay: ({computedValue}) => computedValue
+	},
+	localAddress: undefined,
+	socketPath: undefined,
+	method: 'GET',
+	createConnection: undefined,
+	cacheOptions: {},
+	httpsOptions: {},
+	encoding: undefined,
+	resolveBodyOnly: false,
+	isStream: false,
+	responseType: 'text',
+	url: undefined,
+	pagination: undefined,
+	setHost: true,
+	maxHeaderSize: undefined
+} as Options[typeof INTERNALS];
+
+const cloneInternals = (internals: typeof defaultInternals): typeof defaultInternals => {
+	const {hooks, retry} = internals;
+
+	const result = {
+		...internals,
+		cacheOptions: {...internals.cacheOptions},
+		httpsOptions: {...internals.httpsOptions},
+		agent: {...internals.agent},
+		headers: {...internals.headers},
+		retry: {
+			...retry,
+			errorCodes: [...retry.errorCodes],
+			methods: [...retry.methods],
+			statusCodes: [...retry.statusCodes]
+		},
+		timeout: {...internals.timeout},
+		hooks: {
+			init: [...hooks.init],
+			beforeRequest: [...hooks.beforeRequest],
+			beforeError: [...hooks.beforeError],
+			beforeRedirect: [...hooks.beforeRedirect],
+			beforeRetry: [...hooks.beforeRetry],
+			afterResponse: [...hooks.afterResponse]
+		},
+		searchParameters: new URLSearchParams(internals.searchParameters as URLSearchParams)
+	};
+
+	return result;
+};
 
 export default class Options {
 	private [INTERNALS]: InternalsType;
+	private _merging: boolean;
 	_unixOptions?: NativeRequestOptions;
 
-	constructor(urlOrOptions?: string | URL | OptionsInit, options?: OptionsInit) {
-		Object.defineProperty(this, INTERNALS, {
-			enumerable: false,
-			writable: true,
-			configurable: false,
-			value: {
-				request: undefined,
-				agent: {},
-				decompress: true,
-				timeout: {},
-				prefixUrl: '',
-				body: undefined,
-				form: undefined,
-				json: undefined,
-				cookieJar: undefined,
-				ignoreInvalidCookies: false,
-				searchParameters: undefined,
-				dnsCache: undefined,
-				context: {},
-				hooks: {
-					init: [],
-					beforeRequest: [],
-					beforeError: [],
-					beforeRedirect: [],
-					beforeRetry: [],
-					afterResponse: []
-				},
-				followRedirect: true,
-				maxRedirects: 10,
-				cache: undefined,
-				throwHttpErrors: true,
-				username: '',
-				password: '',
-				http2: false,
-				allowGetBody: false,
-				lookup: undefined,
-				headers: {},
-				methodRewriting: false,
-				dnsLookupIpVersion: 'auto',
-				parseJson: JSON.parse,
-				stringifyJson: JSON.stringify,
-				retry: {
-					limit: 2,
-					methods: [
-						'GET',
-						'PUT',
-						'HEAD',
-						'DELETE',
-						'OPTIONS',
-						'TRACE'
-					],
-					statusCodes: [
-						408,
-						413,
-						429,
-						500,
-						502,
-						503,
-						504,
-						521,
-						522,
-						524
-					],
-					errorCodes: [
-						'ETIMEDOUT',
-						'ECONNRESET',
-						'EADDRINUSE',
-						'ECONNREFUSED',
-						'EPIPE',
-						'ENOTFOUND',
-						'ENETUNREACH',
-						'EAI_AGAIN'
-					],
-					maxRetryAfter: undefined,
-					calculateDelay: ({computedValue}) => computedValue
-				},
-				localAddress: undefined,
-				socketPath: undefined,
-				method: 'GET',
-				createConnection: undefined,
-				cacheOptions: {},
-				httpsOptions: {},
-				encoding: undefined,
-				resolveBodyOnly: false,
-				isStream: false,
-				responseType: 'text',
-				url: undefined,
-				pagination: undefined,
-				setHost: true,
-				maxHeaderSize: undefined
-			} as Options[typeof INTERNALS]
-		});
-
+	constructor(urlOrOptions?: string | URL | OptionsInit, options?: OptionsInit, defaults?: Options) {
 		assert.any([is.string, is.urlInstance, is.object, is.undefined], urlOrOptions);
 		assert.any([is.object, is.undefined], options);
+		assert.any([is.object, is.undefined], defaults);
+
+		const internals = defaults?.[INTERNALS] ?? defaultInternals;
+		this[INTERNALS] = cloneInternals(internals);
 
 		if (is.plainObject(urlOrOptions)) {
 			if (options) {
@@ -606,6 +652,15 @@ export default class Options {
 			}
 
 			this.url = urlOrOptions as (string | URL);
+		}
+
+		if (defaults) {
+			this.tryMerge(() => {
+				for (const key in defaults) {
+					// @ts-expect-error
+					this[key] = defaults[key];
+				}
+			});
 		}
 
 		const initHooks = options?.hooks?.init;
@@ -627,6 +682,17 @@ export default class Options {
 		}
 
 		this._unixOptions = undefined;
+		this._merging = false;
+	}
+
+	tryMerge(fn: () => void) {
+		this._merging = true;
+
+		try {
+			fn();
+		} finally {
+			this._merging = false;
+		}
 	}
 
 	/**
@@ -679,7 +745,11 @@ export default class Options {
 			}
 		}
 
-		this[INTERNALS].agent = value;
+		if (this._merging) {
+			Object.assign(this[INTERNALS].agent, value);
+		} else {
+			this[INTERNALS].agent = {...value};
+		}
 	}
 
 	/**
@@ -718,17 +788,17 @@ export default class Options {
 	- `send` starts when the socket is connected and ends with the request has been written to the socket.
 	- `request` starts when the request is initiated and ends when the response's end event fires.
 	*/
-	get timeout(): Delays | number {
+	get timeout(): Delays {
 		// We always return `Delays` here.
 		// It has to be `Delays | number`, otherwise TypeScript will error because the getter and the setter have incompatible types.
 		return this[INTERNALS].timeout;
 	}
 
-	set timeout(value: Delays | number) {
-		assert.any([is.plainObject, is.number], value);
+	set timeout(value: Delays) {
+		assert.plainObject(value);
 
-		if (is.number(value)) {
-			(this[INTERNALS].timeout as Delays).request = value;
+		if (this._merging) {
+			Object.assign(this[INTERNALS].timeout, value);
 		} else {
 			this[INTERNALS].timeout = {...value};
 		}
@@ -1021,7 +1091,7 @@ export default class Options {
 	//=> 'key=a&key=b'
 	```
 	*/
-	get searchParameters(): string | Record<string, string | number | boolean | null | undefined> | URLSearchParams | undefined {
+	get searchParameters(): string | SearchParameters | URLSearchParams | undefined {
 		if (this[INTERNALS].url) {
 			return (this[INTERNALS].url as URL).searchParams;
 		}
@@ -1029,20 +1099,21 @@ export default class Options {
 		return this[INTERNALS].searchParameters;
 	}
 
-	set searchParameters(value: string | Record<string, string | number | boolean | null | undefined> | URLSearchParams | undefined) {
+	set searchParameters(value: string | SearchParameters | URLSearchParams | undefined) {
 		assert.any([is.string, is.object, is.undefined]);
 
 		const url = this[INTERNALS].url as URL;
 
 		if (value) {
-			let searchParameters: URLSearchParams;
+			let searchParameters = new URLSearchParams(this[INTERNALS].searchParameters as URLSearchParams);
+			let updated;
 
 			if (is.string(value) || (value instanceof URLSearchParams)) {
-				searchParameters = new URLSearchParams(value);
+				updated = new URLSearchParams(value);
 			} else {
 				validateSearchParameters(value);
 
-				searchParameters = new URLSearchParams();
+				updated = new URLSearchParams();
 
 				// eslint-disable-next-line guard-for-in
 				for (const key in value) {
@@ -1054,6 +1125,14 @@ export default class Options {
 						searchParameters.append(key, entry as string);
 					}
 				}
+			}
+
+			if (this._merging) {
+				updated.forEach((key, value) => {
+					searchParameters.append(key, value);
+				});
+			} else {
+				searchParameters = updated;
 			}
 
 			if (url) {
@@ -1088,7 +1167,7 @@ export default class Options {
 		assert.any([is.object, is.boolean, is.undefined], value);
 
 		if (value === true) {
-			this[INTERNALS].dnsCache = globalDnsCache;
+			this[INTERNALS].dnsCache = getGlobalDnsCache();
 		} else if (value === false) {
 			this[INTERNALS].dnsCache = undefined;
 		} else if (value instanceof CacheableLookup) {
@@ -1145,37 +1224,32 @@ export default class Options {
 	Hooks allow modifications during the request lifecycle.
 	Hook functions may be async and are run serially.
 	*/
-	get hooks(): Hooks | undefined {
+	get hooks(): Hooks {
 		return this[INTERNALS].hooks;
 	}
 
-	set hooks(value: Hooks | undefined) {
-		assert.any([is.object, is.undefined], value);
+	set hooks(value: Hooks) {
+		assert.object(value);
 
-		const hooks: Hooks = {
-			init: [],
-			beforeRetry: [],
-			beforeRedirect: [],
-			beforeError: [],
-			beforeRequest: [],
-			afterResponse: []
-		};
+		for (const knownHookEvent in this[INTERNALS].hooks) {
+			const hooks: unknown = value[knownHookEvent];
+			assert.any([is.array, is.undefined], hooks);
 
-		if (value) {
-			for (const knownHookEvent in hooks) {
-				if (knownHookEvent in value) {
-					const specificHooks: Array<unknown> | undefined = value[knownHookEvent as keyof Hooks];
-
-					if (specificHooks) {
-						assert.array(specificHooks);
-					}
-
-					hooks[knownHookEvent as keyof Hooks] = [...specificHooks as any];
+			if (this._merging) {
+				if (hooks) {
+					// @ts-expect-error FIXME
+					this[INTERNALS].hooks[knownHookEvent].push(...hooks);
+				}
+			} else {
+				if (hooks) {
+					// @ts-expect-error FIXME
+					this[INTERNALS].hooks[knownHookEvent] = [...hooks];
+				} else {
+					// @ts-expect-error FIXME
+					this[INTERNALS].hooks[knownHookEvent] = [];
 				}
 			}
 		}
-
-		this[INTERNALS].hooks = hooks;
 	}
 
 	/**
@@ -1224,14 +1298,20 @@ export default class Options {
 
 	@default false
 	*/
-	get cache(): string | CacheableRequest.StorageAdapter | false | undefined {
+	get cache(): string | CacheableRequest.StorageAdapter | boolean | undefined {
 		return this[INTERNALS].cache;
 	}
 
-	set cache(value: string | CacheableRequest.StorageAdapter | false | undefined) {
-		assert.any([is.object, is.string, is.falsy, is.undefined], value);
+	set cache(value: string | CacheableRequest.StorageAdapter | boolean | undefined) {
+		assert.any([is.object, is.string, is.boolean, is.undefined], value);
 
-		this[INTERNALS].cache = value;
+		if (value === true) {
+			this[INTERNALS].cache = globalCache;
+		} else if (value === false) {
+			this[INTERNALS].cache = undefined;
+		} else {
+			this[INTERNALS].cache = value;
+		}
 	}
 
 	/**
@@ -1371,7 +1451,11 @@ export default class Options {
 	set headers(value: Headers) {
 		assert.any([is.plainObject, is.undefined], value);
 
-		this[INTERNALS].headers = lowercaseKeys(value);
+		if (this._merging) {
+			Object.assign(this[INTERNALS].headers, lowercaseKeys(value));
+		} else {
+			this[INTERNALS].headers = lowercaseKeys(value);
+		}
 	}
 
 	/**
@@ -1517,29 +1601,24 @@ export default class Options {
 	__Note__: If `maxRetryAfter` is set to `undefined`, it will use `options.timeout`.
 	__Note__: If [`Retry-After`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Retry-After) header is greater than `maxRetryAfter`, it will cancel the request.
 	*/
-	get retry(): RetryOptions | number {
+	get retry(): RetryOptions {
 		return this[INTERNALS].retry;
 	}
 
-	set retry(value: RetryOptions | number) {
-		assert.any([is.plainObject, is.number], value);
+	set retry(value: RetryOptions) {
+		assert.plainObject(value);
 
-		let retry = this[INTERNALS].retry as RetryOptions;
-
-		if (is.number(value)) {
-			retry.limit = value;
+		if (this._merging) {
+			Object.assign(this[INTERNALS].retry, value);
 		} else {
-			retry = {
-				...retry,
-				...value
-			};
-
-			retry.methods = [...new Set(retry.methods.map(method => method.toUpperCase() as Method))];
-			retry.statusCodes = [...new Set(retry.statusCodes)];
-			retry.errorCodes = [...new Set(retry.errorCodes)];
-
-			this[INTERNALS].retry = retry;
+			this[INTERNALS].retry = {...value};
 		}
+
+		const {retry} = this[INTERNALS];
+
+		retry.methods = [...new Set(retry.methods.map(method => method.toUpperCase() as Method))];
+		retry.statusCodes = [...new Set(retry.statusCodes)];
+		retry.errorCodes = [...new Set(retry.errorCodes)];
 	}
 
 	/**
@@ -1604,7 +1683,11 @@ export default class Options {
 	set cacheOptions(value: CacheOptions) {
 		assert.any([is.plainObject, is.undefined], value);
 
-		this[INTERNALS].cacheOptions = {...value};
+		if (this._merging) {
+			Object.assign(this[INTERNALS].cacheOptions, value);
+		} else {
+			this[INTERNALS].cacheOptions = {...value};
+		}
 	}
 
 	/**
@@ -1627,7 +1710,11 @@ export default class Options {
 			assert.any([is.string, is.buffer, is.array, is.undefined], value.pfx);
 		}
 
-		this[INTERNALS].httpsOptions = {...value};
+		if (this._merging) {
+			Object.assign(this[INTERNALS].httpsOptions, value);
+		} else {
+			this[INTERNALS].httpsOptions = {...value};
+		}
 	}
 
 	/**
@@ -1741,24 +1828,27 @@ export default class Options {
 			return;
 		}
 
-		const pagination: PaginationOptions<unknown, unknown> = {
-			...this[INTERNALS].pagination,
-			...value
-		};
+		if (this._merging) {
+			Object.assign(this[INTERNALS].pagination, value);
+		} else {
+			this[INTERNALS].pagination = value;
+		}
 
-		if (!is.function_(pagination.transform)) {
+		const {pagination} = this[INTERNALS];
+
+		if (!is.function_(pagination!.transform)) {
 			throw new Error('`options.pagination.transform` must be implemented');
 		}
 
-		if (!is.function_(pagination.shouldContinue)) {
+		if (!is.function_(pagination!.shouldContinue)) {
 			throw new Error('`options.pagination.shouldContinue` must be implemented');
 		}
 
-		if (!is.function_(pagination.filter)) {
+		if (!is.function_(pagination!.filter)) {
 			throw new TypeError('`options.pagination.filter` must be implemented');
 		}
 
-		if (!is.function_(pagination.paginate)) {
+		if (!is.function_(pagination!.paginate)) {
 			throw new Error('`options.pagination.paginate` must be implemented');
 		}
 	}
@@ -1793,6 +1883,10 @@ export default class Options {
 
 	toJSON() {
 		return {...this[INTERNALS]};
+	}
+
+	[Symbol.for('nodejs.util.inspect.custom')](_depth: number, options: InspectOptions) {
+		return util.inspect(this[INTERNALS], options);
 	}
 }
 
