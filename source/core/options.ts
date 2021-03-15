@@ -28,6 +28,7 @@ import type {CancelableRequest} from '../as-promise/types';
 export type NativeRequestOptions = HttpsRequestOptions & CacheOptions & {checkServerIdentity?: CheckServerIdentityFunction};
 
 export const INTERNALS = Symbol('Options internals');
+export const MERGING = Symbol('Options merging state');
 
 type AcceptableResponse = IncomingMessageWithTimings | ResponseLike;
 type AcceptableRequestResult = AcceptableResponse | ClientRequest | Promise<AcceptableResponse | ClientRequest> | undefined;
@@ -629,7 +630,7 @@ const cloneInternals = (internals: typeof defaultInternals): typeof defaultInter
 
 export default class Options {
 	private [INTERNALS]: InternalsType;
-	private _merging: boolean;
+	private [MERGING]: boolean;
 	_unixOptions?: NativeRequestOptions;
 
 	constructor(urlOrOptions?: string | URL | OptionsInit, options?: OptionsInit, defaults?: Options) {
@@ -637,8 +638,9 @@ export default class Options {
 		assert.any([is.object, is.undefined], options);
 		assert.any([is.object, is.undefined], defaults);
 
-		const internals = defaults?.[INTERNALS] ?? defaultInternals;
-		this[INTERNALS] = cloneInternals(internals);
+		this._unixOptions = undefined;
+		this[MERGING] = false;
+		this[INTERNALS] = cloneInternals(defaults?.[INTERNALS] ?? defaultInternals);
 
 		if (is.plainObject(urlOrOptions)) {
 			if (options) {
@@ -654,15 +656,6 @@ export default class Options {
 			this.url = urlOrOptions as (string | URL);
 		}
 
-		if (defaults) {
-			this.tryMerge(() => {
-				for (const key in defaults) {
-					// @ts-expect-error
-					this[key] = defaults[key];
-				}
-			});
-		}
-
 		const initHooks = options?.hooks?.init;
 		if (initHooks) {
 			for (const hook of initHooks) {
@@ -671,27 +664,26 @@ export default class Options {
 		}
 
 		if (options) {
-			for (const key in options) {
-				if (!(key in this)) {
-					throw new Error(`Key ${key} is not an option`);
+			this.tryMerge(() => {
+				for (const key in options) {
+					if (!(key in this)) {
+						throw new Error(`Key ${key} is not an option`);
+					}
+
+					// @ts-expect-error Type 'unknown' is not assignable to type 'never'.
+					this[key as keyof Options] = options[key as keyof Options];
 				}
-
-				// @ts-expect-error Type 'unknown' is not assignable to type 'never'.
-				this[key as keyof Options] = options[key as keyof Options];
-			}
+			});
 		}
-
-		this._unixOptions = undefined;
-		this._merging = false;
 	}
 
 	tryMerge(fn: () => void) {
-		this._merging = true;
+		this[MERGING] = true;
 
 		try {
 			fn();
 		} finally {
-			this._merging = false;
+			this[MERGING] = false;
 		}
 	}
 
@@ -745,7 +737,7 @@ export default class Options {
 			}
 		}
 
-		if (this._merging) {
+		if (this[MERGING]) {
 			Object.assign(this[INTERNALS].agent, value);
 		} else {
 			this[INTERNALS].agent = {...value};
@@ -797,7 +789,7 @@ export default class Options {
 	set timeout(value: Delays) {
 		assert.plainObject(value);
 
-		if (this._merging) {
+		if (this[MERGING]) {
 			Object.assign(this[INTERNALS].timeout, value);
 		} else {
 			this[INTERNALS].timeout = {...value};
@@ -852,7 +844,7 @@ export default class Options {
 	}
 
 	set prefixUrl(value: string | URL) {
-		assert.any([is.urlString, is.urlInstance], value);
+		assert.any([is.string, is.urlInstance], value);
 
 		value = value.toString();
 
@@ -1100,7 +1092,7 @@ export default class Options {
 	}
 
 	set searchParameters(value: string | SearchParameters | URLSearchParams | undefined) {
-		assert.any([is.string, is.object, is.undefined]);
+		assert.any([is.string, is.object, is.undefined], value);
 
 		const url = this[INTERNALS].url as URL;
 
@@ -1127,7 +1119,7 @@ export default class Options {
 				}
 			}
 
-			if (this._merging) {
+			if (this[MERGING]) {
 				updated.forEach((key, value) => {
 					searchParameters.append(key, value);
 				});
@@ -1170,10 +1162,8 @@ export default class Options {
 			this[INTERNALS].dnsCache = getGlobalDnsCache();
 		} else if (value === false) {
 			this[INTERNALS].dnsCache = undefined;
-		} else if (value instanceof CacheableLookup) {
-			this[INTERNALS].dnsCache = value;
 		} else {
-			throw new TypeError(`Parameter \`dnsCache\` must be a CacheableLookup instance or a boolean, got ${is(value)}`);
+			this[INTERNALS].dnsCache = value;
 		}
 	}
 
@@ -1235,7 +1225,7 @@ export default class Options {
 			const hooks: unknown = value[knownHookEvent];
 			assert.any([is.array, is.undefined], hooks);
 
-			if (this._merging) {
+			if (this[MERGING]) {
 				if (hooks) {
 					// @ts-expect-error FIXME
 					this[INTERNALS].hooks[knownHookEvent].push(...hooks);
@@ -1451,7 +1441,7 @@ export default class Options {
 	set headers(value: Headers) {
 		assert.any([is.plainObject, is.undefined], value);
 
-		if (this._merging) {
+		if (this[MERGING]) {
 			Object.assign(this[INTERNALS].headers, lowercaseKeys(value));
 		} else {
 			this[INTERNALS].headers = lowercaseKeys(value);
@@ -1608,7 +1598,7 @@ export default class Options {
 	set retry(value: RetryOptions) {
 		assert.plainObject(value);
 
-		if (this._merging) {
+		if (this[MERGING]) {
 			Object.assign(this[INTERNALS].retry, value);
 		} else {
 			this[INTERNALS].retry = {...value};
@@ -1683,7 +1673,7 @@ export default class Options {
 	set cacheOptions(value: CacheOptions) {
 		assert.any([is.plainObject, is.undefined], value);
 
-		if (this._merging) {
+		if (this[MERGING]) {
 			Object.assign(this[INTERNALS].cacheOptions, value);
 		} else {
 			this[INTERNALS].cacheOptions = {...value};
@@ -1710,7 +1700,7 @@ export default class Options {
 			assert.any([is.string, is.buffer, is.array, is.undefined], value.pfx);
 		}
 
-		if (this._merging) {
+		if (this[MERGING]) {
 			Object.assign(this[INTERNALS].httpsOptions, value);
 		} else {
 			this[INTERNALS].httpsOptions = {...value};
@@ -1828,7 +1818,7 @@ export default class Options {
 			return;
 		}
 
-		if (this._merging) {
+		if (this[MERGING]) {
 			Object.assign(this[INTERNALS].pagination, value);
 		} else {
 			this[INTERNALS].pagination = value;

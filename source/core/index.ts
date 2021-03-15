@@ -220,7 +220,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 	declare _requestOptions: NativeRequestOptions;
 
-	constructor(url: string | URL | undefined, options?: OptionsInit) {
+	constructor(url: string | URL | undefined, options?: OptionsInit, defaults?: Options) {
 		super({
 			// This must be false, to enable throwing after destroy
 			// It is used for retry logic in Promise API
@@ -276,7 +276,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		});
 
 		try {
-			this.options = new Options(url, options);
+			this.options = new Options(url, options, defaults);
 		} catch (error) {
 			this.destroy(error);
 			return;
@@ -1022,9 +1022,11 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		// Prevent further retries
 		clearTimeout(this[kRetryTimeout]!);
 
-		const {body} = this.options;
-		if (is.nodeStream(body)) {
-			body.destroy();
+		if (this.options) {
+			const {body} = this.options;
+			if (is.nodeStream(body)) {
+				body.destroy();
+			}
 		}
 
 		if (kRequest in this) {

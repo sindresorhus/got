@@ -1,10 +1,23 @@
 const Request = require('./dist/core/index').default;
+const Options = require('./dist/core/options').default;
 
-const stream = new Request('https://httpbin.org/anything');
+const defaults = new Options({
+	headers: {
+		foo: 'bar'
+	}
+});
 
-console.log(stream.options);
+const extended = new Options(undefined, {
+	headers: {
+		bar: 'foo'
+	}
+}, defaults);
 
-console.log(JSON.parse(JSON.stringify(stream.options)));
+const stream = new Request('https://httpbin.org/anything', undefined, extended);
+
+// console.log(stream.options);
+
+// console.log(JSON.parse(JSON.stringify(stream.options)));
 
 stream.setEncoding('utf8');
 stream.on('data', console.log);
