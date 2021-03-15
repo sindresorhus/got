@@ -9,7 +9,7 @@ import type {Response} from './response';
 type Error = NodeJS.ErrnoException;
 
 // A hacky check to prevent circullar references.
-function isRequest(x: object): x is Request {
+function isRequest(x: any): x is Request {
 	return '_onResponse' in x;
 }
 
@@ -55,7 +55,7 @@ export class RequestError extends Error {
 				// This fails because of TS 3.7.2 useDefineForClassFields
 				// Ref: https://github.com/microsoft/TypeScript/issues/34972
 				enumerable: false,
-				value: self as Options
+				value: self
 			});
 		}
 

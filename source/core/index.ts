@@ -3,12 +3,11 @@ import {ReadStream} from 'fs';
 import {URL, URLSearchParams} from 'url';
 import {Socket} from 'net';
 import * as http from 'http';
-import {ClientRequest, RequestOptions, IncomingMessage, ServerResponse} from 'http';
+import {ClientRequest, RequestOptions, IncomingMessage, ServerResponse, request as requestHttp} from 'http';
 import * as https from 'https';
 import timer, {ClientRequestWithTimings, Timings, IncomingMessageWithTimings} from '@szmarczak/http-timer';
 import * as CacheableRequest from 'cacheable-request';
 import decompressResponse = require('decompress-response');
-import {request as requestHttp} from 'http';
 import {request as requestHttps} from 'https';
 import http2wrapper = require('http2-wrapper');
 import ResponseLike = require('responselike');
@@ -23,10 +22,9 @@ import WeakableMap from './utils/weakable-map';
 import getBuffer from './utils/get-buffer';
 import {isResponseOk} from './utils/is-response-ok';
 import calculateRetryDelay from './calculate-retry-delay';
-import type {OptionsInit, PromiseCookieJar, NativeRequestOptions, RetryOptions, RequestFunction} from './options';
+import type {OptionsInit, PromiseCookieJar, NativeRequestOptions, RequestFunction} from './options';
 import Options, {createNativeRequestOptions} from './options';
 import type {Response} from './response';
-import type {Delays} from './utils/timed-out';
 import {
 	RequestError,
 	ReadError,
@@ -179,13 +177,13 @@ const getComputedRequest = (options: Options): RequestFunction => {
 				return http2wrapper.auto as RequestFunction;
 			}
 
-			return requestHttps as RequestFunction;
-		} else {
-			return requestHttp as RequestFunction;
+			return requestHttps;
 		}
+
+		return requestHttp;
 	}
 
-	return request as RequestFunction;
+	return request!;
 };
 
 export default class Request extends Duplex implements RequestEvents<Request> {
@@ -565,7 +563,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 				this.redirects.push(redirectString);
 				options.url = redirectUrl;
 
-				for (const hook of options.hooks!.beforeRedirect) {
+				for (const hook of options.hooks.beforeRedirect) {
 					// eslint-disable-next-line no-await-in-loop
 					await hook(options, typedResponse);
 				}
@@ -640,7 +638,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 		timer(request);
 
-		this[kCancelTimeouts] = timedOut(request, timeout as Delays, url as URL);
+		this[kCancelTimeouts] = timedOut(request, timeout, url as URL);
 
 		const responseEventName = options.cache ? 'cacheableResponse' : 'response';
 
@@ -755,7 +753,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 		let request = getComputedRequest(options);
 
-		for (const hook of options.hooks!.beforeRequest) {
+		for (const hook of options.hooks.beforeRequest) {
 			// eslint-disable-next-line no-await-in-loop
 			const result = await hook(options);
 
@@ -778,7 +776,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		const fn = options.cache ? this._createCacheableRequest : request;
 
 		try {
-			let requestOrResponse = await fn!(url, this._requestOptions);
+			let requestOrResponse = await fn(url, this._requestOptions);
 
 			// Fallback
 			if (is.undefined(requestOrResponse)) {
@@ -814,7 +812,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 	async _error(error: RequestError): Promise<void> {
 		try {
-			for (const hook of this.options.hooks!.beforeError) {
+			for (const hook of this.options.hooks.beforeError) {
 				// eslint-disable-next-line no-await-in-loop
 				error = await hook(error);
 			}
@@ -870,7 +868,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 						}
 					}
 
-					const retryOptions = options.retry as RetryOptions;
+					const retryOptions = options.retry;
 
 					backoff = await retryOptions.calculateDelay({
 						attemptCount: retryCount,
@@ -893,7 +891,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 				if (backoff) {
 					const retry = async (): Promise<void> => {
 						try {
-							for (const hook of this.options.hooks!.beforeRetry) {
+							for (const hook of this.options.hooks.beforeRetry) {
 								// eslint-disable-next-line no-await-in-loop
 								await hook(this.options, typedError, retryCount);
 							}
