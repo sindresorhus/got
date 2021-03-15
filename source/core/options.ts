@@ -25,6 +25,8 @@ import type {RequestError} from './errors';
 import type {Response} from './response';
 import type {CancelableRequest} from '../as-promise/types';
 
+type Except<ObjectType, KeysType extends keyof ObjectType> = Pick<ObjectType, Exclude<keyof ObjectType, KeysType>>;
+
 export type NativeRequestOptions = HttpsRequestOptions & CacheOptions & {checkServerIdentity?: CheckServerIdentityFunction};
 
 export const INTERNALS = Symbol('Options internals');
@@ -492,7 +494,7 @@ All parsing methods supported by Got.
 */
 export type ResponseType = 'json' | 'buffer' | 'text';
 
-type InternalsType = Omit<Options, typeof INTERNALS | 'followRedirects' | 'auth' | typeof util.inspect.custom | 'toJSON' | 'constructor' | '_unixDetails' | 'tryMerge'>;
+type InternalsType = Except<Options, 'followRedirects' | 'auth' | 'toJSON' | 'tryMerge'>;
 
 export type OptionsInit = Partial<InternalsType>;
 
@@ -504,10 +506,11 @@ const getGlobalDnsCache = (): CacheableLookup => {
 		return globalDnsCache;
 	}
 
-	return (globalDnsCache = new CacheableLookup());
+	globalDnsCache = new CacheableLookup();
+	return globalDnsCache;
 };
 
-const defaultInternals = {
+const defaultInternals: Options[typeof INTERNALS] = {
 	request: undefined,
 	agent: {
 		http: undefined,
@@ -596,7 +599,7 @@ const defaultInternals = {
 	pagination: undefined,
 	setHost: true,
 	maxHeaderSize: undefined
-} as Options[typeof INTERNALS];
+};
 
 const cloneInternals = (internals: typeof defaultInternals): typeof defaultInternals => {
 	const {hooks, retry} = internals;
@@ -629,9 +632,9 @@ const cloneInternals = (internals: typeof defaultInternals): typeof defaultInter
 };
 
 export default class Options {
+	_unixOptions?: NativeRequestOptions;
 	private [INTERNALS]: InternalsType;
 	private [MERGING]: boolean;
-	_unixOptions?: NativeRequestOptions;
 
 	constructor(urlOrOptions?: string | URL | OptionsInit, options?: OptionsInit, defaults?: Options) {
 		assert.any([is.string, is.urlInstance, is.object, is.undefined], urlOrOptions);
@@ -653,7 +656,7 @@ export default class Options {
 				throw new TypeError('The `url` option is mutually exclusive with the `input` argument');
 			}
 
-			this.url = urlOrOptions as (string | URL);
+			this.url = urlOrOptions;
 		}
 
 		const initHooks = options?.hooks?.init;
@@ -665,6 +668,7 @@ export default class Options {
 
 		if (options) {
 			this.tryMerge(() => {
+				// eslint-disable-next-line guard-for-in
 				for (const key in options) {
 					if (!(key in this)) {
 						throw new Error(`Key ${key} is not an option`);
@@ -856,7 +860,7 @@ export default class Options {
 			const {href} = this.url as URL;
 
 			if (!href.startsWith(value)) {
-				throw new Error(`Cannot change \`prefixUrl\` from ${this[INTERNALS].prefixUrl} to ${value}: ${href}`);
+				throw new Error(`Cannot change \`prefixUrl\` from ${this[INTERNALS].prefixUrl as string} to ${value}: ${href}`);
 			}
 
 			this[INTERNALS].url = new URL(value + href.slice((this[INTERNALS].prefixUrl as string).length));
@@ -964,11 +968,12 @@ export default class Options {
 		if (is.undefined(value)) {
 			this[INTERNALS].url = undefined;
 		} else {
+			// eslint-disable-next-line @typescript-eslint/prefer-string-starts-ends-with
 			if (is.string(value) && value[0] === '/') {
 				throw new Error('`url` must not start with a slash');
 			}
 
-			const urlString = `${this.prefixUrl}${value}`;
+			const urlString = `${this.prefixUrl as string}${value.toString()}`;
 			const url = new URL(urlString);
 			this[INTERNALS].url = url;
 			decodeURI(urlString);
@@ -992,7 +997,7 @@ export default class Options {
 			}
 
 			if (this[INTERNALS].searchParameters) {
-				url.search = this[INTERNALS].searchParameters!.toString();
+				url.search = (this[INTERNALS].searchParameters as URLSearchParams).toString();
 				this[INTERNALS].searchParameters = undefined;
 			}
 
@@ -1120,6 +1125,7 @@ export default class Options {
 			}
 
 			if (this[MERGING]) {
+				// eslint-disable-next-line unicorn/no-array-for-each
 				updated.forEach((key, value) => {
 					searchParameters.append(key, value);
 				});
@@ -1221,6 +1227,7 @@ export default class Options {
 	set hooks(value: Hooks) {
 		assert.object(value);
 
+		// eslint-disable-next-line guard-for-in
 		for (const knownHookEvent in this[INTERNALS].hooks) {
 			const hooks: unknown = value[knownHookEvent];
 			assert.any([is.array, is.undefined], hooks);
@@ -1230,14 +1237,12 @@ export default class Options {
 					// @ts-expect-error FIXME
 					this[INTERNALS].hooks[knownHookEvent].push(...hooks);
 				}
+			} else if (hooks) {
+				// @ts-expect-error FIXME
+				this[INTERNALS].hooks[knownHookEvent] = [...hooks];
 			} else {
-				if (hooks) {
-					// @ts-expect-error FIXME
-					this[INTERNALS].hooks[knownHookEvent] = [...hooks];
-				} else {
-					// @ts-expect-error FIXME
-					this[INTERNALS].hooks[knownHookEvent] = [];
-				}
+				// @ts-expect-error FIXME
+				this[INTERNALS].hooks[knownHookEvent] = [];
 			}
 		}
 	}
@@ -1800,7 +1805,7 @@ export default class Options {
 
 	set responseType(value: ResponseType) {
 		if (value !== 'text' && value !== 'buffer' && value !== 'json') {
-			throw new Error(`Invalid \`responseType\` option: ${value}`);
+			throw new Error(`Invalid \`responseType\` option: ${value as string}`);
 		}
 
 		this[INTERNALS].responseType = value;
@@ -1843,11 +1848,11 @@ export default class Options {
 		}
 	}
 
-	set auth(_value: unknown) {
+	get auth() {
 		throw new Error('Parameter `auth` is deprecated. Use `username` / `password` instead.');
 	}
 
-	get auth() {
+	set auth(_value: unknown) {
 		throw new Error('Parameter `auth` is deprecated. Use `username` / `password` instead.');
 	}
 
@@ -1909,7 +1914,7 @@ export const createNativeRequestOptions = (options: Options) => {
 	};
 };
 
-const nonEnumerableProperties = [
+const nonEnumerableProperties = new Set([
 	'constructor',
 	'toJSON',
 	'body',
@@ -1917,13 +1922,13 @@ const nonEnumerableProperties = [
 	'json',
 	'auth',
 	'followRedirects'
-];
+]);
 
 // We want all the properties to be enumerable, so people instead doing
 // `util.inspect(options, {getters: true, showHidden: true})`
 // can do just `util.inspect(options, {getters: true})`.
 const propertyDescriptors: PropertyDescriptorMap = {};
-const keys = Object.getOwnPropertyNames(Options.prototype).filter(property => !nonEnumerableProperties.includes(property));
+const keys = Object.getOwnPropertyNames(Options.prototype).filter(property => !nonEnumerableProperties.has(property));
 
 for (const key of keys) {
 	propertyDescriptors[key] = {enumerable: true};
