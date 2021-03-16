@@ -8,9 +8,9 @@ import type {Response} from './response';
 
 type Error = NodeJS.ErrnoException;
 
-// A hacky check to prevent circullar references.
-function isRequest(x: any): x is Request {
-	return '_onResponse' in x;
+// A hacky check to prevent circular references.
+function isRequest(x: unknown): x is Request {
+	return is.object(x) && '_onResponse' in x;
 }
 
 /**
@@ -32,7 +32,6 @@ export class RequestError extends Error {
 		this.name = 'RequestError';
 		this.code = error.code;
 
-		// A hacky comparison to avoid cirrcular references
 		if (isRequest(self)) {
 			Object.defineProperty(this, 'request', {
 				enumerable: false,

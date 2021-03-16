@@ -1917,6 +1917,7 @@ export const createNativeRequestOptions = (options: Options) => {
 const nonEnumerableProperties = new Set([
 	'constructor',
 	'toJSON',
+	'tryMerge',
 	'body',
 	'form',
 	'json',

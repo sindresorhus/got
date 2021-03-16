@@ -20,10 +20,12 @@ import timedOut, {TimeoutError as TimedOutTimeoutError} from './utils/timed-out'
 import urlToOptions from './utils/url-to-options';
 import WeakableMap from './utils/weakable-map';
 import getBuffer from './utils/get-buffer';
-import {isResponseOk} from './utils/is-response-ok';
 import calculateRetryDelay from './calculate-retry-delay';
 import type {OptionsInit, PromiseCookieJar, NativeRequestOptions, RequestFunction, RetryOptions} from './options';
 import Options, {createNativeRequestOptions} from './options';
+import {isResponseOk} from './response';
+import waitForOpenFile from './utils/wait-for-open-file';
+import isClientRequest from './utils/is-client-request';
 import type {Response} from './response';
 import {
 	RequestError,
@@ -128,33 +130,12 @@ export interface RequestEvents<T> {
 	& ((name: 'retry', listener: (retryCount: number, error: RequestError) => void) => T);
 }
 
-function isClientRequest(clientRequest: unknown): clientRequest is ClientRequest {
-	return is.object(clientRequest) && !('statusCode' in clientRequest);
-}
-
 export type CacheableRequestFunction = (
 	options: string | URL | NativeRequestOptions,
 	cb?: (response: ServerResponse | ResponseLike) => void
 ) => CacheableRequest.Emitter;
 
 const cacheableStore = new WeakableMap<string | CacheableRequest.StorageAdapter, CacheableRequestFunction>();
-
-const waitForOpenFile = async (file: ReadStream): Promise<void> => new Promise((resolve, reject) => {
-	const onError = (error: Error): void => {
-		reject(error);
-	};
-
-	// Node.js 12 has incomplete types
-	if (!(file as any).pending) {
-		resolve();
-	}
-
-	file.once('error', onError);
-	file.once('ready', () => {
-		file.off('error', onError);
-		resolve();
-	});
-});
 
 const redirectCodes: ReadonlySet<number> = new Set([300, 301, 302, 303, 304, 307, 308]);
 
@@ -163,8 +144,7 @@ const proxiedRequestEvents = [
 	'connect',
 	'continue',
 	'information',
-	'upgrade',
-	'timeout'
+	'upgrade'
 ];
 
 const getComputedRequest = (options: Options): RequestFunction => {
