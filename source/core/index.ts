@@ -945,7 +945,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		const endRequest = (): void => {
 			// We need to check if `this[kRequest]` is present,
 			// because it isn't when we use cache.
-			if (!(kRequest in this)) {
+			if (!this[kRequest]) {
 				callback();
 				return;
 			}
@@ -987,7 +987,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			}
 		}
 
-		if (kRequest in this) {
+		if (this[kRequest]) {
 			this[kCancelTimeouts]!();
 
 			// TODO: Remove the next `if` when targeting Node.js 14.

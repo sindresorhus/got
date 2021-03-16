@@ -16,6 +16,8 @@ const extended = new Options(undefined, {
 
 const stream = new Request('https://httpbin.org/anything', undefined, extended);
 
+stream.destroy(new Error('oh no'));
+
 console.log(stream.options);
 
 // console.log(JSON.parse(JSON.stringify(stream.options)));
