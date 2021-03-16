@@ -1,5 +1,8 @@
 import util = require('util');
 import {URL, URLSearchParams} from 'url';
+import {request as httpRequest} from 'http';
+import {request as httpsRequest} from 'https';
+import http2wrapper = require('http2-wrapper');
 import CacheableLookup from 'cacheable-lookup';
 import lowercaseKeys = require('lowercase-keys');
 import is, {assert} from '@sindresorhus/is';
@@ -491,7 +494,7 @@ All parsing methods supported by Got.
 */
 export type ResponseType = 'json' | 'buffer' | 'text';
 
-type InternalsType = Except<Options, 'followRedirects' | 'auth' | 'toJSON' | 'tryMerge' | 'createNativeRequestOptions'>;
+type InternalsType = Except<Options, 'followRedirects' | 'auth' | 'toJSON' | 'tryMerge' | 'createNativeRequestOptions' | 'getRequestFunction'>;
 
 export type OptionsInit = Partial<InternalsType>;
 
@@ -1909,6 +1912,25 @@ export default class Options {
 			createConnection: internals.createConnection
 		};
 	}
+
+	getRequestFunction() {
+		const url = this._internals.url as (URL | undefined);
+		const {request} = this._internals;
+
+		if (!request && url) {
+			if (url.protocol === 'https:') {
+				if (this._internals.http2) {
+					return http2wrapper.auto as RequestFunction;
+				}
+
+				return httpsRequest;
+			}
+
+			return httpRequest;
+		}
+
+		return request!;
+	}
 }
 
 const nonEnumerableProperties = new Set([
@@ -1916,6 +1938,7 @@ const nonEnumerableProperties = new Set([
 	'toJSON',
 	'tryMerge',
 	'createNativeRequestOptions',
+	'getRequestFunction',
 	'body',
 	'form',
 	'json',

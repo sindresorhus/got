@@ -3,12 +3,11 @@ import {ReadStream} from 'fs';
 import {URL, URLSearchParams} from 'url';
 import {Socket} from 'net';
 import * as http from 'http';
-import {ClientRequest, RequestOptions, IncomingMessage, ServerResponse, request as requestHttp} from 'http';
+import {ClientRequest, RequestOptions, IncomingMessage, ServerResponse} from 'http';
 import * as https from 'https';
 import timer, {ClientRequestWithTimings, Timings, IncomingMessageWithTimings} from '@szmarczak/http-timer';
 import * as CacheableRequest from 'cacheable-request';
 import decompressResponse = require('decompress-response');
-import {request as requestHttps} from 'https';
 import http2wrapper = require('http2-wrapper');
 import ResponseLike = require('responselike');
 import is from '@sindresorhus/is';
@@ -21,7 +20,7 @@ import urlToOptions from './utils/url-to-options';
 import WeakableMap from './utils/weakable-map';
 import getBuffer from './utils/get-buffer';
 import calculateRetryDelay from './calculate-retry-delay';
-import type {OptionsInit, PromiseCookieJar, NativeRequestOptions, RequestFunction, RetryOptions} from './options';
+import type {OptionsInit, PromiseCookieJar, NativeRequestOptions, RetryOptions} from './options';
 import Options from './options';
 import {isResponseOk} from './response';
 import waitForOpenFile from './utils/wait-for-open-file';
@@ -146,25 +145,6 @@ const proxiedRequestEvents = [
 	'information',
 	'upgrade'
 ];
-
-const getComputedRequest = (options: Options): RequestFunction => {
-	const url = options.url as (URL | undefined);
-	const {request} = options;
-
-	if (!request && url) {
-		if (url.protocol === 'https:') {
-			if (options.http2) {
-				return http2wrapper.auto as RequestFunction;
-			}
-
-			return requestHttps;
-		}
-
-		return requestHttp;
-	}
-
-	return request!;
-};
 
 export default class Request extends Duplex implements RequestEvents<Request> {
 	['constructor']: typeof Request;
@@ -731,7 +711,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			}
 		}
 
-		let request = getComputedRequest(options);
+		let request = options.getRequestFunction();
 
 		for (const hook of options.hooks.beforeRequest) {
 			// eslint-disable-next-line no-await-in-loop
