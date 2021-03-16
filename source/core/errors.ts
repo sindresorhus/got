@@ -44,15 +44,11 @@ export class RequestError extends Error {
 			});
 
 			Object.defineProperty(this, 'options', {
-				// This fails because of TS 3.7.2 useDefineForClassFields
-				// Ref: https://github.com/microsoft/TypeScript/issues/34972
 				enumerable: false,
 				value: self.options
 			});
 		} else {
 			Object.defineProperty(this, 'options', {
-				// This fails because of TS 3.7.2 useDefineForClassFields
-				// Ref: https://github.com/microsoft/TypeScript/issues/34972
 				enumerable: false,
 				value: self
 			});

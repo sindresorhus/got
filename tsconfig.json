@@ -6,7 +6,6 @@
 		"lib": [
 			"es2019"
 		],
-		"useDefineForClassFields": false,
 		// "allowSyntheticDefaultImports": true,
 		// "esModuleInterop": true
 		// "module": "es2020"
