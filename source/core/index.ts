@@ -22,7 +22,7 @@ import WeakableMap from './utils/weakable-map';
 import getBuffer from './utils/get-buffer';
 import calculateRetryDelay from './calculate-retry-delay';
 import type {OptionsInit, PromiseCookieJar, NativeRequestOptions, RequestFunction, RetryOptions} from './options';
-import Options, {createNativeRequestOptions} from './options';
+import Options from './options';
 import {isResponseOk} from './response';
 import waitForOpenFile from './utils/wait-for-open-file';
 import isClientRequest from './utils/is-client-request';
@@ -750,7 +750,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 		const url = options.url as URL;
 
-		this._requestOptions = createNativeRequestOptions(options);
+		this._requestOptions = options.createNativeRequestOptions();
 
 		// Cache support
 		const fn = options.cache ? this._createCacheableRequest : request;
