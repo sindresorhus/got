@@ -1,5 +1,7 @@
+import {RequestError} from './errors';
 import type {IncomingMessageWithTimings, Timings} from '@szmarczak/http-timer';
 import type Request from '.';
+import type {ParseJsonFunction, ResponseType} from './options';
 
 export interface PlainResponse extends IncomingMessageWithTimings {
 	/**
@@ -107,4 +109,44 @@ export const isResponseOk = (response: Response): boolean => {
 	const limitStatusCode = response.request.options.followRedirect ? 299 : 399;
 
 	return (statusCode >= 200 && statusCode <= limitStatusCode) || statusCode === 304;
+};
+
+/**
+An error to be thrown when server response code is 2xx, and parsing body fails.
+Includes a `response` property.
+*/
+export class ParseError extends RequestError {
+	declare readonly response: Response;
+
+	constructor(error: Error, response: Response) {
+		const {options} = response.request;
+
+		super(`${error.message} in "${options.url!.toString()}"`, error, response.request);
+		this.name = 'ParseError';
+	}
+}
+
+export const parseBody = (response: Response, responseType: ResponseType, parseJson: ParseJsonFunction, encoding?: BufferEncoding): unknown => {
+	const {rawBody} = response;
+
+	try {
+		if (responseType === 'text') {
+			return rawBody.toString(encoding);
+		}
+
+		if (responseType === 'json') {
+			return rawBody.length === 0 ? '' : parseJson(rawBody.toString());
+		}
+
+		if (responseType === 'buffer') {
+			return rawBody;
+		}
+
+		throw new ParseError({
+			message: `Unknown body type '${responseType as string}'`,
+			name: 'Error'
+		}, response);
+	} catch (error) {
+		throw new ParseError(error, response);
+	}
 };

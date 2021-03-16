@@ -1,4 +1,5 @@
 import {EventEmitter} from 'events';
+import {buffer as getBuffer} from 'get-stream';
 import is from '@sindresorhus/is';
 import * as PCancelable from 'p-cancelable';
 import Options from '../core/options';
@@ -11,11 +12,10 @@ import {
 	HTTPError
 } from '../core/errors';
 import {CancelError} from './types';
-import parseBody from './parse-body';
-import Request from '../core/index';
+import {parseBody} from '../core/response';
+import Request from '../core';
+import {isResponseOk} from '../core/response';
 import proxyEvents from '../core/utils/proxy-events';
-import getBuffer from '../core/utils/get-buffer';
-import {isResponseOk} from '../core/utils/is-response-ok';
 
 const proxiedRequestEvents = [
 	'request',

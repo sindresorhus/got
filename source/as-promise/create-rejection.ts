@@ -1,4 +1,6 @@
-import {CancelableRequest, BeforeErrorHook, RequestError} from './types';
+import {RequestError} from '../core/errors';
+import type {CancelableRequest} from './types';
+import type {BeforeErrorHook} from '../core/options';
 
 export default function createRejection(error: Error, ...beforeErrorGroups: Array<BeforeErrorHook[] | undefined>): CancelableRequest<never> {
 	const promise = (async () => {
