@@ -18,7 +18,7 @@ import proxyEvents from './utils/proxy-events';
 import timedOut, {TimeoutError as TimedOutTimeoutError} from './utils/timed-out';
 import urlToOptions from './utils/url-to-options';
 import WeakableMap from './utils/weakable-map';
-import getBuffer from './utils/get-buffer';
+import {buffer as getBuffer} from 'get-stream';
 import calculateRetryDelay from './calculate-retry-delay';
 import type {OptionsInit, PromiseCookieJar, NativeRequestOptions, RetryOptions} from './options';
 import Options from './options';
