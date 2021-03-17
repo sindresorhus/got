@@ -59,7 +59,6 @@ const kTriggerRead = Symbol('triggerRead');
 const kBody = Symbol('body');
 const kJobs = Symbol('jobs');
 const kOriginalResponse = Symbol('originalResponse');
-const kRetryTimeout = Symbol('retryTimeout');
 
 const supportsBrotli = is.string(process.versions.brotli);
 
@@ -157,7 +156,6 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	[kTriggerRead]: boolean;
 	[kBody]: Options['body'];
 	[kJobs]: Array<() => void>;
-	[kRetryTimeout]?: NodeJS.Timeout;
 	[kBodySize]?: number;
 	[kServerResponsesPiped]: Set<ServerResponse>;
 	[kIsFromCache]?: boolean;
@@ -168,6 +166,8 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	[kOriginalResponse]?: IncomingMessageWithTimings;
 	[kRequest]?: ClientRequest;
 	_noPipe?: boolean;
+
+	declare private _stopRetry: () => void;
 
 	// @ts-expect-error TypeScript bug.
 	options: Options;
@@ -849,27 +849,36 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 				}
 
 				if (backoff) {
-					const retry = async (): Promise<void> => {
-						try {
-							for (const hook of this.options.hooks.beforeRetry) {
-								// eslint-disable-next-line no-await-in-loop
-								await hook(this.options, typedError, retryCount);
-							}
-						} catch (error_) {
-							void this._error(new RequestError(error_.message, error, this));
-							return;
+					await new Promise<void>(resolve => {
+						const timeout = setTimeout(resolve);
+						this._stopRetry = () => {
+							clearTimeout(timeout);
+							resolve();
+						};
+					});
+
+					// Something forced us to abort the retry
+					if (this.destroyed) {
+						return;
+					}
+
+					try {
+						for (const hook of this.options.hooks.beforeRetry) {
+							// eslint-disable-next-line no-await-in-loop
+							await hook(this.options, typedError, retryCount);
 						}
+					} catch (error_) {
+						void this._error(new RequestError(error_.message, error, this));
+						return;
+					}
 
-						// Something forced us to abort the retry
-						if (this.destroyed) {
-							return;
-						}
+					// Something forced us to abort the retry
+					if (this.destroyed) {
+						return;
+					}
 
-						this.destroy();
-						this.emit('retry', retryCount, error);
-					};
-
-					this[kRetryTimeout] = setTimeout(retry, backoff);
+					this.destroy();
+					this.emit('retry', retryCount, error);
 					return;
 				}
 			}
@@ -978,7 +987,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		this[kStopReading] = true;
 
 		// Prevent further retries
-		clearTimeout(this[kRetryTimeout]!);
+		this._stopRetry();
 
 		if (this.options) {
 			const {body} = this.options;
