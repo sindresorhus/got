@@ -4,7 +4,7 @@ import type Options from './options';
 import type {Timings} from '@szmarczak/http-timer';
 import type {TimeoutError as TimedOutTimeoutError} from './utils/timed-out';
 import type Request from '.';
-import type {Response} from './response';
+import type {PlainResponse, Response} from './response';
 
 type Error = NodeJS.ErrnoException;
 
@@ -96,7 +96,7 @@ export class HTTPError extends RequestError {
 	declare readonly request: Request;
 	declare readonly timings: Timings;
 
-	constructor(response: Response) {
+	constructor(response: PlainResponse) {
 		super(`Response code ${response.statusCode} (${response.statusMessage!})`, {}, response.request);
 		this.name = 'HTTPError';
 	}

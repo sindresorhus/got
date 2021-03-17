@@ -23,7 +23,7 @@ import type ResponseLike = require('responselike');
 import type {IncomingMessageWithTimings} from '@szmarczak/http-timer';
 import type {Delays} from './utils/timed-out';
 import type {RequestError} from './errors';
-import type {Response} from './response';
+import type {PlainResponse, Response} from './response';
 import type {CancelableRequest} from '../as-promise/types';
 
 export type DnsLookupIpVersion = undefined | 4 | 6;
@@ -60,7 +60,7 @@ type Promisable<T> = T | Promise<T>;
 
 export type InitHook = (options: OptionsInit) => void;
 export type BeforeRequestHook = (options: Options) => Promisable<void | Response | ResponseLike>;
-export type BeforeRedirectHook = (options: Options, response: Response) => Promisable<void>;
+export type BeforeRedirectHook = (options: Options, plainResponse: PlainResponse) => Promisable<void>;
 export type BeforeErrorHook = (error: RequestError) => Promisable<RequestError>;
 export type BeforeRetryHook = (options: Options, error?: RequestError, retryCount?: number) => void | Promise<void>;
 export type AfterResponseHook<ResponseType = unknown> = (response: Response<ResponseType>, retryWithMergedOptions: (options: Options) => CancelableRequest<Response>) => Response | CancelableRequest<Response> | Promise<Response | CancelableRequest<Response>>;

@@ -48,24 +48,6 @@ export default function asPromise<T>(normalizedOptions: Options): CancelableRequ
 			globalRequest = request;
 
 			request.once('response', async (response: Response) => {
-				response.retryCount = retryCount;
-
-				if (response.request.aborted) {
-					// Canceled while downloading - will throw a `CancelError` or `TimeoutError` error
-					return;
-				}
-
-				// Download body
-				let rawBody;
-				try {
-					rawBody = await getBuffer(request);
-					response.rawBody = rawBody;
-				} catch {
-					// The same error is caught below.
-					// See request.once('error')
-					return;
-				}
-
 				if (request._isAboutToError) {
 					return;
 				}
@@ -77,13 +59,13 @@ export default function asPromise<T>(normalizedOptions: Options): CancelableRequ
 				const {options} = request;
 
 				if (isCompressed && !options.decompress) {
-					response.body = rawBody;
+					response.body = response.rawBody;
 				} else {
 					try {
 						response.body = parseBody(response, options.responseType, options.parseJson, options.encoding);
 					} catch (error) {
 						// Fallback to `utf8`
-						response.body = rawBody.toString();
+						response.body = response.rawBody.toString();
 
 						if (isResponseOk(response)) {
 							request._beforeError(error);

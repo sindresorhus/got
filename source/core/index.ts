@@ -25,7 +25,7 @@ import Options from './options';
 import {isResponseOk} from './response';
 import waitForOpenFile from './utils/wait-for-open-file';
 import isClientRequest from './utils/is-client-request';
-import type {Response} from './response';
+import type {PlainResponse} from './response';
 import {
 	RequestError,
 	ReadError,
@@ -145,6 +145,8 @@ const proxiedRequestEvents = [
 	'upgrade'
 ];
 
+const noop = () => {};
+
 export default class Request extends Duplex implements RequestEvents<Request> {
 	['constructor']: typeof Request;
 
@@ -162,12 +164,12 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	[kStartedReading]?: boolean;
 	[kCancelTimeouts]?: () => void;
 	[kResponseSize]?: number;
-	response?: IncomingMessageWithTimings;
+	response?: PlainResponse;
 	[kOriginalResponse]?: IncomingMessageWithTimings;
 	[kRequest]?: ClientRequest;
 	_noPipe?: boolean;
 
-	declare private _stopRetry: () => void;
+	private _stopRetry: () => void;
 
 	// @ts-expect-error TypeScript bug.
 	options: Options;
@@ -199,6 +201,8 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		this[kTriggerRead] = false;
 		this[kJobs] = [];
 		this.retryCount = 0;
+
+		this._stopRetry = noop;
 
 		const unlockWrite = (): void => {
 			this._unlockWrite();
@@ -388,6 +392,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	}
 
 	async _onResponseBase(response: IncomingMessageWithTimings): Promise<void> {
+		// This will be called e.g. when using cache so we need to check if this request has been aborted.
 		if (this.aborted) {
 			return;
 		}
@@ -402,7 +407,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		}
 
 		const statusCode = response.statusCode!;
-		const typedResponse = response as Response;
+		const typedResponse = response as PlainResponse;
 
 		typedResponse.statusMessage = typedResponse.statusMessage ? typedResponse.statusMessage : http.STATUS_CODES[statusCode];
 		typedResponse.url = options.url!.toString();
@@ -416,7 +421,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		this[kIsFromCache] = typedResponse.isFromCache;
 
 		this[kResponseSize] = Number(response.headers['content-length']) || undefined;
-		this.response = response;
+		this.response = typedResponse;
 
 		response.once('end', () => {
 			this[kResponseSize] = this[kDownloadedSize];
@@ -457,6 +462,11 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 				this._beforeError(error);
 				return;
 			}
+		}
+
+		// The above is running a promise, therefore we need to check if this request has been aborted yet again.
+		if (this.aborted) {
+			return;
 		}
 
 		if (options.followRedirect && response.headers.location && redirectCodes.has(statusCode)) {
@@ -587,11 +597,15 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		}
 
 		if (this._noPipe) {
-			try {
-				// Errors are handled via the `error` listener
-				(response as Response).rawBody = await getBuffer(this);
-			} catch {}
+			await this._setRawBody();
 		}
+	}
+
+	async _setRawBody() {
+		try {
+			// Errors are handled via the `error` listener
+			this.response!.rawBody = await getBuffer(this);
+		} catch {}
 	}
 
 	async _onResponse(response: IncomingMessageWithTimings): Promise<void> {
@@ -812,13 +826,12 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		const {response} = typedError;
 
 		void (async () => {
-			if (response && !response.body) {
-				response.setEncoding((this as any)._readableState.encoding);
+			if (response) {
+				if (!response.rawBody) {
+					await this._setRawBody();
+				}
 
-				try {
-					response.rawBody = await getBuffer(response);
-					response.body = response.rawBody.toString();
-				} catch {}
+				response.body = response.rawBody.toString();
 			}
 
 			if (this.listenerCount('retry') !== 0) {

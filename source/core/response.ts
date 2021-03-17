@@ -104,7 +104,7 @@ export interface Response<T = unknown> extends PlainResponse {
 	rawBody: Buffer;
 }
 
-export const isResponseOk = (response: Response): boolean => {
+export const isResponseOk = (response: PlainResponse): boolean => {
 	const {statusCode} = response;
 	const limitStatusCode = response.request.options.followRedirect ? 299 : 399;
 
