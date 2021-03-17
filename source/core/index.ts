@@ -388,6 +388,10 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	}
 
 	async _onResponseBase(response: IncomingMessageWithTimings): Promise<void> {
+		if (this.aborted) {
+			return;
+		}
+
 		const {options} = this;
 		const {url} = options;
 
@@ -580,6 +584,13 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			}
 
 			destination.statusCode = statusCode;
+		}
+
+		if (this._noPipe) {
+			try {
+				// Errors are handled via the `error` listener
+				(response as Response).rawBody = await getBuffer(this);
+			} catch {}
 		}
 	}
 
