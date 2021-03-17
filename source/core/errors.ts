@@ -101,6 +101,7 @@ export class HTTPError extends RequestError {
 		this.name = 'HTTPError';
 	}
 }
+
 /**
 An error to be thrown when a cache method fails.
 For example, if the database goes down or there's a filesystem error.
