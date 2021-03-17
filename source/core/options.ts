@@ -494,7 +494,7 @@ All parsing methods supported by Got.
 */
 export type ResponseType = 'json' | 'buffer' | 'text';
 
-type InternalsType = Except<Options, 'followRedirects' | 'auth' | 'toJSON' | 'tryMerge' | 'createNativeRequestOptions' | 'getRequestFunction'>;
+type InternalsType = Except<Options, 'followRedirects' | 'auth' | 'toJSON' | 'merge' | 'createNativeRequestOptions' | 'getRequestFunction'>;
 
 export type OptionsInit = Partial<InternalsType>;
 
@@ -666,26 +666,26 @@ export default class Options {
 			}
 		}
 
-		if (options) {
-			this.tryMerge(() => {
-				// eslint-disable-next-line guard-for-in
-				for (const key in options) {
-					if (!(key in this)) {
-						throw new Error(`Key ${key} is not an option`);
-					}
-
-					// @ts-expect-error Type 'unknown' is not assignable to type 'never'.
-					this[key as keyof Options] = options[key as keyof Options];
-				}
-			});
-		}
+		this.merge(options);
 	}
 
-	tryMerge(fn: () => void) {
+	merge(options?: OptionsInit) {
+		if (!options) {
+			return;
+		}
+
 		this._merging = true;
 
 		try {
-			fn();
+			// eslint-disable-next-line guard-for-in
+			for (const key in options) {
+				if (!(key in this)) {
+					throw new Error(`Key ${key} is not an option`);
+				}
+
+				// @ts-expect-error Type 'unknown' is not assignable to type 'never'.
+				this[key as keyof Options] = options[key as keyof Options];
+			}
 		} finally {
 			this._merging = false;
 		}
@@ -1935,7 +1935,7 @@ export default class Options {
 
 const nonEnumerableProperties = new Set([
 	'constructor',
-	'toJSON',
+	'merge',
 	'tryMerge',
 	'createNativeRequestOptions',
 	'getRequestFunction',

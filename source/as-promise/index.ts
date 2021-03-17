@@ -1,6 +1,6 @@
 import {EventEmitter} from 'events';
 import is from '@sindresorhus/is';
-import * as PCancelable from 'p-cancelable';
+import PCancelable from 'p-cancelable';
 import Options from '../core/options';
 import type {Response} from '../core/response';
 import {
@@ -78,15 +78,10 @@ export default function asPromise<T>(normalizedOptions: Options): CancelableRequ
 						// @ts-expect-error TS doesn't notice that CancelableRequest is a Promise
 						// eslint-disable-next-line no-await-in-loop
 						response = await hook(response, async (updatedOptions): CancelableRequest<Response> => {
-							// @ts-expect-error FIXME
-							const typedOptions = Request.normalizeArguments(undefined, {
-								...updatedOptions,
-								retry: {
-									calculateDelay: () => 0
-								},
-								throwHttpErrors: false,
-								resolveBodyOnly: false
-							}, options);
+							const typedOptions = new Options(updatedOptions, options);
+							typedOptions.retry.calculateDelay = () => 0;
+							typedOptions.throwHttpErrors = false;
+							typedOptions.resolveBodyOnly = false;
 
 							// Remove any further hooks for that request, because we'll call them anyway.
 							// The loop continues. We don't want duplicates (asPromise recursion).
