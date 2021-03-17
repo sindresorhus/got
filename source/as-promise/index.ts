@@ -30,19 +30,19 @@ export default function asPromise<T>(normalizedOptions: Options): CancelableRequ
 	const emitter = new EventEmitter();
 
 	const promise = new PCancelable<T>((resolve, reject, onCancel) => {
+		onCancel(() => {
+			globalRequest.destroy();
+		});
+
+		onCancel.shouldReject = false;
+		onCancel(() => {
+			reject(new CancelError(globalRequest));
+		});
+
 		const makeRequest = (retryCount: number): void => {
 			const request = new Request(undefined, normalizedOptions);
 			request.retryCount = retryCount;
 			request._noPipe = true;
-
-			onCancel(() => {
-				request.destroy();
-			});
-
-			onCancel.shouldReject = false;
-			onCancel(() => {
-				reject(new CancelError(request));
-			});
 
 			globalRequest = request;
 
