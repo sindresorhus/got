@@ -148,6 +148,10 @@ export default function asPromise<T>(normalizedOptions: Options): CancelableRequ
 					return;
 				}
 
+				// This is needed! We need to reuse `request.options` because they can get modified!
+				// For example, by calling `promise.json()`.
+				normalizedOptions = request.options;
+
 				makeRequest(newRetryCount);
 			});
 
