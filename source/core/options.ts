@@ -6,7 +6,6 @@ import http2wrapper = require('http2-wrapper');
 import CacheableLookup from 'cacheable-lookup';
 import lowercaseKeys = require('lowercase-keys');
 import is, {assert} from '@sindresorhus/is';
-import {isDnsLookupIpVersion, dnsLookupIpVersionToFamily} from './utils/dns-ip-version';
 import type {Readable} from 'stream';
 import type {Socket} from 'net';
 import type {SecureContextOptions, DetailedPeerCertificate} from 'tls';
@@ -22,11 +21,12 @@ import type {InspectOptions} from 'util';
 import type CacheableRequest = require('cacheable-request');
 import type ResponseLike = require('responselike');
 import type {IncomingMessageWithTimings} from '@szmarczak/http-timer';
-import type {DnsLookupIpVersion} from './utils/dns-ip-version';
 import type {Delays} from './utils/timed-out';
 import type {RequestError} from './errors';
 import type {Response} from './response';
 import type {CancelableRequest} from '../as-promise/types';
+
+export type DnsLookupIpVersion = undefined | 4 | 6;
 
 type Except<ObjectType, KeysType extends keyof ObjectType> = Pick<ObjectType, Exclude<keyof ObjectType, KeysType>>;
 
@@ -547,7 +547,7 @@ const defaultInternals: Options['_internals'] = {
 	lookup: undefined,
 	headers: {},
 	methodRewriting: false,
-	dnsLookupIpVersion: 'auto',
+	dnsLookupIpVersion: undefined,
 	parseJson: JSON.parse,
 	stringifyJson: JSON.stringify,
 	retry: {
@@ -1474,20 +1474,20 @@ export default class Options {
 	Indicates which DNS record family to use.
 
 	Values:
-	- `auto`: IPv4 (if present) or IPv6
-	- `ipv4`: Only IPv4
-	- `ipv6`: Only IPv6
+	- `undefined`: IPv4 (if present) or IPv6
+	- `4`: Only IPv4
+	- `6`: Only IPv6
 
-	__Note__: If you are using the undocumented option `family`, `dnsLookupIpVersion` will override it.
-
-	@default 'auto'
+	@default undefined
 	*/
 	get dnsLookupIpVersion(): DnsLookupIpVersion {
 		return this._internals.dnsLookupIpVersion;
 	}
 
 	set dnsLookupIpVersion(value: DnsLookupIpVersion) {
-		assert.any([isDnsLookupIpVersion], value);
+		if (value !== undefined && value !== 4 && value !== 6) {
+			throw new TypeError(`Invalid DNS lookup IP version: ${value}`);
+		}
 
 		this._internals.dnsLookupIpVersion = value;
 	}
@@ -1902,7 +1902,7 @@ export default class Options {
 		return {
 			...internals.httpsOptions,
 			...internals._unixOptions,
-			family: dnsLookupIpVersionToFamily(internals.dnsLookupIpVersion),
+			family: internals.dnsLookupIpVersion,
 			agent,
 			setHost: internals.setHost,
 			method: internals.method,
