@@ -6,6 +6,7 @@
 		"lib": [
 			"es2019"
 		],
+		"allowSyntheticDefaultImports": false,
 		// "allowSyntheticDefaultImports": true,
 		// "esModuleInterop": true
 		// "module": "es2020"
@@ -14,6 +15,7 @@
 		// "source",
 		// "test",
 		// "benchmark",
-		"source/core"
+		"source/core",
+		"source/as-promise"
 	]
 }

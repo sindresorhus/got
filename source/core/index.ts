@@ -576,6 +576,13 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			this.push(null);
 		});
 
+		if (this._noPipe) {
+			await this._setRawBody();
+			this.emit('response', response);
+
+			return;
+		}
+
 		this.emit('response', response);
 
 		for (const destination of this[kServerResponsesPiped]) {
@@ -594,10 +601,6 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			}
 
 			destination.statusCode = statusCode;
-		}
-
-		if (this._noPipe) {
-			await this._setRawBody();
 		}
 	}
 

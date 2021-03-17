@@ -1,5 +1,6 @@
 const Request = require('./dist/core/index').default;
 const Options = require('./dist/core/options').default;
+const asPromise = require('./dist/as-promise').default;
 
 const defaults = new Options({
 	headers: {
@@ -14,6 +15,13 @@ const extended = new Options(undefined, {
 	}
 }, defaults);
 
+(async () => {
+	const response = await asPromise(new Options('https://httpbin.org/anything', undefined, extended));
+	console.log(response.body);
+})();
+
+/*
+
 const stream = new Request('https://httpbin.org/anything', undefined, extended);
 
 stream.destroy(new Error('oh no'));
@@ -24,3 +32,4 @@ console.log(stream.options);
 
 stream.setEncoding('utf8');
 stream.on('data', console.log);
+*/
