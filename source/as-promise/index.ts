@@ -1,5 +1,4 @@
 import {EventEmitter} from 'events';
-import {buffer as getBuffer} from 'get-stream';
 import is from '@sindresorhus/is';
 import * as PCancelable from 'p-cancelable';
 import Options from '../core/options';
