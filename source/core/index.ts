@@ -169,8 +169,6 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	[kRequest]?: ClientRequest;
 	_noPipe?: boolean;
 
-	private _stopRetry: () => void;
-
 	// @ts-expect-error TypeScript bug.
 	options: Options;
 	declare requestUrl: string;
@@ -179,6 +177,8 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	retryCount: number;
 
 	declare _requestOptions: NativeRequestOptions;
+
+	private _stopRetry: () => void;
 
 	constructor(url: string | URL | undefined, options?: OptionsInit, defaults?: Options) {
 		super({

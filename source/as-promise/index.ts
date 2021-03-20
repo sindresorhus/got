@@ -47,6 +47,8 @@ export default function asPromise<T>(normalizedOptions: Options): CancelableRequ
 			globalRequest = request;
 
 			request.once('response', async (response: Response) => {
+				// TODO: Merging two Options classes.
+				// TODO: clean up Request and this. Check why the below is needed. Should it be moved to request?
 				if (request._isAboutToError) {
 					return;
 				}

@@ -496,7 +496,12 @@ export type ResponseType = 'json' | 'buffer' | 'text';
 
 type InternalsType = Except<Options, 'followRedirects' | 'auth' | 'toJSON' | 'merge' | 'createNativeRequestOptions' | 'getRequestFunction'>;
 
-export type OptionsInit = Partial<InternalsType>;
+export type OptionsInit =
+	Except<Partial<InternalsType>, 'hooks' | 'retry'>
+	& {
+		hooks?: Partial<Hooks>;
+		retry?: Partial<RetryOptions>;
+	};
 
 const globalCache = new Map();
 let globalDnsCache: CacheableLookup;
@@ -518,7 +523,16 @@ const defaultInternals: Options['_internals'] = {
 		http2: undefined
 	},
 	decompress: true,
-	timeout: {},
+	timeout: {
+		connect: undefined,
+		lookup: undefined,
+		read: undefined,
+		request: undefined,
+		response: undefined,
+		secureConnect: undefined,
+		send: undefined,
+		socket: undefined
+	},
 	prefixUrl: '',
 	body: undefined,
 	form: undefined,
@@ -1486,7 +1500,7 @@ export default class Options {
 
 	set dnsLookupIpVersion(value: DnsLookupIpVersion) {
 		if (value !== undefined && value !== 4 && value !== 6) {
-			throw new TypeError(`Invalid DNS lookup IP version: ${value}`);
+			throw new TypeError(`Invalid DNS lookup IP version: ${value as string}`);
 		}
 
 		this._internals.dnsLookupIpVersion = value;
