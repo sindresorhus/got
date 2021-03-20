@@ -540,6 +540,7 @@ const defaultInternals: Options['_internals'] = {
 	cookieJar: undefined,
 	ignoreInvalidCookies: false,
 	searchParameters: undefined,
+	dnsLookup: undefined,
 	dnsCache: undefined,
 	context: {},
 	hooks: {
@@ -558,7 +559,6 @@ const defaultInternals: Options['_internals'] = {
 	password: '',
 	http2: false,
 	allowGetBody: false,
-	lookup: undefined,
 	headers: {},
 	methodRewriting: false,
 	dnsLookupIpVersion: undefined,
@@ -1189,6 +1189,16 @@ export default class Options {
 		}
 	}
 
+	get dnsLookup(): CacheableLookup['lookup'] | undefined {
+		return this._internals.dnsLookup;
+	}
+
+	set dnsLookup(value: CacheableLookup['lookup'] | undefined) {
+		assert.any([is.function_, is.undefined], value);
+
+		this._internals.dnsLookup = value;
+	}
+
 	/**
 	An instance of [`CacheableLookup`](https://github.com/szmarczak/cacheable-lookup) used for making DNS lookups.
 	Useful when making lots of requests to different *public* hostnames.
@@ -1462,16 +1472,6 @@ export default class Options {
 		assert.boolean(value);
 
 		this._internals.allowGetBody = value;
-	}
-
-	get lookup(): CacheableLookup['lookup'] | undefined {
-		return this._internals.lookup;
-	}
-
-	set lookup(value: CacheableLookup['lookup'] | undefined) {
-		assert.any([is.function_, is.undefined], value);
-
-		this._internals.lookup = value;
 	}
 
 	/**
@@ -1944,6 +1944,7 @@ export default class Options {
 		return {
 			...internals.httpsOptions,
 			...internals._unixOptions,
+			lookup: internals.dnsLookup,
 			family: internals.dnsLookupIpVersion,
 			agent,
 			setHost: internals.setHost,
