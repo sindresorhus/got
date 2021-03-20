@@ -146,9 +146,9 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 	// @ts-expect-error TypeScript doesn't check try/catch inside constructors. Dang.
 	options: Options;
-	declare requestUrl: string;
+	requestUrl?: URL;
 	requestInitialized: boolean;
-	redirects: string[];
+	redirectUrls: URL[];
 	retryCount: number;
 
 	declare private _requestOptions: NativeRequestOptions;
@@ -170,10 +170,9 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	private _cancelTimeouts: () => void;
 	private _nativeResponse?: IncomingMessageWithTimings;
 
-	constructor(url: string | URL | undefined, options?: OptionsInit, defaults?: Options) {
+	constructor(url: string | URL | OptionsInit | Options | undefined, options?: OptionsInit | Options, defaults?: Options) {
 		super({
-			// This must be false, to enable throwing after destroy
-			// It is used for retry logic in Promise API
+			// Don't destroy immediately, as the error may be emitted on unsuccessful retry
 			autoDestroy: false,
 			// It needs to be zero because we're just proxying the data to another stream
 			highWaterMark: 0
@@ -193,7 +192,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		this._cancelTimeouts = noop;
 
 		this.requestInitialized = false;
-		this.redirects = [];
+		this.redirectUrls = [];
 		this.retryCount = 0;
 
 		this._stopRetry = noop;
@@ -224,39 +223,26 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 		this.on('pipe', source => {
 			if (source instanceof IncomingMessage) {
-				this.options.headers = {
-					...source.headers,
-					...this.options.headers
-				};
+				Object.assign(this.options.headers, source.headers);
 			}
 		});
 
-		try {
-			this.options = new Options(url, options, defaults);
-		} catch (error) {
-			this.destroy(error);
-			return;
-		}
-
 		(async () => {
+			this.options = new Options(url, options, defaults);
 			this._jobs = [];
 
 			try {
-				// @ts-expect-error TypeScript bug.
 				if (this.options.body instanceof ReadStream) {
-					// @ts-expect-error TypeScript bug.
 					await waitForOpenFile(this.options.body);
 				}
 
-				// @ts-expect-error TypeScript bug.
 				const {url: normalizedURL} = this.options;
 
 				if (!normalizedURL) {
 					throw new TypeError('Missing `url` property');
 				}
 
-				this.requestUrl = normalizedURL.toString();
-				decodeURI(this.requestUrl);
+				this.requestUrl = normalizedURL as URL;
 
 				await this._finalizeBody();
 				await this._makeRequest();
@@ -407,8 +393,8 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 		typedResponse.statusMessage = typedResponse.statusMessage ? typedResponse.statusMessage : http.STATUS_CODES[statusCode];
 		typedResponse.url = options.url!.toString();
-		typedResponse.requestUrl = this.requestUrl;
-		typedResponse.redirectUrls = this.redirects;
+		typedResponse.requestUrl = this.requestUrl!;
+		typedResponse.redirectUrls = this.redirectUrls;
 		typedResponse.request = this;
 		typedResponse.isFromCache = (response as any).fromCache ?? false;
 		typedResponse.ip = this.ip;
@@ -493,19 +479,17 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 				delete options.headers['content-length'];
 			}
 
-			if (this.redirects.length >= options.maxRedirects) {
+			if (this.redirectUrls.length >= options.maxRedirects) {
 				this._beforeError(new MaxRedirectsError(this));
 				return;
 			}
 
 			try {
-				// Do not remove. See https://github.com/sindresorhus/got/pull/214
+				// We need this in order to support UTF-8
 				const redirectBuffer = Buffer.from(response.headers.location, 'binary').toString();
 
 				// Handles invalid URLs. See https://github.com/sindresorhus/got/issues/604
 				const redirectUrl = new URL(redirectBuffer, url);
-				const redirectString = redirectUrl.toString();
-				decodeURI(redirectString);
 
 				// Redirecting to a different site, clear sensitive data.
 				if (redirectUrl.hostname !== (url as URL).hostname || redirectUrl.port !== (url as URL).port) {
@@ -530,7 +514,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 					redirectUrl.password = options.password;
 				}
 
-				this.redirects.push(redirectString);
+				this.redirectUrls.push(redirectUrl);
 				options.url = redirectUrl;
 
 				for (const hook of options.hooks.beforeRedirect) {
@@ -650,7 +634,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 		// Send body
 		const body = this[kBody];
-		const currentRequest = this.redirects.length === 0 ? this : request;
+		const currentRequest = this.redirectUrls.length === 0 ? this : request;
 
 		if (is.nodeStream(body)) {
 			body.pipe(currentRequest);

@@ -7,12 +7,12 @@ export interface PlainResponse extends IncomingMessageWithTimings {
 	/**
 	The original request URL.
 	*/
-	requestUrl: string;
+	requestUrl: URL;
 
 	/**
 	The redirect URLs.
 	*/
-	redirectUrls: string[];
+	redirectUrls: URL[];
 
 	/**
 	- `options` - The Got options that were set on this request.
