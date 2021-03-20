@@ -44,27 +44,13 @@ export interface Progress {
 
 type Error = NodeJS.ErrnoException;
 
-const kRequest = Symbol('request');
-const kResponseSize = Symbol('responseSize');
-const kDownloadedSize = Symbol('downloadedSize');
-const kBodySize = Symbol('bodySize');
-const kUploadedSize = Symbol('uploadedSize');
-const kServerResponsesPiped = Symbol('serverResponsesPiped');
-const kUnproxyEvents = Symbol('unproxyEvents');
-const kIsFromCache = Symbol('isFromCache');
-const kCancelTimeouts = Symbol('cancelTimeouts');
-const kStartedReading = Symbol('startedReading');
-const kStopReading = Symbol('stopReading');
-const kTriggerRead = Symbol('triggerRead');
 const kBody = Symbol('body');
-const kJobs = Symbol('jobs');
-const kOriginalResponse = Symbol('originalResponse');
 
 const supportsBrotli = is.string(process.versions.brotli);
 
-export const withoutBody: ReadonlySet<string> = new Set(['GET', 'HEAD']);
+export const methodsWithoutBody: ReadonlySet<string> = new Set(['GET', 'HEAD']);
 
-export interface RequestEvents<T> {
+export type GotEventFunction<T> =
 	/**
 	`request` event to get the request object of the request.
 
@@ -76,7 +62,7 @@ export interface RequestEvents<T> {
 		.on('request', request => setTimeout(() => request.destroy(), 50));
 	```
 	*/
-	on: ((name: 'request', listener: (request: http.ClientRequest) => void) => T)
+	((name: 'request', listener: (request: http.ClientRequest) => void) => T)
 
 	/**
 	The `response` event to get the response object of the final request.
@@ -126,6 +112,10 @@ export interface RequestEvents<T> {
 	See `got.options.retry` for more information.
 	*/
 	& ((name: 'retry', listener: (retryCount: number, error: RequestError) => void) => T);
+
+export interface RequestEvents<T> {
+	on: GotEventFunction<T>;
+	once: GotEventFunction<T>;
 }
 
 export type CacheableRequestFunction = (
@@ -150,23 +140,8 @@ const noop = () => {};
 export default class Request extends Duplex implements RequestEvents<Request> {
 	['constructor']: typeof Request;
 
-	declare [kUnproxyEvents]: () => void;
-	declare _cannotHaveBody: boolean;
-	[kDownloadedSize]: number;
-	[kUploadedSize]: number;
-	[kStopReading]: boolean;
-	[kTriggerRead]: boolean;
 	[kBody]: Options['body'];
-	[kJobs]: Array<() => void>;
-	[kBodySize]?: number;
-	[kServerResponsesPiped]: Set<ServerResponse>;
-	[kIsFromCache]?: boolean;
-	[kStartedReading]?: boolean;
-	[kCancelTimeouts]?: () => void;
-	[kResponseSize]?: number;
 	response?: PlainResponse;
-	[kOriginalResponse]?: IncomingMessageWithTimings;
-	[kRequest]?: ClientRequest;
 	_noPipe?: boolean;
 
 	// @ts-expect-error TypeScript bug.
@@ -176,9 +151,24 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	redirects: string[];
 	retryCount: number;
 
-	declare _requestOptions: NativeRequestOptions;
+	declare private _requestOptions: NativeRequestOptions;
 
 	private _stopRetry: () => void;
+	private _downloadedSize: number;
+	private _uploadedSize: number;
+	private _stopReading: boolean;
+	private _startedReading: boolean;
+	private _pipedServerResponses: Set<ServerResponse>;
+	private _request?: ClientRequest;
+	private _responseSize?: number;
+	private _bodySize?: number;
+	private _unproxyEvents: () => void;
+	private _isFromCache?: boolean;
+	private _cannotHaveBody: boolean;
+	private _triggerRead: boolean;
+	declare private _jobs: Array<() => void>;
+	private _cancelTimeouts: () => void;
+	private _nativeResponse?: IncomingMessageWithTimings;
 
 	constructor(url: string | URL | undefined, options?: OptionsInit, defaults?: Options) {
 		super({
@@ -192,14 +182,18 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		// TODO: Remove this when targeting Node.js 14
 		applyDestroyPatch(this);
 
-		this[kDownloadedSize] = 0;
-		this[kUploadedSize] = 0;
+		this._downloadedSize = 0;
+		this._uploadedSize = 0;
+		this._stopReading = false;
+		this._startedReading = false;
+		this._pipedServerResponses = new Set<ServerResponse>();
+		this._cannotHaveBody = false;
+		this._unproxyEvents = noop;
+		this._triggerRead = false;
+		this._cancelTimeouts = noop;
+
 		this.requestInitialized = false;
-		this[kServerResponsesPiped] = new Set<ServerResponse>();
 		this.redirects = [];
-		this[kStopReading] = false;
-		this[kTriggerRead] = false;
-		this[kJobs] = [];
 		this.retryCount = 0;
 
 		this._stopRetry = noop;
@@ -245,6 +239,8 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		}
 
 		(async () => {
+			this._jobs = [];
+
 			try {
 				// @ts-expect-error TypeScript bug.
 				if (this.options.body instanceof ReadStream) {
@@ -266,17 +262,17 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 				await this._makeRequest();
 
 				if (this.destroyed) {
-					this[kRequest]?.destroy();
+					this._request?.destroy();
 					return;
 				}
 
 				// Queued writes etc.
-				for (const job of this[kJobs]) {
+				for (const job of this._jobs) {
 					job();
 				}
 
 				// Prevent memory leak
-				this[kJobs].length = 0;
+				this._jobs.length = 0;
 
 				this.requestInitialized = true;
 			} catch (error) {
@@ -315,7 +311,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		const isJSON = !is.undefined(options.json);
 		const isBody = !is.undefined(options.body);
 		const hasPayload = isForm || isJSON || isBody;
-		const cannotHaveBody = withoutBody.has(options.method) && !(options.method === 'GET' && options.allowGetBody);
+		const cannotHaveBody = methodsWithoutBody.has(options.method) && !(options.method === 'GET' && options.allowGetBody);
 
 		this._cannotHaveBody = cannotHaveBody;
 
@@ -388,7 +384,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			this._unlockWrite();
 		}
 
-		this[kBodySize] = Number(headers['content-length']) || undefined;
+		this._bodySize = Number(headers['content-length']) || undefined;
 	}
 
 	async _onResponseBase(response: IncomingMessageWithTimings): Promise<void> {
@@ -400,7 +396,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		const {options} = this;
 		const {url} = options;
 
-		this[kOriginalResponse] = response;
+		this._nativeResponse = response;
 
 		if (options.decompress) {
 			response = decompressResponse(response);
@@ -418,13 +414,13 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		typedResponse.ip = this.ip;
 		typedResponse.retryCount = this.retryCount;
 
-		this[kIsFromCache] = typedResponse.isFromCache;
+		this._isFromCache = typedResponse.isFromCache;
 
-		this[kResponseSize] = Number(response.headers['content-length']) || undefined;
+		this._responseSize = Number(response.headers['content-length']) || undefined;
 		this.response = typedResponse;
 
 		response.once('end', () => {
-			this[kResponseSize] = this[kDownloadedSize];
+			this._responseSize = this._downloadedSize;
 			this.emit('downloadProgress', this.downloadProgress);
 		});
 
@@ -475,12 +471,12 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			// we would have to sacrifice the TCP connection. We don't want that.
 			response.resume();
 
-			if (this[kRequest]) {
-				this[kCancelTimeouts]!();
+			if (this._request) {
+				this._cancelTimeouts!();
 
 				// eslint-disable-next-line @typescript-eslint/no-dynamic-delete
-				delete this[kRequest];
-				this[kUnproxyEvents]();
+				delete this._request;
+				this._unproxyEvents();
 			}
 
 			const shouldBeGet = statusCode === 303 && options.method !== 'GET' && options.method !== 'HEAD';
@@ -559,7 +555,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		}
 
 		response.on('readable', () => {
-			if (this[kTriggerRead]) {
+			if (this._triggerRead) {
 				this._read();
 			}
 		});
@@ -585,7 +581,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 		this.emit('response', response);
 
-		for (const destination of this[kServerResponsesPiped]) {
+		for (const destination of this._pipedServerResponses) {
 			if (destination.headersSent) {
 				continue;
 			}
@@ -626,7 +622,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 		timer(request);
 
-		this[kCancelTimeouts] = timedOut(request, timeout, url as URL);
+		this._cancelTimeouts = timedOut(request, timeout, url as URL);
 
 		const responseEventName = options.cache ? 'cacheableResponse' : 'response';
 
@@ -646,9 +642,9 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			this._beforeError(error as RequestError);
 		});
 
-		this[kUnproxyEvents] = proxyEvents(request, this, proxiedRequestEvents);
+		this._unproxyEvents = proxyEvents(request, this, proxiedRequestEvents);
 
-		this[kRequest] = request;
+		this._request = request;
 
 		this.emit('uploadProgress', this.uploadProgress);
 
@@ -812,14 +808,14 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	}
 
 	_beforeError(error: Error): void {
-		if (this[kStopReading]) {
+		if (this._stopReading) {
 			return;
 		}
 
 		const {options} = this;
 		const retryCount = this.retryCount + 1;
 
-		this[kStopReading] = true;
+		this._stopReading = true;
 
 		if (!(error instanceof RequestError)) {
 			error = new RequestError(error.message, error, this);
@@ -915,20 +911,20 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	}
 
 	_read(): void {
-		this[kTriggerRead] = true;
+		this._triggerRead = true;
 
 		const {response} = this;
-		if (response && !this[kStopReading]) {
+		if (response && !this._stopReading) {
 			// We cannot put this in the `if` above
 			// because `.read()` also triggers the `end` event
 			if (response.readableLength) {
-				this[kTriggerRead] = false;
+				this._triggerRead = false;
 			}
 
 			let data;
 			while ((data = response.read()) !== null) {
-				this[kDownloadedSize] += data.length;
-				this[kStartedReading] = true;
+				this._downloadedSize += data.length;
+				this._startedReading = true;
 
 				const progress = this.downloadProgress;
 
@@ -950,21 +946,21 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		if (this.requestInitialized) {
 			write();
 		} else {
-			this[kJobs].push(write);
+			this._jobs.push(write);
 		}
 	}
 
 	_writeRequest(chunk: any, encoding: BufferEncoding | undefined, callback: (error?: Error | null) => void): void {
-		if (this[kRequest]!.destroyed) {
+		if (this._request!.destroyed) {
 			// Probably the `ClientRequest` instance will throw
 			return;
 		}
 
-		// TODO: What happens if it's from cache? Then this[kRequest] won't be defined.
+		// TODO: What happens if it's from cache? Then this._request won't be defined.
 
-		this[kRequest]!.write(chunk, encoding!, (error?: Error | null) => {
+		this._request!.write(chunk, encoding!, (error?: Error | null) => {
 			if (!error) {
-				this[kUploadedSize] += Buffer.byteLength(chunk, encoding);
+				this._uploadedSize += Buffer.byteLength(chunk, encoding);
 
 				const progress = this.uploadProgress;
 
@@ -979,24 +975,24 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 	_final(callback: (error?: Error | null) => void): void {
 		const endRequest = (): void => {
-			// We need to check if `this[kRequest]` is present,
+			// We need to check if `this._request` is present,
 			// because it isn't when we use cache.
-			if (!this[kRequest]) {
+			if (!this._request) {
 				callback();
 				return;
 			}
 
-			if (this[kRequest]!.destroyed) {
+			if (this._request!.destroyed) {
 				callback();
 				return;
 			}
 
-			this[kRequest]!.end((error?: Error | null) => {
+			this._request!.end((error?: Error | null) => {
 				if (!error) {
-					this[kBodySize] = this[kUploadedSize];
+					this._bodySize = this._uploadedSize;
 
 					this.emit('uploadProgress', this.uploadProgress);
-					this[kRequest]!.emit('upload-complete');
+					this._request!.emit('upload-complete');
 				}
 
 				callback(error);
@@ -1006,12 +1002,12 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		if (this.requestInitialized) {
 			endRequest();
 		} else {
-			this[kJobs].push(endRequest);
+			this._jobs.push(endRequest);
 		}
 	}
 
 	_destroy(error: Error | null, callback: (error: Error | null) => void): void {
-		this[kStopReading] = true;
+		this._stopReading = true;
 
 		// Prevent further retries
 		this._stopRetry();
@@ -1023,12 +1019,12 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			}
 		}
 
-		if (this[kRequest]) {
-			this[kCancelTimeouts]!();
+		if (this._request) {
+			this._cancelTimeouts!();
 
 			// TODO: Remove the next `if` when targeting Node.js 14.
 			if (!this.response?.complete) {
-				this[kRequest]!.destroy();
+				this._request!.destroy();
 			}
 		}
 
@@ -1040,7 +1036,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	}
 
 	get _isAboutToError() {
-		return this[kStopReading];
+		return this._stopReading;
 	}
 
 	/**
@@ -1054,11 +1050,11 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	Indicates whether the request has been aborted or not.
 	*/
 	get aborted(): boolean {
-		return (this[kRequest]?.destroyed ?? this.destroyed) && !(this[kOriginalResponse]?.complete);
+		return (this._request?.destroyed ?? this.destroyed) && !(this._nativeResponse?.complete);
 	}
 
 	get socket(): Socket | undefined {
-		return this[kRequest]?.socket ?? undefined;
+		return this._request?.socket ?? undefined;
 	}
 
 	/**
@@ -1066,9 +1062,9 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	*/
 	get downloadProgress(): Progress {
 		let percent;
-		if (this[kResponseSize]) {
-			percent = this[kDownloadedSize] / this[kResponseSize]!;
-		} else if (this[kResponseSize] === this[kDownloadedSize]) {
+		if (this._responseSize) {
+			percent = this._downloadedSize / this._responseSize!;
+		} else if (this._responseSize === this._downloadedSize) {
 			percent = 1;
 		} else {
 			percent = 0;
@@ -1076,8 +1072,8 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 		return {
 			percent,
-			transferred: this[kDownloadedSize],
-			total: this[kResponseSize]
+			transferred: this._downloadedSize,
+			total: this._responseSize
 		};
 	}
 
@@ -1086,9 +1082,9 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	*/
 	get uploadProgress(): Progress {
 		let percent;
-		if (this[kBodySize]) {
-			percent = this[kUploadedSize] / this[kBodySize]!;
-		} else if (this[kBodySize] === this[kUploadedSize]) {
+		if (this._bodySize) {
+			percent = this._uploadedSize / this._bodySize!;
+		} else if (this._bodySize === this._uploadedSize) {
 			percent = 1;
 		} else {
 			percent = 0;
@@ -1096,8 +1092,8 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 		return {
 			percent,
-			transferred: this[kUploadedSize],
-			total: this[kBodySize]
+			transferred: this._uploadedSize,
+			total: this._bodySize
 		};
 	}
 
@@ -1129,23 +1125,23 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	__Note__: The time is a `number` representing the milliseconds elapsed since the UNIX epoch.
 	*/
 	get timings(): Timings | undefined {
-		return (this[kRequest] as ClientRequestWithTimings)?.timings;
+		return (this._request as ClientRequestWithTimings)?.timings;
 	}
 
 	/**
 	Whether the response was retrieved from the cache.
 	*/
 	get isFromCache(): boolean | undefined {
-		return this[kIsFromCache];
+		return this._isFromCache;
 	}
 
 	pipe<T extends NodeJS.WritableStream>(destination: T, options?: {end?: boolean}): T {
-		if (this[kStartedReading]) {
+		if (this._startedReading) {
 			throw new Error('Failed to pipe. The response has been emitted already.');
 		}
 
 		if (destination instanceof ServerResponse) {
-			this[kServerResponsesPiped].add(destination);
+			this._pipedServerResponses.add(destination);
 		}
 
 		return super.pipe(destination, options);
@@ -1153,7 +1149,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 	unpipe<T extends NodeJS.WritableStream>(destination: T): this {
 		if (destination instanceof ServerResponse) {
-			this[kServerResponsesPiped].delete(destination);
+			this._pipedServerResponses.delete(destination);
 		}
 
 		super.unpipe(destination);
