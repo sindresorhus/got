@@ -676,16 +676,20 @@ export default class Options {
 			options = input;
 		} else if (input instanceof Options) {
 			options = input._init;
-		} else if (input) {
+		} else {
 			if (options instanceof Options) {
 				options = options._init;
 			}
 
-			if (options?.url !== undefined) {
-				throw new TypeError('The `url` option is mutually exclusive with the `input` argument');
-			}
+			if (input) {
+				if (options?.url !== undefined) {
+					throw new TypeError('The `url` option is mutually exclusive with the `input` argument');
+				}
 
-			this._internals.url = new URL(input.toString());
+				this._internals.url = new URL(input.toString());
+			} else if (options?.url) {
+				this._internals.url = new URL(options.url.toString());
+			}
 		}
 
 		if (options) {
