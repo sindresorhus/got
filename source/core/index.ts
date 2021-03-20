@@ -371,7 +371,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 	async _onResponseBase(response: IncomingMessageWithTimings): Promise<void> {
 		// This will be called e.g. when using cache so we need to check if this request has been aborted.
-		if (this.aborted) {
+		if (this.isAborted) {
 			return;
 		}
 
@@ -443,7 +443,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		}
 
 		// The above is running a promise, therefore we need to check if this request has been aborted yet again.
-		if (this.aborted) {
+		if (this.isAborted) {
 			return;
 		}
 
@@ -931,14 +931,12 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	}
 
 	_writeRequest(chunk: any, encoding: BufferEncoding | undefined, callback: (error?: Error | null) => void): void {
-		if (this._request!.destroyed) {
+		if (!this._request || this._request.destroyed) {
 			// Probably the `ClientRequest` instance will throw
 			return;
 		}
 
-		// TODO: What happens if it's from cache? Then this._request won't be defined.
-
-		this._request!.write(chunk, encoding!, (error?: Error | null) => {
+		this._request.write(chunk, encoding!, (error?: Error | null) => {
 			if (!error) {
 				this._uploadedSize += Buffer.byteLength(chunk, encoding);
 
@@ -957,17 +955,12 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		const endRequest = (): void => {
 			// We need to check if `this._request` is present,
 			// because it isn't when we use cache.
-			if (!this._request) {
+			if (!this._request || this._request.destroyed) {
 				callback();
 				return;
 			}
 
-			if (this._request!.destroyed) {
-				callback();
-				return;
-			}
-
-			this._request!.end((error?: Error | null) => {
+			this._request.end((error?: Error | null) => {
 				if (!error) {
 					this._bodySize = this._uploadedSize;
 
@@ -991,6 +984,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 		// Prevent further retries
 		this._stopRetry();
+		this._cancelTimeouts();
 
 		if (this.options) {
 			const {body} = this.options;
@@ -999,13 +993,9 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			}
 		}
 
-		if (this._request) {
-			this._cancelTimeouts!();
-
-			// TODO: Remove the next `if` when targeting Node.js 14.
-			if (!this.response?.complete) {
-				this._request!.destroy();
-			}
+		// TODO: Remove the next `if` when targeting Node.js 14.
+		if (this._request && !this.response?.complete) {
+			this._request.destroy();
 		}
 
 		if (error !== null && !is.undefined(error) && !(error instanceof RequestError)) {
@@ -1029,7 +1019,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	/**
 	Indicates whether the request has been aborted or not.
 	*/
-	get aborted(): boolean {
+	get isAborted(): boolean {
 		return (this._request?.destroyed ?? this.destroyed) && !(this._nativeResponse?.complete);
 	}
 
