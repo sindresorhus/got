@@ -7,7 +7,6 @@
 			"es2019"
 		],
 		"allowSyntheticDefaultImports": false,
-		// "allowSyntheticDefaultImports": true,
 		// "esModuleInterop": true
 		// "module": "es2020"
 	},

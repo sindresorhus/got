@@ -44,8 +44,6 @@ export interface Progress {
 
 type Error = NodeJS.ErrnoException;
 
-const kBody = Symbol('body');
-
 const supportsBrotli = is.string(process.versions.brotli);
 
 export const methodsWithoutBody: ReadonlySet<string> = new Set(['GET', 'HEAD']);
@@ -140,14 +138,12 @@ const noop = () => {};
 export default class Request extends Duplex implements RequestEvents<Request> {
 	['constructor']: typeof Request;
 
-	[kBody]: Options['body'];
-	response?: PlainResponse;
 	_noPipe?: boolean;
 
 	// @ts-expect-error TypeScript doesn't check try/catch inside constructors. Dang.
 	options: Options;
+	response?: PlainResponse;
 	requestUrl?: URL;
-	requestInitialized: boolean;
 	redirectUrls: URL[];
 	retryCount: number;
 
@@ -169,6 +165,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	declare private _jobs: Array<() => void>;
 	private _cancelTimeouts: () => void;
 	private _nativeResponse?: IncomingMessageWithTimings;
+	private _staticBody: Options['body'];
 
 	constructor(url: string | URL | OptionsInit | Options | undefined, options?: OptionsInit | Options, defaults?: Options) {
 		super({
@@ -191,7 +188,6 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		this._triggerRead = false;
 		this._cancelTimeouts = noop;
 
-		this.requestInitialized = false;
 		this.redirectUrls = [];
 		this.retryCount = 0;
 
@@ -227,16 +223,18 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			}
 		});
 
+		const typedOptions = new Options(url, options, defaults);
+
 		(async () => {
-			this.options = new Options(url, options, defaults);
+			this.options = typedOptions;
 			this._jobs = [];
 
 			try {
-				if (this.options.body instanceof ReadStream) {
-					await waitForOpenFile(this.options.body);
+				if (typedOptions.body instanceof ReadStream) {
+					await waitForOpenFile(typedOptions.body);
 				}
 
-				const {url: normalizedURL} = this.options;
+				const {url: normalizedURL} = typedOptions;
 
 				if (!normalizedURL) {
 					throw new TypeError('Missing `url` property');
@@ -259,8 +257,6 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 				// Prevent memory leak
 				this._jobs.length = 0;
-
-				this.requestInitialized = true;
 			} catch (error) {
 				if (error instanceof RequestError) {
 					this._beforeError(error);
@@ -334,22 +330,22 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 						headers['content-type'] = `multipart/form-data; boundary=${options.body.getBoundary()}`;
 					}
 
-					this[kBody] = options.body;
+					this._staticBody = options.body;
 				} else if (isForm) {
 					if (noContentType) {
 						headers['content-type'] = 'application/x-www-form-urlencoded';
 					}
 
-					this[kBody] = (new URLSearchParams(options.form as Record<string, string>)).toString();
+					this._staticBody = (new URLSearchParams(options.form as Record<string, string>)).toString();
 				} else {
 					if (noContentType) {
 						headers['content-type'] = 'application/json';
 					}
 
-					this[kBody] = options.stringifyJson(options.json);
+					this._staticBody = options.stringifyJson(options.json);
 				}
 
-				const uploadBodySize = await getBodySize(this[kBody], options.headers);
+				const uploadBodySize = await getBodySize(this._staticBody, options.headers);
 
 				// See https://tools.ietf.org/html/rfc7230#section-3.3.2
 				// A user agent SHOULD send a Content-Length in a request message when
@@ -475,7 +471,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 				options.json = undefined;
 				options.form = undefined;
 
-				this[kBody] = undefined;
+				this._staticBody = undefined;
 				delete options.headers['content-length'];
 			}
 
@@ -633,7 +629,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		this.emit('uploadProgress', this.uploadProgress);
 
 		// Send body
-		const body = this[kBody];
+		const body = this._staticBody;
 		const currentRequest = this.redirectUrls.length === 0 ? this : request;
 
 		if (is.nodeStream(body)) {
@@ -732,8 +728,8 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			}
 		}
 
-		if (options.body && this[kBody] !== options.body) {
-			this[kBody] = options.body;
+		if (options.body && this._staticBody !== options.body) {
+			this._staticBody = options.body;
 		}
 
 		const url = options.url as URL;
@@ -927,7 +923,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			this._writeRequest(chunk, encoding as BufferEncoding, callback);
 		};
 
-		if (this.requestInitialized) {
+		if (this._request) {
 			write();
 		} else {
 			this._jobs.push(write);
@@ -983,7 +979,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			});
 		};
 
-		if (this.requestInitialized) {
+		if (this._request) {
 			endRequest();
 		} else {
 			this._jobs.push(endRequest);
