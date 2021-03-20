@@ -1,7 +1,7 @@
 import * as Benchmark from 'benchmark';
-import Options from '../source/core/options';
+import Options, { OptionsInit } from '../source/core/options';
 
-const x = {
+const x: OptionsInit = {
 	hooks: {
 		beforeRequest: [
 			() => {}
@@ -9,10 +9,12 @@ const x = {
 	}
 };
 
+const y = new Options(x);
+
 const internalSuite = new Benchmark.Suite();
 internalSuite.add('got - normalize options', {
 	fn: () => {
-		new Options(x);
+		new Options(y);
 	}
 }).on('cycle', (event: Benchmark.Event) => {
 	console.log(String(event.target));

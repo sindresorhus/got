@@ -620,6 +620,7 @@ const cloneInternals = (internals: typeof defaultInternals): typeof defaultInter
 
 	const result = {
 		...internals,
+		context: {...internals.context},
 		cacheOptions: {...internals.cacheOptions},
 		httpsOptions: {...internals.httpsOptions},
 		agent: {...internals.agent},
@@ -649,9 +650,10 @@ export default class Options {
 	_unixOptions?: NativeRequestOptions;
 	private _internals: InternalsType;
 	private _merging: boolean;
+	private _init?: OptionsInit;
 
-	constructor(urlOrOptions?: string | URL | OptionsInit, options?: OptionsInit, defaults?: Options) {
-		assert.any([is.string, is.urlInstance, is.object, is.undefined], urlOrOptions);
+	constructor(input?: string | URL | OptionsInit | Options, options?: OptionsInit | Options, defaults?: Options) {
+		assert.any([is.string, is.urlInstance, is.object, is.undefined], input);
 		assert.any([is.object, is.undefined], options);
 		assert.any([is.object, is.undefined], defaults);
 
@@ -659,26 +661,48 @@ export default class Options {
 		this._merging = false;
 		this._internals = cloneInternals(defaults?._internals ?? defaultInternals);
 
-		if (is.plainObject(urlOrOptions)) {
+		if (is.plainObject(input)) {
 			if (options) {
 				throw new Error('There can be only one options argument');
 			}
 
-			options = urlOrOptions;
-		} else if (urlOrOptions) {
+			const initHooks = input.hooks?.init;
+			if (initHooks) {
+				for (const hook of initHooks) {
+					hook(input);
+				}
+			}
+
+			options = input;
+		} else if (input instanceof Options) {
+			options = input._init;
+		} else if (input) {
+			if (options instanceof Options) {
+				options = options._init;
+			}
+
 			if (options?.url !== undefined) {
 				throw new TypeError('The `url` option is mutually exclusive with the `input` argument');
 			}
 
-			this.url = urlOrOptions;
+			this._internals.url = new URL(input.toString());
 		}
 
-		const initHooks = options?.hooks?.init;
-		if (initHooks) {
-			for (const hook of initHooks) {
-				hook(options!);
-			}
+		if (options) {
+			// This is way much faster than cloning ^_^
+			Object.freeze(options);
+			Object.freeze(options.hooks);
+			Object.freeze(options.httpsOptions);
+			Object.freeze(options.cacheOptions);
+			Object.freeze(options.agent);
+			Object.freeze(options.headers);
+			Object.freeze(options.timeout);
+			Object.freeze(options.retry);
+			Object.freeze(options.hooks);
+			Object.freeze(options.context);
 		}
+
+		this._init = options;
 
 		this.merge(options);
 	}
