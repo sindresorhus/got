@@ -144,7 +144,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	response?: PlainResponse;
 	_noPipe?: boolean;
 
-	// @ts-expect-error TypeScript bug.
+	// @ts-expect-error TypeScript doesn't check try/catch inside constructors. Dang.
 	options: Options;
 	declare requestUrl: string;
 	requestInitialized: boolean;
