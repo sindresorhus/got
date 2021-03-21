@@ -24,6 +24,8 @@ const proxiedRequestEvents = [
 	'downloadProgress'
 ];
 
+const supportedCompressionAlgorithms = new Set(['gzip', 'deflate', 'br']);
+
 export default function asPromise<T>(normalizedOptions: Options): CancelableRequest<T> {
 	let globalRequest: Request;
 	let globalResponse: Response;
@@ -47,14 +49,9 @@ export default function asPromise<T>(normalizedOptions: Options): CancelableRequ
 			globalRequest = request;
 
 			request.once('response', async (response: Response) => {
-				// TODO: clean up `asPromise`. Check why the below is needed. Should it be moved to request?
-				if (request._isAboutToError) {
-					return;
-				}
-
 				// Parse body
 				const contentEncoding = (response.headers['content-encoding'] ?? '').toLowerCase();
-				const isCompressed = ['gzip', 'deflate', 'br'].includes(contentEncoding);
+				const isCompressed = supportedCompressionAlgorithms.has(contentEncoding);
 
 				const {options} = request;
 
@@ -75,7 +72,11 @@ export default function asPromise<T>(normalizedOptions: Options): CancelableRequ
 				}
 
 				try {
-					for (const [index, hook] of options.hooks.afterResponse.entries()) {
+					const hooks = options.hooks.afterResponse;
+
+					for (let index = 0; index < hooks.length; index++) {
+						const hook = hooks[index];
+
 						// @ts-expect-error TS doesn't notice that CancelableRequest is a Promise
 						// eslint-disable-next-line no-await-in-loop
 						response = await hook(response, async (updatedOptions): CancelableRequest<Response> => {

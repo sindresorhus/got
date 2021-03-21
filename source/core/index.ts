@@ -453,13 +453,10 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			// we would have to sacrifice the TCP connection. We don't want that.
 			response.resume();
 
-			if (this._request) {
-				this._cancelTimeouts!();
+			this._cancelTimeouts();
+			this._unproxyEvents();
 
-				// eslint-disable-next-line @typescript-eslint/no-dynamic-delete
-				delete this._request;
-				this._unproxyEvents();
-			}
+			this._request = undefined;
 
 			const shouldBeGet = statusCode === 303 && options.method !== 'GET' && options.method !== 'HEAD';
 			if (shouldBeGet || options.methodRewriting) {
@@ -553,8 +550,11 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		});
 
 		if (this._noPipe) {
-			await this._setRawBody();
-			this.emit('response', response);
+			const success = await this._setRawBody();
+
+			if (success) {
+				this.emit('response', response);
+			}
 
 			return;
 		}
@@ -580,11 +580,21 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		}
 	}
 
-	async _setRawBody() {
+	async _setRawBody(): Promise<boolean> {
 		try {
-			// Errors are handled via the `error` listener
-			this.response!.rawBody = await getBuffer(this);
+			// Errors are emitted via the `error` event
+			const rawBody = await getBuffer(this);
+
+			// On retry Request is destroyed with no error, therefore the above will successfully resolve.
+			// So in order to check if this was really successfull, we need to check if it has been properly ended.
+			if (this.readableEnded) {
+				this.response!.rawBody = rawBody;
+
+				return true;
+			}
 		} catch {}
+
+		return false;
 	}
 
 	async _onResponse(response: IncomingMessageWithTimings): Promise<void> {
@@ -807,10 +817,12 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		void (async () => {
 			if (response) {
 				if (!response.rawBody) {
-					await this._setRawBody();
-				}
+					const success = await this._setRawBody();
 
-				response.body = response.rawBody.toString();
+					if (success) {
+						response.body = response.rawBody!.toString();
+					}
+				}
 			}
 
 			if (this.listenerCount('retry') !== 0) {
