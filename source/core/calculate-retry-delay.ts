@@ -5,6 +5,10 @@ type Returns<T extends (...args: any) => unknown, V> = (...args: Parameters<T>) 
 export const retryAfterStatusCodes: ReadonlySet<number> = new Set([413, 429, 503]);
 
 const calculateRetryDelay: Returns<RetryFunction, number> = ({attemptCount, retryOptions, error, retryAfter}) => {
+	if (error.name === 'RetryError') {
+		return 1;
+	}
+
 	if (attemptCount > retryOptions.limit) {
 		return 0;
 	}

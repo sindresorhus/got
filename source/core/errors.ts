@@ -167,3 +167,13 @@ export class UnsupportedProtocolError extends RequestError {
 		this.name = 'UnsupportedProtocolError';
 	}
 }
+
+/**
+An error which always triggers a new retry when thrown.
+*/
+export class RetryError extends RequestError {
+	constructor(request: Request) {
+		super('Retrying', {}, request);
+		this.name = 'RetryError';
+	}
+}

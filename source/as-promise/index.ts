@@ -8,7 +8,8 @@ import type {
 } from './types';
 import {
 	RequestError,
-	HTTPError
+	HTTPError,
+	RetryError
 } from '../core/errors';
 import {CancelError} from './types';
 import Request from '../core';
@@ -81,28 +82,13 @@ export default function asPromise<T>(normalizedOptions: Options): CancelableRequ
 						// @ts-expect-error TS doesn't notice that CancelableRequest is a Promise
 						// eslint-disable-next-line no-await-in-loop
 						response = await hook(response, async (updatedOptions): CancelableRequest<Response> => {
-							const typedOptions = new Options(updatedOptions, options);
-							typedOptions.retry.calculateDelay = () => 0;
-							typedOptions.throwHttpErrors = false;
-							typedOptions.resolveBodyOnly = false;
+							options.merge(updatedOptions);
 
 							// Remove any further hooks for that request, because we'll call them anyway.
 							// The loop continues. We don't want duplicates (asPromise recursion).
-							typedOptions.hooks.afterResponse = typedOptions.hooks.afterResponse.slice(0, index);
+							options.hooks.afterResponse = options.hooks.afterResponse.slice(0, index);
 
-							for (const hook of typedOptions.hooks.beforeRetry) {
-								// eslint-disable-next-line no-await-in-loop
-								await hook(typedOptions);
-							}
-
-							const promise: CancelableRequest<Response> = asPromise(typedOptions);
-
-							onCancel(() => {
-								promise.catch(() => {});
-								promise.cancel();
-							});
-
-							return promise;
+							throw new RetryError(request);
 						});
 					}
 				} catch (error) {

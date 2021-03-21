@@ -33,7 +33,8 @@ import {
 	HTTPError,
 	TimeoutError,
 	UploadError,
-	CacheError
+	CacheError,
+	RetryError
 } from './errors';
 
 export interface Progress {
@@ -803,7 +804,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		}
 
 		const {options} = this;
-		const retryCount = this.retryCount + 1;
+		const attemptCount = this.retryCount + (error instanceof RetryError ? 0 : 1);
 
 		this._stopReading = true;
 
@@ -844,12 +845,12 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 					const retryOptions = options.retry as RetryOptions;
 
 					backoff = await retryOptions.calculateDelay({
-						attemptCount: retryCount,
+						attemptCount,
 						retryOptions,
 						error: typedError,
 						retryAfter,
 						computedValue: calculateRetryDelay({
-							attemptCount: retryCount,
+							attemptCount,
 							retryOptions,
 							error: typedError,
 							retryAfter,
@@ -878,7 +879,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 					try {
 						for (const hook of this.options.hooks.beforeRetry) {
 							// eslint-disable-next-line no-await-in-loop
-							await hook(this.options, typedError, retryCount);
+							await hook(typedError);
 						}
 					} catch (error_) {
 						void this._error(new RequestError(error_.message, error, this));
@@ -891,7 +892,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 					}
 
 					this.destroy();
-					this.emit('retry', retryCount, error);
+					this.emit('retry', attemptCount, error);
 					return;
 				}
 			}
