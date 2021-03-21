@@ -676,9 +676,14 @@ export default class Options {
 			options = input;
 		} else if (input instanceof Options) {
 			options = input._init;
+
+			this._internals.url = input._internals.url;
 		} else {
 			if (options instanceof Options) {
+				const {url} = options._internals;
 				options = options._init;
+
+				this._internals.url = url;
 			}
 
 			if (input) {

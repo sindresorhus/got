@@ -1,6 +1,6 @@
-const Request = require('./dist/core/index').default;
-const Options = require('./dist/core/options').default;
-const asPromise = require('./dist/as-promise').default;
+const Request = require('./dist/source/core/index').default;
+const Options = require('./dist/source/core/options').default;
+const asPromise = require('./dist/source/as-promise').default;
 
 const defaults = new Options({
 	headers: {
@@ -15,8 +15,12 @@ const extended = new Options(undefined, {
 	}
 }, defaults);
 
+const options = new Options('https://httpbin.org/anything');
+
+console.log(new Options(undefined, options));
+
 (async () => {
-	const response = await asPromise(new Options('https://httpbin.org/anything', undefined, extended));
+	const response = await asPromise(options);
 	console.log(response.body);
 })();
 
