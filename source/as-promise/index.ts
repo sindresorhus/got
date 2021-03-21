@@ -140,7 +140,9 @@ export default function asPromise<T>(normalizedOptions: Options): CancelableRequ
 			const previousBody = request.options.body;
 
 			request.once('retry', (newRetryCount: number, error: RequestError) => {
-				if (previousBody === error.request?.options.body && is.nodeStream(error.request?.options.body)) {
+				const newBody = request.options.body;
+
+				if (previousBody === newBody && is.nodeStream(newBody)) {
 					onError(error);
 					return;
 				}
