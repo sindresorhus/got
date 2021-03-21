@@ -3,7 +3,7 @@ import is from '@sindresorhus/is';
 import * as PCancelable from 'p-cancelable';
 import Options from '../core/options';
 import type {Response} from '../core/response';
-import {
+import type {
 	CancelableRequest
 } from './types';
 import {
@@ -11,9 +11,8 @@ import {
 	HTTPError
 } from '../core/errors';
 import {CancelError} from './types';
-import {parseBody} from '../core/response';
 import Request from '../core';
-import {isResponseOk} from '../core/response';
+import {parseBody, isResponseOk} from '../core/response';
 import proxyEvents from '../core/utils/proxy-events';
 
 const proxiedRequestEvents = [
@@ -74,6 +73,8 @@ export default function asPromise<T>(normalizedOptions: Options): CancelableRequ
 				try {
 					const hooks = options.hooks.afterResponse;
 
+					// TODO: `xo` should detect if `index` is being used for something else
+					// eslint-disable-next-line @typescript-eslint/prefer-readonly
 					for (let index = 0; index < hooks.length; index++) {
 						const hook = hooks[index];
 

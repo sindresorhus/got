@@ -650,7 +650,7 @@ export default class Options {
 	_unixOptions?: NativeRequestOptions;
 	private _internals: InternalsType;
 	private _merging: boolean;
-	private _init?: OptionsInit;
+	private readonly _init?: OptionsInit;
 
 	constructor(input?: string | URL | OptionsInit | Options, options?: OptionsInit | Options, defaults?: Options) {
 		assert.any([is.string, is.urlInstance, is.object, is.undefined], input);

@@ -154,7 +154,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	private _uploadedSize: number;
 	private _stopReading: boolean;
 	private _startedReading: boolean;
-	private _pipedServerResponses: Set<ServerResponse>;
+	private readonly _pipedServerResponses: Set<ServerResponse>;
 	private _request?: ClientRequest;
 	private _responseSize?: number;
 	private _bodySize?: number;
@@ -815,13 +815,11 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		const {response} = typedError;
 
 		void (async () => {
-			if (response) {
-				if (!response.rawBody) {
-					const success = await this._setRawBody();
+			if (response && !response.rawBody) {
+				const success = await this._setRawBody();
 
-					if (success) {
-						response.body = response.rawBody!.toString();
-					}
+				if (success) {
+					response.body = (response.rawBody as Buffer).toString();
 				}
 			}
 
@@ -1045,7 +1043,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	get downloadProgress(): Progress {
 		let percent;
 		if (this._responseSize) {
-			percent = this._downloadedSize / this._responseSize!;
+			percent = this._downloadedSize / this._responseSize;
 		} else if (this._responseSize === this._downloadedSize) {
 			percent = 1;
 		} else {
@@ -1065,7 +1063,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	get uploadProgress(): Progress {
 		let percent;
 		if (this._bodySize) {
-			percent = this._uploadedSize / this._bodySize!;
+			percent = this._uploadedSize / this._bodySize;
 		} else if (this._bodySize === this._uploadedSize) {
 			percent = 1;
 		} else {
