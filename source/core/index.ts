@@ -242,7 +242,16 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 				this.requestUrl = normalizedURL as URL;
 
+				if (this.destroyed) {
+					return;
+				}
+
 				await this._finalizeBody();
+
+				if (this.destroyed) {
+					return;
+				}
+
 				await this._makeRequest();
 
 				if (this.destroyed) {

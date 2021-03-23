@@ -16,8 +16,16 @@ const internalSuite = new Benchmark.Suite();
 internalSuite.add('got', {
 	defer: true,
 	fn: async (deferred: Benchmark.Deferred) => {
-		await asPromise(options);
-		deferred.resolve();
+		const promise = asPromise(options);
+		promise.cancel();
+
+		try {
+			await promise;
+		} catch {
+			// Empty on purpose.
+		} finally {
+			deferred.resolve();
+		}
 	}
 }).on('cycle', (event: Benchmark.Event) => {
 	console.log(String(event.target));
