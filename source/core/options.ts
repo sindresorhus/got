@@ -496,7 +496,7 @@ All parsing methods supported by Got.
 */
 export type ResponseType = 'json' | 'buffer' | 'text';
 
-type InternalsType = Except<Options, 'followRedirects' | 'auth' | 'toJSON' | 'merge' | 'createNativeRequestOptions' | 'getRequestFunction' | 'requirePaginationOptions'>;
+type InternalsType = Except<Options, 'followRedirects' | 'auth' | 'toJSON' | 'merge' | 'createNativeRequestOptions' | 'getRequestFunction' | 'requirePaginationOptions' | 'getFallbackRequestFunction'>;
 
 export type OptionsInit =
 	Except<Partial<InternalsType>, 'hooks' | 'retry'>
@@ -2017,22 +2017,28 @@ export default class Options {
 		const {request} = this._internals;
 
 		if (!request && url) {
-			if (url.protocol === 'https:') {
-				if (this._internals.http2) {
-					if (major < 15 || (major === 15 && minor < 10)) {
-						throw new Error('To use the `http2` option, install Node.js 15.10.0 or above');
-					}
-
-					return http2wrapper.auto as RequestFunction;
-				}
-
-				return httpsRequest;
-			}
-
-			return httpRequest;
+			return this.getFallbackRequestFunction();
 		}
 
 		return request!;
+	}
+
+	getFallbackRequestFunction() {
+		const url = this._internals.url as (URL | undefined);
+
+		if (url!.protocol === 'https:') {
+			if (this._internals.http2) {
+				if (major < 15 || (major === 15 && minor < 10)) {
+					throw new Error('To use the `http2` option, install Node.js 15.10.0 or above');
+				}
+
+				return http2wrapper.auto as RequestFunction;
+			}
+
+			return httpsRequest;
+		}
+
+		return httpRequest;
 	}
 }
 
@@ -2042,6 +2048,7 @@ const nonEnumerableProperties = new Set([
 	'tryMerge',
 	'createNativeRequestOptions',
 	'getRequestFunction',
+	'getFallbackRequestFunction',
 	'requirePaginationOptions',
 	'body',
 	'form',

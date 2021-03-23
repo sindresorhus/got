@@ -1,15 +1,11 @@
 import {Duplex, Writable, Readable} from 'stream';
 import {ReadStream} from 'fs';
 import {URL, URLSearchParams} from 'url';
-import {Socket} from 'net';
 import * as http from 'http';
-import {ClientRequest, RequestOptions, IncomingMessage, ServerResponse} from 'http';
-import * as https from 'https';
-import timer, {ClientRequestWithTimings, Timings, IncomingMessageWithTimings} from '@szmarczak/http-timer';
+import {ServerResponse} from 'http';
+import timer from '@szmarczak/http-timer';
 import * as CacheableRequest from 'cacheable-request';
 import decompressResponse = require('decompress-response');
-import http2wrapper = require('http2-wrapper');
-import ResponseLike = require('responselike');
 import is from '@sindresorhus/is';
 import applyDestroyPatch from './utils/apply-destroy-patch';
 import getBodySize from './utils/get-body-size';
@@ -20,12 +16,10 @@ import urlToOptions from './utils/url-to-options';
 import WeakableMap from './utils/weakable-map';
 import {buffer as getBuffer} from 'get-stream';
 import calculateRetryDelay from './calculate-retry-delay';
-import type {OptionsInit, PromiseCookieJar, NativeRequestOptions, RetryOptions} from './options';
 import Options from './options';
 import {isResponseOk} from './response';
 import waitForOpenFile from './utils/wait-for-open-file';
 import isClientRequest from './utils/is-client-request';
-import type {PlainResponse} from './response';
 import {
 	RequestError,
 	ReadError,
@@ -36,6 +30,12 @@ import {
 	CacheError,
 	RetryError
 } from './errors';
+import type {ClientRequestWithTimings, Timings, IncomingMessageWithTimings} from '@szmarczak/http-timer';
+import type {ClientRequest, RequestOptions, IncomingMessage} from 'http';
+import type {Socket} from 'net';
+import type ResponseLike = require('responselike');
+import type {PlainResponse} from './response';
+import type {OptionsInit, PromiseCookieJar, NativeRequestOptions, RetryOptions} from './options';
 
 export interface Progress {
 	percent: number;
@@ -61,7 +61,7 @@ export type GotEventFunction<T> =
 		.on('request', request => setTimeout(() => request.destroy(), 50));
 	```
 	*/
-	((name: 'request', listener: (request: http.ClientRequest) => void) => T)
+	((name: 'request', listener: (request: ClientRequest) => void) => T)
 
 	/**
 	The `response` event to get the response object of the final request.
@@ -220,7 +220,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		});
 
 		this.on('pipe', source => {
-			if (source instanceof IncomingMessage) {
+			if (source.headers) {
 				Object.assign(this.options.headers, source.headers);
 			}
 		});
@@ -806,15 +806,10 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 			// Fallback
 			if (is.undefined(requestOrResponse)) {
-				if (options.http2) {
-					requestOrResponse = await http2wrapper.auto(url, this._requestOptions as http2wrapper.AutoRequestOptions);
-				} else {
-					const fallbackFn = url.protocol === 'https:' ? https.request : http.request;
-					requestOrResponse = fallbackFn(url, this._requestOptions);
-				}
+				requestOrResponse = await options.getFallbackRequestFunction()(url, this._requestOptions);
 			}
 
-			if (isClientRequest(requestOrResponse)) {
+			if (isClientRequest(requestOrResponse!)) {
 				this._onRequest(requestOrResponse);
 			} else if (this.writable) {
 				this.once('finish', () => {
