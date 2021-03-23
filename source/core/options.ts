@@ -602,7 +602,6 @@ const defaultInternals: Options['_internals'] = {
 		calculateDelay: ({computedValue}) => computedValue
 	},
 	localAddress: undefined,
-	socketPath: undefined,
 	method: 'GET',
 	createConnection: undefined,
 	cacheOptions: {},
@@ -1287,7 +1286,11 @@ export default class Options {
 		assert.object(value);
 
 		// eslint-disable-next-line guard-for-in
-		for (const knownHookEvent in this._internals.hooks) {
+		for (const knownHookEvent in value) {
+			if (!(knownHookEvent in this._internals.hooks)) {
+				throw new Error(`Hook \`${knownHookEvent}\` does not exist`);
+			}
+
 			const hooks: unknown = value[knownHookEvent];
 			assert.any([is.array, is.undefined], hooks);
 
@@ -1563,7 +1566,7 @@ export default class Options {
 	}
 
 	set parseJson(value: ParseJsonFunction) {
-		assert.any([is.function_], value);
+		assert.function_(value);
 
 		this._internals.parseJson = value;
 	}
@@ -1618,7 +1621,7 @@ export default class Options {
 	}
 
 	set stringifyJson(value: StringifyJsonFunction) {
-		assert.any([is.function_], value);
+		assert.function_(value);
 
 		this._internals.stringifyJson = value;
 	}
@@ -1652,6 +1655,19 @@ export default class Options {
 	set retry(value: Partial<RetryOptions>) {
 		assert.plainObject(value);
 
+		// eslint-disable-next-line guard-for-in
+		for (const key in value) {
+			if (key === 'methods') {
+				assert.any([is.array, is.undefined], value.methods);
+			} else if (key === 'statusCodes') {
+				assert.any([is.array, is.undefined], value.statusCodes);
+			} else if (key === 'errorCodes') {
+				assert.any([is.array, is.undefined], value.errorCodes);
+			} else {
+				throw new Error(`Retry option \`${key}\` does not exist`);
+			}
+		}
+
 		if (this._merging) {
 			Object.assign(this._internals.retry, value);
 		} else {
@@ -1678,16 +1694,6 @@ export default class Options {
 		assert.any([is.string, is.undefined], value);
 
 		this._internals.localAddress = value;
-	}
-
-	get socketPath(): string | undefined {
-		return this._internals.socketPath;
-	}
-
-	set socketPath(value: string | undefined) {
-		assert.any([is.string, is.undefined], value);
-
-		this._internals.socketPath = value;
 	}
 
 	/**
@@ -1725,7 +1731,22 @@ export default class Options {
 	}
 
 	set cacheOptions(value: CacheOptions) {
-		assert.any([is.plainObject, is.undefined], value);
+		assert.plainObject(value);
+
+		// eslint-disable-next-line guard-for-in
+		for (const key in value) {
+			if (key === 'shared') {
+				assert.any([is.boolean, is.undefined], value.shared);
+			} else if (key === 'cacheHeuristic') {
+				assert.any([is.number, is.undefined], value.cacheHeuristic);
+			} else if (key === 'immutableMinTimeToLive') {
+				assert.any([is.number, is.undefined], value.immutableMinTimeToLive);
+			} else if (key === 'ignoreCargoCult') {
+				assert.any([is.boolean, is.undefined], value.ignoreCargoCult);
+			} else {
+				throw new Error(`Cache option \`${key}\` does not exist`);
+			}
+		}
 
 		if (this._merging) {
 			Object.assign(this._internals.cacheOptions, value);
@@ -1742,16 +1763,27 @@ export default class Options {
 	}
 
 	set httpsOptions(value: HttpsOptions) {
-		assert.any([is.plainObject, is.undefined], value);
+		assert.plainObject(value);
 
-		if (value) {
-			assert.any([is.boolean, is.undefined], value.rejectUnauthorized);
-			assert.any([is.function_, is.undefined], value.checkServerIdentity);
-			assert.any([is.string, is.object, is.array, is.undefined], value.certificateAuthority);
-			assert.any([is.string, is.object, is.array, is.undefined], value.key);
-			assert.any([is.string, is.object, is.array, is.undefined], value.certificate);
-			assert.any([is.string, is.undefined], value.passphrase);
-			assert.any([is.string, is.buffer, is.array, is.undefined], value.pfx);
+		// eslint-disable-next-line guard-for-in
+		for (const key in value) {
+			if (key === 'rejectUnauthorized') {
+				assert.any([is.boolean, is.undefined], value.rejectUnauthorized);
+			} else if (key === 'checkServerIdentity') {
+				assert.any([is.function_, is.undefined], value.checkServerIdentity);
+			} else if (key === 'certificateAuthority') {
+				assert.any([is.string, is.object, is.array, is.undefined], value.certificateAuthority);
+			} else if (key === 'key') {
+				assert.any([is.string, is.object, is.array, is.undefined], value.key);
+			} else if (key === 'certificate') {
+				assert.any([is.string, is.object, is.array, is.undefined], value.certificate);
+			} else if (key === 'passphrase') {
+				assert.any([is.string, is.undefined], value.passphrase);
+			} else if (key === 'pfx') {
+				assert.any([is.string, is.buffer, is.array, is.undefined], value.pfx);
+			} else {
+				throw new Error(`HTTPS option \`${key}\` does not exist`);
+			}
 		}
 
 		if (this._merging) {
@@ -1951,12 +1983,13 @@ export default class Options {
 		const {httpsOptions} = internals;
 
 		return {
+			...internals.cacheOptions,
+			...internals._unixOptions,
 			ca: httpsOptions.certificateAuthority,
 			cert: httpsOptions.certificate,
 			key: httpsOptions.key,
 			passphrase: httpsOptions.passphrase,
 			pfx: httpsOptions.pfx,
-			...internals._unixOptions,
 			lookup: internals.dnsLookup,
 			family: internals.dnsLookupIpVersion,
 			agent,
