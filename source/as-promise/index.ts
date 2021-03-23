@@ -1,5 +1,5 @@
 import {EventEmitter} from 'events';
-import is, {assert} from '@sindresorhus/is';
+import is from '@sindresorhus/is';
 import * as PCancelable from 'p-cancelable';
 import Options from '../core/options';
 import type {Response} from '../core/response';
