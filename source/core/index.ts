@@ -1016,10 +1016,6 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		callback(error);
 	}
 
-	get _isAboutToError() {
-		return this._stopReading;
-	}
-
 	/**
 	The remote IP address.
 	*/
