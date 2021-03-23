@@ -26,6 +26,8 @@ import type {RequestError} from './errors';
 import type {PlainResponse, Response} from './response';
 import type {CancelableRequest} from '../as-promise/types';
 
+const [major, minor] = process.versions.node.split('.').map(v => Number(v)) as [number, number, number];
+
 export type DnsLookupIpVersion = undefined | 4 | 6;
 
 type Except<ObjectType, KeysType extends keyof ObjectType> = Pick<ObjectType, Exclude<keyof ObjectType, KeysType>>;
@@ -1946,8 +1948,14 @@ export default class Options {
 
 		agent = internals.agent.http;
 
+		const {httpsOptions} = internals;
+
 		return {
-			...internals.httpsOptions,
+			ca: httpsOptions.certificateAuthority,
+			cert: httpsOptions.certificate,
+			key: httpsOptions.key,
+			passphrase: httpsOptions.passphrase,
+			pfx: httpsOptions.pfx,
 			...internals._unixOptions,
 			lookup: internals.dnsLookup,
 			family: internals.dnsLookupIpVersion,
@@ -1968,6 +1976,10 @@ export default class Options {
 		if (!request && url) {
 			if (url.protocol === 'https:') {
 				if (this._internals.http2) {
+					if (major < 15 || (major === 15 && minor < 10)) {
+						throw new Error('To use the `http2` option, install Node.js 15.10.0 or above');
+					}
+
 					return http2wrapper.auto as RequestFunction;
 				}
 
