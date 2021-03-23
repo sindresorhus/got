@@ -516,7 +516,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 					await hook(typedResponse);
 				}
 
-				this.emit('redirect', typedResponse, options);
+				this.emit('redirect', typedResponse);
 
 				await this._makeRequest();
 			} catch (error) {
@@ -930,7 +930,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 					}
 
 					this.destroy();
-					this.emit('retry', attemptCount, error);
+					this.emit('retry', error);
 					return;
 				}
 			}
