@@ -1657,7 +1657,13 @@ export default class Options {
 
 		// eslint-disable-next-line guard-for-in
 		for (const key in value) {
-			if (key === 'methods') {
+			if (key === 'calculateDelay') {
+				assert.function_(value.calculateDelay);
+			} else if (key === 'maxRetryAfter') {
+				assert.any([is.number, is.undefined], value.maxRetryAfter);
+			} else if (key === 'limit') {
+				assert.any([is.number, is.undefined], value.limit);
+			} else if (key === 'methods') {
 				assert.any([is.array, is.undefined], value.methods);
 			} else if (key === 'statusCodes') {
 				assert.any([is.array, is.undefined], value.statusCodes);
