@@ -224,13 +224,12 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			}
 		});
 
-		const typedOptions = new Options(url, options, defaults);
-
 		(async () => {
-			this.options = typedOptions;
-			this._jobs = [];
-
 			try {
+				const typedOptions = new Options(url, options, defaults);
+				this.options = typedOptions;
+				this._jobs = [];
+
 				if (typedOptions.body instanceof ReadStream) {
 					await waitForOpenFile(typedOptions.body);
 				}
@@ -264,10 +263,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 					return;
 				}
 
-				// This is a workaround for https://github.com/nodejs/node/issues/33335
-				if (!this.destroyed) {
-					this.destroy(error);
-				}
+				this.destroy(error);
 			}
 		})();
 	}
