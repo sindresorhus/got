@@ -1667,7 +1667,6 @@ export default class Options {
 	set retry(value: Partial<RetryOptions>) {
 		assert.plainObject(value);
 
-		// eslint-disable-next-line guard-for-in
 		for (const key in value) {
 			if (key === 'calculateDelay') {
 				assert.function_(value.calculateDelay);
@@ -1751,7 +1750,6 @@ export default class Options {
 	set cacheOptions(value: CacheOptions) {
 		assert.plainObject(value);
 
-		// eslint-disable-next-line guard-for-in
 		for (const key in value) {
 			if (key === 'shared') {
 				assert.any([is.boolean, is.undefined], value.shared);
@@ -1783,7 +1781,6 @@ export default class Options {
 	set httpsOptions(value: HttpsOptions) {
 		assert.plainObject(value);
 
-		// eslint-disable-next-line guard-for-in
 		for (const key in value) {
 			if (key === 'rejectUnauthorized') {
 				assert.any([is.boolean, is.undefined], value.rejectUnauthorized);

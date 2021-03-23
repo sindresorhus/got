@@ -673,6 +673,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 						// @ts-expect-error
 						// We only need to implement the error handler in order to support HTTP2 caching.
 						// The result will be a promise anyway.
+						// eslint-disable-next-line @typescript-eslint/promise-function-async
 						result.once = (event: string, handler: (reason: unknown) => void) => {
 							if (event === 'error') {
 								result.catch(handler);

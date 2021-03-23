@@ -77,7 +77,7 @@ export default function asPromise<T>(normalizedOptions: Options): CancelableRequ
 					const hooks = options.hooks.afterResponse;
 
 					// TODO: `xo` should detect if `index` is being used for something else
-					// eslint-disable-next-line @typescript-eslint/prefer-readonly
+					// eslint-disable-next-line unicorn/no-for-loop
 					for (let index = 0; index < hooks.length; index++) {
 						const hook = hooks[index];
 
