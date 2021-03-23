@@ -1,7 +1,7 @@
 import * as https from 'https';
 import * as Benchmark from 'benchmark';
 import Options from '../source/core/options';
-import asPromise from '../source/as-promise';
+import Request from '../source/core';
 
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 
@@ -16,16 +16,11 @@ const internalSuite = new Benchmark.Suite();
 internalSuite.add('got', {
 	defer: true,
 	fn: async (deferred: Benchmark.Deferred) => {
-		const promise = asPromise(options);
-		promise.cancel();
-
-		try {
-			await promise;
-		} catch {
-			// Empty on purpose.
-		} finally {
+		const r = new Request(options);
+		r.resume();
+		r.once('end', () => {
 			deferred.resolve();
-		}
+		});
 	}
 }).on('cycle', (event: Benchmark.Event) => {
 	console.log(String(event.target));

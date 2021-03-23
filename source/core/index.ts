@@ -188,6 +188,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		this._unproxyEvents = noop;
 		this._triggerRead = false;
 		this._cancelTimeouts = noop;
+		this._jobs = [];
 
 		this.redirectUrls = [];
 		this.retryCount = 0;
@@ -226,28 +227,27 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 		try {
 			this.options = new Options(url, options, defaults);
+
+			const {url: normalizedURL} = this.options;
+
+			if (!normalizedURL) {
+				throw new TypeError('Missing `url` property');
+			}
+
+			this.requestUrl = normalizedURL as URL;
 		} catch (error) {
 			this.destroy(error);
 
 			return;
 		}
 
-		queueMicrotask(async () => {
+		(async () => {
 			try {
 				const {options} = this;
-				this._jobs = [];
 
 				if (options.body instanceof ReadStream) {
 					await waitForOpenFile(options.body);
 				}
-
-				const {url: normalizedURL} = options;
-
-				if (!normalizedURL) {
-					throw new TypeError('Missing `url` property');
-				}
-
-				this.requestUrl = normalizedURL as URL;
 
 				if (this.destroyed) {
 					return;
@@ -279,9 +279,9 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 					return;
 				}
 
-				this.destroy(error);
+				this._beforeError(new RequestError(error.message, error, this));
 			}
-		});
+		})();
 	}
 
 	_lockWrite(): void {
@@ -832,7 +832,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 				throw new CacheError(error, this);
 			}
 
-			throw new RequestError(error.message, error, this);
+			throw error;
 		}
 	}
 
