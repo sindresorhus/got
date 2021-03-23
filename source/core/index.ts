@@ -666,13 +666,49 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		this.emit('request', request);
 	}
 
+	_prepareCache(cache: string | CacheableRequest.StorageAdapter) {
+		if (!cacheableStore.has(cache)) {
+			cacheableStore.set(cache, new CacheableRequest(
+				((requestOptions: RequestOptions, handler?: (response: IncomingMessageWithTimings) => void): ClientRequest => {
+					const result = (requestOptions as any)._request(requestOptions, handler);
+
+					// TODO: remove this when `cacheable-request` supports async request functions.
+					if (is.promise(result)) {
+						// @ts-expect-error
+						// We only need to implement the error handler in order to support HTTP2 caching.
+						// The result will be a promise anyway.
+						result.once = (event: string, handler: (reason: unknown) => void) => {
+							if (event === 'error') {
+								result.catch(handler);
+							} else if (event === 'abort') {
+								// The empty catch is needed here in case when
+								// it rejects before it's `await`ed in `_makeRequest`.
+								(async () => {
+									try {
+										const request = (await result) as ClientRequest;
+										request.once('abort', handler);
+									} catch {}
+								})();
+							} else {
+								/* istanbul ignore next: safety check */
+								throw new Error(`Unknown HTTP2 promise event: ${event}`);
+							}
+
+							return result;
+						};
+					}
+
+					return result;
+				}) as typeof http.request,
+				cache as CacheableRequest.StorageAdapter
+			));
+		}
+	}
+
 	async _createCacheableRequest(url: URL, options: RequestOptions): Promise<ClientRequest | ResponseLike> {
 		return new Promise<ClientRequest | ResponseLike>((resolve, reject) => {
 			// TODO: Remove `utils/url-to-options.ts` when `cacheable-request` is fixed
 			Object.assign(options, urlToOptions(url));
-
-			// `http-cache-semantics` checks this
-			delete (options as unknown as Options).url;
 
 			let request: ClientRequest | Promise<ClientRequest>;
 
@@ -687,9 +723,6 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 				resolve(response as unknown as ResponseLike);
 			});
-
-			// Restore options
-			(options as unknown as Options).url = url;
 
 			cacheRequest.once('error', reject);
 			cacheRequest.once('request', async (requestOrPromise: ClientRequest | Promise<ClientRequest>) => {
@@ -746,6 +779,11 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		const url = options.url as URL;
 
 		this._requestOptions = options.createNativeRequestOptions();
+
+		if (options.cache) {
+			(this._requestOptions as any)._request = request;
+			this._prepareCache(options.cache as CacheableRequest.StorageAdapter);
+		}
 
 		// Cache support
 		const fn = options.cache ? this._createCacheableRequest : request;
