@@ -1,5 +1,5 @@
 import {EventEmitter} from 'events';
-import is from '@sindresorhus/is';
+import is, {assert} from '@sindresorhus/is';
 import * as PCancelable from 'p-cancelable';
 import Options from '../core/options';
 import type {Response} from '../core/response';
@@ -42,6 +42,8 @@ export default function asPromise<T>(normalizedOptions: Options): CancelableRequ
 		});
 
 		const makeRequest = (retryCount: number): void => {
+			assert.truthy((promise as any)._isPending);
+
 			const request = new Request(undefined, normalizedOptions);
 			request.retryCount = retryCount;
 			request._noPipe = true;
