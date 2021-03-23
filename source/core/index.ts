@@ -513,7 +513,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 				for (const hook of options.hooks.beforeRedirect) {
 					// eslint-disable-next-line no-await-in-loop
-					await hook(options, typedResponse);
+					await hook(typedResponse);
 				}
 
 				this.emit('redirect', typedResponse, options);
