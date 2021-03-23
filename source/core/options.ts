@@ -496,7 +496,7 @@ All parsing methods supported by Got.
 */
 export type ResponseType = 'json' | 'buffer' | 'text';
 
-type InternalsType = Except<Options, 'followRedirects' | 'auth' | 'toJSON' | 'merge' | 'createNativeRequestOptions' | 'getRequestFunction'>;
+type InternalsType = Except<Options, 'followRedirects' | 'auth' | 'toJSON' | 'merge' | 'createNativeRequestOptions' | 'getRequestFunction' | 'requirePaginationOptions'>;
 
 export type OptionsInit =
 	Except<Partial<InternalsType>, 'hooks' | 'retry'>
@@ -783,10 +783,13 @@ export default class Options {
 	set agent(value: Agents) {
 		assert.plainObject(value);
 
+		// eslint-disable-next-line guard-for-in
 		for (const key in value) {
-			if (key !== 'http' && key !== 'https' && key !== 'http2') {
-				throw new TypeError(`Expected the \`options.agent\` properties to be \`http\`, \`https\` or \`http2\`, got \`${key}\``);
+			if (!(key in this._internals.agent)) {
+				throw new TypeError(`Agent option ${key} does not exist`);
 			}
+
+			assert.object(value[key]);
 		}
 
 		if (this._merging) {
@@ -840,6 +843,15 @@ export default class Options {
 
 	set timeout(value: Delays) {
 		assert.plainObject(value);
+
+		// eslint-disable-next-line guard-for-in
+		for (const key in value) {
+			if (!(key in this._internals.timeout)) {
+				throw new Error(`Timeout option \`${key}\` does not exist`);
+			}
+
+			assert.any([is.number, is.undefined], value[key]);
+		}
 
 		if (this._merging) {
 			Object.assign(this._internals.timeout, value);
@@ -1915,24 +1927,6 @@ export default class Options {
 		} else {
 			this._internals.pagination = value;
 		}
-
-		const {pagination} = this._internals;
-
-		if (!is.function_(pagination!.transform)) {
-			throw new Error('`options.pagination.transform` must be implemented');
-		}
-
-		if (!is.function_(pagination!.shouldContinue)) {
-			throw new Error('`options.pagination.shouldContinue` must be implemented');
-		}
-
-		if (!is.function_(pagination!.filter)) {
-			throw new TypeError('`options.pagination.filter` must be implemented');
-		}
-
-		if (!is.function_(pagination!.paginate)) {
-			throw new Error('`options.pagination.paginate` must be implemented');
-		}
 	}
 
 	get auth() {
@@ -1961,6 +1955,19 @@ export default class Options {
 		assert.any([is.number, is.undefined], value);
 
 		this._internals.maxHeaderSize = value;
+	}
+
+	requirePaginationOptions() {
+		const {pagination} = this._internals;
+
+		if (!pagination) {
+			throw new Error('The `pagination` option is missing');
+		}
+
+		assert.function_(pagination.transform);
+		assert.function_(pagination.shouldContinue);
+		assert.function_(pagination.filter);
+		assert.function_(pagination.paginate);
 	}
 
 	toJSON() {
@@ -2038,6 +2045,7 @@ const nonEnumerableProperties = new Set([
 	'tryMerge',
 	'createNativeRequestOptions',
 	'getRequestFunction',
+	'requirePaginationOptions',
 	'body',
 	'form',
 	'json',
