@@ -42,7 +42,11 @@ export default function asPromise<T>(normalizedOptions: Options): CancelableRequ
 		});
 
 		const makeRequest = (retryCount: number): void => {
-			assert.truthy((promise as any)._isPending);
+			// Errors when a new request is made after the promise settles.
+			// Seems like a race condition, because we were not able to reproduce this.
+			// FIXME: After the promise settles, there must be no further requests.
+			// See https://github.com/sindresorhus/got/issues/1489
+			onCancel(() => {});
 
 			const request = new Request(undefined, normalizedOptions);
 			request.retryCount = retryCount;
