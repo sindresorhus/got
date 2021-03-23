@@ -1,11 +1,6 @@
 import {EventEmitter} from 'events';
 import is from '@sindresorhus/is';
 import * as PCancelable from 'p-cancelable';
-import Options from '../core/options';
-import type {Response} from '../core/response';
-import type {
-	CancelableRequest
-} from './types';
 import {
 	RequestError,
 	HTTPError,
@@ -15,6 +10,9 @@ import {CancelError} from './types';
 import Request from '../core';
 import {parseBody, isResponseOk} from '../core/response';
 import proxyEvents from '../core/utils/proxy-events';
+import type Options from '../core/options';
+import type {Response} from '../core/response';
+import type {CancelableRequest} from './types';
 
 const proxiedRequestEvents = [
 	'request',

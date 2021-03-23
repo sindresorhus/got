@@ -1,10 +1,10 @@
 import * as PCancelable from 'p-cancelable';
+import {RequestError} from '../core/errors';
 // eslint-disable-next-line import/no-duplicates
 import type Request from '../core';
 // eslint-disable-next-line import/no-duplicates
 import type {RequestEvents} from '../core';
 import type {Response} from '../core/response';
-import {RequestError} from '../core/errors';
 
 /**
 An error to be thrown when the request is aborted with `.cancel()`.
