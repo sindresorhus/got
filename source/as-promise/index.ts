@@ -107,6 +107,7 @@ export default function asPromise<T>(normalizedOptions: Options): CancelableRequ
 					return;
 				}
 
+				request.destroy();
 				resolve(request.options.resolveBodyOnly ? response.body as T : response as unknown as T);
 			});
 
@@ -119,6 +120,8 @@ export default function asPromise<T>(normalizedOptions: Options): CancelableRequ
 
 				if (error instanceof HTTPError && !options.throwHttpErrors) {
 					const {response} = error;
+
+					request.destroy();
 					resolve(request.options.resolveBodyOnly ? response.body as T : response as unknown as T);
 					return;
 				}
