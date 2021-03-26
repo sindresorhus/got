@@ -293,6 +293,19 @@ test('retries on 503 without Retry-After header', withServer, async (t, server, 
 	t.is(retryCount, 1);
 });
 
+test('retries on POST request (returns 502 status code)', withServer, async (t, server, got) => {
+	server.post('/', (_request, response) => {
+		response.statusCode = 502;
+		response.end();
+	});
+
+	const {retryCount} = await got({
+		throwHttpErrors: false,
+		retry: 3
+	});
+	t.is(retryCount, 3);
+});
+
 test('doesn\'t retry on streams', withServer, async (t, server, got) => {
 	server.get('/', () => {});
 
