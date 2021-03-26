@@ -27,8 +27,7 @@ import {
 	HTTPError,
 	TimeoutError,
 	UploadError,
-	CacheError,
-	RetryError
+	CacheError
 } from './errors';
 import type {ClientRequestWithTimings, Timings, IncomingMessageWithTimings} from '@szmarczak/http-timer';
 import type {ClientRequest, RequestOptions, IncomingMessage} from 'http';
@@ -284,7 +283,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		})();
 	}
 
-	_lockWrite(): void {
+	private _lockWrite(): void {
 		const onLockedWrite = (): never => {
 			throw new TypeError('The payload has been already provided');
 		};
@@ -293,12 +292,12 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		this.end = onLockedWrite;
 	}
 
-	_unlockWrite(): void {
+	private _unlockWrite(): void {
 		this.write = super.write;
 		this.end = super.end;
 	}
 
-	async _finalizeBody(): Promise<void> {
+	private async _finalizeBody(): Promise<void> {
 		const {options} = this;
 		const {headers} = options;
 
@@ -382,7 +381,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		this._bodySize = Number(headers['content-length']) || undefined;
 	}
 
-	async _onResponseBase(response: IncomingMessageWithTimings): Promise<void> {
+	private async _onResponseBase(response: IncomingMessageWithTimings): Promise<void> {
 		// This will be called e.g. when using cache so we need to check if this request has been aborted.
 		if (this.isAborted) {
 			return;
@@ -593,14 +592,14 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		}
 	}
 
-	async _setRawBody(): Promise<boolean> {
+	private async _setRawBody(from: Readable = this): Promise<boolean> {
 		try {
 			// Errors are emitted via the `error` event
-			const rawBody = await getBuffer(this);
+			const rawBody = await getBuffer(from);
 
 			// On retry Request is destroyed with no error, therefore the above will successfully resolve.
 			// So in order to check if this was really successfull, we need to check if it has been properly ended.
-			if (this.readableEnded) {
+			if (from.readableEnded) {
 				this.response!.rawBody = rawBody;
 
 				return true;
@@ -610,7 +609,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		return false;
 	}
 
-	async _onResponse(response: IncomingMessageWithTimings): Promise<void> {
+	private async _onResponse(response: IncomingMessageWithTimings): Promise<void> {
 		try {
 			await this._onResponseBase(response);
 		} catch (error) {
@@ -619,7 +618,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		}
 	}
 
-	_onRequest(request: ClientRequest): void {
+	private _onRequest(request: ClientRequest): void {
 		const {options} = this;
 		const {timeout, url} = options;
 
@@ -678,7 +677,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		this.emit('request', request);
 	}
 
-	_prepareCache(cache: string | CacheableRequest.StorageAdapter) {
+	private _prepareCache(cache: string | CacheableRequest.StorageAdapter) {
 		if (!cacheableStore.has(cache)) {
 			cacheableStore.set(cache, new CacheableRequest(
 				((requestOptions: RequestOptions, handler?: (response: IncomingMessageWithTimings) => void): ClientRequest => {
@@ -718,7 +717,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		}
 	}
 
-	async _createCacheableRequest(url: URL, options: RequestOptions): Promise<ClientRequest | ResponseLike> {
+	private async _createCacheableRequest(url: URL, options: RequestOptions): Promise<ClientRequest | ResponseLike> {
 		return new Promise<ClientRequest | ResponseLike>((resolve, reject) => {
 			// TODO: Remove `utils/url-to-options.ts` when `cacheable-request` is fixed
 			Object.assign(options, urlToOptions(url));
@@ -745,7 +744,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		});
 	}
 
-	async _makeRequest(): Promise<void> {
+	private async _makeRequest(): Promise<void> {
 		const {options} = this;
 		const {headers} = options;
 		const cookieJar = options.cookieJar as PromiseCookieJar | undefined;
@@ -831,7 +830,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		}
 	}
 
-	async _error(error: RequestError): Promise<void> {
+	private async _error(error: RequestError): Promise<void> {
 		try {
 			for (const hook of this.options.hooks.beforeError) {
 				// eslint-disable-next-line no-await-in-loop
@@ -849,8 +848,8 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			return;
 		}
 
-		const {options} = this;
-		const attemptCount = this.retryCount + (error instanceof RetryError ? 0 : 1);
+		const {response, options} = this;
+		const attemptCount = this.retryCount + (error.name === 'RetryError' ? 0 : 1);
 
 		this._stopReading = true;
 
@@ -859,14 +858,16 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		}
 
 		const typedError = error as RequestError;
-		const {response} = typedError;
 
 		void (async () => {
 			if (response && !response.rawBody) {
-				const success = await this._setRawBody();
+				// @types/node has incorrect typings. `setEncoding` accepts `null` as well.
+				response.setEncoding(this.readableEncoding!);
+
+				const success = await this._setRawBody(response);
 
 				if (success) {
-					response.body = (response.rawBody as Buffer).toString();
+					response.body = response.rawBody!.toString();
 				}
 			}
 
@@ -987,7 +988,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		}
 	}
 
-	_writeRequest(chunk: any, encoding: BufferEncoding | undefined, callback: (error?: Error | null) => void): void {
+	private _writeRequest(chunk: any, encoding: BufferEncoding | undefined, callback: (error?: Error | null) => void): void {
 		if (!this._request || this._request.destroyed) {
 			// Probably the `ClientRequest` instance will throw
 			return;
