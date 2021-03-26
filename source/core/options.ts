@@ -2043,6 +2043,7 @@ export default class Options {
 }
 
 const nonEnumerableProperties = new Set([
+	// Functions
 	'constructor',
 	'merge',
 	'tryMerge',
@@ -2050,11 +2051,22 @@ const nonEnumerableProperties = new Set([
 	'getRequestFunction',
 	'getFallbackRequestFunction',
 	'requirePaginationOptions',
+
+	// Payload
 	'body',
 	'form',
 	'json',
+
+	// Getters that always throw
 	'auth',
-	'followRedirects'
+	'followRedirects',
+
+	// May contain sensitive data
+	'username',
+	'password',
+	'headers',
+	'searchParams',
+	'url'
 ]);
 
 // We want all the properties to be enumerable, so people instead doing

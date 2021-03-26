@@ -43,15 +43,9 @@ export class RequestError extends Error {
 				value: self.response
 			});
 
-			Object.defineProperty(this, 'options', {
-				enumerable: false,
-				value: self.options
-			});
+			this.options = self.options;
 		} else {
-			Object.defineProperty(this, 'options', {
-				enumerable: false,
-				value: self
-			});
+			this.options = self;
 		}
 
 		this.timings = this.request?.timings;
