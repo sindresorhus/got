@@ -648,19 +648,44 @@ const cloneInternals = (internals: typeof defaultInternals): typeof defaultInter
 };
 
 export default class Options {
-	_unixOptions?: NativeRequestOptions;
-	private _internals: InternalsType;
-	private _merging: boolean;
-	private readonly _init?: OptionsInit;
+	// TODO: Remove `declare` when targeting Node.js 14
+	declare private _unixOptions?: NativeRequestOptions;
+	declare private _internals: InternalsType;
+	declare private _merging: boolean;
+	declare private readonly _init?: OptionsInit;
 
 	constructor(input?: string | URL | OptionsInit | Options, options?: OptionsInit | Options, defaults?: Options) {
 		assert.any([is.string, is.urlInstance, is.object, is.undefined], input);
 		assert.any([is.object, is.undefined], options);
 		assert.any([is.object, is.undefined], defaults);
 
-		this._unixOptions = undefined;
-		this._merging = false;
-		this._internals = cloneInternals(defaults?._internals ?? defaultInternals);
+		// TODO: Switch to `this.key = value` when targeting Node.js 14
+		Object.defineProperties(this, {
+			_unixOptions: {
+				value: undefined,
+				enumerable: false,
+				writable: true,
+				configurable: false
+			},
+			_merging: {
+				value: false,
+				enumerable: false,
+				writable: true,
+				configurable: false
+			},
+			_internals: {
+				value: cloneInternals(defaults?._internals ?? defaultInternals),
+				enumerable: false,
+				writable: false,
+				configurable: false
+			},
+			_init: {
+				value: undefined,
+				enumerable: false,
+				writable: true,
+				configurable: false
+			}
+		});
 
 		if (is.plainObject(input)) {
 			if (options) {
@@ -1994,7 +2019,7 @@ export default class Options {
 
 		return {
 			...internals.cacheOptions,
-			...internals._unixOptions,
+			...this._unixOptions,
 			ca: httpsOptions.certificateAuthority,
 			cert: httpsOptions.certificate,
 			key: httpsOptions.key,
@@ -2065,8 +2090,14 @@ const nonEnumerableProperties = new Set([
 	'username',
 	'password',
 	'headers',
-	'searchParams',
-	'url'
+	'searchParameters',
+	'url',
+
+	// Privates
+	'_unixOptions',
+	'_internals',
+	'_merging',
+	'_init'
 ]);
 
 // We want all the properties to be enumerable, so people instead doing
