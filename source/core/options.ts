@@ -647,6 +647,33 @@ const cloneInternals = (internals: typeof defaultInternals): typeof defaultInter
 	return result;
 };
 
+const descriptor = {
+	_unixOptions: {
+		value: undefined,
+		enumerable: false,
+		writable: true,
+		configurable: false
+	},
+	_merging: {
+		value: false,
+		enumerable: false,
+		writable: true,
+		configurable: false
+	},
+	_internals: {
+		value: undefined as (Options['_internals'] | undefined),
+		enumerable: false,
+		writable: false,
+		configurable: false
+	},
+	_init: {
+		value: undefined,
+		enumerable: false,
+		writable: true,
+		configurable: false
+	}
+};
+
 export default class Options {
 	// TODO: Remove `declare` when targeting Node.js 14
 	declare private _unixOptions?: NativeRequestOptions;
@@ -660,32 +687,8 @@ export default class Options {
 		assert.any([is.object, is.undefined], defaults);
 
 		// TODO: Switch to `this.key = value` when targeting Node.js 14
-		Object.defineProperties(this, {
-			_unixOptions: {
-				value: undefined,
-				enumerable: false,
-				writable: true,
-				configurable: false
-			},
-			_merging: {
-				value: false,
-				enumerable: false,
-				writable: true,
-				configurable: false
-			},
-			_internals: {
-				value: cloneInternals(defaults?._internals ?? defaultInternals),
-				enumerable: false,
-				writable: false,
-				configurable: false
-			},
-			_init: {
-				value: undefined,
-				enumerable: false,
-				writable: true,
-				configurable: false
-			}
-		});
+		descriptor._internals.value = cloneInternals(defaults?._internals ?? defaultInternals);
+		Object.defineProperties(this, descriptor);
 
 		if (is.plainObject(input)) {
 			if (options) {
