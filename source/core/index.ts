@@ -1159,6 +1159,11 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		return this._isFromCache;
 	}
 
+	get reusedSocket(): boolean | undefined {
+		// @ts-expect-error `@types/node` has incomplete types
+		return this._request.reusedSocket;
+	}
+
 	pipe<T extends NodeJS.WritableStream>(destination: T, options?: {end?: boolean}): T {
 		if (this._startedReading) {
 			throw new Error('Failed to pipe. The response has been emitted already.');
