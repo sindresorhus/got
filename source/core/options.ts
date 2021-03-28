@@ -754,7 +754,6 @@ export default class Options {
 		this._merging = true;
 
 		try {
-			// eslint-disable-next-line guard-for-in
 			for (const key in options) {
 				if (key === 'mutableDefaults' || key === 'handlers') {
 					continue;
@@ -1996,11 +1995,7 @@ export default class Options {
 
 		let agent;
 		if (url.protocol === 'https:') {
-			if (internals.http2) {
-				agent = internals.agent;
-			} else {
-				agent = internals.agent.https;
-			}
+			agent = internals.http2 ? internals.agent : internals.agent.https;
 		} else {
 			agent = internals.agent.http;
 		}

@@ -1,11 +1,11 @@
-import {URL} from 'url';
-import {CancelableRequest} from './as-promise/types';
-import {Response} from './core/response';
-import Options, {OptionsInit, InternalsType} from './core/options';
-import {
-	PaginationOptions,
-} from './core/options';
-import Request from './core/index';
+import type {URL} from 'url';
+import type {CancelableRequest} from './as-promise/types';
+import type {Response} from './core/response';
+// eslint-disable-next-line import/no-duplicates
+import type Options from './core/options';
+// eslint-disable-next-line import/no-duplicates
+import type {PaginationOptions, OptionsInit, InternalsType} from './core/options';
+import type Request from './core/index';
 
 // `type-fest` utilities
 type Except<ObjectType, KeysType extends keyof ObjectType> = Pick<ObjectType, Exclude<keyof ObjectType, KeysType>>;

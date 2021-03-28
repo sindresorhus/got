@@ -130,15 +130,18 @@ const create = (defaults: InstanceDefaults): Got => {
 		assert.function_(pagination.shouldContinue);
 		assert.function_(pagination.filter);
 		assert.function_(pagination.paginate);
+		assert.number(pagination.countLimit);
+		assert.number(pagination.requestLimit);
+		assert.number(pagination.backoff);
 
 		const allItems: T[] = [];
 		let {countLimit} = pagination;
 
 		let numberOfRequests = 0;
-		while (numberOfRequests < pagination.requestLimit!) {
+		while (numberOfRequests < pagination.requestLimit) {
 			if (numberOfRequests !== 0) {
 				// eslint-disable-next-line no-await-in-loop
-				await delay(pagination.backoff!);
+				await delay(pagination.backoff);
 			}
 
 			// @ts-expect-error FIXME!
@@ -147,12 +150,12 @@ const create = (defaults: InstanceDefaults): Got => {
 			const response = (await got(undefined, undefined, normalizedOptions)) as Response;
 
 			// eslint-disable-next-line no-await-in-loop
-			const parsed = await pagination.transform!(response);
+			const parsed = await pagination.transform(response);
 			const currentItems: T[] = [];
 
 			for (const item of parsed) {
-				if (pagination.filter!({item, currentItems, allItems})) {
-					if (!pagination.shouldContinue!({item, currentItems, allItems})) {
+				if (pagination.filter({item, currentItems, allItems})) {
+					if (!pagination.shouldContinue({item, currentItems, allItems})) {
 						return;
 					}
 
@@ -164,13 +167,13 @@ const create = (defaults: InstanceDefaults): Got => {
 
 					currentItems.push(item as T);
 
-					if (--countLimit! <= 0) {
+					if (--countLimit <= 0) {
 						return;
 					}
 				}
 			}
 
-			const optionsToMerge = pagination.paginate!({
+			const optionsToMerge = pagination.paginate({
 				response,
 				currentItems,
 				allItems

@@ -137,7 +137,8 @@
 			"import/no-anonymous-default-export": "off",
 			"@typescript-eslint/no-implicit-any-catch": "off",
 			"unicorn/import-index": "off",
-			"import/no-useless-path-segments": "off"
+			"import/no-useless-path-segments": "off",
+			"import/no-named-as-default": "off"
 		}
 	},
 	"runkitExampleFilename": "./documentation/examples/runkit-example.js"

@@ -146,6 +146,3 @@ const got = create(defaults);
 
 export default got;
 export {got};
-
-export * from './create';
-export * from './as-promise';

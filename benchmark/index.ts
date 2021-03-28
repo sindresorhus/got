@@ -80,7 +80,7 @@ suite.add('got - promise', {
 	defer: true,
 	fn: async (deferred: {resolve: () => void}) => {
 		const stream = new Request(url, gotOptions);
-		stream.flush();
+		void stream.flush();
 		stream.resume().once('end', () => {
 			deferred.resolve();
 		});
@@ -89,7 +89,7 @@ suite.add('got - promise', {
 	defer: true,
 	fn: async (deferred: {resolve: () => void}) => {
 		const stream = new Request(undefined as any, normalizedGotOptions);
-		stream.flush();
+		void stream.flush();
 		stream.resume().once('end', () => {
 			deferred.resolve();
 		});
@@ -171,6 +171,7 @@ const internalBenchmark = (): void => {
 	const internalSuite = new Benchmark.Suite();
 	internalSuite.add('got - normalize options', {
 		fn: () => {
+			// eslint-disable-next-line no-new
 			new Options(url, gotOptions);
 		}
 	}).on('cycle', (event: Benchmark.Event) => {

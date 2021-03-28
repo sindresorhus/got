@@ -296,6 +296,228 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		}
 	}
 
+	_beforeError(error: Error): void {
+		if (this._stopReading) {
+			return;
+		}
+
+		const {response, options} = this;
+		const attemptCount = this.retryCount + (error.name === 'RetryError' ? 0 : 1);
+
+		this._stopReading = true;
+
+		if (!(error instanceof RequestError)) {
+			error = new RequestError(error.message, error, this);
+		}
+
+		const typedError = error as RequestError;
+
+		void (async () => {
+			if (response && !response.rawBody) {
+				// @types/node has incorrect typings. `setEncoding` accepts `null` as well.
+				response.setEncoding(this.readableEncoding!);
+
+				const success = await this._setRawBody(response);
+
+				if (success) {
+					response.body = response.rawBody!.toString();
+				}
+			}
+
+			if (this.listenerCount('retry') !== 0) {
+				let backoff: number;
+
+				try {
+					let retryAfter;
+					if (response && 'retry-after' in response.headers) {
+						retryAfter = Number(response.headers['retry-after']);
+						if (Number.isNaN(retryAfter)) {
+							retryAfter = Date.parse(response.headers['retry-after']!) - Date.now();
+
+							if (retryAfter <= 0) {
+								retryAfter = 1;
+							}
+						} else {
+							retryAfter *= 1000;
+						}
+					}
+
+					const retryOptions = options.retry as RetryOptions;
+
+					backoff = await retryOptions.calculateDelay({
+						attemptCount,
+						retryOptions,
+						error: typedError,
+						retryAfter,
+						computedValue: calculateRetryDelay({
+							attemptCount,
+							retryOptions,
+							error: typedError,
+							retryAfter,
+							computedValue: 0
+						})
+					});
+				} catch (error_) {
+					void this._error(new RequestError(error_.message, error_, this));
+					return;
+				}
+
+				if (backoff) {
+					await new Promise<void>(resolve => {
+						const timeout = setTimeout(resolve);
+						this._stopRetry = () => {
+							clearTimeout(timeout);
+							resolve();
+						};
+					});
+
+					// Something forced us to abort the retry
+					if (this.destroyed) {
+						return;
+					}
+
+					try {
+						for (const hook of this.options.hooks.beforeRetry) {
+							// eslint-disable-next-line no-await-in-loop
+							await hook(typedError);
+						}
+					} catch (error_) {
+						void this._error(new RequestError(error_.message, error, this));
+						return;
+					}
+
+					// Something forced us to abort the retry
+					if (this.destroyed) {
+						return;
+					}
+
+					this.destroy();
+					this.emit('retry', error);
+					return;
+				}
+			}
+
+			void this._error(typedError);
+		})();
+	}
+
+	_read(): void {
+		this._triggerRead = true;
+
+		const {response} = this;
+		if (response && !this._stopReading) {
+			// We cannot put this in the `if` above
+			// because `.read()` also triggers the `end` event
+			if (response.readableLength) {
+				this._triggerRead = false;
+			}
+
+			let data;
+			while ((data = response.read()) !== null) {
+				this._downloadedSize += data.length;
+				this._startedReading = true;
+
+				const progress = this.downloadProgress;
+
+				if (progress.percent < 1) {
+					this.emit('downloadProgress', progress);
+				}
+
+				this.push(data);
+			}
+		}
+	}
+
+	// Node.js 12 has incorrect types, so the encoding must be a string
+	_write(chunk: any, encoding: string | undefined, callback: (error?: Error | null) => void): void {
+		const write = (): void => {
+			this._writeRequest(chunk, encoding as BufferEncoding, callback);
+		};
+
+		if (this._request) {
+			write();
+		} else {
+			this._jobs.push(write);
+		}
+	}
+
+	_final(callback: (error?: Error | null) => void): void {
+		const endRequest = (): void => {
+			// We need to check if `this._request` is present,
+			// because it isn't when we use cache.
+			if (!this._request || this._request.destroyed) {
+				callback();
+				return;
+			}
+
+			this._request.end((error?: Error | null) => {
+				if (!error) {
+					this._bodySize = this._uploadedSize;
+
+					this.emit('uploadProgress', this.uploadProgress);
+					this._request!.emit('upload-complete');
+				}
+
+				callback(error);
+			});
+		};
+
+		if (this._request) {
+			endRequest();
+		} else {
+			this._jobs.push(endRequest);
+		}
+	}
+
+	_destroy(error: Error | null, callback: (error: Error | null) => void): void {
+		this._stopReading = true;
+		this.flush = async () => {};
+
+		// Prevent further retries
+		this._stopRetry();
+		this._cancelTimeouts();
+
+		if (this.options) {
+			const {body} = this.options;
+			if (is.nodeStream(body)) {
+				body.destroy();
+			}
+		}
+
+		// TODO: Remove the next `if` when targeting Node.js 14.
+		if (this._request && !this.response?.complete) {
+			this._request.destroy();
+		}
+
+		if (error !== null && !is.undefined(error) && !(error instanceof RequestError)) {
+			error = new RequestError(error.message, error, this);
+		}
+
+		callback(error);
+	}
+
+	pipe<T extends NodeJS.WritableStream>(destination: T, options?: {end?: boolean}): T {
+		if (this._startedReading) {
+			throw new Error('Failed to pipe. The response has been emitted already.');
+		}
+
+		if (destination instanceof ServerResponse) {
+			this._pipedServerResponses.add(destination);
+		}
+
+		return super.pipe(destination, options);
+	}
+
+	unpipe<T extends NodeJS.WritableStream>(destination: T): this {
+		if (destination instanceof ServerResponse) {
+			this._pipedServerResponses.delete(destination);
+		}
+
+		super.unpipe(destination);
+
+		return this;
+	}
+
 	private _lockWrite(): void {
 		const onLockedWrite = (): never => {
 			throw new TypeError('The payload has been already provided');
@@ -856,151 +1078,6 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		this.destroy(error);
 	}
 
-	_beforeError(error: Error): void {
-		if (this._stopReading) {
-			return;
-		}
-
-		const {response, options} = this;
-		const attemptCount = this.retryCount + (error.name === 'RetryError' ? 0 : 1);
-
-		this._stopReading = true;
-
-		if (!(error instanceof RequestError)) {
-			error = new RequestError(error.message, error, this);
-		}
-
-		const typedError = error as RequestError;
-
-		void (async () => {
-			if (response && !response.rawBody) {
-				// @types/node has incorrect typings. `setEncoding` accepts `null` as well.
-				response.setEncoding(this.readableEncoding!);
-
-				const success = await this._setRawBody(response);
-
-				if (success) {
-					response.body = response.rawBody!.toString();
-				}
-			}
-
-			if (this.listenerCount('retry') !== 0) {
-				let backoff: number;
-
-				try {
-					let retryAfter;
-					if (response && 'retry-after' in response.headers) {
-						retryAfter = Number(response.headers['retry-after']);
-						if (Number.isNaN(retryAfter)) {
-							retryAfter = Date.parse(response.headers['retry-after']!) - Date.now();
-
-							if (retryAfter <= 0) {
-								retryAfter = 1;
-							}
-						} else {
-							retryAfter *= 1000;
-						}
-					}
-
-					const retryOptions = options.retry as RetryOptions;
-
-					backoff = await retryOptions.calculateDelay({
-						attemptCount,
-						retryOptions,
-						error: typedError,
-						retryAfter,
-						computedValue: calculateRetryDelay({
-							attemptCount,
-							retryOptions,
-							error: typedError,
-							retryAfter,
-							computedValue: 0
-						})
-					});
-				} catch (error_) {
-					void this._error(new RequestError(error_.message, error_, this));
-					return;
-				}
-
-				if (backoff) {
-					await new Promise<void>(resolve => {
-						const timeout = setTimeout(resolve);
-						this._stopRetry = () => {
-							clearTimeout(timeout);
-							resolve();
-						};
-					});
-
-					// Something forced us to abort the retry
-					if (this.destroyed) {
-						return;
-					}
-
-					try {
-						for (const hook of this.options.hooks.beforeRetry) {
-							// eslint-disable-next-line no-await-in-loop
-							await hook(typedError);
-						}
-					} catch (error_) {
-						void this._error(new RequestError(error_.message, error, this));
-						return;
-					}
-
-					// Something forced us to abort the retry
-					if (this.destroyed) {
-						return;
-					}
-
-					this.destroy();
-					this.emit('retry', error);
-					return;
-				}
-			}
-
-			void this._error(typedError);
-		})();
-	}
-
-	_read(): void {
-		this._triggerRead = true;
-
-		const {response} = this;
-		if (response && !this._stopReading) {
-			// We cannot put this in the `if` above
-			// because `.read()` also triggers the `end` event
-			if (response.readableLength) {
-				this._triggerRead = false;
-			}
-
-			let data;
-			while ((data = response.read()) !== null) {
-				this._downloadedSize += data.length;
-				this._startedReading = true;
-
-				const progress = this.downloadProgress;
-
-				if (progress.percent < 1) {
-					this.emit('downloadProgress', progress);
-				}
-
-				this.push(data);
-			}
-		}
-	}
-
-	// Node.js 12 has incorrect types, so the encoding must be a string
-	_write(chunk: any, encoding: string | undefined, callback: (error?: Error | null) => void): void {
-		const write = (): void => {
-			this._writeRequest(chunk, encoding as BufferEncoding, callback);
-		};
-
-		if (this._request) {
-			write();
-		} else {
-			this._jobs.push(write);
-		}
-	}
-
 	private _writeRequest(chunk: any, encoding: BufferEncoding | undefined, callback: (error?: Error | null) => void): void {
 		if (!this._request || this._request.destroyed) {
 			// Probably the `ClientRequest` instance will throw
@@ -1020,61 +1097,6 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 			callback(error);
 		});
-	}
-
-	_final(callback: (error?: Error | null) => void): void {
-		const endRequest = (): void => {
-			// We need to check if `this._request` is present,
-			// because it isn't when we use cache.
-			if (!this._request || this._request.destroyed) {
-				callback();
-				return;
-			}
-
-			this._request.end((error?: Error | null) => {
-				if (!error) {
-					this._bodySize = this._uploadedSize;
-
-					this.emit('uploadProgress', this.uploadProgress);
-					this._request!.emit('upload-complete');
-				}
-
-				callback(error);
-			});
-		};
-
-		if (this._request) {
-			endRequest();
-		} else {
-			this._jobs.push(endRequest);
-		}
-	}
-
-	_destroy(error: Error | null, callback: (error: Error | null) => void): void {
-		this._stopReading = true;
-		this.flush = async () => {};
-
-		// Prevent further retries
-		this._stopRetry();
-		this._cancelTimeouts();
-
-		if (this.options) {
-			const {body} = this.options;
-			if (is.nodeStream(body)) {
-				body.destroy();
-			}
-		}
-
-		// TODO: Remove the next `if` when targeting Node.js 14.
-		if (this._request && !this.response?.complete) {
-			this._request.destroy();
-		}
-
-		if (error !== null && !is.undefined(error) && !(error instanceof RequestError)) {
-			error = new RequestError(error.message, error, this);
-		}
-
-		callback(error);
 	}
 
 	/**
@@ -1176,27 +1198,5 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	get reusedSocket(): boolean | undefined {
 		// @ts-expect-error `@types/node` has incomplete types
 		return this._request.reusedSocket;
-	}
-
-	pipe<T extends NodeJS.WritableStream>(destination: T, options?: {end?: boolean}): T {
-		if (this._startedReading) {
-			throw new Error('Failed to pipe. The response has been emitted already.');
-		}
-
-		if (destination instanceof ServerResponse) {
-			this._pipedServerResponses.add(destination);
-		}
-
-		return super.pipe(destination, options);
-	}
-
-	unpipe<T extends NodeJS.WritableStream>(destination: T): this {
-		if (destination instanceof ServerResponse) {
-			this._pipedServerResponses.delete(destination);
-		}
-
-		super.unpipe(destination);
-
-		return this;
 	}
 }
