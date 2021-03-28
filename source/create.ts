@@ -1,4 +1,3 @@
-// @ts-nocheck
 import {URL} from 'url';
 import is from '@sindresorhus/is';
 import asPromise from './as-promise';
@@ -7,7 +6,6 @@ import {
 	ExtendOptions,
 	Got,
 	HTTPAlias,
-	HandlerFunction,
 	InstanceDefaults,
 	GotPaginate,
 	GotStream,
@@ -16,6 +14,7 @@ import {
 	StreamOptions
 } from './types';
 import Request from './core/index';
+import {Response} from './core/response';
 import Options, {OptionsInit} from './core/options';
 import type {CancelableRequest} from './as-promise/types';
 
@@ -37,13 +36,17 @@ const aliases: readonly HTTPAlias[] = [
 	'delete'
 ];
 
-export const defaultHandler: HandlerFunction = (options, next) => next(options);
-
 const create = (defaults: InstanceDefaults): Got => {
+	defaults = {
+		options: new Options(defaults.options),
+		handlers: [...defaults.handlers],
+		mutableDefaults: defaults.mutableDefaults
+	};
+
 	// Got interface
-	const got: Got = ((url: string | URL | OptionsInit | Options | undefined, options?: OptionsInit | Options, defaultOptions: Options = defaults.options): GotReturn => {
+	const got: Got = ((url: string | URL | OptionsInit | Options | undefined, options?: OptionsInit | Options, defaultOptions: Options = defaults.options as Options): GotReturn => {
 		const request = new Request(url, options, defaultOptions);
-		let promise: CancelableRequest;
+		let promise: CancelableRequest | undefined;
 
 		const lastHandler = (options: Options): GotReturn => {
 			request.options = options;
@@ -63,8 +66,10 @@ const create = (defaults: InstanceDefaults): Got => {
 
 		let iteration = 0;
 		const iterateHandlers = (newOptions: Options): GotReturn => {
-			// TODO: Remove the `!`. This could probably be simplified to not use index access.
-			return defaults.handlers[iteration++]!(
+			// TODO: This could probably be simplified to not use index access.
+			const handler = defaults.handlers[iteration++] ?? lastHandler;
+
+			return handler(
 				newOptions,
 				iteration === defaults.handlers.length ? lastHandler : iterateHandlers
 			) as GotReturn;
@@ -86,45 +91,37 @@ const create = (defaults: InstanceDefaults): Got => {
 	}) as Got;
 
 	got.extend = (...instancesOrOptions) => {
-		const optionsArray: Options[] = [defaults.options];
-		let handlers: HandlerFunction[] = [...defaults.handlers!];
-		let isMutableDefaults: boolean | undefined;
+		const options = new Options(defaults.options);
+		const handlers = [...defaults.handlers];
+
+		let mutableDefaults: boolean | undefined;
 
 		for (const value of instancesOrOptions) {
 			if (isGotInstance(value)) {
-				optionsArray.push(value.defaults.options);
-				handlers.push(...value.defaults.handlers!);
-				isMutableDefaults = value.defaults.mutableDefaults;
+				options.merge(value.defaults.options);
+				handlers.push(...value.defaults.handlers);
+				mutableDefaults = value.defaults.mutableDefaults;
 			} else {
-				optionsArray.push(value);
+				options.merge(value);
 
-				if ('handlers' in value) {
-					handlers.push(...value.handlers!);
+				if (value.handlers) {
+					handlers.push(...value.handlers);
 				}
 
-				isMutableDefaults = value.mutableDefaults;
+				mutableDefaults = value.mutableDefaults;
 			}
 		}
 
-		handlers = handlers.filter(handler => handler !== defaultHandler);
-
-		if (handlers.length === 0) {
-			handlers.push(defaultHandler);
-		}
-
 		return create({
-			options: mergeOptions(...optionsArray),
+			options,
 			handlers,
-			mutableDefaults: Boolean(isMutableDefaults)
+			mutableDefaults: Boolean(mutableDefaults)
 		});
 	};
 
 	// Pagination
 	const paginateEach = (async function * <T, R>(url: string | URL, options?: OptionsWithPagination<T, R>): AsyncIterableIterator<T> {
-		// TODO: Remove this `@ts-expect-error` when upgrading to TypeScript 4.
-		// Error: Argument of type 'Merge<Options, PaginationOptions<T, R>> | undefined' is not assignable to parameter of type 'Options | undefined'.
-		// @ts-expect-error
-		let normalizedOptions = normalizeArguments(url, options, defaults.options);
+		let normalizedOptions = new Options(url, options, defaults.options);
 		normalizedOptions.resolveBodyOnly = false;
 
 		const pagination = normalizedOptions.pagination!;
@@ -137,10 +134,10 @@ const create = (defaults: InstanceDefaults): Got => {
 		let {countLimit} = pagination;
 
 		let numberOfRequests = 0;
-		while (numberOfRequests < pagination.requestLimit) {
+		while (numberOfRequests < pagination.requestLimit!) {
 			if (numberOfRequests !== 0) {
 				// eslint-disable-next-line no-await-in-loop
-				await delay(pagination.backoff);
+				await delay(pagination.backoff!);
 			}
 
 			// @ts-expect-error FIXME!
@@ -149,12 +146,12 @@ const create = (defaults: InstanceDefaults): Got => {
 			const response = (await got(undefined, undefined, normalizedOptions)) as Response;
 
 			// eslint-disable-next-line no-await-in-loop
-			const parsed = await pagination.transform(response);
+			const parsed = await pagination.transform!(response);
 			const currentItems: T[] = [];
 
 			for (const item of parsed) {
-				if (pagination.filter({item, currentItems, allItems})) {
-					if (!pagination.shouldContinue({item, currentItems, allItems})) {
+				if (pagination.filter!({item, currentItems, allItems})) {
+					if (!pagination.shouldContinue!({item, currentItems, allItems})) {
 						return;
 					}
 
@@ -166,13 +163,13 @@ const create = (defaults: InstanceDefaults): Got => {
 
 					currentItems.push(item as T);
 
-					if (--countLimit <= 0) {
+					if (--countLimit! <= 0) {
 						return;
 					}
 				}
 			}
 
-			const optionsToMerge = pagination.paginate({
+			const optionsToMerge = pagination.paginate!({
 				response,
 				currentItems,
 				allItems
@@ -184,8 +181,8 @@ const create = (defaults: InstanceDefaults): Got => {
 
 			if (optionsToMerge === response.request.options) {
 				normalizedOptions = response.request.options;
-			} else if (optionsToMerge !== undefined) {
-				normalizedOptions = normalizeArguments(undefined, optionsToMerge, normalizedOptions);
+			} else {
+				normalizedOptions.merge(optionsToMerge);
 			}
 
 			numberOfRequests++;

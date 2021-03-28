@@ -1,19 +1,7 @@
 import {URL} from 'url';
-import {CancelError} from 'p-cancelable';
 import {CancelableRequest} from './as-promise/types';
 import {Response} from './core/response';
 import Options, {OptionsInit, InternalsType} from './core/options';
-import {
-	RequestError,
-	CacheError,
-	ReadError,
-	HTTPError,
-	MaxRedirectsError,
-	TimeoutError,
-	UnsupportedProtocolError,
-	UploadError
-} from './core/errors';
-import {ParseError} from './core/response';
 import {
 	PaginationOptions,
 } from './core/options';
@@ -28,9 +16,9 @@ Defaults for each Got instance.
 */
 export interface InstanceDefaults {
 	/**
-  An object containing the default options of Got.
+    An object containing the default options of Got.
 	*/
-	options: InternalsType;
+	options: InternalsType | Options;
 
 	/**
 	An array of functions. You execute them directly by calling `got()`.
@@ -255,62 +243,6 @@ export interface Got extends Record<HTTPAlias, GotRequestFunction>, GotRequestFu
 	defaults: InstanceDefaults;
 
 	/**
-	An error to be thrown when a cache method fails.
-	For example, if the database goes down or there's a filesystem error.
-	*/
-	CacheError: typeof CacheError;
-
-	/**
-	An error to be thrown when a request fails.
-	Contains a `code` property with error class code, like `ECONNREFUSED`.
-	*/
-	RequestError: typeof RequestError;
-
-	/**
-	An error to be thrown when reading from response stream fails.
-	*/
-	ReadError: typeof ReadError;
-
-	/**
-	An error to be thrown when server response code is 2xx, and parsing body fails.
-	Includes a `response` property.
-	*/
-	ParseError: typeof ParseError;
-
-	/**
-	An error to be thrown when the server response code is not 2xx nor 3xx if `options.followRedirect` is `true`, but always except for 304.
-	Includes a `response` property.
-	*/
-	HTTPError: typeof HTTPError;
-
-	/**
-	An error to be thrown when the server redirects you more than ten times.
-	Includes a `response` property.
-	*/
-	MaxRedirectsError: typeof MaxRedirectsError;
-
-	/**
-	An error to be thrown when given an unsupported protocol.
-	*/
-	UnsupportedProtocolError: typeof UnsupportedProtocolError;
-
-	/**
-	An error to be thrown when the request is aborted due to a timeout.
-	Includes an `event` and `timings` property.
-	*/
-	TimeoutError: typeof TimeoutError;
-
-	/**
-	An error to be thrown when the request body is a stream and an error occurs while reading from that stream.
-	*/
-	UploadError: typeof UploadError;
-
-	/**
-	An error to be thrown when the request is aborted with `.cancel()`.
-	*/
-	CancelError: typeof CancelError;
-
-	/**
 	Configure a new `got` instance with default `options`.
 	The `options` are merged with the parent instance's `defaults.options` using `got.mergeOptions`.
 	You can access the resolved options with the `.defaults` property on the instance.
@@ -339,44 +271,4 @@ export interface Got extends Record<HTTPAlias, GotRequestFunction>, GotRequestFu
 	```
 	*/
 	extend: (...instancesOrOptions: Array<Got | ExtendOptions>) => Got;
-
-	/**
-	Merges multiple `got` instances into the parent.
-	*/
-	mergeInstances: (parent: Got, ...instances: Got[]) => Got;
-
-	/**
-	Extends parent options.
-	Avoid using [object spread](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Spread_syntax#Spread_in_object_literals) as it doesn't work recursively.
-
-	OptionsInit are deeply merged to a new object. The value of each key is determined as follows:
-
-	- If the new property is not defined, the old value is used.
-	- If the new property is explicitly set to `undefined`:
-		- If the parent property is a plain `object`, the parent value is deeply cloned.
-		- Otherwise, `undefined` is used.
-	- If the parent value is an instance of `URLSearchParams`:
-		- If the new value is a `string`, an `object` or an instance of `URLSearchParams`, a new `URLSearchParams` instance is created.
-			The values are merged using [`urlSearchParams.append(key, value)`](https://developer.mozilla.org/en-US/docs/Web/API/URLSearchParams/append).
-			The keys defined in the new value override the keys defined in the parent value.
-		- Otherwise, the only available value is `undefined`.
-	- If the new property is a plain `object`:
-		- If the parent property is a plain `object` too, both values are merged recursively into a new `object`.
-		- Otherwise, only the new value is deeply cloned.
-	- If the new property is an `Array`, it overwrites the old one with a deep clone of the new property.
-	- Properties that are not enumerable, such as `body`, `json`, and `form`, will not be merged.
-	- Otherwise, the new value is assigned to the key.
-
-	**Note:** Only Got options are merged! Custom user options should be defined via [`options.context`](#context).
-
-	@example
-	```
-	const a = {headers: {cat: 'meow', wolf: ['bark', 'wrrr']}};
-	const b = {headers: {cow: 'moo', wolf: ['auuu']}};
-
-	{...a, ...b}            // => {headers: {cow: 'moo', wolf: ['auuu']}}
-	got.mergeOptions(a, b)  // => {headers: {cat: 'meow', cow: 'moo', wolf: ['auuu']}}
-	```
-	*/
-	mergeOptions: (...sources: OptionsInit[]) => Options;
 }

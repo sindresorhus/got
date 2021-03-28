@@ -1,7 +1,7 @@
 import {URL} from 'url';
 import {OptionsInit} from './core/options';
 import {Response} from './core/response';
-import create, {defaultHandler} from './create';
+import create from './create';
 import {InstanceDefaults} from './types';
 
 const defaults: InstanceDefaults = {
@@ -138,7 +138,7 @@ const defaults: InstanceDefaults = {
 		stringifyJson: (object: unknown) => JSON.stringify(object),
 		cacheOptions: {}
 	},
-	handlers: [defaultHandler],
+	handlers: [],
 	mutableDefaults: false
 };
 

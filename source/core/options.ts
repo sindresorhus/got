@@ -682,13 +682,13 @@ export default class Options {
 	declare private _merging: boolean;
 	declare private _init?: OptionsInit;
 
-	constructor(input?: string | URL | OptionsInit | Options, options?: OptionsInit | Options, defaults?: Options) {
+	constructor(input?: string | URL | OptionsInit | Options, options?: OptionsInit | Options, defaults?: Options | OptionsInit) {
 		assert.any([is.string, is.urlInstance, is.object, is.undefined], input);
 		assert.any([is.object, is.undefined], options);
 		assert.any([is.object, is.undefined], defaults);
 
 		// TODO: Switch to `this.key = value` when targeting Node.js 14
-		descriptor._internals.value = cloneInternals(defaults?._internals ?? defaultInternals);
+		descriptor._internals.value = cloneInternals((defaults as Options)?._internals ?? defaults ?? defaultInternals);
 		Object.defineProperties(this, descriptor);
 
 		if (is.plainObject(input)) {
@@ -756,6 +756,10 @@ export default class Options {
 		try {
 			// eslint-disable-next-line guard-for-in
 			for (const key in options) {
+				if (key === 'mutableDefaults' || key === 'handlers') {
+					continue;
+				}
+
 				if (!(key in this)) {
 					throw new Error(`Key ${key} is not an option`);
 				}
