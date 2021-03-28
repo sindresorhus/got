@@ -14,7 +14,7 @@ const httpsAgent = new https.Agent({
 	rejectUnauthorized: false
 });
 
-const url = new URL('https://127.0.0.1:8080');
+const url = new URL('https://127.0.0.1:8081');
 const urlString = url.toString();
 
 const gotOptions = {
@@ -195,3 +195,20 @@ const internalBenchmark = (): void => {
 // Fastest is https - stream
 
 // got - normalize options x 90,974 ops/sec ±0.57% (93 runs sampled)
+
+// ================================================================================
+
+// got - promise                   x 3,257 ops/sec ±5.33% (75 runs sampled)
+// got - stream                    x 4,411 ops/sec ±3.33% (81 runs sampled)
+// got - core                      x 4,692 ops/sec ±2.18% (81 runs sampled)
+// got - core - normalized options x 5,564 ops/sec ±3.17% (83 runs sampled)
+// request - callback              x 6,448 ops/sec ±5.76% (67 runs sampled)
+// request - stream                x 7,115 ops/sec ±2.85% (83 runs sampled)
+// node-fetch - promise            x 6,236 ops/sec ±5.56% (75 runs sampled)
+// node-fetch - stream             x 7,225 ops/sec ±2.10% (81 runs sampled)
+// axios - promise                 x 5,620 ops/sec ±3.13% (78 runs sampled)
+// axios - stream                  x 7,244 ops/sec ±3.31% (80 runs sampled)
+// https - stream                  x 8,588 ops/sec ±5.50% (61 runs sampled)
+// Fastest is https - stream
+
+// got - normalize options x 117,810 ops/sec ±0.36% (97 runs sampled)

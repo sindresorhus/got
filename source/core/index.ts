@@ -803,7 +803,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 		const url = options.url as URL;
 
-		this._requestOptions = options.createNativeRequestOptions();
+		this._requestOptions = options.createNativeRequestOptions() as NativeRequestOptions;
 
 		if (options.cache) {
 			(this._requestOptions as any)._request = request;
@@ -1052,6 +1052,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 	_destroy(error: Error | null, callback: (error: Error | null) => void): void {
 		this._stopReading = true;
+		this.flush = async () => {};
 
 		// Prevent further retries
 		this._stopRetry();
