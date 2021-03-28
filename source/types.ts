@@ -53,8 +53,6 @@ export interface InstanceDefaults {
 	@default false
 	*/
 	mutableDefaults: boolean;
-
-	_rawHandlers?: HandlerFunction[];
 }
 
 /**

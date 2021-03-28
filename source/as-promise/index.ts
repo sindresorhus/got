@@ -49,6 +49,7 @@ export default function asPromise<T>(normalizedOptions: Options): CancelableRequ
 			const request = new Request(undefined, normalizedOptions);
 			request.retryCount = retryCount;
 			request._noPipe = true;
+			request._promise = promise;
 
 			globalRequest = request;
 
@@ -151,7 +152,9 @@ export default function asPromise<T>(normalizedOptions: Options): CancelableRequ
 			proxyEvents(request, emitter, proxiedRequestEvents);
 		};
 
-		makeRequest(0);
+		queueMicrotask(() => {
+			makeRequest(0);
+		});
 	}) as CancelableRequest<T>;
 
 	promise.on = (event: string, fn: (...args: any[]) => void) => {
@@ -186,6 +189,8 @@ export default function asPromise<T>(normalizedOptions: Options): CancelableRequ
 
 	promise.buffer = () => shortcut('buffer');
 	promise.text = () => shortcut('text');
+
+	promise._shortcut = shortcut;
 
 	return promise;
 }

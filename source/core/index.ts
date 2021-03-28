@@ -1,5 +1,4 @@
 import {Duplex, Writable, Readable} from 'stream';
-import {ReadStream} from 'fs';
 import {URL, URLSearchParams} from 'url';
 import * as http from 'http';
 import {ServerResponse} from 'http';
@@ -18,7 +17,6 @@ import {buffer as getBuffer} from 'get-stream';
 import calculateRetryDelay from './calculate-retry-delay';
 import Options from './options';
 import {isResponseOk} from './response';
-import waitForOpenFile from './utils/wait-for-open-file';
 import isClientRequest from './utils/is-client-request';
 import {
 	RequestError,
@@ -35,6 +33,7 @@ import type {Socket} from 'net';
 import type ResponseLike = require('responselike');
 import type {PlainResponse} from './response';
 import type {OptionsInit, PromiseCookieJar, NativeRequestOptions, RetryOptions} from './options';
+import type {CancelableRequest} from '../as-promise';
 
 export interface Progress {
 	percent: number;
@@ -139,6 +138,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	['constructor']: typeof Request;
 
 	_noPipe?: boolean;
+	_promise?: CancelableRequest;
 
 	// @ts-expect-error TypeScript doesn't check try/catch inside constructors. Dang.
 	options: Options;
@@ -166,6 +166,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	private _cancelTimeouts: () => void;
 	private _nativeResponse?: IncomingMessageWithTimings;
 	private _staticBody: Options['body'];
+	private _flushed: boolean;
 
 	constructor(url: string | URL | OptionsInit | Options | undefined, options?: OptionsInit | Options, defaults?: Options) {
 		super({
@@ -188,6 +189,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		this._triggerRead = false;
 		this._cancelTimeouts = noop;
 		this._jobs = [];
+		this._flushed = false;
 
 		this.redirectUrls = [];
 		this.retryCount = 0;
@@ -235,52 +237,65 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 			this.requestUrl = normalizedURL as URL;
 		} catch (error) {
-			this.destroy(error);
+			this.flush = async () => {
+				this.destroy(error);
+			};
 
 			return;
 		}
 
-		(async () => {
-			try {
-				const {options} = this;
-
-				if (options.body instanceof ReadStream) {
-					await waitForOpenFile(options.body);
+		// Important! If you replace `body` in a handler with another stream, make sure it's readable first.
+		// The below is run only once.
+		const {body} = this.options;
+		if (is.nodeStream(body)) {
+			body.once('error', error => {
+				if (this._flushed) {
+					this._beforeError(new RequestError(error.message, error, this));
+				} else {
+					this.flush = async () => {
+						this._beforeError(new RequestError(error.message, error, this));
+					};
 				}
+			});
+		}
+	}
 
-				if (this.destroyed) {
-					return;
-				}
+	async flush() {
+		if (this._flushed) {
+			throw new Error('Request has been already flushed');
+		}
 
-				await this._finalizeBody();
+		this._flushed = true;
 
-				if (this.destroyed) {
-					return;
-				}
+		try {
+			await this._finalizeBody();
 
-				await this._makeRequest();
-
-				if (this.destroyed) {
-					this._request?.destroy();
-					return;
-				}
-
-				// Queued writes etc.
-				for (const job of this._jobs) {
-					job();
-				}
-
-				// Prevent memory leak
-				this._jobs.length = 0;
-			} catch (error) {
-				if (error instanceof RequestError) {
-					this._beforeError(error);
-					return;
-				}
-
-				this._beforeError(new RequestError(error.message, error, this));
+			if (this.destroyed) {
+				return;
 			}
-		})();
+
+			await this._makeRequest();
+
+			if (this.destroyed) {
+				this._request?.destroy();
+				return;
+			}
+
+			// Queued writes etc.
+			for (const job of this._jobs) {
+				job();
+			}
+
+			// Prevent memory leak
+			this._jobs.length = 0;
+		} catch (error) {
+			if (error instanceof RequestError) {
+				this._beforeError(error);
+				return;
+			}
+
+			this._beforeError(new RequestError(error.message, error, this));
+		}
 	}
 
 	private _lockWrite(): void {

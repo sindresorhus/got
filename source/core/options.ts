@@ -496,7 +496,7 @@ All parsing methods supported by Got.
 */
 export type ResponseType = 'json' | 'buffer' | 'text';
 
-type InternalsType = Except<Options, 'followRedirects' | 'auth' | 'toJSON' | 'merge' | 'createNativeRequestOptions' | 'getRequestFunction' | 'requirePaginationOptions' | 'getFallbackRequestFunction'>;
+type InternalsType = Except<Options, 'followRedirects' | 'auth' | 'toJSON' | 'merge' | 'createNativeRequestOptions' | 'getRequestFunction' | 'requirePaginationOptions' | 'getFallbackRequestFunction' | 'freeze'>;
 
 export type OptionsInit =
 	Except<Partial<InternalsType>, 'hooks' | 'retry'>
@@ -679,7 +679,7 @@ export default class Options {
 	declare private _unixOptions?: NativeRequestOptions;
 	declare private _internals: InternalsType;
 	declare private _merging: boolean;
-	declare private readonly _init?: OptionsInit;
+	declare private _init?: OptionsInit;
 
 	constructor(input?: string | URL | OptionsInit | Options, options?: OptionsInit | Options, defaults?: Options) {
 		assert.any([is.string, is.urlInstance, is.object, is.undefined], input);
@@ -726,7 +726,17 @@ export default class Options {
 			}
 		}
 
-		if (options) {
+		this.merge(options);
+	}
+
+	merge(options?: OptionsInit) {
+		if (!options) {
+			return;
+		}
+
+		if (!this._init) {
+			this._init = options;
+
 			// This is way much faster than cloning ^_^
 			Object.freeze(options);
 			Object.freeze(options.hooks);
@@ -738,16 +748,6 @@ export default class Options {
 			Object.freeze(options.retry);
 			Object.freeze(options.hooks);
 			Object.freeze(options.context);
-		}
-
-		this._init = options;
-
-		this.merge(options);
-	}
-
-	merge(options?: OptionsInit) {
-		if (!options) {
-			return;
 		}
 
 		this._merging = true;
@@ -2068,6 +2068,21 @@ export default class Options {
 
 		return httpRequest;
 	}
+
+	freeze() {
+		const options = this._internals;
+
+		Object.freeze(options);
+		Object.freeze(options.hooks);
+		Object.freeze(options.httpsOptions);
+		Object.freeze(options.cacheOptions);
+		Object.freeze(options.agent);
+		Object.freeze(options.headers);
+		Object.freeze(options.timeout);
+		Object.freeze(options.retry);
+		Object.freeze(options.hooks);
+		Object.freeze(options.context);
+	}
 }
 
 const nonEnumerableProperties = new Set([
@@ -2079,6 +2094,7 @@ const nonEnumerableProperties = new Set([
 	'getRequestFunction',
 	'getFallbackRequestFunction',
 	'requirePaginationOptions',
+	'freeze',
 
 	// Payload
 	'body',
@@ -2090,6 +2106,7 @@ const nonEnumerableProperties = new Set([
 	'followRedirects',
 
 	// May contain sensitive data
+	'context',
 	'username',
 	'password',
 	'headers',
