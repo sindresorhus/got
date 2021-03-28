@@ -1,5 +1,5 @@
 import {URL} from 'url';
-import is from '@sindresorhus/is';
+import is, {assert} from '@sindresorhus/is';
 import asPromise from './as-promise';
 import {
 	GotReturn,
@@ -124,11 +124,12 @@ const create = (defaults: InstanceDefaults): Got => {
 		let normalizedOptions = new Options(url, options, defaults.options);
 		normalizedOptions.resolveBodyOnly = false;
 
-		const pagination = normalizedOptions.pagination!;
+		const {pagination} = normalizedOptions;
 
-		if (!is.object(pagination)) {
-			throw new TypeError('`options.pagination` must be implemented');
-		}
+		assert.function_(pagination.transform);
+		assert.function_(pagination.shouldContinue);
+		assert.function_(pagination.filter);
+		assert.function_(pagination.paginate);
 
 		const allItems: T[] = [];
 		let {countLimit} = pagination;

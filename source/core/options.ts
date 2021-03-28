@@ -497,7 +497,7 @@ All parsing methods supported by Got.
 */
 export type ResponseType = 'json' | 'buffer' | 'text';
 
-export type InternalsType = Except<Options, 'followRedirects' | 'auth' | 'toJSON' | 'merge' | 'createNativeRequestOptions' | 'getRequestFunction' | 'requirePaginationOptions' | 'getFallbackRequestFunction' | 'freeze'>;
+export type InternalsType = Except<Options, 'followRedirects' | 'auth' | 'toJSON' | 'merge' | 'createNativeRequestOptions' | 'getRequestFunction' | 'getFallbackRequestFunction' | 'freeze'>;
 
 export type OptionsInit =
 	Except<Partial<InternalsType>, 'hooks' | 'retry'>
@@ -612,7 +612,7 @@ const defaultInternals: Options['_internals'] = {
 	isStream: false,
 	responseType: 'text',
 	url: undefined,
-	pagination: undefined,
+	pagination: {},
 	setHost: true,
 	maxHeaderSize: undefined
 };
@@ -1940,17 +1940,12 @@ export default class Options {
 		this._internals.responseType = value;
 	}
 
-	get pagination(): PaginationOptions<unknown, unknown> | undefined {
+	get pagination(): PaginationOptions<unknown, unknown> {
 		return this._internals.pagination;
 	}
 
-	set pagination(value: PaginationOptions<unknown, unknown> | undefined) {
-		assert.any([is.object, is.undefined], value);
-
-		if (is.undefined(value)) {
-			this._internals.pagination = undefined;
-			return;
-		}
+	set pagination(value: PaginationOptions<unknown, unknown>) {
+		assert.any([is.object], value);
 
 		if (this._merging) {
 			Object.assign(this._internals.pagination, value);
@@ -1985,19 +1980,6 @@ export default class Options {
 		assert.any([is.number, is.undefined], value);
 
 		this._internals.maxHeaderSize = value;
-	}
-
-	requirePaginationOptions() {
-		const {pagination} = this._internals;
-
-		if (!pagination) {
-			throw new Error('The `pagination` option is missing');
-		}
-
-		assert.function_(pagination.transform);
-		assert.function_(pagination.shouldContinue);
-		assert.function_(pagination.filter);
-		assert.function_(pagination.paginate);
 	}
 
 	toJSON() {
@@ -2100,7 +2082,6 @@ const nonEnumerableProperties = new Set([
 	'createNativeRequestOptions',
 	'getRequestFunction',
 	'getFallbackRequestFunction',
-	'requirePaginationOptions',
 	'freeze',
 
 	// Payload
