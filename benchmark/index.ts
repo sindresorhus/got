@@ -182,33 +182,33 @@ const internalBenchmark = (): void => {
 
 // Results (i7-7700k, CPU governor: performance):
 
-// e9359d3fa0cb40324f2b84364408b3f9f7ff2cee (Rewrite Got #1051)
+// e9359d3fa0cb40324f2b84364408b3f9f7ff2cee (Rewrite Got #1051) - unknown Node.js version
 // got - promise                          x 3,092 ops/sec ±5.25% (73 runs sampled)
 // got - stream                           x 4,313 ops/sec ±5.61% (72 runs sampled)
 // got - promise core                     x 6,756 ops/sec ±5.32% (80 runs sampled)
 // got - stream core                      x 6,863 ops/sec ±4.68% (76 runs sampled)
 // got - stream core - normalized options x 7,960 ops/sec ±3.83% (81 runs sampled)
 
-// b927e2d028ecc023bf7eff2702ffb5c72016a85a (Fix bugs, increase coverage, update benchmark results)
+// b927e2d028ecc023bf7eff2702ffb5c72016a85a (Fix bugs, increase coverage, update benchmark results) - unknown Node.js version
 // got - promise                          x 3,204 ops/sec ±5.27% (73 runs sampled)
 // got - stream                           x 5,045 ops/sec ±3.85% (77 runs sampled)
 // got - promise core                     x 6,499 ops/sec ±3.67% (77 runs sampled)
 // got - stream core                      x 7,047 ops/sec ±2.32% (83 runs sampled)
 // got - stream core - normalized options x 7,313 ops/sec ±2.79% (85 runs sampled)
 
-// 7e8898e9095e7da52e4ff342606cfd1dc5186f54 (Merge PromisableRequest into Request)
+// 7e8898e9095e7da52e4ff342606cfd1dc5186f54 (Merge PromisableRequest into Request) - unknown Node.js version
 // got - promise                   x 3,003 ops/sec ±6.26% (70 runs sampled)
 // got - stream                    x 3,538 ops/sec ±5.86% (67 runs sampled)
 // got - core                      x 5,828 ops/sec ±3.11% (79 runs sampled)
 // got - core - normalized options x 7,596 ops/sec ±1.60% (85 runs sampled)
 
-// [main]
+// [main] - Node.js v15.10.0
 // got - promise                   x 3,201 ops/sec ±5.24% (67 runs sampled)
 // got - stream                    x 3,633 ops/sec ±4.06% (74 runs sampled)
 // got - core                      x 4,382 ops/sec ±3.26% (77 runs sampled)
 // got - core - normalized options x 5,470 ops/sec ±3.70% (78 runs sampled)
 
-// v12
+// v12 - Node.js v15.10.0
 // got - promise                   x 3,257 ops/sec ±5.33% (75 runs sampled)
 // got - stream                    x 4,411 ops/sec ±3.33% (81 runs sampled)
 // got - core                      x 4,692 ops/sec ±2.18% (81 runs sampled)
