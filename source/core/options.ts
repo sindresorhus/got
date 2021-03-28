@@ -981,7 +981,7 @@ export default class Options {
 	}
 
 	set body(value: string | Buffer | Readable | undefined) {
-		assert.any([is.string, is.buffer, is.nodeStream], value);
+		assert.any([is.string, is.buffer, is.nodeStream, is.undefined], value);
 
 		if (is.nodeStream(value)) {
 			assert.truthy(value.readable);
