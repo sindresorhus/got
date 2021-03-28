@@ -50,7 +50,6 @@ export default function asPromise<T>(firstRequest: Request): CancelableRequest<T
 			const request = retryCount === 0 ? firstRequest : new Request(undefined, normalizedOptions);
 			request.retryCount = retryCount;
 			request._noPipe = true;
-			request._promise = promise;
 
 			globalRequest = request;
 
@@ -153,9 +152,7 @@ export default function asPromise<T>(firstRequest: Request): CancelableRequest<T
 			proxyEvents(request, emitter, proxiedRequestEvents);
 		};
 
-		queueMicrotask(() => {
-			makeRequest(0);
-		});
+		makeRequest(0);
 	}) as CancelableRequest<T>;
 
 	promise.on = (event: string, fn: (...args: any[]) => void) => {

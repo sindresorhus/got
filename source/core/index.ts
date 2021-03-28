@@ -33,7 +33,6 @@ import type {Socket} from 'net';
 import type ResponseLike = require('responselike');
 import type {PlainResponse} from './response';
 import type {OptionsInit, PromiseCookieJar, NativeRequestOptions, RetryOptions} from './options';
-import type {CancelableRequest} from '../as-promise/types';
 
 export interface Progress {
 	percent: number;
@@ -138,7 +137,6 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	['constructor']: typeof Request;
 
 	_noPipe?: boolean;
-	_promise?: CancelableRequest;
 
 	// @ts-expect-error TypeScript doesn't check try/catch inside constructors. Dang.
 	options: Options;
