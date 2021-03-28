@@ -220,7 +220,7 @@ const create = (defaults: InstanceDefaults): Got => {
 	}
 
 	Object.defineProperty(got, 'defaults', {
-		value: defaults.mutableDefaults ? defaults : deepFreeze(defaults),
+		value: defaults.mutableDefaults ? defaults : (defaults), // TODO: Freeze on else
 		writable: defaults.mutableDefaults,
 		configurable: defaults.mutableDefaults,
 		enumerable: true
