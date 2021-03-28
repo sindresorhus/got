@@ -147,12 +147,13 @@ const got = create(defaults);
 export default got;
 export {got};
 
+export {default as Options} from './core/options';
 export * from './core/options';
 export * from './core/response';
 export * from './core/index';
 export * from './core/errors';
+export {default as calculateRetryDelay} from './core/calculate-retry-delay';
 export * from './core/calculate-retry-delay';
 export * from './as-promise/types';
-export * from './as-promise/index';
 export * from './types';
-export * from './create';
+export {default as create} from './create';
