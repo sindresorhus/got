@@ -1,6 +1,8 @@
 import {URL} from 'url';
-import {Response, Options} from './as-promise';
-import create, {defaultHandler, InstanceDefaults} from './create';
+import {OptionsInit} from './core/options';
+import {Response} from './core/response';
+import create, {defaultHandler} from './create';
+import {InstanceDefaults} from './types';
 
 const defaults: InstanceDefaults = {
 	options: {
@@ -68,7 +70,24 @@ const defaults: InstanceDefaults = {
 		// TODO: Set this to `true` for Got 13.
 		http2: false,
 		allowGetBody: false,
-		https: undefined,
+		httpsOptions: {},
+		request: undefined,
+		agent: {},
+		body: undefined,
+		json: undefined,
+		form: undefined,
+		url: undefined,
+		cookieJar: undefined,
+		searchParameters: undefined,
+		dnsLookup: undefined,
+		username: '',
+		password: '',
+		dnsLookupIpVersion: undefined,
+		localAddress: undefined,
+		createConnection: undefined,
+		encoding: undefined,
+		setHost: true,
+		maxHeaderSize: undefined,
 		pagination: {
 			transform: (response: Response) => {
 				if (response.request.options.responseType === 'json') {
@@ -99,7 +118,7 @@ const defaults: InstanceDefaults = {
 				}
 
 				if (next) {
-					const options: Options = {
+					const options: OptionsInit = {
 						url: new URL(next)
 					};
 
@@ -126,11 +145,6 @@ const defaults: InstanceDefaults = {
 const got = create(defaults);
 
 export default got;
-
-// For CommonJS default export support
-module.exports = got;
-module.exports.default = got;
-module.exports.__esModule = true; // Workaround for TS issue: https://github.com/sindresorhus/got/pull/1267
 
 export * from './create';
 export * from './as-promise';

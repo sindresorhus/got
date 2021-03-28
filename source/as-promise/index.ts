@@ -24,9 +24,10 @@ const proxiedRequestEvents = [
 
 const supportedCompressionAlgorithms = new Set(['gzip', 'deflate', 'br']);
 
-export default function asPromise<T>(normalizedOptions: Options): CancelableRequest<T> {
+export default function asPromise<T>(firstRequest: Request): CancelableRequest<T> {
 	let globalRequest: Request;
 	let globalResponse: Response;
+	let normalizedOptions: Options;
 	const emitter = new EventEmitter();
 
 	const promise = new PCancelable<T>((resolve, reject, onCancel) => {
@@ -46,7 +47,7 @@ export default function asPromise<T>(normalizedOptions: Options): CancelableRequ
 			// See https://github.com/sindresorhus/got/issues/1489
 			onCancel(() => {});
 
-			const request = new Request(undefined, normalizedOptions);
+			const request = retryCount === 0 ? firstRequest : new Request(undefined, normalizedOptions);
 			request.retryCount = retryCount;
 			request._noPipe = true;
 			request._promise = promise;
@@ -190,9 +191,5 @@ export default function asPromise<T>(normalizedOptions: Options): CancelableRequ
 	promise.buffer = () => shortcut('buffer');
 	promise.text = () => shortcut('text');
 
-	promise._shortcut = shortcut;
-
 	return promise;
 }
-
-export * from './types';

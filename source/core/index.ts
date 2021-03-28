@@ -33,7 +33,7 @@ import type {Socket} from 'net';
 import type ResponseLike = require('responselike');
 import type {PlainResponse} from './response';
 import type {OptionsInit, PromiseCookieJar, NativeRequestOptions, RetryOptions} from './options';
-import type {CancelableRequest} from '../as-promise';
+import type {CancelableRequest} from '../as-promise/types';
 
 export interface Progress {
 	percent: number;

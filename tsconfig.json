@@ -11,10 +11,8 @@
 		// "module": "es2020"
 	},
 	"include": [
-		// "source",
+		"source",
 		// "test",
-		"benchmark",
-		"source/core",
-		"source/as-promise"
+		"benchmark"
 	]
 }

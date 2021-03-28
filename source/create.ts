@@ -1,3 +1,4 @@
+// @ts-nocheck
 import {URL} from 'url';
 import is from '@sindresorhus/is';
 import asPromise from './as-promise';
@@ -22,8 +23,6 @@ import type {CancelableRequest} from './as-promise/types';
 const delay = async (ms: number) => new Promise(resolve => {
 	setTimeout(resolve, ms);
 });
-
-const getPromiseOrStream = (options: Options): GotReturn => options.isStream ? new Request(undefined, options) : asPromise(options);
 
 const isGotInstance = (value: Got | ExtendOptions): value is Got => (
 	'defaults' in value && 'options' in value.defaults
@@ -79,17 +78,7 @@ const create = (defaults: InstanceDefaults): Got => {
 			}
 
 			if (result !== promise) {
-				return new Proxy(result, {
-					get: (target, key) => {
-						if (key in target) {
-							const value = target[key];
-							return typeof value === 'function' ? value.bind(target) : value;
-						}
-
-						const value = promise[key];
-						return typeof value === 'function' ? value.bind(promise) : value;
-					}
-				});
+				Object.defineProperties(result, Object.getOwnPropertyDescriptors(promise));
 			}
 		}
 
@@ -230,7 +219,6 @@ const create = (defaults: InstanceDefaults): Got => {
 		}) as GotStream;
 	}
 
-	Object.assign(got, errors);
 	Object.defineProperty(got, 'defaults', {
 		value: defaults.mutableDefaults ? defaults : deepFreeze(defaults),
 		writable: defaults.mutableDefaults,
@@ -242,4 +230,3 @@ const create = (defaults: InstanceDefaults): Got => {
 };
 
 export default create;
-export * from './types';

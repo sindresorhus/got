@@ -429,7 +429,7 @@ export interface PaginationOptions<ElementType, BodyType> {
 	})();
 	```
 	*/
-	paginate?: (data: PaginateData<BodyType, ElementType>) => Options | false;
+	paginate?: (data: PaginateData<BodyType, ElementType>) => OptionsInit | false;
 
 	/**
 	Checks whether the pagination should continue.
@@ -496,7 +496,7 @@ All parsing methods supported by Got.
 */
 export type ResponseType = 'json' | 'buffer' | 'text';
 
-type InternalsType = Except<Options, 'followRedirects' | 'auth' | 'toJSON' | 'merge' | 'createNativeRequestOptions' | 'getRequestFunction' | 'requirePaginationOptions' | 'getFallbackRequestFunction' | 'freeze'>;
+export type InternalsType = Except<Options, 'followRedirects' | 'auth' | 'toJSON' | 'merge' | 'createNativeRequestOptions' | 'getRequestFunction' | 'requirePaginationOptions' | 'getFallbackRequestFunction' | 'freeze'>;
 
 export type OptionsInit =
 	Except<Partial<InternalsType>, 'hooks' | 'retry'>
