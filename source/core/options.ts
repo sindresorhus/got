@@ -2015,9 +2015,9 @@ export default class Options {
 			}
 
 			agent = internals.agent.https;
+		} else {
+			agent = internals.agent.http;
 		}
-
-		agent = internals.agent.http;
 
 		const {httpsOptions} = internals;
 

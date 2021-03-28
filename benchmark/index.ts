@@ -80,6 +80,7 @@ suite.add('got - promise', {
 	defer: true,
 	fn: async (deferred: {resolve: () => void}) => {
 		const stream = new Request(url, gotOptions);
+		stream.flush();
 		stream.resume().once('end', () => {
 			deferred.resolve();
 		});
@@ -88,6 +89,7 @@ suite.add('got - promise', {
 	defer: true,
 	fn: async (deferred: {resolve: () => void}) => {
 		const stream = new Request(undefined as any, normalizedGotOptions);
+		stream.flush();
 		stream.resume().once('end', () => {
 			deferred.resolve();
 		});
