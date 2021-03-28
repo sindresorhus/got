@@ -44,7 +44,7 @@ type Error = NodeJS.ErrnoException;
 
 const supportsBrotli = is.string(process.versions.brotli);
 
-export const methodsWithoutBody: ReadonlySet<string> = new Set(['GET', 'HEAD']);
+const methodsWithoutBody: ReadonlySet<string> = new Set(['GET', 'HEAD']);
 
 export type GotEventFunction<T> =
 	/**
