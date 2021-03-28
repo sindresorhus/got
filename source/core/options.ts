@@ -1,5 +1,6 @@
 import util = require('util');
 import {URL, URLSearchParams} from 'url';
+import {checkServerIdentity} from 'tls';
 import {request as httpRequest} from 'http';
 import {request as httpsRequest} from 'https';
 import http2wrapper = require('http2-wrapper');
@@ -2028,6 +2029,8 @@ export default class Options {
 			key: httpsOptions.key,
 			passphrase: httpsOptions.passphrase,
 			pfx: httpsOptions.pfx,
+			rejectUnauthorized: httpsOptions.rejectUnauthorized,
+			checkServerIdentity: httpsOptions.checkServerIdentity ?? checkServerIdentity,
 			lookup: internals.dnsLookup,
 			family: internals.dnsLookupIpVersion,
 			agent,
