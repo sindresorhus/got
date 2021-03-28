@@ -146,3 +146,13 @@ const got = create(defaults);
 
 export default got;
 export {got};
+
+export * from './core/options';
+export * from './core/response';
+export * from './core/index';
+export * from './core/errors';
+export * from './core/calculate-retry-delay';
+export * from './as-promise/types';
+export * from './as-promise/index';
+export * from './types';
+export * from './create';
