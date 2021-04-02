@@ -154,8 +154,6 @@ const create = (defaults: InstanceDefaults): Got => {
 				await delay(pagination.backoff);
 			}
 
-			// @ts-expect-error FIXME!
-			// TODO: Throw when response is not an instance of Response
 			// eslint-disable-next-line no-await-in-loop
 			const response = (await got(undefined, undefined, normalizedOptions)) as Response;
 

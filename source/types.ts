@@ -144,6 +144,9 @@ export interface GotPaginate {
 }
 
 export interface GotRequestFunction {
+	// Internal usage
+	(url: undefined, options: undefined, defaults: Options): CancelableRequest | Request;
+
 	// `asPromise` usage
 	(url: string | URL, options?: OptionsOfTextResponseBody): CancelableRequest<Response<string>>;
 	<T>(url: string | URL, options?: OptionsOfJSONResponseBody): CancelableRequest<Response<T>>;
