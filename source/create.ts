@@ -43,6 +43,12 @@ const create = (defaults: InstanceDefaults): Got => {
 		mutableDefaults: defaults.mutableDefaults
 	};
 
+	Object.defineProperty(defaults, 'mutableDefaults', {
+		enumerable: true,
+		configurable: false,
+		writable: false
+	});
+
 	// Got interface
 	const got: Got = ((url: string | URL | OptionsInit | Options | undefined, options?: OptionsInit | Options, defaultOptions: Options = defaults.options as Options): GotReturn => {
 		const request = new Request(url, options, defaultOptions);
@@ -224,10 +230,15 @@ const create = (defaults: InstanceDefaults): Got => {
 		}) as GotStream;
 	}
 
+	if (!defaults.mutableDefaults) {
+		Object.freeze(defaults.handlers);
+		(defaults.options as Options).freeze();
+	}
+
 	Object.defineProperty(got, 'defaults', {
-		value: defaults.mutableDefaults ? defaults : (defaults), // TODO: Freeze on else
-		writable: defaults.mutableDefaults,
-		configurable: defaults.mutableDefaults,
+		value: defaults,
+		writable: false,
+		configurable: false,
 		enumerable: true
 	});
 
