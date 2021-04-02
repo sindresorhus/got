@@ -10,7 +10,7 @@ export default function parseLinkHeader(link: string) {
 		const reference = rawUriReference!.trim().slice(1, -1);
 		const parameters: Record<string, string> = {};
 
-		if (!rawLinkParameters) {
+		if (rawLinkParameters.length === 0) {
 			throw new Error('Unexpected end of Link header parameters');
 		}
 
