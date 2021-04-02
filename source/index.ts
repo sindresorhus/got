@@ -1,8 +1,7 @@
-import {URL} from 'url';
-import {OptionsInit} from './core/options';
 import {Response} from './core/response';
 import create from './create';
 import {InstanceDefaults} from './types';
+import parseLinkHeader from './utils/parse-link-header';
 
 const defaults: InstanceDefaults = {
 	options: {
@@ -97,32 +96,15 @@ const defaults: InstanceDefaults = {
 				return JSON.parse(response.body as string);
 			},
 			paginate: ({response}) => {
-				if (!Reflect.has(response.headers, 'link')) {
+				if (typeof response.headers.link !== 'string') {
 					return false;
 				}
 
-				const items = (response.headers.link as string).split(',');
-
-				let next: string | undefined;
-				for (const item of items) {
-					// TODO: Give these more semantic names.
-					const [first, second] = item.split(';');
-
-					if (first && second?.includes('next')) {
-						next = first
-							.trim()
-							.slice(1, -1);
-
-						break;
-					}
-				}
+				const parsed = parseLinkHeader(response.headers.link);
+				const next = parsed.find(entry => entry.parameters.rel === 'next' || entry.parameters.rel === '"next"');
 
 				if (next) {
-					const options: OptionsInit = {
-						url: new URL(next)
-					};
-
-					return options;
+					return {url: next.reference};
 				}
 
 				return false;
@@ -157,3 +139,4 @@ export * from './core/calculate-retry-delay';
 export * from './as-promise/types';
 export * from './types';
 export {default as create} from './create';
+export {default as parseLinkHeader} from './utils/parse-link-header';
