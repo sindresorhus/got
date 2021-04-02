@@ -710,7 +710,7 @@ export default class Options {
 			this._internals.url = input._internals.url;
 
 			if (options instanceof Options) {
-				throw new Error('There can be only one Options instance');
+				throw new TypeError('There can be only one Options instance');
 			}
 		} else {
 			if (options instanceof Options) {

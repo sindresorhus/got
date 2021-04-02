@@ -89,6 +89,7 @@ const create = (defaults: InstanceDefaults): Got => {
 
 				for (const key in descriptors) {
 					if (key in result) {
+						// eslint-disable-next-line @typescript-eslint/no-dynamic-delete
 						delete descriptors[key];
 					}
 				}

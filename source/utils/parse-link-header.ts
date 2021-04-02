@@ -29,4 +29,4 @@ export default function parseLinkHeader(link: string) {
 	}
 
 	return parsed;
-};
+}
