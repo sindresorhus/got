@@ -50,7 +50,7 @@ const create = (defaults: InstanceDefaults): Got => {
 
 		const lastHandler = (options: Options): GotReturn => {
 			request.options = options;
-			request._noPipe = !options.isStream;
+			request._noPipe = !options?.isStream;
 			void request.flush();
 
 			if (options.isStream) {
@@ -66,24 +66,28 @@ const create = (defaults: InstanceDefaults): Got => {
 
 		let iteration = 0;
 		const iterateHandlers = (newOptions: Options): GotReturn => {
-			// TODO: This could probably be simplified to not use index access.
 			const handler = defaults.handlers[iteration++] ?? lastHandler;
 
-			return handler(
-				newOptions,
-				iteration === defaults.handlers.length ? lastHandler : iterateHandlers
-			) as GotReturn;
+			return handler(newOptions, iterateHandlers) as GotReturn;
 		};
 
 		const result = iterateHandlers(request.options);
 
 		if (is.promise(result)) {
-			if (!promise) {
+			if (!promise && !request.options?.isStream) {
 				promise = asPromise(request);
 			}
 
 			if (result !== promise) {
-				Object.defineProperties(result, Object.getOwnPropertyDescriptors(promise));
+				const descriptors = Object.getOwnPropertyDescriptors(promise);
+
+				for (const key in descriptors) {
+					if (key in result) {
+						delete descriptors[key];
+					}
+				}
+
+				Object.defineProperties(result, descriptors);
 			}
 		}
 

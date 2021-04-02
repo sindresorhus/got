@@ -705,9 +705,13 @@ export default class Options {
 
 			options = input;
 		} else if (input instanceof Options) {
-			options = input._init;
+			this.merge(input._init);
 
 			this._internals.url = input._internals.url;
+
+			if (options instanceof Options) {
+				throw new Error('There can be only one Options instance');
+			}
 		} else {
 			if (options instanceof Options) {
 				const {url} = options._internals;

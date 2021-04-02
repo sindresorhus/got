@@ -6,7 +6,7 @@ import fetch from 'node-fetch';
 import * as request from 'request';
 import got from '../source/index';
 import Request from '../source/core/index';
-import Options from '../source/core/options';
+import Options, {OptionsInit} from '../source/core/options';
 
 // Configuration
 const httpsAgent = new https.Agent({
@@ -17,7 +17,7 @@ const httpsAgent = new https.Agent({
 const url = new URL('https://127.0.0.1:8081');
 const urlString = url.toString();
 
-const gotOptions = {
+const gotOptions: OptionsInit & {isStream?: true} = {
 	agent: {
 		https: httpsAgent
 	},
@@ -210,10 +210,10 @@ const internalBenchmark = (): void => {
 // got - core - normalized options x 5,470 ops/sec ±3.70% (78 runs sampled)
 
 // v12 - Node.js v15.10.0
-// got - promise                   x 3,257 ops/sec ±5.33% (75 runs sampled)
-// got - stream                    x 4,411 ops/sec ±3.33% (81 runs sampled)
-// got - core                      x 4,692 ops/sec ±2.18% (81 runs sampled)
-// got - core - normalized options x 5,564 ops/sec ±3.17% (83 runs sampled)
+// got - promise                   x 3,492 ops/sec ±5.13% (71 runs sampled)
+// got - stream                    x 4,772 ops/sec ±1.52% (84 runs sampled)
+// got - core                      x 4,990 ops/sec ±1.14% (83 runs sampled)
+// got - core - normalized options x 5,386 ops/sec ±0.52% (87 runs sampled)
 
 // got - normalize options x 117,810 ops/sec ±0.36% (97 runs sampled)
 

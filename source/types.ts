@@ -186,10 +186,9 @@ export type HTTPAlias =
 	| 'head'
 	| 'delete';
 
-interface GotStreamFunction {
-	(url: string | URL, options?: Merge<OptionsInit, {isStream?: true}>): Request;
-	(options?: Merge<OptionsInit, {isStream?: true}>): Request;
-}
+type GotStreamFunction =
+	((url?: string | URL, options?: Merge<OptionsInit, {isStream?: true}>) => Request) &
+	((options?: Merge<OptionsInit, {isStream?: true}>) => Request);
 
 /**
 An instance of `got.stream()`.

@@ -42,8 +42,7 @@ export default function asPromise<T>(firstRequest: Request): CancelableRequest<T
 
 		const makeRequest = (retryCount: number): void => {
 			// Errors when a new request is made after the promise settles.
-			// Seems like a race condition, because we were not able to reproduce this.
-			// FIXME: After the promise settles, there must be no further requests.
+			// Used to detect a race condition.
 			// See https://github.com/sindresorhus/got/issues/1489
 			onCancel(() => {});
 
