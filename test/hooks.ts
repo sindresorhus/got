@@ -326,8 +326,9 @@ test('beforeRequest is called with options', withServer, async (t, server, got) 
 		hooks: {
 			beforeRequest: [
 				options => {
-					t.is(options.url.pathname, '/');
-					t.is(options.url.hostname, 'localhost');
+					const url = options.url as URL;
+					t.is(url.pathname, '/');
+					t.is(url.hostname, 'localhost');
 				}
 			]
 		}
@@ -382,8 +383,9 @@ test('beforeRedirect is called with options and response', withServer, async (t,
 		hooks: {
 			beforeRedirect: [
 				(options, response) => {
-					t.is(options.url.pathname, '/');
-					t.is(options.url.hostname, 'localhost');
+					const url = options.url as URL;
+					t.is(url.pathname, '/');
+					t.is(url.hostname, 'localhost');
 
 					t.is(response.statusCode, 302);
 					t.is(new URL(response.url).pathname, '/redirect');
@@ -419,16 +421,20 @@ test('beforeRetry is called with options', withServer, async (t, server, got) =>
 
 	await got('retry', {
 		responseType: 'json',
-		retry: 1,
+		retry: {
+			limit: 1
+		},
 		throwHttpErrors: false,
 		context,
 		hooks: {
 			beforeRetry: [
-				(options, error, retryCount) => {
-					t.is(options.url.hostname, 'localhost');
+				error => {
+					const {options} = error;
+					const retryCount = error.request.retryCount;
+					t.is((options.url as URL).hostname, 'localhost');
 					t.deepEqual(options.context, context);
 					t.truthy(error);
-					t.true(retryCount! >= 1);
+					t.true(retryCount >= 1);
 				}
 			]
 		}
@@ -443,7 +449,7 @@ test('beforeRetry allows modifications', withServer, async (t, server, got) => {
 		responseType: 'json',
 		hooks: {
 			beforeRetry: [
-				options => {
+				({options}) => {
 					options.headers.foo = 'bar';
 				}
 			]
@@ -476,7 +482,7 @@ test('beforeRetry allows stream body if different from original', withServer, as
 		},
 		hooks: {
 			beforeRetry: [
-				options => {
+				({options}) => {
 					const form = generateBody();
 					options.body = form;
 					options.headers['content-type'] = `multipart/form-data; boundary=${form.getBoundary()}`;
@@ -562,9 +568,7 @@ test('afterResponse allows to retry without losing the port', withServer, async 
 	});
 
 	const {statusCode} = await got({
-		protocol: 'http:',
-		hostname: server.hostname,
-		port: server.port,
+		url: server.url,
 		hooks: {
 			afterResponse: [
 				(response, retryWithMergedOptions) => {
@@ -665,7 +669,9 @@ test('no infinity loop when retrying on afterResponse', withServer, async (t, se
 	});
 
 	await t.throwsAsync(got({
-		retry: 0,
+		retry: {
+			limit: 0
+		},
 		hooks: {
 			afterResponse: [
 				(_response, retryWithMergedOptions) => {
@@ -677,7 +683,7 @@ test('no infinity loop when retrying on afterResponse', withServer, async (t, se
 				}
 			]
 		}
-	}), {instanceOf: got.HTTPError, message: 'Response code 401 (Unauthorized)'});
+	}), {instanceOf: HTTPError, message: 'Response code 401 (Unauthorized)'});
 });
 
 test('throws on afterResponse retry failure', withServer, async (t, server, got) => {
@@ -694,7 +700,9 @@ test('throws on afterResponse retry failure', withServer, async (t, server, got)
 	});
 
 	await t.throwsAsync(got({
-		retry: 1,
+		retry: {
+			limit: 1
+		},
 		hooks: {
 			afterResponse: [
 				(response, retryWithMergedOptions) => {
@@ -710,7 +718,7 @@ test('throws on afterResponse retry failure', withServer, async (t, server, got)
 				}
 			]
 		}
-	}), {instanceOf: got.HTTPError, message: 'Response code 500 (Internal Server Error)'});
+	}), {instanceOf: HTTPError, message: 'Response code 500 (Internal Server Error)'});
 });
 
 test('doesn\'t throw on afterResponse retry HTTP failure if throwHttpErrors is false', withServer, async (t, server, got) => {
@@ -728,7 +736,9 @@ test('doesn\'t throw on afterResponse retry HTTP failure if throwHttpErrors is f
 
 	const {statusCode} = await got({
 		throwHttpErrors: false,
-		retry: 1,
+		retry: {
+			limit: 1
+		},
 		hooks: {
 			afterResponse: [
 				(response, retryWithMergedOptions) => {
@@ -865,7 +875,7 @@ test('catches HTTPErrors', withServer, async (t, _server, got) => {
 		hooks: {
 			beforeError: [
 				error => {
-					t.true(error instanceof got.HTTPError);
+					t.true(error instanceof HTTPError);
 					return error;
 				}
 			]
@@ -877,7 +887,9 @@ test('timeout can be modified using a hook', withServer, async (t, server, got) 
 	server.get('/', () => {});
 
 	await t.throwsAsync(got({
-		timeout: 1000,
+		timeout: {
+			request: 1000
+		},
 		hooks: {
 			beforeRequest: [
 				options => {
@@ -885,7 +897,9 @@ test('timeout can be modified using a hook', withServer, async (t, server, got) 
 				}
 			]
 		},
-		retry: 0
+		retry: {
+			limit: 1
+		}
 	}), {message: 'Timeout awaiting \'request\' for 500ms'});
 });
 
@@ -927,7 +941,9 @@ test('beforeError emits valid promise `HTTPError`s', async t => {
 				}
 			]
 		},
-		retry: 0
+		retry: {
+			limit: 0
+		}
 	});
 
 	await t.throwsAsync(instance('https://ValidHTTPErrors.com'));
@@ -946,7 +962,9 @@ test('hooks are not duplicated', withServer, async (t, _server, got) => {
 				}
 			]
 		},
-		retry: 0
+		retry: {
+			limit: 0
+		}
 	}), {message: 'Response code 404 (Not Found)'});
 
 	t.is(calls, 1);
@@ -975,7 +993,9 @@ test('async afterResponse allows to retry with allowGetBody and json payload', w
 				}
 			]
 		},
-		retry: 0,
+		retry: {
+			limit: 0
+		},
 		throwHttpErrors: false
 	});
 

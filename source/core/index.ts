@@ -703,66 +703,68 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			this._cancelTimeouts();
 			this._unproxyEvents();
 
-			this._request = undefined;
-
-			const shouldBeGet = statusCode === 303 && options.method !== 'GET' && options.method !== 'HEAD';
-			if (shouldBeGet || options.methodRewriting) {
-				// Server responded with "see other", indicating that the resource exists at another location,
-				// and the client should request it from that location via GET or HEAD.
-				options.method = 'GET';
-
-				options.body = undefined;
-				options.json = undefined;
-				options.form = undefined;
-
-				this._staticBody = undefined;
-				delete options.headers['content-length'];
-			}
-
 			if (this.redirectUrls.length >= options.maxRedirects) {
 				this._beforeError(new MaxRedirectsError(this));
 				return;
 			}
 
+			this._request = undefined;
+
+			const updatedOptions = new Options(this.options);
+
+			const shouldBeGet = statusCode === 303 && updatedOptions.method !== 'GET' && updatedOptions.method !== 'HEAD';
+			if (shouldBeGet || updatedOptions.methodRewriting) {
+				// Server responded with "see other", indicating that the resource exists at another location,
+				// and the client should request it from that location via GET or HEAD.
+				updatedOptions.method = 'GET';
+
+				updatedOptions.body = undefined;
+				updatedOptions.json = undefined;
+				updatedOptions.form = undefined;
+
+				this._staticBody = undefined;
+				delete updatedOptions.headers['content-length'];
+			}
+
 			try {
 				// We need this in order to support UTF-8
 				const redirectBuffer = Buffer.from(response.headers.location, 'binary').toString();
-
-				// Handles invalid URLs. See https://github.com/sindresorhus/got/issues/604
 				const redirectUrl = new URL(redirectBuffer, url);
 
 				// Redirecting to a different site, clear sensitive data.
 				if (redirectUrl.hostname !== (url as URL).hostname || redirectUrl.port !== (url as URL).port) {
-					if ('host' in options.headers) {
-						delete options.headers.host;
+					if ('host' in updatedOptions.headers) {
+						delete updatedOptions.headers.host;
 					}
 
-					if ('cookie' in options.headers) {
-						delete options.headers.cookie;
+					if ('cookie' in updatedOptions.headers) {
+						delete updatedOptions.headers.cookie;
 					}
 
-					if ('authorization' in options.headers) {
-						delete options.headers.authorization;
+					if ('authorization' in updatedOptions.headers) {
+						delete updatedOptions.headers.authorization;
 					}
 
-					if (options.username || options.password) {
-						options.username = '';
-						options.password = '';
+					if (updatedOptions.username || updatedOptions.password) {
+						updatedOptions.username = '';
+						updatedOptions.password = '';
 					}
 				} else {
-					redirectUrl.username = options.username;
-					redirectUrl.password = options.password;
+					redirectUrl.username = updatedOptions.username;
+					redirectUrl.password = updatedOptions.password;
 				}
 
 				this.redirectUrls.push(redirectUrl);
-				options.url = redirectUrl;
+				updatedOptions.url = redirectUrl;
 
-				for (const hook of options.hooks.beforeRedirect) {
+				for (const hook of updatedOptions.hooks.beforeRedirect) {
 					// eslint-disable-next-line no-await-in-loop
-					await hook(typedResponse);
+					await hook(updatedOptions, typedResponse);
 				}
 
-				this.emit('redirect', typedResponse);
+				this.emit('redirect', updatedOptions, typedResponse);
+
+				this.options = updatedOptions;
 
 				await this._makeRequest();
 			} catch (error) {
