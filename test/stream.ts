@@ -9,7 +9,7 @@ import * as getStream from 'get-stream';
 import * as pEvent from 'p-event';
 import * as FormData from 'form-data';
 import is from '@sindresorhus/is';
-import got, {RequestError} from '../source/index';
+import got, {HTTPError, RequestError} from '../source/index';
 import withServer from './helpers/with-server';
 import delay = require('delay');
 
@@ -150,7 +150,7 @@ test('has error event', withServer, async (t, server, got) => {
 
 	const stream = got.stream('');
 	await t.throwsAsync(pEvent(stream, 'response'), {
-		instanceOf: got.HTTPError,
+		instanceOf: HTTPError,
 		message: 'Response code 404 (Not Found)'
 	});
 });
@@ -442,7 +442,9 @@ if (Number.parseInt(process.versions.node.split('.')[0]!, 10) <= 12) {
 
 		await t.notThrowsAsync(new Promise((resolve, reject) => {
 			got.stream({
-				timeout: 100,
+				timeout: {
+					request: 100
+				},
 				hooks: {
 					beforeError: [
 						async error => {
