@@ -256,7 +256,9 @@ test('decompresses cached responses', withServer, async (t, server, got) => {
 			cache,
 			responseType: 'json',
 			decompress: true,
-			retry: 2
+			retry: {
+				limit: 2
+			}
 		}));
 	}
 
