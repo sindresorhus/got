@@ -53,8 +53,8 @@ test('response has `requestUrl` property', withServer, async (t, server, got) =>
 		response.end();
 	});
 
-	t.is((await got('')).requestUrl, `${server.url}/`);
-	t.is((await got('empty')).requestUrl, `${server.url}/empty`);
+	t.is((await got('')).requestUrl.toString(), `${server.url}/`);
+	t.is((await got('empty')).requestUrl.toString(), `${server.url}/empty`);
 });
 
 test('http errors have `response` property', withServer, async (t, server, got) => {
@@ -136,8 +136,8 @@ test('`searchParams` option', withServer, async (t, server, got) => {
 		response.end('recent');
 	});
 
-	t.is((await got({searchParams: {recent: true}})).body, 'recent');
-	t.is((await got({searchParams: 'recent=true'})).body, 'recent');
+	t.is((await got({searchParameters: {recent: true}})).body, 'recent');
+	t.is((await got({searchParameters: 'recent=true'})).body, 'recent');
 });
 
 test('response contains url', withServer, async (t, server, got) => {
@@ -193,7 +193,7 @@ test('socket destroyed by the server throws ECONNRESET', withServer, async (t, s
 		request.socket.destroy();
 	});
 
-	await t.throwsAsync(got('', {retry: 0}), {
+	await t.throwsAsync(got('', {retry: {limit: 0}}), {
 		code: 'ECONNRESET'
 	});
 });
@@ -237,7 +237,7 @@ test('statusMessage fallback', async t => {
 
 	const {statusMessage} = await got('http://statusMessageFallback', {
 		throwHttpErrors: false,
-		retry: 0
+		retry: {limit: 0}
 	});
 
 	t.is(statusMessage, STATUS_CODES[503]);
@@ -253,7 +253,9 @@ test('does not destroy completed requests', withServer, async (t, server, got) =
 		agent: {
 			http: new Agent({keepAlive: true})
 		},
-		retry: 0
+		retry: {
+			limit: 0
+		}
 	};
 
 	const stream = got.stream(options);
@@ -294,7 +296,7 @@ test('DNS auto', withServer, async (t, server, got) => {
 	server.get('/ok', echoIp);
 
 	const response = await got('ok', {
-		dnsLookupIpVersion: 'auto'
+		dnsLookupIpVersion: undefined
 	});
 
 	t.true(isIPv4(response.body));
@@ -304,7 +306,7 @@ test('DNS IPv4', withServer, async (t, server, got) => {
 	server.get('/ok', echoIp);
 
 	const response = await got('ok', {
-		dnsLookupIpVersion: 'ipv4'
+		dnsLookupIpVersion: 4
 	});
 
 	t.true(isIPv4(response.body));
@@ -315,7 +317,7 @@ testIPv6('DNS IPv6', withServer, async (t, server, got) => {
 	server.get('/ok', echoIp);
 
 	const response = await got('ok', {
-		dnsLookupIpVersion: 'ipv6'
+		dnsLookupIpVersion: 6
 	});
 
 	t.true(isIPv6(response.body));
