@@ -12,7 +12,7 @@
 	},
 	"include": [
 		"source",
-		// "test",
+		"test",
 		"benchmark"
 	]
 }

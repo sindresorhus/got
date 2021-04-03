@@ -1,3 +1,4 @@
+import {URL} from 'url';
 import {promisify} from 'util';
 import * as net from 'net';
 import * as http from 'http';

@@ -561,6 +561,7 @@ test.serial('no more timeouts after an error', withServer, async (t, _server, go
 		return timeout;
 	};
 
+	// @ts-expect-error
 	global.clearTimeout = timeout => {
 		if (timeout) {
 			timeout.isCleared = true;
@@ -666,6 +667,7 @@ test.serial('doesn\'t throw on early lookup', withServerAndFakeTimers, async (t,
 				callback = options;
 			}
 
+			// @ts-expect-error Invalid types upstream.
 			callback(null, '127.0.0.1', 4);
 		}
 	}));

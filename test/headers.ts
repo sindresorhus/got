@@ -199,6 +199,7 @@ test('throws on null value headers', async t => {
 	await t.throwsAsync(got({
 		url: 'https://example.com',
 		headers: {
+			// @ts-expect-error For testing purposes
 			'user-agent': null
 		}
 	}), {

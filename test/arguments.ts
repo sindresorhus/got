@@ -386,6 +386,7 @@ test('`context` option is shallow merged', t => {
 
 test('throws if `options.encoding` is `null`', async t => {
 	await t.throwsAsync(got('https://example.com', {
+		// @ts-expect-error For testing purposes
 		encoding: null
 	}), {message: 'To get a Buffer, set `options.responseType` to `buffer` instead'});
 });
@@ -482,7 +483,7 @@ test('encodes query string included in input', t => {
 		url: new URL('https://example.com/?a=b c')
 	});
 
-	t.is(url.search, '?a=b%20c');
+	t.is(url!.search, '?a=b%20c');
 });
 
 test('normalizes search params included in options', t => {
@@ -491,7 +492,7 @@ test('normalizes search params included in options', t => {
 		searchParameters: 'a=b c'
 	});
 
-	t.is(url.search, '?a=b+c');
+	t.is(url!.search, '?a=b+c');
 });
 
 test('reuse options while using init hook', withServer, async (t, server, got) => {
