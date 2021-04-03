@@ -2,7 +2,7 @@ import {parse, URL, URLSearchParams} from 'url';
 import test from 'ava';
 import {Handler} from 'express';
 import * as pEvent from 'p-event';
-import got, {StrictOptions} from '../source/index';
+import got, {Options, StrictOptions} from '../source/index';
 import withServer, {withBodyParsingServer} from './helpers/with-server';
 
 const echoUrl: Handler = (request, response) => {
@@ -110,22 +110,9 @@ test.failing('throws an error when legacy URL is passed', withServer, async (t, 
 			protocol: 'http:',
 			hostname: 'localhost',
 			port: server.port
-		}),
+		} as any),
 		{message: 'The legacy `url.Url` has been deprecated. Use `URL` instead.'}
 	);
-});
-
-test('accepts legacy URL options', withServer, async (t, server) => {
-	server.get('/test', echoUrl);
-
-	const {body: secondBody} = await got({
-		protocol: 'http:',
-		hostname: 'localhost',
-		port: server.port,
-		pathname: '/test'
-	});
-
-	t.is(secondBody, '/test');
 });
 
 test('overrides `searchParams` from options', withServer, async (t, server, got) => {
@@ -134,7 +121,7 @@ test('overrides `searchParams` from options', withServer, async (t, server, got)
 	const {body} = await got(
 		'?drop=this',
 		{
-			searchParams: {
+			searchParameters: {
 				test: 'wow'
 			}
 		}
@@ -147,7 +134,7 @@ test('does not duplicate `searchParams`', withServer, async (t, server, got) => 
 	server.get('/', echoUrl);
 
 	const instance = got.extend({
-		searchParams: new URLSearchParams({foo: '123'})
+		searchParameters: new URLSearchParams({foo: '123'})
 	});
 
 	const body = await instance('?bar=456').text();
@@ -159,7 +146,7 @@ test('escapes `searchParams` parameter values', withServer, async (t, server, go
 	server.get('/', echoUrl);
 
 	const {body} = await got({
-		searchParams: {
+		searchParameters: {
 			test: 'it’s ok'
 		}
 	});
@@ -171,14 +158,14 @@ test('the `searchParams` option can be a URLSearchParams', withServer, async (t,
 	server.get('/', echoUrl);
 
 	const searchParameters = new URLSearchParams({test: 'wow'});
-	const {body} = await got({searchParams: searchParameters});
+	const {body} = await got({searchParameters});
 	t.is(body, '/?test=wow');
 });
 
 test('ignores empty searchParams object', withServer, async (t, server, got) => {
 	server.get('/test', echoUrl);
 
-	t.is((await got('test', {searchParams: {}})).requestUrl, `${server.url}/test`);
+	t.is((await got('test', {searchParameters: {}})).requestUrl.toString(), `${server.url}/test`);
 });
 
 test('throws when passing body with a non payload method', async t => {
@@ -317,7 +304,7 @@ test('throws if cannot change `prefixUrl`', async t => {
 
 test('throws if the `searchParams` value is invalid', async t => {
 	await t.throwsAsync(got('https://example.com', {
-		searchParams: {
+		searchParameters: {
 			// @ts-expect-error Error tests
 			foo: []
 		}
@@ -399,7 +386,6 @@ test('`context` option is shallow merged', t => {
 
 test('throws if `options.encoding` is `null`', async t => {
 	await t.throwsAsync(got('https://example.com', {
-		// @ts-expect-error For testing purposes
 		encoding: null
 	}), {message: 'To get a Buffer, set `options.responseType` to `buffer` instead'});
 });
@@ -419,13 +405,15 @@ test('throws a helpful error when passing `followRedirects`', async t => {
 
 test('merges `searchParams` instances', t => {
 	const instance = got.extend({
-		searchParams: new URLSearchParams('a=1')
+		searchParameters: new URLSearchParams('a=1')
 	}, {
-		searchParams: new URLSearchParams('b=2')
+		searchParameters: new URLSearchParams('b=2')
 	});
 
-	t.is(instance.defaults.options.searchParams!.get('a'), '1');
-	t.is(instance.defaults.options.searchParams!.get('b'), '2');
+	const searchParameters = instance.defaults.options.searchParameters as URLSearchParams;
+
+	t.is(searchParameters.get('a'), '1');
+	t.is(searchParameters.get('b'), '2');
 });
 
 test('throws a helpful error when passing `auth`', async t => {
@@ -490,7 +478,7 @@ test('does not throw on frozen options', withServer, async (t, server, got) => {
 });
 
 test('encodes query string included in input', t => {
-	const {url} = got.mergeOptions({
+	const {url} = new Options({
 		url: new URL('https://example.com/?a=b c')
 	});
 
@@ -498,9 +486,9 @@ test('encodes query string included in input', t => {
 });
 
 test('normalizes search params included in options', t => {
-	const {url} = got.mergeOptions({
+	const {url} = new Options({
 		url: new URL('https://example.com'),
-		searchParams: 'a=b c'
+		searchParameters: 'a=b c'
 	});
 
 	t.is(url.search, '?a=b+c');
@@ -537,7 +525,9 @@ test('allowGetBody sends json payload', withBodyParsingServer, async (t, server,
 	const {statusCode} = await got({
 		allowGetBody: true,
 		json: {hello: 'world'},
-		retry: 0,
+		retry: {
+			limit: 0
+		},
 		throwHttpErrors: false
 	});
 	t.is(statusCode, 200);
@@ -552,7 +542,7 @@ test('no URL pollution', withServer, async (t, server) => {
 		hooks: {
 			beforeRequest: [
 				options => {
-					options.url.pathname = '/ok';
+					(options.url as URL).pathname = '/ok';
 				}
 			]
 		}
