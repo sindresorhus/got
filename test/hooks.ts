@@ -430,7 +430,7 @@ test('beforeRetry is called with options', withServer, async (t, server, got) =>
 			beforeRetry: [
 				error => {
 					const {options} = error;
-					const retryCount = error.request.retryCount;
+					const {retryCount} = error.request;
 					t.is((options.url as URL).hostname, 'localhost');
 					t.deepEqual(options.context, context);
 					t.truthy(error);

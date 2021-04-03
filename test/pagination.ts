@@ -504,7 +504,7 @@ test('`stackAllItems` set to true', withServer, async (t, server, got) => {
 				itemCount += 1;
 				t.is(allItems.length, itemCount);
 
-				return got.defaults.options.pagination!.paginate({response, currentItems, allItems});
+				return got.defaults.options.pagination.paginate({response, currentItems, allItems});
 			}
 		}
 	});
@@ -531,7 +531,7 @@ test('`stackAllItems` set to false', withServer, async (t, server, got) => {
 			paginate: ({response, currentItems, allItems}) => {
 				t.is(allItems.length, 0);
 
-				return got.defaults.options.pagination!.paginate({response, allItems, currentItems});
+				return got.defaults.options.pagination.paginate({response, allItems, currentItems});
 			}
 		}
 	});
