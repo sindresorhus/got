@@ -336,7 +336,9 @@ test('allowGetBody sends json payload with .paginate()', withBodyParsingServer, 
 	const iterator = got.paginate<number>({
 		allowGetBody: true,
 		json: {hello: 'world'},
-		retry: 0
+		retry: {
+			limit: 0
+		}
 	});
 
 	const results: number[] = [];
@@ -407,7 +409,9 @@ test('allowGetBody sends correct json payload with .paginate()', withServer, asy
 
 	const iterator = got.paginate<number>({
 		allowGetBody: true,
-		retry: 0,
+		retry: {
+			limit: 0
+		},
 		json: {body},
 		pagination: {
 			paginate: () => {
@@ -611,7 +615,8 @@ test('pagination using searchParams', withServer, async (t, server, got) => {
 			},
 			paginate: ({response}) => {
 				const {next} = response.body;
-				const previousPage = Number(response.request.options.searchParams!.get('page'));
+				const searchParameters = response.request.options.searchParameters as URLSearchParams;
+				const previousPage = Number(searchParameters.get('page'));
 
 				if (!next) {
 					return false;
@@ -651,7 +656,7 @@ test('pagination using extended searchParams', withServer, async (t, server, got
 	}
 
 	const client = got.extend({
-		searchParams: {
+		searchParameters: {
 			limit: 10
 		}
 	});
@@ -667,7 +672,8 @@ test('pagination using extended searchParams', withServer, async (t, server, got
 			},
 			paginate: ({response}) => {
 				const {next} = response.body;
-				const previousPage = Number(response.request.options.searchParams!.get('page'));
+				const searchParameters = response.request.options.searchParameters as URLSearchParams;
+				const previousPage = Number(searchParameters.get('page'));
 
 				if (!next) {
 					return false;
