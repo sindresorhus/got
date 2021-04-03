@@ -71,7 +71,7 @@ export type AfterResponseHook<ResponseType = unknown> = (response: Response<Resp
 /**
 All available hooks of Got.
 */
-interface Hooks {
+export interface Hooks {
 	/**
 	Called with plain request options, right before their normalization.
 	This is especially useful in conjunction with `got.extend()` when the input needs custom handling.
