@@ -16,7 +16,7 @@ import WeakableMap from './utils/weakable-map';
 import {buffer as getBuffer} from 'get-stream';
 import calculateRetryDelay from './calculate-retry-delay';
 import Options from './options';
-import {isResponseOk} from './response';
+import {isResponseOk, Response} from './response';
 import isClientRequest from './utils/is-client-request';
 import {
 	RequestError,
