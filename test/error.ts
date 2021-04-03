@@ -36,10 +36,10 @@ test('properties', withServer, async (t, server, got) => {
 });
 
 test('catches dns errors', async t => {
-	const error = await t.throwsAsync<RequestError>(got('http://doesntexist', {retry: 0}));
+	const error = await t.throwsAsync<RequestError>(got('http://doesntexist', {retry: {limit: 0}}));
 	t.truthy(error);
 	t.regex(error.message, /ENOTFOUND|EAI_AGAIN/);
-	t.is(error.options.url.host, 'doesntexist');
+	t.is((error.options.url as URL).host, 'doesntexist');
 	t.is(error.options.method, 'GET');
 });
 
@@ -104,9 +104,13 @@ test('contains Got options', withServer, async (t, server, got) => {
 		response.end();
 	});
 
-	const options: {agent: false} = {
-		agent: false
-	};
+	const options = {
+		agent: {
+			http: false,
+			https: false,
+			http2: false
+		}
+	} as const;
 
 	const error = await t.throwsAsync<RequestError>(got(options));
 	t.is(error.options.agent, options.agent);
@@ -129,7 +133,7 @@ test('`http.request` error', async t => {
 			throw new TypeError('The header content contains invalid characters');
 		}
 	}), {
-		instanceOf: got.RequestError,
+		instanceOf: RequestError,
 		message: 'The header content contains invalid characters'
 	});
 });
@@ -163,7 +167,7 @@ test('`http.request` pipe error', async t => {
 		},
 		throwHttpErrors: false
 	}), {
-		instanceOf: got.RequestError,
+		instanceOf: RequestError,
 		message
 	});
 });
@@ -175,7 +179,7 @@ test('`http.request` error through CacheableRequest', async t => {
 		},
 		cache: new Map()
 	}), {
-		instanceOf: got.RequestError,
+		instanceOf: RequestError,
 		message: 'The header content contains invalid characters'
 	});
 });
@@ -213,7 +217,9 @@ test('promise does not hang on timeout on HTTP error', withServer, async (t, ser
 	});
 
 	await t.throwsAsync(got({
-		timeout: 100
+		timeout: {
+			request: 100
+		}
 	}), {
 		instanceOf: TimeoutError
 	});
