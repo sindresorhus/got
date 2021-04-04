@@ -227,13 +227,11 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		try {
 			this.options = new Options(url, options, defaults);
 
-			const {url: normalizedURL} = this.options;
-
-			if (!normalizedURL) {
-				throw new TypeError('Missing `url` property');
+			if (!this.options.url) {
+				this.options.url = '';
 			}
 
-			this.requestUrl = normalizedURL as URL;
+			this.requestUrl = this.options.url as URL;
 		} catch (error) {
 			this.flush = async () => {
 				this.destroy(error);
