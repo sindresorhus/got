@@ -148,12 +148,14 @@ test('custom paginate function using allItems', withServer, async (t, server, go
 
 	const result = await got.paginate.all<number>({
 		pagination: {
-			paginate: ({allItems}) => {
+			paginate: ({allItems, response}) => {
 				if (allItems.length === 2) {
 					return false;
 				}
 
-				return {path: '/?page=3'};
+				return {
+					url: new URL(response.url, '/?page=3')
+				};
 			},
 			stackAllItems: true
 		}
@@ -167,12 +169,14 @@ test('custom paginate function using currentItems', withServer, async (t, server
 
 	const result = await got.paginate.all<number>({
 		pagination: {
-			paginate: ({currentItems}) => {
+			paginate: ({currentItems, response}) => {
 				if (currentItems[0] === 3) {
 					return false;
 				}
 
-				return {path: '/?page=3'};
+				return {
+					url: new URL(response.url, '/?page=3')
+				};
 			}
 		}
 	});
