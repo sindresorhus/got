@@ -704,6 +704,7 @@ export default class Options {
 			}
 
 			options = input;
+			input = undefined;
 		} else if (input instanceof Options) {
 			this.merge(input._init);
 
@@ -725,9 +726,9 @@ export default class Options {
 					throw new TypeError('The `url` option is mutually exclusive with the `input` argument');
 				}
 
-				this._internals.url = new URL(input.toString());
+				this.url = input;
 			} else if (options?.url) {
-				this._internals.url = new URL(options.url.toString());
+				this.url = options.url;
 			}
 		}
 
