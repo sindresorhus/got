@@ -132,7 +132,7 @@ const create = (defaults: InstanceDefaults): Got => {
 
 	// Pagination
 	const paginateEach = (async function * <T, R>(url: string | URL, options?: OptionsWithPagination<T, R>): AsyncIterableIterator<T> {
-		let normalizedOptions = new Options(url, options, defaults.options);
+		let normalizedOptions = new Options(url, options as OptionsInit, defaults.options);
 		normalizedOptions.resolveBodyOnly = false;
 
 		const {pagination} = normalizedOptions;

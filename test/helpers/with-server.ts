@@ -112,7 +112,8 @@ export const withSocketServer: test.Macro<[RunTestWithSocket]> = async (t, run) 
 
 	server.socketPath = socketPath;
 
-	await promisify(server.listen.bind(server))(socketPath);
+	// @ts-expect-error TypeScript doesn't accept `callback` with no arguments
+	await promisify<any>(server.listen.bind(server))(socketPath);
 
 	try {
 		await run(t, server);
