@@ -556,7 +556,7 @@ test('next url in json response', withServer, async (t, server, got) => {
 	}
 
 	const all = await got.paginate.all('', {
-		searchParams: {
+		searchParameters: {
 			page: 0
 		},
 		responseType: 'json',
@@ -605,7 +605,7 @@ test('pagination using searchParams', withServer, async (t, server, got) => {
 	}
 
 	const all = await got.paginate.all('', {
-		searchParams: {
+		searchParameters: {
 			page: 0
 		},
 		responseType: 'json',
@@ -623,7 +623,7 @@ test('pagination using searchParams', withServer, async (t, server, got) => {
 				}
 
 				return {
-					searchParams: {
+					searchParameters: {
 						page: previousPage + 1
 					}
 				};
@@ -662,7 +662,7 @@ test('pagination using extended searchParams', withServer, async (t, server, got
 	});
 
 	const all = await client.paginate.all('', {
-		searchParams: {
+		searchParameters: {
 			page: 0
 		},
 		responseType: 'json',
@@ -680,7 +680,7 @@ test('pagination using extended searchParams', withServer, async (t, server, got
 				}
 
 				return {
-					searchParams: {
+					searchParameters: {
 						page: previousPage + 1
 					}
 				};

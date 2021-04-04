@@ -79,7 +79,7 @@ export type StrictOptions = Except<OptionsInit, 'isStream' | 'responseType' | 'r
 export type StreamOptions = Merge<OptionsInit, {isStream?: true}>;
 type ResponseBodyOnly = {resolveBodyOnly: true};
 
-export type OptionsWithPagination<T = unknown, R = unknown> = Merge<OptionsInit, PaginationOptions<T, R>>;
+export type OptionsWithPagination<T = unknown, R = unknown> = Merge<OptionsInit, {pagination?: PaginationOptions<T, R>}>;
 
 /**
 An instance of `got.paginate`.
