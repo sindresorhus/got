@@ -692,15 +692,8 @@ export default class Options {
 		Object.defineProperties(this, descriptor);
 
 		if (is.plainObject(input)) {
-			if (options) {
+			if (options !== undefined) {
 				throw new Error('There can be only one options argument');
-			}
-
-			const initHooks = input.hooks?.init;
-			if (initHooks) {
-				for (const hook of initHooks) {
-					hook(input);
-				}
 			}
 
 			options = input;
@@ -721,13 +714,13 @@ export default class Options {
 				this._internals.url = url;
 			}
 
-			if (input) {
+			if (input !== undefined) {
 				if (options?.url !== undefined) {
 					throw new TypeError('The `url` option is mutually exclusive with the `input` argument');
 				}
 
 				this.url = input;
-			} else if (options?.url) {
+			} else if (options?.url !== undefined) {
 				this.url = options.url;
 			}
 		}
@@ -741,6 +734,13 @@ export default class Options {
 		}
 
 		if (!this._init) {
+			const initHooks = options.hooks?.init;
+			if (initHooks) {
+				for (const hook of initHooks) {
+					hook(options);
+				}
+			}
+
 			this._init = options;
 
 			// This is way much faster than cloning ^_^
