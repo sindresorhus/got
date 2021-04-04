@@ -38,7 +38,9 @@ const aliases: readonly HTTPAlias[] = [
 
 const create = (defaults: InstanceDefaults): Got => {
 	defaults = {
-		options: new Options(defaults.options),
+		// `new Options(defaults.options)` would only copy options
+		// that initialized the object. The below copies **all** options.
+		options: new Options(undefined, undefined, defaults.options),
 		handlers: [...defaults.handlers],
 		mutableDefaults: defaults.mutableDefaults
 	};
@@ -102,7 +104,7 @@ const create = (defaults: InstanceDefaults): Got => {
 	}) as Got;
 
 	got.extend = (...instancesOrOptions) => {
-		const options = new Options(defaults.options);
+		const options = new Options(undefined, undefined, defaults.options);
 		const handlers = [...defaults.handlers];
 
 		let mutableDefaults: boolean | undefined;
