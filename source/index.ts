@@ -71,7 +71,11 @@ const defaults: InstanceDefaults = {
 		allowGetBody: false,
 		httpsOptions: {},
 		request: undefined,
-		agent: {},
+		agent: {
+			http: undefined,
+			https: undefined,
+			http2: undefined
+		},
 		body: undefined,
 		json: undefined,
 		form: undefined,

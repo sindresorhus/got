@@ -12,7 +12,7 @@ const createAgentSpy = <T extends HttpsAgent>(AgentClass: Constructor): {agent: 
 	return {agent, spy};
 };
 
-test('non-object agent option works with http', withServer, async (t, server, got) => {
+test.only('non-object agent option works with http', withServer, async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.end('ok');
 	});
