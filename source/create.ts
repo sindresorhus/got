@@ -57,11 +57,12 @@ const create = (defaults: InstanceDefaults): Got => {
 		let promise: CancelableRequest | undefined;
 
 		const lastHandler = (options: Options): GotReturn => {
+			// Note: `options` is `undefined` when `new Options(...)` fails
 			request.options = options;
 			request._noPipe = !options?.isStream;
 			void request.flush();
 
-			if (options.isStream) {
+			if (options?.isStream) {
 				return request;
 			}
 
