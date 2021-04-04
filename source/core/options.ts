@@ -61,7 +61,7 @@ export interface PromiseCookieJar {
 
 type Promisable<T> = T | Promise<T>;
 
-export type InitHook = (options: OptionsInit) => void;
+export type InitHook = (init: OptionsInit, self: Options) => void;
 export type BeforeRequestHook = (options: Options) => Promisable<void | Response | ResponseLike>;
 export type BeforeRedirectHook = (updatedOptions: Options, plainResponse: PlainResponse) => Promisable<void>;
 export type BeforeErrorHook = (error: RequestError) => Promisable<RequestError>;
@@ -734,14 +734,14 @@ export default class Options {
 		}
 
 		if (!this._init) {
+			this._init = options;
+
 			const initHooks = options.hooks?.init;
 			if (initHooks) {
 				for (const hook of initHooks) {
-					hook(options);
+					hook(options, this);
 				}
 			}
-
-			this._init = options;
 
 			// This is way much faster than cloning ^_^
 			Object.freeze(options);
