@@ -131,7 +131,7 @@ export default function asPromise<T>(firstRequest: Request): CancelableRequest<T
 
 			request.once('error', onError);
 
-			const previousBody = request.options.body;
+			const previousBody = request.options?.body;
 
 			request.once('retry', (newRetryCount: number, error: RequestError) => {
 				const newBody = request.options.body;
