@@ -41,7 +41,16 @@ const defaults: InstanceDefaults = {
 			maxRetryAfter: undefined,
 			calculateDelay: ({computedValue}) => computedValue
 		},
-		timeout: {},
+		timeout: {
+			connect: undefined,
+			lookup: undefined,
+			read: undefined,
+			request: undefined,
+			response: undefined,
+			secureConnect: undefined,
+			send: undefined,
+			socket: undefined
+		},
 		headers: {
 			'user-agent': 'got (https://github.com/sindresorhus/got)'
 		},
