@@ -256,12 +256,12 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		if (is.nodeStream(body)) {
 			body.once('error', error => {
 				if (this._flushed) {
-					this._beforeError(error);
+					this._beforeError(new UploadError(error, this));
 				} else {
 					this.flush = async () => {
 						this.flush = async () => {};
 
-						this._beforeError(error);
+						this._beforeError(new UploadError(error, this));
 					};
 				}
 			});
@@ -911,9 +911,6 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 		if (is.nodeStream(body)) {
 			body.pipe(currentRequest);
-			body.once('error', (error: NodeJS.ErrnoException) => {
-				this._beforeError(new UploadError(error, this));
-			});
 		} else {
 			this._unlockWrite();
 

@@ -37,10 +37,7 @@ test('GET can have body with option allowGetBody', withServer, async (t, server,
 test('invalid body', async t => {
 	await t.throwsAsync(
 		// @ts-expect-error Error tests
-		got.post('https://example.com', {body: {}}),
-		{
-			message: 'The `body` option must be a stream.Readable, string or Buffer'
-		}
+		got.post('https://example.com', {body: {}})
 	);
 });
 
@@ -75,14 +72,12 @@ test('sends plain objects as forms', withServer, async (t, server, got) => {
 	t.is(body, 'such=wow');
 });
 
-test('does NOT support sending arrays as forms', withServer, async (t, server, got) => {
+test('does not support sending arrays as forms', withServer, async (t, server, got) => {
 	server.post('/', defaultEndpoint);
 
 	await t.throwsAsync(got.post({
 		form: ['such', 'wow']
-	}), {
-		message: 'Each query pair must be an iterable [name, value] tuple'
-	});
+	}));
 });
 
 test('sends plain objects as JSON', withServer, async (t, server, got) => {
@@ -212,9 +207,7 @@ test('`content-type` header is not overriden when object in `options.body`', wit
 
 test('throws when form body is not a plain object or array', async t => {
 	// @ts-expect-error Manual test
-	await t.throwsAsync(got.post('https://example.com', {form: 'such=wow'}), {
-		message: 'The `form` option must be an Object'
-	});
+	await t.throwsAsync(got.post('https://example.com', {form: 'such=wow'}));
 });
 
 // See https://github.com/sindresorhus/got/issues/897
