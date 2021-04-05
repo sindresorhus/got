@@ -622,7 +622,6 @@ const cloneInternals = (internals: typeof defaultInternals): typeof defaultInter
 
 	const result = {
 		...internals,
-		url: undefined,
 		context: {...internals.context},
 		cacheOptions: {...internals.cacheOptions},
 		httpsOptions: {...internals.httpsOptions},
@@ -645,6 +644,10 @@ const cloneInternals = (internals: typeof defaultInternals): typeof defaultInter
 		},
 		searchParameters: new URLSearchParams(internals.searchParameters as URLSearchParams)
 	};
+
+	if (result.url !== undefined) {
+		result.prefixUrl = '';
+	}
 
 	return result;
 };
@@ -689,7 +692,7 @@ export default class Options {
 		assert.any([is.object, is.undefined], defaults);
 
 		if (input instanceof Options || options instanceof Options) {
-			throw new Error('The defaults must be passed as the third argument');
+			throw new TypeError('The defaults must be passed as the third argument');
 		}
 
 		// TODO: Switch to `this.key = value` when targeting Node.js 14
@@ -705,14 +708,15 @@ export default class Options {
 			this.url = input.url;
 		} else {
 			this.merge(options);
-			this.url = input;
 
 			if (options?.url !== undefined) {
-				if (input) {
+				if (input !== undefined) {
 					throw new TypeError('The `url` option is mutually exclusive with the `input` argument');
 				} else {
 					this.url = options.url;
 				}
+			} else if (input !== undefined) {
+				this.url = input;
 			}
 		}
 	}
