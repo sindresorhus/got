@@ -350,7 +350,7 @@ test('works with pipeline', async t => {
 	});
 });
 
-test.only('errors have body', withServer, async (t, server, got) => {
+test('errors have body', withServer, async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.setHeader('set-cookie', 'foo=bar');
 		response.end('yay');

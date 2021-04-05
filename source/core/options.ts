@@ -1,4 +1,4 @@
-import util = require('util');
+import {promisify, inspect} from 'util';
 import {URL, URLSearchParams} from 'url';
 import {checkServerIdentity} from 'tls';
 import {request as httpRequest} from 'http';
@@ -1139,13 +1139,15 @@ export default class Options {
 
 			/* istanbul ignore next: Horrible `tough-cookie` v3 check */
 			if (setCookie.length === 4 && getCookieString.length === 0) {
-				setCookie = util.promisify(setCookie.bind(value));
-				getCookieString = util.promisify(getCookieString.bind(value));
+				setCookie = promisify(setCookie.bind(value));
+				getCookieString = promisify(getCookieString.bind(value));
 
 				this._internals.cookieJar = {
-					setCookie,
+					setCookie: setCookie as PromiseCookieJar['setCookie'],
 					getCookieString: getCookieString as PromiseCookieJar['getCookieString']
 				};
+			} else {
+				this._internals.cookieJar = value;
 			}
 		} else {
 			this._internals.cookieJar = undefined;
@@ -1992,7 +1994,7 @@ export default class Options {
 	}
 
 	[Symbol.for('nodejs.util.inspect.custom')](_depth: number, options: InspectOptions) {
-		return util.inspect(this._internals, options);
+		return inspect(this._internals, options);
 	}
 
 	createNativeRequestOptions() {
