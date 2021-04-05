@@ -3,7 +3,7 @@ import {DetailedPeerCertificate} from 'tls';
 import pEvent from 'p-event';
 import * as pify from 'pify';
 import * as pem from 'pem';
-import got, {CancelableRequest} from '../source/index';
+import got from '../source/index';
 import {withHttpsServer} from './helpers/with-server';
 
 const createPrivateKey = pify(pem.createPrivateKey);
@@ -158,7 +158,7 @@ test('http2', async t => {
 			return;
 		}
 
-		t.fail(error);
+		t.fail(error.stack);
 	}
 });
 
@@ -167,29 +167,11 @@ test.serial('deprecated `rejectUnauthorized` option', withHttpsServer(), async (
 		response.end('ok');
 	});
 
-	await new Promise<void>(resolve => {
-		let request: CancelableRequest;
-		(async () => {
-			const warning = await pEvent(process, 'warning');
-			t.is(warning.name, 'DeprecationWarning');
-			request!.cancel();
-			resolve();
-		})();
-
-		(async () => {
-			request = got({
-				rejectUnauthorized: false
-			} as any);
-
-			try {
-				await request;
-				t.fail();
-			} catch {
-				t.true(request!.isCanceled);
-			}
-
-			resolve();
-		})();
+	await t.throwsAsync(got({
+		// @ts-expect-error
+		rejectUnauthorized: false
+	}), {
+		message: 'Key rejectUnauthorized is not an option'
 	});
 });
 
