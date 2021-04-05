@@ -234,6 +234,8 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			this.requestUrl = this.options.url as URL;
 		} catch (error) {
 			this.flush = async () => {
+				this.flush = async () => {};
+
 				this.destroy(error);
 			};
 
@@ -246,10 +248,12 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		if (is.nodeStream(body)) {
 			body.once('error', error => {
 				if (this._flushed) {
-					this._beforeError(new RequestError(error.message, error, this));
+					this._beforeError(error);
 				} else {
 					this.flush = async () => {
-						this._beforeError(new RequestError(error.message, error, this));
+						this.flush = async () => {};
+
+						this._beforeError(error);
 					};
 				}
 			});
@@ -258,7 +262,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 	async flush() {
 		if (this._flushed) {
-			throw new Error('Request has been already flushed');
+			return;
 		}
 
 		this._flushed = true;
@@ -285,12 +289,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			// Prevent memory leak
 			this._jobs.length = 0;
 		} catch (error) {
-			if (error instanceof RequestError) {
-				this._beforeError(error);
-				return;
-			}
-
-			this._beforeError(new RequestError(error.message, error, this));
+			this._beforeError(error);
 		}
 	}
 
@@ -362,7 +361,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 				if (backoff) {
 					await new Promise<void>(resolve => {
-						const timeout = setTimeout(resolve);
+						const timeout = setTimeout(resolve, backoff);
 						this._stopRetry = () => {
 							clearTimeout(timeout);
 							resolve();
@@ -877,7 +876,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 			error = error instanceof TimedOutTimeoutError ? new TimeoutError(error, this.timings!, this) : new RequestError(error.message, error, this);
 
-			this._beforeError(error as RequestError);
+			this._beforeError(error);
 		});
 
 		this._unproxyEvents = proxyEvents(request, this, proxiedRequestEvents);

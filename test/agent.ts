@@ -172,7 +172,6 @@ test('socket connect listener cleaned up after request', withHttpsServer(), asyn
 		});
 
 		const {body} = await got({
-			prefixUrl: 'http://127.0.0.1:3000',
 			agent: {
 				http: agent
 			},
@@ -180,7 +179,7 @@ test('socket connect listener cleaned up after request', withHttpsServer(), asyn
 				afterResponse: [
 					async (response, retryWithMergedOptions) => {
 						// Force clean-up
-						response.socket.destroy();
+						response.socket?.destroy();
 
 						// Unauthorized
 						if (response.statusCode === 401) {

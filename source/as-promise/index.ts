@@ -46,7 +46,7 @@ export default function asPromise<T>(firstRequest: Request): CancelableRequest<T
 			// See https://github.com/sindresorhus/got/issues/1489
 			onCancel(() => {});
 
-			const request = retryCount === 0 ? firstRequest : new Request(undefined, normalizedOptions);
+			const request = firstRequest ?? new Request(normalizedOptions.url, undefined, normalizedOptions);
 			request.retryCount = retryCount;
 			request._noPipe = true;
 
@@ -96,7 +96,7 @@ export default function asPromise<T>(firstRequest: Request): CancelableRequest<T
 						});
 					}
 				} catch (error) {
-					request._beforeError(new RequestError(error.message, error, request));
+					request._beforeError(error);
 					return;
 				}
 
@@ -134,6 +134,9 @@ export default function asPromise<T>(firstRequest: Request): CancelableRequest<T
 			const previousBody = request.options?.body;
 
 			request.once('retry', (newRetryCount: number, error: RequestError) => {
+				// @ts-expect-error
+				firstRequest = undefined;
+
 				const newBody = request.options.body;
 
 				if (previousBody === newBody && is.nodeStream(newBody)) {
@@ -144,11 +147,14 @@ export default function asPromise<T>(firstRequest: Request): CancelableRequest<T
 				// This is needed! We need to reuse `request.options` because they can get modified!
 				// For example, by calling `promise.json()`.
 				normalizedOptions = request.options;
+				normalizedOptions.prefixUrl = '';
 
 				makeRequest(newRetryCount);
 			});
 
 			proxyEvents(request, emitter, proxiedRequestEvents);
+
+			void request.flush();
 		};
 
 		makeRequest(0);
