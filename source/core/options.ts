@@ -2021,7 +2021,7 @@ export default class Options {
 			pfx: httpsOptions.pfx,
 			rejectUnauthorized: httpsOptions.rejectUnauthorized,
 			checkServerIdentity: httpsOptions.checkServerIdentity ?? checkServerIdentity,
-			lookup: internals.dnsLookup,
+			lookup: internals.dnsLookup ?? (internals.dnsCache as CacheableLookup | undefined)?.lookup,
 			family: internals.dnsLookupIpVersion,
 			agent,
 			setHost: internals.setHost,
