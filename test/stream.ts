@@ -132,7 +132,7 @@ test('has redirect event', withServer, async (t, server, got) => {
 	server.get('/redirect', redirectHandler);
 
 	const stream = got.stream('redirect');
-	const {headers} = await pEvent(stream, 'redirect');
+	const [_updatedOptions, {headers}] = await pEvent(stream, 'redirect', {multiArgs: true});
 	t.is(headers.location, '/');
 
 	await getStream(stream);
@@ -183,7 +183,7 @@ test('redirect response contains old url', withServer, async (t, server, got) =>
 	server.get('/redirect', redirectHandler);
 
 	const {requestUrl} = await pEvent(got.stream('redirect'), 'response');
-	t.is(requestUrl, `${server.url}/redirect`);
+	t.is(requestUrl.toString(), `${server.url}/redirect`);
 });
 
 test('check for pipe method', withServer, (t, server, got) => {
@@ -350,7 +350,7 @@ test('works with pipeline', async t => {
 	});
 });
 
-test('errors have body', withServer, async (t, server, got) => {
+test.only('errors have body', withServer, async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.setHeader('set-cookie', 'foo=bar');
 		response.end('yay');

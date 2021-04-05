@@ -246,9 +246,13 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			return;
 		}
 
+		const {json, body, form} = this.options;
+		if (json || body || form) {
+			this._lockWrite();
+		}
+
 		// Important! If you replace `body` in a handler with another stream, make sure it's readable first.
 		// The below is run only once.
-		const {body} = this.options;
 		if (is.nodeStream(body)) {
 			body.once('error', error => {
 				if (this._flushed) {
