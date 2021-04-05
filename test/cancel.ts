@@ -47,7 +47,7 @@ const prepareServer = (server: ExtendedHttpTestServer, clock: GlobalClock): {emi
 	return {emitter, promise};
 };
 
-const downloadHandler = (clock: GlobalClock): Handler => (_request, response) => {
+const downloadHandler = (clock?: GlobalClock): Handler => (_request, response) => {
 	response.writeHead(200, {
 		'transfer-encoding': 'chunked'
 	});
@@ -218,13 +218,15 @@ test.serial('throws on incomplete (canceled) response - promise', withServerAndF
 	);
 });
 
-test.serial('throws on incomplete (canceled) response - promise #2', withServerAndFakeTimers, async (t, server, got, clock) => {
-	server.get('/', downloadHandler(clock));
+// TODO: Use `fakeTimers` here
+test.serial('throws on incomplete (canceled) response - promise #2', withServer, async (t, server, got) => {
+	server.get('/', downloadHandler());
 
-	const promise = got('').on('response', () => {
-		clock.tick(500);
+	const promise = got('');
+
+	setTimeout(() => {
 		promise.cancel();
-	});
+	}, 500);
 
 	await t.throwsAsync(promise, {instanceOf: CancelError});
 });
@@ -242,24 +244,7 @@ test.serial('throws on incomplete (canceled) response - stream', withServerAndFa
 	await t.throwsAsync(getStream(stream), {message: errorString});
 });
 
-// Note: it will throw, but the response is loaded already.
 test('throws when canceling cached request', withServer, async (t, server, got) => {
-	server.get('/', (_request, response) => {
-		response.setHeader('Cache-Control', 'public, max-age=60');
-		response.end(Date.now().toString());
-	});
-
-	const cache = new Map();
-	await got({cache});
-
-	const promise = got({cache}).on('response', () => {
-		promise.cancel();
-	});
-
-	await t.throwsAsync(promise, {instanceOf: CancelError});
-});
-
-test('throws when canceling cached request #2', withServer, async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.setHeader('Cache-Control', 'public, max-age=60');
 		response.end(Date.now().toString());
