@@ -166,6 +166,9 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	private _staticBody: Options['body'];
 	private _flushed: boolean;
 
+	// We need this because `this._request` if `undefined` when using cache
+	private _requestInitialized: boolean;
+
 	constructor(url: string | URL | OptionsInit | Options | undefined, options?: OptionsInit | Options, defaults?: Options) {
 		super({
 			// Don't destroy immediately, as the error may be emitted on unsuccessful retry
@@ -188,6 +191,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		this._cancelTimeouts = noop;
 		this._jobs = [];
 		this._flushed = false;
+		this._requestInitialized = false;
 
 		this.redirectUrls = [];
 		this.retryCount = 0;
@@ -288,6 +292,8 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 			// Prevent memory leak
 			this._jobs.length = 0;
+
+			this._requestInitialized = true;
 		} catch (error) {
 			this._beforeError(error);
 		}
@@ -431,7 +437,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			this._writeRequest(chunk, encoding as BufferEncoding, callback);
 		};
 
-		if (this._request) {
+		if (this._requestInitialized) {
 			write();
 		} else {
 			this._jobs.push(write);
@@ -459,7 +465,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			});
 		};
 
-		if (this._request) {
+		if (this._requestInitialized) {
 			endRequest();
 		} else {
 			this._jobs.push(endRequest);
@@ -1029,6 +1035,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 		if (options.cache) {
 			(this._requestOptions as any)._request = request;
+			(this._requestOptions as any).cache = options.cache;
 			this._prepareCache(options.cache as CacheableRequest.StorageAdapter);
 		}
 
@@ -1050,6 +1057,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 					void this._onResponse(requestOrResponse as IncomingMessageWithTimings);
 				});
 
+				// TODO: @szmarczak: Investigate this. I don't think this should be needed.
 				this._unlockWrite();
 				this.end();
 				this._lockWrite();
