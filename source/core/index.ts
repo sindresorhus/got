@@ -891,9 +891,15 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 		this.emit('uploadProgress', this.uploadProgress);
 
+		this._sendBody();
+
+		this.emit('request', request);
+	}
+
+	private _sendBody() {
 		// Send body
 		const body = this._staticBody;
-		const currentRequest = this.redirectUrls.length === 0 ? this : request;
+		const currentRequest = this.redirectUrls.length === 0 ? this : this._request ?? this;
 
 		if (is.nodeStream(body)) {
 			body.pipe(currentRequest);
@@ -914,8 +920,6 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 				this._lockWrite();
 			}
 		}
-
-		this.emit('request', request);
 	}
 
 	private _prepareCache(cache: string | CacheableRequest.StorageAdapter) {
@@ -1057,10 +1061,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 					void this._onResponse(requestOrResponse as IncomingMessageWithTimings);
 				});
 
-				// TODO: @szmarczak: Investigate this. I don't think this should be needed.
-				this._unlockWrite();
-				this.end();
-				this._lockWrite();
+				this._sendBody();
 			} else {
 				void this._onResponse(requestOrResponse as IncomingMessageWithTimings);
 			}
