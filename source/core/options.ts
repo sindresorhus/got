@@ -672,10 +672,19 @@ const descriptor = {
 		configurable: false
 	},
 	_init: {
-		value: undefined,
+		value: undefined as (Options['_init'] | undefined),
 		enumerable: false,
 		writable: true,
 		configurable: false
+	}
+};
+
+const init = (options: OptionsInit, withOptions: OptionsInit, self: Options): void => {
+	const initHooks = options.hooks?.init;
+	if (initHooks) {
+		for (const hook of initHooks) {
+			hook(withOptions, self);
+		}
 	}
 };
 
@@ -684,7 +693,7 @@ export default class Options {
 	declare private _unixOptions?: NativeRequestOptions;
 	declare private _internals: InternalsType;
 	declare private _merging: boolean;
-	declare private _init?: OptionsInit;
+	declare private _init: OptionsInit[];
 
 	constructor(input?: string | URL | OptionsInit, options?: OptionsInit, defaults?: Options | OptionsInit) {
 		assert.any([is.string, is.urlInstance, is.object, is.undefined], input);
@@ -697,6 +706,7 @@ export default class Options {
 
 		// TODO: Switch to `this.key = value` when targeting Node.js 14
 		descriptor._internals.value = cloneInternals((defaults as Options)?._internals ?? defaults ?? defaultInternals);
+		descriptor._init.value = [...((defaults as Options)?._init ?? [])];
 		Object.defineProperties(this, descriptor);
 
 		if (is.plainObject(input)) {
@@ -718,33 +728,34 @@ export default class Options {
 		}
 	}
 
-	merge(options?: OptionsInit) {
+	merge(options?: OptionsInit | Options) {
 		if (!options) {
 			return;
 		}
 
-		if (!this._init) {
-			this._init = options;
-
-			const initHooks = options.hooks?.init;
-			if (initHooks) {
-				for (const hook of initHooks) {
-					hook(options, this);
-				}
+		if (options instanceof Options) {
+			for (const init of options._init) {
+				this.merge(init);
 			}
 
-			// This is way much faster than cloning ^_^
-			Object.freeze(options);
-			Object.freeze(options.hooks);
-			Object.freeze(options.httpsOptions);
-			Object.freeze(options.cacheOptions);
-			Object.freeze(options.agent);
-			Object.freeze(options.headers);
-			Object.freeze(options.timeout);
-			Object.freeze(options.retry);
-			Object.freeze(options.hooks);
-			Object.freeze(options.context);
+			return;
 		}
+
+		init(this, options, this);
+		init(options, options, this);
+		this._init.push(options);
+
+		// This is way much faster than cloning ^_^
+		Object.freeze(options);
+		Object.freeze(options.hooks);
+		Object.freeze(options.httpsOptions);
+		Object.freeze(options.cacheOptions);
+		Object.freeze(options.agent);
+		Object.freeze(options.headers);
+		Object.freeze(options.timeout);
+		Object.freeze(options.retry);
+		Object.freeze(options.hooks);
+		Object.freeze(options.context);
 
 		this._merging = true;
 
@@ -822,7 +833,7 @@ export default class Options {
 				throw new TypeError(`Agent option ${key} does not exist`);
 			}
 
-			assert.object(value[key]);
+			assert.any([is.object, is.undefined], value[key]);
 		}
 
 		if (this._merging) {
@@ -1556,7 +1567,7 @@ export default class Options {
 	}
 
 	set headers(value: Headers) {
-		assert.any([is.plainObject, is.undefined], value);
+		assert.plainObject(value);
 
 		if (this._merging) {
 			Object.assign(this._internals.headers, lowercaseKeys(value));

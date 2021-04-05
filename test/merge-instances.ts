@@ -100,7 +100,7 @@ test('hooks are merged', t => {
 
 test('default handlers are not duplicated', t => {
 	const instance = got.extend(got);
-	t.is(instance.defaults.handlers.length, 1);
+	t.is(instance.defaults.handlers.length, 0);
 });
 
 test('URL is not polluted', withServer, async (t, server, got) => {
@@ -169,9 +169,8 @@ test('merging `prefixUrl`', t => {
 	const mergedAonB = instanceB.extend(instanceA);
 	const mergedBonA = instanceA.extend(instanceB);
 
-	t.is(mergedAonB.defaults.options.prefixUrl, '');
+	t.is(mergedAonB.defaults.options.prefixUrl, prefixUrl);
 	t.is(mergedBonA.defaults.options.prefixUrl, prefixUrl);
 
 	t.is(instanceB.extend({}).defaults.options.prefixUrl, prefixUrl);
-	t.is(instanceB.extend({prefixUrl: undefined}).defaults.options.prefixUrl, prefixUrl);
 });
