@@ -495,7 +495,7 @@ test('correct port on redirect', withServer, async (t, server1, got) => {
 			response.end('SERVER2');
 		});
 
-		const response = await got(`${server1.url}/redirect`);
+		const response = await got(`${server1.url}/redirect`, {prefixUrl: ''});
 
 		t.is(response.body, 'SERVER2');
 	});

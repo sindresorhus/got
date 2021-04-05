@@ -992,8 +992,10 @@ export default class Options {
 			assert.truthy(value.readable);
 		}
 
-		assert.undefined(this._internals.form);
-		assert.undefined(this._internals.json);
+		if (value !== undefined) {
+			assert.undefined(this._internals.form);
+			assert.undefined(this._internals.json);
+		}
 
 		this._internals.body = value;
 	}
@@ -1013,8 +1015,11 @@ export default class Options {
 
 	set form(value: Record<string, any> | undefined) {
 		assert.any([is.plainObject, is.undefined], value);
-		assert.undefined(this._internals.body);
-		assert.undefined(this._internals.json);
+
+		if (value !== undefined) {
+			assert.undefined(this._internals.body);
+			assert.undefined(this._internals.json);
+		}
 
 		this._internals.form = value;
 	}
@@ -1032,8 +1037,11 @@ export default class Options {
 
 	set json(value: Record<string, any> | undefined) {
 		assert.any([is.object, is.undefined], value);
-		assert.undefined(this._internals.body);
-		assert.undefined(this._internals.form);
+
+		if (value !== undefined) {
+			assert.undefined(this._internals.body);
+			assert.undefined(this._internals.form);
+		}
 
 		this._internals.json = value;
 	}
@@ -1226,7 +1234,7 @@ export default class Options {
 
 			if (this._merging) {
 				// eslint-disable-next-line unicorn/no-array-for-each
-				updated.forEach((key, value) => {
+				updated.forEach((value, key) => {
 					searchParameters.append(key, value);
 				});
 			} else {
