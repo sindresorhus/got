@@ -693,7 +693,7 @@ export default class Options {
 	declare private _unixOptions?: NativeRequestOptions;
 	declare private _internals: InternalsType;
 	declare private _merging: boolean;
-	declare private _init: OptionsInit[];
+	declare private readonly _init: OptionsInit[];
 
 	constructor(input?: string | URL | OptionsInit, options?: OptionsInit, defaults?: Options | OptionsInit) {
 		assert.any([is.string, is.urlInstance, is.object, is.undefined], input);
@@ -717,10 +717,10 @@ export default class Options {
 			this.merge(options);
 
 			if (options?.url !== undefined) {
-				if (input !== undefined) {
-					throw new TypeError('The `url` option is mutually exclusive with the `input` argument');
-				} else {
+				if (input === undefined) {
 					this.url = options.url;
+				} else {
+					throw new TypeError('The `url` option is mutually exclusive with the `input` argument');
 				}
 			} else if (input !== undefined) {
 				this.url = input;
@@ -1162,7 +1162,7 @@ export default class Options {
 				getCookieString = promisify(getCookieString.bind(value));
 
 				this._internals.cookieJar = {
-					setCookie: setCookie as PromiseCookieJar['setCookie'],
+					setCookie,
 					getCookieString: getCookieString as PromiseCookieJar['getCookieString']
 				};
 			} else {
