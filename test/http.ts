@@ -6,7 +6,7 @@ import {Handler} from 'express';
 import * as nock from 'nock';
 import * as getStream from 'get-stream';
 import pEvent from 'p-event';
-import got, {HTTPError, UnsupportedProtocolError, CancelableRequest, ReadError} from '../source/index';
+import got, {HTTPError, ReadError, RequestError} from '../source/index';
 import withServer from './helpers/with-server';
 
 const IPv6supported = Object.values(os.networkInterfaces()).some(iface => iface?.some(addr => !addr.internal && addr.family === 'IPv6'));
@@ -92,8 +92,8 @@ test('doesn\'t throw if `options.throwHttpErrors` is false', withServer, async (
 
 test('invalid protocol throws', async t => {
 	await t.throwsAsync(got('c:/nope.com').json(), {
-		instanceOf: UnsupportedProtocolError,
-		message: 'Unsupported protocol "c:"'
+		instanceOf: RequestError,
+		message: 'Unsupported protocol: c:'
 	});
 });
 
@@ -331,34 +331,16 @@ test('invalid `dnsLookupIpVersion`', withServer, async (t, server, got) => {
 	} as any));
 });
 
-test.serial('deprecated `family` option', withServer, async (t, server, got) => {
+test('deprecated `family` option', withServer, async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.end('ok');
 	});
 
-	await new Promise<void>(resolve => {
-		let request: CancelableRequest;
-		(async () => {
-			const warning = await pEvent(process, 'warning');
-			t.is(warning.name, 'DeprecationWarning');
-			request!.cancel();
-			resolve();
-		})();
-
-		(async () => {
-			request = got({
-				family: '4'
-			} as any);
-
-			try {
-				await request;
-				t.fail();
-			} catch {
-				t.true(request!.isCanceled);
-			}
-
-			resolve();
-		})();
+	await t.throwsAsync(got({
+		// @ts-expect-error
+		family: 4
+	}), {
+		message: 'Key family is not an option'
 	});
 });
 

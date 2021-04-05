@@ -180,10 +180,12 @@ export default function asPromise<T>(firstRequest: Request): CancelableRequest<T
 	};
 
 	promise.json = () => {
-		const {headers} = globalRequest.options;
+		if (globalRequest.options) {
+			const {headers} = globalRequest.options;
 
-		if (!globalRequest.writableFinished && !('accept' in headers)) {
-			headers.accept = 'application/json';
+			if (!globalRequest.writableFinished && !('accept' in headers)) {
+				headers.accept = 'application/json';
+			}
 		}
 
 		return shortcut('json');

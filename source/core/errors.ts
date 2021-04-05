@@ -1,5 +1,4 @@
 import is from '@sindresorhus/is';
-import type {URL} from 'url';
 import type Options from './options';
 import type {Timings} from '@szmarczak/http-timer';
 import type {TimeoutError as TimedOutTimeoutError} from './utils/timed-out';
@@ -149,16 +148,6 @@ export class ReadError extends RequestError {
 	constructor(error: Error, request: Request) {
 		super(error.message, error, request);
 		this.name = 'ReadError';
-	}
-}
-
-/**
-An error to be thrown when given an unsupported protocol.
-*/
-export class UnsupportedProtocolError extends RequestError {
-	constructor(options: Options) {
-		super(`Unsupported protocol "${(options.url as URL).protocol}"`, {}, options);
-		this.name = 'UnsupportedProtocolError';
 	}
 }
 
