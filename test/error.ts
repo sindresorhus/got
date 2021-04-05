@@ -43,7 +43,7 @@ test('catches dns errors', async t => {
 
 test('`options.body` form error message', async t => {
 	// @ts-expect-error Error tests
-	await t.throwsAsync(got.post('https://example.com', {body: Buffer.from('test'), form: ''}),
+	await t.throwsAsync(got.post('https://example.com', {body: Buffer.from('test'), form: ''})
 		// {message: 'The `body`, `json` and `form` options are mutually exclusive'}
 	);
 });
