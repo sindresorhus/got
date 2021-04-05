@@ -642,7 +642,7 @@ const cloneInternals = (internals: typeof defaultInternals): typeof defaultInter
 			beforeRetry: [...hooks.beforeRetry],
 			afterResponse: [...hooks.afterResponse]
 		},
-		searchParameters: new URLSearchParams(internals.searchParameters as URLSearchParams)
+		searchParameters: internals.searchParameters ? new URLSearchParams(internals.searchParameters as URLSearchParams) : undefined
 	};
 
 	if (result.url !== undefined) {
