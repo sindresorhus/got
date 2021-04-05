@@ -87,9 +87,7 @@ test('throws an error on invalid response type', withServer, async (t, server, g
 
 	// @ts-expect-error Error tests
 	const error = await t.throwsAsync<ParseError>(got({responseType: 'invalid'}));
-	t.regex(error.message, /^Unknown body type 'invalid'/);
-	t.true(error.message.includes((error.options.url as URL).hostname));
-	t.is((error.options.url as URL).pathname, '/');
+	t.is(error.message, 'Invalid `responseType` option: invalid');
 });
 
 test('wraps parsing errors', withServer, async (t, server, got) => {

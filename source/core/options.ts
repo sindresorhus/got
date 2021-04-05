@@ -1940,6 +1940,11 @@ export default class Options {
 	}
 
 	set responseType(value: ResponseType) {
+		if (value === undefined) {
+			this._internals.responseType = 'text';
+			return;
+		}
+
 		if (value !== 'text' && value !== 'buffer' && value !== 'json') {
 			throw new Error(`Invalid \`responseType\` option: ${value as string}`);
 		}

@@ -620,6 +620,10 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			this._unlockWrite();
 		}
 
+		if (options.responseType === 'json' && !('accept' in options.headers)) {
+			options.headers.accept = 'application/json';
+		}
+
 		this._bodySize = Number(headers['content-length']) || undefined;
 	}
 
