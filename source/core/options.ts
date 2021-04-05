@@ -700,11 +700,8 @@ export default class Options {
 		Object.defineProperties(this, descriptor);
 
 		if (is.plainObject(input)) {
-			if (options) {
-				throw new Error('There can be only one options argument');
-			}
-
 			this.merge(input);
+			this.merge(options);
 			this.url = input.url;
 		} else {
 			this.merge(options);
