@@ -37,7 +37,7 @@ const defaultHandler = (clock: GlobalClock): Handler => (request, response) => {
 	});
 };
 
-const downloadHandler = (clock: GlobalClock): Handler => (_request, response) => {
+const downloadHandler = (clock?: GlobalClock): Handler => (_request, response) => {
 	response.writeHead(200, {
 		'transfer-encoding': 'chunked'
 	});
@@ -209,8 +209,8 @@ test.serial('response timeout unaffected by slow upload', withServerAndFakeTimer
 	}));
 });
 
-test.serial('response timeout unaffected by slow download', withServerAndFakeTimers, async (t, server, got, clock) => {
-	server.get('/', downloadHandler(clock));
+test.serial('response timeout unaffected by slow download', withServer, async (t, server, got) => {
+	server.get('/', downloadHandler());
 
 	await t.notThrowsAsync(got({
 		timeout: {response: 200},
@@ -219,7 +219,7 @@ test.serial('response timeout unaffected by slow download', withServerAndFakeTim
 		}
 	}));
 
-	clock.tick(100);
+	await delay(100);
 });
 
 test.serial('response timeout (keepalive)', withServerAndFakeTimers, async (t, server, got, clock) => {
