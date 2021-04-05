@@ -169,7 +169,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	// We need this because `this._request` if `undefined` when using cache
 	private _requestInitialized: boolean;
 
-	constructor(url: string | URL | OptionsInit | Options | undefined, options?: OptionsInit | Options, defaults?: Options) {
+	constructor(url: string | URL | OptionsInit | undefined, options?: OptionsInit, defaults?: Options) {
 		super({
 			// Don't destroy immediately, as the error may be emitted on unsuccessful retry
 			autoDestroy: false,

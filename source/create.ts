@@ -52,17 +52,19 @@ const create = (defaults: InstanceDefaults): Got => {
 	});
 
 	// Got interface
-	const got: Got = ((url: string | URL | OptionsInit | Options | undefined, options?: OptionsInit | Options, defaultOptions: Options = defaults.options as Options): GotReturn => {
+	const got: Got = ((url: string | URL | OptionsInit | undefined, options?: OptionsInit, defaultOptions: Options = defaults.options as Options): GotReturn => {
 		const request = new Request(url, options, defaultOptions);
 		let promise: CancelableRequest | undefined;
 
-		const lastHandler = (options: Options): GotReturn => {
+		const lastHandler = (normalized: Options): GotReturn => {
+			const isStream = normalized?.isStream ?? (url as OptionsInit | undefined)?.isStream ?? options?.isStream ?? defaultOptions.isStream;
+
 			// Note: `options` is `undefined` when `new Options(...)` fails
-			request.options = options;
-			request._noPipe = !options?.isStream;
+			request.options = normalized;
+			request._noPipe = !isStream;
 			void request.flush();
 
-			if (options?.isStream) {
+			if (isStream) {
 				return request;
 			}
 

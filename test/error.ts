@@ -8,6 +8,7 @@ import * as getStream from 'get-stream';
 import is from '@sindresorhus/is';
 import got, {RequestError, HTTPError, TimeoutError} from '../source/index';
 import withServer from './helpers/with-server';
+import Request from '../source/core';
 
 const pStreamPipeline = promisify(stream.pipeline);
 
@@ -102,15 +103,14 @@ test('contains Got options', withServer, async (t, server, got) => {
 	});
 
 	const options = {
-		agent: {
-			http: false,
-			https: false,
-			http2: false
+		context: {
+			foo: 'bar'
 		}
 	} as const;
 
-	const error = await t.throwsAsync<RequestError>(got(options));
-	t.is(error.options.agent, options.agent);
+	const error = await t.throwsAsync<HTTPError>(got(options));
+	t.is(error.response.statusCode, 404);
+	t.is(error.options.context.foo, options.context.foo);
 });
 
 test('empty status message is overriden by the default one', withServer, async (t, server, got) => {
@@ -181,12 +181,15 @@ test('`http.request` error through CacheableRequest', async t => {
 	});
 });
 
-test('errors are thrown directly when options.isStream is true', t => {
-	t.throws(() => {
-		// @ts-expect-error Error tests
-		void got('https://example.com', {isStream: true, hooks: false});
-	}, {
-		message: 'Expected value which is `predicate returns truthy for any value`, received value of type `Array`.'
+test('returns a stream even if normalization fails', async t => {
+	const stream = got('https://example.com', {
+		isStream: true,
+		// @ts-expect-error
+		hooks: false
+	}) as unknown as Request;
+
+	await t.throwsAsync(getStream(stream), {
+		message: 'Expected value which is `Object`, received value of type `boolean`.'
 	});
 });
 
