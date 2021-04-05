@@ -708,7 +708,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 			this._request = undefined;
 
-			const updatedOptions = new Options(this.options);
+			const updatedOptions = new Options(undefined, undefined, this.options);
 
 			const shouldBeGet = statusCode === 303 && updatedOptions.method !== 'GET' && updatedOptions.method !== 'HEAD';
 			if (shouldBeGet || updatedOptions.methodRewriting) {
@@ -753,6 +753,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 				}
 
 				this.redirectUrls.push(redirectUrl);
+				updatedOptions.prefixUrl = '';
 				updatedOptions.url = redirectUrl;
 
 				for (const hook of updatedOptions.hooks.beforeRedirect) {

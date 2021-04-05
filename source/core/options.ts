@@ -622,6 +622,7 @@ const cloneInternals = (internals: typeof defaultInternals): typeof defaultInter
 
 	const result = {
 		...internals,
+		url: undefined,
 		context: {...internals.context},
 		cacheOptions: {...internals.cacheOptions},
 		httpsOptions: {...internals.httpsOptions},
@@ -682,50 +683,38 @@ export default class Options {
 	declare private _merging: boolean;
 	declare private _init?: OptionsInit;
 
-	constructor(input?: string | URL | OptionsInit | Options, options?: OptionsInit | Options, defaults?: Options | OptionsInit) {
+	constructor(input?: string | URL | OptionsInit, options?: OptionsInit, defaults?: Options | OptionsInit) {
 		assert.any([is.string, is.urlInstance, is.object, is.undefined], input);
 		assert.any([is.object, is.undefined], options);
 		assert.any([is.object, is.undefined], defaults);
+
+		if (input instanceof Options || options instanceof Options) {
+			throw new Error('The defaults must be passed as the third argument');
+		}
 
 		// TODO: Switch to `this.key = value` when targeting Node.js 14
 		descriptor._internals.value = cloneInternals((defaults as Options)?._internals ?? defaults ?? defaultInternals);
 		Object.defineProperties(this, descriptor);
 
 		if (is.plainObject(input)) {
-			if (options !== undefined) {
+			if (options) {
 				throw new Error('There can be only one options argument');
 			}
 
-			options = input;
-			input = undefined;
-		} else if (input instanceof Options) {
-			this.merge(input._init);
-
-			this._internals.url = input._internals.url;
-
-			if (options instanceof Options) {
-				throw new TypeError('There can be only one Options instance');
-			}
+			this.merge(input);
+			this.url = input.url;
 		} else {
-			if (options instanceof Options) {
-				const {url} = options._internals;
-				options = options._init;
+			this.merge(options);
+			this.url = input;
 
-				this._internals.url = url;
-			}
-
-			if (input !== undefined) {
-				if (options?.url !== undefined) {
+			if (options?.url !== undefined) {
+				if (input) {
 					throw new TypeError('The `url` option is mutually exclusive with the `input` argument');
+				} else {
+					this.url = options.url;
 				}
-
-				this.url = input;
-			} else if (options?.url !== undefined) {
-				this.url = options.url;
 			}
 		}
-
-		this.merge(options);
 	}
 
 	merge(options?: OptionsInit) {
@@ -760,7 +749,13 @@ export default class Options {
 
 		try {
 			for (const key in options) {
+				// `got.extend()` options
 				if (key === 'mutableDefaults' || key === 'handlers') {
+					continue;
+				}
+
+				// Never merge `url`
+				if (key === 'url') {
 					continue;
 				}
 
@@ -947,14 +942,19 @@ export default class Options {
 	set prefixUrl(value: string | URL) {
 		assert.any([is.string, is.urlInstance], value);
 
+		if (value === '') {
+			this._internals.prefixUrl = '';
+			return;
+		}
+
 		value = value.toString();
 
-		if (value !== '' && !value.endsWith('/')) {
+		if (!value.endsWith('/')) {
 			value += '/';
 		}
 
 		if (this._internals.prefixUrl && this._internals.url) {
-			const {href} = this.url as URL;
+			const {href} = this._internals.url as URL;
 
 			if (!href.startsWith(value)) {
 				throw new Error(`Cannot change \`prefixUrl\` from ${this._internals.prefixUrl as string} to ${value}: ${href}`);
