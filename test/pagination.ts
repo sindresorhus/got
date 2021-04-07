@@ -154,7 +154,7 @@ test('custom paginate function using allItems', withServer, async (t, server, go
 				}
 
 				return {
-					url: new URL(response.url, '/?page=3')
+					url: new URL('/?page=3', response.url)
 				};
 			},
 			stackAllItems: true
@@ -175,7 +175,7 @@ test('custom paginate function using currentItems', withServer, async (t, server
 				}
 
 				return {
-					url: new URL(response.url, '/?page=3')
+					url: new URL('/?page=3', response.url)
 				};
 			}
 		}
@@ -566,7 +566,7 @@ test('next url in json response', withServer, async (t, server, got) => {
 				return {
 					url: next,
 					prefixUrl: '',
-					searchParams: undefined
+					searchParameters: undefined
 				};
 			}
 		}
@@ -580,7 +580,7 @@ test('next url in json response', withServer, async (t, server, got) => {
 	]);
 });
 
-test('pagination using searchParams', withServer, async (t, server, got) => {
+test('pagination using searchParameters', withServer, async (t, server, got) => {
 	server.get('/', (request, response) => {
 		const parameters = new URLSearchParams(request.url.slice(2));
 		const page = Number(parameters.get('page') ?? 0);
@@ -631,7 +631,7 @@ test('pagination using searchParams', withServer, async (t, server, got) => {
 	]);
 });
 
-test('pagination using extended searchParams', withServer, async (t, server, got) => {
+test('pagination using extended searchParameters', withServer, async (t, server, got) => {
 	server.get('/', (request, response) => {
 		const parameters = new URLSearchParams(request.url.slice(2));
 		const page = Number(parameters.get('page') ?? 0);
@@ -680,10 +680,9 @@ test('pagination using extended searchParams', withServer, async (t, server, got
 		}
 	});
 
-	t.deepEqual(all, [
-		'/?page=0&limit=10',
-		'/?page=1&limit=10',
-		'/?page=2&limit=10',
-		'/?page=3&limit=10'
-	]);
+	t.is(all.length, 4);
+
+	for (let i = 0; i < 4; i++) {
+		t.true(all[i] === `/?page=${i}&limit=10` || all[i] === `/?limit=10&page=${i}`);
+	}
 });

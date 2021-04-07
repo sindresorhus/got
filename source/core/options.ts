@@ -1228,9 +1228,9 @@ export default class Options {
 		assert.any([is.string, is.object, is.undefined], value);
 
 		const url = this._internals.url as URL;
+		let searchParameters = (this.searchParameters ?? new URLSearchParams()) as URLSearchParams;
 
-		if (value) {
-			let searchParameters = new URLSearchParams(this._internals.searchParameters as URLSearchParams);
+		if (value !== undefined) {
 			let updated;
 
 			if (is.string(value) || (value instanceof URLSearchParams)) {
@@ -1245,9 +1245,9 @@ export default class Options {
 					const entry = value[key];
 
 					if (entry === null) {
-						searchParameters.append(key, '');
+						updated.append(key, '');
 					} else if (entry !== undefined) {
-						searchParameters.append(key, entry as string);
+						updated.append(key, entry as string);
 					}
 				}
 			}
@@ -1255,15 +1255,13 @@ export default class Options {
 			if (this._merging) {
 				// eslint-disable-next-line unicorn/no-array-for-each
 				updated.forEach((value, key) => {
-					searchParameters.append(key, value);
+					searchParameters.set(key, value);
 				});
 			} else {
 				searchParameters = updated;
 			}
 
-			if (url) {
-				url.search = searchParameters.toString();
-			} else {
+			if (!url) {
 				this._internals.searchParameters = searchParameters;
 			}
 		} else {

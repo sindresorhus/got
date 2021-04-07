@@ -199,6 +199,11 @@ const create = (defaults: InstanceDefaults): Got => {
 				normalizedOptions = response.request.options;
 			} else {
 				normalizedOptions.merge(optionsToMerge);
+
+				if (optionsToMerge.url !== undefined) {
+					normalizedOptions.prefixUrl = '';
+					normalizedOptions.url = optionsToMerge.url;
+				}
 			}
 
 			numberOfRequests++;
