@@ -646,7 +646,8 @@ const cloneInternals = (internals: typeof defaultInternals): typeof defaultInter
 			beforeRetry: [...hooks.beforeRetry],
 			afterResponse: [...hooks.afterResponse]
 		},
-		searchParameters: internals.searchParameters ? new URLSearchParams(internals.searchParameters as URLSearchParams) : undefined
+		searchParameters: internals.searchParameters ? new URLSearchParams(internals.searchParameters as URLSearchParams) : undefined,
+		pagination: {...internals.pagination}
 	};
 
 	if (result.url !== undefined) {
@@ -1986,7 +1987,7 @@ export default class Options {
 	}
 
 	set pagination(value: PaginationOptions<unknown, unknown>) {
-		assert.any([is.object], value);
+		assert.object(value);
 
 		if (this._merging) {
 			Object.assign(this._internals.pagination, value);
