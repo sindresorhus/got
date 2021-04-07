@@ -312,7 +312,7 @@ test('doesn\'t retry on streams', withServer, async (t, server, got) => {
 			request: 1
 		},
 		retry: {
-			retries: () => {
+			calculateDelay: () => {
 				t.fail('Retries on streams');
 			}
 		}
