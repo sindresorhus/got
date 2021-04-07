@@ -2,7 +2,7 @@ import type {RetryFunction} from './options';
 
 type Returns<T extends (...args: any) => unknown, V> = (...args: Parameters<T>) => V;
 
-const calculateRetryDelay: Returns<RetryFunction, number> = ({attemptCount, retryOptions, error, retryAfter}) => {
+const calculateRetryDelay: Returns<RetryFunction, number> = ({attemptCount, retryOptions, error, retryAfter, computedValue}) => {
 	if (error.name === 'RetryError') {
 		return 1;
 	}
@@ -20,7 +20,8 @@ const calculateRetryDelay: Returns<RetryFunction, number> = ({attemptCount, retr
 
 	if (error.response) {
 		if (retryAfter) {
-			if (retryOptions.maxRetryAfter === undefined || retryAfter > retryOptions.maxRetryAfter) {
+			// In this case `computedValue` is `options.request.timeout`
+			if (retryAfter > computedValue) {
 				return 0;
 			}
 

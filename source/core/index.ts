@@ -366,7 +366,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 							retryOptions,
 							error: typedError,
 							retryAfter,
-							computedValue: 0
+							computedValue: retryOptions.maxRetryAfter ?? options.timeout.request ?? Infinity
 						})
 					});
 				} catch (error_) {
@@ -404,7 +404,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 					}
 
 					this.destroy();
-					this.emit('retry', error);
+					this.emit('retry', this.retryCount + 1, error);
 					return;
 				}
 			}
