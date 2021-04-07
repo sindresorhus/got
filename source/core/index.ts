@@ -163,7 +163,6 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	declare private _jobs: Array<() => void>;
 	private _cancelTimeouts: () => void;
 	private _nativeResponse?: IncomingMessageWithTimings;
-	private _staticBody: Options['body'];
 	private _flushed: boolean;
 
 	// We need this because `this._request` if `undefined` when using cache
@@ -551,73 +550,56 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		const isForm = !is.undefined(options.form);
 		const isJSON = !is.undefined(options.json);
 		const isBody = !is.undefined(options.body);
-		const hasPayload = isForm || isJSON || isBody;
 		const cannotHaveBody = methodsWithoutBody.has(options.method) && !(options.method === 'GET' && options.allowGetBody);
 
 		this._cannotHaveBody = cannotHaveBody;
 
-		if (hasPayload) {
+		if (isForm || isJSON || isBody) {
 			if (cannotHaveBody) {
 				throw new TypeError(`The \`${options.method}\` method cannot be used with a body`);
 			}
 
-			if ([isBody, isForm, isJSON].filter(isTrue => isTrue).length > 1) {
-				throw new TypeError('The `body`, `json` and `form` options are mutually exclusive');
-			}
+			// Serialize body
+			const noContentType = !is.string(headers['content-type']);
 
-			if (
-				isBody &&
-				!(options.body instanceof Readable) &&
-				!is.string(options.body) &&
-				!is.buffer(options.body) &&
-				!isFormData(options.body)
-			) {
-				throw new TypeError('The `body` option must be a stream.Readable, string or Buffer');
-			}
-
-			if (isForm && !is.object(options.form)) {
-				throw new TypeError('The `form` option must be an Object');
-			}
-
-			{
-				// Serialize body
-				const noContentType = !is.string(headers['content-type']);
-
-				if (isBody) {
-					// Special case for https://github.com/form-data/form-data
-					if (isFormData(options.body) && noContentType) {
-						headers['content-type'] = `multipart/form-data; boundary=${options.body.getBoundary()}`;
-					}
-
-					this._staticBody = options.body;
-				} else if (isForm) {
-					if (noContentType) {
-						headers['content-type'] = 'application/x-www-form-urlencoded';
-					}
-
-					this._staticBody = (new URLSearchParams(options.form as Record<string, string>)).toString();
-				} else {
-					if (noContentType) {
-						headers['content-type'] = 'application/json';
-					}
-
-					this._staticBody = options.stringifyJson(options.json);
+			if (isBody) {
+				// Special case for https://github.com/form-data/form-data
+				if (isFormData(options.body) && noContentType) {
+					headers['content-type'] = `multipart/form-data; boundary=${options.body.getBoundary()}`;
+				}
+			} else if (isForm) {
+				if (noContentType) {
+					headers['content-type'] = 'application/x-www-form-urlencoded';
 				}
 
-				const uploadBodySize = await getBodySize(this._staticBody, options.headers);
+				const {form} = options;
+				options.form = undefined;
 
-				// See https://tools.ietf.org/html/rfc7230#section-3.3.2
-				// A user agent SHOULD send a Content-Length in a request message when
-				// no Transfer-Encoding is sent and the request method defines a meaning
-				// for an enclosed payload body.  For example, a Content-Length header
-				// field is normally sent in a POST request even when the value is 0
-				// (indicating an empty payload body).  A user agent SHOULD NOT send a
-				// Content-Length header field when the request message does not contain
-				// a payload body and the method semantics do not anticipate such a
-				// body.
-				if (is.undefined(headers['content-length']) && is.undefined(headers['transfer-encoding']) && !cannotHaveBody && !is.undefined(uploadBodySize)) {
-					headers['content-length'] = String(uploadBodySize);
+				options.body = (new URLSearchParams(form as Record<string, string>)).toString();
+			} else {
+				if (noContentType) {
+					headers['content-type'] = 'application/json';
 				}
+
+				const {json} = options;
+				options.json = undefined;
+
+				options.body = options.stringifyJson(json);
+			}
+
+			const uploadBodySize = await getBodySize(options.body, options.headers);
+
+			// See https://tools.ietf.org/html/rfc7230#section-3.3.2
+			// A user agent SHOULD send a Content-Length in a request message when
+			// no Transfer-Encoding is sent and the request method defines a meaning
+			// for an enclosed payload body.  For example, a Content-Length header
+			// field is normally sent in a POST request even when the value is 0
+			// (indicating an empty payload body).  A user agent SHOULD NOT send a
+			// Content-Length header field when the request message does not contain
+			// a payload body and the method semantics do not anticipate such a
+			// body.
+			if (is.undefined(headers['content-length']) && is.undefined(headers['transfer-encoding']) && !cannotHaveBody && !is.undefined(uploadBodySize)) {
+				headers['content-length'] = String(uploadBodySize);
 			}
 		} else if (cannotHaveBody) {
 			this._lockWrite();
@@ -738,7 +720,6 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 				updatedOptions.json = undefined;
 				updatedOptions.form = undefined;
 
-				this._staticBody = undefined;
 				delete updatedOptions.headers['content-length'];
 			}
 
@@ -911,7 +892,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 	private _sendBody() {
 		// Send body
-		const body = this._staticBody;
+		const {body} = this.options;
 		const currentRequest = this.redirectUrls.length === 0 ? this : this._request ?? this;
 
 		if (is.nodeStream(body)) {
@@ -1026,6 +1007,9 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			}
 		}
 
+		// Reset `prefixUrl`
+		options.prefixUrl = '';
+
 		let request = options.getRequestFunction();
 
 		for (const hook of options.hooks.beforeRequest) {
@@ -1037,10 +1021,6 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 				request = () => result;
 				break;
 			}
-		}
-
-		if (options.body && this._staticBody !== options.body) {
-			this._staticBody = options.body;
 		}
 
 		const url = options.url as URL;

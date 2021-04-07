@@ -87,6 +87,11 @@ export default function asPromise<T>(firstRequest: Request): CancelableRequest<T
 						// eslint-disable-next-line no-await-in-loop
 						response = await hook(response, async (updatedOptions): CancelableRequest<Response> => {
 							options.merge(updatedOptions);
+							options.prefixUrl = '';
+
+							if (updatedOptions.url) {
+								options.url = updatedOptions.url;
+							}
 
 							// Remove any further hooks for that request, because we'll call them anyway.
 							// The loop continues. We don't want duplicates (asPromise recursion).
