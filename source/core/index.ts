@@ -15,7 +15,7 @@ import urlToOptions from './utils/url-to-options';
 import WeakableMap from './utils/weakable-map';
 import {buffer as getBuffer} from 'get-stream';
 import calculateRetryDelay from './calculate-retry-delay';
-import Options from './options';
+import Options, {OptionsError} from './options';
 import {isResponseOk, Response} from './response';
 import isClientRequest from './utils/is-client-request';
 import {
@@ -237,6 +237,11 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 			this.requestUrl = this.options.url as URL;
 		} catch (error) {
+			const {options} = error as OptionsError;
+			if (options) {
+				this.options = options;
+			}
+
 			this.flush = async () => {
 				this.flush = async () => {};
 

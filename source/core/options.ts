@@ -306,6 +306,8 @@ export interface CacheOptions {
 }
 
 export interface HttpsOptions {
+	alpnProtocols?: string[];
+
 	// From `http.RequestOptions` and `tls.CommonConnectionOptions`
 	rejectUnauthorized?: NativeRequestOptions['rejectUnauthorized'];
 
@@ -498,6 +500,8 @@ All parsing methods supported by Got.
 export type ResponseType = 'json' | 'buffer' | 'text';
 
 export type InternalsType = Except<Options, 'followRedirects' | 'auth' | 'toJSON' | 'merge' | 'createNativeRequestOptions' | 'getRequestFunction' | 'getFallbackRequestFunction' | 'freeze'>;
+
+export type OptionsError = NodeJS.ErrnoException & {options: Options};
 
 export type OptionsInit =
 	Except<Partial<InternalsType>, 'hooks' | 'retry'>
@@ -778,6 +782,10 @@ export default class Options {
 				// @ts-expect-error Type 'unknown' is not assignable to type 'never'.
 				this[key as keyof Options] = options[key as keyof Options];
 			}
+		} catch (error) {
+			(error as OptionsError).options = this;
+
+			throw error;
 		} finally {
 			this._merging = false;
 		}
@@ -1855,6 +1863,8 @@ export default class Options {
 				assert.any([is.string, is.undefined], value.passphrase);
 			} else if (key === 'pfx') {
 				assert.any([is.string, is.buffer, is.array, is.undefined], value.pfx);
+			} else if (key === 'httpsOptions') {
+				assert.any([is.string, is.undefined], value.httpsOptions);
 			} else {
 				throw new Error(`HTTPS option \`${key}\` does not exist`);
 			}

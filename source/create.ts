@@ -38,8 +38,6 @@ const aliases: readonly HTTPAlias[] = [
 
 const create = (defaults: InstanceDefaults): Got => {
 	defaults = {
-		// `new Options(defaults.options)` would only copy options
-		// that initialized the object. The below copies **all** options.
 		options: new Options(undefined, undefined, defaults.options),
 		handlers: [...defaults.handlers],
 		mutableDefaults: defaults.mutableDefaults
@@ -57,14 +55,12 @@ const create = (defaults: InstanceDefaults): Got => {
 		let promise: CancelableRequest | undefined;
 
 		const lastHandler = (normalized: Options): GotReturn => {
-			const isStream = normalized?.isStream ?? (url as OptionsInit | undefined)?.isStream ?? options?.isStream ?? defaultOptions.isStream;
-
 			// Note: `options` is `undefined` when `new Options(...)` fails
 			request.options = normalized;
-			request._noPipe = !isStream;
+			request._noPipe = !normalized.isStream;
 			void request.flush();
 
-			if (isStream) {
+			if (normalized.isStream) {
 				return request;
 			}
 
@@ -85,7 +81,7 @@ const create = (defaults: InstanceDefaults): Got => {
 		const result = iterateHandlers(request.options);
 
 		if (is.promise(result)) {
-			if (!promise && !request.options?.isStream) {
+			if (!promise && !request.options.isStream) {
 				promise = asPromise(request);
 			}
 
