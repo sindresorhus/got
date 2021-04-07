@@ -195,7 +195,9 @@ test('returns a stream even if normalization fails', async t => {
 
 test('normalization errors using convenience methods', async t => {
 	const url = 'undefined/https://example.com';
-	await t.throwsAsync(got(url).json().text().buffer(), {message: `Invalid URL: ${url}`});
+	await t.throwsAsync(got(url).json(), {message: `Invalid URL: ${url}`});
+	await t.throwsAsync(got(url).text(), {message: `Invalid URL: ${url}`});
+	await t.throwsAsync(got(url).buffer(), {message: `Invalid URL: ${url}`});
 });
 
 test('errors can have request property', withServer, async (t, server, got) => {

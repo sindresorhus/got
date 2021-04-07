@@ -714,22 +714,28 @@ export default class Options {
 		descriptor._init.value = [...((defaults as Options)?._init ?? [])];
 		Object.defineProperties(this, descriptor);
 
-		if (is.plainObject(input)) {
-			this.merge(input);
-			this.merge(options);
-			this.url = input.url;
-		} else {
-			this.merge(options);
+		try {
+			if (is.plainObject(input)) {
+				this.merge(input);
+				this.merge(options);
+				this.url = input.url;
+			} else {
+				this.merge(options);
 
-			if (options?.url !== undefined) {
-				if (input === undefined) {
-					this.url = options.url;
-				} else {
-					throw new TypeError('The `url` option is mutually exclusive with the `input` argument');
+				if (options?.url !== undefined) {
+					if (input === undefined) {
+						this.url = options.url;
+					} else {
+						throw new TypeError('The `url` option is mutually exclusive with the `input` argument');
+					}
+				} else if (input !== undefined) {
+					this.url = input;
 				}
-			} else if (input !== undefined) {
-				this.url = input;
 			}
+		} catch (error) {
+			(error as OptionsError).options = this;
+
+			throw error;
 		}
 	}
 
@@ -783,10 +789,6 @@ export default class Options {
 				// @ts-expect-error Type 'unknown' is not assignable to type 'never'.
 				this[key as keyof Options] = options[key as keyof Options];
 			}
-		} catch (error) {
-			(error as OptionsError).options = this;
-
-			throw error;
 		} finally {
 			this._merging = false;
 		}
