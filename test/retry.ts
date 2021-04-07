@@ -173,6 +173,10 @@ test('custom error codes', async t => {
 			emitter.abort = () => {};
 			emitter.end = () => {};
 			emitter.destroy = () => {};
+			// @ts-expect-error
+			emitter.writable = true;
+			// @ts-expect-error
+			emitter.writableEnded = false;
 
 			const error = new Error('Snap!');
 			(error as Error & {code: typeof errorCode}).code = errorCode;
