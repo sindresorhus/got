@@ -80,8 +80,8 @@ const create = (defaults: InstanceDefaults): Got => {
 
 		const result = iterateHandlers(request.options);
 
-		if (is.promise(result)) {
-			if (!promise && !request.options.isStream) {
+		if (is.promise(result) && !request.options.isStream) {
+			if (!promise) {
 				promise = asPromise(request);
 			}
 
@@ -96,6 +96,8 @@ const create = (defaults: InstanceDefaults): Got => {
 				}
 
 				Object.defineProperties(result, descriptors);
+
+				result.cancel = promise.cancel;
 			}
 		}
 
