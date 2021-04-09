@@ -832,13 +832,17 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	}
 
 	private async _setRawBody(from: Readable = this): Promise<boolean> {
+		if (from.readableEnded) {
+			return false;
+		}
+
 		try {
 			// Errors are emitted via the `error` event
 			const rawBody = await getBuffer(from);
 
 			// On retry Request is destroyed with no error, therefore the above will successfully resolve.
 			// So in order to check if this was really successfull, we need to check if it has been properly ended.
-			if (from.readableEnded) {
+			if (!this.isAborted) {
 				this.response!.rawBody = rawBody;
 
 				return true;
@@ -1113,7 +1117,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	Indicates whether the request has been aborted or not.
 	*/
 	get isAborted(): boolean {
-		return (this._request?.destroyed ?? this.destroyed) && !(this._nativeResponse?.complete);
+		return (this._request?.destroyed ?? this._stopReading) && !(this._nativeResponse?.complete);
 	}
 
 	get socket(): Socket | undefined {
