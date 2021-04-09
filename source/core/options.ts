@@ -826,7 +826,7 @@ export default class Options {
 				}
 
 				if (!(key in this)) {
-					throw new Error(`Key ${key} is not an option`);
+					throw new Error(`Unexpected option: ${key}`);
 				}
 
 				// @ts-expect-error Type 'unknown' is not assignable to type 'never'.
@@ -1419,8 +1419,12 @@ export default class Options {
 				throw new Error(`Unexpected hook event: ${knownHookEvent}`);
 			}
 
-			const hooks: unknown = value[knownHookEvent];
+			const hooks: unknown[] = value[knownHookEvent as keyof Hooks];
 			assert.any([is.array, is.undefined], hooks);
+
+			for (const hook of hooks) {
+				assert.function_(hook);
+			}
 
 			if (this._merging) {
 				if (hooks) {
