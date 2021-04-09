@@ -171,7 +171,7 @@ test.serial('deprecated `rejectUnauthorized` option', withHttpsServer(), async (
 		// @ts-expect-error
 		rejectUnauthorized: false
 	}), {
-		message: 'Key rejectUnauthorized is not an option'
+		message: 'Unexpected option: rejectUnauthorized'
 	});
 });
 

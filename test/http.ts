@@ -340,7 +340,7 @@ test('deprecated `family` option', withServer, async (t, server, got) => {
 		// @ts-expect-error
 		family: 4
 	}), {
-		message: 'Key family is not an option'
+		message: 'Unexpected option: family'
 	});
 });
 

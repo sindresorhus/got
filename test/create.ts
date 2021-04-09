@@ -83,10 +83,13 @@ test('custom headers (extend)', withServer, async (t, server, got) => {
 });
 
 test('extend overwrites arrays with a deep clone', t => {
-	const beforeRequest = [0];
+	const x = () => {};
+	const y = () => {};
+
+	const beforeRequest = [x];
 	const a = got.extend({hooks: {beforeRequest} as unknown as Hooks});
-	beforeRequest[0] = 1;
-	t.deepEqual(a.defaults.options.hooks.beforeRequest, [0] as unknown as BeforeRequestHook[]);
+	beforeRequest[0] = y;
+	t.deepEqual(a.defaults.options.hooks.beforeRequest, [x] as unknown as BeforeRequestHook[]);
 	t.not(a.defaults.options.hooks.beforeRequest, beforeRequest as unknown as BeforeRequestHook[]);
 });
 

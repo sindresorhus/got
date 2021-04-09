@@ -402,13 +402,14 @@ test('beforeRedirect allows modifications', withServer, async (t, server, got) =
 	t.is(body.foo, 'bar');
 });
 
-test('beforeRetry is called with options', withServer, async (t, server, got) => {
+test('beforeRetry is called with options', withServer, async (t, server) => {
 	server.get('/', echoHeaders);
 	server.get('/retry', retryEndpoint);
 
 	const context = {};
 
 	await got('retry', {
+		prefixUrl: server.url,
 		responseType: 'json',
 		retry: {
 			limit: 1
