@@ -51,7 +51,7 @@ const create = (defaults: InstanceDefaults): Got => {
 
 	// Got interface
 	const got: Got = ((url: string | URL | OptionsInit | undefined, options?: OptionsInit, defaultOptions: Options = defaults.options as Options): GotReturn => {
-		const request = new Request(url, options, defaultOptions);
+		const request = new Request(url, options ?? {}, defaultOptions);
 		let promise: CancelableRequest | undefined;
 
 		const lastHandler = (normalized: Options): GotReturn => {
@@ -75,33 +75,33 @@ const create = (defaults: InstanceDefaults): Got => {
 		const iterateHandlers = (newOptions: Options): GotReturn => {
 			const handler = defaults.handlers[iteration++] ?? lastHandler;
 
-			return handler(newOptions, iterateHandlers) as GotReturn;
-		};
+			const result = handler(newOptions, iterateHandlers) as GotReturn;
 
-		const result = iterateHandlers(request.options);
-
-		if (is.promise(result) && !request.options.isStream) {
-			if (!promise) {
-				promise = asPromise(request);
-			}
-
-			if (result !== promise) {
-				const descriptors = Object.getOwnPropertyDescriptors(promise);
-
-				for (const key in descriptors) {
-					if (key in result) {
-						// eslint-disable-next-line @typescript-eslint/no-dynamic-delete
-						delete descriptors[key];
-					}
+			if (is.promise(result) && !request.options.isStream) {
+				if (!promise) {
+					promise = asPromise(request);
 				}
 
-				Object.defineProperties(result, descriptors);
+				if (result !== promise) {
+					const descriptors = Object.getOwnPropertyDescriptors(promise);
 
-				result.cancel = promise.cancel;
+					for (const key in descriptors) {
+						if (key in result) {
+							// eslint-disable-next-line @typescript-eslint/no-dynamic-delete
+							delete descriptors[key];
+						}
+					}
+
+					Object.defineProperties(result, descriptors);
+
+					result.cancel = promise.cancel;
+				}
 			}
-		}
 
-		return result;
+			return result;
+		};
+
+		return iterateHandlers(request.options);
 	}) as Got;
 
 	got.extend = (...instancesOrOptions) => {
