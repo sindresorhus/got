@@ -231,36 +231,22 @@ test('the `body` payload is not touched', withServer, async (t, server, got) => 
 	server.post('/', defaultEndpoint);
 
 	const buffer = Buffer.from('Hello, Got!');
+	// @ts-expect-error
+	buffer.context = {foo: 'bar'};
 
-	await got.post({
-		body: buffer,
-		hooks: {
-			beforeRequest: [
-				options => {
-					t.is(options.body, buffer);
-				}
-			]
-		}
-	});
+	const body = await got.post({body: buffer}).text();
+	t.is(body, 'Hello, Got!');
 });
 
 test('the `form` payload is not touched', withServer, async (t, server, got) => {
 	server.post('/', defaultEndpoint);
 
-	const object = {
-		foo: 'bar'
+	const form = {
+		context: true
 	};
 
-	await got.post({
-		form: object,
-		hooks: {
-			beforeRequest: [
-				options => {
-					t.is(options.form, object);
-				}
-			]
-		}
-	});
+	const body = await got.post({form}).text();
+	t.is(body, 'context=true');
 });
 
 test('DELETE method sends plain objects as JSON', withServer, async (t, server, got) => {
