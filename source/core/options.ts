@@ -1317,7 +1317,6 @@ export default class Options {
 		if (!url) {
 			this._internals.searchParameters = searchParameters;
 		}
-
 	}
 
 	get dnsLookup(): CacheableLookup['lookup'] | undefined {

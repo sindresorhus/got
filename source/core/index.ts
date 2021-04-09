@@ -365,7 +365,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 							retryOptions,
 							error: typedError,
 							retryAfter,
-							computedValue: retryOptions.maxRetryAfter ?? options.timeout.request ?? Infinity
+							computedValue: retryOptions.maxRetryAfter ?? options.timeout.request ?? Number.POSITIVE_INFINITY
 						})
 					});
 				} catch (error_) {

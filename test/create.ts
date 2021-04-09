@@ -166,7 +166,7 @@ test('only plain objects are freezed', withServer, async (t, server, got) => {
 	});
 });
 
-// eslint-disable-next-line ava-no-skip
+// eslint-disable-next-line ava/no-skip-test
 test.skip('defaults are cloned on instance creation', t => {
 	const options: OptionsInit = {hooks: {beforeRequest: [() => {}]}};
 	const instance = got.extend(options);
