@@ -1,138 +1,9 @@
-import {Response} from './core/response';
 import create from './create';
 import {InstanceDefaults} from './types';
-import parseLinkHeader from './utils/parse-link-header';
+import Options from './core/options';
 
 const defaults: InstanceDefaults = {
-	options: {
-		method: 'GET',
-		retry: {
-			limit: 2,
-			methods: [
-				'GET',
-				'PUT',
-				'HEAD',
-				'DELETE',
-				'OPTIONS',
-				'TRACE'
-			],
-			statusCodes: [
-				408,
-				413,
-				429,
-				500,
-				502,
-				503,
-				504,
-				521,
-				522,
-				524
-			],
-			errorCodes: [
-				'ETIMEDOUT',
-				'ECONNRESET',
-				'EADDRINUSE',
-				'ECONNREFUSED',
-				'EPIPE',
-				'ENOTFOUND',
-				'ENETUNREACH',
-				'EAI_AGAIN'
-			],
-			maxRetryAfter: undefined,
-			calculateDelay: ({computedValue}) => computedValue
-		},
-		timeout: {
-			connect: undefined,
-			lookup: undefined,
-			read: undefined,
-			request: undefined,
-			response: undefined,
-			secureConnect: undefined,
-			send: undefined,
-			socket: undefined
-		},
-		headers: {
-			'user-agent': 'got (https://github.com/sindresorhus/got)'
-		},
-		hooks: {
-			init: [],
-			beforeRequest: [],
-			beforeRedirect: [],
-			beforeRetry: [],
-			beforeError: [],
-			afterResponse: []
-		},
-		cache: undefined,
-		dnsCache: undefined,
-		decompress: true,
-		throwHttpErrors: true,
-		followRedirect: true,
-		isStream: false,
-		responseType: 'text',
-		resolveBodyOnly: false,
-		maxRedirects: 10,
-		prefixUrl: '',
-		methodRewriting: false,
-		ignoreInvalidCookies: false,
-		context: {},
-		// TODO: Set this to `true` for Got 13.
-		http2: false,
-		allowGetBody: false,
-		httpsOptions: {},
-		request: undefined,
-		agent: {
-			http: undefined,
-			https: undefined,
-			http2: undefined
-		},
-		body: undefined,
-		json: undefined,
-		form: undefined,
-		url: undefined,
-		cookieJar: undefined,
-		searchParameters: undefined,
-		dnsLookup: undefined,
-		username: '',
-		password: '',
-		dnsLookupIpVersion: undefined,
-		localAddress: undefined,
-		createConnection: undefined,
-		encoding: undefined,
-		setHost: true,
-		maxHeaderSize: undefined,
-		pagination: {
-			transform: (response: Response) => {
-				if (response.request.options.responseType === 'json') {
-					return response.body;
-				}
-
-				return JSON.parse(response.body as string);
-			},
-			paginate: ({response}) => {
-				if (typeof response.headers.link !== 'string') {
-					return false;
-				}
-
-				const parsed = parseLinkHeader(response.headers.link);
-				const next = parsed.find(entry => entry.parameters.rel === 'next' || entry.parameters.rel === '"next"');
-
-				if (next) {
-					return {url: next.reference};
-				}
-
-				return false;
-			},
-			filter: () => true,
-			shouldContinue: () => true,
-			countLimit: Number.POSITIVE_INFINITY,
-			backoff: 0,
-			requestLimit: 10000,
-			stackAllItems: false
-		},
-		parseJson: (text: string) => JSON.parse(text),
-		stringifyJson: (object: unknown) => JSON.stringify(object),
-		cacheOptions: {}
-	},
+	options: new Options(),
 	handlers: [],
 	mutableDefaults: false
 };
@@ -151,4 +22,4 @@ export {default as calculateRetryDelay} from './core/calculate-retry-delay';
 export * from './as-promise/types';
 export * from './types';
 export {default as create} from './create';
-export {default as parseLinkHeader} from './utils/parse-link-header';
+export {default as parseLinkHeader} from './core/parse-link-header';

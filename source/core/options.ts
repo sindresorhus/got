@@ -7,6 +7,7 @@ import http2wrapper = require('http2-wrapper');
 import CacheableLookup from 'cacheable-lookup';
 import lowercaseKeys = require('lowercase-keys');
 import is, {assert} from '@sindresorhus/is';
+import parseLinkHeader from './parse-link-header';
 import type {Readable} from 'stream';
 import type {Socket} from 'net';
 import type {SecureContextOptions, DetailedPeerCertificate} from 'tls';
@@ -564,7 +565,9 @@ const defaultInternals: Options['_internals'] = {
 	password: '',
 	http2: false,
 	allowGetBody: false,
-	headers: {},
+	headers: {
+		'user-agent': 'got (https://github.com/sindresorhus/got)'
+	},
 	methodRewriting: false,
 	dnsLookupIpVersion: undefined,
 	parseJson: JSON.parse,
@@ -629,14 +632,33 @@ const defaultInternals: Options['_internals'] = {
 	responseType: 'text',
 	url: undefined,
 	pagination: {
-		backoff: undefined,
-		countLimit: undefined,
-		filter: undefined,
-		paginate: undefined,
-		requestLimit: undefined,
-		shouldContinue: undefined,
-		stackAllItems: undefined,
-		transform: undefined
+		transform: (response: Response) => {
+			if (response.request.options.responseType === 'json') {
+				return response.body;
+			}
+
+			return JSON.parse(response.body as string);
+		},
+		paginate: ({response}) => {
+			if (typeof response.headers.link !== 'string') {
+				return false;
+			}
+
+			const parsed = parseLinkHeader(response.headers.link);
+			const next = parsed.find(entry => entry.parameters.rel === 'next' || entry.parameters.rel === '"next"');
+
+			if (next) {
+				return {url: next.reference};
+			}
+
+			return false;
+		},
+		filter: () => true,
+		shouldContinue: () => true,
+		countLimit: Number.POSITIVE_INFINITY,
+		backoff: 0,
+		requestLimit: 10000,
+		stackAllItems: false
 	},
 	setHost: true,
 	maxHeaderSize: undefined
