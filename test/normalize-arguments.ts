@@ -39,27 +39,6 @@ test('should copy non-numerable properties', t => {
 	t.is(mergedTwice.json, options.json);
 });
 
-test('should replace URLs', t => {
-	const options = new Options({
-		url: new URL('http://localhost:41285'),
-		searchParameters: new URLSearchParams('page=0')
-	}, {
-		url: 'http://localhost:41285/?page=1'
-	});
-
-	const otherOptions = new Options({
-		url: new URL('http://localhost:41285'),
-		searchParameters: {
-			page: 0
-		}
-	}, {
-		url: 'http://localhost:41285/?page=1'
-	});
-
-	t.is((options.url as URL).href, 'http://localhost:41285/?page=1');
-	t.is((otherOptions.url as URL).href, 'http://localhost:41285/?page=1');
-});
-
 test('should get username and password from the URL', t => {
 	const options = new Options({
 		url: 'http://user:pass@localhost:41285'
