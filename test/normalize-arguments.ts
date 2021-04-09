@@ -4,15 +4,15 @@ import got, {Options} from '../source/index';
 
 test('should merge options replacing responseType', t => {
 	const responseType = 'json';
-	const options = new Options(got.defaults.options, {
+	const options = new Options({
 		responseType
-	});
+	}, undefined, got.defaults.options);
 
 	t.is(options.responseType, responseType);
 });
 
 test('no duplicated searchParams values', t => {
-	const options = new Options(got.defaults.options, {
+	const options = new Options({
 		searchParameters: 'string=true&noDuplication=true'
 	}, {
 		searchParameters: new URLSearchParams({
@@ -33,8 +33,8 @@ test('should copy non-numerable properties', t => {
 		json: {hello: '123'}
 	};
 
-	const merged = new Options(got.defaults.options, options);
-	const mergedTwice = new Options(got.defaults.options, merged);
+	const merged = new Options(options, undefined, got.defaults.options);
+	const mergedTwice = new Options(undefined, undefined, merged);
 
 	t.is(mergedTwice.json, options.json);
 });
@@ -42,10 +42,9 @@ test('should copy non-numerable properties', t => {
 test('should replace URLs', t => {
 	const options = new Options({
 		url: new URL('http://localhost:41285'),
-		searchParams: new URLSearchParams('page=0')
+		searchParameters: new URLSearchParams('page=0')
 	}, {
-		url: 'http://localhost:41285/?page=1',
-		searchParameters: undefined
+		url: 'http://localhost:41285/?page=1'
 	});
 
 	const otherOptions = new Options({
@@ -54,8 +53,7 @@ test('should replace URLs', t => {
 			page: 0
 		}
 	}, {
-		url: 'http://localhost:41285/?page=1',
-		searchParameters: undefined
+		url: 'http://localhost:41285/?page=1'
 	});
 
 	t.is((options.url as URL).href, 'http://localhost:41285/?page=1');
