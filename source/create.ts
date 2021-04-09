@@ -51,7 +51,7 @@ const create = (defaults: InstanceDefaults): Got => {
 
 	// Got interface
 	const got: Got = ((url: string | URL | OptionsInit | undefined, options?: OptionsInit, defaultOptions: Options = defaults.options as Options): GotReturn => {
-		const request = new Request(url, options ?? {}, defaultOptions);
+		const request = new Request(url, options, defaultOptions);
 		let promise: CancelableRequest | undefined;
 
 		const lastHandler = (normalized: Options): GotReturn => {

@@ -249,7 +249,7 @@ test('should pass an options object into an initialization hook after .extend', 
 		}
 	});
 
-	await instance('');
+	await instance('', {});
 });
 
 test('hooks aren\'t overriden when merging options', withServer, async (t, server, got) => {
