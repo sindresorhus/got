@@ -406,13 +406,13 @@ export interface PaginationOptions<ElementType, BodyType> {
 		const limit = 10;
 
 		const items = got.paginate('https://example.com/items', {
-			searchParams: {
+			searchParameters: {
 				limit,
 				offset: 0
 			},
 			pagination: {
 				paginate: ({response, currentItems}) => {
-					const previousSearchParams = response.request.options.searchParams;
+					const previousSearchParams = response.request.options.searchParameters;
 					const previousOffset = previousSearchParams.get('offset');
 
 					if (currentItems.length < limit) {
@@ -420,7 +420,7 @@ export interface PaginationOptions<ElementType, BodyType> {
 					}
 
 					return {
-						searchParams: {
+						searchParameters: {
 							...previousSearchParams,
 							offset: Number(previousOffset) + limit,
 						}
@@ -884,7 +884,7 @@ export default class Options {
 		// eslint-disable-next-line guard-for-in
 		for (const key in value) {
 			if (!(key in this._internals.agent)) {
-				throw new TypeError(`Agent option ${key} does not exist`);
+				throw new TypeError(`Unexpected agent option: ${key}`);
 			}
 
 			assert.any([is.object, is.undefined], value[key]);
@@ -945,7 +945,7 @@ export default class Options {
 		// eslint-disable-next-line guard-for-in
 		for (const key in value) {
 			if (!(key in this._internals.timeout)) {
-				throw new Error(`Timeout option \`${key}\` does not exist`);
+				throw new Error(`Unexpected timeout option: ${key}`);
 			}
 
 			assert.any([is.number, is.undefined], value[key]);
@@ -1118,10 +1118,10 @@ export default class Options {
 	@example
 	```
 	got('https://example.com/?query=a b'); //=> https://example.com/?query=a%20b
-	got('https://example.com/', {searchParams: {query: 'a b'}}); //=> https://example.com/?query=a+b
+	got('https://example.com/', {searchParameters: {query: 'a b'}}); //=> https://example.com/?query=a+b
 
-	// The query string is overridden by `searchParams`
-	got('https://example.com/?query=a b', {searchParams: {query: 'a b'}}); //=> https://example.com/?query=a+b
+	// The query string is overridden by `searchParameters`
+	got('https://example.com/?query=a b', {searchParameters: {query: 'a b'}}); //=> https://example.com/?query=a+b
 	```
 	*/
 	get url(): string | URL | undefined {
@@ -1395,7 +1395,11 @@ export default class Options {
 	set context(value: Record<string, unknown>) {
 		assert.object(value);
 
-		this._internals.context = {...value};
+		if (this._merging) {
+			Object.assign(this._internals.context, value);
+		} else {
+			this._internals.context = {...value};
+		}
 	}
 
 	/**
@@ -1412,7 +1416,7 @@ export default class Options {
 		// eslint-disable-next-line guard-for-in
 		for (const knownHookEvent in value) {
 			if (!(knownHookEvent in this._internals.hooks)) {
-				throw new Error(`Hook \`${knownHookEvent}\` does not exist`);
+				throw new Error(`Unexpected hook event: ${knownHookEvent}`);
 			}
 
 			const hooks: unknown = value[knownHookEvent];
@@ -1779,21 +1783,16 @@ export default class Options {
 	set retry(value: Partial<RetryOptions>) {
 		assert.plainObject(value);
 
+		assert.any([is.function_, is.undefined], value.calculateDelay);
+		assert.any([is.number, is.undefined], value.maxRetryAfter);
+		assert.any([is.number, is.undefined], value.limit);
+		assert.any([is.array, is.undefined], value.methods);
+		assert.any([is.array, is.undefined], value.statusCodes);
+		assert.any([is.array, is.undefined], value.errorCodes);
+
 		for (const key in value) {
-			if (key === 'calculateDelay') {
-				assert.function_(value.calculateDelay);
-			} else if (key === 'maxRetryAfter') {
-				assert.any([is.number, is.undefined], value.maxRetryAfter);
-			} else if (key === 'limit') {
-				assert.any([is.number, is.undefined], value.limit);
-			} else if (key === 'methods') {
-				assert.any([is.array, is.undefined], value.methods);
-			} else if (key === 'statusCodes') {
-				assert.any([is.array, is.undefined], value.statusCodes);
-			} else if (key === 'errorCodes') {
-				assert.any([is.array, is.undefined], value.errorCodes);
-			} else {
-				throw new Error(`Retry option \`${key}\` does not exist`);
+			if (!(key in this._internals.retry)) {
+				throw new Error(`Unexpected retry option: ${key}`);
 			}
 		}
 

@@ -231,6 +231,10 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			this.options = new Options(url, options, defaults);
 
 			if (!this.options.url) {
+				if (this.options.prefixUrl === '') {
+					throw new TypeError('Missing `url` property');
+				}
+
 				this.options.url = '';
 			}
 
