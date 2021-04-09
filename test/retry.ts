@@ -549,3 +549,19 @@ test('promise does not retry when body is a stream', withServer, async (t, serve
 
 	t.is(response.retryCount, 0);
 });
+
+test('reuses request options on retry', withServer, async (t, server, got) => {
+	let first = true;
+	server.get('/', (request, response) => {
+		if (first) {
+			first = false;
+			return;
+		}
+
+		response.end(JSON.stringify(request.headers));
+	});
+
+	const {body: {accept}, retryCount} = await got('', {timeout: {request: 1000}, responseType: 'json'});
+	t.is(retryCount, 1);
+	t.is(accept, 'application/json');
+});
