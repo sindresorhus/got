@@ -164,6 +164,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	private _cancelTimeouts: () => void;
 	private _nativeResponse?: IncomingMessageWithTimings;
 	private _flushed: boolean;
+	private _aborted: boolean;
 
 	// We need this because `this._request` if `undefined` when using cache
 	private _requestInitialized: boolean;
@@ -191,6 +192,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		this._jobs = [];
 		this._flushed = false;
 		this._requestInitialized = false;
+		this._aborted = false;
 
 		this.redirectUrls = [];
 		this.retryCount = 0;
@@ -641,7 +643,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		typedResponse.requestUrl = this.requestUrl!;
 		typedResponse.redirectUrls = this.redirectUrls;
 		typedResponse.request = this;
-		typedResponse.isFromCache = (response as any).fromCache ?? false;
+		typedResponse.isFromCache = (this._nativeResponse as any).fromCache ?? false;
 		typedResponse.ip = this.ip;
 		typedResponse.retryCount = this.retryCount;
 
@@ -656,6 +658,8 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		});
 
 		response.once('error', (error: Error) => {
+			this._aborted = true;
+
 			// Force clean-up, because some packages don't do this.
 			// TODO: Fix decompress-response
 			response.destroy();
@@ -664,6 +668,8 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		});
 
 		response.once('aborted', () => {
+			this._aborted = true;
+
 			this._beforeError(new ReadError({
 				name: 'Error',
 				message: 'The server aborted pending request',
@@ -876,6 +882,8 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		});
 
 		request.once('error', (error: Error) => {
+			this._aborted = true;
+
 			// Force clean-up, because some packages (e.g. nock) don't do this.
 			request.destroy();
 
@@ -1117,7 +1125,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	Indicates whether the request has been aborted or not.
 	*/
 	get isAborted(): boolean {
-		return (this._request?.destroyed ?? this._stopReading) && !(this._nativeResponse?.complete);
+		return this._aborted;
 	}
 
 	get socket(): Socket | undefined {
