@@ -95,3 +95,11 @@ test('undefined value in search params means it does not exist', t => {
 
 	t.is((options.url as URL).href, 'http://localhost/');
 });
+
+test('prefixUrl alone does not set url', t => {
+	const options = new Options({
+		prefixUrl: 'https://example.com'
+	});
+
+	t.is(options.url, undefined);
+});
