@@ -10,7 +10,7 @@ import applyDestroyPatch from './utils/apply-destroy-patch';
 import getBodySize from './utils/get-body-size';
 import isFormData from './utils/is-form-data';
 import proxyEvents from './utils/proxy-events';
-import timedOut, {TimeoutError as TimedOutTimeoutError} from './utils/timed-out';
+import timedOut, {TimeoutError as TimedOutTimeoutError} from './timed-out';
 import urlToOptions from './utils/url-to-options';
 import WeakableMap from './utils/weakable-map';
 import {buffer as getBuffer} from 'get-stream';

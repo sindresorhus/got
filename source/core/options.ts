@@ -23,7 +23,7 @@ import type {InspectOptions} from 'util';
 import type CacheableRequest = require('cacheable-request');
 import type ResponseLike = require('responselike');
 import type {IncomingMessageWithTimings} from '@szmarczak/http-timer';
-import type {Delays} from './utils/timed-out';
+import type {Delays} from './timed-out';
 import type {RequestError} from './errors';
 import type {PlainResponse, Response} from './response';
 import type {CancelableRequest} from '../as-promise/types';

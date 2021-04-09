@@ -1,7 +1,7 @@
 import is from '@sindresorhus/is';
 import type Options from './options';
 import type {Timings} from '@szmarczak/http-timer';
-import type {TimeoutError as TimedOutTimeoutError} from './utils/timed-out';
+import type {TimeoutError as TimedOutTimeoutError} from './timed-out';
 import type Request from '.';
 import type {PlainResponse, Response} from './response';
 
