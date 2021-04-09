@@ -488,9 +488,7 @@ function validateSearchParameters(searchParameters: Record<string, unknown>): as
 	for (const key in searchParameters) {
 		const value = searchParameters[key];
 
-		if (!is.string(value) && !is.number(value) && !is.boolean(value) && !is.null_(value) && !is.undefined(value)) {
-			throw new TypeError(`The \`searchParams\` value '${String(value)}' must be a string, number, boolean or null`);
-		}
+		assert.any([is.string, is.number, is.boolean, is.null_, is.undefined], value);
 	}
 }
 
@@ -609,14 +607,37 @@ const defaultInternals: Options['_internals'] = {
 	localAddress: undefined,
 	method: 'GET',
 	createConnection: undefined,
-	cacheOptions: {},
-	httpsOptions: {},
+	cacheOptions: {
+		shared: undefined,
+		cacheHeuristic: undefined,
+		immutableMinTimeToLive: undefined,
+		ignoreCargoCult: undefined
+	},
+	httpsOptions: {
+		alpnProtocols: undefined,
+		rejectUnauthorized: undefined,
+		checkServerIdentity: undefined,
+		certificateAuthority: undefined,
+		key: undefined,
+		certificate: undefined,
+		passphrase: undefined,
+		pfx: undefined
+	},
 	encoding: undefined,
 	resolveBodyOnly: false,
 	isStream: false,
 	responseType: 'text',
 	url: undefined,
-	pagination: {},
+	pagination: {
+		backoff: undefined,
+		countLimit: undefined,
+		filter: undefined,
+		paginate: undefined,
+		requestLimit: undefined,
+		shouldContinue: undefined,
+		stackAllItems: undefined,
+		transform: undefined
+	},
 	setHost: true,
 	maxHeaderSize: undefined
 };
@@ -979,12 +1000,7 @@ export default class Options {
 		if (this._internals.prefixUrl && this._internals.url) {
 			const {href} = this._internals.url as URL;
 
-			if (!href.startsWith(value)) {
-				throw new Error(`Cannot change \`prefixUrl\` from ${this._internals.prefixUrl as string} to ${value}: ${href}`);
-			}
-
-			this._internals.url = new URL(value + href.slice((this._internals.prefixUrl as string).length));
-			this._internals.prefixUrl = value;
+			(this._internals.url as URL).href = value + href.slice((this._internals.prefixUrl as string).length);
 		}
 
 		this._internals.prefixUrl = value;
@@ -1093,60 +1109,63 @@ export default class Options {
 	set url(value: string | URL | undefined) {
 		assert.any([is.string, is.urlInstance, is.undefined], value);
 
-		if (is.undefined(value)) {
+		if (value === undefined) {
 			this._internals.url = undefined;
-		} else {
-			// eslint-disable-next-line @typescript-eslint/prefer-string-starts-ends-with
-			if (is.string(value) && value[0] === '/') {
-				throw new Error('`url` must not start with a slash');
-			}
+			return;
+		}
 
-			const urlString = `${this.prefixUrl as string}${value.toString()}`;
-			const url = new URL(urlString);
-			this._internals.url = url;
-			decodeURI(urlString);
+		// eslint-disable-next-line @typescript-eslint/prefer-string-starts-ends-with
+		if (is.string(value) && value[0] === '/') {
+			throw new Error('`url` must not start with a slash');
+		}
 
-			if (url.protocol === 'unix:') {
-				url.href = `http://unix${url.pathname}${url.search}`;
-			}
+		const urlString = `${this.prefixUrl as string}${value.toString()}`;
+		const url = new URL(urlString);
+		this._internals.url = url;
+		decodeURI(urlString);
 
-			if (url.protocol !== 'http:' && url.protocol !== 'https:') {
-				throw new Error(`Unsupported protocol: ${url.protocol}`);
-			}
+		if (url.protocol === 'unix:') {
+			url.href = `http://unix${url.pathname}${url.search}`;
+		}
 
-			if (this._internals.username) {
-				url.username = this._internals.username;
-				this._internals.username = '';
-			}
+		if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+			throw new Error(`Unsupported protocol: ${url.protocol}`);
+		}
 
-			if (this._internals.password) {
-				url.password = this._internals.password;
-				this._internals.password = '';
-			}
+		if (this._internals.username) {
+			url.username = this._internals.username;
+			this._internals.username = '';
+		}
 
-			if (this._internals.searchParameters) {
-				url.search = (this._internals.searchParameters as URLSearchParams).toString();
-				this._internals.searchParameters = undefined;
-			}
+		if (this._internals.password) {
+			url.password = this._internals.password;
+			this._internals.password = '';
+		}
 
-			if (url.hostname === 'unix') {
-				const matches = /(?<socketPath>.+?):(?<path>.+)/.exec(`${url.pathname}${url.search}`);
+		if (this._internals.searchParameters) {
+			url.search = (this._internals.searchParameters as URLSearchParams).toString();
+			this._internals.searchParameters = undefined;
+		}
 
-				if (matches?.groups) {
-					const {socketPath, path} = matches.groups;
+		if (url.hostname === 'unix') {
+			const matches = /(?<socketPath>.+?):(?<path>.+)/.exec(`${url.pathname}${url.search}`);
 
-					this._unixOptions = {
-						socketPath,
-						path,
-						host: ''
-					};
-				} else {
-					this._unixOptions = undefined;
-				}
+			if (matches?.groups) {
+				const {socketPath, path} = matches.groups;
+
+				this._unixOptions = {
+					socketPath,
+					path,
+					host: ''
+				};
 			} else {
 				this._unixOptions = undefined;
 			}
+
+			return;
 		}
+
+		this._unixOptions = undefined;
 	}
 
 	/**
@@ -1161,26 +1180,27 @@ export default class Options {
 	set cookieJar(value: PromiseCookieJar | ToughCookieJar | undefined) {
 		assert.any([is.object, is.undefined], value);
 
-		if (value) {
-			let {setCookie, getCookieString} = value;
-
-			assert.function_(setCookie);
-			assert.function_(getCookieString);
-
-			/* istanbul ignore next: Horrible `tough-cookie` v3 check */
-			if (setCookie.length === 4 && getCookieString.length === 0) {
-				setCookie = promisify(setCookie.bind(value));
-				getCookieString = promisify(getCookieString.bind(value));
-
-				this._internals.cookieJar = {
-					setCookie,
-					getCookieString: getCookieString as PromiseCookieJar['getCookieString']
-				};
-			} else {
-				this._internals.cookieJar = value;
-			}
-		} else {
+		if (value === undefined) {
 			this._internals.cookieJar = undefined;
+			return;
+		}
+
+		let {setCookie, getCookieString} = value;
+
+		assert.function_(setCookie);
+		assert.function_(getCookieString);
+
+		/* istanbul ignore next: Horrible `tough-cookie` v3 check */
+		if (setCookie.length === 4 && getCookieString.length === 0) {
+			setCookie = promisify(setCookie.bind(value));
+			getCookieString = promisify(getCookieString.bind(value));
+
+			this._internals.cookieJar = {
+				setCookie,
+				getCookieString: getCookieString as PromiseCookieJar['getCookieString']
+			};
+		} else {
+			this._internals.cookieJar = value;
 		}
 	}
 
@@ -1230,49 +1250,52 @@ export default class Options {
 		assert.any([is.string, is.object, is.undefined], value);
 
 		const url = this._internals.url as URL;
-		let searchParameters = (this.searchParameters ?? new URLSearchParams()) as URLSearchParams;
 
-		if (value !== undefined) {
-			let updated;
-
-			if (is.string(value) || (value instanceof URLSearchParams)) {
-				updated = new URLSearchParams(value);
-			} else {
-				validateSearchParameters(value);
-
-				updated = new URLSearchParams();
-
-				// eslint-disable-next-line guard-for-in
-				for (const key in value) {
-					const entry = value[key];
-
-					if (entry === null) {
-						updated.append(key, '');
-					} else if (entry !== undefined) {
-						updated.append(key, entry as string);
-					}
-				}
-			}
-
-			if (this._merging) {
-				// eslint-disable-next-line unicorn/no-array-for-each
-				updated.forEach((value, key) => {
-					searchParameters.set(key, value);
-				});
-			} else {
-				searchParameters = updated;
-			}
-
-			if (!url) {
-				this._internals.searchParameters = searchParameters;
-			}
-		} else {
+		if (value === undefined) {
 			this._internals.searchParameters = undefined;
 
 			if (url) {
 				url.search = '';
 			}
+
+			return;
 		}
+
+		let searchParameters = (this.searchParameters ?? new URLSearchParams()) as URLSearchParams;
+		let updated;
+
+		if (is.string(value) || (value instanceof URLSearchParams)) {
+			updated = new URLSearchParams(value);
+		} else {
+			validateSearchParameters(value);
+
+			updated = new URLSearchParams();
+
+			// eslint-disable-next-line guard-for-in
+			for (const key in value) {
+				const entry = value[key];
+
+				if (entry === null) {
+					updated.append(key, '');
+				} else if (entry !== undefined) {
+					updated.append(key, entry as string);
+				}
+			}
+		}
+
+		if (this._merging) {
+			// eslint-disable-next-line unicorn/no-array-for-each
+			updated.forEach((value, key) => {
+				searchParameters.set(key, value);
+			});
+		} else {
+			searchParameters = updated;
+		}
+
+		if (!url) {
+			this._internals.searchParameters = searchParameters;
+		}
+
 	}
 
 	get dnsLookup(): CacheableLookup['lookup'] | undefined {
@@ -1818,16 +1841,13 @@ export default class Options {
 	set cacheOptions(value: CacheOptions) {
 		assert.plainObject(value);
 
+		assert.any([is.boolean, is.undefined], value.shared);
+		assert.any([is.number, is.undefined], value.cacheHeuristic);
+		assert.any([is.number, is.undefined], value.immutableMinTimeToLive);
+		assert.any([is.boolean, is.undefined], value.ignoreCargoCult);
+
 		for (const key in value) {
-			if (key === 'shared') {
-				assert.any([is.boolean, is.undefined], value.shared);
-			} else if (key === 'cacheHeuristic') {
-				assert.any([is.number, is.undefined], value.cacheHeuristic);
-			} else if (key === 'immutableMinTimeToLive') {
-				assert.any([is.number, is.undefined], value.immutableMinTimeToLive);
-			} else if (key === 'ignoreCargoCult') {
-				assert.any([is.boolean, is.undefined], value.ignoreCargoCult);
-			} else {
+			if (!(key in this._internals.cacheOptions)) {
 				throw new Error(`Cache option \`${key}\` does not exist`);
 			}
 		}
@@ -1849,24 +1869,17 @@ export default class Options {
 	set httpsOptions(value: HttpsOptions) {
 		assert.plainObject(value);
 
+		assert.any([is.boolean, is.undefined], value.rejectUnauthorized);
+		assert.any([is.function_, is.undefined], value.checkServerIdentity);
+		assert.any([is.string, is.object, is.array, is.undefined], value.certificateAuthority);
+		assert.any([is.string, is.object, is.array, is.undefined], value.key);
+		assert.any([is.string, is.object, is.array, is.undefined], value.certificate);
+		assert.any([is.string, is.undefined], value.passphrase);
+		assert.any([is.string, is.buffer, is.array, is.undefined], value.pfx);
+		assert.any([is.array, is.undefined], value.alpnProtocols);
+
 		for (const key in value) {
-			if (key === 'rejectUnauthorized') {
-				assert.any([is.boolean, is.undefined], value.rejectUnauthorized);
-			} else if (key === 'checkServerIdentity') {
-				assert.any([is.function_, is.undefined], value.checkServerIdentity);
-			} else if (key === 'certificateAuthority') {
-				assert.any([is.string, is.object, is.array, is.undefined], value.certificateAuthority);
-			} else if (key === 'key') {
-				assert.any([is.string, is.object, is.array, is.undefined], value.key);
-			} else if (key === 'certificate') {
-				assert.any([is.string, is.object, is.array, is.undefined], value.certificate);
-			} else if (key === 'passphrase') {
-				assert.any([is.string, is.undefined], value.passphrase);
-			} else if (key === 'pfx') {
-				assert.any([is.string, is.buffer, is.array, is.undefined], value.pfx);
-			} else if (key === 'httpsOptions') {
-				assert.any([is.string, is.undefined], value.httpsOptions);
-			} else {
+			if (!(key in this._internals.httpsOptions)) {
 				throw new Error(`HTTPS option \`${key}\` does not exist`);
 			}
 		}
@@ -1893,7 +1906,7 @@ export default class Options {
 	}
 
 	set encoding(value: BufferEncoding | undefined) {
-		if (is.null_(value)) {
+		if (value === null) {
 			throw new TypeError('To get a Buffer, set `options.responseType` to `buffer` instead');
 		}
 

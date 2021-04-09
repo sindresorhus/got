@@ -1,4 +1,12 @@
-const {got} = require('.');
+const {got, Options} = require('.');
+
+const o = new Options('asdf', {
+	prefixUrl: 'https://example.com'
+});
+
+o.prefixUrl = 'https://cats.com';
+
+console.log(o.url);
 
 const instance = got.extend({
 	handlers: [
