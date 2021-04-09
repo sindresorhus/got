@@ -2146,6 +2146,7 @@ export default class Options {
 	}
 }
 
+// It's user responsibility to make sensitive data in `context` non-enumerable
 const nonEnumerableProperties = new Set([
 	// Functions
 	'constructor',
@@ -2166,7 +2167,6 @@ const nonEnumerableProperties = new Set([
 	'followRedirects',
 
 	// May contain sensitive data
-	'context',
 	'username',
 	'password',
 	'headers',
@@ -2185,9 +2185,10 @@ const nonEnumerableProperties = new Set([
 // can do just `util.inspect(options, {getters: true})`.
 const propertyDescriptors: PropertyDescriptorMap = {};
 const keys = Object.getOwnPropertyNames(Options.prototype).filter(property => !nonEnumerableProperties.has(property));
+const makeEnumerable = {enumerable: true};
 
 for (const key of keys) {
-	propertyDescriptors[key] = {enumerable: true};
+	propertyDescriptors[key] = makeEnumerable;
 }
 
 Object.defineProperties(Options.prototype, propertyDescriptors);
