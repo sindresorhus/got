@@ -10,7 +10,7 @@ import * as delay from 'delay';
 import CacheableLookup from 'cacheable-lookup';
 import {Handler} from 'express';
 import * as pEvent from 'p-event';
-import got, {TimeoutError} from '../source/index';
+import got, {RequestError, TimeoutError} from '../source/index';
 import timedOut from '../source/core/timed-out';
 import slowDataStream from './helpers/slow-data-stream';
 import {GlobalClock} from './helpers/types';
@@ -765,7 +765,7 @@ test('timeouts are emitted ASAP', async t => {
 });
 
 test('http2 timeout', async t => {
-	await t.throwsAsync(got('https://123.123.123.123', {
+	const error = await t.throwsAsync<RequestError>(got('https://123.123.123.123', {
 		timeout: {
 			request: 1
 		},
@@ -773,7 +773,7 @@ test('http2 timeout', async t => {
 		retry: {
 			calculateDelay: ({computedValue}) => computedValue ? 1 : 0
 		}
-	}), {
-		code: 'ETIMEDOUT'
-	});
+	}));
+
+	t.true(error.code === 'ETIMEDOUT' || error.code === 'EUNSUPPORTED', error.stack);
 });

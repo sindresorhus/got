@@ -2151,7 +2151,10 @@ export default class Options {
 		if (url!.protocol === 'https:') {
 			if (this._internals.http2) {
 				if (major < 15 || (major === 15 && minor < 10)) {
-					throw new Error('To use the `http2` option, install Node.js 15.10.0 or above');
+					const error = new Error('To use the `http2` option, install Node.js 15.10.0 or above');
+					(error as NodeJS.ErrnoException).code = 'EUNSUPPORTED';
+
+					throw error;
 				}
 
 				return http2wrapper.auto as RequestFunction;
