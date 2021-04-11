@@ -50,7 +50,8 @@
 		"cacheable-lookup": "^6.0.0",
 		"cacheable-request": "^7.0.1",
 		"decompress-response": "^6.0.0",
-		"http2-wrapper": "^2.0.0",
+		"get-stream": "^6.0.0",
+		"http2-wrapper": "^2.0.1",
 		"lowercase-keys": "^2.0.0",
 		"p-cancelable": "^2.0.0",
 		"responselike": "^2.0.0"
@@ -78,7 +79,6 @@
 		"delay": "^5.0.0",
 		"express": "^4.17.1",
 		"form-data": "^4.0.0",
-		"get-stream": "^6.0.0",
 		"nock": "^13.0.7",
 		"node-fetch": "^2.6.1",
 		"np": "^7.4.0",
@@ -137,7 +137,8 @@
 			"import/no-anonymous-default-export": "off",
 			"@typescript-eslint/no-implicit-any-catch": "off",
 			"unicorn/import-index": "off",
-			"import/no-useless-path-segments": "off"
+			"import/no-useless-path-segments": "off",
+			"import/no-named-as-default": "off"
 		}
 	},
 	"runkitExampleFilename": "./documentation/examples/runkit-example.js"

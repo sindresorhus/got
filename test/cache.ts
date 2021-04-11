@@ -6,7 +6,7 @@ import * as getStream from 'get-stream';
 import {Handler} from 'express';
 import CacheableLookup from 'cacheable-lookup';
 import * as delay from 'delay';
-import got, {Response} from '../source/index';
+import got, {CacheError, Response} from '../source/index';
 import withServer from './helpers/with-server';
 
 const cacheEndpoint: Handler = (_request, response) => {
@@ -112,7 +112,7 @@ test('cached response has got options', withServer, async (t, server, got) => {
 	t.is(secondResponse.request.options.username, options.username);
 });
 
-test('cache error throws `got.CacheError`', withServer, async (t, server, got) => {
+test('cache error throws `CacheError`', withServer, async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.end('ok');
 	});
@@ -120,7 +120,7 @@ test('cache error throws `got.CacheError`', withServer, async (t, server, got) =
 	const cache = {};
 
 	// @ts-expect-error Error tests
-	await t.throwsAsync(got({cache}), {instanceOf: got.CacheError});
+	await t.throwsAsync(got({cache}), {instanceOf: CacheError});
 });
 
 test('doesn\'t cache response when received HTTP error', withServer, async (t, server, got) => {
@@ -256,7 +256,9 @@ test('decompresses cached responses', withServer, async (t, server, got) => {
 			cache,
 			responseType: 'json',
 			decompress: true,
-			retry: 2
+			retry: {
+				limit: 2
+			}
 		}));
 	}
 

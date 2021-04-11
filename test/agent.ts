@@ -20,7 +20,7 @@ test('non-object agent option works with http', withServer, async (t, server, go
 	const {agent, spy} = createAgentSpy(HttpAgent);
 
 	t.truthy((await got({
-		https: {
+		httpsOptions: {
 			rejectUnauthorized: false
 		},
 		agent: {
@@ -41,7 +41,7 @@ test('non-object agent option works with https', withHttpsServer(), async (t, se
 	const {agent, spy} = createAgentSpy(HttpsAgent);
 
 	t.truthy((await got({
-		https: {
+		httpsOptions: {
 			rejectUnauthorized: false
 		},
 		agent: {
@@ -172,7 +172,6 @@ test('socket connect listener cleaned up after request', withHttpsServer(), asyn
 		});
 
 		const {body} = await got({
-			prefixUrl: 'http://127.0.0.1:3000',
 			agent: {
 				http: agent
 			},
@@ -198,7 +197,9 @@ test('socket connect listener cleaned up after request', withHttpsServer(), asyn
 				]
 			},
 			// Disable automatic retries, manual retries are allowed
-			retry: 0
+			retry: {
+				limit: 0
+			}
 		});
 
 		t.is(body, 'ok');

@@ -1,34 +1,11 @@
 import {URL} from 'url';
-import is from '@sindresorhus/is';
-import asPromise, {
-	// Response
-	Response,
-
-	// Options
-	Options,
-	NormalizedOptions,
-
-	// Hooks
-	InitHook,
-
-	// Errors
-	ParseError,
-	RequestError,
-	CacheError,
-	ReadError,
-	HTTPError,
-	MaxRedirectsError,
-	TimeoutError,
-	UnsupportedProtocolError,
-	UploadError,
-	CancelError
-} from './as-promise';
+import is, {assert} from '@sindresorhus/is';
+import asPromise from './as-promise';
 import {
 	GotReturn,
 	ExtendOptions,
 	Got,
 	HTTPAlias,
-	HandlerFunction,
 	InstanceDefaults,
 	GotPaginate,
 	GotStream,
@@ -36,41 +13,15 @@ import {
 	OptionsWithPagination,
 	StreamOptions
 } from './types';
-import createRejection from './as-promise/create-rejection';
-import Request, {kIsNormalizedAlready, setNonEnumerableProperties, Defaults} from './core/index';
-import deepFreeze from './utils/deep-freeze';
-
-const errors = {
-	RequestError,
-	CacheError,
-	ReadError,
-	HTTPError,
-	MaxRedirectsError,
-	TimeoutError,
-	ParseError,
-	CancelError,
-	UnsupportedProtocolError,
-	UploadError
-};
+import Request from './core/index';
+import {Response} from './core/response';
+import Options, {OptionsInit} from './core/options';
+import type {CancelableRequest} from './as-promise/types';
 
 // The `delay` package weighs 10KB (!)
 const delay = async (ms: number) => new Promise(resolve => {
 	setTimeout(resolve, ms);
 });
-
-const {normalizeArguments} = Request;
-
-const mergeOptions = (...sources: Options[]): NormalizedOptions => {
-	let mergedOptions: NormalizedOptions | undefined;
-
-	for (const source of sources) {
-		mergedOptions = normalizeArguments(undefined, source, mergedOptions);
-	}
-
-	return mergedOptions!;
-};
-
-const getPromiseOrStream = (options: NormalizedOptions): GotReturn => options.isStream ? new Request(undefined, options) : asPromise(options);
 
 const isGotInstance = (value: Got | ExtendOptions): value is Got => (
 	'defaults' in value && 'options' in value.defaults
@@ -85,145 +36,117 @@ const aliases: readonly HTTPAlias[] = [
 	'delete'
 ];
 
-export const defaultHandler: HandlerFunction = (options, next) => next(options);
-
-const callInitHooks = (hooks: InitHook[] | undefined, options?: Options): void => {
-	if (hooks) {
-		for (const hook of hooks) {
-			hook(options!);
-		}
-	}
-};
-
 const create = (defaults: InstanceDefaults): Got => {
-	// Proxy properties from next handlers
-	defaults._rawHandlers = defaults.handlers;
-	defaults.handlers = defaults.handlers.map(fn => ((options, next) => {
-		// This will be assigned by assigning result
-		let root!: ReturnType<typeof next>;
+	defaults = {
+		options: new Options(undefined, undefined, defaults.options),
+		handlers: [...defaults.handlers],
+		mutableDefaults: defaults.mutableDefaults
+	};
 
-		const result = fn(options, newOptions => {
-			root = next(newOptions);
-			return root;
-		});
-
-		if (result !== root && !options.isStream && root) {
-			const typedResult = result as Promise<unknown>;
-
-			const {then: promiseThen, catch: promiseCatch, finally: promiseFianlly} = typedResult;
-			Object.setPrototypeOf(typedResult, Object.getPrototypeOf(root));
-			Object.defineProperties(typedResult, Object.getOwnPropertyDescriptors(root));
-
-			// These should point to the new promise
-			// eslint-disable-next-line promise/prefer-await-to-then
-			typedResult.then = promiseThen;
-			typedResult.catch = promiseCatch;
-			typedResult.finally = promiseFianlly;
-		}
-
-		return result;
-	}));
+	Object.defineProperty(defaults, 'mutableDefaults', {
+		enumerable: true,
+		configurable: false,
+		writable: false
+	});
 
 	// Got interface
-	const got: Got = ((url: string | URL, options: Options = {}, _defaults?: Defaults): GotReturn => {
-		let iteration = 0;
-		const iterateHandlers = (newOptions: NormalizedOptions): GotReturn => {
-			// TODO: Remove the `!`. This could probably be simplified to not use index access.
-			return defaults.handlers[iteration++]!(
-				newOptions,
-				iteration === defaults.handlers.length ? getPromiseOrStream : iterateHandlers
-			) as GotReturn;
+	const got: Got = ((url: string | URL | OptionsInit | undefined, options?: OptionsInit, defaultOptions: Options = defaults.options as Options): GotReturn => {
+		const request = new Request(url, options, defaultOptions);
+		let promise: CancelableRequest | undefined;
+
+		const lastHandler = (normalized: Options): GotReturn => {
+			// Note: `options` is `undefined` when `new Options(...)` fails
+			request.options = normalized;
+			request._noPipe = !normalized.isStream;
+			void request.flush();
+
+			if (normalized.isStream) {
+				return request;
+			}
+
+			if (!promise) {
+				promise = asPromise(request);
+			}
+
+			return promise;
 		};
 
-		// TODO: Throw an error in Got 12.
-		// TODO: Remove this in Got 13.
-		if (is.plainObject(url)) {
-			const mergedOptions = {
-				...url as Options,
-				...options
-			};
+		let iteration = 0;
+		const iterateHandlers = (newOptions: Options): GotReturn => {
+			const handler = defaults.handlers[iteration++] ?? lastHandler;
 
-			setNonEnumerableProperties([url as Options, options], mergedOptions);
+			const result = handler(newOptions, iterateHandlers) as GotReturn;
 
-			options = mergedOptions;
-			url = undefined as any;
-		}
+			if (is.promise(result) && !request.options.isStream) {
+				if (!promise) {
+					promise = asPromise(request);
+				}
 
-		try {
-			// Call `init` hooks
-			let initHookError: Error | undefined;
-			try {
-				callInitHooks(defaults.options.hooks.init, options);
-				callInitHooks(options.hooks?.init, options);
-			} catch (error) {
-				initHookError = error;
+				if (result !== promise) {
+					const descriptors = Object.getOwnPropertyDescriptors(promise);
+
+					for (const key in descriptors) {
+						if (key in result) {
+							// eslint-disable-next-line @typescript-eslint/no-dynamic-delete
+							delete descriptors[key];
+						}
+					}
+
+					Object.defineProperties(result, descriptors);
+
+					result.cancel = promise.cancel;
+				}
 			}
 
-			// Normalize options & call handlers
-			const normalizedOptions = normalizeArguments(url, options, _defaults ?? defaults.options);
-			normalizedOptions[kIsNormalizedAlready] = true;
+			return result;
+		};
 
-			if (initHookError) {
-				throw new RequestError(initHookError.message, initHookError, normalizedOptions);
-			}
-
-			return iterateHandlers(normalizedOptions);
-		} catch (error) {
-			if (options.isStream) {
-				throw error;
-			} else {
-				return createRejection(error, defaults.options.hooks.beforeError, options.hooks?.beforeError);
-			}
-		}
+		return iterateHandlers(request.options);
 	}) as Got;
 
 	got.extend = (...instancesOrOptions) => {
-		const optionsArray: Options[] = [defaults.options];
-		let handlers: HandlerFunction[] = [...defaults._rawHandlers!];
-		let isMutableDefaults: boolean | undefined;
+		const options = new Options(undefined, undefined, defaults.options);
+		const handlers = [...defaults.handlers];
+
+		let mutableDefaults: boolean | undefined;
 
 		for (const value of instancesOrOptions) {
 			if (isGotInstance(value)) {
-				optionsArray.push(value.defaults.options);
-				handlers.push(...value.defaults._rawHandlers!);
-				isMutableDefaults = value.defaults.mutableDefaults;
+				options.merge(value.defaults.options);
+				handlers.push(...value.defaults.handlers);
+				mutableDefaults = value.defaults.mutableDefaults;
 			} else {
-				optionsArray.push(value);
+				options.merge(value);
 
-				if ('handlers' in value) {
-					handlers.push(...value.handlers!);
+				if (value.handlers) {
+					handlers.push(...value.handlers);
 				}
 
-				isMutableDefaults = value.mutableDefaults;
+				mutableDefaults = value.mutableDefaults;
 			}
 		}
 
-		handlers = handlers.filter(handler => handler !== defaultHandler);
-
-		if (handlers.length === 0) {
-			handlers.push(defaultHandler);
-		}
-
 		return create({
-			options: mergeOptions(...optionsArray),
+			options,
 			handlers,
-			mutableDefaults: Boolean(isMutableDefaults)
+			mutableDefaults: Boolean(mutableDefaults)
 		});
 	};
 
 	// Pagination
 	const paginateEach = (async function * <T, R>(url: string | URL, options?: OptionsWithPagination<T, R>): AsyncIterableIterator<T> {
-		// TODO: Remove this `@ts-expect-error` when upgrading to TypeScript 4.
-		// Error: Argument of type 'Merge<Options, PaginationOptions<T, R>> | undefined' is not assignable to parameter of type 'Options | undefined'.
-		// @ts-expect-error
-		let normalizedOptions = normalizeArguments(url, options, defaults.options);
+		let normalizedOptions = new Options(url, options as OptionsInit, defaults.options);
 		normalizedOptions.resolveBodyOnly = false;
 
-		const pagination = normalizedOptions.pagination!;
+		const {pagination} = normalizedOptions;
 
-		if (!is.object(pagination)) {
-			throw new TypeError('`options.pagination` must be implemented');
-		}
+		assert.function_(pagination.transform);
+		assert.function_(pagination.shouldContinue);
+		assert.function_(pagination.filter);
+		assert.function_(pagination.paginate);
+		assert.number(pagination.countLimit);
+		assert.number(pagination.requestLimit);
+		assert.number(pagination.backoff);
 
 		const allItems: T[] = [];
 		let {countLimit} = pagination;
@@ -235,8 +158,6 @@ const create = (defaults: InstanceDefaults): Got => {
 				await delay(pagination.backoff);
 			}
 
-			// @ts-expect-error FIXME!
-			// TODO: Throw when response is not an instance of Response
 			// eslint-disable-next-line no-await-in-loop
 			const response = (await got(undefined, undefined, normalizedOptions)) as Response;
 
@@ -276,8 +197,13 @@ const create = (defaults: InstanceDefaults): Got => {
 
 			if (optionsToMerge === response.request.options) {
 				normalizedOptions = response.request.options;
-			} else if (optionsToMerge !== undefined) {
-				normalizedOptions = normalizeArguments(undefined, optionsToMerge, normalizedOptions);
+			} else {
+				normalizedOptions.merge(optionsToMerge);
+
+				if (optionsToMerge.url !== undefined) {
+					normalizedOptions.prefixUrl = '';
+					normalizedOptions.url = optionsToMerge.url;
+				}
 			}
 
 			numberOfRequests++;
@@ -311,18 +237,19 @@ const create = (defaults: InstanceDefaults): Got => {
 		}) as GotStream;
 	}
 
-	Object.assign(got, errors);
+	if (!defaults.mutableDefaults) {
+		Object.freeze(defaults.handlers);
+		(defaults.options as Options).freeze();
+	}
+
 	Object.defineProperty(got, 'defaults', {
-		value: defaults.mutableDefaults ? defaults : deepFreeze(defaults),
-		writable: defaults.mutableDefaults,
-		configurable: defaults.mutableDefaults,
+		value: defaults,
+		writable: false,
+		configurable: false,
 		enumerable: true
 	});
-
-	got.mergeOptions = mergeOptions;
 
 	return got;
 };
 
 export default create;
-export * from './types';

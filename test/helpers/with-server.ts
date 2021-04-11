@@ -6,7 +6,7 @@ import * as tempy from 'tempy';
 import createHttpsTestServer, {ExtendedHttpsTestServer, HttpsServerOptions} from './create-https-test-server';
 import createHttpTestServer, {ExtendedHttpTestServer, HttpServerOptions} from './create-http-test-server';
 import * as FakeTimers from '@sinonjs/fake-timers';
-import got, {InstanceDefaults, Got} from '../../source/index';
+import got, {Got, ExtendOptions} from '../../source/index';
 import {ExtendedHttpServer, GlobalClock, InstalledClock} from './types';
 
 export type RunTestWithServer = (t: test.ExecutionContext, server: ExtendedHttpTestServer, got: Got, clock: GlobalClock) => Promise<void> | void;
@@ -23,9 +23,10 @@ const generateHook = ({install, options: testServerOptions}: {install?: boolean;
 		} as any
 	});
 
-	const options: InstanceDefaults = {
-		// @ts-expect-error Augmenting for test detection
-		avaTest: t.title,
+	const options: ExtendOptions = {
+		context: {
+			avaTest: t.title
+		},
 		handlers: [
 			(options, next) => {
 				const result = next(options);
@@ -66,8 +67,9 @@ const generateHttpsHook = (options?: HttpsServerOptions, installFakeTimer = fals
 	const server = await createHttpsTestServer(options);
 
 	const preparedGot = got.extend({
-		// @ts-expect-error Augmenting for test detection
-		avaTest: t.title,
+		context: {
+			avaTest: t.title
+		},
 		handlers: [
 			(options, next) => {
 				const result = next(options);
@@ -83,7 +85,7 @@ const generateHttpsHook = (options?: HttpsServerOptions, installFakeTimer = fals
 			}
 		],
 		prefixUrl: server.url,
-		https: {
+		httpsOptions: {
 			certificateAuthority: (server as any).caCert,
 			rejectUnauthorized: true
 		}
@@ -112,8 +114,8 @@ export const withSocketServer: test.Macro<[RunTestWithSocket]> = async (t, run) 
 
 	server.socketPath = socketPath;
 
-	// @ts-expect-error - TS 4.1 bug.
-	await promisify(server.listen.bind(server))(socketPath);
+	// @ts-expect-error TypeScript doesn't accept `callback` with no arguments
+	await promisify<any>(server.listen.bind(server))(socketPath);
 
 	try {
 		await run(t, server);

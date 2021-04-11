@@ -3,7 +3,7 @@ import {DetailedPeerCertificate} from 'tls';
 import pEvent from 'p-event';
 import * as pify from 'pify';
 import * as pem from 'pem';
-import got, {CancelableRequest} from '../source/index';
+import got from '../source/index';
 import {withHttpsServer} from './helpers/with-server';
 
 const createPrivateKey = pify(pem.createPrivateKey);
@@ -17,7 +17,7 @@ test('https request without ca', withHttpsServer(), async (t, server, got) => {
 	});
 
 	t.truthy((await got({
-		https: {
+		httpsOptions: {
 			certificateAuthority: [],
 			rejectUnauthorized: false
 		}
@@ -78,7 +78,7 @@ test('https request with `checkServerIdentity` OK', withHttpsServer(), async (t,
 	});
 
 	const {body} = await got({
-		https: {
+		httpsOptions: {
 			checkServerIdentity: (hostname: string, certificate: DetailedPeerCertificate) => {
 				t.is(hostname, 'localhost');
 				t.is(certificate.subject.CN, 'localhost');
@@ -96,7 +96,7 @@ test('https request with `checkServerIdentity` NOT OK', withHttpsServer(), async
 	});
 
 	const promise = got({
-		https: {
+		httpsOptions: {
 			checkServerIdentity: (hostname: string, certificate: DetailedPeerCertificate) => {
 				t.is(hostname, 'localhost');
 				t.is(certificate.subject.CN, 'localhost');
@@ -158,7 +158,7 @@ test('http2', async t => {
 			return;
 		}
 
-		t.fail(error);
+		t.fail(error.stack);
 	}
 });
 
@@ -167,29 +167,11 @@ test.serial('deprecated `rejectUnauthorized` option', withHttpsServer(), async (
 		response.end('ok');
 	});
 
-	await new Promise<void>(resolve => {
-		let request: CancelableRequest;
-		(async () => {
-			const warning = await pEvent(process, 'warning');
-			t.is(warning.name, 'DeprecationWarning');
-			request!.cancel();
-			resolve();
-		})();
-
-		(async () => {
-			request = got({
-				rejectUnauthorized: false
-			});
-
-			try {
-				await request;
-				t.fail();
-			} catch {
-				t.true(request!.isCanceled);
-			}
-
-			resolve();
-		})();
+	await t.throwsAsync(got({
+		// @ts-expect-error
+		rejectUnauthorized: false
+	}), {
+		message: 'Unexpected option: rejectUnauthorized'
 	});
 });
 
@@ -204,35 +186,9 @@ test.serial('non-deprecated `rejectUnauthorized` option', withHttpsServer(), asy
 	})();
 
 	await got({
-		https: {
+		httpsOptions: {
 			rejectUnauthorized: false
 		}
-	});
-
-	t.pass();
-});
-
-test.serial('no double deprecated warning', withHttpsServer(), async (t, server, got) => {
-	server.get('/', (_request, response) => {
-		response.end('ok');
-	});
-
-	(async () => {
-		const warning = await pEvent(process, 'warning');
-		t.is(warning.name, 'DeprecationWarning');
-	})();
-
-	await got({
-		rejectUnauthorized: false
-	});
-
-	(async () => {
-		const warning = await pEvent(process, 'warning');
-		t.not(warning.name, 'DeprecationWarning');
-	})();
-
-	await got({
-		rejectUnauthorized: false
 	});
 
 	t.pass();
@@ -261,7 +217,7 @@ test('client certificate', withHttpsServer(), async (t, server, got) => {
 	const clientCert = clientResult.certificate;
 
 	const response: any = await got({
-		https: {
+		httpsOptions: {
 			key: clientKey,
 			certificate: clientCert
 		}
@@ -294,7 +250,7 @@ test('invalid client certificate (self-signed)', withHttpsServer(), async (t, se
 	const clientCert = clientResult.certificate;
 
 	const response: any = await got({
-		https: {
+		httpsOptions: {
 			key: clientKey,
 			certificate: clientCert
 		}
@@ -334,7 +290,7 @@ test('invalid client certificate (other CA)', withHttpsServer(), async (t, serve
 	const clientCert = clientResult.certificate;
 
 	const response: any = await got({
-		https: {
+		httpsOptions: {
 			key: clientKey,
 			certificate: clientCert
 		}
@@ -382,7 +338,7 @@ test('key passphrase', withHttpsServer(), async (t, server, got) => {
 	const clientCert = clientResult.certificate;
 
 	const response: any = await got({
-		https: {
+		httpsOptions: {
 			key: clientKey,
 			passphrase: 'randomPassword',
 			certificate: clientCert
@@ -431,7 +387,7 @@ test('invalid key passphrase', withHttpsServer(), async (t, server, got) => {
 	const clientCert = clientResult.certificate;
 
 	const request = got({
-		https: {
+		httpsOptions: {
 			key: clientKey,
 			passphrase: 'wrongPassword',
 			certificate: clientCert
@@ -468,7 +424,7 @@ test('client certificate PFX', withHttpsServer(), async (t, server, got) => {
 	const {pkcs12} = await createPkcs12(clientKey, clientCert, 'randomPassword');
 
 	const response: any = await got({
-		https: {
+		httpsOptions: {
 			pfx: pkcs12,
 			passphrase: 'randomPassword'
 		}

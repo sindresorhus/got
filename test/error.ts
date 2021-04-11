@@ -1,3 +1,4 @@
+import {URL} from 'url';
 import {promisify} from 'util';
 import * as net from 'net';
 import * as http from 'http';
@@ -7,6 +8,7 @@ import * as getStream from 'get-stream';
 import is from '@sindresorhus/is';
 import got, {RequestError, HTTPError, TimeoutError} from '../source/index';
 import withServer from './helpers/with-server';
+import Request from '../source/core';
 
 const pStreamPipeline = promisify(stream.pipeline);
 
@@ -22,12 +24,8 @@ test('properties', withServer, async (t, server, got) => {
 	t.truthy(error);
 	t.truthy(error.response);
 	t.truthy(error.options);
-	t.false({}.propertyIsEnumerable.call(error, 'options'));
+	t.true({}.propertyIsEnumerable.call(error, 'options'));
 	t.false({}.propertyIsEnumerable.call(error, 'response'));
-	// This fails because of TS 3.7.2 useDefineForClassFields
-	// Class fields will always be initialized, even though they are undefined
-	// A test to check for undefined is in place below
-	// t.false({}.hasOwnProperty.call(error, 'code'));
 	t.is(error.code, undefined);
 	t.is(error.message, 'Response code 404 (Not Found)');
 	t.deepEqual(error.options.url, url);
@@ -36,18 +34,18 @@ test('properties', withServer, async (t, server, got) => {
 });
 
 test('catches dns errors', async t => {
-	const error = await t.throwsAsync<RequestError>(got('http://doesntexist', {retry: 0}));
+	const error = await t.throwsAsync<RequestError>(got('http://doesntexist', {retry: {limit: 0}}));
 	t.truthy(error);
 	t.regex(error.message, /ENOTFOUND|EAI_AGAIN/);
-	t.is(error.options.url.host, 'doesntexist');
+	t.is((error.options.url as URL).host, 'doesntexist');
 	t.is(error.options.method, 'GET');
 });
 
 test('`options.body` form error message', async t => {
 	// @ts-expect-error Error tests
-	await t.throwsAsync(got.post('https://example.com', {body: Buffer.from('test'), form: ''}), {
-		message: 'The `body`, `json` and `form` options are mutually exclusive'
-	});
+	await t.throwsAsync(got.post('https://example.com', {body: Buffer.from('test'), form: ''})
+		// {message: 'The `body`, `json` and `form` options are mutually exclusive'}
+	);
 });
 
 test('no plain object restriction on json body', withServer, async (t, server, got) => {
@@ -104,12 +102,15 @@ test('contains Got options', withServer, async (t, server, got) => {
 		response.end();
 	});
 
-	const options: {agent: false} = {
-		agent: false
-	};
+	const options = {
+		context: {
+			foo: 'bar'
+		}
+	} as const;
 
-	const error = await t.throwsAsync<RequestError>(got(options));
-	t.is(error.options.agent, options.agent);
+	const error = await t.throwsAsync<HTTPError>(got(options));
+	t.is(error.response.statusCode, 404);
+	t.is(error.options.context.foo, options.context.foo);
 });
 
 test('empty status message is overriden by the default one', withServer, async (t, server, got) => {
@@ -129,7 +130,7 @@ test('`http.request` error', async t => {
 			throw new TypeError('The header content contains invalid characters');
 		}
 	}), {
-		instanceOf: got.RequestError,
+		instanceOf: RequestError,
 		message: 'The header content contains invalid characters'
 	});
 });
@@ -163,7 +164,7 @@ test('`http.request` pipe error', async t => {
 		},
 		throwHttpErrors: false
 	}), {
-		instanceOf: got.RequestError,
+		instanceOf: RequestError,
 		message
 	});
 });
@@ -175,23 +176,28 @@ test('`http.request` error through CacheableRequest', async t => {
 		},
 		cache: new Map()
 	}), {
-		instanceOf: got.RequestError,
+		instanceOf: RequestError,
 		message: 'The header content contains invalid characters'
 	});
 });
 
-test('errors are thrown directly when options.isStream is true', t => {
-	t.throws(() => {
-		// @ts-expect-error Error tests
-		void got('https://example.com', {isStream: true, hooks: false});
-	}, {
-		message: 'Expected value which is `predicate returns truthy for any value`, received value of type `Array`.'
+test('returns a stream even if normalization fails', async t => {
+	const stream = got('https://example.com', {
+		isStream: true,
+		// @ts-expect-error
+		hooks: false
+	}) as unknown as Request;
+
+	await t.throwsAsync(getStream(stream), {
+		message: 'Expected value which is `Object`, received value of type `boolean`.'
 	});
 });
 
 test('normalization errors using convenience methods', async t => {
 	const url = 'undefined/https://example.com';
-	await t.throwsAsync(got(url).json().text().buffer(), {message: `Invalid URL: ${url}`});
+	await t.throwsAsync(got(url).json(), {message: `Invalid URL: ${url}`});
+	await t.throwsAsync(got(url).text(), {message: `Invalid URL: ${url}`});
+	await t.throwsAsync(got(url).buffer(), {message: `Invalid URL: ${url}`});
 });
 
 test('errors can have request property', withServer, async (t, server, got) => {
@@ -213,7 +219,9 @@ test('promise does not hang on timeout on HTTP error', withServer, async (t, ser
 	});
 
 	await t.throwsAsync(got({
-		timeout: 100
+		timeout: {
+			request: 100
+		}
 	}), {
 		instanceOf: TimeoutError
 	});

@@ -1,6 +1,6 @@
 import test from 'ava';
 import {Handler} from 'express';
-import got, {BeforeRequestHook, Got, Headers, NormalizedOptions} from '../source/index';
+import got, {BeforeRequestHook, Got, Headers} from '../source/index';
 import withServer from './helpers/with-server';
 
 const echoHeaders: Handler = (request, response) => {
@@ -100,7 +100,7 @@ test('hooks are merged', t => {
 
 test('default handlers are not duplicated', t => {
 	const instance = got.extend(got);
-	t.is(instance.defaults.handlers.length, 1);
+	t.is(instance.defaults.handlers.length, 0);
 });
 
 test('URL is not polluted', withServer, async (t, server, got) => {
@@ -118,40 +118,40 @@ test('URL is not polluted', withServer, async (t, server, got) => {
 });
 
 test('merging instances with HTTPS options', t => {
-	const instanceA = got.extend({https: {
+	const instanceA = got.extend({httpsOptions: {
 		rejectUnauthorized: true,
 		certificate: 'FIRST'
 	}});
-	const instanceB = got.extend({https: {
+	const instanceB = got.extend({httpsOptions: {
 		certificate: 'SECOND'
 	}});
 
 	const merged = instanceA.extend(instanceB);
 
-	t.true(merged.defaults.options.https?.rejectUnauthorized);
-	t.is(merged.defaults.options.https?.certificate, 'SECOND');
+	t.true(merged.defaults.options.httpsOptions.rejectUnauthorized);
+	t.is(merged.defaults.options.httpsOptions.certificate, 'SECOND');
 });
 
 test('merging instances with HTTPS options undefined', t => {
-	const instanceA = got.extend({https: {
+	const instanceA = got.extend({httpsOptions: {
 		rejectUnauthorized: true,
 		certificate: 'FIRST'
 	}});
-	const instanceB = got.extend({https: {
+	const instanceB = got.extend({httpsOptions: {
 		certificate: undefined
 	}});
 
 	const merged = instanceA.extend(instanceB);
 
-	t.true(merged.defaults.options.https?.rejectUnauthorized);
-	t.is(merged.defaults.options.https?.certificate, undefined);
+	t.true(merged.defaults.options.httpsOptions.rejectUnauthorized);
+	t.is(merged.defaults.options.httpsOptions.certificate, undefined);
 });
 
 test('accepts options for promise API', t => {
 	got.extend({
 		hooks: {
 			beforeRequest: [
-				(options: NormalizedOptions): void => {
+				options => {
 					options.responseType = 'buffer';
 				}
 			]
@@ -169,9 +169,8 @@ test('merging `prefixUrl`', t => {
 	const mergedAonB = instanceB.extend(instanceA);
 	const mergedBonA = instanceA.extend(instanceB);
 
-	t.is(mergedAonB.defaults.options.prefixUrl, '');
+	t.is(mergedAonB.defaults.options.prefixUrl, prefixUrl);
 	t.is(mergedBonA.defaults.options.prefixUrl, prefixUrl);
 
 	t.is(instanceB.extend({}).defaults.options.prefixUrl, prefixUrl);
-	t.is(instanceB.extend({prefixUrl: undefined}).defaults.options.prefixUrl, prefixUrl);
 });

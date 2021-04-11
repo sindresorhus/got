@@ -1,28 +1,11 @@
-import {URL} from 'url';
-import {CancelError} from 'p-cancelable';
-import {
-	// Request & Response
-	CancelableRequest,
-	Response,
-
-	// Options
-	Options,
-	NormalizedOptions,
-	Defaults as DefaultOptions,
-	PaginationOptions,
-
-	// Errors
-	ParseError,
-	RequestError,
-	CacheError,
-	ReadError,
-	HTTPError,
-	MaxRedirectsError,
-	TimeoutError,
-	UnsupportedProtocolError,
-	UploadError
-} from './as-promise';
-import Request from './core/index';
+import type {URL} from 'url';
+import type {CancelableRequest} from './as-promise/types';
+import type {Response} from './core/response';
+// eslint-disable-next-line import/no-duplicates
+import type Options from './core/options';
+// eslint-disable-next-line import/no-duplicates
+import type {PaginationOptions, OptionsInit, InternalsType} from './core/options';
+import type Request from './core/index';
 
 // `type-fest` utilities
 type Except<ObjectType, KeysType extends keyof ObjectType> = Pick<ObjectType, Exclude<keyof ObjectType, KeysType>>;
@@ -33,9 +16,9 @@ Defaults for each Got instance.
 */
 export interface InstanceDefaults {
 	/**
-  An object containing the default options of Got.
+	An object containing the default options of Got.
 	*/
-	options: DefaultOptions;
+	options: InternalsType | Options;
 
 	/**
 	An array of functions. You execute them directly by calling `got()`.
@@ -53,8 +36,6 @@ export interface InstanceDefaults {
 	@default false
 	*/
 	mutableDefaults: boolean;
-
-	_rawHandlers?: HandlerFunction[];
 }
 
 /**
@@ -66,12 +47,12 @@ export type GotReturn = Request | CancelableRequest;
 A function to handle options and returns a Request object.
 It acts sort of like a "global hook", and will be called before any actual request is made.
 */
-export type HandlerFunction = <T extends GotReturn>(options: NormalizedOptions, next: (options: NormalizedOptions) => T) => T | Promise<T>;
+export type HandlerFunction = <T extends GotReturn>(options: Options, next: (options: Options) => T) => T | Promise<T>;
 
 /**
 The options available for `got.extend()`.
 */
-export interface ExtendOptions extends Options {
+export interface ExtendOptions extends OptionsInit {
 	/**
 	An array of functions. You execute them directly by calling `got()`.
 	They are some sort of "global hooks" - these functions are called first.
@@ -90,15 +71,15 @@ export interface ExtendOptions extends Options {
 	mutableDefaults?: boolean;
 }
 
-export type OptionsOfTextResponseBody = Merge<Options, {isStream?: false; resolveBodyOnly?: false; responseType?: 'text'}>;
-export type OptionsOfJSONResponseBody = Merge<Options, {isStream?: false; resolveBodyOnly?: false; responseType?: 'json'}>;
-export type OptionsOfBufferResponseBody = Merge<Options, {isStream?: false; resolveBodyOnly?: false; responseType: 'buffer'}>;
-export type OptionsOfUnknownResponseBody = Merge<Options, {isStream?: false; resolveBodyOnly?: false}>;
-export type StrictOptions = Except<Options, 'isStream' | 'responseType' | 'resolveBodyOnly'>;
-export type StreamOptions = Merge<Options, {isStream?: true}>;
+export type OptionsOfTextResponseBody = Merge<OptionsInit, {isStream?: false; resolveBodyOnly?: false; responseType?: 'text'}>;
+export type OptionsOfJSONResponseBody = Merge<OptionsInit, {isStream?: false; resolveBodyOnly?: false; responseType?: 'json'}>;
+export type OptionsOfBufferResponseBody = Merge<OptionsInit, {isStream?: false; resolveBodyOnly?: false; responseType: 'buffer'}>;
+export type OptionsOfUnknownResponseBody = Merge<OptionsInit, {isStream?: false; resolveBodyOnly?: false}>;
+export type StrictOptions = Except<OptionsInit, 'isStream' | 'responseType' | 'resolveBodyOnly'>;
+export type StreamOptions = Merge<OptionsInit, {isStream?: true}>;
 type ResponseBodyOnly = {resolveBodyOnly: true};
 
-export type OptionsWithPagination<T = unknown, R = unknown> = Merge<Options, PaginationOptions<T, R>>;
+export type OptionsWithPagination<T = unknown, R = unknown> = Merge<OptionsInit, {pagination?: PaginationOptions<T, R>}>;
 
 /**
 An instance of `got.paginate`.
@@ -184,14 +165,17 @@ export interface GotRequestFunction {
 	(options: (Merge<OptionsOfBufferResponseBody, ResponseBodyOnly>)): CancelableRequest<Buffer>;
 
 	// `asStream` usage
-	(url: string | URL, options?: Merge<Options, {isStream: true}>): Request;
+	(url: string | URL, options?: Merge<OptionsInit, {isStream: true}>): Request;
 
-	(options: Merge<Options, {isStream: true}>): Request;
+	(options: Merge<OptionsInit, {isStream: true}>): Request;
 
 	// Fallback
-	(url: string | URL, options?: Options): CancelableRequest | Request;
+	(url: string | URL, options?: OptionsInit): CancelableRequest | Request;
 
-	(options: Options): CancelableRequest | Request;
+	(options: OptionsInit): CancelableRequest | Request;
+
+	// Internal usage
+	(url: undefined, options: undefined, defaults: Options): CancelableRequest | Request;
 }
 
 /**
@@ -205,10 +189,9 @@ export type HTTPAlias =
 	| 'head'
 	| 'delete';
 
-interface GotStreamFunction {
-	(url: string | URL, options?: Merge<Options, {isStream?: true}>): Request;
-	(options?: Merge<Options, {isStream?: true}>): Request;
-}
+type GotStreamFunction =
+	((url?: string | URL, options?: Merge<OptionsInit, {isStream?: true}>) => Request) &
+	((options?: Merge<OptionsInit, {isStream?: true}>) => Request);
 
 /**
 An instance of `got.stream()`.
@@ -262,62 +245,6 @@ export interface Got extends Record<HTTPAlias, GotRequestFunction>, GotRequestFu
 	defaults: InstanceDefaults;
 
 	/**
-	An error to be thrown when a cache method fails.
-	For example, if the database goes down or there's a filesystem error.
-	*/
-	CacheError: typeof CacheError;
-
-	/**
-	An error to be thrown when a request fails.
-	Contains a `code` property with error class code, like `ECONNREFUSED`.
-	*/
-	RequestError: typeof RequestError;
-
-	/**
-	An error to be thrown when reading from response stream fails.
-	*/
-	ReadError: typeof ReadError;
-
-	/**
-	An error to be thrown when server response code is 2xx, and parsing body fails.
-	Includes a `response` property.
-	*/
-	ParseError: typeof ParseError;
-
-	/**
-	An error to be thrown when the server response code is not 2xx nor 3xx if `options.followRedirect` is `true`, but always except for 304.
-	Includes a `response` property.
-	*/
-	HTTPError: typeof HTTPError;
-
-	/**
-	An error to be thrown when the server redirects you more than ten times.
-	Includes a `response` property.
-	*/
-	MaxRedirectsError: typeof MaxRedirectsError;
-
-	/**
-	An error to be thrown when given an unsupported protocol.
-	*/
-	UnsupportedProtocolError: typeof UnsupportedProtocolError;
-
-	/**
-	An error to be thrown when the request is aborted due to a timeout.
-	Includes an `event` and `timings` property.
-	*/
-	TimeoutError: typeof TimeoutError;
-
-	/**
-	An error to be thrown when the request body is a stream and an error occurs while reading from that stream.
-	*/
-	UploadError: typeof UploadError;
-
-	/**
-	An error to be thrown when the request is aborted with `.cancel()`.
-	*/
-	CancelError: typeof CancelError;
-
-	/**
 	Configure a new `got` instance with default `options`.
 	The `options` are merged with the parent instance's `defaults.options` using `got.mergeOptions`.
 	You can access the resolved options with the `.defaults` property on the instance.
@@ -346,44 +273,4 @@ export interface Got extends Record<HTTPAlias, GotRequestFunction>, GotRequestFu
 	```
 	*/
 	extend: (...instancesOrOptions: Array<Got | ExtendOptions>) => Got;
-
-	/**
-	Merges multiple `got` instances into the parent.
-	*/
-	mergeInstances: (parent: Got, ...instances: Got[]) => Got;
-
-	/**
-	Extends parent options.
-	Avoid using [object spread](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Spread_syntax#Spread_in_object_literals) as it doesn't work recursively.
-
-	Options are deeply merged to a new object. The value of each key is determined as follows:
-
-	- If the new property is not defined, the old value is used.
-	- If the new property is explicitly set to `undefined`:
-		- If the parent property is a plain `object`, the parent value is deeply cloned.
-		- Otherwise, `undefined` is used.
-	- If the parent value is an instance of `URLSearchParams`:
-		- If the new value is a `string`, an `object` or an instance of `URLSearchParams`, a new `URLSearchParams` instance is created.
-			The values are merged using [`urlSearchParams.append(key, value)`](https://developer.mozilla.org/en-US/docs/Web/API/URLSearchParams/append).
-			The keys defined in the new value override the keys defined in the parent value.
-		- Otherwise, the only available value is `undefined`.
-	- If the new property is a plain `object`:
-		- If the parent property is a plain `object` too, both values are merged recursively into a new `object`.
-		- Otherwise, only the new value is deeply cloned.
-	- If the new property is an `Array`, it overwrites the old one with a deep clone of the new property.
-	- Properties that are not enumerable, such as `body`, `json`, and `form`, will not be merged.
-	- Otherwise, the new value is assigned to the key.
-
-	**Note:** Only Got options are merged! Custom user options should be defined via [`options.context`](#context).
-
-	@example
-	```
-	const a = {headers: {cat: 'meow', wolf: ['bark', 'wrrr']}};
-	const b = {headers: {cow: 'moo', wolf: ['auuu']}};
-
-	{...a, ...b}            // => {headers: {cow: 'moo', wolf: ['auuu']}}
-	got.mergeOptions(a, b)  // => {headers: {cat: 'meow', cow: 'moo', wolf: ['auuu']}}
-	```
-	*/
-	mergeOptions: (...sources: Options[]) => NormalizedOptions;
 }

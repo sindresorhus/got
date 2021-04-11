@@ -6,7 +6,7 @@ import * as delay from 'delay';
 import * as pEvent from 'p-event';
 import * as getStream from 'get-stream';
 import {Handler} from 'express';
-import got, {CancelError} from '../source/index';
+import got, {CancelError, TimeoutError} from '../source/index';
 import slowDataStream from './helpers/slow-data-stream';
 import {GlobalClock} from './helpers/types';
 import {ExtendedHttpTestServer} from './helpers/create-http-test-server';
@@ -47,7 +47,7 @@ const prepareServer = (server: ExtendedHttpTestServer, clock: GlobalClock): {emi
 	return {emitter, promise};
 };
 
-const downloadHandler = (clock: GlobalClock): Handler => (_request, response) => {
+const downloadHandler = (clock?: GlobalClock): Handler => (_request, response) => {
 	response.writeHead(200, {
 		'transfer-encoding': 'chunked'
 	});
@@ -87,7 +87,9 @@ test.serial('cleans up request timeouts', withServer, async (t, server, got) => 
 	server.get('/', () => {});
 
 	const gotPromise = got({
-		timeout: 10,
+		timeout: {
+			request: 10
+		},
 		retry: {
 			calculateDelay: ({computedValue}) => {
 				process.nextTick(() => {
@@ -138,7 +140,7 @@ test.serial('cancels in-progress request with timeout', withServerAndFakeTimers,
 	});
 	body.push('1');
 
-	const gotPromise = got.post('abort', {body, timeout: 10000});
+	const gotPromise = got.post('abort', {body, timeout: {request: 10000}});
 
 	// Wait for the connection to be established before canceling
 	emitter.once('connection', () => {
@@ -190,7 +192,7 @@ test('recover from cancellation using error instance', async t => {
 	// Canceled before connection started
 	const p = got('http://example.com');
 	const recover = p.catch((error: Error) => {
-		if (error instanceof got.CancelError) {
+		if (error instanceof CancelError) {
 			return;
 		}
 
@@ -208,21 +210,25 @@ test.serial('throws on incomplete (canceled) response - promise', withServerAndF
 	await t.throwsAsync(
 		got({
 			timeout: {request: 500},
-			retry: 0
+			retry: {
+				limit: 0
+			}
 		}),
-		{instanceOf: got.TimeoutError}
+		{instanceOf: TimeoutError}
 	);
 });
 
-test.serial('throws on incomplete (canceled) response - promise #2', withServerAndFakeTimers, async (t, server, got, clock) => {
-	server.get('/', downloadHandler(clock));
+// TODO: Use `fakeTimers` here
+test.serial('throws on incomplete (canceled) response - promise #2', withServer, async (t, server, got) => {
+	server.get('/', downloadHandler());
 
-	const promise = got('').on('response', () => {
-		clock.tick(500);
+	const promise = got('');
+
+	setTimeout(() => {
 		promise.cancel();
-	});
+	}, 500);
 
-	await t.throwsAsync(promise, {instanceOf: got.CancelError});
+	await t.throwsAsync(promise, {instanceOf: CancelError});
 });
 
 test.serial('throws on incomplete (canceled) response - stream', withServerAndFakeTimers, async (t, server, got, clock) => {
@@ -238,24 +244,7 @@ test.serial('throws on incomplete (canceled) response - stream', withServerAndFa
 	await t.throwsAsync(getStream(stream), {message: errorString});
 });
 
-// Note: it will throw, but the response is loaded already.
 test('throws when canceling cached request', withServer, async (t, server, got) => {
-	server.get('/', (_request, response) => {
-		response.setHeader('Cache-Control', 'public, max-age=60');
-		response.end(Date.now().toString());
-	});
-
-	const cache = new Map();
-	await got({cache});
-
-	const promise = got({cache}).on('response', () => {
-		promise.cancel();
-	});
-
-	await t.throwsAsync(promise, {instanceOf: got.CancelError});
-});
-
-test('throws when canceling cached request #2', withServer, async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.setHeader('Cache-Control', 'public, max-age=60');
 		response.end(Date.now().toString());
@@ -267,5 +256,5 @@ test('throws when canceling cached request #2', withServer, async (t, server, go
 	const promise = got({cache});
 	promise.cancel();
 
-	await t.throwsAsync(promise, {instanceOf: got.CancelError});
+	await t.throwsAsync(promise, {instanceOf: CancelError});
 });

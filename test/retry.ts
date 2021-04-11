@@ -7,7 +7,7 @@ import is from '@sindresorhus/is';
 import {Handler} from 'express';
 import * as getStream from 'get-stream';
 import * as pEvent from 'p-event';
-import got, {HTTPError} from '../source/index';
+import got, {HTTPError, TimeoutError} from '../source/index';
 import withServer from './helpers/with-server';
 
 const retryAfterOn413 = 2;
@@ -95,7 +95,7 @@ test('setting to `0` disables retrying', async t => {
 			return createSocketTimeoutStream();
 		}
 	}), {
-		instanceOf: got.TimeoutError,
+		instanceOf: TimeoutError,
 		message: `Timeout awaiting 'socket' for ${socketTimeout}ms`
 	});
 });
@@ -173,6 +173,10 @@ test('custom error codes', async t => {
 			emitter.abort = () => {};
 			emitter.end = () => {};
 			emitter.destroy = () => {};
+			// @ts-expect-error
+			emitter.writable = true;
+			// @ts-expect-error
+			emitter.writableEnded = false;
 
 			const error = new Error('Snap!');
 			(error as Error & {code: typeof errorCode}).code = errorCode;
@@ -212,7 +216,9 @@ test('respects 413 Retry-After', withServer, async (t, server, got) => {
 
 	const {statusCode, body} = await got({
 		throwHttpErrors: false,
-		retry: 1
+		retry: {
+			limit: 1
+		}
 	});
 	t.is(statusCode, 413);
 	t.true(Number(body) >= retryAfterOn413 * 1000);
@@ -232,7 +238,9 @@ test('respects 413 Retry-After with RFC-1123 timestamp', withServer, async (t, s
 
 	const {statusCode, body} = await got({
 		throwHttpErrors: false,
-		retry: 1
+		retry: {
+			limit: 1
+		}
 	});
 	t.is(statusCode, 413);
 	t.true(Date.now() >= Date.parse(body));
@@ -288,7 +296,9 @@ test('retries on 503 without Retry-After header', withServer, async (t, server, 
 
 	const {retryCount} = await got({
 		throwHttpErrors: false,
-		retry: 1
+		retry: {
+			limit: 1
+		}
 	});
 	t.is(retryCount, 1);
 });
@@ -298,9 +308,11 @@ test('doesn\'t retry on streams', withServer, async (t, server, got) => {
 
 	// @ts-expect-error Error tests
 	const stream = got.stream({
-		timeout: 1,
+		timeout: {
+			request: 1
+		},
 		retry: {
-			retries: () => {
+			calculateDelay: () => {
 				t.fail('Retries on streams');
 			}
 		}
@@ -323,7 +335,9 @@ test('doesn\'t retry when set to 0', withServer, async (t, server, got) => {
 
 	const {statusCode, retryCount} = await got({
 		throwHttpErrors: false,
-		retry: 0
+		retry: {
+			limit: 0
+		}
 	});
 	t.is(statusCode, 413);
 	t.is(retryCount, 0);
@@ -333,7 +347,9 @@ test('works when defaults.options.retry is a number', withServer, async (t, serv
 	server.get('/', handler413);
 
 	const instance = got.extend({
-		retry: 2
+		retry: {
+			limit: 2
+		}
 	});
 
 	const {retryCount} = await instance({
@@ -359,7 +375,9 @@ test('does not retry on POST', withServer, async (t, server, got) => {
 	server.post('/', () => {});
 
 	await t.throwsAsync(got.post({
-		timeout: 200,
+		timeout: {
+			request: 200
+		},
 		hooks: {
 			beforeRetry: [
 				() => {
@@ -367,7 +385,7 @@ test('does not retry on POST', withServer, async (t, server, got) => {
 				}
 			]
 		}
-	}), {instanceOf: got.TimeoutError});
+	}), {instanceOf: TimeoutError});
 });
 
 test('does not break on redirect', withServer, async (t, server, got) => {
@@ -530,4 +548,20 @@ test('promise does not retry when body is a stream', withServer, async (t, serve
 	});
 
 	t.is(response.retryCount, 0);
+});
+
+test('reuses request options on retry', withServer, async (t, server, got) => {
+	let first = true;
+	server.get('/', (request, response) => {
+		if (first) {
+			first = false;
+			return;
+		}
+
+		response.end(JSON.stringify(request.headers));
+	});
+
+	const {body: {accept}, retryCount} = await got('', {timeout: {request: 1000}, responseType: 'json'});
+	t.is(retryCount, 1);
+	t.is(accept, 'application/json');
 });

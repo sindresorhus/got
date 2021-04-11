@@ -1,10 +1,12 @@
-import {RetryFunction} from './index';
+import type {RetryFunction} from './options';
 
 type Returns<T extends (...args: any) => unknown, V> = (...args: Parameters<T>) => V;
 
-export const retryAfterStatusCodes: ReadonlySet<number> = new Set([413, 429, 503]);
+const calculateRetryDelay: Returns<RetryFunction, number> = ({attemptCount, retryOptions, error, retryAfter, computedValue}) => {
+	if (error.name === 'RetryError') {
+		return 1;
+	}
 
-const calculateRetryDelay: Returns<RetryFunction, number> = ({attemptCount, retryOptions, error, retryAfter}) => {
 	if (attemptCount > retryOptions.limit) {
 		return 0;
 	}
@@ -18,7 +20,8 @@ const calculateRetryDelay: Returns<RetryFunction, number> = ({attemptCount, retr
 
 	if (error.response) {
 		if (retryAfter) {
-			if (retryOptions.maxRetryAfter === undefined || retryAfter > retryOptions.maxRetryAfter) {
+			// In this case `computedValue` is `options.request.timeout`
+			if (retryAfter > computedValue) {
 				return 0;
 			}
 

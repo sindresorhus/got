@@ -1,29 +1,31 @@
 import {URL, URLSearchParams} from 'url';
 import test from 'ava';
-import got from '../source/index';
+import got, {Options} from '../source/index';
 
 test('should merge options replacing responseType', t => {
 	const responseType = 'json';
-	const options = got.mergeOptions(got.defaults.options, {
+	const options = new Options({
 		responseType
-	});
+	}, undefined, got.defaults.options);
 
 	t.is(options.responseType, responseType);
 });
 
 test('no duplicated searchParams values', t => {
-	const options = got.mergeOptions(got.defaults.options, {
-		searchParams: 'string=true&noDuplication=true'
+	const options = new Options({
+		searchParameters: 'string=true&noDuplication=true'
 	}, {
-		searchParams: new URLSearchParams({
+		searchParameters: new URLSearchParams({
 			instance: 'true',
 			noDuplication: 'true'
 		})
 	});
 
-	t.is(options.searchParams?.get('string'), 'true');
-	t.is(options.searchParams?.get('instance'), 'true');
-	t.is(options.searchParams?.getAll('noDuplication').length, 1);
+	const searchParameters = options.searchParameters as URLSearchParams;
+
+	t.is(searchParameters.get('string'), 'true');
+	t.is(searchParameters.get('instance'), 'true');
+	t.is(searchParameters.getAll('noDuplication').length, 1);
 });
 
 test('should copy non-numerable properties', t => {
@@ -31,37 +33,14 @@ test('should copy non-numerable properties', t => {
 		json: {hello: '123'}
 	};
 
-	const merged = got.mergeOptions(got.defaults.options, options);
-	const mergedTwice = got.mergeOptions(got.defaults.options, merged);
+	const merged = new Options(options, undefined, got.defaults.options);
+	const mergedTwice = new Options(undefined, undefined, merged);
 
 	t.is(mergedTwice.json, options.json);
 });
 
-test('should replace URLs', t => {
-	const options = got.mergeOptions({
-		url: new URL('http://localhost:41285'),
-		searchParams: new URLSearchParams('page=0')
-	}, {
-		url: 'http://localhost:41285/?page=1',
-		searchParams: undefined
-	});
-
-	const otherOptions = got.mergeOptions({
-		url: new URL('http://localhost:41285'),
-		searchParams: {
-			page: 0
-		}
-	}, {
-		url: 'http://localhost:41285/?page=1',
-		searchParams: undefined
-	});
-
-	t.is(options.url.href, 'http://localhost:41285/?page=1');
-	t.is(otherOptions.url.href, 'http://localhost:41285/?page=1');
-});
-
 test('should get username and password from the URL', t => {
-	const options = got.mergeOptions({
+	const options = new Options({
 		url: 'http://user:pass@localhost:41285'
 	});
 
@@ -70,7 +49,7 @@ test('should get username and password from the URL', t => {
 });
 
 test('should get username and password from the options', t => {
-	const options = got.mergeOptions({
+	const options = new Options({
 		url: 'http://user:pass@localhost:41285',
 		username: 'user_OPT',
 		password: 'pass_OPT'
@@ -81,7 +60,7 @@ test('should get username and password from the options', t => {
 });
 
 test('should get username and password from the merged options', t => {
-	const options = got.mergeOptions(
+	const options = new Options(
 		{
 			url: 'http://user:pass@localhost:41285'
 		},
@@ -96,23 +75,60 @@ test('should get username and password from the merged options', t => {
 });
 
 test('null value in search params means empty', t => {
-	const options = got.mergeOptions({
+	const options = new Options({
 		url: new URL('http://localhost'),
-		searchParams: {
+		searchParameters: {
 			foo: null
 		}
 	});
 
-	t.is(options.url.href, 'http://localhost/?foo=');
+	t.is((options.url as URL).href, 'http://localhost/?foo=');
 });
 
 test('undefined value in search params means it does not exist', t => {
-	const options = got.mergeOptions({
+	const options = new Options({
 		url: new URL('http://localhost'),
-		searchParams: {
+		searchParameters: {
 			foo: undefined
 		}
 	});
 
-	t.is(options.url.href, 'http://localhost/');
+	t.is((options.url as URL).href, 'http://localhost/');
+});
+
+test('prefixUrl alone does not set url', t => {
+	const options = new Options({
+		prefixUrl: 'https://example.com'
+	});
+
+	t.is(options.url, undefined);
+});
+
+test('maxRetryAfter is calculated seperately from request timeout', t => {
+	const options = new Options({
+		timeout: {
+			request: 1000
+		},
+		retry: {
+			maxRetryAfter: undefined
+		}
+	});
+
+	t.is(options.retry.maxRetryAfter, undefined);
+
+	options.merge({
+		timeout: {
+			request: 2000
+		}
+	});
+
+	t.is(options.retry.maxRetryAfter, undefined);
+
+	options.merge({
+		retry: {
+			maxRetryAfter: 300
+		}
+	});
+
+	t.is(options.retry.maxRetryAfter, 300);
 });

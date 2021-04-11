@@ -33,7 +33,7 @@ test('follows redirect', withServer, async (t, server, got) => {
 
 	const {body, redirectUrls} = await got('finite');
 	t.is(body, 'reached');
-	t.deepEqual(redirectUrls, [`${server.url}/`]);
+	t.deepEqual(redirectUrls.map(x => String(x)), [`${server.url}/`]);
 });
 
 test('follows 307, 308 redirect', withServer, async (t, server, got) => {
@@ -83,7 +83,7 @@ test('throws on endless redirects - default behavior', withServer, async (t, ser
 
 	const error = await t.throwsAsync<MaxRedirectsError>(got(''), {message: 'Redirected 10 times. Aborting.'});
 
-	t.deepEqual(error.response.redirectUrls, Array.from({length: 10}).fill(`${server.url}/`));
+	t.deepEqual(error.response.redirectUrls.map(x => String(x)), Array.from({length: 10}).fill(`${server.url}/`));
 });
 
 test('custom `maxRedirects` option', withServer, async (t, server, got) => {
@@ -96,7 +96,7 @@ test('custom `maxRedirects` option', withServer, async (t, server, got) => {
 
 	const error = await t.throwsAsync<MaxRedirectsError>(got('', {maxRedirects: 5}), {message: 'Redirected 5 times. Aborting.'});
 
-	t.deepEqual(error.response.redirectUrls, Array.from({length: 5}).fill(`${server.url}/`));
+	t.deepEqual(error.response.redirectUrls.map(x => String(x)), Array.from({length: 5}).fill(`${server.url}/`));
 });
 
 test('searchParams are not breaking redirects', withServer, async (t, server, got) => {
@@ -111,7 +111,7 @@ test('searchParams are not breaking redirects', withServer, async (t, server, go
 		response.end();
 	});
 
-	t.is((await got('relativeSearchParam', {searchParams: 'bang=1'})).body, 'reached');
+	t.is((await got('relativeSearchParam', {searchParameters: 'bang=1'})).body, 'reached');
 });
 
 test('redirects GET and HEAD requests', withServer, async (t, server, got) => {
@@ -123,7 +123,7 @@ test('redirects GET and HEAD requests', withServer, async (t, server, got) => {
 	});
 
 	await t.throwsAsync(got.get(''), {
-		instanceOf: got.MaxRedirectsError
+		instanceOf: MaxRedirectsError
 	});
 });
 
@@ -136,7 +136,7 @@ test('redirects POST requests', withServer, async (t, server, got) => {
 	});
 
 	await t.throwsAsync(got.post({body: 'wow'}), {
-		instanceOf: got.MaxRedirectsError
+		instanceOf: MaxRedirectsError
 	});
 });
 
@@ -253,7 +253,7 @@ test('redirect response contains old url', withServer, async (t, server, got) =>
 	server.get('/finite', finiteHandler);
 
 	const {requestUrl} = await got('finite');
-	t.is(requestUrl, `${server.url}/finite`);
+	t.is(requestUrl.toString(), `${server.url}/finite`);
 });
 
 test('redirect response contains UTF-8 with binary encoding', withServer, async (t, server, got) => {
@@ -495,12 +495,7 @@ test('correct port on redirect', withServer, async (t, server1, got) => {
 			response.end('SERVER2');
 		});
 
-		const response = await got({
-			protocol: 'http:',
-			hostname: server1.hostname,
-			port: server1.port,
-			pathname: '/redirect'
-		});
+		const response = await got(`${server1.url}/redirect`, {prefixUrl: ''});
 
 		t.is(response.body, 'SERVER2');
 	});

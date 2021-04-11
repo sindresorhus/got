@@ -2,18 +2,17 @@ import {EventEmitter} from 'events';
 import is from '@sindresorhus/is';
 import * as PCancelable from 'p-cancelable';
 import {
-	NormalizedOptions,
-	CancelableRequest,
-	Response,
 	RequestError,
 	HTTPError,
-	CancelError
-} from './types';
-import parseBody from './parse-body';
-import Request from '../core/index';
+	RetryError
+} from '../core/errors';
+import {CancelError} from './types';
+import Request from '../core';
+import {parseBody, isResponseOk} from '../core/response';
 import proxyEvents from '../core/utils/proxy-events';
-import getBuffer from '../core/utils/get-buffer';
-import {isResponseOk} from '../core/utils/is-response-ok';
+import type Options from '../core/options';
+import type {Response} from '../core/response';
+import type {CancelableRequest} from './types';
 
 const proxiedRequestEvents = [
 	'request',
@@ -23,65 +22,51 @@ const proxiedRequestEvents = [
 	'downloadProgress'
 ];
 
-export default function asPromise<T>(normalizedOptions: NormalizedOptions): CancelableRequest<T> {
+const supportedCompressionAlgorithms = new Set(['gzip', 'deflate', 'br']);
+
+export default function asPromise<T>(firstRequest: Request): CancelableRequest<T> {
 	let globalRequest: Request;
 	let globalResponse: Response;
+	let normalizedOptions: Options;
 	const emitter = new EventEmitter();
 
 	const promise = new PCancelable<T>((resolve, reject, onCancel) => {
+		onCancel(() => {
+			globalRequest.destroy();
+		});
+
+		onCancel.shouldReject = false;
+		onCancel(() => {
+			reject(new CancelError(globalRequest));
+		});
+
 		const makeRequest = (retryCount: number): void => {
-			const request = new Request(undefined, normalizedOptions);
+			// Errors when a new request is made after the promise settles.
+			// Used to detect a race condition.
+			// See https://github.com/sindresorhus/got/issues/1489
+			onCancel(() => {});
+
+			const request = firstRequest ?? new Request(undefined, undefined, normalizedOptions);
 			request.retryCount = retryCount;
 			request._noPipe = true;
-
-			onCancel(() => {
-				request.destroy();
-			});
-
-			onCancel.shouldReject = false;
-			onCancel(() => {
-				reject(new CancelError(request));
-			});
 
 			globalRequest = request;
 
 			request.once('response', async (response: Response) => {
-				response.retryCount = retryCount;
-
-				if (response.request.aborted) {
-					// Canceled while downloading - will throw a `CancelError` or `TimeoutError` error
-					return;
-				}
-
-				// Download body
-				let rawBody;
-				try {
-					rawBody = await getBuffer(request);
-					response.rawBody = rawBody;
-				} catch {
-					// The same error is caught below.
-					// See request.once('error')
-					return;
-				}
-
-				if (request._isAboutToError) {
-					return;
-				}
-
 				// Parse body
 				const contentEncoding = (response.headers['content-encoding'] ?? '').toLowerCase();
-				const isCompressed = ['gzip', 'deflate', 'br'].includes(contentEncoding);
+				const isCompressed = supportedCompressionAlgorithms.has(contentEncoding);
 
 				const {options} = request;
 
 				if (isCompressed && !options.decompress) {
-					response.body = rawBody;
+					response.body = response.rawBody;
 				} else {
 					try {
 						response.body = parseBody(response, options.responseType, options.parseJson, options.encoding);
 					} catch (error) {
 						// Fallback to `utf8`
-						response.body = rawBody.toString();
+						response.body = response.rawBody.toString();
 
 						if (isResponseOk(response)) {
 							request._beforeError(error);
@@ -91,40 +76,32 @@ export default function asPromise<T>(normalizedOptions: NormalizedOptions): Canc
 				}
 
 				try {
-					for (const [index, hook] of options.hooks.afterResponse.entries()) {
+					const hooks = options.hooks.afterResponse;
+
+					// TODO: `xo` should detect if `index` is being used for something else
+					// eslint-disable-next-line unicorn/no-for-loop
+					for (let index = 0; index < hooks.length; index++) {
+						const hook = hooks[index];
+
 						// @ts-expect-error TS doesn't notice that CancelableRequest is a Promise
 						// eslint-disable-next-line no-await-in-loop
 						response = await hook(response, async (updatedOptions): CancelableRequest<Response> => {
-							const typedOptions = Request.normalizeArguments(undefined, {
-								...updatedOptions,
-								retry: {
-									calculateDelay: () => 0
-								},
-								throwHttpErrors: false,
-								resolveBodyOnly: false
-							}, options);
+							options.merge(updatedOptions);
+							options.prefixUrl = '';
+
+							if (updatedOptions.url) {
+								options.url = updatedOptions.url;
+							}
 
 							// Remove any further hooks for that request, because we'll call them anyway.
 							// The loop continues. We don't want duplicates (asPromise recursion).
-							typedOptions.hooks.afterResponse = typedOptions.hooks.afterResponse.slice(0, index);
+							options.hooks.afterResponse = options.hooks.afterResponse.slice(0, index);
 
-							for (const hook of typedOptions.hooks.beforeRetry) {
-								// eslint-disable-next-line no-await-in-loop
-								await hook(typedOptions);
-							}
-
-							const promise: CancelableRequest<Response> = asPromise(typedOptions);
-
-							onCancel(() => {
-								promise.catch(() => {});
-								promise.cancel();
-							});
-
-							return promise;
+							throw new RetryError(request);
 						});
 					}
 				} catch (error) {
-					request._beforeError(new RequestError(error.message, error, request));
+					request._beforeError(error);
 					return;
 				}
 
@@ -135,6 +112,7 @@ export default function asPromise<T>(normalizedOptions: NormalizedOptions): Canc
 					return;
 				}
 
+				request.destroy();
 				resolve(request.options.resolveBodyOnly ? response.body as T : response as unknown as T);
 			});
 
@@ -147,6 +125,8 @@ export default function asPromise<T>(normalizedOptions: NormalizedOptions): Canc
 
 				if (error instanceof HTTPError && !options.throwHttpErrors) {
 					const {response} = error;
+
+					request.destroy();
 					resolve(request.options.resolveBodyOnly ? response.body as T : response as unknown as T);
 					return;
 				}
@@ -156,18 +136,29 @@ export default function asPromise<T>(normalizedOptions: NormalizedOptions): Canc
 
 			request.once('error', onError);
 
-			const previousBody = request.options.body;
+			const previousBody = request.options?.body;
 
 			request.once('retry', (newRetryCount: number, error: RequestError) => {
-				if (previousBody === error.request?.options.body && is.nodeStream(error.request?.options.body)) {
+				// @ts-expect-error
+				firstRequest = undefined;
+
+				const newBody = request.options.body;
+
+				if (previousBody === newBody && is.nodeStream(newBody)) {
 					onError(error);
 					return;
 				}
+
+				// This is needed! We need to reuse `request.options` because they can get modified!
+				// For example, by calling `promise.json()`.
+				normalizedOptions = request.options;
 
 				makeRequest(newRetryCount);
 			});
 
 			proxyEvents(request, emitter, proxiedRequestEvents);
+
+			void request.flush();
 		};
 
 		makeRequest(0);
@@ -178,7 +169,7 @@ export default function asPromise<T>(normalizedOptions: NormalizedOptions): Canc
 		return promise;
 	};
 
-	const shortcut = <T>(responseType: NormalizedOptions['responseType']): CancelableRequest<T> => {
+	const shortcut = <T>(responseType: Options['responseType']): CancelableRequest<T> => {
 		const newPromise = (async () => {
 			// Wait until downloading has ended
 			await promise;
@@ -194,10 +185,12 @@ export default function asPromise<T>(normalizedOptions: NormalizedOptions): Canc
 	};
 
 	promise.json = () => {
-		const {headers} = globalRequest.options;
+		if (globalRequest.options) {
+			const {headers} = globalRequest.options;
 
-		if (!globalRequest.writableFinished && headers.accept === undefined) {
-			headers.accept = 'application/json';
+			if (!globalRequest.writableFinished && !('accept' in headers)) {
+				headers.accept = 'application/json';
+			}
 		}
 
 		return shortcut('json');
@@ -208,5 +201,3 @@ export default function asPromise<T>(normalizedOptions: NormalizedOptions): Canc
 
 	return promise;
 }
-
-export * from './types';
