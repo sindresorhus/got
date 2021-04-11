@@ -763,3 +763,17 @@ test('timeouts are emitted ASAP', async t => {
 
 	t.true(error.timings.phases.total! < (timeout + marginOfError));
 });
+
+test('http2 timeout', async t => {
+	await t.throwsAsync(got('https://123.123.123.123', {
+		timeout: {
+			request: 1
+		},
+		http2: true,
+		retry: {
+			calculateDelay: ({computedValue}) => computedValue ? 1 : 0
+		}
+	}), {
+		code: 'ETIMEDOUT'
+	});
+});

@@ -873,6 +873,11 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 		timer(request);
 
+		if (this.options.http2) {
+			// Unset stream timeout, as the `timeout` option was used only for connection timeout.
+			request.setTimeout(0);
+		}
+
 		this._cancelTimeouts = timedOut(request, timeout, url as URL);
 
 		const responseEventName = options.cache ? 'cacheableResponse' : 'response';

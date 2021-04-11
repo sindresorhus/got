@@ -711,6 +711,16 @@ const cloneInternals = (internals: typeof defaultInternals): typeof defaultInter
 	return result;
 };
 
+const getHttp2TimeoutOption = (internals: typeof defaultInternals): number | undefined => {
+	const delays = [internals.timeout.socket, internals.timeout.connect, internals.timeout.lookup, internals.timeout.request, internals.timeout.secureConnect].filter(delay => typeof delay === 'number') as number[];
+
+	if (delays.length > 0) {
+		return Math.min(...delays);
+	}
+
+	return undefined;
+};
+
 const descriptor = {
 	_unixOptions: {
 		value: undefined,
@@ -2119,7 +2129,8 @@ export default class Options {
 			maxHeaderSize: internals.maxHeaderSize,
 			localAddress: internals.localAddress,
 			headers: internals.headers,
-			createConnection: internals.createConnection
+			createConnection: internals.createConnection,
+			timeout: internals.http2 ? getHttp2TimeoutOption(internals) : undefined
 		};
 	}
 
