@@ -1297,3 +1297,39 @@ test('`beforeRequest` change body', withServer, async (t, server, got) => {
 
 	t.is(JSON.parse(response.body).payload, 'new');
 });
+
+test('can retry without an agent', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.statusCode = 408;
+		response.end();
+	});
+
+	let counter = 0;
+
+	class MyAgent extends HttpAgent {
+		createConnection(port: any, options: any, callback: any) {
+			counter++;
+
+			return (HttpAgent as any).prototype.createConnection.call(this, port, options, callback);
+		}
+	}
+
+	const {response} = await t.throwsAsync<HTTPError>(got({
+		agent: {
+			http: new MyAgent()
+		},
+		hooks: {
+			beforeRetry: [
+				error => {
+					error.options.agent.http = undefined;
+				}
+			]
+		},
+		retry: {
+			calculateDelay: ({computedValue}) => computedValue ? 1 : 0
+		}
+	}));
+
+	t.is(response.retryCount, 2);
+	t.is(counter, 1);
+});
