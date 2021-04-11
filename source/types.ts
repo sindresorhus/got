@@ -16,7 +16,7 @@ Defaults for each Got instance.
 */
 export interface InstanceDefaults {
 	/**
-    An object containing the default options of Got.
+	An object containing the default options of Got.
 	*/
 	options: InternalsType | Options;
 
