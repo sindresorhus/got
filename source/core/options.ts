@@ -498,7 +498,18 @@ All parsing methods supported by Got.
 */
 export type ResponseType = 'json' | 'buffer' | 'text';
 
-export type InternalsType = Except<Options, 'followRedirects' | 'auth' | 'toJSON' | 'merge' | 'createNativeRequestOptions' | 'getRequestFunction' | 'getFallbackRequestFunction' | 'freeze'>;
+type OptionsToSkip =
+	'searchParameters' |
+	'followRedirects' |
+	'auth' |
+	'toJSON' |
+	'merge' |
+	'createNativeRequestOptions' |
+	'getRequestFunction' |
+	'getFallbackRequestFunction' |
+	'freeze';
+
+export type InternalsType = Except<Options, OptionsToSkip>;
 
 export type OptionsError = NodeJS.ErrnoException & {options: Options};
 
@@ -545,7 +556,7 @@ const defaultInternals: Options['_internals'] = {
 	json: undefined,
 	cookieJar: undefined,
 	ignoreInvalidCookies: false,
-	searchParameters: undefined,
+	searchParams: undefined,
 	dnsLookup: undefined,
 	dnsCache: undefined,
 	context: {},
@@ -689,7 +700,7 @@ const cloneInternals = (internals: typeof defaultInternals): typeof defaultInter
 			beforeRetry: [...hooks.beforeRetry],
 			afterResponse: [...hooks.afterResponse]
 		},
-		searchParameters: internals.searchParameters ? new URLSearchParams(internals.searchParameters as URLSearchParams) : undefined,
+		searchParameters: internals.searchParams ? new URLSearchParams(internals.searchParams as URLSearchParams) : undefined,
 		pagination: {...internals.pagination}
 	};
 
@@ -1164,9 +1175,9 @@ export default class Options {
 			this._internals.password = '';
 		}
 
-		if (this._internals.searchParameters) {
-			url.search = (this._internals.searchParameters as URLSearchParams).toString();
-			this._internals.searchParameters = undefined;
+		if (this._internals.searchParams) {
+			url.search = (this._internals.searchParams as URLSearchParams).toString();
+			this._internals.searchParams = undefined;
 		}
 
 		if (url.hostname === 'unix') {
@@ -1260,21 +1271,21 @@ export default class Options {
 	//=> 'key=a&key=b'
 	```
 	*/
-	get searchParameters(): string | SearchParameters | URLSearchParams | undefined {
+	get searchParams(): string | SearchParameters | URLSearchParams | undefined {
 		if (this._internals.url) {
 			return (this._internals.url as URL).searchParams;
 		}
 
-		return this._internals.searchParameters;
+		return this._internals.searchParams;
 	}
 
-	set searchParameters(value: string | SearchParameters | URLSearchParams | undefined) {
+	set searchParams(value: string | SearchParameters | URLSearchParams | undefined) {
 		assert.any([is.string, is.object, is.undefined], value);
 
 		const url = this._internals.url as URL;
 
 		if (value === undefined) {
-			this._internals.searchParameters = undefined;
+			this._internals.searchParams = undefined;
 
 			if (url) {
 				url.search = '';
@@ -1283,7 +1294,7 @@ export default class Options {
 			return;
 		}
 
-		let searchParameters = (this.searchParameters ?? new URLSearchParams()) as URLSearchParams;
+		let searchParameters = (this.searchParams ?? new URLSearchParams()) as URLSearchParams;
 		let updated;
 
 		if (is.string(value) || (value instanceof URLSearchParams)) {
@@ -1315,8 +1326,16 @@ export default class Options {
 		}
 
 		if (!url) {
-			this._internals.searchParameters = searchParameters;
+			this._internals.searchParams = searchParameters;
 		}
+	}
+
+	get searchParameters() {
+		throw new Error('The `searchParameters` option does not exist. Use `searchParams` instead.');
+	}
+
+	set searchParameters(_value: unknown) {
+		throw new Error('The `searchParameters` option does not exist. Use `searchParams` instead.');
 	}
 
 	get dnsLookup(): CacheableLookup['lookup'] | undefined {
@@ -2168,12 +2187,13 @@ const nonEnumerableProperties = new Set([
 	// Getters that always throw
 	'auth',
 	'followRedirects',
+	'searchParameters',
 
 	// May contain sensitive data
 	'username',
 	'password',
 	'headers',
-	'searchParameters',
+	'searchParams',
 	'url',
 
 	// Privates

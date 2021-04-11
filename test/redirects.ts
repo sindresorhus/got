@@ -111,7 +111,7 @@ test('searchParams are not breaking redirects', withServer, async (t, server, go
 		response.end();
 	});
 
-	t.is((await got('relativeSearchParam', {searchParameters: 'bang=1'})).body, 'reached');
+	t.is((await got('relativeSearchParam', {searchParams: 'bang=1'})).body, 'reached');
 });
 
 test('redirects GET and HEAD requests', withServer, async (t, server, got) => {

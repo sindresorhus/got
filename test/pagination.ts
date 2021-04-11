@@ -19,8 +19,9 @@ const resetPagination = {
 
 const attachHandler = (server: ExtendedHttpTestServer, count: number): void => {
 	server.get('/', (request, response) => {
-		const searchParameters = new URLSearchParams(request.url.split('?')[1]);
-		const page = Number(searchParameters.get('page')) || 1;
+		// eslint-disable-next-line unicorn/prevent-abbreviations
+		const searchParams = new URLSearchParams(request.url.split('?')[1]);
+		const page = Number(searchParams.get('page')) || 1;
 
 		if (page < count) {
 			response.setHeader('link', `<${server.url}/?page=${page + 1}>; rel="next"`);
@@ -548,7 +549,7 @@ test('next url in json response', withServer, async (t, server, got) => {
 	}
 
 	const all = await got.paginate.all('', {
-		searchParameters: {
+		searchParams: {
 			page: 0
 		},
 		responseType: 'json',
@@ -566,7 +567,7 @@ test('next url in json response', withServer, async (t, server, got) => {
 				return {
 					url: next,
 					prefixUrl: '',
-					searchParameters: undefined
+					searchParams: undefined
 				};
 			}
 		}
@@ -580,7 +581,7 @@ test('next url in json response', withServer, async (t, server, got) => {
 	]);
 });
 
-test('pagination using searchParameters', withServer, async (t, server, got) => {
+test('pagination using searchParams', withServer, async (t, server, got) => {
 	server.get('/', (request, response) => {
 		const parameters = new URLSearchParams(request.url.slice(2));
 		const page = Number(parameters.get('page') ?? 0);
@@ -597,7 +598,7 @@ test('pagination using searchParameters', withServer, async (t, server, got) => 
 	}
 
 	const all = await got.paginate.all('', {
-		searchParameters: {
+		searchParams: {
 			page: 0
 		},
 		responseType: 'json',
@@ -607,15 +608,16 @@ test('pagination using searchParameters', withServer, async (t, server, got) => 
 			},
 			paginate: ({response}) => {
 				const {next} = response.body;
-				const searchParameters = response.request.options.searchParameters as URLSearchParams;
-				const previousPage = Number(searchParameters.get('page'));
+				// eslint-disable-next-line unicorn/prevent-abbreviations
+				const searchParams = response.request.options.searchParams as URLSearchParams;
+				const previousPage = Number(searchParams.get('page'));
 
 				if (!next) {
 					return false;
 				}
 
 				return {
-					searchParameters: {
+					searchParams: {
 						page: previousPage + 1
 					}
 				};
@@ -631,7 +633,7 @@ test('pagination using searchParameters', withServer, async (t, server, got) => 
 	]);
 });
 
-test('pagination using extended searchParameters', withServer, async (t, server, got) => {
+test('pagination using extended searchParams', withServer, async (t, server, got) => {
 	server.get('/', (request, response) => {
 		const parameters = new URLSearchParams(request.url.slice(2));
 		const page = Number(parameters.get('page') ?? 0);
@@ -648,13 +650,13 @@ test('pagination using extended searchParameters', withServer, async (t, server,
 	}
 
 	const client = got.extend({
-		searchParameters: {
+		searchParams: {
 			limit: 10
 		}
 	});
 
 	const all = await client.paginate.all('', {
-		searchParameters: {
+		searchParams: {
 			page: 0
 		},
 		responseType: 'json',
@@ -664,15 +666,16 @@ test('pagination using extended searchParameters', withServer, async (t, server,
 			},
 			paginate: ({response}) => {
 				const {next} = response.body;
-				const searchParameters = response.request.options.searchParameters as URLSearchParams;
-				const previousPage = Number(searchParameters.get('page'));
+				// eslint-disable-next-line unicorn/prevent-abbreviations
+				const searchParams = response.request.options.searchParams as URLSearchParams;
+				const previousPage = Number(searchParams.get('page'));
 
 				if (!next) {
 					return false;
 				}
 
 				return {
-					searchParameters: {
+					searchParams: {
 						page: previousPage + 1
 					}
 				};

@@ -136,8 +136,8 @@ test('`searchParams` option', withServer, async (t, server, got) => {
 		response.end('recent');
 	});
 
-	t.is((await got({searchParameters: {recent: true}})).body, 'recent');
-	t.is((await got({searchParameters: 'recent=true'})).body, 'recent');
+	t.is((await got({searchParams: {recent: true}})).body, 'recent');
+	t.is((await got({searchParams: 'recent=true'})).body, 'recent');
 });
 
 test('response contains url', withServer, async (t, server, got) => {

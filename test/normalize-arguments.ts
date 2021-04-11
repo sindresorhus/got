@@ -13,19 +13,20 @@ test('should merge options replacing responseType', t => {
 
 test('no duplicated searchParams values', t => {
 	const options = new Options({
-		searchParameters: 'string=true&noDuplication=true'
+		searchParams: 'string=true&noDuplication=true'
 	}, {
-		searchParameters: new URLSearchParams({
+		searchParams: new URLSearchParams({
 			instance: 'true',
 			noDuplication: 'true'
 		})
 	});
 
-	const searchParameters = options.searchParameters as URLSearchParams;
+	// eslint-disable-next-line unicorn/prevent-abbreviations
+	const searchParams = options.searchParams as URLSearchParams;
 
-	t.is(searchParameters.get('string'), 'true');
-	t.is(searchParameters.get('instance'), 'true');
-	t.is(searchParameters.getAll('noDuplication').length, 1);
+	t.is(searchParams.get('string'), 'true');
+	t.is(searchParams.get('instance'), 'true');
+	t.is(searchParams.getAll('noDuplication').length, 1);
 });
 
 test('should copy non-numerable properties', t => {
@@ -77,7 +78,7 @@ test('should get username and password from the merged options', t => {
 test('null value in search params means empty', t => {
 	const options = new Options({
 		url: new URL('http://localhost'),
-		searchParameters: {
+		searchParams: {
 			foo: null
 		}
 	});
@@ -88,7 +89,7 @@ test('null value in search params means empty', t => {
 test('undefined value in search params means it does not exist', t => {
 	const options = new Options({
 		url: new URL('http://localhost'),
-		searchParameters: {
+		searchParams: {
 			foo: undefined
 		}
 	});

@@ -123,7 +123,7 @@ test('overrides `searchParams` from options', withServer, async (t, server, got)
 	const {body} = await got(
 		'?drop=this',
 		{
-			searchParameters: {
+			searchParams: {
 				test: 'wow'
 			}
 		}
@@ -136,7 +136,7 @@ test('does not duplicate `searchParams`', withServer, async (t, server, got) => 
 	server.get('/', echoUrl);
 
 	const instance = got.extend({
-		searchParameters: new URLSearchParams({foo: '123'})
+		searchParams: new URLSearchParams({foo: '123'})
 	});
 
 	const body = await instance('?bar=456').text();
@@ -148,7 +148,7 @@ test('escapes `searchParams` parameter values', withServer, async (t, server, go
 	server.get('/', echoUrl);
 
 	const {body} = await got({
-		searchParameters: {
+		searchParams: {
 			test: 'it’s ok'
 		}
 	});
@@ -159,15 +159,16 @@ test('escapes `searchParams` parameter values', withServer, async (t, server, go
 test('the `searchParams` option can be a URLSearchParams', withServer, async (t, server, got) => {
 	server.get('/', echoUrl);
 
-	const searchParameters = new URLSearchParams({test: 'wow'});
-	const {body} = await got({searchParameters});
+	// eslint-disable-next-line unicorn/prevent-abbreviations
+	const searchParams = new URLSearchParams({test: 'wow'});
+	const {body} = await got({searchParams});
 	t.is(body, '/?test=wow');
 });
 
 test('ignores empty searchParams object', withServer, async (t, server, got) => {
 	server.get('/test', echoUrl);
 
-	t.is((await got('test', {searchParameters: {}})).requestUrl.toString(), `${server.url}/test`);
+	t.is((await got('test', {searchParams: {}})).requestUrl.toString(), `${server.url}/test`);
 });
 
 test('throws when passing body with a non payload method', async t => {
@@ -289,9 +290,9 @@ test('`prefixUrl` can be changed if the URL contains the old one', withServer, a
 	t.is(body, '/');
 });
 
-test('throws if the `searchParameters` value is invalid', async t => {
+test('throws if the `searchParams` value is invalid', async t => {
 	await t.throwsAsync(got('https://example.com', {
-		searchParameters: {
+		searchParams: {
 			// @ts-expect-error Error tests
 			foo: []
 		}
@@ -392,15 +393,16 @@ test('throws a helpful error when passing `followRedirects`', async t => {
 
 test('merges `searchParams` instances', t => {
 	const instance = got.extend({
-		searchParameters: new URLSearchParams('a=1')
+		searchParams: new URLSearchParams('a=1')
 	}, {
-		searchParameters: new URLSearchParams('b=2')
+		searchParams: new URLSearchParams('b=2')
 	});
 
-	const searchParameters = instance.defaults.options.searchParameters as URLSearchParams;
+	// eslint-disable-next-line unicorn/prevent-abbreviations
+	const searchParams = instance.defaults.options.searchParams as URLSearchParams;
 
-	t.is(searchParameters.get('a'), '1');
-	t.is(searchParameters.get('b'), '2');
+	t.is(searchParams.get('a'), '1');
+	t.is(searchParams.get('b'), '2');
 });
 
 test('throws a helpful error when passing `auth`', async t => {
@@ -477,7 +479,7 @@ test('encodes query string included in input', t => {
 test('normalizes search params included in options', t => {
 	const {url} = new Options({
 		url: new URL('https://example.com'),
-		searchParameters: 'a=b c'
+		searchParams: 'a=b c'
 	});
 
 	t.is(url!.search, '?a=b+c');
