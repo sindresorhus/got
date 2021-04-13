@@ -254,6 +254,31 @@ test('no uncaught parse errors', async t => {
 	await close();
 });
 
+test('no uncaught parse errors #2', async t => {
+	const server = net.createServer();
+
+	const listen = promisify(server.listen.bind(server));
+	const close = promisify(server.close.bind(server));
+
+	await listen();
+
+	server.on('connection', socket => {
+		socket.resume();
+		socket.write([
+			'HTTP/1.1 200 OK',
+			'content-length: 1',
+			'',
+			'0a'
+		].join('\r\n'));
+	});
+
+	await t.throwsAsync(got(`http://localhost:${(server.address() as net.AddressInfo).port}`), {
+		message: /^Parse Error/
+	});
+
+	await close();
+});
+
 // Fails randomly on Node 10:
 // Blocked by https://github.com/istanbuljs/nyc/issues/619
 // eslint-disable-next-line ava/no-skip-test
