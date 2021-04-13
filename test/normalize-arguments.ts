@@ -134,7 +134,7 @@ test('maxRetryAfter is calculated seperately from request timeout', t => {
 	t.is(options.retry.maxRetryAfter, 300);
 });
 
-test('extending responseType', async t => {
+test('extending responseType', t => {
 	const instance1 = got.extend({
 		prefixUrl: 'https://localhost',
 		responseType: 'json'

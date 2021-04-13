@@ -461,6 +461,7 @@ test('accepts readable-stream as body', withServer, async (t, server, got) => {
 	const body = new Readable2({
 		read() {
 			this.push('ok');
+			// eslint-disable-next-line unicorn/no-array-push-push
 			this.push(null);
 		}
 	});
