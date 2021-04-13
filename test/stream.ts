@@ -1,5 +1,6 @@
 import {promisify} from 'util';
 import * as fs from 'fs';
+import {Agent as HttpAgent} from 'http';
 import {PassThrough as PassThroughStream, Readable as ReadableStream} from 'stream';
 import {Readable as Readable2} from 'readable-stream';
 import * as stream from 'stream';
@@ -47,6 +48,28 @@ const headersHandler: Handler = (request, response) => {
 const infiniteHandler: Handler = (_request, response) => {
 	response.write('foobar');
 };
+
+test('reusedSocket getter', withServer, async (t, server, got) => {
+	server.get('/', defaultHandler);
+
+	const agent = new HttpAgent({keepAlive: true});
+
+	const stream = got.stream('', {agent: {http: agent}});
+	t.is(stream.reusedSocket, undefined);
+
+	await pEvent(stream, 'response');
+
+	stream.resume();
+	await pEvent(stream, 'end');
+
+	t.false(stream.reusedSocket);
+
+	const secondStream = got.stream('', {agent: {http: agent}});
+	secondStream.resume();
+	await pEvent(secondStream, 'end');
+
+	t.true(secondStream.reusedSocket);
+});
 
 test('`options.responseType` is ignored', withServer, async (t, server, got) => {
 	server.get('/', defaultHandler);
