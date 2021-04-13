@@ -1,6 +1,6 @@
 import {promisify} from 'util';
 import * as fs from 'fs';
-import {PassThrough as PassThroughStream} from 'stream';
+import {PassThrough as PassThroughStream, Readable as ReadableStream} from 'stream';
 import * as stream from 'stream';
 import test from 'ava';
 import {Handler} from 'express';
@@ -434,6 +434,22 @@ test('destroys only once', async t => {
 	await delay(1);
 
 	t.false(errored);
+});
+
+test('does not accept unreadable stream as body', withServer, async (t, server, got) => {
+	server.post('/', (_request, _response) => {});
+
+	const body = new ReadableStream();
+	body.push(null);
+	body.resume();
+
+	await pEvent(body, 'end');
+
+	const request = got.post({body});
+
+	await t.throwsAsync(request);
+
+	// TODO: Add assert message above.
 });
 
 if (Number.parseInt(process.versions.node.split('.')[0]!, 10) <= 12) {
