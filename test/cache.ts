@@ -4,6 +4,7 @@ import test from 'ava';
 import * as pEvent from 'p-event';
 import * as getStream from 'get-stream';
 import {Handler} from 'express';
+import * as nock from 'nock';
 import CacheableLookup from 'cacheable-lookup';
 import * as delay from 'delay';
 import got, {CacheError, Response} from '../source/index';
@@ -374,4 +375,28 @@ test('http-cache-semantics typings', t => {
 	});
 
 	t.is(instance.defaults.options.cacheOptions.shared, false);
+});
+
+test('allows internal modifications', async t => {
+	nock('http://example.com').get('/test').reply(401);
+	nock('http://example.com').get('/test').reply(200, JSON.stringify({
+		wat: ['123']
+	}));
+
+	const client = got.extend({
+		cache: new Map(),
+		hooks: {
+			afterResponse: [
+				async (response, retryWithMergedOptions) => {
+					if (response.statusCode === 401) {
+						return retryWithMergedOptions({});
+					}
+
+					return response;
+				}
+			]
+		}
+	});
+
+	await t.notThrowsAsync(client.get('http://example.com/test'));
 });
