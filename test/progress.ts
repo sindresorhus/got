@@ -1,6 +1,7 @@
 import {promisify} from 'util';
 import stream from 'stream';
 import fs from 'fs';
+// @ts-ignore
 import SlowStream from 'slow-stream';
 import toReadableStream from 'to-readable-stream';
 import getStream from 'get-stream';
