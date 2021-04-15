@@ -1926,7 +1926,7 @@ You can use the [`form-data`](https://github.com/form-data/form-data) package to
 ```js
 import fs from 'fs';
 import got from 'got';
-const FormData = require('form-data');
+import FormData from 'form-data';
 
 const form = new FormData();
 
@@ -1942,9 +1942,9 @@ got.post('https://example.com', {
 You can use the [`oauth-1.0a`](https://github.com/ddo/oauth-1.0a) package to create a signed OAuth request:
 
 ```js
+import crypto from 'crypto';
 import got from 'got';
-const crypto  = require('crypto');
-const OAuth = require('oauth-1.0a');
+import OAuth from 'oauth-1.0a';
 
 const oauth = OAuth({
 	consumer: {
@@ -1990,7 +1990,7 @@ await got('unix:/var/run/docker.sock:/containers/json');
 Requests to AWS services need to have their headers signed. This can be accomplished by using the [`got4aws`](https://www.npmjs.com/package/got4aws) package. This is an example for querying an ["API Gateway"](https://docs.aws.amazon.com/apigateway/api-reference/signing-requests/) with a signed request.
 
 ```js
-const got4aws = require('got4aws');;
+import got4aws from 'got4aws';
 
 const awsClient = got4aws();
 
@@ -2005,14 +2005,15 @@ You can test your requests by using the [`nock`](https://github.com/node-nock/no
 
 ```js
 import got from 'got';
-const nock = require('nock');
+import nock from 'nock';
 
 nock('https://sindresorhus.com')
 	.get('/')
 	.reply(200, 'Hello world!');
 
-const response = await got('https://sindresorhus.com');
-console.log(response.body);
+const {body} = await got('https://sindresorhus.com');
+
+console.log(body);
 //=> 'Hello world!'
 ```
 
@@ -2020,7 +2021,7 @@ Bear in mind, that by default `nock` mocks only one request. Got will [retry](#r
 
 ```js
 import got from 'got';
-const nock = require('nock');
+import nock from 'nock';
 
 const scope = nock('https://sindresorhus.com')
 	.get('/')
@@ -2102,12 +2103,14 @@ console.log(body);
 It's a good idea to set the `'user-agent'` header so the provider can more easily see how their resource is used. By default, it's the URL to this repo. You can omit this header by setting it to `undefined`.
 
 ```js
+import fs from 'fs';
 import got from 'got';
-const pkg = require('./package.json');
+
+const packageJson = JSON.parse(fs.readFileSync('./package.json', 'utf8'));
 
 await got('https://sindresorhus.com', {
 	headers: {
-		'user-agent': `my-package/${pkg.version} (https://github.com/username/my-package)`
+		'user-agent': `my-package/${packageJson.version} (https://github.com/username/my-package)`
 	}
 });
 
@@ -2127,14 +2130,16 @@ Bear in mind; if you send an `if-modified-since` header and receive a `304 Not M
 Use `got.extend()` to make it nicer to work with REST APIs. Especially if you use the `prefixUrl` option.
 
 ```js
+import fs from 'fs';
 import got from 'got';
-const pkg = require('./package.json');
+
+const packageJson = JSON.parse(fs.readFileSync('./package.json', 'utf8'));
 
 const custom = got.extend({
 	prefixUrl: 'example.com',
 	responseType: 'json',
 	headers: {
-		'user-agent': `my-package/${pkg.version} (https://github.com/username/my-package)`
+		'user-agent': `my-package/${packageJson.version} (https://github.com/username/my-package)`
 	}
 });
 
