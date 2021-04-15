@@ -145,6 +145,21 @@ test('catches beforeRetry thrown errors', withServer, async (t, server, got) => 
 	});
 });
 
+test('throws if afterResponse returns an invalid value', withServer, async (t, server, got) => {
+	server.get('/', echoHeaders);
+
+	await t.throwsAsync(got('', {
+		hooks: {
+			afterResponse: [
+				// @ts-expect-error
+				() => {}
+			]
+		}
+	}), {
+		message: 'The `afterResponse` hook returned an invalid value'
+	});
+});
+
 test('catches afterResponse thrown errors', withServer, async (t, server, got) => {
 	server.get('/', echoHeaders);
 

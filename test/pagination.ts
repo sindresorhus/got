@@ -716,7 +716,7 @@ test('calls init hooks on pagination', withServer, async (t, server) => {
 
 test('throws when transform does not return an array', withServer, async (t, server) => {
 	server.get('/', (_request, response) => {
-		response.end(JSON.stringify(""));
+		response.end(JSON.stringify(''));
 	});
 
 	await t.throwsAsync(got.paginate.all<string>(server.url));
