@@ -11,7 +11,7 @@
 		"node": ">=12.13"
 	},
 	"scripts": {
-		"test": "xo && nyc ava",
+		"test": "xo && ava",
 		"release": "np",
 		"build": "del-cli dist && tsc",
 		"prepare": "npm run build"

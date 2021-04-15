@@ -1,9 +1,9 @@
 import fs from 'fs';
-import got from '../../index.js';
+import got from '../../dist/source/index.js';
 
-const packageJson = JSON.parse(fs.readFileSync('../../package.json', 'utf8'));
+const packageJson = JSON.parse(fs.readFileSync(new URL('../../package.json', import.meta.url), 'utf8'));
 
-const getRateLimit = (headers) => ({
+const getRateLimit = headers => ({
 	limit: Number.parseInt(headers['x-ratelimit-limit'], 10),
 	remaining: Number.parseInt(headers['x-ratelimit-remaining'], 10),
 	reset: new Date(Number.parseInt(headers['x-ratelimit-reset'], 10) * 1000)
