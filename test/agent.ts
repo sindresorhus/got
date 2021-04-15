@@ -1,6 +1,5 @@
 import {Agent as HttpAgent} from 'http';
 import {Agent as HttpsAgent} from 'https';
-import {Socket} from 'net';
 import test, {Constructor} from 'ava';
 import sinon from 'sinon';
 import withServer, {withHttpsServer} from './helpers/with-server.js';
@@ -134,7 +133,7 @@ test('socket connect listener cleaned up after request', withHttpsServer(), asyn
 	const {agent} = createAgentSpy(HttpsAgent);
 
 	// Make sure there are no memory leaks when reusing keep-alive sockets
-	for (let i = 0; i < 20; i++) {
+	for (let index = 0; index < 20; index++) {
 		// eslint-disable-next-line no-await-in-loop
 		await got({
 			agent: {
@@ -143,9 +142,8 @@ test('socket connect listener cleaned up after request', withHttpsServer(), asyn
 		});
 	}
 
-	// Node.js 12 has incomplete types
-	for (const value of Object.values((agent as any).freeSockets) as [Socket[]]) {
-		for (const sock of value) {
+	for (const value of Object.values(agent.freeSockets)) {
+		for (const sock of value!) {
 			t.is(sock.listenerCount('connect'), 0);
 		}
 	}
@@ -154,56 +152,52 @@ test('socket connect listener cleaned up after request', withHttpsServer(), asyn
 	agent.destroy();
 });
 
-{
-	const testFn = Number(process.versions.node.split('.')[0]) < 12 ? test.failing : test;
+test('no socket hung up regression', withServer, async (t, server, got) => {
+	const agent = new HttpAgent({keepAlive: true});
+	const token = 'helloworld';
 
-	testFn('no socket hung up regression', withServer, async (t, server, got) => {
-		const agent = new HttpAgent({keepAlive: true});
-		const token = 'helloworld';
+	server.get('/', (request, response) => {
+		if (request.headers.token !== token) {
+			response.statusCode = 401;
+			response.end();
+			return;
+		}
 
-		server.get('/', (request, response) => {
-			if (request.headers.token !== token) {
-				response.statusCode = 401;
-				response.end();
-				return;
-			}
-
-			response.end('ok');
-		});
-
-		const {body} = await got({
-			agent: {
-				http: agent
-			},
-			hooks: {
-				afterResponse: [
-					async (response, retryWithMergedOptions) => {
-						// Force clean-up
-						// eslint-disable-next-line @typescript-eslint/no-confusing-void-expression
-						response.socket?.destroy();
-
-						// Unauthorized
-						if (response.statusCode === 401) {
-							return retryWithMergedOptions({
-								headers: {
-									token
-								}
-							});
-						}
-
-						// No changes otherwise
-						return response;
-					}
-				]
-			},
-			// Disable automatic retries, manual retries are allowed
-			retry: {
-				limit: 0
-			}
-		});
-
-		t.is(body, 'ok');
-
-		agent.destroy();
+		response.end('ok');
 	});
-}
+
+	const {body} = await got({
+		agent: {
+			http: agent
+		},
+		hooks: {
+			afterResponse: [
+				async (response, retryWithMergedOptions) => {
+					// Force clean-up
+					// eslint-disable-next-line @typescript-eslint/no-confusing-void-expression
+					response.socket?.destroy();
+
+					// Unauthorized
+					if (response.statusCode === 401) {
+						return retryWithMergedOptions({
+							headers: {
+								token
+							}
+						});
+					}
+
+					// No changes otherwise
+					return response;
+				}
+			]
+		},
+		// Disable automatic retries, manual retries are allowed
+		retry: {
+			limit: 0
+		}
+	});
+
+	t.is(body, 'ok');
+
+	agent.destroy();
+});
