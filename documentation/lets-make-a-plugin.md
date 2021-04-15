@@ -37,7 +37,7 @@ When we have all the necessary info, we can start mixing :cake:
 Not much to do here, just extend an instance and provide the `prefixUrl` option:
 
 ```js
-const got = require('got');
+import got from 'got';
 
 const instance = got.extend({
 	prefixUrl: 'https://api.github.com'
@@ -51,7 +51,7 @@ module.exports = instance;
 GitHub needs to know which version we are using. We'll use the `Accept` header for that:
 
 ```js
-const got = require('got');
+import got from 'got';
 
 const instance = got.extend({
 	prefixUrl: 'https://api.github.com',
@@ -68,7 +68,7 @@ module.exports = instance;
 We'll use [`options.responseType`](../readme.md#responsetype):
 
 ```js
-const got = require('got');
+import got from 'got';
 
 const instance = got.extend({
 	prefixUrl: 'https://api.github.com',
@@ -90,7 +90,7 @@ Let's use handlers instead of hooks. This will make our code more readable: havi
 **Tip:** it's a good practice to use hooks when your plugin gets complicated. Try not to overload the handler function, but don't abuse hooks either.
 
 ```js
-const got = require('got');
+import got from 'got';
 
 const instance = got.extend({
 	prefixUrl: 'https://api.github.com',
@@ -235,13 +235,15 @@ const getRateLimit = (headers) => ({
 ### The frosting on the cake: `User-Agent` header.
 
 ```js
-const package = require('./package');
+import fs from 'fs';
+
+const packageJson = JSON.parse(fs.readFileSync('./package', 'utf8'));
 
 const instance = got.extend({
 	...
 	headers: {
 		accept: 'application/vnd.github.v3+json',
-		'user-agent': `${package.name}/${package.version}`
+		'user-agent': `${packageJson.name}/${packageJson.version}`
 	}
 	...
 });
@@ -252,7 +254,7 @@ const instance = got.extend({
 Yup. View the full source code [here](examples/gh-got.js). Here's an example of how to use it:
 
 ```js
-const ghGot = require('gh-got');
+import ghGot from 'gh-got';
 
 const response = await ghGot('users/sindresorhus');
 const creationDate = new Date(response.created_at);

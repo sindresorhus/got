@@ -81,7 +81,7 @@ $ npm install got
 ###### Promise
 
 ```js
-const got = require('got');
+import got from 'got';
 
 try {
 	const response = await got('https://sindresorhus.com');
@@ -96,7 +96,7 @@ try {
 ###### JSON
 
 ```js
-const got = require('got');
+import got from 'got';
 
 const {body} = await got.post('https://httpbin.org/anything', {
 	json: {
@@ -114,10 +114,10 @@ See [JSON mode](#json-mode) for more details.
 ###### Streams
 
 ```js
-const stream = require('stream');
-const {promisify} = require('util');
-const fs = require('fs');
-const got = require('got');
+import {promisify} from 'util';
+import stream from 'stream';
+import fs from 'fs';
+import got from 'got';
 
 const pipeline = promisify(stream.pipeline);
 
@@ -198,7 +198,7 @@ A trailing slash `/` is optional - one will be added automatically.
 **Tip:** You can change `prefixUrl` using hooks as long as the URL still includes the `prefixUrl`. If the URL doesn't include it anymore, it will throw.
 
 ```js
-const got = require('got');
+import got from 'got';
 
 await got('unicorn', {prefixUrl: 'https://cats.com'});
 //=> 'https://cats.com/unicorn'
@@ -269,7 +269,7 @@ User data. `context` is shallow merged and enumerable. If it contains non-enumer
 It's very useful for storing auth tokens:
 
 ```js
-const got = require('got');
+import got from 'got';
 
 const instance = got.extend({
 	hooks: {
@@ -343,8 +343,8 @@ A function used to parse JSON responses.
 Using [`bourne`](https://github.com/hapijs/bourne) to prevent prototype pollution:
 
 ```js
-const got = require('got');
-const Bourne = require('@hapi/bourne');
+import got from 'got';
+import Bourne from '@hapi/bourne';
 
 const parsed = await got('https://example.com', {
 	parseJson: text => Bourne.parse(text)
@@ -367,7 +367,7 @@ A function used to stringify the body of JSON requests.
 Ignore properties starting with `_`:
 
 ```js
-const got = require('got');
+import got from 'got';
 
 await got.post('https://example.com', {
 	stringifyJson: object => JSON.stringify(object, (key, value) => {
@@ -387,7 +387,7 @@ await got.post('https://example.com', {
 All numbers as strings:
 
 ```js
-const got = require('got');
+import got from 'got';
 
 await got.post('https://example.com', {
 	stringifyJson: object => JSON.stringify(object, (key, value) => {
@@ -470,7 +470,7 @@ Query string that will be added to the request URL. This will override the query
 If you need to pass in an array, you can do it using a `URLSearchParams` instance:
 
 ```js
-const got = require('got');
+import got from 'got';
 
 const searchParams = new URLSearchParams([['key', 'a'], ['key', 'b']]);
 
@@ -542,8 +542,8 @@ By default, it retries *only* on the specified methods, status codes, and on the
 You can retry Got streams too. The implementation looks like this:
 
 ```js
-const got = require('got');
-const fs = require('fs');
+import fs from 'fs';
+import got from 'got';
 
 let writeStream;
 
@@ -691,7 +691,7 @@ It will choose either HTTP/1.1 or HTTP/2 depending on the ALPN protocol.
 **Note:** Overriding `options.request` will disable HTTP2 support.
 
 ```js
-const got = require('got');
+import got from 'got';
 
 const {headers} = await got('https://nghttp2.org/httpbin/anything', {http2: true});
 console.log(headers.via);
@@ -716,8 +716,9 @@ An object representing `http`, `https` and `http2` keys for [`http.Agent`](https
 If a key is not present, it will default to a global agent.
 
 ```js
-const got = require('got');
-const HttpAgent = require('agentkeepalive');
+import got from 'got';
+import HttpAgent from 'agentkeepalive';
+
 const {HttpsAgent} = HttpAgent;
 
 await got('https://sindresorhus.com', {
@@ -757,7 +758,7 @@ Called with [normalized](source/core/index.ts) [request options](#options). Got 
 **Note:** Changing `options.json` or `options.form` has no effect on the request, you should change `options.body` instead. If needed, update the `options.headers` accordingly. Example:
 
 ```js
-const got = require('got');
+import got from 'got';
 
 got.post({
 	json: {payload: 'old'},
@@ -782,7 +783,7 @@ Default: `[]`
 Called with [normalized](source/core/index.ts) [request options](#options) and the redirect [response](#response). Got will make no further changes to the request. This is especially useful when you want to avoid dead sites. Example:
 
 ```js
-const got = require('got');
+import got from 'got';
 
 await got('https://example.com', {
 	hooks: {
@@ -807,7 +808,7 @@ Default: `[]`
 Called with [normalized](source/normalize-arguments.ts) [request options](#options), the error and the retry count. Got will make no further changes to the request. This is especially useful when some extra work is required before the next try. Example:
 
 ```js
-const got = require('got');
+import got from 'got';
 
 got.post('https://example.com', {
 	hooks: {
@@ -836,7 +837,7 @@ Called with [response object](#response) and a retry function. Calling the retry
 Each function should return the response. This is especially useful when you want to refresh an access token. Example:
 
 ```js
-const got = require('got');
+import got from 'got';
 
 const instance = got.extend({
 	hooks: {
@@ -880,7 +881,7 @@ Called with an `Error` instance. The error is passed to the hook right before it
 **Note:** Errors thrown while normalizing input options are thrown directly and not part of this hook.
 
 ```js
-const got = require('got');
+import got from 'got';
 
 await got('https://api.github.com/some-endpoint', {
 	hooks: {
@@ -927,7 +928,7 @@ It should return an object representing Got options pointing to the next page. T
 For example, if you want to stop when the response contains less items than expected, you can use something like this:
 
 ```js
-const got = require('got');
+import got from 'got';
 
 const limit = 10;
 
@@ -1172,7 +1173,7 @@ If set to `true`, it will throw an error whenever an invalid SSL certificate is 
 We strongly recommend to have this set to `true` for security reasons.
 
 ```js
-const got = require('got');
+import got from 'got';
 
 // Correct:
 await got('https://example.com', {
@@ -1769,7 +1770,7 @@ try {
 When using hooks, simply throw an error to abort the request.
 
 ```js
-const got = require('got');
+import got from 'got';
 
 const request = got(url, {
 	hooks: {
@@ -1791,7 +1792,7 @@ try {
 To abort the Got Stream request, just call `stream.destroy()`.
 
 ```js
-const got = require('got');
+import got from 'got';
 
 const stream = got.stream(url);
 stream.destroy();
@@ -1805,7 +1806,7 @@ Got implements [RFC 7234](https://httpwg.org/specs/rfc7234.html) compliant HTTP 
 You can use the JavaScript `Map` type as an in-memory cache:
 
 ```js
-const got = require('got');
+import got from 'got';
 
 const map = new Map();
 
@@ -1825,8 +1826,8 @@ $ npm install @keyv/redis
 ```
 
 ```js
-const got = require('got');
-const KeyvRedis = require('@keyv/redis');
+import got from 'got';
+import KeyvRedis from '@keyv/redis';
 
 const redis = new KeyvRedis('redis://user:pass@localhost:6379');
 
@@ -1839,10 +1840,19 @@ For example, the following are all valid storage adapters:
 
 ```js
 const storageAdapter = new Map();
-// Or
-const storageAdapter = require('./my-storage-adapter');
-// Or
-const QuickLRU = require('quick-lru');
+
+await got('https://sindresorhus.com', {cache: storageAdapter});
+```
+
+```js
+import storageAdapter from './my-storage-adapter';
+
+await got('https://sindresorhus.com', {cache: storageAdapter});
+```
+
+```js
+import QuickLRU from 'quick-lru';
+
 const storageAdapter = new QuickLRU({maxSize: 1000});
 
 await got('https://sindresorhus.com', {cache: storageAdapter});
@@ -1855,8 +1865,8 @@ View the [Keyv docs](https://github.com/lukechilds/keyv) for more information on
 You can use the [`tunnel`](https://github.com/koichik/node-tunnel) package with the `agent` option to work with proxies:
 
 ```js
-const got = require('got');
-const tunnel = require('tunnel');
+import got from 'got';
+import tunnel from 'tunnel';
 
 await got('https://sindresorhus.com', {
 	agent: {
@@ -1872,8 +1882,8 @@ await got('https://sindresorhus.com', {
 Otherwise, you can use the [`hpagent`](https://github.com/delvedor/hpagent) package, which keeps the internal sockets alive to be reused.
 
 ```js
-const got = require('got');
-const {HttpsProxyAgent} = require('hpagent');
+import got from 'got';
+import {HttpsProxyAgent} from 'hpagent';
 
 await got('https://sindresorhus.com', {
 	agent: {
@@ -1898,9 +1908,9 @@ Read the [`http2-wrapper`](https://github.com/szmarczak/http2-wrapper/#proxy-sup
 You can use the [`tough-cookie`](https://github.com/salesforce/tough-cookie) package:
 
 ```js
-const {promisify} = require('util');
-const got = require('got');
-const {CookieJar} = require('tough-cookie');
+import {promisify} from 'util';
+import got from 'got';
+import {CookieJar} from 'tough-cookie';
 
 const cookieJar = new CookieJar();
 const setCookie = promisify(cookieJar.setCookie.bind(cookieJar));
@@ -1914,8 +1924,8 @@ await got('https://example.com', {cookieJar});
 You can use the [`form-data`](https://github.com/form-data/form-data) package to create POST request with form data:
 
 ```js
-const fs = require('fs');
-const got = require('got');
+import fs from 'fs';
+import got from 'got';
 const FormData = require('form-data');
 
 const form = new FormData();
@@ -1932,7 +1942,7 @@ got.post('https://example.com', {
 You can use the [`oauth-1.0a`](https://github.com/ddo/oauth-1.0a) package to create a signed OAuth request:
 
 ```js
-const got = require('got');
+import got from 'got';
 const crypto  = require('crypto');
 const OAuth = require('oauth-1.0a');
 
@@ -1967,7 +1977,7 @@ Requests can also be sent via [unix domain sockets](http://serverfault.com/quest
 - `PATH` - Request path, for example: `/v2/keys`
 
 ```js
-const got = require('got');
+import got from 'got';
 
 await got('http://unix:/var/run/docker.sock:/containers/json');
 
@@ -1994,7 +2004,7 @@ const response = await awsClient('https://<api-id>.execute-api.<api-region>.amaz
 You can test your requests by using the [`nock`](https://github.com/node-nock/nock) package to mock an endpoint:
 
 ```js
-const got = require('got');
+import got from 'got';
 const nock = require('nock');
 
 nock('https://sindresorhus.com')
@@ -2009,7 +2019,7 @@ console.log(response.body);
 Bear in mind, that by default `nock` mocks only one request. Got will [retry](#retry) on failed requests by default, causing a `No match for request ...` error. The solution is to either disable retrying (set `options.retry` to `0`) or call `.persist()` on the mocked request.
 
 ```js
-const got = require('got');
+import got from 'got';
 const nock = require('nock');
 
 const scope = nock('https://sindresorhus.com')
@@ -2059,7 +2069,7 @@ test('retry function gets iteration count', withServer, async (t, server, got) =
 To pass an object as the body, you need to use the `json` option. It will be stringified using `JSON.stringify`. Example:
 
 ```js
-const got = require('got');
+import got from 'got';
 
 const {body} = await got.post('https://httpbin.org/anything', {
 	json: {
@@ -2075,7 +2085,7 @@ console.log(body.data);
 To receive a JSON body you can either set `responseType` option to `json` or use `promise.json()`. Example:
 
 ```js
-const got = require('got');
+import got from 'got';
 
 const body = await got.post('https://httpbin.org/anything', {
 	json: {
@@ -2092,7 +2102,7 @@ console.log(body);
 It's a good idea to set the `'user-agent'` header so the provider can more easily see how their resource is used. By default, it's the URL to this repo. You can omit this header by setting it to `undefined`.
 
 ```js
-const got = require('got');
+import got from 'got';
 const pkg = require('./package.json');
 
 await got('https://sindresorhus.com', {
@@ -2117,7 +2127,7 @@ Bear in mind; if you send an `if-modified-since` header and receive a `304 Not M
 Use `got.extend()` to make it nicer to work with REST APIs. Especially if you use the `prefixUrl` option.
 
 ```js
-const got = require('got');
+import got from 'got';
 const pkg = require('./package.json');
 
 const custom = got.extend({

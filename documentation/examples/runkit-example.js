@@ -1,4 +1,4 @@
-const got = require('got');
+import got from 'got';
 
 const issUrl = 'http://api.open-notify.org/iss-now.json';
 

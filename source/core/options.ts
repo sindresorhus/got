@@ -106,7 +106,7 @@ export interface Hooks {
 
 	@example
 	```
-	const got = require('got');
+	import got from 'got';
 
 	got('https://example.com', {
 		hooks: {
@@ -134,7 +134,7 @@ export interface Hooks {
 
 	@example
 	```
-	const got = require('got');
+	import got from 'got';
 
 	got('https://api.github.com/some-endpoint', {
 		hooks: {
@@ -167,7 +167,7 @@ export interface Hooks {
 
 	@example
 	```
-	const got = require('got');
+	import got from 'got';
 
 	got.post('https://example.com', {
 		hooks: {
@@ -195,7 +195,7 @@ export interface Hooks {
 
 	@example
 	```
-	const got = require('got');
+	import got from 'got';
 
 	const instance = got.extend({
 		hooks: {
@@ -401,7 +401,7 @@ export interface PaginationOptions<ElementType, BodyType> {
 
 	@example
 	```
-	const got = require('got');
+	import got from 'got';
 
 	const limit = 10;
 
@@ -884,11 +884,12 @@ export default class Options {
 
 	@example
 	```
-	const got = require('got');
-	const HttpAgent = require('agentkeepalive');
+	import got from 'got';
+	import HttpAgent from 'agentkeepalive';
+
 	const {HttpsAgent} = HttpAgent;
 
-	got('https://sindresorhus.com', {
+	await got('https://sindresorhus.com', {
 		agent: {
 			http: new HttpAgent(),
 			https: new HttpsAgent()
@@ -998,7 +999,7 @@ export default class Options {
 
 	@example
 	```
-	const got = require('got');
+	import got from 'got';
 
 	await got('unicorn', {prefixUrl: 'https://cats.com'});
 	//=> 'https://cats.com/unicorn'
@@ -1270,7 +1271,7 @@ export default class Options {
 
 	@example
 	```
-	const got = require('got');
+	import got from 'got';
 
 	const searchParameters = new URLSearchParams([['key', 'a'], ['key', 'b']]);
 
@@ -1388,7 +1389,7 @@ export default class Options {
 
 	@example
 	```
-	const got = require('got');
+	import got from 'got';
 
 	const instance = got.extend({
 		hooks: {
@@ -1604,7 +1605,7 @@ export default class Options {
 
 	@example
 	```
-	const got = require('got');
+	import got from 'got';
 
 	const {headers} = await got('https://nghttp2.org/httpbin/anything', {http2: true});
 	console.log(headers.via);
@@ -1705,8 +1706,8 @@ export default class Options {
 
 	@example
 	```
-	const got = require('got');
-	const Bourne = require('@hapi/bourne');
+	import got from 'got';
+	import Bourne from '@hapi/bourne';
 
 	const parsed = await got('https://example.com', {
 		parseJson: text => Bourne.parse(text)
@@ -1730,7 +1731,7 @@ export default class Options {
 
 	@example
 	```
-	const got = require('got');
+	import got from 'got';
 
 	await got.post('https://example.com', {
 		stringifyJson: object => JSON.stringify(object, (key, value) => {
@@ -1749,7 +1750,7 @@ export default class Options {
 
 	@example
 	```
-	const got = require('got');
+	import got from 'got';
 
 	await got.post('https://example.com', {
 		stringifyJson: object => JSON.stringify(object, (key, value) => {
