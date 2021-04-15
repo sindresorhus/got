@@ -1,7 +1,7 @@
-import {RequestError} from './errors';
+import {RequestError} from './errors.js';
 import type {IncomingMessageWithTimings, Timings} from '@szmarczak/http-timer';
-import type Request from '.';
-import type {ParseJsonFunction, ResponseType} from './options';
+import type Request from './index.js';
+import type {ParseJsonFunction, ResponseType} from './options.js';
 
 export interface PlainResponse extends IncomingMessageWithTimings {
 	/**

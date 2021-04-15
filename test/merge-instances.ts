@@ -1,7 +1,7 @@
 import test from 'ava';
 import {Handler} from 'express';
-import got, {BeforeRequestHook, Got, Headers} from '../source/index';
-import withServer from './helpers/with-server';
+import got, {BeforeRequestHook, Got, Headers} from '../source/index.js';
+import withServer from './helpers/with-server.js';
 
 const echoHeaders: Handler = (request, response) => {
 	response.end(JSON.stringify(request.headers));

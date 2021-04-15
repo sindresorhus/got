@@ -1,5 +1,5 @@
 import test from 'ava';
-import parseLinkHeader from '../source/core/parse-link-header';
+import parseLinkHeader from '../source/core/parse-link-header.js';
 
 test('works as expected', t => {
 	t.deepEqual(

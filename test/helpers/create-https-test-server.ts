@@ -1,8 +1,8 @@
-import * as https from 'https';
-import * as net from 'net';
-import * as express from 'express';
-import * as pify from 'pify';
-import * as pem from 'pem';
+import https from 'https';
+import net from 'net';
+import express from 'express';
+import pify from 'pify';
+import pem from 'pem';
 
 export type HttpsServerOptions = {
 	commonName?: string;

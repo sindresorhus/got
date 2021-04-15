@@ -1,6 +1,6 @@
 import {Readable} from 'stream';
 import {Clock} from '@sinonjs/fake-timers';
-import delay = require('delay');
+import delay from 'delay';
 
 export default (clock?: Clock): Readable => {
 	let i = 0;

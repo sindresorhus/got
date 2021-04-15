@@ -1,14 +1,14 @@
-import * as http from 'http';
-import * as net from 'net';
-import * as express from 'express';
-import * as pify from 'pify';
-import * as bodyParser from 'body-parser';
+import http from 'http';
+import net from 'net';
+import express, {Express, NextFunction} from 'express';
+import pify from 'pify';
+import bodyParser from 'body-parser';
 
 export type HttpServerOptions = {
-	bodyParser?: express.NextFunction | false;
+	bodyParser?: NextFunction | false;
 };
 
-export interface ExtendedHttpTestServer extends express.Express {
+export interface ExtendedHttpTestServer extends Express {
 	http: http.Server;
 	url: string;
 	port: number;

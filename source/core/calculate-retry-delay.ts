@@ -1,4 +1,4 @@
-import type {RetryFunction} from './options';
+import type {RetryFunction} from './options.js';
 
 type Returns<T extends (...args: any) => unknown, V> = (...args: Parameters<T>) => V;
 

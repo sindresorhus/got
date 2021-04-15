@@ -1,10 +1,10 @@
-import * as fs from 'fs';
-import * as path from 'path';
+import fs from 'fs';
+import path from 'path';
 import test from 'ava';
 import {Handler} from 'express';
-import * as FormData from 'form-data';
-import got, {Headers} from '../source/index';
-import withServer from './helpers/with-server';
+import FormData from 'form-data';
+import got, {Headers} from '../source/index.js';
+import withServer from './helpers/with-server.js';
 
 const supportsBrotli = typeof (process.versions as any).brotli === 'string';
 

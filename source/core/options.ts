@@ -3,11 +3,11 @@ import {URL, URLSearchParams} from 'url';
 import {checkServerIdentity} from 'tls';
 import {request as httpRequest} from 'http';
 import {request as httpsRequest} from 'https';
-import http2wrapper = require('http2-wrapper');
+import http2wrapper from 'http2-wrapper';
 import CacheableLookup from 'cacheable-lookup';
-import lowercaseKeys = require('lowercase-keys');
+import lowercaseKeys from 'lowercase-keys';
 import is, {assert} from '@sindresorhus/is';
-import parseLinkHeader from './parse-link-header';
+import parseLinkHeader from './parse-link-header.js';
 import type {Readable} from 'stream';
 import type {Socket} from 'net';
 import type {SecureContextOptions, DetailedPeerCertificate} from 'tls';
@@ -20,13 +20,13 @@ import type {
 	Agent as HttpsAgent
 } from 'https';
 import type {InspectOptions} from 'util';
-import type CacheableRequest = require('cacheable-request');
-import type ResponseLike = require('responselike');
+import type CacheableRequest from 'cacheable-request';
+import type ResponseLike from 'responselike';
 import type {IncomingMessageWithTimings} from '@szmarczak/http-timer';
-import type {Delays} from './timed-out';
-import type {RequestError} from './errors';
-import type {PlainResponse, Response} from './response';
-import type {CancelableRequest} from '../as-promise/types';
+import type {Delays} from './timed-out.js';
+import type {RequestError} from './errors.js';
+import type {PlainResponse, Response} from './response.js';
+import type {CancelableRequest} from '../as-promise/types.js';
 
 const [major, minor] = process.versions.node.split('.').map(v => Number(v)) as [number, number, number];
 

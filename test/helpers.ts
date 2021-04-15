@@ -1,6 +1,6 @@
 import test from 'ava';
-import got, {HTTPError} from '../source/index';
-import withServer from './helpers/with-server';
+import got, {HTTPError} from '../source/index.js';
+import withServer from './helpers/with-server.js';
 
 test('works', withServer, async (t, server) => {
 	server.get('/', (_request, response) => {

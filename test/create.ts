@@ -10,8 +10,8 @@ import got, {
 	Options,
 	OptionsInit,
 	RequestFunction
-} from '../source/index';
-import withServer from './helpers/with-server';
+} from '../source/index.js';
+import withServer from './helpers/with-server.js';
 
 const echoHeaders: Handler = (request, response) => {
 	request.resume();

@@ -1,8 +1,8 @@
 import test from 'ava';
 import {Handler} from 'express';
-import * as getStream from 'get-stream';
-import {HTTPError, ParseError} from '../source/index';
-import withServer from './helpers/with-server';
+import getStream from 'get-stream';
+import {HTTPError, ParseError} from '../source/index.js';
+import withServer from './helpers/with-server.js';
 
 const dog = {data: 'dog'};
 const jsonResponse = JSON.stringify(dog);

@@ -2,8 +2,8 @@ import {Agent as HttpAgent} from 'http';
 import {Agent as HttpsAgent} from 'https';
 import {Socket} from 'net';
 import test, {Constructor} from 'ava';
-import * as sinon from 'sinon';
-import withServer, {withHttpsServer} from './helpers/with-server';
+import sinon from 'sinon';
+import withServer, {withHttpsServer} from './helpers/with-server.js';
 
 const createAgentSpy = <T extends HttpsAgent>(AgentClass: Constructor): {agent: T; spy: sinon.SinonSpy} => {
 	const agent: T = new AgentClass({keepAlive: true});

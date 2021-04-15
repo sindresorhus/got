@@ -1,8 +1,8 @@
 import {format} from 'util';
 import test from 'ava';
 import {Handler} from 'express';
-import got from '../source/index';
-import {withSocketServer} from './helpers/with-server';
+import got from '../source/index.js';
+import {withSocketServer} from './helpers/with-server.js';
 
 const okHandler: Handler = (_request, response) => {
 	response.end('ok');

@@ -1,7 +1,7 @@
 import {promisify} from 'util';
 import {ClientRequestArgs} from 'http';
 import is from '@sindresorhus/is';
-import isFormData from './is-form-data';
+import isFormData from './is-form-data.js';
 
 export default async (body: unknown, headers: ClientRequestArgs['headers']): Promise<number | undefined> => {
 	if (headers && 'content-length' in headers) {

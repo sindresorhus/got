@@ -1,10 +1,10 @@
 import {URL} from 'url';
-import * as https from 'https';
+import https from 'https';
 import axios from 'axios';
-import * as Benchmark from 'benchmark';
+import Benchmark from 'benchmark';
 import fetch from 'node-fetch';
-import * as request from 'request';
-import got from '../source/index';
+import request from 'request';
+import got from '../source/index.js';
 import Request from '../source/core/index';
 import Options, {OptionsInit} from '../source/core/options';
 
