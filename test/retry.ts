@@ -565,3 +565,35 @@ test('reuses request options on retry', withServer, async (t, server, got) => {
 	t.is(retryCount, 1);
 	t.is(accept, 'application/json');
 });
+
+test('respects backoffLimit', withServer, async (t, server, got) => {
+	let count = 0;
+	let timestamp = Date.now();
+	const data: number[] = [];
+
+	server.get('/', (_request, response) => {
+		count++;
+
+		const now = Date.now();
+		data.push(now - timestamp);
+		timestamp = now;
+
+		if (count === 3) {
+			response.end(JSON.stringify(data));
+		} else {
+			response.statusCode = 408;
+			response.end();
+		}
+	});
+
+	const body = await got('', {
+		retry: {
+			backoffLimit: 0
+		}
+	}).json<number[]>();
+
+	t.is(body.length, 3);
+	t.true(body[0]! < 200);
+	t.true(body[1]! < 200);
+	t.true(body[2]! < 200);
+});

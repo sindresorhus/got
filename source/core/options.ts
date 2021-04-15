@@ -293,6 +293,7 @@ export interface RetryOptions {
 	statusCodes: number[];
 	errorCodes: string[];
 	calculateDelay: RetryFunction;
+	backoffLimit: number;
 	maxRetryAfter?: number;
 }
 
@@ -460,6 +461,7 @@ export interface PaginationOptions<ElementType, BodyType> {
 	@default 0
 	*/
 	backoff?: number;
+
 	/**
 	The maximum amount of request that should be triggered.
 	Retries on failure are not counted towards this limit.
@@ -616,7 +618,8 @@ const defaultInternals: Options['_internals'] = {
 			'EAI_AGAIN'
 		],
 		maxRetryAfter: undefined,
-		calculateDelay: ({computedValue}) => computedValue
+		calculateDelay: ({computedValue}) => computedValue,
+		backoffLimit: Number.POSITIVE_INFINITY
 	},
 	localAddress: undefined,
 	method: 'GET',

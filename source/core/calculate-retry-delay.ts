@@ -2,7 +2,13 @@ import type {RetryFunction} from './options';
 
 type Returns<T extends (...args: any) => unknown, V> = (...args: Parameters<T>) => V;
 
-const calculateRetryDelay: Returns<RetryFunction, number> = ({attemptCount, retryOptions, error, retryAfter, computedValue}) => {
+const calculateRetryDelay: Returns<RetryFunction, number> = ({
+	attemptCount,
+	retryOptions,
+	error,
+	retryAfter,
+	computedValue
+}) => {
 	if (error.name === 'RetryError') {
 		return 1;
 	}
@@ -34,7 +40,7 @@ const calculateRetryDelay: Returns<RetryFunction, number> = ({attemptCount, retr
 	}
 
 	const noise = Math.random() * 100;
-	return ((2 ** (attemptCount - 1)) * 1000) + noise;
+	return Math.min(((2 ** (attemptCount - 1)) * 1000), retryOptions.backoffLimit) + noise;
 };
 
 export default calculateRetryDelay;
