@@ -19,12 +19,12 @@ jobs:
           - windows-latest
     steps:
       - uses: actions/checkout@v2
-      - uses: actions/setup-node@v1
+      - uses: actions/setup-node@v2
         with:
           node-version: ${{ matrix.node-version }}
       - run: npm install
       - run: npm test
-      - uses: codecov/codecov-action@v1
-        if: matrix.os == 'ubuntu-latest' && matrix.node-version == 14
-        with:
-          fail_ci_if_error: true
+      # - uses: codecov/codecov-action@v1
+      #   if: matrix.os == 'ubuntu-latest' && matrix.node-version == 14
+      #   with:
+      #     fail_ci_if_error: true

@@ -6,9 +6,9 @@
 		"lib": [
 			"es2019"
 		],
-		"allowSyntheticDefaultImports": false,
-		// "esModuleInterop": true
-		// "module": "es2020"
+		"allowSyntheticDefaultImports": true,
+		"module": "ES2020",
+		"moduleResolution": "node"
 	},
 	"include": [
 		"source",

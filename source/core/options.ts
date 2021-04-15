@@ -3,11 +3,11 @@ import {URL, URLSearchParams} from 'url';
 import {checkServerIdentity} from 'tls';
 import {request as httpRequest} from 'http';
 import {request as httpsRequest} from 'https';
-import http2wrapper = require('http2-wrapper');
+import http2wrapper from 'http2-wrapper';
 import CacheableLookup from 'cacheable-lookup';
-import lowercaseKeys = require('lowercase-keys');
+import lowercaseKeys from 'lowercase-keys';
 import is, {assert} from '@sindresorhus/is';
-import parseLinkHeader from './parse-link-header';
+import parseLinkHeader from './parse-link-header.js';
 import type {Readable} from 'stream';
 import type {Socket} from 'net';
 import type {SecureContextOptions, DetailedPeerCertificate} from 'tls';
@@ -20,13 +20,13 @@ import type {
 	Agent as HttpsAgent
 } from 'https';
 import type {InspectOptions} from 'util';
-import type CacheableRequest = require('cacheable-request');
-import type ResponseLike = require('responselike');
+import type CacheableRequest from 'cacheable-request';
+import type ResponseLike from 'responselike';
 import type {IncomingMessageWithTimings} from '@szmarczak/http-timer';
-import type {Delays} from './timed-out';
-import type {RequestError} from './errors';
-import type {PlainResponse, Response} from './response';
-import type {CancelableRequest} from '../as-promise/types';
+import type {Delays} from './timed-out.js';
+import type {RequestError} from './errors.js';
+import type {PlainResponse, Response} from './response.js';
+import type {CancelableRequest} from '../as-promise/types.js';
 
 const [major, minor] = process.versions.node.split('.').map(v => Number(v)) as [number, number, number];
 
@@ -106,9 +106,9 @@ export interface Hooks {
 
 	@example
 	```
-	const got = require('got');
+	import got from 'got';
 
-	got('https://example.com', {
+	await got('https://example.com', {
 		hooks: {
 			beforeRedirect: [
 				(options, response) => {
@@ -134,9 +134,9 @@ export interface Hooks {
 
 	@example
 	```
-	const got = require('got');
+	import got from 'got';
 
-	got('https://api.github.com/some-endpoint', {
+	await got('https://api.github.com/some-endpoint', {
 		hooks: {
 			beforeError: [
 				error => {
@@ -167,7 +167,7 @@ export interface Hooks {
 
 	@example
 	```
-	const got = require('got');
+	import got from 'got';
 
 	got.post('https://example.com', {
 		hooks: {
@@ -195,7 +195,7 @@ export interface Hooks {
 
 	@example
 	```
-	const got = require('got');
+	import got from 'got';
 
 	const instance = got.extend({
 		hooks: {
@@ -323,7 +323,7 @@ export interface HttpsOptions {
 	@example
 	```
 	// Single Certificate Authority
-	got('https://example.com', {
+	await got('https://example.com', {
 		https: {
 			certificateAuthority: fs.readFileSync('./my_ca.pem')
 		}
@@ -401,37 +401,35 @@ export interface PaginationOptions<ElementType, BodyType> {
 
 	@example
 	```
-	const got = require('got');
+	import got from 'got';
 
-	(async () => {
-		const limit = 10;
+	const limit = 10;
 
-		const items = got.paginate('https://example.com/items', {
-			searchParameters: {
-				limit,
-				offset: 0
-			},
-			pagination: {
-				paginate: ({response, currentItems}) => {
-					const previousSearchParams = response.request.options.searchParameters;
-					const previousOffset = previousSearchParams.get('offset');
+	const items = got.paginate('https://example.com/items', {
+		searchParameters: {
+			limit,
+			offset: 0
+		},
+		pagination: {
+			paginate: ({response, currentItems}) => {
+				const previousSearchParams = response.request.options.searchParameters;
+				const previousOffset = previousSearchParams.get('offset');
 
-					if (currentItems.length < limit) {
-						return false;
-					}
-
-					return {
-						searchParameters: {
-							...previousSearchParams,
-							offset: Number(previousOffset) + limit,
-						}
-					};
+				if (currentItems.length < limit) {
+					return false;
 				}
-			}
-		});
 
-		console.log('Items from all pages:', items);
-	})();
+				return {
+					searchParameters: {
+						...previousSearchParams,
+						offset: Number(previousOffset) + limit,
+					}
+				};
+			}
+		}
+	});
+
+	console.log('Items from all pages:', items);
 	```
 	*/
 	paginate?: (data: PaginateData<BodyType, ElementType>) => OptionsInit | false;
@@ -886,11 +884,12 @@ export default class Options {
 
 	@example
 	```
-	const got = require('got');
-	const HttpAgent = require('agentkeepalive');
+	import got from 'got';
+	import HttpAgent from 'agentkeepalive';
+
 	const {HttpsAgent} = HttpAgent;
 
-	got('https://sindresorhus.com', {
+	await got('https://sindresorhus.com', {
 		agent: {
 			http: new HttpAgent(),
 			https: new HttpsAgent()
@@ -1000,27 +999,25 @@ export default class Options {
 
 	@example
 	```
-	const got = require('got');
+	import got from 'got';
 
-	(async () => {
-		await got('unicorn', {prefixUrl: 'https://cats.com'});
-		//=> 'https://cats.com/unicorn'
+	await got('unicorn', {prefixUrl: 'https://cats.com'});
+	//=> 'https://cats.com/unicorn'
 
-		const instance = got.extend({
-			prefixUrl: 'https://google.com'
-		});
+	const instance = got.extend({
+		prefixUrl: 'https://google.com'
+	});
 
-		await instance('unicorn', {
-			hooks: {
-				beforeRequest: [
-					options => {
-						options.prefixUrl = 'https://cats.com';
-					}
-				]
-			}
-		});
-		//=> 'https://cats.com/unicorn'
-	})();
+	await instance('unicorn', {
+		hooks: {
+			beforeRequest: [
+				options => {
+					options.prefixUrl = 'https://cats.com';
+				}
+			]
+		}
+	});
+	//=> 'https://cats.com/unicorn'
 	```
 	*/
 	get prefixUrl(): string | URL {
@@ -1141,11 +1138,11 @@ export default class Options {
 
 	@example
 	```
-	got('https://example.com/?query=a b'); //=> https://example.com/?query=a%20b
-	got('https://example.com/', {searchParameters: {query: 'a b'}}); //=> https://example.com/?query=a+b
+	await got('https://example.com/?query=a b'); //=> https://example.com/?query=a%20b
+	await got('https://example.com/', {searchParameters: {query: 'a b'}}); //=> https://example.com/?query=a+b
 
 	// The query string is overridden by `searchParameters`
-	got('https://example.com/?query=a b', {searchParameters: {query: 'a b'}}); //=> https://example.com/?query=a+b
+	await got('https://example.com/?query=a b', {searchParameters: {query: 'a b'}}); //=> https://example.com/?query=a+b
 	```
 	*/
 	get url(): string | URL | undefined {
@@ -1274,11 +1271,11 @@ export default class Options {
 
 	@example
 	```
-	const got = require('got');
+	import got from 'got';
 
 	const searchParameters = new URLSearchParams([['key', 'a'], ['key', 'b']]);
 
-	got('https://example.com', {searchParameters});
+	await got('https://example.com', {searchParameters});
 
 	console.log(searchParameters.toString());
 	//=> 'key=a&key=b'
@@ -1392,7 +1389,7 @@ export default class Options {
 
 	@example
 	```
-	const got = require('got');
+	import got from 'got';
 
 	const instance = got.extend({
 		hooks: {
@@ -1408,16 +1405,14 @@ export default class Options {
 		}
 	});
 
-	(async () => {
-		const context = {
-			token: 'secret'
-		};
+	const context = {
+		token: 'secret'
+	};
 
-		const response = await instance('https://httpbin.org/headers', {context});
+	const response = await instance('https://httpbin.org/headers', {context});
 
-		// Let's see the headers
-		console.log(response.body);
-	})();
+	// Let's see the headers
+	console.log(response.body);
 	```
 	*/
 	get context(): Record<string, unknown> {
@@ -1610,13 +1605,12 @@ export default class Options {
 
 	@example
 	```
-	const got = require('got');
+	import got from 'got';
 
-	(async () => {
-		const {headers} = await got('https://nghttp2.org/httpbin/anything', {http2: true});
-		console.log(headers.via);
-		//=> '2 nghttpx'
-	})();
+	const {headers} = await got('https://nghttp2.org/httpbin/anything', {http2: true});
+
+	console.log(headers.via);
+	//=> '2 nghttpx'
 	```
 	*/
 	get http2(): boolean {
@@ -1713,16 +1707,14 @@ export default class Options {
 
 	@example
 	```
-	const got = require('got');
-	const Bourne = require('@hapi/bourne');
+	import got from 'got';
+	import Bourne from '@hapi/bourne';
 
-	(async () => {
-		const parsed = await got('https://example.com', {
-			parseJson: text => Bourne.parse(text)
-		}).json();
+	const parsed = await got('https://example.com', {
+		parseJson: text => Bourne.parse(text)
+	}).json();
 
-		console.log(parsed);
-	})();
+	console.log(parsed);
 	```
 	*/
 	get parseJson(): ParseJsonFunction {
@@ -1740,44 +1732,40 @@ export default class Options {
 
 	@example
 	```
-	const got = require('got');
+	import got from 'got';
 
-	(async () => {
-		await got.post('https://example.com', {
-			stringifyJson: object => JSON.stringify(object, (key, value) => {
-				if (key.startsWith('_')) {
-					return;
-				}
-
-				return value;
-			}),
-			json: {
-				some: 'payload',
-				_ignoreMe: 1234
+	await got.post('https://example.com', {
+		stringifyJson: object => JSON.stringify(object, (key, value) => {
+			if (key.startsWith('_')) {
+				return;
 			}
-		});
-	})();
+
+			return value;
+		}),
+		json: {
+			some: 'payload',
+			_ignoreMe: 1234
+		}
+	});
 	```
 
 	@example
 	```
-	const got = require('got');
+	import got from 'got';
 
-	(async () => {
-		await got.post('https://example.com', {
-			stringifyJson: object => JSON.stringify(object, (key, value) => {
-				if (typeof value === 'number') {
-					return value.toString();
-				}
-
-				return value;
-			}),
-			json: {
-				some: 'payload',
-				number: 1
+	await got.post('https://example.com', {
+		stringifyJson: object => JSON.stringify(object, (key, value) => {
+			if (typeof value === 'number') {
+				return value.toString();
 			}
-		});
-	})();
+
+			return value;
+		}),
+		json: {
+			some: 'payload',
+			number: 1
+		}
+	});
 	```
 	*/
 	get stringifyJson(): StringifyJsonFunction {
@@ -2013,16 +2001,14 @@ export default class Options {
 
 	@example
 	```
-	(async () => {
-		const responsePromise = got(url);
-		const bufferPromise = responsePromise.buffer();
-		const jsonPromise = responsePromise.json();
+	const responsePromise = got(url);
+	const bufferPromise = responsePromise.buffer();
+	const jsonPromise = responsePromise.json();
 
-		const [response, buffer, json] = Promise.all([responsePromise, bufferPromise, jsonPromise]);
-		// `response` is an instance of Got Response
-		// `buffer` is an instance of Buffer
-		// `json` is an object
-	})();
+	const [response, buffer, json] = Promise.all([responsePromise, bufferPromise, jsonPromise]);
+	// `response` is an instance of Got Response
+	// `buffer` is an instance of Buffer
+	// `json` is an object
 	```
 
 	@example

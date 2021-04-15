@@ -1,10 +1,10 @@
 import test from 'ava';
 import {DetailedPeerCertificate} from 'tls';
 import pEvent from 'p-event';
-import * as pify from 'pify';
-import * as pem from 'pem';
-import got from '../source/index';
-import {withHttpsServer} from './helpers/with-server';
+import pify from 'pify';
+import pem from 'pem';
+import got from '../source/index.js';
+import {withHttpsServer} from './helpers/with-server.js';
 
 const createPrivateKey = pify(pem.createPrivateKey);
 const createCSR = pify(pem.createCSR);

@@ -1,13 +1,13 @@
 import {STATUS_CODES, Agent} from 'http';
-import * as os from 'os';
+import os from 'os';
 import {isIPv4, isIPv6} from 'net';
 import test from 'ava';
 import {Handler} from 'express';
-import * as nock from 'nock';
-import * as getStream from 'get-stream';
+import nock from 'nock';
+import getStream from 'get-stream';
 import pEvent from 'p-event';
-import got, {HTTPError, ReadError, RequestError} from '../source/index';
-import withServer from './helpers/with-server';
+import got, {HTTPError, ReadError, RequestError} from '../source/index.js';
+import withServer from './helpers/with-server.js';
 
 const IPv6supported = Object.values(os.networkInterfaces()).some(iface => iface?.some(addr => !addr.internal && addr.family === 'IPv6'));
 

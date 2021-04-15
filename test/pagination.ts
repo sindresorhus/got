@@ -1,9 +1,9 @@
 import {URL} from 'url';
 import test from 'ava';
-import * as delay from 'delay';
-import * as getStream from 'get-stream';
-import got, {Response} from '../source/index';
-import withServer, {withBodyParsingServer} from './helpers/with-server';
+import delay from 'delay';
+import getStream from 'get-stream';
+import got, {Response} from '../source/index.js';
+import withServer, {withBodyParsingServer} from './helpers/with-server.js';
 import {ExtendedHttpTestServer} from './helpers/create-http-test-server';
 
 const thrower = (): any => {

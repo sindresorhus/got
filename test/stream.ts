@@ -1,19 +1,18 @@
 import {promisify} from 'util';
-import * as fs from 'fs';
+import fs from 'fs';
 import {Agent as HttpAgent} from 'http';
-import {PassThrough as PassThroughStream, Readable as ReadableStream} from 'stream';
+import stream, {PassThrough as PassThroughStream, Readable as ReadableStream} from 'stream';
 import {Readable as Readable2} from 'readable-stream';
-import * as stream from 'stream';
 import test from 'ava';
 import {Handler} from 'express';
-import * as toReadableStream from 'to-readable-stream';
-import * as getStream from 'get-stream';
-import * as pEvent from 'p-event';
-import * as FormData from 'form-data';
+import toReadableStream from 'to-readable-stream';
+import getStream from 'get-stream';
+import pEvent from 'p-event';
+import FormData from 'form-data';
 import is from '@sindresorhus/is';
-import got, {HTTPError, RequestError} from '../source/index';
-import withServer from './helpers/with-server';
-import delay = require('delay');
+import delay from 'delay';
+import got, {HTTPError, RequestError} from '../source/index.js';
+import withServer from './helpers/with-server.js';
 
 const pStreamPipeline = promisify(stream.pipeline);
 

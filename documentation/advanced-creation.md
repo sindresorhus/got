@@ -82,7 +82,7 @@ const httpbin = got.extend({
 #### Signing requests
 
 ```js
-const crypto = require('crypto');
+import crypto from 'crypto';
 
 const getMessageSignature = (data, secret) => crypto.createHmac('sha256', secret).update(data).digest('hex').toUpperCase();
 const signRequest = got.extend({
@@ -105,22 +105,20 @@ If these instances are different modules and you don't want to rewrite them, use
 ```js
 const merged = got.extend(controlRedirects, limitDownloadUpload, httpbin, signRequest, noUserAgent);
 
-(async () => {
-	// There's no 'user-agent' header :)
-	await merged('/');
-	/* HTTP Request =>
-	 * GET / HTTP/1.1
-	 * accept-encoding: gzip, deflate, br
-	 * sign: F9E66E179B6747AE54108F82F8ADE8B3C25D76FD30AFDE6C395822C530196169
-	 * Host: httpbin.org
-	 * Connection: close
-	 */
+// There's no 'user-agent' header :)
+await merged('/');
+/* HTTP Request =>
+ * GET / HTTP/1.1
+ * accept-encoding: gzip, deflate, br
+ * sign: F9E66E179B6747AE54108F82F8ADE8B3C25D76FD30AFDE6C395822C530196169
+ * Host: httpbin.org
+ * Connection: close
+ */
 
-	const MEGABYTE = 1048576;
-	await merged('https://ipv4.download.thinkbroadband.com/5MB.zip', {downloadLimit: MEGABYTE, prefixUrl: ''});
-	// CancelError: Exceeded the download limit of 1048576 bytes
+const MEGABYTE = 1048576;
+await merged('https://ipv4.download.thinkbroadband.com/5MB.zip', {downloadLimit: MEGABYTE, prefixUrl: ''});
+// CancelError: Exceeded the download limit of 1048576 bytes
 
-	await merged('https://jigsaw.w3.org/HTTP/300/301.html', {allowedHosts: ['google.com'], prefixUrl: ''});
-	// CancelError: Redirection to jigsaw.w3.org is not allowed
-})();
+await merged('https://jigsaw.w3.org/HTTP/300/301.html', {allowedHosts: ['google.com'], prefixUrl: ''});
+// CancelError: Redirection to jigsaw.w3.org is not allowed
 ```

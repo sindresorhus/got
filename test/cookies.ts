@@ -1,9 +1,9 @@
-import * as net from 'net';
+import net from 'net';
 import test from 'ava';
-import * as toughCookie from 'tough-cookie';
-import * as delay from 'delay';
-import got from '../source/index';
-import withServer from './helpers/with-server';
+import toughCookie from 'tough-cookie';
+import delay from 'delay';
+import got from '../source/index.js';
+import withServer from './helpers/with-server.js';
 
 test('reads a cookie', withServer, async (t, server, got) => {
 	server.get('/', (_request, response) => {

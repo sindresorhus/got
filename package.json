@@ -5,12 +5,13 @@
 	"license": "MIT",
 	"repository": "sindresorhus/got",
 	"funding": "https://github.com/sindresorhus/got?sponsor=1",
-	"main": "dist/source",
+	"type": "module",
+	"exports": "./dist/source/index.js",
 	"engines": {
 		"node": ">=12.13"
 	},
 	"scripts": {
-		"test": "xo && nyc ava",
+		"test": "xo && ava",
 		"release": "np",
 		"build": "del-cli dist && tsc",
 		"prepare": "npm run build"
@@ -57,7 +58,6 @@
 		"responselike": "^2.0.0"
 	},
 	"devDependencies": {
-		"@ava/typescript": "^2.0.0",
 		"@sindresorhus/tsconfig": "^0.8.0",
 		"@sinonjs/fake-timers": "^6.0.1",
 		"@types/benchmark": "^2.1.0",
@@ -94,6 +94,7 @@
 		"tempy": "^1.0.0",
 		"to-readable-stream": "^2.1.0",
 		"tough-cookie": "^4.0.0",
+		"ts-node": "^9.1.1",
 		"typescript": "4.2.2",
 		"xo": "^0.38.1"
 	},
@@ -104,15 +105,16 @@
 			"test/*"
 		],
 		"timeout": "1m",
-		"typescript": {
-			"compile": "tsc",
-			"rewritePaths": {
-				"test/": "dist/test/"
-			}
-		},
 		"nonSemVerExperiments": {
-			"nextGenConfig": true
-		}
+			"nextGenConfig": true,
+			"configurableModuleFormat": true
+		},
+		"extensions": {
+			"ts": "module"
+		},
+		"nodeArguments": [
+			"--loader=ts-node/esm"
+		]
 	},
 	"nyc": {
 		"reporter": [

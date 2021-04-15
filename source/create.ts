@@ -1,6 +1,6 @@
 import {URL} from 'url';
 import is, {assert} from '@sindresorhus/is';
-import asPromise from './as-promise';
+import asPromise from './as-promise/index.js';
 import {
 	GotReturn,
 	ExtendOptions,
@@ -12,11 +12,11 @@ import {
 	GotRequestFunction,
 	OptionsWithPagination,
 	StreamOptions
-} from './types';
-import Request from './core/index';
-import {Response} from './core/response';
-import Options, {OptionsInit} from './core/options';
-import type {CancelableRequest} from './as-promise/types';
+} from './types.js';
+import Request from './core/index.js';
+import {Response} from './core/response.js';
+import Options, {OptionsInit} from './core/options.js';
+import type {CancelableRequest} from './as-promise/types.js';
 
 // The `delay` package weighs 10KB (!)
 const delay = async (ms: number) => new Promise(resolve => {

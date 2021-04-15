@@ -1,14 +1,14 @@
 import {EventEmitter} from 'events';
 import {PassThrough as PassThroughStream} from 'stream';
 import {Socket} from 'net';
-import * as http from 'http';
+import http from 'http';
 import test from 'ava';
 import is from '@sindresorhus/is';
 import {Handler} from 'express';
-import * as getStream from 'get-stream';
-import * as pEvent from 'p-event';
-import got, {HTTPError, TimeoutError} from '../source/index';
-import withServer from './helpers/with-server';
+import getStream from 'get-stream';
+import pEvent from 'p-event';
+import got, {HTTPError, TimeoutError} from '../source/index.js';
+import withServer from './helpers/with-server.js';
 
 const retryAfterOn413 = 2;
 const socketTimeout = 300;

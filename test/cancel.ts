@@ -1,16 +1,15 @@
 import {EventEmitter} from 'events';
-import {Readable as ReadableStream} from 'stream';
-import * as stream from 'stream';
+import stream, {Readable as ReadableStream} from 'stream';
 import test from 'ava';
-import * as delay from 'delay';
-import * as pEvent from 'p-event';
-import * as getStream from 'get-stream';
+import delay from 'delay';
+import pEvent from 'p-event';
+import getStream from 'get-stream';
 import {Handler} from 'express';
-import got, {CancelError, TimeoutError} from '../source/index';
-import slowDataStream from './helpers/slow-data-stream';
-import {GlobalClock} from './helpers/types';
-import {ExtendedHttpTestServer} from './helpers/create-http-test-server';
-import withServer, {withServerAndFakeTimers} from './helpers/with-server';
+import got, {CancelError, TimeoutError} from '../source/index.js';
+import slowDataStream from './helpers/slow-data-stream.js';
+import {GlobalClock} from './helpers/types.js';
+import {ExtendedHttpTestServer} from './helpers/create-http-test-server.js';
+import withServer, {withServerAndFakeTimers} from './helpers/with-server.js';
 
 const prepareServer = (server: ExtendedHttpTestServer, clock: GlobalClock): {emitter: EventEmitter; promise: Promise<unknown>} => {
 	const emitter = new EventEmitter();

@@ -1,9 +1,9 @@
 import is from '@sindresorhus/is';
-import type Options from './options';
+import type Options from './options.js';
 import type {Timings} from '@szmarczak/http-timer';
-import type {TimeoutError as TimedOutTimeoutError} from './timed-out';
-import type Request from '.';
-import type {PlainResponse, Response} from './response';
+import type {TimeoutError as TimedOutTimeoutError} from './timed-out.js';
+import type Request from './index.js';
+import type {PlainResponse, Response} from './response.js';
 
 type Error = NodeJS.ErrnoException;
 

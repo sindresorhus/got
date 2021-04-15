@@ -1,19 +1,19 @@
 import {promisify} from 'util';
-import * as test from 'ava';
+import {ExecutionContext, Macro} from 'ava'; // eslint-disable-line ava/use-test
 import is from '@sindresorhus/is';
-import * as http from 'http';
-import * as tempy from 'tempy';
-import createHttpsTestServer, {ExtendedHttpsTestServer, HttpsServerOptions} from './create-https-test-server';
-import createHttpTestServer, {ExtendedHttpTestServer, HttpServerOptions} from './create-http-test-server';
-import * as FakeTimers from '@sinonjs/fake-timers';
-import got, {Got, ExtendOptions} from '../../source/index';
-import {ExtendedHttpServer, GlobalClock, InstalledClock} from './types';
+import http from 'http';
+import tempy from 'tempy';
+import createHttpsTestServer, {ExtendedHttpsTestServer, HttpsServerOptions} from './create-https-test-server.js';
+import createHttpTestServer, {ExtendedHttpTestServer, HttpServerOptions} from './create-http-test-server.js';
+import FakeTimers from '@sinonjs/fake-timers';
+import got, {Got, ExtendOptions} from '../../source/index.js';
+import {ExtendedHttpServer, GlobalClock, InstalledClock} from './types.js';
 
-export type RunTestWithServer = (t: test.ExecutionContext, server: ExtendedHttpTestServer, got: Got, clock: GlobalClock) => Promise<void> | void;
-export type RunTestWithHttpsServer = (t: test.ExecutionContext, server: ExtendedHttpsTestServer, got: Got, fakeTimer?: GlobalClock) => Promise<void> | void;
-export type RunTestWithSocket = (t: test.ExecutionContext, server: ExtendedHttpServer) => Promise<void> | void;
+export type RunTestWithServer = (t: ExecutionContext, server: ExtendedHttpTestServer, got: Got, clock: GlobalClock) => Promise<void> | void;
+export type RunTestWithHttpsServer = (t: ExecutionContext, server: ExtendedHttpsTestServer, got: Got, fakeTimer?: GlobalClock) => Promise<void> | void;
+export type RunTestWithSocket = (t: ExecutionContext, server: ExtendedHttpServer) => Promise<void> | void;
 
-const generateHook = ({install, options: testServerOptions}: {install?: boolean; options?: HttpServerOptions}): test.Macro<[RunTestWithServer]> => async (t, run) => {
+const generateHook = ({install, options: testServerOptions}: {install?: boolean; options?: HttpServerOptions}): Macro<[RunTestWithServer]> => async (t, run) => {
 	const clock = install ? FakeTimers.install() : FakeTimers.createClock() as GlobalClock;
 
 	// Re-enable body parsing to investigate https://github.com/sindresorhus/got/issues/1186
@@ -61,7 +61,7 @@ export default generateHook({install: false});
 
 export const withServerAndFakeTimers = generateHook({install: true});
 
-const generateHttpsHook = (options?: HttpsServerOptions, installFakeTimer = false): test.Macro<[RunTestWithHttpsServer]> => async (t, run) => {
+const generateHttpsHook = (options?: HttpsServerOptions, installFakeTimer = false): Macro<[RunTestWithHttpsServer]> => async (t, run) => {
 	const fakeTimer = installFakeTimer ? FakeTimers.install() as GlobalClock : undefined;
 
 	const server = await createHttpsTestServer(options);
@@ -105,7 +105,7 @@ const generateHttpsHook = (options?: HttpsServerOptions, installFakeTimer = fals
 export const withHttpsServer = generateHttpsHook;
 
 // TODO: Remove this when `create-test-server` supports custom listen.
-export const withSocketServer: test.Macro<[RunTestWithSocket]> = async (t, run) => {
+export const withSocketServer: Macro<[RunTestWithSocket]> = async (t, run) => {
 	const socketPath = tempy.file({extension: 'socket'});
 
 	const server = http.createServer((request, response) => {

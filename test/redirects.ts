@@ -1,8 +1,8 @@
 import test from 'ava';
 import {Handler} from 'express';
-import * as nock from 'nock';
-import got, {MaxRedirectsError} from '../source/index';
-import withServer, {withHttpsServer} from './helpers/with-server';
+import nock from 'nock';
+import got, {MaxRedirectsError} from '../source/index.js';
+import withServer, {withHttpsServer} from './helpers/with-server.js';
 
 const reachedHandler: Handler = (_request, response) => {
 	const body = 'reached';

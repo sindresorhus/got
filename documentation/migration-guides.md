@@ -9,7 +9,7 @@ You may think it's too hard to switch, but it's really not. 🦄
 Let's take the very first example from Request's readme:
 
 ```js
-const request = require('request');
+import request from 'request';
 
 request('https://google.com', (error, response, body) => {
 	console.log('error:', error);
@@ -21,17 +21,15 @@ request('https://google.com', (error, response, body) => {
 With Got, it is:
 
 ```js
-const got = require('got');
+import got from 'got';
 
-(async () => {
-	try {
-		const response = await got('https://google.com');
-		console.log('statusCode:', response.statusCode);
-		console.log('body:', response.body);
-	} catch (error) {
-		console.log('error:', error);
-	}
-})();
+try {
+	const response = await got('https://google.com');
+	console.log('statusCode:', response.statusCode);
+	console.log('body:', response.body);
+} catch (error) {
+	console.log('error:', error);
+}
 ```
 
 Looks better now, huh? 😎
@@ -126,9 +124,9 @@ http.createServer((serverRequest, serverResponse) => {
 The cool feature here is that Request can proxy headers with the stream, but Got can do that too:
 
 ```js
-const stream = require('stream');
-const {promisify} = require('util');
-const got = require('got');
+import {promisify} from 'util';
+import stream from 'stream';
+import got from 'got';
 
 const pipeline = promisify(stream.pipeline);
 

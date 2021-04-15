@@ -1,9 +1,9 @@
 import {parse, URL, URLSearchParams} from 'url';
 import test from 'ava';
 import {Handler} from 'express';
-import * as pEvent from 'p-event';
-import got, {Options, StrictOptions} from '../source/index';
-import withServer, {withBodyParsingServer} from './helpers/with-server';
+import pEvent from 'p-event';
+import got, {Options, StrictOptions} from '../source/index.js';
+import withServer, {withBodyParsingServer} from './helpers/with-server.js';
 
 const echoUrl: Handler = (request, response) => {
 	response.end(request.url);

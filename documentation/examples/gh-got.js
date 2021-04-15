@@ -1,18 +1,19 @@
-'use strict';
-const got = require('../..');
-const package = require('../../package');
+import fs from 'fs';
+import got from '../../dist/source/index.js';
 
-const getRateLimit = (headers) => ({
-	limit: parseInt(headers['x-ratelimit-limit'], 10),
-	remaining: parseInt(headers['x-ratelimit-remaining'], 10),
-	reset: new Date(parseInt(headers['x-ratelimit-reset'], 10) * 1000)
+const packageJson = JSON.parse(fs.readFileSync(new URL('../../package.json', import.meta.url), 'utf8'));
+
+const getRateLimit = headers => ({
+	limit: Number.parseInt(headers['x-ratelimit-limit'], 10),
+	remaining: Number.parseInt(headers['x-ratelimit-remaining'], 10),
+	reset: new Date(Number.parseInt(headers['x-ratelimit-reset'], 10) * 1000)
 });
 
 const instance = got.extend({
 	prefixUrl: 'https://api.github.com',
 	headers: {
 		accept: 'application/vnd.github.v3+json',
-		'user-agent': `${package.name}/${package.version}`
+		'user-agent': `${packageJson.name}/${packageJson.version}`
 	},
 	responseType: 'json',
 	token: process.env.GITHUB_TOKEN,
@@ -58,4 +59,4 @@ const instance = got.extend({
 	]
 });
 
-module.exports = instance;
+export default instance;

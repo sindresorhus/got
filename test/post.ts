@@ -1,15 +1,15 @@
 import {promisify} from 'util';
-import * as stream from 'stream';
-import * as fs from 'fs';
-import * as path from 'path';
+import stream from 'stream';
+import fs from 'fs';
+import path from 'path';
 import test from 'ava';
-import * as delay from 'delay';
-import * as pEvent from 'p-event';
+import delay from 'delay';
+import pEvent from 'p-event';
 import {Handler} from 'express';
-import * as getStream from 'get-stream';
-import * as toReadableStream from 'to-readable-stream';
-import got, {UploadError} from '../source/index';
-import withServer from './helpers/with-server';
+import getStream from 'get-stream';
+import toReadableStream from 'to-readable-stream';
+import got, {UploadError} from '../source/index.js';
+import withServer from './helpers/with-server.js';
 
 const pStreamPipeline = promisify(stream.pipeline);
 

@@ -1,16 +1,18 @@
 import {promisify} from 'util';
-import * as stream from 'stream';
-import * as fs from 'fs';
-import * as SlowStream from 'slow-stream';
-import * as toReadableStream from 'to-readable-stream';
-import * as getStream from 'get-stream';
-import * as FormData from 'form-data';
-import * as tempy from 'tempy';
+import stream from 'stream';
+import fs from 'fs';
+// eslint-disable-next-line @typescript-eslint/prefer-ts-expect-error
+// @ts-ignore
+import SlowStream from 'slow-stream';
+import toReadableStream from 'to-readable-stream';
+import getStream from 'get-stream';
+import FormData from 'form-data';
+import tempy from 'tempy';
 import is from '@sindresorhus/is';
 import test, {ExecutionContext} from 'ava';
 import {Handler} from 'express';
-import {Progress} from '../source/index';
-import withServer from './helpers/with-server';
+import {Progress} from '../source/index.js';
+import withServer from './helpers/with-server.js';
 
 const checkEvents = (t: ExecutionContext, events: Progress[], bodySize?: number) => {
 	t.true(events.length >= 2);

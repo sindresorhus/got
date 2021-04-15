@@ -1,9 +1,9 @@
 import {promisify} from 'util';
-import * as zlib from 'zlib';
+import zlib from 'zlib';
 import test from 'ava';
-import * as getStream from 'get-stream';
-import withServer from './helpers/with-server';
-import {HTTPError, ReadError} from '../source/index';
+import getStream from 'get-stream';
+import withServer from './helpers/with-server.js';
+import {HTTPError, ReadError} from '../source/index.js';
 
 const testContent = 'Compressible response content.\n';
 const testContentUncompressed = 'Uncompressed response content.\n';

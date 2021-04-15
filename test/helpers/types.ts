@@ -1,6 +1,6 @@
 import {Server} from 'http';
 import {TestServer} from 'create-test-server';
-import * as FakeTimers from '@sinonjs/fake-timers';
+import FakeTimers from '@sinonjs/fake-timers';
 
 export interface ExtendedHttpServer extends Server {
 	socketPath: string;

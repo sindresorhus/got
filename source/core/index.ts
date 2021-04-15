@@ -1,23 +1,22 @@
 import {Duplex, Writable, Readable} from 'stream';
 import {URL, URLSearchParams} from 'url';
-import * as http from 'http';
-import {ServerResponse} from 'http';
+import http, {ServerResponse} from 'http';
 import timer from '@szmarczak/http-timer';
-import * as CacheableRequest from 'cacheable-request';
-import decompressResponse = require('decompress-response');
+import CacheableRequest from 'cacheable-request';
+import decompressResponse from 'decompress-response';
 import is from '@sindresorhus/is';
-import applyDestroyPatch from './utils/apply-destroy-patch';
-import getBodySize from './utils/get-body-size';
-import isFormData from './utils/is-form-data';
-import proxyEvents from './utils/proxy-events';
-import timedOut, {TimeoutError as TimedOutTimeoutError} from './timed-out';
-import urlToOptions from './utils/url-to-options';
-import WeakableMap from './utils/weakable-map';
+import applyDestroyPatch from './utils/apply-destroy-patch.js';
+import getBodySize from './utils/get-body-size.js';
+import isFormData from './utils/is-form-data.js';
+import proxyEvents from './utils/proxy-events.js';
+import timedOut, {TimeoutError as TimedOutTimeoutError} from './timed-out.js';
+import urlToOptions from './utils/url-to-options.js';
+import WeakableMap from './utils/weakable-map.js';
 import {buffer as getBuffer} from 'get-stream';
-import calculateRetryDelay from './calculate-retry-delay';
-import Options, {OptionsError} from './options';
-import {isResponseOk, Response} from './response';
-import isClientRequest from './utils/is-client-request';
+import calculateRetryDelay from './calculate-retry-delay.js';
+import Options, {OptionsError} from './options.js';
+import {isResponseOk, Response} from './response.js';
+import isClientRequest from './utils/is-client-request.js';
 import {
 	RequestError,
 	ReadError,
@@ -26,13 +25,13 @@ import {
 	TimeoutError,
 	UploadError,
 	CacheError
-} from './errors';
+} from './errors.js';
 import type {ClientRequestWithTimings, Timings, IncomingMessageWithTimings} from '@szmarczak/http-timer';
 import type {ClientRequest, RequestOptions, IncomingMessage} from 'http';
 import type {Socket} from 'net';
-import type ResponseLike = require('responselike');
-import type {PlainResponse} from './response';
-import type {OptionsInit, PromiseCookieJar, NativeRequestOptions, RetryOptions} from './options';
+import type ResponseLike from 'responselike';
+import type {PlainResponse} from './response.js';
+import type {OptionsInit, PromiseCookieJar, NativeRequestOptions, RetryOptions} from './options.js';
 
 export interface Progress {
 	percent: number;
@@ -74,7 +73,7 @@ export type GotEventFunction<T> =
 	Progress events for uploading (sending a request) and downloading (receiving a response).
 	The `progress` argument is an object like:
 
-	```js
+	```
 	{
 		percent: 0.1,
 		transferred: 1024,
@@ -85,18 +84,16 @@ export type GotEventFunction<T> =
 	If the `content-length` header is missing, `total` will be `undefined`.
 
 	@example
-	```js
-	(async () => {
-		const response = await got('https://sindresorhus.com')
-			.on('downloadProgress', progress => {
-				// Report download progress
-			})
-			.on('uploadProgress', progress => {
-				// Report upload progress
-			});
+	```
+	const response = await got('https://sindresorhus.com')
+		.on('downloadProgress', progress => {
+			// Report download progress
+		})
+		.on('uploadProgress', progress => {
+			// Report upload progress
+		});
 
-		console.log(response);
-	})();
+	console.log(response);
 	```
 	*/
 	& ((name: 'uploadProgress' | 'downloadProgress', listener: (progress: Progress) => void) => T)

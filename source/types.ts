@@ -1,11 +1,11 @@
 import type {URL} from 'url';
-import type {CancelableRequest} from './as-promise/types';
-import type {Response} from './core/response';
+import type {CancelableRequest} from './as-promise/types.js';
+import type {Response} from './core/response.js';
 // eslint-disable-next-line import/no-duplicates
-import type Options from './core/options';
+import type Options from './core/options.js';
 // eslint-disable-next-line import/no-duplicates
-import type {PaginationOptions, OptionsInit, InternalsType} from './core/options';
-import type Request from './core/index';
+import type {PaginationOptions, OptionsInit, InternalsType} from './core/options.js';
+import type Request from './core/index.js';
 
 // `type-fest` utilities
 type Except<ObjectType, KeysType extends keyof ObjectType> = Pick<ObjectType, Exclude<keyof ObjectType, KeysType>>;
@@ -92,19 +92,17 @@ export interface GotPaginate {
 
 	@example
 	```
-	(async () => {
-		const countLimit = 10;
+	const countLimit = 10;
 
-		const pagination = got.paginate('https://api.github.com/repos/sindresorhus/got/commits', {
-			pagination: {countLimit}
-		});
+	const pagination = got.paginate('https://api.github.com/repos/sindresorhus/got/commits', {
+		pagination: {countLimit}
+	});
 
-		console.log(`Printing latest ${countLimit} Got commits (newest to oldest):`);
+	console.log(`Printing latest ${countLimit} Got commits (newest to oldest):`);
 
-		for await (const commitData of pagination) {
-			console.log(commitData.commit.message);
-		}
-	})();
+	for await (const commitData of pagination) {
+		console.log(commitData.commit.message);
+	}
 	```
 	*/
 	each: (<T, R = unknown>(url: string | URL, options?: OptionsWithPagination<T, R>) => AsyncIterableIterator<T>)
@@ -117,16 +115,14 @@ export interface GotPaginate {
 
 	@example
 	```
-	(async () => {
-		const countLimit = 10;
+	const countLimit = 10;
 
-		const results = await got.paginate.all('https://api.github.com/repos/sindresorhus/got/commits', {
-			pagination: {countLimit}
-		});
+	const results = await got.paginate.all('https://api.github.com/repos/sindresorhus/got/commits', {
+		pagination: {countLimit}
+	});
 
-		console.log(`Printing latest ${countLimit} Got commits (newest to oldest):`);
-		console.log(results);
-	})();
+	console.log(`Printing latest ${countLimit} Got commits (newest to oldest):`);
+	console.log(results);
 	```
 	*/
 	all: (<T, R = unknown>(url: string | URL, options?: OptionsWithPagination<T, R>) => Promise<T[]>)
@@ -222,19 +218,17 @@ export interface Got extends Record<HTTPAlias, GotRequestFunction>, GotRequestFu
 
 	@example
 	```
-	(async () => {
-		const countLimit = 10;
+	const countLimit = 10;
 
-		const pagination = got.paginate('https://api.github.com/repos/sindresorhus/got/commits', {
-			pagination: {countLimit}
-		});
+	const pagination = got.paginate('https://api.github.com/repos/sindresorhus/got/commits', {
+		pagination: {countLimit}
+	});
 
-		console.log(`Printing latest ${countLimit} Got commits (newest to oldest):`);
+	console.log(`Printing latest ${countLimit} Got commits (newest to oldest):`);
 
-		for await (const commitData of pagination) {
-			console.log(commitData.commit.message);
-		}
-	})();
+	for await (const commitData of pagination) {
+		console.log(commitData.commit.message);
+	}
 	```
 	*/
 	paginate: GotPaginate;
@@ -256,7 +250,7 @@ export interface Got extends Record<HTTPAlias, GotRequestFunction>, GotRequestFu
 	- handlers are stored in an array (you can access them through `instance.defaults.handlers`).
 
 	@example
-	```js
+	```
 	const client = got.extend({
 		prefixUrl: 'https://example.com',
 		headers: {

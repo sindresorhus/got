@@ -1,15 +1,15 @@
 import {URL} from 'url';
 import {Agent as HttpAgent} from 'http';
 import test, {Constructor} from 'ava';
-import * as nock from 'nock';
-import * as getStream from 'get-stream';
-import * as FormData from 'form-data';
-import * as sinon from 'sinon';
-import * as delay from 'delay';
+import nock from 'nock';
+import getStream from 'get-stream';
+import FormData from 'form-data';
+import sinon from 'sinon';
+import delay from 'delay';
 import {Handler} from 'express';
-import Responselike = require('responselike');
-import got, {RequestError, HTTPError, Response} from '../source/index';
-import withServer from './helpers/with-server';
+import Responselike from 'responselike';
+import got, {RequestError, HTTPError, Response} from '../source/index.js';
+import withServer from './helpers/with-server.js';
 
 const errorString = 'oops';
 const error = new Error(errorString);
