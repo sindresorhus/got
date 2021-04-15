@@ -593,7 +593,7 @@ test('respects backoffLimit', withServer, async (t, server, got) => {
 	}).json<number[]>();
 
 	t.is(body.length, 3);
-	t.true(body[0]! < 200);
-	t.true(body[1]! < 200);
-	t.true(body[2]! < 200);
+	t.true(body[0]! < 400);
+	t.true(body[1]! < 400);
+	t.true(body[2]! < 400);
 });
