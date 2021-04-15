@@ -694,6 +694,7 @@ It will choose either HTTP/1.1 or HTTP/2 depending on the ALPN protocol.
 import got from 'got';
 
 const {headers} = await got('https://nghttp2.org/httpbin/anything', {http2: true});
+
 console.log(headers.via);
 //=> '2 nghttpx'
 ```

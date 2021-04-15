@@ -108,7 +108,7 @@ export interface Hooks {
 	```
 	import got from 'got';
 
-	got('https://example.com', {
+	await got('https://example.com', {
 		hooks: {
 			beforeRedirect: [
 				(options, response) => {
@@ -136,7 +136,7 @@ export interface Hooks {
 	```
 	import got from 'got';
 
-	got('https://api.github.com/some-endpoint', {
+	await got('https://api.github.com/some-endpoint', {
 		hooks: {
 			beforeError: [
 				error => {
@@ -323,7 +323,7 @@ export interface HttpsOptions {
 	@example
 	```
 	// Single Certificate Authority
-	got('https://example.com', {
+	await got('https://example.com', {
 		https: {
 			certificateAuthority: fs.readFileSync('./my_ca.pem')
 		}
@@ -1138,11 +1138,11 @@ export default class Options {
 
 	@example
 	```
-	got('https://example.com/?query=a b'); //=> https://example.com/?query=a%20b
-	got('https://example.com/', {searchParameters: {query: 'a b'}}); //=> https://example.com/?query=a+b
+	await got('https://example.com/?query=a b'); //=> https://example.com/?query=a%20b
+	await got('https://example.com/', {searchParameters: {query: 'a b'}}); //=> https://example.com/?query=a+b
 
 	// The query string is overridden by `searchParameters`
-	got('https://example.com/?query=a b', {searchParameters: {query: 'a b'}}); //=> https://example.com/?query=a+b
+	await got('https://example.com/?query=a b', {searchParameters: {query: 'a b'}}); //=> https://example.com/?query=a+b
 	```
 	*/
 	get url(): string | URL | undefined {
@@ -1275,7 +1275,7 @@ export default class Options {
 
 	const searchParameters = new URLSearchParams([['key', 'a'], ['key', 'b']]);
 
-	got('https://example.com', {searchParameters});
+	await got('https://example.com', {searchParameters});
 
 	console.log(searchParameters.toString());
 	//=> 'key=a&key=b'
@@ -1608,6 +1608,7 @@ export default class Options {
 	import got from 'got';
 
 	const {headers} = await got('https://nghttp2.org/httpbin/anything', {http2: true});
+
 	console.log(headers.via);
 	//=> '2 nghttpx'
 	```
