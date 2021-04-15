@@ -722,33 +722,6 @@ const getHttp2TimeoutOption = (internals: typeof defaultInternals): number | und
 	return undefined;
 };
 
-const descriptor = {
-	_unixOptions: {
-		value: undefined,
-		enumerable: false,
-		writable: true,
-		configurable: false
-	},
-	_merging: {
-		value: false,
-		enumerable: false,
-		writable: true,
-		configurable: false
-	},
-	_internals: {
-		value: undefined as (Options['_internals'] | undefined),
-		enumerable: false,
-		writable: false,
-		configurable: false
-	},
-	_init: {
-		value: undefined as (Options['_init'] | undefined),
-		enumerable: false,
-		writable: true,
-		configurable: false
-	}
-};
-
 const init = (options: OptionsInit, withOptions: OptionsInit, self: Options): void => {
 	const initHooks = options.hooks?.init;
 	if (initHooks) {
