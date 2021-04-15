@@ -162,8 +162,10 @@ const create = (defaults: InstanceDefaults): Got => {
 			const response = (await got(undefined, undefined, normalizedOptions)) as Response;
 
 			// eslint-disable-next-line no-await-in-loop
-			const parsed = await pagination.transform(response);
+			const parsed: unknown[] = await pagination.transform(response);
 			const currentItems: T[] = [];
+
+			assert.array(parsed);
 
 			for (const item of parsed) {
 				if (pagination.filter({item, currentItems, allItems})) {

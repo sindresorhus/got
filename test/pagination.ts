@@ -689,3 +689,37 @@ test('pagination using extended searchParams', withServer, async (t, server, got
 		t.true(all[i] === `/?page=${i}&limit=10` || all[i] === `/?limit=10&page=${i}`);
 	}
 });
+
+test('calls init hooks on pagination', withServer, async (t, server) => {
+	server.get('/', (request, response) => {
+		response.end(JSON.stringify([request.url]));
+	});
+
+	const instance = got.extend({
+		hooks: {
+			init: [
+				options => {
+					options.searchParams = 'foobar';
+				}
+			]
+		}
+	});
+
+	const received = await instance.paginate.all<string>(server.url, {
+		searchParams: 'unicorn'
+	});
+
+	t.deepEqual(received, [
+		'/?foobar='
+	]);
+});
+
+test('throws when transform does not return an array', withServer, async (t, server) => {
+	server.get('/', (_request, response) => {
+		response.end(JSON.stringify(""));
+	});
+
+	await t.throwsAsync(got.paginate.all<string>(server.url));
+
+	// TODO: Add assert message above.
+});
