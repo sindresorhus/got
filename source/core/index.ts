@@ -5,7 +5,6 @@ import timer from '@szmarczak/http-timer';
 import CacheableRequest from 'cacheable-request';
 import decompressResponse from 'decompress-response';
 import is from '@sindresorhus/is';
-import applyDestroyPatch from './utils/apply-destroy-patch.js';
 import getBodySize from './utils/get-body-size.js';
 import isFormData from './utils/is-form-data.js';
 import proxyEvents from './utils/proxy-events.js';
@@ -27,7 +26,7 @@ import {
 	CacheError
 } from './errors.js';
 import type {ClientRequestWithTimings, Timings, IncomingMessageWithTimings} from '@szmarczak/http-timer';
-import type {ClientRequest, RequestOptions, IncomingMessage} from 'http';
+import type {ClientRequest, RequestOptions} from 'http';
 import type {Socket} from 'net';
 import type ResponseLike from 'responselike';
 import type {PlainResponse} from './response.js';
@@ -173,9 +172,6 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			// It needs to be zero because we're just proxying the data to another stream
 			highWaterMark: 0
 		});
-
-		// TODO: Remove this when targeting Node.js 14
-		applyDestroyPatch(this);
 
 		this._downloadedSize = 0;
 		this._uploadedSize = 0;
@@ -891,9 +887,6 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 			// Force clean-up, because some packages (e.g. nock) don't do this.
 			request.destroy();
-
-			// Node.js <= 12.18.2 mistakenly emits the response `end` first.
-			(request as ClientRequest & {res: IncomingMessage | undefined}).res?.removeAllListeners('end');
 
 			error = error instanceof TimedOutTimeoutError ? new TimeoutError(error, this.timings!, this) : new RequestError(error.message, error, this);
 

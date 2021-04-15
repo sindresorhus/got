@@ -722,33 +722,6 @@ const getHttp2TimeoutOption = (internals: typeof defaultInternals): number | und
 	return undefined;
 };
 
-const descriptor = {
-	_unixOptions: {
-		value: undefined,
-		enumerable: false,
-		writable: true,
-		configurable: false
-	},
-	_merging: {
-		value: false,
-		enumerable: false,
-		writable: true,
-		configurable: false
-	},
-	_internals: {
-		value: undefined as (Options['_internals'] | undefined),
-		enumerable: false,
-		writable: false,
-		configurable: false
-	},
-	_init: {
-		value: undefined as (Options['_init'] | undefined),
-		enumerable: false,
-		writable: true,
-		configurable: false
-	}
-};
-
 const init = (options: OptionsInit, withOptions: OptionsInit, self: Options): void => {
 	const initHooks = options.hooks?.init;
 	if (initHooks) {
@@ -759,11 +732,10 @@ const init = (options: OptionsInit, withOptions: OptionsInit, self: Options): vo
 };
 
 export default class Options {
-	// TODO: Remove `declare` when targeting Node.js 14
-	declare private _unixOptions?: NativeRequestOptions;
-	declare private _internals: InternalsType;
-	declare private _merging: boolean;
-	declare private readonly _init: OptionsInit[];
+	private _unixOptions?: NativeRequestOptions;
+	private _internals: InternalsType;
+	private _merging: boolean;
+	private readonly _init: OptionsInit[];
 
 	constructor(input?: string | URL | OptionsInit, options?: OptionsInit, defaults?: Options | OptionsInit) {
 		assert.any([is.string, is.urlInstance, is.object, is.undefined], input);
@@ -774,10 +746,10 @@ export default class Options {
 			throw new TypeError('The defaults must be passed as the third argument');
 		}
 
-		// TODO: Switch to `this.key = value` when targeting Node.js 14
-		descriptor._internals.value = cloneInternals((defaults as Options)?._internals ?? defaults ?? defaultInternals);
-		descriptor._init.value = [...((defaults as Options)?._init ?? [])];
-		Object.defineProperties(this, descriptor);
+		this._internals = cloneInternals((defaults as Options)?._internals ?? defaults ?? defaultInternals);
+		this._init = [...((defaults as Options)?._init ?? [])];
+		this._merging = false;
+		this._unixOptions = undefined;
 
 		try {
 			if (is.plainObject(input)) {
@@ -922,9 +894,8 @@ export default class Options {
 
 	/**
 	Decompress the response automatically.
-	This will set the `accept-encoding` header to `gzip, deflate, br` on Node.js 11.7.0+ or `gzip, deflate` for older Node.js versions, unless you set it yourself.
 
-	Brotli (`br`) support requires Node.js 11.7.0 or later.
+	This will set the `accept-encoding` header to `gzip, deflate, br` unless you set it yourself.
 
 	If this is disabled, a compressed response is returned as a `Buffer`.
 	This may be useful if you want to handle decompression yourself or stream the raw compressed data.
