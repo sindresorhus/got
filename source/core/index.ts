@@ -73,7 +73,7 @@ export type GotEventFunction<T> =
 	Progress events for uploading (sending a request) and downloading (receiving a response).
 	The `progress` argument is an object like:
 
-	```js
+	```
 	{
 		percent: 0.1,
 		transferred: 1024,
@@ -84,18 +84,16 @@ export type GotEventFunction<T> =
 	If the `content-length` header is missing, `total` will be `undefined`.
 
 	@example
-	```js
-	(async () => {
-		const response = await got('https://sindresorhus.com')
-			.on('downloadProgress', progress => {
-				// Report download progress
-			})
-			.on('uploadProgress', progress => {
-				// Report upload progress
-			});
+	```
+	const response = await got('https://sindresorhus.com')
+		.on('downloadProgress', progress => {
+			// Report download progress
+		})
+		.on('uploadProgress', progress => {
+			// Report upload progress
+		});
 
-		console.log(response);
-	})();
+	console.log(response);
 	```
 	*/
 	& ((name: 'uploadProgress' | 'downloadProgress', listener: (progress: Progress) => void) => T)

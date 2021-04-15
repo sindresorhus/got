@@ -83,16 +83,14 @@ $ npm install got
 ```js
 const got = require('got');
 
-(async () => {
-	try {
-		const response = await got('https://sindresorhus.com');
-		console.log(response.body);
-		//=> '<!doctype html> ...'
-	} catch (error) {
-		console.log(error.response.body);
-		//=> 'Internal server error ...'
-	}
-})();
+try {
+	const response = await got('https://sindresorhus.com');
+	console.log(response.body);
+	//=> '<!doctype html> ...'
+} catch (error) {
+	console.log(error.response.body);
+	//=> 'Internal server error ...'
+}
 ```
 
 ###### JSON
@@ -100,17 +98,15 @@ const got = require('got');
 ```js
 const got = require('got');
 
-(async () => {
-	const {body} = await got.post('https://httpbin.org/anything', {
-		json: {
-			hello: 'world'
-		},
-		responseType: 'json'
-	});
+const {body} = await got.post('https://httpbin.org/anything', {
+	json: {
+		hello: 'world'
+	},
+	responseType: 'json'
+});
 
-	console.log(body.data);
-	//=> {hello: 'world'}
-})();
+console.log(body.data);
+//=> {hello: 'world'}
 ```
 
 See [JSON mode](#json-mode) for more details.
@@ -125,18 +121,16 @@ const got = require('got');
 
 const pipeline = promisify(stream.pipeline);
 
-(async () => {
-	await pipeline(
-		got.stream('https://sindresorhus.com'),
-		fs.createWriteStream('index.html')
-	);
+await pipeline(
+	got.stream('https://sindresorhus.com'),
+	fs.createWriteStream('index.html')
+);
 
-	// For POST, PUT, PATCH, and DELETE methods, `got.stream` returns a `stream.Writable`.
-	await pipeline(
-		fs.createReadStream('index.html'),
-		got.stream.post('https://sindresorhus.com')
-	);
-})();
+// For POST, PUT, PATCH, and DELETE methods, `got.stream` returns a `stream.Writable`.
+await pipeline(
+	fs.createReadStream('index.html'),
+	got.stream.post('https://sindresorhus.com')
+);
 ```
 
 **Tip:** `from.pipe(to)` doesn't forward errors. Instead, use [`stream.pipeline(from, ..., to, callback)`](https://nodejs.org/api/stream.html#stream_stream_pipeline_streams_callback).
@@ -166,11 +160,11 @@ If no protocol is specified, it will throw a `TypeError`.
 **Note:** The query string is **not** parsed as search params. Example:
 
 ```js
-got('https://example.com/?query=a b'); //=> https://example.com/?query=a%20b
-got('https://example.com/', {searchParams: {query: 'a b'}}); //=> https://example.com/?query=a+b
+await got('https://example.com/?query=a b'); //=> https://example.com/?query=a%20b
+await got('https://example.com/', {searchParams: {query: 'a b'}}); //=> https://example.com/?query=a+b
 
 // The query string is overridden by `searchParams`
-got('https://example.com/?query=a b', {searchParams: {query: 'a b'}}); //=> https://example.com/?query=a+b
+await got('https://example.com/?query=a b', {searchParams: {query: 'a b'}}); //=> https://example.com/?query=a+b
 ```
 
 ##### options
@@ -206,25 +200,23 @@ A trailing slash `/` is optional - one will be added automatically.
 ```js
 const got = require('got');
 
-(async () => {
-	await got('unicorn', {prefixUrl: 'https://cats.com'});
-	//=> 'https://cats.com/unicorn'
+await got('unicorn', {prefixUrl: 'https://cats.com'});
+//=> 'https://cats.com/unicorn'
 
-	const instance = got.extend({
-		prefixUrl: 'https://google.com'
-	});
+const instance = got.extend({
+	prefixUrl: 'https://google.com'
+});
 
-	await instance('unicorn', {
-		hooks: {
-			beforeRequest: [
-				options => {
-					options.prefixUrl = 'https://cats.com';
-				}
-			]
-		}
-	});
-	//=> 'https://cats.com/unicorn'
-})();
+await instance('unicorn', {
+	hooks: {
+		beforeRequest: [
+			options => {
+				options.prefixUrl = 'https://cats.com';
+			}
+		]
+	}
+});
+//=> 'https://cats.com/unicorn'
 ```
 
 ###### headers
@@ -293,16 +285,14 @@ const instance = got.extend({
 	}
 });
 
-(async () => {
-	const context = {
-		token: 'secret'
-	};
+const context = {
+	token: 'secret'
+};
 
-	const response = await instance('https://httpbin.org/headers', {context});
+const response = await instance('https://httpbin.org/headers', {context});
 
-	// Let's see the headers
-	console.log(response.body);
-})();
+// Let's see the headers
+console.log(response.body);
 ```
 
 ###### responseType
@@ -320,16 +310,14 @@ It's like setting the options to `{responseType: 'json', resolveBodyOnly: true}`
 Example:
 
 ```js
-(async () => {
-	const responsePromise = got(url);
-	const bufferPromise = responsePromise.buffer();
-	const jsonPromise = responsePromise.json();
+const responsePromise = got(url);
+const bufferPromise = responsePromise.buffer();
+const jsonPromise = responsePromise.json();
 
-	const [response, buffer, json] = await Promise.all([responsePromise, bufferPromise, jsonPromise]);
-	// `response` is an instance of Got Response
-	// `buffer` is an instance of Buffer
-	// `json` is an object
-})();
+const [response, buffer, json] = await Promise.all([responsePromise, bufferPromise, jsonPromise]);
+// `response` is an instance of Got Response
+// `buffer` is an instance of Buffer
+// `json` is an object
 ```
 
 ```js
@@ -358,13 +346,11 @@ Using [`bourne`](https://github.com/hapijs/bourne) to prevent prototype pollutio
 const got = require('got');
 const Bourne = require('@hapi/bourne');
 
-(async () => {
-	const parsed = await got('https://example.com', {
-		parseJson: text => Bourne.parse(text)
-	}).json();
+const parsed = await got('https://example.com', {
+	parseJson: text => Bourne.parse(text)
+}).json();
 
-	console.log(parsed);
-})();
+console.log(parsed);
 ```
 </details>
 
@@ -383,21 +369,19 @@ Ignore properties starting with `_`:
 ```js
 const got = require('got');
 
-(async () => {
-	await got.post('https://example.com', {
-		stringifyJson: object => JSON.stringify(object, (key, value) => {
-			if (key.startsWith('_')) {
-				return;
-			}
-
-			return value;
-		}),
-		json: {
-			some: 'payload',
-			_ignoreMe: 1234
+await got.post('https://example.com', {
+	stringifyJson: object => JSON.stringify(object, (key, value) => {
+		if (key.startsWith('_')) {
+			return;
 		}
-	});
-})();
+
+		return value;
+	}),
+	json: {
+		some: 'payload',
+		_ignoreMe: 1234
+	}
+});
 ```
 
 All numbers as strings:
@@ -405,21 +389,19 @@ All numbers as strings:
 ```js
 const got = require('got');
 
-(async () => {
-	await got.post('https://example.com', {
-		stringifyJson: object => JSON.stringify(object, (key, value) => {
-			if (typeof value === 'number') {
-				return value.toString();
-			}
-
-			return value;
-		}),
-		json: {
-			some: 'payload',
-			number: 1
+await got.post('https://example.com', {
+	stringifyJson: object => JSON.stringify(object, (key, value) => {
+		if (typeof value === 'number') {
+			return value.toString();
 		}
-	});
-})();
+
+		return value;
+	}),
+	json: {
+		some: 'payload',
+		number: 1
+	}
+});
 ```
 </details>
 
@@ -492,7 +474,7 @@ const got = require('got');
 
 const searchParams = new URLSearchParams([['key', 'a'], ['key', 'b']]);
 
-got('https://example.com', {searchParams});
+await got('https://example.com', {searchParams});
 
 console.log(searchParams.toString());
 //=> 'key=a&key=b'
@@ -711,11 +693,9 @@ It will choose either HTTP/1.1 or HTTP/2 depending on the ALPN protocol.
 ```js
 const got = require('got');
 
-(async () => {
-	const {headers} = await got('https://nghttp2.org/httpbin/anything', {http2: true});
-	console.log(headers.via);
-	//=> '2 nghttpx'
-})();
+const {headers} = await got('https://nghttp2.org/httpbin/anything', {http2: true});
+console.log(headers.via);
+//=> '2 nghttpx'
 ```
 
 ###### throwHttpErrors
@@ -740,7 +720,7 @@ const got = require('got');
 const HttpAgent = require('agentkeepalive');
 const {HttpsAgent} = HttpAgent;
 
-got('https://sindresorhus.com', {
+await got('https://sindresorhus.com', {
 	agent: {
 		http: new HttpAgent(),
 		https: new HttpsAgent()
@@ -804,7 +784,7 @@ Called with [normalized](source/core/index.ts) [request options](#options) and t
 ```js
 const got = require('got');
 
-got('https://example.com', {
+await got('https://example.com', {
 	hooks: {
 		beforeRedirect: [
 			(options, response) => {
@@ -902,7 +882,7 @@ Called with an `Error` instance. The error is passed to the hook right before it
 ```js
 const got = require('got');
 
-got('https://api.github.com/some-endpoint', {
+await got('https://api.github.com/some-endpoint', {
 	hooks: {
 		beforeError: [
 			error => {
@@ -949,35 +929,33 @@ For example, if you want to stop when the response contains less items than expe
 ```js
 const got = require('got');
 
-(async () => {
-	const limit = 10;
+const limit = 10;
 
-	const items = got.paginate('https://example.com/items', {
-		searchParams: {
-			limit,
-			offset: 0
-		},
-		pagination: {
-			paginate: ({response, currentItems, allItems}) => {
-				const previousSearchParams = response.request.options.searchParams;
-				const previousOffset = previousSearchParams.get('offset');
+const items = got.paginate('https://example.com/items', {
+	searchParams: {
+		limit,
+		offset: 0
+	},
+	pagination: {
+		paginate: ({response, currentItems, allItems}) => {
+			const previousSearchParams = response.request.options.searchParams;
+			const previousOffset = previousSearchParams.get('offset');
 
-				if (currentItems.length < limit) {
-					return false;
-				}
-
-				return {
-					searchParams: {
-						...previousSearchParams,
-						offset: Number(previousOffset) + limit,
-					}
-				};
+			if (currentItems.length < limit) {
+				return false;
 			}
-		}
-	});
 
-	console.log('Items from all pages:', items);
-})();
+			return {
+				searchParams: {
+					...previousSearchParams,
+					offset: Number(previousOffset) + limit,
+				}
+			};
+		}
+	}
+});
+
+console.log('Items from all pages:', items);
 ```
 
 ###### pagination.filter
@@ -1048,7 +1026,7 @@ Override the default Certificate Authorities ([from Mozilla](https://ccadb-publi
 
 ```js
 // Single Certificate Authority
-got('https://example.com', {
+await got('https://example.com', {
 	https: {
 		certificateAuthority: fs.readFileSync('./my_ca.pem')
 	}
@@ -1099,7 +1077,7 @@ This object form can only occur in an array. If the provided buffers are encrypt
 
 ```js
 // Single key with certificate
-got('https://example.com', {
+await got('https://example.com', {
 	https: {
 		key: fs.readFileSync('./client_key.pem'),
 		certificate: fs.readFileSync('./client_cert.pem')
@@ -1107,7 +1085,7 @@ got('https://example.com', {
 });
 
 // Multiple keys with certificates (out of order)
-got('https://example.com', {
+await got('https://example.com', {
 	https: {
 		key: [
 			fs.readFileSync('./client_key1.pem'),
@@ -1121,7 +1099,7 @@ got('https://example.com', {
 });
 
 // Single key with passphrase
-got('https://example.com', {
+await got('https://example.com', {
 	https: {
 		key: fs.readFileSync('./client_key.pem'),
 		certificate: fs.readFileSync('./client_cert.pem'),
@@ -1130,7 +1108,7 @@ got('https://example.com', {
 });
 
 // Multiple keys with different passphrases
-got('https://example.com', {
+await got('https://example.com', {
 	https: {
 		key: [
 			{pem: fs.readFileSync('./client_key1.pem'), passphrase: 'passphrase1'},
@@ -1144,7 +1122,7 @@ got('https://example.com', {
 });
 
 // Single encrypted PFX with passphrase
-got('https://example.com', {
+await got('https://example.com', {
 	https: {
 		pfx: fs.readFileSync('./fake.pfx'),
 		passphrase: 'passphrase'
@@ -1152,7 +1130,7 @@ got('https://example.com', {
 });
 
 // Multiple encrypted PFX's with different passphrases
-got('https://example.com', {
+await got('https://example.com', {
 	https: {
 		pfx: [
 			{
@@ -1168,7 +1146,7 @@ got('https://example.com', {
 });
 
 // Multiple encrypted PFX's with single passphrase
-got('https://example.com', {
+await got('https://example.com', {
 	https: {
 		passphrase: 'passphrase',
 		pfx: [
@@ -1196,27 +1174,26 @@ We strongly recommend to have this set to `true` for security reasons.
 ```js
 const got = require('got');
 
-(async () => {
-	// Correct:
-	await got('https://example.com', {
-		https: {
-			rejectUnauthorized: true
-		}
-	});
+// Correct:
+await got('https://example.com', {
+	https: {
+		rejectUnauthorized: true
+	}
+});
 
-	// You can disable it when developing an HTTPS app:
-	await got('https://localhost', {
-		https: {
-			rejectUnauthorized: false
-		}
-	});
+// You can disable it when developing an HTTPS app:
+await got('https://localhost', {
+	https: {
+		rejectUnauthorized: false
+	}
+});
 
-	// Never do this:
-	await got('https://example.com', {
-		https: {
-			rejectUnauthorized: false
-		}
-	});
+// Never do this:
+await got('https://example.com', {
+	https: {
+		rejectUnauthorized: false
+	}
+});
 ```
 
 ##### https.checkServerIdentity
@@ -1388,17 +1365,15 @@ Progress events for uploading (sending a request) and downloading (receiving a r
 If the `content-length` header is missing, `total` will be `undefined`.
 
 ```js
-(async () => {
-	const response = await got('https://sindresorhus.com')
-		.on('downloadProgress', progress => {
-			// Report download progress
-		})
-		.on('uploadProgress', progress => {
-			// Report upload progress
-		});
+const response = await got('https://sindresorhus.com')
+	.on('downloadProgress', progress => {
+		// Report download progress
+	})
+	.on('uploadProgress', progress => {
+		// Report upload progress
+	});
 
-	console.log(response);
-})();
+console.log(response);
 ```
 
 ##### .once('retry', retryCount, error)
@@ -1444,19 +1419,17 @@ The emitted `error` is an instance of [`RequestError`](#gotrequesterror).
 Returns an async iterator:
 
 ```js
-(async () => {
-	const countLimit = 10;
+const countLimit = 10;
 
-	const pagination = got.paginate('https://api.github.com/repos/sindresorhus/got/commits', {
-		pagination: {countLimit}
-	});
+const pagination = got.paginate('https://api.github.com/repos/sindresorhus/got/commits', {
+	pagination: {countLimit}
+});
 
-	console.log(`Printing latest ${countLimit} Got commits (newest to oldest):`);
+console.log(`Printing latest ${countLimit} Got commits (newest to oldest):`);
 
-	for await (const commitData of pagination) {
-		console.log(commitData.commit.message);
-	}
-})();
+for await (const commitData of pagination) {
+	console.log(commitData.commit.message);
+}
 ```
 
 See [`options.pagination`](#pagination) for more pagination options.
@@ -1466,16 +1439,14 @@ See [`options.pagination`](#pagination) for more pagination options.
 Returns a Promise for an array of all results:
 
 ```js
-(async () => {
-	const countLimit = 10;
+const countLimit = 10;
 
-	const results = await got.paginate.all('https://api.github.com/repos/sindresorhus/got/commits', {
-		pagination: {countLimit}
-	});
+const results = await got.paginate.all('https://api.github.com/repos/sindresorhus/got/commits', {
+	pagination: {countLimit}
+});
 
-	console.log(`Printing latest ${countLimit} Got commits (newest to oldest):`);
-	console.log(results);
-})();
+console.log(`Printing latest ${countLimit} Got commits (newest to oldest):`);
+console.log(results);
 ```
 
 See [`options.pagination`](#pagination) for more pagination options.
@@ -1513,27 +1484,25 @@ client.get('demo');
 ```
 
 ```js
-(async () => {
-	const client = got.extend({
-		prefixUrl: 'httpbin.org',
-		headers: {
-			'x-foo': 'bar'
-		}
-	});
-	const {headers} = await client.get('headers').json();
-	//=> headers['x-foo'] === 'bar'
+const client = got.extend({
+	prefixUrl: 'httpbin.org',
+	headers: {
+		'x-foo': 'bar'
+	}
+});
+const {headers} = await client.get('headers').json();
+//=> headers['x-foo'] === 'bar'
 
-	const jsonClient = client.extend({
-		responseType: 'json',
-		resolveBodyOnly: true,
-		headers: {
-			'x-baz': 'qux'
-		}
-	});
-	const {headers: headers2} = await jsonClient.get('headers');
-	//=> headers2['x-foo'] === 'bar'
-	//=> headers2['x-baz'] === 'qux'
-})();
+const jsonClient = client.extend({
+	responseType: 'json',
+	resolveBodyOnly: true,
+	headers: {
+		'x-baz': 'qux'
+	}
+});
+const {headers: headers2} = await jsonClient.get('headers');
+//=> headers2['x-foo'] === 'bar'
+//=> headers2['x-baz'] === 'qux'
 ```
 
 Additionally, `got.extend()` accepts two properties from the `defaults` object: `mutableDefaults` and `handlers`. Example:
@@ -1775,28 +1744,26 @@ When the request is aborted with `.cancel()`.
 The promise returned by Got has a [`.cancel()`](https://github.com/sindresorhus/p-cancelable) method which when called, aborts the request.
 
 ```js
-(async () => {
-	const request = got(url, options);
+const request = got(url, options);
 
-	// …
+// …
 
-	// In another part of the code
-	if (something) {
-		request.cancel();
+// In another part of the code
+if (something) {
+	request.cancel();
+}
+
+// …
+
+try {
+	await request;
+} catch (error) {
+	if (request.isCanceled) { // Or `error instanceof got.CancelError`
+		// Handle cancelation
 	}
 
-	// …
-
-	try {
-		await request;
-	} catch (error) {
-		if (request.isCanceled) { // Or `error instanceof got.CancelError`
-			// Handle cancelation
-		}
-
-		// Handle other errors
-	}
-})();
+	// Handle other errors
+}
 ```
 
 When using hooks, simply throw an error to abort the request.
@@ -1804,23 +1771,21 @@ When using hooks, simply throw an error to abort the request.
 ```js
 const got = require('got');
 
-(async () => {
-	const request = got(url, {
-		hooks: {
-			beforeRequest: [
-				() => {
-					throw new Error('Oops. Request canceled.');
-				}
-			]
-		}
-	});
-
-	try {
-		await request;
-	} catch (error) {
-		// …
+const request = got(url, {
+	hooks: {
+		beforeRequest: [
+			() => {
+				throw new Error('Oops. Request canceled.');
+			}
+		]
 	}
-})();
+});
+
+try {
+	await request;
+} catch (error) {
+	// …
+}
 ```
 
 To abort the Got Stream request, just call `stream.destroy()`.
@@ -1844,15 +1809,13 @@ const got = require('got');
 
 const map = new Map();
 
-(async () => {
-		let response = await got('https://sindresorhus.com', {cache: map});
-		console.log(response.isFromCache);
-		//=> false
+let response = await got('https://sindresorhus.com', {cache: map});
+console.log(response.isFromCache);
+//=> false
 
-		response = await got('https://sindresorhus.com', {cache: map});
-		console.log(response.isFromCache);
-		//=> true
-})();
+response = await got('https://sindresorhus.com', {cache: map});
+console.log(response.isFromCache);
+//=> true
 ```
 
 Got uses [Keyv](https://github.com/lukechilds/keyv) internally to support a wide range of storage adapters. For something more scalable you could use an [official Keyv storage adapter](https://github.com/lukechilds/keyv#official-storage-adapters):
@@ -1867,7 +1830,7 @@ const KeyvRedis = require('@keyv/redis');
 
 const redis = new KeyvRedis('redis://user:pass@localhost:6379');
 
-got('https://sindresorhus.com', {cache: redis});
+await got('https://sindresorhus.com', {cache: redis});
 ```
 
 Got supports anything that follows the Map API, so it's easy to write your own storage adapter or use a third-party solution.
@@ -1882,7 +1845,7 @@ const storageAdapter = require('./my-storage-adapter');
 const QuickLRU = require('quick-lru');
 const storageAdapter = new QuickLRU({maxSize: 1000});
 
-got('https://sindresorhus.com', {cache: storageAdapter});
+await got('https://sindresorhus.com', {cache: storageAdapter});
 ```
 
 View the [Keyv docs](https://github.com/lukechilds/keyv) for more information on how to use storage adapters.
@@ -1895,7 +1858,7 @@ You can use the [`tunnel`](https://github.com/koichik/node-tunnel) package with 
 const got = require('got');
 const tunnel = require('tunnel');
 
-got('https://sindresorhus.com', {
+await got('https://sindresorhus.com', {
 	agent: {
 		https: tunnel.httpsOverHttp({
 			proxy: {
@@ -1912,7 +1875,7 @@ Otherwise, you can use the [`hpagent`](https://github.com/delvedor/hpagent) pack
 const got = require('got');
 const {HttpsProxyAgent} = require('hpagent');
 
-got('https://sindresorhus.com', {
+await got('https://sindresorhus.com', {
 	agent: {
 		https: new HttpsProxyAgent({
 			keepAlive: true,
@@ -1939,13 +1902,11 @@ const {promisify} = require('util');
 const got = require('got');
 const {CookieJar} = require('tough-cookie');
 
-(async () => {
-	const cookieJar = new CookieJar();
-	const setCookie = promisify(cookieJar.setCookie.bind(cookieJar));
+const cookieJar = new CookieJar();
+const setCookie = promisify(cookieJar.setCookie.bind(cookieJar));
 
-	await setCookie('foo=bar', 'https://example.com');
-	await got('https://example.com', {cookieJar});
-})();
+await setCookie('foo=bar', 'https://example.com');
+await got('https://example.com', {cookieJar});
 ```
 
 ## Form data
@@ -1991,7 +1952,7 @@ const token = {
 
 const url = 'https://api.twitter.com/1.1/statuses/home_timeline.json';
 
-got(url, {
+await got(url, {
 	headers: oauth.toHeader(oauth.authorize({url, method: 'GET'}, token)),
 	responseType: 'json'
 });
@@ -2008,10 +1969,10 @@ Requests can also be sent via [unix domain sockets](http://serverfault.com/quest
 ```js
 const got = require('got');
 
-got('http://unix:/var/run/docker.sock:/containers/json');
+await got('http://unix:/var/run/docker.sock:/containers/json');
 
 // Or without protocol (HTTP by default)
-got('unix:/var/run/docker.sock:/containers/json');
+await got('unix:/var/run/docker.sock:/containers/json');
 ```
 
 ## AWS
@@ -2040,11 +2001,9 @@ nock('https://sindresorhus.com')
 	.get('/')
 	.reply(200, 'Hello world!');
 
-(async () => {
-	const response = await got('https://sindresorhus.com');
-	console.log(response.body);
-	//=> 'Hello world!'
-})();
+const response = await got('https://sindresorhus.com');
+console.log(response.body);
+//=> 'Hello world!'
 ```
 
 Bear in mind, that by default `nock` mocks only one request. Got will [retry](#retry) on failed requests by default, causing a `No match for request ...` error. The solution is to either disable retrying (set `options.retry` to `0`) or call `.persist()` on the mocked request.
@@ -2058,19 +2017,17 @@ const scope = nock('https://sindresorhus.com')
 	.reply(500, 'Internal server error')
 	.persist();
 
-(async () => {
-	try {
-		await got('https://sindresorhus.com')
-	} catch (error) {
-		console.log(error.response.body);
-		//=> 'Internal server error'
+try {
+	await got('https://sindresorhus.com')
+} catch (error) {
+	console.log(error.response.body);
+	//=> 'Internal server error'
 
-		console.log(error.response.retryCount);
-		//=> 2
-	}
+	console.log(error.response.retryCount);
+	//=> 2
+}
 
-	scope.persist(false);
-})();
+scope.persist(false);
 ```
 
 For real integration testing we recommend using [`ava`](https://github.com/avajs/ava) with [`create-test-server`](https://github.com/lukechilds/create-test-server). We're using a macro so we don't have to `server.listen()` and `server.close()` every test. Take a look at one of our tests:
@@ -2104,17 +2061,15 @@ To pass an object as the body, you need to use the `json` option. It will be str
 ```js
 const got = require('got');
 
-(async () => {
-	const {body} = await got.post('https://httpbin.org/anything', {
-		json: {
-			hello: 'world'
-		},
-		responseType: 'json'
-	});
+const {body} = await got.post('https://httpbin.org/anything', {
+	json: {
+		hello: 'world'
+	},
+	responseType: 'json'
+});
 
-	console.log(body.data);
-	//=> '{"hello":"world"}'
-})();
+console.log(body.data);
+//=> '{"hello":"world"}'
 ```
 
 To receive a JSON body you can either set `responseType` option to `json` or use `promise.json()`. Example:
@@ -2122,16 +2077,14 @@ To receive a JSON body you can either set `responseType` option to `json` or use
 ```js
 const got = require('got');
 
-(async () => {
-	const body = await got.post('https://httpbin.org/anything', {
-		json: {
-			hello: 'world'
-		}
-	}).json();
+const body = await got.post('https://httpbin.org/anything', {
+	json: {
+		hello: 'world'
+	}
+}).json();
 
-	console.log(body);
-	//=> {…}
-})();
+console.log(body);
+//=> {…}
 ```
 
 ### User Agent
@@ -2142,13 +2095,13 @@ It's a good idea to set the `'user-agent'` header so the provider can more easil
 const got = require('got');
 const pkg = require('./package.json');
 
-got('https://sindresorhus.com', {
+await got('https://sindresorhus.com', {
 	headers: {
 		'user-agent': `my-package/${pkg.version} (https://github.com/username/my-package)`
 	}
 });
 
-got('https://sindresorhus.com', {
+await got('https://sindresorhus.com', {
 	headers: {
 		'user-agent': undefined
 	}
@@ -2176,9 +2129,7 @@ const custom = got.extend({
 });
 
 // Use `custom` exactly how you use `got`
-(async () => {
-	const list = await custom('v1/users/list');
-})();
+const list = await custom('v1/users/list');
 ```
 
 ## FAQ

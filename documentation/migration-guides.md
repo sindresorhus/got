@@ -23,15 +23,13 @@ With Got, it is:
 ```js
 const got = require('got');
 
-(async () => {
-	try {
-		const response = await got('https://google.com');
-		console.log('statusCode:', response.statusCode);
-		console.log('body:', response.body);
-	} catch (error) {
-		console.log('error:', error);
-	}
-})();
+try {
+	const response = await got('https://google.com');
+	console.log('statusCode:', response.statusCode);
+	console.log('body:', response.body);
+} catch (error) {
+	console.log('error:', error);
+}
 ```
 
 Looks better now, huh? 😎

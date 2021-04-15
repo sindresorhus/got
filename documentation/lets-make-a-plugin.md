@@ -254,13 +254,11 @@ Yup. View the full source code [here](examples/gh-got.js). Here's an example of 
 ```js
 const ghGot = require('gh-got');
 
-(async () => {
-	const response = await ghGot('users/sindresorhus');
-	const creationDate = new Date(response.created_at);
+const response = await ghGot('users/sindresorhus');
+const creationDate = new Date(response.created_at);
 
-	console.log(`Sindre's GitHub profile was created on ${creationDate.toGMTString()}`);
-	// => Sindre's GitHub profile was created on Sun, 20 Dec 2009 22:57:02 GMT
-})();
+console.log(`Sindre's GitHub profile was created on ${creationDate.toGMTString()}`);
+// => Sindre's GitHub profile was created on Sun, 20 Dec 2009 22:57:02 GMT
 ```
 
 Did you know you can mix many instances into a bigger, more powerful one? Check out the [Advanced Creation](advanced-creation.md) guide.
