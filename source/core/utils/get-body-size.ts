@@ -3,7 +3,7 @@ import {ClientRequestArgs} from 'http';
 import is from '@sindresorhus/is';
 import isFormData from './is-form-data.js';
 
-export default async (body: unknown, headers: ClientRequestArgs['headers']): Promise<number | undefined> => {
+export default async function getBodySize(body: unknown, headers: ClientRequestArgs['headers']): Promise<number | undefined> {
 	if (headers && 'content-length' in headers) {
 		return Number(headers['content-length']);
 	}
@@ -25,4 +25,4 @@ export default async (body: unknown, headers: ClientRequestArgs['headers']): Pro
 	}
 
 	return undefined;
-};
+}

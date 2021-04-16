@@ -22,7 +22,7 @@ const keys: Array<Exclude<keyof URLOptions, 'searchParams' | 'path'>> = [
 	'search'
 ];
 
-export default (origin: string, options: URLOptions): URL => {
+export default function optionsToUrl(origin: string, options: URLOptions): URL {
 	if (options.path) {
 		if (options.pathname) {
 			throw new TypeError('Parameters `path` and `pathname` are mutually exclusive.');
@@ -70,4 +70,4 @@ export default (origin: string, options: URLOptions): URL => {
 	}
 
 	return url;
-};
+}

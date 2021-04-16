@@ -89,7 +89,7 @@
 		"pify": "^5.0.0",
 		"readable-stream": "^3.6.0",
 		"request": "^2.88.2",
-		"sinon": "^9.2.4",
+		"sinon": "^10.0.0",
 		"slow-stream": "0.0.4",
 		"tempy": "^1.0.1",
 		"to-readable-stream": "^2.1.0",
@@ -135,15 +135,10 @@
 		],
 		"rules": {
 			"@typescript-eslint/no-empty-function": "off",
-			"@typescript-eslint/no-duplicate-imports": "off",
 			"node/no-deprecated-api": "off",
 			"node/prefer-global/url": "off",
 			"node/prefer-global/url-search-params": "off",
-			"import/no-anonymous-default-export": "off",
-			"@typescript-eslint/no-implicit-any-catch": "off",
-			"unicorn/import-index": "off",
-			"import/no-useless-path-segments": "off",
-			"import/no-named-as-default": "off"
+			"@typescript-eslint/no-implicit-any-catch": "off"
 		}
 	},
 	"runkitExampleFilename": "./documentation/examples/runkit-example.js"

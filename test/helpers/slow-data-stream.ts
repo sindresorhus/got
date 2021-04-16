@@ -2,8 +2,8 @@ import {Readable} from 'stream';
 import {Clock} from '@sinonjs/fake-timers';
 import delay from 'delay';
 
-export default (clock?: Clock): Readable => {
-	let i = 0;
+export default function slowDataStream(clock?: Clock): Readable {
+	let index = 0;
 
 	return new Readable({
 		async read() {
@@ -13,11 +13,11 @@ export default (clock?: Clock): Readable => {
 				await delay(100);
 			}
 
-			if (i++ < 10) {
+			if (index++ < 10) {
 				this.push('data\n'.repeat(100));
 			} else {
 				this.push(null);
 			}
 		}
 	});
-};
+}

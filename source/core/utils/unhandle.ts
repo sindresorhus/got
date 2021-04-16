@@ -19,7 +19,7 @@ interface Unhandler {
 // Especially if you do error handling and set timeouts.
 // So instead of checking if it's proper to throw an error on every timeout ever,
 // use this simple tool which will remove all listeners you have attached.
-export default (): Unhandler => {
+export default function unhandle(): Unhandler {
 	const handlers: Handler[] = [];
 
 	return {
@@ -37,4 +37,4 @@ export default (): Unhandler => {
 			handlers.length = 0;
 		}
 	};
-};
+}

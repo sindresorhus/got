@@ -43,7 +43,7 @@ export class TimeoutError extends Error {
 	}
 }
 
-export default (request: ClientRequest, delays: Delays, options: TimedOutOptions): () => void => {
+export default function timedOut(request: ClientRequest, delays: Delays, options: TimedOutOptions): () => void {
 	if (reentry in request) {
 		return noop;
 	}
@@ -175,7 +175,7 @@ export default (request: ClientRequest, delays: Delays, options: TimedOutOptions
 	}
 
 	return cancelTimeouts;
-};
+}
 
 declare module 'http' {
 	interface ClientRequest {
