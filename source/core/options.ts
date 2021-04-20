@@ -284,8 +284,9 @@ By default, it retries *only* on the specified methods, status codes, and on the
 - `ENETUNREACH`: No internet connection.
 - `EAI_AGAIN`: DNS lookup timed out.
 
-__Note__: If `maxRetryAfter` is set to `undefined`, it will use `options.timeout`.
-__Note__: If [`Retry-After`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Retry-After) header is greater than `maxRetryAfter`, it will cancel the request.
+__Note:__ Got does not retry on `POST` by default.
+__Note:__ If `maxRetryAfter` is set to `undefined`, it will use `options.timeout`.
+__Note:__ If [`Retry-After`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Retry-After) header is greater than `maxRetryAfter`, it will cancel the request.
 */
 export interface RetryOptions {
 	limit: number;
