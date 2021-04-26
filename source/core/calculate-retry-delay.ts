@@ -39,7 +39,7 @@ const calculateRetryDelay: Returns<RetryFunction, number> = ({
 		}
 	}
 
-	const noise = Math.random() * 100;
+	const noise = Math.random() * retryOptions.noise;
 	return Math.min(((2 ** (attemptCount - 1)) * 1000), retryOptions.backoffLimit) + noise;
 };
 

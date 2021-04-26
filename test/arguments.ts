@@ -557,3 +557,53 @@ test('prefixUrl is properly replaced when extending', withServer, async (t, serv
 
 	t.is(await child.get('').text(), '/other/path/');
 });
+
+test('throws on too large noise', t => {
+	t.throws(() => {
+		new Options({
+			retry: {
+				noise: 101
+			}
+		});
+	}, {
+		message: 'The maximum acceptable retry noise is +/- 100ms, got 101'
+	});
+
+	t.throws(() => {
+		new Options({
+			retry: {
+				noise: -101
+			}
+		});
+	}, {
+		message: 'The maximum acceptable retry noise is +/- 100ms, got -101'
+	});
+
+	t.throws(() => {
+		new Options({
+			retry: {
+				noise: Number.POSITIVE_INFINITY
+			}
+		});
+	}, {
+		message: 'The maximum acceptable retry noise is +/- 100ms, got Infinity'
+	});
+
+	t.throws(() => {
+		new Options({
+			retry: {
+				noise: Number.NEGATIVE_INFINITY
+			}
+		});
+	}, {
+		message: 'The maximum acceptable retry noise is +/- 100ms, got -Infinity'
+	});
+
+	t.notThrows(() => {
+		new Options({
+			retry: {
+				noise: 0
+			}
+		});
+	});
+});

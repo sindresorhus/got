@@ -295,6 +295,7 @@ export interface RetryOptions {
 	errorCodes: string[];
 	calculateDelay: RetryFunction;
 	backoffLimit: number;
+	noise: number;
 	maxRetryAfter?: number;
 }
 
@@ -618,7 +619,8 @@ const defaultInternals: Options['_internals'] = {
 		],
 		maxRetryAfter: undefined,
 		calculateDelay: ({computedValue}) => computedValue,
-		backoffLimit: Number.POSITIVE_INFINITY
+		backoffLimit: Number.POSITIVE_INFINITY,
+		noise: 100
 	},
 	localAddress: undefined,
 	method: 'GET',
@@ -1785,6 +1787,11 @@ export default class Options {
 		assert.any([is.array, is.undefined], value.methods);
 		assert.any([is.array, is.undefined], value.statusCodes);
 		assert.any([is.array, is.undefined], value.errorCodes);
+		assert.any([is.number, is.undefined], value.noise);
+
+		if (value.noise && Math.abs(value.noise) > 100) {
+			throw new Error(`The maximum acceptable retry noise is +/- 100ms, got ${value.noise}`);
+		}
 
 		for (const key in value) {
 			if (!(key in this._internals.retry)) {
