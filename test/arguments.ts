@@ -559,6 +559,7 @@ test('prefixUrl is properly replaced when extending', withServer, async (t, serv
 });
 
 test('throws on too large noise', t => {
+	/* eslint-disable no-new */
 	t.throws(() => {
 		new Options({
 			retry: {
@@ -606,4 +607,6 @@ test('throws on too large noise', t => {
 			}
 		});
 	});
+
+	/* eslint-enable no-new */
 });

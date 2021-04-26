@@ -360,6 +360,16 @@ export interface HttpsOptions {
 	*/
 	passphrase?: SecureContextOptions['passphrase'];
 	pfx?: SecureContextOptions['pfx'];
+
+	ciphers?: SecureContextOptions['ciphers'];
+	honorCipherOrder?: SecureContextOptions['honorCipherOrder'];
+	minVersion?: SecureContextOptions['minVersion'];
+	maxVersion?: SecureContextOptions['maxVersion'];
+	signatureAlgorithms?: SecureContextOptions['sigalgs'];
+	tlsSessionLifetime?: SecureContextOptions['sessionTimeout'];
+	dhparam?: SecureContextOptions['dhparam'];
+	ecdhCurve?: SecureContextOptions['ecdhCurve'];
+	certificateRevocationLists?: SecureContextOptions['crl'];
 }
 
 export interface PaginateData<BodyType, ElementType> {
@@ -639,7 +649,16 @@ const defaultInternals: Options['_internals'] = {
 		key: undefined,
 		certificate: undefined,
 		passphrase: undefined,
-		pfx: undefined
+		pfx: undefined,
+		ciphers: undefined,
+		honorCipherOrder: undefined,
+		minVersion: undefined,
+		maxVersion: undefined,
+		signatureAlgorithms: undefined,
+		tlsSessionLifetime: undefined,
+		dhparam: undefined,
+		ecdhCurve: undefined,
+		certificateRevocationLists: undefined
 	},
 	encoding: undefined,
 	resolveBodyOnly: false,
@@ -1900,6 +1919,15 @@ export default class Options {
 		assert.any([is.string, is.undefined], value.passphrase);
 		assert.any([is.string, is.buffer, is.array, is.undefined], value.pfx);
 		assert.any([is.array, is.undefined], value.alpnProtocols);
+		assert.any([is.string, is.undefined], value.ciphers);
+		assert.any([is.string, is.buffer, is.undefined], value.dhparam);
+		assert.any([is.string, is.undefined], value.signatureAlgorithms);
+		assert.any([is.string, is.undefined], value.minVersion);
+		assert.any([is.string, is.undefined], value.maxVersion);
+		assert.any([is.boolean, is.undefined], value.honorCipherOrder);
+		assert.any([is.number, is.undefined], value.tlsSessionLifetime);
+		assert.any([is.string, is.undefined], value.ecdhCurve);
+		assert.any([is.string, is.buffer, is.array, is.undefined], value.certificateRevocationLists);
 
 		for (const key in value) {
 			if (!(key in this._internals.httpsOptions)) {
@@ -2082,6 +2110,8 @@ export default class Options {
 		return {
 			...internals.cacheOptions,
 			...this._unixOptions,
+
+			// HTTPS options
 			ca: httpsOptions.certificateAuthority,
 			cert: httpsOptions.certificate,
 			key: httpsOptions.key,
@@ -2089,6 +2119,17 @@ export default class Options {
 			pfx: httpsOptions.pfx,
 			rejectUnauthorized: httpsOptions.rejectUnauthorized,
 			checkServerIdentity: httpsOptions.checkServerIdentity ?? checkServerIdentity,
+			ciphers: httpsOptions.ciphers,
+			honorCipherOrder: httpsOptions.honorCipherOrder,
+			minVersion: httpsOptions.minVersion,
+			maxVersion: httpsOptions.maxVersion,
+			sigalgs: httpsOptions.signatureAlgorithms,
+			sessionTimeout: httpsOptions.tlsSessionLifetime,
+			dhparam: httpsOptions.dhparam,
+			ecdhCurve: httpsOptions.ecdhCurve,
+			crl: httpsOptions.certificateRevocationLists,
+
+			// HTTP options
 			lookup: internals.dnsLookup ?? (internals.dnsCache as CacheableLookup | undefined)?.lookup,
 			family: internals.dnsLookupIpVersion,
 			agent,
