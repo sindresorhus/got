@@ -7,6 +7,7 @@ import delay from 'delay';
 import pEvent from 'p-event';
 import {Handler} from 'express';
 import getStream from 'get-stream';
+import FormData from 'form-data';
 import toReadableStream from 'to-readable-stream';
 import got, {UploadError} from '../source/index.js';
 import withServer from './helpers/with-server.js';
@@ -334,5 +335,33 @@ test('throws on upload error', withServer, async (t, server, got) => {
 	})), {
 		instanceOf: UploadError,
 		message
+	});
+});
+
+test('formdata retry', withServer, async (t, server, got) => {
+	server.post('/', echoHeaders);
+
+	const instance = got.extend({
+		hooks: {
+			afterResponse: [
+				async (_response, retryWithMergedOptions) => {
+					return retryWithMergedOptions({
+						headers: {
+							foo: 'bar'
+						}
+					});
+				}
+			]
+		}
+	});
+
+	const form = new FormData();
+	form.append('hello', 'world');
+
+	await t.throwsAsync(instance.post({
+		body: form,
+		headers: form.getHeaders()
+	}).json<{foo?: string}>(), {
+		message: 'Cannot retry with consumed body stream'
 	});
 });

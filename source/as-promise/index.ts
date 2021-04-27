@@ -149,6 +149,8 @@ export default function asPromise<T>(firstRequest: Request): CancelableRequest<T
 				const newBody = request.options.body;
 
 				if (previousBody === newBody && is.nodeStream(newBody)) {
+					error.message = 'Cannot retry with consumed body stream';
+
 					onError(error);
 					return;
 				}
