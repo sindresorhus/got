@@ -3,10 +3,19 @@ import net from 'net';
 import express from 'express';
 import pify from 'pify';
 import pem from 'pem';
+import type {SecureContextOptions} from 'tls';
 
 export type HttpsServerOptions = {
 	commonName?: string;
 	days?: number;
+	ciphers?: SecureContextOptions['ciphers'];
+	honorCipherOrder?: SecureContextOptions['honorCipherOrder'];
+	minVersion?: SecureContextOptions['minVersion'];
+	maxVersion?: SecureContextOptions['maxVersion'];
+	signatureAlgorithms?: SecureContextOptions['sigalgs'];
+	tlsSessionLifetime?: SecureContextOptions['sessionTimeout'];
+	dhparam?: SecureContextOptions['dhparam'];
+	ecdhCurve?: SecureContextOptions['ecdhCurve'];
 };
 
 export interface ExtendedHttpsTestServer extends express.Express {
@@ -49,7 +58,13 @@ const createHttpsTestServer = async (options: HttpsServerOptions = {}): Promise<
 			cert: serverCert,
 			ca: caCert,
 			requestCert: true,
-			rejectUnauthorized: false // This should be checked by the test
+			rejectUnauthorized: false, // This should be checked by the test
+			ciphers: options.ciphers,
+			honorCipherOrder: options.honorCipherOrder,
+			minVersion: options.minVersion,
+			maxVersion: options.maxVersion,
+			dhparam: options.dhparam,
+			ecdhCurve: options.ecdhCurve
 		},
 		server
 	);
