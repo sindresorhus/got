@@ -50,9 +50,7 @@ For browser usage, we recommend [Ky](https://github.com/sindresorhus/ky) by the 
 
 **Support questions should be asked [here](https://github.com/sindresorhus/got/discussions).**
 
-<h2>
-	<center>Install</center>
-</h2>
+## Install
 
 ```
 $ yarn add got
