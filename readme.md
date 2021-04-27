@@ -67,27 +67,44 @@ $ npm install got
 
 ### Table of Contents
 
+#### Chapter I: Main API
+
 - [Options](documentation/options.md)
 - [Promise API](documentation/promise.md)
 - [Stream API](documentation/streams.md)
 - [Pagination API](documentation/pagination.md)
 - [Advanced HTTPS API](documentation/https.md)
+- [HTTP/2 support](documentation/http2.md)
+- [JSON mode](documentation/json.md)
+
+#### Chapter II: Timeouts and retries
+
 - [Advanced timeout handling](documentation/timeout.md)
 - [Retries on failure](documentation/retry.md)
-- [HTTP/2 support](documentation/http2.md)
+- [Errors with metadata](documentation/errors.md)
+
+#### Chapter III: Advanced creation
+
 - [Instances](documentation/instances.md)
 - [Hooks](documentation/hooks.md)
 - [Progress events & other events](documentation/events.md)
-- [Nice errors](documentation/errors.md)
-- [TypeScript support](documentation/typescript.md)
-- [JSON mode](documentation/json.md)
 - [Composable](documentation/advanced-creation.md#merging-instances)
-- [RFC compliant caching](documentation/cache.md)
 - [Plugins](documentation/lets-make-a-plugin.md)
+
+#### Chapter IV: Cache, Proxy and UNIX sockets
+
+- [RFC compliant caching](documentation/cache.md)
 - [Proxy support](documentation/proxy.md)
 - [Unix Domain Sockets](documentation/unix-domain-sockets.md)
+
+#### Chapter V: Integration
+
+- [TypeScript support](documentation/typescript.md)
 - [AWS](documentation/aws.md)
 - [Testing](documentation/testing.md)
+
+#### Good practices
+
 - [Good practices](documentation/tips.md)
 
 <hr>
