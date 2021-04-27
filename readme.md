@@ -61,7 +61,8 @@ $ npm install got
 
 ### Migration guides
 
-- [Request migration guide](documentation/migration-guides.md#request) [*(Note that Request is unmaintained)*](https://github.com/request/request/issues/3142)
+- [Request migration guide](documentation/migration-guides.md#request)
+  - [*(Note that Request is unmaintained)*](https://github.com/request/request/issues/3142)
 - [Axios](documentation/migration-guides.md#axios)
 - [Node.js](documentation/migration-guides.md#node)
 
