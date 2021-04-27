@@ -57,16 +57,15 @@ $ yarn add got
 $ npm install got
 ```
 
+## Highlights
+
+- [Used by 6K+ packages and 3M+ repos](https://github.com/sindresorhus/got/network/dependents)
+- [Actively maintained](https://github.com/sindresorhus/got/graphs/contributors)
+- [Trusted by many companies](#widely-used)
+
 ## Documentation
 
 ### Migration guides
-
-- [Request migration guide](documentation/migration-guides.md#request)
-  - [*(Note that Request is unmaintained)*](https://github.com/request/request/issues/3142)
-- [Axios](documentation/migration-guides.md#axios)
-- [Node.js](documentation/migration-guides.md#node)
-
-<hr>
 
 ### Table of Contents
 
@@ -93,22 +92,12 @@ $ npm install got
 - [Testing](documentation/testing.md)
 - [Good practices](documentation/tips.md)
 
-## Highlights
+<hr>
 
-- [Used by 6K+ packages and 3M+ repos](https://github.com/sindresorhus/got/network/dependents)
-- [Actively maintained](https://github.com/sindresorhus/got/graphs/contributors)
-- [Trusted by many companies](#widely-used)
-
-## FAQ
-
-### Why yet another HTTP client?
-
-Got was created because the popular [`request`](https://github.com/request/request) package is bloated: [![Install size](https://packagephobia.now.sh/badge?p=request)](https://packagephobia.now.sh/result?p=request)\
-Furthermore, Got is fully written in TypeScript and actively maintained.
-
-### Electron support has been removed
-
-The Electron `net` module is not consistent with the Node.js `http` module. See [#899](https://github.com/sindresorhus/got/issues/899) for more info.
+- [Request migration guide](documentation/migration-guides.md#request)
+  - [*(Note that Request is unmaintained)*](https://github.com/request/request/issues/3142)
+- [Axios](documentation/migration-guides.md#axios)
+- [Node.js](documentation/migration-guides.md#node)
 
 ## Comparison
 
@@ -328,14 +317,17 @@ The Electron `net` module is not consistent with the Node.js `http` module. See 
 
 [InstallSizeOfTheDependencies]: https://packagephobia.com/result?p=@sindresorhus/is@3.0.0,@szmarczak/http-timer@4.0.5,@types/cacheable-request@6.0.1,@types/responselike@1.0.0,cacheable-lookup@5.0.3,cacheable-request@7.0.1,decompress-response@6.0.0,http2-wrapper@1.0.0,lowercase-keys@2.0.0,p-cancelable@2.0.0,responselike@2.0.0
 
-## Related
+## Got plugins
 
 - [gh-got](https://github.com/sindresorhus/gh-got) - Got convenience wrapper to interact with the GitHub API
 - [gl-got](https://github.com/singapore/gl-got) - Got convenience wrapper to interact with the GitLab API
-- [travis-got](https://github.com/samverschueren/travis-got) - Got convenience wrapper to interact with the Travis API
-- [graphql-got](https://github.com/kevva/graphql-got) - Got convenience wrapper to interact with GraphQL
 - [GotQL](https://github.com/khaosdoctor/gotql) - Got convenience wrapper to interact with GraphQL using JSON-parsed queries instead of strings
 - [got-fetch](https://github.com/alexghr/got-fetch) - Got with a `fetch` interface
+
+### Not active
+
+- [travis-got](https://github.com/samverschueren/travis-got) - Got convenience wrapper to interact with the Travis API
+- [graphql-got](https://github.com/kevva/graphql-got) - Got convenience wrapper to interact with GraphQL
 
 ## Maintainers
 
