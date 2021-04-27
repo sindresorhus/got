@@ -12,10 +12,6 @@ export type HttpsServerOptions = {
 	honorCipherOrder?: SecureContextOptions['honorCipherOrder'];
 	minVersion?: SecureContextOptions['minVersion'];
 	maxVersion?: SecureContextOptions['maxVersion'];
-	signatureAlgorithms?: SecureContextOptions['sigalgs'];
-	tlsSessionLifetime?: SecureContextOptions['sessionTimeout'];
-	dhparam?: SecureContextOptions['dhparam'];
-	ecdhCurve?: SecureContextOptions['ecdhCurve'];
 };
 
 export interface ExtendedHttpsTestServer extends express.Express {
@@ -62,9 +58,7 @@ const createHttpsTestServer = async (options: HttpsServerOptions = {}): Promise<
 			ciphers: options.ciphers,
 			honorCipherOrder: options.honorCipherOrder,
 			minVersion: options.minVersion,
-			maxVersion: options.maxVersion,
-			dhparam: options.dhparam,
-			ecdhCurve: options.ecdhCurve
+			maxVersion: options.maxVersion
 		},
 		server
 	);
