@@ -116,6 +116,18 @@ $ npm install got
 - [Axios](documentation/migration-guides.md#axios)
 - [Node.js](documentation/migration-guides.md#node)
 
+## Got plugins
+
+- [gh-got](https://github.com/sindresorhus/gh-got) - Got convenience wrapper to interact with the GitHub API
+- [gl-got](https://github.com/singapore/gl-got) - Got convenience wrapper to interact with the GitLab API
+- [GotQL](https://github.com/khaosdoctor/gotql) - Got convenience wrapper to interact with GraphQL using JSON-parsed queries instead of strings
+- [got-fetch](https://github.com/alexghr/got-fetch) - Got with a `fetch` interface
+
+### Not active
+
+- [travis-got](https://github.com/samverschueren/travis-got) - Got convenience wrapper to interact with the Travis API
+- [graphql-got](https://github.com/kevva/graphql-got) - Got convenience wrapper to interact with GraphQL
+
 ## Comparison
 
 |                       | `got`               | [`request`][r0]    | [`node-fetch`][n0]   | [`ky`][k0]               | [`axios`][a0]      | [`superagent`][s0]     |
@@ -333,18 +345,6 @@ $ npm install got
 [Click here][InstallSizeOfTheDependencies] to see the install size of the Got dependencies.
 
 [InstallSizeOfTheDependencies]: https://packagephobia.com/result?p=@sindresorhus/is@3.0.0,@szmarczak/http-timer@4.0.5,@types/cacheable-request@6.0.1,@types/responselike@1.0.0,cacheable-lookup@5.0.3,cacheable-request@7.0.1,decompress-response@6.0.0,http2-wrapper@1.0.0,lowercase-keys@2.0.0,p-cancelable@2.0.0,responselike@2.0.0
-
-## Got plugins
-
-- [gh-got](https://github.com/sindresorhus/gh-got) - Got convenience wrapper to interact with the GitHub API
-- [gl-got](https://github.com/singapore/gl-got) - Got convenience wrapper to interact with the GitLab API
-- [GotQL](https://github.com/khaosdoctor/gotql) - Got convenience wrapper to interact with GraphQL using JSON-parsed queries instead of strings
-- [got-fetch](https://github.com/alexghr/got-fetch) - Got with a `fetch` interface
-
-### Not active
-
-- [travis-got](https://github.com/samverschueren/travis-got) - Got convenience wrapper to interact with the Travis API
-- [graphql-got](https://github.com/kevva/graphql-got) - Got convenience wrapper to interact with GraphQL
 
 ## Maintainers
 
