@@ -44,8 +44,6 @@
 [![Downloads](https://img.shields.io/npm/dm/got.svg)](https://npmjs.com/got)
 [![Install size](https://packagephobia.now.sh/badge?p=got)](https://packagephobia.now.sh/result?p=got)
 
-[Moving from Request?](documentation/migration-guides.md) [*(Note that Request is unmaintained)*](https://github.com/request/request/issues/3142)
-
 [See how Got compares to other HTTP libraries](#comparison)
 
 For browser usage, we recommend [Ky](https://github.com/sindresorhus/ky) by the same people.
@@ -60,6 +58,16 @@ $ npm install got
 ```
 
 ## Documentation
+
+### Migration guides
+
+- [Request migration guide](documentation/migration-guides.md#request) [*(Note that Request is unmaintained)*](https://github.com/request/request/issues/3142)
+- [Axios](documentation/migration-guides.md#axios)
+- [Node.js](documentation/migration-guides.md#node)
+
+<hr>
+
+### Table of Contents
 
 - [Options](documentation/options.md)
 - [Promise API](documentation/promise.md)
