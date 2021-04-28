@@ -453,7 +453,7 @@ test('https request with `ciphers` option', withHttpsServer({ciphers: `${ciphers
 	t.is(response.cipher, ciphers[0]);
 });
 
-test('https request with `honorCipherOrder` option',	withHttpsServer({ciphers: `${ciphers[0]!}:${ciphers[1]!}`}), async (t, server, got) => {
+test('https request with `honorCipherOrder` option', withHttpsServer({ciphers: `${ciphers[0]!}:${ciphers[1]!}`}), async (t, server, got) => {
 	server.get('/', (request, response) => {
 		response.json({
 			cipher: (request.socket as any).getCipher().name
