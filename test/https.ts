@@ -470,7 +470,7 @@ test('https request with `honorCipherOrder` option',	withHttpsServer({ciphers: `
 	t.is(response.cipher, ciphers[0]);
 });
 
-test('https request with `minVersion` option',	withHttpsServer({maxVersion: 'TLSv1.2'}),	async (t, server, got) => {
+test('https request with `minVersion` option', withHttpsServer({maxVersion: 'TLSv1.2'}), async (t, server, got) => {
 	server.get('/', (request, response) => {
 		response.json({
 			version: (request.socket as any).getCipher().version
