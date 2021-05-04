@@ -1927,16 +1927,16 @@ await got('https://example.com', {cookieJar});
 You can use the [`form-data`](https://github.com/form-data/form-data) package to create POST request with form data:
 
 ```js
-import fs from 'fs';
-import got from 'got';
-import FormData from 'form-data';
+import * as fs from 'fs';
+import * as got from 'got';
+import * as FormData from 'form-data';
 
 const form = new FormData();
 
 form.append('my_file', fs.createReadStream('/foo/bar.jpg'));
 
 got.post('https://example.com', {
-	body: form
+	form: form
 });
 ```
 
