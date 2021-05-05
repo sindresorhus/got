@@ -1,5 +1,5 @@
 import test from 'ava';
-import {DetailedPeerCertificate} from 'tls';
+import tls, {DetailedPeerCertificate} from 'tls';
 import pEvent from 'p-event';
 import pify from 'pify';
 import pem from 'pem';
@@ -216,12 +216,18 @@ test('client certificate', withHttpsServer(), async (t, server, got) => {
 	const clientKey = clientResult.clientKey;
 	const clientCert = clientResult.certificate;
 
-	const response: any = await got({
+	const response = await got({
 		httpsOptions: {
 			key: clientKey,
 			certificate: clientCert
 		}
-	}).json();
+	}).json<{
+		authorized: boolean;
+		peerCertificate: {
+			subject: {CN: string};
+			issuer: {CN: string};
+		};
+	}>();
 
 	t.true(response.authorized);
 	t.is(response.peerCertificate.subject.CN, 'client');
@@ -249,12 +255,14 @@ test('invalid client certificate (self-signed)', withHttpsServer(), async (t, se
 	const clientKey = clientResult.clientKey;
 	const clientCert = clientResult.certificate;
 
-	const response: any = await got({
+	const response = await got({
 		httpsOptions: {
 			key: clientKey,
 			certificate: clientCert
 		}
-	}).json();
+	}).json<{
+		authorized: boolean;
+	}>();
 
 	t.is(response.authorized, false);
 });
@@ -289,12 +297,18 @@ test('invalid client certificate (other CA)', withHttpsServer(), async (t, serve
 	const clientKey = clientResult.clientKey;
 	const clientCert = clientResult.certificate;
 
-	const response: any = await got({
+	const response = await got({
 		httpsOptions: {
 			key: clientKey,
 			certificate: clientCert
 		}
-	}).json();
+	}).json<{
+		authorized: boolean;
+		peerCertificate: {
+			subject: {CN: string};
+			issuer: {CN: string};
+		};
+	}>();
 
 	t.false(response.authorized);
 	t.is(response.peerCertificate.subject.CN, 'other-client');
@@ -337,13 +351,19 @@ test('key passphrase', withHttpsServer(), async (t, server, got) => {
 	});
 	const clientCert = clientResult.certificate;
 
-	const response: any = await got({
+	const response = await got({
 		httpsOptions: {
 			key: clientKey,
 			passphrase: 'randomPassword',
 			certificate: clientCert
 		}
-	}).json();
+	}).json<{
+		authorized: boolean;
+		peerCertificate: {
+			subject: {CN: string};
+			issuer: {CN: string};
+		};
+	}>();
 
 	t.true(response.authorized);
 	t.is(response.peerCertificate.subject.CN, 'client');
@@ -423,14 +443,73 @@ test('client certificate PFX', withHttpsServer(), async (t, server, got) => {
 
 	const {pkcs12} = await createPkcs12(clientKey, clientCert, 'randomPassword');
 
-	const response: any = await got({
+	const response = await got({
 		httpsOptions: {
 			pfx: pkcs12,
 			passphrase: 'randomPassword'
 		}
-	}).json();
+	}).json<{
+		authorized: boolean;
+		peerCertificate: {
+			subject: {CN: string};
+			issuer: {CN: string};
+		};
+	}>();
 
 	t.true(response.authorized);
 	t.is(response.peerCertificate.subject.CN, 'client');
 	t.is(response.peerCertificate.issuer.CN, 'authority');
+});
+
+const ciphers = tls.getCiphers().map(cipher => cipher.toUpperCase());
+
+test('https request with `ciphers` option', withHttpsServer({ciphers: `${ciphers[0]!}:${ciphers[1]!}:${ciphers[2]!}`}), async (t, server, got) => {
+	server.get('/', (request, response) => {
+		response.json({
+			cipher: (request.socket as any).getCipher().name
+		});
+	});
+
+	const response = await got({
+		httpsOptions: {
+			ciphers: ciphers[0]
+		}
+	}).json<{cipher: string}>();
+
+	t.is(response.cipher, ciphers[0]);
+});
+
+test('https request with `honorCipherOrder` option', withHttpsServer({ciphers: `${ciphers[0]!}:${ciphers[1]!}`}), async (t, server, got) => {
+	server.get('/', (request, response) => {
+		response.json({
+			cipher: (request.socket as any).getCipher().name
+		});
+	});
+
+	const response = await got({
+		httpsOptions: {
+			ciphers: `${ciphers[1]!}:${ciphers[0]!}`,
+			honorCipherOrder: true
+		}
+	}).json<{cipher: string}>();
+
+	t.is(response.cipher, ciphers[0]);
+});
+
+test('https request with `minVersion` option', withHttpsServer({maxVersion: 'TLSv1.2'}), async (t, server, got) => {
+	server.get('/', (request, response) => {
+		response.json({
+			version: (request.socket as any).getCipher().version
+		});
+	});
+
+	const request = got({
+		httpsOptions: {
+			minVersion: 'TLSv1.3'
+		}
+	});
+
+	await t.throwsAsync(request, {
+		code: 'EPROTO'
+	});
 });
