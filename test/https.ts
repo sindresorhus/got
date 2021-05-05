@@ -216,12 +216,18 @@ test('client certificate', withHttpsServer(), async (t, server, got) => {
 	const clientKey = clientResult.clientKey;
 	const clientCert = clientResult.certificate;
 
-	const response: any = await got({
+	const response = await got({
 		httpsOptions: {
 			key: clientKey,
 			certificate: clientCert
 		}
-	}).json();
+	}).json<{
+		authorized: boolean;
+		peerCertificate: {
+			subject: {CN: string};
+			issuer: {CN: string};
+		};
+	}>();
 
 	t.true(response.authorized);
 	t.is(response.peerCertificate.subject.CN, 'client');
@@ -249,12 +255,14 @@ test('invalid client certificate (self-signed)', withHttpsServer(), async (t, se
 	const clientKey = clientResult.clientKey;
 	const clientCert = clientResult.certificate;
 
-	const response: any = await got({
+	const response = await got({
 		httpsOptions: {
 			key: clientKey,
 			certificate: clientCert
 		}
-	}).json();
+	}).json<{
+		authorized: boolean;
+	}>();
 
 	t.is(response.authorized, false);
 });
@@ -289,12 +297,18 @@ test('invalid client certificate (other CA)', withHttpsServer(), async (t, serve
 	const clientKey = clientResult.clientKey;
 	const clientCert = clientResult.certificate;
 
-	const response: any = await got({
+	const response = await got({
 		httpsOptions: {
 			key: clientKey,
 			certificate: clientCert
 		}
-	}).json();
+	}).json<{
+		authorized: boolean;
+		peerCertificate: {
+			subject: {CN: string};
+			issuer: {CN: string};
+		};
+	}>();
 
 	t.false(response.authorized);
 	t.is(response.peerCertificate.subject.CN, 'other-client');
@@ -337,13 +351,19 @@ test('key passphrase', withHttpsServer(), async (t, server, got) => {
 	});
 	const clientCert = clientResult.certificate;
 
-	const response: any = await got({
+	const response = await got({
 		httpsOptions: {
 			key: clientKey,
 			passphrase: 'randomPassword',
 			certificate: clientCert
 		}
-	}).json();
+	}).json<{
+		authorized: boolean;
+		peerCertificate: {
+			subject: {CN: string};
+			issuer: {CN: string};
+		};
+	}>();
 
 	t.true(response.authorized);
 	t.is(response.peerCertificate.subject.CN, 'client');
@@ -423,12 +443,18 @@ test('client certificate PFX', withHttpsServer(), async (t, server, got) => {
 
 	const {pkcs12} = await createPkcs12(clientKey, clientCert, 'randomPassword');
 
-	const response: any = await got({
+	const response = await got({
 		httpsOptions: {
 			pfx: pkcs12,
 			passphrase: 'randomPassword'
 		}
-	}).json();
+	}).json<{
+		authorized: boolean;
+		peerCertificate: {
+			subject: {CN: string};
+			issuer: {CN: string};
+		};
+	}>();
 
 	t.true(response.authorized);
 	t.is(response.peerCertificate.subject.CN, 'client');
@@ -444,11 +470,11 @@ test('https request with `ciphers` option', withHttpsServer({ciphers: `${ciphers
 		});
 	});
 
-	const response: any = await got({
+	const response = await got({
 		httpsOptions: {
 			ciphers: ciphers[0]
 		}
-	}).json();
+	}).json<{cipher: string}>();
 
 	t.is(response.cipher, ciphers[0]);
 });
@@ -460,12 +486,12 @@ test('https request with `honorCipherOrder` option', withHttpsServer({ciphers: `
 		});
 	});
 
-	const response: any = await got({
+	const response = await got({
 		httpsOptions: {
 			ciphers: `${ciphers[1]!}:${ciphers[0]!}`,
 			honorCipherOrder: true
 		}
-	}).json();
+	}).json<{cipher: string}>();
 
 	t.is(response.cipher, ciphers[0]);
 });
