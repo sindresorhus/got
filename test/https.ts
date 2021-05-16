@@ -1,5 +1,5 @@
-import test from 'ava';
 import tls, {DetailedPeerCertificate} from 'tls';
+import test from 'ava';
 import pEvent from 'p-event';
 import pify from 'pify';
 import pem from 'pem';

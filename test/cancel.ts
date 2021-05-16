@@ -139,7 +139,7 @@ test.serial('cancels in-progress request with timeout', withServerAndFakeTimers,
 	});
 	body.push('1');
 
-	const gotPromise = got.post('abort', {body, timeout: {request: 10000}});
+	const gotPromise = got.post('abort', {body, timeout: {request: 10_000}});
 
 	// Wait for the connection to be established before canceling
 	emitter.once('connection', () => {
@@ -174,7 +174,7 @@ test.serial('cancel immediately', withServerAndFakeTimers, async (t, server, got
 test('recover from cancelation using cancelable promise attribute', async t => {
 	// Canceled before connection started
 	const p = got('http://example.com');
-	const recover = p.catch((error: Error) => {
+	const recover = p.catch((error: Error) => { // eslint-disable-line promise/prefer-await-to-then
 		if (p.isCanceled) {
 			return;
 		}
@@ -190,7 +190,7 @@ test('recover from cancelation using cancelable promise attribute', async t => {
 test('recover from cancellation using error instance', async t => {
 	// Canceled before connection started
 	const p = got('http://example.com');
-	const recover = p.catch((error: Error) => {
+	const recover = p.catch((error: Error) => { // eslint-disable-line promise/prefer-await-to-then
 		if (error instanceof CancelError) {
 			return;
 		}

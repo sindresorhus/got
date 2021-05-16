@@ -5,13 +5,13 @@ import timer from '@szmarczak/http-timer';
 import CacheableRequest from 'cacheable-request';
 import decompressResponse from 'decompress-response';
 import is from '@sindresorhus/is';
+import {buffer as getBuffer} from 'get-stream';
 import getBodySize from './utils/get-body-size.js';
 import isFormData from './utils/is-form-data.js';
 import proxyEvents from './utils/proxy-events.js';
 import timedOut, {TimeoutError as TimedOutTimeoutError} from './timed-out.js';
 import urlToOptions from './utils/url-to-options.js';
 import WeakableMap from './utils/weakable-map.js';
-import {buffer as getBuffer} from 'get-stream';
 import calculateRetryDelay from './calculate-retry-delay.js';
 import Options, {OptionsError} from './options.js';
 import {isResponseOk, Response} from './response.js';
@@ -682,7 +682,11 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			});
 
 			if (options.ignoreInvalidCookies) {
-				promises = promises.map(async p => p.catch(() => {}));
+				promises = promises.map(async promise => {
+					try {
+						await promise;
+					} catch {}
+				});
 			}
 
 			try {
@@ -941,7 +945,13 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 						// eslint-disable-next-line @typescript-eslint/promise-function-async
 						result.once = (event: string, handler: (reason: unknown) => void) => {
 							if (event === 'error') {
-								result.catch(handler);
+								(async () => {
+									try {
+										await result;
+									} catch (error) {
+										handler(error);
+									}
+								})();
 							} else if (event === 'abort') {
 								// The empty catch is needed here in case when
 								// it rejects before it's `await`ed in `_makeRequest`.

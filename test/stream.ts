@@ -155,7 +155,7 @@ test('has redirect event', withServer, async (t, server, got) => {
 	server.get('/redirect', redirectHandler);
 
 	const stream = got.stream('redirect');
-	const [_updatedOptions, {headers}] = await pEvent(stream, 'redirect', {multiArgs: true});
+	const [, {headers}] = await pEvent(stream, 'redirect', {multiArgs: true});
 	t.is(headers.location, '/');
 
 	await getStream(stream);
@@ -483,7 +483,6 @@ test('accepts readable-stream as body', withServer, async (t, server, got) => {
 	const body = new Readable2({
 		read() {
 			this.push('ok');
-			// eslint-disable-next-line unicorn/no-array-push-push
 			this.push(null);
 		}
 	});

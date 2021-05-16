@@ -1,12 +1,12 @@
+import http from 'http';
 import {promisify} from 'util';
 import {ExecutionContext, Macro} from 'ava'; // eslint-disable-line ava/use-test
 import is from '@sindresorhus/is';
-import http from 'http';
 import tempy from 'tempy';
-import createHttpsTestServer, {ExtendedHttpsTestServer, HttpsServerOptions} from './create-https-test-server.js';
-import createHttpTestServer, {ExtendedHttpTestServer, HttpServerOptions} from './create-http-test-server.js';
 import FakeTimers from '@sinonjs/fake-timers';
 import got, {Got, ExtendOptions} from '../../source/index.js';
+import createHttpsTestServer, {ExtendedHttpsTestServer, HttpsServerOptions} from './create-https-test-server.js';
+import createHttpTestServer, {ExtendedHttpTestServer, HttpServerOptions} from './create-http-test-server.js';
 import {ExtendedHttpServer, GlobalClock, InstalledClock} from './types.js';
 
 export type RunTestWithServer = (t: ExecutionContext, server: ExtendedHttpTestServer, got: Got, clock: GlobalClock) => Promise<void> | void;

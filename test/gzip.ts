@@ -2,8 +2,8 @@ import {promisify} from 'util';
 import zlib from 'zlib';
 import test from 'ava';
 import getStream from 'get-stream';
-import withServer from './helpers/with-server.js';
 import {HTTPError, ReadError} from '../source/index.js';
+import withServer from './helpers/with-server.js';
 
 const testContent = 'Compressible response content.\n';
 const testContentUncompressed = 'Uncompressed response content.\n';

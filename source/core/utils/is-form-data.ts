@@ -1,5 +1,5 @@
-import is from '@sindresorhus/is';
 import {Readable} from 'stream';
+import is from '@sindresorhus/is';
 
 interface FormData extends Readable {
 	getBoundary: () => string;

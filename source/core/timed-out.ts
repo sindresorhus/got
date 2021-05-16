@@ -99,11 +99,13 @@ export default function timedOut(request: ClientRequest, delays: Delays, options
 	}
 
 	if (typeof delays.socket !== 'undefined') {
+		const {socket} = delays;
+
 		const socketTimeoutHandler = (): void => {
-			timeoutHandler(delays.socket!, 'socket');
+			timeoutHandler(socket, 'socket');
 		};
 
-		request.setTimeout(delays.socket, socketTimeoutHandler);
+		request.setTimeout(socket, socketTimeoutHandler);
 
 		// `request.setTimeout(0)` causes a memory leak.
 		// We can just remove the listener and forget about the timer - it's unreffed.

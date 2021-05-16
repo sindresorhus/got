@@ -88,7 +88,7 @@ suite.add('got - promise', {
 }).add('got - core - normalized options', {
 	defer: true,
 	fn: async (deferred: {resolve: () => void}) => {
-		const stream = new Request(undefined as any, normalizedGotOptions);
+		const stream = new Request(undefined, normalizedGotOptions);
 		void stream.flush();
 		stream.resume().once('end', () => {
 			deferred.resolve();

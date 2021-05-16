@@ -15,9 +15,9 @@ test('reads a cookie', withServer, async (t, server, got) => {
 
 	await got({cookieJar});
 
-	const cookie = cookieJar.getCookiesSync(server.url)[0]!;
-	t.is(cookie.key, 'hello');
-	t.is(cookie.value, 'world');
+	const cookie = cookieJar.getCookiesSync(server.url)[0];
+	t.is(cookie?.key, 'hello');
+	t.is(cookie?.value, 'world');
 });
 
 test('reads multiple cookies', withServer, async (t, server, got) => {

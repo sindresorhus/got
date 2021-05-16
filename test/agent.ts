@@ -143,7 +143,11 @@ test('socket connect listener cleaned up after request', withHttpsServer(), asyn
 	}
 
 	for (const value of Object.values(agent.freeSockets)) {
-		for (const sock of value!) {
+		if (!value) {
+			continue;
+		}
+
+		for (const sock of value) {
 			t.is(sock.listenerCount('connect'), 0);
 		}
 	}

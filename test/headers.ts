@@ -222,12 +222,15 @@ test('removes undefined value headers', withServer, async (t, server, got) => {
 test('non-existent headers set to undefined are omitted', withServer, async (t, server, got) => {
 	server.get('/', echoHeaders);
 
+	const fixtureHeaders = {
+		blah: undefined
+	} as const;
+
 	const {body} = await got({
-		headers: {
-			blah: undefined
-		}
+		headers: fixtureHeaders
 	});
-	const headers = JSON.parse(body);
+
+	const headers = JSON.parse(body) as typeof fixtureHeaders;
 	t.false(Reflect.has(headers, 'blah'));
 });
 

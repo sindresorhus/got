@@ -6,10 +6,10 @@ import {
 	HTTPError,
 	RetryError
 } from '../core/errors.js';
-import {CancelError} from './types.js';
 import Request from '../core/index.js';
 import {parseBody, isResponseOk} from '../core/response.js';
 import proxyEvents from '../core/utils/proxy-events.js';
+import {CancelError} from './types.js';
 import type Options from '../core/options.js';
 import type {Response} from '../core/response.js';
 import type {CancelableRequest} from './types.js';

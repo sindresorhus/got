@@ -691,7 +691,7 @@ const defaultInternals: Options['_internals'] = {
 		shouldContinue: () => true,
 		countLimit: Number.POSITIVE_INFINITY,
 		backoff: 0,
-		requestLimit: 10000,
+		requestLimit: 10_000,
 		stackAllItems: false
 	},
 	setHost: true,

@@ -7,8 +7,8 @@ import test from 'ava';
 import getStream from 'get-stream';
 import is from '@sindresorhus/is';
 import got, {RequestError, HTTPError, TimeoutError} from '../source/index.js';
-import withServer from './helpers/with-server.js';
 import Request from '../source/core';
+import withServer from './helpers/with-server.js';
 
 const pStreamPipeline = promisify(stream.pipeline);
 
