@@ -262,7 +262,7 @@ console.log(parsed);
 ### `stringifyJson`
 
 Merge behavior: `replace`\
-Type: `(object: unknown) => string`
+Type: `(object: unknown) => string`\
 Default: `(object: unknown) => JSON.stringify(object)`
 
 The function used to stringify the body of JSON requests.
