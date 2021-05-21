@@ -17,10 +17,21 @@
 		</a>
 		<br>
 		<br>
+		<br>
 		<a href="https://retool.com/?utm_campaign=sindresorhus">
 			<img src="https://sindresorhus.com/assets/thanks/retool-logo.svg" width="210">
 		</a>
 		<br>
+		<br>
+		<a href="https://strapi.io/?ref=sindresorhus">
+			<div>
+				<img src="https://sindresorhus.com/assets/thanks/strapi-logo-white-bg.png" width="200" alt="Strapi">
+			</div>
+			<b>Strapi is the leading open-source headless CMS.</b>
+			<div>
+				<sup>It’s 100% JavaScript, fully customizable, and developer-first.</sup>
+			</div>
+		</a>
 		<br>
 	</p>
 	<!-- <p align="center">Huge thanks to <a href="https://moxy.studio"><img src="https://sindresorhus.com/assets/thanks/moxy-logo.svg" valign="middle" width="150"></a> for sponsoring Sindre Sorhus!
