@@ -2,6 +2,8 @@
 
 ## Options
 
+Source code: [`source/core/options.ts`](../source/core/options.ts)
+
 Like `fetch` contains the options in a `Request` instance, Got does so in `Options`.\
 It is made of getters and setters that provide fast option normalization and validation.
 
