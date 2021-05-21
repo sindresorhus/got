@@ -27,7 +27,7 @@ import got from 'got';
 // This:
 await got('https://httpbin.org/anything');
 
-// is the same as:
+// is semantically the same as this:
 await got(new URL('https://httpbin.org/anything'));
 ```
 
@@ -95,7 +95,7 @@ import got from 'got';
 const instance = got.extend({prefixUrl: 'https://httpbin.org'});
 await instance('anything');
 
-// is the same as this:
+// is semantically the same as this:
 await got('https://httpbin.org/anything');
 ```
 
@@ -159,11 +159,14 @@ import got from 'got';
 // This:
 const stream = got('https://httpbin.org/anything', {isStream: true});
 
-// is the same as this:
+// is semantically the same as this:
 const stream = got.stream('https://httpbin.org/anything');
+
+stream.setEncoding('utf8');
+stream.on('data', console.log);
 ```
 
-### body
+### `body`
 
 Type: `string | Buffer | stream.Readable` or [`form-data` instance](https://github.com/form-data/form-data)\
 Merge behavior: `replace`
@@ -174,6 +177,17 @@ The `content-length` header is automatically set if the `content-length` and `tr
 
 **Since Got 12, the `content-length` header is not automatically set when `body` is an instance of [`fs.createReadStream()`](https://nodejs.org/api/fs.html#fs_fs_createreadstream_path_options).**
 
+```js
+import got from 'got';
+
+const {data} = await got.post('https://httpbin.org/anything', {
+	body: 'Hello, world!'
+}).json();
+
+console.log(data);
+//=> 'Hello, world!'
+```
+
 **Note:**
 - If `body` is specified, then the `json` or `form` option cannot be used.
 
@@ -182,3 +196,203 @@ The `content-length` header is automatically set if the `content-length` and `tr
 
 **Note:**
 - Passing `body` with `GET` will throw unless the [`allowGetBody` option](#allowGetBody) is set to `true`.
+
+### `json`
+
+Type: JSON-serializable values\
+Merge behavior: `replace`
+
+JSON body. If set, the `content-type` header defaults to `application/json`.
+
+```js
+import got from 'got';
+
+const {data} = await got.post('https://httpbin.org/anything', {
+	json: {
+		hello: 'world'
+	}
+}).json();
+
+console.log(data);
+//=> `{hello: 'world'}`
+```
+
+### `form`
+
+Type: <code>object&lt;string, [Primitve](https://www.typescriptlang.org/docs/handbook/2/everyday-types.html)&gt;</code>\
+Merge behavior: `replace`
+
+The form body is converted to a query string using `(new URLSearchParams(form)).toString()`.
+
+If set, the `content-type` header defaults to [`application/x-www-form-urlencoded`](https://url.spec.whatwg.org/#application/x-www-form-urlencoded).
+
+```js
+import got from 'got';
+
+const {data} = await got.post('https://httpbin.org/anything', {
+	form: {
+		hello: 'world'
+	}
+}).json();
+
+console.log(data);
+//=> 'hello=world'
+```
+
+### `parseJson`
+
+Type: `(text: string) => unknown`\
+Merge behavior: `replace`\
+Default: `(text: string) => JSON.parse(text)`
+
+The function used to parse JSON responses.
+
+```js
+import got from 'got';
+import Bourne from '@hapi/bourne';
+
+// Preventing prototype pollution by using Bourne
+const parsed = await got('https://example.com', {
+	parseJson: text => Bourne.parse(text)
+}).json();
+
+console.log(parsed);
+```
+
+### `stringifyJson`
+
+Type: `(object: unknown) => string`\
+Merge behavior: `replace`\
+Default: `(object: unknown) => JSON.stringify(object)`
+
+The function used to stringify the body of JSON requests.
+
+**Example: ignore properties starting with `_`**
+
+```js
+import got from 'got';
+
+await got.post('https://example.com', {
+	stringifyJson: object => JSON.stringify(object, (key, value) => {
+		if (key.startsWith('_')) {
+			return;
+		}
+
+		return value;
+	}),
+	json: {
+		some: 'payload',
+		_ignoreMe: 1234
+	}
+});
+```
+
+**Example: all numbers as strings**
+
+```js
+import got from 'got';
+
+await got.post('https://example.com', {
+	stringifyJson: object => JSON.stringify(object, (key, value) => {
+		if (typeof value === 'number') {
+			return value.toString();
+		}
+
+		return value;
+	}),
+	json: {
+		some: 'payload',
+		number: 1
+	}
+});
+```
+
+### `timeout`
+
+Type: `object`\
+Merge behavior: `override`
+
+See the [Timeout API](timeout.md).
+
+### `retry`
+
+Type: `object`\
+Merge behavior: `override`
+
+See the [Retry API](retry.md).
+
+### `encoding`
+
+Type: `string`\
+Merge behavior: `replace`\
+Default: `utf8`
+
+[Encoding](https://nodejs.org/api/buffer.html#buffer_buffers_and_character_encodings) to be used on [`setEncoding`](https://nodejs.org/api/stream.html#stream_readable_setencoding_encoding) of the response data.
+
+To get a [`Buffer`](https://nodejs.org/api/buffer.html), you need to set `responseType` to `'buffer'` instead. Don't set this option to `null`.
+
+```js
+import got from 'got';
+
+const response = await got('https://httpbin.org/anything', {
+	encoding: 'base64'
+}).text();
+
+console.log(response);
+//=> base64 string
+```
+
+**Note:**
+- This option does not affect streams! Instead, do:
+
+```js
+import got from 'got';
+
+const stream = got.stream('https://httpbin.org/anything');
+
+stream.setEncoding('base64');
+stream.on('data', console.log);
+```
+
+### `responseType`
+
+Type: `'text' | 'json' | 'buffer'`\
+Merge behavior: `replace`\
+Default: `'text'`
+
+The parsing method.
+
+The promise also has `.text()`, `.json()` and `.buffer()` methods which return another Got promise for the parsed body.\
+It's like setting the options to `{responseType: 'json', resolveBodyOnly: true}` but without affecting the main Got promise.
+
+```js
+import got from 'got';
+
+const responsePromise = got('https://httpbin.org/anything);
+const bufferPromise = responsePromise.buffer();
+const jsonPromise = responsePromise.json();
+
+const [response, buffer, json] = await Promise.all([responsePromise, bufferPromise, jsonPromise]);
+// `response` is an instance of Got Response
+// `buffer` is an instance of Buffer
+// `json` is an object
+```
+
+```js
+import got from 'got';
+
+const url = 'https://httpbin.org/anything';
+
+// This:
+const body = await got(url).json();
+
+// is semantically the same as this:
+const body = await got(url, {responseType: 'json', resolveBodyOnly: true});
+```
+
+**Note:**
+- When using streams, this option is ignored.
+
+**Note:**
+- `'buffer'` will return the raw body buffer. Any modifications will also alter the result of `.text()` and `.json()`. Before overwriting the buffer, please copy it first via `Buffer.from(buffer)`.\
+  See https://github.com/nodejs/node/issues/27080
