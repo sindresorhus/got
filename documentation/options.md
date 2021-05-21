@@ -5,8 +5,6 @@
 Like `fetch` contains the options in a `Request` instance, Got does so in `Options`.\
 It is made of getters and setters that provide fast option normalization and validation.
 
-<br>
-
 ### `url`
 
 Type: <code>string | [URL](https://nodejs.org/api/url.html#url_the_whatwg_url_api)</code>
@@ -30,8 +28,6 @@ await got(new URL('https://example.com'));
 - If `url` is a string, then the `query` string will **not** be parsed as search params.\
   This is in accordance to [the specification](https://datatracker.ietf.org/doc/html/rfc7230#section-2.7).\
   If you want to pass search params instead, use the `searchParams` option below.
-
-<br>
 
 ### `searchParams`
 
@@ -68,8 +64,6 @@ console.log(searchParams.toString());
 
 **Note:**
 - This will override the `query` string in `url`.
-
-<br>
 
 ### `method`
 
