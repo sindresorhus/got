@@ -65,8 +65,6 @@ $ npm install got
 
 ## Documentation
 
-### Table of Contents
-
 #### Chapter I: Main API
 
 - [Options](documentation/options.md)
