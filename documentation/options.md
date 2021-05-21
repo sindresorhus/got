@@ -307,6 +307,26 @@ await got.post('https://example.com', {
 });
 ```
 
+### `allowGetBody`
+
+Type: `boolean`\
+Merge behavior: `replace`\
+Default: `false`
+
+Set this to `true` to allow sending body for the `GET` method.
+
+However, the [HTTP/2 specification](https://datatracker.ietf.org/doc/html/rfc7540#section-8.1.3) says:
+
+> An HTTP GET request includes request header fields and no payload body
+
+Therefore this option has no effect when using HTTP/2.
+
+**Note:**
+- This option is only meant to interact with non-compliant servers when you have no other choice.
+
+**Note:**
+- The [RFC 7321](https://tools.ietf.org/html/rfc7231#section-4.3.1) doesn't specify any particular behavior for the GET method having a payload, therefore it's considered an [**anti-pattern**](https://en.wikipedia.org/wiki/Anti-pattern).
+
 ### `timeout`
 
 Type: `object`\
@@ -368,7 +388,7 @@ It's like setting the options to `{responseType: 'json', resolveBodyOnly: true}`
 ```js
 import got from 'got';
 
-const responsePromise = got('https://httpbin.org/anything);
+const responsePromise = got('https://httpbin.org/anything');
 const bufferPromise = responsePromise.buffer();
 const jsonPromise = responsePromise.json();
 
@@ -377,6 +397,21 @@ const [response, buffer, json] = await Promise.all([responsePromise, bufferPromi
 // `buffer` is an instance of Buffer
 // `json` is an object
 ```
+
+**Note:**
+- When using streams, this option is ignored.
+
+**Note:**
+- `'buffer'` will return the raw body buffer. Any modifications will also alter the result of `.text()` and `.json()`. Before overwriting the buffer, please copy it first via `Buffer.from(buffer)`.\
+  See https://github.com/nodejs/node/issues/27080
+
+### `resolveBodyOnly`
+
+Type: `boolean`\
+Merge behavior: `replace`\
+Default: `false`
+
+If `true`, the promise will return the [Response body](#) instead of the [Response object](#).
 
 ```js
 import got from 'got';
@@ -390,9 +425,158 @@ const body = await got(url).json();
 const body = await got(url, {responseType: 'json', resolveBodyOnly: true});
 ```
 
-**Note:**
-- When using streams, this option is ignored.
+### `context`
+
+Type: `object<string, unknown>`\
+Merge behavior: `override`\
+Default: `{}`
+
+Contains user data. It's very useful for storing auth tokens:
+
+```js
+import got from 'got';
+
+const instance = got.extend({
+	hooks: {
+		beforeRequest: [
+			options => {
+				if (typeof options.context.token !== 'string') {
+					throw new Error('Token required');
+				}
+
+				options.headers.token = options.context.token;
+			}
+		]
+	}
+});
+
+const context = {
+	token: 'secret'
+};
+
+const {headers} = await instance('https://httpbin.org/headers', {context}).json();
+
+console.log(headers);
+//=> {token: 'secret', …}
+```
+
+This option is enumerable. In order to define non-enumerable properties, do the following:
+
+```js
+import got from 'got';
+
+const context = {};
+
+Object.defineProperties(context, {
+	token: {
+		value: 'secret',
+		enumerable: false,
+		configurable: true,
+		writable: true
+	}
+});
+
+const instance = got.extend({context});
+
+console.log(instance.defaults.options.context);
+//=> {}
+```
+
+### `cookieJar`
+
+Type: <code>object | [tough.cookieJar](https://github.com/salesforce/tough-cookie#cookiejar)</code>\
+Merge behavior: `replace`
 
 **Note:**
-- `'buffer'` will return the raw body buffer. Any modifications will also alter the result of `.text()` and `.json()`. Before overwriting the buffer, please copy it first via `Buffer.from(buffer)`.\
-  See https://github.com/nodejs/node/issues/27080
+- Setting this option will result in the `cookie` header being overwritten.
+
+Cookie support. Handles parsing and storing automatically.
+
+```js
+import {promisify} from 'util';
+import got from 'got';
+import {CookieJar} from 'tough-cookie';
+
+const cookieJar = new CookieJar();
+const setCookie = promisify(cookieJar.setCookie.bind(cookieJar));
+
+await setCookie('foo=bar', 'https://example.com');
+await got('https://example.com', {cookieJar});
+```
+
+#### `cookieJar.setCookie`
+
+Type: `(rawCookie: string, url: string) => void | Promise<void>`
+
+See [ToughCookie API](https://github.com/salesforce/tough-cookie#setcookiecookieorstring-currenturl-options-cberrcookie) for more information.
+
+#### `cookieJar.getCookieString`
+
+Type: `(currentUrl: string) => string | Promise<string>`
+
+See [ToughCookie API](https://github.com/salesforce/tough-cookie#getcookiestring) for more information.
+
+### `ignoreInvalidCookies`
+
+Type: `boolean`\
+Merge behavior: `replace`\
+Default: `false`
+
+Ignore invalid cookies instead of throwing an error.\
+Only useful when the cookieJar option has been set.
+
+**Note:**
+- This is not recommended! Use at your own risk.
+
+### `followRedirect`
+
+Type: `boolean`\
+Merge behavior: `replace`\
+Default: `true`
+
+Defines if redirect responses should be followed automatically.
+
+**Note:**
+- If a `303` is sent by the server in response to any request type (POST, DELETE, etc.), Got will automatically request the resource pointed to in the location header via GET.\
+  This is in accordance with [the spec](https://tools.ietf.org/html/rfc7231#section-6.4.4).
+
+```js
+import got from 'got';
+
+const instance = got.extend({followRedirect: false});
+
+const response = await instance('http://google.com');
+
+console.log(response.headers.location);
+//=> 'https://google.com'
+```
+
+### `maxRedirects`
+
+Type: `number`\
+Merge behavior: `replace`\
+Default: `10`
+
+If exceeded, the request will be aborted and a `MaxRedirectsError` will be thrown.
+
+```js
+import got from 'got';
+
+const instance = got.extend({maxRedirect: 3});
+```
+
+### `decompress`
+
+Type: `boolean`\
+Merge behavior: `replace`\
+Default: `true`
+
+Decompress the response automatically.
+
+```js
+import got from 'got';
+
+const response = await got('https://google.com');
+
+console.log(response.headers['content-encoding']);
+```
