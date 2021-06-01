@@ -105,7 +105,7 @@ test('prefixUrl alone does not set url', t => {
 	t.is(options.url, undefined);
 });
 
-test('maxRetryAfter is calculated seperately from request timeout', t => {
+test('maxRetryAfter is calculated separately from request timeout', t => {
 	const options = new Options({
 		timeout: {
 			request: 1000
