@@ -86,6 +86,16 @@ An instance of `got.paginate`.
 */
 export interface GotPaginate {
 	/**
+	Same as `GotPaginate.each`.
+	*/
+	<T, R = unknown>(url: string | URL, options?: OptionsWithPagination<T, R>): AsyncIterableIterator<T>;
+
+	/**
+	Same as `GotPaginate.each`.
+	*/
+	<T, R = unknown>(options?: OptionsWithPagination<T, R>): AsyncIterableIterator<T>;
+
+	/**
 	Returns an async iterator.
 
 	See pagination.options for more pagination options.
@@ -127,16 +137,6 @@ export interface GotPaginate {
 	*/
 	all: (<T, R = unknown>(url: string | URL, options?: OptionsWithPagination<T, R>) => Promise<T[]>)
 	& (<T, R = unknown>(options?: OptionsWithPagination<T, R>) => Promise<T[]>);
-
-	/**
-	Same as `GotPaginate.each`.
-	*/
-	<T, R = unknown>(url: string | URL, options?: OptionsWithPagination<T, R>): AsyncIterableIterator<T>;
-
-	/**
-	Same as `GotPaginate.each`.
-	*/
-	<T, R = unknown>(options?: OptionsWithPagination<T, R>): AsyncIterableIterator<T>;
 }
 
 export interface GotRequestFunction {

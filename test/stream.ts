@@ -487,7 +487,12 @@ test('accepts readable-stream as body', withServer, async (t, server, got) => {
 		}
 	});
 
-	const response = await got.post({body});
+	const response = await got.post({
+		// We need to cast body as any,
+		// because @types/readable-stream has incorrect types
+		// and causes a lot of errors.
+		body: body as any
+	});
 
 	t.is(response.body, 'ok');
 });
