@@ -17,6 +17,8 @@ An error to be thrown when a request fails.
 Contains a `code` property with error class code, like `ECONNREFUSED`.
 */
 export class RequestError extends Error {
+	input?: string;
+
 	code?: string;
 	stack!: string;
 	declare readonly options: Options;
@@ -30,6 +32,7 @@ export class RequestError extends Error {
 
 		this.name = 'RequestError';
 		this.code = error.code;
+		this.input = (error as any).input;
 
 		if (isRequest(self)) {
 			Object.defineProperty(this, 'request', {

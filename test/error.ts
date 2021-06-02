@@ -9,6 +9,7 @@ import is from '@sindresorhus/is';
 import got, {RequestError, HTTPError, TimeoutError} from '../source/index.js';
 import Request from '../source/core';
 import withServer from './helpers/with-server.js';
+import invalidUrl from './helpers/invalid-url.js';
 
 const pStreamPipeline = promisify(stream.pipeline);
 
@@ -195,9 +196,21 @@ test('returns a stream even if normalization fails', async t => {
 
 test('normalization errors using convenience methods', async t => {
 	const url = 'undefined/https://example.com';
-	await t.throwsAsync(got(url).json(), {message: `Invalid URL: ${url}`});
-	await t.throwsAsync(got(url).text(), {message: `Invalid URL: ${url}`});
-	await t.throwsAsync(got(url).buffer(), {message: `Invalid URL: ${url}`});
+
+	{
+		const error = await t.throwsAsync(got(url).json());
+		invalidUrl(t, error, url);
+	}
+
+	{
+		const error = await t.throwsAsync(got(url).text());
+		invalidUrl(t, error, url);
+	}
+
+	{
+		const error = await t.throwsAsync(got(url).buffer());
+		invalidUrl(t, error, url);
+	}
 });
 
 test('errors can have request property', withServer, async (t, server, got) => {

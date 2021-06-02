@@ -4,6 +4,7 @@ import {Handler} from 'express';
 import pEvent from 'p-event';
 import got, {Options, StrictOptions} from '../source/index.js';
 import withServer, {withBodyParsingServer} from './helpers/with-server.js';
+import invalidUrl from './helpers/invalid-url.js';
 
 const echoUrl: Handler = (request, response) => {
 	response.end(request.url);
@@ -18,21 +19,11 @@ test('`url` is required', async t => {
 		}
 	);
 
-	await t.throwsAsync(
-		got(''),
-		{
-			message: 'Invalid URL: '
-		}
-	);
+	const firstError = await t.throwsAsync(got(''));
+	invalidUrl(t, firstError, '');
 
-	await t.throwsAsync(
-		got({
-			url: ''
-		}),
-		{
-			message: 'Invalid URL: '
-		}
-	);
+	const secondError = await t.throwsAsync(got({url: ''}));
+	invalidUrl(t, secondError, '');
 });
 
 test('`url` should be utf-8 encoded', async t => {
@@ -58,9 +49,8 @@ test('throws if the url option is missing', async t => {
 });
 
 test('throws an error if the protocol is not specified', async t => {
-	await t.throwsAsync(got('example.com'), {
-		message: 'Invalid URL: example.com'
-	});
+	const error = await t.throwsAsync(got('example.com'));
+	invalidUrl(t, error, 'example.com');
 });
 
 test('properly encodes query string', withServer, async (t, server, got) => {
