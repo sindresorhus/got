@@ -49,7 +49,7 @@
 		"@types/cacheable-request": "^6.0.1",
 		"@types/responselike": "^1.0.0",
 		"cacheable-lookup": "^6.0.0",
-		"cacheable-request": "^7.0.1",
+		"cacheable-request": "^7.0.2",
 		"decompress-response": "^6.0.0",
 		"get-stream": "^6.0.1",
 		"http2-wrapper": "^2.0.5",
