@@ -92,6 +92,7 @@ test('doesn\'t throw if `options.throwHttpErrors` is false', withServer, async (
 test('invalid protocol throws', async t => {
 	await t.throwsAsync(got('c:/nope.com').json(), {
 		instanceOf: UnsupportedProtocolError,
+		code: 'ERR_UNSUPPORTED_PROTOCOL',
 		message: 'Unsupported protocol "c:"'
 	});
 });
@@ -225,6 +226,7 @@ test('throws an error if the server aborted the request', withServer, async (t, 
 	});
 
 	const error = await t.throwsAsync<ReadError>(got(''), {
+		code: 'ECONNRESET',
 		message: 'The server aborted pending request'
 	});
 

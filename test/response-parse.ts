@@ -90,6 +90,7 @@ test('throws an error on invalid response type', withServer, async (t, server, g
 	t.regex(error.message, /^Unknown body type 'invalid'/);
 	t.true(error.message.includes(error.options.url.hostname));
 	t.is(error.options.url.pathname, '/');
+	t.is(error.code, 'ERR_BODY_PARSE_FAILURE');
 });
 
 test('wraps parsing errors', withServer, async (t, server, got) => {
@@ -100,6 +101,7 @@ test('wraps parsing errors', withServer, async (t, server, got) => {
 	const error = await t.throwsAsync<ParseError>(got({responseType: 'json'}), {instanceOf: got.ParseError});
 	t.true(error.message.includes(error.options.url.hostname));
 	t.is(error.options.url.pathname, '/');
+	t.is(error.code, 'ERR_BODY_PARSE_FAILURE');
 });
 
 test('parses non-200 responses', withServer, async (t, server, got) => {
@@ -136,6 +138,7 @@ test('parse errors have `response` property', withServer, async (t, server, got)
 
 	t.is(error.response.statusCode, 200);
 	t.is(error.response.body, '/');
+	t.is(error.code, 'ERR_BODY_PARSE_FAILURE');
 });
 
 test('sets correct headers', withServer, async (t, server, got) => {
@@ -186,6 +189,7 @@ test('shortcuts throw ParseErrors', withServer, async (t, server, got) => {
 
 	await t.throwsAsync(got('').json(), {
 		instanceOf: ParseError,
+		code: 'ERR_BODY_PARSE_FAILURE',
 		message: /^Unexpected token o in JSON at position 1 in/
 	});
 });
