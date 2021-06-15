@@ -131,7 +131,7 @@ test('`http.request` error', async t => {
 		}
 	}), {
 		instanceOf: got.RequestError,
-		code: 'ERR_GEN_REQ_ERROR',
+		code: 'ERR_GOT_REQUEST_ERROR',
 		message: 'The header content contains invalid characters'
 	});
 });

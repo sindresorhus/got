@@ -1705,7 +1705,7 @@ Additionaly, the errors may have `request` (Got Stream) and `response` (Got Resp
 
 #### got.RequestError
 
-When a request fails. Contains a `code` property with error class code, like `ECONNREFUSED`. If there is no specific code supplied, `code` defaults to `ERR_GEN_REQ_ERROR`. All the errors below inherit this one.
+When a request fails. Contains a `code` property with error class code, like `ECONNREFUSED`. If there is no specific code supplied, `code` defaults to `ERR_GOT_REQUEST_ERROR`. All the errors below inherit this one.
 
 #### got.CacheError
 
@@ -1730,7 +1730,7 @@ When the server response code is not 2xx nor 3xx if `options.followRedirect` is 
 
 #### got.MaxRedirectsError
 
-When the server redirects you more than ten times. Includes a `response` property. Contains a `code` property with `ERR_MAX_REDIRECTS`.
+When the server redirects you more than ten times. Includes a `response` property. Contains a `code` property with `ERR_TOO_MANY_REDIRECTS`.
 
 #### got.UnsupportedProtocolError
 

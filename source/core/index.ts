@@ -1191,7 +1191,7 @@ export class RequestError extends Error {
 		Error.captureStackTrace(this, this.constructor);
 
 		this.name = 'RequestError';
-		this.code = error.code ?? 'ERR_GEN_REQ_ERROR';
+		this.code = error.code ?? 'ERR_GOT_REQUEST_ERROR';
 
 		if (self instanceof Request) {
 			Object.defineProperty(this, 'request', {
@@ -1249,7 +1249,7 @@ export class MaxRedirectsError extends RequestError {
 	constructor(request: Request) {
 		super(`Redirected ${request.options.maxRedirects} times. Aborting.`, {}, request);
 		this.name = 'MaxRedirectsError';
-		this.code = 'ERR_MAX_REDIRECTS';
+		this.code = 'ERR_TOO_MANY_REDIRECTS';
 	}
 }
 
@@ -1278,7 +1278,7 @@ export class CacheError extends RequestError {
 	constructor(error: Error, request: Request) {
 		super(error.message, error, request);
 		this.name = 'CacheError';
-		this.code = this.code === 'ERR_GEN_REQ_ERROR' ? 'ERR_CACHE_ACCESS' : this.code;
+		this.code = this.code === 'ERR_GOT_REQUEST_ERROR' ? 'ERR_CACHE_ACCESS' : this.code;
 	}
 }
 
@@ -1291,7 +1291,7 @@ export class UploadError extends RequestError {
 	constructor(error: Error, request: Request) {
 		super(error.message, error, request);
 		this.name = 'UploadError';
-		this.code = this.code === 'ERR_GEN_REQ_ERROR' ? 'ERR_UPLOAD' : this.code;
+		this.code = this.code === 'ERR_GOT_REQUEST_ERROR' ? 'ERR_UPLOAD' : this.code;
 	}
 }
 
@@ -1323,7 +1323,7 @@ export class ReadError extends RequestError {
 	constructor(error: Error, request: Request) {
 		super(error.message, error, request);
 		this.name = 'ReadError';
-		this.code = this.code === 'ERR_GEN_REQ_ERROR' ? 'ERR_READING_RESPONSE_STREAM' : this.code;
+		this.code = this.code === 'ERR_GOT_REQUEST_ERROR' ? 'ERR_READING_RESPONSE_STREAM' : this.code;
 	}
 }
 
