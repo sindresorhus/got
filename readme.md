@@ -1705,7 +1705,7 @@ Additionaly, the errors may have `request` (Got Stream) and `response` (Got Resp
 
 #### got.RequestError
 
-When a request fails. Contains a `code` property with error class code, like `ECONNREFUSED`. If there is no specific code supplied `code` defaults to `ERR_GEN_REQ_ERROR` All the errors below inherit this one.
+When a request fails. Contains a `code` property with error class code, like `ECONNREFUSED`. If there is no specific code supplied, `code` defaults to `ERR_GEN_REQ_ERROR`. All the errors below inherit this one.
 
 #### got.CacheError
 
