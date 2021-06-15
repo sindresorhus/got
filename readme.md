@@ -33,6 +33,12 @@
 			</div>
 		</a>
 		<br>
+		<br>
+		<a href="https://www.monito.com">
+			<img src="https://sindresorhus.com/assets/thanks/monito-logo.svg" width="210">
+		</a>
+		<br>
+		<br>
 	</p>
 	<!-- <p align="center">Huge thanks to <a href="https://moxy.studio"><img src="https://sindresorhus.com/assets/thanks/moxy-logo.svg" valign="middle" width="150"></a> for sponsoring Sindre Sorhus!
 	</p>
