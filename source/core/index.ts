@@ -1179,7 +1179,7 @@ An error to be thrown when a request fails.
 Contains a `code` property with error class code, like `ECONNREFUSED`.
 */
 export class RequestError extends Error {
-	code?: string;
+	code: string;
 	stack!: string;
 	declare readonly options: NormalizedOptions;
 	readonly response?: Response;
