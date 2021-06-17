@@ -267,6 +267,7 @@ export class ParseError extends RequestError {
 
 		super(`${error.message} in "${options.url.toString()}"`, error, response.request);
 		this.name = 'ParseError';
+		this.code = this.code === 'ERR_GOT_REQUEST_ERROR' ? 'ERR_BODY_PARSE_FAILURE' : this.code;
 	}
 }
 
@@ -279,6 +280,7 @@ export class CancelError extends RequestError {
 	constructor(request: Request) {
 		super('Promise was canceled', {}, request);
 		this.name = 'CancelError';
+		this.code = 'ERR_CANCELED';
 	}
 
 	get isCanceled() {

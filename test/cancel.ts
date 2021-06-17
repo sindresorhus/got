@@ -79,7 +79,10 @@ test.serial('does not retry after cancelation', withServerAndFakeTimers, async (
 		gotPromise.cancel();
 	});
 
-	await t.throwsAsync(gotPromise, {instanceOf: CancelError});
+	await t.throwsAsync(gotPromise, {
+		instanceOf: CancelError,
+		code: 'ERR_CANCELED'
+	});
 	await t.notThrowsAsync(promise, 'Request finished instead of aborting.');
 });
 
@@ -102,7 +105,10 @@ test.serial('cleans up request timeouts', withServer, async (t, server, got) => 
 		}
 	});
 
-	await t.throwsAsync(gotPromise, {instanceOf: CancelError});
+	await t.throwsAsync(gotPromise, {
+		instanceOf: CancelError,
+		code: 'ERR_CANCELED'
+	});
 
 	// Wait for unhandled errors
 	await delay(40);
@@ -124,7 +130,10 @@ test.serial('cancels in-progress request', withServerAndFakeTimers, async (t, se
 		body.push(null);
 	});
 
-	await t.throwsAsync(gotPromise, {instanceOf: CancelError});
+	await t.throwsAsync(gotPromise, {
+		instanceOf: CancelError,
+		code: 'ERR_CANCELED'
+	});
 	await t.notThrowsAsync(promise, 'Request finished instead of aborting.');
 });
 
@@ -144,7 +153,10 @@ test.serial('cancels in-progress request with timeout', withServerAndFakeTimers,
 		body.push(null);
 	});
 
-	await t.throwsAsync(gotPromise, {instanceOf: CancelError});
+	await t.throwsAsync(gotPromise, {
+		instanceOf: CancelError,
+		code: 'ERR_CANCELED'
+	});
 	await t.notThrowsAsync(promise, 'Request finished instead of aborting.');
 });
 
@@ -220,7 +232,10 @@ test.serial('throws on incomplete (canceled) response - promise #2', withServerA
 		promise.cancel();
 	});
 
-	await t.throwsAsync(promise, {instanceOf: got.CancelError});
+	await t.throwsAsync(promise, {
+		instanceOf: got.CancelError,
+		code: 'ERR_CANCELED'
+	});
 });
 
 test.serial('throws on incomplete (canceled) response - stream', withServerAndFakeTimers, async (t, server, got, clock) => {
@@ -250,7 +265,10 @@ test('throws when canceling cached request', withServer, async (t, server, got) 
 		promise.cancel();
 	});
 
-	await t.throwsAsync(promise, {instanceOf: got.CancelError});
+	await t.throwsAsync(promise, {
+		instanceOf: got.CancelError,
+		code: 'ERR_CANCELED'
+	});
 });
 
 test('throws when canceling cached request #2', withServer, async (t, server, got) => {
@@ -265,5 +283,8 @@ test('throws when canceling cached request #2', withServer, async (t, server, go
 	const promise = got({cache});
 	promise.cancel();
 
-	await t.throwsAsync(promise, {instanceOf: got.CancelError});
+	await t.throwsAsync(promise, {
+		instanceOf: got.CancelError,
+		code: 'ERR_CANCELED'
+	});
 });

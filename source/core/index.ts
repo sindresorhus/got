@@ -1179,7 +1179,7 @@ An error to be thrown when a request fails.
 Contains a `code` property with error class code, like `ECONNREFUSED`.
 */
 export class RequestError extends Error {
-	code?: string;
+	code: string;
 	stack!: string;
 	declare readonly options: NormalizedOptions;
 	readonly response?: Response;
@@ -1191,7 +1191,7 @@ export class RequestError extends Error {
 		Error.captureStackTrace(this, this.constructor);
 
 		this.name = 'RequestError';
-		this.code = error.code;
+		this.code = error.code ?? 'ERR_GOT_REQUEST_ERROR';
 
 		if (self instanceof Request) {
 			Object.defineProperty(this, 'request', {
@@ -1249,6 +1249,7 @@ export class MaxRedirectsError extends RequestError {
 	constructor(request: Request) {
 		super(`Redirected ${request.options.maxRedirects} times. Aborting.`, {}, request);
 		this.name = 'MaxRedirectsError';
+		this.code = 'ERR_TOO_MANY_REDIRECTS';
 	}
 }
 
@@ -1264,6 +1265,7 @@ export class HTTPError extends RequestError {
 	constructor(response: Response) {
 		super(`Response code ${response.statusCode} (${response.statusMessage!})`, {}, response.request);
 		this.name = 'HTTPError';
+		this.code = 'ERR_NON_2XX_3XX_RESPONSE';
 	}
 }
 /**
@@ -1276,6 +1278,7 @@ export class CacheError extends RequestError {
 	constructor(error: Error, request: Request) {
 		super(error.message, error, request);
 		this.name = 'CacheError';
+		this.code = this.code === 'ERR_GOT_REQUEST_ERROR' ? 'ERR_CACHE_ACCESS' : this.code;
 	}
 }
 
@@ -1288,6 +1291,7 @@ export class UploadError extends RequestError {
 	constructor(error: Error, request: Request) {
 		super(error.message, error, request);
 		this.name = 'UploadError';
+		this.code = this.code === 'ERR_GOT_REQUEST_ERROR' ? 'ERR_UPLOAD' : this.code;
 	}
 }
 
@@ -1319,6 +1323,7 @@ export class ReadError extends RequestError {
 	constructor(error: Error, request: Request) {
 		super(error.message, error, request);
 		this.name = 'ReadError';
+		this.code = this.code === 'ERR_GOT_REQUEST_ERROR' ? 'ERR_READING_RESPONSE_STREAM' : this.code;
 	}
 }
 
@@ -1329,6 +1334,7 @@ export class UnsupportedProtocolError extends RequestError {
 	constructor(options: NormalizedOptions) {
 		super(`Unsupported protocol "${options.url.protocol}"`, {}, options);
 		this.name = 'UnsupportedProtocolError';
+		this.code = 'ERR_UNSUPPORTED_PROTOCOL';
 	}
 }
 

@@ -262,58 +262,60 @@ export interface Got extends Record<HTTPAlias, GotRequestFunction>, GotRequestFu
 	defaults: InstanceDefaults;
 
 	/**
-	An error to be thrown when a cache method fails.
-	For example, if the database goes down or there's a filesystem error.
+	An error to be thrown when a cache method fails. For example, if the database goes down or there's a filesystem error.
+	Contains a `code` property with `ERR_CACHE_ACCESS` or a more specific failure code.
 	*/
 	CacheError: typeof CacheError;
 
 	/**
-	An error to be thrown when a request fails.
-	Contains a `code` property with error class code, like `ECONNREFUSED`.
+	An error to be thrown when a request fails. Contains a `code` property with error class code, like `ECONNREFUSED`.
+	If there is no specific code supplied, `code` defaults to `ERR_GOT_REQUEST_ERROR`.
 	*/
 	RequestError: typeof RequestError;
 
 	/**
-	An error to be thrown when reading from response stream fails.
+	An error to be thrown when reading from response stream fails. Contains a `code` property with
+	`ERR_READING_RESPONSE_STREAM` or a more specific failure code.
 	*/
 	ReadError: typeof ReadError;
 
 	/**
-	An error to be thrown when server response code is 2xx, and parsing body fails.
-	Includes a `response` property.
+	An error to be thrown when server response code is 2xx, and parsing body fails. Includes a
+	`response` property. Contains a `code` property with `ERR_BODY_PARSE_FAILURE` or a more specific failure code.
 	*/
 	ParseError: typeof ParseError;
 
 	/**
 	An error to be thrown when the server response code is not 2xx nor 3xx if `options.followRedirect` is `true`, but always except for 304.
-	Includes a `response` property.
+	Includes a `response` property. Contains a `code` property with `ERR_NON_2XX_3XX_RESPONSE` or a more specific failure code.
 	*/
 	HTTPError: typeof HTTPError;
 
 	/**
 	An error to be thrown when the server redirects you more than ten times.
-	Includes a `response` property.
+	Includes a `response` property. Contains a `code` property with `ERR_TOO_MANY_REDIRECTS`.
 	*/
 	MaxRedirectsError: typeof MaxRedirectsError;
 
 	/**
-	An error to be thrown when given an unsupported protocol.
+	An error to be thrown when given an unsupported protocol. Contains a `code` property with `ERR_UNSUPPORTED_PROTOCOL`.
 	*/
 	UnsupportedProtocolError: typeof UnsupportedProtocolError;
 
 	/**
 	An error to be thrown when the request is aborted due to a timeout.
-	Includes an `event` and `timings` property.
+	Includes an `event` and `timings` property. Contains a `code` property with `ETIMEDOUT`.
 	*/
 	TimeoutError: typeof TimeoutError;
 
 	/**
 	An error to be thrown when the request body is a stream and an error occurs while reading from that stream.
+	Contains a `code` property with `ERR_UPLOAD` or a more specific failure code.
 	*/
 	UploadError: typeof UploadError;
 
 	/**
-	An error to be thrown when the request is aborted with `.cancel()`.
+	An error to be thrown when the request is aborted with `.cancel()`. Contains a `code` property with `ERR_CANCELED`.
 	*/
 	CancelError: typeof CancelError;
 

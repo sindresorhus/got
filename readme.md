@@ -1705,43 +1705,44 @@ Additionaly, the errors may have `request` (Got Stream) and `response` (Got Resp
 
 #### got.RequestError
 
-When a request fails. Contains a `code` property with error class code, like `ECONNREFUSED`. All the errors below inherit this one.
+When a request fails. Contains a `code` property with error class code, like `ECONNREFUSED`. If there is no specific code supplied, `code` defaults to `ERR_GOT_REQUEST_ERROR`. All the errors below inherit this one.
 
 #### got.CacheError
 
-When a cache method fails, for example, if the database goes down or there's a filesystem error.
+When a cache method fails, for example, if the database goes down or there's a filesystem error. Contains a `code` property with `ERR_CACHE_ACCESS` or a more specific failure code.
 
 #### got.ReadError
 
-When reading from response stream fails.
+When reading from response stream fails. Contains a `code` property with `ERR_READING_RESPONSE_STREAM` or a more specific failure code.
 
 #### got.ParseError
 
-When server response code is 2xx, and parsing body fails. Includes a `response` property.
+When server response code is 2xx, and parsing body fails. Includes a `response` property. Contains a `code` property with `ERR_BODY_PARSE_FAILURE` or a more specific failure code.
 
 #### got.UploadError
 
-When the request body is a stream and an error occurs while reading from that stream.
+When the request body is a stream and an error occurs while reading from that stream. Contains a `code` property with `ERR_UPLOAD` or a more specific failure code.
 
 #### got.HTTPError
 
-When the server response code is not 2xx nor 3xx if `options.followRedirect` is `true`, but always except for 304. Includes a `response` property.
+When the server response code is not 2xx nor 3xx if `options.followRedirect` is `true`, but always except for 304. Includes a `response` property. Contains a `code` property with `ERR_NON_2XX_3XX_RESPONSE` or a more specific failure code.
+
 
 #### got.MaxRedirectsError
 
-When the server redirects you more than ten times. Includes a `response` property.
+When the server redirects you more than ten times. Includes a `response` property. Contains a `code` property with `ERR_TOO_MANY_REDIRECTS`.
 
 #### got.UnsupportedProtocolError
 
-When given an unsupported protocol.
+When given an unsupported protocol. Contains a `code` property with `ERR_UNSUPPORTED_PROTOCOL`.
 
 #### got.TimeoutError
 
-When the request is aborted due to a [timeout](#timeout). Includes an `event` and `timings` property.
+When the request is aborted due to a [timeout](#timeout). Includes an `event` and `timings` property. Contains a `code` property with `ETIMEDOUT`.
 
 #### got.CancelError
 
-When the request is aborted with `.cancel()`.
+When the request is aborted with `.cancel()`. Contains a `code` property with `ERR_CANCELED`.
 
 ## Aborting the request
 
