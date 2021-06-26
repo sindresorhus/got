@@ -1543,16 +1543,17 @@ const mergedHandlers = got.extend({
 });
 ```
 
-**Note:** Handlers can be asynchronous. The recommended approach is:
+**Note:** Handlers can be asynchronous and can return a `Promise`, but never a `Promise<Stream>`. Streams must always be handled synchronously. If you need asynchronous handlers for streams, use `beforeRequest` hooks. The recommended approach for creating handlers that can handle both promises and streams is:
 
 ```js
+// Create a synchronous handler because an async function will not work with streams.
 const handler = (options, next) => {
 	if (options.isStream) {
-		// It's a Stream
+		// It's a Stream, return synchronously.
 		return next(options);
 	}
 
-	// It's a Promise
+	// For asynchronous work return a Promise
 	return (async () => {
 		try {
 			const response = await next(options);
