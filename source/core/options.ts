@@ -675,7 +675,7 @@ const defaultInternals: Options['_internals'] = {
 		},
 		paginate: ({response}) => {
 			const rawLinkHeader = response.headers.link;
-			if (typeof rawLinkHeader !== 'string' || rawLinkHeader === '') {
+			if (typeof rawLinkHeader !== 'string' || rawLinkHeader.trim() === '') {
 				return false;
 			}
 
