@@ -674,11 +674,12 @@ const defaultInternals: Options['_internals'] = {
 			return JSON.parse(response.body as string);
 		},
 		paginate: ({response}) => {
-			if (typeof response.headers.link !== 'string') {
+			const rawLinkHeader = response.headers.link;
+			if (typeof rawLinkHeader !== 'string' || rawLinkHeader.trim() === '') {
 				return false;
 			}
 
-			const parsed = parseLinkHeader(response.headers.link);
+			const parsed = parseLinkHeader(rawLinkHeader);
 			const next = parsed.find(entry => entry.parameters.rel === 'next' || entry.parameters.rel === '"next"');
 
 			if (next) {

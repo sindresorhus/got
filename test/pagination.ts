@@ -43,6 +43,18 @@ test('the link header has no next value', withServer, async (t, server, got) => 
 	t.deepEqual(received, items);
 });
 
+test('the link header is empty', withServer, async (t, server, got) => {
+	const items = [1];
+
+	server.get('/', (_request, response) => {
+		response.setHeader('link', '');
+		response.end(JSON.stringify(items));
+	});
+
+	const received = await got.paginate.all<number>('');
+	t.deepEqual(received, items);
+});
+
 test('retrieves all elements', withServer, async (t, server, got) => {
 	attachHandler(server, 2);
 
