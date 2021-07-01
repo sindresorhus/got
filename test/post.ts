@@ -334,7 +334,8 @@ test('throws on upload error', withServer, async (t, server, got) => {
 		}
 	})), {
 		instanceOf: UploadError,
-		message
+		message,
+		code: 'ERR_UPLOAD'
 	});
 });
 

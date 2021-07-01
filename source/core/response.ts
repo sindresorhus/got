@@ -123,6 +123,7 @@ export class ParseError extends RequestError {
 
 		super(`${error.message} in "${options.url!.toString()}"`, error, response.request);
 		this.name = 'ParseError';
+		this.code = 'ERR_BODY_PARSE_FAILURE';
 	}
 }
 

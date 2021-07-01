@@ -1166,7 +1166,10 @@ export default class Options {
 		}
 
 		if (url.protocol !== 'http:' && url.protocol !== 'https:') {
-			throw new Error(`Unsupported protocol: ${url.protocol}`);
+			const error: NodeJS.ErrnoException = new Error(`Unsupported protocol: ${url.protocol}`);
+			error.code = 'ERR_UNSUPPORTED_PROTOCOL';
+
+			throw error;
 		}
 
 		if (this._internals.username) {

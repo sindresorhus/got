@@ -71,8 +71,14 @@ test('promise.json() can be called before a file stream body is open', withServe
 
 	const promise = got({body});
 	const checks = [
-		t.throwsAsync(promise, {instanceOf: CancelError}),
-		t.throwsAsync(promise.json(), {instanceOf: CancelError})
+		t.throwsAsync(promise, {
+			instanceOf: CancelError,
+			code: 'ERR_CANCELED'
+		}),
+		t.throwsAsync(promise.json(), {
+			instanceOf: CancelError,
+			code: 'ERR_CANCELED'
+		})
 	];
 
 	promise.cancel();

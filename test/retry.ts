@@ -188,7 +188,7 @@ test('custom error codes', async t => {
 		},
 		retry: {
 			calculateDelay: ({error}) => {
-				t.is(error.code! as typeof errorCode, errorCode);
+				t.is(error.code, errorCode);
 				return 0;
 			},
 			methods: [

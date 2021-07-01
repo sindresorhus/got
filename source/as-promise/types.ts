@@ -15,6 +15,7 @@ export class CancelError extends RequestError {
 	constructor(request: Request) {
 		super('Promise was canceled', {}, request);
 		this.name = 'CancelError';
+		this.code = 'ERR_CANCELED';
 	}
 
 	get isCanceled() {
