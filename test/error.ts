@@ -40,7 +40,7 @@ test('catches dns errors', async t => {
 	t.regex(error.message, /ENOTFOUND|EAI_AGAIN/);
 	t.is((error.options.url as URL).host, 'doesntexist');
 	t.is(error.options.method, 'GET');
-	t.is(error.code, 'ENOTFOUND');
+	t.true(['ENOTFOUND', 'EAI_AGAIN'].includes(error.code));
 });
 
 test('`options.body` form error message', async t => {
