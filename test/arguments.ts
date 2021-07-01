@@ -2,7 +2,7 @@ import {parse, URL, URLSearchParams} from 'url';
 import test from 'ava';
 import {Handler} from 'express';
 import pEvent from 'p-event';
-import got, {Options, StrictOptions} from '../source/index.js';
+import got, {Options, RequestError, StrictOptions} from '../source/index.js';
 import withServer, {withBodyParsingServer} from './helpers/with-server.js';
 import invalidUrl from './helpers/invalid-url.js';
 
@@ -599,4 +599,29 @@ test('throws on too large noise', t => {
 	});
 
 	/* eslint-enable no-new */
+});
+
+test('options have url even if some are invalid', async t => {
+	const error = await t.throwsAsync<RequestError>(got('https://example.com', {
+		// @ts-expect-error
+		invalid: true
+	}));
+
+	t.is((error.options.url as URL).href, 'https://example.com/');
+});
+
+test('options have url even if some are invalid - got.extend', async t => {
+	const instance = got.extend({
+		handlers: [
+			(options, next) => {
+				t.is((options.url as URL).href, 'https://example.com/');
+				return next(options);
+			}
+		]
+	});
+
+	await t.throwsAsync(instance('https://example.com', {
+		// @ts-expect-error
+		invalid: true
+	}));
 });

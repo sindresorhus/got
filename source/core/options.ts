@@ -776,20 +776,25 @@ export default class Options {
 
 		try {
 			if (is.plainObject(input)) {
-				this.merge(input);
-				this.merge(options);
-				this.url = input.url;
+				try {
+					this.merge(input);
+					this.merge(options);
+				} finally {
+					this.url = input.url;
+				}
 			} else {
-				this.merge(options);
-
-				if (options?.url !== undefined) {
-					if (input === undefined) {
-						this.url = options.url;
-					} else {
-						throw new TypeError('The `url` option is mutually exclusive with the `input` argument');
+				try {
+					this.merge(options);
+				} finally {
+					if (options?.url !== undefined) {
+						if (input === undefined) {
+							this.url = options.url;
+						} else {
+							throw new TypeError('The `url` option is mutually exclusive with the `input` argument');
+						}
+					} else if (input !== undefined) {
+						this.url = input;
 					}
-				} else if (input !== undefined) {
-					this.url = input;
 				}
 			}
 		} catch (error) {
