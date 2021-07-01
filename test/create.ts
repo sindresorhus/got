@@ -3,6 +3,7 @@ import {URL} from 'url';
 import test from 'ava';
 import is from '@sindresorhus/is';
 import {Handler} from 'express';
+import delay from 'delay';
 import got, {
 	BeforeRequestHook,
 	Headers,
@@ -353,4 +354,24 @@ test('setting dnsCache to true points to global cache', t => {
 	});
 
 	t.is(a.defaults.options.dnsCache, b.defaults.options.dnsCache);
+});
+
+test('waits for handlers to finish', withServer, async (t, server, got) => {
+	server.get('/', echoHeaders);
+
+	const instance = got.extend({
+		handlers: [
+			async (options, next) => {
+				await delay(1000);
+				return next(options);
+			},
+			async (options, next) => {
+				options.headers.foo = 'bar';
+				return next(options);
+			}
+		]
+	});
+
+	const {foo} = await instance('').json();
+	t.is(foo, 'bar');
 });

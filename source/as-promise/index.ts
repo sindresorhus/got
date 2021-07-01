@@ -164,7 +164,9 @@ export default function asPromise<T>(firstRequest: Request): CancelableRequest<T
 
 			proxyEvents(request, emitter, proxiedRequestEvents);
 
-			void request.flush();
+			if (is.undefined(firstRequest)) {
+				void request.flush();
+			}
 		};
 
 		makeRequest(0);
