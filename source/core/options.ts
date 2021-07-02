@@ -774,6 +774,15 @@ export default class Options {
 		this._merging = false;
 		this._unixOptions = undefined;
 
+		// This rule allows `finally` to be considered more important.
+		// Meaning no matter the error thrown in the `try` block,
+		// if `finally` throws then the `finally` error will be thrown.
+		//
+		// Yes, we want this. If we set `url` first, then the `url.searchParams`
+		// would get merged. Instead we set the `searchParams` first, then
+		// `url.searchParams` is overwritten as expected.
+		//
+		/* eslint-disable no-unsafe-finally */
 		try {
 			if (is.plainObject(input)) {
 				try {
@@ -802,6 +811,7 @@ export default class Options {
 
 			throw error;
 		}
+		/* eslint-enable no-unsafe-finally */
 	}
 
 	merge(options?: OptionsInit | Options) {
