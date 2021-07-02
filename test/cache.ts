@@ -1,4 +1,5 @@
 import {promisify} from 'util';
+import {Agent} from 'http';
 import {gzip} from 'zlib';
 import test from 'ava';
 import pEvent from 'p-event';
@@ -402,4 +403,41 @@ test('allows internal modifications', async t => {
 	});
 
 	await t.notThrowsAsync(client.get('http://example.com/test'));
+});
+
+test('response.complete is true when using keepalive agent', withServer, async (t, server, got) => {
+	const agent = {
+		http: new Agent({keepAlive: true})
+	};
+
+	const etag = 'foobar';
+
+	const payload = JSON.stringify({foo: 'bar'});
+	const compressed = await promisify(gzip)(payload);
+
+	server.get('/', (request, response) => {
+		if (request.headers['if-none-match'] === etag) {
+			response.statusCode = 304;
+			response.end();
+		} else {
+			response.setHeader('content-encoding', 'gzip');
+			response.setHeader('cache-control', 'public, max-age=60');
+			response.setHeader('etag', etag);
+			response.end(compressed);
+		}
+	});
+
+	const cache = new Map();
+
+	const first = await got({
+		cache,
+		responseType: 'json',
+		decompress: true,
+		retry: {
+			limit: 2
+		},
+		agent
+	});
+
+	t.true(first.complete);
 });

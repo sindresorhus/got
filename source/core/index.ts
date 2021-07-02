@@ -987,16 +987,24 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 			let request: ClientRequest | Promise<ClientRequest>;
 
-			// This is ugly
-			const cacheRequest = cacheableStore.get((options as any).cache)!(options, async response => {
-				// TODO: Fix `cacheable-response`
-				(response as any)._readableState.autoDestroy = false;
+			// TODO: Fix `cacheable-response`. This is ugly.
+			const cacheRequest = cacheableStore.get((options as any).cache)!(options, async (response: any) => {
+				response._readableState.autoDestroy = false;
 
 				if (request) {
+					const fix = () => {
+						if (response.req) {
+							response.complete = response.req.res.complete;
+						}
+					};
+
+					response.prependOnceListener('end', fix);
+					fix();
+
 					(await request).emit('cacheableResponse', response);
 				}
 
-				resolve(response as unknown as ResponseLike);
+				resolve(response);
 			});
 
 			cacheRequest.once('error', reject);
