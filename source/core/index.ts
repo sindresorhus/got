@@ -500,8 +500,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			}
 		}
 
-		// TODO: Remove the next `if` when targeting Node.js 14.
-		if (this._request && !this.response?.complete) {
+		if (this._request) {
 			this._request.destroy();
 		}
 

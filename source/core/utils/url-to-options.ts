@@ -16,7 +16,7 @@ export interface LegacyUrlOptions {
 	auth?: string;
 }
 
-export default function urlToOPtions(url: URL | UrlWithStringQuery): LegacyUrlOptions {
+export default function urlToOptions(url: URL | UrlWithStringQuery): LegacyUrlOptions {
 	// Cast to URL
 	url = url as URL;
 
