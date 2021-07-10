@@ -1,9 +1,11 @@
-import fs from 'fs';
 import got from '../../dist/source/index.js';
 
-const packageJson = JSON.parse(fs.readFileSync(new URL('../../package.json', import.meta.url), 'utf8'));
+const packageJson = {
+	name: 'gh-got',
+	version: '12.0.0'
+};
 
-const getRateLimit = headers => ({
+const getRateLimit = (headers) => ({
 	limit: Number.parseInt(headers['x-ratelimit-limit'], 10),
 	remaining: Number.parseInt(headers['x-ratelimit-remaining'], 10),
 	reset: new Date(Number.parseInt(headers['x-ratelimit-reset'], 10) * 1000)
@@ -12,16 +14,28 @@ const getRateLimit = headers => ({
 const instance = got.extend({
 	prefixUrl: 'https://api.github.com',
 	headers: {
-		accept: 'application/vnd.github.v3+json',
-		'user-agent': `${packageJson.name}/${packageJson.version}`
+		accept: 'application/vnd.github.v3+json'
 	},
 	responseType: 'json',
-	token: process.env.GITHUB_TOKEN,
+	context: {
+		token: process.env.GITHUB_TOKEN,
+	},
+	hooks: {
+		init: [
+			(raw, options) => {
+				if ('token' in raw) {
+					options.context.token = raw.token;
+					delete raw.token;
+				}
+			}
+		]
+	},
 	handlers: [
 		(options, next) => {
 			// Authorization
-			if (options.token && !options.headers.authorization) {
-				options.headers.authorization = `token ${options.token}`;
+			const {token} = options.context;
+			if (token && !options.headers.authorization) {
+				options.headers.authorization = `token ${token}`;
 			}
 
 			// Don't touch streams

@@ -28,6 +28,8 @@ import type {RequestError} from './errors.js';
 import type {PlainResponse, Response} from './response.js';
 import type {CancelableRequest} from '../as-promise/types.js';
 
+type Promisable<T> = T | Promise<T>;
+
 const [major, minor] = process.versions.node.split('.').map(v => Number(v)) as [number, number, number];
 
 export type DnsLookupIpVersion = undefined | 4 | 6;
@@ -37,7 +39,7 @@ type Except<ObjectType, KeysType extends keyof ObjectType> = Pick<ObjectType, Ex
 export type NativeRequestOptions = HttpsRequestOptions & CacheOptions & {checkServerIdentity?: CheckServerIdentityFunction};
 
 type AcceptableResponse = IncomingMessageWithTimings | ResponseLike;
-type AcceptableRequestResult = AcceptableResponse | ClientRequest | Promise<AcceptableResponse | ClientRequest> | undefined;
+type AcceptableRequestResult = Promisable<AcceptableResponse | ClientRequest> | undefined;
 export type RequestFunction = (url: URL, options: NativeRequestOptions, callback?: (response: AcceptableResponse) => void) => AcceptableRequestResult;
 
 export interface Agents {
@@ -60,14 +62,12 @@ export interface PromiseCookieJar {
 	setCookie: (rawCookie: string, url: string) => Promise<unknown>;
 }
 
-type Promisable<T> = T | Promise<T>;
-
 export type InitHook = (init: OptionsInit, self: Options) => void;
 export type BeforeRequestHook = (options: Options) => Promisable<void | Response | ResponseLike>;
 export type BeforeRedirectHook = (updatedOptions: Options, plainResponse: PlainResponse) => Promisable<void>;
 export type BeforeErrorHook = (error: RequestError) => Promisable<RequestError>;
 export type BeforeRetryHook = (error: RequestError) => Promisable<void>;
-export type AfterResponseHook<ResponseType = unknown> = (response: Response<ResponseType>, retryWithMergedOptions: (options: OptionsInit) => never) => Response | CancelableRequest<Response> | Promise<Response | CancelableRequest<Response>>;
+export type AfterResponseHook<ResponseType = unknown> = (response: Response<ResponseType>, retryWithMergedOptions: (options: OptionsInit) => never) => Promisable<Response | CancelableRequest<Response>>;
 
 /**
 All available hooks of Got.
@@ -264,7 +264,7 @@ export interface RetryObject {
 	retryAfter?: number;
 }
 
-export type RetryFunction = (retryObject: RetryObject) => number | Promise<number>;
+export type RetryFunction = (retryObject: RetryObject) => Promisable<number>;
 
 /**
 An object representing `limit`, `calculateDelay`, `methods`, `statusCodes`, `maxRetryAfter` and `errorCodes` fields for maximum retry count, retry handler, allowed methods, allowed status codes, maximum [`Retry-After`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Retry-After) time and allowed error codes.
@@ -523,7 +523,7 @@ type OptionsToSkip =
 
 export type InternalsType = Except<Options, OptionsToSkip>;
 
-export type OptionsError = NodeJS.ErrnoException & {options: Options};
+export type OptionsError = NodeJS.ErrnoException & {options?: Options};
 
 export type OptionsInit =
 	Except<Partial<InternalsType>, 'hooks' | 'retry'>
