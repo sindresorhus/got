@@ -22,8 +22,6 @@ const proxiedRequestEvents = [
 	'downloadProgress'
 ];
 
-const supportedCompressionAlgorithms = new Set(['gzip', 'deflate', 'br']);
-
 export default function asPromise<T>(firstRequest: Request): CancelableRequest<T> {
 	let globalRequest: Request;
 	let globalResponse: Response;
@@ -55,7 +53,7 @@ export default function asPromise<T>(firstRequest: Request): CancelableRequest<T
 			request.once('response', async (response: Response) => {
 				// Parse body
 				const contentEncoding = (response.headers['content-encoding'] ?? '').toLowerCase();
-				const isCompressed = supportedCompressionAlgorithms.has(contentEncoding);
+				const isCompressed = contentEncoding === 'gzip' || contentEncoding === 'defalte' || contentEncoding === 'br';
 
 				const {options} = request;
 
