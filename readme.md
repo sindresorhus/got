@@ -102,7 +102,7 @@ For advanced JSON usage, check out the [`parseJson`](2-options.md#parsejson) and
 #### Main API
 
 - [x] [Promise API](documentation/1-promise.md)
-- [ ] [Options](documentation/2-options.md)
+- [x] [Options](documentation/2-options.md)
 - [x] [Stream API](documentation/3-streams.md)
 - [x] [Pagination API](documentation/4-pagination.md)
 - [x] [Advanced HTTPS API](documentation/5-https.md)
