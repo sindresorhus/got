@@ -107,7 +107,7 @@ For advanced JSON usage, check out the [`parseJson`](2-options.md#parsejson) and
 - [x] [Pagination API](documentation/4-pagination.md)
 - [x] [Advanced HTTPS API](documentation/5-https.md)
 - [x] [HTTP/2 support](documentation/2-options.md#http2)
-- [x] [`Response` class](documentation/3-streams.md#response)
+- [x] [`Response` class](documentation/3-streams.md#response-1)
 
 #### Timeouts and retries
 
