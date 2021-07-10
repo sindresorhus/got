@@ -14,7 +14,7 @@ const httpsAgent = new https.Agent({
 	rejectUnauthorized: false
 });
 
-const url = new URL('https://127.0.0.1:8080');
+const url = new URL('https://127.0.0.1:8081');
 const urlString = url.toString();
 
 const gotOptions: OptionsInit & {isStream?: true} = {
@@ -183,6 +183,23 @@ const internalBenchmark = (): void => {
 
 // Results (i7-7700k, CPU governor: performance):
 
+// H2O server:
+// got - promise                   x 2,612 ops/sec ±5.44% (71 runs sampled)
+// got - stream                    x 3,532 ops/sec ±3.16% (75 runs sampled)
+// got - core                      x 3,813 ops/sec ±2.01% (81 runs sampled)
+// got - core - normalized options x 4,183 ops/sec ±2.64% (80 runs sampled)
+// request - callback              x 4,664 ops/sec ±5.85% (69 runs sampled)
+// request - stream                x 4,832 ops/sec ±4.36% (75 runs sampled)
+// node-fetch - promise            x 6,490 ops/sec ±5.13% (75 runs sampled)
+// node-fetch - stream             x 7,322 ops/sec ±3.33% (77 runs sampled)
+// axios - promise                 x 5,213 ops/sec ±5.47% (69 runs sampled)
+// axios - stream                  x 7,496 ops/sec ±2.67% (83 runs sampled)
+// https - stream                  x 7,766 ops/sec ±5.68% (66 runs sampled)
+// Fastest is https - stream
+//
+// got - normalize options x 73,790 ops/sec ±1.45% (92 runs sampled)
+
+// Node.js server:
 // got - promise                   x 2,361 ops/sec ±6.79% (68 runs sampled)
 // got - stream                    x 3,275 ops/sec ±3.70% (73 runs sampled)
 // got - core                      x 3,364 ops/sec ±3.44% (77 runs sampled)
@@ -195,5 +212,5 @@ const internalBenchmark = (): void => {
 // axios - stream                  x 6,842 ops/sec ±3.35% (75 runs sampled)
 // https - stream                  x 9,908 ops/sec ±5.25% (76 runs sampled)
 // Fastest is https - stream
-
+//
 // got - normalize options x 72,035 ops/sec ±0.89% (95 runs sampled)
