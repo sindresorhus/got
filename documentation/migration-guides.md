@@ -48,14 +48,14 @@ These Got options are the same as with Request:
 - [`createConnection`](2-options.md#createconnection)
 - [UNIX sockets](tips.md#unixsockets): `http://unix:SOCKET:PATH`
 
-The `time` option does not exist, assume [it's always true](timeout.md).
+The `time` option does not exist, assume [it's always true](6-timeout.md).
 
 So if you're familiar with these, you're good to go.
 
 #### Renamed options
 
 **Note:**
-> - Got stores HTTPS options inside [`httpsOptions`](2-options.md#httpsoptions). Some of them have been renamed. [Read more](https.md).
+> - Got stores HTTPS options inside [`httpsOptions`](2-options.md#httpsoptions). Some of them have been renamed. [Read more](5-https.md).
 
 Readability is very important to us, so we have different names for these options:
 
@@ -69,7 +69,7 @@ Readability is very important to us, so we have different names for these option
 #### Changes in behavior
 
 - The [`agent` option](2-options.md#agent) is now an object with `http`, `https` and `http2` properties.
-- The [`timeout` option](timeout.md) is now an object. You can set timeouts on particular events!
+- The [`timeout` option](6-timeout.md) is now an object. You can set timeouts on particular events!
 - The [`searchParams` option](https://github.com/sindresorhus/got#searchParams) is always serialized using [`URLSearchParams`](https://developer.mozilla.org/en-US/docs/Web/API/URLSearchParams) unless it's a `string`.
 - To use streams, call `got.stream(url, options)` or `got(url, {…, isStream: true}`).
 
@@ -80,7 +80,7 @@ Readability is very important to us, so we have different names for these option
 - All headers are converted to lowercase.\
   According to [the spec](https://datatracker.ietf.org/doc/html/rfc7230#section-3.2), the headers are case-insensitive.
 - No `oauth` / `hawk` / `aws` / `httpSignature` option.\
-  To sign requests, you need to create a [custom instance](advanced-creation.md#signing-requests).
+  To sign requests, you need to create a [custom instance](examples/advanced-creation.js).
 - No `agentClass` / `agentOptions` / `pool` option.
 - No `forever` option.\
   You need to pass an agent with `keepAlive` option set to `true`.

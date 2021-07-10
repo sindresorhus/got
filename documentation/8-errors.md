@@ -77,7 +77,7 @@ When given an unsupported protocol.
 
 **Code: `ETIMEDOUT`**
 
-When the request is aborted due to a [timeout](timeout.md). Includes an `event` (a string) property along with `timings`.
+When the request is aborted due to a [timeout](6-timeout.md). Includes an `event` (a string) property along with `timings`.
 
 ### `CancelError`
 

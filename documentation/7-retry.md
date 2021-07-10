@@ -6,7 +6,7 @@
 > If you're looking for retry implemenation using streams, check out the [Retry Stream API](3-streams.md#retry).
 
 **Tip:**
-> You can trigger a retry by throwing the [`RetryError`](errors.md#retryerror) in any hook.
+> You can trigger a retry by throwing the [`RetryError`](8-errors.md#retryerror) in any hook.
 
 **Tip:**
 > The `afterResponse` hook exposes a dedicated function to retry with merged options. [Read more](hooks.md#afterresponse).
@@ -85,7 +85,7 @@ The allowed [HTTP status codes](https://developer.mozilla.org/en-US/docs/Web/HTT
 
 The allowed error codes to retry on.
 
-- `ETIMEDOUT` - one of the [timeout limits](timeout.md) was reached.
+- `ETIMEDOUT` - one of the [timeout limits](6-timeout.md) was reached.
 - `ECONNRESET`- the connection was forcibly closed.
 - `EADDRINUSE`- could not bind to any free port.
 - `ECONNREFUSED`- the connection was refused by the server.

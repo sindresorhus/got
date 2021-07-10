@@ -264,7 +264,7 @@ const instance = got.extend({
 (error: RequestError) => Promisable<RequestError>
 ```
 
-Called with a [`RequestError`](errors.md#requesterror) instance. The error is passed to the hook right before it's thrown.
+Called with a [`RequestError`](8-errors.md#requesterror) instance. The error is passed to the hook right before it's thrown.
 
 This is especially useful when you want to have more detailed errors.
 

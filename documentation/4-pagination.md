@@ -95,7 +95,7 @@ This option represents the `pagination` object.
 **Type: `Function`**\
 **Default: `response => JSON.parse(response.body)`**
 
-A function that transform [`Response`](response.md) into an array of items.\
+A function that transform [`Response`](3-streams.md#response-1) into an array of items.\
 This is where you should do the parsing.
 
 #### `paginate`
@@ -152,7 +152,7 @@ Milliseconds to wait before the next request is triggered.
 The maximum amount of request that should be triggered.
 
 **Note:**
-> - [Retries on failure](retry.md) are not counted towards this limit.
+> - [Retries on failure](7-retry.md) are not counted towards this limit.
 
 #### `stackAllItems`
 

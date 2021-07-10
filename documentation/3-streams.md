@@ -184,7 +184,7 @@ fn();
 
 #### `updatedOptions`
 
-**Type: [`Options`](1-options.md)**
+**Type: [`Options`](2-options.md)**
 
 The new options used to make the next request.
 

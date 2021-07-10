@@ -17,7 +17,7 @@ const body = await got('https://httpbin.org/anything', {
 });
 ```
 
-For more specific timeouts, visit the [Timeout API](timeout.md).
+For more specific timeouts, visit the [Timeout API](6-timeout.md).
 
 ### Retries
 
@@ -35,7 +35,7 @@ const noRetryGot = got.extend({
 });
 ```
 
-In order to specify retriable errors, use the [Retry API](retry.md).
+In order to specify retriable errors, use the [Retry API](7-retry.md).
 
 ### Cookies
 
@@ -75,7 +75,7 @@ const response = await got('https://<api-id>.execute-api.<api-region>.amazonaws.
 
 When working with large datasets, it's very efficient to use pagination.\
 By default, Got uses the [`Link` header](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Link) to retrieve the next page.\
-However, this behavior can be customized, see the [Pagination API](pagination.md).
+However, this behavior can be customized, see the [Pagination API](4-pagination.md).
 
 ```js
 const countLimit = 50;
@@ -127,7 +127,7 @@ There may be cases where `nock` won't be sufficient or lacks functionality.
 #### Nock
 
 By default `nock` mocks only one request.\
-Got will [retry](retry.md) on failed requests by default, causing a `No match for request ...` error.\
+Got will [retry](7-retry.md) on failed requests by default, causing a `No match for request ...` error.\
 The solution is to either disable retrying (set `options.retry.limit` to `0`) or call `.persist()` on the mocked request.
 
 ```js

@@ -206,7 +206,7 @@ console.log(method);
 **Type: `boolean`**\
 **Default: `false`**
 
-Whether the request should return a [`Request` duplex stream](3-streams.md) or a [`Promise<Response>`](promise.md).
+Whether the request should return a [`Request` duplex stream](3-streams.md) or a [`Promise<Response>`](1-promise.md).
 
 ```js
 import got from 'got';
@@ -249,7 +249,7 @@ console.log(data);
 > - If you use this option, `got.stream()` will be read-only.
 
 #### **Note:**
-> - Passing `body` with `GET` will throw unless the [`allowGetBody` option](#allowGetBody) is set to `true`.
+> - Passing `body` with `GET` will throw unless the [`allowGetBody` option](#allowgetbody) is set to `true`.
 
 ### `json`
 
@@ -380,7 +380,7 @@ Therefore this option has no effect when using HTTP/2.
 
 **Type: `object`**
 
-See the [Timeout API](timeout.md).
+See the [Timeout API](6-timeout.md).
 
 #### **Merge behavior:**
 > - Overrides existing properties.
@@ -389,7 +389,7 @@ See the [Timeout API](timeout.md).
 
 **Type: `object`**
 
-See the [Retry API](retry.md).
+See the [Retry API](7-retry.md).
 
 #### **Merge behavior:**
 > - Overrides existing properties.
@@ -398,7 +398,7 @@ See the [Retry API](retry.md).
 
 **Type: `object`**
 
-See the [Hooks API](hooks.md).
+See the [Hooks API](9-hooks.md).
 
 #### **Merge behavior:**
 > - Merges arrays via `[...hooksArray, ...next]`
@@ -470,7 +470,7 @@ const [response, buffer, json] = await Promise.all([responsePromise, bufferPromi
 **Type: `boolean`**\
 **Default: `false`**
 
-If `true`, the promise will return the [Response body](#) instead of the [Response object](#).
+If `true`, the promise will return the [Response body](3-streams.md#response-1) instead of the [Response object](3-streams.md#response-1).
 
 ```js
 import got from 'got';

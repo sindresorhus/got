@@ -28,7 +28,7 @@ const {headers} = await got(
 
 ### <code>got(options: [OptionsInit](typescript.md#optionsinit))</code>
 
-**Returns: <code>Promise<[Response](response.md)>**</code>
+**Returns: <code>Promise<[Response](3-streams.md#response-1)>**</code>
 
 Eventually, you can pass only options containing a `url` property.
 
@@ -78,7 +78,7 @@ Cancels the request and optionally provide a reason.
 The cancellation is synchronous.\
 Calling it after the promise has settled or multiple times does nothing.
 
-This will cause the promise to reject with [`CancelError`](errors.md#cancelerror).
+This will cause the promise to reject with [`CancelError`](8-errors.md#cancelerror).
 
 ### `promise.isCanceled`
 
