@@ -124,35 +124,33 @@ export default function timedOut(request: ClientRequest, delays: Delays, options
 			const {socketPath} = request as ClientRequest & {socketPath?: string};
 
 			/* istanbul ignore next: hard to test */
-			if (socket.connecting) {
-				if (hasLookup || hasConnect) {
-					const hasPath = Boolean(socketPath ?? net.isIP(hostname ?? host ?? '') !== 0);
+			if (socket.connecting && (hasLookup || hasConnect)) {
+				const hasPath = Boolean(socketPath ?? net.isIP(hostname ?? host ?? '') !== 0);
 
-					if (hasLookup && !hasPath && typeof (socket.address() as net.AddressInfo).address === 'undefined') {
-						const cancelTimeout = addTimeout(delays.lookup!, timeoutHandler, 'lookup');
-						once(socket, 'lookup', cancelTimeout);
-					}
+				if (hasLookup && !hasPath && typeof (socket.address() as net.AddressInfo).address === 'undefined') {
+					const cancelTimeout = addTimeout(delays.lookup!, timeoutHandler, 'lookup');
+					once(socket, 'lookup', cancelTimeout);
+				}
 
-					if (hasConnect) {
-						const timeConnect = (): (() => void) => addTimeout(delays.connect!, timeoutHandler, 'connect');
+				if (hasConnect) {
+					const timeConnect = (): (() => void) => addTimeout(delays.connect!, timeoutHandler, 'connect');
 
-						if (hasPath) {
-							once(socket, 'connect', timeConnect());
-						} else {
-							once(socket, 'lookup', (error: Error): void => {
-								if (error === null) {
-									once(socket, 'connect', timeConnect());
-								}
-							});
-						}
-					}
-
-					if (hasSecureConnect && options.protocol === 'https:') {
-						once(socket, 'connect', (): void => {
-							const cancelTimeout = addTimeout(delays.secureConnect!, timeoutHandler, 'secureConnect');
-							once(socket, 'secureConnect', cancelTimeout);
+					if (hasPath) {
+						once(socket, 'connect', timeConnect());
+					} else {
+						once(socket, 'lookup', (error: Error): void => {
+							if (error === null) {
+								once(socket, 'connect', timeConnect());
+							}
 						});
 					}
+				}
+
+				if (hasSecureConnect && options.protocol === 'https:') {
+					once(socket, 'connect', (): void => {
+						const cancelTimeout = addTimeout(delays.secureConnect!, timeoutHandler, 'secureConnect');
+						once(socket, 'secureConnect', cancelTimeout);
+					});
 				}
 			}
 
