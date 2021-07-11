@@ -124,7 +124,7 @@ export default function timedOut(request: ClientRequest, delays: Delays, options
 			const {socketPath} = request as ClientRequest & {socketPath?: string};
 
 			/* istanbul ignore next: hard to test */
-			if (socket.connecting && (hasLookup || hasConnect)) {
+			if (socket.connecting) {
 				const hasPath = Boolean(socketPath ?? net.isIP(hostname ?? host ?? '') !== 0);
 
 				if (hasLookup && !hasPath && typeof (socket.address() as net.AddressInfo).address === 'undefined') {
