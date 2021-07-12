@@ -30,7 +30,7 @@ import type {ClientRequest, RequestOptions} from 'http';
 import type {Socket} from 'net';
 import type ResponseLike from 'responselike';
 import type {PlainResponse} from './response.js';
-import type {OptionsInit, PromiseCookieJar, NativeRequestOptions, RetryOptions} from './options.js';
+import type {PromiseCookieJar, NativeRequestOptions, RetryOptions} from './options.js';
 
 export interface Progress {
 	percent: number;
@@ -129,12 +129,16 @@ const proxiedRequestEvents = [
 
 const noop = () => {};
 
+type UrlType = ConstructorParameters<typeof Options>[0];
+type OptionsType = ConstructorParameters<typeof Options>[1];
+type DefaultsType = ConstructorParameters<typeof Options>[2];
+
 export default class Request extends Duplex implements RequestEvents<Request> {
 	['constructor']: typeof Request;
 
 	_noPipe?: boolean;
 
-	// @ts-expect-error TypeScript doesn't check try/catch inside constructors. Dang.
+	// @ts-expect-error https://github.com/microsoft/TypeScript/issues/9568
 	options: Options;
 	response?: PlainResponse;
 	requestUrl?: URL;
@@ -165,7 +169,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	// We need this because `this._request` if `undefined` when using cache
 	private _requestInitialized: boolean;
 
-	constructor(url: string | URL | OptionsInit | undefined, options?: OptionsInit, defaults?: Options) {
+	constructor(url: UrlType, options?: OptionsType, defaults?: DefaultsType) {
 		super({
 			// Don't destroy immediately, as the error may be emitted on unsuccessful retry
 			autoDestroy: false,

@@ -1,12 +1,12 @@
-# Migration guides
+[> Back to homepage](../readme.md#documentation)
 
-> :star: Switching from other HTTP request libraries to Got :star:
+## Migration guides
 
-### Migrating from Request
+> You may think it's too hard to switch, but it's really not. 🦄
 
-You may think it's too hard to switch, but it's really not. 🦄
+### Request
 
-Let's take the very first example from Request's readme:
+Let's take the very first example from [Request's readme](https://github.com/request/request#super-simple-to-use):
 
 ```js
 import request from 'request';
@@ -36,78 +36,64 @@ Looks better now, huh? 😎
 
 #### Common options
 
-Both Request and Got accept [`http.request` options](https://nodejs.org/api/http.html#http_http_request_options_callback).
-
 These Got options are the same as with Request:
 
-- [`url`](https://github.com/sindresorhus/got#url) (+ we accept [`URL`](https://developer.mozilla.org/en-US/docs/Web/API/URL) instances too!)
-- [`body`](https://github.com/sindresorhus/got#body)
-- [`followRedirect`](https://github.com/sindresorhus/got#followRedirect)
-- [`encoding`](https://github.com/sindresorhus/got#encoding)
-- [`maxRedirects`](https://github.com/sindresorhus/got#maxredirects)
+- [`url`](2-options.md#url)
+- [`body`](2-options.md#body)
+- [`followRedirect`](2-options.md#followredirect)
+- [`encoding`](2-options.md#encoding)
+- [`maxRedirects`](2-options.md#maxredirects)
+- [`localAddress`](2-options.md#localaddress)
+- [`headers`](2-options.md#headers)
+- [`createConnection`](2-options.md#createconnection)
+- [UNIX sockets](tips.md#unixsockets): `http://unix:SOCKET:PATH`
 
-So if you're familiar with them, you're good to go.
+The `time` option does not exist, assume [it's always true](6-timeout.md).
 
-Oh, and one more thing... There's no `time` option. Assume [it's always true](https://github.com/sindresorhus/got#timings).
+So if you're familiar with these, you're good to go.
 
 #### Renamed options
 
+**Note:**
+> - Got stores HTTPS options inside [`httpsOptions`](2-options.md#httpsoptions). Some of them have been renamed. [Read more](5-https.md).
+
 Readability is very important to us, so we have different names for these options:
 
-- `qs` → [`searchParams`](https://github.com/sindresorhus/got#searchParams)
-- `strictSSL` → [`rejectUnauthorized`](https://github.com/sindresorhus/got#rejectUnauthorized)
-- `gzip` → [`decompress`](https://github.com/sindresorhus/got#decompress)
-- `jar` → [`cookieJar`](https://github.com/sindresorhus/got#cookiejar) (accepts [`tough-cookie`](https://github.com/salesforce/tough-cookie) jar)
-
-It's more clear, isn't it?
+- `qs` → [`searchParams`](2-options.md#serachparams)
+- `strictSSL` → [`rejectUnauthorized`](2-options.md#rejectunauthorized)
+- `gzip` → [`decompress`](2-options.md#decompress)
+- `jar` → [`cookieJar`](2-options.md#cookiejar) (accepts [`tough-cookie`](https://github.com/salesforce/tough-cookie) jar)
+- `jsonReviver` → [`parseJson`](2-options.md#parsejson)
+- `jsonReplacer` → [`stringifyJson`](2-options.md#stringifyjson)
 
 #### Changes in behavior
 
-The [`timeout` option](https://github.com/sindresorhus/got#timeout) has some extra features. You can [set timeouts on particular events](../readme.md#timeout)!
-
-The [`searchParams` option](https://github.com/sindresorhus/got#searchParams) is always serialized using [`URLSearchParams`](https://developer.mozilla.org/en-US/docs/Web/API/URLSearchParams) unless it's a `string`.
-
-To use streams, just call `got.stream(url, options)` or `got(url, {isStream: true, ...}`).
+- The [`agent` option](2-options.md#agent) is now an object with `http`, `https` and `http2` properties.
+- The [`timeout` option](6-timeout.md) is now an object. You can set timeouts on particular events!
+- The [`searchParams` option](https://github.com/sindresorhus/got#searchParams) is always serialized using [`URLSearchParams`](https://developer.mozilla.org/en-US/docs/Web/API/URLSearchParams) unless it's a `string`.
+- To use streams, call `got.stream(url, options)` or `got(url, {…, isStream: true}`).
 
 #### Breaking changes
 
-- The `json` option is not a `boolean`, it's an `Object`. It will be stringified and used as a body.
-- The `form` option is an `Object`. It can be a plain object or a [`form-data` instance](https://github.com/sindresorhus/got/#form-data).
-- Got will lowercase all custom headers, even if they are specified to not be.
-- No `oauth`/`hawk`/`aws`/`httpSignature` option. To sign requests, you need to create a [custom instance](advanced-creation.md#signing-requests).
-- No `agentClass`/`agentOptions`/`pool` option.
-- No `forever` option. You need to use [forever-agent](https://github.com/request/forever-agent).
-- No `proxy` option. You need to [pass a custom agent](../readme.md#proxies).
-- No `auth` option. You need to use `username` / `password` instead.
-- No `baseUrl` option. Instead, there is `prefixUrl` which appends a trailing slash if not present. It will be always prepended unless `url` is an instance of URL.
-- No `removeRefererHeader` option. You can remove the referer header in a [`beforeRequest` hook](https://github.com/sindresorhus/got#hooksbeforeRequest):
+- The `json` option is not a `boolean`, it's an `object`. It will be stringified and used as a body.
+- The `form` option is an `object` and will be used as `application/x-www-form-urlencoded` body
+- All headers are converted to lowercase.\
+  According to [the spec](https://datatracker.ietf.org/doc/html/rfc7230#section-3.2), the headers are case-insensitive.
+- No `oauth` / `hawk` / `aws` / `httpSignature` option.\
+  To sign requests, you need to create a [custom instance](examples/advanced-creation.js).
+- No `agentClass` / `agentOptions` / `pool` option.
+- No `forever` option.\
+  You need to pass an agent with `keepAlive` option set to `true`.
+- No `proxy` option. You need to [pass a custom agent](tips.md#proxy).
+- No `auth` option.\
+  You need to use `username` / `password` instead or set the `authorization` header manually.
+- No `baseUrl` option.\
+  Instead, there is `prefixUrl` which appends a trailing slash if not present.
+- No `removeRefererHeader` option.\
+  You can remove the `referer` header in a [`beforeRequest` hook](hooks.md#beforerequest).
+- No `followAllRedirects` option.
 
-```js
-const gotInstance = got.extend({
-	hooks: {
-		beforeRequest: [
-			options => {
-				delete options.headers.referer;
-			}
-		]
-	}
-});
-
-gotInstance(url, options);
-```
-
-- No `jsonReviver`/`jsonReplacer` option, but you can use `parseJson`/`stringifyJson` for that:
-
-```js
-const gotInstance = got.extend({
-	parseJson: text => JSON.parse(text, myJsonReviver),
-	stringifyJson: object => JSON.stringify(object, myJsonReplacer)
-});
-
-gotInstance(url, options);
-```
-
-Hooks are powerful, aren't they? [Read more](../readme.md#hooks) to see what else you achieve using hooks.
+Hooks are very powerful. [Read more](hooks.md) to see what else you achieve using hooks.
 
 #### More about streams
 
@@ -121,7 +107,7 @@ http.createServer((serverRequest, serverResponse) => {
 });
 ```
 
-The cool feature here is that Request can proxy headers with the stream, but Got can do that too:
+The cool feature here is that Request can proxy headers with the stream, but Got can do that too!
 
 ```js
 import {promisify} from 'util';
@@ -130,22 +116,26 @@ import got from 'got';
 
 const pipeline = promisify(stream.pipeline);
 
-http.createServer(async (serverRequest, serverResponse) => {
+const server = http.createServer(async (serverRequest, serverResponse) => {
 	if (serverRequest.url === '/doodle.png') {
-		// When someone makes a request to our server, we receive a body and some headers.
-		// These are passed to Got. Got proxies downloaded data to our server response,
-		// so you don't have to do `response.writeHead(statusCode, headers)` and `response.end(body)`.
-		// It's done automatically.
 		await pipeline(
 			got.stream('https://example.com/doodle.png'),
 			serverResponse
 		);
 	}
 });
+
+server.listen(8080);
 ```
 
-Nothing has really changed. Just remember to use `got.stream(url, options)` or `got(url, {isStream: true, …})`. That's it!
+In terms of streams nothing has really changed.
+
+#### Convenience methods
+
+- If you were using `request.get`, `request.post`, and so on - you can do the same with Got.
+- The `request.defaults({…})` method has been renamed. You can do the same with `got.extend({…})`.
+- There is no `request.cookie()` nor `request.jar()`. You have to use `tough-cookie` directly.
 
 #### You're good to go!
 
-Well, you have already come this far :tada: Take a look at the [documentation](../readme.md#highlights). It's worth the time to read it. There are [some great tips](../readme.md#aborting-the-request). If something is unclear or doesn't work as it should, don't hesitate to [open an issue](https://github.com/sindresorhus/got/issues/new/choose).
+Well, you have already come this far :tada: Take a look at the [documentation](../readme.md#documentation). It's worth the time to read it. There are [some great tips](tips.md). If something is unclear or doesn't work as it should, don't hesitate to [open an issue](https://github.com/sindresorhus/got/issues/new/choose).

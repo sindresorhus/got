@@ -166,5 +166,6 @@ export class RetryError extends RequestError {
 	constructor(request: Request) {
 		super('Retrying', {}, request);
 		this.name = 'RetryError';
+		this.code = 'ERR_RETRYING';
 	}
 }

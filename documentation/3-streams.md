@@ -1,0 +1,327 @@
+[> Back to homepage](../readme.md#documentation)
+
+## Stream API
+
+Source code: [`source/core/index.ts`](../source/core/index.ts)
+
+### `got.stream(url, options, defaults)`
+### `got(url, {...options, isStream: true}, defaults)`
+
+The two functions above are exposed by the `got` main interface and return a new instance of `Request`.
+
+### `new Request(url, options, defaults)`
+
+**Extends: [`Duplex` stream](https://nodejs.org/api/stream.html#stream_class_stream_duplex)**
+
+This constructor takes the same arguments as the Got promise.
+
+**Note:**
+> When piping to [`ServerResponse`](https://nodejs.org/api/http.html#http_class_http_serverresponse), the headers will be automatically copied.\
+> In order to prevent this behavior you need to override the request headers in a [`beforeRequest`](hooks.md#beforerequest) hook.
+
+**Note:**
+> If the `body`, `json` or `form` option is used, this stream will be read-only.
+
+```js
+import {promisify} from 'util';
+import stream from 'stream';
+import fs from 'fs';
+import got from 'got';
+
+const pipeline = promisify(stream.pipeline);
+
+await pipeline(
+	got.stream('https://sindresorhus.com'),
+	fs.createWriteStream('index.html')
+);
+
+// For POST, PUT, PATCH, and DELETE methods, `got.stream` returns a `stream.Writable`.
+await pipeline(
+	fs.createReadStream('index.html'),
+	got.stream.post('https://sindresorhus.com')
+);
+```
+
+### `stream.options`
+
+**Type: [`Options`](2-options.md)**
+
+The options used to make the request.
+
+### `stream.response`
+
+**Type: [`IncomingMessage`](https://nodejs.org/api/http.html#http_class_http_incomingmessage)**
+
+The underlying `IncomingMessage` instance.
+
+### `stream.requestUrl`
+
+**Type: [`URL`](https://nodejs.org/api/url.html#url_the_whatwg_url_api)**
+
+The current `URL` object in this try.
+
+### `stream.redirectUrls`
+
+**Type: [`URL[]`](https://nodejs.org/api/url.html#url_the_whatwg_url_api)**
+
+An array of URLs of consecutive requests.
+
+### `stream.retryCount`
+
+**Type: `number`**
+
+The current retry count.
+
+**Note:**
+> - Must be overriden when retrying.
+
+### `stream.ip`
+
+**Type: `string | undefined`**
+
+The destination IP address.
+
+### `stream.isAborted`
+
+**Type: `boolean`**
+
+Whether the request has been aborted or not.
+
+### `stream.socket`
+
+**Type: `net.Socket | tls.Socket | undefined`**
+
+The socket used for this particular request.
+
+### `stream.downloadProgress`
+
+**Type: [`Progress`](typescript.md#progress)**
+
+An object representing how much data have been downloaded.
+
+### `stream.uploadProgress`
+
+**Type: [`Progress`](typescript.md#progress)**
+
+An object representing how much data have been uploaded.
+
+### `stream.timings`
+
+**Type: [`Timings`](typescript.md#timings)**
+
+An object representing performance information.
+
+### `stream.isFromCache`
+
+**Type: `boolean | undefined`**
+
+Whether the response has been fetched from cache.
+
+### `stream.reusedSocket`
+
+**Type: `boolean`**
+
+Whether the socket was used for other previous requests.
+
+## Events
+
+### `stream.on('downloadProgress', …)`
+
+#### `progress`
+
+**Type: [`Progress`](typescript.md#progress)**
+
+This is emitted on every time `stream.downloadProgress` is updated.
+
+### `stream.on('uploadProgress', …)`
+
+#### `progress`
+
+**Type: [`Progress`](typescript.md#progress)**
+
+This is emitted on every time `stream.uploadProgress` is updated.
+
+<a name="retry"></a>
+### `stream.on('retry', …)`
+
+To enable retrying when using streams, a retry handler must be attached.
+
+When this event is emitted, you should reset the stream you were writing to and prepare the body again.
+
+#### `retryCount`
+
+**Type: `number`**
+
+The current retry count. This property must override the one in `stream` when retrying.
+
+```js
+import fs from 'fs';
+import got from 'got';
+
+let writeStream;
+
+const fn = (retryCount = 0) => {
+	const stream = got.stream('https://example.com');
+	stream.retryCount = retryCount;
+
+	if (writeStream) {
+		writeStream.destroy();
+	}
+
+	writeStream = fs.createWriteStream('example.com');
+
+	stream.pipe(writeStream);
+
+	// If you don't attach the listener, it will NOT make a retry.
+	// It automatically checks the listener count so it knows whether to retry or not :)
+	stream.once('retry', fn);
+};
+
+fn();
+```
+
+### `stream.on('redirect', …)`
+
+#### `updatedOptions`
+
+**Type: [`Options`](2-options.md)**
+
+The new options used to make the next request.
+
+#### `response`
+
+**Type: [`IncomingMessage`](https://nodejs.org/api/http.html#http_class_http_incomingmessage)**
+
+The `IncomingMessage` instance the redirect came from.
+
+## Internal usage
+
+This are the functions used internally by Got.\
+Other non-documented functions are private and should not be accessible.
+
+### `stream.flush()`
+
+This function is executed automatically by Got. It marks the current stream as ready. If an error occurs before `stream.flush()` is called, it's thrown immediately after `stream.flush()`.
+
+### `stream._beforeError(error)`
+
+This function is called instead `stream.destroy(error)`, required in order to exectue async logic, such as reading the response (e.g. when `ERR_NON_2XX_3XX_RESPONSE` occurs).
+
+### `stream._noPipe`
+
+**Type: `boolean`**
+
+Whether piping is disabled or not. This property is used by the Promise API.
+
+---
+
+## `Response`
+
+Source code: [`source/core/response.ts`](../source/core/response.ts)
+
+**Extends: [`IncomingMessage`](https://nodejs.org/api/http.html#http_class_http_incomingmessage)**
+
+### `requestUrl`
+
+**Type: `URL`**
+
+The original request URL. It is the first argument when calling `got(…)`.
+
+### `redirectUrls`
+
+**Type: `URL[]`**
+
+The redirect URLs.
+
+### `request`
+
+**Type: `Request`**
+
+The underlying Got stream.
+
+### `ip`
+
+**Type: `string`**
+
+The server's IP address.
+
+**Note:**
+> - Not available when the response is cached.
+
+### `isFromCache`
+
+**Type: `boolean`**
+
+Whether the response comes from cache or not.
+
+### `statusCode`
+
+**Type: `number`**
+
+The [HTTP status code](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status).
+
+### `url`
+
+**Type: `string`**
+
+The final URL after all redirects.
+
+### `timings`
+
+**Type: [`Timings`](typescript.md#timings)**
+
+The same as `request.timings`.
+
+### `retryCount`
+
+**Type: `number`**
+
+The same as `request.retryCount`.
+
+### `rawBody`
+
+**Type: `Buffer`**
+
+**Note:**
+> - This property is only accessible when using Promise API.
+
+The raw response body buffer.
+
+### `body`
+
+**Type: `unknown`**
+
+**Note:**
+> - This property is only accessible when using Promise API.
+
+The parsed response body.
+
+### `aborted`
+
+**Type: `boolean`**
+
+The same as `request.aborted`.
+
+### `complete`
+
+**Type: `boolean`**
+
+If `true`, the response has been fully parsed.
+
+### `socket`
+
+**Type: `net.Socket | tls.TLSSocket`**
+
+The same as `request.socket`.
+
+### `headers`
+
+**Type: `object<string, string>`**
+
+The [response headers](https://nodejs.org/api/http.html#http_message_headers).
+
+### `statusMessage`
+
+**Type: `string`**
+
+The status message corresponding to the status code.

@@ -115,52 +115,58 @@ export default function timedOut(request: ClientRequest, delays: Delays, options
 		});
 	}
 
-	once(request, 'socket', (socket: net.Socket): void => {
-		const {socketPath} = request as ClientRequest & {socketPath?: string};
+	const hasLookup = typeof delays.lookup !== 'undefined';
+	const hasConnect = typeof delays.connect !== 'undefined';
+	const hasSecureConnect = typeof delays.secureConnect !== 'undefined';
+	const hasSend = typeof delays.send !== 'undefined';
+	if (hasLookup || hasConnect || hasSecureConnect || hasSend) {
+		once(request, 'socket', (socket: net.Socket): void => {
+			const {socketPath} = request as ClientRequest & {socketPath?: string};
 
-		/* istanbul ignore next: hard to test */
-		if (socket.connecting) {
-			const hasPath = Boolean(socketPath ?? net.isIP(hostname ?? host ?? '') !== 0);
+			/* istanbul ignore next: hard to test */
+			if (socket.connecting) {
+				const hasPath = Boolean(socketPath ?? net.isIP(hostname ?? host ?? '') !== 0);
 
-			if (typeof delays.lookup !== 'undefined' && !hasPath && typeof (socket.address() as net.AddressInfo).address === 'undefined') {
-				const cancelTimeout = addTimeout(delays.lookup, timeoutHandler, 'lookup');
-				once(socket, 'lookup', cancelTimeout);
-			}
+				if (hasLookup && !hasPath && typeof (socket.address() as net.AddressInfo).address === 'undefined') {
+					const cancelTimeout = addTimeout(delays.lookup!, timeoutHandler, 'lookup');
+					once(socket, 'lookup', cancelTimeout);
+				}
 
-			if (typeof delays.connect !== 'undefined') {
-				const timeConnect = (): (() => void) => addTimeout(delays.connect!, timeoutHandler, 'connect');
+				if (hasConnect) {
+					const timeConnect = (): (() => void) => addTimeout(delays.connect!, timeoutHandler, 'connect');
 
-				if (hasPath) {
-					once(socket, 'connect', timeConnect());
-				} else {
-					once(socket, 'lookup', (error: Error): void => {
-						if (error === null) {
-							once(socket, 'connect', timeConnect());
-						}
+					if (hasPath) {
+						once(socket, 'connect', timeConnect());
+					} else {
+						once(socket, 'lookup', (error: Error): void => {
+							if (error === null) {
+								once(socket, 'connect', timeConnect());
+							}
+						});
+					}
+				}
+
+				if (hasSecureConnect && options.protocol === 'https:') {
+					once(socket, 'connect', (): void => {
+						const cancelTimeout = addTimeout(delays.secureConnect!, timeoutHandler, 'secureConnect');
+						once(socket, 'secureConnect', cancelTimeout);
 					});
 				}
 			}
 
-			if (typeof delays.secureConnect !== 'undefined' && options.protocol === 'https:') {
-				once(socket, 'connect', (): void => {
-					const cancelTimeout = addTimeout(delays.secureConnect!, timeoutHandler, 'secureConnect');
-					once(socket, 'secureConnect', cancelTimeout);
-				});
-			}
-		}
-
-		if (typeof delays.send !== 'undefined') {
-			const timeRequest = (): (() => void) => addTimeout(delays.send!, timeoutHandler, 'send');
-			/* istanbul ignore next: hard to test */
-			if (socket.connecting) {
-				once(socket, 'connect', (): void => {
+			if (hasSend) {
+				const timeRequest = (): (() => void) => addTimeout(delays.send!, timeoutHandler, 'send');
+				/* istanbul ignore next: hard to test */
+				if (socket.connecting) {
+					once(socket, 'connect', (): void => {
+						once(request, 'upload-complete', timeRequest());
+					});
+				} else {
 					once(request, 'upload-complete', timeRequest());
-				});
-			} else {
-				once(request, 'upload-complete', timeRequest());
+				}
 			}
-		}
-	});
+		});
+	}
 
 	if (typeof delays.response !== 'undefined') {
 		once(request, 'upload-complete', (): void => {
