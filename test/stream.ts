@@ -1,7 +1,7 @@
 import {promisify} from 'util';
 import fs from 'fs';
 import {Agent as HttpAgent} from 'http';
-import stream, {PassThrough as PassThroughStream, Readable as ReadableStream} from 'stream';
+import stream, {PassThrough as PassThroughStream, Readable as ReadableStream, Writable} from 'stream';
 import {Readable as Readable2} from 'readable-stream';
 import test from 'ava';
 import {Handler} from 'express';
@@ -495,6 +495,20 @@ test('accepts readable-stream as body', withServer, async (t, server, got) => {
 	});
 
 	t.is(response.body, 'ok');
+});
+
+test('prevents `Cannot call end` error', async t => {
+	const stream = got.stream('https://example.com', {
+		request: () => new Writable({
+			final() {}
+		}) as any,
+		timeout: {
+			request: 1
+		}
+	});
+
+	const error: RequestError = await pEvent(stream, 'error');
+	t.is(error.code, 'ETIMEDOUT');
 });
 
 if (Number.parseInt(process.versions.node.split('.')[0]!, 10) <= 12) {
