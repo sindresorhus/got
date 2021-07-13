@@ -139,6 +139,9 @@ Whether the item should be emitted or not.
 **Type: `Function`**\
 **Default: `({item, currentItems, allItems}) => true`**
 
+**Note:**
+> - This function executes only when `filter` returns `true`.
+
 For example, if you need to stop before emitting an entry with some flag, you should use `({item}) => !item.flag`.
 
 If you want to stop after emitting the entry, you should use `({item, allItems}) => allItems.some(item => item.flag)` instead.
