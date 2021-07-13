@@ -56,7 +56,14 @@ When the request body is a stream and an error occurs while reading from that st
 
 **Code: `ERR_NON_2XX_3XX_RESPONSE`**
 
-When the server response code is not 2xx nor 3xx if [`options.followRedirect`](2-options.md#followredirect) is `true`, but always except for 304. Includes a `response` property.
+When the request is unsuccessful.
+
+A request is successful when the status code of the final request is `2xx` or `3xx`.
+
+When [following redirects](2-options.md#followredirect), a request is successful **only** when the status code of the final request is `2xx`.
+
+**Note:**
+> - `304` responses are always considered successful.
 
 ### `MaxRedirectsError`
 

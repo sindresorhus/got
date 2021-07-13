@@ -77,6 +77,9 @@ The allowed methods to retry on.
 
 **Type: `number[]`**
 
+**Note:**
+> - Only [**unsuccessful**](8-errors.md#) requests are retried. In order to retry successful requests, use an [`afterResponse`](9-hooks.md#afterresponse) hook.
+
 The allowed [HTTP status codes](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status) to retry on.
 
 #### `errorCodes`
