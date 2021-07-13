@@ -29,13 +29,13 @@ Let's write down the most important information:
 
 Also `X-GitHub-Request-Id` may be useful for debugging.
 
-8. User-Agent is required.
+8. The `User-Agent` header is required.
 
 When we have all the necessary info, we can start mixing :cake:
 
 ### The root endpoint
 
-Not much to do here, just extend an instance and provide the `prefixUrl` option:
+Not much to do here. Just extend an instance and provide the `prefixUrl` option:
 
 ```js
 import got from 'got';
@@ -206,7 +206,7 @@ The conversion is the last thing here.
 
 ### Rate limiting
 
-Umm... `response.headers['x-ratelimit-remaining']` doesn't look good. What about `response.rateLimit.limit` instead?<br>
+Umm... `response.headers['x-ratelimit-remaining']` doesn't look good. What about `response.rateLimit.limit` instead?\
 Yeah, definitely. Since `response.headers` is an object, we can easily parse these:
 
 ```js

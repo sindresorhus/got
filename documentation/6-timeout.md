@@ -59,7 +59,7 @@ console.log(timings);
 
 **Type: `object`**
 
-This object describes maximum allowed time for particular events.
+This object describes the maximum allowed time for particular events.
 
 #### `lookup`
 

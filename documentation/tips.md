@@ -39,7 +39,7 @@ In order to specify retriable errors, use the [Retry API](7-retry.md).
 
 ### Cookies
 
-Got supports cookies out of box. There is no need for parsing them manually.\
+Got supports cookies out of box. There is no need to parse them manually.\
 In order to use cookies, pass a `CookieJar` instance from the [`tough-cookie`](https://github.com/salesforce/tough-cookie) package.
 
 ```js
@@ -98,8 +98,8 @@ Requests can also be sent via [UNIX Domain Sockets](https://serverfault.com/ques
 Use the following URL scheme: `PROTOCOL://unix:SOCKET:PATH`
 
 - `PROTOCOL` - `http` or `https`
-- `SOCKET` - absolute path to a unix domain socket, for example: `/var/run/docker.sock`
-- `PATH` - request path, for example: `/v2/keys`
+- `SOCKET` - Absolute path to a unix domain socket, for example: `/var/run/docker.sock`
+- `PATH` - Request path, for example: `/v2/keys`
 
 ```js
 import got from 'got';
@@ -115,8 +115,8 @@ await got('unix:/var/run/docker.sock:/containers/json');
 Got uses the native [`http`](https://nodejs.org/api/http.html) module, which depends on the native [`net`](https://nodejs.org/api/net.html) module.\
 This means there are two possible ways to test:
 
-1. use a mocking library like [`nock`](https://github.com/nock/nock),
-2. create a server.
+1. Use a mocking library like [`nock`](https://github.com/nock/nock),
+2. Create a server.
 
 The first approach should cover all common use cases.\
 Bear in mind that it overrides the native `http` module, so bugs may occur due to the differences.

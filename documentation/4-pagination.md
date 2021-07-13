@@ -105,9 +105,9 @@ This is where you should do the parsing.
 
 The function takes an object with the following properties:
 
-- `response` - the current response object,
-- `currentItems` - items from the current response,
-- `allItems` - an empty array, unless `stackAllItems` is `true`, otherwise it contains all emitted items.
+- `response` - The current response object,
+- `currentItems` - Items from the current response,
+- `allItems` - An empty array, unless `stackAllItems` is `true`, otherwise it contains all emitted items.
 
 It should return an object representing Got options pointing to the next page. If there is no next page, `false` should be returned instead.
 

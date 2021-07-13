@@ -23,7 +23,6 @@ console.log(response.isFromCache);
 Got uses [Keyv](https://github.com/lukechilds/keyv) internally to support a wide range of storage adapters. For something more scalable you could use an [official Keyv storage adapter](https://github.com/lukechilds/keyv#official-storage-adapters):
 
 ```
-$ yarn add @keyv/redis
 $ npm install @keyv/redis
 ```
 

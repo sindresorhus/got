@@ -11,7 +11,7 @@ Although in order to support cancelation, [`PCancelable`](https://github.com/sin
 
 **Returns: <code>Promise<[Response](response.md)>**</code>
 
-The most common way is to pass the `URL` as the first argument, then the options as the second.
+The most common way is to pass the URL as the first argument, then the options as the second.
 
 ```js
 import got from 'got';
@@ -30,7 +30,7 @@ const {headers} = await got(
 
 **Returns: <code>Promise<[Response](3-streams.md#response-1)>**</code>
 
-Eventually, you can pass only options containing a `url` property.
+Alternatively, you can pass only options containing a `url` property.
 
 ```js
 import got from 'got';

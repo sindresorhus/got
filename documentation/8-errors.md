@@ -9,14 +9,14 @@ Source code:
 
 All Got errors contain various metadata, such as:
 
-- `code` - a string like `ERR_NON_2XX_3XX_RESPONSE`,
-- `options` - an instance of [`Options`](`2-options.md`),
-- `request` - an instance of Got Stream,
-- `response` (optional) - an instance of Got Response,
-- `timings` (optional) - points to `response.timings`.
+- `code` - A string like `ERR_NON_2XX_3XX_RESPONSE`,
+- `options` - An instance of [`Options`](`2-options.md`),
+- `request` - An instance of Got Stream,
+- `response` (optional) - An instance of Got Response,
+- `timings` (optional) - Points to `response.timings`.
 
 **Note:**
-> - The `error.stack` property may look incomplete due the execution in async function that is trigerred by a timer.
+> - The `error.stack` property may look incomplete due to the execution in an async function that is triggered by a timer.
 > - See https://stackoverflow.com/questions/54914770/is-there-a-good-way-to-surface-error-traces-in-production-across-event-emitters
 
 **Note:**

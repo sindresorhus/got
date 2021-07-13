@@ -17,11 +17,11 @@ This option represents the hooks to run.
 (plainRequestOptions: OptionsInit, options: Options) => void
 ```
 
-Called with plain request options, right before their normalization.\
+Called with the plain request options, right before their normalization.\
 The second argument represents the current [`Options`](2-options.md) instance.
 
 **Note:**
-> - This is called every time options get merged.
+> - This is called every time options are merged.
 
 **Note:**
 > - This hook is called when a new instance of `Options` is created.
@@ -32,7 +32,7 @@ The second argument represents the current [`Options`](2-options.md) instance.
 
 This is especially useful in conjunction with `got.extend()` when the input needs custom handling.
 
-For example this can be used to fix typos to migrate from older versions faster.
+For example, this can be used to fix typos to migrate from older versions faster.
 
 ```js
 import got from 'got';
@@ -111,7 +111,7 @@ This hook is especially useful in conjunction with `got.extend()` when you want 
 > - Got will make no further changes to the request before it is sent.
 
 **Note:**
-> - Changing `options.json` or `options.form` has no effect on the request, you should change `options.body` instead. If needed, update the `options.headers` accordingly.
+> - Changing `options.json` or `options.form` has no effect on the request. You should change `options.body` instead. If needed, update the `options.headers` accordingly.
 
 ```js
 import got from 'got';
@@ -134,7 +134,7 @@ const resposne = await got.post(
 
 **Tip:**
 > - You can indirectly override the `request` function by early returning a [`ClientRequest`-like](https://nodejs.org/api/http.html#http_class_http_clientrequest) instance or a [`IncomingMessage`-like](https://nodejs.org/api/http.html#http_class_http_incomingmessage) instance. This is very useful when creating a custom cache mechanism.
-> - [Read more about this tip](https://github.com/sindresorhus/got/blob/docs-v12/documentation/cache.md#advanced-caching-mechanisms).
+> - [Read more about this tip](cache.md#advanced-caching-mechanisms).
 
 #### `beforeRedirect`
 
@@ -176,15 +176,15 @@ const response = await got('https://example.com', {
 ```
 
 **Note:**
-> - When using Stream API, this hook is ignored.
+> - When using the Stream API, this hook is ignored.
 
 **Note:**
-> - When retrying, `beforeRequest` hook is called afterwards.
+> - When retrying, the `beforeRequest` hook is called afterwards.
 
 **Note:**
-> - If no retry occurs, `beforeError` is called instead.
+> - If no retry occurs, the `beforeError` hook is called instead.
 
-This hook is especially useful when you want to retrieve the cause of retry.
+This hook is especially useful when you want to retrieve the cause of a retry.
 
 ```js
 import got from 'got';
@@ -211,7 +211,7 @@ await got('https://httpbin.org/status/500', {
 ```
 
 **Note:**
-> - When using Stream API, this hook is ignored.
+> - When using the Stream API, this hook is ignored.
 
 **Note:**
 > - Calling the retry function will trigger `beforeRetry` hooks.

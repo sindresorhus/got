@@ -63,7 +63,6 @@ For browser usage, we recommend [Ky](https://github.com/sindresorhus/ky) by the 
 ## Install
 
 ```
-$ yarn add got
 $ npm install got
 ```
 

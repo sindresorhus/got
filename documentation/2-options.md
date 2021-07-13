@@ -10,7 +10,7 @@ It is made of getters and setters that provide fast option normalization and val
 #### Merge behavior explained
 
 When an option is already set, setting it again replaces it with a deep clone by default.\
-Otherwise the merge behavior is documented in the correspoding section for the option.
+Otherwise the merge behavior is documented in the corresponding section for the option.
 
 #### How to store options
 
@@ -60,7 +60,7 @@ In the second example, it would throw only when the promise is being executed.
 For TypeScript users, `got` exports a dedicated type called `OptionsInit`.\
 It is a plain object that can store the same properties as `Options`.
 
-Performance-wise there is no difference which one is used, although the construtor may be prefferred as it automatically validates the data.\
+Performance-wise there is no difference which one is used, although the constructor may be preferred as it automatically validates the data.\
 The `Options` approach may give a slight boost as it only clones the options, there is no normalization going on.\
 It is also useful for storing the base configuration of a custom Got client.
 
@@ -585,7 +585,7 @@ See [ToughCookie API](https://github.com/salesforce/tough-cookie#getcookiestring
 **Default: `false`**
 
 Ignore invalid cookies instead of throwing an error.\
-Only useful when the cookieJar option has been set.
+Only useful when the `cookieJar` option has been set.
 
 #### **Note:**
 > - This is not recommended! Use at your own risk.
@@ -599,7 +599,7 @@ Defines if redirect responses should be followed automatically.
 
 #### **Note:**
 > - If a `303` is sent by the server in response to any request type (POST, DELETE, etc.), Got will automatically request the resource pointed to in the location header via GET.\
->  This is in accordance with [the spec](https://tools.ietf.org/html/rfc7231#section-6.4.4).
+>  This is in accordance with the [specification](https://tools.ietf.org/html/rfc7231#section-6.4.4).
 
 ```js
 import got from 'got';
@@ -673,7 +673,7 @@ Useful when making lots of requests to different public hostnames.
 **Type: `4 | 6`**\
 **Default: `undefined`**
 
-The IP version to use. Choosing `undefined` will use the default configuration.
+The IP version to use. Specifying `undefined` will use the default configuration.
 
 ### `request`
 

@@ -3,7 +3,7 @@
 ## Retry API
 
 **Note:**
-> If you're looking for retry implemenation using streams, check out the [Retry Stream API](3-streams.md#retry).
+> If you're looking for retry implementation using streams, check out the [Retry Stream API](3-streams.md#retry).
 
 **Tip:**
 > You can trigger a retry by throwing the [`RetryError`](8-errors.md#retryerror) in any hook.
@@ -85,13 +85,13 @@ The allowed [HTTP status codes](https://developer.mozilla.org/en-US/docs/Web/HTT
 
 The allowed error codes to retry on.
 
-- `ETIMEDOUT` - one of the [timeout limits](6-timeout.md) was reached.
-- `ECONNRESET`- the connection was forcibly closed.
-- `EADDRINUSE`- could not bind to any free port.
-- `ECONNREFUSED`- the connection was refused by the server.
-- `EPIPE` - the remote side of the stream being written has been closed.
-- `ENOTFOUND` - couldn't resolve the hostname to an IP address.
-- `ENETUNREACH` - no internet connection.
+- `ETIMEDOUT` - One of the [timeout limits](6-timeout.md) was reached.
+- `ECONNRESET`- The connection was forcibly closed.
+- `EADDRINUSE`- Could not bind to any free port.
+- `ECONNREFUSED`- The connection was refused by the server.
+- `EPIPE` - The remote side of the stream being written has been closed.
+- `ENOTFOUND` - Could not resolve the hostname to an IP address.
+- `ENETUNREACH` - No internet connection.
 - `EAI_AGAIN` - DNS lookup timed out.
 
 #### `maxRetryAfter`

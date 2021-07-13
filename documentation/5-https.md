@@ -13,9 +13,9 @@ This option represents the options used to make HTTPS requests.
 **Type: `string[]`**\
 **Default: `['http/1.1']`**
 
-Acceptable ALPN protocols.
+Acceptable [ALPN](https://en.wikipedia.org/wiki/Application-Layer_Protocol_Negotiation) protocols.
 
-If the `http2` option is `true`, defaults to `['h2', 'http/1.1']`.
+If the `http2` option is `true`, this defaults to `['h2', 'http/1.1']`.
 
 #### `rejectUnauthorized`
 
@@ -35,7 +35,7 @@ The function must return `undefined` if the check succeeded.\
 If it failed, an `Error` should be returned.
 
 **Note:**
-> - In order to have the function called the certificate must not be expired, self-signed nor with an untrusted-root.
+> - In order to have the function called, the certificate must not be expired, self-signed nor with an untrusted-root.
 
 Check [Node.js docs](https://nodejs.org/api/https.html#https_https_request_url_options_callback) for an example.
 
@@ -46,7 +46,7 @@ Check [Node.js docs](https://nodejs.org/api/https.html#https_https_request_url_o
 **Note:**
 > - The option has been renamed from the [`ca` TLS option](https://nodejs.org/api/tls.html#tls_tls_createsecurecontext_options) for better readability.
 
-Overrides trusted CA certificates.
+Overrides trusted [CA](https://en.wikipedia.org/wiki/Certificate_authority) certificates.
 
 Defaults to CAs provided by [Mozilla](https://ccadb-public.secure.force.com/mozilla/IncludedCACertificateReport).
 
@@ -115,7 +115,7 @@ Multiple PFX can be be provided as an array of unencrypted buffers or an array o
 
 ### Other HTTPS options
 
-The documentation for the options below is at https://nodejs.org/api/tls.html#tls_tls_createsecurecontext_options
+[Documentation for the below options.](https://nodejs.org/api/tls.html#tls_tls_createsecurecontext_options)
 
 - `ciphers`
 - `dhparam`
