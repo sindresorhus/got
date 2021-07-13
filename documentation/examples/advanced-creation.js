@@ -43,12 +43,22 @@ const limitDownloadUpload = got.extend({
 	handlers: [
 		(options, next) => {
 			const {downloadLimit, uploadLimit} = options.context;
-
 			let promiseOrStream = next(options);
+
+			// A destroy function that supports both promises and streams
+			const destroy = message => {
+				if (options.isStream) {
+					promiseOrStream.destroy(new Error(message));
+					return;
+				}
+
+				promiseOrStream.cancel(message);
+			};
+
 			if (typeof downloadLimit === 'number') {
 				promiseOrStream.on('downloadProgress', progress => {
 					if (progress.transferred > downloadLimit && progress.percent !== 1) {
-						promiseOrStream.cancel(`Exceeded the download limit of ${downloadLimit} bytes`);
+						destroy(`Exceeded the download limit of ${downloadLimit} bytes`);
 					}
 				});
 			}
@@ -56,7 +66,7 @@ const limitDownloadUpload = got.extend({
 			if (typeof uploadLimit === 'number') {
 				promiseOrStream.on('uploadProgress', progress => {
 					if (progress.transferred > uploadLimit && progress.percent !== 1) {
-						promiseOrStream.cancel(`Exceeded the upload limit of ${uploadLimit} bytes`);
+						destroy(`Exceeded the upload limit of ${uploadLimit} bytes`);
 					}
 				});
 			}

@@ -64,6 +64,36 @@ Performance-wise there is no difference which one is used, although the construc
 The `Options` approach may give a slight boost as it only clones the options, there is no normalization going on.\
 It is also useful for storing the base configuration of a custom Got client.
 
+#### Resetting options
+
+Unlike Got 11, explicitly specifying `undefined` no longer keeps the parent value.\
+In order to keep the parent value, you must not set an option to `undefined`.\
+Doing so will reset those values:
+
+```js
+instance(…, {searchParams: undefined}});
+instance(…, {cookieJar: undefined}});
+instance(…, {responseType: undefined}});
+instance(…, {prefixUrl: ''});
+instance(…, {agent: {http: undefined, https: undefined, http2: undefined}});
+instance(…, {context: {token: undefined, …}});
+instance(…, {httpsOptions: {rejectUnauthorized: undefined, …}});
+instance(…, {cacheOptions: {immutableMinTimeToLive: undefined, …}});
+instance(…, {headers: {'user-agent': undefined, …}});
+instance(…, {timeout: {request: undefined, …}});
+```
+
+In order to reset `hooks`, `retry` and `pagination`, another Got instance must be created:
+
+```js
+const defaults = new Options();
+
+const secondInstance = instance.extend({mutableDefaults: true});
+secondInstance.defaults.options.hooks = defaults.hooks;
+secondInstance.defaults.options.retry = defaults.retry;
+secondInstance.defaults.options.pagination = defaults.pagination;
+```
+
 ### `url`
 
 **Type: <code>string | [URL](https://nodejs.org/api/url.html#url_the_whatwg_url_api)</code>**

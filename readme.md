@@ -158,7 +158,8 @@ For advanced JSON usage, check out the [`parseJson`](2-options.md#parsejson) and
 
 ## Electron `net` module is not supported
 
-Got doesn't support the `electron.net` module. It's missing crucial APIs that are available in Node.js. While Got used to support `electron.net`, it got very unstable and caused many errors.
+Got doesn't support the `electron.net` module. It's missing crucial APIs that are available in Node.js.\
+While Got used to support `electron.net`, it got very unstable and caused many errors.
 
 However, you can use [IPC communication](https://www.electronjs.org/docs/api/ipc-main#ipcmainhandlechannel-listener) to get the Response object:
 
