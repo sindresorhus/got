@@ -1,9 +1,9 @@
 import is from '@sindresorhus/is';
-import type Options from './options.js';
 import type {Timings} from '@szmarczak/http-timer';
+import type Options from './options.js';
 import type {TimeoutError as TimedOutTimeoutError} from './timed-out.js';
-import type Request from './index.js';
 import type {PlainResponse, Response} from './response.js';
+import type Request from './index.js';
 
 type Error = NodeJS.ErrnoException;
 
@@ -37,12 +37,12 @@ export class RequestError extends Error {
 		if (isRequest(self)) {
 			Object.defineProperty(this, 'request', {
 				enumerable: false,
-				value: self
+				value: self,
 			});
 
 			Object.defineProperty(this, 'response', {
 				enumerable: false,
-				value: self.response
+				value: self.response,
 			});
 
 			this.options = self.options;

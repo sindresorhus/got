@@ -11,7 +11,7 @@ import {
 	GotStream,
 	GotRequestFunction,
 	OptionsWithPagination,
-	StreamOptions
+	StreamOptions,
 } from './types.js';
 import Request from './core/index.js';
 import {Response} from './core/response.js';
@@ -33,20 +33,20 @@ const aliases: readonly HTTPAlias[] = [
 	'put',
 	'patch',
 	'head',
-	'delete'
+	'delete',
 ];
 
 const create = (defaults: InstanceDefaults): Got => {
 	defaults = {
 		options: new Options(undefined, undefined, defaults.options),
 		handlers: [...defaults.handlers],
-		mutableDefaults: defaults.mutableDefaults
+		mutableDefaults: defaults.mutableDefaults,
 	};
 
 	Object.defineProperty(defaults, 'mutableDefaults', {
 		enumerable: true,
 		configurable: false,
-		writable: false
+		writable: false,
 	});
 
 	// Got interface
@@ -130,7 +130,7 @@ const create = (defaults: InstanceDefaults): Got => {
 		return create({
 			options,
 			handlers,
-			mutableDefaults: Boolean(mutableDefaults)
+			mutableDefaults: Boolean(mutableDefaults),
 		});
 	};
 
@@ -191,7 +191,7 @@ const create = (defaults: InstanceDefaults): Got => {
 			const optionsToMerge = pagination.paginate({
 				response,
 				currentItems,
-				allItems
+				allItems,
 			});
 
 			if (optionsToMerge === false) {
@@ -247,7 +247,7 @@ const create = (defaults: InstanceDefaults): Got => {
 		value: defaults,
 		writable: false,
 		configurable: false,
-		enumerable: true
+		enumerable: true,
 	});
 
 	return got;

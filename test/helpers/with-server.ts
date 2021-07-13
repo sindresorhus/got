@@ -19,13 +19,13 @@ const generateHook = ({install, options: testServerOptions}: {install?: boolean;
 	// Re-enable body parsing to investigate https://github.com/sindresorhus/got/issues/1186
 	const server = await createHttpTestServer(is.plainObject(testServerOptions) ? testServerOptions : {
 		bodyParser: {
-			type: () => false
-		} as any
+			type: () => false,
+		} as any,
 	});
 
 	const options: ExtendOptions = {
 		context: {
-			avaTest: t.title
+			avaTest: t.title,
 		},
 		handlers: [
 			(options, next) => {
@@ -39,8 +39,8 @@ const generateHook = ({install, options: testServerOptions}: {install?: boolean;
 				});
 
 				return result;
-			}
-		]
+			},
+		],
 	};
 
 	const preparedGot = got.extend({prefixUrl: server.url, ...options});
@@ -68,7 +68,7 @@ const generateHttpsHook = (options?: HttpsServerOptions, installFakeTimer = fals
 
 	const preparedGot = got.extend({
 		context: {
-			avaTest: t.title
+			avaTest: t.title,
 		},
 		handlers: [
 			(options, next) => {
@@ -82,13 +82,13 @@ const generateHttpsHook = (options?: HttpsServerOptions, installFakeTimer = fals
 				});
 
 				return result;
-			}
+			},
 		],
 		prefixUrl: server.url,
 		httpsOptions: {
 			certificateAuthority: (server as any).caCert,
-			rejectUnauthorized: true
-		}
+			rejectUnauthorized: true,
+		},
 	});
 
 	try {

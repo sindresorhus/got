@@ -45,7 +45,7 @@ test('catches dns errors', async t => {
 
 test('`options.body` form error message', async t => {
 	// @ts-expect-error Error tests
-	await t.throwsAsync(got.post('https://example.com', {body: Buffer.from('test'), form: ''})
+	await t.throwsAsync(got.post('https://example.com', {body: Buffer.from('test'), form: ''}),
 		// {message: 'The `body`, `json` and `form` options are mutually exclusive'}
 	);
 });
@@ -106,8 +106,8 @@ test('contains Got options', withServer, async (t, server, got) => {
 
 	const options = {
 		context: {
-			foo: 'bar'
-		}
+			foo: 'bar',
+		},
 	} as const;
 
 	const error = await t.throwsAsync<HTTPError>(got(options));
@@ -130,11 +130,11 @@ test('`http.request` error', async t => {
 	await t.throwsAsync(got('https://example.com', {
 		request: () => {
 			throw new TypeError('The header content contains invalid characters');
-		}
+		},
 	}), {
 		instanceOf: RequestError,
 		message: 'The header content contains invalid characters',
-		code: 'ERR_GOT_REQUEST_ERROR'
+		code: 'ERR_GOT_REQUEST_ERROR',
 	});
 });
 
@@ -149,7 +149,7 @@ test('`http.request` pipe error', async t => {
 			const anyProxy = proxy as any;
 			anyProxy.socket = {
 				remoteAddress: '',
-				prependOnceListener: () => {}
+				prependOnceListener: () => {},
 			};
 
 			anyProxy.headers = {};
@@ -165,10 +165,10 @@ test('`http.request` pipe error', async t => {
 
 			return proxy;
 		},
-		throwHttpErrors: false
+		throwHttpErrors: false,
 	}), {
 		instanceOf: RequestError,
-		message
+		message,
 	});
 });
 
@@ -177,10 +177,10 @@ test('`http.request` error through CacheableRequest', async t => {
 		request: () => {
 			throw new TypeError('The header content contains invalid characters');
 		},
-		cache: new Map()
+		cache: new Map(),
 	}), {
 		instanceOf: RequestError,
-		message: 'The header content contains invalid characters'
+		message: 'The header content contains invalid characters',
 	});
 });
 
@@ -188,11 +188,11 @@ test('returns a stream even if normalization fails', async t => {
 	const stream = got('https://example.com', {
 		isStream: true,
 		// @ts-expect-error
-		hooks: false
+		hooks: false,
 	}) as unknown as Request;
 
 	await t.throwsAsync(getStream(stream), {
-		message: 'Expected value which is `Object`, received value of type `boolean`.'
+		message: 'Expected value which is `Object`, received value of type `boolean`.',
 	});
 });
 
@@ -235,11 +235,11 @@ test('promise does not hang on timeout on HTTP error', withServer, async (t, ser
 
 	await t.throwsAsync(got({
 		timeout: {
-			request: 100
-		}
+			request: 100,
+		},
 	}), {
 		instanceOf: TimeoutError,
-		code: 'ETIMEDOUT'
+		code: 'ETIMEDOUT',
 	});
 });
 
@@ -259,12 +259,12 @@ test('no uncaught parse errors', async t => {
 			'',
 			'0',
 			'',
-			''
+			'',
 		].join('\r\n'));
 	});
 
 	await t.throwsAsync(got.head(`http://localhost:${(server.address() as net.AddressInfo).port}`), {
-		message: /^Parse Error/
+		message: /^Parse Error/,
 	});
 
 	await close();
@@ -284,12 +284,12 @@ test('no uncaught parse errors #2', async t => {
 			'HTTP/1.1 200 OK',
 			'content-length: 1',
 			'',
-			'0a'
+			'0a',
 		].join('\r\n'));
 	});
 
 	await t.throwsAsync(got(`http://localhost:${(server.address() as net.AddressInfo).port}`), {
-		message: /^Parse Error/
+		message: /^Parse Error/,
 	});
 
 	await close();
@@ -302,7 +302,7 @@ test.skip('the old stacktrace is recovered', async t => {
 	const error = await t.throwsAsync(got('https://example.com', {
 		request: () => {
 			throw new Error('foobar');
-		}
+		},
 	}));
 
 	t.true(error.stack!.includes('at Object.request'));
@@ -319,7 +319,7 @@ test.serial('custom stack trace', withServer, async (t, _server, got) => {
 		Error.captureStackTrace = (target: {stack: any}) => {
 			target.stack = [
 				'line 1',
-				'line 2'
+				'line 2',
 			];
 		};
 	};

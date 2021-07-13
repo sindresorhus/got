@@ -5,7 +5,7 @@ import got, {Options} from '../source/index.js';
 test('should merge options replacing responseType', t => {
 	const responseType = 'json';
 	const options = new Options({
-		responseType
+		responseType,
 	}, undefined, got.defaults.options);
 
 	t.is(options.responseType, responseType);
@@ -13,12 +13,12 @@ test('should merge options replacing responseType', t => {
 
 test('no duplicated searchParams values', t => {
 	const options = new Options({
-		searchParams: 'string=true&noDuplication=true'
+		searchParams: 'string=true&noDuplication=true',
 	}, {
 		searchParams: new URLSearchParams({
 			instance: 'true',
-			noDuplication: 'true'
-		})
+			noDuplication: 'true',
+		}),
 	});
 
 	// eslint-disable-next-line unicorn/prevent-abbreviations
@@ -31,7 +31,7 @@ test('no duplicated searchParams values', t => {
 
 test('should copy non-numerable properties', t => {
 	const options = {
-		json: {hello: '123'}
+		json: {hello: '123'},
 	};
 
 	const merged = new Options(options, undefined, got.defaults.options);
@@ -42,7 +42,7 @@ test('should copy non-numerable properties', t => {
 
 test('should get username and password from the URL', t => {
 	const options = new Options({
-		url: 'http://user:pass@localhost:41285'
+		url: 'http://user:pass@localhost:41285',
 	});
 
 	t.is(options.username, 'user');
@@ -53,7 +53,7 @@ test('should get username and password from the options', t => {
 	const options = new Options({
 		url: 'http://user:pass@localhost:41285',
 		username: 'user_OPT',
-		password: 'pass_OPT'
+		password: 'pass_OPT',
 	});
 
 	t.is(options.username, 'user_OPT');
@@ -63,12 +63,12 @@ test('should get username and password from the options', t => {
 test('should get username and password from the merged options', t => {
 	const options = new Options(
 		{
-			url: 'http://user:pass@localhost:41285'
+			url: 'http://user:pass@localhost:41285',
 		},
 		{
 			username: 'user_OPT_MERGE',
-			password: 'pass_OPT_MERGE'
-		}
+			password: 'pass_OPT_MERGE',
+		},
 	);
 
 	t.is(options.username, 'user_OPT_MERGE');
@@ -79,8 +79,8 @@ test('null value in search params means empty', t => {
 	const options = new Options({
 		url: new URL('http://localhost'),
 		searchParams: {
-			foo: null
-		}
+			foo: null,
+		},
 	});
 
 	t.is((options.url as URL).href, 'http://localhost/?foo=');
@@ -90,8 +90,8 @@ test('undefined value in search params means it does not exist', t => {
 	const options = new Options({
 		url: new URL('http://localhost'),
 		searchParams: {
-			foo: undefined
-		}
+			foo: undefined,
+		},
 	});
 
 	t.is((options.url as URL).href, 'http://localhost/');
@@ -99,7 +99,7 @@ test('undefined value in search params means it does not exist', t => {
 
 test('prefixUrl alone does not set url', t => {
 	const options = new Options({
-		prefixUrl: 'https://example.com'
+		prefixUrl: 'https://example.com',
 	});
 
 	t.is(options.url, undefined);
@@ -108,27 +108,27 @@ test('prefixUrl alone does not set url', t => {
 test('maxRetryAfter is calculated separately from request timeout', t => {
 	const options = new Options({
 		timeout: {
-			request: 1000
+			request: 1000,
 		},
 		retry: {
-			maxRetryAfter: undefined
-		}
+			maxRetryAfter: undefined,
+		},
 	});
 
 	t.is(options.retry.maxRetryAfter, undefined);
 
 	options.merge({
 		timeout: {
-			request: 2000
-		}
+			request: 2000,
+		},
 	});
 
 	t.is(options.retry.maxRetryAfter, undefined);
 
 	options.merge({
 		retry: {
-			maxRetryAfter: 300
-		}
+			maxRetryAfter: 300,
+		},
 	});
 
 	t.is(options.retry.maxRetryAfter, 300);
@@ -137,13 +137,13 @@ test('maxRetryAfter is calculated separately from request timeout', t => {
 test('extending responseType', t => {
 	const instance1 = got.extend({
 		prefixUrl: 'https://localhost',
-		responseType: 'json'
+		responseType: 'json',
 	});
 
 	const instance2 = got.extend({
 		headers: {
-			'x-test': 'test'
-		}
+			'x-test': 'test',
+		},
 	});
 
 	const merged = instance1.extend(instance2);

@@ -10,7 +10,7 @@ import got, {
 	Hooks,
 	Options,
 	OptionsInit,
-	RequestFunction
+	RequestFunction,
 } from '../source/index.js';
 import withServer from './helpers/with-server.js';
 
@@ -32,8 +32,8 @@ test('supports instance defaults', withServer, async (t, server, got) => {
 
 	const instance = got.extend({
 		headers: {
-			'user-agent': 'custom-ua-string'
-		}
+			'user-agent': 'custom-ua-string',
+		},
 	});
 	const headers = await instance('').json<Headers>();
 	t.is(headers['user-agent'], 'custom-ua-string');
@@ -44,13 +44,13 @@ test('supports invocation overrides', withServer, async (t, server, got) => {
 
 	const instance = got.extend({
 		headers: {
-			'user-agent': 'custom-ua-string'
-		}
+			'user-agent': 'custom-ua-string',
+		},
 	});
 	const headers = await instance({
 		headers: {
-			'user-agent': 'different-ua-string'
-		}
+			'user-agent': 'different-ua-string',
+		},
 	}).json<Headers>();
 	t.is(headers['user-agent'], 'different-ua-string');
 });
@@ -60,13 +60,13 @@ test('carries previous instance defaults', withServer, async (t, server, got) =>
 
 	const instanceA = got.extend({
 		headers: {
-			'x-foo': 'foo'
-		}
+			'x-foo': 'foo',
+		},
 	});
 	const instanceB = instanceA.extend({
 		headers: {
-			'x-bar': 'bar'
-		}
+			'x-bar': 'bar',
+		},
 	});
 	const headers = await instanceB('').json<Headers>();
 	t.is(headers['x-foo'], 'foo');
@@ -124,12 +124,12 @@ test('no tampering with defaults', t => {
 test('can set defaults to `new Options(...)`', t => {
 	const instance = got.extend({
 		mutableDefaults: true,
-		followRedirect: false
+		followRedirect: false,
 	});
 
 	t.notThrows(() => {
 		instance.defaults.options = new Options({
-			followRedirect: false
+			followRedirect: false,
 		}, undefined, instance.defaults.options);
 	});
 
@@ -145,7 +145,7 @@ test('can set defaults to `new Options(...)`', t => {
 test('can set mutable defaults using got.extend', t => {
 	const instance = got.extend({
 		mutableDefaults: true,
-		followRedirect: false
+		followRedirect: false,
 	});
 
 	t.notThrows(() => {
@@ -160,9 +160,9 @@ test('only plain objects are freezed', withServer, async (t, server, got) => {
 
 	const instance = got.extend({
 		agent: {
-			http: new HttpAgent({keepAlive: true})
+			http: new HttpAgent({keepAlive: true}),
 		},
-		mutableDefaults: true
+		mutableDefaults: true,
 	});
 
 	t.notThrows(() => {
@@ -175,7 +175,7 @@ test.skip('defaults are cloned on instance creation', t => {
 	const options: OptionsInit = {hooks: {beforeRequest: [() => {}]}};
 	const instance = got.extend(options);
 	const context = {
-		foo: {}
+		foo: {},
 	};
 
 	t.notThrows(() => {
@@ -195,7 +195,7 @@ test('ability to pass a custom request method', withServer, async (t, server, go
 	const request: RequestFunction = (...args: [
 		string | URL | RequestOptions,
 		(RequestOptions | ((response: IncomingMessage) => void))?,
-		((response: IncomingMessage) => void)?
+		((response: IncomingMessage) => void)?,
 	]) => {
 		isCalled = true;
 		// @ts-expect-error Overload error
@@ -216,7 +216,7 @@ test('does not include the `request` option in normalized `http` options', withS
 	const request: RequestFunction = (...args: [
 		string | URL | RequestOptions,
 		(RequestOptions | ((response: IncomingMessage) => void))?,
-		((response: IncomingMessage) => void)?
+		((response: IncomingMessage) => void)?,
 	]) => {
 		isCalled = true;
 
@@ -248,9 +248,9 @@ test('should pass an options object into an initialization hook after .extend', 
 					}
 
 					first = false;
-				}
-			]
-		}
+				},
+			],
+		},
 	});
 
 	await instance('', {});
@@ -265,9 +265,9 @@ test('hooks aren\'t overriden when merging options', withServer, async (t, serve
 			beforeRequest: [
 				() => {
 					isCalled = true;
-				}
-			]
-		}
+				},
+			],
+		},
 	});
 
 	await instance({});
@@ -283,8 +283,8 @@ test('extend with custom handlers', withServer, async (t, server, got) => {
 			(options, next) => {
 				options.headers.unicorn = 'rainbow';
 				return next(options);
-			}
-		]
+			},
+		],
 	});
 	const headers = await instance('').json<Headers>();
 	t.is(headers.unicorn, 'rainbow');
@@ -320,8 +320,8 @@ test('async handlers', withServer, async (t, server, got) => {
 
 					return result;
 				})();
-			}
-		]
+			},
+		],
 	});
 
 	const promise = instance('');
@@ -337,8 +337,8 @@ test('async handlers can throw', async t => {
 		handlers: [
 			async () => {
 				throw new Error(message);
-			}
-		]
+			},
+		],
 	});
 
 	await t.throwsAsync(instance('https://example.com'), {message});
@@ -346,11 +346,11 @@ test('async handlers can throw', async t => {
 
 test('setting dnsCache to true points to global cache', t => {
 	const a = got.extend({
-		dnsCache: true
+		dnsCache: true,
 	});
 
 	const b = got.extend({
-		dnsCache: true
+		dnsCache: true,
 	});
 
 	t.is(a.defaults.options.dnsCache, b.defaults.options.dnsCache);
@@ -368,8 +368,8 @@ test('waits for handlers to finish', withServer, async (t, server, got) => {
 			async (options, next) => {
 				options.headers.foo = 'bar';
 				return next(options);
-			}
-		]
+			},
+		],
 	});
 
 	const {foo} = await instance('').json();

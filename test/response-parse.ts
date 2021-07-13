@@ -119,7 +119,7 @@ test('ignores errors on invalid non-200 responses', withServer, async (t, server
 
 	const error = await t.throwsAsync<HTTPError>(got({responseType: 'json', retry: {limit: 0}}), {
 		instanceOf: HTTPError,
-		message: 'Response code 500 (Internal Server Error)'
+		message: 'Response code 500 (Internal Server Error)',
 	});
 
 	t.is(error.response.body, 'Internal error');
@@ -187,7 +187,7 @@ test('shortcuts throw ParseErrors', withServer, async (t, server, got) => {
 	await t.throwsAsync(got('').json(), {
 		instanceOf: ParseError,
 		message: /^Unexpected token o in JSON at position 1 in/,
-		code: 'ERR_BODY_PARSE_FAILURE'
+		code: 'ERR_BODY_PARSE_FAILURE',
 	});
 });
 
@@ -211,15 +211,15 @@ test('shortcuts result properly when retrying in afterResponse', withServer, asy
 					if (response.statusCode === 401) {
 						return retryWithMergedOptions({
 							headers: {
-								token: 'unicorn'
-							}
+								token: 'unicorn',
+							},
 						});
 					}
 
 					return response;
-				}
-			]
-		}
+				},
+			],
+		},
 	});
 
 	const json = await promise.json<{hello: string}>();
@@ -249,6 +249,6 @@ test('JSON response custom parser', withServer, async (t, server, got) => {
 
 	t.deepEqual((await got({
 		responseType: 'json',
-		parseJson: text => ({...JSON.parse(text), custom: 'parser'})
+		parseJson: text => ({...JSON.parse(text), custom: 'parser'}),
 	})).body, {...dog, custom: 'parser'});
 });

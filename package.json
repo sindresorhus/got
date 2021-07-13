@@ -146,11 +146,7 @@
 			"@typescript-eslint/no-unsafe-return": "off",
 			"@typescript-eslint/no-unsafe-assignment": "off",
 			"@typescript-eslint/no-unsafe-call": "off",
-			"@typescript-eslint/no-unsafe-argument": "off",
-			"@typescript-eslint/no-non-null-assertion": "off",
-			"@typescript-eslint/await-thenable": "off",
-			"@typescript-eslint/comma-dangle": "off",
-			"import/order": "off"
+			"@typescript-eslint/await-thenable": "off"
 		}
 	},
 	"runkitExampleFilename": "./documentation/examples/runkit-example.js"

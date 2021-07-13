@@ -19,7 +19,7 @@ const keys: Array<Exclude<keyof URLOptions, 'searchParams' | 'path'>> = [
 	'hostname',
 	'port',
 	'pathname',
-	'search'
+	'search',
 ];
 
 export default function optionsToUrl(origin: string, options: URLOptions): URL {

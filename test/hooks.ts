@@ -60,9 +60,9 @@ test('async hooks', withServer, async (t, server, got) => {
 				async options => {
 					await delay(100);
 					options.headers.foo = 'bar';
-				}
-			]
-		}
+				},
+			],
+		},
 	});
 	t.is(body.foo, 'bar');
 });
@@ -72,11 +72,11 @@ test('catches init thrown errors', async t => {
 		hooks: {
 			init: [() => {
 				throw error;
-			}]
-		}
+			}],
+		},
 	}), {
 		instanceOf: RequestError,
-		message: errorString
+		message: errorString,
 	});
 });
 
@@ -92,11 +92,11 @@ test('passes init thrown errors to beforeError hooks (promise-only)', async t =>
 				t.is(error.message, errorString);
 
 				return error;
-			}]
-		}
+			}],
+		},
 	}), {
 		instanceOf: RequestError,
-		message: errorString
+		message: errorString,
 	});
 });
 
@@ -105,11 +105,11 @@ test('catches beforeRequest thrown errors', async t => {
 		hooks: {
 			beforeRequest: [() => {
 				throw error;
-			}]
-		}
+			}],
+		},
 	}), {
 		instanceOf: RequestError,
-		message: errorString
+		message: errorString,
 	});
 });
 
@@ -121,11 +121,11 @@ test('catches beforeRedirect thrown errors', withServer, async (t, server, got) 
 		hooks: {
 			beforeRedirect: [() => {
 				throw error;
-			}]
-		}
+			}],
+		},
 	}), {
 		instanceOf: RequestError,
-		message: errorString
+		message: errorString,
 	});
 });
 
@@ -137,11 +137,11 @@ test('catches beforeRetry thrown errors', withServer, async (t, server, got) => 
 		hooks: {
 			beforeRetry: [() => {
 				throw error;
-			}]
-		}
+			}],
+		},
 	}), {
 		instanceOf: RequestError,
-		message: errorString
+		message: errorString,
 	});
 });
 
@@ -152,11 +152,11 @@ test('throws if afterResponse returns an invalid value', withServer, async (t, s
 		hooks: {
 			afterResponse: [
 				// @ts-expect-error
-				() => {}
-			]
-		}
+				() => {},
+			],
+		},
 	}), {
-		message: 'The `afterResponse` hook returned an invalid value'
+		message: 'The `afterResponse` hook returned an invalid value',
 	});
 });
 
@@ -167,11 +167,11 @@ test('catches afterResponse thrown errors', withServer, async (t, server, got) =
 		hooks: {
 			afterResponse: [() => {
 				throw error;
-			}]
-		}
+			}],
+		},
 	}), {
 		instanceOf: RequestError,
-		message: errorString
+		message: errorString,
 	});
 });
 
@@ -181,9 +181,9 @@ test('accepts an async function as init hook', async t => {
 			init: [
 				async () => {
 					t.pass();
-				}
-			]
-		}
+				},
+			],
+		},
 	});
 });
 
@@ -193,12 +193,12 @@ test('catches beforeRequest promise rejections', async t => {
 			beforeRequest: [
 				async () => {
 					throw error;
-				}
-			]
-		}
+				},
+			],
+		},
 	}), {
 		instanceOf: RequestError,
-		message: errorString
+		message: errorString,
 	});
 });
 
@@ -210,12 +210,12 @@ test('catches beforeRedirect promise rejections', withServer, async (t, server, 
 			beforeRedirect: [
 				async () => {
 					throw error;
-				}
-			]
-		}
+				},
+			],
+		},
 	}), {
 		instanceOf: RequestError,
-		message: errorString
+		message: errorString,
 	});
 });
 
@@ -227,12 +227,12 @@ test('catches beforeRetry promise rejections', withServer, async (t, server, got
 			beforeRetry: [
 				async () => {
 					throw error;
-				}
-			]
-		}
+				},
+			],
+		},
 	}), {
 		instanceOf: RequestError,
-		message: errorString
+		message: errorString,
 	});
 });
 
@@ -244,9 +244,9 @@ test('catches afterResponse promise rejections', withServer, async (t, server, g
 			afterResponse: [
 				async () => {
 					throw error;
-				}
-			]
-		}
+				},
+			],
+		},
 	}), {message: errorString});
 });
 
@@ -259,9 +259,9 @@ test('catches beforeError errors', async t => {
 			beforeError: [
 				async () => {
 					throw error;
-				}
-			]
-		}
+				},
+			],
+		},
 	}), {message: errorString});
 });
 
@@ -275,10 +275,10 @@ test('init is called with options', withServer, async (t, server, got) => {
 			init: [
 				options => {
 					t.is(options.context, context);
-				}
-			]
+				},
+			],
 		},
-		context
+		context,
 	});
 });
 
@@ -294,9 +294,9 @@ test('init from defaults is called with options', withServer, async (t, server, 
 			init: [
 				options => {
 					count += options.context ? 1 : 0;
-				}
-			]
-		}
+				},
+			],
+		},
 	});
 
 	await instance({context});
@@ -315,9 +315,9 @@ test('init allows modifications', withServer, async (t, server, got) => {
 			init: [
 				options => {
 					options.headers!.foo = 'bar';
-				}
-			]
-		}
+				},
+			],
+		},
 	});
 	t.is(body, 'bar');
 });
@@ -333,9 +333,9 @@ test('beforeRequest is called with options', withServer, async (t, server, got) 
 					const url = options.url as URL;
 					t.is(url.pathname, '/');
 					t.is(url.hostname, 'localhost');
-				}
-			]
-		}
+				},
+			],
+		},
 	});
 });
 
@@ -348,9 +348,9 @@ test('beforeRequest allows modifications', withServer, async (t, server, got) =>
 			beforeRequest: [
 				options => {
 					options.headers.foo = 'bar';
-				}
-			]
-		}
+				},
+			],
+		},
 	});
 	t.is(body.foo, 'bar');
 });
@@ -365,10 +365,10 @@ test('returning HTTP response from a beforeRequest hook', withServer, async (t, 
 					200,
 					{foo: 'bar'},
 					Buffer.from('Hi!'),
-					''
-				)
-			]
-		}
+					'',
+				),
+			],
+		},
 	});
 
 	t.is(statusCode, 200);
@@ -392,9 +392,9 @@ test('beforeRedirect is called with options and response', withServer, async (t,
 					t.is(response.statusCode, 302);
 					t.is(new URL(response.url).pathname, '/redirect');
 					t.is(response.redirectUrls.length, 1);
-				}
-			]
-		}
+				},
+			],
+		},
 	});
 });
 
@@ -408,9 +408,9 @@ test('beforeRedirect allows modifications', withServer, async (t, server, got) =
 			beforeRedirect: [
 				options => {
 					options.headers.foo = 'bar';
-				}
-			]
-		}
+				},
+			],
+		},
 	});
 	t.is(body.foo, 'bar');
 });
@@ -425,7 +425,7 @@ test('beforeRetry is called with options', withServer, async (t, server) => {
 		prefixUrl: server.url,
 		responseType: 'json',
 		retry: {
-			limit: 1
+			limit: 1,
 		},
 		throwHttpErrors: false,
 		context,
@@ -438,9 +438,9 @@ test('beforeRetry is called with options', withServer, async (t, server) => {
 					t.deepEqual(options.context, context);
 					t.truthy(error);
 					t.is(retryCount, 0);
-				}
-			]
-		}
+				},
+			],
+		},
 	});
 });
 
@@ -454,9 +454,9 @@ test('beforeRetry allows modifications', withServer, async (t, server, got) => {
 			beforeRetry: [
 				({options}) => {
 					options.headers.foo = 'bar';
-				}
-			]
-		}
+				},
+			],
+		},
 	});
 	t.is(body.foo, 'bar');
 });
@@ -481,7 +481,7 @@ test('beforeRetry allows stream body if different from original', withServer, as
 	const {body} = await got.post('retry', {
 		body: generateBody(),
 		retry: {
-			methods: ['POST']
+			methods: ['POST'],
 		},
 		hooks: {
 			beforeRetry: [
@@ -490,9 +490,9 @@ test('beforeRetry allows stream body if different from original', withServer, as
 					options.body = form;
 					options.headers['content-type'] = `multipart/form-data; boundary=${form.getBoundary()}`;
 					options.headers.foo = 'bar';
-				}
-			]
-		}
+				},
+			],
+		},
 	});
 
 	t.is(body, 'test');
@@ -509,9 +509,9 @@ test('afterResponse is called with response', withServer, async (t, server, got)
 					t.is(typeof response.body, 'object');
 
 					return response;
-				}
-			]
-		}
+				},
+			],
+		},
 	});
 });
 
@@ -525,9 +525,9 @@ test('afterResponse allows modifications', withServer, async (t, server, got) =>
 				response => {
 					response.body = {hello: 'world'};
 					return response;
-				}
-			]
-		}
+				},
+			],
+		},
 	});
 	t.is(body.hello, 'world');
 });
@@ -548,15 +548,15 @@ test('afterResponse allows to retry', withServer, async (t, server, got) => {
 					if (response.statusCode === 401) {
 						return retryWithMergedOptions({
 							headers: {
-								token: 'unicorn'
-							}
+								token: 'unicorn',
+							},
 						});
 					}
 
 					return response;
-				}
-			]
-		}
+				},
+			],
+		},
 	});
 	t.is(statusCode, 200);
 });
@@ -578,15 +578,15 @@ test('afterResponse allows to retry without losing the port', withServer, async 
 					if (response.statusCode === 401) {
 						return retryWithMergedOptions({
 							headers: {
-								token: 'unicorn'
-							}
+								token: 'unicorn',
+							},
 						});
 					}
 
 					return response;
-				}
-			]
-		}
+				},
+			],
+		},
 	});
 	t.is(statusCode, 200);
 });
@@ -604,19 +604,19 @@ test('cancelling the request after retrying in a afterResponse hook', withServer
 				(_response, retryWithMergedOptions) => {
 					const promise = retryWithMergedOptions({
 						headers: {
-							token: 'unicorn'
-						}
+							token: 'unicorn',
+						},
 					});
 
 					gotPromise.cancel();
 
 					return promise;
-				}
-			]
+				},
+			],
 		},
 		retry: {
-			calculateDelay: () => 1
-		}
+			calculateDelay: () => 1,
+		},
 	});
 
 	await t.throwsAsync(gotPromise);
@@ -642,21 +642,21 @@ test('afterResponse allows to retry - `beforeRetry` hook', withServer, async (t,
 					if (response.statusCode === 401) {
 						return retryWithMergedOptions({
 							headers: {
-								token: 'unicorn'
-							}
+								token: 'unicorn',
+							},
 						});
 					}
 
 					return response;
-				}
+				},
 			],
 			beforeRetry: [
 				options => {
 					t.truthy(options);
 					isCalled = true;
-				}
-			]
-		}
+				},
+			],
+		},
 	});
 	t.is(statusCode, 200);
 	t.true(isCalled);
@@ -673,17 +673,17 @@ test('no infinity loop when retrying on afterResponse', withServer, async (t, se
 
 	await t.throwsAsync(got({
 		retry: {
-			limit: 0
+			limit: 0,
 		},
 		hooks: {
 			afterResponse: [
 				(_response, retryWithMergedOptions) => retryWithMergedOptions({
 					headers: {
-						token: 'invalid'
-					}
-				})
-			]
-		}
+						token: 'invalid',
+					},
+				}),
+			],
+		},
 	}), {instanceOf: HTTPError, message: 'Response code 401 (Unauthorized)'});
 });
 
@@ -702,7 +702,7 @@ test('throws on afterResponse retry failure', withServer, async (t, server, got)
 
 	await t.throwsAsync(got({
 		retry: {
-			limit: 1
+			limit: 1,
 		},
 		hooks: {
 			afterResponse: [
@@ -710,15 +710,15 @@ test('throws on afterResponse retry failure', withServer, async (t, server, got)
 					if (response.statusCode === 401) {
 						return retryWithMergedOptions({
 							headers: {
-								token: 'unicorn'
-							}
+								token: 'unicorn',
+							},
 						});
 					}
 
 					return response;
-				}
-			]
-		}
+				},
+			],
+		},
 	}), {instanceOf: HTTPError, message: 'Response code 500 (Internal Server Error)'});
 });
 
@@ -738,7 +738,7 @@ test('does not throw on afterResponse retry HTTP failure if throwHttpErrors is f
 	const {statusCode} = await got({
 		throwHttpErrors: false,
 		retry: {
-			limit: 1
+			limit: 1,
 		},
 		hooks: {
 			afterResponse: [
@@ -746,15 +746,15 @@ test('does not throw on afterResponse retry HTTP failure if throwHttpErrors is f
 					if (response.statusCode === 401) {
 						return retryWithMergedOptions({
 							headers: {
-								token: 'unicorn'
-							}
+								token: 'unicorn',
+							},
 						});
 					}
 
 					return response;
-				}
-			]
-		}
+				},
+			],
+		},
 	});
 	t.is(statusCode, 500);
 });
@@ -769,7 +769,7 @@ test('throwing in a beforeError hook - promise', withServer, async (t, server, g
 			afterResponse: [
 				() => {
 					throw error;
-				}
+				},
 			],
 			beforeError: [
 				(): never => {
@@ -777,9 +777,9 @@ test('throwing in a beforeError hook - promise', withServer, async (t, server, g
 				},
 				() => {
 					throw new Error('This shouldn\'t be called at all');
-				}
-			]
-		}
+				},
+			],
+		},
 	}), {message: 'foobar'});
 });
 
@@ -792,9 +792,9 @@ test('throwing in a beforeError hook - stream', withServer, async (t, _server, g
 				},
 				() => {
 					throw new Error('This shouldn\'t be called at all');
-				}
-			]
-		}
+				},
+			],
+		},
 	})), {message: 'foobar'});
 });
 
@@ -808,13 +808,13 @@ test('beforeError is called with an error - promise', withServer, async (t, serv
 			afterResponse: [
 				() => {
 					throw error;
-				}
+				},
 			],
 			beforeError: [error2 => {
 				t.true(error2 instanceof Error);
 				return error2;
-			}]
-		}
+			}],
+		},
 	}), {message: errorString});
 });
 
@@ -824,8 +824,8 @@ test('beforeError is called with an error - stream', withServer, async (t, _serv
 			beforeError: [error2 => {
 				t.true(error2 instanceof Error);
 				return error2;
-			}]
-		}
+			}],
+		},
 	})), {message: 'Response code 404 (Not Found)'});
 });
 
@@ -842,9 +842,9 @@ test('beforeError allows modifications', async t => {
 					const newError = new Error(errorString2);
 
 					return new RequestError(newError.message, newError, error.options);
-				}
-			]
-		}
+				},
+			],
+		},
 	}), {message: errorString2});
 });
 
@@ -857,15 +857,15 @@ test('does not break on `afterResponse` hook with JSON mode', withServer, async 
 				(response, retryWithMergedOptions) => {
 					if (response.statusCode === 404) {
 						return retryWithMergedOptions({
-							url: new URL('/foobar', response.url)
+							url: new URL('/foobar', response.url),
 						});
 					}
 
 					return response;
-				}
-			]
+				},
+			],
 		},
-		responseType: 'json'
+		responseType: 'json',
 	}));
 });
 
@@ -878,9 +878,9 @@ test('catches HTTPErrors', withServer, async (t, _server, got) => {
 				error => {
 					t.true(error instanceof HTTPError);
 					return error;
-				}
-			]
-		}
+				},
+			],
+		},
 	}));
 });
 
@@ -889,18 +889,18 @@ test('timeout can be modified using a hook', withServer, async (t, server, got) 
 
 	await t.throwsAsync(got({
 		timeout: {
-			request: 1000
+			request: 1000,
 		},
 		hooks: {
 			beforeRequest: [
 				options => {
 					options.timeout.request = 500;
-				}
-			]
+				},
+			],
 		},
 		retry: {
-			limit: 1
-		}
+			limit: 1,
+		},
 	}), {message: 'Timeout awaiting \'request\' for 500ms'});
 });
 
@@ -918,9 +918,9 @@ test('beforeRequest hook is called before each request', withServer, async (t, s
 				options => {
 					counts++;
 					t.is(options.headers['content-length'], String(buffer.length));
-				}
-			]
-		}
+				},
+			],
+		},
 	});
 
 	t.is(counts, 2);
@@ -939,12 +939,12 @@ test('beforeError emits valid promise `HTTPError`s', async t => {
 					t.truthy(error.response!.body);
 
 					return error;
-				}
-			]
+				},
+			],
 		},
 		retry: {
-			limit: 0
-		}
+			limit: 0,
+		},
 	});
 
 	await t.throwsAsync(instance('https://ValidHTTPErrors.com'));
@@ -960,12 +960,12 @@ test('hooks are not duplicated', withServer, async (t, _server, got) => {
 					calls++;
 
 					return error;
-				}
-			]
+				},
+			],
 		},
 		retry: {
-			limit: 0
-		}
+			limit: 0,
+		},
 	}), {message: 'Response code 404 (Not Found)'});
 
 	t.is(calls, 1);
@@ -991,13 +991,13 @@ test('async afterResponse allows to retry with allowGetBody and json payload', w
 					}
 
 					return response;
-				}
-			]
+				},
+			],
 		},
 		retry: {
-			limit: 0
+			limit: 0,
 		},
-		throwHttpErrors: false
+		throwHttpErrors: false,
 	});
 
 	t.is(statusCode, 200);
@@ -1015,11 +1015,11 @@ test('beforeRequest hook respect `agent` option', withServer, async (t, server, 
 			beforeRequest: [
 				options => {
 					options.agent = {
-						http: agent
+						http: agent,
 					};
-				}
-			]
-		}
+				},
+			],
+		},
 	})).body);
 	t.true(spy.calledOnce);
 
@@ -1041,9 +1041,9 @@ test('beforeRequest hook respect `url` option', withServer, async (t, server, go
 			beforeRequest: [
 				options => {
 					options.url = new URL(server.url + '/changed');
-				}
-			]
-		}
+				},
+			],
+		},
 	})).body, 'ok');
 });
 
@@ -1061,14 +1061,14 @@ test('no duplicate hook calls in single-page paginated requests', withServer, as
 		beforeRequest: [
 			() => {
 				beforeHookCount++;
-			}
+			},
 		],
 		afterResponse: [
 			(response: any) => {
 				afterHookCount++;
 				return response;
-			}
-		]
+			},
+		],
 	};
 
 	// Test only one request
@@ -1077,8 +1077,8 @@ test('no duplicate hook calls in single-page paginated requests', withServer, as
 		pagination: {
 			paginate: () => false,
 			countLimit: 2009,
-			transform: response => [response]
-		}
+			transform: response => [response],
+		},
 	});
 
 	await instance.paginate.all('get');
@@ -1090,15 +1090,15 @@ test('no duplicate hook calls in single-page paginated requests', withServer, as
 			beforeRequest: [
 				() => {
 					beforeHookCountAdditional++;
-				}
+				},
 			],
 			afterResponse: [
 				(response: any) => {
 					afterHookCountAdditional++;
 					return response;
-				}
-			]
-		}
+				},
+			],
+		},
 	});
 	t.is(beforeHookCount, 2);
 	t.is(afterHookCount, 2);
@@ -1109,8 +1109,8 @@ test('no duplicate hook calls in single-page paginated requests', withServer, as
 		hooks,
 		pagination: {
 			paginate: () => false,
-			transform: response => [response]
-		}
+			transform: response => [response],
+		},
 	});
 
 	t.is(beforeHookCount, 3);
@@ -1130,14 +1130,14 @@ test('no duplicate hook calls in sequential paginated requests', withServer, asy
 		beforeRequest: [
 			() => {
 				beforeHookCount++;
-			}
+			},
 		],
 		afterResponse: [
 			(response: any) => {
 				afterHookCount++;
 				return response;
-			}
-		]
+			},
+		],
 	};
 
 	// Test only two requests, one after another
@@ -1148,8 +1148,8 @@ test('no duplicate hook calls in sequential paginated requests', withServer, asy
 		pagination: {
 			paginate,
 			countLimit: 2009,
-			transform: response => [response]
-		}
+			transform: response => [response],
+		},
 	});
 
 	await instance.paginate.all('get');
@@ -1162,8 +1162,8 @@ test('no duplicate hook calls in sequential paginated requests', withServer, asy
 		hooks,
 		pagination: {
 			paginate,
-			transform: response => [response]
-		}
+			transform: response => [response],
+		},
 	});
 
 	t.is(beforeHookCount, 4);
@@ -1193,18 +1193,18 @@ test('intentional duplicate hooks in pagination with extended instance', withSer
 		hooks: {
 			beforeRequest: [
 				beforeHook,
-				beforeHook
+				beforeHook,
 			],
 			afterResponse: [
 				afterHook,
-				afterHook
-			]
+				afterHook,
+			],
 		},
 		pagination: {
 			paginate: () => false,
 			countLimit: 2009,
-			transform: response => [response]
-		}
+			transform: response => [response],
+		},
 	});
 
 	// Add duplicate hooks when calling paginate
@@ -1222,14 +1222,14 @@ test('intentional duplicate hooks in pagination with extended instance', withSer
 			beforeRequest: [
 				beforeHook,
 				beforeHookAdditional,
-				beforeHookAdditional
+				beforeHookAdditional,
 			],
 			afterResponse: [
 				afterHook,
 				afterHookAdditional,
-				afterHookAdditional
-			]
-		}
+				afterHookAdditional,
+			],
+		},
 	});
 
 	t.is(beforeCount, 3);
@@ -1251,14 +1251,14 @@ test('no duplicate hook calls when returning original request options', withServ
 		beforeRequest: [
 			() => {
 				beforeHookCount++;
-			}
+			},
 		],
 		afterResponse: [
 			(response: any) => {
 				afterHookCount++;
 				return response;
-			}
-		]
+			},
+		],
 	};
 
 	// Test only two requests, one after another
@@ -1269,8 +1269,8 @@ test('no duplicate hook calls when returning original request options', withServ
 		pagination: {
 			paginate,
 			countLimit: 2009,
-			transform: response => [response]
-		}
+			transform: response => [response],
+		},
 	});
 
 	await instance.paginate.all('get');
@@ -1283,8 +1283,8 @@ test('no duplicate hook calls when returning original request options', withServ
 		hooks,
 		pagination: {
 			paginate,
-			transform: response => [response]
-		}
+			transform: response => [response],
+		},
 	});
 
 	t.is(beforeHookCount, 4);
@@ -1301,9 +1301,9 @@ test('`beforeRequest` change body', withServer, async (t, server, got) => {
 				options => {
 					options.body = JSON.stringify({payload: 'new'});
 					options.headers['content-length'] = options.body.length.toString();
-				}
-			]
-		}
+				},
+			],
+		},
 	});
 
 	t.is(JSON.parse(response.body).payload, 'new');
@@ -1327,18 +1327,18 @@ test('can retry without an agent', withServer, async (t, server, got) => {
 
 	const {response} = await t.throwsAsync<HTTPError>(got({
 		agent: {
-			http: new MyAgent()
+			http: new MyAgent(),
 		},
 		hooks: {
 			beforeRetry: [
 				error => {
 					error.options.agent.http = undefined;
-				}
-			]
+				},
+			],
 		},
 		retry: {
-			calculateDelay: ({computedValue}) => computedValue ? 1 : 0
-		}
+			calculateDelay: ({computedValue}) => computedValue ? 1 : 0,
+		},
 	}));
 
 	t.is(response.retryCount, 2);

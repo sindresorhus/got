@@ -20,11 +20,11 @@ test('non-object agent option works with http', withServer, async (t, server, go
 
 	t.truthy((await got({
 		httpsOptions: {
-			rejectUnauthorized: false
+			rejectUnauthorized: false,
 		},
 		agent: {
-			http: agent
-		}
+			http: agent,
+		},
 	})).body);
 	t.true(spy.calledOnce);
 
@@ -41,11 +41,11 @@ test('non-object agent option works with https', withHttpsServer(), async (t, se
 
 	t.truthy((await got({
 		httpsOptions: {
-			rejectUnauthorized: false
+			rejectUnauthorized: false,
 		},
 		agent: {
-			https: agent
-		}
+			https: agent,
+		},
 	})).body);
 	t.true(spy.calledOnce);
 
@@ -65,7 +65,7 @@ test('redirects from http to https work with an agent object', withServer, async
 
 		serverHttp.get('/httpToHttps', (_request, response) => {
 			response.writeHead(302, {
-				location: serverHttps.url
+				location: serverHttps.url,
 			});
 			response.end();
 		});
@@ -77,8 +77,8 @@ test('redirects from http to https work with an agent object', withServer, async
 			prefixUrl: serverHttp.url,
 			agent: {
 				http: httpAgent,
-				https: httpsAgent
-			}
+				https: httpsAgent,
+			},
 		})).body);
 		t.true(httpSpy.calledOnce);
 		t.true(httpsSpy.calledOnce);
@@ -101,7 +101,7 @@ test('redirects from https to http work with an agent object', withHttpsServer()
 
 		serverHttps.get('/httpsToHttp', (_request, response) => {
 			response.writeHead(302, {
-				location: serverHttp.url
+				location: serverHttp.url,
 			});
 			response.end();
 		});
@@ -113,8 +113,8 @@ test('redirects from https to http work with an agent object', withHttpsServer()
 			prefixUrl: serverHttps.url,
 			agent: {
 				http: httpAgent,
-				https: httpsAgent
-			}
+				https: httpsAgent,
+			},
 		})).body);
 		t.true(httpSpy.calledOnce);
 		t.true(httpsSpy.calledOnce);
@@ -137,8 +137,8 @@ test('socket connect listener cleaned up after request', withHttpsServer(), asyn
 		// eslint-disable-next-line no-await-in-loop
 		await got({
 			agent: {
-				https: agent
-			}
+				https: agent,
+			},
 		});
 	}
 
@@ -172,7 +172,7 @@ test('no socket hung up regression', withServer, async (t, server, got) => {
 
 	const {body} = await got({
 		agent: {
-			http: agent
+			http: agent,
 		},
 		hooks: {
 			afterResponse: [
@@ -185,20 +185,20 @@ test('no socket hung up regression', withServer, async (t, server, got) => {
 					if (response.statusCode === 401) {
 						return retryWithMergedOptions({
 							headers: {
-								token
-							}
+								token,
+							},
 						});
 					}
 
 					// No changes otherwise
 					return response;
-				}
-			]
+				},
+			],
 		},
 		// Disable automatic retries, manual retries are allowed
 		retry: {
-			limit: 0
-		}
+			limit: 0,
+		},
 	});
 
 	t.is(body, 'ok');

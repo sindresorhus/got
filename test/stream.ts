@@ -19,14 +19,14 @@ const pStreamPipeline = promisify(stream.pipeline);
 const defaultHandler: Handler = (_request, response) => {
 	response.writeHead(200, {
 		unicorn: 'rainbow',
-		'content-encoding': 'gzip'
+		'content-encoding': 'gzip',
 	});
 	response.end(Buffer.from('H4sIAAAAAAAA/8vPBgBH3dx5AgAAAA==', 'base64')); // 'ok'
 };
 
 const redirectHandler: Handler = (_request, response) => {
 	response.writeHead(302, {
-		location: '/'
+		location: '/',
 	});
 	response.end();
 };
@@ -99,14 +99,14 @@ test('throws on write if body is specified', withServer, (t, server, got) => {
 	const streams = [
 		got.stream.post({body: 'wow'}),
 		got.stream.post({json: {}}),
-		got.stream.post({form: {}})
+		got.stream.post({form: {}}),
 	];
 
 	for (const stream of streams) {
 		t.throws(() => {
 			stream.end('wow');
 		}, {
-			message: 'The payload has been already provided'
+			message: 'The payload has been already provided',
 		});
 
 		stream.destroy();
@@ -133,7 +133,7 @@ test('throws on write if no payload method is present', withServer, (t, server, 
 	t.throws(() => {
 		stream.end('wow');
 	}, {
-		message: 'The payload has been already provided'
+		message: 'The payload has been already provided',
 	});
 
 	stream.destroy();
@@ -174,7 +174,7 @@ test('has error event', withServer, async (t, server, got) => {
 	const stream = got.stream('');
 	await t.throwsAsync(pEvent(stream, 'response'), {
 		instanceOf: HTTPError,
-		message: 'Response code 404 (Not Found)'
+		message: 'Response code 404 (Not Found)',
 	});
 });
 
@@ -231,7 +231,7 @@ test('proxying headers works', withServer, async (t, server, got) => {
 	server.get('/proxy', async (_request, response) => {
 		await pStreamPipeline(
 			got.stream(''),
-			response
+			response,
 		);
 	});
 
@@ -247,14 +247,14 @@ test('piping server request to Got proxies also headers', withServer, async (t, 
 		await pStreamPipeline(
 			request,
 			got.stream(''),
-			response
+			response,
 		);
 	});
 
 	const {foo}: {foo: string} = await got('proxy', {
 		headers: {
-			foo: 'bar'
-		}
+			foo: 'bar',
+		},
 	}).json();
 	t.is(foo, 'bar');
 });
@@ -266,7 +266,7 @@ test('skips proxying headers after server has sent them already', withServer, as
 
 		await pStreamPipeline(
 			got.stream(''),
-			response
+			response,
 		);
 	});
 
@@ -284,7 +284,7 @@ test('throws when trying to proxy through a closed stream', withServer, async (t
 		t.throws(() => {
 			stream.pipe(new PassThroughStream());
 		}, {
-			message: 'Failed to pipe. The response has been emitted already.'
+			message: 'Failed to pipe. The response has been emitted already.',
 		});
 	});
 
@@ -296,7 +296,7 @@ test('proxies `content-encoding` header when `options.decompress` is false', wit
 	server.get('/proxy', async (_request, response) => {
 		await pStreamPipeline(
 			got.stream({decompress: false}),
-			response
+			response,
 		);
 	});
 
@@ -340,8 +340,8 @@ test('piping to got.stream.put()', withServer, async (t, server, got) => {
 			stream.pipeline(
 				got.stream(''),
 				got.stream.put('post'),
-				() => {}
-			)
+				() => {},
+			),
 		);
 	});
 });
@@ -353,9 +353,9 @@ test.skip('no unhandled body stream errors', async t => {
 	body.append('upload', fs.createReadStream('/bin/sh'));
 
 	await t.throwsAsync(got.post(`https://offlinesite${Date.now()}.com`, {
-		body
+		body,
 	}), {
-		code: 'ENOTFOUND'
+		code: 'ENOTFOUND',
 	});
 });
 
@@ -364,12 +364,12 @@ test('works with pipeline', async t => {
 		new stream.Readable({
 			read() {
 				this.push(null);
-			}
+			},
 		}),
-		got.stream.put('http://localhost:7777')
+		got.stream.put('http://localhost:7777'),
 	), {
 		instanceOf: RequestError,
-		message: 'connect ECONNREFUSED 127.0.0.1:7777'
+		message: 'connect ECONNREFUSED 127.0.0.1:7777',
 	});
 });
 
@@ -386,8 +386,8 @@ test('errors have body', withServer, async (t, server, got) => {
 				throw new Error('snap');
 			},
 			// @ts-expect-error
-			getCookieString: async _ => ''
-		}
+			getCookieString: async _ => '',
+		},
 	})));
 
 	t.is(error.message, 'snap');
@@ -486,14 +486,14 @@ test('accepts readable-stream as body', withServer, async (t, server, got) => {
 		read() {
 			this.push('ok');
 			this.push(null);
-		}
+		},
 	});
 
 	const response = await got.post({
 		// We need to cast body as any,
 		// because @types/readable-stream has incorrect types
 		// and causes a lot of errors.
-		body: body as any
+		body: body as any,
 	});
 
 	t.is(response.body, 'ok');
@@ -502,11 +502,11 @@ test('accepts readable-stream as body', withServer, async (t, server, got) => {
 test('prevents `Cannot call end` error', async t => {
 	const stream = got.stream('https://example.com', {
 		request: () => new Writable({
-			final() {}
+			final() {},
 		}) as any,
 		timeout: {
-			request: 1
-		}
+			request: 1,
+		},
 	});
 
 	const error: RequestError = await pEvent(stream, 'error');
@@ -520,7 +520,7 @@ if (Number.parseInt(process.versions.node.split('.')[0]!, 10) <= 12) {
 		await t.notThrowsAsync(new Promise((resolve, reject) => {
 			got.stream({
 				timeout: {
-					request: 100
+					request: 100,
 				},
 				hooks: {
 					beforeError: [
@@ -530,9 +530,9 @@ if (Number.parseInt(process.versions.node.split('.')[0]!, 10) <= 12) {
 							});
 
 							return error;
-						}
-					]
-				}
+						},
+					],
+				},
 			}).once('end', () => {
 				reject(new Error('Stream has ended before erroring'));
 			}).once('error', resolve).resume();
@@ -548,7 +548,7 @@ testFn('it sends a body of file with size on stat = 0', withServer, async (t, se
 	});
 
 	const response = await got.post({
-		body: fs.createReadStream('/proc/cpuinfo')
+		body: fs.createReadStream('/proc/cpuinfo'),
 	});
 
 	t.truthy(response.body);

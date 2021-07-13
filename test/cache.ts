@@ -105,7 +105,7 @@ test('cached response has got options', withServer, async (t, server, got) => {
 	const cache = new Map();
 	const options = {
 		username: 'foo',
-		cache
+		cache,
 	};
 
 	await got(options);
@@ -124,7 +124,7 @@ test('cache error throws `CacheError`', withServer, async (t, server, got) => {
 	// @ts-expect-error Error tests
 	await t.throwsAsync(got({cache}), {
 		instanceOf: CacheError,
-		code: 'ERR_CACHE_ACCESS'
+		code: 'ERR_CACHE_ACCESS',
 	});
 });
 
@@ -150,7 +150,7 @@ test('doesn\'t cache response when received HTTP error', withServer, async (t, s
 
 test('DNS cache works', async t => {
 	const instance = got.extend({
-		dnsCache: true
+		dnsCache: true,
 	});
 
 	await t.notThrowsAsync(instance('https://example.com'));
@@ -229,7 +229,7 @@ test('does not break POST requests', withServer, async (t, server, got) => {
 
 	const headers = await got.post('', {
 		body: '',
-		cache: new Map()
+		cache: new Map(),
 	}).json<{'content-length': string}>();
 
 	t.is(headers['content-length'], '0');
@@ -262,8 +262,8 @@ test('decompresses cached responses', withServer, async (t, server, got) => {
 			responseType: 'json',
 			decompress: true,
 			retry: {
-				limit: 2
-			}
+				limit: 2,
+			},
 		}));
 	}
 
@@ -278,7 +278,7 @@ test('can replace the instance\'s HTTP cache', withServer, async (t, server, got
 
 	const instance = got.extend({
 		mutableDefaults: true,
-		cache
+		cache,
 	});
 
 	await t.notThrowsAsync(instance(''));
@@ -311,7 +311,7 @@ test('does not hang on huge response', withServer, async (t, server, got) => {
 	});
 
 	const body = await got('', {
-		cache: new Map()
+		cache: new Map(),
 	}).buffer();
 
 	t.is(body.length, bufferSize * times);
@@ -353,7 +353,7 @@ test('works with http2', async t => {
 
 	const client = got.extend({
 		http2: true,
-		cache
+		cache,
 	});
 
 	try {
@@ -374,8 +374,8 @@ test('works with http2', async t => {
 test('http-cache-semantics typings', t => {
 	const instance = got.extend({
 		cacheOptions: {
-			shared: false
-		}
+			shared: false,
+		},
 	});
 
 	t.is(instance.defaults.options.cacheOptions.shared, false);
@@ -384,7 +384,7 @@ test('http-cache-semantics typings', t => {
 test('allows internal modifications', async t => {
 	nock('http://example.com').get('/test').reply(401);
 	nock('http://example.com').get('/test').reply(200, JSON.stringify({
-		wat: ['123']
+		wat: ['123'],
 	}));
 
 	const client = got.extend({
@@ -397,9 +397,9 @@ test('allows internal modifications', async t => {
 					}
 
 					return response;
-				}
-			]
-		}
+				},
+			],
+		},
 	});
 
 	await t.notThrowsAsync(client.get('http://example.com/test'));
@@ -407,7 +407,7 @@ test('allows internal modifications', async t => {
 
 test('response.complete is true when using keepalive agent', withServer, async (t, server, got) => {
 	const agent = {
-		http: new Agent({keepAlive: true})
+		http: new Agent({keepAlive: true}),
 	};
 
 	const etag = 'foobar';
@@ -434,9 +434,9 @@ test('response.complete is true when using keepalive agent', withServer, async (
 		responseType: 'json',
 		decompress: true,
 		retry: {
-			limit: 2
+			limit: 2,
 		},
-		agent
+		agent,
 	});
 
 	t.true(first.complete);

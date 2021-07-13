@@ -28,7 +28,7 @@ export default function urlToOptions(url: URL | UrlWithStringQuery): LegacyUrlOp
 		search: url.search,
 		pathname: url.pathname,
 		href: url.href,
-		path: `${url.pathname || ''}${url.search || ''}`
+		path: `${url.pathname || ''}${url.search || ''}`,
 	};
 
 	if (is.string(url.port) && url.port.length > 0) {

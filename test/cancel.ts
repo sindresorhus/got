@@ -32,7 +32,7 @@ const prepareServer = (server: ExtendedHttpTestServer, clock: GlobalClock): {emi
 
 		server.get('/redirect', (_request, response) => {
 			response.writeHead(302, {
-				location: `${server.url}/abort`
+				location: `${server.url}/abort`,
 			});
 			response.end();
 
@@ -48,7 +48,7 @@ const prepareServer = (server: ExtendedHttpTestServer, clock: GlobalClock): {emi
 
 const downloadHandler = (clock?: GlobalClock): Handler => (_request, response) => {
 	response.writeHead(200, {
-		'transfer-encoding': 'chunked'
+		'transfer-encoding': 'chunked',
 	});
 
 	response.flushHeaders();
@@ -58,7 +58,7 @@ const downloadHandler = (clock?: GlobalClock): Handler => (_request, response) =
 		response,
 		() => {
 			response.end();
-		}
+		},
 	);
 };
 
@@ -70,8 +70,8 @@ test.serial('does not retry after cancelation', withServerAndFakeTimers, async (
 			calculateDelay: () => {
 				t.fail('Makes a new try after cancelation');
 				return 0;
-			}
-		}
+			},
+		},
 	});
 
 	emitter.once('sentRedirect', () => {
@@ -80,7 +80,7 @@ test.serial('does not retry after cancelation', withServerAndFakeTimers, async (
 
 	await t.throwsAsync(gotPromise, {
 		instanceOf: CancelError,
-		code: 'ERR_CANCELED'
+		code: 'ERR_CANCELED',
 	});
 	await t.notThrowsAsync(promise, 'Request finished instead of aborting.');
 });
@@ -90,7 +90,7 @@ test.serial('cleans up request timeouts', withServer, async (t, server, got) => 
 
 	const gotPromise = got({
 		timeout: {
-			request: 10
+			request: 10,
 		},
 		retry: {
 			calculateDelay: ({computedValue}) => {
@@ -104,13 +104,13 @@ test.serial('cleans up request timeouts', withServer, async (t, server, got) => 
 
 				return 0;
 			},
-			limit: 1
-		}
+			limit: 1,
+		},
 	});
 
 	await t.throwsAsync(gotPromise, {
 		instanceOf: CancelError,
-		code: 'ERR_CANCELED'
+		code: 'ERR_CANCELED',
 	});
 
 	// Wait for unhandled errors
@@ -121,7 +121,7 @@ test.serial('cancels in-progress request', withServerAndFakeTimers, async (t, se
 	const {emitter, promise} = prepareServer(server, clock);
 
 	const body = new ReadableStream({
-		read() {}
+		read() {},
 	});
 	body.push('1');
 
@@ -135,7 +135,7 @@ test.serial('cancels in-progress request', withServerAndFakeTimers, async (t, se
 
 	await t.throwsAsync(gotPromise, {
 		instanceOf: CancelError,
-		code: 'ERR_CANCELED'
+		code: 'ERR_CANCELED',
 	});
 	await t.notThrowsAsync(promise, 'Request finished instead of aborting.');
 });
@@ -144,7 +144,7 @@ test.serial('cancels in-progress request with timeout', withServerAndFakeTimers,
 	const {emitter, promise} = prepareServer(server, clock);
 
 	const body = new ReadableStream({
-		read() {}
+		read() {},
 	});
 	body.push('1');
 
@@ -158,7 +158,7 @@ test.serial('cancels in-progress request with timeout', withServerAndFakeTimers,
 
 	await t.throwsAsync(gotPromise, {
 		instanceOf: CancelError,
-		code: 'ERR_CANCELED'
+		code: 'ERR_CANCELED',
 	});
 	await t.notThrowsAsync(promise, 'Request finished instead of aborting.');
 });
@@ -222,10 +222,10 @@ test.serial('throws on incomplete (canceled) response - promise', withServerAndF
 		got({
 			timeout: {request: 500},
 			retry: {
-				limit: 0
-			}
+				limit: 0,
+			},
 		}),
-		{instanceOf: TimeoutError}
+		{instanceOf: TimeoutError},
 	);
 });
 
@@ -241,7 +241,7 @@ test.serial('throws on incomplete (canceled) response - promise #2', withServer,
 
 	await t.throwsAsync(promise, {
 		instanceOf: CancelError,
-		code: 'ERR_CANCELED'
+		code: 'ERR_CANCELED',
 	});
 });
 
@@ -272,6 +272,6 @@ test('throws when canceling cached request', withServer, async (t, server, got) 
 
 	await t.throwsAsync(promise, {
 		instanceOf: CancelError,
-		code: 'ERR_CANCELED'
+		code: 'ERR_CANCELED',
 	});
 });

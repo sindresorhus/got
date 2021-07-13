@@ -1,7 +1,7 @@
-import {RequestError} from './errors.js';
 import type {IncomingMessageWithTimings, Timings} from '@szmarczak/http-timer';
-import type Request from './index.js';
+import {RequestError} from './errors.js';
 import type {ParseJsonFunction, ResponseType} from './options.js';
+import type Request from './index.js';
 
 export interface PlainResponse extends IncomingMessageWithTimings {
 	/**
@@ -145,7 +145,7 @@ export const parseBody = (response: Response, responseType: ResponseType, parseJ
 
 		throw new ParseError({
 			message: `Unknown body type '${responseType as string}'`,
-			name: 'Error'
+			name: 'Error',
 		}, response);
 	} catch (error) {
 		throw new ParseError(error, response);

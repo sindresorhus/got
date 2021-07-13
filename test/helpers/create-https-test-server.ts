@@ -1,9 +1,9 @@
 import https from 'https';
 import net from 'net';
+import type {SecureContextOptions} from 'tls';
 import express from 'express';
 import pify from 'pify';
 import pem from 'pem';
-import type {SecureContextOptions} from 'tls';
 
 export type HttpsServerOptions = {
 	commonName?: string;
@@ -31,7 +31,7 @@ const createHttpsTestServer = async (options: HttpsServerOptions = {}): Promise<
 	const caResult = await createCertificate({
 		csr: caCSRResult.csr,
 		clientKey: caCSRResult.clientKey,
-		selfSigned: true
+		selfSigned: true,
 	});
 	const caKey = caResult.clientKey;
 	const caCert = caResult.certificate;
@@ -42,7 +42,7 @@ const createHttpsTestServer = async (options: HttpsServerOptions = {}): Promise<
 		clientKey: serverCSRResult.clientKey,
 		serviceKey: caKey,
 		serviceCertificate: caCert,
-		days: options.days ?? 365
+		days: options.days ?? 365,
 	});
 	const serverKey = serverResult.clientKey;
 	const serverCert = serverResult.certificate;
@@ -58,9 +58,9 @@ const createHttpsTestServer = async (options: HttpsServerOptions = {}): Promise<
 			ciphers: options.ciphers,
 			honorCipherOrder: options.honorCipherOrder,
 			minVersion: options.minVersion,
-			maxVersion: options.maxVersion
+			maxVersion: options.maxVersion,
 		},
-		server
+		server,
 	);
 
 	server.set('etag', false);

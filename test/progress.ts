@@ -54,7 +54,7 @@ const downloadEndpoint: Handler = (_request, response) => {
 		response,
 		() => {
 			response.end();
-		}
+		},
 	);
 };
 
@@ -69,7 +69,7 @@ const uploadEndpoint: Handler = (request, response) => {
 		new SlowStream({maxWriteInterval: 100}),
 		() => {
 			response.end();
-		}
+		},
 	);
 };
 
@@ -131,8 +131,8 @@ test('upload progress - file stream', withServer, async (t, server, got) => {
 	await got.post({
 		body: fs.createReadStream(path),
 		headers: {
-			'content-length': size.toString()
-		}
+			'content-length': size.toString(),
+		},
 	})
 		.on('uploadProgress', (event: Progress) => events.push(event));
 
@@ -172,14 +172,14 @@ test('upload progress - stream with known body size', withServer, async (t, serv
 
 	const events: Progress[] = [];
 	const options = {
-		headers: {'content-length': file.length.toString()}
+		headers: {'content-length': file.length.toString()},
 	};
 
 	const request = got.stream.post(options)
 		.on('uploadProgress', event => events.push(event));
 
 	await getStream(
-		stream.pipeline(toReadableStream(file), request, () => {})
+		stream.pipeline(toReadableStream(file), request, () => {}),
 	);
 
 	checkEvents(t, events, file.length);
@@ -194,7 +194,7 @@ test('upload progress - stream with unknown body size', withServer, async (t, se
 		.on('uploadProgress', event => events.push(event));
 
 	await getStream(
-		stream.pipeline(toReadableStream(file), request, () => {})
+		stream.pipeline(toReadableStream(file), request, () => {}),
 	);
 
 	t.is(events[0]?.total, undefined);
@@ -212,12 +212,12 @@ test('upload progress - no body', withServer, async (t, server, got) => {
 		{
 			percent: 0,
 			transferred: 0,
-			total: undefined
+			total: undefined,
 		},
 		{
 			percent: 1,
 			transferred: 0,
-			total: 0
-		}
+			total: 0,
+		},
 	]);
 });

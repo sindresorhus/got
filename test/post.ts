@@ -38,7 +38,7 @@ test('GET can have body with option allowGetBody', withServer, async (t, server,
 test('invalid body', async t => {
 	await t.throwsAsync(
 		// @ts-expect-error Error tests
-		got.post('https://example.com', {body: {}})
+		got.post('https://example.com', {body: {}}),
 	);
 });
 
@@ -67,7 +67,7 @@ test('sends plain objects as forms', withServer, async (t, server, got) => {
 	server.post('/', defaultEndpoint);
 
 	const {body} = await got.post({
-		form: {such: 'wow'}
+		form: {such: 'wow'},
 	});
 
 	t.is(body, 'such=wow');
@@ -77,7 +77,7 @@ test('does not support sending arrays as forms', withServer, async (t, server, g
 	server.post('/', defaultEndpoint);
 
 	await t.throwsAsync(got.post({
-		form: ['such', 'wow']
+		form: ['such', 'wow'],
 	}));
 });
 
@@ -86,7 +86,7 @@ test('sends plain objects as JSON', withServer, async (t, server, got) => {
 
 	const {body} = await got.post({
 		json: {such: 'wow'},
-		responseType: 'json'
+		responseType: 'json',
 	});
 	t.deepEqual(body, {such: 'wow'});
 });
@@ -96,7 +96,7 @@ test('sends arrays as JSON', withServer, async (t, server, got) => {
 
 	const {body} = await got.post({
 		json: ['such', 'wow'],
-		responseType: 'json'
+		responseType: 'json',
 	});
 	t.deepEqual(body, ['such', 'wow']);
 });
@@ -157,8 +157,8 @@ test('`content-length` header is not overriden', withServer, async (t, server, g
 	const {body} = await got.post({
 		body: 'wow',
 		headers: {
-			'content-length': '10'
-		}
+			'content-length': '10',
+		},
 	});
 	const headers = JSON.parse(body);
 	t.is(headers['content-length'], '10');
@@ -170,8 +170,8 @@ test('`content-length` header is present when using custom content-type', withSe
 	const {body} = await got.post({
 		json: {foo: 'bar'},
 		headers: {
-			'content-type': 'custom'
-		}
+			'content-type': 'custom',
+		},
 	});
 	const headers = JSON.parse(body);
 	t.is(headers['content-length'], '13');
@@ -183,8 +183,8 @@ test('`content-length` header disabled for chunked transfer-encoding', withServe
 	const {body} = await got.post({
 		body: '3\r\nwow\r\n0\r\n',
 		headers: {
-			'transfer-encoding': 'chunked'
-		}
+			'transfer-encoding': 'chunked',
+		},
 	});
 	const headers = JSON.parse(body);
 	t.is(headers['transfer-encoding'], 'chunked', 'likely failed to get headers at all');
@@ -196,12 +196,12 @@ test('`content-type` header is not overriden when object in `options.body`', wit
 
 	const {body: headers} = await got.post<Record<string, string>>({
 		headers: {
-			'content-type': 'doge'
+			'content-type': 'doge',
 		},
 		json: {
-			such: 'wow'
+			such: 'wow',
 		},
-		responseType: 'json'
+		responseType: 'json',
 	});
 	t.is(headers['content-type'], 'doge');
 });
@@ -218,10 +218,10 @@ test('the `json` payload is not touched', withServer, async (t, server, got) => 
 	const {body} = await got.post<{context: {foo: true}}>({
 		json: {
 			context: {
-				foo: true
-			}
+				foo: true,
+			},
 		},
-		responseType: 'json'
+		responseType: 'json',
 	});
 
 	t.true('context' in body);
@@ -243,7 +243,7 @@ test('the `form` payload is not touched', withServer, async (t, server, got) => 
 	server.post('/', defaultEndpoint);
 
 	const form = {
-		context: true
+		context: true,
 	};
 
 	const body = await got.post({form}).text();
@@ -255,7 +255,7 @@ test('DELETE method sends plain objects as JSON', withServer, async (t, server, 
 
 	const {body} = await got.delete({
 		json: {such: 'wow'},
-		responseType: 'json'
+		responseType: 'json',
 	});
 	t.deepEqual(body, {such: 'wow'});
 });
@@ -264,9 +264,9 @@ test('catches body errors before calling pipeline() - promise', withServer, asyn
 	server.post('/', defaultEndpoint);
 
 	await t.throwsAsync(got.post({
-		body: fs.createReadStream('./file-that-does-not-exist.txt')
+		body: fs.createReadStream('./file-that-does-not-exist.txt'),
 	}), {
-		message: /ENOENT: no such file or directory/
+		message: /ENOENT: no such file or directory/,
 	});
 
 	// Wait for unhandled errors
@@ -277,9 +277,9 @@ test('catches body errors before calling pipeline() - stream', withServer, async
 	server.post('/', defaultEndpoint);
 
 	await t.throwsAsync(getStream(got.stream.post({
-		body: fs.createReadStream('./file-that-does-not-exist.txt')
+		body: fs.createReadStream('./file-that-does-not-exist.txt'),
 	})), {
-		message: /ENOENT: no such file or directory/
+		message: /ENOENT: no such file or directory/,
 	});
 
 	// Wait for unhandled errors
@@ -293,7 +293,7 @@ test('body - file read stream', withServer, async (t, server, got) => {
 	const toSend = await getStream(fs.createReadStream(fullPath));
 
 	const body = await got.post({
-		body: fs.createReadStream(fullPath)
+		body: fs.createReadStream(fullPath),
 	}).text();
 
 	t.is(toSend, body);
@@ -309,7 +309,7 @@ test('body - file read stream, wait for `ready` event', withServer, async (t, se
 	await pEvent(ifStream, 'ready');
 
 	const body = await got.post({
-		body: ifStream
+		body: ifStream,
 	}).text();
 
 	t.is(toSend, body);
@@ -329,13 +329,13 @@ test('throws on upload error', withServer, async (t, server, got) => {
 					process.nextTick(() => {
 						body.destroy(new Error(message));
 					});
-				}
-			]
-		}
+				},
+			],
+		},
 	})), {
 		instanceOf: UploadError,
 		message,
-		code: 'ERR_UPLOAD'
+		code: 'ERR_UPLOAD',
 	});
 });
 
@@ -347,11 +347,11 @@ test('formdata retry', withServer, async (t, server, got) => {
 			afterResponse: [
 				async (_response, retryWithMergedOptions) => retryWithMergedOptions({
 					headers: {
-						foo: 'bar'
-					}
-				})
-			]
-		}
+						foo: 'bar',
+					},
+				}),
+			],
+		},
 	});
 
 	const form = new FormData();
@@ -359,8 +359,8 @@ test('formdata retry', withServer, async (t, server, got) => {
 
 	await t.throwsAsync(instance.post({
 		body: form,
-		headers: form.getHeaders()
+		headers: form.getHeaders(),
 	}).json<{foo?: string}>(), {
-		message: 'Cannot retry with consumed body stream'
+		message: 'Cannot retry with consumed body stream',
 	});
 });

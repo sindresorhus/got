@@ -5,7 +5,7 @@ import Options from './core/options.js';
 const defaults: InstanceDefaults = {
 	options: new Options(),
 	handlers: [],
-	mutableDefaults: false
+	mutableDefaults: false,
 };
 
 const got = create(defaults);

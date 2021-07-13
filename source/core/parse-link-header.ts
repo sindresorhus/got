@@ -36,7 +36,7 @@ export default function parseLinkHeader(link: string) {
 
 		parsed.push({
 			reference,
-			parameters
+			parameters,
 		});
 	}
 

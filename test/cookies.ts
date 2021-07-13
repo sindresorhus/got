@@ -76,7 +76,7 @@ test('does not throw on invalid cookies when options.ignoreInvalidCookies is set
 
 	await got({
 		cookieJar,
-		ignoreInvalidCookies: true
+		ignoreInvalidCookies: true,
 	});
 
 	const cookies = cookieJar.getCookiesSync(server.url);
@@ -95,7 +95,7 @@ test('catches store errors', async t => {
 		removeCookies: () => {},
 		removeCookie: () => {},
 		updateCookie: () => {},
-		synchronous: false
+		synchronous: false,
 	});
 
 	await t.throwsAsync(got('https://example.com', {cookieJar}), {message: error});
@@ -117,8 +117,8 @@ test('overrides options.headers.cookie', withServer, async (t, server, got) => {
 	const {body} = await got('redirect', {
 		cookieJar,
 		headers: {
-			cookie: 'a=b'
-		}
+			cookie: 'a=b',
+		},
 	});
 	t.is(body, 'hello=world; foo=bar');
 });
@@ -135,8 +135,8 @@ test('no unhandled errors', async t => {
 			setCookie: async (_rawCookie: string, _url: string) => {},
 			getCookieString: async (_url: string) => {
 				throw new Error(message);
-			}
-		}
+			},
+		},
 	};
 
 	await t.throwsAsync(got(`http://127.0.0.1:${(server.address() as net.AddressInfo).port}`, options), {message});
@@ -161,7 +161,7 @@ test('accepts custom `cookieJar` object', withServer, async (t, server, got) => 
 
 		async setCookie(rawCookie: string, url: string) {
 			cookies[url] = rawCookie;
-		}
+		},
 	};
 
 	const first = await got('', {cookieJar});
@@ -175,8 +175,8 @@ test('throws on invalid `options.cookieJar.setCookie`', async t => {
 	await t.throwsAsync(got('https://example.com', {
 		cookieJar: {
 			// @ts-expect-error Error tests
-			setCookie: 123
-		}
+			setCookie: 123,
+		},
 	}), {message: 'Expected value which is `Function`, received value of type `number`.'});
 });
 
@@ -185,15 +185,15 @@ test('throws on invalid `options.cookieJar.getCookieString`', async t => {
 		cookieJar: {
 			setCookie: async () => {},
 			// @ts-expect-error Error tests
-			getCookieString: 123
-		}
+			getCookieString: 123,
+		},
 	}), {message: 'Expected value which is `Function`, received value of type `number`.'});
 });
 
 test('cookies are cleared when redirecting to a different hostname (no cookieJar)', withServer, async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.writeHead(302, {
-			location: 'https://httpbin.org/anything'
+			location: 'https://httpbin.org/anything',
 		});
 		response.end();
 	});
@@ -201,8 +201,8 @@ test('cookies are cleared when redirecting to a different hostname (no cookieJar
 	const {headers} = await got('', {
 		headers: {
 			cookie: 'foo=bar',
-			'user-agent': 'custom'
-		}
+			'user-agent': 'custom',
+		},
 	}).json();
 	t.is(headers.Cookie, undefined);
 	t.is(headers['User-Agent'], 'custom');

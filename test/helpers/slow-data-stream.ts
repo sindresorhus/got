@@ -18,6 +18,6 @@ export default function slowDataStream(clock?: Clock): Readable {
 			} else {
 				this.push(null);
 			}
-		}
+		},
 	});
 }

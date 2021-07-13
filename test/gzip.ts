@@ -51,7 +51,7 @@ test('handles gzip error', withServer, async (t, server, got) => {
 
 	await t.throwsAsync(got(''), {
 		name: 'ReadError',
-		message: 'incorrect header check'
+		message: 'incorrect header check',
 	});
 });
 
@@ -64,7 +64,7 @@ test('no unhandled `Premature close` error', withServer, async (t, server, got) 
 	await t.throwsAsync(got(''), {
 		name: 'ReadError',
 		// `The server aborted pending request` on Node.js 15 or later.
-		message: /incorrect header check|The server aborted pending request/
+		message: /incorrect header check|The server aborted pending request/,
 	});
 });
 
@@ -76,7 +76,7 @@ test('handles gzip error - stream', withServer, async (t, server, got) => {
 
 	await t.throwsAsync(getStream(got.stream('')), {
 		name: 'ReadError',
-		message: 'incorrect header check'
+		message: 'incorrect header check',
 	});
 });
 
@@ -124,7 +124,7 @@ test('does not ignore missing data', withServer, async (t, server, got) => {
 
 	await t.throwsAsync(got(''), {
 		instanceOf: ReadError,
-		message: 'unexpected end of file'
+		message: 'unexpected end of file',
 	});
 });
 

@@ -8,21 +8,21 @@ const reachedHandler: Handler = (_request, response) => {
 	const body = 'reached';
 
 	response.writeHead(200, {
-		'content-length': body.length
+		'content-length': body.length,
 	});
 	response.end(body);
 };
 
 const finiteHandler: Handler = (_request, response) => {
 	response.writeHead(302, {
-		location: '/'
+		location: '/',
 	});
 	response.end();
 };
 
 const relativeHandler: Handler = (_request, response) => {
 	response.writeHead(302, {
-		location: '/'
+		location: '/',
 	});
 	response.end();
 };
@@ -41,14 +41,14 @@ test('follows 307, 308 redirect', withServer, async (t, server, got) => {
 
 	server.get('/temporary', (_request, response) => {
 		response.writeHead(307, {
-			location: '/'
+			location: '/',
 		});
 		response.end();
 	});
 
 	server.get('/permanent', (_request, response) => {
 		response.writeHead(308, {
-			location: '/'
+			location: '/',
 		});
 		response.end();
 	});
@@ -76,7 +76,7 @@ test('relative redirect works', withServer, async (t, server, got) => {
 test('throws on endless redirects - default behavior', withServer, async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.writeHead(302, {
-			location: server.url
+			location: server.url,
 		});
 		response.end();
 	});
@@ -90,7 +90,7 @@ test('throws on endless redirects - default behavior', withServer, async (t, ser
 test('custom `maxRedirects` option', withServer, async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.writeHead(302, {
-			location: server.url
+			location: server.url,
 		});
 		response.end();
 	});
@@ -108,7 +108,7 @@ test('searchParams are not breaking redirects', withServer, async (t, server, go
 		t.is(request.query.bang, '1');
 
 		response.writeHead(302, {
-			location: '/'
+			location: '/',
 		});
 		response.end();
 	});
@@ -119,28 +119,28 @@ test('searchParams are not breaking redirects', withServer, async (t, server, go
 test('redirects GET and HEAD requests', withServer, async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.writeHead(308, {
-			location: '/'
+			location: '/',
 		});
 		response.end();
 	});
 
 	await t.throwsAsync(got.get(''), {
 		instanceOf: MaxRedirectsError,
-		code: 'ERR_TOO_MANY_REDIRECTS'
+		code: 'ERR_TOO_MANY_REDIRECTS',
 	});
 });
 
 test('redirects POST requests', withServer, async (t, server, got) => {
 	server.post('/', (_request, response) => {
 		response.writeHead(308, {
-			location: '/'
+			location: '/',
 		});
 		response.end();
 	});
 
 	await t.throwsAsync(got.post({body: 'wow'}), {
 		instanceOf: MaxRedirectsError,
-		code: 'ERR_TOO_MANY_REDIRECTS'
+		code: 'ERR_TOO_MANY_REDIRECTS',
 	});
 });
 
@@ -149,7 +149,7 @@ test('redirects on 303 if GET or HEAD', withServer, async (t, server, got) => {
 
 	server.head('/seeOther', (_request, response) => {
 		response.writeHead(303, {
-			location: '/'
+			location: '/',
 		});
 		response.end();
 	});
@@ -165,7 +165,7 @@ test('removes body on GET redirect', withServer, async (t, server, got) => {
 
 	server.post('/seeOther', (_request, response) => {
 		response.writeHead(303, {
-			location: '/'
+			location: '/',
 		});
 		response.end();
 	});
@@ -180,7 +180,7 @@ test('redirects on 303 response even on post, put, delete', withServer, async (t
 
 	server.post('/seeOther', (_request, response) => {
 		response.writeHead(303, {
-			location: '/'
+			location: '/',
 		});
 		response.end();
 	});
@@ -202,13 +202,13 @@ test('redirects from http to https work', withServer, async (t, serverHttp) => {
 
 		serverHttp.get('/httpToHttps', (_request, response) => {
 			response.writeHead(302, {
-				location: serverHttps.url
+				location: serverHttps.url,
 			});
 			response.end();
 		});
 
 		t.is((await got('httpToHttps', {
-			prefixUrl: serverHttp.url
+			prefixUrl: serverHttp.url,
 		})).body, 'https');
 	});
 });
@@ -225,13 +225,13 @@ test('redirects from https to http work', withHttpsServer(), async (t, serverHtt
 
 		serverHttps.get('/httpsToHttp', (_request, response) => {
 			response.writeHead(302, {
-				location: serverHttp.url
+				location: serverHttp.url,
 			});
 			response.end();
 		});
 
 		t.is((await got('httpsToHttp', {
-			prefixUrl: serverHttps.url
+			prefixUrl: serverHttps.url,
 		})).body, 'http');
 	});
 });
@@ -265,7 +265,7 @@ test('redirect response contains UTF-8 with binary encoding', withServer, async 
 
 	server.get('/redirect-with-utf8-binary', (_request, response) => {
 		response.writeHead(302, {
-			location: Buffer.from((new URL('/utf8-url-áé', server.url)).toString(), 'utf8').toString('binary')
+			location: Buffer.from((new URL('/utf8-url-áé', server.url)).toString(), 'utf8').toString('binary'),
 		});
 		response.end();
 	});
@@ -281,7 +281,7 @@ test('redirect response contains UTF-8 with URI encoding', withServer, async (t,
 
 	server.get('/redirect-with-uri-encoded-location', (_request, response) => {
 		response.writeHead(302, {
-			location: new URL('/?test=it’s+ok', server.url).toString()
+			location: new URL('/?test=it’s+ok', server.url).toString(),
 		});
 		response.end();
 	});
@@ -292,33 +292,33 @@ test('redirect response contains UTF-8 with URI encoding', withServer, async (t,
 test('throws on malformed redirect URI', withServer, async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.writeHead(302, {
-			location: '/%D8'
+			location: '/%D8',
 		});
 		response.end();
 	});
 
 	await t.throwsAsync(got(''), {
-		message: 'URI malformed'
+		message: 'URI malformed',
 	});
 });
 
 test('throws on invalid redirect URL', withServer, async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.writeHead(302, {
-			location: 'http://'
+			location: 'http://',
 		});
 		response.end();
 	});
 
 	await t.throwsAsync(got(''), {
-		code: 'ERR_INVALID_URL'
+		code: 'ERR_INVALID_URL',
 	});
 });
 
 test('port is reset on redirect', withServer, async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.writeHead(307, {
-			location: 'http://localhost'
+			location: 'http://localhost',
 		});
 		response.end();
 	});
@@ -332,7 +332,7 @@ test('port is reset on redirect', withServer, async (t, server, got) => {
 test('body is reset on GET redirect', withServer, async (t, server, got) => {
 	server.post('/', (_request, response) => {
 		response.writeHead(303, {
-			location: '/'
+			location: '/',
 		});
 		response.end();
 	});
@@ -347,9 +347,9 @@ test('body is reset on GET redirect', withServer, async (t, server, got) => {
 			beforeRedirect: [
 				options => {
 					t.is(options.body, undefined);
-				}
-			]
-		}
+				},
+			],
+		},
 	});
 
 	await got.post('', {
@@ -358,9 +358,9 @@ test('body is reset on GET redirect', withServer, async (t, server, got) => {
 			beforeRedirect: [
 				options => {
 					t.is(options.body, undefined);
-				}
-			]
-		}
+				},
+			],
+		},
 	});
 
 	await got.post('', {
@@ -369,16 +369,16 @@ test('body is reset on GET redirect', withServer, async (t, server, got) => {
 			beforeRedirect: [
 				options => {
 					t.is(options.body, undefined);
-				}
-			]
-		}
+				},
+			],
+		},
 	});
 });
 
 test('body is passed on POST redirect', withServer, async (t, server, got) => {
 	server.post('/redirect', (_request, response) => {
 		response.writeHead(302, {
-			location: '/'
+			location: '/',
 		});
 		response.end();
 	});
@@ -393,9 +393,9 @@ test('body is passed on POST redirect', withServer, async (t, server, got) => {
 			beforeRedirect: [
 				options => {
 					t.is(options.body, 'foobar');
-				}
-			]
-		}
+				},
+			],
+		},
 	});
 
 	t.is(body, 'foobar');
@@ -404,7 +404,7 @@ test('body is passed on POST redirect', withServer, async (t, server, got) => {
 test('method rewriting', withServer, async (t, server, got) => {
 	server.post('/redirect', (_request, response) => {
 		response.writeHead(302, {
-			location: '/'
+			location: '/',
 		});
 		response.end();
 	});
@@ -420,9 +420,9 @@ test('method rewriting', withServer, async (t, server, got) => {
 			beforeRedirect: [
 				options => {
 					t.is(options.body, undefined);
-				}
-			]
-		}
+				},
+			],
+		},
 	});
 
 	t.is(body, '');
@@ -431,14 +431,14 @@ test('method rewriting', withServer, async (t, server, got) => {
 test('clears username and password when redirecting to a different hostname', withServer, async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.writeHead(302, {
-			location: 'https://httpbin.org/anything'
+			location: 'https://httpbin.org/anything',
 		});
 		response.end();
 	});
 
 	const {headers} = await got('', {
 		username: 'hello',
-		password: 'world'
+		password: 'world',
 	}).json();
 	t.is(headers.Authorization, undefined);
 });
@@ -446,15 +446,15 @@ test('clears username and password when redirecting to a different hostname', wi
 test('clears the authorization header when redirecting to a different hostname', withServer, async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.writeHead(302, {
-			location: 'https://httpbin.org/anything'
+			location: 'https://httpbin.org/anything',
 		});
 		response.end();
 	});
 
 	const {headers} = await got('', {
 		headers: {
-			authorization: 'Basic aGVsbG86d29ybGQ='
-		}
+			authorization: 'Basic aGVsbG86d29ybGQ=',
+		},
 	}).json();
 	t.is(headers.Authorization, undefined);
 });
@@ -462,7 +462,7 @@ test('clears the authorization header when redirecting to a different hostname',
 test('preserves userinfo on redirect to the same origin', withServer, async (t, server) => {
 	server.get('/redirect', (_request, response) => {
 		response.writeHead(303, {
-			location: `http://localhost:${server.port}/`
+			location: `http://localhost:${server.port}/`,
 		});
 		response.end();
 	});

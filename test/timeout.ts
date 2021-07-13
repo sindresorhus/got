@@ -21,11 +21,11 @@ const requestDelay = 800;
 
 const errorMatcher = {
 	instanceOf: TimeoutError,
-	code: 'ETIMEDOUT'
+	code: 'ETIMEDOUT',
 };
 
 const keepAliveAgent = new http.Agent({
-	keepAlive: true
+	keepAlive: true,
 });
 
 const defaultHandler = (clock: GlobalClock): Handler => (request, response) => {
@@ -38,7 +38,7 @@ const defaultHandler = (clock: GlobalClock): Handler => (request, response) => {
 
 const downloadHandler = (clock?: GlobalClock): Handler => (_request, response) => {
 	response.writeHead(200, {
-		'transfer-encoding': 'chunked'
+		'transfer-encoding': 'chunked',
 	});
 	response.flushHeaders();
 
@@ -53,16 +53,16 @@ test.serial('timeout option', withServerAndFakeTimers, async (t, server, got, cl
 	await t.throwsAsync(
 		got({
 			timeout: {
-				request: 1
+				request: 1,
 			},
 			retry: {
-				limit: 0
-			}
+				limit: 0,
+			},
 		}),
 		{
 			...errorMatcher,
-			message: 'Timeout awaiting \'request\' for 1ms'
-		}
+			message: 'Timeout awaiting \'request\' for 1ms',
+		},
 	);
 });
 
@@ -73,13 +73,13 @@ test.serial('timeout option as object', withServerAndFakeTimers, async (t, serve
 		got({
 			timeout: {request: 1},
 			retry: {
-				limit: 0
-			}
+				limit: 0,
+			},
 		}),
 		{
 			...errorMatcher,
-			message: 'Timeout awaiting \'request\' for 1ms'
-		}
+			message: 'Timeout awaiting \'request\' for 1ms',
+		},
 	);
 });
 
@@ -88,7 +88,7 @@ test.serial('socket timeout', async t => {
 		got('https://example.com', {
 			timeout: {socket: 1},
 			retry: {
-				limit: 0
+				limit: 0,
 			},
 			request: () => {
 				const stream = new PassThroughStream();
@@ -102,13 +102,13 @@ test.serial('socket timeout', async t => {
 				stream.resume();
 
 				return stream as unknown as http.ClientRequest;
-			}
+			},
 		}),
 		{
 			instanceOf: TimeoutError,
 			code: 'ETIMEDOUT',
-			message: 'Timeout awaiting \'socket\' for 1ms'
-		}
+			message: 'Timeout awaiting \'socket\' for 1ms',
+		},
 	);
 });
 
@@ -120,8 +120,8 @@ test.serial('send timeout', withServerAndFakeTimers, async (t, server, got, cloc
 			timeout: {send: 1},
 			body: new stream.PassThrough(),
 			retry: {
-				limit: 0
-			}
+				limit: 0,
+			},
 		}).on('request', request => {
 			request.once('socket', socket => {
 				socket.once('connect', () => {
@@ -131,8 +131,8 @@ test.serial('send timeout', withServerAndFakeTimers, async (t, server, got, cloc
 		}),
 		{
 			...errorMatcher,
-			message: 'Timeout awaiting \'send\' for 1ms'
-		}
+			message: 'Timeout awaiting \'send\' for 1ms',
+		},
 	);
 });
 
@@ -147,13 +147,13 @@ test.serial('send timeout (keepalive)', withServerAndFakeTimers, async (t, serve
 	await t.throwsAsync(
 		got.post({
 			agent: {
-				http: keepAliveAgent
+				http: keepAliveAgent,
 			},
 			timeout: {send: 1},
 			retry: {
-				limit: 0
+				limit: 0,
 			},
-			body: slowDataStream(clock)
+			body: slowDataStream(clock),
 		}).on('request', (request: http.ClientRequest) => {
 			request.once('socket', socket => {
 				t.false(socket.connecting);
@@ -165,8 +165,8 @@ test.serial('send timeout (keepalive)', withServerAndFakeTimers, async (t, serve
 		}),
 		{
 			...errorMatcher,
-			message: 'Timeout awaiting \'send\' for 1ms'
-		}
+			message: 'Timeout awaiting \'send\' for 1ms',
+		},
 	);
 });
 
@@ -177,13 +177,13 @@ test.serial('response timeout', withServerAndFakeTimers, async (t, server, got, 
 		got({
 			timeout: {response: 1},
 			retry: {
-				limit: 0
-			}
+				limit: 0,
+			},
 		}),
 		{
 			...errorMatcher,
-			message: 'Timeout awaiting \'response\' for 1ms'
-		}
+			message: 'Timeout awaiting \'response\' for 1ms',
+		},
 	);
 });
 
@@ -192,9 +192,9 @@ test.serial('response timeout unaffected by slow upload', withServerAndFakeTimer
 
 	await t.notThrowsAsync(got.post({
 		retry: {
-			limit: 0
+			limit: 0,
 		},
-		body: slowDataStream(clock)
+		body: slowDataStream(clock),
 	}));
 });
 
@@ -204,8 +204,8 @@ test.serial('response timeout unaffected by slow download', withServer, async (t
 	await t.notThrowsAsync(got({
 		timeout: {response: 200},
 		retry: {
-			limit: 0
-		}
+			limit: 0,
+		},
 	}));
 
 	await delay(100);
@@ -221,12 +221,12 @@ test.serial('response timeout (keepalive)', withServerAndFakeTimers, async (t, s
 
 	const request = got({
 		agent: {
-			http: keepAliveAgent
+			http: keepAliveAgent,
 		},
 		timeout: {response: 1},
 		retry: {
-			limit: 0
-		}
+			limit: 0,
+		},
 	}).on('request', (request: http.ClientRequest) => {
 		request.once('socket', socket => {
 			t.false(socket.connecting);
@@ -238,7 +238,7 @@ test.serial('response timeout (keepalive)', withServerAndFakeTimers, async (t, s
 
 	await t.throwsAsync(request, {
 		...errorMatcher,
-		message: 'Timeout awaiting \'response\' for 1ms'
+		message: 'Timeout awaiting \'response\' for 1ms',
 	});
 });
 
@@ -256,8 +256,8 @@ test.serial('connect timeout', withServerAndFakeTimers, async (t, _server, got, 
 			},
 			timeout: {connect: 1},
 			retry: {
-				limit: 0
-			}
+				limit: 0,
+			},
 		}).on('request', (request: http.ClientRequest) => {
 			request.on('socket', () => {
 				clock.runAll();
@@ -265,8 +265,8 @@ test.serial('connect timeout', withServerAndFakeTimers, async (t, _server, got, 
 		}),
 		{
 			...errorMatcher,
-			message: 'Timeout awaiting \'connect\' for 1ms'
-		}
+			message: 'Timeout awaiting \'connect\' for 1ms',
+		},
 	);
 });
 
@@ -282,8 +282,8 @@ test.serial('connect timeout (ip address)', withServerAndFakeTimers, async (t, _
 			},
 			timeout: {connect: 1},
 			retry: {
-				limit: 0
-			}
+				limit: 0,
+			},
 		}).on('request', (request: http.ClientRequest) => {
 			request.on('socket', () => {
 				clock.runAll();
@@ -291,8 +291,8 @@ test.serial('connect timeout (ip address)', withServerAndFakeTimers, async (t, _
 		}),
 		{
 			...errorMatcher,
-			message: 'Timeout awaiting \'connect\' for 1ms'
-		}
+			message: 'Timeout awaiting \'connect\' for 1ms',
+		},
 	);
 });
 
@@ -314,8 +314,8 @@ test.serial('secureConnect timeout', withHttpsServer({}, true), async (t, _serve
 			},
 			timeout: {secureConnect: 0},
 			retry: {
-				limit: 0
-			}
+				limit: 0,
+			},
 		}).on('request', (request: http.ClientRequest) => {
 			request.on('socket', () => {
 				clock!.runAll();
@@ -323,8 +323,8 @@ test.serial('secureConnect timeout', withHttpsServer({}, true), async (t, _serve
 		}),
 		{
 			...errorMatcher,
-			message: 'Timeout awaiting \'secureConnect\' for 0ms'
-		}
+			message: 'Timeout awaiting \'secureConnect\' for 0ms',
+		},
 	);
 });
 
@@ -336,11 +336,11 @@ test('secureConnect timeout not breached', withServer, async (t, server, got) =>
 	await t.notThrowsAsync(got({
 		timeout: {secureConnect: 200},
 		retry: {
-			limit: 0
+			limit: 0,
 		},
 		httpsOptions: {
-			rejectUnauthorized: false
-		}
+			rejectUnauthorized: false,
+		},
 	}));
 });
 
@@ -352,8 +352,8 @@ test.serial('lookup timeout', withServerAndFakeTimers, async (t, server, got, cl
 			dnsLookup: () => {},
 			timeout: {lookup: 1},
 			retry: {
-				limit: 0
-			}
+				limit: 0,
+			},
 		}).on('request', (request: http.ClientRequest) => {
 			request.on('socket', () => {
 				clock.runAll();
@@ -361,8 +361,8 @@ test.serial('lookup timeout', withServerAndFakeTimers, async (t, server, got, cl
 		}),
 		{
 			...errorMatcher,
-			message: 'Timeout awaiting \'lookup\' for 1ms'
-		}
+			message: 'Timeout awaiting \'lookup\' for 1ms',
+		},
 	);
 });
 
@@ -372,7 +372,7 @@ test.serial('lookup timeout no error (ip address)', withServerAndFakeTimers, asy
 	await t.notThrowsAsync(got({
 		url: `http://127.0.0.1:${server.port}`,
 		timeout: {lookup: 1},
-		retry: {limit: 0}
+		retry: {limit: 0},
 	}));
 });
 
@@ -386,7 +386,7 @@ test.serial('lookup timeout no error (keepalive)', withServerAndFakeTimers, asyn
 	await t.notThrowsAsync(got({
 		agent: {http: keepAliveAgent},
 		timeout: {lookup: 1},
-		retry: {limit: 0}
+		retry: {limit: 0},
 	}).on('request', (request: http.ClientRequest) => {
 		request.once('connect', () => {
 			t.fail('connect event fired, invalidating test');
@@ -402,7 +402,7 @@ test.serial('retries on timeout', withServer, async (t, server, got) => {
 	let hasTried = false;
 	await t.throwsAsync(got({
 		timeout: {
-			request: 1
+			request: 1,
 		},
 		retry: {
 			calculateDelay: () => {
@@ -412,11 +412,11 @@ test.serial('retries on timeout', withServer, async (t, server, got) => {
 
 				hasTried = true;
 				return 1;
-			}
-		}
+			},
+		},
 	}), {
 		...errorMatcher,
-		message: 'Timeout awaiting \'request\' for 1ms'
+		message: 'Timeout awaiting \'request\' for 1ms',
 	});
 
 	t.true(hasTried);
@@ -427,7 +427,7 @@ test.serial('timeout with streams', withServerAndFakeTimers, async (t, server, g
 
 	const stream = got.stream({
 		timeout: {request: 0},
-		retry: {limit: 0}
+		retry: {limit: 0},
 	});
 	await t.throwsAsync(pEvent(stream, 'response'), {code: 'ETIMEDOUT'});
 });
@@ -437,11 +437,11 @@ test.serial('no error emitted when timeout is not breached (stream)', withServer
 
 	const stream = got.stream({
 		retry: {
-			limit: 0
+			limit: 0,
 		},
 		timeout: {
-			request: requestDelay * 2
-		}
+			request: requestDelay * 2,
+		},
 	});
 
 	await t.notThrowsAsync(getStream(stream));
@@ -452,11 +452,11 @@ test.serial('no error emitted when timeout is not breached (promise)', withServe
 
 	await t.notThrowsAsync(got({
 		retry: {
-			limit: 0
+			limit: 0,
 		},
 		timeout: {
-			request: requestDelay * 2
-		}
+			request: requestDelay * 2,
+		},
 	}));
 });
 
@@ -466,13 +466,13 @@ test.serial('no unhandled `socket hung up` errors', withServerAndFakeTimers, asy
 	await t.throwsAsync(
 		got({
 			retry: {
-				limit: 0
+				limit: 0,
 			},
 			timeout: {
-				request: requestDelay / 2
-			}
+				request: requestDelay / 2,
+			},
 		}),
-		{instanceOf: TimeoutError}
+		{instanceOf: TimeoutError},
 	);
 });
 
@@ -490,7 +490,7 @@ test.serial('no unhandled timeout errors', withServer, async (t, _server, got) =
 			});
 
 			return result;
-		}
+		},
 	}), {message: 'socket hang up'});
 
 	await delay(200);
@@ -504,7 +504,7 @@ test.serial('no unhandled timeout errors #2', withServer, async (t, server, got)
 
 	const gotPromise = got('', {
 		timeout: {
-			request: 20
+			request: 20,
 		},
 		retry: {
 			calculateDelay: ({computedValue}) => {
@@ -514,8 +514,8 @@ test.serial('no unhandled timeout errors #2', withServer, async (t, server, got)
 
 				return 0;
 			},
-			limit: 1
-		}
+			limit: 1,
+		},
 	});
 
 	await t.throwsAsync(gotPromise, {instanceOf: TimeoutError});
@@ -530,7 +530,7 @@ test.serial('no more timeouts after an error', withServer, async (t, _server, go
 	// @ts-expect-error
 	global.setTimeout = (callback, _ms, ...args) => {
 		const timeout = {
-			isCleared: false
+			isCleared: false,
 		};
 
 		process.nextTick(() => {
@@ -561,8 +561,8 @@ test.serial('no more timeouts after an error', withServer, async (t, _server, go
 			socket: 1,
 			response: 1,
 			send: 1,
-			request: 1
-		}
+			request: 1,
+		},
 	}), {instanceOf: TimeoutError});
 
 	await delay(100);
@@ -576,7 +576,7 @@ test.serial('socket timeout is canceled on error', withServerAndFakeTimers, asyn
 
 	const promise = got({
 		timeout: {socket: 50},
-		retry: {limit: 0}
+		retry: {limit: 0},
 	}).on('request', (request: http.ClientRequest) => {
 		request.destroy(new Error(message));
 	});
@@ -594,7 +594,7 @@ test.serial('no memory leak when using socket timeout and keepalive agent', with
 
 	await got({
 		agent: {http: keepAliveAgent},
-		timeout: {socket: requestDelay * 2}
+		timeout: {socket: requestDelay * 2},
 	}).on('request', _request => {
 		request = _request;
 	});
@@ -610,9 +610,9 @@ test('ensure there are no new timeouts after cancelation', t => {
 	(socket as any).connecting = true;
 
 	timedOut(emitter as http.ClientRequest, {
-		connect: 1
+		connect: 1,
 	}, {
-		hostname: '127.0.0.1'
+		hostname: '127.0.0.1',
 	})();
 
 	emitter.emit('socket', socket);
@@ -624,9 +624,9 @@ test('double calling timedOut has no effect', t => {
 	const emitter = new EventEmitter();
 
 	const attach = (): () => void => timedOut(emitter as http.ClientRequest, {
-		connect: 1
+		connect: 1,
 	}, {
-		hostname: '127.0.0.1'
+		hostname: '127.0.0.1',
 	});
 
 	attach();
@@ -642,7 +642,7 @@ test.serial('doesn\'t throw on early lookup', withServerAndFakeTimers, async (t,
 
 	await t.notThrowsAsync(got('', {
 		timeout: {
-			lookup: 1
+			lookup: 1,
 		},
 		retry: {limit: 0},
 		// @ts-expect-error
@@ -653,7 +653,7 @@ test.serial('doesn\'t throw on early lookup', withServerAndFakeTimers, async (t,
 
 			// @ts-expect-error Invalid types upstream.
 			callback(null, '127.0.0.1', 4);
-		}
+		},
 	}));
 });
 
@@ -665,7 +665,7 @@ test.serial('no unhandled `Premature close` error', withServer, async (t, server
 
 	await t.throwsAsync(got({
 		timeout: {request: 10},
-		retry: {limit: 0}
+		retry: {limit: 0},
 	}), {message: 'Timeout awaiting \'request\' for 10ms'});
 
 	await delay(20);
@@ -679,11 +679,11 @@ test.serial('`read` timeout - promise', withServer, async (t, server, got) => {
 
 	await t.throwsAsync(got({
 		timeout: {
-			read: 10
+			read: 10,
 		},
 		retry: {
-			limit: 0
-		}
+			limit: 0,
+		},
 	}), {message: 'Timeout awaiting \'read\' for 10ms'});
 });
 
@@ -697,8 +697,8 @@ test.serial.failing('`read` timeout - stream', withServer, async (t, server, got
 
 	const stream = got.stream({
 		timeout: {
-			read: 10
-		}
+			read: 10,
+		},
 	});
 
 	await t.throwsAsync(pEvent(stream, 'end'), {message: 'Timeout awaiting \'read\' for 10ms'});
@@ -712,11 +712,11 @@ test.serial('cancelling the request removes timeouts', withServer, async (t, ser
 
 	const promise = got({
 		timeout: {
-			request: 500
+			request: 500,
 		},
 		retry: {
-			limit: 0
-		}
+			limit: 0,
+		},
 	}).on('downloadProgress', () => {
 		promise.cancel();
 	}).on('request', request => {
@@ -738,11 +738,11 @@ test('timeouts are emitted ASAP', async t => {
 
 	const error = await t.throwsAsync<TimeoutError>(got('http://192.0.2.1/test', {
 		retry: {
-			limit: 0
+			limit: 0,
 		},
 		timeout: {
-			request: timeout
-		}
+			request: timeout,
+		},
 	}), {instanceOf: TimeoutError});
 
 	t.true(error.timings.phases.total! < (timeout + marginOfError));
@@ -751,12 +751,12 @@ test('timeouts are emitted ASAP', async t => {
 test('http2 timeout', async t => {
 	const error = await t.throwsAsync<RequestError>(got('https://123.123.123.123', {
 		timeout: {
-			request: 1
+			request: 1,
 		},
 		http2: true,
 		retry: {
-			calculateDelay: ({computedValue}) => computedValue ? 1 : 0
-		}
+			calculateDelay: ({computedValue}) => computedValue ? 1 : 0,
+		},
 	}));
 
 	t.true(error.code === 'ETIMEDOUT' || error.code === 'EUNSUPPORTED', error.stack);

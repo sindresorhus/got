@@ -4,14 +4,14 @@ import PCancelable from 'p-cancelable';
 import {
 	RequestError,
 	HTTPError,
-	RetryError
+	RetryError,
 } from '../core/errors.js';
 import Request from '../core/index.js';
 import {parseBody, isResponseOk} from '../core/response.js';
 import proxyEvents from '../core/utils/proxy-events.js';
-import {CancelError} from './types.js';
 import type Options from '../core/options.js';
 import type {Response} from '../core/response.js';
+import {CancelError} from './types.js';
 import type {CancelableRequest} from './types.js';
 
 const proxiedRequestEvents = [
@@ -19,7 +19,7 @@ const proxiedRequestEvents = [
 	'response',
 	'redirect',
 	'uploadProgress',
-	'downloadProgress'
+	'downloadProgress',
 ];
 
 export default function asPromise<T>(firstRequest: Request): CancelableRequest<T> {

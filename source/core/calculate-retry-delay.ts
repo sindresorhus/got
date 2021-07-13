@@ -7,7 +7,7 @@ const calculateRetryDelay: Returns<RetryFunction, number> = ({
 	retryOptions,
 	error,
 	retryAfter,
-	computedValue
+	computedValue,
 }) => {
 	if (error.name === 'RetryError') {
 		return 1;

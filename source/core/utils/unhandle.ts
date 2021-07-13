@@ -35,6 +35,6 @@ export default function unhandle(): Unhandler {
 			}
 
 			handlers.length = 0;
-		}
+		},
 	};
 }

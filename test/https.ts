@@ -19,8 +19,8 @@ test('https request without ca', withHttpsServer(), async (t, server, got) => {
 	t.truthy((await got({
 		httpsOptions: {
 			certificateAuthority: [],
-			rejectUnauthorized: false
-		}
+			rejectUnauthorized: false,
+		},
 	})).body);
 });
 
@@ -64,9 +64,9 @@ test('https request with ca and afterResponse hook', withHttpsServer(), async (t
 					}
 
 					return response;
-				}
-			]
-		}
+				},
+			],
+		},
 	});
 
 	t.is(body, 'ok');
@@ -83,8 +83,8 @@ test('https request with `checkServerIdentity` OK', withHttpsServer(), async (t,
 				t.is(hostname, 'localhost');
 				t.is(certificate.subject.CN, 'localhost');
 				t.is(certificate.issuer.CN, 'authority');
-			}
-		}
+			},
+		},
 	});
 
 	t.is(body, 'ok');
@@ -103,15 +103,15 @@ test('https request with `checkServerIdentity` NOT OK', withHttpsServer(), async
 				t.is(certificate.issuer.CN, 'authority');
 
 				return new Error('CUSTOM_ERROR');
-			}
-		}
+			},
+		},
 	});
 
 	await t.throwsAsync(
 		promise,
 		{
-			message: 'CUSTOM_ERROR'
-		}
+			message: 'CUSTOM_ERROR',
+		},
 	);
 });
 
@@ -122,8 +122,8 @@ test('https request with `checkServerIdentity` NOT OK', withHttpsServer(), async
 		await t.throwsAsync(
 			got({}),
 			{
-				code: 'CERT_HAS_EXPIRED'
-			}
+				code: 'CERT_HAS_EXPIRED',
+			},
 		);
 	});
 }
@@ -132,14 +132,14 @@ test('https request with wrong host', withHttpsServer({commonName: 'not-localhos
 	await t.throwsAsync(
 		got({}),
 		{
-			code: 'ERR_TLS_CERT_ALTNAME_INVALID'
-		}
+			code: 'ERR_TLS_CERT_ALTNAME_INVALID',
+		},
 	);
 });
 
 test('http2', async t => {
 	const promise = got('https://httpbin.org/anything', {
-		http2: true
+		http2: true,
 	});
 
 	try {
@@ -169,9 +169,9 @@ test.serial('deprecated `rejectUnauthorized` option', withHttpsServer(), async (
 
 	await t.throwsAsync(got({
 		// @ts-expect-error
-		rejectUnauthorized: false
+		rejectUnauthorized: false,
 	}), {
-		message: 'Unexpected option: rejectUnauthorized'
+		message: 'Unexpected option: rejectUnauthorized',
 	});
 });
 
@@ -187,8 +187,8 @@ test.serial('non-deprecated `rejectUnauthorized` option', withHttpsServer(), asy
 
 	await got({
 		httpsOptions: {
-			rejectUnauthorized: false
-		}
+			rejectUnauthorized: false,
+		},
 	});
 
 	t.pass();
@@ -201,7 +201,7 @@ test('client certificate', withHttpsServer(), async (t, server, got) => {
 
 		response.json({
 			authorized: (request.socket as any).authorized,
-			peerCertificate
+			peerCertificate,
 		});
 	});
 
@@ -210,7 +210,7 @@ test('client certificate', withHttpsServer(), async (t, server, got) => {
 		csr: clientCSRResult.csr,
 		clientKey: clientCSRResult.clientKey,
 		serviceKey: (server as any).caKey,
-		serviceCertificate: (server as any).caCert
+		serviceCertificate: (server as any).caCert,
 	});
 	// eslint-disable-next-line prefer-destructuring
 	const clientKey = clientResult.clientKey;
@@ -219,8 +219,8 @@ test('client certificate', withHttpsServer(), async (t, server, got) => {
 	const response = await got({
 		httpsOptions: {
 			key: clientKey,
-			certificate: clientCert
-		}
+			certificate: clientCert,
+		},
 	}).json<{
 		authorized: boolean;
 		peerCertificate: {
@@ -241,7 +241,7 @@ test('invalid client certificate (self-signed)', withHttpsServer(), async (t, se
 
 		response.json({
 			authorized: (request.socket as any).authorized,
-			peerCertificate
+			peerCertificate,
 		});
 	});
 
@@ -249,7 +249,7 @@ test('invalid client certificate (self-signed)', withHttpsServer(), async (t, se
 	const clientResult = await createCertificate({
 		csr: clientCSRResult.csr,
 		clientKey: clientCSRResult.clientKey,
-		selfSigned: true
+		selfSigned: true,
 	});
 	// eslint-disable-next-line prefer-destructuring
 	const clientKey = clientResult.clientKey;
@@ -258,8 +258,8 @@ test('invalid client certificate (self-signed)', withHttpsServer(), async (t, se
 	const response = await got({
 		httpsOptions: {
 			key: clientKey,
-			certificate: clientCert
-		}
+			certificate: clientCert,
+		},
 	}).json<{
 		authorized: boolean;
 	}>();
@@ -273,7 +273,7 @@ test('invalid client certificate (other CA)', withHttpsServer(), async (t, serve
 
 		response.json({
 			authorized: (request.socket as any).authorized,
-			peerCertificate
+			peerCertificate,
 		});
 	});
 
@@ -281,7 +281,7 @@ test('invalid client certificate (other CA)', withHttpsServer(), async (t, serve
 	const caResult = await createCertificate({
 		csr: caCSRResult.csr,
 		clientKey: caCSRResult.clientKey,
-		selfSigned: true
+		selfSigned: true,
 	});
 	const caKey = caResult.clientKey;
 	const caCert = caResult.certificate;
@@ -291,7 +291,7 @@ test('invalid client certificate (other CA)', withHttpsServer(), async (t, serve
 		csr: clientCSRResult.csr,
 		clientKey: clientCSRResult.clientKey,
 		serviceKey: caKey,
-		serviceCertificate: caCert
+		serviceCertificate: caCert,
 	});
 	// eslint-disable-next-line prefer-destructuring
 	const clientKey = clientResult.clientKey;
@@ -300,8 +300,8 @@ test('invalid client certificate (other CA)', withHttpsServer(), async (t, serve
 	const response = await got({
 		httpsOptions: {
 			key: clientKey,
-			certificate: clientCert
-		}
+			certificate: clientCert,
+		},
 	}).json<{
 		authorized: boolean;
 		peerCertificate: {
@@ -328,26 +328,26 @@ test('key passphrase', withHttpsServer(), async (t, server, got) => {
 
 		response.json({
 			authorized: (request.socket as any).authorized,
-			peerCertificate
+			peerCertificate,
 		});
 	});
 
 	const {key: clientKey} = await createPrivateKey(2048, {
 		cipher: 'aes256',
-		password: 'randomPassword'
+		password: 'randomPassword',
 	});
 	const clientCSRResult = await createCSR({
 		// eslint-disable-next-line object-shorthand
 		clientKey: clientKey,
 		clientKeyPassword: 'randomPassword',
-		commonName: 'client'
+		commonName: 'client',
 	});
 	const clientResult = await createCertificate({
 		csr: clientCSRResult.csr,
 		clientKey: clientCSRResult.clientKey,
 		clientKeyPassword: 'randomPassword',
 		serviceKey: (server as any).caKey,
-		serviceCertificate: (server as any).caCert
+		serviceCertificate: (server as any).caCert,
 	});
 	const clientCert = clientResult.certificate;
 
@@ -355,8 +355,8 @@ test('key passphrase', withHttpsServer(), async (t, server, got) => {
 		httpsOptions: {
 			key: clientKey,
 			passphrase: 'randomPassword',
-			certificate: clientCert
-		}
+			certificate: clientCert,
+		},
 	}).json<{
 		authorized: boolean;
 		peerCertificate: {
@@ -383,26 +383,26 @@ test('invalid key passphrase', withHttpsServer(), async (t, server, got) => {
 
 		response.json({
 			authorized: (request.socket as any).authorized,
-			peerCertificate
+			peerCertificate,
 		});
 	});
 
 	const {key: clientKey} = await createPrivateKey(2048, {
 		cipher: 'aes256',
-		password: 'randomPassword'
+		password: 'randomPassword',
 	});
 	const clientCSRResult = await createCSR({
 		// eslint-disable-next-line object-shorthand
 		clientKey: clientKey,
 		clientKeyPassword: 'randomPassword',
-		commonName: 'client'
+		commonName: 'client',
 	});
 	const clientResult = await createCertificate({
 		csr: clientCSRResult.csr,
 		clientKey: clientCSRResult.clientKey,
 		clientKeyPassword: 'randomPassword',
 		serviceKey: (server as any).caKey,
-		serviceCertificate: (server as any).caCert
+		serviceCertificate: (server as any).caCert,
 	});
 	const clientCert = clientResult.certificate;
 
@@ -410,12 +410,12 @@ test('invalid key passphrase', withHttpsServer(), async (t, server, got) => {
 		httpsOptions: {
 			key: clientKey,
 			passphrase: 'wrongPassword',
-			certificate: clientCert
-		}
+			certificate: clientCert,
+		},
 	});
 
 	await t.throwsAsync(request, {
-		code: 'ERR_OSSL_EVP_BAD_DECRYPT'
+		code: 'ERR_OSSL_EVP_BAD_DECRYPT',
 	});
 });
 
@@ -426,7 +426,7 @@ test('client certificate PFX', withHttpsServer(), async (t, server, got) => {
 
 		response.json({
 			authorized: (request.socket as any).authorized,
-			peerCertificate
+			peerCertificate,
 		});
 	});
 
@@ -435,7 +435,7 @@ test('client certificate PFX', withHttpsServer(), async (t, server, got) => {
 		csr: clientCSRResult.csr,
 		clientKey: clientCSRResult.clientKey,
 		serviceKey: (server as any).caKey,
-		serviceCertificate: (server as any).caCert
+		serviceCertificate: (server as any).caCert,
 	});
 	// eslint-disable-next-line prefer-destructuring
 	const clientKey = clientResult.clientKey;
@@ -446,8 +446,8 @@ test('client certificate PFX', withHttpsServer(), async (t, server, got) => {
 	const response = await got({
 		httpsOptions: {
 			pfx: pkcs12,
-			passphrase: 'randomPassword'
-		}
+			passphrase: 'randomPassword',
+		},
 	}).json<{
 		authorized: boolean;
 		peerCertificate: {
@@ -466,14 +466,14 @@ const ciphers = tls.getCiphers().map(cipher => cipher.toUpperCase());
 test('https request with `ciphers` option', withHttpsServer({ciphers: `${ciphers[0]!}:${ciphers[1]!}:${ciphers[2]!}`}), async (t, server, got) => {
 	server.get('/', (request, response) => {
 		response.json({
-			cipher: (request.socket as any).getCipher().name
+			cipher: (request.socket as any).getCipher().name,
 		});
 	});
 
 	const response = await got({
 		httpsOptions: {
-			ciphers: ciphers[0]
-		}
+			ciphers: ciphers[0],
+		},
 	}).json<{cipher: string}>();
 
 	t.is(response.cipher, ciphers[0]);
@@ -482,15 +482,15 @@ test('https request with `ciphers` option', withHttpsServer({ciphers: `${ciphers
 test('https request with `honorCipherOrder` option', withHttpsServer({ciphers: `${ciphers[0]!}:${ciphers[1]!}`}), async (t, server, got) => {
 	server.get('/', (request, response) => {
 		response.json({
-			cipher: (request.socket as any).getCipher().name
+			cipher: (request.socket as any).getCipher().name,
 		});
 	});
 
 	const response = await got({
 		httpsOptions: {
 			ciphers: `${ciphers[1]!}:${ciphers[0]!}`,
-			honorCipherOrder: true
-		}
+			honorCipherOrder: true,
+		},
 	}).json<{cipher: string}>();
 
 	t.is(response.cipher, ciphers[0]);
@@ -499,17 +499,17 @@ test('https request with `honorCipherOrder` option', withHttpsServer({ciphers: `
 test('https request with `minVersion` option', withHttpsServer({maxVersion: 'TLSv1.2'}), async (t, server, got) => {
 	server.get('/', (request, response) => {
 		response.json({
-			version: (request.socket as any).getCipher().version
+			version: (request.socket as any).getCipher().version,
 		});
 	});
 
 	const request = got({
 		httpsOptions: {
-			minVersion: 'TLSv1.3'
-		}
+			minVersion: 'TLSv1.3',
+		},
 	});
 
 	await t.throwsAsync(request, {
-		code: 'EPROTO'
+		code: 'EPROTO',
 	});
 });

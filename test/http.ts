@@ -94,7 +94,7 @@ test('invalid protocol throws', async t => {
 	await t.throwsAsync(got('c:/nope.com').json(), {
 		instanceOf: RequestError,
 		message: 'Unsupported protocol: c:',
-		code: 'ERR_UNSUPPORTED_PROTOCOL'
+		code: 'ERR_UNSUPPORTED_PROTOCOL',
 	});
 });
 
@@ -157,7 +157,7 @@ test('response contains got options', withServer, async (t, server, got) => {
 	{
 		const options = {
 			username: 'foo',
-			password: 'bar'
+			password: 'bar',
 		};
 
 		const {options: normalizedOptions} = (await got(options)).request;
@@ -168,7 +168,7 @@ test('response contains got options', withServer, async (t, server, got) => {
 
 	{
 		const options = {
-			username: 'foo'
+			username: 'foo',
 		};
 
 		const {options: normalizedOptions} = (await got(options)).request;
@@ -179,7 +179,7 @@ test('response contains got options', withServer, async (t, server, got) => {
 
 	{
 		const options = {
-			password: 'bar'
+			password: 'bar',
 		};
 
 		const {options: normalizedOptions} = (await got(options)).request;
@@ -195,7 +195,7 @@ test('socket destroyed by the server throws ECONNRESET', withServer, async (t, s
 	});
 
 	await t.throwsAsync(got('', {retry: {limit: 0}}), {
-		code: 'ECONNRESET'
+		code: 'ECONNRESET',
 	});
 });
 
@@ -213,7 +213,7 @@ test('the response contains timings property', withServer, async (t, server, got
 test('throws an error if the server aborted the request', withServer, async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.writeHead(200, {
-			'content-type': 'text/plain'
+			'content-type': 'text/plain',
 		});
 		response.write('chunk 1');
 
@@ -228,7 +228,7 @@ test('throws an error if the server aborted the request', withServer, async (t, 
 
 	const error = await t.throwsAsync<ReadError>(got(''), {
 		message: 'The server aborted pending request',
-		code: 'ECONNRESET'
+		code: 'ECONNRESET',
 	});
 
 	t.truthy(error.response.retryCount);
@@ -239,7 +239,7 @@ test('statusMessage fallback', async t => {
 
 	const {statusMessage} = await got('http://statusMessageFallback', {
 		throwHttpErrors: false,
-		retry: {limit: 0}
+		retry: {limit: 0},
 	});
 
 	t.is(statusMessage, STATUS_CODES[503]);
@@ -253,11 +253,11 @@ test('does not destroy completed requests', withServer, async (t, server, got) =
 
 	const options = {
 		agent: {
-			http: new Agent({keepAlive: true})
+			http: new Agent({keepAlive: true}),
 		},
 		retry: {
-			limit: 0
-		}
+			limit: 0,
+		},
 	};
 
 	const stream = got.stream(options);
@@ -298,7 +298,7 @@ test('DNS auto', withServer, async (t, server, got) => {
 	server.get('/ok', echoIp);
 
 	const response = await got('ok', {
-		dnsLookupIpVersion: undefined
+		dnsLookupIpVersion: undefined,
 	});
 
 	t.true(isIPv4(response.body));
@@ -308,7 +308,7 @@ test('DNS IPv4', withServer, async (t, server, got) => {
 	server.get('/ok', echoIp);
 
 	const response = await got('ok', {
-		dnsLookupIpVersion: 4
+		dnsLookupIpVersion: 4,
 	});
 
 	t.true(isIPv4(response.body));
@@ -319,7 +319,7 @@ testIPv6('DNS IPv6', withServer, async (t, server, got) => {
 	server.get('/ok', echoIp);
 
 	const response = await got('ok', {
-		dnsLookupIpVersion: 6
+		dnsLookupIpVersion: 6,
 	});
 
 	t.true(isIPv6(response.body));
@@ -329,7 +329,7 @@ test('invalid `dnsLookupIpVersion`', withServer, async (t, server, got) => {
 	server.get('/ok', echoIp);
 
 	await t.throwsAsync(got('ok', {
-		dnsLookupIpVersion: 'test'
+		dnsLookupIpVersion: 'test',
 	} as any));
 });
 
@@ -340,9 +340,9 @@ test('deprecated `family` option', withServer, async (t, server, got) => {
 
 	await t.throwsAsync(got({
 		// @ts-expect-error
-		family: 4
+		family: 4,
 	}), {
-		message: 'Unexpected option: family'
+		message: 'Unexpected option: family',
 	});
 });
 
@@ -354,6 +354,6 @@ test('JSON request custom stringifier', withServer, async (t, server, got) => {
 
 	t.deepEqual((await got.post({
 		stringifyJson: customStringify,
-		json: payload
+		json: payload,
 	})).body, customStringify(payload));
 });

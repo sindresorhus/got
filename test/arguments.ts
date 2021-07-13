@@ -15,8 +15,8 @@ test('`url` is required', async t => {
 		// @ts-expect-error No argument on purpose.
 		got(),
 		{
-			message: 'Missing `url` property'
-		}
+			message: 'Missing `url` property',
+		},
 	);
 
 	const firstError = await t.throwsAsync(got(''));
@@ -30,21 +30,21 @@ test('`url` should be utf-8 encoded', async t => {
 	await t.throwsAsync(
 		got('https://example.com/%D2%E0%EB%EB%E8%ED'),
 		{
-			message: 'URI malformed'
-		}
+			message: 'URI malformed',
+		},
 	);
 });
 
 test('throws if no arguments provided', async t => {
 	// @ts-expect-error Error tests
 	await t.throwsAsync(got(), {
-		message: 'Missing `url` property'
+		message: 'Missing `url` property',
 	});
 });
 
 test('throws if the url option is missing', async t => {
 	await t.throwsAsync(got({}), {
-		message: 'Missing `url` property'
+		message: 'Missing `url` property',
 	});
 });
 
@@ -80,8 +80,8 @@ test('methods are normalized', withServer, async (t, server, got) => {
 				}
 
 				return next(options);
-			}
-		]
+			},
+		],
 	});
 
 	await instance('test', {method: 'post'});
@@ -92,7 +92,7 @@ test('throws an error when legacy URL is passed', withServer, async (t, server) 
 
 	await t.throwsAsync(
 		// @ts-expect-error Error tests
-		got(parse(`${server.url}/test`))
+		got(parse(`${server.url}/test`)),
 	);
 
 	// TODO: Assert message above.
@@ -101,9 +101,9 @@ test('throws an error when legacy URL is passed', withServer, async (t, server) 
 		got({
 			protocol: 'http:',
 			hostname: 'localhost',
-			port: server.port
+			port: server.port,
 		} as any),
-		{message: 'Unexpected option: protocol'}
+		{message: 'Unexpected option: protocol'},
 	);
 });
 
@@ -114,9 +114,9 @@ test('overrides `searchParams` from options', withServer, async (t, server, got)
 		'?drop=this',
 		{
 			searchParams: {
-				test: 'wow'
-			}
-		}
+				test: 'wow',
+			},
+		},
 	);
 
 	t.is(body, '/?test=wow');
@@ -126,7 +126,7 @@ test('does not duplicate `searchParams`', withServer, async (t, server, got) => 
 	server.get('/', echoUrl);
 
 	const instance = got.extend({
-		searchParams: new URLSearchParams({foo: '123'})
+		searchParams: new URLSearchParams({foo: '123'}),
 	});
 
 	const body = await instance('?bar=456').text();
@@ -139,8 +139,8 @@ test('escapes `searchParams` parameter values', withServer, async (t, server, go
 
 	const {body} = await got({
 		searchParams: {
-			test: 'it’s ok'
-		}
+			test: 'it’s ok',
+		},
 	});
 
 	t.is(body, '/?test=it%E2%80%99s+ok');
@@ -163,7 +163,7 @@ test('ignores empty searchParams object', withServer, async (t, server, got) => 
 
 test('throws when passing body with a non payload method', async t => {
 	await t.throwsAsync(got('https://example.com', {body: 'asdf'}), {
-		message: 'The `GET` method cannot be used with a body'
+		message: 'The `GET` method cannot be used with a body',
 	});
 });
 
@@ -206,15 +206,15 @@ test('throws when `options.hooks` is not an object', async t => {
 		// @ts-expect-error Error tests
 		got('https://example.com', {hooks: 'not object'}),
 		{
-			message: 'Expected value which is `Object`, received value of type `string`.'
-		}
+			message: 'Expected value which is `Object`, received value of type `string`.',
+		},
 	);
 });
 
 test('throws when known `options.hooks` value is not an array', async t => {
 	await t.throwsAsync(
 		// @ts-expect-error Error tests
-		got('https://example.com', {hooks: {beforeRequest: {}}})
+		got('https://example.com', {hooks: {beforeRequest: {}}}),
 	);
 
 	// TODO: Assert message above.
@@ -225,8 +225,8 @@ test('throws when known `options.hooks` array item is not a function', async t =
 		// @ts-expect-error Error tests
 		got('https://example.com', {hooks: {beforeRequest: [{}]}}),
 		{
-			message: 'Expected value which is `Function`, received value of type `Object`.'
-		}
+			message: 'Expected value which is `Function`, received value of type `Object`.',
+		},
 	);
 });
 
@@ -235,7 +235,7 @@ test('does not allow extra keys in `options.hooks`', withServer, async (t, serve
 
 	// @ts-expect-error Error tests
 	await t.throwsAsync(got('test', {hooks: {extra: []}}), {
-		message: 'Unexpected hook event: extra'
+		message: 'Unexpected hook event: extra',
 	});
 });
 
@@ -272,8 +272,8 @@ test('`prefixUrl` can be changed if the URL contains the old one', withServer, a
 			(options, next) => {
 				options.prefixUrl = server.url;
 				return next(options);
-			}
-		]
+			},
+		],
 	});
 
 	const {body} = await instanceA('');
@@ -284,8 +284,8 @@ test('throws if the `searchParams` value is invalid', async t => {
 	await t.throwsAsync(got('https://example.com', {
 		searchParams: {
 			// @ts-expect-error Error tests
-			foo: []
-		}
+			foo: [],
+		},
 	}));
 
 	// TODO: Assert message above.
@@ -295,7 +295,7 @@ test.failing('`context` option is enumerable', withServer, async (t, server, got
 	server.get('/', echoUrl);
 
 	const context = {
-		foo: 'bar'
+		foo: 'bar',
 	};
 
 	await got({
@@ -305,9 +305,9 @@ test.failing('`context` option is enumerable', withServer, async (t, server, got
 				options => {
 					t.deepEqual(options.context, context);
 					t.true(Object.prototype.propertyIsEnumerable.call(options, 'context'));
-				}
-			]
-		}
+				},
+			],
+		},
 	});
 });
 
@@ -315,7 +315,7 @@ test('`context` option is accessible when using hooks', withServer, async (t, se
 	server.get('/', echoUrl);
 
 	const context = {
-		foo: 'bar'
+		foo: 'bar',
 	};
 
 	await got(server.url, {
@@ -325,15 +325,15 @@ test('`context` option is accessible when using hooks', withServer, async (t, se
 				options => {
 					t.deepEqual(options.context, context);
 					t.false(Object.prototype.propertyIsEnumerable.call(options, 'context'));
-				}
-			]
-		}
+				},
+			],
+		},
 	});
 });
 
 test('`context` option is accessible when extending instances', t => {
 	const context = {
-		foo: 'bar'
+		foo: 'bar',
 	};
 
 	const instance = got.extend({context});
@@ -344,11 +344,11 @@ test('`context` option is accessible when extending instances', t => {
 
 test('`context` option is shallow merged', t => {
 	const context = {
-		foo: 'bar'
+		foo: 'bar',
 	};
 
 	const context2 = {
-		bar: 'baz'
+		bar: 'baz',
 	};
 
 	const instance1 = got.extend({context});
@@ -364,28 +364,28 @@ test('`context` option is shallow merged', t => {
 test('throws if `options.encoding` is `null`', async t => {
 	await t.throwsAsync(got('https://example.com', {
 		// @ts-expect-error For testing purposes
-		encoding: null
+		encoding: null,
 	}), {message: 'To get a Buffer, set `options.responseType` to `buffer` instead'});
 });
 
 test('`url` option and input argument are mutually exclusive', async t => {
 	await t.throwsAsync(got('https://example.com', {
-		url: 'https://example.com'
+		url: 'https://example.com',
 	}), {message: 'The `url` option is mutually exclusive with the `input` argument'});
 });
 
 test('throws a helpful error when passing `followRedirects`', async t => {
 	await t.throwsAsync(got('https://example.com', {
 		// @ts-expect-error For testing purposes
-		followRedirects: true
+		followRedirects: true,
 	}), {message: 'The `followRedirects` option does not exist. Use `followRedirect` instead.'});
 });
 
 test('merges `searchParams` instances', t => {
 	const instance = got.extend({
-		searchParams: new URLSearchParams('a=1')
+		searchParams: new URLSearchParams('a=1'),
 	}, {
-		searchParams: new URLSearchParams('b=2')
+		searchParams: new URLSearchParams('b=2'),
 	});
 
 	// eslint-disable-next-line unicorn/prevent-abbreviations
@@ -398,22 +398,22 @@ test('merges `searchParams` instances', t => {
 test('throws a helpful error when passing `auth`', async t => {
 	await t.throwsAsync(got('https://example.com', {
 		// @ts-expect-error For testing purposes
-		auth: 'username:password'
+		auth: 'username:password',
 	}), {
-		message: 'Parameter `auth` is deprecated. Use `username` / `password` instead.'
+		message: 'Parameter `auth` is deprecated. Use `username` / `password` instead.',
 	});
 });
 
 test('throws on leading slashes', async t => {
 	await t.throwsAsync(got('/asdf', {prefixUrl: 'https://example.com'}), {
-		message: '`url` must not start with a slash'
+		message: '`url` must not start with a slash',
 	});
 });
 
 test('throws on invalid `dnsCache` option', async t => {
 	await t.throwsAsync(got('https://example.com', {
 		// @ts-expect-error Error tests
-		dnsCache: 123
+		dnsCache: 123,
 	}));
 
 	// TODO: Assert message above.
@@ -423,8 +423,8 @@ test('throws on invalid `agent` option', async t => {
 	await t.throwsAsync(got('https://example.com', {
 		agent: {
 			// @ts-expect-error Error tests
-			asdf: 123
-		}
+			asdf: 123,
+		},
 	}), {message: 'Unexpected agent option: asdf'});
 });
 
@@ -460,7 +460,7 @@ test('does not throw on frozen options', withServer, async (t, server, got) => {
 
 test('encodes query string included in input', t => {
 	const {url} = new Options({
-		url: new URL('https://example.com/?a=b c')
+		url: new URL('https://example.com/?a=b c'),
 	});
 
 	t.is(url!.search, '?a=b%20c');
@@ -469,7 +469,7 @@ test('encodes query string included in input', t => {
 test('normalizes search params included in options', t => {
 	const {url} = new Options({
 		url: new URL('https://example.com'),
-		searchParams: 'a=b c'
+		searchParams: 'a=b c',
 	});
 
 	t.is(url!.search, '?a=b+c');
@@ -485,9 +485,9 @@ test('reuse options while using init hook', withServer, async (t, server, got) =
 			init: [
 				() => {
 					t.pass();
-				}
-			]
-		}
+				},
+			],
+		},
 	};
 
 	await got('', options);
@@ -507,9 +507,9 @@ test('allowGetBody sends json payload', withBodyParsingServer, async (t, server,
 		allowGetBody: true,
 		json: {hello: 'world'},
 		retry: {
-			limit: 0
+			limit: 0,
 		},
-		throwHttpErrors: false
+		throwHttpErrors: false,
 	});
 	t.is(statusCode, 200);
 });
@@ -524,9 +524,9 @@ test('no URL pollution', withServer, async (t, server) => {
 			beforeRequest: [
 				options => {
 					(options.url as URL).pathname = '/ok';
-				}
-			]
-		}
+				},
+			],
+		},
 	});
 
 	t.is(url.pathname, '/');
@@ -553,48 +553,48 @@ test('throws on too large noise', t => {
 	t.throws(() => {
 		new Options({
 			retry: {
-				noise: 101
-			}
+				noise: 101,
+			},
 		});
 	}, {
-		message: 'The maximum acceptable retry noise is +/- 100ms, got 101'
+		message: 'The maximum acceptable retry noise is +/- 100ms, got 101',
 	});
 
 	t.throws(() => {
 		new Options({
 			retry: {
-				noise: -101
-			}
+				noise: -101,
+			},
 		});
 	}, {
-		message: 'The maximum acceptable retry noise is +/- 100ms, got -101'
+		message: 'The maximum acceptable retry noise is +/- 100ms, got -101',
 	});
 
 	t.throws(() => {
 		new Options({
 			retry: {
-				noise: Number.POSITIVE_INFINITY
-			}
+				noise: Number.POSITIVE_INFINITY,
+			},
 		});
 	}, {
-		message: 'The maximum acceptable retry noise is +/- 100ms, got Infinity'
+		message: 'The maximum acceptable retry noise is +/- 100ms, got Infinity',
 	});
 
 	t.throws(() => {
 		new Options({
 			retry: {
-				noise: Number.NEGATIVE_INFINITY
-			}
+				noise: Number.NEGATIVE_INFINITY,
+			},
 		});
 	}, {
-		message: 'The maximum acceptable retry noise is +/- 100ms, got -Infinity'
+		message: 'The maximum acceptable retry noise is +/- 100ms, got -Infinity',
 	});
 
 	t.notThrows(() => {
 		new Options({
 			retry: {
-				noise: 0
-			}
+				noise: 0,
+			},
 		});
 	});
 
@@ -604,7 +604,7 @@ test('throws on too large noise', t => {
 test('options have url even if some are invalid', async t => {
 	const error = await t.throwsAsync<RequestError>(got('https://example.com', {
 		// @ts-expect-error
-		invalid: true
+		invalid: true,
 	}));
 
 	t.is((error.options.url as URL).href, 'https://example.com/');
@@ -616,12 +616,12 @@ test('options have url even if some are invalid - got.extend', async t => {
 			(options, next) => {
 				t.is((options.url as URL).href, 'https://example.com/');
 				return next(options);
-			}
-		]
+			},
+		],
 	});
 
 	await t.throwsAsync(instance('https://example.com', {
 		// @ts-expect-error
-		invalid: true
+		invalid: true,
 	}));
 });

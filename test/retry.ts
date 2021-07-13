@@ -15,7 +15,7 @@ const socketTimeout = 300;
 
 const handler413: Handler = (_request, response) => {
 	response.writeHead(413, {
-		'Retry-After': retryAfterOn413
+		'Retry-After': retryAfterOn413,
 	});
 	response.end();
 };
@@ -42,12 +42,12 @@ test('works on timeout', withServer, async (t, server, got) => {
 
 	t.is((await got({
 		timeout: {
-			socket: socketTimeout
+			socket: socketTimeout,
 		},
 		request: (...args: [
 			string | URL | http.RequestOptions,
 			(http.RequestOptions | ((response: http.IncomingMessage) => void))?,
-			((response: http.IncomingMessage) => void)?
+			((response: http.IncomingMessage) => void)?,
 		]) => {
 			if (knocks === 1) {
 				// @ts-expect-error Overload error
@@ -56,7 +56,7 @@ test('works on timeout', withServer, async (t, server, got) => {
 
 			knocks++;
 			return createSocketTimeoutStream();
-		}
+		},
 	})).body, 'who`s there?');
 });
 
@@ -77,8 +77,8 @@ test('retry function gets iteration count', withServer, async (t, server, got) =
 			calculateDelay: ({attemptCount}) => {
 				t.true(is.number(attemptCount));
 				return attemptCount < 2 ? 1 : 0;
-			}
-		}
+			},
+		},
 	});
 });
 
@@ -89,12 +89,12 @@ test('setting to `0` disables retrying', async t => {
 			calculateDelay: ({attemptCount}) => {
 				t.is(attemptCount, 1);
 				return 0;
-			}
+			},
 		},
-		request: () => createSocketTimeoutStream()
+		request: () => createSocketTimeoutStream(),
 	}), {
 		instanceOf: TimeoutError,
-		message: `Timeout awaiting 'socket' for ${socketTimeout}ms`
+		message: `Timeout awaiting 'socket' for ${socketTimeout}ms`,
 	});
 });
 
@@ -117,12 +117,12 @@ test('custom retries', withServer, async (t, server, got) => {
 				return 0;
 			},
 			methods: [
-				'GET'
+				'GET',
 			],
 			statusCodes: [
-				500
-			]
-		}
+				500,
+			],
+		},
 	}));
 	t.is(error.response.statusCode, 500);
 	t.true(hasTried);
@@ -151,12 +151,12 @@ test('custom retries async', withServer, async (t, server, got) => {
 				return 0;
 			},
 			methods: [
-				'GET'
+				'GET',
 			],
 			statusCodes: [
-				500
-			]
-		}
+				500,
+			],
+		},
 	}));
 	t.is(error.response.statusCode, 500);
 	t.true(hasTried);
@@ -190,12 +190,12 @@ test('custom error codes', async t => {
 				return 0;
 			},
 			methods: [
-				'GET'
+				'GET',
 			],
 			errorCodes: [
-				errorCode
-			]
-		}
+				errorCode,
+			],
+		},
 	}));
 
 	t.is(error.code, errorCode);
@@ -205,7 +205,7 @@ test('respects 413 Retry-After', withServer, async (t, server, got) => {
 	let lastTried413access = Date.now();
 	server.get('/', (_request, response) => {
 		response.writeHead(413, {
-			'Retry-After': retryAfterOn413
+			'Retry-After': retryAfterOn413,
 		});
 		response.end((Date.now() - lastTried413access).toString());
 
@@ -215,8 +215,8 @@ test('respects 413 Retry-After', withServer, async (t, server, got) => {
 	const {statusCode, body} = await got({
 		throwHttpErrors: false,
 		retry: {
-			limit: 1
-		}
+			limit: 1,
+		},
 	});
 	t.is(statusCode, 413);
 	t.true(Number(body) >= retryAfterOn413 * 1000);
@@ -228,7 +228,7 @@ test('respects 413 Retry-After with RFC-1123 timestamp', withServer, async (t, s
 		const date = (new Date(Date.now() + (retryAfterOn413 * 1000))).toUTCString();
 
 		response.writeHead(413, {
-			'Retry-After': date
+			'Retry-After': date,
 		});
 		response.end(lastTried413TimestampAccess);
 		lastTried413TimestampAccess = date;
@@ -237,8 +237,8 @@ test('respects 413 Retry-After with RFC-1123 timestamp', withServer, async (t, s
 	const {statusCode, body} = await got({
 		throwHttpErrors: false,
 		retry: {
-			limit: 1
-		}
+			limit: 1,
+		},
 	});
 	t.is(statusCode, 413);
 	t.true(Date.now() >= Date.parse(body));
@@ -252,8 +252,8 @@ test('doesn\'t retry on 413 with empty statusCodes and methods', withServer, asy
 		retry: {
 			limit: 1,
 			statusCodes: [],
-			methods: []
-		}
+			methods: [],
+		},
 	});
 	t.is(statusCode, 413);
 	t.is(retryCount, 0);
@@ -267,8 +267,8 @@ test('doesn\'t retry on 413 with empty methods', withServer, async (t, server, g
 		retry: {
 			limit: 1,
 			statusCodes: [413],
-			methods: []
-		}
+			methods: [],
+		},
 	});
 	t.is(statusCode, 413);
 	t.is(retryCount, 0);
@@ -281,7 +281,7 @@ test('doesn\'t retry on 413 without Retry-After header', withServer, async (t, s
 	});
 
 	const {retryCount} = await got({
-		throwHttpErrors: false
+		throwHttpErrors: false,
 	});
 	t.is(retryCount, 0);
 });
@@ -295,8 +295,8 @@ test('retries on 503 without Retry-After header', withServer, async (t, server, 
 	const {retryCount} = await got({
 		throwHttpErrors: false,
 		retry: {
-			limit: 1
-		}
+			limit: 1,
+		},
 	});
 	t.is(retryCount, 1);
 });
@@ -307,13 +307,13 @@ test('doesn\'t retry on streams', withServer, async (t, server, got) => {
 	// @ts-expect-error Error tests
 	const stream = got.stream({
 		timeout: {
-			request: 1
+			request: 1,
 		},
 		retry: {
 			calculateDelay: () => {
 				t.fail('Retries on streams');
-			}
-		}
+			},
+		},
 	});
 	await t.throwsAsync(pEvent(stream, 'response'));
 });
@@ -323,7 +323,7 @@ test('doesn\'t retry if Retry-After header is greater than maxRetryAfter', withS
 
 	const {retryCount} = await got({
 		retry: {maxRetryAfter: 1000},
-		throwHttpErrors: false
+		throwHttpErrors: false,
 	});
 	t.is(retryCount, 0);
 });
@@ -334,8 +334,8 @@ test('doesn\'t retry when set to 0', withServer, async (t, server, got) => {
 	const {statusCode, retryCount} = await got({
 		throwHttpErrors: false,
 		retry: {
-			limit: 0
-		}
+			limit: 0,
+		},
 	});
 	t.is(statusCode, 413);
 	t.is(retryCount, 0);
@@ -346,12 +346,12 @@ test('works when defaults.options.retry is a number', withServer, async (t, serv
 
 	const instance = got.extend({
 		retry: {
-			limit: 2
-		}
+			limit: 2,
+		},
 	});
 
 	const {retryCount} = await instance({
-		throwHttpErrors: false
+		throwHttpErrors: false,
 	});
 	t.is(retryCount, 2);
 });
@@ -364,8 +364,8 @@ test('retry function can throw', withServer, async (t, server, got) => {
 		retry: {
 			calculateDelay: () => {
 				throw new Error(error);
-			}
-		}
+			},
+		},
 	}), {message: error});
 });
 
@@ -374,15 +374,15 @@ test('does not retry on POST', withServer, async (t, server, got) => {
 
 	await t.throwsAsync(got.post({
 		timeout: {
-			request: 200
+			request: 200,
 		},
 		hooks: {
 			beforeRetry: [
 				() => {
 					t.fail('Retries on POST requests');
-				}
-			]
-		}
+				},
+			],
+		},
 	}), {instanceOf: TimeoutError});
 });
 
@@ -397,7 +397,7 @@ test('does not break on redirect', withServer, async (t, server, got) => {
 		tries++;
 
 		response.writeHead(302, {
-			location: '/'
+			location: '/',
 		});
 		response.end();
 	});
@@ -421,13 +421,13 @@ test('does not destroy the socket on HTTP error', withServer, async (t, server, 
 	const sockets: Socket[] = [];
 
 	const agent = new http.Agent({
-		keepAlive: true
+		keepAlive: true,
 	});
 
 	await got('', {
 		agent: {
-			http: agent
-		}
+			http: agent,
+		},
 	}).on('request', request => {
 		sockets.push(request.socket!);
 	});
@@ -520,7 +520,7 @@ test('throws when cannot retry a Got stream', withServer, async (t, server, got)
 	});
 
 	const error = await t.throwsAsync<HTTPError>(streamPromise, {
-		instanceOf: HTTPError
+		instanceOf: HTTPError,
 	});
 
 	t.is(error.response.statusCode, 500);
@@ -539,10 +539,10 @@ test('promise does not retry when body is a stream', withServer, async (t, serve
 
 	const response = await got.post({
 		retry: {
-			methods: ['POST']
+			methods: ['POST'],
 		},
 		body,
-		throwHttpErrors: false
+		throwHttpErrors: false,
 	});
 
 	t.is(response.retryCount, 0);
@@ -586,8 +586,8 @@ test('respects backoffLimit', withServer, async (t, server, got) => {
 
 	const body = await got('', {
 		retry: {
-			backoffLimit: 0
-		}
+			backoffLimit: 0,
+		},
 	}).json<number[]>();
 
 	t.is(body.length, 3);

@@ -1,11 +1,15 @@
 import {Duplex, Writable, Readable} from 'stream';
 import {URL, URLSearchParams} from 'url';
 import http, {ServerResponse} from 'http';
+import type {ClientRequest, RequestOptions} from 'http';
+import type {Socket} from 'net';
 import timer from '@szmarczak/http-timer';
 import CacheableRequest from 'cacheable-request';
 import decompressResponse from 'decompress-response';
 import is from '@sindresorhus/is';
 import {buffer as getBuffer} from 'get-stream';
+import type {ClientRequestWithTimings, Timings, IncomingMessageWithTimings} from '@szmarczak/http-timer';
+import type ResponseLike from 'responselike';
 import getBodySize from './utils/get-body-size.js';
 import isFormData from './utils/is-form-data.js';
 import proxyEvents from './utils/proxy-events.js';
@@ -23,12 +27,8 @@ import {
 	HTTPError,
 	TimeoutError,
 	UploadError,
-	CacheError
+	CacheError,
 } from './errors.js';
-import type {ClientRequestWithTimings, Timings, IncomingMessageWithTimings} from '@szmarczak/http-timer';
-import type {ClientRequest, RequestOptions} from 'http';
-import type {Socket} from 'net';
-import type ResponseLike from 'responselike';
 import type {PlainResponse} from './response.js';
 import type {PromiseCookieJar, NativeRequestOptions, RetryOptions} from './options.js';
 
@@ -124,7 +124,7 @@ const proxiedRequestEvents = [
 	'connect',
 	'continue',
 	'information',
-	'upgrade'
+	'upgrade',
 ];
 
 const noop = () => {};
@@ -174,7 +174,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			// Don't destroy immediately, as the error may be emitted on unsuccessful retry
 			autoDestroy: false,
 			// It needs to be zero because we're just proxying the data to another stream
-			highWaterMark: 0
+			highWaterMark: 0,
 		});
 
 		this._downloadedSize = 0;
@@ -374,8 +374,8 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 							retryOptions,
 							error: typedError,
 							retryAfter,
-							computedValue: retryOptions.maxRetryAfter ?? options.timeout.request ?? Number.POSITIVE_INFINITY
-						})
+							computedValue: retryOptions.maxRetryAfter ?? options.timeout.request ?? Number.POSITIVE_INFINITY,
+						}),
 					});
 				} catch (error_) {
 					void this._error(new RequestError(error_.message, error_, this));
@@ -681,7 +681,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			this._beforeError(new ReadError({
 				name: 'Error',
 				message: 'The server aborted pending request',
-				code: 'ECONNRESET'
+				code: 'ECONNRESET',
 			}, this));
 		});
 
@@ -982,7 +982,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 					return result;
 				}) as typeof http.request,
-				cache as CacheableRequest.StorageAdapter
+				cache as CacheableRequest.StorageAdapter,
 			));
 		}
 	}
@@ -1174,7 +1174,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		return {
 			percent,
 			transferred: this._downloadedSize,
-			total: this._responseSize
+			total: this._responseSize,
 		};
 	}
 
@@ -1194,7 +1194,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		return {
 			percent,
 			transferred: this._uploadedSize,
-			total: this._bodySize
+			total: this._bodySize,
 		};
 	}
 

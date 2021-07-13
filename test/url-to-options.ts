@@ -15,7 +15,7 @@ test('converts node legacy URL to options', t => {
 		pathname: '/say',
 		port: 443,
 		protocol: 'https:',
-		search: '?hello=world'
+		search: '?hello=world',
 	};
 
 	t.deepEqual(options, expected);
@@ -34,7 +34,7 @@ test('converts URL to options', t => {
 		path: '/say?hello=world',
 		pathname: '/say',
 		protocol: 'https:',
-		search: '?hello=world'
+		search: '?hello=world',
 	};
 
 	t.deepEqual(options, expected);
@@ -52,7 +52,7 @@ test('converts IPv6 URL to options', t => {
 		path: '/',
 		pathname: '/',
 		protocol: 'https:',
-		search: ''
+		search: '',
 	};
 
 	t.deepEqual(options, expected);
@@ -70,7 +70,7 @@ test('only adds port to options for URLs with ports', t => {
 		path: '/',
 		pathname: '/',
 		protocol: 'https:',
-		search: ''
+		search: '',
 	};
 
 	t.deepEqual(options, expected);
@@ -92,7 +92,7 @@ test('does not concat null search to path', t => {
 		path: '/',
 		pathname: '/',
 		protocol: 'https:',
-		search: null
+		search: null,
 	};
 
 	t.deepEqual(options, expected);
@@ -113,7 +113,7 @@ test('does not add null port to options', t => {
 		path: '/',
 		pathname: '/',
 		protocol: 'https:',
-		search: null
+		search: null,
 	};
 
 	t.deepEqual(options, expected);
@@ -126,7 +126,7 @@ test('does not throw if there is no hostname', t => {
 test('null password', t => {
 	const options = urlToOptions({
 		username: 'foo',
-		password: null
+		password: null,
 	} as any);
 
 	t.is(options.auth, 'foo:');
@@ -135,7 +135,7 @@ test('null password', t => {
 test('null username', t => {
 	const options = urlToOptions({
 		username: null,
-		password: 'bar'
+		password: 'bar',
 	} as any);
 
 	t.is(options.auth, ':bar');

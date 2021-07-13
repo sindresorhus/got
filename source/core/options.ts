@@ -3,30 +3,30 @@ import {URL, URLSearchParams} from 'url';
 import {checkServerIdentity} from 'tls';
 import {request as httpRequest} from 'http';
 import {request as httpsRequest} from 'https';
-import http2wrapper from 'http2-wrapper';
-import CacheableLookup from 'cacheable-lookup';
-import lowercaseKeys from 'lowercase-keys';
-import is, {assert} from '@sindresorhus/is';
-import parseLinkHeader from './parse-link-header.js';
 import type {Readable} from 'stream';
 import type {Socket} from 'net';
 import type {SecureContextOptions, DetailedPeerCertificate} from 'tls';
 import type {
 	Agent as HttpAgent,
-	ClientRequest
+	ClientRequest,
 } from 'http';
 import type {
 	RequestOptions as HttpsRequestOptions,
-	Agent as HttpsAgent
+	Agent as HttpsAgent,
 } from 'https';
 import type {InspectOptions} from 'util';
+import is, {assert} from '@sindresorhus/is';
+import lowercaseKeys from 'lowercase-keys';
+import CacheableLookup from 'cacheable-lookup';
+import http2wrapper from 'http2-wrapper';
 import type CacheableRequest from 'cacheable-request';
 import type ResponseLike from 'responselike';
 import type {IncomingMessageWithTimings} from '@szmarczak/http-timer';
-import type {Delays} from './timed-out.js';
-import type {RequestError} from './errors.js';
-import type {PlainResponse, Response} from './response.js';
 import type {CancelableRequest} from '../as-promise/types.js';
+import parseLinkHeader from './parse-link-header.js';
+import type {PlainResponse, Response} from './response.js';
+import type {RequestError} from './errors.js';
+import type {Delays} from './timed-out.js';
 
 type Promisable<T> = T | Promise<T>;
 
@@ -549,7 +549,7 @@ const defaultInternals: Options['_internals'] = {
 	agent: {
 		http: undefined,
 		https: undefined,
-		http2: undefined
+		http2: undefined,
 	},
 	decompress: true,
 	timeout: {
@@ -560,7 +560,7 @@ const defaultInternals: Options['_internals'] = {
 		response: undefined,
 		secureConnect: undefined,
 		send: undefined,
-		socket: undefined
+		socket: undefined,
 	},
 	prefixUrl: '',
 	body: undefined,
@@ -578,7 +578,7 @@ const defaultInternals: Options['_internals'] = {
 		beforeError: [],
 		beforeRedirect: [],
 		beforeRetry: [],
-		afterResponse: []
+		afterResponse: [],
 	},
 	followRedirect: true,
 	maxRedirects: 10,
@@ -589,7 +589,7 @@ const defaultInternals: Options['_internals'] = {
 	http2: false,
 	allowGetBody: false,
 	headers: {
-		'user-agent': 'got (https://github.com/sindresorhus/got)'
+		'user-agent': 'got (https://github.com/sindresorhus/got)',
 	},
 	methodRewriting: false,
 	dnsLookupIpVersion: undefined,
@@ -603,7 +603,7 @@ const defaultInternals: Options['_internals'] = {
 			'HEAD',
 			'DELETE',
 			'OPTIONS',
-			'TRACE'
+			'TRACE',
 		],
 		statusCodes: [
 			408,
@@ -615,7 +615,7 @@ const defaultInternals: Options['_internals'] = {
 			504,
 			521,
 			522,
-			524
+			524,
 		],
 		errorCodes: [
 			'ETIMEDOUT',
@@ -625,12 +625,12 @@ const defaultInternals: Options['_internals'] = {
 			'EPIPE',
 			'ENOTFOUND',
 			'ENETUNREACH',
-			'EAI_AGAIN'
+			'EAI_AGAIN',
 		],
 		maxRetryAfter: undefined,
 		calculateDelay: ({computedValue}) => computedValue,
 		backoffLimit: Number.POSITIVE_INFINITY,
-		noise: 100
+		noise: 100,
 	},
 	localAddress: undefined,
 	method: 'GET',
@@ -639,7 +639,7 @@ const defaultInternals: Options['_internals'] = {
 		shared: undefined,
 		cacheHeuristic: undefined,
 		immutableMinTimeToLive: undefined,
-		ignoreCargoCult: undefined
+		ignoreCargoCult: undefined,
 	},
 	httpsOptions: {
 		alpnProtocols: undefined,
@@ -658,7 +658,7 @@ const defaultInternals: Options['_internals'] = {
 		tlsSessionLifetime: undefined,
 		dhparam: undefined,
 		ecdhCurve: undefined,
-		certificateRevocationLists: undefined
+		certificateRevocationLists: undefined,
 	},
 	encoding: undefined,
 	resolveBodyOnly: false,
@@ -693,10 +693,10 @@ const defaultInternals: Options['_internals'] = {
 		countLimit: Number.POSITIVE_INFINITY,
 		backoff: 0,
 		requestLimit: 10_000,
-		stackAllItems: false
+		stackAllItems: false,
 	},
 	setHost: true,
-	maxHeaderSize: undefined
+	maxHeaderSize: undefined,
 };
 
 const cloneInternals = (internals: typeof defaultInternals): typeof defaultInternals => {
@@ -713,7 +713,7 @@ const cloneInternals = (internals: typeof defaultInternals): typeof defaultInter
 			...retry,
 			errorCodes: [...retry.errorCodes!],
 			methods: [...retry.methods!],
-			statusCodes: [...retry.statusCodes!]
+			statusCodes: [...retry.statusCodes!],
 		},
 		timeout: {...internals.timeout},
 		hooks: {
@@ -722,10 +722,10 @@ const cloneInternals = (internals: typeof defaultInternals): typeof defaultInter
 			beforeError: [...hooks.beforeError],
 			beforeRedirect: [...hooks.beforeRedirect],
 			beforeRetry: [...hooks.beforeRetry],
-			afterResponse: [...hooks.afterResponse]
+			afterResponse: [...hooks.afterResponse],
 		},
 		searchParameters: internals.searchParams ? new URLSearchParams(internals.searchParams as URLSearchParams) : undefined,
-		pagination: {...internals.pagination}
+		pagination: {...internals.pagination},
 	};
 
 	if (result.url !== undefined) {
@@ -1217,7 +1217,7 @@ export default class Options {
 				this._unixOptions = {
 					socketPath,
 					path,
-					host: ''
+					host: '',
 				};
 			} else {
 				this._unixOptions = undefined;
@@ -1258,7 +1258,7 @@ export default class Options {
 
 			this._internals.cookieJar = {
 				setCookie,
-				getCookieString: getCookieString as PromiseCookieJar['getCookieString']
+				getCookieString: getCookieString as PromiseCookieJar['getCookieString'],
 			};
 		} else {
 			this._internals.cookieJar = value;
@@ -2164,7 +2164,7 @@ export default class Options {
 			localAddress: internals.localAddress,
 			headers: internals.headers,
 			createConnection: internals.createConnection,
-			timeout: internals.http2 ? getHttp2TimeoutOption(internals) : undefined
+			timeout: internals.http2 ? getHttp2TimeoutOption(internals) : undefined,
 		};
 	}
 
@@ -2248,7 +2248,7 @@ const nonEnumerableProperties = new Set([
 	'_unixOptions',
 	'_internals',
 	'_merging',
-	'_init'
+	'_init',
 ]);
 
 // We want all the properties to be enumerable, so people instead doing
