@@ -829,7 +829,6 @@ export default class Options {
 
 		init(this, options, this);
 		init(options, options, this);
-		this._init.push(options);
 
 		// This is way much faster than cloning ^_^
 		Object.freeze(options);
@@ -846,6 +845,8 @@ export default class Options {
 		this._merging = true;
 
 		try {
+			let push = false;
+
 			for (const key in options) {
 				// `got.extend()` options
 				if (key === 'mutableDefaults' || key === 'handlers') {
@@ -863,6 +864,12 @@ export default class Options {
 
 				// @ts-expect-error Type 'unknown' is not assignable to type 'never'.
 				this[key as keyof Options] = options[key as keyof Options];
+
+				push = true;
+			}
+
+			if (push) {
+				this._init.push(options);
 			}
 		} finally {
 			this._merging = false;
