@@ -236,6 +236,12 @@ const fn = retryCount => {
 fn(0);
 ```
 
+### `h2c`
+
+There is no direct [`h2c`](https://datatracker.ietf.org/doc/html/rfc7540#section-3.1) support.
+
+However, you can provide a `h2session` option in a `beforeRequest` hook. See [an example](examples/h2c.js).
+
 ### Electron `net` module is not supported
 
 Got doesn't support the `electron.net` module. It's missing crucial APIs that are available in Node.js.\

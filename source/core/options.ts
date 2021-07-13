@@ -18,7 +18,7 @@ import type {InspectOptions} from 'util';
 import is, {assert} from '@sindresorhus/is';
 import lowercaseKeys from 'lowercase-keys';
 import CacheableLookup from 'cacheable-lookup';
-import http2wrapper from 'http2-wrapper';
+import http2wrapper, {ClientHttp2Session} from 'http2-wrapper';
 import type CacheableRequest from 'cacheable-request';
 import type ResponseLike from 'responselike';
 import type {IncomingMessageWithTimings} from '@szmarczak/http-timer';
@@ -551,6 +551,7 @@ const defaultInternals: Options['_internals'] = {
 		https: undefined,
 		http2: undefined,
 	},
+	h2session: undefined,
 	decompress: true,
 	timeout: {
 		connect: undefined,
@@ -935,6 +936,14 @@ export default class Options {
 		} else {
 			this._internals.agent = {...value};
 		}
+	}
+
+	get h2session(): ClientHttp2Session | undefined {
+		return this._internals.h2session;
+	}
+
+	set h2session(value: ClientHttp2Session | undefined) {
+		this._internals.h2session = value;
 	}
 
 	/**
@@ -2165,6 +2174,9 @@ export default class Options {
 			headers: internals.headers,
 			createConnection: internals.createConnection,
 			timeout: internals.http2 ? getHttp2TimeoutOption(internals) : undefined,
+
+			// HTTP/2 options
+			h2session: internals.h2session,
 		};
 	}
 

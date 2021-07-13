@@ -744,6 +744,9 @@ If `true`, the `request` option will default to `http2wrapper.auto` and the enti
 **Note:**
 > - Setting the `request` option to `https.request` will disable HTTP/2 usage, even if the `http2` option is `true`. It is required to use `http2wrapper.auto`.
 
+**Note:**
+> - There is no direct [`h2c`](https://datatracker.ietf.org/doc/html/rfc7540#section-3.1) support. However, you can provide a `h2session` option in a `beforeRequest` hook. See [an example](examples/h2c.js).
+
 ```js
 import got from 'got';
 

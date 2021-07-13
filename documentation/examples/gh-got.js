@@ -14,7 +14,8 @@ const getRateLimit = (headers) => ({
 const instance = got.extend({
 	prefixUrl: 'https://api.github.com',
 	headers: {
-		accept: 'application/vnd.github.v3+json'
+		accept: 'application/vnd.github.v3+json',
+		'user-agent': `${packageJson.name}/${packageJson.version}`
 	},
 	responseType: 'json',
 	context: {

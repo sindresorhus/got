@@ -1052,7 +1052,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		// Reset `prefixUrl`
 		options.prefixUrl = '';
 
-		let request = options.getRequestFunction();
+		let request: ReturnType<Options['getRequestFunction']> | undefined;
 
 		for (const hook of options.hooks.beforeRequest) {
 			// eslint-disable-next-line no-await-in-loop
@@ -1063,6 +1063,10 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 				request = () => result;
 				break;
 			}
+		}
+
+		if (!request) {
+			request = options.getRequestFunction();
 		}
 
 		const url = options.url as URL;
