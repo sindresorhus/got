@@ -304,7 +304,7 @@ test.failing('`context` option is enumerable', withServer, async (t, server, got
 			beforeRequest: [
 				options => {
 					t.deepEqual(options.context, context);
-					t.true({}.propertyIsEnumerable.call(options, 'context'));
+					t.true(Object.prototype.propertyIsEnumerable.call(options, 'context'));
 				}
 			]
 		}
@@ -324,7 +324,7 @@ test('`context` option is accessible when using hooks', withServer, async (t, se
 			beforeRequest: [
 				options => {
 					t.deepEqual(options.context, context);
-					t.false({}.propertyIsEnumerable.call(options, 'context'));
+					t.false(Object.prototype.propertyIsEnumerable.call(options, 'context'));
 				}
 			]
 		}
@@ -339,7 +339,7 @@ test('`context` option is accessible when extending instances', t => {
 	const instance = got.extend({context});
 
 	t.deepEqual(instance.defaults.options.context, context);
-	t.false({}.propertyIsEnumerable.call(instance.defaults.options, 'context'));
+	t.false(Object.prototype.propertyIsEnumerable.call(instance.defaults.options, 'context'));
 });
 
 test('`context` option is shallow merged', t => {
@@ -354,7 +354,7 @@ test('`context` option is shallow merged', t => {
 	const instance1 = got.extend({context});
 
 	t.deepEqual(instance1.defaults.options.context, context);
-	t.false({}.propertyIsEnumerable.call(instance1.defaults.options, 'context'));
+	t.false(Object.prototype.propertyIsEnumerable.call(instance1.defaults.options, 'context'));
 
 	const instance2 = instance1.extend({context: context2});
 

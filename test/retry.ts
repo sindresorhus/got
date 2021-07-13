@@ -91,9 +91,7 @@ test('setting to `0` disables retrying', async t => {
 				return 0;
 			}
 		},
-		request: () => {
-			return createSocketTimeoutStream();
-		}
+		request: () => createSocketTimeoutStream()
 	}), {
 		instanceOf: TimeoutError,
 		message: `Timeout awaiting 'socket' for ${socketTimeout}ms`

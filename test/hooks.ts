@@ -361,14 +361,12 @@ test('returning HTTP response from a beforeRequest hook', withServer, async (t, 
 	const {statusCode, headers, body} = await got({
 		hooks: {
 			beforeRequest: [
-				() => {
-					return new Responselike(
-						200,
-						{foo: 'bar'},
-						Buffer.from('Hi!'),
-						''
-					);
-				}
+				() => new Responselike(
+					200,
+					{foo: 'bar'},
+					Buffer.from('Hi!'),
+					''
+				)
 			]
 		}
 	});
@@ -679,13 +677,11 @@ test('no infinity loop when retrying on afterResponse', withServer, async (t, se
 		},
 		hooks: {
 			afterResponse: [
-				(_response, retryWithMergedOptions) => {
-					return retryWithMergedOptions({
-						headers: {
-							token: 'invalid'
-						}
-					});
-				}
+				(_response, retryWithMergedOptions) => retryWithMergedOptions({
+					headers: {
+						token: 'invalid'
+					}
+				})
 			]
 		}
 	}), {instanceOf: HTTPError, message: 'Response code 401 (Unauthorized)'});

@@ -41,9 +41,9 @@ test('https request with ca and afterResponse hook', withHttpsServer(), async (t
 
 	const warningListener = (warning: any) => {
 		if (
-			warning.name === 'DeprecationWarning' &&
-			warning.message === 'Got: "options.ca" was never documented, please use ' +
-				'"options.https.certificateAuthority"'
+			warning.name === 'DeprecationWarning'
+				&& warning.message === 'Got: "options.ca" was never documented, please use '
+					+ '"options.https.certificateAuthority"'
 		) {
 			process.off('warning', warningListener);
 			t.fail('unexpected deprecation warning');

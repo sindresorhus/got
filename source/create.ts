@@ -92,6 +92,7 @@ const create = (defaults: InstanceDefaults): Got => {
 						}
 					}
 
+					// eslint-disable-next-line @typescript-eslint/no-floating-promises
 					Object.defineProperties(result, descriptors);
 
 					result.cancel = promise.cancel;
@@ -234,9 +235,7 @@ const create = (defaults: InstanceDefaults): Got => {
 	for (const method of aliases) {
 		got[method] = ((url: string | URL, options?: Options): GotReturn => got(url, {...options, method})) as GotRequestFunction;
 
-		got.stream[method] = ((url: string | URL, options?: StreamOptions) => {
-			return got(url, {...options, method, isStream: true});
-		}) as GotStream;
+		got.stream[method] = ((url: string | URL, options?: StreamOptions) => got(url, {...options, method, isStream: true})) as GotStream;
 	}
 
 	if (!defaults.mutableDefaults) {

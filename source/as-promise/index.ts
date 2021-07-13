@@ -185,6 +185,7 @@ export default function asPromise<T>(firstRequest: Request): CancelableRequest<T
 			return parseBody(globalResponse, responseType, options.parseJson, options.encoding);
 		})();
 
+		// eslint-disable-next-line @typescript-eslint/no-floating-promises
 		Object.defineProperties(newPromise, Object.getOwnPropertyDescriptors(promise));
 
 		return newPromise as CancelableRequest<T>;

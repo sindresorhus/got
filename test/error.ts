@@ -25,8 +25,8 @@ test('properties', withServer, async (t, server, got) => {
 	t.truthy(error);
 	t.truthy(error.response);
 	t.truthy(error.options);
-	t.true({}.propertyIsEnumerable.call(error, 'options'));
-	t.false({}.propertyIsEnumerable.call(error, 'response'));
+	t.true(Object.prototype.propertyIsEnumerable.call(error, 'options'));
+	t.false(Object.prototype.propertyIsEnumerable.call(error, 'response'));
 	t.is(error.code, 'ERR_NON_2XX_3XX_RESPONSE');
 	t.is(error.message, 'Response code 404 (Not Found)');
 	t.deepEqual(error.options.url, url);

@@ -1166,8 +1166,7 @@ export default class Options {
 			return;
 		}
 
-		// eslint-disable-next-line @typescript-eslint/prefer-string-starts-ends-with
-		if (is.string(value) && value[0] === '/') {
+		if (is.string(value) && value.startsWith('/')) {
 			throw new Error('`url` must not start with a slash');
 		}
 

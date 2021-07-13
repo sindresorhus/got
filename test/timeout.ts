@@ -538,15 +538,16 @@ test.serial('no more timeouts after an error', withServer, async (t, _server, go
 				return;
 			}
 
+			// @ts-expect-error
 			callback(...args);
 		});
 
 		return timeout;
 	};
 
-	// @ts-expect-error
 	global.clearTimeout = timeout => {
 		if (timeout) {
+			// @ts-expect-error
 			timeout.isCleared = true;
 		}
 	};

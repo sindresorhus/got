@@ -689,9 +689,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 		const rawCookies = response.headers['set-cookie'];
 		if (is.object(options.cookieJar) && rawCookies) {
-			let promises: Array<Promise<unknown>> = rawCookies.map(async (rawCookie: string) => {
-				return (options.cookieJar as PromiseCookieJar).setCookie(rawCookie, url!.toString());
-			});
+			let promises: Array<Promise<unknown>> = rawCookies.map(async (rawCookie: string) => (options.cookieJar as PromiseCookieJar).setCookie(rawCookie, url!.toString()));
 
 			if (options.ignoreInvalidCookies) {
 				promises = promises.map(async promise => {
@@ -951,9 +949,9 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 					// TODO: remove this when `cacheable-request` supports async request functions.
 					if (is.promise(result)) {
-						// @ts-expect-error
 						// We only need to implement the error handler in order to support HTTP2 caching.
 						// The result will be a promise anyway.
+						// @ts-expect-error
 						// eslint-disable-next-line @typescript-eslint/promise-function-async
 						result.once = (event: string, handler: (reason: unknown) => void) => {
 							if (event === 'error') {

@@ -566,9 +566,7 @@ test('next url in json response', withServer, async (t, server, got) => {
 		},
 		responseType: 'json',
 		pagination: {
-			transform: (response: Response<Page>) => {
-				return [response.body.currentUrl];
-			},
+			transform: (response: Response<Page>) => [response.body.currentUrl],
 			paginate: ({response}) => {
 				const {next} = response.body;
 
@@ -615,9 +613,7 @@ test('pagination using searchParams', withServer, async (t, server, got) => {
 		},
 		responseType: 'json',
 		pagination: {
-			transform: (response: Response<Page>) => {
-				return [response.body.currentUrl];
-			},
+			transform: (response: Response<Page>) => [response.body.currentUrl],
 			paginate: ({response}) => {
 				const {next} = response.body;
 				// eslint-disable-next-line unicorn/prevent-abbreviations
@@ -673,9 +669,7 @@ test('pagination using extended searchParams', withServer, async (t, server, got
 		},
 		responseType: 'json',
 		pagination: {
-			transform: (response: Response<Page>) => {
-				return [response.body.currentUrl];
-			},
+			transform: (response: Response<Page>) => [response.body.currentUrl],
 			paginate: ({response}) => {
 				const {next} = response.body;
 				// eslint-disable-next-line unicorn/prevent-abbreviations

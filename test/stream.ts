@@ -381,9 +381,11 @@ test('errors have body', withServer, async (t, server, got) => {
 
 	const error = await t.throwsAsync<RequestError>(getStream(got.stream('', {
 		cookieJar: {
+			// @ts-expect-error
 			setCookie: async (_, __) => {
 				throw new Error('snap');
 			},
+			// @ts-expect-error
 			getCookieString: async _ => ''
 		}
 	})));

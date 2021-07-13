@@ -345,13 +345,11 @@ test('formdata retry', withServer, async (t, server, got) => {
 	const instance = got.extend({
 		hooks: {
 			afterResponse: [
-				async (_response, retryWithMergedOptions) => {
-					return retryWithMergedOptions({
-						headers: {
-							foo: 'bar'
-						}
-					});
-				}
+				async (_response, retryWithMergedOptions) => retryWithMergedOptions({
+					headers: {
+						foo: 'bar'
+					}
+				})
 			]
 		}
 	});
