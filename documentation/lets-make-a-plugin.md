@@ -1,4 +1,6 @@
-# Let's make a plugin!
+[> Back to homepage](../readme.md#documentation)
+
+## Let's make a plugin!
 
 > Another example on how to use Got like a boss :electric_plug:
 
@@ -6,7 +8,7 @@ Okay, so you already have learned some basics. That's great!
 
 When it comes to advanced usage, custom instances are really helpful.
 For example, take a look at [`gh-got`](https://github.com/sindresorhus/gh-got).
-It looks pretty complicated, but... it's really not.
+It looks pretty complicated, but... it's simple and extremely useful.
 
 Before we start, we need to find the [GitHub API docs](https://developer.github.com/v3/).
 
@@ -18,15 +20,14 @@ Let's write down the most important information:
 4. We will use OAuth2 for authorization.
 5. We may receive `400 Bad Request` or `422 Unprocessable Entity`.\
    The body contains detailed information about the error.
-6. *Pagination?* Not yet. This is going to be a native feature of Got. We'll update this page accordingly when the feature is available.
+6. *Pagination?* Yeah! Supported natively by Got.
 7. Rate limiting. These headers are interesting:
 
 - `X-RateLimit-Limit`
 - `X-RateLimit-Remaining`
 - `X-RateLimit-Reset`
-- `X-GitHub-Request-Id`
 
-Also `X-GitHub-Request-Id` may be useful.
+Also `X-GitHub-Request-Id` may be useful for debugging.
 
 8. User-Agent is required.
 
@@ -43,12 +44,12 @@ const instance = got.extend({
 	prefixUrl: 'https://api.github.com'
 });
 
-module.exports = instance;
+export default instance;
 ```
 
 ### v3 API
 
-GitHub needs to know which version we are using. We'll use the `Accept` header for that:
+GitHub needs to know which API version we are using. We'll use the `Accept` header for that:
 
 ```js
 import got from 'got';
@@ -60,12 +61,12 @@ const instance = got.extend({
 	}
 });
 
-module.exports = instance;
+export default instance;
 ```
 
 ### JSON body
 
-We'll use [`options.responseType`](../readme.md#responsetype):
+We'll use [`options.responseType`](2-options.md#responsetype):
 
 ```js
 import got from 'got';
@@ -78,16 +79,14 @@ const instance = got.extend({
 	responseType: 'json'
 });
 
-module.exports = instance;
+export default instance;
 ```
 
 ### Authorization
 
 It's common to set some environment variables, for example, `GITHUB_TOKEN`. You can modify the tokens in all your apps easily, right? Cool. What about... we want to provide a unique token for each app. Then we will need to create a new option - it will default to the environment variable, but you can easily override it.
 
-Let's use handlers instead of hooks. This will make our code more readable: having `beforeRequest`, `beforeError` and `afterResponse` hooks for just a few lines of code would complicate things unnecessarily.
-
-**Tip:** it's a good practice to use hooks when your plugin gets complicated. Try not to overload the handler function, but don't abuse hooks either.
+Got performs option validation and doesn't know that `token` is a wanted option so it will throw. We can handle it inside an `init` hook and save it in `options.context`.
 
 ```js
 import got from 'got';
@@ -98,12 +97,58 @@ const instance = got.extend({
 		accept: 'application/vnd.github.v3+json'
 	},
 	responseType: 'json',
-	token: process.env.GITHUB_TOKEN,
+	context: {
+		token: process.env.GITHUB_TOKEN,
+	},
+	hooks: {
+		init: [
+			(raw, options) => {
+				if ('token' in raw) {
+					options.context.token = raw.token;
+					delete raw.token;
+				}
+			}
+		]
+	}
+});
+
+export default instance;
+```
+
+For the rest we will use a handler. We could use hooks, but this way it will be more readable. Having `beforeRequest`, `beforeError` and `afterResponse` hooks for just a few lines of code would complicate things unnecessarily.
+
+**Tip:**
+> - It's a good practice to use hooks when your plugin gets complicated.
+> - Try not to overload the handler function, but don't abuse hooks either.
+
+```js
+import got from 'got';
+
+const instance = got.extend({
+	prefixUrl: 'https://api.github.com',
+	headers: {
+		accept: 'application/vnd.github.v3+json'
+	},
+	responseType: 'json',
+	context: {
+		token: process.env.GITHUB_TOKEN,
+	},
+	hooks: {
+		init: [
+			(raw, options) => {
+				if ('token' in raw) {
+					options.context.token = raw.token;
+					delete raw.token;
+				}
+			}
+		]
+	},
 	handlers: [
 		(options, next) => {
 			// Authorization
-			if (options.token && !options.headers.authorization) {
-				options.headers.authorization = `token ${options.token}`;
+			const {token} = options.context;
+			if (token && !options.headers.authorization) {
+				options.headers.authorization = `token ${token}`;
 			}
 
 			return next(options);
@@ -111,7 +156,7 @@ const instance = got.extend({
 	]
 });
 
-module.exports = instance;
+export default instance;
 ```
 
 ### Errors
@@ -123,8 +168,9 @@ We should name our errors, just to know if the error is from the API response. S
 	handlers: [
 		(options, next) => {
 			// Authorization
-			if (options.token && !options.headers.authorization) {
-				options.headers.authorization = `token ${options.token}`;
+			const {token} = options.context;
+			if (token && !options.headers.authorization) {
+				options.headers.authorization = `token ${token}`;
 			}
 
 			// Don't touch streams
@@ -155,6 +201,9 @@ We should name our errors, just to know if the error is from the API response. S
 ...
 ```
 
+Note that by providing our own errors in handlers, we don't alter the ones in `beforeError` hooks.\
+The conversion is the last thing here.
+
 ### Rate limiting
 
 Umm... `response.headers['x-ratelimit-remaining']` doesn't look good. What about `response.rateLimit.limit` instead?<br>
@@ -162,9 +211,9 @@ Yeah, definitely. Since `response.headers` is an object, we can easily parse the
 
 ```js
 const getRateLimit = (headers) => ({
-	limit: parseInt(headers['x-ratelimit-limit'], 10),
-	remaining: parseInt(headers['x-ratelimit-remaining'], 10),
-	reset: new Date(parseInt(headers['x-ratelimit-reset'], 10) * 1000)
+	limit: Number.parseInt(headers['x-ratelimit-limit'], 10),
+	remaining: Number.parseInt(headers['x-ratelimit-remaining'], 10),
+	reset: new Date(Number.parseInt(headers['x-ratelimit-reset'], 10) * 1000)
 });
 
 getRateLimit({
@@ -183,17 +232,18 @@ Let's integrate it:
 
 ```js
 const getRateLimit = (headers) => ({
-	limit: parseInt(headers['x-ratelimit-limit'], 10),
-	remaining: parseInt(headers['x-ratelimit-remaining'], 10),
-	reset: new Date(parseInt(headers['x-ratelimit-reset'], 10) * 1000)
+	limit: Number.parseInt(headers['x-ratelimit-limit'], 10),
+	remaining: Number.parseInt(headers['x-ratelimit-remaining'], 10),
+	reset: new Date(Number.parseInt(headers['x-ratelimit-reset'], 10) * 1000)
 });
 
 ...
 	handlers: [
 		(options, next) => {
 			// Authorization
-			if (options.token && !options.headers.authorization) {
-				options.headers.authorization = `token ${options.token}`;
+			const {token} = options.context;
+			if (token && !options.headers.authorization) {
+				options.headers.authorization = `token ${token}`;
 			}
 
 			// Don't touch streams
@@ -235,16 +285,17 @@ const getRateLimit = (headers) => ({
 ### The frosting on the cake: `User-Agent` header.
 
 ```js
-import fs from 'fs';
-
-const packageJson = JSON.parse(fs.readFileSync('./package', 'utf8'));
+const packageJson = {
+	name: 'gh-got',
+	version: '12.0.0'
+};
 
 const instance = got.extend({
 	...
 	headers: {
 		accept: 'application/vnd.github.v3+json',
 		'user-agent': `${packageJson.name}/${packageJson.version}`
-	}
+	},
 	...
 });
 ```
@@ -263,4 +314,28 @@ console.log(`Sindre's GitHub profile was created on ${creationDate.toGMTString()
 // => Sindre's GitHub profile was created on Sun, 20 Dec 2009 22:57:02 GMT
 ```
 
-Did you know you can mix many instances into a bigger, more powerful one? Check out the [Advanced Creation](advanced-creation.md) guide.
+### Pagination
+
+```js
+import ghGot from 'gh-got';
+
+const countLimit = 50;
+const pagination = ghGot.paginate(
+	'repos/sindresorhus/got/commits',
+	{
+		pagination: {countLimit}
+	}
+);
+
+console.log(`Printing latest ${countLimit} Got commits (newest to oldest):`);
+
+for await (const commitData of pagination) {
+	console.log(commitData.commit.message);
+}
+```
+
+That's... astonishing! We don't have to implement pagination on our own. Got handles it all.
+
+### At the end
+
+Did you know you can mix many instances into a bigger, more powerful one? Check out the [Advanced Creation](examples/advanced-creation.js) guide.
