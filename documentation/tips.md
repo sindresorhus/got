@@ -206,31 +206,31 @@ import https from 'https';
 import got from 'got';
 
 class MyAgent extends https.Agent {
-    createConnection(port, options, callback) {
-        console.log(`Connecting with MyAgent`);
-        return https.Agent.prototype.createConnection.call(this, port, options, callback);
-    }
+	createConnection(port, options, callback) {
+		console.log(`Connecting with MyAgent`);
+		return https.Agent.prototype.createConnection.call(this, port, options, callback);
+	}
 }
 
 const proxy = new MyAgent();
 
 const fn = retryCount => {
-    const stream = got.stream('https://httpbin.org/status/408', {
-        agent: {
-            https: retryCount === 0 ? proxy : undefined
-        }
-    });
+	const stream = got.stream('https://httpbin.org/status/408', {
+		agent: {
+			https: retryCount === 0 ? proxy : undefined
+		}
+	});
 
-    stream.retryCount = retryCount;
+	stream.retryCount = retryCount;
 
-    stream.on('retry', (retryCount, error) => {
-        console.log('Creating new retry:', retryCount);
-        fn(retryCount);
-    }).on('error', error => {
-        console.log('Retry count:', error.request.retryCount);
-    }).resume().on('end', () => {
-        console.log('`end` event');
-    });
+	stream.on('retry', (retryCount, error) => {
+		console.log('Creating new retry:', retryCount);
+		fn(retryCount);
+	}).on('error', error => {
+		console.log('Retry count:', error.request.retryCount);
+	}).resume().on('end', () => {
+		console.log('`end` event');
+	});
 };
 
 fn(0);
