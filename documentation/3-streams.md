@@ -180,6 +180,12 @@ const fn = (retryCount = 0) => {
 fn();
 ```
 
+#### `error`
+
+**Type: [`RequestError`](8-errors.md#requesterror)**
+
+The error that caused this retry.
+
 ### `stream.on('redirect', …)`
 
 #### `updatedOptions`
