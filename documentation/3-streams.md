@@ -38,9 +38,14 @@ await pipeline(
 // For POST, PUT, PATCH, and DELETE methods, `got.stream` returns a `stream.Writable`.
 await pipeline(
 	fs.createReadStream('index.html'),
-	got.stream.post('https://sindresorhus.com')
+	got.stream.post('https://sindresorhus.com'),
+	new stream.PassThrough()
 );
 ```
+
+Please note that `new stream.PassThrough()` is required in order to catch read errors.\
+If it was missing then `pipeline` wouldn't catch any read errors because there would be no stream to pipe to.\
+In other words, it would only check errors when writing.
 
 ### `stream.options`
 
