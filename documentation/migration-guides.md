@@ -70,13 +70,16 @@ Readability is very important to us, so we have different names for these option
 
 - The [`agent` option](2-options.md#agent) is now an object with `http`, `https` and `http2` properties.
 - The [`timeout` option](6-timeout.md) is now an object. You can set timeouts on particular events!
-- The [`searchParams` option](https://github.com/sindresorhus/got#searchParams) is always serialized using [`URLSearchParams`](https://developer.mozilla.org/en-US/docs/Web/API/URLSearchParams) unless it's a `string`.
-- To use streams, call `got.stream(url, options)` or `got(url, {…, isStream: true}`).
+- The [`searchParams` option](https://github.com/sindresorhus/got#searchParams) is always serialized using [`URLSearchParams`](https://developer.mozilla.org/en-US/docs/Web/API/URLSearchParams).
+- In order to pass a custom query string, provide it with the `url` option.\
+  `got('https://example.com', {searchParams: {test: ''}})` → `https://example.com/?test=`\
+  `got('https://example.com/?test')` → `https://example.com/?test`
+- To use streams, call `got.stream(url, options)` or `got(url, {…, isStream: true})`.
 
 #### Breaking changes
 
 - The `json` option is not a `boolean`, it's an `object`. It will be stringified and used as a body.
-- The `form` option is an `object` and will be used as `application/x-www-form-urlencoded` body
+- The `form` option is an `object` and will be used as `application/x-www-form-urlencoded` body.
 - All headers are converted to lowercase.\
   According to [the spec](https://datatracker.ietf.org/doc/html/rfc7230#section-3.2), the headers are case-insensitive.
 - No `oauth` / `hawk` / `aws` / `httpSignature` option.\
@@ -86,9 +89,9 @@ Readability is very important to us, so we have different names for these option
   You need to pass an agent with `keepAlive` option set to `true`.
 - No `proxy` option. You need to [pass a custom agent](tips.md#proxy).
 - No `auth` option.\
-  You need to use `username` / `password` instead or set the `authorization` header manually.
+  You need to use [`username`](2-options.md#username) / [`password`](2-options.md#password) instead or set the `authorization` header manually.
 - No `baseUrl` option.\
-  Instead, there is `prefixUrl` which appends a trailing slash if not present.
+  Instead, there is [`prefixUrl`](2-options.md#prefixurl) which appends a trailing slash if not present.
 - No `removeRefererHeader` option.\
   You can remove the `referer` header in a [`beforeRequest` hook](hooks.md#beforerequest).
 - No `followAllRedirects` option.
@@ -138,4 +141,8 @@ In terms of streams nothing has really changed.
 
 #### You're good to go!
 
-Well, you have already come this far :tada: Take a look at the [documentation](../readme.md#documentation). It's worth the time to read it. There are [some great tips](tips.md). If something is unclear or doesn't work as it should, don't hesitate to [open an issue](https://github.com/sindresorhus/got/issues/new/choose).
+Well, you have already come this far :tada:\
+Take a look at the [documentation](../readme.md#documentation). It's worth the time to read it.\
+There are [some great tips](tips.md).
+
+If something is unclear or doesn't work as it should, don't hesitate to [open an issue](https://github.com/sindresorhus/got/issues/new/choose).

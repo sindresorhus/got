@@ -157,6 +157,32 @@ For advanced JSON usage, check out the [`parseJson`](2-options.md#parsejson) and
 - [travis-got](https://github.com/samverschueren/travis-got) - Got convenience wrapper to interact with the Travis API
 - [graphql-got](https://github.com/kevva/graphql-got) - Got convenience wrapper to interact with GraphQL
 
+## Electron `net` module is not supported
+
+Got doesn't support the `electron.net` module. It's missing crucial APIs that are available in Node.js. While Got used to support `electron.net`, it got very unstable and caused many errors.
+
+However, you can use [IPC communication](https://www.electronjs.org/docs/api/ipc-main#ipcmainhandlechannel-listener) to get the Response object:
+
+```js
+// Main process
+const got = require('got');
+
+const instance = got.extend({
+	// ...
+});
+
+ipcMain.handle('got', async (event, ...args) => {
+	const {statusCode, headers, body} = await instance(...args);
+	return {statusCode, headers, body};
+});
+
+// Renderer process
+async () => {
+	const {statusCode, headers, body} = await ipcRenderer.invoke('got', 'https://httpbin.org/anything');
+	// ...
+}
+```
+
 ## Comparison
 
 |                       | `got`               | [`request`][r0]    | [`node-fetch`][n0]   | [`ky`][k0]               | [`axios`][a0]      | [`superagent`][s0]     |
