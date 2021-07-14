@@ -404,12 +404,6 @@ test('throws a helpful error when passing `auth`', async t => {
 	});
 });
 
-test('throws on leading slashes', async t => {
-	await t.throwsAsync(got('/asdf', {prefixUrl: 'https://example.com'}), {
-		message: '`url` must not start with a slash',
-	});
-});
-
 test('throws on invalid `dnsCache` option', async t => {
 	await t.throwsAsync(got('https://example.com', {
 		// @ts-expect-error Error tests
@@ -456,6 +450,15 @@ test('does not throw on frozen options', withServer, async (t, server, got) => {
 	const {body} = await got(options);
 
 	t.is(body, '/');
+});
+
+test('removes leading slashes in url when prefixUrl is specified', t => {
+	const {url} = new Options({
+		prefixUrl: 'https://example.com/',
+		url: '/asdf',
+	});
+
+	t.is(url!.toString(), 'https://example.com/asdf');
 });
 
 test('encodes query string included in input', t => {

@@ -1188,7 +1188,7 @@ export default class Options {
 		}
 
 		if (is.string(value) && value.startsWith('/')) {
-			throw new Error('`url` must not start with a slash');
+			value = value.replace(/\/+/, '');
 		}
 
 		const urlString = `${this.prefixUrl as string}${value.toString()}`;
