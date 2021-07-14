@@ -918,6 +918,19 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		this.emit('request', request);
 	}
 
+	private async _asyncWrite(chunk: any): Promise<void> {
+		return new Promise((resolve, reject) => {
+			super.write(chunk, error => {
+				if (error) {
+					reject(error);
+					return;
+				}
+
+				resolve();
+			});
+		});
+	}
+
 	private _sendBody() {
 		// Send body
 		const {body} = this.options;
@@ -925,6 +938,18 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 		if (is.nodeStream(body)) {
 			body.pipe(currentRequest);
+		} else if (is.generator(body)) {
+			(async () => {
+				try {
+					for await (const chunk of body) {
+						await this._asyncWrite(chunk);
+					}
+
+					super.end();
+				} catch (error) {
+					this._beforeError(error);
+				}
+			})();
 		} else {
 			this._unlockWrite();
 

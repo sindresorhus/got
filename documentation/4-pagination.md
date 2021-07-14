@@ -188,7 +188,7 @@ The reason `filter` looks exactly the same like `shouldContinue` is that the lat
 The `filter` function is needed as well, because in the same response we can get results with different timestamps.
 
 ```js
-import got from '../../dist/source/index.js';
+import got from 'got';
 import Bourne from '@hapi/bourne';
 
 const max = Date.now() - 1000 * 86400 * 7;

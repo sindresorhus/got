@@ -1,5 +1,5 @@
 import http2 from 'http2-wrapper';
-import got from 'got';
+import got from '../../dist/source/index.js';
 
 let sessions = {};
 const getSession = ({origin}) => {

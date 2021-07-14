@@ -845,6 +845,11 @@ export default class Options {
 
 		this._merging = true;
 
+		// Always merge `isStream` first
+		if ('isStream' in options) {
+			this.isStream = options.isStream!;
+		}
+
 		try {
 			let push = false;
 
@@ -1087,12 +1092,12 @@ export default class Options {
 
 	Since Got 12, the `content-length` is not automatically set when `body` is a `fs.createReadStream`.
 	*/
-	get body(): string | Buffer | Readable | undefined {
+	get body(): string | Buffer | Readable | Generator | AsyncGenerator | undefined {
 		return this._internals.body;
 	}
 
-	set body(value: string | Buffer | Readable | undefined) {
-		assert.any([is.string, is.buffer, is.nodeStream, is.undefined], value);
+	set body(value: string | Buffer | Readable | Generator | AsyncGenerator | undefined) {
+		assert.any([is.string, is.buffer, is.nodeStream, is.generator, is.asyncGenerator, is.undefined], value);
 
 		if (is.nodeStream(value)) {
 			assert.truthy(value.readable);

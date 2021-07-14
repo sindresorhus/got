@@ -110,6 +110,31 @@ An object representing how much data have been downloaded.
 
 An object representing how much data have been uploaded.
 
+**Note:**
+> - When a chunk is greater than `highWaterMark`, the progress won't be emitted. The body needs to be split into chunks.
+
+```js
+import got from 'got';
+
+const body = Buffer.alloc(1024 * 1024); // 1MB
+
+function* chunkify(buffer, chunkSize = 64 * 1024) {
+	for (let pos = 0; pos < buffer.byteLength; pos += chunkSize) {
+		yield buffer.subarray(pos, pos + chunkSize)
+	}
+}
+
+const stream = got.stream.post('https://httpbin.org/anything', {
+	body: chunkify(body)
+});
+
+stream.resume();
+
+stream.on('uploadProgress', progress => {
+	console.log(progress);
+});
+```
+
 ### `stream.timings`
 
 **Type: [`Timings`](typescript.md#timings)**
