@@ -938,7 +938,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 		if (is.nodeStream(body)) {
 			body.pipe(currentRequest);
-		} else if (is.generator(body)) {
+		} else if (is.generator(body) || is.asyncGenerator(body)) {
 			(async () => {
 				try {
 					for await (const chunk of body) {
