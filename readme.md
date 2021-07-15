@@ -138,10 +138,10 @@ For advanced JSON usage, check out the [`parseJson`](2-options.md#parsejson) and
 
 ### Migration guides
 
-- [Request migration guide](documentation/migration-guides.md#request)
+- [Request migration guide](documentation/migration-guides/request.md)
   - [*(Note that Request is unmaintained)*](https://github.com/request/request/issues/3142)
-- [Axios](documentation/migration-guides.md#axios)
-- [Node.js](documentation/migration-guides.md#node)
+- [Axios](documentation/migration-guides/axios.md)
+- [Node.js](documentation/migration-guides/nodejs.md)
 
 ## Got plugins
 
