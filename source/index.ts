@@ -18,6 +18,7 @@ export * from './core/options.js';
 export * from './core/response.js';
 export * from './core/index.js';
 export * from './core/errors.js';
+export {Delays} from './core/timed-out.js';
 export {default as calculateRetryDelay} from './core/calculate-retry-delay.js';
 export * from './as-promise/types.js';
 export * from './types.js';
