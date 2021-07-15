@@ -39,7 +39,7 @@ Determines whether `got.defaults.options` can be modified.
 **Note:**
 > - Properties that are not enumerable, such as `body`, `json`, and `form`, will not be merged.
 
-Configure a new `got` instance with merged default options. The options are merged with the parent instance's `defaults.options` using [`Options.merge(…)`](2-options.md#merge).
+Configure a new `got` instance with merged default options. The options are merged with the parent instance's `defaults.options` using [`options.merge(…)`](2-options.md#merge).
 
 ```js
 import got from 'got';
@@ -68,7 +68,7 @@ console.log(headers2['x-lorem']); //=> 'impsum'
 ```
 
 **Note:**
-> - Handlers can be asynchronous and can return a `Promise`, but never a `Promise<Stream>`.
+> - Handlers can be asynchronous and can return a `Promise`, but never a `Promise<Stream>` if `options.isStream` is `true`.
 > - Streams must always be handled synchronously.
 > - In order to perform async work using streams, the `beforeRequest` hook should be used instead.
 

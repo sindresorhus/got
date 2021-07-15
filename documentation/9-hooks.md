@@ -6,7 +6,7 @@
 
 **Type: `object<string, Function[]>`**
 
-This option represents the hooks to run.
+This option represents the hooks to run. Thrown errors will be automatically converted to [`RequestError`](8-errors.md#requesterror).
 
 #### `init`
 
@@ -21,7 +21,13 @@ Called with the plain request options, right before their normalization.\
 The second argument represents the current [`Options`](2-options.md) instance.
 
 **Note:**
+> - This hook must be synchronous.
+
+**Note:**
 > - This is called every time options are merged.
+
+**Note:**
+> - The `options` object may not have the `url` property. To modify it, use a `beforeRequest` hook instead.
 
 **Note:**
 > - This hook is called when a new instance of `Options` is created.
@@ -174,6 +180,8 @@ const response = await got('https://example.com', {
 ```ts
 (error: RequestError) => Promisable<void>
 ```
+
+The equivalent of `beforeError` but when retrying.
 
 **Note:**
 > - When using the Stream API, this hook is ignored.

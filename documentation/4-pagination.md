@@ -108,7 +108,7 @@ This option represents the `pagination` object.
 **Type: `Function`**\
 **Default: `response => JSON.parse(response.body)`**
 
-A function that transform [`Response`](3-streams.md#response-1) into an array of items.\
+A function that transforms [`Response`](3-streams.md#response-1) into an array of items.\
 This is where you should do the parsing.
 
 #### `paginate`

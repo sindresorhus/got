@@ -99,7 +99,8 @@ The allowed error codes to retry on.
 
 #### `maxRetryAfter`
 
-**Type: `number | undefined`**
+**Type: `number | undefined`**\
+**Default: `options.timeout.request`**
 
 The upper limit of [`retry-after` header](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Retry-After). If `undefined`, it will use `options.timeout` as the value.
 
@@ -123,7 +124,7 @@ interface RetryObject {
 }
 ```
 
-The function used to calculate the delay before the next request is made.
+The function used to calculate the delay before the next request is made. Returning `0` cancels the retry.
 
 **Note:**
 > - This function is responsible for the entire retry mechanism, including the `limit` property. To support this, you need to check if `computedValue` is different than `0`.

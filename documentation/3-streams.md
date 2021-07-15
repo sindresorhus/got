@@ -47,6 +47,13 @@ Please note that `new stream.PassThrough()` is required in order to catch read e
 If it was missing then `pipeline` wouldn't catch any read errors because there would be no stream to pipe to.\
 In other words, it would only check errors when writing.
 
+**Tip:**
+> - Avoid `from.pipe(to)` as it doesn't forward errors.
+
+**Note:**
+> - While `got.post('https://example.com')` resolves, `got.stream.post('https://example.com')` will hang indefinitely until a body is provided.
+> - If there's no body on purpose, remember to `stream.end()` or set the body option to an empty string.
+
 ### `stream.options`
 
 **Type: [`Options`](2-options.md)**
@@ -140,6 +147,8 @@ stream.on('uploadProgress', progress => {
 **Type: [`Timings`](typescript.md#timings)**
 
 An object representing performance information.
+
+To generate the timings, Got uses the [`http-timer`](https://github.com/szmarczak/http-timer) package.
 
 ### `stream.isFromCache`
 

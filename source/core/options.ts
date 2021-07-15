@@ -309,6 +309,13 @@ export interface CacheOptions {
 	ignoreCargoCult?: boolean;
 }
 
+type PfxObject = {
+	buffer: string | Buffer;
+	passphrase?: string | undefined;
+};
+
+type PfxType = string | Buffer | Array<string | Buffer | PfxObject> | undefined;
+
 export interface HttpsOptions {
 	alpnProtocols?: string[];
 
@@ -359,7 +366,7 @@ export interface HttpsOptions {
 	The passphrase to decrypt the `options.https.key` (if different keys have different passphrases refer to `options.https.key` documentation).
 	*/
 	passphrase?: SecureContextOptions['passphrase'];
-	pfx?: SecureContextOptions['pfx'];
+	pfx?: PfxType;
 
 	ciphers?: SecureContextOptions['ciphers'];
 	honorCipherOrder?: SecureContextOptions['honorCipherOrder'];
@@ -2145,6 +2152,14 @@ export default class Options {
 		}
 
 		const {httpsOptions} = internals;
+		let {pfx} = httpsOptions;
+
+		if (is.array(pfx) && is.plainObject(pfx[0])) {
+			pfx = (pfx as PfxObject[]).map(object => ({
+				buf: object.buffer,
+				passphrase: object.passphrase,
+			})) as any;
+		}
 
 		return {
 			...internals.cacheOptions,

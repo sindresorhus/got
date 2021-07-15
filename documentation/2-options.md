@@ -7,6 +7,8 @@ Source code: [`source/core/options.ts`](../source/core/options.ts)
 Like `fetch` stores the options in a `Request` instance, Got does so in `Options`.\
 It is made of getters and setters that provide fast option normalization and validation.
 
+**By default, Got will retry on failure. To disable this option, set [`options.retry`](7-retry.md) to `0`.**
+
 #### Merge behavior explained
 
 When an option is already set, setting it again replaces it with a deep clone by default.\
@@ -123,6 +125,20 @@ await got({
 >  This is in accordance to [the specification](https://datatracker.ietf.org/doc/html/rfc7230#section-2.7).\
 >  If you want to pass search params instead, use the `searchParams` option below.
 
+```js
+import got from 'got';
+
+await got('https://httpbin.org/anything?query=a b'); //=> ?query=a%20b
+await got('https://httpbin.org/anything', {searchParams: {query: 'a b'}}); //=> ?query=a+b
+
+// The query string is overridden by `searchParams`
+await got('https://httpbin.org/anything?query=a b', {searchParams: {query: 'a b'}}); //=> ?query=a+b
+```
+
+#### **Note:**
+> - Leading slashes are disallowed to enforce consistency and avoid confusion.\
+>  For example, when the prefix URL is `https://example.com/foo` and the input is `/bar`, there's ambiguity whether the resulting URL would become `https://example.com/foo/bar` or `https://example.com/bar`. The latter is used by browsers.
+
 ### `searchParams`
 
 **Type: <code>string | [URLSearchParams](https://nodejs.org/api/url.html#url_class_urlsearchparams) | object&lt;string, [Primitive](https://www.typescriptlang.org/docs/handbook/2/everyday-types.html)&gt;</code>**
@@ -160,8 +176,8 @@ console.log(searchParams.toString());
 > - This will override the `query` string in `url`.
 
 #### **Note:**
-> - Leading slashes are disallowed to enforce consistency and avoid confusion.\
->  For example, when the prefix URL is `https://example.com/foo` and the input is `/bar`, there's ambiguity whether the resulting URL would become `https://example.com/foo/bar` or `https://example.com/bar`. The latter is used by browsers.
+> - `null` values are not stringified, an empty string is used instead.
+> - `undefined` values are skipped.
 
 #### **Merge behavior:**
 > - Overrides existing properties.
@@ -171,7 +187,10 @@ console.log(searchParams.toString());
 **Type: `string`**\
 **Default: `''`**
 
-The string to be prepended to `url`. Usually this is an [absolute URL](https://url.spec.whatwg.org/#absolute-url-string).
+The string to be prepended to `url`.
+
+The prefix can be any valid URL, either relative or [absolute](https://url.spec.whatwg.org/#absolute-url-string).
+A trailing slash `/` is optional - one will be added automatically.
 
 ```js
 import got from 'got';
@@ -185,13 +204,10 @@ await got('https://httpbin.org/anything');
 ```
 
 #### **Note:**
-> - `prefixUrl` is ignored when `url` is an instance of [`URL`](https://nodejs.org/api/url.html#url_the_whatwg_url_api).
-
-#### **Note:**
 > - Changing `prefixUrl` also updates the `url` option if set.
 
 #### **Note:**
-> - If you're passing an absolute URL as string `url`, you need to set `prefixUrl` to an empty string.
+> - If you're passing an absolute URL as `url`, you need to set `prefixUrl` to an empty string.
 
 ### `method`
 
@@ -215,7 +231,7 @@ console.log(method);
 **Type: `object<string, string>`**\
 **Default: `{}`**
 
-The [HTTP headers](https://datatracker.ietf.org/doc/html/rfc7231#section-8.3) to be sent.
+The [HTTP headers](https://datatracker.ietf.org/doc/html/rfc7231#section-8.3) to be sent. Headers set to `undefined` will be omitted.
 
 ```js
 import got from 'got';
@@ -236,7 +252,7 @@ console.log(method);
 **Type: `boolean`**\
 **Default: `false`**
 
-Whether the request should return a [`Request` duplex stream](3-streams.md) or a [`Promise<Response>`](1-promise.md).
+Whether the `got` function should return a [`Request` duplex stream](3-streams.md) or a [`Promise<Response>`](1-promise.md).
 
 ```js
 import got from 'got';
@@ -253,11 +269,11 @@ stream.on('data', console.log);
 
 ### `body`
 
-**Type: `string | Buffer | stream.Readable` or [`form-data` instance](https://github.com/form-data/form-data)**
+**Type: `string | Buffer | stream.Readable | Generator | AsyncGenerator` or [`form-data` instance](https://github.com/form-data/form-data)**
 
 The payload to send.
 
-The `content-length` header is automatically set if the `content-length` and `transfer-encoding` headers are missing.
+For `string` and `Buffer` types, the `content-length` header is automatically set if the `content-length` and `transfer-encoding` headers are missing.
 
 **Since Got 12, the `content-length` header is not automatically set when `body` is an instance of [`fs.createReadStream()`](https://nodejs.org/api/fs.html#fs_fs_createreadstream_path_options).**
 
@@ -280,6 +296,9 @@ console.log(data);
 
 #### **Note:**
 > - Passing `body` with `GET` will throw unless the [`allowGetBody` option](#allowgetbody) is set to `true`.
+
+#### **Note:**
+> - This option is not enumerable and will not be merged with the instance defaults.
 
 ### `json`
 
@@ -520,7 +539,7 @@ const body = await got(url, {responseType: 'json', resolveBodyOnly: true});
 **Default: `{}`**
 
 **Note:**
-> - Non-enumerable properties are **not** merged.
+> - Non-enumerable properties inside are **not** merged.
 
 Contains user data. It's very useful for storing auth tokens:
 
@@ -551,7 +570,7 @@ console.log(headers);
 //=> {token: 'secret', …}
 ```
 
-This option is enumerable. In order to define non-enumerable properties, do the following:
+This option is enumerable. In order to define non-enumerable properties inside, do the following:
 
 ```js
 import got from 'got';
@@ -647,7 +666,7 @@ console.log(response.headers.location);
 **Type: `number`**\
 **Default: `10`**
 
-If exceeded, the request will be aborted and a `MaxRedirectsError` will be thrown.
+If exceeded, the request will be aborted and a [`MaxRedirectsError`](8-errors.md#maxredirectserror) will be thrown.
 
 ```js
 import got from 'got';
@@ -667,7 +686,9 @@ try {
 **Type: `boolean`**\
 **Default: `true`**
 
-Decompress the response automatically.
+Decompress the response automatically. This will set the `accept-encoding` header to `gzip, deflate, br`.
+
+If disabled, a compressed response is returned as a `Buffer`. This may be useful if you want to handle decompression yourself.
 
 ```js
 import got from 'got';
@@ -742,7 +763,7 @@ If `true`, the `request` option will default to `http2wrapper.auto` and the enti
 > - ALPN negotiation will have place in order to determine if the server actually supports HTTP/2. If it doesn't, HTTP/1.1 will be used.
 
 **Note:**
-> - Setting the `request` option to `https.request` will disable HTTP/2 usage, even if the `http2` option is `true`. It is required to use `http2wrapper.auto`.
+> - Setting the `request` option to `https.request` will disable HTTP/2 usage. It is required to use `http2wrapper.auto`.
 
 **Note:**
 > - There is no direct [`h2c`](https://datatracker.ietf.org/doc/html/rfc7540#section-3.1) support. However, you can provide a `h2session` option in a `beforeRequest` hook. See [an example](examples/h2c.js).
@@ -808,7 +829,9 @@ Got will automatically resolve the protocol and use the corresponding agent. It 
 **Type: `boolean`**\
 **Default: `true`**
 
-If `true`, it will throw when the status code is not `2xx` / `3xx`.
+If `true`, it will [throw](8-errors.md#httperror) when the status code is not `2xx` / `3xx`.
+
+If this is disabled, requests that encounter an error status code will be resolved with the response instead of throwing. This may be useful if you are checking for resource availability and are expecting error responses.
 
 ### `username`
 
@@ -863,6 +886,15 @@ Specifies whether or not to automatically add the `Host` header.
 **Default: `undefined`**
 
 Optionally overrides the value of [`--max-http-header-size`](https://nodejs.org/api/cli.html#cli_max_http_header_size_size) (default 16KB: `16384`).
+
+### `methodRewriting`
+
+**Type: `boolean`**\
+**Default: `false`**
+
+By default, requests will not use [method rewriting](https://datatracker.ietf.org/doc/html/rfc7231#section-6.4).
+
+For example, when sending a `POST` request and receiving a `302`, it will resend the body to the new location using the same HTTP method (`POST` in this case). To rewrite the request as `GET`, set this option to `true`.
 
 ## Methods
 
