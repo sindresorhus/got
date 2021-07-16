@@ -86,7 +86,7 @@ console.log(data);
 //=> {"hello": "world"}
 ```
 
-For advanced JSON usage, check out the [`parseJson`](2-options.md#parsejson) and [`stringifyJson`](2-options.md#stringifyjson) options.
+For advanced JSON usage, check out the [`parseJson`](documentation/2-options.md#parsejson) and [`stringifyJson`](documentation/2-options.md#stringifyjson) options.
 
 **For more useful tips like this, visit the [Tips](documentation/tips.md) page.**
 
