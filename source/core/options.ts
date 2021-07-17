@@ -1902,7 +1902,7 @@ export default class Options {
 	}
 
 	set method(value: Method) {
-		assert.any([is.string, is.undefined], value);
+		assert.string(value);
 
 		this._internals.method = value.toUpperCase() as Method;
 	}
