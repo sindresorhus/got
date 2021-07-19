@@ -237,7 +237,9 @@ The [HTTP headers](https://datatracker.ietf.org/doc/html/rfc7231#section-8.3) to
 import got from 'got';
 
 const {headers} = await got.post('https://httpbin.org/anything', {
-	hello: 'world'
+	headers: {
+		hello: 'world'
+	}
 }).json();
 
 console.log(method);
