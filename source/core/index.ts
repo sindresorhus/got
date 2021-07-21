@@ -399,7 +399,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 					try {
 						for (const hook of this.options.hooks.beforeRetry) {
 							// eslint-disable-next-line no-await-in-loop
-							await hook(typedError);
+							await hook(typedError, this.retryCount + 1);
 						}
 					} catch (error_) {
 						void this._error(new RequestError(error_.message, error, this));

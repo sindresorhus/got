@@ -178,10 +178,10 @@ const response = await got('https://example.com', {
 **Default: `[]`**
 
 ```ts
-(error: RequestError) => Promisable<void>
+(error: RequestError, retryCount: number) => Promisable<void>
 ```
 
-The equivalent of `beforeError` but when retrying.
+The equivalent of `beforeError` but when retrying. Additionally, there is a second argument `retryCount`, the current retry number.
 
 **Note:**
 > - When using the Stream API, this hook is ignored.
@@ -200,9 +200,9 @@ import got from 'got';
 await got('https://httpbin.org/status/500', {
 	hooks: {
 		beforeRetry: [
-			error => {
-				console.log(`Retrying: ${error.code}`);
-				// Retrying: ERR_NON_2XX_3XX_RESPONSE
+			(error, retryCount) => {
+				console.log(`Retrying [${retryCount}]: ${error.code}`);
+				// Retrying [1]: ERR_NON_2XX_3XX_RESPONSE
 			}
 		]
 	}

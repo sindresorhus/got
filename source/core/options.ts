@@ -66,7 +66,7 @@ export type InitHook = (init: OptionsInit, self: Options) => void;
 export type BeforeRequestHook = (options: Options) => Promisable<void | Response | ResponseLike>;
 export type BeforeRedirectHook = (updatedOptions: Options, plainResponse: PlainResponse) => Promisable<void>;
 export type BeforeErrorHook = (error: RequestError) => Promisable<RequestError>;
-export type BeforeRetryHook = (error: RequestError) => Promisable<void>;
+export type BeforeRetryHook = (error: RequestError, retryCount: number) => Promisable<void>;
 export type AfterResponseHook<ResponseType = unknown> = (response: Response<ResponseType>, retryWithMergedOptions: (options: OptionsInit) => never) => Promisable<Response | CancelableRequest<Response>>;
 
 /**

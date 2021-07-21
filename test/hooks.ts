@@ -431,13 +431,14 @@ test('beforeRetry is called with options', withServer, async (t, server) => {
 		context,
 		hooks: {
 			beforeRetry: [
-				error => {
+				(error, retryCount) => {
 					const {options} = error;
-					const {retryCount} = error.request!;
+					const {retryCount: requestRetryCount} = error.request!;
 					t.is((options.url as URL).hostname, 'localhost');
 					t.deepEqual(options.context, context);
 					t.truthy(error);
-					t.is(retryCount, 0);
+					t.is(requestRetryCount, 0);
+					t.is(retryCount, 1);
 				},
 			],
 		},
