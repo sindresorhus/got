@@ -21,7 +21,7 @@ const gotOptions: OptionsInit & {isStream?: true} = {
 	agent: {
 		https: httpsAgent,
 	},
-	httpsOptions: {
+	https: {
 		rejectUnauthorized: false,
 	},
 	retry: {
