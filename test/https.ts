@@ -17,7 +17,7 @@ test('https request without ca', withHttpsServer(), async (t, server, got) => {
 	});
 
 	t.truthy((await got({
-		httpsOptions: {
+		https: {
 			certificateAuthority: [],
 			rejectUnauthorized: false,
 		},
@@ -78,7 +78,7 @@ test('https request with `checkServerIdentity` OK', withHttpsServer(), async (t,
 	});
 
 	const {body} = await got({
-		httpsOptions: {
+		https: {
 			checkServerIdentity: (hostname: string, certificate: DetailedPeerCertificate) => {
 				t.is(hostname, 'localhost');
 				t.is(certificate.subject.CN, 'localhost');
@@ -96,7 +96,7 @@ test('https request with `checkServerIdentity` NOT OK', withHttpsServer(), async
 	});
 
 	const promise = got({
-		httpsOptions: {
+		https: {
 			checkServerIdentity: (hostname: string, certificate: DetailedPeerCertificate) => {
 				t.is(hostname, 'localhost');
 				t.is(certificate.subject.CN, 'localhost');
@@ -186,7 +186,7 @@ test.serial('non-deprecated `rejectUnauthorized` option', withHttpsServer(), asy
 	})();
 
 	await got({
-		httpsOptions: {
+		https: {
 			rejectUnauthorized: false,
 		},
 	});
@@ -217,7 +217,7 @@ test('client certificate', withHttpsServer(), async (t, server, got) => {
 	const clientCert = clientResult.certificate;
 
 	const response = await got({
-		httpsOptions: {
+		https: {
 			key: clientKey,
 			certificate: clientCert,
 		},
@@ -256,7 +256,7 @@ test('invalid client certificate (self-signed)', withHttpsServer(), async (t, se
 	const clientCert = clientResult.certificate;
 
 	const response = await got({
-		httpsOptions: {
+		https: {
 			key: clientKey,
 			certificate: clientCert,
 		},
@@ -298,7 +298,7 @@ test('invalid client certificate (other CA)', withHttpsServer(), async (t, serve
 	const clientCert = clientResult.certificate;
 
 	const response = await got({
-		httpsOptions: {
+		https: {
 			key: clientKey,
 			certificate: clientCert,
 		},
@@ -352,7 +352,7 @@ test('key passphrase', withHttpsServer(), async (t, server, got) => {
 	const clientCert = clientResult.certificate;
 
 	const response = await got({
-		httpsOptions: {
+		https: {
 			key: clientKey,
 			passphrase: 'randomPassword',
 			certificate: clientCert,
@@ -407,7 +407,7 @@ test('invalid key passphrase', withHttpsServer(), async (t, server, got) => {
 	const clientCert = clientResult.certificate;
 
 	const request = got({
-		httpsOptions: {
+		https: {
 			key: clientKey,
 			passphrase: 'wrongPassword',
 			certificate: clientCert,
@@ -444,7 +444,7 @@ test('client certificate PFX', withHttpsServer(), async (t, server, got) => {
 	const {pkcs12} = await createPkcs12(clientKey, clientCert, 'randomPassword');
 
 	const response = await got({
-		httpsOptions: {
+		https: {
 			pfx: pkcs12,
 			passphrase: 'randomPassword',
 		},
@@ -471,7 +471,7 @@ test('https request with `ciphers` option', withHttpsServer({ciphers: `${ciphers
 	});
 
 	const response = await got({
-		httpsOptions: {
+		https: {
 			ciphers: ciphers[0],
 		},
 	}).json<{cipher: string}>();
@@ -487,7 +487,7 @@ test('https request with `honorCipherOrder` option', withHttpsServer({ciphers: `
 	});
 
 	const response = await got({
-		httpsOptions: {
+		https: {
 			ciphers: `${ciphers[1]!}:${ciphers[0]!}`,
 			honorCipherOrder: true,
 		},
@@ -504,7 +504,7 @@ test('https request with `minVersion` option', withHttpsServer({maxVersion: 'TLS
 	});
 
 	const request = got({
-		httpsOptions: {
+		https: {
 			minVersion: 'TLSv1.3',
 		},
 	});

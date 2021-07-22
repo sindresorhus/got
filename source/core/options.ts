@@ -649,7 +649,7 @@ const defaultInternals: Options['_internals'] = {
 		immutableMinTimeToLive: undefined,
 		ignoreCargoCult: undefined,
 	},
-	httpsOptions: {
+	https: {
 		alpnProtocols: undefined,
 		rejectUnauthorized: undefined,
 		checkServerIdentity: undefined,
@@ -714,7 +714,7 @@ const cloneInternals = (internals: typeof defaultInternals): typeof defaultInter
 		...internals,
 		context: {...internals.context},
 		cacheOptions: {...internals.cacheOptions},
-		httpsOptions: {...internals.httpsOptions},
+		https: {...internals.https},
 		agent: {...internals.agent},
 		headers: {...internals.headers},
 		retry: {
@@ -841,7 +841,7 @@ export default class Options {
 		// This is way much faster than cloning ^_^
 		Object.freeze(options);
 		Object.freeze(options.hooks);
-		Object.freeze(options.httpsOptions);
+		Object.freeze(options.https);
 		Object.freeze(options.cacheOptions);
 		Object.freeze(options.agent);
 		Object.freeze(options.headers);
@@ -1950,11 +1950,11 @@ export default class Options {
 	/**
 	Options for the advanced HTTPS API.
 	*/
-	get httpsOptions(): HttpsOptions {
-		return this._internals.httpsOptions;
+	get https(): HttpsOptions {
+		return this._internals.https;
 	}
 
-	set httpsOptions(value: HttpsOptions) {
+	set https(value: HttpsOptions) {
 		assert.plainObject(value);
 
 		assert.any([is.boolean, is.undefined], value.rejectUnauthorized);
@@ -1976,15 +1976,15 @@ export default class Options {
 		assert.any([is.string, is.buffer, is.array, is.undefined], value.certificateRevocationLists);
 
 		for (const key in value) {
-			if (!(key in this._internals.httpsOptions)) {
+			if (!(key in this._internals.https)) {
 				throw new Error(`HTTPS option \`${key}\` does not exist`);
 			}
 		}
 
 		if (this._merging) {
-			Object.assign(this._internals.httpsOptions, value);
+			Object.assign(this._internals.https, value);
 		} else {
-			this._internals.httpsOptions = {...value};
+			this._internals.https = {...value};
 		}
 	}
 
@@ -2151,8 +2151,8 @@ export default class Options {
 			agent = internals.agent.http;
 		}
 
-		const {httpsOptions} = internals;
-		let {pfx} = httpsOptions;
+		const {https} = internals;
+		let {pfx} = https;
 
 		if (is.array(pfx) && is.plainObject(pfx[0])) {
 			pfx = (pfx as PfxObject[]).map(object => ({
@@ -2166,22 +2166,22 @@ export default class Options {
 			...this._unixOptions,
 
 			// HTTPS options
-			ca: httpsOptions.certificateAuthority,
-			cert: httpsOptions.certificate,
-			key: httpsOptions.key,
-			passphrase: httpsOptions.passphrase,
-			pfx: httpsOptions.pfx,
-			rejectUnauthorized: httpsOptions.rejectUnauthorized,
-			checkServerIdentity: httpsOptions.checkServerIdentity ?? checkServerIdentity,
-			ciphers: httpsOptions.ciphers,
-			honorCipherOrder: httpsOptions.honorCipherOrder,
-			minVersion: httpsOptions.minVersion,
-			maxVersion: httpsOptions.maxVersion,
-			sigalgs: httpsOptions.signatureAlgorithms,
-			sessionTimeout: httpsOptions.tlsSessionLifetime,
-			dhparam: httpsOptions.dhparam,
-			ecdhCurve: httpsOptions.ecdhCurve,
-			crl: httpsOptions.certificateRevocationLists,
+			ca: https.certificateAuthority,
+			cert: https.certificate,
+			key: https.key,
+			passphrase: https.passphrase,
+			pfx: https.pfx,
+			rejectUnauthorized: https.rejectUnauthorized,
+			checkServerIdentity: https.checkServerIdentity ?? checkServerIdentity,
+			ciphers: https.ciphers,
+			honorCipherOrder: https.honorCipherOrder,
+			minVersion: https.minVersion,
+			maxVersion: https.maxVersion,
+			sigalgs: https.signatureAlgorithms,
+			sessionTimeout: https.tlsSessionLifetime,
+			dhparam: https.dhparam,
+			ecdhCurve: https.ecdhCurve,
+			crl: https.certificateRevocationLists,
 
 			// HTTP options
 			lookup: internals.dnsLookup ?? (internals.dnsCache as CacheableLookup | undefined)?.lookup,
@@ -2237,7 +2237,7 @@ export default class Options {
 
 		Object.freeze(options);
 		Object.freeze(options.hooks);
-		Object.freeze(options.httpsOptions);
+		Object.freeze(options.https);
 		Object.freeze(options.cacheOptions);
 		Object.freeze(options.agent);
 		Object.freeze(options.headers);

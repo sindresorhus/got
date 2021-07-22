@@ -338,7 +338,7 @@ test('secureConnect timeout not breached', withServer, async (t, server, got) =>
 		retry: {
 			limit: 0,
 		},
-		httpsOptions: {
+		https: {
 			rejectUnauthorized: false,
 		},
 	}));
