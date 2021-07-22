@@ -85,7 +85,7 @@ const generateHttpsHook = (options?: HttpsServerOptions, installFakeTimer = fals
 			},
 		],
 		prefixUrl: server.url,
-		httpsOptions: {
+		https: {
 			certificateAuthority: (server as any).caCert,
 			rejectUnauthorized: true,
 		},
