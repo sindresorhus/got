@@ -19,7 +19,7 @@ test('non-object agent option works with http', withServer, async (t, server, go
 	const {agent, spy} = createAgentSpy(HttpAgent);
 
 	t.truthy((await got({
-		httpsOptions: {
+		https: {
 			rejectUnauthorized: false,
 		},
 		agent: {
@@ -40,7 +40,7 @@ test('non-object agent option works with https', withHttpsServer(), async (t, se
 	const {agent, spy} = createAgentSpy(HttpsAgent);
 
 	t.truthy((await got({
-		httpsOptions: {
+		https: {
 			rejectUnauthorized: false,
 		},
 		agent: {

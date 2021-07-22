@@ -2,7 +2,7 @@
 
 ## Advanced HTTPS API
 
-### `httpsOptions`
+### `https`
 
 **Type: `object`**
 
@@ -70,7 +70,7 @@ Private keys in [PEM format](https://en.wikipedia.org/wiki/Privacy-Enhanced_Mail
 Multiple keys with different passphrases can be provided as an array of `{pem: <string | Buffer>, passphrase: <string>}`.
 
 **Note:**
-> - Encrypted keys will be decrypted with `httpsOptions.passphrase`.
+> - Encrypted keys will be decrypted with `https.passphrase`.
 
 #### `passphrase`
 
@@ -89,13 +89,13 @@ Shared passphrase used for a single private key and/or a PFX.
 
 One certificate chain should be provided per private key.
 
-When providing multiple certificate chains, they do not have to be in the same order as their private keys in `httpsOptions.key`.
+When providing multiple certificate chains, they do not have to be in the same order as their private keys in `https.key`.
 
 #### `pfx`
 
 **Type: `string | Buffer | string[] | Buffer[] | object[]`**
 
-[PFX or PKCS12](https://en.wikipedia.org/wiki/PKCS_12) encoded private key and certificate chain. Using `httpsOptions.pfx` is an alternative to providing `httpsOptions.key` and `httpsOptions.certificate` individually. A PFX is usually encrypted, then `httpsOptions.passphrase` will be used to decrypt it.
+[PFX or PKCS12](https://en.wikipedia.org/wiki/PKCS_12) encoded private key and certificate chain. Using `https.pfx` is an alternative to providing `https.key` and `https.certificate` individually. A PFX is usually encrypted, then `https.passphrase` will be used to decrypt it.
 
 Multiple PFX can be be provided as an array of unencrypted buffers or an array of objects like:
 

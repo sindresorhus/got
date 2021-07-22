@@ -79,7 +79,7 @@ instance(…, {responseType: undefined}});
 instance(…, {prefixUrl: ''});
 instance(…, {agent: {http: undefined, https: undefined, http2: undefined}});
 instance(…, {context: {token: undefined, …}});
-instance(…, {httpsOptions: {rejectUnauthorized: undefined, …}});
+instance(…, {https: {rejectUnauthorized: undefined, …}});
 instance(…, {cacheOptions: {immutableMinTimeToLive: undefined, …}});
 instance(…, {headers: {'user-agent': undefined, …}});
 instance(…, {timeout: {request: undefined, …}});
@@ -863,7 +863,7 @@ The local IP address used to make the request.
 
 The function used to retrieve a `net.Socket` instance when the `agent` option is not used.
 
-### `httpsOptions`
+### `https`
 
 **Type: `object`**
 
