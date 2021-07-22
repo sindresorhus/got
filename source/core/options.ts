@@ -714,7 +714,7 @@ const cloneInternals = (internals: typeof defaultInternals): typeof defaultInter
 		...internals,
 		context: {...internals.context},
 		cacheOptions: {...internals.cacheOptions},
-		httpsOptions: {...internals.https},
+		https: {...internals.https},
 		agent: {...internals.agent},
 		headers: {...internals.headers},
 		retry: {
