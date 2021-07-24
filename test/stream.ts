@@ -1,7 +1,7 @@
 import {promisify} from 'util';
 import fs from 'fs';
 import {Agent as HttpAgent} from 'http';
-import stream, {PassThrough as PassThroughStream, Readable as ReadableStream, Writable} from 'stream';
+import stream, {Readable as ReadableStream, Writable} from 'stream';
 import {Readable as Readable2} from 'readable-stream';
 import test from 'ava';
 import {Handler} from 'express';
@@ -272,23 +272,6 @@ test('skips proxying headers after server has sent them already', withServer, as
 
 	const {headers} = await got('proxy');
 	t.is(headers.unicorn, undefined);
-});
-
-test('throws when trying to proxy through a closed stream', withServer, async (t, server, got) => {
-	server.get('/', defaultHandler);
-
-	const stream = got.stream('');
-	const promise = getStream(stream);
-
-	stream.once('data', () => {
-		t.throws(() => {
-			stream.pipe(new PassThroughStream());
-		}, {
-			message: 'Failed to pipe. The response has been emitted already.',
-		});
-	});
-
-	await promise;
 });
 
 test('proxies `content-encoding` header when `options.decompress` is false', withServer, async (t, server, got) => {

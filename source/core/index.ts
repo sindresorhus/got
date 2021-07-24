@@ -151,7 +151,6 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	private _downloadedSize: number;
 	private _uploadedSize: number;
 	private _stopReading: boolean;
-	private _startedReading: boolean;
 	private readonly _pipedServerResponses: Set<ServerResponse>;
 	private _request?: ClientRequest;
 	private _responseSize?: number;
@@ -180,7 +179,6 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		this._downloadedSize = 0;
 		this._uploadedSize = 0;
 		this._stopReading = false;
-		this._startedReading = false;
 		this._pipedServerResponses = new Set<ServerResponse>();
 		this._cannotHaveBody = false;
 		this._unproxyEvents = noop;
@@ -435,7 +433,6 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			let data;
 			while ((data = response.read()) !== null) {
 				this._downloadedSize += data.length;
-				this._startedReading = true;
 
 				const progress = this.downloadProgress;
 
@@ -522,10 +519,6 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	}
 
 	pipe<T extends NodeJS.WritableStream>(destination: T, options?: {end?: boolean}): T {
-		if (this._startedReading) {
-			throw new Error('Failed to pipe. The response has been emitted already.');
-		}
-
 		if (destination instanceof ServerResponse) {
 			this._pipedServerResponses.add(destination);
 		}
