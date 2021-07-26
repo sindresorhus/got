@@ -376,9 +376,9 @@ For advanced JSON usage, check out the [`parseJson`](documentation/2-options.md#
 
 ## Maintainers
 
-[![Sindre Sorhus](https://github.com/sindresorhus.png?size=100)](https://sindresorhus.com) | [![Szymon Marczak](https://github.com/szmarczak.png?size=100)](https://github.com/szmarczak) | [![Giovanni Minotti](https://github.com/Giotino.png?size=100)](https://github.com/Giotino)
----|---|---
-[Sindre Sorhus](https://sindresorhus.com) | [Szymon Marczak](https://github.com/szmarczak) | [Giovanni Minotti](https://github.com/Giotino)
+[![Sindre Sorhus](https://github.com/sindresorhus.png?size=100)](https://sindresorhus.com) | [![Szymon Marczak](https://github.com/szmarczak.png?size=100)](https://github.com/szmarczak)
+---|---
+[Sindre Sorhus](https://sindresorhus.com) | [Szymon Marczak](https://github.com/szmarczak)
 
 ###### Former
 
@@ -386,6 +386,7 @@ For advanced JSON usage, check out the [`parseJson`](documentation/2-options.md#
 - [Alexander Tesfamichael](https://github.com/alextes)
 - [Brandon Smith](https://github.com/brandon93s)
 - [Luke Childs](https://github.com/lukechilds)
+- [Giovanni Minotti](https://github.com/Giotino)
 
 <a name="widely-used"></a>
 ## These amazing companies are using Got
