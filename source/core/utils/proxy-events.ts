@@ -3,7 +3,7 @@ import {EventEmitter} from 'events';
 type Fn = (...args: unknown[]) => void;
 type Fns = Record<string, Fn>;
 
-export default function proxyEvents(from: EventEmitter, to: EventEmitter, events: string[]): () => void {
+export default function proxyEvents(from: EventEmitter, to: EventEmitter, events: Readonly<string[]>): () => void {
 	const eventFunctions: Fns = {};
 
 	for (const event of events) {

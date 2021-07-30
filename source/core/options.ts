@@ -299,8 +299,8 @@ export interface RetryOptions {
 	maxRetryAfter?: number;
 }
 
-export type CreateConnectionFunction = (options: NativeRequestOptions, oncreate: (error: Error, socket: Socket) => void) => Socket;
-export type CheckServerIdentityFunction = (hostname: string, certificate: DetailedPeerCertificate) => Error | void;
+export type CreateConnectionFunction = (options: NativeRequestOptions, oncreate: (error: NodeJS.ErrnoException, socket: Socket) => void) => Socket;
+export type CheckServerIdentityFunction = (hostname: string, certificate: DetailedPeerCertificate) => NodeJS.ErrnoException | void;
 
 export interface CacheOptions {
 	shared?: boolean;
@@ -768,7 +768,7 @@ export default class Options {
 	private _merging: boolean;
 	private readonly _init: OptionsInit[];
 
-	constructor(input?: string | URL | OptionsInit, options?: OptionsInit, defaults?: Options | OptionsInit) {
+	constructor(input?: string | URL | OptionsInit, options?: OptionsInit, defaults?: Options) {
 		assert.any([is.string, is.urlInstance, is.object, is.undefined], input);
 		assert.any([is.object, is.undefined], options);
 		assert.any([is.object, is.undefined], defaults);
@@ -777,8 +777,8 @@ export default class Options {
 			throw new TypeError('The defaults must be passed as the third argument');
 		}
 
-		this._internals = cloneInternals((defaults as Options)?._internals ?? defaults ?? defaultInternals);
-		this._init = [...((defaults as Options)?._init ?? [])];
+		this._internals = cloneInternals(defaults?._internals ?? defaults ?? defaultInternals);
+		this._init = [...(defaults?._init ?? [])];
 		this._merging = false;
 		this._unixOptions = undefined;
 
@@ -1495,24 +1495,30 @@ export default class Options {
 				throw new Error(`Unexpected hook event: ${knownHookEvent}`);
 			}
 
-			const hooks: unknown[] = value[knownHookEvent as keyof Hooks];
+			const typedKnownHookEvent = knownHookEvent as keyof Hooks;
+			const typedValue = value as Hooks;
+			const hooks = typedValue[typedKnownHookEvent];
+
 			assert.any([is.array, is.undefined], hooks);
 
-			for (const hook of hooks) {
-				assert.function_(hook);
+			if (hooks) {
+				for (const hook of hooks) {
+					assert.function_(hook);
+				}
 			}
 
 			if (this._merging) {
 				if (hooks) {
 					// @ts-expect-error FIXME
-					this._internals.hooks[knownHookEvent].push(...hooks);
+					this._internals.hooks[typedKnownHookEvent].push(...hooks);
 				}
-			} else if (hooks) {
+			} else {
+				if (!hooks) {
+					throw new Error(`Missing hook event: ${knownHookEvent}`);
+				}
+
 				// @ts-expect-error FIXME
 				this._internals.hooks[knownHookEvent] = [...hooks];
-			} else {
-				// @ts-expect-error FIXME
-				this._internals.hooks[knownHookEvent] = [];
 			}
 		}
 	}
@@ -2257,51 +2263,3 @@ export default class Options {
 		Object.freeze(options.context);
 	}
 }
-
-// It's user responsibility to make sensitive data in `context` non-enumerable
-const nonEnumerableProperties = new Set([
-	// Functions
-	'constructor',
-	'merge',
-	'tryMerge',
-	'createNativeRequestOptions',
-	'getRequestFunction',
-	'getFallbackRequestFunction',
-	'freeze',
-
-	// Payload
-	'body',
-	'form',
-	'json',
-
-	// Getters that always throw
-	'auth',
-	'followRedirects',
-	'searchParameters',
-
-	// May contain sensitive data
-	'username',
-	'password',
-	'headers',
-	'searchParams',
-	'url',
-
-	// Privates
-	'_unixOptions',
-	'_internals',
-	'_merging',
-	'_init',
-]);
-
-// We want all the properties to be enumerable, so people instead doing
-// `util.inspect(options, {getters: true, showHidden: true})`
-// can do just `util.inspect(options, {getters: true})`.
-const propertyDescriptors: PropertyDescriptorMap = {};
-const keys = Object.getOwnPropertyNames(Options.prototype).filter(property => !nonEnumerableProperties.has(property));
-const makeEnumerable = {enumerable: true};
-
-for (const key of keys) {
-	propertyDescriptors[key] = makeEnumerable;
-}
-
-Object.defineProperties(Options.prototype, propertyDescriptors);

@@ -23,9 +23,7 @@ const delay = async (ms: number) => new Promise(resolve => {
 	setTimeout(resolve, ms);
 });
 
-const isGotInstance = (value: Got | ExtendOptions): value is Got => (
-	'defaults' in value && 'options' in value.defaults
-);
+const isGotInstance = (value: Got | ExtendOptions): value is Got => is.function_(value);
 
 const aliases: readonly HTTPAlias[] = [
 	'get',
@@ -50,7 +48,7 @@ const create = (defaults: InstanceDefaults): Got => {
 	});
 
 	// Got interface
-	const got: Got = ((url: string | URL | OptionsInit | undefined, options?: OptionsInit, defaultOptions: Options = defaults.options as Options): GotReturn => {
+	const got: Got = ((url: string | URL | OptionsInit | undefined, options?: OptionsInit, defaultOptions: Options = defaults.options): GotReturn => {
 		const request = new Request(url, options, defaultOptions);
 		let promise: CancelableRequest | undefined;
 
@@ -240,7 +238,7 @@ const create = (defaults: InstanceDefaults): Got => {
 
 	if (!defaults.mutableDefaults) {
 		Object.freeze(defaults.handlers);
-		(defaults.options as Options).freeze();
+		defaults.options.freeze();
 	}
 
 	Object.defineProperty(got, 'defaults', {

@@ -4,7 +4,7 @@ import type {Response} from './core/response.js';
 // eslint-disable-next-line import/no-duplicates
 import type Options from './core/options.js';
 // eslint-disable-next-line import/no-duplicates
-import type {PaginationOptions, OptionsInit, InternalsType} from './core/options.js';
+import type {PaginationOptions, OptionsInit} from './core/options.js';
 import type Request from './core/index.js';
 
 // `type-fest` utilities
@@ -18,7 +18,7 @@ export interface InstanceDefaults {
 	/**
 	An object containing the default options of Got.
 	*/
-	options: InternalsType | Options;
+	options: Options;
 
 	/**
 	An array of functions. You execute them directly by calling `got()`.

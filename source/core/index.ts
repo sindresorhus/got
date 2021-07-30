@@ -32,13 +32,13 @@ import {
 import type {PlainResponse} from './response.js';
 import type {PromiseCookieJar, NativeRequestOptions, RetryOptions} from './options.js';
 
+type Error = NodeJS.ErrnoException;
+
 export interface Progress {
 	percent: number;
 	transferred: number;
 	total?: number;
 }
-
-type Error = NodeJS.ErrnoException;
 
 const supportsBrotli = is.string(process.versions.brotli);
 
@@ -125,7 +125,7 @@ const proxiedRequestEvents = [
 	'continue',
 	'information',
 	'upgrade',
-];
+] as const;
 
 const noop = () => {};
 
