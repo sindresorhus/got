@@ -339,7 +339,6 @@ test('deprecated `family` option', withServer, async (t, server, got) => {
 	});
 
 	await t.throwsAsync(got({
-		// @ts-expect-error
 		family: 4,
 	}), {
 		message: 'Unexpected option: family',

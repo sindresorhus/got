@@ -376,7 +376,6 @@ test('`url` option and input argument are mutually exclusive', async t => {
 
 test('throws a helpful error when passing `followRedirects`', async t => {
 	await t.throwsAsync(got('https://example.com', {
-		// @ts-expect-error For testing purposes
 		followRedirects: true,
 	}), {message: 'The `followRedirects` option does not exist. Use `followRedirect` instead.'});
 });
@@ -397,7 +396,6 @@ test('merges `searchParams` instances', t => {
 
 test('throws a helpful error when passing `auth`', async t => {
 	await t.throwsAsync(got('https://example.com', {
-		// @ts-expect-error For testing purposes
 		auth: 'username:password',
 	}), {
 		message: 'Parameter `auth` is deprecated. Use `username` / `password` instead.',
@@ -603,7 +601,6 @@ test('throws on too large noise', t => {
 
 test('options have url even if some are invalid', async t => {
 	const error = await t.throwsAsync<RequestError>(got('https://example.com', {
-		// @ts-expect-error
 		invalid: true,
 	}));
 
@@ -621,7 +618,6 @@ test('options have url even if some are invalid - got.extend', async t => {
 	});
 
 	await t.throwsAsync(instance('https://example.com', {
-		// @ts-expect-error
 		invalid: true,
 	}));
 });

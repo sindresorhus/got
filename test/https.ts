@@ -168,7 +168,6 @@ test.serial('deprecated `rejectUnauthorized` option', withHttpsServer(), async (
 	});
 
 	await t.throwsAsync(got({
-		// @ts-expect-error
 		rejectUnauthorized: false,
 	}), {
 		message: 'Unexpected option: rejectUnauthorized',

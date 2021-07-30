@@ -6,10 +6,7 @@ import type Options from './core/options.js';
 // eslint-disable-next-line import/no-duplicates
 import type {PaginationOptions, OptionsInit} from './core/options.js';
 import type Request from './core/index.js';
-
-// `type-fest` utilities
-type Except<ObjectType, KeysType extends keyof ObjectType> = Pick<ObjectType, Exclude<keyof ObjectType, KeysType>>;
-type Merge<FirstType, SecondType> = Except<FirstType, Extract<keyof FirstType, keyof SecondType>> & SecondType;
+import type {Except, Merge, OmitIndex} from './utils.js';
 
 /**
 Defaults for each Got instance.
@@ -71,15 +68,17 @@ export interface ExtendOptions extends OptionsInit {
 	mutableDefaults?: boolean;
 }
 
-export type OptionsOfTextResponseBody = Merge<OptionsInit, {isStream?: false; resolveBodyOnly?: false; responseType?: 'text'}>;
-export type OptionsOfJSONResponseBody = Merge<OptionsInit, {isStream?: false; resolveBodyOnly?: false; responseType?: 'json'}>;
-export type OptionsOfBufferResponseBody = Merge<OptionsInit, {isStream?: false; resolveBodyOnly?: false; responseType: 'buffer'}>;
-export type OptionsOfUnknownResponseBody = Merge<OptionsInit, {isStream?: false; resolveBodyOnly?: false}>;
+type BetterMerge<T, K> = Merge<OmitIndex<T, string>, K> & Record<string, string extends keyof T ? T[string] : never>;
+
+export type OptionsOfTextResponseBody = BetterMerge<OptionsInit, {isStream?: false; resolveBodyOnly?: false; responseType?: 'text'}>;
+export type OptionsOfJSONResponseBody = BetterMerge<OptionsInit, {isStream?: false; resolveBodyOnly?: false; responseType?: 'json'}>;
+export type OptionsOfBufferResponseBody = BetterMerge<OptionsInit, {isStream?: false; resolveBodyOnly?: false; responseType: 'buffer'}>;
+export type OptionsOfUnknownResponseBody = BetterMerge<OptionsInit, {isStream?: false; resolveBodyOnly?: false}>;
 export type StrictOptions = Except<OptionsInit, 'isStream' | 'responseType' | 'resolveBodyOnly'>;
-export type StreamOptions = Merge<OptionsInit, {isStream?: true}>;
+export type StreamOptions = BetterMerge<OptionsInit, {isStream?: true}>;
 type ResponseBodyOnly = {resolveBodyOnly: true};
 
-export type OptionsWithPagination<T = unknown, R = unknown> = Merge<OptionsInit, {pagination?: PaginationOptions<T, R>}>;
+export type OptionsWithPagination<T = unknown, R = unknown> = BetterMerge<OptionsInit, {pagination?: PaginationOptions<T, R>}>;
 
 /**
 An instance of `got.paginate`.
@@ -152,18 +151,18 @@ export interface GotRequestFunction {
 	(options: OptionsOfUnknownResponseBody): CancelableRequest<Response>;
 
 	// `resolveBodyOnly` usage
-	(url: string | URL, options?: (Merge<OptionsOfTextResponseBody, ResponseBodyOnly>)): CancelableRequest<string>;
-	<T>(url: string | URL, options?: (Merge<OptionsOfJSONResponseBody, ResponseBodyOnly>)): CancelableRequest<T>;
-	(url: string | URL, options?: (Merge<OptionsOfBufferResponseBody, ResponseBodyOnly>)): CancelableRequest<Buffer>;
+	(url: string | URL, options?: (BetterMerge<OptionsOfTextResponseBody, ResponseBodyOnly>)): CancelableRequest<string>;
+	<T>(url: string | URL, options?: (BetterMerge<OptionsOfJSONResponseBody, ResponseBodyOnly>)): CancelableRequest<T>;
+	(url: string | URL, options?: (BetterMerge<OptionsOfBufferResponseBody, ResponseBodyOnly>)): CancelableRequest<Buffer>;
 
-	(options: (Merge<OptionsOfTextResponseBody, ResponseBodyOnly>)): CancelableRequest<string>;
-	<T>(options: (Merge<OptionsOfJSONResponseBody, ResponseBodyOnly>)): CancelableRequest<T>;
-	(options: (Merge<OptionsOfBufferResponseBody, ResponseBodyOnly>)): CancelableRequest<Buffer>;
+	(options: (BetterMerge<OptionsOfTextResponseBody, ResponseBodyOnly>)): CancelableRequest<string>;
+	<T>(options: (BetterMerge<OptionsOfJSONResponseBody, ResponseBodyOnly>)): CancelableRequest<T>;
+	(options: (BetterMerge<OptionsOfBufferResponseBody, ResponseBodyOnly>)): CancelableRequest<Buffer>;
 
 	// `asStream` usage
-	(url: string | URL, options?: Merge<OptionsInit, {isStream: true}>): Request;
+	(url: string | URL, options?: BetterMerge<OptionsInit, {isStream: true}>): Request;
 
-	(options: Merge<OptionsInit, {isStream: true}>): Request;
+	(options: BetterMerge<OptionsInit, {isStream: true}>): Request;
 
 	// Fallback
 	(url: string | URL, options?: OptionsInit): CancelableRequest | Request;
@@ -186,8 +185,8 @@ export type HTTPAlias =
 	| 'delete';
 
 type GotStreamFunction =
-	((url?: string | URL, options?: Merge<OptionsInit, {isStream?: true}>) => Request) &
-	((options?: Merge<OptionsInit, {isStream?: true}>) => Request);
+	((url?: string | URL, options?: BetterMerge<OptionsInit, {isStream?: true}>) => Request) &
+	((options?: BetterMerge<OptionsInit, {isStream?: true}>) => Request);
 
 /**
 An instance of `got.stream()`.

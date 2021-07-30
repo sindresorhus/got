@@ -1,8 +1,14 @@
+/* eslint-disable import/order */
 import {promisify, inspect} from 'util';
 import {URL, URLSearchParams} from 'url';
 import {checkServerIdentity} from 'tls';
 import {request as httpRequest} from 'http';
 import {request as httpsRequest} from 'https';
+import is, {assert} from '@sindresorhus/is';
+import lowercaseKeys from 'lowercase-keys';
+import CacheableLookup from 'cacheable-lookup';
+import http2wrapper, {ClientHttp2Session} from 'http2-wrapper';
+import parseLinkHeader from './parse-link-header.js';
 import type {Readable} from 'stream';
 import type {Socket} from 'net';
 import type {SecureContextOptions, DetailedPeerCertificate} from 'tls';
@@ -15,26 +21,18 @@ import type {
 	Agent as HttpsAgent,
 } from 'https';
 import type {InspectOptions} from 'util';
-import is, {assert} from '@sindresorhus/is';
-import lowercaseKeys from 'lowercase-keys';
-import CacheableLookup from 'cacheable-lookup';
-import http2wrapper, {ClientHttp2Session} from 'http2-wrapper';
 import type CacheableRequest from 'cacheable-request';
 import type ResponseLike from 'responselike';
 import type {IncomingMessageWithTimings} from '@szmarczak/http-timer';
 import type {CancelableRequest} from '../as-promise/types.js';
-import parseLinkHeader from './parse-link-header.js';
+import type {Promisable, OmitIndex} from '../utils.js';
 import type {PlainResponse, Response} from './response.js';
 import type {RequestError} from './errors.js';
 import type {Delays} from './timed-out.js';
 
-type Promisable<T> = T | Promise<T>;
-
 const [major, minor] = process.versions.node.split('.').map(v => Number(v)) as [number, number, number];
 
 export type DnsLookupIpVersion = undefined | 4 | 6;
-
-type Except<ObjectType, KeysType extends keyof ObjectType> = Pick<ObjectType, Exclude<keyof ObjectType, KeysType>>;
 
 export type NativeRequestOptions = HttpsRequestOptions & CacheOptions & {checkServerIdentity?: CheckServerIdentityFunction};
 
@@ -526,14 +524,15 @@ type OptionsToSkip =
 	'createNativeRequestOptions' |
 	'getRequestFunction' |
 	'getFallbackRequestFunction' |
-	'freeze';
+	'freeze' |
+	'_custom';
 
-export type InternalsType = Except<Options, OptionsToSkip>;
+export type InternalsType = OmitIndex<Options, OptionsToSkip>;
 
 export type OptionsError = NodeJS.ErrnoException & {options?: Options};
 
 export type OptionsInit =
-	Except<Partial<InternalsType>, 'hooks' | 'retry'>
+	OmitIndex<Partial<InternalsType>, 'hooks' | 'retry'>
 	& {
 		hooks?: Partial<Hooks>;
 		retry?: Partial<RetryOptions>;
@@ -552,6 +551,7 @@ const getGlobalDnsCache = (): CacheableLookup => {
 };
 
 const defaultInternals: Options['_internals'] = {
+	custom: [],
 	request: undefined,
 	agent: {
 		http: undefined,
@@ -712,6 +712,7 @@ const cloneInternals = (internals: typeof defaultInternals) => {
 
 	const result: typeof defaultInternals = {
 		...internals,
+		custom: [...internals.custom],
 		context: {...internals.context},
 		cacheOptions: {...internals.cacheOptions},
 		https: {...internals.https},
@@ -762,7 +763,77 @@ const init = (options: OptionsInit, withOptions: OptionsInit, self: Options): vo
 	}
 };
 
+const exists = (target: Options, property: string | number | symbol) => {
+	if (!target.custom.includes(property as string)) {
+		throw new Error(`Unexpected option: ${String(property)}`);
+	}
+};
+
+export const handler: ProxyHandler<Options> = {
+	set: (target, property, value) => {
+		if (property in target) {
+			return Reflect.set(target, property, value);
+		}
+
+		exists(target, property);
+
+		return Reflect.set(target._custom, property, value);
+	},
+	deleteProperty: (target, property) => {
+		if (property in target) {
+			const options = new Options();
+
+			return Reflect.set(target, property, Reflect.get(options, property));
+		}
+
+		exists(target, property);
+
+		return Reflect.deleteProperty(target._custom, property);
+	},
+	defineProperty: (target, property, descriptor) => {
+		if (property in target) {
+			return Reflect.defineProperty(target, property, descriptor);
+		}
+
+		exists(target, property);
+
+		return Reflect.defineProperty(target._custom, property, descriptor);
+	},
+	get: (target, property) => {
+		if (property in target) {
+			return Reflect.get(target, property);
+		}
+
+		exists(target, property);
+
+		return Reflect.get(target._custom, property);
+	},
+	ownKeys: target => [
+		...Reflect.ownKeys(target),
+		...Reflect.ownKeys(target._custom),
+	],
+	has: (target, property) => {
+		if (property in target) {
+			return true;
+		}
+
+		return property in target._custom;
+	},
+	getOwnPropertyDescriptor: (target, property) => {
+		if (property in target) {
+			return Reflect.getOwnPropertyDescriptor(target, property);
+		}
+
+		return Reflect.getOwnPropertyDescriptor(target._custom, property);
+	},
+};
+
 export default class Options {
+	// TODO: string | number | symbol 4.4.0-beta
+	[key: string]: unknown;
+
+	_custom: Record<string | number | symbol, unknown>;
+
 	private _unixOptions?: NativeRequestOptions;
 	private _internals: InternalsType;
 	private _merging: boolean;
@@ -777,6 +848,7 @@ export default class Options {
 			throw new TypeError('The defaults must be passed as the third argument');
 		}
 
+		this._custom = defaults ? {...defaults._custom} : {};
 		this._internals = cloneInternals(defaults?._internals ?? defaults ?? defaultInternals);
 		this._init = [...(defaults?._init ?? [])];
 		this._merging = false;
@@ -820,6 +892,9 @@ export default class Options {
 			throw error;
 		}
 		/* eslint-enable no-unsafe-finally */
+
+		// eslint-disable-next-line no-constructor-return
+		return new Proxy(this, handler);
 	}
 
 	merge(options?: OptionsInit | Options) {
@@ -849,12 +924,18 @@ export default class Options {
 		Object.freeze(options.retry);
 		Object.freeze(options.hooks);
 		Object.freeze(options.context);
+		Object.freeze(options.custom);
 
 		this._merging = true;
 
 		// Always merge `isStream` first
 		if ('isStream' in options) {
 			this.isStream = options.isStream!;
+		}
+
+		// Always merge `custom` first
+		if ('custom' in options) {
+			this.custom = options.custom!;
 		}
 
 		try {
@@ -871,12 +952,7 @@ export default class Options {
 					continue;
 				}
 
-				if (!(key in this)) {
-					throw new Error(`Unexpected option: ${key}`);
-				}
-
-				// @ts-expect-error Type 'unknown' is not assignable to type 'never'.
-				this[key as keyof Options] = options[key as keyof Options];
+				handler.set!(this, key, options[key], this);
 
 				push = true;
 			}
@@ -2148,12 +2224,26 @@ export default class Options {
 		this._internals.maxHeaderSize = value;
 	}
 
+	get custom() {
+		return this._internals.custom;
+	}
+
+	set custom(value: string[]) {
+		if (this._merging) {
+			this._internals.custom.push(...value);
+		} else {
+			this._internals.custom = [...value];
+		}
+
+		this._internals.custom = [...new Set(this._internals.custom)];
+	}
+
 	toJSON() {
 		return {...this._internals};
 	}
 
 	[Symbol.for('nodejs.util.inspect.custom')](_depth: number, options: InspectOptions) {
-		return inspect(this._internals, options);
+		return `${inspect(this._internals, options)} & ${inspect(this._custom, options)}`;
 	}
 
 	createNativeRequestOptions() {
@@ -2261,5 +2351,6 @@ export default class Options {
 		Object.freeze(options.retry);
 		Object.freeze(options.hooks);
 		Object.freeze(options.context);
+		Object.freeze(this._custom);
 	}
 }
