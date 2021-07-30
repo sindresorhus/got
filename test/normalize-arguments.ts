@@ -150,3 +150,20 @@ test('extending responseType', t => {
 
 	t.is(merged.defaults.options.responseType, 'json');
 });
+
+test('searchParams - multiple values for one key', t => {
+	const searchParams = new URLSearchParams();
+
+	searchParams.append('a', '100');
+	searchParams.append('a', '200');
+	searchParams.append('a', '300');
+
+	const options = new Options({
+		searchParams
+	});
+
+	t.deepEqual(
+		(options.searchParams as URLSearchParams).getAll('a'),
+		['100', '200', '300']
+	);
+});

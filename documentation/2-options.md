@@ -177,7 +177,7 @@ console.log(searchParams.toString());
 
 #### **Note:**
 > - `null` values are not stringified, an empty string is used instead.
-> - `undefined` values are skipped.
+> - `undefined` values will clear the original keys.
 
 #### **Merge behavior:**
 > - Overrides existing properties.

@@ -1325,6 +1325,10 @@ export default class Options {
 			return (this._internals.url as URL).searchParams;
 		}
 
+		if (this._internals.searchParams === undefined) {
+			this._internals.searchParams = new URLSearchParams();
+		}
+
 		return this._internals.searchParams;
 	}
 
@@ -1343,11 +1347,13 @@ export default class Options {
 			return;
 		}
 
-		let searchParameters = (this.searchParams ?? new URLSearchParams()) as URLSearchParams;
+		const searchParameters = this.searchParams as URLSearchParams;
 		let updated;
 
-		if (is.string(value) || (value instanceof URLSearchParams)) {
+		if (is.string(value)) {
 			updated = new URLSearchParams(value);
+		} else if (value instanceof URLSearchParams) {
+			updated = value;
 		} else {
 			validateSearchParameters(value);
 
@@ -1359,22 +1365,26 @@ export default class Options {
 
 				if (entry === null) {
 					updated.append(key, '');
-				} else if (entry !== undefined) {
+				} else if (entry === undefined) {
+					searchParameters.delete(key);
+				} else {
 					updated.append(key, entry as string);
 				}
 			}
 		}
 
 		if (this._merging) {
-			// eslint-disable-next-line unicorn/no-array-for-each
-			updated.forEach((value, key) => {
-				searchParameters.set(key, value);
-			});
-		} else {
-			searchParameters = updated;
-		}
+			// These keys will be replaced
+			for (const key of updated.keys()) {
+				searchParameters.delete(key);
+			}
 
-		if (!url) {
+			for (const [key, value] of updated) {
+				searchParameters.append(key, value);
+			}
+		} else if (url) {
+			url.search = searchParameters.toString();
+		} else {
 			this._internals.searchParams = searchParameters;
 		}
 	}
