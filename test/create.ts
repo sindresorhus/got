@@ -233,7 +233,7 @@ test('does not include the `request` option in normalized `http` options', withS
 });
 
 test('should pass an options object into an initialization hook after .extend', withServer, async (t, server, got) => {
-	t.plan(1);
+	t.plan(2);
 
 	server.get('/', echoHeaders);
 
