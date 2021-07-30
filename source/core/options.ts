@@ -425,13 +425,13 @@ export interface PaginationOptions<ElementType, BodyType> {
 	const limit = 10;
 
 	const items = got.paginate('https://example.com/items', {
-		searchParameters: {
+		searchParams: {
 			limit,
 			offset: 0
 		},
 		pagination: {
 			paginate: ({response, currentItems}) => {
-				const previousSearchParams = response.request.options.searchParameters;
+				const previousSearchParams = response.request.options.searchParams;
 				const previousOffset = previousSearchParams.get('offset');
 
 				if (currentItems.length < limit) {
@@ -439,7 +439,7 @@ export interface PaginationOptions<ElementType, BodyType> {
 				}
 
 				return {
-					searchParameters: {
+					searchParams: {
 						...previousSearchParams,
 						offset: Number(previousOffset) + limit,
 					}
@@ -707,10 +707,10 @@ const defaultInternals: Options['_internals'] = {
 	maxHeaderSize: undefined,
 };
 
-const cloneInternals = (internals: typeof defaultInternals): typeof defaultInternals => {
+const cloneInternals = (internals: typeof defaultInternals) => {
 	const {hooks, retry} = internals;
 
-	const result = {
+	const result: typeof defaultInternals = {
 		...internals,
 		context: {...internals.context},
 		cacheOptions: {...internals.cacheOptions},
@@ -732,7 +732,7 @@ const cloneInternals = (internals: typeof defaultInternals): typeof defaultInter
 			beforeRetry: [...hooks.beforeRetry],
 			afterResponse: [...hooks.afterResponse],
 		},
-		searchParameters: internals.searchParams ? new URLSearchParams(internals.searchParams as URLSearchParams) : undefined,
+		searchParams: internals.searchParams ? new URLSearchParams(internals.searchParams as URLSearchParams) : undefined,
 		pagination: {...internals.pagination},
 	};
 
@@ -1176,10 +1176,10 @@ export default class Options {
 	@example
 	```
 	await got('https://example.com/?query=a b'); //=> https://example.com/?query=a%20b
-	await got('https://example.com/', {searchParameters: {query: 'a b'}}); //=> https://example.com/?query=a+b
+	await got('https://example.com/', {searchParams: {query: 'a b'}}); //=> https://example.com/?query=a+b
 
-	// The query string is overridden by `searchParameters`
-	await got('https://example.com/?query=a b', {searchParameters: {query: 'a b'}}); //=> https://example.com/?query=a+b
+	// The query string is overridden by `searchParams`
+	await got('https://example.com/?query=a b', {searchParams: {query: 'a b'}}); //=> https://example.com/?query=a+b
 	```
 	*/
 	get url(): string | URL | undefined {
@@ -1312,11 +1312,11 @@ export default class Options {
 	```
 	import got from 'got';
 
-	const searchParameters = new URLSearchParams([['key', 'a'], ['key', 'b']]);
+	const searchParams = new URLSearchParams([['key', 'a'], ['key', 'b']]);
 
-	await got('https://example.com', {searchParameters});
+	await got('https://example.com', {searchParams});
 
-	console.log(searchParameters.toString());
+	console.log(searchParams.toString());
 	//=> 'key=a&key=b'
 	```
 	*/
