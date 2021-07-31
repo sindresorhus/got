@@ -366,6 +366,6 @@ test('ClientRequest can throw before promise resolves', async t => {
 			});
 		}) as any,
 	}), {
-		code: 'EINVAL',
+		message: /EINVAL|EHOSTUNREACH|ETIMEDOUT/,
 	});
 });
