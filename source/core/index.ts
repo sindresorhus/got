@@ -1101,11 +1101,21 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		const fn = options.cache ? this._createCacheableRequest : request;
 
 		try {
-			let requestOrResponse = await fn(url, this._requestOptions);
+			// We can't do `await fn(...)`,
+			// because stream `error` event can be emitted before `Promise.resolve()`.
+			let requestOrResponse = fn(url, this._requestOptions);
+
+			if (is.promise(requestOrResponse)) {
+				requestOrResponse = await requestOrResponse;
+			}
 
 			// Fallback
 			if (is.undefined(requestOrResponse)) {
-				requestOrResponse = await options.getFallbackRequestFunction()(url, this._requestOptions);
+				requestOrResponse = options.getFallbackRequestFunction()(url, this._requestOptions);
+
+				if (is.promise(requestOrResponse)) {
+					requestOrResponse = await requestOrResponse;
+				}
 			}
 
 			if (isClientRequest(requestOrResponse!)) {

@@ -357,3 +357,15 @@ test('JSON request custom stringifier', withServer, async (t, server, got) => {
 		json: payload,
 	})).body, customStringify(payload));
 });
+
+test('ClientRequest can throw before promise resolves', async t => {
+	await t.throwsAsync(got('http://example.com', {
+		dnsLookup: ((_hostname: string, _options: unknown, callback: Function) => {
+			queueMicrotask(() => {
+				callback(null, 'fe80::0000:0000:0000:0000', 6);
+			});
+		}) as any
+	}), {
+		code: 'EINVAL'
+	});
+});
