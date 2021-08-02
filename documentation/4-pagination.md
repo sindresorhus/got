@@ -87,7 +87,9 @@ console.log(results);
 		const next = parsed.find(entry => entry.parameters.rel === 'next' || entry.parameters.rel === '"next"');
 
 		if (next) {
-			return {url: next.reference};
+			return {
+				url: new URL(next.reference, response.requestUrl)
+			};
 		}
 
 		return false;

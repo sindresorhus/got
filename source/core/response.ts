@@ -1,3 +1,4 @@
+import type {URL} from 'url';
 import type {IncomingMessageWithTimings, Timings} from '@szmarczak/http-timer';
 import {RequestError} from './errors.js';
 import type {ParseJsonFunction, ResponseType} from './options.js';

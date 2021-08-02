@@ -1103,7 +1103,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		try {
 			// We can't do `await fn(...)`,
 			// because stream `error` event can be emitted before `Promise.resolve()`.
-			let requestOrResponse = fn(url, this._requestOptions);
+			let requestOrResponse = fn!(url, this._requestOptions);
 
 			if (is.promise(requestOrResponse)) {
 				requestOrResponse = await requestOrResponse;
@@ -1111,7 +1111,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 			// Fallback
 			if (is.undefined(requestOrResponse)) {
-				requestOrResponse = options.getFallbackRequestFunction()(url, this._requestOptions);
+				requestOrResponse = options.getFallbackRequestFunction()!(url, this._requestOptions);
 
 				if (is.promise(requestOrResponse)) {
 					requestOrResponse = await requestOrResponse;

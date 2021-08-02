@@ -691,7 +691,9 @@ const defaultInternals: Options['_internals'] = {
 			const next = parsed.find(entry => entry.parameters.rel === 'next' || entry.parameters.rel === '"next"');
 
 			if (next) {
-				return {url: next.reference};
+				return {
+					url: new URL(next.reference, response.requestUrl),
+				};
 			}
 
 			return false;
@@ -2224,13 +2226,17 @@ export default class Options {
 			return this.getFallbackRequestFunction();
 		}
 
-		return request!;
+		return request;
 	}
 
 	getFallbackRequestFunction() {
 		const url = this._internals.url as (URL | undefined);
 
-		if (url!.protocol === 'https:') {
+		if (!url) {
+			return;
+		}
+
+		if (url.protocol === 'https:') {
 			if (this._internals.http2) {
 				if (major < 15 || (major === 15 && minor < 10)) {
 					const error = new Error('To use the `http2` option, install Node.js 15.10.0 or above');

@@ -17,14 +17,14 @@ const resetPagination = {
 	shouldContinue: undefined,
 };
 
-const attachHandler = (server: ExtendedHttpTestServer, count: number): void => {
+const attachHandler = (server: ExtendedHttpTestServer, count: number, {relative} = {relative: false}): void => {
 	server.get('/', (request, response) => {
 		// eslint-disable-next-line unicorn/prevent-abbreviations
 		const searchParams = new URLSearchParams(request.url.split('?')[1]);
 		const page = Number(searchParams.get('page')) || 1;
 
 		if (page < count) {
-			response.setHeader('link', `<${server.url}/?page=${page + 1}>; rel="next"`);
+			response.setHeader('link', `<${relative ? '' : server.url}/?page=${page + 1}>; rel="next"`);
 		}
 
 		response.end(`[${page <= count ? page : ''}]`);
@@ -718,6 +718,14 @@ test('calls init hooks on pagination', withServer, async (t, server) => {
 	t.deepEqual(received, [
 		'/?foobar=',
 	]);
+});
+
+test('retrieves all elements - relative url', withServer, async (t, server, got) => {
+	attachHandler(server, 2, {relative: true});
+
+	const result = await got.paginate.all<number>('');
+
+	t.deepEqual(result, [1, 2]);
 });
 
 test('throws when transform does not return an array', withServer, async (t, server) => {
