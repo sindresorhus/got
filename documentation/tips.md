@@ -304,6 +304,88 @@ const wrappedAgent = new TransformHeadersAgent(agent);
 
 See [an example](examples/uppercase-headers.js).
 
+### Custom options
+
+Got v12 throws when an option does not exist. Therefore passing a top-level option such as:
+
+```js
+import got from 'got';
+
+await got('https://example.com', {
+	foo: 'bar'
+});
+```
+
+will throw. To prevent this, you need read the option in an `init` hook:
+
+```js
+import got from 'got';
+
+const convertFoo = got.extend({
+	hooks: {
+		init: [
+			(rawOptions, options) => {
+				if ('foo' in rawOptions) {
+					options.context.foo = rawOptions.foo;
+					delete rawOptions.foo;
+				}
+			}
+		]
+	}
+});
+
+const instance = got.extend(convertFoo, {
+	hooks: {
+		beforeRequest: [
+			options => {
+				options.headers.foo = options.context.foo;
+			}
+		]
+	}
+});
+
+const {headers} = await instance('https://httpbin.org/anything', {foo: 'bar'}).json();
+console.log(headers.Foo); //=> 'bar'
+```
+
+Eventually, you may want to create a catch-all instance:
+
+```js
+import got from 'got';
+
+const catchAllOptions = got.extend({
+    hooks: {
+        init: [
+            (raw, options) => {
+                for (const key in raw) {
+                    if (!(key in options)) {
+                        options.context[key] = raw[key];
+                        delete raw[key];
+                    }
+                }
+            }
+        ]
+    }
+});
+
+const instance = got.extend(catchAllOptions, {
+	hooks: {
+		beforeRequest: [
+			options => {
+				// All custom options will be visible under `options.context`
+				options.headers.foo = options.context.foo;
+			}
+		]
+	}
+});
+
+const {headers} = await instance('https://httpbin.org/anything', {foo: 'bar'}).json();
+console.log(headers.Foo); //=> 'bar'
+```
+
+**Note:**
+> - It's a good practice to perform the validation inside the `init` hook. You can safely throw when an option is unknown! Internally, Got uses the [`@sindresorhus/is`](https://github.com/sindresorhus/is) package.
+
 ### Electron `net` module is not supported
 
 Got doesn't support the `electron.net` module. It's missing crucial APIs that are available in Node.js.\
