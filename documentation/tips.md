@@ -242,6 +242,68 @@ There is no direct [`h2c`](https://datatracker.ietf.org/doc/html/rfc7540#section
 
 However, you can provide a `h2session` option in a `beforeRequest` hook. See [an example](examples/h2c.js).
 
+### Uppercase headers
+
+Got always normalizes the headers, therefore passing an `Uppercase-Header` will transform it into `uppercase-header`. To fix this, you need to pass a wrapped agent:
+
+```js
+class WrappedAgent {
+    constructor(agent) {
+        this.agent = agent;
+    }
+
+    addRequest(request, options) {
+        return this.agent.addRequest(request, options);
+    }
+
+    get keepAlive() {
+        return this.agent.keepAlive;
+    }
+
+    get maxSockets() {
+        return this.agent.maxSockets;
+    }
+
+    get options() {
+        return this.agent.options;
+    }
+
+    get defaultPort() {
+        return this.agent.defaultPort;
+    }
+
+    get protocol() {
+        return this.agent.protocol;
+    }
+}
+
+class TransformHeadersAgent extends WrappedAgent {
+    addRequest(request, options) {
+        const headers = request.getHeaderNames();
+
+        for (const header of headers) {
+            request.setHeader(this.transformHeader(header), request.getHeader(header));
+        }
+
+        return super.addRequest(request, options);
+    }
+
+    transformHeader(header) {
+        return header.split('-').map(part => {
+            return part[0].toUpperCase() + part.slice(1);
+        }).join('-');
+    }
+}
+
+const agent = new http.Agent({
+    keepAlive: true
+});
+
+const wrappedAgent = new TransformHeadersAgent(agent);
+```
+
+See [an example](examples/uppercase-headers.js).
+
 ### Electron `net` module is not supported
 
 Got doesn't support the `electron.net` module. It's missing crucial APIs that are available in Node.js.\
