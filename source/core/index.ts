@@ -1042,7 +1042,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 	private async _makeRequest(): Promise<void> {
 		const {options} = this;
-		const {headers} = options;
+		const {headers, username, password} = options;
 		const cookieJar = options.cookieJar as PromiseCookieJar | undefined;
 
 		for (const key in headers) {
@@ -1056,6 +1056,11 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 		if (options.decompress && is.undefined(headers['accept-encoding'])) {
 			headers['accept-encoding'] = supportsBrotli ? 'gzip, deflate, br' : 'gzip, deflate';
+		}
+
+		if (username || password) {
+			const credentials = Buffer.from(`${username}:${password}`).toString('base64');
+			headers.authorization = `Basic ${credentials}`;
 		}
 
 		// Set cookies

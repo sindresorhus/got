@@ -1608,33 +1608,30 @@ export default class Options {
 	get username(): string {
 		const url = this._internals.url as URL;
 
-		if (url) {
-			return url.username;
-		}
+		const value = url ? url.username : this._internals.username;
 
-		return this._internals.username;
+		return decodeURIComponent(value);
 	}
 
 	set username(value: string) {
 		assert.string(value);
 
 		const url = this._internals.url as URL;
+		const fixedValue = encodeURIComponent(value);
 
 		if (url) {
-			url.username = value;
+			url.username = fixedValue;
 		} else {
-			this._internals.username = value;
+			this._internals.username = fixedValue;
 		}
 	}
 
 	get password(): string {
 		const url = this._internals.url as URL;
 
-		if (url) {
-			return url.password;
-		}
+		const value = url ? url.password : this._internals.password;
 
-		return this._internals.password;
+		return decodeURIComponent(value);
 	}
 
 	set password(value: string) {
@@ -1642,10 +1639,12 @@ export default class Options {
 
 		const url = this._internals.url as URL;
 
+		const fixedValue = encodeURIComponent(value);
+
 		if (url) {
-			url.password = value;
+			url.password = fixedValue;
 		} else {
-			this._internals.password = value;
+			this._internals.password = fixedValue;
 		}
 	}
 
