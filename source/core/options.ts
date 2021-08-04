@@ -803,7 +803,7 @@ export default class Options {
 				}
 			} else {
 				try {
-					this.merge(options ?? {});
+					this.merge(options);
 				} finally {
 					if (options?.url !== undefined) {
 						if (input === undefined) {
