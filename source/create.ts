@@ -201,6 +201,8 @@ const create = (defaults: InstanceDefaults): Got => {
 			} else {
 				normalizedOptions.merge(optionsToMerge);
 
+				assert.any([is.urlInstance, is.undefined], optionsToMerge.url);
+
 				if (optionsToMerge.url !== undefined) {
 					normalizedOptions.prefixUrl = '';
 					normalizedOptions.url = optionsToMerge.url;

@@ -575,7 +575,7 @@ test('next url in json response', withServer, async (t, server, got) => {
 				}
 
 				return {
-					url: next,
+					url: new URL(next),
 					prefixUrl: '',
 					searchParams: undefined,
 				};
@@ -726,6 +726,20 @@ test('retrieves all elements - relative url', withServer, async (t, server, got)
 	const result = await got.paginate.all<number>('');
 
 	t.deepEqual(result, [1, 2]);
+});
+
+test('throws if url is not an instance of URL', withServer, async (t, server, got) => {
+	attachHandler(server, 2);
+
+	await t.throwsAsync(got.paginate.all<number>('', {
+		pagination: {
+			paginate: () => ({
+				url: 'not an instance of URL',
+			}),
+		},
+	}), {
+		instanceOf: TypeError,
+	});
 });
 
 test('throws when transform does not return an array', withServer, async (t, server) => {

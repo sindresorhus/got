@@ -692,7 +692,7 @@ const defaultInternals: Options['_internals'] = {
 
 			if (next) {
 				return {
-					url: new URL(next.reference, response.requestUrl),
+					url: new URL(next.reference, response.url),
 				};
 			}
 
