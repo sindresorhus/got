@@ -2259,6 +2259,7 @@ export default class Options {
 			...this._unixOptions,
 
 			// HTTPS options
+			ALPNProtocols: https.alpnProtocols,
 			ca: https.certificateAuthority,
 			cert: https.certificate,
 			key: https.key,
