@@ -150,6 +150,7 @@ For advanced JSON usage, check out the [`parseJson`](documentation/2-options.md#
 - [`gl-got`](https://github.com/singapore/gl-got) - Got convenience wrapper to interact with the GitLab API
 - [`gotql`](https://github.com/khaosdoctor/gotql) - Got convenience wrapper to interact with GraphQL using JSON-parsed queries instead of strings
 - [`got-fetch`](https://github.com/alexghr/got-fetch) - Got with a [`fetch`](https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API) interface
+- [`got-scraping`](https://github.com/apify/got-scraping) - Got wrapper specifically designed for web scraping purposes
 
 ### Legacy
 
