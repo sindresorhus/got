@@ -8,7 +8,7 @@ import sinon from 'sinon';
 import delay from 'delay';
 import {Handler} from 'express';
 import Responselike from 'responselike';
-import got, {RequestError, HTTPError, Response} from '../source/index.js';
+import got, {RequestError, HTTPError, Response, OptionsInit} from '../source/index.js';
 import withServer from './helpers/with-server.js';
 
 const errorString = 'oops';
@@ -274,7 +274,7 @@ test('init is called with options', withServer, async (t, server, got) => {
 		hooks: {
 			init: [
 				options => {
-					t.is(options.context, context);
+					t.deepEqual(options.context, context);
 				},
 			],
 		},
@@ -309,16 +309,22 @@ test('init allows modifications', withServer, async (t, server, got) => {
 		response.end(request.headers.foo);
 	});
 
-	const {body} = await got('', {
+	const options = {
 		headers: {},
 		hooks: {
 			init: [
-				options => {
-					options.headers!.foo = 'bar';
+				(options: OptionsInit) => {
+					options.headers = {
+						foo: 'bar',
+					};
 				},
 			],
 		},
-	});
+	};
+
+	const {body} = await got('', options);
+
+	t.deepEqual(options.headers, {});
 	t.is(body, 'bar');
 });
 

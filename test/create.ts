@@ -375,3 +375,19 @@ test('waits for handlers to finish', withServer, async (t, server, got) => {
 	const {foo} = await instance('').json();
 	t.is(foo, 'bar');
 });
+
+test('does not append to internal _init on new requests', withServer, async (t, server, got) => {
+	server.get('/', echoHeaders);
+
+	const instance = got.extend({
+		mutableDefaults: true,
+	});
+
+	const {length} = (instance.defaults.options as any)._init;
+
+	await got('', {
+		context: {},
+	});
+
+	t.is((instance.defaults.options as any)._init.length, length);
+});

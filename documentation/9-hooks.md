@@ -34,7 +34,7 @@ The second argument represents the current [`Options`](2-options.md) instance.
 > - Do not confuse this with the creation of `Request` or `got(…)`.
 
 **Note:**
-> - When using `got(url, undefined, defaults)` this hook will **not** be called.
+> - When using `got(url)` or `got(url, undefined, defaults)` this hook will **not** be called.
 
 This is especially useful in conjunction with `got.extend()` when the input needs custom handling.
 

@@ -745,6 +745,92 @@ const cloneInternals = (internals: typeof defaultInternals) => {
 	return result;
 };
 
+const cloneRaw = (raw: OptionsInit) => {
+	const {hooks, retry} = raw;
+
+	const result: OptionsInit = {...raw};
+
+	if (raw.context) {
+		result.context = {...raw.context};
+	}
+
+	if (raw.cacheOptions) {
+		result.cacheOptions = {...raw.cacheOptions};
+	}
+
+	if (raw.https) {
+		result.https = {...raw.https};
+	}
+
+	if (raw.cacheOptions) {
+		result.cacheOptions = {...result.cacheOptions};
+	}
+
+	if (raw.agent) {
+		result.agent = {...raw.agent};
+	}
+
+	if (raw.headers) {
+		result.headers = {...raw.headers};
+	}
+
+	if (retry) {
+		result.retry = {...retry};
+
+		if (retry.errorCodes) {
+			result.retry.errorCodes = [...retry.errorCodes];
+		}
+
+		if (retry.methods) {
+			result.retry.methods = [...retry.methods];
+		}
+
+		if (retry.statusCodes) {
+			result.retry.statusCodes = [...retry.statusCodes];
+		}
+	}
+
+	if (raw.timeout) {
+		result.timeout = {...raw.timeout};
+	}
+
+	if (hooks) {
+		result.hooks = {};
+
+		if (hooks.init) {
+			result.hooks.init = [...hooks.init];
+		}
+
+		if (hooks.beforeRequest) {
+			result.hooks.beforeRequest = [...hooks.beforeRequest];
+		}
+
+		if (hooks.beforeError) {
+			result.hooks.beforeError = [...hooks.beforeError];
+		}
+
+		if (hooks.beforeRedirect) {
+			result.hooks.beforeRedirect = [...hooks.beforeRedirect];
+		}
+
+		if (hooks.beforeRetry) {
+			result.hooks.beforeRetry = [...hooks.beforeRetry];
+		}
+
+		if (hooks.afterResponse) {
+			result.hooks.afterResponse = [...hooks.afterResponse];
+		}
+	}
+
+	// TODO: raw.searchParams
+
+	if (raw.pagination) {
+		result.pagination = {...raw.pagination};
+	}
+
+	return result;
+};
+
 const getHttp2TimeoutOption = (internals: typeof defaultInternals): number | undefined => {
 	const delays = [internals.timeout.socket, internals.timeout.connect, internals.timeout.lookup, internals.timeout.request, internals.timeout.secureConnect].filter(delay => typeof delay === 'number') as number[];
 
@@ -837,20 +923,10 @@ export default class Options {
 			return;
 		}
 
+		options = cloneRaw(options);
+
 		init(this, options, this);
 		init(options, options, this);
-
-		// This is way much faster than cloning ^_^
-		Object.freeze(options);
-		Object.freeze(options.hooks);
-		Object.freeze(options.https);
-		Object.freeze(options.cacheOptions);
-		Object.freeze(options.agent);
-		Object.freeze(options.headers);
-		Object.freeze(options.timeout);
-		Object.freeze(options.retry);
-		Object.freeze(options.hooks);
-		Object.freeze(options.context);
 
 		this._merging = true;
 
@@ -2258,13 +2334,21 @@ export default class Options {
 
 		Object.freeze(options);
 		Object.freeze(options.hooks);
+		Object.freeze(options.hooks.afterResponse);
+		Object.freeze(options.hooks.beforeError);
+		Object.freeze(options.hooks.beforeRedirect);
+		Object.freeze(options.hooks.beforeRequest);
+		Object.freeze(options.hooks.beforeRetry);
+		Object.freeze(options.hooks.init);
 		Object.freeze(options.https);
 		Object.freeze(options.cacheOptions);
 		Object.freeze(options.agent);
 		Object.freeze(options.headers);
 		Object.freeze(options.timeout);
 		Object.freeze(options.retry);
-		Object.freeze(options.hooks);
+		Object.freeze(options.retry.errorCodes);
+		Object.freeze(options.retry.methods);
+		Object.freeze(options.retry.statusCodes);
 		Object.freeze(options.context);
 	}
 }
