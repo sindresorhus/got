@@ -186,12 +186,14 @@ export interface Hooks {
 
 	/**
 	Called with [response object](#response) and a retry function.
-	Calling the retry function will trigger `beforeRetry` hooks.
 
 	Each function should return the response.
 	This is especially useful when you want to refresh an access token.
 
 	__Note__: When using streams, this hook is ignored.
+
+	__Note__: Calling the `retryWithMergedOptions` function will first execute any remaining `afterResponse` hooks before triggering `beforeRetry` and possibly `beforeError` hooks.
+	Meanwhile the `init`, `beforeRequest` , `beforeRedirect` as well as already executed `afterResponse` hooks will be skipped.
 
 	@example
 	```
