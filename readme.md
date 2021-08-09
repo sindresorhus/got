@@ -449,6 +449,11 @@ For advanced JSON usage, check out the [`parseJson`](documentation/2-options.md#
 				<img width="150" valign="middle" src="https://user-images.githubusercontent.com/29518613/91814036-97fb9500-ec44-11ea-8c6c-d198cc23ca29.png">
 			</a>
 		</td>
+		<td align="center">
+			<a href="https://apify.com">
+				<img width="150" valign="middle" src="https://user-images.githubusercontent.com/23726914/128673143-958b5930-b677-40ef-8087-5698a0c29c45.png">
+			</a>
+		</td>
 	</tr>
 </tbody>
 </table>
@@ -498,6 +503,10 @@ For advanced JSON usage, check out the [`parseJson`](documentation/2-options.md#
 > We’re using Got at Radity. Thanks for such an amazing work!
 >
 > — <a href="https://github.com/MirzayevFarid">Mirzayev Farid</a>
+
+> Got has been a crucial component of Apify's scraping for years. We use it to extract data from billions of web pages every month, and we really appreciate the powerful API and extensibility, which allowed us to build our own specialized HTTP client on top of Got. The support has always been stellar too.
+>
+> — <a href="https://github.com/mnmkng">Ondra Urban</a>
 
 ## For enterprise
 
