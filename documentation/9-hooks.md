@@ -222,7 +222,7 @@ await got('https://httpbin.org/status/500', {
 > - When using the Stream API, this hook is ignored.
 
 **Note:**
-> - Calling the retry function will trigger `beforeRetry` hooks.
+> - Calling the `retryWithMergedOptions` function will trigger `beforeRetry` and possibly `beforeError` hooks. Meanwhile the `init`, `beforeRequest` , `beforeRedirect`  and `afterResponse` hooks will be skipped.
 
 Each function should return the response. This is especially useful when you want to refresh an access token.
 
