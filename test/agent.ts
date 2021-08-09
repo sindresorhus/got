@@ -6,8 +6,8 @@ import withServer, {withHttpsServer} from './helpers/with-server.js';
 
 const createAgentSpy = <T extends HttpsAgent>(AgentClass: Constructor): {agent: T; spy: sinon.SinonSpy} => {
 	const agent: T = new AgentClass({keepAlive: true});
-	// @ts-expect-error This IS correct
-	const spy = sinon.spy(agent, 'addRequest');
+	// eslint-disable-next-line import/no-named-as-default-member
+	const spy = sinon.spy(agent, 'addRequest' as any);
 	return {agent, spy};
 };
 
