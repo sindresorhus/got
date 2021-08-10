@@ -218,13 +218,14 @@ await got('https://httpbin.org/status/500', {
 (response: Response, retryWithMergedOptions: (options: OptionsInit) => never) => Promisable<Response | CancelableRequest<Response>>
 ```
 
+Each function should return the response. This is especially useful when you want to refresh an access token.
+
 **Note:**
 > - When using the Stream API, this hook is ignored.
 
 **Note:**
-> - Calling the retry function will trigger `beforeRetry` hooks.
-
-Each function should return the response. This is especially useful when you want to refresh an access token.
+> - Calling the `retryWithMergedOptions` function will trigger `beforeRetry` hooks. If the retry is successful, all remaining `afterResponse` hooks will be called. In case of an error, `beforeRetry` hooks will be called instead.
+Meanwhile the `init`, `beforeRequest` , `beforeRedirect` as well as already executed `afterResponse` hooks will be skipped.
 
 ```js
 import got from 'got';
