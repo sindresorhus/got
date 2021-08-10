@@ -224,7 +224,8 @@ Each function should return the response. This is especially useful when you wan
 > - When using the Stream API, this hook is ignored.
 
 **Note:**
-> - Calling the `retryWithMergedOptions` function will first execute any remaining `afterResponse` hooks before triggering `beforeRetry` and possibly `beforeError` hooks. Meanwhile the `init`, `beforeRequest` , `beforeRedirect` as well as already executed `afterResponse` hooks will be skipped.
+> - Calling the `retryWithMergedOptions` function will execute any remaining `afterResponse` hooks and trigger relevant `beforeRetry` and  `beforeError` hooks.
+Meanwhile the `init`, `beforeRequest` , `beforeRedirect` as well as already executed `afterResponse` hooks will be skipped.
 
 ```js
 import got from 'got';

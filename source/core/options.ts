@@ -192,7 +192,7 @@ export interface Hooks {
 
 	__Note__: When using streams, this hook is ignored.
 
-	__Note__: Calling the `retryWithMergedOptions` function will first execute any remaining `afterResponse` hooks before triggering `beforeRetry` and possibly `beforeError` hooks.
+	__Note__: Calling the `retryWithMergedOptions` function will execute any remaining `afterResponse` hooks and trigger relevant `beforeRetry` and  `beforeError` hooks.
 	Meanwhile the `init`, `beforeRequest` , `beforeRedirect` as well as already executed `afterResponse` hooks will be skipped.
 
 	@example
