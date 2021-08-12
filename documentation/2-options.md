@@ -294,7 +294,6 @@ Since Got 12 you can use spec-compliant FormData objects as request body, such a
 
 ```js
 import got from 'got';
-
 import {FormData} from 'formdata-node'; // or 'formdata-polyfill/esm.min.js'
 
 const form = new FormData();
