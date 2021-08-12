@@ -95,6 +95,7 @@
 		"sinon": "^10.0.0",
 		"slow-stream": "0.0.4",
 		"tempy": "^1.0.1",
+		"then-busboy": "^5.0.0",
 		"to-readable-stream": "^3.0.0",
 		"tough-cookie": "^4.0.0",
 		"ts-node": "^10.1.0",
