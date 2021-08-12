@@ -196,6 +196,21 @@ test('sets `content-length` header for spec-compliant FormData', withServer, asy
 	t.is(headers['content-length'], encoder.headers['Content-Length']);
 });
 
+test('manual `content-type` header should be allowed with spec-compliant FormData', withServer, async (t, server, got) => {
+	server.post('/', echoHeaders);
+
+	const form = new FormDataNode();
+	form.set('a', 'b');
+	const {body} = await got.post({
+		headers: {
+			'content-type': 'custom'
+		},
+		body: form,
+	});
+	const headers = JSON.parse(body);
+	t.is(headers['content-type'], 'custom');
+});
+
 test('stream as `options.body` does not set `content-length` header', withServer, async (t, server, got) => {
 	server.post('/', echoHeaders);
 

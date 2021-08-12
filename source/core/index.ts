@@ -128,7 +128,7 @@ const proxiedRequestEvents = [
 	'upgrade',
 ] as const;
 
-const noop = () => {};
+const noop = (): void => {};
 
 type UrlType = ConstructorParameters<typeof Options>[0];
 type OptionsType = ConstructorParameters<typeof Options>[1];
@@ -572,10 +572,13 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 			if (isBody) {
 				// Body is spec-compliant FormData
-				if (isFormDataLike(options.body) && noContentType) {
+				if (isFormDataLike(options.body)) {
 					const encoder = new FormDataEncoder(options.body);
 
-					headers['content-type'] = encoder.headers['Content-Type'];
+					if (noContentType) {
+						headers['content-type'] = encoder.headers['Content-Type'];
+					}
+
 					headers['content-length'] = encoder.headers['Content-Length'];
 
 					options.body = encoder.encode();
