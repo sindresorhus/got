@@ -1351,3 +1351,19 @@ test('can retry without an agent', withServer, async (t, server, got) => {
 	t.is(response.retryCount, 2);
 	t.is(counter, 1);
 });
+
+test('does not throw on empty body when running afterResponse hooks', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.end();
+	});
+
+	await t.notThrowsAsync(got('', {
+		hooks: {
+			afterResponse: [
+				response => {
+					return response;
+				}
+			]
+		}
+	}));
+});
