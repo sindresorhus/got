@@ -1360,10 +1360,8 @@ test('does not throw on empty body when running afterResponse hooks', withServer
 	await t.notThrowsAsync(got('', {
 		hooks: {
 			afterResponse: [
-				response => {
-					return response;
-				}
-			]
-		}
+				response => response,
+			],
+		},
 	}));
 });
