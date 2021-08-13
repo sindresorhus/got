@@ -28,8 +28,7 @@ const echoHeaders: Handler = (request, response) => {
 
 const echoMultipartBody: Handler = async (request, response) => {
 	const body = await parse(request);
-	const entries = await Promise.all([...body.entries()]
-		.map<Promise<[BodyEntryPath, BodyEntryRawValue]>>(async ([name, value]) => [name, isBodyFile(value) ? await value.text() : value]));
+	const entries = await Promise.all([...body.entries()].map<Promise<[BodyEntryPath, BodyEntryRawValue]>>(async ([name, value]) => [name, isBodyFile(value) ? await value.text() : value]));
 
 	response.json(Body.json(entries));
 };
