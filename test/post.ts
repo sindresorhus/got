@@ -7,7 +7,7 @@ import test from 'ava';
 import delay from 'delay';
 import pEvent from 'p-event';
 import {Handler} from 'express';
-import {parse, Body, BodyRawEntries, isBodyFile} from 'then-busboy';
+import {parse, Body, BodyEntryPath, BodyEntryRawValue, isBodyFile} from 'then-busboy';
 import {FormData as FormDataNode, Blob, File, fileFromPath} from 'formdata-node';
 import getStream from 'get-stream';
 import FormData from 'form-data';
@@ -28,15 +28,11 @@ const echoHeaders: Handler = (request, response) => {
 
 const echoMultipartBody: Handler = async (request, response) => {
 	const body = await parse(request);
-	const entries: BodyRawEntries = [];
-
-	// Read every file before respond
-	for (const [name, value] of body) {
-		entries.push([name, isBodyFile(value) ? await value.text() : value]);
-	}
+	const entries = await Promise.all([...body.entries()]
+		.map<Promise<[BodyEntryPath, BodyEntryRawValue]>>(async ([name, value]) => [name, isBodyFile(value) ? await value.text() : value]));
 
 	response.json(Body.json(entries));
-}
+};
 
 test('GET cannot have body without the `allowGetBody` option', withServer, async (t, server, got) => {
 	server.post('/', defaultEndpoint);

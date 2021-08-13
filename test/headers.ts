@@ -203,7 +203,7 @@ test('manual `content-type` header should be allowed with spec-compliant FormDat
 	form.set('a', 'b');
 	const {body} = await got.post({
 		headers: {
-			'content-type': 'custom'
+			'content-type': 'custom',
 		},
 		body: form,
 	});
