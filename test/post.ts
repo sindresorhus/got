@@ -335,9 +335,8 @@ test('body - sends spec-compliant FormData', withServer, async (t, server, got) 
 
 	const form = new FormDataNode();
 	form.set('a', 'b');
-	const {body} = await got.post({body: form});
-	const actual = JSON.parse(body);
-	t.is(actual.a, 'b');
+	const body = await got.post({body: form}).json<{a: string}>();
+	t.is(body.a, 'b');
 });
 
 test('body - sends files with spec-compliant FormData', withServer, async (t, server, got) => {
