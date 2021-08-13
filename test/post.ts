@@ -343,8 +343,8 @@ test('body - sends files with spec-compliant FormData', withServer, async (t, se
 	server.post('/', echoMultipartBody);
 
 	const fullPath = path.resolve('test/fixtures/ok');
-	const blobContent = "Blob content";
-	const fileContent = "File content";
+	const blobContent = 'Blob content';
+	const fileContent = 'File content';
 	const anotherFileContent = await fsPromises.readFile(fullPath, 'utf-8');
 	const expected = {
 		blob: blobContent,
