@@ -70,7 +70,7 @@ The response object is different as well:
 - `response.data` → [`response.body`](../3-streams.md#response-1)
 - `response.status` → [`response.statusCode`](../3-streams.md#response-1)
 - `response.statusText` → [`response.statusMessage`](../3-streams.md#response-1)
-- `response.config` → [`response.request.options](../3-streams.md#response-1)`
+- `response.config` → [`response.request.options`](../3-streams.md#response-1)
 - [`response.request`](../3-streams.md#response-1)
   - Returns [a Got stream](../3-streams.md).
 
