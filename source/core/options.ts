@@ -1177,7 +1177,7 @@ export default class Options {
 
 	__Note #4__: This option is not enumerable and will not be merged with the instance defaults.
 
-	The `content-length` header will be automatically set if `body` is a `string` / `Buffer` / [`form-data` instance](https://github.com/form-data/form-data), and `content-length` and `transfer-encoding` are not manually set in `options.headers`.
+	The `content-length` header will be automatically set if `body` is a `string` / `Buffer` / [`FormData`](https://developer.mozilla.org/en-US/docs/Web/API/FormData) / [`form-data` instance](https://github.com/form-data/form-data), and `content-length` and `transfer-encoding` are not manually set in `options.headers`.
 
 	Since Got 12, the `content-length` is not automatically set when `body` is a `fs.createReadStream`.
 	*/
