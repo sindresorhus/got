@@ -290,7 +290,7 @@ console.log(data);
 //=> 'Hello, world!'
 ```
 
-Since Got 12 you can use spec-compliant FormData objects as request body, such as [`formdata-node`](https://github.com/octet-stream/form-data) or [`formdata-polyfill`](https://github.com/jimmywarting/FormData):
+Since Got 12, you can use spec-compliant [`FormData`](https://developer.mozilla.org/en-US/docs/Web/API/FormData) objects as request body, such as [`formdata-node`](https://github.com/octet-stream/form-data) or [`formdata-polyfill`](https://github.com/jimmywarting/FormData):
 
 ```js
 import got from 'got';
