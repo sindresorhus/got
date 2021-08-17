@@ -8,7 +8,8 @@ import delay from 'delay';
 import pEvent from 'p-event';
 import {Handler} from 'express';
 import {parse, Body, BodyEntryPath, BodyEntryRawValue, isBodyFile} from 'then-busboy';
-import {FormData as FormDataNode, Blob, File, fileFromPath} from 'formdata-node';
+import {FormData as FormDataNode, Blob, File} from 'formdata-node';
+import {fileFromPath} from 'formdata-node/file-from-path';
 import getStream from 'get-stream';
 import FormData from 'form-data';
 import toReadableStream from 'to-readable-stream';
@@ -349,8 +350,8 @@ test('body - sends files with spec-compliant FormData', withServer, async (t, se
 
 	const form = new FormDataNode();
 	form.set('blob', new Blob([blobContent]));
-	form.set('file', new File([fileContent], 'file.txt'), {type: 'text/plain'});
-	form.set('anotherFile', await fileFromPath(fullPath), {type: 'text/plain'});
+	form.set('file', new File([fileContent], 'file.txt', {type: 'text/plain'}));
+	form.set('anotherFile', await fileFromPath(fullPath, {type: 'text/plain'}));
 	const body = await got.post({body: form}).json<typeof expected>();
 	t.deepEqual(body, expected);
 });
