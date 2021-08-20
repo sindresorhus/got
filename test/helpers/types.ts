@@ -1,4 +1,5 @@
 import {Server} from 'http';
+// @ts-expect-error Fails to locate ../types/create-test-server/index.d.ts
 import {TestServer} from 'create-test-server';
 
 export interface ExtendedHttpServer extends Server {
