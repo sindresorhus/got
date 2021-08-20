@@ -45,7 +45,7 @@
 	],
 	"dependencies": {
 		"@sindresorhus/is": "^4.0.1",
-		"@szmarczak/http-timer": "^4.0.6",
+		"@szmarczak/http-timer": "^5.0.1",
 		"@types/cacheable-request": "^6.0.2",
 		"@types/responselike": "^1.0.0",
 		"cacheable-lookup": "^6.0.0",
