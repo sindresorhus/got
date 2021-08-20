@@ -1,8 +1,8 @@
+// @ts-expect-error TypeScript incorrectly thinks this is moot
+import type {Buffer} from 'buffer';
 import PCancelable from 'p-cancelable';
 import {RequestError} from '../core/errors.js';
-// eslint-disable-next-line import/no-duplicates
 import type Request from '../core/index.js';
-// eslint-disable-next-line import/no-duplicates
 import type {RequestEvents} from '../core/index.js';
 import type {Response} from '../core/response.js';
 

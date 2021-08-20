@@ -1,3 +1,4 @@
+import process from 'process';
 import {EventEmitter} from 'events';
 import {PassThrough as PassThroughStream} from 'stream';
 import {Socket} from 'net';
@@ -171,9 +172,9 @@ test('custom error codes', async t => {
 			emitter.abort = () => {};
 			emitter.end = () => {};
 			emitter.destroy = () => {};
-			// @ts-expect-error
+			// @ts-expect-error Imitating a stream
 			emitter.writable = true;
-			// @ts-expect-error
+			// @ts-expect-error Imitating a stream
 			emitter.writableEnded = false;
 
 			const error = new Error('Snap!');

@@ -1,3 +1,4 @@
+import {Buffer} from 'buffer';
 import {URL} from 'url';
 import {Agent as HttpAgent} from 'http';
 import test, {Constructor} from 'ava';
@@ -151,7 +152,7 @@ test('throws if afterResponse returns an invalid value', withServer, async (t, s
 	await t.throwsAsync(got('', {
 		hooks: {
 			afterResponse: [
-				// @ts-expect-error
+				// @ts-expect-error Testing purposes
 				() => {},
 			],
 		},

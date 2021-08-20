@@ -1,3 +1,4 @@
+import process from 'process';
 import {promisify} from 'util';
 import {EventEmitter} from 'events';
 import stream, {PassThrough as PassThroughStream} from 'stream';
@@ -318,7 +319,7 @@ test.serial('secureConnect timeout', withHttpsServer({}, true), async (t, _serve
 			},
 		}).on('request', (request: http.ClientRequest) => {
 			request.on('socket', () => {
-				clock!.runAll();
+				clock.runAll();
 			});
 		}),
 		{
@@ -481,8 +482,7 @@ test.serial('no unhandled timeout errors', withServer, async (t, _server, got) =
 	await t.throwsAsync(got({
 		retry: {limit: 0},
 		timeout: {request: 100},
-		request: (...args: any[]) => {
-			// @ts-expect-error
+		request: (...args) => {
 			const result = http.request(...args);
 
 			result.once('socket', () => {
@@ -527,7 +527,7 @@ test.serial('no more timeouts after an error', withServer, async (t, _server, go
 	const {setTimeout} = global;
 	const {clearTimeout} = global;
 
-	// @ts-expect-error
+	// @ts-expect-error FIXME
 	global.setTimeout = (callback, _ms, ...args) => {
 		const timeout = {
 			isCleared: false,
@@ -538,7 +538,7 @@ test.serial('no more timeouts after an error', withServer, async (t, _server, go
 				return;
 			}
 
-			// @ts-expect-error
+			// @ts-expect-error FIXME
 			callback(...args);
 		});
 
@@ -547,7 +547,7 @@ test.serial('no more timeouts after an error', withServer, async (t, _server, go
 
 	global.clearTimeout = timeout => {
 		if (timeout) {
-			// @ts-expect-error
+			// @ts-expect-error FIXME
 			timeout.isCleared = true;
 		}
 	};
@@ -645,7 +645,7 @@ test.serial('doesn\'t throw on early lookup', withServerAndFakeTimers, async (t,
 			lookup: 1,
 		},
 		retry: {limit: 0},
-		// @ts-expect-error
+		// @ts-expect-error FIXME
 		dnsLookup: (...[_hostname, options, callback]: Parameters<CacheableLookup['lookup']>) => {
 			if (typeof options === 'function') {
 				callback = options;

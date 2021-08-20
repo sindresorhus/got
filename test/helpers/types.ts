@@ -1,6 +1,5 @@
 import {Server} from 'http';
 import {TestServer} from 'create-test-server';
-import FakeTimers from '@sinonjs/fake-timers';
 
 export interface ExtendedHttpServer extends Server {
 	socketPath: string;
@@ -11,5 +10,6 @@ export interface ExtendedTestServer extends TestServer {
 	sslHostname: string;
 }
 
-export type InstalledClock = ReturnType<typeof FakeTimers.install>;
-export type GlobalClock = InstalledClock | FakeTimers.NodeClock;
+// https://github.com/sinonjs/fake-timers/pull/386
+export type InstalledClock = any;
+export type GlobalClock = any;

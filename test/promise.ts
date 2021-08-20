@@ -1,3 +1,4 @@
+import {Buffer} from 'buffer';
 import {ReadStream} from 'fs';
 import {ClientRequest, IncomingMessage} from 'http';
 import test from 'ava';

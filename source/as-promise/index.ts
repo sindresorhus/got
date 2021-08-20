@@ -22,7 +22,7 @@ const proxiedRequestEvents = [
 	'downloadProgress',
 ];
 
-export default function asPromise<T>(firstRequest: Request): CancelableRequest<T> {
+export default function asPromise<T>(firstRequest?: Request): CancelableRequest<T> {
 	let globalRequest: Request;
 	let globalResponse: Response;
 	let normalizedOptions: Options;
@@ -141,7 +141,6 @@ export default function asPromise<T>(firstRequest: Request): CancelableRequest<T
 			const previousBody = request.options?.body;
 
 			request.once('retry', (newRetryCount: number, error: RequestError) => {
-				// @ts-expect-error
 				firstRequest = undefined;
 
 				const newBody = request.options.body;

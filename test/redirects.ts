@@ -1,3 +1,4 @@
+import {Buffer} from 'buffer';
 import test from 'ava';
 import {Handler} from 'express';
 import nock from 'nock';

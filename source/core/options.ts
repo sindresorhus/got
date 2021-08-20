@@ -1,3 +1,6 @@
+import process from 'process';
+// @ts-expect-error TypeScript incorrectly thinks this is moot
+import {Buffer} from 'buffer';
 import {promisify, inspect} from 'util';
 import {URL, URLSearchParams} from 'url';
 import {checkServerIdentity} from 'tls';

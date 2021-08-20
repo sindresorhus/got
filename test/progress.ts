@@ -1,8 +1,8 @@
+import {Buffer} from 'buffer';
 import {promisify} from 'util';
 import stream from 'stream';
 import fs from 'fs';
-// eslint-disable-next-line @typescript-eslint/prefer-ts-expect-error
-// @ts-ignore
+// @ts-expect-error Fails to find slow-stream/index.d.ts
 import SlowStream from 'slow-stream';
 import toReadableStream from 'to-readable-stream';
 import getStream from 'get-stream';

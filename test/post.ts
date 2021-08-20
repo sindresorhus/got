@@ -1,3 +1,5 @@
+import process from 'process';
+import {Buffer} from 'buffer';
 import {promisify} from 'util';
 import stream from 'stream';
 import fs from 'fs';
@@ -231,8 +233,7 @@ test('the `json` payload is not touched', withServer, async (t, server, got) => 
 test('the `body` payload is not touched', withServer, async (t, server, got) => {
 	server.post('/', defaultEndpoint);
 
-	const buffer = Buffer.from('Hello, Got!');
-	// @ts-expect-error
+	const buffer = Buffer.from('Hello, Got!') as Buffer & {context?: unknown};
 	buffer.context = {foo: 'bar'};
 
 	const body = await got.post({body: buffer}).text();

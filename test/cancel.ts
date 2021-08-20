@@ -1,3 +1,5 @@
+
+import process from 'process';
 import {EventEmitter} from 'events';
 import stream, {Readable as ReadableStream} from 'stream';
 import test from 'ava';
