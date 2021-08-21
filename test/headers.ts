@@ -5,6 +5,8 @@ import path from 'path';
 import test from 'ava';
 import {Handler} from 'express';
 import FormData from 'form-data';
+import {FormDataEncoder} from 'form-data-encoder';
+import {FormData as FormDataNode} from 'formdata-node';
 import got, {Headers} from '../source/index.js';
 import withServer from './helpers/with-server.js';
 
@@ -173,6 +175,42 @@ test('form-data sets `content-length` header', withServer, async (t, server, got
 	const {body} = await got.post({body: form});
 	const headers = JSON.parse(body);
 	t.is(headers['content-length'], '157');
+});
+
+test('sets `content-type` header for spec-compliant FormData', withServer, async (t, server, got) => {
+	server.post('/', echoHeaders);
+
+	const form = new FormDataNode();
+	form.set('a', 'b');
+	const {body} = await got.post({body: form});
+	const headers = JSON.parse(body);
+	t.true((headers['content-type'] as string).startsWith('multipart/form-data'));
+});
+
+test('sets `content-length` header for spec-compliant FormData', withServer, async (t, server, got) => {
+	server.post('/', echoHeaders);
+
+	const form = new FormDataNode();
+	form.set('a', 'b');
+	const encoder = new FormDataEncoder(form);
+	const {body} = await got.post({body: form});
+	const headers = JSON.parse(body);
+	t.is(headers['content-length'], encoder.headers['Content-Length']);
+});
+
+test('manual `content-type` header should be allowed with spec-compliant FormData', withServer, async (t, server, got) => {
+	server.post('/', echoHeaders);
+
+	const form = new FormDataNode();
+	form.set('a', 'b');
+	const {body} = await got.post({
+		headers: {
+			'content-type': 'custom',
+		},
+		body: form,
+	});
+	const headers = JSON.parse(body);
+	t.is(headers['content-type'], 'custom');
 });
 
 test('stream as `options.body` does not set `content-length` header', withServer, async (t, server, got) => {

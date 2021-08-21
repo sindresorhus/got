@@ -10,6 +10,7 @@ import CacheableRequest from 'cacheable-request';
 import decompressResponse from 'decompress-response';
 import is from '@sindresorhus/is';
 import {buffer as getBuffer} from 'get-stream';
+import {FormDataEncoder, isFormDataLike} from 'form-data-encoder';
 import type {ClientRequestWithTimings, Timings, IncomingMessageWithTimings} from '@szmarczak/http-timer';
 import type ResponseLike from 'responselike';
 import getBodySize from './utils/get-body-size.js';
@@ -129,7 +130,7 @@ const proxiedRequestEvents = [
 	'upgrade',
 ] as const;
 
-const noop = () => {};
+const noop = (): void => {};
 
 type UrlType = ConstructorParameters<typeof Options>[0];
 type OptionsType = ConstructorParameters<typeof Options>[1];
@@ -572,6 +573,19 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			const noContentType = !is.string(headers['content-type']);
 
 			if (isBody) {
+				// Body is spec-compliant FormData
+				if (isFormDataLike(options.body)) {
+					const encoder = new FormDataEncoder(options.body);
+
+					if (noContentType) {
+						headers['content-type'] = encoder.headers['Content-Type'];
+					}
+
+					headers['content-length'] = encoder.headers['Content-Length'];
+
+					options.body = encoder.encode();
+				}
+
 				// Special case for https://github.com/form-data/form-data
 				if (isFormData(options.body) && noContentType) {
 					headers['content-type'] = `multipart/form-data; boundary=${options.body.getBoundary()}`;

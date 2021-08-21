@@ -3,11 +3,15 @@ import {Buffer} from 'buffer';
 import {promisify} from 'util';
 import stream from 'stream';
 import fs from 'fs';
+import fsPromises from 'fs/promises';
 import path from 'path';
 import test from 'ava';
 import delay from 'delay';
 import pEvent from 'p-event';
 import {Handler} from 'express';
+import {parse, Body, BodyEntryPath, BodyEntryRawValue, isBodyFile} from 'then-busboy';
+import {FormData as FormDataNode, Blob, File} from 'formdata-node';
+import {fileFromPath} from 'formdata-node/file-from-path';
 import getStream from 'get-stream';
 import FormData from 'form-data';
 import toReadableStream from 'to-readable-stream';
@@ -23,6 +27,17 @@ const defaultEndpoint: Handler = async (request, response) => {
 
 const echoHeaders: Handler = (request, response) => {
 	response.end(JSON.stringify(request.headers));
+};
+
+const echoMultipartBody: Handler = async (request, response) => {
+	const body = await parse(request);
+	const entries = await Promise.all(
+		[...body.entries()].map<Promise<[BodyEntryPath, BodyEntryRawValue]>>(
+			async ([name, value]) => [name, isBodyFile(value) ? await value.text() : value],
+		),
+	);
+
+	response.json(Body.json(entries));
 };
 
 test('GET cannot have body without the `allowGetBody` option', withServer, async (t, server, got) => {
@@ -314,6 +329,36 @@ test('body - file read stream, wait for `ready` event', withServer, async (t, se
 	}).text();
 
 	t.is(toSend, body);
+});
+
+test('body - sends spec-compliant FormData', withServer, async (t, server, got) => {
+	server.post('/', echoMultipartBody);
+
+	const form = new FormDataNode();
+	form.set('a', 'b');
+	const body = await got.post({body: form}).json<{a: string}>();
+	t.is(body.a, 'b');
+});
+
+test('body - sends files with spec-compliant FormData', withServer, async (t, server, got) => {
+	server.post('/', echoMultipartBody);
+
+	const fullPath = path.resolve('test/fixtures/ok');
+	const blobContent = 'Blob content';
+	const fileContent = 'File content';
+	const anotherFileContent = await fsPromises.readFile(fullPath, 'utf-8');
+	const expected = {
+		blob: blobContent,
+		file: fileContent,
+		anotherFile: anotherFileContent,
+	};
+
+	const form = new FormDataNode();
+	form.set('blob', new Blob([blobContent]));
+	form.set('file', new File([fileContent], 'file.txt', {type: 'text/plain'}));
+	form.set('anotherFile', await fileFromPath(fullPath, {type: 'text/plain'}));
+	const body = await got.post({body: form}).json<typeof expected>();
+	t.deepEqual(body, expected);
 });
 
 test('throws on upload error', withServer, async (t, server, got) => {

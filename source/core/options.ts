@@ -22,6 +22,8 @@ import is, {assert} from '@sindresorhus/is';
 import lowercaseKeys from 'lowercase-keys';
 import CacheableLookup from 'cacheable-lookup';
 import http2wrapper, {ClientHttp2Session} from 'http2-wrapper';
+import {isFormDataLike} from 'form-data-encoder';
+import type {FormDataLike} from 'form-data-encoder';
 import type CacheableRequest from 'cacheable-request';
 import type ResponseLike from 'responselike';
 import type {IncomingMessageWithTimings} from '@szmarczak/http-timer';
@@ -1178,16 +1180,16 @@ export default class Options {
 
 	__Note #4__: This option is not enumerable and will not be merged with the instance defaults.
 
-	The `content-length` header will be automatically set if `body` is a `string` / `Buffer` / [`form-data` instance](https://github.com/form-data/form-data), and `content-length` and `transfer-encoding` are not manually set in `options.headers`.
+	The `content-length` header will be automatically set if `body` is a `string` / `Buffer` / [`FormData`](https://developer.mozilla.org/en-US/docs/Web/API/FormData) / [`form-data` instance](https://github.com/form-data/form-data), and `content-length` and `transfer-encoding` are not manually set in `options.headers`.
 
 	Since Got 12, the `content-length` is not automatically set when `body` is a `fs.createReadStream`.
 	*/
-	get body(): string | Buffer | Readable | Generator | AsyncGenerator | undefined {
+	get body(): string | Buffer | Readable | Generator | AsyncGenerator | FormDataLike | undefined {
 		return this._internals.body;
 	}
 
-	set body(value: string | Buffer | Readable | Generator | AsyncGenerator | undefined) {
-		assert.any([is.string, is.buffer, is.nodeStream, is.generator, is.asyncGenerator, is.undefined], value);
+	set body(value: string | Buffer | Readable | Generator | AsyncGenerator | FormDataLike | undefined) {
+		assert.any([is.string, is.buffer, is.nodeStream, is.generator, is.asyncGenerator, isFormDataLike, is.undefined], value);
 
 		if (is.nodeStream(value)) {
 			assert.truthy(value.readable);
