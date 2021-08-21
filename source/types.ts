@@ -1,9 +1,9 @@
+// @ts-expect-error TypeScript incorrectly thinks this is moot
+import type {Buffer} from 'buffer';
 import type {URL} from 'url';
 import type {CancelableRequest} from './as-promise/types.js';
 import type {Response} from './core/response.js';
-// eslint-disable-next-line import/no-duplicates
 import type Options from './core/options.js';
-// eslint-disable-next-line import/no-duplicates
 import type {PaginationOptions, OptionsInit} from './core/options.js';
 import type Request from './core/index.js';
 

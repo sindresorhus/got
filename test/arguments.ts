@@ -603,7 +603,7 @@ test('throws on too large noise', t => {
 
 test('options have url even if some are invalid', async t => {
 	const error = await t.throwsAsync<RequestError>(got('https://example.com', {
-		// @ts-expect-error
+		// @ts-expect-error Testing purposes
 		invalid: true,
 	}));
 
@@ -621,7 +621,7 @@ test('options have url even if some are invalid - got.extend', async t => {
 	});
 
 	await t.throwsAsync(instance('https://example.com', {
-		// @ts-expect-error
+		// @ts-expect-error Testing purposes
 		invalid: true,
 	}));
 });

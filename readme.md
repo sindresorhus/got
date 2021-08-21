@@ -48,7 +48,7 @@
 
 <!-- [![Coverage Status](https://codecov.io/gh/sindresorhus/got/branch/main/graph/badge.svg)](https://codecov.io/gh/sindresorhus/got/branch/main) -->
 [![Downloads](https://img.shields.io/npm/dm/got.svg)](https://npmjs.com/got)
-[![Install size](https://packagephobia.now.sh/badge?p=got)](https://packagephobia.now.sh/result?p=got)
+[![Install size](https://packagephobia.com/badge?p=got)](https://packagephobia.com/result?p=got)
 
 [See how Got compares to other HTTP libraries](#comparison)
 
@@ -319,12 +319,12 @@ For advanced JSON usage, check out the [`parseJson`](documentation/2-options.md#
 [ais]: https://badgen.net/packagephobia/install/axios?label
 [sis]: https://badgen.net/packagephobia/install/superagent?label
 
-[g8]: https://packagephobia.now.sh/result?p=got
-[k8]: https://packagephobia.now.sh/result?p=ky
-[r8]: https://packagephobia.now.sh/result?p=request
-[n8]: https://packagephobia.now.sh/result?p=node-fetch
-[a8]: https://packagephobia.now.sh/result?p=axios
-[s8]: https://packagephobia.now.sh/result?p=superagent
+[g8]: https://packagephobia.com/result?p=got
+[k8]: https://packagephobia.com/result?p=ky
+[r8]: https://packagephobia.com/result?p=request
+[n8]: https://packagephobia.com/result?p=node-fetch
+[a8]: https://packagephobia.com/result?p=axios
+[s8]: https://packagephobia.com/result?p=superagent
 
 <!-- GITHUB STARS -->
 [gs]: https://badgen.net/github/stars/sindresorhus/got?label

@@ -1,3 +1,5 @@
+import process from 'process';
+import {Buffer} from 'buffer';
 import {promisify} from 'util';
 import fs from 'fs';
 import {Agent as HttpAgent} from 'http';
@@ -364,12 +366,10 @@ test('errors have body', withServer, async (t, server, got) => {
 
 	const error = await t.throwsAsync<RequestError>(getStream(got.stream('', {
 		cookieJar: {
-			// @ts-expect-error
-			setCookie: async (_, __) => {
+			setCookie: async () => {
 				throw new Error('snap');
 			},
-			// @ts-expect-error
-			getCookieString: async _ => '',
+			getCookieString: async () => '',
 		},
 	})));
 

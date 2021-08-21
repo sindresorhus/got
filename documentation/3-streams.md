@@ -199,8 +199,18 @@ import got from 'got';
 
 let writeStream;
 
-const fn = (retryCount = 0) => {
-	const stream = got.stream('https://example.com');
+const fn = (retryCount = 0, error) => {
+	// We want to inherit options from previous retries,
+	// as well as the `beforeRetry` hook.
+	const defaults = error ? error.options : undefined;
+
+	const options = {
+		headers: {
+			foo: 'bar'
+		},
+	};
+
+	const stream = got.stream('https://example.com', options, defaults);
 	stream.retryCount = retryCount;
 
 	if (writeStream) {

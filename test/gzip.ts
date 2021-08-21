@@ -1,3 +1,4 @@
+import {Buffer} from 'buffer';
 import {promisify} from 'util';
 import zlib from 'zlib';
 import test from 'ava';

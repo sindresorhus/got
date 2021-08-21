@@ -1,3 +1,4 @@
+import process from 'process';
 import tls, {DetailedPeerCertificate} from 'tls';
 import test from 'ava';
 import pEvent from 'p-event';
@@ -168,7 +169,7 @@ test.serial('deprecated `rejectUnauthorized` option', withHttpsServer(), async (
 	});
 
 	await t.throwsAsync(got({
-		// @ts-expect-error
+		// @ts-expect-error Testing purposes
 		rejectUnauthorized: false,
 	}), {
 		message: 'Unexpected option: rejectUnauthorized',

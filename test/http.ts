@@ -1,3 +1,5 @@
+import process from 'process';
+import {Buffer} from 'buffer';
 import {STATUS_CODES, Agent} from 'http';
 import os from 'os';
 import {isIPv4, isIPv6} from 'net';
@@ -339,7 +341,7 @@ test('deprecated `family` option', withServer, async (t, server, got) => {
 	});
 
 	await t.throwsAsync(got({
-		// @ts-expect-error
+		// @ts-expect-error Legacy option
 		family: 4,
 	}), {
 		message: 'Unexpected option: family',

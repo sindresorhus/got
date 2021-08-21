@@ -1,3 +1,4 @@
+import {Buffer} from 'buffer';
 import {promisify} from 'util';
 import {ClientRequestArgs} from 'http';
 import is from '@sindresorhus/is';

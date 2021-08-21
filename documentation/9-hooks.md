@@ -122,7 +122,7 @@ This hook is especially useful in conjunction with `got.extend()` when you want 
 ```js
 import got from 'got';
 
-const resposne = await got.post(
+const response = await got.post(
 	'https://httpbin.org/anything',
 	{
 		json: {payload: 'old'},

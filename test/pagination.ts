@@ -1,3 +1,4 @@
+import {Buffer} from 'buffer';
 import {URL} from 'url';
 import test from 'ava';
 import delay from 'delay';
@@ -17,6 +18,7 @@ const resetPagination = {
 	shouldContinue: undefined,
 };
 
+// eslint-disable-next-line unicorn/no-object-as-default-parameter
 const attachHandler = (server: ExtendedHttpTestServer, count: number, {relative} = {relative: false}): void => {
 	server.get('/', (request, response) => {
 		// eslint-disable-next-line unicorn/prevent-abbreviations

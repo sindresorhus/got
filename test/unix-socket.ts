@@ -1,3 +1,4 @@
+import process from 'process';
 import {format} from 'util';
 import test from 'ava';
 import {Handler} from 'express';

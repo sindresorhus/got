@@ -1,3 +1,4 @@
+import {Buffer} from 'buffer';
 import {promisify} from 'util';
 import {Agent} from 'http';
 import {gzip} from 'zlib';
@@ -155,7 +156,7 @@ test('DNS cache works', async t => {
 
 	await t.notThrowsAsync(instance('https://example.com'));
 
-	// @ts-expect-error
+	// @ts-expect-error Accessing private property
 	t.is(instance.defaults.options.dnsCache!._cache.size, 1);
 });
 

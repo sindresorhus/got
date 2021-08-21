@@ -1,3 +1,4 @@
+import {Buffer} from 'buffer';
 import {URL} from 'url';
 import {promisify} from 'util';
 import net from 'net';
@@ -187,7 +188,7 @@ test('`http.request` error through CacheableRequest', async t => {
 test('returns a stream even if normalization fails', async t => {
 	const stream = got('https://example.com', {
 		isStream: true,
-		// @ts-expect-error
+		// @ts-expect-error Testing purposes
 		hooks: false,
 	}) as unknown as Request;
 
