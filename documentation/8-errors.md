@@ -15,9 +15,9 @@ All Got errors contain various metadata, such as:
 - `response` (optional) - An instance of Got Response,
 - `timings` (optional) - Points to `response.timings`.
 
-**Note:**
-> - The `error.stack` property may look incomplete due to the execution in an async function that is triggered by a timer.
-> - See https://stackoverflow.com/questions/54914770/is-there-a-good-way-to-surface-error-traces-in-production-across-event-emitters
+#### Capturing async stack traces
+
+Read the article [here](async-stack-traces.md).
 
 **Note:**
 > - The error codes may differ when the root error has a `code` property set.
