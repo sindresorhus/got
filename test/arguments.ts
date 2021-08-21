@@ -201,7 +201,7 @@ test('can omit `url` option if using `prefixUrl`', withServer, async (t, server,
 	await t.notThrowsAsync(got({}));
 });
 
-test.failing('throws when `options.hooks` is not an object', async t => {
+test('throws when `options.hooks` is not an object', async t => {
 	await t.throwsAsync(
 		// @ts-expect-error Error tests
 		got('https://example.com', {hooks: 'not object'}),
@@ -230,7 +230,7 @@ test('throws when known `options.hooks` array item is not a function', async t =
 	);
 });
 
-test.failing('does not allow extra keys in `options.hooks`', withServer, async (t, server, got) => {
+test('does not allow extra keys in `options.hooks`', withServer, async (t, server, got) => {
 	server.get('/test', echoUrl);
 
 	// @ts-expect-error Error tests

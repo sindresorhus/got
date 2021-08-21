@@ -757,81 +757,83 @@ const cloneRaw = (raw: OptionsInit) => {
 
 	const result: OptionsInit = {...raw};
 
-	if (raw.context) {
+	if (is.object(raw.context)) {
 		result.context = {...raw.context};
 	}
 
-	if (raw.cacheOptions) {
+	if (is.object(raw.cacheOptions)) {
 		result.cacheOptions = {...raw.cacheOptions};
 	}
 
-	if (raw.https) {
+	if (is.object(raw.https)) {
 		result.https = {...raw.https};
 	}
 
-	if (raw.cacheOptions) {
+	if (is.object(raw.cacheOptions)) {
 		result.cacheOptions = {...result.cacheOptions};
 	}
 
-	if (raw.agent) {
+	if (is.object(raw.agent)) {
 		result.agent = {...raw.agent};
 	}
 
-	if (raw.headers) {
+	if (is.object(raw.headers)) {
 		result.headers = {...raw.headers};
 	}
 
-	if (retry) {
+	if (is.object(retry)) {
 		result.retry = {...retry};
 
-		if (retry.errorCodes) {
+		if (is.array(retry.errorCodes)) {
 			result.retry.errorCodes = [...retry.errorCodes];
 		}
 
-		if (retry.methods) {
+		if (is.array(retry.methods)) {
 			result.retry.methods = [...retry.methods];
 		}
 
-		if (retry.statusCodes) {
+		if (is.array(retry.statusCodes)) {
 			result.retry.statusCodes = [...retry.statusCodes];
 		}
 	}
 
-	if (raw.timeout) {
+	if (is.object(raw.timeout)) {
 		result.timeout = {...raw.timeout};
 	}
 
-	if (hooks) {
-		result.hooks = {};
+	if (is.object(hooks)) {
+		result.hooks = {
+			...hooks,
+		};
 
-		if (hooks.init) {
+		if (is.array(hooks.init)) {
 			result.hooks.init = [...hooks.init];
 		}
 
-		if (hooks.beforeRequest) {
+		if (is.array(hooks.beforeRequest)) {
 			result.hooks.beforeRequest = [...hooks.beforeRequest];
 		}
 
-		if (hooks.beforeError) {
+		if (is.array(hooks.beforeError)) {
 			result.hooks.beforeError = [...hooks.beforeError];
 		}
 
-		if (hooks.beforeRedirect) {
+		if (is.array(hooks.beforeRedirect)) {
 			result.hooks.beforeRedirect = [...hooks.beforeRedirect];
 		}
 
-		if (hooks.beforeRetry) {
+		if (is.array(hooks.beforeRetry)) {
 			result.hooks.beforeRetry = [...hooks.beforeRetry];
 		}
 
-		if (hooks.afterResponse) {
+		if (is.array(hooks.afterResponse)) {
 			result.hooks.afterResponse = [...hooks.afterResponse];
 		}
 	}
 
 	// TODO: raw.searchParams
 
-	if (raw.pagination) {
+	if (is.object(raw.pagination)) {
 		result.pagination = {...raw.pagination};
 	}
 
