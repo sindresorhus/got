@@ -294,15 +294,18 @@ Since Got 12, you can use spec-compliant [`FormData`](https://developer.mozilla.
 
 ```js
 import got from 'got';
-import {FormData} from 'formdata-node'; // or 'formdata-polyfill/esm.min.js'
+import {FormData} from 'formdata-node'; // or:
+// import {FormData} from 'formdata-polyfill/esm.min.js';
 
 const form = new FormData();
-
 form.set('greeting', 'Hello, world!');
 
-const {data} = await got.post('https://httpbin.org/post', {
+const data = await got.post('https://httpbin.org/post', {
 	body: form
-});
+}).json();
+
+console.log(data.form.greeting);
+//=> 'Hello, world!'
 ```
 
 #### **Note:**
