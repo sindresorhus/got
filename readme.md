@@ -207,12 +207,12 @@ For advanced JSON usage, check out the [`parseJson`](documentation/2-options.md#
 [s0]: https://github.com/visionmedia/superagent
 
 <!-- ISSUES OPEN -->
-[gio]: https://badgen.net/github/open-issues/sindresorhus/got?label
-[kio]: https://badgen.net/github/open-issues/sindresorhus/ky?label
-[rio]: https://badgen.net/github/open-issues/request/request?label
-[nio]: https://badgen.net/github/open-issues/bitinn/node-fetch?label
-[aio]: https://badgen.net/github/open-issues/axios/axios?label
-[sio]: https://badgen.net/github/open-issues/visionmedia/superagent?label
+[gio]: https://img.shields.io/github/issues-raw/sindresorhus/got?color=gray&label
+[kio]: https://img.shields.io/github/issues-raw/sindresorhus/ky?color=gray&label
+[rio]: https://img.shields.io/github/issues-raw/request/request?color=gray&label
+[nio]: https://img.shields.io/github/issues-raw/bitinn/node-fetch?color=gray&label
+[aio]: https://img.shields.io/github/issues-raw/axios/axios?color=gray&label
+[sio]: https://img.shields.io/github/issues-raw/visionmedia/superagent?color=gray&label
 
 [g1]: https://github.com/sindresorhus/got/issues?q=is%3Aissue+is%3Aopen+sort%3Aupdated-desc
 [k1]: https://github.com/sindresorhus/ky/issues?q=is%3Aissue+is%3Aopen+sort%3Aupdated-desc
@@ -222,12 +222,12 @@ For advanced JSON usage, check out the [`parseJson`](documentation/2-options.md#
 [s1]: https://github.com/visionmedia/superagent/issues?q=is%3Aissue+is%3Aopen+sort%3Aupdated-desc
 
 <!-- ISSUES CLOSED -->
-[gic]: https://badgen.net/github/closed-issues/sindresorhus/got?label
-[kic]: https://badgen.net/github/closed-issues/sindresorhus/ky?label
-[ric]: https://badgen.net/github/closed-issues/request/request?label
-[nic]: https://badgen.net/github/closed-issues/bitinn/node-fetch?label
-[aic]: https://badgen.net/github/closed-issues/axios/axios?label
-[sic]: https://badgen.net/github/closed-issues/visionmedia/superagent?label
+[gic]: https://img.shields.io/github/issues-closed-raw/sindresorhus/got?color=blue&label
+[kic]: https://img.shields.io/github/issues-closed-raw/sindresorhus/ky?color=blue&label
+[ric]: https://img.shields.io/github/issues-closed-raw/request/request?color=blue&label
+[nic]: https://img.shields.io/github/issues-closed-raw/bitinn/node-fetch?color=blue&label
+[aic]: https://img.shields.io/github/issues-closed-raw/axios/axios?color=blue&label
+[sic]: https://img.shields.io/github/issues-closed-raw/visionmedia/superagent?color=blue&label
 
 [g2]: https://github.com/sindresorhus/got/issues?q=is%3Aissue+is%3Aclosed+sort%3Aupdated-desc
 [k2]: https://github.com/sindresorhus/ky/issues?q=is%3Aissue+is%3Aclosed+sort%3Aupdated-desc
@@ -237,12 +237,12 @@ For advanced JSON usage, check out the [`parseJson`](documentation/2-options.md#
 [s2]: https://github.com/visionmedia/superagent/issues?q=is%3Aissue+is%3Aclosed+sort%3Aupdated-desc
 
 <!-- DOWNLOADS -->
-[gd]: https://badgen.net/npm/dm/got?label
-[kd]: https://badgen.net/npm/dm/ky?label
-[rd]: https://badgen.net/npm/dm/request?label
-[nd]: https://badgen.net/npm/dm/node-fetch?label
-[ad]: https://badgen.net/npm/dm/axios?label
-[sd]: https://badgen.net/npm/dm/superagent?label
+[gd]: https://img.shields.io/npm/dm/got?color=darkgreen&label
+[kd]: https://img.shields.io/npm/dm/ky?color=darkgreen&label
+[rd]: https://img.shields.io/npm/dm/request?color=darkgreen&label
+[nd]: https://img.shields.io/npm/dm/node-fetch?color=darkgreen&label
+[ad]: https://img.shields.io/npm/dm/axios?color=darkgreen&label
+[sd]: https://img.shields.io/npm/dm/superagent?color=darkgreen&label
 
 [g3]: https://www.npmjs.com/package/got
 [k3]: https://www.npmjs.com/package/ky
@@ -252,12 +252,12 @@ For advanced JSON usage, check out the [`parseJson`](documentation/2-options.md#
 [s3]: https://www.npmjs.com/package/superagent
 
 <!-- COVERAGE -->
-[gc]: https://badgen.net/coveralls/c/github/sindresorhus/got?label
-[kc]: https://badgen.net/codecov/c/github/sindresorhus/ky?label
-[rc]: https://badgen.net/coveralls/c/github/request/request?label
-[nc]: https://badgen.net/coveralls/c/github/bitinn/node-fetch?label
-[ac]: https://badgen.net/coveralls/c/github/mzabriskie/axios?label
-[sc]: https://badgen.net/codecov/c/github/visionmedia/superagent?label
+[gc]: https://img.shields.io/coveralls/github/sindresorhus/got?color=0b9062&label
+[kc]: https://img.shields.io/codecov/c/github/sindresorhus/ky?color=0b9062&label
+[rc]: https://img.shields.io/coveralls/github/request/request?color=0b9062&label
+[nc]: https://img.shields.io/coveralls/github/bitinn/node-fetch?color=0b9062&label
+[ac]: https://img.shields.io/coveralls/github/mzabriskie/axios?color=0b9062&label
+[sc]: https://img.shields.io/codecov/c/github/visionmedia/superagent?color=0b9062&label
 
 [g4]: https://coveralls.io/github/sindresorhus/got
 [k4]: https://codecov.io/gh/sindresorhus/ky
@@ -269,10 +269,10 @@ For advanced JSON usage, check out the [`parseJson`](documentation/2-options.md#
 <!-- BUILD -->
 [gb]: https://github.com/sindresorhus/got/actions/workflows/main.yml/badge.svg
 [kb]: https://github.com/sindresorhus/ky/actions/workflows/main.yml/badge.svg
-[rb]: https://badgen.net/travis/request/request?label
-[nb]: https://badgen.net/travis/bitinn/node-fetch?label
-[ab]: https://badgen.net/travis/axios/axios?label
-[sb]: https://badgen.net/travis/visionmedia/superagent?label
+[rb]: https://img.shields.io/travis/request/request?label
+[nb]: https://img.shields.io/travis/bitinn/node-fetch?label
+[ab]: https://img.shields.io/travis/axios/axios?label
+[sb]: https://img.shields.io/travis/visionmedia/superagent?label
 
 [g5]: https://github.com/sindresorhus/got/actions/workflows/main.yml
 [k5]: https://github.com/sindresorhus/ky/actions/workflows/main.yml
@@ -282,12 +282,12 @@ For advanced JSON usage, check out the [`parseJson`](documentation/2-options.md#
 [s5]: https://travis-ci.org/github/visionmedia/superagent
 
 <!-- BUGS -->
-[gbg]: https://badgen.net/github/label-issues/sindresorhus/got/bug/open?label
-[kbg]: https://badgen.net/github/label-issues/sindresorhus/ky/bug/open?label
-[rbg]: https://badgen.net/github/label-issues/request/request/Needs%20investigation/open?label
-[nbg]: https://badgen.net/github/label-issues/bitinn/node-fetch/bug/open?label
-[abg]: https://badgen.net/github/label-issues/axios/axios/type:confirmed%20bug/open?label
-[sbg]: https://badgen.net/github/label-issues/visionmedia/superagent/Bug/open?label
+[gbg]: https://img.shields.io/github/issues-raw/sindresorhus/got/bug?color=darkred&label
+[kbg]: https://img.shields.io/github/issues-raw/sindresorhus/ky/bug?color=darkred&label
+[rbg]: https://img.shields.io/github/issues-raw/request/request/Needs%20investigation?color=darkred&label
+[nbg]: https://img.shields.io/github/issues-raw/bitinn/node-fetch/bug?color=darkred&label
+[abg]: https://img.shields.io/github/issues-raw/axios/axios/type:confirmed%20bug?color=darkred&label
+[sbg]: https://img.shields.io/github/issues-raw/visionmedia/superagent/Bug?color=darkred&label
 
 [g6]: https://github.com/sindresorhus/got/issues?q=is%3Aissue+is%3Aopen+sort%3Aupdated-desc+label%3Abug
 [k6]: https://github.com/sindresorhus/ky/issues?q=is%3Aissue+is%3Aopen+sort%3Aupdated-desc+label%3Abug
@@ -297,12 +297,12 @@ For advanced JSON usage, check out the [`parseJson`](documentation/2-options.md#
 [s6]: https://github.com/visionmedia/superagent/issues?q=is%3Aissue+is%3Aopen+sort%3Aupdated-desc+label%3ABug
 
 <!-- DEPENDENTS -->
-[gdp]: https://badgen.net/npm/dependents/got?label
-[kdp]: https://badgen.net/npm/dependents/ky?label
-[rdp]: https://badgen.net/npm/dependents/request?label
-[ndp]: https://badgen.net/npm/dependents/node-fetch?label
-[adp]: https://badgen.net/npm/dependents/axios?label
-[sdp]: https://badgen.net/npm/dependents/superagent?label
+[gdp]: https://img.shields.io/librariesio/dependents/npm/got?color=orange&label
+[kdp]: https://img.shields.io/librariesio/dependents/npm/ky?color=orange&label
+[rdp]: https://img.shields.io/librariesio/dependents/npm/request?color=orange&label
+[ndp]: https://img.shields.io/librariesio/dependents/npm/node-fetch?color=orange&label
+[adp]: https://img.shields.io/librariesio/dependents/npm/axios?color=orange&label
+[sdp]: https://img.shields.io/librariesio/dependents/npm/superagent?color=orange&label
 
 [g7]: https://www.npmjs.com/package/got?activeTab=dependents
 [k7]: https://www.npmjs.com/package/ky?activeTab=dependents
@@ -312,12 +312,12 @@ For advanced JSON usage, check out the [`parseJson`](documentation/2-options.md#
 [s7]: https://www.npmjs.com/package/visionmedia?activeTab=dependents
 
 <!-- INSTALL SIZE -->
-[gis]: https://badgen.net/packagephobia/install/got?label
-[kis]: https://badgen.net/packagephobia/install/ky?label
-[ris]: https://badgen.net/packagephobia/install/request?label
-[nis]: https://badgen.net/packagephobia/install/node-fetch?label
-[ais]: https://badgen.net/packagephobia/install/axios?label
-[sis]: https://badgen.net/packagephobia/install/superagent?label
+[gis]: https://badgen.net/packagephobia/install/got?color=blue&label
+[kis]: https://badgen.net/packagephobia/install/ky?color=blue&label
+[ris]: https://badgen.net/packagephobia/install/request?color=blue&label
+[nis]: https://badgen.net/packagephobia/install/node-fetch?color=blue&label
+[ais]: https://badgen.net/packagephobia/install/axios?color=blue&label
+[sis]: https://badgen.net/packagephobia/install/superagent?color=blue&label
 
 [g8]: https://packagephobia.com/result?p=got
 [k8]: https://packagephobia.com/result?p=ky
@@ -327,12 +327,12 @@ For advanced JSON usage, check out the [`parseJson`](documentation/2-options.md#
 [s8]: https://packagephobia.com/result?p=superagent
 
 <!-- GITHUB STARS -->
-[gs]: https://badgen.net/github/stars/sindresorhus/got?label
-[ks]: https://badgen.net/github/stars/sindresorhus/ky?label
-[rs]: https://badgen.net/github/stars/request/request?label
-[ns]: https://badgen.net/github/stars/bitinn/node-fetch?label
-[as]: https://badgen.net/github/stars/axios/axios?label
-[ss]: https://badgen.net/github/stars/visionmedia/superagent?label
+[gs]: https://img.shields.io/github/stars/sindresorhus/got?color=white&label
+[ks]: https://img.shields.io/github/stars/sindresorhus/ky?color=white&label
+[rs]: https://img.shields.io/github/stars/request/request?color=white&label
+[ns]: https://img.shields.io/github/stars/bitinn/node-fetch?color=white&label
+[as]: https://img.shields.io/github/stars/axios/axios?color=white&label
+[ss]: https://img.shields.io/github/stars/visionmedia/superagent?color=white&label
 
 [g9]: https://github.com/sindresorhus/got
 [k9]: https://github.com/sindresorhus/ky
@@ -357,12 +357,12 @@ For advanced JSON usage, check out the [`parseJson`](documentation/2-options.md#
 [s10]: https://github.com/visionmedia/superagent
 
 <!-- LAST COMMIT -->
-[glc]: https://badgen.net/github/last-commit/sindresorhus/got?label
-[klc]: https://badgen.net/github/last-commit/sindresorhus/ky?label
-[rlc]: https://badgen.net/github/last-commit/request/request?label
-[nlc]: https://badgen.net/github/last-commit/bitinn/node-fetch?label
-[alc]: https://badgen.net/github/last-commit/axios/axios?label
-[slc]: https://badgen.net/github/last-commit/visionmedia/superagent?label
+[glc]: https://img.shields.io/github/last-commit/sindresorhus/got?color=gray&label
+[klc]: https://img.shields.io/github/last-commit/sindresorhus/ky?color=gray&label
+[rlc]: https://img.shields.io/github/last-commit/request/request?color=gray&label
+[nlc]: https://img.shields.io/github/last-commit/bitinn/node-fetch?color=gray&label
+[alc]: https://img.shields.io/github/last-commit/axios/axios?color=gray&label
+[slc]: https://img.shields.io/github/last-commit/visionmedia/superagent?color=gray&label
 
 [g11]: https://github.com/sindresorhus/got/commits
 [k11]: https://github.com/sindresorhus/ky/commits
