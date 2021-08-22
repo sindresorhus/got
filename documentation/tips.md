@@ -154,24 +154,14 @@ scope.persist(false);
 
 ### Proxying
 
-You can use the [`tunnel`](https://github.com/koichik/node-tunnel) package with the `agent` option to work with proxies:
+**Note:**
+> - The popular [`tunnel`](https://www.npmjs.com/package/tunnel) package is unmaintained. Use at your own risk.
+> - The [`proxy-agent`](https://www.npmjs.com/package/proxy-agent) family doesn't follow newest Node.js features and lacks support.
 
-```js
-import got from 'got';
-import tunnel from 'tunnel';
+Although there isn't a perfect, bug-free package, [Apify](https://apify.com/)'s solution is a modern one.\
+See [`got-scraping/src/agent/h1-proxy-agent.ts`](https://github.com/apify/got-scraping/blob/2ec7f9148917a6a38d6d1c8c695606767c46cce5/src/agent/h1-proxy-agent.ts). It has the same API as `hpagent`.
 
-await got('https://sindresorhus.com', {
-	agent: {
-		https: tunnel.httpsOverHttp({
-			proxy: {
-				host: 'localhost'
-			}
-		})
-	}
-});
-```
-
-Otherwise, you can use the [`hpagent`](https://github.com/delvedor/hpagent) package, which keeps the internal sockets alive to be reused.
+[`hpagent`](https://github.com/delvedor/hpagent) is a modern package as well. In contrast to `tunnel`, it allows keeping the internal sockets alive to be reused.
 
 ```js
 import got from 'got';
