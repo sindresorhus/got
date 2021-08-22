@@ -159,8 +159,7 @@ scope.persist(false);
 > - The [`proxy-agent`](https://www.npmjs.com/package/proxy-agent) family doesn't follow newest Node.js features and lacks support.
 
 Although there isn't a perfect, bug-free package, [Apify](https://apify.com/)'s solution is a modern one.\
-See https://github.com/apify/got-scraping/blob/2ec7f9148917a6a38d6d1c8c695606767c46cce5/src/agent/h1-proxy-agent.ts\
-It has the same API as `hpagent`.
+See [`got-scraping/src/agent/h1-proxy-agent.ts`](https://github.com/apify/got-scraping/blob/2ec7f9148917a6a38d6d1c8c695606767c46cce5/src/agent/h1-proxy-agent.ts). It has the same API as `hpagent`.
 
 [`hpagent`](https://github.com/delvedor/hpagent) is a modern package as well. In contrast to `tunnel`, it allows keeping the internal sockets alive to be reused.
 
