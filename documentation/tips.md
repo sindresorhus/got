@@ -214,12 +214,24 @@ class MyAgent extends https.Agent {
 
 const proxy = new MyAgent();
 
-const fn = retryCount => {
-	const stream = got.stream('https://httpbin.org/status/408', {
+const fn = (retryCount = 0, error) => {
+	// We want to inherit options from previous retries,
+	// as well as the `beforeRetry` hook.
+	const defaults = error ? error.options : undefined;
+
+	// Omitting options on reuse is important.
+	// This way we avoid duplicating query params and hooks.
+	// But in this case we can't omit them because we need to override them on retry.
+	const options = defaults ? {
 		agent: {
-			https: retryCount === 0 ? proxy : undefined
+			https: undefined
 		}
-	});
+	} : {
+		agent: {
+			https: proxy
+		}
+	};
+	const stream = got.stream('https://httpbin.org/status/408', options, defaults);
 
 	stream.retryCount = retryCount;
 

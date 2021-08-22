@@ -204,7 +204,9 @@ const fn = (retryCount = 0, error) => {
 	// as well as the `beforeRetry` hook.
 	const defaults = error ? error.options : undefined;
 
-	const options = {
+	// Omitting options on reuse is important.
+	// This way we avoid duplicating query params and hooks.
+	const options = defaults ? undefined : {
 		headers: {
 			foo: 'bar'
 		},
