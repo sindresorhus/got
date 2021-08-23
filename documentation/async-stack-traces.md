@@ -7,9 +7,9 @@
 
 **Want to skip the article? See the [Conclusion](#conclusion) where we discuss a mediocre solution.**
 
-We live in a world full of bugs. Logics are getting more and more complicated, which makes debugging harder and harder. The more time we spend to fix a bug, the easier is to go nuts. Had an error with no idea where it came from? Yeah, it's not easy to track this down.
+We live in a world full of bugs. Software is getting more and more complicated, which makes debugging increasingly more difficult. Ever had an error with no idea where it came from? Yeah, it's often not easy to track this down.
 
-The `error.stack` property may look incomplete due to the execution in an async function that is triggered by a timer. Following the example:
+You might have noticed that the `.stack` of an error sometimes look incomplete. This is often due to the execution of an async function that is triggered by a timer. Following the example:
 
 ```js
 await new Promise((resolve, reject) => {
@@ -34,6 +34,7 @@ The stack trace does not show where the timeout was set. It's currently not poss
 
 ```js
 import Bluebird from 'bluebird';
+
 Bluebird.config({longStackTraces: true});
 global.Promise = Bluebird;
 
@@ -44,7 +45,7 @@ await new Promise((resolve, reject) => {
 });
 ```
 
-```js
+```
 node:internal/process/esm_loader:74
     internalBinding('errors').triggerUncaughtException(
                               ^
@@ -64,20 +65,27 @@ From previous event:
 Now it's clear. We know that the timeout was set on line 5. Bluebird should be sufficient for Got:
 
 ```js
-import got from './dist/source/index.js';
-
 import Bluebird from 'bluebird';
+import got from 'got';
+
 Bluebird.config({longStackTraces: true});
 global.Promise = Bluebird;
 
 try {
-	await got('https://httpbin.org/delay/1', {timeout: {request: 1}, retry: {limit: 0}});
+	await got('https://httpbin.org/delay/1', {
+		timeout: {
+			request: 1
+		},
+		retry: {
+			limit: 0
+		}
+	});
 } catch (error) {
 	console.error(error.stack);
 }
 ```
 
-```js
+```
 TimeoutError: Timeout awaiting 'request' for 1ms
     at ClientRequest.<anonymous> (file:///home/szm/Desktop/got/dist/source/core/index.js:780:61)
     at Object.onceWrapper (node:events:514:26)
@@ -103,14 +111,14 @@ From previous event:
     at async handleMainPromise (node:internal/modules/run_main:63:12)
 ```
 
-As expected, we know where the timeout has been set. Unfortunately, if we increase our retry count limit to `1`, the stack trace remains the same. That's because `bluebird` doesn't track I/O events. Please note that this should be sufficient for most cases. In order to debug further, we can use [`async_hooks`](https://nodejs.org/api/async_hooks.html) instead. A member of StackOverflow has come up with an awesome solution:
+As expected, we know where the timeout has been set. Unfortunately, if we increase our retry count limit to `1`, the stack trace remains the same. That's because `bluebird` doesn't track I/O events. Please note that this should be sufficient for most cases. In order to debug further, we can use [`async_hooks`](https://nodejs.org/api/async_hooks.html) instead. A Stack Overflow user has come up with an awesome solution:
 
 ```js
-import async_hooks from 'async_hooks';
+import asyncHooks from 'async_hooks';
 
 const traces = new Map();
 
-async_hooks.createHook({
+asyncHooks.createHook({
 	init(id) {
 		const trace = {};
 		Error.captureStackTrace(trace);
@@ -121,7 +129,7 @@ async_hooks.createHook({
 	},
 }).enable();
 
-global.Error = class extends Error {
+globalThis.Error = class extends Error {
 	constructor(message) {
 		super(message);
 		this.constructor.captureStackTrace(this, this.constructor);
@@ -129,7 +137,8 @@ global.Error = class extends Error {
 
 	static captureStackTrace(what, where) {
 		super.captureStackTrace.call(Error, what, where);
-		const trace = traces.get(async_hooks.executionAsyncId());
+
+		const trace = traces.get(asyncHooks.executionAsyncId());
 		if (trace) {
 			what.stack += trace;
 		}
@@ -139,7 +148,7 @@ global.Error = class extends Error {
 
 If we replace the `bluebird` part with this, we get:
 
-```js
+```
 Error: Timeout awaiting 'request' for 1ms
     at ClientRequest.<anonymous> (file:///home/szm/Desktop/got/dist/source/core/index.js:780:61)
     at Object.onceWrapper (node:events:514:26)
@@ -208,11 +217,11 @@ Error: Timeout awaiting 'request' for 1ms
     at processTimers (node:internal/timers:500:7)
 ```
 
-This is extremely long, and this is not a complete Node.js application, this is just a demo. Imagine how long it would be if this was used with concatenation of databases, file systems etc.
+This is extremely long, and not a complete Node.js app. Just a demo. Imagine how long it would be if this was used with databases, file systems, etc.
 
 #### Conclusion
 
-All these workarounds have a large impact on performance. However, there is a possible solution to this madness. Got provides handlers, hooks and context. We can capture the stack trace in a handler, store it in a context and expose it in a `beforeError` hook.
+All these workarounds have a large impact on performance. However, there is a possible solution to this madness. Got provides handlers, hooks, and context. We can capture the stack trace in a handler, store it in a context and expose it in a `beforeError` hook.
 
 ```js
 import got from 'got';
@@ -221,7 +230,6 @@ const instance = got.extend({
 	handlers: [
 		(options, next) => {
 			Error.captureStackTrace(options.context);
-
 			return next(options);
 		}
 	],
@@ -229,7 +237,6 @@ const instance = got.extend({
 		beforeError: [
 			error => {
 				error.source = error.options.context.stack.split('\n');
-
 				return error;
 			}
 		]
@@ -237,13 +244,20 @@ const instance = got.extend({
 });
 
 try {
-	await instance('https://httpbin.org/delay/1', {timeout: {request: 100}, retry: {limit: 0}});
+	await instance('https://httpbin.org/delay/1', {
+		timeout: {
+			request: 100
+		},
+		retry: {
+			limit: 0
+		}
+	});
 } catch (error) {
 	console.error(error);
 }
 ```
 
-```js
+```
 RequestError: Timeout awaiting 'request' for 100ms
     at ClientRequest.<anonymous> (file:///home/szm/Desktop/got/dist/source/core/index.js:780:61)
     at Object.onceWrapper (node:events:514:26)
@@ -276,7 +290,7 @@ RequestError: Timeout awaiting 'request' for 100ms
 }
 ```
 
-Yay! This is much more readable. Furthermore, we capture the stack trace only when `got` is called. This is definitely going to have some performance impact, but this will be much more performant than the solutions mentioned in the beginning.
+Yay! This is much more readable. Furthermore, we capture the stack trace only when `got` is called. This is definitely going to have some performance impact, but it will be much more performant than the other mentioned solutions.
 
 Curious to know more? Check out these links:
 - https://stackoverflow.com/questions/54914770/is-there-a-good-way-to-surface-error-traces-in-production-across-event-emitters
