@@ -9,6 +9,7 @@ import {Handler} from 'express';
 import getStream from 'get-stream';
 import pEvent from 'p-event';
 import got, {HTTPError, TimeoutError} from '../source/index.js';
+import Request from '../source/core/index.js';
 import withServer from './helpers/with-server.js';
 
 const retryAfterOn413 = 2;
@@ -459,11 +460,10 @@ test('can retry a Got stream', withServer, async (t, server, got) => {
 	const responseStreamPromise = new Promise<PassThroughStream>((resolve, reject) => {
 		let writeStream: PassThroughStream;
 
-		const fn = (retryCount = 0) => {
-			const stream = got.stream('');
-			stream.retryCount = retryCount;
+		const fn = (retryStream?: Request) => {
+			const stream = retryStream ?? got.stream('');
 
-			globalRetryCount = retryCount;
+			globalRetryCount = stream.retryCount;
 
 			if (writeStream) {
 				writeStream.destroy();
@@ -473,7 +473,9 @@ test('can retry a Got stream', withServer, async (t, server, got) => {
 
 			stream.pipe(writeStream);
 
-			stream.once('retry', fn);
+			stream.once('retry', (_retryCount, _error, createRetryStream) => {
+				fn(createRetryStream());
+			});
 
 			stream.once('error', reject);
 			stream.once('end', () => {
@@ -500,14 +502,15 @@ test('throws when cannot retry a Got stream', withServer, async (t, server, got)
 	let globalRetryCount = 0;
 
 	const streamPromise = new Promise<PassThroughStream>((resolve, reject) => {
-		const fn = (retryCount = 0) => {
-			const stream = got.stream('');
-			stream.retryCount = retryCount;
+		const fn = (retryStream?: Request) => {
+			const stream = retryStream ?? got.stream('');
 
-			globalRetryCount = retryCount;
+			globalRetryCount = stream.retryCount;
 
 			stream.resume();
-			stream.once('retry', fn);
+			stream.once('retry', (_retryCount, _error, createRetryStream) => {
+				fn(createRetryStream());
+			});
 
 			stream.once('data', () => {
 				stream.destroy(new Error('data event has been emitted'));
@@ -527,6 +530,22 @@ test('throws when cannot retry a Got stream', withServer, async (t, server, got)
 	t.is(error.response.statusCode, 500);
 	t.is(error.response.body, 'not ok');
 	t.is(globalRetryCount, 2);
+});
+
+test('can attach only one retry listener to a stream', withServer, async (t, _server, got) => {
+	const stream = got.stream('');
+
+	t.notThrows(() => {
+		stream.on('retry', () => {});
+	});
+
+	t.throws(() => {
+		stream.on('retry', () => {});
+	}, {
+		message: 'A retry listener has been attached already.',
+	});
+
+	stream.destroy();
 });
 
 test('promise does not retry when body is a stream', withServer, async (t, server, got) => {

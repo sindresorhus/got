@@ -20,7 +20,7 @@ import timedOut, {TimeoutError as TimedOutTimeoutError} from './timed-out.js';
 import urlToOptions from './utils/url-to-options.js';
 import WeakableMap from './utils/weakable-map.js';
 import calculateRetryDelay from './calculate-retry-delay.js';
-import Options, {OptionsError} from './options.js';
+import Options, {OptionsError, OptionsInit} from './options.js';
 import {isResponseOk, Response} from './response.js';
 import isClientRequest from './utils/is-client-request.js';
 import {
@@ -227,6 +227,12 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			}
 		});
 
+		this.on('newListener', event => {
+			if (event === 'retry' && this.listenerCount('retry') > 0) {
+				throw new Error('A retry listener has been attached already.');
+			}
+		});
+
 		try {
 			this.options = new Options(url, options, defaults);
 
@@ -413,7 +419,16 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 					}
 
 					this.destroy();
-					this.emit('retry', this.retryCount + 1, error);
+					this.emit('retry', this.retryCount + 1, error, (updatedOptions?: OptionsInit) => {
+						const request = new Request(options.url, updatedOptions, options);
+						request.retryCount = this.retryCount + 1;
+
+						process.nextTick(() => {
+							void request.flush();
+						});
+
+						return request;
+					});
 					return;
 				}
 			}

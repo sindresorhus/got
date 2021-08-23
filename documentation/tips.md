@@ -193,6 +193,7 @@ One way out is to disable proxies when retrying. The solution for the Stream API
 
 ```js
 import https from 'https';
+import fs from 'fs';
 import got from 'got';
 
 class MyAgent extends https.Agent {
@@ -204,38 +205,36 @@ class MyAgent extends https.Agent {
 
 const proxy = new MyAgent();
 
-const fn = (retryCount = 0, error) => {
-	// We want to inherit options from previous retries,
-	// as well as the `beforeRetry` hook.
-	const defaults = error ? error.options : undefined;
+let writeStream;
 
-	// Omitting options on reuse is important.
-	// This way we avoid duplicating query params and hooks.
-	// But in this case we can't omit them because we need to override them on retry.
-	const options = defaults ? {
+const fn = retryStream => {
+	const options = {
 		agent: {
-			https: undefined
-		}
-	} : {
-		agent: {
-			https: proxy
+			https: proxy,
 		}
 	};
-	const stream = got.stream('https://httpbin.org/status/408', options, defaults);
 
-	stream.retryCount = retryCount;
+	const stream = retryStream ?? got.stream('https://example.com', options);
 
-	stream.on('retry', (retryCount, error) => {
-		console.log('Creating new retry:', retryCount);
-		fn(retryCount);
-	}).on('error', error => {
-		console.log('Retry count:', error.request.retryCount);
-	}).resume().on('end', () => {
-		console.log('`end` event');
+	if (writeStream) {
+		writeStream.destroy();
+	}
+
+	writeStream = fs.createWriteStream('example-com.html');
+
+	stream.pipe(writeStream);
+	stream.once('retry', (retryCount, error, createRetryStream) => {
+		fn(createRetryStream({
+			agent: {
+				http: undefined,
+				https: undefined,
+				http2: undefined,
+			},
+		}));
 	});
 };
 
-fn(0);
+fn();
 ```
 
 ### `h2c`

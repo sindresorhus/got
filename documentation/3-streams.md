@@ -191,7 +191,17 @@ When this event is emitted, you should reset the stream you were writing to and 
 
 **Type: `number`**
 
-The current retry count. This property must override the one in `stream` when retrying.
+The current retry count.
+
+#### `error`
+
+**Type: [`RequestError`](8-errors.md#requesterror)**
+
+The error that caused this retry.
+
+#### `createRetryStream`
+
+**Type: `(options?: OptionsInit) => Request`**
 
 ```js
 import fs from 'fs';
@@ -199,43 +209,32 @@ import got from 'got';
 
 let writeStream;
 
-const fn = (retryCount = 0, error) => {
-	// We want to inherit options from previous retries,
-	// as well as the `beforeRetry` hook.
-	const defaults = error ? error.options : undefined;
-
-	// Omitting options on reuse is important.
-	// This way we avoid duplicating query params and hooks.
-	const options = defaults ? undefined : {
+const fn = retryStream => {
+	const options = {
 		headers: {
 			foo: 'bar'
 		},
 	};
 
-	const stream = got.stream('https://example.com', options, defaults);
-	stream.retryCount = retryCount;
+	const stream = retryStream ?? got.stream('https://example.com', options);
 
 	if (writeStream) {
 		writeStream.destroy();
 	}
 
-	writeStream = fs.createWriteStream('example.com');
+	writeStream = fs.createWriteStream('example-com.html');
 
 	stream.pipe(writeStream);
 
 	// If you don't attach the listener, it will NOT make a retry.
 	// It automatically checks the listener count so it knows whether to retry or not :)
-	stream.once('retry', fn);
+	stream.once('retry', (retryCount, error, createRetryStream) => {
+		fn(createRetryStream()); // or: fn(createRetryStream(optionsToMerge))
+	});
 };
 
 fn();
 ```
-
-#### `error`
-
-**Type: [`RequestError`](8-errors.md#requesterror)**
-
-The error that caused this retry.
 
 ### `stream.on('redirect', …)`
 
