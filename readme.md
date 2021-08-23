@@ -297,12 +297,12 @@ For advanced JSON usage, check out the [`parseJson`](documentation/2-options.md#
 [s6]: https://github.com/visionmedia/superagent/issues?q=is%3Aissue+is%3Aopen+sort%3Aupdated-desc+label%3ABug
 
 <!-- DEPENDENTS -->
-[gdp]: https://img.shields.io/librariesio/dependents/npm/got?color=orange&label
-[kdp]: https://img.shields.io/librariesio/dependents/npm/ky?color=orange&label
-[rdp]: https://img.shields.io/librariesio/dependents/npm/request?color=orange&label
-[ndp]: https://img.shields.io/librariesio/dependents/npm/node-fetch?color=orange&label
-[adp]: https://img.shields.io/librariesio/dependents/npm/axios?color=orange&label
-[sdp]: https://img.shields.io/librariesio/dependents/npm/superagent?color=orange&label
+[gdp]: https://badgen.net/npm/dependents/got?color=orange&label
+[kdp]: https://badgen.net/npm/dependents/ky?color=orange&label
+[rdp]: https://badgen.net/npm/dependents/request?color=orange&label
+[ndp]: https://badgen.net/npm/dependents/node-fetch?color=orange&label
+[adp]: https://badgen.net/npm/dependents/axios?color=orange&label
+[sdp]: https://badgen.net/npm/dependents/superagent?color=orange&label
 
 [g7]: https://www.npmjs.com/package/got?activeTab=dependents
 [k7]: https://www.npmjs.com/package/ky?activeTab=dependents
