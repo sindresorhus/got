@@ -538,7 +538,6 @@ test.serial('no more timeouts after an error', withServer, async (t, _server, go
 				return;
 			}
 
-			// @ts-expect-error FIXME
 			callback(...args);
 		});
 

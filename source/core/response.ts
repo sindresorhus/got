@@ -1,4 +1,3 @@
-// @ts-expect-error TypeScript incorrectly thinks this is moot
 import type {Buffer} from 'buffer';
 import type {URL} from 'url';
 import type {IncomingMessageWithTimings, Timings} from '@szmarczak/http-timer';
@@ -151,6 +150,6 @@ export const parseBody = (response: Response, responseType: ResponseType, parseJ
 			name: 'Error',
 		}, response);
 	} catch (error) {
-		throw new ParseError(error, response);
+		throw new ParseError(error as Error, response);
 	}
 };

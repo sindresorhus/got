@@ -34,7 +34,7 @@ if (process.platform !== 'win32') {
 	test('throws on invalid URL', async t => {
 		try {
 			await got('unix:', {retry: {limit: 0}});
-		} catch (error) {
+		} catch (error: any) {
 			t.regex(error.code, /ENOTFOUND|EAI_AGAIN/);
 		}
 	});

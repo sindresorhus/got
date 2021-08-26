@@ -1,4 +1,3 @@
-// @ts-expect-error TypeScript incorrectly thinks this is moot
 import type {Buffer} from 'buffer';
 import type {URL} from 'url';
 import type {CancelableRequest} from './as-promise/types.js';

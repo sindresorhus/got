@@ -62,8 +62,8 @@ export default function asPromise<T>(firstRequest?: Request): CancelableRequest<
 				} else {
 					try {
 						response.body = parseBody(response, options.responseType, options.parseJson, options.encoding);
-					} catch (error) {
-						// Fallback to `utf8`
+					} catch (error: any) {
+						// Fall back to `utf8`
 						response.body = response.rawBody.toString();
 
 						if (isResponseOk(response)) {
@@ -102,7 +102,7 @@ export default function asPromise<T>(firstRequest?: Request): CancelableRequest<
 							throw new TypeError('The `afterResponse` hook returned an invalid value');
 						}
 					}
-				} catch (error) {
+				} catch (error: any) {
 					request._beforeError(error);
 					return;
 				}

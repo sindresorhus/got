@@ -361,14 +361,13 @@ test('works with http2', async t => {
 		await client('https://httpbin.org/anything');
 
 		t.pass();
-	} catch (error) {
+	} catch (error: any) {
 		if (error.message.includes('install Node.js')) {
 			t.pass();
-
 			return;
 		}
 
-		t.fail(error);
+		t.fail(error.message);
 	}
 });
 

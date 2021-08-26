@@ -1,4 +1,3 @@
-// @ts-expect-error TypeScript incorrectly thinks this is moot
 import {Buffer} from 'buffer';
 import https from 'https';
 import net from 'net';

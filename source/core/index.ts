@@ -137,7 +137,7 @@ type OptionsType = ConstructorParameters<typeof Options>[1];
 type DefaultsType = ConstructorParameters<typeof Options>[2];
 
 export default class Request extends Duplex implements RequestEvents<Request> {
-	['constructor']: typeof Request;
+	override ['constructor']: typeof Request;
 
 	_noPipe?: boolean;
 
@@ -245,7 +245,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			}
 
 			this.requestUrl = this.options.url as URL;
-		} catch (error) {
+		} catch (error: any) {
 			const {options} = error as OptionsError;
 			if (options) {
 				this.options = options;
@@ -253,7 +253,6 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 			this.flush = async () => {
 				this.flush = async () => {};
-
 				this.destroy(error);
 			};
 
@@ -312,7 +311,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			this._jobs.length = 0;
 
 			this._requestInitialized = true;
-		} catch (error) {
+		} catch (error: any) {
 			this._beforeError(error);
 		}
 	}
@@ -384,7 +383,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 							computedValue: retryOptions.maxRetryAfter ?? options.timeout.request ?? Number.POSITIVE_INFINITY,
 						}),
 					});
-				} catch (error_) {
+				} catch (error_: any) {
 					void this._error(new RequestError(error_.message, error_, this));
 					return;
 				}
@@ -408,7 +407,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 							// eslint-disable-next-line no-await-in-loop
 							await hook(typedError, this.retryCount + 1);
 						}
-					} catch (error_) {
+					} catch (error_: any) {
 						void this._error(new RequestError(error_.message, error, this));
 						return;
 					}
@@ -437,7 +436,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		})();
 	}
 
-	_read(): void {
+	override _read(): void {
 		this._triggerRead = true;
 
 		const {response} = this;
@@ -463,10 +462,9 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		}
 	}
 
-	// Node.js 12 has incorrect types, so the encoding must be a string
-	_write(chunk: any, encoding: string | undefined, callback: (error?: Error | null) => void): void {
+	override _write(chunk: unknown, encoding: BufferEncoding | undefined, callback: (error?: Error | null) => void): void {
 		const write = (): void => {
-			this._writeRequest(chunk, encoding as BufferEncoding, callback);
+			this._writeRequest(chunk, encoding, callback);
 		};
 
 		if (this._requestInitialized) {
@@ -476,7 +474,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		}
 	}
 
-	_final(callback: (error?: Error | null) => void): void {
+	override _final(callback: (error?: Error | null) => void): void {
 		const endRequest = (): void => {
 			// We need to check if `this._request` is present,
 			// because it isn't when we use cache.
@@ -510,7 +508,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		}
 	}
 
-	_destroy(error: Error | null, callback: (error: Error | null) => void): void {
+	override _destroy(error: Error | null, callback: (error: Error | null) => void): void {
 		this._stopReading = true;
 		this.flush = async () => {};
 
@@ -536,7 +534,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		callback(error);
 	}
 
-	pipe<T extends NodeJS.WritableStream>(destination: T, options?: {end?: boolean}): T {
+	override pipe<T extends NodeJS.WritableStream>(destination: T, options?: {end?: boolean}): T {
 		if (destination instanceof ServerResponse) {
 			this._pipedServerResponses.add(destination);
 		}
@@ -544,7 +542,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		return super.pipe(destination, options);
 	}
 
-	unpipe<T extends NodeJS.WritableStream>(destination: T): this {
+	override unpipe<T extends NodeJS.WritableStream>(destination: T): this {
 		if (destination instanceof ServerResponse) {
 			this._pipedServerResponses.delete(destination);
 		}
@@ -725,7 +723,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 			try {
 				await Promise.all(promises);
-			} catch (error) {
+			} catch (error: any) {
 				this._beforeError(error);
 				return;
 			}
@@ -809,7 +807,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 				this.options = updatedOptions;
 
 				await this._makeRequest();
-			} catch (error) {
+			} catch (error: any) {
 				this._beforeError(error);
 				return;
 			}
@@ -895,7 +893,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	private async _onResponse(response: IncomingMessageWithTimings): Promise<void> {
 		try {
 			await this._onResponseBase(response);
-		} catch (error) {
+		} catch (error: any) {
 			/* istanbul ignore next: better safe than sorry */
 			this._beforeError(error);
 		}
@@ -970,7 +968,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 					}
 
 					super.end();
-				} catch (error) {
+				} catch (error: any) {
 					this._beforeError(error);
 				}
 			})();
@@ -1180,7 +1178,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 				// eslint-disable-next-line no-await-in-loop
 				error = await hook(error);
 			}
-		} catch (error_) {
+		} catch (error_: any) {
 			error = new RequestError(error_.message, error_, this);
 		}
 

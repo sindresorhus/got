@@ -152,10 +152,9 @@ test('http2', async t => {
 		t.is(typeof body, 'string');
 
 		t.pass();
-	} catch (error) {
+	} catch (error: any) {
 		if (error.message.includes('install Node.js')) {
 			t.pass();
-
 			return;
 		}
 

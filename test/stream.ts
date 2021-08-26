@@ -184,7 +184,7 @@ test('has error event #2', async t => {
 	const stream = got.stream('http://doesntexist');
 	try {
 		await pEvent(stream, 'response');
-	} catch (error) {
+	} catch (error: any) {
 		t.regex(error.code, /ENOTFOUND|EAI_AGAIN/);
 	}
 });

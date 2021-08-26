@@ -1,4 +1,3 @@
-// @ts-expect-error TypeScript incorrectly thinks this is moot
 import type {Buffer} from 'buffer';
 import PCancelable from 'p-cancelable';
 import {RequestError} from '../core/errors.js';

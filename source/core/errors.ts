@@ -20,7 +20,7 @@ export class RequestError extends Error {
 	input?: string;
 
 	code: string;
-	stack!: string;
+	override stack!: string;
 	declare readonly options: Options;
 	readonly response?: Response;
 	readonly request?: Request;
@@ -133,7 +133,7 @@ Includes an `event` and `timings` property.
 */
 export class TimeoutError extends RequestError {
 	declare readonly request: Request;
-	readonly timings: Timings;
+	override readonly timings: Timings;
 	readonly event: string;
 
 	constructor(error: TimedOutTimeoutError, timings: Timings, request: Request) {
