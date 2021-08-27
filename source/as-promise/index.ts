@@ -76,11 +76,7 @@ export default function asPromise<T>(firstRequest?: Request): CancelableRequest<
 				try {
 					const hooks = options.hooks.afterResponse;
 
-					// TODO: `xo` should detect if `index` is being used for something else
-					// eslint-disable-next-line unicorn/no-for-loop
-					for (let index = 0; index < hooks.length; index++) {
-						const hook = hooks[index];
-
+					for (const [index, hook] of hooks.entries()) {
 						// @ts-expect-error TS doesn't notice that CancelableRequest is a Promise
 						// eslint-disable-next-line no-await-in-loop
 						response = await hook(response, async (updatedOptions): CancelableRequest<Response> => {
