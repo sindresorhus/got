@@ -144,12 +144,12 @@ export const parseBody = (response: Response, responseType: ResponseType, parseJ
 		if (responseType === 'buffer') {
 			return rawBody;
 		}
-
-		throw new ParseError({
-			message: `Unknown body type '${responseType as string}'`,
-			name: 'Error',
-		}, response);
 	} catch (error) {
 		throw new ParseError(error as Error, response);
 	}
+
+	throw new ParseError({
+		message: `Unknown body type '${responseType as string}'`,
+		name: 'Error',
+	}, response);
 };
