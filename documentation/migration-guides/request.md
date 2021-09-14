@@ -62,7 +62,7 @@ Readability is very important to us, so we have different names for these option
 - `qs` → [`searchParams`](../2-options.md#serachparams)
 - `strictSSL` → [`rejectUnauthorized`](../2-options.md#rejectunauthorized)
 - `gzip` → [`decompress`](../2-options.md#decompress)
-- `jar` → [`cookieJar`](../2-options.md#cookiejar) (accepts [`tough-cookie`](../https://github.com/salesforce/tough-cookie) jar)
+- `jar` → [`cookieJar`](../2-options.md#cookiejar) (accepts [`tough-cookie`](https://github.com/salesforce/tough-cookie) jar)
 - `jsonReviver` → [`parseJson`](../2-options.md#parsejson)
 - `jsonReplacer` → [`stringifyJson`](../2-options.md#stringifyjson)
 
