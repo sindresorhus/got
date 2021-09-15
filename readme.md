@@ -39,6 +39,17 @@
 		</a>
 		<br>
 		<br>
+		<br>
+		<a href="https://keygen.sh">
+			<div>
+				<img src="https://sindresorhus.com/assets/thanks/keygen-logo.svg" width="180" alt="Keygen">
+			</div>
+			<b>A dead-simple software licensing and distribution API built for developers</b>
+		</a>
+		<br>
+		<br>
+		<br>
+		<br>
 	</p>
 	<br>
 	<br>
