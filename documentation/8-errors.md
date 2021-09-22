@@ -3,9 +3,9 @@
 ## Errors
 
 Source code:
-- [`source/core/errors.ts`](source/core/errors.ts)
-- [`source/as-promise/types.ts`](source/as-promise/types.ts)
-- [`source/core/response.ts`](source/core/response.ts)
+- [`source/core/errors.ts`](../source/core/errors.ts)
+- [`source/as-promise/types.ts`](../source/as-promise/types.ts)
+- [`source/core/response.ts`](../source/core/response.ts)
 
 All Got errors contain various metadata, such as:
 
