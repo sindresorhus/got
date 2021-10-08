@@ -242,7 +242,7 @@ const {headers} = await got.post('https://httpbin.org/anything', {
 	}
 }).json();
 
-console.log(method);
+console.log(headers);
 // => {hello: 'world'}
 ```
 
