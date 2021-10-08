@@ -178,7 +178,6 @@ test('no socket hung up regression', withServer, async (t, server, got) => {
 			afterResponse: [
 				async (response, retryWithMergedOptions) => {
 					// Force clean-up
-					// eslint-disable-next-line @typescript-eslint/no-confusing-void-expression
 					response.socket?.destroy();
 
 					// Unauthorized
