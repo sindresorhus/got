@@ -10,7 +10,7 @@ Source code:
 All Got errors contain various metadata, such as:
 
 - `code` - A string like `ERR_NON_2XX_3XX_RESPONSE`,
-- `options` - An instance of [`Options`](`2-options.md`),
+- `options` - An instance of [`Options`](2-options.md),
 - `request` - An instance of Got Stream,
 - `response` (optional) - An instance of Got Response,
 - `timings` (optional) - Points to `response.timings`.
