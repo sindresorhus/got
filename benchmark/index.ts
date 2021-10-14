@@ -1,5 +1,5 @@
-import {URL} from 'url';
-import https from 'https';
+import {URL} from 'node:url';
+import https from 'node:https';
 import axios from 'axios';
 import Benchmark from 'benchmark';
 import fetch from 'node-fetch';
