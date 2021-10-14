@@ -12,12 +12,6 @@
 			</sup>
 		</p>
 		<br>
-		<a href="https://moxy.studio">
-			<img src="https://sindresorhus.com/assets/thanks/moxy-logo.svg" width="160">
-		</a>
-		<br>
-		<br>
-		<br>
 		<a href="https://retool.com/?utm_campaign=sindresorhus">
 			<img src="https://sindresorhus.com/assets/thanks/retool-logo.svg" width="210">
 		</a>
@@ -35,7 +29,10 @@
 		<br>
 		<br>
 		<a href="https://www.monito.com">
-			<img src="https://sindresorhus.com/assets/thanks/monito-logo.svg" width="210">
+			<div>
+				<img src="https://sindresorhus.com/assets/thanks/monito-logo.svg" width="210">
+			</div>
+			<b>Find the cheapest way to send money abroad</b>
 		</a>
 		<br>
 		<br>

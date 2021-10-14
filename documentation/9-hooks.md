@@ -172,7 +172,7 @@ const response = await got('https://example.com', {
 });
 ```
 
-### `beforeRetry`
+#### `beforeRetry`
 
 **Type: `BeforeRetryHook[]`**\
 **Default: `[]`**
@@ -209,7 +209,7 @@ await got('https://httpbin.org/status/500', {
 });
 ```
 
-### `afterResponse`
+#### `afterResponse`
 
 **Type: `AfterResponseHook[]`**\
 **Default: `[]`**
@@ -264,7 +264,7 @@ const instance = got.extend({
 });
 ```
 
-### `beforeError`
+#### `beforeError`
 
 **Type: `BeforeErrorHook[]`**\
 **Default: `[]`**
