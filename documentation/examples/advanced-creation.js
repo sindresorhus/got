@@ -89,7 +89,7 @@ const httpbin = got.extend({
 });
 
 // Signing requests
-import crypto from 'crypto';
+import crypto from 'node:crypto';
 
 const getMessageSignature = (data, secret) => crypto.createHmac('sha256', secret).update(data).digest('hex').toUpperCase();
 const signRequest = got.extend({

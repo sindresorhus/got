@@ -1,4 +1,4 @@
-import http from 'http';
+import http from 'node:http';
 import got from '../../dist/source/index.js';
 
 // Wraps an existing Agent instance
