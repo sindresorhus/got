@@ -1,10 +1,10 @@
-import process from 'process';
-import {Buffer} from 'buffer';
-import {Duplex, Writable, Readable} from 'stream';
-import {URL, URLSearchParams} from 'url';
-import http, {ServerResponse} from 'http';
-import type {ClientRequest, RequestOptions} from 'http';
-import type {Socket} from 'net';
+import process from 'node:process';
+import {Buffer} from 'node:buffer';
+import {Duplex, Writable, Readable} from 'node:stream';
+import {URL, URLSearchParams} from 'node:url';
+import http, {ServerResponse} from 'node:http';
+import type {ClientRequest, RequestOptions} from 'node:http';
+import type {Socket} from 'node:net';
 import timer from '@szmarczak/http-timer';
 import CacheableRequest from 'cacheable-request';
 import decompressResponse from 'decompress-response';

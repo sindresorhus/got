@@ -1,4 +1,4 @@
-import type {Buffer} from 'buffer';
+import type {Buffer} from 'node:buffer';
 import PCancelable from 'p-cancelable';
 import {RequestError} from '../core/errors.js';
 import type Request from '../core/index.js';
