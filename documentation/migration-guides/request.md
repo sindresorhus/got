@@ -113,8 +113,8 @@ http.createServer((serverRequest, serverResponse) => {
 The cool feature here is that Request can proxy headers with the stream, but Got can do that too!
 
 ```js
-import {promisify} from 'util';
-import stream from 'stream';
+import {promisify} from 'node:util';
+import stream from 'node:stream';
 import got from 'got';
 
 const pipeline = promisify(stream.pipeline);

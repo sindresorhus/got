@@ -9,7 +9,7 @@
 Let's make a simple request. With Node.js, this is:
 
 ```js
-import http from 'http';
+import http from 'node:http';
 
 const request = http.request('https://httpbin.org/anything', response => {
 	if (response.statusCode >= 400) {
@@ -60,8 +60,8 @@ try {
 Much cleaner. But what about streams?
 
 ```js
-import http from 'http';
-import fs from 'fs';
+import http from 'node:http';
+import fs from 'node:fs';
 
 const source = fs.createReadStream('article.txt');
 
@@ -78,8 +78,8 @@ Well, it's easy as that:
 
 ```js
 import got from 'got';
-import stream from 'stream';
-import fs from 'fs';
+import stream from 'node:stream';
+import fs from 'node:fs';
 
 await stream.promises.pipeline(
 	fs.createReadStream('article.txt'),
