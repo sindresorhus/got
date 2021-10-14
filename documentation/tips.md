@@ -43,7 +43,7 @@ Got supports cookies out of box. There is no need to parse them manually.\
 In order to use cookies, pass a `CookieJar` instance from the [`tough-cookie`](https://github.com/salesforce/tough-cookie) package.
 
 ```js
-import {promisify} from 'util';
+import {promisify} from 'node:util';
 import got from 'got';
 import {CookieJar} from 'tough-cookie';
 

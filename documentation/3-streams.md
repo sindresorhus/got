@@ -23,9 +23,9 @@ This constructor takes the same arguments as the Got promise.
 > If the `body`, `json` or `form` option is used, this stream will be read-only.
 
 ```js
-import {promisify} from 'util';
-import stream from 'stream';
-import fs from 'fs';
+import {promisify} from 'node:util';
+import stream from 'node:stream';
+import fs from 'node:fs';
 import got from 'got';
 
 const pipeline = promisify(stream.pipeline);
@@ -204,7 +204,7 @@ The error that caused this retry.
 **Type: `(options?: OptionsInit) => Request`**
 
 ```js
-import fs from 'fs';
+import fs from 'node:fs';
 import got from 'got';
 
 let writeStream;

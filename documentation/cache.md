@@ -66,8 +66,8 @@ View the [Keyv docs](https://github.com/lukechilds/keyv) for more information on
 The `request` function may return an instance of `IncomingMessage`-like class.
 
 ```js
-import https from 'https';
-import {Readable} from 'stream';
+import https from 'node:https';
+import {Readable} from 'node:stream';
 import got from 'got';
 
 const getCachedResponse = (url, options) => {
@@ -106,8 +106,8 @@ console.log(body);
 If you don't want to alter the `request` function, you can return a cached response in a `beforeRequest` hook:
 
 ```js
-import https from 'https';
-import {Readable} from 'stream';
+import https from 'node:https';
+import {Readable} from 'node:stream';
 import got from 'got';
 
 const getCachedResponse = (url, options) => {
