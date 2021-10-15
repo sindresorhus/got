@@ -1,6 +1,6 @@
-import {Buffer} from 'buffer';
-import {promisify} from 'util';
-import {ClientRequestArgs} from 'http';
+import {Buffer} from 'node:buffer';
+import {promisify} from 'node:util';
+import {ClientRequestArgs} from 'node:http';
 import is from '@sindresorhus/is';
 import isFormData from './is-form-data.js';
 

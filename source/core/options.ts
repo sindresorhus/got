@@ -1,22 +1,22 @@
-import process from 'process';
-import {Buffer} from 'buffer';
-import {promisify, inspect} from 'util';
-import {URL, URLSearchParams} from 'url';
-import {checkServerIdentity} from 'tls';
-import {request as httpRequest} from 'http';
-import {request as httpsRequest} from 'https';
-import type {Readable} from 'stream';
-import type {Socket} from 'net';
-import type {SecureContextOptions, DetailedPeerCertificate} from 'tls';
+import process from 'node:process';
+import {Buffer} from 'node:buffer';
+import {promisify, inspect} from 'node:util';
+import {URL, URLSearchParams} from 'node:url';
+import {checkServerIdentity} from 'node:tls';
+import {request as httpRequest} from 'node:http';
+import {request as httpsRequest} from 'node:https';
+import type {Readable} from 'node:stream';
+import type {Socket} from 'node:net';
+import type {SecureContextOptions, DetailedPeerCertificate} from 'node:tls';
 import type {
 	Agent as HttpAgent,
 	ClientRequest,
-} from 'http';
+} from 'node:http';
 import type {
 	RequestOptions as HttpsRequestOptions,
 	Agent as HttpsAgent,
-} from 'https';
-import type {InspectOptions} from 'util';
+} from 'node:https';
+import type {InspectOptions} from 'node:util';
 import is, {assert} from '@sindresorhus/is';
 import lowercaseKeys from 'lowercase-keys';
 import CacheableLookup from 'cacheable-lookup';

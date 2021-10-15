@@ -1,5 +1,5 @@
-import type {Buffer} from 'buffer';
-import type {URL} from 'url';
+import type {Buffer} from 'node:buffer';
+import type {URL} from 'node:url';
 import type {CancelableRequest} from './as-promise/types.js';
 import type {Response} from './core/response.js';
 import type Options from './core/options.js';

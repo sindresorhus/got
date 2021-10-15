@@ -1,5 +1,5 @@
 /* istanbul ignore file: deprecated */
-import {URL} from 'url';
+import {URL} from 'node:url';
 
 export interface URLOptions {
 	href?: string;
