@@ -314,6 +314,7 @@ test.skip('the old stacktrace is recovered', async t => {
 });
 
 test.serial('custom stack trace', withServer, async (t, _server, got) => {
+	// eslint-disable-next-line @typescript-eslint/naming-convention
 	const ErrorCaptureStackTrace = Error.captureStackTrace;
 
 	const enable = () => {

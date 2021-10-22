@@ -71,6 +71,7 @@ export interface ExtendOptions extends OptionsInit {
 }
 
 export type OptionsOfTextResponseBody = Merge<OptionsInit, {isStream?: false; resolveBodyOnly?: false; responseType?: 'text'}>;
+// eslint-disable-next-line @typescript-eslint/naming-convention
 export type OptionsOfJSONResponseBody = Merge<OptionsInit, {isStream?: false; resolveBodyOnly?: false; responseType?: 'json'}>;
 export type OptionsOfBufferResponseBody = Merge<OptionsInit, {isStream?: false; resolveBodyOnly?: false; responseType: 'buffer'}>;
 export type OptionsOfUnknownResponseBody = Merge<OptionsInit, {isStream?: false; resolveBodyOnly?: false}>;
@@ -176,6 +177,7 @@ export interface GotRequestFunction {
 /**
 All available HTTP request methods provided by Got.
 */
+// eslint-disable-next-line @typescript-eslint/naming-convention
 export type HTTPAlias =
 	| 'get'
 	| 'post'

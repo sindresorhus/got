@@ -25,22 +25,22 @@ export interface ExtendedHttpsTestServer extends express.Express {
 }
 
 const createHttpsTestServer = async (options: HttpsServerOptions = {}): Promise<ExtendedHttpsTestServer> => {
-	const createCSR = pify(pem.createCSR);
+	const createCsr = pify(pem.createCSR);
 	const createCertificate = pify(pem.createCertificate);
 
-	const caCSRResult = await createCSR({commonName: 'authority'});
+	const caCsrResult = await createCsr({commonName: 'authority'});
 	const caResult = await createCertificate({
-		csr: caCSRResult.csr,
-		clientKey: caCSRResult.clientKey,
+		csr: caCsrResult.csr,
+		clientKey: caCsrResult.clientKey,
 		selfSigned: true,
 	});
 	const caKey = caResult.clientKey;
 	const caCert = caResult.certificate;
 
-	const serverCSRResult = await createCSR({commonName: options.commonName ?? 'localhost'});
+	const serverCsrResult = await createCsr({commonName: options.commonName ?? 'localhost'});
 	const serverResult = await createCertificate({
-		csr: serverCSRResult.csr,
-		clientKey: serverCSRResult.clientKey,
+		csr: serverCsrResult.csr,
+		clientKey: serverCsrResult.clientKey,
 		serviceKey: caKey,
 		serviceCertificate: caCert,
 		days: options.days ?? 365,

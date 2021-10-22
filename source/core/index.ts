@@ -571,6 +571,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		const {headers} = options;
 
 		const isForm = !is.undefined(options.form);
+		// eslint-disable-next-line @typescript-eslint/naming-convention
 		const isJSON = !is.undefined(options.json);
 		const isBody = !is.undefined(options.body);
 		const cannotHaveBody = methodsWithoutBody.has(options.method) && !(options.method === 'GET' && options.allowGetBody);

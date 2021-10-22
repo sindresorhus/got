@@ -11,8 +11,10 @@ import pEvent from 'p-event';
 import got, {HTTPError, ReadError, RequestError} from '../source/index.js';
 import withServer from './helpers/with-server.js';
 
+// eslint-disable-next-line @typescript-eslint/naming-convention
 const IPv6supported = Object.values(os.networkInterfaces()).some(iface => iface?.some(addr => !addr.internal && addr.family === 'IPv6'));
 
+// eslint-disable-next-line @typescript-eslint/naming-convention
 const testIPv6 = (IPv6supported && process.env.TRAVIS_DIST !== 'bionic' && process.env.TRAVIS_DIST !== 'focal') ? test : test.skip;
 
 const echoIp: Handler = (request, response) => {

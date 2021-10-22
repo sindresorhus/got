@@ -8,7 +8,7 @@ import got from '../source/index.js';
 import {withHttpsServer} from './helpers/with-server.js';
 
 const createPrivateKey = pify(pem.createPrivateKey);
-const createCSR = pify(pem.createCSR);
+const createCsr = pify(pem.createCSR);
 const createCertificate = pify(pem.createCertificate);
 const createPkcs12 = pify(pem.createPkcs12);
 
@@ -205,10 +205,10 @@ test('client certificate', withHttpsServer(), async (t, server, got) => {
 		});
 	});
 
-	const clientCSRResult = await createCSR({commonName: 'client'});
+	const clientCsrResult = await createCsr({commonName: 'client'});
 	const clientResult = await createCertificate({
-		csr: clientCSRResult.csr,
-		clientKey: clientCSRResult.clientKey,
+		csr: clientCsrResult.csr,
+		clientKey: clientCsrResult.clientKey,
 		serviceKey: (server as any).caKey,
 		serviceCertificate: (server as any).caCert,
 	});
@@ -245,10 +245,10 @@ test('invalid client certificate (self-signed)', withHttpsServer(), async (t, se
 		});
 	});
 
-	const clientCSRResult = await createCSR({commonName: 'other-client'});
+	const clientCsrResult = await createCsr({commonName: 'other-client'});
 	const clientResult = await createCertificate({
-		csr: clientCSRResult.csr,
-		clientKey: clientCSRResult.clientKey,
+		csr: clientCsrResult.csr,
+		clientKey: clientCsrResult.clientKey,
 		selfSigned: true,
 	});
 	// eslint-disable-next-line prefer-destructuring
@@ -277,19 +277,19 @@ test('invalid client certificate (other CA)', withHttpsServer(), async (t, serve
 		});
 	});
 
-	const caCSRResult = await createCSR({commonName: 'other-authority'});
+	const caCsrResult = await createCsr({commonName: 'other-authority'});
 	const caResult = await createCertificate({
-		csr: caCSRResult.csr,
-		clientKey: caCSRResult.clientKey,
+		csr: caCsrResult.csr,
+		clientKey: caCsrResult.clientKey,
 		selfSigned: true,
 	});
 	const caKey = caResult.clientKey;
 	const caCert = caResult.certificate;
 
-	const clientCSRResult = await createCSR({commonName: 'other-client'});
+	const clientCsrResult = await createCsr({commonName: 'other-client'});
 	const clientResult = await createCertificate({
-		csr: clientCSRResult.csr,
-		clientKey: clientCSRResult.clientKey,
+		csr: clientCsrResult.csr,
+		clientKey: clientCsrResult.clientKey,
 		serviceKey: caKey,
 		serviceCertificate: caCert,
 	});
@@ -336,15 +336,15 @@ test('key passphrase', withHttpsServer(), async (t, server, got) => {
 		cipher: 'aes256',
 		password: 'randomPassword',
 	});
-	const clientCSRResult = await createCSR({
+	const clientCsrResult = await createCsr({
 		// eslint-disable-next-line object-shorthand
 		clientKey: clientKey,
 		clientKeyPassword: 'randomPassword',
 		commonName: 'client',
 	});
 	const clientResult = await createCertificate({
-		csr: clientCSRResult.csr,
-		clientKey: clientCSRResult.clientKey,
+		csr: clientCsrResult.csr,
+		clientKey: clientCsrResult.clientKey,
 		clientKeyPassword: 'randomPassword',
 		serviceKey: (server as any).caKey,
 		serviceCertificate: (server as any).caCert,
@@ -391,15 +391,15 @@ test('invalid key passphrase', withHttpsServer(), async (t, server, got) => {
 		cipher: 'aes256',
 		password: 'randomPassword',
 	});
-	const clientCSRResult = await createCSR({
+	const clientCsrResult = await createCsr({
 		// eslint-disable-next-line object-shorthand
 		clientKey: clientKey,
 		clientKeyPassword: 'randomPassword',
 		commonName: 'client',
 	});
 	const clientResult = await createCertificate({
-		csr: clientCSRResult.csr,
-		clientKey: clientCSRResult.clientKey,
+		csr: clientCsrResult.csr,
+		clientKey: clientCsrResult.clientKey,
 		clientKeyPassword: 'randomPassword',
 		serviceKey: (server as any).caKey,
 		serviceCertificate: (server as any).caCert,
@@ -430,10 +430,10 @@ test('client certificate PFX', withHttpsServer(), async (t, server, got) => {
 		});
 	});
 
-	const clientCSRResult = await createCSR({commonName: 'client'});
+	const clientCsrResult = await createCsr({commonName: 'client'});
 	const clientResult = await createCertificate({
-		csr: clientCSRResult.csr,
-		clientKey: clientCSRResult.clientKey,
+		csr: clientCsrResult.csr,
+		clientKey: clientCsrResult.clientKey,
 		serviceKey: (server as any).caKey,
 		serviceCertificate: (server as any).caCert,
 	});

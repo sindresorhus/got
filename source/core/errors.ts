@@ -88,6 +88,7 @@ export class MaxRedirectsError extends RequestError {
 An error to be thrown when the server response code is not 2xx nor 3xx if `options.followRedirect` is `true`, but always except for 304.
 Includes a `response` property.
 */
+// eslint-disable-next-line @typescript-eslint/naming-convention
 export class HTTPError extends RequestError {
 	declare readonly response: Response;
 	declare readonly request: Request;

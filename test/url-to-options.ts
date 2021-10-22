@@ -41,8 +41,9 @@ test('converts URL to options', t => {
 });
 
 test('converts IPv6 URL to options', t => {
-	const IPv6URL = 'https://[2001:cdba::3257:9652]:443/';
-	const parsedUrl = new URL(IPv6URL);
+	// eslint-disable-next-line @typescript-eslint/naming-convention
+	const IPv6Url = 'https://[2001:cdba::3257:9652]:443/';
+	const parsedUrl = new URL(IPv6Url);
 	const options = urlToOptions(parsedUrl);
 	const expected = {
 		hash: '',
@@ -59,8 +60,8 @@ test('converts IPv6 URL to options', t => {
 });
 
 test('only adds port to options for URLs with ports', t => {
-	const noPortURL = 'https://github.com/';
-	const parsedUrl = new URL(noPortURL);
+	const noPortUrl = 'https://github.com/';
+	const parsedUrl = new URL(noPortUrl);
 	const options = urlToOptions(parsedUrl);
 	const expected = {
 		hash: '',

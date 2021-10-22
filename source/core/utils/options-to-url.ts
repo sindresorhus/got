@@ -1,6 +1,7 @@
 /* istanbul ignore file: deprecated */
 import {URL} from 'node:url';
 
+// eslint-disable-next-line @typescript-eslint/naming-convention
 export interface URLOptions {
 	href?: string;
 	protocol?: string;
