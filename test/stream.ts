@@ -285,7 +285,7 @@ test('proxies `content-encoding` header when `options.decompress` is false', wit
 		);
 	});
 
-	const {headers} = await got('proxy');
+	const {headers} = await got('proxy', {decompress: false});
 	t.is(headers.unicorn, 'rainbow');
 	t.is(headers['content-encoding'], 'gzip');
 });

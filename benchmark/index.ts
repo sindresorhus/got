@@ -142,7 +142,9 @@ suite.add('got - promise', {
 }).add('axios - stream', {
 	defer: true,
 	fn: async (deferred: {resolve: () => void}) => {
-		const {data} = await axios.request(axiosStreamOptions);
+		const result = await axios.request(axiosStreamOptions);
+		const {data}: any = result;
+
 		data.resume();
 		data.once('end', () => {
 			deferred.resolve();
