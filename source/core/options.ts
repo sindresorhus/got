@@ -52,7 +52,7 @@ export interface Agents {
 	http2?: unknown | false;
 }
 
-export type Headers = Record<string, string | string[] | undefined>;
+export type Headers = Record<string, string | Number | string[] | undefined>;
 
 export interface ToughCookieJar {
 	getCookieString: ((currentUrl: string, options: Record<string, unknown>, cb: (error: Error | null, cookies: string) => void) => void)
