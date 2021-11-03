@@ -26,7 +26,7 @@ test('emits response event as promise', withServer, async (t, server, got) => {
 		t.true(response instanceof IncomingMessage);
 		t.false(response.readable);
 		t.is(response.statusCode, 200);
-		t.is(response.ip, '127.0.0.1');
+		t.true(response.ip === '127.0.0.1' || response.ip === '::1');
 	});
 });
 

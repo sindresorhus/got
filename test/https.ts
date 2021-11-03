@@ -414,9 +414,8 @@ test('invalid key passphrase', withHttpsServer(), async (t, server, got) => {
 		},
 	});
 
-	await t.throwsAsync(request, {
-		code: 'ERR_OSSL_EVP_BAD_DECRYPT',
-	});
+	const {code}: NodeJS.ErrnoException = await t.throwsAsync(request);
+	t.true(code === 'ERR_OSSL_BAD_DECRYPT' || code === 'ERR_OSSL_EVP_BAD_DECRYPT');
 });
 
 test('client certificate PFX', withHttpsServer(), async (t, server, got) => {

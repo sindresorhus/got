@@ -354,7 +354,7 @@ test('works with pipeline', async t => {
 		got.stream.put('http://localhost:7777'),
 	), {
 		instanceOf: RequestError,
-		message: 'connect ECONNREFUSED 127.0.0.1:7777',
+		message: /^connect ECONNREFUSED (127\.0\.0\.1|::1):7777$/,
 	});
 });
 

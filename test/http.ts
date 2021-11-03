@@ -2,7 +2,7 @@ import process from 'process';
 import {Buffer} from 'buffer';
 import {STATUS_CODES, Agent} from 'http';
 import os from 'os';
-import {isIPv4, isIPv6} from 'net';
+import {isIPv4, isIPv6, isIP} from 'net';
 import test from 'ava';
 import {Handler} from 'express';
 import nock from 'nock';
@@ -305,7 +305,9 @@ test('DNS auto', withServer, async (t, server, got) => {
 		dnsLookupIpVersion: undefined,
 	});
 
-	t.true(isIPv4(response.body));
+	const version = isIP(response.body);
+
+	t.true(version === 4 || version === 6);
 });
 
 test('DNS IPv4', withServer, async (t, server, got) => {
