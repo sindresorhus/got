@@ -53,7 +53,7 @@ export default function asPromise<T>(firstRequest?: Request): CancelableRequest<
 			request.once('response', async (response: Response) => {
 				// Parse body
 				const contentEncoding = (response.headers['content-encoding'] ?? '').toLowerCase();
-				const isCompressed = contentEncoding === 'gzip' || contentEncoding === 'defalte' || contentEncoding === 'br';
+				const isCompressed = contentEncoding === 'gzip' || contentEncoding === 'deflate' || contentEncoding === 'br';
 
 				const {options} = request;
 
