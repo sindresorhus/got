@@ -7,7 +7,7 @@ import test from 'ava';
 import is from '@sindresorhus/is';
 import {Handler} from 'express';
 import getStream from 'get-stream';
-import pEvent from 'p-event';
+import {pEvent} from 'p-event';
 import got, {HTTPError, TimeoutError} from '../source/index.js';
 import Request from '../source/core/index.js';
 import withServer from './helpers/with-server.js';

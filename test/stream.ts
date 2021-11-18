@@ -9,7 +9,7 @@ import test from 'ava';
 import {Handler} from 'express';
 import toReadableStream from 'to-readable-stream';
 import getStream from 'get-stream';
-import pEvent from 'p-event';
+import {pEvent} from 'p-event';
 import FormData from 'form-data';
 import is from '@sindresorhus/is';
 import delay from 'delay';

@@ -118,7 +118,7 @@ suite.add('got - promise', {
 }).add('node-fetch - promise', {
 	defer: true,
 	fn: async (deferred: {resolve: () => void}) => {
-		const response = await fetch(url, fetchOptions);
+		const response = await fetch(urlString, fetchOptions);
 		await response.text();
 
 		deferred.resolve();
@@ -126,10 +126,10 @@ suite.add('got - promise', {
 }).add('node-fetch - stream', {
 	defer: true,
 	fn: async (deferred: {resolve: () => void}) => {
-		const {body} = await fetch(url, fetchOptions);
+		const {body} = await fetch(urlString, fetchOptions);
 
-		body.resume();
-		body.once('end', () => {
+		body!.resume();
+		body!.once('end', () => {
 			deferred.resolve();
 		});
 	},

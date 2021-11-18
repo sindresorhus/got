@@ -9,7 +9,7 @@ import test from 'ava';
 import delay from 'delay';
 import CacheableLookup from 'cacheable-lookup';
 import {Handler} from 'express';
-import pEvent from 'p-event';
+import {pEvent} from 'p-event';
 import got, {RequestError, TimeoutError} from '../source/index.js';
 import timedOut from '../source/core/timed-out.js';
 import slowDataStream from './helpers/slow-data-stream.js';

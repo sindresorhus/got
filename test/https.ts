@@ -1,7 +1,7 @@
 import process from 'process';
 import tls, {DetailedPeerCertificate} from 'tls';
 import test from 'ava';
-import pEvent from 'p-event';
+import {pEvent} from 'p-event';
 import pify from 'pify';
 import pem from 'pem';
 import got from '../source/index.js';

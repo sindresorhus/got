@@ -3,7 +3,7 @@ import {promisify} from 'util';
 import {Agent} from 'http';
 import {gzip} from 'zlib';
 import test from 'ava';
-import pEvent from 'p-event';
+import {pEvent} from 'p-event';
 import getStream from 'get-stream';
 import {Handler} from 'express';
 import nock from 'nock';

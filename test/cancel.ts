@@ -3,7 +3,7 @@ import {EventEmitter} from 'events';
 import stream, {Readable as ReadableStream} from 'stream';
 import test from 'ava';
 import delay from 'delay';
-import pEvent from 'p-event';
+import {pEvent} from 'p-event';
 import getStream from 'get-stream';
 import {Handler} from 'express';
 import got, {CancelError, TimeoutError} from '../source/index.js';
@@ -187,7 +187,7 @@ test.serial('cancel immediately', withServerAndFakeTimers, async (t, server, got
 test('recover from cancelation using cancelable promise attribute', async t => {
 	// Canceled before connection started
 	const p = got('http://example.com');
-	const recover = p.catch((error: Error) => { // eslint-disable-line promise/prefer-await-to-then
+	const recover = p.catch((error: Error) => {
 		if (p.isCanceled) {
 			return;
 		}
@@ -203,7 +203,7 @@ test('recover from cancelation using cancelable promise attribute', async t => {
 test('recover from cancellation using error instance', async t => {
 	// Canceled before connection started
 	const p = got('http://example.com');
-	const recover = p.catch((error: Error) => { // eslint-disable-line promise/prefer-await-to-then
+	const recover = p.catch((error: Error) => {
 		if (error instanceof CancelError) {
 			return;
 		}

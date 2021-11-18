@@ -7,7 +7,7 @@ import test from 'ava';
 import {Handler} from 'express';
 import nock from 'nock';
 import getStream from 'get-stream';
-import pEvent from 'p-event';
+import {pEvent} from 'p-event';
 import got, {HTTPError, ReadError, RequestError} from '../source/index.js';
 import withServer from './helpers/with-server.js';
 

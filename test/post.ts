@@ -7,7 +7,7 @@ import fsPromises from 'fs/promises';
 import path from 'path';
 import test from 'ava';
 import delay from 'delay';
-import pEvent from 'p-event';
+import {pEvent} from 'p-event';
 import {Handler} from 'express';
 import {parse, Body, BodyEntryPath, BodyEntryRawValue, isBodyFile} from 'then-busboy';
 import {FormData as FormDataNode, Blob, File} from 'formdata-node';
