@@ -48,7 +48,7 @@
 		"@types/cacheable-request": "^6.0.1",
 		"@types/responselike": "^1.0.0",
 		"cacheable-lookup": "^5.0.3",
-		"cacheable-request": "^7.0.1",
+		"cacheable-request": "^7.0.2",
 		"decompress-response": "^6.0.0",
 		"http2-wrapper": "^1.0.0-beta.5.2",
 		"lowercase-keys": "^2.0.0",
