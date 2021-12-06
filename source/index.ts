@@ -16,6 +16,7 @@ export {got};
 export {default as Options} from './core/options.js';
 export * from './core/options.js';
 export * from './core/response.js';
+export {default as Request} from './core/index.js';
 export * from './core/index.js';
 export * from './core/errors.js';
 export {Delays} from './core/timed-out.js';
