@@ -78,41 +78,148 @@ All available hooks of Got.
 */
 export interface Hooks {
 	/**
-	Called with plain request options, right before their normalization.
+	Called with the plain request options, right before their normalization.
+
+	The second argument represents the current `Options` instance.
+
+	@default []
+
+	**Note:**
+	> - This hook must be synchronous.
+
+	**Note:**
+	> - This is called every time options are merged.
+
+	**Note:**
+	> - The `options` object may not have the `url` property. To modify it, use a `beforeRequest` hook instead.
+
+	**Note:**
+	> - This hook is called when a new instance of `Options` is created.
+	> - Do not confuse this with the creation of `Request` or `got(…)`.
+
+	**Note:**
+	> - When using `got(url)` or `got(url, undefined, defaults)` this hook will **not** be called.
+
 	This is especially useful in conjunction with `got.extend()` when the input needs custom handling.
 
-	__Note #1__: This hook must be synchronous!
-
-	__Note #2__: Errors in this hook will be converted into an instances of `RequestError`.
-
-	__Note #3__: The options object may not have a `url` property.
-	To modify it, use a `beforeRequest` hook instead.
-
-	@default []
-	*/
-	init: InitHook[];
-
-	/**
-	Called with normalized request options.
-	Got will make no further changes to the request before it is sent.
-	This is especially useful in conjunction with `got.extend()` when you want to create an API client that, for example, uses HMAC-signing.
-
-	@default []
-	*/
-	beforeRequest: BeforeRequestHook[];
-
-	/**
-	Called with normalized request options and the redirect response.
-	Got will make no further changes to the request.
-	This is especially useful when you want to avoid dead sites.
-
-	@default []
+	For example, this can be used to fix typos to migrate from older versions faster.
 
 	@example
 	```
 	import got from 'got';
 
-	await got('https://example.com', {
+	const instance = got.extend({
+		hooks: {
+			init: [
+				plain => {
+					if ('followRedirects' in plain) {
+						plain.followRedirect = plain.followRedirects;
+						delete plain.followRedirects;
+					}
+				}
+			]
+		}
+	});
+
+	// Normally, the following would throw:
+	const response = await instance(
+		'https://example.com',
+		{
+			followRedirects: true
+		}
+	);
+
+	// There is no option named `followRedirects`, but we correct it in an `init` hook.
+	```
+
+	Or you can create your own option and store it in a context:
+
+	```
+	import got from 'got';
+
+	const instance = got.extend({
+		hooks: {
+			init: [
+				(plain, options) => {
+					if ('secret' in plain) {
+						options.context.secret = plain.secret;
+						delete plain.secret;
+					}
+				}
+			],
+			beforeRequest: [
+				options => {
+					options.headers.secret = options.context.secret;
+				}
+			]
+		}
+	});
+
+	const {headers} = await instance(
+		'https://httpbin.org/anything',
+		{
+			secret: 'passphrase'
+		}
+	).json();
+
+	console.log(headers.Secret);
+	//=> 'passphrase'
+	```
+	*/
+	init: InitHook[];
+
+	/**
+	Called right before making the request with `options.createNativeRequestOptions()`.
+
+	This hook is especially useful in conjunction with `got.extend()` when you want to sign your request.
+
+	@default []
+
+	**Note:**
+	> - Got will make no further changes to the request before it is sent.
+
+	**Note:**
+	> - Changing `options.json` or `options.form` has no effect on the request. You should change `options.body` instead. If needed, update the `options.headers` accordingly.
+
+	@example
+	```
+	import got from 'got';
+
+	const response = await got.post(
+		'https://httpbin.org/anything',
+		{
+			json: {payload: 'old'},
+			hooks: {
+				beforeRequest: [
+					options => {
+						options.body = JSON.stringify({payload: 'new'});
+						options.headers['content-length'] = options.body.length.toString();
+					}
+				]
+			}
+		}
+	);
+	```
+
+	**Tip:**
+	> - You can indirectly override the `request` function by early returning a [`ClientRequest`-like](https://nodejs.org/api/http.html#http_class_http_clientrequest) instance or a [`IncomingMessage`-like](https://nodejs.org/api/http.html#http_class_http_incomingmessage) instance. This is very useful when creating a custom cache mechanism.
+	> - [Read more about this tip](https://github.com/sindresorhus/got/blob/main/documentation/cache.md#advanced-caching-mechanisms).
+	*/
+	beforeRequest: BeforeRequestHook[];
+
+	/**
+	The equivalent of `beforeRequest` but when redirecting.
+
+	@default []
+
+	**Tip:**
+	> - This is especially useful when you want to avoid dead sites.
+
+	@example
+	```
+	import got from 'got';
+
+	const response = await got('https://example.com', {
 		hooks: {
 			beforeRedirect: [
 				(options, response) => {
@@ -128,19 +235,17 @@ export interface Hooks {
 	beforeRedirect: BeforeRedirectHook[];
 
 	/**
-	Called with an `Error` instance.
-	The error is passed to the hook right before it's thrown.
-	This is especially useful when you want to have more detailed errors.
+	Called with a `RequestError` instance. The error is passed to the hook right before it's thrown.
 
-	__Note__: Errors thrown while normalizing input options are thrown directly and not part of this hook.
+	This is especially useful when you want to have more detailed errors.
 
 	@default []
 
-	@example
 	```
 	import got from 'got';
 
-	await got('https://api.github.com/some-endpoint', {
+	await got('https://api.github.com/repos/sindresorhus/got/commits', {
+		responseType: 'json',
 		hooks: {
 			beforeError: [
 				error => {
@@ -160,26 +265,31 @@ export interface Hooks {
 	beforeError: BeforeErrorHook[];
 
 	/**
-	Called with normalized request options, the error and the retry count.
-  Got will make no further changes to the request.
-	This is especially useful when some extra work is required before the next try.
-
-	__Note__: When using streams, this hook is ignored.
-	__Note__: When retrying in a `afterResponse` hook, all remaining `beforeRetry` hooks will be called without the `error` and `retryCount` arguments.
+	The equivalent of `beforeError` but when retrying. Additionally, there is a second argument `retryCount`, the current retry number.
 
 	@default []
+
+	**Note:**
+	> - When using the Stream API, this hook is ignored.
+
+	**Note:**
+	> - When retrying, the `beforeRequest` hook is called afterwards.
+
+	**Note:**
+	> - If no retry occurs, the `beforeError` hook is called instead.
+
+	This hook is especially useful when you want to retrieve the cause of a retry.
 
 	@example
 	```
 	import got from 'got';
 
-	got.post('https://example.com', {
+	await got('https://httpbin.org/status/500', {
 		hooks: {
 			beforeRetry: [
-				(options, error, retryCount) => {
-					if (error.response.statusCode === 413) { // Payload too large
-						options.body = getNewBody();
-					}
+				(error, retryCount) => {
+					console.log(`Retrying [${retryCount}]: ${error.code}`);
+					// Retrying [1]: ERR_NON_2XX_3XX_RESPONSE
 				}
 			]
 		}
@@ -189,14 +299,15 @@ export interface Hooks {
 	beforeRetry: BeforeRetryHook[];
 
 	/**
-	Called with [response object](#response) and a retry function.
+	Each function should return the response. This is especially useful when you want to refresh an access token.
 
-	Each function should return the response.
-	This is especially useful when you want to refresh an access token.
+	@default []
 
-	__Note__: When using streams, this hook is ignored.
+	**Note:**
+	> - When using the Stream API, this hook is ignored.
 
-	__Note__: Calling the `retryWithMergedOptions` function will trigger `beforeRetry` hooks. If the retry is successful, all remaining `afterResponse` hooks will be called. In case of an error, `beforeRetry` hooks will be called instead.
+	**Note:**
+	> - Calling the `retryWithMergedOptions` function will trigger `beforeRetry` hooks. If the retry is successful, all remaining `afterResponse` hooks will be called. In case of an error, `beforeRetry` hooks will be called instead.
 	Meanwhile the `init`, `beforeRequest` , `beforeRedirect` as well as already executed `afterResponse` hooks will be skipped.
 
 	@example
@@ -207,15 +318,17 @@ export interface Hooks {
 		hooks: {
 			afterResponse: [
 				(response, retryWithMergedOptions) => {
-					if (response.statusCode === 401) { // Unauthorized
+					// Unauthorized
+					if (response.statusCode === 401) {
+						// Refresh the access token
 						const updatedOptions = {
 							headers: {
-								token: getNewToken() // Refresh the access token
+								token: getNewToken()
 							}
 						};
 
-						// Save for further requests
-						instance.defaults.options = got.mergeOptions(instance.defaults.options, updatedOptions);
+						// Update the defaults
+						instance.defaults.options.merge(updatedOptions);
 
 						// Make a new retry
 						return retryWithMergedOptions(updatedOptions);
@@ -226,7 +339,7 @@ export interface Hooks {
 				}
 			],
 			beforeRetry: [
-				(options, error, retryCount) => {
+				error => {
 					// This will be called on `retryWithMergedOptions(...)`
 				}
 			]

@@ -17,13 +17,33 @@ export class CancelError extends RequestError {
 		this.code = 'ERR_CANCELED';
 	}
 
+	/**
+	Whether the promise is canceled.
+	*/
 	get isCanceled() {
 		return true;
 	}
 }
 
 export interface CancelableRequest<T extends Response | Response['body'] = Response['body']> extends PCancelable<T>, RequestEvents<CancelableRequest<T>> {
+	/**
+	A shortcut method that gives a Promise returning a JSON object.
+
+	It is semantically the same as settings `options.resolveBodyOnly` to `true` and `options.responseType` to `'json'`.
+	*/
 	json: <ReturnType>() => CancelableRequest<ReturnType>;
+
+	/**
+	A shortcut method that gives a Promise returning a [Buffer](https://nodejs.org/api/buffer.html).
+
+	It is semantically the same as settings `options.resolveBodyOnly` to `true` and `options.responseType` to `'buffer'`.
+	*/
 	buffer: () => CancelableRequest<Buffer>;
+
+	/**
+	A shortcut method that gives a Promise returning a string.
+
+	It is semantically the same as settings `options.resolveBodyOnly` to `true` and `options.responseType` to `'text'`.
+	*/
 	text: () => CancelableRequest<string>;
 }
