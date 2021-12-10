@@ -8,7 +8,7 @@ import test from 'ava';
 import getStream from 'get-stream';
 import is from '@sindresorhus/is';
 import got, {RequestError, HTTPError, TimeoutError} from '../source/index.js';
-import Request from '../source/core';
+import Request from '../source/core/index.js';
 import withServer from './helpers/with-server.js';
 import invalidUrl from './helpers/invalid-url.js';
 

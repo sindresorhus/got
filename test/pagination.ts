@@ -5,7 +5,7 @@ import delay from 'delay';
 import getStream from 'get-stream';
 import got, {Response} from '../source/index.js';
 import withServer, {withBodyParsingServer} from './helpers/with-server.js';
-import {ExtendedHttpTestServer} from './helpers/create-http-test-server';
+import {ExtendedHttpTestServer} from './helpers/create-http-test-server.js';
 
 const thrower = (): any => {
 	throw new Error('This should not be called');
