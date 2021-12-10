@@ -44,6 +44,8 @@ Here's a list of types that Got exports:
 
 ### [`RequestEvents<T>`](https://github.com/sindresorhus/got/blob/ae04c0e36cf3f5b2e356df7d48a5b19988f935a2/source/core/index.ts#L108)
 
+### [`Progress`](https://github.com/sindresorhus/got/blob/0f9f2b83b77710f2dc08c2a6bce1c78ba8d46760/source/core/index.ts#L40)
+
 ### [`InstanceDefaults`](https://github.com/sindresorhus/got/blob/ae04c0e36cf3f5b2e356df7d48a5b19988f935a2/source/types.ts#L17)
 
 ### [`GotReturn`](https://github.com/sindresorhus/got/blob/ae04c0e36cf3f5b2e356df7d48a5b19988f935a2/source/types.ts#L44)
