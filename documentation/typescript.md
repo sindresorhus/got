@@ -40,6 +40,8 @@ Here's a list of types that Got exports:
 
 ### [`Response<T = unknown>`](https://github.com/sindresorhus/got/blob/ae04c0e36cf3f5b2e356df7d48a5b19988f935a2/source/core/response.ts#L95)
 
+### [`Request`](https://github.com/sindresorhus/got/blob/ecb05343dea3bd35933585a1ec5bcea01348d109/source/core/index.ts#L139)
+
 ### [`RequestEvents<T>`](https://github.com/sindresorhus/got/blob/ae04c0e36cf3f5b2e356df7d48a5b19988f935a2/source/core/index.ts#L108)
 
 ### [`InstanceDefaults`](https://github.com/sindresorhus/got/blob/ae04c0e36cf3f5b2e356df7d48a5b19988f935a2/source/types.ts#L17)
