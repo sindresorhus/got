@@ -17,7 +17,7 @@ This constructor takes the same arguments as the Got promise.
 
 **Note:**
 > When piping to [`ServerResponse`](https://nodejs.org/api/http.html#http_class_http_serverresponse), the headers will be automatically copied.\
-> In order to prevent this behavior you need to override the request headers in a [`beforeRequest`](hooks.md#beforerequest) hook.
+> In order to prevent this behavior you need to override the request headers in a [`beforeRequest`](9-hooks.md#beforerequest) hook.
 
 **Note:**
 > If the `body`, `json` or `form` option is used, this stream will be read-only.
