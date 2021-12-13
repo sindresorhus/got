@@ -170,7 +170,7 @@ For advanced JSON usage, check out the [`parseJson`](documentation/2-options.md#
 
 |                       | `got`               | [`request`][r0]    | [`node-fetch`][n0]   | [`ky`][k0]               | [`axios`][a0]      | [`superagent`][s0]     |
 |-----------------------|:-------------------:|:------------------:|:--------------------:|:------------------------:|:------------------:|:----------------------:|
-| HTTP/2 support        | :heavy_check_mark:¹ | :x:                | :heavy_check_mark:   | :x:                      | :x:                | :heavy_check_mark:\*\* |
+| HTTP/2 support        | :heavy_check_mark:¹ | :x:                | :x:                  | :x:                      | :x:                | :heavy_check_mark:\*\* |
 | Browser support       | :x:                 | :x:                | :heavy_check_mark:\* | :heavy_check_mark:       | :heavy_check_mark: | :heavy_check_mark:     |
 | Promise API           | :heavy_check_mark:  | :heavy_check_mark: | :heavy_check_mark:   | :heavy_check_mark:       | :heavy_check_mark: | :heavy_check_mark:     |
 | Stream API            | :heavy_check_mark:  | :heavy_check_mark: | Node.js only         | :x:                      | :x:                | :heavy_check_mark:     |
