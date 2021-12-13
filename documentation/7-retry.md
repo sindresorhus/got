@@ -9,7 +9,7 @@
 > You can trigger a retry by throwing the [`RetryError`](8-errors.md#retryerror) in any hook.
 
 **Tip:**
-> The `afterResponse` hook exposes a dedicated function to retry with merged options. [Read more](hooks.md#afterresponse).
+> The `afterResponse` hook exposes a dedicated function to retry with merged options. [Read more](9-hooks.md#afterresponse).
 
 ### `retry`
 
