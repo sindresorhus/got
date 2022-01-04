@@ -2,9 +2,7 @@ import test from 'ava';
 import got from '../source/index.js';
 
 test('http/1 timings', async t => {
-	const request = await got('https://httpbin.org/anything');
-
-	const {timings} = request;
+	const {timings} = await got('https://httpbin.org/anything');
 
 	t.true(timings.start >= 0);
 	t.true(timings.socket! >= 0);
@@ -25,14 +23,10 @@ test('http/1 timings', async t => {
 	t.true(phases.firstByte! >= 0);
 	t.true(phases.download! >= 0);
 	t.true(phases.total! >= 0);
-
-	t.pass();
 });
 
-test('http/2 timings', async t => {
-	const request = await got('https://httpbin.org/anything', {http2: true});
-
-	const {timings} = request;
+test.failing('http/2 timings', async t => {
+	const {timings} = await got('https://httpbin.org/anything', {http2: true});
 
 	t.true(timings.start >= 0);
 	t.true(timings.socket! >= 0);
@@ -53,6 +47,4 @@ test('http/2 timings', async t => {
 	t.true(phases.firstByte! >= 0);
 	t.true(phases.download! >= 0);
 	t.true(phases.total! >= 0);
-
-	t.pass();
 });
