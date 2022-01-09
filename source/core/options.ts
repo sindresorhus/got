@@ -3,8 +3,9 @@ import {Buffer} from 'node:buffer';
 import {promisify, inspect} from 'node:util';
 import {URL, URLSearchParams} from 'node:url';
 import {checkServerIdentity} from 'node:tls';
-import {request as httpRequest} from 'node:http';
-import {request as httpsRequest} from 'node:https';
+// DO NOT use destructuring for `https.request` and `http.request` as it's not compatible with `nock`.
+import http from 'node:http';
+import https from 'node:https';
 import type {Readable} from 'node:stream';
 import type {Socket} from 'node:net';
 import type {SecureContextOptions, DetailedPeerCertificate} from 'node:tls';
@@ -2447,10 +2448,10 @@ export default class Options {
 				return http2wrapper.auto as RequestFunction;
 			}
 
-			return httpsRequest;
+			return https.request;
 		}
 
-		return httpRequest;
+		return http.request;
 	}
 
 	freeze() {
