@@ -5,7 +5,7 @@ const packageJson = {
 	version: '12.0.0'
 };
 
-const getRateLimit = (headers) => ({
+const getRateLimit = headers => ({
 	limit: Number.parseInt(headers['x-ratelimit-limit'], 10),
 	remaining: Number.parseInt(headers['x-ratelimit-remaining'], 10),
 	reset: new Date(Number.parseInt(headers['x-ratelimit-reset'], 10) * 1000)
