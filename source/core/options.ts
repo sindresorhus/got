@@ -3,6 +3,8 @@ import {Buffer} from 'node:buffer';
 import {promisify, inspect} from 'node:util';
 import {URL, URLSearchParams} from 'node:url';
 import {checkServerIdentity} from 'node:tls';
+// The way of destructuring is not compatible with `nock`.
+// DO NOT use destructuring assignment for https.request and http.request.
 import http from 'node:http';
 import https from 'node:https';
 import type {Readable} from 'node:stream';
