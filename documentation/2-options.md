@@ -7,7 +7,7 @@ Source code: [`source/core/options.ts`](../source/core/options.ts)
 Like `fetch` stores the options in a `Request` instance, Got does so in `Options`.\
 It is made of getters and setters that provide fast option normalization and validation.
 
-**By default, Got will retry on failure. To disable this option, set [`options.retry`](7-retry.md) to `0`.**
+**By default, Got will retry on failure. To disable this option, set [`options.retry`](7-retry.md) to `{limit: 0}`.**
 
 #### Merge behavior explained
 
