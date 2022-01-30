@@ -174,7 +174,7 @@ This is emitted when a HTTP response is received.
 
 ```js
 import got from 'got';
-import { pipeline } from 'pipeline';
+import { pipeline } from 'node:stream/promises';
 import { createWriteStream } from 'node:fs';
 
 const readStream = got.stream('http://example.com/image.png', { throwHttpErrors: false });
