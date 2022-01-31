@@ -164,7 +164,7 @@ Whether the socket was used for other previous requests.
 
 ## Events
 
-### `stream.on('response', ...)`
+### `stream.on('response', …)`
 
 #### `response`
 
