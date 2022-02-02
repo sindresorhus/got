@@ -179,20 +179,33 @@ import got from 'got';
 
 const readStream = got.stream('http://example.com/image.png', {throwHttpErrors: false});
 
+const onError = (error) => {
+	// Do something with it.
+};
+
 readStream.on('response', async response => {
-	if (response.statusCode !== 200) {
-		console.log('Failure');
+	if (response.headers.age > 3600) {
+		console.log('Failure - response too old');
 		readStream.destroy(); // Destroy the stream to prevent hanging resources
 		return;
 	}
 
-	await pipeline(
-		readStream,
-		createWriteStream('image.png')
-	);
+	// Prevent onError being called twice
+	readStream.off('error', onError);
 
-	console.log('Success');
-})
+	try {
+		await pipeline(
+			readStream,
+			createWriteStream('image.png')
+		);
+
+		console.log('Success');
+	} catch (error) {
+		onError(error);
+	}
+});
+
+readStream.once('error', onError);
 ```
 
 ### `stream.on('downloadProgress', …)`
