@@ -164,6 +164,50 @@ Whether the socket was used for other previous requests.
 
 ## Events
 
+### `stream.on('response', …)`
+
+#### `response`
+
+**Type: [`PlainResponse`](typescript.md#plainresponse)**
+
+This is emitted when a HTTP response is received.
+
+```js
+import {pipeline} from 'node:stream/promises';
+import {createWriteStream} from 'node:fs';
+import got from 'got';
+
+const readStream = got.stream('http://example.com/image.png', {throwHttpErrors: false});
+
+const onError = error => {
+	// Do something with it.
+};
+
+readStream.on('response', async response => {
+	if (response.headers.age > 3600) {
+		console.log('Failure - response too old');
+		readStream.destroy(); // Destroy the stream to prevent hanging resources.
+		return;
+	}
+
+	// Prevent `onError` being called twice.
+	readStream.off('error', onError);
+
+	try {
+		await pipeline(
+			readStream,
+			createWriteStream('image.png')
+		);
+
+		console.log('Success');
+	} catch (error) {
+		onError(error);
+	}
+});
+
+readStream.once('error', onError);
+```
+
 ### `stream.on('downloadProgress', …)`
 
 #### `progress`
