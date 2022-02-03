@@ -179,18 +179,18 @@ import got from 'got';
 
 const readStream = got.stream('http://example.com/image.png', {throwHttpErrors: false});
 
-const onError = (error) => {
+const onError = error => {
 	// Do something with it.
 };
 
 readStream.on('response', async response => {
 	if (response.headers.age > 3600) {
 		console.log('Failure - response too old');
-		readStream.destroy(); // Destroy the stream to prevent hanging resources
+		readStream.destroy(); // Destroy the stream to prevent hanging resources.
 		return;
 	}
 
-	// Prevent onError being called twice
+	// Prevent `onError` being called twice.
 	readStream.off('error', onError);
 
 	try {
