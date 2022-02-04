@@ -1304,7 +1304,6 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	}
 
 	get reusedSocket(): boolean | undefined {
-		// @ts-expect-error `@types/node` has incomplete types
 		return this._request?.reusedSocket;
 	}
 }
