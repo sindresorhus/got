@@ -70,9 +70,11 @@ For browser usage, we recommend [Ky](https://github.com/sindresorhus/ky) by the 
 
 ## Install
 
+```sh
+npm install got
 ```
-$ npm install got
-```
+
+**Warning:** This package is native [ESM](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Modules) and no longer provides a CommonJS export. If your project uses CommonJS, you'll have to [convert to ESM](https://gist.github.com/sindresorhus/a39789f98801d908bbc7ff3ecc99d99c) or use the [dynamic `import()`](https://v8.dev/features/dynamic-import) function. Please don't open issues for questions regarding CommonJS / ESM. You can also use [Got v11](https://github.com/sindresorhus/got/tree/v11.8.3) instead which is pretty stable.
 
 ## Take a peek
 
