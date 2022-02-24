@@ -77,7 +77,7 @@ console.log(results);
 
 		return JSON.parse(response.body as string);
 	},
-	paginate: ({response}) => {
+	paginate: (response) => {
 		const rawLinkHeader = response.headers.link;
 		if (typeof rawLinkHeader !== 'string' || rawLinkHeader.trim() === '') {
 			return false;
@@ -201,7 +201,7 @@ const max = Date.now() - 1000 * 86400 * 7;
 
 const iterator = got.paginate('https://api.github.com/repos/sindresorhus/got/commits', {
 	pagination: {
-		paginate: ({response, currentItems}) => {
+		paginate: (response, currentItems) => {
 			// If there are no more data, finish.
 			if (currentItems.length === 0) {
 				return false;
