@@ -341,7 +341,7 @@ console.log(data);
 
 ### `form`
 
-**Type: <code>object&lt;string, [Primitve](https://www.typescriptlang.org/docs/handbook/2/everyday-types.html)&gt;</code>**
+**Type: <code>object&lt;string, [Primitive](https://www.typescriptlang.org/docs/handbook/2/everyday-types.html)&gt;</code>**
 
 The form body is converted to a query string using `(new URLSearchParams(form)).toString()`.
 
