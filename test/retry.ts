@@ -171,7 +171,9 @@ test('custom error codes', async t => {
 		request: () => {
 			const emitter = new EventEmitter() as http.ClientRequest;
 			emitter.abort = () => {};
+			// @ts-expect-error Imitating a stream
 			emitter.end = () => {};
+			// @ts-expect-error Imitating a stream
 			emitter.destroy = () => {};
 			// @ts-expect-error Imitating a stream
 			emitter.writable = true;
