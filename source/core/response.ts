@@ -138,7 +138,7 @@ export const parseBody = (response: Response, responseType: ResponseType, parseJ
 		}
 
 		if (responseType === 'json') {
-			return rawBody.length === 0 ? '' : parseJson(rawBody.toString());
+			return rawBody.length === 0 ? '' : parseJson(rawBody.toString(encoding));
 		}
 
 		if (responseType === 'buffer') {
