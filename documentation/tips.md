@@ -389,6 +389,8 @@ console.log(headers.Foo); //=> 'bar'
 
 ### Electron `net` module is not supported
 
+**Note:** Got v12 and later is an ESM package, but Electron does not yet support ESM. So you need to use Got v11.
+
 Got doesn't support the `electron.net` module. It's missing crucial APIs that are available in Node.js.\
 While Got used to support `electron.net`, it got very unstable and caused many errors.
 
