@@ -56,10 +56,10 @@ export interface Agents {
 export type Headers = Record<string, string | string[] | undefined>;
 
 export interface ToughCookieJar {
-	getCookieString: ((currentUrl: string, options: Record<string, unknown>, cb: (error: Error | null, cookies: string) => void) => void)
-	& ((url: string, callback: (error: Error | null, cookieHeader: string) => void) => void);
-	setCookie: ((cookieOrString: unknown, currentUrl: string, options: Record<string, unknown>, cb: (error: Error | null, cookie: unknown) => void) => void)
-	& ((rawCookie: string, url: string, callback: (error: Error | null, result: unknown) => void) => void);
+	getCookieString: ((currentUrl: string, options: Record<string, unknown>, cb: (error: Error | null, cookies: string) => void) => void) // eslint-disable-line @typescript-eslint/ban-types
+	& ((url: string, callback: (error: Error | null, cookieHeader: string) => void) => void); // eslint-disable-line @typescript-eslint/ban-types
+	setCookie: ((cookieOrString: unknown, currentUrl: string, options: Record<string, unknown>, cb: (error: Error | null, cookie: unknown) => void) => void) // eslint-disable-line @typescript-eslint/ban-types
+	& ((rawCookie: string, url: string, callback: (error: Error | null, result: unknown) => void) => void); // eslint-disable-line @typescript-eslint/ban-types
 }
 
 export interface PromiseCookieJar {
@@ -621,9 +621,9 @@ export interface PaginationOptions<ElementType, BodyType> {
 	stackAllItems?: boolean;
 }
 
-export type SearchParameters = Record<string, string | number | boolean | null | undefined>;
+export type SearchParameters = Record<string, string | number | boolean | null | undefined>; // eslint-disable-line @typescript-eslint/ban-types
 
-function validateSearchParameters(searchParameters: Record<string, unknown>): asserts searchParameters is Record<string, string | number | boolean | null | undefined> {
+function validateSearchParameters(searchParameters: Record<string, unknown>): asserts searchParameters is Record<string, string | number | boolean | null | undefined> { // eslint-disable-line @typescript-eslint/ban-types
 	// eslint-disable-next-line guard-for-in
 	for (const key in searchParameters) {
 		const value = searchParameters[key];
@@ -794,14 +794,14 @@ const defaultInternals: Options['_internals'] = {
 	responseType: 'text',
 	url: undefined,
 	pagination: {
-		transform: (response: Response) => {
+		transform(response: Response) {
 			if (response.request.options.responseType === 'json') {
 				return response.body;
 			}
 
 			return JSON.parse(response.body as string);
 		},
-		paginate: ({response}) => {
+		paginate({response}) {
 			const rawLinkHeader = response.headers.link;
 			if (typeof rawLinkHeader !== 'string' || rawLinkHeader.trim() === '') {
 				return false;

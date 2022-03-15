@@ -66,20 +66,20 @@ const suite = new Benchmark.Suite();
 // Benchmarking
 suite.add('got - promise', {
 	defer: true,
-	fn: async (deferred: {resolve: () => void}) => {
+	async fn(deferred: {resolve: () => void}) {
 		await got(url, gotOptions);
 		deferred.resolve();
 	},
 }).add('got - stream', {
 	defer: true,
-	fn: async (deferred: {resolve: () => void}) => {
+	async fn(deferred: {resolve: () => void}) {
 		got.stream(url, gotOptions).resume().once('end', () => {
 			deferred.resolve();
 		});
 	},
 }).add('got - core', {
 	defer: true,
-	fn: async (deferred: {resolve: () => void}) => {
+	async fn(deferred: {resolve: () => void}) {
 		const stream = new Request(url, gotOptions);
 		void stream.flush();
 		stream.resume().once('end', () => {
@@ -88,7 +88,7 @@ suite.add('got - promise', {
 	},
 }).add('got - core - normalized options', {
 	defer: true,
-	fn: async (deferred: {resolve: () => void}) => {
+	async fn(deferred: {resolve: () => void}) {
 		const stream = new Request(undefined, undefined, normalizedGotOptions);
 		void stream.flush();
 		stream.resume().once('end', () => {
@@ -97,7 +97,7 @@ suite.add('got - promise', {
 	},
 }).add('request - callback', {
 	defer: true,
-	fn: (deferred: {resolve: () => void}) => {
+	fn(deferred: {resolve: () => void}) {
 		request(urlString, requestOptions, (error: Error) => {
 			if (error) {
 				throw error;
@@ -108,7 +108,7 @@ suite.add('got - promise', {
 	},
 }).add('request - stream', {
 	defer: true,
-	fn: (deferred: {resolve: () => void}) => {
+	fn(deferred: {resolve: () => void}) {
 		const stream = request(urlString, requestOptions);
 		stream.resume();
 		stream.once('end', () => {
@@ -117,7 +117,7 @@ suite.add('got - promise', {
 	},
 }).add('node-fetch - promise', {
 	defer: true,
-	fn: async (deferred: {resolve: () => void}) => {
+	async fn(deferred: {resolve: () => void}) {
 		const response = await fetch(urlString, fetchOptions);
 		await response.text();
 
@@ -125,7 +125,7 @@ suite.add('got - promise', {
 	},
 }).add('node-fetch - stream', {
 	defer: true,
-	fn: async (deferred: {resolve: () => void}) => {
+	async fn(deferred: {resolve: () => void}) {
 		const {body} = await fetch(urlString, fetchOptions);
 
 		body!.resume();
@@ -135,13 +135,13 @@ suite.add('got - promise', {
 	},
 }).add('axios - promise', {
 	defer: true,
-	fn: async (deferred: {resolve: () => void}) => {
+	async fn(deferred: {resolve: () => void}) {
 		await axios.request(axiosOptions);
 		deferred.resolve();
 	},
 }).add('axios - stream', {
 	defer: true,
-	fn: async (deferred: {resolve: () => void}) => {
+	async fn(deferred: {resolve: () => void}) {
 		const result = await axios.request(axiosStreamOptions);
 		const {data}: any = result;
 
@@ -152,7 +152,7 @@ suite.add('got - promise', {
 	},
 }).add('https - stream', {
 	defer: true,
-	fn: (deferred: {resolve: () => void}) => {
+	fn(deferred: {resolve: () => void}) {
 		https.request(urlString, httpsOptions, response => {
 			response.resume();
 			response.once('end', () => {
@@ -173,7 +173,7 @@ const internalBenchmark = (): void => {
 
 	const internalSuite = new Benchmark.Suite();
 	internalSuite.add('got - normalize options', {
-		fn: () => {
+		fn() {
 			// eslint-disable-next-line no-new
 			new Options(url, gotOptions);
 		},

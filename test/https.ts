@@ -80,7 +80,7 @@ test('https request with `checkServerIdentity` OK', withHttpsServer(), async (t,
 
 	const {body} = await got({
 		https: {
-			checkServerIdentity: (hostname: string, certificate: DetailedPeerCertificate) => {
+			checkServerIdentity(hostname: string, certificate: DetailedPeerCertificate) {
 				t.is(hostname, 'localhost');
 				t.is(certificate.subject.CN, 'localhost');
 				t.is(certificate.issuer.CN, 'authority');
@@ -98,7 +98,7 @@ test('https request with `checkServerIdentity` NOT OK', withHttpsServer(), async
 
 	const promise = got({
 		https: {
-			checkServerIdentity: (hostname: string, certificate: DetailedPeerCertificate) => {
+			checkServerIdentity(hostname: string, certificate: DetailedPeerCertificate) {
 				t.is(hostname, 'localhost');
 				t.is(certificate.subject.CN, 'localhost');
 				t.is(certificate.issuer.CN, 'authority');

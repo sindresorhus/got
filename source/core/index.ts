@@ -448,8 +448,9 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			}
 
 			let data;
+
 			while ((data = response.read()) !== null) {
-				this._downloadedSize += data.length;
+				this._downloadedSize += data.length; // eslint-disable-line @typescript-eslint/restrict-plus-operands
 
 				const progress = this.downloadProgress;
 
@@ -462,7 +463,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		}
 	}
 
-	override _write(chunk: unknown, encoding: BufferEncoding | undefined, callback: (error?: Error | null) => void): void {
+	override _write(chunk: unknown, encoding: BufferEncoding | undefined, callback: (error?: Error | null) => void): void { // eslint-disable-line @typescript-eslint/ban-types
 		const write = (): void => {
 			this._writeRequest(chunk, encoding, callback);
 		};
@@ -474,7 +475,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		}
 	}
 
-	override _final(callback: (error?: Error | null) => void): void {
+	override _final(callback: (error?: Error | null) => void): void { // eslint-disable-line @typescript-eslint/ban-types
 		const endRequest = (): void => {
 			// We need to check if `this._request` is present,
 			// because it isn't when we use cache.
@@ -483,7 +484,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 				return;
 			}
 
-			this._request.end((error?: Error | null) => {
+			this._request.end((error?: Error | null) => { // eslint-disable-line @typescript-eslint/ban-types
 				// The request has been destroyed before `_final` finished.
 				// See https://github.com/nodejs/node/issues/39356
 				if ((this._request as any)._writableState?.errored) {
@@ -508,7 +509,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		}
 	}
 
-	override _destroy(error: Error | null, callback: (error: Error | null) => void): void {
+	override _destroy(error: Error | null, callback: (error: Error | null) => void): void { // eslint-disable-line @typescript-eslint/ban-types
 		this._stopReading = true;
 		this.flush = async () => {};
 
@@ -1186,13 +1187,13 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		this.destroy(error);
 	}
 
-	private _writeRequest(chunk: any, encoding: BufferEncoding | undefined, callback: (error?: Error | null) => void): void {
+	private _writeRequest(chunk: any, encoding: BufferEncoding | undefined, callback: (error?: Error | null) => void): void { // eslint-disable-line @typescript-eslint/ban-types
 		if (!this._request || this._request.destroyed) {
 			// Probably the `ClientRequest` instance will throw
 			return;
 		}
 
-		this._request.write(chunk, encoding!, (error?: Error | null) => {
+		this._request.write(chunk, encoding!, (error?: Error | null) => { // eslint-disable-line @typescript-eslint/ban-types
 			if (!error) {
 				this._uploadedSize += Buffer.byteLength(chunk, encoding);
 

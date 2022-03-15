@@ -366,7 +366,7 @@ test('JSON request custom stringifier', withServer, async (t, server, got) => {
 
 test('ClientRequest can throw before promise resolves', async t => {
 	await t.throwsAsync(got('http://example.com', {
-		dnsLookup: ((_hostname: string, _options: unknown, callback: (error: null, hostname: string, family: number) => void) => {
+		dnsLookup: ((_hostname: string, _options: unknown, callback: (error: null, hostname: string, family: number) => void) => { // eslint-disable-line @typescript-eslint/ban-types
 			queueMicrotask(() => {
 				callback(null, 'fe80::0000:0000:0000:0000', 6);
 			});

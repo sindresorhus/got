@@ -129,7 +129,7 @@ test('empty status message is overriden by the default one', withServer, async (
 
 test('`http.request` error', async t => {
 	await t.throwsAsync(got('https://example.com', {
-		request: () => {
+		request() {
 			throw new TypeError('The header content contains invalid characters');
 		},
 	}), {
@@ -144,13 +144,13 @@ test('`http.request` pipe error', async t => {
 
 	await t.throwsAsync(got('https://example.com', {
 		// @ts-expect-error Error tests
-		request: () => {
+		request() {
 			const proxy = new stream.PassThrough();
 
 			const anyProxy = proxy as any;
 			anyProxy.socket = {
 				remoteAddress: '',
-				prependOnceListener: () => {},
+				prependOnceListener() {},
 			};
 
 			anyProxy.headers = {};
@@ -175,7 +175,7 @@ test('`http.request` pipe error', async t => {
 
 test('`http.request` error through CacheableRequest', async t => {
 	await t.throwsAsync(got('https://example.com', {
-		request: () => {
+		request() {
 			throw new TypeError('The header content contains invalid characters');
 		},
 		cache: new Map(),
@@ -301,7 +301,7 @@ test('no uncaught parse errors #2', async t => {
 // eslint-disable-next-line ava/no-skip-test
 test.skip('the old stacktrace is recovered', async t => {
 	const error = await t.throwsAsync(got('https://example.com', {
-		request: () => {
+		request() {
 			throw new Error('foobar');
 		},
 	}));

@@ -64,9 +64,9 @@ test('promise.json() can be called before a file stream body is open', withServe
 	// @ts-expect-error @types/node has wrong types.
 	const body = new ReadStream('', {
 		fs: {
-			open: () => {},
-			read: () => {},
-			close: () => {},
+			open() {},
+			read() {},
+			close() {},
 		},
 	});
 

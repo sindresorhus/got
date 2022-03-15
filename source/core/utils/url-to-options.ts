@@ -7,8 +7,8 @@ export interface LegacyUrlOptions {
 	protocol: string;
 	hostname: string;
 	host: string;
-	hash: string | null;
-	search: string | null;
+	hash: string | null; // eslint-disable-line @typescript-eslint/ban-types
+	search: string | null; // eslint-disable-line @typescript-eslint/ban-types
 	pathname: string;
 	href: string;
 	path: string;

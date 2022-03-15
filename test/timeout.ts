@@ -91,7 +91,7 @@ test.serial('socket timeout', async t => {
 			retry: {
 				limit: 0,
 			},
-			request: () => {
+			request() {
 				const stream = new PassThroughStream();
 				// @ts-expect-error Mocking the behaviour of a ClientRequest
 				stream.setTimeout = (ms, callback) => {
@@ -246,7 +246,7 @@ test.serial('response timeout (keepalive)', withServerAndFakeTimers, async (t, s
 test.serial('connect timeout', withServerAndFakeTimers, async (t, _server, got, clock) => {
 	await t.throwsAsync(
 		got({
-			createConnection: options => {
+			createConnection(options) {
 				const socket = new net.Socket(options as Record<string, unknown> as net.SocketConstructorOpts);
 				// @ts-expect-error We know that it is readonly, but we have to test it
 				socket.connecting = true;
@@ -275,7 +275,7 @@ test.serial('connect timeout (ip address)', withServerAndFakeTimers, async (t, _
 	await t.throwsAsync(
 		got({
 			url: 'http://127.0.0.1',
-			createConnection: options => {
+			createConnection(options) {
 				const socket = new net.Socket(options as Record<string, unknown> as net.SocketConstructorOpts);
 				// @ts-expect-error We know that it is readonly, but we have to test it
 				socket.connecting = true;
@@ -300,7 +300,7 @@ test.serial('connect timeout (ip address)', withServerAndFakeTimers, async (t, _
 test.serial('secureConnect timeout', withHttpsServer({}, true), async (t, _server, got, clock) => {
 	await t.throwsAsync(
 		got({
-			createConnection: options => {
+			createConnection(options) {
 				const socket = new net.Socket(options as Record<string, unknown> as net.SocketConstructorOpts);
 				// @ts-expect-error We know that it is readonly, but we have to test it
 				socket.connecting = true;
@@ -350,7 +350,7 @@ test.serial('lookup timeout', withServerAndFakeTimers, async (t, server, got, cl
 
 	await t.throwsAsync(
 		got({
-			dnsLookup: () => {},
+			dnsLookup() {},
 			timeout: {lookup: 1},
 			retry: {
 				limit: 0,
@@ -406,7 +406,7 @@ test.serial('retries on timeout', withServer, async (t, server, got) => {
 			request: 1,
 		},
 		retry: {
-			calculateDelay: () => {
+			calculateDelay() {
 				if (hasTried) {
 					return 0;
 				}
@@ -482,7 +482,7 @@ test.serial('no unhandled timeout errors', withServer, async (t, _server, got) =
 	await t.throwsAsync(got({
 		retry: {limit: 0},
 		timeout: {request: 100},
-		request: (...args) => {
+		request(...args) {
 			const result = http.request(...args);
 
 			result.once('socket', () => {
@@ -507,7 +507,7 @@ test.serial('no unhandled timeout errors #2', withServer, async (t, server, got)
 			request: 20,
 		},
 		retry: {
-			calculateDelay: ({computedValue}) => {
+			calculateDelay({computedValue}) {
 				if (computedValue) {
 					return 10;
 				}
@@ -645,7 +645,7 @@ test.serial('doesn\'t throw on early lookup', withServerAndFakeTimers, async (t,
 		},
 		retry: {limit: 0},
 		// @ts-expect-error FIXME
-		dnsLookup: (...[_hostname, options, callback]: Parameters<CacheableLookup['lookup']>) => {
+		dnsLookup(...[_hostname, options, callback]: Parameters<CacheableLookup['lookup']>) {
 			if (typeof options === 'function') {
 				callback = options;
 			}

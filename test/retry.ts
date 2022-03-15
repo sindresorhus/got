@@ -46,11 +46,11 @@ test('works on timeout', withServer, async (t, server, got) => {
 		timeout: {
 			socket: socketTimeout,
 		},
-		request: (...args: [
+		request(...args: [
 			string | URL | http.RequestOptions,
 			(http.RequestOptions | ((response: http.IncomingMessage) => void))?,
 			((response: http.IncomingMessage) => void)?,
-		]) => {
+		]) {
 			if (knocks === 1) {
 				// @ts-expect-error Overload error
 				return http.request(...args);
@@ -76,7 +76,7 @@ test('retry function gets iteration count', withServer, async (t, server, got) =
 
 	await got({
 		retry: {
-			calculateDelay: ({attemptCount}) => {
+			calculateDelay({attemptCount}) {
 				t.true(is.number(attemptCount));
 				return attemptCount < 2 ? 1 : 0;
 			},
@@ -88,7 +88,7 @@ test('setting to `0` disables retrying', async t => {
 	await t.throwsAsync(got('https://example.com', {
 		timeout: {socket: socketTimeout},
 		retry: {
-			calculateDelay: ({attemptCount}) => {
+			calculateDelay({attemptCount}) {
 				t.is(attemptCount, 1);
 				return 0;
 			},
@@ -110,7 +110,7 @@ test('custom retries', withServer, async (t, server, got) => {
 	const error = await t.throwsAsync<HTTPError>(got({
 		throwHttpErrors: true,
 		retry: {
-			calculateDelay: ({attemptCount}) => {
+			calculateDelay({attemptCount}) {
 				if (attemptCount === 1) {
 					hasTried = true;
 					return 1;
@@ -140,7 +140,7 @@ test('custom retries async', withServer, async (t, server, got) => {
 	const error = await t.throwsAsync<HTTPError>(got({
 		throwHttpErrors: true,
 		retry: {
-			calculateDelay: async ({attemptCount}) => {
+			async calculateDelay({attemptCount}) {
 				await new Promise(resolve => {
 					setTimeout(resolve, 1000);
 				});
@@ -168,7 +168,7 @@ test('custom error codes', async t => {
 	const errorCode = 'OH_SNAP';
 
 	const error = await t.throwsAsync<Error & {code: typeof errorCode}>(got('https://example.com', {
-		request: () => {
+		request() {
 			const emitter = new EventEmitter() as http.ClientRequest;
 			emitter.abort = () => {};
 			// @ts-expect-error Imitating a stream
@@ -189,7 +189,7 @@ test('custom error codes', async t => {
 			return emitter;
 		},
 		retry: {
-			calculateDelay: ({error}) => {
+			calculateDelay({error}) {
 				t.is(error.code, errorCode);
 				return 0;
 			},
@@ -314,7 +314,7 @@ test('doesn\'t retry on streams', withServer, async (t, server, got) => {
 			request: 1,
 		},
 		retry: {
-			calculateDelay: () => {
+			calculateDelay() {
 				t.fail('Retries on streams');
 			},
 		},
@@ -366,7 +366,7 @@ test('retry function can throw', withServer, async (t, server, got) => {
 	const error = 'Simple error';
 	await t.throwsAsync(got({
 		retry: {
-			calculateDelay: () => {
+			calculateDelay() {
 				throw new Error(error);
 			},
 		},
