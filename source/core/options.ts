@@ -1349,11 +1349,11 @@ export default class Options {
 
 	__Note #2__: This option is not enumerable and will not be merged with the instance defaults.
 	*/
-	get json(): any {
+	get json(): unknown {
 		return this._internals.json;
 	}
 
-	set json(value: any) {
+	set json(value: unknown) {
 		if (value !== undefined) {
 			assert.undefined(this._internals.body);
 			assert.undefined(this._internals.form);
