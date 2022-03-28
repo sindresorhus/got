@@ -4,7 +4,7 @@
 
 Source code: [`source/as-promise/index.ts`](../source/as-promise/index.ts)
 
-The main Got function returns a [`Promise`](https://developer.mozilla.org/pl/docs/Web/JavaScript/Reference/Global_Objects/Promise).\
+The main Got function returns a [`Promise`](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Promise).\
 Although in order to support cancelation, [`PCancelable`](https://github.com/sindresorhus/p-cancelable) is used instead of pure `Promise`.
 
 ### <code>got(url: string | URL, options?: [OptionsInit](typescript.md#optionsinit), defaults?: [Options](2-options.md))</code>
