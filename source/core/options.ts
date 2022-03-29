@@ -827,6 +827,7 @@ const defaultInternals: Options['_internals'] = {
 	},
 	setHost: true,
 	maxHeaderSize: undefined,
+	signal: undefined,
 };
 
 const cloneInternals = (internals: typeof defaultInternals) => {
@@ -1482,6 +1483,36 @@ export default class Options {
 		} else {
 			this._internals.cookieJar = value;
 		}
+	}
+
+	/**
+	You can abort the `request` using [`AbortController`](https://developer.mozilla.org/en-US/docs/Web/API/AbortController).
+
+	**Requires Node.js 16 or later.*
+
+	@example
+	```
+	import got from 'got';
+
+	const abortController = new AbortController();
+
+	const request = got('https://httpbin.org/anything', {
+		signal: abortController.signal
+	});
+
+	setTimeout(() => {
+		abortController.abort();
+	}, 100);
+	```
+	*/
+	get signal(): AbortSignal | undefined {
+		return this._internals.signal;
+	}
+
+	set signal(value: AbortSignal | undefined) {
+		assert.object(value);
+
+		this._internals.signal = value;
 	}
 
 	/**
@@ -2410,6 +2441,7 @@ export default class Options {
 			headers: internals.headers,
 			createConnection: internals.createConnection,
 			timeout: internals.http2 ? getHttp2TimeoutOption(internals) : undefined,
+			signal: internals.signal,
 
 			// HTTP/2 options
 			h2session: internals.h2session,
@@ -2473,5 +2505,6 @@ export default class Options {
 		Object.freeze(options.retry.methods);
 		Object.freeze(options.retry.statusCodes);
 		Object.freeze(options.context);
+		Object.freeze(options.signal);
 	}
 }

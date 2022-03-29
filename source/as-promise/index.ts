@@ -22,13 +22,26 @@ const proxiedRequestEvents = [
 	'downloadProgress',
 ];
 
-export default function asPromise<T>(firstRequest?: Request): CancelableRequest<T> {
+export default function asPromise<T>(firstRequest?: Request, signal?: AbortSignal): CancelableRequest<T> {
 	let globalRequest: Request;
 	let globalResponse: Response;
 	let normalizedOptions: Options;
 	const emitter = new EventEmitter();
 
 	const promise = new PCancelable<T>((resolve, reject, onCancel) => {
+		if (signal) {
+			signal.addEventListener('abort', () => {
+				globalRequest.destroy();
+
+				// To do: remove below if statement when targets node is 17.3.0 or higher.
+				if ((signal as any).reason) {
+					reject((signal as any).reason);
+				} else {
+					reject(new DOMException('This operation was aborted', 'AbortError'));
+				}
+			});
+		}
+
 		onCancel(() => {
 			globalRequest.destroy();
 		});
