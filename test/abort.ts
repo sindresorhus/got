@@ -82,7 +82,7 @@ if (globalThis.AbortController !== undefined) {
 		});
 
 		await t.throwsAsync(gotPromise, {
-			instanceOf: DOMException,
+			name: 'AbortError',
 		});
 
 		await t.notThrowsAsync(promise, 'Request finished instead of aborting.');
@@ -115,7 +115,7 @@ if (globalThis.AbortController !== undefined) {
 		});
 
 		await t.throwsAsync(gotPromise, {
-			instanceOf: DOMException,
+			name: 'AbortError',
 		});
 
 		// Wait for unhandled errors
@@ -141,7 +141,7 @@ if (globalThis.AbortController !== undefined) {
 		});
 
 		await t.throwsAsync(gotPromise, {
-			instanceOf: DOMException,
+			name: 'AbortError',
 		});
 		await t.notThrowsAsync(promise, 'Request finished instead of aborting.');
 	});
@@ -165,7 +165,7 @@ if (globalThis.AbortController !== undefined) {
 		});
 
 		await t.throwsAsync(gotPromise, {
-			instanceOf: DOMException,
+			name: 'AbortError',
 		});
 		await t.notThrowsAsync(promise, 'Request finished instead of aborting.');
 	});
@@ -188,7 +188,9 @@ if (globalThis.AbortController !== undefined) {
 		const gotPromise = got('abort', {signal: controller.signal});
 		controller.abort();
 
-		await t.throwsAsync(gotPromise);
+		await t.throwsAsync(gotPromise, {
+			name: 'AbortError',
+		});
 		await t.notThrowsAsync(promise, 'Request finished instead of aborting.');
 	});
 
@@ -215,7 +217,7 @@ if (globalThis.AbortController !== undefined) {
 
 		const p = got('http://example.com', {signal: controller.signal});
 		const recover = p.catch((error: Error) => {
-			if (error instanceof DOMException) {
+			if (error.name === 'AbortError') {
 				return;
 			}
 
@@ -240,7 +242,7 @@ if (globalThis.AbortController !== undefined) {
 		}, 400);
 
 		await t.throwsAsync(promise, {
-			instanceOf: DOMException,
+			name: 'AbortError',
 		});
 	});
 
@@ -259,7 +261,7 @@ if (globalThis.AbortController !== undefined) {
 		controller.abort();
 
 		await t.throwsAsync(promise, {
-			instanceOf: DOMException,
+			name: 'AbortError',
 		});
 	});
 }

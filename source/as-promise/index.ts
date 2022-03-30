@@ -5,6 +5,7 @@ import {
 	RequestError,
 	HTTPError,
 	RetryError,
+	AbortError,
 } from '../core/errors.js';
 import Request from '../core/index.js';
 import {parseBody, isResponseOk} from '../core/response.js';
@@ -22,6 +23,11 @@ const proxiedRequestEvents = [
 	'downloadProgress',
 ];
 
+// eslint-disable-next-line @typescript-eslint/naming-convention
+const getDOMException = (errorMessage: string) => globalThis.DOMException === undefined
+	? new AbortError(errorMessage)
+	: new DOMException(errorMessage);
+
 export default function asPromise<T>(firstRequest?: Request, signal?: AbortSignal): CancelableRequest<T> {
 	let globalRequest: Request;
 	let globalResponse: Response;
@@ -33,12 +39,11 @@ export default function asPromise<T>(firstRequest?: Request, signal?: AbortSigna
 			signal.addEventListener('abort', () => {
 				globalRequest.destroy();
 
-				// To do: remove below if statement when targets node is 17.3.0 or higher.
-				if ((signal as any).reason) {
-					reject((signal as any).reason);
-				} else {
-					reject(new DOMException('This operation was aborted', 'AbortError'));
-				}
+				const reason = (signal as any).reason === undefined
+					? getDOMException('This operation was aborted.')
+					: (signal as any).reason;
+
+				reject(reason instanceof Error ? reason : getDOMException(reason));
 			});
 		}
 
