@@ -147,6 +147,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	requestUrl?: URL;
 	redirectUrls: URL[];
 	retryCount: number;
+	headers: { [key: string]: string };
 
 	declare private _requestOptions: NativeRequestOptions;
 
