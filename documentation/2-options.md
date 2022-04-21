@@ -220,7 +220,9 @@ The most common methods are: `GET`, `HEAD`, `POST`, `PUT`, `DELETE`.
 ```js
 import got from 'got';
 
-const {method} = await got.post('https://httpbin.org/anything').json();
+const {method} = await got('https://httpbin.org/anything', {
+	method: 'POST'
+}).json();
 
 console.log(method);
 // => 'POST'
