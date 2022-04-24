@@ -95,26 +95,6 @@ test('returns writeable stream', withServer, async (t, server, got) => {
 	t.is(await promise, 'wow');
 });
 
-test('throws on write if body is specified', withServer, (t, server, got) => {
-	server.post('/', postHandler);
-
-	const streams = [
-		got.stream.post({body: 'wow'}),
-		got.stream.post({json: {}}),
-		got.stream.post({form: {}}),
-	];
-
-	for (const stream of streams) {
-		t.throws(() => {
-			stream.end('wow');
-		}, {
-			message: 'The payload has been already provided',
-		});
-
-		stream.destroy();
-	}
-});
-
 test('does not throw if using stream and passing a json option', withServer, async (t, server, got) => {
 	server.post('/', postHandler);
 
@@ -125,20 +105,6 @@ test('does not throw if using stream and passing a form option', withServer, asy
 	server.post('/', postHandler);
 
 	await t.notThrowsAsync(getStream(got.stream.post({form: {}})));
-});
-
-test('throws on write if no payload method is present', withServer, (t, server, got) => {
-	server.post('/', postHandler);
-
-	const stream = got.stream.get('');
-
-	t.throws(() => {
-		stream.end('wow');
-	}, {
-		message: 'The payload has been already provided',
-	});
-
-	stream.destroy();
 });
 
 test('has request event', withServer, async (t, server, got) => {

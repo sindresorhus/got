@@ -1,6 +1,6 @@
 import process from 'node:process';
 import {Buffer} from 'node:buffer';
-import {Duplex, Writable, Readable} from 'node:stream';
+import {Duplex, Readable} from 'node:stream';
 import {URL, URLSearchParams} from 'node:url';
 import http, {ServerResponse} from 'node:http';
 import type {ClientRequest, RequestOptions} from 'node:http';
@@ -197,30 +197,6 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 		this._stopRetry = noop;
 
-		const unlockWrite = (): void => {
-			this._unlockWrite();
-		};
-
-		const lockWrite = (): void => {
-			this._lockWrite();
-		};
-
-		this.on('pipe', (source: Writable) => {
-			source.prependListener('data', unlockWrite);
-			source.on('data', lockWrite);
-
-			source.prependListener('end', unlockWrite);
-			source.on('end', lockWrite);
-		});
-
-		this.on('unpipe', (source: Writable) => {
-			source.off('data', unlockWrite);
-			source.off('data', lockWrite);
-
-			source.off('end', unlockWrite);
-			source.off('end', lockWrite);
-		});
-
 		this.on('pipe', source => {
 			if (source.headers) {
 				Object.assign(this.options.headers, source.headers);
@@ -259,13 +235,9 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			return;
 		}
 
-		const {json, body, form} = this.options;
-		if (json || body || form) {
-			this._lockWrite();
-		}
-
 		// Important! If you replace `body` in a handler with another stream, make sure it's readable first.
 		// The below is run only once.
+		const {body} = this.options;
 		if (is.nodeStream(body)) {
 			body.once('error', error => {
 				if (this._flushed) {
@@ -553,20 +525,6 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		return this;
 	}
 
-	private _lockWrite(): void {
-		const onLockedWrite = (): never => {
-			throw new TypeError('The payload has been already provided');
-		};
-
-		this.write = onLockedWrite;
-		this.end = onLockedWrite;
-	}
-
-	private _unlockWrite(): void {
-		this.write = super.write;
-		this.end = super.end;
-	}
-
 	private async _finalizeBody(): Promise<void> {
 		const {options} = this;
 		const {headers} = options;
@@ -639,10 +597,6 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			if (is.undefined(headers['content-length']) && is.undefined(headers['transfer-encoding']) && !cannotHaveBody && !is.undefined(uploadBodySize)) {
 				headers['content-length'] = String(uploadBodySize);
 			}
-		} else if (cannotHaveBody) {
-			this._lockWrite();
-		} else {
-			this._unlockWrite();
 		}
 
 		if (options.responseType === 'json' && !('accept' in options.headers)) {
@@ -974,19 +928,11 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 					this._beforeError(error);
 				}
 			})();
-		} else {
-			this._unlockWrite();
-
-			if (!is.undefined(body)) {
-				this._writeRequest(body, undefined, () => {});
-				currentRequest.end();
-
-				this._lockWrite();
-			} else if (this._cannotHaveBody || this._noPipe) {
-				currentRequest.end();
-
-				this._lockWrite();
-			}
+		} else if (!is.undefined(body)) {
+			this._writeRequest(body, undefined, () => {});
+			currentRequest.end();
+		} else if (this._cannotHaveBody || this._noPipe) {
+			currentRequest.end();
 		}
 	}
 
