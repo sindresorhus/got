@@ -28,6 +28,15 @@ const getDOMException = (errorMessage: string) => globalThis.DOMException === un
 	? new AbortError(errorMessage)
 	: new DOMException(errorMessage);
 
+const getAbortedReason = (signal: AbortSignal) => {
+	// To do: Remove below any castings when '@types/node' targets 18
+	const reason = (signal as any).reason === undefined
+		? getDOMException('This operation was aborted.')
+		: (signal as any).reason;
+
+	return reason instanceof Error ? reason : getDOMException(reason);
+};
+
 export default function asPromise<T>(firstRequest?: Request, signal?: AbortSignal): CancelableRequest<T> {
 	let globalRequest: Request;
 	let globalResponse: Response;
@@ -36,14 +45,14 @@ export default function asPromise<T>(firstRequest?: Request, signal?: AbortSigna
 
 	const promise = new PCancelable<T>((resolve, reject, onCancel) => {
 		if (signal) {
+			if (signal.aborted) {
+				globalRequest.destroy();
+				reject(getAbortedReason(signal));
+			}
+
 			signal.addEventListener('abort', () => {
 				globalRequest.destroy();
-
-				const reason = (signal as any).reason === undefined
-					? getDOMException('This operation was aborted.')
-					: (signal as any).reason;
-
-				reject(reason instanceof Error ? reason : getDOMException(reason));
+				reject(getAbortedReason(signal));
 			});
 		}
 

@@ -195,7 +195,7 @@ if (globalThis.AbortController !== undefined) {
 	});
 
 	test('recover from abort using abortable promise attribute', async t => {
-		// Canceled before connection started
+		// Abort before connection started
 		const controller = new AbortController();
 
 		const p = got('http://example.com', {signal: controller.signal});
