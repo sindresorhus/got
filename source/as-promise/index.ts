@@ -5,7 +5,6 @@ import {
 	RequestError,
 	HTTPError,
 	RetryError,
-	AbortError,
 } from '../core/errors.js';
 import Request from '../core/index.js';
 import {parseBody, isResponseOk} from '../core/response.js';
@@ -23,39 +22,13 @@ const proxiedRequestEvents = [
 	'downloadProgress',
 ];
 
-// eslint-disable-next-line @typescript-eslint/naming-convention
-const getDOMException = (errorMessage: string) => globalThis.DOMException === undefined
-	? new AbortError(errorMessage)
-	: new DOMException(errorMessage);
-
-const getAbortedReason = (signal: AbortSignal) => {
-	// To do: Remove below any castings when '@types/node' targets 18
-	const reason = (signal as any).reason === undefined
-		? getDOMException('This operation was aborted.')
-		: (signal as any).reason;
-
-	return reason instanceof Error ? reason : getDOMException(reason);
-};
-
-export default function asPromise<T>(firstRequest?: Request, signal?: AbortSignal): CancelableRequest<T> {
+export default function asPromise<T>(firstRequest?: Request): CancelableRequest<T> {
 	let globalRequest: Request;
 	let globalResponse: Response;
 	let normalizedOptions: Options;
 	const emitter = new EventEmitter();
 
 	const promise = new PCancelable<T>((resolve, reject, onCancel) => {
-		if (signal) {
-			if (signal.aborted) {
-				globalRequest.destroy();
-				reject(getAbortedReason(signal));
-			}
-
-			signal.addEventListener('abort', () => {
-				globalRequest.destroy();
-				reject(getAbortedReason(signal));
-			});
-		}
-
 		onCancel(() => {
 			globalRequest.destroy();
 		});

@@ -2441,7 +2441,6 @@ export default class Options {
 			headers: internals.headers,
 			createConnection: internals.createConnection,
 			timeout: internals.http2 ? getHttp2TimeoutOption(internals) : undefined,
-			signal: internals.signal,
 
 			// HTTP/2 options
 			h2session: internals.h2session,

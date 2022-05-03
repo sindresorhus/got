@@ -235,6 +235,10 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			return;
 		}
 
+		this.options.signal?.addEventListener('abort', () => {
+			this.destroy(new Error('This operation was aborted.'));
+		});
+
 		// Important! If you replace `body` in a handler with another stream, make sure it's readable first.
 		// The below is run only once.
 		const {body} = this.options;
