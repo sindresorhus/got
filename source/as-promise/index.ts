@@ -29,6 +29,12 @@ export default function asPromise<T>(firstRequest?: Request): CancelableRequest<
 	const emitter = new EventEmitter();
 
 	const promise = new PCancelable<T>((resolve, reject, onCancel) => {
+		firstRequest?.on('error', (error: RequestError) => {
+			if (error.code === 'ERR_GOR_ABORT_ERROR') {
+				reject(error);
+			}
+		});
+
 		onCancel(() => {
 			globalRequest.destroy();
 		});
