@@ -31,7 +31,6 @@ import {
 	TimeoutError,
 	UploadError,
 	CacheError,
-	AbortError,
 } from './errors.js';
 import type {PlainResponse} from './response.js';
 import type {PromiseCookieJar, NativeRequestOptions, RetryOptions} from './options.js';
@@ -237,7 +236,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		}
 
 		this.options.signal?.addEventListener('abort', () => {
-			this.destroy(new AbortError('This operation was aborted.'));
+			this.destroy(new Error('This operation was aborted.'));
 		});
 
 		// Important! If you replace `body` in a handler with another stream, make sure it's readable first.

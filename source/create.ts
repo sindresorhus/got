@@ -25,20 +25,6 @@ const delay = async (ms: number) => new Promise(resolve => {
 
 const isGotInstance = (value: Got | ExtendOptions): value is Got => is.function_(value);
 
-const getSignal = (url: string | URL | OptionsInit | undefined, options?: OptionsInit): AbortSignal | undefined => {
-	let signal;
-
-	if (typeof url === 'object' && 'signal' in (url as OptionsInit)) {
-		signal = (url as OptionsInit).signal;
-	}
-
-	if (options?.signal) {
-		signal = options.signal;
-	}
-
-	return signal;
-};
-
 const aliases: readonly HTTPAlias[] = [
 	'get',
 	'post',
@@ -66,8 +52,6 @@ const create = (defaults: InstanceDefaults): Got => {
 		const request = new Request(url, options, defaultOptions);
 		let promise: CancelableRequest | undefined;
 
-		const signal = getSignal(url, options);
-
 		const lastHandler = (normalized: Options): GotReturn => {
 			// Note: `options` is `undefined` when `new Options(...)` fails
 			request.options = normalized;
@@ -79,7 +63,7 @@ const create = (defaults: InstanceDefaults): Got => {
 			}
 
 			if (!promise) {
-				promise = asPromise(request, signal);
+				promise = asPromise(request);
 			}
 
 			return promise;
@@ -93,7 +77,7 @@ const create = (defaults: InstanceDefaults): Got => {
 
 			if (is.promise(result) && !request.options.isStream) {
 				if (!promise) {
-					promise = asPromise(request, signal);
+					promise = asPromise(request);
 				}
 
 				if (result !== promise) {
