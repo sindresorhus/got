@@ -11,58 +11,58 @@ import {GlobalClock} from './helpers/types.js';
 import {ExtendedHttpTestServer} from './helpers/create-http-test-server.js';
 import withServer, {withServerAndFakeTimers} from './helpers/with-server.js';
 
-const prepareServer = (server: ExtendedHttpTestServer, clock: GlobalClock): {emitter: EventEmitter; promise: Promise<unknown>} => {
-	const emitter = new EventEmitter();
-
-	const promise = new Promise<void>((resolve, reject) => {
-		server.all('/abort', async (request, response) => {
-			emitter.emit('connection');
-
-			request.once('aborted', resolve);
-			response.once('finish', reject.bind(null, new Error('Request finished instead of aborting.')));
-
-			try {
-				await pEvent(request, 'end');
-			} catch {
-				// Node.js 15.0.0 throws AND emits `aborted`
-			}
-
-			response.end();
-		});
-
-		server.get('/redirect', (_request, response) => {
-			response.writeHead(302, {
-				location: `${server.url}/abort`,
-			});
-			response.end();
-
-			emitter.emit('sentRedirect');
-
-			clock.tick(3000);
-			resolve();
-		});
-	});
-
-	return {emitter, promise};
-};
-
-const downloadHandler = (clock?: GlobalClock): Handler => (_request, response) => {
-	response.writeHead(200, {
-		'transfer-encoding': 'chunked',
-	});
-
-	response.flushHeaders();
-
-	stream.pipeline(
-		slowDataStream(clock),
-		response,
-		() => {
-			response.end();
-		},
-	);
-};
-
 if (globalThis.AbortController !== undefined) {
+	const prepareServer = (server: ExtendedHttpTestServer, clock: GlobalClock): {emitter: EventEmitter; promise: Promise<unknown>} => {
+		const emitter = new EventEmitter();
+
+		const promise = new Promise<void>((resolve, reject) => {
+			server.all('/abort', async (request, response) => {
+				emitter.emit('connection');
+
+				request.once('aborted', resolve);
+				response.once('finish', reject.bind(null, new Error('Request finished instead of aborting.')));
+
+				try {
+					await pEvent(request, 'end');
+				} catch {
+					// Node.js 15.0.0 throws AND emits `aborted`
+				}
+
+				response.end();
+			});
+
+			server.get('/redirect', (_request, response) => {
+				response.writeHead(302, {
+					location: `${server.url}/abort`,
+				});
+				response.end();
+
+				emitter.emit('sentRedirect');
+
+				clock.tick(3000);
+				resolve();
+			});
+		});
+
+		return {emitter, promise};
+	};
+
+	const downloadHandler = (clock?: GlobalClock): Handler => (_request, response) => {
+		response.writeHead(200, {
+			'transfer-encoding': 'chunked',
+		});
+
+		response.flushHeaders();
+
+		stream.pipeline(
+			slowDataStream(clock),
+			response,
+			() => {
+				response.end();
+			},
+		);
+	};
+
 	test.serial('does not retry after abort', withServerAndFakeTimers, async (t, server, got, clock) => {
 		const {emitter, promise} = prepareServer(server, clock);
 		const controller = new AbortController();
