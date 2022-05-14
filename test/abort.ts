@@ -82,7 +82,7 @@ if (globalThis.AbortController !== undefined) {
 		});
 
 		await t.throwsAsync(gotPromise, {
-			name: 'AbortError',
+			message: 'This operation was aborted.',
 		});
 
 		await t.notThrowsAsync(promise, 'Request finished instead of aborting.');
@@ -115,7 +115,7 @@ if (globalThis.AbortController !== undefined) {
 		});
 
 		await t.throwsAsync(gotPromise, {
-			name: 'AbortError',
+			message: 'This operation was aborted.',
 		});
 
 		// Wait for unhandled errors
@@ -141,7 +141,7 @@ if (globalThis.AbortController !== undefined) {
 		});
 
 		await t.throwsAsync(gotPromise, {
-			name: 'AbortError',
+			message: 'This operation was aborted.',
 		});
 		await t.notThrowsAsync(promise, 'Request finished instead of aborting.');
 	});
@@ -165,7 +165,7 @@ if (globalThis.AbortController !== undefined) {
 		});
 
 		await t.throwsAsync(gotPromise, {
-			name: 'AbortError',
+			message: 'This operation was aborted.',
 		});
 		await t.notThrowsAsync(promise, 'Request finished instead of aborting.');
 	});
@@ -189,7 +189,7 @@ if (globalThis.AbortController !== undefined) {
 		controller.abort();
 
 		await t.throwsAsync(gotPromise, {
-			name: 'AbortError',
+			message: 'This operation was aborted.',
 		});
 		await t.notThrowsAsync(promise, 'Request finished instead of aborting.');
 	});
@@ -217,7 +217,7 @@ if (globalThis.AbortController !== undefined) {
 
 		const p = got('http://example.com', {signal: controller.signal});
 		const recover = p.catch((error: Error) => {
-			if (error.name === 'AbortError') {
+			if (error.message === 'This operation was aborted.') {
 				return;
 			}
 
@@ -242,7 +242,7 @@ if (globalThis.AbortController !== undefined) {
 		}, 400);
 
 		await t.throwsAsync(promise, {
-			name: 'AbortError',
+			message: 'This operation was aborted.',
 		});
 	});
 
@@ -261,7 +261,7 @@ if (globalThis.AbortController !== undefined) {
 		controller.abort();
 
 		await t.throwsAsync(promise, {
-			name: 'AbortError',
+			message: 'This operation was aborted.',
 		});
 	});
 }
