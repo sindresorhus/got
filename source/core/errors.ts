@@ -170,16 +170,3 @@ export class RetryError extends RequestError {
 		this.code = 'ERR_RETRYING';
 	}
 }
-
-/**
-An error to be thrown when the request is aborted by AbortController.
-DOMException is thrown instead of this Error when DOMException is available.
-*/
-export class AbortError extends RequestError {
-	constructor(request: Request, message: string) {
-		super(message, {}, request);
-		this.name = 'AbortError';
-		this.code = 'ERR_GOR_ABORT_ERROR';
-		this.message = message;
-	}
-}
