@@ -147,6 +147,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	requestUrl?: URL;
 	redirectUrls: URL[];
 	retryCount: number;
+	ok?: boolean;
 
 	declare private _requestOptions: NativeRequestOptions;
 
@@ -632,6 +633,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		typedResponse.isFromCache = (this._nativeResponse as any).fromCache ?? false;
 		typedResponse.ip = this.ip;
 		typedResponse.retryCount = this.retryCount;
+		typedResponse.ok = (statusCode >= 200 && statusCode <= 299);
 
 		this._isFromCache = typedResponse.isFromCache;
 

@@ -91,6 +91,11 @@ export interface PlainResponse extends IncomingMessageWithTimings {
 	The result of the request.
 	*/
 	body?: unknown;
+
+	/**
+	Whether the response status code is 2xx.
+	*/
+	ok?: boolean;
 }
 
 // For Promise support
