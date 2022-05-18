@@ -385,7 +385,7 @@ test('status code 200 has response ok is true', withServer, async (t, server, go
 	const promise = got('');
 	await t.notThrowsAsync(promise);
 	const {statusCode, body, ok} = await promise;
-	t.is(ok, true);
+	t.true(ok);
 	t.is(statusCode, 200);
 	t.is(body, '');
 });

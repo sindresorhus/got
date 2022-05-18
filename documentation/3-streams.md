@@ -354,6 +354,15 @@ The server's IP address.
 
 Whether the response comes from cache or not.
 
+### `ok`
+
+**Type: `boolean`**
+
+**Note:**
+> - This property need not be checked if throwHttpErrors is true.
+
+Whether the response was successful (status code in the range 200-299).
+
 ### `statusCode`
 
 **Type: `number`**

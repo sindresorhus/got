@@ -93,9 +93,10 @@ export interface PlainResponse extends IncomingMessageWithTimings {
 	body?: unknown;
 
 	/**
-	Whether the response status code is 2xx.
+	Whether the response was successful (status code in the range 200-299).
+	This property need not be checked if throwHttpErrors is true.
 	*/
-	ok?: boolean;
+	ok: boolean;
 }
 
 // For Promise support
