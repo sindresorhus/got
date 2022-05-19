@@ -358,10 +358,13 @@ Whether the response comes from cache or not.
 
 **Type: `boolean`**
 
-**Note:**
-> - Got throws automatically when `response.ok` is `false` and `throwHttpErrors` is `true`.
+Whether the response was successful
 
-Whether the response was successful (status code in the range 200-299).
+**Note:**
+> - A request is successful when the status code of the final request is `2xx` or `3xx`.
+> - When [following redirects](2-options.md#followredirect), a request is successful **only** when the status code of the final request is `2xx`.
+> - `304` responses are always considered successful.
+> - Got throws automatically when `response.ok` is `false` and `throwHttpErrors` is `true`.
 
 ### `statusCode`
 
