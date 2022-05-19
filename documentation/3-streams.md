@@ -359,7 +359,7 @@ Whether the response comes from cache or not.
 **Type: `boolean`**
 
 **Note:**
-> - This property need not be checked if throwHttpErrors is true.
+> - Got throws automatically when `response.ok` is `false` and `throwHttpErrors` is `true`.
 
 Whether the response was successful (status code in the range 200-299).
 
