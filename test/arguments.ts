@@ -99,10 +99,9 @@ test('throws an error when legacy URL is passed', withServer, async (t, server) 
 		got(parse(`${server.url}/test`)),
 		{
 			instanceOf: RequestError,
+			message: 'Expected value which is `predicate returns truthy for any value`, received values of types `Object`.',
 		},
 	);
-
-	// TODO: Assert message above.
 
 	await t.throwsAsync(
 		got({
@@ -229,10 +228,9 @@ test('throws when known `options.hooks` value is not an array', async t => {
 		got('https://example.com', {hooks: {beforeRequest: {}}}),
 		{
 			instanceOf: RequestError,
+			message: 'Expected value which is `predicate returns truthy for any value`, received values of types `Object`.',
 		},
 	);
-
-	// TODO: Assert message above.
 });
 
 test('throws when known `options.hooks` array item is not a function', async t => {
@@ -306,9 +304,8 @@ test('throws if the `searchParams` value is invalid', async t => {
 	}),
 	{
 		instanceOf: RequestError,
+		message: 'Expected value which is `predicate returns truthy for any value`, received values of types `Array`.',
 	});
-
-	// TODO: Assert message above.
 });
 
 test.failing('`context` option is enumerable', withServer, async (t, server, got) => {
@@ -448,9 +445,8 @@ test('throws on invalid `dnsCache` option', async t => {
 	}),
 	{
 		instanceOf: RequestError,
+		message: 'Expected value which is `predicate returns truthy for any value`, received values of types `number`.',
 	});
-
-	// TODO: Assert message above.
 });
 
 test('throws on invalid `agent` option', async t => {
