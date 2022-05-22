@@ -375,3 +375,43 @@ test('ClientRequest can throw before promise resolves', async t => {
 		message: /EINVAL|EHOSTUNREACH|ETIMEDOUT/,
 	});
 });
+
+test('status code 200 has response ok is true', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.statusCode = 200;
+		response.end();
+	});
+
+	const promise = got('');
+	await t.notThrowsAsync(promise);
+	const {statusCode, body, ok} = await promise;
+	t.true(ok);
+	t.is(statusCode, 200);
+	t.is(body, '');
+});
+
+test('status code 404 has response ok is false if error is not thrown', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.statusCode = 404;
+		response.end();
+	});
+
+	const promise = got('', {throwHttpErrors: false});
+	await t.notThrowsAsync(promise);
+	const {statusCode, body, ok} = await promise;
+	t.is(ok, false);
+	t.is(statusCode, 404);
+	t.is(body, '');
+});
+
+test('status code 404 has error response ok is false if error is thrown', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.statusCode = 404;
+		response.end('not');
+	});
+
+	const error = await t.throwsAsync<HTTPError>(got(''), {instanceOf: HTTPError});
+	t.is(error.response.statusCode, 404);
+	t.is(error.response.ok, false);
+	t.is(error.response.body, 'not');
+});

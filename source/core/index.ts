@@ -632,6 +632,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		typedResponse.isFromCache = (this._nativeResponse as any).fromCache ?? false;
 		typedResponse.ip = this.ip;
 		typedResponse.retryCount = this.retryCount;
+		typedResponse.ok = isResponseOk(typedResponse);
 
 		this._isFromCache = typedResponse.isFromCache;
 
