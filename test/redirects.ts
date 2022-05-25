@@ -2,7 +2,7 @@ import {Buffer} from 'buffer';
 import test from 'ava';
 import {Handler} from 'express';
 import nock from 'nock';
-import got, {MaxRedirectsError} from '../source/index.js';
+import got, {MaxRedirectsError, RequestError} from '../source/index.js';
 import withServer, {withHttpsServer} from './helpers/with-server.js';
 
 const reachedHandler: Handler = (_request, response) => {
@@ -27,6 +27,35 @@ const relativeHandler: Handler = (_request, response) => {
 	});
 	response.end();
 };
+
+const unixProtocol: Handler = (_request, response) => {
+	response.writeHead(302, {
+		location: 'unix:/var/run/docker.sock:/containers/json',
+	});
+	response.end();
+};
+
+const unixHostname: Handler = (_request, response) => {
+	response.writeHead(302, {
+		location: 'http://unix:/var/run/docker.sock:/containers/json',
+	});
+	response.end();
+};
+
+test('cannot redirect to unix protocol', withServer, async (t, server, got) => {
+	server.get('/protocol', unixProtocol);
+	server.get('/hostname', unixHostname);
+
+	await t.throwsAsync(got('protocol'), {
+		message: 'Cannot redirect to UNIX socket',
+		instanceOf: RequestError,
+	});
+
+	await t.throwsAsync(got('hostname'), {
+		message: 'Cannot redirect to UNIX socket',
+		instanceOf: RequestError,
+	});
+});
 
 test('follows redirect', withServer, async (t, server, got) => {
 	server.get('/', reachedHandler);

@@ -23,6 +23,7 @@ import calculateRetryDelay from './calculate-retry-delay.js';
 import Options, {OptionsError, OptionsInit} from './options.js';
 import {isResponseOk, Response} from './response.js';
 import isClientRequest from './utils/is-client-request.js';
+import isUnixSocketURL from './utils/is-unix-socket-url.js';
 import {
 	RequestError,
 	ReadError,
@@ -726,6 +727,11 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 				// We need this in order to support UTF-8
 				const redirectBuffer = Buffer.from(response.headers.location, 'binary').toString();
 				const redirectUrl = new URL(redirectBuffer, url);
+
+				if (!isUnixSocketURL(url as URL) && isUnixSocketURL(redirectUrl)) {
+					this._beforeError(new RequestError('Cannot redirect to UNIX socket', {}, this));
+					return;
+				}
 
 				// Redirecting to a different site, clear sensitive data.
 				if (redirectUrl.hostname !== (url as URL).hostname || redirectUrl.port !== (url as URL).port) {
