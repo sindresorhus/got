@@ -23,7 +23,7 @@ import calculateRetryDelay from './calculate-retry-delay.js';
 import Options, {OptionsError, OptionsInit} from './options.js';
 import {isResponseOk, Response} from './response.js';
 import isClientRequest from './utils/is-client-request.js';
-import isUnixSocketURL from './utils/is-unix-url.js';
+import isUnixSocketURL from './utils/is-unix-socket-url.js';
 import {
 	RequestError,
 	ReadError,
