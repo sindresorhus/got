@@ -1,6 +1,6 @@
 {
 	"name": "got",
-	"version": "12.0.4",
+	"version": "12.1.0",
 	"description": "Human-friendly and powerful HTTP request library for Node.js",
 	"license": "MIT",
 	"repository": "sindresorhus/got",
