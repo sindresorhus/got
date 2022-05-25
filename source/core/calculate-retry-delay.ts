@@ -10,7 +10,7 @@ const calculateRetryDelay: Returns<RetryFunction, number> = ({attemptCount, retr
 	}
 
 	const hasMethod = retryOptions.methods.includes(error.options.method);
-	const hasErrorCode = retryOptions.errorCodes.includes(error.code!);
+	const hasErrorCode = retryOptions.errorCodes.includes(error.code);
 	const hasStatusCode = error.response && retryOptions.statusCodes.includes(error.response.statusCode);
 	if (!hasMethod || (!hasErrorCode && !hasStatusCode)) {
 		return 0;

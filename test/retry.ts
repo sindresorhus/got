@@ -171,7 +171,11 @@ test('custom error codes', async t => {
 		request: () => {
 			const emitter = new EventEmitter() as http.ClientRequest;
 			emitter.abort = () => {};
+
+			// @ts-expect-error
 			emitter.end = () => {};
+
+			// @ts-expect-error
 			emitter.destroy = () => {};
 
 			const error = new Error('Snap!');
@@ -184,7 +188,7 @@ test('custom error codes', async t => {
 		},
 		retry: {
 			calculateDelay: ({error}) => {
-				t.is(error.code as string as typeof errorCode, errorCode);
+				t.is(error.code, errorCode);
 				return 0;
 			},
 			methods: [

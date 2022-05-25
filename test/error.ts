@@ -182,15 +182,6 @@ test('`http.request` error through CacheableRequest', async t => {
 	});
 });
 
-test('errors are thrown directly when options.isStream is true', t => {
-	t.throws(() => {
-		// @ts-expect-error Error tests
-		void got('https://example.com', {isStream: true, hooks: false});
-	}, {
-		message: 'Expected value which is `predicate returns truthy for any value`, received value of type `Array`.'
-	});
-});
-
 test('normalization errors using convenience methods', async t => {
 	const url = 'undefined/https://example.com';
 	await t.throwsAsync(got(url).json().text().buffer(), {message: `Invalid URL: ${url}`});

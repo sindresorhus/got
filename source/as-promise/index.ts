@@ -125,7 +125,7 @@ export default function asPromise<T>(normalizedOptions: NormalizedOptions): Canc
 				}
 
 				globalResponse = response;
-				
+
 				if (!isResponseOk(response)) {
 					request._beforeError(new HTTPError(response));
 					return;

@@ -223,16 +223,6 @@ test('can omit `url` option if using `prefixUrl`', withServer, async (t, server,
 	await t.notThrowsAsync(got({}));
 });
 
-test('throws TypeError when `options.hooks` is not an object', async t => {
-	await t.throwsAsync(
-		// @ts-expect-error Error tests
-		got('https://example.com', {hooks: 'not object'}),
-		{
-			message: 'Expected value which is `predicate returns truthy for any value`, received value of type `Array`.'
-		}
-	);
-});
-
 test('throws TypeError when known `options.hooks` value is not an array', async t => {
 	await t.throwsAsync(
 		// @ts-expect-error Error tests
