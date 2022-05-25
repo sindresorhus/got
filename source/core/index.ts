@@ -727,6 +727,11 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 				const redirectBuffer = Buffer.from(response.headers.location, 'binary').toString();
 				const redirectUrl = new URL(redirectBuffer, url);
 
+				if (redirectUrl.protocol === 'unix:' || redirectUrl.hostname === 'unix') {
+					this._beforeError(new RequestError('Cannot redirect to UNIX socket', {}, this));
+					return;
+				}
+
 				// Redirecting to a different site, clear sensitive data.
 				if (redirectUrl.hostname !== (url as URL).hostname || redirectUrl.port !== (url as URL).port) {
 					if ('host' in updatedOptions.headers) {
