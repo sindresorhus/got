@@ -34,6 +34,7 @@ import {
 } from './errors.js';
 import type {PlainResponse} from './response.js';
 import type {PromiseCookieJar, NativeRequestOptions, RetryOptions} from './options.js';
+import isUnixSocketURL from './utils/is-unix-url.js';
 
 type Error = NodeJS.ErrnoException;
 
@@ -727,7 +728,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 				const redirectBuffer = Buffer.from(response.headers.location, 'binary').toString();
 				const redirectUrl = new URL(redirectBuffer, url);
 
-				if ((url as URL).hostname !== 'unix' && (redirectUrl.protocol === 'unix:' || redirectUrl.hostname === 'unix')) {
+				if (!isUnixSocketURL(url as URL) && isUnixSocketURL(redirectUrl)) {
 					this._beforeError(new RequestError('Cannot redirect to UNIX socket', {}, this));
 					return;
 				}
