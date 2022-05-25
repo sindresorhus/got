@@ -2100,6 +2100,16 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 				const redirectString = redirectUrl.toString();
 				decodeURI(redirectString);
 
+				// eslint-disable-next-line no-inner-declarations
+				function isUnixSocketURL(url: URL) {
+					return url.protocol === 'unix:' || url.hostname === 'unix';
+				}
+
+				if (!isUnixSocketURL(url) && isUnixSocketURL(redirectUrl)) {
+					this._beforeError(new RequestError('Cannot redirect to UNIX socket', {}, this));
+					return;
+				}
+
 				// Redirecting to a different site, clear sensitive data.
 				if (redirectUrl.hostname !== url.hostname || redirectUrl.port !== url.port) {
 					if ('host' in options.headers) {
