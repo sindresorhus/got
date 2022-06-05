@@ -81,6 +81,19 @@ test('catches init thrown errors', async t => {
 	});
 });
 
+test('catches init thrown errors, with single init hook', async t => {
+	await t.throwsAsync(got('https://example.com', {
+		hooks: {
+			init() {
+				throw error;
+			},
+		},
+	}), {
+		instanceOf: RequestError,
+		message: errorString,
+	});
+});
+
 test('passes init thrown errors to beforeError hooks (promise-only)', async t => {
 	t.plan(1);
 
@@ -101,12 +114,65 @@ test('passes init thrown errors to beforeError hooks (promise-only)', async t =>
 	});
 });
 
+test('passes init thrown errors to beforeError hooks (promise-only), with single init hook', async t => {
+	t.plan(1);
+
+	await t.throwsAsync(got('https://example.com', {
+		hooks: {
+			init() {
+				throw error;
+			},
+			beforeError: [error => {
+				t.is(error.message, errorString);
+
+				return error;
+			}],
+		},
+	}), {
+		instanceOf: RequestError,
+		message: errorString,
+	});
+});
+
+test('passes init thrown errors to beforeError hooks (promise-only), with single beforeError hook', async t => {
+	t.plan(1);
+
+	await t.throwsAsync(got('https://example.com', {
+		hooks: {
+			init: [() => {
+				throw error;
+			}],
+			beforeError(error) {
+				t.is(error.message, errorString);
+
+				return error;
+			},
+		},
+	}), {
+		instanceOf: RequestError,
+		message: errorString,
+	});
+});
+
 test('catches beforeRequest thrown errors', async t => {
 	await t.throwsAsync(got('https://example.com', {
 		hooks: {
 			beforeRequest: [() => {
 				throw error;
 			}],
+		},
+	}), {
+		instanceOf: RequestError,
+		message: errorString,
+	});
+});
+
+test('catches beforeRequest thrown errors, with single beforeRequest hook', async t => {
+	await t.throwsAsync(got('https://example.com', {
+		hooks: {
+			beforeRequest() {
+				throw error;
+			},
 		},
 	}), {
 		instanceOf: RequestError,
@@ -130,6 +196,22 @@ test('catches beforeRedirect thrown errors', withServer, async (t, server, got) 
 	});
 });
 
+test('catches beforeRedirect thrown errors, with single beforeRedirect hook', withServer, async (t, server, got) => {
+	server.get('/', echoHeaders);
+	server.get('/redirect', redirectEndpoint);
+
+	await t.throwsAsync(got('redirect', {
+		hooks: {
+			beforeRedirect() {
+				throw error;
+			},
+		},
+	}), {
+		instanceOf: RequestError,
+		message: errorString,
+	});
+});
+
 test('catches beforeRetry thrown errors', withServer, async (t, server, got) => {
 	server.get('/', echoHeaders);
 	server.get('/retry', retryEndpoint);
@@ -146,6 +228,22 @@ test('catches beforeRetry thrown errors', withServer, async (t, server, got) => 
 	});
 });
 
+test('catches beforeRetry thrown errors, with single beforeRetry hook', withServer, async (t, server, got) => {
+	server.get('/', echoHeaders);
+	server.get('/retry', retryEndpoint);
+
+	await t.throwsAsync(got('retry', {
+		hooks: {
+			beforeRetry() {
+				throw error;
+			},
+		},
+	}), {
+		instanceOf: RequestError,
+		message: errorString,
+	});
+});
+
 test('throws if afterResponse returns an invalid value', withServer, async (t, server, got) => {
 	server.get('/', echoHeaders);
 
@@ -155,6 +253,19 @@ test('throws if afterResponse returns an invalid value', withServer, async (t, s
 				// @ts-expect-error Testing purposes
 				() => {},
 			],
+		},
+	}), {
+		message: 'The `afterResponse` hook returned an invalid value',
+	});
+});
+
+test('throws if afterResponse returns an invalid value, with single afterResponse', withServer, async (t, server, got) => {
+	server.get('/', echoHeaders);
+
+	await t.throwsAsync(got('', {
+		hooks: {
+			// @ts-expect-error Testing purposes
+			afterResponse() {},
 		},
 	}), {
 		message: 'The `afterResponse` hook returned an invalid value',
