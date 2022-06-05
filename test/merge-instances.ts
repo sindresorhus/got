@@ -77,7 +77,7 @@ test('merging two groups of merged instances', withServer, async (t, server) => 
 });
 
 test('hooks are merged', t => {
-	const getBeforeRequestHooks = (instance: Got): BeforeRequestHook[] => instance.defaults.options.hooks.beforeRequest;
+	const getBeforeRequestHooks = (instance: Got): BeforeRequestHook[] => instance.defaults.options.hooks.beforeRequest as BeforeRequestHook[];
 
 	const instanceA = got.extend({hooks: {
 		beforeRequest: [
