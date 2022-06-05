@@ -167,7 +167,7 @@ export interface Hooks {
 	//=> 'passphrase'
 	```
 	*/
-	init: InitHook[];
+	init: InitHook | InitHook[];
 
 	/**
 	Called right before making the request with `options.createNativeRequestOptions()`.
@@ -206,7 +206,7 @@ export interface Hooks {
 	> - You can indirectly override the `request` function by early returning a [`ClientRequest`-like](https://nodejs.org/api/http.html#http_class_http_clientrequest) instance or a [`IncomingMessage`-like](https://nodejs.org/api/http.html#http_class_http_incomingmessage) instance. This is very useful when creating a custom cache mechanism.
 	> - [Read more about this tip](https://github.com/sindresorhus/got/blob/main/documentation/cache.md#advanced-caching-mechanisms).
 	*/
-	beforeRequest: BeforeRequestHook[];
+	beforeRequest: BeforeRequestHook | BeforeRequestHook[];
 
 	/**
 	The equivalent of `beforeRequest` but when redirecting.
@@ -233,7 +233,7 @@ export interface Hooks {
 	});
 	```
 	*/
-	beforeRedirect: BeforeRedirectHook[];
+	beforeRedirect: BeforeRedirectHook | BeforeRedirectHook[];
 
 	/**
 	Called with a `RequestError` instance. The error is passed to the hook right before it's thrown.
@@ -263,7 +263,7 @@ export interface Hooks {
 	});
 	```
 	*/
-	beforeError: BeforeErrorHook[];
+	beforeError: BeforeErrorHook | BeforeErrorHook[];
 
 	/**
 	The equivalent of `beforeError` but when retrying. Additionally, there is a second argument `retryCount`, the current retry number.
@@ -297,7 +297,7 @@ export interface Hooks {
 	});
 	```
 	*/
-	beforeRetry: BeforeRetryHook[];
+	beforeRetry: BeforeRetryHook | BeforeRetryHook[];
 
 	/**
 	Each function should return the response. This is especially useful when you want to refresh an access token.
@@ -349,7 +349,7 @@ export interface Hooks {
 	});
 	```
 	*/
-	afterResponse: AfterResponseHook[];
+	afterResponse: AfterResponseHook | AfterResponseHook[];
 }
 
 export type ParseJsonFunction = (text: string) => unknown;
@@ -847,12 +847,12 @@ const cloneInternals = (internals: typeof defaultInternals) => {
 		},
 		timeout: {...internals.timeout},
 		hooks: {
-			init: [...hooks.init],
-			beforeRequest: [...hooks.beforeRequest],
-			beforeError: [...hooks.beforeError],
-			beforeRedirect: [...hooks.beforeRedirect],
-			beforeRetry: [...hooks.beforeRetry],
-			afterResponse: [...hooks.afterResponse],
+			init: is.array(hooks.init) ? [...hooks.init] : hooks.init,
+			beforeRequest: is.array(hooks.beforeRequest) ? [...hooks.beforeRequest] : hooks.beforeRequest,
+			beforeError: is.array(hooks.beforeError) ? [...hooks.beforeError] : hooks.beforeError,
+			beforeRedirect: is.array(hooks.beforeRedirect) ? [...hooks.beforeRedirect] : hooks.beforeRedirect,
+			beforeRetry: is.array(hooks.beforeRetry) ? [...hooks.beforeRetry] : hooks.beforeRetry,
+			afterResponse: is.array(hooks.afterResponse) ? [...hooks.afterResponse] : hooks.afterResponse,
 		},
 		searchParams: internals.searchParams ? new URLSearchParams(internals.searchParams as URLSearchParams) : undefined,
 		pagination: {...internals.pagination},
@@ -966,7 +966,8 @@ const getHttp2TimeoutOption = (internals: typeof defaultInternals): number | und
 const init = (options: OptionsInit, withOptions: OptionsInit, self: Options): void => {
 	const initHooks = options.hooks?.init;
 	if (initHooks) {
-		for (const hook of initHooks) {
+		const initHooksArray = is.array(initHooks) ? initHooks : [initHooks];
+		for (const hook of initHooksArray) {
 			hook(withOptions, self);
 		}
 	}
@@ -1697,18 +1698,24 @@ export default class Options {
 			const typedValue = value as Hooks;
 			const hooks = typedValue[typedKnownHookEvent];
 
-			assert.any([is.array, is.undefined], hooks);
+			assert.any([is.array, is.undefined, is.function_], hooks);
 
 			if (hooks) {
-				for (const hook of hooks) {
+				const hooksArray = is.array(hooks) ? hooks : [hooks];
+				for (const hook of hooksArray) {
 					assert.function_(hook);
 				}
 			}
 
 			if (this._merging) {
 				if (hooks) {
-					// @ts-expect-error FIXME
-					this._internals.hooks[typedKnownHookEvent].push(...hooks);
+					if (is.array(hooks)) {
+						// @ts-expect-error FIXME
+						this._internals.hooks[typedKnownHookEvent].push(...hooks);
+					} else {
+						// @ts-expect-error FIXME
+						this._internals.hooks[typedKnownHookEvent] = hooks;
+					}
 				}
 			} else {
 				if (!hooks) {
@@ -1716,7 +1723,7 @@ export default class Options {
 				}
 
 				// @ts-expect-error FIXME
-				this._internals.hooks[knownHookEvent] = [...hooks];
+				this._internals.hooks[knownHookEvent] = is.array(hooks) ? [...hooks] : hooks;
 			}
 		}
 	}

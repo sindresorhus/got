@@ -75,8 +75,9 @@ export default function asPromise<T>(firstRequest?: Request): CancelableRequest<
 
 				try {
 					const hooks = options.hooks.afterResponse;
+					const hooksArray = is.array(hooks) ? hooks : [hooks];
 
-					for (const [index, hook] of hooks.entries()) {
+					for (const [index, hook] of hooksArray.entries()) {
 						// @ts-expect-error TS doesn't notice that CancelableRequest is a Promise
 						// eslint-disable-next-line no-await-in-loop
 						response = await hook(response, async (updatedOptions): CancelableRequest<Response> => {
@@ -89,7 +90,7 @@ export default function asPromise<T>(firstRequest?: Request): CancelableRequest<
 
 							// Remove any further hooks for that request, because we'll call them anyway.
 							// The loop continues. We don't want duplicates (asPromise recursion).
-							options.hooks.afterResponse = options.hooks.afterResponse.slice(0, index);
+							options.hooks.afterResponse = hooksArray.slice(0, index);
 
 							throw new RetryError(request);
 						});

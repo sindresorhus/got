@@ -376,7 +376,8 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 					}
 
 					try {
-						for (const hook of this.options.hooks.beforeRetry) {
+						const hooksArray = is.array(this.options.hooks.beforeRetry) ? this.options.hooks.beforeRetry : [this.options.hooks.beforeRetry];
+						for (const hook of hooksArray) {
 							// eslint-disable-next-line no-await-in-loop
 							await hook(typedError, this.retryCount + 1);
 						}
@@ -760,7 +761,8 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 				updatedOptions.prefixUrl = '';
 				updatedOptions.url = redirectUrl;
 
-				for (const hook of updatedOptions.hooks.beforeRedirect) {
+				const hooksArray = is.array(updatedOptions.hooks.beforeRedirect) ? updatedOptions.hooks.beforeRedirect : [updatedOptions.hooks.beforeRedirect];
+				for (const hook of hooksArray) {
 					// eslint-disable-next-line no-await-in-loop
 					await hook(updatedOptions, typedResponse);
 				}
@@ -1061,7 +1063,8 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 		let request: ReturnType<Options['getRequestFunction']> | undefined;
 
-		for (const hook of options.hooks.beforeRequest) {
+		const hooksArray = is.array(options.hooks.beforeRequest) ? options.hooks.beforeRequest : [options.hooks.beforeRequest];
+		for (const hook of hooksArray) {
 			// eslint-disable-next-line no-await-in-loop
 			const result = await hook(options);
 
@@ -1129,7 +1132,8 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 	private async _error(error: RequestError): Promise<void> {
 		try {
-			for (const hook of this.options.hooks.beforeError) {
+			const hooksArray = is.array(this.options.hooks.beforeError) ? this.options.hooks.beforeError : [this.options.hooks.beforeError];
+			for (const hook of hooksArray) {
 				// eslint-disable-next-line no-await-in-loop
 				error = await hook(error);
 			}
