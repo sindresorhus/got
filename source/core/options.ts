@@ -847,12 +847,12 @@ const cloneInternals = (internals: typeof defaultInternals) => {
 		},
 		timeout: {...internals.timeout},
 		hooks: {
-			init: is.array(hooks.init) ? [...hooks.init] : hooks.init,
-			beforeRequest: is.array(hooks.beforeRequest) ? [...hooks.beforeRequest] : hooks.beforeRequest,
-			beforeError: is.array(hooks.beforeError) ? [...hooks.beforeError] : hooks.beforeError,
-			beforeRedirect: is.array(hooks.beforeRedirect) ? [...hooks.beforeRedirect] : hooks.beforeRedirect,
-			beforeRetry: is.array(hooks.beforeRetry) ? [...hooks.beforeRetry] : hooks.beforeRetry,
-			afterResponse: is.array(hooks.afterResponse) ? [...hooks.afterResponse] : hooks.afterResponse,
+			init: Array.isArray(hooks.init) ? [...hooks.init] : hooks.init,
+			beforeRequest: Array.isArray(hooks.beforeRequest) ? [...hooks.beforeRequest] : hooks.beforeRequest,
+			beforeError: Array.isArray(hooks.beforeError) ? [...hooks.beforeError] : hooks.beforeError,
+			beforeRedirect: Array.isArray(hooks.beforeRedirect) ? [...hooks.beforeRedirect] : hooks.beforeRedirect,
+			beforeRetry: Array.isArray(hooks.beforeRetry) ? [...hooks.beforeRetry] : hooks.beforeRetry,
+			afterResponse: Array.isArray(hooks.afterResponse) ? [...hooks.afterResponse] : hooks.afterResponse,
 		},
 		searchParams: internals.searchParams ? new URLSearchParams(internals.searchParams as URLSearchParams) : undefined,
 		pagination: {...internals.pagination},
@@ -966,7 +966,7 @@ const getHttp2TimeoutOption = (internals: typeof defaultInternals): number | und
 const init = (options: OptionsInit, withOptions: OptionsInit, self: Options): void => {
 	const initHooks = options.hooks?.init;
 	if (initHooks) {
-		const initHooksArray = is.array(initHooks) ? initHooks : [initHooks];
+		const initHooksArray = [initHooks].flat();
 		for (const hook of initHooksArray) {
 			hook(withOptions, self);
 		}
@@ -1701,7 +1701,7 @@ export default class Options {
 			assert.any([is.array, is.undefined, is.function_], hooks);
 
 			if (hooks) {
-				const hooksArray = is.array(hooks) ? hooks : [hooks];
+				const hooksArray = [hooks].flat();
 				for (const hook of hooksArray) {
 					assert.function_(hook);
 				}

@@ -75,7 +75,7 @@ export default function asPromise<T>(firstRequest?: Request): CancelableRequest<
 
 				try {
 					const hooks = options.hooks.afterResponse;
-					const hooksArray = is.array(hooks) ? hooks : [hooks];
+					const hooksArray = [hooks].flat();
 
 					for (const [index, hook] of hooksArray.entries()) {
 						// @ts-expect-error TS doesn't notice that CancelableRequest is a Promise
