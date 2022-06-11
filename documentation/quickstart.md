@@ -112,7 +112,7 @@ got.stream
 	.pipe(fs.createWriteStream("anything.json"));
 ```
 
-## Miscallenous
+## Miscalleneous
 
 The HTTP method name can also be given as an option, this may be convenient when it is known only at runtime :
 
