@@ -82,14 +82,14 @@ export default client;
 ```
 
 Some noticable common options are (opinionated :blush:) :
- - [searchParams](https://github.com/sindresorhus/got/blob/main/documentation/2-options.md#searchparams) : a query string object.
- - [prefixUrl](https://github.com/sindresorhus/got/blob/main/documentation/2-options.md#prefixurl) : prepended to query pathes. Pathes must be relative to prefix, i.e. not begin with a `/`.
- - [method](https://github.com/sindresorhus/got/blob/main/documentation/2-options.md#method) : the HTTP method name.
- - [headers](https://github.com/sindresorhus/got/blob/main/documentation/2-options.md#headers) : query headers.
- - [json](https://github.com/sindresorhus/got/blob/main/documentation/2-options.md#json): JSON body.
- - [form](https://github.com/sindresorhus/got/blob/main/documentation/2-options.md#form): a form query string object.
+ - [searchParams](./2-options.md#searchparams) : a query string object.
+ - [prefixUrl](./2-options.md#prefixurl) : prepended to query pathes. Pathes must be relative to prefix, i.e. not begin with a `/`.
+ - [method](./2-options.md#method) : the HTTP method name.
+ - [headers](./2-options.md#headers) : query headers.
+ - [json](./2-options.md#json): JSON body.
+ - [form](./2-options.md#form): a form query string object.
  
-See documentation for other [options](https://github.com/sindresorhus/got/blob/main/documentation/2-options.md#options).
+See documentation for other [options](./2-options.md#options).
 
 ## Errors
 
@@ -146,11 +146,11 @@ const client = got.extend(options);
 export default client;
 ```
 
-The above set a global timeout of 10000 ms for all requests issued by the exported `client`. Like all options, timeouts can also be set at request level. See [timeout options](https://github.com/sindresorhus/got/blob/main/documentation/6-timeout.md#timeout-options).
+The above set a global timeout of 10000 ms for all requests issued by the exported `client`. Like all options, timeouts can also be set at request level. See [timeout options](./6-timeout.md#timeout-options).
 
 ### Retries
 
-A failed request is retried twice, retry policy may be tuned with a [`retry`](https://github.com/sindresorhus/got/blob/main/documentation/7-retry.md#retry) option object.
+A failed request is retried twice, retry policy may be tuned with a [`retry`](./7-retry.md#retry) option object.
 
 ```js
 const options = {
@@ -161,7 +161,7 @@ const options = {
 };
 ```
 
-Retries with stream are a little trickier, see [`stream.on("retry", ...)`](https://github.com/sindresorhus/got/blob/main/documentation/3-streams.md#streamonretry-).
+Retries with stream are a little trickier, see [`stream.on("retry", ...)`](./3-streams.md#streamonretry-).
 
 ### Hooks
 
@@ -184,9 +184,9 @@ const client = got.extend(options);
 export default client;
 ```
 
-*Note that handlers are given as arrays*, thus multiple handlers can be given. See documentation for other possible [hooks](https://github.com/sindresorhus/got/blob/main/documentation/9-hooks.md#hooks-api).
+*Note that handlers are given as arrays*, thus multiple handlers can be given. See documentation for other possible [hooks](./9-hooks.md#hooks-api).
 
 ### Going further
 
-There's a lot more to discover in the [documentation](https://github.com/sindresorhus/got/blob/main/readme.md#documentation) and [tips](https://github.com/sindresorhus/got/blob/main/documentation/tips.md#tips).
-Among others, `Got` can handle [cookies](https://github.com/sindresorhus/got/blob/main/documentation/tips.md#cookies), [pagination](https://github.com/sindresorhus/got/blob/main/documentation/4-pagination.md#pagination-api), [cache](https://github.com/sindresorhus/got/blob/main/documentation/cache.md#cache). Read the doc before implementing something that is already done by `Got` :innocent:.
+There's a lot more to discover in the [documentation](../readme.md#documentation) and [tips](./tips.md#tips).
+Among others, `Got` can handle [cookies](./tips.md#cookies), [pagination](./4-pagination.md#pagination-api), [cache](./cache.md#cache). Read the doc before implementing something that is already done by `Got` :innocent:.
