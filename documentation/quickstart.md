@@ -81,6 +81,16 @@ const client = got.extend(options);
 export default client;
 ```
 
+Some noticable common options are (opinionated :blush:) :
+ - [searchParams](https://github.com/sindresorhus/got/blob/main/documentation/2-options.md#searchparams) : a query string object.
+ - [prefixUrl](https://github.com/sindresorhus/got/blob/main/documentation/2-options.md#prefixurl) : prepended to query pathes. Pathes must be relative to prefix, i.e. not begin with a `/`.
+ - [method](https://github.com/sindresorhus/got/blob/main/documentation/2-options.md#method) : the HTTP method name.
+ - [headers](https://github.com/sindresorhus/got/blob/main/documentation/2-options.md#headers) : query headers.
+ - [json](https://github.com/sindresorhus/got/blob/main/documentation/2-options.md#json): JSON body.
+ - [form](https://github.com/sindresorhus/got/blob/main/documentation/2-options.md#form): a form query string object.
+ 
+See documentation for other [options](https://github.com/sindresorhus/got/blob/main/documentation/2-options.md#options).
+
 ## Errors
 
 Both Promise and Stream APIs throws error with metadata. They are handled according to the API used.
@@ -104,7 +114,6 @@ got.stream
 
 ## Miscallenous
 
-For most applications, http client just do `GET` and `POST` queries (`PUT`, `PATCH` or `DELETE` methods work similarly).
 The HTTP method name can also be given as an option, this may be convenient when it is known only at runtime :
 
 ```js
@@ -117,6 +126,7 @@ const options = {
 const data = await got(url, options);
 ```
 
+For most applications, http client just do `GET` and `POST` queries (`PUT`, `PATCH` or `DELETE` methods work similarly).
 The following sections will give some pointers to more advanced usage.
 
 ### Timeouts
@@ -174,9 +184,9 @@ const client = got.extend(options);
 export default client;
 ```
 
-*Note that handlers are given as arrays*, thus multiple handlers can be given. Here is a list of possible [hooks](https://github.com/sindresorhus/got/blob/main/documentation/9-hooks.md#hooks-api).
+*Note that handlers are given as arrays*, thus multiple handlers can be given. See documentation for other possible [hooks](https://github.com/sindresorhus/got/blob/main/documentation/9-hooks.md#hooks-api).
 
 ### Going further
 
 There's a lot more to discover in the [documentation](https://github.com/sindresorhus/got/blob/main/readme.md#documentation) and [tips](https://github.com/sindresorhus/got/blob/main/documentation/tips.md#tips).
-Among others, you can handle [cookies](https://github.com/sindresorhus/got/blob/main/documentation/tips.md#cookies), [pagination](https://github.com/sindresorhus/got/blob/main/documentation/4-pagination.md#pagination-api), [cache](https://github.com/sindresorhus/got/blob/main/documentation/cache.md#cache). Read the doc before implementing something that is already done by `Got` :innocent:.
+Among others, `Got` can handle [cookies](https://github.com/sindresorhus/got/blob/main/documentation/tips.md#cookies), [pagination](https://github.com/sindresorhus/got/blob/main/documentation/4-pagination.md#pagination-api), [cache](https://github.com/sindresorhus/got/blob/main/documentation/cache.md#cache). Read the doc before implementing something that is already done by `Got` :innocent:.
