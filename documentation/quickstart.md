@@ -43,6 +43,7 @@ const url = 'https://httpbin.org/anything';
 const options = {
 	json: { documentName: 'Quick Start' },
 };
+
 const data = await got.post(url, options);
 ```
 
@@ -60,6 +61,7 @@ const url = 'https://httpbin.org/anything';
 const options = {
 	json: { documentName: 'Quick Start' },
 };
+
 const outStream = fs.createWriteStream('anything.json');
 got.stream.post(url, options).pipe(outStream);
 ```
@@ -77,6 +79,7 @@ const options = {
 		Authorization: getTokenFromVault(),
 	},
 };
+
 const client = got.extend(options);
 
 export default client;
@@ -128,6 +131,7 @@ const options = {
 	json: { documentName: 'Quick Start' },
 	method,
 };
+
 const data = await got(url, options);
 ```
 
@@ -146,6 +150,7 @@ const options = {
 		request: 10000,
 	},
 };
+
 const client = got.extend(options);
 
 export default client;
@@ -184,6 +189,7 @@ const options = {
 		beforeRetry: [logRetry]
 	},
 };
+
 const client = got.extend(options);
 
 export default client;
