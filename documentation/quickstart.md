@@ -2,7 +2,7 @@
 
 ## Getting and posting data with promises
 
-The simplest `GET` request :
+The simplest `GET` request:
 
 ```js
 import got from 'got';
@@ -11,7 +11,7 @@ const url = 'https://httpbin.org/anything';
 const response = await got(url);
 ```
 
-The call returns a <code>Promise<[Response](3-streams.md#response-1)></code>. If the body contains json, it can be retreived directly :
+The call returns a <code>Promise<[Response](3-streams.md#response-1)></code>. If the body contains json, it can be retreived directly:
 
 ```js
 const url = 'https://httpbin.org/anything';
@@ -20,7 +20,7 @@ const data = await got(url).json();
 
 The similar <code>[got.text](1-promise.md#promisetext)</code> method returns plain text.
 
-All `got` methods accepts an options object for passing extra informations, such as headers :
+All `got` methods accepts an options object for passing extra informations, such as headers:
 
 ```js
 const url = 'https://httpbin.org/anything';
@@ -36,7 +36,7 @@ const options = {
 const data = await got(url, options).json();
 ```
 
-A `POST` request is very similar :
+A `POST` request is very similar:
 
 ```js
 const url = 'https://httpbin.org/anything';
@@ -51,7 +51,7 @@ The request body is passed in the options object, `json` property will automatic
 
 ## Using streams
 
-The [Stream API](3-streams.md) allows to leverage [Node.js Streams](https://nodejs.dev/learn/nodejs-streams) capabilities :
+The [Stream API](3-streams.md) allows to leverage [Node.js Streams](https://nodejs.dev/learn/nodejs-streams) capabilities:
 
 ```js
 import got from 'got';
@@ -85,11 +85,11 @@ const client = got.extend(options);
 export default client;
 ```
 
-Some noticable common options are (opinionated :blush:) :
- - [searchParams](./2-options.md#searchparams) : a query string object.
- - [prefixUrl](./2-options.md#prefixurl) : prepended to query pathes. Pathes must be relative to prefix, i.e. not begin with a `/`.
- - [method](./2-options.md#method) : the HTTP method name.
- - [headers](./2-options.md#headers) : query headers.
+Some noticable common options are (opinionated :blush:):
+ - [searchParams](./2-options.md#searchparams): a query string object.
+ - [prefixUrl](./2-options.md#prefixurl): prepended to query pathes. Pathes must be relative to prefix, i.e. not begin with a `/`.
+ - [method](./2-options.md#method): the HTTP method name.
+ - [headers](./2-options.md#headers): query headers.
  - [json](./2-options.md#json): JSON body.
  - [form](./2-options.md#form): a form query string object.
  
@@ -122,7 +122,7 @@ got.stream
 
 ## Miscalleneous
 
-The HTTP method name can also be given as an option, this may be convenient when it is known only at runtime :
+The HTTP method name can also be given as an option, this may be convenient when it is known only at runtime:
 
 ```js
 const url = 'https://httpbin.org/anything';
@@ -140,7 +140,7 @@ The following sections will give some pointers to more advanced usage.
 
 ### Timeouts
 
-By default, requests have no timeout. It is a good practice to set one :
+By default, requests have no timeout. It is a good practice to set one:
 
 ```js
 import got from 'got';
@@ -175,7 +175,7 @@ Retries with stream are a little trickier, see [`stream.on('retry', ...)`](./3-s
 
 ### Hooks
 
-Hooks are custom functions called on some request events :
+Hooks are custom functions called on some request events:
 
 ```js
 import got from 'got';
