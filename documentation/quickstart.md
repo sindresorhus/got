@@ -55,15 +55,19 @@ The [Stream API](3-streams.md) allows to leverage [Node.js Streams](https://node
 
 ```js
 import got from 'got';
-import fs from 'fs';
+import fs from 'fs'; 
+import { pipeline } from 'stream';
 
 const url = 'https://httpbin.org/anything';
 const options = {
-	json: { documentName: 'Quick Start' },
+  json: { documentName: 'Quick Start' },
 };
 
+const gotStream = got.stream.post(url, options);
 const outStream = fs.createWriteStream('anything.json');
-got.stream.post(url, options).pipe(outStream);
+pipeline(gotStream, outStream, error => {
+  if (error) console.error(error.message);
+});
 ```
 
 ## Options
@@ -105,19 +109,18 @@ import got from 'got';
 const data = await got
 	.get('https://httpbin.org/status/404')
 	.catch(error => {
-		console.error(error.code, error.message)
+		console.error(error.message)
 	});
 ```
 
 ```js
 import got from 'got';
 
-got.stream
+const stream = got.stream
 	.get('https://httpbin.org/status/404')
 	.once('error', error => {
-		console.error(error.code, error.message)
-	})
-	.pipe(fs.createWriteStream('anything.json'));
+		console.error(error.message)
+	});
 ```
 
 ## Miscalleneous
