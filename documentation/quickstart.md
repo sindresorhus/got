@@ -1,7 +1,5 @@
 # Quick start guide
 
-This quick start uses ES2017 syntax.
-
 ## Getting and posting data with promises
 
 The simplest `GET` request :
@@ -30,8 +28,11 @@ const options = {
 	headers: {
 		"Custom-Header": "Quick start",
 	},
-	timeout: { send: 3500 },
+	timeout: {
+		send: 3500
+	},
 };
+
 const data = await got(url, options).json();
 ```
 
@@ -65,7 +66,7 @@ got.stream.post(url, options).pipe(outStream);
 
 ## Options
 
-Options can be set at client level and reused in subsequent queries :
+Options can be set at client level and reused in subsequent queries:
 
 ```js
 import got from "got";
@@ -100,7 +101,9 @@ import got from "got";
 
 const data = await got
 	.get("https://httpbin.org/status/404")
-	.catch((e) => console.error(e.code, e.message));
+	.catch(error => {
+		console.error(error.code, error.message)
+	});
 ```
 
 ```js
@@ -108,7 +111,9 @@ import got from "got";
 
 got.stream
 	.get("https://httpbin.org/status/404")
-	.once("error", (e) => console.error(e.code, e.message))
+	.once("error", error => {
+		console.error(error.code, error.message)
+	})
 	.pipe(fs.createWriteStream("anything.json"));
 ```
 
@@ -172,7 +177,7 @@ import got from "got";
 
 const logRetry = (error, retryCount) => {
   console.error(`Retrying after error ${error.code}, retry #: ${retryCount}`);
-}
+};
 
 const options = {
 	hooks: {
