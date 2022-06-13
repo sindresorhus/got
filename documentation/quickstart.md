@@ -5,16 +5,16 @@
 The simplest `GET` request :
 
 ```js
-import got from "got";
+import got from 'got';
 
-const url = "https://httpbin.org/anything";
+const url = 'https://httpbin.org/anything';
 const response = await got(url);
 ```
 
 The call returns a <code>Promise<[Response](3-streams.md#response-1)></code>. If the body contains json, it can be retreived directly :
 
 ```js
-const url = "https://httpbin.org/anything";
+const url = 'https://httpbin.org/anything';
 const data = await got(url).json();
 ```
 
@@ -23,10 +23,10 @@ The similar <code>[got.text](1-promise.md#promisetext)</code> method returns pla
 All `got` methods accepts an options object for passing extra informations, such as headers :
 
 ```js
-const url = "https://httpbin.org/anything";
+const url = 'https://httpbin.org/anything';
 const options = {
 	headers: {
-		"Custom-Header": "Quick start",
+		'Custom-Header': 'Quick start',
 	},
 	timeout: {
 		send: 3500
@@ -39,9 +39,9 @@ const data = await got(url, options).json();
 A `POST` request is very similar :
 
 ```js
-const url = "https://httpbin.org/anything";
+const url = 'https://httpbin.org/anything';
 const options = {
-	json: { documentName: "Quick Start" },
+	json: { documentName: 'Quick Start' },
 };
 const data = await got.post(url, options);
 ```
@@ -53,14 +53,14 @@ The request body is passed in the options object, `json` property will automatic
 The [Stream API](3-streams.md) allows to leverage [Node.js Streams](https://nodejs.dev/learn/nodejs-streams) capabilities :
 
 ```js
-import got from "got";
-import fs from "fs";
+import got from 'got';
+import fs from 'fs';
 
-const url = "https://httpbin.org/anything";
+const url = 'https://httpbin.org/anything';
 const options = {
-	json: { documentName: "Quick Start" },
+	json: { documentName: 'Quick Start' },
 };
-const outStream = fs.createWriteStream("anything.json");
+const outStream = fs.createWriteStream('anything.json');
 got.stream.post(url, options).pipe(outStream);
 ```
 
@@ -69,10 +69,10 @@ got.stream.post(url, options).pipe(outStream);
 Options can be set at client level and reused in subsequent queries:
 
 ```js
-import got from "got";
+import got from 'got';
 
 const options = {
-	prefixUrl: "https://httpbin.org",
+	prefixUrl: 'https://httpbin.org',
 	headers: {
 		Authorization: getTokenFromVault(),
 	},
@@ -97,24 +97,24 @@ See documentation for other [options](./2-options.md#options).
 Both Promise and Stream APIs throws error with metadata. They are handled according to the API used.
 
 ```js
-import got from "got";
+import got from 'got';
 
 const data = await got
-	.get("https://httpbin.org/status/404")
+	.get('https://httpbin.org/status/404')
 	.catch(error => {
 		console.error(error.code, error.message)
 	});
 ```
 
 ```js
-import got from "got";
+import got from 'got';
 
 got.stream
-	.get("https://httpbin.org/status/404")
-	.once("error", error => {
+	.get('https://httpbin.org/status/404')
+	.once('error', error => {
 		console.error(error.code, error.message)
 	})
-	.pipe(fs.createWriteStream("anything.json"));
+	.pipe(fs.createWriteStream('anything.json'));
 ```
 
 ## Miscalleneous
@@ -122,10 +122,10 @@ got.stream
 The HTTP method name can also be given as an option, this may be convenient when it is known only at runtime :
 
 ```js
-const url = "https://httpbin.org/anything";
-const method = "POST";
+const url = 'https://httpbin.org/anything';
+const method = 'POST';
 const options = {
-	json: { documentName: "Quick Start" },
+	json: { documentName: 'Quick Start' },
 	method,
 };
 const data = await got(url, options);
@@ -139,7 +139,7 @@ The following sections will give some pointers to more advanced usage.
 By default, requests have no timeout. It is a good practice to set one :
 
 ```js
-import got from "got";
+import got from 'got';
 
 const options = {
 	timeout: {
@@ -161,19 +161,19 @@ A failed request is retried twice, retry policy may be tuned with a [`retry`](./
 const options = {
 	retry: {
 		limit: 5,
-		errorCodes: ["ETIMEDOUT"],
+		errorCodes: ['ETIMEDOUT'],
 	},
 };
 ```
 
-Retries with stream are a little trickier, see [`stream.on("retry", ...)`](./3-streams.md#streamonretry-).
+Retries with stream are a little trickier, see [`stream.on('retry', ...)`](./3-streams.md#streamonretry-).
 
 ### Hooks
 
 Hooks are custom functions called on some request events :
 
 ```js
-import got from "got";
+import got from 'got';
 
 const logRetry = (error, retryCount) => {
   console.error(`Retrying after error ${error.code}, retry #: ${retryCount}`);
