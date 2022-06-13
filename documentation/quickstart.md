@@ -106,11 +106,11 @@ Both Promise and Stream APIs throws error with metadata. They are handled accord
 ```js
 import got from 'got';
 
-const data = await got
-	.get('https://httpbin.org/status/404')
-	.catch(error => {
-		console.error(error.message)
-	});
+try {
+  const data = await got.get('https://httpbin.org/status/404');
+} catch (error) {
+  console.error(error.message);
+}
 ```
 
 ```js
