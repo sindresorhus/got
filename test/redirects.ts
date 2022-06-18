@@ -42,9 +42,30 @@ const unixHostname: Handler = (_request, response) => {
 	response.end();
 };
 
-test('cannot redirect to unix protocol', withServer, async (t, server, got) => {
+test('cannot redirect to unix protocol when unix socket is enabled', withServer, async (t, server, got) => {
 	server.get('/protocol', unixProtocol);
 	server.get('/hostname', unixHostname);
+
+	const gotUnixSocketEnabled = got.extend({enableUnixSocket: true});
+
+	t.assert(gotUnixSocketEnabled.defaults.options.enableUnixSocket);
+
+	await t.throwsAsync(gotUnixSocketEnabled('protocol'), {
+		message: 'Cannot redirect to UNIX socket',
+		instanceOf: RequestError,
+	});
+
+	await t.throwsAsync(gotUnixSocketEnabled('hostname'), {
+		message: 'Cannot redirect to UNIX socket',
+		instanceOf: RequestError,
+	});
+});
+
+test('cannot redirect to unix protocol when unix socket is not enabled', withServer, async (t, server, got) => {
+	server.get('/protocol', unixProtocol);
+	server.get('/hostname', unixHostname);
+
+	t.assert(!got.defaults.options.enableUnixSocket);
 
 	await t.throwsAsync(got('protocol'), {
 		message: 'Cannot redirect to UNIX socket',

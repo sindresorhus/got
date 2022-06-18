@@ -5,6 +5,8 @@ import {Handler} from 'express';
 import got from '../source/index.js';
 import {withSocketServer} from './helpers/with-server.js';
 
+const gotUnixSocketEnabled = got.extend({enableUnixSocket: true});
+
 const okHandler: Handler = (_request, response) => {
 	response.end('ok');
 };
@@ -21,26 +23,26 @@ if (process.platform !== 'win32') {
 		server.on('/', okHandler);
 
 		const url = format('http://unix:%s:%s', server.socketPath, '/');
-		t.is((await got(url)).body, 'ok');
+		t.is((await gotUnixSocketEnabled(url)).body, 'ok');
 	});
 
 	test('protocol-less works', withSocketServer, async (t, server) => {
 		server.on('/', okHandler);
 
 		const url = format('unix:%s:%s', server.socketPath, '/');
-		t.is((await got(url)).body, 'ok');
+		t.is((await gotUnixSocketEnabled(url)).body, 'ok');
 	});
 
 	test('address with : works', withSocketServer, async (t, server) => {
 		server.on('/foo:bar', okHandler);
 
 		const url = format('unix:%s:%s', server.socketPath, '/foo:bar');
-		t.is((await got(url)).body, 'ok');
+		t.is((await gotUnixSocketEnabled(url)).body, 'ok');
 	});
 
 	test('throws on invalid URL', async t => {
 		try {
-			await got('unix:', {retry: {limit: 0}});
+			await gotUnixSocketEnabled('unix:', {retry: {limit: 0}});
 		} catch (error: any) {
 			t.regex(error.code, /ENOTFOUND|EAI_AGAIN/);
 		}
@@ -50,7 +52,7 @@ if (process.platform !== 'win32') {
 		server.on('/', okHandler);
 
 		const url = format('unix:%s:%s', server.socketPath, '/');
-		const instance = got.extend({prefixUrl: url});
+		const instance = gotUnixSocketEnabled.extend({prefixUrl: url});
 		t.is((await instance('')).body, 'ok');
 	});
 
@@ -58,7 +60,7 @@ if (process.platform !== 'win32') {
 		server.on('/?a=1', okHandler);
 
 		const url = format('http://unix:%s:%s', server.socketPath, '/?a=1');
-		t.is((await got(url)).body, 'ok');
+		t.is((await gotUnixSocketEnabled(url)).body, 'ok');
 	});
 
 	test('redirects work', withSocketServer, async (t, server) => {
@@ -66,6 +68,30 @@ if (process.platform !== 'win32') {
 		server.on('/foo', okHandler);
 
 		const url = format('http://unix:%s:%s', server.socketPath, '/');
-		t.is((await got(url)).body, 'ok');
+		t.is((await gotUnixSocketEnabled(url)).body, 'ok');
+	});
+
+	test('unix: fails when unix socket is not enabled', async t => {
+		try {
+			await got('unix:');
+		} catch (error: any) {
+			t.assert(error.code === 'ERR_UNSUPPORTED_PROTOCOL');
+			return;
+		}
+
+		// Fail if no error is thrown
+		t.fail();
+	});
+
+	test('http://unix:/ fails when unix socket is not enabled', async t => {
+		try {
+			await got('http://unix:');
+		} catch (error: any) {
+			t.assert(error.code === 'ENOTFOUND');
+			return;
+		}
+
+		// Fail if no error is thrown
+		t.fail();
 	});
 }
