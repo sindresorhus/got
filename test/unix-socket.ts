@@ -87,6 +87,7 @@ if (process.platform !== 'win32') {
 		try {
 			await got('http://unix:');
 		} catch (error: any) {
+			t.log(error);
 			t.assert(error.code === 'ENOTFOUND');
 			return;
 		}
