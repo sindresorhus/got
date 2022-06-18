@@ -827,6 +827,7 @@ const defaultInternals: Options['_internals'] = {
 	},
 	setHost: true,
 	maxHeaderSize: undefined,
+	enableUnixSocket: false,
 };
 
 const cloneInternals = (internals: typeof defaultInternals) => {
@@ -1401,7 +1402,7 @@ export default class Options {
 		this._internals.url = url;
 		decodeURI(urlString);
 
-		if (url.protocol === 'unix:') {
+		if (this._internals.enableUnixSocket && url.protocol === 'unix:') {
 			url.href = `http://unix${url.pathname}${url.search}`;
 		}
 
@@ -1427,7 +1428,7 @@ export default class Options {
 			this._internals.searchParams = undefined;
 		}
 
-		if (url.hostname === 'unix') {
+		if (this._internals.enableUnixSocket && url.hostname === 'unix') {
 			const matches = /(?<socketPath>.+?):(?<path>.+)/.exec(`${url.pathname}${url.search}`);
 
 			if (matches?.groups) {
@@ -2343,6 +2344,16 @@ export default class Options {
 		assert.any([is.number, is.undefined], value);
 
 		this._internals.maxHeaderSize = value;
+	}
+
+	get enableUnixSocket() {
+		return this._internals.enableUnixSocket;
+	}
+
+	set enableUnixSocket(value: boolean) {
+		assert.boolean(value);
+
+		this._internals.enableUnixSocket = value;
 	}
 
 	// eslint-disable-next-line @typescript-eslint/naming-convention
