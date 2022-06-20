@@ -919,10 +919,11 @@ By default, requests will not use [method rewriting](https://datatracker.ietf.or
 For example, when sending a `POST` request and receiving a `302`, it will resend the body to the new location using the same HTTP method (`POST` in this case). To rewrite the request as `GET`, set this option to `true`.
 
 ### `enableUnixSocket`
+
 **Type: `boolean`**\
 **Default: `false`**
 
-Set to `true` to enable unix socket domain.
+Enable it with care if you accept untrusted user input for the URL.
 
 When it is enabled, requests can also be sent via [UNIX Domain Sockets](https://serverfault.com/questions/124517/what-is-the-difference-between-unix-sockets-and-tcp-ip-sockets).\
 Use the following URL scheme: `PROTOCOL://unix:SOCKET:PATH`
@@ -934,10 +935,12 @@ Use the following URL scheme: `PROTOCOL://unix:SOCKET:PATH`
 ```js
 import got from 'got';
 
-await got('http://unix:/var/run/docker.sock:/containers/json');
+const gotUnixSocketEnabled = got.extend({enableUnixSocket: true});
+
+await gotUnixSocketEnabled('http://unix:/var/run/docker.sock:/containers/json');
 
 // Or without protocol (HTTP by default)
-await got('unix:/var/run/docker.sock:/containers/json');
+await gotUnixSocketEnabled('unix:/var/run/docker.sock:/containers/json');
 ```
 
 ## Methods
