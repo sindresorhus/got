@@ -89,6 +89,7 @@ for await (const commitData of pagination) {
 }
 ```
 
+<a name="unix"></a>
 ### UNIX Domain Sockets
 
 See the [`enableUnixSocket` option](./2-options.md#enableunixsocket).
