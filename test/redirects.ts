@@ -42,7 +42,7 @@ const unixHostname: Handler = (_request, response) => {
 	response.end();
 };
 
-test('cannot redirect to unix protocol when unix socket is enabled', withServer, async (t, server, got) => {
+test('cannot redirect to UNIX protocol when UNIX socket is enabled', withServer, async (t, server, got) => {
 	server.get('/protocol', unixProtocol);
 	server.get('/hostname', unixHostname);
 
@@ -61,7 +61,7 @@ test('cannot redirect to unix protocol when unix socket is enabled', withServer,
 	});
 });
 
-test('cannot redirect to unix protocol when unix socket is not enabled', withServer, async (t, server, got) => {
+test('cannot redirect to UNIX protocol when UNIX socket is not enabled', withServer, async (t, server, got) => {
 	server.get('/protocol', unixProtocol);
 	server.get('/hostname', unixHostname);
 
