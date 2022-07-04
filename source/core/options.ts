@@ -827,7 +827,7 @@ const defaultInternals: Options['_internals'] = {
 	},
 	setHost: true,
 	maxHeaderSize: undefined,
-	enableUnixSocket: false,
+	enableUnixSockets: false,
 };
 
 const cloneInternals = (internals: typeof defaultInternals) => {
@@ -1402,7 +1402,7 @@ export default class Options {
 		this._internals.url = url;
 		decodeURI(urlString);
 
-		if (this._internals.enableUnixSocket && url.protocol === 'unix:') {
+		if (this._internals.enableUnixSockets && url.protocol === 'unix:') {
 			url.href = `http://unix${url.pathname}${url.search}`;
 		}
 
@@ -1428,7 +1428,7 @@ export default class Options {
 			this._internals.searchParams = undefined;
 		}
 
-		if (this._internals.enableUnixSocket && url.hostname === 'unix') {
+		if (this._internals.enableUnixSockets && url.hostname === 'unix') {
 			const matches = /(?<socketPath>.+?):(?<path>.+)/.exec(`${url.pathname}${url.search}`);
 
 			if (matches?.groups) {
@@ -2346,14 +2346,14 @@ export default class Options {
 		this._internals.maxHeaderSize = value;
 	}
 
-	get enableUnixSocket() {
-		return this._internals.enableUnixSocket;
+	get enableUnixSockets() {
+		return this._internals.enableUnixSockets;
 	}
 
-	set enableUnixSocket(value: boolean) {
+	set enableUnixSockets(value: boolean) {
 		assert.boolean(value);
 
-		this._internals.enableUnixSocket = value;
+		this._internals.enableUnixSockets = value;
 	}
 
 	// eslint-disable-next-line @typescript-eslint/naming-convention
