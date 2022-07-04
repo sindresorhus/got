@@ -73,6 +73,7 @@ if (process.platform !== 'win32') {
 
 	test('unix: fails when unix sockets are not enabled', async t => {
 		try {
+			t.assert(!got.defaults.options.enableUnixSockets);
 			await got('unix:');
 		} catch (error: any) {
 			t.assert(error.code === 'ERR_UNSUPPORTED_PROTOCOL');
@@ -85,6 +86,7 @@ if (process.platform !== 'win32') {
 
 	test('http://unix:/ fails when unix sockets are not enabled', async t => {
 		try {
+			t.assert(!got.defaults.options.enableUnixSockets);
 			await got('http://unix:');
 		} catch (error: any) {
 			t.regex(error.code, /ENOTFOUND|EAI_AGAIN/);
