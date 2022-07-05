@@ -62,7 +62,7 @@ test('works as expected', t => {
 			reference: '/TheBook/chapter2',
 			parameters: {
 				rel: '"previous"',
-				// eslint-disable-next-line @typescript-eslint/quotes
+				// eslint-disable-next-line @typescript-eslint/quotes, @typescript-eslint/naming-convention
 				'title*': `UTF-8'de'letztes%20Kapitel`,
 			},
 		},
@@ -70,7 +70,7 @@ test('works as expected', t => {
 			reference: '/TheBook/chapter4',
 			parameters: {
 				rel: '"next"',
-				// eslint-disable-next-line @typescript-eslint/quotes
+				// eslint-disable-next-line @typescript-eslint/quotes, @typescript-eslint/naming-convention
 				'title*': `UTF-8'de'n%c3%a4chstes%20Kapitel`,
 			},
 		},

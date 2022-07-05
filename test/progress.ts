@@ -7,7 +7,7 @@ import SlowStream from 'slow-stream';
 import toReadableStream from 'to-readable-stream';
 import getStream from 'get-stream';
 import FormData from 'form-data';
-import tempy from 'tempy';
+import {temporaryFile} from 'tempy';
 import is from '@sindresorhus/is';
 import test, {ExecutionContext} from 'ava';
 import {Handler} from 'express';
@@ -121,7 +121,7 @@ test('upload progress - file', withServer, async (t, server, got) => {
 test('upload progress - file stream', withServer, async (t, server, got) => {
 	server.post('/', uploadEndpoint);
 
-	const path = tempy.file();
+	const path = temporaryFile();
 	fs.writeFileSync(path, file);
 
 	const {size} = await promisify(fs.stat)(path);

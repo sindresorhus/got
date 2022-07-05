@@ -63,7 +63,7 @@ test('follows redirect', withServer, async (t, server, got) => {
 
 	const {body, redirectUrls} = await got('finite');
 	t.is(body, 'reached');
-	t.deepEqual(redirectUrls.map(x => String(x)), [`${server.url}/`]);
+	t.deepEqual(redirectUrls.map(String), [`${server.url}/`]);
 });
 
 test('follows 307, 308 redirect', withServer, async (t, server, got) => {
@@ -113,7 +113,7 @@ test('throws on endless redirects - default behavior', withServer, async (t, ser
 
 	const error = await t.throwsAsync<MaxRedirectsError>(got(''), {message: 'Redirected 10 times. Aborting.'});
 
-	t.deepEqual(error.response.redirectUrls.map(x => String(x)), Array.from({length: 10}).fill(`${server.url}/`));
+	t.deepEqual(error.response.redirectUrls.map(String), Array.from({length: 10}).fill(`${server.url}/`));
 	t.is(error.code, 'ERR_TOO_MANY_REDIRECTS');
 });
 
@@ -127,7 +127,7 @@ test('custom `maxRedirects` option', withServer, async (t, server, got) => {
 
 	const error = await t.throwsAsync<MaxRedirectsError>(got('', {maxRedirects: 5}), {message: 'Redirected 5 times. Aborting.'});
 
-	t.deepEqual(error.response.redirectUrls.map(x => String(x)), Array.from({length: 5}).fill(`${server.url}/`));
+	t.deepEqual(error.response.redirectUrls.map(String), Array.from({length: 5}).fill(`${server.url}/`));
 	t.is(error.code, 'ERR_TOO_MANY_REDIRECTS');
 });
 

@@ -10,7 +10,7 @@ import CacheableRequest from 'cacheable-request';
 import decompressResponse from 'decompress-response';
 import is from '@sindresorhus/is';
 import {buffer as getBuffer} from 'get-stream';
-import {FormDataEncoder, isFormDataLike} from 'form-data-encoder';
+import {FormDataEncoder, isFormData as isFormDataLike} from 'form-data-encoder';
 import type {ClientRequestWithTimings, Timings, IncomingMessageWithTimings} from '@szmarczak/http-timer';
 import type ResponseLike from 'responselike';
 import getBodySize from './utils/get-body-size.js';
@@ -56,6 +56,8 @@ export type GotEventFunction<T> =
 
 	@example
 	```
+	import got from 'got';
+
 	got.stream('https://github.com')
 		.on('request', request => setTimeout(() => request.destroy(), 50));
 	```
@@ -88,6 +90,8 @@ export type GotEventFunction<T> =
 
 	@example
 	```
+	import got from 'got';
+
 	const response = await got('https://sindresorhus.com')
 		.on('downloadProgress', progress => {
 			// Report download progress
@@ -138,6 +142,7 @@ type OptionsType = ConstructorParameters<typeof Options>[1];
 type DefaultsType = ConstructorParameters<typeof Options>[2];
 
 export default class Request extends Duplex implements RequestEvents<Request> {
+	// @ts-expect-error - Ignoring for now.
 	override ['constructor']: typeof Request;
 
 	_noPipe?: boolean;

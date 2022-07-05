@@ -19,7 +19,7 @@ export * from './core/response.js';
 export type {default as Request} from './core/index.js';
 export * from './core/index.js';
 export * from './core/errors.js';
-export {Delays} from './core/timed-out.js';
+export type {Delays} from './core/timed-out.js';
 export {default as calculateRetryDelay} from './core/calculate-retry-delay.js';
 export * from './as-promise/types.js';
 export * from './types.js';

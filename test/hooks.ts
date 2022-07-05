@@ -1048,7 +1048,7 @@ test('beforeRequest hook respect `url` option', withServer, async (t, server, go
 		hooks: {
 			beforeRequest: [
 				options => {
-					options.url = new URL(server.url + '/changed');
+					options.url = new URL(`${server.url}/changed`);
 				},
 			],
 		},

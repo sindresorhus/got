@@ -13,7 +13,8 @@ test('works', withServer, async (t, server) => {
 		response.end('not found');
 	});
 
-	t.is((await got.get(server.url)).body, 'ok');
+	const {body} = await got.get(server.url);
+	t.is(body, 'ok');
 
 	const error = await t.throwsAsync<HTTPError>(got.get(`${server.url}/404`), {instanceOf: HTTPError});
 	t.is(error.response.body, 'not found');
