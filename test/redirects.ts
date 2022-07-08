@@ -46,16 +46,14 @@ test('cannot redirect to UNIX protocol when UNIX sockets are enabled', withServe
 	server.get('/protocol', unixProtocol);
 	server.get('/hostname', unixHostname);
 
-	const gotUnixSocketsEnabled = got.extend({enableUnixSockets: true});
+	t.true(got.defaults.options.enableUnixSockets);
 
-	t.assert(gotUnixSocketsEnabled.defaults.options.enableUnixSockets);
-
-	await t.throwsAsync(gotUnixSocketsEnabled('protocol'), {
+	await t.throwsAsync(got('protocol'), {
 		message: 'Cannot redirect to UNIX socket',
 		instanceOf: RequestError,
 	});
 
-	await t.throwsAsync(gotUnixSocketsEnabled('hostname'), {
+	await t.throwsAsync(got('hostname'), {
 		message: 'Cannot redirect to UNIX socket',
 		instanceOf: RequestError,
 	});
@@ -65,14 +63,16 @@ test('cannot redirect to UNIX protocol when UNIX sockets are not enabled', withS
 	server.get('/protocol', unixProtocol);
 	server.get('/hostname', unixHostname);
 
-	t.assert(!got.defaults.options.enableUnixSockets);
+	const gotUnixSocketsDisabled = got.extend({enableUnixSockets: false});
 
-	await t.throwsAsync(got('protocol'), {
+	t.false(gotUnixSocketsDisabled.defaults.options.enableUnixSockets);
+
+	await t.throwsAsync(gotUnixSocketsDisabled('protocol'), {
 		message: 'Cannot redirect to UNIX socket',
 		instanceOf: RequestError,
 	});
 
-	await t.throwsAsync(got('hostname'), {
+	await t.throwsAsync(gotUnixSocketsDisabled('hostname'), {
 		message: 'Cannot redirect to UNIX socket',
 		instanceOf: RequestError,
 	});
