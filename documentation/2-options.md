@@ -926,8 +926,7 @@ For example, when sending a `POST` request and receiving a `302`, it will resend
 When it is enabled, requests can also be sent via [UNIX Domain Sockets](https://serverfault.com/questions/124517/what-is-the-difference-between-unix-sockets-and-tcp-ip-sockets).\
 Use the following URL scheme: `PROTOCOL://unix:SOCKET:PATH`
 
-Enable it with care if you accept untrusted user input for the URL.
-And make sure you do your own URL sanitizing.
+By default it is enabled, so make sure you do your own URL sanitizing if you accept untrusted user input for the URL.
 
 - `PROTOCOL` - `http` or `https`
 - `SOCKET` - Absolute path to a UNIX domain socket, for example: `/var/run/docker.sock`
@@ -936,12 +935,16 @@ And make sure you do your own URL sanitizing.
 ```js
 import got from 'got';
 
-const gotUnixSocketsEnabled = got.extend({enableUnixSockets: true});
-
-await gotUnixSocketsEnabled('http://unix:/var/run/docker.sock:/containers/json');
+await got('http://unix:/var/run/docker.sock:/containers/json');
 
 // Or without protocol (HTTP by default)
-await gotUnixSocketsEnabled('unix:/var/run/docker.sock:/containers/json');
+await got('unix:/var/run/docker.sock:/containers/json');
+
+// Disable Unix sockets
+const gotUnixSocketsDisabled = got.extend({enableUnixSockets: false});
+
+// Error!
+gotUnixSocketsDisabled('http://unix:/var/run/docker.sock:/containers/json')
 ```
 
 ## Methods
