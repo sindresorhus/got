@@ -921,15 +921,16 @@ For example, when sending a `POST` request and receiving a `302`, it will resend
 ### `enableUnixSockets`
 
 **Type: `boolean`**\
-**Default: `false`**
-
-Enable it with care if you accept untrusted user input for the URL.
+**Default: `true`**
 
 When it is enabled, requests can also be sent via [UNIX Domain Sockets](https://serverfault.com/questions/124517/what-is-the-difference-between-unix-sockets-and-tcp-ip-sockets).\
 Use the following URL scheme: `PROTOCOL://unix:SOCKET:PATH`
 
+Enable it with care if you accept untrusted user input for the URL.
+And make sure you do your own URL sanitizing.
+
 - `PROTOCOL` - `http` or `https`
-- `SOCKET` - Absolute path to a unix domain socket, for example: `/var/run/docker.sock`
+- `SOCKET` - Absolute path to a UNIX domain socket, for example: `/var/run/docker.sock`
 - `PATH` - Request path, for example: `/v2/keys`
 
 ```js
