@@ -86,14 +86,7 @@ if (process.platform !== 'win32') {
 
 		t.false(gotUnixSocketsDisabled.defaults.options.enableUnixSockets);
 
-		try {
-			await got('http://unix:');
-		} catch (error: any) {
-			t.regex(error.code, /ENOTFOUND|EAI_AGAIN/);
-			return;
-		}
-
-		// Fail if no error is thrown
-		t.fail();
+		const error = await t.throwsAsync<Error & {code: string}>(got('http://unix:'));
+		t.regex(error.code, /ENOTFOUND|EAI_AGAIN/);
 	});
 }
