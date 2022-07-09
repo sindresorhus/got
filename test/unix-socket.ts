@@ -76,7 +76,7 @@ if (process.platform !== 'win32') {
 		await t.throwsAsync(
 			gotUnixSocketsDisabled('unix:'),
 			{
-				code: 'ERR_UNSUPPORTED_PROTOCOL',
+				message: 'Using UNIX domain sockets but option `enableUnixSockets` is not enabled',
 			},
 		);
 	});
@@ -86,7 +86,11 @@ if (process.platform !== 'win32') {
 
 		t.false(gotUnixSocketsDisabled.defaults.options.enableUnixSockets);
 
-		const error = await t.throwsAsync<Error & {code: string}>(got('http://unix:'));
-		t.regex(error.code, /ENOTFOUND|EAI_AGAIN/);
+		await t.throwsAsync(
+			gotUnixSocketsDisabled('http://unix:'),
+			{
+				message: 'Using UNIX domain sockets but option `enableUnixSockets` is not enabled',
+			},
+		);
 	});
 }
