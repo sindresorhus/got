@@ -1402,7 +1402,7 @@ export default class Options {
 		this._internals.url = url;
 		decodeURI(urlString);
 
-		if (this._internals.enableUnixSockets && url.protocol === 'unix:') {
+		if (url.protocol === 'unix:') {
 			url.href = `http://unix${url.pathname}${url.search}`;
 		}
 
@@ -1428,7 +1428,11 @@ export default class Options {
 			this._internals.searchParams = undefined;
 		}
 
-		if (this._internals.enableUnixSockets && url.hostname === 'unix') {
+		if (url.hostname === 'unix') {
+			if (!this._internals.enableUnixSockets) {
+				throw new Error('Using UNIX domain sockets but option `enableUnixSockets` is not enabled');
+			}
+
 			const matches = /(?<socketPath>.+?):(?<path>.+)/.exec(`${url.pathname}${url.search}`);
 
 			if (matches?.groups) {
