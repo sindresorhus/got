@@ -97,3 +97,9 @@ When the request is aborted with `promise.cancel()`.
 **Code: `ERR_RETRYING`**
 
 Always triggers a new retry when thrown.
+
+### `AbortError`
+
+**Code: `ERR_ABORTED`**
+
+When the request is aborted with [AbortController.abort()](https://developer.mozilla.org/en-US/docs/Web/API/AbortController/abort).
