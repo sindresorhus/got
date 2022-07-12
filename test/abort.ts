@@ -82,7 +82,6 @@ if (globalThis.AbortController !== undefined) {
 		});
 
 		await t.throwsAsync(gotPromise, {
-			code: 'ERR_ABORTED',
 			message: 'This operation was aborted.',
 		});
 
@@ -116,7 +115,6 @@ if (globalThis.AbortController !== undefined) {
 		});
 
 		await t.throwsAsync(gotPromise, {
-			code: 'ERR_ABORTED',
 			message: 'This operation was aborted.',
 		});
 
@@ -143,7 +141,6 @@ if (globalThis.AbortController !== undefined) {
 		});
 
 		await t.throwsAsync(gotPromise, {
-			code: 'ERR_ABORTED',
 			message: 'This operation was aborted.',
 		});
 		await t.notThrowsAsync(promise, 'Request finished instead of aborting.');
@@ -168,7 +165,6 @@ if (globalThis.AbortController !== undefined) {
 		});
 
 		await t.throwsAsync(gotPromise, {
-			code: 'ERR_ABORTED',
 			message: 'This operation was aborted.',
 		});
 		await t.notThrowsAsync(promise, 'Request finished instead of aborting.');
@@ -193,7 +189,6 @@ if (globalThis.AbortController !== undefined) {
 		controller.abort();
 
 		await t.throwsAsync(gotPromise, {
-			code: 'ERR_ABORTED',
 			message: 'This operation was aborted.',
 		});
 		await t.notThrowsAsync(promise, 'Request finished instead of aborting.');
@@ -247,7 +242,6 @@ if (globalThis.AbortController !== undefined) {
 		}, 400);
 
 		await t.throwsAsync(promise, {
-			code: 'ERR_ABORTED',
 			message: 'This operation was aborted.',
 		});
 	});
@@ -267,7 +261,6 @@ if (globalThis.AbortController !== undefined) {
 		controller.abort();
 
 		await t.throwsAsync(promise, {
-			code: 'ERR_ABORTED',
 			message: 'This operation was aborted.',
 		});
 	});
