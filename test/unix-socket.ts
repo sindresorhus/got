@@ -68,4 +68,29 @@ if (process.platform !== 'win32') {
 		const url = format('http://unix:%s:%s', server.socketPath, '/');
 		t.is((await got(url)).body, 'ok');
 	});
+
+	test('`unix:` fails when UNIX sockets are not enabled', async t => {
+		const gotUnixSocketsDisabled = got.extend({enableUnixSockets: false});
+
+		t.false(gotUnixSocketsDisabled.defaults.options.enableUnixSockets);
+		await t.throwsAsync(
+			gotUnixSocketsDisabled('unix:'),
+			{
+				message: 'Using UNIX domain sockets but option `enableUnixSockets` is not enabled',
+			},
+		);
+	});
+
+	test('`http://unix:/` fails when UNIX sockets are not enabled', async t => {
+		const gotUnixSocketsDisabled = got.extend({enableUnixSockets: false});
+
+		t.false(gotUnixSocketsDisabled.defaults.options.enableUnixSockets);
+
+		await t.throwsAsync(
+			gotUnixSocketsDisabled('http://unix:'),
+			{
+				message: 'Using UNIX domain sockets but option `enableUnixSockets` is not enabled',
+			},
+		);
+	});
 }

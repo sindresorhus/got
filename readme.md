@@ -202,7 +202,7 @@ For advanced JSON usage, check out the [`parseJson`](documentation/2-options.md#
 
 - [x] [RFC compliant caching](documentation/cache.md)
 - [x] [Proxy support](documentation/tips.md#proxying)
-- [x] [Unix Domain Sockets](documentation/tips.md#unix)
+- [x] [Unix Domain Sockets](documentation/2-options.md#enableunixsockets)
 
 #### Integration
 

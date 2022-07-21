@@ -827,6 +827,7 @@ const defaultInternals: Options['_internals'] = {
 	},
 	setHost: true,
 	maxHeaderSize: undefined,
+	enableUnixSockets: true,
 };
 
 const cloneInternals = (internals: typeof defaultInternals) => {
@@ -1428,6 +1429,10 @@ export default class Options {
 		}
 
 		if (url.hostname === 'unix') {
+			if (!this._internals.enableUnixSockets) {
+				throw new Error('Using UNIX domain sockets but option `enableUnixSockets` is not enabled');
+			}
+
 			const matches = /(?<socketPath>.+?):(?<path>.+)/.exec(`${url.pathname}${url.search}`);
 
 			if (matches?.groups) {
@@ -2343,6 +2348,16 @@ export default class Options {
 		assert.any([is.number, is.undefined], value);
 
 		this._internals.maxHeaderSize = value;
+	}
+
+	get enableUnixSockets() {
+		return this._internals.enableUnixSockets;
+	}
+
+	set enableUnixSockets(value: boolean) {
+		assert.boolean(value);
+
+		this._internals.enableUnixSockets = value;
 	}
 
 	// eslint-disable-next-line @typescript-eslint/naming-convention
