@@ -7,11 +7,17 @@
 			"es2020"
 		],
 		// TODO: Remove this at some point.
-		"noPropertyAccessFromIndexSignature": false
+		"noPropertyAccessFromIndexSignature": false,
+		"isolatedModules": true
 	},
 	"include": [
 		"source",
 		"test",
 		"benchmark"
-	]
+	],
+	"ts-node": {
+		"transpileOnly": true,
+		"files": true,
+		"experimentalResolver": true
+	}
 }

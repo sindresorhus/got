@@ -92,21 +92,7 @@ for await (const commitData of pagination) {
 <a name="unix"></a>
 ### UNIX Domain Sockets
 
-Requests can also be sent via [UNIX Domain Sockets](https://serverfault.com/questions/124517/what-is-the-difference-between-unix-sockets-and-tcp-ip-sockets).\
-Use the following URL scheme: `PROTOCOL://unix:SOCKET:PATH`
-
-- `PROTOCOL` - `http` or `https`
-- `SOCKET` - Absolute path to a unix domain socket, for example: `/var/run/docker.sock`
-- `PATH` - Request path, for example: `/v2/keys`
-
-```js
-import got from 'got';
-
-await got('http://unix:/var/run/docker.sock:/containers/json');
-
-// Or without protocol (HTTP by default)
-await got('unix:/var/run/docker.sock:/containers/json');
-```
+See the [`enableUnixSockets` option](./2-options.md#enableunixsockets).
 
 ### Testing
 

@@ -91,6 +91,13 @@ export interface PlainResponse extends IncomingMessageWithTimings {
 	The result of the request.
 	*/
 	body?: unknown;
+
+	/**
+	Whether the response was successful.
+
+	__Note__: Got throws automatically when `response.ok` is `false` and `throwHttpErrors` is `true`.
+	*/
+	ok: boolean;
 }
 
 // For Promise support

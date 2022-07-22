@@ -11,7 +11,7 @@ import {pEvent} from 'p-event';
 import {Handler} from 'express';
 import {parse, Body, BodyEntryPath, BodyEntryRawValue, isBodyFile} from 'then-busboy';
 import {FormData as FormDataNode, Blob, File} from 'formdata-node';
-import {fileFromPath} from 'formdata-node/file-from-path';
+import {fileFromPath} from 'formdata-node/file-from-path'; // eslint-disable-line n/file-extension-in-import
 import getStream from 'get-stream';
 import FormData from 'form-data';
 import toReadableStream from 'to-readable-stream';
@@ -346,7 +346,7 @@ test('body - sends files with spec-compliant FormData', withServer, async (t, se
 	const fullPath = path.resolve('test/fixtures/ok');
 	const blobContent = 'Blob content';
 	const fileContent = 'File content';
-	const anotherFileContent = await fsPromises.readFile(fullPath, 'utf-8');
+	const anotherFileContent = await fsPromises.readFile(fullPath, 'utf8');
 	const expected = {
 		blob: blobContent,
 		file: fileContent,

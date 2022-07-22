@@ -10,7 +10,7 @@ import CacheableRequest from 'cacheable-request';
 import decompressResponse from 'decompress-response';
 import is from '@sindresorhus/is';
 import {buffer as getBuffer} from 'get-stream';
-import {FormDataEncoder, isFormDataLike} from 'form-data-encoder';
+import {FormDataEncoder, isFormData as isFormDataLike} from 'form-data-encoder';
 import type {ClientRequestWithTimings, Timings, IncomingMessageWithTimings} from '@szmarczak/http-timer';
 import type ResponseLike from 'responselike';
 import getBodySize from './utils/get-body-size.js';
@@ -23,6 +23,7 @@ import calculateRetryDelay from './calculate-retry-delay.js';
 import Options, {OptionsError, OptionsInit} from './options.js';
 import {isResponseOk, Response} from './response.js';
 import isClientRequest from './utils/is-client-request.js';
+import isUnixSocketURL from './utils/is-unix-socket-url.js';
 import {
 	RequestError,
 	ReadError,
@@ -56,6 +57,8 @@ export type GotEventFunction<T> =
 
 	@example
 	```
+	import got from 'got';
+
 	got.stream('https://github.com')
 		.on('request', request => setTimeout(() => request.destroy(), 50));
 	```
@@ -88,6 +91,8 @@ export type GotEventFunction<T> =
 
 	@example
 	```
+	import got from 'got';
+
 	const response = await got('https://sindresorhus.com')
 		.on('downloadProgress', progress => {
 			// Report download progress
@@ -138,6 +143,7 @@ type OptionsType = ConstructorParameters<typeof Options>[1];
 type DefaultsType = ConstructorParameters<typeof Options>[2];
 
 export default class Request extends Duplex implements RequestEvents<Request> {
+	// @ts-expect-error - Ignoring for now.
 	override ['constructor']: typeof Request;
 
 	_noPipe?: boolean;
@@ -641,6 +647,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		typedResponse.isFromCache = (this._nativeResponse as any).fromCache ?? false;
 		typedResponse.ip = this.ip;
 		typedResponse.retryCount = this.retryCount;
+		typedResponse.ok = isResponseOk(typedResponse);
 
 		this._isFromCache = typedResponse.isFromCache;
 
@@ -734,6 +741,11 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 				// We need this in order to support UTF-8
 				const redirectBuffer = Buffer.from(response.headers.location, 'binary').toString();
 				const redirectUrl = new URL(redirectBuffer, url);
+
+				if (!isUnixSocketURL(url as URL) && isUnixSocketURL(redirectUrl)) {
+					this._beforeError(new RequestError('Cannot redirect to UNIX socket', {}, this));
+					return;
+				}
 
 				// Redirecting to a different site, clear sensitive data.
 				if (redirectUrl.hostname !== (url as URL).hostname || redirectUrl.port !== (url as URL).port) {

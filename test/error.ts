@@ -47,6 +47,10 @@ test('catches dns errors', async t => {
 test('`options.body` form error message', async t => {
 	// @ts-expect-error Error tests
 	await t.throwsAsync(got.post('https://example.com', {body: Buffer.from('test'), form: ''}),
+		{
+			instanceOf: RequestError,
+			message: 'Expected value which is `predicate returns truthy for any value`, received values of types `string`.',
+		},
 		// {message: 'The `body`, `json` and `form` options are mutually exclusive'}
 	);
 });
@@ -71,7 +75,11 @@ test('default status message', withServer, async (t, server, got) => {
 		response.end('body');
 	});
 
-	const error = await t.throwsAsync<HTTPError>(got(''));
+	const error = await t.throwsAsync<HTTPError>(got(''),
+		{
+			instanceOf: HTTPError,
+			message: 'Response code 400 (Bad Request)',
+		});
 	t.is(error.response.statusCode, 400);
 	t.is(error.response.statusMessage, 'Bad Request');
 });
@@ -83,7 +91,11 @@ test('custom status message', withServer, async (t, server, got) => {
 		response.end('body');
 	});
 
-	const error = await t.throwsAsync<HTTPError>(got(''));
+	const error = await t.throwsAsync<HTTPError>(got(''),
+		{
+			instanceOf: HTTPError,
+			message: 'Response code 400 (Something Exploded)',
+		});
 	t.is(error.response.statusCode, 400);
 	t.is(error.response.statusMessage, 'Something Exploded');
 });
@@ -94,7 +106,11 @@ test('custom body', withServer, async (t, server, got) => {
 		response.end('not');
 	});
 
-	const error = await t.throwsAsync<HTTPError>(got(''));
+	const error = await t.throwsAsync<HTTPError>(got(''),
+		{
+			instanceOf: HTTPError,
+			message: 'Response code 404 (Not Found)',
+		});
 	t.is(error.response.statusCode, 404);
 	t.is(error.response.body, 'not');
 });
@@ -111,7 +127,11 @@ test('contains Got options', withServer, async (t, server, got) => {
 		},
 	} as const;
 
-	const error = await t.throwsAsync<HTTPError>(got(options));
+	const error = await t.throwsAsync<HTTPError>(got(options),
+		{
+			instanceOf: HTTPError,
+			message: 'Response code 404 (Not Found)',
+		});
 	t.is(error.response.statusCode, 404);
 	t.is(error.options.context.foo, options.context.foo);
 });
@@ -122,7 +142,11 @@ test('empty status message is overriden by the default one', withServer, async (
 		response.end('body');
 	});
 
-	const error = await t.throwsAsync<HTTPError>(got(''));
+	const error = await t.throwsAsync<HTTPError>(got(''),
+		{
+			instanceOf: HTTPError,
+			message: 'Response code 400 (Bad Request)',
+		});
 	t.is(error.response.statusCode, 400);
 	t.is(error.response.statusMessage, http.STATUS_CODES[400]);
 });
@@ -193,6 +217,7 @@ test('returns a stream even if normalization fails', async t => {
 	}) as unknown as Request;
 
 	await t.throwsAsync(getStream(stream), {
+		instanceOf: RequestError,
 		message: 'Expected value which is `Object`, received value of type `boolean`.',
 	});
 });
@@ -265,6 +290,7 @@ test('no uncaught parse errors', async t => {
 	});
 
 	await t.throwsAsync(got.head(`http://localhost:${(server.address() as net.AddressInfo).port}`), {
+		instanceOf: RequestError,
 		message: /^Parse Error/,
 	});
 
@@ -290,6 +316,7 @@ test('no uncaught parse errors #2', async t => {
 	});
 
 	await t.throwsAsync(got(`http://localhost:${(server.address() as net.AddressInfo).port}`), {
+		instanceOf: RequestError,
 		message: /^Parse Error/,
 	});
 

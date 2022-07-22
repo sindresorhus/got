@@ -102,6 +102,8 @@ export interface GotPaginate {
 
 	@example
 	```
+	import got from 'got';
+
 	const countLimit = 10;
 
 	const pagination = got.paginate('https://api.github.com/repos/sindresorhus/got/commits', {
@@ -125,6 +127,8 @@ export interface GotPaginate {
 
 	@example
 	```
+	import got from 'got';
+
 	const countLimit = 10;
 
 	const results = await got.paginate.all('https://api.github.com/repos/sindresorhus/got/commits', {
@@ -219,6 +223,8 @@ export interface Got extends Record<HTTPAlias, GotRequestFunction>, GotRequestFu
 
 	@example
 	```
+	import got from 'got';
+
 	const countLimit = 10;
 
 	const pagination = got.paginate('https://api.github.com/repos/sindresorhus/got/commits', {
@@ -252,6 +258,8 @@ export interface Got extends Record<HTTPAlias, GotRequestFunction>, GotRequestFu
 
 	@example
 	```
+	import got from 'got';
+
 	const client = got.extend({
 		prefixUrl: 'https://example.com',
 		headers: {

@@ -22,7 +22,7 @@ import is, {assert} from '@sindresorhus/is';
 import lowercaseKeys from 'lowercase-keys';
 import CacheableLookup from 'cacheable-lookup';
 import http2wrapper, {ClientHttp2Session} from 'http2-wrapper';
-import {isFormDataLike} from 'form-data-encoder';
+import {isFormData} from 'form-data-encoder';
 import type {FormDataLike} from 'form-data-encoder';
 import type CacheableRequest from 'cacheable-request';
 import type ResponseLike from 'responselike';
@@ -35,7 +35,7 @@ import type {Delays} from './timed-out.js';
 
 type Promisable<T> = T | Promise<T>;
 
-const [major, minor] = process.versions.node.split('.').map(v => Number(v)) as [number, number, number];
+const [major, minor] = process.versions.node.split('.').map(Number) as [number, number, number];
 
 export type DnsLookupIpVersion = undefined | 4 | 6;
 
@@ -828,6 +828,7 @@ const defaultInternals: Options['_internals'] = {
 	setHost: true,
 	maxHeaderSize: undefined,
 	signal: undefined,
+	enableUnixSockets: true,
 };
 
 const cloneInternals = (internals: typeof defaultInternals) => {
@@ -1305,7 +1306,7 @@ export default class Options {
 	}
 
 	set body(value: string | Buffer | Readable | Generator | AsyncGenerator | FormDataLike | undefined) {
-		assert.any([is.string, is.buffer, is.nodeStream, is.generator, is.asyncGenerator, isFormDataLike, is.undefined], value);
+		assert.any([is.string, is.buffer, is.nodeStream, is.generator, is.asyncGenerator, isFormData, is.undefined], value);
 
 		if (is.nodeStream(value)) {
 			assert.truthy(value.readable);
@@ -1429,6 +1430,10 @@ export default class Options {
 		}
 
 		if (url.hostname === 'unix') {
+			if (!this._internals.enableUnixSockets) {
+				throw new Error('Using UNIX domain sockets but option `enableUnixSockets` is not enabled');
+			}
+
 			const matches = /(?<socketPath>.+?):(?<path>.+)/.exec(`${url.pathname}${url.search}`);
 
 			if (matches?.groups) {
@@ -2374,6 +2379,16 @@ export default class Options {
 		assert.any([is.number, is.undefined], value);
 
 		this._internals.maxHeaderSize = value;
+	}
+
+	get enableUnixSockets() {
+		return this._internals.enableUnixSockets;
+	}
+
+	set enableUnixSockets(value: boolean) {
+		assert.boolean(value);
+
+		this._internals.enableUnixSockets = value;
 	}
 
 	// eslint-disable-next-line @typescript-eslint/naming-convention

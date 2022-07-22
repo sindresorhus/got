@@ -692,7 +692,7 @@ Only useful when the `cookieJar` option has been set.
 Defines if redirect responses should be followed automatically.
 
 #### **Note:**
-> - If a `303` is sent by the server in response to any request type (POST, DELETE, etc.), Got will automatically request the resource pointed to in the location header via GET.\
+> - If a `303` is sent by the server in response to any request type (POST, DELETE, etc.), Got will request the resource pointed to in the location header via GET.\
 >  This is in accordance with the [specification](https://tools.ietf.org/html/rfc7231#section-6.4.4).
 
 ```js
@@ -940,6 +940,37 @@ Optionally overrides the value of [`--max-http-header-size`](https://nodejs.org/
 By default, requests will not use [method rewriting](https://datatracker.ietf.org/doc/html/rfc7231#section-6.4).
 
 For example, when sending a `POST` request and receiving a `302`, it will resend the body to the new location using the same HTTP method (`POST` in this case). To rewrite the request as `GET`, set this option to `true`.
+
+### `enableUnixSockets`
+
+**Type: `boolean`**\
+**Default: `true`**
+
+When enabled, requests can also be sent via [UNIX Domain Sockets](https://serverfault.com/questions/124517/what-is-the-difference-between-unix-sockets-and-tcp-ip-sockets). Please note that in the upcoming major release (Got v13) this default will be changed to `false` for security reasons.
+
+> **Warning**
+> Make sure you do your own URL sanitizing if you accept untrusted user input for the URL.
+
+Use the following URL scheme: `PROTOCOL://unix:SOCKET:PATH`
+
+- `PROTOCOL` - `http` or `https`
+- `SOCKET` - Absolute path to a UNIX domain socket, for example: `/var/run/docker.sock`
+- `PATH` - Request path, for example: `/v2/keys`
+
+```js
+import got from 'got';
+
+await got('http://unix:/var/run/docker.sock:/containers/json', {enableUnixSockets: true});
+
+// Or without protocol (HTTP by default)
+await got('unix:/var/run/docker.sock:/containers/json', {enableUnixSockets: true});
+
+// Disable Unix sockets
+const gotUnixSocketsDisabled = got.extend({enableUnixSockets: false});
+
+// RequestError: Using UNIX domain sockets but option `enableUnixSockets` is not enabled
+await gotUnixSocketsDisabled('http://unix:/var/run/docker.sock:/containers/json');
+```
 
 ## Methods
 

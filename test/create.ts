@@ -341,7 +341,10 @@ test('async handlers can throw', async t => {
 		],
 	});
 
-	await t.throwsAsync(instance('https://example.com'), {message});
+	await t.throwsAsync(instance('https://example.com'), {
+		instanceOf: Error,
+		message,
+	});
 });
 
 test('setting dnsCache to true points to global cache', t => {

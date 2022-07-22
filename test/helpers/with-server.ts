@@ -2,7 +2,7 @@ import http from 'http';
 import {promisify} from 'util';
 import {ExecutionContext, Macro} from 'ava'; // eslint-disable-line ava/use-test
 import is from '@sindresorhus/is';
-import tempy from 'tempy';
+import {temporaryFile} from 'tempy';
 import FakeTimers from '@sinonjs/fake-timers';
 import got, {Got, ExtendOptions} from '../../source/index.js';
 import createHttpsTestServer, {ExtendedHttpsTestServer, HttpsServerOptions} from './create-https-test-server.js';
@@ -108,7 +108,7 @@ export const withHttpsServer = generateHttpsHook;
 
 // TODO: Remove this when `create-test-server` supports custom listen.
 export const withSocketServer: Macro<[RunTestWithSocket]> = async (t, run) => {
-	const socketPath = tempy.file({extension: 'socket'});
+	const socketPath = temporaryFile({extension: 'socket'});
 
 	const server = http.createServer((request, response) => {
 		server.emit(request.url!, request, response);

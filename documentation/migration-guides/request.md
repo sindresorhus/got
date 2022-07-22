@@ -46,7 +46,7 @@ These Got options are the same as with Request:
 - [`localAddress`](../2-options.md#localaddress)
 - [`headers`](../2-options.md#headers)
 - [`createConnection`](../2-options.md#createconnection)
-- [UNIX sockets](../tips.md#unixsockets): `http://unix:SOCKET:PATH`
+- [UNIX sockets](../2-options.md#enableunixsockets): `http://unix:SOCKET:PATH`
 
 The `time` option does not exist, assume [it's always true](../6-timeout.md).
 

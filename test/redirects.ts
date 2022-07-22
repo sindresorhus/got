@@ -2,7 +2,7 @@ import {Buffer} from 'buffer';
 import test from 'ava';
 import {Handler} from 'express';
 import nock from 'nock';
-import got, {MaxRedirectsError} from '../source/index.js';
+import got, {MaxRedirectsError, RequestError} from '../source/index.js';
 import withServer, {withHttpsServer} from './helpers/with-server.js';
 
 const reachedHandler: Handler = (_request, response) => {
@@ -28,13 +28,63 @@ const relativeHandler: Handler = (_request, response) => {
 	response.end();
 };
 
+const unixProtocol: Handler = (_request, response) => {
+	response.writeHead(302, {
+		location: 'unix:/var/run/docker.sock:/containers/json',
+	});
+	response.end();
+};
+
+const unixHostname: Handler = (_request, response) => {
+	response.writeHead(302, {
+		location: 'http://unix:/var/run/docker.sock:/containers/json',
+	});
+	response.end();
+};
+
+test('cannot redirect to UNIX protocol when UNIX sockets are enabled', withServer, async (t, server, got) => {
+	server.get('/protocol', unixProtocol);
+	server.get('/hostname', unixHostname);
+
+	t.true(got.defaults.options.enableUnixSockets);
+
+	await t.throwsAsync(got('protocol'), {
+		message: 'Cannot redirect to UNIX socket',
+		instanceOf: RequestError,
+	});
+
+	await t.throwsAsync(got('hostname'), {
+		message: 'Cannot redirect to UNIX socket',
+		instanceOf: RequestError,
+	});
+});
+
+test('cannot redirect to UNIX protocol when UNIX sockets are not enabled', withServer, async (t, server, got) => {
+	server.get('/protocol', unixProtocol);
+	server.get('/hostname', unixHostname);
+
+	const gotUnixSocketsDisabled = got.extend({enableUnixSockets: false});
+
+	t.false(gotUnixSocketsDisabled.defaults.options.enableUnixSockets);
+
+	await t.throwsAsync(gotUnixSocketsDisabled('protocol'), {
+		message: 'Cannot redirect to UNIX socket',
+		instanceOf: RequestError,
+	});
+
+	await t.throwsAsync(gotUnixSocketsDisabled('hostname'), {
+		message: 'Cannot redirect to UNIX socket',
+		instanceOf: RequestError,
+	});
+});
+
 test('follows redirect', withServer, async (t, server, got) => {
 	server.get('/', reachedHandler);
 	server.get('/finite', finiteHandler);
 
 	const {body, redirectUrls} = await got('finite');
 	t.is(body, 'reached');
-	t.deepEqual(redirectUrls.map(x => String(x)), [`${server.url}/`]);
+	t.deepEqual(redirectUrls.map(String), [`${server.url}/`]);
 });
 
 test('follows 307, 308 redirect', withServer, async (t, server, got) => {
@@ -84,7 +134,7 @@ test('throws on endless redirects - default behavior', withServer, async (t, ser
 
 	const error = await t.throwsAsync<MaxRedirectsError>(got(''), {message: 'Redirected 10 times. Aborting.'});
 
-	t.deepEqual(error.response.redirectUrls.map(x => String(x)), Array.from({length: 10}).fill(`${server.url}/`));
+	t.deepEqual(error.response.redirectUrls.map(String), Array.from({length: 10}).fill(`${server.url}/`));
 	t.is(error.code, 'ERR_TOO_MANY_REDIRECTS');
 });
 
@@ -98,7 +148,7 @@ test('custom `maxRedirects` option', withServer, async (t, server, got) => {
 
 	const error = await t.throwsAsync<MaxRedirectsError>(got('', {maxRedirects: 5}), {message: 'Redirected 5 times. Aborting.'});
 
-	t.deepEqual(error.response.redirectUrls.map(x => String(x)), Array.from({length: 5}).fill(`${server.url}/`));
+	t.deepEqual(error.response.redirectUrls.map(String), Array.from({length: 5}).fill(`${server.url}/`));
 	t.is(error.code, 'ERR_TOO_MANY_REDIRECTS');
 });
 

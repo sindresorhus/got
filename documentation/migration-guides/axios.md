@@ -24,7 +24,7 @@ We deeply care about readability, so we renamed these options:
 
 - `httpAgent` → [`agent.http`](../2-options.md#agent)
 - `httpsAgent` → [`agent.https`](../2-options.md#agent)
-- `socketPath` → [`url`](../tips.md#unix)
+- `socketPath` → [`url`](../2-options.md#enableunixsockets)
 - `responseEncoding` → [`encoding`](../2-options.md#encoding)
 - `auth.username` → [`username`](../2-options.md#username)
 - `auth.password` → [`password`](../2-options.md#password)

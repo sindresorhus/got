@@ -46,6 +46,72 @@
 		<br>
 		<br>
 		<br>
+		<a href="https://neverinstall.com/spaces/devtools?utm_source=github&utm_medium=sponsor&utm_campaign=sindre#gh-light-mode-only">
+			<div>
+				<img src="https://sindresorhus.com/assets/thanks/neverinstall-logo-light.svg" width="200" alt="neverinstall">
+			</div>
+			<br>
+			<b>All your favourite IDE's now available on the cloud</b>
+			<div>
+				<sub>
+				Neverinstall gives you an uninterrupted development experience and improved accessibility,
+				<br>
+				allowing you to code faster, better and on-the-go on your favourite IDEs like
+				<br>
+				Android Studio, VS Code, Jupyter and PyCharm using your browser.
+				</sub>
+			</div>
+		</a>
+		<a href="https://neverinstall.com/spaces/devtools?utm_source=github&utm_medium=sponsor&utm_campaign=sindre#gh-dark-mode-only">
+			<div>
+				<img src="https://sindresorhus.com/assets/thanks/neverinstall-logo-dark.svg" width="200" alt="neverinstall">
+			</div>
+			<br>
+			<b>All your favourite IDE's now available on the cloud</b>
+			<div>
+				<sub>
+				Neverinstall gives you an uninterrupted development experience and improved accessibility,
+				<br>
+				allowing you to code faster, better and on-the-go on your favourite IDEs like
+				<br>
+				Android Studio, VS Code, Jupyter and PyCharm using your browser.
+				</sub>
+			</div>
+		</a>
+		<br>
+		<br>
+		<br>
+		<a href="https://www.useanvil.com/?utm_source=sindresorhus#gh-light-mode-only">
+			<div>
+				<img src="https://sindresorhus.com/assets/thanks/anvil-logo-light.svg" width="200" alt="Anvil">
+			</div>
+			<br>
+			<b>Paperwork that makes the data work.</b>
+			<div>
+				<sub>
+				Easy APIs for paperwork. PDF generation, e-signature and embeddable no-code webforms.
+				<br>
+				The easiest way to build paperwork automation into your product.
+				</sub>
+			</div>
+		</a>
+		<a href="https://www.useanvil.com/?utm_source=sindresorhus#gh-dark-mode-only">
+			<div>
+				<img src="https://sindresorhus.com/assets/thanks/anvil-logo-dark.svg" width="200" alt="Anvil">
+			</div>
+			<br>
+			<b>Paperwork that makes the data work.</b>
+			<div>
+				<sub>
+				Easy APIs for paperwork. PDF generation, e-signature and embeddable no-code webforms.
+				<br>
+				The easiest way to build paperwork automation into your product.
+				</sub>
+			</div>
+		</a>
+		<br>
+		<br>
+		<br>
 		<br>
 	</p>
 	<br>
@@ -74,7 +140,7 @@ For browser usage, we recommend [Ky](https://github.com/sindresorhus/ky) by the 
 npm install got
 ```
 
-**Warning:** This package is native [ESM](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Modules) and no longer provides a CommonJS export. If your project uses CommonJS, you'll have to [convert to ESM](https://gist.github.com/sindresorhus/a39789f98801d908bbc7ff3ecc99d99c) or use the [dynamic `import()`](https://v8.dev/features/dynamic-import) function. Please don't open issues for questions regarding CommonJS / ESM. You can also use [Got v11](https://github.com/sindresorhus/got/tree/v11.8.3) instead which is pretty stable.
+**Warning:** This package is native [ESM](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Modules) and no longer provides a CommonJS export. If your project uses CommonJS, you'll have to [convert to ESM](https://gist.github.com/sindresorhus/a39789f98801d908bbc7ff3ecc99d99c) or use the [dynamic `import()`](https://v8.dev/features/dynamic-import) function. Please don't open issues for questions regarding CommonJS / ESM. You can also use [Got v11](https://github.com/sindresorhus/got/tree/v11.8.3) instead which is pretty stable. We will backport security fixes to v11 for the foreseeable future.
 
 ## Take a peek
 
@@ -102,7 +168,7 @@ For advanced JSON usage, check out the [`parseJson`](documentation/2-options.md#
 
 ## Highlights
 
-- [Used by 6K+ packages and 3M+ repos](https://github.com/sindresorhus/got/network/dependents)
+- [Used by 8K+ packages and 4M+ repos](https://github.com/sindresorhus/got/network/dependents)
 - [Actively maintained](https://github.com/sindresorhus/got/graphs/contributors)
 - [Trusted by many companies](#widely-used)
 
@@ -136,7 +202,7 @@ For advanced JSON usage, check out the [`parseJson`](documentation/2-options.md#
 
 - [x] [RFC compliant caching](documentation/cache.md)
 - [x] [Proxy support](documentation/tips.md#proxying)
-- [x] [Unix Domain Sockets](documentation/tips.md#unix)
+- [x] [Unix Domain Sockets](documentation/2-options.md#enableunixsockets)
 
 #### Integration
 

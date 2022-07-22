@@ -6,7 +6,7 @@ import delay from 'delay';
 import {pEvent} from 'p-event';
 import getStream from 'get-stream';
 import {Handler} from 'express';
-import got, {CancelError, TimeoutError} from '../source/index.js';
+import got, {CancelError, TimeoutError, RequestError} from '../source/index.js';
 import slowDataStream from './helpers/slow-data-stream.js';
 import {GlobalClock} from './helpers/types.js';
 import {ExtendedHttpTestServer} from './helpers/create-http-test-server.js';
@@ -180,7 +180,10 @@ test.serial('cancel immediately', withServerAndFakeTimers, async (t, server, got
 	const gotPromise = got('abort');
 	gotPromise.cancel();
 
-	await t.throwsAsync(gotPromise);
+	await t.throwsAsync(gotPromise, {
+		instanceOf: CancelError,
+		code: 'ERR_CANCELED',
+	});
 	await t.notThrowsAsync(promise, 'Request finished instead of aborting.');
 });
 
@@ -230,9 +233,8 @@ test.serial('throws on incomplete (canceled) response - promise', withServerAndF
 	);
 });
 
-// TODO: Use `fakeTimers` here
-test.serial('throws on incomplete (canceled) response - promise #2', withServer, async (t, server, got) => {
-	server.get('/', downloadHandler());
+test.serial('throws on incomplete (canceled) response - promise #2', withServerAndFakeTimers, async (t, server, got, clock) => {
+	server.get('/', downloadHandler(clock));
 
 	const promise = got('');
 
@@ -256,7 +258,10 @@ test.serial('throws on incomplete (canceled) response - stream', withServerAndFa
 		stream.destroy(new Error(errorString));
 	});
 
-	await t.throwsAsync(getStream(stream), {message: errorString});
+	await t.throwsAsync(getStream(stream), {
+		instanceOf: RequestError,
+		message: errorString,
+	});
 });
 
 test('throws when canceling cached request', withServer, async (t, server, got) => {
