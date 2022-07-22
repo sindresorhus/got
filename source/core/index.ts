@@ -31,6 +31,7 @@ import {
 	TimeoutError,
 	UploadError,
 	CacheError,
+	AbortError,
 } from './errors.js';
 import type {PlainResponse} from './response.js';
 import type {PromiseCookieJar, NativeRequestOptions, RetryOptions} from './options.js';
@@ -136,25 +137,6 @@ type UrlType = ConstructorParameters<typeof Options>[0];
 type OptionsType = ConstructorParameters<typeof Options>[1];
 type DefaultsType = ConstructorParameters<typeof Options>[2];
 
-/**
-TODO: Remove AbortError and just throw DOMException when targeting Node 18.
-*/
-// eslint-disable-next-line @typescript-eslint/naming-convention
-const getDOMException = (errorMessage: string) => globalThis.DOMException === undefined
-	? new Error(errorMessage)
-	: new DOMException(errorMessage);
-
-/**
-TODO: Remove below function and just 'reject(signal.reason)' when targeting Node 18.
-*/
-const getAbortedReason = (signal: AbortSignal) => {
-	const reason = (signal as any).reason === undefined
-		? getDOMException('This operation was aborted.')
-		: (signal as any).reason;
-
-	return reason instanceof Error ? reason : getDOMException(reason);
-};
-
 export default class Request extends Duplex implements RequestEvents<Request> {
 	override ['constructor']: typeof Request;
 
@@ -255,11 +237,11 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		}
 
 		if (this.options.signal?.aborted) {
-			this.destroy(getAbortedReason(this.options.signal));
+			this.destroy(new AbortError(this, (this.options.signal as any).reason));
 		}
 
 		this.options.signal?.addEventListener('abort', () => {
-			this.destroy(getAbortedReason(this.options.signal!));
+			this.destroy(new AbortError(this, (this.options.signal as any).reason));
 		});
 
 		// Important! If you replace `body` in a handler with another stream, make sure it's readable first.
