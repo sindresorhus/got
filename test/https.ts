@@ -462,9 +462,9 @@ test.skip('client certificate PFX', withHttpsServer(), async (t, server, got) =>
 	t.is(response.peerCertificate.issuer.CN, 'authority');
 });
 
-const ciphers = tls.getCiphers().map(cipher => cipher.toUpperCase());
+const ciphers = tls.getCiphers().map(cipher => cipher.toUpperCase()).filter(cipher => cipher.startsWith('TLS_')).slice(0, 3);
 
-test('https request with `ciphers` option', withHttpsServer({ciphers: `${ciphers[0]!}:${ciphers[1]!}:${ciphers[2]!}`}), async (t, server, got) => {
+test('https request with `ciphers` option', withHttpsServer({ciphers: ciphers.join(':')}), async (t, server, got) => {
 	server.get('/', (request, response) => {
 		response.json({
 			cipher: (request.socket as any).getCipher().name,
