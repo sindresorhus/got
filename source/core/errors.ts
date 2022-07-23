@@ -175,8 +175,9 @@ export class RetryError extends RequestError {
 An error to be thrown when the request is aborted by AbortController.
 */
 export class AbortError extends RequestError {
-	constructor(request: Request, error?: Error) {
-		super('This operation was aborted.', {...error, code: 'ERR_ABORTED'}, request);
+	constructor(request: Request) {
+		super('This operation was aborted.', {}, request);
+		this.code = 'ERR_ABORTED';
 		this.name = 'AbortError';
 	}
 }

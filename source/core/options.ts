@@ -1510,11 +1510,13 @@ export default class Options {
 	}, 100);
 	```
 	*/
-	get signal(): AbortSignal | undefined {
+	// TODO: Replace `any` with `AbortSignal` when targeting Node 16.
+	get signal(): any | undefined {
 		return this._internals.signal;
 	}
 
-	set signal(value: AbortSignal | undefined) {
+	// TODO: Replace `any` with `AbortSignal` when targeting Node 16.
+	set signal(value: any | undefined) {
 		assert.object(value);
 
 		this._internals.signal = value;
