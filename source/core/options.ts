@@ -827,6 +827,7 @@ const defaultInternals: Options['_internals'] = {
 	},
 	setHost: true,
 	maxHeaderSize: undefined,
+	signal: undefined,
 	enableUnixSockets: true,
 };
 
@@ -1487,6 +1488,38 @@ export default class Options {
 		} else {
 			this._internals.cookieJar = value;
 		}
+	}
+
+	/**
+	You can abort the `request` using [`AbortController`](https://developer.mozilla.org/en-US/docs/Web/API/AbortController).
+
+	*Requires Node.js 16 or later.*
+
+	@example
+	```
+	import got from 'got';
+
+	const abortController = new AbortController();
+
+	const request = got('https://httpbin.org/anything', {
+		signal: abortController.signal
+	});
+
+	setTimeout(() => {
+		abortController.abort();
+	}, 100);
+	```
+	*/
+	// TODO: Replace `any` with `AbortSignal` when targeting Node 16.
+	get signal(): any | undefined {
+		return this._internals.signal;
+	}
+
+	// TODO: Replace `any` with `AbortSignal` when targeting Node 16.
+	set signal(value: any | undefined) {
+		assert.object(value);
+
+		this._internals.signal = value;
 	}
 
 	/**
@@ -2488,5 +2521,6 @@ export default class Options {
 		Object.freeze(options.retry.methods);
 		Object.freeze(options.retry.statusCodes);
 		Object.freeze(options.context);
+		Object.freeze(options.signal);
 	}
 }

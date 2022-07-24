@@ -209,6 +209,28 @@ await got('https://httpbin.org/anything');
 #### **Note:**
 > - If you're passing an absolute URL as `url`, you need to set `prefixUrl` to an empty string.
 
+### `signal`
+
+**Type: [`AbortSignal`](https://developer.mozilla.org/en-US/docs/Web/API/AbortSignal)**
+
+You can abort the `request` using [`AbortController`](https://developer.mozilla.org/en-US/docs/Web/API/AbortController).
+
+*Requires Node.js 16 or later.*
+
+```js
+import got from 'got';
+
+const abortController = new AbortController();
+
+const request = got('https://httpbin.org/anything', {
+	signal: abortController.signal
+});
+
+setTimeout(() => {
+	abortController.abort();
+}, 100);
+```
+
 ### `method`
 
 **Type: `string`**\
