@@ -209,7 +209,6 @@ await got('https://httpbin.org/anything');
 #### **Note:**
 > - If you're passing an absolute URL as `url`, you need to set `prefixUrl` to an empty string.
 
-
 ### `signal`
 
 **Type: [`AbortSignal`](https://developer.mozilla.org/en-US/docs/Web/API/AbortSignal)**
