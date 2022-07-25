@@ -95,8 +95,8 @@ The events are the same as in [Stream API](3-streams.md#events).
 Removes listener registered with [`promise.on`](1-promise.md#promiseonevent-handler)
 
 ```js
+import {createReadStream} from 'node:fs';
 import got from 'got';
-import { createReadStream } from 'fs';
 
 const ongoingRequestPromise = got.post(uploadUrl, {
     body: createReadStream('sample.txt')
@@ -106,10 +106,10 @@ const eventListener = (progress: Progress) => {
     console.log(progress);
 };
 
-ongoingRequestPromise.on("uploadProgress", eventListener);
+ongoingRequestPromise.on('uploadProgress', eventListener);
 
 setTimeout(() => {
-    ongoingRequestPromise.off("uploadProgress", eventListener);
+    ongoingRequestPromise.off('uploadProgress', eventListener);
 }, 500);
 
 await ongoingRequestPromise;
