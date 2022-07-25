@@ -170,8 +170,8 @@ export default function asPromise<T>(firstRequest?: Request): CancelableRequest<
 		return promise;
 	};
 
-	promise.removeListener = (event: string, fn: (...args: any[]) => void) => {
-		emitter.removeListener(event, fn);
+	promise.off = (event: string, fn: (...args: any[]) => void) => {
+		emitter.off(event, fn);
 		return promise;
 	};
 

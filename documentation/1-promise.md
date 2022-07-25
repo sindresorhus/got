@@ -90,7 +90,7 @@ Whether the promise is canceled.
 
 The events are the same as in [Stream API](3-streams.md#events).
 
-### `promise.removeListener(event, handler)`
+### `promise.off(event, handler)`
 
 Removes listener registered with [`promise.on`](1-promise.md#promiseonevent-handler)
 
@@ -109,7 +109,7 @@ const eventListener = (progress: Progress) => {
 ongoingRequestPromise.on("uploadProgress", eventListener);
 
 setTimeout(() => {
-    ongoingRequestPromise.removeListener("uploadProgress", eventListener);
+    ongoingRequestPromise.off("uploadProgress", eventListener);
 }, 500);
 
 await ongoingRequestPromise;

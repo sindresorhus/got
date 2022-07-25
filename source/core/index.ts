@@ -117,7 +117,7 @@ export type GotEventFunction<T> =
 export interface RequestEvents<T> {
 	on: GotEventFunction<T>;
 	once: GotEventFunction<T>;
-	removeListener: GotEventFunction<T>;
+	off: GotEventFunction<T>;
 }
 
 export type CacheableRequestFunction = (

@@ -231,7 +231,7 @@ test('upload progress - no events when immediatly removed listener', withServer,
 
 	const promise = got.post('')
 		.on('uploadProgress', listener)
-		.removeListener('uploadProgress', listener);
+		.off('uploadProgress', listener);
 
 	await promise;
 
@@ -247,7 +247,7 @@ test('upload progress - one event when removed listener', withServer, async (t, 
 
 	const listener = (event: Progress) => {
 		events.push(event);
-		void promise.removeListener('uploadProgress', listener);
+		void promise.off('uploadProgress', listener);
 	};
 
 	void promise.on('uploadProgress', listener);
