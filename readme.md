@@ -144,7 +144,7 @@ npm install got
 
 ## Take a peek
 
-**A [quick start](documentation/quickstart.md) guide is available.**
+**A [quick start](documentation/quick-start.md) guide is available.**
 
 ### JSON mode
 
