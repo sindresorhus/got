@@ -92,7 +92,7 @@ The events are the same as in [Stream API](3-streams.md#events).
 
 ### `promise.removeListener(event, handler)`
 
-Remove listener registered with [`promise.on`](1-promise.md#promiseonevent-handler)
+Removes listener registered with [`promise.on`](1-promise.md#promiseonevent-handler)
 
 ```js
 import got from 'got';
@@ -110,5 +110,7 @@ ongoingRequestPromise.on("uploadProgress", eventListener);
 
 setTimeout(() => {
     ongoingRequestPromise.removeListener("uploadProgress", eventListener);
-}, 2000);
+}, 500);
+
+await ongoingRequestPromise;
 ```
