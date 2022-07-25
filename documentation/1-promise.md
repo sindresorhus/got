@@ -89,3 +89,26 @@ Whether the promise is canceled.
 ### `promise.on(event, handler)`
 
 The events are the same as in [Stream API](3-streams.md#events).
+
+### `promise.removeListener(event, handler)`
+
+Remove listener registered with [`promise.on`](1-promise.md#promiseonevent-handler)
+
+```js
+import got from 'got';
+import { createReadStream } from 'fs';
+
+const ongoingRequestPromise = got.post(uploadUrl, {
+    body: createReadStream('sample.txt')
+});
+
+const eventListener = (progress: Progress) => {
+    console.log(progress);
+};
+
+ongoingRequestPromise.on("uploadProgress", eventListener);
+
+setTimeout(() => {
+    ongoingRequestPromise.removeListener("uploadProgress", eventListener);
+}, 2000);
+```
