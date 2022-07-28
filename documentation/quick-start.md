@@ -104,9 +104,9 @@ const client = got.extend(options);
 export default client;
 ```
 
-Some noticable common options are:
+Some noticeable common options are:
 - [`searchParams`](2-options.md#searchparams): A query string object.
-- [`prefixUrl`](2-options.md#prefixurl): Prepended to query pathes. Pathes must be relative to prefix, i.e. not begin with a `/`.
+- [`prefixUrl`](2-options.md#prefixurl): Prepended to query paths. Paths must be relative to prefix, i.e. not begin with a `/`.
 - [`method`](2-options.md#method): The HTTP method name.
 - [`headers`](2-options.md#headers): Query headers.
 - [`json`](2-options.md#json): JSON body.
