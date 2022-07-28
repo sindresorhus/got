@@ -221,3 +221,44 @@ test('upload progress - no body', withServer, async (t, server, got) => {
 		},
 	]);
 });
+
+test('upload progress - no events when immediatly removed listener', withServer, async (t, server, got) => {
+	server.post('/', uploadEndpoint);
+
+	const events: Progress[] = [];
+
+	const listener = (event: Progress) => events.push(event);
+
+	const promise = got.post('')
+		.on('uploadProgress', listener)
+		.off('uploadProgress', listener);
+
+	await promise;
+
+	t.is(events.length, 0);
+});
+
+test('upload progress - one event when removed listener', withServer, async (t, server, got) => {
+	server.post('/', uploadEndpoint);
+
+	const events: Progress[] = [];
+
+	const promise = got.post('');
+
+	const listener = (event: Progress) => {
+		events.push(event);
+		void promise.off('uploadProgress', listener);
+	};
+
+	void promise.on('uploadProgress', listener);
+
+	await promise;
+
+	t.deepEqual(events, [
+		{
+			percent: 0,
+			transferred: 0,
+			total: undefined,
+		},
+	]);
+});

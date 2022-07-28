@@ -170,6 +170,11 @@ export default function asPromise<T>(firstRequest?: Request): CancelableRequest<
 		return promise;
 	};
 
+	promise.off = (event: string, fn: (...args: any[]) => void) => {
+		emitter.off(event, fn);
+		return promise;
+	};
+
 	const shortcut = <T>(responseType: Options['responseType']): CancelableRequest<T> => {
 		const newPromise = (async () => {
 			// Wait until downloading has ended
