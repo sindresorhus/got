@@ -64,9 +64,9 @@ The request body is passed in the options object. The `json` property will autom
 The [Stream API](3-streams.md) allows to leverage [Node.js Streams](https://nodejs.dev/learn/nodejs-streams) capabilities:
 
 ```js
-import got from 'got';
 import fs from 'node:fs';
 import {pipeline} from 'node:stream';
+import got from 'got';
 
 const url = 'https://httpbin.org/anything';
 
