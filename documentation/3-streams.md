@@ -22,6 +22,9 @@ This constructor takes the same arguments as the Got promise.
 **Note:**
 > If the `body`, `json` or `form` option is used, this stream will be read-only.
 
+**Note:**
+> When sending a `POST`, `PUT` or `PATCH` request with an empty request body, you need to explicitly provide an emtpy body, e.g. `body: Buffer.alloc(0)`, or the request will hang forever.
+
 ```js
 import {promisify} from 'node:util';
 import stream from 'node:stream';
