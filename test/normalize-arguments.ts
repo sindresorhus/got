@@ -1,5 +1,4 @@
 import {URL, URLSearchParams} from 'url';
-import {EventEmitter} from 'events';
 import test from 'ava';
 import got, {Options} from '../source/index.js';
 
