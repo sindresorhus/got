@@ -271,4 +271,17 @@ if (globalThis.AbortController !== undefined) {
 			message: 'This operation was aborted.',
 		});
 	});
+
+	test('support setting the signal as a default option', async t => {
+		const controller = new AbortController();
+
+		const got2 = got.extend({signal: controller.signal});
+		const p = got2('http://example.com', {signal: controller.signal});
+		controller.abort();
+
+		await t.throwsAsync(p, {
+			code: 'ERR_ABORTED',
+			message: 'This operation was aborted.',
+		});
+	});
 }
