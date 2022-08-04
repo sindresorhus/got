@@ -139,6 +139,8 @@ For advanced JSON usage, check out the [`parseJson`](documentation/2-options.md#
 
 ## Documentation
 
+By default, Got will retry on failure. To disable this option, set [`options.retry.limit`](documentation/7-retry.md#retry) to 0.
+
 #### Main API
 
 - [x] [Promise API](documentation/1-promise.md)
