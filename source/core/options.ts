@@ -2521,6 +2521,5 @@ export default class Options {
 		Object.freeze(options.retry.methods);
 		Object.freeze(options.retry.statusCodes);
 		Object.freeze(options.context);
-		Object.freeze(options.signal);
 	}
 }
