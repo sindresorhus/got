@@ -20,7 +20,7 @@ const url = 'https://httpbin.org/anything';
 const data = await got(url).json();
 ```
 
-The similar <code>[got.text](1-promise.md#promisetext)</code> method returns plain text.
+The similar <code>[promise.text](1-promise.md#promisetext)</code> method returns plain text.
 
 All `got` methods accept an options object for passing extra configuration, such as headers:
 
