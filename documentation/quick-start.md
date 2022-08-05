@@ -20,7 +20,7 @@ const url = 'https://httpbin.org/anything';
 const data = await got(url).json();
 ```
 
-The similar <code>[promise.text](1-promise.md#promisetext)</code> method returns plain text.
+The similar <code>[got.text](1-promise.md#promisetext)</code> method returns plain text.
 
 All `got` methods accept an options object for passing extra configuration, such as headers:
 
@@ -85,6 +85,8 @@ try {
 	await pipeline(gotStream, outStream);
 } catch (error) {
 	console.error(error);
+} finally {
+	await fileDescriptor.close();
 }
 ```
 
@@ -127,7 +129,7 @@ import got from 'got';
 try {
 	const data = await got.get('https://httpbin.org/status/404');
 } catch (error) {
-	console.error(error.message);
+	console.error(error.response.statusCode);
 }
 ```
 
@@ -137,7 +139,7 @@ import got from 'got';
 const stream = got.stream
 	.get('https://httpbin.org/status/404')
 	.once('error', error => {
-		console.error(error.message)
+		console.error(error.response.statusCode);
 	});
 ```
 
@@ -228,9 +230,9 @@ const client = got.extend(options);
 export default client;
 ```
 
-*Note that handlers are given as arrays*, thus multiple handlers can be given. See documentation for other possible [hooks](9-hooks.md#hooks-api).
+*Note that hooks are given as arrays*, thus multiple hooks can be given. See documentation for other possible [hooks](9-hooks.md#hooks-api).
 
 ### Going further
 
 There is a lot more to discover in the [documentation](../readme.md#documentation) and [tips](tips.md#tips).
-Among others, `Got` can handle [cookies](tips.md#cookies), [pagination](4-pagination.md#pagination-api), [cache](cache.md#cache). Read the documentation before implementing something that is already done by `Got` :innocent:.
+Among others, `Got` can handle [cookies](tips.md#cookies), [pagination](4-pagination.md#pagination-api), [cache](cache.md#cache). Please read the documentation before implementing something that is already done by `Got` :innocent:.
