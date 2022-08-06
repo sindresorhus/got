@@ -22,6 +22,10 @@ This constructor takes the same arguments as the Got promise.
 **Note:**
 > If the `body`, `json` or `form` option is used, this stream will be read-only.
 
+**Note:**
+> - While `got.post('https://example.com')` resolves, `got.stream.post('https://example.com')` will hang indefinitely until a body is provided.
+> - If there's no body on purpose, remember to `stream.end()` or set the body option to an empty string.
+
 ```js
 import {promisify} from 'node:util';
 import stream from 'node:stream';
@@ -30,17 +34,25 @@ import got from 'got';
 
 const pipeline = promisify(stream.pipeline);
 
+// This example streams the GET response of a URL to a file.
 await pipeline(
 	got.stream('https://sindresorhus.com'),
 	fs.createWriteStream('index.html')
 );
 
 // For POST, PUT, PATCH, and DELETE methods, `got.stream` returns a `stream.Writable`.
+// This example POSTs the contents of a file to a URL.
 await pipeline(
 	fs.createReadStream('index.html'),
 	got.stream.post('https://sindresorhus.com'),
 	new stream.PassThrough()
 );
+
+// In order to POST, PUT, PATCH, or DELETE without a request body, explicitly specify an empty body:
+await pipeline(
+	got.stream.post('https://sindresorhus.com', { body: '' }),
+	new stream.PassThrough()
+)
 ```
 
 Please note that `new stream.PassThrough()` is required in order to catch read errors.\
@@ -49,10 +61,6 @@ In other words, it would only check errors when writing.
 
 **Tip:**
 > - Avoid `from.pipe(to)` as it doesn't forward errors.
-
-**Note:**
-> - While `got.post('https://example.com')` resolves, `got.stream.post('https://example.com')` will hang indefinitely until a body is provided.
-> - If there's no body on purpose, remember to `stream.end()` or set the body option to an empty string.
 
 ### `stream.options`
 
