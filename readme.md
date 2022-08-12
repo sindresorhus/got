@@ -149,7 +149,7 @@ By default, Got will retry on failure. To disable this option, set [`options.ret
 - [x] [Pagination API](documentation/4-pagination.md)
 - [x] [Advanced HTTPS API](documentation/5-https.md)
 - [x] [HTTP/2 support](documentation/2-options.md#http2)
-- [x] [`Response` class](documentation/3-streams.md#response-1)
+- [x] [`Response` class](documentation/3-streams.md#response-2)
 
 #### Timeouts and retries
 
