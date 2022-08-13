@@ -802,13 +802,13 @@ const defaultInternals: Options['_internals'] = {
 			return JSON.parse(response.body as string);
 		},
 		paginate({response}) {
-			const rawLinkHeader = response.headers.link;
+			const rawLinkHeader = response.headers['link'];
 			if (typeof rawLinkHeader !== 'string' || rawLinkHeader.trim() === '') {
 				return false;
 			}
 
 			const parsed = parseLinkHeader(rawLinkHeader);
-			const next = parsed.find(entry => entry.parameters.rel === 'next' || entry.parameters.rel === '"next"');
+			const next = parsed.find(entry => entry.parameters['rel'] === 'next' || entry.parameters['rel'] === '"next"');
 
 			if (next) {
 				return {
@@ -2180,10 +2180,10 @@ export default class Options {
 	set cacheOptions(value: CacheOptions) {
 		assert.plainObject(value);
 
-		assert.any([is.boolean, is.undefined], value.shared);
-		assert.any([is.number, is.undefined], value.cacheHeuristic);
-		assert.any([is.number, is.undefined], value.immutableMinTimeToLive);
-		assert.any([is.boolean, is.undefined], value.ignoreCargoCult);
+		assert.any([is.boolean, is.undefined], value['shared']);
+		assert.any([is.number, is.undefined], value['cacheHeuristic']);
+		assert.any([is.number, is.undefined], value['immutableMinTimeToLive']);
+		assert.any([is.boolean, is.undefined], value['ignoreCargoCult']);
 
 		for (const key in value) {
 			if (!(key in this._internals.cacheOptions)) {
@@ -2208,23 +2208,23 @@ export default class Options {
 	set https(value: HttpsOptions) {
 		assert.plainObject(value);
 
-		assert.any([is.boolean, is.undefined], value.rejectUnauthorized);
-		assert.any([is.function_, is.undefined], value.checkServerIdentity);
-		assert.any([is.string, is.object, is.array, is.undefined], value.certificateAuthority);
-		assert.any([is.string, is.object, is.array, is.undefined], value.key);
-		assert.any([is.string, is.object, is.array, is.undefined], value.certificate);
-		assert.any([is.string, is.undefined], value.passphrase);
-		assert.any([is.string, is.buffer, is.array, is.undefined], value.pfx);
-		assert.any([is.array, is.undefined], value.alpnProtocols);
-		assert.any([is.string, is.undefined], value.ciphers);
-		assert.any([is.string, is.buffer, is.undefined], value.dhparam);
-		assert.any([is.string, is.undefined], value.signatureAlgorithms);
-		assert.any([is.string, is.undefined], value.minVersion);
-		assert.any([is.string, is.undefined], value.maxVersion);
-		assert.any([is.boolean, is.undefined], value.honorCipherOrder);
-		assert.any([is.number, is.undefined], value.tlsSessionLifetime);
-		assert.any([is.string, is.undefined], value.ecdhCurve);
-		assert.any([is.string, is.buffer, is.array, is.undefined], value.certificateRevocationLists);
+		assert.any([is.boolean, is.undefined], value['rejectUnauthorized']);
+		assert.any([is.function_, is.undefined], value['checkServerIdentity']);
+		assert.any([is.string, is.object, is.array, is.undefined], value['certificateAuthority']);
+		assert.any([is.string, is.object, is.array, is.undefined], value['key']);
+		assert.any([is.string, is.object, is.array, is.undefined], value['certificate']);
+		assert.any([is.string, is.undefined], value['passphrase']);
+		assert.any([is.string, is.buffer, is.array, is.undefined], value['pfx']);
+		assert.any([is.array, is.undefined], value['alpnProtocols']);
+		assert.any([is.string, is.undefined], value['ciphers']);
+		assert.any([is.string, is.buffer, is.undefined], value['dhparam']);
+		assert.any([is.string, is.undefined], value['signatureAlgorithms']);
+		assert.any([is.string, is.undefined], value['minVersion']);
+		assert.any([is.string, is.undefined], value['maxVersion']);
+		assert.any([is.boolean, is.undefined], value['honorCipherOrder']);
+		assert.any([is.number, is.undefined], value['tlsSessionLifetime']);
+		assert.any([is.string, is.undefined], value['ecdhCurve']);
+		assert.any([is.string, is.buffer, is.array, is.undefined], value['certificateRevocationLists']);
 
 		for (const key in value) {
 			if (!(key in this._internals.https)) {

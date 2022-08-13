@@ -133,7 +133,7 @@ test('contains Got options', withServer, async (t, server, got) => {
 			message: 'Response code 404 (Not Found)',
 		}))!;
 	t.is(error.response.statusCode, 404);
-	t.is(error.options.context.foo, options.context.foo);
+	t.is(error.options.context['foo'], options.context.foo);
 });
 
 test('empty status message is overriden by the default one', withServer, async (t, server, got) => {

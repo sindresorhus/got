@@ -146,7 +146,7 @@ test('sets correct headers', withServer, async (t, server, got) => {
 
 	const {body: headers} = await got.post<Record<string, string>>({responseType: 'json', json: {}});
 	t.is(headers['content-type'], 'application/json');
-	t.is(headers.accept, 'application/json');
+	t.is(headers['accept'], 'application/json');
 });
 
 test('doesn\'t throw on 204 No Content', withServer, async (t, server, got) => {
@@ -197,7 +197,7 @@ test('shortcuts result properly when retrying in afterResponse', withServer, asy
 	const proper = JSON.stringify({hello: 'world'});
 
 	server.get('/', (request, response) => {
-		if (request.headers.token === 'unicorn') {
+		if (request.headers['token'] === 'unicorn') {
 			response.end(proper);
 		} else {
 			response.statusCode = 401;

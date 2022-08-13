@@ -156,7 +156,7 @@ test('searchParams are not breaking redirects', withServer, async (t, server, go
 	server.get('/', reachedHandler);
 
 	server.get('/relativeSearchParam', (request, response) => {
-		t.is(request.query.bang, '1');
+		t.is(request.query['bang'], '1');
 
 		response.writeHead(302, {
 			location: '/',
@@ -326,7 +326,7 @@ test('redirect response contains UTF-8 with binary encoding', withServer, async 
 
 test('redirect response contains UTF-8 with URI encoding', withServer, async (t, server, got) => {
 	server.get('/', (request, response) => {
-		t.is(request.query.test, 'it’s ok');
+		t.is(request.query['test'], 'it’s ok');
 		response.end('reached');
 	});
 

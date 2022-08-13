@@ -6,8 +6,6 @@
 		"lib": [
 			"es2020"
 		],
-		// TODO: Remove this at some point.
-		"noPropertyAccessFromIndexSignature": false,
 		"isolatedModules": true
 	},
 	"include": [

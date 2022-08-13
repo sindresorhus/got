@@ -161,7 +161,7 @@ test('no socket hung up regression', withServer, async (t, server, got) => {
 	const token = 'helloworld';
 
 	server.get('/', (request, response) => {
-		if (request.headers.token !== token) {
+		if (request.headers['token'] !== token) {
 			response.statusCode = 401;
 			response.end();
 			return;

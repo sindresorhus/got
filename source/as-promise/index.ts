@@ -196,7 +196,7 @@ export default function asPromise<T>(firstRequest?: Request): CancelableRequest<
 			const {headers} = globalRequest.options;
 
 			if (!globalRequest.writableFinished && !('accept' in headers)) {
-				headers.accept = 'application/json';
+				headers['accept'] = 'application/json';
 			}
 		}
 

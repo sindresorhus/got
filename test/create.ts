@@ -80,7 +80,7 @@ test('custom headers (extend)', withServer, async (t, server, got) => {
 
 	const instance = got.extend(options);
 	const headers = await instance('').json<Headers>();
-	t.is(headers.unicorn, 'rainbow');
+	t.is(headers['unicorn'], 'rainbow');
 });
 
 test('extend overwrites arrays with a deep clone', t => {
@@ -109,7 +109,7 @@ test('custom endpoint with custom headers (extend)', withServer, async (t, serve
 
 	const instance = got.extend({headers: {unicorn: 'rainbow'}, prefixUrl: server.url});
 	const headers = await instance('').json<Headers>();
-	t.is(headers.unicorn, 'rainbow');
+	t.is(headers['unicorn'], 'rainbow');
 	t.not(headers['user-agent'], undefined);
 });
 
@@ -183,7 +183,7 @@ test.skip('defaults are cloned on instance creation', t => {
 		delete options.hooks!.beforeRequest![0];
 	});
 
-	t.not(options.context!.foo, instance.defaults.options.context.foo);
+	t.not(options.context!['foo'], instance.defaults.options.context['foo']);
 	t.not(options.hooks!.beforeRequest, instance.defaults.options.hooks.beforeRequest);
 });
 
@@ -281,13 +281,13 @@ test('extend with custom handlers', withServer, async (t, server, got) => {
 	const instance = got.extend({
 		handlers: [
 			(options, next) => {
-				options.headers.unicorn = 'rainbow';
+				options.headers['unicorn'] = 'rainbow';
 				return next(options);
 			},
 		],
 	});
 	const headers = await instance('').json<Headers>();
-	t.is(headers.unicorn, 'rainbow');
+	t.is(headers['unicorn'], 'rainbow');
 });
 
 test('extend with instances', t => {
@@ -300,7 +300,7 @@ test('extend with a chain', t => {
 	const a = got.extend({prefixUrl: 'https://example.com/'});
 	const b = got.extend(a, {headers: {foo: 'bar'}});
 	t.is(b.defaults.options.prefixUrl.toString(), 'https://example.com/');
-	t.is(b.defaults.options.headers.foo, 'bar');
+	t.is(b.defaults.options.headers['foo'], 'bar');
 });
 
 test('async handlers', withServer, async (t, server, got) => {
@@ -369,7 +369,7 @@ test('waits for handlers to finish', withServer, async (t, server, got) => {
 				return next(options);
 			},
 			async (options, next) => {
-				options.headers.foo = 'bar';
+				options.headers['foo'] = 'bar';
 				return next(options);
 			},
 		],

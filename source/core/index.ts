@@ -45,12 +45,12 @@ export interface Progress {
 	total?: number;
 }
 
-const supportsBrotli = is.string(process.versions.brotli);
+const supportsBrotli = is.string(process.versions['brotli']);
 
 const methodsWithoutBody: ReadonlySet<string> = new Set(['GET', 'HEAD']);
 
 export type GotEventFunction<T> =
-	/**
+/**
 	`request` event to get the request object of the request.
 
 	 __Tip__: You can use `request` event to abort requests.
@@ -62,17 +62,17 @@ export type GotEventFunction<T> =
 	got.stream('https://github.com')
 		.on('request', request => setTimeout(() => request.destroy(), 50));
 	```
-	*/
+ */
 	((name: 'request', listener: (request: ClientRequest) => void) => T)
 
 	/**
 	The `response` event to get the response object of the final request.
-	*/
+	 */
 	& (<R extends Response>(name: 'response', listener: (response: R) => void) => T)
 
 	/**
 	The `redirect` event to get the response object of a redirect. The second argument is options for the next request to the redirect location.
-	*/
+	 */
 	& (<R extends Response, N extends Options>(name: 'redirect', listener: (response: R, nextOptions: N) => void) => T)
 
 	/**
@@ -103,7 +103,7 @@ export type GotEventFunction<T> =
 
 	console.log(response);
 	```
-	*/
+	 */
 	& ((name: 'uploadProgress' | 'downloadProgress', listener: (progress: Progress) => void) => T)
 	/**
 	To enable retrying on a Got stream, it is required to have a `retry` handler attached.
@@ -111,7 +111,7 @@ export type GotEventFunction<T> =
 	When this event is emitted, you should reset the stream you were writing to and prepare the body again.
 
 	See `got.options.retry` for more information.
-	*/
+	 */
 	& ((name: 'retry', listener: (retryCount: number, error: RequestError) => void) => T);
 
 export interface RequestEvents<T> {
@@ -616,7 +616,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		}
 
 		if (options.responseType === 'json' && !('accept' in options.headers)) {
-			options.headers.accept = 'application/json';
+			options.headers['accept'] = 'application/json';
 		}
 
 		this._bodySize = Number(headers['content-length']) || undefined;
@@ -751,15 +751,18 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 				// Redirecting to a different site, clear sensitive data.
 				if (redirectUrl.hostname !== (url as URL).hostname || redirectUrl.port !== (url as URL).port) {
 					if ('host' in updatedOptions.headers) {
-						delete updatedOptions.headers.host;
+						// eslint-disable-next-line @typescript-eslint/no-dynamic-delete
+						delete updatedOptions.headers['host'];
 					}
 
 					if ('cookie' in updatedOptions.headers) {
-						delete updatedOptions.headers.cookie;
+						// eslint-disable-next-line @typescript-eslint/no-dynamic-delete
+						delete updatedOptions.headers['cookie'];
 					}
 
 					if ('authorization' in updatedOptions.headers) {
-						delete updatedOptions.headers.authorization;
+						// eslint-disable-next-line @typescript-eslint/no-dynamic-delete
+						delete updatedOptions.headers['authorization'];
 					}
 
 					if (updatedOptions.username || updatedOptions.password) {
@@ -1059,7 +1062,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 		if (username || password) {
 			const credentials = Buffer.from(`${username}:${password}`).toString('base64');
-			headers.authorization = `Basic ${credentials}`;
+			headers['authorization'] = `Basic ${credentials}`;
 		}
 
 		// Set cookies
@@ -1067,7 +1070,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			const cookieString: string = await cookieJar.getCookieString(options.url!.toString());
 
 			if (is.nonEmptyString(cookieString)) {
-				headers.cookie = cookieString;
+				headers['cookie'] = cookieString;
 			}
 		}
 

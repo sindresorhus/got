@@ -53,7 +53,7 @@ test('does not remove user headers from `url` object argument', withServer, asyn
 		},
 	})).body;
 
-	t.is(headers.accept, 'application/json');
+	t.is(headers['accept'], 'application/json');
 	t.is(headers['user-agent'], 'got (https://github.com/sindresorhus/got)');
 	t.is(headers['accept-encoding'], supportsBrotli ? 'gzip, deflate, br' : 'gzip, deflate');
 	t.is(headers['x-request-id'], 'value');
@@ -73,21 +73,21 @@ test('`accept` header with `json` option', withServer, async (t, server, got) =>
 	server.get('/', echoHeaders);
 
 	let headers = await got('').json<Headers>();
-	t.is(headers.accept, 'application/json');
+	t.is(headers['accept'], 'application/json');
 
 	headers = await got({
 		headers: {
 			accept: '',
 		},
 	}).json<Headers>();
-	t.is(headers.accept, '');
+	t.is(headers['accept'], '');
 });
 
 test('`host` header', withServer, async (t, server, got) => {
 	server.get('/', echoHeaders);
 
 	const headers = await got('').json<Headers>();
-	t.is(headers.host, `localhost:${server.port}`);
+	t.is(headers['host'], `localhost:${server.port}`);
 });
 
 test('transforms names to lowercase', withServer, async (t, server, got) => {
@@ -278,27 +278,27 @@ test('preserve port in host header if non-standard port', withServer, async (t, 
 	server.get('/', echoHeaders);
 
 	const body = await got('').json<Headers>();
-	t.is(body.host, `localhost:${server.port}`);
+	t.is(body['host'], `localhost:${server.port}`);
 });
 
 test('strip port in host header if explicit standard port (:80) & protocol (HTTP)', async t => {
 	const body = await got('http://httpbin.org:80/headers').json<{headers: Headers}>();
-	t.is(body.headers.Host, 'httpbin.org');
+	t.is(body.headers['Host'], 'httpbin.org');
 });
 
 test('strip port in host header if explicit standard port (:443) & protocol (HTTPS)', async t => {
 	const body = await got('https://httpbin.org:443/headers').json<{headers: Headers}>();
-	t.is(body.headers.Host, 'httpbin.org');
+	t.is(body.headers['Host'], 'httpbin.org');
 });
 
 test('strip port in host header if implicit standard port & protocol (HTTP)', async t => {
 	const body = await got('http://httpbin.org/headers').json<{headers: Headers}>();
-	t.is(body.headers.Host, 'httpbin.org');
+	t.is(body.headers['Host'], 'httpbin.org');
 });
 
 test('strip port in host header if implicit standard port & protocol (HTTPS)', async t => {
 	const body = await got('https://httpbin.org/headers').json<{headers: Headers}>();
-	t.is(body.headers.Host, 'httpbin.org');
+	t.is(body.headers['Host'], 'httpbin.org');
 });
 
 test('correctly encodes authorization header', withServer, async (t, server, got) => {

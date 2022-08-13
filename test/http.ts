@@ -15,7 +15,7 @@ import withServer from './helpers/with-server.js';
 const IPv6supported = Object.values(os.networkInterfaces()).some(iface => iface?.some(addr => !addr.internal && addr.family === 'IPv6'));
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
-const testIPv6 = (IPv6supported && process.env.TRAVIS_DIST !== 'bionic' && process.env.TRAVIS_DIST !== 'focal') ? test : test.skip;
+const testIPv6 = (IPv6supported && process.env['TRAVIS_DIST'] !== 'bionic' && process.env['TRAVIS_DIST'] !== 'focal') ? test : test.skip;
 
 const echoIp: Handler = (request, response) => {
 	const address = request.connection.remoteAddress;
@@ -137,7 +137,7 @@ test('`got.stream(...).setEncoding(...)` works', withServer, async (t, server, g
 
 test('`searchParams` option', withServer, async (t, server, got) => {
 	server.get('/', (request, response) => {
-		t.is(request.query.recent, 'true');
+		t.is(request.query['recent'], 'true');
 		response.end('recent');
 	});
 

@@ -15,7 +15,7 @@ test('merging instances', withServer, async (t, server) => {
 	const merged = instanceA.extend(instanceB);
 
 	const headers = await merged('').json<Headers>();
-	t.is(headers.unicorn, 'rainbow');
+	t.is(headers['unicorn'], 'rainbow');
 	t.not(headers['user-agent'], undefined);
 });
 
@@ -26,7 +26,7 @@ test('merges default handlers & custom handlers', withServer, async (t, server) 
 	const instanceB = got.extend({
 		handlers: [
 			(options, next) => {
-				options.headers.cat = 'meow';
+				options.headers['cat'] = 'meow';
 				return next(options);
 			},
 		],
@@ -34,8 +34,8 @@ test('merges default handlers & custom handlers', withServer, async (t, server) 
 	const merged = instanceA.extend(instanceB);
 
 	const headers = await merged(server.url).json<Headers>();
-	t.is(headers.unicorn, 'rainbow');
-	t.is(headers.cat, 'meow');
+	t.is(headers['unicorn'], 'rainbow');
+	t.is(headers['cat'], 'meow');
 });
 
 test('merging one group & one instance', withServer, async (t, server) => {
@@ -50,10 +50,10 @@ test('merging one group & one instance', withServer, async (t, server) => {
 	const doubleMerged = merged.extend(instanceD);
 
 	const headers = await doubleMerged(server.url).json<Headers>();
-	t.is(headers.dog, 'woof');
-	t.is(headers.cat, 'meow');
-	t.is(headers.bird, 'tweet');
-	t.is(headers.mouse, 'squeek');
+	t.is(headers['dog'], 'woof');
+	t.is(headers['cat'], 'meow');
+	t.is(headers['bird'], 'tweet');
+	t.is(headers['mouse'], 'squeek');
 });
 
 test('merging two groups of merged instances', withServer, async (t, server) => {
@@ -70,10 +70,10 @@ test('merging two groups of merged instances', withServer, async (t, server) => 
 	const merged = groupA.extend(groupB);
 
 	const headers = await merged(server.url).json<Headers>();
-	t.is(headers.dog, 'woof');
-	t.is(headers.cat, 'meow');
-	t.is(headers.bird, 'tweet');
-	t.is(headers.mouse, 'squeek');
+	t.is(headers['dog'], 'woof');
+	t.is(headers['cat'], 'meow');
+	t.is(headers['bird'], 'tweet');
+	t.is(headers['mouse'], 'squeek');
 });
 
 test('hooks are merged', t => {
@@ -82,14 +82,14 @@ test('hooks are merged', t => {
 	const instanceA = got.extend({hooks: {
 		beforeRequest: [
 			options => {
-				options.headers.dog = 'woof';
+				options.headers['dog'] = 'woof';
 			},
 		],
 	}});
 	const instanceB = got.extend({hooks: {
 		beforeRequest: [
 			options => {
-				options.headers.cat = 'meow';
+				options.headers['cat'] = 'meow';
 			},
 		],
 	}});

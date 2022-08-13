@@ -204,7 +204,7 @@ test('proxying headers works', withServer, async (t, server, got) => {
 	});
 
 	const {headers, body} = await got('proxy');
-	t.is(headers.unicorn, 'rainbow');
+	t.is(headers['unicorn'], 'rainbow');
 	t.is(headers['content-encoding'], undefined);
 	t.is(body, 'ok');
 });
@@ -239,7 +239,7 @@ test('skips proxying headers after server has sent them already', withServer, as
 	});
 
 	const {headers} = await got('proxy');
-	t.is(headers.unicorn, undefined);
+	t.is(headers['unicorn'], undefined);
 });
 
 test('proxies `content-encoding` header when `options.decompress` is false', withServer, async (t, server, got) => {
@@ -252,7 +252,7 @@ test('proxies `content-encoding` header when `options.decompress` is false', wit
 	});
 
 	const {headers} = await got('proxy', {decompress: false});
-	t.is(headers.unicorn, 'rainbow');
+	t.is(headers['unicorn'], 'rainbow');
 	t.is(headers['content-encoding'], 'gzip');
 });
 
@@ -356,7 +356,7 @@ test('pipe can send modified headers', withServer, async (t, server, got) => {
 	});
 
 	const {headers} = await got('');
-	t.is(headers.foo, 'boo');
+	t.is(headers['foo'], 'boo');
 });
 
 test('the socket is alive on a successful pipeline', withServer, async (t, server, got) => {

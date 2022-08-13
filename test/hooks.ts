@@ -28,7 +28,7 @@ const echoUrl: Handler = (request, response) => {
 };
 
 const retryEndpoint: Handler = (request, response) => {
-	if (request.headers.foo) {
+	if (request.headers['foo']) {
 		response.statusCode = 302;
 		response.setHeader('location', '/');
 		response.end();
@@ -60,12 +60,12 @@ test('async hooks', withServer, async (t, server, got) => {
 			beforeRequest: [
 				async options => {
 					await delay(100);
-					options.headers.foo = 'bar';
+					options.headers['foo'] = 'bar';
 				},
 			],
 		},
 	});
-	t.is(body.foo, 'bar');
+	t.is(body['foo'], 'bar');
 });
 
 test('catches init thrown errors', async t => {
@@ -307,7 +307,7 @@ test('init from defaults is called with options', withServer, async (t, server, 
 
 test('init allows modifications', withServer, async (t, server, got) => {
 	server.get('/', (request, response) => {
-		response.end(request.headers.foo);
+		response.end(request.headers['foo']);
 	});
 
 	const options = {
@@ -354,12 +354,12 @@ test('beforeRequest allows modifications', withServer, async (t, server, got) =>
 		hooks: {
 			beforeRequest: [
 				options => {
-					options.headers.foo = 'bar';
+					options.headers['foo'] = 'bar';
 				},
 			],
 		},
 	});
-	t.is(body.foo, 'bar');
+	t.is(body['foo'], 'bar');
 });
 
 test('returning HTTP response from a beforeRequest hook', withServer, async (t, server, got) => {
@@ -379,7 +379,7 @@ test('returning HTTP response from a beforeRequest hook', withServer, async (t, 
 	});
 
 	t.is(statusCode, 200);
-	t.is(headers.foo, 'bar');
+	t.is(headers['foo'], 'bar');
 	t.is(body, 'Hi!');
 });
 
@@ -414,12 +414,12 @@ test('beforeRedirect allows modifications', withServer, async (t, server, got) =
 		hooks: {
 			beforeRedirect: [
 				options => {
-					options.headers.foo = 'bar';
+					options.headers['foo'] = 'bar';
 				},
 			],
 		},
 	});
-	t.is(body.foo, 'bar');
+	t.is(body['foo'], 'bar');
 });
 
 test('beforeRetry is called with options', withServer, async (t, server) => {
@@ -461,17 +461,17 @@ test('beforeRetry allows modifications', withServer, async (t, server, got) => {
 		hooks: {
 			beforeRetry: [
 				({options}) => {
-					options.headers.foo = 'bar';
+					options.headers['foo'] = 'bar';
 				},
 			],
 		},
 	});
-	t.is(body.foo, 'bar');
+	t.is(body['foo'], 'bar');
 });
 
 test('beforeRetry allows stream body if different from original', withServer, async (t, server, got) => {
 	server.post('/retry', async (request, response) => {
-		if (request.headers.foo) {
+		if (request.headers['foo']) {
 			response.send('test');
 		} else {
 			response.statusCode = 500;
@@ -497,7 +497,7 @@ test('beforeRetry allows stream body if different from original', withServer, as
 					const form = generateBody();
 					options.body = form;
 					options.headers['content-type'] = `multipart/form-data; boundary=${form.getBoundary()}`;
-					options.headers.foo = 'bar';
+					options.headers['foo'] = 'bar';
 				},
 			],
 		},
@@ -537,12 +537,12 @@ test('afterResponse allows modifications', withServer, async (t, server, got) =>
 			],
 		},
 	});
-	t.is(body.hello, 'world');
+	t.is(body['hello'], 'world');
 });
 
 test('afterResponse allows to retry', withServer, async (t, server, got) => {
 	server.get('/', (request, response) => {
-		if (request.headers.token !== 'unicorn') {
+		if (request.headers['token'] !== 'unicorn') {
 			response.statusCode = 401;
 		}
 
@@ -571,7 +571,7 @@ test('afterResponse allows to retry', withServer, async (t, server, got) => {
 
 test('afterResponse allows to retry without losing the port', withServer, async (t, server) => {
 	server.get('/', (request, response) => {
-		if (request.headers.token !== 'unicorn') {
+		if (request.headers['token'] !== 'unicorn') {
 			response.statusCode = 401;
 		}
 
@@ -634,7 +634,7 @@ test('cancelling the request after retrying in a afterResponse hook', withServer
 
 test('afterResponse allows to retry - `beforeRetry` hook', withServer, async (t, server, got) => {
 	server.get('/', (request, response) => {
-		if (request.headers.token !== 'unicorn') {
+		if (request.headers['token'] !== 'unicorn') {
 			response.statusCode = 401;
 		}
 
@@ -672,7 +672,7 @@ test('afterResponse allows to retry - `beforeRetry` hook', withServer, async (t,
 
 test('no infinity loop when retrying on afterResponse', withServer, async (t, server, got) => {
 	server.get('/', (request, response) => {
-		if (request.headers.token !== 'unicorn') {
+		if (request.headers['token'] !== 'unicorn') {
 			response.statusCode = 401;
 		}
 
@@ -981,7 +981,7 @@ test('hooks are not duplicated', withServer, async (t, _server, got) => {
 
 test('async afterResponse allows to retry with allowGetBody and json payload', withServer, async (t, server, got) => {
 	server.get('/', (request, response) => {
-		if (request.headers.token !== 'unicorn') {
+		if (request.headers['token'] !== 'unicorn') {
 			response.statusCode = 401;
 		}
 
