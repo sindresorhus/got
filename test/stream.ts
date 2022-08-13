@@ -151,7 +151,7 @@ test('has error event #2', async t => {
 	try {
 		await pEvent(stream, 'response');
 	} catch (error: any) {
-		t.regex(error.code, /ENOTFOUND|EAI_AGAIN/);
+		t.regex(error!.code, /ENOTFOUND|EAI_AGAIN/);
 	}
 });
 
@@ -339,8 +339,8 @@ test('errors have body', withServer, async (t, server, got) => {
 		},
 	})));
 
-	t.is(error.message, 'snap');
-	t.is(error.response?.body, 'yay');
+	t.is(error!.message, 'snap');
+	t.is(error!.response?.body, 'yay');
 });
 
 test('pipe can send modified headers', withServer, async (t, server, got) => {

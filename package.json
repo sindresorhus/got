@@ -73,7 +73,7 @@
 		"@types/sinon": "^10.0.11",
 		"@types/sinonjs__fake-timers": "^8.1.1",
 		"@types/tough-cookie": "^4.0.1",
-		"ava": "^3.15.0",
+		"ava": "^4.3.1",
 		"axios": "^0.27.2",
 		"benchmark": "^2.1.4",
 		"bluebird": "^3.7.2",
@@ -110,10 +110,6 @@
 			"test/*"
 		],
 		"timeout": "1m",
-		"nonSemVerExperiments": {
-			"nextGenConfig": true,
-			"configurableModuleFormat": true
-		},
 		"extensions": {
 			"ts": "module"
 		},

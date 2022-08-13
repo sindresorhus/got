@@ -88,7 +88,7 @@ test('throws an error on invalid response type', withServer, async (t, server, g
 
 	// @ts-expect-error Error tests
 	const error = await t.throwsAsync<ParseError>(got({responseType: 'invalid'}));
-	t.is(error.message, 'Invalid `responseType` option: invalid');
+	t.is(error!.message, 'Invalid `responseType` option: invalid');
 });
 
 test('wraps parsing errors', withServer, async (t, server, got) => {
@@ -96,7 +96,7 @@ test('wraps parsing errors', withServer, async (t, server, got) => {
 		response.end('/');
 	});
 
-	const error = await t.throwsAsync<ParseError>(got({responseType: 'json'}), {instanceOf: ParseError});
+	const error = (await t.throwsAsync<ParseError>(got({responseType: 'json'}), {instanceOf: ParseError}))!;
 	t.true(error.message.includes((error.options.url as URL).hostname));
 	t.is((error.options.url as URL).pathname, '/');
 	t.is(error.code, 'ERR_BODY_PARSE_FAILURE');
@@ -109,7 +109,7 @@ test('parses non-200 responses', withServer, async (t, server, got) => {
 	});
 
 	const error = await t.throwsAsync<HTTPError>(got({responseType: 'json', retry: {limit: 0}}), {instanceOf: HTTPError});
-	t.deepEqual(error.response.body, dog);
+	t.deepEqual(error!.response.body, dog);
 });
 
 test('ignores errors on invalid non-200 responses', withServer, async (t, server, got) => {
@@ -118,10 +118,10 @@ test('ignores errors on invalid non-200 responses', withServer, async (t, server
 		response.end('Internal error');
 	});
 
-	const error = await t.throwsAsync<HTTPError>(got({responseType: 'json', retry: {limit: 0}}), {
+	const error = (await t.throwsAsync<HTTPError>(got({responseType: 'json', retry: {limit: 0}}), {
 		instanceOf: HTTPError,
 		message: 'Response code 500 (Internal Server Error)',
-	});
+	}))!;
 
 	t.is(error.response.body, 'Internal error');
 	t.is((error.options.url as URL).pathname, '/');
@@ -132,7 +132,7 @@ test('parse errors have `response` property', withServer, async (t, server, got)
 		response.end('/');
 	});
 
-	const error = await t.throwsAsync<ParseError>(got({responseType: 'json'}), {instanceOf: ParseError});
+	const error = (await t.throwsAsync<ParseError>(got({responseType: 'json'}), {instanceOf: ParseError}))!;
 
 	t.is(error.response.statusCode, 200);
 	t.is(error.response.body, '/');

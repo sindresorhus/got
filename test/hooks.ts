@@ -1,7 +1,7 @@
 import {Buffer} from 'buffer';
 import {URL} from 'url';
 import {Agent as HttpAgent} from 'http';
-import test, {Constructor} from 'ava';
+import test from 'ava';
 import nock from 'nock';
 import getStream from 'get-stream';
 import FormData from 'form-data';
@@ -44,7 +44,7 @@ const redirectEndpoint: Handler = (_request, response) => {
 	response.end();
 };
 
-const createAgentSpy = <T extends HttpAgent>(AgentClass: Constructor): {agent: T; spy: sinon.SinonSpy} => {
+const createAgentSpy = <T extends HttpAgent>(AgentClass: (new (...args: any[]) => any)): {agent: T; spy: sinon.SinonSpy} => {
 	const agent: T = new AgentClass({keepAlive: true});
 	// eslint-disable-next-line import/no-named-as-default-member
 	const spy = sinon.spy(agent, 'addRequest' as any);
@@ -1333,7 +1333,7 @@ test('can retry without an agent', withServer, async (t, server, got) => {
 		}
 	}
 
-	const {response} = await t.throwsAsync<HTTPError>(got({
+	const {response} = (await t.throwsAsync<HTTPError>(got({
 		agent: {
 			http: new MyAgent(),
 		},
@@ -1347,7 +1347,7 @@ test('can retry without an agent', withServer, async (t, server, got) => {
 		retry: {
 			calculateDelay: ({computedValue}) => computedValue ? 1 : 0,
 		},
-	}));
+	})))!;
 
 	t.is(response.retryCount, 2);
 	t.is(counter, 1);

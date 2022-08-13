@@ -21,10 +21,10 @@ test('`url` is required', async t => {
 	);
 
 	const firstError = await t.throwsAsync(got(''));
-	invalidUrl(t, firstError, '');
+	invalidUrl(t, firstError!, '');
 
 	const secondError = await t.throwsAsync(got({url: ''}));
-	invalidUrl(t, secondError, '');
+	invalidUrl(t, secondError!, '');
 });
 
 test('`url` should be utf-8 encoded', async t => {
@@ -54,7 +54,7 @@ test('throws if the url option is missing', async t => {
 
 test('throws an error if the protocol is not specified', async t => {
 	const error = await t.throwsAsync(got('example.com'));
-	invalidUrl(t, error, 'example.com');
+	invalidUrl(t, error!, 'example.com');
 });
 
 test('properly encodes query string', withServer, async (t, server, got) => {
@@ -297,15 +297,15 @@ test('`prefixUrl` can be changed if the URL contains the old one', withServer, a
 
 test('throws if the `searchParams` value is invalid', async t => {
 	await t.throwsAsync(got('https://example.com', {
-		searchParams: {
-			// @ts-expect-error Error tests
-			foo: [],
-		},
-	}),
-	{
-		instanceOf: RequestError,
-		message: 'Expected value which is `predicate returns truthy for any value`, received values of types `Array`.',
-	});
+			searchParams: {
+				// @ts-expect-error Error tests
+				foo: [],
+			},
+		}),
+		{
+			instanceOf: RequestError,
+			message: 'Expected value which is `predicate returns truthy for any value`, received values of types `Array`.',
+		});
 });
 
 test.failing('`context` option is enumerable', withServer, async (t, server, got) => {
@@ -440,13 +440,13 @@ test('throws on leading slashes', async t => {
 
 test('throws on invalid `dnsCache` option', async t => {
 	await t.throwsAsync(got('https://example.com', {
-		// @ts-expect-error Error tests
-		dnsCache: 123,
-	}),
-	{
-		instanceOf: RequestError,
-		message: 'Expected value which is `predicate returns truthy for any value`, received values of types `number`.',
-	});
+			// @ts-expect-error Error tests
+			dnsCache: 123,
+		}),
+		{
+			instanceOf: RequestError,
+			message: 'Expected value which is `predicate returns truthy for any value`, received values of types `number`.',
+		});
 });
 
 test('throws on invalid `agent` option', async t => {
@@ -639,10 +639,10 @@ test('throws on too large noise', t => {
 });
 
 test('options have url even if some are invalid', async t => {
-	const error = await t.throwsAsync<RequestError>(got('https://example.com', {
+	const error = (await t.throwsAsync<RequestError>(got('https://example.com', {
 		// @ts-expect-error Testing purposes
 		invalid: true,
-	}));
+	})))!;
 
 	t.is((error.options.url as URL).href, 'https://example.com/');
 	t.true(error instanceof Error);
@@ -659,10 +659,10 @@ test('options have url even if some are invalid - got.extend', async t => {
 	});
 
 	await t.throwsAsync(instance('https://example.com', {
-		// @ts-expect-error Testing purposes
-		invalid: true,
-	}),
-	{
-		instanceOf: Error,
-	});
+			// @ts-expect-error Testing purposes
+			invalid: true,
+		}),
+		{
+			instanceOf: Error,
+		});
 });

@@ -743,11 +743,11 @@ test('timeouts are emitted ASAP', async t => {
 		},
 	}), {instanceOf: TimeoutError});
 
-	t.true(error.timings.phases.total! < (timeout + marginOfError));
+	t.true(error!.timings.phases.total! < (timeout + marginOfError));
 });
 
 test('http2 timeout', async t => {
-	const error = await t.throwsAsync<RequestError>(got('https://123.123.123.123', {
+	const error = (await t.throwsAsync<RequestError>(got('https://123.123.123.123', {
 		timeout: {
 			request: 1,
 		},
@@ -755,7 +755,7 @@ test('http2 timeout', async t => {
 		retry: {
 			calculateDelay: ({computedValue}) => computedValue ? 1 : 0,
 		},
-	}));
+	})))!;
 
 	t.true(error.code === 'ETIMEDOUT' || error.code === 'EUNSUPPORTED', error.stack);
 });
