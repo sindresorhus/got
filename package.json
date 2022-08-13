@@ -61,7 +61,7 @@
 	},
 	"devDependencies": {
 		"@hapi/bourne": "^3.0.0",
-		"@sindresorhus/tsconfig": "^2.0.0",
+		"@sindresorhus/tsconfig": "^3.0.1",
 		"@sinonjs/fake-timers": "^9.1.1",
 		"@types/benchmark": "^2.1.1",
 		"@types/express": "^4.17.13",
