@@ -297,15 +297,15 @@ test('`prefixUrl` can be changed if the URL contains the old one', withServer, a
 
 test('throws if the `searchParams` value is invalid', async t => {
 	await t.throwsAsync(got('https://example.com', {
-			searchParams: {
-				// @ts-expect-error Error tests
-				foo: [],
-			},
-		}),
-		{
-			instanceOf: RequestError,
-			message: 'Expected value which is `predicate returns truthy for any value`, received values of types `Array`.',
-		});
+		searchParams: {
+			// @ts-expect-error Error tests
+			foo: [],
+		},
+	}),
+	{
+		instanceOf: RequestError,
+		message: 'Expected value which is `predicate returns truthy for any value`, received values of types `Array`.',
+	});
 });
 
 test.failing('`context` option is enumerable', withServer, async (t, server, got) => {
@@ -440,13 +440,13 @@ test('throws on leading slashes', async t => {
 
 test('throws on invalid `dnsCache` option', async t => {
 	await t.throwsAsync(got('https://example.com', {
-			// @ts-expect-error Error tests
-			dnsCache: 123,
-		}),
-		{
-			instanceOf: RequestError,
-			message: 'Expected value which is `predicate returns truthy for any value`, received values of types `number`.',
-		});
+		// @ts-expect-error Error tests
+		dnsCache: 123,
+	}),
+	{
+		instanceOf: RequestError,
+		message: 'Expected value which is `predicate returns truthy for any value`, received values of types `number`.',
+	});
 });
 
 test('throws on invalid `agent` option', async t => {
@@ -659,10 +659,10 @@ test('options have url even if some are invalid - got.extend', async t => {
 	});
 
 	await t.throwsAsync(instance('https://example.com', {
-			// @ts-expect-error Testing purposes
-			invalid: true,
-		}),
-		{
-			instanceOf: Error,
-		});
+		// @ts-expect-error Testing purposes
+		invalid: true,
+	}),
+	{
+		instanceOf: Error,
+	});
 });

@@ -47,7 +47,7 @@ test('works on timeout', withServer, async (t, server, got) => {
 			socket: socketTimeout,
 		},
 		request(...args: [
-				string | URL | http.RequestOptions,
+			string | URL | http.RequestOptions,
 			(http.RequestOptions | ((response: http.IncomingMessage) => void))?,
 			((response: http.IncomingMessage) => void)?,
 		]) {
