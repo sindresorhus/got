@@ -2,6 +2,7 @@
 	"extends": "@sindresorhus/tsconfig",
 	"compilerOptions": {
 		"outDir": "dist",
+	  	// TODO: Remove when Node16/next resolution issues with packages form-data-encoder, cacheable-lookup and then-busboy are solved
 	    "moduleResolution": "Node",
 	    "lib": [
 		  "es2020"
