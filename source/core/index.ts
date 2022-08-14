@@ -50,7 +50,7 @@ const supportsBrotli = is.string(process.versions['brotli']);
 const methodsWithoutBody: ReadonlySet<string> = new Set(['GET', 'HEAD']);
 
 export type GotEventFunction<T> =
-/**
+	/**
 	`request` event to get the request object of the request.
 
 	 __Tip__: You can use `request` event to abort requests.
@@ -62,17 +62,17 @@ export type GotEventFunction<T> =
 	got.stream('https://github.com')
 		.on('request', request => setTimeout(() => request.destroy(), 50));
 	```
- */
+    */
 	((name: 'request', listener: (request: ClientRequest) => void) => T)
 
 	/**
 	The `response` event to get the response object of the final request.
-	 */
+	*/
 	& (<R extends Response>(name: 'response', listener: (response: R) => void) => T)
 
 	/**
 	The `redirect` event to get the response object of a redirect. The second argument is options for the next request to the redirect location.
-	 */
+	*/
 	& (<R extends Response, N extends Options>(name: 'redirect', listener: (response: R, nextOptions: N) => void) => T)
 
 	/**
@@ -103,7 +103,7 @@ export type GotEventFunction<T> =
 
 	console.log(response);
 	```
-	 */
+	*/
 	& ((name: 'uploadProgress' | 'downloadProgress', listener: (progress: Progress) => void) => T)
 	/**
 	To enable retrying on a Got stream, it is required to have a `retry` handler attached.
@@ -111,7 +111,7 @@ export type GotEventFunction<T> =
 	When this event is emitted, you should reset the stream you were writing to and prepare the body again.
 
 	See `got.options.retry` for more information.
-	 */
+	*/
 	& ((name: 'retry', listener: (retryCount: number, error: RequestError) => void) => T);
 
 export interface RequestEvents<T> {
