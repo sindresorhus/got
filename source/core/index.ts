@@ -62,7 +62,7 @@ export type GotEventFunction<T> =
 	got.stream('https://github.com')
 		.on('request', request => setTimeout(() => request.destroy(), 50));
 	```
-    */
+	*/
 	((name: 'request', listener: (request: ClientRequest) => void) => T)
 
 	/**
