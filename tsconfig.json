@@ -15,6 +15,9 @@
 		"benchmark"
 	],
 	"ts-node": {
+		"compilerOptions": {
+			"module": "ES2020"
+		},
 		"transpileOnly": true,
 		"files": true,
 		"experimentalResolver": true
