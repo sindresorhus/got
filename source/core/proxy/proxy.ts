@@ -1,6 +1,6 @@
-import type { URL } from 'url';
-import { auto } from 'http2-wrapper';
-import type { Agents } from '../options';
+import type {URL} from 'url';
+import {auto} from 'http2-wrapper';
+import type {Agents} from '../options';
 
 import {
 	HttpsProxyAgent,
@@ -10,7 +10,7 @@ import {
 	Http2OverHttp2,
 	Http2OverHttps,
 	Http2OverHttp,
-} from './agents';
+} from './agents.js';
 
 export async function getProxyAgents(parsedProxyUrl: URL, rejectUnauthorized: boolean) {
 	// Sockets must not be reused, the proxy server may rotate upstream proxies as well.

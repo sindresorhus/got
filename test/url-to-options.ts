@@ -41,7 +41,6 @@ test('converts URL to options', t => {
 });
 
 test('converts IPv6 URL to options', t => {
-	// eslint-disable-next-line @typescript-eslint/naming-convention
 	const IPv6Url = 'https://[2001:cdba::3257:9652]:443/';
 	const parsedUrl = new URL(IPv6Url);
 	const options = urlToOptions(parsedUrl);

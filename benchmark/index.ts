@@ -32,7 +32,6 @@ const gotOptions: OptionsInit & {isStream?: true} = {
 const normalizedGotOptions = new Options(url, gotOptions);
 
 const requestOptions = {
-	// eslint-disable-next-line @typescript-eslint/naming-convention
 	strictSSL: false,
 	agent: httpsAgent,
 };

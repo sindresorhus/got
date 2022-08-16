@@ -1,9 +1,10 @@
-import { URL } from 'url';
-import { isIPv6 } from 'net';
-import tls, { ConnectionOptions } from 'tls';
-import http, { ClientRequest, ClientRequestArgs } from 'http';
+import {URL} from 'url';
+import {Buffer} from 'buffer';
+import {isIPv6} from 'net';
+import tls, {ConnectionOptions} from 'tls';
+import http, {ClientRequest, ClientRequestArgs} from 'http';
 import https from 'https';
-import { proxies } from 'http2-wrapper';
+import {proxies} from 'http2-wrapper';
 
 export const {
 	HttpOverHttp2,
@@ -18,7 +19,7 @@ interface AgentOptions extends http.AgentOptions {
 	disableConnect?: boolean;
 }
 
-const initialize = (self: http.Agent & { proxy: URL }, options: AgentOptions) => {
+const initialize = (self: http.Agent & {proxy: URL}, options: AgentOptions) => {
 	self.proxy = typeof options.proxy === 'string' ? new URL(options.proxy) : options.proxy;
 };
 
@@ -68,10 +69,13 @@ export class HttpRegularProxyAgent extends http.Agent {
 			return;
 		}
 
-		let hostport = `${options.host}:${options.port}`;
+		const host = options.host!;
+		const port = options.port!;
 
-		if (isIPv6(options.host!)) {
-			hostport = `[${options.host}]:${options.port}`;
+		let hostport = `${host}:${port}`;
+
+		if (isIPv6(host)) {
+			hostport = `[${host}]:${port}`;
 		}
 
 		const url = new URL(`${request.protocol}//${hostport}${request.path}`);
@@ -112,10 +116,13 @@ export class HttpProxyAgent extends http.Agent {
 
 		const fn = this.proxy.protocol === 'https:' ? https.request : http.request;
 
-		let hostport = `${options.host}:${options.port}`;
+		const host = options.host!;
+		const port = options.port!;
 
-		if (isIPv6(options.host!)) {
-			hostport = `[${options.host}]:${options.port}`;
+		let hostport = `${host}:${port}`;
+
+		if (isIPv6(host)) {
+			hostport = `[${host}]:${port}`;
 		}
 
 		const headers: Record<string, string> = {
@@ -141,7 +148,7 @@ export class HttpProxyAgent extends http.Agent {
 			if (head.length > 0 || response.statusCode !== 200) {
 				socket.destroy();
 
-				const error = new Error(`The proxy responded with ${response.statusCode}: ${head.toString()}`);
+				const error = new Error(`The proxy responded with ${response.statusCode!}: ${head.toString()}`);
 				callback(error);
 				return;
 			}
@@ -157,7 +164,7 @@ export class HttpProxyAgent extends http.Agent {
 			callback(undefined, socket);
 		});
 
-		connectRequest.once('error', (error) => {
+		connectRequest.once('error', error => {
 			callback(error);
 		});
 

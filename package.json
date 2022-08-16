@@ -152,6 +152,7 @@
 			"@typescript-eslint/no-unsafe-call": "off",
 			"@typescript-eslint/await-thenable": "off",
 			"@typescript-eslint/no-redundant-type-constituents": "off",
+			"@typescript-eslint/naming-convention": "off",
 			"no-lone-blocks": "off",
 			"unicorn/no-await-expression-member": "off"
 		}

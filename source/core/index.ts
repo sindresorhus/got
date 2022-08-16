@@ -34,7 +34,7 @@ import {
 	CacheError,
 	AbortError,
 } from './errors.js';
-import { getProxyAgents } from './proxy/proxy.js';
+import {getProxyAgents} from './proxy/proxy.js';
 import type {PlainResponse} from './response.js';
 import type {PromiseCookieJar, NativeRequestOptions, RetryOptions} from './options.js';
 
@@ -547,7 +547,6 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		const {headers} = options;
 
 		const isForm = !is.undefined(options.form);
-		// eslint-disable-next-line @typescript-eslint/naming-convention
 		const isJSON = !is.undefined(options.json);
 		const isBody = !is.undefined(options.body);
 		const cannotHaveBody = methodsWithoutBody.has(options.method) && !(options.method === 'GET' && options.allowGetBody);

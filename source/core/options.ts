@@ -2433,7 +2433,6 @@ export default class Options {
 		this._internals.enableUnixSockets = value;
 	}
 
-	// eslint-disable-next-line @typescript-eslint/naming-convention
 	toJSON() {
 		return {...this._internals};
 	}
@@ -2468,7 +2467,6 @@ export default class Options {
 			...this._unixOptions,
 
 			// HTTPS options
-			// eslint-disable-next-line @typescript-eslint/naming-convention
 			ALPNProtocols: https.alpnProtocols,
 			ca: https.certificateAuthority,
 			cert: https.certificate,
