@@ -6,175 +6,175 @@ import https from 'https';
 import { proxies } from 'http2-wrapper';
 
 export const {
-    HttpOverHttp2,
-    HttpsOverHttp2,
-    Http2OverHttp2,
-    Http2OverHttps,
-    Http2OverHttp,
+	HttpOverHttp2,
+	HttpsOverHttp2,
+	Http2OverHttp2,
+	Http2OverHttps,
+	Http2OverHttp,
 } = proxies;
 
 interface AgentOptions extends http.AgentOptions {
-    proxy: string | URL;
-    disableConnect?: boolean;
+	proxy: string | URL;
+	disableConnect?: boolean;
 }
 
 const initialize = (self: http.Agent & { proxy: URL }, options: AgentOptions) => {
-    self.proxy = typeof options.proxy === 'string' ? new URL(options.proxy) : options.proxy;
+	self.proxy = typeof options.proxy === 'string' ? new URL(options.proxy) : options.proxy;
 };
 
 const getPort = (url: URL): number => {
-    if (url.port !== '') {
-        return Number(url.port);
-    }
+	if (url.port !== '') {
+		return Number(url.port);
+	}
 
-    if (url.protocol === 'http:') {
-        return 80;
-    }
+	if (url.protocol === 'http:') {
+		return 80;
+	}
 
-    if (url.protocol === 'https:') {
-        return 443;
-    }
+	if (url.protocol === 'https:') {
+		return 443;
+	}
 
-    throw new Error(`Unexpected protocol: ${url.protocol}`);
+	throw new Error(`Unexpected protocol: ${url.protocol}`);
 };
 
 const getBasic = (url: URL): string => {
-    let basic = '';
-    if (url.username || url.password) {
-        const username = decodeURIComponent(url.username);
-        const password = decodeURIComponent(url.password);
+	let basic = '';
+	if (url.username || url.password) {
+		const username = decodeURIComponent(url.username);
+		const password = decodeURIComponent(url.password);
 
-        basic = Buffer.from(`${username}:${password}`).toString('base64');
+		basic = Buffer.from(`${username}:${password}`).toString('base64');
 
-        return `Basic ${basic}`;
-    }
+		return `Basic ${basic}`;
+	}
 
-    return basic;
+	return basic;
 };
 
 export class HttpRegularProxyAgent extends http.Agent {
-    proxy!: URL;
+	proxy!: URL;
 
-    constructor(options: AgentOptions) {
-        super(options);
+	constructor(options: AgentOptions) {
+		super(options);
 
-        initialize(this, options);
-    }
+		initialize(this, options);
+	}
 
-    addRequest(request: ClientRequest, options: ClientRequestArgs): void {
-        if (options.socketPath) {
-            // @ts-expect-error @types/node is missing types
-            super.addRequest(request, options);
-            return;
-        }
+	addRequest(request: ClientRequest, options: ClientRequestArgs): void {
+		if (options.socketPath) {
+			// @ts-expect-error @types/node is missing types
+			super.addRequest(request, options);
+			return;
+		}
 
-        let hostport = `${options.host}:${options.port}`;
+		let hostport = `${options.host}:${options.port}`;
 
-        if (isIPv6(options.host!)) {
-            hostport = `[${options.host}]:${options.port}`;
-        }
+		if (isIPv6(options.host!)) {
+			hostport = `[${options.host}]:${options.port}`;
+		}
 
-        const url = new URL(`${request.protocol}//${hostport}${request.path}`);
+		const url = new URL(`${request.protocol}//${hostport}${request.path}`);
 
-        options = {
-            ...options,
-            host: this.proxy.hostname,
-            port: getPort(this.proxy),
-        };
+		options = {
+			...options,
+			host: this.proxy.hostname,
+			port: getPort(this.proxy),
+		};
 
-        request.path = url.href;
+		request.path = url.href;
 
-        const basic = getBasic(this.proxy);
-        if (basic) {
-            request.setHeader('proxy-authorization', basic);
-        }
+		const basic = getBasic(this.proxy);
+		if (basic) {
+			request.setHeader('proxy-authorization', basic);
+		}
 
-        // @ts-expect-error @types/node is missing types
-        super.addRequest(request, options);
-    }
+		// @ts-expect-error @types/node is missing types
+		super.addRequest(request, options);
+	}
 }
 
 export class HttpProxyAgent extends http.Agent {
-    proxy!: URL;
+	proxy!: URL;
 
-    constructor(options: AgentOptions) {
-        super(options);
+	constructor(options: AgentOptions) {
+		super(options);
 
-        initialize(this, options);
-    }
+		initialize(this, options);
+	}
 
-    createConnection(options: ConnectionOptions, callback: (error: Error | undefined, socket?: unknown) => void): void {
-        if (options.path) {
-            // @ts-expect-error @types/node is missing types
-            super.createConnection(options, callback);
-            return;
-        }
+	createConnection(options: ConnectionOptions, callback: (error: Error | undefined, socket?: unknown) => void): void {
+		if (options.path) {
+			// @ts-expect-error @types/node is missing types
+			super.createConnection(options, callback);
+			return;
+		}
 
-        const fn = this.proxy.protocol === 'https:' ? https.request : http.request;
+		const fn = this.proxy.protocol === 'https:' ? https.request : http.request;
 
-        let hostport = `${options.host}:${options.port}`;
+		let hostport = `${options.host}:${options.port}`;
 
-        if (isIPv6(options.host!)) {
-            hostport = `[${options.host}]:${options.port}`;
-        }
+		if (isIPv6(options.host!)) {
+			hostport = `[${options.host}]:${options.port}`;
+		}
 
-        const headers: Record<string, string> = {
-            host: hostport,
-        };
+		const headers: Record<string, string> = {
+			host: hostport,
+		};
 
-        const basic = getBasic(this.proxy);
-        if (basic) {
-            headers['proxy-authorization'] = basic;
-            headers.authorization = basic;
-        }
+		const basic = getBasic(this.proxy);
+		if (basic) {
+			headers['proxy-authorization'] = basic;
+			headers.authorization = basic;
+		}
 
-        const connectRequest = fn(this.proxy, {
-            method: 'CONNECT',
-            headers,
-            path: hostport,
-            agent: false,
+		const connectRequest = fn(this.proxy, {
+			method: 'CONNECT',
+			headers,
+			path: hostport,
+			agent: false,
 
-            rejectUnauthorized: false,
-        });
+			rejectUnauthorized: false,
+		});
 
-        connectRequest.once('connect', (response, socket, head) => {
-            if (head.length > 0 || response.statusCode !== 200) {
-                socket.destroy();
+		connectRequest.once('connect', (response, socket, head) => {
+			if (head.length > 0 || response.statusCode !== 200) {
+				socket.destroy();
 
-                const error = new Error(`The proxy responded with ${response.statusCode}: ${head.toString()}`);
-                callback(error);
-                return;
-            }
+				const error = new Error(`The proxy responded with ${response.statusCode}: ${head.toString()}`);
+				callback(error);
+				return;
+			}
 
-            if ((options as any).protocol === 'https:') {
-                callback(undefined, tls.connect({
-                    ...options,
-                    socket,
-                }));
-                return;
-            }
+			if ((options as any).protocol === 'https:') {
+				callback(undefined, tls.connect({
+					...options,
+					socket,
+				}));
+				return;
+			}
 
-            callback(undefined, socket);
-        });
+			callback(undefined, socket);
+		});
 
-        connectRequest.once('error', (error) => {
-            callback(error);
-        });
+		connectRequest.once('error', (error) => {
+			callback(error);
+		});
 
-        connectRequest.end();
-    }
+		connectRequest.end();
+	}
 }
 
 export class HttpsProxyAgent extends https.Agent {
-    proxy!: URL;
+	proxy!: URL;
 
-    constructor(options: AgentOptions) {
-        super(options);
+	constructor(options: AgentOptions) {
+		super(options);
 
-        initialize(this, options);
-    }
+		initialize(this, options);
+	}
 
-    createConnection(options: ConnectionOptions, callback: (error: Error | undefined, socket?: unknown) => void): void {
-        HttpProxyAgent.prototype.createConnection.call(this, options, callback);
-    }
+	createConnection(options: ConnectionOptions, callback: (error: Error | undefined, socket?: unknown) => void): void {
+		HttpProxyAgent.prototype.createConnection.call(this, options, callback);
+	}
 }
