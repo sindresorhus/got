@@ -671,6 +671,11 @@ const getGlobalDnsCache = (): CacheableLookup => {
 	return globalDnsCache;
 };
 
+export interface ProxyOptions {
+	url: URL;
+	rejectUnauthorized: boolean;
+}
+
 const defaultInternals: Options['_internals'] = {
 	request: undefined,
 	agent: {
@@ -678,6 +683,7 @@ const defaultInternals: Options['_internals'] = {
 		https: undefined,
 		http2: undefined,
 	},
+	proxy: undefined,
 	h2session: undefined,
 	decompress: true,
 	timeout: {
@@ -840,6 +846,7 @@ const cloneInternals = (internals: typeof defaultInternals) => {
 		cacheOptions: {...internals.cacheOptions},
 		https: {...internals.https},
 		agent: {...internals.agent},
+		proxy: internals.proxy ? {...internals.proxy} : undefined,
 		headers: {...internals.headers},
 		retry: {
 			...retry,
@@ -1149,6 +1156,39 @@ export default class Options {
 			Object.assign(this._internals.agent, value);
 		} else {
 			this._internals.agent = {...value};
+		}
+	}
+
+	get proxy(): ProxyOptions | undefined {
+		return this._internals.proxy;
+	}
+
+	set proxy(value: ProxyOptions | undefined) {
+		assert.any([is.plainObject, is.undefined], value);
+
+		if (value) {
+			assert.urlInstance(value.url);
+			assert.boolean(value.rejectUnauthorized);
+		} else {
+			this._internals.proxy = undefined;
+			return;
+		}
+
+		const proxy = new URL(value.url.toString());
+
+		if (proxy.protocol !== 'http:' && proxy.protocol !== 'https:') {
+			throw new Error(`Unsupported proxy protocol: '${proxy.protocol}'. Expected 'http:' or 'https:'.`);
+		}
+
+		value = {
+			...value,
+			url: proxy,
+		};
+
+		if (this._merging && this._internals.proxy) {
+			Object.assign(this._internals.proxy, value);
+		} else {
+			this._internals.proxy = {...value};
 		}
 	}
 
@@ -2514,6 +2554,7 @@ export default class Options {
 		Object.freeze(options.https);
 		Object.freeze(options.cacheOptions);
 		Object.freeze(options.agent);
+		Object.freeze(options.proxy);
 		Object.freeze(options.headers);
 		Object.freeze(options.timeout);
 		Object.freeze(options.retry);

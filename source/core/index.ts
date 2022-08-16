@@ -34,6 +34,7 @@ import {
 	CacheError,
 	AbortError,
 } from './errors.js';
+import { getProxyAgents } from './proxy/proxy.js';
 import type {PlainResponse} from './response.js';
 import type {PromiseCookieJar, NativeRequestOptions, RetryOptions} from './options.js';
 
@@ -1099,6 +1100,21 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			(this._requestOptions as any)._request = request;
 			(this._requestOptions as any).cache = options.cache;
 			this._prepareCache(options.cache as CacheableRequest.StorageAdapter);
+		}
+
+		if (options.proxy) {
+			if (options.agent.http !== undefined || options.agent.https !== undefined || options.agent.http2 !== undefined) {
+				throw new Error('All agents must be set to `undefined` when using `proxyOptions`');
+			}
+
+			const agents = await getProxyAgents(options.proxy.url, options.proxy.rejectUnauthorized);
+
+			if (url.protocol === 'https:') {
+				// @ts-expect-error `http2-wrapper` `options.agent` has different typings
+				this._requestOptions.agent = options.http2 ? agents : agents.https;
+			} else {
+				this._requestOptions.agent = agents.http;
+			}
 		}
 
 		// Cache support
