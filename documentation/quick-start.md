@@ -64,7 +64,7 @@ The request body is passed in the options object. The `json` property will autom
 The [Stream API](3-streams.md) allows to leverage [Node.js Streams](https://nodejs.dev/learn/nodejs-streams) capabilities:
 
 ```js
-import {open} from 'node:fs/promises';
+import fs from 'node:fs';
 import {pipeline} from 'node:stream/promises';
 import got from 'got';
 
@@ -78,15 +78,12 @@ const options = {
 
 const gotStream = got.stream.post(url, options);
 
-const fileDescriptor = await open('anything.json', 'w');
-const outStream = await fileDescriptor.createWriteStream();
+const outStream = fs.createWriteStream('anything.json');
 
 try {
 	await pipeline(gotStream, outStream);
 } catch (error) {
 	console.error(error);
-} finally {
-	await fileDescriptor.close();
 }
 ```
 
