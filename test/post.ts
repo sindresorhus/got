@@ -361,6 +361,36 @@ test('body - sends files with spec-compliant FormData', withServer, async (t, se
 	t.deepEqual(body, expected);
 });
 
+test('body - sends form-data with without known length', withServer, async (t, server, got) => {
+	server.post('/', echoMultipartBody);
+	const fullPath = path.resolve('test/fixtures/ok');
+
+	function getFileStream() {
+		const fileStream = fs.createReadStream(fullPath);
+		const passThrough = new stream.PassThrough();
+		fileStream.pipe(passThrough);
+		return passThrough;
+	}
+
+	const expected = {
+		file: await fsPromises.readFile(fullPath, 'utf8'),
+	};
+
+	const form = new FormDataNode();
+	form.set('file', {
+		[Symbol.toStringTag]: 'File',
+		type: 'text/plain',
+		name: 'file.txt',
+		stream() {
+			return getFileStream();
+		},
+	});
+
+	const body = await got.post({body: form}).json<typeof expected>();
+
+	t.deepEqual(body, expected);
+});
+
 test('throws on upload error', withServer, async (t, server, got) => {
 	server.post('/', defaultEndpoint);
 
