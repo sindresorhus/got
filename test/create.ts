@@ -375,7 +375,7 @@ test('waits for handlers to finish', withServer, async (t, server, got) => {
 		],
 	});
 
-	const {foo} = await instance('').json();
+	const {foo} = await instance('').json<{foo: 'bar'}>();
 	t.is(foo, 'bar');
 });
 

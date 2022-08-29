@@ -490,7 +490,7 @@ test('clears username and password when redirecting to a different hostname', wi
 	const {headers} = await got('', {
 		username: 'hello',
 		password: 'world',
-	}).json();
+	}).json<{headers: Record<string, string | undefined>}>();
 	t.is(headers.Authorization, undefined);
 });
 
@@ -506,7 +506,7 @@ test('clears the authorization header when redirecting to a different hostname',
 		headers: {
 			authorization: 'Basic aGVsbG86d29ybGQ=',
 		},
-	}).json();
+	}).json<{headers: Record<string, string | undefined>}>();
 	t.is(headers.Authorization, undefined);
 });
 

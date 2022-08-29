@@ -581,9 +581,9 @@ test('reuses request options on retry', withServer, async (t, server, got) => {
 		response.end(JSON.stringify(request.headers));
 	});
 
-	const {body: {accept}, retryCount} = await got('', {timeout: {request: 1000}, responseType: 'json'});
+	const {body, retryCount} = await got('', {timeout: {request: 1000}, responseType: 'json'});
 	t.is(retryCount, 1);
-	t.is(accept, 'application/json');
+	t.is((body as any).accept, 'application/json');
 });
 
 test('respects backoffLimit', withServer, async (t, server, got) => {

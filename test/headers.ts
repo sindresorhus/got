@@ -304,7 +304,7 @@ test('strip port in host header if implicit standard port & protocol (HTTPS)', a
 test('correctly encodes authorization header', withServer, async (t, server, got) => {
 	server.get('/', echoHeaders);
 
-	const {authorization} = await got('', {username: 'test@'}).json();
+	const {authorization} = await got('', {username: 'test@'}).json<{authorization: string}>();
 
 	t.is(authorization, `Basic ${Buffer.from('test@:').toString('base64')}`);
 });
@@ -312,7 +312,7 @@ test('correctly encodes authorization header', withServer, async (t, server, got
 test('url passes if credentials contain special characters', withServer, async (t, server, got) => {
 	server.get('/', echoHeaders);
 
-	const {authorization} = await got('', {password: 't$es%t'}).json();
+	const {authorization} = await got('', {password: 't$es%t'}).json<{authorization: string}>();
 
 	t.is(authorization, `Basic ${Buffer.from(':t$es%t').toString('base64')}`);
 });
