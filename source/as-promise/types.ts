@@ -1,5 +1,5 @@
 import type {Buffer} from 'node:buffer';
-import PCancelable from 'p-cancelable';
+import type PCancelable from 'p-cancelable';
 import {RequestError} from '../core/errors.js';
 import type Request from '../core/index.js';
 import type {RequestEvents} from '../core/index.js';
@@ -25,6 +25,8 @@ export class CancelError extends RequestError {
 	}
 }
 
+// TODO: Make this a `type`.
+// eslint-disable-next-line @typescript-eslint/consistent-type-definitions -- TS cannot handle this being a `type` for some reason.
 export interface CancelableRequest<T extends Response | Response['body'] = Response['body']> extends PCancelable<T>, RequestEvents<CancelableRequest<T>> {
 	/**
 	A shortcut method that gives a Promise returning a JSON object.

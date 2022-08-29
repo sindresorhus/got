@@ -5,11 +5,11 @@ import test from 'ava';
 import delay from 'delay';
 import {pEvent} from 'p-event';
 import getStream from 'get-stream';
-import {Handler} from 'express';
+import type {Handler} from 'express';
 import got, {CancelError, TimeoutError, RequestError} from '../source/index.js';
 import slowDataStream from './helpers/slow-data-stream.js';
-import {GlobalClock} from './helpers/types.js';
-import {ExtendedHttpTestServer} from './helpers/create-http-test-server.js';
+import type {GlobalClock} from './helpers/types.js';
+import type {ExtendedHttpTestServer} from './helpers/create-http-test-server.js';
 import withServer, {withServerAndFakeTimers} from './helpers/with-server.js';
 
 const prepareServer = (server: ExtendedHttpTestServer, clock: GlobalClock): {emitter: EventEmitter; promise: Promise<unknown>} => {

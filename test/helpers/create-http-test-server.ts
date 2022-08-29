@@ -1,6 +1,6 @@
 import http from 'http';
-import net from 'net';
-import express, {Express, NextFunction} from 'express';
+import type net from 'net';
+import express, {type Express, type NextFunction} from 'express';
 import pify from 'pify';
 import bodyParser from 'body-parser';
 
@@ -8,13 +8,13 @@ export type HttpServerOptions = {
 	bodyParser?: NextFunction | false;
 };
 
-export interface ExtendedHttpTestServer extends Express {
+export type ExtendedHttpTestServer = {
 	http: http.Server;
 	url: string;
 	port: number;
 	hostname: string;
 	close: () => Promise<any>;
-}
+} & Express;
 
 const createHttpTestServer = async (options: HttpServerOptions = {}): Promise<ExtendedHttpTestServer> => {
 	const server = express() as ExtendedHttpTestServer;

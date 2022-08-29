@@ -1,6 +1,6 @@
-import {Buffer} from 'buffer';
+import type {Buffer} from 'buffer';
 import https from 'https';
-import net from 'net';
+import type net from 'net';
 import type {SecureContextOptions} from 'tls';
 import express from 'express';
 import pify from 'pify';
@@ -15,14 +15,14 @@ export type HttpsServerOptions = {
 	maxVersion?: SecureContextOptions['maxVersion'];
 };
 
-export interface ExtendedHttpsTestServer extends express.Express {
+export type ExtendedHttpsTestServer = {
 	https: https.Server;
 	caKey: Buffer;
 	caCert: Buffer;
 	url: string;
 	port: number;
 	close: () => Promise<any>;
-}
+} & express.Express;
 
 const createHttpsTestServer = async (options: HttpsServerOptions = {}): Promise<ExtendedHttpsTestServer> => {
 	const createCsr = pify(pem.createCSR);

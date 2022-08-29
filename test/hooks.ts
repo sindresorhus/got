@@ -1,15 +1,15 @@
 import {Buffer} from 'buffer';
 import {URL} from 'url';
 import {Agent as HttpAgent} from 'http';
-import test, {Constructor} from 'ava';
+import test, {type Constructor} from 'ava';
 import nock from 'nock';
 import getStream from 'get-stream';
 import FormData from 'form-data';
 import sinon from 'sinon';
 import delay from 'delay';
-import {Handler} from 'express';
+import type {Handler} from 'express';
 import Responselike from 'responselike';
-import got, {RequestError, HTTPError, Response, OptionsInit} from '../source/index.js';
+import got, {RequestError, HTTPError, type Response, type OptionsInit} from '../source/index.js';
 import withServer from './helpers/with-server.js';
 
 const errorString = 'oops';
@@ -368,12 +368,14 @@ test('returning HTTP response from a beforeRequest hook', withServer, async (t, 
 	const {statusCode, headers, body} = await got({
 		hooks: {
 			beforeRequest: [
-				() => new Responselike(
-					200,
-					{foo: 'bar'},
-					Buffer.from('Hi!'),
-					'',
-				),
+				() => new Responselike({
+					statusCode: 200,
+					headers: {
+						foo: 'bar',
+					},
+					body: Buffer.from('Hi!'),
+					url: '',
+				}),
 			],
 		},
 	});

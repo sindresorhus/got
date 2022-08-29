@@ -1,6 +1,6 @@
 import {Buffer} from 'buffer';
 import test from 'ava';
-import {Handler} from 'express';
+import type {Handler} from 'express';
 import nock from 'nock';
 import got, {MaxRedirectsError, RequestError} from '../source/index.js';
 import withServer, {withHttpsServer} from './helpers/with-server.js';

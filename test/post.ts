@@ -8,8 +8,8 @@ import path from 'path';
 import test from 'ava';
 import delay from 'delay';
 import {pEvent} from 'p-event';
-import {Handler} from 'express';
-import {parse, Body, BodyEntryPath, BodyEntryRawValue, isBodyFile} from 'then-busboy';
+import type {Handler} from 'express';
+import {parse, Body, isBodyFile, type BodyEntryPath, type BodyEntryRawValue} from 'then-busboy';
 import {FormData as FormDataNode, Blob, File} from 'formdata-node';
 import {fileFromPath} from 'formdata-node/file-from-path'; // eslint-disable-line n/file-extension-in-import
 import getStream from 'get-stream';

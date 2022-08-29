@@ -3,7 +3,7 @@ import {promisify} from 'util';
 import zlib from 'zlib';
 import test from 'ava';
 import getStream from 'get-stream';
-import {HTTPError, ReadError} from '../source/index.js';
+import {ReadError, type HTTPError} from '../source/index.js';
 import withServer from './helpers/with-server.js';
 
 const testContent = 'Compressible response content.\n';

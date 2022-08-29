@@ -48,7 +48,6 @@
 		"@sindresorhus/is": "^5.2.0",
 		"@szmarczak/http-timer": "^5.0.1",
 		"@types/cacheable-request": "^6.0.2",
-		"@types/responselike": "^1.0.0",
 		"cacheable-lookup": "^6.0.4",
 		"cacheable-request": "^7.0.2",
 		"decompress-response": "^6.0.0",
@@ -57,15 +56,15 @@
 		"http2-wrapper": "^2.1.10",
 		"lowercase-keys": "^3.0.0",
 		"p-cancelable": "^3.0.0",
-		"responselike": "^2.0.0"
+		"responselike": "^3.0.0"
 	},
 	"devDependencies": {
 		"@hapi/bourne": "^3.0.0",
 		"@sindresorhus/tsconfig": "^2.0.0",
 		"@sinonjs/fake-timers": "^9.1.1",
-		"@types/benchmark": "^2.1.1",
+		"@types/benchmark": "^2.1.2",
 		"@types/express": "^4.17.13",
-		"@types/node": "^18.0.1",
+		"@types/node": "^18.7.13",
 		"@types/pem": "^1.9.6",
 		"@types/pify": "^5.0.1",
 		"@types/readable-stream": "^2.3.13",
@@ -80,7 +79,7 @@
 		"body-parser": "^1.19.2",
 		"create-cert": "^1.0.6",
 		"create-test-server": "^3.0.1",
-		"del-cli": "^4.0.1",
+		"del-cli": "^5.0.0",
 		"delay": "^5.0.0",
 		"express": "^4.17.3",
 		"form-data": "^4.0.0",
@@ -101,8 +100,8 @@
 		"to-readable-stream": "^3.0.0",
 		"tough-cookie": "4.0.0",
 		"ts-node": "^10.8.2",
-		"typescript": "^4.7.4",
-		"xo": "^0.50.0"
+		"typescript": "~4.8.2",
+		"xo": "^0.52.2"
 	},
 	"sideEffects": false,
 	"ava": {

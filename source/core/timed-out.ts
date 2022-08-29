@@ -1,17 +1,17 @@
 import net from 'node:net';
-import {ClientRequest, IncomingMessage} from 'node:http';
+import type {ClientRequest, IncomingMessage} from 'node:http';
 import unhandler from './utils/unhandle.js';
 
 const reentry: unique symbol = Symbol('reentry');
 const noop = (): void => {};
 
-interface TimedOutOptions {
+type TimedOutOptions = {
 	host?: string;
 	hostname?: string;
 	protocol?: string;
-}
+};
 
-export interface Delays {
+export type Delays = {
 	lookup?: number;
 	socket?: number;
 	connect?: number;
@@ -20,7 +20,7 @@ export interface Delays {
 	response?: number;
 	read?: number;
 	request?: number;
-}
+};
 
 export type ErrorCode =
 	| 'ETIMEDOUT'
@@ -186,6 +186,7 @@ export default function timedOut(request: ClientRequest, delays: Delays, options
 }
 
 declare module 'http' {
+	// eslint-disable-next-line @typescript-eslint/consistent-type-definitions -- This has to be an `interface` to be able to be merged.
 	interface ClientRequest {
 		[reentry]: boolean;
 	}

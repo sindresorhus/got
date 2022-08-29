@@ -1,8 +1,8 @@
 import {parse, URL, URLSearchParams} from 'url';
 import test from 'ava';
-import {Handler} from 'express';
+import type {Handler} from 'express';
 import {pEvent} from 'p-event';
-import got, {Options, RequestError, StrictOptions} from '../source/index.js';
+import got, {Options, RequestError, type StrictOptions} from '../source/index.js';
 import withServer, {withBodyParsingServer} from './helpers/with-server.js';
 import invalidUrl from './helpers/invalid-url.js';
 

@@ -1,6 +1,6 @@
 import test from 'ava';
-import {Handler} from 'express';
-import got, {BeforeRequestHook, Got, Headers} from '../source/index.js';
+import type {Handler} from 'express';
+import got, {type BeforeRequestHook, type Got, type Headers} from '../source/index.js';
 import withServer from './helpers/with-server.js';
 
 const echoHeaders: Handler = (request, response) => {

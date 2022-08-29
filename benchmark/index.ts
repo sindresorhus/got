@@ -6,7 +6,7 @@ import fetch from 'node-fetch';
 import request from 'request';
 import got from '../source/index.js';
 import Request from '../source/core/index.js';
-import Options, {OptionsInit} from '../source/core/options.js';
+import Options, {type OptionsInit} from '../source/core/options.js';
 
 // Configuration
 const httpsAgent = new https.Agent({

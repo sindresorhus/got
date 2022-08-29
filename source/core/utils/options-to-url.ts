@@ -2,7 +2,7 @@
 import {URL} from 'node:url';
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
-export interface URLOptions {
+export type URLOptions = {
 	href?: string;
 	protocol?: string;
 	host?: string;
@@ -12,7 +12,7 @@ export interface URLOptions {
 	search?: string;
 	searchParams?: unknown;
 	path?: string;
-}
+};
 
 const keys: Array<Exclude<keyof URLOptions, 'searchParams' | 'path'>> = [
 	'protocol',

@@ -1,16 +1,21 @@
-import {Agent as HttpAgent, IncomingMessage, request as httpRequest, RequestOptions} from 'http';
+import {
+	Agent as HttpAgent,
+	request as httpRequest,
+	type IncomingMessage,
+	type RequestOptions,
+} from 'http';
 import {URL} from 'url';
 import test from 'ava';
 import is from '@sindresorhus/is';
-import {Handler} from 'express';
+import type {Handler} from 'express';
 import delay from 'delay';
 import got, {
-	BeforeRequestHook,
-	Headers,
-	Hooks,
 	Options,
-	OptionsInit,
-	RequestFunction,
+	type BeforeRequestHook,
+	type Headers,
+	type Hooks,
+	type OptionsInit,
+	type RequestFunction,
 } from '../source/index.js';
 import withServer from './helpers/with-server.js';
 

@@ -5,7 +5,7 @@ import {RequestError} from './errors.js';
 import type {ParseJsonFunction, ResponseType} from './options.js';
 import type Request from './index.js';
 
-export interface PlainResponse extends IncomingMessageWithTimings {
+export type PlainResponse = {
 	/**
 	The original request URL.
 	*/
@@ -98,10 +98,10 @@ export interface PlainResponse extends IncomingMessageWithTimings {
 	__Note__: Got throws automatically when `response.ok` is `false` and `throwHttpErrors` is `true`.
 	*/
 	ok: boolean;
-}
+} & IncomingMessageWithTimings;
 
 // For Promise support
-export interface Response<T = unknown> extends PlainResponse {
+export type Response<T = unknown> = {
 	/**
 	The result of the request.
 	*/
@@ -111,7 +111,7 @@ export interface Response<T = unknown> extends PlainResponse {
 	The raw result of the request.
 	*/
 	rawBody: Buffer;
-}
+} & PlainResponse;
 
 export const isResponseOk = (response: PlainResponse): boolean => {
 	const {statusCode} = response;

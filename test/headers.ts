@@ -3,11 +3,11 @@ import {Buffer} from 'buffer';
 import fs from 'fs';
 import path from 'path';
 import test from 'ava';
-import {Handler} from 'express';
+import type {Handler} from 'express';
 import FormData from 'form-data';
 import {FormDataEncoder} from 'form-data-encoder';
 import {FormData as FormDataNode} from 'formdata-node';
-import got, {Headers} from '../source/index.js';
+import got, {type Headers} from '../source/index.js';
 import withServer from './helpers/with-server.js';
 
 const supportsBrotli = typeof (process.versions as any).brotli === 'string';

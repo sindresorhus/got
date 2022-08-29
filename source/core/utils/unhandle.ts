@@ -1,19 +1,19 @@
-import {EventEmitter} from 'node:events';
+import type {EventEmitter} from 'node:events';
 
 type Origin = EventEmitter;
 type Event = string | symbol;
 type Fn = (...args: any[]) => void;
 
-interface Handler {
+type Handler = {
 	origin: Origin;
 	event: Event;
 	fn: Fn;
-}
+};
 
-interface Unhandler {
+type Unhandler = {
 	once: (origin: Origin, event: Event, fn: Fn) => void;
 	unhandleAll: () => void;
-}
+};
 
 // When attaching listeners, it's very easy to forget about them.
 // Especially if you do error handling and set timeouts.

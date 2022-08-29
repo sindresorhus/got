@@ -1,7 +1,7 @@
 import process from 'process';
 import {format} from 'util';
 import test from 'ava';
-import {Handler} from 'express';
+import type {Handler} from 'express';
 import got from '../source/index.js';
 import {withSocketServer} from './helpers/with-server.js';
 

@@ -1,5 +1,5 @@
-// eslint-disable-next-line ava/use-test
-import {ExecutionContext} from 'ava';
+
+import type {ExecutionContext} from 'ava';
 
 export default function invalidUrl(t: ExecutionContext, error: TypeError & NodeJS.ErrnoException, url: string) {
 	t.is(error.code, 'ERR_INVALID_URL');
