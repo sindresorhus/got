@@ -241,8 +241,8 @@ When this event is emitted, you should reset the stream you were writing to and 
 
 **Note:**
 > - [`HTTPError`s](./8-errors.md#httperror) cannot be retried if [`options.throwHttpErrors`](./2-options.md#throwhttperrors) is `false`.
->   This is because stream data is saved to `error.response.body` - streams can be read only once.
-> - For Promise API, there is no such limitation.
+>   This is because stream data is saved to `error.response.body` and streams can be read only once.
+> - For the Promise API, there is no such limitation.
 
 #### `retryCount`
 
