@@ -75,9 +75,7 @@ test('does not throw on invalid cookies when options.ignoreInvalidCookies is set
 		response.end();
 	});
 
-	const cookieJar = new toughCookie.CookieJar(undefined, {
-		allowSpecialUseDomain: false,
-	});
+	const cookieJar = new toughCookie.CookieJar();
 
 	await got({
 		cookieJar,
