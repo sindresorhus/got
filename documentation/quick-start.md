@@ -114,7 +114,7 @@ Some noticeable common options are:
 - [`json`](2-options.md#json): JSON body.
 - [`form`](2-options.md#form): A form query string object.
 
-See documentation for other [options](2-options.md#options).
+See the documentation for other [options](2-options.md#options).
 
 ## Errors
 
@@ -186,7 +186,7 @@ The above sets a global timeout of 10000 milliseconds for all requests issued by
 
 ### Retries
 
-A failed request is retried twice, retry policy may be tuned with a [`retry`](7-retry.md#retry) options object.
+A failed request is retried twice. The retry policy may be tuned with a [`retry`](7-retry.md#retry) options object.
 
 ```js
 import got from 'got';
@@ -231,5 +231,4 @@ export default client;
 
 ### Going further
 
-There is a lot more to discover in the [documentation](../readme.md#documentation) and [tips](tips.md#tips).
-Among others, `Got` can handle [cookies](tips.md#cookies), [pagination](4-pagination.md#pagination-api), [cache](cache.md#cache). Please read the documentation before implementing something that is already done by `Got` :innocent:.
+There is a lot more to discover in the [documentation](../readme.md#documentation) and [tips](tips.md#tips). Among others, `Got` can handle [cookies](tips.md#cookies), [pagination](4-pagination.md#pagination-api), [cache](cache.md#cache). Please read the documentation before implementing something that is already done by `Got` :innocent:.
