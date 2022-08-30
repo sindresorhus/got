@@ -1368,3 +1368,26 @@ test('does not throw on empty body when running afterResponse hooks', withServer
 		},
 	}));
 });
+
+test('does not call beforeError hooks on falsy throwHttpErrors', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.statusCode = 404;
+		response.end();
+	});
+
+	let called = false;
+
+	await got('', {
+		throwHttpErrors: false,
+		hooks: {
+			beforeError: [
+				error => {
+					called = true;
+					return error;
+				},
+			],
+		},
+	});
+
+	t.false(called);
+});

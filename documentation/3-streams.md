@@ -239,6 +239,11 @@ To enable retrying when using streams, a retry handler must be attached.
 
 When this event is emitted, you should reset the stream you were writing to and prepare the body again.
 
+**Note:**
+> - [`HTTPError`s](./8-errors.md#httperror) cannot be retried if [`options.throwHttpErrors`](./2-options.md#throwhttperrors) is `false`.
+>   This is because stream data is saved to `error.response.body` and streams can be read only once.
+> - For the Promise API, there is no such limitation.
+
 #### `retryCount`
 
 **Type: `number`**
