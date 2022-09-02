@@ -483,7 +483,8 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 					return;
 				}
 
-				if (!error) {
+				// The `!destroyed` check is required to prevent `uploadProgress` being emitted after the stream was destroyed
+				if (!error && this._request!.destroyed) {
 					this._bodySize = this._uploadedSize;
 
 					this.emit('uploadProgress', this.uploadProgress);
@@ -1178,7 +1179,8 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		}
 
 		this._request.write(chunk, encoding!, (error?: Error | null) => { // eslint-disable-line @typescript-eslint/ban-types
-			if (!error) {
+			// The `!destroyed` check is required to prevent `uploadProgress` being emitted after the stream was destroyed
+			if (!error && !this._request!.destroyed) {
 				this._uploadedSize += Buffer.byteLength(chunk, encoding);
 
 				const progress = this.uploadProgress;

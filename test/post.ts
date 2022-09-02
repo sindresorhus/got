@@ -440,3 +440,31 @@ test('formdata retry', withServer, async (t, server, got) => {
 		message: 'Cannot retry with consumed body stream',
 	});
 });
+
+test('does not emit uploadProgress after cancelation', withServer, async (t, server, got) => {
+	server.post('/', () => {});
+
+	const stream = got.stream.post();
+
+	stream.once('uploadProgress', () => { // 0%
+		stream.once('uploadProgress', () => { // 'foo'
+			stream.write('bar');
+
+			process.nextTick(() => {
+				process.nextTick(() => {
+					stream.on('uploadProgress', () => {
+						t.fail('Emitted uploadProgress after cancelation');
+					});
+
+					stream.destroy();
+				});
+			});
+		});
+	});
+
+	stream.write('foo');
+
+	await pEvent(stream, 'close');
+
+	t.pass();
+});
