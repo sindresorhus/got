@@ -51,7 +51,7 @@
 		"cacheable-lookup": "^6.0.4",
 		"cacheable-request": "^7.0.2",
 		"decompress-response": "^6.0.0",
-		"form-data-encoder": "^2.0.1",
+		"form-data-encoder": "^2.1.0",
 		"get-stream": "^6.0.1",
 		"http2-wrapper": "^2.1.10",
 		"lowercase-keys": "^3.0.0",

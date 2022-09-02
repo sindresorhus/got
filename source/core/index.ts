@@ -574,7 +574,9 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 						headers['content-type'] = encoder.headers['Content-Type'];
 					}
 
-					headers['content-length'] = encoder.headers['Content-Length'];
+					if ('Content-Length' in encoder.headers) {
+						headers['content-length'] = encoder.headers['Content-Length'];
+					}
 
 					options.body = encoder.encode();
 				}
