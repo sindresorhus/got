@@ -1,3 +1,4 @@
+import process from 'process';
 import {Buffer} from 'buffer';
 import {promisify} from 'util';
 import stream from 'stream';
@@ -11,6 +12,7 @@ import {temporaryFile} from 'tempy';
 import is from '@sindresorhus/is';
 import test, {type ExecutionContext} from 'ava';
 import type {Handler} from 'express';
+import {pEvent} from 'p-event';
 import type {Progress} from '../source/index.js';
 import withServer from './helpers/with-server.js';
 
@@ -261,4 +263,32 @@ test('upload progress - one event when removed listener', withServer, async (t, 
 			total: undefined,
 		},
 	]);
+});
+
+test('does not emit uploadProgress after cancelation', withServer, async (t, server, got) => {
+	server.post('/', () => {});
+
+	const stream = got.stream.post();
+
+	stream.once('uploadProgress', () => { // 0%
+		stream.once('uploadProgress', () => { // 'foo'
+			stream.write('bar');
+
+			process.nextTick(() => {
+				process.nextTick(() => {
+					stream.on('uploadProgress', () => {
+						t.fail('Emitted uploadProgress after cancelation');
+					});
+
+					stream.destroy();
+				});
+			});
+		});
+	});
+
+	stream.write('foo');
+
+	await pEvent(stream, 'close');
+
+	t.pass();
 });
