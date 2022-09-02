@@ -5,7 +5,7 @@ import type {SecureContextOptions} from 'tls';
 import express from 'express';
 import pify from 'pify';
 import pem from 'pem';
-import type {CreateCSR, CreateCertificate} from '../types/pem.js';
+import type {CreateCsr, CreateCertificate} from '../types/pem.js';
 
 export type HttpsServerOptions = {
 	commonName?: string;
@@ -26,7 +26,7 @@ export type ExtendedHttpsTestServer = {
 } & express.Express;
 
 const createHttpsTestServer = async (options: HttpsServerOptions = {}): Promise<ExtendedHttpsTestServer> => {
-	const createCsr = pify(pem.createCSR as CreateCSR);
+	const createCsr = pify(pem.createCSR as CreateCsr);
 	const createCertificate = pify(pem.createCertificate as CreateCertificate);
 
 	const caCsrResult = await createCsr({commonName: 'authority'});
