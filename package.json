@@ -12,7 +12,7 @@
 		"node": ">=14.16"
 	},
 	"scripts": {
-		"test": "xo && ava",
+		"test": "xo && tsc --noEmit && ava",
 		"release": "np",
 		"build": "del-cli dist && tsc",
 		"prepare": "npm run build"
