@@ -1,6 +1,6 @@
 import {Agent as HttpAgent} from 'http';
 import {Agent as HttpsAgent} from 'https';
-import test, {Constructor} from 'ava';
+import test, {type Constructor} from 'ava';
 import sinon from 'sinon';
 import withServer, {withHttpsServer} from './helpers/with-server.js';
 

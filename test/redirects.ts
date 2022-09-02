@@ -1,6 +1,6 @@
 import {Buffer} from 'buffer';
 import test from 'ava';
-import {Handler} from 'express';
+import type {Handler} from 'express';
 import nock from 'nock';
 import got, {MaxRedirectsError, RequestError} from '../source/index.js';
 import withServer, {withHttpsServer} from './helpers/with-server.js';
@@ -490,7 +490,7 @@ test('clears username and password when redirecting to a different hostname', wi
 	const {headers} = await got('', {
 		username: 'hello',
 		password: 'world',
-	}).json();
+	}).json<{headers: Record<string, string | undefined>}>();
 	t.is(headers.Authorization, undefined);
 });
 
@@ -506,7 +506,7 @@ test('clears the authorization header when redirecting to a different hostname',
 		headers: {
 			authorization: 'Basic aGVsbG86d29ybGQ=',
 		},
-	}).json();
+	}).json<{headers: Record<string, string | undefined>}>();
 	t.is(headers.Authorization, undefined);
 });
 

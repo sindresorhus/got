@@ -6,7 +6,7 @@ import {Agent as HttpAgent} from 'http';
 import stream, {Readable as ReadableStream, Writable} from 'stream';
 import {Readable as Readable2} from 'readable-stream';
 import test from 'ava';
-import {Handler} from 'express';
+import type {Handler} from 'express';
 import toReadableStream from 'to-readable-stream';
 import getStream from 'get-stream';
 import {pEvent} from 'p-event';

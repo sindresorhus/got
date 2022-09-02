@@ -1,4 +1,4 @@
-import {AddressInfo} from 'node:net';
+import type {AddressInfo} from 'node:net';
 import https from 'node:https';
 // @ts-expect-error No types
 import createCert from 'create-cert';

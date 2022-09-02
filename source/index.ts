@@ -1,5 +1,5 @@
 import create from './create.js';
-import {InstanceDefaults} from './types.js';
+import type {InstanceDefaults} from './types.js';
 import Options from './core/options.js';
 
 const defaults: InstanceDefaults = {

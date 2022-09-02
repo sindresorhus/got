@@ -1,15 +1,15 @@
-import {Server} from 'http';
+import type {Server} from 'http';
 // @ts-expect-error Fails to locate ../types/create-test-server/index.d.ts
-import {TestServer} from 'create-test-server';
+import type {TestServer} from 'create-test-server';
 
-export interface ExtendedHttpServer extends Server {
+export type ExtendedHttpServer = {
 	socketPath: string;
-}
+} & Server;
 
-export interface ExtendedTestServer extends TestServer {
+export type ExtendedTestServer = {
 	hostname: string;
 	sslHostname: string;
-}
+} & TestServer;
 
 // https://github.com/sinonjs/fake-timers/pull/386
 export type InstalledClock = any;

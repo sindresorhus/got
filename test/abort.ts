@@ -4,13 +4,14 @@ import stream, {Readable as ReadableStream} from 'stream';
 import test from 'ava';
 import delay from 'delay';
 import {pEvent} from 'p-event';
-import {Handler} from 'express';
+import type {Handler} from 'express';
 import got from '../source/index.js';
 import slowDataStream from './helpers/slow-data-stream.js';
-import {GlobalClock} from './helpers/types.js';
-import {ExtendedHttpTestServer} from './helpers/create-http-test-server.js';
+import type {GlobalClock} from './helpers/types.js';
+import type {ExtendedHttpTestServer} from './helpers/create-http-test-server.js';
 import withServer, {withServerAndFakeTimers} from './helpers/with-server.js';
 
+// eslint-disable-next-line no-negated-condition
 if (globalThis.AbortController !== undefined) {
 	const prepareServer = (server: ExtendedHttpTestServer, clock: GlobalClock): {emitter: EventEmitter; promise: Promise<unknown>} => {
 		const emitter = new EventEmitter();
@@ -283,5 +284,9 @@ if (globalThis.AbortController !== undefined) {
 			code: 'ERR_ABORTED',
 			message: 'This operation was aborted.',
 		});
+	});
+} else {
+	test('x', t => {
+		t.pass();
 	});
 }

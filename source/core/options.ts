@@ -1,5 +1,5 @@
 import process from 'node:process';
-import {Buffer} from 'node:buffer';
+import type {Buffer} from 'node:buffer';
 import {promisify, inspect} from 'node:util';
 import {URL, URLSearchParams} from 'node:url';
 import {checkServerIdentity} from 'node:tls';
@@ -21,7 +21,7 @@ import type {InspectOptions} from 'node:util';
 import is, {assert} from '@sindresorhus/is';
 import lowercaseKeys from 'lowercase-keys';
 import CacheableLookup from 'cacheable-lookup';
-import http2wrapper, {ClientHttp2Session} from 'http2-wrapper';
+import http2wrapper, {type ClientHttp2Session} from 'http2-wrapper';
 import {isFormData} from 'form-data-encoder';
 import type {FormDataLike} from 'form-data-encoder';
 import type CacheableRequest from 'cacheable-request';
@@ -47,25 +47,25 @@ type AcceptableResponse = IncomingMessageWithTimings | ResponseLike;
 type AcceptableRequestResult = Promisable<AcceptableResponse | ClientRequest> | undefined;
 export type RequestFunction = (url: URL, options: NativeRequestOptions, callback?: (response: AcceptableResponse) => void) => AcceptableRequestResult;
 
-export interface Agents {
+export type Agents = {
 	http?: HttpAgent | false;
 	https?: HttpsAgent | false;
 	http2?: unknown | false;
-}
+};
 
 export type Headers = Record<string, string | string[] | undefined>;
 
-export interface ToughCookieJar {
+export type ToughCookieJar = {
 	getCookieString: ((currentUrl: string, options: Record<string, unknown>, cb: (error: Error | null, cookies: string) => void) => void) // eslint-disable-line @typescript-eslint/ban-types
 	& ((url: string, callback: (error: Error | null, cookieHeader: string) => void) => void); // eslint-disable-line @typescript-eslint/ban-types
 	setCookie: ((cookieOrString: unknown, currentUrl: string, options: Record<string, unknown>, cb: (error: Error | null, cookie: unknown) => void) => void) // eslint-disable-line @typescript-eslint/ban-types
 	& ((rawCookie: string, url: string, callback: (error: Error | null, result: unknown) => void) => void); // eslint-disable-line @typescript-eslint/ban-types
-}
+};
 
-export interface PromiseCookieJar {
+export type PromiseCookieJar = {
 	getCookieString: (url: string) => Promise<string>;
 	setCookie: (rawCookie: string, url: string) => Promise<unknown>;
-}
+};
 
 export type InitHook = (init: OptionsInit, self: Options) => void;
 export type BeforeRequestHook = (options: Options) => Promisable<void | Response | ResponseLike>;
@@ -77,7 +77,7 @@ export type AfterResponseHook<ResponseType = unknown> = (response: Response<Resp
 /**
 All available hooks of Got.
 */
-export interface Hooks {
+export type Hooks = {
 	/**
 	Called with the plain request options, right before their normalization.
 
@@ -350,7 +350,7 @@ export interface Hooks {
 	```
 	*/
 	afterResponse: AfterResponseHook[];
-}
+};
 
 export type ParseJsonFunction = (text: string) => unknown;
 export type StringifyJsonFunction = (object: unknown) => string;
@@ -376,13 +376,13 @@ export type Method =
 	| 'options'
 	| 'trace';
 
-export interface RetryObject {
+export type RetryObject = {
 	attemptCount: number;
 	retryOptions: RetryOptions;
 	error: RequestError;
 	computedValue: number;
 	retryAfter?: number;
-}
+};
 
 export type RetryFunction = (retryObject: RetryObject) => Promisable<number>;
 
@@ -408,7 +408,7 @@ __Note:__ Got does not retry on `POST` by default.
 __Note:__ If `maxRetryAfter` is set to `undefined`, it will use `options.timeout`.
 __Note:__ If [`Retry-After`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Retry-After) header is greater than `maxRetryAfter`, it will cancel the request.
 */
-export interface RetryOptions {
+export type RetryOptions = {
 	limit: number;
 	methods: Method[];
 	statusCodes: number[];
@@ -417,17 +417,17 @@ export interface RetryOptions {
 	backoffLimit: number;
 	noise: number;
 	maxRetryAfter?: number;
-}
+};
 
 export type CreateConnectionFunction = (options: NativeRequestOptions, oncreate: (error: NodeJS.ErrnoException, socket: Socket) => void) => Socket;
 export type CheckServerIdentityFunction = (hostname: string, certificate: DetailedPeerCertificate) => NodeJS.ErrnoException | void;
 
-export interface CacheOptions {
+export type CacheOptions = {
 	shared?: boolean;
 	cacheHeuristic?: number;
 	immutableMinTimeToLive?: number;
 	ignoreCargoCult?: boolean;
-}
+};
 
 type PfxObject = {
 	buffer: string | Buffer;
@@ -436,7 +436,7 @@ type PfxObject = {
 
 type PfxType = string | Buffer | Array<string | Buffer | PfxObject> | undefined;
 
-export interface HttpsOptions {
+export type HttpsOptions = {
 	alpnProtocols?: string[];
 
 	// From `http.RequestOptions` and `tls.CommonConnectionOptions`
@@ -497,24 +497,24 @@ export interface HttpsOptions {
 	dhparam?: SecureContextOptions['dhparam'];
 	ecdhCurve?: SecureContextOptions['ecdhCurve'];
 	certificateRevocationLists?: SecureContextOptions['crl'];
-}
+};
 
-export interface PaginateData<BodyType, ElementType> {
+export type PaginateData<BodyType, ElementType> = {
 	response: Response<BodyType>;
 	currentItems: ElementType[];
 	allItems: ElementType[];
-}
+};
 
-export interface FilterData<ElementType> {
+export type FilterData<ElementType> = {
 	item: ElementType;
 	currentItems: ElementType[];
 	allItems: ElementType[];
-}
+};
 
 /**
 All options accepted by `got.paginate()`.
 */
-export interface PaginationOptions<ElementType, BodyType> {
+export type PaginationOptions<ElementType, BodyType> = {
 	/**
 	A function that transform [`Response`](#response) into an array of items.
 	This is where you should do the parsing.
@@ -619,7 +619,7 @@ export interface PaginationOptions<ElementType, BodyType> {
 	@default false
 	*/
 	stackAllItems?: boolean;
-}
+};
 
 export type SearchParameters = Record<string, string | number | boolean | null | undefined>; // eslint-disable-line @typescript-eslint/ban-types
 
@@ -1142,6 +1142,7 @@ export default class Options {
 				throw new TypeError(`Unexpected agent option: ${key}`);
 			}
 
+			// @ts-expect-error - No idea why `value[key]` doesn't work here.
 			assert.any([is.object, is.undefined], value[key]);
 		}
 
@@ -1210,6 +1211,7 @@ export default class Options {
 				throw new Error(`Unexpected timeout option: ${key}`);
 			}
 
+			// @ts-expect-error - No idea why `value[key]` doesn't work here.
 			assert.any([is.number, is.undefined], value[key]);
 		}
 
@@ -1732,8 +1734,7 @@ export default class Options {
 			}
 
 			const typedKnownHookEvent = knownHookEvent as keyof Hooks;
-			const typedValue = value as Hooks;
-			const hooks = typedValue[typedKnownHookEvent];
+			const hooks = value[typedKnownHookEvent];
 
 			assert.any([is.array, is.undefined], hooks);
 

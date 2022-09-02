@@ -218,7 +218,7 @@ test('cookies are cleared when redirecting to a different hostname (no cookieJar
 			cookie: 'foo=bar',
 			'user-agent': 'custom',
 		},
-	}).json();
+	}).json<{headers: Record<string, string | undefined>}>();
 	t.is(headers.Cookie, undefined);
 	t.is(headers['User-Agent'], 'custom');
 });

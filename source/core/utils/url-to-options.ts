@@ -1,9 +1,9 @@
-import {URL, UrlWithStringQuery} from 'node:url';
+import type {URL, UrlWithStringQuery} from 'node:url';
 import is from '@sindresorhus/is';
 
 // TODO: Deprecate legacy URL at some point
 
-export interface LegacyUrlOptions {
+export type LegacyUrlOptions = {
 	protocol: string;
 	hostname: string;
 	host: string;
@@ -14,7 +14,7 @@ export interface LegacyUrlOptions {
 	path: string;
 	port?: number;
 	auth?: string;
-}
+};
 
 export default function urlToOptions(url: URL | UrlWithStringQuery): LegacyUrlOptions {
 	// Cast to URL

@@ -13,7 +13,7 @@ type Merge<FirstType, SecondType> = Except<FirstType, Extract<keyof FirstType, k
 /**
 Defaults for each Got instance.
 */
-export interface InstanceDefaults {
+export type InstanceDefaults = {
 	/**
 	An object containing the default options of Got.
 	*/
@@ -35,7 +35,7 @@ export interface InstanceDefaults {
 	@default false
 	*/
 	mutableDefaults: boolean;
-}
+};
 
 /**
 A Request object returned by calling Got, or any of the Got HTTP alias request functions.
@@ -51,7 +51,7 @@ export type HandlerFunction = <T extends GotReturn>(options: Options, next: (opt
 /**
 The options available for `got.extend()`.
 */
-export interface ExtendOptions extends OptionsInit {
+export type ExtendOptions = {
 	/**
 	An array of functions. You execute them directly by calling `got()`.
 	They are some sort of "global hooks" - these functions are called first.
@@ -68,7 +68,7 @@ export interface ExtendOptions extends OptionsInit {
 	@default false
 	*/
 	mutableDefaults?: boolean;
-}
+} & OptionsInit;
 
 export type OptionsOfTextResponseBody = Merge<OptionsInit, {isStream?: false; resolveBodyOnly?: false; responseType?: 'text'}>;
 // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -84,7 +84,7 @@ export type OptionsWithPagination<T = unknown, R = unknown> = Merge<OptionsInit,
 /**
 An instance of `got.paginate`.
 */
-export interface GotPaginate {
+export type GotPaginate = {
 	/**
 	Same as `GotPaginate.each`.
 	*/
@@ -141,9 +141,9 @@ export interface GotPaginate {
 	*/
 	all: (<T, R = unknown>(url: string | URL, options?: OptionsWithPagination<T, R>) => Promise<T[]>)
 	& (<T, R = unknown>(options?: OptionsWithPagination<T, R>) => Promise<T[]>);
-}
+};
 
-export interface GotRequestFunction {
+export type GotRequestFunction = {
 	// `asPromise` usage
 	(url: string | URL, options?: OptionsOfTextResponseBody): CancelableRequest<Response<string>>;
 	<T>(url: string | URL, options?: OptionsOfJSONResponseBody): CancelableRequest<Response<T>>;
@@ -176,7 +176,7 @@ export interface GotRequestFunction {
 
 	// Internal usage
 	(url: undefined, options: undefined, defaults: Options): CancelableRequest | Request;
-}
+};
 
 /**
 All available HTTP request methods provided by Got.
@@ -202,7 +202,7 @@ export type GotStream = GotStreamFunction & Record<HTTPAlias, GotStreamFunction>
 /**
 An instance of `got`.
 */
-export interface Got extends Record<HTTPAlias, GotRequestFunction>, GotRequestFunction {
+export type Got = {
 	/**
 	Sets `options.isStream` to `true`.
 
@@ -276,4 +276,4 @@ export interface Got extends Record<HTTPAlias, GotRequestFunction>, GotRequestFu
 	```
 	*/
 	extend: (...instancesOrOptions: Array<Got | ExtendOptions>) => Got;
-}
+} & Record<HTTPAlias, GotRequestFunction> & GotRequestFunction;

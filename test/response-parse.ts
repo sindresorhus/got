@@ -1,6 +1,6 @@
 import {Buffer} from 'buffer';
 import test from 'ava';
-import {Handler} from 'express';
+import type {Handler} from 'express';
 import getStream from 'get-stream';
 import {HTTPError, ParseError} from '../source/index.js';
 import withServer from './helpers/with-server.js';

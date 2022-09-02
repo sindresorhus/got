@@ -1,15 +1,15 @@
 import process from 'process';
 import {EventEmitter} from 'events';
 import {PassThrough as PassThroughStream} from 'stream';
-import {Socket} from 'net';
+import type {Socket} from 'net';
 import http from 'http';
 import test from 'ava';
 import is from '@sindresorhus/is';
-import {Handler} from 'express';
+import type {Handler} from 'express';
 import getStream from 'get-stream';
 import {pEvent} from 'p-event';
 import got, {HTTPError, TimeoutError} from '../source/index.js';
-import Request from '../source/core/index.js';
+import type Request from '../source/core/index.js';
 import withServer from './helpers/with-server.js';
 
 const retryAfterOn413 = 2;
@@ -581,9 +581,9 @@ test('reuses request options on retry', withServer, async (t, server, got) => {
 		response.end(JSON.stringify(request.headers));
 	});
 
-	const {body: {accept}, retryCount} = await got('', {timeout: {request: 1000}, responseType: 'json'});
+	const {body, retryCount} = await got('', {timeout: {request: 1000}, responseType: 'json'});
 	t.is(retryCount, 1);
-	t.is(accept, 'application/json');
+	t.is((body as any).accept, 'application/json');
 });
 
 test('respects backoffLimit', withServer, async (t, server, got) => {

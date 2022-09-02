@@ -4,11 +4,11 @@ import {STATUS_CODES, Agent} from 'http';
 import os from 'os';
 import {isIPv4, isIPv6, isIP} from 'net';
 import test from 'ava';
-import {Handler} from 'express';
+import type {Handler} from 'express';
 import nock from 'nock';
 import getStream from 'get-stream';
 import {pEvent} from 'p-event';
-import got, {HTTPError, ReadError, RequestError} from '../source/index.js';
+import got, {HTTPError, RequestError, type ReadError} from '../source/index.js';
 import withServer from './helpers/with-server.js';
 
 // eslint-disable-next-line @typescript-eslint/naming-convention

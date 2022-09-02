@@ -7,13 +7,13 @@ import net from 'net';
 import getStream from 'get-stream';
 import test from 'ava';
 import delay from 'delay';
-import CacheableLookup from 'cacheable-lookup';
-import {Handler} from 'express';
+import type CacheableLookup from 'cacheable-lookup';
+import type {Handler} from 'express';
 import {pEvent} from 'p-event';
-import got, {RequestError, TimeoutError} from '../source/index.js';
+import got, {type RequestError, TimeoutError} from '../source/index.js';
 import timedOut from '../source/core/timed-out.js';
 import slowDataStream from './helpers/slow-data-stream.js';
-import {GlobalClock} from './helpers/types.js';
+import type {GlobalClock} from './helpers/types.js';
 import withServer, {withServerAndFakeTimers, withHttpsServer} from './helpers/with-server.js';
 
 const pStreamPipeline = promisify(stream.pipeline);

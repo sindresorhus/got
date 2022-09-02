@@ -5,11 +5,11 @@ import {gzip} from 'zlib';
 import test from 'ava';
 import {pEvent} from 'p-event';
 import getStream from 'get-stream';
-import {Handler} from 'express';
+import type {Handler} from 'express';
 import nock from 'nock';
 import CacheableLookup from 'cacheable-lookup';
 import delay from 'delay';
-import got, {CacheError, Response} from '../source/index.js';
+import got, {CacheError, type Response} from '../source/index.js';
 import withServer from './helpers/with-server.js';
 
 const cacheEndpoint: Handler = (_request, response) => {

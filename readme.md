@@ -109,6 +109,8 @@ npm install got
 
 ## Take a peek
 
+**A [quick start](documentation/quick-start.md) guide is available.**
+
 ### JSON mode
 
 Got has a dedicated option for handling JSON payload.\

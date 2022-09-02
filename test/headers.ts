@@ -3,11 +3,11 @@ import {Buffer} from 'buffer';
 import fs from 'fs';
 import path from 'path';
 import test from 'ava';
-import {Handler} from 'express';
+import type {Handler} from 'express';
 import FormData from 'form-data';
 import {FormDataEncoder} from 'form-data-encoder';
 import {FormData as FormDataNode} from 'formdata-node';
-import got, {Headers} from '../source/index.js';
+import got, {type Headers} from '../source/index.js';
 import withServer from './helpers/with-server.js';
 
 const supportsBrotli = typeof (process.versions as any).brotli === 'string';
@@ -304,7 +304,7 @@ test('strip port in host header if implicit standard port & protocol (HTTPS)', a
 test('correctly encodes authorization header', withServer, async (t, server, got) => {
 	server.get('/', echoHeaders);
 
-	const {authorization} = await got('', {username: 'test@'}).json();
+	const {authorization} = await got('', {username: 'test@'}).json<{authorization: string}>();
 
 	t.is(authorization, `Basic ${Buffer.from('test@:').toString('base64')}`);
 });
@@ -312,7 +312,7 @@ test('correctly encodes authorization header', withServer, async (t, server, got
 test('url passes if credentials contain special characters', withServer, async (t, server, got) => {
 	server.get('/', echoHeaders);
 
-	const {authorization} = await got('', {password: 't$es%t'}).json();
+	const {authorization} = await got('', {password: 't$es%t'}).json<{authorization: string}>();
 
 	t.is(authorization, `Basic ${Buffer.from(':t$es%t').toString('base64')}`);
 });

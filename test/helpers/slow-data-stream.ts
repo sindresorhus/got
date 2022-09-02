@@ -1,5 +1,5 @@
 import {Readable} from 'stream';
-import {Clock} from '@sinonjs/fake-timers';
+import type {Clock} from '@sinonjs/fake-timers';
 import delay from 'delay';
 
 export default function slowDataStream(clock?: Clock): Readable {

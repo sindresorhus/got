@@ -9,9 +9,9 @@ import getStream from 'get-stream';
 import FormData from 'form-data';
 import {temporaryFile} from 'tempy';
 import is from '@sindresorhus/is';
-import test, {ExecutionContext} from 'ava';
-import {Handler} from 'express';
-import {Progress} from '../source/index.js';
+import test, {type ExecutionContext} from 'ava';
+import type {Handler} from 'express';
+import type {Progress} from '../source/index.js';
 import withServer from './helpers/with-server.js';
 
 const checkEvents = (t: ExecutionContext, events: Progress[], bodySize?: number) => {

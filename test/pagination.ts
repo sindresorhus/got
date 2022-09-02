@@ -3,9 +3,9 @@ import {URL} from 'url';
 import test from 'ava';
 import delay from 'delay';
 import getStream from 'get-stream';
-import got, {Response} from '../source/index.js';
+import got, {type Response} from '../source/index.js';
 import withServer, {withBodyParsingServer} from './helpers/with-server.js';
-import {ExtendedHttpTestServer} from './helpers/create-http-test-server.js';
+import type {ExtendedHttpTestServer} from './helpers/create-http-test-server.js';
 
 const thrower = (): any => {
 	throw new Error('This should not be called');
@@ -557,10 +557,10 @@ test('next url in json response', withServer, async (t, server, got) => {
 		}));
 	});
 
-	interface Page {
+	type Page = {
 		currentUrl: string;
 		next?: string;
-	}
+	};
 
 	const all = await got.paginate.all('', {
 		searchParams: {
@@ -604,10 +604,10 @@ test('pagination using searchParams', withServer, async (t, server, got) => {
 		}));
 	});
 
-	interface Page {
+	type Page = {
 		currentUrl: string;
 		next?: string;
-	}
+	};
 
 	const all = await got.paginate.all('', {
 		searchParams: {
@@ -654,10 +654,10 @@ test('pagination using extended searchParams', withServer, async (t, server, got
 		}));
 	});
 
-	interface Page {
+	type Page = {
 		currentUrl: string;
 		next?: string;
-	}
+	};
 
 	const client = got.extend({
 		searchParams: {

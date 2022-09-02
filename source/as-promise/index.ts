@@ -2,17 +2,15 @@ import {EventEmitter} from 'node:events';
 import is from '@sindresorhus/is';
 import PCancelable from 'p-cancelable';
 import {
-	RequestError,
 	HTTPError,
 	RetryError,
+	type RequestError,
 } from '../core/errors.js';
 import Request from '../core/index.js';
-import {parseBody, isResponseOk} from '../core/response.js';
+import {parseBody, isResponseOk, type Response} from '../core/response.js';
 import proxyEvents from '../core/utils/proxy-events.js';
 import type Options from '../core/options.js';
-import type {Response} from '../core/response.js';
-import {CancelError} from './types.js';
-import type {CancelableRequest} from './types.js';
+import {CancelError, type CancelableRequest} from './types.js';
 
 const proxiedRequestEvents = [
 	'request',
