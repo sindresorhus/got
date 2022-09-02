@@ -328,6 +328,18 @@ test.failing('`context` option is enumerable', withServer, async (t, server, got
 	});
 });
 
+test('`context` option is never frozen', t => {
+	const client = got.extend({
+		context: {
+			token: 'foobar',
+		},
+	});
+
+	client.defaults.options.context.token = '1234';
+
+	t.is(client.defaults.options.context.token, '1234');
+});
+
 test('`context` option is accessible when using hooks', withServer, async (t, server) => {
 	server.get('/', echoUrl);
 
