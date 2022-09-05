@@ -126,7 +126,7 @@ test('custom retries', withServer, async (t, server, got) => {
 			],
 		},
 	}));
-	t.is(error.response.statusCode, 500);
+	t.is(error?.response.statusCode, 500);
 	t.true(hasTried);
 });
 
@@ -160,7 +160,7 @@ test('custom retries async', withServer, async (t, server, got) => {
 			],
 		},
 	}));
-	t.is(error.response.statusCode, 500);
+	t.is(error?.response.statusCode, 500);
 	t.true(hasTried);
 });
 
@@ -202,7 +202,7 @@ test('custom error codes', async t => {
 		},
 	}));
 
-	t.is(error.code, errorCode);
+	t.is(error?.code, errorCode);
 });
 
 test('respects 413 Retry-After', withServer, async (t, server, got) => {
@@ -529,8 +529,8 @@ test('throws when cannot retry a Got stream', withServer, async (t, server, got)
 		instanceOf: HTTPError,
 	});
 
-	t.is(error.response.statusCode, 500);
-	t.is(error.response.body, 'not ok');
+	t.is(error?.response.statusCode, 500);
+	t.is(error?.response.body, 'not ok');
 	t.is(globalRetryCount, 2);
 });
 

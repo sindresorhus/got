@@ -60,7 +60,7 @@
 	},
 	"devDependencies": {
 		"@hapi/bourne": "^3.0.0",
-		"@sindresorhus/tsconfig": "^2.0.0",
+		"@sindresorhus/tsconfig": "^3.0.1",
 		"@sinonjs/fake-timers": "^9.1.1",
 		"@types/benchmark": "^2.1.2",
 		"@types/express": "^4.17.13",
@@ -72,7 +72,7 @@
 		"@types/sinon": "^10.0.11",
 		"@types/sinonjs__fake-timers": "^8.1.1",
 		"@types/tough-cookie": "^4.0.1",
-		"ava": "^3.15.0",
+		"ava": "^4.3.3",
 		"axios": "^0.27.2",
 		"benchmark": "^2.1.4",
 		"bluebird": "^3.7.2",
@@ -83,7 +83,7 @@
 		"delay": "^5.0.0",
 		"express": "^4.17.3",
 		"form-data": "^4.0.0",
-		"formdata-node": "^4.3.2",
+		"formdata-node": "^5.0.0",
 		"nock": "^13.2.4",
 		"node-fetch": "^3.2.3",
 		"np": "^7.6.0",
@@ -100,6 +100,7 @@
 		"to-readable-stream": "^3.0.0",
 		"tough-cookie": "4.0.0",
 		"ts-node": "^10.8.2",
+		"type-fest": "^2.19.0",
 		"typescript": "~4.8.2",
 		"xo": "^0.52.2"
 	},
@@ -109,10 +110,6 @@
 			"test/*"
 		],
 		"timeout": "1m",
-		"nonSemVerExperiments": {
-			"nextGenConfig": true,
-			"configurableModuleFormat": true
-		},
 		"extensions": {
 			"ts": "module"
 		},

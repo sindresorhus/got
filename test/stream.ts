@@ -339,8 +339,8 @@ test('errors have body', withServer, async (t, server, got) => {
 		},
 	})));
 
-	t.is(error.message, 'snap');
-	t.is(error.response?.body, 'yay');
+	t.is(error?.message, 'snap');
+	t.is(error?.response?.body, 'yay');
 });
 
 test('pipe can send modified headers', withServer, async (t, server, got) => {

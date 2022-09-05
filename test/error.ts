@@ -22,7 +22,7 @@ test('properties', withServer, async (t, server, got) => {
 
 	const url = new URL(server.url);
 
-	const error = await t.throwsAsync<HTTPError>(got(''));
+	const error = (await t.throwsAsync<HTTPError>(got('')))!;
 	t.truthy(error);
 	t.truthy(error.response);
 	t.truthy(error.options);
@@ -36,7 +36,7 @@ test('properties', withServer, async (t, server, got) => {
 });
 
 test('catches dns errors', async t => {
-	const error = await t.throwsAsync<RequestError>(got('http://doesntexist', {retry: {limit: 0}}));
+	const error = (await t.throwsAsync<RequestError>(got('http://doesntexist', {retry: {limit: 0}})))!;
 	t.truthy(error);
 	t.regex(error.message, /ENOTFOUND|EAI_AGAIN/);
 	t.is((error.options.url as URL).host, 'doesntexist');
@@ -80,8 +80,8 @@ test('default status message', withServer, async (t, server, got) => {
 			instanceOf: HTTPError,
 			message: 'Response code 400 (Bad Request)',
 		});
-	t.is(error.response.statusCode, 400);
-	t.is(error.response.statusMessage, 'Bad Request');
+	t.is(error?.response.statusCode, 400);
+	t.is(error?.response.statusMessage, 'Bad Request');
 });
 
 test('custom status message', withServer, async (t, server, got) => {
@@ -96,8 +96,8 @@ test('custom status message', withServer, async (t, server, got) => {
 			instanceOf: HTTPError,
 			message: 'Response code 400 (Something Exploded)',
 		});
-	t.is(error.response.statusCode, 400);
-	t.is(error.response.statusMessage, 'Something Exploded');
+	t.is(error?.response.statusCode, 400);
+	t.is(error?.response.statusMessage, 'Something Exploded');
 });
 
 test('custom body', withServer, async (t, server, got) => {
@@ -111,8 +111,8 @@ test('custom body', withServer, async (t, server, got) => {
 			instanceOf: HTTPError,
 			message: 'Response code 404 (Not Found)',
 		});
-	t.is(error.response.statusCode, 404);
-	t.is(error.response.body, 'not');
+	t.is(error?.response.statusCode, 404);
+	t.is(error?.response.body, 'not');
 });
 
 test('contains Got options', withServer, async (t, server, got) => {
@@ -132,8 +132,8 @@ test('contains Got options', withServer, async (t, server, got) => {
 			instanceOf: HTTPError,
 			message: 'Response code 404 (Not Found)',
 		});
-	t.is(error.response.statusCode, 404);
-	t.is(error.options.context.foo, options.context.foo);
+	t.is(error?.response.statusCode, 404);
+	t.is(error?.options.context.foo, options.context.foo);
 });
 
 test('empty status message is overriden by the default one', withServer, async (t, server, got) => {
@@ -147,8 +147,8 @@ test('empty status message is overriden by the default one', withServer, async (
 			instanceOf: HTTPError,
 			message: 'Response code 400 (Bad Request)',
 		});
-	t.is(error.response.statusCode, 400);
-	t.is(error.response.statusMessage, http.STATUS_CODES[400]);
+	t.is(error?.response.statusCode, 400);
+	t.is(error?.response.statusMessage, http.STATUS_CODES[400]);
 });
 
 test('`http.request` error', async t => {
@@ -227,17 +227,17 @@ test('normalization errors using convenience methods', async t => {
 
 	{
 		const error = await t.throwsAsync(got(url).json());
-		invalidUrl(t, error, url);
+		invalidUrl(t, error!, url);
 	}
 
 	{
 		const error = await t.throwsAsync(got(url).text());
-		invalidUrl(t, error, url);
+		invalidUrl(t, error!, url);
 	}
 
 	{
 		const error = await t.throwsAsync(got(url).buffer());
-		invalidUrl(t, error, url);
+		invalidUrl(t, error!, url);
 	}
 });
 
@@ -249,8 +249,8 @@ test('errors can have request property', withServer, async (t, server, got) => {
 
 	const error = await t.throwsAsync<HTTPError>(got(''));
 
-	t.truthy(error.response);
-	t.truthy(error.request.downloadProgress);
+	t.truthy(error?.response);
+	t.truthy(error?.request.downloadProgress);
 });
 
 test('promise does not hang on timeout on HTTP error', withServer, async (t, server, got) => {
@@ -333,11 +333,11 @@ test.skip('the old stacktrace is recovered', async t => {
 		},
 	}));
 
-	t.true(error.stack!.includes('at Object.request'));
+	t.true(error?.stack!.includes('at Object.request'));
 
 	// The first `at get` points to where the error was wrapped,
 	// the second `at get` points to the real cause.
-	t.not(error.stack!.indexOf('at get'), error.stack!.lastIndexOf('at get'));
+	t.not(error?.stack!.indexOf('at get'), error?.stack!.lastIndexOf('at get'));
 });
 
 test.serial('custom stack trace', withServer, async (t, _server, got) => {
@@ -363,7 +363,7 @@ test.serial('custom stack trace', withServer, async (t, _server, got) => {
 		stream.destroy(new Error('oh no'));
 
 		const caught = await t.throwsAsync(getStream(stream));
-		t.is(is(caught.stack), 'string');
+		t.is(is(caught?.stack), 'string');
 	}
 
 	// Passing a custom error
@@ -376,7 +376,7 @@ test.serial('custom stack trace', withServer, async (t, _server, got) => {
 		stream.destroy(error);
 
 		const caught = await t.throwsAsync(getStream(stream));
-		t.is(is(caught.stack), 'string');
+		t.is(is(caught?.stack), 'string');
 	}
 
 	// Custom global behavior
@@ -388,7 +388,7 @@ test.serial('custom stack trace', withServer, async (t, _server, got) => {
 		stream.destroy(error);
 
 		const caught = await t.throwsAsync(getStream(stream));
-		t.is(is(caught.stack), 'Array');
+		t.is(is(caught?.stack), 'Array');
 
 		disable();
 	}
@@ -402,7 +402,7 @@ test.serial('custom stack trace', withServer, async (t, _server, got) => {
 		stream.destroy(error);
 
 		const caught = await t.throwsAsync(getStream(stream));
-		t.is(is(caught.stack), 'Array');
+		t.is(is(caught?.stack), 'Array');
 
 		disable();
 	}

@@ -743,7 +743,7 @@ test('timeouts are emitted ASAP', async t => {
 		},
 	}), {instanceOf: TimeoutError});
 
-	t.true(error.timings.phases.total! < (timeout + marginOfError));
+	t.true(error!.timings.phases.total! < (timeout + marginOfError));
 });
 
 test('http2 timeout', async t => {
@@ -757,5 +757,5 @@ test('http2 timeout', async t => {
 		},
 	}));
 
-	t.true(error.code === 'ETIMEDOUT' || error.code === 'EUNSUPPORTED', error.stack);
+	t.true(error?.code === 'ETIMEDOUT' || error?.code === 'EUNSUPPORTED', error?.stack);
 });

@@ -6,7 +6,10 @@
 		"lib": [
 			"es2020"
 		],
-		// TODO: Remove this at some point.
+
+		// TODO: Remove these at some point.
+		"module": "ES2020",
+		"moduleResolution": "node",
 		"noPropertyAccessFromIndexSignature": false,
 		"isolatedModules": true
 	},
