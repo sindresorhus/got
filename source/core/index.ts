@@ -483,7 +483,6 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 					return;
 				}
 
-				// The `!destroyed` check is required to prevent `uploadProgress` being emitted after the stream was destroyed
 				if (!error) {
 					this._bodySize = this._uploadedSize;
 
