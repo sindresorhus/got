@@ -68,8 +68,8 @@ test('http errors have `response` property', withServer, async (t, server, got) 
 	});
 
 	const error = await t.throwsAsync<HTTPError>(got(''), {instanceOf: HTTPError});
-	t.is(error.response.statusCode, 404);
-	t.is(error.response.body, 'not');
+	t.is(error?.response.statusCode, 404);
+	t.is(error?.response.body, 'not');
 });
 
 test('status code 304 doesn\'t throw', withServer, async (t, server, got) => {
@@ -235,7 +235,7 @@ test('throws an error if the server aborted the request', withServer, async (t, 
 		code: 'ECONNRESET',
 	});
 
-	t.truthy(error.response.retryCount);
+	t.truthy(error?.response.retryCount);
 });
 
 test('statusMessage fallback', async t => {
@@ -410,7 +410,7 @@ test('status code 404 has error response ok is false if error is thrown', withSe
 		response.end('not');
 	});
 
-	const error = await t.throwsAsync<HTTPError>(got(''), {instanceOf: HTTPError});
+	const error = (await t.throwsAsync<HTTPError>(got(''), {instanceOf: HTTPError}))!;
 	t.is(error.response.statusCode, 404);
 	t.is(error.response.ok, false);
 	t.is(error.response.body, 'not');

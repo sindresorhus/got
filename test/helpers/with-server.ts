@@ -19,115 +19,121 @@ export type RunTestWithServer = (t: ExecutionContext, server: ExtendedHttpTestSe
 export type RunTestWithHttpsServer = (t: ExecutionContext, server: ExtendedHttpsTestServer, got: Got, fakeTimer?: GlobalClock) => Promise<void> | void;
 export type RunTestWithSocket = (t: ExecutionContext, server: ExtendedHttpServer) => Promise<void> | void;
 
-const generateHook = ({install, options: testServerOptions}: {install?: boolean; options?: HttpServerOptions}): Macro<[RunTestWithServer]> => async (t, run) => {
-	const clock = install ? FakeTimers.install() : FakeTimers.createClock() as GlobalClock;
+const generateHook = ({install, options: testServerOptions}: {install?: boolean; options?: HttpServerOptions}): Macro<[RunTestWithServer]> => ({
+	async exec(t, run) {
+		const clock = install ? FakeTimers.install() : FakeTimers.createClock() as GlobalClock;
 
-	// Re-enable body parsing to investigate https://github.com/sindresorhus/got/issues/1186
-	const server = await createHttpTestServer(is.plainObject(testServerOptions) ? testServerOptions : {
-		bodyParser: {
-			type: () => false,
-		} as any,
-	});
+		// Re-enable body parsing to investigate https://github.com/sindresorhus/got/issues/1186
+		const server = await createHttpTestServer(is.plainObject(testServerOptions) ? testServerOptions : {
+			bodyParser: {
+				type: () => false,
+			} as any,
+		});
 
-	const options: ExtendOptions = {
-		context: {
-			avaTest: t.title,
-		},
-		handlers: [
-			(options, next) => {
-				const result = next(options);
-
-				clock.tick(0);
-
-				// @ts-expect-error FIXME: Incompatible union type signatures
-				result.on('response', () => {
-					clock.tick(0);
-				});
-
-				return result;
+		const options: ExtendOptions = {
+			context: {
+				avaTest: t.title,
 			},
-		],
-	};
+			handlers: [
+				(options, next) => {
+					const result = next(options);
 
-	const preparedGot = got.extend({prefixUrl: server.url, ...options});
+					clock.tick(0);
 
-	try {
-		await run(t, server, preparedGot, clock);
-	} finally {
-		await server.close();
-	}
+					// @ts-expect-error FIXME: Incompatible union type signatures
+					result.on('response', () => {
+						clock.tick(0);
+					});
 
-	if (install) {
-		// eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
-		(clock as InstalledClock).uninstall();
-	}
-};
+					return result;
+				},
+			],
+		};
+
+		const preparedGot = got.extend({prefixUrl: server.url, ...options});
+
+		try {
+			await run(t, server, preparedGot, clock);
+		} finally {
+			await server.close();
+		}
+
+		if (install) {
+			// eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
+			(clock as InstalledClock).uninstall();
+		}
+	},
+});
 
 export const withBodyParsingServer = generateHook({install: false, options: {}});
 export default generateHook({install: false});
 
 export const withServerAndFakeTimers = generateHook({install: true});
 
-const generateHttpsHook = (options?: HttpsServerOptions, installFakeTimer = false): Macro<[RunTestWithHttpsServer]> => async (t, run) => {
-	const fakeTimer = installFakeTimer ? FakeTimers.install() as GlobalClock : undefined;
+const generateHttpsHook = (options?: HttpsServerOptions, installFakeTimer = false): Macro<[RunTestWithHttpsServer]> => ({
+	async exec(t, run) {
+		const fakeTimer = installFakeTimer ? FakeTimers.install() as GlobalClock : undefined;
 
-	const server = await createHttpsTestServer(options);
+		const server = await createHttpsTestServer(options);
 
-	const preparedGot = got.extend({
-		context: {
-			avaTest: t.title,
-		},
-		handlers: [
-			(options, next) => {
-				const result = next(options);
-
-				fakeTimer?.tick(0);
-
-				// @ts-expect-error FIXME: Incompatible union type signatures
-				result.on('response', () => {
-					fakeTimer?.tick(0);
-				});
-
-				return result;
+		const preparedGot = got.extend({
+			context: {
+				avaTest: t.title,
 			},
-		],
-		prefixUrl: server.url,
-		https: {
-			certificateAuthority: (server as any).caCert,
-			rejectUnauthorized: true,
-		},
-	});
+			handlers: [
+				(options, next) => {
+					const result = next(options);
 
-	try {
-		await run(t, server, preparedGot, fakeTimer);
-	} finally {
-		await server.close();
-	}
+					fakeTimer?.tick(0);
 
-	if (installFakeTimer) {
-		// eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
-		(fakeTimer as InstalledClock).uninstall();
-	}
-};
+					// @ts-expect-error FIXME: Incompatible union type signatures
+					result.on('response', () => {
+						fakeTimer?.tick(0);
+					});
+
+					return result;
+				},
+			],
+			prefixUrl: server.url,
+			https: {
+				certificateAuthority: (server as any).caCert,
+				rejectUnauthorized: true,
+			},
+		});
+
+		try {
+			await run(t, server, preparedGot, fakeTimer);
+		} finally {
+			await server.close();
+		}
+
+		if (installFakeTimer) {
+			// eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
+			(fakeTimer as InstalledClock).uninstall();
+		}
+	},
+});
 
 export const withHttpsServer = generateHttpsHook;
 
 // TODO: Remove this when `create-test-server` supports custom listen.
-export const withSocketServer: Macro<[RunTestWithSocket]> = async (t, run) => {
-	const socketPath = temporaryFile({extension: 'socket'});
+export const withSocketServer: Macro<[RunTestWithSocket]> = {
+	async exec(t, run) {
+		const socketPath = temporaryFile({extension: 'socket'});
 
-	const server = http.createServer((request, response) => {
-		server.emit(request.url!, request, response);
-	}) as ExtendedHttpServer;
+		const server = http.createServer((request, response) => {
+			server.emit(request.url!, request, response);
+		}) as ExtendedHttpServer;
 
-	server.socketPath = socketPath;
+		server.socketPath = socketPath;
 
-	// @ts-expect-error TypeScript doesn't accept `callback` with no arguments
-	await promisify<any>(server.listen.bind(server))(socketPath);
+		// @ts-expect-error TypeScript doesn't accept `callback` with no arguments
+		await promisify<any>(server.listen.bind(server))(socketPath);
 
-	try {
-		await run(t, server);
-	} finally {
-		await promisify(server.close.bind(server))();
-	}
+		try {
+			await run(t, server);
+		} finally {
+			await promisify(server.close.bind(server))();
+		}
+	},
 };

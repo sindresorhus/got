@@ -32,7 +32,7 @@ test('decompress content on error', withServer, async (t, server, got) => {
 
 	const error = await t.throwsAsync<HTTPError>(got(''));
 
-	t.is(error.response.body, testContent);
+	t.is(error?.response.body, testContent);
 });
 
 test('decompress content - stream', withServer, async (t, server, got) => {

@@ -415,7 +415,7 @@ test('invalid key passphrase', withHttpsServer(), async (t, server, got) => {
 		},
 	});
 
-	const {code}: NodeJS.ErrnoException = await t.throwsAsync(request);
+	const {code}: NodeJS.ErrnoException = (await t.throwsAsync(request))!;
 	t.true(code === 'ERR_OSSL_BAD_DECRYPT' || code === 'ERR_OSSL_EVP_BAD_DECRYPT', code);
 });
 
@@ -478,7 +478,7 @@ test('https request with `ciphers` option', withHttpsServer({ciphers: ciphers.jo
 		},
 	}).json<{cipher: string}>();
 
-	t.is(response.cipher, ciphers[0]);
+	t.is(response.cipher, ciphers[0]!);
 });
 
 test('https request with `honorCipherOrder` option', withHttpsServer({ciphers: `${ciphers[0]!}:${ciphers[1]!}`}), async (t, server, got) => {
@@ -495,7 +495,7 @@ test('https request with `honorCipherOrder` option', withHttpsServer({ciphers: `
 		},
 	}).json<{cipher: string}>();
 
-	t.is(response.cipher, ciphers[0]);
+	t.is(response.cipher, ciphers[0]!);
 });
 
 test('https request with `minVersion` option', withHttpsServer({maxVersion: 'TLSv1.2'}), async (t, server, got) => {
