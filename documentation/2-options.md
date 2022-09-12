@@ -467,7 +467,7 @@ Therefore this option has no effect when using HTTP/2.
 > - This option is only meant to interact with non-compliant servers when you have no other choice.
 
 #### **Note:**
-> - The [RFC 7321](https://tools.ietf.org/html/rfc7231#section-4.3.1) doesn't specify any particular behavior for the GET method having a payload, therefore it's considered an [**anti-pattern**](https://en.wikipedia.org/wiki/Anti-pattern).
+> - The [RFC 7231](https://tools.ietf.org/html/rfc7231#section-4.3.1) doesn't specify any particular behavior for the GET method having a payload, therefore it's considered an [**anti-pattern**](https://en.wikipedia.org/wiki/Anti-pattern).
 
 ### `timeout`
 
