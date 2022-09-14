@@ -733,7 +733,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 			if ((updatedOptions.methodRewriting && ![307, 308].includes(statusCode))
 				|| (statusCode === 303 && !['GET', 'HEAD'].includes(updatedOptions.method))) {
-				// Either the server responded with 303 or 
+				// Either the server responded with 303 or
 				// the methodRewriting option explicitly requests
 				// a rewrite to GET on non-307/308 responses
 				updatedOptions.method = 'GET';
