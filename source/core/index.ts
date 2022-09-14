@@ -731,8 +731,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 			const updatedOptions = new Options(undefined, undefined, this.options);
 
-			const shouldBeGet = statusCode === 303 && updatedOptions.method !== 'GET' && updatedOptions.method !== 'HEAD';
-			if (shouldBeGet || updatedOptions.methodRewriting) {
+			if (updatedOptions.methodRewriting && ![307, 308].includes(statusCode) || statusCode === 303 && !['GET', 'HEAD'].includes(updatedOptions.method)) {
 				// Server responded with "see other", indicating that the resource exists at another location,
 				// and the client should request it from that location via GET or HEAD.
 				updatedOptions.method = 'GET';
