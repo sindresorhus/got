@@ -6,8 +6,12 @@ import http, {ServerResponse} from 'node:http';
 import type {ClientRequest, RequestOptions} from 'node:http';
 import type {Socket} from 'node:net';
 import timer from '@szmarczak/http-timer';
-import CacheableRequest, {CacheError as CacheableCacheError} from 'cacheable-request';
-import type {StorageAdapter, CacheableRequestFunction, CacheableOptions} from 'cacheable-request';
+import CacheableRequest, {
+	CacheError as CacheableCacheError,
+	type {StorageAdapter,
+	type CacheableRequestFunction,
+	type CacheableOptions,
+} from 'cacheable-request';
 import decompressResponse from 'decompress-response';
 import is from '@sindresorhus/is';
 import {buffer as getBuffer} from 'get-stream';
