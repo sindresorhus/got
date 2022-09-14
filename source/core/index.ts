@@ -8,7 +8,7 @@ import type {Socket} from 'node:net';
 import timer from '@szmarczak/http-timer';
 import CacheableRequest, {
 	CacheError as CacheableCacheError,
-	type {StorageAdapter,
+	type StorageAdapter,
 	type CacheableRequestFunction,
 	type CacheableOptions,
 } from 'cacheable-request';
