@@ -24,7 +24,7 @@ import CacheableLookup from 'cacheable-lookup';
 import http2wrapper, {type ClientHttp2Session} from 'http2-wrapper';
 import {isFormData} from 'form-data-encoder';
 import type {FormDataLike} from 'form-data-encoder';
-import type CacheableRequest from 'cacheable-request';
+import type {StorageAdapter} from 'cacheable-request';
 import type ResponseLike from 'responselike';
 import type {IncomingMessageWithTimings} from '@szmarczak/http-timer';
 import type {CancelableRequest} from '../as-promise/types.js';
@@ -1806,11 +1806,11 @@ export default class Options {
 
 	@default false
 	*/
-	get cache(): string | CacheableRequest.StorageAdapter | boolean | undefined {
+	get cache(): string | StorageAdapter | boolean | undefined {
 		return this._internals.cache;
 	}
 
-	set cache(value: string | CacheableRequest.StorageAdapter | boolean | undefined) {
+	set cache(value: string | StorageAdapter | boolean | undefined) {
 		assert.any([is.object, is.string, is.boolean, is.undefined], value);
 
 		if (value === true) {
