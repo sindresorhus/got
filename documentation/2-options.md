@@ -692,7 +692,7 @@ Defines if redirect responses should be followed automatically.
 
 #### **Note:**
 > - If a `303` is sent by the server in response to any request type (POST, DELETE, etc.), Got will request the resource pointed to in the location header via GET.\
->  This is in accordance with the [specification](https://tools.ietf.org/html/rfc7231#section-6.4.4). You can optionally turn on this behavior also for other redirect codes - see `methodRewriting`.
+>  This is in accordance with the [specification](https://tools.ietf.org/html/rfc7231#section-6.4.4). You can optionally turn on this behavior also for other redirect codes - see [`methodRewriting`](#methodrewriting).
 
 ```js
 import got from 'got';
@@ -938,9 +938,7 @@ Optionally overrides the value of [`--max-http-header-size`](https://nodejs.org/
 
 Specifies if the HTTP request method should be [rewritten as `GET`](https://tools.ietf.org/html/rfc7231#section-6.4) on redirects.
 
-As the [specification](https://tools.ietf.org/html/rfc7231#section-6.4) prefers to rewrite the HTTP method only on `303` responses, this is Got's default behavior.
-
-However, since the spec also allows to rewrite to `GET` for `301` and `302` responses and many user agents - including, e.g., [`curl`](https://everything.curl.dev/http/redirects#get-or-post) and all major browsers - do so by default, this option may be used to mimic the same behavior and reach compatibility with servers expecting it.
+As the [specification](https://tools.ietf.org/html/rfc7231#section-6.4) prefers to rewrite the HTTP method only on `303` responses, this is Got's default behavior. Setting `methodRewriting` to `true` will also rewrite `301` and `302` responses, as allowed by the spec. This is the behavior followed by `curl` and browsers.
 
 **Note:**
 > - Got never performs method rewriting on `307` and `308` responses, as this is [explicitly prohibited by the specification](https://www.rfc-editor.org/rfc/rfc7231#section-6.4.7).
