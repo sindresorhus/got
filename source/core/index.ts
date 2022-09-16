@@ -1010,9 +1010,8 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 					return result;
 				}) as typeof http.request,
 				cache as StorageAdapter,
-			).createCacheableRequest();
-
-			cacheableStore.set(cache, cacheableRequest);
+			);
+			cacheableStore.set(cache, cacheableRequest.request());
 		}
 	}
 

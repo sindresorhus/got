@@ -48,7 +48,7 @@
 		"@sindresorhus/is": "^5.2.0",
 		"@szmarczak/http-timer": "^5.0.1",
 		"cacheable-lookup": "^6.0.4",
-		"cacheable-request": "^10.0.2",
+		"cacheable-request": "^10.1.2",
 		"decompress-response": "^6.0.0",
 		"form-data-encoder": "^2.1.2",
 		"get-stream": "^6.0.1",
