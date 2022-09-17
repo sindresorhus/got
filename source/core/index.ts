@@ -734,10 +734,8 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			const serverRequestedGet = statusCode === 303 && updatedOptions.method !== 'GET' && updatedOptions.method !== 'HEAD';
 			const canRewrite = statusCode !== 307 && statusCode !== 308;
 			const userRequestedGet = updatedOptions.methodRewriting && canRewrite;
+			
 			if (serverRequestedGet || userRequestedGet) {
-				// Either the server responded with 303 or
-				// the methodRewriting option explicitly requests
-				// a rewrite to GET on non-307/308 responses
 				updatedOptions.method = 'GET';
 
 				updatedOptions.body = undefined;

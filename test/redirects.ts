@@ -459,8 +459,8 @@ test('method rewriting', withServer, async (t, server, got) => {
 		});
 		response.end();
 	});
-	server.get('/', (request, response) => {
-		request.pipe(response);
+	server.get('/', (_request, response) => {
+		response.end();
 	});
 
 	server.post('/temporaryRedirect', (_request, response) => {
