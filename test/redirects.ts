@@ -459,9 +459,18 @@ test('method rewriting', withServer, async (t, server, got) => {
 		});
 		response.end();
 	});
-
 	server.get('/', (_request, response) => {
 		response.end();
+	});
+
+	server.post('/temporaryRedirect', (_request, response) => {
+		response.writeHead(307, {
+			location: '/',
+		});
+		response.end();
+	});
+	server.post('/', (request, response) => {
+		request.pipe(response);
 	});
 
 	const {body} = await got.post('redirect', {
@@ -477,6 +486,21 @@ test('method rewriting', withServer, async (t, server, got) => {
 	});
 
 	t.is(body, '');
+
+	// Do not rewrite method on 307 or 308
+	const {body: temporaryRedirectBody} = await got.post('temporaryRedirect', {
+		body: 'foobar',
+		methodRewriting: true,
+		hooks: {
+			beforeRedirect: [
+				options => {
+					t.is(options.body, 'foobar');
+				},
+			],
+		},
+	});
+
+	t.is(temporaryRedirectBody, 'foobar');
 });
 
 test('clears username and password when redirecting to a different hostname', withServer, async (t, server, got) => {
