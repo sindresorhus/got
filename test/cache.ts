@@ -11,6 +11,7 @@ import CacheableLookup from 'cacheable-lookup';
 import delay from 'delay';
 import got, {CacheError, type Response} from '../source/index.js';
 import withServer from './helpers/with-server.js';
+import { Readable } from 'stream';
 
 const cacheEndpoint: Handler = (_request, response) => {
 	response.setHeader('Cache-Control', 'public, max-age=60');
@@ -42,6 +43,34 @@ test('cacheable responses are cached', withServer, async (t, server, got) => {
 
 	t.is(cache.size, 1);
 	t.is(firstResponse.body, secondResponse.body);
+});
+
+test('cacheable responses to POST requests are cached', withServer, async (t, server, got) => {
+	server.post('/', cacheEndpoint);
+
+	const cache = new Map();
+
+	const firstResponse = await got({method: "POST", body: "test", cache});
+	const secondResponse = await got({method: "POST", body: "test", cache});
+
+	t.is(cache.size, 1);
+	t.is(firstResponse.body, secondResponse.body);
+});
+
+test('non-cacheable responses to POST requests are not cached', withServer, async (t, server, got) => {
+	server.post('/', cacheEndpoint);
+
+	const cache = new Map();
+
+	// POST requests with streams are not cached
+	const body1 = Readable.from(Buffer.from([1,2,3]));
+	const body2 = Readable.from(Buffer.from([1,2,3]));
+
+	const firstResponseInt = Number((await got({method: "POST", body: body1, cache})).body);
+	const secondResponseInt = Number((await got({method: "POST", body: body2, cache})).body);
+
+	t.is(cache.size, 0);
+	t.true(firstResponseInt < secondResponseInt);
 });
 
 test('cached response is re-encoded to current encoding option', withServer, async (t, server, got) => {
