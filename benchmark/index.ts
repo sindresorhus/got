@@ -1,6 +1,6 @@
 import {URL} from 'node:url';
 import https from 'node:https';
-import axios from 'axios';
+/// import axios from 'axios';
 import Benchmark from 'benchmark';
 import fetch from 'node-fetch';
 import request from 'request';
@@ -41,18 +41,18 @@ const fetchOptions = {
 	agent: httpsAgent,
 };
 
-const axiosOptions = {
-	url: urlString,
-	httpsAgent,
-	https: {
-		rejectUnauthorized: false,
-	},
-};
+/// const axiosOptions = {
+// 	url: urlString,
+// 	httpsAgent,
+// 	https: {
+// 		rejectUnauthorized: false,
+// 	},
+// };
 
-const axiosStreamOptions: typeof axiosOptions & {responseType: 'stream'} = {
-	...axiosOptions,
-	responseType: 'stream',
-};
+// const axiosStreamOptions: typeof axiosOptions & {responseType: 'stream'} = {
+// 	...axiosOptions,
+// 	responseType: 'stream',
+// };
 
 const httpsOptions = {
 	https: {
@@ -136,19 +136,23 @@ suite.add('got - promise', {
 }).add('axios - promise', {
 	defer: true,
 	async fn(deferred: {resolve: () => void}) {
-		await axios.request(axiosOptions);
+		// Disabled until it has correct types.
+		// await axios.request(axiosOptions);
 		deferred.resolve();
 	},
 }).add('axios - stream', {
 	defer: true,
 	async fn(deferred: {resolve: () => void}) {
-		const result = await axios.request(axiosStreamOptions);
-		const {data}: any = result;
+		// Disabled until it has correct types.
+		// const result = await axios.request(axiosStreamOptions);
+		// const {data}: any = result;
 
-		data.resume();
-		data.once('end', () => {
-			deferred.resolve();
-		});
+		// data.resume();
+		// data.once('end', () => {
+		// 	deferred.resolve();
+		// });
+
+		deferred.resolve();
 	},
 }).add('https - stream', {
 	defer: true,
