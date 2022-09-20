@@ -1,5 +1,6 @@
 import {Buffer} from 'buffer';
 import {promisify} from 'util';
+import {Readable as ReadableStream} from 'stream';
 import {Agent} from 'http';
 import {gzip} from 'zlib';
 import test from 'ava';
@@ -11,7 +12,6 @@ import CacheableLookup from 'cacheable-lookup';
 import delay from 'delay';
 import got, {CacheError, type Response} from '../source/index.js';
 import withServer from './helpers/with-server.js';
-import { Readable } from 'stream';
 
 const cacheEndpoint: Handler = (_request, response) => {
 	response.setHeader('Cache-Control', 'public, max-age=60');
@@ -63,8 +63,8 @@ test('non-cacheable responses to POST requests are not cached', withServer, asyn
 	const cache = new Map();
 
 	// POST requests with streams are not cached
-	const body1 = Readable.from(Buffer.from([1,2,3]));
-	const body2 = Readable.from(Buffer.from([1,2,3]));
+	const body1 = ReadableStream.from(Buffer.from([1,2,3]));
+	const body2 = ReadableStream.from(Buffer.from([1,2,3]));
 
 	const firstResponseInt = Number((await got({method: "POST", body: body1, cache})).body);
 	const secondResponseInt = Number((await got({method: "POST", body: body2, cache})).body);
