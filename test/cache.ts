@@ -50,8 +50,8 @@ test('cacheable responses to POST requests are cached', withServer, async (t, se
 
 	const cache = new Map();
 
-	const firstResponse = await got({method: "POST", body: "test", cache});
-	const secondResponse = await got({method: "POST", body: "test", cache});
+	const firstResponse = await got({method: 'POST', body: 'test', cache});
+	const secondResponse = await got({method: 'POST', body: 'test', cache});
 
 	t.is(cache.size, 1);
 	t.is(firstResponse.body, secondResponse.body);
@@ -63,11 +63,11 @@ test('non-cacheable responses to POST requests are not cached', withServer, asyn
 	const cache = new Map();
 
 	// POST requests with streams are not cached
-	const body1 = ReadableStream.from(Buffer.from([1,2,3]));
-	const body2 = ReadableStream.from(Buffer.from([1,2,3]));
+	const body1 = ReadableStream.from(Buffer.from([1, 2, 3]));
+	const body2 = ReadableStream.from(Buffer.from([1, 2, 3]));
 
-	const firstResponseInt = Number((await got({method: "POST", body: body1, cache})).body);
-	const secondResponseInt = Number((await got({method: "POST", body: body2, cache})).body);
+	const firstResponseInt = Number((await got({method: 'POST', body: body1, cache})).body);
+	const secondResponseInt = Number((await got({method: 'POST', body: body2, cache})).body);
 
 	t.is(cache.size, 0);
 	t.true(firstResponseInt < secondResponseInt);
