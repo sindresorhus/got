@@ -6,10 +6,6 @@
 		"lib": [
 			"es2020"
 		],
-
-		// TODO: Remove these at some point.
-		"module": "ES2020",
-		"moduleResolution": "node",
 		"noPropertyAccessFromIndexSignature": false,
 		"isolatedModules": true
 	},
