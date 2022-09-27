@@ -1,5 +1,6 @@
 import {Buffer} from 'buffer';
 import {promisify} from 'util';
+import {Readable as ReadableStream} from 'stream';
 import {Agent} from 'http';
 import {gzip} from 'zlib';
 import test from 'ava';
@@ -42,6 +43,34 @@ test('cacheable responses are cached', withServer, async (t, server, got) => {
 
 	t.is(cache.size, 1);
 	t.is(firstResponse.body, secondResponse.body);
+});
+
+test('cacheable responses to POST requests are cached', withServer, async (t, server, got) => {
+	server.post('/', cacheEndpoint);
+
+	const cache = new Map();
+
+	const firstResponse = await got({method: 'POST', body: 'test', cache});
+	const secondResponse = await got({method: 'POST', body: 'test', cache});
+
+	t.is(cache.size, 1);
+	t.is(firstResponse.body, secondResponse.body);
+});
+
+test('non-cacheable responses to POST requests are not cached', withServer, async (t, server, got) => {
+	server.post('/', cacheEndpoint);
+
+	const cache = new Map();
+
+	// POST requests with streams are not cached
+	const body1 = ReadableStream.from(Buffer.from([1, 2, 3]));
+	const body2 = ReadableStream.from(Buffer.from([1, 2, 3]));
+
+	const firstResponseInt = Number((await got({method: 'POST', body: body1, cache})).body);
+	const secondResponseInt = Number((await got({method: 'POST', body: body2, cache})).body);
+
+	t.is(cache.size, 0);
+	t.true(firstResponseInt < secondResponseInt);
 });
 
 test('cached response is re-encoded to current encoding option', withServer, async (t, server, got) => {

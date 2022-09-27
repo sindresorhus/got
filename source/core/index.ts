@@ -1110,6 +1110,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		if (options.cache) {
 			(this._requestOptions as any)._request = request;
 			(this._requestOptions as any).cache = options.cache;
+			(this._requestOptions as any).body = options.body;
 			this._prepareCache(options.cache as StorageAdapter);
 		}
 
