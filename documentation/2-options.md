@@ -649,14 +649,12 @@ console.log(instance.defaults.options.context);
 Cookie support. Handles parsing and storing automatically.
 
 ```js
-import {promisify} from 'util';
 import got from 'got';
 import {CookieJar} from 'tough-cookie';
 
 const cookieJar = new CookieJar();
-const setCookie = promisify(cookieJar.setCookie.bind(cookieJar));
 
-await setCookie('foo=bar', 'https://example.com');
+await cookieJar.setCookie('foo=bar', 'https://example.com');
 await got('https://example.com', {cookieJar});
 ```
 
