@@ -251,9 +251,8 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			this.destroy(new AbortError(this));
 		}
 
-		this.options.signal?.addEventListener('abort', () => {
-			this.destroy(new AbortError(this));
-		});
+		this.abortHandler = this.abortHandler.bind(this);
+		this.options.signal?.addEventListener('abort', this.abortHandler, {once: true});
 
 		// Important! If you replace `body` in a handler with another stream, make sure it's readable first.
 		// The below is run only once.
@@ -545,6 +544,10 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		return this;
 	}
 
+	private abortHandler(): void {
+		this.destroy(new AbortError(this));
+	}
+
 	private async _finalizeBody(): Promise<void> {
 		const {options} = this;
 		const {headers} = options;
@@ -664,6 +667,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		response.once('end', () => {
 			this._responseSize = this._downloadedSize;
 			this.emit('downloadProgress', this.downloadProgress);
+			this.removeListener('abort', this.abortHandler);
 		});
 
 		response.once('error', (error: Error) => {
@@ -674,6 +678,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			response.destroy();
 
 			this._beforeError(new ReadError(error, this));
+			this.removeListener('abort', this.abortHandler);
 		});
 
 		response.once('aborted', () => {
@@ -684,6 +689,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 				message: 'The server aborted pending request',
 				code: 'ECONNRESET',
 			}, this));
+			this.removeListener('abort', this.abortHandler);
 		});
 
 		this.emit('downloadProgress', this.downloadProgress);
