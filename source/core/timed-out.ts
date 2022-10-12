@@ -188,6 +188,6 @@ export default function timedOut(request: ClientRequest, delays: Delays, options
 declare module 'http' {
 	// eslint-disable-next-line @typescript-eslint/consistent-type-definitions -- This has to be an `interface` to be able to be merged.
 	interface ClientRequest {
-		[reentry]: boolean;
+		[reentry]?: boolean;
 	}
 }
