@@ -470,3 +470,40 @@ test('response.complete is true when using keepalive agent', withServer, async (
 
 	t.true(first.complete);
 });
+
+test('response is correct after cache revalidation results in 304 status code when compression is on', withServer, async (t, server, got) => {
+	const etag = 'foobar';
+
+	const payload = JSON.stringify({foo: 'bar'});
+	const compressed = await promisify(gzip)(payload);
+
+	server.get('/', (request, response) => {
+		if (request.headers['if-none-match'] === etag) {
+			response.statusCode = 304;
+			response.setHeader('etag', etag);
+			response.end();
+		} else {
+			response.setHeader('content-encoding', 'gzip');
+			response.setHeader('cache-control', 'public, max-age=0');
+			response.setHeader('etag', etag);
+			response.end(compressed);
+		}
+	});
+
+	const cache = new Map();
+
+	await got({
+		cache,
+		decompress: true,
+	});
+
+	await delay(10);
+
+	const response = await got({
+		cache,
+		decompress: true,
+	});
+
+	t.is(response.isFromCache, true);
+	t.is(response.body, payload);
+});
