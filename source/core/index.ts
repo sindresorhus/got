@@ -176,6 +176,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	private _triggerRead: boolean;
 	declare private _jobs: Array<() => void>;
 	private _cancelTimeouts: () => void;
+	private readonly _removeListeners: () => void;
 	private _nativeResponse?: IncomingMessageWithTimings;
 	private _flushed: boolean;
 	private _aborted: boolean;
@@ -199,6 +200,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		this._unproxyEvents = noop;
 		this._triggerRead = false;
 		this._cancelTimeouts = noop;
+		this._removeListeners = noop;
 		this._jobs = [];
 		this._flushed = false;
 		this._requestInitialized = false;
@@ -247,14 +249,6 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			return;
 		}
 
-		if (this.options.signal?.aborted) {
-			this.destroy(new AbortError(this));
-		}
-
-		this.options.signal?.addEventListener('abort', () => {
-			this.destroy(new AbortError(this));
-		});
-
 		// Important! If you replace `body` in a handler with another stream, make sure it's readable first.
 		// The below is run only once.
 		const {body} = this.options;
@@ -270,6 +264,21 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 					};
 				}
 			});
+		}
+
+		if (this.options.signal) {
+			const abort = () => {
+				this.destroy(new AbortError(this));
+			};
+
+			if (this.options.signal.aborted) {
+				abort();
+			} else {
+				this.options.signal.addEventListener('abort', abort);
+				this._removeListeners = () => {
+					this.options.signal.removeEventListener('abort', abort);
+				};
+			}
 		}
 	}
 
@@ -508,6 +517,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		// Prevent further retries
 		this._stopRetry();
 		this._cancelTimeouts();
+		this._removeListeners();
 
 		if (this.options) {
 			const {body} = this.options;
