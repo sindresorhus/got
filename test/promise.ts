@@ -95,3 +95,14 @@ test('promise.json() does not fail when server returns an error and throwHttpErr
 	const promise = got('', {throwHttpErrors: false});
 	await t.notThrowsAsync(promise.json());
 });
+
+test('the request is destroyed once the promise has resolved', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.statusCode = 200;
+		response.end('null');
+	});
+
+	const {request} = await got('');
+
+	t.true(request.destroyed);
+});
