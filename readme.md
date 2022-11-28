@@ -28,14 +28,6 @@
 		</a>
 		<br>
 		<br>
-		<a href="https://www.monito.com">
-			<div>
-				<img src="https://sindresorhus.com/assets/thanks/monito-logo.svg" width="210">
-			</div>
-			<b>Find the cheapest way to send money abroad</b>
-		</a>
-		<br>
-		<br>
 		<br>
 		<a href="https://www.useanvil.com/?utm_source=sindresorhus#gh-light-mode-only">
 			<div>
@@ -62,20 +54,6 @@
 				Easy APIs for paperwork. PDF generation, e-signature and embeddable no-code webforms.
 				<br>
 				The easiest way to build paperwork automation into your product.
-				</sub>
-			</div>
-		</a>
-		<br>
-		<br>
-		<a href="https://sizzy.co/?utm_campaign=github_repo&utm_source=github&utm_medium=referral&utm_content=got&utm_term=sindre">
-			<div>
-				<img src="https://sindresorhus.com/assets/thanks/sizzy-logo.png" width="240" alt="Sizzy">
-			</div>
-			<div>
-				<sub>
-				<b>Before Sizzy:</b> web development is stressing you out, responsive design is hard, you have an overwhelming amount of opened tabs & apps.
-				<br>
-				<b>After Sizzy:</b> all the tools you need in one place, responsive design is a breeze, no more context switching.
 				</sub>
 			</div>
 		</a>
