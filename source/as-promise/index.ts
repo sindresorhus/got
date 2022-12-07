@@ -131,6 +131,7 @@ export default function asPromise<T>(normalizedOptions: NormalizedOptions): Canc
 					return;
 				}
 
+				request.destroy();
 				resolve(request.options.resolveBodyOnly ? response.body as T : response as unknown as T);
 			});
 
