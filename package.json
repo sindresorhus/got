@@ -6,6 +6,7 @@
 	"repository": "sindresorhus/got",
 	"funding": "https://github.com/sindresorhus/got?sponsor=1",
 	"type": "module",
+	"main": "./dist/source/index.js",
 	"exports": "./dist/source/index.js",
 	"types": "./dist/source/index.d.ts",
 	"engines": {
