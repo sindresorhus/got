@@ -32,7 +32,8 @@ import Options, {
 	type OptionsError,
 	type OptionsInit,
 } from './options.js';
-import {isResponseOk, type PlainResponse, type Response} from './response.js';
+import {isResponseOk } from './response.js';
+import type { PlainResponse, Response } from './response.js';
 import isClientRequest from './utils/is-client-request.js';
 import isUnixSocketURL from './utils/is-unix-socket-url.js';
 import {
