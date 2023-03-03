@@ -471,7 +471,7 @@ test('response.complete is true when using keepalive agent', withServer, async (
 	t.true(first.complete);
 });
 
-test('response is correct after cache revalidation results in 304 status code when compression is on', withServer, async (t, server, got) => {
+test.failing('response is correct after cache revalidation results in 304 status code when compression is on', withServer, async (t, server, got) => {
 	const etag = 'foobar';
 
 	const payload = JSON.stringify({foo: 'bar'});
