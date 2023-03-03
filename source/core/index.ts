@@ -1,5 +1,5 @@
 import {promisify} from 'util';
-import {Duplex, Writable, Readable} from 'stream';
+import {Duplex, Readable} from 'stream';
 import {ReadStream} from 'fs';
 import {URL, URLSearchParams} from 'url';
 import {Socket} from 'net';
@@ -1399,25 +1399,6 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		// TODO: Remove this when targeting Node.js >= 12
 		this._progressCallbacks = [];
 
-		const unlockWrite = (): void => this._unlockWrite();
-		const lockWrite = (): void => this._lockWrite();
-
-		this.on('pipe', (source: Writable) => {
-			source.prependListener('data', unlockWrite);
-			source.on('data', lockWrite);
-
-			source.prependListener('end', unlockWrite);
-			source.on('end', lockWrite);
-		});
-
-		this.on('unpipe', (source: Writable) => {
-			source.off('data', unlockWrite);
-			source.off('data', lockWrite);
-
-			source.off('end', unlockWrite);
-			source.off('end', lockWrite);
-		});
-
 		this.on('pipe', source => {
 			if (source instanceof IncomingMessage) {
 				this.options.headers = {
@@ -1426,11 +1407,6 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 				};
 			}
 		});
-
-		const {json, body, form} = options;
-		if (json || body || form) {
-			this._lockWrite();
-		}
 
 		if (kIsNormalizedAlready in options) {
 			this.options = options as NormalizedOptions;
@@ -1884,20 +1860,6 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		return normalizePromiseArguments(options as NormalizedOptions, defaults);
 	}
 
-	_lockWrite(): void {
-		const onLockedWrite = (): never => {
-			throw new TypeError('The payload has been already provided');
-		};
-
-		this.write = onLockedWrite;
-		this.end = onLockedWrite;
-	}
-
-	_unlockWrite(): void {
-		this.write = super.write;
-		this.end = super.end;
-	}
-
 	async _finalizeBody(): Promise<void> {
 		const {options} = this;
 		const {headers} = options;
@@ -1975,10 +1937,6 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 					}
 				}
 			}
-		} else if (cannotHaveBody) {
-			this._lockWrite();
-		} else {
-			this._unlockWrite();
 		}
 
 		this[kBodySize] = Number(headers['content-length']) || undefined;
@@ -2246,19 +2204,11 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			body.once('error', (error: NodeJS.ErrnoException) => {
 				this._beforeError(new UploadError(error, this));
 			});
-		} else {
-			this._unlockWrite();
-
-			if (!is.undefined(body)) {
-				this._writeRequest(body, undefined, () => {});
-				currentRequest.end();
-
-				this._lockWrite();
-			} else if (this._cannotHaveBody || this._noPipe) {
-				currentRequest.end();
-
-				this._lockWrite();
-			}
+		} else if (!is.undefined(body)) {
+			this._writeRequest(body, undefined, () => {});
+			currentRequest.end();
+		} else if (this._cannotHaveBody || this._noPipe) {
+			currentRequest.end();
 		}
 
 		this.emit('request', request);
