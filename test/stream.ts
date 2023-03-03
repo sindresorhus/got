@@ -7,7 +7,6 @@ import stream, {Readable as ReadableStream, Writable} from 'stream';
 import {Readable as Readable2} from 'readable-stream';
 import test from 'ava';
 import type {Handler} from 'express';
-import toReadableStream from 'to-readable-stream';
 import getStream from 'get-stream';
 import {pEvent} from 'p-event';
 import FormData from 'form-data';
@@ -165,7 +164,7 @@ test('has response event if `options.throwHttpErrors` is false', withServer, asy
 test('accepts `options.body` as a Stream', withServer, async (t, server, got) => {
 	server.post('/', postHandler);
 
-	const stream = got.stream.post({body: toReadableStream('wow')});
+	const stream = got.stream.post({body: ReadableStream.from('wow')});
 	t.is(await getStream(stream), 'wow');
 });
 
@@ -312,7 +311,7 @@ test.skip('no unhandled body stream errors', async t => {
 
 test('works with pipeline', async t => {
 	await t.throwsAsync(pStreamPipeline(
-		new stream.Readable({
+		new ReadableStream({
 			read() {
 				this.push(null);
 			},

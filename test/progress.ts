@@ -5,7 +5,6 @@ import stream from 'stream';
 import fs from 'fs';
 // @ts-expect-error Fails to find slow-stream/index.d.ts
 import SlowStream from 'slow-stream';
-import toReadableStream from 'to-readable-stream';
 import getStream from 'get-stream';
 import FormData from 'form-data';
 import {temporaryFile} from 'tempy';
@@ -51,7 +50,7 @@ const downloadEndpoint: Handler = (_request, response) => {
 	response.setHeader('content-length', file.length);
 
 	stream.pipeline(
-		toReadableStream(file),
+		stream.Readable.from(file),
 		new SlowStream({maxWriteInterval: 50}),
 		response,
 		() => {
@@ -181,7 +180,7 @@ test('upload progress - stream with known body size', withServer, async (t, serv
 		.on('uploadProgress', event => events.push(event));
 
 	await getStream(
-		stream.pipeline(toReadableStream(file), request, () => {}),
+		stream.pipeline(stream.Readable.from(file), request, () => {}),
 	);
 
 	checkEvents(t, events, file.length);
@@ -196,7 +195,7 @@ test('upload progress - stream with unknown body size', withServer, async (t, se
 		.on('uploadProgress', event => events.push(event));
 
 	await getStream(
-		stream.pipeline(toReadableStream(file), request, () => {}),
+		stream.pipeline(stream.Readable.from(file), request, () => {}),
 	);
 
 	t.is(events[0]?.total, undefined);
