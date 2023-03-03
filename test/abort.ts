@@ -5,6 +5,7 @@ import test from 'ava';
 import delay from 'delay';
 import {pEvent} from 'p-event';
 import type {Handler} from 'express';
+import {createSandbox} from 'sinon';
 import got from '../source/index.js';
 import slowDataStream from './helpers/slow-data-stream.js';
 import type {GlobalClock} from './helpers/types.js';
@@ -64,9 +65,25 @@ if (globalThis.AbortController !== undefined) {
 		);
 	};
 
+	const sandbox = createSandbox();
+
+	const createAbortController = (): {controller: AbortController; signalHandlersRemoved: () => boolean} => {
+		const controller = new AbortController();
+		sandbox.spy(controller.signal);
+		// @ts-expect-error AbortSignal type definition issue: https://github.com/DefinitelyTyped/DefinitelyTyped/discussions/57805
+		const signalHandlersRemoved = () => controller.signal.addEventListener.callCount === controller.signal.removeEventListener.callCount;
+		return {
+			controller, signalHandlersRemoved,
+		};
+	};
+
+	test.afterEach(() => {
+		sandbox.restore();
+	});
+
 	test.serial('does not retry after abort', withServerAndFakeTimers, async (t, server, got, clock) => {
 		const {emitter, promise} = prepareServer(server, clock);
-		const controller = new AbortController();
+		const {controller, signalHandlersRemoved} = createAbortController();
 
 		const gotPromise = got('redirect', {
 			signal: controller.signal,
@@ -88,12 +105,14 @@ if (globalThis.AbortController !== undefined) {
 		});
 
 		await t.notThrowsAsync(promise, 'Request finished instead of aborting.');
+
+		t.true(signalHandlersRemoved(), 'Abort signal event handlers not removed');
 	});
 
 	test.serial('abort request timeouts', withServer, async (t, server, got) => {
 		server.get('/', () => {});
 
-		const controller = new AbortController();
+		const {controller, signalHandlersRemoved} = createAbortController();
 
 		const gotPromise = got({
 			signal: controller.signal,
@@ -121,6 +140,8 @@ if (globalThis.AbortController !== undefined) {
 			message: 'This operation was aborted.',
 		});
 
+		t.true(signalHandlersRemoved(), 'Abort signal event handlers not removed');
+
 		// Wait for unhandled errors
 		await delay(40);
 	});
@@ -128,7 +149,7 @@ if (globalThis.AbortController !== undefined) {
 	test.serial('aborts in-progress request', withServerAndFakeTimers, async (t, server, got, clock) => {
 		const {emitter, promise} = prepareServer(server, clock);
 
-		const controller = new AbortController();
+		const {controller, signalHandlersRemoved} = createAbortController();
 
 		const body = new ReadableStream({
 			read() {},
@@ -148,12 +169,14 @@ if (globalThis.AbortController !== undefined) {
 			message: 'This operation was aborted.',
 		});
 		await t.notThrowsAsync(promise, 'Request finished instead of aborting.');
+
+		t.true(signalHandlersRemoved(), 'Abort signal event handlers not removed');
 	});
 
 	test.serial('aborts in-progress request with timeout', withServerAndFakeTimers, async (t, server, got, clock) => {
 		const {emitter, promise} = prepareServer(server, clock);
 
-		const controller = new AbortController();
+		const {controller, signalHandlersRemoved} = createAbortController();
 
 		const body = new ReadableStream({
 			read() {},
@@ -173,10 +196,12 @@ if (globalThis.AbortController !== undefined) {
 			message: 'This operation was aborted.',
 		});
 		await t.notThrowsAsync(promise, 'Request finished instead of aborting.');
+
+		t.true(signalHandlersRemoved(), 'Abort signal event handlers not removed');
 	});
 
 	test.serial('abort immediately', withServerAndFakeTimers, async (t, server, got, clock) => {
-		const controller = new AbortController();
+		const {controller, signalHandlersRemoved} = createAbortController();
 
 		const promise = new Promise<void>((resolve, reject) => {
 			// We won't get an abort or even a connection
@@ -198,11 +223,13 @@ if (globalThis.AbortController !== undefined) {
 			message: 'This operation was aborted.',
 		});
 		await t.notThrowsAsync(promise, 'Request finished instead of aborting.');
+
+		t.true(signalHandlersRemoved(), 'Abort signal event handlers not removed');
 	});
 
 	test('recover from abort using abortable promise attribute', async t => {
 		// Abort before connection started
-		const controller = new AbortController();
+		const {controller, signalHandlersRemoved} = createAbortController();
 
 		const p = got('http://example.com', {signal: controller.signal});
 		const recover = p.catch((error: Error) => {
@@ -216,10 +243,12 @@ if (globalThis.AbortController !== undefined) {
 		controller.abort();
 
 		await t.notThrowsAsync(recover);
+
+		t.true(signalHandlersRemoved(), 'Abort signal event handlers not removed');
 	});
 
 	test('recover from abort using error instance', async t => {
-		const controller = new AbortController();
+		const {controller, signalHandlersRemoved} = createAbortController();
 
 		const p = got('http://example.com', {signal: controller.signal});
 		const recover = p.catch((error: Error) => {
@@ -233,13 +262,15 @@ if (globalThis.AbortController !== undefined) {
 		controller.abort();
 
 		await t.notThrowsAsync(recover);
+
+		t.true(signalHandlersRemoved(), 'Abort signal event handlers not removed');
 	});
 
 	// TODO: Use `fakeTimers` here
 	test.serial('throws on incomplete (aborted) response', withServer, async (t, server, got) => {
 		server.get('/', downloadHandler());
 
-		const controller = new AbortController();
+		const {controller, signalHandlersRemoved} = createAbortController();
 
 		const promise = got('', {signal: controller.signal});
 
@@ -251,6 +282,8 @@ if (globalThis.AbortController !== undefined) {
 			code: 'ERR_ABORTED',
 			message: 'This operation was aborted.',
 		});
+
+		t.true(signalHandlersRemoved(), 'Abort signal event handlers not removed');
 	});
 
 	test('throws when aborting cached request', withServer, async (t, server, got) => {
@@ -263,7 +296,7 @@ if (globalThis.AbortController !== undefined) {
 
 		await got({cache});
 
-		const controller = new AbortController();
+		const {controller, signalHandlersRemoved} = createAbortController();
 		const promise = got({cache, signal: controller.signal});
 		controller.abort();
 
@@ -271,10 +304,12 @@ if (globalThis.AbortController !== undefined) {
 			code: 'ERR_ABORTED',
 			message: 'This operation was aborted.',
 		});
+
+		t.true(signalHandlersRemoved(), 'Abort signal event handlers not removed');
 	});
 
 	test('support setting the signal as a default option', async t => {
-		const controller = new AbortController();
+		const {controller, signalHandlersRemoved} = createAbortController();
 
 		const got2 = got.extend({signal: controller.signal});
 		const p = got2('http://example.com', {signal: controller.signal});
@@ -284,6 +319,8 @@ if (globalThis.AbortController !== undefined) {
 			code: 'ERR_ABORTED',
 			message: 'This operation was aborted.',
 		});
+
+		t.true(signalHandlersRemoved(), 'Abort signal event handlers not removed');
 	});
 } else {
 	test('x', t => {

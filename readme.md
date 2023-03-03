@@ -28,14 +28,6 @@
 		</a>
 		<br>
 		<br>
-		<a href="https://www.monito.com">
-			<div>
-				<img src="https://sindresorhus.com/assets/thanks/monito-logo.svg" width="210">
-			</div>
-			<b>Find the cheapest way to send money abroad</b>
-		</a>
-		<br>
-		<br>
 		<br>
 		<a href="https://www.useanvil.com/?utm_source=sindresorhus#gh-light-mode-only">
 			<div>
@@ -62,20 +54,6 @@
 				Easy APIs for paperwork. PDF generation, e-signature and embeddable no-code webforms.
 				<br>
 				The easiest way to build paperwork automation into your product.
-				</sub>
-			</div>
-		</a>
-		<br>
-		<br>
-		<a href="https://sizzy.co/?utm_campaign=github_repo&utm_source=github&utm_medium=referral&utm_content=got&utm_term=sindre">
-			<div>
-				<img src="https://sindresorhus.com/assets/thanks/sizzy-logo.png" width="240" alt="Sizzy">
-			</div>
-			<div>
-				<sub>
-				<b>Before Sizzy:</b> web development is stressing you out, responsive design is hard, you have an overwhelming amount of opened tabs & apps.
-				<br>
-				<b>After Sizzy:</b> all the tools you need in one place, responsive design is a breeze, no more context switching.
 				</sub>
 			</div>
 		</a>
@@ -110,7 +88,9 @@ For browser usage, we recommend [Ky](https://github.com/sindresorhus/ky) by the 
 npm install got
 ```
 
-**Warning:** This package is native [ESM](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Modules) and no longer provides a CommonJS export. If your project uses CommonJS, you'll have to [convert to ESM](https://gist.github.com/sindresorhus/a39789f98801d908bbc7ff3ecc99d99c) or use the [dynamic `import()`](https://v8.dev/features/dynamic-import) function. Please don't open issues for questions regarding CommonJS / ESM. You can also use [Got v11](https://github.com/sindresorhus/got/tree/v11.8.3) instead which is pretty stable. We will backport security fixes to v11 for the foreseeable future.
+**Warning:** This package is native [ESM](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Modules) and no longer provides a CommonJS export. If your project uses CommonJS, you will have to [convert to ESM](https://gist.github.com/sindresorhus/a39789f98801d908bbc7ff3ecc99d99c) or use the [dynamic `import()`](https://v8.dev/features/dynamic-import) function. Please don't open issues for questions regarding CommonJS / ESM.
+
+**Got v11 (the previous major version) is no longer maintained and we will not accept any backport requests.**
 
 ## Take a peek
 
@@ -210,38 +190,38 @@ By default, Got will retry on failure. To disable this option, set [`options.ret
 
 ## Comparison
 
-|                       | `got`               | [`request`][r0]    | [`node-fetch`][n0]   | [`ky`][k0]               | [`axios`][a0]      | [`superagent`][s0]     |
-|-----------------------|:-------------------:|:------------------:|:--------------------:|:------------------------:|:------------------:|:----------------------:|
-| HTTP/2 support        | :heavy_check_mark:¹ | :x:                | :x:                  | :x:                      | :x:                | :heavy_check_mark:\*\* |
-| Browser support       | :x:                 | :x:                | :heavy_check_mark:\* | :heavy_check_mark:       | :heavy_check_mark: | :heavy_check_mark:     |
-| Promise API           | :heavy_check_mark:  | :heavy_check_mark: | :heavy_check_mark:   | :heavy_check_mark:       | :heavy_check_mark: | :heavy_check_mark:     |
-| Stream API            | :heavy_check_mark:  | :heavy_check_mark: | Node.js only         | :x:                      | :x:                | :heavy_check_mark:     |
-| Pagination API        | :heavy_check_mark:  | :x:                | :x:                  | :x:                      | :x:                | :x:                    |
-| Request cancelation   | :heavy_check_mark:  | :x:                | :heavy_check_mark:   | :heavy_check_mark:       | :heavy_check_mark: | :heavy_check_mark:     |
-| RFC compliant caching | :heavy_check_mark:  | :x:                | :x:                  | :x:                      | :x:                | :x:                    |
-| Cookies (out-of-box)  | :heavy_check_mark:  | :heavy_check_mark: | :x:                  | :x:                      | :x:                | :x:                    |
-| Follows redirects     | :heavy_check_mark:  | :heavy_check_mark: | :heavy_check_mark:   | :heavy_check_mark:       | :heavy_check_mark: | :heavy_check_mark:     |
-| Retries on failure    | :heavy_check_mark:  | :x:                | :x:                  | :heavy_check_mark:       | :x:                | :heavy_check_mark:     |
-| Progress events       | :heavy_check_mark:  | :x:                | :x:                  | :heavy_check_mark:\*\*\* | Browser only       | :heavy_check_mark:     |
-| Handles gzip/deflate  | :heavy_check_mark:  | :heavy_check_mark: | :heavy_check_mark:   | :heavy_check_mark:       | :heavy_check_mark: | :heavy_check_mark:     |
-| Advanced timeouts     | :heavy_check_mark:  | :x:                | :x:                  | :x:                      | :x:                | :x:                    |
-| Timings               | :heavy_check_mark:  | :heavy_check_mark: | :x:                  | :x:                      | :x:                | :x:                    |
-| Errors with metadata  | :heavy_check_mark:  | :x:                | :x:                  | :heavy_check_mark:       | :heavy_check_mark: | :x:                    |
-| JSON mode             | :heavy_check_mark:  | :heavy_check_mark: | :heavy_check_mark:   | :heavy_check_mark:       | :heavy_check_mark: | :heavy_check_mark:     |
-| Custom defaults       | :heavy_check_mark:  | :heavy_check_mark: | :x:                  | :heavy_check_mark:       | :heavy_check_mark: | :x:                    |
-| Composable            | :heavy_check_mark:  | :x:                | :x:                  | :x:                      | :x:                | :heavy_check_mark:     |
-| Hooks                 | :heavy_check_mark:  | :x:                | :x:                  | :heavy_check_mark:       | :heavy_check_mark: | :x:                    |
-| Issues open           | [![][gio]][g1]      | [![][rio]][r1]     | [![][nio]][n1]       | [![][kio]][k1]           | [![][aio]][a1]     | [![][sio]][s1]         |
-| Issues closed         | [![][gic]][g2]      | [![][ric]][r2]     | [![][nic]][n2]       | [![][kic]][k2]           | [![][aic]][a2]     | [![][sic]][s2]         |
-| Downloads             | [![][gd]][g3]       | [![][rd]][r3]      | [![][nd]][n3]        | [![][kd]][k3]            | [![][ad]][a3]      | [![][sd]][s3]          |
-| Coverage              | TBD       | [![][rc]][r4]      | [![][nc]][n4]        | [![][kc]][k4]            | [![][ac]][a4]      | [![][sc]][s4]          |
-| Build                 | [![][gb]][g5]       | [![][rb]][r5]      | [![][nb]][n5]        | [![][kb]][k5]            | [![][ab]][a5]      | [![][sb]][s5]          |
-| Bugs                  | [![][gbg]][g6]      | [![][rbg]][r6]     | [![][nbg]][n6]       | [![][kbg]][k6]           | [![][abg]][a6]     | [![][sbg]][s6]         |
-| Dependents            | [![][gdp]][g7]      | [![][rdp]][r7]     | [![][ndp]][n7]       | [![][kdp]][k7]           | [![][adp]][a7]     | [![][sdp]][s7]         |
-| Install size          | [![][gis]][g8]      | [![][ris]][r8]     | [![][nis]][n8]       | [![][kis]][k8]           | [![][ais]][a8]     | [![][sis]][s8]         |
-| GitHub stars          | [![][gs]][g9]       | [![][rs]][r9]      | [![][ns]][n9]        | [![][ks]][k9]            | [![][as]][a9]      | [![][ss]][s9]          |
-| TypeScript support    | [![][gts]][g10]     | [![][rts]][r10]    | [![][nts]][n10]      | [![][kts]][k10]          | [![][ats]][a10]    | [![][sts]][s11]        |
-| Last commit           | [![][glc]][g11]     | [![][rlc]][r11]    | [![][nlc]][n11]      | [![][klc]][k11]          | [![][alc]][a11]    | [![][slc]][s11]        |
+|                       | `got`               | [`node-fetch`][n0]   | [`ky`][k0]               | [`axios`][a0]      | [`superagent`][s0]     |
+|-----------------------|:-------------------:|:--------------------:|:------------------------:|:------------------:|:----------------------:|
+| HTTP/2 support        | :heavy_check_mark:¹ | :x:                  | :x:                      | :x:                | :heavy_check_mark:\*\* |
+| Browser support       | :x:                 | :heavy_check_mark:\* | :heavy_check_mark:       | :heavy_check_mark: | :heavy_check_mark:     |
+| Promise API           | :heavy_check_mark:  | :heavy_check_mark:   | :heavy_check_mark:       | :heavy_check_mark: | :heavy_check_mark:     |
+| Stream API            | :heavy_check_mark:  | Node.js only         | :x:                      | :x:                | :heavy_check_mark:     |
+| Pagination API        | :heavy_check_mark:  | :x:                  | :x:                      | :x:                | :x:                    |
+| Request cancelation   | :heavy_check_mark:  | :heavy_check_mark:   | :heavy_check_mark:       | :heavy_check_mark: | :heavy_check_mark:     |
+| RFC compliant caching | :heavy_check_mark:  | :x:                  | :x:                      | :x:                | :x:                    |
+| Cookies (out-of-box)  | :heavy_check_mark:  | :x:                  | :x:                      | :x:                | :x:                    |
+| Follows redirects     | :heavy_check_mark:  | :heavy_check_mark:   | :heavy_check_mark:       | :heavy_check_mark: | :heavy_check_mark:     |
+| Retries on failure    | :heavy_check_mark:  | :x:                  | :heavy_check_mark:       | :x:                | :heavy_check_mark:     |
+| Progress events       | :heavy_check_mark:  | :x:                  | :heavy_check_mark:\*\*\* | Browser only       | :heavy_check_mark:     |
+| Handles gzip/deflate  | :heavy_check_mark:  | :heavy_check_mark:   | :heavy_check_mark:       | :heavy_check_mark: | :heavy_check_mark:     |
+| Advanced timeouts     | :heavy_check_mark:  | :x:                  | :x:                      | :x:                | :x:                    |
+| Timings               | :heavy_check_mark:  | :x:                  | :x:                      | :x:                | :x:                    |
+| Errors with metadata  | :heavy_check_mark:  | :x:                  | :heavy_check_mark:       | :heavy_check_mark: | :x:                    |
+| JSON mode             | :heavy_check_mark:  | :heavy_check_mark:   | :heavy_check_mark:       | :heavy_check_mark: | :heavy_check_mark:     |
+| Custom defaults       | :heavy_check_mark:  | :x:                  | :heavy_check_mark:       | :heavy_check_mark: | :x:                    |
+| Composable            | :heavy_check_mark:  | :x:                  | :x:                      | :x:                | :heavy_check_mark:     |
+| Hooks                 | :heavy_check_mark:  | :x:                  | :heavy_check_mark:       | :heavy_check_mark: | :x:                    |
+| Issues open           | [![][gio]][g1]      | [![][nio]][n1]       | [![][kio]][k1]           | [![][aio]][a1]     | [![][sio]][s1]         |
+| Issues closed         | [![][gic]][g2]      | [![][nic]][n2]       | [![][kic]][k2]           | [![][aic]][a2]     | [![][sic]][s2]         |
+| Downloads             | [![][gd]][g3]       | [![][nd]][n3]        | [![][kd]][k3]            | [![][ad]][a3]      | [![][sd]][s3]          |
+| Coverage              | TBD                 | [![][nc]][n4]        | [![][kc]][k4]            | [![][ac]][a4]      | [![][sc]][s4]          |
+| Build                 | [![][gb]][g5]       | [![][nb]][n5]        | [![][kb]][k5]            | [![][ab]][a5]      | [![][sb]][s5]          |
+| Bugs                  | [![][gbg]][g6]      | [![][nbg]][n6]       | [![][kbg]][k6]           | [![][abg]][a6]     | [![][sbg]][s6]         |
+| Dependents            | [![][gdp]][g7]      | [![][ndp]][n7]       | [![][kdp]][k7]           | [![][adp]][a7]     | [![][sdp]][s7]         |
+| Install size          | [![][gis]][g8]      | [![][nis]][n8]       | [![][kis]][k8]           | [![][ais]][a8]     | [![][sis]][s8]         |
+| GitHub stars          | [![][gs]][g9]       | [![][ns]][n9]        | [![][ks]][k9]            | [![][as]][a9]      | [![][ss]][s9]          |
+| TypeScript support    | [![][gts]][g10]     | [![][nts]][n10]      | [![][kts]][k10]          | [![][ats]][a10]    | [![][sts]][s11]        |
+| Last commit           | [![][glc]][g11]     | [![][nlc]][n11]      | [![][klc]][k11]          | [![][alc]][a11]    | [![][slc]][s11]        |
 
 \* It's almost API compatible with the browser `fetch` API.\
 \*\* Need to switch the protocol manually. Doesn't accept PUSH streams and doesn't reuse HTTP/2 sessions.\
@@ -252,7 +232,6 @@ By default, Got will retry on failure. To disable this option, set [`options.ret
 
 <!-- GITHUB -->
 [k0]: https://github.com/sindresorhus/ky
-[r0]: https://github.com/request/request
 [n0]: https://github.com/node-fetch/node-fetch
 [a0]: https://github.com/axios/axios
 [s0]: https://github.com/visionmedia/superagent
@@ -260,14 +239,12 @@ By default, Got will retry on failure. To disable this option, set [`options.ret
 <!-- ISSUES OPEN -->
 [gio]: https://img.shields.io/github/issues-raw/sindresorhus/got?color=gray&label
 [kio]: https://img.shields.io/github/issues-raw/sindresorhus/ky?color=gray&label
-[rio]: https://img.shields.io/github/issues-raw/request/request?color=gray&label
 [nio]: https://img.shields.io/github/issues-raw/bitinn/node-fetch?color=gray&label
 [aio]: https://img.shields.io/github/issues-raw/axios/axios?color=gray&label
 [sio]: https://img.shields.io/github/issues-raw/visionmedia/superagent?color=gray&label
 
 [g1]: https://github.com/sindresorhus/got/issues?q=is%3Aissue+is%3Aopen+sort%3Aupdated-desc
 [k1]: https://github.com/sindresorhus/ky/issues?q=is%3Aissue+is%3Aopen+sort%3Aupdated-desc
-[r1]: https://github.com/request/request/issues?q=is%3Aissue+is%3Aopen+sort%3Aupdated-desc
 [n1]: https://github.com/bitinn/node-fetch/issues?q=is%3Aissue+is%3Aopen+sort%3Aupdated-desc
 [a1]: https://github.com/axios/axios/issues?q=is%3Aissue+is%3Aopen+sort%3Aupdated-desc
 [s1]: https://github.com/visionmedia/superagent/issues?q=is%3Aissue+is%3Aopen+sort%3Aupdated-desc
@@ -275,14 +252,12 @@ By default, Got will retry on failure. To disable this option, set [`options.ret
 <!-- ISSUES CLOSED -->
 [gic]: https://img.shields.io/github/issues-closed-raw/sindresorhus/got?color=blue&label
 [kic]: https://img.shields.io/github/issues-closed-raw/sindresorhus/ky?color=blue&label
-[ric]: https://img.shields.io/github/issues-closed-raw/request/request?color=blue&label
 [nic]: https://img.shields.io/github/issues-closed-raw/bitinn/node-fetch?color=blue&label
 [aic]: https://img.shields.io/github/issues-closed-raw/axios/axios?color=blue&label
 [sic]: https://img.shields.io/github/issues-closed-raw/visionmedia/superagent?color=blue&label
 
 [g2]: https://github.com/sindresorhus/got/issues?q=is%3Aissue+is%3Aclosed+sort%3Aupdated-desc
 [k2]: https://github.com/sindresorhus/ky/issues?q=is%3Aissue+is%3Aclosed+sort%3Aupdated-desc
-[r2]: https://github.com/request/request/issues?q=is%3Aissue+is%3Aclosed+sort%3Aupdated-desc
 [n2]: https://github.com/bitinn/node-fetch/issues?q=is%3Aissue+is%3Aclosed+sort%3Aupdated-desc
 [a2]: https://github.com/axios/axios/issues?q=is%3Aissue+is%3Aclosed+sort%3Aupdated-desc
 [s2]: https://github.com/visionmedia/superagent/issues?q=is%3Aissue+is%3Aclosed+sort%3Aupdated-desc
@@ -290,14 +265,12 @@ By default, Got will retry on failure. To disable this option, set [`options.ret
 <!-- DOWNLOADS -->
 [gd]: https://img.shields.io/npm/dm/got?color=darkgreen&label
 [kd]: https://img.shields.io/npm/dm/ky?color=darkgreen&label
-[rd]: https://img.shields.io/npm/dm/request?color=darkgreen&label
 [nd]: https://img.shields.io/npm/dm/node-fetch?color=darkgreen&label
 [ad]: https://img.shields.io/npm/dm/axios?color=darkgreen&label
 [sd]: https://img.shields.io/npm/dm/superagent?color=darkgreen&label
 
 [g3]: https://www.npmjs.com/package/got
 [k3]: https://www.npmjs.com/package/ky
-[r3]: https://www.npmjs.com/package/request
 [n3]: https://www.npmjs.com/package/node-fetch
 [a3]: https://www.npmjs.com/package/axios
 [s3]: https://www.npmjs.com/package/superagent
@@ -305,14 +278,12 @@ By default, Got will retry on failure. To disable this option, set [`options.ret
 <!-- COVERAGE -->
 [gc]: https://img.shields.io/coveralls/github/sindresorhus/got?color=0b9062&label
 [kc]: https://img.shields.io/codecov/c/github/sindresorhus/ky?color=0b9062&label
-[rc]: https://img.shields.io/coveralls/github/request/request?color=0b9062&label
 [nc]: https://img.shields.io/coveralls/github/bitinn/node-fetch?color=0b9062&label
 [ac]: https://img.shields.io/coveralls/github/mzabriskie/axios?color=0b9062&label
 [sc]: https://img.shields.io/codecov/c/github/visionmedia/superagent?color=0b9062&label
 
 [g4]: https://coveralls.io/github/sindresorhus/got
 [k4]: https://codecov.io/gh/sindresorhus/ky
-[r4]: https://coveralls.io/github/request/request
 [n4]: https://coveralls.io/github/bitinn/node-fetch
 [a4]: https://coveralls.io/github/mzabriskie/axios
 [s4]: https://codecov.io/gh/visionmedia/superagent
@@ -320,14 +291,12 @@ By default, Got will retry on failure. To disable this option, set [`options.ret
 <!-- BUILD -->
 [gb]: https://github.com/sindresorhus/got/actions/workflows/main.yml/badge.svg
 [kb]: https://github.com/sindresorhus/ky/actions/workflows/main.yml/badge.svg
-[rb]: https://img.shields.io/travis/request/request?label
 [nb]: https://img.shields.io/travis/bitinn/node-fetch?label
 [ab]: https://img.shields.io/travis/axios/axios?label
 [sb]: https://img.shields.io/travis/visionmedia/superagent?label
 
 [g5]: https://github.com/sindresorhus/got/actions/workflows/main.yml
 [k5]: https://github.com/sindresorhus/ky/actions/workflows/main.yml
-[r5]: https://travis-ci.org/github/request/request
 [n5]: https://travis-ci.org/github/bitinn/node-fetch
 [a5]: https://travis-ci.org/github/axios/axios
 [s5]: https://travis-ci.org/github/visionmedia/superagent
@@ -335,14 +304,12 @@ By default, Got will retry on failure. To disable this option, set [`options.ret
 <!-- BUGS -->
 [gbg]: https://img.shields.io/github/issues-raw/sindresorhus/got/bug?color=darkred&label
 [kbg]: https://img.shields.io/github/issues-raw/sindresorhus/ky/bug?color=darkred&label
-[rbg]: https://img.shields.io/github/issues-raw/request/request/Needs%20investigation?color=darkred&label
 [nbg]: https://img.shields.io/github/issues-raw/bitinn/node-fetch/bug?color=darkred&label
 [abg]: https://img.shields.io/github/issues-raw/axios/axios/type:confirmed%20bug?color=darkred&label
 [sbg]: https://img.shields.io/github/issues-raw/visionmedia/superagent/Bug?color=darkred&label
 
 [g6]: https://github.com/sindresorhus/got/issues?q=is%3Aissue+is%3Aopen+sort%3Aupdated-desc+label%3Abug
 [k6]: https://github.com/sindresorhus/ky/issues?q=is%3Aissue+is%3Aopen+sort%3Aupdated-desc+label%3Abug
-[r6]: https://github.com/request/request/issues?q=is%3Aissue+is%3Aopen+sort%3Aupdated-desc+label%3A"Needs+investigation"
 [n6]: https://github.com/bitinn/node-fetch/issues?q=is%3Aissue+is%3Aopen+sort%3Aupdated-desc+label%3Abug
 [a6]: https://github.com/axios/axios/issues?q=is%3Aissue+is%3Aopen+sort%3Aupdated-desc+label%3A%22type%3Aconfirmed+bug%22
 [s6]: https://github.com/visionmedia/superagent/issues?q=is%3Aissue+is%3Aopen+sort%3Aupdated-desc+label%3ABug
@@ -350,14 +317,12 @@ By default, Got will retry on failure. To disable this option, set [`options.ret
 <!-- DEPENDENTS -->
 [gdp]: https://badgen.net/npm/dependents/got?color=orange&label
 [kdp]: https://badgen.net/npm/dependents/ky?color=orange&label
-[rdp]: https://badgen.net/npm/dependents/request?color=orange&label
 [ndp]: https://badgen.net/npm/dependents/node-fetch?color=orange&label
 [adp]: https://badgen.net/npm/dependents/axios?color=orange&label
 [sdp]: https://badgen.net/npm/dependents/superagent?color=orange&label
 
 [g7]: https://www.npmjs.com/package/got?activeTab=dependents
 [k7]: https://www.npmjs.com/package/ky?activeTab=dependents
-[r7]: https://www.npmjs.com/package/request?activeTab=dependents
 [n7]: https://www.npmjs.com/package/node-fetch?activeTab=dependents
 [a7]: https://www.npmjs.com/package/axios?activeTab=dependents
 [s7]: https://www.npmjs.com/package/visionmedia?activeTab=dependents
@@ -365,14 +330,12 @@ By default, Got will retry on failure. To disable this option, set [`options.ret
 <!-- INSTALL SIZE -->
 [gis]: https://badgen.net/packagephobia/install/got?color=blue&label
 [kis]: https://badgen.net/packagephobia/install/ky?color=blue&label
-[ris]: https://badgen.net/packagephobia/install/request?color=blue&label
 [nis]: https://badgen.net/packagephobia/install/node-fetch?color=blue&label
 [ais]: https://badgen.net/packagephobia/install/axios?color=blue&label
 [sis]: https://badgen.net/packagephobia/install/superagent?color=blue&label
 
 [g8]: https://packagephobia.com/result?p=got
 [k8]: https://packagephobia.com/result?p=ky
-[r8]: https://packagephobia.com/result?p=request
 [n8]: https://packagephobia.com/result?p=node-fetch
 [a8]: https://packagephobia.com/result?p=axios
 [s8]: https://packagephobia.com/result?p=superagent
@@ -380,14 +343,12 @@ By default, Got will retry on failure. To disable this option, set [`options.ret
 <!-- GITHUB STARS -->
 [gs]: https://img.shields.io/github/stars/sindresorhus/got?color=white&label
 [ks]: https://img.shields.io/github/stars/sindresorhus/ky?color=white&label
-[rs]: https://img.shields.io/github/stars/request/request?color=white&label
 [ns]: https://img.shields.io/github/stars/bitinn/node-fetch?color=white&label
 [as]: https://img.shields.io/github/stars/axios/axios?color=white&label
 [ss]: https://img.shields.io/github/stars/visionmedia/superagent?color=white&label
 
 [g9]: https://github.com/sindresorhus/got
 [k9]: https://github.com/sindresorhus/ky
-[r9]: https://github.com/request/request
 [n9]: https://github.com/node-fetch/node-fetch
 [a9]: https://github.com/axios/axios
 [s9]: https://github.com/visionmedia/superagent
@@ -395,14 +356,12 @@ By default, Got will retry on failure. To disable this option, set [`options.ret
 <!-- TYPESCRIPT SUPPORT -->
 [gts]: https://badgen.net/npm/types/got?label
 [kts]: https://badgen.net/npm/types/ky?label
-[rts]: https://badgen.net/npm/types/request?label
 [nts]: https://badgen.net/npm/types/node-fetch?label
 [ats]: https://badgen.net/npm/types/axios?label
 [sts]: https://badgen.net/npm/types/superagent?label
 
 [g10]: https://github.com/sindresorhus/got
 [k10]: https://github.com/sindresorhus/ky
-[r10]: https://github.com/request/request
 [n10]: https://github.com/node-fetch/node-fetch
 [a10]: https://github.com/axios/axios
 [s10]: https://github.com/visionmedia/superagent
@@ -410,14 +369,12 @@ By default, Got will retry on failure. To disable this option, set [`options.ret
 <!-- LAST COMMIT -->
 [glc]: https://img.shields.io/github/last-commit/sindresorhus/got?color=gray&label
 [klc]: https://img.shields.io/github/last-commit/sindresorhus/ky?color=gray&label
-[rlc]: https://img.shields.io/github/last-commit/request/request?color=gray&label
 [nlc]: https://img.shields.io/github/last-commit/bitinn/node-fetch?color=gray&label
 [alc]: https://img.shields.io/github/last-commit/axios/axios?color=gray&label
 [slc]: https://img.shields.io/github/last-commit/visionmedia/superagent?color=gray&label
 
 [g11]: https://github.com/sindresorhus/got/commits
 [k11]: https://github.com/sindresorhus/ky/commits
-[r11]: https://github.com/request/request/commits
 [n11]: https://github.com/node-fetch/node-fetch/commits
 [a11]: https://github.com/axios/axios/commits
 [s11]: https://github.com/visionmedia/superagent/commits

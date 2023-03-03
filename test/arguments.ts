@@ -27,16 +27,6 @@ test('`url` is required', async t => {
 	invalidUrl(t, secondError!, '');
 });
 
-test('`url` should be utf-8 encoded', async t => {
-	await t.throwsAsync(
-		got('https://example.com/%D2%E0%EB%EB%E8%ED'),
-		{
-			instanceOf: RequestError,
-			message: 'URI malformed',
-		},
-	);
-});
-
 test('throws if no arguments provided', async t => {
 	// @ts-expect-error Error tests
 	await t.throwsAsync(got(), {

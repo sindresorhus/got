@@ -14,7 +14,6 @@ import {FormData as FormDataNode, Blob, File} from 'formdata-node';
 import {fileFromPath} from 'formdata-node/file-from-path'; // eslint-disable-line n/file-extension-in-import
 import getStream from 'get-stream';
 import FormData from 'form-data';
-import toReadableStream from 'to-readable-stream';
 import got, {UploadError} from '../source/index.js';
 import withServer from './helpers/with-server.js';
 
@@ -76,7 +75,7 @@ test('sends Buffers', withServer, async (t, server, got) => {
 test('sends Streams', withServer, async (t, server, got) => {
 	server.post('/', defaultEndpoint);
 
-	const {body} = await got.post({body: toReadableStream('wow')});
+	const {body} = await got.post({body: stream.Readable.from('wow')});
 	t.is(body, 'wow');
 });
 
@@ -162,7 +161,7 @@ test('`content-length` header with Buffer body', withServer, async (t, server, g
 test('`content-length` header with Stream body', withServer, async (t, server, got) => {
 	server.post('/', echoHeaders);
 
-	const {body} = await got.post({body: toReadableStream('wow')});
+	const {body} = await got.post({body: stream.Readable.from('wow')});
 	const headers = JSON.parse(body);
 	t.is(headers['transfer-encoding'], 'chunked', 'likely failed to get headers at all');
 	t.is(headers['content-length'], undefined);
