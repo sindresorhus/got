@@ -3,6 +3,7 @@ import {promisify} from 'util';
 import {Readable as ReadableStream} from 'stream';
 import {Agent} from 'http';
 import {gzip} from 'zlib';
+import process from 'process';
 import test from 'ava';
 import {pEvent} from 'p-event';
 import getStream from 'get-stream';
@@ -470,4 +471,147 @@ test('response.complete is true when using keepalive agent', withServer, async (
 	});
 
 	t.true(first.complete);
+});
+
+test.failing('revalidated uncompressed responses are retrieved from cache', withServer, async (t, server, got) => {
+	let revalidated = false;
+
+	const payload = JSON.stringify([1]);
+
+	server.get('/', (request, response) => {
+		if (request.headers['if-none-match'] === 'asdf') {
+			revalidated = true;
+			response.writeHead(304, {etag: 'asdf'});
+			response.end();
+		} else {
+			response.writeHead(200, {
+				etag: 'asdf',
+				'cache-control': 'public, max-age=1, s-maxage=1',
+				'content-type': 'application/json',
+			});
+			response.write(payload);
+			response.end();
+		}
+	});
+
+	t.timeout(5000);
+
+	const client = got.extend({cache: new Map(), responseType: 'json'});
+
+	await client('').then(response => {
+		t.false(revalidated);
+		t.deepEqual(response.body, [1]);
+		t.true(response.complete);
+	});
+
+	// eslint-disable-next-line no-promise-executor-return
+	await new Promise(resolve => setTimeout(resolve, 3000));
+
+	console.log('max-age has expired, performing second request');
+
+	await client('').then(response => {
+		t.true(revalidated);
+		t.deepEqual(response.body, [1]);
+		t.true(response.complete); // Fails here.
+	});
+});
+
+test.failing('revalidated compressed responses are retrieved from cache', withServer, async (t, server, got) => {
+	let revalidated = false;
+
+	const payload = JSON.stringify([1]);
+	const compressed = await promisify(gzip)(payload);
+
+	server.get('/', (request, response) => {
+		if (request.headers['if-none-match'] === 'asdf') {
+			revalidated = true;
+			response.writeHead(304, {etag: 'asdf'});
+			response.end();
+		} else {
+			response.writeHead(200, {
+				etag: 'asdf',
+				'cache-control': 'public, max-age=1, s-maxage=1',
+				'content-type': 'application/json',
+				'content-encoding': 'gzip',
+			});
+			response.write(compressed);
+			response.end();
+		}
+	});
+
+	t.timeout(5000);
+
+	const client = got.extend({cache: new Map(), responseType: 'json'});
+
+	await client('').then(response => {
+		t.false(revalidated);
+		t.deepEqual(response.body, [1]);
+		t.true(response.complete);
+	});
+
+	// eslint-disable-next-line no-promise-executor-return
+	await new Promise(resolve => setTimeout(resolve, 3000));
+
+	console.log('max-age has expired, performing second request (but it will actually hang)');
+
+	await client('').then(response => {
+		t.true(revalidated);
+		t.deepEqual(response.body, [1]);
+		t.true(response.complete);
+	});
+});
+
+test.failing('revalidated uncompressed responses from github are retrieved from cache', async t => {
+	const client = got.extend({
+		cache: new Map(),
+		cacheOptions: {shared: false},
+		responseType: 'json',
+		headers: {
+			'accept-encoding': 'identity',
+			...(process.env.GITHUB_TOKEN ? {authorization: `token ${process.env.GITHUB_TOKEN}`} : {}),
+		},
+	});
+
+	t.timeout(70_000);
+
+	await client('https://api.github.com/repos/octocat/Spoon-Knife').then(response => {
+		t.is((response.body as any).name, 'Spoon-Knife');
+		t.true(response.complete);
+	});
+
+	// eslint-disable-next-line no-promise-executor-return
+	await new Promise(resolve => setTimeout(resolve, 65_000));
+
+	console.log('max-age has expired, performing second request');
+
+	await client('https://api.github.com/repos/octocat/Spoon-Knife').then(response => {
+		t.is((response.body as any).name, 'Spoon-Knife');
+		t.true(response.complete); // Fails here.
+	});
+});
+
+test.failing('revalidated compressed responses from github are retrieved from cache', async t => {
+	const client = got.extend({
+		cache: new Map(),
+		cacheOptions: {shared: false},
+		responseType: 'json',
+		headers: process.env.GITHUB_TOKEN ? {authorization: `token ${process.env.GITHUB_TOKEN}`} : {},
+	});
+
+	t.timeout(70_000);
+
+	await client('https://api.github.com/repos/octocat/Spoon-Knife').then(response => {
+		t.is((response.body as any).name, 'Spoon-Knife');
+		t.true(response.complete);
+	});
+
+	// eslint-disable-next-line no-promise-executor-return
+	await new Promise(resolve => setTimeout(resolve, 65_000));
+
+	console.log('max-age has expired, performing second request (but it will actually hang)');
+
+	await client('https://api.github.com/repos/octocat/Spoon-Knife').then(response => {
+		t.is((response.body as any).name, 'Spoon-Knife');
+		t.true(response.complete);
+	});
 });
