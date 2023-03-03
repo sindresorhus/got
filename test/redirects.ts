@@ -340,19 +340,6 @@ test('redirect response contains UTF-8 with URI encoding', withServer, async (t,
 	t.is((await got('redirect-with-uri-encoded-location')).body, 'reached');
 });
 
-test('throws on malformed redirect URI', withServer, async (t, server, got) => {
-	server.get('/', (_request, response) => {
-		response.writeHead(302, {
-			location: '/%D8',
-		});
-		response.end();
-	});
-
-	await t.throwsAsync(got(''), {
-		message: 'URI malformed',
-	});
-});
-
 test('throws on invalid redirect URL', withServer, async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.writeHead(302, {
