@@ -1403,7 +1403,6 @@ export default class Options {
 		const urlString = `${this.prefixUrl as string}${value.toString()}`;
 		const url = new URL(urlString);
 		this._internals.url = url;
-		decodeURI(urlString);
 
 		if (url.protocol === 'unix:') {
 			url.href = `http://unix${url.pathname}${url.search}`;

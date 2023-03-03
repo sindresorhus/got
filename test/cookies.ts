@@ -57,7 +57,7 @@ test('cookies doesn\'t break on redirects', withServer, async (t, server, got) =
 
 test('throws on invalid cookies', withServer, async (t, server, got) => {
 	server.get('/', (_request, response) => {
-		response.setHeader('set-cookie', 'hello=world; domain=localhost');
+		response.setHeader('set-cookie', 'invalid cookie; domain=localhost');
 		response.end();
 	});
 
@@ -65,13 +65,13 @@ test('throws on invalid cookies', withServer, async (t, server, got) => {
 
 	await t.throwsAsync(got({cookieJar}), {
 		instanceOf: RequestError,
-		message: 'Cookie has domain set to a public suffix',
+		message: 'Cookie failed to parse',
 	});
 });
 
 test('does not throw on invalid cookies when options.ignoreInvalidCookies is set', withServer, async (t, server, got) => {
 	server.get('/', (_request, response) => {
-		response.setHeader('set-cookie', 'hello=world; domain=localhost');
+		response.setHeader('set-cookie', 'invalid cookie; domain=localhost');
 		response.end();
 	});
 
