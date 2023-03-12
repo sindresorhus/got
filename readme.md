@@ -60,6 +60,23 @@
 		<br>
 		<br>
 		<br>
+		<a href="https://serpapi.com#gh-light-mode-only">
+			<div>
+				<img src="https://sindresorhus.com/assets/thanks/serpapi-logo-light.svg" width="130" alt="SerpApi">
+			</div>
+			<b>API to get search engine results with ease.</b>
+		</a>
+		<a href="https://serpapi.com#gh-dark-mode-only">
+			<div>
+				<img src="https://sindresorhus.com/assets/thanks/serpapi-logo-dark.svg" width="120" alt="SerpApi">
+			</div>
+			<b>API to get search engine results with ease.</b>
+		</a>
+		<br>
+		<br>
+		<br>
+		<br>
+		<br>
 		<br>
 	</p>
 	<br>
