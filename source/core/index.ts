@@ -211,8 +211,8 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 		this._stopRetry = noop;
 
-		this.on('pipe', source => {
-			if (source.headers) {
+		this.on('pipe', (source: any) => {
+			if (source?.headers) {
 				Object.assign(this.options.headers, source.headers);
 			}
 		});
