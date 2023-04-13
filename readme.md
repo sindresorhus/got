@@ -137,7 +137,7 @@ For advanced JSON usage, check out the [`parseJson`](documentation/2-options.md#
 
 ## Highlights
 
-- [Used by 8K+ packages and 4M+ repos](https://github.com/sindresorhus/got/network/dependents)
+- [Used by 8K+ packages and 5M+ repos](https://github.com/sindresorhus/got/network/dependents)
 - [Actively maintained](https://github.com/sindresorhus/got/graphs/contributors)
 - [Trusted by many companies](#widely-used)
 
