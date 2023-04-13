@@ -322,13 +322,13 @@ By default, Got will retry on failure. To disable this option, set [`options.ret
 [gbg]: https://img.shields.io/github/issues-raw/sindresorhus/got/bug?color=darkred&label
 [kbg]: https://img.shields.io/github/issues-raw/sindresorhus/ky/bug?color=darkred&label
 [nbg]: https://img.shields.io/github/issues-raw/bitinn/node-fetch/bug?color=darkred&label
-[abg]: https://img.shields.io/github/issues-raw/axios/axios/type:confirmed%20bug?color=darkred&label
+[abg]: https://img.shields.io/github/issues-raw/axios/axios/bug-fix?color=darkred&label
 [sbg]: https://img.shields.io/github/issues-raw/visionmedia/superagent/Bug?color=darkred&label
 
 [g6]: https://github.com/sindresorhus/got/issues?q=is%3Aissue+is%3Aopen+sort%3Aupdated-desc+label%3Abug
 [k6]: https://github.com/sindresorhus/ky/issues?q=is%3Aissue+is%3Aopen+sort%3Aupdated-desc+label%3Abug
 [n6]: https://github.com/bitinn/node-fetch/issues?q=is%3Aissue+is%3Aopen+sort%3Aupdated-desc+label%3Abug
-[a6]: https://github.com/axios/axios/issues?q=is%3Aissue+is%3Aopen+sort%3Aupdated-desc+label%3A%22type%3Aconfirmed+bug%22
+[a6]: https://github.com/axios/axios/issues?q=is%3Aissue+is%3Aopen+sort%3Aupdated-desc+label%3A%22bug-fix%22
 [s6]: https://github.com/visionmedia/superagent/issues?q=is%3Aissue+is%3Aopen+sort%3Aupdated-desc+label%3ABug
 
 <!-- DEPENDENTS -->
