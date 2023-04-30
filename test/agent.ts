@@ -205,3 +205,17 @@ test('no socket hung up regression', withServer, async (t, server, got) => {
 
 	agent.destroy();
 });
+
+test('accept undefined agent', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.end('ok');
+	});
+
+	const undefinedAgent = undefined;
+	t.truthy((await got({
+		https: {
+			rejectUnauthorized: false,
+		},
+		agent: undefinedAgent,
+	})).body);
+});
