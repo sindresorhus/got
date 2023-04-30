@@ -1078,7 +1078,13 @@ export default class Options {
 				}
 
 				// @ts-expect-error Type 'unknown' is not assignable to type 'never'.
-				this[key as keyof Options] = options[key as keyof Options];
+				const value = options[key as keyof Options];
+				if (value === undefined) {
+					continue;
+				}
+
+				// @ts-expect-error Type 'unknown' is not assignable to type 'never'.
+				this[key as keyof Options] = value;
 
 				push = true;
 			}
