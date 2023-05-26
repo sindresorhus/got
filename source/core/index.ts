@@ -14,7 +14,7 @@ import CacheableRequest, {
 } from 'cacheable-request';
 import decompressResponse from 'decompress-response';
 import is from '@sindresorhus/is';
-import {buffer as getBuffer} from 'get-stream';
+import getStream from 'get-stream';
 import {FormDataEncoder, isFormData as isFormDataLike} from 'form-data-encoder';
 import type {ClientRequestWithTimings, Timings, IncomingMessageWithTimings} from '@szmarczak/http-timer';
 import type ResponseLike from 'responselike';
@@ -53,6 +53,8 @@ export type Progress = {
 	transferred: number;
 	total?: number;
 };
+
+const {buffer: getBuffer} = getStream;
 
 const supportsBrotli = is.string(process.versions.brotli);
 
