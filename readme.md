@@ -203,7 +203,7 @@ By default, Got will retry on failure. To disable this option, set [`options.ret
 | Pagination API        | :heavy_check_mark:  | :x:                  | :x:                      | :x:                | :x:                    |
 | Request cancelation   | :heavy_check_mark:  | :heavy_check_mark:   | :heavy_check_mark:       | :heavy_check_mark: | :heavy_check_mark:     |
 | RFC compliant caching | :heavy_check_mark:  | :x:                  | :x:                      | :x:                | :x:                    |
-| Cookies (out-of-box)  | :heavy_check_mark:  | :x:                  | :x:                      | :x:                | :x:                    |
+| Cookies (out-of-the-box)  | :heavy_check_mark:  | :x:                  | :x:                      | :x:                | :x:                    |
 | Follows redirects     | :heavy_check_mark:  | :heavy_check_mark:   | :heavy_check_mark:       | :heavy_check_mark: | :heavy_check_mark:     |
 | Retries on failure    | :heavy_check_mark:  | :x:                  | :heavy_check_mark:       | :x:                | :heavy_check_mark:     |
 | Progress events       | :heavy_check_mark:  | :x:                  | :heavy_check_mark:\*\*\* | Browser only       | :heavy_check_mark:     |
@@ -436,7 +436,7 @@ By default, Got will retry on failure. To disable this option, set [`options.ret
 		</td>
 		<td align="center">
 			<a href="https://github.com/renovatebot/renovate">
-				<img width="150" valign="middle" src="https://camo.githubusercontent.com/206d470ac709b9a702a97b0c08d6f389a086793d/68747470733a2f2f72656e6f76617465626f742e636f6d2f696d616765732f6c6f676f2e737667">
+				<img width="150" valign="middle" src="https://camo.githubusercontent.com/7c2dc41a8407d4cfa700f762a1abf46b232858ae7e3a2bf5aee7d9f36416127c/68747470733a2f2f6170702e72656e6f76617465626f742e636f6d2f696d616765732f72656e6f766174655f3636305f3232302e6a7067">
 			</a>
 		</td>
 		<td align="center">
