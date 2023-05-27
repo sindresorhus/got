@@ -1,7 +1,7 @@
-import process from 'process';
-import {EventEmitter} from 'events';
-import {Readable as ReadableStream} from 'stream';
-import {pipeline as streamPipeline} from 'stream/promises';
+import process from 'node:process';
+import {EventEmitter} from 'node:events';
+import {Readable as ReadableStream} from 'node:stream';
+import {pipeline as streamPipeline} from 'node:stream/promises';
 import test from 'ava';
 import delay from 'delay';
 import {pEvent} from 'p-event';

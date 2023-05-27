@@ -1,9 +1,9 @@
-import process from 'process';
-import {Buffer} from 'buffer';
-import {promisify} from 'util';
-import stream from 'stream';
+import process from 'node:process';
+import {Buffer} from 'node:buffer';
+import {promisify} from 'node:util';
+import stream from 'node:stream';
 import {pipeline as streamPipeline} from 'node:stream/promises';
-import fs from 'fs';
+import fs from 'node:fs';
 // @ts-expect-error Fails to find slow-stream/index.d.ts
 import SlowStream from 'slow-stream';
 import getStream from 'get-stream';

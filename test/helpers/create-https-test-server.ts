@@ -1,7 +1,7 @@
-import type {Buffer} from 'buffer';
-import https from 'https';
-import type net from 'net';
-import type {SecureContextOptions} from 'tls';
+import type {Buffer} from 'node:buffer';
+import https from 'node:https';
+import type net from 'node:net';
+import type {SecureContextOptions} from 'node:tls';
 import express from 'express';
 import pify from 'pify';
 import pem from 'pem';

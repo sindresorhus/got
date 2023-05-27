@@ -1,8 +1,8 @@
-import process from 'process';
-import {Buffer} from 'buffer';
-import {STATUS_CODES, Agent} from 'http';
-import os from 'os';
-import {isIPv4, isIPv6, isIP} from 'net';
+import process from 'node:process';
+import {Buffer} from 'node:buffer';
+import {STATUS_CODES, Agent} from 'node:http';
+import os from 'node:os';
+import {isIPv4, isIPv6, isIP} from 'node:net';
 import test from 'ava';
 import type {Handler} from 'express';
 import nock from 'nock';

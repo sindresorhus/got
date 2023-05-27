@@ -215,8 +215,6 @@ await got('https://httpbin.org/anything');
 
 You can abort the `request` using [`AbortController`](https://developer.mozilla.org/en-US/docs/Web/API/AbortController).
 
-*Requires Node.js 16 or later.*
-
 ```js
 import got from 'got';
 

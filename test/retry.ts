@@ -1,8 +1,8 @@
-import process from 'process';
-import {EventEmitter} from 'events';
-import {PassThrough as PassThroughStream} from 'stream';
-import type {Socket} from 'net';
-import http from 'http';
+import process from 'node:process';
+import {EventEmitter} from 'node:events';
+import {PassThrough as PassThroughStream} from 'node:stream';
+import type {Socket} from 'node:net';
+import http from 'node:http';
 import test from 'ava';
 import is from '@sindresorhus/is';
 import type {Handler} from 'express';

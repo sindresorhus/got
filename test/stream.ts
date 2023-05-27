@@ -1,9 +1,9 @@
-import process from 'process';
-import {Buffer} from 'buffer';
-import fs from 'fs';
-import {Agent as HttpAgent} from 'http';
-import stream, {Readable as ReadableStream, Writable} from 'stream';
-import {pipeline as streamPipeline} from 'stream/promises';
+import process from 'node:process';
+import {Buffer} from 'node:buffer';
+import fs from 'node:fs';
+import {Agent as HttpAgent} from 'node:http';
+import stream, {Readable as ReadableStream, Writable} from 'node:stream';
+import {pipeline as streamPipeline} from 'node:stream/promises';
 import {Readable as Readable2} from 'readable-stream';
 import test from 'ava';
 import type {Handler} from 'express';

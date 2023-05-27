@@ -1,6 +1,6 @@
-import {Buffer} from 'buffer';
-import {ReadStream} from 'fs';
-import {ClientRequest, IncomingMessage} from 'http';
+import {Buffer} from 'node:buffer';
+import {ReadStream} from 'node:fs';
+import {ClientRequest, IncomingMessage} from 'node:http';
 import test from 'ava';
 import {type Response, CancelError} from '../source/index.js';
 import withServer from './helpers/with-server.js';

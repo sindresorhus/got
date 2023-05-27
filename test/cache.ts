@@ -1,9 +1,9 @@
-import {Buffer} from 'buffer';
-import {promisify} from 'util';
-import {Readable as ReadableStream} from 'stream';
-import {Agent} from 'http';
-import {gzip} from 'zlib';
-import process from 'process';
+import {Buffer} from 'node:buffer';
+import {promisify} from 'node:util';
+import {Readable as ReadableStream} from 'node:stream';
+import {Agent} from 'node:http';
+import {gzip} from 'node:zlib';
+import process from 'node:process';
 import test from 'ava';
 import {pEvent} from 'p-event';
 import getStream from 'get-stream';
@@ -561,7 +561,8 @@ test.failing('revalidated compressed responses are retrieved from cache', withSe
 	});
 });
 
-test.failing('revalidated uncompressed responses from github are retrieved from cache', async t => {
+// eslint-disable-next-line ava/no-skip-test -- Unreliable
+test.skip('revalidated uncompressed responses from github are retrieved from cache', async t => {
 	const client = got.extend({
 		cache: new Map(),
 		cacheOptions: {shared: false},
@@ -590,7 +591,8 @@ test.failing('revalidated uncompressed responses from github are retrieved from 
 	});
 });
 
-test.failing('revalidated compressed responses from github are retrieved from cache', async t => {
+// eslint-disable-next-line ava/no-skip-test -- Unreliable
+test.skip('revalidated compressed responses from github are retrieved from cache', async t => {
 	const client = got.extend({
 		cache: new Map(),
 		cacheOptions: {shared: false},

@@ -1,4 +1,4 @@
-import {Buffer} from 'buffer';
+import {Buffer} from 'node:buffer';
 import test from 'ava';
 import withServer from './helpers/with-server.js';
 

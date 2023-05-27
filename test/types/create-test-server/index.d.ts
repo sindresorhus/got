@@ -1,4 +1,4 @@
-import type {Buffer} from 'buffer';
+import type {Buffer} from 'node:buffer';
 
 declare module 'create-test-server' {
 	import type {Express} from 'express';

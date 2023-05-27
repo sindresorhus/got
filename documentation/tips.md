@@ -176,8 +176,8 @@ If you're using proxies, you may run into connection issues.\
 One way out is to disable proxies when retrying. The solution for the Stream API looks like this:
 
 ```js
-import https from 'https';
-import fs from 'fs';
+import https from 'node:https';
+import fs from 'node:fs';
 import got from 'got';
 
 class MyAgent extends https.Agent {

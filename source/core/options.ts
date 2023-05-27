@@ -1499,8 +1499,6 @@ export default class Options {
 	/**
 	You can abort the `request` using [`AbortController`](https://developer.mozilla.org/en-US/docs/Web/API/AbortController).
 
-	*Requires Node.js 16 or later.*
-
 	@example
 	```
 	import got from 'got';
@@ -1516,13 +1514,11 @@ export default class Options {
 	}, 100);
 	```
 	*/
-	// TODO: Replace `any` with `AbortSignal` when targeting Node 16.
-	get signal(): any | undefined {
+	get signal(): AbortSignal | undefined {
 		return this._internals.signal;
 	}
 
-	// TODO: Replace `any` with `AbortSignal` when targeting Node 16.
-	set signal(value: any | undefined) {
+	set signal(value: AbortSignal | undefined) {
 		assert.object(value);
 
 		this._internals.signal = value;

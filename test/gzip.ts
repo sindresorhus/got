@@ -1,6 +1,6 @@
-import {Buffer} from 'buffer';
-import {promisify} from 'util';
-import zlib from 'zlib';
+import {Buffer} from 'node:buffer';
+import {promisify} from 'node:util';
+import zlib from 'node:zlib';
 import test from 'ava';
 import getStream from 'get-stream';
 import {ReadError, type HTTPError} from '../source/index.js';

@@ -1,4 +1,4 @@
-import type {Server} from 'http';
+import type {Server} from 'node:http';
 // @ts-expect-error Fails to locate ../types/create-test-server/index.d.ts
 import type {TestServer} from 'create-test-server';
 

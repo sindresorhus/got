@@ -1,5 +1,5 @@
-import process from 'process';
-import {format} from 'util';
+import process from 'node:process';
+import {format} from 'node:util';
 import test from 'ava';
 import type {Handler} from 'express';
 import baseGot from '../source/index.js';

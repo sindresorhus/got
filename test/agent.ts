@@ -1,5 +1,5 @@
-import {Agent as HttpAgent} from 'http';
-import {Agent as HttpsAgent} from 'https';
+import {Agent as HttpAgent} from 'node:http';
+import {Agent as HttpsAgent} from 'node:https';
 import test from 'ava';
 import sinon from 'sinon';
 import type {Constructor} from 'type-fest';

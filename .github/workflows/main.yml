@@ -14,7 +14,6 @@ jobs:
         node-version:
           - 18
           - 16
-          - 14
         os:
           # Ubuntu fails and I don't have time to look into it. PR welcome.
           # - ubuntu-latest

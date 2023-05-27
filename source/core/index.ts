@@ -276,8 +276,9 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 				abort();
 			} else {
 				this.options.signal.addEventListener('abort', abort);
+
 				this._removeListeners = () => {
-					this.options.signal.removeEventListener('abort', abort);
+					this.options.signal?.removeEventListener('abort', abort);
 				};
 			}
 		}

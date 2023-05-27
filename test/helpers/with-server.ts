@@ -1,5 +1,5 @@
-import http from 'http';
-import {promisify} from 'util';
+import http from 'node:http';
+import {promisify} from 'node:util';
 import type {ExecutionContext, Macro} from 'ava';
 import is from '@sindresorhus/is';
 import {temporaryFile} from 'tempy';

@@ -1,5 +1,5 @@
-import process from 'process';
-import tls, {type DetailedPeerCertificate} from 'tls';
+import process from 'node:process';
+import tls, {type DetailedPeerCertificate} from 'node:tls';
 import test from 'ava';
 import {pEvent} from 'p-event';
 import pify from 'pify';

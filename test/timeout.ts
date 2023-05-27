@@ -1,9 +1,9 @@
-import process from 'process';
-import {EventEmitter} from 'events';
-import stream, {PassThrough as PassThroughStream} from 'stream';
-import {pipeline as streamPipeline} from 'stream/promises';
-import http from 'http';
-import net from 'net';
+import process from 'node:process';
+import {EventEmitter} from 'node:events';
+import stream, {PassThrough as PassThroughStream} from 'node:stream';
+import {pipeline as streamPipeline} from 'node:stream/promises';
+import http from 'node:http';
+import net from 'node:net';
 import getStream from 'get-stream';
 import test from 'ava';
 import delay from 'delay';

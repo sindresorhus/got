@@ -1,4 +1,4 @@
-import {parse as urlParse} from 'url';
+import {parse as urlParse} from 'node:url';
 import test from 'ava';
 import urlToOptions from '../source/core/utils/url-to-options.js';
 

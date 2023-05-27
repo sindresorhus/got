@@ -1,5 +1,5 @@
-import http from 'http';
-import type net from 'net';
+import http from 'node:http';
+import type net from 'node:net';
 import express, {type Express, type NextFunction} from 'express';
 import pify from 'pify';
 import bodyParser from 'body-parser';

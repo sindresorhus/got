@@ -1,4 +1,4 @@
-import {Buffer} from 'buffer';
+import {Buffer} from 'node:buffer';
 import test from 'ava';
 import type {Handler} from 'express';
 import nock from 'nock';

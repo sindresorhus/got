@@ -1,9 +1,9 @@
-import {Buffer} from 'buffer';
-import {promisify} from 'util';
-import net from 'net';
-import http from 'http';
-import stream from 'stream';
-import {pipeline as streamPipeline} from 'stream/promises';
+import {Buffer} from 'node:buffer';
+import {promisify} from 'node:util';
+import net from 'node:net';
+import http from 'node:http';
+import stream from 'node:stream';
+import {pipeline as streamPipeline} from 'node:stream/promises';
 import test from 'ava';
 import getStream from 'get-stream';
 import is from '@sindresorhus/is';

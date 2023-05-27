@@ -1,7 +1,7 @@
-import process from 'process';
-import {Buffer} from 'buffer';
-import fs from 'fs';
-import path from 'path';
+import process from 'node:process';
+import {Buffer} from 'node:buffer';
+import fs from 'node:fs';
+import path from 'node:path';
 import test from 'ava';
 import type {Handler} from 'express';
 import FormData from 'form-data';

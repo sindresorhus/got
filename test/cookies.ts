@@ -1,4 +1,4 @@
-import net from 'net';
+import net from 'node:net';
 import test from 'ava';
 import toughCookie from 'tough-cookie';
 import delay from 'delay';

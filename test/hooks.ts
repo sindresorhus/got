@@ -1,5 +1,5 @@
-import {Buffer} from 'buffer';
-import {Agent as HttpAgent} from 'http';
+import {Buffer} from 'node:buffer';
+import {Agent as HttpAgent} from 'node:http';
 import test from 'ava';
 import nock from 'nock';
 import getStream from 'get-stream';

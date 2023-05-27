@@ -138,7 +138,6 @@
 			"@typescript-eslint/no-empty-function": "off",
 			"n/no-deprecated-api": "off",
 			"@typescript-eslint/no-implicit-any-catch": "off",
-			"unicorn/prefer-node-protocol": "off",
 			"ava/assertion-arguments": "off",
 			"@typescript-eslint/no-unsafe-member-access": "off",
 			"@typescript-eslint/no-unsafe-return": "off",
