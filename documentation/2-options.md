@@ -944,9 +944,9 @@ As the [specification](https://tools.ietf.org/html/rfc7231#section-6.4) prefers 
 ### `enableUnixSockets`
 
 **Type: `boolean`**\
-**Default: `true`**
+**Default: `false`**
 
-When enabled, requests can also be sent via [UNIX Domain Sockets](https://serverfault.com/questions/124517/what-is-the-difference-between-unix-sockets-and-tcp-ip-sockets). Please note that in the upcoming major release (Got v13) this default will be changed to `false` for security reasons.
+When enabled, requests can also be sent via [UNIX Domain Sockets](https://serverfault.com/questions/124517/what-is-the-difference-between-unix-sockets-and-tcp-ip-sockets).
 
 > **Warning**
 > Make sure you do your own URL sanitizing if you accept untrusted user input for the URL.
@@ -965,11 +965,10 @@ await got('http://unix:/var/run/docker.sock:/containers/json', {enableUnixSocket
 // Or without protocol (HTTP by default)
 await got('unix:/var/run/docker.sock:/containers/json', {enableUnixSockets: true});
 
-// Disable Unix sockets
-const gotUnixSocketsDisabled = got.extend({enableUnixSockets: false});
+// Enable Unix sockets for the whole instance.
+const gotWithUnixSockets = got.extend({enableUnixSockets: true});
 
-// RequestError: Using UNIX domain sockets but option `enableUnixSockets` is not enabled
-await gotUnixSocketsDisabled('http://unix:/var/run/docker.sock:/containers/json');
+await gotWithUnixSockets('http://unix:/var/run/docker.sock:/containers/json');
 ```
 
 ## Methods

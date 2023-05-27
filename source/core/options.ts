@@ -827,7 +827,7 @@ const defaultInternals: Options['_internals'] = {
 	setHost: true,
 	maxHeaderSize: undefined,
 	signal: undefined,
-	enableUnixSockets: true,
+	enableUnixSockets: false,
 };
 
 const cloneInternals = (internals: typeof defaultInternals) => {

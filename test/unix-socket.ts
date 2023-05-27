@@ -2,8 +2,10 @@ import process from 'process';
 import {format} from 'util';
 import test from 'ava';
 import type {Handler} from 'express';
-import got from '../source/index.js';
+import baseGot from '../source/index.js';
 import {withSocketServer} from './helpers/with-server.js';
+
+const got = baseGot.extend({enableUnixSockets: true});
 
 const okHandler: Handler = (_request, response) => {
 	response.end('ok');
@@ -21,7 +23,7 @@ if (process.platform !== 'win32') {
 		server.on('/', okHandler);
 
 		const url = format('http://unix:%s:%s', server.socketPath, '/');
-		t.is((await got(url)).body, 'ok');
+		t.is((await got(url, {})).body, 'ok');
 	});
 
 	test('protocol-less works', withSocketServer, async (t, server) => {
