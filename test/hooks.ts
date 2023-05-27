@@ -1,5 +1,4 @@
 import {Buffer} from 'buffer';
-import {URL} from 'url';
 import {Agent as HttpAgent} from 'http';
 import test from 'ava';
 import nock from 'nock';

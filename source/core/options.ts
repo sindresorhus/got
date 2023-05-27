@@ -1,7 +1,6 @@
 import process from 'node:process';
 import type {Buffer} from 'node:buffer';
 import {promisify, inspect} from 'node:util';
-import {URL, URLSearchParams} from 'node:url';
 import {checkServerIdentity} from 'node:tls';
 // DO NOT use destructuring for `https.request` and `http.request` as it's not compatible with `nock`.
 import http from 'node:http';
@@ -976,7 +975,7 @@ const init = (options: OptionsInit, withOptions: OptionsInit, self: Options): vo
 
 export default class Options {
 	private _unixOptions?: NativeRequestOptions;
-	private _internals: InternalsType;
+	private readonly _internals: InternalsType;
 	private _merging: boolean;
 	private readonly _init: OptionsInit[];
 

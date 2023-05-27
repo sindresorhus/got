@@ -1,9 +1,9 @@
 import {Buffer} from 'buffer';
-import {URL} from 'url';
 import {promisify} from 'util';
 import net from 'net';
 import http from 'http';
 import stream from 'stream';
+import {pipeline as streamPipeline} from 'stream/promises';
 import test from 'ava';
 import getStream from 'get-stream';
 import is from '@sindresorhus/is';
@@ -11,8 +11,6 @@ import got, {RequestError, HTTPError, TimeoutError} from '../source/index.js';
 import type Request from '../source/core/index.js';
 import withServer from './helpers/with-server.js';
 import invalidUrl from './helpers/invalid-url.js';
-
-const pStreamPipeline = promisify(stream.pipeline);
 
 test('properties', withServer, async (t, server, got) => {
 	server.get('/', (_request, response) => {
@@ -57,7 +55,7 @@ test('`options.body` form error message', async t => {
 
 test('no plain object restriction on json body', withServer, async (t, server, got) => {
 	server.post('/body', async (request, response) => {
-		await pStreamPipeline(request, response);
+		await streamPipeline(request, response);
 	});
 
 	class CustomObject {

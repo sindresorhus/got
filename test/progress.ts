@@ -2,6 +2,7 @@ import process from 'process';
 import {Buffer} from 'buffer';
 import {promisify} from 'util';
 import stream from 'stream';
+import {pipeline as streamPipeline} from 'node:stream/promises';
 import fs from 'fs';
 // @ts-expect-error Fails to find slow-stream/index.d.ts
 import SlowStream from 'slow-stream';
@@ -49,14 +50,17 @@ const file = Buffer.alloc(1024 * 1024 * 2);
 const downloadEndpoint: Handler = (_request, response) => {
 	response.setHeader('content-length', file.length);
 
-	stream.pipeline(
-		stream.Readable.from(file),
-		new SlowStream({maxWriteInterval: 50}),
-		response,
-		() => {
-			response.end();
-		},
-	);
+	(async () => {
+		try {
+			await streamPipeline(
+				stream.Readable.from(file),
+				new SlowStream({maxWriteInterval: 50}),
+				response,
+			);
+		} catch {}
+
+		response.end();
+	})();
 };
 
 const noTotalEndpoint: Handler = (_request, response) => {
@@ -65,13 +69,16 @@ const noTotalEndpoint: Handler = (_request, response) => {
 };
 
 const uploadEndpoint: Handler = (request, response) => {
-	stream.pipeline(
-		request,
-		new SlowStream({maxWriteInterval: 100}),
-		() => {
-			response.end();
-		},
-	);
+	(async () => {
+		try {
+			await streamPipeline(
+				request,
+				new SlowStream({maxWriteInterval: 100}),
+			);
+		} catch {}
+
+		response.end();
+	})();
 };
 
 test('download progress', withServer, async (t, server, got) => {
@@ -177,11 +184,12 @@ test('upload progress - stream with known body size', withServer, async (t, serv
 	};
 
 	const request = got.stream.post(options)
-		.on('uploadProgress', event => events.push(event));
+		.on('uploadProgress', event => {
+			events.push(event);
+		});
 
-	await getStream(
-		stream.pipeline(stream.Readable.from(file), request, () => {}),
-	);
+	await streamPipeline(stream.Readable.from(file), request);
+	await getStream(request);
 
 	checkEvents(t, events, file.length);
 });
@@ -192,11 +200,12 @@ test('upload progress - stream with unknown body size', withServer, async (t, se
 	const events: Progress[] = [];
 
 	const request = got.stream.post('')
-		.on('uploadProgress', event => events.push(event));
+		.on('uploadProgress', event => {
+			events.push(event);
+		});
 
-	await getStream(
-		stream.pipeline(stream.Readable.from(file), request, () => {}),
-	);
+	await streamPipeline(stream.Readable.from(file), request);
+	await getStream(request);
 
 	t.is(events[0]?.total, undefined);
 	checkEvents(t, events);

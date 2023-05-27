@@ -27,29 +27,27 @@ This constructor takes the same arguments as the Got promise.
 > - If there's no body on purpose, remember to `stream.end()` or set the body option to an empty string.
 
 ```js
-import {promisify} from 'node:util';
 import stream from 'node:stream';
+import {pipeline as streamPipeline} from 'node:stream/promises';
 import fs from 'node:fs';
 import got from 'got';
 
-const pipeline = promisify(stream.pipeline);
-
 // This example streams the GET response of a URL to a file.
-await pipeline(
+await streamPipeline(
 	got.stream('https://sindresorhus.com'),
 	fs.createWriteStream('index.html')
 );
 
 // For POST, PUT, PATCH, and DELETE methods, `got.stream` returns a `stream.Writable`.
 // This example POSTs the contents of a file to a URL.
-await pipeline(
+await streamPipeline(
 	fs.createReadStream('index.html'),
 	got.stream.post('https://sindresorhus.com'),
 	new stream.PassThrough()
 );
 
 // In order to POST, PUT, PATCH, or DELETE without a request body, explicitly specify an empty body:
-await pipeline(
+await streamPipeline(
 	got.stream.post('https://sindresorhus.com', { body: '' }),
 	new stream.PassThrough()
 )
@@ -181,7 +179,7 @@ Whether the socket was used for other previous requests.
 This is emitted when a HTTP response is received.
 
 ```js
-import {pipeline} from 'node:stream/promises';
+import {pipeline as streamPipeline} from 'node:stream/promises';
 import {createWriteStream} from 'node:fs';
 import got from 'got';
 
@@ -202,7 +200,7 @@ readStream.on('response', async response => {
 	readStream.off('error', onError);
 
 	try {
-		await pipeline(
+		await streamPipeline(
 			readStream,
 			createWriteStream('image.png')
 		);

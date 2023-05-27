@@ -78,10 +78,10 @@ Well, it's easy as that:
 
 ```js
 import got from 'got';
-import stream from 'node:stream';
+import {pipeline as streamPipeline} from 'node:stream/promises';
 import fs from 'node:fs';
 
-await stream.promises.pipeline(
+await streamPipeline(
 	fs.createReadStream('article.txt'),
 	got.stream.post('https://httpbin.org/anything'),
 	fs.createWriteStream('httpbin.txt')

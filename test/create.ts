@@ -4,7 +4,6 @@ import {
 	type IncomingMessage,
 	type RequestOptions,
 } from 'http';
-import {URL} from 'url';
 import test from 'ava';
 import is from '@sindresorhus/is';
 import type {Handler} from 'express';

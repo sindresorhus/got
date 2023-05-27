@@ -65,7 +65,7 @@ The [Stream API](3-streams.md) allows to leverage [Node.js Streams](https://node
 
 ```js
 import fs from 'node:fs';
-import {pipeline} from 'node:stream/promises';
+import {pipeline as streamPipeline} from 'node:stream/promises';
 import got from 'got';
 
 const url = 'https://httpbin.org/anything';
@@ -81,7 +81,7 @@ const gotStream = got.stream.post(url, options);
 const outStream = fs.createWriteStream('anything.json');
 
 try {
-	await pipeline(gotStream, outStream);
+	await streamPipeline(gotStream, outStream);
 } catch (error) {
 	console.error(error);
 }

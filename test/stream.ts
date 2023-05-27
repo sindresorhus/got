@@ -1,9 +1,9 @@
 import process from 'process';
 import {Buffer} from 'buffer';
-import {promisify} from 'util';
 import fs from 'fs';
 import {Agent as HttpAgent} from 'http';
 import stream, {Readable as ReadableStream, Writable} from 'stream';
+import {pipeline as streamPipeline} from 'stream/promises';
 import {Readable as Readable2} from 'readable-stream';
 import test from 'ava';
 import type {Handler} from 'express';
@@ -14,8 +14,6 @@ import is from '@sindresorhus/is';
 import delay from 'delay';
 import got, {HTTPError, RequestError} from '../source/index.js';
 import withServer from './helpers/with-server.js';
-
-const pStreamPipeline = promisify(stream.pipeline);
 
 const defaultHandler: Handler = (_request, response) => {
 	response.writeHead(200, {
@@ -33,7 +31,7 @@ const redirectHandler: Handler = (_request, response) => {
 };
 
 const postHandler: Handler = async (request, response) => {
-	await pStreamPipeline(request, response);
+	await streamPipeline(request, response);
 };
 
 const errorHandler: Handler = (_request, response) => {
@@ -196,7 +194,7 @@ test('piping works', withServer, async (t, server, got) => {
 test('proxying headers works', withServer, async (t, server, got) => {
 	server.get('/', defaultHandler);
 	server.get('/proxy', async (_request, response) => {
-		await pStreamPipeline(
+		await streamPipeline(
 			got.stream(''),
 			response,
 		);
@@ -211,7 +209,7 @@ test('proxying headers works', withServer, async (t, server, got) => {
 test('piping server request to Got proxies also headers', withServer, async (t, server, got) => {
 	server.get('/', headersHandler);
 	server.get('/proxy', async (request, response) => {
-		await pStreamPipeline(
+		await streamPipeline(
 			request,
 			got.stream(''),
 			response,
@@ -231,7 +229,7 @@ test('skips proxying headers after server has sent them already', withServer, as
 	server.get('/proxy', async (_request, response) => {
 		response.writeHead(200);
 
-		await pStreamPipeline(
+		await streamPipeline(
 			got.stream(''),
 			response,
 		);
@@ -244,7 +242,7 @@ test('skips proxying headers after server has sent them already', withServer, as
 test('proxies `content-encoding` header when `options.decompress` is false', withServer, async (t, server, got) => {
 	server.get('/', defaultHandler);
 	server.get('/proxy', async (_request, response) => {
-		await pStreamPipeline(
+		await streamPipeline(
 			got.stream({decompress: false}),
 			response,
 		);
@@ -286,13 +284,14 @@ test('piping to got.stream.put()', withServer, async (t, server, got) => {
 	server.put('/post', postHandler);
 
 	await t.notThrowsAsync(async () => {
-		await getStream(
-			stream.pipeline(
-				got.stream(''),
-				got.stream.put('post'),
-				() => {},
-			),
+		const stream = got.stream.put('post');
+
+		await streamPipeline(
+			got.stream(''),
+			stream,
 		);
+
+		await getStream(stream);
 	});
 });
 
@@ -310,7 +309,7 @@ test.skip('no unhandled body stream errors', async t => {
 });
 
 test('works with pipeline', async t => {
-	await t.throwsAsync(pStreamPipeline(
+	await t.throwsAsync(streamPipeline(
 		new ReadableStream({
 			read() {
 				this.push(null);
@@ -369,7 +368,7 @@ test('the socket is alive on a successful pipeline', withServer, async (t, serve
 	t.is(gotStream.socket, undefined);
 
 	const receiver = new stream.PassThrough();
-	await promisify(stream.pipeline)(gotStream, receiver);
+	await streamPipeline(gotStream, receiver);
 
 	t.is(await getStream(receiver), payload);
 	t.truthy(gotStream.socket);

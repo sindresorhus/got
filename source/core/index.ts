@@ -1,7 +1,6 @@
 import process from 'node:process';
 import {Buffer} from 'node:buffer';
 import {Duplex, type Readable} from 'node:stream';
-import {URL, URLSearchParams} from 'node:url';
 import http, {ServerResponse} from 'node:http';
 import type {ClientRequest, RequestOptions} from 'node:http';
 import type {Socket} from 'node:net';
@@ -46,6 +45,8 @@ import {
 	AbortError,
 } from './errors.js';
 
+const {buffer: getStreamAsBuffer} = getStream;
+
 type Error = NodeJS.ErrnoException;
 
 export type Progress = {
@@ -53,8 +54,6 @@ export type Progress = {
 	transferred: number;
 	total?: number;
 };
-
-const {buffer: getBuffer} = getStream;
 
 const supportsBrotli = is.string(process.versions.brotli);
 
@@ -176,7 +175,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	private _isFromCache?: boolean;
 	private _cannotHaveBody: boolean;
 	private _triggerRead: boolean;
-	declare private _jobs: Array<() => void>;
+	declare private readonly _jobs: Array<() => void>;
 	private _cancelTimeouts: () => void;
 	private readonly _removeListeners: () => void;
 	private _nativeResponse?: IncomingMessageWithTimings;
@@ -877,7 +876,11 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 		try {
 			// Errors are emitted via the `error` event
-			const rawBody = await getBuffer(from);
+			const rawBody = await getStreamAsBuffer(from);
+
+			// TODO: Switch to this:
+			// let rawBody = await from.toArray();
+			// rawBody = Buffer.concat(rawBody);
 
 			// On retry Request is destroyed with no error, therefore the above will successfully resolve.
 			// So in order to check if this was really successfull, we need to check if it has been properly ended.
@@ -992,7 +995,6 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 						// We only need to implement the error handler in order to support HTTP2 caching.
 						// The result will be a promise anyway.
 						// @ts-expect-error ignore
-						// eslint-disable-next-line @typescript-eslint/promise-function-async
 						result.once = (event: string, handler: (reason: unknown) => void) => {
 							if (event === 'error') {
 								(async () => {

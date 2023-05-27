@@ -6,10 +6,12 @@
 	"repository": "sindresorhus/got",
 	"funding": "https://github.com/sindresorhus/got?sponsor=1",
 	"type": "module",
-	"exports": "./dist/source/index.js",
-	"types": "./dist/source/index.d.ts",
+	"exports": {
+		"types": "./dist/source/index.d.ts",
+		"default": "./dist/source/index.js"
+	},
 	"engines": {
-		"node": ">=14.16"
+		"node": ">=16"
 	},
 	"scripts": {
 		"test": "xo && tsc --noEmit && ava",
@@ -99,8 +101,8 @@
 		"tough-cookie": "4.1.2",
 		"ts-node": "^10.8.2",
 		"type-fest": "^3.6.1",
-		"typescript": "~4.9.5",
-		"xo": "^0.53.1"
+		"typescript": "^5.0.4",
+		"xo": "^0.54.2"
 	},
 	"sideEffects": false,
 	"ava": {
@@ -135,8 +137,6 @@
 		"rules": {
 			"@typescript-eslint/no-empty-function": "off",
 			"n/no-deprecated-api": "off",
-			"n/prefer-global/url": "off",
-			"n/prefer-global/url-search-params": "off",
 			"@typescript-eslint/no-implicit-any-catch": "off",
 			"unicorn/prefer-node-protocol": "off",
 			"ava/assertion-arguments": "off",
@@ -146,6 +146,8 @@
 			"@typescript-eslint/no-unsafe-call": "off",
 			"@typescript-eslint/await-thenable": "off",
 			"@typescript-eslint/no-redundant-type-constituents": "off",
+			"@typescript-eslint/no-unsafe-argument": "off",
+			"@typescript-eslint/promise-function-async": "off",
 			"no-lone-blocks": "off",
 			"unicorn/no-await-expression-member": "off"
 		}

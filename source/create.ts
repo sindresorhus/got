@@ -1,4 +1,3 @@
-import type {URL} from 'node:url';
 import is, {assert} from '@sindresorhus/is';
 import asPromise from './as-promise/index.js';
 import type {

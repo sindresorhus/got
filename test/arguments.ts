@@ -1,4 +1,4 @@
-import {parse, URL, URLSearchParams} from 'url';
+import {parse} from 'url';
 import test from 'ava';
 import type {Handler} from 'express';
 import {pEvent} from 'p-event';

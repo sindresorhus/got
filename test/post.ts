@@ -1,7 +1,7 @@
 import process from 'process';
 import {Buffer} from 'buffer';
-import {promisify} from 'util';
 import stream from 'stream';
+import {pipeline as streamPipeline} from 'stream/promises';
 import fs from 'fs';
 import fsPromises from 'fs/promises';
 import path from 'path';
@@ -17,11 +17,9 @@ import FormData from 'form-data';
 import got, {UploadError} from '../source/index.js';
 import withServer from './helpers/with-server.js';
 
-const pStreamPipeline = promisify(stream.pipeline);
-
 const defaultEndpoint: Handler = async (request, response) => {
 	response.setHeader('method', request.method);
-	await pStreamPipeline(request, response);
+	await streamPipeline(request, response);
 };
 
 const echoHeaders: Handler = (request, response) => {

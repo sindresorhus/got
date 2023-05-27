@@ -1,4 +1,4 @@
-import type {URL, UrlWithStringQuery} from 'node:url';
+import type {UrlWithStringQuery} from 'node:url';
 import is from '@sindresorhus/is';
 
 // TODO: Deprecate legacy URL at some point

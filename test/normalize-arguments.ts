@@ -1,4 +1,3 @@
-import {URL, URLSearchParams} from 'url';
 import test from 'ava';
 import got, {Options} from '../source/index.js';
 

@@ -1,6 +1,7 @@
 import process from 'process';
 import {EventEmitter} from 'events';
-import stream, {Readable as ReadableStream} from 'stream';
+import {Readable as ReadableStream} from 'stream';
+import {pipeline as streamPipeline} from 'stream/promises';
 import test from 'ava';
 import delay from 'delay';
 import {pEvent} from 'p-event';
@@ -54,13 +55,16 @@ const downloadHandler = (clock?: GlobalClock): Handler => (_request, response) =
 
 	response.flushHeaders();
 
-	stream.pipeline(
-		slowDataStream(clock),
-		response,
-		() => {
-			response.end();
-		},
-	);
+	(async () => {
+		try {
+			await streamPipeline(
+				slowDataStream(clock),
+				response,
+			);
+		} catch {}
+
+		response.end();
+	})();
 };
 
 test.serial('does not retry after cancelation', withServerAndFakeTimers, async (t, server, got, clock) => {
