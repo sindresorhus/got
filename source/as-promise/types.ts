@@ -1,8 +1,8 @@
 import type {Buffer} from 'node:buffer';
 import type PCancelable from 'p-cancelable';
 import {RequestError} from '../core/errors.js';
-import type Request from '../core/index.js';
-import type {RequestEvents} from '../core/index.js';
+import type Request from '../core/index.js'; // eslint-disable-line import/no-duplicates
+import {type RequestEvents} from '../core/index.js'; // eslint-disable-line import/no-duplicates -- It's not allowed to combine these imports. The rule is incorrect.
 import type {Response} from '../core/response.js';
 
 /**

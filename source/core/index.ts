@@ -1,10 +1,9 @@
 import process from 'node:process';
 import {Buffer} from 'node:buffer';
 import {Duplex, type Readable} from 'node:stream';
-import http, {ServerResponse} from 'node:http';
-import type {ClientRequest, RequestOptions} from 'node:http';
+import http, {ServerResponse, type ClientRequest, type RequestOptions} from 'node:http';
 import type {Socket} from 'node:net';
-import timer from '@szmarczak/http-timer';
+import timer, {type ClientRequestWithTimings, type Timings, type IncomingMessageWithTimings} from '@szmarczak/http-timer';
 import CacheableRequest, {
 	CacheError as CacheableCacheError,
 	type StorageAdapter,
@@ -15,7 +14,6 @@ import decompressResponse from 'decompress-response';
 import is from '@sindresorhus/is';
 import getStream from 'get-stream';
 import {FormDataEncoder, isFormData as isFormDataLike} from 'form-data-encoder';
-import type {ClientRequestWithTimings, Timings, IncomingMessageWithTimings} from '@szmarczak/http-timer';
 import type ResponseLike from 'responselike';
 import getBodySize from './utils/get-body-size.js';
 import isFormData from './utils/is-form-data.js';

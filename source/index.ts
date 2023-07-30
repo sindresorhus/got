@@ -11,6 +11,8 @@ const defaults: InstanceDefaults = {
 const got = create(defaults);
 
 export default got;
+
+// TODO: Remove this in the next major version.
 export {got};
 
 export {default as Options} from './core/options.js';

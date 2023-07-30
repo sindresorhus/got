@@ -1,28 +1,23 @@
 import process from 'node:process';
 import type {Buffer} from 'node:buffer';
-import {promisify, inspect} from 'node:util';
-import {checkServerIdentity} from 'node:tls';
+import {promisify, inspect, type InspectOptions} from 'node:util';
+import {checkServerIdentity, type SecureContextOptions, type DetailedPeerCertificate} from 'node:tls';
 // DO NOT use destructuring for `https.request` and `http.request` as it's not compatible with `nock`.
-import http from 'node:http';
-import https from 'node:https';
+import https, {
+	type RequestOptions as HttpsRequestOptions,
+	type Agent as HttpsAgent,
+} from 'node:https';
+import http, {
+	type Agent as HttpAgent,
+	type ClientRequest,
+} from 'node:http';
 import type {Readable} from 'node:stream';
 import type {Socket} from 'node:net';
-import type {SecureContextOptions, DetailedPeerCertificate} from 'node:tls';
-import type {
-	Agent as HttpAgent,
-	ClientRequest,
-} from 'node:http';
-import type {
-	RequestOptions as HttpsRequestOptions,
-	Agent as HttpsAgent,
-} from 'node:https';
-import type {InspectOptions} from 'node:util';
 import is, {assert} from '@sindresorhus/is';
 import lowercaseKeys from 'lowercase-keys';
 import CacheableLookup from 'cacheable-lookup';
 import http2wrapper, {type ClientHttp2Session} from 'http2-wrapper';
-import {isFormData} from 'form-data-encoder';
-import type {FormDataLike} from 'form-data-encoder';
+import {isFormData, type FormDataLike} from 'form-data-encoder';
 import type {StorageAdapter} from 'cacheable-request';
 import type ResponseLike from 'responselike';
 import type {IncomingMessageWithTimings} from '@szmarczak/http-timer';
