@@ -108,14 +108,16 @@ Furthermore, the promise exposes a `.json<T>()` function that returns `Promise<T
 ```js
 import got from 'got';
 
-const {data} = await got.post('https://httpbin.org/anything', {
-	json: {
+const { body: data } = await got.post('https://httpbin.org/anything', {
+	json: true,
+        body: {
 		hello: 'world'
 	}
-}).json();
+});
 
 console.log(data);
 //=> {"hello": "world"}
+
 ```
 
 For advanced JSON usage, check out the [`parseJson`](documentation/2-options.md#parsejson) and [`stringifyJson`](documentation/2-options.md#stringifyjson) options.
