@@ -7,7 +7,7 @@ Source code: [`source/core/timed-out.ts`](../source/core/timed-out.ts)
 It is a good practice to set a timeout to prevent hanging requests.\
 By default, there is no timeout set.
 
-Keep in mind the [retry configuration](7-retry.md), which also takes effect in case of a timeout.
+Note: The [`retry` configuration](7-retry.md) also applies to timeouts.
 
 **All numbers refer to milliseconds.**
 
