@@ -89,6 +89,15 @@ test('follows redirect', withServer, async (t, server, got) => {
 	t.deepEqual(redirectUrls.map(String), [`${server.url}/`]);
 });
 
+test('follows redirect when followRedirect returns true', withServer, async (t, server, got) => {
+	server.get('/', reachedHandler);
+	server.get('/finite', finiteHandler);
+
+	const {body, redirectUrls} = await got('finite', {followRedirect: () => true});
+	t.is(body, 'reached');
+	t.deepEqual(redirectUrls.map(String), [`${server.url}/`]);
+});
+
 test('follows 307, 308 redirect', withServer, async (t, server, got) => {
 	server.get('/', reachedHandler);
 

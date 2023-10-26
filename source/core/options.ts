@@ -1768,7 +1768,7 @@ export default class Options {
 	}
 
 	set followRedirect(value: boolean | ((response: PlainResponse) => boolean)) {
-		assert.any([is.boolean, is.function], value);
+		assert.any([is.boolean, is.function_], value);
 
 		this._internals.followRedirect = value;
 	}

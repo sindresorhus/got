@@ -723,7 +723,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			return;
 		}
 
-		if (options.followRedirect && response.headers.location && redirectCodes.has(statusCode)) {
+		if (response.headers.location && redirectCodes.has(statusCode)) {
 			// We're being redirected, we don't care about the response.
 			// It'd be best to abort the request, but we can't because
 			// we would have to sacrifice the TCP connection. We don't want that.
@@ -814,7 +814,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		}
 
 		// `HTTPError`s always have `error.response.body` defined.
-		// Therefore we cannot retry if `options.throwHttpErrors` is false.
+		// Therefore, we cannot retry if `options.throwHttpErrors` is false.
 		// On the last retry, if `options.throwHttpErrors` is false, we would need to return the body,
 		// but that wouldn't be possible since the body would be already read in `error.response.body`.
 		if (options.isStream && options.throwHttpErrors && !isResponseOk(typedResponse)) {
