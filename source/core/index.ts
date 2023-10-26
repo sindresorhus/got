@@ -727,87 +727,90 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			// We're being redirected, we don't care about the response.
 			// It'd be best to abort the request, but we can't because
 			// we would have to sacrifice the TCP connection. We don't want that.
-			response.resume();
+			const shouldFollow = typeof options.followRedirect === 'function' ? options.followRedirect(typedResponse) : options.followRedirect;
+			if (shouldFollow) {
+				response.resume();
 
-			this._cancelTimeouts();
-			this._unproxyEvents();
+				this._cancelTimeouts();
+				this._unproxyEvents();
 
-			if (this.redirectUrls.length >= options.maxRedirects) {
-				this._beforeError(new MaxRedirectsError(this));
-				return;
-			}
-
-			this._request = undefined;
-
-			const updatedOptions = new Options(undefined, undefined, this.options);
-
-			const serverRequestedGet = statusCode === 303 && updatedOptions.method !== 'GET' && updatedOptions.method !== 'HEAD';
-			const canRewrite = statusCode !== 307 && statusCode !== 308;
-			const userRequestedGet = updatedOptions.methodRewriting && canRewrite;
-
-			if (serverRequestedGet || userRequestedGet) {
-				updatedOptions.method = 'GET';
-
-				updatedOptions.body = undefined;
-				updatedOptions.json = undefined;
-				updatedOptions.form = undefined;
-
-				delete updatedOptions.headers['content-length'];
-			}
-
-			try {
-				// We need this in order to support UTF-8
-				const redirectBuffer = Buffer.from(response.headers.location, 'binary').toString();
-				const redirectUrl = new URL(redirectBuffer, url);
-
-				if (!isUnixSocketURL(url as URL) && isUnixSocketURL(redirectUrl)) {
-					this._beforeError(new RequestError('Cannot redirect to UNIX socket', {}, this));
+				if (this.redirectUrls.length >= options.maxRedirects) {
+					this._beforeError(new MaxRedirectsError(this));
 					return;
 				}
 
-				// Redirecting to a different site, clear sensitive data.
-				if (redirectUrl.hostname !== (url as URL).hostname || redirectUrl.port !== (url as URL).port) {
-					if ('host' in updatedOptions.headers) {
-						delete updatedOptions.headers.host;
-					}
+				this._request = undefined;
 
-					if ('cookie' in updatedOptions.headers) {
-						delete updatedOptions.headers.cookie;
-					}
+				const updatedOptions = new Options(undefined, undefined, this.options);
 
-					if ('authorization' in updatedOptions.headers) {
-						delete updatedOptions.headers.authorization;
-					}
+				const serverRequestedGet = statusCode === 303 && updatedOptions.method !== 'GET' && updatedOptions.method !== 'HEAD';
+				const canRewrite = statusCode !== 307 && statusCode !== 308;
+				const userRequestedGet = updatedOptions.methodRewriting && canRewrite;
 
-					if (updatedOptions.username || updatedOptions.password) {
-						updatedOptions.username = '';
-						updatedOptions.password = '';
-					}
-				} else {
-					redirectUrl.username = updatedOptions.username;
-					redirectUrl.password = updatedOptions.password;
+				if (serverRequestedGet || userRequestedGet) {
+					updatedOptions.method = 'GET';
+
+					updatedOptions.body = undefined;
+					updatedOptions.json = undefined;
+					updatedOptions.form = undefined;
+
+					delete updatedOptions.headers['content-length'];
 				}
 
-				this.redirectUrls.push(redirectUrl);
-				updatedOptions.prefixUrl = '';
-				updatedOptions.url = redirectUrl;
+				try {
+					// We need this in order to support UTF-8
+					const redirectBuffer = Buffer.from(response.headers.location, 'binary').toString();
+					const redirectUrl = new URL(redirectBuffer, url);
 
-				for (const hook of updatedOptions.hooks.beforeRedirect) {
-					// eslint-disable-next-line no-await-in-loop
-					await hook(updatedOptions, typedResponse);
+					if (!isUnixSocketURL(url as URL) && isUnixSocketURL(redirectUrl)) {
+						this._beforeError(new RequestError('Cannot redirect to UNIX socket', {}, this));
+						return;
+					}
+
+					// Redirecting to a different site, clear sensitive data.
+					if (redirectUrl.hostname !== (url as URL).hostname || redirectUrl.port !== (url as URL).port) {
+						if ('host' in updatedOptions.headers) {
+							delete updatedOptions.headers.host;
+						}
+
+						if ('cookie' in updatedOptions.headers) {
+							delete updatedOptions.headers.cookie;
+						}
+
+						if ('authorization' in updatedOptions.headers) {
+							delete updatedOptions.headers.authorization;
+						}
+
+						if (updatedOptions.username || updatedOptions.password) {
+							updatedOptions.username = '';
+							updatedOptions.password = '';
+						}
+					} else {
+						redirectUrl.username = updatedOptions.username;
+						redirectUrl.password = updatedOptions.password;
+					}
+
+					this.redirectUrls.push(redirectUrl);
+					updatedOptions.prefixUrl = '';
+					updatedOptions.url = redirectUrl;
+
+					for (const hook of updatedOptions.hooks.beforeRedirect) {
+						// eslint-disable-next-line no-await-in-loop
+						await hook(updatedOptions, typedResponse);
+					}
+
+					this.emit('redirect', updatedOptions, typedResponse);
+
+					this.options = updatedOptions;
+
+					await this._makeRequest();
+				} catch (error: any) {
+					this._beforeError(error);
+					return;
 				}
 
-				this.emit('redirect', updatedOptions, typedResponse);
-
-				this.options = updatedOptions;
-
-				await this._makeRequest();
-			} catch (error: any) {
-				this._beforeError(error);
 				return;
 			}
-
-			return;
 		}
 
 		// `HTTPError`s always have `error.response.body` defined.

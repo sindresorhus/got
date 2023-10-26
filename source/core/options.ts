@@ -1763,12 +1763,12 @@ export default class Options {
 
 	@default true
 	*/
-	get followRedirect(): boolean {
+	get followRedirect(): boolean | ((response: PlainResponse) => boolean) {
 		return this._internals.followRedirect;
 	}
 
-	set followRedirect(value: boolean) {
-		assert.boolean(value);
+	set followRedirect(value: boolean | ((response: PlainResponse) => boolean)) {
+		assert.any([is.boolean, is.function], value);
 
 		this._internals.followRedirect = value;
 	}

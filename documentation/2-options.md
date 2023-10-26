@@ -681,7 +681,7 @@ Only useful when the `cookieJar` option has been set.
 
 ### `followRedirect`
 
-**Type: `boolean`**\
+**Type: `boolean | (response: PlainResponse) => boolean`**\
 **Default: `true`**
 
 Defines if redirect responses should be followed automatically.
