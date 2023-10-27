@@ -336,7 +336,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		void (async () => {
 			// Node.js parser is really weird.
 			// It emits post-request Parse Errors on the same instance as previous request. WTF.
-			// Therefore we need to check if it has been destroyed as well.
+			// Therefore, we need to check if it has been destroyed as well.
 			//
 			// Furthermore, Node.js 16 `response.destroy()` doesn't immediately destroy the socket,
 			// but makes the response unreadable. So we additionally need to check `response.readable`.
