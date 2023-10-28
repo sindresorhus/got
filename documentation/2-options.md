@@ -684,7 +684,8 @@ Only useful when the `cookieJar` option has been set.
 **Type: `boolean | (response: PlainResponse) => boolean`**\
 **Default: `true`**
 
-Defines if redirect responses should be followed automatically.
+Defines if redirect responses should be followed automatically.\
+This property can also be implemented as a function which gets response object as a single argument and should return true if redirects should continue or false otherwise.
 
 #### **Note:**
 > - If a `303` is sent by the server in response to any request type (POST, DELETE, etc.), Got will request the resource pointed to in the location header via GET.\
