@@ -2,9 +2,9 @@
 	"extends": "@sindresorhus/tsconfig",
 	"compilerOptions": {
 		"outDir": "dist",
-		"target": "es2021", // Node.js 16
+		"target": "es2022", // Node.js 18
 		"lib": [
-			"es2021"
+			"es2022"
 		],
 		"noPropertyAccessFromIndexSignature": false,
 		"isolatedModules": true
@@ -13,10 +13,5 @@
 		"source",
 		"test",
 		"benchmark"
-	],
-	"ts-node": {
-		"transpileOnly": true,
-		"files": true,
-		"experimentalResolver": true
-	}
+	]
 }

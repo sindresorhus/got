@@ -9,7 +9,7 @@ export default function parseLinkHeader(link: string) {
 		const trimmedUriReference = rawUriReference.trim();
 
 		// eslint-disable-next-line @typescript-eslint/prefer-string-starts-ends-with
-		if (trimmedUriReference[0] !== '<' || trimmedUriReference[trimmedUriReference.length - 1] !== '>') {
+		if (trimmedUriReference[0] !== '<' || trimmedUriReference.at(-1) !== '>') {
 			throw new Error(`Invalid format of the Link header reference: ${trimmedUriReference}`);
 		}
 

@@ -11,7 +11,7 @@ import {pEvent} from 'p-event';
 import type {Handler} from 'express';
 import {parse, Body, isBodyFile, type BodyEntryPath, type BodyEntryRawValue} from 'then-busboy';
 import {FormData as FormDataNode, Blob, File} from 'formdata-node';
-import {fileFromPath} from 'formdata-node/file-from-path'; // eslint-disable-line n/file-extension-in-import
+import {fileFromPath} from 'formdata-node/file-from-path';
 import getStream from 'get-stream';
 import FormData from 'form-data';
 import got, {UploadError} from '../source/index.js';

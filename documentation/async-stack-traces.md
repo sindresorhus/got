@@ -114,7 +114,7 @@ From previous event:
 As expected, we know where the timeout has been set. Unfortunately, if we increase our retry count limit to `1`, the stack trace remains the same. That's because `bluebird` doesn't track I/O events. Please note that this should be sufficient for most cases. In order to debug further, we can use [`async_hooks`](https://nodejs.org/api/async_hooks.html) instead. A Stack Overflow user has come up with an awesome solution:
 
 ```js
-import asyncHooks from 'async_hooks';
+import asyncHooks from 'node:async_hooks';
 
 const traces = new Map();
 

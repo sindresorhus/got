@@ -12,7 +12,7 @@ import CacheableRequest, {
 } from 'cacheable-request';
 import decompressResponse from 'decompress-response';
 import is from '@sindresorhus/is';
-import getStream from 'get-stream';
+import {getStreamAsBuffer} from 'get-stream';
 import {FormDataEncoder, isFormData as isFormDataLike} from 'form-data-encoder';
 import type ResponseLike from 'responselike';
 import getBodySize from './utils/get-body-size.js';
@@ -42,8 +42,6 @@ import {
 	CacheError,
 	AbortError,
 } from './errors.js';
-
-const {buffer: getStreamAsBuffer} = getStream;
 
 type Error = NodeJS.ErrnoException;
 
