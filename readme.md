@@ -80,7 +80,7 @@
 
 ---
 
-For browser usage, we recommend [Ky](https://github.com/sindresorhus/ky) by the same people.
+**You probably want [Ky](https://github.com/sindresorhus/ky) instead, by the same people. It's smaller, works in the browser too, and is more stable since it's built upon [`Fetch`](https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API).**
 
 ---
 
@@ -92,7 +92,7 @@ For browser usage, we recommend [Ky](https://github.com/sindresorhus/ky) by the 
 npm install got
 ```
 
-**Warning:** This package is native [ESM](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Modules) and no longer provides a CommonJS export. If your project uses CommonJS, you will have to [convert to ESM](https://gist.github.com/sindresorhus/a39789f98801d908bbc7ff3ecc99d99c) or use the [dynamic `import()`](https://v8.dev/features/dynamic-import) function. Please don't open issues for questions regarding CommonJS / ESM.
+**Warning:** This package is native [ESM](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Modules) and no longer provides a CommonJS export. If your project uses CommonJS, you will have to [convert to ESM](https://gist.github.com/sindresorhus/a39789f98801d908bbc7ff3ecc99d99c). Please don't open issues for questions regarding CommonJS / ESM.
 
 **Got v11 is no longer maintained and we will not accept any backport requests.**
 
@@ -124,7 +124,7 @@ For advanced JSON usage, check out the [`parseJson`](documentation/2-options.md#
 
 ## Highlights
 
-- [Used by 8K+ packages and 4M+ repos](https://github.com/sindresorhus/got/network/dependents)
+- [Used by 10K+ packages and 5M+ repos](https://github.com/sindresorhus/got/network/dependents)
 - [Actively maintained](https://github.com/sindresorhus/got/graphs/contributors)
 - [Trusted by many companies](#widely-used)
 
@@ -387,14 +387,6 @@ By default, Got will retry on failure. To disable this option, set [`options.ret
 [![Sindre Sorhus](https://github.com/sindresorhus.png?size=100)](https://sindresorhus.com) | [![Szymon Marczak](https://github.com/szmarczak.png?size=100)](https://github.com/szmarczak)
 ---|---
 [Sindre Sorhus](https://sindresorhus.com) | [Szymon Marczak](https://github.com/szmarczak)
-
-###### Former
-
-- [Vsevolod Strukchinsky](https://github.com/floatdrop)
-- [Alexander Tesfamichael](https://github.com/alextes)
-- [Brandon Smith](https://github.com/brandon93s)
-- [Luke Childs](https://github.com/lukechilds)
-- [Giovanni Minotti](https://github.com/Giotino)
 
 <a name="widely-used"></a>
 ## These amazing companies are using Got
