@@ -29,7 +29,7 @@ test('properties', withServer, async (t, server, got) => {
 	t.is(error.code, 'ERR_NON_2XX_3XX_RESPONSE');
 	t.is(error.message, 'Response code 404 (Not Found)');
 	t.deepEqual(error.options.url, url);
-	t.is(error.response.headers.connection, 'close');
+	t.is(error.response.headers.connection, 'keep-alive');
 	t.is(error.response.body, 'not');
 });
 
