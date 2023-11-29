@@ -89,6 +89,39 @@ test('follows redirect', withServer, async (t, server, got) => {
 	t.deepEqual(redirectUrls.map(String), [`${server.url}/`]);
 });
 
+test('does not follow redirect when followRedirect is a function and returns false', withServer, async (t, server, got) => {
+	server.get('/', reachedHandler);
+	server.get('/finite', finiteHandler);
+
+	const {body, statusCode} = await got('finite', {followRedirect: () => false});
+	t.not(body, 'reached');
+	t.is(statusCode, 302);
+});
+
+test('follows redirect when followRedirect is a function and returns true', withServer, async (t, server, got) => {
+	server.get('/', reachedHandler);
+	server.get('/finite', finiteHandler);
+
+	const {body, redirectUrls} = await got('finite', {followRedirect: () => true});
+	t.is(body, 'reached');
+	t.deepEqual(redirectUrls.map(String), [`${server.url}/`]);
+});
+
+test('followRedirect gets plainResponse and does not follow', withServer, async (t, server, got) => {
+	server.get('/temporary', (_request, response) => {
+		response.writeHead(307, {
+			location: '/redirect',
+		});
+		response.end();
+	});
+
+	const {statusCode} = await got('temporary', {followRedirect(response) {
+		t.is(response.headers.location, '/redirect');
+		return false;
+	}});
+	t.is(statusCode, 307);
+});
+
 test('follows 307, 308 redirect', withServer, async (t, server, got) => {
 	server.get('/', reachedHandler);
 

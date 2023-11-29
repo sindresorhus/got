@@ -1756,19 +1756,21 @@ export default class Options {
 	}
 
 	/**
-	Defines if redirect responses should be followed automatically.
+	Whether redirect responses should be followed automatically.
+
+ 	Optionally, pass a function to dynamically decide based on the response object.
 
 	Note that if a `303` is sent by the server in response to any request type (`POST`, `DELETE`, etc.), Got will automatically request the resource pointed to in the location header via `GET`.
 	This is in accordance with [the spec](https://tools.ietf.org/html/rfc7231#section-6.4.4). You can optionally turn on this behavior also for other redirect codes - see `methodRewriting`.
 
 	@default true
 	*/
-	get followRedirect(): boolean {
+	get followRedirect(): boolean | ((response: PlainResponse) => boolean) {
 		return this._internals.followRedirect;
 	}
 
-	set followRedirect(value: boolean) {
-		assert.boolean(value);
+	set followRedirect(value: boolean | ((response: PlainResponse) => boolean)) {
+		assert.any([is.boolean, is.function_], value);
 
 		this._internals.followRedirect = value;
 	}
