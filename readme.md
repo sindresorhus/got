@@ -187,11 +187,6 @@ By default, Got will retry on failure. To disable this option, set [`options.ret
 - [`got-scraping`](https://github.com/apify/got-scraping) - Got wrapper specifically designed for web scraping purposes
 - [`got-ssrf`](https://github.com/JaneJeon/got-ssrf) - Got wrapper to protect server-side requests against SSRF attacks
 
-### Legacy
-
-- [travis-got](https://github.com/samverschueren/travis-got) - Got convenience wrapper to interact with the Travis API
-- [graphql-got](https://github.com/kevva/graphql-got) - Got convenience wrapper to interact with GraphQL
-
 ## Comparison
 
 |                       | `got`               | [`node-fetch`][n0]   | [`ky`][k0]               | [`axios`][a0]      | [`superagent`][s0]     |
@@ -519,9 +514,3 @@ By default, Got will retry on failure. To disable this option, set [`options.ret
 > Got has been a crucial component of Apify's scraping for years. We use it to extract data from billions of web pages every month, and we really appreciate the powerful API and extensibility, which allowed us to build our own specialized HTTP client on top of Got. The support has always been stellar too.
 >
 > — <a href="https://github.com/mnmkng">Ondra Urban</a>
-
-## For enterprise
-
-Available as part of the Tidelift Subscription.
-
-The maintainers of `got` and thousands of other packages are working with Tidelift to deliver commercial support and maintenance for the open source dependencies you use to build your applications. Save time, reduce risk, and improve code health, while paying the maintainers of the exact dependencies you use. [Learn more.](https://tidelift.com/subscription/pkg/npm-got?utm_source=npm-got&utm_medium=referral&utm_campaign=enterprise&utm_term=repo)

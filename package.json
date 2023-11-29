@@ -10,11 +10,12 @@
 		"types": "./dist/source/index.d.ts",
 		"default": "./dist/source/index.js"
 	},
+	"sideEffects": false,
 	"engines": {
-		"node": ">=16"
+		"node": ">=20"
 	},
 	"scripts": {
-		"test": "xo && tsc --noEmit && ava",
+		"test": "xo && tsc --noEmit && NODE_OPTIONS='--import=tsx/esm' ava",
 		"release": "np",
 		"build": "del-cli dist && tsc",
 		"prepare": "npm run build"
@@ -47,64 +48,61 @@
 		"ky"
 	],
 	"dependencies": {
-		"@sindresorhus/is": "^5.2.0",
+		"@sindresorhus/is": "^6.1.0",
 		"@szmarczak/http-timer": "^5.0.1",
 		"cacheable-lookup": "^7.0.0",
-		"cacheable-request": "^10.2.8",
+		"cacheable-request": "^10.2.14",
 		"decompress-response": "^6.0.0",
-		"form-data-encoder": "^2.1.2",
-		"get-stream": "^6.0.1",
-		"http2-wrapper": "^2.1.10",
+		"form-data-encoder": "^4.0.2",
+		"get-stream": "^8.0.1",
+		"http2-wrapper": "^2.2.1",
 		"lowercase-keys": "^3.0.0",
-		"p-cancelable": "^3.0.0",
+		"p-cancelable": "^4.0.1",
 		"responselike": "^3.0.0"
 	},
 	"devDependencies": {
 		"@hapi/bourne": "^3.0.0",
-		"@sindresorhus/tsconfig": "^3.0.1",
-		"@sinonjs/fake-timers": "^10.0.2",
-		"@types/benchmark": "^2.1.2",
-		"@types/express": "^4.17.17",
-		"@types/node": "^18.14.5",
-		"@types/pem": "^1.9.6",
-		"@types/pify": "^5.0.1",
-		"@types/readable-stream": "^2.3.13",
-		"@types/request": "^2.48.8",
-		"@types/sinon": "^10.0.11",
-		"@types/sinonjs__fake-timers": "^8.1.1",
-		"@types/tough-cookie": "^4.0.1",
-		"ava": "^5.2.0",
-		"axios": "^0.27.2",
+		"@sindresorhus/tsconfig": "^5.0.0",
+		"@sinonjs/fake-timers": "^11.2.2",
+		"@types/benchmark": "^2.1.5",
+		"@types/express": "^4.17.21",
+		"@types/node": "^20.10.0",
+		"@types/pem": "^1.14.4",
+		"@types/readable-stream": "^4.0.9",
+		"@types/request": "^2.48.12",
+		"@types/sinon": "^17.0.2",
+		"@types/sinonjs__fake-timers": "^8.1.5",
+		"ava": "^5.3.1",
+		"axios": "^1.6.2",
 		"benchmark": "^2.1.4",
 		"bluebird": "^3.7.2",
 		"body-parser": "^1.20.2",
 		"create-cert": "^1.0.6",
 		"create-test-server": "^3.0.1",
-		"del-cli": "^5.0.0",
-		"delay": "^5.0.0",
-		"express": "^4.17.3",
+		"del-cli": "^5.1.0",
+		"delay": "^6.0.0",
+		"express": "^4.18.2",
 		"form-data": "^4.0.0",
-		"formdata-node": "^5.0.0",
-		"nock": "^13.3.0",
-		"node-fetch": "^3.2.3",
-		"np": "^7.6.0",
+		"formdata-node": "^6.0.3",
+		"nock": "^13.4.0",
+		"node-fetch": "^3.3.2",
+		"np": "^9.0.0",
 		"nyc": "^15.1.0",
-		"p-event": "^5.0.1",
-		"pem": "^1.14.6",
-		"pify": "^6.0.0",
-		"readable-stream": "^4.2.0",
+		"p-event": "^6.0.0",
+		"pem": "^1.14.8",
+		"pify": "^6.1.0",
+		"readable-stream": "^4.4.2",
 		"request": "^2.88.2",
-		"sinon": "^15.0.1",
+		"sinon": "^17.0.1",
 		"slow-stream": "0.0.4",
-		"tempy": "^3.0.0",
+		"tempy": "^3.1.0",
 		"then-busboy": "^5.2.1",
-		"tough-cookie": "4.1.2",
-		"ts-node": "^10.8.2",
-		"type-fest": "^3.6.1",
-		"typescript": "^5.0.4",
-		"xo": "^0.54.2"
+		"tough-cookie": "^4.1.3",
+		"tsx": "^4.6.0",
+		"type-fest": "^4.8.2",
+		"typescript": "^5.3.2",
+		"xo": "^0.56.0"
 	},
-	"sideEffects": false,
 	"ava": {
 		"files": [
 			"test/*"
@@ -113,9 +111,7 @@
 		"extensions": {
 			"ts": "module"
 		},
-		"nodeArguments": [
-			"--loader=ts-node/esm"
-		]
+		"workerThreads": false
 	},
 	"nyc": {
 		"reporter": [
@@ -148,7 +144,8 @@
 			"@typescript-eslint/no-unsafe-argument": "off",
 			"@typescript-eslint/promise-function-async": "off",
 			"no-lone-blocks": "off",
-			"unicorn/no-await-expression-member": "off"
+			"unicorn/no-await-expression-member": "off",
+			"unicorn/prefer-event-target": "off"
 		}
 	},
 	"runkitExampleFilename": "./documentation/examples/runkit-example.js"

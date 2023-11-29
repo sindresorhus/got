@@ -89,7 +89,7 @@ test('throws an error when legacy URL is passed', withServer, async (t, server) 
 		got(parse(`${server.url}/test`)),
 		{
 			instanceOf: RequestError,
-			message: 'Expected value which is `predicate returns truthy for any value`, received values of types `Object`.',
+			message: 'Expected values which are `string`, `URL`, or `undefined`. Received values of type `Object`.',
 		},
 	);
 
@@ -218,7 +218,7 @@ test('throws when known `options.hooks` value is not an array', async t => {
 		got('https://example.com', {hooks: {beforeRequest: {}}}),
 		{
 			instanceOf: RequestError,
-			message: 'Expected value which is `predicate returns truthy for any value`, received values of types `Object`.',
+			message: 'Expected values which are `Array` or `undefined`. Received values of type `Object`.',
 		},
 	);
 });
@@ -294,7 +294,7 @@ test('throws if the `searchParams` value is invalid', async t => {
 	}),
 	{
 		instanceOf: RequestError,
-		message: 'Expected value which is `predicate returns truthy for any value`, received values of types `Array`.',
+		message: 'Expected values which are `string`, `number`, `boolean`, `null`, or `undefined`. Received values of type `Array`.',
 	});
 });
 
@@ -447,7 +447,7 @@ test('throws on invalid `dnsCache` option', async t => {
 	}),
 	{
 		instanceOf: RequestError,
-		message: 'Expected value which is `predicate returns truthy for any value`, received values of types `number`.',
+		message: 'Expected values which are `Object`, `boolean`, or `undefined`. Received values of type `number`.',
 	});
 });
 

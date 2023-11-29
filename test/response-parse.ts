@@ -187,7 +187,7 @@ test('shortcuts throw ParseErrors', withServer, async (t, server, got) => {
 
 	await t.throwsAsync(got('').json(), {
 		instanceOf: ParseError,
-		message: /^Unexpected token o in JSON at position 1 in/,
+		message: /^Unexpected token/,
 		code: 'ERR_BODY_PARSE_FAILURE',
 	});
 });

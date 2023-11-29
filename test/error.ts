@@ -29,7 +29,7 @@ test('properties', withServer, async (t, server, got) => {
 	t.is(error.code, 'ERR_NON_2XX_3XX_RESPONSE');
 	t.is(error.message, 'Response code 404 (Not Found)');
 	t.deepEqual(error.options.url, url);
-	t.is(error.response.headers.connection, 'close');
+	t.is(error.response.headers.connection, 'keep-alive');
 	t.is(error.response.body, 'not');
 });
 
@@ -47,7 +47,7 @@ test('`options.body` form error message', async t => {
 	await t.throwsAsync(got.post('https://example.com', {body: Buffer.from('test'), form: ''}),
 		{
 			instanceOf: RequestError,
-			message: 'Expected value which is `predicate returns truthy for any value`, received values of types `string`.',
+			message: 'Expected values which are `plain object` or `undefined`. Received values of type `string`.',
 		},
 		// {message: 'The `body`, `json` and `form` options are mutually exclusive'}
 	);

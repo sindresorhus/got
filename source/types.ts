@@ -1,8 +1,8 @@
 import type {Buffer} from 'node:buffer';
 import type {CancelableRequest} from './as-promise/types.js';
 import type {Response} from './core/response.js';
-import type Options from './core/options.js'; // eslint-disable-line import/no-duplicates
-import {type PaginationOptions, type OptionsInit} from './core/options.js'; // eslint-disable-line import/no-duplicates -- It's not allowed to combine these imports. The rule is incorrect.
+import type Options from './core/options.js';
+import {type PaginationOptions, type OptionsInit} from './core/options.js';
 import type Request from './core/index.js';
 
 // `type-fest` utilities

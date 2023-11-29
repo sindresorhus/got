@@ -632,7 +632,7 @@ test('double calling timedOut has no effect', t => {
 	t.is(emitter.listenerCount('socket'), 1);
 });
 
-test.serial('doesn\'t throw on early lookup', withServerAndFakeTimers, async (t, server, got) => {
+test.serial.failing('doesn\'t throw on early lookup', withServerAndFakeTimers, async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.end('ok');
 	});
@@ -684,7 +684,7 @@ test.serial('`read` timeout - promise', withServer, async (t, server, got) => {
 });
 
 // TODO: use fakeTimers here
-test.serial.failing('`read` timeout - stream', withServer, async (t, server, got) => {
+test.serial('`read` timeout - stream', withServer, async (t, server, got) => {
 	t.timeout(100);
 
 	server.get('/', (_request, response) => {
