@@ -114,7 +114,9 @@ export type Response<T = unknown> = {
 
 export const isResponseOk = (response: PlainResponse): boolean => {
 	const {statusCode} = response;
-	const limitStatusCode = response.request.options.followRedirect ? 299 : 399;
+	const {followRedirect} = response.request.options;
+	const shouldFollow = typeof followRedirect === 'function' ? followRedirect(response) : followRedirect;
+	const limitStatusCode = shouldFollow ? 299 : 399;
 
 	return (statusCode >= 200 && statusCode <= limitStatusCode) || statusCode === 304;
 };
