@@ -701,6 +701,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			let promises: Array<Promise<unknown>> = rawCookies.map(async (rawCookie: string) => (options.cookieJar as PromiseCookieJar).setCookie(rawCookie, url!.toString()));
 
 			if (options.ignoreInvalidCookies) {
+				// eslint-disable-next-line @typescript-eslint/no-floating-promises
 				promises = promises.map(async promise => {
 					try {
 						await promise;

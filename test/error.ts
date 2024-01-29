@@ -20,7 +20,7 @@ test('properties', withServer, async (t, server, got) => {
 
 	const url = new URL(server.url);
 
-	const error = (await t.throwsAsync<HTTPError>(got('')))!;
+	const error = (await t.throwsAsync<HTTPError<string>>(got('')))!;
 	t.truthy(error);
 	t.truthy(error.response);
 	t.truthy(error.options);
@@ -30,11 +30,12 @@ test('properties', withServer, async (t, server, got) => {
 	t.is(error.message, 'Response code 404 (Not Found)');
 	t.deepEqual(error.options.url, url);
 	t.is(error.response.headers.connection, 'keep-alive');
-	t.is(error.response.body, 'not');
+	// Assert is used for type checking
+	t.assert(error.response.body === 'not');
 });
 
 test('catches dns errors', async t => {
-	const error = (await t.throwsAsync<RequestError>(got('http://doesntexist', {retry: {limit: 0}})))!;
+	const error = (await t.throwsAsync<RequestError<undefined>>(got('http://doesntexist', {retry: {limit: 0}})))!;
 	t.truthy(error);
 	t.regex(error.message, /ENOTFOUND|EAI_AGAIN/);
 	t.is((error.options.url as URL).host, 'doesntexist');
@@ -110,7 +111,27 @@ test('custom body', withServer, async (t, server, got) => {
 			message: 'Response code 404 (Not Found)',
 		});
 	t.is(error?.response.statusCode, 404);
-	t.is(error?.response.body, 'not');
+	// Typecheck for default `any` type
+	t.assert(error?.response.body === 'not');
+});
+
+test('custom json body', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.statusCode = 404;
+		response.header('content-type', 'application/json');
+		response.end(JSON.stringify({
+			message: 'not found',
+		}));
+	});
+
+	const error = await t.throwsAsync<HTTPError<{message: string}>>(got('', {responseType: 'json'}),
+		{
+			instanceOf: HTTPError,
+			message: 'Response code 404 (Not Found)',
+		});
+	t.is(error?.response.statusCode, 404);
+	// Assert is used for body typecheck
+	t.assert(error?.response.body.message === 'not found');
 });
 
 test('contains Got options', withServer, async (t, server, got) => {

@@ -16,13 +16,13 @@ function isRequest(x: unknown): x is Request {
 An error to be thrown when a request fails.
 Contains a `code` property with error class code, like `ECONNREFUSED`.
 */
-export class RequestError extends Error {
+export class RequestError<T = unknown> extends Error {
 	input?: string;
 
 	code: string;
 	override stack!: string;
 	declare readonly options: Options;
-	readonly response?: Response;
+	readonly response?: Response<T>;
 	readonly request?: Request;
 	readonly timings?: Timings;
 
@@ -88,9 +88,10 @@ export class MaxRedirectsError extends RequestError {
 An error to be thrown when the server response code is not 2xx nor 3xx if `options.followRedirect` is `true`, but always except for 304.
 Includes a `response` property.
 */
+// TODO: Change `HTTPError<T = any>` to `HTTPError<T = unknown>` in the next major version to enforce type usage.
 // eslint-disable-next-line @typescript-eslint/naming-convention
-export class HTTPError extends RequestError {
-	declare readonly response: Response;
+export class HTTPError<T = any> extends RequestError<T> {
+	declare readonly response: Response<T>;
 	declare readonly request: Request;
 	declare readonly timings: Timings;
 
