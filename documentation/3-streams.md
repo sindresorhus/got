@@ -448,3 +448,58 @@ The [response headers](https://nodejs.org/api/http.html#http_message_headers).
 **Type: `string`**
 
 The status message corresponding to the status code.
+
+## Proxy Pass
+In certain cases, it may be necessary to employ **`got`** in our router to ensure that all incoming requests to our web server are proxied to another web server. This is akin to utilizing a reverse proxy. To illustrate, the code below demonstrates the usage of `Express`:
+
+```js
+import stream from 'node:stream';
+import express from 'express';
+import got from 'got';
+
+const router = express.Router();
+
+router.get('/proxy-pass', (req, res, next) => {
+	const readableStream = new stream.PassThrough();
+	req.pipe(readableStream);
+
+	const serverRes = got.stream.get({
+		'http://example.com',
+		headers: req.headers,
+	});
+
+	res.set(serverRes.headers);
+	serverResponse.pipe(res);
+});
+
+router.post('/proxy-pass', (req, res, next) => {
+	const readableStream = new stream.PassThrough();
+	req.pipe(readableStream);
+
+	const serverRes = got.stream.post({
+		'http://example.com',
+		body: readableStream,
+		headers: req.headers,
+	});
+
+	res.set(serverRes.headers);
+	serverResponse.pipe(res);
+});
+
+export default router;
+
+```
+- **Creating a PassThrough Stream:**
+A new PassThrough stream (`readableStream`) is created.
+
+- **Piping Request to PassThrough Stream:**
+The incoming POST request (`req`) is piped into the `readableStream`.
+
+- **Making a Request using `got.stream`:**
+It initiates a POST request to 'http://example.com' with the request headers and the body as the PassThrough stream (`readableStream`). The response is a readable stream (`serverRes`).
+
+- **Setting Response Headers:**
+The headers from the server response (`serverRes.headers`) are set to the outgoing response (`res`).
+
+- **Piping Server Response to Outgoing Response:**
+The server response stream (`serverRes`) is piped into the outgoing response (`res`).
