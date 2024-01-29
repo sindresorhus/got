@@ -27,7 +27,7 @@ export class RequestError<T = unknown> extends Error {
 	readonly timings?: Timings;
 
 	constructor(message: string, error: Partial<Error & {code?: string}>, self: Request | Options) {
-		super(message);
+		super(message, {cause: error});
 		Error.captureStackTrace(this, this.constructor);
 
 		this.name = 'RequestError';
