@@ -4,11 +4,10 @@ import net from 'node:net';
 import http from 'node:http';
 import stream from 'node:stream';
 import {pipeline as streamPipeline} from 'node:stream/promises';
+import {Agent} from 'node:https';
 import test from 'ava';
 import getStream from 'get-stream';
 import is from '@sindresorhus/is';
-import {SocksProxyAgent} from 'socks-proxy-agent';
-import {SocksClientError} from 'socks';
 import got, {RequestError, HTTPError, TimeoutError} from '../source/index.js';
 import type Request from '../source/core/index.js';
 import withServer from './helpers/with-server.js';
@@ -369,10 +368,17 @@ test('should wrap got cause', async t => {
 });
 
 test('should wrap non-got cause', async t => {
+	class SocksProxyAgent extends Agent {
+		createConnection() {
+			throw new SocksClientError('oh no');
+		}
+	}
+	class SocksClientError extends Error {}
 	const error = await t.throwsAsync<RequestError>(got('https://github.com', {retry: {limit: 0}, timeout: {read: 1}, agent: {https: new SocksProxyAgent('socks://your-name%40gmail.com:abcdef12345124@br41.nordvpn.com')}}));
 	const cause = error?.cause as Error;
 	t.is(error?.code, 'ERR_GOT_REQUEST_ERROR');
 	t.is(error?.message, cause.message);
+	t.is(error?.message, 'oh no');
 	t.assert(cause instanceof SocksClientError);
 });
 
