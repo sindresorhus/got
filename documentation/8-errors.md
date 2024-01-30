@@ -21,7 +21,7 @@ Read the article [here](async-stack-traces.md).
 
 > [!NOTE]
 > - The error codes may differ when the root error has a `code` property set.
-> - Root error will be propagated as is via [`cause`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Error/cause) property.
+> - The root error will be propagated as is via the [`cause`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Error/cause) property.
 
 ### `RequestError`
 
