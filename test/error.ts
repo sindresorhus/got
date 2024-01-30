@@ -374,7 +374,7 @@ test('should wrap non-got cause', async t => {
 		}
 	}
 	class SocksClientError extends Error {}
-	const error = await t.throwsAsync<RequestError>(got('https://github.com', {retry: {limit: 0}, timeout: {read: 1}, agent: {https: new SocksProxyAgent('socks://your-name%40gmail.com:abcdef12345124@br41.nordvpn.com')}}));
+	const error = await t.throwsAsync<RequestError>(got('https://github.com', {retry: {limit: 0}, timeout: {read: 1}, agent: {https: new SocksProxyAgent()}}));
 	const cause = error?.cause as Error;
 	t.is(error?.code, 'ERR_GOT_REQUEST_ERROR');
 	t.is(error?.message, cause.message);
