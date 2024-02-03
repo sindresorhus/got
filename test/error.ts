@@ -4,6 +4,7 @@ import net from 'node:net';
 import http from 'node:http';
 import stream from 'node:stream';
 import {pipeline as streamPipeline} from 'node:stream/promises';
+import {Agent} from 'node:https';
 import test from 'ava';
 import getStream from 'get-stream';
 import is from '@sindresorhus/is';
@@ -357,6 +358,28 @@ test.skip('the old stacktrace is recovered', async t => {
 	// The first `at get` points to where the error was wrapped,
 	// the second `at get` points to the real cause.
 	t.not(error?.stack!.indexOf('at get'), error?.stack!.lastIndexOf('at get'));
+});
+
+test('should wrap got cause', async t => {
+	const error = await t.throwsAsync<RequestError>(got('https://github.com', {retry: {limit: 0}, timeout: {request: 1}}));
+	const cause = error?.cause as TimeoutError;
+	t.is(error?.code, cause.code);
+	t.is(error?.message, cause.message);
+});
+
+test('should wrap non-got cause', async t => {
+	class SocksProxyAgent extends Agent {
+		createConnection() {
+			throw new SocksClientError('oh no');
+		}
+	}
+	class SocksClientError extends Error {}
+	const error = await t.throwsAsync<RequestError>(got('https://github.com', {retry: {limit: 0}, timeout: {read: 1}, agent: {https: new SocksProxyAgent()}}));
+	const cause = error?.cause as Error;
+	t.is(error?.code, 'ERR_GOT_REQUEST_ERROR');
+	t.is(error?.message, cause.message);
+	t.is(error?.message, 'oh no');
+	t.assert(cause instanceof SocksClientError);
 });
 
 test.serial('custom stack trace', withServer, async (t, _server, got) => {

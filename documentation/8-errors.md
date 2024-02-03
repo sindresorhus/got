@@ -19,8 +19,9 @@ All Got errors contain various metadata, such as:
 
 Read the article [here](async-stack-traces.md).
 
-**Note:**
+> [!NOTE]
 > - The error codes may differ when the root error has a `code` property set.
+> - The root error will be propagated as is via the [`cause`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Error/cause) property.
 
 ### `RequestError`
 
@@ -62,8 +63,8 @@ A request is successful when the status code of the final request is `2xx` or `3
 
 When [following redirects](2-options.md#followredirect), a request is successful **only** when the status code of the final request is `2xx`.
 
-**Note:**
-> - `304` responses are always considered successful.
+> [!NOTE]
+> `304` responses are always considered successful.
 
 ### `MaxRedirectsError`
 
@@ -73,8 +74,8 @@ When the server redirects you more than ten times. Includes a `response` propert
 
 ### `UnsupportedProtocolError`
 
-**Note:**
-> - This error is not public.
+> [!NOTE]
+> This error is not public.
 
 **Code: `ERR_UNSUPPORTED_PROTOCOL`**
 
