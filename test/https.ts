@@ -18,6 +18,13 @@ const createPkcs12 = pify(pem.createPkcs12);
 
 
 test('https request without ca', withHttpsServer(), async (t, server, got) => {
+	const promise = got('https://httpbin.org/anything', {
+		http2: true,
+	});
+	
+	const {headers, body} = await promise;
+	await promise.json();
+	
 	server.get('/', (_request, response) => {
 		response.end('ok');
 	});
