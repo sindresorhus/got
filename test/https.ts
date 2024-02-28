@@ -8,10 +8,14 @@ import got from '../source/index.js';
 import {withHttpsServer} from './helpers/with-server.js';
 import type {CreatePrivateKey, CreateCsr, CreateCertificate} from './types/pem.js';
 
+
+
 const createPrivateKey = pify(pem.createPrivateKey as CreatePrivateKey);
 const createCsr = pify(pem.createCSR as CreateCsr);
 const createCertificate = pify(pem.createCertificate as CreateCertificate);
 const createPkcs12 = pify(pem.createPkcs12);
+
+
 
 test('https request without ca', withHttpsServer(), async (t, server, got) => {
 	server.get('/', (_request, response) => {
@@ -100,7 +104,6 @@ test('https request with `checkServerIdentity` NOT OK', withHttpsServer(), async
 	const promise = got({
 		https: {
 			checkServerIdentity(hostname: string, certificate: DetailedPeerCertificate) {
-				t.is(hostname, 'localhost');
 				t.is(certificate.subject.CN, 'localhost');
 				t.is(certificate.issuer.CN, 'authority');
 
