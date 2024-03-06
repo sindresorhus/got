@@ -343,7 +343,7 @@ test('no uncaught parse errors #2', async t => {
 	await close();
 });
 
-test('no uncaught parse errors on fall back to utf8', withServer, async (t, server, got) => {
+test('no uncaught parse errors on fallback to utf8', withServer, async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		const buffer = Buffer.alloc(536_870_912, 'A');
 		response.statusCode = 200;
