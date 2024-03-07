@@ -7,7 +7,7 @@ import {
 	type RequestError,
 } from '../core/errors.js';
 import Request from '../core/index.js';
-import {parseBody, isResponseOk, type Response} from '../core/response.js';
+import {parseBody, isResponseOk, type Response, ParseError} from '../core/response.js';
 import proxyEvents from '../core/utils/proxy-events.js';
 import type Options from '../core/options.js';
 import {CancelError, type CancelableRequest} from './types.js';
@@ -62,7 +62,12 @@ export default function asPromise<T>(firstRequest?: Request): CancelableRequest<
 						response.body = parseBody(response, options.responseType, options.parseJson, options.encoding);
 					} catch (error: any) {
 						// Fall back to `utf8`
-						response.body = response.rawBody.toString();
+						try {
+							response.body = response.rawBody.toString();
+						} catch (error) {
+							request._beforeError(new ParseError(error as Error, response));
+							return;
+						}
 
 						if (isResponseOk(response)) {
 							request._beforeError(error);

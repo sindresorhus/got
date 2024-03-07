@@ -343,6 +343,23 @@ test('no uncaught parse errors #2', async t => {
 	await close();
 });
 
+test('no uncaught parse errors on fallback to utf8', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		const buffer = Buffer.alloc(536_870_912, 'A');
+		response.statusCode = 200;
+		response.end(buffer);
+	});
+
+	await t.throwsAsync(got({
+		timeout: {
+			request: 60_000,
+		},
+	}), {
+		instanceOf: RequestError,
+		code: 'ERR_BODY_PARSE_FAILURE',
+	});
+});
+
 // Fails randomly on Node 10:
 // Blocked by https://github.com/istanbuljs/nyc/issues/619
 // eslint-disable-next-line ava/no-skip-test
