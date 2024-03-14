@@ -13,5 +13,8 @@
 		"source",
 		"test",
 		"benchmark"
+	],
+	"exclude": [
+		"test/",
 	]
 }
