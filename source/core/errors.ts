@@ -96,7 +96,7 @@ export class HTTPError<T = any> extends RequestError<T> {
 	declare readonly timings: Timings;
 
 	constructor(response: PlainResponse) {
-		super(`Response code ${response.statusCode} (${response.statusMessage!}), Body: ${response.body}`, {}, response.request);
+		super(`Response code ${response.statusCode} (${response.statusMessage!}), Body: ${response?.body}`, {}, response.request);
 		this.name = 'HTTPError';
 		this.code = 'ERR_NON_2XX_3XX_RESPONSE';
 	}
