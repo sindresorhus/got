@@ -12,9 +12,11 @@
 			</sup>
 		</p>
 		<br>
+		<br>
 		<a href="https://retool.com/?utm_campaign=sindresorhus">
-			<img src="https://sindresorhus.com/assets/thanks/retool-logo.svg" width="210">
+			<img src="https://sindresorhus.com/assets/thanks/retool-logo.svg" width="220">
 		</a>
+		<br>
 		<br>
 		<br>
 		<a href="https://strapi.io/?ref=sindresorhus">
@@ -45,21 +47,13 @@
 		<br>
 		<br>
 		<br>
-		<a href="https://dutchis.net/?ref=sindresorhus#gh-light-mode-only">
-			<div>
-				<img src="https://sindresorhus.com/assets/thanks/dutchis-logo-light.png" width="200" alt="DutchIS">
-			</div>
-			<br>
-			<b>VPS hosting with taste 😛</b>
-		</a>
-		<a href="https://dutchis.net/?ref=sindresorhus#gh-dark-mode-only">
-			<div>
-				<img src="https://sindresorhus.com/assets/thanks/dutchis-logo-dark.png" width="200" alt="DutchIS">
-			</div>
-			<br>
-			<b>VPS hosting with taste 😛</b>
-		</a>
 		<br>
+		<a href="https://www.fame.fi#gh-light-mode-only">
+			<img src="https://sindresorhus.com/assets/thanks/fame-logo-light.svg" width="200" alt="Fame Helsinki">
+		</a>
+		<a href="https://www.fame.fi#gh-dark-mode-only">
+			<img src="https://sindresorhus.com/assets/thanks/fame-logo-dark.svg" width="200" alt="Fame Helsinki">
+		</a>
 		<br>
 		<br>
 		<br>
