@@ -1,6 +1,12 @@
+import Store from 'electron-store';
 import create from './create.js';
 import type {InstanceDefaults} from './types.js';
 import Options from './core/options.js';
+
+const store = new Store();
+
+store.set('unicorn', '🦄');
+console.log(store.get('unicorn'));
 
 const defaults: InstanceDefaults = {
 	options: new Options(),

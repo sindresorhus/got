@@ -53,6 +53,7 @@
 		"cacheable-lookup": "^7.0.0",
 		"cacheable-request": "^10.2.14",
 		"decompress-response": "^6.0.0",
+		"electron-store": "^9.0.0",
 		"form-data-encoder": "^4.0.2",
 		"get-stream": "^8.0.1",
 		"http2-wrapper": "^2.2.1",
