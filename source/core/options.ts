@@ -50,9 +50,9 @@ export type Agents = {
 export type Headers = Record<string, string | string[] | undefined>;
 
 export type ToughCookieJar = {
-	getCookieString: ((currentUrl: string, options: Record<string, unknown>, cb: (error: Error | null, cookies: string) => void) => void) // eslint-disable-line @typescript-eslint/ban-types
+	getCookieString: ((currentUrl: string, options: Record<string, unknown>, callback: (error: Error | null, cookies: string) => void) => void) // eslint-disable-line @typescript-eslint/ban-types
 	& ((url: string, callback: (error: Error | null, cookieHeader: string) => void) => void); // eslint-disable-line @typescript-eslint/ban-types
-	setCookie: ((cookieOrString: unknown, currentUrl: string, options: Record<string, unknown>, cb: (error: Error | null, cookie: unknown) => void) => void) // eslint-disable-line @typescript-eslint/ban-types
+	setCookie: ((cookieOrString: unknown, currentUrl: string, options: Record<string, unknown>, callback: (error: Error | null, cookie: unknown) => void) => void) // eslint-disable-line @typescript-eslint/ban-types
 	& ((rawCookie: string, url: string, callback: (error: Error | null, result: unknown) => void) => void); // eslint-disable-line @typescript-eslint/ban-types
 };
 

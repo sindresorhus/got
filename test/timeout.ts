@@ -480,8 +480,8 @@ test.serial('no unhandled timeout errors', withServer, async (t, _server, got) =
 	await t.throwsAsync(got({
 		retry: {limit: 0},
 		timeout: {request: 100},
-		request(...args) {
-			const result = http.request(...args);
+		request(...arguments_) {
+			const result = http.request(...arguments_);
 
 			result.once('socket', () => {
 				result.socket?.destroy();
@@ -526,7 +526,7 @@ test.serial('no more timeouts after an error', withServer, async (t, _server, go
 	const {clearTimeout} = global;
 
 	// @ts-expect-error FIXME
-	global.setTimeout = (callback, _ms, ...args) => {
+	global.setTimeout = (callback, _ms, ...arguments_) => {
 		const timeout = {
 			isCleared: false,
 		};
@@ -536,7 +536,7 @@ test.serial('no more timeouts after an error', withServer, async (t, _server, go
 				return;
 			}
 
-			callback(...args);
+			callback(...arguments_);
 		});
 
 		return timeout;

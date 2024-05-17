@@ -255,9 +255,9 @@ test('proxies `content-encoding` header when `options.decompress` is false', wit
 
 {
 	const nodejsMajorVersion = Number(process.versions.node.split('.')[0]);
-	const testFn = nodejsMajorVersion < 14 ? test.failing : test;
+	const testFunction = nodejsMajorVersion < 14 ? test.failing : test;
 
-	testFn('destroying got.stream() destroys the request - `request` event', withServer, async (t, server, got) => {
+	testFunction('destroying got.stream() destroys the request - `request` event', withServer, async (t, server, got) => {
 		server.get('/', defaultHandler);
 
 		const stream = got.stream('');
@@ -266,7 +266,7 @@ test('proxies `content-encoding` header when `options.decompress` is false', wit
 		t.truthy(request.destroyed);
 	});
 
-	testFn('destroying got.stream() destroys the request - `response` event', withServer, async (t, server, got) => {
+	testFunction('destroying got.stream() destroys the request - `response` event', withServer, async (t, server, got) => {
 		server.get('/', (_request, response) => {
 			response.write('hello');
 		});
@@ -489,8 +489,8 @@ if (Number.parseInt(process.versions.node.split('.')[0]!, 10) <= 12) {
 }
 
 // Test only on Linux
-const testFn = process.platform === 'linux' ? test : test.skip;
-testFn('it sends a body of file with size on stat = 0', withServer, async (t, server, got) => {
+const testFunction = process.platform === 'linux' ? test : test.skip;
+testFunction('it sends a body of file with size on stat = 0', withServer, async (t, server, got) => {
 	server.post('/', async (request, response) => {
 		response.end(await getStream(request));
 	});

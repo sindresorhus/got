@@ -61,9 +61,7 @@ const create = (defaults: InstanceDefaults): Got => {
 				return request;
 			}
 
-			if (!promise) {
-				promise = asPromise(request);
-			}
+			promise ||= asPromise(request);
 
 			return promise;
 		};
@@ -75,9 +73,7 @@ const create = (defaults: InstanceDefaults): Got => {
 			const result = handler(newOptions, iterateHandlers) as GotReturn;
 
 			if (is.promise(result) && !request.options.isStream) {
-				if (!promise) {
-					promise = asPromise(request);
-				}
+				promise ||= asPromise(request);
 
 				if (result !== promise) {
 					const descriptors = Object.getOwnPropertyDescriptors(promise);

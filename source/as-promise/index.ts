@@ -7,7 +7,11 @@ import {
 	type RequestError,
 } from '../core/errors.js';
 import Request from '../core/index.js';
-import {parseBody, isResponseOk, type Response, ParseError} from '../core/response.js';
+import {
+	parseBody,
+	isResponseOk,
+	type Response, ParseError,
+} from '../core/response.js';
 import proxyEvents from '../core/utils/proxy-events.js';
 import type Options from '../core/options.js';
 import {CancelError, type CancelableRequest} from './types.js';
@@ -168,13 +172,13 @@ export default function asPromise<T>(firstRequest?: Request): CancelableRequest<
 		makeRequest(0);
 	}) as CancelableRequest<T>;
 
-	promise.on = (event: string, fn: (...args: any[]) => void) => {
-		emitter.on(event, fn);
+	promise.on = (event: string, function_: (...arguments_: any[]) => void) => {
+		emitter.on(event, function_);
 		return promise;
 	};
 
-	promise.off = (event: string, fn: (...args: any[]) => void) => {
-		emitter.off(event, fn);
+	promise.off = (event: string, function_: (...arguments_: any[]) => void) => {
+		emitter.off(event, function_);
 		return promise;
 	};
 

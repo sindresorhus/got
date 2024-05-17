@@ -115,10 +115,12 @@ test('followRedirect gets plainResponse and does not follow', withServer, async 
 		response.end();
 	});
 
-	const {statusCode} = await got('temporary', {followRedirect(response) {
-		t.is(response.headers.location, '/redirect');
-		return false;
-	}});
+	const {statusCode} = await got('temporary', {
+		followRedirect(response) {
+			t.is(response.headers.location, '/redirect');
+			return false;
+		},
+	});
 	t.is(statusCode, 307);
 });
 

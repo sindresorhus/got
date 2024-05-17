@@ -2,16 +2,16 @@ import type {EventEmitter} from 'node:events';
 
 type Origin = EventEmitter;
 type Event = string | symbol;
-type Fn = (...args: any[]) => void;
+type AnyFunction = (...arguments_: any[]) => void;
 
 type Handler = {
 	origin: Origin;
 	event: Event;
-	fn: Fn;
+	fn: AnyFunction;
 };
 
 type Unhandler = {
-	once: (origin: Origin, event: Event, fn: Fn) => void;
+	once: (origin: Origin, event: Event, function_: AnyFunction) => void;
 	unhandleAll: () => void;
 };
 
@@ -23,9 +23,9 @@ export default function unhandle(): Unhandler {
 	const handlers: Handler[] = [];
 
 	return {
-		once(origin: Origin, event: Event, fn: Fn) {
-			origin.once(event, fn);
-			handlers.push({origin, event, fn});
+		once(origin: Origin, event: Event, function_: AnyFunction) {
+			origin.once(event, function_);
+			handlers.push({origin, event, fn: function_});
 		},
 
 		unhandleAll() {

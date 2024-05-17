@@ -1114,9 +1114,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			}
 		}
 
-		if (!request) {
-			request = options.getRequestFunction();
-		}
+		request ||= options.getRequestFunction();
 
 		const url = options.url as URL;
 
@@ -1130,12 +1128,12 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		}
 
 		// Cache support
-		const fn = options.cache ? this._createCacheableRequest : request;
+		const function_ = options.cache ? this._createCacheableRequest : request;
 
 		try {
 			// We can't do `await fn(...)`,
 			// because stream `error` event can be emitted before `Promise.resolve()`.
-			let requestOrResponse = fn!(url, this._requestOptions);
+			let requestOrResponse = function_!(url, this._requestOptions);
 
 			if (is.promise(requestOrResponse)) {
 				requestOrResponse = await requestOrResponse;

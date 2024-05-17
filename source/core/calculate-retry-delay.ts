@@ -1,6 +1,6 @@
 import type {RetryFunction} from './options.js';
 
-type Returns<T extends (...args: any) => unknown, V> = (...args: Parameters<T>) => V;
+type Returns<T extends (...arguments_: any) => unknown, V> = (...arguments_: Parameters<T>) => V;
 
 const calculateRetryDelay: Returns<RetryFunction, number> = ({
 	attemptCount,

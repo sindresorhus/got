@@ -25,7 +25,14 @@ const createHttpTestServer = async (options: HttpServerOptions = {}): Promise<Ex
 	if (options.bodyParser !== false) {
 		server.use(bodyParser.json({limit: '1mb', type: 'application/json', ...options.bodyParser}));
 		server.use(bodyParser.text({limit: '1mb', type: 'text/plain', ...options.bodyParser}));
-		server.use(bodyParser.urlencoded({limit: '1mb', type: 'application/x-www-form-urlencoded', extended: true, ...options.bodyParser}));
+
+		server.use(bodyParser.urlencoded({
+			limit: '1mb',
+			type: 'application/x-www-form-urlencoded',
+			extended: true,
+			...options.bodyParser,
+		}));
+
 		server.use(bodyParser.raw({limit: '1mb', type: 'application/octet-stream', ...options.bodyParser}));
 	}
 
