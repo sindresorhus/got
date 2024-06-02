@@ -1,4 +1,3 @@
-
 import type {Buffer} from 'node:buffer';
 import {expectTypeOf} from 'expect-type';
 import got, {type CancelableRequest, type Response} from '../source/index.js';
