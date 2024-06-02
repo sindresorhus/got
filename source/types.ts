@@ -306,8 +306,8 @@ export type ExtractExtendOptions<T> = T extends Got<infer GotOptions>
 	: T;
 
 /**
- * Merges the options of multiple Got instances.
- */
+Merges the options of multiple Got instances.
+*/
 export type MergeExtendsConfig<Value extends Array<Got | ExtendOptions>> =
 Value extends readonly [Value[0], ...infer NextValue]
 	? NextValue[0] extends undefined
