@@ -301,33 +301,32 @@ export type Got<GotOptions extends ExtendOptions = ExtendOptions> = {
 & Record<HTTPAlias, GotRequestFunction<GotOptions>>
 & GotRequestFunction<GotOptions>;
 
+export type ExtractExtendOptions<T> = T extends Got<infer GotOptions>
+	? GotOptions
+	: T;
+
 /**
  * Merges the options of multiple Got instances.
  */
-type MergeExtendsConfig<Value extends Array<Got | ExtendOptions>> =
-	Value extends readonly [Value[0], ...infer NextValue]
-		? NextValue[0] extends undefined
-			? Value[0] extends infer OnlyValue
-				? OnlyValue extends Got<infer GotOptions>
+export type MergeExtendsConfig<Value extends Array<Got | ExtendOptions>> =
+Value extends readonly [Value[0], ...infer NextValue]
+	? NextValue[0] extends undefined
+		? Value[0] extends infer OnlyValue
+			? OnlyValue extends ExtendOptions
+				? OnlyValue
+				: OnlyValue extends Got<infer GotOptions>
 					? GotOptions
 					: OnlyValue
-				: never
-			: NextValue[0] extends infer NextArg extends ExtendOptions
-				? Spread<Value[0], NextArg> extends infer Merged extends ExtendOptions
+			: never
+		: ExtractExtendOptions<Value[0]> extends infer FirstArg extends ExtendOptions
+			? ExtractExtendOptions<NextValue[0] extends ExtendOptions | Got ? NextValue[0] : never> extends infer NextArg extends ExtendOptions
+				? Spread<FirstArg, NextArg> extends infer Merged extends ExtendOptions
 					? NextValue extends [NextValue[0], ...infer NextRest]
 						? NextRest extends Array<Got | ExtendOptions>
 							? MergeExtendsConfig<[Merged, ...NextRest]>
 							: never
 						: never
 					: never
-				: NextValue[0] extends Got<infer NextArg>
-					? Spread<Value[0], NextArg> extends infer Merged extends ExtendOptions
-						? NextValue extends [NextValue[0], ...infer NextRest]
-							? NextRest extends Array<Got | ExtendOptions>
-								? MergeExtendsConfig<[Merged, ...NextRest]>
-								: never
-							: never
-						: never
-					: never
-		: never;
-
+				: never
+			: never
+	: never;
