@@ -106,7 +106,8 @@
 	},
 	"ava": {
 		"files": [
-			"test/*"
+			"test/*",
+			"!test/*.types.ts"
 		],
 		"timeout": "10m",
 		"extensions": {
