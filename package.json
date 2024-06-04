@@ -81,6 +81,7 @@
 		"create-test-server": "^3.0.1",
 		"del-cli": "^5.1.0",
 		"delay": "^6.0.0",
+		"expect-type": "^0.19.0",
 		"express": "^4.19.2",
 		"form-data": "^4.0.0",
 		"formdata-node": "^6.0.3",
@@ -105,7 +106,8 @@
 	},
 	"ava": {
 		"files": [
-			"test/*"
+			"test/*",
+			"!test/*.types.ts"
 		],
 		"timeout": "10m",
 		"extensions": {
