@@ -58,7 +58,8 @@
 		"http2-wrapper": "^2.2.1",
 		"lowercase-keys": "^3.0.0",
 		"p-cancelable": "^4.0.1",
-		"responselike": "^3.0.0"
+		"responselike": "^3.0.0",
+		"type-fest": "^4.19.0"
 	},
 	"devDependencies": {
 		"@hapi/bourne": "^3.0.0",
@@ -100,7 +101,6 @@
 		"then-busboy": "^5.2.1",
 		"tough-cookie": "^4.1.4",
 		"tsx": "^4.10.4",
-		"type-fest": "^4.8.2",
 		"typescript": "^5.4.5",
 		"xo": "^0.56.0"
 	},
