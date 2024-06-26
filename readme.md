@@ -412,12 +412,12 @@ By default, Got will retry on failure. To disable this option, set [`options.ret
 	<tr>
 		<td align="center">
 			<a href="http://karaokes.moe">
-				<img width="140" valign="middle" src="https://camo.githubusercontent.com/6860e5fa4684c14d8e1aa65df0aba4e6808ea1a9/687474703a2f2f6b6172616f6b65732e6d6f652f6173736574732f696d616765732f696e6465782e706e67">
+				<img width="140" valign="middle" src="https://karaokes.moe/assets/images/index.png">
 			</a>
 		</td>
 		<td align="center">
 			<a href="https://github.com/renovatebot/renovate">
-				<img width="150" valign="middle" src="https://camo.githubusercontent.com/7c2dc41a8407d4cfa700f762a1abf46b232858ae7e3a2bf5aee7d9f36416127c/68747470733a2f2f6170702e72656e6f76617465626f742e636f6d2f696d616765732f72656e6f766174655f3636305f3232302e6a7067">
+				<img width="150" valign="middle" src="https://avatars.githubusercontent.com/u/38656520?s=200&v=4">
 			</a>
 		</td>
 		<td align="center">
@@ -440,11 +440,6 @@ By default, Got will retry on failure. To disable this option, set [`options.ret
 		<td align="center">
 			<a href="https://radity.com">
 				<img width="150" valign="middle" src="https://user-images.githubusercontent.com/29518613/91814036-97fb9500-ec44-11ea-8c6c-d198cc23ca29.png">
-			</a>
-		</td>
-		<td align="center">
-			<a href="https://apify.com">
-				<img width="150" valign="middle" src="https://user-images.githubusercontent.com/23726914/128673143-958b5930-b677-40ef-8087-5698a0c29c45.png">
 			</a>
 		</td>
 	</tr>
@@ -496,7 +491,3 @@ By default, Got will retry on failure. To disable this option, set [`options.ret
 > We’re using Got at Radity. Thanks for such an amazing work!
 >
 > — <a href="https://github.com/MirzayevFarid">Mirzayev Farid</a>
-
-> Got has been a crucial component of Apify's scraping for years. We use it to extract data from billions of web pages every month, and we really appreciate the powerful API and extensibility, which allowed us to build our own specialized HTTP client on top of Got. The support has always been stellar too.
->
-> — <a href="https://github.com/mnmkng">Ondra Urban</a>
