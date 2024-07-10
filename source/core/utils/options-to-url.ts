@@ -63,7 +63,7 @@ export default function optionsToUrl(origin: string, options: URLOptions): URL {
 
 	for (const key of keys) {
 		if (options[key]) {
-			url[key] = options[key]!.toString();
+			url[key] = options[key].toString();
 		}
 	}
 
