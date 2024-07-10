@@ -950,7 +950,7 @@ const cloneRaw = (raw: OptionsInit) => {
 };
 
 const getHttp2TimeoutOption = (internals: typeof defaultInternals): number | undefined => {
-	const delays = [internals.timeout.socket, internals.timeout.connect, internals.timeout.lookup, internals.timeout.request, internals.timeout.secureConnect].filter(delay => typeof delay === 'number') as number[];
+	const delays = [internals.timeout.socket, internals.timeout.connect, internals.timeout.lookup, internals.timeout.request, internals.timeout.secureConnect].filter(delay => typeof delay === 'number');
 
 	if (delays.length > 0) {
 		return Math.min(...delays);
