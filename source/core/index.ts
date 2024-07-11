@@ -877,7 +877,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		try {
 			// Errors are emitted via the `error` event
 			const fromArray = await from.toArray();
-			const rawBody = fromArray.every(b => isBuffer(b)) ? Buffer.concat(fromArray) : Buffer.from(fromArray.join(''));
+			const rawBody = isBuffer(fromArray.at(0)) ? Buffer.concat(fromArray) : Buffer.from(fromArray.join(''));
 
 			// On retry Request is destroyed with no error, therefore the above will successfully resolve.
 			// So in order to check if this was really successfull, we need to check if it has been properly ended.
