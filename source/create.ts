@@ -22,7 +22,7 @@ const delay = async (ms: number) => new Promise(resolve => {
 	setTimeout(resolve, ms);
 });
 
-const isGotInstance = (value: Got | ExtendOptions): value is Got => is.function_(value);
+const isGotInstance = (value: Got | ExtendOptions): value is Got => is.function(value);
 
 const aliases: readonly HTTPAlias[] = [
 	'get',
@@ -134,10 +134,10 @@ const create = (defaults: InstanceDefaults): Got => {
 
 		const {pagination} = normalizedOptions;
 
-		assert.function_(pagination.transform);
-		assert.function_(pagination.shouldContinue);
-		assert.function_(pagination.filter);
-		assert.function_(pagination.paginate);
+		assert.function(pagination.transform);
+		assert.function(pagination.shouldContinue);
+		assert.function(pagination.filter);
+		assert.function(pagination.paginate);
 		assert.number(pagination.countLimit);
 		assert.number(pagination.requestLimit);
 		assert.number(pagination.backoff);

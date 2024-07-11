@@ -48,7 +48,7 @@
 		"ky"
 	],
 	"dependencies": {
-		"@sindresorhus/is": "^6.3.1",
+		"@sindresorhus/is": "^7.0.0",
 		"@szmarczak/http-timer": "^5.0.1",
 		"cacheable-lookup": "^7.0.0",
 		"cacheable-request": "^12.0.1",

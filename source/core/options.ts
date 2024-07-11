@@ -622,7 +622,7 @@ function validateSearchParameters(searchParameters: Record<string, unknown>): as
 	for (const key in searchParameters) {
 		const value = searchParameters[key];
 
-		assert.any([is.string, is.number, is.boolean, is.null_, is.undefined], value);
+		assert.any([is.string, is.number, is.boolean, is.null, is.undefined], value);
 	}
 }
 
@@ -1102,7 +1102,7 @@ export default class Options {
 	}
 
 	set request(value: RequestFunction | undefined) {
-		assert.any([is.function_, is.undefined], value);
+		assert.any([is.function, is.undefined], value);
 
 		this._internals.request = value;
 	}
@@ -1474,8 +1474,8 @@ export default class Options {
 
 		let {setCookie, getCookieString} = value;
 
-		assert.function_(setCookie);
-		assert.function_(getCookieString);
+		assert.function(setCookie);
+		assert.function(getCookieString);
 
 		/* istanbul ignore next: Horrible `tough-cookie` v3 check */
 		if (setCookie.length === 4 && getCookieString.length === 0) {
@@ -1635,7 +1635,7 @@ export default class Options {
 	}
 
 	set dnsLookup(value: CacheableLookup['lookup'] | undefined) {
-		assert.any([is.function_, is.undefined], value);
+		assert.any([is.function, is.undefined], value);
 
 		this._internals.dnsLookup = value;
 	}
@@ -1735,7 +1735,7 @@ export default class Options {
 
 			if (hooks) {
 				for (const hook of hooks) {
-					assert.function_(hook);
+					assert.function(hook);
 				}
 			}
 
@@ -1770,7 +1770,7 @@ export default class Options {
 	}
 
 	set followRedirect(value: boolean | ((response: PlainResponse) => boolean)) {
-		assert.any([is.boolean, is.function_], value);
+		assert.any([is.boolean, is.function], value);
 
 		this._internals.followRedirect = value;
 	}
@@ -2013,7 +2013,7 @@ export default class Options {
 	}
 
 	set parseJson(value: ParseJsonFunction) {
-		assert.function_(value);
+		assert.function(value);
 
 		this._internals.parseJson = value;
 	}
@@ -2064,7 +2064,7 @@ export default class Options {
 	}
 
 	set stringifyJson(value: StringifyJsonFunction) {
-		assert.function_(value);
+		assert.function(value);
 
 		this._internals.stringifyJson = value;
 	}
@@ -2098,7 +2098,7 @@ export default class Options {
 	set retry(value: Partial<RetryOptions>) {
 		assert.plainObject(value);
 
-		assert.any([is.function_, is.undefined], value.calculateDelay);
+		assert.any([is.function, is.undefined], value.calculateDelay);
 		assert.any([is.number, is.undefined], value.maxRetryAfter);
 		assert.any([is.number, is.undefined], value.limit);
 		assert.any([is.array, is.undefined], value.methods);
@@ -2164,7 +2164,7 @@ export default class Options {
 	}
 
 	set createConnection(value: CreateConnectionFunction | undefined) {
-		assert.any([is.function_, is.undefined], value);
+		assert.any([is.function, is.undefined], value);
 
 		this._internals.createConnection = value;
 	}
@@ -2210,7 +2210,7 @@ export default class Options {
 		assert.plainObject(value);
 
 		assert.any([is.boolean, is.undefined], value.rejectUnauthorized);
-		assert.any([is.function_, is.undefined], value.checkServerIdentity);
+		assert.any([is.function, is.undefined], value.checkServerIdentity);
 		assert.any([is.string, is.object, is.array, is.undefined], value.certificateAuthority);
 		assert.any([is.string, is.object, is.array, is.undefined], value.key);
 		assert.any([is.string, is.object, is.array, is.undefined], value.certificate);

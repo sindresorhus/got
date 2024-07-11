@@ -178,8 +178,8 @@ test('check for pipe method', withServer, (t, server, got) => {
 	server.get('/', defaultHandler);
 
 	const stream = got.stream('');
-	t.true(is.function_(stream.pipe));
-	t.true(is.function_(stream.on('foobar', () => {}).pipe));
+	t.true(is.function(stream.pipe));
+	t.true(is.function(stream.on('foobar', () => {}).pipe));
 
 	stream.destroy();
 });
