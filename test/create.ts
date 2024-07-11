@@ -329,7 +329,7 @@ test('async handlers', withServer, async (t, server, got) => {
 	});
 
 	const promise = instance('');
-	t.true(is.function_(promise.cancel));
+	t.true(is.function(promise.cancel));
 	// @ts-expect-error Manual tests
 	t.true((await promise).modified);
 });

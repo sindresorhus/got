@@ -1075,7 +1075,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			if (is.undefined(headers[key])) {
 				// eslint-disable-next-line @typescript-eslint/no-dynamic-delete
 				delete headers[key];
-			} else if (is.null_(headers[key])) {
+			} else if (is.null(headers[key])) {
 				throw new TypeError(`Use \`undefined\` instead of \`null\` to delete the \`${key}\` header`);
 			}
 		}
