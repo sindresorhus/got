@@ -54,10 +54,10 @@ const create = (defaults: InstanceDefaults): Got => {
 		const lastHandler = (normalized: Options): GotReturn => {
 			// Note: `options` is `undefined` when `new Options(...)` fails
 			request.options = normalized;
-			request._noPipe = !normalized.isStream;
+			request._noPipe = !normalized?.isStream;
 			void request.flush();
 
-			if (normalized.isStream) {
+			if (normalized?.isStream) {
 				return request;
 			}
 
@@ -72,7 +72,7 @@ const create = (defaults: InstanceDefaults): Got => {
 
 			const result = handler(newOptions, iterateHandlers) as GotReturn;
 
-			if (is.promise(result) && !request.options.isStream) {
+			if (is.promise(result) && !request.options?.isStream) {
 				promise ||= asPromise(request);
 
 				if (result !== promise) {
