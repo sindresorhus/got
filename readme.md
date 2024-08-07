@@ -5,47 +5,14 @@
 	<br>
 	<br>
 	<br>
+	<br>
+	<hr>
 	<p>
 		<p>
 			<sup>
 				Sindre's open source work is supported by the community.<br>Special thanks to:
 			</sup>
 		</p>
-		<br>
-		<br>
-		<a href="https://retool.com/?utm_campaign=sindresorhus">
-			<img src="https://sindresorhus.com/assets/thanks/retool-logo.svg" width="220">
-		</a>
-		<br>
-		<br>
-		<br>
-		<a href="https://strapi.io/?ref=sindresorhus">
-			<div>
-				<img src="https://sindresorhus.com/assets/thanks/strapi-logo-white-bg.png" width="200" alt="Strapi">
-			</div>
-			<b>Strapi is the leading open-source headless CMS.</b>
-			<div>
-				<sup>It’s 100% JavaScript, fully customizable, and developer-first.</sup>
-			</div>
-		</a>
-		<br>
-		<br>
-		<br>
-		<a href="https://serpapi.com#gh-light-mode-only">
-			<div>
-				<img src="https://sindresorhus.com/assets/thanks/serpapi-logo-light.svg" width="130" alt="SerpApi">
-			</div>
-			<b>API to get search engine results with ease.</b>
-		</a>
-		<a href="https://serpapi.com#gh-dark-mode-only">
-			<div>
-				<img src="https://sindresorhus.com/assets/thanks/serpapi-logo-dark.svg" width="120" alt="SerpApi">
-			</div>
-			<b>API to get search engine results with ease.</b>
-		</a>
-		<br>
-		<br>
-		<br>
 		<br>
 		<br>
 		<a href="https://www.fame.fi#gh-light-mode-only">
@@ -58,8 +25,28 @@
 		<br>
 		<br>
 		<br>
-		<br>
+		<a href="https://encore.dev?utm_campaign=github_repo&utm_medium=referral&utm_content=sindre&utm_source=github">
+			<div>
+				<picture>
+					<source width="230" media="(prefers-color-scheme: dark)" srcset="https://sindresorhus.com/assets/thanks/encore-logo-dark.svg">
+					<source width="230" media="(prefers-color-scheme: light)" srcset="https://sindresorhus.com/assets/thanks/encore-logo-light.svg">
+					<img width="230" src="https://sindresorhus.com/assets/thanks/encore-logo-light.svg" alt="Encore logo">
+				</picture>
+			</div>
+			<b>The development platform for building type-safe distributed systems</b>
+			<div>
+				<sup>End-to-end tooling from local development to automated DevOps and infrastructure in your AWS/GCP.</sup>
+			</div>
+			<br>
+			<br>
+		</a>
 	</p>
+	<hr>
+	<br>
+	<br>
+	<br>
+	<br>
+	<br>
 	<br>
 	<br>
 </div>
