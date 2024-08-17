@@ -1,3 +1,4 @@
+import {setTimeout as delay} from 'node:timers/promises';
 import is, {assert} from '@sindresorhus/is';
 import asPromise from './as-promise/index.js';
 import type {
@@ -16,11 +17,6 @@ import Request from './core/index.js';
 import type {Response} from './core/response.js';
 import Options, {type OptionsInit} from './core/options.js';
 import type {CancelableRequest} from './as-promise/types.js';
-
-// The `delay` package weighs 10KB (!)
-const delay = async (ms: number) => new Promise(resolve => {
-	setTimeout(resolve, ms);
-});
 
 const isGotInstance = (value: Got | ExtendOptions): value is Got => is.function(value);
 
