@@ -172,14 +172,14 @@ By default, Got will retry on failure. To disable this option, set [`options.ret
 
 |                       | `got`               | [`node-fetch`][n0]   | [`ky`][k0]               | [`axios`][a0]      | [`superagent`][s0]     |
 |-----------------------|:-------------------:|:--------------------:|:------------------------:|:------------------:|:----------------------:|
-| HTTP/2 support        | :heavy_check_mark:¹ | :x:                  | :x:                      | :x:                | :heavy_check_mark:\*\* |
+| HTTP/2 support        | :heavy_check_mark:¹ | :x:                  | :heavy_check_mark:       | :x:                | :heavy_check_mark:\*\* |
 | Browser support       | :x:                 | :heavy_check_mark:\* | :heavy_check_mark:       | :heavy_check_mark: | :heavy_check_mark:     |
 | Promise API           | :heavy_check_mark:  | :heavy_check_mark:   | :heavy_check_mark:       | :heavy_check_mark: | :heavy_check_mark:     |
 | Stream API            | :heavy_check_mark:  | Node.js only         | :x:                      | :x:                | :heavy_check_mark:     |
 | Pagination API        | :heavy_check_mark:  | :x:                  | :x:                      | :x:                | :x:                    |
 | Request cancelation   | :heavy_check_mark:  | :heavy_check_mark:   | :heavy_check_mark:       | :heavy_check_mark: | :heavy_check_mark:     |
 | RFC compliant caching | :heavy_check_mark:  | :x:                  | :x:                      | :x:                | :x:                    |
-| Cookies (out-of-the-box)  | :heavy_check_mark:  | :x:                  | :x:                      | :x:                | :x:                    |
+| Cookies (out-of-the-box) | :heavy_check_mark: | :x:                | :x:                      | :x:                | :x:                    |
 | Follows redirects     | :heavy_check_mark:  | :heavy_check_mark:   | :heavy_check_mark:       | :heavy_check_mark: | :heavy_check_mark:     |
 | Retries on failure    | :heavy_check_mark:  | :x:                  | :heavy_check_mark:       | :x:                | :heavy_check_mark:     |
 | Progress events       | :heavy_check_mark:  | :x:                  | :heavy_check_mark:\*\*\* | Browser only       | :heavy_check_mark:     |
