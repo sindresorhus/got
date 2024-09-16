@@ -28,7 +28,7 @@ const options = new Options({
 	}
 });
 
-options.headers. = 'bar';
+options.headers.foo = 'bar';
 
 // Note that `Options` stores normalized options, therefore it needs to be passed as the third argument.
 const {headers} = await got('anything', undefined, options).json();
