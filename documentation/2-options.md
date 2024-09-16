@@ -32,7 +32,7 @@ options.headers.foo = 'bar';
 
 // Note that `Options` stores normalized options, therefore it needs to be passed as the third argument.
 const {headers} = await got('anything', undefined, options).json();
-console.log(headers.Foo);
+console.log(headers.foo);
 //=> 'bar'
 ```
 
@@ -52,7 +52,7 @@ options.headers.foo = 'bar';
 
 // Note that `options` is a plain object, therefore it needs to be passed as the second argument.
 const {headers} = await got('anything', options).json();
-console.log(headers.Foo);
+console.log(headers.foo);
 //=> 'bar'
 ```
 
