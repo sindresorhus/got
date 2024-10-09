@@ -1001,13 +1001,13 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 										handler(error);
 									}
 								})();
-							} else if (event === 'abort') {
+							} else if (event === 'abort' || event === 'destroy') {
 								// The empty catch is needed here in case when
 								// it rejects before it's `await`ed in `_makeRequest`.
 								(async () => {
 									try {
 										const request = (await result) as ClientRequest;
-										request.once('abort', handler);
+										request.once(event, handler);
 									} catch {}
 								})();
 							} else {

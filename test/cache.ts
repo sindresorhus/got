@@ -179,6 +179,15 @@ test('doesn\'t cache response when received HTTP error', withServer, async (t, s
 	t.is(body, 'ok');
 });
 
+test('cache should work with http2', async t => {
+	const instance = got.extend({
+		cache: true,
+		http2: true,
+	});
+
+	await t.notThrowsAsync(instance('https://example.com'));
+});
+
 test('DNS cache works', async t => {
 	const instance = got.extend({
 		dnsCache: true,
