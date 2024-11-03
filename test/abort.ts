@@ -325,6 +325,7 @@ test('support setting the signal as a default option', async t => {
 	t.true(signalHandlersRemoved(), 'Abort signal event handlers not removed');
 });
 
+const timeoutErrorCode = 23;
 // See https://developer.mozilla.org/en-US/docs/Web/API/AbortSignal/timeout_static
 test('support AbortSignal.timeout()', async t => {
 	const signal = AbortSignal.timeout(1);
@@ -332,7 +333,7 @@ test('support AbortSignal.timeout()', async t => {
 	const p = got('http://example.com', {signal});
 
 	await t.throwsAsync(p, {
-		code: 23,
+		code: timeoutErrorCode,
 		message: 'The operation was aborted due to timeout',
 	});
 });
@@ -347,7 +348,7 @@ test('support AbortSignal.timeout() without user abort', async t => {
 	const p = got('http://example.com', {signal});
 
 	await t.throwsAsync(p, {
-		code: 23,
+		code: timeoutErrorCode,
 		message: 'The operation was aborted due to timeout',
 	});
 
