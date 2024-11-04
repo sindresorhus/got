@@ -264,7 +264,12 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 		if (this.options.signal) {
 			const abort = () => {
-				this.destroy(new AbortError(this));
+				// See https://developer.mozilla.org/en-US/docs/Web/API/AbortSignal/timeout_static#return_value
+				if (this.options.signal?.reason?.name === 'TimeoutError') {
+					this.destroy(new TimeoutError(this.options.signal.reason, this.timings!, this));
+				} else {
+					this.destroy(new AbortError(this));
+				}
 			};
 
 			if (this.options.signal.aborted) {
