@@ -490,7 +490,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			this._request.end((error?: Error | null) => { // eslint-disable-line @typescript-eslint/ban-types
 				// The request has been destroyed before `_final` finished.
 				// See https://github.com/nodejs/node/issues/39356
-				if ((this._request as any)._writableState?.errored) {
+				if ((this._request as any)?._writableState?.errored) {
 					return;
 				}
 
