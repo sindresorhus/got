@@ -1,6 +1,6 @@
 import process from 'node:process';
 import {EventEmitter} from 'node:events';
-import stream, {PassThrough as PassThroughStream} from 'node:stream';
+import stream from 'node:stream';
 import {pipeline as streamPipeline} from 'node:stream/promises';
 import http from 'node:http';
 import https from 'node:https';
