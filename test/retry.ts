@@ -2,6 +2,7 @@ import {EventEmitter} from 'node:events';
 import {PassThrough as PassThroughStream} from 'node:stream';
 import type {Socket} from 'node:net';
 import http from 'node:http';
+import https from 'node:https';
 import test from 'ava';
 import is from '@sindresorhus/is';
 import type {Handler} from 'express';
@@ -21,8 +22,13 @@ const handler413: Handler = (_request, response) => {
 	response.end();
 };
 
-const createSocketTimeoutStream = (): http.ClientRequest => {
-	return http.request("http://example.com", {
+const createSocketTimeoutStream = (url): http.ClientRequest => {
+	if (url.indexOf("https:") > -1) {
+		return https.request(url, {
+		  timeout: 1
+		});	
+	}
+	return http.request(url, {
 	  timeout: socketTimeout
 	});
 };
@@ -48,7 +54,7 @@ test('works on timeout', withServer, async (t, server, got) => {
 			}
 
 			knocks++;
-			return createSocketTimeoutStream();
+			return createSocketTimeoutStream(server.url);
 		},
 	})).body, 'who`s there?');
 });
@@ -84,7 +90,7 @@ test('setting to `0` disables retrying', async t => {
 				return 0;
 			},
 		},
-		request: () => createSocketTimeoutStream(),
+		request: () => createSocketTimeoutStream("https://example.com"),
 	}), {
 		instanceOf: TimeoutError,
 		message: `Timeout awaiting 'socket' for ${socketTimeout}ms`,
