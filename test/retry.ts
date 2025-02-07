@@ -28,6 +28,7 @@ const createSocketTimeoutStream = (url: string): http.ClientRequest => {
 			timeout: 1,
 		});
 	}
+
 	return http.request(url, {
 		timeout: socketTimeout,
 	});
@@ -90,7 +91,7 @@ test('setting to `0` disables retrying', async t => {
 				return 0;
 			},
 		},
-		request: () => createSocketTimeoutStream("https://example.com"),
+		request: () => createSocketTimeoutStream('https://example.com'),
 	}), {
 		instanceOf: TimeoutError,
 		message: `Timeout awaiting 'socket' for ${socketTimeout}ms`,
