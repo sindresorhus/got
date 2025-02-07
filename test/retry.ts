@@ -23,13 +23,13 @@ const handler413: Handler = (_request, response) => {
 };
 
 const createSocketTimeoutStream = (url: string): http.ClientRequest => {
-	if (url.indexOf("https:") > -1) {
+	if (url.includes('https:')) {
 		return https.request(url, {
-		  timeout: 1
-		});	
+			timeout: 1,
+		});
 	}
 	return http.request(url, {
-	  timeout: socketTimeout
+		timeout: socketTimeout,
 	});
 };
 
