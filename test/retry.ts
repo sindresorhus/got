@@ -22,7 +22,7 @@ const handler413: Handler = (_request, response) => {
 	response.end();
 };
 
-const createSocketTimeoutStream = (url): http.ClientRequest => {
+const createSocketTimeoutStream = (url: string): http.ClientRequest => {
 	if (url.indexOf("https:") > -1) {
 		return https.request(url, {
 		  timeout: 1
