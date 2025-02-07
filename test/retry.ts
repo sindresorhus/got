@@ -23,17 +23,9 @@ const handler413: Handler = (_request, response) => {
 };
 
 const createSocketTimeoutStream = (): http.ClientRequest => {
-	const stream = new PassThroughStream();
-	// @ts-expect-error Mocking the behaviour of a ClientRequest
-	stream.setTimeout = (ms, callback) => {
-		process.nextTick(callback);
-	};
-
-	// @ts-expect-error Mocking the behaviour of a ClientRequest
-	stream.abort = () => {};
-	stream.resume();
-
-	return stream as unknown as http.ClientRequest;
+	return http.request("http://example.com", {
+	  timeout: socketTimeout
+	});
 };
 
 test('works on timeout', withServer, async (t, server, got) => {

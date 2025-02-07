@@ -71,13 +71,13 @@ export default function timedOut(request: ClientRequest, delays: Delays, options
 	const {host, hostname} = options;
 
 	const timeoutHandler = (delay: number, event: string): void => {
-		// Use queueMicroTask to allow for any cancelled events to be handled first,
+		// Use setTimeout to allow for any cancelled events to be handled first,
 		// to prevent firing any TimeoutError unneeded when the event loop is busy or blocked
-		queueMicrotask(() => {
+		setTimeout(() => {
 			if (!handled.has(event)) {
 				request.destroy(new TimeoutError(delay, event));
 			}
-		});
+		}, 0);
 	};
 
 	const cancelTimeouts = (): void => {
