@@ -1,4 +1,3 @@
-import process from 'node:process';
 import {EventEmitter} from 'node:events';
 import {PassThrough as PassThroughStream} from 'node:stream';
 import type {Socket} from 'node:net';
