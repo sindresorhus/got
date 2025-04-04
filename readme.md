@@ -5,47 +5,14 @@
 	<br>
 	<br>
 	<br>
+	<br>
+	<hr>
 	<p>
 		<p>
 			<sup>
 				Sindre's open source work is supported by the community.<br>Special thanks to:
 			</sup>
 		</p>
-		<br>
-		<br>
-		<a href="https://retool.com/?utm_campaign=sindresorhus">
-			<img src="https://sindresorhus.com/assets/thanks/retool-logo.svg" width="220">
-		</a>
-		<br>
-		<br>
-		<br>
-		<a href="https://strapi.io/?ref=sindresorhus">
-			<div>
-				<img src="https://sindresorhus.com/assets/thanks/strapi-logo-white-bg.png" width="200" alt="Strapi">
-			</div>
-			<b>Strapi is the leading open-source headless CMS.</b>
-			<div>
-				<sup>It’s 100% JavaScript, fully customizable, and developer-first.</sup>
-			</div>
-		</a>
-		<br>
-		<br>
-		<br>
-		<a href="https://serpapi.com#gh-light-mode-only">
-			<div>
-				<img src="https://sindresorhus.com/assets/thanks/serpapi-logo-light.svg" width="130" alt="SerpApi">
-			</div>
-			<b>API to get search engine results with ease.</b>
-		</a>
-		<a href="https://serpapi.com#gh-dark-mode-only">
-			<div>
-				<img src="https://sindresorhus.com/assets/thanks/serpapi-logo-dark.svg" width="120" alt="SerpApi">
-			</div>
-			<b>API to get search engine results with ease.</b>
-		</a>
-		<br>
-		<br>
-		<br>
 		<br>
 		<br>
 		<a href="https://www.fame.fi#gh-light-mode-only">
@@ -55,11 +22,13 @@
 			<img src="https://sindresorhus.com/assets/thanks/fame-logo-dark.svg" width="200" alt="Fame Helsinki">
 		</a>
 		<br>
-		<br>
-		<br>
-		<br>
-		<br>
 	</p>
+	<hr>
+	<br>
+	<br>
+	<br>
+	<br>
+	<br>
 	<br>
 	<br>
 </div>
@@ -74,7 +43,7 @@
 
 ---
 
-**You probably want [Ky](https://github.com/sindresorhus/ky) instead, by the same people. It's smaller, works in the browser too, and is more stable since it's built upon [`Fetch`](https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API).**
+**You probably want [Ky](https://github.com/sindresorhus/ky) instead, by the same people. It's smaller, works in the browser too, and is more stable since it's built on [`Fetch`](https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API). Or [fetch-extras](https://github.com/sindresorhus/fetch-extras) for simple needs.**
 
 ---
 
@@ -185,14 +154,14 @@ By default, Got will retry on failure. To disable this option, set [`options.ret
 
 |                       | `got`               | [`node-fetch`][n0]   | [`ky`][k0]               | [`axios`][a0]      | [`superagent`][s0]     |
 |-----------------------|:-------------------:|:--------------------:|:------------------------:|:------------------:|:----------------------:|
-| HTTP/2 support        | :heavy_check_mark:¹ | :x:                  | :x:                      | :x:                | :heavy_check_mark:\*\* |
+| HTTP/2 support        | :heavy_check_mark:¹ | :x:                  | :heavy_check_mark:       | :x:                | :heavy_check_mark:\*\* |
 | Browser support       | :x:                 | :heavy_check_mark:\* | :heavy_check_mark:       | :heavy_check_mark: | :heavy_check_mark:     |
 | Promise API           | :heavy_check_mark:  | :heavy_check_mark:   | :heavy_check_mark:       | :heavy_check_mark: | :heavy_check_mark:     |
 | Stream API            | :heavy_check_mark:  | Node.js only         | :x:                      | :x:                | :heavy_check_mark:     |
 | Pagination API        | :heavy_check_mark:  | :x:                  | :x:                      | :x:                | :x:                    |
 | Request cancelation   | :heavy_check_mark:  | :heavy_check_mark:   | :heavy_check_mark:       | :heavy_check_mark: | :heavy_check_mark:     |
 | RFC compliant caching | :heavy_check_mark:  | :x:                  | :x:                      | :x:                | :x:                    |
-| Cookies (out-of-the-box)  | :heavy_check_mark:  | :x:                  | :x:                      | :x:                | :x:                    |
+| Cookies (out-of-the-box) | :heavy_check_mark: | :x:                | :x:                      | :x:                | :x:                    |
 | Follows redirects     | :heavy_check_mark:  | :heavy_check_mark:   | :heavy_check_mark:       | :heavy_check_mark: | :heavy_check_mark:     |
 | Retries on failure    | :heavy_check_mark:  | :x:                  | :heavy_check_mark:       | :x:                | :heavy_check_mark:     |
 | Progress events       | :heavy_check_mark:  | :x:                  | :heavy_check_mark:\*\*\* | Browser only       | :heavy_check_mark:     |
@@ -321,11 +290,11 @@ By default, Got will retry on failure. To disable this option, set [`options.ret
 [s7]: https://www.npmjs.com/package/visionmedia?activeTab=dependents
 
 <!-- INSTALL SIZE -->
-[gis]: https://badgen.net/packagephobia/install/got?color=blue&label
-[kis]: https://badgen.net/packagephobia/install/ky?color=blue&label
-[nis]: https://badgen.net/packagephobia/install/node-fetch?color=blue&label
-[ais]: https://badgen.net/packagephobia/install/axios?color=blue&label
-[sis]: https://badgen.net/packagephobia/install/superagent?color=blue&label
+[gis]: https://packagephobia.com/badge?p=got
+[kis]: https://packagephobia.com/badge?p=ky
+[nis]: https://packagephobia.com/badge?p=node-fetch
+[ais]: https://packagephobia.com/badge?p=axios
+[sis]: https://packagephobia.com/badge?p=superagent
 
 [g8]: https://packagephobia.com/result?p=got
 [k8]: https://packagephobia.com/result?p=ky
@@ -374,7 +343,7 @@ By default, Got will retry on failure. To disable this option, set [`options.ret
 
 [Click here][InstallSizeOfTheDependencies] to see the install size of the Got dependencies.
 
-[InstallSizeOfTheDependencies]: https://packagephobia.com/result?p=@sindresorhus/is@4.0.1,@szmarczak/http-timer@4.0.5,@types/cacheable-request@6.0.1,@types/responselike@1.0.0,cacheable-lookup@6.0.0,cacheable-request@7.0.2,decompress-response@6.0.0,get-stream@6.0.1,http2-wrapper@2.0.5,lowercase-keys@2.0.0,p-cancelable@2.1.1,responselike@2.0.0
+[InstallSizeOfTheDependencies]: https://packagephobia.com/result?p=@sindresorhus/is@7.0.0,@szmarczak/http-timer@5.0.1,cacheable-lookup@7.0.0,cacheable-request@12.0.1,decompress-response@6.0.0,form-data-encoder@4.0.2,http2-wrapper@2.2.1,lowercase-keys@3.0.0,p-cancelable@4.0.1,responselike@3.0.0,type-fest@4.19.0
 
 ## Maintainers
 
@@ -412,12 +381,12 @@ By default, Got will retry on failure. To disable this option, set [`options.ret
 	<tr>
 		<td align="center">
 			<a href="http://karaokes.moe">
-				<img width="140" valign="middle" src="https://camo.githubusercontent.com/6860e5fa4684c14d8e1aa65df0aba4e6808ea1a9/687474703a2f2f6b6172616f6b65732e6d6f652f6173736574732f696d616765732f696e6465782e706e67">
+				<img width="140" valign="middle" src="https://karaokes.moe/assets/images/index.png">
 			</a>
 		</td>
 		<td align="center">
 			<a href="https://github.com/renovatebot/renovate">
-				<img width="150" valign="middle" src="https://camo.githubusercontent.com/7c2dc41a8407d4cfa700f762a1abf46b232858ae7e3a2bf5aee7d9f36416127c/68747470733a2f2f6170702e72656e6f76617465626f742e636f6d2f696d616765732f72656e6f766174655f3636305f3232302e6a7067">
+				<img width="150" valign="middle" src="https://avatars.githubusercontent.com/u/38656520?s=200&v=4">
 			</a>
 		</td>
 		<td align="center">
@@ -440,11 +409,6 @@ By default, Got will retry on failure. To disable this option, set [`options.ret
 		<td align="center">
 			<a href="https://radity.com">
 				<img width="150" valign="middle" src="https://user-images.githubusercontent.com/29518613/91814036-97fb9500-ec44-11ea-8c6c-d198cc23ca29.png">
-			</a>
-		</td>
-		<td align="center">
-			<a href="https://apify.com">
-				<img width="150" valign="middle" src="https://user-images.githubusercontent.com/23726914/128673143-958b5930-b677-40ef-8087-5698a0c29c45.png">
 			</a>
 		</td>
 	</tr>
@@ -496,7 +460,3 @@ By default, Got will retry on failure. To disable this option, set [`options.ret
 > We’re using Got at Radity. Thanks for such an amazing work!
 >
 > — <a href="https://github.com/MirzayevFarid">Mirzayev Farid</a>
-
-> Got has been a crucial component of Apify's scraping for years. We use it to extract data from billions of web pages every month, and we really appreciate the powerful API and extensibility, which allowed us to build our own specialized HTTP client on top of Got. The support has always been stellar too.
->
-> — <a href="https://github.com/mnmkng">Ondra Urban</a>

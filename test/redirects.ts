@@ -115,10 +115,12 @@ test('followRedirect gets plainResponse and does not follow', withServer, async 
 		response.end();
 	});
 
-	const {statusCode} = await got('temporary', {followRedirect(response) {
-		t.is(response.headers.location, '/redirect');
-		return false;
-	}});
+	const {statusCode} = await got('temporary', {
+		followRedirect(response) {
+			t.is(response.headers.location, '/redirect');
+			return false;
+		},
+	});
 	t.is(statusCode, 307);
 });
 
@@ -247,7 +249,9 @@ test('redirects on 303 if GET or HEAD', withServer, async (t, server, got) => {
 });
 
 test('removes body on GET redirect', withServer, async (t, server, got) => {
-	server.get('/', (request, response) => request.pipe(response));
+	server.get('/', (request, response) => {
+		request.pipe(response);
+	});
 
 	server.post('/seeOther', (_request, response) => {
 		response.writeHead(303, {

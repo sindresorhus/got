@@ -1,4 +1,10 @@
-import type {CertificateCreationOptions, CertificateCreationResult, PrivateKeyCreationOptions, CSRCreationOptions, Callback} from 'pem';
+import type {
+	CertificateCreationOptions,
+	CertificateCreationResult,
+	PrivateKeyCreationOptions,
+	CSRCreationOptions,
+	Callback,
+} from 'pem';
 
 export type CreateCertificate = (options: CertificateCreationOptions, callback: Callback<CertificateCreationResult>) => void;
 

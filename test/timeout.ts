@@ -1,8 +1,9 @@
 import process from 'node:process';
 import {EventEmitter} from 'node:events';
-import stream, {PassThrough as PassThroughStream} from 'node:stream';
+import stream from 'node:stream';
 import {pipeline as streamPipeline} from 'node:stream/promises';
 import http from 'node:http';
+import https from 'node:https';
 import net from 'node:net';
 import getStream from 'get-stream';
 import test from 'ava';
@@ -90,17 +91,9 @@ test.serial('socket timeout', async t => {
 				limit: 0,
 			},
 			request() {
-				const stream = new PassThroughStream();
-				// @ts-expect-error Mocking the behaviour of a ClientRequest
-				stream.setTimeout = (ms, callback) => {
-					process.nextTick(callback);
-				};
-
-				// @ts-expect-error Mocking the behaviour of a ClientRequest
-				stream.abort = () => {};
-				stream.resume();
-
-				return stream as unknown as http.ClientRequest;
+				return https.request('https://example.com', {
+					timeout: 0,
+				});
 			},
 		}),
 		{
@@ -480,8 +473,8 @@ test.serial('no unhandled timeout errors', withServer, async (t, _server, got) =
 	await t.throwsAsync(got({
 		retry: {limit: 0},
 		timeout: {request: 100},
-		request(...args) {
-			const result = http.request(...args);
+		request(...arguments_) {
+			const result = http.request(...arguments_);
 
 			result.once('socket', () => {
 				result.socket?.destroy();
@@ -526,7 +519,7 @@ test.serial('no more timeouts after an error', withServer, async (t, _server, go
 	const {clearTimeout} = global;
 
 	// @ts-expect-error FIXME
-	global.setTimeout = (callback, _ms, ...args) => {
+	global.setTimeout = (callback, _ms, ...arguments_) => {
 		const timeout = {
 			isCleared: false,
 		};
@@ -536,7 +529,7 @@ test.serial('no more timeouts after an error', withServer, async (t, _server, go
 				return;
 			}
 
-			callback(...args);
+			callback(...arguments_);
 		});
 
 		return timeout;

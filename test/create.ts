@@ -196,14 +196,14 @@ test('ability to pass a custom request method', withServer, async (t, server, go
 
 	let isCalled = false;
 
-	const request: RequestFunction = (...args: [
+	const request: RequestFunction = (...arguments_: [
 		string | URL | RequestOptions,
 		(RequestOptions | ((response: IncomingMessage) => void))?,
 		((response: IncomingMessage) => void)?,
 	]) => {
 		isCalled = true;
 		// @ts-expect-error Overload error
-		return httpRequest(...args);
+		return httpRequest(...arguments_);
 	};
 
 	const instance = got.extend({request});
@@ -217,17 +217,17 @@ test('does not include the `request` option in normalized `http` options', withS
 
 	let isCalled = false;
 
-	const request: RequestFunction = (...args: [
+	const request: RequestFunction = (...arguments_: [
 		string | URL | RequestOptions,
 		(RequestOptions | ((response: IncomingMessage) => void))?,
 		((response: IncomingMessage) => void)?,
 	]) => {
 		isCalled = true;
 
-		t.false(Reflect.has(args[0] as RequestOptions, 'request'));
+		t.false(Reflect.has(arguments_[0] as RequestOptions, 'request'));
 
 		// @ts-expect-error Overload error
-		return httpRequest(...args);
+		return httpRequest(...arguments_);
 	};
 
 	const instance = got.extend({request});
@@ -329,7 +329,7 @@ test('async handlers', withServer, async (t, server, got) => {
 	});
 
 	const promise = instance('');
-	t.true(is.function_(promise.cancel));
+	t.true(is.function(promise.cancel));
 	// @ts-expect-error Manual tests
 	t.true((await promise).modified);
 });

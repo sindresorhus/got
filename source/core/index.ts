@@ -11,8 +11,7 @@ import CacheableRequest, {
 	type CacheableOptions,
 } from 'cacheable-request';
 import decompressResponse from 'decompress-response';
-import is from '@sindresorhus/is';
-import {getStreamAsBuffer} from 'get-stream';
+import is, {isBuffer} from '@sindresorhus/is';
 import {FormDataEncoder, isFormData as isFormDataLike} from 'form-data-encoder';
 import type ResponseLike from 'responselike';
 import getBodySize from './utils/get-body-size.js';
@@ -265,7 +264,12 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 		if (this.options.signal) {
 			const abort = () => {
-				this.destroy(new AbortError(this));
+				// See https://developer.mozilla.org/en-US/docs/Web/API/AbortSignal/timeout_static#return_value
+				if (this.options.signal?.reason?.name === 'TimeoutError') {
+					this.destroy(new TimeoutError(this.options.signal.reason, this.timings!, this));
+				} else {
+					this.destroy(new AbortError(this));
+				}
 			};
 
 			if (this.options.signal.aborted) {
@@ -486,7 +490,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			this._request.end((error?: Error | null) => { // eslint-disable-line @typescript-eslint/ban-types
 				// The request has been destroyed before `_final` finished.
 				// See https://github.com/nodejs/node/issues/39356
-				if ((this._request as any)._writableState?.errored) {
+				if ((this._request as any)?._writableState?.errored) {
 					return;
 				}
 
@@ -494,7 +498,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 					this._bodySize = this._uploadedSize;
 
 					this.emit('uploadProgress', this.uploadProgress);
-					this._request!.emit('upload-complete');
+					this._request?.emit('upload-complete');
 				}
 
 				callback(error);
@@ -877,11 +881,8 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 		try {
 			// Errors are emitted via the `error` event
-			const rawBody = await getStreamAsBuffer(from);
-
-			// TODO: Switch to this:
-			// let rawBody = await from.toArray();
-			// rawBody = Buffer.concat(rawBody);
+			const fromArray = await from.toArray();
+			const rawBody = isBuffer(fromArray.at(0)) ? Buffer.concat(fromArray) : Buffer.from(fromArray.join(''));
 
 			// On retry Request is destroyed with no error, therefore the above will successfully resolve.
 			// So in order to check if this was really successfull, we need to check if it has been properly ended.
@@ -1005,13 +1006,13 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 										handler(error);
 									}
 								})();
-							} else if (event === 'abort') {
+							} else if (event === 'abort' || event === 'destroy') {
 								// The empty catch is needed here in case when
 								// it rejects before it's `await`ed in `_makeRequest`.
 								(async () => {
 									try {
 										const request = (await result) as ClientRequest;
-										request.once('abort', handler);
+										request.once(event, handler);
 									} catch {}
 								})();
 							} else {
@@ -1075,7 +1076,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			if (is.undefined(headers[key])) {
 				// eslint-disable-next-line @typescript-eslint/no-dynamic-delete
 				delete headers[key];
-			} else if (is.null_(headers[key])) {
+			} else if (is.null(headers[key])) {
 				throw new TypeError(`Use \`undefined\` instead of \`null\` to delete the \`${key}\` header`);
 			}
 		}
@@ -1114,9 +1115,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			}
 		}
 
-		if (!request) {
-			request = options.getRequestFunction();
-		}
+		request ||= options.getRequestFunction();
 
 		const url = options.url as URL;
 
@@ -1130,12 +1129,12 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		}
 
 		// Cache support
-		const fn = options.cache ? this._createCacheableRequest : request;
+		const function_ = options.cache ? this._createCacheableRequest : request;
 
 		try {
 			// We can't do `await fn(...)`,
 			// because stream `error` event can be emitted before `Promise.resolve()`.
-			let requestOrResponse = fn!(url, this._requestOptions);
+			let requestOrResponse = function_!(url, this._requestOptions);
 
 			if (is.promise(requestOrResponse)) {
 				requestOrResponse = await requestOrResponse;

@@ -25,7 +25,7 @@ export type PlainResponse = {
 	/**
 	The remote IP address.
 
-	This is hopefully a temporary limitation, see [lukechilds/cacheable-request#86](https://github.com/lukechilds/cacheable-request/issues/86).
+	This is hopefully a temporary limitation, see [lukechilds/cacheable-request#86](https://web.archive.org/web/20220804165050/https://github.com/jaredwray/cacheable-request/issues/86).
 
 	__Note__: Not available when the response is cached.
 	*/

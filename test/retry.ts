@@ -1,8 +1,8 @@
-import process from 'node:process';
 import {EventEmitter} from 'node:events';
 import {PassThrough as PassThroughStream} from 'node:stream';
 import type {Socket} from 'node:net';
 import http from 'node:http';
+import https from 'node:https';
 import test from 'ava';
 import is from '@sindresorhus/is';
 import type {Handler} from 'express';
@@ -22,18 +22,16 @@ const handler413: Handler = (_request, response) => {
 	response.end();
 };
 
-const createSocketTimeoutStream = (): http.ClientRequest => {
-	const stream = new PassThroughStream();
-	// @ts-expect-error Mocking the behaviour of a ClientRequest
-	stream.setTimeout = (ms, callback) => {
-		process.nextTick(callback);
-	};
+const createSocketTimeoutStream = (url: string): http.ClientRequest => {
+	if (url.includes('https:')) {
+		return https.request(url, {
+			timeout: 1,
+		});
+	}
 
-	// @ts-expect-error Mocking the behaviour of a ClientRequest
-	stream.abort = () => {};
-	stream.resume();
-
-	return stream as unknown as http.ClientRequest;
+	return http.request(url, {
+		timeout: socketTimeout,
+	});
 };
 
 test('works on timeout', withServer, async (t, server, got) => {
@@ -46,18 +44,18 @@ test('works on timeout', withServer, async (t, server, got) => {
 		timeout: {
 			socket: socketTimeout,
 		},
-		request(...args: [
+		request(...arguments_: [
 			string | URL | http.RequestOptions,
 			(http.RequestOptions | ((response: http.IncomingMessage) => void))?,
 			((response: http.IncomingMessage) => void)?,
 		]) {
 			if (knocks === 1) {
 				// @ts-expect-error Overload error
-				return http.request(...args);
+				return http.request(...arguments_);
 			}
 
 			knocks++;
-			return createSocketTimeoutStream();
+			return createSocketTimeoutStream(server.url);
 		},
 	})).body, 'who`s there?');
 });
@@ -93,7 +91,7 @@ test('setting to `0` disables retrying', async t => {
 				return 0;
 			},
 		},
-		request: () => createSocketTimeoutStream(),
+		request: () => createSocketTimeoutStream('https://example.com'),
 	}), {
 		instanceOf: TimeoutError,
 		message: `Timeout awaiting 'socket' for ${socketTimeout}ms`,
@@ -462,7 +460,7 @@ test('can retry a Got stream', withServer, async (t, server, got) => {
 	const responseStreamPromise = new Promise<PassThroughStream>((resolve, reject) => {
 		let writeStream: PassThroughStream;
 
-		const fn = (retryStream?: Request) => {
+		const function_ = (retryStream?: Request) => {
 			const stream = retryStream ?? got.stream('');
 
 			globalRetryCount = stream.retryCount;
@@ -476,7 +474,7 @@ test('can retry a Got stream', withServer, async (t, server, got) => {
 			stream.pipe(writeStream);
 
 			stream.once('retry', (_retryCount, _error, createRetryStream) => {
-				fn(createRetryStream());
+				function_(createRetryStream());
 			});
 
 			stream.once('error', reject);
@@ -485,7 +483,7 @@ test('can retry a Got stream', withServer, async (t, server, got) => {
 			});
 		};
 
-		fn();
+		function_();
 	});
 
 	const responseStream = await responseStreamPromise;
@@ -504,14 +502,14 @@ test('throws when cannot retry a Got stream', withServer, async (t, server, got)
 	let globalRetryCount = 0;
 
 	const streamPromise = new Promise<PassThroughStream>((resolve, reject) => {
-		const fn = (retryStream?: Request) => {
+		const function_ = (retryStream?: Request) => {
 			const stream = retryStream ?? got.stream('');
 
 			globalRetryCount = stream.retryCount;
 
 			stream.resume();
 			stream.once('retry', (_retryCount, _error, createRetryStream) => {
-				fn(createRetryStream());
+				function_(createRetryStream());
 			});
 
 			stream.once('data', () => {
@@ -522,7 +520,7 @@ test('throws when cannot retry a Got stream', withServer, async (t, server, got)
 			stream.once('end', resolve);
 		};
 
-		fn();
+		function_();
 	});
 
 	const error = await t.throwsAsync<HTTPError>(streamPromise, {

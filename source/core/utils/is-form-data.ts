@@ -7,5 +7,5 @@ type FormData = {
 } & Readable;
 
 export default function isFormData(body: unknown): body is FormData {
-	return is.nodeStream(body) && is.function_((body as FormData).getBoundary);
+	return is.nodeStream(body) && is.function((body as FormData).getBoundary);
 }

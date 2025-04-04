@@ -42,6 +42,16 @@ test('throws if the url option is missing', async t => {
 	});
 });
 
+test('throws if an invalid argument is passed', async t => {
+	await t.throwsAsync(
+		// @ts-expect-error Error tests
+		got(false),
+		{
+			instanceOf: RequestError,
+			message: 'Expected values which are `string`, `URL`, `Object`, or `undefined`. Received values of type `boolean`.',
+		});
+});
+
 test('throws an error if the protocol is not specified', async t => {
 	const error = await t.throwsAsync(got('example.com'));
 	invalidUrl(t, error!, 'example.com');

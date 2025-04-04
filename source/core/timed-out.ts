@@ -51,6 +51,7 @@ export default function timedOut(request: ClientRequest, delays: Delays, options
 	request[reentry] = true;
 	const cancelers: Array<typeof noop> = [];
 	const {once, unhandleAll} = unhandler();
+	const handled: Map<string, boolean> = new Map<string, boolean>();
 
 	const addTimeout = (delay: number, callback: (delay: number, event: string) => void, event: string): (typeof noop) => {
 		const timeout = setTimeout(callback, delay, delay, event) as unknown as NodeJS.Timeout;
@@ -58,6 +59,7 @@ export default function timedOut(request: ClientRequest, delays: Delays, options
 		timeout.unref?.();
 
 		const cancel = (): void => {
+			handled.set(event, true);
 			clearTimeout(timeout);
 		};
 
@@ -69,7 +71,13 @@ export default function timedOut(request: ClientRequest, delays: Delays, options
 	const {host, hostname} = options;
 
 	const timeoutHandler = (delay: number, event: string): void => {
-		request.destroy(new TimeoutError(delay, event));
+		// Use setTimeout to allow for any cancelled events to be handled first,
+		// to prevent firing any TimeoutError unneeded when the event loop is busy or blocked
+		setTimeout(() => {
+			if (!handled.has(event)) {
+				request.destroy(new TimeoutError(delay, event));
+			}
+		}, 0);
 	};
 
 	const cancelTimeouts = (): void => {

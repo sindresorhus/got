@@ -9,7 +9,12 @@ import delay from 'delay';
 import type {Handler} from 'express';
 import Responselike from 'responselike';
 import type {Constructor} from 'type-fest';
-import got, {RequestError, HTTPError, type Response, type OptionsInit} from '../source/index.js';
+import got, {
+	RequestError,
+	HTTPError,
+	type Response,
+	type OptionsInit,
+} from '../source/index.js';
 import withServer from './helpers/with-server.js';
 
 const errorString = 'oops';
