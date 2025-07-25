@@ -164,7 +164,7 @@ By default, Got will retry on failure. To disable this option, set [`options.ret
 | Cookies (out-of-the-box) | :heavy_check_mark: | :x:                | :x:                      | :x:                | :x:                    |
 | Follows redirects     | :heavy_check_mark:  | :heavy_check_mark:   | :heavy_check_mark:       | :heavy_check_mark: | :heavy_check_mark:     |
 | Retries on failure    | :heavy_check_mark:  | :x:                  | :heavy_check_mark:       | :x:                | :heavy_check_mark:     |
-| Progress events       | :heavy_check_mark:  | :x:                  | :heavy_check_mark:\*\*\* | Browser only       | :heavy_check_mark:     |
+| Progress events       | :heavy_check_mark:  | :x:                  | :heavy_check_mark: | Browser only       | :heavy_check_mark:     |
 | Handles gzip/deflate  | :heavy_check_mark:  | :heavy_check_mark:   | :heavy_check_mark:       | :heavy_check_mark: | :heavy_check_mark:     |
 | Advanced timeouts     | :heavy_check_mark:  | :x:                  | :x:                      | :x:                | :x:                    |
 | Timings               | :heavy_check_mark:  | :x:                  | :x:                      | :x:                | :x:                    |
@@ -187,7 +187,6 @@ By default, Got will retry on failure. To disable this option, set [`options.ret
 
 \* It's almost API compatible with the browser `fetch` API.\
 \*\* Need to switch the protocol manually. Doesn't accept PUSH streams and doesn't reuse HTTP/2 sessions.\
-\*\*\* Currently, only `DownloadProgress` event is supported, `UploadProgress` event is not supported.\
 ¹ Requires Node.js 15.10.0 or above.\
 :sparkle: Almost-stable feature, but the API may change. Don't hesitate to try it out!\
 :grey_question: Feature in early stage of development. Very experimental.
