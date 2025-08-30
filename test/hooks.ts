@@ -1333,10 +1333,10 @@ test('can retry without an agent', withServer, async (t, server, got) => {
 	let counter = 0;
 
 	class MyAgent extends HttpAgent {
-		createConnection(port: any, options: any, callback: any) {
+		override createConnection(...args: Parameters<InstanceType<typeof HttpAgent>['createConnection']>): ReturnType<InstanceType<typeof HttpAgent>['createConnection']> {
 			counter++;
 
-			return (HttpAgent as any).prototype.createConnection.call(this, port, options, callback);
+			return (HttpAgent as any).prototype.createConnection.apply(this, args as any);
 		}
 	}
 

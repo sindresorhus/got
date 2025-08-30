@@ -386,7 +386,7 @@ test('should wrap got cause', async t => {
 
 test('should wrap non-got cause', async t => {
 	class SocksProxyAgent extends Agent {
-		createConnection() {
+		override createConnection(..._args: Parameters<InstanceType<typeof Agent>['createConnection']>): ReturnType<InstanceType<typeof Agent>['createConnection']> {
 			throw new SocksClientError('oh no');
 		}
 	}
