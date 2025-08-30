@@ -1034,7 +1034,10 @@ export default class Options {
 		}
 
 		if (options instanceof Options) {
-			for (const init of options._init) {
+			// Create a copy of the _init array to avoid infinite loop
+			// when merging an Options instance with itself
+			const initArray = [...options._init];
+			for (const init of initArray) {
 				this.merge(init);
 			}
 
