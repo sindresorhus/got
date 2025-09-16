@@ -651,11 +651,25 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 		this._nativeResponse = response;
 
-		if (options.decompress) {
+		const statusCode = response.statusCode!;
+		const {method} = options;
+
+		// Skip decompression for responses that must not have bodies per RFC 9110:
+		// - HEAD responses (any status code)
+		// - 1xx (Informational): 100, 101, 102, 103, etc.
+		// - 204 (No Content)
+		// - 205 (Reset Content)
+		// - 304 (Not Modified)
+		const hasNoBody = method === 'HEAD'
+			|| (statusCode >= 100 && statusCode < 200)
+			|| statusCode === 204
+			|| statusCode === 205
+			|| statusCode === 304;
+
+		if (options.decompress && !hasNoBody) {
 			response = decompressResponse(response);
 		}
 
-		const statusCode = response.statusCode!;
 		const typedResponse = response as PlainResponse;
 
 		typedResponse.statusMessage = typedResponse.statusMessage ?? http.STATUS_CODES[statusCode];
