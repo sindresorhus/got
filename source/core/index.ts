@@ -168,7 +168,6 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	private _bodySize?: number;
 	private _unproxyEvents: () => void;
 	private _isFromCache?: boolean;
-	private _cannotHaveBody: boolean;
 	private _triggerRead: boolean;
 	declare private readonly _jobs: Array<() => void>;
 	private _cancelTimeouts: () => void;
@@ -192,7 +191,6 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		this._uploadedSize = 0;
 		this._stopReading = false;
 		this._pipedServerResponses = new Set<ServerResponse>();
-		this._cannotHaveBody = false;
 		this._unproxyEvents = noop;
 		this._triggerRead = false;
 		this._cancelTimeouts = noop;
@@ -566,8 +564,6 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		const isJSON = !is.undefined(options.json);
 		const isBody = !is.undefined(options.body);
 		const cannotHaveBody = methodsWithoutBody.has(options.method) && !(options.method === 'GET' && options.allowGetBody);
-
-		this._cannotHaveBody = cannotHaveBody;
 
 		if (isForm || isJSON || isBody) {
 			if (cannotHaveBody) {
@@ -992,10 +988,14 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 					this._beforeError(error);
 				}
 			})();
-		} else if (!is.undefined(body)) {
+		} else if (is.undefined(body)) {
+			// No body to send, end the request
+			const cannotHaveBody = methodsWithoutBody.has(this.options.method) && !(this.options.method === 'GET' && this.options.allowGetBody);
+			if ((this._noPipe ?? false) || cannotHaveBody || currentRequest !== this) {
+				currentRequest.end();
+			}
+		} else {
 			this._writeRequest(body, undefined, () => {});
-			currentRequest.end();
-		} else if (this._cannotHaveBody || this._noPipe) {
 			currentRequest.end();
 		}
 	}

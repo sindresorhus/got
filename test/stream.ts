@@ -501,3 +501,36 @@ testFunction('it sends a body of file with size on stat = 0', withServer, async 
 
 	t.truthy(response.body);
 });
+
+test('OPTIONS stream without body completes successfully', withServer, async (t, server, got) => {
+	server.options('/', (_request, response) => {
+		response.writeHead(200, {
+			allow: 'OPTIONS, GET, HEAD, POST',
+		});
+		response.end();
+	});
+
+	const stream = got.stream({method: 'OPTIONS'});
+	await t.notThrowsAsync(getStream(stream));
+});
+
+test('DELETE stream without body completes successfully', withServer, async (t, server, got) => {
+	server.delete('/', (_request, response) => {
+		response.writeHead(204);
+		response.end();
+	});
+
+	const stream = got.stream({method: 'DELETE'});
+	await t.notThrowsAsync(getStream(stream));
+});
+
+test('PATCH stream without body completes successfully', withServer, async (t, server, got) => {
+	server.patch('/', (_request, response) => {
+		response.writeHead(200);
+		response.end('patched');
+	});
+
+	const stream = got.stream({method: 'PATCH'});
+	const data = await getStream(stream);
+	t.is(data, 'patched');
+});
