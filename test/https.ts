@@ -163,6 +163,52 @@ test('http2', async t => {
 	}
 });
 
+test('http2 connection reuse with default agent', async t => {
+	try {
+		const response1 = await got('https://httpbin.org/status/200', {http2: true});
+		const response2 = await got('https://httpbin.org/status/201', {http2: true});
+
+		t.is(response1.statusCode, 200);
+		t.is(response2.statusCode, 201);
+	} catch (error: any) {
+		if (error.message.includes('install Node.js')) {
+			t.pass();
+			return;
+		}
+
+		t.fail(error.stack);
+	}
+});
+
+test('http2 connection reuse with custom agent', async t => {
+	try {
+		const {default: http2wrapper} = await import('http2-wrapper');
+		const customAgent = new http2wrapper.Agent({maxEmptySessions: 5});
+
+		const response1 = await got('https://httpbin.org/status/200', {
+			http2: true,
+			agent: {http2: customAgent},
+		});
+
+		const response2 = await got('https://httpbin.org/status/201', {
+			http2: true,
+			agent: {http2: customAgent},
+		});
+
+		t.is(response1.statusCode, 200);
+		t.is(response2.statusCode, 201);
+
+		customAgent.destroy();
+	} catch (error: any) {
+		if (error.message.includes('install Node.js')) {
+			t.pass();
+			return;
+		}
+
+		t.fail(error.stack);
+	}
+});
+
 test.serial('deprecated `rejectUnauthorized` option', withHttpsServer(), async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.end('ok');

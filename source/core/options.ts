@@ -2416,7 +2416,16 @@ export default class Options {
 
 		let agent;
 		if (url.protocol === 'https:') {
-			agent = internals.http2 ? internals.agent : internals.agent.https;
+			if (internals.http2) {
+				// Ensure HTTP/2 agent is configured for connection reuse
+				// If no custom agent.http2 is provided, use the global agent for connection pooling
+				agent = {
+					...internals.agent,
+					http2: internals.agent.http2 ?? http2wrapper.globalAgent,
+				};
+			} else {
+				agent = internals.agent.https;
+			}
 		} else {
 			agent = internals.agent.http;
 		}
