@@ -443,3 +443,33 @@ test('formdata retry', withServer, async (t, server, got) => {
 		message: 'Cannot retry with consumed body stream',
 	});
 });
+
+test('body - sends async iterable', withServer, async (t, server, got) => {
+	server.post('/', defaultEndpoint);
+
+	async function * generateData() {
+		yield 'Hello, ';
+		yield 'world!';
+	}
+
+	const body = await got.post({
+		body: generateData(),
+	}).text();
+
+	t.is(body, 'Hello, world!');
+});
+
+test('body - sends iterable', withServer, async (t, server, got) => {
+	server.post('/', defaultEndpoint);
+
+	function * generateData() {
+		yield 'foo';
+		yield 'bar';
+	}
+
+	const body = await got.post({
+		body: generateData(),
+	}).text();
+
+	t.is(body, 'foobar');
+});

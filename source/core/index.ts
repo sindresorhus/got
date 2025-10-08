@@ -53,6 +53,8 @@ export type Progress = {
 const supportsBrotli = is.string(process.versions.brotli);
 
 const methodsWithoutBody: ReadonlySet<string> = new Set(['GET', 'HEAD']);
+// Methods that should auto-end streams when no body is provided
+const methodsWithoutBodyStream: ReadonlySet<string> = new Set(['OPTIONS', 'DELETE', 'PATCH']);
 
 export type GotEventFunction<T> =
 	/**
@@ -976,7 +978,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 		if (is.nodeStream(body)) {
 			body.pipe(currentRequest);
-		} else if (is.generator(body) || is.asyncGenerator(body)) {
+		} else if (is.asyncIterable(body) || (is.iterable(body) && !is.string(body) && !isBuffer(body))) {
 			(async () => {
 				try {
 					for await (const chunk of body) {
@@ -991,7 +993,9 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		} else if (is.undefined(body)) {
 			// No body to send, end the request
 			const cannotHaveBody = methodsWithoutBody.has(this.options.method) && !(this.options.method === 'GET' && this.options.allowGetBody);
-			if ((this._noPipe ?? false) || cannotHaveBody || currentRequest !== this) {
+			const shouldAutoEndStream = methodsWithoutBodyStream.has(this.options.method);
+
+			if ((this._noPipe ?? false) || cannotHaveBody || currentRequest !== this || shouldAutoEndStream) {
 				currentRequest.end();
 			}
 		} else {

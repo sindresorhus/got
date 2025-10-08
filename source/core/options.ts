@@ -1342,13 +1342,30 @@ export default class Options {
 	The `content-length` header will be automatically set if `body` is a `string` / `Buffer` / [`FormData`](https://developer.mozilla.org/en-US/docs/Web/API/FormData) / [`form-data` instance](https://github.com/form-data/form-data), and `content-length` and `transfer-encoding` are not manually set in `options.headers`.
 
 	Since Got 12, the `content-length` is not automatically set when `body` is a `fs.createReadStream`.
+
+	You can use `Iterable` and `AsyncIterable` objects as request body, including Web [`ReadableStream`](https://developer.mozilla.org/en-US/docs/Web/API/ReadableStream):
+
+	@example
+	```
+	import got from 'got';
+
+	// Using an async generator
+	async function* generateData() {
+		yield 'Hello, ';
+		yield 'world!';
+	}
+
+	await got.post('https://httpbin.org/anything', {
+		body: generateData()
+	});
+	```
 	*/
-	get body(): string | Buffer | Readable | Generator | AsyncGenerator | FormDataLike | undefined {
+	get body(): string | Buffer | Readable | Generator | AsyncGenerator | Iterable<unknown> | AsyncIterable<unknown> | FormDataLike | undefined {
 		return this._internals.body;
 	}
 
-	set body(value: string | Buffer | Readable | Generator | AsyncGenerator | FormDataLike | undefined) {
-		assert.any([is.string, is.buffer, is.nodeStream, is.generator, is.asyncGenerator, isFormData, is.undefined], value);
+	set body(value: string | Buffer | Readable | Generator | AsyncGenerator | Iterable<unknown> | AsyncIterable<unknown> | FormDataLike | undefined) {
+		assert.any([is.string, is.buffer, is.nodeStream, is.generator, is.asyncGenerator, is.iterable, is.asyncIterable, isFormData, is.undefined], value);
 
 		if (is.nodeStream(value)) {
 			assert.truthy(value.readable);

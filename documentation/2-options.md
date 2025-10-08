@@ -293,7 +293,7 @@ stream.on('data', console.log);
 
 ### `body`
 
-**Type: `string | Buffer | stream.Readable | Generator | AsyncGenerator | FormData` or [`form-data` instance](https://github.com/form-data/form-data)**
+**Type: `string | Buffer | stream.Readable | Generator | AsyncGenerator | Iterable | AsyncIterable | FormData` or [`form-data` instance](https://github.com/form-data/form-data)**
 
 The payload to send.
 
@@ -310,6 +310,22 @@ const {data} = await got.post('https://httpbin.org/anything', {
 
 console.log(data);
 //=> 'Hello, world!'
+```
+
+You can use `Iterable` and `AsyncIterable` objects as request body, including Web [`ReadableStream`](https://developer.mozilla.org/en-US/docs/Web/API/ReadableStream):
+
+```js
+import got from 'got';
+
+// Using an async generator
+async function* generateData() {
+	yield 'Hello, ';
+	yield 'world!';
+}
+
+await got.post('https://httpbin.org/anything', {
+	body: generateData()
+});
 ```
 
 Since Got 12, you can use spec-compliant [`FormData`](https://developer.mozilla.org/en-US/docs/Web/API/FormData) objects as request body, such as [`formdata-node`](https://github.com/octet-stream/form-data) or [`formdata-polyfill`](https://github.com/jimmywarting/FormData):

@@ -1315,7 +1315,7 @@ test('`beforeRequest` change body', withServer, async (t, server, got) => {
 			beforeRequest: [
 				options => {
 					options.body = JSON.stringify({payload: 'new'});
-					options.headers['content-length'] = options.body.length.toString();
+					options.headers['content-length'] = (options.body as string).length.toString();
 				},
 			],
 		},
