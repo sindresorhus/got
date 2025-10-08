@@ -667,6 +667,41 @@ const getGlobalDnsCache = (): CacheableLookup => {
 	return globalDnsCache;
 };
 
+// Detects and wraps QuickLRU v7+ instances to make them compatible with the StorageAdapter interface
+const wrapQuickLruIfNeeded = (value: any): any => {
+	// Check if this is QuickLRU v7+ using Symbol.toStringTag and the evict method (added in v7)
+	if (value?.[Symbol.toStringTag] === 'QuickLRU' && typeof value.evict === 'function') {
+		// QuickLRU v7+ uses set(key, value, {maxAge: number}) but StorageAdapter expects set(key, value, ttl)
+		// Wrap it to translate the interface
+		return {
+			get(key: string) {
+				return value.get(key);
+			},
+			set(key: string, cacheValue: any, ttl?: number) {
+				if (ttl === undefined) {
+					value.set(key, cacheValue);
+				} else {
+					value.set(key, cacheValue, {maxAge: ttl});
+				}
+
+				return true;
+			},
+			delete(key: string) {
+				return value.delete(key);
+			},
+			clear() {
+				return value.clear();
+			},
+			has(key: string) {
+				return value.has(key);
+			},
+		};
+	}
+
+	// QuickLRU v5 and other caches work as-is
+	return value;
+};
+
 const defaultInternals: Options['_internals'] = {
 	request: undefined,
 	agent: {
@@ -1820,7 +1855,7 @@ export default class Options {
 		} else if (value === false) {
 			this._internals.cache = undefined;
 		} else {
-			this._internals.cache = value;
+			this._internals.cache = wrapQuickLruIfNeeded(value);
 		}
 	}
 

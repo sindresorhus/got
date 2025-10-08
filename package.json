@@ -93,6 +93,7 @@
 		"p-event": "^6.0.1",
 		"pem": "^1.14.8",
 		"pify": "^6.1.0",
+		"quick-lru": "^7.2.0",
 		"readable-stream": "^4.4.2",
 		"request": "^2.88.2",
 		"sinon": "^19.0.2",

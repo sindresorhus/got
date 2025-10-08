@@ -626,3 +626,28 @@ test.skip('revalidated compressed responses from github are retrieved from cache
 		t.true(response.complete);
 	});
 });
+
+test('QuickLRU works as cache adapter (auto-wrapped)', withServer, async (t, server, got) => {
+	server.get('/', cacheEndpoint);
+
+	// Using dynamic import to handle potential missing dependency
+	let cacheConstructor;
+	try {
+		cacheConstructor = (await import('quick-lru')).default;
+	} catch {
+		t.pass('QuickLRU not available, skipping test');
+		return;
+	}
+
+	// eslint-disable-next-line new-cap
+	const cache = new cacheConstructor({maxSize: 1000});
+
+	// QuickLRU is auto-wrapped by Got to be compatible with StorageAdapter
+	const firstResponse = await got({cache: cache as any});
+	const secondResponse = await got({cache: cache as any});
+
+	t.is(firstResponse.body, secondResponse.body);
+	t.false(firstResponse.isFromCache);
+	t.true(secondResponse.isFromCache);
+	t.is(cache.size, 1);
+});
