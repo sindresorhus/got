@@ -117,6 +117,23 @@ test('https request with `checkServerIdentity` NOT OK', withHttpsServer(), async
 	);
 });
 
+test('https request with `serverName` option', withHttpsServer(), async (t, server, got) => {
+	server.get('/', (request, response) => {
+		// Get the servername from the TLS connection
+		const {servername} = request.socket as any;
+		response.json({servername});
+	});
+
+	const {servername} = await got({
+		https: {
+			serverName: 'custom.example.com',
+			rejectUnauthorized: false,
+		},
+	}).json<{servername: string}>();
+
+	t.is(servername, 'custom.example.com');
+});
+
 // The built-in `openssl` on macOS does not support negative days.
 {
 	const testFunction = process.platform === 'darwin' ? test.skip : test;

@@ -444,6 +444,25 @@ export type HttpsOptions = {
 	// From `tls.ConnectionOptions`
 	checkServerIdentity?: CheckServerIdentityFunction;
 
+	/**
+	Server name for the [Server Name Indication (SNI)](https://en.wikipedia.org/wiki/Server_Name_Indication) TLS extension.
+
+	This is useful when requesting to servers that don't have a proper domain name but use a certificate with a known CN/SAN.
+
+	@example
+	```
+	import got from 'got';
+
+	// Request to IP address with specific servername for TLS
+	await got('https://192.168.1.100', {
+		https: {
+			serverName: 'example.com'
+		}
+	});
+	```
+	*/
+	serverName?: string;
+
 	// From `tls.SecureContextOptions`
 	/**
 	Override the default Certificate Authorities ([from Mozilla](https://ccadb-public.secure.force.com/mozilla/IncludedCACertificateReport)).
@@ -809,6 +828,7 @@ const defaultInternals: Options['_internals'] = {
 		alpnProtocols: undefined,
 		rejectUnauthorized: undefined,
 		checkServerIdentity: undefined,
+		serverName: undefined,
 		certificateAuthority: undefined,
 		key: undefined,
 		certificate: undefined,
@@ -2278,6 +2298,7 @@ export default class Options {
 
 		assert.any([is.boolean, is.undefined], value.rejectUnauthorized);
 		assert.any([is.function, is.undefined], value.checkServerIdentity);
+		assert.any([is.string, is.undefined], value.serverName);
 		assert.any([is.string, is.object, is.array, is.undefined], value.certificateAuthority);
 		assert.any([is.string, is.object, is.array, is.undefined], value.key);
 		assert.any([is.string, is.object, is.array, is.undefined], value.certificate);
@@ -2514,6 +2535,7 @@ export default class Options {
 			pfx: https.pfx,
 			rejectUnauthorized: https.rejectUnauthorized,
 			checkServerIdentity: https.checkServerIdentity ?? checkServerIdentity,
+			servername: https.serverName,
 			ciphers: https.ciphers,
 			honorCipherOrder: https.honorCipherOrder,
 			minVersion: https.minVersion,

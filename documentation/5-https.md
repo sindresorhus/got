@@ -39,6 +39,26 @@ If it failed, an `Error` should be returned.
 
 Check [Node.js docs](https://nodejs.org/api/https.html#https_https_request_url_options_callback) for an example.
 
+#### `serverName`
+
+**Type: `string`**\
+**Default: `undefined`**
+
+Server name for the [Server Name Indication (SNI)](https://en.wikipedia.org/wiki/Server_Name_Indication) TLS extension.
+
+This is useful when requesting to servers that don't have a proper domain name but use a certificate with a known CN/SAN.
+
+```js
+import got from 'got';
+
+// Request to IP address with specific servername for TLS
+await got('https://192.168.1.100', {
+	https: {
+		serverName: 'example.com'
+	}
+});
+```
+
 #### `certificateAuthority`
 
 **Type: `string | Buffer | string[] | Buffer[]`**
