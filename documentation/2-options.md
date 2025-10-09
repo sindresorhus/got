@@ -299,7 +299,26 @@ The payload to send.
 
 For `string` and `Buffer` types, the `content-length` header is automatically set if the `content-length` and `transfer-encoding` headers are missing.
 
-**Since Got 12, the `content-length` header is not automatically set when `body` is an instance of [`fs.createReadStream()`](https://nodejs.org/api/fs.html#fs_fs_createreadstream_path_options).**
+**The `content-length` header is not automatically set when `body` is an instance of [`fs.createReadStream()`](https://nodejs.org/api/fs.html#fs_fs_createreadstream_path_options).**
+
+To set `content-length` for file streams, you need to manually provide it using `fs.promises.stat()`:
+
+```js
+import fs from 'node:fs';
+import fsPromises from 'node:fs/promises';
+import got from 'got';
+
+const filePath = 'path/to/file';
+const fileStats = await fsPromises.stat(filePath);
+const fileStream = fs.createReadStream(filePath);
+
+await got.post('https://httpbin.org/anything', {
+	body: fileStream,
+	headers: {
+		'content-length': fileStats.size.toString()
+	}
+});
+```
 
 ```js
 import got from 'got';
