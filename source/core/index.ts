@@ -120,7 +120,7 @@ export type GotEventFunction<T> =
 
 	See `got.options.retry` for more information.
 	*/
-	& ((name: 'retry', listener: (retryCount: number, error: RequestError) => void) => T);
+	& ((name: 'retry', listener: (retryCount: number, error: RequestError, createRetryStream: (options?: OptionsInit) => Request) => void) => T);
 
 export type RequestEvents<T> = {
 	on: GotEventFunction<T>;

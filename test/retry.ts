@@ -548,6 +548,64 @@ test('can attach only one retry listener to a stream', withServer, async (t, _se
 	stream.destroy();
 });
 
+test('createRetryStream accepts options', withServer, async (t, server, got) => {
+	let returnServerError = true;
+	let receivedCustomHeader = false;
+
+	server.get('/', (request, response) => {
+		if (request.headers['x-custom-header'] === 'custom-value') {
+			receivedCustomHeader = true;
+		}
+
+		if (returnServerError) {
+			response.statusCode = 500;
+			response.end('not ok');
+			returnServerError = false;
+			return;
+		}
+
+		response.end('ok');
+	});
+
+	const responseStreamPromise = new Promise<PassThroughStream>((resolve, reject) => {
+		let writeStream: PassThroughStream;
+
+		const function_ = (retryStream?: Request) => {
+			const stream = retryStream ?? got.stream('');
+
+			if (writeStream) {
+				writeStream.destroy();
+			}
+
+			writeStream = new PassThroughStream();
+
+			stream.pipe(writeStream);
+
+			stream.once('retry', (_retryCount, _error, createRetryStream) => {
+				// Pass custom options on retry
+				function_(createRetryStream({
+					headers: {
+						'x-custom-header': 'custom-value',
+					},
+				}));
+			});
+
+			stream.once('error', reject);
+			stream.once('end', () => {
+				resolve(writeStream);
+			});
+		};
+
+		function_();
+	});
+
+	const responseStream = await responseStreamPromise;
+	const data = await getStream(responseStream);
+
+	t.is(data, 'ok');
+	t.true(receivedCustomHeader);
+});
+
 test('promise does not retry when body is a stream', withServer, async (t, server, got) => {
 	server.post('/', (_request, response) => {
 		response.statusCode = 500;
