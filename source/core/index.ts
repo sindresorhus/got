@@ -6,11 +6,12 @@ import type {Socket} from 'node:net';
 import timer, {type ClientRequestWithTimings, type Timings, type IncomingMessageWithTimings} from '@szmarczak/http-timer';
 import CacheableRequest, {
 	CacheError as CacheableCacheError,
-	type StorageAdapter,
 	type CacheableRequestFunction,
 	type CacheableOptions,
 } from 'cacheable-request';
 import decompressResponse from 'decompress-response';
+import type {KeyvStoreAdapter} from 'keyv';
+import type KeyvType from 'keyv';
 import is, {isBuffer} from '@sindresorhus/is';
 import {FormDataEncoder, isFormData as isFormDataLike} from 'form-data-encoder';
 import type ResponseLike from 'responselike';
@@ -126,6 +127,8 @@ export type RequestEvents<T> = {
 	once: GotEventFunction<T>;
 	off: GotEventFunction<T>;
 };
+
+type StorageAdapter = KeyvStoreAdapter | KeyvType | Map<any, any>;
 
 const cacheableStore = new WeakableMap<string | StorageAdapter, CacheableRequestFunction>();
 
@@ -1162,7 +1165,12 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			(this._requestOptions as any)._request = request;
 			(this._requestOptions as any).cache = options.cache;
 			(this._requestOptions as any).body = options.body;
-			this._prepareCache(options.cache as StorageAdapter);
+
+			try {
+				this._prepareCache(options.cache as StorageAdapter);
+			} catch (error: any) {
+				throw new CacheError(error, this);
+			}
 		}
 
 		// Cache support

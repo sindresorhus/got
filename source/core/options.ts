@@ -18,7 +18,8 @@ import lowercaseKeys from 'lowercase-keys';
 import CacheableLookup from 'cacheable-lookup';
 import http2wrapper, {type ClientHttp2Session} from 'http2-wrapper';
 import {isFormData, type FormDataLike} from 'form-data-encoder';
-import type {StorageAdapter} from 'cacheable-request';
+import type {KeyvStoreAdapter} from 'keyv';
+import type KeyvType from 'keyv';
 import type ResponseLike from 'responselike';
 import type {IncomingMessageWithTimings} from '@szmarczak/http-timer';
 import type {CancelableRequest} from '../as-promise/types.js';
@@ -26,6 +27,8 @@ import parseLinkHeader from './parse-link-header.js';
 import type {PlainResponse, Response} from './response.js';
 import type {RequestError} from './errors.js';
 import type {Delays} from './timed-out.js';
+
+type StorageAdapter = KeyvStoreAdapter | KeyvType | Map<any, any>;
 
 type Promisable<T> = T | Promise<T>;
 
