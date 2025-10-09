@@ -394,6 +394,60 @@ test('body - sends form-data with without known length', withServer, async (t, s
 	t.deepEqual(body, expected);
 });
 
+// See https://github.com/sindresorhus/got/issues/2340
+test('body - legacy form-data with unknown stream length throws helpful error', withServer, async (t, server, got) => {
+	server.post('/', echoHeaders);
+
+	// Create a custom stream without known length
+	const customStream = new stream.Readable({
+		read() {
+			this.push('custom stream data');
+			this.push(null);
+		},
+	});
+
+	const form = new FormData();
+	form.append('field', 'value');
+	form.append('file', customStream);
+
+	// Should throw a helpful error explaining how to fix the issue
+	await t.throwsAsync(got.post({
+		body: form,
+		headers: form.getHeaders(),
+	}), {
+		message: /Cannot determine content-length for form-data with stream\(s\) of unknown length/,
+	});
+});
+
+test('body - legacy form-data with knownLength works correctly', withServer, async (t, server, got) => {
+	server.post('/', echoHeaders);
+
+	const data = 'custom stream data';
+	const customStream = new stream.Readable({
+		read() {
+			this.push(data);
+			this.push(null);
+		},
+	});
+
+	const form = new FormData();
+	form.append('field', 'value');
+	// Using knownLength option as recommended in the error message
+	form.append('file', customStream, {
+		knownLength: Buffer.byteLength(data),
+	});
+
+	const {body} = await got.post({
+		body: form,
+		headers: form.getHeaders(),
+	});
+
+	const headers = JSON.parse(body);
+	// Should have content-length when knownLength is provided
+	t.is(typeof headers['content-length'], 'string');
+	t.true(Number(headers['content-length']) > 0);
+});
+
 test('throws on upload error', withServer, async (t, server, got) => {
 	server.post('/', defaultEndpoint);
 
