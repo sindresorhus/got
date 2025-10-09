@@ -750,3 +750,66 @@ test('http2 timeout', async t => {
 
 	t.true(error?.code === 'ETIMEDOUT' || error?.code === 'EUNSUPPORTED', error?.stack);
 });
+
+// Reproduces the memory leak reported in https://github.com/sindresorhus/got/issues/2351
+test.serial('no memory leak when using http2 with socket timeout and connection reuse', withHttpsServer(), async (t, server, got) => {
+	const {default: http2wrapper} = await import('http2-wrapper');
+	const customAgent = new http2wrapper.Agent();
+
+	server.get('/:id', (_request, response) => {
+		response.end('ok');
+	});
+
+	const requestCount = 15; // Make concurrent requests to accumulate listeners
+	let sharedSocket: any;
+	let maxListenerCount = 0;
+
+	// Make requests that overlap in time to reproduce the listener accumulation
+	server.get('/slow/:id', async (_request, response) => {
+		// Slow response to keep requests active simultaneously
+		await delay(200);
+		response.end('ok');
+	});
+
+	// Start many concurrent requests with the same agent to reuse the connection
+	const promises = [];
+	const handleRequest = (request: any) => {
+		// Track socket and check listener count DURING requests
+		request.once('socket', (socket: any) => {
+			if (!sharedSocket) {
+				sharedSocket = socket;
+			}
+
+			// Check how many listeners are on the socket while requests are active
+			const currentCount = socket.listenerCount('timeout');
+			if (currentCount > maxListenerCount) {
+				maxListenerCount = currentCount;
+			}
+		});
+	};
+
+	for (let i = 0; i < requestCount; i++) {
+		const promise = got(`slow/${i}`, {
+			http2: true,
+			agent: {http2: customAgent},
+			timeout: {socket: 30_000},
+			https: {rejectUnauthorized: false},
+		}).on('request', handleRequest);
+		promises.push(promise);
+	}
+
+	// Wait for all concurrent requests to finish
+	await Promise.all(promises);
+
+	// The bug: setTimeout(0) doesn't remove timeout listeners, so with HTTP/2
+	// connection reuse and concurrent requests, listeners accumulate on the shared socket
+	// The fix: removeAllListeners('timeout') properly cleans up
+
+	t.truthy(sharedSocket, 'Should have a socket');
+
+	// With the bug (setTimeout(0)), maxListenerCount would be >> 1 (grows with concurrent requests)
+	// With the fix (removeAllListeners), maxListenerCount should be 0 or 1
+	t.true(maxListenerCount <= 1, `Socket peaked at ${maxListenerCount} timeout listeners (expected ≤ 1)`);
+
+	customAgent.destroy();
+});
