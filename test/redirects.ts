@@ -613,3 +613,47 @@ test('correct port on redirect', withServer, async (t, server1, got) => {
 		t.is(response.body, 'SERVER2');
 	});
 });
+
+test('downloadProgress does not fire for redirect responses', withServer, async (t, server, got) => {
+	const body = Buffer.alloc(1024);
+
+	server.get('/', (_request, response) => {
+		response.writeHead(200, {
+			'content-length': body.length,
+		});
+		response.end(body);
+	});
+
+	server.get('/redirect', (_request, response) => {
+		response.writeHead(302, {
+			location: '/',
+			'content-length': '0',
+		});
+		response.end();
+	});
+
+	const progressEvents: Array<{transferred: number; total?: number}> = [];
+
+	await got('redirect', {responseType: 'buffer'})
+		.on('downloadProgress', event => {
+			progressEvents.push({transferred: event.transferred, total: event.total});
+		});
+
+	// Should have at least 2 events: initial and final
+	// All events should be for the final response (total = 1024), not the redirect
+	t.true(progressEvents.length >= 2);
+
+	// First event should be initial progress for final response
+	t.is(progressEvents[0]?.transferred, 0);
+	t.is(progressEvents[0]?.total, 1024);
+
+	// Last event should be completion
+	const lastEvent = progressEvents.at(-1)!;
+	t.is(lastEvent.transferred, 1024);
+	t.is(lastEvent.total, 1024);
+
+	// All events should have total = 1024 (the final response size, not 0 from redirect)
+	for (const event of progressEvents) {
+		t.is(event.total, 1024);
+	}
+});

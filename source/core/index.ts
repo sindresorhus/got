@@ -698,11 +698,6 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		this._responseSize = Number(response.headers['content-length']) || undefined;
 		this.response = typedResponse;
 
-		response.once('end', () => {
-			this._responseSize = this._downloadedSize;
-			this.emit('downloadProgress', this.downloadProgress);
-		});
-
 		response.once('error', (error: Error) => {
 			this._aborted = true;
 
@@ -722,8 +717,6 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 				code: 'ECONNRESET',
 			}, this));
 		});
-
-		this.emit('downloadProgress', this.downloadProgress);
 
 		const rawCookies = response.headers['set-cookie'];
 		if (is.object(options.cookieJar) && rawCookies) {
@@ -768,6 +761,9 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 				}
 
 				this._request = undefined;
+
+				// Reset download progress for the new request
+				this._downloadedSize = 0;
 
 				const updatedOptions = new Options(undefined, undefined, this.options);
 
@@ -850,6 +846,15 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			return;
 		}
 
+		// Set up end listener AFTER redirect check to avoid emitting progress for redirect responses
+		response.once('end', () => {
+			this._responseSize = this._downloadedSize;
+			this.emit('downloadProgress', this.downloadProgress);
+			this.push(null);
+		});
+
+		this.emit('downloadProgress', this.downloadProgress);
+
 		response.on('readable', () => {
 			if (this._triggerRead) {
 				this._read();
@@ -862,10 +867,6 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 		this.on('pause', () => {
 			response.pause();
-		});
-
-		response.once('end', () => {
-			this.push(null);
 		});
 
 		if (this._noPipe) {
