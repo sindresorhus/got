@@ -305,8 +305,14 @@ export type Hooks = {
 	> - When using the Stream API, this hook is ignored.
 
 	**Note:**
-	> - Calling the `retryWithMergedOptions` function will trigger `beforeRetry` hooks. If the retry is successful, all remaining `afterResponse` hooks will be called. In case of an error, `beforeRetry` hooks will be called instead.
+	> - Calling the `retryWithMergedOptions` function will trigger `beforeRetry` hooks. By default, remaining `afterResponse` hooks are removed to prevent duplicate execution. To preserve remaining hooks on retry, set `preserveHooks: true` in the options passed to `retryWithMergedOptions`. In case of an error, `beforeRetry` hooks will be called instead.
 	Meanwhile the `init`, `beforeRequest` , `beforeRedirect` as well as already executed `afterResponse` hooks will be skipped.
+
+	**Note:**
+	> - To preserve remaining `afterResponse` hooks after calling `retryWithMergedOptions`, set `preserveHooks: true` in the options passed to `retryWithMergedOptions`. This is useful when you want hooks to run on retried requests.
+
+	**Warning:**
+	> - Be cautious when using `preserveHooks: true`. If a hook unconditionally calls `retryWithMergedOptions` with `preserveHooks: true`, it will create an infinite retry loop. Always ensure hooks have proper conditional logic to avoid infinite retries.
 
 	@example
 	```
@@ -343,6 +349,37 @@ export type Hooks = {
 			]
 		},
 		mutableDefaults: true
+	});
+	```
+
+	@example
+	```
+	// Example with preserveHooks
+	import got from 'got';
+
+	const instance = got.extend({
+		hooks: {
+			afterResponse: [
+				(response, retryWithMergedOptions) => {
+					if (response.statusCode === 401) {
+						return retryWithMergedOptions({
+							headers: {
+								authorization: getNewToken()
+							},
+							preserveHooks: true  // Keep remaining hooks
+						});
+					}
+
+					return response;
+				},
+				(response) => {
+					// This hook will run on the retried request
+					// (the original request is interrupted when the first hook triggers a retry)
+					console.log('Response received:', response.statusCode);
+					return response;
+				}
+			]
+		}
 	});
 	```
 	*/
@@ -678,6 +715,7 @@ export type OptionsInit =
 	& {
 		hooks?: Partial<Hooks>;
 		retry?: Partial<RetryOptions>;
+		preserveHooks?: boolean;
 	};
 
 const globalCache = new Map();
@@ -1132,6 +1170,11 @@ export default class Options {
 
 				// Never merge `url`
 				if (key === 'url') {
+					continue;
+				}
+
+				// Never merge `preserveHooks` - it's a control flag, not a persistent option
+				if (key === 'preserveHooks') {
 					continue;
 				}
 

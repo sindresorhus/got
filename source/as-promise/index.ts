@@ -87,6 +87,8 @@ export default function asPromise<T>(firstRequest?: Request): CancelableRequest<
 						// @ts-expect-error TS doesn't notice that CancelableRequest is a Promise
 						// eslint-disable-next-line no-await-in-loop
 						response = await hook(response, async (updatedOptions): CancelableRequest<Response> => {
+							const preserveHooks = updatedOptions.preserveHooks ?? false;
+
 							options.merge(updatedOptions);
 							options.prefixUrl = '';
 
@@ -96,7 +98,10 @@ export default function asPromise<T>(firstRequest?: Request): CancelableRequest<
 
 							// Remove any further hooks for that request, because we'll call them anyway.
 							// The loop continues. We don't want duplicates (asPromise recursion).
-							options.hooks.afterResponse = options.hooks.afterResponse.slice(0, index);
+							// Unless preserveHooks is true, in which case we keep the remaining hooks.
+							if (!preserveHooks) {
+								options.hooks.afterResponse = options.hooks.afterResponse.slice(0, index);
+							}
 
 							throw new RetryError(request);
 						});

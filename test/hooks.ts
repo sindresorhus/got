@@ -774,6 +774,185 @@ test('does not throw on afterResponse retry HTTP failure if throwHttpErrors is f
 	t.is(statusCode, 500);
 });
 
+test('afterResponse preserveHooks keeps remaining hooks on retry', withServer, async (t, server, got) => {
+	server.get('/', (request, response) => {
+		if (request.headers.token !== 'unicorn') {
+			response.statusCode = 401;
+		}
+
+		response.end();
+	});
+
+	let firstHookCalls = 0;
+	let secondHookCalls = 0;
+
+	const {statusCode} = await got({
+		hooks: {
+			afterResponse: [
+				(response, retryWithMergedOptions) => {
+					firstHookCalls++;
+
+					if (response.statusCode === 401) {
+						return retryWithMergedOptions({
+							headers: {
+								token: 'unicorn',
+							},
+							preserveHooks: true,
+						});
+					}
+
+					return response;
+				},
+				response => {
+					secondHookCalls++;
+					return response;
+				},
+			],
+		},
+	});
+
+	t.is(statusCode, 200);
+	t.is(firstHookCalls, 2); // Called for both original and retry
+	t.is(secondHookCalls, 1); // Called only on retry (original was interrupted by RetryError)
+});
+
+test('afterResponse without preserveHooks skips remaining hooks on retry', withServer, async (t, server, got) => {
+	server.get('/', (request, response) => {
+		if (request.headers.token !== 'unicorn') {
+			response.statusCode = 401;
+		}
+
+		response.end();
+	});
+
+	let firstHookCalls = 0;
+	let secondHookCalls = 0;
+
+	const {statusCode} = await got({
+		hooks: {
+			afterResponse: [
+				(response, retryWithMergedOptions) => {
+					firstHookCalls++;
+
+					if (response.statusCode === 401) {
+						return retryWithMergedOptions({
+							headers: {
+								token: 'unicorn',
+							},
+						});
+					}
+
+					return response;
+				},
+				response => {
+					secondHookCalls++;
+					return response;
+				},
+			],
+		},
+	});
+
+	t.is(statusCode, 200);
+	t.is(firstHookCalls, 1); // Called only on original request (removed from retry by default)
+	t.is(secondHookCalls, 0); // Never called (removed by slice before it could run)
+});
+
+test('afterResponse preserveHooks with three hooks', withServer, async (t, server, got) => {
+	server.get('/', (request, response) => {
+		if (request.headers.token !== 'unicorn') {
+			response.statusCode = 401;
+		}
+
+		response.end();
+	});
+
+	let firstHookCalls = 0;
+	let secondHookCalls = 0;
+	let thirdHookCalls = 0;
+
+	const {statusCode} = await got({
+		hooks: {
+			afterResponse: [
+				(response, retryWithMergedOptions) => {
+					firstHookCalls++;
+
+					if (response.statusCode === 401) {
+						return retryWithMergedOptions({
+							headers: {
+								token: 'unicorn',
+							},
+							preserveHooks: true,
+						});
+					}
+
+					return response;
+				},
+				response => {
+					secondHookCalls++;
+					return response;
+				},
+				response => {
+					thirdHookCalls++;
+					return response;
+				},
+			],
+		},
+	});
+
+	t.is(statusCode, 200);
+	t.is(firstHookCalls, 2); // Called for both original and retry
+	t.is(secondHookCalls, 1); // Called only on retry
+	t.is(thirdHookCalls, 1); // Called only on retry
+});
+
+test('afterResponse preserveHooks when second hook triggers retry', withServer, async (t, server, got) => {
+	server.get('/', (request, response) => {
+		if (request.headers.token !== 'unicorn') {
+			response.statusCode = 401;
+		}
+
+		response.end();
+	});
+
+	let firstHookCalls = 0;
+	let secondHookCalls = 0;
+	let thirdHookCalls = 0;
+
+	const {statusCode} = await got({
+		hooks: {
+			afterResponse: [
+				response => {
+					firstHookCalls++;
+					return response;
+				},
+				(response, retryWithMergedOptions) => {
+					secondHookCalls++;
+
+					if (response.statusCode === 401) {
+						return retryWithMergedOptions({
+							headers: {
+								token: 'unicorn',
+							},
+							preserveHooks: true,
+						});
+					}
+
+					return response;
+				},
+				response => {
+					thirdHookCalls++;
+					return response;
+				},
+			],
+		},
+	});
+
+	t.is(statusCode, 200);
+	t.is(firstHookCalls, 2); // Called for both original and retry (preserved by preserveHooks)
+	t.is(secondHookCalls, 2); // Called for both original and retry
+	t.is(thirdHookCalls, 1); // Called only on retry
+});
+
 test('throwing in a beforeError hook - promise', withServer, async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.end('ok');
