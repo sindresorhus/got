@@ -219,3 +219,48 @@ test('accept undefined agent', withServer, async (t, server, got) => {
 		agent: undefinedAgent,
 	})).body);
 });
+
+test('accept false as agent value', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.end('ok');
+	});
+
+	// Should not throw error when setting agent types to false
+	t.notThrows(() => got.extend({
+		agent: {
+			http: false,
+			https: false,
+			http2: false,
+		},
+	}));
+
+	// Should successfully make request with false agent values
+	const response = await got({
+		agent: {
+			http: false,
+		},
+	});
+
+	t.is(response.body, 'ok');
+});
+
+test('accept mixed agent values with false', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.end('ok');
+	});
+
+	const {agent: httpAgent} = createAgentSpy(HttpAgent);
+
+	// Should accept a mix of agent instance and false values
+	const response = await got({
+		agent: {
+			http: httpAgent,
+			https: false,
+			http2: false,
+		},
+	});
+
+	t.is(response.body, 'ok');
+
+	httpAgent.destroy();
+});

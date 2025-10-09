@@ -1188,7 +1188,7 @@ export default class Options {
 			}
 
 			// @ts-expect-error - No idea why `value[key]` doesn't work here.
-			assert.any([is.object, is.undefined], value[key]);
+			assert.any([is.object, is.undefined, (v: unknown) => v === false], value[key]);
 		}
 
 		if (this._merging) {
