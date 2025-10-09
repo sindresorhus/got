@@ -89,6 +89,53 @@ for await (const commitData of pagination) {
 }
 ```
 
+### Measuring traffic usage
+
+You can measure the total bytes transferred (sent and received) for a request by accessing the underlying socket's `bytesWritten` and `bytesRead` properties.\
+The socket is available via [`stream.socket`](3-streams.md#streamsocket) or [`response.request.socket`](3-streams.md#socket).
+
+**Note:**
+> - The socket's byte counters include HTTP headers and all protocol overhead, not just the request/response body.
+> - The socket may be `undefined` when using cached responses.
+
+```js
+import got from 'got';
+
+const stream = got.stream('https://httpbin.org/json');
+
+stream.on('response', () => {
+	console.log(`Downloaded: ${stream.socket.bytesRead} bytes`);
+	console.log(`Uploaded: ${stream.socket.bytesWritten} bytes`);
+});
+
+stream.on('end', () => {
+	const totalTraffic = stream.socket.bytesRead + stream.socket.bytesWritten;
+	console.log(`Total traffic: ${totalTraffic} bytes`);
+});
+
+stream.resume();
+```
+
+You can also access the socket when using the Promise API:
+
+```js
+import got from 'got';
+
+const request = got('https://httpbin.org/json');
+
+request.on('response', response => {
+	console.log(`Downloaded: ${response.request.socket.bytesRead} bytes`);
+	console.log(`Uploaded: ${response.request.socket.bytesWritten} bytes`);
+});
+
+const response = await request;
+
+if (response.request.socket) {
+	const totalTraffic = response.request.socket.bytesRead + response.request.socket.bytesWritten;
+	console.log(`Total traffic: ${totalTraffic} bytes`);
+}
+```
+
 <a name="unix"></a>
 ### UNIX Domain Sockets
 
