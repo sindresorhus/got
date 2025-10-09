@@ -333,6 +333,7 @@ test('support AbortSignal.timeout()', async t => {
 	const p = got('http://example.com', {signal});
 
 	await t.throwsAsync(p, {
+		name: 'TimeoutError',
 		code: timeoutErrorCode,
 		message: 'The operation was aborted due to timeout',
 	});
@@ -348,6 +349,7 @@ test('support AbortSignal.timeout() without user abort', async t => {
 	const p = got('http://example.com', {signal});
 
 	await t.throwsAsync(p, {
+		name: 'TimeoutError',
 		code: timeoutErrorCode,
 		message: 'The operation was aborted due to timeout',
 	});
@@ -370,6 +372,7 @@ test('support AbortSignal.timeout() with user abort', async t => {
 	const p = got('http://example.com', {signal});
 
 	await t.throwsAsync(p, {
+		name: 'AbortError',
 		code: 'ERR_ABORTED',
 		message: 'This operation was aborted.',
 	});
