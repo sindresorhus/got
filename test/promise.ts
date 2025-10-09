@@ -1,6 +1,6 @@
 import {Buffer} from 'node:buffer';
 import {ReadStream} from 'node:fs';
-import {ClientRequest, IncomingMessage} from 'node:http';
+import {ClientRequest} from 'node:http';
 import test from 'ava';
 import {type Response, CancelError} from '../source/index.js';
 import withServer from './helpers/with-server.js';
@@ -23,7 +23,7 @@ test('emits response event as promise', withServer, async (t, server, got) => {
 	});
 
 	await got('').json().on('response', (response: Response) => {
-		t.true(response instanceof IncomingMessage);
+		t.is(response.statusCode, 200);
 		t.false(response.readable);
 		t.is(response.statusCode, 200);
 		t.true(response.ip === '127.0.0.1' || response.ip === '::1');

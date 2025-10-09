@@ -532,24 +532,32 @@ test('method rewriting', withServer, async (t, server, got) => {
 test('clears username and password when redirecting to a different hostname', withServer, async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.writeHead(302, {
-			location: 'https://httpbin.org/anything',
+			location: 'https://example.com/',
 		});
 		response.end();
+	});
+
+	nock('https://example.com').get('/').reply(200, function () {
+		return JSON.stringify({headers: this.req.headers});
 	});
 
 	const {headers} = await got('', {
 		username: 'hello',
 		password: 'world',
 	}).json<{headers: Record<string, string | undefined>}>();
-	t.is(headers.Authorization, undefined);
+	t.is(headers.authorization, undefined);
 });
 
 test('clears the authorization header when redirecting to a different hostname', withServer, async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.writeHead(302, {
-			location: 'https://httpbin.org/anything',
+			location: 'https://example.com/',
 		});
 		response.end();
+	});
+
+	nock('https://example.com').get('/').reply(200, function () {
+		return JSON.stringify({headers: this.req.headers});
 	});
 
 	const {headers} = await got('', {
@@ -557,7 +565,7 @@ test('clears the authorization header when redirecting to a different hostname',
 			authorization: 'Basic aGVsbG86d29ybGQ=',
 		},
 	}).json<{headers: Record<string, string | undefined>}>();
-	t.is(headers.Authorization, undefined);
+	t.is(headers.authorization, undefined);
 });
 
 test('preserves userinfo on redirect to the same origin', withServer, async (t, server) => {

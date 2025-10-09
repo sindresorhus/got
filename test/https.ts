@@ -4,7 +4,6 @@ import test from 'ava';
 import {pEvent} from 'p-event';
 import pify from 'pify';
 import pem from 'pem';
-import got from '../source/index.js';
 import {withHttpsServer} from './helpers/with-server.js';
 import type {CreatePrivateKey, CreateCsr, CreateCertificate} from './types/pem.js';
 
@@ -156,17 +155,20 @@ test('https request with wrong host', withHttpsServer({commonName: 'not-localhos
 	);
 });
 
-test('http2', async t => {
-	const promise = got('https://httpbin.org/anything', {
+test('http2', withHttpsServer(), async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.json({method: 'GET', data: 'test'});
+	});
+
+	const promise = got({
 		http2: true,
 	});
 
 	try {
-		const {headers, body} = await promise;
+		const {statusCode, body} = await promise;
 		await promise.json();
 
-		// @ts-expect-error Pseudo headers may not be strings
-		t.is(headers[':status'], 200);
+		t.is(statusCode, 200);
 		t.is(typeof body, 'string');
 
 		t.pass();
@@ -180,10 +182,18 @@ test('http2', async t => {
 	}
 });
 
-test('http2 connection reuse with default agent', async t => {
+test('http2 connection reuse with default agent', withHttpsServer(), async (t, server, got) => {
+	server.get('/200', (_request, response) => {
+		response.status(200).end('OK');
+	});
+
+	server.get('/201', (_request, response) => {
+		response.status(201).end('Created');
+	});
+
 	try {
-		const response1 = await got('https://httpbin.org/status/200', {http2: true});
-		const response2 = await got('https://httpbin.org/status/201', {http2: true});
+		const response1 = await got('200', {http2: true});
+		const response2 = await got('201', {http2: true});
 
 		t.is(response1.statusCode, 200);
 		t.is(response2.statusCode, 201);
@@ -197,17 +207,25 @@ test('http2 connection reuse with default agent', async t => {
 	}
 });
 
-test('http2 connection reuse with custom agent', async t => {
+test('http2 connection reuse with custom agent', withHttpsServer(), async (t, server, got) => {
+	server.get('/200', (_request, response) => {
+		response.status(200).end('OK');
+	});
+
+	server.get('/201', (_request, response) => {
+		response.status(201).end('Created');
+	});
+
 	try {
 		const {default: http2wrapper} = await import('http2-wrapper');
 		const customAgent = new http2wrapper.Agent({maxEmptySessions: 5});
 
-		const response1 = await got('https://httpbin.org/status/200', {
+		const response1 = await got('200', {
 			http2: true,
 			agent: {http2: customAgent},
 		});
 
-		const response2 = await got('https://httpbin.org/status/201', {
+		const response2 = await got('201', {
 			http2: true,
 			agent: {http2: customAgent},
 		});

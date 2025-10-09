@@ -139,3 +139,36 @@ test('response has `url` and `requestUrl` properties', withServer, async (t, ser
 	t.truthy(response.url);
 	t.truthy(response.requestUrl);
 });
+
+// TODO: Enable when we update `decompress-response`.
+// eslint-disable-next-line ava/no-skip-test
+test.skip('compressed and uncompressed responses have consistent spreadability', withServer, async (t, server, got) => {
+	server.get('/compressed', (_request, response) => {
+		response.setHeader('Content-Encoding', 'gzip');
+		response.end(gzipData);
+	});
+
+	server.get('/uncompressed', (_request, response) => {
+		response.end(testContentUncompressed);
+	});
+
+	// Test compressed response spreadability
+	const compressedResponse = await got('compressed');
+	const compressedSpread = {...compressedResponse};
+
+	t.truthy(compressedSpread.headers);
+	t.is(compressedSpread.statusCode, 200);
+	t.truthy(compressedSpread.body);
+
+	// Test uncompressed response spreadability
+	const uncompressedResponse = await got('uncompressed');
+	const uncompressedSpread = {...uncompressedResponse};
+
+	t.truthy(uncompressedSpread.headers);
+	t.is(uncompressedSpread.statusCode, 200);
+	t.truthy(uncompressedSpread.body);
+
+	// Both should have the same spreadable properties
+	t.truthy(compressedSpread.headers && uncompressedSpread.headers);
+	t.truthy(compressedSpread.statusCode && uncompressedSpread.statusCode);
+});

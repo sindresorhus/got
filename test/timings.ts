@@ -1,6 +1,5 @@
 import test from 'ava';
-import got from '../source/index.js';
-import withServer from './helpers/with-server.js';
+import withServer, {withHttpsServer} from './helpers/with-server.js';
 
 test('http/1 timings', withServer, async (t, server, got) => {
 	server.get('/', (_request, response) => {
@@ -28,8 +27,12 @@ test('http/1 timings', withServer, async (t, server, got) => {
 	t.true(phases.total! >= 0);
 });
 
-test.failing('http/2 timings', async t => {
-	const {timings} = await got('https://httpbin.org/anything', {http2: true});
+test('http/2 timings', withHttpsServer(), async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.json({data: 'test'});
+	});
+
+	const {timings} = await got({http2: true});
 
 	t.true(timings.start >= 0);
 	t.true(timings.socket! >= 0);

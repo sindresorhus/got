@@ -2,6 +2,7 @@ import net from 'node:net';
 import test from 'ava';
 import toughCookie from 'tough-cookie';
 import delay from 'delay';
+import nock from 'nock';
 import {got, RequestError} from '../source/index.js';
 import withServer from './helpers/with-server.js';
 
@@ -208,9 +209,13 @@ test('throws on invalid `options.cookieJar.getCookieString`', async t => {
 test('cookies are cleared when redirecting to a different hostname (no cookieJar)', withServer, async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.writeHead(302, {
-			location: 'https://httpbin.org/anything',
+			location: 'https://example.com/',
 		});
 		response.end();
+	});
+
+	nock('https://example.com').get('/').reply(200, function () {
+		return JSON.stringify({headers: this.req.headers});
 	});
 
 	const {headers} = await got('', {
@@ -219,6 +224,6 @@ test('cookies are cleared when redirecting to a different hostname (no cookieJar
 			'user-agent': 'custom',
 		},
 	}).json<{headers: Record<string, string | undefined>}>();
-	t.is(headers.Cookie, undefined);
-	t.is(headers['User-Agent'], 'custom');
+	t.is(headers.cookie, undefined);
+	t.is(headers['user-agent'], 'custom');
 });
