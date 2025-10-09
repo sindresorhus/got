@@ -388,7 +388,9 @@ Delays between retries counts with function `1000 * Math.pow(2, retry) + Math.ra
 The `calculateDelay` property is a `function` that receives an object with `attemptCount`, `retryOptions`, `error` and `computedValue` properties for current retry count, the retry options, error and default computed value.
 The function must return a delay in milliseconds (or a Promise resolving with it) (`0` return value cancels retry).
 
-__Note:__ When you provide `calculateDelay`, you take full control of retry decisions. The `limit` option is not automatically enforced - you must check `attemptCount` yourself or return `0` when `computedValue` is `0` to respect the default retry logic.
+The `enforceRetryRules` property is a `boolean` that, when set to `true`, enforces the `limit`, `methods`, `statusCodes`, and `errorCodes` options before calling `calculateDelay`. Your `calculateDelay` function is only invoked when a retry is allowed based on these criteria. When `false` (default), `calculateDelay` receives the computed value but can override all retry logic.
+
+__Note:__ When `enforceRetryRules` is `false`, you must check `computedValue` in your `calculateDelay` function to respect the default retry logic. When `true`, the retry rules are enforced automatically.
 
 By default, it retries *only* on the specified methods, status codes, and on these network errors:
 - `ETIMEDOUT`: One of the [timeout](#timeout) limits were reached.
@@ -413,6 +415,7 @@ export type RetryOptions = {
 	backoffLimit: number;
 	noise: number;
 	maxRetryAfter?: number;
+	enforceRetryRules?: boolean;
 };
 
 export type CreateConnectionFunction = (options: NativeRequestOptions, oncreate: (error: NodeJS.ErrnoException, socket: Socket) => void) => Socket;
@@ -790,6 +793,8 @@ const defaultInternals: Options['_internals'] = {
 		calculateDelay: ({computedValue}) => computedValue,
 		backoffLimit: Number.POSITIVE_INFINITY,
 		noise: 100,
+		// TODO: Change default to `true` in the next major version to fix https://github.com/sindresorhus/got/issues/2243
+		enforceRetryRules: false,
 	},
 	localAddress: undefined,
 	method: 'GET',
@@ -2134,7 +2139,9 @@ export default class Options {
 	The `calculateDelay` property is a `function` that receives an object with `attemptCount`, `retryOptions`, `error` and `computedValue` properties for current retry count, the retry options, error and default computed value.
 	The function must return a delay in milliseconds (or a Promise resolving with it) (`0` return value cancels retry).
 
-	__Note:__ When you provide `calculateDelay`, you take full control of retry decisions. The `limit` option is not automatically enforced - you must check `attemptCount` yourself or return `0` when `computedValue` is `0` to respect the default retry logic.
+	The `enforceRetryRules` property is a `boolean` that, when set to `true`, enforces the `limit`, `methods`, `statusCodes`, and `errorCodes` options before calling `calculateDelay`. Your `calculateDelay` function is only invoked when a retry is allowed based on these criteria. When `false` (default), `calculateDelay` receives the computed value but can override all retry logic.
+
+	__Note:__ When `enforceRetryRules` is `false`, you must check `computedValue` in your `calculateDelay` function to respect the default retry logic. When `true`, the retry rules are enforced automatically.
 
 	By default, it retries *only* on the specified methods, status codes, and on these network errors:
 
@@ -2164,6 +2171,7 @@ export default class Options {
 		assert.any([is.array, is.undefined], value.statusCodes);
 		assert.any([is.array, is.undefined], value.errorCodes);
 		assert.any([is.number, is.undefined], value.noise);
+		assert.any([is.boolean, is.undefined], value.enforceRetryRules);
 
 		if (value.noise && Math.abs(value.noise) > 100) {
 			throw new Error(`The maximum acceptable retry noise is +/- 100ms, got ${value.noise}`);

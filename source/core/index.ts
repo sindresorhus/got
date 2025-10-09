@@ -373,19 +373,29 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 					const retryOptions = options.retry as RetryOptions;
 
-					backoff = await retryOptions.calculateDelay({
+					const computedValue = calculateRetryDelay({
 						attemptCount,
 						retryOptions,
 						error: typedError,
 						retryAfter,
-						computedValue: calculateRetryDelay({
+						computedValue: retryOptions.maxRetryAfter ?? options.timeout.request ?? Number.POSITIVE_INFINITY,
+					});
+
+					// When enforceRetryRules is true, respect the retry rules (limit, methods, statusCodes, errorCodes)
+					// before calling the user's calculateDelay function. If computedValue is 0 (meaning retry is not allowed
+					// based on these rules), skip calling calculateDelay entirely.
+					// When false (default), always call calculateDelay, allowing it to override retry decisions.
+					if (retryOptions.enforceRetryRules && computedValue === 0) {
+						backoff = 0;
+					} else {
+						backoff = await retryOptions.calculateDelay({
 							attemptCount,
 							retryOptions,
 							error: typedError,
 							retryAfter,
-							computedValue: retryOptions.maxRetryAfter ?? options.timeout.request ?? Number.POSITIVE_INFINITY,
-						}),
-					});
+							computedValue,
+						});
+					}
 				} catch (error_: any) {
 					void this._error(new RequestError(error_.message, error_, this));
 					return;

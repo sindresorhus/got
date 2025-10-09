@@ -615,3 +615,60 @@ test('respects backoffLimit', withServer, async (t, server, got) => {
 	t.true(body[1]! < 400);
 	t.true(body[2]! < 400);
 });
+
+test('enforceRetryRules respects statusCodes with custom calculateDelay', withServer, async (t, server, got) => {
+	let requestCount = 0;
+	server.get('/', (_request, response) => {
+		requestCount++;
+		// Return 500 on first request, 429 on second, 200 on third
+		if (requestCount === 1) {
+			response.statusCode = 500;
+		} else if (requestCount === 2) {
+			response.statusCode = 429;
+		}
+
+		response.end();
+	});
+
+	const {statusCode, retryCount} = await got({
+		throwHttpErrors: false,
+		retry: {
+			limit: 5,
+			statusCodes: [429], // Should only retry on 429
+			enforceRetryRules: true,
+			calculateDelay({attemptCount}) {
+				// Custom delay but should still respect statusCodes
+				return attemptCount * 100;
+			},
+		},
+	});
+
+	// Should not retry on 500 (not in statusCodes list)
+	t.is(statusCode, 500);
+	t.is(retryCount, 0);
+});
+
+test('enforceRetryRules respects limit with custom calculateDelay', withServer, async (t, server, got) => {
+	let requestCount = 0;
+	server.get('/', (_request, response) => {
+		requestCount++;
+		response.statusCode = 500;
+		response.end();
+	});
+
+	const {retryCount} = await got({
+		throwHttpErrors: false,
+		retry: {
+			limit: 2,
+			enforceRetryRules: true,
+			calculateDelay({attemptCount}) {
+				// With enforceRetryRules, limit is enforced automatically
+				return attemptCount * 100;
+			},
+		},
+	});
+
+	// Should stop at limit even with custom calculateDelay
+	t.is(retryCount, 2);
+	t.is(requestCount, 3); // Initial request + 2 retries
+});
