@@ -1475,7 +1475,9 @@ export default class Options {
 	}
 
 	/**
-	JSON body. If the `Content-Type` header is not set, it will be set to `application/json`.
+	JSON request body. If the `content-type` header is not set, it will be set to `application/json`.
+
+	__Important__: This option only affects the request body you send to the server. To parse the response as JSON, you must either call `.json()` on the promise or set `responseType: 'json'` in the options.
 
 	__Note #1__: If you provide this option, `got.stream()` will be read-only.
 

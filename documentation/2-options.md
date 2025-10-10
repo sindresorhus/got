@@ -381,7 +381,10 @@ console.log(data.form.greeting);
 
 **Type: JSON-serializable values**
 
-JSON body. If set, the `content-type` header defaults to `application/json`.
+JSON **request** body. If set, the `content-type` header defaults to `application/json`.
+
+> [!IMPORTANT]
+> This option only affects the **request body** you send to the server. To parse the **response** as JSON, you must either call `.json()` on the promise or set [`responseType: 'json'`](#responsetype) in the options.
 
 ```js
 import got from 'got';
