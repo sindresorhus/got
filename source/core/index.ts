@@ -242,7 +242,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 			this.flush = async () => {
 				this.flush = async () => {};
-				this.destroy(error);
+				this._beforeError(error);
 			};
 
 			return;
@@ -1222,11 +1222,11 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 	private async _error(error: RequestError): Promise<void> {
 		try {
-			if (error instanceof HTTPError && !this.options.throwHttpErrors) {
+			if (this.options && error instanceof HTTPError && !this.options.throwHttpErrors) {
 				// This branch can be reached only when using the Promise API
 				// Skip calling the hooks on purpose.
 				// See https://github.com/sindresorhus/got/issues/2103
-			} else {
+			} else if (this.options) {
 				for (const hook of this.options.hooks.beforeError) {
 					// eslint-disable-next-line no-await-in-loop
 					error = await hook(error);

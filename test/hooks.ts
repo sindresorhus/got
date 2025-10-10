@@ -1575,3 +1575,48 @@ test('does not call beforeError hooks on falsy throwHttpErrors', withServer, asy
 
 	t.false(called);
 });
+
+test('beforeError hook is called for ERR_UNSUPPORTED_PROTOCOL', async t => {
+	let hookCalled = false;
+
+	const beforeErrorHook = (error: RequestError) => {
+		hookCalled = true;
+		return error;
+	};
+
+	await t.throwsAsync(
+		got.post('xhttps://example.com', {
+			headers: {authorization: 'Bearer secret'},
+			json: {foo: 42},
+			hooks: {
+				beforeError: [beforeErrorHook],
+			},
+		}),
+		{code: 'ERR_UNSUPPORTED_PROTOCOL'},
+	);
+
+	t.true(hookCalled);
+});
+
+test('beforeError hook can redact sensitive headers for ERR_UNSUPPORTED_PROTOCOL', async t => {
+	const redactAuthorizationHeader = (error: RequestError) => {
+		if (error.options?.headers?.authorization) {
+			error.options.headers.authorization = '<redacted>';
+		}
+
+		return error;
+	};
+
+	const error = await t.throwsAsync<RequestError>(
+		got.post('xhttps://example.com/some/resource', {
+			headers: {authorization: 'Bearer secret'},
+			json: {foo: 42},
+			hooks: {
+				beforeError: [redactAuthorizationHeader],
+			},
+		}),
+		{code: 'ERR_UNSUPPORTED_PROTOCOL'},
+	);
+
+	t.is(error?.options.headers.authorization, '<redacted>');
+});
