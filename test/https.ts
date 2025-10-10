@@ -544,9 +544,19 @@ test.skip('client certificate PFX', withHttpsServer(), async (t, server, got) =>
 	t.is(response.peerCertificate.issuer.CN, 'authority');
 });
 
-const ciphers = tls.getCiphers().map(cipher => cipher.toUpperCase()).filter(cipher => cipher.startsWith('TLS_')).slice(0, 3);
+// Use TLS 1.3 ciphers that are stable across Node.js versions
+// TLS 1.3 ciphers work best because they're consistently supported
+const tlsCiphers = tls.getCiphers().map(cipher => cipher.toUpperCase()).filter(cipher => cipher.startsWith('TLS_'));
 
-test('https request with `ciphers` option', withHttpsServer({ciphers: ciphers.join(':')}), async (t, server, got) => {
+// Pick ciphers that exist in both Node.js 20 and 24
+// TLS_AES_128_GCM_SHA256 and TLS_AES_256_GCM_SHA384 are always available in TLS 1.3
+const stableCiphers = [
+	tlsCiphers.find(c => c === 'TLS_AES_128_GCM_SHA256')!,
+	tlsCiphers.find(c => c === 'TLS_AES_256_GCM_SHA384')!,
+	tlsCiphers.find(c => c === 'TLS_CHACHA20_POLY1305_SHA256')!,
+].filter(Boolean);
+
+test('https request with `ciphers` option', withHttpsServer({ciphers: stableCiphers.join(':'), minVersion: 'TLSv1.3'}), async (t, server, got) => {
 	server.get('/', (request, response) => {
 		response.json({
 			cipher: (request.socket as any).getCipher().name,
@@ -555,14 +565,15 @@ test('https request with `ciphers` option', withHttpsServer({ciphers: ciphers.jo
 
 	const response = await got({
 		https: {
-			ciphers: ciphers[0],
+			ciphers: stableCiphers[0],
+			minVersion: 'TLSv1.3',
 		},
 	}).json<{cipher: string}>();
 
-	t.is(response.cipher, ciphers[0]!);
+	t.is(response.cipher, stableCiphers[0]!);
 });
 
-test('https request with `honorCipherOrder` option', withHttpsServer({ciphers: `${ciphers[0]!}:${ciphers[1]!}`}), async (t, server, got) => {
+test('https request with `honorCipherOrder` option', withHttpsServer({ciphers: `${stableCiphers[0]!}:${stableCiphers[1]!}`, minVersion: 'TLSv1.3'}), async (t, server, got) => {
 	server.get('/', (request, response) => {
 		response.json({
 			cipher: (request.socket as any).getCipher().name,
@@ -571,12 +582,13 @@ test('https request with `honorCipherOrder` option', withHttpsServer({ciphers: `
 
 	const response = await got({
 		https: {
-			ciphers: `${ciphers[1]!}:${ciphers[0]!}`,
+			ciphers: `${stableCiphers[1]!}:${stableCiphers[0]!}`,
 			honorCipherOrder: true,
+			minVersion: 'TLSv1.3',
 		},
 	}).json<{cipher: string}>();
 
-	t.is(response.cipher, ciphers[0]!);
+	t.is(response.cipher, stableCiphers[0]!);
 });
 
 test('https request with `minVersion` option', withHttpsServer({maxVersion: 'TLSv1.2'}), async (t, server, got) => {

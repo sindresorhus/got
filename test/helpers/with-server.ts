@@ -30,10 +30,16 @@ const generateHook = ({install, options: testServerOptions}: {install?: boolean;
 			} as any,
 		});
 
+		const context: Record<string, unknown> = {};
+		Object.defineProperty(context, 'avaTest', {
+			value: t.title,
+			enumerable: false,
+			writable: true,
+			configurable: true,
+		});
+
 		const options: ExtendOptions = {
-			context: {
-				avaTest: t.title,
-			},
+			context,
 			handlers: [
 				(options, next) => {
 					const result = next(options);
@@ -76,10 +82,16 @@ const generateHttpsHook = (options?: HttpsServerOptions, installFakeTimer = fals
 
 		const server = await createHttpsTestServer(options);
 
+		const httpsContext: Record<string, unknown> = {};
+		Object.defineProperty(httpsContext, 'avaTest', {
+			value: t.title,
+			enumerable: false,
+			writable: true,
+			configurable: true,
+		});
+
 		const preparedGot = got.extend({
-			context: {
-				avaTest: t.title,
-			},
+			context: httpsContext,
 			handlers: [
 				(options, next) => {
 					const result = next(options);

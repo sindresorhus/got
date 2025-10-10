@@ -697,7 +697,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 		const typedResponse = response as PlainResponse;
 
-		typedResponse.statusMessage = typedResponse.statusMessage ?? http.STATUS_CODES[statusCode];
+		typedResponse.statusMessage = typedResponse.statusMessage || http.STATUS_CODES[statusCode]; // eslint-disable-line @typescript-eslint/prefer-nullish-coalescing -- The status message can be empty.
 		typedResponse.url = options.url!.toString();
 		typedResponse.requestUrl = this.requestUrl!;
 		typedResponse.redirectUrls = this.redirectUrls;

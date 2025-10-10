@@ -8,7 +8,6 @@ import net from 'node:net';
 import getStream from 'get-stream';
 import test from 'ava';
 import delay from 'delay';
-import type CacheableLookup from 'cacheable-lookup';
 import type {Handler} from 'express';
 import {pEvent} from 'p-event';
 import got, {type RequestError, TimeoutError} from '../source/index.js';
@@ -625,7 +624,11 @@ test('double calling timedOut has no effect', t => {
 	t.is(emitter.listenerCount('socket'), 1);
 });
 
-test.serial.failing('doesn\'t throw on early lookup', withServerAndFakeTimers, async (t, server, got) => {
+// Regression test for issue #857: Fast DNS lookups (e.g., from cache) that complete synchronously
+// used to incorrectly trigger lookup timeouts because Got couldn't attach the 'lookup' event listener
+// in time. The fix in commit 4faf5c7 checks if the lookup has already completed (socket.address() is
+// defined) before setting a lookup timeout, preventing false timeout errors on cached/fast lookups.
+test.serial('doesn\'t throw on early lookup', withServerAndFakeTimers, async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.end('ok');
 	});
@@ -635,13 +638,22 @@ test.serial.failing('doesn\'t throw on early lookup', withServerAndFakeTimers, a
 			lookup: 1,
 		},
 		retry: {limit: 0},
-		// @ts-expect-error FIXME
-		dnsLookup(...[_hostname, options, callback]: Parameters<CacheableLookup['lookup']>) {
+		// @ts-expect-error Testing custom dnsLookup implementation
+		dnsLookup(_hostname, options, callback) {
 			if (typeof options === 'function') {
 				callback = options;
+				// Call with default (non-all) signature
+				// @ts-expect-error Complex DNS lookup callback overloading
+				callback(null, '127.0.0.1', 4);
+			// @ts-expect-error Complex DNS lookup callback overloading - options.all check
+			} else if (options.all) {
+				// When options.all is true, callback expects an array of address objects
+				// @ts-expect-error Complex DNS lookup callback overloading
+				callback(null, [{address: '127.0.0.1', family: 4}]);
+			} else {
+				// @ts-expect-error Complex DNS lookup callback overloading
+				callback(null, '127.0.0.1', 4);
 			}
-
-			callback(null, '127.0.0.1', 4);
 		},
 	}));
 });

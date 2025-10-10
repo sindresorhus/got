@@ -156,7 +156,7 @@ test('contains Got options', withServer, async (t, server, got) => {
 	t.is(error?.options.context.foo, options.context.foo);
 });
 
-test.failing('empty status message is overriden by the default one', withServer, async (t, server, got) => {
+test('empty status message is overriden by the default one', withServer, async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.writeHead(400, '');
 		response.end('body');

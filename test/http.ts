@@ -364,16 +364,17 @@ test('JSON request custom stringifier', withServer, async (t, server, got) => {
 	})).body, customStringify(payload));
 });
 
-test.failing('ClientRequest can throw before promise resolves', async t => {
-	await t.throwsAsync(got('http://example.com', {
+test('ClientRequest can throw before promise resolves', async t => {
+	const error = await t.throwsAsync<RequestError>(got('http://example.com', {
 		dnsLookup: ((_hostname: string, _options: unknown, callback: (error: null, hostname: string, family: number) => void) => { // eslint-disable-line @typescript-eslint/ban-types
 			queueMicrotask(() => {
 				callback(null, 'fe80::0000:0000:0000:0000', 6);
 			});
 		}) as any,
-	}), {
-		message: /EINVAL|EHOSTUNREACH|ETIMEDOUT/,
-	});
+	}));
+
+	// Node.js 20+ returns ERR_INVALID_IP_ADDRESS, older versions return EINVAL, EHOSTUNREACH, or ETIMEDOUT
+	t.true(['EINVAL', 'EHOSTUNREACH', 'ETIMEDOUT', 'ERR_INVALID_IP_ADDRESS'].includes(error!.code));
 });
 
 test('status code 200 has response ok is true', withServer, async (t, server, got) => {

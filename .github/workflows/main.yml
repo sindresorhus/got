@@ -12,16 +12,13 @@ jobs:
       fail-fast: false
       matrix:
         node-version:
+          - 24
           - 20
         os:
-          # Ubuntu fails and I don't have time to look into it. PR welcome.
-          # - ubuntu-latest
-          - macos-latest
-          # Windows fails and I don't have time to look into it. PR welcome.
-          # - windows-latest
+          - ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: ${{ matrix.node-version }}
       - run: npm install

@@ -308,6 +308,10 @@ test('throws if the `searchParams` value is invalid', async t => {
 	});
 });
 
+// Note: This test was added in commit 2b8ed1f (Oct 2020) when context was changed to be enumerable,
+// but it has been marked as .failing since it was introduced. The feature was never fully implemented
+// because making context enumerable breaks other tests that expect it to be non-enumerable.
+// This represents an unfinished feature request from 3+ years ago, not a recent regression.
 test.failing('`context` option is enumerable', withServer, async (t, server, got) => {
 	server.get('/', echoUrl);
 
