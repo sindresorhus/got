@@ -555,6 +555,28 @@ export type HttpsOptions = {
 	dhparam?: SecureContextOptions['dhparam'];
 	ecdhCurve?: SecureContextOptions['ecdhCurve'];
 	certificateRevocationLists?: SecureContextOptions['crl'];
+
+	/**
+	Optionally affect the OpenSSL protocol behavior, which is not usually necessary. This should be used carefully if at all!
+
+	The value is a numeric bitmask of the `SSL_OP_*` options from OpenSSL.
+
+	For example, to allow connections to legacy servers that do not support secure renegotiation, you can use `crypto.constants.SSL_OP_LEGACY_SERVER_CONNECT`.
+
+	@example
+	```
+	import crypto from 'node:crypto';
+	import got from 'got';
+
+	// Allow connections to servers with legacy renegotiation
+	await got('https://legacy-server.com', {
+		https: {
+			secureOptions: crypto.constants.SSL_OP_LEGACY_SERVER_CONNECT
+		}
+	});
+	```
+	*/
+	secureOptions?: number;
 };
 
 export type PaginateData<BodyType, ElementType> = {
@@ -884,6 +906,7 @@ const defaultInternals: Options['_internals'] = {
 		dhparam: undefined,
 		ecdhCurve: undefined,
 		certificateRevocationLists: undefined,
+		secureOptions: undefined,
 	},
 	encoding: undefined,
 	resolveBodyOnly: false,
@@ -2362,6 +2385,7 @@ export default class Options {
 		assert.any([is.number, is.undefined], value.tlsSessionLifetime);
 		assert.any([is.string, is.undefined], value.ecdhCurve);
 		assert.any([is.string, is.buffer, is.array, is.undefined], value.certificateRevocationLists);
+		assert.any([is.number, is.undefined], value.secureOptions);
 
 		for (const key in value) {
 			if (!(key in this._internals.https)) {
@@ -2593,6 +2617,7 @@ export default class Options {
 			dhparam: https.dhparam,
 			ecdhCurve: https.ecdhCurve,
 			crl: https.certificateRevocationLists,
+			secureOptions: https.secureOptions,
 
 			// HTTP options
 			lookup: internals.dnsLookup ?? (internals.dnsCache as CacheableLookup | undefined)?.lookup,

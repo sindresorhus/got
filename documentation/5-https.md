@@ -133,6 +133,28 @@ Multiple PFX can be be provided as an array of unencrypted buffers or an array o
 **Note:**
 > - The option has been renamed from the [`crl` TLS option](https://nodejs.org/api/tls.html#tls_tls_createsecurecontext_options) for better readability.
 
+#### `secureOptions`
+
+**Type: `number`**
+
+Optionally affect the OpenSSL protocol behavior, which is not usually necessary. This should be used carefully if at all!
+
+The value is a numeric bitmask of the `SSL_OP_*` options from OpenSSL.
+
+For example, to allow connections to legacy servers that do not support secure renegotiation, you can use `crypto.constants.SSL_OP_LEGACY_SERVER_CONNECT`.
+
+```js
+import crypto from 'node:crypto';
+import got from 'got';
+
+// Allow connections to servers with legacy renegotiation
+await got('https://legacy-server.com', {
+	https: {
+		secureOptions: crypto.constants.SSL_OP_LEGACY_SERVER_CONNECT
+	}
+});
+```
+
 ### Other HTTPS options
 
 [Documentation for the below options.](https://nodejs.org/api/tls.html#tls_tls_createsecurecontext_options)
