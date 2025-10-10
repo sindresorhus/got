@@ -1,4 +1,5 @@
 import test from 'ava';
+import got from '../source/index.js';
 import withServer, {withHttpsServer} from './helpers/with-server.js';
 
 test('http/1 timings', withServer, async (t, server, got) => {
@@ -84,4 +85,20 @@ test('timings.end is set when stream is destroyed before completion', withServer
 	});
 
 	t.pass();
+});
+
+test('dns timing is 0 for IP addresses', withServer, async (t, server) => {
+	server.get('/', (_request, response) => {
+		response.end('ok');
+	});
+
+	// Get the actual IP address the server is bound to
+	const address = server.http.address() as {address: string; family: string; port: number};
+	const host = address.family === 'IPv6' ? `[${address.address}]` : address.address;
+	const {timings} = await got(`http://${host}:${server.port}/`);
+
+	// When connecting to an IP address, there is no DNS lookup
+	t.is(timings.phases.dns, 0);
+	// Lookup timestamp should equal socket timestamp (no time elapsed for DNS)
+	t.is(timings.lookup, timings.socket);
 });

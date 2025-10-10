@@ -712,6 +712,19 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		this._responseSize = Number(response.headers['content-length']) || undefined;
 		this.response = typedResponse;
 
+		// Workaround for http-timer bug: when connecting to an IP address (no DNS lookup),
+		// http-timer sets lookup = connect instead of lookup = socket, resulting in
+		// dns = lookup - socket being a small positive number instead of 0.
+		// See https://github.com/sindresorhus/got/issues/2279
+		const {timings} = response;
+		if (timings?.lookup !== undefined && timings.socket !== undefined && timings.connect !== undefined && timings.lookup === timings.connect && timings.phases.dns !== 0) {
+			// Fix the DNS phase to be 0 and set lookup to socket time
+			timings.phases.dns = 0;
+			timings.lookup = timings.socket;
+			// Recalculate TCP time to be the full time from socket to connect
+			timings.phases.tcp = timings.connect - timings.socket;
+		}
+
 		response.once('error', (error: Error) => {
 			this._aborted = true;
 
