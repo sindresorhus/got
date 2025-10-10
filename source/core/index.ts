@@ -1028,6 +1028,17 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 		if (is.nodeStream(body)) {
 			body.pipe(currentRequest);
+		} else if (is.buffer(body)) {
+			// Buffer should be sent directly without conversion
+			this._writeRequest(body, undefined, () => {});
+			currentRequest.end();
+		} else if (is.typedArray(body)) {
+			// Typed arrays should be treated like buffers, not iterated over
+			// Create a Uint8Array view over the data (Node.js streams accept Uint8Array)
+			const typedArray = body as ArrayBufferView;
+			const uint8View = new Uint8Array(typedArray.buffer, typedArray.byteOffset, typedArray.byteLength);
+			this._writeRequest(uint8View, undefined, () => {});
+			currentRequest.end();
 		} else if (is.asyncIterable(body) || (is.iterable(body) && !is.string(body) && !isBuffer(body))) {
 			(async () => {
 				try {

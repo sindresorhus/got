@@ -76,6 +76,33 @@ test('sends Buffers', withServer, async (t, server, got) => {
 	t.is(body, 'wow');
 });
 
+test('sends Uint8Array', withServer, async (t, server, got) => {
+	server.post('/', defaultEndpoint);
+
+	const uint8Body = new Uint8Array([119, 111, 119]); // 'wow' in ASCII
+	const {body} = await got.post({body: uint8Body});
+	t.is(body, 'wow');
+});
+
+test('sends Uint16Array', withServer, async (t, server, got) => {
+	server.post('/', defaultEndpoint);
+
+	const text = 'hello';
+	const buffer = Buffer.from(text);
+	const uint16Body = new Uint16Array(buffer.buffer, buffer.byteOffset, buffer.byteLength / Uint16Array.BYTES_PER_ELEMENT);
+	const {body} = await got.post({body: uint16Body});
+	t.is(Buffer.from(uint16Body.buffer, uint16Body.byteOffset, uint16Body.byteLength).toString(), body);
+});
+
+test('`content-length` header with Uint8Array body', withServer, async (t, server, got) => {
+	server.post('/', echoHeaders);
+
+	const uint8Body = new Uint8Array([119, 111, 119]);
+	const {body} = await got.post({body: uint8Body});
+	const headers = JSON.parse(body);
+	t.is(headers['content-length'], '3');
+});
+
 test('sends Streams', withServer, async (t, server, got) => {
 	server.post('/', defaultEndpoint);
 

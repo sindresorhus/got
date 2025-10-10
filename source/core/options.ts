@@ -1410,7 +1410,7 @@ export default class Options {
 
 	__Note #4__: This option is not enumerable and will not be merged with the instance defaults.
 
-	The `content-length` header will be automatically set if `body` is a `string` / `Buffer` / [`FormData`](https://developer.mozilla.org/en-US/docs/Web/API/FormData) / [`form-data` instance](https://github.com/form-data/form-data), and `content-length` and `transfer-encoding` are not manually set in `options.headers`.
+	The `content-length` header will be automatically set if `body` is a `string` / `Buffer` / typed array ([`Uint8Array`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Uint8Array), etc.) / [`FormData`](https://developer.mozilla.org/en-US/docs/Web/API/FormData) / [`form-data` instance](https://github.com/form-data/form-data), and `content-length` and `transfer-encoding` are not manually set in `options.headers`.
 
 	Since Got 12, the `content-length` is not automatically set when `body` is a `fs.createReadStream`.
 
@@ -1431,12 +1431,12 @@ export default class Options {
 	});
 	```
 	*/
-	get body(): string | Buffer | Readable | Generator | AsyncGenerator | Iterable<unknown> | AsyncIterable<unknown> | FormDataLike | undefined {
+	get body(): string | Buffer | Readable | Generator | AsyncGenerator | Iterable<unknown> | AsyncIterable<unknown> | FormDataLike | ArrayBufferView | undefined {
 		return this._internals.body;
 	}
 
-	set body(value: string | Buffer | Readable | Generator | AsyncGenerator | Iterable<unknown> | AsyncIterable<unknown> | FormDataLike | undefined) {
-		assert.any([is.string, is.buffer, is.nodeStream, is.generator, is.asyncGenerator, is.iterable, is.asyncIterable, isFormData, is.undefined], value);
+	set body(value: string | Buffer | Readable | Generator | AsyncGenerator | Iterable<unknown> | AsyncIterable<unknown> | FormDataLike | ArrayBufferView | undefined) {
+		assert.any([is.string, is.buffer, is.nodeStream, is.generator, is.asyncGenerator, is.iterable, is.asyncIterable, isFormData, is.typedArray, is.undefined], value);
 
 		if (is.nodeStream(value)) {
 			assert.truthy(value.readable);

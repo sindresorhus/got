@@ -21,6 +21,10 @@ export default async function getBodySize(body: unknown, headers: ClientRequestA
 		return body.length;
 	}
 
+	if (is.typedArray(body)) {
+		return (body as ArrayBufferView).byteLength;
+	}
+
 	if (isFormData(body)) {
 		try {
 			return await promisify(body.getLength.bind(body))();

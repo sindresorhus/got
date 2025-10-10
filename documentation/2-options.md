@@ -293,11 +293,11 @@ stream.on('data', console.log);
 
 ### `body`
 
-**Type: `string | Buffer | stream.Readable | Generator | AsyncGenerator | Iterable | AsyncIterable | FormData` or [`form-data` instance](https://github.com/form-data/form-data)**
+**Type: `string | Buffer | TypedArray | stream.Readable | Generator | AsyncGenerator | Iterable | AsyncIterable | FormData` or [`form-data` instance](https://github.com/form-data/form-data)**
 
 The payload to send.
 
-For `string` and `Buffer` types, the `content-length` header is automatically set if the `content-length` and `transfer-encoding` headers are missing.
+For `string`, `Buffer`, and `TypedArray` types (Uint8Array, Uint16Array, etc.), the `content-length` header is automatically set if the `content-length` and `transfer-encoding` headers are missing.
 
 **The `content-length` header is not automatically set when `body` is an instance of [`fs.createReadStream()`](https://nodejs.org/api/fs.html#fs_fs_createreadstream_path_options).**
 
@@ -329,6 +329,21 @@ const {data} = await got.post('https://httpbin.org/anything', {
 
 console.log(data);
 //=> 'Hello, world!'
+```
+
+You can also use typed arrays (Uint8Array, Uint16Array, etc.) as request body:
+
+```js
+import got from 'got';
+
+const uint8Body = new Uint8Array([104, 101, 108, 108, 111]); // 'hello' in ASCII
+
+const {data} = await got.post('https://httpbin.org/anything', {
+	body: uint8Body
+}).json();
+
+console.log(data);
+//=> 'hello'
 ```
 
 You can use `Iterable` and `AsyncIterable` objects as request body, including Web [`ReadableStream`](https://developer.mozilla.org/en-US/docs/Web/API/ReadableStream):
