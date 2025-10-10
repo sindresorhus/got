@@ -545,6 +545,20 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			this._request.destroy();
 		}
 
+		// Workaround: http-timer only sets timings.end when the response emits 'end'.
+		// When a stream is destroyed before completion, the 'end' event may not fire,
+		// leaving timings.end undefined. This should ideally be fixed in http-timer
+		// by listening to the 'close' event, but we handle it here for now.
+		// Only set timings.end if there was no error or abort (to maintain semantic correctness).
+		const timings = (this._request as ClientRequestWithTimings)?.timings;
+		if (timings && is.undefined(timings.end) && !is.undefined(timings.response) && is.undefined(timings.error) && is.undefined(timings.abort)) {
+			timings.end = Date.now();
+			if (is.undefined(timings.phases.total)) {
+				timings.phases.download = timings.end - timings.response;
+				timings.phases.total = timings.end - timings.start;
+			}
+		}
+
 		if (error !== null && !is.undefined(error) && !(error instanceof RequestError)) {
 			error = new RequestError(error.message, error, this);
 		}

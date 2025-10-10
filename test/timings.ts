@@ -54,3 +54,34 @@ test('http/2 timings', withHttpsServer(), async (t, server, got) => {
 	t.true(phases.download! >= 0);
 	t.true(phases.total! >= 0);
 });
+
+test('timings.end is set when stream is destroyed before completion', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.write('chunk1');
+		// Don't end the response, so it stays open
+	});
+
+	await new Promise<void>((resolve, reject) => {
+		const stream = got.stream('');
+
+		stream.on('data', () => {
+			stream.destroy(new Error('Manual destroy'));
+		});
+
+		stream.on('error', (error: Error) => {
+			t.is(error.message, 'Manual destroy');
+			t.truthy(stream.timings);
+			t.truthy(stream.timings!.response);
+			t.truthy(stream.timings!.end);
+			t.true(stream.timings!.end! >= stream.timings!.response!);
+			t.truthy(stream.timings!.phases.total);
+			resolve();
+		});
+
+		stream.on('end', () => {
+			reject(new Error('Stream should not end normally'));
+		});
+	});
+
+	t.pass();
+});
