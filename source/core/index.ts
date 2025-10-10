@@ -1086,8 +1086,13 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 				if (request) {
 					const fix = () => {
+						// For ResponseLike objects from cache, set complete to true if not already set.
+						// For real HTTP responses, copy from the underlying response.
 						if (response.req) {
 							response.complete = response.req.res.complete;
+						} else if (response.complete === undefined) {
+							// ResponseLike from cache should have complete = true
+							response.complete = true;
 						}
 					};
 

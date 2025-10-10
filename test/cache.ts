@@ -482,7 +482,7 @@ test('response.complete is true when using keepalive agent', withServer, async (
 	t.true(first.complete);
 });
 
-test.failing('revalidated uncompressed responses are retrieved from cache', withServer, async (t, server, got) => {
+test('revalidated uncompressed responses are retrieved from cache', withServer, async (t, server, got) => {
 	let revalidated = false;
 
 	const payload = JSON.stringify([1]);
@@ -525,7 +525,7 @@ test.failing('revalidated uncompressed responses are retrieved from cache', with
 	});
 });
 
-test.failing('revalidated compressed responses are retrieved from cache', withServer, async (t, server, got) => {
+test('revalidated compressed responses are retrieved from cache', withServer, async (t, server, got) => {
 	let revalidated = false;
 
 	const payload = JSON.stringify([1]);

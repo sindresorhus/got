@@ -58,7 +58,7 @@
 		"keyv": "^5.5.3",
 		"lowercase-keys": "^3.0.0",
 		"p-cancelable": "^4.0.1",
-		"responselike": "^3.0.0",
+		"responselike": "^4.0.2",
 		"type-fest": "^4.26.1"
 	},
 	"devDependencies": {
