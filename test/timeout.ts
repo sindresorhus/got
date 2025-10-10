@@ -721,11 +721,16 @@ test.serial('cancelling the request removes timeouts', withServer, async (t, ser
 	await delay(1000);
 });
 
-test('timeouts are emitted ASAP', async t => {
+test.serial('timeouts are emitted ASAP', withServer, async (t, server, got) => {
+	server.get('/test', () => {
+		// Never respond - forces a timeout
+	});
+
 	const timeout = 500;
 	const marginOfError = process.env.CI ? 200 : 100;
+	const startTime = Date.now();
 
-	const error = await t.throwsAsync<TimeoutError>(got('http://192.0.2.1/test', {
+	const error = await t.throwsAsync<TimeoutError>(got('test', {
 		retry: {
 			limit: 0,
 		},
@@ -734,6 +739,8 @@ test('timeouts are emitted ASAP', async t => {
 		},
 	}), {instanceOf: TimeoutError});
 
+	const elapsed = Date.now() - startTime;
+	t.true(elapsed < (timeout + marginOfError), `Expected timeout ${elapsed}ms to be less than ${timeout + marginOfError}ms`);
 	t.true(error!.timings.phases.total! < (timeout + marginOfError));
 });
 
