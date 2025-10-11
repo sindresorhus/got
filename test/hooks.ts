@@ -1497,13 +1497,32 @@ test('`beforeRequest` change body', withServer, async (t, server, got) => {
 			beforeRequest: [
 				options => {
 					options.body = JSON.stringify({payload: 'new'});
-					options.headers['content-length'] = (options.body as string).length.toString();
+					options.headers['content-length'] = Buffer.byteLength(options.body as string).toString();
 				},
 			],
 		},
 	});
 
 	t.is(JSON.parse(response.body).payload, 'new');
+});
+
+test('`beforeRequest` change body with multi-byte characters', withServer, async (t, server, got) => {
+	server.post('/', echoBody);
+
+	const response = await got.post({
+		json: {payload: 'old'},
+		hooks: {
+			beforeRequest: [
+				options => {
+					// Use multi-byte UTF-8 characters (emoji, accented characters)
+					options.body = JSON.stringify({payload: 'new 🦄 café'});
+					options.headers['content-length'] = Buffer.byteLength(options.body as string).toString();
+				},
+			],
+		},
+	});
+
+	t.is(JSON.parse(response.body).payload, 'new 🦄 café');
 });
 
 test('can retry without an agent', withServer, async (t, server, got) => {

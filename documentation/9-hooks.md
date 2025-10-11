@@ -130,7 +130,7 @@ const response = await got.post(
 			beforeRequest: [
 				options => {
 					options.body = JSON.stringify({payload: 'new'});
-					options.headers['content-length'] = options.body.length.toString();
+					options.headers['content-length'] = Buffer.byteLength(options.body).toString();
 				}
 			]
 		}
