@@ -730,3 +730,111 @@ test('enforceRetryRules respects limit with custom calculateDelay', withServer, 
 	t.is(retryCount, 2);
 	t.is(requestCount, 3); // Initial request + 2 retries
 });
+
+test('retries on stream errors like EPIPE when configured', async t => {
+	let attemptCount = 0;
+	let retryCount = 0;
+
+	const error = await t.throwsAsync<Error & {code: string}>(got.post('https://example.com', {
+		retry: {
+			limit: 2,
+			methods: ['POST'],
+			errorCodes: ['EPIPE'],
+		},
+		hooks: {
+			beforeRetry: [
+				() => {
+					retryCount++;
+				},
+			],
+		},
+		request() {
+			attemptCount++;
+
+			const emitter = new EventEmitter() as http.ClientRequest;
+			emitter.abort = () => {};
+			// @ts-expect-error Imitating a stream
+			emitter.end = callback => {
+				// Simulate EPIPE error from Node.js during write/end
+				// This mimics what happens when a socket is torn down (e.g., AWS Lambda pause)
+				const error = new Error('write EPIPE');
+				(error as NodeJS.ErrnoException).code = 'EPIPE';
+
+				if (callback) {
+					setTimeout(() => {
+						callback(error);
+					}, 10);
+				}
+			};
+
+			emitter.destroyed = false;
+
+			// @ts-expect-error Imitating a stream
+			emitter.destroy = () => {
+				emitter.destroyed = true;
+			};
+
+			emitter.write = () => true;
+
+			// @ts-expect-error Imitating a stream
+			emitter.writable = true;
+			// @ts-expect-error Imitating a stream
+			emitter.writableEnded = false;
+
+			return emitter;
+		},
+	}), {code: 'EPIPE'});
+
+	// Should retry twice (limit: 2) for a total of 3 attempts
+	t.is(attemptCount, 3);
+	t.is(retryCount, 2);
+	t.is(error?.code, 'EPIPE');
+});
+
+test('does not retry on stream errors when not in errorCodes', async t => {
+	let attemptCount = 0;
+
+	const error = await t.throwsAsync<Error & {code: string}>(got('https://example.com', {
+		retry: {
+			limit: 2,
+			errorCodes: [], // Empty list means no errors should be retried
+		},
+		request() {
+			attemptCount++;
+
+			const emitter = new EventEmitter() as http.ClientRequest;
+			emitter.abort = () => {};
+			// @ts-expect-error Imitating a stream
+			emitter.end = callback => {
+				const error = new Error('write ETEST');
+				(error as NodeJS.ErrnoException).code = 'ETEST';
+
+				if (callback) {
+					setTimeout(() => {
+						callback(error);
+					}, 10);
+				}
+			};
+
+			emitter.destroyed = false;
+
+			// @ts-expect-error Imitating a stream
+			emitter.destroy = () => {
+				emitter.destroyed = true;
+			};
+
+			emitter.write = () => true;
+
+			// @ts-expect-error Imitating a stream
+			emitter.writable = true;
+			// @ts-expect-error Imitating a stream
+			emitter.writableEnded = false;
+
+			return emitter;
+		},
+	}), {code: 'ETEST'});
+
+	// Should NOT retry since errorCodes is empty
+	t.is(attemptCount, 1);
+	t.is(error?.code, 'ETEST');
+});

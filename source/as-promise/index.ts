@@ -126,10 +126,27 @@ export default function asPromise<T>(firstRequest?: Request): CancelableRequest<
 				resolve(request.options.resolveBodyOnly ? response.body as T : response as unknown as T);
 			});
 
+			let handledFinalError = false;
+
 			const onError = (error: RequestError) => {
 				if (promise.isCanceled) {
 					return;
 				}
+
+				// Route errors emitted directly on the stream (e.g., EPIPE from Node.js)
+				// through retry logic first, then handle them here after retries are exhausted.
+				// See https://github.com/sindresorhus/got/issues/1995
+				if (!request._stopReading) {
+					request._beforeError(error);
+					return;
+				}
+
+				// Allow the manual re-emission from Request to land only once.
+				if (handledFinalError) {
+					return;
+				}
+
+				handledFinalError = true;
 
 				const {options} = request;
 
@@ -144,7 +161,11 @@ export default function asPromise<T>(firstRequest?: Request): CancelableRequest<
 				reject(error);
 			};
 
-			request.once('error', onError);
+			// Use .on() instead of .once() to keep the listener active across retries.
+			// When _stopReading is false, we return early and the error gets re-emitted
+			// after retry logic completes, so we need this listener to remain active.
+			// See https://github.com/sindresorhus/got/issues/1995
+			request.on('error', onError);
 
 			const previousBody = request.options?.body;
 

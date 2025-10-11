@@ -161,13 +161,13 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	requestUrl?: URL;
 	redirectUrls: URL[];
 	retryCount: number;
+	_stopReading: boolean;
 
 	declare private _requestOptions: NativeRequestOptions;
 
 	private _stopRetry: () => void;
 	private _downloadedSize: number;
 	private _uploadedSize: number;
-	private _stopReading: boolean;
 	private readonly _pipedServerResponses: Set<ServerResponse>;
 	private _request?: ClientRequest;
 	private _responseSize?: number;
@@ -1276,6 +1276,17 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		}
 
 		this.destroy(error);
+
+		// Manually emit error for Promise API to ensure it receives it.
+		// Node.js streams may not re-emit if an error was already emitted during retry attempts.
+		// Only emit for Promise API (_noPipe = true) to avoid double emissions in stream mode.
+		// Use process.nextTick to defer emission and allow destroy() to complete first.
+		// See https://github.com/sindresorhus/got/issues/1995
+		if (this._noPipe) {
+			process.nextTick(() => {
+				this.emit('error', error);
+			});
+		}
 	}
 
 	private _writeRequest(chunk: any, encoding: BufferEncoding | undefined, callback: (error?: Error | null) => void): void { // eslint-disable-line @typescript-eslint/ban-types
