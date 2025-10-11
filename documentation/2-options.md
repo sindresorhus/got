@@ -16,7 +16,11 @@ Otherwise the merge behavior is documented in the corresponding section for the 
 
 #### How to store options
 
-The constructor - `new Options(url, options, defaults)` - takes the same arguments like the `got` function.
+The `Options` class is useful for storing and validating configuration for Got instances.
+
+The constructor - `new Options(url, options, defaults)` - takes the same arguments as the `got` function.
+
+To use an `Options` instance, create an extended Got instance:
 
 ```js
 import got, {Options} from 'got';
@@ -30,13 +34,15 @@ const options = new Options({
 
 options.headers.foo = 'bar';
 
-// Note that `Options` stores normalized options, therefore it needs to be passed as the third argument.
-const {headers} = await got('anything', undefined, options).json();
+// Use got.extend() to create an instance with the Options
+const instance = got.extend(options);
+
+const {headers} = await instance('anything').json();
 console.log(headers.foo);
 //=> 'bar'
 ```
 
-If a plain object is preferred, it can be used in the following way:
+For most use cases, plain objects are simpler and more convenient:
 
 ```js
 import got from 'got';
@@ -44,27 +50,24 @@ import got from 'got';
 const options = {
 	prefixUrl: 'https://httpbin.org',
 	headers: {
-		foo: 'bar'
+		foo: 'foo'
 	}
 };
 
 options.headers.foo = 'bar';
 
-// Note that `options` is a plain object, therefore it needs to be passed as the second argument.
+// Plain objects can be passed directly as the second argument
 const {headers} = await got('anything', options).json();
 console.log(headers.foo);
 //=> 'bar'
 ```
 
-Note that the constructor throws when an invalid option is provided, such as non-existing option or a typo.\
-In the second example, it would throw only when the promise is being executed.
+Note that the `Options` constructor throws immediately when an invalid option is provided, such as a non-existing option or a typo. With plain objects, validation only happens when the request is made.
 
 For TypeScript users, `got` exports a dedicated type called `OptionsInit`.\
 It is a plain object that can store the same properties as `Options`.
 
-Performance-wise there is no difference which one is used, although the constructor may be preferred as it automatically validates the data.\
-The `Options` approach may give a slight boost as it only clones the options, there is no normalization going on.\
-It is also useful for storing the base configuration of a custom Got client.
+The `Options` class is useful for storing the base configuration of a custom Got client, especially when you want early validation of options.
 
 #### Resetting options
 

@@ -572,7 +572,7 @@ test('no URL pollution', withServer, async (t, server) => {
 		hooks: {
 			beforeRequest: [
 				options => {
-					(options.url as URL).pathname = '/ok';
+					options.url!.pathname = '/ok';
 				},
 			],
 		},
@@ -660,7 +660,7 @@ test('options have url even if some are invalid', async t => {
 		invalid: true,
 	}));
 
-	t.is((error?.options.url as URL).href, 'https://example.com/');
+	t.is((error!.options.url! as URL).href, 'https://example.com/');
 	t.true(error instanceof Error);
 });
 
@@ -668,7 +668,7 @@ test('options have url even if some are invalid - got.extend', async t => {
 	const instance = got.extend({
 		handlers: [
 			(options, next) => {
-				t.is((options.url as URL).href, 'https://example.com/');
+				t.is((options.url! as URL).href, 'https://example.com/');
 				return next(options);
 			},
 		],
