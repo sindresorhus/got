@@ -1553,6 +1553,41 @@ test('does not throw on empty body when running afterResponse hooks', withServer
 	}));
 });
 
+test('does not throw on null body with afterResponse hook and responseType json', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.setHeader('content-type', 'application/json');
+		response.end('null');
+	});
+
+	const instance = got.extend({
+		hooks: {
+			afterResponse: [response => response],
+		},
+	});
+
+	const {body} = await instance.get('', {responseType: 'json'});
+	t.is(body, null);
+});
+
+test('does not throw on null body with afterResponse hook and responseType json - resolveBodyOnly', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.setHeader('content-type', 'application/json');
+		response.end('null');
+	});
+
+	const instance = got.extend({
+		hooks: {
+			afterResponse: [response => response],
+		},
+	});
+
+	const body = await instance.get('', {
+		responseType: 'json',
+		resolveBodyOnly: true,
+	});
+	t.is(body, null);
+});
+
 test('does not call beforeError hooks on falsy throwHttpErrors', withServer, async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.statusCode = 404;

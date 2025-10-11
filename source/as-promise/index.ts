@@ -106,7 +106,7 @@ export default function asPromise<T>(firstRequest?: Request): CancelableRequest<
 							throw new RetryError(request);
 						});
 
-						if (!(is.object(response) && is.number(response.statusCode) && !is.nullOrUndefined(response.body))) {
+						if (!(is.object(response) && is.number(response.statusCode) && 'body' in response)) {
 							throw new TypeError('The `afterResponse` hook returned an invalid value');
 						}
 					}
