@@ -243,7 +243,18 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 			this.flush = async () => {
 				this.flush = async () => {};
-				this._beforeError(error);
+
+				// Defer error emission to next tick to allow user to attach error handlers
+				process.nextTick(() => {
+					// _beforeError requires options to access retry logic and hooks
+					if (this.options) {
+						this._beforeError(error);
+					} else {
+						// Options is undefined, skip _beforeError and destroy directly
+						const requestError = error instanceof RequestError ? error : new RequestError(error.message, error, this);
+						this.destroy(requestError);
+					}
+				});
 			};
 
 			return;

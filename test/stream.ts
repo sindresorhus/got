@@ -152,6 +152,28 @@ test('has error event #2', async t => {
 	}
 });
 
+test('validation errors can be caught with synchronous error handler', withServer, async (t, _server, got) => {
+	const stream = got.stream('', {
+		// @ts-expect-error - Testing invalid option
+		meaningless: 'option',
+	});
+
+	const error: any = await new Promise((resolve, reject) => {
+		// Attach error handler immediately (synchronously)
+		stream.on('error', error => {
+			resolve(error);
+		});
+
+		// Timeout in case error is never emitted
+		setTimeout(() => {
+			reject(new Error('Error was not emitted'));
+		}, 1000);
+	});
+
+	t.true(error instanceof Error);
+	t.regex(error.message, /Unexpected option: meaningless/);
+});
+
 test('has response event if `options.throwHttpErrors` is false', withServer, async (t, server, got) => {
 	server.get('/', errorHandler);
 
