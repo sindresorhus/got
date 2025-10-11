@@ -390,6 +390,29 @@ test('returning HTTP response from a beforeRequest hook', withServer, async (t, 
 	t.is(body, 'Hi!');
 });
 
+test('returning HTTP response from a beforeRequest hook with FormData body', withServer, async (t, server, got) => {
+	server.post('/', echoBody);
+
+	const form = new FormData();
+	form.append('field', 'value');
+
+	const data = await got.post({
+		body: form,
+		hooks: {
+			beforeRequest: [
+				() => new Responselike({
+					statusCode: 200,
+					headers: {},
+					body: Buffer.from('{"cached": "response"}'),
+					url: '',
+				}),
+			],
+		},
+	}).json<{cached: string}>();
+
+	t.is(data.cached, 'response');
+});
+
 test('beforeRedirect is called with options and response', withServer, async (t, server, got) => {
 	server.get('/', echoHeaders);
 	server.get('/redirect', redirectEndpoint);

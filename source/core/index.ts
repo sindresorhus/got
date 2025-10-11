@@ -1280,7 +1280,9 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 	private _writeRequest(chunk: any, encoding: BufferEncoding | undefined, callback: (error?: Error | null) => void): void { // eslint-disable-line @typescript-eslint/ban-types
 		if (!this._request || this._request.destroyed) {
-			// Probably the `ClientRequest` instance will throw
+			// When there's no request (e.g., using cached response from beforeRequest hook),
+			// we still need to call the callback to allow the stream to finish properly.
+			callback();
 			return;
 		}
 
