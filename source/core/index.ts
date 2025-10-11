@@ -28,6 +28,7 @@ import Options, {
 	type RetryOptions,
 	type OptionsError,
 	type OptionsInit,
+	type NormalizedOptions,
 } from './options.js';
 import {isResponseOk, type PlainResponse, type Response} from './response.js';
 import isClientRequest from './utils/is-client-request.js';
@@ -847,7 +848,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 					for (const hook of updatedOptions.hooks.beforeRedirect) {
 						// eslint-disable-next-line no-await-in-loop
-						await hook(updatedOptions, typedResponse);
+						await hook(updatedOptions as NormalizedOptions, typedResponse);
 					}
 
 					this.emit('redirect', updatedOptions, typedResponse);
@@ -1190,7 +1191,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 		for (const hook of options.hooks.beforeRequest) {
 			// eslint-disable-next-line no-await-in-loop
-			const result = await hook(options);
+			const result = await hook(options as NormalizedOptions);
 
 			if (!is.undefined(result)) {
 				// @ts-expect-error Skip the type mismatch to support abstract responses

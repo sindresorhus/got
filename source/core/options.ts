@@ -64,9 +64,35 @@ export type PromiseCookieJar = {
 	setCookie: (rawCookie: string, url: string) => Promise<unknown>;
 };
 
+/**
+Utility type to override specific properties in a type.
+
+Uses `Omit` to remove properties before adding them back to ensure proper type replacement rather than intersection, which handles edge cases with optional/required properties correctly.
+*/
+type OverrideProperties<T, U> = Omit<T, keyof U> & U;
+
+/**
+Represents the runtime state of Options as seen by hooks after normalization.
+
+Some Options properties accept multiple input types but are normalized to a single type internally by the Options class setters. This type reflects the actual runtime types that hooks receive, ensuring type safety when accessing options within hook functions.
+*/
+export type NormalizedOptions = OverrideProperties<Options, {
+	// The URL is always normalized to a URL instance (or undefined) by the time hooks execute.
+	url: URL | undefined;
+
+	// When set to `true`, dnsCache is normalized to a CacheableLookup instance. When set to `false`, it becomes `undefined`.
+	dnsCache: CacheableLookup | undefined;
+
+	// When set to `true`, cache is normalized to the global cache Map. When set to `false`, it becomes `undefined`. Strings and other values are wrapped/processed into a StorageAdapter.
+	cache: StorageAdapter | undefined;
+
+	// The prefix URL is always normalized to a string.
+	prefixUrl: string;
+}>;
+
 export type InitHook = (init: OptionsInit, self: Options) => void;
-export type BeforeRequestHook = (options: Options) => Promisable<void | Response | ResponseLike>;
-export type BeforeRedirectHook = (updatedOptions: Options, plainResponse: PlainResponse) => Promisable<void>;
+export type BeforeRequestHook = (options: NormalizedOptions) => Promisable<void | Response | ResponseLike>;
+export type BeforeRedirectHook = (updatedOptions: NormalizedOptions, plainResponse: PlainResponse) => Promisable<void>;
 export type BeforeErrorHook = (error: RequestError) => Promisable<RequestError>;
 export type BeforeRetryHook = (error: RequestError, retryCount: number) => Promisable<void>;
 export type AfterResponseHook<ResponseType = unknown> = (response: Response<ResponseType>, retryWithMergedOptions: (options: OptionsInit) => never) => Promisable<Response | CancelableRequest<Response>>;

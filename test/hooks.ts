@@ -342,7 +342,7 @@ test('beforeRequest is called with options', withServer, async (t, server, got) 
 		hooks: {
 			beforeRequest: [
 				options => {
-					const url = options.url as URL;
+					const url = options.url!;
 					t.is(url.pathname, '/');
 					t.is(url.hostname, 'localhost');
 				},
@@ -399,7 +399,7 @@ test('beforeRedirect is called with options and response', withServer, async (t,
 		hooks: {
 			beforeRedirect: [
 				(options, response) => {
-					const url = options.url as URL;
+					const url = options.url!;
 					t.is(url.pathname, '/');
 					t.is(url.hostname, 'localhost');
 
