@@ -2,7 +2,7 @@ import {Buffer} from 'node:buffer';
 import {ReadStream} from 'node:fs';
 import {ClientRequest} from 'node:http';
 import test from 'ava';
-import {type Response, CancelError} from '../source/index.js';
+import {type Response, AbortError} from '../source/index.js';
 import withServer from './helpers/with-server.js';
 
 test('emits request event as promise', withServer, async (t, server, got) => {
@@ -70,19 +70,21 @@ test('promise.json() can be called before a file stream body is open', withServe
 		},
 	});
 
-	const promise = got({body});
+	const controller = new AbortController();
+
+	const promise = got({body, signal: controller.signal});
 	const checks = [
 		t.throwsAsync(promise, {
-			instanceOf: CancelError,
-			code: 'ERR_CANCELED',
+			instanceOf: AbortError,
+			code: 'ERR_ABORTED',
 		}),
 		t.throwsAsync(promise.json(), {
-			instanceOf: CancelError,
-			code: 'ERR_CANCELED',
+			instanceOf: AbortError,
+			code: 'ERR_ABORTED',
 		}),
 	];
 
-	promise.cancel();
+	controller.abort();
 
 	await Promise.all(checks);
 });

@@ -613,7 +613,10 @@ test('cancelling the request after retrying in a afterResponse hook', withServer
 		response.end();
 	});
 
+	const controller = new AbortController();
+
 	const gotPromise = got({
+		signal: controller.signal,
 		hooks: {
 			afterResponse: [
 				(_response, retryWithMergedOptions) => {
@@ -623,7 +626,7 @@ test('cancelling the request after retrying in a afterResponse hook', withServer
 						},
 					});
 
-					gotPromise.cancel();
+					controller.abort();
 
 					return promise;
 				},

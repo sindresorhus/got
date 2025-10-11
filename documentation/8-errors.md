@@ -87,12 +87,6 @@ When given an unsupported protocol.
 
 When the request is aborted due to a [timeout](6-timeout.md). Includes an `event` (a string) property along with `timings`.
 
-### `CancelError`
-
-**Code: `ERR_CANCELED`**
-
-When the request is aborted with `promise.cancel()`.
-
 ### `RetryError`
 
 **Code: `ERR_RETRYING`**

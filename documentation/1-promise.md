@@ -71,21 +71,6 @@ A shortcut method that gives a Promise returning a string.
 
 It is semantically the same as settings [`options.resolveBodyOnly`](2-options.md#resolvebodyonly) to `true` and [`options.responseType`](2-options.md#responsetype) to `'text'`.
 
-### `promise.cancel(reason?: string)`
-
-Cancels the request and optionally provide a reason.
-
-The cancellation is synchronous.\
-Calling it after the promise has settled or multiple times does nothing.
-
-This will cause the promise to reject with [`CancelError`](8-errors.md#cancelerror).
-
-### `promise.isCanceled`
-
-**Type: `boolean`**
-
-Whether the promise is canceled.
-
 ### `promise.on(event, handler)`
 
 The events are the same as in [Stream API](3-streams.md#events).

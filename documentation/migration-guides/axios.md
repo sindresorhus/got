@@ -57,7 +57,7 @@ We deeply care about readability, so we renamed these options:
 - `proxy`
   - This option does not exist. You need to pass [an `agent`](../tips.md#proxy) instead.
 - `cancelToken`
-  - This option does not exist, but will be implemented soon. For now, use `promise.cancel()` or `stream.destroy()`.
+  - This option does not exist. Use the [`signal`](../2-options.md#signal) option with [`AbortController`](https://developer.mozilla.org/en-US/docs/Web/API/AbortController) instead.
 - `paramsSerializer`
   - This option does not exist.
 - `maxBodyLength`
@@ -86,7 +86,7 @@ Errors look the same, with the difference `error.request` returns a Got stream. 
 
 #### Cancelation
 
-While Got doesn't support [`AbortController`](https://developer.mozilla.org/en-US/docs/Web/API/AbortController) yet, you can use `promise.cancel()`.
+Got supports [`AbortController`](https://developer.mozilla.org/en-US/docs/Web/API/AbortController) via the [`signal`](../2-options.md#signal) option.
 
 #### Convenience methods
 

@@ -711,7 +711,10 @@ test.serial('cancelling the request removes timeouts', withServer, async (t, ser
 		response.write('hello');
 	});
 
+	const controller = new AbortController();
+
 	const promise = got({
+		signal: controller.signal,
 		timeout: {
 			request: 500,
 		},
@@ -719,7 +722,7 @@ test.serial('cancelling the request removes timeouts', withServer, async (t, ser
 			limit: 0,
 		},
 	}).on('downloadProgress', () => {
-		promise.cancel();
+		controller.abort();
 	}).on('request', request => {
 		request.on('error', error => {
 			if (error.message === 'Timeout awaiting \'request\' for 500ms') {
@@ -728,7 +731,7 @@ test.serial('cancelling the request removes timeouts', withServer, async (t, ser
 		});
 	});
 
-	await t.throwsAsync(promise, {message: 'Promise was canceled'});
+	await t.throwsAsync(promise, {message: 'This operation was aborted.'});
 
 	await delay(1000);
 });

@@ -43,22 +43,29 @@ const limitDownloadUpload = got.extend({
 	handlers: [
 		(options, next) => {
 			const {downloadLimit, uploadLimit} = options.context;
-			let promiseOrStream = next(options);
 
-			// A destroy function that supports both promises and streams
-			const destroy = message => {
-				if (options.isStream) {
-					promiseOrStream.destroy(new Error(message));
-					return;
-				}
+			// Create an AbortController if limits are set and signal not already provided
+			let controller;
+			let signal = options.signal;
 
-				promiseOrStream.cancel(message);
-			};
+			if ((downloadLimit || uploadLimit) && !signal) {
+				controller = new AbortController();
+				signal = controller.signal;
+				options.signal = signal;
+			}
+
+			const promiseOrStream = next(options);
 
 			if (typeof downloadLimit === 'number') {
 				promiseOrStream.on('downloadProgress', progress => {
 					if (progress.transferred > downloadLimit && progress.percent !== 1) {
-						destroy(`Exceeded the download limit of ${downloadLimit} bytes`);
+						const error = new Error(`Exceeded the download limit of ${downloadLimit} bytes`);
+
+						if (options.isStream) {
+							promiseOrStream.destroy(error);
+						} else {
+							controller?.abort(error);
+						}
 					}
 				});
 			}
@@ -66,7 +73,13 @@ const limitDownloadUpload = got.extend({
 			if (typeof uploadLimit === 'number') {
 				promiseOrStream.on('uploadProgress', progress => {
 					if (progress.transferred > uploadLimit && progress.percent !== 1) {
-						destroy(`Exceeded the upload limit of ${uploadLimit} bytes`);
+						const error = new Error(`Exceeded the upload limit of ${uploadLimit} bytes`);
+
+						if (options.isStream) {
+							promiseOrStream.destroy(error);
+						} else {
+							controller?.abort(error);
+						}
 					}
 				});
 			}
@@ -137,10 +150,14 @@ console.log(headers);
 // }
 
 const MEGABYTE = 1048576;
-await merged('https://pop-iso.sfo2.cdn.digitaloceanspaces.com/21.04/amd64/intel/5/pop-os_21.04_amd64_intel_5.iso', {
-	context: {
-		downloadLimit: MEGABYTE
-	},
-	prefixUrl: ''
-});
-// CancelError: Exceeded the download limit of 1048576 bytes
+try {
+	await merged('https://pop-iso.sfo2.cdn.digitaloceanspaces.com/21.04/amd64/intel/5/pop-os_21.04_amd64_intel_5.iso', {
+		context: {
+			downloadLimit: MEGABYTE
+		},
+		prefixUrl: ''
+	});
+} catch (error) {
+	// AbortError: This operation was aborted.
+	console.log(error.message);
+}
