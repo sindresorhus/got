@@ -914,13 +914,25 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 				continue;
 			}
 
-			// eslint-disable-next-line guard-for-in
-			for (const key in response.headers) {
-				const isAllowed = options.decompress ? key !== 'content-encoding' : true;
-				const value = response.headers[key];
+			// Check if decompression actually occurred by comparing stream objects.
+			// decompressResponse wraps the response stream when it decompresses,
+			// so response !== this._nativeResponse indicates decompression happened.
+			const wasDecompressed = response !== this._nativeResponse;
 
-				if (isAllowed) {
-					destination.setHeader(key, value!);
+			for (const key in response.headers) {
+				if (Object.hasOwn(response.headers, key)) {
+					const value = response.headers[key];
+
+					// When decompression occurred, skip content-encoding and content-length
+					// as they refer to the compressed data, not the decompressed stream.
+					if (wasDecompressed && (key === 'content-encoding' || key === 'content-length')) {
+						continue;
+					}
+
+					// Skip if value is undefined
+					if (value !== undefined) {
+						destination.setHeader(key, value);
+					}
 				}
 			}
 

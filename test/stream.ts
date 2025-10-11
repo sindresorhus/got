@@ -203,6 +203,7 @@ test('proxying headers works', withServer, async (t, server, got) => {
 	const {headers, body} = await got('proxy');
 	t.is(headers.unicorn, 'rainbow');
 	t.is(headers['content-encoding'], undefined);
+	t.is(headers['content-length'], undefined);
 	t.is(body, 'ok');
 });
 
