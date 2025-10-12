@@ -160,6 +160,51 @@ if (response.request.socket) {
 }
 ```
 
+### Rate limiting (throttling transfer speed)
+
+Got doesn't include built-in bandwidth throttling, but you can implement it using stream transformers.
+
+> [!NOTE]
+> - To limit total transfer **size** (not rate), see the [advanced-creation example](examples/advanced-creation.js).
+> - For production use, consider something like  [`bandwidth-throttle-stream`](https://github.com/patrickkunka/bandwidth-throttle-stream).
+
+```js
+import got from 'got';
+import {Transform} from 'node:stream';
+import {setTimeout} from 'node:timers/promises';
+
+class ThrottleTransform extends Transform {
+	constructor(bytesPerSecond) {
+		super();
+		this.bytesPerSecond = bytesPerSecond;
+	}
+
+	async _transform(chunk, encoding, callback) {
+		const delay = (chunk.length / this.bytesPerSecond) * 1000;
+		if (delay > 0) {
+			await setTimeout(delay);
+		}
+
+		callback(null, chunk);
+	}
+}
+
+// Throttle download
+got.stream('https://httpbin.org/bytes/1048576')
+	.pipe(new ThrottleTransform(100000)) // 100 KB/s
+	.pipe(process.stdout);
+```
+
+For uploads, throttle the body stream before passing to Got:
+
+```js
+import {createReadStream} from 'node:fs';
+
+await got.post('https://httpbin.org/post', {
+	body: createReadStream('file.bin').pipe(new ThrottleTransform(100000))
+});
+```
+
 <a name="unix"></a>
 ### UNIX Domain Sockets
 

@@ -3,7 +3,7 @@ import got from '../../dist/source/index.js';
 /*
 * Got supports composing multiple instances together. This is very powerful.
 *
-* You can create a client that limits download speed,
+* You can create a client that limits download/upload size,
 * 	then compose it with an instance that signs a request.
 *
 * It's like plugins without any of the plugin mess.
