@@ -32,7 +32,7 @@ import Options, {
 } from './options.js';
 import {isResponseOk, type PlainResponse, type Response} from './response.js';
 import isClientRequest from './utils/is-client-request.js';
-import isUnixSocketURL from './utils/is-unix-socket-url.js';
+import isUnixSocketURL, {getUnixSocketPath} from './utils/is-unix-socket-url.js';
 import {
 	RequestError,
 	ReadError,
@@ -831,7 +831,12 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 					}
 
 					// Redirecting to a different site, clear sensitive data.
-					if (redirectUrl.hostname !== (url as URL).hostname || redirectUrl.port !== (url as URL).port) {
+					// For UNIX sockets, different socket paths are also different origins.
+					const isDifferentOrigin = redirectUrl.hostname !== (url as URL).hostname
+						|| redirectUrl.port !== (url as URL).port
+						|| getUnixSocketPath(url as URL) !== getUnixSocketPath(redirectUrl);
+
+					if (isDifferentOrigin) {
 						if ('host' in updatedOptions.headers) {
 							delete updatedOptions.headers.host;
 						}
