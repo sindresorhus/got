@@ -107,11 +107,14 @@ console.log(headers.Secret);
 **Default: `[]`**
 
 ```ts
-(options: Options) => Promisable<void | Response | ResponseLike>
+(options: Options, context: BeforeRequestHookContext) => Promisable<void | Response | ResponseLike>
 ```
 
 Called right before making the request with `options.createNativeRequestOptions()`.\
 This hook is especially useful in conjunction with `got.extend()` when you want to sign your request.
+
+The second parameter is a context object with the following properties:
+- `retryCount` - The current retry count (0 for the initial request, 1+ for retries).
 
 **Note:**
 > - Got will make no further changes to the request before it is sent.
@@ -128,7 +131,7 @@ const response = await got.post(
 		json: {payload: 'old'},
 		hooks: {
 			beforeRequest: [
-				options => {
+				(options, context) => {
 					options.body = JSON.stringify({payload: 'new'});
 					options.headers['content-length'] = Buffer.byteLength(options.body).toString();
 				}
@@ -136,6 +139,28 @@ const response = await got.post(
 		}
 	}
 );
+```
+
+You can use `context.retryCount` to conditionally modify behavior based on whether it's the initial request or a retry:
+
+```js
+import got from 'got';
+
+const response = await got('https://httpbin.org/status/500', {
+	retry: {
+		limit: 2
+	},
+	hooks: {
+		beforeRequest: [
+			(options, context) => {
+				// Only log on initial request, not on retries
+				if (context.retryCount === 0) {
+					console.log('Making initial request');
+				}
+			}
+		]
+	}
+});
 ```
 
 **Tip:**

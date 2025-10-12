@@ -367,6 +367,62 @@ test('beforeRequest allows modifications', withServer, async (t, server, got) =>
 	t.is(body.foo, 'bar');
 });
 
+test('beforeRequest is called with context', withServer, async (t, server, got) => {
+	server.get('/', echoHeaders);
+
+	await got({
+		hooks: {
+			beforeRequest: [
+				(_options, context) => {
+					t.truthy(context);
+					t.is(typeof context.retryCount, 'number');
+				},
+			],
+		},
+	});
+});
+
+test('beforeRequest context has retryCount 0 on initial request', withServer, async (t, server, got) => {
+	server.get('/', echoHeaders);
+
+	await got({
+		hooks: {
+			beforeRequest: [
+				(_options, context) => {
+					t.is(context.retryCount, 0);
+				},
+			],
+		},
+	});
+});
+
+test('beforeRequest context retryCount increments on retries', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.statusCode = 500;
+		response.end();
+	});
+
+	const retryCounts: number[] = [];
+
+	await t.throwsAsync(got({
+		retry: {
+			limit: 2,
+		},
+		hooks: {
+			beforeRequest: [
+				(_options, context) => {
+					retryCounts.push(context.retryCount);
+				},
+			],
+		},
+	}), {instanceOf: HTTPError});
+
+	t.is(retryCounts.length, 3);
+	t.is(retryCounts[0], 0); // Initial request
+	t.is(retryCounts[1], 1); // First retry
+	t.is(retryCounts[2], 2); // Second retry
+});
+
 test('returning HTTP response from a beforeRequest hook', withServer, async (t, server, got) => {
 	server.get('/', echoUrl);
 

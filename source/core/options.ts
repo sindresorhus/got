@@ -91,7 +91,17 @@ export type NormalizedOptions = OverrideProperties<Options, {
 }>;
 
 export type InitHook = (init: OptionsInit, self: Options) => void;
-export type BeforeRequestHook = (options: NormalizedOptions) => Promisable<void | Response | ResponseLike>;
+
+export type BeforeRequestHookContext = {
+	/**
+	The current retry count.
+
+	It will be `0` for the initial request and increment for each retry.
+	*/
+	retryCount: number;
+};
+
+export type BeforeRequestHook = (options: NormalizedOptions, context: BeforeRequestHookContext) => Promisable<void | Response | ResponseLike>;
 export type BeforeRedirectHook = (updatedOptions: NormalizedOptions, plainResponse: PlainResponse) => Promisable<void>;
 export type BeforeErrorHook = (error: RequestError) => Promisable<RequestError>;
 export type BeforeRetryHook = (error: RequestError, retryCount: number) => Promisable<void>;
@@ -195,6 +205,8 @@ export type Hooks = {
 	/**
 	Called right before making the request with `options.createNativeRequestOptions()`.
 
+	The second argument is a context object containing request state information.
+
 	This hook is especially useful in conjunction with `got.extend()` when you want to sign your request.
 
 	@default []
@@ -215,7 +227,7 @@ export type Hooks = {
 			json: {payload: 'old'},
 			hooks: {
 				beforeRequest: [
-					options => {
+					(options, context) => {
 						options.body = JSON.stringify({payload: 'new'});
 						options.headers['content-length'] = options.body.length.toString();
 					}
@@ -223,6 +235,28 @@ export type Hooks = {
 			}
 		}
 	);
+	```
+
+	**Example using `context.retryCount`:**
+
+	```
+	import got from 'got';
+
+	await got('https://httpbin.org/status/500', {
+		retry: {
+			limit: 2
+		},
+		hooks: {
+			beforeRequest: [
+				(options, context) => {
+					// Only log on the initial request, not on retries
+					if (context.retryCount === 0) {
+						console.log('Making initial request');
+					}
+				}
+			]
+		}
+	});
 	```
 
 	**Tip:**

@@ -1219,7 +1219,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 		for (const hook of options.hooks.beforeRequest) {
 			// eslint-disable-next-line no-await-in-loop
-			const result = await hook(options as NormalizedOptions);
+			const result = await hook(options as NormalizedOptions, {retryCount: this.retryCount});
 
 			if (!is.undefined(result)) {
 				// @ts-expect-error Skip the type mismatch to support abstract responses
