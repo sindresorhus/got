@@ -52,6 +52,30 @@ await cookieJar.setCookie('foo=bar', 'https://httpbin.org');
 await got('https://httpbin.org/anything', {cookieJar});
 ```
 
+### Sessions
+
+You can create a session by extending Got with a shared `CookieJar`. This automatically saves and reuses cookies between requests:
+
+```js
+import got from 'got';
+import {CookieJar} from 'tough-cookie';
+
+const cookieJar = new CookieJar();
+const sessionGot = got.extend({cookieJar});
+
+// The cookie is saved within the cookie jar of the session
+await sessionGot('http://httpbin.org/cookies/set?my_cookie=my_value');
+
+await sessionGot('http://httpbin.org/cookies', {responseType: 'json', resolveBodyOnly: true});
+//=> {cookies: {my_cookie: 'my_value'}}
+
+// The cookies only apply to the session
+await got('http://httpbin.org/cookies', {responseType: 'json', resolveBodyOnly: true});
+//=> {cookies: {}}
+```
+
+This also works with caching and other Got features.
+
 ### AWS
 
 Requests to AWS services need to have their headers signed.\
