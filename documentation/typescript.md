@@ -5,6 +5,64 @@
 Got is fully written in TypeScript, so the integration is seamless.\
 Furthermore, types have saved Got from many bugs and inconsistencies.
 
+### Wrapping Got in an API client
+
+You can wrap Got in a type-safe API client while preserving all Got features including cancellation and events:
+
+```typescript
+import got, {type CancelableRequest, type OptionsOfJSONResponseBody, type Progress} from 'got';
+
+interface FizzBuzz {
+	fizz: boolean;
+	buzz: boolean;
+}
+
+class ExampleAPI {
+	private client = got.extend({
+		prefixUrl: 'https://api.example.com'
+	});
+
+	isFizzBuzz(number: number): CancelableRequest<FizzBuzz> {
+		return this.client.get('fizzbuzz', {
+			searchParams: {number},
+			responseType: 'json',
+			resolveBodyOnly: true
+		}).json<FizzBuzz>();
+	}
+
+	// For more complex cases, you can specify options
+	getData(id: string, options?: OptionsOfJSONResponseBody): CancelableRequest<FizzBuzz> {
+		return this.client.get(`data/${id}`, {
+			...options,
+			responseType: 'json',
+			resolveBodyOnly: true
+		}).json<FizzBuzz>();
+	}
+}
+
+const api = new ExampleAPI();
+
+// The promise has full type support
+const promise = api.isFizzBuzz(20);
+
+// Cancel and event methods are available
+promise.on('downloadProgress', (progress: Progress) => {
+	console.log(progress.percent);
+});
+
+// The result is properly typed
+const result = await promise;
+console.log(result.fizz); // boolean
+console.log(result.buzz); // boolean
+```
+
+**Note:**
+> - Use `.json<T>()` to get `CancelableRequest<T>` with the body-only response.
+> - Use `.buffer()` or `.text()` for other response types.
+> - Without calling these methods, you'll get `CancelableRequest<Response<T>>`.
+
+### Types
+
 Here's a list of types that Got exports:
 
 **Note:**
