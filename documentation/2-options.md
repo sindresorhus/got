@@ -784,9 +784,12 @@ try {
 **Type: `boolean`**\
 **Default: `true`**
 
-Decompress the response automatically. This will set the `accept-encoding` header to `gzip, deflate, br`.
+Decompress the response automatically. This will set the `accept-encoding` header to `gzip, deflate, br` (and `zstd` on Node.js >= 22.15.0).
 
 If disabled, a compressed response is returned as a `Buffer`. This may be useful if you want to handle decompression yourself.
+
+> [!NOTE]
+> Zstandard (`zstd`) compression support is available on Node.js >= 22.15.0 and will be automatically enabled when available.
 
 ```js
 import got from 'got';

@@ -53,6 +53,7 @@ export type Progress = {
 };
 
 const supportsBrotli = is.string(process.versions.brotli);
+const supportsZstd = is.string(process.versions.zstd);
 
 const methodsWithoutBody: ReadonlySet<string> = new Set(['GET', 'HEAD']);
 // Methods that should auto-end streams when no body is provided
@@ -1263,7 +1264,16 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		}
 
 		if (options.decompress && is.undefined(headers['accept-encoding'])) {
-			headers['accept-encoding'] = supportsBrotli ? 'gzip, deflate, br' : 'gzip, deflate';
+			const encodings = ['gzip', 'deflate'];
+			if (supportsBrotli) {
+				encodings.push('br');
+			}
+
+			if (supportsZstd) {
+				encodings.push('zstd');
+			}
+
+			headers['accept-encoding'] = encodings.join(', ');
 		}
 
 		if (username || password) {

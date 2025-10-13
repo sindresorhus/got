@@ -11,6 +11,7 @@ import got, {type Headers} from '../source/index.js';
 import withServer from './helpers/with-server.js';
 
 const supportsBrotli = typeof (process.versions as any).brotli === 'string';
+const supportsZstd = typeof (process.versions as any).zstd === 'string';
 
 const echoHeaders: Handler = (request, response) => {
 	request.resume();
@@ -28,7 +29,16 @@ test('`accept-encoding`', withServer, async (t, server, got) => {
 	server.get('/', echoHeaders);
 
 	const headers = await got('').json<Headers>();
-	t.is(headers['accept-encoding'], supportsBrotli ? 'gzip, deflate, br' : 'gzip, deflate');
+	const encodings = ['gzip', 'deflate'];
+	if (supportsBrotli) {
+		encodings.push('br');
+	}
+
+	if (supportsZstd) {
+		encodings.push('zstd');
+	}
+
+	t.is(headers['accept-encoding'], encodings.join(', '));
 });
 
 test('does not override provided `accept-encoding`', withServer, async (t, server, got) => {
@@ -53,9 +63,18 @@ test('does not remove user headers from `url` object argument', withServer, asyn
 		},
 	})).body;
 
+	const encodings = ['gzip', 'deflate'];
+	if (supportsBrotli) {
+		encodings.push('br');
+	}
+
+	if (supportsZstd) {
+		encodings.push('zstd');
+	}
+
 	t.is(headers.accept, 'application/json');
 	t.is(headers['user-agent'], 'got (https://github.com/sindresorhus/got)');
-	t.is(headers['accept-encoding'], supportsBrotli ? 'gzip, deflate, br' : 'gzip, deflate');
+	t.is(headers['accept-encoding'], encodings.join(', '));
 	t.is(headers['x-request-id'], 'value');
 });
 
