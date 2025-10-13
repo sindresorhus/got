@@ -906,7 +906,6 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 					}
 
 					this.redirectUrls.push(redirectUrl);
-					updatedOptions.prefixUrl = '';
 					updatedOptions.url = redirectUrl;
 
 					for (const hook of updatedOptions.hooks.beforeRedirect) {
@@ -1289,9 +1288,6 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 				headers.cookie = cookieString;
 			}
 		}
-
-		// Reset `prefixUrl`
-		options.prefixUrl = '';
 
 		let request: ReturnType<Options['getRequestFunction']> | undefined;
 

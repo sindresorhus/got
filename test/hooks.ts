@@ -592,6 +592,78 @@ test('beforeRetry allows stream body if different from original', withServer, as
 	t.is(body, 'test');
 });
 
+test('prefixUrl is preserved in beforeRequest hook', withServer, async (t, server, got) => {
+	server.get('/endpoint', (_request, response) => {
+		response.end('success');
+	});
+
+	let capturedPrefixUrl: string | URL | undefined;
+
+	await got('endpoint', {
+		prefixUrl: server.url,
+		hooks: {
+			beforeRequest: [
+				options => {
+					capturedPrefixUrl = options.prefixUrl;
+				},
+			],
+		},
+	});
+
+	const normalizedServerUrl = new URL(server.url).toString();
+	t.is(capturedPrefixUrl, normalizedServerUrl);
+});
+
+test('prefixUrl is preserved in beforeRetry hook', withServer, async (t, server, got) => {
+	server.get('/retry', (_request, response) => {
+		response.statusCode = 500;
+		response.end();
+	});
+
+	let capturedPrefixUrl: string | URL | undefined;
+
+	await t.throwsAsync(got('retry', {
+		prefixUrl: server.url,
+		retry: {
+			limit: 1,
+		},
+		hooks: {
+			beforeRetry: [
+				({options}) => {
+					capturedPrefixUrl = options.prefixUrl;
+				},
+			],
+		},
+	}));
+
+	const normalizedServerUrl = new URL(server.url).toString();
+	t.is(capturedPrefixUrl, normalizedServerUrl);
+});
+
+test('setting absolute URL in hook does not concatenate with prefixUrl', withServer, async (t, server, got) => {
+	server.get('/original', (_request, response) => {
+		response.end('original');
+	});
+
+	server.get('/changed', (_request, response) => {
+		response.end('changed');
+	});
+
+	const {body} = await got('original', {
+		prefixUrl: server.url,
+		hooks: {
+			beforeRequest: [
+				options => {
+					// Set absolute URL - should not concatenate with prefixUrl
+					options.url = new URL(`${server.url}/changed`);
+				},
+			],
+		},
+	});
+
+	t.is(body, 'changed');
+});
+
 test('afterResponse is called with response', withServer, async (t, server, got) => {
 	server.get('/', echoHeaders);
 

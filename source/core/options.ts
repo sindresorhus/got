@@ -1075,10 +1075,6 @@ const cloneInternals = (internals: typeof defaultInternals) => {
 		pagination: {...internals.pagination},
 	};
 
-	if (result.url !== undefined) {
-		result.prefixUrl = '';
-	}
-
 	return result;
 };
 
@@ -1648,7 +1644,12 @@ export default class Options {
 			throw new Error('`url` must not start with a slash');
 		}
 
-		const urlString = `${this.prefixUrl as string}${value.toString()}`;
+		// Detect if URL is already absolute (has a protocol/scheme)
+		const valueString = value.toString();
+		const isAbsolute = is.urlInstance(value) || /^[a-z][a-z\d+.-]*:/i.test(valueString);
+
+		// Only concatenate prefixUrl if the URL is relative
+		const urlString = isAbsolute ? valueString : `${this.prefixUrl as string}${valueString}`;
 		const url = new URL(urlString);
 		this._internals.url = url;
 
