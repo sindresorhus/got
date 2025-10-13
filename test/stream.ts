@@ -557,3 +557,103 @@ test('PATCH stream without body completes successfully', withServer, async (t, s
 	const data = await getStream(stream);
 	t.is(data, 'patched');
 });
+
+test('throws error when content-length does not match bytes transferred - stream', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.writeHead(200, {
+			'content-length': '100',
+		});
+		response.write('ok'); // Only 2 bytes
+		response.end();
+	});
+
+	await t.throwsAsync(
+		getStream(got.stream('', {strictContentLength: true})),
+		{
+			instanceOf: RequestError,
+			message: /Content-Length mismatch/,
+		},
+	);
+});
+
+test('throws error when content-length does not match bytes transferred - promise', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.writeHead(200, {
+			'content-length': '100',
+		});
+		response.write('ok');
+		response.end();
+	});
+
+	await t.throwsAsync(
+		got('', {strictContentLength: true}),
+		{
+			instanceOf: RequestError,
+			message: /Content-Length mismatch/,
+		},
+	);
+});
+
+test('does not throw when content-length matches bytes transferred', withServer, async (t, server, got) => {
+	const payload = 'hello world';
+	server.get('/', (_request, response) => {
+		response.writeHead(200, {
+			'content-length': String(Buffer.byteLength(payload)),
+		});
+		response.end(payload);
+	});
+
+	const body = await got('', {strictContentLength: true}).text();
+	t.is(body, payload);
+});
+
+test('does not throw when content-length header is absent', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.writeHead(200);
+		response.end('hello');
+	});
+
+	const body = await got('', {strictContentLength: true}).text();
+	t.is(body, 'hello');
+});
+
+test('throws generic abort error (not content-length error) when strictContentLength is false (default)', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.writeHead(200, {
+			'content-length': '100',
+		});
+		response.write('ok'); // Only 2 bytes
+		response.end();
+	});
+
+	await t.throwsAsync(
+		got('').text(),
+		{
+			instanceOf: RequestError,
+			// Should get generic abort error, not content-length specific error
+			message: /aborted pending request/,
+		},
+	);
+});
+
+test('validates content-length for gzip compressed responses', withServer, async (t, server, got) => {
+	// Gzipped 'ok' - H4sIAAAAAAAA/8vPBgBH3dx5AgAAAA== base64 encoded
+	const gzippedData = Buffer.from('H4sIAAAAAAAA/8vPBgBH3dx5AgAAAA==', 'base64');
+	const incorrectLength = gzippedData.length + 10; // Intentionally wrong
+
+	server.get('/', (_request, response) => {
+		response.writeHead(200, {
+			'content-encoding': 'gzip',
+			'content-length': String(incorrectLength),
+		});
+		response.end(gzippedData);
+	});
+
+	await t.throwsAsync(
+		got('', {strictContentLength: true}).text(),
+		{
+			instanceOf: RequestError,
+			message: /Content-Length mismatch/,
+		},
+	);
+});

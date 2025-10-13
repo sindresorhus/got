@@ -1009,6 +1009,7 @@ const defaultInternals: Options['_internals'] = {
 	maxHeaderSize: undefined,
 	signal: undefined,
 	enableUnixSockets: false,
+	strictContentLength: false,
 };
 
 const cloneInternals = (internals: typeof defaultInternals) => {
@@ -2612,6 +2613,26 @@ export default class Options {
 		assert.boolean(value);
 
 		this._internals.enableUnixSockets = value;
+	}
+
+	/**
+	Throw an error if the server response's `content-length` header value doesn't match the number of bytes received.
+
+	This is useful for detecting truncated responses and follows RFC 9112 requirements for message completeness.
+
+	__Note__: Responses without a `content-length` header are not validated.
+	__Note__: When enabled and validation fails, a `ReadError` with code `ERR_HTTP_CONTENT_LENGTH_MISMATCH` will be thrown.
+
+	@default false
+	*/
+	get strictContentLength() {
+		return this._internals.strictContentLength;
+	}
+
+	set strictContentLength(value: boolean) {
+		assert.boolean(value);
+
+		this._internals.strictContentLength = value;
 	}
 
 	// eslint-disable-next-line @typescript-eslint/naming-convention

@@ -797,6 +797,19 @@ console.log(response.headers['content-encoding']);
 //=> 'gzip'
 ```
 
+### `strictContentLength`
+
+**Type: `boolean`**\
+**Default: `false`**
+
+Throw an error if the server response's `content-length` header value doesn't match the number of bytes received.
+
+This is useful for detecting truncated responses and follows RFC 9112 requirements for message completeness.
+
+> [!NOTE]
+> - Responses without a `content-length` header are not validated.
+> - When enabled and validation fails, a [`ReadError`](8-errors.md#readerror) with code `ERR_HTTP_CONTENT_LENGTH_MISMATCH` will be thrown.
+
 ### `dnsLookup`
 
 **Type: `Function`**\

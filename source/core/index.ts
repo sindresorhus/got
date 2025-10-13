@@ -1,6 +1,6 @@
 import process from 'node:process';
 import {Buffer} from 'node:buffer';
-import {Duplex, type Readable} from 'node:stream';
+import {Duplex, Transform, type Readable, type TransformCallback} from 'node:stream';
 import http, {ServerResponse, type ClientRequest, type RequestOptions} from 'node:http';
 import type {Socket} from 'node:net';
 import timer, {type ClientRequestWithTimings, type Timings, type IncomingMessageWithTimings} from '@szmarczak/http-timer';
@@ -149,6 +149,19 @@ type UrlType = ConstructorParameters<typeof Options>[0];
 type OptionsType = ConstructorParameters<typeof Options>[1];
 type DefaultsType = ConstructorParameters<typeof Options>[2];
 
+/**
+Stream transform that counts bytes passing through.
+Used to track compressed bytes before decompression for content-length validation.
+*/
+class ByteCounter extends Transform {
+	count = 0;
+
+	override _transform(chunk: Buffer, _encoding: BufferEncoding, callback: TransformCallback): void {
+		this.count += chunk.length;
+		callback(null, chunk);
+	}
+}
+
 export default class Request extends Duplex implements RequestEvents<Request> {
 	// @ts-expect-error - Ignoring for now.
 	override ['constructor']: typeof Request;
@@ -181,6 +194,8 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	private _nativeResponse?: IncomingMessageWithTimings;
 	private _flushed: boolean;
 	private _aborted: boolean;
+	private _expectedContentLength?: number;
+	private _byteCounter?: ByteCounter;
 
 	// We need this because `this._request` if `undefined` when using cache
 	private _requestInitialized: boolean;
@@ -596,6 +611,24 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		return this;
 	}
 
+	private _checkContentLengthMismatch(): boolean {
+		if (this.options.strictContentLength && this._expectedContentLength !== undefined) {
+			// Use ByteCounter's count when available (for compressed responses),
+			// otherwise use _downloadedSize (for uncompressed responses)
+			const actualSize = this._byteCounter?.count ?? this._downloadedSize;
+			if (actualSize !== this._expectedContentLength) {
+				this._beforeError(new ReadError({
+					message: `Content-Length mismatch: expected ${this._expectedContentLength} bytes, received ${actualSize} bytes`,
+					name: 'Error',
+					code: 'ERR_HTTP_CONTENT_LENGTH_MISMATCH',
+				}, this));
+				return true;
+			}
+		}
+
+		return false;
+	}
+
 	private async _finalizeBody(): Promise<void> {
 		const {options} = this;
 		const {headers} = options;
@@ -704,6 +737,15 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			|| statusCode === 304;
 
 		if (options.decompress && !hasNoBody) {
+			// When strictContentLength is enabled, track compressed bytes by listening to
+			// the native response's data events before decompression
+			if (options.strictContentLength) {
+				this._byteCounter = new ByteCounter();
+				this._nativeResponse.on('data', (chunk: Buffer) => {
+					this._byteCounter!.count += chunk.length;
+				});
+			}
+
 			response = decompressResponse(response);
 		}
 
@@ -722,6 +764,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		this._isFromCache = typedResponse.isFromCache;
 
 		this._responseSize = Number(response.headers['content-length']) || undefined;
+
 		this.response = typedResponse;
 
 		// Workaround for http-timer bug: when connecting to an IP address (no DNS lookup),
@@ -750,11 +793,14 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		response.once('aborted', () => {
 			this._aborted = true;
 
-			this._beforeError(new ReadError({
-				name: 'Error',
-				message: 'The server aborted pending request',
-				code: 'ECONNRESET',
-			}, this));
+			// Check if there's a content-length mismatch to provide a more specific error
+			if (!this._checkContentLengthMismatch()) {
+				this._beforeError(new ReadError({
+					name: 'Error',
+					message: 'The server aborted pending request',
+					code: 'ECONNRESET',
+				}, this));
+			}
 		});
 
 		const rawCookies = response.headers['set-cookie'];
@@ -890,8 +936,30 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			return;
 		}
 
+		// Store the expected content-length from the native response for validation.
+		// This is the content-length before decompression, which is what actually gets transferred.
+		// Skip storing for responses that shouldn't have bodies per RFC 9110.
+		// When decompression occurs, only store if strictContentLength is enabled.
+		const wasDecompressed = response !== this._nativeResponse;
+		if (!hasNoBody && (!wasDecompressed || options.strictContentLength)) {
+			const contentLengthHeader = this._nativeResponse.headers['content-length'];
+			if (contentLengthHeader !== undefined) {
+				const expectedLength = Number(contentLengthHeader);
+				if (!Number.isNaN(expectedLength) && expectedLength >= 0) {
+					this._expectedContentLength = expectedLength;
+				}
+			}
+		}
+
 		// Set up end listener AFTER redirect check to avoid emitting progress for redirect responses
 		response.once('end', () => {
+			// Validate content-length if it was provided
+			// Per RFC 9112: "If the sender closes the connection before the indicated number
+			// of octets are received, the recipient MUST consider the message to be incomplete"
+			if (this._checkContentLengthMismatch()) {
+				return;
+			}
+
 			this._responseSize = this._downloadedSize;
 			this.emit('downloadProgress', this.downloadProgress);
 			this.push(null);

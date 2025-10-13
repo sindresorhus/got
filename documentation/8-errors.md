@@ -37,9 +37,11 @@ When a cache method fails, for example, if the database goes down or there's a f
 
 ### `ReadError`
 
-**Code: `ERR_READING_RESPONSE_STREAM`**
+**Code: `ERR_READING_RESPONSE_STREAM` or `ERR_HTTP_CONTENT_LENGTH_MISMATCH`**
 
 When reading from response stream fails.
+
+The error code will be `ERR_HTTP_CONTENT_LENGTH_MISMATCH` when the `strictContentLength` option is enabled and the server specifies a `content-length` header but the actual number of bytes received doesn't match.
 
 ### `ParseError`
 
