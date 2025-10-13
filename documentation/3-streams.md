@@ -18,7 +18,7 @@ This constructor takes the same arguments as the Got promise.
 **Note:**
 > When piping to [`ServerResponse`](https://nodejs.org/api/http.html#http_class_http_serverresponse), the headers will be automatically copied.\
 > When `decompress` is `true` (default) and the response is compressed, the `content-encoding` and `content-length` headers are not copied, as the response is decompressed.\
-> In order to prevent this behavior you need to override the request headers in a [`beforeRequest`](9-hooks.md#beforerequest) hook.
+> To filter which headers are copied, listen to the `response` event and modify `response.headers` before piping to the destination.
 
 **Note:**
 > If the `body`, `json` or `form` option is used, this stream will be read-only.
@@ -213,6 +213,31 @@ readStream.on('response', async response => {
 });
 
 readStream.once('error', onError);
+```
+
+**Example: Filter headers when proxying to ServerResponse**
+
+```js
+import {pipeline as streamPipeline} from 'node:stream/promises';
+import got from 'got';
+import express from 'express';
+
+const app = express();
+
+// Allowlist specific headers when proxying
+app.get('/proxy', async (request, response) => {
+	await streamPipeline(
+		got.stream(request.query.url).on('response', upstreamResponse => {
+			// Only allow specific headers
+			for (const header of Object.keys(upstreamResponse.headers)) {
+				if (!['content-type', 'content-length'].includes(header.toLowerCase())) {
+					delete upstreamResponse.headers[header];
+				}
+			}
+		}),
+		response
+	);
+});
 ```
 
 ### `stream.on('downloadProgress', …)`
