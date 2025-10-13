@@ -215,6 +215,28 @@ readStream.on('response', async response => {
 readStream.once('error', onError);
 ```
 
+**Example: Reading HTTP error response bodies**
+
+By default, Got throws HTTP errors before the stream becomes readable. To read error response bodies:
+
+```js
+import {pipeline as streamPipeline} from 'node:stream/promises';
+import got from 'got';
+
+const stream = got.stream('https://httpbin.org/status/404', {
+	throwHttpErrors: false
+});
+
+stream.on('response', response => {
+	if (!response.ok) {
+		console.log(`HTTP Error: ${response.statusCode}`);
+		// Stream is readable, you can pipe or read the error body
+	}
+});
+
+await streamPipeline(stream, process.stdout);
+```
+
 **Example: Filter headers when proxying to ServerResponse**
 
 ```js
@@ -267,6 +289,7 @@ When this event is emitted, you should reset the stream you were writing to and 
 > - [`HTTPError`s](./8-errors.md#httperror) cannot be retried if [`options.throwHttpErrors`](./2-options.md#throwhttperrors) is `false`.
 >   This is because stream data is saved to `error.response.body` and streams can be read only once.
 > - For the Promise API, there is no such limitation.
+> - If you need to read HTTP error response bodies without retry, see [Reading HTTP error response bodies](#example-reading-http-error-response-bodies).
 
 #### `retryCount`
 
@@ -402,6 +425,7 @@ Whether the response was successful
 > - When [following redirects](2-options.md#followredirect), a request is successful **only** when the status code of the final request is `2xx`.
 > - `304` responses are always considered successful.
 > - Got throws automatically when `response.ok` is `false` and `throwHttpErrors` is `true`.
+> - **To read HTTP error response bodies with streams**, set `throwHttpErrors: false` and check `response.ok` in the `response` event handler. [See example above](#example-reading-http-error-response-bodies).
 
 ### `statusCode`
 
