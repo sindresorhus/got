@@ -29,6 +29,7 @@ export default function asPromise<T>(firstRequest?: Request): CancelableRequest<
 	let globalResponse: Response;
 	let normalizedOptions: Options;
 	const emitter = new EventEmitter();
+	let promiseSettled = false;
 
 	const promise = new PCancelable<T>((resolve, reject, onCancel) => {
 		onCancel(() => {
@@ -37,6 +38,7 @@ export default function asPromise<T>(firstRequest?: Request): CancelableRequest<
 
 		onCancel.shouldReject = false;
 		onCancel(() => {
+			promiseSettled = true;
 			reject(new CancelError(globalRequest));
 		});
 
@@ -123,6 +125,7 @@ export default function asPromise<T>(firstRequest?: Request): CancelableRequest<
 				}
 
 				request.destroy();
+				promiseSettled = true;
 				resolve(request.options.resolveBodyOnly ? response.body as T : response as unknown as T);
 			});
 
@@ -148,6 +151,7 @@ export default function asPromise<T>(firstRequest?: Request): CancelableRequest<
 
 				handledFinalError = true;
 
+				promiseSettled = true;
 				const {options} = request;
 
 				if (error instanceof HTTPError && !options.throwHttpErrors) {
@@ -171,6 +175,14 @@ export default function asPromise<T>(firstRequest?: Request): CancelableRequest<
 
 			request.once('retry', (newRetryCount: number, error: RequestError) => {
 				firstRequest = undefined;
+
+				// If promise already settled, don't retry
+				// This prevents the race condition in #1489 where a late error
+				// (e.g., ECONNRESET after successful response) triggers retry
+				// after the promise has already resolved/rejected
+				if (promiseSettled) {
+					return;
+				}
 
 				const newBody = request.options.body;
 

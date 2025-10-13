@@ -838,3 +838,59 @@ test('does not retry on stream errors when not in errorCodes', async t => {
 	t.is(attemptCount, 1);
 	t.is(error?.code, 'ETEST');
 });
+
+test('does not retry after promise settles (issue #1489)', async t => {
+	let retryTriggered = false;
+
+	const response = await got('https://example.com', {
+		retry: {limit: 2, errorCodes: ['ECONNRESET']},
+		hooks: {
+			beforeRetry: [() => {
+				retryTriggered = true;
+			}],
+		},
+		request() {
+			const emitter = new EventEmitter() as http.ClientRequest;
+			emitter.abort = () => {};
+			// @ts-expect-error Imitating a stream
+			emitter.end = () => {};
+			emitter.destroyed = false;
+			// @ts-expect-error Imitating a stream
+			emitter.destroy = () => {
+				emitter.destroyed = true;
+			};
+
+			emitter.write = () => true;
+			// @ts-expect-error Imitating a stream
+			emitter.writable = true;
+			// @ts-expect-error Imitating a stream
+			emitter.writableEnded = false;
+
+			setTimeout(() => {
+				const incomingMessage = new PassThroughStream() as unknown as http.IncomingMessage;
+				incomingMessage.statusCode = 200;
+				incomingMessage.headers = {};
+
+				emitter.emit('response', incomingMessage);
+
+				setImmediate(() => {
+					// @ts-expect-error PassThrough method
+					incomingMessage.end('ok');
+				});
+
+				// Late error after response - should NOT trigger retry
+				setTimeout(() => {
+					const error = new Error('read ECONNRESET');
+					(error as NodeJS.ErrnoException).code = 'ECONNRESET';
+					emitter.emit('error', error);
+				}, 10);
+			});
+
+			return emitter;
+		},
+		throwHttpErrors: false,
+	});
+
+	t.is(response.statusCode, 200);
+	t.false(retryTriggered);
+});
