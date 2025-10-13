@@ -48,7 +48,7 @@ test('throws if an invalid argument is passed', async t => {
 		got(false),
 		{
 			instanceOf: RequestError,
-			message: 'Expected values which are `string`, `URL`, `Object`, or `undefined`. Received values of type `boolean`.',
+			message: 'Option \'input\': Expected values which are `string`, `URL`, `Object`, or `undefined`. Received values of type `boolean`.',
 		});
 });
 
@@ -99,7 +99,7 @@ test('throws an error when legacy URL is passed', withServer, async (t, server) 
 		got(parse(`${server.url}/test`)),
 		{
 			instanceOf: RequestError,
-			message: 'Expected values which are `string`, `URL`, or `undefined`. Received values of type `Object`.',
+			message: 'Option \'url\': Expected values which are `string`, `URL`, or `undefined`. Received values of type `Object`.',
 		},
 	);
 
@@ -228,7 +228,7 @@ test('throws when known `options.hooks` value is not an array', async t => {
 		got('https://example.com', {hooks: {beforeRequest: {}}}),
 		{
 			instanceOf: RequestError,
-			message: 'Expected values which are `Array` or `undefined`. Received values of type `Object`.',
+			message: 'Option \'hooks.beforeRequest\': Expected values which are `Array` or `undefined`. Received values of type `Object`.',
 		},
 	);
 });
@@ -304,7 +304,7 @@ test('throws if the `searchParams` value is invalid', async t => {
 	}),
 	{
 		instanceOf: RequestError,
-		message: 'Expected values which are `string`, `number`, `boolean`, `null`, or `undefined`. Received values of type `Array`.',
+		message: 'Option \'searchParams.foo\': Expected values which are `string`, `number`, `boolean`, `null`, or `undefined`. Received values of type `Array`.',
 	});
 });
 
@@ -461,7 +461,7 @@ test('throws on invalid `dnsCache` option', async t => {
 	}),
 	{
 		instanceOf: RequestError,
-		message: 'Expected values which are `Object`, `boolean`, or `undefined`. Received values of type `number`.',
+		message: 'Option \'dnsCache\': Expected values which are `Object`, `boolean`, or `undefined`. Received values of type `number`.',
 	});
 });
 

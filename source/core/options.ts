@@ -763,12 +763,46 @@ export type PaginationOptions<ElementType, BodyType> = {
 
 export type SearchParameters = Record<string, string | number | boolean | null | undefined>; // eslint-disable-line @typescript-eslint/ban-types
 
+/**
+Generic helper that wraps any assertion function to add context to error messages.
+*/
+function wrapAssertionWithContext(optionName: string, assertionFn: () => void): void {
+	try {
+		assertionFn();
+	} catch (error) {
+		if (error instanceof Error) {
+			error.message = `Option '${optionName}': ${error.message}`;
+		}
+
+		throw error;
+	}
+}
+
+/**
+Helper function that wraps assert.any() to provide better error messages.
+When assertion fails, it includes the option name in the error message.
+*/
+function assertAny(optionName: string, validators: any[], value: unknown): void {
+	wrapAssertionWithContext(optionName, () => {
+		assert.any(validators, value);
+	});
+}
+
+/**
+Helper function that wraps assert.plainObject() to provide better error messages.
+When assertion fails, it includes the option name in the error message.
+*/
+function assertPlainObject(optionName: string, value: unknown): void {
+	wrapAssertionWithContext(optionName, () => {
+		assert.plainObject(value);
+	});
+}
+
 function validateSearchParameters(searchParameters: Record<string, unknown>): asserts searchParameters is Record<string, string | number | boolean | null | undefined> { // eslint-disable-line @typescript-eslint/ban-types
 	// eslint-disable-next-line guard-for-in
 	for (const key in searchParameters) {
 		const value = searchParameters[key];
-
-		assert.any([is.string, is.number, is.boolean, is.null, is.undefined], value);
+		assertAny(`searchParams.${key}`, [is.string, is.number, is.boolean, is.null, is.undefined], value);
 	}
 }
 
@@ -1162,9 +1196,9 @@ export default class Options {
 	private readonly _init: OptionsInit[];
 
 	constructor(input?: string | URL | OptionsInit, options?: OptionsInit, defaults?: Options) {
-		assert.any([is.string, is.urlInstance, is.object, is.undefined], input);
-		assert.any([is.object, is.undefined], options);
-		assert.any([is.object, is.undefined], defaults);
+		assertAny('input', [is.string, is.urlInstance, is.object, is.undefined], input);
+		assertAny('options', [is.object, is.undefined], options);
+		assertAny('defaults', [is.object, is.undefined], defaults);
 
 		if (input instanceof Options || options instanceof Options) {
 			throw new TypeError('The defaults must be passed as the third argument');
@@ -1297,7 +1331,7 @@ export default class Options {
 	}
 
 	set request(value: RequestFunction | undefined) {
-		assert.any([is.function, is.undefined], value);
+		assertAny('request', [is.function, is.undefined], value);
 
 		this._internals.request = value;
 	}
@@ -1329,7 +1363,7 @@ export default class Options {
 	}
 
 	set agent(value: Agents) {
-		assert.plainObject(value);
+		assertPlainObject('agent', value);
 
 		// eslint-disable-next-line guard-for-in
 		for (const key in value) {
@@ -1338,7 +1372,7 @@ export default class Options {
 			}
 
 			// @ts-expect-error - No idea why `value[key]` doesn't work here.
-			assert.any([is.object, is.undefined, (v: unknown) => v === false], value[key]);
+			assertAny(`agent.${key}`, [is.object, is.undefined, (v: unknown) => v === false], value[key]);
 		}
 
 		if (this._merging) {
@@ -1398,7 +1432,7 @@ export default class Options {
 	}
 
 	set timeout(value: Delays) {
-		assert.plainObject(value);
+		assertPlainObject('timeout', value);
 
 		// eslint-disable-next-line guard-for-in
 		for (const key in value) {
@@ -1407,7 +1441,7 @@ export default class Options {
 			}
 
 			// @ts-expect-error - No idea why `value[key]` doesn't work here.
-			assert.any([is.number, is.undefined], value[key]);
+			assertAny(`timeout.${key}`, [is.number, is.undefined], value[key]);
 		}
 
 		if (this._merging) {
@@ -1463,7 +1497,7 @@ export default class Options {
 	}
 
 	set prefixUrl(value: string | URL) {
-		assert.any([is.string, is.urlInstance], value);
+		assertAny('prefixUrl', [is.string, is.urlInstance], value);
 
 		if (value === '') {
 			this._internals.prefixUrl = '';
@@ -1520,7 +1554,7 @@ export default class Options {
 	}
 
 	set body(value: string | Buffer | Readable | Generator | AsyncGenerator | Iterable<unknown> | AsyncIterable<unknown> | FormDataLike | ArrayBufferView | undefined) {
-		assert.any([is.string, is.buffer, is.nodeStream, is.generator, is.asyncGenerator, is.iterable, is.asyncIterable, isFormData, is.typedArray, is.undefined], value);
+		assertAny('body', [is.string, is.buffer, is.nodeStream, is.generator, is.asyncGenerator, is.iterable, is.asyncIterable, isFormData, is.typedArray, is.undefined], value);
 
 		if (is.nodeStream(value)) {
 			assert.truthy(value.readable);
@@ -1548,7 +1582,7 @@ export default class Options {
 	}
 
 	set form(value: Record<string, any> | undefined) {
-		assert.any([is.plainObject, is.undefined], value);
+		assertAny('form', [is.plainObject, is.undefined], value);
 
 		if (value !== undefined) {
 			assert.undefined(this._internals.body);
@@ -1603,7 +1637,7 @@ export default class Options {
 	}
 
 	set url(value: string | URL | undefined) {
-		assert.any([is.string, is.urlInstance, is.undefined], value);
+		assertAny('url', [is.string, is.urlInstance, is.undefined], value);
 
 		if (value === undefined) {
 			this._internals.url = undefined;
@@ -1679,7 +1713,7 @@ export default class Options {
 	}
 
 	set cookieJar(value: PromiseCookieJar | ToughCookieJar | undefined) {
-		assert.any([is.object, is.undefined], value);
+		assertAny('cookieJar', [is.object, is.undefined], value);
 
 		if (value === undefined) {
 			this._internals.cookieJar = undefined;
@@ -1780,7 +1814,7 @@ export default class Options {
 	}
 
 	set searchParams(value: string | SearchParameters | URLSearchParams | undefined) {
-		assert.any([is.string, is.object, is.undefined], value);
+		assertAny('searchParams', [is.string, is.object, is.undefined], value);
 
 		const url = this._internals.url as URL;
 
@@ -1849,7 +1883,7 @@ export default class Options {
 	}
 
 	set dnsLookup(value: CacheableLookup['lookup'] | undefined) {
-		assert.any([is.function, is.undefined], value);
+		assertAny('dnsLookup', [is.function, is.undefined], value);
 
 		this._internals.dnsLookup = value;
 	}
@@ -1869,7 +1903,7 @@ export default class Options {
 	}
 
 	set dnsCache(value: CacheableLookup | boolean | undefined) {
-		assert.any([is.object, is.boolean, is.undefined], value);
+		assertAny('dnsCache', [is.object, is.boolean, is.undefined], value);
 
 		if (value === true) {
 			this._internals.dnsCache = getGlobalDnsCache();
@@ -1945,7 +1979,7 @@ export default class Options {
 			const typedKnownHookEvent = knownHookEvent as keyof Hooks;
 			const hooks = value[typedKnownHookEvent];
 
-			assert.any([is.array, is.undefined], hooks);
+			assertAny(`hooks.${knownHookEvent}`, [is.array, is.undefined], hooks);
 
 			if (hooks) {
 				for (const hook of hooks) {
@@ -1984,7 +2018,7 @@ export default class Options {
 	}
 
 	set followRedirect(value: boolean | ((response: PlainResponse) => boolean)) {
-		assert.any([is.boolean, is.function], value);
+		assertAny('followRedirect', [is.boolean, is.function], value);
 
 		this._internals.followRedirect = value;
 	}
@@ -2022,7 +2056,7 @@ export default class Options {
 	}
 
 	set cache(value: string | StorageAdapter | boolean | undefined) {
-		assert.any([is.object, is.string, is.boolean, is.undefined], value);
+		assertAny('cache', [is.object, is.string, is.boolean, is.undefined], value);
 
 		if (value === true) {
 			this._internals.cache = globalCache;
@@ -2156,7 +2190,7 @@ export default class Options {
 	}
 
 	set headers(value: Headers) {
-		assert.plainObject(value);
+		assertPlainObject('headers', value);
 
 		if (this._merging) {
 			Object.assign(this._internals.headers, lowercaseKeys(value));
@@ -2314,16 +2348,16 @@ export default class Options {
 	}
 
 	set retry(value: Partial<RetryOptions>) {
-		assert.plainObject(value);
+		assertPlainObject('retry', value);
 
-		assert.any([is.function, is.undefined], value.calculateDelay);
-		assert.any([is.number, is.undefined], value.maxRetryAfter);
-		assert.any([is.number, is.undefined], value.limit);
-		assert.any([is.array, is.undefined], value.methods);
-		assert.any([is.array, is.undefined], value.statusCodes);
-		assert.any([is.array, is.undefined], value.errorCodes);
-		assert.any([is.number, is.undefined], value.noise);
-		assert.any([is.boolean, is.undefined], value.enforceRetryRules);
+		assertAny('retry.calculateDelay', [is.function, is.undefined], value.calculateDelay);
+		assertAny('retry.maxRetryAfter', [is.number, is.undefined], value.maxRetryAfter);
+		assertAny('retry.limit', [is.number, is.undefined], value.limit);
+		assertAny('retry.methods', [is.array, is.undefined], value.methods);
+		assertAny('retry.statusCodes', [is.array, is.undefined], value.statusCodes);
+		assertAny('retry.errorCodes', [is.array, is.undefined], value.errorCodes);
+		assertAny('retry.noise', [is.number, is.undefined], value.noise);
+		assertAny('retry.enforceRetryRules', [is.boolean, is.undefined], value.enforceRetryRules);
 
 		if (value.noise && Math.abs(value.noise) > 100) {
 			throw new Error(`The maximum acceptable retry noise is +/- 100ms, got ${value.noise}`);
@@ -2358,7 +2392,7 @@ export default class Options {
 	}
 
 	set localAddress(value: string | undefined) {
-		assert.any([is.string, is.undefined], value);
+		assertAny('localAddress', [is.string, is.undefined], value);
 
 		this._internals.localAddress = value;
 	}
@@ -2383,7 +2417,7 @@ export default class Options {
 	}
 
 	set createConnection(value: CreateConnectionFunction | undefined) {
-		assert.any([is.function, is.undefined], value);
+		assertAny('createConnection', [is.function, is.undefined], value);
 
 		this._internals.createConnection = value;
 	}
@@ -2398,12 +2432,12 @@ export default class Options {
 	}
 
 	set cacheOptions(value: CacheOptions) {
-		assert.plainObject(value);
+		assertPlainObject('cacheOptions', value);
 
-		assert.any([is.boolean, is.undefined], value.shared);
-		assert.any([is.number, is.undefined], value.cacheHeuristic);
-		assert.any([is.number, is.undefined], value.immutableMinTimeToLive);
-		assert.any([is.boolean, is.undefined], value.ignoreCargoCult);
+		assertAny('cacheOptions.shared', [is.boolean, is.undefined], value.shared);
+		assertAny('cacheOptions.cacheHeuristic', [is.number, is.undefined], value.cacheHeuristic);
+		assertAny('cacheOptions.immutableMinTimeToLive', [is.number, is.undefined], value.immutableMinTimeToLive);
+		assertAny('cacheOptions.ignoreCargoCult', [is.boolean, is.undefined], value.ignoreCargoCult);
 
 		for (const key in value) {
 			if (!(key in this._internals.cacheOptions)) {
@@ -2426,27 +2460,27 @@ export default class Options {
 	}
 
 	set https(value: HttpsOptions) {
-		assert.plainObject(value);
+		assertPlainObject('https', value);
 
-		assert.any([is.boolean, is.undefined], value.rejectUnauthorized);
-		assert.any([is.function, is.undefined], value.checkServerIdentity);
-		assert.any([is.string, is.undefined], value.serverName);
-		assert.any([is.string, is.object, is.array, is.undefined], value.certificateAuthority);
-		assert.any([is.string, is.object, is.array, is.undefined], value.key);
-		assert.any([is.string, is.object, is.array, is.undefined], value.certificate);
-		assert.any([is.string, is.undefined], value.passphrase);
-		assert.any([is.string, is.buffer, is.array, is.undefined], value.pfx);
-		assert.any([is.array, is.undefined], value.alpnProtocols);
-		assert.any([is.string, is.undefined], value.ciphers);
-		assert.any([is.string, is.buffer, is.undefined], value.dhparam);
-		assert.any([is.string, is.undefined], value.signatureAlgorithms);
-		assert.any([is.string, is.undefined], value.minVersion);
-		assert.any([is.string, is.undefined], value.maxVersion);
-		assert.any([is.boolean, is.undefined], value.honorCipherOrder);
-		assert.any([is.number, is.undefined], value.tlsSessionLifetime);
-		assert.any([is.string, is.undefined], value.ecdhCurve);
-		assert.any([is.string, is.buffer, is.array, is.undefined], value.certificateRevocationLists);
-		assert.any([is.number, is.undefined], value.secureOptions);
+		assertAny('https.rejectUnauthorized', [is.boolean, is.undefined], value.rejectUnauthorized);
+		assertAny('https.checkServerIdentity', [is.function, is.undefined], value.checkServerIdentity);
+		assertAny('https.serverName', [is.string, is.undefined], value.serverName);
+		assertAny('https.certificateAuthority', [is.string, is.object, is.array, is.undefined], value.certificateAuthority);
+		assertAny('https.key', [is.string, is.object, is.array, is.undefined], value.key);
+		assertAny('https.certificate', [is.string, is.object, is.array, is.undefined], value.certificate);
+		assertAny('https.passphrase', [is.string, is.undefined], value.passphrase);
+		assertAny('https.pfx', [is.string, is.buffer, is.array, is.undefined], value.pfx);
+		assertAny('https.alpnProtocols', [is.array, is.undefined], value.alpnProtocols);
+		assertAny('https.ciphers', [is.string, is.undefined], value.ciphers);
+		assertAny('https.dhparam', [is.string, is.buffer, is.undefined], value.dhparam);
+		assertAny('https.signatureAlgorithms', [is.string, is.undefined], value.signatureAlgorithms);
+		assertAny('https.minVersion', [is.string, is.undefined], value.minVersion);
+		assertAny('https.maxVersion', [is.string, is.undefined], value.maxVersion);
+		assertAny('https.honorCipherOrder', [is.boolean, is.undefined], value.honorCipherOrder);
+		assertAny('https.tlsSessionLifetime', [is.number, is.undefined], value.tlsSessionLifetime);
+		assertAny('https.ecdhCurve', [is.string, is.undefined], value.ecdhCurve);
+		assertAny('https.certificateRevocationLists', [is.string, is.buffer, is.array, is.undefined], value.certificateRevocationLists);
+		assertAny('https.secureOptions', [is.number, is.undefined], value.secureOptions);
 
 		for (const key in value) {
 			if (!(key in this._internals.https)) {
@@ -2480,7 +2514,7 @@ export default class Options {
 			throw new TypeError('To get a Buffer, set `options.responseType` to `buffer` instead');
 		}
 
-		assert.any([is.string, is.undefined], value);
+		assertAny('encoding', [is.string, is.undefined], value);
 
 		this._internals.encoding = value;
 	}
@@ -2600,7 +2634,7 @@ export default class Options {
 	}
 
 	set maxHeaderSize(value: number | undefined) {
-		assert.any([is.number, is.undefined], value);
+		assertAny('maxHeaderSize', [is.number, is.undefined], value);
 
 		this._internals.maxHeaderSize = value;
 	}

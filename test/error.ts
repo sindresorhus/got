@@ -49,7 +49,7 @@ test('`options.body` form error message', async t => {
 	await t.throwsAsync(got.post('https://example.com', {body: Buffer.from('test'), form: ''}),
 		{
 			instanceOf: RequestError,
-			message: 'Expected values which are `plain object` or `undefined`. Received values of type `string`.',
+			message: 'Option \'form\': Expected values which are `plain object` or `undefined`. Received values of type `string`.',
 		},
 		// {message: 'The `body`, `json` and `form` options are mutually exclusive'}
 	);

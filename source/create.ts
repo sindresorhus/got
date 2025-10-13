@@ -192,7 +192,15 @@ const create = (defaults: InstanceDefaults): Got => {
 			} else {
 				normalizedOptions.merge(optionsToMerge);
 
-				assert.any([is.urlInstance, is.undefined], optionsToMerge.url);
+				try {
+					assert.any([is.urlInstance, is.undefined], optionsToMerge.url);
+				} catch (error) {
+					if (error instanceof Error) {
+						error.message = `Option 'pagination.paginate.url': ${error.message}`;
+					}
+
+					throw error;
+				}
 
 				if (optionsToMerge.url !== undefined) {
 					normalizedOptions.prefixUrl = '';
