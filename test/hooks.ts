@@ -1828,3 +1828,303 @@ test('beforeError hook can redact sensitive headers for ERR_UNSUPPORTED_PROTOCOL
 
 	t.is(error?.options.headers.authorization, '<redacted>');
 });
+
+test('beforeRetry can reassign plain stream body', withServer, async (t, server, got) => {
+	const {Readable: readable} = await import('node:stream');
+	let requestCount = 0;
+	const testData = 'Hello, Got!';
+
+	server.post('/retry', async (request, response) => {
+		requestCount++;
+		let body = '';
+		for await (const chunk of request) {
+			body += String(chunk);
+		}
+
+		// First request fails, second succeeds
+		if (requestCount === 1) {
+			response.statusCode = 500;
+			response.end('Server Error');
+		} else {
+			response.statusCode = 200;
+			response.end(`Received: ${body}`);
+		}
+	});
+
+	// Factory function to create fresh streams
+	const createStream = () => readable.from([testData]);
+
+	const response = await got.post('retry', {
+		body: createStream(),
+		retry: {
+			limit: 1,
+			methods: ['POST'],
+		},
+		hooks: {
+			beforeRetry: [
+				({options}) => {
+					// Reassign with a fresh stream - this previously failed
+					options.body = createStream();
+				},
+			],
+		},
+	});
+
+	t.is(response.statusCode, 200);
+	t.is(response.body, `Received: ${testData}`);
+	t.is(requestCount, 2);
+});
+
+test('beforeRetry destroys old stream when reassigning body', withServer, async (t, server, got) => {
+	const {Readable: readable} = await import('node:stream');
+	let requestCount = 0;
+	const testData = 'Stream data';
+
+	server.post('/retry', async (request, response) => {
+		requestCount++;
+		let body = '';
+		for await (const chunk of request) {
+			body += String(chunk);
+		}
+
+		// First request fails, second succeeds
+		if (requestCount === 1) {
+			response.statusCode = 500;
+			response.end('Server Error');
+		} else {
+			response.statusCode = 200;
+			response.end(`Received: ${body}`);
+		}
+	});
+
+	const createStream = () => readable.from([testData]);
+	const firstStream = createStream();
+	let oldStreamDestroyed = false;
+
+	// Monitor when the old stream is destroyed
+	firstStream.on('close', () => {
+		oldStreamDestroyed = true;
+	});
+
+	await got.post('retry', {
+		body: firstStream,
+		retry: {
+			limit: 1,
+			methods: ['POST'],
+		},
+		hooks: {
+			beforeRetry: [
+				({options}) => {
+					// Reassign with a fresh stream
+					options.body = createStream();
+				},
+			],
+		},
+	});
+
+	t.true(oldStreamDestroyed, 'Old stream should be destroyed to prevent memory leak');
+	t.is(requestCount, 2);
+});
+
+test('beforeRetry handles multiple retries with stream reassignment', withServer, async (t, server, got) => {
+	const {Readable: readable} = await import('node:stream');
+	let requestCount = 0;
+	const testData = 'Multi-retry data';
+
+	server.post('/retry', async (request, response) => {
+		requestCount++;
+		let body = '';
+		for await (const chunk of request) {
+			body += String(chunk);
+		}
+
+		// First two requests fail, third succeeds
+		if (requestCount < 3) {
+			response.statusCode = 500;
+			response.end('Server Error');
+		} else {
+			response.statusCode = 200;
+			response.end(`Received: ${body}`);
+		}
+	});
+
+	const createStream = () => readable.from([testData]);
+	const destroyedStreams: number[] = [];
+	let streamId = 0;
+
+	const response = await got.post('retry', {
+		body: createStream(),
+		retry: {
+			limit: 2,
+			methods: ['POST'],
+		},
+		hooks: {
+			beforeRetry: [
+				({options}) => {
+					const currentStreamId = ++streamId;
+					const newStream = createStream();
+					newStream.on('close', () => {
+						destroyedStreams.push(currentStreamId);
+					});
+					options.body = newStream;
+				},
+			],
+		},
+	});
+
+	t.is(response.statusCode, 200);
+	t.is(response.body, `Received: ${testData}`);
+	t.is(requestCount, 3);
+	t.is(destroyedStreams.length, 2, 'All old streams should be destroyed');
+});
+
+test('beforeRetry handles non-stream body reassignment', withServer, async (t, server, got) => {
+	let requestCount = 0;
+
+	server.post('/retry', async (request, response) => {
+		requestCount++;
+		let body = '';
+		for await (const chunk of request) {
+			body += String(chunk);
+		}
+
+		if (requestCount === 1) {
+			response.statusCode = 500;
+			response.end('Server Error');
+		} else {
+			response.statusCode = 200;
+			response.end(`Received: ${body}`);
+		}
+	});
+
+	const response = await got.post('retry', {
+		body: 'initial body',
+		retry: {
+			limit: 1,
+			methods: ['POST'],
+		},
+		hooks: {
+			beforeRetry: [
+				({options}) => {
+					// Reassign with a different string body
+					options.body = 'retried body';
+				},
+			],
+		},
+	});
+
+	t.is(response.statusCode, 200);
+	t.is(response.body, 'Received: retried body');
+	t.is(requestCount, 2);
+});
+
+test('beforeRetry handles body set to undefined', withServer, async (t, server, got) => {
+	const {Readable: readable} = await import('node:stream');
+	let requestCount = 0;
+
+	server.post('/retry', async (_request, response) => {
+		requestCount++;
+		// First request fails, second succeeds (with no body)
+		if (requestCount === 1) {
+			response.statusCode = 500;
+			response.end('Error');
+		} else {
+			response.statusCode = 200;
+			response.end('Success');
+		}
+	});
+
+	await got.post('retry', {
+		body: readable.from(['initial']),
+		retry: {
+			limit: 1,
+			methods: ['POST'],
+		},
+		hooks: {
+			beforeRetry: [
+				({options}) => {
+					options.body = undefined;
+				},
+			],
+		},
+	});
+
+	t.is(requestCount, 2);
+});
+
+test('beforeRetry handles body from undefined to stream', withServer, async (t, server, got) => {
+	const {Readable: readable} = await import('node:stream');
+	let requestCount = 0;
+
+	server.post('/retry', async (request, response) => {
+		requestCount++;
+		let body = '';
+		for await (const chunk of request) {
+			body += String(chunk);
+		}
+
+		if (requestCount === 1) {
+			response.statusCode = 500;
+			response.end('Error');
+		} else {
+			response.statusCode = 200;
+			response.end(`Got: ${body}`);
+		}
+	});
+
+	const response = await got.post('retry', {
+		retry: {
+			limit: 1,
+			methods: ['POST'],
+		},
+		hooks: {
+			beforeRetry: [
+				({options}) => {
+					options.body = readable.from(['stream-data']);
+				},
+			],
+		},
+	});
+
+	t.is(response.body, 'Got: stream-data');
+	t.is(requestCount, 2);
+});
+
+test('beforeRetry handles stream to Buffer conversion', withServer, async (t, server, got) => {
+	const {Readable: readable} = await import('node:stream');
+	let requestCount = 0;
+
+	server.post('/retry', async (request, response) => {
+		requestCount++;
+		let body = '';
+		for await (const chunk of request) {
+			body += String(chunk);
+		}
+
+		if (requestCount === 1) {
+			response.statusCode = 500;
+			response.end('Error');
+		} else {
+			response.statusCode = 200;
+			response.end(`Got: ${body}`);
+		}
+	});
+
+	const response = await got.post('retry', {
+		body: readable.from(['initial']),
+		retry: {
+			limit: 1,
+			methods: ['POST'],
+		},
+		hooks: {
+			beforeRetry: [
+				({options}) => {
+					options.body = Buffer.from('buffer-data');
+				},
+			],
+		},
+	});
+
+	t.is(response.body, 'Got: buffer-data');
+	t.is(requestCount, 2);
+});

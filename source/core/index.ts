@@ -446,6 +446,9 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 						return;
 					}
 
+					// Capture body BEFORE hooks run to detect reassignment
+					const bodyBeforeHooks = this.options.body;
+
 					try {
 						for (const hook of this.options.hooks.beforeRetry) {
 							// eslint-disable-next-line no-await-in-loop
@@ -461,7 +464,48 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 						return;
 					}
 
-					this.destroy();
+					// Preserve stream body reassigned in beforeRetry hooks.
+					const bodyAfterHooks = this.options.body;
+					const bodyWasReassigned = bodyBeforeHooks !== bodyAfterHooks;
+
+					// Resource cleanup and preservation logic for retry with body reassignment.
+					// The Promise wrapper (as-promise/index.ts) compares body identity to detect consumed streams,
+					// so we must preserve the body reference across destroy(). However, destroy() calls _destroy()
+					// which destroys this.options.body, creating a complex dance of clear/restore operations.
+					//
+					// Key constraints:
+					// 1. If body was reassigned, we must NOT destroy the NEW stream (it will be used for retry)
+					// 2. If body was reassigned, we MUST destroy the OLD stream to prevent memory leaks
+					// 3. We must restore the body reference after destroy() for identity checks in promise wrapper
+					// 4. We cannot use the normal setter after destroy() because it validates stream readability
+					if (bodyWasReassigned) {
+						const oldBody = bodyBeforeHooks;
+						// Temporarily clear body to prevent destroy() from destroying the new stream
+						this.options.body = undefined;
+						this.destroy();
+
+						// Clean up the old stream resource if it's a stream and different from new body
+						// (edge case: if old and new are same stream object, don't destroy it)
+						if (is.nodeStream(oldBody) && oldBody !== bodyAfterHooks) {
+							oldBody.destroy();
+						}
+
+						// Restore new body for promise wrapper's identity check
+						// We bypass the setter because it validates stream.readable (which fails for destroyed request)
+						// Type assertion is necessary here to access private _internals without exposing internal API
+						if (is.nodeStream(bodyAfterHooks) && (bodyAfterHooks.readableEnded || bodyAfterHooks.destroyed)) {
+							throw new TypeError('The reassigned stream body must be readable. Ensure you provide a fresh, readable stream in the beforeRetry hook.');
+						}
+
+						(this.options as any)._internals.body = bodyAfterHooks;
+					} else {
+						// Body wasn't reassigned - use normal destroy flow which handles body cleanup
+						this.destroy();
+						// Note: We do NOT restore the body reference here. The stream was destroyed by _destroy()
+						// and should not be accessed. The promise wrapper will see that body identity hasn't changed
+						// and will detect it's a consumed stream, which is the correct behavior.
+					}
+
 					this.emit('retry', this.retryCount + 1, error, (updatedOptions?: OptionsInit) => {
 						const request = new Request(options.url, updatedOptions, options);
 						request.retryCount = this.retryCount + 1;
