@@ -105,6 +105,7 @@ export type BeforeRequestHook = (options: NormalizedOptions, context: BeforeRequ
 export type BeforeRedirectHook = (updatedOptions: NormalizedOptions, plainResponse: PlainResponse) => Promisable<void>;
 export type BeforeErrorHook = (error: RequestError) => Promisable<RequestError>;
 export type BeforeRetryHook = (error: RequestError, retryCount: number) => Promisable<void>;
+export type BeforeCacheHook = (response: PlainResponse) => false | void;
 export type AfterResponseHook<ResponseType = unknown> = (response: Response<ResponseType>, retryWithMergedOptions: (options: OptionsInit) => never) => Promisable<Response | CancelableRequest<Response>>;
 
 /**
@@ -355,6 +356,73 @@ export type Hooks = {
 	```
 	*/
 	beforeRetry: BeforeRetryHook[];
+
+	/**
+	Called right before the response is cached. Allows you to control caching behavior by directly modifying the response or preventing caching.
+
+	This is especially useful when you want to prevent caching of specific responses or modify cache headers.
+
+	@default []
+
+	**Return value:**
+	> - `false` - Prevent caching (remaining hooks are skipped)
+	> - `void`/`undefined` - Use default caching behavior (mutations take effect)
+
+	**Modifying the response:**
+	> - Hooks can directly mutate response properties like `headers`, `statusCode`, and `statusMessage`
+	> - Mutations to `response.headers` affect how the caching layer decides whether to cache the response and for how long
+	> - Changes are applied to what gets cached
+
+	**Note:**
+	> - This hook is only called when the `cache` option is enabled.
+
+	**Note:**
+	> - This hook must be synchronous. It cannot return a Promise. If you need async logic to determine caching behavior, use a `beforeRequest` hook instead.
+
+	**Note:**
+	> - When returning `false`, remaining hooks are skipped and the response will not be cached.
+
+	**Note:**
+	> - Returning anything other than `false` or `undefined` will throw a TypeError.
+
+	**Note:**
+	> - If a hook throws an error, it will be propagated and the request will fail. This is consistent with how other hooks in Got handle errors.
+
+	**Note:**
+	> - At this stage, the response body has not been read yet - it's still a stream. Properties like `response.body` and `response.rawBody` are not available. You can only inspect/modify response headers and status code.
+
+	@example
+	```
+	import got from 'got';
+
+	// Simple: Don't cache errors
+	const instance = got.extend({
+		cache: new Map(),
+		hooks: {
+			beforeCache: [
+				(response) => response.statusCode >= 400 ? false : undefined
+			]
+		}
+	});
+
+	// Advanced: Modify headers for fine control
+	const instance2 = got.extend({
+		cache: new Map(),
+		hooks: {
+			beforeCache: [
+				(response) => {
+					// Force caching with explicit duration
+					// Mutations work directly - no need to return
+					response.headers['cache-control'] = 'public, max-age=3600';
+				}
+			]
+		}
+	});
+
+	await instance('https://example.com');
+	```
+	*/
+	beforeCache: BeforeCacheHook[];
 
 	/**
 	Each function should return the response. This is especially useful when you want to refresh an access token.
@@ -916,6 +984,7 @@ const defaultInternals: Options['_internals'] = {
 		beforeError: [],
 		beforeRedirect: [],
 		beforeRetry: [],
+		beforeCache: [],
 		afterResponse: [],
 	},
 	followRedirect: true,
@@ -1069,6 +1138,7 @@ const cloneInternals = (internals: typeof defaultInternals) => {
 			beforeError: [...hooks.beforeError],
 			beforeRedirect: [...hooks.beforeRedirect],
 			beforeRetry: [...hooks.beforeRetry],
+			beforeCache: [...hooks.beforeCache],
 			afterResponse: [...hooks.afterResponse],
 		},
 		searchParams: internals.searchParams ? new URLSearchParams(internals.searchParams as URLSearchParams) : undefined,
@@ -1150,6 +1220,10 @@ const cloneRaw = (raw: OptionsInit) => {
 
 		if (is.array(hooks.beforeRetry)) {
 			result.hooks.beforeRetry = [...hooks.beforeRetry];
+		}
+
+		if (is.array(hooks.beforeCache)) {
+			result.hooks.beforeCache = [...hooks.beforeCache];
 		}
 
 		if (is.array(hooks.afterResponse)) {

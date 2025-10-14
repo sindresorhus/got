@@ -651,3 +651,328 @@ test('QuickLRU works as cache adapter (auto-wrapped)', withServer, async (t, ser
 	t.true(secondResponse.isFromCache);
 	t.is(cache.size, 1);
 });
+
+test('beforeCache hook: returning false prevents caching', withServer, async (t, server, got) => {
+	server.get('/', cacheEndpoint);
+
+	const cache = new Map();
+
+	const firstResponse = await got({
+		cache,
+		hooks: {
+			beforeCache: [
+				(): false => false,
+			],
+		},
+	});
+
+	const secondResponse = await got({
+		cache,
+		hooks: {
+			beforeCache: [
+				(): false => false,
+			],
+		},
+	});
+
+	t.is(cache.size, 0);
+	t.not(firstResponse.body, secondResponse.body);
+});
+
+test('beforeCache hook: returning void uses default caching', withServer, async (t, server, got) => {
+	server.get('/', cacheEndpoint);
+
+	const cache = new Map();
+
+	const firstResponse = await got({
+		cache,
+		hooks: {
+			beforeCache: [
+				() => undefined,
+			],
+		},
+	});
+
+	const secondResponse = await got({
+		cache,
+		hooks: {
+			beforeCache: [
+				() => undefined,
+			],
+		},
+	});
+
+	t.is(cache.size, 1);
+	t.is(firstResponse.body, secondResponse.body);
+});
+
+test('beforeCache hook: conditionally prevent caching based on status code', withServer, async (t, server, got) => {
+	server.get('/success', cacheEndpoint);
+	server.get('/error', (_request, response) => {
+		response.setHeader('Cache-Control', 'public, max-age=60');
+		response.statusCode = 500;
+		response.end('error');
+	});
+
+	const cache = new Map();
+
+	const hooks = {
+		beforeCache: [
+			(response: any) => response.statusCode >= 400 ? false : undefined,
+		],
+	};
+
+	await got('success', {cache, hooks});
+	await got('error', {cache, hooks, throwHttpErrors: false});
+
+	t.is(cache.size, 1);
+});
+
+test('beforeCache hook: modify cache-control headers', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.setHeader('Cache-Control', 'no-cache');
+		response.end(Date.now().toString());
+	});
+
+	const cache = new Map();
+
+	const firstResponse = await got({
+		cache,
+		hooks: {
+			beforeCache: [
+				(response: any) => {
+					response.headers['cache-control'] = 'public, max-age=3600';
+				},
+			],
+		},
+	});
+
+	const secondResponse = await got({
+		cache,
+		hooks: {
+			beforeCache: [
+				(response: any) => {
+					response.headers['cache-control'] = 'public, max-age=3600';
+				},
+			],
+		},
+	});
+
+	t.is(cache.size, 1);
+	t.is(firstResponse.body, secondResponse.body);
+});
+
+test('beforeCache hook: multiple hooks are executed in order', withServer, async (t, server, got) => {
+	server.get('/', cacheEndpoint);
+
+	const cache = new Map();
+	const order: number[] = [];
+
+	await got({
+		cache,
+		hooks: {
+			beforeCache: [
+				(response: any) => {
+					order.push(1);
+					response.headers['x-hook-1'] = 'executed';
+				},
+				(response: any) => {
+					order.push(2);
+					t.is(response.headers['x-hook-1'], 'executed');
+				},
+			],
+		},
+	});
+
+	t.deepEqual(order, [1, 2]);
+	t.is(cache.size, 1);
+});
+
+test('beforeCache hook: first hook returning false skips remaining hooks', withServer, async (t, server, got) => {
+	server.get('/', cacheEndpoint);
+
+	const cache = new Map();
+	let secondHookCalled = false;
+
+	await got({
+		cache,
+		hooks: {
+			beforeCache: [
+				(): false => false,
+				() => {
+					secondHookCalled = true;
+					return undefined;
+				},
+			],
+		},
+	});
+
+	t.false(secondHookCalled);
+	t.is(cache.size, 0);
+});
+
+test('beforeCache hook: not called when cache option is disabled', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.end('ok');
+	});
+
+	let hookCalled = false;
+
+	await got({
+		hooks: {
+			beforeCache: [
+				() => {
+					hookCalled = true;
+					return undefined;
+				},
+			],
+		},
+	});
+
+	t.false(hookCalled);
+});
+
+test('beforeCache hook: works with extended instances', withServer, async (t, server, got) => {
+	server.get('/', cacheEndpoint);
+
+	const cache = new Map();
+	const instance = got.extend({
+		cache,
+		hooks: {
+			beforeCache: [
+				(response: any) => response.statusCode >= 400 ? false : undefined,
+			],
+		},
+	});
+
+	const firstResponse = await instance('');
+	const secondResponse = await instance('');
+
+	t.is(cache.size, 1);
+	t.is(firstResponse.body, secondResponse.body);
+});
+
+test('beforeCache hook: errors are propagated', withServer, async (t, server, got) => {
+	server.get('/', cacheEndpoint);
+
+	const cache = new Map();
+
+	const error = await t.throwsAsync(
+		got({
+			cache,
+			hooks: {
+				beforeCache: [
+					() => {
+						throw new Error('Hook error message');
+					},
+				],
+			},
+		}),
+	);
+
+	t.is(error?.message, 'Hook error message');
+});
+
+test('beforeCache hook: returning undefined caches the original response correctly', withServer, async (t, server, got) => {
+	server.get('/', cacheEndpoint);
+
+	const cache = new Map();
+
+	// First request - hook returns undefined
+	const firstResponse = await got({
+		cache,
+		hooks: {
+			beforeCache: [
+				() => undefined,
+			],
+		},
+	});
+
+	// Second request - should get cached response
+	const secondResponse = await got({
+		cache,
+		hooks: {
+			beforeCache: [
+				() => undefined,
+			],
+		},
+	});
+
+	// Verify caching worked correctly
+	t.is(cache.size, 1);
+	t.is(firstResponse.body, secondResponse.body);
+	t.false(firstResponse.isFromCache);
+	t.true(secondResponse.isFromCache);
+});
+
+test('beforeCache hook: mixed hook results work correctly', withServer, async (t, server, got) => {
+	server.get('/', cacheEndpoint);
+
+	const cache = new Map();
+
+	// First request - first hook returns undefined, second hook modifies and returns
+	const firstResponse = await got({
+		cache,
+		hooks: {
+			beforeCache: [
+				(response: any) => {
+					// This hook returns undefined - its mutations take effect
+					response.headers['x-ignored'] = 'ignored';
+					return undefined;
+				},
+				(response: any) => {
+					// This hook also mutates - all mutations are cached
+					response.headers['x-custom'] = 'cached';
+				},
+			],
+		},
+	});
+
+	// Second request - should get cached response with modifications from the hook that returned
+	const secondResponse = await got({cache});
+
+	t.is(cache.size, 1);
+	t.false(firstResponse.isFromCache);
+	t.true(secondResponse.isFromCache);
+	// The cached response should have the custom header from the hook that returned
+	t.is(secondResponse.headers['x-custom'], 'cached');
+	// Both mutations are included because mutations work directly
+	t.is(secondResponse.headers['x-ignored'], 'ignored');
+});
+
+test('beforeCache hook: response body is correctly cached when hook returns undefined', withServer, async (t, server, got) => {
+	let requestCount = 0;
+	server.get('/', (_request, response) => {
+		requestCount++;
+		response.setHeader('Cache-Control', 'public, max-age=60');
+		response.end(`Response ${requestCount}`);
+	});
+
+	const cache = new Map();
+
+	// First request
+	const firstResponse = await got({
+		cache,
+		hooks: {
+			beforeCache: [
+				() => undefined,
+			],
+		},
+	});
+
+	// Second request - should be from cache
+	const secondResponse = await got({
+		cache,
+		hooks: {
+			beforeCache: [
+				() => undefined,
+			],
+		},
+	});
+
+	// Verify the body was cached correctly (not corrupted by defensive copy)
+	t.is(firstResponse.body, 'Response 1');
+	t.is(secondResponse.body, 'Response 1'); // Same body from cache
+	t.is(requestCount, 1); // Only one actual request was made
+	t.true(secondResponse.isFromCache);
+});

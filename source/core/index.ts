@@ -455,7 +455,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 							await hook(typedError, this.retryCount + 1);
 						}
 					} catch (error_: any) {
-						void this._error(new RequestError(error_.message, error, this));
+						void this._error(new RequestError(error_.message, error_, this));
 						return;
 					}
 
@@ -1207,49 +1207,121 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	}
 
 	private _prepareCache(cache: string | StorageAdapter) {
-		if (!cacheableStore.has(cache)) {
-			const cacheableRequest = new CacheableRequest(
-				((requestOptions: RequestOptions, handler?: (response: IncomingMessageWithTimings) => void): ClientRequest => {
-					const result = (requestOptions as any)._request(requestOptions, handler);
+		if (cacheableStore.has(cache)) {
+			return;
+		}
 
-					// TODO: remove this when `cacheable-request` supports async request functions.
-					if (is.promise(result)) {
-						// We only need to implement the error handler in order to support HTTP2 caching.
-						// The result will be a promise anyway.
-						// @ts-expect-error ignore
-						result.once = (event: string, handler: (reason: unknown) => void) => {
-							if (event === 'error') {
-								(async () => {
-									try {
-										await result;
-									} catch (error) {
-										handler(error);
-									}
-								})();
-							} else if (event === 'abort' || event === 'destroy') {
-								// The empty catch is needed here in case when
-								// it rejects before it's `await`ed in `_makeRequest`.
-								(async () => {
-									try {
-										const request = (await result) as ClientRequest;
-										request.once(event, handler);
-									} catch {}
-								})();
-							} else {
-								/* istanbul ignore next: safety check */
-								throw new Error(`Unknown HTTP2 promise event: ${event}`);
-							}
+		const cacheableRequest = new CacheableRequest(
+			((requestOptions: RequestOptions, handler?: (response: IncomingMessageWithTimings) => void): ClientRequest => {
+				/**
+				Wraps the cacheable-request handler to run beforeCache hooks.
+				These hooks control caching behavior by:
+				- Directly mutating the response object (changes apply to what gets cached)
+				- Returning `false` to prevent caching
+				- Returning `void`/`undefined` to use default caching behavior
 
-							return result;
-						};
+				Hooks use direct mutation - they can modify response.headers, response.statusCode, etc.
+				Mutations take effect immediately and determine what gets cached.
+				*/
+				const wrappedHandler = handler ? (response: IncomingMessageWithTimings) => {
+					const {beforeCacheHooks, gotRequest} = requestOptions as any;
+
+					// Early return if no hooks - cache the original response
+					if (!beforeCacheHooks || beforeCacheHooks.length === 0) {
+						handler(response);
+						return;
 					}
 
-					return result;
-				}) as typeof http.request,
-				cache as StorageAdapter,
-			);
-			cacheableStore.set(cache, cacheableRequest.request());
-		}
+					try {
+						// Call each beforeCache hook with the response
+						// Hooks can directly mutate the response - mutations take effect immediately
+						for (const hook of beforeCacheHooks) {
+							const result = hook(response);
+
+							if (result === false) {
+								// Prevent caching by adding no-cache headers
+								// Mutate the response directly to add headers
+								response.headers['cache-control'] = 'no-cache, no-store, must-revalidate';
+								response.headers.pragma = 'no-cache';
+								response.headers.expires = '0';
+								handler(response);
+								// Don't call remaining hooks - we've decided not to cache
+								return;
+							}
+
+							if (is.promise(result)) {
+								// BeforeCache hooks must be synchronous because cacheable-request's handler is synchronous
+								throw new TypeError('beforeCache hooks must be synchronous. The hook returned a Promise, but this hook must return synchronously. If you need async logic, use beforeRequest hook instead.');
+							}
+
+							if (result !== undefined) {
+								// Hooks should return false or undefined only
+								// Mutations work directly - no need to return the response
+								throw new TypeError('beforeCache hook must return false or undefined. To modify the response, mutate it directly.');
+							}
+							// Else: void/undefined = continue
+						}
+					} catch (error: any) {
+						// Convert hook errors to RequestError and propagate
+						// This is consistent with how other hooks handle errors
+						if (gotRequest) {
+							gotRequest._beforeError(error instanceof RequestError ? error : new RequestError(error.message, error, gotRequest));
+							// Don't call handler when error was propagated successfully
+							return;
+						}
+
+						// If gotRequest is missing, log the error to aid debugging
+						// We still call the handler to prevent the request from hanging
+						console.error('Got: beforeCache hook error (request context unavailable):', error);
+						// Call handler with response (potentially partially modified)
+						handler(response);
+						return;
+					}
+
+					// All hooks ran successfully
+					// Cache the response with any mutations applied
+					handler(response);
+				} : handler;
+
+				const result = (requestOptions as any)._request(requestOptions, wrappedHandler);
+
+				// TODO: remove this when `cacheable-request` supports async request functions.
+				if (is.promise(result)) {
+					// We only need to implement the error handler in order to support HTTP2 caching.
+					// The result will be a promise anyway.
+					// @ts-expect-error ignore
+					result.once = (event: string, handler: (reason: unknown) => void) => {
+						if (event === 'error') {
+							(async () => {
+								try {
+									await result;
+								} catch (error) {
+									handler(error);
+								}
+							})();
+						} else if (event === 'abort' || event === 'destroy') {
+							// The empty catch is needed here in case when
+							// it rejects before it's `await`ed in `_makeRequest`.
+							(async () => {
+								try {
+									const request = (await result) as ClientRequest;
+									request.once(event, handler);
+								} catch {}
+							})();
+						} else {
+							/* istanbul ignore next: safety check */
+							throw new Error(`Unknown HTTP2 promise event: ${event}`);
+						}
+
+						return result;
+					};
+				}
+
+				return result;
+			}) as typeof http.request,
+			cache as StorageAdapter,
+		);
+		cacheableStore.set(cache, cacheableRequest.request());
 	}
 
 	private async _createCacheableRequest(url: URL, options: RequestOptions): Promise<ClientRequest | ResponseLike> {
@@ -1356,6 +1428,8 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			(this._requestOptions as any)._request = request;
 			(this._requestOptions as any).cache = options.cache;
 			(this._requestOptions as any).body = options.body;
+			(this._requestOptions as any).beforeCacheHooks = options.hooks.beforeCache;
+			(this._requestOptions as any).gotRequest = this;
 
 			try {
 				this._prepareCache(options.cache as StorageAdapter);

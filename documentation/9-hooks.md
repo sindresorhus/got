@@ -234,6 +234,77 @@ await got('https://httpbin.org/status/500', {
 });
 ```
 
+#### `beforeCache`
+
+**Type: `BeforeCacheHook[]`**\
+**Default: `[]`**
+
+```ts
+(response: PlainResponse) => false | void
+```
+
+Called right before the response is cached. Allows you to control caching behavior by modifying response properties or preventing caching entirely.
+
+This is especially useful when you want to prevent caching of specific responses or modify cache headers.
+
+**Return value:**
+> - `false` - Prevent caching (remaining hooks are skipped)
+> - `void`/`undefined` - Use default caching behavior (mutations take effect)
+
+**Modifying the response:**
+> - Hooks can directly mutate response properties like `headers`, `statusCode`, and `statusMessage`
+> - Mutations to `response.headers` affect how the caching layer decides whether to cache the response and for how long
+> - Changes are applied to what gets cached, not to the response the user receives (they are separate objects)
+
+**Note:**
+> - This hook is only called when the `cache` option is enabled.
+
+**Note:**
+> - This hook must be synchronous. It cannot return a Promise. If you need async logic to determine caching behavior, use a `beforeRequest` hook instead.
+
+**Note:**
+> - When returning `false`, remaining hooks are skipped. The response headers the user receives are NOT modified - only the caching layer sees modified headers.
+
+**Note:**
+> - If a hook throws an error, it will be propagated and the request will fail. This is consistent with how other hooks in Got handle errors.
+
+**Note:**
+> - At this stage, the response body has not been read yet - it's still a stream. Properties like `response.body` and `response.rawBody` are not available. You can only inspect/modify response headers and status code.
+
+```js
+import got from 'got';
+
+// Simple: Don't cache errors
+const instance = got.extend({
+	cache: new Map(),
+	hooks: {
+		beforeCache: [
+			(response) => response.statusCode >= 400 ? false : undefined
+		]
+	}
+});
+
+await instance('https://example.com');
+```
+
+```js
+import got from 'got';
+
+// Advanced: Modify headers for fine control
+const instance2 = got.extend({
+	cache: new Map(),
+	hooks: {
+		beforeCache: [
+			(response) => {
+				// Force caching with explicit duration
+				// Mutations work directly - no need to return
+				response.headers['cache-control'] = 'public, max-age=3600';
+			}
+		]
+	}
+});
+```
+
 #### `afterResponse`
 
 **Type: `AfterResponseHook[]`**\
