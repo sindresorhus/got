@@ -220,10 +220,10 @@ export default function asPromise<T>(firstRequest?: Request): CancelableRequest<
 		return promise;
 	};
 
-	const shortcut = <T>(responseType: Options['responseType']): CancelableRequest<T> => {
+	const shortcut = <T>(promiseToAwait: CancelableRequest<any>, responseType: Options['responseType']): CancelableRequest<T> => {
 		const newPromise = (async () => {
 			// Wait until downloading has ended
-			await promise;
+			await promiseToAwait;
 
 			const {options} = globalResponse.request;
 
@@ -231,12 +231,16 @@ export default function asPromise<T>(firstRequest?: Request): CancelableRequest<
 		})();
 
 		// eslint-disable-next-line @typescript-eslint/no-floating-promises
-		Object.defineProperties(newPromise, Object.getOwnPropertyDescriptors(promise));
+		Object.defineProperties(newPromise, Object.getOwnPropertyDescriptors(promiseToAwait));
 
 		return newPromise as CancelableRequest<T>;
 	};
 
-	promise.json = () => {
+	// Note: These use `function` syntax (not arrows) to access `this` context.
+	// When custom handlers wrap the promise to transform errors, these methods
+	// are copied to the handler's promise. Using `this` ensures we await the
+	// handler's wrapped promise, not the original, so errors propagate correctly.
+	promise.json = function (this: CancelableRequest<any>) {
 		if (globalRequest.options) {
 			const {headers} = globalRequest.options;
 
@@ -245,11 +249,16 @@ export default function asPromise<T>(firstRequest?: Request): CancelableRequest<
 			}
 		}
 
-		return shortcut('json');
+		return shortcut(this, 'json');
 	};
 
-	promise.buffer = () => shortcut('buffer');
-	promise.text = () => shortcut('text');
+	promise.buffer = function (this: CancelableRequest<any>) {
+		return shortcut(this, 'buffer');
+	};
+
+	promise.text = function (this: CancelableRequest<any>) {
+		return shortcut(this, 'text');
+	};
 
 	return promise;
 }

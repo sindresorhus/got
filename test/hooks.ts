@@ -2128,3 +2128,101 @@ test('beforeRetry handles stream to Buffer conversion', withServer, async (t, se
 	t.is(response.body, 'Got: buffer-data');
 	t.is(requestCount, 2);
 });
+
+test('handler error is properly thrown in .json()', withServer, async (t, _server, got) => {
+	const customError = new Error('Custom handler error');
+	const instance = got.extend({
+		handlers: [
+			(options, next) => (async () => {
+				try {
+					return await next(options);
+				} catch {
+					throw customError;
+				}
+			})(),
+		],
+	});
+
+	await t.throwsAsync(instance('').json(), {message: 'Custom handler error'});
+});
+
+test('handler error is properly thrown in .text()', withServer, async (t, _server, got) => {
+	const customError = new Error('Custom handler error for text');
+	const instance = got.extend({
+		handlers: [
+			(options, next) => (async () => {
+				try {
+					return await next(options);
+				} catch {
+					throw customError;
+				}
+			})(),
+		],
+	});
+
+	await t.throwsAsync(instance('').text(), {message: 'Custom handler error for text'});
+});
+
+test('handler error is properly thrown in .buffer()', withServer, async (t, _server, got) => {
+	const customError = new Error('Custom handler error for buffer');
+	const instance = got.extend({
+		handlers: [
+			(options, next) => (async () => {
+				try {
+					return await next(options);
+				} catch {
+					throw customError;
+				}
+			})(),
+		],
+	});
+
+	await t.throwsAsync(instance('').buffer(), {message: 'Custom handler error for buffer'});
+});
+
+test('handler throwing on successful response works with .json()', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.setHeader('content-type', 'application/json');
+		response.end('{"success": true}');
+	});
+
+	const customError = new Error('Handler rejected success');
+	const instance = got.extend({
+		handlers: [
+			(options, next) => (async () => {
+				await next(options);
+				throw customError;
+			})(),
+		],
+	});
+
+	await t.throwsAsync(instance('').json(), {message: 'Handler rejected success'});
+});
+
+test('multiple handlers with error transformation work with .json()', withServer, async (t, _server, got) => {
+	const instance = got.extend({
+		handlers: [
+			// First handler: catches and wraps error
+			(options, next) => (async () => {
+				try {
+					return await next(options);
+				} catch (error: any) {
+					const wrappedError = new Error(`Handler 1: ${error.message}`);
+					throw wrappedError;
+				}
+			})(),
+			// Second handler: catches and wraps error again
+			(options, next) => (async () => {
+				try {
+					return await next(options);
+				} catch (error: any) {
+					const wrappedError = new Error(`Handler 2: ${error.message}`);
+					throw wrappedError;
+				}
+			})(),
+		],
+	});
+
+	// Should get error from first handler (outermost)
+	await t.throwsAsync(instance('').json(), {message: /Handler 1: Handler 2:/});
+});
