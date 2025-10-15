@@ -2226,3 +2226,60 @@ test('multiple handlers with error transformation work with .json()', withServer
 	// Should get error from first handler (outermost)
 	await t.throwsAsync(instance('').json(), {message: /Handler 1: Handler 2:/});
 });
+
+test('beforeError can return custom Error class', async t => {
+	class CustomError extends Error {
+		constructor(message: string) {
+			super(message);
+			this.name = 'CustomError';
+		}
+	}
+
+	const customMessage = 'This is a custom error';
+
+	const error = await t.throwsAsync(
+		got('https://example.com', {
+			request() {
+				throw new Error('Original error');
+			},
+			hooks: {
+				beforeError: [
+					() => new CustomError(customMessage),
+				],
+			},
+		}),
+	);
+
+	t.is(error?.name, 'CustomError');
+	t.is(error?.message, customMessage);
+	t.true(error instanceof CustomError);
+});
+
+test('beforeError can extend RequestError with custom error', async t => {
+	class MyCustomError extends RequestError {
+		constructor(message: string, error: Error, request: any) {
+			super(message, error, request);
+			this.name = 'MyCustomError';
+		}
+	}
+
+	const customMessage = 'Custom RequestError';
+
+	const error = await t.throwsAsync(
+		got('https://example.com', {
+			request() {
+				throw new Error('Original error');
+			},
+			hooks: {
+				beforeError: [
+					error => new MyCustomError(customMessage, error, error.request),
+				],
+			},
+		}),
+	);
+
+	t.is(error?.name, 'MyCustomError');
+	t.is(error?.message, customMessage);
+	t.true(error instanceof MyCustomError);
+	t.true(error instanceof RequestError);
+});

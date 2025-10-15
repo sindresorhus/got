@@ -403,16 +403,22 @@ const instance = got.extend({
 **Default: `[]`**
 
 ```ts
-(error: RequestError) => Promisable<RequestError>
+(error: RequestError) => Promisable<Error>
 ```
 
 Called with a [`RequestError`](8-errors.md#requesterror) instance. The error is passed to the hook right before it's thrown.
 
-This is especially useful when you want to have more detailed errors.
+This hook can return any `Error` instance, allowing you to:
+- Return custom error classes for better error handling in your application
+- Extend `RequestError` with additional properties
+- Return plain `Error` instances when you don't need Got-specific error information
+
+This is especially useful when you want to have more detailed errors or maintain backward compatibility with existing error handling code.
 
 ```js
 import got from 'got';
 
+// Modify and return the error
 await got('https://api.github.com/repos/sindresorhus/got/commits', {
 	responseType: 'json',
 	hooks: {
@@ -425,6 +431,29 @@ await got('https://api.github.com/repos/sindresorhus/got/commits', {
 				}
 
 				return error;
+			}
+		]
+	}
+});
+
+// Return a custom error class
+class CustomAPIError extends Error {
+	constructor(message, statusCode) {
+		super(message);
+		this.name = 'CustomAPIError';
+		this.statusCode = statusCode;
+	}
+}
+
+await got('https://api.example.com/endpoint', {
+	hooks: {
+		beforeError: [
+			error => {
+				// Return a custom error for backward compatibility with your application
+				return new CustomAPIError(
+					error.message,
+					error.response?.statusCode
+				);
 			}
 		]
 	}

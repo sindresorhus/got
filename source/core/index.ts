@@ -136,6 +136,9 @@ const cacheableStore = new WeakableMap<string | StorageAdapter, CacheableRequest
 
 const redirectCodes: ReadonlySet<number> = new Set([300, 301, 302, 303, 304, 307, 308]);
 
+// Track errors that have been processed by beforeError hooks to preserve custom error types
+const errorsProcessedByHooks = new WeakSet<Error>();
+
 const proxiedRequestEvents = [
 	'socket',
 	'connect',
@@ -631,8 +634,16 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			}
 		}
 
-		if (error !== null && !is.undefined(error) && !(error instanceof RequestError)) {
-			error = new RequestError(error.message, error, this);
+		// Preserve custom errors returned by beforeError hooks.
+		// For other errors, wrap non-RequestError instances for consistency.
+		if (error !== null && !is.undefined(error)) {
+			const processedByHooks = error instanceof Error && errorsProcessedByHooks.has(error);
+
+			if (!processedByHooks && !(error instanceof RequestError)) {
+				error = error instanceof Error
+					? new RequestError(error.message, error, this)
+					: new RequestError(String(error), {}, this);
+			}
 		}
 
 		callback(error);
@@ -1496,9 +1507,24 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 				// Skip calling the hooks on purpose.
 				// See https://github.com/sindresorhus/got/issues/2103
 			} else if (this.options) {
-				for (const hook of this.options.hooks.beforeError) {
-					// eslint-disable-next-line no-await-in-loop
-					error = await hook(error);
+				const hooks = this.options.hooks.beforeError;
+				if (hooks.length > 0) {
+					for (const hook of hooks) {
+						// eslint-disable-next-line no-await-in-loop
+						error = await hook(error) as RequestError;
+
+						// Validate hook return value
+						if (!(error instanceof Error)) {
+							throw new TypeError(`The \`beforeError\` hook must return an Error instance. Received ${is.string(error) ? 'string' : String(typeof error)}.`);
+						}
+					}
+
+					// Mark this error as processed by hooks so _destroy preserves custom error types.
+					// Only mark non-RequestError errors, since RequestErrors are already preserved
+					// by the instanceof check in _destroy (line 642).
+					if (!(error instanceof RequestError)) {
+						errorsProcessedByHooks.add(error);
+					}
 				}
 			}
 		} catch (error_: any) {
