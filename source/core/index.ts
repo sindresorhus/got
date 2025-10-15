@@ -825,6 +825,16 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			timings.phases.tcp = timings.connect - timings.socket;
 		}
 
+		// Workaround for http-timer limitation with HTTP/2:
+		// When using HTTP/2, the socket is a proxy that http-timer discards,
+		// so lookup, connect, and secureConnect events are never captured.
+		// This results in phases.request being NaN (undefined - undefined).
+		// Set it to undefined to be consistent with other unavailable timings.
+		// See https://github.com/sindresorhus/got/issues/1958
+		if (timings && Number.isNaN(timings.phases.request)) {
+			timings.phases.request = undefined;
+		}
+
 		response.once('error', (error: Error) => {
 			this._aborted = true;
 

@@ -1,6 +1,6 @@
 import test from 'ava';
 import got from '../source/index.js';
-import withServer, {withHttpsServer} from './helpers/with-server.js';
+import withServer from './helpers/with-server.js';
 
 test('http/1 timings', withServer, async (t, server, got) => {
 	server.get('/', (_request, response) => {
@@ -28,32 +28,38 @@ test('http/1 timings', withServer, async (t, server, got) => {
 	t.true(phases.total! >= 0);
 });
 
-test('http/2 timings', withHttpsServer(), async (t, server, got) => {
-	server.get('/', (_request, response) => {
-		response.json({data: 'test'});
-	});
+test('http/2 timings', async t => {
+	// Use a real HTTP/2 server (Google supports HTTP/2)
+	const {timings} = await got('https://www.google.com/', {http2: true});
 
-	const {timings} = await got({http2: true});
-
+	// These timings are available even for HTTP/2
 	t.true(timings.start >= 0);
 	t.true(timings.socket! >= 0);
-	t.true(timings.lookup! >= 0);
-	t.true(timings.connect! >= 0);
-	t.true(timings.secureConnect! >= 0);
 	t.true(timings.upload! >= 0);
 	t.true(timings.response! >= 0);
 	t.true(timings.end! >= 0);
 
+	// These connection timings are unavailable for HTTP/2 (socket is a proxy)
+	// See https://github.com/sindresorhus/got/issues/1958
+	t.is(timings.lookup, undefined);
+	t.is(timings.connect, undefined);
+	t.is(timings.secureConnect, undefined);
+
 	const {phases} = timings;
 
+	// Available phases
 	t.true(phases.wait! >= 0);
-	t.true(phases.dns! >= 0);
-	t.true(phases.tcp! >= 0);
-	t.true(phases.tls! >= 0);
-	t.true(phases.request! >= 0);
 	t.true(phases.firstByte! >= 0);
 	t.true(phases.download! >= 0);
 	t.true(phases.total! >= 0);
+
+	// Unavailable phases (due to missing connection timings)
+	t.is(phases.dns, undefined);
+	t.is(phases.tcp, undefined);
+	t.is(phases.tls, undefined);
+	// Most importantly: phases.request should be undefined, NOT NaN
+	t.is(phases.request, undefined);
+	t.false(Number.isNaN(phases.request));
 });
 
 test('timings.end is set when stream is destroyed before completion', withServer, async (t, server, got) => {
