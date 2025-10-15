@@ -139,7 +139,7 @@ test('has error event', withServer, async (t, server, got) => {
 	const stream = got.stream('');
 	await t.throwsAsync(pEvent(stream, 'response'), {
 		instanceOf: HTTPError,
-		message: 'Response code 404 (Not Found)',
+		message: /^Request failed with status code 404 \(Not Found\): GET http:\/\/localhost:\d+\/$/,
 	});
 });
 

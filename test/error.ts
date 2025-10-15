@@ -28,7 +28,7 @@ test('properties', withServer, async (t, server, got) => {
 	t.true(Object.prototype.propertyIsEnumerable.call(error, 'options'));
 	t.false(Object.prototype.propertyIsEnumerable.call(error, 'response'));
 	t.is(error.code, 'ERR_NON_2XX_3XX_RESPONSE');
-	t.is(error.message, 'Response code 404 (Not Found)');
+	t.regex(error.message, /^Request failed with status code 404 \(Not Found\): GET http:\/\/localhost:\d+\/$/);
 	t.deepEqual(error.options.url, url);
 	t.is(error.response.headers.connection, 'keep-alive');
 	// Assert is used for type checking
@@ -78,7 +78,7 @@ test('default status message', withServer, async (t, server, got) => {
 	const error = await t.throwsAsync<HTTPError>(got(''),
 		{
 			instanceOf: HTTPError,
-			message: 'Response code 400 (Bad Request)',
+			message: /^Request failed with status code 400 \(Bad Request\): GET http:\/\/localhost:\d+\/$/,
 		});
 	t.is(error?.response.statusCode, 400);
 	t.is(error?.response.statusMessage, 'Bad Request');
@@ -94,7 +94,7 @@ test('custom status message', withServer, async (t, server, got) => {
 	const error = await t.throwsAsync<HTTPError>(got(''),
 		{
 			instanceOf: HTTPError,
-			message: 'Response code 400 (Something Exploded)',
+			message: /^Request failed with status code 400 \(Something Exploded\): GET http:\/\/localhost:\d+\/$/,
 		});
 	t.is(error?.response.statusCode, 400);
 	t.is(error?.response.statusMessage, 'Something Exploded');
@@ -109,7 +109,7 @@ test('custom body', withServer, async (t, server, got) => {
 	const error = await t.throwsAsync<HTTPError>(got(''),
 		{
 			instanceOf: HTTPError,
-			message: 'Response code 404 (Not Found)',
+			message: /^Request failed with status code 404 \(Not Found\): GET http:\/\/localhost:\d+\/$/,
 		});
 	t.is(error?.response.statusCode, 404);
 	// Typecheck for default `any` type
@@ -128,7 +128,7 @@ test('custom json body', withServer, async (t, server, got) => {
 	const error = await t.throwsAsync<HTTPError<{message: string}>>(got('', {responseType: 'json'}),
 		{
 			instanceOf: HTTPError,
-			message: 'Response code 404 (Not Found)',
+			message: /^Request failed with status code 404 \(Not Found\): GET http:\/\/localhost:\d+\/$/,
 		});
 	t.is(error?.response.statusCode, 404);
 	// Assert is used for body typecheck
@@ -150,7 +150,7 @@ test('contains Got options', withServer, async (t, server, got) => {
 	const error = await t.throwsAsync<HTTPError>(got(options),
 		{
 			instanceOf: HTTPError,
-			message: 'Response code 404 (Not Found)',
+			message: /^Request failed with status code 404 \(Not Found\): GET http:\/\/localhost:\d+\/$/,
 		});
 	t.is(error?.response.statusCode, 404);
 	t.is(error?.options.context.foo, options.context.foo);
@@ -165,7 +165,7 @@ test('empty status message is overriden by the default one', withServer, async (
 	const error = await t.throwsAsync<HTTPError>(got(''),
 		{
 			instanceOf: HTTPError,
-			message: 'Response code 400 (Bad Request)',
+			message: /^Request failed with status code 400 \(Bad Request\): GET http:\/\/localhost:\d+\/$/,
 		});
 	t.is(error?.response.statusCode, 400);
 	t.is(error?.response.statusMessage, http.STATUS_CODES[400]);

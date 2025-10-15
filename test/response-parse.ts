@@ -120,7 +120,7 @@ test('ignores errors on invalid non-200 responses', withServer, async (t, server
 
 	const error = await t.throwsAsync<HTTPError>(got({responseType: 'json', retry: {limit: 0}}), {
 		instanceOf: HTTPError,
-		message: 'Response code 500 (Internal Server Error)',
+		message: /^Request failed with status code 500 \(Internal Server Error\): GET http:\/\/localhost:\d+\/$/,
 	});
 
 	t.is(error?.response.body, 'Internal error');

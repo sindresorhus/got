@@ -404,7 +404,7 @@ test('does not break on redirect', withServer, async (t, server, got) => {
 		response.end();
 	});
 
-	await t.throwsAsync(got('redirect'), {message: 'Response code 500 (Internal Server Error)'});
+	await t.throwsAsync(got('redirect'), {message: /^Request failed with status code 500 \(Internal Server Error\): GET http:\/\/localhost:\d+\/$/});
 	t.is(tries, 1);
 });
 

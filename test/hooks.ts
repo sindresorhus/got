@@ -853,7 +853,7 @@ test('no infinity loop when retrying on afterResponse', withServer, async (t, se
 				}),
 			],
 		},
-	}), {instanceOf: HTTPError, message: 'Response code 401 (Unauthorized)'});
+	}), {instanceOf: HTTPError, message: /^Request failed with status code 401 \(Unauthorized\): GET http:\/\/localhost:\d+\/$/});
 });
 
 test('throws on afterResponse retry failure', withServer, async (t, server, got) => {
@@ -888,7 +888,7 @@ test('throws on afterResponse retry failure', withServer, async (t, server, got)
 				},
 			],
 		},
-	}), {instanceOf: HTTPError, message: 'Response code 500 (Internal Server Error)'});
+	}), {instanceOf: HTTPError, message: /^Request failed with status code 500 \(Internal Server Error\): GET http:\/\/localhost:\d+\/$/});
 });
 
 test('does not throw on afterResponse retry HTTP failure if throwHttpErrors is false', withServer, async (t, server, got) => {
@@ -1174,7 +1174,7 @@ test('beforeError is called with an error - stream', withServer, async (t, _serv
 				return error2;
 			}],
 		},
-	})), {message: 'Response code 404 (Not Found)'});
+	})), {message: /^Request failed with status code 404 \(Not Found\): GET http:\/\/localhost:\d+\/$/});
 });
 
 test('beforeError allows modifications', async t => {
@@ -1314,7 +1314,7 @@ test('hooks are not duplicated', withServer, async (t, _server, got) => {
 		retry: {
 			limit: 0,
 		},
-	}), {message: 'Response code 404 (Not Found)'});
+	}), {message: /^Request failed with status code 404 \(Not Found\): GET http:\/\/localhost:\d+\/$/});
 
 	t.is(calls, 1);
 });
