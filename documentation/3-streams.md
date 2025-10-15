@@ -21,7 +21,7 @@ This constructor takes the same arguments as the Got promise.
 > To filter which headers are copied, listen to the `response` event and modify `response.headers` before piping to the destination.
 
 **Note:**
-> If the `body`, `json` or `form` option is used, this stream will be read-only.
+> If the `body`, `json` or `form` option is used, this stream will be read-only. Check [`stream.isReadonly`](#streamisreadonly) to detect this condition.
 
 **Note:**
 > - While `got.post('https://example.com')` resolves, `got.stream.post('https://example.com')` will hang indefinitely until a body is provided.
@@ -168,6 +168,12 @@ Whether the response has been fetched from cache.
 **Type: `boolean`**
 
 Whether the socket was used for other previous requests.
+
+### `stream.isReadonly`
+
+**Type: `boolean`**
+
+Whether the stream is read-only. Returns `true` when `body`, `json`, or `form` options are provided.
 
 ## Events
 

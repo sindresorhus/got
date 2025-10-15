@@ -657,3 +657,40 @@ test('validates content-length for gzip compressed responses', withServer, async
 		},
 	);
 });
+
+test('isReadonly is false for streams without body', withServer, async (t, server, got) => {
+	server.post('/', postHandler);
+
+	const stream = got.stream.post('');
+	t.false(stream.isReadonly);
+
+	stream.end('data');
+	await getStream(stream);
+});
+
+test('isReadonly is true when body option is provided', withServer, async (t, server, got) => {
+	server.post('/', postHandler);
+
+	const stream = got.stream.post({body: 'test data'});
+	t.true(stream.isReadonly);
+
+	await t.notThrowsAsync(getStream(stream));
+});
+
+test('isReadonly is true when json option is provided', withServer, async (t, server, got) => {
+	server.post('/', postHandler);
+
+	const stream = got.stream.post({json: {foo: 'bar'}});
+	t.true(stream.isReadonly);
+
+	await t.notThrowsAsync(getStream(stream));
+});
+
+test('isReadonly is true when form option is provided', withServer, async (t, server, got) => {
+	server.post('/', postHandler);
+
+	const stream = got.stream.post({form: {foo: 'bar'}});
+	t.true(stream.isReadonly);
+
+	await t.notThrowsAsync(getStream(stream));
+});

@@ -1471,14 +1471,14 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 			if (isClientRequest(requestOrResponse!)) {
 				this._onRequest(requestOrResponse);
-			} else if (this.writable) {
+			} else if (this.writableEnded) {
+				void this._onResponse(requestOrResponse as IncomingMessageWithTimings);
+			} else {
 				this.once('finish', () => {
 					void this._onResponse(requestOrResponse as IncomingMessageWithTimings);
 				});
 
 				this._sendBody();
-			} else {
-				void this._onResponse(requestOrResponse as IncomingMessageWithTimings);
 			}
 		} catch (error) {
 			if (error instanceof CacheableCacheError) {
@@ -1641,5 +1641,12 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 	get reusedSocket(): boolean | undefined {
 		return this._request?.reusedSocket;
+	}
+
+	/**
+	Whether the stream is read-only. Returns `true` when `body`, `json`, or `form` options are provided.
+	*/
+	get isReadonly(): boolean {
+		return !is.undefined(this.options?.body) || !is.undefined(this.options?.json) || !is.undefined(this.options?.form);
 	}
 }
