@@ -3,7 +3,7 @@ import test from 'ava';
 import toughCookie from 'tough-cookie';
 import delay from 'delay';
 import nock from 'nock';
-import {got, RequestError} from '../source/index.js';
+import got, {RequestError} from '../source/index.js';
 import withServer from './helpers/with-server.js';
 
 test('reads a cookie', withServer, async (t, server, got) => {

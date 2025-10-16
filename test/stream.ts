@@ -486,9 +486,9 @@ test('does not accept unreadable stream as body', withServer, async (t, server, 
 
 	const request = got.post({body});
 
-	await t.throwsAsync(request);
-
-	// TODO: Add assert message above.
+	await t.throwsAsync(request, {
+		instanceOf: RequestError,
+	});
 });
 
 test('accepts readable-stream as body', withServer, async (t, server, got) => {

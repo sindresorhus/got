@@ -748,7 +748,7 @@ test('throws when transform does not return an array', withServer, async (t, ser
 		response.end(JSON.stringify(''));
 	});
 
-	await t.throwsAsync(got.paginate.all<string>(server.url));
-
-	// TODO: Add assert message above.
+	await t.throwsAsync(got.paginate.all<string>(server.url), {
+		instanceOf: TypeError,
+	});
 });

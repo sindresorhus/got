@@ -10,7 +10,6 @@ import type {CreatePrivateKey, CreateCsr, CreateCertificate} from './types/pem.j
 const createPrivateKey = pify(pem.createPrivateKey as CreatePrivateKey);
 const createCsr = pify(pem.createCSR as CreateCsr);
 const createCertificate = pify(pem.createCertificate as CreateCertificate);
-const createPkcs12 = pify(pem.createPkcs12);
 
 test('https request without ca', withHttpsServer(), async (t, server, got) => {
 	server.get('/', (_request, response) => {
@@ -498,50 +497,6 @@ test('invalid key passphrase', withHttpsServer(), async (t, server, got) => {
 
 	const {code}: NodeJS.ErrnoException = (await t.throwsAsync(request))!;
 	t.true(code === 'ERR_OSSL_BAD_DECRYPT' || code === 'ERR_OSSL_EVP_BAD_DECRYPT', code);
-});
-
-// TODO: RC2 is not supported on Node.js 17
-// eslint-disable-next-line ava/no-skip-test
-test.skip('client certificate PFX', withHttpsServer(), async (t, server, got) => {
-	server.get('/', (request, response) => {
-		const peerCertificate = (request.socket as any).getPeerCertificate(true);
-		peerCertificate.issuerCertificate = undefined; // Circular structure
-
-		response.json({
-			authorized: (request.socket as any).authorized,
-			peerCertificate,
-		});
-	});
-
-	const clientCsrResult = await createCsr({commonName: 'client'});
-	const clientResult = await createCertificate({
-		csr: clientCsrResult.csr,
-		clientKey: clientCsrResult.clientKey,
-		serviceKey: (server as any).caKey,
-		serviceCertificate: (server as any).caCert,
-	});
-	// eslint-disable-next-line prefer-destructuring
-	const clientKey = clientResult.clientKey;
-	const clientCert = clientResult.certificate;
-
-	const {pkcs12} = await createPkcs12(clientKey, clientCert, 'randomPassword');
-
-	const response = await got({
-		https: {
-			pfx: pkcs12,
-			passphrase: 'randomPassword',
-		},
-	}).json<{
-		authorized: boolean;
-		peerCertificate: {
-			subject: {CN: string};
-			issuer: {CN: string};
-		};
-	}>();
-
-	t.true(response.authorized);
-	t.is(response.peerCertificate.subject.CN, 'client');
-	t.is(response.peerCertificate.issuer.CN, 'authority');
 });
 
 // Use TLS 1.3 ciphers that are stable across Node.js versions

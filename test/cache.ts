@@ -507,22 +507,20 @@ test('revalidated uncompressed responses are retrieved from cache', withServer, 
 
 	const client = got.extend({cache: new Map(), responseType: 'json'});
 
-	await client('').then(response => {
-		t.false(revalidated);
-		t.deepEqual(response.body, [1]);
-		t.true(response.complete);
-	});
+	const firstResponse = (await client('')) as unknown as Response<number[]>;
+	t.false(revalidated);
+	t.deepEqual(firstResponse.body, [1]);
+	t.true(firstResponse.complete);
 
 	// eslint-disable-next-line no-promise-executor-return
 	await new Promise(resolve => setTimeout(resolve, 3000));
 
 	console.log('max-age has expired, performing second request');
 
-	await client('').then(response => {
-		t.true(revalidated);
-		t.deepEqual(response.body, [1]);
-		t.true(response.complete); // Fails here.
-	});
+	const secondResponse = (await client('')) as unknown as Response<number[]>;
+	t.true(revalidated);
+	t.deepEqual(secondResponse.body, [1]);
+	t.true(secondResponse.complete); // Fails here.
 });
 
 test('revalidated compressed responses are retrieved from cache', withServer, async (t, server, got) => {
@@ -552,22 +550,20 @@ test('revalidated compressed responses are retrieved from cache', withServer, as
 
 	const client = got.extend({cache: new Map(), responseType: 'json'});
 
-	await client('').then(response => {
-		t.false(revalidated);
-		t.deepEqual(response.body, [1]);
-		t.true(response.complete);
-	});
+	const firstResponse = (await client('')) as unknown as Response<number[]>;
+	t.false(revalidated);
+	t.deepEqual(firstResponse.body, [1]);
+	t.true(firstResponse.complete);
 
 	// eslint-disable-next-line no-promise-executor-return
 	await new Promise(resolve => setTimeout(resolve, 3000));
 
 	console.log('max-age has expired, performing second request (but it will actually hang)');
 
-	await client('').then(response => {
-		t.true(revalidated);
-		t.deepEqual(response.body, [1]);
-		t.true(response.complete);
-	});
+	const secondResponse = (await client('')) as unknown as Response<number[]>;
+	t.true(revalidated);
+	t.deepEqual(secondResponse.body, [1]);
+	t.true(secondResponse.complete);
 });
 
 // eslint-disable-next-line ava/no-skip-test -- Unreliable

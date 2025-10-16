@@ -174,8 +174,7 @@ test('only plain objects are freezed', withServer, async (t, server, got) => {
 	});
 });
 
-// eslint-disable-next-line ava/no-skip-test
-test.skip('defaults are cloned on instance creation', t => {
+test('defaults are cloned on instance creation', t => {
 	const options: OptionsInit = {hooks: {beforeRequest: [() => {}]}};
 	const instance = got.extend(options);
 	const context = {
@@ -397,4 +396,69 @@ test('does not append to internal _init on new requests', withServer, async (t, 
 	});
 
 	t.is((instance.defaults.options as any)._init.length, length);
+});
+
+test('extend clones searchParams object', t => {
+	const searchParameters = {foo: 'bar', page: '1'};
+	const instance = got.extend({searchParams: searchParameters});
+
+	// Mutate the original
+	searchParameters.foo = 'changed';
+	searchParameters.page = '999';
+
+	// Instance should have the original values (converted to URLSearchParams)
+	const instanceParameters = instance.defaults.options.searchParams as URLSearchParams;
+	t.is(instanceParameters.get('foo'), 'bar');
+	t.is(instanceParameters.get('page'), '1');
+});
+
+test('extend clones URLSearchParams instance', t => {
+	const searchParameters = new URLSearchParams({foo: 'bar', page: '1'});
+	const instance = got.extend({searchParams: searchParameters});
+
+	// Mutate the original
+	searchParameters.set('foo', 'changed');
+	searchParameters.set('page', '999');
+
+	// Instance should have the original values
+	const instanceParameters = instance.defaults.options.searchParams as URLSearchParams;
+	t.is(instanceParameters.get('foo'), 'bar');
+	t.is(instanceParameters.get('page'), '1');
+	t.not(instanceParameters, searchParameters);
+});
+
+test('extend handles string searchParams', t => {
+	const searchParameters = 'foo=bar&page=1';
+	const instance = got.extend({searchParams: searchParameters});
+
+	// String gets converted to URLSearchParams
+	const instanceParameters = instance.defaults.options.searchParams as URLSearchParams;
+	t.is(instanceParameters.get('foo'), 'bar');
+	t.is(instanceParameters.get('page'), '1');
+});
+
+test('extended instances carry searchParams', t => {
+	const instanceA = got.extend({
+		searchParams: {foo: 'bar'},
+	});
+
+	const instanceB = instanceA.extend({
+		searchParams: {page: '1'},
+	});
+
+	const instanceParametersB = instanceB.defaults.options.searchParams as URLSearchParams;
+	t.is(instanceParametersB.get('foo'), 'bar');
+	t.is(instanceParametersB.get('page'), '1');
+});
+
+test('extend creates independent searchParams copies', t => {
+	const searchParameters = {foo: 'bar'};
+	const instanceA = got.extend({searchParams: searchParameters, mutableDefaults: true});
+	const instanceB = got.extend({searchParams: searchParameters, mutableDefaults: true});
+
+	// Modify instanceA's searchParams
+	(instanceA.defaults.options.searchParams as URLSearchParams).set('foo', 'modified');
+
+	// InstanceB should be unaffected
+	t.is((instanceB.defaults.options.searchParams as URLSearchParams).get('foo'), 'bar');
 });

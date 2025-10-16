@@ -1262,7 +1262,15 @@ const cloneRaw = (raw: OptionsInit) => {
 		}
 	}
 
-	// TODO: raw.searchParams
+	if (raw.searchParams) {
+		if (is.string(raw.searchParams)) {
+			result.searchParams = raw.searchParams;
+		} else if (raw.searchParams instanceof URLSearchParams) {
+			result.searchParams = new URLSearchParams(raw.searchParams);
+		} else if (is.object(raw.searchParams)) {
+			result.searchParams = {...raw.searchParams};
+		}
+	}
 
 	if (is.object(raw.pagination)) {
 		result.pagination = {...raw.pagination};

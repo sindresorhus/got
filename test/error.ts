@@ -360,21 +360,21 @@ test('no uncaught parse errors on fallback to utf8', withServer, async (t, serve
 	});
 });
 
-// Fails randomly on Node 10:
-// Blocked by https://github.com/istanbuljs/nyc/issues/619
-// eslint-disable-next-line ava/no-skip-test
-test.skip('the old stacktrace is recovered', async t => {
+test('the old stacktrace is recovered', async t => {
 	const error = await t.throwsAsync(got('https://example.com', {
 		request() {
 			throw new Error('foobar');
 		},
 	}));
 
-	t.true(error?.stack!.includes('at Object.request'));
+	// The stacktrace should include the original error location (the custom request function)
+	t.true(error?.stack!.includes('at request'));
 
-	// The first `at get` points to where the error was wrapped,
-	// the second `at get` points to the real cause.
-	t.not(error?.stack!.indexOf('at get'), error?.stack!.lastIndexOf('at get'));
+	// The stacktrace should include Got's error handling code
+	t.true(error?.stack!.includes('Request._beforeError') ?? error?.stack!.includes('_beforeError'));
+
+	// Verify that Got's internal code paths are in the stack
+	t.true(error?.stack!.includes('Request.flush') ?? error?.stack!.includes('.flush'));
 });
 
 test('should wrap got cause', async t => {
