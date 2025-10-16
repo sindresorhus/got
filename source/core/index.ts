@@ -44,7 +44,6 @@ import {
 	AbortError,
 } from './errors.js';
 import {
-	type RequestId,
 	generateRequestId,
 	publishRequestCreate,
 	publishRequestStart,
@@ -187,34 +186,34 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	options: Options;
 	response?: PlainResponse;
 	requestUrl?: URL;
-	redirectUrls: URL[];
-	retryCount: number;
-	_stopReading: boolean;
+	redirectUrls: URL[] = [];
+	retryCount = 0;
+	_stopReading = false;
 
 	declare private _requestOptions: NativeRequestOptions;
 
-	private _stopRetry: () => void;
-	private _downloadedSize: number;
-	private _uploadedSize: number;
-	private readonly _pipedServerResponses: Set<ServerResponse>;
+	private _stopRetry = noop;
+	private _downloadedSize = 0;
+	private _uploadedSize = 0;
+	private readonly _pipedServerResponses = new Set<ServerResponse>();
 	private _request?: ClientRequest;
 	private _responseSize?: number;
 	private _bodySize?: number;
-	private _unproxyEvents: () => void;
+	private _unproxyEvents = noop;
 	private _isFromCache?: boolean;
-	private _triggerRead: boolean;
-	declare private readonly _jobs: Array<() => void>;
-	private _cancelTimeouts: () => void;
-	private readonly _removeListeners: () => void;
+	private _triggerRead = false;
+	private readonly _jobs: Array<() => void> = [];
+	private _cancelTimeouts = noop;
+	private readonly _removeListeners = noop;
 	private _nativeResponse?: IncomingMessageWithTimings;
-	private _flushed: boolean;
-	private _aborted: boolean;
+	private _flushed = false;
+	private _aborted = false;
 	private _expectedContentLength?: number;
 	private _byteCounter?: ByteCounter;
-	private readonly _requestId: RequestId;
+	private readonly _requestId = generateRequestId();
 
 	// We need this because `this._request` if `undefined` when using cache
-	private _requestInitialized: boolean;
+	private _requestInitialized = false;
 
 	constructor(url: UrlType, options?: OptionsType, defaults?: DefaultsType) {
 		super({
@@ -223,25 +222,6 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			// It needs to be zero because we're just proxying the data to another stream
 			highWaterMark: 0,
 		});
-
-		this._downloadedSize = 0;
-		this._uploadedSize = 0;
-		this._stopReading = false;
-		this._pipedServerResponses = new Set<ServerResponse>();
-		this._unproxyEvents = noop;
-		this._triggerRead = false;
-		this._cancelTimeouts = noop;
-		this._removeListeners = noop;
-		this._jobs = [];
-		this._flushed = false;
-		this._requestInitialized = false;
-		this._aborted = false;
-
-		this.redirectUrls = [];
-		this.retryCount = 0;
-
-		this._stopRetry = noop;
-		this._requestId = generateRequestId();
 
 		this.on('pipe', (source: NodeJS.ReadableStream & {headers?: Record<string, string | string[] | undefined>}) => {
 			if (this.options.copyPipedHeaders && source?.headers) {

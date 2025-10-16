@@ -33,13 +33,11 @@ export type ErrorCode =
 	| 'EAI_AGAIN';
 
 export class TimeoutError extends Error {
-	code: ErrorCode;
+	override name = 'TimeoutError';
+	code: ErrorCode = 'ETIMEDOUT';
 
 	constructor(threshold: number, public event: string) {
 		super(`Timeout awaiting '${event}' for ${threshold}ms`);
-
-		this.name = 'TimeoutError';
-		this.code = 'ETIMEDOUT';
 	}
 }
 

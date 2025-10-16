@@ -1,11 +1,6 @@
 export default class WeakableMap<K, V> {
-	weakMap: WeakMap<Record<string, unknown>, V>;
-	map: Map<K, V>;
-
-	constructor() {
-		this.weakMap = new WeakMap();
-		this.map = new Map();
-	}
+	weakMap = new WeakMap<Record<string, unknown>, V>();
+	map = new Map<K, V>();
 
 	set(key: K, value: V): void {
 		if (typeof key === 'object') {

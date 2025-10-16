@@ -1293,7 +1293,7 @@ const init = (options: OptionsInit, withOptions: OptionsInit, self: Options): vo
 export default class Options {
 	private _unixOptions?: NativeRequestOptions;
 	private readonly _internals: InternalsType;
-	private _merging: boolean;
+	private _merging = false;
 	private readonly _init: OptionsInit[];
 
 	constructor(input?: string | URL | OptionsInit, options?: OptionsInit, defaults?: Options) {
@@ -1307,8 +1307,6 @@ export default class Options {
 
 		this._internals = cloneInternals(defaults?._internals ?? defaults ?? defaultInternals);
 		this._init = [...(defaults?._init ?? [])];
-		this._merging = false;
-		this._unixOptions = undefined;
 
 		// This rule allows `finally` to be considered more important.
 		// Meaning no matter the error thrown in the `try` block,
