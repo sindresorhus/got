@@ -247,6 +247,49 @@ test('piping server request to Got proxies also headers', withServer, async (t, 
 	t.is(foo, 'bar');
 });
 
+test('piping server request to Got does not proxy headers when copyPipedHeaders is false', withServer, async (t, server, got) => {
+	server.get('/', headersHandler);
+	server.get('/proxy', async (request, response) => {
+		await streamPipeline(
+			request,
+			got.stream('', {copyPipedHeaders: false}),
+			response,
+		);
+	});
+
+	const headers: Record<string, string> = await got('proxy', {
+		headers: {
+			foo: 'bar',
+		},
+	}).json();
+	t.is(headers.foo, undefined);
+	t.truthy(headers['user-agent']); // Got's default user-agent should still be present
+});
+
+test('piped headers overwrite explicitly set headers when copyPipedHeaders is true', withServer, async (t, server, got) => {
+	server.get('/', headersHandler);
+	server.get('/proxy', async (request, response) => {
+		await streamPipeline(
+			request,
+			got.stream('', {
+				copyPipedHeaders: true,
+				headers: {
+					'x-custom': 'explicit-value',
+				},
+			}),
+			response,
+		);
+	});
+
+	const headers: Record<string, string> = await got('proxy', {
+		headers: {
+			'x-custom': 'piped-value',
+		},
+	}).json();
+	// Piped header should overwrite explicit header
+	t.is(headers['x-custom'], 'piped-value');
+});
+
 test('skips proxying headers after server has sent them already', withServer, async (t, server, got) => {
 	server.get('/', defaultHandler);
 	server.get('/proxy', async (_request, response) => {

@@ -523,6 +523,57 @@ Therefore this option has no effect when using HTTP/2.
 #### **Note:**
 > - The [RFC 7231](https://tools.ietf.org/html/rfc7231#section-4.3.1) doesn't specify any particular behavior for the GET method having a payload, therefore it's considered an [**anti-pattern**](https://en.wikipedia.org/wiki/Anti-pattern).
 
+### `copyPipedHeaders`
+
+**Type: `boolean`**\
+**Default: `true`**
+
+Automatically copy headers from piped streams.
+
+When piping a request into a Got stream (e.g., `request.pipe(got.stream(url))`), this controls whether headers from the source stream are automatically merged into the Got request headers.
+
+**Note:** Piped headers overwrite any explicitly set headers with the same name. To override this, either set `copyPipedHeaders` to `false` and manually copy safe headers, or use a `beforeRequest` hook to force specific header values after piping.
+
+Useful for proxy scenarios, but you may want to disable this to filter out headers like `Host`, `Connection`, `Authorization`, etc.
+
+**Example: Disable automatic header copying and manually copy only safe headers**
+
+```js
+import got from 'got';
+import {pipeline} from 'node:stream/promises';
+
+server.get('/proxy', async (request, response) => {
+	const gotStream = got.stream('https://example.com', {
+		copyPipedHeaders: false,
+		headers: {
+			'user-agent': request.headers['user-agent'],
+			'accept': request.headers['accept'],
+			// Explicitly NOT copying host, connection, authorization, etc.
+		}
+	});
+
+	await pipeline(request, gotStream, response);
+});
+```
+
+**Example: Override piped headers using beforeRequest hook**
+
+```js
+import got from 'got';
+
+const gotStream = got.stream('https://example.com', {
+	hooks: {
+		beforeRequest: [
+			options => {
+				// Force specific header values after piping
+				options.headers.host = 'example.com';
+				delete options.headers.authorization;
+			}
+		]
+	}
+});
+```
+
 ### `timeout`
 
 **Type: `object`**

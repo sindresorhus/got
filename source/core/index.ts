@@ -243,8 +243,8 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		this._stopRetry = noop;
 		this._requestId = generateRequestId();
 
-		this.on('pipe', (source: any) => {
-			if (source?.headers) {
+		this.on('pipe', (source: NodeJS.ReadableStream & {headers?: Record<string, string | string[] | undefined>}) => {
+			if (this.options.copyPipedHeaders && source?.headers) {
 				Object.assign(this.options.headers, source.headers);
 			}
 		});

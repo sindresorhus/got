@@ -1025,6 +1025,7 @@ const defaultInternals: Options['_internals'] = {
 	password: '',
 	http2: false,
 	allowGetBody: false,
+	copyPipedHeaders: true,
 	headers: {
 		'user-agent': 'got (https://github.com/sindresorhus/got)',
 	},
@@ -2281,6 +2282,65 @@ export default class Options {
 		assert.boolean(value);
 
 		this._internals.allowGetBody = value;
+	}
+
+	/**
+	Automatically copy headers from piped streams.
+
+	When piping a request into a Got stream (e.g., `request.pipe(got.stream(url))`), this controls whether headers from the source stream are automatically merged into the Got request headers.
+
+	Note: Piped headers overwrite any explicitly set headers with the same name. To override this, either set `copyPipedHeaders` to `false` and manually copy safe headers, or use a `beforeRequest` hook to force specific header values after piping.
+
+	Useful for proxy scenarios, but you may want to disable this to filter out headers like `Host`, `Connection`, `Authorization`, etc.
+
+	@default true
+
+	@example
+	```
+	import got from 'got';
+	import {pipeline} from 'node:stream/promises';
+
+	// Disable automatic header copying and manually copy only safe headers
+	server.get('/proxy', async (request, response) => {
+		const gotStream = got.stream('https://example.com', {
+			copyPipedHeaders: false,
+			headers: {
+				'user-agent': request.headers['user-agent'],
+				'accept': request.headers['accept'],
+				// Explicitly NOT copying host, connection, authorization, etc.
+			}
+		});
+
+		await pipeline(request, gotStream, response);
+	});
+	```
+
+	@example
+	```
+	import got from 'got';
+
+	// Override piped headers using beforeRequest hook
+	const gotStream = got.stream('https://example.com', {
+		hooks: {
+			beforeRequest: [
+				options => {
+					// Force specific header values after piping
+					options.headers.host = 'example.com';
+					delete options.headers.authorization;
+				}
+			]
+		}
+	});
+	```
+	*/
+	get copyPipedHeaders(): boolean {
+		return this._internals.copyPipedHeaders;
+	}
+
+	set copyPipedHeaders(value: boolean) {
+		assert.boolean(value);
+
+		this._internals.copyPipedHeaders = value;
 	}
 
 	/**
