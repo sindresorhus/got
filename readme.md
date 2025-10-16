@@ -127,6 +127,7 @@ By default, Got will retry on failure. To disable this option, set [`options.ret
 
 #### Integration
 
+- [x] [Diagnostics Channel](documentation/diagnostics-channel.md)
 - [x] [TypeScript support](documentation/typescript.md)
 - [x] [AWS](documentation/tips.md#aws)
 - [x] [Testing](documentation/tips.md#testing)

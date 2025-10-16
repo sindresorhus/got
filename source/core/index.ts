@@ -43,6 +43,17 @@ import {
 	CacheError,
 	AbortError,
 } from './errors.js';
+import {
+	type RequestId,
+	generateRequestId,
+	publishRequestCreate,
+	publishRequestStart,
+	publishResponseStart,
+	publishResponseEnd,
+	publishRetry,
+	publishError,
+	publishRedirect,
+} from './diagnostics-channel.js';
 
 type Error = NodeJS.ErrnoException;
 
@@ -200,6 +211,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	private _aborted: boolean;
 	private _expectedContentLength?: number;
 	private _byteCounter?: ByteCounter;
+	private readonly _requestId: RequestId;
 
 	// We need this because `this._request` if `undefined` when using cache
 	private _requestInitialized: boolean;
@@ -229,6 +241,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		this.retryCount = 0;
 
 		this._stopRetry = noop;
+		this._requestId = generateRequestId();
 
 		this.on('pipe', (source: any) => {
 			if (source?.headers) {
@@ -254,6 +267,13 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			}
 
 			this.requestUrl = this.options.url as URL;
+
+			// Publish request creation event
+			publishRequestCreate({
+				requestId: this._requestId,
+				url: this.options.url?.toString() ?? '',
+				method: this.options.method,
+			});
 		} catch (error: any) {
 			const {options} = error as OptionsError;
 			if (options) {
@@ -508,6 +528,14 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 						// and should not be accessed. The promise wrapper will see that body identity hasn't changed
 						// and will detect it's a consumed stream, which is the correct behavior.
 					}
+
+					// Publish retry event
+					publishRetry({
+						requestId: this._requestId,
+						retryCount: this.retryCount + 1,
+						error: typedError,
+						delay: backoff,
+					});
 
 					this.emit('retry', this.retryCount + 1, error, (updatedOptions?: OptionsInit) => {
 						const request = new Request(options.url, updatedOptions, options);
@@ -823,6 +851,15 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 		this.response = typedResponse;
 
+		// Publish response start event
+		publishResponseStart({
+			requestId: this._requestId,
+			url: typedResponse.url,
+			statusCode,
+			headers: response.headers,
+			isFromCache: typedResponse.isFromCache,
+		});
+
 		// Workaround for http-timer bug: when connecting to an IP address (no DNS lookup),
 		// http-timer sets lookup = connect instead of lookup = socket, resulting in
 		// dns = lookup - socket being a small positive number instead of 0.
@@ -978,6 +1015,14 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 						await hook(updatedOptions as NormalizedOptions, typedResponse);
 					}
 
+					// Publish redirect event
+					publishRedirect({
+						requestId: this._requestId,
+						fromUrl: url!.toString(),
+						toUrl: redirectUrl.toString(),
+						statusCode,
+					});
+
 					this.emit('redirect', updatedOptions, typedResponse);
 
 					this.options = updatedOptions;
@@ -1027,6 +1072,16 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 			this._responseSize = this._downloadedSize;
 			this.emit('downloadProgress', this.downloadProgress);
+
+			// Publish response end event
+			publishResponseEnd({
+				requestId: this._requestId,
+				url: typedResponse.url,
+				statusCode,
+				bodySize: this._downloadedSize,
+				timings: this.timings,
+			});
+
 			this.push(null);
 		});
 
@@ -1123,6 +1178,14 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	private _onRequest(request: ClientRequest): void {
 		const {options} = this;
 		const {timeout, url} = options;
+
+		// Publish request start event
+		publishRequestStart({
+			requestId: this._requestId,
+			url: url?.toString() ?? '',
+			method: options.method,
+			headers: options.headers,
+		});
 
 		timer(request);
 
@@ -1530,6 +1593,14 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		} catch (error_: any) {
 			error = new RequestError(error_.message, error_, this);
 		}
+
+		// Publish error event
+		publishError({
+			requestId: this._requestId,
+			url: this.options?.url?.toString() ?? '',
+			error,
+			timings: this.timings,
+		});
 
 		this.destroy(error);
 
