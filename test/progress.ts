@@ -13,6 +13,7 @@ import is from '@sindresorhus/is';
 import test, {type ExecutionContext} from 'ava';
 import type {Handler} from 'express';
 import {pEvent} from 'p-event';
+import {chunk, chunkFromAsync} from 'chunk-data';
 import type {Progress} from '../source/index.js';
 import withServer from './helpers/with-server.js';
 
@@ -299,4 +300,42 @@ test('does not emit uploadProgress after cancelation', withServer, async (t, ser
 	await pEvent(stream, 'close');
 
 	t.pass();
+});
+
+test('upload progress - chunk generator with buffer', withServer, async (t, server, got) => {
+	server.post('/', uploadEndpoint);
+
+	const events: Progress[] = [];
+
+	await got.post({
+		body: chunk(file, 65_536),
+		headers: {
+			'content-length': file.length.toString(),
+		},
+	})
+		.on('uploadProgress', (event: Progress) => events.push(event));
+
+	checkEvents(t, events, file.length);
+
+	// Ensure we got more than just 0% and 100%
+	t.true(events.length > 2, `Expected more than 2 events with chunk, got ${events.length}`);
+});
+
+test('upload progress - chunkFromAsync async generator with stream', withServer, async (t, server, got) => {
+	server.post('/', uploadEndpoint);
+
+	const events: Progress[] = [];
+
+	await got.post({
+		body: chunkFromAsync(stream.Readable.from([file]), 65_536),
+		headers: {
+			'content-length': file.length.toString(),
+		},
+	})
+		.on('uploadProgress', (event: Progress) => events.push(event));
+
+	checkEvents(t, events, file.length);
+
+	// Ensure we got more than just 0% and 100%
+	t.true(events.length > 2, `Expected more than 2 events with chunkFromAsync, got ${events.length}`);
 });

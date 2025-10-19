@@ -124,27 +124,41 @@ An object representing how much data have been downloaded.
 
 An object representing how much data have been uploaded.
 
-**Note:**
-> - When a chunk is greater than `highWaterMark`, the progress won't be emitted. The body needs to be split into chunks.
+> **Note:** To get granular upload progress instead of just 0% and 100%, split the body into chunks using the [`chunk-data`](https://github.com/sindresorhus/chunk-data) package:
+> - `chunk(buffer, chunkSize)` - For buffers/typed arrays
+> - `chunkFromAsync(iterable, chunkSize)` - For iterables (Node.js streams are async iterables)
 
 ```js
 import got from 'got';
+import {chunk, chunkFromAsync} from 'chunk-data';
+import {Readable} from 'node:stream';
 
-const body = Buffer.alloc(1024 * 1024); // 1MB
+// Chunk a buffer
 
-function* chunkify(buffer, chunkSize = 64 * 1024) {
-	for (let pos = 0; pos < buffer.byteLength; pos += chunkSize) {
-		yield buffer.subarray(pos, pos + chunkSize)
+const buffer = new Uint8Array(1024 * 1024);
+
+await got.post('https://httpbin.org/anything', {
+	body: chunk(buffer, 65_536),
+	headers: {
+		'content-length': buffer.byteLength.toString()
 	}
-}
-
-const stream = got.stream.post('https://httpbin.org/anything', {
-	body: chunkify(body)
+})
+.on('uploadProgress', progress => {
+	console.log(progress);
 });
 
-stream.resume();
 
-stream.on('uploadProgress', progress => {
+// Chunk an iterable/stream
+
+const [stream, size] = getStream();
+
+await got.post('https://httpbin.org/anything', {
+	body: chunkFromAsync(stream, 65_536),
+	headers: {
+		'content-length': size
+	}
+})
+.on('uploadProgress', progress => {
 	console.log(progress);
 });
 ```
