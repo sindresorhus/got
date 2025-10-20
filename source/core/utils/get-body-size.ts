@@ -1,4 +1,3 @@
-import {Buffer} from 'node:buffer';
 import {promisify} from 'node:util';
 import type {ClientRequestArgs} from 'node:http';
 import is from '@sindresorhus/is';
@@ -14,7 +13,7 @@ export default async function getBodySize(body: unknown, headers: ClientRequestA
 	}
 
 	if (is.string(body)) {
-		return Buffer.byteLength(body);
+		return new TextEncoder().encode(body).byteLength;
 	}
 
 	if (is.buffer(body)) {
