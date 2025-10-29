@@ -1,8 +1,9 @@
 import process from 'node:process';
 import {Buffer} from 'node:buffer';
-import {Duplex, Transform, type Readable, type TransformCallback} from 'node:stream';
+import {Duplex, type Readable} from 'node:stream';
 import http, {ServerResponse, type ClientRequest, type RequestOptions} from 'node:http';
 import type {Socket} from 'node:net';
+import {byteLength} from 'byte-counter';
 import timer, {type ClientRequestWithTimings, type Timings, type IncomingMessageWithTimings} from '@szmarczak/http-timer';
 import CacheableRequest, {
 	CacheError as CacheableCacheError,
@@ -163,19 +164,6 @@ type UrlType = ConstructorParameters<typeof Options>[0];
 type OptionsType = ConstructorParameters<typeof Options>[1];
 type DefaultsType = ConstructorParameters<typeof Options>[2];
 
-/**
-Stream transform that counts bytes passing through.
-Used to track compressed bytes before decompression for content-length validation.
-*/
-class ByteCounter extends Transform {
-	count = 0;
-
-	override _transform(chunk: Buffer, _encoding: BufferEncoding, callback: TransformCallback): void {
-		this.count += chunk.length;
-		callback(null, chunk);
-	}
-}
-
 export default class Request extends Duplex implements RequestEvents<Request> {
 	// @ts-expect-error - Ignoring for now.
 	override ['constructor']: typeof Request;
@@ -209,7 +197,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	private _flushed = false;
 	private _aborted = false;
 	private _expectedContentLength?: number;
-	private _byteCounter?: ByteCounter;
+	private _compressedBytesCount?: number;
 	private readonly _requestId = generateRequestId();
 
 	// We need this because `this._request` if `undefined` when using cache
@@ -677,9 +665,9 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 	private _checkContentLengthMismatch(): boolean {
 		if (this.options.strictContentLength && this._expectedContentLength !== undefined) {
-			// Use ByteCounter's count when available (for compressed responses),
+			// Use compressed bytes count when available (for compressed responses),
 			// otherwise use _downloadedSize (for uncompressed responses)
-			const actualSize = this._byteCounter?.count ?? this._downloadedSize;
+			const actualSize = this._compressedBytesCount ?? this._downloadedSize;
 			if (actualSize !== this._expectedContentLength) {
 				this._beforeError(new ReadError({
 					message: `Content-Length mismatch: expected ${this._expectedContentLength} bytes, received ${actualSize} bytes`,
@@ -804,9 +792,9 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			// When strictContentLength is enabled, track compressed bytes by listening to
 			// the native response's data events before decompression
 			if (options.strictContentLength) {
-				this._byteCounter = new ByteCounter();
+				this._compressedBytesCount = 0;
 				this._nativeResponse.on('data', (chunk: Buffer) => {
-					this._byteCounter!.count += chunk.length;
+					this._compressedBytesCount! += byteLength(chunk);
 				});
 			}
 
@@ -1607,7 +1595,9 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		this._request.write(chunk, encoding!, (error?: Error | null) => { // eslint-disable-line @typescript-eslint/ban-types
 			// The `!destroyed` check is required to prevent `uploadProgress` being emitted after the stream was destroyed
 			if (!error && !this._request!.destroyed) {
-				this._uploadedSize += Buffer.byteLength(chunk, encoding);
+				// For strings, encode them first to measure the actual bytes that will be sent
+				const bytes = typeof chunk === 'string' ? Buffer.from(chunk, encoding) : chunk;
+				this._uploadedSize += byteLength(bytes);
 
 				const progress = this.uploadProgress;
 

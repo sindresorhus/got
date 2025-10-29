@@ -176,6 +176,28 @@ test('upload progress - json', withServer, async (t, server, got) => {
 	checkEvents(t, events, size);
 });
 
+test('upload progress - measures bytes correctly for non-UTF-8 encoded strings', withServer, async (t, server, got) => {
+	server.post('/', uploadEndpoint);
+
+	// String with emoji - 'Hello 👋' is 10 bytes in UTF-8, but 16 bytes in UTF-16LE
+	const text = 'Hello 👋';
+	const utf8Size = Buffer.from(text, 'utf8').byteLength; // 10 bytes
+	const utf16Size = Buffer.from(text, 'utf16le').byteLength; // 16 bytes
+
+	t.is(utf8Size, 10);
+	t.is(utf16Size, 16);
+
+	const events: Progress[] = [];
+
+	// Upload as UTF-8 (default)
+	await got.post({body: text}).on('uploadProgress', (event: Progress) => events.push(event));
+
+	// Verify the progress measures UTF-8 bytes correctly
+	const finalEvent = events.at(-1)!;
+	t.is(finalEvent.transferred, utf8Size);
+	t.is(finalEvent.total, utf8Size);
+});
+
 test('upload progress - stream with known body size', withServer, async (t, server, got) => {
 	server.post('/', uploadEndpoint);
 

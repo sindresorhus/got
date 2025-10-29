@@ -701,6 +701,22 @@ test('validates content-length for gzip compressed responses', withServer, async
 	);
 });
 
+test('handles empty gzip compressed responses with strictContentLength', withServer, async (t, server, got) => {
+	// Empty gzip (10 byte header + 8 byte footer, no data)
+	const emptyGzippedData = Buffer.from('H4sIAAAAAAAAAwMAAAAAAAAAAAA=', 'base64');
+
+	server.get('/', (_request, response) => {
+		response.writeHead(200, {
+			'content-encoding': 'gzip',
+			'content-length': String(emptyGzippedData.length),
+		});
+		response.end(emptyGzippedData);
+	});
+
+	const body = await got('', {strictContentLength: true}).text();
+	t.is(body, '');
+});
+
 test('isReadonly is false for streams without body', withServer, async (t, server, got) => {
 	server.post('/', postHandler);
 
