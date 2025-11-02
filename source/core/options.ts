@@ -1757,7 +1757,7 @@ export default class Options {
 
 		// Detect if URL is already absolute (has a protocol/scheme)
 		const valueString = value.toString();
-		const isAbsolute = is.urlInstance(value) || /^[a-z][a-z\d+.-]*:/i.test(valueString);
+		const isAbsolute = is.urlInstance(value) || /^[a-z][a-z\d+.-]*:\/\//i.test(valueString);
 
 		// Only concatenate prefixUrl if the URL is relative
 		const urlString = isAbsolute ? valueString : `${this.prefixUrl as string}${valueString}`;

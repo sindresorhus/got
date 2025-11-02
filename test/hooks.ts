@@ -664,6 +664,58 @@ test('setting absolute URL in hook does not concatenate with prefixUrl', withSer
 	t.is(body, 'changed');
 });
 
+test('allows colon in path segment with prefixUrl (CouchDB user URLs)', withServer, async (t, server, serverGot) => {
+	server.get('/_users/org.couchdb.user:test@user.com', (_request, response) => {
+		response.end('user document');
+	});
+
+	const client = serverGot.extend({
+		prefixUrl: `${server.url}/_users/`,
+	});
+
+	const {body} = await client.get('org.couchdb.user:test@user.com');
+	t.is(body, 'user document');
+});
+
+test('allows multiple colons in path with prefixUrl', withServer, async (t, server, serverGot) => {
+	server.get('/api/ns:type:id', (_request, response) => {
+		response.end('namespaced');
+	});
+
+	const client = serverGot.extend({
+		prefixUrl: `${server.url}/api/`,
+	});
+
+	const {body} = await client.get('ns:type:id');
+	t.is(body, 'namespaced');
+});
+
+test('allows mailto-like patterns in path with prefixUrl', withServer, async (t, server, serverGot) => {
+	server.get('/users/mailto:test@example.com', (_request, response) => {
+		response.end('email user');
+	});
+
+	const client = serverGot.extend({
+		prefixUrl: `${server.url}/users/`,
+	});
+
+	const {body} = await client.get('mailto:test@example.com');
+	t.is(body, 'email user');
+});
+
+test('allows URN-like patterns in path with prefixUrl', withServer, async (t, server, serverGot) => {
+	server.get('/resources/urn:isbn:123', (_request, response) => {
+		response.end('book');
+	});
+
+	const client = serverGot.extend({
+		prefixUrl: `${server.url}/resources/`,
+	});
+
+	const {body} = await client.get('urn:isbn:123');
+	t.is(body, 'book');
+});
+
 test('afterResponse is called with response', withServer, async (t, server, got) => {
 	server.get('/', echoHeaders);
 
