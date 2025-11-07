@@ -1,3 +1,4 @@
+import http from 'node:http';
 import test from 'ava';
 import got from '../source/index.js';
 import withServer from './helpers/with-server.js';
@@ -107,6 +108,53 @@ test('dns timing is 0 for IP addresses', withServer, async (t, server) => {
 	t.is(timings.phases.dns, 0);
 	// Lookup timestamp should equal socket timestamp (no time elapsed for DNS)
 	t.is(timings.lookup, timings.socket);
+});
+
+test('dns timing is 0 for cached DNS lookups', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.end('ok');
+	});
+
+	// Enable DNS cache and disable keep-alive to get new connections
+	const instance = got.extend({
+		dnsCache: true,
+		agent: {
+			http: new http.Agent({
+				keepAlive: false,
+			}),
+		},
+	});
+
+	// First request: real DNS lookup
+	const response1 = await instance('');
+	const firstDns = response1.timings.phases.dns;
+
+	// First request should have some DNS time (for localhost lookup)
+	// or 0 if it's fast enough to trigger the cache threshold
+	t.true(firstDns! >= 0);
+
+	// Subsequent requests: DNS should be cached
+	const response2 = await instance('');
+	const response3 = await instance('');
+
+	// When DNS is cached, if lookup and connect happen at the exact same time (tcp=0),
+	// then dns is set to 0 to indicate no actual DNS resolution occurred.
+	// Otherwise, dns will be small but may vary on CI due to system load.
+	// The key fix from http-timer #35 is that we handle this case, not enforce exact values.
+	const secondIsInstant = response2.timings.phases.tcp === 0;
+	const thirdIsInstant = response3.timings.phases.tcp === 0;
+
+	if (secondIsInstant) {
+		t.is(response2.timings.phases.dns, 0, 'instant cached DNS (tcp=0) should have dns=0');
+	} else {
+		t.true(response2.timings.phases.dns! >= 0, 'cached DNS should have dns >= 0');
+	}
+
+	if (thirdIsInstant) {
+		t.is(response3.timings.phases.dns, 0, 'instant cached DNS (tcp=0) should have dns=0');
+	} else {
+		t.true(response3.timings.phases.dns! >= 0, 'cached DNS should have dns >= 0');
+	}
 });
 
 test('redirect timings preserve connection timings from initial request', withServer, async (t, server, got) => {

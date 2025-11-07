@@ -151,6 +151,14 @@ const timer = (request: ClientRequestWithTimings): Timings => {
 
 				timings.phases.tcp = timings.connect - timings.lookup;
 
+				// If lookup and connect happen at the EXACT same time (tcp = 0),
+				// DNS was served from cache and the dns value is just event loop overhead.
+				// Set dns to 0 to indicate no actual DNS resolution occurred.
+				// Fixes https://github.com/szmarczak/http-timer/issues/35
+				if (timings.phases.tcp === 0 && timings.phases.dns && timings.phases.dns > 0) {
+					timings.phases.dns = 0;
+				}
+
 				// Store connection phase timings on socket for potential reuse
 				if (!socket.__initial_connection_timings__) {
 					socket.__initial_connection_timings__ = {
