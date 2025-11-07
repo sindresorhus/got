@@ -1,5 +1,5 @@
 import is from '@sindresorhus/is';
-import type {Timings} from '@szmarczak/http-timer';
+import type {Timings} from './utils/timer.js';
 import type Options from './options.js';
 import type {TimeoutError as TimedOutTimeoutError} from './timed-out.js';
 import type {PlainResponse, Response} from './response.js';

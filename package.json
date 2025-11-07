@@ -52,7 +52,6 @@
 	],
 	"dependencies": {
 		"@sindresorhus/is": "^7.0.1",
-		"@szmarczak/http-timer": "^5.0.1",
 		"byte-counter": "^0.1.0",
 		"cacheable-lookup": "^7.0.0",
 		"cacheable-request": "^13.0.12",

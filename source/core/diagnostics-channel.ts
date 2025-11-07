@@ -1,6 +1,6 @@
 import {randomUUID} from 'node:crypto';
 import diagnosticsChannel from 'node:diagnostics_channel';
-import type {Timings} from '@szmarczak/http-timer';
+import type {Timings} from './utils/timer.js';
 import type {RequestError} from './errors.js';
 
 const channels = {

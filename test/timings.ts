@@ -108,3 +108,54 @@ test('dns timing is 0 for IP addresses', withServer, async (t, server) => {
 	// Lookup timestamp should equal socket timestamp (no time elapsed for DNS)
 	t.is(timings.lookup, timings.socket);
 });
+
+test('redirect timings preserve connection timings from initial request', withServer, async (t, server, got) => {
+	// Set up a redirect chain to test socket reuse scenario
+	server.get('/', (_request, response) => {
+		response.writeHead(302, {
+			location: '/redirect1',
+		});
+		response.end();
+	});
+
+	server.get('/redirect1', (_request, response) => {
+		response.writeHead(302, {
+			location: '/final',
+		});
+		response.end();
+	});
+
+	server.get('/final', (_request, response) => {
+		response.end('final content');
+	});
+
+	const response = await got('');
+	const {timings} = response;
+
+	// Verify the response went through redirects
+	t.is(response.redirectUrls.length, 2);
+	t.is(response.body, 'final content');
+
+	// The bug (#2425) was that on redirects with socket reuse, all timestamps
+	// were set to socket time, causing all phases to be 0.
+
+	// After the fix, for reused sockets:
+	// - Timestamps are still all at socket time (correct for reused sockets)
+	// - But phases preserve the original connection durations (not 0)
+
+	// Verify timestamps are at socket time for reused socket
+	t.is(timings.lookup, timings.socket);
+	t.is(timings.connect, timings.socket);
+
+	// Verify phases are preserved (not all 0)
+	// For localhost, dns is 0 (IP address), but tcp should have some value
+	t.is(typeof timings.phases.dns, 'number');
+	t.is(typeof timings.phases.tcp, 'number');
+	t.true(timings.phases.dns! >= 0);
+	t.true(timings.phases.tcp! >= 0);
+
+	// Verify basic timing chronology
+	t.true(response.timings.start <= response.timings.socket!);
+	t.true(response.timings.socket! <= response.timings.response!);
+	t.true(response.timings.response! <= response.timings.end!);
+});

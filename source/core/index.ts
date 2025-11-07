@@ -4,7 +4,6 @@ import {Duplex, type Readable} from 'node:stream';
 import http, {ServerResponse, type ClientRequest, type RequestOptions} from 'node:http';
 import type {Socket} from 'node:net';
 import {byteLength} from 'byte-counter';
-import timer, {type ClientRequestWithTimings, type Timings, type IncomingMessageWithTimings} from '@szmarczak/http-timer';
 import CacheableRequest, {
 	CacheError as CacheableCacheError,
 	type CacheableRequestFunction,
@@ -16,6 +15,7 @@ import type KeyvType from 'keyv';
 import is, {isBuffer} from '@sindresorhus/is';
 import {FormDataEncoder, isFormData as isFormDataLike} from 'form-data-encoder';
 import type ResponseLike from 'responselike';
+import timer, {type ClientRequestWithTimings, type Timings, type IncomingMessageWithTimings} from './utils/timer.js';
 import getBodySize from './utils/get-body-size.js';
 import isFormData from './utils/is-form-data.js';
 import proxyEvents from './utils/proxy-events.js';
@@ -827,29 +827,6 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			headers: response.headers,
 			isFromCache: typedResponse.isFromCache,
 		});
-
-		// Workaround for http-timer bug: when connecting to an IP address (no DNS lookup),
-		// http-timer sets lookup = connect instead of lookup = socket, resulting in
-		// dns = lookup - socket being a small positive number instead of 0.
-		// See https://github.com/sindresorhus/got/issues/2279
-		const {timings} = response;
-		if (timings?.lookup !== undefined && timings.socket !== undefined && timings.connect !== undefined && timings.lookup === timings.connect && timings.phases.dns !== 0) {
-			// Fix the DNS phase to be 0 and set lookup to socket time
-			timings.phases.dns = 0;
-			timings.lookup = timings.socket;
-			// Recalculate TCP time to be the full time from socket to connect
-			timings.phases.tcp = timings.connect - timings.socket;
-		}
-
-		// Workaround for http-timer limitation with HTTP/2:
-		// When using HTTP/2, the socket is a proxy that http-timer discards,
-		// so lookup, connect, and secureConnect events are never captured.
-		// This results in phases.request being NaN (undefined - undefined).
-		// Set it to undefined to be consistent with other unavailable timings.
-		// See https://github.com/sindresorhus/got/issues/1958
-		if (timings && Number.isNaN(timings.phases.request)) {
-			timings.phases.request = undefined;
-		}
 
 		response.once('error', (error: Error) => {
 			this._aborted = true;

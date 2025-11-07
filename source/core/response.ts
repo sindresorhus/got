@@ -1,5 +1,5 @@
 import type {Buffer} from 'node:buffer';
-import type {IncomingMessageWithTimings, Timings} from '@szmarczak/http-timer';
+import type {IncomingMessageWithTimings, Timings} from './utils/timer.js';
 import {RequestError} from './errors.js';
 import type {ParseJsonFunction, ResponseType} from './options.js';
 import type Request from './index.js';
