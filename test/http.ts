@@ -377,6 +377,21 @@ test('ClientRequest can throw before promise resolves', async t => {
 	t.true(['EINVAL', 'EHOSTUNREACH', 'ETIMEDOUT', 'ERR_INVALID_IP_ADDRESS'].includes(error!.code));
 });
 
+test('dnsLookup option accepts Node.js dns.lookup', withServer, async (t, server, got) => {
+	const dns = await import('node:dns');
+
+	server.get('/', (_request, response) => {
+		response.end('ok');
+	});
+
+	// This should work without type casting (regression test for #2426)
+	const {body} = await got('', {
+		dnsLookup: dns.lookup,
+	});
+
+	t.is(body, 'ok');
+});
+
 test('status code 200 has response ok is true', withServer, async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.statusCode = 200;

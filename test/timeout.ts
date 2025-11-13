@@ -638,20 +638,15 @@ test.serial('doesn\'t throw on early lookup', withServerAndFakeTimers, async (t,
 			lookup: 1,
 		},
 		retry: {limit: 0},
-		// @ts-expect-error Testing custom dnsLookup implementation
 		dnsLookup(_hostname, options, callback) {
 			if (typeof options === 'function') {
 				callback = options;
 				// Call with default (non-all) signature
-				// @ts-expect-error Complex DNS lookup callback overloading
 				callback(null, '127.0.0.1', 4);
-			// @ts-expect-error Complex DNS lookup callback overloading - options.all check
 			} else if (options.all) {
 				// When options.all is true, callback expects an array of address objects
-				// @ts-expect-error Complex DNS lookup callback overloading
 				callback(null, [{address: '127.0.0.1', family: 4}]);
 			} else {
-				// @ts-expect-error Complex DNS lookup callback overloading
 				callback(null, '127.0.0.1', 4);
 			}
 		},

@@ -12,7 +12,7 @@ import http, {
 	type ClientRequest,
 } from 'node:http';
 import type {Readable} from 'node:stream';
-import type {Socket} from 'node:net';
+import type {Socket, LookupFunction} from 'node:net';
 import is, {assert} from '@sindresorhus/is';
 import lowercaseKeys from 'lowercase-keys';
 import CacheableLookup from 'cacheable-lookup';
@@ -1990,11 +1990,11 @@ export default class Options {
 		throw new Error('The `searchParameters` option does not exist. Use `searchParams` instead.');
 	}
 
-	get dnsLookup(): CacheableLookup['lookup'] | undefined {
+	get dnsLookup(): LookupFunction | undefined {
 		return this._internals.dnsLookup;
 	}
 
-	set dnsLookup(value: CacheableLookup['lookup'] | undefined) {
+	set dnsLookup(value: LookupFunction | undefined) {
 		assertAny('dnsLookup', [is.function, is.undefined], value);
 
 		this._internals.dnsLookup = value;
