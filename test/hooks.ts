@@ -792,7 +792,7 @@ test('afterResponse allows to retry without losing the port', withServer, async 
 		url: server.url,
 		hooks: {
 			afterResponse: [
-				(response, retryWithMergedOptions) => {
+				(response: Response, retryWithMergedOptions: (options: OptionsInit) => never) => {
 					if (response.statusCode === 401) {
 						return retryWithMergedOptions({
 							headers: {

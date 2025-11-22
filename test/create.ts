@@ -1,3 +1,4 @@
+import {Buffer} from 'node:buffer';
 import {
 	Agent as HttpAgent,
 	request as httpRequest,
@@ -461,4 +462,45 @@ test('extend creates independent searchParams copies', t => {
 
 	// InstanceB should be unaffected
 	t.is((instanceB.defaults.options.searchParams as URLSearchParams).get('foo'), 'bar');
+});
+
+test('got.extend() with responseType works at runtime', withServer, async (t, server) => {
+	server.get('/json', (_request, response) => {
+		response.writeHead(200, {'content-type': 'application/json'});
+		response.end('{"data": "test"}');
+	});
+
+	server.get('/buffer', (_request, response) => {
+		response.writeHead(200, {'content-type': 'application/octet-stream'});
+		response.end(Buffer.from('binary'));
+	});
+
+	// Test responseType: 'json' works
+	const jsonClient = got.extend({
+		prefixUrl: server.url,
+		responseType: 'json',
+	});
+
+	const jsonResponse = await jsonClient('json');
+	t.deepEqual(jsonResponse.body, {data: 'test'});
+
+	// Test responseType: 'buffer' works
+	const bufferClient = got.extend({
+		prefixUrl: server.url,
+		responseType: 'buffer',
+	});
+
+	const bufferResponse = await bufferClient('buffer');
+	t.true(Buffer.isBuffer(bufferResponse.body));
+	t.is(bufferResponse.body.toString(), 'binary');
+
+	// Test resolveBodyOnly works with extended responseType
+	const jsonBodyClient = got.extend({
+		prefixUrl: server.url,
+		responseType: 'json',
+		resolveBodyOnly: true,
+	});
+
+	const jsonBody = await jsonBodyClient('json');
+	t.deepEqual(jsonBody, {data: 'test'});
 });

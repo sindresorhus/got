@@ -11,6 +11,7 @@ import delay from 'delay';
 import type {Handler} from 'express';
 import {pEvent} from 'p-event';
 import got, {type RequestError, TimeoutError} from '../source/index.js';
+import type {NativeRequestOptions} from '../source/core/options.js';
 import timedOut from '../source/core/timed-out.js';
 import slowDataStream from './helpers/slow-data-stream.js';
 import type {GlobalClock} from './helpers/types.js';
@@ -236,7 +237,7 @@ test.serial('response timeout (keepalive)', withServerAndFakeTimers, async (t, s
 test.serial('connect timeout', withServerAndFakeTimers, async (t, _server, got, clock) => {
 	await t.throwsAsync(
 		got({
-			createConnection(options) {
+			createConnection(options: NativeRequestOptions) {
 				const socket = new net.Socket(options as Record<string, unknown> as net.SocketConstructorOpts);
 				// @ts-expect-error We know that it is readonly, but we have to test it
 				socket.connecting = true;
@@ -265,7 +266,7 @@ test.serial('connect timeout (ip address)', withServerAndFakeTimers, async (t, _
 	await t.throwsAsync(
 		got({
 			url: 'http://127.0.0.1',
-			createConnection(options) {
+			createConnection(options: NativeRequestOptions) {
 				const socket = new net.Socket(options as Record<string, unknown> as net.SocketConstructorOpts);
 				// @ts-expect-error We know that it is readonly, but we have to test it
 				socket.connecting = true;
@@ -290,7 +291,7 @@ test.serial('connect timeout (ip address)', withServerAndFakeTimers, async (t, _
 test.serial('secureConnect timeout', withHttpsServer({}, true), async (t, _server, got, clock) => {
 	await t.throwsAsync(
 		got({
-			createConnection(options) {
+			createConnection(options: NativeRequestOptions) {
 				const socket = new net.Socket(options as Record<string, unknown> as net.SocketConstructorOpts);
 				// @ts-expect-error We know that it is readonly, but we have to test it
 				socket.connecting = true;
