@@ -67,8 +67,6 @@ const supportsBrotli = is.string(process.versions.brotli);
 const supportsZstd = is.string(process.versions.zstd);
 
 const methodsWithoutBody: ReadonlySet<string> = new Set(['GET', 'HEAD']);
-// Methods that should auto-end streams when no body is provided
-const methodsWithoutBodyStream: ReadonlySet<string> = new Set(['OPTIONS', 'DELETE', 'PATCH']);
 
 export type GotEventFunction<T> =
 	/**
@@ -1224,9 +1222,8 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		} else if (is.undefined(body)) {
 			// No body to send, end the request
 			const cannotHaveBody = methodsWithoutBody.has(this.options.method) && !(this.options.method === 'GET' && this.options.allowGetBody);
-			const shouldAutoEndStream = methodsWithoutBodyStream.has(this.options.method);
 
-			if ((this._noPipe ?? false) || cannotHaveBody || currentRequest !== this || shouldAutoEndStream) {
+			if ((this._noPipe ?? false) || cannotHaveBody || currentRequest !== this) {
 				currentRequest.end();
 			}
 		} else {

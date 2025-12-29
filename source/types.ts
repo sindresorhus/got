@@ -250,6 +250,8 @@ export type Got<GotOptions extends ExtendOptions = ExtendOptions> = {
 	- uploadProgress
 	- downloadProgress
 	- error
+
+	Note: For writable request streams, call `stream.end()` when you are not piping a body. `got.stream` does not auto-end for OPTIONS, DELETE, or PATCH so you can pipe or write a body without getting `write after end`.
 	*/
 	stream: GotStream;
 

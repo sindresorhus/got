@@ -577,6 +577,7 @@ test('OPTIONS stream without body completes successfully', withServer, async (t,
 	});
 
 	const stream = got.stream({method: 'OPTIONS'});
+	stream.end();
 	await t.notThrowsAsync(getStream(stream));
 });
 
@@ -587,6 +588,7 @@ test('DELETE stream without body completes successfully', withServer, async (t, 
 	});
 
 	const stream = got.stream({method: 'DELETE'});
+	stream.end();
 	await t.notThrowsAsync(getStream(stream));
 });
 
@@ -597,8 +599,24 @@ test('PATCH stream without body completes successfully', withServer, async (t, s
 	});
 
 	const stream = got.stream({method: 'PATCH'});
+	stream.end();
 	const data = await getStream(stream);
 	t.is(data, 'patched');
+});
+
+test('PATCH stream waits for piped body', withServer, async (t, server, got) => {
+	server.patch('/', postHandler);
+
+	const destination = new stream.PassThrough();
+	const responsePromise = getStream(destination);
+
+	await streamPipeline(
+		ReadableStream.from(['Hello, world!']),
+		got.stream.patch(''),
+		destination,
+	);
+
+	t.is(await responsePromise, 'Hello, world!');
 });
 
 test('throws error when content-length does not match bytes transferred - stream', withServer, async (t, server, got) => {
