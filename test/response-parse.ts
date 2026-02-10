@@ -253,3 +253,100 @@ test('JSON response custom parser', withServer, async (t, server, got) => {
 		parseJson: text => ({...JSON.parse(text), custom: 'parser'}),
 	})).body, {...dog, custom: 'parser'});
 });
+
+test.serial('uses Response decoding for large UTF-8 JSON bodies', withServer, async (t, server, got) => {
+	const originalResponse = globalThis.Response;
+
+	if (originalResponse === undefined) {
+		t.pass();
+		return;
+	}
+
+	const payload = {data: 'a'.repeat(9 * 1024 * 1024)};
+	let constructorCallCount = 0;
+
+	globalThis.Response = class extends originalResponse {
+		constructor(...constructorParameters: ConstructorParameters<typeof originalResponse>) {
+			super(...constructorParameters);
+			constructorCallCount++;
+		}
+	};
+
+	server.get('/', (_request, response) => {
+		response.end(JSON.stringify(payload));
+	});
+
+	try {
+		const response = await got<typeof payload>({responseType: 'json'});
+		t.deepEqual(response.body, payload);
+		t.true(constructorCallCount > 0);
+	} finally {
+		globalThis.Response = originalResponse;
+	}
+});
+
+test.serial('does not use Response decoding for non-UTF-8 encoding', withServer, async (t, server, got) => {
+	const originalResponse = globalThis.Response;
+
+	if (originalResponse === undefined) {
+		t.pass();
+		return;
+	}
+
+	const payload = 'a'.repeat(9 * 1024 * 1024);
+	let constructorCallCount = 0;
+
+	globalThis.Response = class extends originalResponse {
+		constructor(...constructorParameters: ConstructorParameters<typeof originalResponse>) {
+			super(...constructorParameters);
+			constructorCallCount++;
+		}
+	};
+
+	server.get('/', (_request, response) => {
+		response.end(payload);
+	});
+
+	try {
+		const {body} = await got({
+			responseType: 'text',
+			encoding: 'base64',
+		});
+
+		t.is(body, Buffer.from(payload).toString('base64'));
+		t.is(constructorCallCount, 0);
+	} finally {
+		globalThis.Response = originalResponse;
+	}
+});
+
+test.serial('does not use Response decoding for small UTF-8 JSON bodies', withServer, async (t, server, got) => {
+	const originalResponse = globalThis.Response;
+
+	if (originalResponse === undefined) {
+		t.pass();
+		return;
+	}
+
+	const payload = {data: 'a'.repeat(1024)};
+	let constructorCallCount = 0;
+
+	globalThis.Response = class extends originalResponse {
+		constructor(...constructorParameters: ConstructorParameters<typeof originalResponse>) {
+			super(...constructorParameters);
+			constructorCallCount++;
+		}
+	};
+
+	server.get('/', (_request, response) => {
+		response.end(JSON.stringify(payload));
+	});
+
+	try {
+		const response = await got<typeof payload>({responseType: 'json'});
+		t.deepEqual(response.body, payload);
+		t.is(constructorCallCount, 0);
+	} finally {
+		globalThis.Response = originalResponse;
+	}
+});
