@@ -31,7 +31,12 @@ import Options, {
 	type OptionsInit,
 	type NormalizedOptions,
 } from './options.js';
-import {isResponseOk, type PlainResponse, type Response} from './response.js';
+import {
+	cacheDecodedBodyWithResponse,
+	isResponseOk,
+	type PlainResponse,
+	type Response,
+} from './response.js';
 import isClientRequest from './utils/is-client-request.js';
 import isUnixSocketURL, {getUnixSocketPath} from './utils/is-unix-socket-url.js';
 import {
@@ -1095,12 +1100,24 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		try {
 			// Errors are emitted via the `error` event
 			const fromArray = await from.toArray();
-			const rawBody = isBuffer(fromArray.at(0)) ? Buffer.concat(fromArray) : Buffer.from(fromArray.join(''));
+			const hasBufferChunks = isBuffer(fromArray.at(0));
+			const rawBody = hasBufferChunks ? Buffer.concat(fromArray as Buffer[]) : Buffer.from(fromArray.join(''));
 
 			// On retry Request is destroyed with no error, therefore the above will successfully resolve.
 			// So in order to check if this was really successfull, we need to check if it has been properly ended.
-			if (!this.isAborted) {
-				this.response!.rawBody = rawBody;
+			if (
+				!this.isAborted
+				&& this.response
+			) {
+				this.response.rawBody = rawBody;
+				await cacheDecodedBodyWithResponse({
+					response: this.response,
+					rawBody,
+					responseType: this.options.responseType,
+					encoding: this.options.encoding,
+					hasBufferChunks,
+					isNoPipe: this._noPipe,
+				});
 
 				return true;
 			}
