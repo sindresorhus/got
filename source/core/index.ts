@@ -1,6 +1,6 @@
 import process from 'node:process';
 import {Buffer} from 'node:buffer';
-import {Duplex, type Readable} from 'node:stream';
+import {Duplex, PassThrough, type Readable} from 'node:stream';
 import http, {ServerResponse, type ClientRequest, type RequestOptions} from 'node:http';
 import type {Socket} from 'node:net';
 import {byteLength} from 'byte-counter';
@@ -10,6 +10,7 @@ import CacheableRequest, {
 	type CacheableOptions,
 } from 'cacheable-request';
 import decompressResponse from 'decompress-response';
+import mimicResponse from 'mimic-response';
 import type {KeyvStoreAdapter} from 'keyv';
 import type KeyvType from 'keyv';
 import is, {isBuffer} from '@sindresorhus/is';
@@ -796,7 +797,22 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 				});
 			}
 
-			response = decompressResponse(response);
+			const decompressedResponse = decompressResponse(response);
+
+			if (decompressedResponse === response) {
+				// When the response is not compressed, decompressResponse returns the
+				// original IncomingMessage unchanged. Wrap it in a PassThrough stream
+				// with mimicResponse to ensure response properties (like `headers`)
+				// are always own enumerable properties, regardless of whether the
+				// server compressed the response or not. This makes the response type
+				// consistent so that e.g. `{ ...response }.headers` always works.
+				const passThrough = new PassThrough({autoDestroy: false});
+				mimicResponse(response, passThrough);
+				response.pipe(passThrough);
+				response = passThrough as unknown as IncomingMessageWithTimings;
+			} else {
+				response = decompressedResponse;
+			}
 		}
 
 		const typedResponse = response as PlainResponse;
