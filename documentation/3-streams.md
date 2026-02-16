@@ -125,33 +125,16 @@ An object representing how much data have been downloaded.
 
 An object representing how much data have been uploaded.
 
-> **Note:** To get granular upload progress instead of just 0% and 100%, split the body into chunks using the [`chunk-data`](https://github.com/sindresorhus/chunk-data) package:
-> - `chunk(buffer, chunkSize)` - For buffers/typed arrays
-> - `chunkFromAsync(iterable, chunkSize)` - For iterables (Node.js streams are async iterables)
+Granular upload progress is automatically supported for non-stream `body` (string/Buffer/TypedArray), `json`, and `form` options. For Node.js streams, you can use the [`chunk-data`](https://github.com/sindresorhus/chunk-data) package to get granular progress:
 
 ```js
+import fs from 'node:fs';
 import got from 'got';
-import {chunk, chunkFromAsync} from 'chunk-data';
-import {Readable} from 'node:stream';
+import {chunkFromAsync} from 'chunk-data';
 
-// Chunk a buffer
-
-const buffer = new Uint8Array(1024 * 1024);
-
-await got.post('https://httpbin.org/anything', {
-	body: chunk(buffer, 65_536),
-	headers: {
-		'content-length': buffer.byteLength.toString()
-	}
-})
-.on('uploadProgress', progress => {
-	console.log(progress);
-});
-
-
-// Chunk an iterable/stream
-
-const [stream, size] = getStream();
+const filePath = 'large-file.bin';
+const stream = fs.createReadStream(filePath);
+const size = fs.statSync(filePath).size;
 
 await got.post('https://httpbin.org/anything', {
 	body: chunkFromAsync(stream, 65_536),
