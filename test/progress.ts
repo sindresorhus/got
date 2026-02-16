@@ -255,7 +255,7 @@ test('upload progress - no body', withServer, async (t, server, got) => {
 	]);
 });
 
-test('upload progress - no events when immediatly removed listener', withServer, async (t, server, got) => {
+test('upload progress - no events when immediately removed listener', withServer, async (t, server, got) => {
 	server.post('/', uploadEndpoint);
 
 	const events: Progress[] = [];
@@ -360,4 +360,80 @@ test('upload progress - chunkFromAsync async generator with stream', withServer,
 
 	// Ensure we got more than just 0% and 100%
 	t.true(events.length > 2, `Expected more than 2 events with chunkFromAsync, got ${events.length}`);
+});
+
+test('upload progress - buffer body', withServer, async (t, server, got) => {
+	server.post('/', uploadEndpoint);
+
+	const events: Progress[] = [];
+	const body = Buffer.alloc(1024 * 256); // 256 KB
+
+	await got.post({
+		body,
+		headers: {'content-length': body.byteLength.toString()},
+	}).on('uploadProgress', (event: Progress) => events.push(event));
+
+	checkEvents(t, events, body.byteLength);
+
+	// Ensure we got more than just 0% and 100%
+	t.true(events.length > 2, `Expected more than 2 events with buffer body, got ${events.length}`);
+});
+
+test('upload progress - typed array body', withServer, async (t, server, got) => {
+	server.post('/', uploadEndpoint);
+
+	const events: Progress[] = [];
+	const body = new Uint8Array(1024 * 256); // 256 KB
+
+	await got.post({
+		body,
+		headers: {'content-length': body.byteLength.toString()},
+	}).on('uploadProgress', (event: Progress) => events.push(event));
+
+	checkEvents(t, events, body.byteLength);
+
+	// Ensure we got more than just 0% and 100%
+	t.true(events.length > 2, `Expected more than 2 events with typed array body, got ${events.length}`);
+});
+
+test('upload progress - small json option', withServer, async (t, server, got) => {
+	server.post('/', uploadEndpoint);
+
+	const events: Progress[] = [];
+	const payload = {key: 'value'};
+	const size = Buffer.byteLength(JSON.stringify(payload));
+
+	await got.post({json: payload}).on('uploadProgress', (event: Progress) => events.push(event));
+
+	checkEvents(t, events, size);
+});
+
+test('upload progress - json option', withServer, async (t, server, got) => {
+	server.post('/', uploadEndpoint);
+
+	const events: Progress[] = [];
+	const payload = {key: '.'.repeat(1e6)};
+	const size = Buffer.byteLength(JSON.stringify(payload));
+
+	await got.post({json: payload}).on('uploadProgress', (event: Progress) => events.push(event));
+
+	checkEvents(t, events, size);
+
+	// Ensure we got more than just 0% and 100%
+	t.true(events.length > 2, `Expected more than 2 events with json option, got ${events.length}`);
+});
+
+test('upload progress - form option', withServer, async (t, server, got) => {
+	server.post('/', uploadEndpoint);
+
+	const events: Progress[] = [];
+	const payload = {key: '.'.repeat(1e6)};
+	const size = Buffer.byteLength(new URLSearchParams(payload).toString());
+
+	await got.post({form: payload}).on('uploadProgress', (event: Progress) => events.push(event));
+
+	checkEvents(t, events, size);
+
+	// Ensure we got more than just 0% and 100%
+	t.true(events.length > 2, `Expected more than 2 events with form option, got ${events.length}`);
 });

@@ -4,6 +4,7 @@ import {Duplex, type Readable} from 'node:stream';
 import http, {ServerResponse, type ClientRequest, type RequestOptions} from 'node:http';
 import type {Socket} from 'node:net';
 import {byteLength} from 'byte-counter';
+import {chunk} from 'chunk-data';
 import CacheableRequest, {
 	CacheError as CacheableCacheError,
 	type CacheableRequestFunction,
@@ -196,6 +197,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	private _aborted = false;
 	private _expectedContentLength?: number;
 	private _compressedBytesCount?: number;
+	private _skipRequestEndInFinal = false;
 	private readonly _requestId = generateRequestId();
 
 	// We need this because `this._request` if `undefined` when using cache
@@ -562,25 +564,30 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 	override _final(callback: (error?: Error | null) => void): void { // eslint-disable-line @typescript-eslint/ban-types
 		const endRequest = (): void => {
-			// We need to check if `this._request` is present,
-			// because it isn't when we use cache.
-			if (!this._request || this._request.destroyed) {
+			if (this._skipRequestEndInFinal) {
+				this._skipRequestEndInFinal = false;
 				callback();
 				return;
 			}
 
-			this._request.end((error?: Error | null) => { // eslint-disable-line @typescript-eslint/ban-types
+			const request = this._request;
+
+			// We need to check if `this._request` is present,
+			// because it isn't when we use cache.
+			if (!request || request.destroyed) {
+				callback();
+				return;
+			}
+
+			request.end((error?: Error | null) => { // eslint-disable-line @typescript-eslint/ban-types
 				// The request has been destroyed before `_final` finished.
 				// See https://github.com/nodejs/node/issues/39356
-				if ((this._request as any)?._writableState?.errored) {
+				if ((request as any)?._writableState?.errored) {
 					return;
 				}
 
 				if (!error) {
-					this._bodySize = this._uploadedSize;
-
-					this.emit('uploadProgress', this.uploadProgress);
-					this._request?.emit('upload-complete');
+					this._emitUploadComplete(request);
 				}
 
 				callback(error);
@@ -893,16 +900,18 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 				this._request = undefined;
 
-				// Reset download progress for the new request
+				// Reset progress for the new request.
 				this._downloadedSize = 0;
+				this._uploadedSize = 0;
 
 				const updatedOptions = new Options(undefined, undefined, this.options);
 
 				const serverRequestedGet = statusCode === 303 && updatedOptions.method !== 'GET' && updatedOptions.method !== 'HEAD';
 				const canRewrite = statusCode !== 307 && statusCode !== 308;
 				const userRequestedGet = updatedOptions.methodRewriting && canRewrite;
+				const shouldDropBody = serverRequestedGet || userRequestedGet;
 
-				if (serverRequestedGet || userRequestedGet) {
+				if (shouldDropBody) {
 					updatedOptions.method = 'GET';
 
 					updatedOptions.body = undefined;
@@ -910,6 +919,8 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 					updatedOptions.form = undefined;
 
 					delete updatedOptions.headers['content-length'];
+					// Only clear `_bodySize` when the redirect drops the request body.
+					this._bodySize = undefined;
 				}
 
 				try {
@@ -1198,15 +1209,13 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			body.pipe(currentRequest);
 		} else if (is.buffer(body)) {
 			// Buffer should be sent directly without conversion
-			this._writeRequest(body, undefined, () => {});
-			currentRequest.end();
+			this._writeBodyInChunks(body, currentRequest);
 		} else if (is.typedArray(body)) {
 			// Typed arrays should be treated like buffers, not iterated over
 			// Create a Uint8Array view over the data (Node.js streams accept Uint8Array)
 			const typedArray = body as ArrayBufferView;
 			const uint8View = new Uint8Array(typedArray.buffer, typedArray.byteOffset, typedArray.byteLength);
-			this._writeRequest(uint8View, undefined, () => {});
-			currentRequest.end();
+			this._writeBodyInChunks(uint8View, currentRequest);
 		} else if (is.asyncIterable(body) || (is.iterable(body) && !is.string(body) && !isBuffer(body))) {
 			(async () => {
 				try {
@@ -1227,8 +1236,116 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 				currentRequest.end();
 			}
 		} else {
-			this._writeRequest(body, undefined, () => {});
-			currentRequest.end();
+			// Handles string bodies (from json/form options).
+			this._writeBodyInChunks(Buffer.from(body as string), currentRequest);
+		}
+	}
+
+	/*
+	Write a body buffer in chunks to enable granular `uploadProgress` events.
+
+	Without chunking, string/Buffer/TypedArray bodies are written in a single call, causing `uploadProgress` to only emit 0% and 100% with nothing in between.
+
+	The 64 KB chunk size matches Node.js fs stream defaults.
+	*/
+	private _writeBodyInChunks(buffer: Uint8Array, currentRequest: Request | ClientRequest) {
+		const isInitialRequest = currentRequest === this;
+
+		(async () => {
+			try {
+				const request = isInitialRequest ? this._request : currentRequest as ClientRequest;
+
+				if (!request) {
+					if (isInitialRequest) {
+						super.end();
+					}
+
+					return;
+				}
+
+				if (request.destroyed) {
+					return;
+				}
+
+				await this._writeChunksToRequest(buffer, request);
+
+				if (this._request !== request || request.destroyed || request.writableEnded) {
+					this._finalizeStaleChunkedWrite(request, isInitialRequest);
+					return;
+				}
+
+				if (isInitialRequest) {
+					super.end();
+					return;
+				}
+
+				await new Promise<void>((resolve, reject) => {
+					request.end((error?: Error | null) => { // eslint-disable-line @typescript-eslint/ban-types
+						if (error) {
+							reject(error);
+							return;
+						}
+
+						if (this._request === request && !request.destroyed) {
+							this._emitUploadComplete(request);
+						}
+
+						resolve();
+					});
+				});
+			} catch (error: any) {
+				if (!isInitialRequest && (this._request !== currentRequest || currentRequest.destroyed || currentRequest.writableEnded)) {
+					return;
+				}
+
+				this._beforeError(error);
+			}
+		})();
+	}
+
+	private _finalizeStaleChunkedWrite(request: ClientRequest, isInitialRequest: boolean) {
+		if (!request.destroyed && !request.writableEnded) {
+			request.destroy();
+		}
+
+		if (isInitialRequest) {
+			// Finalize writable state without ending the active redirected request.
+			this._skipRequestEndInFinal = true;
+			super.end();
+		}
+	}
+
+	private _emitUploadComplete(request: ClientRequest) {
+		this._bodySize = this._uploadedSize;
+		this.emit('uploadProgress', this.uploadProgress);
+		request.emit('upload-complete');
+	}
+
+	private async _writeChunksToRequest(buffer: Uint8Array, request: ClientRequest): Promise<void> {
+		const chunkSize = 65_536; // 64 KB
+		const isStale = () => this._request !== request || request.destroyed || request.writableEnded;
+
+		for (const part of chunk(buffer, chunkSize)) {
+			if (isStale()) {
+				return;
+			}
+
+			// eslint-disable-next-line no-await-in-loop
+			await new Promise<void>((resolve, reject) => {
+				this._writeRequest(part, undefined, error => {
+					if (error) {
+						if (isStale()) {
+							resolve();
+							return;
+						}
+
+						reject(error);
+						return;
+					}
+
+					resolve();
+				}, request);
+			});
 		}
 	}
 
@@ -1558,17 +1675,18 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		}
 	}
 
-	private _writeRequest(chunk: any, encoding: BufferEncoding | undefined, callback: (error?: Error | null) => void): void { // eslint-disable-line @typescript-eslint/ban-types
-		if (!this._request || this._request.destroyed) {
+	private _writeRequest(chunk: any, encoding: BufferEncoding | undefined, callback: (error?: Error | null) => void, request: ClientRequest | undefined = this._request): void { // eslint-disable-line @typescript-eslint/ban-types
+		if (!request || request.destroyed) {
 			// When there's no request (e.g., using cached response from beforeRequest hook),
 			// we still need to call the callback to allow the stream to finish properly.
 			callback();
 			return;
 		}
 
-		this._request.write(chunk, encoding!, (error?: Error | null) => { // eslint-disable-line @typescript-eslint/ban-types
-			// The `!destroyed` check is required to prevent `uploadProgress` being emitted after the stream was destroyed
-			if (!error && !this._request!.destroyed) {
+		request.write(chunk, encoding!, (error?: Error | null) => { // eslint-disable-line @typescript-eslint/ban-types
+			// The `!destroyed` check is required to prevent `uploadProgress` being emitted after the stream was destroyed.
+			// The `this._request === request` check prevents stale write callbacks from a pre-redirect request from incrementing `_uploadedSize` after it's been reset.
+			if (!error && !request.destroyed && this._request === request) {
 				// For strings, encode them first to measure the actual bytes that will be sent
 				const bytes = typeof chunk === 'string' ? Buffer.from(chunk, encoding) : chunk;
 				this._uploadedSize += byteLength(bytes);
