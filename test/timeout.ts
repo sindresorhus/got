@@ -90,9 +90,13 @@ test.serial('socket timeout', async t => {
 			retry: {
 				limit: 0,
 			},
+			https: {
+				rejectUnauthorized: false,
+			},
 			request() {
 				return https.request('https://example.com', {
 					timeout: 0,
+					rejectUnauthorized: false,
 				});
 			},
 		}),

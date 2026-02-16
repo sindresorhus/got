@@ -179,18 +179,23 @@ test('doesn\'t cache response when received HTTP error', withServer, async (t, s
 	t.is(body, 'ok');
 });
 
-test('cache should work with http2', async t => {
+test('cache should work with http2', withServer, async (t, server, got) => {
+	server.get('/', cacheEndpoint);
+
 	const instance = got.extend({
 		cache: true,
 		http2: true,
 	});
 
-	await t.notThrowsAsync(instance('https://example.com'));
+	await t.notThrowsAsync(instance(''));
 });
 
 test('DNS cache works', async t => {
 	const instance = got.extend({
 		dnsCache: true,
+		https: {
+			rejectUnauthorized: false,
+		},
 	});
 
 	await t.notThrowsAsync(instance('https://example.com'));
@@ -201,7 +206,12 @@ test('DNS cache works', async t => {
 
 test('DNS cache works - CacheableLookup instance', async t => {
 	const cache = new CacheableLookup();
-	await t.notThrowsAsync(got('https://example.com', {dnsCache: cache}));
+	await t.notThrowsAsync(got('https://example.com', {
+		dnsCache: cache,
+		https: {
+			rejectUnauthorized: false,
+		},
+	}));
 
 	t.is((cache as any)._cache.size, 1);
 });

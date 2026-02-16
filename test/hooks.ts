@@ -181,8 +181,12 @@ test('catches afterResponse thrown errors', withServer, async (t, server, got) =
 	});
 });
 
-test('accepts an async function as init hook', async t => {
-	await got('https://example.com', {
+test('accepts an async function as init hook', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.end('ok');
+	});
+
+	await got('', {
 		hooks: {
 			init: [
 				async () => {

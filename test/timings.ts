@@ -31,7 +31,12 @@ test('http/1 timings', withServer, async (t, server, got) => {
 
 test('http/2 timings', async t => {
 	// Use a real HTTP/2 server (Google supports HTTP/2)
-	const {timings} = await got('https://www.google.com/', {http2: true});
+	const {timings} = await got('https://www.google.com/', {
+		http2: true,
+		https: {
+			rejectUnauthorized: false,
+		},
+	});
 
 	// These timings are available even for HTTP/2
 	t.true(timings.start >= 0);
