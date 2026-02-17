@@ -4,10 +4,7 @@ import {RequestError} from './errors.js';
 import type {ParseJsonFunction, ResponseType} from './options.js';
 import type Request from './index.js';
 
-const minimumResponseBodyDecodeSize = 8 * 1024 * 1024;
 const decodedBodyCache = new WeakMap<PlainResponse, string>();
-
-const isUtf8Encoding = (encoding?: BufferEncoding): boolean => encoding === undefined || encoding.replace('-', '') === 'utf8';
 
 export type PlainResponse = {
 	/**
@@ -144,40 +141,6 @@ export class ParseError extends RequestError {
 
 export const cacheDecodedBody = (response: PlainResponse, decodedBody: string): void => {
 	decodedBodyCache.set(response, decodedBody);
-};
-
-type CacheDecodedBodyWithResponseOptions = {
-	response: PlainResponse;
-	rawBody: Buffer;
-	responseType: ResponseType;
-	encoding?: BufferEncoding;
-	hasBufferChunks: boolean;
-	isNoPipe?: boolean;
-};
-
-export const cacheDecodedBodyWithResponse = async ({
-	response,
-	rawBody,
-	responseType,
-	encoding,
-	hasBufferChunks,
-	isNoPipe,
-}: CacheDecodedBodyWithResponseOptions): Promise<void> => {
-	const canDecodeWithResponse = hasBufferChunks
-		&& isNoPipe
-		&& rawBody.length >= minimumResponseBodyDecodeSize
-		&& (responseType === 'text' || responseType === 'json')
-		&& isUtf8Encoding(encoding)
-		&& typeof globalThis.Response === 'function';
-
-	if (!canDecodeWithResponse) {
-		return;
-	}
-
-	try {
-		const responseBody = new Uint8Array(rawBody.buffer, rawBody.byteOffset, rawBody.byteLength) as unknown as ConstructorParameters<typeof globalThis.Response>[0];
-		cacheDecodedBody(response, await new globalThis.Response(responseBody).text());
-	} catch {}
 };
 
 export const parseBody = (response: Response, responseType: ResponseType, parseJson: ParseJsonFunction, encoding?: BufferEncoding): unknown => {
