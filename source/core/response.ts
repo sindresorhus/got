@@ -4,6 +4,8 @@ import {RequestError} from './errors.js';
 import type {ParseJsonFunction, ResponseType} from './options.js';
 import type Request from './index.js';
 
+const decodedBodyCache = new WeakMap<PlainResponse, string>();
+
 export type PlainResponse = {
 	/**
 	The original request URL.
@@ -137,16 +139,30 @@ export class ParseError extends RequestError {
 	}
 }
 
+export const cacheDecodedBody = (response: PlainResponse, decodedBody: string): void => {
+	decodedBodyCache.set(response, decodedBody);
+};
+
 export const parseBody = (response: Response, responseType: ResponseType, parseJson: ParseJsonFunction, encoding?: BufferEncoding): unknown => {
 	const {rawBody} = response;
+	const cachedDecodedBody = decodedBodyCache.get(response);
 
 	try {
 		if (responseType === 'text') {
+			if (cachedDecodedBody !== undefined) {
+				return cachedDecodedBody;
+			}
+
 			return rawBody.toString(encoding);
 		}
 
 		if (responseType === 'json') {
-			return rawBody.length === 0 ? '' : parseJson(rawBody.toString(encoding));
+			if (rawBody.length === 0) {
+				return '';
+			}
+
+			const text = cachedDecodedBody ?? rawBody.toString(encoding);
+			return parseJson(text);
 		}
 
 		if (responseType === 'buffer') {

@@ -31,7 +31,12 @@ import Options, {
 	type OptionsInit,
 	type NormalizedOptions,
 } from './options.js';
-import {isResponseOk, type PlainResponse, type Response} from './response.js';
+import {
+	cacheDecodedBody,
+	isResponseOk,
+	type PlainResponse,
+	type Response,
+} from './response.js';
 import isClientRequest from './utils/is-client-request.js';
 import isUnixSocketURL, {getUnixSocketPath} from './utils/is-unix-socket-url.js';
 import {
@@ -65,6 +70,7 @@ export type Progress = {
 
 const supportsBrotli = is.string(process.versions.brotli);
 const supportsZstd = is.string(process.versions.zstd);
+const isUtf8Encoding = (encoding?: BufferEncoding): boolean => encoding === undefined || encoding.toLowerCase().replace('-', '') === 'utf8';
 
 const methodsWithoutBody: ReadonlySet<string> = new Set(['GET', 'HEAD']);
 
@@ -196,6 +202,8 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	private _aborted = false;
 	private _expectedContentLength?: number;
 	private _compressedBytesCount?: number;
+	private _incrementalBodyDecoder?: TextDecoder;
+	private _incrementalDecodedBodyChunks: string[] = [];
 	private readonly _requestId = generateRequestId();
 
 	// We need this because `this._request` if `undefined` when using cache
@@ -537,6 +545,18 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			while ((data = response.read()) !== null) {
 				this._downloadedSize += data.length; // eslint-disable-line @typescript-eslint/restrict-plus-operands
 
+				if (this._incrementalBodyDecoder) {
+					try {
+						const decodedChunk = isBuffer(data) ? this._incrementalBodyDecoder.decode(data, {stream: true}) : String(data);
+						if (decodedChunk.length > 0) {
+							this._incrementalDecodedBodyChunks.push(decodedChunk);
+						}
+					} catch {
+						this._incrementalBodyDecoder = undefined;
+						this._incrementalDecodedBodyChunks = [];
+					}
+				}
+
 				const progress = this.downloadProgress;
 
 				if (progress.percent < 1) {
@@ -659,6 +679,15 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		super.unpipe(destination);
 
 		return this;
+	}
+
+	private _shouldIncrementallyDecodeBody(): boolean {
+		const {responseType, encoding} = this.options;
+
+		return Boolean(this._noPipe)
+			&& (responseType === 'text' || responseType === 'json')
+			&& isUtf8Encoding(encoding)
+			&& typeof globalThis.TextDecoder === 'function';
 	}
 
 	private _checkContentLengthMismatch(): boolean {
@@ -816,6 +845,9 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		this._responseSize = Number(response.headers['content-length']) || undefined;
 
 		this.response = typedResponse;
+		// eslint-disable-next-line @typescript-eslint/naming-convention
+		this._incrementalBodyDecoder = this._shouldIncrementallyDecodeBody() ? new globalThis.TextDecoder('utf8', {ignoreBOM: true}) : undefined;
+		this._incrementalDecodedBodyChunks = [];
 
 		// Publish response start event
 		publishResponseStart({
@@ -1095,16 +1127,38 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		try {
 			// Errors are emitted via the `error` event
 			const fromArray = await from.toArray();
-			const rawBody = isBuffer(fromArray.at(0)) ? Buffer.concat(fromArray) : Buffer.from(fromArray.join(''));
+			const rawBody = isBuffer(fromArray.at(0)) ? Buffer.concat(fromArray as Buffer[]) : Buffer.from(fromArray.join(''));
+			const shouldUseIncrementalDecodedBody = from === this && this._incrementalBodyDecoder !== undefined;
 
 			// On retry Request is destroyed with no error, therefore the above will successfully resolve.
-			// So in order to check if this was really successfull, we need to check if it has been properly ended.
-			if (!this.isAborted) {
-				this.response!.rawBody = rawBody;
+			// So in order to check if this was really successful, we need to check if it has been properly ended.
+			if (
+				!this.isAborted
+				&& this.response
+			) {
+				this.response.rawBody = rawBody;
+
+				if (shouldUseIncrementalDecodedBody) {
+					try {
+						const decoder = this._incrementalBodyDecoder!;
+						const finalDecodedChunk = decoder.decode();
+						if (finalDecodedChunk.length > 0) {
+							this._incrementalDecodedBodyChunks.push(finalDecodedChunk);
+						}
+
+						cacheDecodedBody(this.response, this._incrementalDecodedBodyChunks.join(''));
+					} catch {}
+				}
+
+				this._incrementalBodyDecoder = undefined;
+				this._incrementalDecodedBodyChunks = [];
 
 				return true;
 			}
 		} catch {}
+
+		this._incrementalBodyDecoder = undefined;
+		this._incrementalDecodedBodyChunks = [];
 
 		return false;
 	}
