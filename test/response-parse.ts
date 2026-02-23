@@ -51,6 +51,14 @@ test('Text response #2', withServer, async (t, server, got) => {
 	t.is((await got({responseType: undefined})).body, jsonResponse);
 });
 
+test('Text response preserves UTF-8 BOM', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.end(Buffer.from([0xEF, 0xBB, 0xBF, ...Buffer.from('hello')]));
+	});
+
+	t.is((await got({responseType: 'text'})).body, '\uFEFFhello');
+});
+
 test('JSON response - promise.json()', withServer, async (t, server, got) => {
 	server.get('/', defaultHandler);
 
@@ -100,6 +108,14 @@ test('wraps parsing errors', withServer, async (t, server, got) => {
 	t.true(error?.message.includes((error.options.url as URL).hostname));
 	t.is((error?.options.url as URL).pathname, '/');
 	t.is(error?.code, 'ERR_BODY_PARSE_FAILURE');
+});
+
+test('JSON response with UTF-8 BOM throws ParseError', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.end(Buffer.from([0xEF, 0xBB, 0xBF, ...Buffer.from(jsonResponse)]));
+	});
+
+	await t.throwsAsync(got({responseType: 'json'}), {instanceOf: ParseError});
 });
 
 test('parses non-200 responses', withServer, async (t, server, got) => {
@@ -252,4 +268,266 @@ test('JSON response custom parser', withServer, async (t, server, got) => {
 		responseType: 'json',
 		parseJson: text => ({...JSON.parse(text), custom: 'parser'}),
 	})).body, {...dog, custom: 'parser'});
+});
+
+test.serial('incrementally decodes UTF-8 text response while downloading', withServer, async (t, server, got) => {
+	if (globalThis.TextDecoder === undefined) {
+		t.pass();
+		return;
+	}
+
+	const originalDecode = globalThis.TextDecoder.prototype.decode;
+	let responseEnded = false;
+	let streamDecodeCallCount = 0;
+	let decodedBeforeResponseEnded = false;
+
+	globalThis.TextDecoder.prototype.decode = function (input?: BufferSource, options?: TextDecodeOptions): string {
+		if (options?.stream) {
+			streamDecodeCallCount++;
+			if (!responseEnded) {
+				decodedBeforeResponseEnded = true;
+			}
+		}
+
+		return originalDecode.call(this, input, options);
+	};
+
+	server.get('/', (_request, response) => {
+		response.write('hello ');
+
+		setTimeout(() => {
+			responseEnded = true;
+			response.end('world');
+		}, 25);
+	});
+
+	try {
+		const {body} = await got({responseType: 'text'});
+		t.is(body, 'hello world');
+		t.true(streamDecodeCallCount > 0);
+		t.true(decodedBeforeResponseEnded);
+	} finally {
+		globalThis.TextDecoder.prototype.decode = originalDecode;
+	}
+});
+
+test.serial('incrementally decodes UTF-8 JSON response while downloading', withServer, async (t, server, got) => {
+	if (globalThis.TextDecoder === undefined) {
+		t.pass();
+		return;
+	}
+
+	const originalDecode = globalThis.TextDecoder.prototype.decode;
+	let responseEnded = false;
+	let streamDecodeCallCount = 0;
+	let decodedBeforeResponseEnded = false;
+
+	globalThis.TextDecoder.prototype.decode = function (input?: BufferSource, options?: TextDecodeOptions): string {
+		if (options?.stream) {
+			streamDecodeCallCount++;
+			if (!responseEnded) {
+				decodedBeforeResponseEnded = true;
+			}
+		}
+
+		return originalDecode.call(this, input, options);
+	};
+
+	server.get('/', (_request, response) => {
+		response.write('{"hello":"');
+
+		setTimeout(() => {
+			responseEnded = true;
+			response.end('world"}');
+		}, 25);
+	});
+
+	try {
+		const {body} = await got<{hello: string}>({responseType: 'json'});
+		t.deepEqual(body, {hello: 'world'});
+		t.true(streamDecodeCallCount > 0);
+		t.true(decodedBeforeResponseEnded);
+	} finally {
+		globalThis.TextDecoder.prototype.decode = originalDecode;
+	}
+});
+
+test.serial('falls back to buffered decode when incremental decode throws', withServer, async (t, server, got) => {
+	if (globalThis.TextDecoder === undefined) {
+		t.pass();
+		return;
+	}
+
+	const originalDecode = globalThis.TextDecoder.prototype.decode;
+	const payload = {hello: 'world'};
+	let thrown = false;
+
+	globalThis.TextDecoder.prototype.decode = function (input?: BufferSource, options?: TextDecodeOptions): string {
+		if (!thrown && options?.stream) {
+			thrown = true;
+			throw new TypeError('Injected decode failure');
+		}
+
+		return originalDecode.call(this, input, options);
+	};
+
+	server.get('/', (_request, response) => {
+		response.end(JSON.stringify(payload));
+	});
+
+	try {
+		const {body} = await got<typeof payload>({responseType: 'json'});
+		t.true(thrown);
+		t.deepEqual(body, payload);
+	} finally {
+		globalThis.TextDecoder.prototype.decode = originalDecode;
+	}
+});
+
+test.serial('falls back to buffered decode when incremental decoder final flush throws', withServer, async (t, server, got) => {
+	if (globalThis.TextDecoder === undefined) {
+		t.pass();
+		return;
+	}
+
+	const originalDecode = globalThis.TextDecoder.prototype.decode;
+	const payload = {hello: 'world'};
+	let thrown = false;
+
+	globalThis.TextDecoder.prototype.decode = function (input?: BufferSource, options?: TextDecodeOptions): string {
+		if (!thrown && options === undefined) {
+			thrown = true;
+			throw new TypeError('Injected final flush decode failure');
+		}
+
+		return originalDecode.call(this, input, options);
+	};
+
+	server.get('/', (_request, response) => {
+		response.end(JSON.stringify(payload));
+	});
+
+	try {
+		const {body} = await got<typeof payload>({responseType: 'json'});
+		t.true(thrown);
+		t.deepEqual(body, payload);
+	} finally {
+		globalThis.TextDecoder.prototype.decode = originalDecode;
+	}
+});
+
+test.serial('does not incrementally decode for non-UTF-8 encoding', withServer, async (t, server, got) => {
+	if (globalThis.TextDecoder === undefined) {
+		t.pass();
+		return;
+	}
+
+	const originalDecode = globalThis.TextDecoder.prototype.decode;
+	const payload = 'a'.repeat(1024);
+	let streamDecodeCallCount = 0;
+
+	globalThis.TextDecoder.prototype.decode = function (input?: BufferSource, options?: TextDecodeOptions): string {
+		if (options?.stream) {
+			streamDecodeCallCount++;
+		}
+
+		return originalDecode.call(this, input, options);
+	};
+
+	server.get('/', (_request, response) => {
+		response.end(payload);
+	});
+
+	try {
+		const {body} = await got({
+			responseType: 'text',
+			encoding: 'base64',
+		});
+
+		t.is(body, Buffer.from(payload).toString('base64'));
+		t.is(streamDecodeCallCount, 0);
+	} finally {
+		globalThis.TextDecoder.prototype.decode = originalDecode;
+	}
+});
+
+test.serial('incrementally decodes for case-insensitive UTF-8 encoding names', withServer, async (t, server, got) => {
+	if (globalThis.TextDecoder === undefined) {
+		t.pass();
+		return;
+	}
+
+	const originalDecode = globalThis.TextDecoder.prototype.decode;
+	const payload = 'hello world';
+	const encoding = Buffer.from([85, 84, 70, 45, 56]).toString() as BufferEncoding;
+	let streamDecodeCallCount = 0;
+
+	globalThis.TextDecoder.prototype.decode = function (input?: BufferSource, options?: TextDecodeOptions): string {
+		if (options?.stream) {
+			streamDecodeCallCount++;
+		}
+
+		return originalDecode.call(this, input, options);
+	};
+
+	server.get('/', (_request, response) => {
+		response.end(payload);
+	});
+
+	try {
+		const encodingWithoutHyphen = Buffer.from([85, 84, 70, 56]).toString() as BufferEncoding;
+		const responses = await Promise.all([
+			got({
+				responseType: 'text',
+				encoding,
+			}),
+			got({
+				responseType: 'text',
+				encoding: encodingWithoutHyphen,
+			}),
+		]);
+
+		for (const response of responses) {
+			t.is(response.body, payload);
+		}
+
+		t.true(streamDecodeCallCount > 0);
+	} finally {
+		globalThis.TextDecoder.prototype.decode = originalDecode;
+	}
+});
+
+test.serial('does not incrementally decode in stream mode', withServer, async (t, server, got) => {
+	if (globalThis.TextDecoder === undefined) {
+		t.pass();
+		return;
+	}
+
+	const originalDecode = globalThis.TextDecoder.prototype.decode;
+	let streamDecodeCallCount = 0;
+
+	globalThis.TextDecoder.prototype.decode = function (input?: BufferSource, options?: TextDecodeOptions): string {
+		if (options?.stream) {
+			streamDecodeCallCount++;
+		}
+
+		return originalDecode.call(this, input, options);
+	};
+
+	server.get('/', (_request, response) => {
+		response.end('hello');
+	});
+
+	try {
+		await new Promise<void>((resolve, reject) => {
+			const streamRequest = got.stream({responseType: 'text'});
+			streamRequest.on('error', reject);
+			streamRequest.on('end', resolve);
+			streamRequest.resume();
+		});
+
+		t.is(streamDecodeCallCount, 0);
+	} finally {
+		globalThis.TextDecoder.prototype.decode = originalDecode;
+	}
 });

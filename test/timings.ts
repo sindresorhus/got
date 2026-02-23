@@ -1,5 +1,7 @@
 import http from 'node:http';
+import {promises as dnsPromises} from 'node:dns';
 import test from 'ava';
+import CacheableLookup from 'cacheable-lookup';
 import got from '../source/index.js';
 import withServer from './helpers/with-server.js';
 
@@ -120,9 +122,32 @@ test('dns timing is 0 for cached DNS lookups', withServer, async (t, server, got
 		response.end('ok');
 	});
 
+	let resolve4CallCount = 0;
+	let resolve6CallCount = 0;
+	const serverAddress = server.http.address() as {family: string};
+	const isIpv6Server = serverAddress.family === 'IPv6';
+
+	const resolver = new dnsPromises.Resolver();
+	resolver.resolve4 = (async (_hostname: string, _options: unknown) => {
+		resolve4CallCount++;
+		if (isIpv6Server) {
+			return [];
+		}
+
+		return [{address: '127.0.0.1', ttl: 60}];
+	}) as typeof resolver.resolve4;
+	resolver.resolve6 = (async (_hostname: string, _options: unknown) => {
+		resolve6CallCount++;
+		if (isIpv6Server) {
+			return [{address: '::1', ttl: 60}];
+		}
+
+		return [];
+	}) as typeof resolver.resolve6;
+
 	// Enable DNS cache and disable keep-alive to get new connections
 	const instance = got.extend({
-		dnsCache: true,
+		dnsCache: new CacheableLookup({resolver}),
 		agent: {
 			http: new http.Agent({
 				keepAlive: false,
@@ -141,6 +166,9 @@ test('dns timing is 0 for cached DNS lookups', withServer, async (t, server, got
 	// Subsequent requests: DNS should be cached
 	const response2 = await instance('');
 	const response3 = await instance('');
+
+	t.is(resolve4CallCount, 1);
+	t.is(resolve6CallCount, 1);
 
 	// When DNS is cached, if lookup and connect happen at the exact same time (tcp=0),
 	// then dns is set to 0 to indicate no actual DNS resolution occurred.
