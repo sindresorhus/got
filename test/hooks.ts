@@ -473,6 +473,68 @@ test('returning HTTP response from a beforeRequest hook with FormData body', wit
 	t.is(data.cached, 'response');
 });
 
+test('returning HTTP response from a beforeRequest hook with large buffer body', withServer, async (t, server, got) => {
+	server.post('/', echoBody);
+
+	const {body} = await got.post({
+		body: Buffer.alloc(1024 * 256, 'a'),
+		hooks: {
+			beforeRequest: [
+				() => new Responselike({
+					statusCode: 200,
+					headers: {},
+					body: Buffer.from('hooked'),
+					url: '',
+				}),
+			],
+		},
+	});
+
+	t.is(body, 'hooked');
+});
+
+test('returning HTTP response from a beforeRequest hook with large json body', withServer, async (t, server, got) => {
+	server.post('/', echoBody);
+
+	const data = await got.post({
+		json: {
+			key: '.'.repeat(1024 * 256),
+		},
+		hooks: {
+			beforeRequest: [
+				() => new Responselike({
+					statusCode: 200,
+					headers: {},
+					body: Buffer.from('{"cached":"json"}'),
+					url: '',
+				}),
+			],
+		},
+	}).json<{cached: string}>();
+
+	t.is(data.cached, 'json');
+});
+
+test('returning HTTP response from a beforeRequest hook with large typed array body', withServer, async (t, server, got) => {
+	server.post('/', echoBody);
+
+	const {body} = await got.post({
+		body: new Uint8Array(1024 * 256),
+		hooks: {
+			beforeRequest: [
+				() => new Responselike({
+					statusCode: 200,
+					headers: {},
+					body: Buffer.from('typed-array'),
+					url: '',
+				}),
+			],
+		},
+	});
+
+	t.is(body, 'typed-array');
+});
+
 test('beforeRedirect is called with options and response', withServer, async (t, server, got) => {
 	server.get('/', echoHeaders);
 	server.get('/redirect', redirectEndpoint);
