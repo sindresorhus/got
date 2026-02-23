@@ -1,4 +1,4 @@
-import type {Buffer} from 'node:buffer';
+import {Buffer} from 'node:buffer';
 import type {IncomingMessageWithTimings, Timings} from './utils/timer.js';
 import {RequestError} from './errors.js';
 import type {ParseJsonFunction, ResponseType} from './options.js';
@@ -86,7 +86,7 @@ export type PlainResponse = {
 	/**
 	The raw result of the request.
 	*/
-	rawBody?: Buffer;
+	rawBody?: Uint8Array;
 
 	/**
 	The result of the request.
@@ -111,7 +111,7 @@ export type Response<T = unknown> = {
 	/**
 	The raw result of the request.
 	*/
-	rawBody: Buffer;
+	rawBody: Uint8Array;
 } & PlainResponse;
 
 export const isResponseOk = (response: PlainResponse): boolean => {
@@ -153,7 +153,7 @@ export const parseBody = (response: Response, responseType: ResponseType, parseJ
 				return cachedDecodedBody;
 			}
 
-			return rawBody.toString(encoding);
+			return Buffer.from(rawBody).toString(encoding);
 		}
 
 		if (responseType === 'json') {
@@ -161,7 +161,7 @@ export const parseBody = (response: Response, responseType: ResponseType, parseJ
 				return '';
 			}
 
-			const text = cachedDecodedBody ?? rawBody.toString(encoding);
+			const text = cachedDecodedBody ?? Buffer.from(rawBody).toString(encoding);
 			return parseJson(text);
 		}
 

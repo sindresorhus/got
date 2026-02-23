@@ -78,7 +78,7 @@ test('null value in search params means empty', t => {
 	const options = new Options({
 		url: new URL('http://localhost'),
 		searchParams: {
-			foo: null,
+			foo: null as any,
 		},
 	});
 

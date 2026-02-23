@@ -21,7 +21,7 @@ test('properties', withServer, async (t, server, got) => {
 
 	const url = new URL(server.url);
 
-	const error = (await t.throwsAsync<HTTPError<string>>(got('')))!;
+	const error = (await t.throwsAsync<HTTPError<string>>(got('')));
 	t.truthy(error);
 	t.truthy(error.response);
 	t.truthy(error.options);
@@ -36,7 +36,7 @@ test('properties', withServer, async (t, server, got) => {
 });
 
 test('catches dns errors', async t => {
-	const error = (await t.throwsAsync<RequestError<undefined>>(got('http://doesntexist', {retry: {limit: 0}})))!;
+	const error = (await t.throwsAsync<RequestError<undefined>>(got('http://doesntexist', {retry: {limit: 0}})));
 	t.truthy(error);
 	t.regex(error.message, /ENOTFOUND|EAI_AGAIN/);
 	t.is((error.options.url as URL).host, 'doesntexist');
@@ -45,8 +45,8 @@ test('catches dns errors', async t => {
 });
 
 test('`options.body` form error message', async t => {
-	// @ts-expect-error Error tests
-	await t.throwsAsync(got.post('https://example.com', {body: Buffer.from('test'), form: ''}),
+	await t.throwsAsync(
+		got.post('https://example.com', {body: Buffer.from('test'), form: '' as any}),
 		{
 			instanceOf: RequestError,
 			message: 'Option \'form\': Expected values which are `plain object` or `undefined`. Received values of type `string`.',
@@ -75,11 +75,13 @@ test('default status message', withServer, async (t, server, got) => {
 		response.end('body');
 	});
 
-	const error = await t.throwsAsync<HTTPError>(got(''),
+	const error = await t.throwsAsync<HTTPError>(
+		got(''),
 		{
 			instanceOf: HTTPError,
 			message: /^Request failed with status code 400 \(Bad Request\): GET http:\/\/localhost:\d+\/$/,
-		});
+		},
+	);
 	t.is(error?.response.statusCode, 400);
 	t.is(error?.response.statusMessage, 'Bad Request');
 });
@@ -91,11 +93,13 @@ test('custom status message', withServer, async (t, server, got) => {
 		response.end('body');
 	});
 
-	const error = await t.throwsAsync<HTTPError>(got(''),
+	const error = await t.throwsAsync<HTTPError>(
+		got(''),
 		{
 			instanceOf: HTTPError,
 			message: /^Request failed with status code 400 \(Something Exploded\): GET http:\/\/localhost:\d+\/$/,
-		});
+		},
+	);
 	t.is(error?.response.statusCode, 400);
 	t.is(error?.response.statusMessage, 'Something Exploded');
 });
@@ -106,11 +110,13 @@ test('custom body', withServer, async (t, server, got) => {
 		response.end('not');
 	});
 
-	const error = await t.throwsAsync<HTTPError>(got(''),
+	const error = await t.throwsAsync<HTTPError>(
+		got(''),
 		{
 			instanceOf: HTTPError,
 			message: /^Request failed with status code 404 \(Not Found\): GET http:\/\/localhost:\d+\/$/,
-		});
+		},
+	);
 	t.is(error?.response.statusCode, 404);
 	// Typecheck for default `any` type
 	t.assert(error?.response.body === 'not');
@@ -125,11 +131,13 @@ test('custom json body', withServer, async (t, server, got) => {
 		}));
 	});
 
-	const error = await t.throwsAsync<HTTPError<{message: string}>>(got('', {responseType: 'json'}),
+	const error = await t.throwsAsync<HTTPError<{message: string}>>(
+		got('', {responseType: 'json'}),
 		{
 			instanceOf: HTTPError,
 			message: /^Request failed with status code 404 \(Not Found\): GET http:\/\/localhost:\d+\/$/,
-		});
+		},
+	);
 	t.is(error?.response.statusCode, 404);
 	// Assert is used for body typecheck
 	t.assert(error?.response.body.message === 'not found');
@@ -147,11 +155,13 @@ test('contains Got options', withServer, async (t, server, got) => {
 		},
 	} as const;
 
-	const error = await t.throwsAsync<HTTPError>(got(options),
+	const error = await t.throwsAsync<HTTPError>(
+		got(options),
 		{
 			instanceOf: HTTPError,
 			message: /^Request failed with status code 404 \(Not Found\): GET http:\/\/localhost:\d+\/$/,
-		});
+		},
+	);
 	t.is(error?.response.statusCode, 404);
 	t.is(error?.options.context.foo, options.context.foo);
 });
@@ -162,11 +172,13 @@ test('empty status message is overriden by the default one', withServer, async (
 		response.end('body');
 	});
 
-	const error = await t.throwsAsync<HTTPError>(got(''),
+	const error = await t.throwsAsync<HTTPError>(
+		got(''),
 		{
 			instanceOf: HTTPError,
 			message: /^Request failed with status code 400 \(Bad Request\): GET http:\/\/localhost:\d+\/$/,
-		});
+		},
+	);
 	t.is(error?.response.statusCode, 400);
 	t.is(error?.response.statusMessage, http.STATUS_CODES[400]);
 });
@@ -247,17 +259,17 @@ test('normalization errors using convenience methods', async t => {
 
 	{
 		const error = await t.throwsAsync(got(url).json());
-		invalidUrl(t, error!, url);
+		invalidUrl(t, error, url);
 	}
 
 	{
 		const error = await t.throwsAsync(got(url).text());
-		invalidUrl(t, error!, url);
+		invalidUrl(t, error, url);
 	}
 
 	{
 		const error = await t.throwsAsync(got(url).buffer());
-		invalidUrl(t, error!, url);
+		invalidUrl(t, error, url);
 	}
 });
 

@@ -168,15 +168,10 @@ test('custom error codes', async t => {
 	const error = await t.throwsAsync<Error & {code: typeof errorCode}>(got('https://example.com', {
 		request() {
 			const emitter = new EventEmitter() as http.ClientRequest;
-			emitter.abort = () => {};
-			// @ts-expect-error Imitating a stream
-			emitter.end = () => {};
-			// @ts-expect-error Imitating a stream
-			emitter.destroy = () => {};
-			// @ts-expect-error Imitating a stream
-			emitter.writable = true;
-			// @ts-expect-error Imitating a stream
-			emitter.writableEnded = false;
+			(emitter as any).end = () => {};
+			(emitter as any).destroy = () => {};
+			(emitter as any).writable = true;
+			(emitter as any).writableEnded = false;
 
 			const error = new Error('Snap!');
 			(error as Error & {code: typeof errorCode}).code = errorCode;
@@ -752,9 +747,7 @@ test('retries on stream errors like EPIPE when configured', async t => {
 			attemptCount++;
 
 			const emitter = new EventEmitter() as http.ClientRequest;
-			emitter.abort = () => {};
-			// @ts-expect-error Imitating a stream
-			emitter.end = callback => {
+			(emitter as any).end = (callback: any) => {
 				// Simulate EPIPE error from Node.js during write/end
 				// This mimics what happens when a socket is torn down (e.g., AWS Lambda pause)
 				const error = new Error('write EPIPE');
@@ -769,17 +762,14 @@ test('retries on stream errors like EPIPE when configured', async t => {
 
 			emitter.destroyed = false;
 
-			// @ts-expect-error Imitating a stream
-			emitter.destroy = () => {
+			(emitter as any).destroy = () => {
 				emitter.destroyed = true;
 			};
 
-			emitter.write = () => true;
+			(emitter as any).write = () => true;
 
-			// @ts-expect-error Imitating a stream
-			emitter.writable = true;
-			// @ts-expect-error Imitating a stream
-			emitter.writableEnded = false;
+			(emitter as any).writable = true;
+			(emitter as any).writableEnded = false;
 
 			return emitter;
 		},
@@ -803,9 +793,7 @@ test('does not retry on stream errors when not in errorCodes', async t => {
 			attemptCount++;
 
 			const emitter = new EventEmitter() as http.ClientRequest;
-			emitter.abort = () => {};
-			// @ts-expect-error Imitating a stream
-			emitter.end = callback => {
+			(emitter as any).end = (callback: any) => {
 				const error = new Error('write ETEST');
 				(error as NodeJS.ErrnoException).code = 'ETEST';
 
@@ -818,17 +806,14 @@ test('does not retry on stream errors when not in errorCodes', async t => {
 
 			emitter.destroyed = false;
 
-			// @ts-expect-error Imitating a stream
-			emitter.destroy = () => {
+			(emitter as any).destroy = () => {
 				emitter.destroyed = true;
 			};
 
-			emitter.write = () => true;
+			(emitter as any).write = () => true;
 
-			// @ts-expect-error Imitating a stream
-			emitter.writable = true;
-			// @ts-expect-error Imitating a stream
-			emitter.writableEnded = false;
+			(emitter as any).writable = true;
+			(emitter as any).writableEnded = false;
 
 			return emitter;
 		},
@@ -851,20 +836,15 @@ test('does not retry after promise settles (issue #1489)', async t => {
 		},
 		request() {
 			const emitter = new EventEmitter() as http.ClientRequest;
-			emitter.abort = () => {};
-			// @ts-expect-error Imitating a stream
-			emitter.end = () => {};
+			(emitter as any).end = () => {};
 			emitter.destroyed = false;
-			// @ts-expect-error Imitating a stream
-			emitter.destroy = () => {
+			(emitter as any).destroy = () => {
 				emitter.destroyed = true;
 			};
 
-			emitter.write = () => true;
-			// @ts-expect-error Imitating a stream
-			emitter.writable = true;
-			// @ts-expect-error Imitating a stream
-			emitter.writableEnded = false;
+			(emitter as any).write = () => true;
+			(emitter as any).writable = true;
+			(emitter as any).writableEnded = false;
 
 			setTimeout(() => {
 				const incomingMessage = new PassThroughStream() as unknown as http.IncomingMessage;

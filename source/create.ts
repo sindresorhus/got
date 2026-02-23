@@ -57,7 +57,7 @@ const create = (defaults: InstanceDefaults): Got => {
 				return request;
 			}
 
-			promise ||= asPromise(request);
+			promise ??= asPromise(request);
 
 			return promise;
 		};
@@ -69,7 +69,7 @@ const create = (defaults: InstanceDefaults): Got => {
 			const result = handler(newOptions, iterateHandlers) as GotReturn;
 
 			if (is.promise(result) && !request.options?.isStream) {
-				promise ||= asPromise(request);
+				promise ??= asPromise(request);
 
 				if (result !== promise) {
 					const descriptors = Object.getOwnPropertyDescriptors(promise);
@@ -214,15 +214,7 @@ const create = (defaults: InstanceDefaults): Got => {
 
 	got.paginate = paginateEach as GotPaginate;
 
-	got.paginate.all = (async <T, R>(url: string | URL, options?: OptionsWithPagination<T, R>) => {
-		const results: T[] = [];
-
-		for await (const item of paginateEach<T, R>(url, options)) {
-			results.push(item);
-		}
-
-		return results;
-	}) as GotPaginate['all'];
+	got.paginate.all = (async <T, R>(url: string | URL, options?: OptionsWithPagination<T, R>) => Array.fromAsync(paginateEach<T, R>(url, options))) as GotPaginate['all'];
 
 	// For those who like very descriptive names
 	got.paginate.each = paginateEach as GotPaginate['each'];

@@ -1,7 +1,7 @@
 import process from 'node:process';
 import {Buffer} from 'node:buffer';
 import fs from 'node:fs';
-import {Agent as HttpAgent} from 'node:http';
+import {Agent as HttpAgent, type ClientRequest} from 'node:http';
 import stream, {Readable as ReadableStream, Writable} from 'node:stream';
 import {pipeline as streamPipeline} from 'node:stream/promises';
 import {Readable as Readable2} from 'readable-stream';
@@ -13,6 +13,7 @@ import FormData from 'form-data';
 import is from '@sindresorhus/is';
 import delay from 'delay';
 import got, {HTTPError, RequestError} from '../source/index.js';
+import type {Response} from '../source/core/response.js';
 import withServer from './helpers/with-server.js';
 
 const defaultHandler: Handler = (_request, response) => {
@@ -108,7 +109,7 @@ test('has request event', withServer, async (t, server, got) => {
 	server.get('/', defaultHandler);
 
 	const stream = got.stream('');
-	const request = await pEvent(stream, 'request');
+	const request = await pEvent(stream, 'request') as ClientRequest;
 	t.truthy(request);
 	t.is(request.method, 'GET');
 
@@ -120,7 +121,7 @@ test('has redirect event', withServer, async (t, server, got) => {
 	server.get('/redirect', redirectHandler);
 
 	const stream = got.stream('redirect');
-	const [, {headers}] = await pEvent(stream, 'redirect', {multiArgs: true});
+	const [, {headers}] = await pEvent(stream, 'redirect', {multiArgs: true}) as [unknown, {headers: Record<string, string>}];
 	t.is(headers.location, '/');
 
 	await getStream(stream);
@@ -129,7 +130,7 @@ test('has redirect event', withServer, async (t, server, got) => {
 test('has response event', withServer, async (t, server, got) => {
 	server.get('/', defaultHandler);
 
-	const {statusCode} = await pEvent(got.stream(''), 'response');
+	const {statusCode} = await pEvent(got.stream(''), 'response') as Response;
 	t.is(statusCode, 200);
 });
 
@@ -177,7 +178,7 @@ test('validation errors can be caught with synchronous error handler', withServe
 test('has response event if `options.throwHttpErrors` is false', withServer, async (t, server, got) => {
 	server.get('/', errorHandler);
 
-	const {statusCode} = await pEvent(got.stream({throwHttpErrors: false}), 'response');
+	const {statusCode} = await pEvent(got.stream({throwHttpErrors: false}), 'response') as Response;
 	t.is(statusCode, 404);
 });
 
@@ -192,7 +193,7 @@ test('redirect response contains old url', withServer, async (t, server, got) =>
 	server.get('/', defaultHandler);
 	server.get('/redirect', redirectHandler);
 
-	const {requestUrl} = await pEvent(got.stream('redirect'), 'response');
+	const {requestUrl} = await pEvent(got.stream('redirect'), 'response') as Response;
 	t.is(requestUrl.toString(), `${server.url}/redirect`);
 });
 
@@ -327,7 +328,7 @@ test('proxies `content-encoding` header when `options.decompress` is false', wit
 		server.get('/', defaultHandler);
 
 		const stream = got.stream('');
-		const request = await pEvent(stream, 'request');
+		const request = await pEvent(stream, 'request') as ClientRequest;
 		stream.destroy();
 		t.truthy(request.destroyed);
 	});
@@ -338,7 +339,7 @@ test('proxies `content-encoding` header when `options.decompress` is false', wit
 		});
 
 		const stream = got.stream('');
-		const request = await pEvent(stream, 'request');
+		const request = await pEvent(stream, 'request') as ClientRequest;
 		await pEvent(stream, 'response');
 		stream.destroy();
 		t.truthy(request.destroyed);
@@ -375,7 +376,7 @@ test.skip('no unhandled body stream errors', async t => {
 });
 
 test('works with pipeline', async t => {
-	await t.throwsAsync(streamPipeline(
+	const error = await t.throwsAsync<RequestError>(streamPipeline(
 		new ReadableStream({
 			read() {
 				this.push(null);
@@ -384,9 +385,9 @@ test('works with pipeline', async t => {
 		got.stream.put('http://localhost:7777'),
 	), {
 		instanceOf: RequestError,
-		// TODO: Find out why it has no message.
-		// message: /^connect ECONNREFUSED (127\.0\.0\.1|::1):7777$/,
 	});
+
+	t.is(typeof error?.code, 'string');
 });
 
 test('errors have body', withServer, async (t, server, got) => {
@@ -523,7 +524,7 @@ test('prevents `Cannot call end` error', async t => {
 		},
 	});
 
-	const error: RequestError = await pEvent(stream, 'error');
+	const error = await pEvent(stream, 'error') as RequestError;
 	t.is(error.code, 'ETIMEDOUT');
 });
 

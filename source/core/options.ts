@@ -1,5 +1,4 @@
 import process from 'node:process';
-import type {Buffer} from 'node:buffer';
 import {promisify, inspect, type InspectOptions} from 'node:util';
 import {checkServerIdentity, type SecureContextOptions, type DetailedPeerCertificate} from 'node:tls';
 // DO NOT use destructuring for `https.request` and `http.request` as it's not compatible with `nock`.
@@ -28,7 +27,7 @@ import type {PlainResponse, Response} from './response.js';
 import type {RequestError} from './errors.js';
 import type {Delays} from './timed-out.js';
 
-type StorageAdapter = KeyvStoreAdapter | KeyvType | Map<any, any>;
+type StorageAdapter = KeyvStoreAdapter | KeyvType | Map<unknown, unknown>;
 
 type Promisable<T> = T | Promise<T>;
 
@@ -53,10 +52,10 @@ export type Agents = {
 export type Headers = Record<string, string | string[] | undefined>;
 
 export type ToughCookieJar = {
-	getCookieString: ((currentUrl: string, options: Record<string, unknown>, callback: (error: Error | null, cookies: string) => void) => void) // eslint-disable-line @typescript-eslint/ban-types
-	& ((url: string, callback: (error: Error | null, cookieHeader: string) => void) => void); // eslint-disable-line @typescript-eslint/ban-types
-	setCookie: ((cookieOrString: unknown, currentUrl: string, options: Record<string, unknown>, callback: (error: Error | null, cookie: unknown) => void) => void) // eslint-disable-line @typescript-eslint/ban-types
-	& ((rawCookie: string, url: string, callback: (error: Error | null, result: unknown) => void) => void); // eslint-disable-line @typescript-eslint/ban-types
+	getCookieString: ((currentUrl: string, options: Record<string, unknown>, callback: (error: Error | undefined, cookies: string) => void) => void)
+		& ((url: string, callback: (error: Error | undefined, cookieHeader: string) => void) => void);
+	setCookie: ((cookieOrString: unknown, currentUrl: string, options: Record<string, unknown>, callback: (error: Error | undefined, cookie: unknown) => void) => void)
+		& ((rawCookie: string, url: string, callback: (error: Error | undefined, result: unknown) => void) => void);
 };
 
 export type PromiseCookieJar = {
@@ -627,11 +626,11 @@ export type CacheOptions = {
 };
 
 type PfxObject = {
-	buffer: string | Buffer;
+	buffer: string | Uint8Array;
 	passphrase?: string | undefined;
 };
 
-type PfxType = string | Buffer | Array<string | Buffer | PfxObject> | undefined;
+type PfxType = string | Uint8Array | Array<string | Uint8Array | PfxObject> | undefined;
 
 export type HttpsOptions = {
 	alpnProtocols?: string[];
@@ -859,7 +858,7 @@ export type PaginationOptions<ElementType, BodyType> = {
 	stackAllItems?: boolean;
 };
 
-export type SearchParameters = Record<string, string | number | boolean | null | undefined>; // eslint-disable-line @typescript-eslint/ban-types
+export type SearchParameters = Record<string, string | number | boolean | undefined>;
 
 /**
 Generic helper that wraps any assertion function to add context to error messages.
@@ -880,7 +879,7 @@ function wrapAssertionWithContext(optionName: string, assertionFn: () => void): 
 Helper function that wraps assert.any() to provide better error messages.
 When assertion fails, it includes the option name in the error message.
 */
-function assertAny(optionName: string, validators: any[], value: unknown): void {
+function assertAny(optionName: string, validators: Array<(value: unknown) => boolean>, value: unknown): void {
 	wrapAssertionWithContext(optionName, () => {
 		assert.any(validators, value);
 	});
@@ -896,7 +895,7 @@ function assertPlainObject(optionName: string, value: unknown): void {
 	});
 }
 
-function validateSearchParameters(searchParameters: Record<string, unknown>): asserts searchParameters is Record<string, string | number | boolean | null | undefined> { // eslint-disable-line @typescript-eslint/ban-types
+function validateSearchParameters(searchParameters: Record<string, unknown>): asserts searchParameters is Record<string, string | number | boolean | undefined> {
 	// eslint-disable-next-line guard-for-in
 	for (const key in searchParameters) {
 		const value = searchParameters[key];
@@ -1656,11 +1655,11 @@ export default class Options {
 	});
 	```
 	*/
-	get body(): string | Buffer | Readable | Generator | AsyncGenerator | Iterable<unknown> | AsyncIterable<unknown> | FormDataLike | ArrayBufferView | undefined {
+	get body(): string | Uint8Array | Readable | Generator | AsyncGenerator | Iterable<unknown> | AsyncIterable<unknown> | FormDataLike | ArrayBufferView | undefined {
 		return this._internals.body;
 	}
 
-	set body(value: string | Buffer | Readable | Generator | AsyncGenerator | Iterable<unknown> | AsyncIterable<unknown> | FormDataLike | ArrayBufferView | undefined) {
+	set body(value: string | Uint8Array | Readable | Generator | AsyncGenerator | Iterable<unknown> | AsyncIterable<unknown> | FormDataLike | ArrayBufferView | undefined) {
 		assertAny('body', [is.string, is.buffer, is.nodeStream, is.generator, is.asyncGenerator, is.iterable, is.asyncIterable, isFormData, is.typedArray, is.undefined], value);
 
 		if (is.nodeStream(value)) {
@@ -1918,9 +1917,7 @@ export default class Options {
 			return (this._internals.url as URL).searchParams;
 		}
 
-		if (this._internals.searchParams === undefined) {
-			this._internals.searchParams = new URLSearchParams();
-		}
+		this._internals.searchParams ??= new URLSearchParams();
 
 		return this._internals.searchParams;
 	}

@@ -1,4 +1,3 @@
-import type {Buffer} from 'node:buffer';
 import type {Spread} from 'type-fest';
 import type {CancelableRequest} from './as-promise/types.js';
 import type {Response} from './core/response.js';
@@ -112,7 +111,7 @@ export type GotPaginate = {
 	```
 	*/
 	each: (<T, R = unknown>(url: string | URL, options?: OptionsWithPagination<T, R>) => AsyncIterableIterator<T>)
-	& (<T, R = unknown>(options?: OptionsWithPagination<T, R>) => AsyncIterableIterator<T>);
+		& (<T, R = unknown>(options?: OptionsWithPagination<T, R>) => AsyncIterableIterator<T>);
 
 	/**
 	Returns a Promise for an array of all results.
@@ -134,7 +133,7 @@ export type GotPaginate = {
 	```
 	*/
 	all: (<T, R = unknown>(url: string | URL, options?: OptionsWithPagination<T, R>) => Promise<T[]>)
-	& (<T, R = unknown>(options?: OptionsWithPagination<T, R>) => Promise<T[]>);
+		& (<T, R = unknown>(options?: OptionsWithPagination<T, R>) => Promise<T[]>);
 };
 
 export type OptionsOfTextResponseBody = Merge<StrictOptions, {isStream?: false; responseType?: 'text'}>;
@@ -156,7 +155,7 @@ export type OptionsOfUnknownResponseBodyWrapped = Merge<StrictOptions, {isStream
 // Helper type to determine the default response body type based on extended options
 type DefaultResponseBodyType<U extends ExtendOptions> =
 	U['responseType'] extends 'json' ? unknown :
-		U['responseType'] extends 'buffer' ? Buffer :
+		U['responseType'] extends 'buffer' ? Uint8Array :
 			string;
 
 export type GotRequestFunction<U extends ExtendOptions = Record<string, unknown>> = {
@@ -168,17 +167,17 @@ export type GotRequestFunction<U extends ExtendOptions = Record<string, unknown>
 
 	(url: string | URL, options?: OptionsOfTextResponseBody): U['resolveBodyOnly'] extends true ? CancelableRequest<string> : CancelableRequest<Response<string>>;
 	<T>(url: string | URL, options?: OptionsOfJSONResponseBody): U['resolveBodyOnly'] extends true ? CancelableRequest<T> : CancelableRequest<Response<T>>;
-	(url: string | URL, options?: OptionsOfBufferResponseBody): U['resolveBodyOnly'] extends true ? CancelableRequest<Buffer> : CancelableRequest<Response<Buffer>>;
+	(url: string | URL, options?: OptionsOfBufferResponseBody): U['resolveBodyOnly'] extends true ? CancelableRequest<Uint8Array> : CancelableRequest<Response<Uint8Array>>;
 	(url: string | URL, options?: OptionsOfUnknownResponseBody): U['resolveBodyOnly'] extends true ? CancelableRequest : CancelableRequest<Response>;
 
 	(url: string | URL, options?: OptionsOfTextResponseBodyWrapped): CancelableRequest<Response<string>>;
 	<T>(url: string | URL, options?: OptionsOfJSONResponseBodyWrapped): CancelableRequest<Response<T>>;
-	(url: string | URL, options?: OptionsOfBufferResponseBodyWrapped): CancelableRequest<Response<Buffer>>;
+	(url: string | URL, options?: OptionsOfBufferResponseBodyWrapped): CancelableRequest<Response<Uint8Array>>;
 	(url: string | URL, options?: OptionsOfUnknownResponseBodyWrapped): CancelableRequest<Response>;
 
 	(url: string | URL, options?: OptionsOfTextResponseBodyOnly): CancelableRequest<string>;
 	<T>(url: string | URL, options?: OptionsOfJSONResponseBodyOnly): CancelableRequest<T>;
-	(url: string | URL, options?: OptionsOfBufferResponseBodyOnly): CancelableRequest<Buffer>;
+	(url: string | URL, options?: OptionsOfBufferResponseBodyOnly): CancelableRequest<Uint8Array>;
 	(url: string | URL, options?: OptionsOfUnknownResponseBodyOnly): CancelableRequest;
 
 	// Options-only overload for when only URL in options is provided
@@ -188,17 +187,17 @@ export type GotRequestFunction<U extends ExtendOptions = Record<string, unknown>
 
 	(options: OptionsOfTextResponseBody): U['resolveBodyOnly'] extends true ? CancelableRequest<string> : CancelableRequest<Response<string>>;
 	<T>(options: OptionsOfJSONResponseBody): U['resolveBodyOnly'] extends true ? CancelableRequest<T> : CancelableRequest<Response<T>>;
-	(options: OptionsOfBufferResponseBody): U['resolveBodyOnly'] extends true ? CancelableRequest<Buffer> : CancelableRequest<Response<Buffer>>;
+	(options: OptionsOfBufferResponseBody): U['resolveBodyOnly'] extends true ? CancelableRequest<Uint8Array> : CancelableRequest<Response<Uint8Array>>;
 	(options: OptionsOfUnknownResponseBody): U['resolveBodyOnly'] extends true ? CancelableRequest : CancelableRequest<Response>;
 
 	(options: OptionsOfTextResponseBodyWrapped): CancelableRequest<Response<string>>;
 	<T>(options: OptionsOfJSONResponseBodyWrapped): CancelableRequest<Response<T>>;
-	(options: OptionsOfBufferResponseBodyWrapped): CancelableRequest<Response<Buffer>>;
+	(options: OptionsOfBufferResponseBodyWrapped): CancelableRequest<Response<Uint8Array>>;
 	(options: OptionsOfUnknownResponseBodyWrapped): CancelableRequest<Response>;
 
 	(options: OptionsOfTextResponseBodyOnly): CancelableRequest<string>;
 	<T>(options: OptionsOfJSONResponseBodyOnly): CancelableRequest<T>;
-	(options: OptionsOfBufferResponseBodyOnly): CancelableRequest<Buffer>;
+	(options: OptionsOfBufferResponseBodyOnly): CancelableRequest<Uint8Array>;
 	(options: OptionsOfUnknownResponseBodyOnly): CancelableRequest;
 
 	// `asStream` usage

@@ -1,4 +1,3 @@
-import type {Buffer} from 'node:buffer';
 import https from 'node:https';
 import type net from 'node:net';
 import type {SecureContextOptions} from 'node:tls';
@@ -18,32 +17,57 @@ export type HttpsServerOptions = {
 
 export type ExtendedHttpsTestServer = {
 	https: https.Server;
-	caKey: Buffer;
-	caCert: Buffer;
+	caKey: Uint8Array;
+	caCert: Uint8Array;
 	url: string;
 	port: number;
-	close: () => Promise<any>;
+	close: () => Promise<void>;
 } & express.Express;
 
 const createHttpsTestServer = async (options: HttpsServerOptions = {}): Promise<ExtendedHttpsTestServer> => {
 	const createCsr = pify(pem.createCSR as CreateCsr);
 	const createCertificate = pify(pem.createCertificate as CreateCertificate);
+	const commonName = options.commonName ?? 'localhost';
+	const serverCertificateConfiguration = `
+[req]
+req_extensions = v3_req
+[dn]
+CN = ${commonName}
+[v3_req]
+basicConstraints = critical,CA:FALSE
+keyUsage = critical,digitalSignature,keyEncipherment
+extendedKeyUsage = serverAuth
+subjectAltName = @alt_names
+[alt_names]
+DNS.1 = ${commonName}
+`;
+	const caCertificateConfiguration = `
+[req]
+req_extensions = v3_req
+[dn]
+CN = authority
+[v3_req]
+basicConstraints = critical,CA:TRUE
+keyUsage = critical,keyCertSign,cRLSign
+`;
 
 	const caCsrResult = await createCsr({commonName: 'authority'});
 	const caResult = await createCertificate({
 		csr: caCsrResult.csr,
 		clientKey: caCsrResult.clientKey,
 		selfSigned: true,
+		config: caCertificateConfiguration,
 	});
 	const caKey = caResult.clientKey;
 	const caCert = caResult.certificate;
 
-	const serverCsrResult = await createCsr({commonName: options.commonName ?? 'localhost'});
+	const serverCsrResult = await createCsr({commonName});
 	const serverResult = await createCertificate({
 		csr: serverCsrResult.csr,
 		clientKey: serverCsrResult.clientKey,
 		serviceKey: caKey,
 		serviceCertificate: caCert,
+		config: serverCertificateConfiguration,
 		days: options.days ?? 365,
 	});
 	const serverKey = serverResult.clientKey;
@@ -72,9 +96,19 @@ const createHttpsTestServer = async (options: HttpsServerOptions = {}): Promise<
 	server.caKey = caKey as any;
 	server.caCert = caCert;
 	server.port = (server.https.address() as net.AddressInfo).port;
-	server.url = `https://localhost:${(server.port)}`;
+	server.url = `https://localhost:${server.port}`;
 
-	server.close = async () => pify(server.https.close.bind(server.https))();
+	server.close = async () => new Promise<void>((resolve, reject) => {
+		server.https.closeAllConnections?.();
+		server.https.close(error => {
+			if (error) {
+				reject(error);
+				return;
+			}
+
+			resolve();
+		});
+	});
 
 	return server;
 };

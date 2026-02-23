@@ -201,11 +201,7 @@ test('custom paginate function using currentItems', withServer, async (t, server
 test('iterator works', withServer, async (t, server, got) => {
 	attachHandler(server, 5);
 
-	const results: number[] = [];
-
-	for await (const item of got.paginate<number>('')) {
-		results.push(item);
-	}
+	const results = await Array.fromAsync(got.paginate<number>(''));
 
 	t.deepEqual(results, [1, 2, 3, 4, 5]);
 });
@@ -213,11 +209,7 @@ test('iterator works', withServer, async (t, server, got) => {
 test('iterator works #2', withServer, async (t, server, got) => {
 	attachHandler(server, 5);
 
-	const results: number[] = [];
-
-	for await (const item of got.paginate.each<number>('')) {
-		results.push(item);
-	}
+	const results = await Array.fromAsync(got.paginate.each<number>(''));
 
 	t.deepEqual(results, [1, 2, 3, 4, 5]);
 });
@@ -236,11 +228,7 @@ test('`shouldContinue` works', withServer, async (t, server, got) => {
 		},
 	};
 
-	const results: number[] = [];
-
-	for await (const item of got.paginate<number>(options)) {
-		results.push(item);
-	}
+	const results = await Array.fromAsync(got.paginate<number>(options));
 
 	t.deepEqual(results, []);
 });
@@ -254,11 +242,7 @@ test('`countLimit` works', withServer, async (t, server, got) => {
 		},
 	};
 
-	const results: number[] = [];
-
-	for await (const item of got.paginate<number>(options)) {
-		results.push(item);
-	}
+	const results = await Array.fromAsync(got.paginate<number>(options));
 
 	t.deepEqual(results, [1]);
 });
@@ -269,9 +253,7 @@ test('throws if the `pagination` option does not have `transform` property', asy
 		prefixUrl: 'https://example.com',
 	});
 
-	await t.throwsAsync(iterator.next(),
-		// {message: '`options.pagination.transform` must be implemented'}
-	);
+	await t.throwsAsync(iterator.next());
 });
 
 test('throws if the `pagination` option does not have `shouldContinue` property', async t => {
@@ -283,9 +265,7 @@ test('throws if the `pagination` option does not have `shouldContinue` property'
 		prefixUrl: 'https://example.com',
 	});
 
-	await t.throwsAsync(iterator.next(),
-		// {message: '`options.pagination.shouldContinue` must be implemented'}
-	);
+	await t.throwsAsync(iterator.next());
 });
 
 test('throws if the `pagination` option does not have `filter` property', async t => {
@@ -299,9 +279,7 @@ test('throws if the `pagination` option does not have `filter` property', async 
 		prefixUrl: 'https://example.com',
 	});
 
-	await t.throwsAsync(iterator.next(),
-		// {message: '`options.pagination.filter` must be implemented'}
-	);
+	await t.throwsAsync(iterator.next());
 });
 
 test('throws if the `pagination` option does not have `paginate` property', async t => {
@@ -315,9 +293,7 @@ test('throws if the `pagination` option does not have `paginate` property', asyn
 		prefixUrl: 'https://example.com',
 	});
 
-	await t.throwsAsync(iterator.next(),
-		// {message: '`options.pagination.paginate` must be implemented'}
-	);
+	await t.throwsAsync(iterator.next());
 });
 
 test('ignores the `resolveBodyOnly` option', withServer, async (t, server, got) => {
@@ -347,11 +323,7 @@ test('allowGetBody sends json payload with .paginate()', withBodyParsingServer, 
 		},
 	});
 
-	const results: number[] = [];
-
-	for await (const item of iterator) {
-		results.push(item);
-	}
+	const results = await Array.fromAsync(iterator);
 
 	t.deepEqual(results, [1, 2, 3]);
 });
@@ -434,11 +406,7 @@ test('allowGetBody sends correct json payload with .paginate()', withServer, asy
 		},
 	});
 
-	const results: number[] = [];
-
-	for await (const item of iterator) {
-		results.push(item);
-	}
+	const results = await Array.fromAsync(iterator);
 
 	t.deepEqual(results, [1, 2, 3]);
 });
@@ -452,11 +420,7 @@ test('`requestLimit` works', withServer, async (t, server, got) => {
 		},
 	};
 
-	const results: number[] = [];
-
-	for await (const item of got.paginate<number>(options)) {
-		results.push(item);
-	}
+	const results = await Array.fromAsync(got.paginate<number>(options));
 
 	t.deepEqual(results, [1]);
 });

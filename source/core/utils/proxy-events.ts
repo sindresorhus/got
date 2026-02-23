@@ -3,7 +3,7 @@ import type {EventEmitter} from 'node:events';
 type AnyFunction = (...arguments_: unknown[]) => void;
 type Functions = Record<string, AnyFunction>;
 
-export default function proxyEvents(from: EventEmitter, to: EventEmitter, events: Readonly<string[]>): () => void {
+export default function proxyEvents(from: EventEmitter, to: EventEmitter, events: readonly string[]): () => void {
 	const eventFunctions: Functions = {};
 
 	for (const event of events) {

@@ -35,9 +35,11 @@ export type ErrorCode =
 export class TimeoutError extends Error {
 	override name = 'TimeoutError';
 	code: ErrorCode = 'ETIMEDOUT';
+	event: string;
 
-	constructor(threshold: number, public event: string) {
+	constructor(threshold: number, event: string) {
 		super(`Timeout awaiting '${event}' for ${threshold}ms`);
+		this.event = event;
 	}
 }
 

@@ -245,7 +245,7 @@ test('shortcuts result properly when retrying in afterResponse', withServer, asy
 
 	t.is(json.hello, 'world');
 	t.is(text, proper);
-	t.is(buffer.compare(Buffer.from(proper)), 0);
+	t.is(Buffer.from(buffer).compare(Buffer.from(proper)), 0);
 });
 
 test('responseType is optional when using template', withServer, async (t, server, got) => {

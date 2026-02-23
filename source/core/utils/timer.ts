@@ -160,13 +160,11 @@ const timer = (request: ClientRequestWithTimings): Timings => {
 				}
 
 				// Store connection phase timings on socket for potential reuse
-				if (!socket.__initial_connection_timings__) {
-					socket.__initial_connection_timings__ = {
-						dnsPhase: timings.phases.dns!,
-						// eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion -- TypeScript can't prove this is defined due to callback structure
-						tcpPhase: timings.phases.tcp!,
-					};
-				}
+				socket.__initial_connection_timings__ ??= {
+					dnsPhase: timings.phases.dns!,
+					// eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion -- TypeScript can't prove this is defined due to callback structure
+					tcpPhase: timings.phases.tcp!,
+				};
 			},
 			secureConnect() {
 				timings.secureConnect = Date.now();

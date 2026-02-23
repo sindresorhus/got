@@ -1,4 +1,3 @@
-import type {Buffer} from 'node:buffer';
 import type PCancelable from 'p-cancelable';
 import {RequestError} from '../core/errors.js';
 import type Request from '../core/index.js';
@@ -25,9 +24,8 @@ export class CancelError extends RequestError {
 	}
 }
 
-// TODO: Make this a `type`.
-// eslint-disable-next-line @typescript-eslint/consistent-type-definitions -- TS cannot handle this being a `type` for some reason.
-export interface CancelableRequest<T extends Response | Response['body'] = Response['body']> extends PCancelable<T>, RequestEvents<CancelableRequest<T>> {
+// eslint-disable-next-line @typescript-eslint/consistent-type-definitions -- Internal recursive shape requires interface; public API remains a type alias.
+interface CancelableRequestShape<T extends Response | Response['body'] = Response['body']> extends RequestEvents<CancelableRequest<T>> {
 	/**
 	A shortcut method that gives a Promise returning a JSON object.
 
@@ -36,11 +34,11 @@ export interface CancelableRequest<T extends Response | Response['body'] = Respo
 	json: <ReturnType>() => CancelableRequest<ReturnType>;
 
 	/**
-	A shortcut method that gives a Promise returning a [Buffer](https://nodejs.org/api/buffer.html).
+	A shortcut method that gives a Promise returning a [Uint8Array](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Uint8Array).
 
 	It is semantically the same as settings `options.resolveBodyOnly` to `true` and `options.responseType` to `'buffer'`.
 	*/
-	buffer: () => CancelableRequest<Buffer>;
+	buffer: () => CancelableRequest<Uint8Array>;
 
 	/**
 	A shortcut method that gives a Promise returning a string.
@@ -49,3 +47,7 @@ export interface CancelableRequest<T extends Response | Response['body'] = Respo
 	*/
 	text: () => CancelableRequest<string>;
 }
+
+// This is intentionally a type alias to keep structural typing predictable.
+// Augmenting it via interface merging is not supported.
+export type CancelableRequest<T extends Response | Response['body'] = Response['body']> = PCancelable<T> & CancelableRequestShape<T>;

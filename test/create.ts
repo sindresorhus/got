@@ -184,7 +184,7 @@ test('defaults are cloned on instance creation', t => {
 
 	t.notThrows(() => {
 		options.context = context;
-		delete options.hooks!.beforeRequest![0];
+		options.hooks!.beforeRequest!.splice(0, 1);
 	});
 
 	t.not(options.context!.foo, instance.defaults.options.context.foo);

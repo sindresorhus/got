@@ -164,7 +164,8 @@ suite.add('got - promise', {
 		}).end();
 	},
 }).on('cycle', (event: Benchmark.Event) => {
-	console.log(String(event.target));
+	// eslint-disable-next-line @typescript-eslint/no-base-to-string
+	console.log(event.target.toString());
 }).on('complete', function (this: any) {
 	console.log(`Fastest is ${this.filter('fastest').map('name') as string}`);
 
@@ -181,7 +182,8 @@ const internalBenchmark = (): void => {
 			new Options(url, gotOptions);
 		},
 	}).on('cycle', (event: Benchmark.Event) => {
-		console.log(String(event.target));
+		// eslint-disable-next-line @typescript-eslint/no-base-to-string
+		console.log(event.target.toString());
 	});
 
 	internalSuite.run();

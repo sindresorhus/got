@@ -34,11 +34,7 @@ const echoHeaders: Handler = (request, response) => {
 
 const echoMultipartBody: Handler = async (request, response) => {
 	const body = await parse(request);
-	const entries = await Promise.all(
-		[...body.entries()].map<Promise<[BodyEntryPath, BodyEntryRawValue]>>(
-			async ([name, value]) => [name, isBodyFile(value) ? await value.text() : value],
-		),
-	);
+	const entries = await Promise.all([...body.entries()].map<Promise<[BodyEntryPath, BodyEntryRawValue]>>(async ([name, value]) => [name, isBodyFile(value) ? await value.text() : value]));
 
 	response.json(Body.json(entries));
 };
@@ -56,10 +52,8 @@ test('GET can have body with option allowGetBody', withServer, async (t, server,
 });
 
 test('invalid body', async t => {
-	await t.throwsAsync(
-		// @ts-expect-error Error tests
-		got.post('https://example.com', {body: {}}),
-	);
+	// @ts-expect-error Error tests
+	await t.throwsAsync(got.post('https://example.com', {body: {}}));
 });
 
 test('sends strings', withServer, async (t, server, got) => {
@@ -278,7 +272,7 @@ test('the `json` payload is not touched', withServer, async (t, server, got) => 
 test('the `body` payload is not touched', withServer, async (t, server, got) => {
 	server.post('/', defaultEndpoint);
 
-	const buffer = Buffer.from('Hello, Got!') as Buffer & {context?: unknown};
+	const buffer = Buffer.from('Hello, Got!') as Uint8Array & {context?: unknown};
 	buffer.context = {foo: 'bar'};
 
 	const body = await got.post({body: buffer}).text();

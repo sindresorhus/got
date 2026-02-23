@@ -1,4 +1,3 @@
-import {parse} from 'node:url';
 import test from 'ava';
 import type {Handler} from 'express';
 import {pEvent} from 'p-event';
@@ -21,10 +20,10 @@ test('`url` is required', async t => {
 	);
 
 	const firstError = await t.throwsAsync(got(''));
-	invalidUrl(t, firstError!, '');
+	invalidUrl(t, firstError, '');
 
 	const secondError = await t.throwsAsync(got({url: ''}));
-	invalidUrl(t, secondError!, '');
+	invalidUrl(t, secondError, '');
 });
 
 test('throws if no arguments provided', async t => {
@@ -49,12 +48,13 @@ test('throws if an invalid argument is passed', async t => {
 		{
 			instanceOf: RequestError,
 			message: 'Option \'input\': Expected values which are `string`, `URL`, `Object`, or `undefined`. Received values of type `boolean`.',
-		});
+		},
+	);
 });
 
 test('throws an error if the protocol is not specified', async t => {
 	const error = await t.throwsAsync(got('example.com'));
-	invalidUrl(t, error!, 'example.com');
+	invalidUrl(t, error, 'example.com');
 });
 
 test('properly encodes query string', withServer, async (t, server, got) => {
@@ -95,11 +95,10 @@ test('throws an error when legacy URL is passed', withServer, async (t, server) 
 	server.get('/test', echoUrl);
 
 	await t.throwsAsync(
-		// @ts-expect-error Error tests
-		got(parse(`${server.url}/test`)),
+		got({href: `${server.url}/test`} as any),
 		{
 			instanceOf: RequestError,
-			message: 'Option \'url\': Expected values which are `string`, `URL`, or `undefined`. Received values of type `Object`.',
+			message: 'Unexpected option: href',
 		},
 	);
 
@@ -195,7 +194,7 @@ test('returns streams when using `isStream` option', withServer, async (t, serve
 		response.end('ok');
 	});
 
-	const data = await pEvent(got('stream', {isStream: true}), 'data');
+	const data = await pEvent(got('stream', {isStream: true}), 'data') as Uint8Array;
 	t.is(data.toString(), 'ok');
 });
 
@@ -296,16 +295,18 @@ test('`prefixUrl` can be changed if the URL contains the old one', withServer, a
 });
 
 test('throws if the `searchParams` value is invalid', async t => {
-	await t.throwsAsync(got('https://example.com', {
-		searchParams: {
+	await t.throwsAsync(
+		got('https://example.com', {
+			searchParams: {
 			// @ts-expect-error Error tests
-			foo: [],
+				foo: [],
+			},
+		}),
+		{
+			instanceOf: RequestError,
+			message: 'Option \'searchParams.foo\': Expected values which are `string`, `number`, `boolean`, `null`, or `undefined`. Received values of type `Array`.',
 		},
-	}),
-	{
-		instanceOf: RequestError,
-		message: 'Option \'searchParams.foo\': Expected values which are `string`, `number`, `boolean`, `null`, or `undefined`. Received values of type `Array`.',
-	});
+	);
 });
 
 // Note: This test was added in commit 2b8ed1f (Oct 2020) when context was changed to be enumerable,
@@ -455,14 +456,16 @@ test('throws on leading slashes', async t => {
 });
 
 test('throws on invalid `dnsCache` option', async t => {
-	await t.throwsAsync(got('https://example.com', {
+	await t.throwsAsync(
+		got('https://example.com', {
 		// @ts-expect-error Error tests
-		dnsCache: 123,
-	}),
-	{
-		instanceOf: RequestError,
-		message: 'Option \'dnsCache\': Expected values which are `Object`, `boolean`, or `undefined`. Received values of type `number`.',
-	});
+			dnsCache: 123,
+		}),
+		{
+			instanceOf: RequestError,
+			message: 'Option \'dnsCache\': Expected values which are `Object`, `boolean`, or `undefined`. Received values of type `number`.',
+		},
+	);
 });
 
 test('throws on invalid `agent` option', async t => {
@@ -660,7 +663,7 @@ test('options have url even if some are invalid', async t => {
 		invalid: true,
 	}));
 
-	t.is((error!.options.url! as URL).href, 'https://example.com/');
+	t.is((error.options.url! as URL).href, 'https://example.com/');
 	t.true(error instanceof Error);
 });
 
@@ -674,11 +677,13 @@ test('options have url even if some are invalid - got.extend', async t => {
 		],
 	});
 
-	await t.throwsAsync(instance('https://example.com', {
+	await t.throwsAsync(
+		instance('https://example.com', {
 		// @ts-expect-error Testing purposes
-		invalid: true,
-	}),
-	{
-		instanceOf: Error,
-	});
+			invalid: true,
+		}),
+		{
+			instanceOf: Error,
+		},
+	);
 });

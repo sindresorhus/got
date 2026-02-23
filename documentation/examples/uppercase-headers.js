@@ -44,14 +44,12 @@ class TransformHeadersAgent extends WrappedAgent {
 	}
 
 	transformHeader(header) {
-		return header.split('-').map(part => {
-			return part[0].toUpperCase() + part.slice(1);
-		}).join('-');
+		return header.split('-').map(part => part[0].toUpperCase() + part.slice(1)).join('-');
 	}
 }
 
 const agent = new http.Agent({
-	keepAlive: true
+	keepAlive: true,
 });
 
 const wrappedAgent = new TransformHeadersAgent(agent);
@@ -59,11 +57,11 @@ const wrappedAgent = new TransformHeadersAgent(agent);
 const main = async () => {
 	const headers = await got(`http://localhost:${server.address().port}`, {
 		agent: {
-			http: wrappedAgent
+			http: wrappedAgent,
 		},
 		headers: {
-			foo: 'bar'
-		}
+			foo: 'bar',
+		},
 	}).json();
 
 	console.log(headers);

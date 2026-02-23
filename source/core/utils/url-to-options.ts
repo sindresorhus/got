@@ -7,8 +7,8 @@ export type LegacyUrlOptions = {
 	protocol: string;
 	hostname: string;
 	host: string;
-	hash: string | null; // eslint-disable-line @typescript-eslint/ban-types
-	search: string | null; // eslint-disable-line @typescript-eslint/ban-types
+	hash: string | null; // eslint-disable-line @typescript-eslint/no-restricted-types
+	search: string | null; // eslint-disable-line @typescript-eslint/no-restricted-types
 	pathname: string;
 	href: string;
 	path: string;
@@ -24,8 +24,8 @@ export default function urlToOptions(url: URL | UrlWithStringQuery): LegacyUrlOp
 		protocol: url.protocol,
 		hostname: is.string(url.hostname) && url.hostname.startsWith('[') ? url.hostname.slice(1, -1) : url.hostname,
 		host: url.host,
-		hash: url.hash,
-		search: url.search,
+		hash: url.hash === '' ? '' : (url.hash ?? null),
+		search: url.search === '' ? '' : (url.search ?? null),
 		pathname: url.pathname,
 		href: url.href,
 		path: `${url.pathname || ''}${url.search || ''}`,

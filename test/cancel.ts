@@ -173,7 +173,7 @@ test.serial('cancel immediately', withServerAndFakeTimers, async (t, server, got
 		// We won't get an abort or even a connection
 		// We assume no request within 1000ms equals a (client side) aborted request
 		server.get('/abort', (_request, response) => {
-			response.once('finish', reject.bind(global, new Error('Request finished instead of aborting.')));
+			response.once('finish', reject.bind(globalThis, new Error('Request finished instead of aborting.')));
 			response.end();
 		});
 
@@ -193,34 +193,40 @@ test.serial('cancel immediately', withServerAndFakeTimers, async (t, server, got
 
 test('recover from cancelation using cancelable promise attribute', async t => {
 	// Canceled before connection started
-	const p = got('http://example.com');
-	const recover = p.catch((error: Error) => {
-		if (p.isCanceled) {
-			return;
+	const promise = got('http://example.com');
+
+	promise.cancel();
+
+	await t.notThrowsAsync(async () => {
+		try {
+			await promise;
+		} catch (error: unknown) {
+			if (promise.isCanceled) {
+				return;
+			}
+
+			throw error;
 		}
-
-		throw error;
 	});
-
-	p.cancel();
-
-	await t.notThrowsAsync(recover);
 });
 
 test('recover from cancellation using error instance', async t => {
 	// Canceled before connection started
-	const p = got('http://example.com');
-	const recover = p.catch((error: Error) => {
-		if (error instanceof CancelError) {
-			return;
+	const promise = got('http://example.com');
+
+	promise.cancel();
+
+	await t.notThrowsAsync(async () => {
+		try {
+			await promise;
+		} catch (error: unknown) {
+			if (error instanceof CancelError) {
+				return;
+			}
+
+			throw error;
 		}
-
-		throw error;
 	});
-
-	p.cancel();
-
-	await t.notThrowsAsync(recover);
 });
 
 test.serial('throws on incomplete (canceled) response - promise', withServerAndFakeTimers, async (t, server, got, clock) => {

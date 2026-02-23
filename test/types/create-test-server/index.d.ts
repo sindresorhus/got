@@ -1,5 +1,3 @@
-import type {Buffer} from 'node:buffer';
-
 declare module 'create-test-server' {
 	import type {Express} from 'express';
 
@@ -9,7 +7,7 @@ declare module 'create-test-server' {
 
 	namespace createTestServer {
 		export type TestServer = {
-			caCert: string | Buffer | Array<string | Buffer>;
+			caCert: string | Uint8Array | Array<string | Uint8Array>;
 			port: number;
 			url: string;
 			sslPort: number;

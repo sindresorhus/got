@@ -19,6 +19,10 @@ const getSession = ({origin}) => {
 
 const closeSessions = () => {
 	for (const key in sessions) {
+		if (!Object.hasOwn(sessions, key)) {
+			continue;
+		}
+
 		sessions[key].close();
 	}
 
@@ -32,9 +36,9 @@ const instance = got.extend({
 				options.h2session = getSession(options.url);
 				options.http2 = true;
 				options.request = http2.request;
-			}
-		]
-	}
+			},
+		],
+	},
 });
 
 const server = http2.createServer((request, response) => {

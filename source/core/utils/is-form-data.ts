@@ -3,7 +3,7 @@ import is from '@sindresorhus/is';
 
 type FormData = {
 	getBoundary: () => string;
-	getLength: (callback: (error: Error | null, length: number) => void) => void; // eslint-disable-line @typescript-eslint/ban-types
+	getLength: (callback: (error: Error | null, length: number) => void) => void; // eslint-disable-line @typescript-eslint/no-restricted-types
 } & Readable;
 
 export default function isFormData(body: unknown): body is FormData {

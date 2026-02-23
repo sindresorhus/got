@@ -1,11 +1,11 @@
-import got from '../../dist/source/index.js';
 import Bourne from '@hapi/bourne';
+import got from '../../dist/source/index.js';
 
-const max = Date.now() - 1000 * 86400 * 7;
+const max = Date.now() - (1000 * 86_400 * 7);
 
 const iterator = got.paginate('https://api.github.com/repos/sindresorhus/got/commits', {
 	pagination: {
-		paginate: ({response, currentItems}) => {
+		paginate({response, currentItems}) {
 			// If there are no more data, finish.
 			if (currentItems.length === 0) {
 				return false;
@@ -18,20 +18,20 @@ const iterator = got.paginate('https://api.github.com/repos/sindresorhus/got/com
 			// Update the page number by one.
 			return {
 				searchParams: {
-					page: previousPage + 1
-				}
+					page: previousPage + 1,
+				},
 			};
 		},
 		// Using `Bourne` to prevent prototype pollution.
 		transform: response => Bourne.parse(response.body),
-		filter: ({item}) => {
+		filter({item}) {
 			// Check if the commit time exceeds our range.
 			const date = new Date(item.commit.committer.date);
 			const end = date.getTime() - max >= 0;
 
 			return end;
 		},
-		shouldContinue: ({item}) => {
+		shouldContinue({item}) {
 			// Check if the commit time exceeds our range.
 			const date = new Date(item.commit.committer.date);
 			const end = date.getTime() - max >= 0;
@@ -47,8 +47,8 @@ const iterator = got.paginate('https://api.github.com/repos/sindresorhus/got/com
 		requestLimit: 10,
 		// In this case, we don't need to store all the items we receive.
 		// They are processed immediately.
-		stackAllItems: false
-	}
+		stackAllItems: false,
+	},
 });
 
 console.log('Last 50 commits from now to week ago:');

@@ -232,7 +232,7 @@ test('`isFromCache` stream property is false after the `response` event', withSe
 	const cache = new Map();
 	const stream = got.stream({cache});
 
-	const response: Response = await pEvent(stream, 'response');
+	const response: Response = await pEvent(stream, 'response') as Response;
 	t.is(response.isFromCache, false);
 	t.is(stream.isFromCache, false);
 
@@ -247,7 +247,7 @@ test('`isFromCache` stream property is true if the response was cached', withSer
 	await getStream(got.stream({cache}));
 	const stream = got.stream({cache});
 
-	const response: Response = await pEvent(stream, 'response');
+	const response: Response = await pEvent(stream, 'response') as Response;
 	t.is(response.isFromCache, true);
 	t.is(stream.isFromCache, true);
 
@@ -264,7 +264,7 @@ test('can disable cache by extending the instance', withServer, async (t, server
 	await getStream(instance.stream(''));
 	const stream = instance.extend({cache: false}).stream('');
 
-	const response: Response = await pEvent(stream, 'response');
+	const response: Response = await pEvent(stream, 'response') as Response;
 	t.is(response.isFromCache, false);
 	t.is(stream.isFromCache, false);
 
@@ -398,7 +398,7 @@ test('cached response ETag', withServer, async (t, server, got) => {
 	t.is(cachedResponse.body, body);
 });
 
-// TODO: The test is flaky.
+// Kept disabled because it depends on an external endpoint; local HTTP/2 cache coverage exists above.
 // test('works with http2', async t => {
 // 	const cache = new Map();
 
@@ -590,20 +590,22 @@ test.skip('revalidated uncompressed responses from github are retrieved from cac
 
 	t.timeout(70_000);
 
-	await client('https://api.github.com/repos/octocat/Spoon-Knife').then(response => {
+	{
+		const response = await client('https://api.github.com/repos/octocat/Spoon-Knife');
 		t.is((response.body as any).name, 'Spoon-Knife');
 		t.true(response.complete);
-	});
+	}
 
 	// eslint-disable-next-line no-promise-executor-return
 	await new Promise(resolve => setTimeout(resolve, 65_000));
 
 	console.log('max-age has expired, performing second request');
 
-	await client('https://api.github.com/repos/octocat/Spoon-Knife').then(response => {
+	{
+		const response = await client('https://api.github.com/repos/octocat/Spoon-Knife');
 		t.is((response.body as any).name, 'Spoon-Knife');
 		t.true(response.complete); // Fails here.
-	});
+	}
 });
 
 // eslint-disable-next-line ava/no-skip-test -- Unreliable
@@ -617,20 +619,22 @@ test.skip('revalidated compressed responses from github are retrieved from cache
 
 	t.timeout(70_000);
 
-	await client('https://api.github.com/repos/octocat/Spoon-Knife').then(response => {
+	{
+		const response = await client('https://api.github.com/repos/octocat/Spoon-Knife');
 		t.is((response.body as any).name, 'Spoon-Knife');
 		t.true(response.complete);
-	});
+	}
 
 	// eslint-disable-next-line no-promise-executor-return
 	await new Promise(resolve => setTimeout(resolve, 65_000));
 
 	console.log('max-age has expired, performing second request (but it will actually hang)');
 
-	await client('https://api.github.com/repos/octocat/Spoon-Knife').then(response => {
+	{
+		const response = await client('https://api.github.com/repos/octocat/Spoon-Knife');
 		t.is((response.body as any).name, 'Spoon-Knife');
 		t.true(response.complete);
-	});
+	}
 });
 
 test('QuickLRU works as cache adapter (auto-wrapped)', withServer, async (t, server, got) => {
@@ -863,18 +867,16 @@ test('beforeCache hook: errors are propagated', withServer, async (t, server, go
 
 	const cache = new Map();
 
-	const error = await t.throwsAsync(
-		got({
-			cache,
-			hooks: {
-				beforeCache: [
-					() => {
-						throw new Error('Hook error message');
-					},
-				],
-			},
-		}),
-	);
+	const error = await t.throwsAsync(got({
+		cache,
+		hooks: {
+			beforeCache: [
+				() => {
+					throw new Error('Hook error message');
+				},
+			],
+		},
+	}));
 
 	t.is(error?.message, 'Hook error message');
 });

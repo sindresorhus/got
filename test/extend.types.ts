@@ -1,5 +1,4 @@
 /* eslint-disable @typescript-eslint/no-unnecessary-type-arguments */
-import type {Buffer} from 'node:buffer';
 import {expectTypeOf} from 'expect-type';
 import got, {type CancelableRequest, type Response} from '../source/index.js';
 import {type Got, type MergeExtendsConfig, type ExtractExtendOptions} from '../source/types.js';
@@ -57,24 +56,24 @@ const gotWrapped = got.extend({});
 // Test the default instance
 expectTypeOf(gotWrapped('https://example.com')).toEqualTypeOf<CancelableRequest<Response<string>>>();
 expectTypeOf(gotWrapped<{test: 'test'}>('https://example.com')).toEqualTypeOf<CancelableRequest<Response<{test: 'test'}>>>();
-expectTypeOf(gotWrapped('https://example.com', {responseType: 'buffer'})).toEqualTypeOf<CancelableRequest<Response<Buffer>>>();
+expectTypeOf(gotWrapped('https://example.com', {responseType: 'buffer'})).toEqualTypeOf<CancelableRequest<Response<Uint8Array>>>();
 
 // Test the default instance can be overridden at the request function level
 expectTypeOf(gotWrapped('https://example.com', {resolveBodyOnly: true})).toEqualTypeOf<CancelableRequest<string>>();
 expectTypeOf(gotWrapped<{test: 'test'}>('https://example.com', {resolveBodyOnly: true})).toEqualTypeOf<CancelableRequest<{test: 'test'}>>();
-expectTypeOf(gotWrapped('https://example.com', {responseType: 'buffer', resolveBodyOnly: true})).toEqualTypeOf<CancelableRequest<Buffer>>();
+expectTypeOf(gotWrapped('https://example.com', {responseType: 'buffer', resolveBodyOnly: true})).toEqualTypeOf<CancelableRequest<Uint8Array>>();
 
 const gotBodyOnly = got.extend({resolveBodyOnly: true});
 
 // Test the instance with resolveBodyOnly as an extend option
 expectTypeOf(gotBodyOnly('https://example.com')).toEqualTypeOf<CancelableRequest<string>>();
 expectTypeOf(gotBodyOnly<{test: 'test'}>('https://example.com')).toEqualTypeOf<CancelableRequest<{test: 'test'}>>();
-expectTypeOf(gotBodyOnly('https://example.com', {responseType: 'buffer'})).toEqualTypeOf<CancelableRequest<Buffer>>();
+expectTypeOf(gotBodyOnly('https://example.com', {responseType: 'buffer'})).toEqualTypeOf<CancelableRequest<Uint8Array>>();
 
 // Test the instance with resolveBodyOnly as an extend option can be overridden at the request function level
 expectTypeOf(gotBodyOnly('https://example.com', {resolveBodyOnly: false})).toEqualTypeOf<CancelableRequest<Response<string>>>();
 expectTypeOf(gotBodyOnly<{test: 'test'}>('https://example.com', {resolveBodyOnly: false})).toEqualTypeOf<CancelableRequest<Response<{test: 'test'}>>>();
-expectTypeOf(gotBodyOnly('https://example.com', {responseType: 'buffer', resolveBodyOnly: false})).toEqualTypeOf<CancelableRequest<Response<Buffer>>>();
+expectTypeOf(gotBodyOnly('https://example.com', {responseType: 'buffer', resolveBodyOnly: false})).toEqualTypeOf<CancelableRequest<Response<Uint8Array>>>();
 
 //
 // Test got.extend() with responseType correctly infers types (fix for issue #2427)
@@ -89,16 +88,16 @@ const gotTextBodyOnly = got.extend({responseType: 'text', resolveBodyOnly: true}
 // Test URL-first syntax without options - should infer correct type based on extended responseType
 expectTypeOf(gotJson('https://example.com')).toEqualTypeOf<CancelableRequest<Response<unknown>>>();
 expectTypeOf(gotJsonBodyOnly('https://example.com')).toEqualTypeOf<CancelableRequest<unknown>>();
-expectTypeOf(gotBuffer('https://example.com')).toEqualTypeOf<CancelableRequest<Response<Buffer>>>();
-expectTypeOf(gotBufferBodyOnly('https://example.com')).toEqualTypeOf<CancelableRequest<Buffer>>();
+expectTypeOf(gotBuffer('https://example.com')).toEqualTypeOf<CancelableRequest<Response<Uint8Array>>>();
+expectTypeOf(gotBufferBodyOnly('https://example.com')).toEqualTypeOf<CancelableRequest<Uint8Array>>();
 expectTypeOf(gotText('https://example.com')).toEqualTypeOf<CancelableRequest<Response<string>>>();
 expectTypeOf(gotTextBodyOnly('https://example.com')).toEqualTypeOf<CancelableRequest<string>>();
 
 // Test options-only syntax with URL in options - should infer correct type based on extended responseType
 expectTypeOf(gotJson({url: 'https://example.com'})).toEqualTypeOf<CancelableRequest<Response<unknown>>>();
 expectTypeOf(gotJsonBodyOnly({url: 'https://example.com'})).toEqualTypeOf<CancelableRequest<unknown>>();
-expectTypeOf(gotBuffer({url: 'https://example.com'})).toEqualTypeOf<CancelableRequest<Response<Buffer>>>();
-expectTypeOf(gotBufferBodyOnly({url: 'https://example.com'})).toEqualTypeOf<CancelableRequest<Buffer>>();
+expectTypeOf(gotBuffer({url: 'https://example.com'})).toEqualTypeOf<CancelableRequest<Response<Uint8Array>>>();
+expectTypeOf(gotBufferBodyOnly({url: 'https://example.com'})).toEqualTypeOf<CancelableRequest<Uint8Array>>();
 expectTypeOf(gotText({url: 'https://example.com'})).toEqualTypeOf<CancelableRequest<Response<string>>>();
 expectTypeOf(gotTextBodyOnly({url: 'https://example.com'})).toEqualTypeOf<CancelableRequest<string>>();
 
@@ -107,7 +106,7 @@ expectTypeOf(gotJson<{data: string}>('https://example.com')).toEqualTypeOf<Cance
 expectTypeOf(gotJsonBodyOnly<{data: string}>('https://example.com')).toEqualTypeOf<CancelableRequest<{data: string}>>();
 
 // Test that explicit responseType in call overrides extended responseType
-expectTypeOf(gotJson('https://example.com', {responseType: 'buffer'})).toEqualTypeOf<CancelableRequest<Response<Buffer>>>();
+expectTypeOf(gotJson('https://example.com', {responseType: 'buffer'})).toEqualTypeOf<CancelableRequest<Response<Uint8Array>>>();
 expectTypeOf(gotJson('https://example.com', {responseType: 'text'})).toEqualTypeOf<CancelableRequest<Response<string>>>();
 expectTypeOf(gotBuffer('https://example.com', {responseType: 'json'})).toEqualTypeOf<CancelableRequest<Response<unknown>>>();
 expectTypeOf(gotBuffer('https://example.com', {responseType: 'text'})).toEqualTypeOf<CancelableRequest<Response<string>>>();
@@ -115,5 +114,5 @@ expectTypeOf(gotBuffer('https://example.com', {responseType: 'text'})).toEqualTy
 // Test that resolveBodyOnly can be overridden with explicit responseType
 expectTypeOf(gotJson('https://example.com', {responseType: 'json', resolveBodyOnly: true})).toEqualTypeOf<CancelableRequest<unknown>>();
 expectTypeOf(gotJsonBodyOnly('https://example.com', {responseType: 'json', resolveBodyOnly: false})).toEqualTypeOf<CancelableRequest<Response<unknown>>>();
-expectTypeOf(gotBuffer('https://example.com', {responseType: 'buffer', resolveBodyOnly: true})).toEqualTypeOf<CancelableRequest<Buffer>>();
-expectTypeOf(gotBufferBodyOnly('https://example.com', {responseType: 'buffer', resolveBodyOnly: false})).toEqualTypeOf<CancelableRequest<Response<Buffer>>>();
+expectTypeOf(gotBuffer('https://example.com', {responseType: 'buffer', resolveBodyOnly: true})).toEqualTypeOf<CancelableRequest<Uint8Array>>();
+expectTypeOf(gotBufferBodyOnly('https://example.com', {responseType: 'buffer', resolveBodyOnly: false})).toEqualTypeOf<CancelableRequest<Response<Uint8Array>>>();

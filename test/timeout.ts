@@ -472,8 +472,7 @@ test.serial('no unhandled `socket hung up` errors', withServerAndFakeTimers, asy
 	);
 });
 
-// TODO: use fakeTimers here
-test.serial('no unhandled timeout errors', withServer, async (t, _server, got) => {
+test.serial('no unhandled timeout errors', withServerAndFakeTimers, async (t, _server, got, clock) => {
 	await t.throwsAsync(got({
 		retry: {limit: 0},
 		timeout: {request: 100},
@@ -488,11 +487,10 @@ test.serial('no unhandled timeout errors', withServer, async (t, _server, got) =
 		},
 	}), {message: 'socket hang up'});
 
-	await delay(200);
+	clock.tick(200);
 });
 
-// TODO: use fakeTimers here
-test.serial('no unhandled timeout errors #2', withServer, async (t, server, got) => {
+test.serial('no unhandled timeout errors #2', withServerAndFakeTimers, async (t, server, got, clock) => {
 	server.get('/', (_request, response) => {
 		response.write('Hello world!');
 	});
@@ -515,15 +513,15 @@ test.serial('no unhandled timeout errors #2', withServer, async (t, server, got)
 
 	await t.throwsAsync(gotPromise, {instanceOf: TimeoutError});
 
-	await delay(100);
+	clock.tick(100);
 });
 
 test.serial('no more timeouts after an error', withServer, async (t, _server, got) => {
-	const {setTimeout} = global;
-	const {clearTimeout} = global;
+	const {setTimeout} = globalThis;
+	const {clearTimeout} = globalThis;
 
 	// @ts-expect-error FIXME
-	global.setTimeout = (callback, _ms, ...arguments_) => {
+	globalThis.setTimeout = (callback, _ms, ...arguments_) => {
 		const timeout = {
 			isCleared: false,
 		};
@@ -539,30 +537,32 @@ test.serial('no more timeouts after an error', withServer, async (t, _server, go
 		return timeout;
 	};
 
-	global.clearTimeout = timeout => {
+	globalThis.clearTimeout = timeout => {
 		if (timeout) {
 			// @ts-expect-error FIXME
 			timeout.isCleared = true;
 		}
 	};
 
-	await t.throwsAsync(got(`http://${Date.now()}.dev`, {
-		retry: {limit: 1},
-		timeout: {
-			lookup: 1,
-			connect: 1,
-			secureConnect: 1,
-			socket: 1,
-			response: 1,
-			send: 1,
-			request: 1,
-		},
-	}), {instanceOf: TimeoutError});
+	try {
+		await t.throwsAsync(got(`http://${Date.now()}.dev`, {
+			retry: {limit: 1},
+			timeout: {
+				lookup: 1,
+				connect: 1,
+				secureConnect: 1,
+				socket: 1,
+				response: 1,
+				send: 1,
+				request: 1,
+			},
+		}), {instanceOf: TimeoutError});
 
-	await delay(100);
-
-	global.setTimeout = setTimeout;
-	global.clearTimeout = clearTimeout;
+		await delay(100);
+	} finally {
+		globalThis.setTimeout = setTimeout;
+		globalThis.clearTimeout = clearTimeout;
+	}
 });
 
 test.serial('socket timeout is canceled on error', withServerAndFakeTimers, async (t, _server, got, clock) => {
@@ -658,8 +658,7 @@ test.serial('doesn\'t throw on early lookup', withServerAndFakeTimers, async (t,
 	}));
 });
 
-// TODO: use fakeTimers here
-test.serial('no unhandled `Premature close` error', withServer, async (t, server, got) => {
+test.serial('no unhandled `Premature close` error', withServerAndFakeTimers, async (t, server, got, clock) => {
 	server.get('/', async (_request, response) => {
 		response.write('hello');
 	});
@@ -669,27 +668,28 @@ test.serial('no unhandled `Premature close` error', withServer, async (t, server
 		retry: {limit: 0},
 	}), {message: 'Timeout awaiting \'request\' for 10ms'});
 
-	await delay(20);
+	clock.tick(20);
 });
 
-// TODO: use fakeTimers here
-test.serial('`read` timeout - promise', withServer, async (t, server, got) => {
+test.serial('`read` timeout - promise', withServerAndFakeTimers, async (t, server, got, clock) => {
 	server.get('/', (_request, response) => {
 		response.write('o');
 	});
 
-	await t.throwsAsync(got({
+	const gotPromise = got({
 		timeout: {
 			read: 10,
 		},
 		retry: {
 			limit: 0,
 		},
-	}), {message: 'Timeout awaiting \'read\' for 10ms'});
+	});
+
+	clock.tick(20);
+	await t.throwsAsync(gotPromise, {message: 'Timeout awaiting \'read\' for 10ms'});
 });
 
-// TODO: use fakeTimers here
-test.serial('`read` timeout - stream', withServer, async (t, server, got) => {
+test.serial('`read` timeout - stream', withServerAndFakeTimers, async (t, server, got, clock) => {
 	t.timeout(100);
 
 	server.get('/', (_request, response) => {
@@ -702,11 +702,11 @@ test.serial('`read` timeout - stream', withServer, async (t, server, got) => {
 		},
 	});
 
+	clock.tick(20);
 	await t.throwsAsync(pEvent(stream, 'end'), {message: 'Timeout awaiting \'read\' for 10ms'});
 });
 
-// TODO: use fakeTimers here
-test.serial('cancelling the request removes timeouts', withServer, async (t, server, got) => {
+test.serial('cancelling the request removes timeouts', withServerAndFakeTimers, async (t, server, got, clock) => {
 	server.get('/', (_request, response) => {
 		response.write('hello');
 	});
@@ -733,7 +733,7 @@ test.serial('cancelling the request removes timeouts', withServer, async (t, ser
 
 	await t.throwsAsync(promise, {message: 'This operation was aborted.'});
 
-	await delay(1000);
+	clock.tick(1000);
 });
 
 test.serial('timeouts are emitted ASAP', withServer, async (t, server, got) => {
@@ -756,7 +756,7 @@ test.serial('timeouts are emitted ASAP', withServer, async (t, server, got) => {
 
 	const elapsed = Date.now() - startTime;
 	t.true(elapsed < (timeout + marginOfError), `Expected timeout ${elapsed}ms to be less than ${timeout + marginOfError}ms`);
-	t.true(error!.timings.phases.total! < (timeout + marginOfError));
+	t.true(error.timings.phases.total! < (timeout + marginOfError));
 });
 
 test('http2 timeout', async t => {
@@ -798,9 +798,7 @@ test.serial('no memory leak when using http2 with socket timeout and connection 
 	const handleRequest = (request: any) => {
 		// Track socket and check listener count DURING requests
 		request.once('socket', (socket: any) => {
-			if (!sharedSocket) {
-				sharedSocket = socket;
-			}
+			sharedSocket ??= socket;
 
 			// Check how many listeners are on the socket while requests are active
 			const currentCount = socket.listenerCount('timeout');

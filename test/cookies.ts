@@ -1,6 +1,6 @@
 import net from 'node:net';
 import test from 'ava';
-import toughCookie from 'tough-cookie';
+import * as toughCookie from 'tough-cookie';
 import delay from 'delay';
 import nock from 'nock';
 import got, {RequestError} from '../source/index.js';
@@ -90,7 +90,7 @@ test('does not throw on invalid cookies when options.ignoreInvalidCookies is set
 test('catches store errors', async t => {
 	const error = 'Some error';
 	const cookieJar = new toughCookie.CookieJar({
-		findCookies(_, __, ___, callback) {
+		findCookies(_domain: any, _path: any, _allowSpecialUseDomain: any, callback: any) {
 			callback(new Error(error), []);
 		},
 		findCookie() {},
@@ -100,7 +100,7 @@ test('catches store errors', async t => {
 		removeCookie() {},
 		updateCookie() {},
 		synchronous: false,
-	});
+	} as any);
 
 	await t.throwsAsync(got('https://example.com', {cookieJar}), {
 		instanceOf: RequestError,

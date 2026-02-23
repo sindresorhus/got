@@ -20,5 +20,5 @@ test('works', withServer, async (t, server) => {
 	t.is(error?.response.body, 'not found');
 
 	const secondError = await t.throwsAsync(got.get('.com', {retry: {limit: 0}}));
-	invalidUrl(t, secondError!, '.com');
+	invalidUrl(t, secondError, '.com');
 });

@@ -9,9 +9,9 @@ import withServer from './helpers/with-server.js';
 const testContent = 'Compressible response content.\n';
 const testContentUncompressed = 'Uncompressed response content.\n';
 
-let gzipData: Buffer;
+let gzipData: Uint8Array;
 test.before('setup', async () => {
-	gzipData = await promisify<string, Buffer>(zlib.gzip)(testContent);
+	gzipData = await promisify<string, Uint8Array>(zlib.gzip)(testContent);
 });
 
 test('decompress content', withServer, async (t, server, got) => {
@@ -120,7 +120,7 @@ test('does not break HEAD responses', withServer, async (t, server, got) => {
 test('does not ignore missing data', withServer, async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.setHeader('Content-Encoding', 'gzip');
-		response.end(gzipData.slice(0, -1));
+		response.end(gzipData.subarray(0, -1));
 	});
 
 	await t.throwsAsync(got(''), {
@@ -140,9 +140,7 @@ test('response has `url` and `requestUrl` properties', withServer, async (t, ser
 	t.truthy(response.requestUrl);
 });
 
-// TODO: Enable when we update `decompress-response`.
-// eslint-disable-next-line ava/no-skip-test
-test.skip('compressed and uncompressed responses have consistent spreadability', withServer, async (t, server, got) => {
+test('compressed and uncompressed responses have consistent spreadability', withServer, async (t, server, got) => {
 	server.get('/compressed', (_request, response) => {
 		response.setHeader('Content-Encoding', 'gzip');
 		response.end(gzipData);

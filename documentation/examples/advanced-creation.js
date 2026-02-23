@@ -1,16 +1,20 @@
+import process from 'node:process';
+import crypto from 'node:crypto';
 import got from '../../dist/source/index.js';
 
+// Signing requests
+
 /*
-* Got supports composing multiple instances together. This is very powerful.
-*
-* You can create a client that limits download/upload size,
-* 	then compose it with an instance that signs a request.
-*
-* It's like plugins without any of the plugin mess.
-* You just create instances and then compose them together.
-*
-* To mix them use `instanceA.extend(instanceB, instanceC, ...)`, that's all.
-* Let's begin.
+Got supports composing multiple instances together. This is very powerful.
+
+You can create a client that limits download/upload size, then compose it with an instance that signs a request.
+
+It's like plugins without any of the plugin mess.
+You just create instances and then compose them together.
+
+To mix them use `instanceA.extend(instanceB, instanceC, ...)`, that's all.
+
+Let's begin.
 */
 
 // Logging all `got(…)` calls
@@ -19,8 +23,8 @@ const logger = got.extend({
 		(options, next) => {
 			console.log(`Sending ${options.method} to ${options.url}`);
 			return next(options);
-		}
-	]
+		},
+	],
 });
 
 // Denying redirects to foreign hosts
@@ -32,9 +36,9 @@ const controlRedirects = got.extend({
 				if (options.url.origin !== origin) {
 					throw new Error(`Redirection to ${options.url.origin} is not allowed from ${origin}`);
 				}
-			}
-		]
-	}
+			},
+		],
+	},
 });
 
 // Limiting download & upload size
@@ -46,7 +50,7 @@ const limitDownloadUpload = got.extend({
 
 			// Create an AbortController if limits are set and signal not already provided
 			let controller;
-			let signal = options.signal;
+			let {signal} = options;
 
 			if ((downloadLimit || uploadLimit) && !signal) {
 				controller = new AbortController();
@@ -85,24 +89,21 @@ const limitDownloadUpload = got.extend({
 			}
 
 			return promiseOrStream;
-		}
-	]
+		},
+	],
 });
 
 // No user agent
 const noUserAgent = got.extend({
 	headers: {
-		'user-agent': undefined
-	}
+		'user-agent': undefined,
+	},
 });
 
 // Custom endpoint
 const httpbin = got.extend({
-	prefixUrl: 'https://httpbin.org/'
+	prefixUrl: 'https://httpbin.org/',
 });
-
-// Signing requests
-import crypto from 'node:crypto';
 
 const getMessageSignature = (data, secret) => crypto.createHmac('sha256', secret).update(data).digest('hex').toUpperCase();
 const signRequest = got.extend({
@@ -112,11 +113,11 @@ const signRequest = got.extend({
 				const secret = options.context.secret ?? process.env.SECRET;
 
 				if (secret) {
-					options.headers['sign'] = getMessageSignature(options.body ?? '', secret);
+					options.headers.sign = getMessageSignature(options.body ?? '', secret);
 				}
-			}
-		]
-	}
+			},
+		],
+	},
 });
 
 /*
@@ -128,15 +129,15 @@ const merged = got.extend(
 	limitDownloadUpload,
 	httpbin,
 	signRequest,
-	controlRedirects
+	controlRedirects,
 );
 
 // There's no 'user-agent' header :)
 const {headers} = await merged.post('anything', {
 	body: 'foobar',
 	context: {
-		secret: 'password'
-	}
+		secret: 'password',
+	},
 }).json();
 
 console.log(headers);
@@ -149,13 +150,13 @@ console.log(headers);
 //   Sign: 'EB0167A1EBF205510BAFF5DA1465537944225F0E0140E1880B746F361FF11DCA'
 // }
 
-const MEGABYTE = 1048576;
+const MEGABYTE = 1_048_576;
 try {
 	await merged('https://pop-iso.sfo2.cdn.digitaloceanspaces.com/21.04/amd64/intel/5/pop-os_21.04_amd64_intel_5.iso', {
 		context: {
-			downloadLimit: MEGABYTE
+			downloadLimit: MEGABYTE,
 		},
-		prefixUrl: ''
+		prefixUrl: '',
 	});
 } catch (error) {
 	// AbortError: This operation was aborted.

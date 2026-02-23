@@ -24,6 +24,34 @@ const proxiedRequestEvents = [
 	'downloadProgress',
 ];
 
+const normalizeError = (error: unknown): Error => {
+	if (error instanceof Error) {
+		return error;
+	}
+
+	if (is.object(error)) {
+		const errorLike = error as Partial<Error & {code?: string; input?: string}>;
+		const message = typeof errorLike.message === 'string' ? errorLike.message : 'Non-error object thrown';
+		const normalizedError = new Error(message, {cause: error}) as Error & {code?: string; input?: string};
+
+		if (typeof errorLike.stack === 'string') {
+			normalizedError.stack = errorLike.stack;
+		}
+
+		if (typeof errorLike.code === 'string') {
+			normalizedError.code = errorLike.code;
+		}
+
+		if (typeof errorLike.input === 'string') {
+			normalizedError.input = errorLike.input;
+		}
+
+		return normalizedError;
+	}
+
+	return new Error(String(error));
+};
+
 export default function asPromise<T>(firstRequest?: Request): CancelableRequest<T> {
 	let globalRequest: Request;
 	let globalResponse: Response;
@@ -66,17 +94,17 @@ export default function asPromise<T>(firstRequest?: Request): CancelableRequest<
 				} else {
 					try {
 						response.body = parseBody(response, options.responseType, options.parseJson, options.encoding);
-					} catch (error: any) {
+					} catch (error: unknown) {
 						// Fall back to `utf8`
 						try {
 							response.body = response.rawBody.toString();
 						} catch (error) {
-							request._beforeError(new ParseError(error as Error, response));
+							request._beforeError(new ParseError(normalizeError(error), response));
 							return;
 						}
 
 						if (isResponseOk(response)) {
-							request._beforeError(error);
+							request._beforeError(normalizeError(error));
 							return;
 						}
 					}
@@ -112,8 +140,8 @@ export default function asPromise<T>(firstRequest?: Request): CancelableRequest<
 							throw new TypeError('The `afterResponse` hook returned an invalid value');
 						}
 					}
-				} catch (error: any) {
-					request._beforeError(error);
+				} catch (error: unknown) {
+					request._beforeError(normalizeError(error));
 					return;
 				}
 
@@ -220,7 +248,7 @@ export default function asPromise<T>(firstRequest?: Request): CancelableRequest<
 		return promise;
 	};
 
-	const shortcut = <T>(promiseToAwait: CancelableRequest<any>, responseType: Options['responseType']): CancelableRequest<T> => {
+	const shortcut = <T>(promiseToAwait: CancelableRequest, responseType: Options['responseType']): CancelableRequest<T> => {
 		const newPromise = (async () => {
 			// Wait until downloading has ended
 			await promiseToAwait;
@@ -240,7 +268,7 @@ export default function asPromise<T>(firstRequest?: Request): CancelableRequest<
 	// When custom handlers wrap the promise to transform errors, these methods
 	// are copied to the handler's promise. Using `this` ensures we await the
 	// handler's wrapped promise, not the original, so errors propagate correctly.
-	promise.json = function (this: CancelableRequest<any>) {
+	promise.json = function (this: CancelableRequest) {
 		if (globalRequest.options) {
 			const {headers} = globalRequest.options;
 
@@ -252,11 +280,11 @@ export default function asPromise<T>(firstRequest?: Request): CancelableRequest<
 		return shortcut(this, 'json');
 	};
 
-	promise.buffer = function (this: CancelableRequest<any>) {
+	promise.buffer = function (this: CancelableRequest) {
 		return shortcut(this, 'buffer');
 	};
 
-	promise.text = function (this: CancelableRequest<any>) {
+	promise.text = function (this: CancelableRequest) {
 		return shortcut(this, 'text');
 	};
 

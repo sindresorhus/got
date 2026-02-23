@@ -1,6 +1,5 @@
 import {Buffer} from 'node:buffer';
-import {Agent as HttpAgent} from 'node:http';
-import type {ClientRequest} from 'node:http';
+import {Agent as HttpAgent, type ClientRequest} from 'node:http';
 import {setTimeout as delay} from 'node:timers/promises';
 import test from 'ava';
 import type {Handler} from 'express';
@@ -62,6 +61,81 @@ const early307RedirectHandler = (location: string): Handler => (request, respons
 	});
 
 	request.resume();
+};
+
+/*
+Intercepts write callbacks on a request and delays them until after the response event,
+then calls them with the injected error. This simulates a delayed write error
+(EPIPE, ECONNRESET, etc.) arriving after the server has already sent a response.
+*/
+const injectWriteErrorAfterResponse = (request: ClientRequest, writeError: NodeJS.ErrnoException, onInjected?: () => void): void => {
+	let responseReceived = false;
+	let errorInjected = false;
+	const pendingCallbacks: Array<(error: Error | undefined) => void> = [];
+	const originalWrite = request.write.bind(request);
+
+	const flushPendingWithError = () => {
+		errorInjected = true;
+		onInjected?.();
+
+		const callbacks = [...pendingCallbacks];
+		pendingCallbacks.length = 0;
+
+		setTimeout(() => {
+			for (const callback of callbacks) {
+				callback(writeError);
+			}
+		}, 0);
+	};
+
+	request.once('response', () => {
+		responseReceived = true;
+		if (!errorInjected) {
+			flushPendingWithError();
+		}
+	});
+
+	// eslint-disable-next-line @typescript-eslint/no-restricted-types
+	const wrapCallback = (callback: (error: Error | null | undefined) => void): (error: Error | null | undefined) => void =>
+		error => {
+			// After injection, pass through errors as-is.
+			if (errorInjected) {
+				callback(error);
+				return;
+			}
+
+			// If the real write errored, forward it immediately.
+			if (error !== undefined && error !== null) {
+				callback(error);
+				return;
+			}
+
+			// If response already arrived, inject the error now.
+			if (responseReceived) {
+				flushPendingWithError();
+				callback(writeError);
+				return;
+			}
+
+			// Queue the callback to be flushed with the injected error when the response arrives.
+			pendingCallbacks.push(callback);
+		};
+
+	// eslint-disable-next-line @typescript-eslint/no-restricted-types
+	request.write = ((chunk: any, encoding: BufferEncoding | undefined, callback?: (error: Error | null | undefined) => void) => {
+		if (typeof encoding === 'function') {
+			callback = encoding;
+			encoding = undefined;
+		}
+
+		if (typeof callback !== 'function') {
+			return encoding === undefined ? originalWrite(chunk) : originalWrite(chunk, encoding);
+		}
+
+		return encoding === undefined
+			? originalWrite(chunk, wrapCallback(callback))
+			: originalWrite(chunk, encoding, wrapCallback(callback));
+	}) as typeof request.write;
 };
 
 test('cannot redirect to UNIX protocol when UNIX sockets are enabled', withServer, async (t, server, got) => {
@@ -515,7 +589,7 @@ test('large body is preserved on 307 redirect', withServer, async (t, server, go
 	});
 
 	server.post('/target', async (request, response) => {
-		const receivedChunks: Buffer[] = [];
+		const receivedChunks: Uint8Array[] = [];
 
 		for await (const receivedChunk of request) {
 			receivedChunks.push(Buffer.from(receivedChunk));
@@ -548,7 +622,7 @@ test('large body is preserved on early 307 redirect', withServer, async (t, serv
 	server.post('/redirect-early', early307RedirectHandler('/target-early'));
 
 	server.post('/target-early', async (request, response) => {
-		const receivedChunks: Buffer[] = [];
+		const receivedChunks: Uint8Array[] = [];
 
 		for await (const receivedChunk of request) {
 			receivedChunks.push(Buffer.from(receivedChunk));
@@ -587,9 +661,10 @@ test('large body is preserved on early 307 redirect', withServer, async (t, serv
 					staleRequest.once('finish', resolve);
 					staleRequest.once('close', resolve);
 				}),
-				delay(1000).then(() => {
+				(async () => {
+					await delay(1000);
 					throw new Error('Stale redirected request was not finalized');
-				}),
+				})(),
 			]);
 		}
 
@@ -764,9 +839,10 @@ test('early 307 redirect finalizes writable side for buffered body', withServer,
 			new Promise<void>(resolve => {
 				requestStream.once('finish', resolve);
 			}),
-			delay(1000).then(() => {
+			(async () => {
+				await delay(1000);
 				throw new Error('Redirected buffered stream did not emit finish');
-			}),
+			})(),
 		]);
 	}
 
@@ -786,7 +862,7 @@ test('early 307 redirect does not prematurely end redirected request while repla
 			redirectedRequestAborted = true;
 		});
 
-		const receivedChunks: Buffer[] = [];
+		const receivedChunks: Uint8Array[] = [];
 		for await (const receivedChunk of request) {
 			receivedChunks.push(Buffer.from(receivedChunk));
 		}
@@ -825,6 +901,206 @@ test('early 307 redirect does not prematurely end redirected request while repla
 	t.is(body, 'ok');
 	t.false(redirectedRequestAborted);
 	t.is(redirectedBodyLength, requestBody.byteLength);
+});
+
+test('early 307 redirect preserves body when beforeRedirect hook is delayed', withServer, async (t, server, got) => {
+	const requestBody = Buffer.alloc(1024 * 1024 * 2, 'h');
+
+	server.post('/redirect-early-delayed-before-redirect', early307RedirectHandler('/target-early-delayed-before-redirect'));
+
+	server.post('/target-early-delayed-before-redirect', async (request, response) => {
+		const receivedChunks: Uint8Array[] = [];
+		for await (const receivedChunk of request) {
+			receivedChunks.push(Buffer.from(receivedChunk));
+		}
+
+		const receivedBody = Buffer.concat(receivedChunks);
+		t.true(receivedBody.equals(requestBody));
+		response.end('ok');
+	});
+
+	const {body} = await got.post('redirect-early-delayed-before-redirect', {
+		body: requestBody,
+		retry: {
+			limit: 0,
+		},
+		hooks: {
+			beforeRedirect: [
+				async () => {
+					await delay(50);
+				},
+			],
+		},
+	});
+
+	t.is(body, 'ok');
+});
+
+test('early 307 redirect does not emit stale original request write error', withServer, async (t, server, got) => {
+	const requestBody = Buffer.alloc(1024 * 1024 * 2, 'i');
+	const requestErrors: Error[] = [];
+	const requests: ClientRequest[] = [];
+
+	server.post('/redirect-early-stale-error', early307RedirectHandler('/target-early-stale-error'));
+
+	server.post('/target-early-stale-error', async (request, response) => {
+		for await (const receivedChunk of request) {
+			void receivedChunk;
+		}
+
+		response.end('ok');
+	});
+
+	const {body} = await got.post('redirect-early-stale-error', {
+		body: requestBody,
+		retry: {
+			limit: 0,
+		},
+	}).on('request', request => {
+		requests.push(request);
+		request.once('error', error => {
+			requestErrors.push(error);
+		});
+	});
+
+	t.is(body, 'ok');
+	t.is(requests.length, 2);
+
+	const originalRequest = requests[0];
+	t.truthy(originalRequest);
+	t.false(requestErrors.some(error => {
+		const {code} = error as NodeJS.ErrnoException;
+		return code === 'EPIPE' || code === 'ECONNRESET' || code === 'ECANCELED';
+	}));
+});
+
+const staleWriteErrorCases = [
+	{
+		name: 'EPIPE',
+		code: 'EPIPE',
+		redirectPath: '/redirect-early-injected-transient',
+		targetPath: '/target-early-injected-transient',
+	},
+	{
+		name: 'ECONNRESET',
+		code: 'ECONNRESET',
+		redirectPath: '/redirect-early-injected-connreset',
+		targetPath: '/target-early-injected-connreset',
+	},
+	{
+		name: 'non-transient',
+		code: 'EACCES',
+		redirectPath: '/redirect-early-injected-non-transient',
+		targetPath: '/target-early-injected-non-transient',
+	},
+] as const;
+
+for (const staleWriteErrorCase of staleWriteErrorCases) {
+	test(`early 307 redirect ignores delayed stale ${staleWriteErrorCase.name} write error`, withServer, async (t, server, got) => {
+		const requestBody = Buffer.alloc(1024 * 1024 * 2, 'k');
+		const requests: ClientRequest[] = [];
+		const requestErrors: Error[] = [];
+		let injectedError = false;
+
+		server.post(staleWriteErrorCase.redirectPath, early307RedirectHandler(staleWriteErrorCase.targetPath));
+
+		server.post(staleWriteErrorCase.targetPath, async (request, response) => {
+			for await (const receivedChunk of request) {
+				void receivedChunk;
+			}
+
+			response.end('ok');
+		});
+
+		const staleError = new Error('stale request write error') as NodeJS.ErrnoException;
+		staleError.code = staleWriteErrorCase.code;
+
+		const {body} = await got.post(staleWriteErrorCase.redirectPath.slice(1), {
+			body: requestBody,
+			retry: {
+				limit: 0,
+			},
+		}).on('request', request => {
+			requests.push(request);
+
+			request.on('error', error => {
+				requestErrors.push(error);
+			});
+
+			if (requests.length === 1) {
+				injectWriteErrorAfterResponse(request, staleError, () => {
+					injectedError = true;
+				});
+			}
+		});
+
+		t.is(body, 'ok');
+		t.is(requests.length, 2);
+		t.true(injectedError);
+		t.is(requestErrors.length, 0);
+	});
+}
+
+test('injected request close before response emits pending request abort error', withServer, async (t, server, got) => {
+	server.get('/pending-close', (_request, _response) => {
+		// Keep request open until client-side close is injected below.
+	});
+
+	const pendingRequest = got('pending-close').on('request', clientRequest => {
+		// Simulate the pre-response close edge case directly on the request object.
+		clientRequest.emit('close');
+	});
+
+	const error = await t.throwsAsync<RequestError>(pendingRequest, {
+		instanceOf: RequestError,
+		message: 'The server aborted pending request',
+	});
+
+	t.is(error?.code, 'ECONNRESET');
+});
+
+test('early 307 redirect final upload progress remains complete with delayed beforeRedirect', withServer, async (t, server, got) => {
+	const requestBody = Buffer.alloc(1024 * 1024 * 2, 'j');
+	const events: Array<{percent: number; transferred: number; total?: number}> = [];
+
+	server.post('/redirect-early-progress-delayed-before-redirect', early307RedirectHandler('/target-early-progress-delayed-before-redirect'));
+
+	server.post('/target-early-progress-delayed-before-redirect', async (request, response) => {
+		for await (const receivedChunk of request) {
+			void receivedChunk;
+		}
+
+		response.end('ok');
+	});
+
+	const {body} = await got.post('redirect-early-progress-delayed-before-redirect', {
+		body: requestBody,
+		retry: {
+			limit: 0,
+		},
+		hooks: {
+			beforeRedirect: [
+				async () => {
+					await delay(50);
+				},
+			],
+		},
+	}).on('uploadProgress', event => {
+		events.push({
+			percent: event.percent,
+			transferred: event.transferred,
+			total: event.total,
+		});
+	});
+
+	t.is(body, 'ok');
+	t.true(events.length > 1);
+
+	const finalEvent = events.at(-1);
+	t.truthy(finalEvent);
+	t.is(finalEvent?.percent, 1);
+	t.is(finalEvent?.transferred, requestBody.byteLength);
+	t.is(finalEvent?.total, requestBody.byteLength);
 });
 
 test('method rewriting', withServer, async (t, server, got) => {

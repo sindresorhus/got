@@ -2,7 +2,12 @@ import process from 'node:process';
 import {Buffer} from 'node:buffer';
 import {STATUS_CODES, Agent} from 'node:http';
 import os from 'node:os';
-import {isIPv4, isIPv6, isIP} from 'node:net';
+import {
+	isIPv4,
+	isIPv6,
+	isIP,
+	type Socket,
+} from 'node:net';
 import test from 'ava';
 import type {Handler} from 'express';
 import nock from 'nock';
@@ -18,7 +23,7 @@ const IPv6supported = Object.values(os.networkInterfaces()).some(iface => iface?
 const testIPv6 = (IPv6supported && process.env.TRAVIS_DIST !== 'bionic' && process.env.TRAVIS_DIST !== 'focal') ? test : test.skip;
 
 const echoIp: Handler = (request, response) => {
-	const address = request.connection.remoteAddress;
+	const address = request.socket.remoteAddress;
 	if (address === undefined) {
 		response.end();
 		return;
@@ -269,7 +274,7 @@ test('does not destroy completed requests', withServer, async (t, server, got) =
 
 	const endPromise = pEvent(stream, 'end');
 
-	const socket = await pEvent(stream, 'socket');
+	const socket = await pEvent(stream, 'socket') as Socket;
 
 	const closeListener = () => {
 		t.fail('Socket has been destroyed');
@@ -366,15 +371,15 @@ test('JSON request custom stringifier', withServer, async (t, server, got) => {
 
 test('ClientRequest can throw before promise resolves', async t => {
 	const error = await t.throwsAsync<RequestError>(got('http://example.com', {
-		dnsLookup: ((_hostname: string, _options: unknown, callback: (error: null, hostname: string, family: number) => void) => { // eslint-disable-line @typescript-eslint/ban-types
+		dnsLookup: ((_hostname: string, _options: unknown, callback: (error: undefined, hostname: string, family: number) => void) => {
 			queueMicrotask(() => {
-				callback(null, 'fe80::0000:0000:0000:0000', 6);
+				callback(undefined, 'fe80::0000:0000:0000:0000', 6);
 			});
 		}) as any,
 	}));
 
 	// Node.js 20+ returns ERR_INVALID_IP_ADDRESS, older versions return EINVAL, EHOSTUNREACH, or ETIMEDOUT
-	t.true(['EINVAL', 'EHOSTUNREACH', 'ETIMEDOUT', 'ERR_INVALID_IP_ADDRESS'].includes(error!.code));
+	t.true(['EINVAL', 'EHOSTUNREACH', 'ETIMEDOUT', 'ERR_INVALID_IP_ADDRESS'].includes(error.code));
 });
 
 test('dnsLookup option accepts Node.js dns.lookup', withServer, async (t, server, got) => {
@@ -426,7 +431,7 @@ test('status code 404 has error response ok is false if error is thrown', withSe
 		response.end('not');
 	});
 
-	const error = (await t.throwsAsync<HTTPError>(got(''), {instanceOf: HTTPError}))!;
+	const error = (await t.throwsAsync<HTTPError>(got(''), {instanceOf: HTTPError}));
 	t.is(error.response.statusCode, 404);
 	t.is(error.response.ok, false);
 	t.is(error.response.body, 'not');

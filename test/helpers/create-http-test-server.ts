@@ -1,7 +1,6 @@
 import http from 'node:http';
 import type net from 'node:net';
 import express, {type Express, type NextFunction} from 'express';
-import pify from 'pify';
 import bodyParser from 'body-parser';
 
 export type HttpServerOptions = {
@@ -13,7 +12,7 @@ export type ExtendedHttpTestServer = {
 	url: string;
 	port: number;
 	hostname: string;
-	close: () => Promise<any>;
+	close: () => Promise<void>;
 } & Express;
 
 const createHttpTestServer = async (options: HttpServerOptions = {}): Promise<ExtendedHttpTestServer> => {
@@ -36,13 +35,32 @@ const createHttpTestServer = async (options: HttpServerOptions = {}): Promise<Ex
 		server.use(bodyParser.raw({limit: '1mb', type: 'application/octet-stream', ...options.bodyParser}));
 	}
 
-	await pify(server.http.listen.bind(server.http))();
+	await new Promise<void>((resolve, reject) => {
+		const onError = (error: Error): void => {
+			reject(error);
+		};
 
+		server.http.once('error', onError);
+		server.http.listen(0, () => {
+			server.http.off('error', onError);
+			resolve();
+		});
+	});
 	server.port = (server.http.address() as net.AddressInfo).port;
-	server.url = `http://localhost:${(server.port)}`;
+	server.url = `http://localhost:${server.port}`;
 	server.hostname = 'localhost';
 
-	server.close = async () => pify(server.http.close.bind(server.http))();
+	server.close = async () => new Promise<void>((resolve, reject) => {
+		server.http.closeAllConnections?.();
+		server.http.close(error => {
+			if (error) {
+				reject(error);
+				return;
+			}
+
+			resolve();
+		});
+	});
 
 	return server;
 };

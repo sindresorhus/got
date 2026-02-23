@@ -11,9 +11,9 @@ const supportsZstd = typeof zlib.zstdCompress === 'function';
 if (supportsZstd) {
 	const testContent = 'Compressible response content.\n';
 
-	let zstdData: Buffer;
+	let zstdData: Uint8Array;
 	test.before('setup', async () => {
-		zstdData = await promisify<string, Buffer>(zlib.zstdCompress)(testContent);
+		zstdData = await promisify<string, Uint8Array>(zlib.zstdCompress)(testContent);
 	});
 
 	test('decompress content', withServer, async (t, server, got) => {

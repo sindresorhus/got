@@ -3,9 +3,7 @@ import parseLinkHeader from '../source/core/parse-link-header.js';
 
 test('works as expected', t => {
 	t.deepEqual(
-		parseLinkHeader(
-			'<https://one.example.com>; rel="preconnect", <https://two.example.com>; rel="preconnect", <https://three.example.com>; rel="preconnect"',
-		),
+		parseLinkHeader('<https://one.example.com>; rel="preconnect", <https://two.example.com>; rel="preconnect", <https://three.example.com>; rel="preconnect"'),
 		[
 			{
 				reference: 'https://one.example.com',
@@ -23,9 +21,7 @@ test('works as expected', t => {
 	);
 
 	t.deepEqual(
-		parseLinkHeader(
-			'<https://one.example.com>; rel="previous"; title="previous chapter"',
-		),
+		parseLinkHeader('<https://one.example.com>; rel="previous"; title="previous chapter"'),
 		[
 			{
 				reference: 'https://one.example.com',
@@ -62,16 +58,16 @@ test('works as expected', t => {
 			reference: '/TheBook/chapter2',
 			parameters: {
 				rel: '"previous"',
-				// eslint-disable-next-line @typescript-eslint/quotes, @typescript-eslint/naming-convention
-				'title*': `UTF-8'de'letztes%20Kapitel`,
+				// eslint-disable-next-line @typescript-eslint/naming-convention
+				'title*': 'UTF-8\'de\'letztes%20Kapitel',
 			},
 		},
 		{
 			reference: '/TheBook/chapter4',
 			parameters: {
 				rel: '"next"',
-				// eslint-disable-next-line @typescript-eslint/quotes, @typescript-eslint/naming-convention
-				'title*': `UTF-8'de'n%c3%a4chstes%20Kapitel`,
+				// eslint-disable-next-line @typescript-eslint/naming-convention
+				'title*': 'UTF-8\'de\'n%c3%a4chstes%20Kapitel',
 			},
 		},
 	]);

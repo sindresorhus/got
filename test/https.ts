@@ -42,8 +42,8 @@ test('https request with ca and afterResponse hook', withHttpsServer(), async (t
 	const warningListener = (warning: any) => {
 		if (
 			warning.name === 'DeprecationWarning'
-				&& warning.message === 'Got: "options.ca" was never documented, please use '
-					+ '"options.https.certificateAuthority"'
+			&& warning.message === 'Got: "options.ca" was never documented, please use '
+			+ '"options.https.certificateAuthority"'
 		) {
 			process.off('warning', warningListener);
 			t.fail('unexpected deprecation warning');
@@ -262,7 +262,7 @@ test.serial('non-deprecated `rejectUnauthorized` option', withHttpsServer(), asy
 	});
 
 	(async () => {
-		const warning = await pEvent(process, 'warning');
+		const warning = await pEvent(process, 'warning') as Error;
 		t.not(warning.name, 'DeprecationWarning');
 	})();
 
@@ -495,7 +495,7 @@ test('invalid key passphrase', withHttpsServer(), async (t, server, got) => {
 		},
 	});
 
-	const {code}: NodeJS.ErrnoException = (await t.throwsAsync(request))!;
+	const {code}: NodeJS.ErrnoException = (await t.throwsAsync(request));
 	t.true(code === 'ERR_OSSL_BAD_DECRYPT' || code === 'ERR_OSSL_EVP_BAD_DECRYPT', code);
 });
 

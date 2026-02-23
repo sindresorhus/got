@@ -2,9 +2,10 @@
 	"extends": "@sindresorhus/tsconfig",
 	"compilerOptions": {
 		"outDir": "dist",
-		"target": "es2022", // Node.js 18
+		"target": "es2024", // Node.js 22
 		"lib": [
-			"es2022"
+			"es2024",
+			"esnext.array"
 		],
 		"noPropertyAccessFromIndexSignature": false,
 		"isolatedModules": true

@@ -21,14 +21,22 @@ export type RunTestWithSocket = (t: ExecutionContext, server: ExtendedHttpServer
 
 const generateHook = ({install, options: testServerOptions}: {install?: boolean; options?: HttpServerOptions}): Macro<[RunTestWithServer]> => ({
 	async exec(t, run) {
-		const clock = install ? FakeTimers.install() : FakeTimers.createClock() as GlobalClock;
-
 		// Re-enable body parsing to investigate https://github.com/sindresorhus/got/issues/1186
-		const server = await createHttpTestServer(is.plainObject(testServerOptions) ? testServerOptions : {
-			bodyParser: {
-				type: () => false,
-			} as any,
-		});
+		const server = await createHttpTestServer(is.plainObject(testServerOptions)
+			? testServerOptions
+			: {
+				bodyParser: {
+					type: () => false,
+				} as any,
+			});
+
+		const clock = install
+			? FakeTimers.install({
+				toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval'],
+				shouldAdvanceTime: true,
+				advanceTimeDelta: 1,
+			})
+			: FakeTimers.createClock() as GlobalClock;
 
 		const context: Record<string, unknown> = {};
 		Object.defineProperty(context, 'avaTest', {
@@ -78,9 +86,15 @@ export const withServerAndFakeTimers = generateHook({install: true});
 
 const generateHttpsHook = (options?: HttpsServerOptions, installFakeTimer = false): Macro<[RunTestWithHttpsServer]> => ({
 	async exec(t, run) {
-		const fakeTimer = installFakeTimer ? FakeTimers.install() as GlobalClock : undefined;
-
 		const server = await createHttpsTestServer(options);
+
+		const fakeTimer = installFakeTimer
+			? FakeTimers.install({
+				toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval'],
+				shouldAdvanceTime: true,
+				advanceTimeDelta: 1,
+			}) as GlobalClock
+			: undefined;
 
 		const httpsContext: Record<string, unknown> = {};
 		Object.defineProperty(httpsContext, 'avaTest', {
@@ -128,6 +142,7 @@ const generateHttpsHook = (options?: HttpsServerOptions, installFakeTimer = fals
 
 export const withHttpsServer = generateHttpsHook;
 
+// eslint-disable-next-line no-warning-comments
 // TODO: Remove this when `create-test-server` supports custom listen.
 export const withSocketServer: Macro<[RunTestWithSocket]> = {
 	async exec(t, run) {
