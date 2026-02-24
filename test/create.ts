@@ -427,20 +427,23 @@ test('waits for handlers to finish', withServer, async (t, server, got) => {
 	t.is(foo, 'bar');
 });
 
-test('does not append to internal _init on new requests', withServer, async (t, server, got) => {
+test('does not leak per-request options into extended defaults', withServer, async (t, server, got) => {
 	server.get('/', echoHeaders);
 
 	const instance = got.extend({
 		mutableDefaults: true,
 	});
 
-	const {length} = (instance.defaults.options as any)._init;
-
-	await got('', {
-		context: {},
+	await instance('', {
+		headers: {
+			'x-transient': 'present-once',
+		},
 	});
 
-	t.is((instance.defaults.options as any)._init.length, length);
+	const extendedInstance = instance.extend({});
+	const headers = await extendedInstance('').json<Record<string, string>>();
+
+	t.is(headers['x-transient'], undefined);
 });
 
 test('extend clones searchParams object', t => {

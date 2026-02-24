@@ -867,12 +867,14 @@ The IP version to use. Specifying `undefined` will use the default configuration
 
 ### `request`
 
-**Type: <code>Function<[ClientRequest](https://nodejs.org/api/http.html#http_class_http_clientrequest) | [IncomingMessage](https://nodejs.org/api/http.html#http_class_http_incomingmessage)> | AsyncFunction<[ClientRequest](https://nodejs.org/api/http.html#http_class_http_clientrequest) | [IncomingMessage](https://nodejs.org/api/http.html#http_class_http_incomingmessage)></code>**\
+**Type: <code>Function<[ClientRequest](https://nodejs.org/api/http.html#http_class_http_clientrequest) | [IncomingMessage](https://nodejs.org/api/http.html#http_class_http_incomingmessage) | undefined> | AsyncFunction<[ClientRequest](https://nodejs.org/api/http.html#http_class_http_clientrequest) | [IncomingMessage](https://nodejs.org/api/http.html#http_class_http_incomingmessage) | undefined></code>**\
 **Default: `http.request | https.request` *(depending on the protocol)***
 
 Custom request function.
 
 The main purpose of this is to [support HTTP/2 using a wrapper](https://github.com/szmarczak/http2-wrapper).
+
+Returning `undefined` (or resolving to `undefined`) will fall back to Got's native request implementation.
 
 ### `cache`
 
@@ -1074,8 +1076,8 @@ await gotWithUnixSockets('http://unix:/var/run/docker.sock:/containers/json');
 
 Merges `other` into the current instance.
 
-If you look at the [source code](../source/core/options.ts), you will notice that internally there is a `this._merging` property.\
-Setters work a bit differently when it's `true`.
+If you look at the [source code](../source/core/options.ts), you will notice that options track internal merge state.\
+Setters work a bit differently while merge is in progress.
 
 ### `options.toJSON()`
 

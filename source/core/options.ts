@@ -39,7 +39,7 @@ type Except<ObjectType, KeysType extends keyof ObjectType> = Pick<ObjectType, Ex
 export type NativeRequestOptions = HttpsRequestOptions & CacheOptions & {checkServerIdentity?: CheckServerIdentityFunction};
 
 type AcceptableResponse = IncomingMessageWithTimings | ResponseLike;
-type AcceptableRequestResult = Promisable<AcceptableResponse | ClientRequest> | undefined;
+type AcceptableRequestResult = Promisable<AcceptableResponse | ClientRequest | undefined>;
 export type RequestFunction = (url: URL, options: NativeRequestOptions, callback?: (response: AcceptableResponse) => void) => AcceptableRequestResult;
 
 export type Agents = {
@@ -915,7 +915,6 @@ type OptionsToSkip =
 	'merge' |
 	'createNativeRequestOptions' |
 	'getRequestFunction' |
-	'getFallbackRequestFunction' |
 	'freeze';
 
 export type InternalsType = Except<Options, OptionsToSkip>;
@@ -977,7 +976,7 @@ const wrapQuickLruIfNeeded = (value: any): any => {
 	return value;
 };
 
-const defaultInternals: Options['_internals'] = {
+const defaultInternals: InternalsType = {
 	request: undefined,
 	agent: {
 		http: undefined,
@@ -1297,10 +1296,10 @@ const init = (options: OptionsInit, withOptions: OptionsInit, self: Options): vo
 };
 
 export default class Options {
-	private _unixOptions?: NativeRequestOptions;
-	private readonly _internals: InternalsType;
-	private _merging = false;
-	private readonly _init: OptionsInit[];
+	#unixOptions?: NativeRequestOptions;
+	readonly #internals: InternalsType;
+	#merging = false;
+	readonly #init: OptionsInit[];
 
 	constructor(input?: string | URL | OptionsInit, options?: OptionsInit, defaults?: Options) {
 		assertAny('input', [is.string, is.urlInstance, is.object, is.undefined], input);
@@ -1311,8 +1310,13 @@ export default class Options {
 			throw new TypeError('The defaults must be passed as the third argument');
 		}
 
-		this._internals = cloneInternals(defaults?._internals ?? defaults ?? defaultInternals);
-		this._init = [...(defaults?._init ?? [])];
+		if (defaults) {
+			this.#internals = cloneInternals(defaults.#internals);
+			this.#init = [...defaults.#init];
+		} else {
+			this.#internals = cloneInternals(defaultInternals);
+			this.#init = [];
+		}
 
 		// This rule allows `finally` to be considered more important.
 		// Meaning no matter the error thrown in the `try` block,
@@ -1360,9 +1364,9 @@ export default class Options {
 		}
 
 		if (options instanceof Options) {
-			// Create a copy of the _init array to avoid infinite loop
+			// Create a copy of the #init array to avoid infinite loop
 			// when merging an Options instance with itself
-			const initArray = [...options._init];
+			const initArray = [...options.#init];
 			for (const init of initArray) {
 				this.merge(init);
 			}
@@ -1375,7 +1379,7 @@ export default class Options {
 		init(this, options, this);
 		init(options, options, this);
 
-		this._merging = true;
+		this.#merging = true;
 
 		try {
 			let push = false;
@@ -1418,10 +1422,10 @@ export default class Options {
 			}
 
 			if (push) {
-				this._init.push(options);
+				this.#init.push(options);
 			}
 		} finally {
-			this._merging = false;
+			this.#merging = false;
 		}
 	}
 
@@ -1432,13 +1436,13 @@ export default class Options {
 	@default http.request | https.request
 	*/
 	get request(): RequestFunction | undefined {
-		return this._internals.request;
+		return this.#internals.request;
 	}
 
 	set request(value: RequestFunction | undefined) {
 		assertAny('request', [is.function, is.undefined], value);
 
-		this._internals.request = value;
+		this.#internals.request = value;
 	}
 
 	/**
@@ -1464,7 +1468,7 @@ export default class Options {
 	```
 	*/
 	get agent(): Agents {
-		return this._internals.agent;
+		return this.#internals.agent;
 	}
 
 	set agent(value: Agents) {
@@ -1472,7 +1476,7 @@ export default class Options {
 
 		// eslint-disable-next-line guard-for-in
 		for (const key in value) {
-			if (!(key in this._internals.agent)) {
+			if (!(key in this.#internals.agent)) {
 				throw new TypeError(`Unexpected agent option: ${key}`);
 			}
 
@@ -1480,19 +1484,19 @@ export default class Options {
 			assertAny(`agent.${key}`, [is.object, is.undefined, (v: unknown) => v === false], value[key]);
 		}
 
-		if (this._merging) {
-			Object.assign(this._internals.agent, value);
+		if (this.#merging) {
+			Object.assign(this.#internals.agent, value);
 		} else {
-			this._internals.agent = {...value};
+			this.#internals.agent = {...value};
 		}
 	}
 
 	get h2session(): ClientHttp2Session | undefined {
-		return this._internals.h2session;
+		return this.#internals.h2session;
 	}
 
 	set h2session(value: ClientHttp2Session | undefined) {
-		this._internals.h2session = value;
+		this.#internals.h2session = value;
 	}
 
 	/**
@@ -1506,13 +1510,13 @@ export default class Options {
 	@default true
 	*/
 	get decompress(): boolean {
-		return this._internals.decompress;
+		return this.#internals.decompress;
 	}
 
 	set decompress(value: boolean) {
 		assert.boolean(value);
 
-		this._internals.decompress = value;
+		this.#internals.decompress = value;
 	}
 
 	/**
@@ -1533,7 +1537,7 @@ export default class Options {
 	get timeout(): Delays {
 		// We always return `Delays` here.
 		// It has to be `Delays | number`, otherwise TypeScript will error because the getter and the setter have incompatible types.
-		return this._internals.timeout;
+		return this.#internals.timeout;
 	}
 
 	set timeout(value: Delays) {
@@ -1541,7 +1545,7 @@ export default class Options {
 
 		// eslint-disable-next-line guard-for-in
 		for (const key in value) {
-			if (!(key in this._internals.timeout)) {
+			if (!(key in this.#internals.timeout)) {
 				throw new Error(`Unexpected timeout option: ${key}`);
 			}
 
@@ -1549,10 +1553,10 @@ export default class Options {
 			assertAny(`timeout.${key}`, [is.number, is.undefined], value[key]);
 		}
 
-		if (this._merging) {
-			Object.assign(this._internals.timeout, value);
+		if (this.#merging) {
+			Object.assign(this.#internals.timeout, value);
 		} else {
-			this._internals.timeout = {...value};
+			this.#internals.timeout = {...value};
 		}
 	}
 
@@ -1598,14 +1602,14 @@ export default class Options {
 	get prefixUrl(): string | URL {
 		// We always return `string` here.
 		// It has to be `string | URL`, otherwise TypeScript will error because the getter and the setter have incompatible types.
-		return this._internals.prefixUrl;
+		return this.#internals.prefixUrl;
 	}
 
 	set prefixUrl(value: string | URL) {
 		assertAny('prefixUrl', [is.string, is.urlInstance], value);
 
 		if (value === '') {
-			this._internals.prefixUrl = '';
+			this.#internals.prefixUrl = '';
 			return;
 		}
 
@@ -1615,13 +1619,13 @@ export default class Options {
 			value += '/';
 		}
 
-		if (this._internals.prefixUrl && this._internals.url) {
-			const {href} = this._internals.url as URL;
+		if (this.#internals.prefixUrl && this.#internals.url) {
+			const {href} = this.#internals.url as URL;
 
-			(this._internals.url as URL).href = value + href.slice((this._internals.prefixUrl as string).length);
+			(this.#internals.url as URL).href = value + href.slice((this.#internals.prefixUrl as string).length);
 		}
 
-		this._internals.prefixUrl = value;
+		this.#internals.prefixUrl = value;
 	}
 
 	/**
@@ -1655,7 +1659,7 @@ export default class Options {
 	```
 	*/
 	get body(): string | Uint8Array | Readable | Generator | AsyncGenerator | Iterable<unknown> | AsyncIterable<unknown> | FormData | ArrayBufferView | undefined {
-		return this._internals.body;
+		return this.#internals.body;
 	}
 
 	set body(value: string | Uint8Array | Readable | Generator | AsyncGenerator | Iterable<unknown> | AsyncIterable<unknown> | FormData | ArrayBufferView | undefined) {
@@ -1666,11 +1670,11 @@ export default class Options {
 		}
 
 		if (value !== undefined) {
-			assert.undefined(this._internals.form);
-			assert.undefined(this._internals.json);
+			assert.undefined(this.#internals.form);
+			assert.undefined(this.#internals.json);
 		}
 
-		this._internals.body = value;
+		this.#internals.body = value;
 	}
 
 	/**
@@ -1683,18 +1687,18 @@ export default class Options {
 	__Note #2__: This option is not enumerable and will not be merged with the instance defaults.
 	*/
 	get form(): Record<string, any> | undefined {
-		return this._internals.form;
+		return this.#internals.form;
 	}
 
 	set form(value: Record<string, any> | undefined) {
 		assertAny('form', [is.plainObject, is.undefined], value);
 
 		if (value !== undefined) {
-			assert.undefined(this._internals.body);
-			assert.undefined(this._internals.json);
+			assert.undefined(this.#internals.body);
+			assert.undefined(this.#internals.json);
 		}
 
-		this._internals.form = value;
+		this.#internals.form = value;
 	}
 
 	/**
@@ -1707,16 +1711,16 @@ export default class Options {
 	__Note #2__: This option is not enumerable and will not be merged with the instance defaults.
 	*/
 	get json(): unknown {
-		return this._internals.json;
+		return this.#internals.json;
 	}
 
 	set json(value: unknown) {
 		if (value !== undefined) {
-			assert.undefined(this._internals.body);
-			assert.undefined(this._internals.form);
+			assert.undefined(this.#internals.body);
+			assert.undefined(this.#internals.form);
 		}
 
-		this._internals.json = value;
+		this.#internals.json = value;
 	}
 
 	/**
@@ -1738,14 +1742,14 @@ export default class Options {
 	```
 	*/
 	get url(): string | URL | undefined {
-		return this._internals.url;
+		return this.#internals.url;
 	}
 
 	set url(value: string | URL | undefined) {
 		assertAny('url', [is.string, is.urlInstance, is.undefined], value);
 
 		if (value === undefined) {
-			this._internals.url = undefined;
+			this.#internals.url = undefined;
 			return;
 		}
 
@@ -1760,7 +1764,7 @@ export default class Options {
 		// Only concatenate prefixUrl if the URL is relative
 		const urlString = isAbsolute ? valueString : `${this.prefixUrl as string}${valueString}`;
 		const url = new URL(urlString);
-		this._internals.url = url;
+		this.#internals.url = url;
 
 		if (url.protocol === 'unix:') {
 			url.href = `http://unix${url.pathname}${url.search}`;
@@ -1773,23 +1777,23 @@ export default class Options {
 			throw error;
 		}
 
-		if (this._internals.username) {
-			url.username = this._internals.username;
-			this._internals.username = '';
+		if (this.#internals.username) {
+			url.username = this.#internals.username;
+			this.#internals.username = '';
 		}
 
-		if (this._internals.password) {
-			url.password = this._internals.password;
-			this._internals.password = '';
+		if (this.#internals.password) {
+			url.password = this.#internals.password;
+			this.#internals.password = '';
 		}
 
-		if (this._internals.searchParams) {
-			url.search = (this._internals.searchParams as URLSearchParams).toString();
-			this._internals.searchParams = undefined;
+		if (this.#internals.searchParams) {
+			url.search = (this.#internals.searchParams as URLSearchParams).toString();
+			this.#internals.searchParams = undefined;
 		}
 
 		if (url.hostname === 'unix') {
-			if (!this._internals.enableUnixSockets) {
+			if (!this.#internals.enableUnixSockets) {
 				throw new Error('Using UNIX domain sockets but option `enableUnixSockets` is not enabled');
 			}
 
@@ -1798,19 +1802,19 @@ export default class Options {
 			if (matches?.groups) {
 				const {socketPath, path} = matches.groups;
 
-				this._unixOptions = {
+				this.#unixOptions = {
 					socketPath,
 					path,
 					host: '',
 				};
 			} else {
-				this._unixOptions = undefined;
+				this.#unixOptions = undefined;
 			}
 
 			return;
 		}
 
-		this._unixOptions = undefined;
+		this.#unixOptions = undefined;
 	}
 
 	/**
@@ -1819,14 +1823,14 @@ export default class Options {
 	__Note__: If you provide this option, `options.headers.cookie` will be overridden.
 	*/
 	get cookieJar(): PromiseCookieJar | ToughCookieJar | undefined {
-		return this._internals.cookieJar;
+		return this.#internals.cookieJar;
 	}
 
 	set cookieJar(value: PromiseCookieJar | ToughCookieJar | undefined) {
 		assertAny('cookieJar', [is.object, is.undefined], value);
 
 		if (value === undefined) {
-			this._internals.cookieJar = undefined;
+			this.#internals.cookieJar = undefined;
 			return;
 		}
 
@@ -1840,12 +1844,12 @@ export default class Options {
 			setCookie = promisify(setCookie.bind(value));
 			getCookieString = promisify(getCookieString.bind(value));
 
-			this._internals.cookieJar = {
+			this.#internals.cookieJar = {
 				setCookie,
 				getCookieString: getCookieString as PromiseCookieJar['getCookieString'],
 			};
 		} else {
-			this._internals.cookieJar = value;
+			this.#internals.cookieJar = value;
 		}
 	}
 
@@ -1868,13 +1872,13 @@ export default class Options {
 	```
 	*/
 	get signal(): AbortSignal | undefined {
-		return this._internals.signal;
+		return this.#internals.signal;
 	}
 
 	set signal(value: AbortSignal | undefined) {
 		assert.object(value);
 
-		this._internals.signal = value;
+		this.#internals.signal = value;
 	}
 
 	/**
@@ -1884,13 +1888,13 @@ export default class Options {
 	@default false
 	*/
 	get ignoreInvalidCookies(): boolean {
-		return this._internals.ignoreInvalidCookies;
+		return this.#internals.ignoreInvalidCookies;
 	}
 
 	set ignoreInvalidCookies(value: boolean) {
 		assert.boolean(value);
 
-		this._internals.ignoreInvalidCookies = value;
+		this.#internals.ignoreInvalidCookies = value;
 	}
 
 	/**
@@ -1912,22 +1916,22 @@ export default class Options {
 	```
 	*/
 	get searchParams(): string | SearchParameters | URLSearchParams | undefined {
-		if (this._internals.url) {
-			return (this._internals.url as URL).searchParams;
+		if (this.#internals.url) {
+			return (this.#internals.url as URL).searchParams;
 		}
 
-		this._internals.searchParams ??= new URLSearchParams();
+		this.#internals.searchParams ??= new URLSearchParams();
 
-		return this._internals.searchParams;
+		return this.#internals.searchParams;
 	}
 
 	set searchParams(value: string | SearchParameters | URLSearchParams | undefined) {
 		assertAny('searchParams', [is.string, is.object, is.undefined], value);
 
-		const url = this._internals.url as URL;
+		const url = this.#internals.url as URL;
 
 		if (value === undefined) {
-			this._internals.searchParams = undefined;
+			this.#internals.searchParams = undefined;
 
 			if (url) {
 				url.search = '';
@@ -1962,7 +1966,7 @@ export default class Options {
 			}
 		}
 
-		if (this._merging) {
+		if (this.#merging) {
 			// These keys will be replaced
 			for (const key of updated.keys()) {
 				searchParameters.delete(key);
@@ -1974,7 +1978,7 @@ export default class Options {
 		} else if (url) {
 			url.search = searchParameters.toString();
 		} else {
-			this._internals.searchParams = searchParameters;
+			this.#internals.searchParams = searchParameters;
 		}
 	}
 
@@ -1987,13 +1991,13 @@ export default class Options {
 	}
 
 	get dnsLookup(): LookupFunction | undefined {
-		return this._internals.dnsLookup;
+		return this.#internals.dnsLookup;
 	}
 
 	set dnsLookup(value: LookupFunction | undefined) {
 		assertAny('dnsLookup', [is.function, is.undefined], value);
 
-		this._internals.dnsLookup = value;
+		this.#internals.dnsLookup = value;
 	}
 
 	/**
@@ -2007,18 +2011,18 @@ export default class Options {
 	@default false
 	*/
 	get dnsCache(): CacheableLookup | boolean | undefined {
-		return this._internals.dnsCache;
+		return this.#internals.dnsCache;
 	}
 
 	set dnsCache(value: CacheableLookup | boolean | undefined) {
 		assertAny('dnsCache', [is.object, is.boolean, is.undefined], value);
 
 		if (value === true) {
-			this._internals.dnsCache = getGlobalDnsCache();
+			this.#internals.dnsCache = getGlobalDnsCache();
 		} else if (value === false) {
-			this._internals.dnsCache = undefined;
+			this.#internals.dnsCache = undefined;
 		} else {
-			this._internals.dnsCache = value;
+			this.#internals.dnsCache = value;
 		}
 	}
 
@@ -2054,16 +2058,16 @@ export default class Options {
 	```
 	*/
 	get context(): Record<string, unknown> {
-		return this._internals.context;
+		return this.#internals.context;
 	}
 
 	set context(value: Record<string, unknown>) {
 		assert.object(value);
 
-		if (this._merging) {
-			Object.assign(this._internals.context, value);
+		if (this.#merging) {
+			Object.assign(this.#internals.context, value);
 		} else {
-			this._internals.context = {...value};
+			this.#internals.context = {...value};
 		}
 	}
 
@@ -2072,7 +2076,7 @@ export default class Options {
 	Hook functions may be async and are run serially.
 	*/
 	get hooks(): Hooks {
-		return this._internals.hooks;
+		return this.#internals.hooks;
 	}
 
 	set hooks(value: Hooks) {
@@ -2080,7 +2084,7 @@ export default class Options {
 
 		// eslint-disable-next-line guard-for-in
 		for (const knownHookEvent in value) {
-			if (!(knownHookEvent in this._internals.hooks)) {
+			if (!(knownHookEvent in this.#internals.hooks)) {
 				throw new Error(`Unexpected hook event: ${knownHookEvent}`);
 			}
 
@@ -2095,10 +2099,10 @@ export default class Options {
 				}
 			}
 
-			if (this._merging) {
+			if (this.#merging) {
 				if (hooks) {
 					// @ts-expect-error FIXME
-					this._internals.hooks[typedKnownHookEvent].push(...hooks);
+					this.#internals.hooks[typedKnownHookEvent].push(...hooks);
 				}
 			} else {
 				if (!hooks) {
@@ -2106,7 +2110,7 @@ export default class Options {
 				}
 
 				// @ts-expect-error FIXME
-				this._internals.hooks[knownHookEvent] = [...hooks];
+				this.#internals.hooks[knownHookEvent] = [...hooks];
 			}
 		}
 	}
@@ -2122,13 +2126,13 @@ export default class Options {
 	@default true
 	*/
 	get followRedirect(): boolean | ((response: PlainResponse) => boolean) {
-		return this._internals.followRedirect;
+		return this.#internals.followRedirect;
 	}
 
 	set followRedirect(value: boolean | ((response: PlainResponse) => boolean)) {
 		assertAny('followRedirect', [is.boolean, is.function], value);
 
-		this._internals.followRedirect = value;
+		this.#internals.followRedirect = value;
 	}
 
 	get followRedirects() {
@@ -2145,13 +2149,13 @@ export default class Options {
 	@default 10
 	*/
 	get maxRedirects(): number {
-		return this._internals.maxRedirects;
+		return this.#internals.maxRedirects;
 	}
 
 	set maxRedirects(value: number) {
 		assert.number(value);
 
-		this._internals.maxRedirects = value;
+		this.#internals.maxRedirects = value;
 	}
 
 	/**
@@ -2160,18 +2164,18 @@ export default class Options {
 	@default false
 	*/
 	get cache(): string | StorageAdapter | boolean | undefined {
-		return this._internals.cache;
+		return this.#internals.cache;
 	}
 
 	set cache(value: string | StorageAdapter | boolean | undefined) {
 		assertAny('cache', [is.object, is.string, is.boolean, is.undefined], value);
 
 		if (value === true) {
-			this._internals.cache = globalCache;
+			this.#internals.cache = globalCache;
 		} else if (value === false) {
-			this._internals.cache = undefined;
+			this.#internals.cache = undefined;
 		} else {
-			this._internals.cache = wrapQuickLruIfNeeded(value);
+			this.#internals.cache = wrapQuickLruIfNeeded(value);
 		}
 	}
 
@@ -2184,19 +2188,19 @@ export default class Options {
 	@default true
 	*/
 	get throwHttpErrors(): boolean {
-		return this._internals.throwHttpErrors;
+		return this.#internals.throwHttpErrors;
 	}
 
 	set throwHttpErrors(value: boolean) {
 		assert.boolean(value);
 
-		this._internals.throwHttpErrors = value;
+		this.#internals.throwHttpErrors = value;
 	}
 
 	get username(): string {
-		const url = this._internals.url as URL;
+		const url = this.#internals.url as URL;
 
-		const value = url ? url.username : this._internals.username;
+		const value = url ? url.username : this.#internals.username;
 
 		return decodeURIComponent(value);
 	}
@@ -2204,20 +2208,20 @@ export default class Options {
 	set username(value: string) {
 		assert.string(value);
 
-		const url = this._internals.url as URL;
+		const url = this.#internals.url as URL;
 		const fixedValue = encodeURIComponent(value);
 
 		if (url) {
 			url.username = fixedValue;
 		} else {
-			this._internals.username = fixedValue;
+			this.#internals.username = fixedValue;
 		}
 	}
 
 	get password(): string {
-		const url = this._internals.url as URL;
+		const url = this.#internals.url as URL;
 
-		const value = url ? url.password : this._internals.password;
+		const value = url ? url.password : this.#internals.password;
 
 		return decodeURIComponent(value);
 	}
@@ -2225,14 +2229,14 @@ export default class Options {
 	set password(value: string) {
 		assert.string(value);
 
-		const url = this._internals.url as URL;
+		const url = this.#internals.url as URL;
 
 		const fixedValue = encodeURIComponent(value);
 
 		if (url) {
 			url.password = fixedValue;
 		} else {
-			this._internals.password = fixedValue;
+			this.#internals.password = fixedValue;
 		}
 	}
 
@@ -2258,13 +2262,13 @@ export default class Options {
 	```
 	*/
 	get http2(): boolean {
-		return this._internals.http2;
+		return this.#internals.http2;
 	}
 
 	set http2(value: boolean) {
 		assert.boolean(value);
 
-		this._internals.http2 = value;
+		this.#internals.http2 = value;
 	}
 
 	/**
@@ -2277,13 +2281,13 @@ export default class Options {
 	@default false
 	*/
 	get allowGetBody(): boolean {
-		return this._internals.allowGetBody;
+		return this.#internals.allowGetBody;
 	}
 
 	set allowGetBody(value: boolean) {
 		assert.boolean(value);
 
-		this._internals.allowGetBody = value;
+		this.#internals.allowGetBody = value;
 	}
 
 	/**
@@ -2336,13 +2340,13 @@ export default class Options {
 	```
 	*/
 	get copyPipedHeaders(): boolean {
-		return this._internals.copyPipedHeaders;
+		return this.#internals.copyPipedHeaders;
 	}
 
 	set copyPipedHeaders(value: boolean) {
 		assert.boolean(value);
 
-		this._internals.copyPipedHeaders = value;
+		this.#internals.copyPipedHeaders = value;
 	}
 
 	/**
@@ -2353,16 +2357,16 @@ export default class Options {
 	@default {}
 	*/
 	get headers(): Headers {
-		return this._internals.headers;
+		return this.#internals.headers;
 	}
 
 	set headers(value: Headers) {
 		assertPlainObject('headers', value);
 
-		if (this._merging) {
-			Object.assign(this._internals.headers, lowercaseKeys(value));
+		if (this.#merging) {
+			Object.assign(this.#internals.headers, lowercaseKeys(value));
 		} else {
-			this._internals.headers = lowercaseKeys(value);
+			this.#internals.headers = lowercaseKeys(value);
 		}
 	}
 
@@ -2377,13 +2381,13 @@ export default class Options {
 	@default false
 	*/
 	get methodRewriting(): boolean {
-		return this._internals.methodRewriting;
+		return this.#internals.methodRewriting;
 	}
 
 	set methodRewriting(value: boolean) {
 		assert.boolean(value);
 
-		this._internals.methodRewriting = value;
+		this.#internals.methodRewriting = value;
 	}
 
 	/**
@@ -2397,7 +2401,7 @@ export default class Options {
 	@default undefined
 	*/
 	get dnsLookupIpVersion(): DnsLookupIpVersion {
-		return this._internals.dnsLookupIpVersion;
+		return this.#internals.dnsLookupIpVersion;
 	}
 
 	set dnsLookupIpVersion(value: DnsLookupIpVersion) {
@@ -2405,7 +2409,7 @@ export default class Options {
 			throw new TypeError(`Invalid DNS lookup IP version: ${value as string}`);
 		}
 
-		this._internals.dnsLookupIpVersion = value;
+		this.#internals.dnsLookupIpVersion = value;
 	}
 
 	/**
@@ -2424,13 +2428,13 @@ export default class Options {
 	```
 	*/
 	get parseJson(): ParseJsonFunction {
-		return this._internals.parseJson;
+		return this.#internals.parseJson;
 	}
 
 	set parseJson(value: ParseJsonFunction) {
 		assert.function(value);
 
-		this._internals.parseJson = value;
+		this.#internals.parseJson = value;
 	}
 
 	/**
@@ -2475,13 +2479,13 @@ export default class Options {
 	```
 	*/
 	get stringifyJson(): StringifyJsonFunction {
-		return this._internals.stringifyJson;
+		return this.#internals.stringifyJson;
 	}
 
 	set stringifyJson(value: StringifyJsonFunction) {
 		assert.function(value);
 
-		this._internals.stringifyJson = value;
+		this.#internals.stringifyJson = value;
 	}
 
 	/**
@@ -2511,7 +2515,7 @@ export default class Options {
 	__Note__: If [`Retry-After`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Retry-After) header is greater than `maxRetryAfter`, it will cancel the request.
 	*/
 	get retry(): Partial<RetryOptions> {
-		return this._internals.retry;
+		return this.#internals.retry;
 	}
 
 	set retry(value: Partial<RetryOptions>) {
@@ -2531,18 +2535,18 @@ export default class Options {
 		}
 
 		for (const key in value) {
-			if (!(key in this._internals.retry)) {
+			if (!(key in this.#internals.retry)) {
 				throw new Error(`Unexpected retry option: ${key}`);
 			}
 		}
 
-		if (this._merging) {
-			Object.assign(this._internals.retry, value);
+		if (this.#merging) {
+			Object.assign(this.#internals.retry, value);
 		} else {
-			this._internals.retry = {...value};
+			this.#internals.retry = {...value};
 		}
 
-		const {retry} = this._internals;
+		const {retry} = this.#internals;
 
 		retry.methods = [...new Set(retry.methods!.map(method => method.toUpperCase() as Method))];
 		retry.statusCodes = [...new Set(retry.statusCodes)];
@@ -2555,13 +2559,13 @@ export default class Options {
 	The IP address used to send the request from.
 	*/
 	get localAddress(): string | undefined {
-		return this._internals.localAddress;
+		return this.#internals.localAddress;
 	}
 
 	set localAddress(value: string | undefined) {
 		assertAny('localAddress', [is.string, is.undefined], value);
 
-		this._internals.localAddress = value;
+		this.#internals.localAddress = value;
 	}
 
 	/**
@@ -2570,23 +2574,23 @@ export default class Options {
 	@default 'GET'
 	*/
 	get method(): Method {
-		return this._internals.method;
+		return this.#internals.method;
 	}
 
 	set method(value: Method) {
 		assert.string(value);
 
-		this._internals.method = value.toUpperCase() as Method;
+		this.#internals.method = value.toUpperCase() as Method;
 	}
 
 	get createConnection(): CreateConnectionFunction | undefined {
-		return this._internals.createConnection;
+		return this.#internals.createConnection;
 	}
 
 	set createConnection(value: CreateConnectionFunction | undefined) {
 		assertAny('createConnection', [is.function, is.undefined], value);
 
-		this._internals.createConnection = value;
+		this.#internals.createConnection = value;
 	}
 
 	/**
@@ -2595,7 +2599,7 @@ export default class Options {
 	@default {}
 	*/
 	get cacheOptions(): CacheOptions {
-		return this._internals.cacheOptions;
+		return this.#internals.cacheOptions;
 	}
 
 	set cacheOptions(value: CacheOptions) {
@@ -2607,15 +2611,15 @@ export default class Options {
 		assertAny('cacheOptions.ignoreCargoCult', [is.boolean, is.undefined], value.ignoreCargoCult);
 
 		for (const key in value) {
-			if (!(key in this._internals.cacheOptions)) {
+			if (!(key in this.#internals.cacheOptions)) {
 				throw new Error(`Cache option \`${key}\` does not exist`);
 			}
 		}
 
-		if (this._merging) {
-			Object.assign(this._internals.cacheOptions, value);
+		if (this.#merging) {
+			Object.assign(this.#internals.cacheOptions, value);
 		} else {
-			this._internals.cacheOptions = {...value};
+			this.#internals.cacheOptions = {...value};
 		}
 	}
 
@@ -2623,7 +2627,7 @@ export default class Options {
 	Options for the advanced HTTPS API.
 	*/
 	get https(): HttpsOptions {
-		return this._internals.https;
+		return this.#internals.https;
 	}
 
 	set https(value: HttpsOptions) {
@@ -2650,15 +2654,15 @@ export default class Options {
 		assertAny('https.secureOptions', [is.number, is.undefined], value.secureOptions);
 
 		for (const key in value) {
-			if (!(key in this._internals.https)) {
+			if (!(key in this.#internals.https)) {
 				throw new Error(`HTTPS option \`${key}\` does not exist`);
 			}
 		}
 
-		if (this._merging) {
-			Object.assign(this._internals.https, value);
+		if (this.#merging) {
+			Object.assign(this.#internals.https, value);
 		} else {
-			this._internals.https = {...value};
+			this.#internals.https = {...value};
 		}
 	}
 
@@ -2673,7 +2677,7 @@ export default class Options {
 	@default 'utf-8'
 	*/
 	get encoding(): BufferEncoding | undefined {
-		return this._internals.encoding;
+		return this.#internals.encoding;
 	}
 
 	set encoding(value: BufferEncoding | undefined) {
@@ -2683,7 +2687,7 @@ export default class Options {
 
 		assertAny('encoding', [is.string, is.undefined], value);
 
-		this._internals.encoding = value;
+		this.#internals.encoding = value;
 	}
 
 	/**
@@ -2692,13 +2696,13 @@ export default class Options {
 	@default false
 	*/
 	get resolveBodyOnly(): boolean {
-		return this._internals.resolveBodyOnly;
+		return this.#internals.resolveBodyOnly;
 	}
 
 	set resolveBodyOnly(value: boolean) {
 		assert.boolean(value);
 
-		this._internals.resolveBodyOnly = value;
+		this.#internals.resolveBodyOnly = value;
 	}
 
 	/**
@@ -2709,13 +2713,13 @@ export default class Options {
 	@default false
 	*/
 	get isStream(): boolean {
-		return this._internals.isStream;
+		return this.#internals.isStream;
 	}
 
 	set isStream(value: boolean) {
 		assert.boolean(value);
 
-		this._internals.isStream = value;
+		this.#internals.isStream = value;
 	}
 
 	/**
@@ -2749,12 +2753,12 @@ export default class Options {
 	```
 	*/
 	get responseType(): ResponseType {
-		return this._internals.responseType;
+		return this.#internals.responseType;
 	}
 
 	set responseType(value: ResponseType) {
 		if (value === undefined) {
-			this._internals.responseType = 'text';
+			this.#internals.responseType = 'text';
 			return;
 		}
 
@@ -2762,20 +2766,20 @@ export default class Options {
 			throw new Error(`Invalid \`responseType\` option: ${value as string}`);
 		}
 
-		this._internals.responseType = value;
+		this.#internals.responseType = value;
 	}
 
 	get pagination(): PaginationOptions<unknown, unknown> {
-		return this._internals.pagination;
+		return this.#internals.pagination;
 	}
 
 	set pagination(value: PaginationOptions<unknown, unknown>) {
 		assert.object(value);
 
-		if (this._merging) {
-			Object.assign(this._internals.pagination, value);
+		if (this.#merging) {
+			Object.assign(this.#internals.pagination, value);
 		} else {
-			this._internals.pagination = value;
+			this.#internals.pagination = value;
 		}
 	}
 
@@ -2788,33 +2792,33 @@ export default class Options {
 	}
 
 	get setHost() {
-		return this._internals.setHost;
+		return this.#internals.setHost;
 	}
 
 	set setHost(value: boolean) {
 		assert.boolean(value);
 
-		this._internals.setHost = value;
+		this.#internals.setHost = value;
 	}
 
 	get maxHeaderSize() {
-		return this._internals.maxHeaderSize;
+		return this.#internals.maxHeaderSize;
 	}
 
 	set maxHeaderSize(value: number | undefined) {
 		assertAny('maxHeaderSize', [is.number, is.undefined], value);
 
-		this._internals.maxHeaderSize = value;
+		this.#internals.maxHeaderSize = value;
 	}
 
 	get enableUnixSockets() {
-		return this._internals.enableUnixSockets;
+		return this.#internals.enableUnixSockets;
 	}
 
 	set enableUnixSockets(value: boolean) {
 		assert.boolean(value);
 
-		this._internals.enableUnixSockets = value;
+		this.#internals.enableUnixSockets = value;
 	}
 
 	/**
@@ -2828,26 +2832,26 @@ export default class Options {
 	@default true
 	*/
 	get strictContentLength() {
-		return this._internals.strictContentLength;
+		return this.#internals.strictContentLength;
 	}
 
 	set strictContentLength(value: boolean) {
 		assert.boolean(value);
 
-		this._internals.strictContentLength = value;
+		this.#internals.strictContentLength = value;
 	}
 
 	// eslint-disable-next-line @typescript-eslint/naming-convention
 	toJSON() {
-		return {...this._internals};
+		return {...this.#internals};
 	}
 
 	[Symbol.for('nodejs.util.inspect.custom')](_depth: number, options: InspectOptions) {
-		return inspect(this._internals, options);
+		return inspect(this.#internals, options);
 	}
 
 	createNativeRequestOptions() {
-		const internals = this._internals;
+		const internals = this.#internals;
 		const url = internals.url as URL;
 
 		let agent;
@@ -2878,7 +2882,7 @@ export default class Options {
 
 		return {
 			...internals.cacheOptions,
-			...this._unixOptions,
+			...this.#unixOptions,
 
 			// HTTPS options
 			// eslint-disable-next-line @typescript-eslint/naming-convention
@@ -2920,43 +2924,31 @@ export default class Options {
 	}
 
 	getRequestFunction() {
-		const url = this._internals.url as (URL | undefined);
-		const {request} = this._internals;
+		const {request: customRequest} = this.#internals;
 
-		if (!request && url) {
-			return this.getFallbackRequestFunction();
+		if (!customRequest) {
+			return this.#getFallbackRequestFunction();
 		}
 
-		return request;
-	}
+		const requestWithFallback: RequestFunction = (url, options, callback?) => {
+			const result = customRequest(url, options, callback);
 
-	getFallbackRequestFunction() {
-		const url = this._internals.url as (URL | undefined);
-
-		if (!url) {
-			return;
-		}
-
-		if (url.protocol === 'https:') {
-			if (this._internals.http2) {
-				if (major < 15 || (major === 15 && minor < 10)) {
-					const error = new Error('To use the `http2` option, install Node.js 15.10.0 or above');
-					(error as NodeJS.ErrnoException).code = 'EUNSUPPORTED';
-
-					throw error;
-				}
-
-				return http2wrapper.auto as RequestFunction;
+			if (is.promise(result)) {
+				return this.#resolveRequestWithFallback(result, url, options, callback);
 			}
 
-			return https.request;
-		}
+			if (result !== undefined) {
+				return result;
+			}
 
-		return http.request;
+			return this.#callFallbackRequest(url, options, callback);
+		};
+
+		return requestWithFallback;
 	}
 
 	freeze() {
-		const options = this._internals;
+		const options = this.#internals;
 
 		Object.freeze(options);
 		Object.freeze(options.hooks);
@@ -2975,5 +2967,79 @@ export default class Options {
 		Object.freeze(options.retry.errorCodes);
 		Object.freeze(options.retry.methods);
 		Object.freeze(options.retry.statusCodes);
+	}
+
+	#getFallbackRequestFunction() {
+		const url = this.#internals.url as (URL | undefined);
+
+		if (!url) {
+			return;
+		}
+
+		if (url.protocol === 'https:') {
+			if (this.#internals.http2) {
+				if (major < 15 || (major === 15 && minor < 10)) {
+					const error = new Error('To use the `http2` option, install Node.js 15.10.0 or above');
+					(error as NodeJS.ErrnoException).code = 'EUNSUPPORTED';
+
+					throw error;
+				}
+
+				return http2wrapper.auto as RequestFunction;
+			}
+
+			return https.request;
+		}
+
+		return http.request;
+	}
+
+	#callFallbackRequest(
+		url: URL,
+		options: NativeRequestOptions,
+		callback?: (response: AcceptableResponse) => void,
+	): AcceptableResponse | ClientRequest | Promise<AcceptableResponse | ClientRequest> {
+		const fallbackRequest = this.#getFallbackRequestFunction();
+
+		if (!fallbackRequest) {
+			throw new TypeError('The request function must return a value');
+		}
+
+		const fallbackResult = fallbackRequest(url, options, callback);
+
+		if (fallbackResult === undefined) {
+			throw new TypeError('The request function must return a value');
+		}
+
+		if (is.promise(fallbackResult)) {
+			return this.#resolveFallbackRequestResult(fallbackResult);
+		}
+
+		return fallbackResult;
+	}
+
+	async #resolveRequestWithFallback(
+		requestResult: Promise<AcceptableResponse | ClientRequest | undefined>,
+		url: URL,
+		options: NativeRequestOptions,
+		callback?: (response: AcceptableResponse) => void,
+	): Promise<AcceptableResponse | ClientRequest> {
+		const result = await requestResult;
+
+		if (result !== undefined) {
+			return result;
+		}
+
+		return this.#callFallbackRequest(url, options, callback);
+	}
+
+	async #resolveFallbackRequestResult(fallbackResult: Promise<AcceptableResponse | ClientRequest | undefined>): Promise<AcceptableResponse | ClientRequest> {
+		const resolvedFallbackResult = await fallbackResult;
+
+		if (resolvedFallbackResult === undefined) {
+			throw new TypeError('The request function must return a value');
+		}
+
+		return resolvedFallbackResult;
 	}
 }

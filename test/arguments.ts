@@ -547,6 +547,14 @@ test('fallbacks to native http if `request(...)` returns undefined', withServer,
 	t.is(body, '/');
 });
 
+test('fallbacks to native http if async `request(...)` resolves to undefined', withServer, async (t, server, got) => {
+	server.get('/', echoUrl);
+
+	const {body} = await got('', {request: async () => undefined});
+
+	t.is(body, '/');
+});
+
 test('strict options', withServer, async (t, server, got) => {
 	server.get('/', echoUrl);
 

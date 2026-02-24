@@ -526,13 +526,11 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 						}
 
 						// Restore new body for promise wrapper's identity check
-						// We bypass the setter because it validates stream.readable (which fails for destroyed request)
-						// Type assertion is necessary here to access private _internals without exposing internal API
 						if (is.nodeStream(bodyAfterHooks) && (bodyAfterHooks.readableEnded || bodyAfterHooks.destroyed)) {
 							throw new TypeError('The reassigned stream body must be readable. Ensure you provide a fresh, readable stream in the beforeRetry hook.');
 						}
 
-						(this.options as any)._internals.body = bodyAfterHooks;
+						this.options.body = bodyAfterHooks;
 					} else {
 						// Body wasn't reassigned - use normal destroy flow which handles body cleanup
 						this.destroy();
@@ -905,10 +903,6 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 		response.once('error', (error: Error) => {
 			this._aborted = true;
-
-			// Force clean-up, because some packages don't do this.
-			// TODO: Fix decompress-response
-			response.destroy();
 
 			this._beforeError(new ReadError(error, this));
 		});
@@ -1739,15 +1733,6 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 			if (is.promise(requestOrResponse)) {
 				requestOrResponse = await requestOrResponse;
-			}
-
-			// Fallback
-			if (is.undefined(requestOrResponse)) {
-				requestOrResponse = options.getFallbackRequestFunction()!(url, this._requestOptions);
-
-				if (is.promise(requestOrResponse)) {
-					requestOrResponse = await requestOrResponse;
-				}
 			}
 
 			if (isClientRequest(requestOrResponse!)) {
