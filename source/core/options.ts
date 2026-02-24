@@ -1141,7 +1141,7 @@ const defaultInternals: Options['_internals'] = {
 	maxHeaderSize: undefined,
 	signal: undefined,
 	enableUnixSockets: false,
-	strictContentLength: false,
+	strictContentLength: true,
 };
 
 const cloneInternals = (internals: typeof defaultInternals) => {
@@ -2825,7 +2825,7 @@ export default class Options {
 	__Note__: Responses without a `content-length` header are not validated.
 	__Note__: When enabled and validation fails, a `ReadError` with code `ERR_HTTP_CONTENT_LENGTH_MISMATCH` will be thrown.
 
-	@default false
+	@default true
 	*/
 	get strictContentLength() {
 		return this._internals.strictContentLength;

@@ -396,6 +396,7 @@ test('errors have body', withServer, async (t, server, got) => {
 	});
 
 	const error = await t.throwsAsync<RequestError>(getStream(got.stream('', {
+		strictContentLength: false,
 		cookieJar: {
 			async setCookie() {
 				throw new Error('snap');
@@ -678,7 +679,7 @@ test('does not throw when content-length header is absent', withServer, async (t
 	t.is(body, 'hello');
 });
 
-test('throws generic abort error (not content-length error) when strictContentLength is false (default)', withServer, async (t, server, got) => {
+test('throws content-length mismatch error by default', withServer, async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.writeHead(200, {
 			'content-length': '100',
@@ -691,8 +692,7 @@ test('throws generic abort error (not content-length error) when strictContentLe
 		got('').text(),
 		{
 			instanceOf: RequestError,
-			// Should get generic abort error, not content-length specific error
-			message: /aborted pending request/,
+			message: /Content-Length mismatch/,
 		},
 	);
 });

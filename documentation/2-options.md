@@ -832,7 +832,7 @@ console.log(response.headers['content-encoding']);
 ### `strictContentLength`
 
 **Type: `boolean`**\
-**Default: `false`**
+**Default: `true`**
 
 Throw an error if the server response's `content-length` header value doesn't match the number of bytes received.
 
