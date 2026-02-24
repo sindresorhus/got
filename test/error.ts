@@ -9,7 +9,6 @@ import test from 'ava';
 import getStream from 'get-stream';
 import is from '@sindresorhus/is';
 import got, {RequestError, HTTPError, TimeoutError} from '../source/index.js';
-import type Request from '../source/core/index.js';
 import withServer from './helpers/with-server.js';
 import invalidUrl from './helpers/invalid-url.js';
 
@@ -242,15 +241,24 @@ test('`http.request` error through CacheableRequest', async t => {
 });
 
 test('returns a stream even if normalization fails', async t => {
-	const stream = got('https://example.com', {
-		isStream: true,
+	const stream = got.stream('https://example.com', {
 		// @ts-expect-error Testing purposes
 		hooks: false,
-	}) as unknown as Request;
+	});
 
 	await t.throwsAsync(getStream(stream), {
 		instanceOf: RequestError,
 		message: 'Expected value which is `Object`, received value of type `boolean`.',
+	});
+});
+
+test('returns a stream even if the input type is invalid', async t => {
+	// @ts-expect-error Testing purposes
+	const stream = got.stream(123);
+
+	await t.throwsAsync(getStream(stream), {
+		instanceOf: RequestError,
+		message: 'Option \'input\': Expected values which are `string`, `URL`, `Object`, or `undefined`. Received values of type `number`.',
 	});
 });
 

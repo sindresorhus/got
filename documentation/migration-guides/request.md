@@ -55,11 +55,11 @@ So if you're familiar with these, you're good to go.
 #### Renamed options
 
 **Note:**
-> - Got stores HTTPS options inside [`httpsOptions`](../2-options.md#httpsoptions). Some of them have been renamed. [Read more](../5-https.md).
+> - Got stores HTTPS options inside [`https`](../2-options.md#https). Some of them have been renamed. [Read more](../5-https.md).
 
 Readability is very important to us, so we have different names for these options:
 
-- `qs` → [`searchParams`](../2-options.md#serachparams)
+- `qs` → [`searchParams`](../2-options.md#searchparams)
 - `strictSSL` → [`rejectUnauthorized`](../2-options.md#rejectunauthorized)
 - `gzip` → [`decompress`](../2-options.md#decompress)
 - `jar` → [`cookieJar`](../2-options.md#cookiejar) (accepts [`tough-cookie`](https://github.com/salesforce/tough-cookie) jar)
@@ -70,11 +70,11 @@ Readability is very important to us, so we have different names for these option
 
 - The [`agent` option](../2-options.md#agent) is now an object with `http`, `https` and `http2` properties.
 - The [`timeout` option](../6-timeout.md) is now an object. You can set timeouts on particular events!
-- The [`searchParams` option](https://github.com/sindresorhus/got#searchParams) is always serialized using [`URLSearchParams`](https://developer.mozilla.org/en-US/docs/Web/API/URLSearchParams).
+- The [`searchParams` option](../2-options.md#searchparams) is always serialized using [`URLSearchParams`](https://developer.mozilla.org/en-US/docs/Web/API/URLSearchParams).
 - In order to pass a custom query string, provide it with the `url` option.\
   `got('https://example.com', {searchParams: {test: ''}})` → `https://example.com/?test=`\
   `got('https://example.com/?test')` → `https://example.com/?test`
-- To use streams, call `got.stream(url, options)` or `got(url, {…, isStream: true})`.
+- To use streams, call `got.stream(url, options)`.
 
 #### Breaking changes
 
@@ -87,7 +87,7 @@ Readability is very important to us, so we have different names for these option
 - No `agentClass` / `agentOptions` / `pool` option.
 - No `forever` option.\
   You need to pass an agent with `keepAlive` option set to `true`.
-- No `proxy` option. You need to [pass a custom agent](../tips.md#proxy).
+- No `proxy` option. You need to [pass a custom agent](../tips.md#proxying).
 - No `auth` option.\
   You need to use [`username`](../2-options.md#username) / [`password`](../2-options.md#password) instead or set the `authorization` header manually.
 - No `baseUrl` option.\

@@ -1,6 +1,6 @@
 import test from 'ava';
 import type {Handler} from 'express';
-import {pEvent} from 'p-event';
+import getStream from 'get-stream';
 import got, {Options, RequestError, type StrictOptions} from '../source/index.js';
 import withServer, {withBodyParsingServer} from './helpers/with-server.js';
 import invalidUrl from './helpers/invalid-url.js';
@@ -189,13 +189,60 @@ test('WHATWG URL support', withServer, async (t, server) => {
 	await t.notThrowsAsync(got(url));
 });
 
-test('returns streams when using `isStream` option', withServer, async (t, server, got) => {
+test('`got.stream()` exposes internal `isStream` in init hook context', withServer, async (t, server, got) => {
 	server.get('/stream', (_request, response) => {
 		response.end('ok');
 	});
 
-	const data = await pEvent(got('stream', {isStream: true}), 'data') as Uint8Array;
-	t.is(data.toString(), 'ok');
+	const streamWithInput = got.stream('stream', {
+		hooks: {
+			init: [
+				plain => {
+					t.true(Reflect.get(plain as Record<string, unknown>, 'isStream') === true);
+				},
+			],
+		},
+	});
+
+	const streamWithOptionsOnly = got.stream({
+		url: 'stream',
+		hooks: {
+			init: [
+				plain => {
+					t.true(Reflect.get(plain as Record<string, unknown>, 'isStream') === true);
+				},
+			],
+		},
+	});
+
+	// @ts-expect-error Testing unsupported signature at runtime
+	const streamWithInputAndOptions = got.stream({url: 'stream'}, {
+		hooks: {
+			init: [
+				plain => {
+					t.true(Reflect.get(plain as Record<string, unknown>, 'isStream') === true);
+				},
+			],
+		},
+	});
+
+	t.is(await getStream(streamWithInput), 'ok');
+	t.is(await getStream(streamWithOptionsOnly), 'ok');
+	t.is(await getStream(streamWithInputAndOptions), 'ok');
+});
+
+test('`isStream` option is ignored on promise API', withServer, async (t, server, got) => {
+	server.get('/stream', (_request, response) => {
+		response.end('ok');
+	});
+
+	const result = got('stream', {
+		// @ts-expect-error Removed option
+		isStream: true,
+	});
+
+	t.true(typeof result.then === 'function');
+	t.is(await result.text(), 'ok');
 });
 
 test('accepts `url` as an option', withServer, async (t, server, got) => {

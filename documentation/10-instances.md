@@ -22,7 +22,7 @@ The options used for this instance.
 
 An array of handlers. The `next` function returns a [`Promise`](1-promise.md) or a [`Request` Got stream](3-streams.md).
 
-You execute them directly by calling `got(…)`. They are some sort of "global hooks" - these functions are called first. The last handler (it's invisible) is either `asPromise` or `asStream`, depending on the `options.isStream` property.
+You execute them directly by calling `got(…)`. They are some sort of "global hooks" - these functions are called first. The last handler (it's invisible) is either `asPromise` or `asStream`, depending on whether `got()` or `got.stream()` was called.
 
 #### `mutableDefaults`
 
@@ -68,7 +68,7 @@ console.log(headers2['x-lorem']); //=> 'impsum'
 ```
 
 **Note:**
-> - Handlers can be asynchronous and can return a `Promise`, but never a `Promise<Stream>` if `options.isStream` is `true`.
+> - Handlers can be asynchronous and can return a `Promise`, but never a `Promise<Stream>` when `options.isStream` is `true` (set internally for `got.stream()` requests).
 > - Streams must always be handled synchronously.
 > - In order to perform async work using streams, the `beforeRequest` hook should be used instead.
 
@@ -79,6 +79,7 @@ import got from 'got';
 
 // Create a non-async handler, but we can return a Promise later.
 const handler = (options, next) => {
+	// Internally set for requests created via `got.stream()`.
 	if (options.isStream) {
 		// It's a Stream, return synchronously.
 		return next(options);

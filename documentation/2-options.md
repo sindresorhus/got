@@ -76,9 +76,9 @@ In order to keep the parent value, you must not set an option to `undefined`.\
 Doing so will reset those values:
 
 ```js
-instance(…, {searchParams: undefined}});
-instance(…, {cookieJar: undefined}});
-instance(…, {responseType: undefined}});
+instance(…, {searchParams: undefined});
+instance(…, {cookieJar: undefined});
+instance(…, {responseType: undefined});
 instance(…, {prefixUrl: ''});
 instance(…, {agent: {http: undefined, https: undefined, http2: undefined}});
 instance(…, {context: {token: undefined, …}});
@@ -273,26 +273,6 @@ console.log(headers);
 
 #### **Merge behavior:**
 > - Overrides existing properties.
-
-### `isStream`
-
-**Type: `boolean`**\
-**Default: `false`**
-
-Whether the `got` function should return a [`Request` duplex stream](3-streams.md) or a [`Promise<Response>`](1-promise.md).
-
-```js
-import got from 'got';
-
-// This:
-const stream = got('https://httpbin.org/anything', {isStream: true});
-
-// is semantically the same as this:
-const stream = got.stream('https://httpbin.org/anything');
-
-stream.setEncoding('utf8');
-stream.on('data', console.log);
-```
 
 ### `body`
 

@@ -260,6 +260,41 @@ test('should pass an options object into an initialization hook after .extend', 
 	await instance('', {});
 });
 
+test('handlers detect stream mode via `options.isStream`', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.end('ok');
+	});
+
+	let promiseModeCount = 0;
+	let streamModeCount = 0;
+
+	const instance = got.extend({
+		handlers: [
+			(options, next) => {
+				if (options.isStream) {
+					streamModeCount++;
+				} else {
+					promiseModeCount++;
+				}
+
+				return next(options);
+			},
+		],
+	});
+
+	await instance('').text();
+
+	const stream = instance.stream('');
+	await new Promise<void>((resolve, reject) => {
+		stream.once('end', resolve);
+		stream.once('error', reject);
+		stream.resume();
+	});
+
+	t.is(promiseModeCount, 1);
+	t.is(streamModeCount, 1);
+});
+
 test('hooks aren\'t overriden when merging options', withServer, async (t, server, got) => {
 	server.get('/', echoHeaders);
 

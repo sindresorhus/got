@@ -21,7 +21,7 @@ export type InstanceDefaults = {
 	/**
 	An array of functions. You execute them directly by calling `got()`.
 	They are some sort of "global hooks" - these functions are called first.
-	The last handler (*it's hidden*) is either `asPromise` or `asStream`, depending on the `options.isStream` property.
+	The last handler (*it's hidden*) is either `asPromise` or `asStream`, depending on whether `got()` or `got.stream()` was called.
 
 	@default []
 	*/
@@ -54,7 +54,7 @@ export type ExtendOptions = {
 	/**
 	An array of functions. You execute them directly by calling `got()`.
 	They are some sort of "global hooks" - these functions are called first.
-	The last handler (*it's hidden*) is either `asPromise` or `asStream`, depending on the `options.isStream` property.
+	The last handler (*it's hidden*) is either `asPromise` or `asStream`, depending on whether `got()` or `got.stream()` was called.
 
 	@default []
 	*/
@@ -69,8 +69,8 @@ export type ExtendOptions = {
 	mutableDefaults?: boolean;
 } & OptionsInit;
 
-export type StrictOptions = Except<OptionsInit, 'isStream' | 'responseType' | 'resolveBodyOnly'>;
-export type StreamOptions = Merge<OptionsInit, {isStream?: true}>;
+export type StrictOptions = Except<OptionsInit, 'responseType' | 'resolveBodyOnly'>;
+export type StreamOptions = OptionsInit;
 
 export type OptionsWithPagination<T = unknown, R = unknown> = Merge<OptionsInit, {pagination?: PaginationOptions<T, R>}>;
 
@@ -136,21 +136,21 @@ export type GotPaginate = {
 		& (<T, R = unknown>(options?: OptionsWithPagination<T, R>) => Promise<T[]>);
 };
 
-export type OptionsOfTextResponseBody = Merge<StrictOptions, {isStream?: false; responseType?: 'text'}>;
-export type OptionsOfTextResponseBodyOnly = Merge<StrictOptions, {isStream?: false; resolveBodyOnly: true; responseType?: 'text'}>;
-export type OptionsOfTextResponseBodyWrapped = Merge<StrictOptions, {isStream?: false; resolveBodyOnly: false; responseType?: 'text'}>;
+export type OptionsOfTextResponseBody = Merge<StrictOptions, {responseType?: 'text'}>;
+export type OptionsOfTextResponseBodyOnly = Merge<StrictOptions, {resolveBodyOnly: true; responseType?: 'text'}>;
+export type OptionsOfTextResponseBodyWrapped = Merge<StrictOptions, {resolveBodyOnly: false; responseType?: 'text'}>;
 
-export type OptionsOfJSONResponseBody = Merge<StrictOptions, {isStream?: false; responseType?: 'json'}>; // eslint-disable-line @typescript-eslint/naming-convention
-export type OptionsOfJSONResponseBodyOnly = Merge<StrictOptions, {isStream?: false; resolveBodyOnly: true; responseType?: 'json'}>; // eslint-disable-line @typescript-eslint/naming-convention
-export type OptionsOfJSONResponseBodyWrapped = Merge<StrictOptions, {isStream?: false; resolveBodyOnly: false; responseType?: 'json'}>; // eslint-disable-line @typescript-eslint/naming-convention
+export type OptionsOfJSONResponseBody = Merge<StrictOptions, {responseType?: 'json'}>; // eslint-disable-line @typescript-eslint/naming-convention
+export type OptionsOfJSONResponseBodyOnly = Merge<StrictOptions, {resolveBodyOnly: true; responseType?: 'json'}>; // eslint-disable-line @typescript-eslint/naming-convention
+export type OptionsOfJSONResponseBodyWrapped = Merge<StrictOptions, {resolveBodyOnly: false; responseType?: 'json'}>; // eslint-disable-line @typescript-eslint/naming-convention
 
-export type OptionsOfBufferResponseBody = Merge<StrictOptions, {isStream?: false; responseType?: 'buffer'}>;
-export type OptionsOfBufferResponseBodyOnly = Merge<StrictOptions, {isStream?: false; resolveBodyOnly: true; responseType?: 'buffer'}>;
-export type OptionsOfBufferResponseBodyWrapped = Merge<StrictOptions, {isStream?: false; resolveBodyOnly: false; responseType?: 'buffer'}>;
+export type OptionsOfBufferResponseBody = Merge<StrictOptions, {responseType?: 'buffer'}>;
+export type OptionsOfBufferResponseBodyOnly = Merge<StrictOptions, {resolveBodyOnly: true; responseType?: 'buffer'}>;
+export type OptionsOfBufferResponseBodyWrapped = Merge<StrictOptions, {resolveBodyOnly: false; responseType?: 'buffer'}>;
 
-export type OptionsOfUnknownResponseBody = Merge<StrictOptions, {isStream?: false}>;
-export type OptionsOfUnknownResponseBodyOnly = Merge<StrictOptions, {isStream?: false; resolveBodyOnly: true}>;
-export type OptionsOfUnknownResponseBodyWrapped = Merge<StrictOptions, {isStream?: false; resolveBodyOnly: false}>;
+export type OptionsOfUnknownResponseBody = StrictOptions;
+export type OptionsOfUnknownResponseBodyOnly = Merge<StrictOptions, {resolveBodyOnly: true}>;
+export type OptionsOfUnknownResponseBodyWrapped = Merge<StrictOptions, {resolveBodyOnly: false}>;
 
 // Helper type to determine the default response body type based on extended options
 type DefaultResponseBodyType<U extends ExtendOptions> =
@@ -200,11 +200,6 @@ export type GotRequestFunction<U extends ExtendOptions = Record<string, unknown>
 	(options: OptionsOfBufferResponseBodyOnly): CancelableRequest<Uint8Array>;
 	(options: OptionsOfUnknownResponseBodyOnly): CancelableRequest;
 
-	// `asStream` usage
-	(url: string | URL, options?: Merge<OptionsInit, {isStream: true}>): Request;
-
-	(options: Merge<OptionsInit, {isStream: true}>): Request;
-
 	// Fallback
 	(url: string | URL, options?: OptionsInit): CancelableRequest | Request;
 
@@ -227,8 +222,8 @@ export type HTTPAlias =
 	| 'delete';
 
 type GotStreamFunction =
-	((url?: string | URL, options?: Merge<OptionsInit, {isStream?: true}>) => Request) &
-	((options?: Merge<OptionsInit, {isStream?: true}>) => Request);
+	((url?: string | URL, options?: StreamOptions) => Request) &
+	((options?: StreamOptions) => Request);
 
 /**
 An instance of `got.stream()`.
@@ -240,8 +235,6 @@ An instance of `got`.
 */
 export type Got<GotOptions extends ExtendOptions = ExtendOptions> = {
 	/**
-	Sets `options.isStream` to `true`.
-
 	Returns a [duplex stream](https://nodejs.org/api/stream.html#stream_class_stream_duplex) with additional events:
 	- request
 	- response

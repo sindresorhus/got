@@ -5,9 +5,8 @@
 Source code: [`source/core/index.ts`](../source/core/index.ts)
 
 ### `got.stream(url, options, defaults)`
-### `got(url, {...options, isStream: true}, defaults)`
 
-The two functions above are exposed by the `got` main interface and return a new instance of `Request`.
+The function above is exposed by the `got` main interface and returns a new instance of `Request`.
 
 ### `new Request(url, options, defaults)`
 
@@ -219,7 +218,7 @@ readStream.on('response', async response => {
 readStream.once('error', onError);
 ```
 
-**Example: Reading HTTP error response bodies**
+### Example: Reading HTTP error response bodies
 
 By default, Got throws HTTP errors before the stream becomes readable. To read error response bodies:
 
@@ -360,7 +359,7 @@ The `IncomingMessage` instance the redirect came from.
 
 ## Internal usage
 
-This are the functions used internally by Got.\
+These are the functions used internally by Got.\
 Other non-documented functions are private and should not be accessible.
 
 ### `stream.flush()`
@@ -369,7 +368,7 @@ This function is executed automatically by Got. It marks the current stream as r
 
 ### `stream._beforeError(error)`
 
-This function is called instead `stream.destroy(error)`, required in order to exectue async logic, such as reading the response (e.g. when `ERR_NON_2XX_3XX_RESPONSE` occurs).
+This function is called instead of `stream.destroy(error)`, required in order to execute async logic, such as reading the response (e.g. when `ERR_NON_2XX_3XX_RESPONSE` occurs).
 
 ### `stream._noPipe`
 

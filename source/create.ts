@@ -42,18 +42,53 @@ const create = (defaults: InstanceDefaults): Got => {
 		writable: false,
 	});
 
-	// Got interface
-	const got: Got = ((url: string | URL | OptionsInit | undefined, options?: OptionsInit, defaultOptions: Options = defaults.options): GotReturn => {
-		const request = new Request(url, options, defaultOptions);
+	const makeRequest = (url: string | URL | OptionsInit | undefined, options: OptionsInit | undefined, defaultOptions: Options, isStream: boolean): GotReturn => {
+		let requestInput = url;
+		let requestOptions = options;
+
+		if (isStream) {
+			const createStreamOptions = (value: OptionsInit): OptionsInit => {
+				const clone = Object.create(Object.getPrototypeOf(value), Object.getOwnPropertyDescriptors(value)) as OptionsInit;
+				Object.defineProperty(clone, 'isStream', {
+					value: true,
+					enumerable: true,
+					configurable: true,
+					writable: true,
+				});
+
+				return clone;
+			};
+
+			if (is.plainObject(url)) {
+				requestInput = createStreamOptions(url);
+
+				if (options) {
+					requestOptions = createStreamOptions(options);
+				}
+			} else {
+				requestOptions = createStreamOptions(options ?? {});
+			}
+		}
+
+		const request = new Request(requestInput, requestOptions, defaultOptions);
+
+		if (
+			isStream
+			&& request.options
+		) {
+			request.options.isStream = true;
+		}
+
 		let promise: CancelableRequest | undefined;
 
 		const lastHandler = (normalized: Options): GotReturn => {
 			// Note: `options` is `undefined` when `new Options(...)` fails
 			request.options = normalized;
-			request._noPipe = !normalized?.isStream;
+			const shouldReturnStream = normalized?.isStream ?? isStream;
+			request._noPipe = !shouldReturnStream;
 			void request.flush();
 
-			if (normalized?.isStream) {
+			if (shouldReturnStream) {
 				return request;
 			}
 
@@ -92,7 +127,11 @@ const create = (defaults: InstanceDefaults): Got => {
 		};
 
 		return iterateHandlers(request.options);
-	}) as Got;
+	};
+
+	// Got interface
+	const got: Got = ((url: string | URL | OptionsInit | undefined, options?: OptionsInit, defaultOptions: Options = defaults.options): GotReturn =>
+		makeRequest(url, options, defaultOptions, false)) as Got;
 
 	got.extend = (...instancesOrOptions) => {
 		const options = new Options(undefined, undefined, defaults.options);
@@ -220,13 +259,15 @@ const create = (defaults: InstanceDefaults): Got => {
 	got.paginate.each = paginateEach as GotPaginate['each'];
 
 	// Stream API
-	got.stream = ((url: string | URL, options?: StreamOptions) => got(url, {...options, isStream: true})) as GotStream;
+	got.stream = ((url: string | URL, options?: StreamOptions) =>
+		makeRequest(url, options, defaults.options, true)) as GotStream;
 
 	// Shortcuts
 	for (const method of aliases) {
 		got[method] = ((url: string | URL, options?: Options): GotReturn => got(url, {...options, method})) as GotRequestFunction;
 
-		got.stream[method] = ((url: string | URL, options?: StreamOptions) => got(url, {...options, method, isStream: true})) as GotStream;
+		got.stream[method] = ((url: string | URL, options?: StreamOptions) =>
+			makeRequest(url, {...options, method}, defaults.options, true)) as GotStream;
 	}
 
 	if (!defaults.mutableDefaults) {

@@ -923,7 +923,7 @@ export type InternalsType = Except<Options, OptionsToSkip>;
 export type OptionsError = NodeJS.ErrnoException & {options?: Options};
 
 export type OptionsInit =
-	Except<Partial<InternalsType>, 'hooks' | 'retry'>
+	Except<Partial<InternalsType>, 'hooks' | 'retry' | 'isStream'>
 	& {
 		hooks?: Partial<Hooks>;
 		retry?: Partial<RetryOptions>;
@@ -1377,11 +1377,6 @@ export default class Options {
 
 		this._merging = true;
 
-		// Always merge `isStream` first
-		if ('isStream' in options) {
-			this.isStream = options.isStream!;
-		}
-
 		try {
 			let push = false;
 
@@ -1398,6 +1393,11 @@ export default class Options {
 
 				// Never merge `preserveHooks` - it's a control flag, not a persistent option
 				if (key === 'preserveHooks') {
+					continue;
+				}
+
+				// `isStream` is set internally by `got.stream()`, not by user options
+				if (key === 'isStream') {
 					continue;
 				}
 
@@ -2702,8 +2702,9 @@ export default class Options {
 	}
 
 	/**
+	@internal
 	Returns a `Stream` instead of a `Promise`.
-	This is equivalent to calling `got.stream(url, options?)`.
+	Set internally by `got.stream()`.
 
 	@default false
 	*/
