@@ -99,7 +99,7 @@ TimeoutError: Timeout awaiting 'request' for 1ms
     at listOnTimeout (node:internal/timers:559:11)
     at processTimers (node:internal/timers:500:7)
 From previous event:
-    at new PCancelable (file:///home/szm/Desktop/got/node_modules/p-cancelable/index.js:31:19)
+    at new Promise (<anonymous>)
     at asPromise (file:///home/szm/Desktop/got/dist/source/as-promise/index.js:21:21)
     at lastHandler (file:///home/szm/Desktop/got/dist/source/create.js:42:27)
     at iterateHandlers (file:///home/szm/Desktop/got/dist/source/create.js:49:28)

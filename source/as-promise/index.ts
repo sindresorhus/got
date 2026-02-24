@@ -1,6 +1,5 @@
 import {EventEmitter} from 'node:events';
 import is from '@sindresorhus/is';
-import PCancelable from 'p-cancelable';
 import {
 	HTTPError,
 	RetryError,
@@ -14,7 +13,7 @@ import {
 } from '../core/response.js';
 import proxyEvents from '../core/utils/proxy-events.js';
 import type Options from '../core/options.js';
-import {CancelError, type CancelableRequest} from './types.js';
+import {type RequestPromise} from './types.js';
 
 const proxiedRequestEvents = [
 	'request',
@@ -52,31 +51,15 @@ const normalizeError = (error: unknown): Error => {
 	return new Error(String(error));
 };
 
-export default function asPromise<T>(firstRequest?: Request): CancelableRequest<T> {
+export default function asPromise<T>(firstRequest?: Request): RequestPromise<T> {
 	let globalRequest: Request;
 	let globalResponse: Response;
-	let normalizedOptions: Options;
 	const emitter = new EventEmitter();
 	let promiseSettled = false;
 
-	const promise = new PCancelable<T>((resolve, reject, onCancel) => {
-		onCancel(() => {
-			globalRequest.destroy();
-		});
-
-		onCancel.shouldReject = false;
-		onCancel(() => {
-			promiseSettled = true;
-			reject(new CancelError(globalRequest));
-		});
-
-		const makeRequest = (retryCount: number): void => {
-			// Errors when a new request is made after the promise settles.
-			// Used to detect a race condition.
-			// See https://github.com/sindresorhus/got/issues/1489
-			onCancel(() => {});
-
-			const request = firstRequest ?? new Request(undefined, undefined, normalizedOptions);
+	const promise = new Promise<T>((resolve, reject) => {
+		const makeRequest = (retryCount: number, defaultOptions?: Options): void => {
+			const request = firstRequest ?? new Request(undefined, undefined, defaultOptions);
 			request.retryCount = retryCount;
 			request._noPipe = true;
 
@@ -114,9 +97,9 @@ export default function asPromise<T>(firstRequest?: Request): CancelableRequest<
 					const hooks = options.hooks.afterResponse;
 
 					for (const [index, hook] of hooks.entries()) {
-						// @ts-expect-error TS doesn't notice that CancelableRequest is a Promise
+						// @ts-expect-error TS doesn't notice that RequestPromise is a Promise
 						// eslint-disable-next-line no-await-in-loop
-						response = await hook(response, async (updatedOptions): CancelableRequest<Response> => {
+						response = await hook(response, async (updatedOptions): RequestPromise<Response> => {
 							const preserveHooks = updatedOptions.preserveHooks ?? false;
 
 							options.merge(updatedOptions);
@@ -160,10 +143,6 @@ export default function asPromise<T>(firstRequest?: Request): CancelableRequest<
 			let handledFinalError = false;
 
 			const onError = (error: RequestError) => {
-				if (promise.isCanceled) {
-					return;
-				}
-
 				// Route errors emitted directly on the stream (e.g., EPIPE from Node.js)
 				// through retry logic first, then handle them here after retries are exhausted.
 				// See https://github.com/sindresorhus/got/issues/1995
@@ -223,9 +202,7 @@ export default function asPromise<T>(firstRequest?: Request): CancelableRequest<
 
 				// This is needed! We need to reuse `request.options` because they can get modified!
 				// For example, by calling `promise.json()`.
-				normalizedOptions = request.options;
-
-				makeRequest(newRetryCount);
+				makeRequest(newRetryCount, request.options);
 			});
 
 			proxyEvents(request, emitter, proxiedRequestEvents);
@@ -236,19 +213,24 @@ export default function asPromise<T>(firstRequest?: Request): CancelableRequest<
 		};
 
 		makeRequest(0);
-	}) as CancelableRequest<T>;
+	}) as RequestPromise<T>;
 
-	promise.on = (event: string, function_: (...arguments_: any[]) => void) => {
+	promise.on = function (this: RequestPromise<T>, event: string, function_: (...arguments_: any[]) => void) {
 		emitter.on(event, function_);
-		return promise;
+		return this;
 	};
 
-	promise.off = (event: string, function_: (...arguments_: any[]) => void) => {
+	promise.once = function (this: RequestPromise<T>, event: string, function_: (...arguments_: any[]) => void) {
+		emitter.once(event, function_);
+		return this;
+	};
+
+	promise.off = function (this: RequestPromise<T>, event: string, function_: (...arguments_: any[]) => void) {
 		emitter.off(event, function_);
-		return promise;
+		return this;
 	};
 
-	const shortcut = <T>(promiseToAwait: CancelableRequest, responseType: Options['responseType']): CancelableRequest<T> => {
+	const shortcut = <T>(promiseToAwait: RequestPromise, responseType: Options['responseType']): RequestPromise<T> => {
 		const newPromise = (async () => {
 			// Wait until downloading has ended
 			await promiseToAwait;
@@ -261,14 +243,14 @@ export default function asPromise<T>(firstRequest?: Request): CancelableRequest<
 		// eslint-disable-next-line @typescript-eslint/no-floating-promises
 		Object.defineProperties(newPromise, Object.getOwnPropertyDescriptors(promiseToAwait));
 
-		return newPromise as CancelableRequest<T>;
+		return newPromise as RequestPromise<T>;
 	};
 
 	// Note: These use `function` syntax (not arrows) to access `this` context.
 	// When custom handlers wrap the promise to transform errors, these methods
 	// are copied to the handler's promise. Using `this` ensures we await the
 	// handler's wrapped promise, not the original, so errors propagate correctly.
-	promise.json = function (this: CancelableRequest) {
+	promise.json = function (this: RequestPromise) {
 		if (globalRequest.options) {
 			const {headers} = globalRequest.options;
 
@@ -280,11 +262,11 @@ export default function asPromise<T>(firstRequest?: Request): CancelableRequest<
 		return shortcut(this, 'json');
 	};
 
-	promise.buffer = function (this: CancelableRequest) {
+	promise.buffer = function (this: RequestPromise) {
 		return shortcut(this, 'buffer');
 	};
 
-	promise.text = function (this: CancelableRequest) {
+	promise.text = function (this: RequestPromise) {
 		return shortcut(this, 'text');
 	};
 

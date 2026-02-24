@@ -16,7 +16,7 @@ import type {
 import Request from './core/index.js';
 import type {Response} from './core/response.js';
 import Options, {type OptionsInit} from './core/options.js';
-import type {CancelableRequest} from './as-promise/types.js';
+import type {RequestPromise} from './as-promise/types.js';
 
 const isGotInstance = (value: Got | ExtendOptions): value is Got => is.function(value);
 
@@ -79,7 +79,7 @@ const create = (defaults: InstanceDefaults): Got => {
 			request.options.isStream = true;
 		}
 
-		let promise: CancelableRequest | undefined;
+		let promise: RequestPromise | undefined;
 
 		const lastHandler = (normalized: Options): GotReturn => {
 			// Note: `options` is `undefined` when `new Options(...)` fails
@@ -118,8 +118,6 @@ const create = (defaults: InstanceDefaults): Got => {
 
 					// eslint-disable-next-line @typescript-eslint/no-floating-promises
 					Object.defineProperties(result, descriptors);
-
-					result.cancel = promise.cancel;
 				}
 			}
 

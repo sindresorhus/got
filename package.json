@@ -60,7 +60,6 @@
 		"http2-wrapper": "^2.2.1",
 		"keyv": "^5.6.0",
 		"lowercase-keys": "^4.0.1",
-		"p-cancelable": "^4.0.1",
 		"responselike": "^4.0.2",
 		"type-fest": "^5.4.4"
 	},

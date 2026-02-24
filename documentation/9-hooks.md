@@ -311,7 +311,7 @@ const instance2 = got.extend({
 **Default: `[]`**
 
 ```ts
-(response: Response, retryWithMergedOptions: (options: OptionsInit) => never) => Promisable<Response | CancelableRequest<Response>>
+(response: Response, retryWithMergedOptions: (options: OptionsInit) => never) => Promisable<Response | RequestPromise<Response>>
 ```
 
 Each function should return the response. This is especially useful when you want to refresh an access token.
@@ -321,7 +321,7 @@ Each function should return the response. This is especially useful when you wan
 
 **Note:**
 > - Calling the `retryWithMergedOptions` function will trigger `beforeRetry` hooks. By default, remaining `afterResponse` hooks are removed to prevent duplicate execution. To preserve remaining hooks on retry, set `preserveHooks: true` in the options passed to `retryWithMergedOptions`. In case of an error, `beforeRetry` hooks will be called instead.
-Meanwhile the `init`, `beforeRequest` , `beforeRedirect` as well as already executed `afterResponse` hooks will be skipped.
+> - Meanwhile, the `init`, `beforeRequest`, and `beforeRedirect` hooks, as well as already executed `afterResponse` hooks, are skipped.
 
 **Note:**
 > - To preserve remaining `afterResponse` hooks after calling `retryWithMergedOptions`, set `preserveHooks: true` in the options passed to `retryWithMergedOptions`. This is useful when you want hooks to run on retried requests.

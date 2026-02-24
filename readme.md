@@ -176,7 +176,7 @@ By default, Got will retry on failure. To disable this option, set [`options.ret
 | Promise API           | :heavy_check_mark:  | :heavy_check_mark:   | :heavy_check_mark:       | :heavy_check_mark: | :heavy_check_mark:     |
 | Stream API            | :heavy_check_mark:  | Node.js only         | :x:                      | :x:                | :heavy_check_mark:     |
 | Pagination API        | :heavy_check_mark:  | :x:                  | :x:                      | :x:                | :x:                    |
-| Request cancelation   | :heavy_check_mark:  | :heavy_check_mark:   | :heavy_check_mark:       | :heavy_check_mark: | :heavy_check_mark:     |
+| Request aborting       | :heavy_check_mark:  | :heavy_check_mark:   | :heavy_check_mark:       | :heavy_check_mark: | :heavy_check_mark:     |
 | RFC compliant caching | :heavy_check_mark:  | :x:                  | :x:                      | :x:                | :x:                    |
 | Cookies (out-of-the-box) | :heavy_check_mark: | :x:                | :x:                      | :x:                | :x:                    |
 | Follows redirects     | :heavy_check_mark:  | :heavy_check_mark:   | :heavy_check_mark:       | :heavy_check_mark: | :heavy_check_mark:     |
@@ -359,7 +359,7 @@ By default, Got will retry on failure. To disable this option, set [`options.ret
 
 [Click here][InstallSizeOfTheDependencies] to see the install size of the Got dependencies.
 
-[InstallSizeOfTheDependencies]: https://packagephobia.com/result?p=@sindresorhus/is@7.0.0,@szmarczak/http-timer@5.0.1,cacheable-lookup@7.0.0,cacheable-request@12.0.1,decompress-response@6.0.0,http2-wrapper@2.2.1,lowercase-keys@3.0.0,p-cancelable@4.0.1,responselike@3.0.0,type-fest@4.19.0
+[InstallSizeOfTheDependencies]: https://packagephobia.com/result?p=@sindresorhus/is@7.2.0,byte-counter@0.1.0,cacheable-lookup@7.0.0,cacheable-request@13.0.18,chunk-data@0.1.0,decompress-response@10.0.0,http2-wrapper@2.2.1,keyv@5.6.0,lowercase-keys@4.0.1,responselike@4.0.2,type-fest@5.4.4
 
 ## Maintainers
 

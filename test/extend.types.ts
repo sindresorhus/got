@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unnecessary-type-arguments */
 import {expectTypeOf} from 'expect-type';
-import got, {type CancelableRequest, type Response} from '../source/index.js';
+import got, {type RequestPromise, type Response} from '../source/index.js';
 import {type Got, type MergeExtendsConfig, type ExtractExtendOptions} from '../source/types.js';
 
 // Ensure we properly extract the `extend` options from a Got instance which is used in MergeExtendsConfig generic
@@ -54,26 +54,26 @@ const gotWrapped = got.extend({});
 // The following tests would apply to all of the method signatures (get, post, put, delete, etc...), but we only test the base function for brevity
 
 // Test the default instance
-expectTypeOf(gotWrapped('https://example.com')).toEqualTypeOf<CancelableRequest<Response<string>>>();
-expectTypeOf(gotWrapped<{test: 'test'}>('https://example.com')).toEqualTypeOf<CancelableRequest<Response<{test: 'test'}>>>();
-expectTypeOf(gotWrapped('https://example.com', {responseType: 'buffer'})).toEqualTypeOf<CancelableRequest<Response<Uint8Array>>>();
+expectTypeOf(gotWrapped('https://example.com')).toEqualTypeOf<RequestPromise<Response<string>>>();
+expectTypeOf(gotWrapped<{test: 'test'}>('https://example.com')).toEqualTypeOf<RequestPromise<Response<{test: 'test'}>>>();
+expectTypeOf(gotWrapped('https://example.com', {responseType: 'buffer'})).toEqualTypeOf<RequestPromise<Response<Uint8Array>>>();
 
 // Test the default instance can be overridden at the request function level
-expectTypeOf(gotWrapped('https://example.com', {resolveBodyOnly: true})).toEqualTypeOf<CancelableRequest<string>>();
-expectTypeOf(gotWrapped<{test: 'test'}>('https://example.com', {resolveBodyOnly: true})).toEqualTypeOf<CancelableRequest<{test: 'test'}>>();
-expectTypeOf(gotWrapped('https://example.com', {responseType: 'buffer', resolveBodyOnly: true})).toEqualTypeOf<CancelableRequest<Uint8Array>>();
+expectTypeOf(gotWrapped('https://example.com', {resolveBodyOnly: true})).toEqualTypeOf<RequestPromise<string>>();
+expectTypeOf(gotWrapped<{test: 'test'}>('https://example.com', {resolveBodyOnly: true})).toEqualTypeOf<RequestPromise<{test: 'test'}>>();
+expectTypeOf(gotWrapped('https://example.com', {responseType: 'buffer', resolveBodyOnly: true})).toEqualTypeOf<RequestPromise<Uint8Array>>();
 
 const gotBodyOnly = got.extend({resolveBodyOnly: true});
 
 // Test the instance with resolveBodyOnly as an extend option
-expectTypeOf(gotBodyOnly('https://example.com')).toEqualTypeOf<CancelableRequest<string>>();
-expectTypeOf(gotBodyOnly<{test: 'test'}>('https://example.com')).toEqualTypeOf<CancelableRequest<{test: 'test'}>>();
-expectTypeOf(gotBodyOnly('https://example.com', {responseType: 'buffer'})).toEqualTypeOf<CancelableRequest<Uint8Array>>();
+expectTypeOf(gotBodyOnly('https://example.com')).toEqualTypeOf<RequestPromise<string>>();
+expectTypeOf(gotBodyOnly<{test: 'test'}>('https://example.com')).toEqualTypeOf<RequestPromise<{test: 'test'}>>();
+expectTypeOf(gotBodyOnly('https://example.com', {responseType: 'buffer'})).toEqualTypeOf<RequestPromise<Uint8Array>>();
 
 // Test the instance with resolveBodyOnly as an extend option can be overridden at the request function level
-expectTypeOf(gotBodyOnly('https://example.com', {resolveBodyOnly: false})).toEqualTypeOf<CancelableRequest<Response<string>>>();
-expectTypeOf(gotBodyOnly<{test: 'test'}>('https://example.com', {resolveBodyOnly: false})).toEqualTypeOf<CancelableRequest<Response<{test: 'test'}>>>();
-expectTypeOf(gotBodyOnly('https://example.com', {responseType: 'buffer', resolveBodyOnly: false})).toEqualTypeOf<CancelableRequest<Response<Uint8Array>>>();
+expectTypeOf(gotBodyOnly('https://example.com', {resolveBodyOnly: false})).toEqualTypeOf<RequestPromise<Response<string>>>();
+expectTypeOf(gotBodyOnly<{test: 'test'}>('https://example.com', {resolveBodyOnly: false})).toEqualTypeOf<RequestPromise<Response<{test: 'test'}>>>();
+expectTypeOf(gotBodyOnly('https://example.com', {responseType: 'buffer', resolveBodyOnly: false})).toEqualTypeOf<RequestPromise<Response<Uint8Array>>>();
 
 //
 // Test got.extend() with responseType correctly infers types (fix for issue #2427)
@@ -86,33 +86,44 @@ const gotText = got.extend({responseType: 'text'});
 const gotTextBodyOnly = got.extend({responseType: 'text', resolveBodyOnly: true});
 
 // Test URL-first syntax without options - should infer correct type based on extended responseType
-expectTypeOf(gotJson('https://example.com')).toEqualTypeOf<CancelableRequest<Response<unknown>>>();
-expectTypeOf(gotJsonBodyOnly('https://example.com')).toEqualTypeOf<CancelableRequest<unknown>>();
-expectTypeOf(gotBuffer('https://example.com')).toEqualTypeOf<CancelableRequest<Response<Uint8Array>>>();
-expectTypeOf(gotBufferBodyOnly('https://example.com')).toEqualTypeOf<CancelableRequest<Uint8Array>>();
-expectTypeOf(gotText('https://example.com')).toEqualTypeOf<CancelableRequest<Response<string>>>();
-expectTypeOf(gotTextBodyOnly('https://example.com')).toEqualTypeOf<CancelableRequest<string>>();
+expectTypeOf(gotJson('https://example.com')).toEqualTypeOf<RequestPromise<Response<unknown>>>();
+expectTypeOf(gotJsonBodyOnly('https://example.com')).toEqualTypeOf<RequestPromise<unknown>>();
+expectTypeOf(gotBuffer('https://example.com')).toEqualTypeOf<RequestPromise<Response<Uint8Array>>>();
+expectTypeOf(gotBufferBodyOnly('https://example.com')).toEqualTypeOf<RequestPromise<Uint8Array>>();
+expectTypeOf(gotText('https://example.com')).toEqualTypeOf<RequestPromise<Response<string>>>();
+expectTypeOf(gotTextBodyOnly('https://example.com')).toEqualTypeOf<RequestPromise<string>>();
 
 // Test options-only syntax with URL in options - should infer correct type based on extended responseType
-expectTypeOf(gotJson({url: 'https://example.com'})).toEqualTypeOf<CancelableRequest<Response<unknown>>>();
-expectTypeOf(gotJsonBodyOnly({url: 'https://example.com'})).toEqualTypeOf<CancelableRequest<unknown>>();
-expectTypeOf(gotBuffer({url: 'https://example.com'})).toEqualTypeOf<CancelableRequest<Response<Uint8Array>>>();
-expectTypeOf(gotBufferBodyOnly({url: 'https://example.com'})).toEqualTypeOf<CancelableRequest<Uint8Array>>();
-expectTypeOf(gotText({url: 'https://example.com'})).toEqualTypeOf<CancelableRequest<Response<string>>>();
-expectTypeOf(gotTextBodyOnly({url: 'https://example.com'})).toEqualTypeOf<CancelableRequest<string>>();
+expectTypeOf(gotJson({url: 'https://example.com'})).toEqualTypeOf<RequestPromise<Response<unknown>>>();
+expectTypeOf(gotJsonBodyOnly({url: 'https://example.com'})).toEqualTypeOf<RequestPromise<unknown>>();
+expectTypeOf(gotBuffer({url: 'https://example.com'})).toEqualTypeOf<RequestPromise<Response<Uint8Array>>>();
+expectTypeOf(gotBufferBodyOnly({url: 'https://example.com'})).toEqualTypeOf<RequestPromise<Uint8Array>>();
+expectTypeOf(gotText({url: 'https://example.com'})).toEqualTypeOf<RequestPromise<Response<string>>>();
+expectTypeOf(gotTextBodyOnly({url: 'https://example.com'})).toEqualTypeOf<RequestPromise<string>>();
 
 // Test that generic type parameter still works with extended responseType
-expectTypeOf(gotJson<{data: string}>('https://example.com')).toEqualTypeOf<CancelableRequest<Response<{data: string}>>>();
-expectTypeOf(gotJsonBodyOnly<{data: string}>('https://example.com')).toEqualTypeOf<CancelableRequest<{data: string}>>();
+expectTypeOf(gotJson<{data: string}>('https://example.com')).toEqualTypeOf<RequestPromise<Response<{data: string}>>>();
+expectTypeOf(gotJsonBodyOnly<{data: string}>('https://example.com')).toEqualTypeOf<RequestPromise<{data: string}>>();
 
 // Test that explicit responseType in call overrides extended responseType
-expectTypeOf(gotJson('https://example.com', {responseType: 'buffer'})).toEqualTypeOf<CancelableRequest<Response<Uint8Array>>>();
-expectTypeOf(gotJson('https://example.com', {responseType: 'text'})).toEqualTypeOf<CancelableRequest<Response<string>>>();
-expectTypeOf(gotBuffer('https://example.com', {responseType: 'json'})).toEqualTypeOf<CancelableRequest<Response<unknown>>>();
-expectTypeOf(gotBuffer('https://example.com', {responseType: 'text'})).toEqualTypeOf<CancelableRequest<Response<string>>>();
+expectTypeOf(gotJson('https://example.com', {responseType: 'buffer'})).toEqualTypeOf<RequestPromise<Response<Uint8Array>>>();
+expectTypeOf(gotJson('https://example.com', {responseType: 'text'})).toEqualTypeOf<RequestPromise<Response<string>>>();
+expectTypeOf(gotBuffer('https://example.com', {responseType: 'json'})).toEqualTypeOf<RequestPromise<Response<unknown>>>();
+expectTypeOf(gotBuffer('https://example.com', {responseType: 'text'})).toEqualTypeOf<RequestPromise<Response<string>>>();
 
 // Test that resolveBodyOnly can be overridden with explicit responseType
-expectTypeOf(gotJson('https://example.com', {responseType: 'json', resolveBodyOnly: true})).toEqualTypeOf<CancelableRequest<unknown>>();
-expectTypeOf(gotJsonBodyOnly('https://example.com', {responseType: 'json', resolveBodyOnly: false})).toEqualTypeOf<CancelableRequest<Response<unknown>>>();
-expectTypeOf(gotBuffer('https://example.com', {responseType: 'buffer', resolveBodyOnly: true})).toEqualTypeOf<CancelableRequest<Uint8Array>>();
-expectTypeOf(gotBufferBodyOnly('https://example.com', {responseType: 'buffer', resolveBodyOnly: false})).toEqualTypeOf<CancelableRequest<Response<Uint8Array>>>();
+expectTypeOf(gotJson('https://example.com', {responseType: 'json', resolveBodyOnly: true})).toEqualTypeOf<RequestPromise<unknown>>();
+expectTypeOf(gotJsonBodyOnly('https://example.com', {responseType: 'json', resolveBodyOnly: false})).toEqualTypeOf<RequestPromise<Response<unknown>>>();
+expectTypeOf(gotBuffer('https://example.com', {responseType: 'buffer', resolveBodyOnly: true})).toEqualTypeOf<RequestPromise<Uint8Array>>();
+expectTypeOf(gotBufferBodyOnly('https://example.com', {responseType: 'buffer', resolveBodyOnly: false})).toEqualTypeOf<RequestPromise<Response<Uint8Array>>>();
+
+// Test that options-only resolveBodyOnly override keeps extended default responseType
+expectTypeOf(gotJson({url: 'https://example.com', resolveBodyOnly: true})).toEqualTypeOf<RequestPromise<unknown>>();
+expectTypeOf(gotJsonBodyOnly({url: 'https://example.com', resolveBodyOnly: false})).toEqualTypeOf<RequestPromise<Response<unknown>>>();
+expectTypeOf(gotBuffer({url: 'https://example.com', resolveBodyOnly: true})).toEqualTypeOf<RequestPromise<Uint8Array>>();
+expectTypeOf(gotBufferBodyOnly({url: 'https://example.com', resolveBodyOnly: false})).toEqualTypeOf<RequestPromise<Response<Uint8Array>>>();
+
+// Test shortcut methods preserve RequestPromise return shape
+expectTypeOf(got('https://example.com').json<{data: string}>()).toEqualTypeOf<RequestPromise<{data: string}>>();
+expectTypeOf(got('https://example.com').buffer()).toEqualTypeOf<RequestPromise<Uint8Array>>();
+expectTypeOf(got('https://example.com').text()).toEqualTypeOf<RequestPromise<string>>();

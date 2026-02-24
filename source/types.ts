@@ -1,5 +1,5 @@
 import type {Spread} from 'type-fest';
-import type {CancelableRequest} from './as-promise/types.js';
+import type {RequestPromise} from './as-promise/types.js';
 import type {Response} from './core/response.js';
 import type Options from './core/options.js';
 import {type PaginationOptions, type OptionsInit} from './core/options.js';
@@ -39,7 +39,7 @@ export type InstanceDefaults = {
 /**
 A Request object returned by calling Got, or any of the Got HTTP alias request functions.
 */
-export type GotReturn = Request | CancelableRequest;
+export type GotReturn = Request | RequestPromise;
 
 /**
 A function to handle options and returns a Request object.
@@ -158,55 +158,52 @@ type DefaultResponseBodyType<U extends ExtendOptions> =
 		U['responseType'] extends 'buffer' ? Uint8Array :
 			string;
 
+type GotResponseResult<U extends ExtendOptions, BodyType> = U['resolveBodyOnly'] extends true
+	? RequestPromise<BodyType>
+	: RequestPromise<Response<BodyType>>;
+
 export type GotRequestFunction<U extends ExtendOptions = Record<string, unknown>> = {
 	// `asPromise` usage
-	// IMPORTANT: This overload must come first to match when no options are provided
-	(url: string | URL): U['resolveBodyOnly'] extends true
-		? CancelableRequest<DefaultResponseBodyType<U>>
-		: CancelableRequest<Response<DefaultResponseBodyType<U>>>;
+	// IMPORTANT: This overload must come first to match when no explicit responseType is provided
+	(url: string | URL, options?: OptionsOfUnknownResponseBody): GotResponseResult<U, DefaultResponseBodyType<U>>;
+	(url: string | URL, options?: OptionsOfUnknownResponseBodyWrapped): RequestPromise<Response<DefaultResponseBodyType<U>>>;
+	(url: string | URL, options?: OptionsOfUnknownResponseBodyOnly): RequestPromise<DefaultResponseBodyType<U>>;
 
-	(url: string | URL, options?: OptionsOfTextResponseBody): U['resolveBodyOnly'] extends true ? CancelableRequest<string> : CancelableRequest<Response<string>>;
-	<T>(url: string | URL, options?: OptionsOfJSONResponseBody): U['resolveBodyOnly'] extends true ? CancelableRequest<T> : CancelableRequest<Response<T>>;
-	(url: string | URL, options?: OptionsOfBufferResponseBody): U['resolveBodyOnly'] extends true ? CancelableRequest<Uint8Array> : CancelableRequest<Response<Uint8Array>>;
-	(url: string | URL, options?: OptionsOfUnknownResponseBody): U['resolveBodyOnly'] extends true ? CancelableRequest : CancelableRequest<Response>;
+	(url: string | URL, options?: OptionsOfTextResponseBody): GotResponseResult<U, string>;
+	<T>(url: string | URL, options?: OptionsOfJSONResponseBody): GotResponseResult<U, T>;
+	(url: string | URL, options?: OptionsOfBufferResponseBody): GotResponseResult<U, Uint8Array>;
 
-	(url: string | URL, options?: OptionsOfTextResponseBodyWrapped): CancelableRequest<Response<string>>;
-	<T>(url: string | URL, options?: OptionsOfJSONResponseBodyWrapped): CancelableRequest<Response<T>>;
-	(url: string | URL, options?: OptionsOfBufferResponseBodyWrapped): CancelableRequest<Response<Uint8Array>>;
-	(url: string | URL, options?: OptionsOfUnknownResponseBodyWrapped): CancelableRequest<Response>;
+	(url: string | URL, options?: OptionsOfTextResponseBodyWrapped): RequestPromise<Response<string>>;
+	<T>(url: string | URL, options?: OptionsOfJSONResponseBodyWrapped): RequestPromise<Response<T>>;
+	(url: string | URL, options?: OptionsOfBufferResponseBodyWrapped): RequestPromise<Response<Uint8Array>>;
 
-	(url: string | URL, options?: OptionsOfTextResponseBodyOnly): CancelableRequest<string>;
-	<T>(url: string | URL, options?: OptionsOfJSONResponseBodyOnly): CancelableRequest<T>;
-	(url: string | URL, options?: OptionsOfBufferResponseBodyOnly): CancelableRequest<Uint8Array>;
-	(url: string | URL, options?: OptionsOfUnknownResponseBodyOnly): CancelableRequest;
+	(url: string | URL, options?: OptionsOfTextResponseBodyOnly): RequestPromise<string>;
+	<T>(url: string | URL, options?: OptionsOfJSONResponseBodyOnly): RequestPromise<T>;
+	(url: string | URL, options?: OptionsOfBufferResponseBodyOnly): RequestPromise<Uint8Array>;
 
-	// Options-only overload for when only URL in options is provided
-	(options: {url: string | URL}): U['resolveBodyOnly'] extends true
-		? CancelableRequest<DefaultResponseBodyType<U>>
-		: CancelableRequest<Response<DefaultResponseBodyType<U>>>;
+	(options: OptionsOfUnknownResponseBody): GotResponseResult<U, DefaultResponseBodyType<U>>;
+	(options: OptionsOfUnknownResponseBodyWrapped): RequestPromise<Response<DefaultResponseBodyType<U>>>;
+	(options: OptionsOfUnknownResponseBodyOnly): RequestPromise<DefaultResponseBodyType<U>>;
 
-	(options: OptionsOfTextResponseBody): U['resolveBodyOnly'] extends true ? CancelableRequest<string> : CancelableRequest<Response<string>>;
-	<T>(options: OptionsOfJSONResponseBody): U['resolveBodyOnly'] extends true ? CancelableRequest<T> : CancelableRequest<Response<T>>;
-	(options: OptionsOfBufferResponseBody): U['resolveBodyOnly'] extends true ? CancelableRequest<Uint8Array> : CancelableRequest<Response<Uint8Array>>;
-	(options: OptionsOfUnknownResponseBody): U['resolveBodyOnly'] extends true ? CancelableRequest : CancelableRequest<Response>;
+	(options: OptionsOfTextResponseBody): GotResponseResult<U, string>;
+	<T>(options: OptionsOfJSONResponseBody): GotResponseResult<U, T>;
+	(options: OptionsOfBufferResponseBody): GotResponseResult<U, Uint8Array>;
 
-	(options: OptionsOfTextResponseBodyWrapped): CancelableRequest<Response<string>>;
-	<T>(options: OptionsOfJSONResponseBodyWrapped): CancelableRequest<Response<T>>;
-	(options: OptionsOfBufferResponseBodyWrapped): CancelableRequest<Response<Uint8Array>>;
-	(options: OptionsOfUnknownResponseBodyWrapped): CancelableRequest<Response>;
+	(options: OptionsOfTextResponseBodyWrapped): RequestPromise<Response<string>>;
+	<T>(options: OptionsOfJSONResponseBodyWrapped): RequestPromise<Response<T>>;
+	(options: OptionsOfBufferResponseBodyWrapped): RequestPromise<Response<Uint8Array>>;
 
-	(options: OptionsOfTextResponseBodyOnly): CancelableRequest<string>;
-	<T>(options: OptionsOfJSONResponseBodyOnly): CancelableRequest<T>;
-	(options: OptionsOfBufferResponseBodyOnly): CancelableRequest<Uint8Array>;
-	(options: OptionsOfUnknownResponseBodyOnly): CancelableRequest;
+	(options: OptionsOfTextResponseBodyOnly): RequestPromise<string>;
+	<T>(options: OptionsOfJSONResponseBodyOnly): RequestPromise<T>;
+	(options: OptionsOfBufferResponseBodyOnly): RequestPromise<Uint8Array>;
 
 	// Fallback
-	(url: string | URL, options?: OptionsInit): CancelableRequest | Request;
+	(url: string | URL, options?: OptionsInit): RequestPromise | Request;
 
-	(options: OptionsInit): CancelableRequest | Request;
+	(options: OptionsInit): RequestPromise | Request;
 
 	// Internal usage
-	(url: undefined, options: undefined, defaults: Options): CancelableRequest | Request;
+	(url: undefined, options: undefined, defaults: Options): RequestPromise | Request;
 };
 
 /**

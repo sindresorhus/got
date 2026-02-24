@@ -4,6 +4,7 @@ import {Readable as ReadableStream} from 'node:stream';
 import {pipeline as streamPipeline} from 'node:stream/promises';
 import test from 'ava';
 import delay from 'delay';
+import getStream from 'get-stream';
 import {pEvent} from 'p-event';
 import type {Handler} from 'express';
 import {createSandbox} from 'sinon';
@@ -13,8 +14,13 @@ import type {GlobalClock} from './helpers/types.js';
 import type {ExtendedHttpTestServer} from './helpers/create-http-test-server.js';
 import withServer, {withServerAndFakeTimers} from './helpers/with-server.js';
 
-const prepareServer = (server: ExtendedHttpTestServer, clock: GlobalClock): {emitter: EventEmitter; promise: Promise<unknown>} => {
+const prepareServer = (server: ExtendedHttpTestServer, clock: GlobalClock): {
+	emitter: EventEmitter;
+	promise: Promise<unknown>;
+	redirectRequestCount: () => number;
+} => {
 	const emitter = new EventEmitter();
+	let redirectRequestCount = 0;
 
 	const promise = new Promise<void>((resolve, reject) => {
 		server.all('/abort', async (request, response) => {
@@ -33,6 +39,7 @@ const prepareServer = (server: ExtendedHttpTestServer, clock: GlobalClock): {emi
 		});
 
 		server.get('/redirect', (_request, response) => {
+			redirectRequestCount++;
 			response.writeHead(302, {
 				location: `${server.url}/abort`,
 			});
@@ -45,7 +52,11 @@ const prepareServer = (server: ExtendedHttpTestServer, clock: GlobalClock): {emi
 		});
 	});
 
-	return {emitter, promise};
+	return {
+		emitter,
+		promise,
+		redirectRequestCount: () => redirectRequestCount,
+	};
 };
 
 const downloadHandler = (clock?: GlobalClock): Handler => (_request, response) => {
@@ -108,6 +119,34 @@ test.serial('does not retry after abort', withServerAndFakeTimers, async (t, ser
 
 	await t.notThrowsAsync(promise, 'Request finished instead of aborting.');
 
+	t.true(signalHandlersRemoved(), 'Abort signal event handlers not removed');
+});
+
+test.serial('does not make a retry request after abort when calculateDelay returns a positive value', withServerAndFakeTimers, async (t, server, got, clock) => {
+	const {emitter, promise, redirectRequestCount} = prepareServer(server, clock);
+	const {controller, signalHandlersRemoved} = createAbortController();
+
+	const gotPromise = got('redirect', {
+		signal: controller.signal,
+		retry: {
+			calculateDelay: () => 100,
+			limit: 1,
+		},
+	});
+
+	emitter.once('sentRedirect', () => {
+		controller.abort();
+	});
+
+	await t.throwsAsync(gotPromise, {
+		code: 'ERR_ABORTED',
+		message: 'This operation was aborted.',
+	});
+
+	clock.tick(1000);
+
+	await t.notThrowsAsync(promise, 'Request finished instead of aborting.');
+	t.is(redirectRequestCount(), 1);
 	t.true(signalHandlersRemoved(), 'Abort signal event handlers not removed');
 });
 
@@ -294,6 +333,26 @@ test.serial('throws on incomplete (aborted) response', withServerAndFakeTimers, 
 	t.true(signalHandlersRemoved(), 'Abort signal event handlers not removed');
 });
 
+test.serial('throws on incomplete (aborted) stream response', withServerAndFakeTimers, async (t, server, got, clock) => {
+	server.get('/', downloadHandler(clock));
+
+	const {controller, signalHandlersRemoved} = createAbortController();
+
+	const stream = got.stream('', {signal: controller.signal});
+
+	clock.setTimeout(() => {
+		controller.abort();
+	}, 400);
+	clock.tick(400);
+
+	await t.throwsAsync(getStream(stream), {
+		code: 'ERR_ABORTED',
+		message: 'This operation was aborted.',
+	});
+
+	t.true(signalHandlersRemoved(), 'Abort signal event handlers not removed');
+});
+
 test('throws when aborting cached request', withServer, async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.setHeader('Cache-Control', 'public, max-age=60');
@@ -316,11 +375,23 @@ test('throws when aborting cached request', withServer, async (t, server, got) =
 	t.true(signalHandlersRemoved(), 'Abort signal event handlers not removed');
 });
 
+test('removes abort signal event handlers after successful request', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.end('ok');
+	});
+
+	const {controller, signalHandlersRemoved} = createAbortController();
+	const response = await got('', {signal: controller.signal});
+
+	t.is(response.body, 'ok');
+	t.true(signalHandlersRemoved(), 'Abort signal event handlers not removed');
+});
+
 test('support setting the signal as a default option', async t => {
 	const {controller, signalHandlersRemoved} = createAbortController();
 
 	const got2 = got.extend({signal: controller.signal});
-	const p = got2('http://example.com', {signal: controller.signal});
+	const p = got2('http://example.com');
 	controller.abort();
 
 	await t.throwsAsync(p, {
@@ -342,6 +413,45 @@ test('support AbortSignal.timeout()', async t => {
 		name: 'TimeoutError',
 		code: timeoutErrorCode,
 		message: 'The operation was aborted due to timeout',
+	});
+});
+
+test.serial('support AbortSignal.timeout() with stream', withServerAndFakeTimers, async (t, server, got, clock) => {
+	server.get('/', downloadHandler(clock));
+
+	const signal = AbortSignal.timeout(1);
+	const stream = got.stream('', {signal});
+
+	clock.tick(1);
+
+	await t.throwsAsync(getStream(stream), {
+		name: 'TimeoutError',
+		code: timeoutErrorCode,
+		message: 'The operation was aborted due to timeout',
+	});
+});
+
+test.serial('support AbortSignal.timeout() with user abort on stream', withServerAndFakeTimers, async (t, server, got, clock) => {
+	server.get('/', downloadHandler(clock));
+
+	const controller = new AbortController();
+	const timeoutSignal = AbortSignal.timeout(1000);
+	const signal = AbortSignal.any([
+		controller.signal,
+		timeoutSignal,
+	]);
+
+	const stream = got.stream('', {signal});
+
+	clock.setTimeout(() => {
+		controller.abort();
+	}, 10);
+	clock.tick(10);
+
+	await t.throwsAsync(getStream(stream), {
+		name: 'AbortError',
+		code: 'ERR_ABORTED',
+		message: 'This operation was aborted.',
 	});
 });
 

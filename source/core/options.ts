@@ -19,7 +19,7 @@ import http2wrapper, {type ClientHttp2Session} from 'http2-wrapper';
 import type {KeyvStoreAdapter} from 'keyv';
 import type KeyvType from 'keyv';
 import type ResponseLike from 'responselike';
-import type {CancelableRequest} from '../as-promise/types.js';
+import type {RequestPromise} from '../as-promise/types.js';
 import type {IncomingMessageWithTimings} from './utils/timer.js';
 import parseLinkHeader from './parse-link-header.js';
 import type {PlainResponse, Response} from './response.js';
@@ -104,7 +104,7 @@ export type BeforeRedirectHook = (updatedOptions: NormalizedOptions, plainRespon
 export type BeforeErrorHook = (error: RequestError) => Promisable<Error>;
 export type BeforeRetryHook = (error: RequestError, retryCount: number) => Promisable<void>;
 export type BeforeCacheHook = (response: PlainResponse) => false | void;
-export type AfterResponseHook<ResponseType = unknown> = (response: Response<ResponseType>, retryWithMergedOptions: (options: OptionsInit) => never) => Promisable<Response | CancelableRequest<Response>>;
+export type AfterResponseHook<ResponseType = unknown> = (response: Response<ResponseType>, retryWithMergedOptions: (options: OptionsInit) => never) => Promisable<Response | RequestPromise<Response>>;
 
 /**
 All available hooks of Got.

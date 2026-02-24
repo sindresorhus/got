@@ -364,9 +364,18 @@ test('async handlers', withServer, async (t, server, got) => {
 	});
 
 	const promise = instance('');
-	t.true(is.function(promise.cancel));
+	t.true(is.function(promise.json));
+	t.true(is.function(promise.once));
+
+	let responseEventCount = 0;
+	const returnedPromise = promise.once('response', () => {
+		responseEventCount++;
+	});
+	t.is(returnedPromise, promise);
+
 	// @ts-expect-error Manual tests
 	t.true((await promise).modified);
+	t.is(responseEventCount, 1);
 });
 
 test('async handlers can throw', async t => {

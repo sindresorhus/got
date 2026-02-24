@@ -5,11 +5,11 @@
 Source code: [`source/as-promise/index.ts`](../source/as-promise/index.ts)
 
 The main Got function returns a [`Promise`](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Promise).\
-Although in order to support cancelation, [`PCancelable`](https://github.com/sindresorhus/p-cancelable) is used instead of pure `Promise`.
+Request aborting is supported via the [`signal` option](2-options.md#signal) and [`AbortController`](https://developer.mozilla.org/en-US/docs/Web/API/AbortController).
 
 ### <code>got(url: string | URL, options?: [OptionsInit](typescript.md#optionsinit), defaults?: [Options](2-options.md))</code>
 
-**Returns: <code>Promise<[Response](response.md)>**</code>
+**Returns: <code>Promise<[Response](response.md)></code>**
 
 The most common way is to pass the URL as the first argument, then the options as the second.
 
@@ -28,7 +28,7 @@ const {headers} = await got(
 
 ### <code>got(options: [OptionsInit](typescript.md#optionsinit))</code>
 
-**Returns: <code>Promise<[Response](3-streams.md#response-1)>**</code>
+**Returns: <code>Promise<[Response](3-streams.md#response-1)></code>**
 
 Alternatively, you can pass only options containing a `url` property.
 
@@ -53,15 +53,15 @@ This is semantically the same as the first approach.
 
 A shortcut method that gives a Promise returning a JSON object.
 
-It is semantically the same as settings [`options.resolveBodyOnly`](2-options.md#resolvebodyonly) to `true` and [`options.responseType`](2-options.md#responsetype) to `'json'`.
+It is semantically the same as setting [`options.resolveBodyOnly`](2-options.md#resolvebodyonly) to `true` and [`options.responseType`](2-options.md#responsetype) to `'json'`.
 
 ### `promise.buffer()`
 
-**Returns: `Promise<Buffer>`**
+**Returns: `Promise<Uint8Array>`**
 
-A shortcut method that gives a Promise returning a [Buffer](https://nodejs.org/api/buffer.html).
+A shortcut method that gives a Promise returning a [Uint8Array](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Uint8Array).
 
-It is semantically the same as settings [`options.resolveBodyOnly`](2-options.md#resolvebodyonly) to `true` and [`options.responseType`](2-options.md#responsetype) to `'buffer'`.
+It is semantically the same as setting [`options.resolveBodyOnly`](2-options.md#resolvebodyonly) to `true` and [`options.responseType`](2-options.md#responsetype) to `'buffer'`.
 
 ### `promise.text()`
 
@@ -69,15 +69,19 @@ It is semantically the same as settings [`options.resolveBodyOnly`](2-options.md
 
 A shortcut method that gives a Promise returning a string.
 
-It is semantically the same as settings [`options.resolveBodyOnly`](2-options.md#resolvebodyonly) to `true` and [`options.responseType`](2-options.md#responsetype) to `'text'`.
+It is semantically the same as setting [`options.resolveBodyOnly`](2-options.md#resolvebodyonly) to `true` and [`options.responseType`](2-options.md#responsetype) to `'text'`.
 
 ### `promise.on(event, handler)`
 
 The events are the same as in [Stream API](3-streams.md#events).
 
+### `promise.once(event, handler)`
+
+Registers a one-time listener for events from [Stream API](3-streams.md#events).
+
 ### `promise.off(event, handler)`
 
-Removes listener registered with [`promise.on`](1-promise.md#promiseonevent-handler)
+Removes listener registered with [`promise.on`](1-promise.md#promiseonevent-handler).
 
 ```js
 import {createReadStream} from 'node:fs';

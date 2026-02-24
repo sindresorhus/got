@@ -29,7 +29,7 @@ We deeply care about readability, so we renamed these options:
 - `auth.username` → [`username`](../2-options.md#username)
 - `auth.password` → [`password`](../2-options.md#password)
 - `data` → [`body`](../2-options.md#body) / [`json`](../2-options.md#json) / [`form`](../2-options.md#form)
-- `params` → [`searchParams`](../2-options.md#serachparams)
+- `params` → [`searchParams`](../2-options.md#searchparams)
 
 #### Changes in behavior
 
@@ -57,7 +57,7 @@ We deeply care about readability, so we renamed these options:
 - `proxy`
   - This option does not exist. You need to pass [an `agent`](../tips.md#proxy) instead.
 - `cancelToken`
-  - This option does not exist. Use the [`signal`](../2-options.md#signal) option with [`AbortController`](https://developer.mozilla.org/en-US/docs/Web/API/AbortController) instead.
+  - Use the [`signal`](../2-options.md#signal) option with [`AbortController`](https://developer.mozilla.org/en-US/docs/Web/API/AbortController).
 - `paramsSerializer`
   - This option does not exist.
 - `maxBodyLength`
@@ -84,7 +84,7 @@ Got offers [hooks](../9-hooks.md) instead, which are more flexible.
 
 Errors look the same, with the difference `error.request` returns a Got stream. Furthermore, Got provides [more details](../8-errors.md) to make debugging easier.
 
-#### Cancelation
+#### Abort
 
 Got supports [`AbortController`](https://developer.mozilla.org/en-US/docs/Web/API/AbortController) via the [`signal`](../2-options.md#signal) option.
 

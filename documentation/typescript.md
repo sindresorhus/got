@@ -7,10 +7,10 @@ Furthermore, types have saved Got from many bugs and inconsistencies.
 
 ### Wrapping Got in an API client
 
-You can wrap Got in a type-safe API client while preserving all Got features including cancellation and events:
+You can wrap Got in a type-safe API client while preserving all Got features including progress/events support:
 
 ```typescript
-import got, {type CancelableRequest, type OptionsOfJSONResponseBody, type Progress} from 'got';
+import got, {type RequestPromise, type OptionsOfJSONResponseBody, type Progress} from 'got';
 
 interface FizzBuzz {
 	fizz: boolean;
@@ -22,7 +22,7 @@ class ExampleAPI {
 		prefixUrl: 'https://api.example.com'
 	});
 
-	isFizzBuzz(number: number): CancelableRequest<FizzBuzz> {
+	isFizzBuzz(number: number): RequestPromise<FizzBuzz> {
 		return this.client.get('fizzbuzz', {
 			searchParams: {number},
 			responseType: 'json',
@@ -31,7 +31,7 @@ class ExampleAPI {
 	}
 
 	// For more complex cases, you can specify options
-	getData(id: string, options?: OptionsOfJSONResponseBody): CancelableRequest<FizzBuzz> {
+	getData(id: string, options?: OptionsOfJSONResponseBody): RequestPromise<FizzBuzz> {
 		return this.client.get(`data/${id}`, {
 			...options,
 			responseType: 'json',
@@ -45,7 +45,7 @@ const api = new ExampleAPI();
 // The promise has full type support
 const promise = api.isFizzBuzz(20);
 
-// Cancel and event methods are available
+// Event methods are available
 promise.on('downloadProgress', (progress: Progress) => {
 	console.log(progress.percent);
 });
@@ -57,9 +57,10 @@ console.log(result.buzz); // boolean
 ```
 
 **Note:**
-> - Use `.json<T>()` to get `CancelableRequest<T>` with the body-only response.
+> - Use `.json<T>()` to get `RequestPromise<T>` with the body-only response.
 > - Use `.buffer()` or `.text()` for other response types.
-> - Without calling these methods, you'll get `CancelableRequest<Response<T>>`.
+> - Without calling these methods, you'll get `RequestPromise<Response<T>>`.
+> - Use `signal` and `AbortController` to abort requests.
 
 ### Types
 
@@ -110,7 +111,7 @@ Here's a list of types that Got exports:
 
 ### [`HandlerFunction`](https://github.com/sindresorhus/got/blob/ae04c0e36cf3f5b2e356df7d48a5b19988f935a2/source/types.ts#L50)
 
-### [`CancelableRequest<T extends Response | Response['body'] = Response['body']>`](https://github.com/sindresorhus/got/blob/ae04c0e36cf3f5b2e356df7d48a5b19988f935a2/source/as-promise/types.ts#L26)
+### [`RequestPromise<T extends Response | Response['body'] = Response['body']>`](https://github.com/sindresorhus/got/blob/ae04c0e36cf3f5b2e356df7d48a5b19988f935a2/source/as-promise/types.ts#L26)
 
 ### [`Delays`](https://github.com/sindresorhus/got/blob/ae04c0e36cf3f5b2e356df7d48a5b19988f935a2/source/core/timed-out.ts#L14)
 
