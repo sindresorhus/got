@@ -9,7 +9,6 @@ import test from 'ava';
 import type {Handler} from 'express';
 import getStream from 'get-stream';
 import {pEvent} from 'p-event';
-import FormData from 'form-data';
 import is from '@sindresorhus/is';
 import delay from 'delay';
 import got, {HTTPError, RequestError} from '../source/index.js';
@@ -365,8 +364,8 @@ test('piping to got.stream.put()', withServer, async (t, server, got) => {
 // See https://github.com/nodejs/node/issues/35237
 // eslint-disable-next-line ava/no-skip-test
 test.skip('no unhandled body stream errors', async t => {
-	const body = new FormData();
-	body.append('upload', fs.createReadStream('/bin/sh'));
+	const body = new globalThis.FormData();
+	body.set('upload', new File([fs.readFileSync('/bin/sh')], 'sh'));
 
 	await t.throwsAsync(got.post(`https://offlinesite${Date.now()}.com`, {
 		body,

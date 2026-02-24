@@ -4,9 +4,6 @@ import fs from 'node:fs';
 import path from 'node:path';
 import test from 'ava';
 import type {Handler} from 'express';
-import FormData from 'form-data';
-import {FormDataEncoder} from 'form-data-encoder';
-import {FormData as FormDataNode} from 'formdata-node';
 import got, {type Headers} from '../source/index.js';
 import withServer from './helpers/with-server.js';
 
@@ -159,68 +156,31 @@ test('form manual `content-type` header', withServer, async (t, server, got) => 
 	t.is(headers['content-type'], 'custom');
 });
 
-test('form-data manual `content-type` header', withServer, async (t, server, got) => {
+test('sets `content-type` header for native FormData', withServer, async (t, server, got) => {
 	server.post('/', echoHeaders);
 
-	const form = new FormData();
-	form.append('a', 'b');
-	const {body} = await got.post({
-		headers: {
-			'content-type': 'custom',
-		},
-		body: form,
-	});
-	const headers = JSON.parse(body);
-	t.is(headers['content-type'], 'custom');
-});
-
-test('form-data automatic `content-type` header', withServer, async (t, server, got) => {
-	server.post('/', echoHeaders);
-
-	const form = new FormData();
-	form.append('a', 'b');
-	const {body} = await got.post({
-		body: form,
-	});
-	const headers = JSON.parse(body);
-	t.is(headers['content-type'], `multipart/form-data; boundary=${form.getBoundary()}`);
-});
-
-test('form-data sets `content-length` header', withServer, async (t, server, got) => {
-	server.post('/', echoHeaders);
-
-	const form = new FormData();
-	form.append('a', 'b');
-	const {body} = await got.post({body: form});
-	const headers = JSON.parse(body);
-	t.is(headers['content-length'], '157');
-});
-
-test('sets `content-type` header for spec-compliant FormData', withServer, async (t, server, got) => {
-	server.post('/', echoHeaders);
-
-	const form = new FormDataNode();
+	const form = new globalThis.FormData();
 	form.set('a', 'b');
 	const {body} = await got.post({body: form});
 	const headers = JSON.parse(body);
 	t.true((headers['content-type'] as string).startsWith('multipart/form-data'));
 });
 
-test('sets `content-length` header for spec-compliant FormData', withServer, async (t, server, got) => {
+test('native FormData uses chunked transfer-encoding instead of content-length', withServer, async (t, server, got) => {
 	server.post('/', echoHeaders);
 
-	const form = new FormDataNode();
+	const form = new globalThis.FormData();
 	form.set('a', 'b');
-	const encoder = new FormDataEncoder(form);
 	const {body} = await got.post({body: form});
 	const headers = JSON.parse(body);
-	t.is(headers['content-length'], encoder.headers['Content-Length']);
+	t.is(headers['content-length'], undefined);
+	t.is(headers['transfer-encoding'], 'chunked');
 });
 
-test('manual `content-type` header should be allowed with spec-compliant FormData', withServer, async (t, server, got) => {
+test('manual `content-type` header should be allowed with native FormData', withServer, async (t, server, got) => {
 	server.post('/', echoHeaders);
 
-	const form = new FormDataNode();
+	const form = new globalThis.FormData();
 	form.set('a', 'b');
 	const {body} = await got.post({
 		headers: {

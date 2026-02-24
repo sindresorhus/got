@@ -15,11 +15,9 @@ import decompressResponse from 'decompress-response';
 import type {KeyvStoreAdapter} from 'keyv';
 import type KeyvType from 'keyv';
 import is, {isBuffer} from '@sindresorhus/is';
-import {FormDataEncoder, isFormData as isFormDataLike} from 'form-data-encoder';
 import type ResponseLike from 'responselike';
 import timer, {type ClientRequestWithTimings, type Timings, type IncomingMessageWithTimings} from './utils/timer.js';
 import getBodySize from './utils/get-body-size.js';
-import isFormData from './utils/is-form-data.js';
 import proxyEvents from './utils/proxy-events.js';
 import timedOut, {TimeoutError as TimedOutTimeoutError} from './timed-out.js';
 import urlToOptions from './utils/url-to-options.js';
@@ -772,24 +770,17 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			const noContentType = !is.string(headers['content-type']);
 
 			if (isBody) {
-				// Body is spec-compliant FormData
-				if (isFormDataLike(options.body)) {
-					const encoder = new FormDataEncoder(options.body);
+				// Native FormData
+				if (options.body instanceof FormData) {
+					const response = new Response(options.body);
 
 					if (noContentType) {
-						headers['content-type'] = encoder.headers['Content-Type'];
+						headers['content-type'] = response.headers.get('content-type') ?? 'multipart/form-data';
 					}
 
-					if ('Content-Length' in encoder.headers) {
-						headers['content-length'] = encoder.headers['Content-Length'];
-					}
-
-					options.body = encoder.encode();
-				}
-
-				// Special case for https://github.com/form-data/form-data
-				if (isFormData(options.body) && noContentType) {
-					headers['content-type'] = `multipart/form-data; boundary=${options.body.getBoundary()}`;
+					options.body = response.body!;
+				} else if (Object.prototype.toString.call(options.body) === '[object FormData]') {
+					throw new TypeError('Non-native FormData is not supported. Use globalThis.FormData instead.');
 				}
 			} else if (isForm) {
 				if (noContentType) {
@@ -811,7 +802,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 				options.body = options.stringifyJson(json);
 			}
 
-			const uploadBodySize = await getBodySize(options.body, options.headers);
+			const uploadBodySize = getBodySize(options.body, options.headers);
 
 			// See https://tools.ietf.org/html/rfc7230#section-3.3.2
 			// A user agent SHOULD send a Content-Length in a request message when

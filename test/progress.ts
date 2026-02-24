@@ -7,7 +7,6 @@ import fs from 'node:fs';
 // @ts-expect-error Fails to find slow-stream/index.d.ts
 import SlowStream from 'slow-stream';
 import getStream from 'get-stream';
-import FormData from 'form-data';
 import {temporaryFile} from 'tempy';
 import is from '@sindresorhus/is';
 import test, {type ExecutionContext} from 'ava';
@@ -153,15 +152,13 @@ test('upload progress - form data', withServer, async (t, server, got) => {
 
 	const events: Progress[] = [];
 
-	const body = new FormData();
-	body.append('key', 'value');
-	body.append('file', file);
-
-	const size = await promisify(body.getLength.bind(body))();
+	const body = new globalThis.FormData();
+	body.set('key', 'value');
+	body.set('file', new File([file], 'file'));
 
 	await got.post({body}).on('uploadProgress', (event: Progress) => events.push(event));
 
-	checkEvents(t, events, size);
+	checkEvents(t, events);
 });
 
 test('upload progress - json', withServer, async (t, server, got) => {

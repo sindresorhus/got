@@ -296,7 +296,7 @@ stream.on('data', console.log);
 
 ### `body`
 
-**Type: `string | Buffer | TypedArray | stream.Readable | Generator | AsyncGenerator | Iterable | AsyncIterable | FormData` or [`form-data` instance](https://github.com/form-data/form-data)**
+**Type: `string | Buffer | TypedArray | stream.Readable | Generator | AsyncGenerator | Iterable | AsyncIterable | FormData`**
 
 The payload to send.
 
@@ -365,12 +365,10 @@ await got.post('https://httpbin.org/anything', {
 });
 ```
 
-Since Got 12, you can use spec-compliant [`FormData`](https://developer.mozilla.org/en-US/docs/Web/API/FormData) objects as request body, such as [`formdata-node`](https://github.com/octet-stream/form-data) or [`formdata-polyfill`](https://github.com/jimmywarting/FormData):
+You can use [`FormData`](https://developer.mozilla.org/en-US/docs/Web/API/FormData) objects as request body:
 
 ```js
 import got from 'got';
-import {FormData} from 'formdata-node'; // or:
-// import {FormData} from 'formdata-polyfill/esm.min.js';
 
 const form = new FormData();
 form.set('greeting', 'Hello, world!');

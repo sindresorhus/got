@@ -16,10 +16,8 @@ import {
 	type BodyEntryPath,
 	type BodyEntryRawValue,
 } from 'then-busboy';
-import {FormData as FormDataNode, Blob, File} from 'formdata-node';
-import {fileFromPath} from 'formdata-node/file-from-path';
 import getStream from 'get-stream';
-import FormData from 'form-data';
+import {FormData as NodeFetchFormData} from 'node-fetch';
 import got, {UploadError} from '../source/index.js';
 import withServer from './helpers/with-server.js';
 
@@ -355,16 +353,16 @@ test('body - file read stream, wait for `ready` event', withServer, async (t, se
 	t.is(toSend, body);
 });
 
-test('body - sends spec-compliant FormData', withServer, async (t, server, got) => {
+test('body - sends native FormData', withServer, async (t, server, got) => {
 	server.post('/', echoMultipartBody);
 
-	const form = new FormDataNode();
+	const form = new globalThis.FormData();
 	form.set('a', 'b');
 	const body = await got.post({body: form}).json<{a: string}>();
 	t.is(body.a, 'b');
 });
 
-test('body - sends files with spec-compliant FormData', withServer, async (t, server, got) => {
+test('body - sends files with native FormData', withServer, async (t, server, got) => {
 	server.post('/', echoMultipartBody);
 
 	const fullPath = path.resolve('test/fixtures/ok');
@@ -377,96 +375,24 @@ test('body - sends files with spec-compliant FormData', withServer, async (t, se
 		anotherFile: anotherFileContent,
 	};
 
-	const form = new FormDataNode();
+	const form = new globalThis.FormData();
 	form.set('blob', new Blob([blobContent]));
 	form.set('file', new File([fileContent], 'file.txt', {type: 'text/plain'}));
-	form.set('anotherFile', await fileFromPath(fullPath, {type: 'text/plain'}));
+	form.set('anotherFile', new File([anotherFileContent], 'ok', {type: 'text/plain'}));
 	const body = await got.post({body: form}).json<typeof expected>();
 	t.deepEqual(body, expected);
 });
 
-test('body - sends form-data with without known length', withServer, async (t, server, got) => {
+test('body - throws on non-native FormData', withServer, async (t, server, got) => {
 	server.post('/', echoMultipartBody);
-	const fullPath = path.resolve('test/fixtures/ok');
 
-	function getFileStream() {
-		const fileStream = fs.createReadStream(fullPath);
-		const passThrough = new stream.PassThrough();
-		fileStream.pipe(passThrough);
-		return passThrough;
-	}
+	const form = new NodeFetchFormData();
+	form.set('a', 'b');
 
-	const expected = {
-		file: await fsPromises.readFile(fullPath, 'utf8'),
-	};
-
-	const form = new FormDataNode();
-	form.set('file', {
-		[Symbol.toStringTag]: 'File',
-		type: 'text/plain',
-		name: 'file.txt',
-		stream() {
-			return getFileStream();
-		},
+	await t.throwsAsync(got.post({body: form}), {
+		code: 'ERR_GOT_REQUEST_ERROR',
+		message: 'Non-native FormData is not supported. Use globalThis.FormData instead.',
 	});
-
-	const body = await got.post({body: form}).json<typeof expected>();
-
-	t.deepEqual(body, expected);
-});
-
-// See https://github.com/sindresorhus/got/issues/2340
-test('body - legacy form-data with unknown stream length throws helpful error', withServer, async (t, server, got) => {
-	server.post('/', echoHeaders);
-
-	// Create a custom stream without known length
-	const customStream = new stream.Readable({
-		read() {
-			this.push('custom stream data');
-			this.push(null);
-		},
-	});
-
-	const form = new FormData();
-	form.append('field', 'value');
-	form.append('file', customStream);
-
-	// Should throw a helpful error explaining how to fix the issue
-	await t.throwsAsync(got.post({
-		body: form,
-		headers: form.getHeaders(),
-	}), {
-		message: /Cannot determine content-length for form-data with stream\(s\) of unknown length/,
-	});
-});
-
-test('body - legacy form-data with knownLength works correctly', withServer, async (t, server, got) => {
-	server.post('/', echoHeaders);
-
-	const data = 'custom stream data';
-	const customStream = new stream.Readable({
-		read() {
-			this.push(data);
-			this.push(null);
-		},
-	});
-
-	const form = new FormData();
-	form.append('field', 'value');
-	// Using knownLength option as recommended in the error message
-	form.append('file', customStream, {
-		knownLength: Buffer.byteLength(data),
-	});
-
-	const {body} = await got.post({
-		body: form,
-		headers: form.getHeaders(),
-	});
-
-	const headers = JSON.parse(body);
-	// Should have content-length when knownLength is provided
-	t.is(typeof headers['content-length'], 'string');
-	t.true(Number(headers['content-length']) > 0);
 });
 
 test('throws on upload error', withServer, async (t, server, got) => {
@@ -508,12 +434,11 @@ test('formdata retry', withServer, async (t, server, got) => {
 		},
 	});
 
-	const form = new FormData();
-	form.append('hello', 'world');
+	const form = new globalThis.FormData();
+	form.set('hello', 'world');
 
 	await t.throwsAsync(instance.post({
 		body: form,
-		headers: form.getHeaders(),
 	}).json<{foo?: string}>(), {
 		message: 'Cannot retry with consumed body stream',
 	});

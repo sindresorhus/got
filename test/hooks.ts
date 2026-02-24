@@ -3,7 +3,6 @@ import {Agent as HttpAgent} from 'node:http';
 import test from 'ava';
 import nock from 'nock';
 import getStream from 'get-stream';
-import FormData from 'form-data';
 import sinon from 'sinon';
 import delay from 'delay';
 import type {Handler} from 'express';
@@ -452,8 +451,8 @@ test('returning HTTP response from a beforeRequest hook', withServer, async (t, 
 test('returning HTTP response from a beforeRequest hook with FormData body', withServer, async (t, server, got) => {
 	server.post('/', echoBody);
 
-	const form = new FormData();
-	form.append('field', 'value');
+	const form = new globalThis.FormData();
+	form.set('field', 'value');
 
 	const data = await got.post({
 		body: form,
@@ -632,8 +631,8 @@ test('beforeRetry allows stream body if different from original', withServer, as
 	});
 
 	const generateBody = () => {
-		const form = new FormData();
-		form.append('A', 'B');
+		const form = new globalThis.FormData();
+		form.set('A', 'B');
 		return form;
 	};
 
@@ -645,9 +644,7 @@ test('beforeRetry allows stream body if different from original', withServer, as
 		hooks: {
 			beforeRetry: [
 				({options}) => {
-					const form = generateBody();
-					options.body = form;
-					options.headers['content-type'] = `multipart/form-data; boundary=${form.getBoundary()}`;
+					options.body = generateBody();
 					options.headers.foo = 'bar';
 				},
 			],
