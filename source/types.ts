@@ -67,12 +67,14 @@ export type ExtendOptions = {
 	@default false
 	*/
 	mutableDefaults?: boolean;
-} & OptionsInit;
+} & Except<OptionsInit, 'url'>;
 
-export type StrictOptions = Except<OptionsInit, 'responseType' | 'resolveBodyOnly'>;
-export type StreamOptions = OptionsInit;
+type OptionsInitWithoutUrl = Except<OptionsInit, 'url'>;
 
-export type OptionsWithPagination<T = unknown, R = unknown> = Merge<OptionsInit, {pagination?: PaginationOptions<T, R>}>;
+export type StrictOptions = Except<OptionsInitWithoutUrl, 'responseType' | 'resolveBodyOnly'>;
+export type StreamOptions = OptionsInitWithoutUrl;
+
+export type OptionsWithPagination<T = unknown, R = unknown> = Merge<OptionsInitWithoutUrl, {pagination?: PaginationOptions<T, R>}>;
 
 /**
 An instance of `got.paginate`.
@@ -198,9 +200,9 @@ export type GotRequestFunction<U extends ExtendOptions = Record<string, unknown>
 	(options: OptionsOfBufferResponseBodyOnly): RequestPromise<Uint8Array>;
 
 	// Fallback
-	(url: string | URL, options?: OptionsInit): RequestPromise | Request;
+	(url: string | URL, options?: OptionsInitWithoutUrl): RequestPromise | Request;
 
-	(options: OptionsInit): RequestPromise | Request;
+	(options: OptionsInitWithoutUrl): RequestPromise | Request;
 
 	// Internal usage
 	(url: undefined, options: undefined, defaults: Options): RequestPromise | Request;

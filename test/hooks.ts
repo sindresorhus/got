@@ -850,8 +850,7 @@ test('afterResponse allows to retry without losing the port', withServer, async 
 		response.end();
 	});
 
-	const {statusCode} = await got({
-		url: server.url,
+	const {statusCode} = await got(server.url, {
 		hooks: {
 			afterResponse: [
 				(response: Response, retryWithMergedOptions: (options: OptionsInit) => never) => {

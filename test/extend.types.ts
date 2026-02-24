@@ -1,7 +1,13 @@
 /* eslint-disable @typescript-eslint/no-unnecessary-type-arguments */
 import {expectTypeOf} from 'expect-type';
 import got, {type RequestPromise, type Response} from '../source/index.js';
-import {type Got, type MergeExtendsConfig, type ExtractExtendOptions} from '../source/types.js';
+import {
+	type Got,
+	type MergeExtendsConfig,
+	type ExtractExtendOptions,
+	type StrictOptions,
+	type ExtendOptions,
+} from '../source/types.js';
 
 // Ensure we properly extract the `extend` options from a Got instance which is used in MergeExtendsConfig generic
 expectTypeOf<ExtractExtendOptions<Got<{resolveBodyOnly: false}>>>().toEqualTypeOf<{resolveBodyOnly: false}>();
@@ -93,13 +99,9 @@ expectTypeOf(gotBufferBodyOnly('https://example.com')).toEqualTypeOf<RequestProm
 expectTypeOf(gotText('https://example.com')).toEqualTypeOf<RequestPromise<Response<string>>>();
 expectTypeOf(gotTextBodyOnly('https://example.com')).toEqualTypeOf<RequestPromise<string>>();
 
-// Test options-only syntax with URL in options - should infer correct type based on extended responseType
-expectTypeOf(gotJson({url: 'https://example.com'})).toEqualTypeOf<RequestPromise<Response<unknown>>>();
-expectTypeOf(gotJsonBodyOnly({url: 'https://example.com'})).toEqualTypeOf<RequestPromise<unknown>>();
-expectTypeOf(gotBuffer({url: 'https://example.com'})).toEqualTypeOf<RequestPromise<Response<Uint8Array>>>();
-expectTypeOf(gotBufferBodyOnly({url: 'https://example.com'})).toEqualTypeOf<RequestPromise<Uint8Array>>();
-expectTypeOf(gotText({url: 'https://example.com'})).toEqualTypeOf<RequestPromise<Response<string>>>();
-expectTypeOf(gotTextBodyOnly({url: 'https://example.com'})).toEqualTypeOf<RequestPromise<string>>();
+// @ts-expect-error `url` must be passed as the first argument.
+const invalidStrictOptions: StrictOptions = {url: 'https://example.com'};
+void invalidStrictOptions;
 
 // Test that generic type parameter still works with extended responseType
 expectTypeOf(gotJson<{data: string}>('https://example.com')).toEqualTypeOf<RequestPromise<Response<{data: string}>>>();
@@ -117,11 +119,9 @@ expectTypeOf(gotJsonBodyOnly('https://example.com', {responseType: 'json', resol
 expectTypeOf(gotBuffer('https://example.com', {responseType: 'buffer', resolveBodyOnly: true})).toEqualTypeOf<RequestPromise<Uint8Array>>();
 expectTypeOf(gotBufferBodyOnly('https://example.com', {responseType: 'buffer', resolveBodyOnly: false})).toEqualTypeOf<RequestPromise<Response<Uint8Array>>>();
 
-// Test that options-only resolveBodyOnly override keeps extended default responseType
-expectTypeOf(gotJson({url: 'https://example.com', resolveBodyOnly: true})).toEqualTypeOf<RequestPromise<unknown>>();
-expectTypeOf(gotJsonBodyOnly({url: 'https://example.com', resolveBodyOnly: false})).toEqualTypeOf<RequestPromise<Response<unknown>>>();
-expectTypeOf(gotBuffer({url: 'https://example.com', resolveBodyOnly: true})).toEqualTypeOf<RequestPromise<Uint8Array>>();
-expectTypeOf(gotBufferBodyOnly({url: 'https://example.com', resolveBodyOnly: false})).toEqualTypeOf<RequestPromise<Response<Uint8Array>>>();
+// @ts-expect-error `url` must not be accepted by extend options.
+const invalidExtendOptions: ExtendOptions = {url: 'https://example.com'};
+void invalidExtendOptions;
 
 // Test shortcut methods preserve RequestPromise return shape
 expectTypeOf(got('https://example.com').json<{data: string}>()).toEqualTypeOf<RequestPromise<{data: string}>>();

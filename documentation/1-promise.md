@@ -26,27 +26,6 @@ const {headers} = await got(
 ).json();
 ```
 
-### <code>got(options: [OptionsInit](typescript.md#optionsinit))</code>
-
-**Returns: <code>Promise<[Response](3-streams.md#response-1)></code>**
-
-Alternatively, you can pass only options containing a `url` property.
-
-```js
-import got from 'got';
-
-const {headers} = await got(
-	{
-		url: 'https://httpbin.org/anything',
-		headers: {
-			foo: 'bar'
-		}
-	}
-).json();
-```
-
-This is semantically the same as the first approach.
-
 ### `promise.json<T>()`
 
 **Returns: `Promise<T>`**

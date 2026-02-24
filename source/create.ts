@@ -29,6 +29,14 @@ const aliases: readonly HTTPAlias[] = [
 	'delete',
 ];
 
+const optionsObjectUrlErrorMessage = 'The `url` option is not supported in options objects. Pass it as the first argument instead.';
+
+const assertNoUrlInOptionsObject = (options: Record<string, unknown>): void => {
+	if (Object.hasOwn(options, 'url')) {
+		throw new TypeError(optionsObjectUrlErrorMessage);
+	}
+};
+
 const create = (defaults: InstanceDefaults): Got => {
 	defaults = {
 		options: new Options(undefined, undefined, defaults.options),
@@ -45,6 +53,14 @@ const create = (defaults: InstanceDefaults): Got => {
 	const makeRequest = (url: string | URL | OptionsInit | undefined, options: OptionsInit | undefined, defaultOptions: Options, isStream: boolean): GotReturn => {
 		let requestInput = url;
 		let requestOptions = options;
+
+		if (is.plainObject(url)) {
+			assertNoUrlInOptionsObject(url);
+		}
+
+		if (is.plainObject(options)) {
+			assertNoUrlInOptionsObject(options);
+		}
 
 		if (isStream) {
 			const createStreamOptions = (value: OptionsInit): OptionsInit => {
@@ -143,6 +159,7 @@ const create = (defaults: InstanceDefaults): Got => {
 				handlers.push(...value.defaults.handlers);
 				mutableDefaults = value.defaults.mutableDefaults;
 			} else {
+				assertNoUrlInOptionsObject(value);
 				options.merge(value);
 
 				if (value.handlers) {
@@ -162,6 +179,14 @@ const create = (defaults: InstanceDefaults): Got => {
 
 	// Pagination
 	const paginateEach = (async function * <T, R>(url: string | URL, options?: OptionsWithPagination<T, R>): AsyncIterableIterator<T> {
+		if (is.plainObject(url)) {
+			assertNoUrlInOptionsObject(url);
+		}
+
+		if (is.plainObject(options)) {
+			assertNoUrlInOptionsObject(options);
+		}
+
 		let normalizedOptions = new Options(url, options as OptionsInit, defaults.options);
 		normalizedOptions.resolveBodyOnly = false;
 

@@ -174,7 +174,7 @@ test('doesn\'t cache response when received HTTP error', withServer, async (t, s
 
 	const cache = new Map();
 
-	const {statusCode, body} = await got({url: '', cache, throwHttpErrors: false});
+	const {statusCode, body} = await got('', {cache, throwHttpErrors: false});
 	t.is(statusCode, 200);
 	t.is(body, 'ok');
 });

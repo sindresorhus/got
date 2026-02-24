@@ -104,6 +104,7 @@ secondInstance.defaults.options.pagination = defaults.pagination;
 **Type: <code>string | [URL](https://nodejs.org/api/url.html#url_the_whatwg_url_api)</code>**
 
 The URL to request. Usually the `url` represents a [WHATWG URL](https://url.spec.whatwg.org/#url-class).
+Pass it as the first argument to `got(url, options)`. Passing `url` in an options object is not supported.
 
 ```js
 import got from 'got';
@@ -113,11 +114,6 @@ await got('https://httpbin.org/anything');
 
 // is semantically the same as this:
 await got(new URL('https://httpbin.org/anything'));
-
-// as well as this:
-await got({
-	url: 'https://httpbin.org/anything'
-});
 ```
 
 #### **Note:**

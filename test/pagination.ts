@@ -693,6 +693,20 @@ test('retrieves all elements - relative url', withServer, async (t, server, got)
 	t.deepEqual(result, [1, 2]);
 });
 
+test('throws when `url` is passed in pagination options object', async t => {
+	await t.throwsAsync(got.paginate.all<number>({url: 'https://example.com'} as any), {
+		instanceOf: TypeError,
+		message: 'The `url` option is not supported in options objects. Pass it as the first argument instead.',
+	});
+});
+
+test('throws when `url` is passed in pagination second argument options object', async t => {
+	await t.throwsAsync(got.paginate.all<number>('https://example.com', {url: 'https://example.com'} as any), {
+		instanceOf: TypeError,
+		message: 'The `url` option is not supported in options objects. Pass it as the first argument instead.',
+	});
+});
+
 test('throws if url is not an instance of URL', withServer, async (t, server, got) => {
 	attachHandler(server, 2);
 

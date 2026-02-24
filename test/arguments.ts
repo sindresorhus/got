@@ -22,8 +22,12 @@ test('`url` is required', async t => {
 	const firstError = await t.throwsAsync(got(''));
 	invalidUrl(t, firstError, '');
 
-	const secondError = await t.throwsAsync(got({url: ''}));
-	invalidUrl(t, secondError, '');
+	t.throws(() => {
+		void got({url: ''} as any);
+	}, {
+		instanceOf: TypeError,
+		message: 'The `url` option is not supported in options objects. Pass it as the first argument instead.',
+	});
 });
 
 test('throws if no arguments provided', async t => {
@@ -204,31 +208,7 @@ test('`got.stream()` exposes internal `isStream` in init hook context', withServ
 		},
 	});
 
-	const streamWithOptionsOnly = got.stream({
-		url: 'stream',
-		hooks: {
-			init: [
-				plain => {
-					t.true(Reflect.get(plain as Record<string, unknown>, 'isStream') === true);
-				},
-			],
-		},
-	});
-
-	// @ts-expect-error Testing unsupported signature at runtime
-	const streamWithInputAndOptions = got.stream({url: 'stream'}, {
-		hooks: {
-			init: [
-				plain => {
-					t.true(Reflect.get(plain as Record<string, unknown>, 'isStream') === true);
-				},
-			],
-		},
-	});
-
 	t.is(await getStream(streamWithInput), 'ok');
-	t.is(await getStream(streamWithOptionsOnly), 'ok');
-	t.is(await getStream(streamWithInputAndOptions), 'ok');
 });
 
 test('`isStream` option is ignored on promise API', withServer, async (t, server, got) => {
@@ -245,10 +225,40 @@ test('`isStream` option is ignored on promise API', withServer, async (t, server
 	t.is(await result.text(), 'ok');
 });
 
-test('accepts `url` as an option', withServer, async (t, server, got) => {
-	server.get('/test', echoUrl);
+test('throws when `url` is passed in options object', t => {
+	t.throws(() => {
+		void got({url: 'https://example.com'} as any);
+	}, {
+		instanceOf: TypeError,
+		message: 'The `url` option is not supported in options objects. Pass it as the first argument instead.',
+	});
+});
 
-	await t.notThrowsAsync(got({url: 'test'}));
+test('throws when `url` is passed in stream options object', t => {
+	const error = t.throws(() => {
+		got.stream({url: 'https://example.com'} as any);
+	});
+
+	t.true(error instanceof TypeError);
+	t.is(error.message, 'The `url` option is not supported in options objects. Pass it as the first argument instead.');
+});
+
+test('throws when `url` is passed as second argument option', t => {
+	const error = t.throws(() => {
+		void got('https://example.com', {url: 'https://example.com'} as any);
+	});
+
+	t.true(error instanceof TypeError);
+	t.is(error.message, 'The `url` option is not supported in options objects. Pass it as the first argument instead.');
+});
+
+test('throws when `url` is passed to extend defaults', t => {
+	const error = t.throws(() => {
+		got.extend({url: 'https://example.com'} as any);
+	});
+
+	t.true(error instanceof TypeError);
+	t.is(error.message, 'The `url` option is not supported in options objects. Pass it as the first argument instead.');
 });
 
 test('can omit `url` option if using `prefixUrl`', withServer, async (t, server, got) => {
@@ -452,13 +462,15 @@ test('throws if `options.encoding` is `null`', async t => {
 	});
 });
 
-test('`url` option and input argument are mutually exclusive', async t => {
-	await t.throwsAsync(got('https://example.com', {
-		url: 'https://example.com',
-	}), {
-		instanceOf: RequestError,
-		message: 'The `url` option is mutually exclusive with the `input` argument',
+test('throws when `url` is passed as option with input argument', t => {
+	const error = t.throws(() => {
+		void got('https://example.com', {
+			url: 'https://example.com',
+		} as any);
 	});
+
+	t.true(error instanceof TypeError);
+	t.is(error.message, 'The `url` option is not supported in options objects. Pass it as the first argument instead.');
 });
 
 test('throws a helpful error when passing `followRedirects`', async t => {

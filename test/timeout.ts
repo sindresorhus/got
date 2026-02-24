@@ -268,8 +268,7 @@ test.serial('connect timeout', withServerAndFakeTimers, async (t, _server, got, 
 
 test.serial('connect timeout (ip address)', withServerAndFakeTimers, async (t, _server, _got, clock) => {
 	await t.throwsAsync(
-		got({
-			url: 'http://127.0.0.1',
+		got('http://127.0.0.1', {
 			createConnection(options: NativeRequestOptions) {
 				const socket = new net.Socket(options as Record<string, unknown> as net.SocketConstructorOpts);
 				// @ts-expect-error We know that it is readonly, but we have to test it
@@ -365,8 +364,7 @@ test.serial('lookup timeout', withServerAndFakeTimers, async (t, server, got, cl
 test.serial('lookup timeout no error (ip address)', withServerAndFakeTimers, async (t, server, _got, clock) => {
 	server.get('/', defaultHandler(clock));
 
-	await t.notThrowsAsync(got({
-		url: `http://127.0.0.1:${server.port}`,
+	await t.notThrowsAsync(got(`http://127.0.0.1:${server.port}`, {
 		timeout: {lookup: 1},
 		retry: {limit: 0},
 	}));

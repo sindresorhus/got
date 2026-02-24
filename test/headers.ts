@@ -52,8 +52,7 @@ test('does not override provided `accept-encoding`', withServer, async (t, serve
 test('does not remove user headers from `url` object argument', withServer, async (t, server) => {
 	server.get('/', echoHeaders);
 
-	const headers = (await got<Headers>({
-		url: `http://${server.hostname}:${server.port}`,
+	const headers = (await got<Headers>(`http://${server.hostname}:${server.port}`, {
 		responseType: 'json',
 		headers: {
 			'X-Request-Id': 'value',
@@ -215,8 +214,7 @@ test('buffer as `options.body` sets `content-length` header', withServer, async 
 });
 
 test('throws on null value headers', async t => {
-	await t.throwsAsync(got({
-		url: 'https://example.com',
+	await t.throwsAsync(got('https://example.com', {
 		headers: {
 			// @ts-expect-error For testing purposes
 			'user-agent': null,

@@ -21,7 +21,7 @@ export * from './core/errors.js';
 export * from './core/diagnostics-channel.js';
 export type {Delays} from './core/timed-out.js';
 export {default as calculateRetryDelay} from './core/calculate-retry-delay.js';
-export * from './as-promise/types.js';
+export type * from './as-promise/types.js';
 export type * from './types.js';
 export {default as create} from './create.js';
 export {default as parseLinkHeader} from './core/parse-link-header.js';
