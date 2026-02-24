@@ -152,16 +152,22 @@ test('compressed and uncompressed responses have consistent spreadability', with
 
 	// Test compressed response spreadability
 	const compressedResponse = await got('compressed');
+	t.true(Object.hasOwn(compressedResponse, 'headers'));
+	t.true(Object.getOwnPropertyDescriptor(compressedResponse, 'headers')?.enumerable ?? false);
 	const compressedSpread = {...compressedResponse};
 
+	t.true(Object.hasOwn(compressedSpread, 'headers'));
 	t.truthy(compressedSpread.headers);
 	t.is(compressedSpread.statusCode, 200);
 	t.truthy(compressedSpread.body);
 
 	// Test uncompressed response spreadability
 	const uncompressedResponse = await got('uncompressed');
+	t.true(Object.hasOwn(uncompressedResponse, 'headers'));
+	t.true(Object.getOwnPropertyDescriptor(uncompressedResponse, 'headers')?.enumerable ?? false);
 	const uncompressedSpread = {...uncompressedResponse};
 
+	t.true(Object.hasOwn(uncompressedSpread, 'headers'));
 	t.truthy(uncompressedSpread.headers);
 	t.is(uncompressedSpread.statusCode, 200);
 	t.truthy(uncompressedSpread.body);
