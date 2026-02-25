@@ -127,8 +127,8 @@ interface RetryObject {
 The function used to calculate the delay before the next request is made. Returning `0` aborts the retry.
 
 **Note:**
-> - When you provide this function, you take full control of the retry logic. The `limit` option is not automatically enforced - it's your responsibility to check `attemptCount` or respect when `computedValue` is `0`.
-> - The `computedValue` parameter contains the default retry delay calculation, which is `0` when the limit is exceeded or the error is not retryable. To maintain default retry behavior while customizing delays, check if `computedValue === 0` and return `0` to stop retrying.
+> - By default, retry rules are enforced before `calculateDelay` runs (`enforceRetryRules: true`), so this function is only called when a retry is allowed.
+> - If you set `enforceRetryRules: false`, `calculateDelay` takes full control of retry behavior. In that mode, check `computedValue` and return `0` when it is `0` to preserve default retry safeguards.
 
 **Tip:**
 > - This is especially useful when you want to scale down the computed value.

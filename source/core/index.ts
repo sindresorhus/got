@@ -448,7 +448,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 					// When enforceRetryRules is true, respect the retry rules (limit, methods, statusCodes, errorCodes)
 					// before calling the user's calculateDelay function. If computedValue is 0 (meaning retry is not allowed
 					// based on these rules), skip calling calculateDelay entirely.
-					// When false (default), always call calculateDelay, allowing it to override retry decisions.
+					// When false, always call calculateDelay, allowing it to override retry decisions.
 					if (retryOptions.enforceRetryRules && computedValue === 0) {
 						backoff = 0;
 					} else {
