@@ -33,10 +33,13 @@ test('JSON response', withServer, async (t, server, got) => {
 	t.deepEqual((await got({responseType: 'json'})).body, dog);
 });
 
-test('Buffer response', withServer, async (t, server, got) => {
+test('Uint8Array response', withServer, async (t, server, got) => {
 	server.get('/', defaultHandler);
 
-	t.deepEqual((await got({responseType: 'buffer'})).body, Buffer.from(jsonResponse));
+	const {body} = await got({responseType: 'buffer'});
+	t.deepEqual(body, new TextEncoder().encode(jsonResponse));
+	t.true(body instanceof Uint8Array);
+	t.false(Buffer.isBuffer(body));
 });
 
 test('Text response', withServer, async (t, server, got) => {
@@ -65,10 +68,13 @@ test('JSON response - promise.json()', withServer, async (t, server, got) => {
 	t.deepEqual(await got('').json(), dog);
 });
 
-test('Buffer response - promise.buffer()', withServer, async (t, server, got) => {
+test('Uint8Array response - promise.buffer()', withServer, async (t, server, got) => {
 	server.get('/', defaultHandler);
 
-	t.deepEqual(await got('').buffer(), Buffer.from(jsonResponse));
+	const body = await got('').buffer();
+	t.deepEqual(body, new TextEncoder().encode(jsonResponse));
+	t.true(body instanceof Uint8Array);
+	t.false(Buffer.isBuffer(body));
 });
 
 test('Text response - promise.text()', withServer, async (t, server, got) => {

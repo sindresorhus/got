@@ -72,6 +72,23 @@ export type Progress = {
 const supportsBrotli = is.string(process.versions.brotli);
 const supportsZstd = is.string(process.versions.zstd);
 const isUtf8Encoding = (encoding?: BufferEncoding): boolean => encoding === undefined || encoding.toLowerCase().replace('-', '') === 'utf8';
+const textEncoder = new TextEncoder();
+const concatUint8Arrays = (chunks: readonly Uint8Array[]): Uint8Array => {
+	let totalLength = 0;
+	for (const chunk of chunks) {
+		totalLength += chunk.byteLength;
+	}
+
+	const result = new Uint8Array(totalLength);
+	let offset = 0;
+
+	for (const chunk of chunks) {
+		result.set(chunk, offset);
+		offset += chunk.byteLength;
+	}
+
+	return result;
+};
 
 const methodsWithoutBody: ReadonlySet<string> = new Set(['GET', 'HEAD']);
 
@@ -423,7 +440,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 				const success = await this._setRawBody(response);
 
 				if (success) {
-					response.body = response.rawBody!.toString();
+					response.body = Buffer.from(response.rawBody!).toString();
 				}
 			}
 
@@ -1182,7 +1199,10 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		try {
 			// Errors are emitted via the `error` event
 			const fromArray = await from.toArray();
-			const rawBody = isBuffer(fromArray.at(0)) ? Buffer.concat(fromArray as Uint8Array[]) : Buffer.from(fromArray.join(''));
+			const hasNonStringChunk = fromArray.some(chunk => typeof chunk !== 'string');
+			const rawBody = hasNonStringChunk
+				? concatUint8Arrays((fromArray as Array<string | Uint8Array>).map(chunk => typeof chunk === 'string' ? textEncoder.encode(chunk) : chunk))
+				: textEncoder.encode((fromArray as string[]).join(''));
 			const shouldUseIncrementalDecodedBody = from === this && this._incrementalBodyDecoder !== undefined;
 
 			// On retry Request is destroyed with no error, therefore the above will successfully resolve.
@@ -1391,7 +1411,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	/*
 	Write a body buffer in chunks to enable granular `uploadProgress` events.
 
-	Without chunking, string/Buffer/TypedArray bodies are written in a single call, causing `uploadProgress` to only emit 0% and 100% with nothing in between.
+	Without chunking, string/Uint8Array/TypedArray bodies are written in a single call, causing `uploadProgress` to only emit 0% and 100% with nothing in between.
 
 	The 64 KB chunk size matches Node.js fs stream defaults.
 	*/

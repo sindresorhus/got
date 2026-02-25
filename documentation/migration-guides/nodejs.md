@@ -18,21 +18,28 @@ const request = http.request('https://httpbin.org/anything', response => {
 	}
 
 	const chunks = [];
+	let totalLength = 0;
 
 	response.on('data', chunk => {
 		chunks.push(chunk);
+		totalLength += chunk.length;
 	});
 
 	response.once('end', () => {
-		const buffer = Buffer.concat(chunks);
+		const bytes = new Uint8Array(totalLength);
+		let offset = 0;
+		for (const chunk of chunks) {
+			bytes.set(chunk, offset);
+			offset += chunk.length;
+		}
 
 		if (response.statusCode >= 400) {
 			const error = new Error(`Unsuccessful response: ${response.statusCode}`);
-			error.body = buffer.toString();
+			error.body = new TextDecoder().decode(bytes);
 			return;
 		}
 
-		const text = buffer.toString();
+		const text = new TextDecoder().decode(bytes);
 
 		console.log(text);
 	});

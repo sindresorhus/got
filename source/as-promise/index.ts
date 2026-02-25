@@ -1,3 +1,4 @@
+import {Buffer} from 'node:buffer';
 import {EventEmitter} from 'node:events';
 import is from '@sindresorhus/is';
 import {
@@ -80,7 +81,7 @@ export default function asPromise<T>(firstRequest?: Request): RequestPromise<T> 
 					} catch (error: unknown) {
 						// Fall back to `utf8`
 						try {
-							response.body = response.rawBody.toString();
+							response.body = Buffer.from(response.rawBody).toString();
 						} catch (error) {
 							request._beforeError(new ParseError(normalizeError(error), response));
 							return;

@@ -458,7 +458,7 @@ test('throws if `options.encoding` is `null`', async t => {
 		encoding: null,
 	}), {
 		instanceOf: RequestError,
-		message: 'To get a Buffer, set `options.responseType` to `buffer` instead',
+		message: 'To get a Uint8Array, set `options.responseType` to `buffer` instead',
 	});
 });
 

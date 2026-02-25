@@ -89,6 +89,7 @@ test('decompress option opts out of decompressing', withServer, async (t, server
 
 	const {body} = await got({decompress: false, responseType: 'buffer'});
 	t.is(Buffer.compare(body, gzipData), 0);
+	t.false(Buffer.isBuffer(body));
 });
 
 test('decompress option doesn\'t alter encoding of uncompressed responses', withServer, async (t, server, got) => {

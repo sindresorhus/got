@@ -272,11 +272,11 @@ console.log(headers);
 
 ### `body`
 
-**Type: `string | Buffer | TypedArray | stream.Readable | Generator | AsyncGenerator | Iterable | AsyncIterable | FormData`**
+**Type: `string | Uint8Array | TypedArray | stream.Readable | Generator | AsyncGenerator | Iterable | AsyncIterable | FormData`**
 
 The payload to send.
 
-For `string`, `Buffer`, and `TypedArray` types (Uint8Array, Uint16Array, etc.), the `content-length` header is automatically set if the `content-length` and `transfer-encoding` headers are missing.
+For `string`, `Uint8Array`, and `TypedArray` types, the `content-length` header is automatically set if the `content-length` and `transfer-encoding` headers are missing.
 
 **The `content-length` header is not automatically set when `body` is an instance of [`fs.createReadStream()`](https://nodejs.org/api/fs.html#fs_fs_createreadstream_path_options).**
 
@@ -582,7 +582,7 @@ See the [Hooks API](9-hooks.md).
 
 [Encoding](https://nodejs.org/api/buffer.html#buffer_buffers_and_character_encodings) to be used on [`setEncoding`](https://nodejs.org/api/stream.html#stream_readable_setencoding_encoding) of the response data.
 
-To get a [`Buffer`](https://nodejs.org/api/buffer.html), you need to set `responseType` to `'buffer'` instead. Don't set this option to `null`.
+To get a [`Uint8Array`](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Uint8Array), you need to set `responseType` to `'buffer'` instead. Don't set this option to `null`.
 
 ```js
 import got from 'got';
@@ -626,7 +626,7 @@ const jsonPromise = responsePromise.json();
 
 const [response, buffer, json] = await Promise.all([responsePromise, bufferPromise, jsonPromise]);
 // `response` is an instance of Got Response
-// `buffer` is an instance of Buffer
+// `buffer` is an instance of Uint8Array
 // `json` is an object
 ```
 
@@ -634,7 +634,7 @@ const [response, buffer, json] = await Promise.all([responsePromise, bufferPromi
 > - When using streams, this option is ignored.
 
 #### **Note:**
-> - `'buffer'` will return the raw body buffer. Any modifications will also alter the result of `.text()` and `.json()`. Before overwriting the buffer, please copy it first via `Buffer.from(buffer)`.\
+> - `'buffer'` will return the raw body bytes as a `Uint8Array`. Any modifications will also alter the result of `.text()` and `.json()`. Before overwriting it, please copy it first via `new Uint8Array(buffer)`.\
 >  See https://github.com/nodejs/node/issues/27080
 
 ### `resolveBodyOnly`
@@ -811,7 +811,7 @@ try {
 
 Decompress the response automatically. This will set the `accept-encoding` header to `gzip, deflate, br` (and `zstd` on Node.js >= 22.15.0).
 
-If disabled, a compressed response is returned as a `Buffer`. This may be useful if you want to handle decompression yourself.
+If disabled, a compressed response is returned as a `Uint8Array`. This may be useful if you want to handle decompression yourself.
 
 > [!NOTE]
 > Zstandard (`zstd`) compression support is available on Node.js >= 22.15.0 and will be automatically enabled when available.

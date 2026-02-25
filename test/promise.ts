@@ -30,14 +30,21 @@ test('emits response event as promise', withServer, async (t, server, got) => {
 	});
 });
 
-test('returns buffer on compressed response', withServer, async (t, server, got) => {
+test('returns Uint8Array on compressed response', withServer, async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.setHeader('content-encoding', 'gzip');
 		response.end();
 	});
 
 	const {body} = await got({decompress: false});
-	t.true(Buffer.isBuffer(body));
+	if (!ArrayBuffer.isView(body)) {
+		t.fail('Expected Uint8Array response body when `decompress` is false for compressed responses');
+		return;
+	}
+
+	t.is(body.constructor.name, 'Uint8Array');
+
+	t.false(Buffer.isBuffer(body));
 });
 
 test('no unhandled `The server aborted pending request` rejection', withServer, async (t, server, got) => {

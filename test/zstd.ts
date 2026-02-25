@@ -76,6 +76,7 @@ if (supportsZstd) {
 
 		const {body} = await got({decompress: false, responseType: 'buffer'});
 		t.is(Buffer.compare(body, zstdData), 0);
+		t.false(Buffer.isBuffer(body));
 	});
 
 	test('preserves `headers` property', withServer, async (t, server, got) => {

@@ -607,8 +607,9 @@ test('got.extend() with responseType works at runtime', withServer, async (t, se
 	});
 
 	const bufferResponse = await bufferClient('buffer');
-	t.true(Buffer.isBuffer(bufferResponse.body));
-	t.is(bufferResponse.body.toString(), 'binary');
+	t.true(bufferResponse.body instanceof Uint8Array);
+	t.false(Buffer.isBuffer(bufferResponse.body));
+	t.is(Buffer.from(bufferResponse.body).toString(), 'binary');
 
 	// Test resolveBodyOnly works with extended responseType
 	const jsonBodyClient = got.extend({

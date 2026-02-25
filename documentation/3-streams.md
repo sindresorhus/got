@@ -124,7 +124,7 @@ An object representing how much data have been downloaded.
 
 An object representing how much data have been uploaded.
 
-Granular upload progress is automatically supported for non-stream `body` (string/Buffer/TypedArray), `json`, and `form` options. For Node.js streams, you can use the [`chunk-data`](https://github.com/sindresorhus/chunk-data) package to get granular progress:
+Granular upload progress is automatically supported for non-stream `body` (string/Uint8Array/TypedArray), `json`, and `form` options. For Node.js streams, you can use the [`chunk-data`](https://github.com/sindresorhus/chunk-data) package to get granular progress:
 
 ```js
 import fs from 'node:fs';
@@ -456,12 +456,12 @@ The same as `request.retryCount`.
 
 ### `rawBody`
 
-**Type: `Buffer`**
+**Type: `Uint8Array`**
 
 **Note:**
 > - This property is only accessible when using Promise API.
 
-The raw response body buffer.
+The raw response body bytes.
 
 ### `body`
 

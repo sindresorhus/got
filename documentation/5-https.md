@@ -61,7 +61,7 @@ await got('https://192.168.1.100', {
 
 #### `certificateAuthority`
 
-**Type: `string | Buffer | string[] | Buffer[]`**
+**Type: `string | Uint8Array | string[] | Uint8Array[]`**
 
 **Note:**
 > - The option has been renamed from the [`ca` TLS option](https://nodejs.org/api/tls.html#tls_tls_createsecurecontext_options) for better readability.
@@ -83,11 +83,11 @@ await got('https://example.com', {
 
 #### `key`
 
-**Type: `string | Buffer | string[] | Buffer[] | object[]`**
+**Type: `string | Uint8Array | string[] | Uint8Array[] | object[]`**
 
 Private keys in [PEM format](https://en.wikipedia.org/wiki/Privacy-Enhanced_Mail).
 
-Multiple keys with different passphrases can be provided as an array of `{pem: <string | Buffer>, passphrase: <string>}`.
+Multiple keys with different passphrases can be provided as an array of `{pem: <string | Uint8Array>, passphrase: <string>}`.
 
 **Note:**
 > - Encrypted keys will be decrypted with `https.passphrase`.
@@ -100,7 +100,7 @@ Shared passphrase used for a single private key and/or a PFX.
 
 #### `certificate`
 
-**Type: `string | Buffer | string[] | Buffer[]`**
+**Type: `string | Uint8Array | string[] | Uint8Array[]`**
 
 **Note:**
 > - The option has been renamed from the [`cert` TLS option](https://nodejs.org/api/tls.html#tls_tls_createsecurecontext_options) for better readability.
@@ -113,22 +113,22 @@ When providing multiple certificate chains, they do not have to be in the same o
 
 #### `pfx`
 
-**Type: `string | Buffer | string[] | Buffer[] | object[]`**
+**Type: `string | Uint8Array | string[] | Uint8Array[] | object[]`**
 
 [PFX or PKCS12](https://en.wikipedia.org/wiki/PKCS_12) encoded private key and certificate chain. Using `https.pfx` is an alternative to providing `https.key` and `https.certificate` individually. A PFX is usually encrypted, then `https.passphrase` will be used to decrypt it.
 
-Multiple PFX can be be provided as an array of unencrypted buffers or an array of objects like:
+Multiple PFX can be provided as an array of unencrypted buffers or an array of objects like:
 
 ```ts
 {
-	buffer: string | Buffer,
+	buffer: string | Uint8Array,
 	passphrase?: string
 }
 ```
 
 #### `certificateRevocationLists`
 
-**Type: `string | Buffer | string[] | Buffer[]`**
+**Type: `string | Uint8Array | string[] | Uint8Array[]`**
 
 **Note:**
 > - The option has been renamed from the [`crl` TLS option](https://nodejs.org/api/tls.html#tls_tls_createsecurecontext_options) for better readability.

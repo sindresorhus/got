@@ -681,7 +681,7 @@ export type HttpsOptions = {
 	[PEM](https://en.wikipedia.org/wiki/Privacy-Enhanced_Mail) allows the option of private keys being encrypted.
 	Encrypted keys will be decrypted with `options.https.passphrase`.
 
-	Multiple keys with different passphrases can be provided as an array of `{pem: <string | Buffer>, passphrase: <string>}`
+	Multiple keys with different passphrases can be provided as an array of `{pem: <string | Uint8Array>, passphrase: <string>}`
 	*/
 	key?: SecureContextOptions['key'];
 
@@ -1517,7 +1517,7 @@ export default class Options {
 
 	This will set the `accept-encoding` header to `gzip, deflate, br` unless you set it yourself.
 
-	If this is disabled, a compressed response is returned as a `Buffer`.
+	If this is disabled, a compressed response is returned as a `Uint8Array`.
 	This may be useful if you want to handle decompression yourself or stream the raw compressed data.
 
 	@default true
@@ -1650,7 +1650,7 @@ export default class Options {
 
 	__Note #4__: This option is not enumerable and will not be merged with the instance defaults.
 
-	The `content-length` header will be automatically set if `body` is a `string` / `Buffer` / typed array ([`Uint8Array`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Uint8Array), etc.), and `content-length` and `transfer-encoding` are not manually set in `options.headers`.
+	The `content-length` header will be automatically set if `body` is a `string` / `Uint8Array` / typed array, and `content-length` and `transfer-encoding` are not manually set in `options.headers`.
 
 	Since Got 12, the `content-length` is not automatically set when `body` is a `fs.createReadStream`.
 
@@ -2720,7 +2720,7 @@ export default class Options {
 	/**
 	[Encoding](https://nodejs.org/api/buffer.html#buffer_buffers_and_character_encodings) to be used on `setEncoding` of the response data.
 
-	To get a [`Buffer`](https://nodejs.org/api/buffer.html), you need to set `responseType` to `buffer` instead.
+	To get a [`Uint8Array`](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Uint8Array), you need to set `responseType` to `buffer` instead.
 	Don't set this option to `null`.
 
 	__Note__: This doesn't affect streams! Instead, you need to do `got.stream(...).setEncoding(encoding)`.
@@ -2733,7 +2733,7 @@ export default class Options {
 
 	set encoding(value: BufferEncoding | undefined) {
 		if (value === null) {
-			throw new TypeError('To get a Buffer, set `options.responseType` to `buffer` instead');
+			throw new TypeError('To get a Uint8Array, set `options.responseType` to `buffer` instead');
 		}
 
 		assertAny('encoding', [is.string, is.undefined], value);
@@ -2790,7 +2790,7 @@ export default class Options {
 
 	const [response, buffer, json] = Promise.all([responsePromise, bufferPromise, jsonPromise]);
 	// `response` is an instance of Got Response
-	// `buffer` is an instance of Buffer
+	// `buffer` is an instance of Uint8Array
 	// `json` is an object
 	```
 
