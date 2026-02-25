@@ -913,6 +913,12 @@ type OptionsToSkip =
 	'auth' |
 	'toJSON' |
 	'merge' |
+	'isHeaderExplicitlySet' |
+	'shouldCopyPipedHeader' |
+	'setPipedHeader' |
+	'getInternalHeaders' |
+	'setInternalHeader' |
+	'deleteInternalHeader' |
 	'createNativeRequestOptions' |
 	'getRequestFunction' |
 	'freeze';
@@ -1022,7 +1028,7 @@ const defaultInternals: InternalsType = {
 	password: '',
 	http2: false,
 	allowGetBody: false,
-	copyPipedHeaders: true,
+	copyPipedHeaders: false,
 	headers: {
 		'user-agent': 'got (https://github.com/sindresorhus/got)',
 	},
@@ -1121,8 +1127,10 @@ const defaultInternals: InternalsType = {
 			const next = parsed.find(entry => entry.parameters.rel === 'next' || entry.parameters.rel === '"next"');
 
 			if (next) {
+				const baseUrl = response.request.options.url ?? response.url;
+
 				return {
-					url: new URL(next.reference, response.url),
+					url: new URL(next.reference, baseUrl),
 				};
 			}
 
@@ -1297,8 +1305,10 @@ const init = (options: OptionsInit, withOptions: OptionsInit, self: Options): vo
 export default class Options {
 	#unixOptions?: NativeRequestOptions;
 	readonly #internals: InternalsType;
+	#headersProxy: Headers;
 	#merging = false;
 	readonly #init: OptionsInit[];
+	readonly #explicitHeaders: Set<string>;
 
 	constructor(input?: string | URL | OptionsInit, options?: OptionsInit, defaults?: Options) {
 		assertAny('input', [is.string, is.urlInstance, is.object, is.undefined], input);
@@ -1312,10 +1322,14 @@ export default class Options {
 		if (defaults) {
 			this.#internals = cloneInternals(defaults.#internals);
 			this.#init = [...defaults.#init];
+			this.#explicitHeaders = new Set(defaults.#explicitHeaders);
 		} else {
 			this.#internals = cloneInternals(defaultInternals);
 			this.#init = [];
+			this.#explicitHeaders = new Set();
 		}
+
+		this.#headersProxy = this.#createHeadersProxy();
 
 		// This rule allows `finally` to be considered more important.
 		// Meaning no matter the error thrown in the `try` block,
@@ -1875,7 +1889,7 @@ export default class Options {
 	}
 
 	set signal(value: AbortSignal | undefined) {
-		assert.object(value);
+		assertAny('signal', [is.object, is.undefined], value);
 
 		this.#internals.signal = value;
 	}
@@ -2294,25 +2308,24 @@ export default class Options {
 
 	When piping a request into a Got stream (e.g., `request.pipe(got.stream(url))`), this controls whether headers from the source stream are automatically merged into the Got request headers.
 
-	Note: Piped headers overwrite any explicitly set headers with the same name. To override this, either set `copyPipedHeaders` to `false` and manually copy safe headers, or use a `beforeRequest` hook to force specific header values after piping.
+	Note: Explicitly set headers take precedence over piped headers. Piped headers are only copied when a header is not already explicitly set.
 
-	Useful for proxy scenarios, but you may want to disable this to filter out headers like `Host`, `Connection`, `Authorization`, etc.
+	Useful for proxy scenarios when explicitly enabled, but you may still want to filter out headers like `Host`, `Connection`, `Authorization`, etc.
 
-	@default true
+	@default false
 
 	@example
 	```
 	import got from 'got';
 	import {pipeline} from 'node:stream/promises';
 
-	// Disable automatic header copying and manually copy only safe headers
+	// Opt in to automatic header copying for proxy scenarios
 	server.get('/proxy', async (request, response) => {
 		const gotStream = got.stream('https://example.com', {
-			copyPipedHeaders: false,
+			copyPipedHeaders: true,
+			// Explicit headers win over piped headers
 			headers: {
-				'user-agent': request.headers['user-agent'],
-				'accept': request.headers['accept'],
-				// Explicitly NOT copying host, connection, authorization, etc.
+				host: 'example.com',
 			}
 		});
 
@@ -2323,18 +2336,19 @@ export default class Options {
 	@example
 	```
 	import got from 'got';
+	import {pipeline} from 'node:stream/promises';
 
-	// Override piped headers using beforeRequest hook
-	const gotStream = got.stream('https://example.com', {
-		hooks: {
-			beforeRequest: [
-				options => {
-					// Force specific header values after piping
-					options.headers.host = 'example.com';
-					delete options.headers.authorization;
-				}
-			]
-		}
+	// Keep it disabled and manually copy only safe headers
+	server.get('/proxy', async (request, response) => {
+		const gotStream = got.stream('https://example.com', {
+			headers: {
+				'user-agent': request.headers['user-agent'],
+				'accept': request.headers['accept'],
+				// Explicitly NOT copying host, connection, authorization, etc.
+			}
+		});
+
+		await pipeline(request, gotStream, response);
 	});
 	```
 	*/
@@ -2348,6 +2362,37 @@ export default class Options {
 		this.#internals.copyPipedHeaders = value;
 	}
 
+	isHeaderExplicitlySet(name: string): boolean {
+		return this.#explicitHeaders.has(name.toLowerCase());
+	}
+
+	shouldCopyPipedHeader(name: string): boolean {
+		const normalizedHeader = name.toLowerCase();
+
+		if (this.isHeaderExplicitlySet(normalizedHeader)) {
+			return false;
+		}
+
+		return true;
+	}
+
+	setPipedHeader(name: string, value: string | string[] | undefined): void {
+		this.#internals.headers[name.toLowerCase()] = value;
+	}
+
+	getInternalHeaders(): Headers {
+		return this.#internals.headers;
+	}
+
+	setInternalHeader(name: string, value: string | string[] | undefined): void {
+		this.#internals.headers[name.toLowerCase()] = value;
+	}
+
+	deleteInternalHeader(name: string): void {
+		// eslint-disable-next-line @typescript-eslint/no-dynamic-delete
+		delete this.#internals.headers[name.toLowerCase()];
+	}
+
 	/**
 	Request headers.
 
@@ -2356,16 +2401,23 @@ export default class Options {
 	@default {}
 	*/
 	get headers(): Headers {
-		return this.#internals.headers;
+		return this.#headersProxy;
 	}
 
 	set headers(value: Headers) {
 		assertPlainObject('headers', value);
+		const normalizedHeaders = lowercaseKeys(value);
 
 		if (this.#merging) {
-			Object.assign(this.#internals.headers, lowercaseKeys(value));
+			Object.assign(this.#internals.headers, normalizedHeaders);
 		} else {
-			this.#internals.headers = lowercaseKeys(value);
+			this.#internals.headers = normalizedHeaders;
+			this.#headersProxy = this.#createHeadersProxy();
+			this.#explicitHeaders.clear();
+		}
+
+		for (const header of Object.keys(normalizedHeaders)) {
+			this.#explicitHeaders.add(header);
 		}
 	}
 
@@ -2890,7 +2942,7 @@ export default class Options {
 			cert: https.certificate,
 			key: https.key,
 			passphrase: https.passphrase,
-			pfx: https.pfx,
+			pfx,
 			rejectUnauthorized: https.rejectUnauthorized,
 			checkServerIdentity: https.checkServerIdentity ?? checkServerIdentity,
 			servername: https.serverName,
@@ -2966,6 +3018,51 @@ export default class Options {
 		Object.freeze(options.retry.errorCodes);
 		Object.freeze(options.retry.methods);
 		Object.freeze(options.retry.statusCodes);
+	}
+
+	#createHeadersProxy(): Headers {
+		return new Proxy(this.#internals.headers, {
+			get(target, property, receiver): unknown {
+				if (typeof property === 'string') {
+					if (Reflect.has(target, property)) {
+						return Reflect.get(target, property, receiver);
+					}
+
+					const normalizedProperty = property.toLowerCase();
+					return Reflect.get(target, normalizedProperty, receiver);
+				}
+
+				return Reflect.get(target, property, receiver);
+			},
+			set: (target, property, value): boolean => {
+				if (typeof property === 'string') {
+					const normalizedProperty = property.toLowerCase();
+					const isSuccess = Reflect.set(target, normalizedProperty, value);
+
+					if (isSuccess) {
+						this.#explicitHeaders.add(normalizedProperty);
+					}
+
+					return isSuccess;
+				}
+
+				return Reflect.set(target, property, value);
+			},
+			deleteProperty: (target, property): boolean => {
+				if (typeof property === 'string') {
+					const normalizedProperty = property.toLowerCase();
+					const isSuccess = Reflect.deleteProperty(target, normalizedProperty);
+
+					if (isSuccess) {
+						this.#explicitHeaders.delete(normalizedProperty);
+					}
+
+					return isSuccess;
+				}
+
+				return Reflect.deleteProperty(target, property);
+			},
+		});
 	}
 
 	#getFallbackRequestFunction() {

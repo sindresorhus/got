@@ -65,6 +65,49 @@ test('diagnostics channel - request:start event', withServer, async (t, server, 
 	}
 });
 
+test('diagnostics channel - request URLs are sanitized', withServer, async (t, server, got) => {
+	server.get('/', echoHeaders);
+
+	const createEvents: any[] = [];
+	const startEvents: any[] = [];
+	const createChannel = diagnosticsChannel.channel('got:request:create');
+	const startChannel = diagnosticsChannel.channel('got:request:start');
+
+	const createHandler = (message: any) => {
+		if (message.method === 'GET') {
+			createEvents.push(message);
+		}
+	};
+
+	const startHandler = (message: any) => {
+		if (message.method === 'GET') {
+			startEvents.push(message);
+		}
+	};
+
+	createChannel.subscribe(createHandler);
+	startChannel.subscribe(startHandler);
+
+	try {
+		const url = new URL(server.url);
+		url.username = 'user';
+		url.password = 'secret';
+		const expectedUrl = `${server.url}/`;
+
+		await got(url);
+
+		t.true(createEvents.length > 0);
+		t.true(startEvents.length > 0);
+		t.true(createEvents.some(event => event.url === expectedUrl));
+		t.true(startEvents.some(event => event.url === expectedUrl));
+		t.false(createEvents.some(event => event.url.includes('user')) || createEvents.some(event => event.url.includes('secret')));
+		t.false(startEvents.some(event => event.url.includes('user')) || startEvents.some(event => event.url.includes('secret')));
+	} finally {
+		createChannel.unsubscribe(createHandler);
+		startChannel.unsubscribe(startHandler);
+	}
+});
+
 test('diagnostics channel - response:start event', withServer, async (t, server, got) => {
 	server.get('/', echoHeaders);
 
@@ -150,6 +193,41 @@ test('diagnostics channel - request:error event', withServer, async (t, server, 
 		t.truthy(event.requestId);
 		t.truthy(event.error);
 		t.is(typeof event.url, 'string');
+	} finally {
+		channel.unsubscribe(handler);
+	}
+});
+
+test('diagnostics channel - request:error URL is sanitized', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.statusCode = 500;
+		response.end('error');
+	});
+
+	const events: any[] = [];
+	const channel = diagnosticsChannel.channel('got:request:error');
+
+	const handler = (message: any) => {
+		events.push(message);
+	};
+
+	channel.subscribe(handler);
+
+	try {
+		const url = new URL(server.url);
+		url.username = 'user';
+		url.password = 'secret';
+
+		await t.throwsAsync(got(url, {
+			retry: {
+				limit: 0,
+			},
+		}));
+
+		t.is(events.length, 1);
+		t.is(events[0].url, `${server.url}/`);
+		t.false(events[0].url.includes('user'));
+		t.false(events[0].url.includes('secret'));
 	} finally {
 		channel.unsubscribe(handler);
 	}

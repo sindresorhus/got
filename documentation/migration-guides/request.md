@@ -95,6 +95,10 @@ Readability is very important to us, so we have different names for these option
 - No `removeRefererHeader` option.\
   You can remove the `referer` header in a [`beforeRequest` hook](../9-hooks.md#beforerequest).
 - No `followAllRedirects` option.
+- [`copyPipedHeaders`](../2-options.md#copypipedheaders) defaults to `false`.\
+  Piped request headers are no longer copied automatically. Opt in with `copyPipedHeaders: true` for proxy scenarios.
+- With `copyPipedHeaders: true`, explicitly set headers win over piped headers.\
+  Piped headers only fill headers that were not explicitly set.
 
 Hooks are very powerful. [Read more](../9-hooks.md) to see what else you achieve using hooks.
 
@@ -110,7 +114,7 @@ http.createServer((serverRequest, serverResponse) => {
 });
 ```
 
-The cool feature here is that Request can proxy headers with the stream, but Got can do that too!
+Request can proxy headers with the stream. Got can do that too, but it is opt-in:
 
 ```js
 import {pipeline as streamPipeline} from 'node:stream/promises';
@@ -119,7 +123,8 @@ import got from 'got';
 const server = http.createServer(async (serverRequest, serverResponse) => {
 	if (serverRequest.url === '/doodle.png') {
 		await streamPipeline(
-			got.stream('https://example.com/doodle.png'),
+			serverRequest,
+			got.stream('https://example.com/doodle.png', {copyPipedHeaders: true}),
 			serverResponse
 		);
 	}
@@ -128,7 +133,7 @@ const server = http.createServer(async (serverRequest, serverResponse) => {
 server.listen(8080);
 ```
 
-In terms of streams nothing has really changed.
+In terms of stream usage, nothing has really changed, but header proxying is opt-in via `copyPipedHeaders: true`.
 
 #### Convenience methods
 

@@ -21,6 +21,7 @@ import getBodySize from './utils/get-body-size.js';
 import proxyEvents from './utils/proxy-events.js';
 import timedOut, {TimeoutError as TimedOutTimeoutError} from './timed-out.js';
 import urlToOptions from './utils/url-to-options.js';
+import stripUrlAuth from './utils/strip-url-auth.js';
 import WeakableMap from './utils/weakable-map.js';
 import calculateRetryDelay from './calculate-retry-delay.js';
 import Options, {
@@ -201,6 +202,7 @@ const normalizeError = (error: unknown): Error => {
 type UrlType = ConstructorParameters<typeof Options>[0];
 type OptionsType = ConstructorParameters<typeof Options>[1];
 type DefaultsType = ConstructorParameters<typeof Options>[2];
+const getSanitizedUrl = (options?: Options): string => options?.url ? stripUrlAuth(options.url) : '';
 
 export default class Request extends Duplex implements RequestEvents<Request> {
 	// @ts-expect-error - Ignoring for now.
@@ -254,7 +256,15 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 		this.on('pipe', (source: NodeJS.ReadableStream & {headers?: Record<string, string | string[] | undefined>}) => {
 			if (this.options.copyPipedHeaders && source?.headers) {
-				Object.assign(this.options.headers, source.headers);
+				for (const [header, value] of Object.entries(source.headers)) {
+					const normalizedHeader = header.toLowerCase();
+
+					if (!this.options.shouldCopyPipedHeader(normalizedHeader)) {
+						continue;
+					}
+
+					this.options.setPipedHeader(normalizedHeader, value);
+				}
 			}
 		});
 
@@ -280,7 +290,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			// Publish request creation event
 			publishRequestCreate({
 				requestId: this._requestId,
-				url: this.options.url?.toString() ?? '',
+				url: getSanitizedUrl(this.options),
 				method: this.options.method,
 			});
 		} catch (error: unknown) {
@@ -751,7 +761,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 	private async _finalizeBody(): Promise<void> {
 		const {options} = this;
-		const {headers} = options;
+		const headers = options.getInternalHeaders();
 
 		const isForm = !is.undefined(options.form);
 		// eslint-disable-next-line @typescript-eslint/naming-convention
@@ -800,7 +810,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 				options.body = options.stringifyJson(json);
 			}
 
-			const uploadBodySize = getBodySize(options.body, options.headers);
+			const uploadBodySize = getBodySize(options.body, headers);
 
 			// See https://tools.ietf.org/html/rfc7230#section-3.3.2
 			// A user agent SHOULD send a Content-Length in a request message when
@@ -816,8 +826,8 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			}
 		}
 
-		if (options.responseType === 'json' && !('accept' in options.headers)) {
-			options.headers.accept = 'application/json';
+		if (options.responseType === 'json' && !('accept' in headers)) {
+			headers.accept = 'application/json';
 		}
 
 		this._bodySize = Number(headers['content-length']) || undefined;
@@ -873,7 +883,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		}
 
 		typedResponse.statusMessage ||= http.STATUS_CODES[statusCode]; // eslint-disable-line @typescript-eslint/prefer-nullish-coalescing -- The status message can be empty.
-		typedResponse.url = options.url!.toString();
+		typedResponse.url = stripUrlAuth(options.url!);
 		typedResponse.requestUrl = this.requestUrl!;
 		typedResponse.redirectUrls = this.redirectUrls;
 		typedResponse.request = this;
@@ -981,7 +991,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 					updatedOptions.json = undefined;
 					updatedOptions.form = undefined;
 
-					delete updatedOptions.headers['content-length'];
+					updatedOptions.deleteInternalHeader('content-length');
 					// Only clear `_bodySize` when the redirect drops the request body.
 					this._bodySize = undefined;
 				}
@@ -998,21 +1008,24 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 					// Redirecting to a different site, clear sensitive data.
 					// For UNIX sockets, different socket paths are also different origins.
-					const isDifferentOrigin = redirectUrl.hostname !== (url as URL).hostname
+					const isDifferentOrigin = redirectUrl.protocol !== (url as URL).protocol
+						|| redirectUrl.hostname !== (url as URL).hostname
 						|| redirectUrl.port !== (url as URL).port
 						|| getUnixSocketPath(url as URL) !== getUnixSocketPath(redirectUrl);
 
 					if (isDifferentOrigin) {
-						if ('host' in updatedOptions.headers) {
-							delete updatedOptions.headers.host;
+						const updatedHeaders = updatedOptions.getInternalHeaders();
+
+						if ('host' in updatedHeaders) {
+							updatedOptions.deleteInternalHeader('host');
 						}
 
-						if ('cookie' in updatedOptions.headers) {
-							delete updatedOptions.headers.cookie;
+						if ('cookie' in updatedHeaders) {
+							updatedOptions.deleteInternalHeader('cookie');
 						}
 
-						if ('authorization' in updatedOptions.headers) {
-							delete updatedOptions.headers.authorization;
+						if ('authorization' in updatedHeaders) {
+							updatedOptions.deleteInternalHeader('authorization');
 						}
 
 						if (updatedOptions.username || updatedOptions.password) {
@@ -1221,7 +1234,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		// Publish request start event
 		publishRequestStart({
 			requestId: this._requestId,
-			url: url?.toString() ?? '',
+			url: getSanitizedUrl(this.options),
 			method: options.method,
 			headers: options.headers,
 		});
@@ -1651,13 +1664,13 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 	private async _makeRequest(): Promise<void> {
 		const {options} = this;
-		const {headers, username, password} = options;
+		const headers = options.getInternalHeaders();
+		const {username, password} = options;
 		const cookieJar = options.cookieJar as PromiseCookieJar | undefined;
 
 		for (const key in headers) {
 			if (is.undefined(headers[key])) {
-				// eslint-disable-next-line @typescript-eslint/no-dynamic-delete
-				delete headers[key];
+				options.deleteInternalHeader(key);
 			} else if (is.null(headers[key])) {
 				throw new TypeError(`Use \`undefined\` instead of \`null\` to delete the \`${key}\` header`);
 			}
@@ -1673,12 +1686,12 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 				encodings.push('zstd');
 			}
 
-			headers['accept-encoding'] = encodings.join(', ');
+			options.setInternalHeader('accept-encoding', encodings.join(', '));
 		}
 
 		if (username || password) {
 			const credentials = Buffer.from(`${username}:${password}`).toString('base64');
-			headers.authorization = `Basic ${credentials}`;
+			options.setInternalHeader('authorization', `Basic ${credentials}`);
 		}
 
 		// Set cookies
@@ -1686,7 +1699,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			const cookieString: string = await cookieJar.getCookieString(options.url!.toString());
 
 			if (is.nonEmptyString(cookieString)) {
-				headers.cookie = cookieString;
+				options.setInternalHeader('cookie', cookieString);
 			}
 		}
 
@@ -1790,7 +1803,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		// Publish error event
 		publishError({
 			requestId: this._requestId,
-			url: this.options?.url?.toString() ?? '',
+			url: getSanitizedUrl(this.options),
 			error,
 			timings: this.timings,
 		});

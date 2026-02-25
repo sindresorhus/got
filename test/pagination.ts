@@ -20,9 +20,8 @@ const resetPagination = {
 // eslint-disable-next-line unicorn/no-object-as-default-parameter
 const attachHandler = (server: ExtendedHttpTestServer, count: number, {relative} = {relative: false}): void => {
 	server.get('/', (request, response) => {
-		// eslint-disable-next-line unicorn/prevent-abbreviations
-		const searchParams = new URLSearchParams(request.url.split('?')[1]);
-		const page = Number(searchParams.get('page')) || 1;
+		const searchParameters = new URLSearchParams(request.url.split('?')[1]);
+		const page = Number(searchParameters.get('page')) || 1;
 
 		if (page < count) {
 			response.setHeader('link', `<${relative ? '' : server.url}/?page=${page + 1}>; rel="next"`);
@@ -70,6 +69,35 @@ test('retrieves all elements with JSON responseType', withServer, async (t, serv
 	const result = await got.extend({
 		responseType: 'json',
 	}).paginate.all<number>('');
+
+	t.deepEqual(result, [1, 2]);
+});
+
+test('preserves URL credentials for relative next-page links', withServer, async (t, server, got) => {
+	const expectedAuthorization = `Basic ${Buffer.from('hello:world').toString('base64')}`;
+
+	server.get('/', (request, response) => {
+		if (request.headers.authorization !== expectedAuthorization) {
+			response.statusCode = 401;
+			response.end('Unauthorized');
+			return;
+		}
+
+		const searchParameters = new URLSearchParams(request.url.split('?')[1]);
+		const page = Number(searchParameters.get('page')) || 1;
+
+		if (page < 2) {
+			response.setHeader('link', '</?page=2>; rel="next"');
+		}
+
+		response.end(`[${page}]`);
+	});
+
+	const url = new URL(server.url);
+	url.username = 'hello';
+	url.password = 'world';
+
+	const result = await got.paginate.all<number>(url);
 
 	t.deepEqual(result, [1, 2]);
 });

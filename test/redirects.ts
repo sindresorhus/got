@@ -1231,6 +1231,32 @@ test('clears the authorization header when redirecting to a different hostname',
 	t.is(headers.authorization, undefined);
 });
 
+test('clears credentials and sensitive headers when redirecting to a different protocol on the same hostname', withHttpsServer(), async (t, serverHttps, got) => {
+	await withServer.exec(t, async (t, serverHttp) => {
+		serverHttps.get('/', (_request, response) => {
+			response.writeHead(302, {
+				location: `http://${serverHttp.hostname}:${serverHttp.port}/target`,
+			});
+			response.end();
+		});
+
+		serverHttp.get('/target', (request, response) => {
+			response.end(JSON.stringify(request.headers));
+		});
+
+		const headers = await got('', {
+			username: 'hello',
+			password: 'world',
+			headers: {
+				cookie: 'session=123',
+			},
+		}).json<Record<string, string | undefined>>();
+
+		t.is(headers.authorization, undefined);
+		t.is(headers.cookie, undefined);
+	});
+});
+
 test('preserves userinfo on redirect to the same origin', withServer, async (t, server) => {
 	server.get('/redirect', (_request, response) => {
 		response.writeHead(303, {

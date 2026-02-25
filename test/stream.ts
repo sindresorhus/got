@@ -229,12 +229,31 @@ test('proxying headers works', withServer, async (t, server, got) => {
 	t.is(body, 'ok');
 });
 
-test('piping server request to Got proxies also headers', withServer, async (t, server, got) => {
+test('piping server request to Got does not proxy headers by default', withServer, async (t, server, got) => {
 	server.get('/', headersHandler);
 	server.get('/proxy', async (request, response) => {
 		await streamPipeline(
 			request,
 			got.stream(''),
+			response,
+		);
+	});
+
+	const headers: Record<string, string> = await got('proxy', {
+		headers: {
+			foo: 'bar',
+		},
+	}).json();
+	t.is(headers.foo, undefined);
+	t.truthy(headers['user-agent']); // Got's default user-agent should still be present
+});
+
+test('piping server request to Got proxies headers when copyPipedHeaders is true', withServer, async (t, server, got) => {
+	server.get('/', headersHandler);
+	server.get('/proxy', async (request, response) => {
+		await streamPipeline(
+			request,
+			got.stream('', {copyPipedHeaders: true}),
 			response,
 		);
 	});
@@ -266,7 +285,7 @@ test('piping server request to Got does not proxy headers when copyPipedHeaders 
 	t.truthy(headers['user-agent']); // Got's default user-agent should still be present
 });
 
-test('piped headers overwrite explicitly set headers when copyPipedHeaders is true', withServer, async (t, server, got) => {
+test('explicit headers are not overwritten by piped headers when copyPipedHeaders is true', withServer, async (t, server, got) => {
 	server.get('/', headersHandler);
 	server.get('/proxy', async (request, response) => {
 		await streamPipeline(
@@ -286,8 +305,229 @@ test('piped headers overwrite explicitly set headers when copyPipedHeaders is tr
 			'x-custom': 'piped-value',
 		},
 	}).json();
-	// Piped header should overwrite explicit header
+	t.is(headers['x-custom'], 'explicit-value');
+});
+
+test('headers from extended defaults are not overwritten by piped headers when copyPipedHeaders is true', withServer, async (t, server, got) => {
+	server.get('/', headersHandler);
+
+	const gotWithDefaultHeaders = got.extend({
+		headers: {
+			'x-custom': 'default-explicit-value',
+		},
+	});
+
+	server.get('/proxy', async (request, response) => {
+		await streamPipeline(
+			request,
+			gotWithDefaultHeaders.stream('', {
+				copyPipedHeaders: true,
+			}),
+			response,
+		);
+	});
+
+	const headers: Record<string, string> = await got('proxy', {
+		headers: {
+			'x-custom': 'piped-value',
+		},
+	}).json();
+	t.is(headers['x-custom'], 'default-explicit-value');
+});
+
+test('explicitly omitted headers are not backfilled by piped headers when copyPipedHeaders is true', withServer, async (t, server, got) => {
+	server.get('/', headersHandler);
+	server.get('/proxy', async (request, response) => {
+		await streamPipeline(
+			request,
+			got.stream('', {
+				copyPipedHeaders: true,
+				headers: {
+					foo: undefined,
+				},
+			}),
+			response,
+		);
+	});
+
+	const headers: Record<string, string> = await got('proxy', {
+		headers: {
+			foo: 'piped-value',
+		},
+	}).json();
+	t.is(headers.foo, undefined);
+});
+
+test('headers set by mutating stream options are not overwritten by piped headers', withServer, async (t, server, got) => {
+	server.get('/', headersHandler);
+	server.get('/proxy', async (request, response) => {
+		const gotStream = got.stream('', {copyPipedHeaders: true});
+		gotStream.options.headers['x-custom'] = 'explicit-value';
+
+		await streamPipeline(
+			request,
+			gotStream,
+			response,
+		);
+	});
+
+	const headers: Record<string, string> = await got('proxy', {
+		headers: {
+			'x-custom': 'piped-value',
+		},
+	}).json();
+	t.is(headers['x-custom'], 'explicit-value');
+});
+
+test('mixed-case headers set by mutating stream options are not overwritten by piped headers', withServer, async (t, server, got) => {
+	server.get('/', headersHandler);
+	server.get('/proxy', async (request, response) => {
+		const gotStream = got.stream('', {copyPipedHeaders: true});
+		gotStream.options.headers.Authorization = 'Bearer explicit-token';
+
+		await streamPipeline(
+			request,
+			gotStream,
+			response,
+		);
+	});
+
+	const headers: Record<string, string> = await got('proxy', {
+		headers: {
+			authorization: 'Bearer piped-token',
+		},
+	}).json();
+	t.is(headers.authorization, 'Bearer explicit-token');
+});
+
+test('mixed-case headers omitted by mutating stream options are not backfilled by piped headers', withServer, async (t, server, got) => {
+	server.get('/', headersHandler);
+	server.get('/proxy', async (request, response) => {
+		const gotStream = got.stream('', {copyPipedHeaders: true});
+		gotStream.options.headers.Authorization = undefined;
+
+		await streamPipeline(
+			request,
+			gotStream,
+			response,
+		);
+	});
+
+	const headers: Record<string, string> = await got('proxy', {
+		headers: {
+			authorization: 'Bearer piped-token',
+		},
+	}).json();
+	t.is(headers.authorization, undefined);
+});
+
+test('headers omitted by mutating stream options are not backfilled by piped headers', withServer, async (t, server, got) => {
+	server.get('/', headersHandler);
+	server.get('/proxy', async (request, response) => {
+		const gotStream = got.stream('', {copyPipedHeaders: true});
+		gotStream.options.headers.authorization = undefined;
+
+		await streamPipeline(
+			request,
+			gotStream,
+			response,
+		);
+	});
+
+	const headers: Record<string, string> = await got('proxy', {
+		headers: {
+			authorization: 'Bearer piped-token',
+		},
+	}).json();
+	t.is(headers.authorization, undefined);
+});
+
+test('deleted explicit headers can be backfilled by piped headers', withServer, async (t, server, got) => {
+	server.get('/', headersHandler);
+	server.get('/proxy', async (request, response) => {
+		const gotStream = got.stream('', {
+			copyPipedHeaders: true,
+			headers: {
+				'x-custom': 'explicit-value',
+			},
+		});
+		delete gotStream.options.headers['x-custom'];
+
+		await streamPipeline(
+			request,
+			gotStream,
+			response,
+		);
+	});
+
+	const headers: Record<string, string> = await got('proxy', {
+		headers: {
+			'x-custom': 'piped-value',
+		},
+	}).json();
 	t.is(headers['x-custom'], 'piped-value');
+});
+
+test('explicit user-agent header is not overwritten by piped header', withServer, async (t, server, got) => {
+	server.get('/', headersHandler);
+	server.get('/proxy', async (request, response) => {
+		await streamPipeline(
+			request,
+			got.stream('', {
+				copyPipedHeaders: true,
+				headers: {
+					'user-agent': 'got (https://github.com/sindresorhus/got)',
+				},
+			}),
+			response,
+		);
+	});
+
+	const headers: Record<string, string> = await got('proxy', {
+		headers: {
+			'user-agent': 'piped-user-agent',
+		},
+	}).json();
+	t.is(headers['user-agent'], 'got (https://github.com/sindresorhus/got)');
+});
+
+test('default-valued user-agent set by mutating stream options is not overwritten by piped header', withServer, async (t, server, got) => {
+	server.get('/', headersHandler);
+	server.get('/proxy', async (request, response) => {
+		const gotStream = got.stream('', {copyPipedHeaders: true});
+		gotStream.options.headers['user-agent'] = 'got (https://github.com/sindresorhus/got)';
+
+		await streamPipeline(
+			request,
+			gotStream,
+			response,
+		);
+	});
+
+	const headers: Record<string, string> = await got('proxy', {
+		headers: {
+			'user-agent': 'piped-user-agent',
+		},
+	}).json();
+	t.is(headers['user-agent'], 'got (https://github.com/sindresorhus/got)');
+});
+
+test('default user-agent is overwritten by piped user-agent when copyPipedHeaders is true', withServer, async (t, server, got) => {
+	server.get('/', headersHandler);
+	server.get('/proxy', async (request, response) => {
+		await streamPipeline(
+			request,
+			got.stream('', {copyPipedHeaders: true}),
+			response,
+		);
+	});
+
+	const headers: Record<string, string> = await got('proxy', {
+		headers: {
+			'user-agent': 'custom-user-agent',
+		},
+	}).json();
+	t.is(headers['user-agent'], 'custom-user-agent');
 });
 
 test('skips proxying headers after server has sent them already', withServer, async (t, server, got) => {

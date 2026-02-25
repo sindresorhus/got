@@ -1,6 +1,7 @@
 import {Buffer} from 'node:buffer';
 import type {IncomingMessageWithTimings, Timings} from './utils/timer.js';
 import {RequestError} from './errors.js';
+import stripUrlAuth from './utils/strip-url-auth.js';
 import type {ParseJsonFunction, ResponseType} from './options.js';
 import type Request from './index.js';
 
@@ -134,8 +135,7 @@ export class ParseError extends RequestError {
 
 	constructor(error: Error, response: Response) {
 		const {options} = response.request;
-
-		super(`${error.message} in "${options.url!.toString()}"`, error, response.request);
+		super(`${error.message} in "${stripUrlAuth(options.url!)}"`, error, response.request);
 	}
 }
 

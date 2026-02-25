@@ -110,6 +110,21 @@ test('wraps parsing errors', withServer, async (t, server, got) => {
 	t.is(error?.code, 'ERR_BODY_PARSE_FAILURE');
 });
 
+test('credentials are stripped from ParseError message URL', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.end('/');
+	});
+
+	const url = new URL(server.url);
+	url.username = 'user';
+	url.password = 'secret';
+
+	const error = await t.throwsAsync<ParseError>(got(url, {responseType: 'json'}), {instanceOf: ParseError});
+	t.false(error?.message.includes('user'));
+	t.false(error?.message.includes('secret'));
+	t.regex(error?.message ?? '', /in "http:\/\/localhost:\d+\/"$/);
+});
+
 test('JSON response with UTF-8 BOM throws ParseError', withServer, async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.end(Buffer.from([0xEF, 0xBB, 0xBF, ...Buffer.from(jsonResponse)]));

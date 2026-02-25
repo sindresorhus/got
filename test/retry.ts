@@ -601,6 +601,353 @@ test('createRetryStream accepts options', withServer, async (t, server, got) => 
 	t.true(receivedCustomHeader);
 });
 
+test('createRetryStream re-copies piped headers on retry', withServer, async (t, server, got) => {
+	let returnServerError = true;
+
+	server.put('/', (request, response) => {
+		if (returnServerError) {
+			returnServerError = false;
+			response.statusCode = 500;
+			response.end('not ok');
+			return;
+		}
+
+		response.end(JSON.stringify(request.headers));
+	});
+
+	const responseStreamPromise = new Promise<PassThroughStream>((resolve, reject) => {
+		let writeStream: PassThroughStream;
+		let attempt = 0;
+
+		const function_ = (retryStream?: Request) => {
+			attempt++;
+			const stream = retryStream ?? got.stream.put('', {copyPipedHeaders: true});
+
+			if (writeStream) {
+				writeStream.destroy();
+			}
+
+			writeStream = new PassThroughStream();
+			const sourceStream = new PassThroughStream() as PassThroughStream & {headers: Record<string, string>};
+			sourceStream.headers = {
+				'x-custom-header': attempt === 1 ? 'first-value' : 'second-value',
+			};
+
+			sourceStream.pipe(stream);
+			sourceStream.end('request body');
+			stream.pipe(writeStream);
+
+			stream.once('retry', (_retryCount, _error, createRetryStream) => {
+				function_(createRetryStream());
+			});
+
+			stream.once('error', reject);
+			stream.once('end', () => {
+				if (stream.retryCount === 1) {
+					resolve(writeStream);
+				}
+			});
+		};
+
+		function_();
+	});
+
+	const responseStream = await responseStreamPromise;
+	const headers = JSON.parse(await getStream(responseStream)) as Record<string, string>;
+
+	t.is(headers['x-custom-header'], 'second-value');
+});
+
+test('createRetryStream preserves explicit header omissions after undefined header pruning', withServer, async (t, server, got) => {
+	let returnServerError = true;
+
+	server.put('/', (request, response) => {
+		if (returnServerError) {
+			returnServerError = false;
+			response.statusCode = 500;
+			response.end('not ok');
+			return;
+		}
+
+		response.end(JSON.stringify(request.headers));
+	});
+
+	const responseStreamPromise = new Promise<PassThroughStream>((resolve, reject) => {
+		let writeStream: PassThroughStream;
+
+		const function_ = (retryStream?: Request) => {
+			const stream = retryStream ?? got.stream.put('', {
+				copyPipedHeaders: true,
+				headers: {
+					authorization: undefined,
+				},
+			});
+
+			if (writeStream) {
+				writeStream.destroy();
+			}
+
+			writeStream = new PassThroughStream();
+			const sourceStream = new PassThroughStream() as PassThroughStream & {headers: Record<string, string>};
+			sourceStream.headers = {
+				authorization: 'Bearer piped-token',
+			};
+
+			sourceStream.pipe(stream);
+			sourceStream.end('request body');
+			stream.pipe(writeStream);
+
+			stream.once('retry', (_retryCount, _error, createRetryStream) => {
+				function_(createRetryStream());
+			});
+
+			stream.once('error', reject);
+			stream.once('end', () => {
+				if (stream.retryCount === 1) {
+					resolve(writeStream);
+				}
+			});
+		};
+
+		function_();
+	});
+
+	const responseStream = await responseStreamPromise;
+	const headers = JSON.parse(await getStream(responseStream)) as Record<string, string | undefined>;
+
+	t.is(headers.authorization, undefined);
+});
+
+test('createRetryStream re-copies piped headers after internal header additions on previous attempt', withServer, async (t, server, got) => {
+	let returnServerError = true;
+	let attempt = 0;
+
+	server.put('/', (request, response) => {
+		if (returnServerError) {
+			returnServerError = false;
+			response.statusCode = 500;
+			response.end('not ok');
+			return;
+		}
+
+		response.end(JSON.stringify(request.headers));
+	});
+
+	const responseStreamPromise = new Promise<PassThroughStream>((resolve, reject) => {
+		let writeStream: PassThroughStream;
+
+		const function_ = (retryStream?: Request) => {
+			attempt++;
+			const stream = retryStream ?? got.stream.put('', {copyPipedHeaders: true});
+
+			if (writeStream) {
+				writeStream.destroy();
+			}
+
+			writeStream = new PassThroughStream();
+			const sourceStream = new PassThroughStream() as PassThroughStream & {headers: Record<string, string>};
+			sourceStream.headers = attempt === 1
+				? {}
+				: {'accept-encoding': 'identity'};
+
+			sourceStream.pipe(stream);
+			sourceStream.end('request body');
+			stream.pipe(writeStream);
+
+			stream.once('retry', (_retryCount, _error, createRetryStream) => {
+				function_(createRetryStream());
+			});
+
+			stream.once('error', reject);
+			stream.once('end', () => {
+				if (stream.retryCount === 1) {
+					resolve(writeStream);
+				}
+			});
+		};
+
+		function_();
+	});
+
+	const responseStream = await responseStreamPromise;
+	const headers = JSON.parse(await getStream(responseStream)) as Record<string, string>;
+
+	t.is(headers['accept-encoding'], 'identity');
+});
+
+test('createRetryStream preserves header omission from direct header mutation', withServer, async (t, server, got) => {
+	let returnServerError = true;
+
+	server.put('/', (request, response) => {
+		if (returnServerError) {
+			returnServerError = false;
+			response.statusCode = 500;
+			response.end('not ok');
+			return;
+		}
+
+		response.end(JSON.stringify(request.headers));
+	});
+
+	const responseStreamPromise = new Promise<PassThroughStream>((resolve, reject) => {
+		let writeStream: PassThroughStream;
+
+		const function_ = (retryStream?: Request) => {
+			const stream = retryStream ?? got.stream.put('', {copyPipedHeaders: true});
+			stream.options.headers.authorization = undefined;
+
+			if (writeStream) {
+				writeStream.destroy();
+			}
+
+			writeStream = new PassThroughStream();
+			const sourceStream = new PassThroughStream() as PassThroughStream & {headers: Record<string, string>};
+			sourceStream.headers = {
+				authorization: 'Bearer piped-token',
+			};
+
+			sourceStream.pipe(stream);
+			sourceStream.end('request body');
+			stream.pipe(writeStream);
+
+			stream.once('retry', (_retryCount, _error, createRetryStream) => {
+				function_(createRetryStream());
+			});
+
+			stream.once('error', reject);
+			stream.once('end', () => {
+				if (stream.retryCount === 1) {
+					resolve(writeStream);
+				}
+			});
+		};
+
+		function_();
+	});
+
+	const responseStream = await responseStreamPromise;
+	const headers = JSON.parse(await getStream(responseStream)) as Record<string, string | undefined>;
+
+	t.is(headers.authorization, undefined);
+});
+
+test('createRetryStream preserves mixed-case header omission from direct header mutation', withServer, async (t, server, got) => {
+	let returnServerError = true;
+
+	server.put('/', (request, response) => {
+		if (returnServerError) {
+			returnServerError = false;
+			response.statusCode = 500;
+			response.end('not ok');
+			return;
+		}
+
+		response.end(JSON.stringify(request.headers));
+	});
+
+	const responseStreamPromise = new Promise<PassThroughStream>((resolve, reject) => {
+		let writeStream: PassThroughStream;
+
+		const function_ = (retryStream?: Request) => {
+			const stream = retryStream ?? got.stream.put('', {copyPipedHeaders: true});
+			stream.options.headers.Authorization = undefined;
+
+			if (writeStream) {
+				writeStream.destroy();
+			}
+
+			writeStream = new PassThroughStream();
+			const sourceStream = new PassThroughStream() as PassThroughStream & {headers: Record<string, string>};
+			sourceStream.headers = {
+				authorization: 'Bearer piped-token',
+			};
+
+			sourceStream.pipe(stream);
+			sourceStream.end('request body');
+			stream.pipe(writeStream);
+
+			stream.once('retry', (_retryCount, _error, createRetryStream) => {
+				function_(createRetryStream());
+			});
+
+			stream.once('error', reject);
+			stream.once('end', () => {
+				if (stream.retryCount === 1) {
+					resolve(writeStream);
+				}
+			});
+		};
+
+		function_();
+	});
+
+	const responseStream = await responseStreamPromise;
+	const headers = JSON.parse(await getStream(responseStream)) as Record<string, string | undefined>;
+
+	t.is(headers.authorization, undefined);
+});
+
+test('createRetryStream keeps username/password authorization precedence over piped authorization', withServer, async (t, server, got) => {
+	let returnServerError = true;
+	let attempt = 0;
+
+	server.put('/', (request, response) => {
+		if (returnServerError) {
+			returnServerError = false;
+			response.statusCode = 500;
+			response.end('not ok');
+			return;
+		}
+
+		response.end(JSON.stringify(request.headers));
+	});
+
+	const responseStreamPromise = new Promise<PassThroughStream>((resolve, reject) => {
+		let writeStream: PassThroughStream;
+
+		const function_ = (retryStream?: Request) => {
+			attempt++;
+			const stream = retryStream ?? got.stream.put('', {
+				copyPipedHeaders: true,
+				username: 'foo',
+				password: 'bar',
+			});
+
+			if (writeStream) {
+				writeStream.destroy();
+			}
+
+			writeStream = new PassThroughStream();
+			const sourceStream = new PassThroughStream() as PassThroughStream & {headers: Record<string, string>};
+			sourceStream.headers = attempt === 1
+				? {}
+				: {authorization: 'Bearer retry-token'};
+
+			sourceStream.pipe(stream);
+			sourceStream.end('request body');
+			stream.pipe(writeStream);
+
+			stream.once('retry', (_retryCount, _error, createRetryStream) => {
+				function_(createRetryStream());
+			});
+
+			stream.once('error', reject);
+			stream.once('end', () => {
+				if (stream.retryCount === 1) {
+					resolve(writeStream);
+				}
+			});
+		};
+
+		function_();
+	});
+
+	const responseStream = await responseStreamPromise;
+	const headers = JSON.parse(await getStream(responseStream)) as Record<string, string>;
+
+	t.is(headers.authorization, 'Basic Zm9vOmJhcg==');
+});
+
 test('promise does not retry when body is a stream', withServer, async (t, server, got) => {
 	server.post('/', (_request, response) => {
 		response.statusCode = 500;

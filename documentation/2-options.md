@@ -500,17 +500,17 @@ Therefore this option has no effect when using HTTP/2.
 ### `copyPipedHeaders`
 
 **Type: `boolean`**\
-**Default: `true`**
+**Default: `false`**
 
 Automatically copy headers from piped streams.
 
 When piping a request into a Got stream (e.g., `request.pipe(got.stream(url))`), this controls whether headers from the source stream are automatically merged into the Got request headers.
 
-**Note:** Piped headers overwrite any explicitly set headers with the same name. To override this, either set `copyPipedHeaders` to `false` and manually copy safe headers, or use a `beforeRequest` hook to force specific header values after piping.
+**Note:** Explicitly set headers take precedence over piped headers. Piped headers are only copied when a header is not already explicitly set.
 
-Useful for proxy scenarios, but you may want to disable this to filter out headers like `Host`, `Connection`, `Authorization`, etc.
+Useful for proxy scenarios when explicitly enabled, but you may still want to filter out headers like `Host`, `Connection`, `Authorization`, etc.
 
-**Example: Disable automatic header copying and manually copy only safe headers**
+**Example: Opt in to automatic header copying for proxy scenarios**
 
 ```js
 import got from 'got';
@@ -518,7 +518,25 @@ import {pipeline} from 'node:stream/promises';
 
 server.get('/proxy', async (request, response) => {
 	const gotStream = got.stream('https://example.com', {
-		copyPipedHeaders: false,
+		copyPipedHeaders: true,
+		// Explicit headers win over piped headers
+		headers: {
+			host: 'example.com',
+		}
+	});
+
+	await pipeline(request, gotStream, response);
+});
+```
+
+**Example: Keep it disabled and manually copy only safe headers**
+
+```js
+import got from 'got';
+import {pipeline} from 'node:stream/promises';
+
+server.get('/proxy', async (request, response) => {
+	const gotStream = got.stream('https://example.com', {
 		headers: {
 			'user-agent': request.headers['user-agent'],
 			'accept': request.headers['accept'],
@@ -527,24 +545,6 @@ server.get('/proxy', async (request, response) => {
 	});
 
 	await pipeline(request, gotStream, response);
-});
-```
-
-**Example: Override piped headers using beforeRequest hook**
-
-```js
-import got from 'got';
-
-const gotStream = got.stream('https://example.com', {
-	hooks: {
-		beforeRequest: [
-			options => {
-				// Force specific header values after piping
-				options.headers.host = 'example.com';
-				delete options.headers.authorization;
-			}
-		]
-	}
 });
 ```
 

@@ -103,6 +103,21 @@ test('custom status message', withServer, async (t, server, got) => {
 	t.is(error?.response.statusMessage, 'Something Exploded');
 });
 
+test('credentials are stripped from HTTPError message URL', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.statusCode = 400;
+		response.end('body');
+	});
+
+	const error = await t.throwsAsync<HTTPError>(
+		got('', {username: 'user', password: 'secret'}),
+		{instanceOf: HTTPError},
+	);
+	t.false(error?.message.includes('user'));
+	t.false(error?.message.includes('secret'));
+	t.regex(error?.message ?? '', /^Request failed with status code 400 \(Bad Request\): GET http:\/\/localhost:\d+\/$/);
+});
+
 test('custom body', withServer, async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.statusCode = 404;

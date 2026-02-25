@@ -1,4 +1,5 @@
 import is from '@sindresorhus/is';
+import stripUrlAuth from './utils/strip-url-auth.js';
 import type {Timings} from './utils/timer.js';
 import type Options from './options.js';
 import type {TimeoutError as TimedOutTimeoutError} from './timed-out.js';
@@ -99,7 +100,7 @@ export class HTTPError<T = unknown> extends RequestError<T> {
 	declare readonly timings: Timings;
 
 	constructor(response: PlainResponse) {
-		super(`Request failed with status code ${response.statusCode} (${response.statusMessage!}): ${response.request.options.method} ${response.request.options.url!.toString()}`, {}, response.request);
+		super(`Request failed with status code ${response.statusCode} (${response.statusMessage!}): ${response.request.options.method} ${stripUrlAuth(response.request.options.url!)}`, {}, response.request);
 	}
 }
 

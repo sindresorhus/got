@@ -126,6 +126,75 @@ test('no tampering with defaults', t => {
 	t.is(got.defaults.options.prefixUrl, '');
 });
 
+test('mixed-case header introspection does not throw on frozen defaults', t => {
+	t.notThrows(() => {
+		t.is(got.defaults.options.headers['User-Agent'], got.defaults.options.headers['user-agent']);
+		Object.hasOwn(got.defaults.options.headers, 'User-Agent');
+		Object.getOwnPropertyDescriptor(got.defaults.options.headers, 'User-Agent');
+	});
+});
+
+test('failed header writes on frozen defaults do not mark headers as explicit', t => {
+	t.throws(() => {
+		got.defaults.options.headers.foo = 'bar';
+	}, {
+		instanceOf: TypeError,
+	});
+
+	t.false(got.defaults.options.isHeaderExplicitlySet('foo'));
+});
+
+test('failed header deletes on frozen defaults do not unmark explicit headers', t => {
+	const instance = got.extend({
+		headers: {
+			foo: 'bar',
+		},
+	});
+
+	t.true(instance.defaults.options.isHeaderExplicitlySet('foo'));
+
+	t.throws(() => {
+		delete instance.defaults.options.headers.foo;
+	}, {
+		instanceOf: TypeError,
+	});
+
+	t.true(instance.defaults.options.isHeaderExplicitlySet('foo'));
+});
+
+test('can unset mutable default abort signal', t => {
+	const firstController = new AbortController();
+	const instance = got.extend({
+		mutableDefaults: true,
+		signal: firstController.signal,
+	});
+
+	t.is(instance.defaults.options.signal, firstController.signal);
+
+	t.notThrows(() => {
+		instance.defaults.options.signal = undefined;
+	});
+
+	t.is(instance.defaults.options.signal, undefined);
+});
+
+test('normalizes https.pfx object arrays for native request options', t => {
+	const options = new Options('https://example.com', {
+		https: {
+			pfx: [{
+				buffer: Buffer.from('hello'),
+				passphrase: 'world',
+			}],
+		},
+	});
+
+	const nativeRequestOptions = options.createNativeRequestOptions();
+	t.deepEqual(nativeRequestOptions.pfx, [{
+		buf: Buffer.from('hello'),
+		passphrase: 'world',
+	}]);
+});
+
 test('can set defaults to `new Options(...)`', t => {
 	const instance = got.extend({
 		mutableDefaults: true,
