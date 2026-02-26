@@ -10,7 +10,6 @@ import {
 } from 'node:net';
 import test from 'ava';
 import type {Handler} from 'express';
-import nock from 'nock';
 import getStream from 'get-stream';
 import {pEvent} from 'p-event';
 import got, {HTTPError, RequestError, type ReadError} from '../source/index.js';
@@ -243,10 +242,13 @@ test('throws an error if the server aborted the request', withServer, async (t, 
 	t.truthy(error?.response.retryCount);
 });
 
-test('statusMessage fallback', async t => {
-	nock('http://statusMessageFallback').get('/').reply(503);
+test('statusMessage fallback', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.writeHead(503);
+		response.end();
+	});
 
-	const {statusMessage} = await got('http://statusMessageFallback', {
+	const {statusMessage} = await got('', {
 		throwHttpErrors: false,
 		retry: {limit: 0},
 	});

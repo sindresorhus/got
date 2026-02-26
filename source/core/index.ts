@@ -947,6 +947,12 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			}
 		});
 
+		const noPipeCookieJarRawBodyPromise = this._noPipe
+			&& is.object(options.cookieJar)
+			&& !(response.headers.location && redirectCodes.has(statusCode))
+			? this._setRawBody(response)
+			: undefined;
+
 		const rawCookies = response.headers['set-cookie'];
 		if (is.object(options.cookieJar) && rawCookies) {
 			let promises: Array<Promise<unknown>> = rawCookies.map(async (rawCookie: string) => (options.cookieJar as PromiseCookieJar).setCookie(rawCookie, url!.toString()));
@@ -1109,7 +1115,14 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		}
 
 		// Set up end listener AFTER redirect check to avoid emitting progress for redirect responses
-		response.once('end', () => {
+		let responseEndHandled = false;
+		const handleResponseEnd = () => {
+			if (responseEndHandled) {
+				return;
+			}
+
+			responseEndHandled = true;
+
 			// Validate content-length if it was provided
 			// Per RFC 9112: "If the sender closes the connection before the indicated number
 			// of octets are received, the recipient MUST consider the message to be incomplete"
@@ -1130,7 +1143,9 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			});
 
 			this.push(null);
-		});
+		};
+
+		response.once('end', handleResponseEnd);
 
 		this.emit('downloadProgress', this.downloadProgress);
 
@@ -1149,7 +1164,14 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		});
 
 		if (this._noPipe) {
-			const success = await this._setRawBody();
+			const captureFromResponse = response.readableEnded || noPipeCookieJarRawBodyPromise !== undefined;
+			const success = noPipeCookieJarRawBodyPromise
+				? await noPipeCookieJarRawBodyPromise
+				: await this._setRawBody(captureFromResponse ? response : this);
+
+			if (captureFromResponse) {
+				handleResponseEnd();
+			}
 
 			if (success) {
 				this.emit('response', response);
@@ -1192,10 +1214,6 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	}
 
 	private async _setRawBody(from: Readable = this): Promise<boolean> {
-		if (from.readableEnded) {
-			return false;
-		}
-
 		try {
 			// Errors are emitted via the `error` event
 			const fromArray = await from.toArray();
@@ -1212,6 +1230,9 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 				&& this.response
 			) {
 				this.response.rawBody = rawBody;
+				if (from !== this) {
+					this._downloadedSize = rawBody.byteLength;
+				}
 
 				if (shouldUseIncrementalDecodedBody) {
 					try {
@@ -1305,7 +1326,9 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			}
 
 			/*
-			Transient write errors (EPIPE, ECONNRESET) often fire during redirects when the server closes the connection after sending the redirect response. Defer by one microtask to let the response event make the request stale.
+			Transient write errors (EPIPE, ECONNRESET) often fire during redirects when the
+			server closes the connection after sending the redirect response. Defer by one
+			microtask to let the response event make the request stale.
 			*/
 			if (isTransientWriteError(error)) {
 				queueMicrotask(() => {
@@ -1419,10 +1442,13 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		const isInitialRequest = currentRequest === this;
 
 		(async () => {
-			try {
-				const request = isInitialRequest ? this._request : currentRequest as ClientRequest;
+			let request: ClientRequest | undefined;
 
-				if (!request) {
+			try {
+				request = isInitialRequest ? this._request : currentRequest as ClientRequest;
+				const activeRequest = request;
+
+				if (!activeRequest) {
 					if (isInitialRequest) {
 						super.end();
 					}
@@ -1430,14 +1456,14 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 					return;
 				}
 
-				if (request.destroyed) {
+				if (activeRequest.destroyed) {
 					return;
 				}
 
-				await this._writeChunksToRequest(buffer, request);
+				await this._writeChunksToRequest(buffer, activeRequest);
 
-				if (this._isRequestStale(request)) {
-					this._finalizeStaleChunkedWrite(request, isInitialRequest);
+				if (this._isRequestStale(activeRequest)) {
+					this._finalizeStaleChunkedWrite(activeRequest, isInitialRequest);
 					return;
 				}
 
@@ -1447,25 +1473,54 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 				}
 
 				await new Promise<void>((resolve, reject) => {
-					request.end((error?: Error | null) => { // eslint-disable-line @typescript-eslint/no-restricted-types
+					activeRequest.end((error?: Error | null) => { // eslint-disable-line @typescript-eslint/no-restricted-types
 						if (error) {
 							reject(error);
 							return;
 						}
 
-						if (this._request === request && !request.destroyed) {
-							this._emitUploadComplete(request);
+						if (this._request === activeRequest && !activeRequest.destroyed) {
+							this._emitUploadComplete(activeRequest);
 						}
 
 						resolve();
 					});
 				});
 			} catch (error: unknown) {
+				const normalizedError = normalizeError(error);
+
+				// Transient write errors (EPIPE, ECONNRESET) are handled by the request-level
+				// error and close handlers. For initial redirected writes, still finalize
+				// writable state once the stale transition becomes observable.
+				if (isTransientWriteError(normalizedError)) {
+					if (isInitialRequest && request) {
+						const initialRequest = request;
+						let didFinalize = false;
+						const finalizeIfStale = () => {
+							if (didFinalize || !this._isRequestStale(initialRequest)) {
+								return;
+							}
+
+							didFinalize = true;
+							this._finalizeStaleChunkedWrite(initialRequest, true);
+						};
+
+						finalizeIfStale();
+
+						if (!didFinalize) {
+							initialRequest.once('response', finalizeIfStale);
+							queueMicrotask(finalizeIfStale);
+						}
+					}
+
+					return;
+				}
+
 				if (!isInitialRequest && this._isRequestStale(currentRequest as ClientRequest)) {
 					return;
 				}
 
-				this._beforeError(normalizeError(error));
+				this._beforeError(normalizedError);
 			}
 		})();
 	}
@@ -1716,7 +1771,8 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 		// Set cookies
 		if (cookieJar) {
-			const cookieString: string = await cookieJar.getCookieString(options.url!.toString());
+			let cookieString = '';
+			cookieString = await cookieJar.getCookieString(options.url!.toString());
 
 			if (is.nonEmptyString(cookieString)) {
 				options.setInternalHeader('cookie', cookieString);

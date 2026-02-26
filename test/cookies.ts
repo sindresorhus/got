@@ -2,7 +2,6 @@ import net from 'node:net';
 import test from 'ava';
 import * as toughCookie from 'tough-cookie';
 import delay from 'delay';
-import nock from 'nock';
 import got, {RequestError} from '../source/index.js';
 import withServer from './helpers/with-server.js';
 
@@ -206,24 +205,26 @@ test('throws on invalid `options.cookieJar.getCookieString`', async t => {
 	});
 });
 
-test('cookies are cleared when redirecting to a different hostname (no cookieJar)', withServer, async (t, server, got) => {
-	server.get('/', (_request, response) => {
-		response.writeHead(302, {
-			location: 'https://example.com/',
+test('cookies are cleared when redirecting to a different hostname (no cookieJar)', withServer, async (t, server1, got) => {
+	await withServer.exec(t, async (t, server2) => {
+		server1.get('/', (_request, response) => {
+			response.writeHead(302, {
+				location: `http://localhost:${server2.port}/`,
+			});
+			response.end();
 		});
-		response.end();
-	});
 
-	nock('https://example.com').get('/').reply(200, function () {
-		return JSON.stringify({headers: this.req.headers});
-	});
+		server2.get('/', (request, response) => {
+			response.end(JSON.stringify({headers: request.headers}));
+		});
 
-	const {headers} = await got('', {
-		headers: {
-			cookie: 'foo=bar',
-			'user-agent': 'custom',
-		},
-	}).json<{headers: Record<string, string | undefined>}>();
-	t.is(headers.cookie, undefined);
-	t.is(headers['user-agent'], 'custom');
+		const {headers} = await got('', {
+			headers: {
+				cookie: 'foo=bar',
+				'user-agent': 'custom',
+			},
+		}).json<{headers: Record<string, string | undefined>}>();
+		t.is(headers.cookie, undefined);
+		t.is(headers['user-agent'], 'custom');
+	});
 });

@@ -1,7 +1,6 @@
 import {Buffer} from 'node:buffer';
 import {Agent as HttpAgent} from 'node:http';
 import test from 'ava';
-import nock from 'nock';
 import getStream from 'get-stream';
 import sinon from 'sinon';
 import delay from 'delay';
@@ -1387,10 +1386,13 @@ test('beforeRequest hook is called before each request', withServer, async (t, s
 	t.is(counts, 2);
 });
 
-test('beforeError emits valid promise `HTTPError`s', async t => {
+test('beforeError emits valid promise `HTTPError`s', withServer, async (t, server, got) => {
 	t.plan(3);
 
-	nock('https://ValidHTTPErrors.com').get('/').reply(() => [422, 'no']);
+	server.get('/', (_request, response) => {
+		response.writeHead(422);
+		response.end('no');
+	});
 
 	const instance = got.extend({
 		hooks: {
@@ -1408,7 +1410,7 @@ test('beforeError emits valid promise `HTTPError`s', async t => {
 		},
 	});
 
-	await t.throwsAsync(instance('https://ValidHTTPErrors.com'));
+	await t.throwsAsync(instance(''));
 });
 
 test('hooks are not duplicated', withServer, async (t, _server, got) => {

@@ -8,7 +8,6 @@ import test from 'ava';
 import {pEvent} from 'p-event';
 import getStream from 'get-stream';
 import type {Handler} from 'express';
-import nock from 'nock';
 import CacheableLookup from 'cacheable-lookup';
 import delay from 'delay';
 import got, {CacheError, type Response} from '../source/index.js';
@@ -431,11 +430,19 @@ test('http-cache-semantics typings', t => {
 	t.is(instance.defaults.options.cacheOptions.shared, false);
 });
 
-test('allows internal modifications', async t => {
-	nock('http://example.com').get('/test').reply(401);
-	nock('http://example.com').get('/test').reply(200, JSON.stringify({
-		wat: ['123'],
-	}));
+test('allows internal modifications', withServer, async (t, server, got) => {
+	let requestCount = 0;
+
+	server.get('/test', (_request, response) => {
+		requestCount++;
+		if (requestCount === 1) {
+			response.writeHead(401);
+			response.end();
+		} else {
+			response.writeHead(200);
+			response.end(JSON.stringify({wat: ['123']}));
+		}
+	});
 
 	const client = got.extend({
 		cache: new Map(),
@@ -452,7 +459,7 @@ test('allows internal modifications', async t => {
 		},
 	});
 
-	await t.notThrowsAsync(client.get('http://example.com/test'));
+	await t.notThrowsAsync(client.get('test'));
 });
 
 test('response.complete is true when using keepalive agent', withServer, async (t, server, got) => {
