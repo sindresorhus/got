@@ -20,7 +20,6 @@ import timer, {type ClientRequestWithTimings, type Timings, type IncomingMessage
 import getBodySize from './utils/get-body-size.js';
 import proxyEvents from './utils/proxy-events.js';
 import timedOut, {TimeoutError as TimedOutTimeoutError} from './timed-out.js';
-import urlToOptions from './utils/url-to-options.js';
 import stripUrlAuth from './utils/strip-url-auth.js';
 import WeakableMap from './utils/weakable-map.js';
 import calculateRetryDelay from './calculate-retry-delay.js';
@@ -1699,8 +1698,18 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 	private async _createCacheableRequest(url: URL, options: RequestOptions): Promise<ClientRequest | ResponseLike> {
 		return new Promise<ClientRequest | ResponseLike>((resolve, reject) => {
-			// TODO: Remove `utils/url-to-options.ts` when `cacheable-request` is fixed
-			Object.assign(options, urlToOptions(url));
+			Object.assign(options, {
+				protocol: url.protocol,
+				hostname: is.string(url.hostname) && url.hostname.startsWith('[') ? url.hostname.slice(1, -1) : url.hostname,
+				host: url.host,
+				hash: url.hash === '' ? '' : (url.hash ?? null),
+				search: url.search === '' ? '' : (url.search ?? null),
+				pathname: url.pathname,
+				href: url.href,
+				path: `${url.pathname || ''}${url.search || ''}`,
+				...(is.string(url.port) && url.port.length > 0 ? {port: Number(url.port)} : {}),
+				...(url.username || url.password ? {auth: `${url.username || ''}:${url.password || ''}`} : {}),
+			});
 
 			let request: ClientRequest | Promise<ClientRequest>;
 
