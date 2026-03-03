@@ -1,6 +1,10 @@
 ---
 name: "⭐ Feature request"
 about: Suggest an idea for Got
+title: ''
+labels: ''
+assignees: ''
+
 ---
 
 #### What problem are you trying to solve?
