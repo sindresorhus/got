@@ -1,8 +1,13 @@
 import {Buffer} from 'node:buffer';
+import {promisify} from 'node:util';
+import {gzip} from 'node:zlib';
 import test from 'ava';
 import type {Handler} from 'express';
+import Responselike from 'responselike';
 import got, {MaxRedirectsError, RequestError} from '../source/index.js';
 import withServer, {withHttpsServer} from './helpers/with-server.js';
+
+const gzipAsync = promisify(gzip);
 
 const reachedHandler: Handler = (_request, response) => {
 	const body = 'reached';
@@ -41,9 +46,25 @@ const unixHostname: Handler = (_request, response) => {
 	response.end();
 };
 
+const unixProtocolWithoutSocketPath: Handler = (_request, response) => {
+	response.writeHead(302, {
+		location: 'unix:/',
+	});
+	response.end();
+};
+
+const unixHostnameWithoutSocketPath: Handler = (_request, response) => {
+	response.writeHead(302, {
+		location: 'http://unix/foo',
+	});
+	response.end();
+};
+
 test('cannot redirect to UNIX protocol when UNIX sockets are enabled', withServer, async (t, server, got) => {
 	server.get('/protocol', unixProtocol);
 	server.get('/hostname', unixHostname);
+	server.get('/protocol-without-socket-path', unixProtocolWithoutSocketPath);
+	server.get('/hostname-without-socket-path', unixHostnameWithoutSocketPath);
 
 	const gotUnixSocketsEnabled = got.extend({enableUnixSockets: true});
 
@@ -58,11 +79,23 @@ test('cannot redirect to UNIX protocol when UNIX sockets are enabled', withServe
 		message: 'Cannot redirect to UNIX socket',
 		instanceOf: RequestError,
 	});
+
+	await t.throwsAsync(gotUnixSocketsEnabled('protocol-without-socket-path'), {
+		message: 'Cannot redirect to UNIX socket',
+		instanceOf: RequestError,
+	});
+
+	await t.throwsAsync(gotUnixSocketsEnabled('hostname-without-socket-path'), {
+		message: 'Cannot redirect to UNIX socket',
+		instanceOf: RequestError,
+	});
 });
 
 test('cannot redirect to UNIX protocol when UNIX sockets are not enabled', withServer, async (t, server, got) => {
 	server.get('/protocol', unixProtocol);
 	server.get('/hostname', unixHostname);
+	server.get('/protocol-without-socket-path', unixProtocolWithoutSocketPath);
+	server.get('/hostname-without-socket-path', unixHostnameWithoutSocketPath);
 
 	const gotUnixSocketsDisabled = got.extend({enableUnixSockets: false});
 
@@ -74,6 +107,16 @@ test('cannot redirect to UNIX protocol when UNIX sockets are not enabled', withS
 	});
 
 	await t.throwsAsync(gotUnixSocketsDisabled('hostname'), {
+		message: 'Cannot redirect to UNIX socket',
+		instanceOf: RequestError,
+	});
+
+	await t.throwsAsync(gotUnixSocketsDisabled('protocol-without-socket-path'), {
+		message: 'Cannot redirect to UNIX socket',
+		instanceOf: RequestError,
+	});
+
+	await t.throwsAsync(gotUnixSocketsDisabled('hostname-without-socket-path'), {
 		message: 'Cannot redirect to UNIX socket',
 		instanceOf: RequestError,
 	});
@@ -151,6 +194,84 @@ test('does not follow redirect when disabled', withServer, async (t, server, got
 	server.get('/', finiteHandler);
 
 	t.is((await got({followRedirect: false})).statusCode, 302);
+});
+
+test('ignores invalid compressed redirect bodies when following redirects', withServer, async (t, server, got) => {
+	server.get('/redirect', (_request, response) => {
+		response.writeHead(302, {
+			location: '/target',
+			'content-encoding': 'gzip',
+		});
+		response.end('not-a-valid-gzip-stream');
+	});
+
+	server.get('/target', (_request, response) => {
+		response.end('target-ok');
+	});
+
+	const response = await got('redirect', {
+		retry: {
+			limit: 0,
+		},
+	});
+
+	t.is(response.body, 'target-ok');
+});
+
+test('followRedirect runs before redirect body decompression', withServer, async (t, server, got) => {
+	server.get('/redirect', (_request, response) => {
+		response.writeHead(302, {
+			location: '/target',
+			'content-encoding': 'gzip',
+		});
+		response.end('not-a-valid-gzip-stream');
+	});
+
+	server.get('/target', (_request, response) => {
+		response.end('target-ok');
+	});
+
+	let sawRedirectResponse = false;
+
+	const response = await got('redirect', {
+		retry: {
+			limit: 0,
+		},
+		followRedirect(response) {
+			if (response.statusCode === 302) {
+				sawRedirectResponse = true;
+				t.is(response.headers.location, '/target');
+				t.is(String(response.requestUrl), `${server.url}/redirect`);
+			}
+
+			return true;
+		},
+	});
+
+	t.true(sawRedirectResponse);
+	t.is(response.body, 'target-ok');
+});
+
+test('decompresses compressed redirect bodies when redirects are not followed', withServer, async (t, server, got) => {
+	const compressedBody = await gzipAsync('redirect-body');
+
+	server.get('/redirect', (_request, response) => {
+		response.writeHead(302, {
+			location: '/target',
+			'content-encoding': 'gzip',
+		});
+		response.end(compressedBody);
+	});
+
+	const response = await got('redirect', {
+		followRedirect: false,
+		retry: {
+			limit: 0,
+		},
+	});
+
+	t.is(response.statusCode, 302);
+	t.is(response.body, 'redirect-body');
 });
 
 test('relative redirect works', withServer, async (t, server, got) => {
@@ -262,6 +383,39 @@ test('removes body on GET redirect', withServer, async (t, server, got) => {
 	const {headers, body} = await got.post('seeOther', {body: 'hello'});
 	t.is(body, '');
 	t.is(headers['content-length'], '0');
+});
+
+test('removes request body headers on GET redirect', withServer, async (t, server, got) => {
+	server.get('/', (request, response) => {
+		response.end(JSON.stringify({
+			method: request.method,
+			headers: request.headers,
+		}));
+	});
+
+	server.post('/seeOther', (_request, response) => {
+		response.writeHead(303, {
+			location: '/',
+		});
+		response.end();
+	});
+
+	const {method, headers} = await got.post('seeOther', {
+		body: 'hello',
+		headers: {
+			'content-type': 'text/plain',
+			'content-language': 'en',
+			'content-location': '/body',
+			'content-encoding': 'gzip',
+		},
+	}).json<{method: string; headers: Record<string, string | undefined>}>();
+
+	t.is(method, 'GET');
+	t.is(headers['content-length'], undefined);
+	t.is(headers['content-type'], undefined);
+	t.is(headers['content-language'], undefined);
+	t.is(headers['content-location'], undefined);
+	t.is(headers['content-encoding'], undefined);
 });
 
 test('redirects on 303 response even on post, put, delete', withServer, async (t, server, got) => {
@@ -481,6 +635,164 @@ test('body is passed on POST redirect', withServer, async (t, server, got) => {
 	t.is(body, 'foobar');
 });
 
+test('does not forward body on cross-origin POST redirect by default', withServer, async (t, server1, got) => {
+	await withServer.exec(t, async (t, server2) => {
+		server1.post('/redirect', (_request, response) => {
+			response.writeHead(302, {
+				location: `http://localhost:${server2.port}/`,
+			});
+			response.end();
+		});
+
+		server2.get('/', async (request, response) => {
+			const chunks: Uint8Array[] = [];
+
+			for await (const chunk of request) {
+				chunks.push(Buffer.from(chunk));
+			}
+
+			response.end(JSON.stringify({
+				method: request.method,
+				body: Buffer.concat(chunks).toString(),
+				headers: request.headers,
+			}));
+		});
+
+		const redirectedRequest = await got.post('redirect', {
+			body: 'foobar',
+			hooks: {
+				beforeRedirect: [
+					options => {
+						t.is(options.method, 'GET');
+						t.is(options.body, undefined);
+					},
+				],
+			},
+		}).json<{method: string; body: string; headers: Record<string, string | undefined>}>();
+
+		t.is(redirectedRequest.method, 'GET');
+		t.is(redirectedRequest.body, '');
+		t.is(redirectedRequest.headers['content-length'], undefined);
+		t.is(redirectedRequest.headers['content-type'], undefined);
+	});
+});
+
+test('does not forward body on cross-origin permanent POST redirect by default', withServer, async (t, server1, got) => {
+	await withServer.exec(t, async (t, server2) => {
+		server1.post('/redirect', (_request, response) => {
+			response.writeHead(301, {
+				location: `http://localhost:${server2.port}/`,
+			});
+			response.end();
+		});
+
+		server2.get('/', async (request, response) => {
+			const chunks: Uint8Array[] = [];
+
+			for await (const chunk of request) {
+				chunks.push(Buffer.from(chunk));
+			}
+
+			response.end(JSON.stringify({
+				method: request.method,
+				body: Buffer.concat(chunks).toString(),
+				headers: request.headers,
+			}));
+		});
+
+		const redirectedRequest = await got.post('redirect', {
+			body: 'foobar',
+			hooks: {
+				beforeRedirect: [
+					options => {
+						t.is(options.method, 'GET');
+						t.is(options.body, undefined);
+					},
+				],
+			},
+		}).json<{method: string; body: string; headers: Record<string, string | undefined>}>();
+
+		t.is(redirectedRequest.method, 'GET');
+		t.is(redirectedRequest.body, '');
+		t.is(redirectedRequest.headers['content-length'], undefined);
+		t.is(redirectedRequest.headers['content-type'], undefined);
+	});
+});
+
+test('preserves body on same-origin permanent POST redirect by default', withServer, async (t, server, got) => {
+	server.post('/redirect', (_request, response) => {
+		response.writeHead(301, {
+			location: '/',
+		});
+		response.end();
+	});
+
+	server.post('/', (request, response) => {
+		request.pipe(response);
+	});
+
+	const {body} = await got.post('redirect', {
+		body: 'foobar',
+		hooks: {
+			beforeRedirect: [
+				options => {
+					t.is(options.method, 'POST');
+					t.is(options.body, 'foobar');
+				},
+			],
+		},
+	});
+
+	t.is(body, 'foobar');
+});
+
+test('preserves body when redirect only adds an explicit default port', async t => {
+	let isFirstRequest = true;
+
+	const redirectedRequest = await got.post('http://example.com/start', {
+		body: 'foobar',
+		hooks: {
+			beforeRequest: [
+				options => {
+					const requestUrl = options.url?.toString();
+
+					if (requestUrl === undefined) {
+						throw new Error('Expected redirect request URL');
+					}
+
+					if (isFirstRequest) {
+						isFirstRequest = false;
+
+						return new Responselike({
+							statusCode: 302,
+							headers: {
+								location: 'http://example.com:80/next',
+							},
+							body: Buffer.alloc(0),
+							url: requestUrl,
+						});
+					}
+
+					return new Responselike({
+						statusCode: 200,
+						headers: {
+							'content-type': 'application/json',
+						},
+						body: Buffer.from(JSON.stringify({
+							method: options.method,
+							body: options.body,
+						})),
+						url: requestUrl,
+					});
+				},
+			],
+		},
+	}).json<{method: string; body: string}>();
+
+	t.is(redirectedRequest.method, 'POST');
+	t.is(redirectedRequest.body, 'foobar');
+});
+
 test('large body is preserved on 307 redirect', withServer, async (t, server, got) => {
 	const requestBody = Buffer.alloc(1024 * 1024 * 2, 'a');
 
@@ -543,6 +855,14 @@ test('method rewriting', withServer, async (t, server, got) => {
 		});
 		response.end();
 	});
+
+	server.post('/permanentRedirect', (_request, response) => {
+		response.writeHead(301, {
+			location: '/',
+		});
+		response.end();
+	});
+
 	server.get('/', (_request, response) => {
 		response.end();
 	});
@@ -570,6 +890,21 @@ test('method rewriting', withServer, async (t, server, got) => {
 	});
 
 	t.is(body, '');
+
+	const {body: permanentRedirectBody} = await got.post('permanentRedirect', {
+		body: 'foobar',
+		methodRewriting: true,
+		hooks: {
+			beforeRedirect: [
+				options => {
+					t.is(options.method, 'GET');
+					t.is(options.body, undefined);
+				},
+			],
+		},
+	});
+
+	t.is(permanentRedirectBody, '');
 
 	// Do not rewrite method on 307 or 308
 	const {body: temporaryRedirectBody} = await got.post('temporaryRedirect', {
@@ -668,6 +1003,50 @@ test('clears the authorization header when redirecting to a different hostname',
 	});
 });
 
+test('clears the proxy-authorization header when redirecting to a different hostname', withServer, async (t, server1, got) => {
+	await withServer.exec(t, async (t, server2) => {
+		server1.get('/', (_request, response) => {
+			response.writeHead(302, {
+				location: `http://localhost:${server2.port}/`,
+			});
+			response.end();
+		});
+
+		server2.get('/', (request, response) => {
+			response.end(JSON.stringify({headers: request.headers}));
+		});
+
+		const {headers} = await got('', {
+			headers: {
+				'proxy-authorization': 'Basic aGVsbG86d29ybGQ=',
+			},
+		}).json<{headers: Record<string, string | undefined>}>();
+		t.is(headers['proxy-authorization'], undefined);
+	});
+});
+
+test('clears the cookie2 header when redirecting to a different hostname', withServer, async (t, server1, got) => {
+	await withServer.exec(t, async (t, server2) => {
+		server1.get('/', (_request, response) => {
+			response.writeHead(302, {
+				location: `http://localhost:${server2.port}/`,
+			});
+			response.end();
+		});
+
+		server2.get('/', (request, response) => {
+			response.end(JSON.stringify({headers: request.headers}));
+		});
+
+		const {headers} = await got('', {
+			headers: {
+				cookie2: 'v=1',
+			},
+		}).json<{headers: Record<string, string | undefined>}>();
+		t.is(headers.cookie2, undefined);
+	});
+});
+
 test('clears credentials and sensitive headers when redirecting to a different protocol on the same hostname', withHttpsServer(), async (t, serverHttps, got) => {
 	await withServer.exec(t, async (t, serverHttp) => {
 		serverHttps.get('/', (_request, response) => {
@@ -691,6 +1070,51 @@ test('clears credentials and sensitive headers when redirecting to a different p
 
 		t.is(headers.authorization, undefined);
 		t.is(headers.cookie, undefined);
+	});
+});
+
+test('does not forward body when redirecting to a different protocol on the same hostname', withHttpsServer(), async (t, serverHttps, got) => {
+	await withServer.exec(t, async (t, serverHttp) => {
+		serverHttps.post('/', (_request, response) => {
+			response.writeHead(302, {
+				location: `http://${serverHttp.hostname}:${serverHttp.port}/target`,
+			});
+			response.end();
+		});
+
+		serverHttp.get('/target', async (request, response) => {
+			const chunks: Uint8Array[] = [];
+
+			for await (const chunk of request) {
+				chunks.push(Buffer.from(chunk));
+			}
+
+			response.end(JSON.stringify({
+				method: request.method,
+				body: Buffer.concat(chunks).toString(),
+				headers: request.headers,
+			}));
+		});
+
+		const redirectedRequest = await got.post('', {
+			body: 'foobar',
+			https: {
+				rejectUnauthorized: false,
+			},
+			hooks: {
+				beforeRedirect: [
+					options => {
+						t.is(options.method, 'GET');
+						t.is(options.body, undefined);
+					},
+				],
+			},
+		}).json<{method: string; body: string; headers: Record<string, string | undefined>}>();
+
+		t.is(redirectedRequest.method, 'GET');
+		t.is(redirectedRequest.body, '');
+		t.is(redirectedRequest.headers['content-length'], undefined);
+		t.is(redirectedRequest.headers['content-type'], undefined);
 	});
 });
 

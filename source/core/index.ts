@@ -167,6 +167,8 @@ type StorageAdapter = KeyvStoreAdapter | KeyvType | Map<unknown, unknown>;
 const cacheableStore = new WeakableMap<string | StorageAdapter, CacheableRequestFunction>();
 
 const redirectCodes: ReadonlySet<number> = new Set([300, 301, 302, 303, 304, 307, 308]);
+const crossOriginStripHeaders = ['host', 'cookie', 'cookie2', 'authorization', 'proxy-authorization'] as const;
+const bodyHeaderNames = ['content-length', 'content-encoding', 'content-language', 'content-location', 'content-type'] as const;
 const transientWriteErrorCodes: ReadonlySet<string> = new Set(['EPIPE', 'ECONNRESET']);
 
 // Track errors that have been processed by beforeError hooks to preserve custom error types
@@ -862,6 +864,10 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 		const statusCode = response.statusCode!;
 		const {method} = options;
+		const redirectLocationHeader = response.headers.location;
+		const redirectLocation = Array.isArray(redirectLocationHeader) ? redirectLocationHeader[0] : redirectLocationHeader;
+		const isRedirect = Boolean(redirectLocation && redirectCodes.has(statusCode));
+		const nativeResponse = this._nativeResponse as IncomingMessageWithTimings & {fromCache?: boolean};
 
 		// Skip decompression for responses that must not have bodies per RFC 9110:
 		// - HEAD responses (any status code)
@@ -875,7 +881,35 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			|| statusCode === 205
 			|| statusCode === 304;
 
-		if (options.decompress && !hasNoBody) {
+		const prepareResponse = (response: PlainResponse): PlainResponse => {
+			if (!Object.hasOwn(response, 'headers')) {
+				Object.defineProperty(response, 'headers', {
+					value: response.headers,
+					enumerable: true,
+					writable: true,
+					configurable: true,
+				});
+			}
+
+			response.statusMessage ||= http.STATUS_CODES[statusCode]; // eslint-disable-line @typescript-eslint/prefer-nullish-coalescing -- The status message can be empty.
+			response.url = stripUrlAuth(options.url!);
+			response.requestUrl = this.requestUrl!;
+			response.redirectUrls = this.redirectUrls;
+			response.request = this;
+			response.isFromCache = nativeResponse.fromCache ?? false;
+			response.ip = this.ip;
+			response.retryCount = this.retryCount;
+			response.ok = isResponseOk(response);
+
+			return response;
+		};
+
+		let typedResponse = prepareResponse(response as PlainResponse);
+		// Redirect responses that will be followed are drained raw. Decompressing them can
+		// turn an irrelevant redirect body into a client-side failure or decompression DoS.
+		const shouldFollowRedirect = isRedirect && (typeof options.followRedirect === 'function' ? options.followRedirect(typedResponse) : options.followRedirect);
+
+		if (options.decompress && !hasNoBody && !shouldFollowRedirect) {
 			// When strictContentLength is enabled, track compressed bytes by listening to
 			// the native response's data events before decompression
 			if (options.strictContentLength) {
@@ -886,28 +920,8 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			}
 
 			response = decompressResponse(response);
+			typedResponse = prepareResponse(response as PlainResponse);
 		}
-
-		const typedResponse = response as PlainResponse;
-		if (!Object.hasOwn(typedResponse, 'headers')) {
-			Object.defineProperty(typedResponse, 'headers', {
-				value: typedResponse.headers,
-				enumerable: true,
-				writable: true,
-				configurable: true,
-			});
-		}
-
-		typedResponse.statusMessage ||= http.STATUS_CODES[statusCode]; // eslint-disable-line @typescript-eslint/prefer-nullish-coalescing -- The status message can be empty.
-		typedResponse.url = stripUrlAuth(options.url!);
-		typedResponse.requestUrl = this.requestUrl!;
-		typedResponse.redirectUrls = this.redirectUrls;
-		typedResponse.request = this;
-		const nativeResponse = this._nativeResponse as IncomingMessageWithTimings & {fromCache?: boolean};
-		typedResponse.isFromCache = nativeResponse.fromCache ?? false;
-		typedResponse.ip = this.ip;
-		typedResponse.retryCount = this.retryCount;
-		typedResponse.ok = isResponseOk(typedResponse);
 
 		this._isFromCache = typedResponse.isFromCache;
 
@@ -948,7 +962,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 		const noPipeCookieJarRawBodyPromise = this._noPipe
 			&& is.object(options.cookieJar)
-			&& !(response.headers.location && redirectCodes.has(statusCode))
+			&& !isRedirect
 			? this._setRawBody(response)
 			: undefined;
 
@@ -977,34 +991,59 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			return;
 		}
 
-		if (response.headers.location && redirectCodes.has(statusCode)) {
+		if (shouldFollowRedirect) {
 			// We're being redirected, we don't care about the response.
 			// It'd be best to abort the request, but we can't because
 			// we would have to sacrifice the TCP connection. We don't want that.
-			const shouldFollow = typeof options.followRedirect === 'function' ? options.followRedirect(typedResponse) : options.followRedirect;
-			if (shouldFollow) {
-				response.resume();
+			response.resume();
 
-				this._cancelTimeouts();
-				this._unproxyEvents();
+			this._cancelTimeouts();
+			this._unproxyEvents();
 
-				if (this.redirectUrls.length >= options.maxRedirects) {
-					this._beforeError(new MaxRedirectsError(this));
+			if (this.redirectUrls.length >= options.maxRedirects) {
+				this._beforeError(new MaxRedirectsError(this));
+				return;
+			}
+
+			this._request = undefined;
+
+			// Reset progress for the new request.
+			this._downloadedSize = 0;
+			this._uploadedSize = 0;
+
+			const updatedOptions = new Options(undefined, undefined, this.options);
+
+			try {
+				// We need this in order to support UTF-8
+				const redirectBuffer = Buffer.from(redirectLocation, 'binary').toString();
+				const redirectUrl = new URL(redirectBuffer, url);
+				const currentUnixSocketPath = getUnixSocketPath(url as URL);
+				const redirectUnixSocketPath = getUnixSocketPath(redirectUrl);
+
+				if (isUnixSocketURL(redirectUrl) && redirectUnixSocketPath === undefined) {
+					this._beforeError(new RequestError('Cannot redirect to UNIX socket', {}, this));
 					return;
 				}
 
-				this._request = undefined;
+				// Relative redirects on the same socket are fine, but a redirect must not switch to a different local socket.
+				if (redirectUnixSocketPath !== undefined && currentUnixSocketPath !== redirectUnixSocketPath) {
+					this._beforeError(new RequestError('Cannot redirect to UNIX socket', {}, this));
+					return;
+				}
 
-				// Reset progress for the new request.
-				this._downloadedSize = 0;
-				this._uploadedSize = 0;
-
-				const updatedOptions = new Options(undefined, undefined, this.options);
+				// Redirecting to a different site, clear sensitive data.
+				// For UNIX sockets, different socket paths are also different origins.
+				const isDifferentOrigin = redirectUrl.origin !== (url as URL).origin
+					|| currentUnixSocketPath !== redirectUnixSocketPath;
 
 				const serverRequestedGet = statusCode === 303 && updatedOptions.method !== 'GET' && updatedOptions.method !== 'HEAD';
+				// Avoid forwarding a POST body to a different origin on historical 301/302 redirects.
+				const crossOriginRequestedGet = isDifferentOrigin
+					&& (statusCode === 301 || statusCode === 302)
+					&& updatedOptions.method === 'POST';
 				const canRewrite = statusCode !== 307 && statusCode !== 308;
 				const userRequestedGet = updatedOptions.methodRewriting && canRewrite;
-				const shouldDropBody = serverRequestedGet || userRequestedGet;
+				const shouldDropBody = serverRequestedGet || crossOriginRequestedGet || userRequestedGet;
 
 				if (shouldDropBody) {
 					updatedOptions.method = 'GET';
@@ -1013,80 +1052,55 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 					updatedOptions.json = undefined;
 					updatedOptions.form = undefined;
 
-					updatedOptions.deleteInternalHeader('content-length');
+					for (const header of bodyHeaderNames) {
+						updatedOptions.deleteInternalHeader(header);
+					}
+
 					// Only clear `_bodySize` when the redirect drops the request body.
 					this._bodySize = undefined;
 				}
 
-				try {
-					// We need this in order to support UTF-8
-					const redirectBuffer = Buffer.from(response.headers.location, 'binary').toString();
-					const redirectUrl = new URL(redirectBuffer, url);
-
-					if (!isUnixSocketURL(url as URL) && isUnixSocketURL(redirectUrl)) {
-						this._beforeError(new RequestError('Cannot redirect to UNIX socket', {}, this));
-						return;
+				if (isDifferentOrigin) {
+					for (const header of crossOriginStripHeaders) {
+						updatedOptions.deleteInternalHeader(header);
 					}
 
-					// Redirecting to a different site, clear sensitive data.
-					// For UNIX sockets, different socket paths are also different origins.
-					const isDifferentOrigin = redirectUrl.protocol !== (url as URL).protocol
-						|| redirectUrl.hostname !== (url as URL).hostname
-						|| redirectUrl.port !== (url as URL).port
-						|| getUnixSocketPath(url as URL) !== getUnixSocketPath(redirectUrl);
-
-					if (isDifferentOrigin) {
-						const updatedHeaders = updatedOptions.getInternalHeaders();
-
-						if ('host' in updatedHeaders) {
-							updatedOptions.deleteInternalHeader('host');
-						}
-
-						if ('cookie' in updatedHeaders) {
-							updatedOptions.deleteInternalHeader('cookie');
-						}
-
-						if ('authorization' in updatedHeaders) {
-							updatedOptions.deleteInternalHeader('authorization');
-						}
-
-						if (updatedOptions.username || updatedOptions.password) {
-							updatedOptions.username = '';
-							updatedOptions.password = '';
-						}
-					} else {
-						redirectUrl.username = updatedOptions.username;
-						redirectUrl.password = updatedOptions.password;
+					if (updatedOptions.username || updatedOptions.password) {
+						updatedOptions.username = '';
+						updatedOptions.password = '';
 					}
-
-					this.redirectUrls.push(redirectUrl);
-					updatedOptions.url = redirectUrl;
-
-					for (const hook of updatedOptions.hooks.beforeRedirect) {
-						// eslint-disable-next-line no-await-in-loop
-						await hook(updatedOptions as NormalizedOptions, typedResponse);
-					}
-
-					// Publish redirect event
-					publishRedirect({
-						requestId: this._requestId,
-						fromUrl: url!.toString(),
-						toUrl: redirectUrl.toString(),
-						statusCode,
-					});
-
-					this.emit('redirect', updatedOptions, typedResponse);
-
-					this.options = updatedOptions;
-
-					await this._makeRequest();
-				} catch (error: unknown) {
-					this._beforeError(normalizeError(error));
-					return;
+				} else {
+					redirectUrl.username = updatedOptions.username;
+					redirectUrl.password = updatedOptions.password;
 				}
 
+				this.redirectUrls.push(redirectUrl);
+				updatedOptions.url = redirectUrl;
+
+				for (const hook of updatedOptions.hooks.beforeRedirect) {
+					// eslint-disable-next-line no-await-in-loop
+					await hook(updatedOptions as NormalizedOptions, typedResponse);
+				}
+
+				// Publish redirect event
+				publishRedirect({
+					requestId: this._requestId,
+					fromUrl: url!.toString(),
+					toUrl: redirectUrl.toString(),
+					statusCode,
+				});
+
+				this.emit('redirect', updatedOptions, typedResponse);
+
+				this.options = updatedOptions;
+
+				await this._makeRequest();
+			} catch (error: unknown) {
+				this._beforeError(normalizeError(error));
 				return;
 			}
+
+			return;
 		}
 
 		// `HTTPError`s always have `error.response.body` defined.
@@ -1799,6 +1813,11 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 				request = () => result;
 				break;
 			}
+		}
+
+		if (!is.undefined(headers['transfer-encoding']) && !is.undefined(headers['content-length'])) {
+			// TODO: Throw instead of silently dropping `content-length` in the next major version.
+			options.deleteInternalHeader('content-length');
 		}
 
 		request ??= options.getRequestFunction();

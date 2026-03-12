@@ -894,6 +894,12 @@ function assertPlainObject(optionName: string, value: unknown): void {
 	});
 }
 
+function assertValidHeaderName(name: string): void {
+	if (name.startsWith(':')) {
+		throw new TypeError(`HTTP/2 pseudo-headers are not supported in \`options.headers\`: ${name}`);
+	}
+}
+
 function validateSearchParameters(searchParameters: Record<string, unknown>): asserts searchParameters is Record<string, string | number | boolean | undefined> {
 	// eslint-disable-next-line guard-for-in
 	for (const key in searchParameters) {
@@ -2135,6 +2141,7 @@ export default class Options {
 
 	Note that if a `303` is sent by the server in response to any request type (`POST`, `DELETE`, etc.), Got will automatically request the resource pointed to in the location header via `GET`.
 	This is in accordance with [the spec](https://tools.ietf.org/html/rfc7231#section-6.4.4). You can optionally turn on this behavior also for other redirect codes - see `methodRewriting`.
+	On cross-origin redirects, Got strips `host`, `cookie`, `cookie2`, `authorization`, and `proxy-authorization`. When a redirect rewrites the request to `GET`, Got also strips request body headers. Use `hooks.beforeRedirect` for app-specific sensitive headers.
 
 	@default true
 	*/
@@ -2377,6 +2384,7 @@ export default class Options {
 	}
 
 	setPipedHeader(name: string, value: string | string[] | undefined): void {
+		assertValidHeaderName(name);
 		this.#internals.headers[name.toLowerCase()] = value;
 	}
 
@@ -2385,6 +2393,7 @@ export default class Options {
 	}
 
 	setInternalHeader(name: string, value: string | string[] | undefined): void {
+		assertValidHeaderName(name);
 		this.#internals.headers[name.toLowerCase()] = value;
 	}
 
@@ -2407,6 +2416,9 @@ export default class Options {
 	set headers(value: Headers) {
 		assertPlainObject('headers', value);
 		const normalizedHeaders = lowercaseKeys(value);
+		for (const header of Object.keys(normalizedHeaders)) {
+			assertValidHeaderName(header);
+		}
 
 		if (this.#merging) {
 			Object.assign(this.#internals.headers, normalizedHeaders);
@@ -2424,8 +2436,8 @@ export default class Options {
 	/**
 	Specifies if the HTTP request method should be [rewritten as `GET`](https://tools.ietf.org/html/rfc7231#section-6.4) on redirects.
 
-	As the [specification](https://tools.ietf.org/html/rfc7231#section-6.4) prefers to rewrite the HTTP method only on `303` responses, this is Got's default behavior.
-	Setting `methodRewriting` to `true` will also rewrite `301` and `302` responses, as allowed by the spec. This is the behavior followed by `curl` and browsers.
+	As the [specification](https://tools.ietf.org/html/rfc7231#section-6.4) prefers to rewrite the HTTP method only on `303` responses, this is Got's default behavior. Cross-origin `301` and `302` redirects also rewrite `POST` requests to `GET` by default to avoid forwarding request bodies to another origin.
+	Setting `methodRewriting` to `true` will also rewrite same-origin `301` and `302` responses, as allowed by the spec. This is the behavior followed by `curl` and browsers.
 
 	__Note__: Got never performs method rewriting on `307` and `308` responses, as this is [explicitly prohibited by the specification](https://www.rfc-editor.org/rfc/rfc7231#section-6.4.7).
 
@@ -3037,6 +3049,7 @@ export default class Options {
 			set: (target, property, value): boolean => {
 				if (typeof property === 'string') {
 					const normalizedProperty = property.toLowerCase();
+					assertValidHeaderName(normalizedProperty);
 					const isSuccess = Reflect.set(target, normalizedProperty, value);
 
 					if (isSuccess) {

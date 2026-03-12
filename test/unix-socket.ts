@@ -2,7 +2,7 @@ import process from 'node:process';
 import {format} from 'node:util';
 import test from 'ava';
 import type {Handler} from 'express';
-import baseGot from '../source/index.js';
+import baseGot, {RequestError} from '../source/index.js';
 import {withSocketServer} from './helpers/with-server.js';
 
 const got = baseGot.extend({enableUnixSockets: true});
@@ -69,6 +69,25 @@ if (process.platform !== 'win32') {
 
 		const url = format('http://unix:%s:%s', server.socketPath, '/');
 		t.is((await got(url)).body, 'ok');
+	});
+
+	test('redirects to a different UNIX socket fail', withSocketServer, async (t, firstServer) => {
+		await withSocketServer.exec(t, async (t, secondServer) => {
+			firstServer.on('/', (_request, response) => {
+				response.writeHead(302, {
+					location: format('unix:%s:%s', secondServer.socketPath, '/foo'),
+				});
+				response.end();
+			});
+
+			secondServer.on('/foo', okHandler);
+
+			const url = format('http://unix:%s:%s', firstServer.socketPath, '/');
+			await t.throwsAsync(got(url), {
+				message: 'Cannot redirect to UNIX socket',
+				instanceOf: RequestError,
+			});
+		});
 	});
 
 	test('`unix:` fails when UNIX sockets are not enabled', async t => {

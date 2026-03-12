@@ -126,6 +126,26 @@ test('has redirect event', withServer, async (t, server, got) => {
 	await getStream(stream);
 });
 
+test('follows invalid compressed redirects without decompressing the redirect body', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.end('target-ok');
+	});
+
+	server.get('/redirect', (_request, response) => {
+		response.writeHead(302, {
+			location: '/',
+			'content-encoding': 'gzip',
+		});
+		response.end('not-a-valid-gzip-stream');
+	});
+
+	t.is(await getStream(got.stream('redirect', {
+		retry: {
+			limit: 0,
+		},
+	})), 'target-ok');
+});
+
 test('has response event', withServer, async (t, server, got) => {
 	server.get('/', defaultHandler);
 

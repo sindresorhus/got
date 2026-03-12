@@ -1,7 +1,9 @@
 import process from 'node:process';
 import {Buffer} from 'node:buffer';
 import fs from 'node:fs';
+import net from 'node:net';
 import path from 'node:path';
+import {promisify} from 'node:util';
 import test from 'ava';
 import type {Handler} from 'express';
 import got, {type Headers} from '../source/index.js';
@@ -211,6 +213,68 @@ test('buffer as `options.body` sets `content-length` header', withServer, async 
 	});
 	const headers = JSON.parse(body);
 	t.is(Number(headers['content-length']), buffer.length);
+});
+
+test('drops `content-length` when `transfer-encoding` is set manually', async t => {
+	const server = net.createServer();
+	const listen = promisify(server.listen.bind(server));
+
+	let rawRequest = '';
+
+	server.on('connection', socket => {
+		socket.setEncoding('latin1');
+
+		const respond = () => {
+			socket.end('HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nok');
+		};
+
+		socket.on('data', chunk => {
+			rawRequest += String(chunk);
+
+			const headerEnd = rawRequest.indexOf('\r\n\r\n');
+			if (headerEnd === -1) {
+				return;
+			}
+
+			const rawHeaders = rawRequest.slice(0, headerEnd).toLowerCase();
+			if (rawHeaders.includes('transfer-encoding: chunked')) {
+				if (rawRequest.includes('\r\n0\r\n\r\n')) {
+					respond();
+				}
+
+				return;
+			}
+
+			const contentLength = /content-length:\s*(\d+)/.exec(rawHeaders)?.[1];
+			if (!contentLength) {
+				return;
+			}
+
+			const bodyStart = headerEnd + 4;
+			if (rawRequest.length >= bodyStart + Number(contentLength)) {
+				respond();
+			}
+		});
+	});
+
+	t.teardown(() => {
+		server.close();
+	});
+
+	await listen();
+
+	await got.post(`http://127.0.0.1:${(server.address() as net.AddressInfo).port}`, {
+		body: 'wow',
+		headers: {
+			'content-length': '1',
+			'transfer-encoding': 'chunked',
+		},
+	});
+
+	const normalizedRawRequest = rawRequest.toLowerCase();
+	t.true(normalizedRawRequest.includes('transfer-encoding: chunked'));
+	t.false(normalizedRawRequest.includes('content-length:'));
+	t.true(normalizedRawRequest.includes('\r\n3\r\nwow\r\n0\r\n\r\n'));
 });
 
 test('throws on null value headers', async t => {

@@ -1,9 +1,12 @@
+import http2, {type ServerHttp2Stream} from 'node:http2';
+import type net from 'node:net';
 import process from 'node:process';
 import tls, {type DetailedPeerCertificate} from 'node:tls';
 import test from 'ava';
 import {pEvent} from 'p-event';
 import pify from 'pify';
 import pem from 'pem';
+import got from '../source/index.js';
 import {withHttpsServer} from './helpers/with-server.js';
 import type {CreatePrivateKey, CreateCsr, CreateCertificate} from './types/pem.js';
 
@@ -178,6 +181,55 @@ test('http2', withHttpsServer(), async (t, server, got) => {
 		}
 
 		t.fail(error.stack);
+	}
+});
+
+test('http2 rejects pseudo-headers in request headers', async t => {
+	const certificate = await createCertificate({days: 1, selfSigned: true});
+	const server = http2.createSecureServer({
+		key: certificate.serviceKey,
+		cert: certificate.certificate,
+	});
+
+	server.on('stream', (stream: ServerHttp2Stream) => {
+		stream.respond({
+			// eslint-disable-next-line @typescript-eslint/naming-convention
+			':status': 200,
+		});
+		stream.end('ok');
+	});
+
+	await new Promise<void>(resolve => {
+		server.listen(0, resolve);
+	});
+
+	try {
+		const {port} = server.address() as net.AddressInfo;
+		const gotPromise = got(`https://localhost:${port}/expected`, {
+			http2: true,
+			https: {
+				rejectUnauthorized: false,
+			},
+			headers: {
+				// eslint-disable-next-line @typescript-eslint/naming-convention
+				':path': '/evil',
+			},
+		});
+
+		await t.throwsAsync(gotPromise, {
+			message: 'HTTP/2 pseudo-headers are not supported in `options.headers`: :path',
+		});
+	} finally {
+		await new Promise<void>((resolve, reject) => {
+			server.close(error => {
+				if (error) {
+					reject(error);
+					return;
+				}
+
+				resolve();
+			});
+		});
 	}
 });
 

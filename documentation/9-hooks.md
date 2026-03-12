@@ -180,6 +180,7 @@ The equivalent of `beforeRequest` but when redirecting.
 
 **Tip:**
 > - This is especially useful when you want to avoid dead sites.
+> - Use this to remove app-specific sensitive headers on redirect. Got already strips `host`, `cookie`, `cookie2`, `authorization`, and `proxy-authorization` on cross-origin redirects, and strips request body headers when a redirect rewrites the request to `GET`.
 
 ```js
 import got from 'got';
