@@ -166,7 +166,7 @@ type StorageAdapter = KeyvStoreAdapter | KeyvType | Map<unknown, unknown>;
 
 const cacheableStore = new WeakableMap<string | StorageAdapter, CacheableRequestFunction>();
 
-const redirectCodes: ReadonlySet<number> = new Set([300, 301, 302, 303, 304, 307, 308]);
+const redirectCodes: ReadonlySet<number> = new Set([301, 302, 303, 307, 308]);
 const crossOriginStripHeaders = ['host', 'cookie', 'cookie2', 'authorization', 'proxy-authorization'] as const;
 const bodyHeaderNames = ['content-length', 'content-encoding', 'content-language', 'content-location', 'content-type'] as const;
 const transientWriteErrorCodes: ReadonlySet<string> = new Set(['EPIPE', 'ECONNRESET']);

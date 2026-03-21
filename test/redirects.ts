@@ -719,6 +719,84 @@ test('does not forward body on cross-origin permanent POST redirect by default',
 	});
 });
 
+test('does not follow 304 responses with a location header', withServer, async (t, server1, got) => {
+	await withServer.exec(t, async (t, server2) => {
+		let attackerHits = 0;
+
+		server1.post('/redirect', (_request, response) => {
+			response.writeHead(304, {
+				location: `http://localhost:${server2.port}/`,
+			});
+			response.end();
+		});
+
+		server2.post('/', async (request, response) => {
+			attackerHits++;
+
+			const chunks: Uint8Array[] = [];
+
+			for await (const chunk of request) {
+				chunks.push(Buffer.from(chunk));
+			}
+
+			response.end(JSON.stringify({
+				method: request.method,
+				body: Buffer.concat(chunks).toString(),
+				headers: request.headers,
+			}));
+		});
+
+		const response = await got.post('redirect', {
+			body: 'foobar',
+			throwHttpErrors: false,
+		});
+
+		t.is(response.statusCode, 304);
+		t.is(response.body, '');
+		t.deepEqual(response.redirectUrls, []);
+		t.is(attackerHits, 0);
+	});
+});
+
+test('does not follow 300 responses with a location header', withServer, async (t, server1, got) => {
+	await withServer.exec(t, async (t, server2) => {
+		let attackerHits = 0;
+
+		server1.post('/redirect', (_request, response) => {
+			response.writeHead(300, {
+				location: `http://localhost:${server2.port}/`,
+			});
+			response.end();
+		});
+
+		server2.post('/', async (request, response) => {
+			attackerHits++;
+
+			const chunks: Uint8Array[] = [];
+
+			for await (const chunk of request) {
+				chunks.push(Buffer.from(chunk));
+			}
+
+			response.end(JSON.stringify({
+				method: request.method,
+				body: Buffer.concat(chunks).toString(),
+				headers: request.headers,
+			}));
+		});
+
+		const response = await got.post('redirect', {
+			body: 'foobar',
+			throwHttpErrors: false,
+		});
+
+		t.is(response.statusCode, 300);
+		t.is(response.body, '');
+		t.deepEqual(response.redirectUrls, []);
+		t.is(attackerHits, 0);
+	});
+});
+
 test('preserves body on same-origin permanent POST redirect by default', withServer, async (t, server, got) => {
 	server.post('/redirect', (_request, response) => {
 		response.writeHead(301, {
