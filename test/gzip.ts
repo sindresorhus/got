@@ -53,6 +53,7 @@ test('handles gzip error', withServer, async (t, server, got) => {
 	await t.throwsAsync(got(''), {
 		name: 'ReadError',
 		message: 'incorrect header check',
+		code: 'ERR_READING_RESPONSE_STREAM',
 	});
 });
 

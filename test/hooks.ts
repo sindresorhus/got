@@ -1,5 +1,6 @@
 import {Buffer} from 'node:buffer';
 import {Agent as HttpAgent} from 'node:http';
+import {PassThrough} from 'node:stream';
 import test from 'ava';
 import getStream from 'get-stream';
 import sinon from 'sinon';
@@ -51,6 +52,51 @@ const createAgentSpy = <T extends HttpAgent>(AgentClass: Constructor<any>): {age
 	const agent: T = new AgentClass({keepAlive: true});
 	const spy = sinon.spy(agent, 'addRequest' as any);
 	return {agent, spy};
+};
+
+const createCrossOriginReceiver = async () => {
+	const createHttpTestServer = (await import('./helpers/create-http-test-server.js')).default;
+	const server = await createHttpTestServer({bodyParser: false});
+	const received = {
+		authorization: undefined as string | undefined,
+		cookie: undefined as string | undefined,
+		body: '',
+		contentType: undefined as string | undefined,
+	};
+
+	server.post('/steal', async (request, response) => {
+		received.authorization = request.headers.authorization;
+		received.cookie = request.headers.cookie;
+		received.body = await getStream(request);
+		received.contentType = request.headers['content-type'];
+		response.end(JSON.stringify({result: 'ok'}));
+	});
+
+	server.get('/steal', (request, response) => {
+		received.authorization = request.headers.authorization;
+		received.cookie = request.headers.cookie;
+		received.contentType = request.headers['content-type'];
+		response.end(JSON.stringify({result: 'ok'}));
+	});
+
+	return {server, received};
+};
+
+const createRetryUrlServer = async (retryUrl: string) => {
+	const createHttpTestServer = (await import('./helpers/create-http-test-server.js')).default;
+	const server = await createHttpTestServer();
+
+	server.get('/api', (_request, response) => {
+		response.setHeader('content-type', 'application/json');
+		response.end(JSON.stringify({retryUrl}));
+	});
+
+	server.post('/api', (_request, response) => {
+		response.setHeader('content-type', 'application/json');
+		response.end(JSON.stringify({retryUrl}));
+	});
+
+	return server;
 };
 
 test('async hooks', withServer, async (t, server, got) => {
@@ -2092,6 +2138,82 @@ test('beforeRetry handles multiple retries with stream reassignment', withServer
 	t.is(destroyedStreams.length, 2, 'All old streams should be destroyed');
 });
 
+test('beforeRetry routes invalid reassigned stream body through normal error handling', withServer, async (t, server, got) => {
+	let requestCount = 0;
+
+	server.post('/retry', async (request, response) => {
+		requestCount++;
+		for await (const chunk of request) {
+			void chunk;
+		}
+
+		response.statusCode = 500;
+		response.end('Server Error');
+	});
+
+	const error = await t.throwsAsync(got.post('retry', {
+		body: 'payload',
+		retry: {
+			limit: 1,
+			methods: ['POST'],
+		},
+		hooks: {
+			beforeRetry: [
+				({options}) => {
+					const replacementStream = new PassThrough();
+					options.body = replacementStream;
+					replacementStream.destroy();
+				},
+			],
+		},
+	}), {
+		message: 'The reassigned stream body must be readable. Ensure you provide a fresh, readable stream in the beforeRetry hook.',
+	});
+
+	t.truthy(error);
+	t.is(requestCount, 1);
+});
+
+test('beforeRetry accepts ended pass-through stream reassignment', withServer, async (t, server, got) => {
+	let requestCount = 0;
+
+	server.post('/retry', async (request, response) => {
+		requestCount++;
+		let body = '';
+		for await (const chunk of request) {
+			body += String(chunk);
+		}
+
+		if (requestCount === 1) {
+			response.statusCode = 500;
+			response.end('Server Error');
+			return;
+		}
+
+		response.end(body);
+	});
+
+	const response = await got.post('retry', {
+		body: 'payload',
+		retry: {
+			limit: 1,
+			methods: ['POST'],
+		},
+		hooks: {
+			beforeRetry: [
+				({options}) => {
+					const replacementStream = new PassThrough();
+					replacementStream.end('payload');
+					options.body = replacementStream;
+				},
+			],
+		},
+	});
+
+	t.is(response.body, 'payload');
+	t.is(requestCount, 2);
+});
+
 test('beforeRetry handles non-stream body reassignment', withServer, async (t, server, got) => {
 	let requestCount = 0;
 
@@ -2392,4 +2514,1074 @@ test('beforeError can extend RequestError with custom error', async t => {
 	t.is(error?.message, customMessage);
 	t.true(error instanceof MyCustomError);
 	t.true(error instanceof RequestError);
+});
+
+test('afterResponse retryWithMergedOptions strips sensitive headers on cross-origin retry', async t => {
+	const createHttpTestServer = (await import('./helpers/create-http-test-server.js')).default;
+
+	const evilServer = await createHttpTestServer();
+	let evilReceivedAuth: string | undefined;
+	let evilReceivedCookie: string | undefined;
+	evilServer.get('/steal', (request, response) => {
+		evilReceivedAuth = request.headers.authorization;
+		evilReceivedCookie = request.headers.cookie;
+		response.end(JSON.stringify({result: 'ok'}));
+	});
+
+	const trustedServer = await createHttpTestServer();
+	trustedServer.get('/api', (_request, response) => {
+		response.setHeader('content-type', 'application/json');
+		response.end(JSON.stringify({
+			retryUrl: `${evilServer.url}/steal`,
+		}));
+	});
+
+	await got(trustedServer.url + '/api', {
+		headers: {
+			authorization: 'Bearer SECRET',
+			cookie: 'session=s3cr3t',
+		},
+		hooks: {
+			afterResponse: [
+				(response, retryWithMergedOptions) => {
+					const body = JSON.parse(response.body as string);
+					if (body.retryUrl) {
+						return retryWithMergedOptions({
+							url: new URL(body.retryUrl),
+						});
+					}
+
+					return response;
+				},
+			],
+		},
+	});
+
+	t.is(evilReceivedAuth, undefined);
+	t.is(evilReceivedCookie, undefined);
+
+	await trustedServer.close();
+	await evilServer.close();
+});
+
+test('afterResponse retryWithMergedOptions preserves explicit headers on cross-origin retry', async t => {
+	const createHttpTestServer = (await import('./helpers/create-http-test-server.js')).default;
+
+	const evilServer = await createHttpTestServer();
+	let evilReceivedAuth: string | undefined;
+	evilServer.get('/api', (request, response) => {
+		evilReceivedAuth = request.headers.authorization;
+		response.end(JSON.stringify({result: 'ok'}));
+	});
+
+	const trustedServer = await createHttpTestServer();
+	trustedServer.get('/api', (_request, response) => {
+		response.setHeader('content-type', 'application/json');
+		response.end(JSON.stringify({
+			retryUrl: `${evilServer.url}/api`,
+		}));
+	});
+
+	await got(trustedServer.url + '/api', {
+		headers: {
+			authorization: 'Bearer OLD',
+		},
+		hooks: {
+			afterResponse: [
+				(response, retryWithMergedOptions) => {
+					const body = JSON.parse(response.body as string);
+					if (body.retryUrl) {
+						return retryWithMergedOptions({
+							url: new URL(body.retryUrl),
+							headers: {
+								authorization: 'Bearer NEW',
+							},
+						});
+					}
+
+					return response;
+				},
+			],
+		},
+	});
+
+	t.is(evilReceivedAuth, 'Bearer NEW');
+
+	await trustedServer.close();
+	await evilServer.close();
+});
+
+test('afterResponse retryWithMergedOptions removes explicit undefined headers on cross-origin retry', async t => {
+	const createHttpTestServer = (await import('./helpers/create-http-test-server.js')).default;
+
+	const evilServer = await createHttpTestServer({bodyParser: false});
+	let evilReceivedAuth: string | undefined;
+	let evilReceivedCookie: string | undefined;
+	evilServer.get('/steal', (request, response) => {
+		evilReceivedAuth = request.headers.authorization;
+		evilReceivedCookie = request.headers.cookie;
+		response.end(JSON.stringify({result: 'ok'}));
+	});
+
+	const trustedServer = await createHttpTestServer();
+	trustedServer.get('/api', (_request, response) => {
+		response.setHeader('content-type', 'application/json');
+		response.end(JSON.stringify({
+			retryUrl: `${evilServer.url}/steal`,
+		}));
+	});
+
+	await got(trustedServer.url + '/api', {
+		headers: {
+			authorization: 'Bearer OLD',
+			cookie: 'session=abc',
+		},
+		hooks: {
+			afterResponse: [
+				(response, retryWithMergedOptions) => {
+					const body = JSON.parse(response.body as string);
+					if (body.retryUrl) {
+						return retryWithMergedOptions({
+							url: new URL(body.retryUrl),
+							headers: {
+								authorization: undefined,
+								cookie: undefined,
+							},
+						});
+					}
+
+					return response;
+				},
+			],
+		},
+	});
+
+	t.is(evilReceivedAuth, undefined);
+	t.is(evilReceivedCookie, undefined);
+
+	await trustedServer.close();
+	await evilServer.close();
+});
+
+test('afterResponse retryWithMergedOptions strips sensitive headers and body after in-place URL mutation', async t => {
+	const {server: evilServer, received} = await createCrossOriginReceiver();
+	const trustedServer = await createRetryUrlServer(`${evilServer.url}/steal`);
+
+	await got.post(trustedServer.url + '/api', {
+		headers: {
+			authorization: 'Bearer OLD',
+			cookie: 'session=abc',
+		},
+		json: {secret: 'payload'},
+		hooks: {
+			afterResponse: [
+				(response, retryWithMergedOptions) => {
+					const body = JSON.parse(response.body as string);
+					if (body.retryUrl) {
+						const url = response.request.options.url as URL;
+						url.protocol = 'http:';
+						url.hostname = 'localhost';
+						url.port = new URL(body.retryUrl).port;
+						url.pathname = '/steal';
+						return retryWithMergedOptions({url});
+					}
+
+					return response;
+				},
+			],
+		},
+	});
+
+	t.is(received.authorization, undefined);
+	t.is(received.cookie, undefined);
+	t.is(received.body, '');
+	t.is(received.contentType, undefined);
+
+	await trustedServer.close();
+	await evilServer.close();
+});
+
+test('afterResponse retryWithMergedOptions supports string url values on cross-origin retry', async t => {
+	const {server: evilServer, received} = await createCrossOriginReceiver();
+	const trustedServer = await createRetryUrlServer(`${evilServer.url}/steal`);
+
+	await got(trustedServer.url + '/api', {
+		username: 'user',
+		password: 'password',
+		hooks: {
+			afterResponse: [
+				(response, retryWithMergedOptions) => {
+					const body = JSON.parse(response.body as string);
+					if (body.retryUrl) {
+						return retryWithMergedOptions({url: body.retryUrl});
+					}
+
+					return response;
+				},
+			],
+		},
+	});
+
+	t.is(received.authorization, undefined);
+
+	await trustedServer.close();
+	await evilServer.close();
+});
+
+test('afterResponse retryWithMergedOptions supports relative string url values', withServer, async (t, server, got) => {
+	let requestCount = 0;
+
+	server.get('/api', (_request, response) => {
+		requestCount++;
+		response.setHeader('content-type', 'application/json');
+		response.end(JSON.stringify({retry: requestCount === 1}));
+	});
+
+	server.get('/retry', (_request, response) => {
+		response.end('ok');
+	});
+
+	const response = await got('api', {
+		hooks: {
+			afterResponse: [
+				(response, retryWithMergedOptions) => {
+					const body = JSON.parse(response.body as string);
+					if (body.retry) {
+						return retryWithMergedOptions({url: '../retry'});
+					}
+
+					return response;
+				},
+			],
+		},
+	});
+
+	t.is(response.body, 'ok');
+	t.is(requestCount, 1);
+});
+
+test('afterResponse retryWithMergedOptions supports query-only string url values', withServer, async (t, server, got) => {
+	server.get('/api', (request, response) => {
+		const searchParameters = new URLSearchParams(request.url.split('?')[1]);
+		if (searchParameters.get('page') === '2') {
+			response.end('ok');
+			return;
+		}
+
+		response.setHeader('content-type', 'application/json');
+		response.end(JSON.stringify({retry: true}));
+	});
+
+	const response = await got('api?page=1', {
+		hooks: {
+			afterResponse: [
+				(response, retryWithMergedOptions) => {
+					const body = JSON.parse(response.body as string);
+					if (body.retry) {
+						return retryWithMergedOptions({url: '?page=2'});
+					}
+
+					return response;
+				},
+			],
+		},
+	});
+
+	t.is(response.body, 'ok');
+});
+
+test('afterResponse retryWithMergedOptions preserves explicit credentials with relative string url values', withServer, async (t, server, got) => {
+	server.get('/api', (_request, response) => {
+		response.setHeader('content-type', 'application/json');
+		response.end(JSON.stringify({retry: true}));
+	});
+
+	server.get('/protected', (request, response) => {
+		response.end(request.headers.authorization ?? '');
+	});
+
+	const response = await got('api', {
+		username: 'old-user',
+		password: 'old-password',
+		hooks: {
+			afterResponse: [
+				(response, retryWithMergedOptions) => {
+					const body = JSON.parse(response.body as string);
+					if (body.retry) {
+						return retryWithMergedOptions({
+							url: '../protected',
+							username: 'new-user',
+							password: 'new-password',
+						});
+					}
+
+					return response;
+				},
+			],
+		},
+	});
+
+	t.is(response.body, `Basic ${Buffer.from('new-user:new-password').toString('base64')}`);
+});
+
+test('afterResponse retryWithMergedOptions preserves explicit credentials with query-only string url values', withServer, async (t, server, got) => {
+	server.get('/api', (request, response) => {
+		const searchParameters = new URLSearchParams(request.url.split('?')[1]);
+		if (searchParameters.get('page') === '2') {
+			response.end(request.headers.authorization ?? '');
+			return;
+		}
+
+		response.setHeader('content-type', 'application/json');
+		response.end(JSON.stringify({retry: true}));
+	});
+
+	const response = await got('api?page=1', {
+		username: 'old-user',
+		password: 'old-password',
+		hooks: {
+			afterResponse: [
+				(response, retryWithMergedOptions) => {
+					const body = JSON.parse(response.body as string);
+					if (body.retry) {
+						return retryWithMergedOptions({
+							url: '?page=2',
+							username: 'new-user',
+							password: 'new-password',
+						});
+					}
+
+					return response;
+				},
+			],
+		},
+	});
+
+	t.is(response.body, `Basic ${Buffer.from('new-user:new-password').toString('base64')}`);
+});
+
+test('afterResponse retryWithMergedOptions preserves explicit credentials with path-relative string url values', withServer, async (t, server, got) => {
+	server.get('/items/start', (_request, response) => {
+		response.setHeader('content-type', 'application/json');
+		response.end(JSON.stringify({retry: true}));
+	});
+
+	server.get('/items/next', (request, response) => {
+		response.end(request.headers.authorization ?? '');
+	});
+
+	const response = await got('items/start', {
+		username: 'old-user',
+		password: 'old-password',
+		hooks: {
+			afterResponse: [
+				(response, retryWithMergedOptions) => {
+					const body = JSON.parse(response.body as string);
+					if (body.retry) {
+						return retryWithMergedOptions({
+							url: 'next',
+							username: 'new-user',
+							password: 'new-password',
+						});
+					}
+
+					return response;
+				},
+			],
+		},
+	});
+
+	t.is(response.body, `Basic ${Buffer.from('new-user:new-password').toString('base64')}`);
+});
+
+test('afterResponse retryWithMergedOptions resolves parent-relative string url values with query params', withServer, async (t, server, got) => {
+	server.get('/nested/items/start', (_request, response) => {
+		response.setHeader('content-type', 'application/json');
+		response.end(JSON.stringify({retry: true}));
+	});
+
+	server.get('/nested/target', (request, response) => {
+		response.end(request.url);
+	});
+
+	const response = await got('nested/items/start', {
+		hooks: {
+			afterResponse: [
+				(response, retryWithMergedOptions) => {
+					const body = JSON.parse(response.body as string);
+					if (body.retry) {
+						return retryWithMergedOptions({url: '../target?page=2'});
+					}
+
+					return response;
+				},
+			],
+		},
+	});
+
+	t.is(response.body, '/nested/target?page=2');
+});
+
+test('afterResponse retryWithMergedOptions supports scheme-relative string url values', withServer, async (t, server, got) => {
+	server.get('/api', (_request, response) => {
+		response.setHeader('content-type', 'application/json');
+		response.end(JSON.stringify({retry: true}));
+	});
+
+	server.get('/scheme-relative', (_request, response) => {
+		response.end('ok');
+	});
+
+	const response = await got('api', {
+		hooks: {
+			afterResponse: [
+				(response, retryWithMergedOptions) => {
+					const body = JSON.parse(response.body as string);
+					if (body.retry) {
+						return retryWithMergedOptions({url: `//localhost:${server.port}/scheme-relative`});
+					}
+
+					return response;
+				},
+			],
+		},
+	});
+
+	t.is(response.body, 'ok');
+});
+
+test('afterResponse retryWithMergedOptions preserves explicit credentials with string url values on cross-origin retry', async t => {
+	const {server: evilServer, received} = await createCrossOriginReceiver();
+	const trustedServer = await createRetryUrlServer(`${evilServer.url}/steal`);
+
+	await got(trustedServer.url + '/api', {
+		username: 'old-user',
+		password: 'old-password',
+		headers: {
+			cookie: 'session=secret',
+		},
+		hooks: {
+			afterResponse: [
+				(response, retryWithMergedOptions) => {
+					const body = JSON.parse(response.body as string);
+					if (body.retryUrl) {
+						return retryWithMergedOptions({
+							url: body.retryUrl,
+							username: 'new-user',
+							password: 'new-password',
+						});
+					}
+
+					return response;
+				},
+			],
+		},
+	});
+
+	t.is(received.authorization, `Basic ${Buffer.from('new-user:new-password').toString('base64')}`);
+	t.is(received.cookie, undefined);
+
+	await trustedServer.close();
+	await evilServer.close();
+});
+
+test('afterResponse retryWithMergedOptions drops body on cross-origin retry', async t => {
+	const createHttpTestServer = (await import('./helpers/create-http-test-server.js')).default;
+
+	const evilServer = await createHttpTestServer({bodyParser: false});
+	let evilReceivedBody = '';
+	let evilReceivedContentLength: string | undefined;
+	let evilReceivedContentType: string | undefined;
+	let evilReceivedTransferEncoding: string | undefined;
+	evilServer.post('/steal', async (request, response) => {
+		evilReceivedBody = await getStream(request);
+		evilReceivedContentLength = request.headers['content-length'];
+		evilReceivedContentType = request.headers['content-type'];
+		evilReceivedTransferEncoding = request.headers['transfer-encoding'];
+		response.end(JSON.stringify({result: 'ok'}));
+	});
+
+	const trustedServer = await createHttpTestServer();
+	trustedServer.post('/api', (_request, response) => {
+		response.setHeader('content-type', 'application/json');
+		response.end(JSON.stringify({
+			retryUrl: `${evilServer.url}/steal`,
+		}));
+	});
+
+	await got.post(trustedServer.url + '/api', {
+		body: 'payload',
+		headers: {
+			'content-type': 'text/plain',
+			'transfer-encoding': 'chunked',
+		},
+		hooks: {
+			afterResponse: [
+				(response, retryWithMergedOptions) => {
+					const body = JSON.parse(response.body as string);
+					if (body.retryUrl) {
+						return retryWithMergedOptions({
+							url: new URL(body.retryUrl),
+						});
+					}
+
+					return response;
+				},
+			],
+		},
+	});
+
+	t.is(evilReceivedBody, '');
+	t.is(evilReceivedContentLength, '0');
+	t.is(evilReceivedContentType, undefined);
+	t.is(evilReceivedTransferEncoding, undefined);
+
+	await trustedServer.close();
+	await evilServer.close();
+});
+
+test('afterResponse retryWithMergedOptions drops reused async iterable body on cross-origin retry', async t => {
+	const createHttpTestServer = (await import('./helpers/create-http-test-server.js')).default;
+
+	const evilServer = await createHttpTestServer({bodyParser: false});
+	let evilReceivedBody = '';
+	let evilReceivedContentType: string | undefined;
+	evilServer.post('/steal', async (request, response) => {
+		evilReceivedBody = await getStream(request);
+		evilReceivedContentType = request.headers['content-type'];
+		response.end(JSON.stringify({result: 'ok'}));
+	});
+
+	const trustedServer = await createHttpTestServer();
+	trustedServer.post('/api', async (request, response) => {
+		await getStream(request);
+		response.setHeader('content-type', 'application/json');
+		response.end(JSON.stringify({
+			retryUrl: `${evilServer.url}/steal`,
+		}));
+	});
+
+	async function * generateData() {
+		yield 'payload';
+	}
+
+	await got.post(trustedServer.url + '/api', {
+		body: generateData(),
+		headers: {
+			'content-type': 'text/plain',
+		},
+		hooks: {
+			afterResponse: [
+				(response, retryWithMergedOptions) => {
+					const body = JSON.parse(response.body as string);
+					if (body.retryUrl) {
+						const updatedOptions = response.request.options;
+						updatedOptions.url = new URL(body.retryUrl);
+						return retryWithMergedOptions(updatedOptions);
+					}
+
+					return response;
+				},
+			],
+		},
+	});
+
+	t.is(evilReceivedBody, '');
+	t.is(evilReceivedContentType, undefined);
+
+	await trustedServer.close();
+	await evilServer.close();
+});
+
+test('afterResponse retryWithMergedOptions preserves explicit replacement URL credentials when reusing request options cross-origin', async t => {
+	const {server: evilServer, received} = await createCrossOriginReceiver();
+	const trustedServer = await createRetryUrlServer(`${evilServer.url}/steal`);
+
+	await got(trustedServer.url + '/api', {
+		username: 'old-user',
+		password: 'old-password',
+		hooks: {
+			afterResponse: [
+				(response, retryWithMergedOptions) => {
+					const body = JSON.parse(response.body as string);
+					if (body.retryUrl) {
+						const updatedOptions = response.request.options;
+						updatedOptions.url = new URL(body.retryUrl);
+						updatedOptions.url.username = 'new-user';
+						updatedOptions.url.password = 'new-password';
+						return retryWithMergedOptions(updatedOptions);
+					}
+
+					return response;
+				},
+			],
+		},
+	});
+
+	t.is(received.authorization, `Basic ${Buffer.from('new-user:new-password').toString('base64')}`);
+
+	await trustedServer.close();
+	await evilServer.close();
+});
+
+test('afterResponse retryWithMergedOptions preserves body on same-origin retry', withServer, async (t, server, got) => {
+	let requestNumber = 0;
+	server.post('/api', async (request, response) => {
+		requestNumber++;
+		const payload = await getStream(request);
+
+		if (requestNumber === 1) {
+			response.setHeader('content-type', 'application/json');
+			response.end(JSON.stringify({retry: true}));
+			return;
+		}
+
+		response.end(payload);
+	});
+
+	const response = await got.post('api', {
+		json: {secret: 'payload'},
+		hooks: {
+			afterResponse: [
+				(response, retryWithMergedOptions) => {
+					if ((response.body as string).includes('"retry":true')) {
+						return retryWithMergedOptions({
+							url: new URL('/api', response.url),
+							headers: {
+								token: 'unicorn',
+							},
+						});
+					}
+
+					return response;
+				},
+			],
+		},
+	});
+
+	t.is(JSON.parse(response.body).secret, 'payload');
+	t.is(requestNumber, 2);
+});
+
+test('afterResponse retryWithMergedOptions preserves explicit replacement body on cross-origin retry', async t => {
+	const {server: evilServer, received} = await createCrossOriginReceiver();
+	const trustedServer = await createRetryUrlServer(`${evilServer.url}/steal`);
+
+	await got.post(trustedServer.url + '/api', {
+		json: {secret: 'old-payload'},
+		hooks: {
+			afterResponse: [
+				(response, retryWithMergedOptions) => {
+					const body = JSON.parse(response.body as string);
+					if (body.retryUrl) {
+						return retryWithMergedOptions({
+							url: new URL(body.retryUrl),
+							json: {secret: 'new-payload'},
+						});
+					}
+
+					return response;
+				},
+			],
+		},
+	});
+
+	t.is(JSON.parse(received.body).secret, 'new-payload');
+	t.is(received.contentType, 'application/json');
+
+	await trustedServer.close();
+	await evilServer.close();
+});
+
+test('afterResponse retryWithMergedOptions preserves explicit URL object credentials on cross-origin retry', async t => {
+	const {server: evilServer, received} = await createCrossOriginReceiver();
+	const trustedServer = await createRetryUrlServer(`${evilServer.url}/steal`);
+
+	await got(trustedServer.url + '/api', {
+		username: 'user',
+		password: 'password',
+		hooks: {
+			afterResponse: [
+				(response, retryWithMergedOptions) => {
+					const body = JSON.parse(response.body as string);
+					if (body.retryUrl) {
+						const nextUrl = new URL(response.request.options.url as URL);
+						nextUrl.protocol = 'http:';
+						nextUrl.hostname = 'localhost';
+						nextUrl.port = new URL(body.retryUrl).port;
+						nextUrl.pathname = '/steal';
+						return retryWithMergedOptions({url: nextUrl});
+					}
+
+					return response;
+				},
+			],
+		},
+	});
+
+	t.is(received.authorization, `Basic ${Buffer.from('user:password').toString('base64')}`);
+
+	await trustedServer.close();
+	await evilServer.close();
+});
+
+test('afterResponse retryWithMergedOptions preserves explicit URL object username on cross-origin retry', async t => {
+	const {server: evilServer, received} = await createCrossOriginReceiver();
+	const trustedServer = await createRetryUrlServer(`${evilServer.url}/steal`);
+
+	await got(trustedServer.url + '/api', {
+		username: 'user',
+		hooks: {
+			afterResponse: [
+				(response, retryWithMergedOptions) => {
+					const body = JSON.parse(response.body as string);
+					if (body.retryUrl) {
+						const nextUrl = new URL(response.request.options.url as URL);
+						nextUrl.protocol = 'http:';
+						nextUrl.hostname = 'localhost';
+						nextUrl.port = new URL(body.retryUrl).port;
+						nextUrl.pathname = '/steal';
+						return retryWithMergedOptions({url: nextUrl});
+					}
+
+					return response;
+				},
+			],
+		},
+	});
+
+	t.is(received.authorization, `Basic ${Buffer.from('user:').toString('base64')}`);
+
+	await trustedServer.close();
+	await evilServer.close();
+});
+
+test('afterResponse retryWithMergedOptions strips inherited password when explicit URL object keeps only username', async t => {
+	const {server: evilServer, received} = await createCrossOriginReceiver();
+	const trustedServer = await createRetryUrlServer(`${evilServer.url}/steal`);
+
+	await got(trustedServer.url + '/api', {
+		username: 'user',
+		password: 'password',
+		hooks: {
+			afterResponse: [
+				(response, retryWithMergedOptions) => {
+					const body = JSON.parse(response.body as string);
+					if (body.retryUrl) {
+						const nextUrl = new URL(response.request.options.url as URL);
+						nextUrl.protocol = 'http:';
+						nextUrl.hostname = 'localhost';
+						nextUrl.port = new URL(body.retryUrl).port;
+						nextUrl.pathname = '/steal';
+						nextUrl.password = '';
+						return retryWithMergedOptions({url: nextUrl});
+					}
+
+					return response;
+				},
+			],
+		},
+	});
+
+	t.is(received.authorization, `Basic ${Buffer.from('user:').toString('base64')}`);
+
+	await trustedServer.close();
+	await evilServer.close();
+});
+
+test('afterResponse retryWithMergedOptions preserves same-value credentials on replacement url', async t => {
+	const {server: evilServer, received} = await createCrossOriginReceiver();
+	const trustedServer = await createRetryUrlServer(`${evilServer.url}/steal`);
+
+	await got(trustedServer.url + '/api', {
+		username: 'user',
+		password: 'password',
+		hooks: {
+			afterResponse: [
+				(response, retryWithMergedOptions) => {
+					const body = JSON.parse(response.body as string);
+					if (body.retryUrl) {
+						return retryWithMergedOptions({
+							url: `http://user:password@localhost:${new URL(body.retryUrl).port}/steal`,
+						});
+					}
+
+					return response;
+				},
+			],
+		},
+	});
+
+	t.is(received.authorization, `Basic ${Buffer.from('user:password').toString('base64')}`);
+
+	await trustedServer.close();
+	await evilServer.close();
+});
+
+test('afterResponse retryWithMergedOptions preserves explicit replacement body when reusing request options cross-origin', async t => {
+	const {server: evilServer, received} = await createCrossOriginReceiver();
+	const trustedServer = await createRetryUrlServer(`${evilServer.url}/steal`);
+
+	await got.post(trustedServer.url + '/api', {
+		body: 'old-payload',
+		headers: {
+			'content-type': 'text/plain',
+		},
+		hooks: {
+			afterResponse: [
+				(response, retryWithMergedOptions) => {
+					const body = JSON.parse(response.body as string);
+					if (body.retryUrl) {
+						const updatedOptions = response.request.options;
+						updatedOptions.url = new URL(body.retryUrl);
+						updatedOptions.body = 'new-payload';
+						updatedOptions.headers['content-type'] = 'text/plain';
+						return retryWithMergedOptions(updatedOptions);
+					}
+
+					return response;
+				},
+			],
+		},
+	});
+
+	t.is(received.body, 'new-payload');
+	t.is(received.contentType, 'text/plain');
+
+	await trustedServer.close();
+	await evilServer.close();
+});
+
+test('afterResponse retryWithMergedOptions strips sensitive headers after headers object reassignment on cross-origin retry', async t => {
+	const {server: evilServer, received} = await createCrossOriginReceiver();
+	const trustedServer = await createRetryUrlServer(`${evilServer.url}/steal`);
+
+	await got(trustedServer.url + '/api', {
+		headers: {
+			authorization: 'Bearer secret',
+			cookie: 'session=abc',
+		},
+		hooks: {
+			afterResponse: [
+				(response, retryWithMergedOptions) => {
+					const body = JSON.parse(response.body as string);
+					if (body.retryUrl) {
+						const updatedOptions = response.request.options;
+						updatedOptions.url = new URL(body.retryUrl);
+						updatedOptions.headers = {
+							...updatedOptions.headers,
+							foo: 'bar',
+						};
+						return retryWithMergedOptions(updatedOptions);
+					}
+
+					return response;
+				},
+			],
+		},
+	});
+
+	t.is(received.authorization, undefined);
+	t.is(received.cookie, undefined);
+
+	await trustedServer.close();
+	await evilServer.close();
+});
+
+test('afterResponse retryWithMergedOptions preserves in-place body rewrite when reusing request options cross-origin', async t => {
+	const {server: evilServer, received} = await createCrossOriginReceiver();
+	const trustedServer = await createRetryUrlServer(`${evilServer.url}/steal`);
+
+	await got.post(trustedServer.url + '/api', {
+		body: Buffer.from('old-payload'),
+		headers: {
+			'content-type': 'text/plain',
+		},
+		hooks: {
+			afterResponse: [
+				(response, retryWithMergedOptions) => {
+					const body = JSON.parse(response.body as string);
+					if (body.retryUrl) {
+						const updatedOptions = response.request.options;
+						updatedOptions.url = new URL(body.retryUrl);
+						(updatedOptions.body as Uint8Array).set(Buffer.from('new-payload'));
+						updatedOptions.headers['content-type'] = 'text/plain';
+						return retryWithMergedOptions(updatedOptions);
+					}
+
+					return response;
+				},
+			],
+		},
+	});
+
+	t.is(received.body, 'new-payload');
+	t.is(received.contentType, 'text/plain');
+
+	await trustedServer.close();
+	await evilServer.close();
+});
+
+test('afterResponse retryWithMergedOptions preserves same-value authorization and body when reusing request options cross-origin', async t => {
+	const {server: evilServer, received} = await createCrossOriginReceiver();
+	const trustedServer = await createRetryUrlServer(`${evilServer.url}/steal`);
+
+	await got.post(trustedServer.url + '/api', {
+		body: 'payload',
+		headers: {
+			authorization: 'Bearer secret',
+			'content-type': 'text/plain',
+		},
+		hooks: {
+			afterResponse: [
+				(response, retryWithMergedOptions) => {
+					const body = JSON.parse(response.body as string);
+					if (body.retryUrl) {
+						const updatedOptions = response.request.options;
+						updatedOptions.url = new URL(body.retryUrl);
+						updatedOptions.headers.authorization = 'Bearer secret';
+						updatedOptions.body = 'payload';
+						updatedOptions.headers['content-type'] = 'text/plain';
+						return retryWithMergedOptions(updatedOptions);
+					}
+
+					return response;
+				},
+			],
+		},
+	});
+
+	t.is(received.authorization, 'Bearer secret');
+	t.is(received.body, 'payload');
+	t.is(received.contentType, 'text/plain');
+
+	await trustedServer.close();
+	await evilServer.close();
+});
+
+test('afterResponse retryWithMergedOptions preserves explicit replacement credentials when reusing request options cross-origin', async t => {
+	const {server: evilServer, received} = await createCrossOriginReceiver();
+	const trustedServer = await createRetryUrlServer(`${evilServer.url}/steal`);
+
+	await got(trustedServer.url + '/api', {
+		username: 'old-user',
+		password: 'old-password',
+		hooks: {
+			afterResponse: [
+				(response, retryWithMergedOptions) => {
+					const body = JSON.parse(response.body as string);
+					if (body.retryUrl) {
+						const updatedOptions = response.request.options;
+						updatedOptions.url = new URL(body.retryUrl);
+						updatedOptions.username = 'new-user';
+						updatedOptions.password = 'new-password';
+						return retryWithMergedOptions(updatedOptions);
+					}
+
+					return response;
+				},
+			],
+		},
+	});
+
+	t.is(received.authorization, `Basic ${Buffer.from('new-user:new-password').toString('base64')}`);
+
+	await trustedServer.close();
+	await evilServer.close();
+});
+
+test('afterResponse retryWithMergedOptions preserves same-value credentials when reusing request options cross-origin', async t => {
+	const {server: evilServer, received} = await createCrossOriginReceiver();
+	const trustedServer = await createRetryUrlServer(`${evilServer.url}/steal`);
+
+	await got(trustedServer.url + '/api', {
+		username: 'user',
+		password: 'password',
+		hooks: {
+			afterResponse: [
+				(response, retryWithMergedOptions) => {
+					const body = JSON.parse(response.body as string);
+					if (body.retryUrl) {
+						const updatedOptions = response.request.options;
+						updatedOptions.url = new URL(body.retryUrl);
+						updatedOptions.username = 'user';
+						updatedOptions.password = 'password';
+						return retryWithMergedOptions(updatedOptions);
+					}
+
+					return response;
+				},
+			],
+		},
+	});
+
+	t.is(received.authorization, `Basic ${Buffer.from('user:password').toString('base64')}`);
+
+	await trustedServer.close();
+	await evilServer.close();
+});
+
+test('afterResponse retryWithMergedOptions preserves URL object credentials when reusing request options cross-origin', async t => {
+	const {server: evilServer, received} = await createCrossOriginReceiver();
+	const trustedServer = await createRetryUrlServer(`${evilServer.url}/steal`);
+
+	await got(trustedServer.url + '/api', {
+		username: 'user',
+		password: 'password',
+		hooks: {
+			afterResponse: [
+				(response, retryWithMergedOptions) => {
+					const body = JSON.parse(response.body as string);
+					if (body.retryUrl) {
+						const updatedOptions = response.request.options;
+						updatedOptions.url = new URL(body.retryUrl);
+						updatedOptions.url.username = 'user';
+						updatedOptions.url.password = 'password';
+						return retryWithMergedOptions(updatedOptions);
+					}
+
+					return response;
+				},
+			],
+		},
+	});
+
+	t.is(received.authorization, `Basic ${Buffer.from('user:password').toString('base64')}`);
+
+	await trustedServer.close();
+	await evilServer.close();
+});
+
+test('afterResponse retryWithMergedOptions strips inherited url credentials after in-place cross-origin url mutation', async t => {
+	const {server: evilServer, received} = await createCrossOriginReceiver();
+	const trustedServer = await createRetryUrlServer(`${evilServer.url}/steal`);
+
+	await got(trustedServer.url + '/api', {
+		username: 'user',
+		password: 'password',
+		hooks: {
+			afterResponse: [
+				(response, retryWithMergedOptions) => {
+					const body = JSON.parse(response.body as string);
+					if (body.retryUrl) {
+						const updatedOptions = response.request.options;
+						const nextUrl = new URL(body.retryUrl);
+						const currentUrl = updatedOptions.url as URL;
+						currentUrl.hostname = nextUrl.hostname;
+						currentUrl.port = nextUrl.port;
+						currentUrl.pathname = nextUrl.pathname;
+						currentUrl.protocol = nextUrl.protocol;
+						return retryWithMergedOptions(updatedOptions);
+					}
+
+					return response;
+				},
+			],
+		},
+	});
+
+	t.is(received.authorization, undefined);
+
+	await trustedServer.close();
+	await evilServer.close();
 });

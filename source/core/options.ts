@@ -1,5 +1,10 @@
 import process from 'node:process';
-import {promisify, inspect, type InspectOptions} from 'node:util';
+import {
+	promisify,
+	inspect,
+	isDeepStrictEqual,
+	type InspectOptions,
+} from 'node:util';
 import {checkServerIdentity, type SecureContextOptions, type DetailedPeerCertificate} from 'node:tls';
 // DO NOT use destructuring for `https.request` and `http.request` as it's not compatible with `nock`.
 import https, {
@@ -25,6 +30,7 @@ import parseLinkHeader from './parse-link-header.js';
 import type {PlainResponse, Response} from './response.js';
 import type {RequestError} from './errors.js';
 import type {Delays} from './timed-out.js';
+import {getUnixSocketPath} from './utils/is-unix-socket-url.js';
 
 type StorageAdapter = KeyvStoreAdapter | KeyvType | Map<unknown, unknown>;
 
@@ -49,6 +55,17 @@ export type Agents = {
 };
 
 export type Headers = Record<string, string | string[] | undefined>;
+export type CrossOriginState = {
+	headers: Headers;
+	username: string;
+	password: string;
+	body: unknown;
+	json: unknown;
+	form: unknown;
+	bodySnapshot: unknown;
+	jsonSnapshot: unknown;
+	formSnapshot: unknown;
+};
 
 export type ToughCookieJar = {
 	getCookieString: ((currentUrl: string, options: Record<string, unknown>, callback: (error: Error | undefined, cookies: string) => void) => void)
@@ -894,15 +911,87 @@ function assertPlainObject(optionName: string, value: unknown): void {
 	});
 }
 
+export function isSameOrigin(previousUrl: URL, nextUrl: URL): boolean {
+	return previousUrl.origin === nextUrl.origin
+		&& getUnixSocketPath(previousUrl) === getUnixSocketPath(nextUrl);
+}
+
+export const crossOriginStripHeaders = ['host', 'cookie', 'cookie2', 'authorization', 'proxy-authorization'] as const;
+const bodyHeaderNames = ['content-length', 'content-encoding', 'content-language', 'content-location', 'content-type', 'transfer-encoding'] as const;
+
+function usesUnixSocket(url: URL): boolean {
+	return url.protocol === 'unix:' || getUnixSocketPath(url) !== undefined;
+}
+
+function hasCredentialInUrl(url: string | URL | undefined, credential: 'username' | 'password'): boolean {
+	if (url instanceof URL) {
+		return url[credential] !== '';
+	}
+
+	if (!is.string(url)) {
+		return false;
+	}
+
+	try {
+		return new URL(url)[credential] !== '';
+	} catch {
+		return false;
+	}
+}
+
+export const hasExplicitCredentialInUrlChange = (changedState: Set<string>, url: URL | undefined, credential: 'username' | 'password'): boolean => (
+	changedState.has(credential)
+	|| (changedState.has('url') && url?.[credential] !== '')
+);
+
+const hasProtocolSlashes = (value: string): boolean => /^[a-z][a-z\d+.-]*:\/\//i.test(value);
+
+const hasHttpProtocolWithoutSlashes = (value: string): boolean => /^https?:(?!\/\/)/i.test(value);
+
+export function applyUrlOverride(options: Options, url: string | URL, {username, password}: {username?: string; password?: string} = {}): URL {
+	if (is.string(url) && options.url) {
+		url = new URL(url, options.url).toString();
+	}
+
+	options.prefixUrl = '';
+	options.url = url;
+
+	if (username !== undefined) {
+		options.username = username;
+	}
+
+	if (password !== undefined) {
+		options.password = password;
+	}
+
+	return options.url as URL;
+}
+
 function assertValidHeaderName(name: string): void {
 	if (name.startsWith(':')) {
 		throw new TypeError(`HTTP/2 pseudo-headers are not supported in \`options.headers\`: ${name}`);
 	}
 }
 
+/**
+Safely assign own properties from source to target, skipping `__proto__` to prevent prototype pollution from JSON.parse'd input.
+*/
+function safeObjectAssign(target: Record<string, unknown>, source: Record<string, unknown>): void {
+	for (const key of Object.keys(source)) {
+		if (key === '__proto__') {
+			continue;
+		}
+
+		target[key] = source[key];
+	}
+}
+
 function validateSearchParameters(searchParameters: Record<string, unknown>): asserts searchParameters is Record<string, string | number | boolean | undefined> {
-	// eslint-disable-next-line guard-for-in
-	for (const key in searchParameters) {
+	for (const key of Object.keys(searchParameters)) {
+		if (key === '__proto__') {
+			continue;
+		}
+
 		const value = searchParameters[key];
 		assertAny(`searchParams.${key}`, [is.string, is.number, is.boolean, is.null, is.undefined], value);
 	}
@@ -925,6 +1014,10 @@ type OptionsToSkip =
 	'getInternalHeaders' |
 	'setInternalHeader' |
 	'deleteInternalHeader' |
+	'trackStateMutations' |
+	'clearBody' |
+	'stripUnchangedCrossOriginState' |
+	'stripSensitiveHeaders' |
 	'createNativeRequestOptions' |
 	'getRequestFunction' |
 	'freeze';
@@ -1190,35 +1283,30 @@ const cloneInternals = (internals: typeof defaultInternals) => {
 };
 
 const cloneRaw = (raw: OptionsInit) => {
-	const {hooks, retry} = raw;
-
 	const result: OptionsInit = {...raw};
 
-	if (is.object(raw.context)) {
+	if (Object.hasOwn(raw, 'context') && is.object(raw.context)) {
 		result.context = {...raw.context};
 	}
 
-	if (is.object(raw.cacheOptions)) {
+	if (Object.hasOwn(raw, 'cacheOptions') && is.object(raw.cacheOptions)) {
 		result.cacheOptions = {...raw.cacheOptions};
 	}
 
-	if (is.object(raw.https)) {
+	if (Object.hasOwn(raw, 'https') && is.object(raw.https)) {
 		result.https = {...raw.https};
 	}
 
-	if (is.object(raw.cacheOptions)) {
-		result.cacheOptions = {...result.cacheOptions};
-	}
-
-	if (is.object(raw.agent)) {
+	if (Object.hasOwn(raw, 'agent') && is.object(raw.agent)) {
 		result.agent = {...raw.agent};
 	}
 
-	if (is.object(raw.headers)) {
+	if (Object.hasOwn(raw, 'headers') && is.object(raw.headers)) {
 		result.headers = {...raw.headers};
 	}
 
-	if (is.object(retry)) {
+	if (Object.hasOwn(raw, 'retry') && is.object(raw.retry)) {
+		const {retry} = raw;
 		result.retry = {...retry};
 
 		if (is.array(retry.errorCodes)) {
@@ -1234,11 +1322,12 @@ const cloneRaw = (raw: OptionsInit) => {
 		}
 	}
 
-	if (is.object(raw.timeout)) {
+	if (Object.hasOwn(raw, 'timeout') && is.object(raw.timeout)) {
 		result.timeout = {...raw.timeout};
 	}
 
-	if (is.object(hooks)) {
+	if (Object.hasOwn(raw, 'hooks') && is.object(raw.hooks)) {
+		const {hooks} = raw;
 		result.hooks = {
 			...hooks,
 		};
@@ -1272,7 +1361,7 @@ const cloneRaw = (raw: OptionsInit) => {
 		}
 	}
 
-	if (raw.searchParams) {
+	if (Object.hasOwn(raw, 'searchParams') && raw.searchParams) {
 		if (is.string(raw.searchParams)) {
 			result.searchParams = raw.searchParams;
 		} else if (raw.searchParams instanceof URLSearchParams) {
@@ -1282,7 +1371,7 @@ const cloneRaw = (raw: OptionsInit) => {
 		}
 	}
 
-	if (is.object(raw.pagination)) {
+	if (Object.hasOwn(raw, 'pagination') && is.object(raw.pagination)) {
 		result.pagination = {...raw.pagination};
 	}
 
@@ -1291,12 +1380,32 @@ const cloneRaw = (raw: OptionsInit) => {
 
 const getHttp2TimeoutOption = (internals: typeof defaultInternals): number | undefined => {
 	const delays = [internals.timeout.socket, internals.timeout.connect, internals.timeout.lookup, internals.timeout.request, internals.timeout.secureConnect].filter(delay => typeof delay === 'number');
+	return delays.length > 0 ? Math.min(...delays) : undefined;
+};
 
-	if (delays.length > 0) {
-		return Math.min(...delays);
+const trackStateMutation = (trackedStateMutations: Set<string> | undefined, name: string): void => {
+	trackedStateMutations?.add(name);
+};
+
+const addExplicitHeader = (explicitHeaders: Set<string>, name: string): void => {
+	explicitHeaders.add(name);
+};
+
+const markHeaderAsExplicit = (explicitHeaders: Set<string>, trackedStateMutations: Set<string> | undefined, name: string): void => {
+	addExplicitHeader(explicitHeaders, name);
+	trackStateMutation(trackedStateMutations, name);
+};
+
+const trackReplacedHeaderMutations = (trackedStateMutations: Set<string> | undefined, previousHeaders: Headers, nextHeaders: Headers): void => {
+	if (!trackedStateMutations) {
+		return;
 	}
 
-	return undefined;
+	for (const header of new Set([...Object.keys(previousHeaders), ...Object.keys(nextHeaders)])) {
+		if (previousHeaders[header] !== nextHeaders[header]) {
+			trackStateMutation(trackedStateMutations, header);
+		}
+	}
 };
 
 const init = (options: OptionsInit, withOptions: OptionsInit, self: Options): void => {
@@ -1308,13 +1417,16 @@ const init = (options: OptionsInit, withOptions: OptionsInit, self: Options): vo
 	}
 };
 
+// Keys never merged: got.extend() internals, url (passed as first arg), control flags, security
+const nonMergeableKeys: ReadonlySet<string> = new Set(['mutableDefaults', 'handlers', 'url', 'preserveHooks', 'isStream', '__proto__']);
+
 export default class Options {
-	#unixOptions?: NativeRequestOptions;
 	readonly #internals: InternalsType;
 	#headersProxy: Headers;
 	#merging = false;
 	readonly #init: OptionsInit[];
 	readonly #explicitHeaders: Set<string>;
+	#trackedStateMutations?: Set<string>;
 
 	constructor(input?: string | URL | OptionsInit, options?: OptionsInit, defaults?: Options) {
 		assertAny('input', [is.string, is.urlInstance, is.object, is.undefined], input);
@@ -1403,24 +1515,8 @@ export default class Options {
 		try {
 			let push = false;
 
-			for (const key in options) {
-				// `got.extend()` options
-				if (key === 'mutableDefaults' || key === 'handlers') {
-					continue;
-				}
-
-				// Never merge `url`
-				if (key === 'url') {
-					continue;
-				}
-
-				// Never merge `preserveHooks` - it's a control flag, not a persistent option
-				if (key === 'preserveHooks') {
-					continue;
-				}
-
-				// `isStream` is set internally by `got.stream()`, not by user options
-				if (key === 'isStream') {
+			for (const key of Object.keys(options)) {
+				if (nonMergeableKeys.has(key)) {
 					continue;
 				}
 
@@ -1493,8 +1589,11 @@ export default class Options {
 	set agent(value: Agents) {
 		assertPlainObject('agent', value);
 
-		// eslint-disable-next-line guard-for-in
-		for (const key in value) {
+		for (const key of Object.keys(value)) {
+			if (key === '__proto__') {
+				continue;
+			}
+
 			if (!(key in this.#internals.agent)) {
 				throw new TypeError(`Unexpected agent option: ${key}`);
 			}
@@ -1504,7 +1603,7 @@ export default class Options {
 		}
 
 		if (this.#merging) {
-			Object.assign(this.#internals.agent, value);
+			safeObjectAssign(this.#internals.agent as Record<string, unknown>, value as Record<string, unknown>);
 		} else {
 			this.#internals.agent = {...value};
 		}
@@ -1562,8 +1661,11 @@ export default class Options {
 	set timeout(value: Delays) {
 		assertPlainObject('timeout', value);
 
-		// eslint-disable-next-line guard-for-in
-		for (const key in value) {
+		for (const key of Object.keys(value)) {
+			if (key === '__proto__') {
+				continue;
+			}
+
 			if (!(key in this.#internals.timeout)) {
 				throw new Error(`Unexpected timeout option: ${key}`);
 			}
@@ -1573,7 +1675,7 @@ export default class Options {
 		}
 
 		if (this.#merging) {
-			Object.assign(this.#internals.timeout, value);
+			safeObjectAssign(this.#internals.timeout as Record<string, unknown>, value as Record<string, unknown>);
 		} else {
 			this.#internals.timeout = {...value};
 		}
@@ -1694,6 +1796,7 @@ export default class Options {
 		}
 
 		this.#internals.body = value;
+		trackStateMutation(this.#trackedStateMutations, 'body');
 	}
 
 	/**
@@ -1718,6 +1821,7 @@ export default class Options {
 		}
 
 		this.#internals.form = value;
+		trackStateMutation(this.#trackedStateMutations, 'form');
 	}
 
 	/**
@@ -1740,6 +1844,7 @@ export default class Options {
 		}
 
 		this.#internals.json = value;
+		trackStateMutation(this.#trackedStateMutations, 'json');
 	}
 
 	/**
@@ -1769,6 +1874,7 @@ export default class Options {
 
 		if (value === undefined) {
 			this.#internals.url = undefined;
+			trackStateMutation(this.#trackedStateMutations, 'url');
 			return;
 		}
 
@@ -1776,14 +1882,28 @@ export default class Options {
 			throw new Error('`url` must not start with a slash');
 		}
 
-		// Detect if URL is already absolute (has a protocol/scheme)
 		const valueString = value.toString();
-		const isAbsolute = is.urlInstance(value) || /^[a-z][a-z\d+.-]*:\/\//i.test(valueString);
+
+		if (
+			is.string(value)
+			&& !this.prefixUrl
+			&& hasHttpProtocolWithoutSlashes(valueString)
+		) {
+			throw new Error('`url` protocol must be followed by `//`');
+		}
+
+		// Detect if URL is already absolute (has a protocol/scheme)
+		const isAbsolute = is.urlInstance(value) || hasProtocolSlashes(valueString);
 
 		// Only concatenate prefixUrl if the URL is relative
 		const urlString = isAbsolute ? valueString : `${this.prefixUrl as string}${valueString}`;
 		const url = new URL(urlString);
 		this.#internals.url = url;
+		trackStateMutation(this.#trackedStateMutations, 'url');
+
+		if (usesUnixSocket(url) && !this.#internals.enableUnixSockets) {
+			throw new Error('Using UNIX domain sockets but option `enableUnixSockets` is not enabled');
+		}
 
 		if (url.protocol === 'unix:') {
 			url.href = `http://unix${url.pathname}${url.search}`;
@@ -1810,30 +1930,6 @@ export default class Options {
 			url.search = (this.#internals.searchParams as URLSearchParams).toString();
 			this.#internals.searchParams = undefined;
 		}
-
-		if (url.hostname === 'unix') {
-			if (!this.#internals.enableUnixSockets) {
-				throw new Error('Using UNIX domain sockets but option `enableUnixSockets` is not enabled');
-			}
-
-			const matches = /(?<socketPath>.+?):(?<path>.+)/.exec(`${url.pathname}${url.search}`);
-
-			if (matches?.groups) {
-				const {socketPath, path} = matches.groups;
-
-				this.#unixOptions = {
-					socketPath,
-					path,
-					host: '',
-				};
-			} else {
-				this.#unixOptions = undefined;
-			}
-
-			return;
-		}
-
-		this.#unixOptions = undefined;
 	}
 
 	/**
@@ -1971,8 +2067,11 @@ export default class Options {
 
 			updated = new URLSearchParams();
 
-			// eslint-disable-next-line guard-for-in
-			for (const key in value) {
+			for (const key of Object.keys(value)) {
+				if (key === '__proto__') {
+					continue;
+				}
+
 				const entry = value[key];
 
 				if (entry === null) {
@@ -2084,7 +2183,7 @@ export default class Options {
 		assert.object(value);
 
 		if (this.#merging) {
-			Object.assign(this.#internals.context, value);
+			safeObjectAssign(this.#internals.context, value);
 		} else {
 			this.#internals.context = {...value};
 		}
@@ -2101,8 +2200,11 @@ export default class Options {
 	set hooks(value: Hooks) {
 		assert.object(value);
 
-		// eslint-disable-next-line guard-for-in
-		for (const knownHookEvent in value) {
+		for (const knownHookEvent of Object.keys(value)) {
+			if (knownHookEvent === '__proto__') {
+				continue;
+			}
+
 			if (!(knownHookEvent in this.#internals.hooks)) {
 				throw new Error(`Unexpected hook event: ${knownHookEvent}`);
 			}
@@ -2236,6 +2338,8 @@ export default class Options {
 		} else {
 			this.#internals.username = fixedValue;
 		}
+
+		trackStateMutation(this.#trackedStateMutations, 'username');
 	}
 
 	get password(): string {
@@ -2258,6 +2362,8 @@ export default class Options {
 		} else {
 			this.#internals.password = fixedValue;
 		}
+
+		trackStateMutation(this.#trackedStateMutations, 'password');
 	}
 
 	/**
@@ -2374,13 +2480,7 @@ export default class Options {
 	}
 
 	shouldCopyPipedHeader(name: string): boolean {
-		const normalizedHeader = name.toLowerCase();
-
-		if (this.isHeaderExplicitlySet(normalizedHeader)) {
-			return false;
-		}
-
-		return true;
+		return !this.isHeaderExplicitlySet(name);
 	}
 
 	setPipedHeader(name: string, value: string | string[] | undefined): void {
@@ -2402,6 +2502,85 @@ export default class Options {
 		delete this.#internals.headers[name.toLowerCase()];
 	}
 
+	async trackStateMutations<Value>(operation: (changedState: Set<string>) => Promisable<Value>): Promise<Value> {
+		const changedState = new Set<string>();
+		this.#trackedStateMutations = changedState;
+
+		try {
+			return await operation(changedState);
+		} finally {
+			this.#trackedStateMutations = undefined;
+		}
+	}
+
+	clearBody(): void {
+		this.body = undefined;
+		this.json = undefined;
+		this.form = undefined;
+
+		for (const header of bodyHeaderNames) {
+			this.deleteInternalHeader(header);
+		}
+	}
+
+	stripUnchangedCrossOriginState(previousState: CrossOriginState, changedState: Set<string>, {clearBody = true}: {clearBody?: boolean} = {}): void {
+		const headers = this.getInternalHeaders();
+		const url = this.#internals.url as URL | undefined;
+
+		for (const header of crossOriginStripHeaders) {
+			if (!changedState.has(header) && headers[header] === previousState.headers[header]) {
+				this.deleteInternalHeader(header);
+			}
+		}
+
+		if (!hasExplicitCredentialInUrlChange(changedState, url, 'username')) {
+			this.username = '';
+		}
+
+		if (!hasExplicitCredentialInUrlChange(changedState, url, 'password')) {
+			this.password = '';
+		}
+
+		if (clearBody && !changedState.has('body') && !changedState.has('json') && !changedState.has('form') && isBodyUnchanged(this, previousState)) {
+			this.clearBody();
+		}
+	}
+
+	/**
+	Strip sensitive headers and credentials when navigating to a different origin.
+	Headers and credentials explicitly provided in `userOptions` are preserved.
+	*/
+	stripSensitiveHeaders(previousUrl: URL, nextUrl: URL, userOptions: OptionsInit): void {
+		if (isSameOrigin(previousUrl, nextUrl)) {
+			return;
+		}
+
+		const headers = lowercaseKeys(userOptions.headers ?? {});
+
+		for (const header of crossOriginStripHeaders) {
+			if (headers[header] === undefined) {
+				this.deleteInternalHeader(header);
+			}
+		}
+
+		const explicitUsername = Object.hasOwn(userOptions, 'username') ? userOptions.username : undefined;
+		const explicitPassword = Object.hasOwn(userOptions, 'password') ? userOptions.password : undefined;
+		const hasExplicitUsername = explicitUsername !== undefined
+			|| hasCredentialInUrl(userOptions.url, 'username')
+			|| isCrossOriginCredentialChanged(previousUrl, nextUrl, 'username');
+		const hasExplicitPassword = explicitPassword !== undefined
+			|| hasCredentialInUrl(userOptions.url, 'password')
+			|| isCrossOriginCredentialChanged(previousUrl, nextUrl, 'password');
+
+		if (!hasExplicitUsername && this.username) {
+			this.username = '';
+		}
+
+		if (!hasExplicitPassword && this.password) {
+			this.password = '';
+		}
+	}
+
 	/**
 	Request headers.
 
@@ -2421,15 +2600,21 @@ export default class Options {
 		}
 
 		if (this.#merging) {
-			Object.assign(this.#internals.headers, normalizedHeaders);
+			safeObjectAssign(this.#internals.headers as Record<string, unknown>, normalizedHeaders as Record<string, unknown>);
 		} else {
+			const previousHeaders = this.#internals.headers;
 			this.#internals.headers = normalizedHeaders;
 			this.#headersProxy = this.#createHeadersProxy();
 			this.#explicitHeaders.clear();
+			trackReplacedHeaderMutations(this.#trackedStateMutations, previousHeaders, normalizedHeaders);
 		}
 
 		for (const header of Object.keys(normalizedHeaders)) {
-			this.#explicitHeaders.add(header);
+			if (this.#merging) {
+				markHeaderAsExplicit(this.#explicitHeaders, this.#trackedStateMutations, header);
+			} else {
+				addExplicitHeader(this.#explicitHeaders, header);
+			}
 		}
 	}
 
@@ -2597,14 +2782,18 @@ export default class Options {
 			throw new Error(`The maximum acceptable retry noise is +/- 100ms, got ${value.noise}`);
 		}
 
-		for (const key in value) {
+		for (const key of Object.keys(value)) {
+			if (key === '__proto__') {
+				continue;
+			}
+
 			if (!(key in this.#internals.retry)) {
 				throw new Error(`Unexpected retry option: ${key}`);
 			}
 		}
 
 		if (this.#merging) {
-			Object.assign(this.#internals.retry, value);
+			safeObjectAssign(this.#internals.retry as Record<string, unknown>, value as Record<string, unknown>);
 		} else {
 			this.#internals.retry = {...value};
 		}
@@ -2673,14 +2862,18 @@ export default class Options {
 		assertAny('cacheOptions.immutableMinTimeToLive', [is.number, is.undefined], value.immutableMinTimeToLive);
 		assertAny('cacheOptions.ignoreCargoCult', [is.boolean, is.undefined], value.ignoreCargoCult);
 
-		for (const key in value) {
+		for (const key of Object.keys(value)) {
+			if (key === '__proto__') {
+				continue;
+			}
+
 			if (!(key in this.#internals.cacheOptions)) {
 				throw new Error(`Cache option \`${key}\` does not exist`);
 			}
 		}
 
 		if (this.#merging) {
-			Object.assign(this.#internals.cacheOptions, value);
+			safeObjectAssign(this.#internals.cacheOptions as Record<string, unknown>, value as Record<string, unknown>);
 		} else {
 			this.#internals.cacheOptions = {...value};
 		}
@@ -2716,14 +2909,18 @@ export default class Options {
 		assertAny('https.certificateRevocationLists', [is.string, is.buffer, is.array, is.undefined], value.certificateRevocationLists);
 		assertAny('https.secureOptions', [is.number, is.undefined], value.secureOptions);
 
-		for (const key in value) {
+		for (const key of Object.keys(value)) {
+			if (key === '__proto__') {
+				continue;
+			}
+
 			if (!(key in this.#internals.https)) {
 				throw new Error(`HTTPS option \`${key}\` does not exist`);
 			}
 		}
 
 		if (this.#merging) {
-			Object.assign(this.#internals.https, value);
+			safeObjectAssign(this.#internals.https as Record<string, unknown>, value as Record<string, unknown>);
 		} else {
 			this.#internals.https = {...value};
 		}
@@ -2840,7 +3037,7 @@ export default class Options {
 		assert.object(value);
 
 		if (this.#merging) {
-			Object.assign(this.#internals.pagination, value);
+			safeObjectAssign(this.#internals.pagination as Record<string, unknown>, value as Record<string, unknown>);
 		} else {
 			this.#internals.pagination = value;
 		}
@@ -2943,9 +3140,25 @@ export default class Options {
 			})) as any;
 		}
 
+		const unixSocketPath = getUnixSocketPath(url);
+
+		if (usesUnixSocket(url) && !internals.enableUnixSockets) {
+			throw new Error('Using UNIX domain sockets but option `enableUnixSockets` is not enabled');
+		}
+
+		let unixSocketGroups: {socketPath: string; path: string} | undefined;
+
+		if (unixSocketPath !== undefined) {
+			unixSocketGroups = /(?<socketPath>.+?):(?<path>.+)/.exec(`${url.pathname}${url.search}`)?.groups as typeof unixSocketGroups;
+		}
+
+		const unixOptions = unixSocketGroups
+			? {socketPath: unixSocketGroups.socketPath, path: unixSocketGroups.path, host: ''}
+			: undefined;
+
 		return {
 			...internals.cacheOptions,
-			...this.#unixOptions,
+			...unixOptions,
 
 			// HTTPS options
 			// eslint-disable-next-line @typescript-eslint/naming-convention
@@ -3053,7 +3266,7 @@ export default class Options {
 					const isSuccess = Reflect.set(target, normalizedProperty, value);
 
 					if (isSuccess) {
-						this.#explicitHeaders.add(normalizedProperty);
+						markHeaderAsExplicit(this.#explicitHeaders, this.#trackedStateMutations, normalizedProperty);
 					}
 
 					return isSuccess;
@@ -3068,6 +3281,7 @@ export default class Options {
 
 					if (isSuccess) {
 						this.#explicitHeaders.delete(normalizedProperty);
+						trackStateMutation(this.#trackedStateMutations, normalizedProperty);
 					}
 
 					return isSuccess;
@@ -3152,3 +3366,52 @@ export default class Options {
 		return resolvedFallbackResult;
 	}
 }
+
+export const snapshotCrossOriginState = (options: Options): CrossOriginState => ({
+	headers: {...options.getInternalHeaders()},
+	username: options.username,
+	password: options.password,
+	body: options.body,
+	json: options.json,
+	form: options.form,
+	bodySnapshot: cloneCrossOriginBodyValue(options.body),
+	jsonSnapshot: cloneCrossOriginBodyValue(options.json),
+	formSnapshot: cloneCrossOriginBodyValue(options.form),
+});
+
+const cloneCrossOriginBodyValue = (value: unknown): unknown => {
+	if (value === undefined || value === null || typeof value !== 'object') {
+		return value;
+	}
+
+	try {
+		return structuredClone(value);
+	} catch {
+		return undefined;
+	}
+};
+
+const isUnchangedCrossOriginBodyValue = (currentValue: unknown, previousValue: unknown, previousSnapshot: unknown): boolean => {
+	if (currentValue !== previousValue) {
+		return false;
+	}
+
+	if (currentValue === undefined || currentValue === null || typeof currentValue !== 'object') {
+		return true;
+	}
+
+	if (previousSnapshot === undefined) {
+		return true;
+	}
+
+	return isDeepStrictEqual(currentValue, previousSnapshot);
+};
+
+export const isCrossOriginCredentialChanged = (previousUrl: URL, nextUrl: URL, credential: 'username' | 'password'): boolean => (
+	nextUrl[credential] !== '' && nextUrl[credential] !== previousUrl[credential]
+);
+
+export const isBodyUnchanged = (options: Options, previousState: CrossOriginState): boolean =>
+	isUnchangedCrossOriginBodyValue(options.body, previousState.body, previousState.bodySnapshot)
+	&& isUnchangedCrossOriginBodyValue(options.json, previousState.json, previousState.jsonSnapshot)
+	&& isUnchangedCrossOriginBodyValue(options.form, previousState.form, previousState.formSnapshot);

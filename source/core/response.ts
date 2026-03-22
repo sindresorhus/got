@@ -6,6 +6,18 @@ import type {ParseJsonFunction, ResponseType} from './options.js';
 import type Request from './index.js';
 
 const decodedBodyCache = new WeakMap<PlainResponse, string>();
+// Intentionally uses TextDecoder so the UTF-8 path strips a leading BOM.
+const textDecoder = new TextDecoder();
+
+export const isUtf8Encoding = (encoding?: BufferEncoding): boolean => encoding === undefined || encoding.toLowerCase().replace('-', '') === 'utf8';
+
+export const decodeUint8Array = (data: Uint8Array, encoding?: BufferEncoding): string => {
+	if (isUtf8Encoding(encoding)) {
+		return textDecoder.decode(data);
+	}
+
+	return Buffer.from(data).toString(encoding);
+};
 
 export type PlainResponse = {
 	/**
@@ -87,7 +99,7 @@ export type PlainResponse = {
 	/**
 	The raw result of the request.
 	*/
-	rawBody?: Uint8Array;
+	rawBody?: Uint8Array<ArrayBuffer>;
 
 	/**
 	The result of the request.
@@ -112,7 +124,7 @@ export type Response<T = unknown> = {
 	/**
 	The raw result of the request.
 	*/
-	rawBody: Uint8Array;
+	rawBody: Uint8Array<ArrayBuffer>;
 } & PlainResponse;
 
 export const isResponseOk = (response: PlainResponse): boolean => {
@@ -153,7 +165,7 @@ export const parseBody = (response: Response, responseType: ResponseType, parseJ
 				return cachedDecodedBody;
 			}
 
-			return Buffer.from(rawBody).toString(encoding);
+			return decodeUint8Array(rawBody, encoding);
 		}
 
 		if (responseType === 'json') {
@@ -161,7 +173,7 @@ export const parseBody = (response: Response, responseType: ResponseType, parseJ
 				return '';
 			}
 
-			const text = cachedDecodedBody ?? Buffer.from(rawBody).toString(encoding);
+			const text = cachedDecodedBody ?? decodeUint8Array(rawBody, encoding);
 			return parseJson(text);
 		}
 

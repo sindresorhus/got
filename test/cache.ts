@@ -158,6 +158,30 @@ test('cache error throws `CacheError`', withServer, async (t, server, got) => {
 	});
 });
 
+test('cache error preserves `CacheError` code when underlying error has a code', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.setHeader('cache-control', 'public, max-age=60');
+		response.end('ok');
+	});
+
+	const cache = {
+		get() {
+			return undefined;
+		},
+		set() {
+			const error = new Error('Cache write failed') as NodeJS.ErrnoException;
+			error.code = 'EACCES';
+			throw error;
+		},
+		delete() {},
+	} as any;
+
+	await t.throwsAsync(got({cache}), {
+		instanceOf: CacheError,
+		code: 'ERR_CACHE_ACCESS',
+	});
+});
+
 test('doesn\'t cache response when received HTTP error', withServer, async (t, server, got) => {
 	let isFirstErrorCalled = false;
 	server.get('/', (_request, response) => {

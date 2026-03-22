@@ -29,8 +29,7 @@ export default function unhandle(): Unhandler {
 		},
 
 		unhandleAll() {
-			for (const handler of handlers) {
-				const {origin, event, fn} = handler;
+			for (const {origin, event, fn} of handlers) {
 				origin.removeListener(event, fn);
 			}
 

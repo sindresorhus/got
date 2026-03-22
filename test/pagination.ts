@@ -31,6 +31,60 @@ const attachHandler = (server: ExtendedHttpTestServer, count: number, {relative}
 	});
 };
 
+const createCrossOriginPaginationReceiver = async (responseBody = '[]') => {
+	const createHttpTestServer = (await import('./helpers/create-http-test-server.js')).default;
+	const server = await createHttpTestServer({bodyParser: false});
+	const received = {
+		authorization: undefined as string | undefined,
+		cookie: undefined as string | undefined,
+		body: '',
+		contentType: undefined as string | undefined,
+	};
+
+	server.post('/items', async (request, response) => {
+		received.authorization = request.headers.authorization;
+		received.cookie = request.headers.cookie;
+		received.body = await getStream(request);
+		received.contentType = request.headers['content-type'];
+		response.end(responseBody);
+	});
+
+	server.get('/items', (request, response) => {
+		received.authorization = request.headers.authorization;
+		received.cookie = request.headers.cookie;
+		received.contentType = request.headers['content-type'];
+		response.end(responseBody);
+	});
+
+	return {server, received};
+};
+
+const createPaginationSourceServer = async (responseBody = '[1]') => {
+	const createHttpTestServer = (await import('./helpers/create-http-test-server.js')).default;
+	const server = await createHttpTestServer();
+	server.get('/items', (_request, response) => {
+		response.end(responseBody);
+	});
+
+	server.post('/items', (_request, response) => {
+		response.end(responseBody);
+	});
+
+	return server;
+};
+
+const createRetryUrlServer = async (retryUrl: string) => {
+	const createHttpTestServer = (await import('./helpers/create-http-test-server.js')).default;
+	const server = await createHttpTestServer();
+
+	server.get('/api', (_request, response) => {
+		response.setHeader('content-type', 'application/json');
+		response.end(JSON.stringify({retryUrl}));
+	});
+
+	return server;
+};
+
 test('the link header has no next value', withServer, async (t, server, got) => {
 	const items = [1];
 
@@ -735,13 +789,13 @@ test('throws when `url` is passed in pagination second argument options object',
 	});
 });
 
-test('throws if url is not an instance of URL', withServer, async (t, server, got) => {
+test('throws if url is neither a string nor a URL', withServer, async (t, server, got) => {
 	attachHandler(server, 2);
 
 	await t.throwsAsync(got.paginate.all<number>('', {
 		pagination: {
 			paginate: () => ({
-				url: 'not an instance of URL',
+				url: 1 as any,
 			}),
 		},
 	}), {
@@ -757,4 +811,1049 @@ test('throws when transform does not return an array', withServer, async (t, ser
 	await t.throwsAsync(got.paginate.all<string>(server.url), {
 		instanceOf: TypeError,
 	});
+});
+
+test('strips sensitive headers when pagination navigates cross-origin', async t => {
+	const createHttpTestServer = (await import('./helpers/create-http-test-server.js')).default;
+
+	const evilServer = await createHttpTestServer();
+	let evilReceivedAuth: string | undefined;
+	evilServer.get('/steal', (request, response) => {
+		evilReceivedAuth = request.headers.authorization;
+		response.end('[]');
+	});
+
+	const trustedServer = await createHttpTestServer();
+	trustedServer.get('/items', (_request, response) => {
+		response.setHeader('link', `<${evilServer.url}/steal>; rel="next"`);
+		response.end('[1]');
+	});
+
+	const items = await got.paginate.all(trustedServer.url + '/items', {
+		headers: {
+			authorization: 'Bearer SECRET',
+		},
+		pagination: {
+			requestLimit: 2,
+		},
+	});
+
+	t.deepEqual(items, [1]);
+	t.is(evilReceivedAuth, undefined);
+
+	await trustedServer.close();
+	await evilServer.close();
+});
+
+test('strips cookie header when pagination navigates cross-origin', async t => {
+	const createHttpTestServer = (await import('./helpers/create-http-test-server.js')).default;
+
+	const evilServer = await createHttpTestServer();
+	let evilReceivedCookie: string | undefined;
+	evilServer.get('/steal', (request, response) => {
+		evilReceivedCookie = request.headers.cookie;
+		response.end('[]');
+	});
+
+	const trustedServer = await createHttpTestServer();
+	trustedServer.get('/items', (_request, response) => {
+		response.setHeader('link', `<${evilServer.url}/steal>; rel="next"`);
+		response.end('[1]');
+	});
+
+	const items = await got.paginate.all(trustedServer.url + '/items', {
+		headers: {
+			cookie: 'session=SECRET',
+		},
+		pagination: {
+			requestLimit: 2,
+		},
+	});
+
+	t.deepEqual(items, [1]);
+	t.is(evilReceivedCookie, undefined);
+
+	await trustedServer.close();
+	await evilServer.close();
+});
+
+test('preserves explicit authorization when pagination navigates cross-origin', async t => {
+	const createHttpTestServer = (await import('./helpers/create-http-test-server.js')).default;
+
+	const evilServer = await createHttpTestServer();
+	let evilReceivedAuth: string | undefined;
+	evilServer.get('/items', (request, response) => {
+		evilReceivedAuth = request.headers.authorization;
+		response.end('[2]');
+	});
+
+	const trustedServer = await createHttpTestServer();
+	trustedServer.get('/items', (_request, response) => {
+		response.end('[1]');
+	});
+
+	const items = await got.paginate.all(trustedServer.url + '/items', {
+		headers: {
+			authorization: 'Bearer SECRET',
+		},
+		pagination: {
+			requestLimit: 2,
+			paginate({response}) {
+				if (response.body === '[1]') {
+					return {
+						url: new URL(evilServer.url + '/items'),
+						headers: {
+							authorization: 'Bearer NEW',
+						},
+					};
+				}
+
+				return false;
+			},
+		},
+	});
+
+	t.deepEqual(items, [1, 2]);
+	t.is(evilReceivedAuth, 'Bearer NEW');
+
+	await trustedServer.close();
+	await evilServer.close();
+});
+
+test('preserves explicit basic auth when pagination navigates cross-origin', async t => {
+	const createHttpTestServer = (await import('./helpers/create-http-test-server.js')).default;
+
+	const evilServer = await createHttpTestServer();
+	let evilReceivedAuth: string | undefined;
+	evilServer.get('/items', (request, response) => {
+		evilReceivedAuth = request.headers.authorization;
+		response.end('[2]');
+	});
+
+	const trustedServer = await createHttpTestServer();
+	trustedServer.get('/items', (_request, response) => {
+		response.end('[1]');
+	});
+
+	const items = await got.paginate.all(trustedServer.url + '/items', {
+		username: 'old-user',
+		password: 'old-password',
+		pagination: {
+			requestLimit: 2,
+			paginate({response}) {
+				if (response.body === '[1]') {
+					return {
+						url: new URL(evilServer.url + '/items'),
+						username: 'new-user',
+						password: 'new-password',
+					};
+				}
+
+				return false;
+			},
+		},
+	});
+
+	t.deepEqual(items, [1, 2]);
+	t.is(evilReceivedAuth, `Basic ${Buffer.from('new-user:new-password').toString('base64')}`);
+
+	await trustedServer.close();
+	await evilServer.close();
+});
+
+test('preserves explicit URL object credentials when pagination navigates cross-origin', async t => {
+	const createHttpTestServer = (await import('./helpers/create-http-test-server.js')).default;
+
+	const evilServer = await createHttpTestServer();
+	let evilReceivedAuth: string | undefined;
+	evilServer.get('/items', (request, response) => {
+		evilReceivedAuth = request.headers.authorization;
+		response.end('[2]');
+	});
+
+	const trustedServer = await createHttpTestServer();
+	trustedServer.get('/items', (_request, response) => {
+		response.end('[1]');
+	});
+
+	const items = await got.paginate.all(trustedServer.url + '/items', {
+		username: 'user',
+		password: 'password',
+		pagination: {
+			requestLimit: 2,
+			paginate({response}) {
+				if (response.body === '[1]') {
+					const nextUrl = new URL(response.request.options.url!);
+					nextUrl.protocol = 'http:';
+					nextUrl.hostname = 'localhost';
+					nextUrl.port = String(evilServer.port);
+					nextUrl.pathname = '/items';
+					return {url: nextUrl};
+				}
+
+				return false;
+			},
+		},
+	});
+
+	t.deepEqual(items, [1, 2]);
+	t.is(evilReceivedAuth, `Basic ${Buffer.from('user:password').toString('base64')}`);
+
+	await trustedServer.close();
+	await evilServer.close();
+});
+
+test('preserves explicit URL object username when pagination navigates cross-origin', async t => {
+	const createHttpTestServer = (await import('./helpers/create-http-test-server.js')).default;
+
+	const evilServer = await createHttpTestServer();
+	let evilReceivedAuth: string | undefined;
+	evilServer.get('/items', (request, response) => {
+		evilReceivedAuth = request.headers.authorization;
+		response.end('[2]');
+	});
+
+	const trustedServer = await createHttpTestServer();
+	trustedServer.get('/items', (_request, response) => {
+		response.end('[1]');
+	});
+
+	const items = await got.paginate.all(trustedServer.url + '/items', {
+		username: 'user',
+		pagination: {
+			requestLimit: 2,
+			paginate({response}) {
+				if (response.body === '[1]') {
+					const nextUrl = new URL(response.request.options.url!);
+					nextUrl.protocol = 'http:';
+					nextUrl.hostname = 'localhost';
+					nextUrl.port = String(evilServer.port);
+					nextUrl.pathname = '/items';
+					return {url: nextUrl};
+				}
+
+				return false;
+			},
+		},
+	});
+
+	t.deepEqual(items, [1, 2]);
+	t.is(evilReceivedAuth, `Basic ${Buffer.from('user:').toString('base64')}`);
+
+	await trustedServer.close();
+	await evilServer.close();
+});
+
+test('strips inherited password when explicit URL object keeps only username during pagination cross-origin navigation', async t => {
+	const createHttpTestServer = (await import('./helpers/create-http-test-server.js')).default;
+
+	const evilServer = await createHttpTestServer();
+	let evilReceivedAuth: string | undefined;
+	evilServer.get('/items', (request, response) => {
+		evilReceivedAuth = request.headers.authorization;
+		response.end('[2]');
+	});
+
+	const trustedServer = await createHttpTestServer();
+	trustedServer.get('/items', (_request, response) => {
+		response.end('[1]');
+	});
+
+	const items = await got.paginate.all(trustedServer.url + '/items', {
+		username: 'user',
+		password: 'password',
+		pagination: {
+			requestLimit: 2,
+			paginate({response}) {
+				if (response.body === '[1]') {
+					const nextUrl = new URL(response.request.options.url!);
+					nextUrl.protocol = 'http:';
+					nextUrl.hostname = 'localhost';
+					nextUrl.port = String(evilServer.port);
+					nextUrl.pathname = '/items';
+					nextUrl.password = '';
+					return {url: nextUrl};
+				}
+
+				return false;
+			},
+		},
+	});
+
+	t.deepEqual(items, [1, 2]);
+	t.is(evilReceivedAuth, `Basic ${Buffer.from('user:').toString('base64')}`);
+
+	await trustedServer.close();
+	await evilServer.close();
+});
+
+test('preserves same-value credentials on replacement url when pagination navigates cross-origin', async t => {
+	const {server: evilServer, received} = await createCrossOriginPaginationReceiver('[2]');
+	const trustedServer = await createRetryUrlServer(`${evilServer.url}/items`);
+
+	const items = await got.paginate.all(trustedServer.url + '/api', {
+		username: 'user',
+		password: 'password',
+		pagination: {
+			requestLimit: 2,
+			transform(response) {
+				const body = JSON.parse(response.body as string);
+				return 'retryUrl' in body ? [] : body;
+			},
+			paginate({response}) {
+				const body = JSON.parse(response.body as string);
+				if (body.retryUrl) {
+					return {
+						url: `http://user:password@localhost:${new URL(body.retryUrl).port}/items`,
+					};
+				}
+
+				return false;
+			},
+		},
+	});
+
+	t.deepEqual(items, [2]);
+	t.is(received.authorization, `Basic ${Buffer.from('user:password').toString('base64')}`);
+
+	await trustedServer.close();
+	await evilServer.close();
+});
+
+test('supports string url values when pagination navigates cross-origin', async t => {
+	const createHttpTestServer = (await import('./helpers/create-http-test-server.js')).default;
+
+	const evilServer = await createHttpTestServer();
+	let evilReceivedAuth: string | undefined;
+	evilServer.get('/items', (request, response) => {
+		evilReceivedAuth = request.headers.authorization;
+		response.end('[2]');
+	});
+
+	const trustedServer = await createHttpTestServer();
+	trustedServer.get('/items', (_request, response) => {
+		response.end('[1]');
+	});
+
+	const items = await got.paginate.all(trustedServer.url + '/items', {
+		username: 'user',
+		password: 'password',
+		pagination: {
+			requestLimit: 2,
+			paginate({response}) {
+				if (response.body === '[1]') {
+					return {
+						url: `${evilServer.url}/items`,
+					};
+				}
+
+				return false;
+			},
+		},
+	});
+
+	t.deepEqual(items, [1, 2]);
+	t.is(evilReceivedAuth, undefined);
+
+	await trustedServer.close();
+	await evilServer.close();
+});
+
+test('supports relative string url values when pagination navigates', withServer, async (t, server, got) => {
+	server.get('/items', (request, response) => {
+		const searchParameters = new URLSearchParams(request.url.split('?')[1]);
+		const page = Number(searchParameters.get('page')) || 1;
+		response.end(JSON.stringify([page]));
+	});
+
+	const items = await got.paginate.all<number>('items?page=1', {
+		pagination: {
+			requestLimit: 2,
+			paginate({response}) {
+				if (String(response.requestUrl).endsWith('/items?page=1')) {
+					return {url: '?page=2'};
+				}
+
+				return false;
+			},
+		},
+	});
+
+	t.deepEqual(items, [1, 2]);
+});
+
+test('supports path-relative string url values when pagination navigates', withServer, async (t, server, got) => {
+	server.get('/items/start', (_request, response) => {
+		response.end(JSON.stringify([1]));
+	});
+
+	server.get('/items/next', (_request, response) => {
+		response.end(JSON.stringify([2]));
+	});
+
+	const items = await got.paginate.all<number>('items/start', {
+		pagination: {
+			requestLimit: 2,
+			paginate({response}) {
+				if (String(response.requestUrl).endsWith('/items/start')) {
+					return {url: 'next'};
+				}
+
+				return false;
+			},
+		},
+	});
+
+	t.deepEqual(items, [1, 2]);
+});
+
+test('preserves explicit credentials with relative string url values when pagination navigates', withServer, async (t, server, got) => {
+	server.get('/items', (request, response) => {
+		const searchParameters = new URLSearchParams(request.url.split('?')[1]);
+		const page = Number(searchParameters.get('page')) || 1;
+
+		if (page === 1) {
+			response.end(JSON.stringify([1]));
+			return;
+		}
+
+		response.end(JSON.stringify([request.headers.authorization]));
+	});
+
+	const items = await got.paginate.all<string | number>('items?page=1', {
+		username: 'old-user',
+		password: 'old-password',
+		pagination: {
+			requestLimit: 2,
+			paginate({response}) {
+				if (String(response.requestUrl).endsWith('/items?page=1')) {
+					return {
+						url: '?page=2',
+						username: 'new-user',
+						password: 'new-password',
+					};
+				}
+
+				return false;
+			},
+		},
+	});
+
+	t.deepEqual(items, [1, `Basic ${Buffer.from('new-user:new-password').toString('base64')}`]);
+});
+
+test('preserves explicit credentials with path-relative string url values when pagination navigates', withServer, async (t, server, got) => {
+	server.get('/items/start', (_request, response) => {
+		response.end(JSON.stringify([1]));
+	});
+
+	server.get('/items/next', (request, response) => {
+		response.end(JSON.stringify([request.headers.authorization]));
+	});
+
+	const items = await got.paginate.all<string | number>('items/start', {
+		username: 'old-user',
+		password: 'old-password',
+		pagination: {
+			requestLimit: 2,
+			paginate({response}) {
+				if (String(response.requestUrl).endsWith('/items/start')) {
+					return {
+						url: 'next',
+						username: 'new-user',
+						password: 'new-password',
+					};
+				}
+
+				return false;
+			},
+		},
+	});
+
+	t.deepEqual(items, [1, `Basic ${Buffer.from('new-user:new-password').toString('base64')}`]);
+});
+
+test('preserves explicit credentials with query-only string url values when pagination navigates', withServer, async (t, server, got) => {
+	server.get('/items', (request, response) => {
+		const searchParameters = new URLSearchParams(request.url.split('?')[1]);
+		const page = Number(searchParameters.get('page')) || 1;
+
+		if (page === 1) {
+			response.end(JSON.stringify([1]));
+			return;
+		}
+
+		response.end(JSON.stringify([request.headers.authorization]));
+	});
+
+	const items = await got.paginate.all<string | number>('items?page=1', {
+		username: 'old-user',
+		password: 'old-password',
+		pagination: {
+			requestLimit: 2,
+			paginate({response}) {
+				if (String(response.requestUrl).endsWith('/items?page=1')) {
+					return {
+						url: '?page=2',
+						username: 'new-user',
+						password: 'new-password',
+					};
+				}
+
+				return false;
+			},
+		},
+	});
+
+	t.deepEqual(items, [1, `Basic ${Buffer.from('new-user:new-password').toString('base64')}`]);
+});
+
+test('supports parent-relative string url values with query params when pagination navigates', withServer, async (t, server, got) => {
+	server.get('/nested/items/start', (_request, response) => {
+		response.end(JSON.stringify([1]));
+	});
+
+	server.get('/nested/target', (request, response) => {
+		const searchParameters = new URLSearchParams(request.url.split('?')[1]);
+		response.end(JSON.stringify([Number(searchParameters.get('page'))]));
+	});
+
+	const items = await got.paginate.all<number>('nested/items/start', {
+		pagination: {
+			requestLimit: 2,
+			paginate({response}) {
+				if (String(response.requestUrl).endsWith('/nested/items/start')) {
+					return {url: '../target?page=2'};
+				}
+
+				return false;
+			},
+		},
+	});
+
+	t.deepEqual(items, [1, 2]);
+});
+
+test('supports scheme-relative string url values when pagination navigates', withServer, async (t, server, got) => {
+	server.get('/items/start', (_request, response) => {
+		response.end(JSON.stringify([1]));
+	});
+
+	server.get('/scheme-relative', (_request, response) => {
+		response.end(JSON.stringify([2]));
+	});
+
+	const items = await got.paginate.all<number>('items/start', {
+		pagination: {
+			requestLimit: 2,
+			paginate({response}) {
+				if (String(response.requestUrl).endsWith('/items/start')) {
+					return {url: `//localhost:${server.port}/scheme-relative`};
+				}
+
+				return false;
+			},
+		},
+	});
+
+	t.deepEqual(items, [1, 2]);
+});
+
+test('preserves explicit credentials with string url values when pagination navigates cross-origin', async t => {
+	const {server: evilServer, received} = await createCrossOriginPaginationReceiver('[2]');
+	const trustedServer = await createRetryUrlServer(`${evilServer.url}/items`);
+
+	const items = await got.paginate.all(trustedServer.url + '/api', {
+		username: 'old-user',
+		password: 'old-password',
+		headers: {
+			cookie: 'session=secret',
+		},
+		pagination: {
+			requestLimit: 2,
+			transform(response) {
+				const body = JSON.parse(response.body as string);
+				return 'retryUrl' in body ? [] : body;
+			},
+			paginate({response}) {
+				const body = JSON.parse(response.body as string);
+				if (body.retryUrl) {
+					return {
+						url: body.retryUrl,
+						username: 'new-user',
+						password: 'new-password',
+					};
+				}
+
+				return false;
+			},
+		},
+	});
+
+	t.deepEqual(items, [2]);
+	t.is(received.authorization, `Basic ${Buffer.from('new-user:new-password').toString('base64')}`);
+	t.is(received.cookie, undefined);
+
+	await trustedServer.close();
+	await evilServer.close();
+});
+
+test('drops body when pagination navigates cross-origin', async t => {
+	const createHttpTestServer = (await import('./helpers/create-http-test-server.js')).default;
+
+	const evilServer = await createHttpTestServer({bodyParser: false});
+	let evilReceivedBody = '';
+	let evilReceivedContentLength: string | undefined;
+	let evilReceivedContentType: string | undefined;
+	evilServer.post('/items', async (request, response) => {
+		evilReceivedBody = await getStream(request);
+		evilReceivedContentLength = request.headers['content-length'];
+		evilReceivedContentType = request.headers['content-type'];
+		response.end('[]');
+	});
+
+	const trustedServer = await createHttpTestServer();
+	trustedServer.post('/items', (_request, response) => {
+		response.end('[1]');
+	});
+
+	const items = await got.paginate.all<number>(trustedServer.url + '/items', {
+		method: 'POST',
+		json: {secret: 'payload'},
+		pagination: {
+			requestLimit: 2,
+			paginate({response}) {
+				if (response.body === '[1]') {
+					return {
+						url: new URL(evilServer.url + '/items'),
+					};
+				}
+
+				return false;
+			},
+		},
+	});
+
+	t.deepEqual(items, [1]);
+	t.is(evilReceivedBody, '');
+	t.is(evilReceivedContentLength, '0');
+	t.is(evilReceivedContentType, undefined);
+
+	await trustedServer.close();
+	await evilServer.close();
+});
+
+test('removes explicit undefined headers when pagination navigates cross-origin', async t => {
+	const createHttpTestServer = (await import('./helpers/create-http-test-server.js')).default;
+
+	const evilServer = await createHttpTestServer({bodyParser: false});
+	let evilReceivedAuth: string | undefined;
+	let evilReceivedCookie: string | undefined;
+	evilServer.get('/items', (request, response) => {
+		evilReceivedAuth = request.headers.authorization;
+		evilReceivedCookie = request.headers.cookie;
+		response.end('[]');
+	});
+
+	const trustedServer = await createHttpTestServer();
+	trustedServer.get('/items', (_request, response) => {
+		response.end('[1]');
+	});
+
+	const items = await got.paginate.all<number>(trustedServer.url + '/items', {
+		headers: {
+			authorization: 'Bearer OLD',
+			cookie: 'session=abc',
+		},
+		pagination: {
+			requestLimit: 2,
+			paginate({response}) {
+				if (response.body === '[1]') {
+					return {
+						url: new URL(evilServer.url + '/items'),
+						headers: {
+							authorization: undefined,
+							cookie: undefined,
+						},
+					};
+				}
+
+				return false;
+			},
+		},
+	});
+
+	t.deepEqual(items, [1]);
+	t.is(evilReceivedAuth, undefined);
+	t.is(evilReceivedCookie, undefined);
+
+	await trustedServer.close();
+	await evilServer.close();
+});
+
+test('strips sensitive headers and body when pagination reuses mutated request options cross-origin', async t => {
+	const {server: evilServer, received} = await createCrossOriginPaginationReceiver();
+	const trustedServer = await createPaginationSourceServer();
+
+	const items = await got.paginate.all<number>(trustedServer.url + '/items', {
+		method: 'POST',
+		headers: {
+			authorization: 'Bearer OLD',
+			cookie: 'session=abc',
+			'content-type': 'text/plain',
+		},
+		body: 'payload',
+		pagination: {
+			requestLimit: 2,
+			paginate({response}) {
+				if (response.body === '[1]') {
+					const updatedOptions = response.request.options;
+					updatedOptions.url = new URL(evilServer.url + '/items');
+					return updatedOptions;
+				}
+
+				return false;
+			},
+		},
+	});
+
+	t.deepEqual(items, [1]);
+	t.is(received.authorization, undefined);
+	t.is(received.cookie, undefined);
+	t.is(received.body, '');
+	t.is(received.contentType, undefined);
+
+	await trustedServer.close();
+	await evilServer.close();
+});
+
+test('preserves body when pagination stays same-origin', withServer, async (t, server, got) => {
+	const payloads: string[] = [];
+	server.post('/items', async (request, response) => {
+		payloads.push(await getStream(request));
+		const currentPage = payloads.length;
+
+		if (currentPage < 2) {
+			response.end(JSON.stringify([currentPage]));
+			return;
+		}
+
+		response.end(JSON.stringify([currentPage]));
+	});
+
+	const items = await got.paginate.all<number>('items', {
+		method: 'POST',
+		json: {secret: 'payload'},
+		pagination: {
+			requestLimit: 2,
+			paginate({response}) {
+				if (response.body === '[1]') {
+					return {
+						url: new URL('/items?page=2', response.url),
+					};
+				}
+
+				return false;
+			},
+		},
+	});
+
+	t.deepEqual(items, [1, 2]);
+	t.deepEqual(payloads.map(payload => JSON.parse(payload).secret), ['payload', 'payload']);
+});
+
+test('preserves explicit replacement body when pagination navigates cross-origin', async t => {
+	const {server: evilServer, received} = await createCrossOriginPaginationReceiver('[2]');
+	const trustedServer = await createPaginationSourceServer();
+
+	const items = await got.paginate.all<number>(trustedServer.url + '/items', {
+		method: 'POST',
+		json: {secret: 'old-payload'},
+		pagination: {
+			requestLimit: 2,
+			paginate({response}) {
+				if (response.body === '[1]') {
+					return {
+						url: new URL(evilServer.url + '/items'),
+						json: {secret: 'new-payload'},
+					};
+				}
+
+				return false;
+			},
+		},
+	});
+
+	t.deepEqual(items, [1, 2]);
+	t.is(JSON.parse(received.body).secret, 'new-payload');
+	t.is(received.contentType, 'application/json');
+
+	await trustedServer.close();
+	await evilServer.close();
+});
+
+test('preserves in-place body rewrite when pagination reuses mutated request options cross-origin', async t => {
+	const {server: evilServer, received} = await createCrossOriginPaginationReceiver();
+	const trustedServer = await createPaginationSourceServer();
+
+	const items = await got.paginate.all<number>(trustedServer.url + '/items', {
+		method: 'POST',
+		body: Buffer.from('old-payload'),
+		headers: {
+			'content-type': 'text/plain',
+		},
+		pagination: {
+			requestLimit: 2,
+			paginate({response}) {
+				if (response.body === '[1]') {
+					const updatedOptions = response.request.options;
+					updatedOptions.url = new URL(evilServer.url + '/items');
+					(updatedOptions.body as Uint8Array).set(Buffer.from('new-payload'));
+					updatedOptions.headers['content-type'] = 'text/plain';
+					return updatedOptions;
+				}
+
+				return false;
+			},
+		},
+	});
+
+	t.deepEqual(items, [1]);
+	t.is(received.body, 'new-payload');
+	t.is(received.contentType, 'text/plain');
+
+	await trustedServer.close();
+	await evilServer.close();
+});
+
+test('preserves explicit overrides when pagination reuses mutated request options cross-origin', async t => {
+	const {server: evilServer, received} = await createCrossOriginPaginationReceiver();
+	const trustedServer = await createPaginationSourceServer();
+
+	const items = await got.paginate.all<number>(trustedServer.url + '/items', {
+		method: 'POST',
+		headers: {
+			authorization: 'Bearer old-secret',
+			'content-type': 'text/plain',
+		},
+		body: 'old-payload',
+		pagination: {
+			requestLimit: 2,
+			paginate({response}) {
+				if (response.body === '[1]') {
+					const updatedOptions = response.request.options;
+					updatedOptions.url = new URL(evilServer.url + '/items');
+					updatedOptions.headers.authorization = 'Bearer new-secret';
+					updatedOptions.body = 'new-payload';
+					updatedOptions.headers['content-type'] = 'text/plain';
+					return updatedOptions;
+				}
+
+				return false;
+			},
+		},
+	});
+
+	t.deepEqual(items, [1]);
+	t.is(received.authorization, 'Bearer new-secret');
+	t.is(received.body, 'new-payload');
+	t.is(received.contentType, 'text/plain');
+
+	await trustedServer.close();
+	await evilServer.close();
+});
+
+test('strips sensitive headers after headers object reassignment when pagination reuses mutated request options cross-origin', async t => {
+	const {server: evilServer, received} = await createCrossOriginPaginationReceiver();
+	const trustedServer = await createPaginationSourceServer();
+
+	const items = await got.paginate.all<number>(trustedServer.url + '/items', {
+		headers: {
+			authorization: 'Bearer secret',
+			cookie: 'session=abc',
+		},
+		pagination: {
+			requestLimit: 2,
+			paginate({response}) {
+				if (response.body === '[1]') {
+					const updatedOptions = response.request.options;
+					updatedOptions.url = new URL(evilServer.url + '/items');
+					updatedOptions.headers = {
+						...updatedOptions.headers,
+						foo: 'bar',
+					};
+					return updatedOptions;
+				}
+
+				return false;
+			},
+		},
+	});
+
+	t.deepEqual(items, [1]);
+	t.is(received.authorization, undefined);
+	t.is(received.cookie, undefined);
+
+	await trustedServer.close();
+	await evilServer.close();
+});
+
+test('preserves same-value authorization and body when pagination reuses mutated request options cross-origin', async t => {
+	const {server: evilServer, received} = await createCrossOriginPaginationReceiver();
+	const trustedServer = await createPaginationSourceServer();
+
+	const items = await got.paginate.all<number>(trustedServer.url + '/items', {
+		method: 'POST',
+		headers: {
+			authorization: 'Bearer secret',
+			'content-type': 'text/plain',
+		},
+		body: 'payload',
+		pagination: {
+			requestLimit: 2,
+			paginate({response}) {
+				if (response.body === '[1]') {
+					const updatedOptions = response.request.options;
+					updatedOptions.url = new URL(evilServer.url + '/items');
+					updatedOptions.headers.authorization = 'Bearer secret';
+					updatedOptions.body = 'payload';
+					updatedOptions.headers['content-type'] = 'text/plain';
+					return updatedOptions;
+				}
+
+				return false;
+			},
+		},
+	});
+
+	t.deepEqual(items, [1]);
+	t.is(received.authorization, 'Bearer secret');
+	t.is(received.body, 'payload');
+	t.is(received.contentType, 'text/plain');
+
+	await trustedServer.close();
+	await evilServer.close();
+});
+
+test('preserves explicit replacement credentials when pagination reuses mutated request options cross-origin', async t => {
+	const {server: evilServer, received} = await createCrossOriginPaginationReceiver();
+	const trustedServer = await createPaginationSourceServer();
+
+	const items = await got.paginate.all<number>(trustedServer.url + '/items', {
+		username: 'old-user',
+		password: 'old-password',
+		pagination: {
+			requestLimit: 2,
+			paginate({response}) {
+				if (response.body === '[1]') {
+					const updatedOptions = response.request.options;
+					updatedOptions.url = new URL(evilServer.url + '/items');
+					updatedOptions.username = 'new-user';
+					updatedOptions.password = 'new-password';
+					return updatedOptions;
+				}
+
+				return false;
+			},
+		},
+	});
+
+	t.deepEqual(items, [1]);
+	t.is(received.authorization, `Basic ${Buffer.from('new-user:new-password').toString('base64')}`);
+
+	await trustedServer.close();
+	await evilServer.close();
+});
+
+test('preserves same-value credentials when pagination reuses mutated request options cross-origin', async t => {
+	const {server: evilServer, received} = await createCrossOriginPaginationReceiver();
+	const trustedServer = await createPaginationSourceServer();
+
+	const items = await got.paginate.all<number>(trustedServer.url + '/items', {
+		username: 'user',
+		password: 'password',
+		pagination: {
+			requestLimit: 2,
+			paginate({response}) {
+				if (response.body === '[1]') {
+					const updatedOptions = response.request.options;
+					updatedOptions.url = new URL(evilServer.url + '/items');
+					updatedOptions.username = 'user';
+					updatedOptions.password = 'password';
+					return updatedOptions;
+				}
+
+				return false;
+			},
+		},
+	});
+
+	t.deepEqual(items, [1]);
+	t.is(received.authorization, `Basic ${Buffer.from('user:password').toString('base64')}`);
+
+	await trustedServer.close();
+	await evilServer.close();
+});
+
+test('preserves URL object credentials when pagination reuses mutated request options cross-origin', async t => {
+	const {server: evilServer, received} = await createCrossOriginPaginationReceiver();
+	const trustedServer = await createPaginationSourceServer();
+
+	const items = await got.paginate.all<number>(trustedServer.url + '/items', {
+		username: 'user',
+		password: 'password',
+		pagination: {
+			requestLimit: 2,
+			paginate({response}) {
+				if (response.body === '[1]') {
+					const updatedOptions = response.request.options;
+					updatedOptions.url = new URL(evilServer.url + '/items');
+					updatedOptions.url.username = 'user';
+					updatedOptions.url.password = 'password';
+					return updatedOptions;
+				}
+
+				return false;
+			},
+		},
+	});
+
+	t.deepEqual(items, [1]);
+	t.is(received.authorization, `Basic ${Buffer.from('user:password').toString('base64')}`);
+
+	await trustedServer.close();
+	await evilServer.close();
+});
+
+test('strips inherited url credentials after in-place cross-origin url mutation when pagination reuses request options', async t => {
+	const {server: evilServer, received} = await createCrossOriginPaginationReceiver();
+	const trustedServer = await createPaginationSourceServer();
+
+	const items = await got.paginate.all<number>(trustedServer.url + '/items', {
+		username: 'user',
+		password: 'password',
+		pagination: {
+			requestLimit: 2,
+			paginate({response}) {
+				if (response.body === '[1]') {
+					const updatedOptions = response.request.options;
+					const nextUrl = new URL(evilServer.url + '/items');
+					const currentUrl = updatedOptions.url as URL;
+					currentUrl.hostname = nextUrl.hostname;
+					currentUrl.port = nextUrl.port;
+					currentUrl.pathname = nextUrl.pathname;
+					currentUrl.protocol = nextUrl.protocol;
+					return updatedOptions;
+				}
+
+				return false;
+			},
+		},
+	});
+
+	t.deepEqual(items, [1]);
+	t.is(received.authorization, undefined);
+
+	await trustedServer.close();
+	await evilServer.close();
 });

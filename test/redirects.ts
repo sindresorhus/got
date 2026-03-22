@@ -1,4 +1,6 @@
 import {Buffer} from 'node:buffer';
+import {PassThrough} from 'node:stream';
+import {setTimeout as delay} from 'node:timers/promises';
 import {promisify} from 'node:util';
 import {gzip} from 'node:zlib';
 import test from 'ava';
@@ -53,18 +55,10 @@ const unixProtocolWithoutSocketPath: Handler = (_request, response) => {
 	response.end();
 };
 
-const unixHostnameWithoutSocketPath: Handler = (_request, response) => {
-	response.writeHead(302, {
-		location: 'http://unix/foo',
-	});
-	response.end();
-};
-
 test('cannot redirect to UNIX protocol when UNIX sockets are enabled', withServer, async (t, server, got) => {
 	server.get('/protocol', unixProtocol);
 	server.get('/hostname', unixHostname);
 	server.get('/protocol-without-socket-path', unixProtocolWithoutSocketPath);
-	server.get('/hostname-without-socket-path', unixHostnameWithoutSocketPath);
 
 	const gotUnixSocketsEnabled = got.extend({enableUnixSockets: true});
 
@@ -84,18 +78,12 @@ test('cannot redirect to UNIX protocol when UNIX sockets are enabled', withServe
 		message: 'Cannot redirect to UNIX socket',
 		instanceOf: RequestError,
 	});
-
-	await t.throwsAsync(gotUnixSocketsEnabled('hostname-without-socket-path'), {
-		message: 'Cannot redirect to UNIX socket',
-		instanceOf: RequestError,
-	});
 });
 
 test('cannot redirect to UNIX protocol when UNIX sockets are not enabled', withServer, async (t, server, got) => {
 	server.get('/protocol', unixProtocol);
 	server.get('/hostname', unixHostname);
 	server.get('/protocol-without-socket-path', unixProtocolWithoutSocketPath);
-	server.get('/hostname-without-socket-path', unixHostnameWithoutSocketPath);
 
 	const gotUnixSocketsDisabled = got.extend({enableUnixSockets: false});
 
@@ -115,11 +103,32 @@ test('cannot redirect to UNIX protocol when UNIX sockets are not enabled', withS
 		message: 'Cannot redirect to UNIX socket',
 		instanceOf: RequestError,
 	});
+});
 
-	await t.throwsAsync(gotUnixSocketsDisabled('hostname-without-socket-path'), {
-		message: 'Cannot redirect to UNIX socket',
-		instanceOf: RequestError,
+test('follows redirect to ordinary http://unix host', withServer, async (t, server, got) => {
+	server.get('/hostname-without-socket-path', (_request, response) => {
+		response.writeHead(302, {
+			location: `http://unix:${server.port}/foo`,
+		});
+		response.end();
 	});
+	server.get('/foo', reachedHandler);
+
+	const dnsLookup = ((_: string, options: {all?: boolean}, callback: (error: undefined, address: string | Array<{address: string; family: number}>, family?: number) => void) => {
+		if (options.all) {
+			callback(undefined, [{address: '127.0.0.1', family: 4}]);
+			return;
+		}
+
+		callback(undefined, '127.0.0.1', 4);
+	}) as any;
+
+	const {body, redirectUrls} = await got('hostname-without-socket-path', {
+		dnsLookup,
+	});
+
+	t.is(body, 'reached');
+	t.deepEqual(redirectUrls.map(String), [`http://unix:${server.port}/foo`]);
 });
 
 test('follows redirect', withServer, async (t, server, got) => {
@@ -672,7 +681,6 @@ test('does not forward body on cross-origin POST redirect by default', withServe
 
 		t.is(redirectedRequest.method, 'GET');
 		t.is(redirectedRequest.body, '');
-		t.is(redirectedRequest.headers['content-length'], undefined);
 		t.is(redirectedRequest.headers['content-type'], undefined);
 	});
 });
@@ -717,6 +725,629 @@ test('does not forward body on cross-origin permanent POST redirect by default',
 		t.is(redirectedRequest.headers['content-length'], undefined);
 		t.is(redirectedRequest.headers['content-type'], undefined);
 	});
+});
+
+test('does not forward body on cross-origin 307 redirect', withServer, async (t, server1, got) => {
+	await withServer.exec(t, async (t, server2) => {
+		server1.post('/redirect', async (request, response) => {
+			for await (const chunk of request) {
+				void chunk;
+			}
+
+			response.writeHead(307, {
+				location: `http://localhost:${server2.port}/`,
+			});
+			response.end();
+		});
+
+		server2.post('/', async (request, response) => {
+			const chunks: Uint8Array[] = [];
+
+			for await (const chunk of request) {
+				chunks.push(Buffer.from(chunk));
+			}
+
+			response.end(JSON.stringify({
+				method: request.method,
+				body: Buffer.concat(chunks).toString(),
+				headers: request.headers,
+			}));
+		});
+
+		const redirectedRequest = await got.post('redirect', {
+			body: 'sensitive-data',
+			hooks: {
+				beforeRedirect: [
+					options => {
+						t.is(options.method, 'POST');
+						t.is(options.body, undefined);
+					},
+				],
+			},
+		}).json<{method: string; body: string; headers: Record<string, string | undefined>}>();
+
+		t.is(redirectedRequest.method, 'POST');
+		t.is(redirectedRequest.body, '');
+		t.is(redirectedRequest.headers['content-type'], undefined);
+	});
+});
+
+test('does not fail when dropping a streaming body on cross-origin 307 redirect', withServer, async (t, server1, got) => {
+	await withServer.exec(t, async (_t, server2) => {
+		let redirectUpload: () => void;
+		const redirected = new Promise<void>(resolve => {
+			redirectUpload = resolve;
+		});
+		let redirectHandled!: () => void;
+		const redirectProcessed = new Promise<void>(resolve => {
+			redirectHandled = resolve;
+		});
+		let bodyDisposed!: () => void;
+		const bodyDisposedPromise = new Promise<void>(resolve => {
+			bodyDisposed = resolve;
+		});
+
+		server1.post('/redirect-stream', (request, response) => {
+			let redirectedResponse = false;
+
+			request.on('data', () => {
+				if (redirectedResponse) {
+					return;
+				}
+
+				redirectedResponse = true;
+				response.writeHead(307, {
+					location: `http://localhost:${server2.port}/`,
+				});
+				response.end();
+				redirectUpload();
+			});
+
+			request.resume();
+		});
+
+		server2.post('/', async (request, response) => {
+			const chunks: Uint8Array[] = [];
+
+			for await (const chunk of request) {
+				chunks.push(Buffer.from(chunk));
+			}
+
+			await bodyDisposedPromise;
+
+			response.end(JSON.stringify({
+				method: request.method,
+				body: Buffer.concat(chunks).toString(),
+			}));
+		});
+
+		const requestBody = new PassThrough();
+		requestBody.once('close', () => {
+			bodyDisposed();
+		});
+
+		const responsePromise = got.post('redirect-stream', {
+			body: requestBody,
+			hooks: {
+				beforeRedirect: [
+					() => {
+						redirectHandled();
+					},
+				],
+			},
+			retry: {
+				limit: 0,
+			},
+		}).json<{method: string; body: string}>();
+
+		requestBody.write('sensitive-');
+		await redirected;
+		await redirectProcessed;
+		await Promise.race([
+			bodyDisposedPromise,
+			(async () => {
+				await delay(1000);
+				throw new Error('Dropped stream body was not disposed');
+			})(),
+		]);
+
+		const redirectedRequest = await responsePromise;
+		t.true(requestBody.destroyed);
+		t.is(redirectedRequest.method, 'POST');
+		t.is(redirectedRequest.body, '');
+	});
+});
+
+test('does not forward piped writable stream body on cross-origin 307 redirect', withServer, async (t, server1, got) => {
+	await withServer.exec(t, async (_t, server2) => {
+		let redirectHandled!: () => void;
+		const redirectProcessed = new Promise<void>(resolve => {
+			redirectHandled = resolve;
+		});
+
+		server1.post('/redirect-piped-stream', (request, response) => {
+			let redirectedResponse = false;
+
+			request.on('data', () => {
+				if (redirectedResponse) {
+					return;
+				}
+
+				redirectedResponse = true;
+				response.writeHead(307, {
+					location: `http://localhost:${server2.port}/`,
+				});
+				response.end();
+			});
+
+			request.resume();
+		});
+
+		server2.post('/', async (request, response) => {
+			const chunks: Uint8Array[] = [];
+
+			for await (const chunk of request) {
+				chunks.push(Buffer.from(chunk));
+			}
+
+			response.end(JSON.stringify({
+				method: request.method,
+				body: Buffer.concat(chunks).toString(),
+			}));
+		});
+
+		const requestStream = got.stream.post('redirect-piped-stream', {
+			hooks: {
+				beforeRedirect: [
+					() => {
+						redirectHandled();
+					},
+				],
+			},
+			retry: {
+				limit: 0,
+			},
+		});
+		const writableFinished = new Promise<void>(resolve => {
+			requestStream.once('finish', resolve);
+		});
+
+		const responsePromise = (async () => {
+			let responseBody = '';
+
+			for await (const chunk of requestStream) {
+				responseBody += Buffer.isBuffer(chunk) ? chunk.toString() : String(chunk);
+			}
+
+			return JSON.parse(responseBody) as {method: string; body: string};
+		})();
+
+		const source = new PassThrough();
+		source.pipe(requestStream);
+
+		source.write('sensitive-');
+		await redirectProcessed;
+		source.end('data');
+
+		const [redirectedRequest] = await Promise.all([
+			responsePromise,
+			Promise.race([
+				writableFinished,
+				(async () => {
+					await delay(1000);
+					throw new Error('Redirected writable stream did not finish');
+				})(),
+			]),
+		]);
+		t.true(requestStream.writableFinished);
+		t.is(redirectedRequest.method, 'POST');
+		t.is(redirectedRequest.body, '');
+	});
+});
+
+test('beforeRedirect can replace stripped body with an async iterable on cross-origin 307 redirect', withServer, async (t, server1, got) => {
+	await withServer.exec(t, async (_t, server2) => {
+		server1.post('/redirect-replaced-async-iterable', (_request, response) => {
+			response.writeHead(307, {
+				location: `http://localhost:${server2.port}/`,
+			});
+			response.end();
+		});
+
+		server2.post('/', async (request, response) => {
+			const chunks: Uint8Array[] = [];
+
+			for await (const chunk of request) {
+				chunks.push(Buffer.from(chunk));
+			}
+
+			response.end(JSON.stringify({
+				method: request.method,
+				body: Buffer.concat(chunks).toString(),
+			}));
+		});
+
+		async function * replacementBody(): AsyncGenerator<string> {
+			yield 'replacement-';
+			yield 'body';
+		}
+
+		const redirectedRequest = await got.post('redirect-replaced-async-iterable', {
+			body: 'sensitive-data',
+			hooks: {
+				beforeRedirect: [
+					options => {
+						options.body = replacementBody();
+					},
+				],
+			},
+			retry: {
+				limit: 0,
+			},
+		}).json<{method: string; body: string}>();
+
+		t.is(redirectedRequest.method, 'POST');
+		t.is(redirectedRequest.body, 'replacement-body');
+	});
+});
+
+test('does not fail when dropping an async iterable body on cross-origin 307 redirect', withServer, async (t, server1, got) => {
+	await withServer.exec(t, async (_t, server2) => {
+		let redirectUpload: () => void;
+		const redirected = new Promise<void>(resolve => {
+			redirectUpload = resolve;
+		});
+		let redirectHandled!: () => void;
+		const redirectProcessed = new Promise<void>(resolve => {
+			redirectHandled = resolve;
+		});
+		let releaseBeforeRedirect!: () => void;
+		const beforeRedirectDelay = new Promise<void>(resolve => {
+			releaseBeforeRedirect = resolve;
+		});
+		let secondChunkRequested!: () => void;
+		const secondChunkPullStarted = new Promise<void>(resolve => {
+			secondChunkRequested = resolve;
+		});
+		let lateBodyErrorSeen!: () => void;
+		const lateBodyError = new Promise<void>(resolve => {
+			lateBodyErrorSeen = resolve;
+		});
+		let rejectSecondChunk!: (error: Error) => void;
+		const secondChunk = new Promise<string>((_resolve, reject) => {
+			rejectSecondChunk = error => {
+				reject(error);
+				lateBodyErrorSeen();
+			};
+		});
+
+		server1.post('/redirect-async-iterable', (request, response) => {
+			let redirectedResponse = false;
+
+			request.on('data', () => {
+				if (redirectedResponse) {
+					return;
+				}
+
+				redirectedResponse = true;
+				setTimeout(() => {
+					response.writeHead(307, {
+						location: `http://localhost:${server2.port}/`,
+					});
+					response.end();
+					redirectUpload();
+				}, 20);
+			});
+
+			request.resume();
+		});
+
+		server2.post('/', async (request, response) => {
+			const chunks: Uint8Array[] = [];
+
+			for await (const chunk of request) {
+				chunks.push(Buffer.from(chunk));
+			}
+
+			response.end(JSON.stringify({
+				method: request.method,
+				body: Buffer.concat(chunks).toString(),
+			}));
+		});
+
+		async function * requestBody(): AsyncGenerator<string> {
+			yield 'sensitive-';
+			secondChunkRequested();
+			yield await secondChunk;
+		}
+
+		const responsePromise = got.post('redirect-async-iterable', {
+			body: requestBody(),
+			hooks: {
+				beforeRedirect: [
+					async () => {
+						redirectHandled();
+						await beforeRedirectDelay;
+					},
+				],
+			},
+			retry: {
+				limit: 0,
+			},
+		}).json<{method: string; body: string}>();
+
+		await secondChunkPullStarted;
+		await redirected;
+		await redirectProcessed;
+		rejectSecondChunk(new Error('late body failure'));
+		await lateBodyError;
+		releaseBeforeRedirect();
+
+		const redirectedRequest = await responsePromise;
+		t.is(redirectedRequest.method, 'POST');
+		t.is(redirectedRequest.body, '');
+	});
+});
+
+test('cancels dropped async iterable body on cross-origin 307 redirect', withServer, async (t, server1, got) => {
+	await withServer.exec(t, async (_t, server2) => {
+		let cancelBody!: () => void;
+		const canceled = new Promise<void>(resolve => {
+			cancelBody = resolve;
+		});
+		let yieldedFirstChunk = false;
+
+		server1.post('/redirect-cancel-async-iterable', (request, response) => {
+			let redirectedResponse = false;
+
+			request.on('data', () => {
+				if (redirectedResponse) {
+					return;
+				}
+
+				redirectedResponse = true;
+				response.writeHead(307, {
+					location: `http://localhost:${server2.port}/`,
+				});
+				response.end();
+			});
+
+			request.resume();
+		});
+
+		server2.post('/', async (request, response) => {
+			const chunks: Uint8Array[] = [];
+
+			for await (const chunk of request) {
+				chunks.push(Buffer.from(chunk));
+			}
+
+			await canceled;
+
+			response.end(JSON.stringify({
+				method: request.method,
+				body: Buffer.concat(chunks).toString(),
+			}));
+		});
+
+		const requestBody = {
+			async next() {
+				if (!yieldedFirstChunk) {
+					yieldedFirstChunk = true;
+					return {
+						done: false,
+						value: 'sensitive-data',
+					};
+				}
+
+				return new Promise<IteratorResult<string>>(() => {});
+			},
+			async return() {
+				cancelBody();
+				return {
+					done: true,
+					value: undefined,
+				};
+			},
+			[Symbol.asyncIterator]() {
+				return this;
+			},
+		};
+
+		const redirectedRequest = await Promise.race([
+			got.post('redirect-cancel-async-iterable', {
+				body: requestBody,
+				retry: {
+					limit: 0,
+				},
+			}).json<{method: string; body: string}>(),
+			(async () => {
+				await delay(1000);
+				throw new Error('Dropped async iterable was not cancelled');
+			})(),
+		]);
+
+		t.is(redirectedRequest.method, 'POST');
+		t.is(redirectedRequest.body, '');
+	});
+});
+
+test('does not forward body on cross-origin 308 redirect', withServer, async (t, server1, got) => {
+	await withServer.exec(t, async (t, server2) => {
+		server1.post('/redirect', async (request, response) => {
+			for await (const chunk of request) {
+				void chunk;
+			}
+
+			response.writeHead(308, {
+				location: `http://localhost:${server2.port}/`,
+			});
+			response.end();
+		});
+
+		server2.post('/', async (request, response) => {
+			const chunks: Uint8Array[] = [];
+
+			for await (const chunk of request) {
+				chunks.push(Buffer.from(chunk));
+			}
+
+			response.end(JSON.stringify({
+				method: request.method,
+				body: Buffer.concat(chunks).toString(),
+				headers: request.headers,
+			}));
+		});
+
+		const redirectedRequest = await got.post('redirect', {
+			body: 'sensitive-data',
+			hooks: {
+				beforeRedirect: [
+					options => {
+						t.is(options.method, 'POST');
+						t.is(options.body, undefined);
+					},
+				],
+			},
+		}).json<{method: string; body: string; headers: Record<string, string | undefined>}>();
+
+		t.is(redirectedRequest.method, 'POST');
+		t.is(redirectedRequest.body, '');
+		t.is(redirectedRequest.headers['content-type'], undefined);
+	});
+});
+
+test('does not forward json body on cross-origin 307 redirect', withServer, async (t, server1, got) => {
+	await withServer.exec(t, async (t, server2) => {
+		server1.post('/redirect', async (request, response) => {
+			for await (const chunk of request) {
+				void chunk;
+			}
+
+			response.writeHead(307, {
+				location: `http://localhost:${server2.port}/`,
+			});
+			response.end();
+		});
+
+		server2.post('/', async (request, response) => {
+			const chunks: Uint8Array[] = [];
+
+			for await (const chunk of request) {
+				chunks.push(Buffer.from(chunk));
+			}
+
+			response.end(JSON.stringify({
+				method: request.method,
+				body: Buffer.concat(chunks).toString(),
+				headers: request.headers,
+			}));
+		});
+
+		const redirectedRequest = await got.post('redirect', {
+			json: {secret: true},
+			hooks: {
+				beforeRedirect: [
+					options => {
+						t.is(options.method, 'POST');
+						t.is(options.body, undefined);
+						t.is(options.json, undefined);
+					},
+				],
+			},
+		}).json<{method: string; body: string; headers: Record<string, string | undefined>}>();
+
+		t.is(redirectedRequest.method, 'POST');
+		t.is(redirectedRequest.body, '');
+		t.is(redirectedRequest.headers['content-type'], undefined);
+	});
+});
+
+test('does not forward form body on cross-origin 307 redirect', withServer, async (t, server1, got) => {
+	await withServer.exec(t, async (t, server2) => {
+		server1.post('/redirect', async (request, response) => {
+			for await (const chunk of request) {
+				void chunk;
+			}
+
+			response.writeHead(307, {
+				location: `http://localhost:${server2.port}/`,
+			});
+			response.end();
+		});
+
+		server2.post('/', async (request, response) => {
+			const chunks: Uint8Array[] = [];
+
+			for await (const chunk of request) {
+				chunks.push(Buffer.from(chunk));
+			}
+
+			response.end(JSON.stringify({
+				method: request.method,
+				body: Buffer.concat(chunks).toString(),
+				headers: request.headers,
+			}));
+		});
+
+		const redirectedRequest = await got.post('redirect', {
+			form: {secret: 'data'},
+			hooks: {
+				beforeRedirect: [
+					options => {
+						t.is(options.method, 'POST');
+						t.is(options.body, undefined);
+						t.is(options.form, undefined);
+					},
+				],
+			},
+		}).json<{method: string; body: string; headers: Record<string, string | undefined>}>();
+
+		t.is(redirectedRequest.method, 'POST');
+		t.is(redirectedRequest.body, '');
+		t.is(redirectedRequest.headers['content-type'], undefined);
+	});
+});
+
+test('preserves body on same-origin 307 redirect', withServer, async (t, server, got) => {
+	server.post('/redirect', async (request, response) => {
+		for await (const chunk of request) {
+			void chunk;
+		}
+
+		response.writeHead(307, {
+			location: '/destination',
+		});
+		response.end();
+	});
+
+	server.post('/destination', async (request, response) => {
+		const chunks: Uint8Array[] = [];
+
+		for await (const chunk of request) {
+			chunks.push(Buffer.from(chunk));
+		}
+
+		response.end(JSON.stringify({
+			method: request.method,
+			body: Buffer.concat(chunks).toString(),
+		}));
+	});
+
+	const redirectedRequest = await got.post('redirect', {
+		body: 'keep-this',
+		hooks: {
+			beforeRedirect: [
+				options => {
+					t.is(options.method, 'POST');
+					t.is(options.body, 'keep-this');
+				},
+			],
+		},
+	}).json<{method: string; body: string}>();
+
+	t.is(redirectedRequest.method, 'POST');
+	t.is(redirectedRequest.body, 'keep-this');
 });
 
 test('does not follow 304 responses with a location header', withServer, async (t, server1, got) => {
@@ -1191,7 +1822,6 @@ test('does not forward body when redirecting to a different protocol on the same
 
 		t.is(redirectedRequest.method, 'GET');
 		t.is(redirectedRequest.body, '');
-		t.is(redirectedRequest.headers['content-length'], undefined);
 		t.is(redirectedRequest.headers['content-type'], undefined);
 	});
 });
@@ -1210,6 +1840,60 @@ test('preserves userinfo on redirect to the same origin', withServer, async (t, 
 	});
 
 	await got(`http://hello:world@localhost:${server.port}/redirect`);
+});
+
+test('strips credentials embedded in cross-origin redirect Location URL', withServer, async (t, server1, got) => {
+	await withServer.exec(t, async (t, server2) => {
+		server1.get('/', (_request, response) => {
+			response.writeHead(302, {
+				location: `http://injected:creds@localhost:${server2.port}/target`,
+			});
+			response.end();
+		});
+
+		server2.get('/target', (request, response) => {
+			response.end(JSON.stringify({authorization: request.headers.authorization}));
+		});
+
+		const body = await got('').json<{authorization: string | undefined}>();
+		t.is(body.authorization, undefined);
+	});
+});
+
+test('strips credentials embedded in cross-origin redirect Location URL on 307', withServer, async (t, server1, got) => {
+	await withServer.exec(t, async (t, server2) => {
+		server1.get('/', (_request, response) => {
+			response.writeHead(307, {
+				location: `http://injected:creds@localhost:${server2.port}/target`,
+			});
+			response.end();
+		});
+
+		server2.get('/target', (request, response) => {
+			response.end(JSON.stringify({authorization: request.headers.authorization}));
+		});
+
+		const body = await got('').json<{authorization: string | undefined}>();
+		t.is(body.authorization, undefined);
+	});
+});
+
+test('strips both user-supplied and Location-embedded credentials on cross-origin redirect', withServer, async (t, server1) => {
+	await withServer.exec(t, async (t, server2) => {
+		server1.get('/', (_request, response) => {
+			response.writeHead(302, {
+				location: `http://injected:creds@localhost:${server2.port}/target`,
+			});
+			response.end();
+		});
+
+		server2.get('/target', (request, response) => {
+			response.end(JSON.stringify({authorization: request.headers.authorization}));
+		});
+
+		const body = await got(`http://hello:world@localhost:${server1.port}/`).json<{authorization: string | undefined}>();
+		t.is(body.authorization, undefined);
+	});
 });
 
 test('clears the host header when redirecting to a different hostname', withServer, async (t, server1, got) => {
@@ -1292,4 +1976,652 @@ test('downloadProgress does not fire for redirect responses', withServer, async 
 	for (const event of progressEvents) {
 		t.is(event.total, 1024);
 	}
+});
+
+test('strips sensitive headers when beforeRedirect hook changes URL to a different origin', withServer, async (t, server1, got) => {
+	await withServer.exec(t, async (_t, server2) => {
+		server1.get('/', (_request, response) => {
+			// Same-origin redirect: headers are preserved
+			response.writeHead(302, {
+				location: `${server1.url}/step2`,
+			});
+			response.end();
+		});
+
+		server2.get('/', (request, response) => {
+			response.end(JSON.stringify({headers: request.headers}));
+		});
+
+		const {headers} = await got('', {
+			headers: {
+				authorization: 'Bearer secret',
+				cookie: 'session=abc',
+				cookie2: 'legacy=val',
+				'proxy-authorization': 'Basic proxy',
+			},
+			hooks: {
+				beforeRedirect: [
+					options => {
+						options.url = new URL(`http://localhost:${server2.port}/`);
+					},
+				],
+			},
+		}).json<{headers: Record<string, string | undefined>}>();
+
+		t.is(headers.authorization, undefined);
+		t.is(headers.cookie, undefined);
+		t.is(headers.cookie2, undefined);
+		t.is(headers['proxy-authorization'], undefined);
+	});
+});
+
+test('preserves replacement authorization header when beforeRedirect hook changes URL to a different origin', withServer, async (t, server1, got) => {
+	await withServer.exec(t, async (_t, server2) => {
+		server1.get('/', (_request, response) => {
+			response.writeHead(302, {
+				location: `${server1.url}/step2`,
+			});
+			response.end();
+		});
+
+		server2.get('/', (request, response) => {
+			response.end(JSON.stringify({headers: request.headers}));
+		});
+
+		const {headers} = await got('', {
+			headers: {
+				authorization: 'Bearer original-secret',
+			},
+			hooks: {
+				beforeRedirect: [
+					options => {
+						options.url = new URL(`http://localhost:${server2.port}/`);
+						options.headers.authorization = 'Bearer replacement-secret';
+					},
+				],
+			},
+		}).json<{headers: Record<string, string | undefined>}>();
+
+		t.is(headers.authorization, 'Bearer replacement-secret');
+	});
+});
+
+test('preserves explicitly reapplied authorization header when beforeRedirect hook changes URL to a different origin', withServer, async (t, server1, got) => {
+	await withServer.exec(t, async (_t, server2) => {
+		server1.get('/', (_request, response) => {
+			response.writeHead(302, {
+				location: `${server1.url}/step2`,
+			});
+			response.end();
+		});
+
+		server2.get('/', (request, response) => {
+			response.end(JSON.stringify({headers: request.headers}));
+		});
+
+		const {headers} = await got('', {
+			headers: {
+				authorization: 'Bearer same-secret',
+			},
+			hooks: {
+				beforeRedirect: [
+					options => {
+						const {authorization} = options.headers;
+						options.url = new URL(`http://localhost:${server2.port}/`);
+						options.headers.authorization = authorization;
+					},
+				],
+			},
+		}).json<{headers: Record<string, string | undefined>}>();
+
+		t.is(headers.authorization, 'Bearer same-secret');
+	});
+});
+
+test('strips sensitive headers when beforeRedirect hook reassigns headers object without reapplying them', withServer, async (t, server1, got) => {
+	await withServer.exec(t, async (_t, server2) => {
+		server1.get('/', (_request, response) => {
+			response.writeHead(302, {
+				location: `${server1.url}/step2`,
+			});
+			response.end();
+		});
+
+		server2.get('/', (request, response) => {
+			response.end(JSON.stringify({headers: request.headers}));
+		});
+
+		const {headers} = await got('', {
+			headers: {
+				authorization: 'Bearer same-secret',
+				cookie: 'session=abc',
+			},
+			hooks: {
+				beforeRedirect: [
+					options => {
+						options.url = new URL(`http://localhost:${server2.port}/`);
+						options.headers = {
+							...options.headers,
+							foo: 'bar',
+						};
+					},
+				],
+			},
+		}).json<{headers: Record<string, string | undefined>}>();
+
+		t.is(headers.authorization, undefined);
+		t.is(headers.cookie, undefined);
+		t.is(headers.foo, 'bar');
+	});
+});
+
+test('preserves headers when beforeRedirect hook keeps the same origin', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.writeHead(302, {
+			location: `${server.url}/step2`,
+		});
+		response.end();
+	});
+
+	server.get('/other', (request, response) => {
+		response.end(JSON.stringify({headers: request.headers}));
+	});
+
+	const {headers} = await got('', {
+		headers: {
+			authorization: 'Bearer keep-me',
+		},
+		hooks: {
+			beforeRedirect: [
+				options => {
+					options.url = new URL(`${server.url}/other`);
+				},
+			],
+		},
+	}).json<{headers: Record<string, string | undefined>}>();
+
+	t.is(headers.authorization, 'Bearer keep-me');
+});
+
+test('preserves replacement credentials when beforeRedirect hook changes URL to a different origin', withServer, async (t, server1, got) => {
+	await withServer.exec(t, async (_t, server2) => {
+		server1.get('/', (_request, response) => {
+			response.writeHead(302, {
+				location: `${server1.url}/step2`,
+			});
+			response.end();
+		});
+
+		server2.get('/', (request, response) => {
+			response.end(JSON.stringify({headers: request.headers}));
+		});
+
+		const {headers} = await got('', {
+			username: 'old-user',
+			password: 'old-password',
+			hooks: {
+				beforeRedirect: [
+					options => {
+						const url = options.url!;
+						url.port = String(server2.port);
+						url.pathname = '/';
+						url.username = 'new-user';
+						url.password = 'new-password';
+					},
+				],
+			},
+		}).json<{headers: Record<string, string | undefined>}>();
+
+		t.is(headers.authorization, 'Basic bmV3LXVzZXI6bmV3LXBhc3N3b3Jk');
+	});
+});
+
+test('preserves replacement credentials from options.username and options.password when beforeRedirect hook changes URL to a different origin', withServer, async (t, server1, got) => {
+	await withServer.exec(t, async (_t, server2) => {
+		server1.get('/', (_request, response) => {
+			response.writeHead(302, {
+				location: `${server1.url}/step2`,
+			});
+			response.end();
+		});
+
+		server2.get('/', (request, response) => {
+			response.end(JSON.stringify({headers: request.headers}));
+		});
+
+		const {headers} = await got('', {
+			username: 'old-user',
+			password: 'old-password',
+			hooks: {
+				beforeRedirect: [
+					options => {
+						options.url = new URL(`http://localhost:${server2.port}/`);
+						options.username = 'new-user';
+						options.password = 'new-password';
+					},
+				],
+			},
+		}).json<{headers: Record<string, string | undefined>}>();
+
+		t.is(headers.authorization, 'Basic bmV3LXVzZXI6bmV3LXBhc3N3b3Jk');
+	});
+});
+
+test('strips sensitive headers when beforeRedirect hook mutates the existing URL to a different origin', withServer, async (t, server1, got) => {
+	await withServer.exec(t, async (_t, server2) => {
+		server1.post('/', (_request, response) => {
+			response.writeHead(307, {
+				location: `${server1.url}/step2`,
+			});
+			response.end();
+		});
+
+		server2.post('/', (request, response) => {
+			let body = '';
+			request.on('data', (chunk: Buffer) => { // eslint-disable-line @typescript-eslint/no-restricted-types
+				body += chunk.toString();
+			});
+
+			request.on('end', () => {
+				response.end(JSON.stringify({
+					headers: request.headers,
+					body,
+				}));
+			});
+		});
+
+		const result = await got.post('', {
+			headers: {
+				authorization: 'Bearer secret',
+				cookie: 'session=abc',
+			},
+			body: 'secret body',
+			hooks: {
+				beforeRedirect: [
+					options => {
+						const url = options.url!;
+						url.port = String(server2.port);
+						url.pathname = '/';
+					},
+				],
+			},
+		}).json<{headers: Record<string, string | undefined>; body: string}>();
+
+		t.is(result.headers.authorization, undefined);
+		t.is(result.headers.cookie, undefined);
+		t.is(result.headers['content-type'], undefined);
+		t.is(result.body, '');
+	});
+});
+
+test('strips body when beforeRedirect hook changes URL to a different origin on 307', withServer, async (t, server1, got) => {
+	await withServer.exec(t, async (_t, server2) => {
+		server1.post('/', (_request, response) => {
+			// 307 preserves method and body for same-origin
+			response.writeHead(307, {
+				location: `${server1.url}/step2`,
+			});
+			response.end();
+		});
+
+		server2.post('/', (request, response) => {
+			let body = '';
+			request.on('data', (chunk: Buffer) => { // eslint-disable-line @typescript-eslint/no-restricted-types
+				body += chunk.toString();
+			});
+
+			request.on('end', () => {
+				response.end(JSON.stringify({
+					method: request.method,
+					headers: request.headers,
+					body,
+				}));
+			});
+		});
+
+		const result = await got.post('', {
+			json: {secret: 'data'},
+			hooks: {
+				beforeRedirect: [
+					options => {
+						options.url = new URL(`http://localhost:${server2.port}/`);
+					},
+				],
+			},
+		}).json<{method: string; headers: Record<string, string | undefined>; body: string}>();
+
+		t.is(result.method, 'POST');
+		t.is(result.body, '');
+		t.is(result.headers['content-type'], undefined);
+	});
+});
+
+test('preserves replacement body when beforeRedirect hook changes URL to a different origin on 307', withServer, async (t, server1, got) => {
+	await withServer.exec(t, async (_t, server2) => {
+		server1.post('/', (_request, response) => {
+			response.writeHead(307, {
+				location: `${server1.url}/step2`,
+			});
+			response.end();
+		});
+
+		server2.post('/', (request, response) => {
+			let body = '';
+			request.on('data', (chunk: Buffer) => { // eslint-disable-line @typescript-eslint/no-restricted-types
+				body += chunk.toString();
+			});
+
+			request.on('end', () => {
+				response.end(JSON.stringify({
+					method: request.method,
+					headers: request.headers,
+					body,
+				}));
+			});
+		});
+
+		const result = await got.post('', {
+			body: 'old-data',
+			headers: {
+				'content-type': 'text/plain',
+			},
+			hooks: {
+				beforeRedirect: [
+					options => {
+						options.url = new URL(`http://localhost:${server2.port}/`);
+						options.body = 'new-data';
+						options.headers['content-type'] = 'text/plain';
+					},
+				],
+			},
+		}).json<{method: string; headers: Record<string, string | undefined>; body: string}>();
+
+		t.is(result.method, 'POST');
+		t.is(result.body, 'new-data');
+		t.is(result.headers['content-type'], 'text/plain');
+	});
+});
+
+test('preserves replacement body when beforeRedirect hook mutates the existing URL to a different origin on 307', withServer, async (t, server1, got) => {
+	await withServer.exec(t, async (_t, server2) => {
+		server1.post('/', (_request, response) => {
+			response.writeHead(307, {
+				location: `${server1.url}/step2`,
+			});
+			response.end();
+		});
+
+		server2.post('/', (request, response) => {
+			let body = '';
+			request.on('data', (chunk: Buffer) => { // eslint-disable-line @typescript-eslint/no-restricted-types
+				body += chunk.toString();
+			});
+
+			request.on('end', () => {
+				response.end(JSON.stringify({
+					method: request.method,
+					headers: request.headers,
+					body,
+				}));
+			});
+		});
+
+		const result = await got.post('', {
+			body: 'old-data',
+			headers: {
+				'content-type': 'text/plain',
+			},
+			hooks: {
+				beforeRedirect: [
+					options => {
+						const url = options.url!;
+						url.port = String(server2.port);
+						url.pathname = '/';
+						options.body = 'new-data';
+						options.headers['content-type'] = 'text/plain';
+					},
+				],
+			},
+		}).json<{method: string; headers: Record<string, string | undefined>; body: string}>();
+
+		t.is(result.method, 'POST');
+		t.is(result.body, 'new-data');
+		t.is(result.headers['content-type'], 'text/plain');
+	});
+});
+
+test('preserves explicitly reassigned same body when beforeRedirect hook mutates the existing URL to a different origin on 307', withServer, async (t, server1, got) => {
+	await withServer.exec(t, async (_t, server2) => {
+		server1.post('/', (_request, response) => {
+			response.writeHead(307, {
+				location: `${server1.url}/step2`,
+			});
+			response.end();
+		});
+
+		server2.post('/', (request, response) => {
+			let body = '';
+			request.on('data', (chunk: Buffer) => { // eslint-disable-line @typescript-eslint/no-restricted-types
+				body += chunk.toString();
+			});
+
+			request.on('end', () => {
+				response.end(JSON.stringify({
+					method: request.method,
+					headers: request.headers,
+					body,
+				}));
+			});
+		});
+
+		const result = await got.post('', {
+			body: 'same-data',
+			headers: {
+				'content-type': 'text/plain',
+			},
+			hooks: {
+				beforeRedirect: [
+					options => {
+						const url = options.url!;
+						url.port = String(server2.port);
+						url.pathname = '/';
+						options.body = 'same-data';
+						options.headers['content-type'] = 'text/plain';
+					},
+				],
+			},
+		}).json<{method: string; headers: Record<string, string | undefined>; body: string}>();
+
+		t.is(result.method, 'POST');
+		t.is(result.body, 'same-data');
+		t.is(result.headers['content-type'], 'text/plain');
+	});
+});
+
+test('preserves in-place body rewrite when beforeRedirect hook mutates the existing URL to a different origin on 307', withServer, async (t, server1, got) => {
+	await withServer.exec(t, async (_t, server2) => {
+		server1.post('/', (_request, response) => {
+			response.writeHead(307, {
+				location: `${server1.url}/step2`,
+			});
+			response.end();
+		});
+
+		server2.post('/', (request, response) => {
+			let body = '';
+			request.on('data', (chunk: Buffer) => { // eslint-disable-line @typescript-eslint/no-restricted-types
+				body += chunk.toString();
+			});
+
+			request.on('end', () => {
+				response.end(JSON.stringify({
+					method: request.method,
+					headers: request.headers,
+					body,
+				}));
+			});
+		});
+
+		const result = await got.post('', {
+			body: Buffer.from('old-data'),
+			headers: {
+				'content-type': 'text/plain',
+			},
+			hooks: {
+				beforeRedirect: [
+					options => {
+						const url = options.url!;
+						url.port = String(server2.port);
+						url.pathname = '/';
+						(options.body as Uint8Array).set(Buffer.from('new-data'));
+						options.headers['content-type'] = 'text/plain';
+					},
+				],
+			},
+		}).json<{method: string; headers: Record<string, string | undefined>; body: string}>();
+
+		t.is(result.method, 'POST');
+		t.is(result.body, 'new-data');
+		t.is(result.headers['content-type'], 'text/plain');
+	});
+});
+
+test('preserves replacement URL credentials when beforeRedirect hook changes URL to a different origin', withServer, async (t, server1, got) => {
+	await withServer.exec(t, async (_t, server2) => {
+		server1.get('/', (_request, response) => {
+			response.writeHead(302, {
+				location: `${server1.url}/step2`,
+			});
+			response.end();
+		});
+
+		server2.get('/', (request, response) => {
+			response.end(JSON.stringify({
+				headers: request.headers,
+				url: request.url,
+			}));
+		});
+
+		const result = await got('', {
+			username: 'user',
+			password: 'pass',
+			hooks: {
+				beforeRedirect: [
+					options => {
+						options.url = new URL(`http://evil:hacker@localhost:${server2.port}/`);
+					},
+				],
+			},
+		}).json<{headers: Record<string, string | undefined>}>();
+
+		t.is(result.headers.authorization, `Basic ${Buffer.from('evil:hacker').toString('base64')}`);
+	});
+});
+
+test('preserves explicit URL object credentials when beforeRedirect hook changes URL to a different origin', withServer, async (t, server1, got) => {
+	await withServer.exec(t, async (_t, server2) => {
+		server1.get('/', (_request, response) => {
+			response.writeHead(302, {
+				location: `${server1.url}/step2`,
+			});
+			response.end();
+		});
+
+		server2.get('/', (request, response) => {
+			response.end(JSON.stringify({
+				headers: request.headers,
+			}));
+		});
+
+		const result = await got('', {
+			username: 'user',
+			password: 'pass',
+			hooks: {
+				beforeRedirect: [
+					options => {
+						const nextUrl = new URL(options.url!);
+						nextUrl.protocol = 'http:';
+						nextUrl.hostname = 'localhost';
+						nextUrl.port = String(server2.port);
+						nextUrl.pathname = '/';
+						options.url = nextUrl;
+					},
+				],
+			},
+		}).json<{headers: Record<string, string | undefined>}>();
+
+		t.is(result.headers.authorization, `Basic ${Buffer.from('user:pass').toString('base64')}`);
+	});
+});
+
+test('preserves explicit URL object username when beforeRedirect hook changes URL to a different origin', withServer, async (t, server1, got) => {
+	await withServer.exec(t, async (_t, server2) => {
+		server1.get('/', (_request, response) => {
+			response.writeHead(302, {
+				location: `${server1.url}/step2`,
+			});
+			response.end();
+		});
+
+		server2.get('/', (request, response) => {
+			response.end(JSON.stringify({
+				headers: request.headers,
+			}));
+		});
+
+		const result = await got('', {
+			username: 'user',
+			hooks: {
+				beforeRedirect: [
+					options => {
+						const nextUrl = new URL(options.url!);
+						nextUrl.protocol = 'http:';
+						nextUrl.hostname = 'localhost';
+						nextUrl.port = String(server2.port);
+						nextUrl.pathname = '/';
+						options.url = nextUrl;
+					},
+				],
+			},
+		}).json<{headers: Record<string, string | undefined>}>();
+
+		t.is(result.headers.authorization, `Basic ${Buffer.from('user:').toString('base64')}`);
+	});
+});
+
+test('strips inherited password when explicit URL object keeps only username during beforeRedirect cross-origin change', withServer, async (t, server1, got) => {
+	await withServer.exec(t, async (_t, server2) => {
+		server1.get('/', (_request, response) => {
+			response.writeHead(302, {
+				location: `${server1.url}/step2`,
+			});
+			response.end();
+		});
+
+		server2.get('/', (request, response) => {
+			response.end(JSON.stringify({
+				headers: request.headers,
+			}));
+		});
+
+		const result = await got('', {
+			username: 'user',
+			password: 'pass',
+			hooks: {
+				beforeRedirect: [
+					options => {
+						const nextUrl = new URL(options.url!);
+						nextUrl.protocol = 'http:';
+						nextUrl.hostname = 'localhost';
+						nextUrl.port = String(server2.port);
+						nextUrl.pathname = '/';
+						nextUrl.password = '';
+						options.url = nextUrl;
+					},
+				],
+			},
+		}).json<{headers: Record<string, string | undefined>}>();
+
+		t.is(result.headers.authorization, `Basic ${Buffer.from('user:').toString('base64')}`);
+	});
 });

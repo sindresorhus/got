@@ -1,5 +1,6 @@
 import type {ClientRequestArgs} from 'node:http';
 import is from '@sindresorhus/is';
+import {stringToUint8Array} from 'uint8array-extras';
 
 export default function getBodySize(body: unknown, headers: ClientRequestArgs['headers']): number | undefined {
 	if (headers && 'content-length' in headers) {
@@ -11,7 +12,7 @@ export default function getBodySize(body: unknown, headers: ClientRequestArgs['h
 	}
 
 	if (is.string(body)) {
-		return new TextEncoder().encode(body).byteLength;
+		return stringToUint8Array(body).byteLength;
 	}
 
 	if (is.buffer(body)) {

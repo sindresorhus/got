@@ -27,11 +27,7 @@ const calculateRetryDelay: Returns<RetryFunction, number> = ({
 	if (error.response) {
 		if (retryAfter) {
 			// In this case `computedValue` is `options.request.timeout`
-			if (retryAfter > computedValue) {
-				return 0;
-			}
-
-			return retryAfter;
+			return retryAfter > computedValue ? 0 : retryAfter;
 		}
 
 		if (error.response.statusCode === 413) {

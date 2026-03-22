@@ -1,4 +1,3 @@
-import {Buffer} from 'node:buffer';
 import {EventEmitter} from 'node:events';
 import is from '@sindresorhus/is';
 import {
@@ -6,15 +5,24 @@ import {
 	RetryError,
 	type RequestError,
 } from '../core/errors.js';
-import Request from '../core/index.js';
+import Request, {normalizeError} from '../core/index.js';
 import {
+	decodeUint8Array,
+	isUtf8Encoding,
 	parseBody,
 	isResponseOk,
 	type Response, ParseError,
 } from '../core/response.js';
 import proxyEvents from '../core/utils/proxy-events.js';
+import {
+	applyUrlOverride,
+	isSameOrigin,
+	snapshotCrossOriginState,
+} from '../core/options.js';
 import type Options from '../core/options.js';
 import {type RequestPromise} from './types.js';
+
+const compressedEncodings = new Set(['gzip', 'deflate', 'br', 'zstd']);
 
 const proxiedRequestEvents = [
 	'request',
@@ -23,34 +31,6 @@ const proxiedRequestEvents = [
 	'uploadProgress',
 	'downloadProgress',
 ];
-
-const normalizeError = (error: unknown): Error => {
-	if (error instanceof Error) {
-		return error;
-	}
-
-	if (is.object(error)) {
-		const errorLike = error as Partial<Error & {code?: string; input?: string}>;
-		const message = typeof errorLike.message === 'string' ? errorLike.message : 'Non-error object thrown';
-		const normalizedError = new Error(message, {cause: error}) as Error & {code?: string; input?: string};
-
-		if (typeof errorLike.stack === 'string') {
-			normalizedError.stack = errorLike.stack;
-		}
-
-		if (typeof errorLike.code === 'string') {
-			normalizedError.code = errorLike.code;
-		}
-
-		if (typeof errorLike.input === 'string') {
-			normalizedError.input = errorLike.input;
-		}
-
-		return normalizedError;
-	}
-
-	return new Error(String(error));
-};
 
 export default function asPromise<T>(firstRequest?: Request): RequestPromise<T> {
 	let globalRequest: Request;
@@ -69,7 +49,7 @@ export default function asPromise<T>(firstRequest?: Request): RequestPromise<T> 
 			request.once('response', async (response: Response) => {
 				// Parse body
 				const contentEncoding = (response.headers['content-encoding'] ?? '').toLowerCase();
-				const isCompressed = contentEncoding === 'gzip' || contentEncoding === 'deflate' || contentEncoding === 'br' || contentEncoding === 'zstd';
+				const isCompressed = compressedEncodings.has(contentEncoding);
 
 				const {options} = request;
 
@@ -81,7 +61,7 @@ export default function asPromise<T>(firstRequest?: Request): RequestPromise<T> 
 					} catch (error: unknown) {
 						// Fall back to `utf8`
 						try {
-							response.body = Buffer.from(response.rawBody).toString();
+							response.body = decodeUint8Array(response.rawBody);
 						} catch (error) {
 							request._beforeError(new ParseError(normalizeError(error), response));
 							return;
@@ -98,16 +78,46 @@ export default function asPromise<T>(firstRequest?: Request): RequestPromise<T> 
 					const hooks = options.hooks.afterResponse;
 
 					for (const [index, hook] of hooks.entries()) {
+						const previousUrl = options.url ? new URL(options.url) : undefined;
+						const previousState = previousUrl ? snapshotCrossOriginState(options) : undefined;
+						const requestOptions = response.request.options;
+						const responseSnapshot = response;
+
 						// @ts-expect-error TS doesn't notice that RequestPromise is a Promise
 						// eslint-disable-next-line no-await-in-loop
-						response = await hook(response, async (updatedOptions): RequestPromise<Response> => {
+						response = await requestOptions.trackStateMutations(async changedState => hook(responseSnapshot, async (updatedOptions): RequestPromise<Response> => {
 							const preserveHooks = updatedOptions.preserveHooks ?? false;
+							const reusesRequestOptions = updatedOptions === requestOptions;
+							const hasExplicitBody = reusesRequestOptions
+								? changedState.has('body') || changedState.has('json') || changedState.has('form')
+								: (Object.hasOwn(updatedOptions, 'body') && updatedOptions.body !== undefined)
+									|| (Object.hasOwn(updatedOptions, 'json') && updatedOptions.json !== undefined)
+									|| (Object.hasOwn(updatedOptions, 'form') && updatedOptions.form !== undefined);
 
-							options.merge(updatedOptions);
-							options.prefixUrl = '';
+							if (hasExplicitBody && !reusesRequestOptions) {
+								options.clearBody();
+							}
+
+							if (!reusesRequestOptions) {
+								options.merge(updatedOptions);
+							}
 
 							if (updatedOptions.url) {
-								options.url = updatedOptions.url;
+								const nextUrl = reusesRequestOptions
+									? options.url as URL
+									: applyUrlOverride(options, updatedOptions.url, updatedOptions);
+
+								if (previousUrl) {
+									if (reusesRequestOptions && !isSameOrigin(previousUrl, nextUrl)) {
+										options.stripUnchangedCrossOriginState(previousState!, changedState, {clearBody: !hasExplicitBody});
+									} else {
+										options.stripSensitiveHeaders(previousUrl, nextUrl, updatedOptions);
+
+										if (!isSameOrigin(previousUrl, nextUrl) && !hasExplicitBody) {
+											options.clearBody();
+										}
+									}
+								}
 							}
 
 							// Remove any further hooks for that request, because we'll call them anyway.
@@ -118,7 +128,7 @@ export default function asPromise<T>(firstRequest?: Request): RequestPromise<T> 
 							}
 
 							throw new RetryError(request);
-						});
+						}));
 
 						if (!(is.object(response) && is.number(response.statusCode) && 'body' in response)) {
 							throw new TypeError('The `afterResponse` hook returned an invalid value');
@@ -237,6 +247,11 @@ export default function asPromise<T>(firstRequest?: Request): RequestPromise<T> 
 			await promiseToAwait;
 
 			const {options} = globalResponse.request;
+
+			if (responseType === 'text') {
+				const text = decodeUint8Array(globalResponse.rawBody, options.encoding);
+				return (isUtf8Encoding(options.encoding) ? text.replace(/^\uFEFF/u, '') : text) as T;
+			}
 
 			return parseBody(globalResponse, responseType, options.parseJson, options.encoding);
 		})();

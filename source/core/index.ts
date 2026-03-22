@@ -6,6 +6,7 @@ import http, {ServerResponse, type ClientRequest, type RequestOptions} from 'nod
 import type {Socket} from 'node:net';
 import {byteLength} from 'byte-counter';
 import {chunk} from 'chunk-data';
+import {concatUint8Arrays, stringToBase64, stringToUint8Array} from 'uint8array-extras';
 import CacheableRequest, {
 	CacheError as CacheableCacheError,
 	type CacheableRequestFunction,
@@ -24,6 +25,12 @@ import stripUrlAuth from './utils/strip-url-auth.js';
 import WeakableMap from './utils/weakable-map.js';
 import calculateRetryDelay from './calculate-retry-delay.js';
 import Options, {
+	crossOriginStripHeaders,
+	hasExplicitCredentialInUrlChange,
+	isCrossOriginCredentialChanged,
+	isBodyUnchanged,
+	isSameOrigin,
+	snapshotCrossOriginState,
 	type PromiseCookieJar,
 	type NativeRequestOptions,
 	type RetryOptions,
@@ -33,12 +40,14 @@ import Options, {
 } from './options.js';
 import {
 	cacheDecodedBody,
+	decodeUint8Array,
 	isResponseOk,
+	isUtf8Encoding,
 	type PlainResponse,
 	type Response,
 } from './response.js';
 import isClientRequest from './utils/is-client-request.js';
-import isUnixSocketURL, {getUnixSocketPath} from './utils/is-unix-socket-url.js';
+import {getUnixSocketPath} from './utils/is-unix-socket-url.js';
 import {
 	RequestError,
 	ReadError,
@@ -70,25 +79,6 @@ export type Progress = {
 
 const supportsBrotli = is.string(process.versions.brotli);
 const supportsZstd = is.string(process.versions.zstd);
-const isUtf8Encoding = (encoding?: BufferEncoding): boolean => encoding === undefined || encoding.toLowerCase().replace('-', '') === 'utf8';
-const textEncoder = new TextEncoder();
-const concatUint8Arrays = (chunks: readonly Uint8Array[]): Uint8Array => {
-	let totalLength = 0;
-	for (const chunk of chunks) {
-		totalLength += chunk.byteLength;
-	}
-
-	const result = new Uint8Array(totalLength);
-	let offset = 0;
-
-	for (const chunk of chunks) {
-		result.set(chunk, offset);
-		offset += chunk.byteLength;
-	}
-
-	return result;
-};
-
 const methodsWithoutBody: ReadonlySet<string> = new Set(['GET', 'HEAD']);
 
 export type GotEventFunction<T> =
@@ -167,8 +157,7 @@ type StorageAdapter = KeyvStoreAdapter | KeyvType | Map<unknown, unknown>;
 const cacheableStore = new WeakableMap<string | StorageAdapter, CacheableRequestFunction>();
 
 const redirectCodes: ReadonlySet<number> = new Set([301, 302, 303, 307, 308]);
-const crossOriginStripHeaders = ['host', 'cookie', 'cookie2', 'authorization', 'proxy-authorization'] as const;
-const bodyHeaderNames = ['content-length', 'content-encoding', 'content-language', 'content-location', 'content-type'] as const;
+export {crossOriginStripHeaders} from './options.js';
 const transientWriteErrorCodes: ReadonlySet<string> = new Set(['EPIPE', 'ECONNRESET']);
 const omittedPipedHeaders = new Set([
 	'host',
@@ -231,7 +220,7 @@ const getConnectionListedHeaders = (headers: Record<string, string | string[] | 
 	return connectionListedHeaders;
 };
 
-const normalizeError = (error: unknown): Error => {
+export const normalizeError = (error: unknown): Error => {
 	if (error instanceof globalThis.Error) {
 		return error;
 	}
@@ -264,6 +253,17 @@ type OptionsType = ConstructorParameters<typeof Options>[1];
 type DefaultsType = ConstructorParameters<typeof Options>[2];
 const getSanitizedUrl = (options?: Options): string => options?.url ? stripUrlAuth(options.url) : '';
 
+const makeProgress = (transferred: number, total?: number): Progress => {
+	let percent = 0;
+	if (total) {
+		percent = transferred / total;
+	} else if (total === transferred) {
+		percent = 1;
+	}
+
+	return {percent, transferred, total};
+};
+
 export default class Request extends Duplex implements RequestEvents<Request> {
 	// @ts-expect-error - Ignoring for now.
 	override ['constructor']: typeof Request;
@@ -280,27 +280,24 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 	declare private _requestOptions: NativeRequestOptions;
 
-	private _stopRetry = noop;
+	private _stopRetry?: () => void;
 	private _downloadedSize = 0;
 	private _uploadedSize = 0;
 	private readonly _pipedServerResponses = new Set<ServerResponse>();
 	private _request?: ClientRequest;
 	private _responseSize?: number;
 	private _bodySize?: number;
-	private _unproxyEvents = noop;
-	private _isFromCache?: boolean;
+	private _unproxyEvents?: () => void;
 	private _triggerRead = false;
 	private readonly _jobs: Array<() => void> = [];
-	private _cancelTimeouts = noop;
-	private readonly _removeListeners = noop;
-	private _nativeResponse?: IncomingMessageWithTimings;
+	private _cancelTimeouts?: () => void;
+	private readonly _abortListenerDisposer?: {[Symbol.dispose](): void};
 	private _flushed = false;
 	private _aborted = false;
 	private _expectedContentLength?: number;
 	private _compressedBytesCount?: number;
 	private _skipRequestEndInFinal = false;
-	private _incrementalBodyDecoder?: TextDecoder;
-	private _incrementalDecodedBodyChunks: string[] = [];
+	private _incrementalDecode?: {decoder: TextDecoder; chunks: string[]};
 	private readonly _requestId = generateRequestId();
 
 	// We need this because `this._request` if `undefined` when using cache
@@ -389,17 +386,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		// The below is run only once.
 		const {body} = this.options;
 		if (is.nodeStream(body)) {
-			body.once('error', error => {
-				if (this._flushed) {
-					this._beforeError(new UploadError(error, this));
-				} else {
-					this.flush = async () => {
-						this.flush = async () => {};
-
-						this._beforeError(new UploadError(error, this));
-					};
-				}
-			});
+			body.once('error', this._onBodyError);
 		}
 
 		if (this.options.signal) {
@@ -417,9 +404,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			} else {
 				const abortListenerDisposer = addAbortListener(this.options.signal, abort);
 
-				this._removeListeners = () => {
-					abortListenerDisposer[Symbol.dispose]();
-				};
+				this._abortListenerDisposer = abortListenerDisposer;
 			}
 		}
 	}
@@ -489,7 +474,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 				const success = await this._setRawBody(response);
 
 				if (success) {
-					response.body = Buffer.from(response.rawBody!).toString();
+					response.body = decodeUint8Array(response.rawBody!);
 				}
 			}
 
@@ -589,30 +574,36 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 					// 2. If body was reassigned, we MUST destroy the OLD stream to prevent memory leaks
 					// 3. We must restore the body reference after destroy() for identity checks in promise wrapper
 					// 4. We cannot use the normal setter after destroy() because it validates stream readability
-					if (bodyWasReassigned) {
-						const oldBody = bodyBeforeHooks;
-						// Temporarily clear body to prevent destroy() from destroying the new stream
-						this.options.body = undefined;
-						this.destroy();
+					try {
+						if (bodyWasReassigned) {
+							const oldBody = bodyBeforeHooks;
+							// Temporarily clear body to prevent destroy() from destroying the new stream
+							this.options.body = undefined;
+							this.destroy();
 
-						// Clean up the old stream resource if it's a stream and different from new body
-						// (edge case: if old and new are same stream object, don't destroy it)
-						if (is.nodeStream(oldBody) && oldBody !== bodyAfterHooks) {
-							oldBody.destroy();
+							// Clean up the old stream resource if it's a stream and different from new body
+							// (edge case: if old and new are same stream object, don't destroy it)
+							if (is.nodeStream(oldBody) && oldBody !== bodyAfterHooks) {
+								oldBody.destroy();
+							}
+
+							// Restore new body for promise wrapper's identity check
+							if (is.nodeStream(bodyAfterHooks) && (bodyAfterHooks.readableEnded || bodyAfterHooks.destroyed)) {
+								throw new TypeError('The reassigned stream body must be readable. Ensure you provide a fresh, readable stream in the beforeRetry hook.');
+							}
+
+							this.options.body = bodyAfterHooks;
+						} else {
+							// Body wasn't reassigned - use normal destroy flow which handles body cleanup
+							this.destroy();
+							// Note: We do NOT restore the body reference here. The stream was destroyed by _destroy()
+							// and should not be accessed. The promise wrapper will see that body identity hasn't changed
+							// and will detect it's a consumed stream, which is the correct behavior.
 						}
-
-						// Restore new body for promise wrapper's identity check
-						if (is.nodeStream(bodyAfterHooks) && (bodyAfterHooks.readableEnded || bodyAfterHooks.destroyed)) {
-							throw new TypeError('The reassigned stream body must be readable. Ensure you provide a fresh, readable stream in the beforeRetry hook.');
-						}
-
-						this.options.body = bodyAfterHooks;
-					} else {
-						// Body wasn't reassigned - use normal destroy flow which handles body cleanup
-						this.destroy();
-						// Note: We do NOT restore the body reference here. The stream was destroyed by _destroy()
-						// and should not be accessed. The promise wrapper will see that body identity hasn't changed
-						// and will detect it's a consumed stream, which is the correct behavior.
+					} catch (error_: unknown) {
+						const normalizedError = normalizeError(error_);
+						void this._error(new RequestError(normalizedError.message, normalizedError, this));
+						return;
 					}
 
 					// Publish retry event
@@ -657,15 +648,14 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			while ((data = response.read()) !== null) {
 				this._downloadedSize += data.length; // eslint-disable-line @typescript-eslint/restrict-plus-operands
 
-				if (this._incrementalBodyDecoder) {
+				if (this._incrementalDecode) {
 					try {
-						const decodedChunk = isBuffer(data) ? this._incrementalBodyDecoder.decode(data, {stream: true}) : String(data);
+						const decodedChunk = typeof data === 'string' ? data : this._incrementalDecode.decoder.decode(data, {stream: true});
 						if (decodedChunk.length > 0) {
-							this._incrementalDecodedBodyChunks.push(decodedChunk);
+							this._incrementalDecode.chunks.push(decodedChunk);
 						}
 					} catch {
-						this._incrementalBodyDecoder = undefined;
-						this._incrementalDecodedBodyChunks = [];
+						this._incrementalDecode = undefined;
 					}
 				}
 
@@ -736,9 +726,9 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		this.flush = async () => {};
 
 		// Prevent further retries
-		this._stopRetry();
-		this._cancelTimeouts();
-		this._removeListeners();
+		this._stopRetry?.();
+		this._cancelTimeouts?.();
+		this._abortListenerDisposer?.[Symbol.dispose]();
 
 		if (this.options) {
 			const {body} = this.options;
@@ -908,14 +898,12 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		const {options} = this;
 		const {url} = options;
 
-		this._nativeResponse = response;
-
+		const nativeResponse = response as IncomingMessageWithTimings & {fromCache?: boolean};
 		const statusCode = response.statusCode!;
 		const {method} = options;
 		const redirectLocationHeader = response.headers.location;
 		const redirectLocation = Array.isArray(redirectLocationHeader) ? redirectLocationHeader[0] : redirectLocationHeader;
 		const isRedirect = Boolean(redirectLocation && redirectCodes.has(statusCode));
-		const nativeResponse = this._nativeResponse as IncomingMessageWithTimings & {fromCache?: boolean};
 
 		// Skip decompression for responses that must not have bodies per RFC 9110:
 		// - HEAD responses (any status code)
@@ -962,7 +950,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			// the native response's data events before decompression
 			if (options.strictContentLength) {
 				this._compressedBytesCount = 0;
-				this._nativeResponse.on('data', (chunk: Uint8Array) => {
+				nativeResponse.on('data', (chunk: Uint8Array) => {
 					this._compressedBytesCount! += byteLength(chunk);
 				});
 			}
@@ -971,14 +959,11 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			typedResponse = prepareResponse(response as PlainResponse);
 		}
 
-		this._isFromCache = typedResponse.isFromCache;
-
 		this._responseSize = Number(response.headers['content-length']) || undefined;
 
 		this.response = typedResponse;
 		// eslint-disable-next-line @typescript-eslint/naming-convention
-		this._incrementalBodyDecoder = this._shouldIncrementallyDecodeBody() ? new globalThis.TextDecoder('utf8', {ignoreBOM: true}) : undefined;
-		this._incrementalDecodedBodyChunks = [];
+		this._incrementalDecode = this._shouldIncrementallyDecodeBody() ? {decoder: new globalThis.TextDecoder('utf8', {ignoreBOM: true}), chunks: []} : undefined;
 
 		// Publish response start event
 		publishResponseStart({
@@ -1045,8 +1030,8 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			// we would have to sacrifice the TCP connection. We don't want that.
 			response.resume();
 
-			this._cancelTimeouts();
-			this._unproxyEvents();
+			this._cancelTimeouts?.();
+			this._unproxyEvents?.();
 
 			if (this.redirectUrls.length >= options.maxRedirects) {
 				this._beforeError(new MaxRedirectsError(this));
@@ -1068,7 +1053,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 				const currentUnixSocketPath = getUnixSocketPath(url as URL);
 				const redirectUnixSocketPath = getUnixSocketPath(redirectUrl);
 
-				if (isUnixSocketURL(redirectUrl) && redirectUnixSocketPath === undefined) {
+				if (redirectUrl.protocol === 'unix:' && redirectUnixSocketPath === undefined) {
 					this._beforeError(new RequestError('Cannot redirect to UNIX socket', {}, this));
 					return;
 				}
@@ -1095,46 +1080,73 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 				if (shouldDropBody) {
 					updatedOptions.method = 'GET';
-
-					updatedOptions.body = undefined;
-					updatedOptions.json = undefined;
-					updatedOptions.form = undefined;
-
-					for (const header of bodyHeaderNames) {
-						updatedOptions.deleteInternalHeader(header);
-					}
-
-					// Only clear `_bodySize` when the redirect drops the request body.
-					this._bodySize = undefined;
+					this._dropBody(updatedOptions);
 				}
 
 				if (isDifferentOrigin) {
-					for (const header of crossOriginStripHeaders) {
-						updatedOptions.deleteInternalHeader(header);
-					}
-
-					if (updatedOptions.username || updatedOptions.password) {
-						updatedOptions.username = '';
-						updatedOptions.password = '';
-					}
+					// Also strip body on cross-origin redirects to prevent data leakage.
+					// 301/302 POST already drops the body (converted to GET above).
+					// 307/308 preserve the method per RFC, but the body must not be
+					// forwarded to a different origin.
+					// Strip credentials embedded in the redirect URL itself
+					// to prevent a malicious server from injecting auth to third parties.
+					this._stripCrossOriginState(updatedOptions, redirectUrl, shouldDropBody);
 				} else {
 					redirectUrl.username = updatedOptions.username;
 					redirectUrl.password = updatedOptions.password;
 				}
 
-				this.redirectUrls.push(redirectUrl);
 				updatedOptions.url = redirectUrl;
 
-				for (const hook of updatedOptions.hooks.beforeRedirect) {
-					// eslint-disable-next-line no-await-in-loop
-					await hook(updatedOptions as NormalizedOptions, typedResponse);
+				this.redirectUrls.push(redirectUrl);
+
+				const preHookState = isDifferentOrigin
+					? undefined
+					: {
+						...snapshotCrossOriginState(updatedOptions),
+						url: new URL(updatedOptions.url),
+					};
+
+				const changedState = await updatedOptions.trackStateMutations(async changedState => {
+					for (const hook of updatedOptions.hooks.beforeRedirect) {
+						// eslint-disable-next-line no-await-in-loop
+						await hook(updatedOptions as NormalizedOptions, typedResponse);
+					}
+
+					return changedState;
+				});
+
+				// If a beforeRedirect hook changed the URL to a different origin,
+				// strip sensitive headers that were preserved for the original origin.
+				// When isDifferentOrigin was already true, headers were already stripped above.
+				if (!isDifferentOrigin) {
+					const state = preHookState!;
+					const hookUrl = updatedOptions.url;
+					if (!isSameOrigin(state.url, hookUrl)) {
+						this._stripUnchangedCrossOriginState(updatedOptions, hookUrl, shouldDropBody, {
+							headers: state.headers,
+							username: state.username,
+							password: state.password,
+							body: state.body,
+							json: state.json,
+							form: state.form,
+							bodySnapshot: state.bodySnapshot,
+							jsonSnapshot: state.jsonSnapshot,
+							formSnapshot: state.formSnapshot,
+							changedState,
+							preserveUsername: hasExplicitCredentialInUrlChange(changedState, hookUrl, 'username')
+								|| isCrossOriginCredentialChanged(state.url, hookUrl, 'username'),
+							preservePassword: hasExplicitCredentialInUrlChange(changedState, hookUrl, 'password')
+								|| isCrossOriginCredentialChanged(state.url, hookUrl, 'password'),
+						});
+					}
 				}
 
 				// Publish redirect event
 				publishRedirect({
 					requestId: this._requestId,
 					fromUrl: url!.toString(),
-					toUrl: redirectUrl.toString(),
+					toUrl: (updatedOptions.url).toString(),
 					statusCode,
 				});
 
@@ -1160,13 +1172,16 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			return;
 		}
 
+		// `decompressResponse` wraps the response stream when it decompresses,
+		// so `response !== nativeResponse` indicates decompression happened.
+		const wasDecompressed = response !== nativeResponse;
+
 		// Store the expected content-length from the native response for validation.
 		// This is the content-length before decompression, which is what actually gets transferred.
 		// Skip storing for responses that shouldn't have bodies per RFC 9110.
 		// When decompression occurs, only store if strictContentLength is enabled.
-		const wasDecompressed = response !== this._nativeResponse;
 		if (!hasNoBody && (!wasDecompressed || options.strictContentLength)) {
-			const contentLengthHeader = this._nativeResponse.headers['content-length'];
+			const contentLengthHeader = nativeResponse.headers['content-length'];
 			if (contentLengthHeader !== undefined) {
 				const expectedLength = Number(contentLengthHeader);
 				if (!Number.isNaN(expectedLength) && expectedLength >= 0) {
@@ -1248,11 +1263,6 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 				continue;
 			}
 
-			// Check if decompression actually occurred by comparing stream objects.
-			// decompressResponse wraps the response stream when it decompresses,
-			// so response !== this._nativeResponse indicates decompression happened.
-			const wasDecompressed = response !== this._nativeResponse;
-
 			for (const key in response.headers) {
 				if (Object.hasOwn(response.headers, key)) {
 					const value = response.headers[key];
@@ -1280,16 +1290,13 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			const fromArray = await from.toArray();
 			const hasNonStringChunk = fromArray.some(chunk => typeof chunk !== 'string');
 			const rawBody = hasNonStringChunk
-				? concatUint8Arrays((fromArray as Array<string | Uint8Array>).map(chunk => typeof chunk === 'string' ? textEncoder.encode(chunk) : chunk))
-				: textEncoder.encode((fromArray as string[]).join(''));
-			const shouldUseIncrementalDecodedBody = from === this && this._incrementalBodyDecoder !== undefined;
+				? concatUint8Arrays((fromArray as Array<string | Uint8Array>).map(chunk => typeof chunk === 'string' ? stringToUint8Array(chunk) : chunk))
+				: stringToUint8Array((fromArray as string[]).join(''));
+			const shouldUseIncrementalDecodedBody = from === this && this._incrementalDecode !== undefined;
 
 			// On retry Request is destroyed with no error, therefore the above will successfully resolve.
 			// So in order to check if this was really successful, we need to check if it has been properly ended.
-			if (
-				!this.isAborted
-				&& this.response
-			) {
+			if (!this.isAborted && this.response) {
 				this.response.rawBody = rawBody;
 				if (from !== this) {
 					this._downloadedSize = rawBody.byteLength;
@@ -1297,25 +1304,21 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 				if (shouldUseIncrementalDecodedBody) {
 					try {
-						const decoder = this._incrementalBodyDecoder!;
+						const {decoder, chunks} = this._incrementalDecode!;
 						const finalDecodedChunk = decoder.decode();
 						if (finalDecodedChunk.length > 0) {
-							this._incrementalDecodedBodyChunks.push(finalDecodedChunk);
+							chunks.push(finalDecodedChunk);
 						}
 
-						cacheDecodedBody(this.response, this._incrementalDecodedBodyChunks.join(''));
+						cacheDecodedBody(this.response, chunks.join(''));
 					} catch {}
 				}
 
-				this._incrementalBodyDecoder = undefined;
-				this._incrementalDecodedBodyChunks = [];
-
 				return true;
 			}
-		} catch {}
-
-		this._incrementalBodyDecoder = undefined;
-		this._incrementalDecodedBodyChunks = [];
+		} catch {} finally {
+			this._incrementalDecode = undefined;
+		}
 
 		return false;
 	}
@@ -1362,11 +1365,9 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		let lastRequestError: Error | undefined;
 		const responseEventName = options.cache ? 'cacheableResponse' : 'response';
 
-		const responseHandler = (response: IncomingMessageWithTimings) => {
+		request.once(responseEventName, (response: IncomingMessageWithTimings) => {
 			void this._onResponse(response);
-		};
-
-		request.once(responseEventName, responseHandler);
+		});
 
 		const emitRequestError = (error: Error): void => {
 			this._aborted = true;
@@ -1408,7 +1409,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 		if (!options.cache) {
 			request.once('close', () => {
-				if (this._request !== request || this._requestHasResponse(request) || this._stopReading) {
+				if (this._request !== request || Boolean((request as ClientRequest & {res?: unknown}).res) || this._stopReading) {
 					return;
 				}
 
@@ -1430,24 +1431,32 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		this.emit('request', request);
 	}
 
-	private _requestHasResponse(request: ClientRequest): boolean {
-		return Boolean((request as ClientRequest & {res?: unknown}).res);
-	}
-
 	private _isRequestStale(request: ClientRequest): boolean {
-		return this._request !== request || this._requestHasResponse(request) || request.destroyed || request.writableEnded;
+		return this._request !== request || Boolean((request as ClientRequest & {res?: unknown}).res) || request.destroyed || request.writableEnded;
 	}
 
-	private async _asyncWrite(chunk: any): Promise<void> {
+	private async _asyncWrite(chunk: any, request: Request | ClientRequest = this): Promise<void> {
 		return new Promise((resolve, reject) => {
-			super.write(chunk, error => {
+			if (request === this) {
+				super.write(chunk, error => {
+					if (error) {
+						reject(error);
+						return;
+					}
+
+					resolve();
+				});
+				return;
+			}
+
+			this._writeRequest(chunk, undefined, error => {
 				if (error) {
 					reject(error);
 					return;
 				}
 
 				resolve();
-			});
+			}, request as ClientRequest);
 		});
 	}
 
@@ -1469,13 +1478,34 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			this._writeBodyInChunks(uint8View, currentRequest);
 		} else if (is.asyncIterable(body) || (is.iterable(body) && !is.string(body) && !isBuffer(body))) {
 			(async () => {
+				const isInitialRequest = currentRequest === this;
+
 				try {
 					for await (const chunk of body) {
-						await this._asyncWrite(chunk);
+						if (this.options.body !== body) {
+							return;
+						}
+
+						await this._asyncWrite(chunk, currentRequest);
+
+						if (this.options.body !== body) {
+							return;
+						}
 					}
 
-					super.end();
+					if (this.options.body === body) {
+						if (isInitialRequest) {
+							super.end();
+							return;
+						}
+
+						await this._endWritableRequest(currentRequest as ClientRequest);
+					}
 				} catch (error: unknown) {
+					if (this.options.body !== body) {
+						return;
+					}
+
 					this._beforeError(normalizeError(error));
 				}
 			})();
@@ -1488,7 +1518,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			}
 		} else {
 			// Handles string bodies (from json/form options).
-			this._writeBodyInChunks(Buffer.from(body as string), currentRequest);
+			this._writeBodyInChunks(stringToUint8Array(body as string), currentRequest);
 		}
 	}
 
@@ -1533,20 +1563,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 					return;
 				}
 
-				await new Promise<void>((resolve, reject) => {
-					activeRequest.end((error?: Error | null) => { // eslint-disable-line @typescript-eslint/no-restricted-types
-						if (error) {
-							reject(error);
-							return;
-						}
-
-						if (this._request === activeRequest && !activeRequest.destroyed) {
-							this._emitUploadComplete(activeRequest);
-						}
-
-						resolve();
-					});
-				});
+				await this._endWritableRequest(activeRequest);
 			} catch (error: unknown) {
 				const normalizedError = normalizeError(error);
 
@@ -1604,6 +1621,129 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		request.emit('upload-complete');
 	}
 
+	private async _endWritableRequest(request: ClientRequest): Promise<void> {
+		await new Promise<void>((resolve, reject) => {
+			request.end((error?: Error | null) => { // eslint-disable-line @typescript-eslint/no-restricted-types
+				if (error) {
+					reject(error);
+					return;
+				}
+
+				if (this._request === request && !request.destroyed) {
+					this._emitUploadComplete(request);
+				}
+
+				resolve();
+			});
+		});
+	}
+
+	private _stripCrossOriginState(options: Options, urlToClear: URL, bodyAlreadyDropped: boolean) {
+		for (const header of crossOriginStripHeaders) {
+			options.deleteInternalHeader(header);
+		}
+
+		options.username = '';
+		options.password = '';
+
+		urlToClear.username = '';
+		urlToClear.password = '';
+
+		if (!bodyAlreadyDropped) {
+			this._dropBody(options);
+		}
+	}
+
+	private _stripUnchangedCrossOriginState(options: Options, urlToClear: URL, bodyAlreadyDropped: boolean, state: {
+		headers: Record<string, string | string[] | undefined>;
+		username: string;
+		password: string;
+		body: unknown;
+		json: unknown;
+		form: unknown;
+		bodySnapshot: unknown;
+		jsonSnapshot: unknown;
+		formSnapshot: unknown;
+		changedState: Set<string>;
+		preserveUsername: boolean;
+		preservePassword: boolean;
+	}) {
+		const headers = options.getInternalHeaders();
+
+		for (const header of crossOriginStripHeaders) {
+			if (!state.changedState.has(header) && headers[header] === state.headers[header]) {
+				options.deleteInternalHeader(header);
+			}
+		}
+
+		if (!state.preserveUsername) {
+			options.username = '';
+			urlToClear.username = '';
+		}
+
+		if (!state.preservePassword) {
+			options.password = '';
+			urlToClear.password = '';
+		}
+
+		if (
+			!bodyAlreadyDropped
+			&& !state.changedState.has('body')
+			&& !state.changedState.has('json')
+			&& !state.changedState.has('form')
+			&& isBodyUnchanged(options, state)
+		) {
+			this._dropBody(options);
+		}
+	}
+
+	private _dropBody(updatedOptions: Options) {
+		const {body} = this.options;
+		const hadOptionBody = !is.undefined(body) || !is.undefined(this.options.json) || !is.undefined(this.options.form);
+
+		this.options.clearBody();
+
+		if (is.nodeStream(body)) {
+			body.off('error', this._onBodyError);
+			body.unpipe();
+			body.on('error', noop);
+			body.destroy();
+		} else if (is.asyncIterable(body) || (is.iterable(body) && !is.string(body) && !isBuffer(body))) {
+			const iterableBody = body as Iterator<unknown> | AsyncIterator<unknown>;
+
+			// Signal the iterator to clean up, but don't await it:
+			// the for-await loop in _sendBody exits via the options.body sentinel,
+			// and awaiting return() would deadlock when next() is pending.
+			if (typeof iterableBody.return === 'function') {
+				try {
+					const result = iterableBody.return();
+					if (result instanceof Promise) {
+						result.catch(noop); // eslint-disable-line promise/prefer-await-to-then
+					}
+				} catch {}
+			}
+		} else if (!hadOptionBody && !this.writableEnded) {
+			this._skipRequestEndInFinal = true;
+			super.end();
+		}
+
+		updatedOptions.clearBody();
+
+		this._bodySize = undefined;
+	}
+
+	private readonly _onBodyError = (error: Error): void => {
+		if (this._flushed) {
+			this._beforeError(new UploadError(error, this));
+		} else {
+			this.flush = async () => {
+				this.flush = async () => {};
+
+				this._beforeError(new UploadError(error, this));
+			};
+		}
+	};
+
 	private async _writeChunksToRequest(buffer: Uint8Array, request: ClientRequest): Promise<void> {
 		const chunkSize = 65_536; // 64 KB
 		const isStale = () => this._isRequestStale(request);
@@ -1616,22 +1756,16 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			// eslint-disable-next-line no-await-in-loop
 			await new Promise<void>((resolve, reject) => {
 				this._writeRequest(part, undefined, error => {
-					if (error) {
-						if (isStale()) {
-							resolve();
-							return;
-						}
-
-						reject(error);
-						return;
-					}
-
 					if (isStale()) {
 						resolve();
 						return;
 					}
 
-					setImmediate(resolve);
+					if (error) {
+						reject(error);
+					} else {
+						setImmediate(resolve);
+					}
 				}, request);
 			});
 		}
@@ -1836,14 +1970,13 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		}
 
 		if (username || password) {
-			const credentials = Buffer.from(`${username}:${password}`).toString('base64');
+			const credentials = stringToBase64(`${username}:${password}`);
 			options.setInternalHeader('authorization', `Basic ${credentials}`);
 		}
 
 		// Set cookies
 		if (cookieJar) {
-			let cookieString = '';
-			cookieString = await cookieJar.getCookieString(options.url!.toString());
+			const cookieString = await cookieJar.getCookieString(options.url!.toString());
 
 			if (is.nonEmptyString(cookieString)) {
 				options.setInternalHeader('cookie', cookieString);
@@ -1922,11 +2055,9 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 	private async _error(error: RequestError): Promise<void> {
 		try {
-			if (this.options && error instanceof HTTPError && !this.options.throwHttpErrors) {
-				// This branch can be reached only when using the Promise API
-				// Skip calling the hooks on purpose.
-				// See https://github.com/sindresorhus/got/issues/2103
-			} else if (this.options) {
+			// Skip calling hooks for HTTP errors when throwHttpErrors is false (Promise API only).
+			// See https://github.com/sindresorhus/got/issues/2103
+			if (this.options && (!(error instanceof HTTPError) || this.options.throwHttpErrors)) {
 				const hooks = this.options.hooks.beforeError;
 				if (hooks.length > 0) {
 					for (const hook of hooks) {
@@ -2023,40 +2154,14 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	Progress event for downloading (receiving a response).
 	*/
 	get downloadProgress(): Progress {
-		let percent;
-		if (this._responseSize) {
-			percent = this._downloadedSize / this._responseSize;
-		} else if (this._responseSize === this._downloadedSize) {
-			percent = 1;
-		} else {
-			percent = 0;
-		}
-
-		return {
-			percent,
-			transferred: this._downloadedSize,
-			total: this._responseSize,
-		};
+		return makeProgress(this._downloadedSize, this._responseSize);
 	}
 
 	/**
 	Progress event for uploading (sending a request).
 	*/
 	get uploadProgress(): Progress {
-		let percent;
-		if (this._bodySize) {
-			percent = this._uploadedSize / this._bodySize;
-		} else if (this._bodySize === this._uploadedSize) {
-			percent = 1;
-		} else {
-			percent = 0;
-		}
-
-		return {
-			percent,
-			transferred: this._uploadedSize,
-			total: this._bodySize,
-		};
+		return makeProgress(this._uploadedSize, this._bodySize);
 	}
 
 	/**
@@ -2094,7 +2199,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	Whether the response was retrieved from the cache.
 	*/
 	get isFromCache(): boolean | undefined {
-		return this._isFromCache;
+		return this.response?.isFromCache;
 	}
 
 	get reusedSocket(): boolean | undefined {

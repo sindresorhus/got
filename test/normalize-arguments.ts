@@ -167,6 +167,64 @@ test('searchParams - multiple values for one key', t => {
 	);
 });
 
+test('__proto__ in options does not cause prototype pollution', t => {
+	const malicious = JSON.parse('{"method": "POST", "__proto__": {"injected": true}}');
+	const options = new Options('https://example.com', malicious);
+
+	t.is(Object.getPrototypeOf(options), Options.prototype);
+	t.is(options.method, 'POST');
+	t.is(typeof options.getInternalHeaders, 'function');
+	t.is(({} as any).injected, undefined);
+});
+
+test('__proto__ in merge() does not cause prototype pollution', t => {
+	const options = new Options('https://example.com');
+	const malicious = JSON.parse('{"__proto__": {"injected": true}}');
+	options.merge(malicious);
+
+	t.is(Object.getPrototypeOf(options), Options.prototype);
+	t.is(options.method, 'GET');
+	t.is(typeof options.getInternalHeaders, 'function');
+	t.is(({} as any).injected, undefined);
+});
+
+test('__proto__ in nested option objects does not cause prototype pollution', t => {
+	const options = new Options('https://example.com');
+
+	options.merge(JSON.parse('{"retry": {"__proto__": {"evil": true}}}'));
+	t.is((options.retry as any).evil, undefined);
+
+	options.merge(JSON.parse('{"timeout": {"__proto__": {"evil": true}}}'));
+	t.is((options.timeout as any).evil, undefined);
+
+	options.merge(JSON.parse('{"agent": {"__proto__": {"evil": true}}}'));
+	t.is((options.agent as any).evil, undefined);
+
+	options.merge(JSON.parse('{"https": {"__proto__": {"evil": true}}}'));
+	t.is((options.https as any).evil, undefined);
+
+	options.merge(JSON.parse('{"cacheOptions": {"__proto__": {"evil": true}}}'));
+	t.is((options.cacheOptions as any).evil, undefined);
+
+	options.merge(JSON.parse('{"context": {"__proto__": {"evil": true}}}'));
+	t.is((options.context as any).evil, undefined);
+
+	options.merge(JSON.parse('{"headers": {"__proto__": "leaked"}}'));
+	t.false(Object.hasOwn(options.headers, '__proto__'));
+
+	t.is(({} as any).evil, undefined);
+});
+
+test('__proto__ in searchParams does not cause prototype pollution', t => {
+	const malicious = JSON.parse('{"searchParams": {"__proto__": {"evil": true}, "valid": "ok"}}');
+	const options = new Options('https://example.com', malicious);
+
+	t.is(({} as any).evil, undefined);
+	const searchParameters = options.searchParams as URLSearchParams;
+	t.is(searchParameters.get('valid'), 'ok');
+	t.is(searchParameters.get('__proto__'), null);
+});
+
 if (globalThis.AbortSignal !== undefined) {
 	test('signal does not get frozen', t => {
 		const controller = new AbortController();

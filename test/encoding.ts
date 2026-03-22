@@ -17,3 +17,18 @@ test('encoding works with json', withServer, async (t, server, got) => {
 
 	t.deepEqual(response.body, json);
 });
+
+test('encoding works with text', withServer, async (t, server, got) => {
+	const text = 'café';
+
+	server.get('/', (_request, response) => {
+		response.send(Buffer.from(text, 'latin1'));
+	});
+
+	const response = await got('', {
+		encoding: 'latin1',
+		responseType: 'text',
+	});
+
+	t.is(response.body, text);
+});

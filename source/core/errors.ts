@@ -114,9 +114,7 @@ export class CacheError extends RequestError {
 
 	constructor(error: Error, request: Request) {
 		super(error.message, error, request);
-		if (this.code === 'ERR_GOT_REQUEST_ERROR') {
-			this.code = 'ERR_CACHE_ACCESS';
-		}
+		this.code = 'ERR_CACHE_ACCESS';
 	}
 }
 
@@ -129,9 +127,7 @@ export class UploadError extends RequestError {
 
 	constructor(error: Error, request: Request) {
 		super(error.message, error, request);
-		if (this.code === 'ERR_GOT_REQUEST_ERROR') {
-			this.code = 'ERR_UPLOAD';
-		}
+		this.code = 'ERR_UPLOAD';
 	}
 }
 
@@ -157,14 +153,16 @@ An error to be thrown when reading from response stream fails.
 */
 export class ReadError extends RequestError {
 	override name = 'ReadError';
+	override code = 'ERR_READING_RESPONSE_STREAM';
 	declare readonly request: Request;
 	declare readonly response: Response;
 	declare readonly timings: Timings;
 
 	constructor(error: Error, request: Request) {
 		super(error.message, error, request);
-		if (this.code === 'ERR_GOT_REQUEST_ERROR') {
-			this.code = 'ERR_READING_RESPONSE_STREAM';
+
+		if (error.code === 'ECONNRESET' || error.code === 'ERR_HTTP_CONTENT_LENGTH_MISMATCH') {
+			this.code = error.code;
 		}
 	}
 }

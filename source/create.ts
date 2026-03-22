@@ -15,7 +15,12 @@ import type {
 } from './types.js';
 import Request from './core/index.js';
 import type {Response} from './core/response.js';
-import Options, {type OptionsInit} from './core/options.js';
+import Options, {
+	applyUrlOverride,
+	isSameOrigin,
+	snapshotCrossOriginState,
+	type OptionsInit,
+} from './core/options.js';
 import type {RequestPromise} from './as-promise/types.js';
 
 const isGotInstance = (value: Got | ExtendOptions): value is Got => is.function(value);
@@ -37,6 +42,19 @@ const assertNoUrlInOptionsObject = (options: Record<string, unknown>): void => {
 	}
 };
 
+const cloneWithProperty = <Value extends Record<string, unknown>>(value: Value, property: string, propertyValue: unknown): Value => {
+	const clone = Object.create(Object.getPrototypeOf(value), Object.getOwnPropertyDescriptors(value)) as Value;
+
+	Object.defineProperty(clone, property, {
+		value: propertyValue,
+		enumerable: true,
+		configurable: true,
+		writable: true,
+	});
+
+	return clone;
+};
+
 const create = (defaults: InstanceDefaults): Got => {
 	defaults = {
 		options: new Options(undefined, undefined, defaults.options),
@@ -51,9 +69,6 @@ const create = (defaults: InstanceDefaults): Got => {
 	});
 
 	const makeRequest = (url: string | URL | OptionsInit | undefined, options: OptionsInit | undefined, defaultOptions: Options, isStream: boolean): GotReturn => {
-		let requestInput = url;
-		let requestOptions = options;
-
 		if (is.plainObject(url)) {
 			assertNoUrlInOptionsObject(url);
 		}
@@ -62,36 +77,14 @@ const create = (defaults: InstanceDefaults): Got => {
 			assertNoUrlInOptionsObject(options);
 		}
 
-		if (isStream) {
-			const createStreamOptions = (value: OptionsInit): OptionsInit => {
-				const clone = Object.create(Object.getPrototypeOf(value), Object.getOwnPropertyDescriptors(value)) as OptionsInit;
-				Object.defineProperty(clone, 'isStream', {
-					value: true,
-					enumerable: true,
-					configurable: true,
-					writable: true,
-				});
+		// `isStream` is skipped by `merge()`, so set it via the direct setter after construction.
+		// Avoid a synthetic second merge only for the single-options-object stream form.
+		const requestUrl = isStream && is.plainObject(url) ? cloneWithProperty(url, 'isStream', true) : url;
+		const requestOptions = isStream && !is.plainObject(url) && options ? cloneWithProperty(options, 'isStream', true) : options;
 
-				return clone;
-			};
+		const request = new Request(requestUrl, requestOptions, defaultOptions);
 
-			if (is.plainObject(url)) {
-				requestInput = createStreamOptions(url);
-
-				if (options) {
-					requestOptions = createStreamOptions(options);
-				}
-			} else {
-				requestOptions = createStreamOptions(options ?? {});
-			}
-		}
-
-		const request = new Request(requestInput, requestOptions, defaultOptions);
-
-		if (
-			isStream
-			&& request.options
-		) {
+		if (isStream && request.options) {
 			request.options.isStream = true;
 		}
 
@@ -239,11 +232,18 @@ const create = (defaults: InstanceDefaults): Got => {
 				}
 			}
 
-			const optionsToMerge = pagination.paginate({
-				response,
-				currentItems,
-				allItems,
-			});
+			const requestOptions = response.request.options;
+			const previousUrl = requestOptions.url ? new URL(requestOptions.url) : undefined;
+			const previousState = previousUrl ? snapshotCrossOriginState(requestOptions) : undefined;
+			// eslint-disable-next-line no-await-in-loop
+			const [optionsToMerge, changedState] = await requestOptions.trackStateMutations(async changedState => [
+				pagination.paginate!({
+					response,
+					currentItems,
+					allItems,
+				}),
+				changedState,
+			] as const);
 
 			if (optionsToMerge === false) {
 				return;
@@ -251,11 +251,27 @@ const create = (defaults: InstanceDefaults): Got => {
 
 			if (optionsToMerge === response.request.options) {
 				normalizedOptions = response.request.options;
+
+				if (previousUrl) {
+					const nextUrl = normalizedOptions.url as URL | undefined;
+					if (nextUrl && !isSameOrigin(previousUrl, nextUrl)) {
+						normalizedOptions.prefixUrl = '';
+						normalizedOptions.stripUnchangedCrossOriginState(previousState!, changedState);
+					}
+				}
 			} else {
+				const hasExplicitBody = (Object.hasOwn(optionsToMerge, 'body') && optionsToMerge.body !== undefined)
+					|| (Object.hasOwn(optionsToMerge, 'json') && optionsToMerge.json !== undefined)
+					|| (Object.hasOwn(optionsToMerge, 'form') && optionsToMerge.form !== undefined);
+
+				if (hasExplicitBody) {
+					normalizedOptions.clearBody();
+				}
+
 				normalizedOptions.merge(optionsToMerge);
 
 				try {
-					assert.any([is.urlInstance, is.undefined], optionsToMerge.url);
+					assert.any([is.string, is.urlInstance, is.undefined], optionsToMerge.url);
 				} catch (error) {
 					if (error instanceof Error) {
 						error.message = `Option 'pagination.paginate.url': ${error.message}`;
@@ -265,8 +281,15 @@ const create = (defaults: InstanceDefaults): Got => {
 				}
 
 				if (optionsToMerge.url !== undefined) {
-					normalizedOptions.prefixUrl = '';
-					normalizedOptions.url = optionsToMerge.url;
+					const nextUrl = applyUrlOverride(normalizedOptions, optionsToMerge.url, optionsToMerge);
+
+					if (previousUrl) {
+						normalizedOptions.stripSensitiveHeaders(previousUrl, nextUrl, optionsToMerge);
+
+						if (!isSameOrigin(previousUrl, nextUrl) && !hasExplicitBody) {
+							normalizedOptions.clearBody();
+						}
+					}
 				}
 			}
 

@@ -1,23 +1,19 @@
 import type {EventEmitter} from 'node:events';
 
-type AnyFunction = (...arguments_: unknown[]) => void;
-type Functions = Record<string, AnyFunction>;
-
 export default function proxyEvents(from: EventEmitter, to: EventEmitter, events: readonly string[]): () => void {
-	const eventFunctions: Functions = {};
+	const eventFunctions = new Map<string, (...arguments_: unknown[]) => void>();
 
 	for (const event of events) {
 		const eventFunction = (...arguments_: unknown[]) => {
 			to.emit(event, ...arguments_);
 		};
 
-		eventFunctions[event] = eventFunction;
-
+		eventFunctions.set(event, eventFunction);
 		from.on(event, eventFunction);
 	}
 
 	return () => {
-		for (const [event, eventFunction] of Object.entries(eventFunctions)) {
+		for (const [event, eventFunction] of eventFunctions) {
 			from.off(event, eventFunction);
 		}
 	};

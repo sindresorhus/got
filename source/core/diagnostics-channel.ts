@@ -104,44 +104,36 @@ export function generateRequestId(): RequestId {
 	return randomUUID();
 }
 
-export function publishRequestCreate(message: DiagnosticRequestCreate): void {
-	if (channels.requestCreate.hasSubscribers) {
-		channels.requestCreate.publish(message);
+const publishToChannel = (channel: diagnosticsChannel.Channel, message: unknown): void => {
+	if (channel.hasSubscribers) {
+		channel.publish(message);
 	}
+};
+
+export function publishRequestCreate(message: DiagnosticRequestCreate): void {
+	publishToChannel(channels.requestCreate, message);
 }
 
 export function publishRequestStart(message: DiagnosticRequestStart): void {
-	if (channels.requestStart.hasSubscribers) {
-		channels.requestStart.publish(message);
-	}
+	publishToChannel(channels.requestStart, message);
 }
 
 export function publishResponseStart(message: DiagnosticResponseStart): void {
-	if (channels.responseStart.hasSubscribers) {
-		channels.responseStart.publish(message);
-	}
+	publishToChannel(channels.responseStart, message);
 }
 
 export function publishResponseEnd(message: DiagnosticResponseEnd): void {
-	if (channels.responseEnd.hasSubscribers) {
-		channels.responseEnd.publish(message);
-	}
+	publishToChannel(channels.responseEnd, message);
 }
 
 export function publishRetry(message: DiagnosticRequestRetry): void {
-	if (channels.retry.hasSubscribers) {
-		channels.retry.publish(message);
-	}
+	publishToChannel(channels.retry, message);
 }
 
 export function publishError(message: DiagnosticRequestError): void {
-	if (channels.error.hasSubscribers) {
-		channels.error.publish(message);
-	}
+	publishToChannel(channels.error, message);
 }
 
 export function publishRedirect(message: DiagnosticResponseRedirect): void {
-	if (channels.redirect.hasSubscribers) {
-		channels.redirect.publish(message);
-	}
+	publishToChannel(channels.redirect, message);
 }

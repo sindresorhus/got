@@ -1,6 +1,8 @@
+import {Buffer} from 'node:buffer';
 import test from 'ava';
 import type {Handler} from 'express';
 import getStream from 'get-stream';
+import Responselike from 'responselike';
 import got, {Options, RequestError, type StrictOptions} from '../source/index.js';
 import withServer, {withBodyParsingServer} from './helpers/with-server.js';
 import invalidUrl from './helpers/invalid-url.js';
@@ -193,6 +195,23 @@ test('WHATWG URL support', withServer, async (t, server) => {
 	await t.notThrowsAsync(got(url));
 });
 
+test('ordinary http://unix host does not require UNIX socket opt-in', async t => {
+	const {body} = await got('http://unix/', {
+		hooks: {
+			beforeRequest: [
+				() => new Responselike({
+					statusCode: 200,
+					body: Buffer.from('ok'),
+					headers: {},
+					url: 'http://unix/',
+				}),
+			],
+		},
+	});
+
+	t.is(body, 'ok');
+});
+
 test('`got.stream()` exposes internal `isStream` in init hook context', withServer, async (t, server, got) => {
 	server.get('/stream', (_request, response) => {
 		response.end('ok');
@@ -209,6 +228,54 @@ test('`got.stream()` exposes internal `isStream` in init hook context', withServ
 	});
 
 	t.is(await getStream(streamWithInput), 'ok');
+});
+
+test('`got.stream()` with a single options object calls init hooks once', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.end('ok');
+	});
+
+	let count = 0;
+
+	const stream = got.stream({
+		hooks: {
+			init: [
+				() => {
+					count++;
+				},
+			],
+		},
+	});
+
+	t.is(await getStream(stream), 'ok');
+	t.is(count, 1);
+});
+
+test('`got.stream()` preserves non-enumerable options on a single options object', withServer, async (t, server, got) => {
+	server.get('/', (request, response) => {
+		response.end(request.headers.token);
+	});
+
+	const options = {
+		hooks: {
+			beforeRequest: [
+				(options: any) => {
+					options.headers.token = String(options.context.token);
+				},
+			],
+		},
+	};
+
+	Object.defineProperty(options, 'context', {
+		value: {token: 'secret'},
+		enumerable: false,
+		configurable: true,
+		writable: true,
+	});
+
+	const stream = got.stream(options);
+
+	t.is(await getStream(stream), 'secret');
 });
 
 test('`isStream` option is ignored on promise API', withServer, async (t, server, got) => {
@@ -511,6 +578,13 @@ test('throws on leading slashes', async t => {
 	await t.throwsAsync(got('/asdf', {prefixUrl: 'https://example.com'}), {
 		instanceOf: RequestError,
 		message: '`url` must not start with a slash',
+	});
+});
+
+test('throws on scheme-like urls without protocol slashes', async t => {
+	await t.throwsAsync(got('https:google.com'), {
+		instanceOf: RequestError,
+		message: '`url` protocol must be followed by `//`',
 	});
 });
 

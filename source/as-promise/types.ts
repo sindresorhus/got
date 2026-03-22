@@ -15,7 +15,7 @@ interface RequestPromiseShape<T extends Response | Response['body'] = Response['
 
 	It is semantically the same as setting `options.resolveBodyOnly` to `true` and `options.responseType` to `'buffer'`.
 	*/
-	buffer: () => RequestPromise<Uint8Array>;
+	buffer: () => RequestPromise<Uint8Array<ArrayBuffer>>;
 
 	/**
 	A shortcut method that gives a Promise returning a string.

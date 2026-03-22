@@ -51,7 +51,7 @@ export default function timedOut(request: ClientRequest, delays: Delays, options
 	request[reentry] = true;
 	const cancelers: Array<typeof noop> = [];
 	const {once, unhandleAll} = unhandler();
-	const handled: Map<string, boolean> = new Map<string, boolean>();
+	const handled = new Set<string>();
 
 	const addTimeout = (delay: number, callback: (delay: number, event: string) => void, event: string): (typeof noop) => {
 		const timeout = setTimeout(callback, delay, delay, event) as unknown as NodeJS.Timeout;
@@ -59,7 +59,7 @@ export default function timedOut(request: ClientRequest, delays: Delays, options
 		timeout.unref?.();
 
 		const cancel = (): void => {
-			handled.set(event, true);
+			handled.add(event);
 			clearTimeout(timeout);
 		};
 

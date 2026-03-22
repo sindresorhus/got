@@ -157,7 +157,7 @@ export type OptionsOfUnknownResponseBodyWrapped = Merge<StrictOptions, {resolveB
 // Helper type to determine the default response body type based on extended options
 type DefaultResponseBodyType<U extends ExtendOptions> =
 	U['responseType'] extends 'json' ? unknown :
-		U['responseType'] extends 'buffer' ? Uint8Array :
+		U['responseType'] extends 'buffer' ? Uint8Array<ArrayBuffer> :
 			string;
 
 type GotResponseResult<U extends ExtendOptions, BodyType> = U['resolveBodyOnly'] extends true
@@ -173,15 +173,15 @@ export type GotRequestFunction<U extends ExtendOptions = Record<string, unknown>
 
 	(url: string | URL, options?: OptionsOfTextResponseBody): GotResponseResult<U, string>;
 	<T>(url: string | URL, options?: OptionsOfJSONResponseBody): GotResponseResult<U, T>;
-	(url: string | URL, options?: OptionsOfBufferResponseBody): GotResponseResult<U, Uint8Array>;
+	(url: string | URL, options?: OptionsOfBufferResponseBody): GotResponseResult<U, Uint8Array<ArrayBuffer>>;
 
 	(url: string | URL, options?: OptionsOfTextResponseBodyWrapped): RequestPromise<Response<string>>;
 	<T>(url: string | URL, options?: OptionsOfJSONResponseBodyWrapped): RequestPromise<Response<T>>;
-	(url: string | URL, options?: OptionsOfBufferResponseBodyWrapped): RequestPromise<Response<Uint8Array>>;
+	(url: string | URL, options?: OptionsOfBufferResponseBodyWrapped): RequestPromise<Response<Uint8Array<ArrayBuffer>>>;
 
 	(url: string | URL, options?: OptionsOfTextResponseBodyOnly): RequestPromise<string>;
 	<T>(url: string | URL, options?: OptionsOfJSONResponseBodyOnly): RequestPromise<T>;
-	(url: string | URL, options?: OptionsOfBufferResponseBodyOnly): RequestPromise<Uint8Array>;
+	(url: string | URL, options?: OptionsOfBufferResponseBodyOnly): RequestPromise<Uint8Array<ArrayBuffer>>;
 
 	(options: OptionsOfUnknownResponseBody): GotResponseResult<U, DefaultResponseBodyType<U>>;
 	(options: OptionsOfUnknownResponseBodyWrapped): RequestPromise<Response<DefaultResponseBodyType<U>>>;
@@ -189,15 +189,15 @@ export type GotRequestFunction<U extends ExtendOptions = Record<string, unknown>
 
 	(options: OptionsOfTextResponseBody): GotResponseResult<U, string>;
 	<T>(options: OptionsOfJSONResponseBody): GotResponseResult<U, T>;
-	(options: OptionsOfBufferResponseBody): GotResponseResult<U, Uint8Array>;
+	(options: OptionsOfBufferResponseBody): GotResponseResult<U, Uint8Array<ArrayBuffer>>;
 
 	(options: OptionsOfTextResponseBodyWrapped): RequestPromise<Response<string>>;
 	<T>(options: OptionsOfJSONResponseBodyWrapped): RequestPromise<Response<T>>;
-	(options: OptionsOfBufferResponseBodyWrapped): RequestPromise<Response<Uint8Array>>;
+	(options: OptionsOfBufferResponseBodyWrapped): RequestPromise<Response<Uint8Array<ArrayBuffer>>>;
 
 	(options: OptionsOfTextResponseBodyOnly): RequestPromise<string>;
 	<T>(options: OptionsOfJSONResponseBodyOnly): RequestPromise<T>;
-	(options: OptionsOfBufferResponseBodyOnly): RequestPromise<Uint8Array>;
+	(options: OptionsOfBufferResponseBodyOnly): RequestPromise<Uint8Array<ArrayBuffer>>;
 
 	// Fallback
 	(url: string | URL, options?: OptionsInitWithoutUrl): RequestPromise | Request;

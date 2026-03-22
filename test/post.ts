@@ -444,6 +444,29 @@ test('formdata retry', withServer, async (t, server, got) => {
 	});
 });
 
+test('upload error preserves `UploadError` code when underlying error has a code', async t => {
+	const body = new stream.PassThrough();
+	const error = new Error('oh no') as NodeJS.ErrnoException;
+	error.code = 'EPIPE';
+
+	await t.throwsAsync(getStream(got.stream.post('https://example.com', {
+		body,
+		hooks: {
+			beforeRequest: [
+				() => {
+					process.nextTick(() => {
+						body.destroy(error);
+					});
+				},
+			],
+		},
+	})), {
+		instanceOf: UploadError,
+		message: 'oh no',
+		code: 'ERR_UPLOAD',
+	});
+});
+
 test('body - sends async iterable', withServer, async (t, server, got) => {
 	server.post('/', defaultEndpoint);
 

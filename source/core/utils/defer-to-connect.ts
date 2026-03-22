@@ -12,34 +12,22 @@ function isTlsSocket(socket: Socket | TLSSocket): socket is TLSSocket {
 }
 
 const deferToConnect = (socket: TLSSocket | Socket, fn: Listeners | (() => void)): void => {
-	let listeners: Listeners;
-	if (typeof fn === 'function') {
-		const connect = fn;
-		listeners = {connect};
-	} else {
-		listeners = fn;
-	}
-
-	const hasConnectListener = typeof listeners.connect === 'function';
-	const hasSecureConnectListener = typeof listeners.secureConnect === 'function';
-	const hasCloseListener = typeof listeners.close === 'function';
+	const listeners = typeof fn === 'function' ? {connect: fn} : fn;
 
 	const onConnect = () => {
-		if (hasConnectListener) {
-			listeners.connect!();
-		}
+		listeners.connect?.();
 
-		if (isTlsSocket(socket) && hasSecureConnectListener) {
+		if (isTlsSocket(socket) && listeners.secureConnect) {
 			if (socket.authorized) {
-				listeners.secureConnect!();
+				listeners.secureConnect();
 			} else {
 				// Wait for secureConnect event (even if authorization fails, we need the timing)
-				socket.once('secureConnect', listeners.secureConnect!);
+				socket.once('secureConnect', listeners.secureConnect);
 			}
 		}
 
-		if (hasCloseListener) {
-			socket.once('close', listeners.close!);
+		if (listeners.close) {
+			socket.once('close', listeners.close);
 		}
 	};
 
@@ -47,9 +35,9 @@ const deferToConnect = (socket: TLSSocket | Socket, fn: Listeners | (() => void)
 		onConnect();
 	} else if (socket.connecting) {
 		socket.once('connect', onConnect);
-	} else if (socket.destroyed && hasCloseListener) {
+	} else if (socket.destroyed && listeners.close) {
 		const hadError = '_hadError' in socket ? Boolean((socket as any)._hadError) : false;
-		listeners.close!(hadError);
+		listeners.close(hadError);
 	}
 };
 

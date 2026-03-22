@@ -42,6 +42,15 @@ test('Uint8Array response', withServer, async (t, server, got) => {
 	t.false(Buffer.isBuffer(body));
 });
 
+test('rawBody is compatible with web APIs', withServer, async (t, server, got) => {
+	server.get('/', defaultHandler);
+
+	const {rawBody} = await got({responseType: 'text'});
+	t.true(rawBody.buffer instanceof ArrayBuffer);
+	t.is(await new Blob([rawBody]).text(), jsonResponse);
+	t.is(await new Response(rawBody).text(), jsonResponse);
+});
+
 test('Text response', withServer, async (t, server, got) => {
 	server.get('/', defaultHandler);
 
@@ -60,6 +69,14 @@ test('Text response preserves UTF-8 BOM', withServer, async (t, server, got) => 
 	});
 
 	t.is((await got({responseType: 'text'})).body, '\uFEFFhello');
+});
+
+test('Text response shortcut strips UTF-8 BOM', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.end(Buffer.from([0xEF, 0xBB, 0xBF, ...Buffer.from('hello')]));
+	});
+
+	t.is(await got('').text(), 'hello');
 });
 
 test('JSON response - promise.json()', withServer, async (t, server, got) => {
