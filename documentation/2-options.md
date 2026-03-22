@@ -508,7 +508,7 @@ When piping a request into a Got stream (e.g., `request.pipe(got.stream(url))`),
 
 **Note:** Explicitly set headers take precedence over piped headers. Piped headers are only copied when a header is not already explicitly set.
 
-Useful for proxy scenarios when explicitly enabled, but you may still want to filter out headers like `Host`, `Connection`, `Authorization`, etc.
+Useful for proxy scenarios when explicitly enabled. Got automatically omits `host`, hop-by-hop headers, and headers nominated by `Connection`, but you may still want to filter out app-specific sensitive headers like `Authorization`, `Cookie`, etc.
 
 **Example: Opt in to automatic header copying for proxy scenarios**
 

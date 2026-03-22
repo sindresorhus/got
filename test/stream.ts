@@ -1,7 +1,7 @@
 import process from 'node:process';
 import {Buffer} from 'node:buffer';
 import fs from 'node:fs';
-import {Agent as HttpAgent, type ClientRequest} from 'node:http';
+import {Agent as HttpAgent, request as httpRequest, type ClientRequest} from 'node:http';
 import stream, {Readable as ReadableStream, Writable} from 'node:stream';
 import {pipeline as streamPipeline} from 'node:stream/promises';
 import {Readable as Readable2} from 'readable-stream';
@@ -284,6 +284,137 @@ test('piping server request to Got proxies headers when copyPipedHeaders is true
 		},
 	}).json();
 	t.is(foo, 'bar');
+});
+
+test('copyPipedHeaders does not forward hop-by-hop or connection-listed headers', withServer, async (t, server, got) => {
+	await withServer.exec(t, async (t, upstreamServer) => {
+		upstreamServer.get('/', headersHandler);
+		upstreamServer.post('/', headersHandler);
+
+		server.post('/proxy', async (request, response) => {
+			await streamPipeline(
+				request,
+				got.stream(`http://localhost:${upstreamServer.port}/`, {copyPipedHeaders: true}),
+				response,
+			);
+		});
+
+		const proxiedResponse = await new Promise<{statusCode: number | undefined; body: string}>((resolve, reject) => {
+			const request = httpRequest(`${server.url}/proxy`, {
+				method: 'POST',
+				headers: {
+					connection: 'keep-alive, x-internal-auth',
+					'proxy-connection': 'keep-alive, x-proxy-internal-auth',
+					'x-internal-auth': '1',
+					'x-proxy-internal-auth': '1',
+					'proxy-authorization': 'Basic cHJveHk6c2VjcmV0',
+					foo: 'bar',
+					'content-type': 'text/plain',
+				},
+			}, response => {
+				const chunks: Uint8Array[] = [];
+
+				response.on('data', chunk => {
+					chunks.push(Buffer.from(chunk));
+				});
+
+				response.on('end', () => {
+					resolve({
+						statusCode: response.statusCode,
+						body: Buffer.concat(chunks).toString(),
+					});
+				});
+			});
+
+			request.on('error', reject);
+			request.end('hello');
+		});
+
+		t.is(proxiedResponse.statusCode, 200);
+
+		const headers = JSON.parse(proxiedResponse.body) as Record<string, string | undefined>;
+		t.is(headers.foo, 'bar');
+		t.is(headers['x-internal-auth'], undefined);
+		t.is(headers['x-proxy-internal-auth'], undefined);
+		t.is(headers['proxy-authorization'], undefined);
+		t.false(headers.connection?.includes('x-internal-auth') ?? false);
+		t.false(headers['proxy-connection']?.includes('x-proxy-internal-auth') ?? false);
+	});
+});
+
+test('copyPipedHeaders does not forward host', withServer, async (t, server, got) => {
+	await withServer.exec(t, async (t, upstreamServer) => {
+		upstreamServer.get('/', (request, response) => {
+			response.end(String(request.headers.host));
+		});
+
+		server.get('/proxy', async (request, response) => {
+			await streamPipeline(
+				request,
+				got.stream(`http://localhost:${upstreamServer.port}/`, {
+					copyPipedHeaders: true,
+					throwHttpErrors: false,
+				}),
+				response,
+			);
+		});
+
+		const proxiedResponse = await new Promise<{statusCode: number | undefined; body: string}>((resolve, reject) => {
+			const request = httpRequest(`${server.url}/proxy`, {
+				method: 'GET',
+				headers: {
+					host: 'admin.internal',
+				},
+			}, response => {
+				const chunks: Uint8Array[] = [];
+
+				response.on('data', chunk => {
+					chunks.push(Buffer.from(chunk));
+				});
+
+				response.on('end', () => {
+					resolve({
+						statusCode: response.statusCode,
+						body: Buffer.concat(chunks).toString(),
+					});
+				});
+			});
+
+			request.on('error', reject);
+			request.end();
+		});
+
+		t.is(proxiedResponse.statusCode, 200);
+		t.is(proxiedResponse.body, `localhost:${upstreamServer.port}`);
+	});
+});
+
+test('copyPipedHeaders does not forward headers nominated by mixed-case connection headers', withServer, async (t, server, got) => {
+	server.post('/', async (request, response) => {
+		request.resume();
+		await pEvent(request, 'end');
+		response.end(JSON.stringify(request.headers));
+	});
+
+	const connectionHeader = 'Connection';
+	const proxyConnectionHeader = 'Proxy-Connection';
+	const internalHeader = 'X-Internal-Auth';
+	const proxyInternalHeader = 'X-Proxy-Internal-Auth';
+	const fooHeader = 'Foo';
+	const source = ReadableStream.from(['hello']) as ReadableStream & {headers: Record<string, string>};
+	source.headers = {};
+	source.headers[connectionHeader] = 'keep-alive, X-Internal-Auth';
+	source.headers[proxyConnectionHeader] = 'keep-alive, X-Proxy-Internal-Auth';
+	source.headers[internalHeader] = '1';
+	source.headers[proxyInternalHeader] = '1';
+	source.headers[fooHeader] = 'bar';
+
+	const responseBody = await getStream(source.pipe(got.stream.post('', {copyPipedHeaders: true})));
+	const headers = JSON.parse(responseBody) as Record<string, string | undefined>;
+
+	t.is(headers.foo, 'bar');
+	t.is(headers['x-internal-auth'], undefined);
+	t.is(headers['x-proxy-internal-auth'], undefined);
 });
 
 test('piping server request to Got does not proxy headers when copyPipedHeaders is false', withServer, async (t, server, got) => {

@@ -170,6 +170,18 @@ const redirectCodes: ReadonlySet<number> = new Set([301, 302, 303, 307, 308]);
 const crossOriginStripHeaders = ['host', 'cookie', 'cookie2', 'authorization', 'proxy-authorization'] as const;
 const bodyHeaderNames = ['content-length', 'content-encoding', 'content-language', 'content-location', 'content-type'] as const;
 const transientWriteErrorCodes: ReadonlySet<string> = new Set(['EPIPE', 'ECONNRESET']);
+const omittedPipedHeaders = new Set([
+	'host',
+	'connection',
+	'keep-alive',
+	'proxy-authenticate',
+	'proxy-authorization',
+	'proxy-connection',
+	'te',
+	'trailer',
+	'transfer-encoding',
+	'upgrade',
+]);
 
 // Track errors that have been processed by beforeError hooks to preserve custom error types
 const errorsProcessedByHooks = new WeakSet<Error>();
@@ -187,6 +199,36 @@ const noop = (): void => {};
 const isTransientWriteError = (error: Error): boolean => {
 	const {code} = error;
 	return typeof code === 'string' && transientWriteErrorCodes.has(code);
+};
+
+const getConnectionListedHeaders = (headers: Record<string, string | string[] | undefined>): Set<string> => {
+	const connectionListedHeaders = new Set<string>();
+
+	for (const [header, connectionHeader] of Object.entries(headers)) {
+		const normalizedHeader = header.toLowerCase();
+
+		if (normalizedHeader !== 'connection' && normalizedHeader !== 'proxy-connection') {
+			continue;
+		}
+
+		const connectionHeaderValues = Array.isArray(connectionHeader) ? connectionHeader : [connectionHeader];
+
+		for (const value of connectionHeaderValues) {
+			if (typeof value !== 'string') {
+				continue;
+			}
+
+			for (const token of value.split(',')) {
+				const normalizedToken = token.trim().toLowerCase();
+
+				if (normalizedToken.length > 0) {
+					connectionListedHeaders.add(normalizedToken);
+				}
+			}
+		}
+	}
+
+	return connectionListedHeaders;
 };
 
 const normalizeError = (error: unknown): Error => {
@@ -274,8 +316,14 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 		this.on('pipe', (source: NodeJS.ReadableStream & {headers?: Record<string, string | string[] | undefined>}) => {
 			if (this.options.copyPipedHeaders && source?.headers) {
+				const connectionListedHeaders = getConnectionListedHeaders(source.headers);
+
 				for (const [header, value] of Object.entries(source.headers)) {
 					const normalizedHeader = header.toLowerCase();
+
+					if (omittedPipedHeaders.has(normalizedHeader) || connectionListedHeaders.has(normalizedHeader)) {
+						continue;
+					}
 
 					if (!this.options.shouldCopyPipedHeader(normalizedHeader)) {
 						continue;
