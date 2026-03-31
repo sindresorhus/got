@@ -668,6 +668,28 @@ test('clears the authorization header when redirecting to a different hostname',
 	});
 });
 
+test('clears the proxy-authorization header when redirecting to a different hostname', withServer, async (t, server1, got) => {
+	await withServer.exec(t, async (t, server2) => {
+		server1.get('/', (_request, response) => {
+			response.writeHead(302, {
+				location: `http://localhost:${server2.port}/`,
+			});
+			response.end();
+		});
+
+		server2.get('/', (request, response) => {
+			response.end(JSON.stringify({headers: request.headers}));
+		});
+
+		const {headers} = await got('', {
+			headers: {
+				'proxy-authorization': 'Basic cHJveHl1c2VyOnByb3h5cGFzcw==',
+			},
+		}).json<{headers: Record<string, string | undefined>}>();
+		t.is(headers['proxy-authorization'], undefined);
+	});
+});
+
 test('clears credentials and sensitive headers when redirecting to a different protocol on the same hostname', withHttpsServer(), async (t, serverHttps, got) => {
 	await withServer.exec(t, async (t, serverHttp) => {
 		serverHttps.get('/', (_request, response) => {

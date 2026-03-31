@@ -1050,6 +1050,10 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 							updatedOptions.deleteInternalHeader('authorization');
 						}
 
+						if ('proxy-authorization' in updatedHeaders) {
+							updatedOptions.deleteInternalHeader('proxy-authorization');
+						}
+
 						if (updatedOptions.username || updatedOptions.password) {
 							updatedOptions.username = '';
 							updatedOptions.password = '';
