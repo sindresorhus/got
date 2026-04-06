@@ -256,8 +256,8 @@ test('`isFromCache` stream property is false after the `response` event', withSe
 	const stream = got.stream({cache});
 
 	const response: Response = await pEvent(stream, 'response') as Response;
-	t.is(response.isFromCache, false);
-	t.is(stream.isFromCache, false);
+	t.false(response.isFromCache);
+	t.false(stream.isFromCache);
 
 	await getStream(stream);
 });
@@ -271,8 +271,8 @@ test('`isFromCache` stream property is true if the response was cached', withSer
 	const stream = got.stream({cache});
 
 	const response: Response = await pEvent(stream, 'response') as Response;
-	t.is(response.isFromCache, true);
-	t.is(stream.isFromCache, true);
+	t.true(response.isFromCache);
+	t.true(stream.isFromCache);
 
 	await getStream(stream);
 });
@@ -288,8 +288,8 @@ test('can disable cache by extending the instance', withServer, async (t, server
 	const stream = instance.extend({cache: false}).stream('');
 
 	const response: Response = await pEvent(stream, 'response') as Response;
-	t.is(response.isFromCache, false);
-	t.is(stream.isFromCache, false);
+	t.false(response.isFromCache);
+	t.false(stream.isFromCache);
 
 	await getStream(stream);
 });
@@ -451,7 +451,7 @@ test('http-cache-semantics typings', t => {
 		},
 	});
 
-	t.is(instance.defaults.options.cacheOptions.shared, false);
+	t.false(instance.defaults.options.cacheOptions.shared);
 });
 
 test('allows internal modifications', withServer, async (t, server, got) => {
@@ -553,8 +553,9 @@ test('revalidated uncompressed responses are retrieved from cache', withServer, 
 	t.deepEqual(firstResponse.body, [1]);
 	t.true(firstResponse.complete);
 
-	// eslint-disable-next-line no-promise-executor-return
-	await new Promise(resolve => setTimeout(resolve, 3000));
+	await new Promise<void>(resolve => {
+		setTimeout(resolve, 3000);
+	});
 
 	console.log('max-age has expired, performing second request');
 
@@ -596,8 +597,9 @@ test('revalidated compressed responses are retrieved from cache', withServer, as
 	t.deepEqual(firstResponse.body, [1]);
 	t.true(firstResponse.complete);
 
-	// eslint-disable-next-line no-promise-executor-return
-	await new Promise(resolve => setTimeout(resolve, 3000));
+	await new Promise<void>(resolve => {
+		setTimeout(resolve, 3000);
+	});
 
 	console.log('max-age has expired, performing second request (but it will actually hang)');
 
@@ -627,8 +629,9 @@ test.skip('revalidated uncompressed responses from github are retrieved from cac
 		t.true(response.complete);
 	}
 
-	// eslint-disable-next-line no-promise-executor-return
-	await new Promise(resolve => setTimeout(resolve, 65_000));
+	await new Promise<void>(resolve => {
+		setTimeout(resolve, 65_000);
+	});
 
 	console.log('max-age has expired, performing second request');
 
@@ -656,8 +659,9 @@ test.skip('revalidated compressed responses from github are retrieved from cache
 		t.true(response.complete);
 	}
 
-	// eslint-disable-next-line no-promise-executor-return
-	await new Promise(resolve => setTimeout(resolve, 65_000));
+	await new Promise<void>(resolve => {
+		setTimeout(resolve, 65_000);
+	});
 
 	console.log('max-age has expired, performing second request (but it will actually hang)');
 
@@ -676,7 +680,7 @@ test('QuickLRU works as cache adapter (auto-wrapped)', withServer, async (t, ser
 	try {
 		cacheConstructor = (await import('quick-lru')).default;
 	} catch {
-		t.pass('QuickLRU not available, skipping test');
+		// QuickLRU not available, skipping test
 		return;
 	}
 

@@ -87,7 +87,9 @@ test('download progress', withServer, async (t, server, got) => {
 	const events: Progress[] = [];
 
 	const {body} = await got({responseType: 'buffer'})
-		.on('downloadProgress', event => events.push(event));
+		.on('downloadProgress', event => {
+			events.push(event);
+		});
 
 	checkEvents(t, events, body.length);
 });
@@ -97,7 +99,9 @@ test('download progress - missing total size', withServer, async (t, server, got
 
 	const events: Progress[] = [];
 
-	await got('').on('downloadProgress', (event: Progress) => events.push(event));
+	await got('').on('downloadProgress', (event: Progress) => {
+		events.push(event);
+	});
 
 	t.is(events[0]?.total, undefined);
 	checkEvents(t, events);
@@ -109,7 +113,9 @@ test('download progress - stream', withServer, async (t, server, got) => {
 	const events: Progress[] = [];
 
 	const stream = got.stream({responseType: 'buffer'})
-		.on('downloadProgress', event => events.push(event));
+		.on('downloadProgress', event => {
+			events.push(event);
+		});
 
 	await getStream(stream);
 
@@ -121,7 +127,9 @@ test('upload progress - file', withServer, async (t, server, got) => {
 
 	const events: Progress[] = [];
 
-	await got.post({body: file}).on('uploadProgress', (event: Progress) => events.push(event));
+	await got.post({body: file}).on('uploadProgress', (event: Progress) => {
+		events.push(event);
+	});
 
 	checkEvents(t, events, file.length);
 });
@@ -142,7 +150,9 @@ test('upload progress - file stream', withServer, async (t, server, got) => {
 			'content-length': size.toString(),
 		},
 	})
-		.on('uploadProgress', (event: Progress) => events.push(event));
+		.on('uploadProgress', (event: Progress) => {
+			events.push(event);
+		});
 
 	checkEvents(t, events, file.length);
 });
@@ -156,7 +166,9 @@ test('upload progress - form data', withServer, async (t, server, got) => {
 	body.set('key', 'value');
 	body.set('file', new File([file], 'file'));
 
-	await got.post({body}).on('uploadProgress', (event: Progress) => events.push(event));
+	await got.post({body}).on('uploadProgress', (event: Progress) => {
+		events.push(event);
+	});
 
 	checkEvents(t, events);
 });
@@ -168,7 +180,9 @@ test('upload progress - json', withServer, async (t, server, got) => {
 	const size = Buffer.byteLength(body);
 	const events: Progress[] = [];
 
-	await got.post({body}).on('uploadProgress', (event: Progress) => events.push(event));
+	await got.post({body}).on('uploadProgress', (event: Progress) => {
+		events.push(event);
+	});
 
 	checkEvents(t, events, size);
 });
@@ -187,7 +201,9 @@ test('upload progress - measures bytes correctly for non-UTF-8 encoded strings',
 	const events: Progress[] = [];
 
 	// Upload as UTF-8 (default)
-	await got.post({body: text}).on('uploadProgress', (event: Progress) => events.push(event));
+	await got.post({body: text}).on('uploadProgress', (event: Progress) => {
+		events.push(event);
+	});
 
 	// Verify the progress measures UTF-8 bytes correctly
 	const finalEvent = events.at(-1)!;
@@ -236,7 +252,9 @@ test('upload progress - no body', withServer, async (t, server, got) => {
 
 	const events: Progress[] = [];
 
-	await got.post('').on('uploadProgress', (event: Progress) => events.push(event));
+	await got.post('').on('uploadProgress', (event: Progress) => {
+		events.push(event);
+	});
 
 	t.deepEqual(events, [
 		{
@@ -257,7 +275,9 @@ test('upload progress - no events when immediately removed listener', withServer
 
 	const events: Progress[] = [];
 
-	const listener = (event: Progress) => events.push(event);
+	const listener = (event: Progress) => {
+		events.push(event);
+	};
 
 	const promise = got.post('')
 		.on('uploadProgress', listener)
@@ -332,7 +352,9 @@ test('upload progress - chunk generator with buffer', withServer, async (t, serv
 			'content-length': file.length.toString(),
 		},
 	})
-		.on('uploadProgress', (event: Progress) => events.push(event));
+		.on('uploadProgress', (event: Progress) => {
+			events.push(event);
+		});
 
 	checkEvents(t, events, file.length);
 
@@ -351,7 +373,9 @@ test('upload progress - chunkFromAsync async generator with stream', withServer,
 			'content-length': file.length.toString(),
 		},
 	})
-		.on('uploadProgress', (event: Progress) => events.push(event));
+		.on('uploadProgress', (event: Progress) => {
+			events.push(event);
+		});
 
 	checkEvents(t, events, file.length);
 
@@ -368,7 +392,9 @@ test('upload progress - buffer body', withServer, async (t, server, got) => {
 	await got.post({
 		body,
 		headers: {'content-length': body.byteLength.toString()},
-	}).on('uploadProgress', (event: Progress) => events.push(event));
+	}).on('uploadProgress', (event: Progress) => {
+		events.push(event);
+	});
 
 	checkEvents(t, events, body.byteLength);
 
@@ -385,7 +411,9 @@ test('upload progress - typed array body', withServer, async (t, server, got) =>
 	await got.post({
 		body,
 		headers: {'content-length': body.byteLength.toString()},
-	}).on('uploadProgress', (event: Progress) => events.push(event));
+	}).on('uploadProgress', (event: Progress) => {
+		events.push(event);
+	});
 
 	checkEvents(t, events, body.byteLength);
 
@@ -400,7 +428,9 @@ test('upload progress - small json option', withServer, async (t, server, got) =
 	const payload = {key: 'value'};
 	const size = Buffer.byteLength(JSON.stringify(payload));
 
-	await got.post({json: payload}).on('uploadProgress', (event: Progress) => events.push(event));
+	await got.post({json: payload}).on('uploadProgress', (event: Progress) => {
+		events.push(event);
+	});
 
 	checkEvents(t, events, size);
 });
@@ -412,7 +442,9 @@ test('upload progress - json option', withServer, async (t, server, got) => {
 	const payload = {key: '.'.repeat(1e6)};
 	const size = Buffer.byteLength(JSON.stringify(payload));
 
-	await got.post({json: payload}).on('uploadProgress', (event: Progress) => events.push(event));
+	await got.post({json: payload}).on('uploadProgress', (event: Progress) => {
+		events.push(event);
+	});
 
 	checkEvents(t, events, size);
 
@@ -427,7 +459,9 @@ test('upload progress - form option', withServer, async (t, server, got) => {
 	const payload = {key: '.'.repeat(1e6)};
 	const size = Buffer.byteLength(new URLSearchParams(payload).toString());
 
-	await got.post({form: payload}).on('uploadProgress', (event: Progress) => events.push(event));
+	await got.post({form: payload}).on('uploadProgress', (event: Progress) => {
+		events.push(event);
+	});
 
 	checkEvents(t, events, size);
 

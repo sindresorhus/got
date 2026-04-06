@@ -83,11 +83,13 @@ test('retry function gets iteration count', withServer, async (t, server, got) =
 });
 
 test('setting to `0` disables retrying', async t => {
+	let capturedAttemptCount: number | undefined;
+
 	await t.throwsAsync(got('https://example.com', {
 		timeout: {socket: socketTimeout},
 		retry: {
 			calculateDelay({attemptCount}) {
-				t.is(attemptCount, 1);
+				capturedAttemptCount = attemptCount;
 				return 0;
 			},
 		},
@@ -96,6 +98,8 @@ test('setting to `0` disables retrying', async t => {
 		instanceOf: TimeoutError,
 		message: `Timeout awaiting 'socket' for ${socketTimeout}ms`,
 	});
+
+	t.is(capturedAttemptCount, 1);
 });
 
 test('custom retries', withServer, async (t, server, got) => {
@@ -164,6 +168,7 @@ test('custom retries async', withServer, async (t, server, got) => {
 
 test('custom error codes', async t => {
 	const errorCode = 'OH_SNAP';
+	let capturedErrorCode: string | undefined;
 
 	const error = await t.throwsAsync<Error & {code: typeof errorCode}>(got('https://example.com', {
 		request() {
@@ -183,7 +188,7 @@ test('custom error codes', async t => {
 		},
 		retry: {
 			calculateDelay({error}) {
-				t.is(error.code, errorCode);
+				capturedErrorCode = error.code;
 				return 0;
 			},
 			methods: [
@@ -195,6 +200,7 @@ test('custom error codes', async t => {
 		},
 	}));
 
+	t.is(capturedErrorCode, errorCode);
 	t.is(error?.code, errorCode);
 });
 
@@ -369,6 +375,8 @@ test('retry function can throw', withServer, async (t, server, got) => {
 test('does not retry on POST', withServer, async (t, server, got) => {
 	server.post('/', () => {});
 
+	let retried = false;
+
 	await t.throwsAsync(got.post({
 		timeout: {
 			request: 200,
@@ -376,11 +384,13 @@ test('does not retry on POST', withServer, async (t, server, got) => {
 		hooks: {
 			beforeRetry: [
 				() => {
-					t.fail('Retries on POST requests');
+					retried = true;
 				},
 			],
 		},
 	}), {instanceOf: TimeoutError});
+
+	t.false(retried, 'Retries on POST requests');
 });
 
 test('does not break on redirect', withServer, async (t, server, got) => {
@@ -399,7 +409,7 @@ test('does not break on redirect', withServer, async (t, server, got) => {
 		response.end();
 	});
 
-	await t.throwsAsync(got('redirect'), {message: /^Request failed with status code 500 \(Internal Server Error\): GET http:\/\/localhost:\d+\/$/});
+	await t.throwsAsync(got('redirect'), {message: /^Request failed with status code 500 \(Internal Server Error\): GET http:\/\/localhost:\d+\/$/v});
 	t.is(tries, 1);
 });
 

@@ -304,7 +304,7 @@ test('catches body errors before calling pipeline() - promise', withServer, asyn
 	await t.throwsAsync(got.post({
 		body: fs.createReadStream('./file-that-does-not-exist.txt'),
 	}), {
-		message: /ENOENT: no such file or directory/,
+		message: /ENOENT: no such file or directory/v,
 	});
 
 	// Wait for unhandled errors
@@ -317,7 +317,7 @@ test('catches body errors before calling pipeline() - stream', withServer, async
 	await t.throwsAsync(getStream(got.stream.post({
 		body: fs.createReadStream('./file-that-does-not-exist.txt'),
 	})), {
-		message: /ENOENT: no such file or directory/,
+		message: /ENOENT: no such file or directory/v,
 	});
 
 	// Wait for unhandled errors

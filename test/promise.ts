@@ -37,8 +37,10 @@ test('returns Uint8Array on compressed response', withServer, async (t, server, 
 	});
 
 	const {body} = await got({decompress: false});
+
+	t.true(ArrayBuffer.isView(body), 'Expected Uint8Array response body when `decompress` is false for compressed responses');
+
 	if (!ArrayBuffer.isView(body)) {
-		t.fail('Expected Uint8Array response body when `decompress` is false for compressed responses');
 		return;
 	}
 

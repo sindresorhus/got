@@ -460,6 +460,8 @@ test('allowGetBody sends correct json payload with .paginate()', withServer, asy
 
 		if (request.headers['content-length']) {
 			t.is(Number(request.headers['content-length'] || 0), Buffer.byteLength(payload));
+		} else {
+			t.pass();
 		}
 
 		response.end(JSON.stringify([page++]));

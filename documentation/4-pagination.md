@@ -11,7 +11,7 @@ The [RFC5988](https://datatracker.ietf.org/doc/html/rfc5988#section-5) defines h
 When the response has been processed, Got looks for [the reference of the `next` relation](https://datatracker.ietf.org/doc/html/rfc5988#section-6.2.2).\
 This way Got knows the URL it should visit afterwards. The header can look like this:
 
-```
+```text
 Link: <https://api.github.com/repositories/18193978/commits?page=2>; rel="next", <https://api.github.com/repositories/18193978/commits?page=44>; rel="last"
 ```
 

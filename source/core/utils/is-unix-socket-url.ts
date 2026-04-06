@@ -1,5 +1,5 @@
-// eslint-disable-next-line @typescript-eslint/naming-convention
-export default function isUnixSocketURL(url: URL) {
+
+export default function isUnixSocketUrl(url: URL) {
 	return url.protocol === 'unix:' || url.hostname === 'unix';
 }
 
@@ -19,9 +19,9 @@ getUnixSocketPath(new URL('http://example.com'));
 ```
 */
 export function getUnixSocketPath(url: URL): string | undefined {
-	if (!isUnixSocketURL(url)) {
+	if (!isUnixSocketUrl(url)) {
 		return undefined;
 	}
 
-	return /(?<socketPath>.+?):(?<path>.+)/.exec(`${url.pathname}${url.search}`)?.groups?.socketPath;
+	return /^(?<socketPath>[^:]+):/v.exec(`${url.pathname}${url.search}`)?.groups?.socketPath;
 }

@@ -160,17 +160,17 @@ test('merging instances with HTTPS options undefined', t => {
 });
 
 test('accepts options for promise API', t => {
-	got.extend({
-		hooks: {
-			beforeRequest: [
-				options => {
-					options.responseType = 'buffer';
-				},
-			],
-		},
+	t.notThrows(() => {
+		got.extend({
+			hooks: {
+				beforeRequest: [
+					options => {
+						options.responseType = 'buffer';
+					},
+				],
+			},
+		});
 	});
-
-	t.pass();
 });
 
 test('merging `prefixUrl`', t => {

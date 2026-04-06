@@ -251,6 +251,8 @@ test('followRedirect runs before redirect body decompression', withServer, async
 				sawRedirectResponse = true;
 				t.is(response.headers.location, '/target');
 				t.is(String(response.requestUrl), `${server.url}/redirect`);
+			} else {
+				t.pass();
 			}
 
 			return true;

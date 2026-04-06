@@ -134,20 +134,20 @@ export type Hooks = {
 
 	@default []
 
-	**Note:**
+	Note:
 	> - This hook must be synchronous.
 
-	**Note:**
+	Note:
 	> - This is called every time options are merged.
 
-	**Note:**
+	Note:
 	> - The `options` object may not have the `url` property. To modify it, use a `beforeRequest` hook instead.
 
-	**Note:**
+	Note:
 	> - This hook is called when a new instance of `Options` is created.
 	> - Do not confuse this with the creation of `Request` or `got(…)`.
 
-	**Note:**
+	Note:
 	> - When using `got(url)` or `got(url, undefined, defaults)` this hook will **not** be called.
 
 	This is especially useful in conjunction with `got.extend()` when the input needs custom handling.
@@ -227,10 +227,10 @@ export type Hooks = {
 
 	@default []
 
-	**Note:**
+	Note:
 	> - Got will make no further changes to the request before it is sent.
 
-	**Note:**
+	Note:
 	> - Changing `options.json` or `options.form` has no effect on the request. You should change `options.body` instead. If needed, update the `options.headers` accordingly.
 
 	@example
@@ -253,7 +253,7 @@ export type Hooks = {
 	);
 	```
 
-	**Example using `context.retryCount`:**
+	Example using `context.retryCount`:
 
 	```
 	import got from 'got';
@@ -275,7 +275,7 @@ export type Hooks = {
 	});
 	```
 
-	**Tip:**
+	Tip:
 	> - You can indirectly override the `request` function by early returning a [`ClientRequest`-like](https://nodejs.org/api/http.html#http_class_http_clientrequest) instance or a [`IncomingMessage`-like](https://nodejs.org/api/http.html#http_class_http_incomingmessage) instance. This is very useful when creating a custom cache mechanism.
 	> - [Read more about this tip](https://github.com/sindresorhus/got/blob/main/documentation/cache.md#advanced-caching-mechanisms).
 	*/
@@ -286,7 +286,7 @@ export type Hooks = {
 
 	@default []
 
-	**Tip:**
+	Tip:
 	> - This is especially useful when you want to avoid dead sites.
 
 	@example
@@ -373,13 +373,13 @@ export type Hooks = {
 
 	@default []
 
-	**Note:**
+	Note:
 	> - When using the Stream API, this hook is ignored.
 
-	**Note:**
+	Note:
 	> - When retrying, the `beforeRequest` hook is called afterwards.
 
-	**Note:**
+	Note:
 	> - If no retry occurs, the `beforeError` hook is called instead.
 
 	This hook is especially useful when you want to retrieve the cause of a retry.
@@ -409,31 +409,31 @@ export type Hooks = {
 
 	@default []
 
-	**Return value:**
+	Return value:
 	> - `false` - Prevent caching (remaining hooks are skipped)
 	> - `void`/`undefined` - Use default caching behavior (mutations take effect)
 
-	**Modifying the response:**
+	Modifying the response:
 	> - Hooks can directly mutate response properties like `headers`, `statusCode`, and `statusMessage`
 	> - Mutations to `response.headers` affect how the caching layer decides whether to cache the response and for how long
 	> - Changes are applied to what gets cached
 
-	**Note:**
+	Note:
 	> - This hook is only called when the `cache` option is enabled.
 
-	**Note:**
+	Note:
 	> - This hook must be synchronous. It cannot return a Promise. If you need async logic to determine caching behavior, use a `beforeRequest` hook instead.
 
-	**Note:**
+	Note:
 	> - When returning `false`, remaining hooks are skipped and the response will not be cached.
 
-	**Note:**
+	Note:
 	> - Returning anything other than `false` or `undefined` will throw a TypeError.
 
-	**Note:**
+	Note:
 	> - If a hook throws an error, it will be propagated and the request will fail. This is consistent with how other hooks in Got handle errors.
 
-	**Note:**
+	Note:
 	> - At this stage, the response body has not been read yet - it's still a stream. Properties like `response.body` and `response.rawBody` are not available. You can only inspect/modify response headers and status code.
 
 	@example
@@ -474,17 +474,17 @@ export type Hooks = {
 
 	@default []
 
-	**Note:**
+	Note:
 	> - When using the Stream API, this hook is ignored.
 
-	**Note:**
+	Note:
 	> - Calling the `retryWithMergedOptions` function will trigger `beforeRetry` hooks. By default, remaining `afterResponse` hooks are removed to prevent duplicate execution. To preserve remaining hooks on retry, set `preserveHooks: true` in the options passed to `retryWithMergedOptions`. In case of an error, `beforeRetry` hooks will be called instead.
 	Meanwhile the `init`, `beforeRequest` , `beforeRedirect` as well as already executed `afterResponse` hooks will be skipped.
 
-	**Note:**
+	Note:
 	> - To preserve remaining `afterResponse` hooks after calling `retryWithMergedOptions`, set `preserveHooks: true` in the options passed to `retryWithMergedOptions`. This is useful when you want hooks to run on retried requests.
 
-	**Warning:**
+	Warning:
 	> - Be cautious when using `preserveHooks: true`. If a hook unconditionally calls `retryWithMergedOptions` with `preserveHooks: true`, it will create an infinite retry loop. Always ensure hooks have proper conditional logic to avoid infinite retries.
 
 	@example
@@ -944,9 +944,9 @@ export const hasExplicitCredentialInUrlChange = (changedState: Set<string>, url:
 	|| (changedState.has('url') && url?.[credential] !== '')
 );
 
-const hasProtocolSlashes = (value: string): boolean => /^[a-z][a-z\d+.-]*:\/\//i.test(value);
+const hasProtocolSlashes = (value: string): boolean => /^[a-z][\d+\-.a-z]*:\/\//iv.test(value);
 
-const hasHttpProtocolWithoutSlashes = (value: string): boolean => /^https?:(?!\/\/)/i.test(value);
+const hasHttpProtocolWithoutSlashes = (value: string): boolean => /^https?:(?!\/\/)/iv.test(value);
 
 export function applyUrlOverride(options: Options, url: string | URL, {username, password}: {username?: string; password?: string} = {}): URL {
 	if (is.string(url) && options.url) {
@@ -1003,24 +1003,24 @@ All parsing methods supported by Got.
 export type ResponseType = 'json' | 'buffer' | 'text';
 
 type OptionsToSkip =
-	'searchParameters' |
-	'followRedirects' |
-	'auth' |
-	'toJSON' |
-	'merge' |
-	'isHeaderExplicitlySet' |
-	'shouldCopyPipedHeader' |
-	'setPipedHeader' |
-	'getInternalHeaders' |
-	'setInternalHeader' |
-	'deleteInternalHeader' |
-	'trackStateMutations' |
-	'clearBody' |
-	'stripUnchangedCrossOriginState' |
-	'stripSensitiveHeaders' |
-	'createNativeRequestOptions' |
-	'getRequestFunction' |
-	'freeze';
+	| 'searchParameters'
+	| 'followRedirects'
+	| 'auth'
+	| 'toJSON'
+	| 'merge'
+	| 'isHeaderExplicitlySet'
+	| 'shouldCopyPipedHeader'
+	| 'setPipedHeader'
+	| 'getInternalHeaders'
+	| 'setInternalHeader'
+	| 'deleteInternalHeader'
+	| 'trackStateMutations'
+	| 'clearBody'
+	| 'stripUnchangedCrossOriginState'
+	| 'stripSensitiveHeaders'
+	| 'createNativeRequestOptions'
+	| 'getRequestFunction'
+	| 'freeze';
 
 export type InternalsType = Except<Options, OptionsToSkip>;
 
@@ -1457,7 +1457,7 @@ export default class Options {
 		// would get merged. Instead we set the `searchParams` first, then
 		// `url.searchParams` is overwritten as expected.
 		//
-		/* eslint-disable no-unsafe-finally */
+		/* eslint-disable no-unsafe-finally -- `finally` is used intentionally here to ensure `url` is always set last, overwriting any merged searchParams */
 		try {
 			if (is.plainObject(input)) {
 				try {
@@ -1949,19 +1949,16 @@ export default class Options {
 			return;
 		}
 
-		let {setCookie, getCookieString} = value;
+		const {setCookie, getCookieString} = value;
 
 		assert.function(setCookie);
 		assert.function(getCookieString);
 
 		/* istanbul ignore next: Horrible `tough-cookie` v3 check */
 		if (setCookie.length === 4 && getCookieString.length === 0) {
-			setCookie = promisify(setCookie.bind(value));
-			getCookieString = promisify(getCookieString.bind(value));
-
 			this.#internals.cookieJar = {
-				setCookie,
-				getCookieString: getCookieString as PromiseCookieJar['getCookieString'],
+				setCookie: promisify((setCookie as ToughCookieJar['setCookie']).bind(value)) as PromiseCookieJar['setCookie'],
+				getCookieString: promisify((getCookieString as ToughCookieJar['getCookieString']).bind(value)) as PromiseCookieJar['getCookieString'],
 			};
 		} else {
 			this.#internals.cookieJar = value;
@@ -2966,11 +2963,11 @@ export default class Options {
 	}
 
 	/**
-	@internal
 	Returns a `Stream` instead of a `Promise`.
 	Set internally by `got.stream()`.
 
 	@default false
+	@internal
 	*/
 	get isStream(): boolean {
 		return this.#internals.isStream;
@@ -3149,7 +3146,7 @@ export default class Options {
 		let unixSocketGroups: {socketPath: string; path: string} | undefined;
 
 		if (unixSocketPath !== undefined) {
-			unixSocketGroups = /(?<socketPath>.+?):(?<path>.+)/.exec(`${url.pathname}${url.search}`)?.groups as typeof unixSocketGroups;
+			unixSocketGroups = /^(?<socketPath>[^:]+):(?<path>.+)$/v.exec(`${url.pathname}${url.search}`)?.groups as typeof unixSocketGroups;
 		}
 
 		const unixOptions = unixSocketGroups

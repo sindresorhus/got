@@ -422,7 +422,7 @@ test('status code 404 has response ok is false if error is not thrown', withServ
 	const promise = got('', {throwHttpErrors: false});
 	await t.notThrowsAsync(promise);
 	const {statusCode, body, ok} = await promise;
-	t.is(ok, false);
+	t.false(ok);
 	t.is(statusCode, 404);
 	t.is(body, '');
 });
@@ -435,6 +435,6 @@ test('status code 404 has error response ok is false if error is thrown', withSe
 
 	const error = (await t.throwsAsync<HTTPError>(got(''), {instanceOf: HTTPError}));
 	t.is(error.response.statusCode, 404);
-	t.is(error.response.ok, false);
+	t.false(error.response.ok);
 	t.is(error.response.body, 'not');
 });

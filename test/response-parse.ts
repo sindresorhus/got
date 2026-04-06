@@ -145,7 +145,7 @@ test('credentials are stripped from ParseError message URL', withServer, async (
 	const error = await t.throwsAsync<ParseError>(got(url, {responseType: 'json'}), {instanceOf: ParseError});
 	t.false(error?.message.includes('user'));
 	t.false(error?.message.includes('secret'));
-	t.regex(error?.message ?? '', /in "http:\/\/localhost:\d+\/"$/);
+	t.regex(error?.message ?? '', /in "http:\/\/localhost:\d+\/"$/v);
 });
 
 test('JSON response with UTF-8 BOM throws ParseError', withServer, async (t, server, got) => {
@@ -174,7 +174,7 @@ test('ignores errors on invalid non-200 responses', withServer, async (t, server
 
 	const error = await t.throwsAsync<HTTPError>(got({responseType: 'json', retry: {limit: 0}}), {
 		instanceOf: HTTPError,
-		message: /^Request failed with status code 500 \(Internal Server Error\): GET http:\/\/localhost:\d+\/$/,
+		message: /^Request failed with status code 500 \(Internal Server Error\): GET http:\/\/localhost:\d+\/$/v,
 	});
 
 	t.is(error?.response.body, 'Internal error');
@@ -241,7 +241,7 @@ test('shortcuts throw ParseErrors', withServer, async (t, server, got) => {
 
 	await t.throwsAsync(got('').json(), {
 		instanceOf: ParseError,
-		message: /^Unexpected token/,
+		message: /^Unexpected token/v,
 		code: 'ERR_BODY_PARSE_FAILURE',
 	});
 });

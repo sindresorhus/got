@@ -742,7 +742,7 @@ test('prefixUrl is properly replaced when extending', withServer, async (t, serv
 });
 
 test('throws on too large noise', t => {
-	/* eslint-disable no-new */
+	/* eslint-disable no-new -- Testing that the Options constructor throws; side-effect is the point */
 	t.throws(() => {
 		new Options({
 			retry: {

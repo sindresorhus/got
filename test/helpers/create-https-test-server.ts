@@ -1,3 +1,4 @@
+import type http from 'node:http';
 import https from 'node:https';
 import type net from 'node:net';
 import type {SecureContextOptions} from 'node:tls';
@@ -86,7 +87,7 @@ keyUsage = critical,keyCertSign,cRLSign
 			minVersion: options.minVersion,
 			maxVersion: options.maxVersion,
 		},
-		server,
+		server as unknown as http.RequestListener,
 	);
 
 	server.set('etag', false);

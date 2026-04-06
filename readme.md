@@ -254,13 +254,11 @@ By default, Got will retry on failure. To disable this option, set [`options.ret
 [s3]: https://www.npmjs.com/package/superagent
 
 <!-- COVERAGE -->
-[gc]: https://img.shields.io/coveralls/github/sindresorhus/got?color=0b9062&label
 [kc]: https://img.shields.io/codecov/c/github/sindresorhus/ky?color=0b9062&label
 [nc]: https://img.shields.io/coveralls/github/bitinn/node-fetch?color=0b9062&label
 [ac]: https://img.shields.io/coveralls/github/mzabriskie/axios?color=0b9062&label
 [sc]: https://img.shields.io/codecov/c/github/visionmedia/superagent?color=0b9062&label
 
-[g4]: https://coveralls.io/github/sindresorhus/got
 [k4]: https://codecov.io/gh/sindresorhus/ky
 [n4]: https://coveralls.io/github/bitinn/node-fetch
 [a4]: https://coveralls.io/github/mzabriskie/axios
@@ -342,7 +340,6 @@ By default, Got will retry on failure. To disable this option, set [`options.ret
 [k10]: https://github.com/sindresorhus/ky
 [n10]: https://github.com/node-fetch/node-fetch
 [a10]: https://github.com/axios/axios
-[s10]: https://github.com/visionmedia/superagent
 
 <!-- LAST COMMIT -->
 [glc]: https://img.shields.io/github/last-commit/sindresorhus/got?color=gray&label

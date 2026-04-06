@@ -159,17 +159,14 @@ test('has error event', withServer, async (t, server, got) => {
 	const stream = got.stream('');
 	await t.throwsAsync(pEvent(stream, 'response'), {
 		instanceOf: HTTPError,
-		message: /^Request failed with status code 404 \(Not Found\): GET http:\/\/localhost:\d+\/$/,
+		message: /^Request failed with status code 404 \(Not Found\): GET http:\/\/localhost:\d+\/$/v,
 	});
 });
 
 test('has error event #2', async t => {
 	const stream = got.stream('http://doesntexist');
-	try {
-		await pEvent(stream, 'response');
-	} catch (error: any) {
-		t.regex(error.code, /ENOTFOUND|EAI_AGAIN/);
-	}
+	const error = await t.throwsAsync<any>(pEvent(stream, 'response'));
+	t.regex(error!.code, /ENOTFOUND|EAI_AGAIN/v);
 });
 
 test('validation errors can be caught with synchronous error handler', withServer, async (t, _server, got) => {
@@ -191,7 +188,7 @@ test('validation errors can be caught with synchronous error handler', withServe
 	});
 
 	t.true(error instanceof Error);
-	t.regex(error.message, /Unexpected option: meaningless/);
+	t.regex(error.message, /Unexpected option: meaningless/v);
 });
 
 test('has response event if `options.throwHttpErrors` is false', withServer, async (t, server, got) => {
@@ -1024,7 +1021,7 @@ test('throws error when content-length does not match bytes transferred - stream
 		getStream(got.stream('', {strictContentLength: true})),
 		{
 			instanceOf: RequestError,
-			message: /Content-Length mismatch/,
+			message: /Content-Length mismatch/v,
 		},
 	);
 });
@@ -1042,7 +1039,7 @@ test('throws error when content-length does not match bytes transferred - promis
 		got('', {strictContentLength: true}),
 		{
 			instanceOf: RequestError,
-			message: /Content-Length mismatch/,
+			message: /Content-Length mismatch/v,
 		},
 	);
 });
@@ -1083,7 +1080,7 @@ test('throws content-length mismatch error by default', withServer, async (t, se
 		got('').text(),
 		{
 			instanceOf: RequestError,
-			message: /Content-Length mismatch/,
+			message: /Content-Length mismatch/v,
 		},
 	);
 });
@@ -1105,7 +1102,7 @@ test('validates content-length for gzip compressed responses', withServer, async
 		got('', {strictContentLength: true}).text(),
 		{
 			instanceOf: RequestError,
-			message: /Content-Length mismatch/,
+			message: /Content-Length mismatch/v,
 		},
 	);
 });

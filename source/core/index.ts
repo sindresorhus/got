@@ -1718,7 +1718,8 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 				try {
 					const result = iterableBody.return();
 					if (result instanceof Promise) {
-						result.catch(noop); // eslint-disable-line promise/prefer-await-to-then
+						// eslint-disable-next-line promise/prefer-await-to-then
+						result.catch(noop);
 					}
 				} catch {}
 			}
@@ -1910,32 +1911,34 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			let request: ClientRequest | Promise<ClientRequest>;
 
 			// TODO: Fix `cacheable-response`. This is ugly.
-			const cacheRequest = cacheableStore.get((options as any).cache)!(options as CacheableOptions, async (response: any) => {
-				response._readableState.autoDestroy = false;
+			const cacheRequest = cacheableStore.get((options as any).cache)!(options as CacheableOptions, (response: any) => {
+				void (async () => {
+					response._readableState.autoDestroy = false;
 
-				if (request) {
-					const fix = () => {
+					if (request) {
+						const fix = () => {
 						// For ResponseLike objects from cache, set complete to true if not already set.
 						// For real HTTP responses, copy from the underlying response.
-						if (response.req) {
-							response.complete = response.req.res.complete;
-						} else if (response.complete === undefined) {
+							if (response.req) {
+								response.complete = response.req.res.complete;
+							} else if (response.complete === undefined) {
 							// ResponseLike from cache should have complete = true
-							response.complete = true;
-						}
-					};
+								response.complete = true;
+							}
+						};
 
-					response.prependOnceListener('end', fix);
-					fix();
+						response.prependOnceListener('end', fix);
+						fix();
 
-					(await request).emit('cacheableResponse', response);
-				}
+						(await request).emit('cacheableResponse', response);
+					}
 
-				resolve(response);
+					resolve(response);
+				})();
 			});
 
 			cacheRequest.once('error', reject);
-			cacheRequest.once('request', async (requestOrPromise: ClientRequest | Promise<ClientRequest>) => {
+			cacheRequest.once('request', (requestOrPromise: ClientRequest | Promise<ClientRequest>) => {
 				request = requestOrPromise;
 				resolve(request);
 			});

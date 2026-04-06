@@ -42,8 +42,8 @@ const downloadHandler = (clock?: GlobalClock): Handler => (_request, response) =
 	});
 	response.flushHeaders();
 
-	setImmediate(async () => {
-		await streamPipeline(slowDataStream(clock), response);
+	setImmediate(() => {
+		void streamPipeline(slowDataStream(clock), response);
 	});
 };
 
@@ -140,6 +140,9 @@ test.serial('send timeout (keepalive)', withServerAndFakeTimers, async (t, serve
 
 	await got('prime', {agent: {http: keepAliveAgent}});
 
+	let socketConnecting: boolean | undefined;
+	let connectEventFired = false;
+
 	await t.throwsAsync(
 		got.post({
 			agent: {
@@ -152,10 +155,10 @@ test.serial('send timeout (keepalive)', withServerAndFakeTimers, async (t, serve
 			body: slowDataStream(clock),
 		}).on('request', (request: http.ClientRequest) => {
 			request.once('socket', socket => {
-				t.false(socket.connecting);
+				socketConnecting = socket.connecting;
 
 				socket.once('connect', () => {
-					t.fail('\'connect\' event fired, invalidating test');
+					connectEventFired = true;
 				});
 			});
 		}),
@@ -164,6 +167,9 @@ test.serial('send timeout (keepalive)', withServerAndFakeTimers, async (t, serve
 			message: 'Timeout awaiting \'send\' for 1ms',
 		},
 	);
+
+	t.false(socketConnecting);
+	t.false(connectEventFired, '\'connect\' event fired, invalidating test');
 });
 
 test.serial('response timeout', withServerAndFakeTimers, async (t, server, got, clock) => {
@@ -376,6 +382,8 @@ test.serial('lookup timeout no error (keepalive)', withServerAndFakeTimers, asyn
 		response.end('ok');
 	});
 
+	let connectEventFired = false;
+
 	await got('prime', {agent: {http: keepAliveAgent}});
 	await t.notThrowsAsync(got({
 		agent: {http: keepAliveAgent},
@@ -383,9 +391,11 @@ test.serial('lookup timeout no error (keepalive)', withServerAndFakeTimers, asyn
 		retry: {limit: 0},
 	}).on('request', (request: http.ClientRequest) => {
 		request.once('connect', () => {
-			t.fail('connect event fired, invalidating test');
+			connectEventFired = true;
 		});
 	}));
+
+	t.false(connectEventFired, 'connect event fired, invalidating test');
 
 	keepAliveAgent.destroy();
 });
@@ -711,6 +721,8 @@ test.serial('cancelling the request removes timeouts', withServerAndFakeTimers, 
 
 	const controller = new AbortController();
 
+	let unexpectedTimeoutError: string | undefined;
+
 	const promise = got({
 		signal: controller.signal,
 		timeout: {
@@ -724,12 +736,13 @@ test.serial('cancelling the request removes timeouts', withServerAndFakeTimers, 
 	}).on('request', request => {
 		request.on('error', error => {
 			if (error.message === 'Timeout awaiting \'request\' for 500ms') {
-				t.fail(error.message);
+				unexpectedTimeoutError = error.message;
 			}
 		});
 	});
 
 	await t.throwsAsync(promise, {message: 'This operation was aborted.'});
+	t.is(unexpectedTimeoutError, undefined);
 
 	clock.tick(1000);
 });

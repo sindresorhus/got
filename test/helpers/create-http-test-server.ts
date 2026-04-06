@@ -17,7 +17,7 @@ export type ExtendedHttpTestServer = {
 
 const createHttpTestServer = async (options: HttpServerOptions = {}): Promise<ExtendedHttpTestServer> => {
 	const server = express() as ExtendedHttpTestServer;
-	server.http = http.createServer(server);
+	server.http = http.createServer(server as unknown as http.RequestListener);
 
 	server.set('etag', false);
 

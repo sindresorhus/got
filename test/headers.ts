@@ -217,7 +217,7 @@ test('buffer as `options.body` sets `content-length` header', withServer, async 
 
 test('drops `content-length` when `transfer-encoding` is set manually', async t => {
 	const server = net.createServer();
-	const listen = promisify(server.listen.bind(server));
+	const listen = promisify(server.listen.bind(server) as any);
 
 	let rawRequest = '';
 
@@ -245,7 +245,7 @@ test('drops `content-length` when `transfer-encoding` is set manually', async t 
 				return;
 			}
 
-			const contentLength = /content-length:\s*(\d+)/.exec(rawHeaders)?.[1];
+			const contentLength = /content-length:\s*(?<length>\d+)/v.exec(rawHeaders)?.groups?.length;
 			if (!contentLength) {
 				return;
 			}

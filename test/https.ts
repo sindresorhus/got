@@ -50,6 +50,8 @@ test('https request with ca and afterResponse hook', withHttpsServer(), async (t
 		) {
 			process.off('warning', warningListener);
 			t.fail('unexpected deprecation warning');
+		} else {
+			t.pass();
 		}
 	};
 
@@ -172,16 +174,13 @@ test('http2', withHttpsServer(), async (t, server, got) => {
 
 		t.is(statusCode, 200);
 		t.is(typeof body, 'string');
-
-		t.pass();
 	} catch (error: any) {
-		if (error.message.includes('install Node.js')) {
-			t.pass();
-			return;
+		if (!error.message.includes('install Node.js')) {
+			throw error;
 		}
-
-		t.fail(error.stack);
 	}
+
+	t.pass();
 });
 
 test('http2 rejects pseudo-headers in request headers', async t => {
@@ -249,13 +248,12 @@ test('http2 connection reuse with default agent', withHttpsServer(), async (t, s
 		t.is(response1.statusCode, 200);
 		t.is(response2.statusCode, 201);
 	} catch (error: any) {
-		if (error.message.includes('install Node.js')) {
-			t.pass();
-			return;
+		if (!error.message.includes('install Node.js')) {
+			throw error;
 		}
-
-		t.fail(error.stack);
 	}
+
+	t.pass();
 });
 
 test('http2 connection reuse with custom agent', withHttpsServer(), async (t, server, got) => {
@@ -286,13 +284,12 @@ test('http2 connection reuse with custom agent', withHttpsServer(), async (t, se
 
 		customAgent.destroy();
 	} catch (error: any) {
-		if (error.message.includes('install Node.js')) {
-			t.pass();
-			return;
+		if (!error.message.includes('install Node.js')) {
+			throw error;
 		}
-
-		t.fail(error.stack);
 	}
+
+	t.pass();
 });
 
 test.serial('deprecated `rejectUnauthorized` option', withHttpsServer(), async (t, server, got) => {
@@ -397,7 +394,7 @@ test('invalid client certificate (self-signed)', withHttpsServer(), async (t, se
 		authorized: boolean;
 	}>();
 
-	t.is(response.authorized, false);
+	t.false(response.authorized);
 });
 
 test('invalid client certificate (other CA)', withHttpsServer(), async (t, server, got) => {

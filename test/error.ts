@@ -27,7 +27,7 @@ test('properties', withServer, async (t, server, got) => {
 	t.true(Object.prototype.propertyIsEnumerable.call(error, 'options'));
 	t.false(Object.prototype.propertyIsEnumerable.call(error, 'response'));
 	t.is(error.code, 'ERR_NON_2XX_3XX_RESPONSE');
-	t.regex(error.message, /^Request failed with status code 404 \(Not Found\): GET http:\/\/localhost:\d+\/$/);
+	t.regex(error.message, /^Request failed with status code 404 \(Not Found\): GET http:\/\/localhost:\d+\/$/v);
 	t.deepEqual(error.options.url, url);
 	t.is(error.response.headers.connection, 'keep-alive');
 	// Assert is used for type checking
@@ -37,7 +37,7 @@ test('properties', withServer, async (t, server, got) => {
 test('catches dns errors', async t => {
 	const error = (await t.throwsAsync<RequestError<undefined>>(got('http://doesntexist', {retry: {limit: 0}})));
 	t.truthy(error);
-	t.regex(error.message, /ENOTFOUND|EAI_AGAIN/);
+	t.regex(error.message, /ENOTFOUND|EAI_AGAIN/v);
 	t.is((error.options.url as URL).host, 'doesntexist');
 	t.is(error.options.method, 'GET');
 	t.true(['ENOTFOUND', 'EAI_AGAIN'].includes(error.code));
@@ -78,7 +78,7 @@ test('default status message', withServer, async (t, server, got) => {
 		got(''),
 		{
 			instanceOf: HTTPError,
-			message: /^Request failed with status code 400 \(Bad Request\): GET http:\/\/localhost:\d+\/$/,
+			message: /^Request failed with status code 400 \(Bad Request\): GET http:\/\/localhost:\d+\/$/v,
 		},
 	);
 	t.is(error?.response.statusCode, 400);
@@ -96,7 +96,7 @@ test('custom status message', withServer, async (t, server, got) => {
 		got(''),
 		{
 			instanceOf: HTTPError,
-			message: /^Request failed with status code 400 \(Something Exploded\): GET http:\/\/localhost:\d+\/$/,
+			message: /^Request failed with status code 400 \(Something Exploded\): GET http:\/\/localhost:\d+\/$/v,
 		},
 	);
 	t.is(error?.response.statusCode, 400);
@@ -115,7 +115,7 @@ test('credentials are stripped from HTTPError message URL', withServer, async (t
 	);
 	t.false(error?.message.includes('user'));
 	t.false(error?.message.includes('secret'));
-	t.regex(error?.message ?? '', /^Request failed with status code 400 \(Bad Request\): GET http:\/\/localhost:\d+\/$/);
+	t.regex(error?.message ?? '', /^Request failed with status code 400 \(Bad Request\): GET http:\/\/localhost:\d+\/$/v);
 });
 
 test('custom body', withServer, async (t, server, got) => {
@@ -128,7 +128,7 @@ test('custom body', withServer, async (t, server, got) => {
 		got(''),
 		{
 			instanceOf: HTTPError,
-			message: /^Request failed with status code 404 \(Not Found\): GET http:\/\/localhost:\d+\/$/,
+			message: /^Request failed with status code 404 \(Not Found\): GET http:\/\/localhost:\d+\/$/v,
 		},
 	);
 	t.is(error?.response.statusCode, 404);
@@ -149,7 +149,7 @@ test('custom json body', withServer, async (t, server, got) => {
 		got('', {responseType: 'json'}),
 		{
 			instanceOf: HTTPError,
-			message: /^Request failed with status code 404 \(Not Found\): GET http:\/\/localhost:\d+\/$/,
+			message: /^Request failed with status code 404 \(Not Found\): GET http:\/\/localhost:\d+\/$/v,
 		},
 	);
 	t.is(error?.response.statusCode, 404);
@@ -173,7 +173,7 @@ test('contains Got options', withServer, async (t, server, got) => {
 		got(options),
 		{
 			instanceOf: HTTPError,
-			message: /^Request failed with status code 404 \(Not Found\): GET http:\/\/localhost:\d+\/$/,
+			message: /^Request failed with status code 404 \(Not Found\): GET http:\/\/localhost:\d+\/$/v,
 		},
 	);
 	t.is(error?.response.statusCode, 404);
@@ -190,7 +190,7 @@ test('empty status message is overriden by the default one', withServer, async (
 		got(''),
 		{
 			instanceOf: HTTPError,
-			message: /^Request failed with status code 400 \(Bad Request\): GET http:\/\/localhost:\d+\/$/,
+			message: /^Request failed with status code 400 \(Bad Request\): GET http:\/\/localhost:\d+\/$/v,
 		},
 	);
 	t.is(error?.response.statusCode, 400);
@@ -327,14 +327,14 @@ test('promise does not hang on timeout on HTTP error', withServer, async (t, ser
 test('no uncaught parse errors', async t => {
 	const server = net.createServer();
 
-	const listen = promisify(server.listen.bind(server));
-	const close = promisify(server.close.bind(server));
+	const listen = promisify(server.listen.bind(server) as (callback: (error?: Error) => void) => void);
+	const close = promisify(server.close.bind(server) as (callback: (error?: Error) => void) => void);
 
 	await listen();
 
 	server.on('connection', socket => {
 		socket.resume();
-		socket.end([
+		void socket.end([
 			'HTTP/1.1 404 Not Found',
 			'transfer-encoding: chunked',
 			'',
@@ -346,7 +346,7 @@ test('no uncaught parse errors', async t => {
 
 	await t.throwsAsync(got.head(`http://localhost:${(server.address() as net.AddressInfo).port}`), {
 		instanceOf: RequestError,
-		message: /^Parse Error/,
+		message: /^Parse Error/v,
 	});
 
 	await close();
@@ -355,8 +355,8 @@ test('no uncaught parse errors', async t => {
 test('no uncaught parse errors #2', async t => {
 	const server = net.createServer();
 
-	const listen = promisify(server.listen.bind(server));
-	const close = promisify(server.close.bind(server));
+	const listen = promisify(server.listen.bind(server) as (callback: (error?: Error) => void) => void);
+	const close = promisify(server.close.bind(server) as (callback: (error?: Error) => void) => void);
 
 	await listen();
 
@@ -372,7 +372,7 @@ test('no uncaught parse errors #2', async t => {
 
 	await t.throwsAsync(got(`http://localhost:${(server.address() as net.AddressInfo).port}`), {
 		instanceOf: RequestError,
-		message: /^Parse Error/,
+		message: /^Parse Error/v,
 	});
 
 	await close();

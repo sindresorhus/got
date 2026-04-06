@@ -116,11 +116,11 @@ await got('https://httpbin.org/anything');
 await got(new URL('https://httpbin.org/anything'));
 ```
 
-#### **Note:**
-> - Throws if no protocol specified.
+> [!NOTE]
+> Throws if no protocol specified.
 
-#### **Note:**
-> - If `url` is a string, then the `query` string will **not** be parsed as search params.\
+> [!NOTE]
+> If `url` is a string, then the `query` string will **not** be parsed as search params.\
 >  This is in accordance to [the specification](https://datatracker.ietf.org/doc/html/rfc7230#section-2.7).\
 >  If you want to pass search params instead, use the `searchParams` option below.
 
@@ -134,8 +134,8 @@ await got('https://httpbin.org/anything', {searchParams: {query: 'a b'}}); //=> 
 await got('https://httpbin.org/anything?query=a b', {searchParams: {query: 'a b'}}); //=> ?query=a+b
 ```
 
-#### **Note:**
-> - Leading slashes are disallowed to enforce consistency and avoid confusion.\
+> [!NOTE]
+> Leading slashes are disallowed to enforce consistency and avoid confusion.\
 >  For example, when the prefix URL is `https://example.com/foo` and the input is `/bar`, there's ambiguity whether the resulting URL would become `https://example.com/foo/bar` or `https://example.com/bar`. The latter is used by browsers.
 
 ### `searchParams`
@@ -171,10 +171,10 @@ console.log(searchParams.toString());
 //=> 'key=a&key=b'
 ```
 
-#### **Note:**
-> - This will override the `query` string in `url`.
+> [!NOTE]
+> This will override the `query` string in `url`.
 
-#### **Note:**
+> [!NOTE]
 > - `null` values are not stringified, an empty string is used instead.
 > - `undefined` values will clear the original keys.
 
@@ -202,11 +202,11 @@ await instance('anything');
 await got('https://httpbin.org/anything');
 ```
 
-#### **Note:**
-> - Changing `prefixUrl` also updates the `url` option if set.
+> [!NOTE]
+> Changing `prefixUrl` also updates the `url` option if set.
 
-#### **Note:**
-> - If you're passing an absolute URL as `url`, you need to set `prefixUrl` to an empty string.
+> [!NOTE]
+> If you're passing an absolute URL as `url`, you need to set `prefixUrl` to an empty string.
 
 ### `signal`
 
@@ -357,17 +357,17 @@ console.log(data.form.greeting);
 //=> 'Hello, world!'
 ```
 
-#### **Note:**
-> - If `body` is specified, then the `json` or `form` option cannot be used.
+> [!NOTE]
+> If `body` is specified, then the `json` or `form` option cannot be used.
 
-#### **Note:**
-> - If you use this option, `got.stream()` will be read-only.
+> [!NOTE]
+> If you use this option, `got.stream()` will be read-only.
 
-#### **Note:**
-> - Passing `body` with `GET` will throw unless the [`allowGetBody` option](#allowgetbody) is set to `true`.
+> [!NOTE]
+> Passing `body` with `GET` will throw unless the [`allowGetBody` option](#allowgetbody) is set to `true`.
 
-#### **Note:**
-> - This option is not enumerable and will not be merged with the instance defaults.
+> [!NOTE]
+> This option is not enumerable and will not be merged with the instance defaults.
 
 ### `json`
 
@@ -491,11 +491,11 @@ However, the [HTTP/2 specification](https://datatracker.ietf.org/doc/html/rfc754
 
 Therefore this option has no effect when using HTTP/2.
 
-#### **Note:**
-> - This option is only meant to interact with non-compliant servers when you have no other choice.
+> [!NOTE]
+> This option is only meant to interact with non-compliant servers when you have no other choice.
 
-#### **Note:**
-> - The [RFC 7231](https://tools.ietf.org/html/rfc7231#section-4.3.1) doesn't specify any particular behavior for the GET method having a payload, therefore it's considered an [**anti-pattern**](https://en.wikipedia.org/wiki/Anti-pattern).
+> [!NOTE]
+> The [RFC 7231](https://tools.ietf.org/html/rfc7231#section-4.3.1) doesn't specify any particular behavior for the GET method having a payload, therefore it's considered an [**anti-pattern**](https://en.wikipedia.org/wiki/Anti-pattern).
 
 ### `copyPipedHeaders`
 
@@ -630,11 +630,11 @@ const [response, buffer, json] = await Promise.all([responsePromise, bufferPromi
 // `json` is an object
 ```
 
-#### **Note:**
-> - When using streams, this option is ignored.
+> [!NOTE]
+> When using streams, this option is ignored.
 
-#### **Note:**
-> - `'buffer'` will return the raw body bytes as a `Uint8Array`. Any modifications will also alter the result of `.text()` and `.json()`. Before overwriting it, please copy it first via `new Uint8Array(buffer)`.\
+> [!NOTE]
+> `'buffer'` will return the raw body bytes as a `Uint8Array`. Any modifications will also alter the result of `.text()` and `.json()`. Before overwriting it, please copy it first via `new Uint8Array(buffer)`.\
 >  See https://github.com/nodejs/node/issues/27080
 
 ### `resolveBodyOnly`

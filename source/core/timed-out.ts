@@ -133,7 +133,7 @@ export default function timedOut(request: ClientRequest, delays: Delays, options
 
 			/* istanbul ignore next: hard to test */
 			if (socket.connecting) {
-				const hasPath = Boolean(socketPath ?? net.isIP(hostname ?? host ?? '') !== 0);
+				const hasPath = Boolean(socketPath ?? (net.isIP(hostname ?? host ?? '') !== 0));
 
 				if (hasLookup && !hasPath && (socket.address() as net.AddressInfo).address === undefined) {
 					const cancelTimeout = addTimeout(delays.lookup!, timeoutHandler, 'lookup');

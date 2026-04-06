@@ -46,109 +46,111 @@ export default function asPromise<T>(firstRequest?: Request): RequestPromise<T> 
 
 			globalRequest = request;
 
-			request.once('response', async (response: Response) => {
+			request.once('response', (response: Response) => {
+				void (async () => {
 				// Parse body
-				const contentEncoding = (response.headers['content-encoding'] ?? '').toLowerCase();
-				const isCompressed = compressedEncodings.has(contentEncoding);
+					const contentEncoding = (response.headers['content-encoding'] ?? '').toLowerCase();
+					const isCompressed = compressedEncodings.has(contentEncoding);
 
-				const {options} = request;
+					const {options} = request;
 
-				if (isCompressed && !options.decompress) {
-					response.body = response.rawBody;
-				} else {
-					try {
-						response.body = parseBody(response, options.responseType, options.parseJson, options.encoding);
-					} catch (error: unknown) {
-						// Fall back to `utf8`
+					if (isCompressed && !options.decompress) {
+						response.body = response.rawBody;
+					} else {
 						try {
-							response.body = decodeUint8Array(response.rawBody);
-						} catch (error) {
-							request._beforeError(new ParseError(normalizeError(error), response));
-							return;
-						}
+							response.body = parseBody(response, options.responseType, options.parseJson, options.encoding);
+						} catch (error: unknown) {
+						// Fall back to `utf8`
+							try {
+								response.body = decodeUint8Array(response.rawBody);
+							} catch (error) {
+								request._beforeError(new ParseError(normalizeError(error), response));
+								return;
+							}
 
-						if (isResponseOk(response)) {
-							request._beforeError(normalizeError(error));
-							return;
+							if (isResponseOk(response)) {
+								request._beforeError(normalizeError(error));
+								return;
+							}
 						}
 					}
-				}
 
-				try {
-					const hooks = options.hooks.afterResponse;
+					try {
+						const hooks = options.hooks.afterResponse;
 
-					for (const [index, hook] of hooks.entries()) {
-						const previousUrl = options.url ? new URL(options.url) : undefined;
-						const previousState = previousUrl ? snapshotCrossOriginState(options) : undefined;
-						const requestOptions = response.request.options;
-						const responseSnapshot = response;
+						for (const [index, hook] of hooks.entries()) {
+							const previousUrl = options.url ? new URL(options.url) : undefined;
+							const previousState = previousUrl ? snapshotCrossOriginState(options) : undefined;
+							const requestOptions = response.request.options;
+							const responseSnapshot = response;
 
-						// @ts-expect-error TS doesn't notice that RequestPromise is a Promise
-						// eslint-disable-next-line no-await-in-loop
-						response = await requestOptions.trackStateMutations(async changedState => hook(responseSnapshot, async (updatedOptions): RequestPromise<Response> => {
-							const preserveHooks = updatedOptions.preserveHooks ?? false;
-							const reusesRequestOptions = updatedOptions === requestOptions;
-							const hasExplicitBody = reusesRequestOptions
-								? changedState.has('body') || changedState.has('json') || changedState.has('form')
-								: (Object.hasOwn(updatedOptions, 'body') && updatedOptions.body !== undefined)
-									|| (Object.hasOwn(updatedOptions, 'json') && updatedOptions.json !== undefined)
-									|| (Object.hasOwn(updatedOptions, 'form') && updatedOptions.form !== undefined);
+							// @ts-expect-error TS doesn't notice that RequestPromise is a Promise
+							// eslint-disable-next-line no-await-in-loop
+							response = await requestOptions.trackStateMutations(async changedState => hook(responseSnapshot, async (updatedOptions): RequestPromise<Response> => {
+								const preserveHooks = updatedOptions.preserveHooks ?? false;
+								const reusesRequestOptions = updatedOptions === requestOptions;
+								const hasExplicitBody = reusesRequestOptions
+									? changedState.has('body') || changedState.has('json') || changedState.has('form')
+									: (Object.hasOwn(updatedOptions, 'body') && updatedOptions.body !== undefined)
+										|| (Object.hasOwn(updatedOptions, 'json') && updatedOptions.json !== undefined)
+										|| (Object.hasOwn(updatedOptions, 'form') && updatedOptions.form !== undefined);
 
-							if (hasExplicitBody && !reusesRequestOptions) {
-								options.clearBody();
-							}
+								if (hasExplicitBody && !reusesRequestOptions) {
+									options.clearBody();
+								}
 
-							if (!reusesRequestOptions) {
-								options.merge(updatedOptions);
-							}
+								if (!reusesRequestOptions) {
+									options.merge(updatedOptions);
+								}
 
-							if (updatedOptions.url) {
-								const nextUrl = reusesRequestOptions
-									? options.url as URL
-									: applyUrlOverride(options, updatedOptions.url, updatedOptions);
+								if (updatedOptions.url) {
+									const nextUrl = reusesRequestOptions
+										? options.url as URL
+										: applyUrlOverride(options, updatedOptions.url, updatedOptions);
 
-								if (previousUrl) {
-									if (reusesRequestOptions && !isSameOrigin(previousUrl, nextUrl)) {
-										options.stripUnchangedCrossOriginState(previousState!, changedState, {clearBody: !hasExplicitBody});
-									} else {
-										options.stripSensitiveHeaders(previousUrl, nextUrl, updatedOptions);
+									if (previousUrl) {
+										if (reusesRequestOptions && !isSameOrigin(previousUrl, nextUrl)) {
+											options.stripUnchangedCrossOriginState(previousState!, changedState, {clearBody: !hasExplicitBody});
+										} else {
+											options.stripSensitiveHeaders(previousUrl, nextUrl, updatedOptions);
 
-										if (!isSameOrigin(previousUrl, nextUrl) && !hasExplicitBody) {
-											options.clearBody();
+											if (!isSameOrigin(previousUrl, nextUrl) && !hasExplicitBody) {
+												options.clearBody();
+											}
 										}
 									}
 								}
+
+								// Remove any further hooks for that request, because we'll call them anyway.
+								// The loop continues. We don't want duplicates (asPromise recursion).
+								// Unless preserveHooks is true, in which case we keep the remaining hooks.
+								if (!preserveHooks) {
+									options.hooks.afterResponse = options.hooks.afterResponse.slice(0, index);
+								}
+
+								throw new RetryError(request);
+							}));
+
+							if (!(is.object(response) && is.number(response.statusCode) && 'body' in response)) {
+								throw new TypeError('The `afterResponse` hook returned an invalid value');
 							}
-
-							// Remove any further hooks for that request, because we'll call them anyway.
-							// The loop continues. We don't want duplicates (asPromise recursion).
-							// Unless preserveHooks is true, in which case we keep the remaining hooks.
-							if (!preserveHooks) {
-								options.hooks.afterResponse = options.hooks.afterResponse.slice(0, index);
-							}
-
-							throw new RetryError(request);
-						}));
-
-						if (!(is.object(response) && is.number(response.statusCode) && 'body' in response)) {
-							throw new TypeError('The `afterResponse` hook returned an invalid value');
 						}
+					} catch (error: unknown) {
+						request._beforeError(normalizeError(error));
+						return;
 					}
-				} catch (error: unknown) {
-					request._beforeError(normalizeError(error));
-					return;
-				}
 
-				globalResponse = response;
+					globalResponse = response;
 
-				if (!isResponseOk(response)) {
-					request._beforeError(new HTTPError(response));
-					return;
-				}
+					if (!isResponseOk(response)) {
+						request._beforeError(new HTTPError(response));
+						return;
+					}
 
-				request.destroy();
-				promiseSettled = true;
-				resolve(request.options.resolveBodyOnly ? response.body as T : response as unknown as T);
+					request.destroy();
+					promiseSettled = true;
+					resolve(request.options.resolveBodyOnly ? response.body as T : response as unknown as T);
+				})();
 			});
 
 			let handledFinalError = false;
@@ -250,7 +252,7 @@ export default function asPromise<T>(firstRequest?: Request): RequestPromise<T> 
 
 			if (responseType === 'text') {
 				const text = decodeUint8Array(globalResponse.rawBody, options.encoding);
-				return (isUtf8Encoding(options.encoding) ? text.replace(/^\uFEFF/u, '') : text) as T;
+				return (isUtf8Encoding(options.encoding) ? text.replace(/^\u{FEFF}/v, '') : text) as T;
 			}
 
 			return parseBody(globalResponse, responseType, options.parseJson, options.encoding);

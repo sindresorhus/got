@@ -132,7 +132,7 @@ test('diagnostics channel - response:start event', withServer, async (t, server,
 		t.is(event.statusCode, 200);
 		t.truthy(event.headers);
 		t.is(typeof event.url, 'string');
-		t.is(event.isFromCache, false);
+		t.false(event.isFromCache);
 	} finally {
 		channel.unsubscribe(handler);
 	}
@@ -377,8 +377,8 @@ test('diagnostics channel - cache hit detection', withServer, async (t, server, 
 		await got('', {cache});
 
 		t.is(events.length, 2);
-		t.is(events[0].isFromCache, false);
-		t.is(events[1].isFromCache, true);
+		t.false(events[0].isFromCache);
+		t.true(events[1].isFromCache);
 	} finally {
 		channel.unsubscribe(handler);
 	}

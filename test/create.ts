@@ -128,10 +128,11 @@ test('no tampering with defaults', t => {
 
 test('mixed-case header introspection does not throw on frozen defaults', t => {
 	t.notThrows(() => {
-		t.is(got.defaults.options.headers['User-Agent'], got.defaults.options.headers['user-agent']);
 		Object.hasOwn(got.defaults.options.headers, 'User-Agent');
 		Object.getOwnPropertyDescriptor(got.defaults.options.headers, 'User-Agent');
 	});
+
+	t.is(got.defaults.options.headers['User-Agent'], got.defaults.options.headers['user-agent']);
 });
 
 test('failed header writes on frozen defaults do not mark headers as explicit', t => {
@@ -306,18 +307,17 @@ test('does not include the `request` option in normalized `http` options', withS
 });
 
 test('should pass an options object into an initialization hook after .extend', withServer, async (t, server, got) => {
-	t.plan(1);
-
 	server.get('/', echoHeaders);
 
 	let first = true;
+	let secondCallOptions: unknown;
 
 	const instance = got.extend({
 		hooks: {
 			init: [
 				options => {
 					if (!first) {
-						t.deepEqual(options, {});
+						secondCallOptions = options;
 					}
 
 					first = false;
@@ -327,6 +327,8 @@ test('should pass an options object into an initialization hook after .extend', 
 	});
 
 	await instance('', {});
+
+	t.deepEqual(secondCallOptions, {});
 });
 
 test('handlers detect stream mode via `options.isStream`', withServer, async (t, server, got) => {

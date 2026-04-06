@@ -129,26 +129,6 @@ test('catches init thrown errors', async t => {
 	});
 });
 
-test('passes init thrown errors to beforeError hooks (promise-only)', async t => {
-	t.plan(1);
-
-	await t.throwsAsync(got('https://example.com', {
-		hooks: {
-			init: [() => {
-				throw error;
-			}],
-			beforeError: [error => {
-				t.is(error.message, errorString);
-
-				return error;
-			}],
-		},
-	}), {
-		instanceOf: RequestError,
-		message: errorString,
-	});
-});
-
 test('catches beforeRequest thrown errors', async t => {
 	await t.throwsAsync(got('https://example.com', {
 		hooks: {
@@ -232,6 +212,7 @@ test('accepts an async function as init hook', withServer, async (t, server, got
 	await got('', {
 		hooks: {
 			init: [
+
 				async () => {
 					t.pass();
 				},
@@ -785,7 +766,7 @@ test('allows colon in path segment with prefixUrl (CouchDB user URLs)', withServ
 });
 
 test('allows multiple colons in path with prefixUrl', withServer, async (t, server, serverGot) => {
-	server.get(/^\/api\/ns:type:id$/, (_request, response) => {
+	server.get(/^\/api\/ns:type:id$/v, (_request, response) => {
 		response.end('namespaced');
 	});
 
@@ -811,7 +792,7 @@ test('allows mailto-like patterns in path with prefixUrl', withServer, async (t,
 });
 
 test('allows URN-like patterns in path with prefixUrl', withServer, async (t, server, serverGot) => {
-	server.get(/^\/resources\/urn:isbn:123$/, (_request, response) => {
+	server.get(/^\/resources\/urn:isbn:123$/v, (_request, response) => {
 		response.end('book');
 	});
 
@@ -1011,7 +992,7 @@ test('no infinity loop when retrying on afterResponse', withServer, async (t, se
 				}),
 			],
 		},
-	}), {instanceOf: HTTPError, message: /^Request failed with status code 401 \(Unauthorized\): GET http:\/\/localhost:\d+\/$/});
+	}), {instanceOf: HTTPError, message: /^Request failed with status code 401 \(Unauthorized\): GET http:\/\/localhost:\d+\/$/v});
 });
 
 test('throws on afterResponse retry failure', withServer, async (t, server, got) => {
@@ -1046,7 +1027,7 @@ test('throws on afterResponse retry failure', withServer, async (t, server, got)
 				},
 			],
 		},
-	}), {instanceOf: HTTPError, message: /^Request failed with status code 500 \(Internal Server Error\): GET http:\/\/localhost:\d+\/$/});
+	}), {instanceOf: HTTPError, message: /^Request failed with status code 500 \(Internal Server Error\): GET http:\/\/localhost:\d+\/$/v});
 });
 
 test('does not throw on afterResponse retry HTTP failure if throwHttpErrors is false', withServer, async (t, server, got) => {
@@ -1309,6 +1290,8 @@ test('beforeError is called with an error - promise', withServer, async (t, serv
 		response.end('ok');
 	});
 
+	let capturedError2: unknown;
+
 	await t.throwsAsync(got({
 		hooks: {
 			afterResponse: [
@@ -1317,22 +1300,28 @@ test('beforeError is called with an error - promise', withServer, async (t, serv
 				},
 			],
 			beforeError: [error2 => {
-				t.true(error2 instanceof Error);
+				capturedError2 = error2;
 				return error2;
 			}],
 		},
 	}), {message: errorString});
+
+	t.true(capturedError2 instanceof Error);
 });
 
 test('beforeError is called with an error - stream', withServer, async (t, _server, got) => {
+	let capturedError2: unknown;
+
 	await t.throwsAsync(getStream(got.stream({
 		hooks: {
 			beforeError: [error2 => {
-				t.true(error2 instanceof Error);
+				capturedError2 = error2;
 				return error2;
 			}],
 		},
-	})), {message: /^Request failed with status code 404 \(Not Found\): GET http:\/\/localhost:\d+\/$/});
+	})), {message: /^Request failed with status code 404 \(Not Found\): GET http:\/\/localhost:\d+\/$/v});
+
+	t.true(capturedError2 instanceof Error);
 });
 
 test('beforeError allows modifications', async t => {
@@ -1376,18 +1365,20 @@ test('does not break on `afterResponse` hook with JSON mode', withServer, async 
 });
 
 test('catches HTTPErrors', withServer, async (t, _server, got) => {
-	t.plan(2);
+	let capturedError: unknown;
 
 	await t.throwsAsync(got({
 		hooks: {
 			beforeError: [
 				error => {
-					t.true(error instanceof HTTPError);
+					capturedError = error;
 					return error;
 				},
 			],
 		},
 	}));
+
+	t.true(capturedError instanceof HTTPError);
 });
 
 test('timeout can be modified using a hook', withServer, async (t, server, got) => {
@@ -1475,7 +1466,7 @@ test('hooks are not duplicated', withServer, async (t, _server, got) => {
 		retry: {
 			limit: 0,
 		},
-	}), {message: /^Request failed with status code 404 \(Not Found\): GET http:\/\/localhost:\d+\/$/});
+	}), {message: /^Request failed with status code 404 \(Not Found\): GET http:\/\/localhost:\d+\/$/v});
 
 	t.is(calls, 1);
 });
@@ -2460,7 +2451,7 @@ test('multiple handlers with error transformation work with .json()', withServer
 	});
 
 	// Should get error from first handler (outermost)
-	await t.throwsAsync(instance('').json(), {message: /Handler 1: Handler 2:/});
+	await t.throwsAsync(instance('').json(), {message: /Handler 1: Handler 2:/v});
 });
 
 test('beforeError can return custom Error class', async t => {

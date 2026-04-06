@@ -45,7 +45,7 @@ await new Promise((resolve, reject) => {
 });
 ```
 
-```
+```text
 node:internal/process/esm_loader:74
     internalBinding('errors').triggerUncaughtException(
                               ^
@@ -85,7 +85,7 @@ try {
 }
 ```
 
-```
+```text
 TimeoutError: Timeout awaiting 'request' for 1ms
     at ClientRequest.<anonymous> (file:///home/szm/Desktop/got/dist/source/core/index.js:780:61)
     at Object.onceWrapper (node:events:514:26)
@@ -148,7 +148,7 @@ globalThis.Error = class extends Error {
 
 If we replace the `bluebird` part with this, we get:
 
-```
+```text
 Error: Timeout awaiting 'request' for 1ms
     at ClientRequest.<anonymous> (file:///home/szm/Desktop/got/dist/source/core/index.js:780:61)
     at Object.onceWrapper (node:events:514:26)
@@ -257,7 +257,7 @@ try {
 }
 ```
 
-```
+```text
 RequestError: Timeout awaiting 'request' for 100ms
     at ClientRequest.<anonymous> (file:///home/szm/Desktop/got/dist/source/core/index.js:780:61)
     at Object.onceWrapper (node:events:514:26)

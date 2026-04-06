@@ -100,6 +100,7 @@ if (supportsZstd) {
 	});
 } else {
 	test('zstd support not available - Node.js >= 22.15.0 required', t => {
+		t.plan(1);
 		t.pass('Skipping zstd tests - not supported in this Node.js version');
 	});
 }

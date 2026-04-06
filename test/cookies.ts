@@ -150,7 +150,6 @@ test('no unhandled errors', async t => {
 		message,
 	});
 	await delay(500);
-	t.pass();
 
 	server.close();
 });

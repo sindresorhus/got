@@ -2,7 +2,6 @@ import process from 'node:process';
 import type {IncomingMessage, ServerResponse} from 'node:http';
 import {format} from 'node:util';
 import test from 'ava';
-import type {Handler} from 'express';
 import getStream from 'get-stream';
 import baseGot, {Options, RequestError} from '../source/index.js';
 import {withSocketServer} from './helpers/with-server.js';
@@ -10,11 +9,11 @@ import type {ExtendedHttpServer} from './helpers/types.js';
 
 const got = baseGot.extend({enableUnixSockets: true});
 
-const okHandler: Handler = (_request, response) => {
+const okHandler = (_request: IncomingMessage, response: ServerResponse): void => {
 	response.end('ok');
 };
 
-const redirectHandler: Handler = (_request, response) => {
+const redirectHandler = (_request: IncomingMessage, response: ServerResponse): void => {
 	response.writeHead(302, {
 		location: 'foo',
 	});
@@ -50,10 +49,12 @@ function captureRequest(server: ExtendedHttpServer, path: string, responseBody: 
 	let requestBody = '';
 	let contentType: string | undefined;
 
-	server.on(path, async (request, response) => {
-		requestBody = await getStream(request);
-		contentType = request.headers['content-type'];
-		response.end(responseBody);
+	server.on(path, (request, response) => {
+		void (async () => {
+			requestBody = await getStream(request);
+			contentType = request.headers['content-type'];
+			response.end(responseBody);
+		})();
 	});
 
 	return {
@@ -64,36 +65,33 @@ function captureRequest(server: ExtendedHttpServer, path: string, responseBody: 
 
 if (process.platform !== 'win32') {
 	test('works', withSocketServer, async (t, server) => {
-		server.on('/', okHandler);
+		void server.on('/', okHandler);
 
 		const url = socketUrl(server.socketPath);
 		t.is((await got(url, {})).body, 'ok');
 	});
 
 	test('protocol-less works', withSocketServer, async (t, server) => {
-		server.on('/', okHandler);
+		void server.on('/', okHandler);
 
 		const url = format('unix:%s:%s', server.socketPath, '/');
 		t.is((await got(url)).body, 'ok');
 	});
 
 	test('address with : works', withSocketServer, async (t, server) => {
-		server.on('/foo:bar', okHandler);
+		void server.on('/foo:bar', okHandler);
 
 		const url = format('unix:%s:%s', server.socketPath, '/foo:bar');
 		t.is((await got(url)).body, 'ok');
 	});
 
 	test('throws on invalid URL', async t => {
-		try {
-			await got('unix:', {retry: {limit: 0}});
-		} catch (error: any) {
-			t.regex(error.code, /ENOTFOUND|EAI_AGAIN/);
-		}
+		const error = await t.throwsAsync<RequestError>(got('unix:', {retry: {limit: 0}}));
+		t.regex(error?.code ?? '', /ENOTFOUND|EAI_AGAIN/v);
 	});
 
 	test('works when extending instances', withSocketServer, async (t, server) => {
-		server.on('/', okHandler);
+		void server.on('/', okHandler);
 
 		const url = format('unix:%s:%s', server.socketPath, '/');
 		const instance = got.extend({prefixUrl: url});
@@ -101,15 +99,15 @@ if (process.platform !== 'win32') {
 	});
 
 	test('passes search params', withSocketServer, async (t, server) => {
-		server.on('/?a=1', okHandler);
+		void server.on('/?a=1', okHandler);
 
 		const url = socketUrl(server.socketPath, '/?a=1');
 		t.is((await got(url)).body, 'ok');
 	});
 
 	test('redirects work', withSocketServer, async (t, server) => {
-		server.on('/', redirectHandler);
-		server.on('/foo', okHandler);
+		void server.on('/', redirectHandler);
+		void server.on('/foo', okHandler);
 
 		const url = socketUrl(server.socketPath);
 		t.is((await got(url)).body, 'ok');
@@ -124,7 +122,7 @@ if (process.platform !== 'win32') {
 				response.end();
 			});
 
-			secondServer.on('/foo', okHandler);
+			void secondServer.on('/foo', okHandler);
 
 			const url = socketUrl(firstServer.socketPath);
 			await t.throwsAsync(got(url), {
@@ -354,20 +352,22 @@ if (process.platform !== 'win32') {
 	test('retryWithMergedOptions preserves body and headers on the same UNIX socket', withSocketServer, async (t, server) => {
 		let requestNumber = 0;
 		let secondAuthorization: string | undefined;
-		server.on('/', async (request, response) => {
-			requestNumber++;
-			const body = await getStream(request);
+		server.on('/', (request, response) => {
+			void (async () => {
+				requestNumber++;
+				const body = await getStream(request);
 
-			if (requestNumber === 1) {
-				response.setHeader('content-type', 'application/json');
-				response.end(JSON.stringify({
-					retryUrl: format('http://unix:%s:%s', server.socketPath, '/'),
-				}));
-				return;
-			}
+				if (requestNumber === 1) {
+					response.setHeader('content-type', 'application/json');
+					response.end(JSON.stringify({
+						retryUrl: format('http://unix:%s:%s', server.socketPath, '/'),
+					}));
+					return;
+				}
 
-			secondAuthorization = request.headers.authorization;
-			response.end(body);
+				secondAuthorization = request.headers.authorization;
+				response.end(body);
+			})();
 		});
 
 		const url = socketUrl(server.socketPath);
@@ -392,9 +392,11 @@ if (process.platform !== 'win32') {
 
 	test('pagination preserves body on the same UNIX socket', withSocketServer, async (t, server) => {
 		const payloads: string[] = [];
-		const handler = async (request: IncomingMessage, response: ServerResponse) => {
-			payloads.push(await getStream(request));
-			response.end(JSON.stringify([payloads.length]));
+		const handler = (request: IncomingMessage, response: ServerResponse): void => {
+			void (async () => {
+				payloads.push(await getStream(request));
+				response.end(JSON.stringify([payloads.length]));
+			})();
 		};
 
 		server.on('/', handler);

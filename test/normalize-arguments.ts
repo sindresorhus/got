@@ -236,6 +236,6 @@ if (globalThis.AbortSignal !== undefined) {
 		});
 		options.freeze();
 
-		t.is(Object.isFrozen(options.signal), false);
+		t.false(Object.isFrozen(options.signal));
 	});
 }

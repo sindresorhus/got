@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unnecessary-type-arguments */
+/* eslint-disable @typescript-eslint/no-unnecessary-type-arguments -- Explicitly testing type arguments that TypeScript could infer, to verify the types are correct */
 import {expectTypeOf} from 'expect-type';
 import got, {type RequestPromise, type Response} from '../source/index.js';
 import {
