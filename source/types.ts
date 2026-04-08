@@ -69,12 +69,11 @@ export type ExtendOptions = {
 	mutableDefaults?: boolean;
 } & Except<OptionsInit, 'url'>;
 
-type OptionsInitWithoutUrl = Except<OptionsInit, 'url'>;
+export type StreamOptions = Except<OptionsInit, 'url'>;
 
-export type StrictOptions = Except<OptionsInitWithoutUrl, 'responseType' | 'resolveBodyOnly'>;
-export type StreamOptions = OptionsInitWithoutUrl;
+export type StrictOptions = Except<StreamOptions, 'responseType' | 'resolveBodyOnly'>;
 
-export type OptionsWithPagination<T = unknown, R = unknown> = Merge<OptionsInitWithoutUrl, {pagination?: PaginationOptions<T, R>}>;
+export type OptionsWithPagination<T = unknown, R = unknown> = Merge<StreamOptions, {pagination?: PaginationOptions<T, R>}>;
 
 /**
 An instance of `got.paginate`.
@@ -150,6 +149,7 @@ export type OptionsOfBufferResponseBody = Merge<StrictOptions, {responseType?: '
 export type OptionsOfBufferResponseBodyOnly = Merge<StrictOptions, {resolveBodyOnly: true; responseType?: 'buffer'}>;
 export type OptionsOfBufferResponseBodyWrapped = Merge<StrictOptions, {resolveBodyOnly: false; responseType?: 'buffer'}>;
 
+// TODO: Remove in the next major version - it's a pure alias for `StrictOptions`.
 export type OptionsOfUnknownResponseBody = StrictOptions;
 export type OptionsOfUnknownResponseBodyOnly = Merge<StrictOptions, {resolveBodyOnly: true}>;
 export type OptionsOfUnknownResponseBodyWrapped = Merge<StrictOptions, {resolveBodyOnly: false}>;
@@ -200,12 +200,12 @@ export type GotRequestFunction<U extends ExtendOptions = Record<string, unknown>
 	(options: OptionsOfBufferResponseBodyOnly): RequestPromise<Uint8Array<ArrayBuffer>>;
 
 	// Fallback
-	(url: string | URL, options?: OptionsInitWithoutUrl): RequestPromise | Request;
+	(url: string | URL, options?: StreamOptions): RequestPromise;
 
-	(options: OptionsInitWithoutUrl): RequestPromise | Request;
+	(options: StreamOptions): RequestPromise;
 
 	// Internal usage
-	(url: undefined, options: undefined, defaults: Options): RequestPromise | Request;
+	(url: undefined, options: undefined, defaults: Options): RequestPromise;
 };
 
 /**
