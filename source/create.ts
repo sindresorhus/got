@@ -251,6 +251,7 @@ const create = (defaults: InstanceDefaults): Got => {
 
 			if (optionsToMerge === response.request.options) {
 				normalizedOptions = response.request.options;
+				normalizedOptions.clearUnchangedCookieHeader(previousState, changedState);
 
 				if (previousUrl) {
 					const nextUrl = normalizedOptions.url as URL | undefined;
@@ -263,12 +264,18 @@ const create = (defaults: InstanceDefaults): Got => {
 				const hasExplicitBody = (Object.hasOwn(optionsToMerge, 'body') && optionsToMerge.body !== undefined)
 					|| (Object.hasOwn(optionsToMerge, 'json') && optionsToMerge.json !== undefined)
 					|| (Object.hasOwn(optionsToMerge, 'form') && optionsToMerge.form !== undefined);
+				const clearsCookieJar = Object.hasOwn(optionsToMerge, 'cookieJar') && optionsToMerge.cookieJar === undefined;
 
 				if (hasExplicitBody) {
 					normalizedOptions.clearBody();
 				}
 
+				if (clearsCookieJar) {
+					normalizedOptions.cookieJar = undefined;
+				}
+
 				normalizedOptions.merge(optionsToMerge);
+				normalizedOptions.syncCookieHeaderAfterMerge(previousState, optionsToMerge.headers);
 
 				try {
 					assert.any([is.string, is.urlInstance, is.undefined], optionsToMerge.url);

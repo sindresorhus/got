@@ -94,14 +94,22 @@ export default function asPromise<T>(firstRequest?: Request): RequestPromise<T> 
 									: (Object.hasOwn(updatedOptions, 'body') && updatedOptions.body !== undefined)
 										|| (Object.hasOwn(updatedOptions, 'json') && updatedOptions.json !== undefined)
 										|| (Object.hasOwn(updatedOptions, 'form') && updatedOptions.form !== undefined);
+								const clearsCookieJar = Object.hasOwn(updatedOptions, 'cookieJar') && updatedOptions.cookieJar === undefined;
 
 								if (hasExplicitBody && !reusesRequestOptions) {
 									options.clearBody();
 								}
 
+								if (!reusesRequestOptions && clearsCookieJar) {
+									options.cookieJar = undefined;
+								}
+
 								if (!reusesRequestOptions) {
 									options.merge(updatedOptions);
+									options.syncCookieHeaderAfterMerge(previousState, updatedOptions.headers);
 								}
+
+								options.clearUnchangedCookieHeader(previousState, reusesRequestOptions ? changedState : undefined);
 
 								if (updatedOptions.url) {
 									const nextUrl = reusesRequestOptions

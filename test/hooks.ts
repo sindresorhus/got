@@ -31,6 +31,10 @@ const echoUrl: Handler = (request, response) => {
 	response.end(request.url);
 };
 
+const echoHeader = (header: 'authorization' | 'cookie'): Handler => (request, response) => {
+	response.end(request.headers[header] ?? '');
+};
+
 const retryEndpoint: Handler = (request, response) => {
 	if (request.headers.foo) {
 		response.statusCode = 302;
@@ -46,6 +50,33 @@ const redirectEndpoint: Handler = (_request, response) => {
 	response.statusCode = 302;
 	response.setHeader('location', '/');
 	response.end();
+};
+
+const createStaticCookieJar = (cookie = 'session=from-jar') => ({
+	async getCookieString() {
+		return cookie;
+	},
+	async setCookie() {},
+});
+
+const echoAuthorization: Handler = (request, response) => {
+	response.end(request.headers.authorization ?? '');
+};
+
+const addRetryHeaderEchoEndpoint = (server: {get: (path: string, handler: Handler) => void}, header: 'authorization' | 'cookie'): void => {
+	let requestCount = 0;
+
+	server.get('/api', (request, response) => {
+		requestCount++;
+
+		if (requestCount === 1) {
+			response.statusCode = 401;
+			response.end('retry');
+			return;
+		}
+
+		response.end(request.headers[header] ?? '');
+	});
 };
 
 const createAgentSpy = <T extends HttpAgent>(AgentClass: Constructor<any>): {agent: T; spy: sinon.SinonSpy} => {
@@ -379,6 +410,35 @@ test('beforeRequest is called with options', withServer, async (t, server, got) 
 	});
 });
 
+test('beforeRequest hook can observe generated authorization header', withServer, async (t, server, got) => {
+	server.get('/', echoHeaders);
+
+	await got(`http://user:password@localhost:${server.port}/`, {
+		hooks: {
+			beforeRequest: [
+				options => {
+					t.is(options.headers.authorization, `Basic ${Buffer.from('user:password').toString('base64')}`);
+				},
+			],
+		},
+	});
+});
+
+test('beforeRequest hook can observe generated cookieJar header', withServer, async (t, server, got) => {
+	server.get('/', echoHeaders);
+
+	await got(`http://localhost:${server.port}/`, {
+		cookieJar: createStaticCookieJar(),
+		hooks: {
+			beforeRequest: [
+				options => {
+					t.is(options.headers.cookie, 'session=from-jar');
+				},
+			],
+		},
+	});
+});
+
 test('beforeRequest allows modifications', withServer, async (t, server, got) => {
 	server.get('/', echoHeaders);
 
@@ -559,6 +619,57 @@ test('returning HTTP response from a beforeRequest hook with large typed array b
 	t.is(body, 'typed-array');
 });
 
+test('returning HTTP response from a beforeRequest hook can observe generated cookieJar header', withServer, async (t, _server, got) => {
+	const {body} = await got({
+		cookieJar: {
+			async getCookieString() {
+				return 'session=from-jar';
+			},
+			async setCookie() {},
+		},
+		hooks: {
+			beforeRequest: [
+				options => {
+					t.is(options.headers.cookie, 'session=from-jar');
+
+					return new Responselike({
+						statusCode: 200,
+						headers: {},
+						body: Buffer.from('cached'),
+						url: '',
+					});
+				},
+			],
+		},
+	});
+
+	t.is(body, 'cached');
+});
+
+test('returning HTTP response from a beforeRequest hook ignores conflicting transfer headers', withServer, async (t, server, got) => {
+	server.post('/', echoBody);
+
+	const {body} = await got.post({
+		body: 'wow',
+		headers: {
+			'content-length': '1',
+			'transfer-encoding': 'chunked',
+		},
+		hooks: {
+			beforeRequest: [
+				() => new Responselike({
+					statusCode: 200,
+					headers: {},
+					body: Buffer.from('cached'),
+					url: '',
+				}),
+			],
+		},
+	});
+
+	t.is(body, 'cached');
+});
+
 test('beforeRedirect is called with options and response', withServer, async (t, server, got) => {
 	server.get('/', echoHeaders);
 	server.get('/redirect', redirectEndpoint);
@@ -596,6 +707,78 @@ test('beforeRedirect allows modifications', withServer, async (t, server, got) =
 		},
 	});
 	t.is(body.foo, 'bar');
+});
+
+test('returning HTTP response from a beforeRequest hook skips basic auth generation', withServer, async (t, server, got) => {
+	server.get('/', echoAuthorization);
+
+	const {body} = await got(`http://user:password@localhost:${server.port}/`, {
+		hooks: {
+			beforeRequest: [
+				() => new Responselike({
+					statusCode: 200,
+					headers: {},
+					body: Buffer.from('cached'),
+					url: '',
+				}),
+			],
+		},
+	});
+
+	t.is(body, 'cached');
+});
+
+test('beforeRedirect hook can explicitly omit generated authorization', withServer, async (t, server, got) => {
+	server.get('/redirect', redirectEndpoint);
+	server.get('/', echoHeader('authorization'));
+
+	const response = await got(`http://user:password@localhost:${server.port}/redirect`, {
+		hooks: {
+			beforeRedirect: [
+				options => {
+					options.headers.authorization = undefined;
+				},
+			],
+		},
+	});
+
+	t.is(response.body, '');
+});
+
+test('beforeRedirect hook can explicitly omit generated cookieJar cookies', withServer, async (t, server, got) => {
+	server.get('/redirect', redirectEndpoint);
+	server.get('/', echoHeader('cookie'));
+
+	const response = await got(`http://localhost:${server.port}/redirect`, {
+		cookieJar: createStaticCookieJar(),
+		hooks: {
+			beforeRedirect: [
+				options => {
+					options.headers.cookie = undefined;
+				},
+			],
+		},
+	});
+
+	t.is(response.body, '');
+});
+
+test('beforeRedirect hook clears stale generated cookie when cookieJar is removed', withServer, async (t, server, got) => {
+	server.get('/redirect', redirectEndpoint);
+	server.get('/', echoHeader('cookie'));
+
+	const response = await got(`http://localhost:${server.port}/redirect`, {
+		cookieJar: createStaticCookieJar(),
+		hooks: {
+			beforeRedirect: [
+				options => {
+					options.cookieJar = undefined;
+				},
+			],
+		},
+	});
+
+	t.is(response.body, '');
 });
 
 test('beforeRetry is called with options', withServer, async (t, server) => {
@@ -1544,6 +1727,399 @@ test('beforeRequest hook respect `url` option', withServer, async (t, server, go
 			],
 		},
 	})).body, 'ok');
+});
+
+test('beforeRequest hook refreshes cookieJar cookies when changing URL', withServer, async (t, server1, got) => {
+	await withServer.exec(t, async (_t, server2) => {
+		server2.get('/changed', (request, response) => {
+			response.end(JSON.stringify({
+				cookie: request.headers.cookie,
+			}));
+		});
+
+		const cookieJar = {
+			async getCookieString(url: string) {
+				return url.startsWith(server2.url) ? 'target=server2' : 'target=server1';
+			},
+			async setCookie() {},
+		};
+
+		const {cookie} = await got(`http://localhost:${server1.port}/original`, {
+			cookieJar,
+			hooks: {
+				beforeRequest: [
+					options => {
+						options.url = new URL(`${server2.url}/changed`);
+					},
+				],
+			},
+		}).json<{cookie?: string}>();
+
+		t.is(cookie, 'target=server2');
+	});
+});
+
+test('beforeRequest hook refreshes basic auth when changing URL credentials', withServer, async (t, server1, got) => {
+	await withServer.exec(t, async (_t, server2) => {
+		server2.get('/changed', (request, response) => {
+			response.end(JSON.stringify({
+				authorization: request.headers.authorization,
+			}));
+		});
+
+		const {authorization} = await got(`http://old-user:old-password@localhost:${server1.port}/original`, {
+			hooks: {
+				beforeRequest: [
+					options => {
+						options.url = new URL(`http://new-user:new-password@localhost:${server2.port}/changed`);
+					},
+				],
+			},
+		}).json<{authorization?: string}>();
+
+		t.is(authorization, `Basic ${Buffer.from('new-user:new-password').toString('base64')}`);
+	});
+});
+
+test('beforeRequest hook drops conflicting content-length when transfer-encoding is added', withServer, async (t, server, got) => {
+	server.post('/', echoHeaders);
+
+	const {body} = await got.post(server.url, {
+		body: 'wow',
+		hooks: {
+			beforeRequest: [
+				options => {
+					options.headers = {
+						...options.headers,
+						'content-length': '1',
+						'transfer-encoding': 'chunked',
+					};
+				},
+			],
+		},
+	});
+
+	const headers = JSON.parse(body);
+	t.is(headers['transfer-encoding'], 'chunked');
+	t.is(headers['content-length'], undefined);
+});
+
+test('beforeRequest hook clears generated basic auth when credentials are removed', withServer, async (t, server, got) => {
+	server.get('/', (request, response) => {
+		response.end(JSON.stringify({
+			authorization: request.headers.authorization,
+		}));
+	});
+
+	const {authorization} = await got(`http://user:password@localhost:${server.port}/`, {
+		hooks: {
+			beforeRequest: [
+				options => {
+					options.username = '';
+					options.password = '';
+				},
+			],
+		},
+	}).json<{authorization?: string}>();
+
+	t.is(authorization, undefined);
+});
+
+test('beforeRequest hook preserves explicit authorization header when clearing URL credentials', withServer, async (t, server, got) => {
+	server.get('/', (request, response) => {
+		response.end(JSON.stringify({
+			authorization: request.headers.authorization,
+		}));
+	});
+
+	const {authorization} = await got(`http://user:password@localhost:${server.port}/`, {
+		headers: {
+			authorization: 'Bearer replacement-token',
+		},
+		hooks: {
+			beforeRequest: [
+				options => {
+					options.username = '';
+					options.password = '';
+				},
+			],
+		},
+	}).json<{authorization?: string}>();
+
+	t.is(authorization, 'Bearer replacement-token');
+});
+
+test('beforeRequest hook preserves same-value authorization header when clearing URL credentials', withServer, async (t, server, got) => {
+	server.get('/', (request, response) => {
+		response.end(JSON.stringify({
+			authorization: request.headers.authorization,
+		}));
+	});
+
+	const authorizationHeader = `Basic ${Buffer.from('user:password').toString('base64')}`;
+	const {authorization} = await got(`http://user:password@localhost:${server.port}/`, {
+		hooks: {
+			beforeRequest: [
+				options => {
+					options.headers.authorization = authorizationHeader;
+					options.username = '';
+					options.password = '';
+				},
+			],
+		},
+	}).json<{authorization?: string}>();
+
+	t.is(authorization, authorizationHeader);
+});
+
+test('beforeRequest hook preserves explicit authorization override when URL credentials remain', withServer, async (t, server, got) => {
+	server.get('/', (request, response) => {
+		response.end(JSON.stringify({
+			authorization: request.headers.authorization,
+		}));
+	});
+
+	const {authorization} = await got(`http://user:password@localhost:${server.port}/`, {
+		hooks: {
+			beforeRequest: [
+				options => {
+					options.headers.authorization = 'Bearer replacement-token';
+				},
+			],
+		},
+	}).json<{authorization?: string}>();
+
+	t.is(authorization, 'Bearer replacement-token');
+});
+
+test('beforeRequest hook can explicitly omit generated authorization', withServer, async (t, server, got) => {
+	server.get('/', (request, response) => {
+		response.end(JSON.stringify({
+			authorization: request.headers.authorization,
+		}));
+	});
+
+	const {authorization} = await got(`http://user:password@localhost:${server.port}/`, {
+		hooks: {
+			beforeRequest: [
+				options => {
+					options.headers.authorization = undefined;
+				},
+			],
+		},
+	}).json<{authorization?: string}>();
+
+	t.is(authorization, undefined);
+});
+
+test('beforeRequest hook can explicitly omit generated cookieJar cookies', withServer, async (t, server, got) => {
+	server.get('/', (request, response) => {
+		response.end(JSON.stringify({
+			cookie: request.headers.cookie,
+		}));
+	});
+
+	const {cookie} = await got(`http://localhost:${server.port}/`, {
+		cookieJar: createStaticCookieJar(),
+		hooks: {
+			beforeRequest: [
+				options => {
+					options.headers.cookie = undefined;
+				},
+			],
+		},
+	}).json<{cookie?: string}>();
+
+	t.is(cookie, undefined);
+});
+
+test('beforeRequest hook can omit generated authorization for a single retry attempt', withServer, async (t, server, got) => {
+	let requestCount = 0;
+	server.get('/', (request, response) => {
+		requestCount++;
+
+		if (requestCount === 1) {
+			response.statusCode = 500;
+			response.end();
+			return;
+		}
+
+		response.end(JSON.stringify({
+			authorization: request.headers.authorization,
+		}));
+	});
+
+	const {authorization} = await got(`http://user:password@localhost:${server.port}/`, {
+		retry: {
+			limit: 1,
+			statusCodes: [500],
+		},
+		hooks: {
+			beforeRequest: [
+				(options, context) => {
+					if (context.retryCount === 0) {
+						options.headers.authorization = undefined;
+					}
+				},
+			],
+		},
+	}).json<{authorization?: string}>();
+
+	t.is(authorization, `Basic ${Buffer.from('user:password').toString('base64')}`);
+});
+
+test('beforeRequest hook can omit generated cookieJar cookies for a single retry attempt', withServer, async (t, server, got) => {
+	let requestCount = 0;
+	server.get('/', (request, response) => {
+		requestCount++;
+
+		if (requestCount === 1) {
+			response.statusCode = 500;
+			response.end();
+			return;
+		}
+
+		response.end(JSON.stringify({
+			cookie: request.headers.cookie,
+		}));
+	});
+
+	const {cookie} = await got(`http://localhost:${server.port}/`, {
+		cookieJar: createStaticCookieJar(),
+		retry: {
+			limit: 1,
+			statusCodes: [500],
+		},
+		hooks: {
+			beforeRequest: [
+				(options, context) => {
+					if (context.retryCount === 0) {
+						options.headers.cookie = undefined;
+					}
+				},
+			],
+		},
+	}).json<{cookie?: string}>();
+
+	t.is(cookie, 'session=from-jar');
+});
+
+test('beforeRequest hook preserves same-value cookie header when removing cookieJar', withServer, async (t, server, got) => {
+	server.get('/', (request, response) => {
+		response.end(JSON.stringify({
+			cookie: request.headers.cookie,
+		}));
+	});
+
+	const {cookie} = await got(`http://localhost:${server.port}/`, {
+		cookieJar: createStaticCookieJar(),
+		hooks: {
+			beforeRequest: [
+				options => {
+					options.headers.cookie = 'session=from-jar';
+					options.cookieJar = undefined;
+				},
+			],
+		},
+	}).json<{cookie?: string}>();
+
+	t.is(cookie, 'session=from-jar');
+});
+
+test('beforeRequest hook preserves explicit cookie override when cookieJar remains', withServer, async (t, server, got) => {
+	server.get('/', (request, response) => {
+		response.end(JSON.stringify({
+			cookie: request.headers.cookie,
+		}));
+	});
+
+	const {cookie} = await got(`http://localhost:${server.port}/`, {
+		cookieJar: createStaticCookieJar(),
+		hooks: {
+			beforeRequest: [
+				options => {
+					options.headers.cookie = 'session=override';
+				},
+			],
+		},
+	}).json<{cookie?: string}>();
+
+	t.is(cookie, 'session=override');
+});
+
+test('beforeRequest hook preserves initial explicit cookie when disabling cookieJar', withServer, async (t, server, got) => {
+	server.get('/', (request, response) => {
+		response.end(JSON.stringify({
+			cookie: request.headers.cookie,
+		}));
+	});
+
+	const {cookie} = await got(`http://localhost:${server.port}/`, {
+		headers: {
+			cookie: 'session=from-jar',
+		},
+		cookieJar: createStaticCookieJar(),
+		hooks: {
+			beforeRequest: [
+				options => {
+					options.cookieJar = undefined;
+				},
+			],
+		},
+	}).json<{cookie?: string}>();
+
+	t.is(cookie, 'session=from-jar');
+});
+
+test('beforeRequest hook clears stale generated cookie when cookieJar is removed', withServer, async (t, server, got) => {
+	server.get('/', (request, response) => {
+		response.end(JSON.stringify({
+			cookie: request.headers.cookie,
+		}));
+	});
+
+	const {cookie} = await got(`http://localhost:${server.port}/`, {
+		cookieJar: createStaticCookieJar(),
+		hooks: {
+			beforeRequest: [
+				options => {
+					options.cookieJar = undefined;
+				},
+			],
+		},
+	}).json<{cookie?: string}>();
+
+	t.is(cookie, undefined);
+});
+
+test('beforeRequest hook clears stale cookieJar cookie when changing URL to a cookie-less destination', withServer, async (t, server1, got) => {
+	await withServer.exec(t, async (_t, server2) => {
+		server2.get('/changed', (request, response) => {
+			response.end(JSON.stringify({
+				cookie: request.headers.cookie,
+			}));
+		});
+
+		const cookieJar = {
+			async getCookieString(url: string) {
+				return url.startsWith(server1.url) ? 'target=server1' : '';
+			},
+			async setCookie() {},
+		};
+
+		const {cookie} = await got(`http://localhost:${server1.port}/original`, {
+			cookieJar,
+			hooks: {
+				beforeRequest: [
+					options => {
+						options.url = new URL(`${server2.url}/changed`);
+					},
+				],
+			},
+		}).json<{cookie?: string}>();
+
+		t.is(cookie, undefined);
+	});
 });
 
 test('no duplicate hook calls in single-page paginated requests', withServer, async (t, server, got) => {
@@ -2751,6 +3327,128 @@ test('afterResponse retryWithMergedOptions supports relative string url values',
 	t.is(requestCount, 1);
 });
 
+test('afterResponse retryWithMergedOptions can explicitly omit generated authorization', withServer, async (t, server, got) => {
+	addRetryHeaderEchoEndpoint(server, 'authorization');
+
+	const response = await got(`http://user:password@localhost:${server.port}/api`, {
+		hooks: {
+			afterResponse: [
+				(response, retryWithMergedOptions) => {
+					if (response.statusCode === 401) {
+						return retryWithMergedOptions({
+							headers: {
+								authorization: undefined,
+							},
+						});
+					}
+
+					return response;
+				},
+			],
+		},
+	});
+
+	t.is(response.body, '');
+});
+
+test('afterResponse retryWithMergedOptions can explicitly omit generated cookieJar cookies', withServer, async (t, server, got) => {
+	addRetryHeaderEchoEndpoint(server, 'cookie');
+
+	const response = await got(`http://localhost:${server.port}/api`, {
+		cookieJar: createStaticCookieJar(),
+		hooks: {
+			afterResponse: [
+				(response, retryWithMergedOptions) => {
+					if (response.statusCode === 401) {
+						return retryWithMergedOptions({
+							headers: {
+								cookie: undefined,
+							},
+						});
+					}
+
+					return response;
+				},
+			],
+		},
+	});
+
+	t.is(response.body, '');
+});
+
+test('afterResponse retryWithMergedOptions clears stale generated cookie when cookieJar is removed', withServer, async (t, server, got) => {
+	addRetryHeaderEchoEndpoint(server, 'cookie');
+
+	const response = await got(`http://localhost:${server.port}/api`, {
+		cookieJar: createStaticCookieJar(),
+		hooks: {
+			afterResponse: [
+				(response, retryWithMergedOptions) => {
+					if (response.statusCode === 401) {
+						return retryWithMergedOptions({
+							cookieJar: undefined,
+						});
+					}
+
+					return response;
+				},
+			],
+		},
+	});
+
+	t.is(response.body, '');
+});
+
+test('afterResponse retryWithMergedOptions ignores discarded cookie mutations when disabling cookieJar', withServer, async (t, server, got) => {
+	addRetryHeaderEchoEndpoint(server, 'cookie');
+
+	const response = await got(`http://localhost:${server.port}/api`, {
+		cookieJar: createStaticCookieJar(),
+		hooks: {
+			afterResponse: [
+				(response, retryWithMergedOptions) => {
+					if (response.statusCode === 401) {
+						response.request.options.headers.cookie = 'session=discarded';
+						return retryWithMergedOptions({
+							cookieJar: undefined,
+						});
+					}
+
+					return response;
+				},
+			],
+		},
+	});
+
+	t.is(response.body, '');
+});
+
+test('afterResponse retryWithMergedOptions preserves explicit cookie when disabling cookieJar', withServer, async (t, server, got) => {
+	addRetryHeaderEchoEndpoint(server, 'cookie');
+
+	const response = await got(`http://localhost:${server.port}/api`, {
+		cookieJar: createStaticCookieJar(),
+		hooks: {
+			afterResponse: [
+				(response, retryWithMergedOptions) => {
+					if (response.statusCode === 401) {
+						return retryWithMergedOptions({
+							cookieJar: undefined,
+							headers: {
+								cookie: 'session=from-jar',
+							},
+						});
+					}
+
+					return response;
+				},
+			],
+		},
+	});
+
+	t.is(response.body, 'session=from-jar');
+});
+
 test('afterResponse retryWithMergedOptions supports query-only string url values', withServer, async (t, server, got) => {
 	server.get('/api', (request, response) => {
 		const searchParameters = new URLSearchParams(request.url.split('?')[1]);
@@ -2819,7 +3517,8 @@ test('afterResponse retryWithMergedOptions preserves explicit credentials with q
 	server.get('/api', (request, response) => {
 		const searchParameters = new URLSearchParams(request.url.split('?')[1]);
 		if (searchParameters.get('page') === '2') {
-			response.end(request.headers.authorization ?? '');
+			const {authorization} = request.headers;
+			response.end(authorization ?? '');
 			return;
 		}
 
@@ -2858,7 +3557,8 @@ test('afterResponse retryWithMergedOptions preserves explicit credentials with p
 	});
 
 	server.get('/items/next', (request, response) => {
-		response.end(request.headers.authorization ?? '');
+		const {authorization} = request.headers;
+		response.end(authorization ?? '');
 	});
 
 	const response = await got('items/start', {

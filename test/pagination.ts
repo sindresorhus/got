@@ -17,6 +17,13 @@ const resetPagination = {
 	shouldContinue: undefined,
 };
 
+const createStaticCookieJar = (cookie = 'session=from-jar') => ({
+	async getCookieString() {
+		return cookie;
+	},
+	async setCookie() {},
+});
+
 // eslint-disable-next-line unicorn/no-object-as-default-parameter
 const attachHandler = (server: ExtendedHttpTestServer, count: number, {relative} = {relative: false}): void => {
 	server.get('/', (request, response) => {
@@ -1562,6 +1569,322 @@ test('preserves body when pagination stays same-origin', withServer, async (t, s
 
 	t.deepEqual(items, [1, 2]);
 	t.deepEqual(payloads.map(payload => JSON.parse(payload).secret), ['payload', 'payload']);
+});
+
+test('pagination can explicitly omit generated authorization on the next page', withServer, async (t, server, got) => {
+	let finalAuthorization: string | undefined;
+	server.get('/items', (request, response) => {
+		const searchParameters = new URLSearchParams(request.url.split('?')[1]);
+		const page = searchParameters.get('page');
+
+		if (page === '2') {
+			finalAuthorization = request.headers.authorization;
+			response.end('[2]');
+			return;
+		}
+
+		response.end('[1]');
+	});
+
+	const items = await got.paginate.all<number>('items?page=1', {
+		username: 'user',
+		password: 'password',
+		pagination: {
+			requestLimit: 2,
+			paginate({response}) {
+				if (response.body === '[1]') {
+					return {
+						url: new URL('/items?page=2', response.url),
+						headers: {
+							authorization: undefined,
+						},
+					};
+				}
+
+				return false;
+			},
+		},
+	});
+
+	t.deepEqual(items, [1, 2]);
+	t.is(finalAuthorization, undefined);
+});
+
+test('pagination can explicitly omit generated cookieJar cookies on the next page', withServer, async (t, server, got) => {
+	let finalCookie: string | undefined;
+	server.get('/items', (request, response) => {
+		const searchParameters = new URLSearchParams(request.url.split('?')[1]);
+		const page = searchParameters.get('page');
+
+		if (page === '2') {
+			finalCookie = request.headers.cookie;
+			response.end('[2]');
+			return;
+		}
+
+		response.end('[1]');
+	});
+
+	const items = await got.paginate.all<number>('items?page=1', {
+		cookieJar: createStaticCookieJar(),
+		pagination: {
+			requestLimit: 2,
+			paginate({response}) {
+				if (response.body === '[1]') {
+					return {
+						url: new URL('/items?page=2', response.url),
+						headers: {
+							cookie: undefined,
+						},
+					};
+				}
+
+				return false;
+			},
+		},
+	});
+
+	t.deepEqual(items, [1, 2]);
+	t.is(finalCookie, undefined);
+});
+
+test('pagination clears stale generated cookie when cookieJar is removed on the next page', withServer, async (t, server, got) => {
+	let finalCookie: string | undefined;
+	server.get('/items', (request, response) => {
+		const searchParameters = new URLSearchParams(request.url.split('?')[1]);
+		const page = searchParameters.get('page');
+
+		if (page === '2') {
+			finalCookie = request.headers.cookie;
+			response.end('[2]');
+			return;
+		}
+
+		response.end('[1]');
+	});
+
+	const items = await got.paginate.all<number>('items?page=1', {
+		cookieJar: createStaticCookieJar(),
+		pagination: {
+			requestLimit: 2,
+			paginate({response}) {
+				if (response.body === '[1]') {
+					return {
+						url: new URL('/items?page=2', response.url),
+						cookieJar: undefined,
+					};
+				}
+
+				return false;
+			},
+		},
+	});
+
+	t.deepEqual(items, [1, 2]);
+	t.is(finalCookie, undefined);
+});
+
+test('pagination preserves explicit cookie when disabling cookieJar on the next page', withServer, async (t, server, got) => {
+	let finalCookie: string | undefined;
+	server.get('/items', (request, response) => {
+		const searchParameters = new URLSearchParams(request.url.split('?')[1]);
+		const page = searchParameters.get('page');
+
+		if (page === '2') {
+			finalCookie = request.headers.cookie;
+			response.end('[2]');
+			return;
+		}
+
+		response.end('[1]');
+	});
+
+	const items = await got.paginate.all<number>('items?page=1', {
+		cookieJar: createStaticCookieJar(),
+		pagination: {
+			requestLimit: 2,
+			paginate({response}) {
+				if (response.body === '[1]') {
+					return {
+						url: new URL('/items?page=2', response.url),
+						cookieJar: undefined,
+						headers: {
+							cookie: 'session=from-jar',
+						},
+					};
+				}
+
+				return false;
+			},
+		},
+	});
+
+	t.deepEqual(items, [1, 2]);
+	t.is(finalCookie, 'session=from-jar');
+});
+
+test('pagination clears stale generated cookie when reusing mutated options and removing cookieJar on the next page', withServer, async (t, server, got) => {
+	let finalCookie: string | undefined;
+	server.get('/items', (request, response) => {
+		const searchParameters = new URLSearchParams(request.url.split('?')[1]);
+		const page = searchParameters.get('page');
+
+		if (page === '2') {
+			finalCookie = request.headers.cookie;
+			response.end('[2]');
+			return;
+		}
+
+		response.end('[1]');
+	});
+
+	const items = await got.paginate.all<number>('items?page=1', {
+		cookieJar: createStaticCookieJar(),
+		pagination: {
+			requestLimit: 2,
+			paginate({response}) {
+				if (response.body === '[1]') {
+					const updatedOptions = response.request.options;
+					updatedOptions.url = new URL('/items?page=2', response.url);
+					updatedOptions.cookieJar = undefined;
+					return updatedOptions;
+				}
+
+				return false;
+			},
+		},
+	});
+
+	t.deepEqual(items, [1, 2]);
+	t.is(finalCookie, undefined);
+});
+
+test('pagination restores generated cookies after temporarily removing cookieJar on reused options', withServer, async (t, server, got) => {
+	let finalCookie: string | undefined;
+	server.get('/items', (request, response) => {
+		const searchParameters = new URLSearchParams(request.url.split('?')[1]);
+		const page = searchParameters.get('page');
+
+		if (page === '3') {
+			finalCookie = request.headers.cookie;
+			response.end('[3]');
+			return;
+		}
+
+		if (page === '2') {
+			response.end('[2]');
+			return;
+		}
+
+		response.end('[1]');
+	});
+
+	const items = await got.paginate.all<number>('items?page=1', {
+		cookieJar: createStaticCookieJar(),
+		pagination: {
+			requestLimit: 3,
+			paginate({response}) {
+				const updatedOptions = response.request.options;
+
+				if (response.body === '[1]') {
+					updatedOptions.url = new URL('/items?page=2', response.url);
+					updatedOptions.cookieJar = undefined;
+					return updatedOptions;
+				}
+
+				if (response.body === '[2]') {
+					updatedOptions.url = new URL('/items?page=3', response.url);
+					updatedOptions.cookieJar = createStaticCookieJar('session=from-new-jar');
+					return updatedOptions;
+				}
+
+				return false;
+			},
+		},
+	});
+
+	t.deepEqual(items, [1, 2, 3]);
+	t.is(finalCookie, 'session=from-new-jar');
+});
+
+test('pagination clears stale generated cookie when switching from reused options back to merged options', withServer, async (t, server, got) => {
+	const receivedCookies: string[] = [];
+	server.get('/items', (request, response) => {
+		receivedCookies.push(request.headers.cookie ?? '');
+		const searchParameters = new URLSearchParams(request.url.split('?')[1]);
+		const page = searchParameters.get('page');
+
+		if (page === '3') {
+			response.end('[3]');
+			return;
+		}
+
+		if (page === '2') {
+			response.end('[2]');
+			return;
+		}
+
+		response.end('[1]');
+	});
+
+	const items = await got.paginate.all<number>('items?page=1', {
+		cookieJar: createStaticCookieJar(),
+		pagination: {
+			requestLimit: 3,
+			paginate({response}) {
+				if (response.body === '[1]') {
+					const updatedOptions = response.request.options;
+					updatedOptions.url = new URL('/items?page=2', response.url);
+					return updatedOptions;
+				}
+
+				if (response.body === '[2]') {
+					return {
+						url: new URL('/items?page=3', response.url),
+						cookieJar: undefined,
+					};
+				}
+
+				return false;
+			},
+		},
+	});
+
+	t.deepEqual(items, [1, 2, 3]);
+	t.deepEqual(receivedCookies, ['session=from-jar', 'session=from-jar', '']);
+});
+
+test('pagination ignores discarded cookie mutations when disabling cookieJar with merged options', withServer, async (t, server, got) => {
+	const receivedCookies: string[] = [];
+	server.get('/items', (request, response) => {
+		receivedCookies.push(request.headers.cookie ?? '');
+		const searchParameters = new URLSearchParams(request.url.split('?')[1]);
+		const page = searchParameters.get('page');
+
+		if (page === '2') {
+			response.end('[2]');
+			return;
+		}
+
+		response.end('[1]');
+	});
+
+	const items = await got.paginate.all<number>('items?page=1', {
+		cookieJar: createStaticCookieJar(),
+		pagination: {
+			requestLimit: 2,
+			paginate({response}) {
+				response.request.options.headers.cookie = 'session=discarded';
+				return {
+					url: new URL('/items?page=2', response.url),
+					cookieJar: undefined,
+				};
+			},
+		},
+	});
+
+	t.deepEqual(items, [1, 2]);
+	t.deepEqual(receivedCookies, ['session=from-jar', '']);
 });
 
 test('preserves explicit replacement body when pagination navigates cross-origin', async t => {

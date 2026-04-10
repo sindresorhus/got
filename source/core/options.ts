@@ -57,6 +57,8 @@ export type Agents = {
 export type Headers = Record<string, string | string[] | undefined>;
 export type CrossOriginState = {
 	headers: Headers;
+	hadCookieJar: boolean;
+	cookieWasExplicitlySet: boolean;
 	username: string;
 	password: string;
 	body: unknown;
@@ -1016,6 +1018,9 @@ type OptionsToSkip =
 	| 'deleteInternalHeader'
 	| 'trackStateMutations'
 	| 'clearBody'
+	| 'clearUnchangedCookieHeader'
+	| 'restoreCookieHeader'
+	| 'syncCookieHeaderAfterMerge'
 	| 'stripUnchangedCrossOriginState'
 	| 'stripSensitiveHeaders'
 	| 'createNativeRequestOptions'
@@ -2520,6 +2525,44 @@ export default class Options {
 		}
 	}
 
+	clearUnchangedCookieHeader(previousState: CrossOriginState | undefined, changedState?: Set<string>): void {
+		if (
+			previousState?.hadCookieJar
+			&& this.cookieJar === undefined
+			&& !this.isHeaderExplicitlySet('cookie')
+			&& !changedState?.has('cookie')
+			&& this.headers.cookie === previousState.headers.cookie
+		) {
+			this.deleteInternalHeader('cookie');
+		}
+	}
+
+	restoreCookieHeader(previousState: CrossOriginState | undefined, headers?: Headers): void {
+		if (!previousState) {
+			return;
+		}
+
+		if (Object.hasOwn(headers ?? {}, 'cookie')) {
+			return;
+		}
+
+		if (previousState.cookieWasExplicitlySet) {
+			this.headers.cookie = previousState.headers.cookie;
+			return;
+		}
+
+		delete this.headers.cookie;
+
+		if (previousState.headers.cookie !== undefined) {
+			this.setInternalHeader('cookie', previousState.headers.cookie);
+		}
+	}
+
+	syncCookieHeaderAfterMerge(previousState: CrossOriginState | undefined, headers?: Headers): void {
+		this.restoreCookieHeader(previousState, headers);
+		this.clearUnchangedCookieHeader(previousState);
+	}
+
 	stripUnchangedCrossOriginState(previousState: CrossOriginState, changedState: Set<string>, {clearBody = true}: {clearBody?: boolean} = {}): void {
 		const headers = this.getInternalHeaders();
 		const url = this.#internals.url as URL | undefined;
@@ -3366,6 +3409,8 @@ export default class Options {
 
 export const snapshotCrossOriginState = (options: Options): CrossOriginState => ({
 	headers: {...options.getInternalHeaders()},
+	hadCookieJar: options.cookieJar !== undefined,
+	cookieWasExplicitlySet: options.isHeaderExplicitlySet('cookie'),
 	username: options.username,
 	password: options.password,
 	body: options.body,

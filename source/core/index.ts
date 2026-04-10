@@ -31,6 +31,7 @@ import Options, {
 	isBodyUnchanged,
 	isSameOrigin,
 	snapshotCrossOriginState,
+	type CrossOriginState,
 	type PromiseCookieJar,
 	type NativeRequestOptions,
 	type RetryOptions,
@@ -1116,6 +1117,8 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 					return changedState;
 				});
 
+				updatedOptions.clearUnchangedCookieHeader(preHookState, changedState);
+
 				// If a beforeRedirect hook changed the URL to a different origin,
 				// strip sensitive headers that were preserved for the original origin.
 				// When isDifferentOrigin was already true, headers were already stripped above.
@@ -1124,15 +1127,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 					const hookUrl = updatedOptions.url;
 					if (!isSameOrigin(state.url, hookUrl)) {
 						this._stripUnchangedCrossOriginState(updatedOptions, hookUrl, shouldDropBody, {
-							headers: state.headers,
-							username: state.username,
-							password: state.password,
-							body: state.body,
-							json: state.json,
-							form: state.form,
-							bodySnapshot: state.bodySnapshot,
-							jsonSnapshot: state.jsonSnapshot,
-							formSnapshot: state.formSnapshot,
+							...state,
 							changedState,
 							preserveUsername: hasExplicitCredentialInUrlChange(changedState, hookUrl, 'username')
 								|| isCrossOriginCredentialChanged(state.url, hookUrl, 'username'),
@@ -1654,16 +1649,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		}
 	}
 
-	private _stripUnchangedCrossOriginState(options: Options, urlToClear: URL, bodyAlreadyDropped: boolean, state: {
-		headers: Record<string, string | string[] | undefined>;
-		username: string;
-		password: string;
-		body: unknown;
-		json: unknown;
-		form: unknown;
-		bodySnapshot: unknown;
-		jsonSnapshot: unknown;
-		formSnapshot: unknown;
+	private _stripUnchangedCrossOriginState(options: Options, urlToClear: URL, bodyAlreadyDropped: boolean, state: CrossOriginState & {
 		changedState: Set<string>;
 		preserveUsername: boolean;
 		preservePassword: boolean;
@@ -1947,17 +1933,59 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 	private async _makeRequest(): Promise<void> {
 		const {options} = this;
-		const headers = options.getInternalHeaders();
-		const {username, password} = options;
-		const cookieJar = options.cookieJar as PromiseCookieJar | undefined;
-
-		for (const key in headers) {
-			if (is.undefined(headers[key])) {
-				options.deleteInternalHeader(key);
-			} else if (is.null(headers[key])) {
-				throw new TypeError(`Use \`undefined\` instead of \`null\` to delete the \`${key}\` header`);
+		const initialHeaders = options.getInternalHeaders();
+		const explicitAuthorizationHeader = options.isHeaderExplicitlySet('authorization') ? initialHeaders.authorization : undefined;
+		const explicitCookieHeader = options.isHeaderExplicitlySet('cookie') ? initialHeaders.cookie : undefined;
+		const authorizationWasInitiallyOmitted = options.isHeaderExplicitlySet('authorization') && is.undefined(initialHeaders.authorization);
+		const cookieWasInitiallyOmitted = options.isHeaderExplicitlySet('cookie') && is.undefined(initialHeaders.cookie);
+		const shouldDeleteGeneratedHeader = (currentHeader: string | string[] | undefined, generatedHeader: string | undefined) => currentHeader === generatedHeader || is.undefined(currentHeader);
+		const syncGeneratedHeader = (name: 'authorization' | 'cookie', {
+			currentHeader,
+			explicitHeader,
+			nextHeader,
+			staleGeneratedHeader,
+		}: {
+			currentHeader: string | string[] | undefined;
+			explicitHeader: string | string[] | undefined;
+			nextHeader: string | undefined;
+			staleGeneratedHeader: string | undefined;
+		}) => {
+			if (!is.undefined(nextHeader)) {
+				options.setInternalHeader(name, nextHeader);
+			} else if (!is.undefined(explicitHeader) && currentHeader === staleGeneratedHeader) {
+				options.setInternalHeader(name, explicitHeader);
+			} else if (shouldDeleteGeneratedHeader(currentHeader, staleGeneratedHeader)) {
+				options.deleteInternalHeader(name);
 			}
-		}
+		};
+
+		const getAuthorizationHeader = (username: string, password: string, isExplicitlyOmitted: boolean) => !isExplicitlyOmitted && (username || password)
+			? `Basic ${stringToBase64(`${username}:${password}`)}`
+			: undefined;
+		const sanitizeHeaders = () => {
+			const currentHeaders = options.getInternalHeaders();
+
+			for (const key in currentHeaders) {
+				if (is.undefined(currentHeaders[key])) {
+					options.deleteInternalHeader(key);
+				} else if (is.null(currentHeaders[key])) {
+					throw new TypeError(`Use \`undefined\` instead of \`null\` to delete the \`${key}\` header`);
+				}
+			}
+
+			return currentHeaders;
+		};
+
+		const getCookieHeader = async (cookieJar: PromiseCookieJar | undefined) => {
+			if (!cookieJar) {
+				return undefined;
+			}
+
+			const cookieString = await cookieJar.getCookieString(options.url!.toString());
+			return is.nonEmptyString(cookieString) ? cookieString : undefined;
+		};
+
+		const headers = sanitizeHeaders();
 
 		if (options.decompress && is.undefined(headers['accept-encoding'])) {
 			const encodings = ['gzip', 'deflate'];
@@ -1972,43 +2000,108 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			options.setInternalHeader('accept-encoding', encodings.join(', '));
 		}
 
-		if (username || password) {
-			const credentials = stringToBase64(`${username}:${password}`);
-			options.setInternalHeader('authorization', `Basic ${credentials}`);
+		const {username, password} = options;
+		const cookieJar = options.cookieJar as PromiseCookieJar | undefined;
+		const generatedAuthorizationHeader = getAuthorizationHeader(username, password, authorizationWasInitiallyOmitted);
+		let generatedCookieHeader: string | undefined;
+
+		if (!is.undefined(generatedAuthorizationHeader)) {
+			options.setInternalHeader('authorization', generatedAuthorizationHeader);
 		}
 
-		// Set cookies
-		if (cookieJar) {
-			const cookieString = await cookieJar.getCookieString(options.url!.toString());
+		if (!cookieWasInitiallyOmitted) {
+			generatedCookieHeader = await getCookieHeader(cookieJar);
 
-			if (is.nonEmptyString(cookieString)) {
-				options.setInternalHeader('cookie', cookieString);
+			if (!is.undefined(generatedCookieHeader)) {
+				options.setInternalHeader('cookie', generatedCookieHeader);
 			}
 		}
 
 		let request: ReturnType<Options['getRequestFunction']> | undefined;
+		let shouldOmitRequestUrlCredentials = false;
+		const changedState = await options.trackStateMutations(async changedState => {
+			for (const hook of options.hooks.beforeRequest) {
+				// eslint-disable-next-line no-await-in-loop
+				const result = await hook(options as NormalizedOptions, {retryCount: this.retryCount});
 
-		for (const hook of options.hooks.beforeRequest) {
-			// eslint-disable-next-line no-await-in-loop
-			const result = await hook(options as NormalizedOptions, {retryCount: this.retryCount});
-
-			if (!is.undefined(result)) {
-				// @ts-expect-error Skip the type mismatch to support abstract responses
-				request = () => result;
-				break;
+				if (!is.undefined(result)) {
+					// @ts-expect-error Skip the type mismatch to support abstract responses
+					request = () => result;
+					break;
+				}
 			}
-		}
 
-		if (!is.undefined(headers['transfer-encoding']) && !is.undefined(headers['content-length'])) {
-			// TODO: Throw instead of silently dropping `content-length` in the next major version.
-			options.deleteInternalHeader('content-length');
+			return changedState;
+		});
+
+		if (request === undefined) {
+			const currentHeaders = options.getInternalHeaders();
+			// `headers.authorization = undefined` / `headers.cookie = undefined` is an
+			// explicit opt-out. Respect that instead of regenerating values from URL
+			// credentials or the cookie jar later in request setup.
+			const isHeaderExplicitlyOmitted = (header: 'authorization' | 'cookie') => options.isHeaderExplicitlySet(header) && is.undefined(currentHeaders[header]);
+			const authorizationWasExplicitlyOmitted = isHeaderExplicitlyOmitted('authorization');
+			const cookieWasExplicitlyOmitted = isHeaderExplicitlyOmitted('cookie');
+			const currentAuthorizationHeader = currentHeaders.authorization;
+			const currentCookieHeader = currentHeaders.cookie;
+
+			sanitizeHeaders();
+
+			if (!is.undefined(currentHeaders['transfer-encoding']) && !is.undefined(currentHeaders['content-length'])) {
+				options.deleteInternalHeader('content-length');
+			}
+
+			if (authorizationWasExplicitlyOmitted) {
+				shouldOmitRequestUrlCredentials = true;
+				options.deleteInternalHeader('authorization');
+
+				if (changedState.has('authorization') && is.undefined(explicitAuthorizationHeader) && !authorizationWasInitiallyOmitted) {
+					delete options.headers.authorization;
+				}
+			}
+
+			const authorizationHeader = getAuthorizationHeader(options.username, options.password, authorizationWasExplicitlyOmitted);
+			const cookieJar = options.cookieJar as PromiseCookieJar | undefined;
+			if (changedState.has('authorization')) {
+				// A beforeRequest hook intentionally set the outgoing Authorization header.
+			} else {
+				syncGeneratedHeader('authorization', {
+					currentHeader: currentAuthorizationHeader,
+					explicitHeader: explicitAuthorizationHeader,
+					nextHeader: authorizationHeader,
+					staleGeneratedHeader: generatedAuthorizationHeader,
+				});
+			}
+
+			if (cookieWasExplicitlyOmitted) {
+				options.deleteInternalHeader('cookie');
+
+				if (changedState.has('cookie') && is.undefined(explicitCookieHeader) && !cookieWasInitiallyOmitted) {
+					delete options.headers.cookie;
+				}
+			} else if (changedState.has('cookie')) {
+				// A beforeRequest hook intentionally set the outgoing Cookie header.
+			} else {
+				syncGeneratedHeader('cookie', {
+					currentHeader: currentCookieHeader,
+					explicitHeader: explicitCookieHeader,
+					nextHeader: await getCookieHeader(cookieJar),
+					staleGeneratedHeader: generatedCookieHeader,
+				});
+			}
 		}
 
 		request ??= options.getRequestFunction();
 
-		const url = options.url as URL;
+		const url = shouldOmitRequestUrlCredentials
+			? new URL(stripUrlAuth(options.url!))
+			: options.url as URL;
 
 		this._requestOptions = options.createNativeRequestOptions() as NativeRequestOptions;
+
+		if (shouldOmitRequestUrlCredentials) {
+			this._requestOptions.auth = undefined;
+		}
 
 		if (options.cache) {
 			(this._requestOptions as any)._request = request;
