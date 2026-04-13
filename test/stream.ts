@@ -11,6 +11,7 @@ import getStream from 'get-stream';
 import {pEvent} from 'p-event';
 import is from '@sindresorhus/is';
 import delay from 'delay';
+import * as toughCookie from 'tough-cookie';
 import got, {HTTPError, RequestError} from '../source/index.js';
 import type {Response} from '../source/core/response.js';
 import withServer from './helpers/with-server.js';
@@ -46,6 +47,75 @@ const headersHandler: Handler = (request, response) => {
 const infiniteHandler: Handler = (_request, response) => {
 	response.write('foobar');
 };
+
+async function expectStreamToEnd(stream: NodeJS.ReadableStream & NodeJS.EventEmitter): Promise<void> {
+	await Promise.race([
+		new Promise<void>((resolve, reject) => {
+			stream.on('error', reject);
+			stream.on('end', resolve);
+			stream.resume();
+		}),
+		(async () => {
+			await delay(1000);
+			throw new Error('Timed out waiting for stream end');
+		})(),
+	]);
+}
+
+test('stream reads a cookie and completes', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.setHeader('set-cookie', 'hello=world');
+		response.end('body');
+	});
+
+	const cookieJar = new toughCookie.CookieJar();
+
+	await t.notThrowsAsync(expectStreamToEnd(got.stream({cookieJar})));
+
+	const cookie = cookieJar.getCookiesSync(server.url)[0];
+	t.is(cookie?.key, 'hello');
+	t.is(cookie?.value, 'world');
+});
+
+test('stream reads a cookie and completes after async cookie jar write', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.setHeader('set-cookie', 'hello=world');
+		response.end('body');
+	});
+
+	let storedCookie = '';
+	const cookieJar = {
+		async getCookieString() {
+			return '';
+		},
+		async setCookie(rawCookie: string) {
+			await delay(50);
+			storedCookie = rawCookie;
+		},
+	};
+
+	await t.notThrowsAsync(expectStreamToEnd(got.stream({cookieJar})));
+
+	t.is(storedCookie, 'hello=world');
+});
+
+test('stream follows redirect after storing redirect cookies', withServer, async (t, server, got) => {
+	server.get('/redirect', (_request, response) => {
+		response.setHeader('set-cookie', 'hello=world');
+		response.writeHead(302, {
+			location: '/',
+		});
+		response.end();
+	});
+
+	server.get('/', (request, response) => {
+		response.end(request.headers.cookie ?? '');
+	});
+
+	const cookieJar = new toughCookie.CookieJar();
+
+	t.is(await getStream(got.stream('redirect', {cookieJar})), 'hello=world');
+});
 
 test('reusedSocket getter', withServer, async (t, server, got) => {
 	server.get('/', defaultHandler);

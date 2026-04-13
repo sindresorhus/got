@@ -994,6 +994,50 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			}
 		});
 
+		let canFinalizeResponse = false;
+		const handleResponseEnd = () => {
+			if (
+				!canFinalizeResponse
+				|| !response.readableEnded
+			) {
+				return;
+			}
+
+			canFinalizeResponse = false;
+
+			if (this._stopReading) {
+				return;
+			}
+
+			// Validate content-length if it was provided
+			// Per RFC 9112: "If the sender closes the connection before the indicated number
+			// of octets are received, the recipient MUST consider the message to be incomplete"
+			if (this._checkContentLengthMismatch()) {
+				return;
+			}
+
+			this._responseSize = this._downloadedSize;
+			this.emit('downloadProgress', this.downloadProgress);
+
+			// Publish response end event
+			publishResponseEnd({
+				requestId: this._requestId,
+				url: typedResponse.url,
+				statusCode,
+				bodySize: this._downloadedSize,
+				timings: this.timings,
+			});
+
+			this.push(null);
+		};
+
+		if (!shouldFollowRedirect) {
+			// `set-cookie` handling below awaits the cookie jar. A fast response can fully
+			// end during that await, so we need to observe `end` early without completing
+			// the outward stream until cookie handling has finished.
+			response.once('end', handleResponseEnd);
+		}
+
 		const noPipeCookieJarRawBodyPromise = this._noPipe
 			&& is.object(options.cookieJar)
 			&& !isRedirect
@@ -1158,6 +1202,9 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			return;
 		}
 
+		canFinalizeResponse = true;
+		handleResponseEnd();
+
 		// `HTTPError`s always have `error.response.body` defined.
 		// Therefore, we cannot retry if `options.throwHttpErrors` is false.
 		// On the last retry, if `options.throwHttpErrors` is false, we would need to return the body,
@@ -1184,39 +1231,6 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 				}
 			}
 		}
-
-		// Set up end listener AFTER redirect check to avoid emitting progress for redirect responses
-		let responseEndHandled = false;
-		const handleResponseEnd = () => {
-			if (responseEndHandled) {
-				return;
-			}
-
-			responseEndHandled = true;
-
-			// Validate content-length if it was provided
-			// Per RFC 9112: "If the sender closes the connection before the indicated number
-			// of octets are received, the recipient MUST consider the message to be incomplete"
-			if (this._checkContentLengthMismatch()) {
-				return;
-			}
-
-			this._responseSize = this._downloadedSize;
-			this.emit('downloadProgress', this.downloadProgress);
-
-			// Publish response end event
-			publishResponseEnd({
-				requestId: this._requestId,
-				url: typedResponse.url,
-				statusCode,
-				bodySize: this._downloadedSize,
-				timings: this.timings,
-			});
-
-			this.push(null);
-		};
-
-		response.once('end', handleResponseEnd);
 
 		this.emit('downloadProgress', this.downloadProgress);
 
