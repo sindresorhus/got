@@ -11,6 +11,7 @@ import getStream from 'get-stream';
 import {pEvent} from 'p-event';
 import is from '@sindresorhus/is';
 import delay from 'delay';
+import * as toughCookie from 'tough-cookie';
 import got, {HTTPError, RequestError} from '../source/index.js';
 import type {Response} from '../source/core/response.js';
 import withServer from './helpers/with-server.js';
@@ -46,6 +47,26 @@ const headersHandler: Handler = (request, response) => {
 const infiniteHandler: Handler = (_request, response) => {
 	response.write('foobar');
 };
+
+test('stream reads a cookie and completes', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.setHeader('set-cookie', 'hello=world');
+		response.end('body');
+	});
+
+	const cookieJar = new toughCookie.CookieJar();
+
+	await new Promise<void>((resolve, reject) => {
+		const stream = got.stream({cookieJar});
+		stream.on('error', reject);
+		stream.resume();
+		stream.on('end', resolve);
+	});
+
+	const cookie = cookieJar.getCookiesSync(server.url)[0];
+	t.is(cookie?.key, 'hello');
+	t.is(cookie?.value, 'world');
+});
 
 test('reusedSocket getter', withServer, async (t, server, got) => {
 	server.get('/', defaultHandler);
