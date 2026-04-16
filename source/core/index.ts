@@ -81,6 +81,11 @@ export type Progress = {
 const supportsBrotli = is.string(process.versions.brotli);
 const supportsZstd = is.string(process.versions.zstd);
 const methodsWithoutBody: ReadonlySet<string> = new Set(['GET', 'HEAD']);
+const singleValueRequestHeaders: ReadonlySet<string> = new Set([
+	'authorization',
+	'content-length',
+	'proxy-authorization',
+]);
 
 export type GotEventFunction<T> =
 	/**
@@ -1947,11 +1952,6 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 	private async _makeRequest(): Promise<void> {
 		const {options} = this;
-		const initialHeaders = options.getInternalHeaders();
-		const explicitAuthorizationHeader = options.isHeaderExplicitlySet('authorization') ? initialHeaders.authorization : undefined;
-		const explicitCookieHeader = options.isHeaderExplicitlySet('cookie') ? initialHeaders.cookie : undefined;
-		const authorizationWasInitiallyOmitted = options.isHeaderExplicitlySet('authorization') && is.undefined(initialHeaders.authorization);
-		const cookieWasInitiallyOmitted = options.isHeaderExplicitlySet('cookie') && is.undefined(initialHeaders.cookie);
 		const shouldDeleteGeneratedHeader = (currentHeader: string | string[] | undefined, generatedHeader: string | undefined) => currentHeader === generatedHeader || is.undefined(currentHeader);
 		const syncGeneratedHeader = (name: 'authorization' | 'cookie', {
 			currentHeader,
@@ -1984,6 +1984,22 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 					options.deleteInternalHeader(key);
 				} else if (is.null(currentHeaders[key])) {
 					throw new TypeError(`Use \`undefined\` instead of \`null\` to delete the \`${key}\` header`);
+				} else if (Array.isArray(currentHeaders[key]) && key === 'transfer-encoding') {
+					// Node serializes request header arrays as repeated field lines. Keep framing
+					// unambiguous by allowing only one transfer-encoding value here.
+					if (currentHeaders[key].length !== 1) {
+						throw new TypeError(`The \`${key}\` header must be a single value`);
+					}
+
+					options.setInternalHeader(key, currentHeaders[key][0]);
+				} else if (Array.isArray(currentHeaders[key]) && singleValueRequestHeaders.has(key)) {
+					// Duplicate credential and content-length lines are not allowed on requests.
+					// Normalize a single-element array to match the long-supported string path.
+					if (currentHeaders[key].length !== 1) {
+						throw new TypeError(`The \`${key}\` header must be a single value`);
+					}
+
+					options.setInternalHeader(key, currentHeaders[key][0]);
 				}
 			}
 
@@ -2000,6 +2016,12 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		};
 
 		const headers = sanitizeHeaders();
+		const initialHeaders = options.getInternalHeaders();
+		const authorizationWasInitiallyExplicit = options.isHeaderExplicitlySet('authorization');
+		const explicitAuthorizationHeader = authorizationWasInitiallyExplicit ? initialHeaders.authorization : undefined;
+		const explicitCookieHeader = options.isHeaderExplicitlySet('cookie') ? initialHeaders.cookie : undefined;
+		const authorizationWasInitiallyOmitted = options.isHeaderExplicitlySet('authorization') && is.undefined(initialHeaders.authorization);
+		const cookieWasInitiallyOmitted = options.isHeaderExplicitlySet('cookie') && is.undefined(initialHeaders.cookie);
 
 		if (options.decompress && is.undefined(headers['accept-encoding'])) {
 			const encodings = ['gzip', 'deflate'];
@@ -2016,7 +2038,11 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 		const {username, password} = options;
 		const cookieJar = options.cookieJar as PromiseCookieJar | undefined;
-		const generatedAuthorizationHeader = getAuthorizationHeader(username, password, authorizationWasInitiallyOmitted);
+		// Preserve an explicit Authorization header over URL-derived Basic auth. This keeps
+		// normalized single-element arrays aligned with the long-supported string behavior.
+		const generatedAuthorizationHeader = is.undefined(explicitAuthorizationHeader)
+			? getAuthorizationHeader(username, password, authorizationWasInitiallyOmitted)
+			: undefined;
 		let generatedCookieHeader: string | undefined;
 
 		if (!is.undefined(generatedAuthorizationHeader)) {
@@ -2053,11 +2079,21 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			// `headers.authorization = undefined` / `headers.cookie = undefined` is an
 			// explicit opt-out. Respect that instead of regenerating values from URL
 			// credentials or the cookie jar later in request setup.
-			const isHeaderExplicitlyOmitted = (header: 'authorization' | 'cookie') => options.isHeaderExplicitlySet(header) && is.undefined(currentHeaders[header]);
-			const authorizationWasExplicitlyOmitted = isHeaderExplicitlyOmitted('authorization');
-			const cookieWasExplicitlyOmitted = isHeaderExplicitlyOmitted('cookie');
+			const isHeaderExplicitlyOmitted = (header: 'authorization' | 'cookie') => options.isHeaderExplicitlySet(header)
+				&& Object.hasOwn(currentHeaders, header)
+				&& is.undefined(currentHeaders[header]);
 			const currentAuthorizationHeader = currentHeaders.authorization;
 			const currentCookieHeader = currentHeaders.cookie;
+			// Authorization follows a small contract:
+			// - A concrete Authorization header is sent as-is.
+			// - `authorization = undefined` means omit Authorization entirely, including URL auth.
+			// - Deleting an Authorization header that started explicit also means omit it.
+			// - Otherwise, if the request did not start with explicit Authorization, Got may
+			//   generate Basic auth from the current username/password.
+			const authorizationWasExplicitlyOmitted = isHeaderExplicitlyOmitted('authorization')
+				|| (authorizationWasInitiallyExplicit && is.undefined(currentAuthorizationHeader));
+			const cookieWasExplicitlyOmitted = is.undefined(currentCookieHeader)
+				&& (cookieWasInitiallyOmitted || isHeaderExplicitlyOmitted('cookie'));
 
 			sanitizeHeaders();
 
@@ -2074,14 +2110,21 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 				}
 			}
 
-			const authorizationHeader = getAuthorizationHeader(options.username, options.password, authorizationWasExplicitlyOmitted);
+			const authorizationHeader = !authorizationWasInitiallyExplicit
+				&& !authorizationWasInitiallyOmitted
+				&& !authorizationWasExplicitlyOmitted
+				? getAuthorizationHeader(options.username, options.password, authorizationWasExplicitlyOmitted)
+				: undefined;
 			const cookieJar = options.cookieJar as PromiseCookieJar | undefined;
-			if (changedState.has('authorization')) {
+			if (changedState.has('authorization') && !is.undefined(currentAuthorizationHeader)) {
 				// A beforeRequest hook intentionally set the outgoing Authorization header.
 			} else {
+				const restorableAuthorizationHeader = changedState.has('authorization') && is.undefined(currentAuthorizationHeader)
+					? undefined
+					: explicitAuthorizationHeader;
 				syncGeneratedHeader('authorization', {
 					currentHeader: currentAuthorizationHeader,
-					explicitHeader: explicitAuthorizationHeader,
+					explicitHeader: restorableAuthorizationHeader,
 					nextHeader: authorizationHeader,
 					staleGeneratedHeader: generatedAuthorizationHeader,
 				});
@@ -2096,10 +2139,14 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			} else if (changedState.has('cookie')) {
 				// A beforeRequest hook intentionally set the outgoing Cookie header.
 			} else {
+				const cookieHeader = !cookieWasInitiallyOmitted && !cookieWasExplicitlyOmitted
+					? await getCookieHeader(cookieJar)
+					: undefined;
+
 				syncGeneratedHeader('cookie', {
 					currentHeader: currentCookieHeader,
 					explicitHeader: explicitCookieHeader,
-					nextHeader: await getCookieHeader(cookieJar),
+					nextHeader: cookieHeader,
 					staleGeneratedHeader: generatedCookieHeader,
 				});
 			}

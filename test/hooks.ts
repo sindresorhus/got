@@ -1,5 +1,8 @@
 import {Buffer} from 'node:buffer';
-import {Agent as HttpAgent} from 'node:http';
+import {
+	Agent as HttpAgent,
+	request as httpRequest,
+} from 'node:http';
 import {PassThrough} from 'node:stream';
 import test from 'ava';
 import getStream from 'get-stream';
@@ -13,7 +16,9 @@ import got, {
 	HTTPError,
 	type Response,
 	type OptionsInit,
+	type RequestFunction,
 } from '../source/index.js';
+import {createCrossOriginReceiver, createRetryUrlServer} from './helpers/server-tools.js';
 import withServer from './helpers/with-server.js';
 
 const errorString = 'oops';
@@ -83,51 +88,6 @@ const createAgentSpy = <T extends HttpAgent>(AgentClass: Constructor<any>): {age
 	const agent: T = new AgentClass({keepAlive: true});
 	const spy = sinon.spy(agent, 'addRequest' as any);
 	return {agent, spy};
-};
-
-const createCrossOriginReceiver = async () => {
-	const createHttpTestServer = (await import('./helpers/create-http-test-server.js')).default;
-	const server = await createHttpTestServer({bodyParser: false});
-	const received = {
-		authorization: undefined as string | undefined,
-		cookie: undefined as string | undefined,
-		body: '',
-		contentType: undefined as string | undefined,
-	};
-
-	server.post('/steal', async (request, response) => {
-		received.authorization = request.headers.authorization;
-		received.cookie = request.headers.cookie;
-		received.body = await getStream(request);
-		received.contentType = request.headers['content-type'];
-		response.end(JSON.stringify({result: 'ok'}));
-	});
-
-	server.get('/steal', (request, response) => {
-		received.authorization = request.headers.authorization;
-		received.cookie = request.headers.cookie;
-		received.contentType = request.headers['content-type'];
-		response.end(JSON.stringify({result: 'ok'}));
-	});
-
-	return {server, received};
-};
-
-const createRetryUrlServer = async (retryUrl: string) => {
-	const createHttpTestServer = (await import('./helpers/create-http-test-server.js')).default;
-	const server = await createHttpTestServer();
-
-	server.get('/api', (_request, response) => {
-		response.setHeader('content-type', 'application/json');
-		response.end(JSON.stringify({retryUrl}));
-	});
-
-	server.post('/api', (_request, response) => {
-		response.setHeader('content-type', 'application/json');
-		response.end(JSON.stringify({retryUrl}));
-	});
-
-	return server;
 };
 
 test('async hooks', withServer, async (t, server, got) => {
@@ -1781,6 +1741,32 @@ test('beforeRequest hook refreshes basic auth when changing URL credentials', wi
 	});
 });
 
+test('beforeRequest hook omits authorization after deleting explicit authorization and changing URL credentials', withServer, async (t, server1, got) => {
+	await withServer.exec(t, async (_t, server2) => {
+		server2.get('/changed', (request, response) => {
+			response.end(JSON.stringify({
+				authorization: request.headers.authorization,
+			}));
+		});
+
+		const {authorization} = await got(`http://old-user:old-password@localhost:${server1.port}/original`, {
+			headers: {
+				authorization: 'Bearer replacement-token',
+			},
+			hooks: {
+				beforeRequest: [
+					options => {
+						delete options.headers.authorization;
+						options.url = new URL(`http://new-user:new-password@localhost:${server2.port}/changed`);
+					},
+				],
+			},
+		}).json<{authorization?: string}>();
+
+		t.is(authorization, undefined);
+	});
+});
+
 test('beforeRequest hook drops conflicting content-length when transfer-encoding is added', withServer, async (t, server, got) => {
 	server.post('/', echoHeaders);
 
@@ -1892,6 +1878,75 @@ test('beforeRequest hook preserves explicit authorization override when URL cred
 	t.is(authorization, 'Bearer replacement-token');
 });
 
+test('beforeRequest hook can delete an explicit authorization header without restoring it', withServer, async (t, server, got) => {
+	server.get('/', echoHeader('authorization'));
+
+	const response = await got(`http://user:password@localhost:${server.port}/`, {
+		headers: {
+			authorization: 'Bearer replacement-token',
+		},
+		hooks: {
+			beforeRequest: [
+				options => {
+					delete options.headers.authorization;
+				},
+			],
+		},
+	});
+
+	t.is(response.body, '');
+});
+
+test('beforeRequest hook omits authorization for custom requests after deleting explicit override and changing credentials', withServer, async (t, server, got) => {
+	server.get('/', echoHeader('authorization'));
+
+	const request: RequestFunction = (url, options, callback) => {
+		t.is((options.headers as Record<string, string | undefined> | undefined)?.authorization, undefined);
+		return httpRequest(url, options, callback);
+	};
+
+	const response = await got(`http://old-user:old-password@localhost:${server.port}/`, {
+		request,
+		headers: {
+			authorization: 'Bearer replacement-token',
+		},
+		hooks: {
+			beforeRequest: [
+				options => {
+					delete options.headers.authorization;
+					options.username = 'new-user';
+					options.password = 'new-password';
+				},
+			],
+		},
+	});
+
+	t.is(response.body, '');
+});
+
+test('beforeRequest hook regenerates authorization header for custom requests after changing credentials', withServer, async (t, server, got) => {
+	server.get('/', echoHeader('authorization'));
+
+	const request: RequestFunction = (url, options, callback) => {
+		t.is((options.headers as Record<string, string | undefined> | undefined)?.authorization, `Basic ${Buffer.from('new-user:new-password').toString('base64')}`);
+		return httpRequest(url, options, callback);
+	};
+
+	const response = await got(`http://old-user:old-password@localhost:${server.port}/`, {
+		request,
+		hooks: {
+			beforeRequest: [
+				options => {
+					options.username = 'new-user';
+					options.password = 'new-password';
+				},
+			],
+		},
+	});
+
+	t.is(response.body, `Basic ${Buffer.from('new-user:new-password').toString('base64')}`);
+});
+
 test('beforeRequest hook can explicitly omit generated authorization', withServer, async (t, server, got) => {
 	server.get('/', (request, response) => {
 		response.end(JSON.stringify({
@@ -1910,6 +1965,29 @@ test('beforeRequest hook can explicitly omit generated authorization', withServe
 	}).json<{authorization?: string}>();
 
 	t.is(authorization, undefined);
+});
+
+test('beforeRequest hook can replace initially omitted authorization', withServer, async (t, server, got) => {
+	server.get('/', (request, response) => {
+		response.end(JSON.stringify({
+			authorization: request.headers.authorization,
+		}));
+	});
+
+	const {authorization} = await got(`http://user:password@localhost:${server.port}/`, {
+		headers: {
+			authorization: undefined,
+		},
+		hooks: {
+			beforeRequest: [
+				options => {
+					options.headers.authorization = 'Bearer replacement-token';
+				},
+			],
+		},
+	}).json<{authorization?: string}>();
+
+	t.is(authorization, 'Bearer replacement-token');
 });
 
 test('beforeRequest hook can explicitly omit generated cookieJar cookies', withServer, async (t, server, got) => {
@@ -1931,6 +2009,30 @@ test('beforeRequest hook can explicitly omit generated cookieJar cookies', withS
 	}).json<{cookie?: string}>();
 
 	t.is(cookie, undefined);
+});
+
+test('beforeRequest hook can replace initially omitted cookie header', withServer, async (t, server, got) => {
+	server.get('/', (request, response) => {
+		response.end(JSON.stringify({
+			cookie: request.headers.cookie,
+		}));
+	});
+
+	const {cookie} = await got(`http://localhost:${server.port}/`, {
+		cookieJar: createStaticCookieJar(),
+		headers: {
+			cookie: undefined,
+		},
+		hooks: {
+			beforeRequest: [
+				options => {
+					options.headers.cookie = 'session=replaced';
+				},
+			],
+		},
+	}).json<{cookie?: string}>();
+
+	t.is(cookie, 'session=replaced');
 });
 
 test('beforeRequest hook can omit generated authorization for a single retry attempt', withServer, async (t, server, got) => {

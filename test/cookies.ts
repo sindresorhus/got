@@ -1,8 +1,8 @@
-import net from 'node:net';
 import test from 'ava';
 import * as toughCookie from 'tough-cookie';
 import delay from 'delay';
 import got, {RequestError} from '../source/index.js';
+import {createRawHttpServer} from './helpers/server-tools.js';
 import withServer from './helpers/with-server.js';
 
 test('reads a cookie', withServer, async (t, server, got) => {
@@ -130,9 +130,9 @@ test('overrides options.headers.cookie', withServer, async (t, server, got) => {
 });
 
 test('no unhandled errors', async t => {
-	const server = net.createServer(connection => {
+	const {port, close} = await createRawHttpServer(connection => {
 		connection.end('blah');
-	}).listen(0);
+	});
 
 	const message = 'snap!';
 
@@ -145,13 +145,13 @@ test('no unhandled errors', async t => {
 		},
 	};
 
-	await t.throwsAsync(got(`http://127.0.0.1:${(server.address() as net.AddressInfo).port}`, options), {
+	await t.throwsAsync(got(`http://127.0.0.1:${port}`, options), {
 		instanceOf: RequestError,
 		message,
 	});
 	await delay(500);
 
-	server.close();
+	await close();
 });
 
 test('accepts custom `cookieJar` object', withServer, async (t, server, got) => {

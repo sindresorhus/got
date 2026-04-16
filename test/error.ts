@@ -1,6 +1,4 @@
 import {Buffer} from 'node:buffer';
-import {promisify} from 'node:util';
-import net from 'node:net';
 import http from 'node:http';
 import stream from 'node:stream';
 import {pipeline as streamPipeline} from 'node:stream/promises';
@@ -9,6 +7,7 @@ import test from 'ava';
 import getStream from 'get-stream';
 import is from '@sindresorhus/is';
 import got, {RequestError, HTTPError, TimeoutError} from '../source/index.js';
+import {createRawHttpServer} from './helpers/server-tools.js';
 import withServer from './helpers/with-server.js';
 import invalidUrl from './helpers/invalid-url.js';
 
@@ -325,14 +324,7 @@ test('promise does not hang on timeout on HTTP error', withServer, async (t, ser
 });
 
 test('no uncaught parse errors', async t => {
-	const server = net.createServer();
-
-	const listen = promisify(server.listen.bind(server) as (callback: (error?: Error) => void) => void);
-	const close = promisify(server.close.bind(server) as (callback: (error?: Error) => void) => void);
-
-	await listen();
-
-	server.on('connection', socket => {
+	const {port, close} = await createRawHttpServer(socket => {
 		socket.resume();
 		void socket.end([
 			'HTTP/1.1 404 Not Found',
@@ -344,7 +336,7 @@ test('no uncaught parse errors', async t => {
 		].join('\r\n'));
 	});
 
-	await t.throwsAsync(got.head(`http://localhost:${(server.address() as net.AddressInfo).port}`), {
+	await t.throwsAsync(got.head(`http://localhost:${port}`), {
 		instanceOf: RequestError,
 		message: /^Parse Error/v,
 	});
@@ -353,14 +345,7 @@ test('no uncaught parse errors', async t => {
 });
 
 test('no uncaught parse errors #2', async t => {
-	const server = net.createServer();
-
-	const listen = promisify(server.listen.bind(server) as (callback: (error?: Error) => void) => void);
-	const close = promisify(server.close.bind(server) as (callback: (error?: Error) => void) => void);
-
-	await listen();
-
-	server.on('connection', socket => {
+	const {port, close} = await createRawHttpServer(socket => {
 		socket.resume();
 		socket.write([
 			'HTTP/1.1 200 OK',
@@ -370,7 +355,7 @@ test('no uncaught parse errors #2', async t => {
 		].join('\r\n'));
 	});
 
-	await t.throwsAsync(got(`http://localhost:${(server.address() as net.AddressInfo).port}`), {
+	await t.throwsAsync(got(`http://localhost:${port}`), {
 		instanceOf: RequestError,
 		message: /^Parse Error/v,
 	});

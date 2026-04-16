@@ -1,12 +1,11 @@
 import process from 'node:process';
 import {Buffer} from 'node:buffer';
 import fs from 'node:fs';
-import net from 'node:net';
 import path from 'node:path';
-import {promisify} from 'node:util';
 import test from 'ava';
 import type {Handler} from 'express';
 import got, {type Headers} from '../source/index.js';
+import {createRawHttpServer} from './helpers/server-tools.js';
 import withServer from './helpers/with-server.js';
 
 const supportsBrotli = typeof (process.versions as any).brotli === 'string';
@@ -16,6 +15,10 @@ const echoHeaders: Handler = (request, response) => {
 	request.resume();
 	response.end(JSON.stringify(request.headers));
 };
+
+const createOkRawHttpServer = async () => createRawHttpServer(socket => {
+	socket.end('HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nok');
+});
 
 test('`user-agent`', withServer, async (t, server, got) => {
 	server.get('/', echoHeaders);
@@ -216,12 +219,8 @@ test('buffer as `options.body` sets `content-length` header', withServer, async 
 });
 
 test('drops `content-length` when `transfer-encoding` is set manually', async t => {
-	const server = net.createServer();
-	const listen = promisify(server.listen.bind(server) as any);
-
 	let rawRequest = '';
-
-	server.on('connection', socket => {
+	const {port, close} = await createRawHttpServer(socket => {
 		socket.setEncoding('latin1');
 
 		const respond = () => {
@@ -258,12 +257,10 @@ test('drops `content-length` when `transfer-encoding` is set manually', async t 
 	});
 
 	t.teardown(() => {
-		server.close();
+		void close();
 	});
 
-	await listen();
-
-	await got.post(`http://127.0.0.1:${(server.address() as net.AddressInfo).port}`, {
+	await got.post(`http://127.0.0.1:${port}`, {
 		body: 'wow',
 		headers: {
 			'content-length': '1',
@@ -275,6 +272,224 @@ test('drops `content-length` when `transfer-encoding` is set manually', async t 
 	t.true(normalizedRawRequest.includes('transfer-encoding: chunked'));
 	t.false(normalizedRawRequest.includes('content-length:'));
 	t.true(normalizedRawRequest.includes('\r\n3\r\nwow\r\n0\r\n\r\n'));
+});
+
+const duplicateHeaderRejectionMacro = test.macro(async (t, {
+	request,
+}: {
+	request: (port: number) => ReturnType<typeof got>;
+}) => {
+	const {port, close} = await createOkRawHttpServer();
+
+	t.teardown(() => {
+		void close();
+	});
+
+	await t.throwsAsync(request(port));
+});
+
+const singleSensitiveHeaderValueMacro = test.macro(async (t, {
+	request,
+}: {
+	request: (port: number) => ReturnType<typeof got>;
+}) => {
+	const {port, close} = await createOkRawHttpServer();
+
+	t.teardown(() => {
+		void close();
+	});
+
+	await t.notThrowsAsync(request(port));
+});
+
+test('rejects duplicate `content-length` headers with conflicting values', duplicateHeaderRejectionMacro, {
+	request: port => got.post(`http://127.0.0.1:${port}`, {
+		body: 'abc',
+		retry: {
+			limit: 0,
+		},
+		headers: {
+			'content-length': ['1', '2'],
+		},
+	}),
+});
+
+test('rejects duplicate `content-length` headers with matching values', duplicateHeaderRejectionMacro, {
+	request: port => got.post(`http://127.0.0.1:${port}`, {
+		body: 'abc',
+		retry: {
+			limit: 0,
+		},
+		headers: {
+			'content-length': ['3', '3'],
+		},
+	}),
+});
+
+test('rejects duplicate `transfer-encoding` headers', duplicateHeaderRejectionMacro, {
+	request: port => got.post(`http://127.0.0.1:${port}`, {
+		body: 'abc',
+		retry: {
+			limit: 0,
+		},
+		headers: {
+			'transfer-encoding': ['chunked', 'identity'],
+		},
+	}),
+});
+
+test('rejects duplicate `authorization` headers', duplicateHeaderRejectionMacro, {
+	request: port => got(`http://127.0.0.1:${port}`, {
+		retry: {
+			limit: 0,
+		},
+		headers: {
+			authorization: ['Basic aaa', 'Basic bbb'],
+		},
+	}),
+});
+
+test('rejects duplicate `proxy-authorization` headers', duplicateHeaderRejectionMacro, {
+	request: port => got(`http://127.0.0.1:${port}`, {
+		retry: {
+			limit: 0,
+		},
+		headers: {
+			'proxy-authorization': ['Basic aaa', 'Basic bbb'],
+		},
+	}),
+});
+
+test('accepts a single-element `content-length` header array', singleSensitiveHeaderValueMacro, {
+	request: port => got.post(`http://127.0.0.1:${port}`, {
+		body: 'abc',
+		retry: {
+			limit: 0,
+		},
+		headers: {
+			'content-length': ['3'],
+		},
+	}),
+});
+
+test('single-element `authorization` header arrays override URL credentials', async t => {
+	let rawRequest = '';
+	const {port, close} = await createRawHttpServer(socket => {
+		socket.setEncoding('latin1');
+
+		socket.on('data', chunk => {
+			rawRequest += String(chunk);
+
+			if (rawRequest.includes('\r\n\r\n')) {
+				socket.end('HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nok');
+			}
+		});
+	});
+
+	t.teardown(() => {
+		void close();
+	});
+
+	await got(`http://user:password@127.0.0.1:${port}`, {
+		retry: {
+			limit: 0,
+		},
+		headers: {
+			authorization: ['Bearer token'],
+		},
+	});
+
+	const normalizedRawRequest = rawRequest.toLowerCase();
+	t.true(normalizedRawRequest.includes('\r\nauthorization: bearer token\r\n'));
+	t.false(normalizedRawRequest.includes('\r\nauthorization: basic '));
+});
+
+test('accepts a single-element `transfer-encoding` header array', async t => {
+	let rawRequest = '';
+	const {port, close} = await createRawHttpServer(socket => {
+		socket.setEncoding('latin1');
+
+		socket.on('data', chunk => {
+			rawRequest += String(chunk);
+
+			if (rawRequest.includes('\r\n\r\n')) {
+				socket.end('HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nok');
+			}
+		});
+	});
+
+	t.teardown(() => {
+		void close();
+	});
+
+	await got.post(`http://127.0.0.1:${port}`, {
+		body: 'abc',
+		retry: {
+			limit: 0,
+		},
+		headers: {
+			'transfer-encoding': ['chunked'],
+		},
+	});
+
+	const normalizedRawRequest = rawRequest.toLowerCase();
+	t.is(normalizedRawRequest.match(/^\s*transfer-encoding:/gmu)?.length, 1);
+	t.true(normalizedRawRequest.includes('\r\ntransfer-encoding: chunked\r\n'));
+});
+
+test('accepts a string `transfer-encoding` header with multiple codings', async t => {
+	let rawRequest = '';
+	const {port, close} = await createRawHttpServer(socket => {
+		socket.setEncoding('latin1');
+
+		socket.on('data', chunk => {
+			rawRequest += String(chunk);
+
+			if (rawRequest.includes('\r\n\r\n')) {
+				socket.end('HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nok');
+			}
+		});
+	});
+
+	t.teardown(() => {
+		void close();
+	});
+
+	await got.post(`http://127.0.0.1:${port}`, {
+		body: Buffer.from('abc'),
+		retry: {
+			limit: 0,
+		},
+		headers: {
+			'transfer-encoding': 'foo; token="Ab,Cd", chunked',
+		},
+	});
+
+	const normalizedRawRequest = rawRequest.toLowerCase();
+	t.is(normalizedRawRequest.match(/^\s*transfer-encoding:/gmu)?.length, 1);
+	t.true(rawRequest.includes('\r\ntransfer-encoding: foo; token="Ab,Cd", chunked\r\n'));
+});
+
+test('accepts a single-element `authorization` header array', singleSensitiveHeaderValueMacro, {
+	request: port => got(`http://127.0.0.1:${port}`, {
+		retry: {
+			limit: 0,
+		},
+		headers: {
+			authorization: ['Basic aaa'],
+		},
+	}),
+});
+
+test('accepts a single-element `proxy-authorization` header array', singleSensitiveHeaderValueMacro, {
+	request: port => got(`http://127.0.0.1:${port}`, {
+		retry: {
+			limit: 0,
+		},
+		headers: {
+			'proxy-authorization': ['Basic aaa'],
+		},
+	}),
 });
 
 test('throws on null value headers', async t => {
