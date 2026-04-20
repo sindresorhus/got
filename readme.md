@@ -87,13 +87,13 @@ Furthermore, the promise exposes a `.json<T>()` function that returns `Promise<T
 ```js
 import got from 'got';
 
-const {data} = await got.post('https://httpbin.org/anything', {
+const {json} = await got.post('https://httpbin.org/anything', {
 	json: {
 		hello: 'world'
 	}
 }).json();
 
-console.log(data);
+console.log(json);
 //=> {"hello": "world"}
 ```
 

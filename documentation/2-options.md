@@ -381,13 +381,13 @@ JSON **request** body. If set, the `content-type` header defaults to `applicatio
 ```js
 import got from 'got';
 
-const {data} = await got.post('https://httpbin.org/anything', {
+const {json} = await got.post('https://httpbin.org/anything', {
 	json: {
 		hello: 'world'
 	}
 }).json();
 
-console.log(data);
+console.log(json);
 //=> `{hello: 'world'}`
 ```
 
@@ -402,14 +402,14 @@ If set, the `content-type` header defaults to [`application/x-www-form-urlencode
 ```js
 import got from 'got';
 
-const {data} = await got.post('https://httpbin.org/anything', {
+const {form} = await got.post('https://httpbin.org/anything', {
 	form: {
 		hello: 'world'
 	}
 }).json();
 
-console.log(data);
-//=> 'hello=world'
+console.log(form);
+//=> {hello: 'world'}
 ```
 
 ### `parseJson`
