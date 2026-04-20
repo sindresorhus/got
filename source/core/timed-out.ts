@@ -54,7 +54,7 @@ export default function timedOut(request: ClientRequest, delays: Delays, options
 	const handled = new Set<string>();
 
 	const addTimeout = (delay: number, callback: (delay: number, event: string) => void, event: string): (typeof noop) => {
-		const timeout = setTimeout(callback, delay, delay, event) as unknown as NodeJS.Timeout;
+		const timeout = setTimeout(callback, delay, delay, event);
 
 		timeout.unref?.();
 

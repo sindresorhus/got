@@ -12,7 +12,12 @@ import test from 'ava';
 import type {Handler} from 'express';
 import getStream from 'get-stream';
 import {pEvent} from 'p-event';
-import got, {HTTPError, RequestError, type ReadError} from '../source/index.js';
+import got, {
+	HTTPError,
+	RequestError,
+	type ReadError,
+} from '../source/index.js';
+import {createRawHttpServer} from './helpers/server-tools.js';
 import withServer from './helpers/with-server.js';
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -235,11 +240,26 @@ test('throws an error if the server aborted the request', withServer, async (t, 
 	});
 
 	const error = await t.throwsAsync<ReadError>(got(''), {
-		message: 'The server aborted pending request',
 		code: 'ECONNRESET',
 	});
 
 	t.truthy(error?.response.retryCount);
+});
+
+test('does not throw on close-delimited response without content-length', async t => {
+	const responseBody = '{"ok":true}';
+	const {close, port} = await createRawHttpServer(socket => {
+		socket.once('data', () => {
+			socket.end(`HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nConnection: close\r\n\r\n${responseBody}`);
+		});
+	});
+
+	try {
+		const body = await got(`http://localhost:${port}`, {retry: {limit: 0}}).json();
+		t.deepEqual(body, JSON.parse(responseBody));
+	} finally {
+		await close();
+	}
 });
 
 test('statusMessage fallback', withServer, async (t, server, got) => {

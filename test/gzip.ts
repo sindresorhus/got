@@ -3,7 +3,8 @@ import {promisify} from 'node:util';
 import zlib from 'node:zlib';
 import test from 'ava';
 import getStream from 'get-stream';
-import {ReadError, type HTTPError} from '../source/index.js';
+import got, {ReadError, type HTTPError} from '../source/index.js';
+import {createRawHttpServer} from './helpers/server-tools.js';
 import withServer from './helpers/with-server.js';
 
 const testContent = 'Compressible response content.\n';
@@ -129,6 +130,38 @@ test('does not ignore missing data', withServer, async (t, server, got) => {
 		instanceOf: ReadError,
 		message: 'unexpected end of file',
 	});
+});
+
+test('does not ignore aborted compressed responses', async t => {
+	const {close, port} = await createRawHttpServer(socket => {
+		socket.once('data', () => {
+			socket.write(`HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Encoding: gzip\r\nContent-Length: ${gzipData.length}\r\nConnection: close\r\n\r\n`);
+			socket.write(gzipData.subarray(0, -1));
+			socket.destroy();
+		});
+	});
+
+	try {
+		await t.throwsAsync(got(`http://localhost:${port}`, {retry: {limit: 0}}), {
+			instanceOf: ReadError,
+		});
+	} finally {
+		await close();
+	}
+});
+
+test('does not throw on compressed close-delimited response without content-length', async t => {
+	const {close, port} = await createRawHttpServer(socket => {
+		socket.once('data', () => {
+			socket.end(`HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Encoding: gzip\r\nConnection: close\r\n\r\n${Buffer.from(gzipData).toString('binary')}`, 'binary');
+		});
+	});
+
+	try {
+		t.is((await got(`http://localhost:${port}`, {retry: {limit: 0}})).body, testContent);
+	} finally {
+		await close();
+	}
 });
 
 test('response has `url` and `requestUrl` properties', withServer, async (t, server, got) => {

@@ -860,7 +860,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 				const {form} = options;
 				options.form = undefined;
 
-				options.body = (new URLSearchParams(form as Record<string, string>)).toString();
+				options.body = (new URLSearchParams(form)).toString();
 			} else {
 				if (noContentType) {
 					headers['content-type'] = 'application/json';
@@ -965,6 +965,10 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			typedResponse = prepareResponse(response as PlainResponse);
 		}
 
+		// `decompressResponse` wraps the response stream when it decompresses,
+		// so `response !== nativeResponse` indicates decompression happened.
+		const wasDecompressed = response !== nativeResponse;
+
 		this._responseSize = Number(response.headers['content-length']) || undefined;
 
 		this.response = typedResponse;
@@ -981,12 +985,32 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		});
 
 		response.once('error', (error: Error) => {
+			// Node synthesizes ECONNRESET for close-delimited responses after all body
+			// bytes have been delivered. Only ignore that late synthetic error on the
+			// native response. Wrapped decompression streams surface real checksum and
+			// truncation failures after the underlying response has completed.
+			if (
+				!wasDecompressed
+				&& response.complete
+				&& this._responseSize === undefined
+				&& error.code === 'ECONNRESET'
+			) {
+				return;
+			}
+
 			this._aborted = true;
 
 			this._beforeError(new ReadError(error, this));
 		});
 
 		response.once('aborted', () => {
+			// Without Content-Length, connection close is the intended EOF signal (RFC 9110 §8.6),
+			// not a premature abort. For wrapped decompression streams, rely on the native
+			// response completion state because the wrapper strips `content-length`.
+			if (this._responseSize === undefined && nativeResponse.complete) {
+				return;
+			}
+
 			this._aborted = true;
 
 			// Check if there's a content-length mismatch to provide a more specific error
@@ -1218,10 +1242,6 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			this._beforeError(new HTTPError(typedResponse));
 			return;
 		}
-
-		// `decompressResponse` wraps the response stream when it decompresses,
-		// so `response !== nativeResponse` indicates decompression happened.
-		const wasDecompressed = response !== nativeResponse;
 
 		// Store the expected content-length from the native response for validation.
 		// This is the content-length before decompression, which is what actually gets transferred.
