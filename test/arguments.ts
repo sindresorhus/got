@@ -221,7 +221,7 @@ test('`got.stream()` exposes internal `isStream` in init hook context', withServ
 		hooks: {
 			init: [
 				plain => {
-					t.true(Reflect.get(plain as Record<string, unknown>, 'isStream') === true);
+					t.true(Reflect.get(plain, 'isStream') === true);
 				},
 			],
 		},

@@ -247,8 +247,8 @@ test.serial('response timeout (keepalive)', withServerAndFakeTimers, async (t, s
 test.serial('connect timeout', withServerAndFakeTimers, async (t, _server, got, clock) => {
 	await t.throwsAsync(
 		got({
-			createConnection(options: NativeRequestOptions) {
-				const socket = new net.Socket(options as Record<string, unknown> as net.SocketConstructorOpts);
+			createConnection(_options: NativeRequestOptions) {
+				const socket = new net.Socket();
 				// @ts-expect-error We know that it is readonly, but we have to test it
 				socket.connecting = true;
 				setImmediate(() => {
@@ -275,8 +275,8 @@ test.serial('connect timeout', withServerAndFakeTimers, async (t, _server, got, 
 test.serial('connect timeout (ip address)', withServerAndFakeTimers, async (t, _server, _got, clock) => {
 	await t.throwsAsync(
 		got('http://127.0.0.1', {
-			createConnection(options: NativeRequestOptions) {
-				const socket = new net.Socket(options as Record<string, unknown> as net.SocketConstructorOpts);
+			createConnection(_options: NativeRequestOptions) {
+				const socket = new net.Socket();
 				// @ts-expect-error We know that it is readonly, but we have to test it
 				socket.connecting = true;
 				return socket;
@@ -300,8 +300,8 @@ test.serial('connect timeout (ip address)', withServerAndFakeTimers, async (t, _
 test.serial('secureConnect timeout', withHttpsServer({}, true), async (t, _server, got, clock) => {
 	await t.throwsAsync(
 		got({
-			createConnection(options: NativeRequestOptions) {
-				const socket = new net.Socket(options as Record<string, unknown> as net.SocketConstructorOpts);
+			createConnection(_options: NativeRequestOptions) {
+				const socket = new net.Socket();
 				// @ts-expect-error We know that it is readonly, but we have to test it
 				socket.connecting = true;
 				setImmediate(() => {

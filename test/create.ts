@@ -13,7 +13,6 @@ import got, {
 	Options,
 	type BeforeRequestHook,
 	type Headers,
-	type Hooks,
 	type OptionsInit,
 	type RequestFunction,
 } from '../source/index.js';
@@ -92,11 +91,11 @@ test('extend overwrites arrays with a deep clone', t => {
 	const x = () => {};
 	const y = () => {};
 
-	const beforeRequest = [x];
-	const a = got.extend({hooks: {beforeRequest} as unknown as Hooks});
+	const beforeRequest: BeforeRequestHook[] = [x];
+	const a = got.extend({hooks: {beforeRequest}});
 	beforeRequest[0] = y;
-	t.deepEqual(a.defaults.options.hooks.beforeRequest, [x] as unknown as BeforeRequestHook[]);
-	t.not(a.defaults.options.hooks.beforeRequest, beforeRequest as unknown as BeforeRequestHook[]);
+	t.deepEqual(a.defaults.options.hooks.beforeRequest, [x]);
+	t.not(a.defaults.options.hooks.beforeRequest, beforeRequest);
 });
 
 test('hooks are merged on got.extend()', t => {

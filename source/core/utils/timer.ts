@@ -4,6 +4,18 @@ import type {ClientRequest, IncomingMessage} from 'node:http';
 import type {Socket} from 'node:net';
 import deferToConnect from './defer-to-connect.js';
 
+type InitialConnectionTimings = {
+	dnsPhase: number;
+	tcpPhase: number;
+	tlsPhase?: number;
+};
+
+const getInitialConnectionTimings = (socket: Socket): InitialConnectionTimings | undefined => Reflect.get(socket, '__initial_connection_timings__');
+
+const setInitialConnectionTimings = (socket: Socket, timings: InitialConnectionTimings): void => {
+	Reflect.set(socket, '__initial_connection_timings__', timings);
+};
+
 export type Timings = {
 	start: number;
 	socket?: number;
@@ -33,14 +45,6 @@ export type ClientRequestWithTimings = ClientRequest & {
 
 export type IncomingMessageWithTimings = IncomingMessage & {
 	timings?: Timings;
-};
-
-type SocketWithConnectionTimings = Socket & {
-	__initial_connection_timings__?: {
-		dnsPhase: number;
-		tcpPhase: number;
-		tlsPhase?: number;
-	};
 };
 
 const timer = (request: ClientRequestWithTimings): Timings => {
@@ -89,7 +93,7 @@ const timer = (request: ClientRequestWithTimings): Timings => {
 
 	request.prependOnceListener('abort', onAbort);
 
-	const onSocket = (socket: SocketWithConnectionTimings) => {
+	const onSocket = (socket: Socket) => {
 		timings.socket = Date.now();
 		timings.phases.wait = timings.socket - timings.start;
 
@@ -111,11 +115,13 @@ const timer = (request: ClientRequestWithTimings): Timings => {
 			timings.lookup = timings.socket;
 			timings.connect = timings.socket;
 
-			if (socket.__initial_connection_timings__) {
+			const initialConnectionTimings = getInitialConnectionTimings(socket);
+
+			if (initialConnectionTimings) {
 				// Restore the phase timings from the initial connection
-				timings.phases.dns = socket.__initial_connection_timings__.dnsPhase;
-				timings.phases.tcp = socket.__initial_connection_timings__.tcpPhase;
-				timings.phases.tls = socket.__initial_connection_timings__.tlsPhase;
+				timings.phases.dns = initialConnectionTimings.dnsPhase;
+				timings.phases.tcp = initialConnectionTimings.tcpPhase;
+				timings.phases.tls = initialConnectionTimings.tlsPhase;
 
 				// Set secureConnect timestamp if there was TLS
 				if (timings.phases.tls !== undefined) {
@@ -160,28 +166,32 @@ const timer = (request: ClientRequestWithTimings): Timings => {
 				}
 
 				// Store connection phase timings on socket for potential reuse
-				socket.__initial_connection_timings__ ??= {
-					dnsPhase: timings.phases.dns!,
-					// eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion -- TypeScript can't prove this is defined due to callback structure
-					tcpPhase: timings.phases.tcp!,
-				};
+				if (!getInitialConnectionTimings(socket)) {
+					setInitialConnectionTimings(socket, {
+						dnsPhase: timings.phases.dns!,
+						// eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion -- TypeScript can't prove this is defined due to callback structure
+						tcpPhase: timings.phases.tcp!,
+					});
+				}
 			},
 			secureConnect() {
 				timings.secureConnect = Date.now();
 				timings.phases.tls = timings.secureConnect - timings.connect!;
 
 				// Update stored timings with TLS phase timing
-				if (socket.__initial_connection_timings__) {
-					socket.__initial_connection_timings__.tlsPhase = timings.phases.tls;
+				const initialConnectionTimings = getInitialConnectionTimings(socket);
+
+				if (initialConnectionTimings) {
+					initialConnectionTimings.tlsPhase = timings.phases.tls;
 				}
 			},
 		});
 	};
 
 	if (request.socket) {
-		onSocket(request.socket as SocketWithConnectionTimings);
+		onSocket(request.socket);
 	} else {
-		request.prependOnceListener('socket', onSocket as (socket: Socket) => void);
+		request.prependOnceListener('socket', onSocket);
 	}
 
 	const onUpload = () => {

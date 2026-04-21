@@ -978,15 +978,17 @@ function assertValidHeaderName(name: string): void {
 /**
 Safely assign own properties from source to target, skipping `__proto__` to prevent prototype pollution from JSON.parse'd input.
 */
-function safeObjectAssign(target: Record<string, unknown>, source: Record<string, unknown>): void {
-	for (const key of Object.keys(source)) {
+function safeObjectAssign<Target extends Record<string, unknown>, Source extends Record<string, unknown>>(target: Target, source: Source): void {
+	for (const [key, value] of Object.entries(source)) {
 		if (key === '__proto__') {
 			continue;
 		}
 
-		target[key] = source[key];
+		Reflect.set(target, key, value);
 	}
 }
+
+const isToughCookieJar = (cookieJar: PromiseCookieJar | ToughCookieJar): cookieJar is ToughCookieJar => cookieJar.setCookie.length === 4 && cookieJar.getCookieString.length === 0;
 
 function validateSearchParameters(searchParameters: Record<string, unknown>): asserts searchParameters is Record<string, string | number | boolean | undefined> {
 	for (const key of Object.keys(searchParameters)) {
@@ -1608,7 +1610,7 @@ export default class Options {
 		}
 
 		if (this.#merging) {
-			safeObjectAssign(this.#internals.agent as Record<string, unknown>, value as Record<string, unknown>);
+			safeObjectAssign(this.#internals.agent, value);
 		} else {
 			this.#internals.agent = {...value};
 		}
@@ -1680,7 +1682,7 @@ export default class Options {
 		}
 
 		if (this.#merging) {
-			safeObjectAssign(this.#internals.timeout as Record<string, unknown>, value as Record<string, unknown>);
+			safeObjectAssign(this.#internals.timeout, value);
 		} else {
 			this.#internals.timeout = {...value};
 		}
@@ -1960,10 +1962,10 @@ export default class Options {
 		assert.function(getCookieString);
 
 		/* istanbul ignore next: Horrible `tough-cookie` v3 check */
-		if (setCookie.length === 4 && getCookieString.length === 0) {
+		if (isToughCookieJar(value)) {
 			this.#internals.cookieJar = {
-				setCookie: promisify((setCookie as ToughCookieJar['setCookie']).bind(value)) as PromiseCookieJar['setCookie'],
-				getCookieString: promisify((getCookieString as ToughCookieJar['getCookieString']).bind(value)) as PromiseCookieJar['getCookieString'],
+				setCookie: promisify(value.setCookie.bind(value)),
+				getCookieString: promisify(value.getCookieString.bind(value)),
 			};
 		} else {
 			this.#internals.cookieJar = value;
@@ -2640,7 +2642,7 @@ export default class Options {
 		}
 
 		if (this.#merging) {
-			safeObjectAssign(this.#internals.headers as Record<string, unknown>, normalizedHeaders as Record<string, unknown>);
+			safeObjectAssign(this.#internals.headers, normalizedHeaders);
 		} else {
 			const previousHeaders = this.#internals.headers;
 			this.#internals.headers = normalizedHeaders;
@@ -2833,7 +2835,7 @@ export default class Options {
 		}
 
 		if (this.#merging) {
-			safeObjectAssign(this.#internals.retry as Record<string, unknown>, value as Record<string, unknown>);
+			safeObjectAssign(this.#internals.retry, value);
 		} else {
 			this.#internals.retry = {...value};
 		}
@@ -2913,7 +2915,7 @@ export default class Options {
 		}
 
 		if (this.#merging) {
-			safeObjectAssign(this.#internals.cacheOptions as Record<string, unknown>, value as Record<string, unknown>);
+			safeObjectAssign(this.#internals.cacheOptions, value);
 		} else {
 			this.#internals.cacheOptions = {...value};
 		}
@@ -2960,7 +2962,7 @@ export default class Options {
 		}
 
 		if (this.#merging) {
-			safeObjectAssign(this.#internals.https as Record<string, unknown>, value as Record<string, unknown>);
+			safeObjectAssign(this.#internals.https, value);
 		} else {
 			this.#internals.https = {...value};
 		}
@@ -3077,7 +3079,7 @@ export default class Options {
 		assert.object(value);
 
 		if (this.#merging) {
-			safeObjectAssign(this.#internals.pagination as Record<string, unknown>, value as Record<string, unknown>);
+			safeObjectAssign(this.#internals.pagination, value);
 		} else {
 			this.#internals.pagination = value;
 		}
