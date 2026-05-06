@@ -1,6 +1,7 @@
 import process from 'node:process';
+import {Buffer} from 'node:buffer';
 import {EventEmitter} from 'node:events';
-import {Readable as ReadableStream} from 'node:stream';
+import {PassThrough, Readable as ReadableStream} from 'node:stream';
 import {pipeline as streamPipeline} from 'node:stream/promises';
 import test from 'ava';
 import delay from 'delay';
@@ -9,6 +10,7 @@ import {pEvent} from 'p-event';
 import type {Handler} from 'express';
 import {createSandbox} from 'sinon';
 import got from '../source/index.js';
+import Request from '../source/core/index.js';
 import slowDataStream from './helpers/slow-data-stream.js';
 import type {GlobalClock} from './helpers/types.js';
 import type {ExtendedHttpTestServer} from './helpers/create-http-test-server.js';
@@ -92,6 +94,43 @@ const createAbortController = (): {controller: AbortController; signalHandlersRe
 
 test.afterEach(() => {
 	sandbox.restore();
+});
+
+test('stops reading buffered response data when aborted from downloadProgress', async t => {
+	const {controller, signalHandlersRemoved} = createAbortController();
+	const request = new Request('http://example.com', {
+		signal: controller.signal,
+	});
+	const response = new PassThrough({highWaterMark: 1});
+	const transferredEvents: number[] = [];
+	const closed = new Promise<void>(resolve => {
+		request.once('close', resolve);
+	});
+
+	request.on('error', () => {});
+	request.response = response as unknown as typeof request.response;
+	Object.defineProperty(request, '_responseSize', {
+		value: 100,
+		writable: true,
+	});
+
+	request.on('downloadProgress', progress => {
+		transferredEvents.push(progress.transferred);
+
+		if (progress.transferred > 0) {
+			controller.abort();
+		}
+	});
+
+	response.write(Buffer.alloc(10));
+	response.write(Buffer.alloc(10));
+	response.write(Buffer.alloc(10));
+	request.resume();
+
+	await closed;
+
+	t.deepEqual(transferredEvents, [20]);
+	t.true(signalHandlersRemoved(), 'Abort signal event handlers not removed');
 });
 
 test.serial('does not retry after abort', withServerAndFakeTimers, async (t, server, got, clock) => {

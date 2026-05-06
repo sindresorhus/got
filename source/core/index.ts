@@ -671,7 +671,15 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 					this.emit('downloadProgress', progress);
 				}
 
+				if (this._stopReading) {
+					return;
+				}
+
 				this.push(data);
+
+				if (this._stopReading) {
+					return;
+				}
 			}
 		}
 	}
