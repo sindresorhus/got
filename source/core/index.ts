@@ -297,7 +297,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	private _triggerRead = false;
 	private readonly _jobs: Array<() => void> = [];
 	private _cancelTimeouts?: () => void;
-	private readonly _abortListenerDisposer?: {[Symbol.dispose](): void};
+	private _abortListenerDisposer?: {[Symbol.dispose](): void};
 	private _flushed = false;
 	private _aborted = false;
 	private _expectedContentLength?: number;
@@ -394,25 +394,6 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		if (is.nodeStream(body)) {
 			body.once('error', this._onBodyError);
 		}
-
-		if (this.options.signal) {
-			const abort = () => {
-				// See https://developer.mozilla.org/en-US/docs/Web/API/AbortSignal/timeout_static#return_value
-				if (this.options.signal?.reason?.name === 'TimeoutError') {
-					this.destroy(new TimeoutError(this.options.signal.reason, this.timings!, this));
-				} else {
-					this.destroy(new AbortError(this));
-				}
-			};
-
-			if (this.options.signal.aborted) {
-				abort();
-			} else {
-				const abortListenerDisposer = addAbortListener(this.options.signal, abort);
-
-				this._abortListenerDisposer = abortListenerDisposer;
-			}
-		}
 	}
 
 	async flush() {
@@ -423,6 +404,12 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		this._flushed = true;
 
 		try {
+			this._attachAbortListener();
+
+			if (this.destroyed) {
+				return;
+			}
+
 			await this._finalizeBody();
 
 			if (this.destroyed) {
@@ -800,6 +787,32 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		super.unpipe(destination);
 
 		return this;
+	}
+
+	private _attachAbortListener(): void {
+		if (this._abortListenerDisposer) {
+			return;
+		}
+
+		const {signal} = this.options;
+		if (!signal) {
+			return;
+		}
+
+		const abort = () => {
+			// See https://developer.mozilla.org/en-US/docs/Web/API/AbortSignal/timeout_static#return_value
+			if (signal.reason?.name === 'TimeoutError') {
+				this.destroy(new TimeoutError(signal.reason, this.timings!, this));
+			} else {
+				this.destroy(new AbortError(this));
+			}
+		};
+
+		if (signal.aborted) {
+			abort();
+		} else {
+			this._abortListenerDisposer = addAbortListener(signal, abort);
+		}
 	}
 
 	private _shouldIncrementallyDecodeBody(): boolean {

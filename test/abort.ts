@@ -9,12 +9,17 @@ import getStream from 'get-stream';
 import {pEvent} from 'p-event';
 import type {Handler} from 'express';
 import {createSandbox} from 'sinon';
-import got from '../source/index.js';
+import got, {type Progress} from '../source/index.js';
 import Request from '../source/core/index.js';
 import slowDataStream from './helpers/slow-data-stream.js';
 import type {GlobalClock} from './helpers/types.js';
 import type {ExtendedHttpTestServer} from './helpers/create-http-test-server.js';
 import withServer, {withServerAndFakeTimers} from './helpers/with-server.js';
+
+type LimitProgressRequest = {
+	on: (event: 'downloadProgress' | 'uploadProgress', listener: (progress: Progress) => void) => LimitProgressRequest;
+	destroy: (error?: Error) => void;
+};
 
 const prepareServer = (server: ExtendedHttpTestServer, clock: GlobalClock): {
 	emitter: EventEmitter;
@@ -96,11 +101,8 @@ test.afterEach(() => {
 	sandbox.restore();
 });
 
-test('stops reading buffered response data when aborted from downloadProgress', async t => {
-	const {controller, signalHandlersRemoved} = createAbortController();
-	const request = new Request('http://example.com', {
-		signal: controller.signal,
-	});
+test('stops reading buffered response data when destroyed from downloadProgress', async t => {
+	const request = new Request('http://example.com');
 	const response = new PassThrough({highWaterMark: 1});
 	const transferredEvents: number[] = [];
 	const closed = new Promise<void>(resolve => {
@@ -118,7 +120,7 @@ test('stops reading buffered response data when aborted from downloadProgress', 
 		transferredEvents.push(progress.transferred);
 
 		if (progress.transferred > 0) {
-			controller.abort();
+			request.destroy(new Error('Stop reading'));
 		}
 	});
 
@@ -130,7 +132,110 @@ test('stops reading buffered response data when aborted from downloadProgress', 
 	await closed;
 
 	t.deepEqual(transferredEvents, [20]);
-	t.true(signalHandlersRemoved(), 'Abort signal event handlers not removed');
+});
+
+test('supports abort signals added by handlers before next', withServer, async (t, server, got) => {
+	const responseBody = Buffer.alloc(1024 * 1024 * 20);
+	const downloadProgressEvents: Progress[] = [];
+	server.get('/', (_request, response) => {
+		response.writeHead(200, {
+			'content-length': responseBody.length,
+		});
+		response.end(responseBody);
+	});
+
+	const limitDownloadUpload = got.extend({
+		handlers: [
+			(options, next) => {
+				const {downloadLimit, uploadLimit} = options.context;
+
+				let controller: AbortController | undefined;
+				let {signal} = options;
+
+				if ((downloadLimit !== undefined || uploadLimit !== undefined) && !signal) {
+					controller = new AbortController();
+					signal = controller.signal;
+					options.signal = signal;
+				}
+
+				const promiseOrStream = next(options);
+				const limitProgressRequest = promiseOrStream as LimitProgressRequest;
+
+				if (typeof downloadLimit === 'number') {
+					limitProgressRequest.on('downloadProgress', progress => {
+						downloadProgressEvents.push(progress);
+
+						if (progress.transferred > downloadLimit && progress.percent !== 1) {
+							const error = new Error(`Exceeded the download limit of ${downloadLimit} bytes`);
+
+							if (options.isStream) {
+								limitProgressRequest.destroy(error);
+							} else {
+								controller?.abort(error);
+							}
+						}
+					});
+				}
+
+				if (typeof uploadLimit === 'number') {
+					limitProgressRequest.on('uploadProgress', progress => {
+						if (progress.transferred > uploadLimit && progress.percent !== 1) {
+							const error = new Error(`Exceeded the upload limit of ${uploadLimit} bytes`);
+
+							if (options.isStream) {
+								limitProgressRequest.destroy(error);
+							} else {
+								controller?.abort(error);
+							}
+						}
+					});
+				}
+
+				return promiseOrStream;
+			},
+		],
+	});
+
+	try {
+		await limitDownloadUpload('', {
+			context: {
+				downloadLimit: 10,
+			},
+		});
+		t.fail('Request resolved instead of aborting.');
+	} catch (error: unknown) {
+		t.like(error, {
+			code: 'ERR_ABORTED',
+			message: 'This operation was aborted.',
+		});
+	}
+
+	t.true(downloadProgressEvents.some(progress => progress.transferred > 10));
+	t.true(downloadProgressEvents.every(progress => progress.percent < 1));
+	t.true(downloadProgressEvents.at(-1)!.transferred < responseBody.length);
+});
+
+test('supports already aborted signals added by handlers before next', withServer, async (t, server, got) => {
+	server.get('/', () => {
+		t.fail('Request should not reach the server.');
+	});
+
+	const gotWithAbortedSignal = got.extend({
+		handlers: [
+			(options, next) => {
+				const controller = new AbortController();
+				options.signal = controller.signal;
+				controller.abort();
+
+				return next(options);
+			},
+		],
+	});
+
+	await t.throwsAsync(gotWithAbortedSignal(''), {
+		code: 'ERR_ABORTED',
+		message: 'This operation was aborted.',
+	});
 });
 
 test.serial('does not retry after abort', withServerAndFakeTimers, async (t, server, got, clock) => {
