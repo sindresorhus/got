@@ -2100,9 +2100,10 @@ export default class Options {
 				searchParameters.append(key, value);
 			}
 		} else if (url) {
-			url.search = searchParameters.toString();
+			// Overrides the query string in the URL.
+			url.search = updated.toString();
 		} else {
-			this.#internals.searchParams = searchParameters;
+			this.#internals.searchParams = updated;
 		}
 	}
 

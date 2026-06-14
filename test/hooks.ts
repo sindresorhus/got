@@ -415,6 +415,44 @@ test('beforeRequest allows modifications', withServer, async (t, server, got) =>
 	t.is(body.foo, 'bar');
 });
 
+test('beforeRequest allows overriding searchParams with an object', withServer, async (t, server, got) => {
+	server.get('/', (request, response) => {
+		response.end(request.url);
+	});
+
+	const {body} = await got('', {
+		searchParams: {old: 'value'},
+		hooks: {
+			beforeRequest: [
+				options => {
+					options.searchParams = {foo: 'bar'};
+				},
+			],
+		},
+	});
+
+	t.is(body, '/?foo=bar');
+});
+
+test('beforeRequest allows overriding searchParams with a string', withServer, async (t, server, got) => {
+	server.get('/', (request, response) => {
+		response.end(request.url);
+	});
+
+	const {body} = await got('', {
+		searchParams: {old: 'value'},
+		hooks: {
+			beforeRequest: [
+				options => {
+					options.searchParams = 'foo=bar';
+				},
+			],
+		},
+	});
+
+	t.is(body, '/?foo=bar');
+});
+
 test('beforeRequest is called with context', withServer, async (t, server, got) => {
 	server.get('/', echoHeaders);
 
