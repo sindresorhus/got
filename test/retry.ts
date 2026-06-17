@@ -1016,7 +1016,7 @@ test('respects backoffLimit', withServer, async (t, server, got) => {
 
 	const body = await got('', {
 		retry: {
-			backoffLimit: 0,
+			backoffLimit: 200,
 		},
 	}).json<number[]>();
 
