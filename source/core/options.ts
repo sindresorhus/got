@@ -2067,7 +2067,8 @@ export default class Options {
 		if (is.string(value)) {
 			updated = new URLSearchParams(value);
 		} else if (value instanceof URLSearchParams) {
-			updated = value;
+			// Clone so the caller-owned object is not stored by reference.
+			updated = new URLSearchParams(value);
 		} else {
 			validateSearchParameters(value);
 

@@ -167,6 +167,18 @@ test('searchParams - multiple values for one key', t => {
 	);
 });
 
+test('searchParams - assigning a URLSearchParams clones it', t => {
+	const searchParameters = new URLSearchParams('foo=bar');
+
+	const options = new Options();
+	options.searchParams = searchParameters;
+
+	// Mutating the caller-owned object must not leak into the stored options.
+	searchParameters.set('foo', 'changed');
+
+	t.is(options.searchParams.toString(), 'foo=bar');
+});
+
 test('__proto__ in options does not cause prototype pollution', t => {
 	const malicious = JSON.parse('{"method": "POST", "__proto__": {"injected": true}}');
 	const options = new Options('https://example.com', malicious);
