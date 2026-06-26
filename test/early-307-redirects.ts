@@ -3,6 +3,7 @@ import {Agent as HttpAgent, request as httpRequest, type ClientRequest} from 'no
 import {setTimeout as delay} from 'node:timers/promises';
 import test from 'ava';
 import type {Handler} from 'express';
+import {RequestError} from '../source/index.js';
 import withServer from './helpers/with-server.js';
 
 const early307RedirectHandler = (location: string): Handler => (request, response) => {
@@ -366,6 +367,92 @@ test('early 307 redirect finalizes writable side for buffered body', withServer,
 
 	t.is(responseBody, 'ok');
 	t.true(requestStream.writableFinished);
+});
+
+test('early 307 redirect fails writable stream upload', withServer, async (t, server, got) => {
+	let redirectDestinationHits = 0;
+
+	server.post('/redirect-early-writable-upload', early307RedirectHandler('/target-early-writable-upload'));
+
+	server.post('/target-early-writable-upload', (_request, response) => {
+		redirectDestinationHits++;
+		response.end('ok');
+	});
+
+	const requestStream = got.stream.post('redirect-early-writable-upload', {
+		retry: {
+			limit: 0,
+		},
+	});
+
+	const errorPromise = new Promise<Error>((resolve, reject) => {
+		requestStream.once('error', resolve);
+		requestStream.once('end', () => {
+			reject(new Error('Expected writable stream upload redirect to fail'));
+		});
+	});
+
+	requestStream.resume();
+	requestStream.write('consumed-by-redirect-origin');
+	requestStream.end('must-not-be-sent-empty');
+
+	const error = await Promise.race([
+		errorPromise,
+		(async () => {
+			await delay(1000);
+			throw new Error('Writable stream upload redirect did not fail');
+		})(),
+	]);
+
+	t.true(error instanceof RequestError);
+	t.is(error.message, 'Cannot follow redirect with a non-replayable body');
+	t.is(redirectDestinationHits, 0);
+});
+
+test('early 307 redirect fails unwritten writable stream upload', withServer, async (t, server, got) => {
+	let redirectDestinationHits = 0;
+
+	server.post('/redirect-before-writable-upload', (_request, response) => {
+		response.writeHead(307, {
+			location: '/target-before-writable-upload',
+		});
+		response.end();
+	});
+
+	server.post('/target-before-writable-upload', (_request, response) => {
+		redirectDestinationHits++;
+		response.end('ok');
+	});
+
+	const requestStream = got.stream.post('redirect-before-writable-upload', {
+		retry: {
+			limit: 0,
+		},
+	});
+
+	const errorPromise = new Promise<Error>((resolve, reject) => {
+		requestStream.once('error', resolve);
+		requestStream.once('end', () => {
+			reject(new Error('Expected unwritten writable stream upload redirect to fail'));
+		});
+	});
+
+	requestStream.once('request', request => {
+		request.flushHeaders();
+	});
+	requestStream.resume();
+
+	const error = await Promise.race([
+		errorPromise,
+		(async () => {
+			await delay(1000);
+			throw new Error('Unwritten writable stream upload redirect did not fail');
+		})(),
+	]);
+
+	t.true(error instanceof RequestError);
+	t.is(error.message, 'Cannot follow redirect with a non-replayable body');
+	t.is(redirectDestinationHits, 0);
 });
 
 test('early 307 redirect finalizes writable side when transient chunk write callback errors before stale mark', withServer, async (t, server, got) => {
