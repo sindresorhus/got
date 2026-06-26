@@ -11,7 +11,7 @@ const url = 'https://httpbin.org/anything';
 const response = await got(url);
 ```
 
-The call returns a <code>Promise<[Response](3-streams.md#response-1)></code>. If the body contains JSON, it can be retrieved directly:
+The call returns a <code>Promise<[Response](3-streams.md#response-2)></code>. If the body contains JSON, it can be retrieved directly:
 
 ```js
 import got from 'got';
