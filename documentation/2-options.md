@@ -642,7 +642,7 @@ const [response, buffer, json] = await Promise.all([responsePromise, bufferPromi
 **Type: `boolean`**\
 **Default: `false`**
 
-If `true`, the promise will return the [Response body](3-streams.md#response-1) instead of the [Response object](3-streams.md#response-1).
+If `true`, the promise will return the [Response body](3-streams.md#response-2) instead of the [Response object](3-streams.md#response-2).
 
 ```js
 import got from 'got';
