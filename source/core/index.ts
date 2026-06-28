@@ -27,8 +27,8 @@ import calculateRetryDelay from './calculate-retry-delay.js';
 import Options, {
 	crossOriginStripHeaders,
 	hasExplicitCredentialInUrlChange,
-	isCrossOriginCredentialChanged,
 	isBodyUnchanged,
+	isCrossOriginCredentialChanged,
 	isSameOrigin,
 	snapshotCrossOriginState,
 	type CrossOriginState,
@@ -191,6 +191,29 @@ const proxiedRequestEvents = [
 
 const noop = (): void => {};
 
+type NativeFormDataBodyMetadata = {
+	form: FormData;
+	body: ReadableStream;
+	contentTypeWasGenerated: boolean;
+};
+
+const serializeNativeFormDataBody = (form: FormData) => {
+	const response = new globalThis.Response(form);
+	return {
+		body: response.body!,
+		contentType: response.headers.get('content-type') ?? 'multipart/form-data',
+	};
+};
+
+// A body is replayable only if iterating it again restarts from the beginning.
+// Node streams, Web `ReadableStream`s, generators, and self-iterating (one-shot) iterators all yield their data only once, so they cannot be replayed on a redirect.
+const isNonReplayableBody = (body: unknown): boolean =>
+	is.nodeStream(body)
+	|| (typeof ReadableStream !== 'undefined' && body instanceof ReadableStream)
+	|| is.generator(body)
+	|| (is.asyncIterable(body) && (body[Symbol.asyncIterator]() as unknown) === body)
+	|| (is.iterable(body) && (body[Symbol.iterator]() as unknown) === body);
+
 const isTransientWriteError = (error: Error): boolean => {
 	const {code} = error;
 	return typeof code === 'string' && transientWriteErrorCodes.has(code);
@@ -293,6 +316,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	private _request?: ClientRequest;
 	private _responseSize?: number;
 	private _bodySize?: number;
+	private _nativeFormDataBody?: NativeFormDataBodyMetadata;
 	private _unproxyEvents?: () => void;
 	private _triggerRead = false;
 	private readonly _jobs: Array<() => void> = [];
@@ -303,6 +327,8 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	private _expectedContentLength?: number;
 	private _compressedBytesCount?: number;
 	private _skipRequestEndInFinal = false;
+	private _hasWrittenBody = false;
+	private _hasWritableBody = false;
 	private _incrementalDecode?: {decoder: TextDecoder; chunks: string[]};
 	private readonly _requestId = generateRequestId();
 
@@ -415,6 +441,8 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			if (this.destroyed) {
 				return;
 			}
+
+			this._hasWritableBody = this._canWriteBody();
 
 			await this._makeRequest();
 
@@ -672,6 +700,8 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	}
 
 	override _write(chunk: unknown, encoding: BufferEncoding | undefined, callback: (error?: Error | null) => void): void { // eslint-disable-line @typescript-eslint/no-restricted-types
+		this._hasWrittenBody = true;
+
 		const write = (): void => {
 			this._writeRequest(chunk, encoding, callback);
 		};
@@ -696,6 +726,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			// We need to check if `this._request` is present,
 			// because it isn't when we use cache.
 			if (!request || request.destroyed) {
+				this._hasWritableBody = false;
 				callback();
 				return;
 			}
@@ -711,6 +742,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 					this._emitUploadComplete(request);
 				}
 
+				this._hasWritableBody = false;
 				callback(error);
 			});
 		};
@@ -850,7 +882,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		// eslint-disable-next-line @typescript-eslint/naming-convention
 		const isJSON = !is.undefined(options.json);
 		const isBody = !is.undefined(options.body);
-		const cannotHaveBody = methodsWithoutBody.has(options.method) && !(options.method === 'GET' && options.allowGetBody);
+		const cannotHaveBody = !this._methodCanHaveBody;
 
 		if (isForm || isJSON || isBody) {
 			if (cannotHaveBody) {
@@ -863,13 +895,18 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			if (isBody) {
 				// Native FormData
 				if (options.body instanceof FormData) {
-					const response = new Response(options.body);
+					const {body, contentType} = serializeNativeFormDataBody(options.body);
+					this._nativeFormDataBody = {
+						form: options.body,
+						body,
+						contentTypeWasGenerated: noContentType,
+					};
 
 					if (noContentType) {
-						headers['content-type'] = response.headers.get('content-type') ?? 'multipart/form-data';
+						headers['content-type'] = contentType;
 					}
 
-					options.body = response.body!;
+					options.body = body;
 				} else if (Object.prototype.toString.call(options.body) === '[object FormData]') {
 					throw new TypeError('Non-native FormData is not supported. Use globalThis.FormData instead.');
 				}
@@ -1176,16 +1213,20 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 				if (shouldDropBody) {
 					updatedOptions.method = 'GET';
 					this._dropBody(updatedOptions);
+				} else if (
+					isDifferentOrigin
+					&& canRewrite
+					&& this._hasBodyForRedirect(updatedOptions)
+				) {
+					this._dropBody(updatedOptions);
 				}
 
 				if (isDifferentOrigin) {
-					// Also strip body on cross-origin redirects to prevent data leakage.
-					// 301/302 POST already drops the body (converted to GET above).
-					// 307/308 preserve the method per RFC, but the body must not be
-					// forwarded to a different origin.
-					// Strip credentials embedded in the redirect URL itself
-					// to prevent a malicious server from injecting auth to third parties.
-					this._stripCrossOriginState(updatedOptions, redirectUrl, shouldDropBody);
+					// On cross-origin redirects, strip sensitive headers and any credentials
+					// embedded in the redirect URL itself to prevent a malicious server from
+					// leaking them to a third party. The request body is preserved per RFC:
+					// 307/308 keep the method and replayable bodies, even cross-origin.
+					this._stripCrossOriginState(updatedOptions, redirectUrl);
 				} else {
 					redirectUrl.username = updatedOptions.username;
 					redirectUrl.password = updatedOptions.password;
@@ -1195,6 +1236,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 				this.redirectUrls.push(redirectUrl);
 
+				const bodyBeforeRedirectHooks = updatedOptions.body;
 				const preHookState = isDifferentOrigin
 					? undefined
 					: {
@@ -1213,14 +1255,68 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 				updatedOptions.clearUnchangedCookieHeader(preHookState, changedState);
 
+				const nativeFormDataBody = this._nativeFormDataBody;
+
+				if (statusCode === 307 || statusCode === 308) {
+					const bodyUnchangedByHooks = updatedOptions.body === bodyBeforeRedirectHooks;
+					const wasNonReplayable = isNonReplayableBody(bodyBeforeRedirectHooks);
+
+					if (!bodyUnchangedByHooks && wasNonReplayable) {
+						// A hook supplied a fresh body, so dispose of the original non-replayable one.
+						this._destroyBody(bodyBeforeRedirectHooks);
+					} else if (
+						bodyUnchangedByHooks
+						&& nativeFormDataBody !== undefined
+						&& updatedOptions.body === nativeFormDataBody.body
+					) {
+						// Native FormData generates a fresh stream and boundary, so re-serialize it to replay the upload.
+						const {body, contentType} = serializeNativeFormDataBody(nativeFormDataBody.form);
+
+						nativeFormDataBody.body = body;
+						updatedOptions.body = body;
+
+						if (changedState.has('content-type')) {
+							nativeFormDataBody.contentTypeWasGenerated = false;
+						} else if (nativeFormDataBody.contentTypeWasGenerated) {
+							updatedOptions.setInternalHeader('content-type', contentType);
+						}
+					} else if (
+						bodyUnchangedByHooks
+						&& (wasNonReplayable || (is.undefined(updatedOptions.body) && (this._hasWrittenBody || this._hasWritableBody)))
+					) {
+						// 307/308 redirects must replay the body, so follow the HTTP spec and other clients by failing for unchanged non-replayable bodies. Hooks may supply a fresh body.
+						this._dropBody(updatedOptions);
+						this._beforeError(new RequestError('Cannot follow redirect with a non-replayable body', {}, this));
+						return;
+					}
+				}
+
 				// If a beforeRedirect hook changed the URL to a different origin,
 				// strip sensitive headers that were preserved for the original origin.
 				// When isDifferentOrigin was already true, headers were already stripped above.
 				if (!isDifferentOrigin) {
 					const state = preHookState!;
 					const hookUrl = updatedOptions.url;
-					if (!isSameOrigin(state.url, hookUrl)) {
-						this._stripUnchangedCrossOriginState(updatedOptions, hookUrl, shouldDropBody, {
+					const hookChangedOrigin = !isSameOrigin(state.url, hookUrl);
+
+					if (
+						hookChangedOrigin
+						&& (statusCode === 301 || statusCode === 302)
+						&& updatedOptions.method === 'POST'
+					) {
+						updatedOptions.method = 'GET';
+						this._dropBody(updatedOptions);
+					}
+
+					if (hookChangedOrigin) {
+						if (
+							canRewrite
+							&& this._hasUnchangedBodyForRedirect(updatedOptions, state, changedState)
+						) {
+							this._dropBody(updatedOptions);
+						}
+
+						this._stripUnchangedCrossOriginState(updatedOptions, hookUrl, {
 							...state,
 							changedState,
 							preserveUsername: hasExplicitCredentialInUrlChange(changedState, hookUrl, 'username')
@@ -1534,21 +1630,22 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		} else if (is.asyncIterable(body) || (is.iterable(body) && !is.string(body) && !isBuffer(body))) {
 			(async () => {
 				const isInitialRequest = currentRequest === this;
+				const bodyOptions = this.options;
 
 				try {
 					for await (const chunk of body) {
-						if (this.options.body !== body) {
+						if (this.options !== bodyOptions || this.options.body !== body) {
 							return;
 						}
 
 						await this._asyncWrite(chunk, currentRequest);
 
-						if (this.options.body !== body) {
+						if (this.options !== bodyOptions || this.options.body !== body) {
 							return;
 						}
 					}
 
-					if (this.options.body === body) {
+					if (this.options === bodyOptions && this.options.body === body) {
 						if (isInitialRequest) {
 							super.end();
 							return;
@@ -1557,7 +1654,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 						await this._endWritableRequest(currentRequest as ClientRequest);
 					}
 				} catch (error: unknown) {
-					if (this.options.body !== body) {
+					if (this.options !== bodyOptions || this.options.body !== body) {
 						return;
 					}
 
@@ -1566,9 +1663,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			})();
 		} else if (is.undefined(body)) {
 			// No body to send, end the request
-			const cannotHaveBody = methodsWithoutBody.has(this.options.method) && !(this.options.method === 'GET' && this.options.allowGetBody);
-
-			if ((this._noPipe ?? false) || cannotHaveBody || currentRequest !== this) {
+			if ((this._noPipe ?? false) || !this._methodCanHaveBody || currentRequest !== this) {
 				currentRequest.end();
 			}
 		} else {
@@ -1693,7 +1788,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		});
 	}
 
-	private _stripCrossOriginState(options: Options, urlToClear: URL, bodyAlreadyDropped: boolean) {
+	private _stripCrossOriginState(options: Options, urlToClear: URL) {
 		for (const header of crossOriginStripHeaders) {
 			options.deleteInternalHeader(header);
 		}
@@ -1703,13 +1798,9 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 		urlToClear.username = '';
 		urlToClear.password = '';
-
-		if (!bodyAlreadyDropped) {
-			this._dropBody(options);
-		}
 	}
 
-	private _stripUnchangedCrossOriginState(options: Options, urlToClear: URL, bodyAlreadyDropped: boolean, state: CrossOriginState & {
+	private _stripUnchangedCrossOriginState(options: Options, urlToClear: URL, state: CrossOriginState & {
 		changedState: Set<string>;
 		preserveUsername: boolean;
 		preservePassword: boolean;
@@ -1731,16 +1822,26 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			options.password = '';
 			urlToClear.password = '';
 		}
+	}
 
-		if (
-			!bodyAlreadyDropped
-			&& !state.changedState.has('body')
-			&& !state.changedState.has('json')
-			&& !state.changedState.has('form')
-			&& isBodyUnchanged(options, state)
-		) {
-			this._dropBody(options);
-		}
+	private get _methodCanHaveBody(): boolean {
+		return !methodsWithoutBody.has(this.options.method) || (this.options.method === 'GET' && this.options.allowGetBody);
+	}
+
+	private _canWriteBody(): boolean {
+		return !this._noPipe && !this.isReadonly && this._methodCanHaveBody;
+	}
+
+	private _hasBodyForRedirect(options: Options): boolean {
+		return !is.undefined(options.body) || !is.undefined(options.json) || !is.undefined(options.form) || this._hasWrittenBody || this._hasWritableBody;
+	}
+
+	private _hasUnchangedBodyForRedirect(options: Options, state: CrossOriginState, changedState: Set<string>): boolean {
+		return !changedState.has('body')
+			&& !changedState.has('json')
+			&& !changedState.has('form')
+			&& this._hasBodyForRedirect(options)
+			&& isBodyUnchanged(options, state);
 	}
 
 	private _dropBody(updatedOptions: Options) {
@@ -1749,13 +1850,29 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 		this.options.clearBody();
 
+		this._destroyBody(body);
+
+		if (!hadOptionBody && !this.writableEnded) {
+			this._skipRequestEndInFinal = true;
+			super.end();
+		}
+
+		updatedOptions.clearBody();
+
+		this._bodySize = undefined;
+		this._hasWrittenBody = false;
+		this._hasWritableBody = false;
+	}
+
+	private _destroyBody(body: unknown) {
 		if (is.nodeStream(body)) {
-			body.off('error', this._onBodyError);
-			body.unpipe();
-			body.on('error', noop);
-			body.destroy();
+			const bodyStream = body as NodeJS.ReadableStream & {destroy(): void};
+			bodyStream.off('error', this._onBodyError);
+			bodyStream.unpipe();
+			bodyStream.on('error', noop);
+			bodyStream.destroy();
 		} else if (is.asyncIterable(body) || (is.iterable(body) && !is.string(body) && !isBuffer(body))) {
-			const iterableBody = body as Iterator<unknown> | AsyncIterator<unknown>;
+			const iterableBody = body as unknown as Iterator<unknown> | AsyncIterator<unknown>;
 
 			// Signal the iterator to clean up, but don't await it:
 			// the for-await loop in _sendBody exits via the options.body sentinel,
@@ -1769,14 +1886,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 					}
 				} catch {}
 			}
-		} else if (!hadOptionBody && !this.writableEnded) {
-			this._skipRequestEndInFinal = true;
-			super.end();
 		}
-
-		updatedOptions.clearBody();
-
-		this._bodySize = undefined;
 	}
 
 	private readonly _onBodyError = (error: Error): void => {
