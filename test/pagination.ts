@@ -1200,6 +1200,394 @@ test('supports string url values when pagination navigates cross-origin', async 
 	await evilServer.close();
 });
 
+test('`allowAbsoluteUrls: false` rejects absolute URL when pagination navigates', withServer, async (t, server, got) => {
+	server.get('/items', (_request, response) => {
+		response.end('[1]');
+	});
+
+	await t.throwsAsync(got.paginate.all<number>('items', {
+		allowAbsoluteUrls: false,
+		pagination: {
+			requestLimit: 2,
+			paginate({response}) {
+				if (response.body === '[1]') {
+					return {
+						url: `${server.url}/changed`,
+					};
+				}
+
+				return false;
+			},
+		},
+	}), {
+		instanceOf: Error,
+		message: 'The `url` option must be relative when `allowAbsoluteUrls` is false and `prefixUrl` is set',
+	});
+});
+
+test('`allowAbsoluteUrls: false` rejects URL instance when pagination navigates', withServer, async (t, server, got) => {
+	server.get('/items', (_request, response) => {
+		response.end('[1]');
+	});
+
+	await t.throwsAsync(got.paginate.all<number>('items', {
+		allowAbsoluteUrls: false,
+		pagination: {
+			requestLimit: 2,
+			paginate({response}) {
+				if (response.body === '[1]') {
+					return {
+						url: new URL(`${server.url}/changed`),
+					};
+				}
+
+				return false;
+			},
+		},
+	}), {
+		instanceOf: Error,
+		message: 'The `url` option must be relative when `allowAbsoluteUrls` is false and `prefixUrl` is set',
+	});
+});
+
+test('`allowAbsoluteUrls: false` rejects scheme-relative URL when pagination navigates', withServer, async (t, server, got) => {
+	server.get('/items', (_request, response) => {
+		response.end('[1]');
+	});
+
+	await t.throwsAsync(got.paginate.all<number>('items', {
+		allowAbsoluteUrls: false,
+		pagination: {
+			requestLimit: 2,
+			paginate({response}) {
+				if (response.body === '[1]') {
+					return {
+						url: `//localhost:${server.port}/changed`,
+					};
+				}
+
+				return false;
+			},
+		},
+	}), {
+		instanceOf: Error,
+		message: 'The `url` option must be relative when `allowAbsoluteUrls` is false and `prefixUrl` is set',
+	});
+});
+
+test('`allowAbsoluteUrls: false` rejects an absolute URL in the Link header', withServer, async (t, server, got) => {
+	server.get('/', (request, response) => {
+		const page = Number(new URLSearchParams(request.url.split('?')[1]).get('page')) || 1;
+
+		if (page < 2) {
+			response.setHeader('link', `<${server.url}/?page=${page + 1}>; rel="next"`);
+		}
+
+		response.end(`[${page}]`);
+	});
+
+	await t.throwsAsync(got.paginate.all<number>('', {
+		allowAbsoluteUrls: false,
+	}), {
+		instanceOf: Error,
+		message: 'The `url` option must be relative when `allowAbsoluteUrls` is false and `prefixUrl` is set',
+	});
+});
+
+test('`allowAbsoluteUrls: false` rejects in-place URL mutation when pagination navigates outside prefixUrl origin', withServer, async (t, server, got) => {
+	server.get('/api/items', (_request, response) => {
+		response.end('[1]');
+	});
+
+	await t.throwsAsync(got.paginate.all<number>('items', {
+		allowAbsoluteUrls: false,
+		prefixUrl: `${server.url}/api`,
+		pagination: {
+			requestLimit: 2,
+			paginate({response}) {
+				if (response.body === '[1]') {
+					const {options} = response.request;
+					(options.url as URL).hostname = 'example.com';
+					return options;
+				}
+
+				return false;
+			},
+		},
+	}), {
+		instanceOf: Error,
+		message: 'The `url` option must stay on the same origin as `prefixUrl` when `allowAbsoluteUrls` is false',
+	});
+});
+
+test('`allowAbsoluteUrls: false` rejects pagination prefixUrl mutation around absolute URL', withServer, async (t, server, got) => {
+	await withServer.exec(t, async (_t, absoluteServer) => {
+		absoluteServer.get('/items', (request, response) => {
+			response.end(request.url === '/items?page=2' ? '[2]' : '[1]');
+		});
+
+		await t.throwsAsync(got.paginate.all<number>(`${absoluteServer.url}/items`, {
+			allowAbsoluteUrls: false,
+			prefixUrl: '',
+			pagination: {
+				requestLimit: 2,
+				paginate({response}) {
+					if (response.body === '[1]') {
+						return {
+							prefixUrl: server.url,
+						};
+					}
+
+					return false;
+				},
+			},
+		}), {
+			instanceOf: Error,
+			message: 'The `url` option must stay on the same origin as `prefixUrl` when `allowAbsoluteUrls` is false',
+		});
+	});
+});
+
+test('`allowAbsoluteUrls: false` rejects pagination prefixUrl mutation with relative URL', withServer, async (t, server, got) => {
+	await withServer.exec(t, async (_t, absoluteServer) => {
+		absoluteServer.get('/items', (request, response) => {
+			response.end(request.url === '/items?page=2' ? '[2]' : '[1]');
+		});
+
+		await t.throwsAsync(got.paginate.all<number>(`${absoluteServer.url}/items`, {
+			allowAbsoluteUrls: false,
+			prefixUrl: '',
+			pagination: {
+				requestLimit: 2,
+				paginate({response}) {
+					if (response.body === '[1]') {
+						return {
+							prefixUrl: server.url,
+							url: '?page=2',
+						};
+					}
+
+					return false;
+				},
+			},
+		}), {
+			instanceOf: Error,
+			message: 'The `url` option must stay on the same origin as `prefixUrl` when `allowAbsoluteUrls` is false',
+		});
+	});
+});
+
+test('`allowAbsoluteUrls: false` rejects absolute URL after relative pagination navigation', withServer, async (t, server, got) => {
+	server.get('/items', (request, response) => {
+		const searchParameters = new URLSearchParams(request.url.split('?')[1]);
+		const page = Number(searchParameters.get('page')) || 1;
+		response.end(JSON.stringify([page]));
+	});
+
+	await t.throwsAsync(got.paginate.all<number>('items?page=1', {
+		allowAbsoluteUrls: false,
+		pagination: {
+			requestLimit: 3,
+			paginate({response}) {
+				if (String(response.requestUrl).endsWith('/items?page=1')) {
+					return {url: '?page=2'};
+				}
+
+				if (String(response.requestUrl).endsWith('/items?page=2')) {
+					return {
+						url: `${server.url}/changed`,
+					};
+				}
+
+				return false;
+			},
+		},
+	}), {
+		instanceOf: Error,
+		message: 'The `url` option must be relative when `allowAbsoluteUrls` is false and `prefixUrl` is set',
+	});
+});
+
+test('`allowAbsoluteUrls: false` rejects whitespace-prefixed scheme-relative URL after redirected pagination', withServer, async (t, server, got) => {
+	await withServer.exec(t, async (_t, redirectServer) => {
+		server.get('/redirect', (_request, response) => {
+			response.writeHead(302, {
+				location: `${redirectServer.url}/items`,
+			});
+			response.end();
+		});
+
+		redirectServer.get('/items', (_request, response) => {
+			response.end('[1]');
+		});
+
+		await t.throwsAsync(got.paginate.all<number>('redirect', {
+			allowAbsoluteUrls: false,
+			pagination: {
+				requestLimit: 2,
+				paginate({response}) {
+					if (response.body === '[1]') {
+						return {
+							url: '\t//example.com/changed',
+						};
+					}
+
+					return false;
+				},
+			},
+		}), {
+			instanceOf: Error,
+			message: 'The `url` option must be relative when `allowAbsoluteUrls` is false and `prefixUrl` is set',
+		});
+	});
+});
+
+test('`allowAbsoluteUrls: false` allows reused pagination options after cross-origin redirect without URL mutation', withServer, async (t, server, got) => {
+	await withServer.exec(t, async (_t, redirectServer) => {
+		server.get('/redirect', (_request, response) => {
+			response.writeHead(302, {
+				location: `${redirectServer.url}/items`,
+			});
+			response.end();
+		});
+
+		let page = 0;
+		redirectServer.get('/items', (_request, response) => {
+			page++;
+			response.end(JSON.stringify([page]));
+		});
+
+		const items = await got.paginate.all<number>('redirect', {
+			allowAbsoluteUrls: false,
+			pagination: {
+				requestLimit: 2,
+				paginate({response}) {
+					if (response.body === '[1]') {
+						return response.request.options;
+					}
+
+					return false;
+				},
+			},
+		});
+
+		t.deepEqual(items, [1, 2]);
+	});
+});
+
+test('pagination partial options do not retain request-local hook mutations', withServer, async (t, server, got) => {
+	let page2Authorization: string | undefined;
+
+	server.get('/items', (request, response) => {
+		const searchParameters = new URLSearchParams(request.url.split('?')[1]);
+		const page = Number(searchParameters.get('page')) || 1;
+
+		if (page === 2) {
+			page2Authorization = request.headers.authorization;
+		}
+
+		response.end(JSON.stringify([page]));
+	});
+
+	const items = await got.paginate.all<number>('items?page=1', {
+		hooks: {
+			beforeRequest: [
+				options => {
+					if (options.url?.searchParams.get('page') === '1') {
+						options.headers.authorization = 'Bearer page1';
+					}
+				},
+			],
+		},
+		pagination: {
+			requestLimit: 2,
+			paginate({response}) {
+				if (String(response.requestUrl).endsWith('/items?page=1')) {
+					return {url: '?page=2'};
+				}
+
+				return false;
+			},
+		},
+	});
+
+	t.deepEqual(items, [1, 2]);
+	t.is(page2Authorization, undefined);
+});
+
+test('`allowAbsoluteUrls: false` follows relative Link header pagination', withServer, async (t, server, got) => {
+	server.get('/items', (request, response) => {
+		if (request.url === '/items') {
+			response.setHeader('link', '</items?page=2>; rel="next"');
+			response.end('[1]');
+			return;
+		}
+
+		if (request.url === '/items?page=2') {
+			response.end('[2]');
+			return;
+		}
+
+		response.statusCode = 500;
+		response.end('unexpected request');
+	});
+
+	const items = await got.paginate.all<number>('items', {
+		allowAbsoluteUrls: false,
+		pagination: {
+			requestLimit: 2,
+		},
+	});
+
+	t.deepEqual(items, [1, 2]);
+});
+
+test('`allowAbsoluteUrls: false` follows relative Link header pagination after cross-origin redirect', withServer, async (t, server, got) => {
+	await withServer.exec(t, async (_t, redirectServer) => {
+		server.get('/redirect', (_request, response) => {
+			response.writeHead(302, {
+				location: `${redirectServer.url}/items`,
+			});
+			response.end();
+		});
+
+		server.get('/items', (request, response) => {
+			if (request.url === '/items?page=2') {
+				response.end('[99]');
+				return;
+			}
+
+			response.statusCode = 500;
+			response.end('unexpected origin');
+		});
+
+		redirectServer.get('/items', (request, response) => {
+			if (request.url === '/items') {
+				response.setHeader('link', '</items?page=2>; rel="next"');
+				response.end('[1]');
+				return;
+			}
+
+			if (request.url === '/items?page=2') {
+				response.end('[2]');
+				return;
+			}
+
+			response.statusCode = 500;
+			response.end('unexpected request');
+		});
+
+		const items = await got.paginate.all<number>('redirect', {
+			allowAbsoluteUrls: false,
+			pagination: {
+				requestLimit: 2,
+			},
+		});
+
+		t.deepEqual(items, [1, 2]);
+	});
+});
+
 test('supports relative string url values when pagination navigates', withServer, async (t, server, got) => {
 	server.get('/items', (request, response) => {
 		const searchParameters = new URLSearchParams(request.url.split('?')[1]);

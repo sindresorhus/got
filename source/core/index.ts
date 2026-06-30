@@ -25,7 +25,10 @@ import stripUrlAuth from './utils/strip-url-auth.js';
 import WeakableMap from './utils/weakable-map.js';
 import calculateRetryDelay from './calculate-retry-delay.js';
 import Options, {
+	assertUrlHasSameOriginAsPrefixUrlIfNeeded,
 	crossOriginStripHeaders,
+	getUrlPrefixBoundary,
+	hasUrlOrPrefixUrlBoundaryChanged,
 	hasExplicitCredentialInUrlChange,
 	isBodyUnchanged,
 	isCrossOriginCredentialChanged,
@@ -636,7 +639,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 					});
 
 					this.emit('retry', this.retryCount + 1, error, (updatedOptions?: OptionsInit) => {
-						const request = new Request(options.url, updatedOptions, options);
+						const request = new Request(undefined, updatedOptions, options);
 						request.retryCount = this.retryCount + 1;
 
 						process.nextTick(() => {
@@ -1232,10 +1235,18 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 					redirectUrl.password = updatedOptions.password;
 				}
 
-				updatedOptions.url = redirectUrl;
+				// Redirect URLs are resolved internally. Restore the user option before hooks run so hook mutations still honor it.
+				const {allowAbsoluteUrls} = updatedOptions;
+				try {
+					updatedOptions.allowAbsoluteUrls = true;
+					updatedOptions.url = redirectUrl;
+				} finally {
+					updatedOptions.allowAbsoluteUrls = allowAbsoluteUrls;
+				}
 
 				this.redirectUrls.push(redirectUrl);
 
+				const boundaryBeforeRedirectHooks = getUrlPrefixBoundary(updatedOptions);
 				const bodyBeforeRedirectHooks = updatedOptions.body;
 				const preHookState = isDifferentOrigin
 					? undefined
@@ -1252,6 +1263,10 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 					return changedState;
 				});
+
+				if (hasUrlOrPrefixUrlBoundaryChanged(updatedOptions, updatedOptions.url, boundaryBeforeRedirectHooks)) {
+					assertUrlHasSameOriginAsPrefixUrlIfNeeded(updatedOptions, updatedOptions.url);
+				}
 
 				updatedOptions.clearUnchangedCookieHeader(preHookState, changedState);
 
@@ -2210,6 +2225,8 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 		let request: ReturnType<Options['getRequestFunction']> | undefined;
 		let shouldOmitRequestUrlCredentials = false;
+		const urlBeforeRequestHooks = options.url instanceof URL ? new URL(options.url) : undefined;
+		const boundaryBeforeRequestHooks = getUrlPrefixBoundary(options);
 		const changedState = await options.trackStateMutations(async changedState => {
 			for (const hook of options.hooks.beforeRequest) {
 				// eslint-disable-next-line no-await-in-loop
@@ -2224,6 +2241,14 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 			return changedState;
 		});
+
+		if (
+			urlBeforeRequestHooks
+			&& options.url instanceof URL
+			&& hasUrlOrPrefixUrlBoundaryChanged(options, options.url, boundaryBeforeRequestHooks)
+		) {
+			assertUrlHasSameOriginAsPrefixUrlIfNeeded(options, options.url);
+		}
 
 		if (request === undefined) {
 			const currentHeaders = options.getInternalHeaders();

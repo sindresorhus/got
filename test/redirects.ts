@@ -140,6 +140,102 @@ test('follows redirect', withServer, async (t, server, got) => {
 	t.deepEqual(redirectUrls.map(String), [`${server.url}/`]);
 });
 
+test('`allowAbsoluteUrls: false` allows redirects with `prefixUrl`', withServer, async (t, server, got) => {
+	server.get('/', reachedHandler);
+	server.get('/finite', finiteHandler);
+
+	const {body, redirectUrls} = await got('finite', {allowAbsoluteUrls: false});
+	t.is(body, 'reached');
+	t.deepEqual(redirectUrls.map(String), [`${server.url}/`]);
+});
+
+test('`allowAbsoluteUrls: false` allows redirects outside the `prefixUrl` path', withServer, async (t, server, got) => {
+	server.get('/api/finite', (_request, response) => {
+		response.writeHead(302, {
+			location: '/login',
+		});
+		response.end();
+	});
+
+	server.get('/login', reachedHandler);
+
+	const {body, redirectUrls} = await got('finite', {
+		allowAbsoluteUrls: false,
+		prefixUrl: `${server.url}/api`,
+	});
+
+	t.is(body, 'reached');
+	t.deepEqual(redirectUrls.map(String), [`${server.url}/login`]);
+});
+
+test('`allowAbsoluteUrls: false` rejects absolute URL set in beforeRedirect hook', withServer, async (t, server, got) => {
+	server.get('/finite', finiteHandler);
+
+	await t.throwsAsync(got('finite', {
+		allowAbsoluteUrls: false,
+		hooks: {
+			beforeRedirect: [
+				options => {
+					options.url = new URL(`${server.url}/changed`);
+				},
+			],
+		},
+	}), {
+		instanceOf: RequestError,
+		message: 'The `url` option must be relative when `allowAbsoluteUrls` is false and `prefixUrl` is set',
+	});
+});
+
+test('`allowAbsoluteUrls: false` rejects in-place URL mutation in beforeRedirect hook outside prefixUrl origin', withServer, async (t, server, got) => {
+	server.get('/api/finite', (_request, response) => {
+		response.writeHead(302, {
+			location: '/api/next',
+		});
+		response.end();
+	});
+
+	await t.throwsAsync(got('finite', {
+		allowAbsoluteUrls: false,
+		prefixUrl: `${server.url}/api`,
+		hooks: {
+			beforeRedirect: [
+				options => {
+					options.url!.hostname = 'example.com';
+				},
+			],
+		},
+	}), {
+		instanceOf: RequestError,
+		message: 'The `url` option must stay on the same origin as `prefixUrl` when `allowAbsoluteUrls` is false',
+	});
+});
+
+test('`allowAbsoluteUrls: false` rejects prefixUrl mutation in beforeRedirect hook around absolute URL', withServer, async (t, server, got) => {
+	await withServer.exec(t, async (_t, redirectServer) => {
+		redirectServer.get('/finite', (_request, response) => {
+			response.writeHead(302, {
+				location: '/next',
+			});
+			response.end();
+		});
+
+		await t.throwsAsync(got(`${redirectServer.url}/finite`, {
+			allowAbsoluteUrls: false,
+			prefixUrl: '',
+			hooks: {
+				beforeRedirect: [
+					options => {
+						options.prefixUrl = server.url;
+					},
+				],
+			},
+		}), {
+			instanceOf: RequestError,
+			message: 'The `url` option must stay on the same origin as `prefixUrl` when `allowAbsoluteUrls` is false',
+		});
+	});
+});
+
 test('does not follow redirect when followRedirect is a function and returns false', withServer, async (t, server, got) => {
 	server.get('/', reachedHandler);
 	server.get('/finite', finiteHandler);

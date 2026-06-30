@@ -38,7 +38,7 @@ We deeply care about readability, so we renamed these options:
 - `transformResponse` → [`hooks.afterResponse`](../9-hooks.md#afterresponse)
   - The API is different.
 - `baseUrl` → [`prefixUrl`](../2-options.md#prefixurl)
-  - The `prefixUrl` is always prepended to the `url`.
+  - The `prefixUrl` is prepended to relative string input. Absolute URLs bypass `prefixUrl` by default. Use [`allowAbsoluteUrls: false`](../2-options.md#allowabsoluteurls) to reject absolute URLs when `prefixUrl` is set.
 - [`timeout`](../6-timeout.md)
   - This option is now an object. You can now set timeouts on particular events!
 - [`responseType`](../2-options.md#responsetype)

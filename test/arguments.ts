@@ -385,6 +385,53 @@ test('`prefixUrl` option works', withServer, async (t, server, got) => {
 	t.is(body, '/test/foobar');
 });
 
+test('absolute URL input bypasses `prefixUrl` by default', withServer, async (t, _server, got) => {
+	await withServer.exec(t, async (_t, server2) => {
+		server2.get('/test', echoUrl);
+
+		const {body} = await got(`${server2.url}/test`);
+		t.is(body, '/test');
+	});
+});
+
+test('`allowAbsoluteUrls: false` rejects absolute string input when `prefixUrl` is set', withServer, async (t, server, got) => {
+	await t.throwsAsync(got(server.url, {allowAbsoluteUrls: false}), {
+		instanceOf: RequestError,
+		message: 'The `url` option must be relative when `allowAbsoluteUrls` is false and `prefixUrl` is set',
+	});
+});
+
+test('`allowAbsoluteUrls: false` rejects URL instance input when `prefixUrl` is set', withServer, async (t, server, got) => {
+	await t.throwsAsync(got(new URL(server.url), {allowAbsoluteUrls: false}), {
+		instanceOf: RequestError,
+		message: 'The `url` option must be relative when `allowAbsoluteUrls` is false and `prefixUrl` is set',
+	});
+});
+
+test('`allowAbsoluteUrls: false` rejects a tab-normalized absolute string input when `prefixUrl` is set', withServer, async (t, _server, got) => {
+	await t.throwsAsync(got('\thttp://example.com', {allowAbsoluteUrls: false}), {
+		instanceOf: RequestError,
+		message: 'The `url` option must be relative when `allowAbsoluteUrls` is false and `prefixUrl` is set',
+	});
+});
+
+test('`allowAbsoluteUrls: false` allows relative input when `prefixUrl` is set', withServer, async (t, server, got) => {
+	server.get('/test', echoUrl);
+
+	const {body} = await got('test', {allowAbsoluteUrls: false});
+	t.is(body, '/test');
+});
+
+test('clearing `prefixUrl` allows absolute URLs when `allowAbsoluteUrls` is false', withServer, async (t, server, got) => {
+	server.get('/', echoUrl);
+
+	const {body} = await got(server.url, {
+		allowAbsoluteUrls: false,
+		prefixUrl: '',
+	});
+	t.is(body, '/');
+});
+
 test('accepts WHATWG URL as the `prefixUrl` option', withServer, async (t, server, got) => {
 	server.get('/test/foobar', echoUrl);
 
@@ -416,6 +463,58 @@ test('`prefixUrl` can be changed if the URL contains the old one', withServer, a
 
 	const {body} = await instanceA('');
 	t.is(body, '/');
+});
+
+test('`allowAbsoluteUrls: false` rejects handler mutation to absolute URL when `prefixUrl` is set', withServer, async (t, server, got) => {
+	const instance = got.extend({
+		allowAbsoluteUrls: false,
+		handlers: [
+			(options, next) => {
+				options.url = new URL(`${server.url}/changed`);
+				return next(options);
+			},
+		],
+	});
+
+	await t.throwsAsync(async () => instance(''), {
+		instanceOf: Error,
+		message: 'The `url` option must be relative when `allowAbsoluteUrls` is false and `prefixUrl` is set',
+	});
+});
+
+test('`allowAbsoluteUrls: false` rejects handler URL object mutation outside `prefixUrl` origin', withServer, async (t, _server, got) => {
+	const instance = got.extend({
+		allowAbsoluteUrls: false,
+		handlers: [
+			(options, next) => {
+				(options.url as URL).hostname = 'example.com';
+				return next(options);
+			},
+		],
+	});
+
+	await t.throwsAsync(async () => instance(''), {
+		instanceOf: Error,
+		message: 'The `url` option must stay on the same origin as `prefixUrl` when `allowAbsoluteUrls` is false',
+	});
+});
+
+test('`allowAbsoluteUrls: false` rejects handler prefixUrl mutation around absolute URL', withServer, async (t, server) => {
+	const instance = got.extend({
+		allowAbsoluteUrls: false,
+		prefixUrl: '',
+		handlers: [
+			(options, next) => {
+				options.prefixUrl = server.url;
+				return next(options);
+			},
+		],
+	});
+
+	await t.throwsAsync(async () => instance('https://example.com/'), {
+		instanceOf: Error,
+		message: 'The `url` option must stay on the same origin as `prefixUrl` when `allowAbsoluteUrls` is false',
+	});
 });
 
 test('throws if the `searchParams` value is invalid', async t => {

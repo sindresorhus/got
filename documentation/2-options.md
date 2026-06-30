@@ -186,7 +186,7 @@ console.log(searchParams.toString());
 **Type: `string`**\
 **Default: `''`**
 
-The string to be prepended to `url`.
+The string to be prepended to relative string `url` input.
 
 The prefix can be any valid URL, either relative or [absolute](https://url.spec.whatwg.org/#absolute-url-string).
 A trailing slash `/` is optional - one will be added automatically.
@@ -206,7 +206,49 @@ await got('https://httpbin.org/anything');
 > Changing `prefixUrl` also updates the `url` option if set.
 
 > [!NOTE]
-> If you're passing an absolute URL as `url`, you need to set `prefixUrl` to an empty string.
+> Absolute string URLs and `URL` instances bypass `prefixUrl` by default. Other instance defaults, including `headers`, still apply. If those URLs may come from untrusted input, set [`allowAbsoluteUrls`](#allowabsoluteurls) to `false`.
+
+> [!NOTE]
+> Got cannot know which custom headers are sensitive. If you use headers like `x-api-key`, only pass trusted URLs or use `allowAbsoluteUrls: false`.
+
+### `allowAbsoluteUrls`
+
+**Type: `boolean`**\
+**Default: `true`**
+
+Allow absolute URLs to bypass `prefixUrl`.
+
+When set to `false` with `prefixUrl`, passing an absolute URL will throw. This also rejects scheme-relative URL strings like `//example.com/path` in retry and pagination URL overrides. Use this when untrusted URL input must stay on the same origin as the configured `prefixUrl`. This is not a path sandbox: relative paths like `../other` still follow standard URL resolution on the same origin.
+
+```js
+import got from 'got';
+
+const client = got.extend({
+	prefixUrl: 'https://api.example.com',
+	allowAbsoluteUrls: false,
+	headers: {
+		'x-api-key': process.env.API_KEY
+	}
+});
+
+await client('users/1');
+// Requests https://api.example.com/users/1
+
+await client('https://attacker.example');
+// Throws
+```
+
+Set `prefixUrl` to an empty string for a request that intentionally needs an absolute URL:
+
+```js
+await client('https://trusted.example', {prefixUrl: ''});
+```
+
+> [!NOTE]
+> This guards the `url` you pass. It does not block cross-origin redirects issued by the server, though inherited sensitive headers are still stripped when a redirect changes origin.
+
+> [!NOTE]
+> The check is defeated if the same hook or `pagination.paginate(…)` return also sets `prefixUrl` or `allowAbsoluteUrls`. Do not populate those options from untrusted data.
 
 ### `signal`
 

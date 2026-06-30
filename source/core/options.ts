@@ -791,7 +791,7 @@ export type PaginationOptions<ElementType, BodyType> = {
 	- `currentItems` - Items from the current response.
 	- `allItems` - An empty array, unless `pagination.stackAllItems` is set to `true`, in which case, it's an array of the emitted items.
 
-	It should return an object representing Got options pointing to the next page. The options are merged automatically with the previous request, therefore the options returned `pagination.paginate(...)` must reflect changes only. If there are no more pages, `false` should be returned.
+	It should return an object representing Got options pointing to the next page. The options are merged automatically with the previous request, therefore the options returned `pagination.paginate(...)` must reflect changes only. The returned `url` can be a string or URL instance. Relative string URLs resolve against the current request URL, which after a cross-origin redirect is the final redirected URL rather than the original `prefixUrl`. If there are no more pages, `false` should be returned.
 
 	When pagination navigates to a different origin, Got strips inherited sensitive headers such as `authorization`, `cookie`, and `proxy-authorization`. If you trust the next-page URL and want to forward a sensitive header, return it explicitly from `pagination.paginate(...)`.
 
@@ -952,13 +952,115 @@ const hasProtocolSlashes = (value: string): boolean => /^[a-z][\d+\-.a-z]*:\/\//
 
 const hasHttpProtocolWithoutSlashes = (value: string): boolean => /^https?:(?!\/\/)/iv.test(value);
 
-export function applyUrlOverride(options: Options, url: string | URL, {username, password}: {username?: string; password?: string} = {}): URL {
-	if (is.string(url) && options.url) {
-		url = new URL(url, options.url).toString();
+const hasUnixProtocolWithoutSlashes = (value: string): boolean => /^unix:/iv.test(value);
+
+const isAbsoluteUrl = (url: string | URL): boolean => is.urlInstance(url) || (is.string(url) && (hasProtocolSlashes(url) || url.startsWith('//')));
+
+const isSlashOrBackslash = (character: string): boolean => character === '/' || character === '\\';
+
+const startsWithSchemeRelativeSeparators = (value: string): boolean => value.length > 1 && isSlashOrBackslash(value[0]!) && isSlashOrBackslash(value[1]!);
+
+const stripLeadingC0ControlOrSpace = (value: string): string => {
+	let index = 0;
+
+	while (index < value.length && value.codePointAt(index)! <= 0x20) {
+		index++;
 	}
 
-	options.prefixUrl = '';
-	options.url = url;
+	return value.slice(index);
+};
+
+const removeAsciiTabOrNewline = (value: string): string => {
+	let result = '';
+
+	for (const character of value) {
+		const codePoint = character.codePointAt(0)!;
+
+		if (codePoint !== 0x09 && codePoint !== 0x0A && codePoint !== 0x0D) {
+			result += character;
+		}
+	}
+
+	return result;
+};
+
+const assertRelativeUrlIfNeeded = (options: Options, url: string | URL): void => {
+	if (!options.prefixUrl || options.allowAbsoluteUrls) {
+		return;
+	}
+
+	const normalizedUrl = is.string(url) ? stripLeadingC0ControlOrSpace(removeAsciiTabOrNewline(url)) : url;
+
+	const isDisallowed = isAbsoluteUrl(normalizedUrl)
+		|| (is.string(normalizedUrl) && (
+			hasHttpProtocolWithoutSlashes(normalizedUrl)
+			|| startsWithSchemeRelativeSeparators(normalizedUrl)
+			|| (options.enableUnixSockets && hasUnixProtocolWithoutSlashes(normalizedUrl))
+		));
+
+	if (isDisallowed) {
+		throw new Error('The `url` option must be relative when `allowAbsoluteUrls` is false and `prefixUrl` is set');
+	}
+};
+
+export const assertUrlHasSameOriginAsPrefixUrlIfNeeded = (options: Options, url: URL): void => {
+	if (!options.prefixUrl || options.allowAbsoluteUrls) {
+		return;
+	}
+
+	let prefixUrl: URL;
+
+	try {
+		prefixUrl = new URL(options.prefixUrl);
+	} catch {
+		return;
+	}
+
+	if (isSameOrigin(prefixUrl, url)) {
+		return;
+	}
+
+	throw new Error('The `url` option must stay on the same origin as `prefixUrl` when `allowAbsoluteUrls` is false');
+};
+
+export type UrlPrefixBoundary = {
+	url?: URL;
+	prefixUrl?: string;
+	allowAbsoluteUrls?: boolean;
+};
+
+export const getUrlPrefixBoundary = (options: Options): UrlPrefixBoundary => ({
+	url: options.url instanceof URL ? new URL(options.url) : undefined,
+	prefixUrl: options.prefixUrl.toString(),
+	allowAbsoluteUrls: options.allowAbsoluteUrls,
+});
+
+export const hasUrlOrPrefixUrlBoundaryChanged = (options: Options, currentUrl: URL, previous: UrlPrefixBoundary): boolean => (
+	currentUrl.href !== previous.url?.href
+	|| options.prefixUrl.toString() !== previous.prefixUrl
+	|| options.allowAbsoluteUrls !== previous.allowAbsoluteUrls
+);
+
+export function applyUrlOverride(options: Options, url: string | URL, {username, password, baseUrl}: {username?: string; password?: string; baseUrl?: URL} = {}): URL {
+	assertRelativeUrlIfNeeded(options, url);
+
+	if (is.string(url) && options.url) {
+		const resolvedUrl = new URL(url, baseUrl ?? options.url);
+		url = resolvedUrl.toString();
+	}
+
+	if (options.allowAbsoluteUrls) {
+		options.prefixUrl = '';
+		options.url = url;
+	} else {
+		const {allowAbsoluteUrls} = options;
+		try {
+			options.allowAbsoluteUrls = true;
+			options.url = url;
+		} finally {
+			options.allowAbsoluteUrls = allowAbsoluteUrls;
+		}
+	}
 
 	if (username !== undefined) {
 		options.username = username;
@@ -1136,6 +1238,7 @@ const defaultInternals: InternalsType = {
 	password: '',
 	http2: false,
 	allowGetBody: false,
+	allowAbsoluteUrls: true,
 	copyPipedHeaders: false,
 	headers: {
 		'user-agent': 'got (https://github.com/sindresorhus/got)',
@@ -1235,10 +1338,8 @@ const defaultInternals: InternalsType = {
 			const next = parsed.find(entry => entry.parameters.rel === 'next' || entry.parameters.rel === '"next"');
 
 			if (next) {
-				const baseUrl = response.request.options.url ?? response.url;
-
 				return {
-					url: new URL(next.reference, baseUrl),
+					url: next.reference,
 				};
 			}
 
@@ -1691,11 +1792,13 @@ export default class Options {
 	}
 
 	/**
-	When specified, `prefixUrl` will be prepended to `url`.
+	When specified, `prefixUrl` will be prepended to relative string `url` input.
 	The prefix can be any valid URL, either relative or absolute.
 	A trailing slash `/` is optional - one will be added automatically.
 
-	__Note__: `prefixUrl` will be ignored if the `url` argument is a URL instance.
+	__Note__: Absolute string URLs and URL instances bypass `prefixUrl` by default. Other instance defaults, including headers, still apply. For untrusted URLs, set `allowAbsoluteUrls` to `false`.
+
+	__Note__: Got cannot know which custom headers are sensitive. If you use headers like `x-api-key`, only pass trusted URLs or use `allowAbsoluteUrls: false`.
 
 	__Note__: Leading slashes in `input` are disallowed when using this option to enforce consistency and avoid confusion.
 	For example, when the prefix URL is `https://example.com/foo` and the input is `/bar`, there's ambiguity whether the resulting URL would become `https://example.com/foo/bar` or `https://example.com/bar`.
@@ -1901,8 +2004,9 @@ export default class Options {
 			throw new Error('`url` protocol must be followed by `//`');
 		}
 
-		// Detect if URL is already absolute (has a protocol/scheme)
-		const isAbsolute = is.urlInstance(value) || hasProtocolSlashes(valueString);
+		// Detect if URL is already absolute.
+		const isAbsolute = isAbsoluteUrl(value);
+		assertRelativeUrlIfNeeded(this, value);
 
 		// Only concatenate prefixUrl if the URL is relative
 		const urlString = isAbsolute ? valueString : `${this.prefixUrl as string}${valueString}`;
@@ -2422,6 +2526,27 @@ export default class Options {
 		assert.boolean(value);
 
 		this.#internals.allowGetBody = value;
+	}
+
+	/**
+	Allow absolute URLs to bypass `prefixUrl`.
+
+	When set to `false` with `prefixUrl`, passing an absolute `url` will throw. This also rejects scheme-relative URL strings like `//example.com/path` in retry and pagination URL overrides. Use this when untrusted URL input must stay on the same origin as the configured `prefixUrl`. This is not a path sandbox: relative paths like `../other` still follow standard URL resolution on the same origin. Set `prefixUrl` to an empty string for a request that intentionally needs an absolute URL.
+
+	__Note__: This guards the `url` you pass. It does not block cross-origin redirects issued by the server, though inherited sensitive headers are still stripped when a redirect changes origin.
+
+	__Note__: The check is defeated if the same hook or `pagination.paginate(…)` return also sets `prefixUrl` or `allowAbsoluteUrls`. Do not populate those options from untrusted data.
+
+	@default true
+	*/
+	get allowAbsoluteUrls(): boolean {
+		return this.#internals.allowAbsoluteUrls;
+	}
+
+	set allowAbsoluteUrls(value: boolean) {
+		assert.boolean(value);
+
+		this.#internals.allowAbsoluteUrls = value;
 	}
 
 	/**

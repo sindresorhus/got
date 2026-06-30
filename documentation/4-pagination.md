@@ -88,7 +88,7 @@ console.log(results);
 
 		if (next) {
 			return {
-				url: new URL(next.reference, response.requestUrl)
+				url: next.reference
 			};
 		}
 
@@ -130,8 +130,7 @@ The options are merged automatically with the previous request.\
 Therefore the options returned by `pagination.paginate(…)` must reflect changes only.
 
 **Note:**
-> - The `url` option (if set) accepts **only** a [`URL`](https://developer.mozilla.org/en-US/docs/Web/API/URL) instance.\
->   This prevents `prefixUrl` ambiguity. In order to use a relative URL string, merge it via `new URL(relativeUrl, response.url)`.
+> - The `url` option (if set) accepts a string or [`URL`](https://developer.mozilla.org/en-US/docs/Web/API/URL) instance. Relative strings resolve against the current request URL. After a cross-origin redirect, that means the final redirected URL, not the original `prefixUrl`.
 > - When pagination navigates to a different origin, Got strips inherited sensitive headers such as `authorization`, `cookie`, and `proxy-authorization`. If you trust the next-page URL and want to forward a sensitive header, return it explicitly from `pagination.paginate(…)`.
 
 #### `filter`
