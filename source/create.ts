@@ -17,6 +17,9 @@ import Request from './core/index.js';
 import type {Response} from './core/response.js';
 import Options, {
 	applyUrlOverride,
+	assertUrlHasSameOriginAsPrefixUrlIfNeeded,
+	getUrlPrefixBoundary,
+	hasUrlOrPrefixUrlBoundaryChanged,
 	isSameOrigin,
 	snapshotCrossOriginState,
 	type OptionsInit,
@@ -89,8 +92,19 @@ const create = (defaults: InstanceDefaults): Got => {
 		}
 
 		let promise: RequestPromise | undefined;
+		const urlBeforeHandlers = request.options?.url instanceof URL ? new URL(request.options.url) : undefined;
+		const boundaryBeforeHandlers = request.options ? getUrlPrefixBoundary(request.options) : undefined;
 
 		const lastHandler = (normalized: Options): GotReturn => {
+			if (
+				urlBeforeHandlers
+				&& boundaryBeforeHandlers
+				&& normalized?.url instanceof URL
+				&& hasUrlOrPrefixUrlBoundaryChanged(normalized, normalized.url, boundaryBeforeHandlers)
+			) {
+				assertUrlHasSameOriginAsPrefixUrlIfNeeded(normalized, normalized.url);
+			}
+
 			// Note: `options` is `undefined` when `new Options(...)` fails
 			request.options = normalized;
 			const shouldReturnStream = normalized?.isStream ?? isStream;
@@ -234,6 +248,7 @@ const create = (defaults: InstanceDefaults): Got => {
 
 			const requestOptions = response.request.options;
 			const previousUrl = requestOptions.url ? new URL(requestOptions.url) : undefined;
+			const previousBoundary = getUrlPrefixBoundary(requestOptions);
 			const previousState = previousUrl ? snapshotCrossOriginState(requestOptions) : undefined;
 			// eslint-disable-next-line no-await-in-loop
 			const [optionsToMerge, changedState] = await requestOptions.trackStateMutations(async changedState => [
@@ -255,27 +270,57 @@ const create = (defaults: InstanceDefaults): Got => {
 
 				if (previousUrl) {
 					const nextUrl = normalizedOptions.url as URL | undefined;
+					if (
+						nextUrl
+						&& hasUrlOrPrefixUrlBoundaryChanged(normalizedOptions, nextUrl, previousBoundary)
+					) {
+						assertUrlHasSameOriginAsPrefixUrlIfNeeded(normalizedOptions, nextUrl);
+					}
+
 					if (nextUrl && !isSameOrigin(previousUrl, nextUrl)) {
 						normalizedOptions.prefixUrl = '';
 						normalizedOptions.stripUnchangedCrossOriginState(previousState!, changedState);
 					}
 				}
 			} else {
+				const paginationOptions = normalizedOptions;
+				const paginationUrl = paginationOptions.url instanceof URL ? new URL(paginationOptions.url) : undefined;
+				const paginationBoundary = getUrlPrefixBoundary(paginationOptions);
 				const hasExplicitBody = (Object.hasOwn(optionsToMerge, 'body') && optionsToMerge.body !== undefined)
 					|| (Object.hasOwn(optionsToMerge, 'json') && optionsToMerge.json !== undefined)
 					|| (Object.hasOwn(optionsToMerge, 'form') && optionsToMerge.form !== undefined);
 				const clearsCookieJar = Object.hasOwn(optionsToMerge, 'cookieJar') && optionsToMerge.cookieJar === undefined;
 
 				if (hasExplicitBody) {
-					normalizedOptions.clearBody();
+					paginationOptions.clearBody();
 				}
 
 				if (clearsCookieJar) {
-					normalizedOptions.cookieJar = undefined;
+					paginationOptions.cookieJar = undefined;
 				}
 
-				normalizedOptions.merge(optionsToMerge);
-				normalizedOptions.syncCookieHeaderAfterMerge(previousState, optionsToMerge.headers);
+				const {url, ...optionsToMergeWithoutUrl} = optionsToMerge;
+				paginationOptions.merge(optionsToMergeWithoutUrl);
+				paginationOptions.syncCookieHeaderAfterMerge(previousState, optionsToMergeWithoutUrl.headers);
+
+				if (
+					paginationOptions.url instanceof URL
+					&& hasUrlOrPrefixUrlBoundaryChanged(paginationOptions, paginationOptions.url, paginationBoundary)
+				) {
+					assertUrlHasSameOriginAsPrefixUrlIfNeeded(paginationOptions, paginationOptions.url);
+				}
+
+				if (
+					previousUrl
+					&& paginationUrl
+					&& !isSameOrigin(paginationUrl, previousUrl)
+				) {
+					paginationOptions.stripSensitiveHeaders(paginationUrl, previousUrl, optionsToMerge);
+
+					if (!hasExplicitBody) {
+						paginationOptions.clearBody();
+					}
+				}
 
 				try {
 					assert.any([is.string, is.urlInstance, is.undefined], optionsToMerge.url);
@@ -287,17 +332,29 @@ const create = (defaults: InstanceDefaults): Got => {
 					throw error;
 				}
 
-				if (optionsToMerge.url !== undefined) {
-					const nextUrl = applyUrlOverride(normalizedOptions, optionsToMerge.url, optionsToMerge);
+				if (url !== undefined) {
+					const nextUrl = applyUrlOverride(paginationOptions, url, {
+						...optionsToMerge,
+						baseUrl: previousUrl,
+					});
+
+					if (
+						paginationOptions.prefixUrl.toString() !== paginationBoundary.prefixUrl
+						|| paginationOptions.allowAbsoluteUrls !== paginationBoundary.allowAbsoluteUrls
+					) {
+						assertUrlHasSameOriginAsPrefixUrlIfNeeded(paginationOptions, nextUrl);
+					}
 
 					if (previousUrl) {
-						normalizedOptions.stripSensitiveHeaders(previousUrl, nextUrl, optionsToMerge);
+						paginationOptions.stripSensitiveHeaders(previousUrl, nextUrl, optionsToMerge);
 
 						if (!isSameOrigin(previousUrl, nextUrl) && !hasExplicitBody) {
-							normalizedOptions.clearBody();
+							paginationOptions.clearBody();
 						}
 					}
 				}
+
+				normalizedOptions = paginationOptions;
 			}
 
 			numberOfRequests++;

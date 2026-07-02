@@ -933,6 +933,396 @@ test('setting absolute URL in hook does not concatenate with prefixUrl', withSer
 	t.is(body, 'changed');
 });
 
+test('allowAbsoluteUrls false rejects absolute URL set in hook when prefixUrl is set', withServer, async (t, server, got) => {
+	server.get('/original', (_request, response) => {
+		response.end('original');
+	});
+
+	await t.throwsAsync(got('original', {
+		allowAbsoluteUrls: false,
+		prefixUrl: server.url,
+		hooks: {
+			beforeRequest: [
+				options => {
+					options.url = new URL(`${server.url}/changed`);
+				},
+			],
+		},
+	}), {
+		instanceOf: RequestError,
+		message: 'The `url` option must be relative when `allowAbsoluteUrls` is false and `prefixUrl` is set',
+	});
+});
+
+test('allowAbsoluteUrls false rejects in-place URL mutation from beforeRequest hook outside prefixUrl origin', withServer, async (t, server, got) => {
+	server.get('/api/original', (_request, response) => {
+		response.end('original');
+	});
+
+	await t.throwsAsync(got('original', {
+		allowAbsoluteUrls: false,
+		prefixUrl: `${server.url}/api`,
+		hooks: {
+			beforeRequest: [
+				options => {
+					options.url!.hostname = 'example.com';
+				},
+			],
+		},
+	}), {
+		instanceOf: RequestError,
+		message: 'The `url` option must stay on the same origin as `prefixUrl` when `allowAbsoluteUrls` is false',
+	});
+});
+
+test('allowAbsoluteUrls false rejects beforeRequest prefixUrl mutation around absolute URL', withServer, async (t, server, got) => {
+	await withServer.exec(t, async (_t, absoluteServer) => {
+		absoluteServer.get('/original', (_request, response) => {
+			response.end('original');
+		});
+
+		await t.throwsAsync(got(`${absoluteServer.url}/original`, {
+			allowAbsoluteUrls: false,
+			prefixUrl: '',
+			hooks: {
+				beforeRequest: [
+					options => {
+						options.prefixUrl = server.url;
+					},
+				],
+			},
+		}), {
+			instanceOf: RequestError,
+			message: 'The `url` option must stay on the same origin as `prefixUrl` when `allowAbsoluteUrls` is false',
+		});
+	});
+});
+
+test('allowAbsoluteUrls false rejects absolute URL from retryWithMergedOptions when prefixUrl is set', withServer, async (t, server, got) => {
+	server.get('/original', (_request, response) => {
+		response.end('original');
+	});
+
+	await t.throwsAsync(got('original', {
+		allowAbsoluteUrls: false,
+		hooks: {
+			afterResponse: [
+				(_response, retryWithMergedOptions) => retryWithMergedOptions({
+					url: `${server.url}/changed`,
+				}),
+			],
+		},
+	}), {
+		instanceOf: RequestError,
+		message: 'The `url` option must be relative when `allowAbsoluteUrls` is false and `prefixUrl` is set',
+	});
+});
+
+test('allowAbsoluteUrls false rejects URL instance from retryWithMergedOptions when prefixUrl is set', withServer, async (t, server, got) => {
+	server.get('/original', (_request, response) => {
+		response.end('original');
+	});
+
+	await t.throwsAsync(got('original', {
+		allowAbsoluteUrls: false,
+		hooks: {
+			afterResponse: [
+				(_response, retryWithMergedOptions) => retryWithMergedOptions({
+					url: new URL(`${server.url}/changed`),
+				}),
+			],
+		},
+	}), {
+		instanceOf: RequestError,
+		message: 'The `url` option must be relative when `allowAbsoluteUrls` is false and `prefixUrl` is set',
+	});
+});
+
+test('allowAbsoluteUrls false rejects in-place URL mutation from retryWithMergedOptions outside prefixUrl origin', withServer, async (t, server, got) => {
+	server.get('/api/original', (_request, response) => {
+		response.end('original');
+	});
+
+	await t.throwsAsync(got('original', {
+		allowAbsoluteUrls: false,
+		prefixUrl: `${server.url}/api`,
+		hooks: {
+			afterResponse: [
+				(response, retryWithMergedOptions) => {
+					const {options} = response.request;
+					(options.url as URL).hostname = 'example.com';
+					return retryWithMergedOptions(options);
+				},
+			],
+		},
+	}), {
+		instanceOf: RequestError,
+		message: 'The `url` option must stay on the same origin as `prefixUrl` when `allowAbsoluteUrls` is false',
+	});
+});
+
+test('allowAbsoluteUrls false rejects live URL mutation with partial retryWithMergedOptions outside prefixUrl origin', withServer, async (t, server, got) => {
+	server.get('/api/original', (_request, response) => {
+		response.end('original');
+	});
+
+	await t.throwsAsync(got('original', {
+		allowAbsoluteUrls: false,
+		prefixUrl: `${server.url}/api`,
+		hooks: {
+			afterResponse: [
+				(response, retryWithMergedOptions) => {
+					const {options} = response.request;
+					(options.url as URL).hostname = 'example.com';
+					return retryWithMergedOptions({
+						headers: {
+							'x-retry': 'true',
+						},
+					});
+				},
+			],
+		},
+	}), {
+		instanceOf: RequestError,
+		message: 'The `url` option must stay on the same origin as `prefixUrl` when `allowAbsoluteUrls` is false',
+	});
+});
+
+test('allowAbsoluteUrls false rejects retryWithMergedOptions prefixUrl mutation around absolute URL', withServer, async (t, server, got) => {
+	await withServer.exec(t, async (_t, absoluteServer) => {
+		absoluteServer.get('/original', (_request, response) => {
+			response.end('original');
+		});
+
+		await t.throwsAsync(got(`${absoluteServer.url}/original`, {
+			allowAbsoluteUrls: false,
+			prefixUrl: '',
+			hooks: {
+				afterResponse: [
+					(_response, retryWithMergedOptions) => retryWithMergedOptions({
+						prefixUrl: server.url,
+					}),
+				],
+			},
+		}), {
+			instanceOf: RequestError,
+			message: 'The `url` option must stay on the same origin as `prefixUrl` when `allowAbsoluteUrls` is false',
+		});
+	});
+});
+
+test('allowAbsoluteUrls false rejects scheme-relative URL from retryWithMergedOptions when prefixUrl is set', withServer, async (t, server, got) => {
+	server.get('/original', (_request, response) => {
+		response.end('original');
+	});
+
+	await t.throwsAsync(got('original', {
+		allowAbsoluteUrls: false,
+		hooks: {
+			afterResponse: [
+				(_response, retryWithMergedOptions) => retryWithMergedOptions({
+					url: `//localhost:${server.port}/changed`,
+				}),
+			],
+		},
+	}), {
+		instanceOf: RequestError,
+		message: 'The `url` option must be relative when `allowAbsoluteUrls` is false and `prefixUrl` is set',
+	});
+});
+
+test('allowAbsoluteUrls false rejects backslash scheme-relative URL from retryWithMergedOptions', withServer, async (t, server, got) => {
+	server.get('/original', (_request, response) => {
+		response.end('original');
+	});
+
+	await t.throwsAsync(got('original', {
+		allowAbsoluteUrls: false,
+		hooks: {
+			afterResponse: [
+				(_response, retryWithMergedOptions) => retryWithMergedOptions({
+					url: String.raw`\\example.com/changed`,
+				}),
+			],
+		},
+	}), {
+		instanceOf: RequestError,
+		message: 'The `url` option must be relative when `allowAbsoluteUrls` is false and `prefixUrl` is set',
+	});
+});
+
+test('allowAbsoluteUrls false rejects http URL without slashes from retryWithMergedOptions when prefixUrl is set', withServer, async (t, server, got) => {
+	server.get('/original', (_request, response) => {
+		response.end('original');
+	});
+
+	await t.throwsAsync(got('original', {
+		allowAbsoluteUrls: false,
+		hooks: {
+			afterResponse: [
+				(_response, retryWithMergedOptions) => retryWithMergedOptions({
+					url: 'http:example.com',
+				}),
+			],
+		},
+	}), {
+		instanceOf: RequestError,
+		message: 'The `url` option must be relative when `allowAbsoluteUrls` is false and `prefixUrl` is set',
+	});
+});
+
+test('allowAbsoluteUrls false rejects whitespace-prefixed scheme-relative URL from retryWithMergedOptions', withServer, async (t, server, got) => {
+	server.get('/original', (_request, response) => {
+		response.end('original');
+	});
+
+	await t.throwsAsync(got('original', {
+		allowAbsoluteUrls: false,
+		hooks: {
+			afterResponse: [
+				(_response, retryWithMergedOptions) => retryWithMergedOptions({
+					url: '\t//example.com/changed',
+				}),
+			],
+		},
+	}), {
+		instanceOf: RequestError,
+		message: 'The `url` option must be relative when `allowAbsoluteUrls` is false and `prefixUrl` is set',
+	});
+});
+
+test('allowAbsoluteUrls false rejects C0-control-prefixed absolute URL from retryWithMergedOptions', withServer, async (t, server, got) => {
+	server.get('/original', (_request, response) => {
+		response.end('original');
+	});
+
+	await t.throwsAsync(got('original', {
+		allowAbsoluteUrls: false,
+		hooks: {
+			afterResponse: [
+				(_response, retryWithMergedOptions) => retryWithMergedOptions({
+					url: '\u0000https://example.com/changed',
+				}),
+			],
+		},
+	}), {
+		instanceOf: RequestError,
+		message: 'The `url` option must be relative when `allowAbsoluteUrls` is false and `prefixUrl` is set',
+	});
+});
+
+test('allowAbsoluteUrls false rejects ASCII-newline-normalized absolute URL from retryWithMergedOptions', withServer, async (t, server, got) => {
+	server.get('/original', (_request, response) => {
+		response.end('original');
+	});
+
+	await t.throwsAsync(got('original', {
+		allowAbsoluteUrls: false,
+		hooks: {
+			afterResponse: [
+				(_response, retryWithMergedOptions) => retryWithMergedOptions({
+					url: 'h\nttps://example.com/changed',
+				}),
+			],
+		},
+	}), {
+		instanceOf: RequestError,
+		message: 'The `url` option must be relative when `allowAbsoluteUrls` is false and `prefixUrl` is set',
+	});
+});
+
+test('allowAbsoluteUrls false rejects whitespace-prefixed scheme-relative URL from retryWithMergedOptions after redirect', withServer, async (t, server, got) => {
+	await withServer.exec(t, async (_t, redirectServer) => {
+		server.get('/redirect', (_request, response) => {
+			response.writeHead(302, {
+				location: `${redirectServer.url}/target`,
+			});
+			response.end();
+		});
+
+		redirectServer.get('/target', (_request, response) => {
+			response.end('target');
+		});
+
+		await t.throwsAsync(got('redirect', {
+			allowAbsoluteUrls: false,
+			hooks: {
+				afterResponse: [
+					(_response, retryWithMergedOptions) => retryWithMergedOptions({
+						url: '\t//example.com/changed',
+					}),
+				],
+			},
+		}), {
+			instanceOf: RequestError,
+			message: 'The `url` option must be relative when `allowAbsoluteUrls` is false and `prefixUrl` is set',
+		});
+	});
+});
+
+test('allowAbsoluteUrls false allows retryWithMergedOptions after cross-origin redirect without URL mutation', withServer, async (t, server, got) => {
+	await withServer.exec(t, async (_t, redirectServer) => {
+		server.get('/redirect', (_request, response) => {
+			response.writeHead(302, {
+				location: `${redirectServer.url}/target`,
+			});
+			response.end();
+		});
+
+		redirectServer.get('/target', (request, response) => {
+			response.end(request.headers['x-retry'] === 'true' ? 'retried' : 'first');
+		});
+
+		const {body} = await got('redirect', {
+			allowAbsoluteUrls: false,
+			hooks: {
+				afterResponse: [
+					(response, retryWithMergedOptions) => {
+						if (response.body === 'first') {
+							return retryWithMergedOptions({
+								headers: {
+									'x-retry': 'true',
+								},
+							});
+						}
+
+						return response;
+					},
+				],
+			},
+		});
+
+		t.is(body, 'retried');
+	});
+});
+
+test('afterResponse retryWithMergedOptions supports empty string url value', withServer, async (t, server, got) => {
+	server.get('/original', (request, response) => {
+		response.end(request.headers['x-retry'] === 'true' ? 'retried' : 'original');
+	});
+
+	const response = await got('original', {
+		hooks: {
+			afterResponse: [
+				(response, retryWithMergedOptions) => {
+					if (response.body === 'original') {
+						return retryWithMergedOptions({
+							url: '',
+							headers: {
+								'x-retry': 'true',
+							},
+						});
+					}
+
+					return response;
+				},
+			],
+		},
+	});
+
+	t.is(response.body, 'retried');
+});
+
 test('allows colon in path segment with prefixUrl (CouchDB user URLs)', withServer, async (t, server, serverGot) => {
 	server.get('/_users/org.couchdb.user:test@user.com', (_request, response) => {
 		response.end('user document');

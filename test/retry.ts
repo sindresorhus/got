@@ -498,6 +498,73 @@ test('can retry a Got stream', withServer, async (t, server, got) => {
 	t.is(globalRetryCount, 1);
 });
 
+test('can retry a Got stream with allowAbsoluteUrls false', withServer, async (t, server, got) => {
+	let returnServerError = true;
+
+	server.get('/', (_request, response) => {
+		if (returnServerError) {
+			response.statusCode = 500;
+			response.end('not ok');
+
+			returnServerError = false;
+			return;
+		}
+
+		response.end('ok');
+	});
+
+	const responseStreamPromise = new Promise<PassThroughStream>((resolve, reject) => {
+		let writeStream: PassThroughStream;
+
+		const function_ = (retryStream?: Request) => {
+			const stream = retryStream ?? got.stream('', {allowAbsoluteUrls: false});
+
+			if (writeStream) {
+				writeStream.destroy();
+			}
+
+			writeStream = new PassThroughStream();
+			stream.pipe(writeStream);
+
+			stream.once('retry', (_retryCount, _error, createRetryStream) => {
+				function_(createRetryStream());
+			});
+
+			stream.once('error', reject);
+			stream.once('end', () => {
+				resolve(writeStream);
+			});
+		};
+
+		function_();
+	});
+
+	const responseStream = await responseStreamPromise;
+	const data = await getStream(responseStream);
+
+	t.is(data, 'ok');
+});
+
+test('`allowAbsoluteUrls: false` rejects an absolute URL passed to a Got stream retry', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.statusCode = 500;
+		response.end('not ok');
+	});
+
+	const error = await new Promise<Error>(resolve => {
+		const stream = got.stream('', {allowAbsoluteUrls: false});
+		stream.resume();
+		stream.once('error', () => {});
+		stream.once('retry', (_retryCount, _error, createRetryStream) => {
+			const retryStream = createRetryStream({url: `${server.url}/other`});
+			retryStream.once('error', resolve);
+			retryStream.resume();
+		});
+	});
+
+	t.is(error.message, 'The `url` option must be relative when `allowAbsoluteUrls` is false and `prefixUrl` is set');
+});
+
 test('throws when cannot retry a Got stream', withServer, async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.statusCode = 500;

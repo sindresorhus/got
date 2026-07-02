@@ -16,6 +16,9 @@ import {
 import proxyEvents from '../core/utils/proxy-events.js';
 import {
 	applyUrlOverride,
+	assertUrlHasSameOriginAsPrefixUrlIfNeeded,
+	getUrlPrefixBoundary,
+	hasUrlOrPrefixUrlBoundaryChanged,
 	isSameOrigin,
 	snapshotCrossOriginState,
 } from '../core/options.js';
@@ -80,6 +83,7 @@ export default function asPromise<T>(firstRequest?: Request): RequestPromise<T> 
 
 						for (const [index, hook] of hooks.entries()) {
 							const previousUrl = options.url ? new URL(options.url) : undefined;
+							const previousBoundary = getUrlPrefixBoundary(options);
 							const previousState = previousUrl ? snapshotCrossOriginState(options) : undefined;
 							const requestOptions = response.request.options;
 							const responseSnapshot = response;
@@ -105,13 +109,23 @@ export default function asPromise<T>(firstRequest?: Request): RequestPromise<T> 
 								}
 
 								if (!reusesRequestOptions) {
-									options.merge(updatedOptions);
-									options.syncCookieHeaderAfterMerge(previousState, updatedOptions.headers);
+									const {url, ...updatedOptionsWithoutUrl} = updatedOptions;
+									options.merge(updatedOptionsWithoutUrl);
+									options.syncCookieHeaderAfterMerge(previousState, updatedOptionsWithoutUrl.headers);
 								}
 
 								options.clearUnchangedCookieHeader(previousState, reusesRequestOptions ? changedState : undefined);
 
-								if (updatedOptions.url) {
+								const currentUrl = options.url;
+								if (
+									previousUrl
+									&& currentUrl instanceof URL
+									&& hasUrlOrPrefixUrlBoundaryChanged(options, currentUrl, previousBoundary)
+								) {
+									assertUrlHasSameOriginAsPrefixUrlIfNeeded(options, currentUrl);
+								}
+
+								if (updatedOptions.url !== undefined) {
 									const nextUrl = reusesRequestOptions
 										? options.url as URL
 										: applyUrlOverride(options, updatedOptions.url, updatedOptions);

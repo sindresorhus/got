@@ -168,6 +168,86 @@ if (process.platform !== 'win32') {
 		});
 	});
 
+	test('allowAbsoluteUrls false rejects in-place mutation to a different UNIX socket', withSocketServer, async (t, firstServer) => {
+		await withSocketServer.exec(t, async (t, secondServer) => {
+			void firstServer.on('/', okHandler);
+
+			const client = got.extend({
+				allowAbsoluteUrls: false,
+				prefixUrl: socketUrl(firstServer.socketPath),
+			});
+
+			await t.throwsAsync(client('', {
+				hooks: {
+					beforeRequest: [
+						options => {
+							options.url!.pathname = `${secondServer.socketPath}:/`;
+						},
+					],
+				},
+			}), {
+				instanceOf: RequestError,
+				message: 'The `url` option must stay on the same origin as `prefixUrl` when `allowAbsoluteUrls` is false',
+			});
+		});
+	});
+
+	test('allowAbsoluteUrls false rejects retryWithMergedOptions string URL to a different UNIX socket', withSocketServer, async (t, firstServer) => {
+		await withSocketServer.exec(t, async (t, secondServer) => {
+			firstServer.on('/', (_request, response) => {
+				response.end('first');
+			});
+
+			void secondServer.on('/target', okHandler);
+
+			const client = got.extend({
+				allowAbsoluteUrls: false,
+				prefixUrl: socketUrl(firstServer.socketPath),
+			});
+
+			await t.throwsAsync(client('', {
+				hooks: {
+					afterResponse: [
+						(_response, retryWithMergedOptions) => retryWithMergedOptions({
+							url: format('unix:%s:%s', secondServer.socketPath, '/target'),
+						}),
+					],
+				},
+			}), {
+				instanceOf: RequestError,
+				message: 'The `url` option must be relative when `allowAbsoluteUrls` is false and `prefixUrl` is set',
+			});
+		});
+	});
+
+	test('allowAbsoluteUrls false rejects retryWithMergedOptions backslash URL to a different UNIX socket', withSocketServer, async (t, firstServer) => {
+		await withSocketServer.exec(t, async (t, secondServer) => {
+			firstServer.on('/', (_request, response) => {
+				response.end('first');
+			});
+
+			void secondServer.on('/target', okHandler);
+
+			const client = got.extend({
+				allowAbsoluteUrls: false,
+				prefixUrl: socketUrl(firstServer.socketPath),
+			});
+
+			await t.throwsAsync(client('', {
+				hooks: {
+					afterResponse: [
+						(_response, retryWithMergedOptions) => retryWithMergedOptions({
+							url: format(String.raw`\\unix:%s:%s`, secondServer.socketPath, '/target'),
+						}),
+					],
+				},
+			}), {
+				instanceOf: RequestError,
+				message: 'The `url` option must be relative when `allowAbsoluteUrls` is false and `prefixUrl` is set',
+			});
+		});
+	});
+
 	test('retryWithMergedOptions strips sensitive headers when moving to a different UNIX socket', withSocketServer, async (t, firstServer) => {
 		await withSocketServer.exec(t, async (t, secondServer) => {
 			attachRetryUrlResponse(firstServer, secondServer.socketPath);
