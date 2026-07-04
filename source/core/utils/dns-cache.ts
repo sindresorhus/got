@@ -2,8 +2,10 @@ import {
 	ADDRCONFIG,
 	ALL,
 	V4MAPPED,
+	getDefaultResultOrder,
 	lookup as dnsLookup,
 	promises as dnsPromises,
+	type LookupOptions,
 } from 'node:dns';
 import {isIP, type LookupFunction} from 'node:net';
 import os from 'node:os';
@@ -11,13 +13,12 @@ import {promisify} from 'node:util';
 
 type DnsFamily = 4 | 6;
 
-type DnsLookupOptions = {
-	all?: boolean;
-	family?: number;
-	hints?: number;
+type DnsLookupOptions = Omit<LookupOptions, 'verbatim'> & {
+	verbatim?: boolean;
 };
 
 type DnsLookupCallback = Parameters<LookupFunction>[2];
+type DnsLookupOrder = ReturnType<typeof getDefaultResultOrder>;
 
 type ResolverRecord = {
 	address: string;
@@ -165,7 +166,27 @@ const familyFromOptions = (options: DnsLookupOptions): DnsFamily | undefined => 
 		return options.family;
 	}
 
+	if (options.family === 'IPv4') {
+		return 4;
+	}
+
+	if (options.family === 'IPv6') {
+		return 6;
+	}
+
 	return undefined;
+};
+
+const orderFromOptions = (options: DnsLookupOptions): DnsLookupOrder => {
+	if (options.order !== undefined) {
+		return options.order;
+	}
+
+	if (options.verbatim !== undefined) {
+		return options.verbatim ? 'verbatim' : 'ipv4first';
+	}
+
+	return getDefaultResultOrder();
 };
 
 const familiesFromOptions = (options: DnsLookupOptions): DnsFamily[] => {
@@ -179,12 +200,24 @@ const familiesFromOptions = (options: DnsLookupOptions): DnsFamily[] => {
 		return [family];
 	}
 
+	if (orderFromOptions(options) === 'ipv6first') {
+		return [6, 4];
+	}
+
 	return [4, 6];
+};
+
+const filterFamiliesByAddrConfig = (families: DnsFamily[], options: DnsLookupOptions, interfaceInfo: ReturnType<typeof getInterfaceInfo>): DnsFamily[] => {
+	if (!hasFlag(options.hints, ADDRCONFIG)) {
+		return families;
+	}
+
+	return families.filter(family => family === 6 ? interfaceInfo.has6 : interfaceInfo.has4);
 };
 
 const cacheKey = (hostname: string, family: DnsFamily) => `${hostname}:${family}`;
 
-const lookupOptionsKey = (hostname: string, options: DnsLookupOptions) => `${hostname}:${options.family ?? 0}:${options.hints ?? 0}`;
+const lookupOptionsKey = (hostname: string, options: DnsLookupOptions) => `${hostname}:${familyFromOptions(options) ?? 0}:${options.hints ?? 0}`;
 
 const shouldIgnoreResolveError = (error: NodeJS.ErrnoException) => error.code !== undefined && noResultErrorCodes.has(error.code);
 
@@ -230,7 +263,7 @@ export default class DnsCache implements DnsCacheableLookup {
 		this.#fallbackDuration = fallbackDuration;
 		this.#errorTtl = errorTtl;
 		this.#dnsLookupAsync = lookup === false ? undefined : promisify(lookup);
-		this.lookup = this.#lookup.bind(this) as LookupFunction;
+		this.lookup = this.#lookup.bind(this);
 	}
 
 	async lookupAsync(hostname: string, options?: number | DnsLookupOptions): Promise<DnsLookupResult | DnsLookupResult[]> {
@@ -332,7 +365,7 @@ export default class DnsCache implements DnsCacheableLookup {
 			return this.#fallbackLookup(hostname, options);
 		}
 
-		const families = familiesFromOptions(options);
+		const families = filterFamiliesByAddrConfig(familiesFromOptions(options), options, this.#interfaceInfo);
 		const clearVersion = this.#clearVersion;
 		const entries = await Promise.all(families.map(async family => this.#queryFamily(hostname, family, clearVersion)));
 		const flattenedEntries = entries.flat();

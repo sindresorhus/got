@@ -1,5 +1,10 @@
 import {execFile} from 'node:child_process';
-import {ADDRCONFIG, V4MAPPED} from 'node:dns';
+import {
+	ADDRCONFIG,
+	getDefaultResultOrder,
+	setDefaultResultOrder,
+	V4MAPPED,
+} from 'node:dns';
 import process from 'node:process';
 import {setImmediate} from 'node:timers/promises';
 import type {LookupFunction} from 'node:net';
@@ -92,7 +97,7 @@ test('DNS cache only resolves the requested IPv4 family', async t => {
 	t.is(resolve6CallCount, 0);
 });
 
-test('DNS cache only resolves the requested IPv6 family', async t => {
+test('DNS cache only resolves the requested IPv6 family alias', async t => {
 	let resolve4CallCount = 0;
 	let resolve6CallCount = 0;
 	const cache = new DnsCache({
@@ -108,7 +113,7 @@ test('DNS cache only resolves the requested IPv6 family', async t => {
 		}),
 	});
 
-	const result = await cache.lookupAsync('example.com', {family: 6});
+	const result = await cache.lookupAsync('example.com', {family: 'IPv6'});
 
 	t.like(result, {
 		address: '::1',
@@ -174,6 +179,91 @@ test('DNS cache supports all lookup results', async t => {
 			resolve();
 		});
 	});
+});
+
+test('DNS cache supports lookup result order', async t => {
+	const cache = new DnsCache({
+		resolver: createResolver({
+			async resolve4() {
+				return [{address: '127.0.0.1', ttl: 60}];
+			},
+			async resolve6() {
+				return [{address: '::1', ttl: 60}];
+			},
+		}),
+	});
+
+	t.deepEqual(await cache.lookupAsync('example.com', {
+		all: true,
+		order: 'ipv6first',
+	}), [
+		{
+			address: '::1',
+			family: 6,
+		},
+		{
+			address: '127.0.0.1',
+			family: 4,
+		},
+	]);
+
+	t.deepEqual(await cache.lookupAsync('example.com', {
+		all: true,
+		order: 'verbatim',
+	}), [
+		{
+			address: '127.0.0.1',
+			family: 4,
+		},
+		{
+			address: '::1',
+			family: 6,
+		},
+	]);
+});
+
+test.serial('DNS cache uses the default DNS result order', async t => {
+	const originalOrder = getDefaultResultOrder();
+	setDefaultResultOrder('ipv6first');
+
+	try {
+		const cache = new DnsCache({
+			resolver: createResolver({
+				async resolve4() {
+					return [{address: '127.0.0.1', ttl: 60}];
+				},
+				async resolve6() {
+					return [{address: '::1', ttl: 60}];
+				},
+			}),
+		});
+
+		t.deepEqual(await cache.lookupAsync('example.com', {all: true}), [
+			{
+				address: '::1',
+				family: 6,
+			},
+			{
+				address: '127.0.0.1',
+				family: 4,
+			},
+		]);
+		t.deepEqual(await cache.lookupAsync('example.com', {
+			all: true,
+			verbatim: false,
+		}), [
+			{
+				address: '127.0.0.1',
+				family: 4,
+			},
+			{
+				address: '::1',
+				family: 6,
+			},
+		]);
+	} finally {
+		setDefaultResultOrder(originalOrder);
+	}
 });
 
 test('DNS cache handles IP literals without resolver lookups', async t => {
@@ -420,13 +510,15 @@ test.serial('DNS cache filters ADDRCONFIG lookups', async t => {
 	});
 
 	try {
+		let resolve6CallCount = 0;
 		const cache = new DnsCache({
 			resolver: createResolver({
 				async resolve4() {
 					return [{address: '127.0.0.1', ttl: 60}];
 				},
 				async resolve6() {
-					return [{address: '::1', ttl: 60}];
+					resolve6CallCount++;
+					throw createDnsError('ESERVFAIL');
 				},
 			}),
 		});
@@ -442,6 +534,7 @@ test.serial('DNS cache filters ADDRCONFIG lookups', async t => {
 				family: 4,
 			},
 		]);
+		t.is(resolve6CallCount, 0);
 	} finally {
 		os.networkInterfaces = originalNetworkInterfaces;
 	}
@@ -1232,6 +1325,42 @@ test.serial('DNS cache negative-caches missing fallback lookups', async t => {
 
 		t.is(resolve4CallCount, 2);
 		t.is(lookupCallCount, 2);
+	} finally {
+		clock.uninstall();
+	}
+});
+
+test.serial('DNS cache normalizes string family aliases for missing fallback lookups', async t => {
+	const clock = FakeTimers.install({
+		now: 0,
+		toFake: ['Date'],
+	});
+
+	try {
+		let lookupCallCount = 0;
+		let resolve6CallCount = 0;
+		const cache = new DnsCache({
+			lookup: ((_hostname: string, _options: any, callback: any) => {
+				lookupCallCount++;
+				callback(createDnsError('ENOTFOUND'));
+			}) as LookupFunction,
+			resolver: createResolver({
+				async resolve6() {
+					resolve6CallCount++;
+					throw createDnsError('ENOTFOUND');
+				},
+			}),
+		});
+
+		await t.throwsAsync(cache.lookupAsync('example.com', {family: 'IPv6'}), {
+			message: 'DNS cache lookup ENOTFOUND example.com',
+		});
+		await t.throwsAsync(cache.lookupAsync('example.com', {family: 6}), {
+			message: 'DNS cache lookup ENOTFOUND example.com',
+		});
+
+		t.is(resolve6CallCount, 1);
+		t.is(lookupCallCount, 1);
 	} finally {
 		clock.uninstall();
 	}
