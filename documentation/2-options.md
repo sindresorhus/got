@@ -896,14 +896,15 @@ The function signature is the same as `dns.lookup`.
 
 ### `dnsCache`
 
-**Type: <code>[CacheableLookup](https://github.com/szmarczak/cacheable-lookup) | false</code>**
+**Type: <code>{lookup: Function; clear?: Function} | boolean</code>**
 
-An instance of `CacheableLookup` used for making DNS lookups.\
+A DNS cache instance used for making DNS lookups.\
 Useful when making lots of requests to different public hostnames.
+Set to `true` to use Got's shared DNS cache.
 
 **Note:**
 > - This should stay disabled when making requests to internal hostnames such as localhost, database.local etc.
-> - CacheableLookup uses `dns.resolver4(…)` and `dns.resolver6(…)` under the hood and falls back to `dns.lookup(…)` when the first two fail, which may lead to additional delay.
+> - Got's built-in DNS cache uses `dns.resolve4(…)` and `dns.resolve6(…)` under the hood and falls back to `dns.lookup(…)` when no DNS records are found, which may lead to additional delay.
 
 ### `dnsLookupIpVersion`
 

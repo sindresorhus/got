@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unnecessary-type-arguments -- Explicitly testing type arguments that TypeScript could infer, to verify the types are correct */
+import type {LookupFunction} from 'node:net';
 import {expectTypeOf} from 'expect-type';
-import got, {type RequestPromise, type Response} from '../source/index.js';
+import got, {Options, type RequestPromise, type Response} from '../source/index.js';
 import {
 	type Got,
 	type MergeExtendsConfig,
@@ -127,3 +128,14 @@ void invalidExtendOptions;
 expectTypeOf(got('https://example.com').json<{data: string}>()).toEqualTypeOf<RequestPromise<{data: string}>>();
 expectTypeOf(got('https://example.com').buffer()).toEqualTypeOf<RequestPromise<Uint8Array<ArrayBuffer>>>();
 expectTypeOf(got('https://example.com').text()).toEqualTypeOf<RequestPromise<string>>();
+
+const lookup: LookupFunction = () => {};
+const options = new Options({
+	dnsCache: {
+		lookup,
+	},
+});
+type NativeRequestOptions = ReturnType<Options['createNativeRequestOptions']>;
+
+expectTypeOf(options.dnsCache).toExtend<{lookup: LookupFunction} | boolean | undefined>();
+expectTypeOf<NativeRequestOptions['lookup']>().toEqualTypeOf<LookupFunction | undefined>();

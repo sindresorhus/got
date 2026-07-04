@@ -1,8 +1,8 @@
 import http from 'node:http';
 import {promises as dnsPromises} from 'node:dns';
 import test from 'ava';
-import CacheableLookup from 'cacheable-lookup';
 import got from '../source/index.js';
+import DnsCache from '../source/core/utils/dns-cache.js';
 import withServer from './helpers/with-server.js';
 
 test('http/1 timings', withServer, async (t, server, got) => {
@@ -147,7 +147,7 @@ test('dns timing is 0 for cached DNS lookups', withServer, async (t, server, got
 
 	// Enable DNS cache and disable keep-alive to get new connections
 	const instance = got.extend({
-		dnsCache: new CacheableLookup({resolver}),
+		dnsCache: new DnsCache({resolver}),
 		agent: {
 			http: new http.Agent({
 				keepAlive: false,
