@@ -237,7 +237,7 @@ export default class DnsCache implements DnsCacheableLookup {
 	readonly #dnsLookupAsync?: (hostname: string, options: DnsLookupOptions) => Promise<any>;
 	readonly #cacheKeys = new Set<string>();
 	readonly #pending = new Map<string, Promise<DnsCacheEntry[]>>();
-	readonly #hostnamesToFallback = new Map<string, number>();
+	readonly #lookupOptionsToFallback = new Map<string, number>();
 	readonly #lookupOptionsWithoutFallback = new Map<string, number>();
 	readonly #interfaceInfo = getInterfaceInfo();
 	readonly #maxTtl: number;
@@ -296,7 +296,7 @@ export default class DnsCache implements DnsCacheableLookup {
 
 			this.#cacheKeys.clear();
 			this.#pending.clear();
-			this.#hostnamesToFallback.clear();
+			this.#lookupOptionsToFallback.clear();
 			this.#lookupOptionsWithoutFallback.clear();
 			return;
 		}
@@ -309,7 +309,11 @@ export default class DnsCache implements DnsCacheableLookup {
 		}
 
 		this.#minimumVersionByHostname.set(hostname, this.#clearVersion);
-		this.#hostnamesToFallback.delete(hostname);
+		for (const key of this.#lookupOptionsToFallback.keys()) {
+			if (key.startsWith(`${hostname}:`)) {
+				this.#lookupOptionsToFallback.delete(key);
+			}
+		}
 
 		for (const key of this.#lookupOptionsWithoutFallback.keys()) {
 			if (key.startsWith(`${hostname}:`)) {
@@ -359,7 +363,9 @@ export default class DnsCache implements DnsCacheableLookup {
 	}
 
 	async #query(hostname: string, options: DnsLookupOptions): Promise<DnsCacheEntry[]> {
-		if (hasUnexpired(this.#hostnamesToFallback, hostname)) {
+		const lookupOptionKey = lookupOptionsKey(hostname, options);
+
+		if (hasUnexpired(this.#lookupOptionsToFallback, lookupOptionKey)) {
 			return this.#fallbackLookup(hostname, options);
 		}
 
@@ -370,8 +376,6 @@ export default class DnsCache implements DnsCacheableLookup {
 		if (flattenedEntries.length > 0 || this.#dnsLookupAsync === undefined) {
 			return flattenedEntries;
 		}
-
-		const lookupOptionKey = lookupOptionsKey(hostname, options);
 
 		if (hasUnexpired(this.#lookupOptionsWithoutFallback, lookupOptionKey)) {
 			return [];
@@ -384,7 +388,7 @@ export default class DnsCache implements DnsCacheableLookup {
 		}
 
 		if (fallbackEntries.length > 0 && this.#fallbackDuration > 0) {
-			this.#hostnamesToFallback.set(hostname, now() + (this.#fallbackDuration * 1000));
+			this.#lookupOptionsToFallback.set(lookupOptionKey, now() + (this.#fallbackDuration * 1000));
 		} else if (fallbackEntries.length === 0 && this.#errorTtl > 0) {
 			this.#lookupOptionsWithoutFallback.set(lookupOptionKey, now() + (this.#errorTtl * 1000));
 		}

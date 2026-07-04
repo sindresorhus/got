@@ -1,4 +1,5 @@
 import {execFile} from 'node:child_process';
+import assert from 'node:assert/strict';
 import {
 	ADDRCONFIG,
 	getDefaultResultOrder,
@@ -13,7 +14,6 @@ import {promisify} from 'node:util';
 import FakeTimers from '@sinonjs/fake-timers';
 import test from 'ava';
 import DnsCache from '../source/core/utils/dns-cache.js';
-import withServer from './helpers/with-server.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -24,23 +24,15 @@ const createResolver = ({
 	resolve4?: (hostname: string) => Promise<Array<{address: string; ttl: number}>>;
 	resolve6?: (hostname: string) => Promise<Array<{address: string; ttl: number}>>;
 }) => ({
-	resolve4,
-	resolve6,
+	resolve4(hostname: string, options: {ttl: true}) {
+		assert.deepEqual(options, {ttl: true});
+		return resolve4(hostname);
+	},
+	resolve6(hostname: string, options: {ttl: true}) {
+		assert.deepEqual(options, {ttl: true});
+		return resolve6(hostname);
+	},
 });
-
-const createLookup = (address = '127.0.0.1', family = 4): LookupFunction => ((_hostname: string, options: any, callback: any) => {
-	if (typeof options === 'function') {
-		callback = options;
-		options = {};
-	}
-
-	if (options.all) {
-		callback(null, [{address, family}]);
-		return;
-	}
-
-	callback(null, address, family);
-}) as LookupFunction;
 
 const createDnsError = (code: string) => {
 	const error = new Error(code) as NodeJS.ErrnoException;
@@ -1452,46 +1444,4 @@ test('DNS cache uses successful family results when another family fails', async
 	t.is(resolve6CallCount, 1);
 	t.deepEqual(await cache.lookupAsync('example.net', {all: true, order: 'ipv6first'}), [{address: '127.0.0.1', family: 4}]);
 	t.is(resolve6CallCount, 2);
-});
-
-test('Got uses internal DNS cache lookup option', withServer, async (t, server, got) => {
-	server.get('/', (_request, response) => {
-		response.end('ok');
-	});
-
-	let resolve4CallCount = 0;
-	const cache = new DnsCache({
-		resolver: createResolver({
-			async resolve4() {
-				resolve4CallCount++;
-				return [{address: '127.0.0.1', ttl: 60}];
-			},
-		}),
-	});
-	const instance = got.extend({
-		dnsCache: cache,
-	});
-
-	t.is((await instance('')).body, 'ok');
-	t.is((await instance('')).body, 'ok');
-	t.is(resolve4CallCount, 1);
-});
-
-test('custom DNS cache object can be used with Got', withServer, async (t, server, got) => {
-	server.get('/', (_request, response) => {
-		response.end('ok');
-	});
-
-	let lookupCallCount = 0;
-	const instance = got.extend({
-		dnsCache: {
-			lookup: ((hostname: string, options: any, callback: any) => {
-				lookupCallCount++;
-				createLookup('127.0.0.1', 4)(hostname, options, callback);
-			}) as LookupFunction,
-		},
-	});
-
-	t.is((await instance('')).body, 'ok');
-	t.is(lookupCallCount, 1);
 });

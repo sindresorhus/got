@@ -198,6 +198,7 @@ test('normalizes https.pfx object arrays for native request options', t => {
 
 test('passes DNS cache lookup and IP version to native request options', t => {
 	const lookup: LookupFunction = () => {};
+	const dnsLookup: LookupFunction = () => {};
 	const options = new Options('https://example.com', {
 		dnsCache: {
 			lookup,
@@ -208,6 +209,9 @@ test('passes DNS cache lookup and IP version to native request options', t => {
 	const nativeRequestOptions = options.createNativeRequestOptions();
 	t.is(nativeRequestOptions.lookup, lookup);
 	t.is(nativeRequestOptions.family, 6);
+
+	options.dnsLookup = dnsLookup;
+	t.is(options.createNativeRequestOptions().lookup, dnsLookup);
 });
 
 test('can set defaults to `new Options(...)`', t => {
@@ -490,6 +494,21 @@ test('setting dnsCache to true points to global cache', t => {
 	});
 
 	t.is(a.defaults.options.dnsCache, b.defaults.options.dnsCache);
+});
+
+test('setting dnsCache to false disables inherited DNS cache', t => {
+	const instance = got.extend({
+		dnsCache: true,
+	}).extend({
+		dnsCache: false,
+	});
+	const options = new Options('https://example.com', {
+		dnsCache: true,
+	});
+	options.dnsCache = false;
+
+	t.is(instance.defaults.options.dnsCache, undefined);
+	t.is(options.createNativeRequestOptions().lookup, undefined);
 });
 
 test('waits for handlers to finish', withServer, async (t, server, got) => {
