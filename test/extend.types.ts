@@ -130,6 +130,23 @@ expectTypeOf(got('https://example.com').buffer()).toEqualTypeOf<RequestPromise<U
 expectTypeOf(got('https://example.com').text()).toEqualTypeOf<RequestPromise<string>>();
 
 const lookup: LookupFunction = () => {};
+expectTypeOf(got('https://example.com', {
+	dnsCache: {
+		lookup,
+	},
+})).toEqualTypeOf<RequestPromise<Response<string>>>();
+expectTypeOf(got.extend({
+	dnsCache: {
+		lookup,
+	},
+})).toExtend<Got>();
+expectTypeOf(got.extend({
+	dnsCache: true,
+})).toExtend<Got>();
+expectTypeOf(got.extend({
+	dnsCache: false,
+})).toExtend<Got>();
+
 const options = new Options({
 	dnsCache: {
 		lookup,

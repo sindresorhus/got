@@ -5,6 +5,7 @@ import {
 	type IncomingMessage,
 	type RequestOptions,
 } from 'node:http';
+import type {LookupFunction} from 'node:net';
 import test from 'ava';
 import is from '@sindresorhus/is';
 import type {Handler} from 'express';
@@ -193,6 +194,20 @@ test('normalizes https.pfx object arrays for native request options', t => {
 		buf: Buffer.from('hello'),
 		passphrase: 'world',
 	}]);
+});
+
+test('passes DNS cache lookup and IP version to native request options', t => {
+	const lookup: LookupFunction = () => {};
+	const options = new Options('https://example.com', {
+		dnsCache: {
+			lookup,
+		},
+		dnsLookupIpVersion: 6,
+	});
+
+	const nativeRequestOptions = options.createNativeRequestOptions();
+	t.is(nativeRequestOptions.lookup, lookup);
+	t.is(nativeRequestOptions.family, 6);
 });
 
 test('can set defaults to `new Options(...)`', t => {

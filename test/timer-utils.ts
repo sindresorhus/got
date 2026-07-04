@@ -1,4 +1,5 @@
 import {EventEmitter} from 'node:events';
+import FakeTimers from '@sinonjs/fake-timers';
 import test from 'ava';
 import timer from '../source/core/utils/timer.js';
 
@@ -106,6 +107,29 @@ test('timer measures DNS lookup timing', async t => {
 	t.is(typeof timings.phases.dns, 'number');
 	t.true(timings.phases.dns! > 0);
 	t.is(timings.phases.dns, timings.lookup! - timings.socket!);
+});
+
+test.serial('timer reports zero DNS phase when cached lookup and connect share timestamp', t => {
+	const clock = FakeTimers.install({
+		now: 0,
+		toFake: ['Date'],
+	});
+
+	try {
+		const request = createMockRequest();
+		const timings = timer(request);
+		const socket = createMockSocket({connecting: true});
+
+		request.emit('socket', socket);
+		clock.tick(10);
+		socket.emit('lookup');
+		socket.emit('connect');
+
+		t.is(timings.phases.tcp, 0);
+		t.is(timings.phases.dns, 0);
+	} finally {
+		clock.uninstall();
+	}
 });
 
 test('timer handles IP address connection (no DNS lookup)', t => {

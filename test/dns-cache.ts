@@ -870,6 +870,50 @@ test('DNS cache clears all hostnames', async t => {
 	t.is(resolve4CallCount, 4);
 });
 
+test('DNS cache does not cache in-flight lookups cleared by clearing all hostnames', async t => {
+	const pendingResolvers: Array<() => void> = [];
+	let resolve4CallCount = 0;
+	const cache = new DnsCache({
+		resolver: createResolver({
+			async resolve4() {
+				resolve4CallCount++;
+				const callCount = resolve4CallCount;
+
+				await new Promise<void>(resolve => {
+					pendingResolvers.push(resolve);
+				});
+
+				return [{address: `127.0.0.${callCount}`, ttl: 60}];
+			},
+		}),
+	});
+
+	const firstLookup = cache.lookupAsync('example.com', {family: 4});
+	await setImmediate();
+	cache.clear();
+
+	const secondLookup = cache.lookupAsync('example.com', {family: 4});
+	await setImmediate();
+
+	pendingResolvers[0]!();
+	await setImmediate();
+
+	const thirdLookup = cache.lookupAsync('example.com', {family: 4});
+	await setImmediate();
+
+	t.is(resolve4CallCount, 2);
+
+	pendingResolvers[1]!();
+
+	t.like(await firstLookup, {address: '127.0.0.1'});
+	t.like(await secondLookup, {address: '127.0.0.2'});
+	t.like(await thirdLookup, {address: '127.0.0.2'});
+
+	t.like(await cache.lookupAsync('example.com', {family: 4}), {address: '127.0.0.2'});
+
+	t.is(resolve4CallCount, 2);
+});
+
 test('DNS cache clears missing fallback state for one hostname', async t => {
 	let lookupCallCount = 0;
 	const cache = new DnsCache({
