@@ -37,7 +37,6 @@ type DnsLookupResult = {
 
 type DnsCacheEntry = DnsLookupResult & {
 	expires?: number;
-	ttl?: number;
 };
 
 type CachedFamily = {
@@ -144,7 +143,6 @@ const normalizeResolverRecord = (record: ResolverRecord, family: DnsFamily, maxT
 	return {
 		address: record.address,
 		family,
-		ttl: entryTtl,
 		expires: now() + (entryTtl * 1000),
 	};
 };
@@ -367,8 +365,7 @@ export default class DnsCache implements DnsCacheableLookup {
 
 		const families = filterFamiliesByAddrConfig(familiesFromOptions(options), options, this.#interfaceInfo);
 		const clearVersion = this.#clearVersion;
-		const entries = await Promise.all(families.map(async family => this.#queryFamily(hostname, family, clearVersion)));
-		const flattenedEntries = entries.flat();
+		const flattenedEntries = await this.#queryFamilies(hostname, families, clearVersion);
 
 		if (flattenedEntries.length > 0 || this.#dnsLookupAsync === undefined) {
 			return flattenedEntries;
@@ -393,6 +390,31 @@ export default class DnsCache implements DnsCacheableLookup {
 		}
 
 		return fallbackEntries;
+	}
+
+	async #queryFamilies(hostname: string, families: DnsFamily[], clearVersion: number): Promise<DnsCacheEntry[]> {
+		if (families.length === 1) {
+			return this.#queryFamily(hostname, families[0]!, clearVersion);
+		}
+
+		const results = await Promise.allSettled(families.map(family => this.#queryFamily(hostname, family, clearVersion)));
+		const entries = results.flatMap(result => result.status === 'fulfilled' ? result.value : []);
+
+		if (entries.length > 0) {
+			return entries;
+		}
+
+		const rejected = results.find(result => result.status === 'rejected');
+
+		if (rejected !== undefined) {
+			if (rejected.reason instanceof Error) {
+				throw rejected.reason;
+			}
+
+			throw new Error(String(rejected.reason));
+		}
+
+		return [];
 	}
 
 	async #queryFamily(hostname: string, family: DnsFamily, clearVersion: number): Promise<DnsCacheEntry[]> {

@@ -97,7 +97,7 @@ test('DNS cache only resolves the requested IPv4 family', async t => {
 	t.is(resolve6CallCount, 0);
 });
 
-test('DNS cache only resolves the requested IPv6 family alias', async t => {
+test('DNS cache only resolves the requested IPv6 family', async t => {
 	let resolve4CallCount = 0;
 	let resolve6CallCount = 0;
 	const cache = new DnsCache({
@@ -1431,6 +1431,27 @@ test('DNS cache propagates resolver failures', async t => {
 	});
 
 	t.is(resolve4CallCount, 2);
+});
+
+test('DNS cache uses successful family results when another family fails', async t => {
+	let resolve6CallCount = 0;
+	const cache = new DnsCache({
+		lookup: false,
+		resolver: createResolver({
+			async resolve4() {
+				return [{address: '127.0.0.1', ttl: 60}];
+			},
+			async resolve6() {
+				resolve6CallCount++;
+				throw createDnsError('ESERVFAIL');
+			},
+		}),
+	});
+	const result = await cache.lookupAsync('example.com');
+	t.deepEqual(result, {address: '127.0.0.1', family: 4});
+	t.is(resolve6CallCount, 1);
+	t.deepEqual(await cache.lookupAsync('example.net', {all: true, order: 'ipv6first'}), [{address: '127.0.0.1', family: 4}]);
+	t.is(resolve6CallCount, 2);
 });
 
 test('Got uses internal DNS cache lookup option', withServer, async (t, server, got) => {
