@@ -249,6 +249,10 @@ test('DNS cache does not call callbacks twice when callbacks throw', async t => 
 		'},',
 		'});',
 		'process.on("unhandledRejection", error => {',
+		'console.error(error);',
+		'process.exit(1);',
+		'});',
+		'process.on("uncaughtException", error => {',
 		'if (error?.message !== "Callback failure") {',
 		'console.error(error);',
 		'process.exit(1);',
@@ -263,7 +267,62 @@ test('DNS cache does not call callbacks twice when callbacks throw', async t => 
 		'throw new Error("Callback failure");',
 		'});',
 		'setTimeout(() => {',
-		'console.error("Missing callback rejection");',
+		'console.error("Missing callback exception");',
+		'process.exit(1);',
+		'}, 1000);',
+	].join('\n');
+
+	const {stdout} = await execFileAsync(process.execPath, [
+		'--import=tsx/esm',
+		'--input-type=module',
+		'--eval',
+		script,
+	], {
+		cwd: process.cwd(),
+	});
+
+	t.is(stdout.trim(), '1');
+});
+
+test('DNS cache does not call error callbacks twice when callbacks throw', async t => {
+	const script = [
+		'import DnsCache from "./source/core/utils/dns-cache.ts";',
+		'let callCount = 0;',
+		'const cache = new DnsCache({',
+		'resolver: {',
+		'async resolve4() {',
+		'const error = new Error("ESERVFAIL");',
+		'error.code = "ESERVFAIL";',
+		'throw error;',
+		'},',
+		'async resolve6() {',
+		'return [];',
+		'},',
+		'},',
+		'});',
+		'process.on("unhandledRejection", error => {',
+		'console.error(error);',
+		'process.exit(1);',
+		'});',
+		'process.on("uncaughtException", error => {',
+		'if (error?.message !== "Callback failure") {',
+		'console.error(error);',
+		'process.exit(1);',
+		'}',
+		'setImmediate(() => {',
+		'console.log(callCount);',
+		'process.exit(callCount === 1 ? 0 : 1);',
+		'});',
+		'});',
+		'cache.lookup("example.com", {family: 4}, error => {',
+		'callCount++;',
+		'if (error?.code !== "ESERVFAIL") {',
+		'throw error;',
+		'}',
+		'throw new Error("Callback failure");',
+		'});',
+		'setTimeout(() => {',
+		'console.error("Missing callback exception");',
 		'process.exit(1);',
 		'}, 1000);',
 	].join('\n');
@@ -407,6 +466,57 @@ test('DNS cache clears one hostname', async t => {
 	t.is(resolve4CallCount, 2);
 });
 
+test('DNS cache keeps other hostnames cached when one hostname is cleared', async t => {
+	const resolveCallCounts = new Map<string, number>();
+	const cache = new DnsCache({
+		resolver: createResolver({
+			async resolve4(hostname) {
+				resolveCallCounts.set(hostname, (resolveCallCounts.get(hostname) ?? 0) + 1);
+				return [{address: hostname === 'example.com' ? '127.0.0.1' : '127.0.0.2', ttl: 60}];
+			},
+		}),
+	});
+
+	await cache.lookupAsync('example.com', {family: 4});
+	await cache.lookupAsync('example.net', {family: 4});
+	cache.clear('example.com');
+
+	t.like(await cache.lookupAsync('example.net', {family: 4}), {address: '127.0.0.2'});
+	t.like(await cache.lookupAsync('example.com', {family: 4}), {address: '127.0.0.1'});
+	t.is(resolveCallCounts.get('example.com'), 2);
+	t.is(resolveCallCounts.get('example.net'), 1);
+});
+
+test('DNS cache caches in-flight lookups for other hostnames when one hostname is cleared', async t => {
+	let resolveExampleNet!: () => void;
+	const resolveCallCounts = new Map<string, number>();
+	const cache = new DnsCache({
+		resolver: createResolver({
+			async resolve4(hostname) {
+				resolveCallCounts.set(hostname, (resolveCallCounts.get(hostname) ?? 0) + 1);
+
+				if (hostname === 'example.net') {
+					await new Promise<void>(resolve => {
+						resolveExampleNet = resolve;
+					});
+				}
+
+				return [{address: hostname === 'example.com' ? '127.0.0.1' : '127.0.0.2', ttl: 60}];
+			},
+		}),
+	});
+
+	const lookup = cache.lookupAsync('example.net', {family: 4});
+	await setImmediate();
+	cache.clear('example.com');
+	resolveExampleNet();
+
+	t.like(await lookup, {address: '127.0.0.2'});
+	t.like(await cache.lookupAsync('example.net', {family: 4}), {address: '127.0.0.2'});
+	t.is(resolveCallCounts.get('example.com'), undefined);
+	t.is(resolveCallCounts.get('example.net'), 1);
+});
+
 test('DNS cache does not cache in-flight lookups cleared by hostname', async t => {
 	const pendingResolvers: Array<() => void> = [];
 	let resolve4CallCount = 0;
@@ -463,6 +573,7 @@ test('DNS cache ignores async cache get results cleared by hostname', async t =>
 				},
 			],
 			expires: Date.now() + 60_000,
+			clearVersion: 0,
 		}],
 	]);
 	let resolve4CallCount = 0;
@@ -481,10 +592,7 @@ test('DNS cache ignores async cache get results cleared by hostname', async t =>
 				store.set(key, value);
 			},
 			delete(key) {
-				store.delete(key);
-			},
-			clear() {
-				store.clear();
+				return store.delete(key);
 			},
 		},
 		resolver: createResolver({
@@ -504,7 +612,68 @@ test('DNS cache ignores async cache get results cleared by hostname', async t =>
 	t.is(resolve4CallCount, 1);
 });
 
-test('DNS cache ignores async cache set results cleared by hostname', async t => {
+test('DNS cache does not publish stale pending lookups after async cache gets cleared by hostname', async t => {
+	let resolveGet!: () => void;
+	const pendingResolvers: Array<() => void> = [];
+	let getCallCount = 0;
+	let resolve4CallCount = 0;
+	const store = new Map<string, any>();
+	const cache = new DnsCache({
+		cache: {
+			async get(key) {
+				getCallCount++;
+
+				if (getCallCount === 1) {
+					await new Promise<void>(resolve => {
+						resolveGet = resolve;
+					});
+				}
+
+				return store.get(key);
+			},
+			set(key, value) {
+				store.set(key, value);
+			},
+			delete(key) {
+				return store.delete(key);
+			},
+		},
+		resolver: createResolver({
+			async resolve4() {
+				resolve4CallCount++;
+				const callCount = resolve4CallCount;
+
+				await new Promise<void>(resolve => {
+					pendingResolvers.push(resolve);
+				});
+
+				return [{address: `127.0.0.${callCount}`, ttl: 60}];
+			},
+		}),
+	});
+
+	const firstLookup = cache.lookupAsync('example.com', {family: 4});
+	await setImmediate();
+	cache.clear('example.com');
+	resolveGet();
+	await setImmediate();
+
+	const secondLookup = cache.lookupAsync('example.com', {family: 4});
+	await setImmediate();
+
+	t.is(resolve4CallCount, 2);
+
+	pendingResolvers[0]!();
+	pendingResolvers[1]!();
+
+	t.like(await firstLookup, {address: '127.0.0.1'});
+	t.like(await secondLookup, {address: '127.0.0.2'});
+	t.like(await cache.lookupAsync('example.com', {family: 4}), {address: '127.0.0.2'});
+	t.is(resolve4CallCount, 2);
+});
+
+test('DNS cache ignores stale async cache set values cleared by hostname', async t => {
+	let resolveStaleSetWrite!: () => void;
 	let resolveSet!: () => void;
 	const store = new Map<string, any>();
 	let resolve4CallCount = 0;
@@ -519,17 +688,22 @@ test('DNS cache ignores async cache set results cleared by hostname', async t =>
 
 				if (setCallCount === 1) {
 					await new Promise<void>(resolve => {
+						resolveStaleSetWrite = resolve;
+					});
+
+					store.set(key, structuredClone(value));
+
+					await new Promise<void>(resolve => {
 						resolveSet = resolve;
 					});
+
+					return;
 				}
 
 				store.set(key, structuredClone(value));
 			},
 			delete(key) {
-				store.delete(key);
-			},
-			clear() {
-				store.clear();
+				return store.delete(key);
 			},
 		},
 		resolver: createResolver({
@@ -543,8 +717,11 @@ test('DNS cache ignores async cache set results cleared by hostname', async t =>
 	const firstLookup = cache.lookupAsync('example.com', {family: 4});
 	await setImmediate();
 	cache.clear('example.com');
-	resolveSet();
+	resolveStaleSetWrite();
+	await setImmediate();
 
+	t.like(await cache.lookupAsync('example.com', {family: 4}), {address: '127.0.0.2'});
+	resolveSet();
 	t.like(await firstLookup, {address: '127.0.0.1'});
 	t.like(await cache.lookupAsync('example.com', {family: 4}), {address: '127.0.0.2'});
 	t.is(resolve4CallCount, 2);
@@ -577,6 +754,98 @@ test('DNS cache clears fallback state for one hostname', async t => {
 	cache.clear('example.com');
 	await cache.lookupAsync('example.com', {family: 4});
 
+	t.is(resolve4CallCount, 2);
+	t.is(lookupCallCount, 2);
+});
+
+test('DNS cache caches fallback state for other hostnames when one hostname is cleared', async t => {
+	let resolveLookup!: () => void;
+	let resolve4CallCount = 0;
+	let lookupCallCount = 0;
+	const cache = new DnsCache({
+		fallbackDuration: 60,
+		lookup: ((_hostname: string, options: any, callback: any) => {
+			lookupCallCount++;
+
+			void (async () => {
+				await new Promise<void>(resolve => {
+					resolveLookup = resolve;
+				});
+
+				if (options.all) {
+					callback(null, [{address: '127.0.0.1', family: 4}]);
+					return;
+				}
+
+				callback(null, '127.0.0.1', 4);
+			})();
+		}) as LookupFunction,
+		resolver: createResolver({
+			async resolve4() {
+				resolve4CallCount++;
+				throw createDnsError('ENOTFOUND');
+			},
+		}),
+	});
+
+	const lookup = cache.lookupAsync('example.net', {family: 4});
+	await setImmediate();
+	cache.clear('example.com');
+	resolveLookup();
+
+	t.like(await lookup, {address: '127.0.0.1'});
+
+	const secondLookup = cache.lookupAsync('example.net', {family: 4});
+	await setImmediate();
+	resolveLookup();
+
+	t.like(await secondLookup, {address: '127.0.0.1'});
+	t.is(resolve4CallCount, 1);
+	t.is(lookupCallCount, 2);
+});
+
+test('DNS cache does not cache fallback state cleared by hostname', async t => {
+	let resolveLookup!: () => void;
+	let resolve4CallCount = 0;
+	let lookupCallCount = 0;
+	const cache = new DnsCache({
+		fallbackDuration: 60,
+		lookup: ((_hostname: string, options: any, callback: any) => {
+			lookupCallCount++;
+
+			void (async () => {
+				await new Promise<void>(resolve => {
+					resolveLookup = resolve;
+				});
+
+				if (options.all) {
+					callback(null, [{address: '127.0.0.1', family: 4}]);
+					return;
+				}
+
+				callback(null, '127.0.0.1', 4);
+			})();
+		}) as LookupFunction,
+		resolver: createResolver({
+			async resolve4() {
+				resolve4CallCount++;
+				throw createDnsError('ENOTFOUND');
+			},
+		}),
+	});
+
+	const lookup = cache.lookupAsync('example.com', {family: 4});
+	await setImmediate();
+	cache.clear('example.com');
+	resolveLookup();
+
+	t.like(await lookup, {address: '127.0.0.1'});
+
+	const secondLookup = cache.lookupAsync('example.com', {family: 4});
+	await setImmediate();
+	resolveLookup();
+
+	t.like(await secondLookup, {address: '127.0.0.1'});
 	t.is(resolve4CallCount, 2);
 	t.is(lookupCallCount, 2);
 });
@@ -704,7 +973,7 @@ test('DNS cache shares concurrent lookups for the same hostname and family', asy
 	t.is(resolve4CallCount, 1);
 });
 
-test('DNS cache supports async cache stores', async t => {
+test('DNS cache supports async cache reads and writes', async t => {
 	const store = new Map<string, any>();
 	let resolve4CallCount = 0;
 	const cache = new DnsCache({
@@ -712,14 +981,11 @@ test('DNS cache supports async cache stores', async t => {
 			async get(key) {
 				return store.get(key);
 			},
-			set(key, value) {
+			async set(key, value) {
 				store.set(key, value);
 			},
 			delete(key) {
-				store.delete(key);
-			},
-			clear() {
-				store.clear();
+				return store.delete(key);
 			},
 		},
 		resolver: createResolver({
