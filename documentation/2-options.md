@@ -907,6 +907,7 @@ Set to `false` to disable an inherited DNS cache.
 > - This should stay disabled when making requests to internal hostnames such as localhost, database.local etc.
 > - Got's built-in DNS cache uses `dns.resolve4(…)` and `dns.resolve6(…)` under the hood and falls back to `dns.lookup(…)` when no DNS records are found, which may lead to additional delay.
 > - Because Got's built-in DNS cache resolves A and AAAA records separately, it cannot preserve OS-specific `verbatim` address ordering from `dns.lookup(…)`.
+> - If present, `clear(hostname?)` can be called by user code to clear cached entries.
 
 ### `dnsLookupIpVersion`
 

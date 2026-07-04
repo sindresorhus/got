@@ -1138,7 +1138,9 @@ export type InternalsType = Except<Options, OptionsToSkip>;
 export type OptionsError = NodeJS.ErrnoException & {options?: Options};
 
 export type OptionsInit =
-	Except<Partial<InternalsType>, 'hooks' | 'retry' | 'isStream'>
+	OverrideProperties<Except<Partial<InternalsType>, 'hooks' | 'retry' | 'isStream'>, {
+		dnsCache?: DnsCacheLookup | boolean | undefined;
+	}>
 	& {
 		hooks?: Partial<Hooks>;
 		retry?: Partial<RetryOptions>;
@@ -2238,12 +2240,13 @@ export default class Options {
 
 	Got's built-in DNS cache uses `dns.resolve4(…)` and `dns.resolve6(…)` under the hood and falls back to `dns.lookup(…)` when no DNS records are found, which may lead to additional delay.
 	Because it resolves A and AAAA records separately, it cannot preserve OS-specific `verbatim` address ordering from `dns.lookup(…)`.
+	If present, `clear(hostname?)` can be called by user code to clear cached entries.
 
 	__Note__: This should stay disabled when making requests to internal hostnames such as `localhost`, `database.local` etc.
 
 	@default false
 	*/
-	get dnsCache(): DnsCacheLookup | boolean | undefined {
+	get dnsCache(): DnsCacheLookup | undefined {
 		return this.#internals.dnsCache;
 	}
 
@@ -3362,7 +3365,7 @@ export default class Options {
 			secureOptions: https.secureOptions,
 
 			// HTTP options
-			lookup: internals.dnsLookup ?? (internals.dnsCache as DnsCacheLookup | undefined)?.lookup,
+			lookup: internals.dnsLookup ?? internals.dnsCache?.lookup,
 			family: internals.dnsLookupIpVersion,
 			agent,
 			setHost: internals.setHost,

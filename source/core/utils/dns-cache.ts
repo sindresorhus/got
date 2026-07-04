@@ -205,17 +205,18 @@ const familiesFromOptions = (options: DnsLookupOptions): DnsFamily[] => {
 	return [4, 6];
 };
 
-const filterFamiliesByAddrConfig = (families: DnsFamily[], options: DnsLookupOptions, interfaceInfo: ReturnType<typeof getInterfaceInfo>): DnsFamily[] => {
+const filterFamiliesByAddrConfig = (families: DnsFamily[], options: DnsLookupOptions): DnsFamily[] => {
 	if (!hasFlag(options.hints, ADDRCONFIG)) {
 		return families;
 	}
 
+	const interfaceInfo = getInterfaceInfo();
 	return families.filter(family => family === 6 ? interfaceInfo.has6 : interfaceInfo.has4);
 };
 
 const cacheKey = (hostname: string, family: DnsFamily) => `${hostname}:${family}`;
 
-const lookupOptionsKey = (hostname: string, options: DnsLookupOptions) => `${hostname}:${familyFromOptions(options) ?? 0}:${options.hints ?? 0}`;
+const lookupOptionsKey = (hostname: string, options: DnsLookupOptions) => `${hostname}:${familyFromOptions(options) ?? 0}:${options.hints ?? 0}:${orderFromOptions(options)}`;
 
 const shouldIgnoreResolveError = (error: NodeJS.ErrnoException) => error.code !== undefined && noResultErrorCodes.has(error.code);
 
@@ -237,9 +238,9 @@ export default class DnsCache implements DnsCacheLookup {
 	readonly #dnsLookupAsync?: (hostname: string, options: DnsLookupOptions) => Promise<any>;
 	readonly #cacheKeys = new Set<string>();
 	readonly #pending = new Map<string, Promise<DnsCacheEntry[]>>();
+	readonly #pendingFallback = new Map<string, Promise<DnsCacheEntry[]>>();
 	readonly #lookupOptionsToFallback = new Map<string, number>();
 	readonly #lookupOptionsWithoutFallback = new Map<string, number>();
-	readonly #interfaceInfo = getInterfaceInfo();
 	readonly #maxTtl: number;
 	readonly #fallbackDuration: number;
 	readonly #errorTtl: number;
@@ -296,6 +297,7 @@ export default class DnsCache implements DnsCacheLookup {
 
 			this.#cacheKeys.clear();
 			this.#pending.clear();
+			this.#pendingFallback.clear();
 			this.#lookupOptionsToFallback.clear();
 			this.#lookupOptionsWithoutFallback.clear();
 			return;
@@ -309,6 +311,12 @@ export default class DnsCache implements DnsCacheLookup {
 		}
 
 		this.#minimumVersionByHostname.set(hostname, this.#clearVersion);
+		for (const key of this.#pendingFallback.keys()) {
+			if (key.startsWith(`${hostname}:`)) {
+				this.#pendingFallback.delete(key);
+			}
+		}
+
 		for (const key of this.#lookupOptionsToFallback.keys()) {
 			if (key.startsWith(`${hostname}:`)) {
 				this.#lookupOptionsToFallback.delete(key);
@@ -366,10 +374,10 @@ export default class DnsCache implements DnsCacheLookup {
 		const lookupOptionKey = lookupOptionsKey(hostname, options);
 
 		if (hasUnexpired(this.#lookupOptionsToFallback, lookupOptionKey)) {
-			return this.#fallbackLookup(hostname, options);
+			return this.#fallbackLookupOnce(hostname, options, lookupOptionKey);
 		}
 
-		const families = filterFamiliesByAddrConfig(familiesFromOptions(options), options, this.#interfaceInfo);
+		const families = filterFamiliesByAddrConfig(familiesFromOptions(options), options);
 		const clearVersion = this.#clearVersion;
 		const flattenedEntries = await this.#queryFamilies(hostname, families, clearVersion);
 
@@ -381,7 +389,7 @@ export default class DnsCache implements DnsCacheLookup {
 			return [];
 		}
 
-		const fallbackEntries = await this.#fallbackLookup(hostname, options);
+		const fallbackEntries = await this.#fallbackLookupOnce(hostname, options, lookupOptionKey);
 
 		if (!this.#isVersionCurrent(hostname, clearVersion)) {
 			return fallbackEntries;
@@ -602,7 +610,8 @@ export default class DnsCache implements DnsCacheLookup {
 
 	#filterEntries(entries: DnsCacheEntry[], options: DnsLookupOptions): DnsCacheEntry[] {
 		if (hasFlag(options.hints, ADDRCONFIG)) {
-			entries = entries.filter(entry => entry.family === 6 ? this.#interfaceInfo.has6 : this.#interfaceInfo.has4);
+			const interfaceInfo = getInterfaceInfo();
+			entries = entries.filter(entry => entry.family === 6 ? interfaceInfo.has6 : interfaceInfo.has4);
 		}
 
 		const family = familyFromOptions(options);
@@ -622,6 +631,25 @@ export default class DnsCache implements DnsCacheLookup {
 		}
 
 		return entries;
+	}
+
+	async #fallbackLookupOnce(hostname: string, options: DnsLookupOptions, key: string): Promise<DnsCacheEntry[]> {
+		const pending = this.#pendingFallback.get(key);
+
+		if (pending !== undefined) {
+			return pending;
+		}
+
+		const promise = this.#fallbackLookup(hostname, options);
+		this.#pendingFallback.set(key, promise);
+
+		try {
+			return await promise;
+		} finally {
+			if (this.#pendingFallback.get(key) === promise) {
+				this.#pendingFallback.delete(key);
+			}
+		}
 	}
 
 	async #fallbackLookup(hostname: string, options: DnsLookupOptions): Promise<DnsCacheEntry[]> {

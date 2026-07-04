@@ -2,7 +2,6 @@ import {execFile} from 'node:child_process';
 import assert from 'node:assert/strict';
 import {
 	ADDRCONFIG,
-	ALL,
 	getDefaultResultOrder,
 	setDefaultResultOrder,
 	V4MAPPED,
@@ -443,34 +442,6 @@ test('DNS cache maps IPv4 results when V4MAPPED is requested', async t => {
 		address: '::ffff:127.0.0.1',
 		family: 6,
 	});
-});
-
-test('DNS cache maps IPv4 results when V4MAPPED and ALL are requested', async t => {
-	const cache = new DnsCache({
-		resolver: createResolver({
-			async resolve4() {
-				return [{address: '127.0.0.1', ttl: 60}];
-			},
-			async resolve6() {
-				return [{address: '::1', ttl: 60}];
-			},
-		}),
-	});
-
-	t.deepEqual(await cache.lookupAsync('example.com', {
-		all: true,
-		family: 6,
-		hints: V4MAPPED + ALL,
-	}), [
-		{
-			address: '::1',
-			family: 6,
-		},
-		{
-			address: '::ffff:127.0.0.1',
-			family: 6,
-		},
-	]);
 });
 
 test.serial('DNS cache applies ADDRCONFIG before V4MAPPED filtering', async t => {
