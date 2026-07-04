@@ -51,6 +51,35 @@ test('Got uses internal DNS cache lookup option', withServer, async (t, server, 
 	t.is(resolve4CallCount, 1);
 });
 
+test('Got uses shared DNS cache when dnsCache is true', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.end('ok');
+	});
+
+	let lookupOptionCount = 0;
+	const instance = got.extend({
+		dnsCache: true,
+		agent: {
+			http: new http.Agent({
+				keepAlive: false,
+			}),
+		},
+		hooks: {
+			beforeRequest: [
+				options => {
+					const dnsCache = options.dnsCache as {lookup: LookupFunction};
+					t.is(options.createNativeRequestOptions().lookup, dnsCache.lookup);
+					lookupOptionCount++;
+				},
+			],
+		},
+	});
+
+	t.is((await instance('')).body, 'ok');
+	t.is((await instance('')).body, 'ok');
+	t.is(lookupOptionCount, 2);
+});
+
 test('custom DNS cache object can be used with Got', withServer, async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.end('ok');

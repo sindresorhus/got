@@ -2,6 +2,7 @@ import {execFile} from 'node:child_process';
 import assert from 'node:assert/strict';
 import {
 	ADDRCONFIG,
+	ALL,
 	getDefaultResultOrder,
 	setDefaultResultOrder,
 	V4MAPPED,
@@ -442,6 +443,34 @@ test('DNS cache maps IPv4 results when V4MAPPED is requested', async t => {
 		address: '::ffff:127.0.0.1',
 		family: 6,
 	});
+});
+
+test('DNS cache maps IPv4 results when V4MAPPED and ALL are requested', async t => {
+	const cache = new DnsCache({
+		resolver: createResolver({
+			async resolve4() {
+				return [{address: '127.0.0.1', ttl: 60}];
+			},
+			async resolve6() {
+				return [{address: '::1', ttl: 60}];
+			},
+		}),
+	});
+
+	t.deepEqual(await cache.lookupAsync('example.com', {
+		all: true,
+		family: 6,
+		hints: V4MAPPED + ALL,
+	}), [
+		{
+			address: '::1',
+			family: 6,
+		},
+		{
+			address: '::ffff:127.0.0.1',
+			family: 6,
+		},
+	]);
 });
 
 test.serial('DNS cache applies ADDRCONFIG before V4MAPPED filtering', async t => {
@@ -1122,24 +1151,36 @@ test.serial('DNS cache purges expired async cache entries lazily on write', asyn
 	}
 });
 
-test.serial('DNS cache does not schedule timers for large TTLs', async t => {
+test.serial('DNS cache caps large TTLs and expires them lazily without timers', async t => {
+	const clock = FakeTimers.install({
+		now: 0,
+		toFake: ['Date'],
+	});
 	const originalSetTimeout = globalThis.setTimeout;
 	globalThis.setTimeout = (() => {
 		throw new Error('Unexpected timer');
 	}) as unknown as typeof setTimeout;
 
 	try {
+		let resolve4CallCount = 0;
 		const cache = new DnsCache({
 			resolver: createResolver({
 				async resolve4() {
-					return [{address: '127.0.0.1', ttl: 2_419_200}];
+					resolve4CallCount++;
+					return [{address: `127.0.0.${resolve4CallCount}`, ttl: 2_419_200}];
 				},
 			}),
 		});
 
-		await t.notThrowsAsync(cache.lookupAsync('example.com', {family: 4}));
+		t.like(await cache.lookupAsync('example.com', {family: 4}), {address: '127.0.0.1'});
+		clock.tick(2_147_482_999);
+		t.like(await cache.lookupAsync('example.com', {family: 4}), {address: '127.0.0.1'});
+		clock.tick(1);
+		t.like(await cache.lookupAsync('example.com', {family: 4}), {address: '127.0.0.2'});
+		t.is(resolve4CallCount, 2);
 	} finally {
 		globalThis.setTimeout = originalSetTimeout;
+		clock.uninstall();
 	}
 });
 

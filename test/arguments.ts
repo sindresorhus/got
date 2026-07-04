@@ -713,6 +713,22 @@ test('throws on invalid `dnsCache.lookup` option', async t => {
 	);
 });
 
+test('throws on invalid `dnsCache.clear` option', async t => {
+	await t.throwsAsync(
+		got('https://example.com', {
+			dnsCache: {
+				lookup() {},
+				// @ts-expect-error Error tests
+				clear: 123,
+			},
+		}),
+		{
+			instanceOf: RequestError,
+			message: 'Option \'dnsCache.clear\': Expected values which are `Function` or `undefined`. Received values of type `number`.',
+		},
+	);
+});
+
 test('throws on invalid `agent` option', async t => {
 	await t.throwsAsync(got('https://example.com', {
 		agent: {

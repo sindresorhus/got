@@ -62,7 +62,7 @@ export type DnsCacheOptions = {
 	lookup?: LookupFunction | false;
 };
 
-export type DnsCacheableLookup = {
+export type DnsCacheLookup = {
 	lookup: LookupFunction;
 	clear?(hostname?: string): void;
 };
@@ -229,7 +229,7 @@ const lookupLiteral = (hostname: string): DnsLookupResult => ({
 	family: isIP(hostname) as DnsFamily,
 });
 
-export default class DnsCache implements DnsCacheableLookup {
+export default class DnsCache implements DnsCacheLookup {
 	readonly lookup: LookupFunction;
 
 	readonly #cache: DnsCacheStore;

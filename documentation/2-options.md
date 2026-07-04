@@ -901,10 +901,12 @@ The function signature is the same as `dns.lookup`.
 A DNS cache instance used for making DNS lookups.\
 Useful when making lots of requests to different public hostnames.
 Set to `true` to use Got's shared DNS cache.
+Set to `false` to disable an inherited DNS cache.
 
 **Note:**
 > - This should stay disabled when making requests to internal hostnames such as localhost, database.local etc.
 > - Got's built-in DNS cache uses `dns.resolve4(…)` and `dns.resolve6(…)` under the hood and falls back to `dns.lookup(…)` when no DNS records are found, which may lead to additional delay.
+> - Because Got's built-in DNS cache resolves A and AAAA records separately, it cannot preserve OS-specific `verbatim` address ordering from `dns.lookup(…)`.
 
 ### `dnsLookupIpVersion`
 

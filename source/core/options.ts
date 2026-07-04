@@ -30,7 +30,7 @@ import type {PlainResponse, Response} from './response.js';
 import type {RequestError} from './errors.js';
 import type {Delays} from './timed-out.js';
 import {getUnixSocketPath} from './utils/is-unix-socket-url.js';
-import DnsCache, {type DnsCacheableLookup} from './utils/dns-cache.js';
+import DnsCache, {type DnsCacheLookup} from './utils/dns-cache.js';
 
 type StorageAdapter = KeyvStoreAdapter | KeyvType | Map<unknown, unknown>;
 
@@ -98,7 +98,7 @@ export type NormalizedOptions = OverrideProperties<Options, {
 	url: URL | undefined;
 
 	// When set to `true`, dnsCache is normalized to a DNS cache instance. When set to `false`, it becomes `undefined`.
-	dnsCache: DnsCacheableLookup | undefined;
+	dnsCache: DnsCacheLookup | undefined;
 
 	// When set to `true`, cache is normalized to the global cache Map. When set to `false`, it becomes `undefined`. Strings and other values are wrapped/processed into a StorageAdapter.
 	cache: StorageAdapter | undefined;
@@ -2234,18 +2234,20 @@ export default class Options {
 	A DNS cache instance used for making DNS lookups.
 	Useful when making lots of requests to different *public* hostnames.
 	Set to `true` to use Got's shared DNS cache.
+	Set to `false` to disable an inherited DNS cache.
 
 	Got's built-in DNS cache uses `dns.resolve4(…)` and `dns.resolve6(…)` under the hood and falls back to `dns.lookup(…)` when no DNS records are found, which may lead to additional delay.
+	Because it resolves A and AAAA records separately, it cannot preserve OS-specific `verbatim` address ordering from `dns.lookup(…)`.
 
 	__Note__: This should stay disabled when making requests to internal hostnames such as `localhost`, `database.local` etc.
 
 	@default false
 	*/
-	get dnsCache(): DnsCacheableLookup | boolean | undefined {
+	get dnsCache(): DnsCacheLookup | boolean | undefined {
 		return this.#internals.dnsCache;
 	}
 
-	set dnsCache(value: DnsCacheableLookup | boolean | undefined) {
+	set dnsCache(value: DnsCacheLookup | boolean | undefined) {
 		assertAny('dnsCache', [is.object, is.boolean, is.undefined], value);
 
 		if (value === true) {
@@ -2255,6 +2257,7 @@ export default class Options {
 		} else {
 			if (value !== undefined) {
 				assertAny('dnsCache.lookup', [is.function], value.lookup);
+				assertAny('dnsCache.clear', [is.function, is.undefined], value.clear);
 			}
 
 			this.#internals.dnsCache = value;
@@ -3359,7 +3362,7 @@ export default class Options {
 			secureOptions: https.secureOptions,
 
 			// HTTP options
-			lookup: internals.dnsLookup ?? (internals.dnsCache as DnsCacheableLookup | undefined)?.lookup,
+			lookup: internals.dnsLookup ?? (internals.dnsCache as DnsCacheLookup | undefined)?.lookup,
 			family: internals.dnsLookupIpVersion,
 			agent,
 			setHost: internals.setHost,
