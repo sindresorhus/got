@@ -1,11 +1,16 @@
+import {execFile} from 'node:child_process';
 import {ADDRCONFIG, V4MAPPED} from 'node:dns';
+import process from 'node:process';
 import {setImmediate} from 'node:timers/promises';
 import type {LookupFunction} from 'node:net';
 import os from 'node:os';
+import {promisify} from 'node:util';
 import FakeTimers from '@sinonjs/fake-timers';
 import test from 'ava';
 import DnsCache from '../source/core/utils/dns-cache.js';
 import withServer from './helpers/with-server.js';
+
+const execFileAsync = promisify(execFile);
 
 const createResolver = ({
 	resolve4 = async () => [],
@@ -171,7 +176,7 @@ test('DNS cache supports all lookup results', async t => {
 	});
 });
 
-test('DNS cache delegates IP literals to dns.lookup-compatible fallback', async t => {
+test('DNS cache handles IP literals without resolver lookups', async t => {
 	let resolveCallCount = 0;
 	const cache = new DnsCache({
 		resolver: createResolver({
@@ -212,6 +217,69 @@ test('DNS cache handles IP literals when fallback lookup is disabled', async t =
 	});
 });
 
+test('DNS cache passes resolver errors to lookup callbacks', async t => {
+	const cache = new DnsCache({
+		resolver: createResolver({
+			async resolve4() {
+				throw createDnsError('ESERVFAIL');
+			},
+		}),
+	});
+
+	await new Promise<void>(resolve => {
+		cache.lookup('example.com', {family: 4}, error => {
+			t.is(error?.code, 'ESERVFAIL');
+			resolve();
+		});
+	});
+});
+
+test('DNS cache does not call callbacks twice when callbacks throw', async t => {
+	const script = [
+		'import DnsCache from "./source/core/utils/dns-cache.ts";',
+		'let callCount = 0;',
+		'const cache = new DnsCache({',
+		'resolver: {',
+		'async resolve4() {',
+		'return [{address: "127.0.0.1", ttl: 60}];',
+		'},',
+		'async resolve6() {',
+		'return [];',
+		'},',
+		'},',
+		'});',
+		'process.on("unhandledRejection", error => {',
+		'if (error?.message !== "Callback failure") {',
+		'console.error(error);',
+		'process.exit(1);',
+		'}',
+		'setImmediate(() => {',
+		'console.log(callCount);',
+		'process.exit(callCount === 1 ? 0 : 1);',
+		'});',
+		'});',
+		'cache.lookup("example.com", {family: 4}, () => {',
+		'callCount++;',
+		'throw new Error("Callback failure");',
+		'});',
+		'setTimeout(() => {',
+		'console.error("Missing callback rejection");',
+		'process.exit(1);',
+		'}, 1000);',
+	].join('\n');
+
+	const {stdout} = await execFileAsync(process.execPath, [
+		'--import=tsx/esm',
+		'--input-type=module',
+		'--eval',
+		script,
+	], {
+		cwd: process.cwd(),
+	});
+
+	t.is(stdout.trim(), '1');
+});
+
 test('DNS cache maps IPv4 results when V4MAPPED is requested', async t => {
 	const cache = new DnsCache({
 		resolver: createResolver({
@@ -233,6 +301,48 @@ test('DNS cache maps IPv4 results when V4MAPPED is requested', async t => {
 		address: '::ffff:127.0.0.1',
 		family: 6,
 	});
+});
+
+test.serial('DNS cache applies ADDRCONFIG before V4MAPPED filtering', async t => {
+	const originalNetworkInterfaces = os.networkInterfaces;
+	os.networkInterfaces = () => ({
+		en0: [
+			{
+				address: '192.168.0.1',
+				netmask: '255.255.255.0',
+				family: 'IPv4',
+				mac: '00:00:00:00:00:00',
+				internal: false,
+				cidr: '192.168.0.1/24',
+			},
+		],
+	});
+
+	try {
+		const cache = new DnsCache({
+			lookup: false,
+			resolver: createResolver({
+				async resolve4() {
+					return [{address: '127.0.0.1', ttl: 60}];
+				},
+				async resolve6() {
+					return [];
+				},
+			}),
+		});
+
+		const result = await cache.lookupAsync('example.com', {
+			family: 6,
+			hints: V4MAPPED + ADDRCONFIG,
+		});
+
+		t.deepEqual(result, {
+			address: '::ffff:127.0.0.1',
+			family: 6,
+		});
+	} finally {
+		os.networkInterfaces = originalNetworkInterfaces;
+	}
 });
 
 test.serial('DNS cache filters ADDRCONFIG lookups', async t => {
@@ -276,6 +386,244 @@ test.serial('DNS cache filters ADDRCONFIG lookups', async t => {
 	} finally {
 		os.networkInterfaces = originalNetworkInterfaces;
 	}
+});
+
+test('DNS cache clears one hostname', async t => {
+	let resolve4CallCount = 0;
+	const cache = new DnsCache({
+		resolver: createResolver({
+			async resolve4() {
+				resolve4CallCount++;
+				return [{address: '127.0.0.1', ttl: 60}];
+			},
+		}),
+	});
+
+	await cache.lookupAsync('example.com', {family: 4});
+	await cache.lookupAsync('example.com', {family: 4});
+	cache.clear('example.com');
+	await cache.lookupAsync('example.com', {family: 4});
+
+	t.is(resolve4CallCount, 2);
+});
+
+test('DNS cache does not cache in-flight lookups cleared by hostname', async t => {
+	const pendingResolvers: Array<() => void> = [];
+	let resolve4CallCount = 0;
+	const cache = new DnsCache({
+		resolver: createResolver({
+			async resolve4() {
+				resolve4CallCount++;
+				const callCount = resolve4CallCount;
+
+				await new Promise<void>(resolve => {
+					pendingResolvers.push(resolve);
+				});
+
+				return [{address: `127.0.0.${callCount}`, ttl: 60}];
+			},
+		}),
+	});
+
+	const firstLookup = cache.lookupAsync('example.com', {family: 4});
+	await setImmediate();
+	cache.clear('example.com');
+
+	const secondLookup = cache.lookupAsync('example.com', {family: 4});
+	await setImmediate();
+
+	pendingResolvers[0]!();
+	await setImmediate();
+
+	const thirdLookup = cache.lookupAsync('example.com', {family: 4});
+	await setImmediate();
+
+	t.is(resolve4CallCount, 2);
+
+	pendingResolvers[1]!();
+
+	t.like(await firstLookup, {address: '127.0.0.1'});
+	t.like(await secondLookup, {address: '127.0.0.2'});
+	t.like(await thirdLookup, {address: '127.0.0.2'});
+
+	await cache.lookupAsync('example.com', {family: 4});
+
+	t.is(resolve4CallCount, 2);
+});
+
+test('DNS cache ignores async cache get results cleared by hostname', async t => {
+	let resolveGet!: () => void;
+	const store = new Map<string, any>([
+		['example.com:4', {
+			entries: [
+				{
+					address: '127.0.0.1',
+					family: 4,
+					expires: Date.now() + 60_000,
+				},
+			],
+			expires: Date.now() + 60_000,
+		}],
+	]);
+	let resolve4CallCount = 0;
+	const cache = new DnsCache({
+		cache: {
+			async get(key) {
+				const snapshot = store.get(key);
+
+				await new Promise<void>(resolve => {
+					resolveGet = resolve;
+				});
+
+				return snapshot;
+			},
+			set(key, value) {
+				store.set(key, value);
+			},
+			delete(key) {
+				store.delete(key);
+			},
+			clear() {
+				store.clear();
+			},
+		},
+		resolver: createResolver({
+			async resolve4() {
+				resolve4CallCount++;
+				return [{address: '127.0.0.2', ttl: 60}];
+			},
+		}),
+	});
+
+	const lookup = cache.lookupAsync('example.com', {family: 4});
+	await setImmediate();
+	cache.clear('example.com');
+	resolveGet();
+
+	t.like(await lookup, {address: '127.0.0.2'});
+	t.is(resolve4CallCount, 1);
+});
+
+test('DNS cache ignores async cache set results cleared by hostname', async t => {
+	let resolveSet!: () => void;
+	const store = new Map<string, any>();
+	let resolve4CallCount = 0;
+	let setCallCount = 0;
+	const cache = new DnsCache({
+		cache: {
+			get(key) {
+				return store.get(key);
+			},
+			async set(key, value) {
+				setCallCount++;
+
+				if (setCallCount === 1) {
+					await new Promise<void>(resolve => {
+						resolveSet = resolve;
+					});
+				}
+
+				store.set(key, structuredClone(value));
+			},
+			delete(key) {
+				store.delete(key);
+			},
+			clear() {
+				store.clear();
+			},
+		},
+		resolver: createResolver({
+			async resolve4() {
+				resolve4CallCount++;
+				return [{address: `127.0.0.${resolve4CallCount}`, ttl: 60}];
+			},
+		}),
+	});
+
+	const firstLookup = cache.lookupAsync('example.com', {family: 4});
+	await setImmediate();
+	cache.clear('example.com');
+	resolveSet();
+
+	t.like(await firstLookup, {address: '127.0.0.1'});
+	t.like(await cache.lookupAsync('example.com', {family: 4}), {address: '127.0.0.2'});
+	t.is(resolve4CallCount, 2);
+});
+
+test('DNS cache clears fallback state for one hostname', async t => {
+	let resolve4CallCount = 0;
+	let lookupCallCount = 0;
+	const cache = new DnsCache({
+		fallbackDuration: 60,
+		lookup: ((_hostname: string, options: any, callback: any) => {
+			lookupCallCount++;
+
+			if (options.all) {
+				callback(null, [{address: '127.0.0.1', family: 4}]);
+				return;
+			}
+
+			callback(null, '127.0.0.1', 4);
+		}) as LookupFunction,
+		resolver: createResolver({
+			async resolve4() {
+				resolve4CallCount++;
+				throw createDnsError('ENOTFOUND');
+			},
+		}),
+	});
+
+	await cache.lookupAsync('example.com', {family: 4});
+	cache.clear('example.com');
+	await cache.lookupAsync('example.com', {family: 4});
+
+	t.is(resolve4CallCount, 2);
+	t.is(lookupCallCount, 2);
+});
+
+test('DNS cache clears all hostnames', async t => {
+	let resolve4CallCount = 0;
+	const cache = new DnsCache({
+		resolver: createResolver({
+			async resolve4() {
+				resolve4CallCount++;
+				return [{address: '127.0.0.1', ttl: 60}];
+			},
+		}),
+	});
+
+	await cache.lookupAsync('example.com', {family: 4});
+	await cache.lookupAsync('example.net', {family: 4});
+	cache.clear();
+	await cache.lookupAsync('example.com', {family: 4});
+	await cache.lookupAsync('example.net', {family: 4});
+
+	t.is(resolve4CallCount, 4);
+});
+
+test('DNS cache clears missing fallback state for one hostname', async t => {
+	let lookupCallCount = 0;
+	const cache = new DnsCache({
+		lookup: ((_hostname: string, _options: any, callback: any) => {
+			lookupCallCount++;
+			callback(createDnsError('ENOTFOUND'));
+		}) as LookupFunction,
+		resolver: createResolver({
+			async resolve4() {
+				throw createDnsError('ENOTFOUND');
+			},
+		}),
+	});
+
+	await t.throwsAsync(cache.lookupAsync('example.com', {family: 4}), {
+		message: 'DNS cache lookup ENOTFOUND example.com',
+	});
+	cache.clear('example.com');
+	await t.throwsAsync(cache.lookupAsync('example.com', {family: 4}), {
+		message: 'DNS cache lookup ENOTFOUND example.com',
+	});
+
+	t.is(lookupCallCount, 2);
 });
 
 test.serial('DNS cache expires entries lazily', async t => {
@@ -503,6 +851,52 @@ test.serial('DNS cache negative-caches missing fallback lookups', async t => {
 		});
 
 		t.is(resolve4CallCount, 2);
+		t.is(lookupCallCount, 2);
+	} finally {
+		clock.uninstall();
+	}
+});
+
+test.serial('DNS cache negative-caches missing fallback lookups per option set', async t => {
+	const clock = FakeTimers.install({
+		now: 0,
+		toFake: ['Date'],
+	});
+
+	try {
+		let lookupCallCount = 0;
+		const cache = new DnsCache({
+			lookup: ((_hostname: string, options: any, callback: any) => {
+				lookupCallCount++;
+
+				if (options.family === 6) {
+					callback(createDnsError('ENOTFOUND'));
+					return;
+				}
+
+				callback(null, [{address: '127.0.0.1', family: 4}]);
+			}) as LookupFunction,
+			resolver: createResolver({
+				async resolve4() {
+					throw createDnsError('ENOTFOUND');
+				},
+				async resolve6() {
+					throw createDnsError('ENOTFOUND');
+				},
+			}),
+		});
+
+		await t.throwsAsync(cache.lookupAsync('example.com', {family: 6}), {
+			message: 'DNS cache lookup ENOTFOUND example.com',
+		});
+		await t.throwsAsync(cache.lookupAsync('example.com', {family: 6}), {
+			message: 'DNS cache lookup ENOTFOUND example.com',
+		});
+
+		t.like(await cache.lookupAsync('example.com', {family: 4}), {
+			address: '127.0.0.1',
+			family: 4,
+		});
 		t.is(lookupCallCount, 2);
 	} finally {
 		clock.uninstall();

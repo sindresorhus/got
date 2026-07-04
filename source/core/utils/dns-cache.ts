@@ -70,11 +70,25 @@ export type DnsCacheableLookup = {
 const ttl = {ttl: true} as const;
 const noResultErrorCodes = new Set(['ENODATA', 'ENOTFOUND', 'ENOENT']);
 const maximumCacheTtl = Math.floor(2_147_483_647 / 1000);
-const supportsAllHint = typeof ALL === 'number';
 
 const isPromiseLike = <T>(value: MaybePromise<T>): value is Promise<T> => typeof (value as Promise<T>)?.then === 'function';
 
 const now = () => Date.now();
+
+const hasUnexpired = (cache: Map<string, number>, key: string) => {
+	const expires = cache.get(key);
+
+	if (expires === undefined) {
+		return false;
+	}
+
+	if (expires <= now()) {
+		cache.delete(key);
+		return false;
+	}
+
+	return true;
+};
 
 // eslint-disable-next-line no-bitwise
 const hasFlag = (value: number | undefined, flag: number) => value !== undefined && (value & flag) === flag;
@@ -177,6 +191,8 @@ const familiesFromOptions = (options: DnsLookupOptions): DnsFamily[] => {
 
 const cacheKey = (hostname: string, family: DnsFamily) => `${hostname}:${family}`;
 
+const lookupOptionsKey = (hostname: string, options: DnsLookupOptions) => `${hostname}:${options.family ?? 0}:${options.hints ?? 0}`;
+
 const shouldIgnoreResolveError = (error: NodeJS.ErrnoException) => error.code !== undefined && noResultErrorCodes.has(error.code);
 
 const toLookupResult = ({address, family}: DnsCacheEntry): DnsLookupResult => ({
@@ -197,11 +213,12 @@ export default class DnsCache implements DnsCacheableLookup {
 	readonly #dnsLookupAsync?: (hostname: string, options: DnsLookupOptions) => Promise<any>;
 	readonly #pending = new Map<string, Promise<DnsCacheEntry[]>>();
 	readonly #hostnamesToFallback = new Map<string, number>();
-	readonly #hostnamesWithoutFallback = new Map<string, number>();
+	readonly #lookupOptionsWithoutFallback = new Map<string, number>();
 	readonly #interfaceInfo = getInterfaceInfo();
 	readonly #maxTtl: number;
 	readonly #fallbackDuration: number;
 	readonly #errorTtl: number;
+	#clearVersion = 0;
 
 	constructor({
 		cache = new Map<string, CachedFamily>(),
@@ -241,11 +258,13 @@ export default class DnsCache implements DnsCacheableLookup {
 	}
 
 	clear(hostname?: string): void {
+		this.#clearVersion++;
+
 		if (hostname === undefined) {
 			this.#cache.clear();
 			this.#pending.clear();
 			this.#hostnamesToFallback.clear();
-			this.#hostnamesWithoutFallback.clear();
+			this.#lookupOptionsWithoutFallback.clear();
 			return;
 		}
 
@@ -255,7 +274,12 @@ export default class DnsCache implements DnsCacheableLookup {
 		}
 
 		this.#hostnamesToFallback.delete(hostname);
-		this.#hostnamesWithoutFallback.delete(hostname);
+
+		for (const key of this.#lookupOptionsWithoutFallback.keys()) {
+			if (key.startsWith(`${hostname}:`)) {
+				this.#lookupOptionsWithoutFallback.delete(key);
+			}
+		}
 	}
 
 	#lookup(hostname: string, options: number | DnsLookupOptions | DnsLookupCallback, callback?: DnsLookupCallback): void {
@@ -274,53 +298,63 @@ export default class DnsCache implements DnsCacheableLookup {
 	}
 
 	async #lookupAndCallback(hostname: string, options: DnsLookupOptions, callback: DnsLookupCallback): Promise<void> {
+		let result: DnsLookupResult | DnsLookupResult[];
+
 		try {
-			const result = await this.lookupAsync(hostname, options);
-
-			if (options.all) {
-				callback(null, result as DnsLookupResult[]);
-				return;
-			}
-
-			const entry = result as DnsLookupResult;
-			callback(null, entry.address, entry.family);
+			result = await this.lookupAsync(hostname, options);
 		} catch (error: unknown) {
 			const callbackWithError = callback as (error: NodeJS.ErrnoException) => void;
 			callbackWithError(error as NodeJS.ErrnoException);
+			return;
 		}
+
+		if (options.all) {
+			callback(null, result as DnsLookupResult[]);
+			return;
+		}
+
+		const entry = result as DnsLookupResult;
+		callback(null, entry.address, entry.family);
 	}
 
 	async #query(hostname: string, options: DnsLookupOptions): Promise<DnsCacheEntry[]> {
-		if (this.#isInFallback(hostname)) {
+		if (hasUnexpired(this.#hostnamesToFallback, hostname)) {
 			return this.#fallbackLookup(hostname, options);
 		}
 
 		const families = familiesFromOptions(options);
-		const entries = await Promise.all(families.map(async family => this.#queryFamily(hostname, family)));
+		const clearVersion = this.#clearVersion;
+		const entries = await Promise.all(families.map(async family => this.#queryFamily(hostname, family, clearVersion)));
 		const flattenedEntries = entries.flat();
 
 		if (flattenedEntries.length > 0 || this.#dnsLookupAsync === undefined) {
 			return flattenedEntries;
 		}
 
-		if (this.#isWithoutFallback(hostname)) {
+		const lookupOptionKey = lookupOptionsKey(hostname, options);
+
+		if (hasUnexpired(this.#lookupOptionsWithoutFallback, lookupOptionKey)) {
 			return [];
 		}
 
 		const fallbackEntries = await this.#fallbackLookup(hostname, options);
 
+		if (this.#clearVersion !== clearVersion) {
+			return fallbackEntries;
+		}
+
 		if (fallbackEntries.length > 0 && this.#fallbackDuration > 0) {
 			this.#hostnamesToFallback.set(hostname, now() + (this.#fallbackDuration * 1000));
 		} else if (fallbackEntries.length === 0 && this.#errorTtl > 0) {
-			this.#hostnamesWithoutFallback.set(hostname, now() + (this.#errorTtl * 1000));
+			this.#lookupOptionsWithoutFallback.set(lookupOptionKey, now() + (this.#errorTtl * 1000));
 		}
 
 		return fallbackEntries;
 	}
 
-	async #queryFamily(hostname: string, family: DnsFamily): Promise<DnsCacheEntry[]> {
+	async #queryFamily(hostname: string, family: DnsFamily, clearVersion: number): Promise<DnsCacheEntry[]> {
 		const key = cacheKey(hostname, family);
-		const cached = await this.#getCachedFamily(key);
+		const cached = await this.#getCachedFamily(key, clearVersion);
 
 		if (cached !== undefined) {
 			return cached.entries;
@@ -332,21 +366,27 @@ export default class DnsCache implements DnsCacheableLookup {
 			return pending;
 		}
 
-		const promise = this.#resolveAndCache(hostname, family);
+		const promise = this.#resolveAndCache(hostname, family, clearVersion);
 		this.#pending.set(key, promise);
 
 		try {
 			return await promise;
 		} finally {
-			this.#pending.delete(key);
+			if (this.#pending.get(key) === promise) {
+				this.#pending.delete(key);
+			}
 		}
 	}
 
-	async #getCachedFamily(key: string): Promise<CachedFamily | undefined> {
+	async #getCachedFamily(key: string, clearVersion: number): Promise<CachedFamily | undefined> {
 		let cached = this.#cache.get(key);
 
 		if (isPromiseLike(cached)) {
 			cached = await cached;
+		}
+
+		if (this.#clearVersion !== clearVersion) {
+			return undefined;
 		}
 
 		if (cached === undefined) {
@@ -361,23 +401,42 @@ export default class DnsCache implements DnsCacheableLookup {
 		return cached;
 	}
 
-	async #resolveAndCache(hostname: string, family: DnsFamily): Promise<DnsCacheEntry[]> {
+	async #resolveAndCache(hostname: string, family: DnsFamily, clearVersion: number): Promise<DnsCacheEntry[]> {
 		const entries = await this.#resolveFamily(hostname, family);
 		const expires = this.#expiresFor(entries);
+		const key = cacheKey(hostname, family);
+
+		if (this.#clearVersion !== clearVersion) {
+			return entries;
+		}
 
 		if (expires !== undefined) {
-			await this.#cache.set(cacheKey(hostname, family), {
+			await this.#setCachedFamily(key, {
 				entries,
 				expires,
-			});
+			}, clearVersion);
 		} else if (entries.length === 0 && this.#errorTtl > 0) {
-			await this.#cache.set(cacheKey(hostname, family), {
+			await this.#setCachedFamily(key, {
 				entries,
 				expires: now() + (this.#errorTtl * 1000),
-			});
+			}, clearVersion);
 		}
 
 		return entries;
+	}
+
+	async #setCachedFamily(key: string, cached: CachedFamily, clearVersion: number): Promise<void> {
+		if (this.#clearVersion !== clearVersion) {
+			return;
+		}
+
+		await this.#cache.set(key, cached);
+
+		if (this.#clearVersion === clearVersion) {
+			return;
+		}
+
+		this.#cache.delete(key);
 	}
 
 	async #resolveFamily(hostname: string, family: DnsFamily): Promise<DnsCacheEntry[]> {
@@ -411,13 +470,17 @@ export default class DnsCache implements DnsCacheableLookup {
 	}
 
 	#filterEntries(entries: DnsCacheEntry[], options: DnsLookupOptions): DnsCacheEntry[] {
+		if (hasFlag(options.hints, ADDRCONFIG)) {
+			entries = entries.filter(entry => entry.family === 6 ? this.#interfaceInfo.has6 : this.#interfaceInfo.has4);
+		}
+
 		const family = familyFromOptions(options);
 
 		if (family === 6) {
 			const ipv6Entries = entries.filter(entry => entry.family === 6);
 
 			if (hasFlag(options.hints, V4MAPPED)) {
-				entries = (supportsAllHint && hasFlag(options.hints, ALL)) || ipv6Entries.length === 0
+				entries = hasFlag(options.hints, ALL) || ipv6Entries.length === 0
 					? map4To6(entries)
 					: ipv6Entries;
 			} else {
@@ -425,10 +488,6 @@ export default class DnsCache implements DnsCacheableLookup {
 			}
 		} else if (family === 4) {
 			entries = entries.filter(entry => entry.family === 4);
-		}
-
-		if (hasFlag(options.hints, ADDRCONFIG)) {
-			entries = entries.filter(entry => entry.family === 6 ? this.#interfaceInfo.has6 : this.#interfaceInfo.has4);
 		}
 
 		return entries;
@@ -458,35 +517,5 @@ export default class DnsCache implements DnsCacheableLookup {
 			address: entry.address,
 			family: entry.family,
 		}));
-	}
-
-	#isInFallback(hostname: string): boolean {
-		const expires = this.#hostnamesToFallback.get(hostname);
-
-		if (expires === undefined) {
-			return false;
-		}
-
-		if (expires <= now()) {
-			this.#hostnamesToFallback.delete(hostname);
-			return false;
-		}
-
-		return true;
-	}
-
-	#isWithoutFallback(hostname: string): boolean {
-		const expires = this.#hostnamesWithoutFallback.get(hostname);
-
-		if (expires === undefined) {
-			return false;
-		}
-
-		if (expires <= now()) {
-			this.#hostnamesWithoutFallback.delete(hostname);
-			return false;
-		}
-
-		return true;
 	}
 }
