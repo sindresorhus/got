@@ -445,6 +445,8 @@ export default class DnsCache implements DnsCacheableLookup {
 			return;
 		}
 
+		await this.#deleteExpiredCacheEntries();
+
 		await this.#cache.set(key, {
 			...cached,
 			clearVersion,
@@ -462,6 +464,39 @@ export default class DnsCache implements DnsCacheableLookup {
 		}
 
 		if (current?.clearVersion === clearVersion && !this.#isCachedFamilyCurrent(hostname, current)) {
+			this.#cache.delete(key);
+			this.#cacheKeys.delete(key);
+		}
+	}
+
+	async #deleteExpiredCacheEntries(): Promise<void> {
+		const time = now();
+		await Promise.all([...this.#cacheKeys].map(async key => this.#deleteExpiredCacheEntry(key, time)));
+	}
+
+	async #deleteExpiredCacheEntry(key: string, time: number): Promise<void> {
+		let cached = this.#cache.get(key);
+
+		if (isPromiseLike(cached)) {
+			cached = await cached;
+		}
+
+		if (cached === undefined) {
+			this.#cacheKeys.delete(key);
+			return;
+		}
+
+		if (cached.expires > time) {
+			return;
+		}
+
+		let current = this.#cache.get(key);
+
+		if (isPromiseLike(current)) {
+			current = await current;
+		}
+
+		if (current?.clearVersion === cached.clearVersion && current.expires === cached.expires) {
 			this.#cache.delete(key);
 			this.#cacheKeys.delete(key);
 		}

@@ -155,12 +155,24 @@ test('cached DNS lookups reuse resolved addresses in timing requests', withServe
 		},
 	});
 
-	await instance('');
-	await instance('');
-	await instance('');
+	const responses = [
+		await instance(''),
+		await instance(''),
+		await instance(''),
+	];
 
 	t.is(resolve4CallCount, 1);
 	t.is(resolve6CallCount, 1);
+
+	for (const {timings} of responses) {
+		t.true(Number.isFinite(timings.socket));
+		t.true(Number.isFinite(timings.lookup));
+		t.true(Number.isFinite(timings.connect));
+		t.true(Number.isFinite(timings.phases.dns));
+		t.true(timings.phases.dns! >= 0);
+		t.true(timings.lookup! >= timings.socket!);
+		t.true(timings.connect! >= timings.lookup!);
+	}
 });
 
 test('redirect timings preserve connection timings from initial request', withServer, async (t, server, got) => {

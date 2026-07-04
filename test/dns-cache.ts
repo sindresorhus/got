@@ -923,6 +923,76 @@ test.serial('DNS cache expires entries lazily', async t => {
 	}
 });
 
+test.serial('DNS cache purges expired entries lazily on write', async t => {
+	const clock = FakeTimers.install({
+		now: 0,
+		toFake: ['Date'],
+	});
+
+	try {
+		const store = new Map<string, any>();
+		const cache = new DnsCache({
+			cache: store,
+			resolver: createResolver({
+				async resolve4(hostname) {
+					return [{address: hostname === 'example.com' ? '127.0.0.1' : '127.0.0.2', ttl: 1}];
+				},
+			}),
+		});
+
+		await cache.lookupAsync('example.com', {family: 4});
+		t.true(store.has('example.com:4'));
+
+		clock.tick(1001);
+		await cache.lookupAsync('example.net', {family: 4});
+
+		t.false(store.has('example.com:4'));
+		t.true(store.has('example.net:4'));
+	} finally {
+		clock.uninstall();
+	}
+});
+
+test.serial('DNS cache purges expired async cache entries lazily on write', async t => {
+	const clock = FakeTimers.install({
+		now: 0,
+		toFake: ['Date'],
+	});
+
+	try {
+		const store = new Map<string, any>();
+		const cache = new DnsCache({
+			cache: {
+				async get(key) {
+					return store.get(key);
+				},
+				set(key, value) {
+					store.set(key, value);
+				},
+				delete(key) {
+					return store.delete(key);
+				},
+			},
+			resolver: createResolver({
+				async resolve4(hostname) {
+					return [{address: hostname === 'example.com' ? '127.0.0.1' : '127.0.0.2', ttl: 1}];
+				},
+			}),
+		});
+
+		await cache.lookupAsync('example.com', {family: 4});
+		t.true(store.has('example.com:4'));
+
+		clock.tick(1001);
+		await cache.lookupAsync('example.net', {family: 4});
+
+		t.false(store.has('example.com:4'));
+		t.true(store.has('example.net:4'));
+	} finally {
+		clock.uninstall();
+	}
+});
+
 test.serial('DNS cache does not schedule timers for large TTLs', async t => {
 	const originalSetTimeout = globalThis.setTimeout;
 	globalThis.setTimeout = (() => {
