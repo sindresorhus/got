@@ -34,7 +34,6 @@ const instance = got.extend({
 		beforeRequest: [
 			options => {
 				options.h2session = getSession(options.url);
-				options.http2 = true;
 			},
 		],
 	},

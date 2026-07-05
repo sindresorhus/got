@@ -913,7 +913,7 @@ The IP version to use. Specifying `undefined` will use the default configuration
 ### `request`
 
 **Type: <code>Function<[ClientRequest](https://nodejs.org/api/http.html#http_class_http_clientrequest) | [IncomingMessage](https://nodejs.org/api/http.html#http_class_http_incomingmessage) | undefined> | AsyncFunction<[ClientRequest](https://nodejs.org/api/http.html#http_class_http_clientrequest) | [IncomingMessage](https://nodejs.org/api/http.html#http_class_http_incomingmessage) | undefined></code>**\
-**Default: `http.request | https.request` *(depending on the protocol)***
+**Default: Got's built-in HTTP/1.1 or HTTP/2 request implementation**
 
 Custom request function.
 
@@ -952,14 +952,14 @@ If `true`, Got will use its built-in HTTP/2 client when ALPN selects HTTP/2.
 ```js
 import got from 'got';
 
-const {headers} = await got(
+const {statusCode} = await got(
 	'https://httpbin.org/anything',
 	{
 		http2: true
 	}
 );
 
-console.log(headers[':status']);
+console.log(statusCode);
 //=> 200
 ```
 

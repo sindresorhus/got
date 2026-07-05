@@ -1682,7 +1682,7 @@ export default class Options {
 	/**
 	Custom request function.
 
-	@default http.request | https.request
+	@default Got's built-in HTTP/1.1 or HTTP/2 request implementation
 	*/
 	get request(): RequestFunction | undefined {
 		return this.#internals.request;

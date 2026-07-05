@@ -71,6 +71,29 @@ const connectionSpecificHeaders = new Set([
 	'upgrade',
 ]);
 
+const normalizeRequestHeaderName = (name: string): string => name.toLowerCase() === 'host' ? HTTP2_HEADER_AUTHORITY : name.toLowerCase();
+
+const getConnectionHeaderTokens = (value: string | string[] | number | undefined): string[] => {
+	if (value === undefined) {
+		return [];
+	}
+
+	const values = Array.isArray(value) ? value : [value];
+	const tokens: string[] = [];
+
+	for (const item of values) {
+		for (const token of String(item).split(',')) {
+			const normalizedToken = token.trim().toLowerCase();
+
+			if (normalizedToken.length > 0) {
+				tokens.push(normalizedToken);
+			}
+		}
+	}
+
+	return tokens;
+};
+
 const isTrailersTeHeader = (value: string | string[] | number | undefined): boolean => {
 	if (value === undefined) {
 		return true;
@@ -89,6 +112,18 @@ const setProtocolCache = (key: string, value: string | false): void => {
 	}
 
 	protocolCache.set(key, value);
+};
+
+const serializeSessionOption = (value: unknown): string => {
+	if (value === undefined) {
+		return '';
+	}
+
+	if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean' || typeof value === 'function') {
+		return String(value);
+	}
+
+	return JSON.stringify(value) ?? '';
 };
 
 const normalizeInput = (
@@ -157,7 +192,7 @@ const hasCustomHttpsAgent = (agent: AgentObject | HttpsAgent | Http2Agent | fals
 
 const getProtocolCacheKey = (options: HttpsRequestOptions): string => {
 	const authority = getAuthority(options);
-	const protocols = [...((options as NormalizedRequestOptions).ALPNProtocols ?? ['h2', 'http/1.1'])].sort().join(',');
+	const protocols = ((options as NormalizedRequestOptions).ALPNProtocols ?? ['h2', 'http/1.1']).join(',');
 
 	return `${authority.host}:${protocols}:${options.servername ?? ''}:${options.rejectUnauthorized ?? ''}`;
 };
@@ -312,6 +347,36 @@ const toRawHeaders = (headers: http2.IncomingHttpHeaders): string[] => {
 	}
 
 	return rawHeaders;
+};
+
+const filterRawHeaders = (rawHeaders: string[]): string[] => {
+	const filteredHeaders: string[] = [];
+
+	for (let index = 0; index < rawHeaders.length; index += 2) {
+		const key = rawHeaders[index]!;
+
+		if (key.startsWith(':')) {
+			continue;
+		}
+
+		filteredHeaders.push(key, rawHeaders[index + 1]!);
+	}
+
+	return filteredHeaders;
+};
+
+const filterHeaders = (headers: http2.IncomingHttpHeaders): IncomingMessage['headers'] => {
+	const filteredHeaders: IncomingMessage['headers'] = {};
+
+	for (const [key, value] of Object.entries(headers)) {
+		if (key.startsWith(':') || value === undefined) {
+			continue;
+		}
+
+		filteredHeaders[key] = value;
+	}
+
+	return filteredHeaders;
 };
 
 const createSocketProxy = (stream: ClientHttp2Stream): Socket => new Proxy(stream.session!.socket, {
@@ -475,18 +540,16 @@ export class Http2Agent extends EventEmitter {
 			options.minVersion,
 			options.maxVersion,
 			options.ciphers,
+			options.honorCipherOrder,
+			options.checkServerIdentity,
+			options.passphrase,
+			options.sigalgs,
+			options.sessionTimeout,
+			options.dhparam,
+			options.ecdhCurve,
+			options.crl,
 			options.secureOptions,
-		].map(value => {
-			if (value === undefined) {
-				return '';
-			}
-
-			if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
-				return String(value);
-			}
-
-			return JSON.stringify(value);
-		}).join(':');
+		].map(value => serializeSessionOption(value)).join(':');
 	}
 
 	closeEmptySessions(maxCount = Number.POSITIVE_INFINITY): number {
@@ -822,6 +885,7 @@ class Http2ClientRequest extends Writable {
 	private stream?: ClientHttp2Stream;
 	private pendingJobs: Array<() => void> = [];
 	private pendingAgentPromise?: Promise<ClientHttp2Stream>;
+	private readonly connectionHeaderNames = new Set<string>();
 	private trailers?: RequestHeaders;
 
 	get isGotHttp2Request(): true {
@@ -948,7 +1012,20 @@ class Http2ClientRequest extends Writable {
 
 		const lowercasedName = name.toLowerCase();
 
+		if (lowercasedName === 'connection' || lowercasedName === 'proxy-connection') {
+			for (const token of getConnectionHeaderTokens(value)) {
+				this.connectionHeaderNames.add(token);
+				Reflect.deleteProperty(this.headers, normalizeRequestHeaderName(token));
+			}
+
+			return this;
+		}
+
 		if (connectionSpecificHeaders.has(lowercasedName)) {
+			return this;
+		}
+
+		if (this.connectionHeaderNames.has(lowercasedName)) {
 			return this;
 		}
 
@@ -956,17 +1033,13 @@ class Http2ClientRequest extends Writable {
 			return this;
 		}
 
-		if (lowercasedName === 'host') {
-			this.headers[HTTP2_HEADER_AUTHORITY] = value;
-		} else {
-			this.headers[lowercasedName] = value;
-		}
+		this.headers[normalizeRequestHeaderName(name)] = value;
 
 		return this;
 	}
 
 	getHeader(name: string): string | number | string[] | undefined {
-		return this.headers[name.toLowerCase()];
+		return this.headers[normalizeRequestHeaderName(name)];
 	}
 
 	getHeaders(): RequestHeaders {
@@ -986,7 +1059,7 @@ class Http2ClientRequest extends Writable {
 			throw new Error('Cannot remove headers after they are sent to the client');
 		}
 
-		Reflect.deleteProperty(this.headers, name.toLowerCase());
+		Reflect.deleteProperty(this.headers, normalizeRequestHeaderName(name));
 	}
 
 	setNoDelay(): void {}
@@ -1039,8 +1112,8 @@ class Http2ClientRequest extends Writable {
 			const response = new Http2IncomingMessage(stream, this, stream.readableHighWaterMark);
 			const incomingResponse = response as unknown as IncomingMessage & {req: ClientRequest; _dump: () => void};
 			response.statusCode = Number(headers[HTTP2_HEADER_STATUS]);
-			response.headers = headers;
-			response.rawHeaders = rawHeaders ?? toRawHeaders(headers);
+			response.headers = filterHeaders(headers);
+			response.rawHeaders = rawHeaders ? filterRawHeaders(rawHeaders) : toRawHeaders(headers);
 			response.url = `${this.origin.origin}${this.path}`;
 			incomingResponse.req = this as unknown as ClientRequest;
 			this.res = incomingResponse;
@@ -1123,22 +1196,32 @@ class Http2ClientRequest extends Writable {
 export const globalAgent = new Http2Agent();
 
 export const request = (
-	url: URL,
-	options: NormalizedRequestOptions,
+	input: string | URL | NormalizedRequestOptions,
+	options?: NormalizedRequestOptions | RequestCallback,
 	callback?: RequestCallback,
-): ClientRequest => new Http2ClientRequest(url, options, callback) as unknown as ClientRequest;
+): ClientRequest => new Http2ClientRequest(input, options, callback) as unknown as ClientRequest;
 
-export const auto = async (input: URL, options: NormalizedRequestOptions, callback?: RequestCallback): Promise<ClientRequest> => {
-	const sourceOptions = options;
-	options = {
-		...urlToHttpOptions(input),
-		...options,
-	};
+export const auto = async (
+	input: string | URL | NormalizedRequestOptions,
+	options?: NormalizedRequestOptions | RequestCallback,
+	callback?: RequestCallback,
+): Promise<ClientRequest> => {
+	let sourceOptions: NormalizedRequestOptions = {};
+
+	if (typeof input === 'object' && !(input instanceof URL)) {
+		sourceOptions = input;
+	} else if (typeof options === 'object') {
+		sourceOptions = options;
+	}
+
+	const normalized = normalizeInput(input, options, callback);
+	options = normalized.options;
+	callback = normalized.callback;
 	options.ALPNProtocols ??= ['h2', 'http/1.1'];
 	options.protocol ??= 'https:';
 
 	if (options.h2session) {
-		return request(input, options, callback);
+		return request(options, callback);
 	}
 
 	const isHttps = options.protocol === 'https:';
@@ -1166,7 +1249,7 @@ export const auto = async (input: URL, options: NormalizedRequestOptions, callba
 			options._reuseSocket = socket;
 		}
 
-		return request(input, options, callback);
+		return request(options, callback);
 	}
 
 	socket?.destroy();

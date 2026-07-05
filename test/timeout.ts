@@ -847,8 +847,13 @@ test('http2 timeout', async t => {
 		});
 
 		await streamReceivedPromise;
-		const error = await t.throwsAsync<RequestError>(promise);
-		t.is(error?.code, 'ETIMEDOUT');
+		const error = await t.throwsAsync<TimeoutError>(promise, errorMatcher);
+		t.is(error?.event, 'request');
+		const message = error?.message ?? '';
+		t.regex(message, /^Timeout awaiting 'request' for \d+ms$/);
+		const threshold = Number(/\d+/.exec(message)?.[0]);
+		t.true(threshold > 0);
+		t.true(threshold <= 100);
 	} finally {
 		await server.close();
 	}
@@ -900,7 +905,7 @@ test('http2 ALPN negotiation obeys request timeout', async t => {
 
 	try {
 		const {port} = server.address() as net.AddressInfo;
-		const error = await t.throwsAsync<RequestError>(got(`https://127.0.0.1:${port}`, {
+		const error = await t.throwsAsync<TimeoutError>(got(`https://127.0.0.1:${port}`, {
 			http2: true,
 			timeout: {
 				request: 50,
@@ -911,9 +916,14 @@ test('http2 ALPN negotiation obeys request timeout', async t => {
 			https: {
 				rejectUnauthorized: false,
 			},
-		}));
+		}), errorMatcher);
 
-		t.is(error?.code, 'ETIMEDOUT');
+		t.is(error?.event, 'request');
+		t.is(error?.message, 'Timeout awaiting \'request\' for 50ms');
+		t.truthy(error?.timings);
+		t.deepEqual(error?.timings?.phases, {
+			total: 0,
+		});
 	} finally {
 		for (const socket of sockets) {
 			socket.destroy();
@@ -995,7 +1005,7 @@ test('http2 session setup after ALPN obeys timeout', async t => {
 
 	try {
 		const startTime = Date.now();
-		const error = await t.throwsAsync<RequestError>(got(url, {
+		const error = await t.throwsAsync<TimeoutError>(got(url, {
 			http2: true,
 			agent: {
 				http2: false,
@@ -1010,10 +1020,11 @@ test('http2 session setup after ALPN obeys timeout', async t => {
 			retry: {
 				limit: 0,
 			},
-		}));
+		}), errorMatcher);
 
 		const elapsed = Date.now() - startTime;
-		t.is(error?.code, 'ETIMEDOUT', `Got ${error?.code ?? 'undefined'} after ${elapsed}ms: ${error?.message ?? 'no message'}`);
+		t.is(error?.event, 'request', `Got ${error?.event ?? 'undefined'} after ${elapsed}ms: ${error?.message ?? 'no message'}`);
+		t.is(error?.message, 'Timeout awaiting \'request\' for 100ms');
 		t.is(alpnProtocol, 'h2');
 	} finally {
 		for (const socket of sockets) {

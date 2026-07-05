@@ -194,6 +194,18 @@ const proxiedRequestEvents = [
 
 const noop = (): void => {};
 
+const createPreRequestErrorTimings = (): Timings => {
+	const now = Date.now();
+
+	return {
+		start: now,
+		error: now,
+		phases: {
+			total: 0,
+		},
+	};
+};
+
 type NativeFormDataBodyMetadata = {
 	form: FormData;
 	body: ReadableStream;
@@ -478,7 +490,9 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 		this._stopReading = true;
 
-		if (!(error instanceof RequestError)) {
+		if (error instanceof TimedOutTimeoutError) {
+			error = new TimeoutError(error, this.timings ?? createPreRequestErrorTimings(), this);
+		} else if (!(error instanceof RequestError)) {
 			error = new RequestError(error.message, error, this);
 		}
 
@@ -840,7 +854,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 			// See https://developer.mozilla.org/en-US/docs/Web/API/AbortSignal/timeout_static#return_value
 			if (signal.reason?.name === 'TimeoutError') {
-				this.destroy(new TimeoutError(signal.reason, this.timings!, this));
+				this.destroy(new TimeoutError(signal.reason, this.timings ?? createPreRequestErrorTimings(), this));
 			} else {
 				this.destroy(new AbortError(this));
 			}
@@ -1541,7 +1555,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			// Force clean-up, because some packages (e.g. nock) don't do this.
 			request.destroy();
 
-			const wrappedError = error instanceof TimedOutTimeoutError ? new TimeoutError(error, this.timings!, this) : new RequestError(error.message, error, this);
+			const wrappedError = error instanceof TimedOutTimeoutError ? new TimeoutError(error, this.timings ?? createPreRequestErrorTimings(), this) : new RequestError(error.message, error, this);
 			this._beforeError(wrappedError);
 		};
 
@@ -2069,7 +2083,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			Object.assign(options, {
 				protocol: url.protocol,
 				hostname: is.string(url.hostname) && url.hostname.startsWith('[') ? url.hostname.slice(1, -1) : url.hostname,
-				host: url.host,
+				host: is.string(url.hostname) && url.hostname.startsWith('[') ? url.hostname.slice(1, -1) : url.hostname,
 				hash: url.hash === '' ? '' : (url.hash ?? null),
 				search: url.search === '' ? '' : (url.search ?? null),
 				pathname: url.pathname,

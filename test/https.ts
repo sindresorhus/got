@@ -225,6 +225,8 @@ test('http2 uses HTTP/2 when ALPN selects h2', async t => {
 
 		t.is(response.body, 'ok');
 		t.is(response.headers['x-protocol'], 'h2');
+		t.false(Object.hasOwn(response.headers, ':status'));
+		t.false(response.rawHeaders.includes(':status'));
 	} finally {
 		await server.close();
 	}
@@ -262,6 +264,22 @@ test('http2 sends RFC 9113 request pseudo-headers', async t => {
 			scheme: 'https',
 		});
 		t.false(Object.hasOwn(body, 'host'));
+
+		const bodyWithCustomHost = await got(`${server.url}/path`, {
+			http2: true,
+			https: {
+				rejectUnauthorized: false,
+			},
+			headers: {
+				host: 'custom.example',
+			},
+		}).json<Record<string, string>>();
+
+		t.like(bodyWithCustomHost, {
+			authority: 'custom.example',
+			path: '/path',
+		});
+		t.false(Object.hasOwn(bodyWithCustomHost, 'host'));
 	} finally {
 		await server.close();
 	}
@@ -284,13 +302,14 @@ test('http2 strips HTTP/1.x connection-specific request headers', async t => {
 				rejectUnauthorized: false,
 			},
 			headers: {
-				connection: 'keep-alive',
+				connection: 'keep-alive, x-connection-test',
 				'http2-settings': 'anything',
 				'keep-alive': 'timeout=5',
 				'proxy-connection': 'keep-alive',
 				'transfer-encoding': 'chunked',
 				upgrade: 'websocket',
 				te: 'trailers',
+				'x-connection-test': 'dropped',
 			},
 		}).json<Record<string, string>>();
 
@@ -300,6 +319,7 @@ test('http2 strips HTTP/1.x connection-specific request headers', async t => {
 		t.false(Object.hasOwn(headers, 'proxy-connection'));
 		t.false(Object.hasOwn(headers, 'transfer-encoding'));
 		t.false(Object.hasOwn(headers, 'upgrade'));
+		t.false(Object.hasOwn(headers, 'x-connection-test'));
 		t.is(headers.te, 'trailers');
 
 		const headersWithInvalidTe = await got(server.url, {
@@ -313,6 +333,21 @@ test('http2 strips HTTP/1.x connection-specific request headers', async t => {
 		}).json<Record<string, string>>();
 
 		t.false(Object.hasOwn(headersWithInvalidTe, 'te'));
+
+		const headersWithConnectionListedHost = await got(server.url, {
+			http2: true,
+			https: {
+				rejectUnauthorized: false,
+			},
+			headers: {
+				host: 'custom.example',
+				connection: 'host',
+			},
+		}).json<Record<string, string>>();
+
+		const {port} = new URL(server.url);
+		t.is(headersWithConnectionListedHost[':authority'], `localhost:${port}`);
+		t.false(Object.hasOwn(headersWithConnectionListedHost, 'host'));
 	} finally {
 		await server.close();
 	}
@@ -328,6 +363,41 @@ test('http2 falls back to HTTP/1.1 when ALPN does not select h2', withHttpsServe
 	});
 
 	t.is(body, '1.1');
+});
+
+test('http2 responses are cached', async t => {
+	let streamCount = 0;
+	const server = await createHttp2TestServer(stream => {
+		streamCount++;
+		stream.respond({
+			// eslint-disable-next-line @typescript-eslint/naming-convention
+			':status': 200,
+			'cache-control': 'public, max-age=60',
+		});
+		stream.end(String(streamCount));
+	});
+
+	try {
+		const cache = new Map();
+		const instance = got.extend({
+			cache,
+			http2: true,
+			https: {
+				rejectUnauthorized: false,
+			},
+		});
+
+		const firstResponse = await instance(server.url);
+		const secondResponse = await instance(server.url);
+
+		t.is(firstResponse.body, '1');
+		t.is(secondResponse.body, '1');
+		t.false(firstResponse.isFromCache);
+		t.true(secondResponse.isFromCache);
+		t.is(streamCount, 1);
+	} finally {
+		await server.close();
+	}
 });
 
 test('http2 supports GET body when allowGetBody is true', async t => {
@@ -444,6 +514,39 @@ test('http2 sends request trailers', async t => {
 		});
 
 		t.is(receivedTrailers?.['x-checksum'], 'abc');
+	} finally {
+		await server.close();
+	}
+});
+
+test('http2 exposes response trailers', async t => {
+	const server = await createHttp2TestServer(stream => {
+		stream.respond({
+			// eslint-disable-next-line @typescript-eslint/naming-convention
+			':status': 200,
+			trailer: 'x-checksum',
+		}, {
+			waitForTrailers: true,
+		});
+		stream.on('wantTrailers', () => {
+			stream.sendTrailers({
+				'x-checksum': 'abc',
+			});
+		});
+		stream.end('ok');
+	});
+
+	try {
+		const response = await got(server.url, {
+			http2: true,
+			https: {
+				rejectUnauthorized: false,
+			},
+		});
+
+		t.is(response.body, 'ok');
+		t.is(response.trailers['x-checksum'], 'abc');
+		t.deepEqual(response.rawTrailers, ['x-checksum', 'abc']);
 	} finally {
 		await server.close();
 	}
@@ -985,6 +1088,73 @@ test('http2 connection reuse with default agent', async t => {
 	}
 });
 
+test('http2 does not reuse sessions across different checkServerIdentity options', async t => {
+	const certificate = await createCertificate({days: 1, selfSigned: true});
+	const server = http2.createSecureServer({
+		key: certificate.serviceKey,
+		cert: certificate.certificate,
+	});
+
+	server.on('stream', (stream: ServerHttp2Stream) => {
+		stream.respond({
+			// eslint-disable-next-line @typescript-eslint/naming-convention
+			':status': 200,
+		});
+		stream.end('ok');
+	});
+
+	await new Promise<void>(resolve => {
+		server.listen(0, 'localhost', resolve);
+	});
+
+	let acceptedCheckCount = 0;
+	let rejectedCheckCount = 0;
+
+	try {
+		const {port} = server.address() as net.AddressInfo;
+		const url = `https://localhost:${port}`;
+		const certificateAuthority = certificate.certificate;
+
+		t.is((await got(url, {
+			http2: true,
+			https: {
+				certificateAuthority,
+				checkServerIdentity() {
+					acceptedCheckCount++;
+					return undefined;
+				},
+			},
+		})).body, 'ok');
+
+		await t.throwsAsync(got(url, {
+			http2: true,
+			https: {
+				certificateAuthority,
+				checkServerIdentity() {
+					rejectedCheckCount++;
+					return new Error('Rejected by checkServerIdentity');
+				},
+			},
+		}), {
+			message: 'Rejected by checkServerIdentity',
+		});
+
+		t.is(acceptedCheckCount, 1);
+		t.is(rejectedCheckCount, 1);
+	} finally {
+		await new Promise<void>((resolve, reject) => {
+			server.close(error => {
+				if (error) {
+					reject(error);
+					return;
+				}
+
+				resolve();
+			});
+		});
+	}
+});
+
 test('http2 agent false reuses the ALPN socket for the current request', async t => {
 	let secureConnectionCount = 0;
 	let sessionClose: Promise<unknown> | undefined;
@@ -1291,6 +1461,78 @@ test('http2 ALPN ignores cached protocols when using createConnection', async t 
 			});
 		});
 		await http2Server.close();
+	}
+});
+
+test('http2 ALPN protocol cache preserves protocol order', async t => {
+	const certificate = await createCertificate({days: 1, selfSigned: true});
+	const server = http2.createSecureServer({
+		key: certificate.serviceKey,
+		cert: certificate.certificate,
+		// eslint-disable-next-line @typescript-eslint/naming-convention
+		allowHTTP1: true,
+		// eslint-disable-next-line @typescript-eslint/naming-convention
+		ALPNCallback: ({protocols}) => protocols[0],
+	});
+
+	server.on('request', (request, response) => {
+		if (request.httpVersionMajor !== 1) {
+			return;
+		}
+
+		response.end(request.httpVersion);
+	});
+
+	server.on('stream', (stream: ServerHttp2Stream) => {
+		stream.respond({
+			// eslint-disable-next-line @typescript-eslint/naming-convention
+			':status': 200,
+		});
+		stream.end('2.0');
+	});
+
+	await new Promise<void>(resolve => {
+		server.listen(0, 'localhost', resolve);
+	});
+
+	try {
+		const {port} = server.address() as net.AddressInfo;
+		const url = `https://localhost:${port}`;
+		const baseOptions = {
+			http2: true,
+			agent: {
+				http2: false as const,
+			},
+			https: {
+				rejectUnauthorized: false,
+			},
+		};
+
+		t.is((await got(url, {
+			...baseOptions,
+			https: {
+				...baseOptions.https,
+				alpnProtocols: ['h2', 'http/1.1'],
+			},
+		})).body, '2.0');
+		t.is((await got(url, {
+			...baseOptions,
+			https: {
+				...baseOptions.https,
+				alpnProtocols: ['http/1.1', 'h2'],
+			},
+		})).body, '1.1');
+	} finally {
+		await new Promise<void>((resolve, reject) => {
+			server.close(error => {
+				if (error) {
+					reject(error);
+					return;
+				}
+
+				resolve();
+			});
+		});
 	}
 });
 
