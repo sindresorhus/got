@@ -46,6 +46,13 @@ type AcceptableResponse = IncomingMessageWithTimings | ResponseLike;
 type AcceptableRequestResult = Promisable<AcceptableResponse | ClientRequest | undefined>;
 export type RequestFunction = (url: URL, options: NativeRequestOptions, callback?: (response: AcceptableResponse) => void) => AcceptableRequestResult;
 
+type RequestFallbackContext = {
+	url: URL;
+	options: NativeRequestOptions;
+	callback?: (response: AcceptableResponse) => void;
+	requestStartedAt: number;
+};
+
 export type Agents = {
 	http?: HttpAgent | false;
 	https?: HttpsAgent | false;
@@ -1489,8 +1496,26 @@ const cloneRaw = (raw: OptionsInit) => {
 };
 
 const getHttp2TimeoutOption = (internals: typeof defaultInternals): number | undefined => {
-	const delays = [internals.timeout.socket, internals.timeout.connect, internals.timeout.lookup, internals.timeout.request, internals.timeout.secureConnect].filter(delay => typeof delay === 'number');
+	const delays = [
+		internals.timeout.socket,
+		internals.timeout.connect,
+		internals.timeout.lookup,
+		internals.timeout.request,
+		internals.timeout.secureConnect,
+	].filter(delay => typeof delay === 'number');
+
 	return delays.length > 0 ? Math.min(...delays) : undefined;
+};
+
+const usesHttp2Alpn = (internals: typeof defaultInternals, url: URL): boolean => {
+	const usesCustomHttpsAgent = internals.agent.https !== undefined
+		&& internals.agent.https !== false
+		&& internals.createConnection === undefined;
+
+	return internals.http2
+		&& url.protocol === 'https:'
+		&& !internals.h2session
+		&& !usesCustomHttpsAgent;
 };
 
 const trackStateMutation = (trackedStateMutations: Set<string> | undefined, name: string): void => {
@@ -2496,7 +2521,7 @@ export default class Options {
 
 	It will choose either HTTP/1.1 or HTTP/2 depending on the ALPN protocol.
 
-	__Note__: Overriding `options.request` will disable HTTP/2 support.
+	__Note__: If `options.request` returns a request or response, it controls the transport and Got's HTTP/2 client is bypassed. Return `undefined` to fall back to Got's built-in transport.
 
 	@default false
 
@@ -3374,7 +3399,7 @@ export default class Options {
 			headers: internals.headers,
 			createConnection: internals.createConnection,
 			signal: internals.http2 ? internals.signal : undefined,
-			timeout: internals.http2 ? getHttp2TimeoutOption(internals) : undefined,
+			timeout: usesHttp2Alpn(internals, url) ? getHttp2TimeoutOption(internals) : undefined,
 
 			// HTTP/2 options
 			h2session: internals.h2session,
@@ -3389,10 +3414,22 @@ export default class Options {
 		}
 
 		const requestWithFallback: RequestFunction = (url, options, callback?) => {
-			const result = customRequest(url, options, callback);
+			const requestStartedAt = Date.now();
+			let customRequestOptions = options;
+			if (options.timeout !== undefined) {
+				const {timeout: _timeout, ...optionsWithoutInternalTimeout} = options;
+				customRequestOptions = optionsWithoutInternalTimeout;
+			}
+
+			const result = customRequest(url, customRequestOptions, callback);
 
 			if (is.promise(result)) {
-				return this.#resolveRequestWithFallback(result, url, options, callback);
+				return this.#resolveRequestWithFallback(result, {
+					url,
+					options,
+					callback,
+					requestStartedAt,
+				});
 			}
 
 			if (result !== undefined) {
@@ -3522,14 +3559,17 @@ export default class Options {
 
 	async #resolveRequestWithFallback(
 		requestResult: Promise<AcceptableResponse | ClientRequest | undefined>,
-		url: URL,
-		options: NativeRequestOptions,
-		callback?: (response: AcceptableResponse) => void,
+		{url, options, callback, requestStartedAt}: RequestFallbackContext,
 	): Promise<AcceptableResponse | ClientRequest> {
 		const result = await requestResult;
 
 		if (result !== undefined) {
 			return result;
+		}
+
+		if (this.#internals.http2 && this.#internals.timeout.request !== undefined && options.timeout !== undefined) {
+			const remainingRequestTimeout = this.#internals.timeout.request - (Date.now() - requestStartedAt);
+			options.timeout = Math.min(options.timeout, Math.max(0, remainingRequestTimeout));
 		}
 
 		return this.#callFallbackRequest(url, options, callback);

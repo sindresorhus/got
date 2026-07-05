@@ -205,19 +205,6 @@ test('https request with wrong host', withHttpsServer({commonName: 'not-localhos
 	);
 });
 
-test('http2', withHttpsServer(), async (t, server, got) => {
-	server.get('/', (_request, response) => {
-		response.json({method: 'GET', data: 'test'});
-	});
-
-	const {statusCode, body} = await got({
-		http2: true,
-	});
-
-	t.is(statusCode, 200);
-	t.is(typeof body, 'string');
-});
-
 test('http2 uses HTTP/2 when ALPN selects h2', async t => {
 	const server = await createHttp2TestServer(stream => {
 		stream.respond({
@@ -544,6 +531,138 @@ test('http2 abort closes in-flight ALPN probe', async t => {
 		t.is(error.code, 'ERR_ABORTED');
 		await closePromise;
 		t.true(clientSocket!.destroyed);
+	} finally {
+		for (const socket of sockets) {
+			socket.destroy();
+		}
+
+		await new Promise<void>((resolve, reject) => {
+			server.close(error => {
+				if (error) {
+					reject(error);
+					return;
+				}
+
+				resolve();
+			});
+		});
+	}
+});
+
+test('http2 request destroy closes in-flight ALPN probe', async t => {
+	const sockets = new Set<net.Socket>();
+	const server = net.createServer(socket => {
+		sockets.add(socket);
+		socket.once('close', () => {
+			sockets.delete(socket);
+		});
+	});
+
+	await new Promise<void>(resolve => {
+		server.listen(0, '127.0.0.1', resolve);
+	});
+
+	try {
+		const {port} = server.address() as net.AddressInfo;
+		const alpnProtocols = 'ALPNProtocols';
+		let clientSocket: tls.TLSSocket | undefined;
+		const socketPromise = pEvent(server, 'connection') as Promise<net.Socket>;
+		const request = got.stream(`https://127.0.0.1:${port}`, {
+			http2: true,
+			createConnection() {
+				clientSocket = tls.connect(port, '127.0.0.1', {
+					[alpnProtocols]: ['h2', 'http/1.1'],
+					rejectUnauthorized: false,
+					servername: 'localhost',
+				});
+
+				return clientSocket;
+			},
+			retry: {
+				limit: 0,
+			},
+			https: {
+				rejectUnauthorized: false,
+			},
+		});
+		const requestClosePromise = pEvent(request, 'close');
+
+		request.resume();
+		await socketPromise;
+		const closePromise = pEvent(clientSocket!, 'close');
+
+		request.destroy();
+
+		await requestClosePromise;
+		await closePromise;
+		t.true(clientSocket!.destroyed);
+	} finally {
+		for (const socket of sockets) {
+			socket.destroy();
+		}
+
+		await new Promise<void>((resolve, reject) => {
+			server.close(error => {
+				if (error) {
+					reject(error);
+					return;
+				}
+
+				resolve();
+			});
+		});
+	}
+});
+
+test('http2 request destroy cancels in-flight session setup', async t => {
+	const certificate = await createCertificate({days: 1, selfSigned: true});
+	const sockets = new Set<tls.TLSSocket>();
+	let alpnProtocol: tls.TLSSocket['alpnProtocol'] | undefined;
+	const server = tls.createServer({
+		key: certificate.serviceKey,
+		cert: certificate.certificate,
+		// eslint-disable-next-line @typescript-eslint/naming-convention
+		ALPNProtocols: ['h2'],
+	}, socket => {
+		alpnProtocol = socket.alpnProtocol ?? undefined;
+		sockets.add(socket);
+		socket.once('close', () => {
+			sockets.delete(socket);
+		});
+		socket.resume();
+	});
+
+	await new Promise<void>(resolve => {
+		server.listen(0, 'localhost', resolve);
+	});
+
+	try {
+		const {port} = server.address() as net.AddressInfo;
+		const secureConnectionPromise = pEvent(server, 'secureConnection') as Promise<tls.TLSSocket>;
+		const request = got.stream(`https://localhost:${port}`, {
+			http2: true,
+			agent: {
+				http2: false,
+			},
+			retry: {
+				limit: 0,
+			},
+			https: {
+				rejectUnauthorized: false,
+			},
+		});
+		const requestClosePromise = pEvent(request, 'close');
+
+		request.resume();
+		const socket = await secureConnectionPromise;
+		const socketClosePromise = pEvent(socket, 'close');
+
+		request.destroy();
+
+		await requestClosePromise;
+		await socketClosePromise;
+		t.is(alpnProtocol, 'h2');
+		t.true(socket.destroyed);
 	} finally {
 		for (const socket of sockets) {
 			socket.destroy();
@@ -1085,8 +1204,8 @@ test('http2 rejects when session closes before settings', async t => {
 				rejectUnauthorized: false,
 			},
 		}), {
-			code: 'ECONNRESET',
-			message: 'The server aborted pending request',
+			code: 'ERR_GOT_REQUEST_ERROR',
+			message: 'The HTTP/2 session closed before settings were received',
 		});
 	} finally {
 		await new Promise<void>((resolve, reject) => {
@@ -1366,6 +1485,65 @@ test('http2 uses native HTTP/1.1 path with custom HTTPS agent', withHttpsServer(
 		t.is(secureConnectionCount, 1);
 	} finally {
 		agent.destroy();
+	}
+});
+
+test('http2 custom HTTPS agent only advertises HTTP/1.1', async t => {
+	const certificate = await createCertificate({days: 1, selfSigned: true});
+	const server = http2.createSecureServer({
+		key: certificate.serviceKey,
+		cert: certificate.certificate,
+		// eslint-disable-next-line @typescript-eslint/naming-convention
+		allowHTTP1: true,
+	}, (request, response) => {
+		response.end(request.httpVersion);
+	});
+	let sawHttp2Stream = false;
+	let alpnProtocol: tls.TLSSocket['alpnProtocol'] | undefined;
+
+	server.on('stream', stream => {
+		sawHttp2Stream = true;
+		stream.close();
+	});
+
+	server.on('secureConnection', socket => {
+		alpnProtocol = socket.alpnProtocol ?? undefined;
+	});
+
+	await new Promise<void>(resolve => {
+		server.listen(0, 'localhost', resolve);
+	});
+
+	const agent = new https.Agent();
+
+	try {
+		const {port} = server.address() as net.AddressInfo;
+		const {body} = await got(`https://localhost:${port}`, {
+			http2: true,
+			agent: {
+				https: agent,
+			},
+			https: {
+				rejectUnauthorized: false,
+			},
+		});
+
+		t.is(body, '1.1');
+		t.false(sawHttp2Stream);
+		t.is(alpnProtocol, 'http/1.1');
+	} finally {
+		agent.destroy();
+
+		await new Promise<void>((resolve, reject) => {
+			server.close(error => {
+				if (error) {
+					reject(error);
+					return;
+				}
+
+				resolve();
+			});
+		});
 	}
 });
 

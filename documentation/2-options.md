@@ -944,7 +944,7 @@ If `true`, Got will use its built-in HTTP/2 client when ALPN selects HTTP/2.
 > - ALPN negotiation will take place in order to determine if the server actually supports HTTP/2. If it doesn't, HTTP/1.1 will be used.
 
 **Note:**
-> - Setting the `request` option to `https.request` will disable HTTP/2 usage.
+> - If the `request` option returns a request or response, it controls the transport and Got's HTTP/2 client is bypassed. Return `undefined` to fall back to Got's built-in transport.
 
 **Note:**
 > - There is no direct [`h2c` Upgrade](https://datatracker.ietf.org/doc/html/rfc9113#section-11.2) support. However, you can provide a `h2session` option in a `beforeRequest` hook. See [an example](examples/h2c.js).

@@ -1519,21 +1519,14 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 		timer(request);
 
-		this._cancelTimeouts = timedOut(request, timeout, url as URL);
-
-		if ((request as ClientRequest & {isGotHttp2Request?: boolean}).isGotHttp2Request) {
-			// Unset stream timeout, as the `timeout` option was used only for connection timeout.
-			// We remove all 'timeout' listeners instead of calling setTimeout(0) because:
-			// 1. setTimeout(0) causes a memory leak (see https://github.com/sindresorhus/got/issues/690)
-			// 2. With HTTP/2 connection reuse, setTimeout(0) accumulates listeners on the socket
-			// 3. removeAllListeners('timeout') properly cleans up without the memory leak
-			request.removeAllListeners('timeout');
-
-			// For HTTP/2, wait for socket and remove timeout listeners from it
-			request.prependOnceListener('socket', (socket: Socket) => {
-				socket.removeAllListeners('timeout');
-			});
+		const {isGotHttp2Request} = request as ClientRequest & {isGotHttp2Request?: boolean};
+		let timeoutDelays = timeout;
+		if (isGotHttp2Request) {
+			const {socket: _socket, ...http2TimeoutDelays} = timeout;
+			timeoutDelays = http2TimeoutDelays;
 		}
+
+		this._cancelTimeouts = timedOut(request, timeoutDelays, url as URL);
 
 		let lastRequestError: Error | undefined;
 		const responseEventName = options.cache ? 'cacheableResponse' : 'response';

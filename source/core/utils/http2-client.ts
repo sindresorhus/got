@@ -51,6 +51,7 @@ type NormalizedRequestOptions = Omit<HttpsRequestOptions, 'agent' | 'createConne
 	h2session?: ClientHttp2Session;
 	_reuseSocket?: Socket;
 	_alpnSocket?: Socket;
+	_cancelSessionSetup?: () => void;
 };
 
 type AgentObject = {
@@ -437,12 +438,24 @@ export class Http2Agent extends EventEmitter {
 		}
 
 		return new Promise((resolve, reject) => {
-			this.queue.push({
+			const entry: QueueEntry = {
 				origin: normalizedOrigin,
 				options,
 				resolve,
 				reject,
-			});
+			};
+
+			options._cancelSessionSetup = () => {
+				const index = this.queue.indexOf(entry);
+
+				if (index !== -1) {
+					this.queue.splice(index, 1);
+					delete options._cancelSessionSetup;
+					reject(new Error('HTTP/2 session setup canceled'));
+				}
+			};
+
+			this.queue.push(entry);
 
 			this.processQueue();
 		});
@@ -531,6 +544,7 @@ export class Http2Agent extends EventEmitter {
 
 			if (session) {
 				this.queue.shift();
+				delete entry.options._cancelSessionSetup;
 				entry.resolve(session);
 				continue;
 			}
@@ -554,6 +568,7 @@ export class Http2Agent extends EventEmitter {
 			path: _path,
 			agent: _agent,
 			h2session: _h2session,
+			timeout: setupTimeout,
 			...sessionOptions
 		} = entry.options;
 
@@ -575,11 +590,41 @@ export class Http2Agent extends EventEmitter {
 		session.emptySessionCounted = false;
 		session.gracefullyClosing = false;
 		let settled = false;
+		let sessionSetupTimeout: NodeJS.Timeout | undefined;
+
+		const clearSessionSetupTimeout = () => {
+			if (sessionSetupTimeout) {
+				clearTimeout(sessionSetupTimeout);
+				sessionSetupTimeout = undefined;
+			}
+		};
+
+		const clearSessionSetup = () => {
+			clearSessionSetupTimeout();
+			delete entry.options._cancelSessionSetup;
+		};
 
 		if (this.timeout > 0) {
 			session.setTimeout(this.timeout, () => {
 				session.destroy();
 			});
+		}
+
+		if (setupTimeout !== undefined) {
+			sessionSetupTimeout = setTimeout(() => {
+				if (settled) {
+					return;
+				}
+
+				settled = true;
+				clearSessionSetup();
+				const error = new TimeoutError(Number(setupTimeout), 'request');
+				entry.reject(error);
+				queueMicrotask(() => {
+					session.destroy(error);
+				});
+			}, Number(setupTimeout));
+			sessionSetupTimeout.unref();
 		}
 
 		const removeSession = () => {
@@ -604,7 +649,12 @@ export class Http2Agent extends EventEmitter {
 		};
 
 		session.once('remoteSettings', () => {
+			if (settled) {
+				return;
+			}
+
 			settled = true;
+			clearSessionSetup();
 
 			if (shouldPoolSession) {
 				const sessions = this.sessions.get(key) ?? [];
@@ -619,8 +669,12 @@ export class Http2Agent extends EventEmitter {
 		});
 
 		session.once('error', error => {
-			settled = true;
-			entry.reject(error);
+			clearSessionSetup();
+			if (!settled) {
+				settled = true;
+				entry.reject(error);
+			}
+
 			removeSession();
 		});
 
@@ -633,6 +687,7 @@ export class Http2Agent extends EventEmitter {
 		});
 
 		session.once('close', () => {
+			clearSessionSetup();
 			this.sessionCount--;
 			if (!settled) {
 				settled = true;
@@ -642,6 +697,17 @@ export class Http2Agent extends EventEmitter {
 			removeSession();
 			this.processQueue();
 		});
+
+		entry.options._cancelSessionSetup = () => {
+			if (settled) {
+				return;
+			}
+
+			settled = true;
+			clearSessionSetup();
+			entry.reject(new Error('HTTP/2 session setup canceled'));
+			session.destroy();
+		};
 
 		const request = session.request.bind(session);
 		session.request = (headers, streamOptions) => {
@@ -804,9 +870,13 @@ class Http2ClientRequest extends Writable {
 		if (this.stream) {
 			this.stream.close(NGHTTP2_CANCEL);
 		} else {
-			queueMicrotask(() => {
-				this.emit('close');
-			});
+			this.options._cancelSessionSetup?.();
+
+			if (error === null) {
+				queueMicrotask(() => {
+					this.emit('close');
+				});
+			}
 		}
 
 		if (this.pendingAgentPromise) {
@@ -1081,6 +1151,8 @@ export const auto = async (input: URL, options: NormalizedRequestOptions, callba
 	const agent = options.agent as AgentObject | HttpsAgent | Http2Agent | false | undefined;
 	if (hasCustomHttpsAgent(agent) && options.createConnection === undefined) {
 		options.agent = agent.https;
+		options.ALPNProtocols = ['http/1.1'];
+		delete options.timeout;
 		return https.request(options as HttpsRequestOptions, callback);
 	}
 
