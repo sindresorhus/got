@@ -59,6 +59,8 @@ type NormalizedRequestOptions = Omit<HttpsRequestOptions, 'agent' | 'createConne
 	agent?: any;
 	createConnection?: any;
 	ALPNProtocols?: string[];
+	secureContext?: tls.ConnectionOptions['secureContext'];
+	secureProtocol?: tls.ConnectionOptions['secureProtocol'];
 	settings?: http2.Settings;
 	h2session?: ClientHttp2Session;
 	_reuseSocket?: Socket;
@@ -72,6 +74,8 @@ type AgentObject = {
 	https?: HttpsAgent | false;
 	http2?: Http2Agent | false;
 };
+
+type TlsSessionIdentityOptions = HttpsRequestOptions & Pick<NormalizedRequestOptions, 'secureContext' | 'secureProtocol'>;
 
 type SerializedSessionOption = [string] | [string, unknown];
 
@@ -194,6 +198,38 @@ const serializeSessionOption = (value: unknown): SerializedSessionOption => {
 
 const serializeSessionOptions = (values: unknown[]): string => JSON.stringify(values.map(value => serializeSessionOption(value)));
 
+const getTlsSessionOptions = (options: TlsSessionIdentityOptions): unknown[] => [
+	options.ca,
+	options.cert,
+	options.key,
+	options.pfx,
+	options.rejectUnauthorized,
+	options.servername,
+	options.localAddress,
+	options.lookup,
+	options.family,
+	options.minVersion,
+	options.maxVersion,
+	options.ciphers,
+	options.honorCipherOrder,
+	options.checkServerIdentity,
+	options.passphrase,
+	options.sigalgs,
+	options.sessionTimeout,
+	options.dhparam,
+	options.ecdhCurve,
+	options.crl,
+	options.secureOptions,
+	options.secureContext,
+	options.secureProtocol,
+];
+
+const destroyReuseSocket = (options: NormalizedRequestOptions): void => {
+	options._reuseSocket?.destroy();
+	delete options._reuseSocket;
+	delete options._reuseSocketShouldPool;
+};
+
 const normalizeInput = (
 	input: string | URL | HttpsRequestOptions,
 	options?: HttpsRequestOptions | RequestCallback,
@@ -265,11 +301,7 @@ const getProtocolCacheKey = (options: HttpsRequestOptions): string => {
 	return serializeSessionOptions([
 		authority.host,
 		protocols,
-		options.servername,
-		options.rejectUnauthorized,
-		options.lookup,
-		options.family,
-		options.localAddress,
+		...getTlsSessionOptions(options),
 	]);
 };
 
@@ -591,9 +623,7 @@ export class Http2Agent extends EventEmitter {
 				this.reserveStream(session);
 			}
 
-			options._reuseSocket?.destroy();
-			delete options._reuseSocket;
-			delete options._reuseSocketShouldPool;
+			destroyReuseSocket(options);
 
 			return {
 				session,
@@ -616,6 +646,7 @@ export class Http2Agent extends EventEmitter {
 				if (index !== -1) {
 					this.queue.splice(index, 1);
 					delete options._cancelSessionSetup;
+					destroyReuseSocket(options);
 					reject(new Error('HTTP/2 session setup canceled'));
 				}
 			};
@@ -629,27 +660,7 @@ export class Http2Agent extends EventEmitter {
 	normalizeOptions(origin: URL, options: NormalizedRequestOptions = {}): string {
 		return serializeSessionOptions([
 			origin.origin,
-			options.ca,
-			options.cert,
-			options.key,
-			options.pfx,
-			options.rejectUnauthorized,
-			options.servername,
-			options.localAddress,
-			options.lookup,
-			options.family,
-			options.minVersion,
-			options.maxVersion,
-			options.ciphers,
-			options.honorCipherOrder,
-			options.checkServerIdentity,
-			options.passphrase,
-			options.sigalgs,
-			options.sessionTimeout,
-			options.dhparam,
-			options.ecdhCurve,
-			options.crl,
-			options.secureOptions,
+			...getTlsSessionOptions(options),
 		]);
 	}
 
@@ -683,7 +694,10 @@ export class Http2Agent extends EventEmitter {
 		this.pendingSessionKeys.clear();
 
 		while (this.queue.length > 0) {
-			this.queue.shift()!.reject(reason ?? new Error('Agent has been destroyed'));
+			const entry = this.queue.shift()!;
+			delete entry.options._cancelSessionSetup;
+			destroyReuseSocket(entry.options);
+			entry.reject(reason ?? new Error('Agent has been destroyed'));
 		}
 	}
 
@@ -717,9 +731,7 @@ export class Http2Agent extends EventEmitter {
 					this.reserveStream(session);
 				}
 
-				entry.options._reuseSocket?.destroy();
-				delete entry.options._reuseSocket;
-				delete entry.options._reuseSocketShouldPool;
+				destroyReuseSocket(entry.options);
 				entry.resolve({
 					session,
 					reusedSocket: true,

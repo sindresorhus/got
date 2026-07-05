@@ -8,6 +8,7 @@ import {pEvent} from 'p-event';
 import pify from 'pify';
 import pem from 'pem';
 import got, {type NativeRequestOptions, type NormalizedOptions} from '../source/index.js';
+import {Http2Agent} from '../source/core/utils/http2-client.js';
 import createHttp2TestServer from './helpers/create-http2-test-server.js';
 import {withHttpsServer} from './helpers/with-server.js';
 import type {CreatePrivateKey, CreateCsr, CreateCertificate} from './types/pem.js';
@@ -15,6 +16,40 @@ import type {CreatePrivateKey, CreateCsr, CreateCertificate} from './types/pem.j
 const createPrivateKey = pify(pem.createPrivateKey as CreatePrivateKey);
 const createCsr = pify(pem.createCSR as CreateCsr);
 const createCertificate = pify(pem.createCertificate as CreateCertificate);
+const ipv6UnavailableErrorCodes = new Set(['EAFNOSUPPORT', 'EADDRNOTAVAIL', 'EPERM']);
+
+const isIpv6UnavailableError = (error: unknown): boolean => ipv6UnavailableErrorCodes.has((error as NodeJS.ErrnoException).code ?? '');
+
+const closeServer = async (server: net.Server): Promise<void> => {
+	await new Promise<void>((resolve, reject) => {
+		server.close(error => {
+			if (error) {
+				reject(error);
+				return;
+			}
+
+			resolve();
+		});
+	});
+};
+
+const listenOnIpv6Loopback = async (server: net.Server, port = 0): Promise<number | undefined> => {
+	try {
+		return await new Promise<number>((resolve, reject) => {
+			server.once('error', reject);
+			server.listen(port, '::1', () => {
+				server.off('error', reject);
+				resolve((server.address() as net.AddressInfo).port);
+			});
+		});
+	} catch (error: unknown) {
+		if (isIpv6UnavailableError(error)) {
+			return undefined;
+		}
+
+		throw error;
+	}
+};
 
 test('https request without ca', withHttpsServer(), async (t, server, got) => {
 	server.get('/', (_request, response) => {
@@ -737,6 +772,132 @@ test('http2 request destroy cancels in-flight session setup', async t => {
 				resolve();
 			});
 		});
+	}
+});
+
+test('http2 queued session setup cancellation closes ALPN socket', async t => {
+	const certificate = await createCertificate({days: 1, selfSigned: true});
+	const sockets = new Set<tls.TLSSocket>();
+	const server = tls.createServer({
+		key: certificate.serviceKey,
+		cert: certificate.certificate,
+		// eslint-disable-next-line @typescript-eslint/naming-convention
+		ALPNProtocols: ['h2'],
+	}, socket => {
+		sockets.add(socket);
+		socket.once('close', () => {
+			sockets.delete(socket);
+		});
+		socket.resume();
+	});
+
+	await new Promise<void>(resolve => {
+		server.listen(0, 'localhost', resolve);
+	});
+
+	const agent = new Http2Agent();
+	const agentState = agent as unknown as {
+		sessionCount: number;
+		queue: Array<{options: {_reuseSocket?: tls.TLSSocket}}>;
+	};
+	type AgentRequestOptions = NonNullable<Parameters<Http2Agent['getSession']>[1]>;
+
+	const ignoreRejection = async (promise: Promise<unknown>): Promise<void> => {
+		try {
+			await promise;
+		} catch {}
+	};
+
+	const waitFor = async (predicate: () => boolean, message: string): Promise<void> => {
+		await new Promise<void>((resolve, reject) => {
+			let attempt = 0;
+			const interval = setInterval(() => {
+				attempt++;
+
+				if (predicate()) {
+					clearInterval(interval);
+					resolve();
+					return;
+				}
+
+				if (attempt === 100) {
+					clearInterval(interval);
+					reject(new Error(message));
+				}
+			}, 1);
+
+			if (predicate()) {
+				clearInterval(interval);
+				resolve();
+			}
+		});
+	};
+
+	try {
+		const {port} = server.address() as net.AddressInfo;
+		const url = `https://localhost:${port}`;
+		const createSocket = async (): Promise<tls.TLSSocket> => {
+			const socket = tls.connect(port, 'localhost', {
+				// eslint-disable-next-line @typescript-eslint/naming-convention
+				ALPNProtocols: ['h2'],
+				rejectUnauthorized: false,
+				servername: 'localhost',
+			});
+			socket.on('error', () => {});
+			await pEvent(socket, 'secureConnect');
+
+			return socket;
+		};
+
+		const firstSocket = await createSocket();
+		const firstOptions: AgentRequestOptions = {
+			_reuseSocket: firstSocket,
+			_reuseSocketShouldPool: true,
+			rejectUnauthorized: false,
+		};
+		void ignoreRejection(agent.getSession(url, firstOptions));
+		await waitFor(() => agentState.sessionCount === 1, 'First HTTP/2 session setup did not start');
+
+		const queuedSocket = await createSocket();
+		const queuedOptions: AgentRequestOptions = {
+			_reuseSocket: queuedSocket,
+			_reuseSocketShouldPool: true,
+			rejectUnauthorized: false,
+		};
+		void ignoreRejection(agent.getSession(url, queuedOptions));
+		await waitFor(
+			() => agentState.queue.some(entry => entry.options._reuseSocket === queuedSocket),
+			'Second HTTP/2 request did not queue with its ALPN socket',
+		);
+		const socketClosePromise = new Promise<true>(resolve => {
+			queuedSocket.once('close', () => {
+				resolve(true);
+			});
+		});
+		const socketCloseTimeout = new Promise<false>(resolve => {
+			const timeout = setTimeout(() => {
+				resolve(false);
+			}, 500);
+			timeout.unref();
+		});
+
+		queuedOptions._cancelSessionSetup!();
+
+		const socketClosed = await Promise.race([
+			socketClosePromise,
+			socketCloseTimeout,
+		]);
+
+		t.true(socketClosed);
+		t.true(queuedSocket.destroyed);
+	} finally {
+		agent.destroy();
+
+		for (const socket of sockets) {
+			socket.destroy();
+		}
+
+		await closeServer(server);
 	}
 });
 
@@ -1714,6 +1875,16 @@ test('http2 session pool distinguishes lookup function identity', async t => {
 			});
 		});
 
+		if (host === '::1') {
+			const actualPort = await listenOnIpv6Loopback(server, port);
+
+			if (actualPort === undefined) {
+				return undefined;
+			}
+
+			return {server, sessions};
+		}
+
 		await new Promise<void>(resolve => {
 			server.listen(port ?? 0, host, resolve);
 		});
@@ -1722,8 +1893,19 @@ test('http2 session pool distinguishes lookup function identity', async t => {
 	};
 
 	const ipv4Server = await createServer('127.0.0.1');
+	if (ipv4Server === undefined) {
+		throw new Error('IPv4 loopback is not available');
+	}
+
 	const {port} = ipv4Server.server.address() as net.AddressInfo;
 	const ipv6Server = await createServer('::1', port);
+
+	if (ipv6Server === undefined) {
+		t.pass('IPv6 loopback is not available');
+		await closeServer(ipv4Server.server);
+		return;
+	}
+
 	const createLookup = (address: string, family: 4 | 6) => ((_hostname: string, options: any, callback: any) => {
 		if (options.all) {
 			callback(null, [{address, family}]);
@@ -1761,26 +1943,8 @@ test('http2 session pool distinguishes lookup function identity', async t => {
 			session.destroy();
 		}
 
-		await new Promise<void>((resolve, reject) => {
-			ipv6Server.server.close(error => {
-				if (error) {
-					reject(error);
-					return;
-				}
-
-				resolve();
-			});
-		});
-		await new Promise<void>((resolve, reject) => {
-			ipv4Server.server.close(error => {
-				if (error) {
-					reject(error);
-					return;
-				}
-
-				resolve();
-			});
-		});
+		await closeServer(ipv6Server.server);
+		await closeServer(ipv4Server.server);
 	}
 });
 
@@ -1884,9 +2048,13 @@ test('http2 ALPN protocol cache distinguishes lookup function identity', async t
 		response.end('http1');
 	});
 
-	await new Promise<void>(resolve => {
-		http1Server.listen(port, '::1', resolve);
-	});
+	const ipv6Port = await listenOnIpv6Loopback(http1Server, port);
+
+	if (ipv6Port === undefined) {
+		t.pass('IPv6 loopback is not available');
+		await closeServer(http2Server);
+		return;
+	}
 
 	const createLookup = (address: string, family: 4 | 6) => ((_hostname: string, options: any, callback: any) => {
 		if (options.all) {
@@ -1920,26 +2088,8 @@ test('http2 ALPN protocol cache distinguishes lookup function identity', async t
 			dnsLookup: createLookup('::1', 6),
 		})).body, 'http1');
 	} finally {
-		await new Promise<void>((resolve, reject) => {
-			http1Server.close(error => {
-				if (error) {
-					reject(error);
-					return;
-				}
-
-				resolve();
-			});
-		});
-		await new Promise<void>((resolve, reject) => {
-			http2Server.close(error => {
-				if (error) {
-					reject(error);
-					return;
-				}
-
-				resolve();
-			});
-		});
+		await closeServer(http1Server);
+		await closeServer(http2Server);
 	}
 });
 
@@ -1970,9 +2120,13 @@ test('http2 ALPN protocol cache distinguishes DNS lookup IP family', async t => 
 		response.end('http1');
 	});
 
-	await new Promise<void>(resolve => {
-		http1Server.listen(port, '::1', resolve);
-	});
+	const ipv6Port = await listenOnIpv6Loopback(http1Server, port);
+
+	if (ipv6Port === undefined) {
+		t.pass('IPv6 loopback is not available');
+		await closeServer(http2Server);
+		return;
+	}
 
 	const dnsLookup = ((_hostname: string, options: any, callback: any) => {
 		const family = options.family === 6 ? 6 : 4;
@@ -2010,26 +2164,8 @@ test('http2 ALPN protocol cache distinguishes DNS lookup IP family', async t => 
 			dnsLookupIpVersion: 6 as const,
 		})).body, 'http1');
 	} finally {
-		await new Promise<void>((resolve, reject) => {
-			http1Server.close(error => {
-				if (error) {
-					reject(error);
-					return;
-				}
-
-				resolve();
-			});
-		});
-		await new Promise<void>((resolve, reject) => {
-			http2Server.close(error => {
-				if (error) {
-					reject(error);
-					return;
-				}
-
-				resolve();
-			});
-		});
+		await closeServer(http1Server);
+		await closeServer(http2Server);
 	}
 });
 

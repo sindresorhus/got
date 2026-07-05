@@ -7,6 +7,7 @@ import {
 } from 'node:http';
 import {generateKeyPairSync} from 'node:crypto';
 import type {LookupFunction} from 'node:net';
+import tls from 'node:tls';
 import test from 'ava';
 import is from '@sindresorhus/is';
 import type {Handler} from 'express';
@@ -248,6 +249,32 @@ test('HTTP/2 session keys distinguish opaque TLS key objects', t => {
 	t.not(
 		agent.normalizeOptions(origin, createRequestOptions(firstKeyPair.privateKey)),
 		agent.normalizeOptions(origin, createRequestOptions(secondKeyPair.privateKey)),
+	);
+});
+
+test('HTTP/2 session keys distinguish secure contexts', t => {
+	const agent = new Http2Agent();
+	const origin = new URL('https://example.com');
+	const firstContext = tls.createSecureContext();
+	const secondContext = tls.createSecureContext();
+
+	t.is(
+		agent.normalizeOptions(origin, {secureContext: firstContext}),
+		agent.normalizeOptions(origin, {secureContext: firstContext}),
+	);
+	t.not(
+		agent.normalizeOptions(origin, {secureContext: firstContext}),
+		agent.normalizeOptions(origin, {secureContext: secondContext}),
+	);
+});
+
+test('HTTP/2 session keys distinguish secure protocols', t => {
+	const agent = new Http2Agent();
+	const origin = new URL('https://example.com');
+
+	t.not(
+		agent.normalizeOptions(origin, {secureProtocol: 'TLS_method'}),
+		agent.normalizeOptions(origin, {secureProtocol: 'TLSv1_2_method'}),
 	);
 });
 
