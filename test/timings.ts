@@ -1,9 +1,59 @@
 import http from 'node:http';
+import http2, {type ServerHttp2Stream} from 'node:http2';
 import {promises as dnsPromises} from 'node:dns';
+import type net from 'node:net';
 import test from 'ava';
+import pify from 'pify';
+import pem from 'pem';
 import got from '../source/index.js';
 import DnsCache from '../source/core/utils/dns-cache.js';
 import withServer from './helpers/with-server.js';
+import type {CreateCertificate} from './types/pem.js';
+
+const createCertificate = pify(pem.createCertificate as CreateCertificate);
+
+const createHttp2TestServer = async (onStream: (stream: ServerHttp2Stream) => void) => {
+	const certificate = await createCertificate({days: 1, selfSigned: true});
+	const server = http2.createSecureServer({
+		key: certificate.serviceKey,
+		cert: certificate.certificate,
+	});
+	const sessions = new Set<NonNullable<ServerHttp2Stream['session']>>();
+
+	server.on('stream', onStream);
+	server.on('session', session => {
+		sessions.add(session);
+		session.once('close', () => {
+			sessions.delete(session);
+		});
+	});
+
+	await new Promise<void>(resolve => {
+		server.listen(0, resolve);
+	});
+
+	const {port} = server.address() as net.AddressInfo;
+
+	return {
+		url: `https://localhost:${port}`,
+		async close() {
+			for (const session of sessions) {
+				session.destroy();
+			}
+
+			await new Promise<void>((resolve, reject) => {
+				server.close(error => {
+					if (error) {
+						reject(error);
+						return;
+					}
+
+					resolve();
+				});
+			});
+		},
+	};
+};
 
 test('http/1 timings', withServer, async (t, server, got) => {
 	server.get('/', (_request, response) => {
@@ -32,42 +82,53 @@ test('http/1 timings', withServer, async (t, server, got) => {
 });
 
 test('http/2 timings', async t => {
-	// Use a real HTTP/2 server (Google supports HTTP/2)
-	const {timings} = await got('https://www.google.com/', {
-		http2: true,
-		https: {
-			rejectUnauthorized: false,
-		},
+	const server = await createHttp2TestServer(stream => {
+		stream.respond({
+			// eslint-disable-next-line @typescript-eslint/naming-convention
+			':status': 200,
+		});
+		stream.end('ok');
 	});
 
-	// These timings are available even for HTTP/2
-	t.true(timings.start >= 0);
-	t.true(timings.socket! >= 0);
-	t.true(timings.upload! >= 0);
-	t.true(timings.response! >= 0);
-	t.true(timings.end! >= 0);
+	try {
+		const {timings} = await got(server.url, {
+			http2: true,
+			https: {
+				rejectUnauthorized: false,
+			},
+		});
 
-	// These connection timings are unavailable for HTTP/2 (socket is a proxy)
-	// See https://github.com/sindresorhus/got/issues/1958
-	t.is(timings.lookup, undefined);
-	t.is(timings.connect, undefined);
-	t.is(timings.secureConnect, undefined);
+		// These timings are available even for HTTP/2
+		t.true(timings.start >= 0);
+		t.true(timings.socket! >= 0);
+		t.true(timings.upload! >= 0);
+		t.true(timings.response! >= 0);
+		t.true(timings.end! >= 0);
 
-	const {phases} = timings;
+		// These connection timings are unavailable for HTTP/2 (socket is a proxy)
+		// See https://github.com/sindresorhus/got/issues/1958
+		t.is(timings.lookup, undefined);
+		t.is(timings.connect, undefined);
+		t.is(timings.secureConnect, undefined);
 
-	// Available phases
-	t.true(phases.wait! >= 0);
-	t.true(phases.firstByte! >= 0);
-	t.true(phases.download! >= 0);
-	t.true(phases.total! >= 0);
+		const {phases} = timings;
 
-	// Unavailable phases (due to missing connection timings)
-	t.is(phases.dns, undefined);
-	t.is(phases.tcp, undefined);
-	t.is(phases.tls, undefined);
-	// Most importantly: phases.request should be undefined, NOT NaN
-	t.is(phases.request, undefined);
-	t.false(Number.isNaN(phases.request));
+		// Available phases
+		t.true(phases.wait! >= 0);
+		t.true(phases.firstByte! >= 0);
+		t.true(phases.download! >= 0);
+		t.true(phases.total! >= 0);
+
+		// Unavailable phases (due to missing connection timings)
+		t.is(phases.dns, undefined);
+		t.is(phases.tcp, undefined);
+		t.is(phases.tls, undefined);
+		// Most importantly: phases.request should be undefined, NOT NaN
+		t.is(phases.request, undefined);
+		t.false(Number.isNaN(phases.request));
+	} finally {
+		await server.close();
+	}
 });
 
 test('timings.end is set when stream is destroyed before completion', withServer, async (t, server, got) => {

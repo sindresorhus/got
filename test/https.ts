@@ -1,18 +1,65 @@
 import http2, {type ServerHttp2Stream} from 'node:http2';
-import type net from 'node:net';
+import https from 'node:https';
+import net, {type LookupFunction} from 'node:net';
 import process from 'node:process';
+import {setTimeout as delay} from 'node:timers/promises';
 import tls, {type DetailedPeerCertificate} from 'node:tls';
 import test from 'ava';
 import {pEvent} from 'p-event';
 import pify from 'pify';
 import pem from 'pem';
-import got from '../source/index.js';
+import got, {type NativeRequestOptions, type NormalizedOptions} from '../source/index.js';
 import {withHttpsServer} from './helpers/with-server.js';
 import type {CreatePrivateKey, CreateCsr, CreateCertificate} from './types/pem.js';
 
 const createPrivateKey = pify(pem.createPrivateKey as CreatePrivateKey);
 const createCsr = pify(pem.createCSR as CreateCsr);
 const createCertificate = pify(pem.createCertificate as CreateCertificate);
+
+const createHttp2TestServer = async (onStream: (stream: ServerHttp2Stream, headers: http2.IncomingHttpHeaders) => void) => {
+	const certificate = await createCertificate({days: 1, selfSigned: true});
+	const server = http2.createSecureServer({
+		key: certificate.serviceKey,
+		cert: certificate.certificate,
+	});
+	const sessions = new Set<NonNullable<ServerHttp2Stream['session']>>();
+
+	server.on('stream', onStream);
+	server.on('session', session => {
+		sessions.add(session);
+		session.once('close', () => {
+			sessions.delete(session);
+		});
+	});
+
+	await new Promise<void>(resolve => {
+		server.listen(0, resolve);
+	});
+
+	const {port} = server.address() as net.AddressInfo;
+
+	return {
+		server,
+		sessions,
+		url: `https://localhost:${port}`,
+		async close() {
+			for (const session of sessions) {
+				session.destroy();
+			}
+
+			await new Promise<void>((resolve, reject) => {
+				server.close(error => {
+					if (error) {
+						reject(error);
+						return;
+					}
+
+					resolve();
+				});
+			});
+		},
+	};
+};
 
 test('https request without ca', withHttpsServer(), async (t, server, got) => {
 	server.get('/', (_request, response) => {
@@ -164,23 +211,565 @@ test('http2', withHttpsServer(), async (t, server, got) => {
 		response.json({method: 'GET', data: 'test'});
 	});
 
-	const promise = got({
+	const {statusCode, body} = await got({
 		http2: true,
 	});
 
-	try {
-		const {statusCode, body} = await promise;
-		await promise.json();
+	t.is(statusCode, 200);
+	t.is(typeof body, 'string');
+});
 
-		t.is(statusCode, 200);
-		t.is(typeof body, 'string');
-	} catch (error: any) {
-		if (!error.message.includes('install Node.js')) {
-			throw error;
+test('http2 uses HTTP/2 when ALPN selects h2', async t => {
+	const server = await createHttp2TestServer(stream => {
+		stream.respond({
+			// eslint-disable-next-line @typescript-eslint/naming-convention
+			':status': 200,
+			'x-protocol': stream.session!.alpnProtocol,
+		});
+		stream.end('ok');
+	});
+
+	try {
+		const response = await got(server.url, {
+			http2: true,
+			https: {
+				rejectUnauthorized: false,
+			},
+		});
+
+		t.is(response.body, 'ok');
+		t.is(response.headers['x-protocol'], 'h2');
+	} finally {
+		await server.close();
+	}
+});
+
+test('http2 sends RFC 9113 request pseudo-headers', async t => {
+	const server = await createHttp2TestServer((stream, headers) => {
+		stream.respond({
+			// eslint-disable-next-line @typescript-eslint/naming-convention
+			':status': 200,
+			'content-type': 'application/json',
+		});
+		stream.end(JSON.stringify({
+			authority: headers[':authority'],
+			method: headers[':method'],
+			path: headers[':path'],
+			scheme: headers[':scheme'],
+			host: headers.host,
+		}));
+	});
+
+	try {
+		const body = await got(`${server.url}/path?query=value`, {
+			http2: true,
+			https: {
+				rejectUnauthorized: false,
+			},
+		}).json<Record<string, string>>();
+
+		const {port} = new URL(server.url);
+		t.like(body, {
+			authority: `localhost:${port}`,
+			method: 'GET',
+			path: '/path?query=value',
+			scheme: 'https',
+		});
+		t.false(Object.hasOwn(body, 'host'));
+	} finally {
+		await server.close();
+	}
+});
+
+test('http2 strips HTTP/1.x connection-specific request headers', async t => {
+	const server = await createHttp2TestServer((stream, headers) => {
+		stream.respond({
+			// eslint-disable-next-line @typescript-eslint/naming-convention
+			':status': 200,
+			'content-type': 'application/json',
+		});
+		stream.end(JSON.stringify(headers));
+	});
+
+	try {
+		const headers = await got(server.url, {
+			http2: true,
+			https: {
+				rejectUnauthorized: false,
+			},
+			headers: {
+				connection: 'keep-alive',
+				'http2-settings': 'anything',
+				'keep-alive': 'timeout=5',
+				'proxy-connection': 'keep-alive',
+				'transfer-encoding': 'chunked',
+				upgrade: 'websocket',
+				te: 'trailers',
+			},
+		}).json<Record<string, string>>();
+
+		t.false(Object.hasOwn(headers, 'connection'));
+		t.false(Object.hasOwn(headers, 'http2-settings'));
+		t.false(Object.hasOwn(headers, 'keep-alive'));
+		t.false(Object.hasOwn(headers, 'proxy-connection'));
+		t.false(Object.hasOwn(headers, 'transfer-encoding'));
+		t.false(Object.hasOwn(headers, 'upgrade'));
+		t.is(headers.te, 'trailers');
+
+		const headersWithInvalidTe = await got(server.url, {
+			http2: true,
+			https: {
+				rejectUnauthorized: false,
+			},
+			headers: {
+				te: 'gzip',
+			},
+		}).json<Record<string, string>>();
+
+		t.false(Object.hasOwn(headersWithInvalidTe, 'te'));
+	} finally {
+		await server.close();
+	}
+});
+
+test('http2 falls back to HTTP/1.1 when ALPN does not select h2', withHttpsServer(), async (t, server, got) => {
+	server.get('/', (request, response) => {
+		response.end(request.httpVersion);
+	});
+
+	const {body} = await got({
+		http2: true,
+	});
+
+	t.is(body, '1.1');
+});
+
+test('http2 supports GET body when allowGetBody is true', async t => {
+	const server = await createHttp2TestServer(stream => {
+		let body = '';
+		stream.setEncoding('utf8');
+		stream.on('data', chunk => {
+			body += String(chunk);
+		});
+		stream.on('end', () => {
+			stream.respond({
+				// eslint-disable-next-line @typescript-eslint/naming-convention
+				':status': 200,
+			});
+			stream.end(body);
+		});
+	});
+
+	try {
+		const {body} = await got.get(server.url, {
+			http2: true,
+			body: 'hello',
+			allowGetBody: true,
+			https: {
+				rejectUnauthorized: false,
+			},
+		});
+
+		t.is(body, 'hello');
+	} finally {
+		await server.close();
+	}
+});
+
+test('http2 retires sessions after GOAWAY', async t => {
+	let streamCount = 0;
+	let firstSession: NonNullable<ServerHttp2Stream['session']> | undefined;
+	let secondSession: NonNullable<ServerHttp2Stream['session']> | undefined;
+	let firstSessionClose: Promise<unknown> | undefined;
+	const server = await createHttp2TestServer(stream => {
+		streamCount++;
+		stream.respond({
+			// eslint-disable-next-line @typescript-eslint/naming-convention
+			':status': 200,
+		});
+		stream.end(String(streamCount));
+
+		if (streamCount === 1) {
+			firstSession = stream.session!;
+			firstSessionClose = pEvent(firstSession, 'close');
+			queueMicrotask(() => {
+				stream.session!.goaway();
+				stream.session!.close();
+			});
+		} else {
+			secondSession = stream.session!;
 		}
+	});
+
+	try {
+		const options = {
+			http2: true,
+			https: {
+				rejectUnauthorized: false,
+			},
+		};
+
+		t.is((await got(server.url, options)).body, '1');
+		await firstSessionClose;
+		t.is((await got(server.url, options)).body, '2');
+		t.not(firstSession, secondSession);
+	} finally {
+		await server.close();
+	}
+});
+
+test('http2 sends request trailers', async t => {
+	let receivedTrailers: http2.IncomingHttpHeaders | undefined;
+	const server = await createHttp2TestServer(stream => {
+		stream.on('trailers', trailers => {
+			receivedTrailers = trailers;
+		});
+		stream.on('end', () => {
+			stream.respond({
+				// eslint-disable-next-line @typescript-eslint/naming-convention
+				':status': 200,
+			});
+			stream.end('ok');
+		});
+		stream.resume();
+	});
+
+	async function * body() {
+		await delay(10);
+		yield 'hello';
 	}
 
-	t.pass();
+	try {
+		await got.post(server.url, {
+			http2: true,
+			body: body(),
+			https: {
+				rejectUnauthorized: false,
+			},
+		}).on('request', request => {
+			request.addTrailers({
+				'x-checksum': 'abc',
+			});
+		});
+
+		t.is(receivedTrailers?.['x-checksum'], 'abc');
+	} finally {
+		await server.close();
+	}
+});
+
+test('http2 supports abort signals', async t => {
+	const server = await createHttp2TestServer(stream => {
+		stream.resume();
+	});
+	const controller = new AbortController();
+
+	try {
+		const promise = got(server.url, {
+			http2: true,
+			signal: controller.signal,
+			https: {
+				rejectUnauthorized: false,
+			},
+		});
+
+		controller.abort();
+
+		await t.throwsAsync(promise, {
+			code: 'ERR_ABORTED',
+		});
+	} finally {
+		await server.close();
+	}
+});
+
+test('http2 abort closes in-flight ALPN probe', async t => {
+	const sockets = new Set<net.Socket>();
+	const server = net.createServer(socket => {
+		sockets.add(socket);
+		socket.once('close', () => {
+			sockets.delete(socket);
+		});
+	});
+
+	await new Promise<void>(resolve => {
+		server.listen(0, '127.0.0.1', resolve);
+	});
+
+	try {
+		const {port} = server.address() as net.AddressInfo;
+		const controller = new AbortController();
+		const alpnProtocols = 'ALPNProtocols';
+		let clientSocket: tls.TLSSocket | undefined;
+		const socketPromise = pEvent(server, 'connection') as Promise<net.Socket>;
+		const promise = got(`https://127.0.0.1:${port}`, {
+			http2: true,
+			signal: controller.signal,
+			createConnection() {
+				clientSocket = tls.connect(port, '127.0.0.1', {
+					[alpnProtocols]: ['h2', 'http/1.1'],
+					rejectUnauthorized: false,
+					servername: 'localhost',
+				});
+
+				return clientSocket;
+			},
+			retry: {
+				limit: 0,
+			},
+			https: {
+				rejectUnauthorized: false,
+			},
+		});
+		const rejectionPromise = (async (): Promise<NodeJS.ErrnoException> => {
+			try {
+				await promise;
+				t.fail('Expected request to abort');
+			} catch (error: unknown) {
+				return error as NodeJS.ErrnoException;
+			}
+
+			throw new Error('Expected request to abort');
+		})();
+		await socketPromise;
+		const closePromise = pEvent(clientSocket!, 'close');
+
+		controller.abort();
+
+		const error = await rejectionPromise;
+		t.is(error.code, 'ERR_ABORTED');
+		await closePromise;
+		t.true(clientSocket!.destroyed);
+	} finally {
+		for (const socket of sockets) {
+			socket.destroy();
+		}
+
+		await new Promise<void>((resolve, reject) => {
+			server.close(error => {
+				if (error) {
+					reject(error);
+					return;
+				}
+
+				resolve();
+			});
+		});
+	}
+});
+
+test('http2 supports explicit h2session option', async t => {
+	const server = await createHttp2TestServer(stream => {
+		stream.respond({
+			// eslint-disable-next-line @typescript-eslint/naming-convention
+			':status': 200,
+		});
+		stream.end('ok');
+	});
+	const session = http2.connect(server.url, {
+		rejectUnauthorized: false,
+	});
+
+	try {
+		const {body} = await got(server.url, {
+			http2: true,
+			hooks: {
+				beforeRequest: [
+					(options: NormalizedOptions) => {
+						options.h2session = session;
+					},
+				],
+			},
+			https: {
+				rejectUnauthorized: false,
+			},
+		});
+
+		t.is(body, 'ok');
+		t.false(session.destroyed);
+	} finally {
+		session.destroy();
+		await server.close();
+	}
+});
+
+test('http2 supports h2c with explicit h2session option', async t => {
+	const server = http2.createServer();
+
+	server.on('stream', (stream: ServerHttp2Stream, headers) => {
+		stream.respond({
+			// eslint-disable-next-line @typescript-eslint/naming-convention
+			':status': 200,
+			'content-type': 'application/json',
+		});
+		stream.end(JSON.stringify({
+			path: headers[':path'],
+			scheme: headers[':scheme'],
+		}));
+	});
+
+	await new Promise<void>(resolve => {
+		server.listen(0, resolve);
+	});
+
+	const {port} = server.address() as net.AddressInfo;
+	const url = `http://localhost:${port}/h2c`;
+	const session = http2.connect(`http://localhost:${port}`);
+
+	try {
+		const {body} = await got(url, {
+			http2: true,
+			hooks: {
+				beforeRequest: [
+					(options: NormalizedOptions) => {
+						options.h2session = session;
+					},
+				],
+			},
+		});
+
+		t.deepEqual(JSON.parse(body) as Record<string, string>, {
+			path: '/h2c',
+			scheme: 'http',
+		});
+	} finally {
+		session.destroy();
+
+		await new Promise<void>((resolve, reject) => {
+			server.close(error => {
+				if (error) {
+					reject(error);
+					return;
+				}
+
+				resolve();
+			});
+		});
+	}
+});
+
+test('http2 supports IPv6 h2c URLs with explicit h2session option', async t => {
+	const server = http2.createServer((request, response) => {
+		response.end(request.url);
+	});
+
+	let port: number;
+
+	try {
+		port = await new Promise<number>((resolve, reject) => {
+			server.once('error', reject);
+			server.listen(0, '::1', () => {
+				server.off('error', reject);
+				resolve((server.address() as net.AddressInfo).port);
+			});
+		});
+	} catch (error: any) {
+		if (error.code === 'EAFNOSUPPORT' || error.code === 'EADDRNOTAVAIL') {
+			t.pass('IPv6 loopback is not available');
+			return;
+		}
+
+		throw error;
+	}
+
+	const url = `http://[::1]:${port}/h2c-ipv6`;
+	const session = http2.connect(`http://[::1]:${port}`);
+
+	try {
+		const {body} = await got(url, {
+			http2: true,
+			hooks: {
+				beforeRequest: [
+					(options: NormalizedOptions) => {
+						options.h2session = session;
+					},
+				],
+			},
+		});
+
+		t.is(body, '/h2c-ipv6');
+	} finally {
+		session.destroy();
+
+		await new Promise<void>((resolve, reject) => {
+			server.close(error => {
+				if (error) {
+					reject(error);
+					return;
+				}
+
+				resolve();
+			});
+		});
+	}
+});
+
+test('http2 supports IPv6 HTTPS authorities', async t => {
+	const certificate = await createCertificate({days: 1, selfSigned: true});
+	const server = http2.createSecureServer({
+		key: certificate.serviceKey,
+		cert: certificate.certificate,
+	});
+	const sessions = new Set<http2.ServerHttp2Session>();
+
+	server.on('session', session => {
+		sessions.add(session);
+		session.once('close', () => {
+			sessions.delete(session);
+		});
+	});
+	server.on('stream', (stream: ServerHttp2Stream, headers) => {
+		stream.respond({
+			// eslint-disable-next-line @typescript-eslint/naming-convention
+			':status': 200,
+		});
+		stream.end(String(headers[':authority']));
+	});
+
+	let port: number;
+
+	try {
+		port = await new Promise<number>((resolve, reject) => {
+			server.once('error', reject);
+			server.listen(0, '::1', () => {
+				server.off('error', reject);
+				resolve((server.address() as net.AddressInfo).port);
+			});
+		});
+	} catch (error: any) {
+		if (error.code === 'EAFNOSUPPORT' || error.code === 'EADDRNOTAVAIL') {
+			t.pass('IPv6 loopback is not available');
+			return;
+		}
+
+		throw error;
+	}
+
+	try {
+		const {body} = await got(`https://[::1]:${port}`, {
+			http2: true,
+			https: {
+				rejectUnauthorized: false,
+			},
+		});
+
+		t.is(body, `[::1]:${port}`);
+	} finally {
+		for (const session of sessions) {
+			session.destroy();
+		}
+
+		await new Promise<void>((resolve, reject) => {
+			server.close(error => {
+				if (error) {
+					reject(error);
+					return;
+				}
+
+				resolve();
+			});
+		});
+	}
 });
 
 test('http2 rejects pseudo-headers in request headers', async t => {
@@ -241,55 +830,502 @@ test('http2 connection reuse with default agent', withHttpsServer(), async (t, s
 		response.status(201).end('Created');
 	});
 
-	try {
-		const response1 = await got('200', {http2: true});
-		const response2 = await got('201', {http2: true});
+	const response1 = await got('200', {http2: true});
+	const response2 = await got('201', {http2: true});
 
-		t.is(response1.statusCode, 200);
-		t.is(response2.statusCode, 201);
-	} catch (error: any) {
-		if (!error.message.includes('install Node.js')) {
-			throw error;
-		}
-	}
-
-	t.pass();
+	t.is(response1.statusCode, 200);
+	t.is(response2.statusCode, 201);
 });
 
-test('http2 connection reuse with custom agent', withHttpsServer(), async (t, server, got) => {
-	server.get('/200', (_request, response) => {
-		response.status(200).end('OK');
+test('http2 agent false reuses the ALPN socket for the current request', async t => {
+	let secureConnectionCount = 0;
+	let sessionClose: Promise<unknown> | undefined;
+	const server = await createHttp2TestServer(stream => {
+		stream.respond({
+			// eslint-disable-next-line @typescript-eslint/naming-convention
+			':status': 200,
+		});
+		stream.end('ok');
 	});
 
-	server.get('/201', (_request, response) => {
-		response.status(201).end('Created');
+	server.server.on('secureConnection', () => {
+		secureConnectionCount++;
+	});
+	server.server.once('session', session => {
+		sessionClose = pEvent(session, 'close');
 	});
 
 	try {
-		const {default: http2wrapper} = await import('http2-wrapper');
-		const customAgent = new http2wrapper.Agent({maxEmptySessions: 5});
-
-		const response1 = await got('200', {
+		const {body} = await got(server.url, {
 			http2: true,
-			agent: {http2: customAgent},
+			agent: {
+				http2: false,
+			},
+			https: {
+				rejectUnauthorized: false,
+			},
 		});
 
-		const response2 = await got('201', {
-			http2: true,
-			agent: {http2: customAgent},
-		});
+		t.is(body, 'ok');
+		t.is(secureConnectionCount, 1);
+		await sessionClose;
+		t.is(server.sessions.size, 0);
+	} finally {
+		await server.close();
+	}
+});
 
-		t.is(response1.statusCode, 200);
-		t.is(response2.statusCode, 201);
-
-		customAgent.destroy();
-	} catch (error: any) {
-		if (!error.message.includes('install Node.js')) {
-			throw error;
+test('http2 abort closes only the affected stream', async t => {
+	const server = await createHttp2TestServer((stream, headers) => {
+		if (headers[':path'] === '/slow') {
+			stream.resume();
+			return;
 		}
+
+		stream.respond({
+			// eslint-disable-next-line @typescript-eslint/naming-convention
+			':status': 200,
+		});
+		stream.end('ok');
+	});
+	const session = http2.connect(server.url, {
+		rejectUnauthorized: false,
+	});
+	const controller = new AbortController();
+
+	try {
+		const options = {
+			http2: true,
+			hooks: {
+				beforeRequest: [
+					(options: NormalizedOptions) => {
+						options.h2session = session;
+					},
+				],
+			},
+			https: {
+				rejectUnauthorized: false,
+			},
+		};
+		const slowRequest = got(`${server.url}/slow`, {
+			...options,
+			signal: controller.signal,
+		});
+		const fastRequest = got(`${server.url}/fast`, options);
+
+		controller.abort();
+
+		await t.throwsAsync(slowRequest, {
+			code: 'ERR_ABORTED',
+		});
+		t.is((await fastRequest).body, 'ok');
+		t.false(session.destroyed);
+	} finally {
+		session.destroy();
+		await server.close();
+	}
+});
+
+test('http2 ALPN uses createConnection', async t => {
+	let createConnectionCount = 0;
+	const server = await createHttp2TestServer(stream => {
+		stream.respond({
+			// eslint-disable-next-line @typescript-eslint/naming-convention
+			':status': 200,
+		});
+		stream.end('ok');
+	});
+
+	try {
+		const {port} = new URL(server.url);
+		const {body} = await got(`https://example.invalid:${port}`, {
+			http2: true,
+			agent: {
+				http2: false,
+			},
+			createConnection(options) {
+				createConnectionCount++;
+				const alpnProtocols = 'ALPNProtocols';
+
+				return tls.connect(Number(options.port), 'localhost', {
+					[alpnProtocols]: ['h2', 'http/1.1'],
+					rejectUnauthorized: false,
+					servername: 'localhost',
+				});
+			},
+			https: {
+				rejectUnauthorized: false,
+			},
+		});
+
+		t.is(body, 'ok');
+		t.is(createConnectionCount, 1);
+	} finally {
+		await server.close();
+	}
+});
+
+test('http2 ALPN createConnection does not reuse pooled session', async t => {
+	const firstServer = await createHttp2TestServer(stream => {
+		stream.respond({
+			// eslint-disable-next-line @typescript-eslint/naming-convention
+			':status': 200,
+		});
+		stream.end('first');
+	});
+	let secondSessionClose: Promise<unknown> | undefined;
+	const secondServer = await createHttp2TestServer(stream => {
+		secondSessionClose = pEvent(stream.session!, 'close');
+		stream.respond({
+			// eslint-disable-next-line @typescript-eslint/naming-convention
+			':status': 200,
+		});
+		stream.end('second');
+	});
+
+	try {
+		const firstUrl = firstServer.url;
+		const secondPort = new URL(secondServer.url).port;
+
+		t.is((await got(firstUrl, {
+			http2: true,
+			https: {
+				rejectUnauthorized: false,
+			},
+		})).body, 'first');
+
+		t.is((await got(firstUrl, {
+			http2: true,
+			createConnection() {
+				const alpnProtocols = 'ALPNProtocols';
+
+				return tls.connect(Number(secondPort), 'localhost', {
+					[alpnProtocols]: ['h2', 'http/1.1'],
+					rejectUnauthorized: false,
+					servername: 'localhost',
+				});
+			},
+			https: {
+				rejectUnauthorized: false,
+			},
+		})).body, 'second');
+
+		await secondSessionClose;
+
+		t.is((await got(firstUrl, {
+			http2: true,
+			https: {
+				rejectUnauthorized: false,
+			},
+		})).body, 'first');
+	} finally {
+		await firstServer.close();
+		await secondServer.close();
+	}
+});
+
+test('http2 rejects when session closes before settings', async t => {
+	const certificate = await createCertificate({days: 1, selfSigned: true});
+	const server = tls.createServer({
+		key: certificate.serviceKey,
+		cert: certificate.certificate,
+		// eslint-disable-next-line @typescript-eslint/naming-convention
+		ALPNProtocols: ['h2'],
+	}, socket => {
+		socket.end();
+	});
+
+	await new Promise<void>(resolve => {
+		server.listen(0, '127.0.0.1', resolve);
+	});
+
+	try {
+		const {port} = server.address() as net.AddressInfo;
+		await t.throwsAsync(got(`https://127.0.0.1:${port}`, {
+			http2: true,
+			retry: {
+				limit: 0,
+			},
+			https: {
+				rejectUnauthorized: false,
+			},
+		}), {
+			code: 'ECONNRESET',
+			message: 'The server aborted pending request',
+		});
+	} finally {
+		await new Promise<void>((resolve, reject) => {
+			server.close(error => {
+				if (error) {
+					reject(error);
+					return;
+				}
+
+				resolve();
+			});
+		});
+	}
+});
+
+test('http2 ALPN ignores cached protocols when using createConnection', async t => {
+	const http1Server = await new Promise<https.Server>((resolve, reject) => {
+		pem.createCertificate({days: 1, selfSigned: true}, (error, certificate) => {
+			if (error) {
+				reject(error instanceof Error ? error : new Error(String(error)));
+				return;
+			}
+
+			const server = https.createServer({
+				key: certificate.serviceKey,
+				cert: certificate.certificate,
+			}, (_request, response) => {
+				response.end('http1');
+			});
+
+			server.listen(0, () => {
+				resolve(server);
+			});
+		});
+	});
+	const http2Server = await createHttp2TestServer(stream => {
+		stream.respond({
+			// eslint-disable-next-line @typescript-eslint/naming-convention
+			':status': 200,
+		});
+		stream.end('h2');
+	});
+
+	try {
+		const http1Port = (http1Server.address() as net.AddressInfo).port;
+		const http2Port = new URL(http2Server.url).port;
+		const alpnProtocols = 'ALPNProtocols';
+		const url = 'https://example.invalid';
+		const options = {
+			http2: true,
+			createConnection({servername}: NativeRequestOptions) {
+				return tls.connect(http1Port, 'localhost', {
+					[alpnProtocols]: ['h2', 'http/1.1'],
+					rejectUnauthorized: false,
+					servername,
+				});
+			},
+			https: {
+				rejectUnauthorized: false,
+			},
+		};
+
+		t.is((await got(url, options)).body, 'http1');
+		t.is((await got(url, {
+			...options,
+			createConnection({servername}: NativeRequestOptions) {
+				return tls.connect(Number(http2Port), 'localhost', {
+					[alpnProtocols]: ['h2', 'http/1.1'],
+					rejectUnauthorized: false,
+					servername,
+				});
+			},
+		})).body, 'h2');
+	} finally {
+		await new Promise<void>((resolve, reject) => {
+			http1Server.close(error => {
+				if (error) {
+					reject(error);
+					return;
+				}
+
+				resolve();
+			});
+		});
+		await http2Server.close();
+	}
+});
+
+test('http2 ALPN protocol cache evicts old origins', async t => {
+	const certificate = await createCertificate({days: 1, selfSigned: true});
+	const h2Server = http2.createSecureServer({
+		key: certificate.serviceKey,
+		cert: certificate.certificate,
+	});
+
+	h2Server.on('stream', (stream: ServerHttp2Stream) => {
+		stream.respond({
+			// eslint-disable-next-line @typescript-eslint/naming-convention
+			':status': 200,
+		});
+		stream.end('h2');
+	});
+
+	await new Promise<void>(resolve => {
+		h2Server.listen(0, '127.0.0.1', resolve);
+	});
+
+	const {port} = h2Server.address() as net.AddressInfo;
+	const dnsLookup = ((_hostname: string, options: any, callback: any) => {
+		if (options.all) {
+			callback(null, [{address: '127.0.0.1', family: 4}]);
+			return;
+		}
+
+		callback(null, '127.0.0.1', 4);
+	}) as LookupFunction;
+
+	const options = {
+		http2: true,
+		agent: {
+			http2: false as const,
+		},
+		dnsLookup,
+		https: {
+			rejectUnauthorized: false,
+		},
+		retry: {
+			limit: 0,
+		},
+	};
+
+	for (let index = 0; index < 101; index++) {
+		// eslint-disable-next-line no-await-in-loop
+		t.is((await got(`https://cache-${index}.invalid:${port}`, options)).body, 'h2');
 	}
 
-	t.pass();
+	await new Promise<void>((resolve, reject) => {
+		h2Server.close(error => {
+			if (error) {
+				reject(error);
+				return;
+			}
+
+			resolve();
+		});
+	});
+
+	const http1Server = https.createServer({
+		key: certificate.serviceKey,
+		cert: certificate.certificate,
+	}, (_request, response) => {
+		response.end('http1');
+	});
+
+	await new Promise<void>(resolve => {
+		http1Server.listen(port, '127.0.0.1', resolve);
+	});
+
+	try {
+		t.is((await got(`https://cache-0.invalid:${port}`, options)).body, 'http1');
+	} finally {
+		await new Promise<void>((resolve, reject) => {
+			http1Server.close(error => {
+				if (error) {
+					reject(error);
+					return;
+				}
+
+				resolve();
+			});
+		});
+	}
+});
+
+test('http2 ALPN uses the default HTTPS port', async t => {
+	let createConnectionCount = 0;
+	let observedPort: string | number | undefined;
+	const server = await createHttp2TestServer(stream => {
+		stream.respond({
+			// eslint-disable-next-line @typescript-eslint/naming-convention
+			':status': 200,
+		});
+		stream.end('ok');
+	});
+
+	try {
+		const localPort = new URL(server.url).port;
+		const {body} = await got('https://example.com', {
+			http2: true,
+			agent: {
+				http2: false,
+			},
+			createConnection(options) {
+				createConnectionCount++;
+				observedPort = options.port ?? undefined;
+				const alpnProtocols = 'ALPNProtocols';
+
+				return tls.connect(Number(localPort), 'localhost', {
+					[alpnProtocols]: ['h2', 'http/1.1'],
+					rejectUnauthorized: false,
+					servername: 'localhost',
+				});
+			},
+			https: {
+				rejectUnauthorized: false,
+			},
+		});
+
+		t.is(body, 'ok');
+		t.is(createConnectionCount, 1);
+		t.is(observedPort, 443);
+	} finally {
+		await server.close();
+	}
+});
+
+test('http2 ALPN still runs when HTTPS agent is false', async t => {
+	const server = await createHttp2TestServer(stream => {
+		stream.respond({
+			// eslint-disable-next-line @typescript-eslint/naming-convention
+			':status': 200,
+		});
+		stream.end('ok');
+	});
+
+	try {
+		const {body} = await got(server.url, {
+			http2: true,
+			agent: {
+				https: false,
+			},
+			https: {
+				rejectUnauthorized: false,
+			},
+		});
+
+		t.is(body, 'ok');
+	} finally {
+		await server.close();
+	}
+});
+
+test('http2 uses custom HTTPS agent instead of direct ALPN preflight', withHttpsServer(), async (t, server, got) => {
+	server.get('/', (request, response) => {
+		response.end(request.httpVersion);
+	});
+
+	const localPort = new URL(server.url).port;
+	const agent = new https.Agent({
+		lookup(_hostname, options, callback) {
+			if (options.all) {
+				callback(null, [{address: '127.0.0.1', family: 4}]);
+				return;
+			}
+
+			callback(null, '127.0.0.1', 4);
+		},
+	});
+
+	try {
+		const {body} = await got(`https://example.invalid:${localPort}/`, {
+			http2: true,
+			agent: {
+				https: agent,
+			},
+			https: {
+				rejectUnauthorized: false,
+			},
+		});
+
+		t.is(body, '1.1');
+	} finally {
+		agent.destroy();
+	}
 });
 
 test.serial('deprecated `rejectUnauthorized` option', withHttpsServer(), async (t, server, got) => {

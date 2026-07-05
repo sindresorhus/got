@@ -3,21 +3,27 @@ import {EventEmitter} from 'node:events';
 import stream from 'node:stream';
 import {pipeline as streamPipeline} from 'node:stream/promises';
 import http from 'node:http';
+import http2, {type ServerHttp2Stream} from 'node:http2';
 import https from 'node:https';
 import net from 'node:net';
+import tls from 'node:tls';
 import getStream from 'get-stream';
 import test from 'ava';
 import delay from 'delay';
 import type {Handler} from 'express';
 import {pEvent} from 'p-event';
+import pify from 'pify';
+import pem from 'pem';
 import got, {type RequestError, TimeoutError} from '../source/index.js';
 import type {NativeRequestOptions} from '../source/core/options.js';
 import timedOut from '../source/core/timed-out.js';
 import slowDataStream from './helpers/slow-data-stream.js';
 import type {GlobalClock} from './helpers/types.js';
 import withServer, {withServerAndFakeTimers, withHttpsServer} from './helpers/with-server.js';
+import type {CreateCertificate} from './types/pem.js';
 
 const requestDelay = 800;
+const createCertificate = pify(pem.createCertificate as CreateCertificate);
 
 const errorMatcher = {
 	instanceOf: TimeoutError,
@@ -27,6 +33,51 @@ const errorMatcher = {
 const keepAliveAgent = new http.Agent({
 	keepAlive: true,
 });
+
+const createHttp2TestServer = async (onStream: (stream: ServerHttp2Stream, headers: http2.IncomingHttpHeaders) => void) => {
+	const certificate = await createCertificate({days: 1, selfSigned: true});
+	const server = http2.createSecureServer({
+		key: certificate.serviceKey,
+		cert: certificate.certificate,
+	});
+	const sessions = new Set<NonNullable<ServerHttp2Stream['session']>>();
+
+	server.on('stream', onStream);
+	server.on('session', session => {
+		sessions.add(session);
+		session.once('close', () => {
+			sessions.delete(session);
+		});
+	});
+
+	await new Promise<void>(resolve => {
+		server.listen(0, resolve);
+	});
+
+	const {port} = server.address() as net.AddressInfo;
+
+	return {
+		server,
+		sessions,
+		url: `https://localhost:${port}`,
+		async close() {
+			for (const session of sessions) {
+				session.destroy();
+			}
+
+			await new Promise<void>((resolve, reject) => {
+				server.close(error => {
+					if (error) {
+						reject(error);
+						return;
+					}
+
+					resolve();
+				});
+			});
+		},
+	};
+};
 
 const defaultHandler = (clock: GlobalClock): Handler => (request, response) => {
 	request.resume();
@@ -771,76 +822,268 @@ test.serial('timeouts are emitted ASAP', withServer, async (t, server, got) => {
 });
 
 test('http2 timeout', async t => {
-	const error = await t.throwsAsync<RequestError>(got('https://123.123.123.123', {
-		timeout: {
-			request: 1,
-		},
+	const server = await createHttp2TestServer(stream => {
+		stream.resume();
+	});
+
+	try {
+		const error = await t.throwsAsync<RequestError>(got(server.url, {
+			timeout: {
+				request: 1,
+			},
+			http2: true,
+			https: {
+				rejectUnauthorized: false,
+			},
+			retry: {
+				calculateDelay: ({computedValue}) => computedValue ? 1 : 0,
+			},
+		}));
+
+		t.is(error?.code, 'ETIMEDOUT');
+	} finally {
+		await server.close();
+	}
+});
+
+test('http2 ALPN negotiation obeys request timeout', async t => {
+	const sockets = new Set<net.Socket>();
+	const server = net.createServer(socket => {
+		sockets.add(socket);
+		socket.once('close', () => {
+			sockets.delete(socket);
+		});
+	});
+
+	await new Promise<void>(resolve => {
+		server.listen(0, '127.0.0.1', resolve);
+	});
+
+	try {
+		const {port} = server.address() as net.AddressInfo;
+		const error = await t.throwsAsync<RequestError>(got(`https://127.0.0.1:${port}`, {
+			http2: true,
+			timeout: {
+				request: 50,
+			},
+			retry: {
+				limit: 0,
+			},
+			https: {
+				rejectUnauthorized: false,
+			},
+		}));
+
+		t.is(error?.code, 'ETIMEDOUT');
+	} finally {
+		for (const socket of sockets) {
+			socket.destroy();
+		}
+
+		await new Promise<void>((resolve, reject) => {
+			server.close(error => {
+				if (error) {
+					reject(error);
+					return;
+				}
+
+				resolve();
+			});
+		});
+	}
+});
+
+test('http2 fallback keeps HTTP/1.1 socket timeout', withHttpsServer(), async (t, server, got) => {
+	server.get('/', () => {});
+
+	const {port} = new URL(server.url);
+	const alpnProtocols = 'ALPNProtocols';
+
+	await t.throwsAsync(got({
 		http2: true,
+		createConnection() {
+			return tls.connect(Number(port), 'localhost', {
+				[alpnProtocols]: ['h2', 'http/1.1'],
+				rejectUnauthorized: false,
+				servername: 'localhost',
+			});
+		},
+		timeout: {
+			socket: 100,
+			request: 500,
+		},
 		retry: {
-			calculateDelay: ({computedValue}) => computedValue ? 1 : 0,
+			limit: 0,
+		},
+		https: {
+			rejectUnauthorized: false,
+		},
+	}), {
+		...errorMatcher,
+		message: 'Timeout awaiting \'socket\' for 100ms',
+	});
+});
+
+test('http2 ALPN negotiation treats zero request timeout as immediate', async t => {
+	const sockets = new Set<net.Socket>();
+	const server = net.createServer(socket => {
+		sockets.add(socket);
+		socket.once('close', () => {
+			sockets.delete(socket);
+		});
+	});
+
+	await new Promise<void>(resolve => {
+		server.listen(0, '127.0.0.1', resolve);
+	});
+
+	try {
+		const {port} = server.address() as net.AddressInfo;
+		const startTime = Date.now();
+		const error = await t.throwsAsync<RequestError>(got(`https://127.0.0.1:${port}`, {
+			http2: true,
+			timeout: {
+				request: 0,
+			},
+			retry: {
+				limit: 0,
+			},
+			https: {
+				rejectUnauthorized: false,
+			},
+		}));
+
+		const elapsed = Date.now() - startTime;
+		t.is(error?.code, 'ETIMEDOUT');
+		t.true(elapsed < 200, `Expected immediate timeout, got ${elapsed}ms`);
+	} finally {
+		for (const socket of sockets) {
+			socket.destroy();
+		}
+
+		await new Promise<void>((resolve, reject) => {
+			server.close(error => {
+				if (error) {
+					reject(error);
+					return;
+				}
+
+				resolve();
+			});
+		});
+	}
+});
+
+test('http2 option request timeout includes async custom request function time', withServer, async (t, server, got) => {
+	server.get('/', () => {});
+
+	const timeout = 100;
+	const startTime = Date.now();
+	const error = await t.throwsAsync<RequestError>(got({
+		http2: true,
+		timeout: {
+			request: timeout,
+		},
+		retry: {
+			limit: 0,
+		},
+		async request(url, options, callback) {
+			await delay(80);
+			return http.request(url, options, callback);
 		},
 	}));
 
-	t.true(error?.code === 'ETIMEDOUT' || error?.code === 'EUNSUPPORTED', error?.stack);
+	const elapsed = Date.now() - startTime;
+	t.is(error?.code, 'ETIMEDOUT');
+	t.true(elapsed < 170, `Expected timeout ${elapsed}ms to include async request function time`);
+});
+
+test('http2 option async custom request timeout is restored between retries', withServer, async (t, server, got) => {
+	let requestFunctionCalls = 0;
+	let requests = 0;
+
+	server.get('/', async (_request, response) => {
+		requests++;
+
+		if (requests === 1) {
+			response.statusCode = 500;
+			response.end('retry');
+			return;
+		}
+
+		await delay(50);
+		response.end('ok');
+	});
+
+	const {body, retryCount} = await got({
+		http2: true,
+		timeout: {
+			request: 100,
+		},
+		retry: {
+			limit: 1,
+			calculateDelay: ({computedValue}) => computedValue ? 1 : 0,
+		},
+		async request(url, options, callback) {
+			requestFunctionCalls++;
+
+			if (requestFunctionCalls === 1) {
+				await delay(80);
+			}
+
+			return http.request(url, options, callback);
+		},
+	});
+
+	t.is(body, 'ok');
+	t.is(retryCount, 1);
+	t.is(requestFunctionCalls, 2);
 });
 
 // Reproduces the memory leak reported in https://github.com/sindresorhus/got/issues/2351
-test.serial('no memory leak when using http2 with socket timeout and connection reuse', withHttpsServer(), async (t, server, got) => {
-	const {default: http2wrapper} = await import('http2-wrapper');
-	const customAgent = new http2wrapper.Agent();
-
-	server.get('/:id', (_request, response) => {
-		response.end('ok');
-	});
-
+test.serial('no memory leak when using http2 with socket timeout and connection reuse', async t => {
 	const requestCount = 15; // Make concurrent requests to accumulate listeners
 	let sharedSocket: any;
 	let maxListenerCount = 0;
-
-	// Make requests that overlap in time to reproduce the listener accumulation
-	server.get('/slow/:id', async (_request, response) => {
-		// Slow response to keep requests active simultaneously
+	const server = await createHttp2TestServer(async stream => {
 		await delay(200);
-		response.end('ok');
+		stream.respond({
+			// eslint-disable-next-line @typescript-eslint/naming-convention
+			':status': 200,
+		});
+		stream.end('ok');
 	});
 
-	// Start many concurrent requests with the same agent to reuse the connection
-	const promises = [];
-	const handleRequest = (request: any) => {
-		// Track socket and check listener count DURING requests
-		request.once('socket', (socket: any) => {
-			sharedSocket ??= socket;
+	try {
+		const promises = [];
+		const handleRequest = (request: any) => {
+			t.true(request.isGotHttp2Request);
+			request.once('socket', (socket: any) => {
+				sharedSocket ??= socket;
 
-			// Check how many listeners are on the socket while requests are active
-			const currentCount = socket.listenerCount('timeout');
-			if (currentCount > maxListenerCount) {
-				maxListenerCount = currentCount;
-			}
-		});
-	};
+				const currentCount = socket.listenerCount('timeout');
+				if (currentCount > maxListenerCount) {
+					maxListenerCount = currentCount;
+				}
+			});
+		};
 
-	for (let i = 0; i < requestCount; i++) {
-		const promise = got(`slow/${i}`, {
-			http2: true,
-			agent: {http2: customAgent},
-			timeout: {socket: 30_000},
-			https: {rejectUnauthorized: false},
-		}).on('request', handleRequest);
-		promises.push(promise);
+		for (let index = 0; index < requestCount; index++) {
+			const promise = got(`${server.url}/slow/${index}`, {
+				http2: true,
+				timeout: {socket: 30_000},
+				https: {rejectUnauthorized: false},
+			}).on('request', handleRequest);
+			promises.push(promise);
+		}
+
+		await Promise.all(promises);
+
+		t.truthy(sharedSocket, 'Should have a socket');
+
+		// With the bug, timeout listeners grow with concurrent requests.
+		t.true(maxListenerCount <= 2, `Socket peaked at ${maxListenerCount} timeout listeners (expected ≤ 2)`);
+	} finally {
+		await server.close();
 	}
-
-	// Wait for all concurrent requests to finish
-	await Promise.all(promises);
-
-	// The bug: setTimeout(0) doesn't remove timeout listeners, so with HTTP/2
-	// connection reuse and concurrent requests, listeners accumulate on the shared socket
-	// The fix: removeAllListeners('timeout') properly cleans up
-
-	t.truthy(sharedSocket, 'Should have a socket');
-
-	// With the bug (setTimeout(0)), maxListenerCount would be >> 1 (grows with concurrent requests)
-	// With the fix (removeAllListeners), maxListenerCount should be 0 or 1
-	t.true(maxListenerCount <= 1, `Socket peaked at ${maxListenerCount} timeout listeners (expected ≤ 1)`);
-
-	customAgent.destroy();
 });

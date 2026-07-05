@@ -1,4 +1,3 @@
-import process from 'node:process';
 import {
 	promisify,
 	inspect,
@@ -17,9 +16,9 @@ import http, {
 } from 'node:http';
 import type {Readable} from 'node:stream';
 import type {Socket, LookupFunction} from 'node:net';
+import type {ClientHttp2Session} from 'node:http2';
 import is, {assert} from '@sindresorhus/is';
 import lowercaseKeys from 'lowercase-keys';
-import http2wrapper, {type ClientHttp2Session} from 'http2-wrapper';
 import type {KeyvStoreAdapter} from 'keyv';
 import type KeyvType from 'keyv';
 import type ResponseLike from 'responselike';
@@ -31,12 +30,11 @@ import type {RequestError} from './errors.js';
 import type {Delays} from './timed-out.js';
 import {getUnixSocketPath} from './utils/is-unix-socket-url.js';
 import DnsCache, {type DnsCacheLookup} from './utils/dns-cache.js';
+import http2Client from './utils/http2-client.js';
 
 type StorageAdapter = KeyvStoreAdapter | KeyvType | Map<unknown, unknown>;
 
 type Promisable<T> = T | Promise<T>;
-
-const [major, minor] = process.versions.node.split('.').map(Number) as [number, number, number];
 
 export type DnsLookupIpVersion = undefined | 4 | 6;
 
@@ -51,7 +49,7 @@ export type RequestFunction = (url: URL, options: NativeRequestOptions, callback
 export type Agents = {
 	http?: HttpAgent | false;
 	https?: HttpsAgent | false;
-	http2?: unknown | false;
+	http2?: false;
 };
 
 export type Headers = Record<string, string | string[] | undefined>;
@@ -1658,7 +1656,6 @@ export default class Options {
 
 	/**
 	Custom request function.
-	The main purpose of this is to [support HTTP2 using a wrapper](https://github.com/szmarczak/http2-wrapper).
 
 	@default http.request | https.request
 	*/
@@ -1673,7 +1670,7 @@ export default class Options {
 	}
 
 	/**
-	An object representing `http`, `https` and `http2` keys for [`http.Agent`](https://nodejs.org/api/http.html#http_class_http_agent), [`https.Agent`](https://nodejs.org/api/https.html#https_class_https_agent) and [`http2wrapper.Agent`](https://github.com/szmarczak/http2-wrapper#new-http2agentoptions) instance.
+	An object representing `http`, `https` and `http2` keys for [`http.Agent`](https://nodejs.org/api/http.html#http_class_http_agent), [`https.Agent`](https://nodejs.org/api/https.html#https_class_https_agent), and Got's internal HTTP/2 session pool.
 	This is necessary because a request to one protocol might redirect to another.
 	In such a scenario, Got will switch over to the right protocol agent for you.
 
@@ -1710,8 +1707,12 @@ export default class Options {
 				throw new TypeError(`Unexpected agent option: ${key}`);
 			}
 
+			const validators = key === 'http2'
+				? [is.undefined, (v: unknown) => v === false]
+				: [is.object, is.undefined, (v: unknown) => v === false];
+
 			// @ts-expect-error - No idea why `value[key]` doesn't work here.
-			assertAny(`agent.${key}`, [is.object, is.undefined, (v: unknown) => v === false], value[key]);
+			assertAny(`agent.${key}`, validators, value[key]);
 		}
 
 		if (this.#merging) {
@@ -2490,13 +2491,11 @@ export default class Options {
 	}
 
 	/**
-	If set to `true`, Got will additionally accept HTTP2 requests.
+	If set to `true`, Got will additionally accept HTTP/2 requests.
 
 	It will choose either HTTP/1.1 or HTTP/2 depending on the ALPN protocol.
 
-	__Note__: This option requires Node.js 15.10.0 or newer as HTTP/2 support on older Node.js versions is very buggy.
-
-	__Note__: Overriding `options.request` will disable HTTP2 support.
+	__Note__: Overriding `options.request` will disable HTTP/2 support.
 
 	@default false
 
@@ -2522,7 +2521,6 @@ export default class Options {
 
 	/**
 	Set this to `true` to allow sending body for the `GET` method.
-	However, the [HTTP/2 specification](https://tools.ietf.org/html/rfc7540#section-8.1.3) says that `An HTTP GET request includes request header fields and no payload body`, therefore when using the HTTP/2 protocol this option will have no effect.
 	This option is only meant to interact with non-compliant servers when you have no other choice.
 
 	__Note__: The [RFC 7231](https://tools.ietf.org/html/rfc7231#section-4.3.1) doesn't specify any particular behavior for the GET method having a payload, therefore __it's considered an [anti-pattern](https://en.wikipedia.org/wiki/Anti-pattern)__.
@@ -3303,7 +3301,7 @@ export default class Options {
 				// If no custom agent.http2 is provided, use the global agent for connection pooling
 				agent = {
 					...internals.agent,
-					http2: internals.agent.http2 ?? http2wrapper.globalAgent,
+					http2: internals.agent.http2 ?? http2Client.globalAgent,
 				};
 			} else {
 				agent = internals.agent.https;
@@ -3374,6 +3372,7 @@ export default class Options {
 			localAddress: internals.localAddress,
 			headers: internals.headers,
 			createConnection: internals.createConnection,
+			signal: internals.http2 ? internals.signal : undefined,
 			timeout: internals.http2 ? getHttp2TimeoutOption(internals) : undefined,
 
 			// HTTP/2 options
@@ -3481,16 +3480,13 @@ export default class Options {
 			return;
 		}
 
+		if (this.#internals.h2session) {
+			return http2Client.auto as RequestFunction;
+		}
+
 		if (url.protocol === 'https:') {
 			if (this.#internals.http2) {
-				if (major < 15 || (major === 15 && minor < 10)) {
-					const error = new Error('To use the `http2` option, install Node.js 15.10.0 or above');
-					(error as NodeJS.ErrnoException).code = 'EUNSUPPORTED';
-
-					throw error;
-				}
-
-				return http2wrapper.auto as RequestFunction;
+				return http2Client.auto as RequestFunction;
 			}
 
 			return https.request;
