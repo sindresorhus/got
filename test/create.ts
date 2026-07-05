@@ -5,6 +5,7 @@ import {
 	type IncomingMessage,
 	type RequestOptions,
 } from 'node:http';
+import {generateKeyPairSync} from 'node:crypto';
 import type {LookupFunction} from 'node:net';
 import test from 'ava';
 import is from '@sindresorhus/is';
@@ -17,6 +18,7 @@ import got, {
 	type OptionsInit,
 	type RequestFunction,
 } from '../source/index.js';
+import {Http2Agent} from '../source/core/utils/http2-client.js';
 import withServer from './helpers/with-server.js';
 
 const echoHeaders: Handler = (request, response) => {
@@ -194,6 +196,59 @@ test('normalizes https.pfx object arrays for native request options', t => {
 		buf: Buffer.from('hello'),
 		passphrase: 'world',
 	}]);
+});
+
+test('normalized https.pfx object arrays keep stable HTTP/2 session keys', t => {
+	const createOptions = (buffer: Uint8Array) => new Options('https://example.com', {
+		http2: true,
+		https: {
+			pfx: [{
+				buffer,
+				passphrase: 'world',
+			}],
+		},
+	});
+	const agent = new Http2Agent();
+	const origin = new URL('https://example.com');
+	const options = createOptions(Buffer.from('hello'));
+	const differentOptions = createOptions(Buffer.from('different'));
+	const createNativeRequestOptions = () => options.createNativeRequestOptions() as Parameters<Http2Agent['normalizeOptions']>[1];
+
+	t.is(
+		agent.normalizeOptions(origin, createNativeRequestOptions()),
+		agent.normalizeOptions(origin, createNativeRequestOptions()),
+	);
+	t.not(
+		agent.normalizeOptions(origin, createNativeRequestOptions()),
+		agent.normalizeOptions(origin, differentOptions.createNativeRequestOptions() as Parameters<Http2Agent['normalizeOptions']>[1]),
+	);
+});
+
+test('HTTP/2 session keys distinguish colon-containing TLS options', t => {
+	const agent = new Http2Agent();
+	const origin = new URL('https://example.com');
+
+	t.not(
+		agent.normalizeOptions(origin, {cert: 'a:b', key: 'c'}),
+		agent.normalizeOptions(origin, {cert: 'a', key: 'b:c'}),
+	);
+});
+
+test('HTTP/2 session keys distinguish opaque TLS key objects', t => {
+	const agent = new Http2Agent();
+	const origin = new URL('https://example.com');
+	const firstKeyPair = generateKeyPairSync('rsa', {modulusLength: 512});
+	const secondKeyPair = generateKeyPairSync('rsa', {modulusLength: 512});
+	const createRequestOptions = (key: typeof firstKeyPair.privateKey) => ({key: [key]}) as unknown as Parameters<Http2Agent['normalizeOptions']>[1];
+
+	t.is(
+		agent.normalizeOptions(origin, createRequestOptions(firstKeyPair.privateKey)),
+		agent.normalizeOptions(origin, createRequestOptions(firstKeyPair.privateKey)),
+	);
+	t.not(
+		agent.normalizeOptions(origin, createRequestOptions(firstKeyPair.privateKey)),
+		agent.normalizeOptions(origin, createRequestOptions(secondKeyPair.privateKey)),
+	);
 });
 
 test('passes DNS cache lookup and IP version to native request options', t => {

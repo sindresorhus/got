@@ -1200,6 +1200,43 @@ test('request timeout aborts slow async custom request function', withServer, as
 	t.true(elapsed < 150, `Expected timeout ${elapsed}ms to happen before custom request resolution`);
 });
 
+test('request timeout destroys late async custom request result', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.end('too late');
+	});
+
+	let lateRequest: http.ClientRequest | undefined;
+	let resolveLateRequest!: () => void;
+	const lateRequestCreated = new Promise<void>(resolve => {
+		resolveLateRequest = resolve;
+	});
+
+	const error = await t.throwsAsync<RequestError>(got({
+		timeout: {
+			request: 50,
+		},
+		retry: {
+			limit: 0,
+		},
+		async request(url, options, callback) {
+			await delay(100);
+			lateRequest = http.request(url, options, callback);
+			resolveLateRequest();
+			return lateRequest;
+		},
+	}));
+
+	t.is(error?.code, 'ETIMEDOUT');
+
+	try {
+		await lateRequestCreated;
+		await delay(20);
+		t.true(lateRequest!.destroyed);
+	} finally {
+		lateRequest?.destroy();
+	}
+});
+
 test('http2 custom request does not receive ALPN timeout', withHttpsServer(), async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.end('ok');

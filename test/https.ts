@@ -1221,6 +1221,76 @@ test('http2 reports reusedSocket for pooled sessions', async t => {
 	}
 });
 
+test('http2 session pool distinguishes checkServerIdentity function identity', async t => {
+	const certificate = await createCertificate({days: 1, selfSigned: true});
+	const server = http2.createSecureServer({
+		key: certificate.serviceKey,
+		cert: certificate.certificate,
+	});
+	const sessions = new Set<http2.ServerHttp2Session>();
+
+	server.on('stream', (stream: ServerHttp2Stream) => {
+		stream.respond({
+			// eslint-disable-next-line @typescript-eslint/naming-convention
+			':status': 200,
+		});
+		stream.end('ok');
+	});
+	server.on('session', session => {
+		sessions.add(session);
+		session.once('close', () => {
+			sessions.delete(session);
+		});
+	});
+
+	await new Promise<void>(resolve => {
+		server.listen(0, 'localhost', resolve);
+	});
+
+	const {port} = server.address() as net.AddressInfo;
+	const url = `https://localhost:${port}`;
+	const createCheckServerIdentity = (error: Error | undefined) => () => error;
+
+	try {
+		const options = {
+			http2: true,
+			https: {
+				certificateAuthority: certificate.certificate,
+				checkServerIdentity: createCheckServerIdentity(undefined),
+			},
+			retry: {
+				limit: 0,
+			},
+		};
+
+		t.is((await got(url, options)).body, 'ok');
+		await t.throwsAsync(got(url, {
+			...options,
+			https: {
+				...options.https,
+				checkServerIdentity: createCheckServerIdentity(new Error('CUSTOM_ERROR')),
+			},
+		}), {
+			message: 'CUSTOM_ERROR',
+		});
+	} finally {
+		for (const session of sessions) {
+			session.destroy();
+		}
+
+		await new Promise<void>((resolve, reject) => {
+			server.close(error => {
+				if (error) {
+					reject(error);
+					return;
+				}
+
+				resolve();
+			});
+		});
+	}
+});
+
 test('http2 does not exceed maxConcurrentStreams on pooled sessions', async t => {
 	const certificate = await createCertificate({days: 1, selfSigned: true});
 	const server = http2.createSecureServer({
@@ -1621,6 +1691,99 @@ test('http2 rejects when session closes before settings', async t => {
 	}
 });
 
+test('http2 session pool distinguishes lookup function identity', async t => {
+	const certificate = await createCertificate({days: 1, selfSigned: true});
+	const createServer = async (host: string, port?: number) => {
+		const server = http2.createSecureServer({
+			key: certificate.serviceKey,
+			cert: certificate.certificate,
+		});
+		const sessions = new Set<http2.ServerHttp2Session>();
+
+		server.on('stream', (stream: ServerHttp2Stream) => {
+			stream.respond({
+				// eslint-disable-next-line @typescript-eslint/naming-convention
+				':status': 200,
+			});
+			stream.end(host);
+		});
+		server.on('session', session => {
+			sessions.add(session);
+			session.once('close', () => {
+				sessions.delete(session);
+			});
+		});
+
+		await new Promise<void>(resolve => {
+			server.listen(port ?? 0, host, resolve);
+		});
+
+		return {server, sessions};
+	};
+
+	const ipv4Server = await createServer('127.0.0.1');
+	const {port} = ipv4Server.server.address() as net.AddressInfo;
+	const ipv6Server = await createServer('::1', port);
+	const createLookup = (address: string, family: 4 | 6) => ((_hostname: string, options: any, callback: any) => {
+		if (options.all) {
+			callback(null, [{address, family}]);
+			return;
+		}
+
+		callback(null, address, family);
+	}) as LookupFunction;
+	const url = `https://lookup-session.invalid:${port}`;
+	const baseOptions = {
+		http2: true,
+		https: {
+			rejectUnauthorized: false,
+		},
+		retry: {
+			limit: 0,
+		},
+	};
+
+	try {
+		t.is((await got(url, {
+			...baseOptions,
+			dnsLookup: createLookup('127.0.0.1', 4),
+		})).body, '127.0.0.1');
+		t.is((await got(url, {
+			...baseOptions,
+			dnsLookup: createLookup('::1', 6),
+		})).body, '::1');
+	} finally {
+		for (const session of ipv6Server.sessions) {
+			session.destroy();
+		}
+
+		for (const session of ipv4Server.sessions) {
+			session.destroy();
+		}
+
+		await new Promise<void>((resolve, reject) => {
+			ipv6Server.server.close(error => {
+				if (error) {
+					reject(error);
+					return;
+				}
+
+				resolve();
+			});
+		});
+		await new Promise<void>((resolve, reject) => {
+			ipv4Server.server.close(error => {
+				if (error) {
+					reject(error);
+					return;
+				}
+
+				resolve();
+			});
+		});
+	}
+});
+
 test('http2 ALPN ignores cached protocols when using createConnection', async t => {
 	const http1Server = await new Promise<https.Server>((resolve, reject) => {
 		pem.createCertificate({days: 1, selfSigned: true}, (error, certificate) => {
@@ -1691,6 +1854,182 @@ test('http2 ALPN ignores cached protocols when using createConnection', async t 
 			});
 		});
 		await http2Server.close();
+	}
+});
+
+test('http2 ALPN protocol cache distinguishes lookup function identity', async t => {
+	const certificate = await createCertificate({days: 1, selfSigned: true});
+	const http2Server = http2.createSecureServer({
+		key: certificate.serviceKey,
+		cert: certificate.certificate,
+	});
+
+	http2Server.on('stream', (stream: ServerHttp2Stream) => {
+		stream.respond({
+			// eslint-disable-next-line @typescript-eslint/naming-convention
+			':status': 200,
+		});
+		stream.end('h2');
+	});
+
+	await new Promise<void>(resolve => {
+		http2Server.listen(0, '127.0.0.1', resolve);
+	});
+
+	const {port} = http2Server.address() as net.AddressInfo;
+	const http1Server = https.createServer({
+		key: certificate.serviceKey,
+		cert: certificate.certificate,
+	}, (_request, response) => {
+		response.end('http1');
+	});
+
+	await new Promise<void>(resolve => {
+		http1Server.listen(port, '::1', resolve);
+	});
+
+	const createLookup = (address: string, family: 4 | 6) => ((_hostname: string, options: any, callback: any) => {
+		if (options.all) {
+			callback(null, [{address, family}]);
+			return;
+		}
+
+		callback(null, address, family);
+	}) as LookupFunction;
+	const url = `https://lookup-alpn.invalid:${port}`;
+	const baseOptions = {
+		http2: true,
+		agent: {
+			http2: false as const,
+		},
+		https: {
+			rejectUnauthorized: false,
+		},
+		retry: {
+			limit: 0,
+		},
+	};
+
+	try {
+		t.is((await got(url, {
+			...baseOptions,
+			dnsLookup: createLookup('127.0.0.1', 4),
+		})).body, 'h2');
+		t.is((await got(url, {
+			...baseOptions,
+			dnsLookup: createLookup('::1', 6),
+		})).body, 'http1');
+	} finally {
+		await new Promise<void>((resolve, reject) => {
+			http1Server.close(error => {
+				if (error) {
+					reject(error);
+					return;
+				}
+
+				resolve();
+			});
+		});
+		await new Promise<void>((resolve, reject) => {
+			http2Server.close(error => {
+				if (error) {
+					reject(error);
+					return;
+				}
+
+				resolve();
+			});
+		});
+	}
+});
+
+test('http2 ALPN protocol cache distinguishes DNS lookup IP family', async t => {
+	const certificate = await createCertificate({days: 1, selfSigned: true});
+	const http2Server = http2.createSecureServer({
+		key: certificate.serviceKey,
+		cert: certificate.certificate,
+	});
+
+	http2Server.on('stream', (stream: ServerHttp2Stream) => {
+		stream.respond({
+			// eslint-disable-next-line @typescript-eslint/naming-convention
+			':status': 200,
+		});
+		stream.end('h2');
+	});
+
+	await new Promise<void>(resolve => {
+		http2Server.listen(0, '127.0.0.1', resolve);
+	});
+
+	const {port} = http2Server.address() as net.AddressInfo;
+	const http1Server = https.createServer({
+		key: certificate.serviceKey,
+		cert: certificate.certificate,
+	}, (_request, response) => {
+		response.end('http1');
+	});
+
+	await new Promise<void>(resolve => {
+		http1Server.listen(port, '::1', resolve);
+	});
+
+	const dnsLookup = ((_hostname: string, options: any, callback: any) => {
+		const family = options.family === 6 ? 6 : 4;
+		const address = family === 6 ? '::1' : '127.0.0.1';
+
+		if (options.all) {
+			callback(null, [{address, family}]);
+			return;
+		}
+
+		callback(null, address, family);
+	}) as LookupFunction;
+	const url = `https://lookup-family.invalid:${port}`;
+	const baseOptions = {
+		http2: true,
+		agent: {
+			http2: false as const,
+		},
+		dnsLookup,
+		https: {
+			rejectUnauthorized: false,
+		},
+		retry: {
+			limit: 0,
+		},
+	};
+
+	try {
+		t.is((await got(url, {
+			...baseOptions,
+			dnsLookupIpVersion: 4 as const,
+		})).body, 'h2');
+		t.is((await got(url, {
+			...baseOptions,
+			dnsLookupIpVersion: 6 as const,
+		})).body, 'http1');
+	} finally {
+		await new Promise<void>((resolve, reject) => {
+			http1Server.close(error => {
+				if (error) {
+					reject(error);
+					return;
+				}
+
+				resolve();
+			});
+		});
+		await new Promise<void>((resolve, reject) => {
+			http2Server.close(error => {
+				if (error) {
+					reject(error);
+					return;
+				}
+
+				resolve();
+			});
+		});
 	}
 });
 

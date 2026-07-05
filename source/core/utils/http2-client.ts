@@ -73,8 +73,12 @@ type AgentObject = {
 	http2?: Http2Agent | false;
 };
 
+type SerializedSessionOption = [string] | [string, unknown];
+
 const maxProtocolCacheSize = 100;
 const protocolCache = new Map<string, string | false>();
+const referenceIds = new WeakMap<object, number>();
+let nextReferenceId = 0;
 const connectionSpecificHeaders = new Set([
 	'connection',
 	'http2-settings',
@@ -127,17 +131,68 @@ const setProtocolCache = (key: string, value: string | false): void => {
 	protocolCache.set(key, value);
 };
 
-const serializeSessionOption = (value: unknown): string => {
-	if (value === undefined) {
-		return '';
+const getReferenceId = (value: object): number => {
+	let referenceId = referenceIds.get(value);
+
+	if (referenceId === undefined) {
+		referenceId = nextReferenceId++;
+		referenceIds.set(value, referenceId);
 	}
 
-	if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean' || typeof value === 'function') {
-		return String(value);
-	}
-
-	return JSON.stringify(value) ?? '';
+	return referenceId;
 };
+
+const isPlainObject = (value: object): value is Record<string, unknown> => {
+	const prototype = Object.getPrototypeOf(value);
+
+	return prototype === Object.prototype || prototype === null;
+};
+
+const serializeSessionOption = (value: unknown): SerializedSessionOption => {
+	if (value === undefined) {
+		return ['undefined'];
+	}
+
+	if (value === null) {
+		return ['null'];
+	}
+
+	if (typeof value === 'function') {
+		return ['function', getReferenceId(value)];
+	}
+
+	if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+		return [typeof value, value];
+	}
+
+	if (typeof value === 'bigint') {
+		return ['bigint', value.toString()];
+	}
+
+	if (typeof value === 'symbol') {
+		return ['symbol', value.description];
+	}
+
+	if (Array.isArray(value)) {
+		return ['array', value.map(item => serializeSessionOption(item))];
+	}
+
+	if (typeof value === 'object') {
+		if (ArrayBuffer.isView(value)) {
+			return ['bytes', Buffer.from(value.buffer, value.byteOffset, value.byteLength).toString('base64')];
+		}
+
+		if (isPlainObject(value)) {
+			return ['object', Object.entries(value).sort(([left], [right]) => left.localeCompare(right)).map(([key, item]) => [key, serializeSessionOption(item)])];
+		}
+
+		return ['object-reference', getReferenceId(value)];
+	}
+
+	return [typeof value];
+};
+
+const serializeSessionOptions = (values: unknown[]): string => JSON.stringify(values.map(value => serializeSessionOption(value)));
 
 const normalizeInput = (
 	input: string | URL | HttpsRequestOptions,
@@ -207,7 +262,15 @@ const getProtocolCacheKey = (options: HttpsRequestOptions): string => {
 	const authority = getAuthority(options);
 	const protocols = ((options as NormalizedRequestOptions).ALPNProtocols ?? ['h2', 'http/1.1']).join(',');
 
-	return `${authority.host}:${protocols}:${options.servername ?? ''}:${options.rejectUnauthorized ?? ''}`;
+	return serializeSessionOptions([
+		authority.host,
+		protocols,
+		options.servername,
+		options.rejectUnauthorized,
+		options.lookup,
+		options.family,
+		options.localAddress,
+	]);
 };
 
 const resolveProtocol = async (
@@ -564,7 +627,7 @@ export class Http2Agent extends EventEmitter {
 	}
 
 	normalizeOptions(origin: URL, options: NormalizedRequestOptions = {}): string {
-		return [
+		return serializeSessionOptions([
 			origin.origin,
 			options.ca,
 			options.cert,
@@ -573,6 +636,7 @@ export class Http2Agent extends EventEmitter {
 			options.rejectUnauthorized,
 			options.servername,
 			options.localAddress,
+			options.lookup,
 			options.family,
 			options.minVersion,
 			options.maxVersion,
@@ -586,7 +650,7 @@ export class Http2Agent extends EventEmitter {
 			options.ecdhCurve,
 			options.crl,
 			options.secureOptions,
-		].map(value => serializeSessionOption(value)).join(':');
+		]);
 	}
 
 	closeEmptySessions(maxCount = Number.POSITIVE_INFINITY): number {

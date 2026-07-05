@@ -63,14 +63,26 @@ const getNativeAgent = (url: URL, agent: NativeRequestOptions['agent']): NativeR
 	return url.protocol === 'https:' ? agent.https : agent.http;
 };
 
-const resolveWithRequestTimeout = async <T>(promise: Promise<T>, timeout: number): Promise<T> => {
+const resolveWithRequestTimeout = async <T>(promise: Promise<T>, timeout: number, onLateResolution?: (value: T) => void): Promise<T> => {
 	let timeoutId: NodeJS.Timeout | undefined;
+	let didTimeOut = false;
 	const timeoutPromise = new Promise<never>((_resolve, reject) => {
 		timeoutId = setTimeout(() => {
+			didTimeOut = true;
 			reject(new TimeoutError(timeout, 'request'));
 		}, timeout);
 		timeoutId.unref();
 	});
+
+	void (async () => {
+		try {
+			const value = await promise;
+
+			if (didTimeOut) {
+				onLateResolution?.(value);
+			}
+		} catch {}
+	})();
 
 	try {
 		return await Promise.race([promise, timeoutPromise]);
@@ -1126,6 +1138,16 @@ function safeObjectAssign<Target extends Record<string, unknown>, Source extends
 }
 
 const isToughCookieJar = (cookieJar: PromiseCookieJar | ToughCookieJar): cookieJar is ToughCookieJar => cookieJar.setCookie.length === 4 && cookieJar.getCookieString.length === 0;
+
+const destroyLateRequestResult = (result: AcceptableResponse | ClientRequest | undefined): void => {
+	if (result && 'destroy' in result && is.function(result.destroy)) {
+		if ('once' in result && is.function(result.once)) {
+			result.once('error', () => {});
+		}
+
+		result.destroy();
+	}
+};
 
 function validateSearchParameters(searchParameters: Record<string, unknown>): asserts searchParameters is Record<string, string | number | boolean | undefined> {
 	for (const key of Object.keys(searchParameters)) {
@@ -3595,7 +3617,7 @@ export default class Options {
 		let resolvedRequestResult = requestResult;
 		if (this.#internals.timeout.request !== undefined) {
 			const remainingRequestTimeout = this.#internals.timeout.request - (Date.now() - requestStartedAt);
-			resolvedRequestResult = resolveWithRequestTimeout(requestResult, Math.max(0, remainingRequestTimeout));
+			resolvedRequestResult = resolveWithRequestTimeout(requestResult, Math.max(0, remainingRequestTimeout), destroyLateRequestResult);
 		}
 
 		const result = await resolvedRequestResult;
