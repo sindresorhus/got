@@ -577,6 +577,7 @@ export class Http2Agent extends EventEmitter {
 	readonly maxSessions: number;
 	readonly maxEmptySessions: number;
 	readonly sessions = new Map<string, Http2Session[]>();
+	readonly pendingSessions = new Set<Http2Session>();
 	readonly pendingSessionKeys = new Set<string>();
 	readonly queue: QueueEntry[] = [];
 	emptySessionCount = 0;
@@ -688,6 +689,10 @@ export class Http2Agent extends EventEmitter {
 			for (const session of sessions) {
 				session.destroy(reason);
 			}
+		}
+
+		for (const session of this.pendingSessions) {
+			session.destroy(reason);
 		}
 
 		this.sessions.clear();
@@ -822,6 +827,7 @@ export class Http2Agent extends EventEmitter {
 		}
 
 		const session = http2.connect(entry.origin, options as http2.SecureClientSessionOptions) as Http2Session;
+		this.pendingSessions.add(session);
 		session.currentStreamCount = 0;
 		session.reservedStreamCount = 0;
 		session.emptySessionCounted = false;
@@ -838,6 +844,7 @@ export class Http2Agent extends EventEmitter {
 
 		const clearSessionSetup = () => {
 			clearSessionSetupTimeout();
+			this.pendingSessions.delete(session);
 			this.pendingSessionKeys.delete(key);
 			delete entry.options._cancelSessionSetup;
 		};
@@ -1174,6 +1181,10 @@ class Http2ClientRequest extends Writable {
 	}
 
 	addTrailers(headers: RequestHeaders): void {
+		if (this.headersSent) {
+			throw new Error('Cannot add trailers after the HTTP/2 stream has been created');
+		}
+
 		this.trailers = headers;
 	}
 

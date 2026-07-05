@@ -1,4 +1,5 @@
 import http2, {type ServerHttp2Stream} from 'node:http2';
+import type {IncomingMessage} from 'node:http';
 import https from 'node:https';
 import net, {type LookupFunction} from 'node:net';
 import process from 'node:process';
@@ -8,7 +9,7 @@ import {pEvent} from 'p-event';
 import pify from 'pify';
 import pem from 'pem';
 import got, {type NativeRequestOptions, type NormalizedOptions} from '../source/index.js';
-import {Http2Agent} from '../source/core/utils/http2-client.js';
+import {Http2Agent, request as http2Request} from '../source/core/utils/http2-client.js';
 import createHttp2TestServer from './helpers/create-http2-test-server.js';
 import {withHttpsServer} from './helpers/with-server.js';
 import type {CreatePrivateKey, CreateCsr, CreateCertificate} from './types/pem.js';
@@ -31,6 +32,50 @@ const closeServer = async (server: net.Server): Promise<void> => {
 			resolve();
 		});
 	});
+};
+
+const waitForCondition = async (predicate: () => boolean, message: string): Promise<void> => {
+	await new Promise<void>((resolve, reject) => {
+		let attempt = 0;
+		const interval = setInterval(() => {
+			attempt++;
+
+			if (predicate()) {
+				clearInterval(interval);
+				resolve();
+				return;
+			}
+
+			if (attempt === 100) {
+				clearInterval(interval);
+				reject(new Error(message));
+			}
+		}, 1);
+
+		if (predicate()) {
+			clearInterval(interval);
+			resolve();
+		}
+	});
+};
+
+const waitForSocketClose = async (socket: net.Socket, milliseconds = 500): Promise<boolean> => {
+	const socketClosePromise = new Promise<true>(resolve => {
+		socket.once('close', () => {
+			resolve(true);
+		});
+	});
+	const socketCloseTimeout = new Promise<false>(resolve => {
+		const timeout = setTimeout(() => {
+			resolve(false);
+		}, milliseconds);
+		timeout.unref();
+	});
+
+	return Promise.race([
+		socketClosePromise,
+		socketCloseTimeout,
+	]);
 };
 
 const listenOnIpv6Loopback = async (server: net.Server, port = 0): Promise<number | undefined> => {
@@ -510,6 +555,78 @@ test('http2 sends request trailers', async t => {
 	}
 });
 
+test('http2 request rejects trailers added after stream creation', async t => {
+	const server = await createHttp2TestServer(stream => {
+		stream.on('end', () => {
+			stream.respond({
+				// eslint-disable-next-line @typescript-eslint/naming-convention
+				':status': 200,
+			});
+			stream.end('ok');
+		});
+		stream.resume();
+	});
+
+	try {
+		const request = http2Request(server.url, {
+			method: 'POST',
+			rejectUnauthorized: false,
+		});
+		const responsePromise = pEvent(request, 'response');
+		request.write('hello');
+		await pEvent(request, 'socket');
+
+		t.throws(() => {
+			request.addTrailers({
+				'x-checksum': 'abc',
+			});
+		}, {
+			message: 'Cannot add trailers after the HTTP/2 stream has been created',
+		});
+
+		request.end();
+		const response = await responsePromise as IncomingMessage;
+		response.resume();
+		await pEvent(response, 'end');
+	} finally {
+		await server.close();
+	}
+});
+
+test('http2 request rejects trailers added after flush starts', async t => {
+	const server = await createHttp2TestServer(stream => {
+		stream.respond({
+			// eslint-disable-next-line @typescript-eslint/naming-convention
+			':status': 200,
+		});
+		stream.end('ok');
+	});
+
+	try {
+		const request = http2Request(server.url, {
+			method: 'POST',
+			rejectUnauthorized: false,
+		});
+		request.on('error', () => {});
+		const flushPromise = (request as unknown as {flushHeaders(): Promise<void>}).flushHeaders();
+
+		t.throws(() => {
+			request.addTrailers({
+				'x-checksum': 'abc',
+			});
+		}, {
+			message: 'Cannot add trailers after the HTTP/2 stream has been created',
+		});
+
+		request.destroy();
+		try {
+			await flushPromise;
+		} catch {}
+	} finally {
+		await server.close();
+	}
+});
+
 test('http2 exposes response trailers', async t => {
 	const server = await createHttp2TestServer(stream => {
 		stream.respond({
@@ -808,31 +925,6 @@ test('http2 queued session setup cancellation closes ALPN socket', async t => {
 		} catch {}
 	};
 
-	const waitFor = async (predicate: () => boolean, message: string): Promise<void> => {
-		await new Promise<void>((resolve, reject) => {
-			let attempt = 0;
-			const interval = setInterval(() => {
-				attempt++;
-
-				if (predicate()) {
-					clearInterval(interval);
-					resolve();
-					return;
-				}
-
-				if (attempt === 100) {
-					clearInterval(interval);
-					reject(new Error(message));
-				}
-			}, 1);
-
-			if (predicate()) {
-				clearInterval(interval);
-				resolve();
-			}
-		});
-	};
-
 	try {
 		const {port} = server.address() as net.AddressInfo;
 		const url = `https://localhost:${port}`;
@@ -856,7 +948,7 @@ test('http2 queued session setup cancellation closes ALPN socket', async t => {
 			rejectUnauthorized: false,
 		};
 		void ignoreRejection(agent.getSession(url, firstOptions));
-		await waitFor(() => agentState.sessionCount === 1, 'First HTTP/2 session setup did not start');
+		await waitForCondition(() => agentState.sessionCount === 1, 'First HTTP/2 session setup did not start');
 
 		const queuedSocket = await createSocket();
 		const queuedOptions: AgentRequestOptions = {
@@ -865,32 +957,209 @@ test('http2 queued session setup cancellation closes ALPN socket', async t => {
 			rejectUnauthorized: false,
 		};
 		void ignoreRejection(agent.getSession(url, queuedOptions));
-		await waitFor(
+		await waitForCondition(
 			() => agentState.queue.some(entry => entry.options._reuseSocket === queuedSocket),
 			'Second HTTP/2 request did not queue with its ALPN socket',
 		);
-		const socketClosePromise = new Promise<true>(resolve => {
-			queuedSocket.once('close', () => {
-				resolve(true);
-			});
-		});
-		const socketCloseTimeout = new Promise<false>(resolve => {
-			const timeout = setTimeout(() => {
-				resolve(false);
-			}, 500);
-			timeout.unref();
-		});
 
 		queuedOptions._cancelSessionSetup!();
 
-		const socketClosed = await Promise.race([
-			socketClosePromise,
-			socketCloseTimeout,
-		]);
-
-		t.true(socketClosed);
+		t.true(await waitForSocketClose(queuedSocket));
 		t.true(queuedSocket.destroyed);
 	} finally {
+		agent.destroy();
+
+		for (const socket of sockets) {
+			socket.destroy();
+		}
+
+		await closeServer(server);
+	}
+});
+
+test('http2 agent destroy closes in-flight session setup', async t => {
+	const certificate = await createCertificate({days: 1, selfSigned: true});
+	const sockets = new Set<tls.TLSSocket>();
+	const server = tls.createServer({
+		key: certificate.serviceKey,
+		cert: certificate.certificate,
+		// eslint-disable-next-line @typescript-eslint/naming-convention
+		ALPNProtocols: ['h2'],
+	}, socket => {
+		sockets.add(socket);
+		socket.once('close', () => {
+			sockets.delete(socket);
+		});
+		socket.resume();
+	});
+
+	await new Promise<void>(resolve => {
+		server.listen(0, 'localhost', resolve);
+	});
+
+	const agent = new Http2Agent();
+	const agentState = agent as unknown as {sessionCount: number};
+
+	try {
+		const {port} = server.address() as net.AddressInfo;
+		const url = `https://localhost:${port}`;
+		const socket = tls.connect(port, 'localhost', {
+			// eslint-disable-next-line @typescript-eslint/naming-convention
+			ALPNProtocols: ['h2'],
+			rejectUnauthorized: false,
+			servername: 'localhost',
+		});
+		socket.on('error', () => {});
+		await pEvent(socket, 'secureConnect');
+
+		const options: NonNullable<Parameters<Http2Agent['getSession']>[1]> = {
+			_reuseSocket: socket,
+			_reuseSocketShouldPool: true,
+			rejectUnauthorized: false,
+		};
+		const sessionPromise = agent.getSession(url, options);
+		await waitForCondition(() => agentState.sessionCount === 1, 'HTTP/2 session setup did not start');
+
+		agent.destroy();
+
+		t.true(await waitForSocketClose(socket));
+		await t.throwsAsync(sessionPromise, {
+			message: 'The HTTP/2 session closed before settings were received',
+		});
+	} finally {
+		agent.destroy();
+
+		for (const socket of sockets) {
+			socket.destroy();
+		}
+
+		await closeServer(server);
+	}
+});
+
+test('http2 stream destroy closes queued ALPN socket', async t => {
+	const certificate = await createCertificate({days: 1, selfSigned: true});
+	const sockets = new Set<tls.TLSSocket>();
+	const secureContext = tls.createSecureContext({
+		key: certificate.serviceKey,
+		cert: certificate.certificate,
+	});
+	let sniCallbackCount = 0;
+	let firstSniCallback!: Parameters<NonNullable<tls.TlsOptions['SNICallback']>>[1];
+	let secondSniCallback!: Parameters<NonNullable<tls.TlsOptions['SNICallback']>>[1];
+	let resolveFirstSni!: () => void;
+	let resolveSecondSni!: () => void;
+	const firstSni = new Promise<void>(resolve => {
+		resolveFirstSni = resolve;
+	});
+	const secondSni = new Promise<void>(resolve => {
+		resolveSecondSni = resolve;
+	});
+	const server = tls.createServer({
+		key: certificate.serviceKey,
+		cert: certificate.certificate,
+		// eslint-disable-next-line @typescript-eslint/naming-convention
+		ALPNProtocols: ['h2'],
+		// eslint-disable-next-line @typescript-eslint/naming-convention
+		SNICallback(_servername, callback) {
+			sniCallbackCount++;
+
+			if (sniCallbackCount === 1) {
+				firstSniCallback = callback;
+				resolveFirstSni();
+				return;
+			}
+
+			secondSniCallback = callback;
+			resolveSecondSni();
+		},
+	}, socket => {
+		sockets.add(socket);
+		socket.once('close', () => {
+			sockets.delete(socket);
+		});
+		socket.resume();
+	});
+
+	await new Promise<void>(resolve => {
+		server.listen(0, '127.0.0.1', resolve);
+	});
+
+	const agent = new Http2Agent();
+	const agentState = agent as unknown as {
+		sessionCount: number;
+		queue: Array<{options: {_reuseSocket?: tls.TLSSocket; _reuseSocketShouldPool?: boolean}}>;
+	};
+	const requests: Array<ReturnType<typeof got.stream>> = [];
+
+	try {
+		const {port} = server.address() as net.AddressInfo;
+		const url = `https://localhost:${port}`;
+		const dnsLookup = ((_hostname: string, options: any, callback: any) => {
+			if (options.all) {
+				callback(null, [{address: '127.0.0.1', family: 4}]);
+				return;
+			}
+
+			callback(null, '127.0.0.1', 4);
+		}) as LookupFunction;
+		const options = {
+			http2: true,
+			dnsLookup,
+			hooks: {
+				beforeRequest: [
+					(options: NormalizedOptions) => {
+						(options.agent as {http2?: Http2Agent}).http2 = agent;
+					},
+				],
+			},
+			retry: {
+				limit: 0,
+			},
+			https: {
+				rejectUnauthorized: false,
+			},
+		};
+		const firstRequest = got.stream(url, options);
+		requests.push(firstRequest);
+		firstRequest.on('error', () => {});
+		firstRequest.resume();
+
+		const secondRequest = got.stream(url, options);
+		requests.push(secondRequest);
+		secondRequest.on('error', () => {});
+		secondRequest.resume();
+
+		await firstSni;
+		await secondSni;
+		firstSniCallback(null, secureContext);
+		await waitForCondition(() => agentState.sessionCount === 1, 'First HTTP/2 session setup did not start');
+		secondSniCallback(null, secureContext);
+
+		let queuedSocket!: tls.TLSSocket;
+		await waitForCondition(
+			() => {
+				const entry = agentState.queue.find(entry => entry.options._reuseSocketShouldPool === true && entry.options._reuseSocket);
+
+				if (entry?.options._reuseSocket) {
+					queuedSocket = entry.options._reuseSocket;
+					return true;
+				}
+
+				return false;
+			},
+			'Second HTTP/2 request did not queue with its ALPN socket',
+		);
+
+		secondRequest.destroy();
+
+		t.true(await waitForSocketClose(queuedSocket));
+		t.true(queuedSocket.destroyed);
+	} finally {
+		for (const request of requests) {
+			request.destroy();
+		}
+
 		agent.destroy();
 
 		for (const socket of sockets) {

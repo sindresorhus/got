@@ -941,7 +941,7 @@ Returning `undefined` (or resolving to `undefined`) will fall back to Got's nati
 If `true`, Got will use its built-in HTTP/2 client when ALPN selects HTTP/2.
 
 **Note:**
-> - ALPN negotiation will take place in order to determine if the server actually supports HTTP/2. If it doesn't, HTTP/1.1 will be used. When `agent.https` is set, Got uses that native HTTPS agent directly and skips HTTP/2 negotiation.
+> - ALPN negotiation will take place in order to determine if the server actually supports HTTP/2. If it doesn't, HTTP/1.1 will be used. When a custom `agent.https` instance is set, Got uses that native HTTPS agent directly and skips HTTP/2 negotiation.
 
 **Note:**
 > - If the `request` option returns a request or response, it controls the transport and Got's HTTP/2 client is bypassed. Return `undefined` to fall back to Got's built-in transport.
@@ -970,7 +970,7 @@ console.log(statusCode);
 
 An object with `http`, `https` and `http2` properties.
 
-Got will automatically resolve the protocol and use the corresponding agent. HTTP/2 uses Got's internal session pool by default. Set `http2` to `false` to disable HTTP/2 session pooling for the request. `agent.http2` is only a pooling opt-out flag; custom HTTP/2 agents are not part of the public API. When `http2` is enabled, a custom `https` agent makes Got use the native HTTP/1.1 request path because Got's built-in HTTP/2 session pool does not support custom HTTPS agents.
+Got will automatically resolve the protocol and use the corresponding agent. HTTP/2 uses Got's internal session pool by default. Set `agent.http2` to `false` to disable HTTP/2 session pooling for the request. `agent.http2` is only a pooling opt-out flag; custom HTTP/2 agents are not part of the public API. When `http2` is enabled, a custom `agent.https` instance makes Got use the native HTTP/1.1 request path because Got's built-in HTTP/2 session pool does not support custom HTTPS agents.
 
 ```js
 {

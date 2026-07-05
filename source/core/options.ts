@@ -1748,7 +1748,7 @@ export default class Options {
 	An object representing `http`, `https` and `http2` keys for [`http.Agent`](https://nodejs.org/api/http.html#http_class_http_agent), [`https.Agent`](https://nodejs.org/api/https.html#https_class_https_agent), and Got's internal HTTP/2 session pool.
 	This is necessary because a request to one protocol might redirect to another.
 	In such a scenario, Got will switch over to the right protocol agent for you.
-	When `http2` is enabled, a custom `https` agent makes Got use the native HTTP/1.1 request path because Got's built-in HTTP/2 session pool does not support custom HTTPS agents.
+	When `http2` is enabled, a custom `agent.https` instance makes Got use the native HTTP/1.1 request path because Got's built-in HTTP/2 session pool does not support custom HTTPS agents.
 
 	If a key is not present, it will default to a global agent.
 
@@ -2569,7 +2569,7 @@ export default class Options {
 	/**
 	If set to `true`, Got will additionally accept HTTP/2 requests.
 
-	It will choose either HTTP/1.1 or HTTP/2 depending on the ALPN protocol. When `agent.https` is set, Got uses that native HTTPS agent directly and skips HTTP/2 negotiation.
+	It will choose either HTTP/1.1 or HTTP/2 depending on the ALPN protocol. When a custom `agent.https` instance is set, Got uses that native HTTPS agent directly and skips HTTP/2 negotiation.
 
 	__Note__: If `options.request` returns a request or response, it controls the transport and Got's HTTP/2 client is bypassed. Return `undefined` to fall back to Got's built-in transport.
 

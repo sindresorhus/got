@@ -278,6 +278,26 @@ test('HTTP/2 session keys distinguish secure protocols', t => {
 	);
 });
 
+test('HTTP/2 session keys distinguish DNS lookup options', t => {
+	const agent = new Http2Agent();
+	const origin = new URL('https://example.com');
+	const firstLookup: LookupFunction = () => {};
+	const secondLookup: LookupFunction = () => {};
+
+	t.is(
+		agent.normalizeOptions(origin, {lookup: firstLookup}),
+		agent.normalizeOptions(origin, {lookup: firstLookup}),
+	);
+	t.not(
+		agent.normalizeOptions(origin, {lookup: firstLookup}),
+		agent.normalizeOptions(origin, {lookup: secondLookup}),
+	);
+	t.not(
+		agent.normalizeOptions(origin, {family: 4}),
+		agent.normalizeOptions(origin, {family: 6}),
+	);
+});
+
 test('passes DNS cache lookup and IP version to native request options', t => {
 	const lookup: LookupFunction = () => {};
 	const dnsLookup: LookupFunction = () => {};
