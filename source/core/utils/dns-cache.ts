@@ -90,6 +90,14 @@ const hasUnexpired = (cache: Map<string, number>, key: string) => {
 	return true;
 };
 
+const deleteExpiredMapEntries = (cache: Map<string, number>, time = now()) => {
+	for (const [key, expires] of cache) {
+		if (expires <= time) {
+			cache.delete(key);
+		}
+	}
+};
+
 // eslint-disable-next-line no-bitwise
 const hasFlag = (value: number | undefined, flag: number) => value !== undefined && (value & flag) === flag;
 
@@ -190,7 +198,7 @@ const orderFromOptions = (options: DnsLookupOptions): DnsLookupOrder => {
 const familiesFromOptions = (options: DnsLookupOptions): DnsFamily[] => {
 	const family = familyFromOptions(options);
 
-	if (family === 6 && hasFlag(options.hints, V4MAPPED)) {
+	if (family === 6 && hasFlag(options.hints, V4MAPPED) && hasFlag(options.hints, ALL)) {
 		return [6, 4];
 	}
 
@@ -213,6 +221,11 @@ const filterFamiliesByAddrConfig = (families: DnsFamily[], options: DnsLookupOpt
 	const interfaceInfo = getInterfaceInfo();
 	return families.filter(family => family === 6 ? interfaceInfo.has6 : interfaceInfo.has4);
 };
+
+const shouldQueryMappedIpv4 = (entries: DnsCacheEntry[], options: DnsLookupOptions): boolean => familyFromOptions(options) === 6
+	&& hasFlag(options.hints, V4MAPPED)
+	&& !hasFlag(options.hints, ALL)
+	&& entries.every(entry => entry.family !== 6);
 
 const cacheKey = (hostname: string, family: DnsFamily) => `${hostname}:${family}`;
 
@@ -383,9 +396,14 @@ export default class DnsCache implements DnsCacheLookup {
 				return await this.#fallbackLookupOnce(hostname, options, lookupOptionKey);
 			}
 
-			const families = filterFamiliesByAddrConfig(familiesFromOptions(options), options);
+			let families = filterFamiliesByAddrConfig(familiesFromOptions(options), options);
 			const clearVersion = this.#clearVersion;
-			const flattenedEntries = await this.#queryFamilies(hostname, families, clearVersion);
+			let flattenedEntries = await this.#queryFamilies(hostname, families, clearVersion);
+
+			if (shouldQueryMappedIpv4(flattenedEntries, options) && !families.includes(4)) {
+				families = filterFamiliesByAddrConfig([4], options);
+				flattenedEntries = await this.#queryFamilies(hostname, families, clearVersion);
+			}
 
 			if (flattenedEntries.length > 0 || this.#dnsLookupAsync === undefined) {
 				return flattenedEntries;
@@ -400,6 +418,8 @@ export default class DnsCache implements DnsCacheLookup {
 			if (!this.#isVersionCurrent(hostname, clearVersion)) {
 				return fallbackEntries;
 			}
+
+			this.#deleteExpiredFallbackState();
 
 			if (fallbackEntries.length > 0 && this.#fallbackDuration > 0) {
 				this.#lookupOptionsToFallback.set(lookupOptionKey, now() + (this.#fallbackDuration * 1000));
@@ -427,6 +447,12 @@ export default class DnsCache implements DnsCacheLookup {
 
 		this.#activeQueriesByHostname.delete(hostname);
 		this.#minimumVersionByHostname.delete(hostname);
+	}
+
+	#deleteExpiredFallbackState(): void {
+		const time = now();
+		deleteExpiredMapEntries(this.#lookupOptionsToFallback, time);
+		deleteExpiredMapEntries(this.#lookupOptionsWithoutFallback, time);
 	}
 
 	async #queryFamilies(hostname: string, families: DnsFamily[], clearVersion: number): Promise<DnsCacheEntry[]> {

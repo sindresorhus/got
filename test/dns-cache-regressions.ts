@@ -44,9 +44,11 @@ test('DNS cache returns IPv6 records before mapped IPv4 records when V4MAPPED an
 });
 
 test('DNS cache returns IPv6 records without mapped IPv4 records when V4MAPPED is requested without ALL', async t => {
+	let resolve4CallCount = 0;
 	const cache = new DnsCache({
 		resolver: {
 			resolve4() {
+				resolve4CallCount++;
 				return [{address: '127.0.0.1', ttl: 60}];
 			},
 			resolve6() {
@@ -62,6 +64,32 @@ test('DNS cache returns IPv6 records without mapped IPv4 records when V4MAPPED i
 	}), [
 		{
 			address: '::1',
+			family: 6,
+		},
+	]);
+	t.is(resolve4CallCount, 0);
+});
+
+test('DNS cache queries IPv4 records for V4MAPPED when IPv6 has no records', async t => {
+	const cache = new DnsCache({
+		lookup: false,
+		resolver: {
+			resolve4() {
+				return [{address: '127.0.0.1', ttl: 60}];
+			},
+			resolve6() {
+				return [];
+			},
+		},
+	});
+
+	t.deepEqual(await cache.lookupAsync('example.com', {
+		all: true,
+		family: 6,
+		hints: V4MAPPED,
+	}), [
+		{
+			address: '::ffff:127.0.0.1',
 			family: 6,
 		},
 	]);
