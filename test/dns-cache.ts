@@ -999,6 +999,47 @@ test('DNS cache does not cache in-flight lookups cleared by clearing all hostnam
 	t.is(resolve4CallCount, 2);
 });
 
+test('DNS cache preserves hostname invalidation when old globally cleared lookups finish first', async t => {
+	const pendingResolvers: Array<() => void> = [];
+	let resolve4CallCount = 0;
+	const cache = new DnsCache({
+		resolver: createResolver({
+			async resolve4() {
+				resolve4CallCount++;
+				const callCount = resolve4CallCount;
+
+				await new Promise<void>(resolve => {
+					pendingResolvers.push(resolve);
+				});
+
+				return [{address: `127.0.0.${callCount}`, ttl: 60}];
+			},
+		}),
+	});
+
+	const firstLookup = cache.lookupAsync('example.com', {family: 4});
+	await setImmediate();
+	cache.clear();
+
+	const secondLookup = cache.lookupAsync('example.com', {family: 4});
+	await setImmediate();
+	cache.clear('example.com');
+
+	pendingResolvers[0]!();
+	await setImmediate();
+	pendingResolvers[1]!();
+
+	t.like(await firstLookup, {address: '127.0.0.1'});
+	t.like(await secondLookup, {address: '127.0.0.2'});
+
+	const thirdLookup = cache.lookupAsync('example.com', {family: 4});
+	await setImmediate();
+	pendingResolvers[2]!();
+
+	t.like(await thirdLookup, {address: '127.0.0.3'});
+	t.is(resolve4CallCount, 3);
+});
+
 test('DNS cache clears missing fallback state for one hostname', async t => {
 	let lookupCallCount = 0;
 	const cache = new DnsCache({

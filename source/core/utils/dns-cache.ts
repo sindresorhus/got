@@ -225,11 +225,6 @@ const toLookupResult = ({address, family}: DnsCacheEntry): DnsLookupResult => ({
 	family,
 });
 
-const lookupLiteral = (hostname: string): DnsLookupResult => ({
-	address: hostname,
-	family: isIP(hostname) as DnsFamily,
-});
-
 export default class DnsCache implements DnsCacheLookup {
 	readonly lookup: LookupFunction;
 
@@ -245,6 +240,7 @@ export default class DnsCache implements DnsCacheLookup {
 	readonly #fallbackDuration: number;
 	readonly #errorTtl: number;
 	readonly #minimumVersionByHostname = new Map<string, number>();
+	readonly #activeQueriesByHostname = new Map<string, number>();
 	#minimumVersion = 0;
 	#clearVersion = 0;
 
@@ -267,9 +263,13 @@ export default class DnsCache implements DnsCacheLookup {
 
 	async lookupAsync(hostname: string, options?: number | DnsLookupOptions): Promise<DnsLookupResult | DnsLookupResult[]> {
 		const normalizedOptions = normalizeLookupOptions(options);
+		const literalFamily = isIP(hostname) as DnsFamily | 0;
 
-		if (isIP(hostname) !== 0) {
-			const entries = [lookupLiteral(hostname)];
+		if (literalFamily !== 0) {
+			const entries = [{
+				address: hostname,
+				family: literalFamily,
+			}];
 			return normalizedOptions.all ? entries : entries[0]!;
 		}
 
@@ -310,7 +310,10 @@ export default class DnsCache implements DnsCacheLookup {
 			this.#pending.delete(key);
 		}
 
-		this.#minimumVersionByHostname.set(hostname, this.#clearVersion);
+		if (this.#activeQueriesByHostname.has(hostname)) {
+			this.#minimumVersionByHostname.set(hostname, this.#clearVersion);
+		}
+
 		for (const key of this.#pendingFallback.keys()) {
 			if (key.startsWith(`${hostname}:`)) {
 				this.#pendingFallback.delete(key);
@@ -371,37 +374,59 @@ export default class DnsCache implements DnsCacheLookup {
 	}
 
 	async #query(hostname: string, options: DnsLookupOptions): Promise<DnsCacheEntry[]> {
-		const lookupOptionKey = lookupOptionsKey(hostname, options);
+		this.#activeQueriesByHostname.set(hostname, (this.#activeQueriesByHostname.get(hostname) ?? 0) + 1);
 
-		if (hasUnexpired(this.#lookupOptionsToFallback, lookupOptionKey)) {
-			return this.#fallbackLookupOnce(hostname, options, lookupOptionKey);
-		}
+		try {
+			const lookupOptionKey = lookupOptionsKey(hostname, options);
 
-		const families = filterFamiliesByAddrConfig(familiesFromOptions(options), options);
-		const clearVersion = this.#clearVersion;
-		const flattenedEntries = await this.#queryFamilies(hostname, families, clearVersion);
+			if (hasUnexpired(this.#lookupOptionsToFallback, lookupOptionKey)) {
+				return await this.#fallbackLookupOnce(hostname, options, lookupOptionKey);
+			}
 
-		if (flattenedEntries.length > 0 || this.#dnsLookupAsync === undefined) {
-			return flattenedEntries;
-		}
+			const families = filterFamiliesByAddrConfig(familiesFromOptions(options), options);
+			const clearVersion = this.#clearVersion;
+			const flattenedEntries = await this.#queryFamilies(hostname, families, clearVersion);
 
-		if (hasUnexpired(this.#lookupOptionsWithoutFallback, lookupOptionKey)) {
-			return [];
-		}
+			if (flattenedEntries.length > 0 || this.#dnsLookupAsync === undefined) {
+				return flattenedEntries;
+			}
 
-		const fallbackEntries = await this.#fallbackLookupOnce(hostname, options, lookupOptionKey);
+			if (hasUnexpired(this.#lookupOptionsWithoutFallback, lookupOptionKey)) {
+				return [];
+			}
 
-		if (!this.#isVersionCurrent(hostname, clearVersion)) {
+			const fallbackEntries = await this.#fallbackLookupOnce(hostname, options, lookupOptionKey);
+
+			if (!this.#isVersionCurrent(hostname, clearVersion)) {
+				return fallbackEntries;
+			}
+
+			if (fallbackEntries.length > 0 && this.#fallbackDuration > 0) {
+				this.#lookupOptionsToFallback.set(lookupOptionKey, now() + (this.#fallbackDuration * 1000));
+			} else if (fallbackEntries.length === 0 && this.#errorTtl > 0) {
+				this.#lookupOptionsWithoutFallback.set(lookupOptionKey, now() + (this.#errorTtl * 1000));
+			}
+
 			return fallbackEntries;
+		} finally {
+			this.#finishQuery(hostname);
+		}
+	}
+
+	#finishQuery(hostname: string): void {
+		const activeQueryCount = this.#activeQueriesByHostname.get(hostname);
+
+		if (activeQueryCount === undefined) {
+			return;
 		}
 
-		if (fallbackEntries.length > 0 && this.#fallbackDuration > 0) {
-			this.#lookupOptionsToFallback.set(lookupOptionKey, now() + (this.#fallbackDuration * 1000));
-		} else if (fallbackEntries.length === 0 && this.#errorTtl > 0) {
-			this.#lookupOptionsWithoutFallback.set(lookupOptionKey, now() + (this.#errorTtl * 1000));
+		if (activeQueryCount > 1) {
+			this.#activeQueriesByHostname.set(hostname, activeQueryCount - 1);
+			return;
 		}
 
-		return fallbackEntries;
+		this.#activeQueriesByHostname.delete(hostname);
+		this.#minimumVersionByHostname.delete(hostname);
 	}
 
 	async #queryFamilies(hostname: string, families: DnsFamily[], clearVersion: number): Promise<DnsCacheEntry[]> {
@@ -470,7 +495,7 @@ export default class DnsCache implements DnsCacheLookup {
 			return undefined;
 		}
 
-		if (!this.#isCachedFamilyCurrent(hostname, cached)) {
+		if (!this.#isVersionCurrent(hostname, cached.clearVersion)) {
 			return undefined;
 		}
 
@@ -530,7 +555,7 @@ export default class DnsCache implements DnsCacheLookup {
 			current = await current;
 		}
 
-		if (current?.clearVersion === clearVersion && !this.#isCachedFamilyCurrent(hostname, current)) {
+		if (current?.clearVersion === clearVersion && !this.#isVersionCurrent(hostname, current.clearVersion)) {
 			this.#cache.delete(key);
 			this.#cacheKeys.delete(key);
 		}
@@ -567,10 +592,6 @@ export default class DnsCache implements DnsCacheLookup {
 			this.#cache.delete(key);
 			this.#cacheKeys.delete(key);
 		}
-	}
-
-	#isCachedFamilyCurrent(hostname: string, cached: CachedFamily): boolean {
-		return this.#isVersionCurrent(hostname, cached.clearVersion);
 	}
 
 	#isVersionCurrent(hostname: string, clearVersion: number): boolean {
