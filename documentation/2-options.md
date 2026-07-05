@@ -970,7 +970,7 @@ console.log(headers[':status']);
 
 An object with `http`, `https` and `http2` properties.
 
-Got will automatically resolve the protocol and use the corresponding agent. HTTP/2 uses Got's internal session pool by default. Set `http2` to `false` to disable HTTP/2 session pooling for the request. `agent.http2` is only a pooling opt-out flag; custom HTTP/2 agents are not part of the public API.
+Got will automatically resolve the protocol and use the corresponding agent. HTTP/2 uses Got's internal session pool by default. Set `http2` to `false` to disable HTTP/2 session pooling for the request. `agent.http2` is only a pooling opt-out flag; custom HTTP/2 agents are not part of the public API. When `http2` is enabled, a custom `https` agent makes Got use the native HTTP/1.1 request path because Got's built-in HTTP/2 session pool does not support custom HTTPS agents.
 
 ```js
 {

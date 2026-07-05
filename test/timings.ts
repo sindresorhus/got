@@ -29,7 +29,7 @@ const createHttp2TestServer = async (onStream: (stream: ServerHttp2Stream) => vo
 	});
 
 	await new Promise<void>(resolve => {
-		server.listen(0, resolve);
+		server.listen(0, 'localhost', resolve);
 	});
 
 	const {port} = server.address() as net.AddressInfo;

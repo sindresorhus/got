@@ -2034,7 +2034,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 				// TODO: remove this when `cacheable-request` supports async request functions.
 				if (is.promise(result)) {
-					// We only need to implement the error handler in order to support HTTP2 caching.
+					// We only need to implement the error handler in order to support HTTP/2 caching.
 					// The result will be a promise anyway.
 					// @ts-expect-error ignore
 					result.once = (event: string, handler: (reason: unknown) => void) => {
@@ -2057,7 +2057,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 							})();
 						} else {
 							/* istanbul ignore next: safety check */
-							throw new Error(`Unknown HTTP2 promise event: ${event}`);
+							throw new Error(`Unknown HTTP/2 promise event: ${event}`);
 						}
 
 						return result;

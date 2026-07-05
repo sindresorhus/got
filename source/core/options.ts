@@ -1673,6 +1673,7 @@ export default class Options {
 	An object representing `http`, `https` and `http2` keys for [`http.Agent`](https://nodejs.org/api/http.html#http_class_http_agent), [`https.Agent`](https://nodejs.org/api/https.html#https_class_https_agent), and Got's internal HTTP/2 session pool.
 	This is necessary because a request to one protocol might redirect to another.
 	In such a scenario, Got will switch over to the right protocol agent for you.
+	When `http2` is enabled, a custom `https` agent makes Got use the native HTTP/1.1 request path because Got's built-in HTTP/2 session pool does not support custom HTTPS agents.
 
 	If a key is not present, it will default to a global agent.
 

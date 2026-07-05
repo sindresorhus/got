@@ -735,10 +735,6 @@ class Http2ClientRequest extends Writable {
 			this.headers[HTTP2_HEADER_SCHEME] = this.protocol.slice(0, -1);
 			this.headers[HTTP2_HEADER_PATH] = this.path;
 		}
-
-		if (this.options.timeout) {
-			this.setTimeout(Number(this.options.timeout));
-		}
 	}
 
 	agent?: Http2Agent;
@@ -806,11 +802,7 @@ class Http2ClientRequest extends Writable {
 		}
 
 		if (this.stream) {
-			if (error) {
-				this.stream.destroy(error);
-			} else {
-				this.stream.close(NGHTTP2_CANCEL);
-			}
+			this.stream.close(NGHTTP2_CANCEL);
 		} else {
 			queueMicrotask(() => {
 				this.emit('close');
@@ -1110,6 +1102,8 @@ export const auto = async (input: URL, options: NormalizedRequestOptions, callba
 	if (typeof agent === 'object' && 'https' in agent) {
 		options.agent = agent.https;
 	}
+
+	delete options.timeout;
 
 	if (options.headers) {
 		const headers: Record<string, any> = {...options.headers};

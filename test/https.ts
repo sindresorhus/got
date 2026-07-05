@@ -2,7 +2,6 @@ import http2, {type ServerHttp2Stream} from 'node:http2';
 import https from 'node:https';
 import net, {type LookupFunction} from 'node:net';
 import process from 'node:process';
-import {setTimeout as delay} from 'node:timers/promises';
 import tls, {type DetailedPeerCertificate} from 'node:tls';
 import test from 'ava';
 import {pEvent} from 'p-event';
@@ -33,7 +32,7 @@ const createHttp2TestServer = async (onStream: (stream: ServerHttp2Stream, heade
 	});
 
 	await new Promise<void>(resolve => {
-		server.listen(0, resolve);
+		server.listen(0, 'localhost', resolve);
 	});
 
 	const {port} = server.address() as net.AddressInfo;
@@ -420,6 +419,10 @@ test('http2 retires sessions after GOAWAY', async t => {
 
 test('http2 sends request trailers', async t => {
 	let receivedTrailers: http2.IncomingHttpHeaders | undefined;
+	let startBody!: () => void;
+	const startBodyPromise = new Promise<void>(resolve => {
+		startBody = resolve;
+	});
 	const server = await createHttp2TestServer(stream => {
 		stream.on('trailers', trailers => {
 			receivedTrailers = trailers;
@@ -435,7 +438,7 @@ test('http2 sends request trailers', async t => {
 	});
 
 	async function * body() {
-		await delay(10);
+		await startBodyPromise;
 		yield 'hello';
 	}
 
@@ -450,6 +453,7 @@ test('http2 sends request trailers', async t => {
 			request.addTrailers({
 				'x-checksum': 'abc',
 			});
+			startBody();
 		});
 
 		t.is(receivedTrailers?.['x-checksum'], 'abc');
@@ -571,6 +575,9 @@ test('http2 supports explicit h2session option', async t => {
 	});
 
 	try {
+		await pEvent(session, 'remoteSettings');
+		t.is(server.sessions.size, 1);
+
 		const {body} = await got(server.url, {
 			http2: true,
 			hooks: {
@@ -586,6 +593,7 @@ test('http2 supports explicit h2session option', async t => {
 		});
 
 		t.is(body, 'ok');
+		t.is(server.sessions.size, 1);
 		t.false(session.destroyed);
 	} finally {
 		session.destroy();
@@ -609,7 +617,7 @@ test('http2 supports h2c with explicit h2session option', async t => {
 	});
 
 	await new Promise<void>(resolve => {
-		server.listen(0, resolve);
+		server.listen(0, 'localhost', resolve);
 	});
 
 	const {port} = server.address() as net.AddressInfo;
@@ -664,7 +672,7 @@ test('http2 supports IPv6 h2c URLs with explicit h2session option', async t => {
 			});
 		});
 	} catch (error: any) {
-		if (error.code === 'EAFNOSUPPORT' || error.code === 'EADDRNOTAVAIL') {
+		if (error.code === 'EAFNOSUPPORT' || error.code === 'EADDRNOTAVAIL' || error.code === 'EPERM') {
 			t.pass('IPv6 loopback is not available');
 			return;
 		}
@@ -737,7 +745,7 @@ test('http2 supports IPv6 HTTPS authorities', async t => {
 			});
 		});
 	} catch (error: any) {
-		if (error.code === 'EAFNOSUPPORT' || error.code === 'EADDRNOTAVAIL') {
+		if (error.code === 'EAFNOSUPPORT' || error.code === 'EADDRNOTAVAIL' || error.code === 'EPERM') {
 			t.pass('IPv6 loopback is not available');
 			return;
 		}
@@ -788,7 +796,7 @@ test('http2 rejects pseudo-headers in request headers', async t => {
 	});
 
 	await new Promise<void>(resolve => {
-		server.listen(0, resolve);
+		server.listen(0, 'localhost', resolve);
 	});
 
 	try {
@@ -821,20 +829,41 @@ test('http2 rejects pseudo-headers in request headers', async t => {
 	}
 });
 
-test('http2 connection reuse with default agent', withHttpsServer(), async (t, server, got) => {
-	server.get('/200', (_request, response) => {
-		response.status(200).end('OK');
+test('http2 connection reuse with default agent', async t => {
+	const sessions: Array<NonNullable<ServerHttp2Stream['session']>> = [];
+	const streamClosedPromises: Array<Promise<unknown>> = [];
+	const server = await createHttp2TestServer((stream, headers) => {
+		sessions.push(stream.session!);
+		streamClosedPromises.push(pEvent(stream, 'close'));
+		const isCreatedResponse = headers[':path'] === '/201';
+		stream.respond({
+			// eslint-disable-next-line @typescript-eslint/naming-convention
+			':status': isCreatedResponse ? 201 : 200,
+		});
+		stream.end(isCreatedResponse ? 'Created' : 'OK');
 	});
 
-	server.get('/201', (_request, response) => {
-		response.status(201).end('Created');
-	});
+	try {
+		const options = {
+			http2: true,
+			https: {
+				rejectUnauthorized: false,
+			},
+		};
+		await got(`${server.url}/warm`, options);
+		await streamClosedPromises[0];
 
-	const response1 = await got('200', {http2: true});
-	const response2 = await got('201', {http2: true});
+		const response1 = await got(`${server.url}/200`, options);
+		await streamClosedPromises[1];
+		const response2 = await got(`${server.url}/201`, options);
 
-	t.is(response1.statusCode, 200);
-	t.is(response2.statusCode, 201);
+		t.is(response1.statusCode, 200);
+		t.is(response2.statusCode, 201);
+		t.is(server.sessions.size, 1);
+		t.true(sessions[1] === sessions[2]);
+	} finally {
+		await server.close();
+	}
 });
 
 test('http2 agent false reuses the ALPN socket for the current request', async t => {
@@ -876,8 +905,13 @@ test('http2 agent false reuses the ALPN socket for the current request', async t
 });
 
 test('http2 abort closes only the affected stream', async t => {
+	let slowStreamReceived!: () => void;
+	const slowStreamReceivedPromise = new Promise<void>(resolve => {
+		slowStreamReceived = resolve;
+	});
 	const server = await createHttp2TestServer((stream, headers) => {
 		if (headers[':path'] === '/slow') {
+			slowStreamReceived();
 			stream.resume();
 			return;
 		}
@@ -913,6 +947,7 @@ test('http2 abort closes only the affected stream', async t => {
 		});
 		const fastRequest = got(`${server.url}/fast`, options);
 
+		await slowStreamReceivedPromise;
 		controller.abort();
 
 		await t.throwsAsync(slowRequest, {
@@ -1082,7 +1117,7 @@ test('http2 ALPN ignores cached protocols when using createConnection', async t 
 				response.end('http1');
 			});
 
-			server.listen(0, () => {
+			server.listen(0, 'localhost', () => {
 				resolve(server);
 			});
 		});
@@ -1294,9 +1329,14 @@ test('http2 ALPN still runs when HTTPS agent is false', async t => {
 	}
 });
 
-test('http2 uses custom HTTPS agent instead of direct ALPN preflight', withHttpsServer(), async (t, server, got) => {
+test('http2 uses native HTTP/1.1 path with custom HTTPS agent', withHttpsServer(), async (t, server, got) => {
+	let secureConnectionCount = 0;
+
 	server.get('/', (request, response) => {
 		response.end(request.httpVersion);
+	});
+	server.https.on('secureConnection', () => {
+		secureConnectionCount++;
 	});
 
 	const localPort = new URL(server.url).port;
@@ -1323,6 +1363,7 @@ test('http2 uses custom HTTPS agent instead of direct ALPN preflight', withHttps
 		});
 
 		t.is(body, '1.1');
+		t.is(secureConnectionCount, 1);
 	} finally {
 		agent.destroy();
 	}

@@ -51,7 +51,7 @@ const createHttp2TestServer = async (onStream: (stream: ServerHttp2Stream, heade
 	});
 
 	await new Promise<void>(resolve => {
-		server.listen(0, resolve);
+		server.listen(0, 'localhost', resolve);
 	});
 
 	const {port} = server.address() as net.AddressInfo;
@@ -822,24 +822,32 @@ test.serial('timeouts are emitted ASAP', withServer, async (t, server, got) => {
 });
 
 test('http2 timeout', async t => {
+	let streamReceived!: () => void;
+	const streamReceivedPromise = new Promise<void>(resolve => {
+		streamReceived = resolve;
+	});
 	const server = await createHttp2TestServer(stream => {
+		stream.on('error', () => {});
+		streamReceived();
 		stream.resume();
 	});
 
 	try {
-		const error = await t.throwsAsync<RequestError>(got(server.url, {
+		const promise = got(server.url, {
 			timeout: {
-				request: 1,
+				request: 100,
 			},
 			http2: true,
 			https: {
 				rejectUnauthorized: false,
 			},
 			retry: {
-				calculateDelay: ({computedValue}) => computedValue ? 1 : 0,
+				limit: 0,
 			},
-		}));
+		});
 
+		await streamReceivedPromise;
+		const error = await t.throwsAsync<RequestError>(promise);
 		t.is(error?.code, 'ETIMEDOUT');
 	} finally {
 		await server.close();
@@ -922,6 +930,26 @@ test('http2 fallback keeps HTTP/1.1 socket timeout', withHttpsServer(), async (t
 		...errorMatcher,
 		message: 'Timeout awaiting \'socket\' for 100ms',
 	});
+});
+
+test('http2 fallback does not use ALPN timeout as HTTP/1.1 socket timeout', withHttpsServer(), async (t, server, got) => {
+	server.get('/', async (_request, response) => {
+		await delay(120);
+		response.end('ok');
+	});
+
+	const {body} = await got({
+		http2: true,
+		timeout: {
+			lookup: 20,
+			request: 1000,
+		},
+		retry: {
+			limit: 0,
+		},
+	});
+
+	t.is(body, 'ok');
 });
 
 test('http2 ALPN negotiation treats zero request timeout as immediate', async t => {
@@ -1055,6 +1083,15 @@ test.serial('no memory leak when using http2 with socket timeout and connection 
 	});
 
 	try {
+		await got(server.url, {
+			http2: true,
+			https: {rejectUnauthorized: false},
+		});
+		await got(server.url, {
+			http2: true,
+			https: {rejectUnauthorized: false},
+		});
+
 		const promises = [];
 		const handleRequest = (request: any) => {
 			t.true(request.isGotHttp2Request);
@@ -1080,6 +1117,7 @@ test.serial('no memory leak when using http2 with socket timeout and connection 
 		await Promise.all(promises);
 
 		t.truthy(sharedSocket, 'Should have a socket');
+		t.is(server.sessions.size, 1);
 
 		// With the bug, timeout listeners grow with concurrent requests.
 		t.true(maxListenerCount <= 2, `Socket peaked at ${maxListenerCount} timeout listeners (expected ≤ 2)`);
