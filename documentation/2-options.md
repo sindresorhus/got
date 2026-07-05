@@ -901,7 +901,7 @@ The function signature is the same as `dns.lookup`.
 A DNS cache instance used for making DNS lookups.\
 Useful when making lots of requests to different public hostnames.
 Set to `true` to use Got's shared DNS cache.
-Set to `false` to disable an inherited DNS cache.
+When using `got.extend()`, set to `false` to opt out of a DNS cache configured by the parent instance.
 
 **Note:**
 > - This should stay disabled when making requests to internal hostnames such as localhost, database.local etc.
