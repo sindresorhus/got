@@ -690,12 +690,41 @@ test('throws on scheme-like urls without protocol slashes', async t => {
 test('throws on invalid `dnsCache` option', async t => {
 	await t.throwsAsync(
 		got('https://example.com', {
-		// @ts-expect-error Error tests
+			// @ts-expect-error Error tests
 			dnsCache: 123,
 		}),
 		{
 			instanceOf: RequestError,
 			message: 'Option \'dnsCache\': Expected values which are `Object`, `boolean`, or `undefined`. Received values of type `number`.',
+		},
+	);
+});
+
+test('throws on invalid `dnsCache.lookup` option', async t => {
+	await t.throwsAsync(
+		got('https://example.com', {
+			// @ts-expect-error Error tests
+			dnsCache: {},
+		}),
+		{
+			instanceOf: RequestError,
+			message: 'Option \'dnsCache.lookup\': Expected values which are `Function`. Received values of type `undefined`.',
+		},
+	);
+});
+
+test('throws on invalid `dnsCache.clear` option', async t => {
+	await t.throwsAsync(
+		got('https://example.com', {
+			dnsCache: {
+				lookup() {},
+				// @ts-expect-error Error tests
+				clear: 123,
+			},
+		}),
+		{
+			instanceOf: RequestError,
+			message: 'Option \'dnsCache.clear\': Expected values which are `Function` or `undefined`. Received values of type `number`.',
 		},
 	);
 });

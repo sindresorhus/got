@@ -8,7 +8,6 @@ import test from 'ava';
 import {pEvent} from 'p-event';
 import getStream from 'get-stream';
 import type {Handler} from 'express';
-import CacheableLookup from 'cacheable-lookup';
 import delay from 'delay';
 import got, {CacheError, type Response} from '../source/index.js';
 import withServer from './helpers/with-server.js';
@@ -211,32 +210,6 @@ test('cache should work with http2', withServer, async (t, server, got) => {
 	});
 
 	await t.notThrowsAsync(instance(''));
-});
-
-test('DNS cache works', async t => {
-	const instance = got.extend({
-		dnsCache: true,
-		https: {
-			rejectUnauthorized: false,
-		},
-	});
-
-	await t.notThrowsAsync(instance('https://example.com'));
-
-	// @ts-expect-error Accessing private property
-	t.is(instance.defaults.options.dnsCache!._cache.size, 1);
-});
-
-test('DNS cache works - CacheableLookup instance', async t => {
-	const cache = new CacheableLookup();
-	await t.notThrowsAsync(got('https://example.com', {
-		dnsCache: cache,
-		https: {
-			rejectUnauthorized: false,
-		},
-	}));
-
-	t.is((cache as any)._cache.size, 1);
 });
 
 test('`isFromCache` stream property is undefined before the `response` event', withServer, async (t, server, got) => {
