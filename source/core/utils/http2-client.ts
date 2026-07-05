@@ -32,6 +32,7 @@ type Http2AgentOptions = {
 
 type Http2Session = ClientHttp2Session & {
 	currentStreamCount?: number;
+	reservedStreamCount?: number;
 	emptySessionCounted?: boolean;
 	gracefullyClosing?: boolean;
 };
@@ -39,8 +40,19 @@ type Http2Session = ClientHttp2Session & {
 type QueueEntry = {
 	origin: URL;
 	options: NormalizedRequestOptions;
-	resolve: (session: Http2Session) => void;
+	reserveStream: boolean;
+	resolve: (result: AgentSessionResult) => void;
 	reject: (error: Error) => void;
+};
+
+type AgentSessionResult = {
+	session: Http2Session;
+	reusedSocket: boolean;
+};
+
+type AgentRequestResult = {
+	stream: ClientHttp2Stream;
+	reusedSocket: boolean;
 };
 
 type NormalizedRequestOptions = Omit<HttpsRequestOptions, 'agent' | 'createConnection'> & {
@@ -50,6 +62,7 @@ type NormalizedRequestOptions = Omit<HttpsRequestOptions, 'agent' | 'createConne
 	settings?: http2.Settings;
 	h2session?: ClientHttp2Session;
 	_reuseSocket?: Socket;
+	_reuseSocketShouldPool?: boolean;
 	_alpnSocket?: Socket;
 	_cancelSessionSetup?: () => void;
 };
@@ -214,6 +227,7 @@ const resolveProtocol = async (
 		agent: _agent,
 		h2session: _h2session,
 		_reuseSocket,
+		_reuseSocketShouldPool,
 		_alpnSocket,
 		timeout,
 		createConnection,
@@ -468,6 +482,7 @@ export class Http2Agent extends EventEmitter {
 	readonly maxSessions: number;
 	readonly maxEmptySessions: number;
 	readonly sessions = new Map<string, Http2Session[]>();
+	readonly pendingSessionKeys = new Set<string>();
 	readonly queue: QueueEntry[] = [];
 	emptySessionCount = 0;
 	sessionCount = 0;
@@ -488,24 +503,46 @@ export class Http2Agent extends EventEmitter {
 		return 'https:';
 	}
 
-	async request(origin: URL, options: NormalizedRequestOptions, headers: RequestHeaders, streamOptions?: http2.ClientSessionRequestOptions): Promise<ClientHttp2Stream> {
-		const session = await this.getSession(origin, options);
-		return session.request(headers, streamOptions);
+	async request(origin: URL, options: NormalizedRequestOptions, headers: RequestHeaders, streamOptions?: http2.ClientSessionRequestOptions): Promise<AgentRequestResult> {
+		const {session, reusedSocket} = await this.getSessionWithMetadata(origin, options, true);
+
+		return {
+			stream: session.request(headers, streamOptions),
+			reusedSocket,
+		};
 	}
 
 	async getSession(origin: string | URL, options: NormalizedRequestOptions = {}): Promise<Http2Session> {
+		const {session} = await this.getSessionWithMetadata(origin, options);
+		return session;
+	}
+
+	private async getSessionWithMetadata(origin: string | URL, options: NormalizedRequestOptions = {}, reserveStream = false): Promise<AgentSessionResult> {
 		const normalizedOrigin = typeof origin === 'string' ? new URL(origin) : origin;
 		const key = this.normalizeOptions(normalizedOrigin, options);
-		const session = options._reuseSocket ? undefined : this.getAvailableSession(key);
+		const canUsePooledSession = options._reuseSocket === undefined || options._reuseSocketShouldPool === true;
+		const session = canUsePooledSession ? this.getAvailableSession(key) : undefined;
 
 		if (session) {
-			return session;
+			if (reserveStream) {
+				this.reserveStream(session);
+			}
+
+			options._reuseSocket?.destroy();
+			delete options._reuseSocket;
+			delete options._reuseSocketShouldPool;
+
+			return {
+				session,
+				reusedSocket: true,
+			};
 		}
 
 		return new Promise((resolve, reject) => {
 			const entry: QueueEntry = {
 				origin: normalizedOrigin,
 				options,
+				reserveStream,
 				resolve,
 				reject,
 			};
@@ -579,6 +616,7 @@ export class Http2Agent extends EventEmitter {
 		}
 
 		this.sessions.clear();
+		this.pendingSessionKeys.clear();
 
 		while (this.queue.length > 0) {
 			this.queue.shift()!.reject(reason ?? new Error('Agent has been destroyed'));
@@ -600,15 +638,33 @@ export class Http2Agent extends EventEmitter {
 	}
 
 	private processQueue(): void {
-		while (this.queue.length > 0) {
-			const entry = this.queue[0]!;
+		let index = 0;
+
+		while (index < this.queue.length) {
+			const entry = this.queue[index]!;
 			const key = this.normalizeOptions(entry.origin, entry.options);
-			const session = entry.options._reuseSocket ? undefined : this.getAvailableSession(key);
+			const canUsePooledSession = entry.options._reuseSocket === undefined || entry.options._reuseSocketShouldPool === true;
+			const session = canUsePooledSession ? this.getAvailableSession(key) : undefined;
 
 			if (session) {
-				this.queue.shift();
+				this.queue.splice(index, 1);
 				delete entry.options._cancelSessionSetup;
-				entry.resolve(session);
+				if (entry.reserveStream) {
+					this.reserveStream(session);
+				}
+
+				entry.options._reuseSocket?.destroy();
+				delete entry.options._reuseSocket;
+				delete entry.options._reuseSocketShouldPool;
+				entry.resolve({
+					session,
+					reusedSocket: true,
+				});
+				continue;
+			}
+
+			if (canUsePooledSession && this.pendingSessionKeys.has(key)) {
+				index++;
 				continue;
 			}
 
@@ -616,13 +672,53 @@ export class Http2Agent extends EventEmitter {
 				this.closeEmptySessions(this.sessionCount - this.maxSessions + 1);
 
 				if (this.sessionCount >= this.maxSessions) {
-					return;
+					index++;
+					continue;
 				}
 			}
 
-			this.queue.shift();
+			this.queue.splice(index, 1);
+			if (canUsePooledSession) {
+				this.pendingSessionKeys.add(key);
+			}
+
 			this.createSession(entry, key);
 		}
+	}
+
+	private reserveStream(session: Http2Session): void {
+		session.ref();
+
+		if (session.currentStreamCount === 0 && session.emptySessionCounted) {
+			this.emptySessionCount--;
+			session.emptySessionCounted = false;
+		}
+
+		session.currentStreamCount = (session.currentStreamCount ?? 0) + 1;
+		session.reservedStreamCount = (session.reservedStreamCount ?? 0) + 1;
+	}
+
+	private releaseStream(session: Http2Session, shouldPoolSession: boolean): void {
+		session.currentStreamCount = session.currentStreamCount! - 1;
+
+		if (session.currentStreamCount === 0) {
+			if (!shouldPoolSession) {
+				session.close();
+				this.processQueue();
+				return;
+			}
+
+			this.emptySessionCount++;
+			session.emptySessionCounted = true;
+			session.unref();
+
+			if (this.emptySessionCount > this.maxEmptySessions || session.gracefullyClosing) {
+				session.close();
+				return;
+			}
+		}
+
+		this.processQueue();
 	}
 
 	private createSession(entry: QueueEntry, key: string): void {
@@ -631,6 +727,7 @@ export class Http2Agent extends EventEmitter {
 			path: _path,
 			agent: _agent,
 			h2session: _h2session,
+			_reuseSocketShouldPool,
 			timeout: setupTimeout,
 			...sessionOptions
 		} = entry.options;
@@ -641,7 +738,7 @@ export class Http2Agent extends EventEmitter {
 			ALPNProtocols: ['h2'],
 		};
 
-		const shouldPoolSession = !options._reuseSocket;
+		const shouldPoolSession = options._reuseSocket === undefined || _reuseSocketShouldPool === true;
 		if (options._reuseSocket) {
 			const socket = options._reuseSocket;
 			options.createConnection = () => socket;
@@ -650,6 +747,7 @@ export class Http2Agent extends EventEmitter {
 
 		const session = http2.connect(entry.origin, options as http2.SecureClientSessionOptions) as Http2Session;
 		session.currentStreamCount = 0;
+		session.reservedStreamCount = 0;
 		session.emptySessionCounted = false;
 		session.gracefullyClosing = false;
 		let settled = false;
@@ -664,6 +762,7 @@ export class Http2Agent extends EventEmitter {
 
 		const clearSessionSetup = () => {
 			clearSessionSetupTimeout();
+			this.pendingSessionKeys.delete(key);
 			delete entry.options._cancelSessionSetup;
 		};
 
@@ -726,7 +825,14 @@ export class Http2Agent extends EventEmitter {
 			}
 
 			this.emit('session', session);
-			entry.resolve(session);
+			if (entry.reserveStream) {
+				this.reserveStream(session);
+			}
+
+			entry.resolve({
+				session,
+				reusedSocket: false,
+			});
 
 			this.processQueue();
 		});
@@ -774,41 +880,34 @@ export class Http2Agent extends EventEmitter {
 
 		const request = session.request.bind(session);
 		session.request = (headers, streamOptions) => {
+			const hasReservedStream = (session.reservedStreamCount ?? 0) > 0;
+
+			if (hasReservedStream) {
+				session.reservedStreamCount = session.reservedStreamCount! - 1;
+			}
+
 			if (session.gracefullyClosing) {
+				if (hasReservedStream) {
+					this.releaseStream(session, shouldPoolSession);
+				}
+
 				throw new Error('The session is gracefully closing. No new streams are allowed.');
 			}
 
-			const stream = request(headers, streamOptions);
-			session.ref();
-
-			if (session.currentStreamCount === 0 && session.emptySessionCounted) {
-				this.emptySessionCount--;
-				session.emptySessionCounted = false;
+			if (!hasReservedStream) {
+				this.reserveStream(session);
 			}
 
-			session.currentStreamCount = (session.currentStreamCount ?? 0) + 1;
+			let stream: ClientHttp2Stream;
+			try {
+				stream = request(headers, streamOptions);
+			} catch (error: unknown) {
+				this.releaseStream(session, shouldPoolSession);
+				throw error;
+			}
 
 			stream.once('close', () => {
-				session.currentStreamCount = session.currentStreamCount! - 1;
-
-				if (session.currentStreamCount === 0) {
-					if (!shouldPoolSession) {
-						session.close();
-						this.processQueue();
-						return;
-					}
-
-					this.emptySessionCount++;
-					session.emptySessionCounted = true;
-					session.unref();
-
-					if (this.emptySessionCount > this.maxEmptySessions || session.gracefullyClosing) {
-						session.close();
-						return;
-					}
-				}
-
-				this.processQueue();
+				this.releaseStream(session, shouldPoolSession);
 			});
 
 			return stream;
@@ -868,7 +967,7 @@ class Http2ClientRequest extends Writable {
 
 	agent?: Http2Agent;
 	aborted = false;
-	reusedSocket = true;
+	reusedSocket = false;
 	res?: IncomingMessage;
 	socket: Socket | undefined;
 	connection: Socket | undefined;
@@ -884,7 +983,7 @@ class Http2ClientRequest extends Writable {
 	private readonly origin: URL;
 	private stream?: ClientHttp2Stream;
 	private pendingJobs: Array<() => void> = [];
-	private pendingAgentPromise?: Promise<ClientHttp2Stream>;
+	private pendingAgentPromise?: Promise<AgentRequestResult>;
 	private readonly connectionHeaderNames = new Set<string>();
 	private trailers?: RequestHeaders;
 
@@ -974,6 +1073,7 @@ class Http2ClientRequest extends Writable {
 
 		try {
 			if (this.options.h2session) {
+				this.reusedSocket = true;
 				this.onStream(this.options.h2session.request(this.headers, {
 					endStream: false,
 					waitForTrailers: this.trailers !== undefined,
@@ -987,7 +1087,9 @@ class Http2ClientRequest extends Writable {
 				waitForTrailers: this.trailers !== undefined,
 			});
 			this.pendingAgentPromise = streamPromise;
-			this.onStream(await streamPromise);
+			const {stream, reusedSocket} = await streamPromise;
+			this.reusedSocket = reusedSocket;
+			this.onStream(stream);
 			this.pendingAgentPromise = undefined;
 		} catch (error: unknown) {
 			this.pendingAgentPromise = undefined;
@@ -1201,19 +1303,66 @@ export const request = (
 	callback?: RequestCallback,
 ): ClientRequest => new Http2ClientRequest(input, options, callback) as unknown as ClientRequest;
 
+const getSourceOptions = (
+	input: string | URL | NormalizedRequestOptions,
+	options?: NormalizedRequestOptions | RequestCallback,
+): NormalizedRequestOptions => {
+	if (typeof input === 'object' && !(input instanceof URL)) {
+		return input;
+	}
+
+	return typeof options === 'object' ? options : {};
+};
+
+const requestHttp1 = (options: NormalizedRequestOptions, agent: AgentObject | HttpsAgent | Http2Agent | false | undefined, callback?: RequestCallback): ClientRequest => {
+	if (typeof agent === 'object' && 'https' in agent) {
+		options.agent = agent.https;
+	}
+
+	delete options.timeout;
+
+	if (options.headers) {
+		const headers: Record<string, any> = {...options.headers};
+		Reflect.deleteProperty(headers, HTTP2_HEADER_METHOD);
+		Reflect.deleteProperty(headers, HTTP2_HEADER_SCHEME);
+		Reflect.deleteProperty(headers, HTTP2_HEADER_PATH);
+
+		if (headers[HTTP2_HEADER_AUTHORITY] && !headers.host) {
+			headers.host = headers[HTTP2_HEADER_AUTHORITY];
+		}
+
+		Reflect.deleteProperty(headers, HTTP2_HEADER_AUTHORITY);
+		options.headers = headers;
+	}
+
+	return https.request(options as HttpsRequestOptions, callback);
+};
+
+const requestWithCustomHttpsAgent = (options: NormalizedRequestOptions, agent: AgentObject & {https: HttpsAgent}, callback?: RequestCallback): ClientRequest => {
+	options.agent = agent.https;
+	options.ALPNProtocols = ['http/1.1'];
+	delete options.timeout;
+
+	return https.request(options as HttpsRequestOptions, callback);
+};
+
+const requestHttp2 = (options: NormalizedRequestOptions, agent: AgentObject | HttpsAgent | Http2Agent | false | undefined, socket: Socket | undefined, callback?: RequestCallback): ClientRequest => {
+	options.agent = typeof agent === 'object' && 'http2' in agent ? agent.http2 : agent as Http2Agent | false | undefined;
+
+	if (socket) {
+		options._reuseSocket = socket;
+		options._reuseSocketShouldPool = options.createConnection === undefined;
+	}
+
+	return request(options, callback);
+};
+
 export const auto = async (
 	input: string | URL | NormalizedRequestOptions,
 	options?: NormalizedRequestOptions | RequestCallback,
 	callback?: RequestCallback,
 ): Promise<ClientRequest> => {
-	let sourceOptions: NormalizedRequestOptions = {};
-
-	if (typeof input === 'object' && !(input instanceof URL)) {
-		sourceOptions = input;
-	} else if (typeof options === 'object') {
-		sourceOptions = options;
-	}
-
+	const sourceOptions = getSourceOptions(input, options);
 	const normalized = normalizeInput(input, options, callback);
 	options = normalized.options;
 	callback = normalized.callback;
@@ -1233,48 +1382,16 @@ export const auto = async (
 
 	const agent = options.agent as AgentObject | HttpsAgent | Http2Agent | false | undefined;
 	if (hasCustomHttpsAgent(agent) && options.createConnection === undefined) {
-		options.agent = agent.https;
-		options.ALPNProtocols = ['http/1.1'];
-		delete options.timeout;
-		return https.request(options as HttpsRequestOptions, callback);
+		return requestWithCustomHttpsAgent(options, agent, callback);
 	}
 
 	const {alpnProtocol, socket} = await resolveProtocol(options, sourceOptions);
-	const isHttp2 = alpnProtocol === 'h2';
-
-	if (isHttp2) {
-		options.agent = typeof agent === 'object' && 'http2' in agent ? agent.http2 : agent as Http2Agent | false | undefined;
-
-		if (socket) {
-			options._reuseSocket = socket;
-		}
-
-		return request(options, callback);
+	if (alpnProtocol === 'h2') {
+		return requestHttp2(options, agent, socket, callback);
 	}
 
 	socket?.destroy();
-
-	if (typeof agent === 'object' && 'https' in agent) {
-		options.agent = agent.https;
-	}
-
-	delete options.timeout;
-
-	if (options.headers) {
-		const headers: Record<string, any> = {...options.headers};
-		Reflect.deleteProperty(headers, HTTP2_HEADER_METHOD);
-		Reflect.deleteProperty(headers, ':scheme');
-		Reflect.deleteProperty(headers, HTTP2_HEADER_PATH);
-
-		if (headers[HTTP2_HEADER_AUTHORITY] && !headers.host) {
-			headers.host = headers[HTTP2_HEADER_AUTHORITY];
-		}
-
-		Reflect.deleteProperty(headers, HTTP2_HEADER_AUTHORITY);
-		options.headers = headers;
-	}
-
-	return https.request(options as HttpsRequestOptions, callback);
+	return requestHttp1(options, agent, callback);
 };
 
 const http2Client = {

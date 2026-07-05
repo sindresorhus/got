@@ -1250,6 +1250,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 					// embedded in the redirect URL itself to prevent a malicious server from
 					// leaking them to a third party. The request body is preserved per RFC:
 					// 307/308 keep the method and replayable bodies, even cross-origin.
+					updatedOptions.h2session = undefined;
 					this._stripCrossOriginState(updatedOptions, redirectUrl);
 				} else {
 					redirectUrl.username = updatedOptions.username;
@@ -1269,6 +1270,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 				const boundaryBeforeRedirectHooks = getUrlPrefixBoundary(updatedOptions);
 				const bodyBeforeRedirectHooks = updatedOptions.body;
+				const h2sessionBeforeRedirectHooks = updatedOptions.h2session;
 				const preHookState = isDifferentOrigin
 					? undefined
 					: {
@@ -1345,6 +1347,10 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 					}
 
 					if (hookChangedOrigin) {
+						if (updatedOptions.h2session === h2sessionBeforeRedirectHooks) {
+							updatedOptions.h2session = undefined;
+						}
+
 						if (
 							canRewrite
 							&& this._hasUnchangedBodyForRedirect(updatedOptions, state, changedState)

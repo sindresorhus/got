@@ -1,59 +1,10 @@
 import http from 'node:http';
-import http2, {type ServerHttp2Stream} from 'node:http2';
 import {promises as dnsPromises} from 'node:dns';
-import type net from 'node:net';
 import test from 'ava';
-import pify from 'pify';
-import pem from 'pem';
 import got from '../source/index.js';
 import DnsCache from '../source/core/utils/dns-cache.js';
+import createHttp2TestServer from './helpers/create-http2-test-server.js';
 import withServer from './helpers/with-server.js';
-import type {CreateCertificate} from './types/pem.js';
-
-const createCertificate = pify(pem.createCertificate as CreateCertificate);
-
-const createHttp2TestServer = async (onStream: (stream: ServerHttp2Stream) => void) => {
-	const certificate = await createCertificate({days: 1, selfSigned: true});
-	const server = http2.createSecureServer({
-		key: certificate.serviceKey,
-		cert: certificate.certificate,
-	});
-	const sessions = new Set<NonNullable<ServerHttp2Stream['session']>>();
-
-	server.on('stream', onStream);
-	server.on('session', session => {
-		sessions.add(session);
-		session.once('close', () => {
-			sessions.delete(session);
-		});
-	});
-
-	await new Promise<void>(resolve => {
-		server.listen(0, 'localhost', resolve);
-	});
-
-	const {port} = server.address() as net.AddressInfo;
-
-	return {
-		url: `https://localhost:${port}`,
-		async close() {
-			for (const session of sessions) {
-				session.destroy();
-			}
-
-			await new Promise<void>((resolve, reject) => {
-				server.close(error => {
-					if (error) {
-						reject(error);
-						return;
-					}
-
-					resolve();
-				});
-			});
-		},
-	};
-};
 
 test('http/1 timings', withServer, async (t, server, got) => {
 	server.get('/', (_request, response) => {

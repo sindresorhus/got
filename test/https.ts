@@ -8,57 +8,13 @@ import {pEvent} from 'p-event';
 import pify from 'pify';
 import pem from 'pem';
 import got, {type NativeRequestOptions, type NormalizedOptions} from '../source/index.js';
+import createHttp2TestServer from './helpers/create-http2-test-server.js';
 import {withHttpsServer} from './helpers/with-server.js';
 import type {CreatePrivateKey, CreateCsr, CreateCertificate} from './types/pem.js';
 
 const createPrivateKey = pify(pem.createPrivateKey as CreatePrivateKey);
 const createCsr = pify(pem.createCSR as CreateCsr);
 const createCertificate = pify(pem.createCertificate as CreateCertificate);
-
-const createHttp2TestServer = async (onStream: (stream: ServerHttp2Stream, headers: http2.IncomingHttpHeaders) => void) => {
-	const certificate = await createCertificate({days: 1, selfSigned: true});
-	const server = http2.createSecureServer({
-		key: certificate.serviceKey,
-		cert: certificate.certificate,
-	});
-	const sessions = new Set<NonNullable<ServerHttp2Stream['session']>>();
-
-	server.on('stream', onStream);
-	server.on('session', session => {
-		sessions.add(session);
-		session.once('close', () => {
-			sessions.delete(session);
-		});
-	});
-
-	await new Promise<void>(resolve => {
-		server.listen(0, 'localhost', resolve);
-	});
-
-	const {port} = server.address() as net.AddressInfo;
-
-	return {
-		server,
-		sessions,
-		url: `https://localhost:${port}`,
-		async close() {
-			for (const session of sessions) {
-				session.destroy();
-			}
-
-			await new Promise<void>((resolve, reject) => {
-				server.close(error => {
-					if (error) {
-						reject(error);
-						return;
-					}
-
-					resolve();
-				});
-			});
-		},
-	};
-};
 
 test('https request without ca', withHttpsServer(), async (t, server, got) => {
 	server.get('/', (_request, response) => {
@@ -848,7 +804,6 @@ test('http2 supports h2c with explicit h2session option', async t => {
 
 	try {
 		const {body} = await got(url, {
-			http2: true,
 			hooks: {
 				beforeRequest: [
 					(options: NormalizedOptions) => {
@@ -934,6 +889,120 @@ test('http2 supports IPv6 h2c URLs with explicit h2session option', async t => {
 	}
 });
 
+test('http2 clears explicit h2session on cross-origin redirects', async t => {
+	let firstServerRequests = 0;
+	let secondServerRequests = 0;
+	const firstServer = http2.createServer();
+	const secondServer = http2.createServer();
+	const sessions = new Map<string, http2.ClientHttp2Session>();
+
+	const listen = async (server: http2.Http2Server) => new Promise<number>(resolve => {
+		server.listen(0, 'localhost', () => {
+			resolve((server.address() as net.AddressInfo).port);
+		});
+	});
+	const close = async (server: http2.Http2Server) => new Promise<void>((resolve, reject) => {
+		server.close(error => {
+			if (error) {
+				reject(error);
+				return;
+			}
+
+			resolve();
+		});
+	});
+	const getSession = (origin: string) => {
+		const cachedSession = sessions.get(origin);
+		if (cachedSession && !cachedSession.destroyed) {
+			return cachedSession;
+		}
+
+		const session = http2.connect(origin);
+		sessions.set(origin, session);
+		return session;
+	};
+
+	const firstPort = await listen(firstServer);
+	const secondPort = await listen(secondServer);
+	const firstUrl = `http://localhost:${firstPort}`;
+	const secondUrl = `http://localhost:${secondPort}`;
+
+	firstServer.on('stream', (stream: ServerHttp2Stream, headers) => {
+		firstServerRequests++;
+
+		if (headers[':path'] === '/start') {
+			stream.respond({
+				// eslint-disable-next-line @typescript-eslint/naming-convention
+				':status': 302,
+				location: `${secondUrl}/target`,
+			});
+			stream.end();
+			return;
+		}
+
+		if (headers[':path'] === '/hook-start') {
+			stream.respond({
+				// eslint-disable-next-line @typescript-eslint/naming-convention
+				':status': 302,
+				location: `${firstUrl}/same-origin-target`,
+			});
+			stream.end();
+			return;
+		}
+
+		stream.respond({
+			// eslint-disable-next-line @typescript-eslint/naming-convention
+			':status': 200,
+		});
+		stream.end('wrong-origin');
+	});
+	secondServer.on('stream', (stream: ServerHttp2Stream) => {
+		secondServerRequests++;
+		stream.respond({
+			// eslint-disable-next-line @typescript-eslint/naming-convention
+			':status': 200,
+		});
+		stream.end('ok');
+	});
+
+	try {
+		const hooks = {
+			beforeRequest: [
+				(options: NormalizedOptions) => {
+					options.h2session ??= getSession(options.url!.origin);
+				},
+			],
+			beforeRedirect: [
+				(options: NormalizedOptions) => {
+					if (options.url!.pathname === '/same-origin-target') {
+						options.url = new URL(`${secondUrl}/hook-target`);
+					}
+				},
+			],
+		};
+		const {body} = await got(`${firstUrl}/start`, {
+			hooks,
+		});
+
+		t.is(body, 'ok');
+
+		const hookRedirectResponse = await got(`${firstUrl}/hook-start`, {
+			hooks,
+		});
+
+		t.is(hookRedirectResponse.body, 'ok');
+		t.is(firstServerRequests, 2);
+		t.is(secondServerRequests, 2);
+	} finally {
+		for (const session of sessions.values()) {
+			session.destroy();
+		}
+
+		await close(firstServer);
+		await close(secondServer);
+	}
+});
+
 test('http2 supports IPv6 HTTPS authorities', async t => {
 	const certificate = await createCertificate({days: 1, selfSigned: true});
 	const server = http2.createSecureServer({
@@ -1008,7 +1077,14 @@ test('http2 rejects pseudo-headers in request headers', async t => {
 		key: certificate.serviceKey,
 		cert: certificate.certificate,
 	});
+	const sessions = new Set<http2.ServerHttp2Session>();
 
+	server.on('session', session => {
+		sessions.add(session);
+		session.once('close', () => {
+			sessions.delete(session);
+		});
+	});
 	server.on('stream', (stream: ServerHttp2Stream) => {
 		stream.respond({
 			// eslint-disable-next-line @typescript-eslint/naming-convention
@@ -1072,19 +1148,162 @@ test('http2 connection reuse with default agent', async t => {
 				rejectUnauthorized: false,
 			},
 		};
-		await got(`${server.url}/warm`, options);
-		await streamClosedPromises[0];
-
 		const response1 = await got(`${server.url}/200`, options);
-		await streamClosedPromises[1];
+		await streamClosedPromises[0];
 		const response2 = await got(`${server.url}/201`, options);
 
 		t.is(response1.statusCode, 200);
 		t.is(response2.statusCode, 201);
 		t.is(server.sessions.size, 1);
-		t.true(sessions[1] === sessions[2]);
+		t.true(sessions[0] === sessions[1]);
 	} finally {
 		await server.close();
+	}
+});
+
+test('http2 cold concurrent requests share default agent session', async t => {
+	const sessions: Array<NonNullable<ServerHttp2Stream['session']>> = [];
+	const server = await createHttp2TestServer(stream => {
+		sessions.push(stream.session!);
+		stream.respond({
+			// eslint-disable-next-line @typescript-eslint/naming-convention
+			':status': 200,
+		});
+		stream.end('ok');
+	});
+
+	try {
+		const options = {
+			http2: true,
+			https: {
+				rejectUnauthorized: false,
+			},
+		};
+		const responses = await Promise.all([
+			got(`${server.url}/1`, options),
+			got(`${server.url}/2`, options),
+			got(`${server.url}/3`, options),
+			got(`${server.url}/4`, options),
+			got(`${server.url}/5`, options),
+		]);
+
+		t.deepEqual(responses.map(response => response.body), ['ok', 'ok', 'ok', 'ok', 'ok']);
+		t.is(server.sessions.size, 1);
+		t.true(sessions.every(session => session === sessions[0]));
+	} finally {
+		await server.close();
+	}
+});
+
+test('http2 reports reusedSocket for pooled sessions', async t => {
+	const server = await createHttp2TestServer(stream => {
+		stream.respond({
+			// eslint-disable-next-line @typescript-eslint/naming-convention
+			':status': 200,
+		});
+		stream.end('ok');
+	});
+
+	try {
+		const options = {
+			http2: true,
+			https: {
+				rejectUnauthorized: false,
+			},
+		};
+		const firstResponse = await got(`${server.url}/first`, options);
+		const secondResponse = await got(`${server.url}/second`, options);
+
+		t.false(firstResponse.request.reusedSocket);
+		t.true(secondResponse.request.reusedSocket);
+	} finally {
+		await server.close();
+	}
+});
+
+test('http2 does not exceed maxConcurrentStreams on pooled sessions', async t => {
+	const certificate = await createCertificate({days: 1, selfSigned: true});
+	const server = http2.createSecureServer({
+		key: certificate.serviceKey,
+		cert: certificate.certificate,
+		settings: {
+			maxConcurrentStreams: 1,
+		},
+	});
+	const sessions = new Set<NonNullable<ServerHttp2Stream['session']>>();
+	const activeStreams = new Map<NonNullable<ServerHttp2Stream['session']>, number>();
+	let maxActiveStreamsPerSession = 0;
+	let releaseSlowStream!: () => void;
+	const slowStreamStarted = new Promise<void>(resolve => {
+		server.on('stream', (stream: ServerHttp2Stream, headers) => {
+			const session = stream.session!;
+			sessions.add(session);
+			activeStreams.set(session, (activeStreams.get(session) ?? 0) + 1);
+			maxActiveStreamsPerSession = Math.max(maxActiveStreamsPerSession, activeStreams.get(session)!);
+			stream.once('close', () => {
+				activeStreams.set(session, activeStreams.get(session)! - 1);
+			});
+
+			stream.respond({
+				// eslint-disable-next-line @typescript-eslint/naming-convention
+				':status': 200,
+			});
+
+			if (headers[':path'] === '/slow') {
+				releaseSlowStream = () => {
+					stream.end('slow');
+				};
+
+				resolve();
+				return;
+			}
+
+			stream.end('fast');
+		});
+	});
+
+	await new Promise<void>(resolve => {
+		server.listen(0, 'localhost', resolve);
+	});
+
+	try {
+		const {port} = server.address() as net.AddressInfo;
+		const url = `https://localhost:${port}`;
+		const options = {
+			http2: true,
+			https: {
+				rejectUnauthorized: false,
+			},
+		};
+		const slowResponsePromise = got(`${url}/slow`, options);
+		await slowStreamStarted;
+		const fastResponsePromise = got(`${url}/fast`, options);
+
+		await new Promise(resolve => {
+			setTimeout(resolve, 50);
+		});
+
+		releaseSlowStream();
+		const [slowResponse, fastResponse] = await Promise.all([slowResponsePromise, fastResponsePromise]);
+
+		t.is(slowResponse.body, 'slow');
+		t.is(fastResponse.body, 'fast');
+		t.is(maxActiveStreamsPerSession, 1);
+	} finally {
+		for (const session of sessions) {
+			session.destroy();
+		}
+
+		await new Promise<void>((resolve, reject) => {
+			server.close(error => {
+				if (error) {
+					reject(error);
+					return;
+				}
+
+				resolve();
+			});
+		});
 	}
 });
 
@@ -1094,7 +1313,14 @@ test('http2 does not reuse sessions across different checkServerIdentity options
 		key: certificate.serviceKey,
 		cert: certificate.certificate,
 	});
+	const sessions = new Set<http2.ServerHttp2Session>();
 
+	server.on('session', session => {
+		sessions.add(session);
+		session.once('close', () => {
+			sessions.delete(session);
+		});
+	});
 	server.on('stream', (stream: ServerHttp2Stream) => {
 		stream.respond({
 			// eslint-disable-next-line @typescript-eslint/naming-convention
@@ -1142,6 +1368,10 @@ test('http2 does not reuse sessions across different checkServerIdentity options
 		t.is(acceptedCheckCount, 1);
 		t.is(rejectedCheckCount, 1);
 	} finally {
+		for (const session of sessions) {
+			session.destroy();
+		}
+
 		await new Promise<void>((resolve, reject) => {
 			server.close(error => {
 				if (error) {
@@ -1725,6 +1955,33 @@ test('http2 uses native HTTP/1.1 path with custom HTTPS agent', withHttpsServer(
 
 		t.is(body, '1.1');
 		t.is(secureConnectionCount, 1);
+	} finally {
+		agent.destroy();
+	}
+});
+
+test('http2 custom request receives native HTTPS agent option', withHttpsServer(), async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.end('ok');
+	});
+
+	const agent = new https.Agent();
+	let receivedAgent: NativeRequestOptions['agent'];
+
+	try {
+		const {body} = await got({
+			http2: true,
+			agent: {
+				https: agent,
+			},
+			request(url, options, callback) {
+				receivedAgent = options.agent;
+				return https.request(url, options, callback);
+			},
+		});
+
+		t.is(body, 'ok');
+		t.is(receivedAgent, agent);
 	} finally {
 		agent.destroy();
 	}

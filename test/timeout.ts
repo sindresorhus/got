@@ -17,6 +17,7 @@ import pem from 'pem';
 import got, {type RequestError, TimeoutError} from '../source/index.js';
 import type {NativeRequestOptions} from '../source/core/options.js';
 import timedOut from '../source/core/timed-out.js';
+import createHttp2TestServer from './helpers/create-http2-test-server.js';
 import slowDataStream from './helpers/slow-data-stream.js';
 import type {GlobalClock} from './helpers/types.js';
 import withServer, {withServerAndFakeTimers, withHttpsServer} from './helpers/with-server.js';
@@ -33,51 +34,6 @@ const errorMatcher = {
 const keepAliveAgent = new http.Agent({
 	keepAlive: true,
 });
-
-const createHttp2TestServer = async (onStream: (stream: ServerHttp2Stream, headers: http2.IncomingHttpHeaders) => void) => {
-	const certificate = await createCertificate({days: 1, selfSigned: true});
-	const server = http2.createSecureServer({
-		key: certificate.serviceKey,
-		cert: certificate.certificate,
-	});
-	const sessions = new Set<NonNullable<ServerHttp2Stream['session']>>();
-
-	server.on('stream', onStream);
-	server.on('session', session => {
-		sessions.add(session);
-		session.once('close', () => {
-			sessions.delete(session);
-		});
-	});
-
-	await new Promise<void>(resolve => {
-		server.listen(0, 'localhost', resolve);
-	});
-
-	const {port} = server.address() as net.AddressInfo;
-
-	return {
-		server,
-		sessions,
-		url: `https://localhost:${port}`,
-		async close() {
-			for (const session of sessions) {
-				session.destroy();
-			}
-
-			await new Promise<void>((resolve, reject) => {
-				server.close(error => {
-					if (error) {
-						reject(error);
-						return;
-					}
-
-					resolve();
-				});
-			});
-		},
-	};
-};
 
 const defaultHandler = (clock: GlobalClock): Handler => (request, response) => {
 	request.resume();
@@ -1216,6 +1172,32 @@ test('request timeout includes async custom request function time', withServer, 
 	const elapsed = Date.now() - startTime;
 	t.is(error?.code, 'ETIMEDOUT');
 	t.true(elapsed < 170, `Expected timeout ${elapsed}ms to include async request function time`);
+});
+
+test('request timeout aborts slow async custom request function', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.end('too late');
+	});
+
+	const timeout = 50;
+	const startTime = Date.now();
+	const error = await t.throwsAsync<RequestError>(got({
+		http2: true,
+		timeout: {
+			request: timeout,
+		},
+		retry: {
+			limit: 0,
+		},
+		async request() {
+			await delay(200);
+			return undefined;
+		},
+	}));
+
+	const elapsed = Date.now() - startTime;
+	t.is(error?.code, 'ETIMEDOUT');
+	t.true(elapsed < 150, `Expected timeout ${elapsed}ms to happen before custom request resolution`);
 });
 
 test('http2 custom request does not receive ALPN timeout', withHttpsServer(), async (t, server, got) => {

@@ -27,7 +27,7 @@ import type {IncomingMessageWithTimings} from './utils/timer.js';
 import parseLinkHeader from './parse-link-header.js';
 import type {PlainResponse, Response} from './response.js';
 import type {RequestError} from './errors.js';
-import type {Delays} from './timed-out.js';
+import {TimeoutError, type Delays} from './timed-out.js';
 import {getUnixSocketPath} from './utils/is-unix-socket-url.js';
 import DnsCache, {type DnsCacheLookup} from './utils/dns-cache.js';
 import http2Client from './utils/http2-client.js';
@@ -51,6 +51,34 @@ type RequestFallbackContext = {
 	options: NativeRequestOptions;
 	callback?: (response: AcceptableResponse) => void;
 	requestStartedAt: number;
+};
+
+const isAgentObject = (agent: unknown): agent is Agents => is.object(agent) && ('http' in agent || 'https' in agent || 'http2' in agent);
+
+const getNativeAgent = (url: URL, agent: NativeRequestOptions['agent']): NativeRequestOptions['agent'] => {
+	if (!isAgentObject(agent)) {
+		return agent;
+	}
+
+	return url.protocol === 'https:' ? agent.https : agent.http;
+};
+
+const resolveWithRequestTimeout = async <T>(promise: Promise<T>, timeout: number): Promise<T> => {
+	let timeoutId: NodeJS.Timeout | undefined;
+	const timeoutPromise = new Promise<never>((_resolve, reject) => {
+		timeoutId = setTimeout(() => {
+			reject(new TimeoutError(timeout, 'request'));
+		}, timeout);
+		timeoutId.unref();
+	});
+
+	try {
+		return await Promise.race([promise, timeoutPromise]);
+	} finally {
+		if (timeoutId) {
+			clearTimeout(timeoutId);
+		}
+	}
 };
 
 export type Agents = {
@@ -2519,7 +2547,7 @@ export default class Options {
 	/**
 	If set to `true`, Got will additionally accept HTTP/2 requests.
 
-	It will choose either HTTP/1.1 or HTTP/2 depending on the ALPN protocol.
+	It will choose either HTTP/1.1 or HTTP/2 depending on the ALPN protocol. When `agent.https` is set, Got uses that native HTTPS agent directly and skips HTTP/2 negotiation.
 
 	__Note__: If `options.request` returns a request or response, it controls the transport and Got's HTTP/2 client is bypassed. Return `undefined` to fall back to Got's built-in transport.
 
@@ -3415,11 +3443,14 @@ export default class Options {
 
 		const requestWithFallback: RequestFunction = (url, options, callback?) => {
 			const requestStartedAt = Date.now();
-			let customRequestOptions = options;
-			if (options.timeout !== undefined) {
-				const {timeout: _timeout, ...optionsWithoutInternalTimeout} = options;
-				customRequestOptions = optionsWithoutInternalTimeout;
-			}
+			const nativeAgent = getNativeAgent(url, options.agent);
+			const customRequestOptions = options.timeout !== undefined || nativeAgent !== options.agent
+				? {
+					...options,
+					agent: nativeAgent,
+					timeout: undefined,
+				}
+				: options;
 
 			const result = customRequest(url, customRequestOptions, callback);
 
@@ -3561,7 +3592,13 @@ export default class Options {
 		requestResult: Promise<AcceptableResponse | ClientRequest | undefined>,
 		{url, options, callback, requestStartedAt}: RequestFallbackContext,
 	): Promise<AcceptableResponse | ClientRequest> {
-		const result = await requestResult;
+		let resolvedRequestResult = requestResult;
+		if (this.#internals.timeout.request !== undefined) {
+			const remainingRequestTimeout = this.#internals.timeout.request - (Date.now() - requestStartedAt);
+			resolvedRequestResult = resolveWithRequestTimeout(requestResult, Math.max(0, remainingRequestTimeout));
+		}
+
+		const result = await resolvedRequestResult;
 
 		if (result !== undefined) {
 			return result;
