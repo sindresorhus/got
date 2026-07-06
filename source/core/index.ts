@@ -344,6 +344,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	private _skipRequestEndInFinal = false;
 	private _hasWrittenBody = false;
 	private _hasWritableBody = false;
+	private _discardBodyWrites = false;
 	private _incrementalDecode?: {decoder: TextDecoder; chunks: string[]};
 	private readonly _requestId = generateRequestId();
 
@@ -717,9 +718,13 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	}
 
 	override _write(chunk: unknown, encoding: BufferEncoding | undefined, callback: (error?: Error | null) => void): void { // eslint-disable-line @typescript-eslint/no-restricted-types
-		this._hasWrittenBody = true;
-
 		const write = (): void => {
+			if (this._discardBodyWrites) {
+				callback();
+				return;
+			}
+
+			this._hasWrittenBody = true;
 			this._writeRequest(chunk, encoding, callback);
 		};
 
@@ -732,6 +737,12 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 	override _final(callback: (error?: Error | null) => void): void { // eslint-disable-line @typescript-eslint/no-restricted-types
 		const endRequest = (): void => {
+			if (this._discardBodyWrites) {
+				this._hasWritableBody = false;
+				callback();
+				return;
+			}
+
 			if (this._skipRequestEndInFinal) {
 				this._skipRequestEndInFinal = false;
 				callback();
@@ -1649,7 +1660,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	private _sendBody() {
 		// Send body
 		const {body} = this.options;
-		const currentRequest = this.redirectUrls.length === 0 ? this : this._request ?? this;
+		const currentRequest = this.redirectUrls.length === 0 && !this._discardBodyWrites ? this : this._request ?? this;
 
 		if (is.nodeStream(body)) {
 			body.pipe(currentRequest);
@@ -2310,6 +2321,10 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 			options.stripSensitiveHeaders(urlBeforeRequestHooks, options.url, changedOptions);
 
+			this._discardBodyWrites = true;
+			this._hasWrittenBody = false;
+			this._hasWritableBody = false;
+
 			if (
 				!hookChangedState.has('body')
 				&& !hookChangedState.has('json')
@@ -2317,6 +2332,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 				&& isBodyUnchanged(options, stateBeforeRequestHooks!)
 			) {
 				options.clearBody();
+				this._bodySize = undefined;
 			}
 		}
 

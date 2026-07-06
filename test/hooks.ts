@@ -941,6 +941,102 @@ test('beforeRequest prefixUrl rewrite strips inherited sensitive headers and bod
 	}
 });
 
+test('beforeRequest prefixUrl rewrite drops writable stream body cross-origin', withServer, async (t, server, got) => {
+	const {server: evilServer, received} = await createCrossOriginReceiver('/items', 'success');
+
+	try {
+		const stream = got.stream.post('items', {
+			prefixUrl: server.url,
+			hooks: {
+				beforeRequest: [
+					options => {
+						options.prefixUrl = evilServer.url;
+					},
+				],
+			},
+		});
+
+		stream.end('stream-secret');
+
+		t.is(await getStream(stream), 'success');
+		t.is(received.method, 'POST');
+		t.is(received.url, '/items');
+		t.is(received.body, '');
+	} finally {
+		await evilServer.close();
+	}
+});
+
+test('beforeRequest prefixUrl rewrite preserves replacement body and drops writable stream body cross-origin', withServer, async (t, server, got) => {
+	const {server: evilServer, received} = await createCrossOriginReceiver('/items', 'success');
+	const replacementBody = 'replacement'.repeat(20_000);
+
+	try {
+		const stream = got.stream.post('items', {
+			prefixUrl: server.url,
+			hooks: {
+				beforeRequest: [
+					options => {
+						options.prefixUrl = evilServer.url;
+						options.body = replacementBody;
+					},
+				],
+			},
+		});
+
+		stream.end('stream-secret');
+
+		t.is(await getStream(stream), 'success');
+		t.is(received.method, 'POST');
+		t.is(received.url, '/items');
+		t.is(received.body, replacementBody);
+	} finally {
+		await evilServer.close();
+	}
+});
+
+test('beforeRequest prefixUrl rewrite drops late writable stream body before redirect cross-origin', withServer, async (t, server, got) => {
+	const createHttpTestServer = (await import('./helpers/create-http-test-server.js')).default;
+	const evilServer = await createHttpTestServer({bodyParser: false});
+	let initialBody = '';
+	let receivedBody = '';
+
+	evilServer.post('/items', async (request, response) => {
+		initialBody = await getStream(request);
+		response.statusCode = 307;
+		response.setHeader('location', '/final');
+		response.end();
+	});
+
+	evilServer.post('/final', async (request, response) => {
+		receivedBody = await getStream(request);
+		response.end('success');
+	});
+
+	try {
+		const stream = got.stream.post('items', {
+			prefixUrl: server.url,
+			hooks: {
+				beforeRequest: [
+					options => {
+						options.prefixUrl = evilServer.url;
+					},
+				],
+			},
+		});
+
+		stream.once('request', () => {
+			stream.end('stream-secret');
+		});
+
+		t.is(await getStream(stream), 'success');
+		t.is(initialBody, '');
+		t.is(receivedBody, '');
+	} finally {
+		await evilServer.close();
+	}
+});
+
 test('beforeRequest prefixUrl rewrite does not inherit password when only username is explicit', withServer, async (t, server, got) => {
 	server.get('/v2/items', echoHeader('authorization'));
 
@@ -3830,6 +3926,43 @@ test('afterResponse retryWithMergedOptions strips sensitive headers and body whe
 		t.is(received.cookie, undefined);
 		t.is(received.body, '');
 		t.is(received.contentType, undefined);
+	} finally {
+		await trustedServer.close();
+		await evilServer.close();
+	}
+});
+
+test('afterResponse retryWithMergedOptions preserves explicit prefixUrl credentials on cross-origin retry', async t => {
+	const {server: evilServer, received} = await createCrossOriginReceiver('/api');
+	const trustedServer = await createRetryUrlServer(`${evilServer.url}/api`);
+	const nextPrefixUrl = new URL(evilServer.url);
+	nextPrefixUrl.username = 'new-user';
+	nextPrefixUrl.password = 'new-password';
+
+	try {
+		await got('api', {
+			prefixUrl: trustedServer.url,
+			username: 'old-user',
+			password: 'old-password',
+			hooks: {
+				afterResponse: [
+					(response, retryWithMergedOptions) => {
+						const body = JSON.parse(response.body as string);
+						if (body.retryUrl) {
+							return retryWithMergedOptions({
+								prefixUrl: nextPrefixUrl,
+							});
+						}
+
+						return response;
+					},
+				],
+			},
+		});
+
+		t.is(received.method, 'GET');
+		t.is(received.url, '/api');
+		t.is(received.authorization, `Basic ${Buffer.from('new-user:new-password').toString('base64')}`);
 	} finally {
 		await trustedServer.close();
 		await evilServer.close();
