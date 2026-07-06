@@ -3,6 +3,7 @@ import {promises as dnsPromises} from 'node:dns';
 import test from 'ava';
 import got from '../source/index.js';
 import DnsCache from '../source/core/utils/dns-cache.js';
+import createHttp2TestServer from './helpers/create-http2-test-server.js';
 import withServer from './helpers/with-server.js';
 
 test('http/1 timings', withServer, async (t, server, got) => {
@@ -32,42 +33,53 @@ test('http/1 timings', withServer, async (t, server, got) => {
 });
 
 test('http/2 timings', async t => {
-	// Use a real HTTP/2 server (Google supports HTTP/2)
-	const {timings} = await got('https://www.google.com/', {
-		http2: true,
-		https: {
-			rejectUnauthorized: false,
-		},
+	const server = await createHttp2TestServer(stream => {
+		stream.respond({
+			// eslint-disable-next-line @typescript-eslint/naming-convention
+			':status': 200,
+		});
+		stream.end('ok');
 	});
 
-	// These timings are available even for HTTP/2
-	t.true(timings.start >= 0);
-	t.true(timings.socket! >= 0);
-	t.true(timings.upload! >= 0);
-	t.true(timings.response! >= 0);
-	t.true(timings.end! >= 0);
+	try {
+		const {timings} = await got(server.url, {
+			http2: true,
+			https: {
+				rejectUnauthorized: false,
+			},
+		});
 
-	// These connection timings are unavailable for HTTP/2 (socket is a proxy)
-	// See https://github.com/sindresorhus/got/issues/1958
-	t.is(timings.lookup, undefined);
-	t.is(timings.connect, undefined);
-	t.is(timings.secureConnect, undefined);
+		// These timings are available even for HTTP/2
+		t.true(timings.start >= 0);
+		t.true(timings.socket! >= 0);
+		t.true(timings.upload! >= 0);
+		t.true(timings.response! >= 0);
+		t.true(timings.end! >= 0);
 
-	const {phases} = timings;
+		// These connection timings are unavailable for HTTP/2 (socket is a proxy)
+		// See https://github.com/sindresorhus/got/issues/1958
+		t.is(timings.lookup, undefined);
+		t.is(timings.connect, undefined);
+		t.is(timings.secureConnect, undefined);
 
-	// Available phases
-	t.true(phases.wait! >= 0);
-	t.true(phases.firstByte! >= 0);
-	t.true(phases.download! >= 0);
-	t.true(phases.total! >= 0);
+		const {phases} = timings;
 
-	// Unavailable phases (due to missing connection timings)
-	t.is(phases.dns, undefined);
-	t.is(phases.tcp, undefined);
-	t.is(phases.tls, undefined);
-	// Most importantly: phases.request should be undefined, NOT NaN
-	t.is(phases.request, undefined);
-	t.false(Number.isNaN(phases.request));
+		// Available phases
+		t.true(phases.wait! >= 0);
+		t.true(phases.firstByte! >= 0);
+		t.true(phases.download! >= 0);
+		t.true(phases.total! >= 0);
+
+		// Unavailable phases (due to missing connection timings)
+		t.is(phases.dns, undefined);
+		t.is(phases.tcp, undefined);
+		t.is(phases.tls, undefined);
+		// Most importantly: phases.request should be undefined, NOT NaN
+		t.is(phases.request, undefined);
+		t.false(Number.isNaN(phases.request));
+	} finally {
+		await server.close();
+	}
 });
 
 test('timings.end is set when stream is destroyed before completion', withServer, async (t, server, got) => {

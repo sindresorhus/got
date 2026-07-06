@@ -171,7 +171,7 @@ By default, Got will retry on failure. To disable this option, set [`options.ret
 
 |                       | `got`               | [`node-fetch`][n0]   | [`ky`][k0]               | [`axios`][a0]      | [`superagent`][s0]     |
 |-----------------------|:-------------------:|:--------------------:|:------------------------:|:------------------:|:----------------------:|
-| HTTP/2 support        | :heavy_check_mark:¹ | :x:                  | :heavy_check_mark:       | :x:                | :heavy_check_mark:\*\* |
+| HTTP/2 support        | :heavy_check_mark:  | :x:                  | :heavy_check_mark:       | :x:                | :heavy_check_mark:\*\* |
 | Browser support       | :x:                 | :heavy_check_mark:\* | :heavy_check_mark:       | :heavy_check_mark: | :heavy_check_mark:     |
 | Promise API           | :heavy_check_mark:  | :heavy_check_mark:   | :heavy_check_mark:       | :heavy_check_mark: | :heavy_check_mark:     |
 | Stream API            | :heavy_check_mark:  | Node.js only         | :x:                      | :x:                | :heavy_check_mark:     |
@@ -204,7 +204,6 @@ By default, Got will retry on failure. To disable this option, set [`options.ret
 
 \* It's almost API compatible with the browser `fetch` API.\
 \*\* Need to switch the protocol manually. Doesn't accept PUSH streams and doesn't reuse HTTP/2 sessions.\
-¹ Requires Node.js 15.10.0 or above.\
 :sparkle: Almost-stable feature, but the API may change. Don't hesitate to try it out!\
 :grey_question: Feature in early stage of development. Very experimental.
 
@@ -356,7 +355,7 @@ By default, Got will retry on failure. To disable this option, set [`options.ret
 
 [Click here][InstallSizeOfTheDependencies] to see the install size of the Got dependencies.
 
-[InstallSizeOfTheDependencies]: https://packagephobia.com/result?p=@sindresorhus/is@8.0.0,byte-counter@0.1.0,cacheable-request@13.0.18,chunk-data@0.1.0,decompress-response@10.0.0,http2-wrapper@2.2.1,keyv@5.6.0,lowercase-keys@4.0.1,responselike@4.0.2,type-fest@5.6.0,uint8array-extras@1.5.0
+[InstallSizeOfTheDependencies]: https://packagephobia.com/result?p=@sindresorhus/is@8.0.0,byte-counter@0.1.0,cacheable-request@13.0.18,chunk-data@0.1.0,decompress-response@10.0.0,keyv@5.6.0,lowercase-keys@4.0.1,responselike@4.0.2,type-fest@5.6.0,uint8array-extras@1.5.0
 
 ## Maintainers
 

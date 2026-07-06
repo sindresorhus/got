@@ -283,8 +283,7 @@ await got('https://sindresorhus.com', {
 
 Alternatively, use [`global-agent`](https://github.com/gajus/global-agent) to configure a global proxy for all HTTP/HTTPS traffic in your program.
 
-If you're using HTTP/2, the [`http2-wrapper`](https://github.com/szmarczak/http2-wrapper/#proxy-support) package provides proxy support out-of-box.\
-[Learn more.](https://github.com/szmarczak/http2-wrapper#proxy-support)
+Got's built-in HTTP/2 client does not include proxy support.
 
 ### Retry without an agent
 
@@ -339,7 +338,7 @@ fn();
 
 ### `h2c`
 
-There is no direct [`h2c`](https://datatracker.ietf.org/doc/html/rfc7540#section-3.1) support.
+There is no direct [`h2c` Upgrade](https://datatracker.ietf.org/doc/html/rfc9113#section-11.2) support.
 
 However, you can provide a `h2session` option in a `beforeRequest` hook. See [an example](examples/h2c.js).
 

@@ -5,7 +5,9 @@ import {
 	type IncomingMessage,
 	type RequestOptions,
 } from 'node:http';
+import {generateKeyPairSync} from 'node:crypto';
 import type {LookupFunction} from 'node:net';
+import tls from 'node:tls';
 import test from 'ava';
 import is from '@sindresorhus/is';
 import type {Handler} from 'express';
@@ -17,6 +19,7 @@ import got, {
 	type OptionsInit,
 	type RequestFunction,
 } from '../source/index.js';
+import {Http2Agent} from '../source/core/utils/http2-client.js';
 import withServer from './helpers/with-server.js';
 
 const echoHeaders: Handler = (request, response) => {
@@ -196,6 +199,105 @@ test('normalizes https.pfx object arrays for native request options', t => {
 	}]);
 });
 
+test('normalized https.pfx object arrays keep stable HTTP/2 session keys', t => {
+	const createOptions = (buffer: Uint8Array) => new Options('https://example.com', {
+		http2: true,
+		https: {
+			pfx: [{
+				buffer,
+				passphrase: 'world',
+			}],
+		},
+	});
+	const agent = new Http2Agent();
+	const origin = new URL('https://example.com');
+	const options = createOptions(Buffer.from('hello'));
+	const differentOptions = createOptions(Buffer.from('different'));
+	const createNativeRequestOptions = () => options.createNativeRequestOptions() as Parameters<Http2Agent['normalizeOptions']>[1];
+
+	t.is(
+		agent.normalizeOptions(origin, createNativeRequestOptions()),
+		agent.normalizeOptions(origin, createNativeRequestOptions()),
+	);
+	t.not(
+		agent.normalizeOptions(origin, createNativeRequestOptions()),
+		agent.normalizeOptions(origin, differentOptions.createNativeRequestOptions() as Parameters<Http2Agent['normalizeOptions']>[1]),
+	);
+});
+
+test('HTTP/2 session keys distinguish colon-containing TLS options', t => {
+	const agent = new Http2Agent();
+	const origin = new URL('https://example.com');
+
+	t.not(
+		agent.normalizeOptions(origin, {cert: 'a:b', key: 'c'}),
+		agent.normalizeOptions(origin, {cert: 'a', key: 'b:c'}),
+	);
+});
+
+test('HTTP/2 session keys distinguish opaque TLS key objects', t => {
+	const agent = new Http2Agent();
+	const origin = new URL('https://example.com');
+	const firstKeyPair = generateKeyPairSync('rsa', {modulusLength: 512});
+	const secondKeyPair = generateKeyPairSync('rsa', {modulusLength: 512});
+	const createRequestOptions = (key: typeof firstKeyPair.privateKey) => ({key: [key]}) as unknown as Parameters<Http2Agent['normalizeOptions']>[1];
+
+	t.is(
+		agent.normalizeOptions(origin, createRequestOptions(firstKeyPair.privateKey)),
+		agent.normalizeOptions(origin, createRequestOptions(firstKeyPair.privateKey)),
+	);
+	t.not(
+		agent.normalizeOptions(origin, createRequestOptions(firstKeyPair.privateKey)),
+		agent.normalizeOptions(origin, createRequestOptions(secondKeyPair.privateKey)),
+	);
+});
+
+test('HTTP/2 session keys distinguish secure contexts', t => {
+	const agent = new Http2Agent();
+	const origin = new URL('https://example.com');
+	const firstContext = tls.createSecureContext();
+	const secondContext = tls.createSecureContext();
+
+	t.is(
+		agent.normalizeOptions(origin, {secureContext: firstContext}),
+		agent.normalizeOptions(origin, {secureContext: firstContext}),
+	);
+	t.not(
+		agent.normalizeOptions(origin, {secureContext: firstContext}),
+		agent.normalizeOptions(origin, {secureContext: secondContext}),
+	);
+});
+
+test('HTTP/2 session keys distinguish secure protocols', t => {
+	const agent = new Http2Agent();
+	const origin = new URL('https://example.com');
+
+	t.not(
+		agent.normalizeOptions(origin, {secureProtocol: 'TLS_method'}),
+		agent.normalizeOptions(origin, {secureProtocol: 'TLSv1_2_method'}),
+	);
+});
+
+test('HTTP/2 session keys distinguish DNS lookup options', t => {
+	const agent = new Http2Agent();
+	const origin = new URL('https://example.com');
+	const firstLookup: LookupFunction = () => {};
+	const secondLookup: LookupFunction = () => {};
+
+	t.is(
+		agent.normalizeOptions(origin, {lookup: firstLookup}),
+		agent.normalizeOptions(origin, {lookup: firstLookup}),
+	);
+	t.not(
+		agent.normalizeOptions(origin, {lookup: firstLookup}),
+		agent.normalizeOptions(origin, {lookup: secondLookup}),
+	);
+	t.not(
+		agent.normalizeOptions(origin, {family: 4}),
+		agent.normalizeOptions(origin, {family: 6}),
+	);
+});
+
 test('passes DNS cache lookup and IP version to native request options', t => {
 	const lookup: LookupFunction = () => {};
 	const dnsLookup: LookupFunction = () => {};
@@ -212,6 +314,17 @@ test('passes DNS cache lookup and IP version to native request options', t => {
 
 	options.dnsLookup = dnsLookup;
 	t.is(options.createNativeRequestOptions().lookup, dnsLookup);
+});
+
+test('HTTP/2 option on HTTP preserves disabled HTTP agent', t => {
+	const options = new Options('http://example.com', {
+		http2: true,
+		agent: {
+			http: false,
+		},
+	});
+
+	t.is(options.createNativeRequestOptions().agent, false);
 });
 
 test('can set defaults to `new Options(...)`', t => {

@@ -194,6 +194,18 @@ const proxiedRequestEvents = [
 
 const noop = (): void => {};
 
+const createPreRequestErrorTimings = (): Timings => {
+	const now = Date.now();
+
+	return {
+		start: now,
+		error: now,
+		phases: {
+			total: 0,
+		},
+	};
+};
+
 type NativeFormDataBodyMetadata = {
 	form: FormData;
 	body: ReadableStream;
@@ -478,7 +490,9 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 		this._stopReading = true;
 
-		if (!(error instanceof RequestError)) {
+		if (error instanceof TimedOutTimeoutError) {
+			error = new TimeoutError(error, this.timings ?? createPreRequestErrorTimings(), this);
+		} else if (!(error instanceof RequestError)) {
 			error = new RequestError(error.message, error, this);
 		}
 
@@ -765,6 +779,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		this._stopRetry?.();
 		this._cancelTimeouts?.();
 		this._abortListenerDisposer?.[Symbol.dispose]();
+		this._destroyInFlightAlpnSocket();
 
 		if (this.options) {
 			const {body} = this.options;
@@ -835,9 +850,11 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		}
 
 		const abort = () => {
+			this._destroyInFlightAlpnSocket();
+
 			// See https://developer.mozilla.org/en-US/docs/Web/API/AbortSignal/timeout_static#return_value
 			if (signal.reason?.name === 'TimeoutError') {
-				this.destroy(new TimeoutError(signal.reason, this.timings!, this));
+				this.destroy(new TimeoutError(signal.reason, this.timings ?? createPreRequestErrorTimings(), this));
 			} else {
 				this.destroy(new AbortError(this));
 			}
@@ -848,6 +865,10 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		} else {
 			this._abortListenerDisposer = addAbortListener(signal, abort);
 		}
+	}
+
+	private _destroyInFlightAlpnSocket(): void {
+		(this._requestOptions as (NativeRequestOptions & {_alpnSocket?: Socket}) | undefined)?._alpnSocket?.destroy();
 	}
 
 	private _shouldIncrementallyDecodeBody(): boolean {
@@ -1229,6 +1250,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 					// embedded in the redirect URL itself to prevent a malicious server from
 					// leaking them to a third party. The request body is preserved per RFC:
 					// 307/308 keep the method and replayable bodies, even cross-origin.
+					updatedOptions.h2session = undefined;
 					this._stripCrossOriginState(updatedOptions, redirectUrl);
 				} else {
 					redirectUrl.username = updatedOptions.username;
@@ -1248,6 +1270,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 				const boundaryBeforeRedirectHooks = getUrlPrefixBoundary(updatedOptions);
 				const bodyBeforeRedirectHooks = updatedOptions.body;
+				const h2sessionBeforeRedirectHooks = updatedOptions.h2session;
 				const preHookState = isDifferentOrigin
 					? undefined
 					: {
@@ -1324,6 +1347,10 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 					}
 
 					if (hookChangedOrigin) {
+						if (updatedOptions.h2session === h2sessionBeforeRedirectHooks) {
+							updatedOptions.h2session = undefined;
+						}
+
 						if (
 							canRewrite
 							&& this._hasUnchangedBodyForRedirect(updatedOptions, state, changedState)
@@ -1512,21 +1539,14 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 		timer(request);
 
-		this._cancelTimeouts = timedOut(request, timeout, url as URL);
-
-		if (this.options.http2) {
-			// Unset stream timeout, as the `timeout` option was used only for connection timeout.
-			// We remove all 'timeout' listeners instead of calling setTimeout(0) because:
-			// 1. setTimeout(0) causes a memory leak (see https://github.com/sindresorhus/got/issues/690)
-			// 2. With HTTP/2 connection reuse, setTimeout(0) accumulates listeners on the socket
-			// 3. removeAllListeners('timeout') properly cleans up without the memory leak
-			request.removeAllListeners('timeout');
-
-			// For HTTP/2, wait for socket and remove timeout listeners from it
-			request.once('socket', (socket: Socket) => {
-				socket.removeAllListeners('timeout');
-			});
+		const {isGotHttp2Request} = request as ClientRequest & {isGotHttp2Request?: boolean};
+		let timeoutDelays = timeout;
+		if (isGotHttp2Request) {
+			const {socket: _socket, ...http2TimeoutDelays} = timeout;
+			timeoutDelays = http2TimeoutDelays;
 		}
+
+		this._cancelTimeouts = timedOut(request, timeoutDelays, url as URL);
 
 		let lastRequestError: Error | undefined;
 		const responseEventName = options.cache ? 'cacheableResponse' : 'response';
@@ -1541,7 +1561,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			// Force clean-up, because some packages (e.g. nock) don't do this.
 			request.destroy();
 
-			const wrappedError = error instanceof TimedOutTimeoutError ? new TimeoutError(error, this.timings!, this) : new RequestError(error.message, error, this);
+			const wrappedError = error instanceof TimedOutTimeoutError ? new TimeoutError(error, this.timings ?? createPreRequestErrorTimings(), this) : new RequestError(error.message, error, this);
 			this._beforeError(wrappedError);
 		};
 
@@ -2027,7 +2047,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 				// TODO: remove this when `cacheable-request` supports async request functions.
 				if (is.promise(result)) {
-					// We only need to implement the error handler in order to support HTTP2 caching.
+					// We only need to implement the error handler in order to support HTTP/2 caching.
 					// The result will be a promise anyway.
 					// @ts-expect-error ignore
 					result.once = (event: string, handler: (reason: unknown) => void) => {
@@ -2050,7 +2070,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 							})();
 						} else {
 							/* istanbul ignore next: safety check */
-							throw new Error(`Unknown HTTP2 promise event: ${event}`);
+							throw new Error(`Unknown HTTP/2 promise event: ${event}`);
 						}
 
 						return result;
@@ -2069,7 +2089,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			Object.assign(options, {
 				protocol: url.protocol,
 				hostname: is.string(url.hostname) && url.hostname.startsWith('[') ? url.hostname.slice(1, -1) : url.hostname,
-				host: url.host,
+				host: is.string(url.hostname) && url.hostname.startsWith('[') ? url.hostname.slice(1, -1) : url.hostname,
 				hash: url.hash === '' ? '' : (url.hash ?? null),
 				search: url.search === '' ? '' : (url.search ?? null),
 				pathname: url.pathname,
@@ -2360,22 +2380,37 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		try {
 			// We can't do `await fn(...)`,
 			// because stream `error` event can be emitted before `Promise.resolve()`.
+			const requestFunctionStartedAt = Date.now();
+			const originalRequestTimeout = options.timeout.request;
+			let shouldRestoreRequestTimeout = false;
 			let requestOrResponse = function_!(url, this._requestOptions);
 
 			if (is.promise(requestOrResponse)) {
 				requestOrResponse = await requestOrResponse;
+
+				if (options.timeout.request !== undefined) {
+					const remainingRequestTimeout = options.timeout.request - (Date.now() - requestFunctionStartedAt);
+					options.timeout.request = Math.max(0, remainingRequestTimeout);
+					shouldRestoreRequestTimeout = true;
+				}
 			}
 
-			if (isClientRequest(requestOrResponse!)) {
-				this._onRequest(requestOrResponse);
-			} else if (this.writableEnded) {
-				void this._onResponse(requestOrResponse as IncomingMessageWithTimings);
-			} else {
-				this.once('finish', () => {
+			try {
+				if (isClientRequest(requestOrResponse!)) {
+					this._onRequest(requestOrResponse);
+				} else if (this.writableEnded) {
 					void this._onResponse(requestOrResponse as IncomingMessageWithTimings);
-				});
+				} else {
+					this.once('finish', () => {
+						void this._onResponse(requestOrResponse as IncomingMessageWithTimings);
+					});
 
-				this._sendBody();
+					this._sendBody();
+				}
+			} finally {
+				if (shouldRestoreRequestTimeout) {
+					options.timeout.request = originalRequestTimeout;
+				}
 			}
 		} catch (error) {
 			if (error instanceof CacheableCacheError) {

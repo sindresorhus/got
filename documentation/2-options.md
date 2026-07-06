@@ -527,12 +527,6 @@ await got.post('https://example.com', {
 
 Set this to `true` to allow sending body for the `GET` method.
 
-However, the [HTTP/2 specification](https://datatracker.ietf.org/doc/html/rfc7540#section-8.1.3) says:
-
-> An HTTP GET request includes request header fields and no payload body
-
-Therefore this option has no effect when using HTTP/2.
-
 > [!NOTE]
 > This option is only meant to interact with non-compliant servers when you have no other choice.
 
@@ -919,11 +913,9 @@ The IP version to use. Specifying `undefined` will use the default configuration
 ### `request`
 
 **Type: <code>Function<[ClientRequest](https://nodejs.org/api/http.html#http_class_http_clientrequest) | [IncomingMessage](https://nodejs.org/api/http.html#http_class_http_incomingmessage) | undefined> | AsyncFunction<[ClientRequest](https://nodejs.org/api/http.html#http_class_http_clientrequest) | [IncomingMessage](https://nodejs.org/api/http.html#http_class_http_incomingmessage) | undefined></code>**\
-**Default: `http.request | https.request` *(depending on the protocol)***
+**Default: Got's built-in HTTP/1.1 or HTTP/2 request implementation**
 
 Custom request function.
-
-The main purpose of this is to [support HTTP/2 using a wrapper](https://github.com/szmarczak/http2-wrapper).
 
 Returning `undefined` (or resolving to `undefined`) will fall back to Got's native request implementation.
 
@@ -946,55 +938,30 @@ Returning `undefined` (or resolving to `undefined`) will fall back to Got's nati
 **Type: `boolean`**\
 **Default: `false`**
 
-**Note:**
-> - This option requires Node.js 15.10.0 or newer as HTTP/2 support on older Node.js versions is very buggy.
-
-If `true`, the `request` option will default to `http2wrapper.auto` and the entire `agent` object will be passed.
+If `true`, Got will use its built-in HTTP/2 client when ALPN selects HTTP/2.
 
 **Note:**
-> - ALPN negotiation will have place in order to determine if the server actually supports HTTP/2. If it doesn't, HTTP/1.1 will be used.
+> - ALPN negotiation will take place in order to determine if the server actually supports HTTP/2. If it doesn't, HTTP/1.1 will be used. When a custom `agent.https` instance is set, Got uses that native HTTPS agent directly and skips HTTP/2 negotiation.
 
 **Note:**
-> - Setting the `request` option to `https.request` will disable HTTP/2 usage. It is required to use `http2wrapper.auto`.
+> - If the `request` option returns a request or response, it controls the transport and Got's HTTP/2 client is bypassed. Return `undefined` to fall back to Got's built-in transport.
 
 **Note:**
-> - There is no direct [`h2c`](https://datatracker.ietf.org/doc/html/rfc7540#section-3.1) support. However, you can provide a `h2session` option in a `beforeRequest` hook. See [an example](examples/h2c.js).
+> - There is no direct [`h2c` Upgrade](https://datatracker.ietf.org/doc/html/rfc9113#section-11.2) support. However, you can provide a `h2session` option in a `beforeRequest` hook. See [an example](examples/h2c.js).
 
 ```js
 import got from 'got';
 
-const {headers} = await got(
+const {statusCode} = await got(
 	'https://httpbin.org/anything',
 	{
 		http2: true
 	}
 );
 
-console.log(headers[':status']);
+console.log(statusCode);
 //=> 200
 ```
-
-**Note:**
-> - The current Got version may use an older version of [`http2-wrapper`](https://github.com/szmarczak/http2-wrapper).\
-> If you prefer to use the newest one, set both `request` to `http2wrapper.auto` and `http2` to `true`.
-
-```js
-import http2wrapper from 'http2-wrapper';
-import got from 'got';
-
-const {headers} = await got(
-	'https://httpbin.org/anything',
-	{
-		http2: true,
-		request: http2wrapper.auto
-	}
-);
-
-console.log(headers[':status']);
-//=> 200
-```
-
-See the [`http2-wrapper` docs](https://github.com/szmarczak/http2-wrapper) to learn more about Agent and Proxy support.
 
 ### `agent`
 
@@ -1003,18 +970,14 @@ See the [`http2-wrapper` docs](https://github.com/szmarczak/http2-wrapper) to le
 
 An object with `http`, `https` and `http2` properties.
 
-Got will automatically resolve the protocol and use the corresponding agent. It defaults to:
+Got will automatically resolve the protocol and use the corresponding agent. HTTP/2 uses Got's internal session pool by default. Set `agent.http2` to `false` to disable HTTP/2 session pooling for the request. `agent.http2` is only a pooling opt-out flag; custom HTTP/2 agents are not part of the public API. When `http2` is enabled, a custom `agent.https` instance makes Got use the native HTTP/1.1 request path because Got's built-in HTTP/2 session pool does not support custom HTTPS agents.
 
 ```js
 {
 	http: http.globalAgent,
-	https: https.globalAgent,
-	http2: http2.globalAgent
+	https: https.globalAgent
 }
 ```
-
-**Note:**
-> The HTTP/2 `Agent` must be an instance of [`http2wrapper.Agent`](https://github.com/szmarczak/http2-wrapper#new-http2agentoptions)
 
 ### `throwHttpErrors`
 

@@ -1,4 +1,3 @@
-import process from 'node:process';
 import {
 	promisify,
 	inspect,
@@ -17,9 +16,9 @@ import http, {
 } from 'node:http';
 import type {Readable} from 'node:stream';
 import type {Socket, LookupFunction} from 'node:net';
+import type {ClientHttp2Session} from 'node:http2';
 import is, {assert} from '@sindresorhus/is';
 import lowercaseKeys from 'lowercase-keys';
-import http2wrapper, {type ClientHttp2Session} from 'http2-wrapper';
 import type {KeyvStoreAdapter} from 'keyv';
 import type KeyvType from 'keyv';
 import type ResponseLike from 'responselike';
@@ -28,15 +27,14 @@ import type {IncomingMessageWithTimings} from './utils/timer.js';
 import parseLinkHeader from './parse-link-header.js';
 import type {PlainResponse, Response} from './response.js';
 import type {RequestError} from './errors.js';
-import type {Delays} from './timed-out.js';
+import {TimeoutError, type Delays} from './timed-out.js';
 import {getUnixSocketPath} from './utils/is-unix-socket-url.js';
 import DnsCache, {type DnsCacheLookup} from './utils/dns-cache.js';
+import http2Client from './utils/http2-client.js';
 
 type StorageAdapter = KeyvStoreAdapter | KeyvType | Map<unknown, unknown>;
 
 type Promisable<T> = T | Promise<T>;
-
-const [major, minor] = process.versions.node.split('.').map(Number) as [number, number, number];
 
 export type DnsLookupIpVersion = undefined | 4 | 6;
 
@@ -48,10 +46,57 @@ type AcceptableResponse = IncomingMessageWithTimings | ResponseLike;
 type AcceptableRequestResult = Promisable<AcceptableResponse | ClientRequest | undefined>;
 export type RequestFunction = (url: URL, options: NativeRequestOptions, callback?: (response: AcceptableResponse) => void) => AcceptableRequestResult;
 
+type RequestFallbackContext = {
+	url: URL;
+	options: NativeRequestOptions;
+	callback?: (response: AcceptableResponse) => void;
+	requestStartedAt: number;
+};
+
+const isAgentObject = (agent: unknown): agent is Agents => is.object(agent) && ('http' in agent || 'https' in agent || 'http2' in agent);
+
+const getNativeAgent = (url: URL, agent: NativeRequestOptions['agent']): NativeRequestOptions['agent'] => {
+	if (!isAgentObject(agent)) {
+		return agent;
+	}
+
+	return url.protocol === 'https:' ? agent.https : agent.http;
+};
+
+const resolveWithRequestTimeout = async <T>(promise: Promise<T>, timeout: number, onLateResolution?: (value: T) => void): Promise<T> => {
+	let timeoutId: NodeJS.Timeout | undefined;
+	let didTimeOut = false;
+	const timeoutPromise = new Promise<never>((_resolve, reject) => {
+		timeoutId = setTimeout(() => {
+			didTimeOut = true;
+			reject(new TimeoutError(timeout, 'request'));
+		}, timeout);
+		timeoutId.unref();
+	});
+
+	void (async () => {
+		try {
+			const value = await promise;
+
+			if (didTimeOut) {
+				onLateResolution?.(value);
+			}
+		} catch {}
+	})();
+
+	try {
+		return await Promise.race([promise, timeoutPromise]);
+	} finally {
+		if (timeoutId) {
+			clearTimeout(timeoutId);
+		}
+	}
+};
+
 export type Agents = {
 	http?: HttpAgent | false;
 	https?: HttpsAgent | false;
-	http2?: unknown | false;
+	http2?: false;
 };
 
 export type Headers = Record<string, string | string[] | undefined>;
@@ -1094,6 +1139,16 @@ function safeObjectAssign<Target extends Record<string, unknown>, Source extends
 
 const isToughCookieJar = (cookieJar: PromiseCookieJar | ToughCookieJar): cookieJar is ToughCookieJar => cookieJar.setCookie.length === 4 && cookieJar.getCookieString.length === 0;
 
+const destroyLateRequestResult = (result: AcceptableResponse | ClientRequest | undefined): void => {
+	if (result && 'destroy' in result && is.function(result.destroy)) {
+		if ('once' in result && is.function(result.once)) {
+			result.once('error', () => {});
+		}
+
+		result.destroy();
+	}
+};
+
 function validateSearchParameters(searchParameters: Record<string, unknown>): asserts searchParameters is Record<string, string | number | boolean | undefined> {
 	for (const key of Object.keys(searchParameters)) {
 		if (key === '__proto__') {
@@ -1491,8 +1546,26 @@ const cloneRaw = (raw: OptionsInit) => {
 };
 
 const getHttp2TimeoutOption = (internals: typeof defaultInternals): number | undefined => {
-	const delays = [internals.timeout.socket, internals.timeout.connect, internals.timeout.lookup, internals.timeout.request, internals.timeout.secureConnect].filter(delay => typeof delay === 'number');
+	const delays = [
+		internals.timeout.socket,
+		internals.timeout.connect,
+		internals.timeout.lookup,
+		internals.timeout.request,
+		internals.timeout.secureConnect,
+	].filter(delay => typeof delay === 'number');
+
 	return delays.length > 0 ? Math.min(...delays) : undefined;
+};
+
+const usesHttp2Alpn = (internals: typeof defaultInternals, url: URL): boolean => {
+	const usesCustomHttpsAgent = internals.agent.https !== undefined
+		&& internals.agent.https !== false
+		&& internals.createConnection === undefined;
+
+	return internals.http2
+		&& url.protocol === 'https:'
+		&& !internals.h2session
+		&& !usesCustomHttpsAgent;
 };
 
 const trackStateMutation = (trackedStateMutations: Set<string> | undefined, name: string): void => {
@@ -1658,9 +1731,8 @@ export default class Options {
 
 	/**
 	Custom request function.
-	The main purpose of this is to [support HTTP2 using a wrapper](https://github.com/szmarczak/http2-wrapper).
 
-	@default http.request | https.request
+	@default Got's built-in HTTP/1.1 or HTTP/2 request implementation
 	*/
 	get request(): RequestFunction | undefined {
 		return this.#internals.request;
@@ -1673,9 +1745,10 @@ export default class Options {
 	}
 
 	/**
-	An object representing `http`, `https` and `http2` keys for [`http.Agent`](https://nodejs.org/api/http.html#http_class_http_agent), [`https.Agent`](https://nodejs.org/api/https.html#https_class_https_agent) and [`http2wrapper.Agent`](https://github.com/szmarczak/http2-wrapper#new-http2agentoptions) instance.
+	An object representing `http`, `https` and `http2` keys for [`http.Agent`](https://nodejs.org/api/http.html#http_class_http_agent), [`https.Agent`](https://nodejs.org/api/https.html#https_class_https_agent), and Got's internal HTTP/2 session pool.
 	This is necessary because a request to one protocol might redirect to another.
 	In such a scenario, Got will switch over to the right protocol agent for you.
+	When `http2` is enabled, a custom `agent.https` instance makes Got use the native HTTP/1.1 request path because Got's built-in HTTP/2 session pool does not support custom HTTPS agents.
 
 	If a key is not present, it will default to a global agent.
 
@@ -1710,8 +1783,12 @@ export default class Options {
 				throw new TypeError(`Unexpected agent option: ${key}`);
 			}
 
+			const validators = key === 'http2'
+				? [is.undefined, (v: unknown) => v === false]
+				: [is.object, is.undefined, (v: unknown) => v === false];
+
 			// @ts-expect-error - No idea why `value[key]` doesn't work here.
-			assertAny(`agent.${key}`, [is.object, is.undefined, (v: unknown) => v === false], value[key]);
+			assertAny(`agent.${key}`, validators, value[key]);
 		}
 
 		if (this.#merging) {
@@ -2490,13 +2567,11 @@ export default class Options {
 	}
 
 	/**
-	If set to `true`, Got will additionally accept HTTP2 requests.
+	If set to `true`, Got will additionally accept HTTP/2 requests.
 
-	It will choose either HTTP/1.1 or HTTP/2 depending on the ALPN protocol.
+	It will choose either HTTP/1.1 or HTTP/2 depending on the ALPN protocol. When a custom `agent.https` instance is set, Got uses that native HTTPS agent directly and skips HTTP/2 negotiation.
 
-	__Note__: This option requires Node.js 15.10.0 or newer as HTTP/2 support on older Node.js versions is very buggy.
-
-	__Note__: Overriding `options.request` will disable HTTP2 support.
+	__Note__: If `options.request` returns a request or response, it controls the transport and Got's HTTP/2 client is bypassed. Return `undefined` to fall back to Got's built-in transport.
 
 	@default false
 
@@ -2522,7 +2597,6 @@ export default class Options {
 
 	/**
 	Set this to `true` to allow sending body for the `GET` method.
-	However, the [HTTP/2 specification](https://tools.ietf.org/html/rfc7540#section-8.1.3) says that `An HTTP GET request includes request header fields and no payload body`, therefore when using the HTTP/2 protocol this option will have no effect.
 	This option is only meant to interact with non-compliant servers when you have no other choice.
 
 	__Note__: The [RFC 7231](https://tools.ietf.org/html/rfc7231#section-4.3.1) doesn't specify any particular behavior for the GET method having a payload, therefore __it's considered an [anti-pattern](https://en.wikipedia.org/wiki/Anti-pattern)__.
@@ -3299,11 +3373,11 @@ export default class Options {
 		let agent;
 		if (url.protocol === 'https:') {
 			if (internals.http2) {
-				// Ensure HTTP/2 agent is configured for connection reuse
-				// If no custom agent.http2 is provided, use the global agent for connection pooling
+				// Ensure HTTP/2 pooling is configured for connection reuse.
+				// If agent.http2 is unset, use the global agent for connection pooling.
 				agent = {
 					...internals.agent,
-					http2: internals.agent.http2 ?? http2wrapper.globalAgent,
+					http2: internals.agent.http2 ?? http2Client.globalAgent,
 				};
 			} else {
 				agent = internals.agent.https;
@@ -3374,7 +3448,8 @@ export default class Options {
 			localAddress: internals.localAddress,
 			headers: internals.headers,
 			createConnection: internals.createConnection,
-			timeout: internals.http2 ? getHttp2TimeoutOption(internals) : undefined,
+			signal: internals.http2 ? internals.signal : undefined,
+			timeout: usesHttp2Alpn(internals, url) ? getHttp2TimeoutOption(internals) : undefined,
 
 			// HTTP/2 options
 			h2session: internals.h2session,
@@ -3389,10 +3464,25 @@ export default class Options {
 		}
 
 		const requestWithFallback: RequestFunction = (url, options, callback?) => {
-			const result = customRequest(url, options, callback);
+			const requestStartedAt = Date.now();
+			const nativeAgent = getNativeAgent(url, options.agent);
+			const customRequestOptions = options.timeout !== undefined || nativeAgent !== options.agent
+				? {
+					...options,
+					agent: nativeAgent,
+					timeout: undefined,
+				}
+				: options;
+
+			const result = customRequest(url, customRequestOptions, callback);
 
 			if (is.promise(result)) {
-				return this.#resolveRequestWithFallback(result, url, options, callback);
+				return this.#resolveRequestWithFallback(result, {
+					url,
+					options,
+					callback,
+					requestStartedAt,
+				});
 			}
 
 			if (result !== undefined) {
@@ -3481,16 +3571,13 @@ export default class Options {
 			return;
 		}
 
+		if (this.#internals.h2session) {
+			return http2Client.auto as RequestFunction;
+		}
+
 		if (url.protocol === 'https:') {
 			if (this.#internals.http2) {
-				if (major < 15 || (major === 15 && minor < 10)) {
-					const error = new Error('To use the `http2` option, install Node.js 15.10.0 or above');
-					(error as NodeJS.ErrnoException).code = 'EUNSUPPORTED';
-
-					throw error;
-				}
-
-				return http2wrapper.auto as RequestFunction;
+				return http2Client.auto as RequestFunction;
 			}
 
 			return https.request;
@@ -3525,14 +3612,23 @@ export default class Options {
 
 	async #resolveRequestWithFallback(
 		requestResult: Promise<AcceptableResponse | ClientRequest | undefined>,
-		url: URL,
-		options: NativeRequestOptions,
-		callback?: (response: AcceptableResponse) => void,
+		{url, options, callback, requestStartedAt}: RequestFallbackContext,
 	): Promise<AcceptableResponse | ClientRequest> {
-		const result = await requestResult;
+		let resolvedRequestResult = requestResult;
+		if (this.#internals.timeout.request !== undefined) {
+			const remainingRequestTimeout = this.#internals.timeout.request - (Date.now() - requestStartedAt);
+			resolvedRequestResult = resolveWithRequestTimeout(requestResult, Math.max(0, remainingRequestTimeout), destroyLateRequestResult);
+		}
+
+		const result = await resolvedRequestResult;
 
 		if (result !== undefined) {
 			return result;
+		}
+
+		if (this.#internals.timeout.request !== undefined && options.timeout !== undefined) {
+			const remainingRequestTimeout = this.#internals.timeout.request - (Date.now() - requestStartedAt);
+			options.timeout = Math.min(options.timeout, Math.max(0, remainingRequestTimeout));
 		}
 
 		return this.#callFallbackRequest(url, options, callback);

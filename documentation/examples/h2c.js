@@ -1,4 +1,4 @@
-import http2 from 'http2-wrapper';
+import http2 from 'node:http2';
 import got from '../../dist/source/index.js';
 
 let sessions = {};
@@ -34,8 +34,6 @@ const instance = got.extend({
 		beforeRequest: [
 			options => {
 				options.h2session = getSession(options.url);
-				options.http2 = true;
-				options.request = http2.request;
 			},
 		],
 	},
@@ -47,7 +45,7 @@ const server = http2.createServer((request, response) => {
 
 server.listen(async () => {
 	const url = `http://localhost:${server.address().port}`;
-	const {body, headers} = await instance(url, {context: {h2c: true}});
+	const {body, headers} = await instance(url);
 	console.log(headers, body);
 
 	closeSessions();
