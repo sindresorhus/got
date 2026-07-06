@@ -1325,7 +1325,7 @@ class Http2ClientRequest extends Writable {
 			}
 		});
 
-		stream.once('headers', headers => {
+		stream.on('headers', headers => {
 			this.emit('information', {statusCode: headers[HTTP2_HEADER_STATUS]});
 		});
 

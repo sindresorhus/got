@@ -660,6 +660,43 @@ test('http2 exposes response trailers', async t => {
 	}
 });
 
+test('http2 emits multiple informational responses', async t => {
+	const server = await createHttp2TestServer(stream => {
+		stream.additionalHeaders({
+			// eslint-disable-next-line @typescript-eslint/naming-convention
+			':status': 102,
+		});
+		stream.additionalHeaders({
+			// eslint-disable-next-line @typescript-eslint/naming-convention
+			':status': 103,
+		});
+		stream.respond({
+			// eslint-disable-next-line @typescript-eslint/naming-convention
+			':status': 200,
+		});
+		stream.end('ok');
+	});
+
+	try {
+		const informationalStatusCodes: number[] = [];
+		const stream = got.stream(server.url, {
+			http2: true,
+			https: {
+				rejectUnauthorized: false,
+			},
+		});
+		stream.on('information', ({statusCode}) => {
+			informationalStatusCodes.push(statusCode);
+		});
+		stream.resume();
+		await pEvent(stream, 'end');
+
+		t.deepEqual(informationalStatusCodes, [102, 103]);
+	} finally {
+		await server.close();
+	}
+});
+
 test('http2 supports abort signals', async t => {
 	const server = await createHttp2TestServer(stream => {
 		stream.resume();
