@@ -39,7 +39,7 @@ await streamPipeline(
 	fs.createWriteStream('index.html')
 );
 
-// For POST, PUT, PATCH, DELETE, and QUERY methods, `got.stream` returns a `stream.Writable`.
+// For payload-capable shortcut methods such as POST, PUT, PATCH, DELETE, and QUERY, `got.stream` returns a `stream.Writable`.
 // This example POSTs the contents of a file to a URL.
 await streamPipeline(
 	fs.createReadStream('index.html'),
@@ -47,7 +47,7 @@ await streamPipeline(
 	new stream.PassThrough()
 );
 
-// In order to POST, PUT, PATCH, DELETE, or QUERY without a request body, explicitly specify an empty body:
+// In order to send one of these methods without a request body, explicitly specify an empty body:
 await streamPipeline(
 	got.stream.post('https://sindresorhus.com', { body: '' }),
 	new stream.PassThrough()

@@ -56,6 +56,23 @@ test('cacheable responses to POST requests are cached', withServer, async (t, se
 	t.is(firstResponse.body, secondResponse.body);
 });
 
+test('QUERY responses are not cached', withServer, async (t, server, got) => {
+	let responses = 0;
+	server.all('/', (_request, response) => {
+		response.setHeader('Cache-Control', 'public, max-age=60');
+		response.end((++responses).toString());
+	});
+
+	const cache = new Map();
+
+	const firstResponse = await got.query({json: {query: true}, cache});
+	const secondResponse = await got.query({json: {query: true}, cache});
+
+	t.is(cache.size, 0);
+	t.is(firstResponse.body, '1');
+	t.is(secondResponse.body, '2');
+});
+
 test('non-cacheable responses to POST requests are not cached', withServer, async (t, server, got) => {
 	server.post('/', cacheEndpoint);
 
