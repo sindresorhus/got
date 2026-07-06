@@ -218,7 +218,8 @@ export type HTTPAlias =
 	| 'put'
 	| 'patch'
 	| 'head'
-	| 'delete';
+	| 'delete'
+	| 'query';
 
 type GotStreamFunction =
 	((url?: string | URL, options?: StreamOptions) => Request)
@@ -242,7 +243,7 @@ export type Got<GotOptions extends ExtendOptions = ExtendOptions> = {
 	- downloadProgress
 	- error
 
-	Note: For writable request streams, call `stream.end()` when you are not piping a body. `got.stream` does not auto-end for OPTIONS, DELETE, or PATCH so you can pipe or write a body without getting `write after end`.
+	Note: For writable request streams, call `stream.end()` when you are not piping a body. `got.stream` does not auto-end for OPTIONS, DELETE, PATCH, or QUERY so you can pipe or write a body without getting `write after end`.
 	*/
 	stream: GotStream;
 

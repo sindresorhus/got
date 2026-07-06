@@ -393,6 +393,26 @@ test('does not retry on POST', withServer, async (t, server, got) => {
 	t.false(retried, 'Retries on POST requests');
 });
 
+test('retries QUERY by default', withServer, async (t, server, got) => {
+	const methods: string[] = [];
+
+	server.all('/', (request, response) => {
+		methods.push(request.method);
+		response.statusCode = 500;
+		response.end();
+	});
+
+	const {retryCount} = await got.query({
+		throwHttpErrors: false,
+		retry: {
+			limit: 1,
+		},
+	});
+
+	t.is(retryCount, 1);
+	t.deepEqual(methods, ['QUERY', 'QUERY']);
+});
+
 test('does not break on redirect', withServer, async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.statusCode = 500;

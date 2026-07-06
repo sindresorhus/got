@@ -275,8 +275,9 @@ setTimeout(() => {
 **Type: `string`**\
 **Default: `GET`**
 
-The [HTTP method](https://datatracker.ietf.org/doc/html/rfc7231#section-4) used to make the request.\
-The most common methods are: `GET`, `HEAD`, `POST`, `PUT`, `DELETE`.
+The [HTTP method](https://httpwg.org/specs/rfc9110.html#methods) used to make the request.\
+The most common methods are: `GET`, `HEAD`, `POST`, `PUT`, `DELETE`, `QUERY`.
+`QUERY` is defined in [RFC 10008](https://www.rfc-editor.org/rfc/rfc10008.html).
 
 ```js
 import got from 'got';

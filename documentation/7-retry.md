@@ -25,7 +25,8 @@
 		'HEAD',
 		'DELETE',
 		'OPTIONS',
-		'TRACE'
+		'TRACE',
+		'QUERY'
 	],
 	statusCodes: [
 		408,

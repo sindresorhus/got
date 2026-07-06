@@ -1078,6 +1078,37 @@ test('PATCH stream waits for piped body', withServer, async (t, server, got) => 
 	t.is(await responsePromise, 'Hello, world!');
 });
 
+test('QUERY stream without body completes successfully', withServer, async (t, server, got) => {
+	server.all('/', (request, response) => {
+		t.is(request.method, 'QUERY');
+		response.writeHead(200);
+		response.end('queried');
+	});
+
+	const stream = got.stream.query('');
+	stream.end();
+	const data = await getStream(stream);
+	t.is(data, 'queried');
+});
+
+test('QUERY stream waits for piped body', withServer, async (t, server, got) => {
+	server.all('/', async (request, response) => {
+		t.is(request.method, 'QUERY');
+		await streamPipeline(request, response);
+	});
+
+	const destination = new stream.PassThrough();
+	const responsePromise = getStream(destination);
+
+	await streamPipeline(
+		ReadableStream.from(['query body']),
+		got.stream.query(''),
+		destination,
+	);
+
+	t.is(await responsePromise, 'query body');
+});
+
 test('throws error when content-length does not match bytes transferred - stream', withServer, async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.writeHead(200, {

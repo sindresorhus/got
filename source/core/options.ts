@@ -621,6 +621,7 @@ export type Method =
 	| 'DELETE'
 	| 'OPTIONS'
 	| 'TRACE'
+	| 'QUERY'
 	| 'get'
 	| 'post'
 	| 'put'
@@ -628,7 +629,8 @@ export type Method =
 	| 'head'
 	| 'delete'
 	| 'options'
-	| 'trace';
+	| 'trace'
+	| 'query';
 
 export type RetryObject = {
 	attemptCount: number;
@@ -1313,6 +1315,7 @@ const defaultInternals: InternalsType = {
 			'DELETE',
 			'OPTIONS',
 			'TRACE',
+			'QUERY',
 		],
 		statusCodes: [
 			408,

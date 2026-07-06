@@ -112,6 +112,26 @@ test('sends plain objects as forms', withServer, async (t, server, got) => {
 	t.is(body, 'such=wow');
 });
 
+test('QUERY sends JSON', withServer, async (t, server, got) => {
+	t.plan(3);
+
+	server.all('/', async (request, response) => {
+		t.is(request.method, 'QUERY');
+		t.is(request.headers['content-type'], 'application/json');
+		await streamPipeline(request, response);
+	});
+
+	const payload = {
+		foo: true,
+	};
+
+	const body = await got.query<typeof payload>({
+		json: payload,
+	}).json();
+
+	t.deepEqual(body, payload);
+});
+
 test('does not support sending arrays as forms', withServer, async (t, server, got) => {
 	server.post('/', defaultEndpoint);
 

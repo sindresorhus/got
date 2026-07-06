@@ -4,6 +4,7 @@ import {expectTypeOf} from 'expect-type';
 import got, {
 	Options,
 	type OptionsInit,
+	type Request,
 	type RequestPromise,
 	type Response,
 } from '../source/index.js';
@@ -69,6 +70,8 @@ const gotWrapped = got.extend({});
 expectTypeOf(gotWrapped('https://example.com')).toEqualTypeOf<RequestPromise<Response<string>>>();
 expectTypeOf(gotWrapped<{test: 'test'}>('https://example.com')).toEqualTypeOf<RequestPromise<Response<{test: 'test'}>>>();
 expectTypeOf(gotWrapped('https://example.com', {responseType: 'buffer'})).toEqualTypeOf<RequestPromise<Response<Uint8Array<ArrayBuffer>>>>();
+expectTypeOf(gotWrapped.query<{test: 'test'}>('https://example.com')).toEqualTypeOf<RequestPromise<Response<{test: 'test'}>>>();
+expectTypeOf(got.stream.query('https://example.com')).toEqualTypeOf<Request>();
 
 // Test the default instance can be overridden at the request function level
 expectTypeOf(gotWrapped('https://example.com', {resolveBodyOnly: true})).toEqualTypeOf<RequestPromise<string>>();
