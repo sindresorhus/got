@@ -838,14 +838,26 @@ export class Http2Agent extends EventEmitter {
 			ALPNProtocols: ['h2'],
 		};
 
-		const shouldPoolSession = options._reuseSocket === undefined || _reuseSocketShouldPool === true;
+		const reuseSocket = options._reuseSocket;
+		const shouldPoolSession = reuseSocket === undefined || _reuseSocketShouldPool === true;
 		if (options._reuseSocket) {
-			const socket = options._reuseSocket;
-			options.createConnection = () => socket;
+			options.createConnection = () => reuseSocket;
 			delete options._reuseSocket;
 		}
 
-		const session = http2.connect(entry.origin, options as http2.SecureClientSessionOptions) as Http2Session;
+		let session: Http2Session;
+		try {
+			session = http2.connect(entry.origin, options as http2.SecureClientSessionOptions);
+		} catch (error: unknown) {
+			this.sessionCount--;
+			this.pendingSessionKeys.delete(key);
+			delete entry.options._cancelSessionSetup;
+			reuseSocket?.destroy();
+			entry.reject(error as Error);
+			this.processQueue();
+			return;
+		}
+
 		this.pendingSessions.add(session);
 		session.currentStreamCount = 0;
 		session.reservedStreamCount = 0;
@@ -1214,7 +1226,39 @@ class Http2ClientRequest extends Writable {
 			throw new Error('Cannot add trailers after the HTTP/2 stream has been created');
 		}
 
-		this.trailers = headers;
+		const trailers: RequestHeaders = Object.create(null) as RequestHeaders;
+		const connectionHeaderNames = new Set<string>();
+
+		for (const [name, value] of Object.entries(headers)) {
+			validateHeaderName(name);
+			validateHeaderValue(name, value as any);
+			const lowercasedName = name.toLowerCase();
+
+			if (lowercasedName === 'connection' || lowercasedName === 'proxy-connection') {
+				for (const token of getConnectionHeaderTokens(value)) {
+					connectionHeaderNames.add(token);
+					Reflect.deleteProperty(trailers, token);
+				}
+
+				continue;
+			}
+
+			if (connectionSpecificHeaders.has(lowercasedName)) {
+				continue;
+			}
+
+			if (connectionHeaderNames.has(lowercasedName)) {
+				continue;
+			}
+
+			if (lowercasedName === 'te' && !isTrailersTeHeader(value)) {
+				continue;
+			}
+
+			trailers[lowercasedName] = value;
+		}
+
+		this.trailers = trailers;
 	}
 
 	setHeader(name: string, value: string | string[] | number | undefined): this {
@@ -1224,9 +1268,7 @@ class Http2ClientRequest extends Writable {
 
 		validateHeaderName(name);
 
-		if (value !== undefined) {
-			validateHeaderValue(name, value as any);
-		}
+		validateHeaderValue(name, value as any);
 
 		const lowercasedName = name.toLowerCase();
 

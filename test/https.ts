@@ -630,6 +630,101 @@ test('http2 sends request trailers', async t => {
 	}
 });
 
+test('http2 normalizes request trailers', async t => {
+	let receivedTrailers: http2.IncomingHttpHeaders | undefined;
+	let startBody!: () => void;
+	const startBodyPromise = new Promise<void>(resolve => {
+		startBody = resolve;
+	});
+	const server = await createHttp2TestServer(stream => {
+		stream.on('trailers', trailers => {
+			receivedTrailers = trailers;
+		});
+		stream.on('end', () => {
+			stream.respond({
+				// eslint-disable-next-line @typescript-eslint/naming-convention
+				':status': 200,
+			});
+			stream.end('ok');
+		});
+		stream.resume();
+	});
+
+	async function * body() {
+		await startBodyPromise;
+		yield 'hello';
+	}
+
+	try {
+		await got.post(server.url, {
+			http2: true,
+			body: body(),
+			https: {
+				rejectUnauthorized: false,
+			},
+		}).on('request', request => {
+			request.addTrailers({
+				'X-Checksum': 'abc',
+				connection: 'x-drop',
+				'X-Drop': 'bad',
+				te: 'gzip',
+				'keep-alive': 'timeout=5',
+			});
+			startBody();
+		});
+
+		t.is(receivedTrailers?.['x-checksum'], 'abc');
+		t.false(Object.hasOwn(receivedTrailers ?? {}, 'x-drop'));
+		t.false(Object.hasOwn(receivedTrailers ?? {}, 'te'));
+		t.false(Object.hasOwn(receivedTrailers ?? {}, 'keep-alive'));
+	} finally {
+		await server.close();
+	}
+});
+
+test('http2 request validates undefined header values', t => {
+	t.throws(() => {
+		http2Request('https://example.com', {
+			headers: {
+				'x-test': undefined,
+			},
+		});
+	}, {
+		code: 'ERR_HTTP_INVALID_HEADER_VALUE',
+	});
+
+	const request = http2Request('https://example.com');
+	t.throws(() => {
+		(request as unknown as {setHeader: (name: string, value: string | string[] | number | undefined) => void}).setHeader('x-test', undefined);
+	}, {
+		code: 'ERR_HTTP_INVALID_HEADER_VALUE',
+	});
+	request.destroy();
+});
+
+test('http2 request validates trailers', t => {
+	const request = http2Request('https://example.com');
+	const pseudoHeaderName = ':path';
+
+	t.throws(() => {
+		request.addTrailers({
+			'x-checksum': undefined,
+		});
+	}, {
+		code: 'ERR_HTTP_INVALID_HEADER_VALUE',
+	});
+
+	t.throws(() => {
+		request.addTrailers({
+			[pseudoHeaderName]: '/',
+		});
+	}, {
+		code: 'ERR_INVALID_HTTP_TOKEN',
+	});
+
+	request.destroy();
+});
+
 test('http2 request rejects trailers added after stream creation', async t => {
 	const server = await createHttp2TestServer(stream => {
 		stream.on('end', () => {
@@ -904,6 +999,31 @@ test('http2 abort closes in-flight ALPN probe', async t => {
 			});
 		});
 	}
+});
+
+test('http2 agent clears pending session state when createConnection throws', async t => {
+	const expectedError = new Error('createConnection failed');
+	const agent = new Http2Agent();
+	const agentState = agent as unknown as {
+		sessionCount: number;
+		pendingSessionKeys: Set<string>;
+		queue: unknown[];
+	};
+	const options: Parameters<Http2Agent['request']>[1] = {
+		createConnection() {
+			throw expectedError;
+		},
+	};
+
+	await t.throwsAsync(agent.request(new URL('https://example.com'), options, {}, {
+		endStream: true,
+	}), {
+		is: expectedError,
+	});
+
+	t.is(agentState.sessionCount, 0);
+	t.is(agentState.pendingSessionKeys.size, 0);
+	t.is(agentState.queue.length, 0);
 });
 
 test('http2 request destroy closes in-flight ALPN probe', async t => {
