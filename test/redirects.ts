@@ -901,7 +901,7 @@ for (const statusCode of [301, 302]) {
 		await withServer.exec(t, async (t, server2) => {
 			server1.all('/redirect', (_request, response) => {
 				response.writeHead(statusCode, {
-					location: `http://localhost:${server2.port}/`,
+					location: `http://redirect-user:redirect-password@localhost:${server2.port}/`,
 				});
 				response.end();
 			});
@@ -924,6 +924,10 @@ for (const statusCode of [301, 302]) {
 				json: {
 					query: true,
 				},
+				headers: {
+					authorization: 'Bearer secret',
+					cookie: 'session=secret',
+				},
 				retry: {
 					limit: 0,
 				},
@@ -932,6 +936,8 @@ for (const statusCode of [301, 302]) {
 			t.is(redirectedRequest.method, 'QUERY');
 			t.is(redirectedRequest.body, '{"query":true}');
 			t.is(redirectedRequest.headers['content-type'], 'application/json');
+			t.is(redirectedRequest.headers.authorization, undefined);
+			t.is(redirectedRequest.headers.cookie, undefined);
 		});
 	});
 
@@ -985,6 +991,50 @@ for (const statusCode of [301, 302]) {
 			});
 
 			t.is(redirectedOriginHits, 0);
+		});
+	});
+
+	test(`beforeRedirect can replace non-replayable QUERY body on cross-origin ${statusCode} redirect`, withServer, async (t, server1, got) => {
+		await withServer.exec(t, async (t, server2) => {
+			server1.all('/redirect', (request, response) => {
+				request.once('data', () => {
+					request.pause();
+					response.writeHead(statusCode, {
+						location: `http://localhost:${server2.port}/`,
+					});
+					response.end();
+				});
+			});
+
+			server2.all('/', async (request, response) => {
+				const chunks: Uint8Array[] = [];
+
+				for await (const chunk of request) {
+					chunks.push(Buffer.from(chunk));
+				}
+
+				response.end(JSON.stringify({
+					method: request.method,
+					body: Buffer.concat(chunks).toString(),
+				}));
+			});
+
+			const redirectedRequest = await got.query('redirect', {
+				body: Readable.from(['original-body']),
+				hooks: {
+					beforeRedirect: [
+						options => {
+							options.body = 'replacement-body';
+						},
+					],
+				},
+				retry: {
+					limit: 0,
+				},
+			}).json<{method: string; body: string}>();
+
+			t.is(redirectedRequest.method, 'QUERY');
+			t.is(redirectedRequest.body, 'replacement-body');
 		});
 	});
 

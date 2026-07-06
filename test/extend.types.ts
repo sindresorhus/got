@@ -63,6 +63,8 @@ expectTypeOf(got.extend({resolveBodyOnly: false}, got.extend({resolveBodyOnly: t
 // Test that created instances enable the correct return types for the request functions
 //
 const gotWrapped = got.extend({});
+const queryMethodOptions: OptionsInit = {method: 'query'};
+void queryMethodOptions;
 
 // The following tests would apply to all of the method signatures (get, post, put, delete, etc...), but we only test the base function for brevity
 
