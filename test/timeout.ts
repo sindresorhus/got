@@ -1329,14 +1329,14 @@ test('async custom request timeout is restored between retries', withServer, asy
 			return;
 		}
 
-		await delay(50);
+		await delay(500);
 		response.end('ok');
 	});
 
 	const {body, retryCount} = await got({
 		http2: true,
 		timeout: {
-			request: 100,
+			request: 1200,
 		},
 		retry: {
 			limit: 1,
@@ -1346,7 +1346,7 @@ test('async custom request timeout is restored between retries', withServer, asy
 			requestFunctionCalls++;
 
 			if (requestFunctionCalls === 1) {
-				await delay(80);
+				await delay(800);
 			}
 
 			return http.request(url, options, callback);

@@ -316,6 +316,17 @@ test('passes DNS cache lookup and IP version to native request options', t => {
 	t.is(options.createNativeRequestOptions().lookup, dnsLookup);
 });
 
+test('HTTP/2 option on HTTP preserves disabled HTTP agent', t => {
+	const options = new Options('http://example.com', {
+		http2: true,
+		agent: {
+			http: false,
+		},
+	});
+
+	t.is(options.createNativeRequestOptions().agent, false);
+});
+
 test('can set defaults to `new Options(...)`', t => {
 	const instance = got.extend({
 		mutableDefaults: true,

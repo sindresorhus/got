@@ -3373,8 +3373,8 @@ export default class Options {
 		let agent;
 		if (url.protocol === 'https:') {
 			if (internals.http2) {
-				// Ensure HTTP/2 agent is configured for connection reuse
-				// If no custom agent.http2 is provided, use the global agent for connection pooling
+				// Ensure HTTP/2 pooling is configured for connection reuse.
+				// If agent.http2 is unset, use the global agent for connection pooling.
 				agent = {
 					...internals.agent,
 					http2: internals.agent.http2 ?? http2Client.globalAgent,
