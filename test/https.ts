@@ -1498,6 +1498,59 @@ test('http2 supports h2c with explicit h2session option', async t => {
 	}
 });
 
+test('http2 direct request preserves port from host option', async t => {
+	const server = http2.createServer((request, response) => {
+		response.end(String(request.headers[':authority']));
+	});
+
+	await new Promise<void>(resolve => {
+		server.listen(0, 'localhost', resolve);
+	});
+
+	const {port} = server.address() as net.AddressInfo;
+	const session = http2.connect(`http://localhost:${port}`);
+
+	try {
+		const body = await new Promise<string>((resolve, reject) => {
+			const request = http2Request({
+				protocol: 'http:',
+				host: `localhost:${port}`,
+				path: '/',
+				h2session: session,
+			});
+
+			request.once('response', response => {
+				let body = '';
+				response.setEncoding('utf8');
+				response.on('data', chunk => {
+					body += chunk as string;
+				});
+				response.once('end', () => {
+					resolve(body);
+				});
+				response.once('error', reject);
+			});
+			request.once('error', reject);
+			request.end();
+		});
+
+		t.is(body, `localhost:${port}`);
+	} finally {
+		session.destroy();
+
+		await new Promise<void>((resolve, reject) => {
+			server.close(error => {
+				if (error) {
+					reject(error);
+					return;
+				}
+
+				resolve();
+			});
+		});
+	}
+});
+
 test('http2 supports IPv6 h2c URLs with explicit h2session option', async t => {
 	const server = http2.createServer((request, response) => {
 		response.end(request.url);

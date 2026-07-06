@@ -264,8 +264,22 @@ const normalizeInput = (
 
 const getAuthority = (options: HttpsRequestOptions): URL => {
 	const protocol = options.protocol ?? 'https:';
+	const defaultPort = protocol === 'https:' ? 443 : 80;
+
+	if (options.hostname === undefined && options.host !== undefined) {
+		try {
+			const authority = new URL(`${protocol}//${options.host}`);
+			const port = options.port ?? authority.port;
+			authority.port = String(port === '' ? defaultPort : port);
+
+			return authority;
+		} catch {
+			// Fall back to hostname normalization for values like bare IPv6 addresses.
+		}
+	}
+
 	const hostname = options.hostname ?? options.host ?? 'localhost';
-	const port = options.port ?? (protocol === 'https:' ? 443 : 80);
+	const port = options.port ?? defaultPort;
 	const hostnameString = String(hostname);
 	const normalizedHostname = hostnameString.startsWith('[') && hostnameString.endsWith(']')
 		? hostnameString.slice(1, -1)
