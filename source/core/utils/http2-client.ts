@@ -69,6 +69,11 @@ type NormalizedRequestOptions = Omit<HttpsRequestOptions, 'agent' | 'createConne
 	_cancelSessionSetup?: () => void;
 };
 
+type PendingJob = {
+	run: () => void;
+	cancel?: (error: Error) => void;
+};
+
 type AgentObject = {
 	http?: HttpAgent | false;
 	https?: HttpsAgent | false;
@@ -1065,7 +1070,7 @@ class Http2ClientRequest extends Writable {
 	private readonly headers: RequestHeaders;
 	private readonly origin: URL;
 	private stream?: ClientHttp2Stream;
-	private pendingJobs: Array<() => void> = [];
+	private pendingJobs: PendingJob[] = [];
 	private pendingAgentPromise?: Promise<AgentRequestResult>;
 	private readonly connectionHeaderNames = new Set<string>();
 	private trailers?: RequestHeaders;
@@ -1075,8 +1080,6 @@ class Http2ClientRequest extends Writable {
 	}
 
 	override _write(chunk: unknown, encoding: BufferEncoding, callback: (error?: Error | null) => void): void {
-		void this.flushHeaders();
-
 		const write = () => {
 			this.stream!.write(chunk, encoding, callback);
 		};
@@ -1084,13 +1087,16 @@ class Http2ClientRequest extends Writable {
 		if (this.stream) {
 			write();
 		} else {
-			this.pendingJobs.push(write);
+			this.pendingJobs.push({
+				run: write,
+				cancel: callback,
+			});
 		}
+
+		void this.flushHeaders();
 	}
 
 	override _final(callback: (error?: Error | null) => void): void {
-		void this.flushHeaders();
-
 		const end = () => {
 			if (this.trailers) {
 				this.stream!.once('wantTrailers', () => {
@@ -1104,8 +1110,13 @@ class Http2ClientRequest extends Writable {
 		if (this.stream) {
 			end();
 		} else {
-			this.pendingJobs.push(end);
+			this.pendingJobs.push({
+				run: end,
+				cancel: callback,
+			});
 		}
+
+		void this.flushHeaders();
 	}
 
 	override _destroy(error: Error | null, callback: (error?: Error | null) => void): void {
@@ -1127,6 +1138,10 @@ class Http2ClientRequest extends Writable {
 
 		if (this.pendingAgentPromise) {
 			void this.pendingAgentPromise.catch(() => {});
+		}
+
+		if (!this.stream) {
+			this.cancelPendingJobs(error ?? new Error('The HTTP/2 request was destroyed before a stream was created'));
 		}
 
 		callback(error);
@@ -1263,10 +1278,19 @@ class Http2ClientRequest extends Writable {
 		if (this.stream) {
 			applyTimeout();
 		} else {
-			this.pendingJobs.push(applyTimeout);
+			this.pendingJobs.push({run: applyTimeout});
 		}
 
 		return this;
+	}
+
+	private cancelPendingJobs(error: Error): void {
+		const jobs = this.pendingJobs;
+		this.pendingJobs = [];
+
+		for (const job of jobs) {
+			job.cancel?.(error);
+		}
 	}
 
 	private onStream(stream: ClientHttp2Stream): void {
@@ -1325,8 +1349,16 @@ class Http2ClientRequest extends Writable {
 			}
 		});
 
-		stream.on('headers', headers => {
-			this.emit('information', {statusCode: headers[HTTP2_HEADER_STATUS]});
+		stream.on('headers', (headers, _flags, rawHeaders) => {
+			this.emit('information', {
+				statusCode: Number(headers[HTTP2_HEADER_STATUS]),
+				statusMessage: '',
+				httpVersion: '2.0',
+				httpVersionMajor: 2,
+				httpVersionMinor: 0,
+				headers: filterHeaders(headers),
+				rawHeaders: rawHeaders ? filterRawHeaders(rawHeaders) : toRawHeaders(headers),
+			});
 		});
 
 		stream.once('trailers', (trailers, _flags, rawTrailers) => {
@@ -1374,7 +1406,7 @@ class Http2ClientRequest extends Writable {
 		});
 
 		for (const job of this.pendingJobs) {
-			job();
+			job.run();
 		}
 
 		this.pendingJobs = [];
@@ -1406,6 +1438,7 @@ const requestHttp1 = (options: NormalizedRequestOptions, agent: AgentObject | Ht
 		options.agent = agent.https;
 	}
 
+	options.ALPNProtocols = ['http/1.1'];
 	delete options.timeout;
 
 	if (options.headers) {

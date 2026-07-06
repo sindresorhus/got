@@ -59,6 +59,25 @@ const waitForCondition = async (predicate: () => boolean, message: string): Prom
 	});
 };
 
+const withTimeout = async <T>(promise: Promise<T>, message: string): Promise<T> => {
+	let timeoutId: NodeJS.Timeout | undefined;
+
+	try {
+		return await Promise.race([
+			promise,
+			new Promise<never>((_resolve, reject) => {
+				timeoutId = setTimeout(() => {
+					reject(new Error(message));
+				}, 1000);
+			}),
+		]);
+	} finally {
+		if (timeoutId) {
+			clearTimeout(timeoutId);
+		}
+	}
+};
+
 const waitForSocketClose = async (socket: net.Socket, milliseconds = 500): Promise<boolean> => {
 	const socketClosePromise = new Promise<true>(resolve => {
 		socket.once('close', () => {
@@ -401,6 +420,46 @@ test('http2 falls back to HTTP/1.1 when ALPN does not select h2', withHttpsServe
 	t.is(body, '1.1');
 });
 
+test('http2 fallback HTTPS request only advertises HTTP/1.1', async t => {
+	const certificate = await createCertificate({days: 1, selfSigned: true});
+	const fallbackProtocols: string[][] = [];
+	const server = http2.createSecureServer({
+		key: certificate.serviceKey,
+		cert: certificate.certificate,
+		// eslint-disable-next-line @typescript-eslint/naming-convention
+		allowHTTP1: true,
+		// eslint-disable-next-line @typescript-eslint/naming-convention
+		ALPNCallback({protocols}) {
+			fallbackProtocols.push([...protocols]);
+			return 'http/1.1';
+		},
+	}, (request, response) => {
+		response.end(request.httpVersion);
+	});
+
+	await new Promise<void>(resolve => {
+		server.listen(0, 'localhost', resolve);
+	});
+
+	try {
+		const {port} = server.address() as net.AddressInfo;
+		const {body} = await got(`https://localhost:${port}`, {
+			http2: true,
+			https: {
+				rejectUnauthorized: false,
+			},
+		});
+
+		t.is(body, '1.1');
+		t.deepEqual(fallbackProtocols, [
+			['h2', 'http/1.1'],
+			['http/1.1'],
+		]);
+	} finally {
+		await closeServer(server);
+	}
+});
+
 test('http2 responses are cached', async t => {
 	let streamCount = 0;
 	const server = await createHttp2TestServer(stream => {
@@ -665,10 +724,15 @@ test('http2 emits multiple informational responses', async t => {
 		stream.additionalHeaders({
 			// eslint-disable-next-line @typescript-eslint/naming-convention
 			':status': 102,
+			'x-info': 'processing',
 		});
 		stream.additionalHeaders({
 			// eslint-disable-next-line @typescript-eslint/naming-convention
 			':status': 103,
+			link: [
+				'</style.css>; rel=preload',
+				'</script.js>; rel=preload',
+			],
 		});
 		stream.respond({
 			// eslint-disable-next-line @typescript-eslint/naming-convention
@@ -678,20 +742,49 @@ test('http2 emits multiple informational responses', async t => {
 	});
 
 	try {
-		const informationalStatusCodes: number[] = [];
+		const informationalResponses: Array<{
+			statusCode: number;
+			statusMessage: string;
+			httpVersion: string;
+			httpVersionMajor: number;
+			httpVersionMinor: number;
+			headers: Record<string, string | string[] | undefined>;
+			rawHeaders: string[];
+		}> = [];
 		const stream = got.stream(server.url, {
 			http2: true,
 			https: {
 				rejectUnauthorized: false,
 			},
 		});
-		stream.on('information', ({statusCode}) => {
-			informationalStatusCodes.push(statusCode);
+		stream.on('information', information => {
+			informationalResponses.push(information);
 		});
 		stream.resume();
 		await pEvent(stream, 'end');
 
-		t.deepEqual(informationalStatusCodes, [102, 103]);
+		t.deepEqual(informationalResponses.map(({statusCode}) => statusCode), [102, 103]);
+		t.like(informationalResponses[0], {
+			statusMessage: '',
+			httpVersion: '2.0',
+			httpVersionMajor: 2,
+			httpVersionMinor: 0,
+			headers: {
+				'x-info': 'processing',
+			},
+			rawHeaders: ['x-info', 'processing'],
+		});
+		t.like(informationalResponses[1], {
+			headers: {
+				link: '</style.css>; rel=preload, </script.js>; rel=preload',
+			},
+			rawHeaders: [
+				'link',
+				'</style.css>; rel=preload',
+				'link',
+				'</script.js>; rel=preload',
+			],
+		});
 	} finally {
 		await server.close();
 	}
@@ -1072,6 +1165,111 @@ test('http2 agent destroy closes in-flight session setup', async t => {
 
 		await closeServer(server);
 	}
+});
+
+test('http2 request fails queued body callbacks when session setup fails', async t => {
+	const certificate = await createCertificate({days: 1, selfSigned: true});
+	const sockets = new Set<tls.TLSSocket>();
+	const server = tls.createServer({
+		key: certificate.serviceKey,
+		cert: certificate.certificate,
+		// eslint-disable-next-line @typescript-eslint/naming-convention
+		ALPNProtocols: ['h2'],
+	}, socket => {
+		sockets.add(socket);
+		socket.once('close', () => {
+			sockets.delete(socket);
+		});
+		socket.resume();
+	});
+
+	await new Promise<void>(resolve => {
+		server.listen(0, 'localhost', resolve);
+	});
+
+	try {
+		const {port} = server.address() as net.AddressInfo;
+		const createRequest = () => {
+			const request = http2Request(`https://localhost:${port}`, {
+				agent: false,
+				method: 'POST',
+				rejectUnauthorized: false,
+				timeout: 50,
+			});
+			request.on('error', () => {});
+
+			return request;
+		};
+
+		const writeRequest = createRequest();
+		const writeErrorPromise = new Promise<Error | undefined>(resolve => {
+			writeRequest.write('body', error => {
+				resolve(error ?? undefined);
+			});
+		});
+		const endOnlyRequest = createRequest();
+		const endErrorPromise = new Promise<Error | undefined>(resolve => {
+			endOnlyRequest.end((error: Error | undefined) => {
+				resolve(error ?? undefined);
+			});
+		});
+
+		const [writeError, endError] = await withTimeout(
+			Promise.all([
+				writeErrorPromise,
+				endErrorPromise,
+			]),
+			'Queued HTTP/2 body callbacks were not failed',
+		);
+
+		t.is(writeError?.name, 'TimeoutError');
+		t.is(endError?.name, 'TimeoutError');
+	} finally {
+		for (const socket of sockets) {
+			socket.destroy();
+		}
+
+		await closeServer(server);
+	}
+});
+
+test('http2 request fails queued body callback when explicit h2session request throws', async t => {
+	const expectedError = new Error('session failed');
+	const createRequest = () => {
+		const request = http2Request('https://example.com', {
+			h2session: {
+				request() {
+					throw expectedError;
+				},
+			} as unknown as http2.ClientHttp2Session,
+		});
+		request.on('error', () => {});
+
+		return request;
+	};
+
+	const writeRequest = createRequest();
+	const writeErrorPromise = new Promise<Error | undefined>(resolve => {
+		writeRequest.write('body', error => {
+			resolve(error ?? undefined);
+		});
+	});
+	const endOnlyRequest = createRequest();
+	const endErrorPromise = new Promise<Error | undefined>(resolve => {
+		endOnlyRequest.end((error: Error | undefined) => {
+			resolve(error ?? undefined);
+		});
+	});
+	const [writeError, endError] = await withTimeout(
+		Promise.all([
+			writeErrorPromise,
+			endErrorPromise,
+		]),
+		'Queued HTTP/2 body callbacks were not failed',
+	);
+
+	t.is(writeError, expectedError);
+	t.is(endError, expectedError);
 });
 
 test('http2 stream destroy closes queued ALPN socket', async t => {
