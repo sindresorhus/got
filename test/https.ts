@@ -34,6 +34,22 @@ const closeServer = async (server: net.Server): Promise<void> => {
 	});
 };
 
+const collectHttp2ResponseBody = async (request: ReturnType<typeof http2Request>): Promise<string> => new Promise((resolve, reject) => {
+	request.once('response', response => {
+		let body = '';
+		response.setEncoding('utf8');
+		response.on('data', chunk => {
+			body += chunk as string;
+		});
+		response.once('end', () => {
+			resolve(body);
+		});
+		response.once('error', reject);
+	});
+	request.once('error', reject);
+	request.end();
+});
+
 const waitForCondition = async (predicate: () => boolean, message: string): Promise<void> => {
 	await new Promise<void>((resolve, reject) => {
 		let attempt = 0;
@@ -1511,30 +1527,68 @@ test('http2 direct request preserves port from host option', async t => {
 	const session = http2.connect(`http://localhost:${port}`);
 
 	try {
-		const body = await new Promise<string>((resolve, reject) => {
-			const request = http2Request({
-				protocol: 'http:',
-				host: `localhost:${port}`,
-				path: '/',
-				h2session: session,
-			});
-
-			request.once('response', response => {
-				let body = '';
-				response.setEncoding('utf8');
-				response.on('data', chunk => {
-					body += chunk as string;
-				});
-				response.once('end', () => {
-					resolve(body);
-				});
-				response.once('error', reject);
-			});
-			request.once('error', reject);
-			request.end();
-		});
+		const body = await collectHttp2ResponseBody(http2Request({
+			protocol: 'http:',
+			host: `localhost:${port}`,
+			path: '/',
+			h2session: session,
+		}));
 
 		t.is(body, `localhost:${port}`);
+	} finally {
+		session.destroy();
+
+		await new Promise<void>((resolve, reject) => {
+			server.close(error => {
+				if (error) {
+					reject(error);
+					return;
+				}
+
+				resolve();
+			});
+		});
+	}
+});
+
+test('http2 CONNECT request sends path as authority', async t => {
+	const server = http2.createServer();
+
+	server.on('stream', (stream: ServerHttp2Stream, headers) => {
+		stream.respond({
+			// eslint-disable-next-line @typescript-eslint/naming-convention
+			':status': 200,
+			'content-type': 'application/json',
+		});
+		stream.end(JSON.stringify({
+			authority: headers[':authority'],
+			method: headers[':method'],
+			path: headers[':path'],
+			scheme: headers[':scheme'],
+		}));
+	});
+
+	await new Promise<void>(resolve => {
+		server.listen(0, 'localhost', resolve);
+	});
+
+	const {port} = server.address() as net.AddressInfo;
+	const session = http2.connect(`http://localhost:${port}`);
+
+	try {
+		const body = await collectHttp2ResponseBody(http2Request({
+			protocol: 'http:',
+			hostname: 'localhost',
+			port,
+			method: 'CONNECT',
+			path: 'target.example:443',
+			h2session: session,
+		}));
+
+		t.deepEqual(JSON.parse(body) as Record<string, string>, {
+			authority: 'target.example:443',
+			method: 'CONNECT',
+		});
 	} finally {
 		session.destroy();
 

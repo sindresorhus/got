@@ -1056,7 +1056,7 @@ class Http2ClientRequest extends Writable {
 		this.origin = authority;
 
 		if (!this.hasHeader(HTTP2_HEADER_AUTHORITY)) {
-			this.headers[HTTP2_HEADER_AUTHORITY] = authority.host;
+			this.headers[HTTP2_HEADER_AUTHORITY] = this.method === HTTP2_METHOD_CONNECT ? this.path : authority.host;
 		}
 
 		this.headers[HTTP2_HEADER_METHOD] = this.method;
