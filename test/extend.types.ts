@@ -72,6 +72,7 @@ expectTypeOf(gotWrapped<{test: 'test'}>('https://example.com')).toEqualTypeOf<Re
 expectTypeOf(gotWrapped('https://example.com', {responseType: 'buffer'})).toEqualTypeOf<RequestPromise<Response<Uint8Array<ArrayBuffer>>>>();
 expectTypeOf(gotWrapped.query<{test: 'test'}>('https://example.com')).toEqualTypeOf<RequestPromise<Response<{test: 'test'}>>>();
 expectTypeOf(got.stream.query('https://example.com')).toEqualTypeOf<Request>();
+expectTypeOf(gotWrapped.stream.query('https://example.com')).toEqualTypeOf<Request>();
 
 // Test the default instance can be overridden at the request function level
 expectTypeOf(gotWrapped('https://example.com', {resolveBodyOnly: true})).toEqualTypeOf<RequestPromise<string>>();

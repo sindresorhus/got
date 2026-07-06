@@ -25,7 +25,7 @@ This constructor takes the same arguments as the Got promise.
 **Note:**
 > - While `got.post('https://example.com')` resolves, `got.stream.post('https://example.com')` will hang indefinitely until a body is provided.
 > - If there's no body on purpose, remember to `stream.end()` or set the body option to an empty string.
-> - `got.stream` does not auto-end for `OPTIONS`, `DELETE`, `PATCH`, or `QUERY` so you can pipe or write a body without getting `write after end`. Call `stream.end()` when you are not piping a body.
+> - `got.stream` does not auto-end for `POST`, `PUT`, `OPTIONS`, `PATCH`, `DELETE`, or `QUERY`. Call `stream.end()` when you are not piping a body.
 
 ```js
 import stream from 'node:stream';

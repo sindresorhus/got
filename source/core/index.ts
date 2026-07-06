@@ -1260,8 +1260,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 				if (isDifferentOrigin) {
 					// On cross-origin redirects, strip sensitive headers and any credentials
 					// embedded in the redirect URL itself to prevent a malicious server from
-					// leaking them to a third party. The request body is preserved per RFC:
-					// 307/308 keep the method and replayable bodies, and QUERY does the same on 301/302.
+					// leaking them to a third party. 307/308 redirects preserve the method and replayable body per RFC; QUERY does the same on 301/302.
 					updatedOptions.h2session = undefined;
 					this._stripCrossOriginState(updatedOptions, redirectUrl);
 				} else {

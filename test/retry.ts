@@ -393,24 +393,50 @@ test('does not retry on POST', withServer, async (t, server, got) => {
 	t.false(retried, 'Retries on POST requests');
 });
 
-test('retries QUERY by default', withServer, async (t, server, got) => {
-	const methods: string[] = [];
+test('retries QUERY with JSON body by default', withServer, async (t, server, got) => {
+	const attempts: Array<{method: string; body: string; contentType: string | undefined}> = [];
+	const payload = {
+		query: true,
+	};
 
-	server.all('/', (request, response) => {
-		methods.push(request.method);
-		response.statusCode = 500;
-		response.end();
+	server.all('/', async (request, response) => {
+		const body = await getStream(request);
+		attempts.push({
+			method: request.method,
+			body,
+			contentType: request.headers['content-type'],
+		});
+
+		if (attempts.length === 1) {
+			response.statusCode = 500;
+			response.end();
+			return;
+		}
+
+		response.end(body);
 	});
 
-	const {retryCount} = await got.query({
-		throwHttpErrors: false,
+	const {body, retryCount} = await got.query({
+		json: payload,
 		retry: {
 			limit: 1,
 		},
 	});
 
 	t.is(retryCount, 1);
-	t.deepEqual(methods, ['QUERY', 'QUERY']);
+	t.deepEqual(JSON.parse(body), payload);
+	t.deepEqual(attempts, [
+		{
+			method: 'QUERY',
+			body: '{"query":true}',
+			contentType: 'application/json',
+		},
+		{
+			method: 'QUERY',
+			body: '{"query":true}',
+			contentType: 'application/json',
+		},
+	]);
 });
 
 test('does not break on redirect', withServer, async (t, server, got) => {
