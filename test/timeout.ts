@@ -1174,6 +1174,29 @@ test('request timeout includes async custom request function time', withServer, 
 	t.true(elapsed < 170, `Expected timeout ${elapsed}ms to include async request function time`);
 });
 
+test('request timeout includes async custom request fallback time', withServer, async (t, server, got) => {
+	server.get('/', () => {});
+
+	const timeout = 100;
+	const startTime = Date.now();
+	const error = await t.throwsAsync<RequestError>(got({
+		timeout: {
+			request: timeout,
+		},
+		retry: {
+			limit: 0,
+		},
+		async request() {
+			await delay(80);
+			return undefined;
+		},
+	}));
+
+	const elapsed = Date.now() - startTime;
+	t.is(error?.code, 'ETIMEDOUT');
+	t.true(elapsed < 170, `Expected timeout ${elapsed}ms to include async fallback request time`);
+});
+
 test('request timeout aborts slow async custom request function', withServer, async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.end('too late');

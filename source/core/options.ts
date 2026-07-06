@@ -3626,7 +3626,7 @@ export default class Options {
 			return result;
 		}
 
-		if (this.#internals.http2 && this.#internals.timeout.request !== undefined && options.timeout !== undefined) {
+		if (this.#internals.timeout.request !== undefined && options.timeout !== undefined) {
 			const remainingRequestTimeout = this.#internals.timeout.request - (Date.now() - requestStartedAt);
 			options.timeout = Math.min(options.timeout, Math.max(0, remainingRequestTimeout));
 		}

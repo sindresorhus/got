@@ -2388,7 +2388,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			if (is.promise(requestOrResponse)) {
 				requestOrResponse = await requestOrResponse;
 
-				if (options.http2 && options.timeout.request !== undefined) {
+				if (options.timeout.request !== undefined) {
 					const remainingRequestTimeout = options.timeout.request - (Date.now() - requestFunctionStartedAt);
 					options.timeout.request = Math.max(0, remainingRequestTimeout);
 					shouldRestoreRequestTimeout = true;
