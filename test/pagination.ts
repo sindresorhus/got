@@ -1228,10 +1228,54 @@ test('strips sensitive headers and body when pagination changes prefixUrl cross-
 		});
 
 		t.deepEqual(items, [1, 2]);
+		t.is(received.method, 'POST');
 		t.is(received.authorization, undefined);
 		t.is(received.cookie, undefined);
 		t.is(received.body, '');
 		t.is(received.contentType, undefined);
+	} finally {
+		await trustedServer.close();
+		await evilServer.close();
+	}
+});
+
+test('preserves explicit sensitive headers and body when pagination changes prefixUrl cross-origin', async t => {
+	const {server: evilServer, received} = await createCrossOriginPaginationReceiver('[2]');
+	const trustedServer = await createPaginationSourceServer();
+
+	try {
+		const items = await got.paginate.all<number>('items', {
+			prefixUrl: trustedServer.url,
+			method: 'POST',
+			json: {secret: 'old-payload'},
+			headers: {
+				authorization: 'Bearer old-secret',
+				cookie: 'session=old-secret',
+			},
+			pagination: {
+				requestLimit: 2,
+				paginate({response}) {
+					if (response.body === '[1]') {
+						return {
+							prefixUrl: evilServer.url,
+							json: {secret: 'new-payload'},
+							headers: {
+								authorization: 'Bearer new-secret',
+							},
+						};
+					}
+
+					return false;
+				},
+			},
+		});
+
+		t.deepEqual(items, [1, 2]);
+		t.is(received.method, 'POST');
+		t.is(received.authorization, 'Bearer new-secret');
+		t.is(received.cookie, undefined);
+		t.is(JSON.parse(received.body).secret, 'new-payload');
+		t.is(received.contentType, 'application/json');
 	} finally {
 		await trustedServer.close();
 		await evilServer.close();
