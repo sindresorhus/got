@@ -990,7 +990,7 @@ function hasCredentialInUrl(url: string | URL | undefined, credential: 'username
 
 export const hasExplicitCredentialInUrlChange = (changedState: Set<string>, url: URL | undefined, credential: 'username' | 'password'): boolean => (
 	changedState.has(credential)
-	|| (changedState.has('url') && url?.[credential] !== '')
+	|| ((changedState.has('url') || changedState.has('prefixUrl')) && url?.[credential] !== '')
 );
 
 const hasProtocolSlashes = (value: string): boolean => /^[a-z][\d+\-.a-z]*:\/\//iv.test(value);
@@ -1932,12 +1932,42 @@ export default class Options {
 		}
 
 		if (this.#internals.prefixUrl && this.#internals.url) {
-			const {href} = this.#internals.url as URL;
+			const url = this.#internals.url as URL;
+			const previousUrl = new URL(url);
+			const {username, password} = url;
+			const urlWithoutCredentials = new URL(url);
+			urlWithoutCredentials.username = '';
+			urlWithoutCredentials.password = '';
+			let prefixUrlWithoutCredentials = this.#internals.prefixUrl.toString();
 
-			(this.#internals.url as URL).href = value + href.slice((this.#internals.prefixUrl as string).length);
+			let hasNewPrefixCredentials = false;
+
+			if (isAbsoluteUrl(value)) {
+				const nextPrefixUrl = new URL(value);
+				hasNewPrefixCredentials = nextPrefixUrl.username !== '' || nextPrefixUrl.password !== '';
+			}
+
+			if (isAbsoluteUrl(this.#internals.prefixUrl)) {
+				const prefixUrl = new URL(this.#internals.prefixUrl);
+				prefixUrl.username = '';
+				prefixUrl.password = '';
+				prefixUrlWithoutCredentials = prefixUrl.href;
+			}
+
+			url.href = value + urlWithoutCredentials.href.slice(prefixUrlWithoutCredentials.length);
+			const isSameOriginUrl = isSameOrigin(previousUrl, url);
+
+			if (username && !url.username && isSameOriginUrl && !hasNewPrefixCredentials) {
+				url.username = username;
+			}
+
+			if (password && !url.password && isSameOriginUrl && !hasNewPrefixCredentials) {
+				url.password = password;
+			}
 		}
 
 		this.#internals.prefixUrl = value;
+		trackStateMutation(this.#trackedStateMutations, 'prefixUrl');
 	}
 
 	/**
@@ -2823,9 +2853,11 @@ export default class Options {
 		const explicitPassword = Object.hasOwn(userOptions, 'password') ? userOptions.password : undefined;
 		const hasExplicitUsername = explicitUsername !== undefined
 			|| hasCredentialInUrl(userOptions.url, 'username')
+			|| hasCredentialInUrl(userOptions.prefixUrl, 'username')
 			|| isCrossOriginCredentialChanged(previousUrl, nextUrl, 'username');
 		const hasExplicitPassword = explicitPassword !== undefined
 			|| hasCredentialInUrl(userOptions.url, 'password')
+			|| hasCredentialInUrl(userOptions.prefixUrl, 'password')
 			|| isCrossOriginCredentialChanged(previousUrl, nextUrl, 'password');
 
 		if (!hasExplicitUsername && this.username) {

@@ -883,6 +883,55 @@ test('prefixUrl is preserved in beforeRequest hook', withServer, async (t, serve
 	t.is(capturedPrefixUrl, normalizedServerUrl);
 });
 
+test('beforeRequest prefixUrl rewrite drops inherited generated credentials cross-origin', withServer, async (t, server, got) => {
+	const {server: evilServer, received} = await createCrossOriginReceiver('/items', 'success');
+
+	try {
+		const {body} = await got('items', {
+			prefixUrl: server.url,
+			username: 'old-user',
+			password: 'old-password',
+			hooks: {
+				beforeRequest: [
+					options => {
+						options.prefixUrl = evilServer.url;
+					},
+				],
+			},
+		});
+
+		t.is(body, 'success');
+		t.is(received.method, 'GET');
+		t.is(received.url, '/items');
+		t.is(received.authorization, undefined);
+	} finally {
+		await evilServer.close();
+	}
+});
+
+test('beforeRequest prefixUrl rewrite does not inherit password when only username is explicit', withServer, async (t, server, got) => {
+	server.get('/v2/items', echoHeader('authorization'));
+
+	const nextPrefixUrl = new URL(server.url);
+	nextPrefixUrl.username = 'new-user';
+	nextPrefixUrl.pathname = '/v2/';
+
+	const {body} = await got('items', {
+		prefixUrl: server.url,
+		username: 'old-user',
+		password: 'old-password',
+		hooks: {
+			beforeRequest: [
+				options => {
+					options.prefixUrl = nextPrefixUrl.toString();
+				},
+			],
+		},
+	});
+
+	t.is(body, `Basic ${Buffer.from('new-user:').toString('base64')}`);
+});
+
 test('prefixUrl is preserved in beforeRetry hook', withServer, async (t, server, got) => {
 	server.get('/retry', (_request, response) => {
 		response.statusCode = 500;
