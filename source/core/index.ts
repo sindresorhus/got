@@ -1251,6 +1251,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 				} else if (
 					isDifferentOrigin
 					&& canRewrite
+					&& updatedOptions.method !== 'QUERY'
 					&& this._hasBodyForRedirect(updatedOptions)
 				) {
 					this._dropBody(updatedOptions);
@@ -1259,8 +1260,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 				if (isDifferentOrigin) {
 					// On cross-origin redirects, strip sensitive headers and any credentials
 					// embedded in the redirect URL itself to prevent a malicious server from
-					// leaking them to a third party. The request body is preserved per RFC:
-					// 307/308 keep the method and replayable bodies, even cross-origin.
+					// leaking them to a third party. 307/308 redirects preserve the method and replayable body per RFC; QUERY does the same on 301/302.
 					updatedOptions.h2session = undefined;
 					this._stripCrossOriginState(updatedOptions, redirectUrl);
 				} else {
@@ -1305,8 +1305,9 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 				updatedOptions.clearUnchangedCookieHeader(preHookState, changedState);
 
 				const nativeFormDataBody = this._nativeFormDataBody;
+				const mustReplayBodyOnRedirect = statusCode === 307 || statusCode === 308 || updatedOptions.method === 'QUERY';
 
-				if (statusCode === 307 || statusCode === 308) {
+				if (mustReplayBodyOnRedirect) {
 					const bodyUnchangedByHooks = updatedOptions.body === bodyBeforeRedirectHooks;
 					const wasNonReplayable = isNonReplayableBody(bodyBeforeRedirectHooks);
 
@@ -1333,7 +1334,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 						bodyUnchangedByHooks
 						&& (wasNonReplayable || (is.undefined(updatedOptions.body) && (this._hasWrittenBody || this._hasWritableBody)))
 					) {
-						// 307/308 redirects must replay the body, so follow the HTTP spec and other clients by failing for unchanged non-replayable bodies. Hooks may supply a fresh body.
+						// Body-preserving redirects must replay the body, so follow the HTTP spec and other clients by failing for unchanged non-replayable bodies. Hooks may supply a fresh body.
 						this._dropBody(updatedOptions);
 						this._beforeError(new RequestError('Cannot follow redirect with a non-replayable body', {}, this));
 						return;
@@ -1364,6 +1365,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 						if (
 							canRewrite
+							&& updatedOptions.method !== 'QUERY'
 							&& this._hasUnchangedBodyForRedirect(updatedOptions, state, changedState)
 						) {
 							this._dropBody(updatedOptions);

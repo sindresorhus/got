@@ -897,6 +897,147 @@ test('does not forward body on cross-origin PUT redirect by default', withServer
 });
 
 for (const statusCode of [301, 302]) {
+	test(`forwards body on cross-origin QUERY ${statusCode} redirect`, withServer, async (t, server1, got) => {
+		await withServer.exec(t, async (t, server2) => {
+			server1.all('/redirect', (_request, response) => {
+				response.writeHead(statusCode, {
+					location: `http://redirect-user:redirect-password@localhost:${server2.port}/`,
+				});
+				response.end();
+			});
+
+			server2.all('/', async (request, response) => {
+				const chunks: Uint8Array[] = [];
+
+				for await (const chunk of request) {
+					chunks.push(Buffer.from(chunk));
+				}
+
+				response.end(JSON.stringify({
+					method: request.method,
+					body: Buffer.concat(chunks).toString(),
+					headers: request.headers,
+				}));
+			});
+
+			const redirectedRequest = await got.query('redirect', {
+				json: {
+					query: true,
+				},
+				headers: {
+					authorization: 'Bearer secret',
+					cookie: 'session=secret',
+				},
+				retry: {
+					limit: 0,
+				},
+			}).json<{method: string; body: string; headers: Record<string, string | undefined>}>();
+
+			t.is(redirectedRequest.method, 'QUERY');
+			t.is(redirectedRequest.body, '{"query":true}');
+			t.is(redirectedRequest.headers['content-type'], 'application/json');
+			t.is(redirectedRequest.headers.authorization, undefined);
+			t.is(redirectedRequest.headers.cookie, undefined);
+		});
+	});
+
+	test(`does not reuse streaming body on cross-origin QUERY ${statusCode} redirect`, withServer, async (t, server1, got) => {
+		await withServer.exec(t, async (t, server2) => {
+			let releaseSecondChunk!: () => void;
+			const secondChunkReleased = new Promise<void>(resolve => {
+				releaseSecondChunk = resolve;
+			});
+
+			server1.all('/redirect', (request, response) => {
+				request.once('data', () => {
+					request.pause();
+					response.writeHead(statusCode, {
+						location: `http://localhost:${server2.port}/`,
+					});
+					response.end();
+				});
+			});
+
+			let redirectedOriginHits = 0;
+
+			server2.all('/', (_request, response) => {
+				redirectedOriginHits++;
+				response.end();
+			});
+
+			async function * body(): AsyncGenerator<string> {
+				yield 'consumed-by-redirect-origin';
+				await secondChunkReleased;
+				yield 'must-not-leak';
+			}
+
+			await t.throwsAsync(got.query('redirect', {
+				body: Readable.from(body()),
+				hooks: {
+					beforeRedirect: [
+						(options, response) => {
+							t.is(response.statusCode, statusCode);
+							t.is(options.method, 'QUERY');
+							releaseSecondChunk();
+						},
+					],
+				},
+				retry: {
+					limit: 0,
+				},
+			}), {
+				instanceOf: RequestError,
+				message: 'Cannot follow redirect with a non-replayable body',
+			});
+
+			t.is(redirectedOriginHits, 0);
+		});
+	});
+
+	test(`beforeRedirect can replace non-replayable QUERY body on cross-origin ${statusCode} redirect`, withServer, async (t, server1, got) => {
+		await withServer.exec(t, async (t, server2) => {
+			server1.all('/redirect', (request, response) => {
+				request.once('data', () => {
+					request.pause();
+					response.writeHead(statusCode, {
+						location: `http://localhost:${server2.port}/`,
+					});
+					response.end();
+				});
+			});
+
+			server2.all('/', async (request, response) => {
+				const chunks: Uint8Array[] = [];
+
+				for await (const chunk of request) {
+					chunks.push(Buffer.from(chunk));
+				}
+
+				response.end(JSON.stringify({
+					method: request.method,
+					body: Buffer.concat(chunks).toString(),
+				}));
+			});
+
+			const redirectedRequest = await got.query('redirect', {
+				body: Readable.from(['original-body']),
+				hooks: {
+					beforeRedirect: [
+						options => {
+							options.body = 'replacement-body';
+						},
+					],
+				},
+				retry: {
+					limit: 0,
+				},
+			}).json<{method: string; body: string}>();
+
+			t.is(redirectedRequest.method, 'QUERY');
+			t.is(redirectedRequest.body, 'replacement-body');
+		});
+	});
+
 	test(`does not forward body when beforeRedirect changes ${statusCode} POST redirect to a different origin`, withServer, async (t, server1, got) => {
 		await withServer.exec(t, async (t, server2) => {
 			server1.post('/redirect', (_request, response) => {
@@ -935,6 +1076,51 @@ for (const statusCode of [301, 302]) {
 			t.is(redirectedRequest.body, '');
 			t.is(redirectedRequest.headers['content-length'], undefined);
 			t.is(redirectedRequest.headers['content-type'], undefined);
+		});
+	});
+
+	test(`forwards body when beforeRedirect changes ${statusCode} QUERY redirect to a different origin`, withServer, async (t, server1, got) => {
+		await withServer.exec(t, async (t, server2) => {
+			server1.all('/redirect', (_request, response) => {
+				response.writeHead(statusCode, {
+					location: '/',
+				});
+				response.end();
+			});
+
+			server2.all('/', async (request, response) => {
+				const chunks: Uint8Array[] = [];
+
+				for await (const chunk of request) {
+					chunks.push(Buffer.from(chunk));
+				}
+
+				response.end(JSON.stringify({
+					method: request.method,
+					body: Buffer.concat(chunks).toString(),
+					headers: request.headers,
+				}));
+			});
+
+			const redirectedRequest = await got.query('redirect', {
+				json: {
+					query: true,
+				},
+				hooks: {
+					beforeRedirect: [
+						options => {
+							options.url = new URL(server2.url);
+						},
+					],
+				},
+				retry: {
+					limit: 0,
+				},
+			}).json<{method: string; body: string; headers: Record<string, string | undefined>}>();
+
+			t.is(redirectedRequest.method, 'QUERY');
+			t.is(redirectedRequest.body, '{"query":true}');
+			t.is(redirectedRequest.headers['content-type'], 'application/json');
 		});
 	});
 }

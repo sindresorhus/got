@@ -25,7 +25,7 @@ This constructor takes the same arguments as the Got promise.
 **Note:**
 > - While `got.post('https://example.com')` resolves, `got.stream.post('https://example.com')` will hang indefinitely until a body is provided.
 > - If there's no body on purpose, remember to `stream.end()` or set the body option to an empty string.
-> - `got.stream` does not auto-end for `OPTIONS`, `DELETE`, or `PATCH` so you can pipe or write a body without getting `write after end`. Call `stream.end()` when you are not piping a body.
+> - `got.stream` does not auto-end for `POST`, `PUT`, `OPTIONS`, `PATCH`, `DELETE`, or `QUERY`. Call `stream.end()` when you are not piping a body.
 
 ```js
 import stream from 'node:stream';
@@ -39,7 +39,7 @@ await streamPipeline(
 	fs.createWriteStream('index.html')
 );
 
-// For POST, PUT, PATCH, and DELETE methods, `got.stream` returns a `stream.Writable`.
+// For payload-capable shortcut methods such as POST, PUT, PATCH, DELETE, and QUERY, `got.stream` returns a `stream.Writable`.
 // This example POSTs the contents of a file to a URL.
 await streamPipeline(
 	fs.createReadStream('index.html'),
@@ -47,7 +47,7 @@ await streamPipeline(
 	new stream.PassThrough()
 );
 
-// In order to POST, PUT, PATCH, or DELETE without a request body, explicitly specify an empty body:
+// In order to send one of these methods without a request body, explicitly specify an empty body:
 await streamPipeline(
 	got.stream.post('https://sindresorhus.com', { body: '' }),
 	new stream.PassThrough()

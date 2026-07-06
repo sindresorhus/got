@@ -209,7 +209,7 @@ export type GotRequestFunction<U extends ExtendOptions = Record<string, unknown>
 };
 
 /**
-All available HTTP request methods provided by Got.
+All available HTTP shortcut aliases provided by Got.
 */
 // eslint-disable-next-line @typescript-eslint/naming-convention
 export type HTTPAlias =
@@ -218,7 +218,8 @@ export type HTTPAlias =
 	| 'put'
 	| 'patch'
 	| 'head'
-	| 'delete';
+	| 'delete'
+	| 'query';
 
 type GotStreamFunction =
 	((url?: string | URL, options?: StreamOptions) => Request)
@@ -242,7 +243,7 @@ export type Got<GotOptions extends ExtendOptions = ExtendOptions> = {
 	- downloadProgress
 	- error
 
-	Note: For writable request streams, call `stream.end()` when you are not piping a body. `got.stream` does not auto-end for OPTIONS, DELETE, or PATCH so you can pipe or write a body without getting `write after end`.
+	Note: Writable request streams do not auto-end for POST, PUT, OPTIONS, PATCH, DELETE, or QUERY. Call `stream.end()` when you are not piping a body.
 	*/
 	stream: GotStream;
 

@@ -97,6 +97,25 @@ test('methods are normalized', withServer, async (t, server, got) => {
 	await instance('test', {method: 'post'});
 });
 
+test('QUERY method is normalized', withServer, async (t, server, got) => {
+	server.all('/test', async (request, response) => {
+		t.is(request.method, 'QUERY');
+		t.is(request.headers['content-type'], 'application/json');
+		response.end(await getStream(request));
+	});
+
+	const payload = {
+		query: true,
+	};
+
+	const body = await got('test', {
+		method: 'query',
+		json: payload,
+	}).json<typeof payload>();
+
+	t.deepEqual(body, payload);
+});
+
 test('throws an error when legacy URL is passed', withServer, async (t, server) => {
 	server.get('/test', echoUrl);
 

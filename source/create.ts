@@ -35,6 +35,7 @@ const aliases: readonly HTTPAlias[] = [
 	'patch',
 	'head',
 	'delete',
+	'query',
 ];
 
 const optionsObjectUrlErrorMessage = 'The `url` option is not supported in options objects. Pass it as the first argument instead.';

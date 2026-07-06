@@ -4,6 +4,7 @@ import {expectTypeOf} from 'expect-type';
 import got, {
 	Options,
 	type OptionsInit,
+	type Request,
 	type RequestPromise,
 	type Response,
 } from '../source/index.js';
@@ -62,6 +63,8 @@ expectTypeOf(got.extend({resolveBodyOnly: false}, got.extend({resolveBodyOnly: t
 // Test that created instances enable the correct return types for the request functions
 //
 const gotWrapped = got.extend({});
+const queryMethodOptions: OptionsInit = {method: 'query'};
+void queryMethodOptions;
 
 // The following tests would apply to all of the method signatures (get, post, put, delete, etc...), but we only test the base function for brevity
 
@@ -69,6 +72,9 @@ const gotWrapped = got.extend({});
 expectTypeOf(gotWrapped('https://example.com')).toEqualTypeOf<RequestPromise<Response<string>>>();
 expectTypeOf(gotWrapped<{test: 'test'}>('https://example.com')).toEqualTypeOf<RequestPromise<Response<{test: 'test'}>>>();
 expectTypeOf(gotWrapped('https://example.com', {responseType: 'buffer'})).toEqualTypeOf<RequestPromise<Response<Uint8Array<ArrayBuffer>>>>();
+expectTypeOf(gotWrapped.query<{test: 'test'}>('https://example.com')).toEqualTypeOf<RequestPromise<Response<{test: 'test'}>>>();
+expectTypeOf(got.stream.query('https://example.com')).toEqualTypeOf<Request>();
+expectTypeOf(gotWrapped.stream.query('https://example.com')).toEqualTypeOf<Request>();
 
 // Test the default instance can be overridden at the request function level
 expectTypeOf(gotWrapped('https://example.com', {resolveBodyOnly: true})).toEqualTypeOf<RequestPromise<string>>();
