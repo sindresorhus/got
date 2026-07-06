@@ -2653,7 +2653,7 @@ export default class Options {
 
 	Note: Explicitly set headers take precedence over piped headers. Piped headers are only copied when a header is not already explicitly set.
 
-	Useful for proxy scenarios when explicitly enabled, but you may still want to filter out headers like `Host`, `Connection`, `Authorization`, etc.
+	Useful for proxy scenarios when explicitly enabled. Got automatically omits `host`, `authorization`, `cookie`, `cookie2`, `set-cookie`, `set-cookie2`, hop-by-hop headers, and headers nominated by `Connection`/`Proxy-Connection`. Got cannot know which app-specific headers are sensitive. Leave `copyPipedHeaders` disabled and copy only safe headers manually, or explicitly omit those headers before piping. If you trust the upstream and want to forward credentials, pass them explicitly in `headers`.
 
 	@default false
 
@@ -2666,7 +2666,8 @@ export default class Options {
 	server.get('/proxy', async (request, response) => {
 		const gotStream = got.stream('https://example.com', {
 			copyPipedHeaders: true,
-			// Explicit headers win over piped headers
+			// Explicit headers win over piped headers.
+			// Add credentials here only when the upstream is trusted.
 			headers: {
 				host: 'example.com',
 			}

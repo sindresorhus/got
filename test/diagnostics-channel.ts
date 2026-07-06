@@ -282,8 +282,12 @@ test('diagnostics channel - request:retry event', withServer, async (t, server, 
 
 test('diagnostics channel - response:redirect event', withServer, async (t, server, got) => {
 	server.get('/', (_request, response) => {
+		const redirectUrl = new URL(`${server.url}/redirect`);
+		redirectUrl.username = 'redirect-user';
+		redirectUrl.password = 'redirect-secret';
+
 		response.writeHead(302, {
-			location: '/redirect',
+			location: redirectUrl.toString(),
 		});
 		response.end();
 	});
@@ -316,8 +320,8 @@ test('diagnostics channel - response:redirect event', withServer, async (t, serv
 		t.is(event.toUrl, `${server.url}/redirect`);
 		t.false(event.fromUrl.includes('user'));
 		t.false(event.fromUrl.includes('secret'));
-		t.false(event.toUrl.includes('user'));
-		t.false(event.toUrl.includes('secret'));
+		t.false(event.toUrl.includes('redirect-user'));
+		t.false(event.toUrl.includes('redirect-secret'));
 		t.is(event.statusCode, 302);
 	} finally {
 		channel.unsubscribe(handler);

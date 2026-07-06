@@ -409,6 +409,62 @@ test('copyPipedHeaders does not forward hop-by-hop or connection-listed headers'
 	});
 });
 
+test('copyPipedHeaders does not forward credential headers', withServer, async (t, server, got) => {
+	server.post('/', async (request, response) => {
+		request.resume();
+		await pEvent(request, 'end');
+		response.end(JSON.stringify(request.headers));
+	});
+
+	const source = ReadableStream.from(['hello']) as ReadableStream & {headers: Record<string, string>};
+	source.headers = {};
+	source.headers.Authorization = 'Bearer client-secret';
+	source.headers.Cookie = 'session=client-secret';
+	source.headers.Cookie2 = 'legacy=client-secret';
+	source.headers['Set-Cookie'] = 'session=response-secret';
+	source.headers['Set-Cookie2'] = 'legacy=response-secret';
+	source.headers['X-Safe-Header'] = 'forward-me';
+
+	const responseBody = await getStream(source.pipe(got.stream.post('', {copyPipedHeaders: true})));
+	const headers = JSON.parse(responseBody) as Record<string, string | undefined>;
+
+	t.is(headers.authorization, undefined);
+	t.is(headers.cookie, undefined);
+	t.is(headers.cookie2, undefined);
+	t.is(headers['set-cookie'], undefined);
+	t.is(headers['set-cookie2'], undefined);
+	t.is(headers['x-safe-header'], 'forward-me');
+});
+
+test('explicit credential headers are preserved when copyPipedHeaders is true', withServer, async (t, server, got) => {
+	server.post('/', async (request, response) => {
+		request.resume();
+		await pEvent(request, 'end');
+		response.end(JSON.stringify(request.headers));
+	});
+
+	const source = ReadableStream.from(['hello']) as ReadableStream & {headers: Record<string, string>};
+	source.headers = {
+		authorization: 'Bearer piped-secret',
+		cookie: 'session=piped-secret',
+		cookie2: 'legacy=piped-secret',
+	};
+
+	const responseBody = await getStream(source.pipe(got.stream.post('', {
+		copyPipedHeaders: true,
+		headers: {
+			authorization: 'Bearer trusted',
+			cookie: 'session=trusted',
+			cookie2: 'legacy=trusted',
+		},
+	})));
+	const headers = JSON.parse(responseBody) as Record<string, string | undefined>;
+
+	t.is(headers.authorization, 'Bearer trusted');
+	t.is(headers.cookie, 'session=trusted');
+	t.is(headers.cookie2, 'legacy=trusted');
+});
+
 test('copyPipedHeaders does not forward host', withServer, async (t, server, got) => {
 	await withServer.exec(t, async (t, upstreamServer) => {
 		upstreamServer.get('/', (request, response) => {
