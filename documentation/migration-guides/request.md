@@ -99,6 +99,8 @@ Readability is very important to us, so we have different names for these option
   Piped request headers are no longer copied automatically. Opt in with `copyPipedHeaders: true` for proxy scenarios.
 - With `copyPipedHeaders: true`, explicitly set headers win over piped headers.\
   Piped headers only fill headers that were not explicitly set.
+- When copying piped headers, Got omits credentials, hop-by-hop headers, and headers nominated by `Connection`/`Proxy-Connection`.\
+  See [`copyPipedHeaders`](../2-options.md#copypipedheaders) for the full list.
 
 Hooks are very powerful. [Read more](../9-hooks.md) to see what else you achieve using hooks.
 

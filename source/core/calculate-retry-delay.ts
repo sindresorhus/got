@@ -26,7 +26,7 @@ const calculateRetryDelay: Returns<RetryFunction, number> = ({
 
 	if (error.response) {
 		if (retryAfter) {
-			// In this case `computedValue` is `options.request.timeout`
+			// In this case `computedValue` is `retryOptions.maxRetryAfter ?? options.timeout.request ?? Infinity`
 			return retryAfter > computedValue ? 0 : retryAfter;
 		}
 

@@ -1168,9 +1168,6 @@ All parsing methods supported by Got.
 export type ResponseType = 'json' | 'buffer' | 'text';
 
 type OptionsToSkip =
-	| 'searchParameters'
-	| 'followRedirects'
-	| 'auth'
 	| 'toJSON'
 	| 'merge'
 	| 'isHeaderExplicitlySet'
@@ -1790,8 +1787,7 @@ export default class Options {
 				? [is.undefined, (v: unknown) => v === false]
 				: [is.object, is.undefined, (v: unknown) => v === false];
 
-			// @ts-expect-error - No idea why `value[key]` doesn't work here.
-			assertAny(`agent.${key}`, validators, value[key]);
+			assertAny(`agent.${key}`, validators, value[key as keyof Agents]);
 		}
 
 		if (this.#merging) {
@@ -1862,8 +1858,7 @@ export default class Options {
 				throw new Error(`Unexpected timeout option: ${key}`);
 			}
 
-			// @ts-expect-error - No idea why `value[key]` doesn't work here.
-			assertAny(`timeout.${key}`, [is.number, is.undefined], value[key]);
+			assertAny(`timeout.${key}`, [is.number, is.undefined], value[key as keyof Delays]);
 		}
 
 		if (this.#merging) {
@@ -2324,14 +2319,6 @@ export default class Options {
 		}
 	}
 
-	get searchParameters() {
-		throw new Error('The `searchParameters` option does not exist. Use `searchParams` instead.');
-	}
-
-	set searchParameters(_value: unknown) {
-		throw new Error('The `searchParameters` option does not exist. Use `searchParams` instead.');
-	}
-
 	get dnsLookup(): LookupFunction | undefined {
 		return this.#internals.dnsLookup;
 	}
@@ -2455,7 +2442,7 @@ export default class Options {
 
 			if (this.#merging) {
 				if (hooks) {
-					// @ts-expect-error FIXME
+					// @ts-expect-error Indexing by a widened `keyof Hooks` loses the correlation to `hooks`'s specific array type.
 					this.#internals.hooks[typedKnownHookEvent].push(...hooks);
 				}
 			} else {
@@ -2463,7 +2450,7 @@ export default class Options {
 					throw new Error(`Missing hook event: ${knownHookEvent}`);
 				}
 
-				// @ts-expect-error FIXME
+				// @ts-expect-error Indexing by a widened `keyof Hooks` loses the correlation to `hooks`'s specific array type.
 				this.#internals.hooks[knownHookEvent] = [...hooks];
 			}
 		}
@@ -2488,14 +2475,6 @@ export default class Options {
 		assertAny('followRedirect', [is.boolean, is.function], value);
 
 		this.#internals.followRedirect = value;
-	}
-
-	get followRedirects() {
-		throw new TypeError('The `followRedirects` option does not exist. Use `followRedirect` instead.');
-	}
-
-	set followRedirects(_value: unknown) {
-		throw new TypeError('The `followRedirects` option does not exist. Use `followRedirect` instead.');
 	}
 
 	/**
@@ -2674,7 +2653,7 @@ export default class Options {
 
 	Note: Explicitly set headers take precedence over piped headers. Piped headers are only copied when a header is not already explicitly set.
 
-	Useful for proxy scenarios when explicitly enabled, but you may still want to filter out headers like `Host`, `Connection`, `Authorization`, etc.
+	Useful for proxy scenarios when explicitly enabled. Got automatically omits `host`, `authorization`, `cookie`, `cookie2`, `set-cookie`, `set-cookie2`, hop-by-hop headers, and headers nominated by `Connection`/`Proxy-Connection`. Got cannot know which app-specific headers are sensitive. Leave `copyPipedHeaders` disabled and copy only safe headers manually, or explicitly omit those headers before piping. If you trust the upstream and want to forward credentials, pass them explicitly in `headers`.
 
 	@default false
 
@@ -2687,7 +2666,8 @@ export default class Options {
 	server.get('/proxy', async (request, response) => {
 		const gotStream = got.stream('https://example.com', {
 			copyPipedHeaders: true,
-			// Explicit headers win over piped headers
+			// Explicit headers win over piped headers.
+			// Add credentials here only when the upstream is trusted.
 			headers: {
 				host: 'example.com',
 			}
@@ -3308,11 +3288,6 @@ export default class Options {
 	}
 
 	set responseType(value: ResponseType) {
-		if (value === undefined) {
-			this.#internals.responseType = 'text';
-			return;
-		}
-
 		if (value !== 'text' && value !== 'buffer' && value !== 'json') {
 			throw new Error(`Invalid \`responseType\` option: ${value as string}`);
 		}
@@ -3332,14 +3307,6 @@ export default class Options {
 		} else {
 			this.#internals.pagination = value;
 		}
-	}
-
-	get auth() {
-		throw new Error('Parameter `auth` is deprecated. Use `username` / `password` instead.');
-	}
-
-	set auth(_value: unknown) {
-		throw new Error('Parameter `auth` is deprecated. Use `username` / `password` instead.');
 	}
 
 	get setHost() {
@@ -3536,6 +3503,7 @@ export default class Options {
 		Object.freeze(options);
 		Object.freeze(options.hooks);
 		Object.freeze(options.hooks.afterResponse);
+		Object.freeze(options.hooks.beforeCache);
 		Object.freeze(options.hooks.beforeError);
 		Object.freeze(options.hooks.beforeRedirect);
 		Object.freeze(options.hooks.beforeRequest);

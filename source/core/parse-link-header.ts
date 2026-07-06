@@ -47,7 +47,7 @@ const splitHeaderValue = (value: string, separator: string): string[] => {
 		current += character;
 	}
 
-	if (inQuotes || isEscaped) {
+	if (inQuotes) {
 		throw new Error(`Failed to parse Link header: ${value}`);
 	}
 

@@ -149,8 +149,6 @@ export type OptionsOfBufferResponseBody = Merge<StrictOptions, {responseType?: '
 export type OptionsOfBufferResponseBodyOnly = Merge<StrictOptions, {resolveBodyOnly: true; responseType?: 'buffer'}>;
 export type OptionsOfBufferResponseBodyWrapped = Merge<StrictOptions, {resolveBodyOnly: false; responseType?: 'buffer'}>;
 
-// TODO: Remove in the next major version - it's a pure alias for `StrictOptions`.
-export type OptionsOfUnknownResponseBody = StrictOptions;
 export type OptionsOfUnknownResponseBodyOnly = Merge<StrictOptions, {resolveBodyOnly: true}>;
 export type OptionsOfUnknownResponseBodyWrapped = Merge<StrictOptions, {resolveBodyOnly: false}>;
 
@@ -167,7 +165,7 @@ type GotResponseResult<U extends ExtendOptions, BodyType> = U['resolveBodyOnly']
 export type GotRequestFunction<U extends ExtendOptions = Record<string, unknown>> = {
 	// `asPromise` usage
 	// IMPORTANT: This overload must come first to match when no explicit responseType is provided
-	(url: string | URL, options?: OptionsOfUnknownResponseBody): GotResponseResult<U, DefaultResponseBodyType<U>>;
+	(url: string | URL, options?: StrictOptions): GotResponseResult<U, DefaultResponseBodyType<U>>;
 	(url: string | URL, options?: OptionsOfUnknownResponseBodyWrapped): RequestPromise<Response<DefaultResponseBodyType<U>>>;
 	(url: string | URL, options?: OptionsOfUnknownResponseBodyOnly): RequestPromise<DefaultResponseBodyType<U>>;
 
@@ -183,7 +181,7 @@ export type GotRequestFunction<U extends ExtendOptions = Record<string, unknown>
 	<T>(url: string | URL, options?: OptionsOfJSONResponseBodyOnly): RequestPromise<T>;
 	(url: string | URL, options?: OptionsOfBufferResponseBodyOnly): RequestPromise<Uint8Array<ArrayBuffer>>;
 
-	(options: OptionsOfUnknownResponseBody): GotResponseResult<U, DefaultResponseBodyType<U>>;
+	(options: StrictOptions): GotResponseResult<U, DefaultResponseBodyType<U>>;
 	(options: OptionsOfUnknownResponseBodyWrapped): RequestPromise<Response<DefaultResponseBodyType<U>>>;
 	(options: OptionsOfUnknownResponseBodyOnly): RequestPromise<DefaultResponseBodyType<U>>;
 

@@ -658,16 +658,6 @@ test('throws when `url` is passed as option with input argument', t => {
 	t.is(error.message, 'The `url` option is not supported in options objects. Pass it as the first argument instead.');
 });
 
-test('throws a helpful error when passing `followRedirects`', async t => {
-	await t.throwsAsync(got('https://example.com', {
-		// @ts-expect-error For testing purposes
-		followRedirects: true,
-	}), {
-		instanceOf: RequestError,
-		message: 'The `followRedirects` option does not exist. Use `followRedirect` instead.',
-	});
-});
-
 test('merges `searchParams` instances', t => {
 	const instance = got.extend({
 		searchParams: new URLSearchParams('a=1'),
@@ -680,16 +670,6 @@ test('merges `searchParams` instances', t => {
 
 	t.is(searchParams.get('a'), '1');
 	t.is(searchParams.get('b'), '2');
-});
-
-test('throws a helpful error when passing `auth`', async t => {
-	await t.throwsAsync(got('https://example.com', {
-		// @ts-expect-error For testing purposes
-		auth: 'username:password',
-	}), {
-		instanceOf: RequestError,
-		message: 'Parameter `auth` is deprecated. Use `username` / `password` instead.',
-	});
 });
 
 test('throws on leading slashes', async t => {

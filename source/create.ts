@@ -46,19 +46,6 @@ const assertNoUrlInOptionsObject = (options: Record<string, unknown>): void => {
 	}
 };
 
-const cloneWithProperty = <Value extends Record<string, unknown>>(value: Value, property: string, propertyValue: unknown): Value => {
-	const clone = Object.create(Object.getPrototypeOf(value), Object.getOwnPropertyDescriptors(value)) as Value;
-
-	Object.defineProperty(clone, property, {
-		value: propertyValue,
-		enumerable: true,
-		configurable: true,
-		writable: true,
-	});
-
-	return clone;
-};
-
 const create = (defaults: InstanceDefaults): Got => {
 	defaults = {
 		options: new Options(undefined, undefined, defaults.options),
@@ -81,12 +68,22 @@ const create = (defaults: InstanceDefaults): Got => {
 			assertNoUrlInOptionsObject(options);
 		}
 
-		// `isStream` is skipped by `merge()`, so set it via the direct setter after construction.
-		// Avoid a synthetic second merge only for the single-options-object stream form.
-		const requestUrl = isStream && is.plainObject(url) ? cloneWithProperty(url, 'isStream', true) : url;
-		const requestOptions = isStream && !is.plainObject(url) && options ? cloneWithProperty(options, 'isStream', true) : options;
+		// `isStream` is intentionally skipped by `merge()`.
+		// Make the flag visible to `hooks.init` for both stream call forms.
+		let requestInput = url;
+		let requestOptions = options;
 
-		const request = new Request(requestUrl, requestOptions, defaultOptions);
+		if (isStream) {
+			if (is.plainObject(url)) {
+				requestInput = Object.defineProperties({}, Object.getOwnPropertyDescriptors(url));
+				Reflect.set(requestInput, 'isStream', true);
+			} else if (is.plainObject(options)) {
+				requestOptions = Object.defineProperties({}, Object.getOwnPropertyDescriptors(options));
+				Reflect.set(requestOptions, 'isStream', true);
+			}
+		}
+
+		const request = new Request(requestInput, requestOptions, defaultOptions);
 
 		if (isStream && request.options) {
 			request.options.isStream = true;

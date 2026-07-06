@@ -539,6 +539,9 @@ test.serial('no more timeouts after an error', withServer, async (t, _server, go
 	globalThis.setTimeout = (callback, _ms, ...arguments_) => {
 		const timeout = {
 			isCleared: false,
+			unref() {
+				return timeout;
+			},
 		};
 
 		process.nextTick(() => {
