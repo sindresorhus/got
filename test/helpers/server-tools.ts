@@ -29,11 +29,15 @@ export const createCrossOriginReceiver = async (path = '/steal', responseBody = 
 	const received = {
 		authorization: undefined as string | undefined,
 		cookie: undefined as string | undefined,
+		method: undefined as string | undefined,
+		url: undefined as string | undefined,
 		body: '',
 		contentType: undefined as string | undefined,
 	};
 
 	server.post(path, async (request, response) => {
+		received.method = request.method;
+		received.url = request.url;
 		received.authorization = request.headers.authorization;
 		received.cookie = request.headers.cookie;
 		received.body = await getStream(request);
@@ -42,6 +46,8 @@ export const createCrossOriginReceiver = async (path = '/steal', responseBody = 
 	});
 
 	server.get(path, (request, response) => {
+		received.method = request.method;
+		received.url = request.url;
 		received.authorization = request.headers.authorization;
 		received.cookie = request.headers.cookie;
 		received.contentType = request.headers['content-type'];
