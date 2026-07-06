@@ -147,6 +147,5 @@
 			"unicorn/no-await-expression-member": "off",
 			"unicorn/prefer-event-target": "off"
 		}
-	},
-	"runkitExampleFilename": "./documentation/examples/runkit-example.js"
+	}
 }

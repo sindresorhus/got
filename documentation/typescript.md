@@ -85,8 +85,6 @@ Here's a list of types that Got exports:
 
 ### [`OptionsOfBufferResponseBody`](https://github.com/sindresorhus/got/blob/ae04c0e36cf3f5b2e356df7d48a5b19988f935a2/source/types.ts#L76)
 
-### [`OptionsOfUnknownResponseBody`](https://github.com/sindresorhus/got/blob/ae04c0e36cf3f5b2e356df7d48a5b19988f935a2/source/types.ts#L77)
-
 ### [`StrictOptions`](https://github.com/sindresorhus/got/blob/ae04c0e36cf3f5b2e356df7d48a5b19988f935a2/source/types.ts#L78)
 
 ### [`StreamOptions`](https://github.com/sindresorhus/got/blob/ae04c0e36cf3f5b2e356df7d48a5b19988f935a2/source/types.ts#L79)

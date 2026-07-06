@@ -303,13 +303,21 @@ test('diagnostics channel - response:redirect event', withServer, async (t, serv
 	channel.subscribe(handler);
 
 	try {
-		await got('');
+		const url = new URL(server.url);
+		url.username = 'user';
+		url.password = 'secret';
+
+		await got(url);
 
 		t.is(events.length, 1);
 		const event = events[0];
 		t.truthy(event.requestId);
-		t.is(typeof event.fromUrl, 'string');
-		t.is(typeof event.toUrl, 'string');
+		t.is(event.fromUrl, testUrl);
+		t.is(event.toUrl, `${server.url}/redirect`);
+		t.false(event.fromUrl.includes('user'));
+		t.false(event.fromUrl.includes('secret'));
+		t.false(event.toUrl.includes('user'));
+		t.false(event.toUrl.includes('secret'));
 		t.is(event.statusCode, 302);
 	} finally {
 		channel.unsubscribe(handler);

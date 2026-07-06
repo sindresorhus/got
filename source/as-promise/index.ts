@@ -214,7 +214,7 @@ export default function asPromise<T>(firstRequest?: Request): RequestPromise<T> 
 					const {response} = error;
 
 					request.destroy();
-					resolve(request.options.resolveBodyOnly ? response.body as T : response as unknown as T);
+					resolve(options.resolveBodyOnly ? response.body as T : response as unknown as T);
 					return;
 				}
 

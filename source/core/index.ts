@@ -224,7 +224,7 @@ const serializeNativeFormDataBody = (form: FormData) => {
 // Node streams, Web `ReadableStream`s, generators, and self-iterating (one-shot) iterators all yield their data only once, so they cannot be replayed on a redirect.
 const isNonReplayableBody = (body: unknown): boolean =>
 	is.nodeStream(body)
-	|| (typeof ReadableStream !== 'undefined' && body instanceof ReadableStream)
+	|| body instanceof ReadableStream
 	|| is.generator(body)
 	|| (is.asyncIterable(body) && (body[Symbol.asyncIterator]() as unknown) === body)
 	|| (is.iterable(body) && (body[Symbol.iterator]() as unknown) === body);
@@ -299,10 +299,11 @@ const getSanitizedUrl = (options?: Options): string => options?.url ? stripUrlAu
 
 const makeProgress = (transferred: number, total?: number): Progress => {
 	let percent = 0;
-	if (total) {
-		percent = transferred / total;
-	} else if (total === transferred) {
+	if (total === transferred) {
+		// Known-size complete transfers (including 0/0) should report 100% rather than 0%.
 		percent = 1;
+	} else if (total) {
+		percent = transferred / total;
 	}
 
 	return {percent, transferred, total};
@@ -503,9 +504,6 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			// Node.js parser is really weird.
 			// It emits post-request Parse Errors on the same instance as previous request. WTF.
 			// Therefore, we need to check if it has been destroyed as well.
-			//
-			// Furthermore, Node.js 16 `response.destroy()` doesn't immediately destroy the socket,
-			// but makes the response unreadable. So we additionally need to check `response.readable`.
 			if (response?.readable && !response.rawBody && !this._request?.socket?.destroyed) {
 				// @types/node has incorrect typings. `setEncoding` accepts `null` as well.
 				response.setEncoding(this.readableEncoding!);
@@ -819,7 +817,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 		// Preserve custom errors returned by beforeError hooks.
 		// For other errors, wrap non-RequestError instances for consistency.
-		if (error !== null && !is.undefined(error)) {
+		if (error !== null) {
 			const processedByHooks = error instanceof Error && errorsProcessedByHooks.has(error);
 
 			if (!processedByHooks && !(error instanceof RequestError)) {
@@ -887,8 +885,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 		return Boolean(this._noPipe)
 			&& (responseType === 'text' || responseType === 'json')
-			&& isUtf8Encoding(encoding)
-			&& typeof globalThis.TextDecoder === 'function';
+			&& isUtf8Encoding(encoding);
 	}
 
 	private _checkContentLengthMismatch(): boolean {
@@ -1385,8 +1382,8 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 				// Publish redirect event
 				publishRedirect({
 					requestId: this._requestId,
-					fromUrl: url!.toString(),
-					toUrl: (updatedOptions.url).toString(),
+					fromUrl: stripUrlAuth(url!),
+					toUrl: stripUrlAuth(updatedOptions.url),
 					statusCode,
 				});
 
