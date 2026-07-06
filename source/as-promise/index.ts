@@ -125,6 +125,20 @@ export default function asPromise<T>(firstRequest?: Request): RequestPromise<T> 
 									assertUrlHasSameOriginAsPrefixUrlIfNeeded(options, currentUrl);
 								}
 
+								if (
+									!reusesRequestOptions
+									&& updatedOptions.url === undefined
+									&& previousUrl
+									&& currentUrl instanceof URL
+									&& !isSameOrigin(previousUrl, currentUrl)
+								) {
+									options.stripSensitiveHeaders(previousUrl, currentUrl, updatedOptions);
+
+									if (!hasExplicitBody) {
+										options.clearBody();
+									}
+								}
+
 								if (updatedOptions.url !== undefined) {
 									const nextUrl = reusesRequestOptions
 										? options.url as URL

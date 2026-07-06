@@ -1261,6 +1261,7 @@ test('preserves explicit sensitive headers and body when pagination changes pref
 							json: {secret: 'new-payload'},
 							headers: {
 								authorization: 'Bearer new-secret',
+								cookie: 'session=new-secret',
 							},
 						};
 					}
@@ -1273,7 +1274,7 @@ test('preserves explicit sensitive headers and body when pagination changes pref
 		t.deepEqual(items, [1, 2]);
 		t.is(received.method, 'POST');
 		t.is(received.authorization, 'Bearer new-secret');
-		t.is(received.cookie, undefined);
+		t.is(received.cookie, 'session=new-secret');
 		t.is(JSON.parse(received.body).secret, 'new-payload');
 		t.is(received.contentType, 'application/json');
 	} finally {
@@ -2665,6 +2666,46 @@ test('preserves explicit replacement credentials when pagination reuses mutated 
 	await evilServer.close();
 });
 
+test('strips sensitive headers and body when pagination reuses mutated request options with cross-origin prefixUrl', async t => {
+	const {server: evilServer, received} = await createCrossOriginPaginationReceiver('[2]');
+	const trustedServer = await createPaginationSourceServer();
+
+	try {
+		const items = await got.paginate.all<number>('items', {
+			prefixUrl: trustedServer.url,
+			method: 'POST',
+			json: {secret: 'payload'},
+			headers: {
+				authorization: 'Bearer secret',
+				cookie: 'session=secret',
+			},
+			pagination: {
+				requestLimit: 2,
+				paginate({response}) {
+					if (response.body === '[1]') {
+						const updatedOptions = response.request.options;
+						updatedOptions.prefixUrl = evilServer.url;
+						return updatedOptions;
+					}
+
+					return false;
+				},
+			},
+		});
+
+		t.deepEqual(items, [1, 2]);
+		t.is(received.method, 'POST');
+		t.is(received.url, '/items');
+		t.is(received.authorization, undefined);
+		t.is(received.cookie, undefined);
+		t.is(received.body, '');
+		t.is(received.contentType, undefined);
+	} finally {
+		await trustedServer.close();
+		await evilServer.close();
+	}
+});
+
 test('preserves explicit prefixUrl credentials when pagination reuses mutated request options cross-origin', async t => {
 	const {server: evilServer, received} = await createCrossOriginPaginationReceiver();
 	const trustedServer = await createPaginationSourceServer();
@@ -2672,30 +2713,32 @@ test('preserves explicit prefixUrl credentials when pagination reuses mutated re
 	nextPrefixUrl.username = 'new-user';
 	nextPrefixUrl.password = 'new-password';
 
-	const items = await got.paginate.all<number>('items', {
-		prefixUrl: trustedServer.url,
-		username: 'old-user',
-		password: 'old-password',
-		pagination: {
-			requestLimit: 2,
-			paginate({response}) {
-				if (response.body === '[1]') {
-					const updatedOptions = response.request.options;
-					updatedOptions.prefixUrl = nextPrefixUrl;
-					return updatedOptions;
-				}
+	try {
+		const items = await got.paginate.all<number>('items', {
+			prefixUrl: trustedServer.url,
+			username: 'old-user',
+			password: 'old-password',
+			pagination: {
+				requestLimit: 2,
+				paginate({response}) {
+					if (response.body === '[1]') {
+						const updatedOptions = response.request.options;
+						updatedOptions.prefixUrl = nextPrefixUrl;
+						return updatedOptions;
+					}
 
-				return false;
+					return false;
+				},
 			},
-		},
-	});
+		});
 
-	t.deepEqual(items, [1]);
-	t.is(received.url, '/items');
-	t.is(received.authorization, `Basic ${Buffer.from('new-user:new-password').toString('base64')}`);
-
-	await trustedServer.close();
-	await evilServer.close();
+		t.deepEqual(items, [1]);
+		t.is(received.url, '/items');
+		t.is(received.authorization, `Basic ${Buffer.from('new-user:new-password').toString('base64')}`);
+	} finally {
+		await trustedServer.close();
+		await evilServer.close();
+	}
 });
 
 test('preserves same-value credentials when pagination reuses mutated request options cross-origin', async t => {

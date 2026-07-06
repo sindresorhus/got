@@ -909,6 +909,38 @@ test('beforeRequest prefixUrl rewrite drops inherited generated credentials cros
 	}
 });
 
+test('beforeRequest prefixUrl rewrite strips inherited sensitive headers and body cross-origin', withServer, async (t, server, got) => {
+	const {server: evilServer, received} = await createCrossOriginReceiver('/items', 'success');
+
+	try {
+		const {body} = await got.post('items', {
+			prefixUrl: server.url,
+			json: {secret: 'payload'},
+			headers: {
+				authorization: 'Bearer secret',
+				cookie: 'session=secret',
+			},
+			hooks: {
+				beforeRequest: [
+					options => {
+						options.prefixUrl = evilServer.url;
+					},
+				],
+			},
+		});
+
+		t.is(body, 'success');
+		t.is(received.method, 'POST');
+		t.is(received.url, '/items');
+		t.is(received.authorization, undefined);
+		t.is(received.cookie, undefined);
+		t.is(received.body, '');
+		t.is(received.contentType, undefined);
+	} finally {
+		await evilServer.close();
+	}
+});
+
 test('beforeRequest prefixUrl rewrite does not inherit password when only username is explicit', withServer, async (t, server, got) => {
 	server.get('/v2/items', echoHeader('authorization'));
 
@@ -2196,6 +2228,37 @@ test('beforeRequest hook refreshes cookieJar cookies when changing URL', withSer
 	});
 });
 
+test('beforeRequest hook can explicitly omit cookieJar cookies when changing URL', withServer, async (t, server1, got) => {
+	await withServer.exec(t, async (_t, server2) => {
+		server2.get('/changed', (request, response) => {
+			response.end(JSON.stringify({
+				cookie: request.headers.cookie,
+			}));
+		});
+
+		const cookieJar = {
+			async getCookieString(url: string) {
+				return url.startsWith(server2.url) ? 'target=server2' : 'target=server1';
+			},
+			async setCookie() {},
+		};
+
+		const {cookie} = await got(`http://localhost:${server1.port}/original`, {
+			cookieJar,
+			hooks: {
+				beforeRequest: [
+					options => {
+						options.url = new URL(`${server2.url}/changed`);
+						options.headers.cookie = undefined;
+					},
+				],
+			},
+		}).json<{cookie?: string}>();
+
+		t.is(cookie, undefined);
+	});
+});
+
 test('beforeRequest hook refreshes basic auth when changing URL credentials', withServer, async (t, server1, got) => {
 	await withServer.exec(t, async (_t, server2) => {
 		server2.get('/changed', (request, response) => {
@@ -2215,6 +2278,29 @@ test('beforeRequest hook refreshes basic auth when changing URL credentials', wi
 		}).json<{authorization?: string}>();
 
 		t.is(authorization, `Basic ${Buffer.from('new-user:new-password').toString('base64')}`);
+	});
+});
+
+test('beforeRequest hook can explicitly omit authorization when changing URL credentials', withServer, async (t, server1, got) => {
+	await withServer.exec(t, async (_t, server2) => {
+		server2.get('/changed', (request, response) => {
+			response.end(JSON.stringify({
+				authorization: request.headers.authorization,
+			}));
+		});
+
+		const {authorization} = await got(`http://old-user:old-password@localhost:${server1.port}/original`, {
+			hooks: {
+				beforeRequest: [
+					options => {
+						options.url = new URL(`http://new-user:new-password@localhost:${server2.port}/changed`);
+						options.headers.authorization = undefined;
+					},
+				],
+			},
+		}).json<{authorization?: string}>();
+
+		t.is(authorization, undefined);
 	});
 });
 
@@ -3708,6 +3794,46 @@ test('afterResponse retryWithMergedOptions strips sensitive headers on cross-ori
 
 	await trustedServer.close();
 	await evilServer.close();
+});
+
+test('afterResponse retryWithMergedOptions strips sensitive headers and body when changing prefixUrl cross-origin', async t => {
+	const {server: evilServer, received} = await createCrossOriginReceiver('/api');
+	const trustedServer = await createRetryUrlServer(`${evilServer.url}/api`);
+
+	try {
+		await got.post('api', {
+			prefixUrl: trustedServer.url,
+			json: {secret: 'payload'},
+			headers: {
+				authorization: 'Bearer secret',
+				cookie: 'session=secret',
+			},
+			hooks: {
+				afterResponse: [
+					(response, retryWithMergedOptions) => {
+						const body = JSON.parse(response.body as string);
+						if (body.retryUrl) {
+							return retryWithMergedOptions({
+								prefixUrl: evilServer.url,
+							});
+						}
+
+						return response;
+					},
+				],
+			},
+		});
+
+		t.is(received.method, 'POST');
+		t.is(received.url, '/api');
+		t.is(received.authorization, undefined);
+		t.is(received.cookie, undefined);
+		t.is(received.body, '');
+		t.is(received.contentType, undefined);
+	} finally {
+		await trustedServer.close();
+		await evilServer.close();
+	}
 });
 
 test('afterResponse retryWithMergedOptions preserves explicit headers on cross-origin retry', async t => {

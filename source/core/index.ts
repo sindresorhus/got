@@ -2247,6 +2247,8 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		let shouldOmitRequestUrlCredentials = false;
 		const urlBeforeRequestHooks = options.url instanceof URL ? new URL(options.url) : undefined;
 		const boundaryBeforeRequestHooks = getUrlPrefixBoundary(options);
+		const stateBeforeRequestHooks = urlBeforeRequestHooks ? snapshotCrossOriginState(options) : undefined;
+		const crossOriginHookStrippedHeaders = new Set<string>();
 		const changedState = await options.trackStateMutations(async changedState => {
 			for (const hook of options.hooks.beforeRequest) {
 				// eslint-disable-next-line no-await-in-loop
@@ -2270,13 +2272,61 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			assertUrlHasSameOriginAsPrefixUrlIfNeeded(options, options.url);
 		}
 
+		if (
+			urlBeforeRequestHooks
+			&& options.url instanceof URL
+			&& !isSameOrigin(urlBeforeRequestHooks, options.url)
+		) {
+			const hookChangedState = new Set(changedState);
+			const currentHeaders = options.getInternalHeaders();
+			const changedHeaders: Record<string, string | string[] | undefined> = {};
+
+			for (const header of crossOriginStripHeaders) {
+				if (hookChangedState.has(header)) {
+					changedHeaders[header] = currentHeaders[header];
+				} else {
+					options.deleteInternalHeader(header);
+					crossOriginHookStrippedHeaders.add(header);
+				}
+			}
+
+			const changedOptions: OptionsInit = {headers: changedHeaders};
+
+			if (hookChangedState.has('url')) {
+				changedOptions.url = options.url;
+			}
+
+			if (hookChangedState.has('prefixUrl')) {
+				changedOptions.prefixUrl = options.prefixUrl;
+			}
+
+			if (hookChangedState.has('username')) {
+				changedOptions.username = options.username;
+			}
+
+			if (hookChangedState.has('password')) {
+				changedOptions.password = options.password;
+			}
+
+			options.stripSensitiveHeaders(urlBeforeRequestHooks, options.url, changedOptions);
+
+			if (
+				!hookChangedState.has('body')
+				&& !hookChangedState.has('json')
+				&& !hookChangedState.has('form')
+				&& isBodyUnchanged(options, stateBeforeRequestHooks!)
+			) {
+				options.clearBody();
+			}
+		}
+
 		if (request === undefined) {
 			const currentHeaders = options.getInternalHeaders();
 			// `headers.authorization = undefined` / `headers.cookie = undefined` is an
 			// explicit opt-out. Respect that instead of regenerating values from URL
 			// credentials or the cookie jar later in request setup.
 			const isHeaderExplicitlyOmitted = (header: 'authorization' | 'cookie') => options.isHeaderExplicitlySet(header)
-				&& Object.hasOwn(currentHeaders, header)
+				&& (Object.hasOwn(currentHeaders, header) || changedState.has(header))
 				&& is.undefined(currentHeaders[header]);
 			const currentAuthorizationHeader = currentHeaders.authorization;
 			const currentCookieHeader = currentHeaders.cookie;
@@ -2287,7 +2337,11 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			// - Otherwise, if the request did not start with explicit Authorization, Got may
 			//   generate Basic auth from the current username/password.
 			const authorizationWasExplicitlyOmitted = isHeaderExplicitlyOmitted('authorization')
-				|| (authorizationWasInitiallyExplicit && is.undefined(currentAuthorizationHeader));
+				|| (
+					authorizationWasInitiallyExplicit
+					&& !crossOriginHookStrippedHeaders.has('authorization')
+					&& is.undefined(currentAuthorizationHeader)
+				);
 			const cookieWasExplicitlyOmitted = is.undefined(currentCookieHeader)
 				&& (cookieWasInitiallyOmitted || isHeaderExplicitlyOmitted('cookie'));
 
@@ -2315,7 +2369,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			if (changedState.has('authorization') && !is.undefined(currentAuthorizationHeader)) {
 				// A beforeRequest hook intentionally set the outgoing Authorization header.
 			} else {
-				const restorableAuthorizationHeader = changedState.has('authorization') && is.undefined(currentAuthorizationHeader)
+				const restorableAuthorizationHeader = crossOriginHookStrippedHeaders.has('authorization') || (changedState.has('authorization') && is.undefined(currentAuthorizationHeader))
 					? undefined
 					: explicitAuthorizationHeader;
 				syncGeneratedHeader('authorization', {
@@ -2338,10 +2392,13 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 				const cookieHeader = !cookieWasInitiallyOmitted && !cookieWasExplicitlyOmitted
 					? await getCookieHeader(cookieJar)
 					: undefined;
+				const restorableCookieHeader = crossOriginHookStrippedHeaders.has('cookie')
+					? undefined
+					: explicitCookieHeader;
 
 				syncGeneratedHeader('cookie', {
 					currentHeader: currentCookieHeader,
-					explicitHeader: explicitCookieHeader,
+					explicitHeader: restorableCookieHeader,
 					nextHeader: cookieHeader,
 					staleGeneratedHeader: generatedCookieHeader,
 				});
