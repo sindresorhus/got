@@ -3969,6 +3969,83 @@ test('afterResponse retryWithMergedOptions preserves explicit prefixUrl credenti
 	}
 });
 
+test('afterResponse retryWithMergedOptions strips sensitive headers and body when reusing request options with cross-origin prefixUrl', async t => {
+	const {server: evilServer, received} = await createCrossOriginReceiver('/api');
+	const trustedServer = await createRetryUrlServer(`${evilServer.url}/api`);
+
+	try {
+		await got.post('api', {
+			prefixUrl: trustedServer.url,
+			json: {secret: 'payload'},
+			headers: {
+				authorization: 'Bearer secret',
+				cookie: 'session=secret',
+			},
+			hooks: {
+				afterResponse: [
+					(response, retryWithMergedOptions) => {
+						const body = JSON.parse(response.body as string);
+						if (body.retryUrl) {
+							const updatedOptions = response.request.options;
+							updatedOptions.prefixUrl = evilServer.url;
+							return retryWithMergedOptions(updatedOptions);
+						}
+
+						return response;
+					},
+				],
+			},
+		});
+
+		t.is(received.method, 'POST');
+		t.is(received.url, '/api');
+		t.is(received.authorization, undefined);
+		t.is(received.cookie, undefined);
+		t.is(received.body, '');
+		t.is(received.contentType, undefined);
+	} finally {
+		await trustedServer.close();
+		await evilServer.close();
+	}
+});
+
+test('afterResponse retryWithMergedOptions preserves explicit prefixUrl credentials when reusing request options cross-origin', async t => {
+	const {server: evilServer, received} = await createCrossOriginReceiver('/api');
+	const trustedServer = await createRetryUrlServer(`${evilServer.url}/api`);
+	const nextPrefixUrl = new URL(evilServer.url);
+	nextPrefixUrl.username = 'new-user';
+	nextPrefixUrl.password = 'new-password';
+
+	try {
+		await got('api', {
+			prefixUrl: trustedServer.url,
+			username: 'old-user',
+			password: 'old-password',
+			hooks: {
+				afterResponse: [
+					(response, retryWithMergedOptions) => {
+						const body = JSON.parse(response.body as string);
+						if (body.retryUrl) {
+							const updatedOptions = response.request.options;
+							updatedOptions.prefixUrl = nextPrefixUrl;
+							return retryWithMergedOptions(updatedOptions);
+						}
+
+						return response;
+					},
+				],
+			},
+		});
+
+		t.is(received.method, 'GET');
+		t.is(received.url, '/api');
+		t.is(received.authorization, `Basic ${Buffer.from('new-user:new-password').toString('base64')}`);
+	} finally {
+		await trustedServer.close();
+		await evilServer.close();
+	}
+});
+
 test('afterResponse retryWithMergedOptions preserves explicit headers on cross-origin retry', async t => {
 	const createHttpTestServer = (await import('./helpers/create-http-test-server.js')).default;
 
