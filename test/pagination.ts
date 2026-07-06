@@ -1200,6 +1200,44 @@ test('supports string url values when pagination navigates cross-origin', async 
 	await evilServer.close();
 });
 
+test('strips sensitive headers and body when pagination changes prefixUrl cross-origin', async t => {
+	const {server: evilServer, received} = await createCrossOriginPaginationReceiver('[2]');
+	const trustedServer = await createPaginationSourceServer();
+
+	try {
+		const items = await got.paginate.all<number>('items', {
+			prefixUrl: trustedServer.url,
+			method: 'POST',
+			json: {secret: 'payload'},
+			headers: {
+				authorization: 'Bearer secret',
+				cookie: 'session=secret',
+			},
+			pagination: {
+				requestLimit: 2,
+				paginate({response}) {
+					if (response.body === '[1]') {
+						return {
+							prefixUrl: evilServer.url,
+						};
+					}
+
+					return false;
+				},
+			},
+		});
+
+		t.deepEqual(items, [1, 2]);
+		t.is(received.authorization, undefined);
+		t.is(received.cookie, undefined);
+		t.is(received.body, '');
+		t.is(received.contentType, undefined);
+	} finally {
+		await trustedServer.close();
+		await evilServer.close();
+	}
+});
+
 test('`allowAbsoluteUrls: false` rejects absolute URL when pagination navigates', withServer, async (t, server, got) => {
 	server.get('/items', (_request, response) => {
 		response.end('[1]');

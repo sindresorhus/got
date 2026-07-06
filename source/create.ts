@@ -311,6 +311,19 @@ const create = (defaults: InstanceDefaults): Got => {
 				}
 
 				if (
+					url === undefined
+					&& previousUrl
+					&& paginationOptions.url instanceof URL
+					&& !isSameOrigin(previousUrl, paginationOptions.url)
+				) {
+					paginationOptions.stripSensitiveHeaders(previousUrl, paginationOptions.url, optionsToMerge);
+
+					if (!hasExplicitBody) {
+						paginationOptions.clearBody();
+					}
+				}
+
+				if (
 					previousUrl
 					&& paginationUrl
 					&& !isSameOrigin(paginationUrl, previousUrl)
