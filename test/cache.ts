@@ -1,10 +1,12 @@
 import {Buffer} from 'node:buffer';
 import {promisify} from 'node:util';
 import {Readable as ReadableStream} from 'node:stream';
+import {EventEmitter} from 'node:events';
 import {Agent} from 'node:http';
 import {gzip} from 'node:zlib';
 import process from 'node:process';
 import test from 'ava';
+import Keyv from 'keyv';
 import {pEvent} from 'p-event';
 import getStream from 'get-stream';
 import type {Handler} from 'express';
@@ -42,6 +44,36 @@ test('cacheable responses are cached', withServer, async (t, server, got) => {
 
 	t.is(cache.size, 1);
 	t.is(firstResponse.body, secondResponse.body);
+});
+
+test('private and shared cache contexts are isolated', withServer, async (t, server, got) => {
+	let requestCount = 0;
+	server.get('/', (request, response) => {
+		requestCount++;
+		response.setHeader('Cache-Control', 'private, max-age=60');
+		response.end(request.headers.authorization === 'Bearer user-a' ? 'user-a' : 'user-b');
+	});
+
+	const cache = new Map();
+	const privateResponse = await got({
+		cache,
+		cacheOptions: {shared: false},
+		headers: {authorization: 'Bearer user-a'},
+	});
+	const privateCachedResponse = await got({
+		cache,
+		cacheOptions: {shared: false},
+		headers: {authorization: 'Bearer user-a'},
+	});
+	const sharedResponse = await got({
+		cache,
+		headers: {authorization: 'Bearer user-b'},
+	});
+
+	t.is(privateResponse.body, 'user-a');
+	t.true(privateCachedResponse.isFromCache);
+	t.is(sharedResponse.body, 'user-b');
+	t.is(requestCount, 2);
 });
 
 test('cacheable responses to POST requests are cached', withServer, async (t, server, got) => {
@@ -174,27 +206,52 @@ test('cache error throws `CacheError`', withServer, async (t, server, got) => {
 	});
 });
 
-test('cache error preserves `CacheError` code when underlying error has a code', withServer, async (t, server, got) => {
+test('cache errors use Got\'s `CacheError` code', withServer, async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.setHeader('cache-control', 'public, max-age=60');
 		response.end('ok');
 	});
 
-	const cache = {
-		get() {
-			return undefined;
-		},
-		set() {
-			const error = new Error('Cache write failed') as NodeJS.ErrnoException;
-			error.code = 'EACCES';
-			throw error;
-		},
-		delete() {},
-	} as any;
+	const cache = new Keyv({
+		store: {
+			get() {
+				const error = new Error('Cache read failed') as NodeJS.ErrnoException;
+				error.code = 'EACCES';
+				throw error;
+			},
+			set() {},
+			delete() {
+				return true;
+			},
+			clear() {},
+		} as any,
+		throwOnErrors: true,
+	});
 
 	await t.throwsAsync(got({cache}), {
 		instanceOf: CacheError,
 		code: 'ERR_CACHE_ACCESS',
+	});
+});
+
+test('cache adapter error events are propagated', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.end('ok');
+	});
+
+	const cache = new EventEmitter();
+	Object.assign(cache, {
+		get() {
+			cache.emit('error', new Error('Cache read failed'));
+			return undefined;
+		},
+		set() {},
+		delete() {},
+		clear() {},
+	});
+
+	await t.throwsAsync(got({cache: cache as any}), {
+		instanceOf: CacheError,
 	});
 });
 

@@ -13,7 +13,7 @@ import CacheableRequest, {
 	type CacheableOptions,
 } from 'cacheable-request';
 import decompressResponse from 'decompress-response';
-import type {KeyvStoreAdapter} from 'keyv';
+import Keyv, {type KeyvStoreAdapter} from 'keyv';
 import type KeyvType from 'keyv';
 import is, {isBuffer} from '@sindresorhus/is';
 import type ResponseLike from 'responselike';
@@ -163,7 +163,67 @@ export type RequestEvents<T> = {
 
 type StorageAdapter = KeyvStoreAdapter | KeyvType | Map<unknown, unknown>;
 
-const cacheableStore = new WeakableMap<string | StorageAdapter, CacheableRequestFunction>();
+type CacheContext = 'shared' | 'private';
+
+const getCacheContext = (shared: boolean | undefined): CacheContext => shared === false ? 'private' : 'shared';
+
+/* Cacheable-request keys only contain the method and URL, so partitioning the adapter keeps private responses from satisfying shared requests. */
+
+const createCacheContextStorageAdapter = (adapter: StorageAdapter, cacheContext: CacheContext) => {
+	if (
+		typeof adapter !== 'object'
+		|| adapter === null
+		|| typeof adapter.get !== 'function'
+		|| typeof adapter.set !== 'function'
+		|| typeof adapter.delete !== 'function'
+		|| typeof adapter.clear !== 'function'
+	) {
+		throw new TypeError('Invalid storage adapter');
+	}
+
+	const underlyingAdapter = adapter as any;
+	const getKey = (key: string): string => `got:${cacheContext}:${key}`;
+
+	const storageAdapter = {
+		namespace: undefined,
+		opts: {},
+		async get<Value>(key: string): Promise<Value | undefined> {
+			return underlyingAdapter.get(getKey(key));
+		},
+		set(key: string, value: unknown, ttl?: number): unknown {
+			return underlyingAdapter.set(getKey(key), value, ttl);
+		},
+		async delete(key: string): Promise<boolean> {
+			return underlyingAdapter.delete(getKey(key));
+		},
+		async clear(): Promise<void> {
+			await underlyingAdapter.clear();
+		},
+		/* Forward storage errors so Keyv can report them as cache errors. */
+		on(event: string, listener: (...arguments_: any[]) => void) {
+			if (typeof underlyingAdapter.on === 'function') {
+				underlyingAdapter.on(event, listener);
+			}
+
+			return this;
+		},
+	};
+
+	const isKeyvInstance = adapter instanceof Keyv || adapter.constructor?.name === 'Keyv';
+	if (!isKeyvInstance) {
+		return storageAdapter;
+	}
+
+	// Keep Keyv's error policy while using an identity serializer to avoid a second serialization layer around the original instance.
+	return new Keyv({
+		store: storageAdapter,
+		serialize: data => data as never,
+		deserialize: data => data as never,
+		throwOnErrors: (adapter as KeyvType).throwOnErrors,
+	});
+};
+
+const cacheableStore = new WeakableMap<string | StorageAdapter, Map<CacheContext, CacheableRequestFunction>>();
 
 const redirectCodes: ReadonlySet<number> = new Set([301, 302, 303, 307, 308]);
 export {crossOriginStripHeaders} from './options.js';
@@ -1978,11 +2038,14 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		}
 	}
 
-	private _prepareCache(cache: string | StorageAdapter) {
-		if (cacheableStore.has(cache)) {
+	private _prepareCache(cache: string | StorageAdapter, shared: boolean | undefined) {
+		const cacheContext = getCacheContext(shared);
+		let cacheableRequests = cacheableStore.get(cache);
+		if (cacheableRequests?.has(cacheContext)) {
 			return;
 		}
 
+		const cacheAdapter = createCacheContextStorageAdapter(cache as StorageAdapter, cacheContext);
 		const cacheableRequest = new CacheableRequest(
 			((requestOptions: RequestOptions, handler?: (response: IncomingMessageWithTimings) => void): ClientRequest => {
 				/**
@@ -2094,9 +2157,11 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 				return result;
 			}) as typeof http.request,
-			cache as StorageAdapter,
+			cacheAdapter as StorageAdapter,
 		);
-		cacheableStore.set(cache, cacheableRequest.request());
+		cacheableRequests ??= new Map();
+		cacheableRequests.set(cacheContext, cacheableRequest.request());
+		cacheableStore.set(cache, cacheableRequests);
 	}
 
 	private async _createCacheableRequest(url: URL, options: RequestOptions): Promise<ClientRequest | ResponseLike> {
@@ -2117,7 +2182,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			let request: ClientRequest | Promise<ClientRequest>;
 
 			// TODO: Fix `cacheable-response`. This is ugly.
-			const cacheRequest = cacheableStore.get((options as any).cache)!(options as CacheableOptions, (response: any) => {
+			const cacheRequest = cacheableStore.get((options as any).cache)!.get(getCacheContext((options as any).shared))!(options as CacheableOptions, (response: any) => {
 				void (async () => {
 					response._readableState.autoDestroy = false;
 
@@ -2426,7 +2491,6 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		}
 
 		request ??= options.getRequestFunction();
-
 		const url = shouldOmitRequestUrlCredentials
 			? new URL(stripUrlAuth(options.url!))
 			: options.url as URL;
@@ -2445,7 +2509,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			(this._requestOptions as any).gotRequest = this;
 
 			try {
-				this._prepareCache(options.cache as StorageAdapter);
+				this._prepareCache(options.cache as StorageAdapter, options.cacheOptions.shared);
 			} catch (error: unknown) {
 				throw new CacheError(normalizeError(error), this);
 			}
