@@ -183,7 +183,7 @@ test('unsafe requests invalidate normalized private Keyv cache entries', withSer
 		response.status(204).end();
 	});
 
-	const cache = new Keyv();
+	const cache = new Keyv({namespace: 'custom'});
 	let deletionCount = 0;
 	cache.hooks.addHandler('postDelete', () => {
 		deletionCount++;
