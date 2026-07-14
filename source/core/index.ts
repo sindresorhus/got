@@ -3,6 +3,7 @@ import {Buffer} from 'node:buffer';
 import {Duplex, type Readable} from 'node:stream';
 import {addAbortListener} from 'node:events';
 import http, {ServerResponse, type ClientRequest, type RequestOptions} from 'node:http';
+import {format as formatUrl} from 'node:url';
 import type {Socket} from 'node:net';
 import {byteLength} from 'byte-counter';
 import {chunk} from 'chunk-data';
@@ -13,8 +14,9 @@ import CacheableRequest, {
 	type CacheableOptions,
 } from 'cacheable-request';
 import decompressResponse from 'decompress-response';
-import Keyv, {type KeyvStoreAdapter} from 'keyv';
+import Keyv, {KeyvHooks, type KeyvStoreAdapter} from 'keyv';
 import is, {isBuffer} from '@sindresorhus/is';
+import normalizeUrl from 'normalize-url';
 import type ResponseLike from 'responselike';
 import timer, {type ClientRequestWithTimings, type Timings, type IncomingMessageWithTimings} from './utils/timer.js';
 import getBodySize from './utils/get-body-size.js';
@@ -83,6 +85,9 @@ export type Progress = {
 const supportsBrotli = is.string(process.versions.brotli);
 const supportsZstd = is.string(process.versions.zstd);
 const methodsWithoutBody: ReadonlySet<string> = new Set(['GET', 'HEAD']);
+// RFC 9111 section 4.4 requires invalidation after unsafe methods. QUERY is safe according to RFC 10008.
+const cacheInvalidatingMethods: ReadonlySet<string> = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+const cacheInvalidationError = Symbol('cacheInvalidationError');
 const singleValueRequestHeaders: ReadonlySet<string> = new Set([
 	'authorization',
 	'content-length',
@@ -164,6 +169,8 @@ type StorageAdapter = KeyvStoreAdapter | Keyv | Map<unknown, unknown>;
 
 type CacheContext = 'shared' | 'private';
 
+const cacheableRequestNamespace = 'cacheable-request';
+const keyvNamespace = 'keyv';
 const getCacheContext = (shared: boolean | undefined): CacheContext => shared === false ? 'private' : 'shared';
 
 /* Cacheable-request keys do not include whether cache semantics are shared or private, so partition the adapter by cache context. */
@@ -182,6 +189,46 @@ const createCacheContextStorageAdapter = (adapter: StorageAdapter, cacheContext:
 
 	const underlyingAdapter = adapter as any;
 	const getKey = (key: string): string => `got:${cacheContext}:${key}`;
+	// Keyv's error event has no operation identity, so use its store directly to keep deletion failures scoped while preserving Keyv's delete hooks and statistics.
+	const deleteKeyvCacheEntry = async (keyvAdapter: Keyv, key: string): Promise<void> => {
+		const {namespace} = keyvAdapter;
+		const storageKey = keyvAdapter.useKeyPrefix && namespace && !key.startsWith(`${namespace}:`)
+			? `${namespace}:${key}`
+			: key;
+
+		keyvAdapter.hooks.trigger(KeyvHooks.PRE_DELETE, {key: storageKey});
+		let wasDeleted = false;
+
+		try {
+			const value = await keyvAdapter.store.delete(storageKey);
+			wasDeleted = typeof value === 'boolean' ? value : true;
+		} finally {
+			keyvAdapter.hooks.trigger(KeyvHooks.POST_DELETE, {
+				key: storageKey,
+				value: wasDeleted,
+			});
+			keyvAdapter.stats.delete();
+		}
+	};
+
+	const deleteCacheEntriesFromAdapter = async (keys: string[]): Promise<void> => {
+		const deleteCacheEntry = async (key: string): Promise<void> => {
+			if (adapter instanceof Keyv) {
+				await deleteKeyvCacheEntry(adapter, getKey(`${keyvNamespace}:${key}`));
+				return;
+			}
+
+			// CacheableRequest adds this namespace when given a storage adapter instead of a Keyv instance.
+			await underlyingAdapter.delete(getKey(`${cacheableRequestNamespace}:${key}`));
+		};
+
+		const results = await Promise.allSettled(keys.map(key => deleteCacheEntry(key)));
+
+		const failedDeletion = results.find(result => result.status === 'rejected');
+		if (failedDeletion?.status === 'rejected') {
+			throw normalizeError(failedDeletion.reason);
+		}
+	};
 
 	const storageAdapter = {
 		namespace: undefined,
@@ -209,19 +256,51 @@ const createCacheContextStorageAdapter = (adapter: StorageAdapter, cacheContext:
 	};
 
 	if (!(adapter instanceof Keyv)) {
-		return storageAdapter;
+		return {
+			cacheAdapter: storageAdapter,
+			deleteCacheEntries: deleteCacheEntriesFromAdapter,
+		};
 	}
 
 	// Keep Keyv's error policy while using an identity serializer to avoid a second serialization layer around the original instance.
-	return new Keyv({
-		store: storageAdapter,
-		serialize: data => data as never,
-		deserialize: data => data as never,
-		throwOnErrors: adapter.throwOnErrors,
-	});
+	return {
+		cacheAdapter: new Keyv({
+			store: storageAdapter,
+			namespace: keyvNamespace,
+			serialize: data => data as never,
+			deserialize: data => data as never,
+			throwOnErrors: adapter.throwOnErrors,
+		}),
+		deleteCacheEntries: deleteCacheEntriesFromAdapter,
+	};
 };
 
 const cacheableStore = new WeakableMap<string | StorageAdapter, Map<CacheContext, CacheableRequestFunction>>();
+
+const getCacheableRequestKey = (requestOptions: RequestOptions, method: 'GET' | 'HEAD'): string => {
+	const [pathname, ...searchParts] = (requestOptions.path ?? '').split('?');
+	const search = searchParts.length > 0 ? `?${searchParts.join('?')}` : '';
+	const url = formatUrl({
+		protocol: requestOptions.protocol,
+		auth: requestOptions.auth,
+		// CacheableRequest uses truthy fallbacks here, so empty host values must not change the cache key.
+		// eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
+		hostname: requestOptions.hostname || requestOptions.host || 'localhost',
+		port: requestOptions.port,
+		pathname,
+		search,
+	});
+
+	// This must match cacheable-request's key construction so invalidation reaches the entry it stores.
+	const normalizedUrl = normalizeUrl(url, {
+		// eslint-disable-next-line @typescript-eslint/naming-convention
+		stripWWW: false,
+		removeTrailingSlash: false,
+		stripAuthentication: false,
+	});
+
+	return `${method}:${normalizedUrl}`;
+};
 
 const redirectCodes: ReadonlySet<number> = new Set([301, 302, 303, 307, 308]);
 export {crossOriginStripHeaders} from './options.js';
@@ -2043,7 +2122,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			return;
 		}
 
-		const cacheAdapter = createCacheContextStorageAdapter(cache as StorageAdapter, cacheContext);
+		const {cacheAdapter, deleteCacheEntries} = createCacheContextStorageAdapter(cache as StorageAdapter, cacheContext);
 		const cacheableRequest = new CacheableRequest(
 			((requestOptions: RequestOptions, handler?: (response: IncomingMessageWithTimings) => void): ClientRequest => {
 				/**
@@ -2119,7 +2198,37 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 					}
 					: handler;
 
-				const result = (requestOptions as any)._request(requestOptions, wrappedHandler);
+				const cacheHandler = wrappedHandler
+					? async (response: IncomingMessageWithTimings) => {
+						const method = requestOptions.method ?? 'GET';
+						const statusCode = response.statusCode ?? 0;
+
+						if (
+							cacheInvalidatingMethods.has(method)
+							&& statusCode >= 200
+							&& statusCode < 400
+						) {
+							try {
+								// RFC 9111 requires successful unsafe requests to invalidate cached retrievals before their response is exposed.
+								await deleteCacheEntries([
+									getCacheableRequestKey(requestOptions, 'GET'),
+									getCacheableRequestKey(requestOptions, 'HEAD'),
+								]);
+							} catch (error: unknown) {
+								// Let CacheableRequest finish its response lifecycle so it removes its per-request cache error listener. Bypass user hooks so they cannot replace the invalidation error.
+								(response as any)[cacheInvalidationError] = normalizeError(error);
+								response.headers['cache-control'] = 'no-store';
+								response.resume();
+								handler!(response);
+								return;
+							}
+						}
+
+						wrappedHandler(response);
+					}
+					: wrappedHandler;
+
+				const result = (requestOptions as any)._request(requestOptions, cacheHandler);
 
 				// TODO: remove this when `cacheable-request` supports async request functions.
 				if (is.promise(result)) {
@@ -2182,6 +2291,13 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			// TODO: Fix `cacheable-response`. This is ugly.
 			const cacheRequest = cacheableStore.get((options as any).cache)!.get(getCacheContext((options as any).shared))!(options as CacheableOptions, (response: any) => {
 				void (async () => {
+					const invalidationError = response[cacheInvalidationError];
+					if (invalidationError) {
+						const {gotRequest} = options as any;
+						gotRequest._beforeError(new CacheError(invalidationError, gotRequest));
+						return;
+					}
+
 					response._readableState.autoDestroy = false;
 
 					if (request) {

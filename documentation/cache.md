@@ -4,6 +4,8 @@
 
 Got provides HTTP caching based on [RFC 9111](https://www.rfc-editor.org/rfc/rfc9111.html) semantics. It works out of the box in-memory and is easily pluggable with a wide range of storage adapters. Fresh cache entries are served directly from the cache, and stale cache entries are revalidated with `If-None-Match` / `If-Modified-Since` headers. You can read more about the underlying cache behavior in the [`cacheable-request` documentation](https://www.npmjs.com/package/cacheable-request).
 
+Network responses with a 2xx or 3xx status to `POST`, `PUT`, `PATCH`, or `DELETE` invalidate cached `GET` and `HEAD` responses for the same URL in the active cache context.
+
 `QUERY` requests are not cached by Got's built-in cache option. Correctly caching `QUERY` requires cache keys that include the request content.
 
 You can use the JavaScript `Map` type as an in-memory cache:

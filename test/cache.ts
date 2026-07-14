@@ -46,6 +46,405 @@ test('cacheable responses are cached', withServer, async (t, server, got) => {
 	t.is(firstResponse.body, secondResponse.body);
 });
 
+test('successful unsafe requests invalidate cached GET responses', withServer, async (t, server, got) => {
+	let value = 'before';
+	let getRequestCount = 0;
+	server.get('/', (_request, response) => {
+		getRequestCount++;
+		response.setHeader('Cache-Control', 'public, max-age=60');
+		response.end(value);
+	});
+	server.post('/', (_request, response) => {
+		value = 'after';
+		response.status(204).end();
+	});
+
+	const cache = new Map();
+	const initialResponse = await got({cache});
+	const cachedResponse = await got({cache});
+	await got.post({cache});
+	const updatedResponse = await got({cache});
+
+	t.is(initialResponse.body, 'before');
+	t.true(cachedResponse.isFromCache);
+	t.is(updatedResponse.body, 'after');
+	t.false(updatedResponse.isFromCache);
+	t.is(getRequestCount, 2);
+});
+
+test('PUT, PATCH, and DELETE invalidate cached GET responses', withServer, async (t, server, got) => {
+	const methods = ['PUT', 'PATCH', 'DELETE'] as const;
+	const values = new Map(methods.map(method => [method, 'before']));
+	const getRequestCounts = new Map(methods.map(method => [method, 0]));
+	server.all('/:method', (request, response) => {
+		const method = request.params.method.toUpperCase() as typeof methods[number];
+		if (request.method === 'GET') {
+			getRequestCounts.set(method, getRequestCounts.get(method)! + 1);
+			response.setHeader('Cache-Control', 'public, max-age=60');
+			response.end(values.get(method));
+			return;
+		}
+
+		values.set(method, 'after');
+		response.status(204).end();
+	});
+
+	const cache = new Map();
+	await Promise.all(methods.map(async method => {
+		const path = method.toLowerCase();
+		await got(path, {cache});
+		const cachedResponse = await got(path, {cache});
+		await got(path, {method, cache});
+		const updatedResponse = await got(path, {cache});
+
+		t.true(cachedResponse.isFromCache);
+		t.is(updatedResponse.body, 'after');
+		t.false(updatedResponse.isFromCache);
+		t.is(getRequestCounts.get(method), 2);
+	}));
+});
+
+test('3xx responses to unsafe requests invalidate cached GET responses', withServer, async (t, server, got) => {
+	let value = 'before';
+	server.get('/', (_request, response) => {
+		response.setHeader('Cache-Control', 'public, max-age=60');
+		response.end(value);
+	});
+	server.post('/', (_request, response) => {
+		value = 'after';
+		response.status(302).end();
+	});
+
+	const cache = new Map();
+	await got({cache});
+	const cachedResponse = await got({cache});
+	await got.post({cache, followRedirect: false});
+	const updatedResponse = await got({cache});
+
+	t.true(cachedResponse.isFromCache);
+	t.is(updatedResponse.body, 'after');
+	t.false(updatedResponse.isFromCache);
+});
+
+test('error responses to unsafe requests do not invalidate cached GET responses', withServer, async (t, server, got) => {
+	const statuses = [400, 500];
+	server.all('/:statusCode', (request, response) => {
+		if (request.method === 'GET') {
+			response.setHeader('Cache-Control', 'public, max-age=60');
+			response.end('cached');
+			return;
+		}
+
+		response.status(Number(request.params.statusCode)).end();
+	});
+
+	const cache = new Map();
+	await Promise.all(statuses.map(async statusCode => {
+		const path = String(statusCode);
+		await got(path, {cache});
+		await got.post(path, {cache, throwHttpErrors: false});
+		const cachedResponse = await got(path, {cache});
+
+		t.is(cachedResponse.body, 'cached');
+		t.true(cachedResponse.isFromCache);
+	}));
+});
+
+test('safe requests do not invalidate cached GET responses', withServer, async (t, server, got) => {
+	server.all('/', (request, response) => {
+		if (request.method === 'GET') {
+			response.setHeader('Cache-Control', 'public, max-age=60');
+			response.end('cached');
+			return;
+		}
+
+		response.status(204).end();
+	});
+
+	const cache = new Map();
+	await got({cache});
+	await got({method: 'OPTIONS', cache});
+	await got({method: 'TRACE', cache});
+	await got.query({cache, json: {query: true}});
+	const cachedResponse = await got({cache});
+
+	t.is(cachedResponse.body, 'cached');
+	t.true(cachedResponse.isFromCache);
+});
+
+test('unsafe requests invalidate normalized private Keyv cache entries', withServer, async (t, server, got) => {
+	let value = 'before';
+	server.get('/', (_request, response) => {
+		response.setHeader('Cache-Control', 'public, max-age=60');
+		response.end(value);
+	});
+	server.post('/', (_request, response) => {
+		value = 'after';
+		response.status(204).end();
+	});
+
+	const cache = new Keyv();
+	let deletionCount = 0;
+	cache.hooks.addHandler('postDelete', () => {
+		deletionCount++;
+	});
+	const privateOptions = {
+		cache,
+		cacheOptions: {shared: false},
+	};
+	const url = '?b=2&utm_source=test&a=1#fragment';
+	await got(url, {cache});
+	await got(url, privateOptions);
+	const cachedResponse = await got(url, privateOptions);
+	await got.post(url, privateOptions);
+	const updatedResponse = await got(url, privateOptions);
+	const sharedResponse = await got(url, {cache});
+
+	t.true(cachedResponse.isFromCache);
+	t.is(updatedResponse.body, 'after');
+	t.false(updatedResponse.isFromCache);
+	t.is(sharedResponse.body, 'before');
+	t.true(sharedResponse.isFromCache);
+	t.is(deletionCount, 2);
+});
+
+test('successful unsafe requests invalidate cached HEAD responses', withServer, async (t, server, got) => {
+	let headRequestCount = 0;
+	server.head('/', (_request, response) => {
+		headRequestCount++;
+		response.setHeader('Cache-Control', 'public, max-age=60');
+		response.end();
+	});
+	server.post('/', (_request, response) => {
+		response.status(204).end();
+	});
+
+	const cache = new Map();
+	await got.head({cache});
+	const cachedResponse = await got.head({cache});
+	await got.post({cache});
+	const updatedResponse = await got.head({cache});
+
+	t.true(cachedResponse.isFromCache);
+	t.false(updatedResponse.isFromCache);
+	t.is(headRequestCount, 2);
+});
+
+test('cache invalidation errors use Got\'s `CacheError`', withServer, async (t, server, got) => {
+	server.get('/', cacheEndpoint);
+	server.post('/', (_request, response) => {
+		response.status(204).end();
+	});
+
+	const storage = new Map();
+	let shouldFailDeletion = false;
+	const attemptedDeletions: unknown[] = [];
+	const cache = {
+		get(key: unknown) {
+			return storage.get(key);
+		},
+		set(key: unknown, value: unknown) {
+			return storage.set(key, value);
+		},
+		delete(key: unknown) {
+			if (shouldFailDeletion) {
+				attemptedDeletions.push(key);
+				throw new Error('Cache invalidation failed');
+			}
+
+			return storage.delete(key);
+		},
+		clear() {
+			storage.clear();
+		},
+	};
+
+	await got({cache: cache as any});
+	shouldFailDeletion = true;
+	let beforeCacheHookCalled = false;
+
+	await t.throwsAsync(got.post({
+		cache: cache as any,
+		hooks: {
+			beforeCache: [
+				() => {
+					beforeCacheHookCalled = true;
+					throw new Error('Hook error');
+				},
+			],
+		},
+	}), {
+		instanceOf: CacheError,
+		code: 'ERR_CACHE_ACCESS',
+	});
+	t.false(beforeCacheHookCalled);
+	t.is(attemptedDeletions.length, 2);
+});
+
+test('Keyv store invalidation errors use Got\'s `CacheError`', withServer, async (t, server, got) => {
+	server.get('/', cacheEndpoint);
+	server.post('/', (_request, response) => {
+		response.status(204).end();
+	});
+
+	const storage = new Map();
+	let shouldFailDeletion = false;
+	const store = {
+		get(key: unknown) {
+			return storage.get(key);
+		},
+		set(key: unknown, value: unknown) {
+			return storage.set(key, value);
+		},
+		delete(key: unknown) {
+			if (shouldFailDeletion) {
+				throw new Error('Cache invalidation failed');
+			}
+
+			return storage.delete(key);
+		},
+		clear() {
+			storage.clear();
+		},
+	};
+	const cache = new Keyv({store: store as any, stats: true});
+	await got({cache});
+	const initialErrorListenerCount = cache.listeners('error').length;
+	const initialDeletionCount = cache.stats.deletes;
+	const deletionResults: boolean[] = [];
+	cache.hooks.addHandler('postDelete', ({value}: {value: boolean}) => {
+		deletionResults.push(value);
+	});
+	shouldFailDeletion = true;
+
+	await t.throwsAsync(got.post({cache}), {
+		instanceOf: CacheError,
+		code: 'ERR_CACHE_ACCESS',
+	});
+	t.is(cache.listeners('error').length, initialErrorListenerCount);
+	t.is(cache.stats.deletes, initialDeletionCount + 2);
+	t.deepEqual(deletionResults, [false, false]);
+});
+
+test('Keyv cache setup does not add listeners to the underlying store', withServer, async (t, server, got) => {
+	server.get('/', cacheEndpoint);
+
+	const storage = new Map();
+	const store = new EventEmitter();
+	Object.assign(store, {
+		get(key: unknown) {
+			return storage.get(key);
+		},
+		set(key: unknown, value: unknown) {
+			return storage.set(key, value);
+		},
+		delete(key: unknown) {
+			return storage.delete(key);
+		},
+		clear() {
+			storage.clear();
+		},
+	});
+	const cache = new Keyv({store: store as any});
+	const initialListenerCount = store.listenerCount('error');
+
+	await got({cache});
+
+	t.is(store.listenerCount('error'), initialListenerCount);
+});
+
+test('concurrent cache invalidation errors affect only the failing request', withServer, async (t, server, got) => {
+	let markFailingResponseSent: () => void;
+	const failingResponseSent = new Promise<void>(resolve => {
+		markFailingResponseSent = resolve;
+	});
+	server.all('/:outcome', (request, response) => {
+		if (request.method === 'GET') {
+			response.setHeader('Cache-Control', 'public, max-age=60');
+			response.end(request.params.outcome);
+			return;
+		}
+
+		if (request.params.outcome === 'failing') {
+			markFailingResponseSent();
+		}
+
+		response.status(204).end();
+	});
+
+	const storage = new Map();
+	let coordinateDeletions = false;
+	let shouldFailDeletion = false;
+	let shouldFailSet = false;
+	let markSuccessfulDeletionStarted: () => void;
+	const successfulDeletionStarted = new Promise<void>(resolve => {
+		markSuccessfulDeletionStarted = resolve;
+	});
+	let markFailingDeletionStarted: () => void;
+	const failingDeletionStarted = new Promise<void>(resolve => {
+		markFailingDeletionStarted = resolve;
+	});
+	let releaseSuccessfulDeletion = (): void => {};
+	const successfulDeletionReleased = new Promise<void>(resolve => {
+		releaseSuccessfulDeletion = resolve;
+	});
+	const store = {
+		get(key: unknown) {
+			return storage.get(key);
+		},
+		set(key: unknown, value: unknown) {
+			if (shouldFailSet) {
+				throw new Error('Unrelated cache write failed');
+			}
+
+			return storage.set(key, value);
+		},
+		async delete(key: unknown) {
+			const shouldFailCurrentDeletion = shouldFailDeletion;
+			if (coordinateDeletions && String(key).includes('/successful')) {
+				markSuccessfulDeletionStarted();
+				await successfulDeletionReleased;
+			}
+
+			if (shouldFailCurrentDeletion) {
+				markFailingDeletionStarted();
+				throw new Error('Cache invalidation failed');
+			}
+
+			return storage.delete(key);
+		},
+		clear() {
+			storage.clear();
+		},
+	};
+	const successfulCache = new Keyv({store: store as any});
+	const failingCache = new Keyv({store: store as any});
+	const privateOptions = {
+		cache: successfulCache,
+		cacheOptions: {shared: false},
+	};
+
+	await Promise.all([
+		got('successful', privateOptions),
+		got('failing', {cache: failingCache}),
+	]);
+	coordinateDeletions = true;
+
+	const successfulRequest = t.notThrowsAsync(got.post('successful', privateOptions));
+	await successfulDeletionStarted;
+	shouldFailSet = true;
+	await successfulCache.set('unrelated', 'value');
+	shouldFailSet = false;
+	shouldFailDeletion = true;
+	const failingRequest = t.throwsAsync(got.post('failing', {cache: failingCache}), {
+		instanceOf: CacheError,
+	});
+	await failingResponseSent;
+	await failingDeletionStarted;
+	releaseSuccessfulDeletion();
+	await Promise.all([successfulRequest, failingRequest]);
+});
+
 test('custom adapters named Keyv are cached normally', withServer, async (t, server, got) => {
 	server.get('/', cacheEndpoint);
 
