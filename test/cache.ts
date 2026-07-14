@@ -172,40 +172,49 @@ test('safe requests do not invalidate cached GET responses', withServer, async (
 	t.true(cachedResponse.isFromCache);
 });
 
-test('unsafe requests invalidate normalized private Keyv cache entries', withServer, async (t, server, got) => {
-	let value = 'before';
-	server.get('/', (_request, response) => {
-		response.setHeader('Cache-Control', 'public, max-age=60');
-		response.end(value);
-	});
-	server.post('/', (_request, response) => {
-		value = 'after';
+test('unsafe requests invalidate normalized private Keyv cache entries with and without key prefixes', withServer, async (t, server, got) => {
+	const values = new Map([
+		['prefixed', 'before'],
+		['unprefixed', 'before'],
+	]);
+	server.all('/:prefixing', (request, response) => {
+		const {prefixing} = request.params;
+		if (request.method === 'GET') {
+			response.setHeader('Cache-Control', 'public, max-age=60');
+			response.end(values.get(prefixing));
+			return;
+		}
+
+		values.set(prefixing, 'after');
 		response.status(204).end();
 	});
 
-	const cache = new Keyv({namespace: 'custom'});
-	let deletionCount = 0;
-	cache.hooks.addHandler('postDelete', () => {
-		deletionCount++;
-	});
-	const privateOptions = {
-		cache,
-		cacheOptions: {shared: false},
-	};
-	const url = '?b=2&utm_source=test&a=1#fragment';
-	await got(url, {cache});
-	await got(url, privateOptions);
-	const cachedResponse = await got(url, privateOptions);
-	await got.post(url, privateOptions);
-	const updatedResponse = await got(url, privateOptions);
-	const sharedResponse = await got(url, {cache});
+	await Promise.all([true, false].map(async useKeyPrefix => {
+		const cache = new Keyv({namespace: 'custom', useKeyPrefix});
+		let deletionCount = 0;
+		cache.hooks.addHandler('postDelete', () => {
+			deletionCount++;
+		});
+		const privateOptions = {
+			cache,
+			cacheOptions: {shared: false},
+		};
+		const prefixing = useKeyPrefix ? 'prefixed' : 'unprefixed';
+		const url = `${prefixing}?b=2&utm_source=test&a=1#fragment`;
+		await got(url, {cache});
+		await got(url, privateOptions);
+		const cachedResponse = await got(url, privateOptions);
+		await got.post(url, privateOptions);
+		const updatedResponse = await got(url, privateOptions);
+		const sharedResponse = await got(url, {cache});
 
-	t.true(cachedResponse.isFromCache);
-	t.is(updatedResponse.body, 'after');
-	t.false(updatedResponse.isFromCache);
-	t.is(sharedResponse.body, 'before');
-	t.true(sharedResponse.isFromCache);
-	t.is(deletionCount, 2);
+		t.true(cachedResponse.isFromCache);
+		t.is(updatedResponse.body, 'after');
+		t.false(updatedResponse.isFromCache);
+		t.is(sharedResponse.body, 'before');
+		t.true(sharedResponse.isFromCache);
+		t.is(deletionCount, 2);
+	}));
 });
 
 test('successful unsafe requests invalidate cached HEAD responses', withServer, async (t, server, got) => {
