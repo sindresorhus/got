@@ -14,7 +14,6 @@ import CacheableRequest, {
 } from 'cacheable-request';
 import decompressResponse from 'decompress-response';
 import Keyv, {type KeyvStoreAdapter} from 'keyv';
-import type KeyvType from 'keyv';
 import is, {isBuffer} from '@sindresorhus/is';
 import type ResponseLike from 'responselike';
 import timer, {type ClientRequestWithTimings, type Timings, type IncomingMessageWithTimings} from './utils/timer.js';
@@ -161,13 +160,13 @@ export type RequestEvents<T> = {
 	off: GotEventFunction<T>;
 };
 
-type StorageAdapter = KeyvStoreAdapter | KeyvType | Map<unknown, unknown>;
+type StorageAdapter = KeyvStoreAdapter | Keyv | Map<unknown, unknown>;
 
 type CacheContext = 'shared' | 'private';
 
 const getCacheContext = (shared: boolean | undefined): CacheContext => shared === false ? 'private' : 'shared';
 
-/* Cacheable-request keys only contain the method and URL, so partitioning the adapter keeps private responses from satisfying shared requests. */
+/* Cacheable-request keys do not include whether cache semantics are shared or private, so partition the adapter by cache context. */
 
 const createCacheContextStorageAdapter = (adapter: StorageAdapter, cacheContext: CacheContext) => {
 	if (
@@ -209,8 +208,7 @@ const createCacheContextStorageAdapter = (adapter: StorageAdapter, cacheContext:
 		},
 	};
 
-	const isKeyvInstance = adapter instanceof Keyv || adapter.constructor?.name === 'Keyv';
-	if (!isKeyvInstance) {
+	if (!(adapter instanceof Keyv)) {
 		return storageAdapter;
 	}
 
@@ -219,7 +217,7 @@ const createCacheContextStorageAdapter = (adapter: StorageAdapter, cacheContext:
 		store: storageAdapter,
 		serialize: data => data as never,
 		deserialize: data => data as never,
-		throwOnErrors: (adapter as KeyvType).throwOnErrors,
+		throwOnErrors: adapter.throwOnErrors,
 	});
 };
 
@@ -2491,6 +2489,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		}
 
 		request ??= options.getRequestFunction();
+
 		const url = shouldOmitRequestUrlCredentials
 			? new URL(stripUrlAuth(options.url!))
 			: options.url as URL;

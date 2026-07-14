@@ -137,7 +137,7 @@ By default, Got will retry on failure. To disable this option, set [`options.ret
 
 #### Cache, Proxy and UNIX sockets
 
-- [x] [RFC 7234 compliant caching](documentation/cache.md)
+- [x] [RFC 9111 compliant caching](documentation/cache.md)
 - [x] [Proxy support](documentation/tips.md#proxying)
 - [x] [Unix Domain Sockets](documentation/2-options.md#enableunixsockets)
 
@@ -177,7 +177,7 @@ By default, Got will retry on failure. To disable this option, set [`options.ret
 | Stream API            | :heavy_check_mark:  | Node.js only         | :x:                      | :x:                | :heavy_check_mark:     |
 | Pagination API        | :heavy_check_mark:  | :x:                  | :x:                      | :x:                | :x:                    |
 | Request aborting       | :heavy_check_mark:  | :heavy_check_mark:   | :heavy_check_mark:       | :heavy_check_mark: | :heavy_check_mark:     |
-| RFC 7234 caching      | :heavy_check_mark:  | :x:                  | :x:                      | :x:                | :x:                    |
+| RFC 9111 caching      | :heavy_check_mark:  | :x:                  | :x:                      | :x:                | :x:                    |
 | Cookies (out-of-the-box) | :heavy_check_mark: | :x:                | :x:                      | :x:                | :x:                    |
 | Follows redirects     | :heavy_check_mark:  | :heavy_check_mark:   | :heavy_check_mark:       | :heavy_check_mark: | :heavy_check_mark:     |
 | Retries on failure    | :heavy_check_mark:  | :x:                  | :heavy_check_mark:       | :x:                | :heavy_check_mark:     |

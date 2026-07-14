@@ -46,6 +46,28 @@ test('cacheable responses are cached', withServer, async (t, server, got) => {
 	t.is(firstResponse.body, secondResponse.body);
 });
 
+test('custom adapters named Keyv are cached normally', withServer, async (t, server, got) => {
+	server.get('/', cacheEndpoint);
+
+	class Keyv extends Map<string, string> {
+		override set(key: string, value: string) {
+			if (typeof value !== 'string') {
+				throw new TypeError('Expected a serialized cache value');
+			}
+
+			return super.set(key, value);
+		}
+	}
+
+	const cache = new Keyv();
+	const firstResponse = await got({cache: cache as any});
+	const secondResponse = await got({cache: cache as any});
+
+	t.is(cache.size, 1);
+	t.is(firstResponse.body, secondResponse.body);
+	t.true(secondResponse.isFromCache);
+});
+
 test('private and shared cache contexts are isolated', withServer, async (t, server, got) => {
 	let requestCount = 0;
 	server.get('/', (request, response) => {
@@ -74,6 +96,43 @@ test('private and shared cache contexts are isolated', withServer, async (t, ser
 	t.true(privateCachedResponse.isFromCache);
 	t.is(sharedResponse.body, 'user-b');
 	t.is(requestCount, 2);
+});
+
+test('Keyv isolates shared and private cache contexts in reverse order', withServer, async (t, server, got) => {
+	let requestCount = 0;
+	server.get('/', (request, response) => {
+		requestCount++;
+		response.setHeader('Cache-Control', 'public, max-age=60');
+		response.end(request.headers.authorization === 'Bearer user-a' ? 'user-a' : 'user-b');
+	});
+
+	const storage = new Map();
+	const cache = new Keyv({store: storage, namespace: 'custom'});
+	const sharedResponse = await got({
+		cache,
+		headers: {authorization: 'Bearer user-b'},
+	});
+	const sharedCachedResponse = await got({
+		cache,
+		headers: {authorization: 'Bearer user-b'},
+	});
+	const privateResponse = await got({
+		cache,
+		cacheOptions: {shared: false},
+		headers: {authorization: 'Bearer user-a'},
+	});
+	const privateCachedResponse = await got({
+		cache,
+		cacheOptions: {shared: false},
+		headers: {authorization: 'Bearer user-a'},
+	});
+
+	t.is(sharedResponse.body, 'user-b');
+	t.true(sharedCachedResponse.isFromCache);
+	t.is(privateResponse.body, 'user-a');
+	t.true(privateCachedResponse.isFromCache);
+	t.is(requestCount, 2);
+	t.true([...storage.keys()].every(key => typeof key === 'string' && key.startsWith('custom:')));
 });
 
 test('cacheable responses to POST requests are cached', withServer, async (t, server, got) => {
@@ -206,7 +265,7 @@ test('cache error throws `CacheError`', withServer, async (t, server, got) => {
 	});
 });
 
-test('cache errors use Got\'s `CacheError` code', withServer, async (t, server, got) => {
+test('Keyv `throwOnErrors` is preserved', withServer, async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.setHeader('cache-control', 'public, max-age=60');
 		response.end('ok');
@@ -252,6 +311,7 @@ test('cache adapter error events are propagated', withServer, async (t, server, 
 
 	await t.throwsAsync(got({cache: cache as any}), {
 		instanceOf: CacheError,
+		code: 'ERR_CACHE_ACCESS',
 	});
 });
 
