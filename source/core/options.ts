@@ -30,7 +30,7 @@ import type {RequestError} from './errors.js';
 import {TimeoutError, type Delays} from './timed-out.js';
 import {getUnixSocketPath} from './utils/is-unix-socket-url.js';
 import DnsCache, {type DnsCacheLookup} from './utils/dns-cache.js';
-import http2Client from './utils/http2-client.js';
+import http2Client, {http2Timeouts} from './utils/http2-client.js';
 
 type StorageAdapter = KeyvStoreAdapter | KeyvType | Map<unknown, unknown>;
 
@@ -1543,18 +1543,6 @@ const cloneRaw = (raw: OptionsInit) => {
 	}
 
 	return result;
-};
-
-const getHttp2TimeoutOption = (internals: typeof defaultInternals): number | undefined => {
-	const delays = [
-		internals.timeout.socket,
-		internals.timeout.connect,
-		internals.timeout.lookup,
-		internals.timeout.request,
-		internals.timeout.secureConnect,
-	].filter(delay => typeof delay === 'number');
-
-	return delays.length > 0 ? Math.min(...delays) : undefined;
 };
 
 const usesHttp2Alpn = (internals: typeof defaultInternals, url: URL): boolean => {
@@ -3451,7 +3439,13 @@ export default class Options {
 			headers: internals.headers,
 			createConnection: internals.createConnection,
 			signal: internals.http2 ? internals.signal : undefined,
-			timeout: usesHttp2Alpn(internals, url) ? getHttp2TimeoutOption(internals) : undefined,
+			timeout: undefined,
+			[http2Timeouts]: usesHttp2Alpn(internals, url)
+				? {
+					...internals.timeout,
+					startedAt: Date.now(),
+				}
+				: undefined,
 
 			// HTTP/2 options
 			h2session: internals.h2session,

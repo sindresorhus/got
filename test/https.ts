@@ -2087,7 +2087,7 @@ test('http2 cold concurrent requests share default agent session', async t => {
 	}
 });
 
-test('http2 reports reusedSocket for pooled sessions', async t => {
+test.serial('http2 reports reusedSocket for pooled sessions', async t => {
 	const server = await createHttp2TestServer(stream => {
 		stream.respond({
 			// eslint-disable-next-line @typescript-eslint/naming-convention
@@ -2108,6 +2108,184 @@ test('http2 reports reusedSocket for pooled sessions', async t => {
 
 		t.false(firstResponse.request.reusedSocket);
 		t.true(secondResponse.request.reusedSocket);
+	} finally {
+		await server.close();
+	}
+});
+
+test('http2 respects maxHeaderSize', async t => {
+	const server = await createHttp2TestServer(stream => {
+		stream.respond({
+			// eslint-disable-next-line @typescript-eslint/naming-convention
+			':status': 200,
+			'x-large-header': 'a'.repeat(4096),
+		});
+		stream.end('ok');
+	});
+
+	try {
+		await t.throwsAsync(got(server.url, {
+			http2: true,
+			maxHeaderSize: 128,
+			https: {
+				rejectUnauthorized: false,
+			},
+			retry: {
+				limit: 0,
+			},
+		}), {
+			code: 'HPE_HEADER_OVERFLOW',
+		});
+	} finally {
+		await server.close();
+	}
+});
+
+test('http2 respects the default maxHeaderSize', async t => {
+	const server = await createHttp2TestServer(stream => {
+		stream.respond({
+			// eslint-disable-next-line @typescript-eslint/naming-convention
+			':status': 200,
+			'x-large-header': 'a'.repeat(20_000),
+		});
+		stream.end('ok');
+	});
+
+	try {
+		await t.throwsAsync(got(server.url, {
+			http2: true,
+			https: {
+				rejectUnauthorized: false,
+			},
+			retry: {
+				limit: 0,
+			},
+		}), {
+			code: 'HPE_HEADER_OVERFLOW',
+		});
+	} finally {
+		await server.close();
+	}
+});
+
+test('http2 supports maxHeaderSize above the session default', async t => {
+	const largeHeaders = Object.fromEntries(Array.from({length: 7}, (_, index) => [`x-large-header-${index}`, 'a'.repeat(9500)]));
+	let requestCount = 0;
+	const server = await createHttp2TestServer(stream => {
+		requestCount++;
+		if (requestCount === 1) {
+			t.is(stream.session?.remoteSettings.maxHeaderListSize, 128);
+			stream.respond({
+				// eslint-disable-next-line @typescript-eslint/naming-convention
+				':status': 200,
+			});
+			stream.end('small');
+			return;
+		}
+
+		t.is(stream.session?.remoteSettings.maxHeaderListSize, 90_000);
+		stream.on('error', () => {
+			// Keep a header-limit regression attached to this test instead of surfacing as an uncaught server error.
+		});
+		stream.respond({
+			// eslint-disable-next-line @typescript-eslint/naming-convention
+			':status': 200,
+			...largeHeaders,
+		});
+		stream.end('ok');
+	}, {
+		maxSendHeaderBlockLength: 90_000,
+	});
+
+	try {
+		const smallResponse = await got(server.url, {
+			http2: true,
+			maxHeaderSize: 128,
+			https: {
+				rejectUnauthorized: false,
+			},
+		});
+		const response = await got(server.url, {
+			http2: true,
+			maxHeaderSize: 90_000,
+			https: {
+				rejectUnauthorized: false,
+			},
+			retry: {
+				limit: 0,
+			},
+		});
+
+		t.is(smallResponse.body, 'small');
+		t.is(response.body, 'ok');
+		t.is(response.headers['x-large-header-0'], largeHeaders['x-large-header-0']);
+		t.is(requestCount, 2);
+	} finally {
+		await server.close();
+	}
+});
+
+test('http2 maxHeaderSize applies to informational responses', async t => {
+	const server = await createHttp2TestServer(stream => {
+		stream.additionalHeaders({
+			// eslint-disable-next-line @typescript-eslint/naming-convention
+			':status': 103,
+			'x-large-header': 'a'.repeat(4096),
+		});
+		stream.respond({
+			// eslint-disable-next-line @typescript-eslint/naming-convention
+			':status': 200,
+		});
+		stream.end('ok');
+	});
+
+	try {
+		await t.throwsAsync(got(server.url, {
+			http2: true,
+			maxHeaderSize: 128,
+			https: {
+				rejectUnauthorized: false,
+			},
+			retry: {
+				limit: 0,
+			},
+		}), {
+			code: 'HPE_HEADER_OVERFLOW',
+		});
+	} finally {
+		await server.close();
+	}
+});
+
+test('http2 maxHeaderSize applies to response trailers', async t => {
+	const server = await createHttp2TestServer(stream => {
+		stream.respond({
+			// eslint-disable-next-line @typescript-eslint/naming-convention
+			':status': 200,
+		}, {
+			waitForTrailers: true,
+		});
+		stream.on('wantTrailers', () => {
+			stream.sendTrailers({
+				'x-large-trailer': 'a'.repeat(4096),
+			});
+		});
+		stream.end('ok');
+	});
+
+	try {
+		await t.throwsAsync(got(server.url, {
+			http2: true,
+			maxHeaderSize: 128,
+			https: {
+				rejectUnauthorized: false,
+			},
+			retry: {
+				limit: 0,
+			},
+		}), {
+			code: 'HPE_HEADER_OVERFLOW',
+		});
 	} finally {
 		await server.close();
 	}

@@ -1,5 +1,6 @@
 import process from 'node:process';
 import {Buffer} from 'node:buffer';
+import {AsyncLocalStorage} from 'node:async_hooks';
 import {Duplex, type Readable} from 'node:stream';
 import {addAbortListener} from 'node:events';
 import http, {ServerResponse, type ClientRequest, type RequestOptions} from 'node:http';
@@ -85,8 +86,8 @@ export type Progress = {
 const supportsBrotli = is.string(process.versions.brotli);
 const supportsZstd = is.string(process.versions.zstd);
 const methodsWithoutBody: ReadonlySet<string> = new Set(['GET', 'HEAD']);
-// RFC 9111 section 4.4 requires invalidation after unsafe methods. QUERY is safe according to RFC 10008.
-const cacheInvalidatingMethods: ReadonlySet<string> = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+// RFC 9111 section 4.4 requires methods with unknown safety to invalidate cached responses. QUERY is safe according to RFC 10008.
+const cacheSafeMethods: ReadonlySet<string> = new Set(['GET', 'HEAD', 'OPTIONS', 'TRACE', 'QUERY']);
 const cacheInvalidationError = Symbol('cacheInvalidationError');
 const singleValueRequestHeaders: ReadonlySet<string> = new Set([
 	'authorization',
@@ -169,6 +170,11 @@ type StorageAdapter = KeyvStoreAdapter | Keyv | Map<unknown, unknown>;
 
 type CacheContext = 'shared' | 'private';
 
+type CacheWriteMetadata = {
+	cacheKey: string;
+	generation: number;
+};
+
 const cacheableRequestNamespace = 'cacheable-request';
 const keyvNamespace = 'keyv';
 const getCacheContext = (shared: boolean | undefined): CacheContext => shared === false ? 'private' : 'shared';
@@ -189,6 +195,12 @@ const createCacheContextStorageAdapter = (adapter: StorageAdapter, cacheContext:
 
 	const underlyingAdapter = adapter as any;
 	const getKey = (key: string): string => `got:${cacheContext}:${key}`;
+	let cacheGeneration = 0;
+	const getCacheGeneration = (): number => cacheGeneration;
+	const pendingCacheWrites = new Map<string, Set<Promise<unknown>>>();
+	const cacheWriteContext = new AsyncLocalStorage<CacheWriteMetadata | undefined>();
+	const runWithCacheWriteMetadata = <Result>(metadata: CacheWriteMetadata | undefined, function_: () => Result): Result => cacheWriteContext.run(metadata, function_);
+
 	// Keyv's error event has no operation identity, so use its store directly to keep deletion failures scoped while preserving Keyv's delete hooks and statistics.
 	const deleteKeyvCacheEntry = async (keyvAdapter: Keyv, key: string): Promise<void> => {
 		const {namespace} = keyvAdapter;
@@ -211,7 +223,14 @@ const createCacheContextStorageAdapter = (adapter: StorageAdapter, cacheContext:
 		}
 	};
 
-	const deleteCacheEntriesFromAdapter = async (keys: string[]): Promise<void> => {
+	const invalidateCacheEntries = async (keys: string[]): Promise<void> => {
+		// A context-wide generation avoids retaining every mutated URL indefinitely. It may conservatively skip an unrelated retrieval write that began before this invalidation, which only costs a future cache miss.
+		cacheGeneration++;
+
+		// A write that already reached the adapter must settle before deletion. Writes from older generations that arrive later are ignored by `set`.
+		const pendingWrites = keys.flatMap(key => [...(pendingCacheWrites.get(key) ?? [])]);
+		await Promise.allSettled(pendingWrites);
+
 		const deleteCacheEntry = async (key: string): Promise<void> => {
 			if (adapter instanceof Keyv) {
 				await deleteKeyvCacheEntry(adapter, getKey(`${keyvNamespace}:${key}`));
@@ -236,8 +255,29 @@ const createCacheContextStorageAdapter = (adapter: StorageAdapter, cacheContext:
 		async get<Value>(key: string): Promise<Value | undefined> {
 			return underlyingAdapter.get(getKey(key));
 		},
-		set(key: string, value: unknown, ttl?: number): unknown {
-			return underlyingAdapter.set(getKey(key), value, ttl);
+		async set(key: string, value: unknown, ttl?: number): Promise<unknown> {
+			const metadata = cacheWriteContext.getStore();
+			if (metadata && metadata.generation !== getCacheGeneration()) {
+				return true;
+			}
+
+			const writePromise = Promise.resolve(underlyingAdapter.set(getKey(key), value, ttl));
+			if (!metadata) {
+				return writePromise;
+			}
+
+			const writes = pendingCacheWrites.get(metadata.cacheKey) ?? new Set();
+			writes.add(writePromise);
+			pendingCacheWrites.set(metadata.cacheKey, writes);
+
+			try {
+				return await writePromise;
+			} finally {
+				writes.delete(writePromise);
+				if (writes.size === 0) {
+					pendingCacheWrites.delete(metadata.cacheKey);
+				}
+			}
 		},
 		async delete(key: string): Promise<boolean> {
 			return underlyingAdapter.delete(getKey(key));
@@ -258,7 +298,9 @@ const createCacheContextStorageAdapter = (adapter: StorageAdapter, cacheContext:
 	if (!(adapter instanceof Keyv)) {
 		return {
 			cacheAdapter: storageAdapter,
-			deleteCacheEntries: deleteCacheEntriesFromAdapter,
+			getCacheGeneration,
+			invalidateCacheEntries,
+			runWithCacheWriteMetadata,
 		};
 	}
 
@@ -271,7 +313,9 @@ const createCacheContextStorageAdapter = (adapter: StorageAdapter, cacheContext:
 			deserialize: data => data as never,
 			throwOnErrors: adapter.throwOnErrors,
 		}),
-		deleteCacheEntries: deleteCacheEntriesFromAdapter,
+		getCacheGeneration,
+		invalidateCacheEntries,
+		runWithCacheWriteMetadata,
 	};
 };
 
@@ -1694,7 +1738,13 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		const {isGotHttp2Request} = request as ClientRequest & {isGotHttp2Request?: boolean};
 		let timeoutDelays = timeout;
 		if (isGotHttp2Request) {
-			const {socket: _socket, ...http2TimeoutDelays} = timeout;
+			// HTTP/2 creates its TLS connection before exposing a ClientRequest, so the internal client enforces these connection phases at their actual boundaries.
+			const {
+				lookup: _lookup,
+				connect: _connect,
+				secureConnect: _secureConnect,
+				...http2TimeoutDelays
+			} = timeout;
 			timeoutDelays = http2TimeoutDelays;
 		}
 
@@ -2122,9 +2172,19 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			return;
 		}
 
-		const {cacheAdapter, deleteCacheEntries} = createCacheContextStorageAdapter(cache as StorageAdapter, cacheContext);
+		const {cacheAdapter, getCacheGeneration, invalidateCacheEntries, runWithCacheWriteMetadata} = createCacheContextStorageAdapter(cache as StorageAdapter, cacheContext);
 		const cacheableRequest = new CacheableRequest(
 			((requestOptions: RequestOptions, handler?: (response: IncomingMessageWithTimings) => void): ClientRequest => {
+				const method = requestOptions.method ?? 'GET';
+				const cacheKey = method === 'GET' || method === 'HEAD'
+					? getCacheableRequestKey(requestOptions, method)
+					: undefined;
+				const cacheWriteMetadata: CacheWriteMetadata | undefined = cacheKey
+					? {
+						cacheKey,
+						generation: getCacheGeneration(),
+					}
+					: undefined;
 				/**
 				Wraps the cacheable-request handler to run beforeCache hooks.
 				These hooks control caching behavior by:
@@ -2200,17 +2260,16 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 				const cacheHandler = wrappedHandler
 					? async (response: IncomingMessageWithTimings) => {
-						const method = requestOptions.method ?? 'GET';
 						const statusCode = response.statusCode ?? 0;
 
 						if (
-							cacheInvalidatingMethods.has(method)
+							!cacheSafeMethods.has(method)
 							&& statusCode >= 200
 							&& statusCode < 400
 						) {
 							try {
 								// RFC 9111 requires successful unsafe requests to invalidate cached retrievals before their response is exposed.
-								await deleteCacheEntries([
+								await invalidateCacheEntries([
 									getCacheableRequestKey(requestOptions, 'GET'),
 									getCacheableRequestKey(requestOptions, 'HEAD'),
 								]);
@@ -2224,7 +2283,10 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 							}
 						}
 
-						wrappedHandler(response);
+						// CacheableRequest finishes reading and storing the response asynchronously. Async context keeps retrieval generations attached across revalidation and clears any context inherited from a caller's response hook.
+						runWithCacheWriteMetadata(cacheWriteMetadata, () => {
+							wrappedHandler(response);
+						});
 					}
 					: wrappedHandler;
 

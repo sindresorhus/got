@@ -1163,6 +1163,47 @@ test.serial('DNS cache purges expired async cache entries lazily on write', asyn
 	}
 });
 
+test.serial('DNS cache does not scan every entry on each insertion', async t => {
+	const clock = FakeTimers.install({
+		now: 0,
+		toFake: ['Date'],
+	});
+
+	try {
+		const store = new Map<string, any>();
+		let getCallCount = 0;
+		const cache = new DnsCache({
+			cache: {
+				get(key) {
+					getCallCount++;
+					return store.get(key);
+				},
+				set(key, value) {
+					store.set(key, value);
+				},
+				delete(key) {
+					return store.delete(key);
+				},
+			},
+			resolver: createResolver({
+				async resolve4() {
+					return [{address: '127.0.0.1', ttl: 60}];
+				},
+			}),
+		});
+
+		for (let index = 0; index < 100; index++) {
+			// Insert sequentially so each cleanup can observe all preceding entries.
+			// eslint-disable-next-line no-await-in-loop
+			await cache.lookupAsync(`example-${index}.com`, {family: 4});
+		}
+
+		t.is(getCallCount, 100);
+	} finally {
+		clock.uninstall();
+	}
+});
+
 test.serial('DNS cache caps large TTLs and expires them lazily without timers', async t => {
 	const clock = FakeTimers.install({
 		now: 0,

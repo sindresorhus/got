@@ -1,4 +1,4 @@
-import http2, {type ServerHttp2Stream} from 'node:http2';
+import http2, {type SecureServerOptions, type ServerHttp2Stream} from 'node:http2';
 import type net from 'node:net';
 import pify from 'pify';
 import pem from 'pem';
@@ -13,9 +13,10 @@ export type Http2TestServer = {
 	close: () => Promise<void>;
 };
 
-export default async function createHttp2TestServer(onStream: (stream: ServerHttp2Stream, headers: http2.IncomingHttpHeaders) => void): Promise<Http2TestServer> {
+export default async function createHttp2TestServer(onStream: (stream: ServerHttp2Stream, headers: http2.IncomingHttpHeaders) => void, options: SecureServerOptions = {}): Promise<Http2TestServer> {
 	const certificate = await createCertificate({days: 1, selfSigned: true});
 	const server = http2.createSecureServer({
+		...options,
 		key: certificate.serviceKey,
 		cert: certificate.certificate,
 	});

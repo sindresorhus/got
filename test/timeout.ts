@@ -815,9 +815,41 @@ test('http2 timeout', async t => {
 	}
 });
 
-test('http2 socket timeout does not abort an active stream', async t => {
+test('http2 socket timeout aborts an inactive stream', async t => {
 	const server = await createHttp2TestServer(async stream => {
+		stream.respond({
+			// eslint-disable-next-line @typescript-eslint/naming-convention
+			':status': 200,
+		});
+		stream.write('partial');
 		await delay(120);
+		stream.end('late');
+	});
+
+	try {
+		const error = await t.throwsAsync<TimeoutError>(got(server.url, {
+			http2: true,
+			timeout: {
+				socket: 50,
+				request: 1000,
+			},
+			https: {
+				rejectUnauthorized: false,
+			},
+			retry: {
+				limit: 0,
+			},
+		}), errorMatcher);
+
+		t.is(error?.event, 'socket');
+		t.is(error?.message, 'Timeout awaiting \'socket\' for 50ms');
+	} finally {
+		await server.close();
+	}
+});
+
+test('http2 lookup timeout preserves its phase', async t => {
+	const server = await createHttp2TestServer(stream => {
 		stream.respond({
 			// eslint-disable-next-line @typescript-eslint/naming-convention
 			':status': 200,
@@ -826,9 +858,56 @@ test('http2 socket timeout does not abort an active stream', async t => {
 	});
 
 	try {
-		const {body} = await got(server.url, {
+		const error = await t.throwsAsync<TimeoutError>(got(server.url, {
 			http2: true,
+			dnsLookup() {},
 			timeout: {
+				lookup: 50,
+				request: 1000,
+			},
+			https: {
+				rejectUnauthorized: false,
+			},
+			retry: {
+				limit: 0,
+			},
+		}), errorMatcher);
+
+		t.is(error?.event, 'lookup');
+		t.is(error?.message, 'Timeout awaiting \'lookup\' for 50ms');
+	} finally {
+		await server.close();
+	}
+});
+
+test('http2 connect and socket timeouts start after lookup', async t => {
+	const server = await createHttp2TestServer(stream => {
+		stream.respond({
+			// eslint-disable-next-line @typescript-eslint/naming-convention
+			':status': 200,
+		});
+		stream.end('ok');
+	});
+	const {port} = new URL(server.url);
+	const {address} = server.server.address() as net.AddressInfo;
+	const family = net.isIP(address) as 4 | 6;
+	const delayedLookup = ((_hostname, options, callback) => {
+		setTimeout(() => {
+			if (options.all) {
+				callback(null, [{address, family}]);
+				return;
+			}
+
+			callback(null, address, family);
+		}, 100);
+	}) as net.LookupFunction;
+
+	try {
+		const {body} = await got(`https://delayed-lookup.invalid:${port}`, {
+			http2: true,
+			dnsLookup: delayedLookup,
+			timeout: {
+				connect: 50,
 				socket: 50,
 				request: 1000,
 			},
@@ -843,6 +922,55 @@ test('http2 socket timeout does not abort an active stream', async t => {
 		t.is(body, 'ok');
 	} finally {
 		await server.close();
+	}
+});
+
+test('http2 secureConnect timeout preserves its phase', async t => {
+	const sockets = new Set<net.Socket>();
+	const server = net.createServer(socket => {
+		sockets.add(socket);
+		socket.once('close', () => {
+			sockets.delete(socket);
+		});
+	});
+
+	await new Promise<void>(resolve => {
+		server.listen(0, '127.0.0.1', resolve);
+	});
+
+	try {
+		const {port} = server.address() as net.AddressInfo;
+		const error = await t.throwsAsync<TimeoutError>(got(`https://127.0.0.1:${port}`, {
+			http2: true,
+			timeout: {
+				secureConnect: 50,
+				request: 1000,
+			},
+			https: {
+				rejectUnauthorized: false,
+			},
+			retry: {
+				limit: 0,
+			},
+		}), errorMatcher);
+
+		t.is(error?.event, 'secureConnect');
+		t.is(error?.message, 'Timeout awaiting \'secureConnect\' for 50ms');
+	} finally {
+		for (const socket of sockets) {
+			socket.destroy();
+		}
+
+		await new Promise<void>((resolve, reject) => {
+			server.close(error => {
+				if (error) {
+					reject(error);
+					return;
+				}
+
+				resolve();
+			});
+		});
 	}
 });
 
@@ -895,6 +1023,130 @@ test('http2 ALPN negotiation obeys request timeout', async t => {
 				resolve();
 			});
 		});
+	}
+});
+
+test('http2 request timeout includes time spent establishing the session', async t => {
+	let streamReceived!: () => void;
+	const streamReceivedPromise = new Promise<void>(resolve => {
+		streamReceived = resolve;
+	});
+	const server = await createHttp2TestServer(async stream => {
+		streamReceived();
+		await delay(220);
+
+		if (!stream.destroyed) {
+			stream.respond({
+				// eslint-disable-next-line @typescript-eslint/naming-convention
+				':status': 200,
+			});
+			stream.end('late');
+		}
+	});
+	const {address} = server.server.address() as net.AddressInfo;
+	const family = net.isIP(address) as 4 | 6;
+	const {port} = new URL(server.url);
+	const delayedLookup = ((_hostname, options, callback) => {
+		setTimeout(() => {
+			if (options.all) {
+				callback(null, [{address, family}]);
+				return;
+			}
+
+			callback(null, address, family);
+		}, 120);
+	}) as net.LookupFunction;
+
+	try {
+		const startTime = Date.now();
+		const request = got(`https://delayed-session.invalid:${port}`, {
+			http2: true,
+			dnsLookup: delayedLookup,
+			timeout: {
+				request: 300,
+			},
+			https: {
+				rejectUnauthorized: false,
+			},
+			retry: {
+				limit: 0,
+			},
+		});
+
+		await streamReceivedPromise;
+		const error = await t.throwsAsync<TimeoutError>(request, errorMatcher);
+		const elapsed = Date.now() - startTime;
+
+		t.is(error?.event, 'request');
+		t.true(elapsed >= 250, `Expected the full request budget to be used, got ${elapsed}ms`);
+		t.true(elapsed < 400, `Expected the original request deadline, got ${elapsed}ms`);
+	} finally {
+		await server.close();
+	}
+});
+
+test.serial('http2 socket and send timeouts include session setup', async t => {
+	const certificate = await createCertificate({days: 1, selfSigned: true});
+
+	for (const event of ['socket', 'send'] as const) {
+		const sockets = new Set<tls.TLSSocket>();
+		const server = tls.createServer({
+			key: certificate.serviceKey,
+			cert: certificate.certificate,
+			// eslint-disable-next-line @typescript-eslint/naming-convention
+			ALPNProtocols: ['h2'],
+		}, socket => {
+			sockets.add(socket);
+			socket.once('close', () => {
+				sockets.delete(socket);
+			});
+			socket.resume();
+		});
+
+		// eslint-disable-next-line no-await-in-loop
+		await new Promise<void>(resolve => {
+			server.listen(0, 'localhost', resolve);
+		});
+
+		try {
+			const {port} = server.address() as net.AddressInfo;
+			// eslint-disable-next-line no-await-in-loop
+			const error = await t.throwsAsync<TimeoutError>(got(`https://localhost:${port}`, {
+				http2: true,
+				agent: {
+					http2: false,
+				},
+				timeout: {
+					[event]: 50,
+					request: 250,
+				},
+				https: {
+					rejectUnauthorized: false,
+				},
+				retry: {
+					limit: 0,
+				},
+			}), errorMatcher);
+
+			t.is(error?.event, event);
+			t.is(error?.message, `Timeout awaiting '${event}' for 50ms`);
+		} finally {
+			for (const socket of sockets) {
+				socket.destroy();
+			}
+
+			// eslint-disable-next-line no-await-in-loop
+			await new Promise<void>((resolve, reject) => {
+				server.close(error => {
+					if (error) {
+						reject(error);
+						return;
+					}
+
+					resolve();
+				});
+			});
+		}
 	}
 });
 
@@ -968,8 +1220,8 @@ test('http2 session setup after ALPN obeys timeout', async t => {
 			},
 			timeout: {
 				secureConnect: 100,
+				request: 300,
 			},
-			signal: AbortSignal.timeout(300),
 			https: {
 				rejectUnauthorized: false,
 			},
@@ -980,7 +1232,8 @@ test('http2 session setup after ALPN obeys timeout', async t => {
 
 		const elapsed = Date.now() - startTime;
 		t.is(error?.event, 'request', `Got ${error?.event ?? 'undefined'} after ${elapsed}ms: ${error?.message ?? 'no message'}`);
-		t.is(error?.message, 'Timeout awaiting \'request\' for 100ms');
+		t.regex(error?.message ?? '', /^Timeout awaiting 'request' for \d+ms$/);
+		t.true(elapsed >= 250, `Expected request timeout after ALPN, got ${elapsed}ms`);
 		t.is(alpnProtocol, 'h2');
 	} finally {
 		for (const socket of sockets) {

@@ -70,6 +70,7 @@ export type DnsCacheLookup = {
 const ttl = {ttl: true} as const;
 const noResultErrorCodes = new Set(['ENODATA', 'ENOTFOUND', 'ENOENT']);
 const maximumCacheTtl = Math.floor(2_147_483_647 / 1000);
+const cacheCleanupInterval = 1000;
 
 const isPromiseLike = <T>(value: MaybePromise<T>): value is Promise<T> => typeof (value as Promise<T>)?.then === 'function';
 
@@ -254,6 +255,7 @@ export default class DnsCache implements DnsCacheLookup {
 	readonly #errorTtl: number;
 	readonly #minimumVersionByHostname = new Map<string, number>();
 	readonly #activeQueriesByHostname = new Map<string, number>();
+	#nextCacheCleanup = now() + cacheCleanupInterval;
 	#minimumVersion = 0;
 	#clearVersion = 0;
 
@@ -589,6 +591,13 @@ export default class DnsCache implements DnsCacheLookup {
 
 	async #deleteExpiredCacheEntries(): Promise<void> {
 		const time = now();
+
+		if (time < this.#nextCacheCleanup) {
+			return;
+		}
+
+		// Limit full-store cleanup frequency so bursts of unique lookups remain linear. Entries are still expired immediately when read.
+		this.#nextCacheCleanup = time + cacheCleanupInterval;
 		await Promise.all([...this.#cacheKeys].map(async key => this.#deleteExpiredCacheEntry(key, time)));
 	}
 

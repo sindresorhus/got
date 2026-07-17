@@ -72,6 +72,172 @@ test('successful unsafe requests invalidate cached GET responses', withServer, a
 	t.is(getRequestCount, 2);
 });
 
+test('successful unknown unsafe methods invalidate cached GET and HEAD responses', withServer, async (t, server, got) => {
+	let value = 'before';
+	let getRequestCount = 0;
+	let headRequestCount = 0;
+	server.all('/', (request, response) => {
+		switch (request.method) {
+			case 'GET': {
+				getRequestCount++;
+				response.setHeader('Cache-Control', 'public, max-age=60');
+				response.end(value);
+				break;
+			}
+
+			case 'HEAD': {
+				headRequestCount++;
+				response.setHeader('Cache-Control', 'public, max-age=60');
+				response.setHeader('X-Value', value);
+				response.end();
+				break;
+			}
+
+			default: {
+				value = 'after';
+				response.status(204).end();
+			}
+		}
+	});
+
+	const cache = new Map();
+	await got({cache});
+	await got.head({cache});
+	t.true((await got({cache})).isFromCache);
+	t.true((await got.head({cache})).isFromCache);
+
+	// The runtime accepts arbitrary HTTP methods even though the public convenience type enumerates Got's built-in methods.
+	await got({method: 'PURGE' as never, cache});
+
+	const updatedGetResponse = await got({cache});
+	const updatedHeadResponse = await got.head({cache});
+	t.is(updatedGetResponse.body, 'after');
+	t.is(updatedHeadResponse.headers['x-value'], 'after');
+	t.false(updatedGetResponse.isFromCache);
+	t.false(updatedHeadResponse.isFromCache);
+	t.is(getRequestCount, 2);
+	t.is(headRequestCount, 2);
+});
+
+test('in-flight GET requests cannot repopulate stale cache entries after invalidation', withServer, async (t, server, got) => {
+	let value = 'before';
+	let getRequestCount = 0;
+	let notifyGetStarted!: () => void;
+	const getStarted = new Promise<void>(resolve => {
+		notifyGetStarted = resolve;
+	});
+	let releaseGet!: () => void;
+	const getReleased = new Promise<void>(resolve => {
+		releaseGet = resolve;
+	});
+	server.get('/', async (_request, response) => {
+		getRequestCount++;
+		const responseValue = value;
+		notifyGetStarted();
+		await getReleased;
+		response.setHeader('Cache-Control', 'public, max-age=60');
+		response.end(responseValue);
+	});
+	server.post('/', (_request, response) => {
+		value = 'after';
+		response.status(204).end();
+	});
+
+	const cache = new Map();
+	const inFlightResponsePromise = got({cache});
+	await getStarted;
+	await got.post({cache});
+	releaseGet();
+
+	const inFlightResponse = await inFlightResponsePromise;
+	const updatedResponse = await got({cache});
+	t.is(inFlightResponse.body, 'before');
+	t.is(updatedResponse.body, 'after');
+	t.false(updatedResponse.isFromCache);
+	t.is(getRequestCount, 2);
+});
+
+test('in-flight revalidation cannot repopulate stale cache entries after invalidation', withServer, async (t, server, got) => {
+	let value = 'before';
+	let getRequestCount = 0;
+	let notifyRevalidationStarted!: () => void;
+	const revalidationStarted = new Promise<void>(resolve => {
+		notifyRevalidationStarted = resolve;
+	});
+	let releaseRevalidation!: () => void;
+	const revalidationReleased = new Promise<void>(resolve => {
+		releaseRevalidation = resolve;
+	});
+	server.get('/', async (request, response) => {
+		getRequestCount++;
+		response.setHeader('Cache-Control', 'public, max-age=0');
+		response.setHeader('ETag', '"before"');
+
+		if (request.headers['if-none-match']) {
+			notifyRevalidationStarted();
+			await revalidationReleased;
+			response.setHeader('Cache-Control', 'public, max-age=60');
+			response.status(304).end();
+			return;
+		}
+
+		response.end(value);
+	});
+	server.post('/', (_request, response) => {
+		value = 'after';
+		response.status(204).end();
+	});
+
+	const cache = new Map();
+	await got({cache});
+	const revalidationPromise = got({cache});
+	await revalidationStarted;
+	await got.post({cache});
+	releaseRevalidation();
+	await revalidationPromise;
+
+	const updatedResponse = await got({cache});
+	t.is(updatedResponse.body, 'after');
+	t.false(updatedResponse.isFromCache);
+	t.is(getRequestCount, 3);
+});
+
+test('cache write context does not leak into unsafe requests started by response hooks', withServer, async (t, server, got) => {
+	let postRequestCount = 0;
+	server.get('/', (_request, response) => {
+		response.setHeader('Cache-Control', 'public, max-age=60');
+		response.end('ok');
+	});
+	server.post('/', (_request, response) => {
+		postRequestCount++;
+		response.setHeader('Cache-Control', 'public, max-age=60');
+		response.end('posted');
+	});
+
+	const cache = new Map();
+	await got({
+		cache,
+		hooks: {
+			afterResponse: [
+				async response => {
+					await got.post({
+						cache,
+						body: 'payload',
+					});
+					return response;
+				},
+			],
+		},
+	});
+
+	const cachedPostResponse = await got.post({
+		cache,
+		body: 'payload',
+	});
+	t.true(cachedPostResponse.isFromCache);
+	t.is(postRequestCount, 1);
+});
+
 test('PUT, PATCH, and DELETE invalidate cached GET responses', withServer, async (t, server, got) => {
 	const methods = ['PUT', 'PATCH', 'DELETE'] as const;
 	const values = new Map(methods.map(method => [method, 'before']));
@@ -90,18 +256,22 @@ test('PUT, PATCH, and DELETE invalidate cached GET responses', withServer, async
 	});
 
 	const cache = new Map();
-	await Promise.all(methods.map(async method => {
+	for (const method of methods) {
 		const path = method.toLowerCase();
+		// eslint-disable-next-line no-await-in-loop
 		await got(path, {cache});
+		// eslint-disable-next-line no-await-in-loop
 		const cachedResponse = await got(path, {cache});
+		// eslint-disable-next-line no-await-in-loop
 		await got(path, {method, cache});
+		// eslint-disable-next-line no-await-in-loop
 		const updatedResponse = await got(path, {cache});
 
 		t.true(cachedResponse.isFromCache);
 		t.is(updatedResponse.body, 'after');
 		t.false(updatedResponse.isFromCache);
 		t.is(getRequestCounts.get(method), 2);
-	}));
+	}
 });
 
 test('3xx responses to unsafe requests invalidate cached GET responses', withServer, async (t, server, got) => {

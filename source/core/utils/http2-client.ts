@@ -10,7 +10,13 @@ import {Writable, Readable} from 'node:stream';
 import tls from 'node:tls';
 import {urlToHttpOptions} from 'node:url';
 import net, {type Socket} from 'node:net';
-import {TimeoutError} from '../timed-out.js';
+import {TimeoutError, type Delays} from '../timed-out.js';
+
+export const http2Timeouts = Symbol('http2Timeouts');
+
+type Http2Timeouts = Delays & {
+	startedAt: number;
+};
 
 const {
 	HTTP2_HEADER_AUTHORITY,
@@ -67,6 +73,8 @@ type NormalizedRequestOptions = Omit<HttpsRequestOptions, 'agent' | 'createConne
 	_reuseSocketShouldPool?: boolean;
 	_alpnSocket?: Socket;
 	_cancelSessionSetup?: () => void;
+	_onSocket?: (socket: Socket, sessionSetupPending: boolean) => void;
+	[http2Timeouts]?: Http2Timeouts;
 };
 
 type PendingJob = {
@@ -235,6 +243,67 @@ const destroyReuseSocket = (options: NormalizedRequestOptions): void => {
 	delete options._reuseSocketShouldPool;
 };
 
+const setupConnectionTimeouts = (
+	socket: tls.TLSSocket,
+	hostname: string,
+	timeouts: Http2Timeouts | undefined,
+	onTimeout: (error: TimeoutError) => void,
+): (() => void) => {
+	if (!timeouts) {
+		return () => {};
+	}
+
+	let phaseTimeout: NodeJS.Timeout | undefined;
+
+	const clearPhaseTimeout = () => {
+		if (phaseTimeout) {
+			clearTimeout(phaseTimeout);
+			phaseTimeout = undefined;
+		}
+	};
+
+	const startPhaseTimeout = (delay: number | undefined, event: 'lookup' | 'connect' | 'secureConnect') => {
+		clearPhaseTimeout();
+
+		if (delay === undefined) {
+			return;
+		}
+
+		phaseTimeout = setTimeout(() => {
+			onTimeout(new TimeoutError(delay, event));
+		}, delay);
+		phaseTimeout.unref();
+	};
+
+	const onLookup = (error: Error | null) => {
+		clearPhaseTimeout();
+
+		if (!error) {
+			startPhaseTimeout(timeouts.connect, 'connect');
+		}
+	};
+
+	const onConnect = () => {
+		startPhaseTimeout(timeouts.secureConnect, 'secureConnect');
+	};
+
+	const onSecureConnect = () => {
+		clearPhaseTimeout();
+	};
+
+	socket.once('connect', onConnect);
+	socket.once('secureConnect', onSecureConnect);
+
+	if (net.isIP(hostname) === 0) {
+		socket.once('lookup', onLookup);
+		startPhaseTimeout(timeouts.lookup, 'lookup');
+	} else {
+		startPhaseTimeout(timeouts.connect, 'connect');
+	}
+
+	return clearPhaseTimeout;
+};
+
 const normalizeInput = (
 	input: string | URL | HttpsRequestOptions,
 	options?: HttpsRequestOptions | RequestCallback,
@@ -371,14 +440,16 @@ const resolveProtocol = async (
 
 	return new Promise((resolve, reject) => {
 		let settled = false;
-		let timeoutId: NodeJS.Timeout | undefined;
+		let requestTimeout: NodeJS.Timeout | undefined;
 		let removeAbortListener: (() => void) | undefined;
+		let clearConnectionTimeouts = () => {};
 
 		const cleanup = () => {
-			if (timeoutId) {
-				clearTimeout(timeoutId);
+			if (requestTimeout) {
+				clearTimeout(requestTimeout);
 			}
 
+			clearConnectionTimeouts();
 			removeAbortListener?.();
 			socket.off('secureConnect', onSecureConnect);
 			socket.off('error', onError);
@@ -417,10 +488,6 @@ const resolveProtocol = async (
 			rejectOnce(error);
 		};
 
-		const onTimeout = () => {
-			rejectOnce(new TimeoutError(Number(timeout), 'request'));
-		};
-
 		const onClose = () => {
 			const error = new Error('The HTTP/2 ALPN socket closed before negotiation completed') as NodeJS.ErrnoException;
 			error.code = 'ECONNRESET';
@@ -439,9 +506,10 @@ const resolveProtocol = async (
 			return;
 		}
 
-		socket.once('secureConnect', onSecureConnect);
 		socket.once('error', onError);
 		socket.once('close', onClose);
+		clearConnectionTimeouts = setupConnectionTimeouts(socket, hostname, options[http2Timeouts], rejectOnce);
+		socket.once('secureConnect', onSecureConnect);
 
 		if (options.signal) {
 			options.signal.addEventListener('abort', onAbort, {once: true});
@@ -450,9 +518,14 @@ const resolveProtocol = async (
 			};
 		}
 
-		if (timeout !== undefined) {
-			timeoutId = setTimeout(onTimeout, Number(timeout));
-			timeoutId.unref();
+		const requestTimeoutDelay = options[http2Timeouts]?.request ?? (timeout === undefined ? undefined : Number(timeout));
+		if (requestTimeoutDelay !== undefined) {
+			const startedAt = options[http2Timeouts]?.startedAt ?? Date.now();
+			const remainingRequestTimeout = Math.max(0, requestTimeoutDelay - (Date.now() - startedAt));
+			requestTimeout = setTimeout(() => {
+				rejectOnce(new TimeoutError(requestTimeoutDelay, 'request'));
+			}, remainingRequestTimeout);
+			requestTimeout.unref();
 		}
 	});
 };
@@ -505,6 +578,16 @@ const filterHeaders = (headers: http2.IncomingHttpHeaders): IncomingMessage['hea
 	}
 
 	return filteredHeaders;
+};
+
+const getRawHeadersSize = (rawHeaders: string[]): number => {
+	let size = 0;
+
+	for (let index = 0; index < rawHeaders.length; index += 2) {
+		size += Buffer.byteLength(rawHeaders[index]!) + Buffer.byteLength(rawHeaders[index + 1]!) + 4;
+	}
+
+	return size;
 };
 
 const createSocketProxy = (stream: ClientHttp2Stream): Socket => new Proxy(stream.session!.socket, {
@@ -643,6 +726,7 @@ export class Http2Agent extends EventEmitter {
 				this.reserveStream(session);
 			}
 
+			options._onSocket?.(session.socket, false);
 			destroyReuseSocket(options);
 
 			return {
@@ -681,6 +765,7 @@ export class Http2Agent extends EventEmitter {
 		return serializeSessionOptions([
 			origin.origin,
 			...getTlsSessionOptions(options),
+			options.maxHeaderSize ?? http.maxHeaderSize,
 		]);
 	}
 
@@ -755,6 +840,7 @@ export class Http2Agent extends EventEmitter {
 					this.reserveStream(session);
 				}
 
+				entry.options._onSocket?.(session.socket, false);
 				destroyReuseSocket(entry.options);
 				entry.resolve({
 					session,
@@ -828,13 +914,17 @@ export class Http2Agent extends EventEmitter {
 			agent: _agent,
 			h2session: _h2session,
 			_reuseSocketShouldPool,
+			_onSocket,
 			timeout: setupTimeout,
 			...sessionOptions
 		} = entry.options;
 
 		const options: NormalizedRequestOptions = {
 			...sessionOptions,
-			settings: entry.options.settings ?? this.settings,
+			settings: {
+				...(entry.options.settings ?? this.settings),
+				maxHeaderListSize: entry.options.maxHeaderSize ?? http.maxHeaderSize,
+			},
 			ALPNProtocols: ['h2'],
 		};
 
@@ -863,8 +953,10 @@ export class Http2Agent extends EventEmitter {
 		session.reservedStreamCount = 0;
 		session.emptySessionCounted = false;
 		session.gracefullyClosing = false;
+		_onSocket?.(session.socket, true);
 		let settled = false;
 		let sessionSetupTimeout: NodeJS.Timeout | undefined;
+		let clearConnectionTimeouts = () => {};
 
 		const clearSessionSetupTimeout = () => {
 			if (sessionSetupTimeout) {
@@ -875,6 +967,7 @@ export class Http2Agent extends EventEmitter {
 
 		const clearSessionSetup = () => {
 			clearSessionSetupTimeout();
+			clearConnectionTimeouts();
 			this.pendingSessions.delete(session);
 			this.pendingSessionKeys.delete(key);
 			delete entry.options._cancelSessionSetup;
@@ -901,6 +994,21 @@ export class Http2Agent extends EventEmitter {
 				});
 			}, Number(setupTimeout));
 			sessionSetupTimeout.unref();
+		}
+
+		if (!reuseSocket) {
+			clearConnectionTimeouts = setupConnectionTimeouts(session.socket as tls.TLSSocket, getConnectionHostname(entry.origin), entry.options[http2Timeouts], error => {
+				if (settled) {
+					return;
+				}
+
+				settled = true;
+				clearSessionSetup();
+				entry.reject(error);
+				queueMicrotask(() => {
+					session.destroy(error);
+				});
+			});
 		}
 
 		const removeSession = () => {
@@ -1038,6 +1146,14 @@ class Http2ClientRequest extends Writable {
 
 		const normalized = normalizeInput(input, options, callback);
 		this.options = normalized.options;
+		this.options._onSocket = (socket, sessionSetupPending) => {
+			queueMicrotask(() => {
+				if (!this.destroyed) {
+					this.onSocket(socket, sessionSetupPending);
+				}
+			});
+		};
+
 		this.callback = normalized.callback;
 		this.method = (this.options.method ?? 'GET').toUpperCase();
 		this.path = this.method === HTTP2_METHOD_CONNECT ? String(this.options.path ?? '') : String(this.options.path ?? '/');
@@ -1100,6 +1216,10 @@ class Http2ClientRequest extends Writable {
 	private pendingAgentPromise?: Promise<AgentRequestResult>;
 	private readonly connectionHeaderNames = new Set<string>();
 	private trailers?: RequestHeaders;
+	private timeoutMilliseconds?: number;
+	private timeoutCallback?: () => void;
+	private sessionSetupPending = false;
+	private clearSessionSetupSocketTimeout?: () => void;
 
 	get isGotHttp2Request(): true {
 		return true;
@@ -1162,6 +1282,8 @@ class Http2ClientRequest extends Writable {
 			}
 		}
 
+		this.clearSessionSetupSocketTimeout?.();
+
 		if (this.pendingAgentPromise) {
 			void this.pendingAgentPromise.catch(() => {});
 		}
@@ -1198,6 +1320,7 @@ class Http2ClientRequest extends Writable {
 		try {
 			if (this.options.h2session) {
 				this.reusedSocket = true;
+				this.onSocket(this.options.h2session.socket, false);
 				this.onStream(this.options.h2session.request(this.headers, {
 					endStream: false,
 					waitForTrailers: this.trailers !== undefined,
@@ -1327,14 +1450,13 @@ class Http2ClientRequest extends Writable {
 	setSocketKeepAlive(): void {}
 
 	setTimeout(ms: number, callback?: () => void): this {
-		const applyTimeout = () => {
-			this.stream!.setTimeout(ms, callback);
-		};
+		this.timeoutMilliseconds = ms;
+		this.timeoutCallback = callback;
 
 		if (this.stream) {
-			applyTimeout();
-		} else {
-			this.pendingJobs.push({run: applyTimeout});
+			this.stream.setTimeout(ms, callback);
+		} else if (this.socket && this.sessionSetupPending) {
+			this.applySessionSetupSocketTimeout();
 		}
 
 		return this;
@@ -1350,9 +1472,16 @@ class Http2ClientRequest extends Writable {
 	}
 
 	private onStream(stream: ClientHttp2Stream): void {
+		const socketEventWasEmitted = this.socket !== undefined;
+		this.sessionSetupPending = false;
+		this.clearSessionSetupSocketTimeout?.();
 		this.stream = stream;
 		this.socket = createSocketProxy(stream);
 		this.connection = this.socket;
+
+		if (this.timeoutMilliseconds !== undefined) {
+			stream.setTimeout(this.timeoutMilliseconds, this.timeoutCallback);
+		}
 
 		if (this.destroyed) {
 			stream.destroy();
@@ -1378,11 +1507,16 @@ class Http2ClientRequest extends Writable {
 		});
 
 		stream.once('response', (headers, _flags, rawHeaders) => {
+			const normalizedRawHeaders = rawHeaders ? filterRawHeaders(rawHeaders) : toRawHeaders(headers);
+			if (!this.acceptsResponseHeaderBlock(normalizedRawHeaders)) {
+				return;
+			}
+
 			const response = new Http2IncomingMessage(stream, this, stream.readableHighWaterMark);
 			const incomingResponse = response as unknown as IncomingMessage & {req: ClientRequest; _dump: () => void};
 			response.statusCode = Number(headers[HTTP2_HEADER_STATUS]);
 			response.headers = filterHeaders(headers);
-			response.rawHeaders = rawHeaders ? filterRawHeaders(rawHeaders) : toRawHeaders(headers);
+			response.rawHeaders = normalizedRawHeaders;
 			response.url = `${this.origin.origin}${this.path}`;
 			incomingResponse.req = this as unknown as ClientRequest;
 			this.res = incomingResponse;
@@ -1406,6 +1540,11 @@ class Http2ClientRequest extends Writable {
 		});
 
 		stream.on('headers', (headers, _flags, rawHeaders) => {
+			const normalizedRawHeaders = rawHeaders ? filterRawHeaders(rawHeaders) : toRawHeaders(headers);
+			if (!this.acceptsResponseHeaderBlock(normalizedRawHeaders)) {
+				return;
+			}
+
 			this.emit('information', {
 				statusCode: Number(headers[HTTP2_HEADER_STATUS]),
 				statusMessage: '',
@@ -1413,7 +1552,7 @@ class Http2ClientRequest extends Writable {
 				httpVersionMajor: 2,
 				httpVersionMinor: 0,
 				headers: filterHeaders(headers),
-				rawHeaders: rawHeaders ? filterRawHeaders(rawHeaders) : toRawHeaders(headers),
+				rawHeaders: normalizedRawHeaders,
 			});
 		});
 
@@ -1422,8 +1561,13 @@ class Http2ClientRequest extends Writable {
 				return;
 			}
 
+			const normalizedRawTrailers = Array.isArray(rawTrailers) ? filterRawHeaders(rawTrailers) : toRawHeaders(trailers);
+			if (!this.acceptsResponseHeaderBlock(normalizedRawTrailers)) {
+				return;
+			}
+
 			this.res.trailers = trailers as IncomingMessage['trailers'];
-			this.res.rawTrailers = Array.isArray(rawTrailers) ? rawTrailers : toRawHeaders(trailers);
+			this.res.rawTrailers = normalizedRawTrailers;
 		});
 
 		stream.once('close', () => {
@@ -1466,7 +1610,59 @@ class Http2ClientRequest extends Writable {
 		}
 
 		this.pendingJobs = [];
-		this.emit('socket', this.socket);
+		if (!socketEventWasEmitted) {
+			this.emit('socket', this.socket);
+		}
+	}
+
+	private onSocket(socket: Socket, sessionSetupPending: boolean): void {
+		if (this.socket) {
+			return;
+		}
+
+		this.socket = socket;
+		this.connection = socket;
+		this.sessionSetupPending = sessionSetupPending;
+
+		if (sessionSetupPending) {
+			this.applySessionSetupSocketTimeout();
+		}
+
+		this.emit('socket', socket);
+	}
+
+	private applySessionSetupSocketTimeout(): void {
+		const {socket, timeoutMilliseconds, timeoutCallback} = this;
+		if (!socket || timeoutMilliseconds === undefined) {
+			return;
+		}
+
+		this.clearSessionSetupSocketTimeout?.();
+		const previousTimeout = socket.timeout;
+		const onTimeout = timeoutCallback ?? (() => {
+			this.emit('timeout');
+		});
+		socket.setTimeout(timeoutMilliseconds, onTimeout);
+		this.clearSessionSetupSocketTimeout = () => {
+			socket.removeListener('timeout', onTimeout);
+			if (!socket.destroyed) {
+				socket.setTimeout(previousTimeout ?? 0);
+			}
+
+			this.clearSessionSetupSocketTimeout = undefined;
+		};
+	}
+
+	private acceptsResponseHeaderBlock(rawHeaders: string[]): boolean {
+		// HTTP/2 maxHeaderListSize is session-wide and only advertised to the peer. Got's maxHeaderSize is per request, so enforce it on every decoded response header block.
+		if (getRawHeadersSize(rawHeaders) <= (this.options.maxHeaderSize ?? http.maxHeaderSize)) {
+			return true;
+		}
+
+		const error = new Error('Parse Error: Header overflow') as NodeJS.ErrnoException;
+		error.code = 'HPE_HEADER_OVERFLOW';
+		this.destroy(error);
+		return false;
 	}
 }
 
