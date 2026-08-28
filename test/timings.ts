@@ -159,7 +159,7 @@ test('cached DNS lookups reuse resolved addresses in timing requests', withServe
 
 	// Enable DNS cache and disable keep-alive to get new connections
 	const instance = got.extend({
-		dnsCache: new DnsCache({resolver}),
+		dnsCache: new DnsCache({resolver, errorTtl: 60}),
 		agent: {
 			http: new http.Agent({
 				keepAlive: false,

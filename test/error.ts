@@ -363,21 +363,38 @@ test('no uncaught parse errors #2', async t => {
 	await close();
 });
 
-test('no uncaught parse errors on fallback to utf8', withServer, async (t, server, got) => {
+test.serial('no uncaught parse errors on fallback to utf8', withServer, async (t, server, got) => {
+	const originalDecode = globalThis.TextDecoder.prototype.decode;
+	let decodeCallCount = 0;
+
 	server.get('/', (_request, response) => {
-		const buffer = Buffer.alloc(536_870_912, 'A');
-		response.statusCode = 200;
-		response.end(buffer);
+		response.end('{}');
 	});
 
-	await t.throwsAsync(got({
-		timeout: {
-			request: 60_000,
-		},
-	}), {
-		instanceOf: RequestError,
-		code: 'ERR_BODY_PARSE_FAILURE',
-	});
+	try {
+		await t.throwsAsync(got({
+			responseType: 'json',
+			parseJson() {
+				globalThis.TextDecoder.prototype.decode = function (): never {
+					decodeCallCount++;
+					if (decodeCallCount === 2) {
+						globalThis.TextDecoder.prototype.decode = originalDecode;
+					}
+
+					throw new RangeError('Injected fallback decode failure');
+				};
+
+				throw new SyntaxError('Injected parse failure');
+			},
+		}), {
+			instanceOf: RequestError,
+			code: 'ERR_BODY_PARSE_FAILURE',
+		});
+
+		t.is(decodeCallCount, 2);
+	} finally {
+		globalThis.TextDecoder.prototype.decode = originalDecode;
+	}
 });
 
 test('the old stacktrace is recovered', async t => {

@@ -1,9 +1,20 @@
+import http from 'node:http';
+import {gzipSync} from 'node:zlib';
 import test from 'ava';
 import * as toughCookie from 'tough-cookie';
 import delay from 'delay';
 import got, {RequestError} from '../source/index.js';
 import {createRawHttpServer} from './helpers/server-tools.js';
 import withServer from './helpers/with-server.js';
+
+const createEvent = () => {
+	let emit!: () => void;
+	const emitted = new Promise<void>(resolve => {
+		emit = resolve;
+	});
+
+	return {emit, emitted};
+};
 
 test('reads a cookie', withServer, async (t, server, got) => {
 	server.get('/', (_request, response) => {
@@ -67,6 +78,420 @@ test('throws on invalid cookies', withServer, async (t, server, got) => {
 		instanceOf: RequestError,
 		message: 'Cookie failed to parse',
 	});
+});
+
+test('cookie jar errors preserve a response body that ends during the cookie write', withServer, async (t, server, got) => {
+	const expectedBody = 'response body'.repeat(10_000);
+	const cookieWriteStarted = createEvent();
+	const clientResponseEnded = createEvent();
+	let responseReadCount = 0;
+
+	server.get('/', async (_request, response) => {
+		response.setHeader('set-cookie', 'hello=world');
+		response.flushHeaders();
+		await cookieWriteStarted.emitted;
+		response.end(expectedBody);
+	});
+
+	const error = await t.throwsAsync<RequestError>(got({
+		request(url, options, callback) {
+			return http.request(url, options, response => {
+				response.once('end', clientResponseEnded.emit);
+				const toArray = response.toArray.bind(response);
+				response.toArray = async () => {
+					responseReadCount++;
+					return toArray();
+				};
+
+				callback?.(response);
+			});
+		},
+		cookieJar: {
+			async getCookieString() {
+				return '';
+			},
+			async setCookie() {
+				cookieWriteStarted.emit();
+				await clientResponseEnded.emitted;
+				throw new Error('Cookie write failed');
+			},
+		},
+	}));
+
+	t.is(error?.message, 'Cookie write failed');
+	t.is(error?.response?.body, expectedBody);
+	t.deepEqual(error?.response?.rawBody, new TextEncoder().encode(expectedBody));
+	t.is(responseReadCount, 1);
+});
+
+test('cookie jar errors preserve a response body still being received during the cookie write', withServer, async (t, server, got) => {
+	const firstChunk = 'first chunk';
+	const secondChunk = 'second chunk'.repeat(10_000);
+	const cookieWriteStarted = createEvent();
+	const cookieWriteFailed = createEvent();
+	const cookieWriteFailureObserved = createEvent();
+
+	server.get('/', async (_request, response) => {
+		response.setHeader('set-cookie', 'hello=world');
+		response.flushHeaders();
+		await cookieWriteStarted.emitted;
+		await new Promise<void>((resolve, reject) => {
+			response.write(firstChunk, error => {
+				if (error) {
+					reject(error);
+					return;
+				}
+
+				resolve();
+			});
+		});
+		cookieWriteFailed.emit();
+		await cookieWriteFailureObserved.emitted;
+		response.end(secondChunk);
+	});
+
+	const error = await t.throwsAsync<RequestError>(got({
+		cookieJar: {
+			async getCookieString() {
+				return '';
+			},
+			async setCookie() {
+				cookieWriteStarted.emit();
+				await cookieWriteFailed.emitted;
+				cookieWriteFailureObserved.emit();
+				throw new Error('Cookie write failed');
+			},
+		},
+	}));
+	const expectedBody = firstChunk + secondChunk;
+
+	t.is(error?.message, 'Cookie write failed');
+	t.is(error?.response?.body, expectedBody);
+	t.deepEqual(error?.response?.rawBody, new TextEncoder().encode(expectedBody));
+});
+
+test('async cookie writes consume the response body once', withServer, async (t, server, got) => {
+	const expectedBody = 'response body';
+	const clientResponseEnded = createEvent();
+	const cookieWriteMayFinish = createEvent();
+	let responseReadCount = 0;
+
+	server.get('/', (_request, response) => {
+		response.setHeader('set-cookie', 'hello=world');
+		response.end(expectedBody);
+	});
+
+	const requestPromise = got({
+		request(url, options, callback) {
+			return http.request(url, options, response => {
+				response.once('end', clientResponseEnded.emit);
+				const toArray = response.toArray.bind(response);
+				response.toArray = async () => {
+					responseReadCount++;
+					return toArray();
+				};
+
+				callback?.(response);
+			});
+		},
+		cookieJar: {
+			async getCookieString() {
+				return '';
+			},
+			async setCookie() {
+				await clientResponseEnded.emitted;
+				await cookieWriteMayFinish.emitted;
+			},
+		},
+		timeout: {request: 5000},
+	});
+	await clientResponseEnded.emitted;
+	const requestStillPending = Symbol('requestStillPending');
+	const earlyResult = await Promise.race([
+		requestPromise,
+		new Promise<typeof requestStillPending>(resolve => {
+			setImmediate(() => {
+				resolve(requestStillPending);
+			});
+		}),
+	]);
+	cookieWriteMayFinish.emit();
+	const response = await requestPromise;
+	t.is(earlyResult, requestStillPending);
+
+	t.is(response.body, expectedBody);
+	t.deepEqual(response.rawBody, new TextEncoder().encode(expectedBody));
+	t.is(responseReadCount, 1);
+});
+
+test('terminal redirects wait for async cookie writes', withServer, async (t, server, got) => {
+	const expectedBody = 'redirect response body';
+	const clientResponseEnded = createEvent();
+	let storedCookie: string | undefined;
+
+	server.get('/', (_request, response) => {
+		response.statusCode = 302;
+		response.setHeader('location', '/not-followed');
+		response.setHeader('set-cookie', 'hello=world');
+		response.end(expectedBody);
+	});
+
+	const response = await got({
+		followRedirect: false,
+		request(url, options, callback) {
+			return http.request(url, options, response => {
+				response.once('end', clientResponseEnded.emit);
+				callback?.(response);
+			});
+		},
+		cookieJar: {
+			async getCookieString() {
+				return '';
+			},
+			async setCookie(rawCookie: string) {
+				await clientResponseEnded.emitted;
+				storedCookie = rawCookie;
+			},
+		},
+		retry: {limit: 0},
+		timeout: {request: 5000},
+	});
+
+	t.is(response.statusCode, 302);
+	t.is(response.body, expectedBody);
+	t.is(storedCookie, 'hello=world');
+});
+
+test('ignored cookie jar errors preserve a body received across the cookie write', withServer, async (t, server, got) => {
+	const firstChunk = 'first chunk';
+	const secondChunk = 'second chunk';
+	const cookieWriteStarted = createEvent();
+	const cookieWriteMayFail = createEvent();
+	const cookieWriteFailed = createEvent();
+
+	server.get('/', async (_request, response) => {
+		response.setHeader('set-cookie', 'hello=world');
+		response.flushHeaders();
+		await cookieWriteStarted.emitted;
+		response.write(firstChunk);
+		cookieWriteMayFail.emit();
+		await cookieWriteFailed.emitted;
+		response.end(secondChunk);
+	});
+
+	const response = await got({
+		cookieJar: {
+			async getCookieString() {
+				return '';
+			},
+			async setCookie() {
+				cookieWriteStarted.emit();
+				await cookieWriteMayFail.emitted;
+				cookieWriteFailed.emit();
+				throw new Error('Cookie write failed');
+			},
+		},
+		ignoreInvalidCookies: true,
+	});
+
+	const expectedBody = firstChunk + secondChunk;
+	t.is(response.body, expectedBody);
+	t.deepEqual(response.rawBody, new TextEncoder().encode(expectedBody));
+});
+
+test('cookie jar errors preserve decompressed response bodies', withServer, async (t, server, got) => {
+	const expectedBody = 'compressed response body'.repeat(100);
+	const clientResponseEnded = createEvent();
+
+	server.get('/', (_request, response) => {
+		response.setHeader('content-encoding', 'gzip');
+		response.setHeader('set-cookie', 'hello=world');
+		response.end(gzipSync(expectedBody));
+	});
+
+	const error = await t.throwsAsync<RequestError>(got({
+		request(url, options, callback) {
+			return http.request(url, options, response => {
+				response.once('end', clientResponseEnded.emit);
+				callback?.(response);
+			});
+		},
+		cookieJar: {
+			async getCookieString() {
+				return '';
+			},
+			async setCookie() {
+				await clientResponseEnded.emitted;
+				throw new Error('Cookie write failed');
+			},
+		},
+	}));
+
+	t.is(error?.response?.body, expectedBody);
+	t.deepEqual(error?.response?.rawBody, new TextEncoder().encode(expectedBody));
+});
+
+test('cookie jar errors respect the configured response encoding', withServer, async (t, server, got) => {
+	const expectedRawBody = new Uint8Array([0x48, 0xE9]);
+	const clientResponseEnded = createEvent();
+
+	server.get('/', (_request, response) => {
+		response.setHeader('set-cookie', 'hello=world');
+		response.end(expectedRawBody);
+	});
+
+	const error = await t.throwsAsync<RequestError>(got({
+		encoding: 'latin1',
+		request(url, options, callback) {
+			return http.request(url, options, response => {
+				response.once('end', clientResponseEnded.emit);
+				callback?.(response);
+			});
+		},
+		cookieJar: {
+			async getCookieString() {
+				return '';
+			},
+			async setCookie() {
+				await clientResponseEnded.emitted;
+				throw new Error('Cookie write failed');
+			},
+		},
+	}));
+
+	t.is(error?.response?.body, 'Hé');
+	t.deepEqual(error?.response?.rawBody, expectedRawBody);
+});
+
+test('cookie jar errors preserve empty response bodies', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.setHeader('set-cookie', 'hello=world');
+		response.end();
+	});
+
+	const error = await t.throwsAsync<RequestError>(got({
+		cookieJar: {
+			async getCookieString() {
+				return '';
+			},
+			async setCookie() {
+				throw new Error('Cookie write failed');
+			},
+		},
+	}));
+
+	t.is(error?.response?.body, '');
+	t.deepEqual(error?.response?.rawBody, new Uint8Array());
+});
+
+test('beforeError hooks receive a complete multibyte response body after a cookie jar error', withServer, async (t, server, got) => {
+	const firstChunk = new Uint8Array([0xE2]);
+	const secondChunk = new Uint8Array([0x82, 0xAC]);
+	const bodyBytesRead = createEvent();
+	const bodyCaptureMayFinish = createEvent();
+	const cookieWriteFailed = createEvent();
+	const expectedRawBody = new Uint8Array([...firstChunk, ...secondChunk]);
+	let responseReadCount = 0;
+	let hookCallCount = 0;
+
+	server.get('/', (_request, response) => {
+		response.setHeader('set-cookie', 'hello=world');
+		response.write(firstChunk);
+		response.end(secondChunk);
+	});
+
+	const errorPromise = t.throwsAsync<RequestError>(got({
+		request(url, options, callback) {
+			return http.request(url, options, response => {
+				const toArray = response.toArray.bind(response);
+				response.toArray = async () => {
+					responseReadCount++;
+					const chunks = await toArray();
+					bodyBytesRead.emit();
+					await bodyCaptureMayFinish.emitted;
+					return chunks;
+				};
+
+				callback?.(response);
+			});
+		},
+		cookieJar: {
+			async getCookieString() {
+				return '';
+			},
+			async setCookie() {
+				await bodyBytesRead.emitted;
+				cookieWriteFailed.emit();
+				throw new Error('Cookie write failed');
+			},
+		},
+		hooks: {
+			beforeError: [error => {
+				hookCallCount++;
+				t.is(error.response?.body, '€');
+				t.deepEqual(error.response?.rawBody, expectedRawBody);
+				return error;
+			}],
+		},
+	}));
+	await cookieWriteFailed.emitted;
+	await new Promise(resolve => {
+		setImmediate(resolve);
+	});
+	const hookCallCountBeforeBodyCaptureFinished = hookCallCount;
+	bodyCaptureMayFinish.emit();
+	const error = await errorPromise;
+
+	t.is(hookCallCountBeforeBodyCaptureFinished, 0);
+	t.is(hookCallCount, 1);
+	t.is(responseReadCount, 1);
+	t.is(error?.response?.body, '€');
+	t.deepEqual(error?.response?.rawBody, expectedRawBody);
+});
+
+test('cookie response body capture is isolated between retry attempts', withServer, async (t, server, got) => {
+	let requestCount = 0;
+	let cookieWriteCount = 0;
+	let beforeRetryCallCount = 0;
+
+	server.get('/', (_request, response) => {
+		requestCount++;
+		response.setHeader('set-cookie', `attempt=${requestCount}`);
+		response.end(`body ${requestCount}`);
+	});
+
+	const response = await got({
+		cookieJar: {
+			async getCookieString() {
+				return '';
+			},
+			async setCookie() {
+				cookieWriteCount++;
+				if (cookieWriteCount === 1) {
+					throw new Error('Cookie write failed');
+				}
+			},
+		},
+		retry: {
+			limit: 1,
+			enforceRetryRules: false,
+			calculateDelay({attemptCount}) {
+				return attemptCount === 1 ? 1 : 0;
+			},
+		},
+		hooks: {
+			beforeRetry: [error => {
+				beforeRetryCallCount++;
+				t.is(error.response?.body, 'body 1');
+				t.deepEqual(error.response?.rawBody, new TextEncoder().encode('body 1'));
+			}],
+		},
+	});
+
+	t.is(response.body, 'body 2');
+	t.is(requestCount, 2);
+	t.is(cookieWriteCount, 2);
+	t.is(beforeRetryCallCount, 1);
 });
 
 test('does not throw on invalid cookies when options.ignoreInvalidCookies is set', withServer, async (t, server, got) => {

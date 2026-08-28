@@ -3,6 +3,7 @@ import type {LookupFunction} from 'node:net';
 import {expectTypeOf} from 'expect-type';
 import got, {
 	Options,
+	type NativeRequestOptions as PublicNativeRequestOptions,
 	type OptionsInit,
 	type Request,
 	type RequestPromise,
@@ -173,3 +174,5 @@ type NativeRequestOptions = ReturnType<Options['createNativeRequestOptions']>;
 
 expectTypeOf(options.dnsCache).toExtend<{lookup: LookupFunction} | undefined>();
 expectTypeOf<NativeRequestOptions['lookup']>().toEqualTypeOf<LookupFunction | undefined>();
+expectTypeOf<NativeRequestOptions>().not.toHaveProperty('_socketTimeout');
+expectTypeOf<PublicNativeRequestOptions>().not.toHaveProperty('_socketTimeout');

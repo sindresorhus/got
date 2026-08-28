@@ -512,11 +512,14 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			if (response?.readable && !response.rawBody && !this._request?.socket?.destroyed) {
 				// @types/node has incorrect typings. `setEncoding` accepts `null` as well.
 				response.setEncoding(this.readableEncoding!);
+				await this._setRawBody(response);
+			}
 
-				const success = await this._setRawBody(response);
-
-				if (success) {
-					response.body = decodeUint8Array(response.rawBody!);
+			if (response?.rawBody && response.body === undefined) {
+				try {
+					response.body = decodeUint8Array(response.rawBody, options.encoding);
+				} catch {
+					// Preserve the original request error when decoding its response body also fails.
 				}
 			}
 
@@ -1051,17 +1054,16 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		const shouldFollowRedirect = isRedirect && (typeof options.followRedirect === 'function' ? options.followRedirect(typedResponse) : options.followRedirect);
 
 		if (options.decompress && !hasNoBody && !shouldFollowRedirect) {
-			// When strictContentLength is enabled, track compressed bytes by listening to
-			// the native response's data events before decompression
-			if (options.strictContentLength) {
+			response = decompressResponse(response);
+			typedResponse = prepareResponse(response as PlainResponse);
+
+			// When strictContentLength is enabled, track the compressed bytes emitted by the native response.
+			if (options.strictContentLength && response !== nativeResponse) {
 				this._compressedBytesCount = 0;
 				nativeResponse.on('data', (chunk: Uint8Array) => {
 					this._compressedBytesCount! += byteLength(chunk);
 				});
 			}
-
-			response = decompressResponse(response);
-			typedResponse = prepareResponse(response as PlainResponse);
 		}
 
 		// `decompressResponse` wraps the response stream when it decompresses,
@@ -1166,13 +1168,14 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			response.once('end', handleResponseEnd);
 		}
 
-		const noPipeCookieJarRawBodyPromise = this._noPipe
+		const rawCookies = response.headers['set-cookie'];
+		const responseRawBodyPromise = this._noPipe
 			&& is.object(options.cookieJar)
-			&& !isRedirect
+			&& rawCookies !== undefined
+			&& !shouldFollowRedirect
 			? this._setRawBody(response)
 			: undefined;
 
-		const rawCookies = response.headers['set-cookie'];
 		if (is.object(options.cookieJar) && rawCookies) {
 			let promises: Array<Promise<unknown>> = rawCookies.map(async (rawCookie: string) => (options.cookieJar as PromiseCookieJar).setCookie(rawCookie, url!.toString()));
 
@@ -1187,6 +1190,10 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			try {
 				await Promise.all(promises);
 			} catch (error: unknown) {
+				if (responseRawBodyPromise) {
+					await responseRawBodyPromise;
+				}
+
 				this._beforeError(normalizeError(error));
 				return;
 			}
@@ -1409,9 +1416,6 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			return;
 		}
 
-		canFinalizeResponse = true;
-		handleResponseEnd();
-
 		// `HTTPError`s always have `error.response.body` defined.
 		// Therefore, we cannot retry if `options.throwHttpErrors` is false.
 		// On the last retry, if `options.throwHttpErrors` is false, we would need to return the body,
@@ -1452,12 +1456,18 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		});
 
 		if (this._noPipe) {
-			const captureFromResponse = response.readableEnded || noPipeCookieJarRawBodyPromise !== undefined;
-			const success = noPipeCookieJarRawBodyPromise
-				? await noPipeCookieJarRawBodyPromise
+			const captureFromResponse = response.readableEnded || responseRawBodyPromise !== undefined;
+			if (!captureFromResponse) {
+				canFinalizeResponse = true;
+				handleResponseEnd();
+			}
+
+			const success = responseRawBodyPromise
+				? await responseRawBodyPromise
 				: await this._setRawBody(captureFromResponse ? response : this);
 
 			if (captureFromResponse) {
+				canFinalizeResponse = true;
 				handleResponseEnd();
 			}
 
@@ -1494,6 +1504,13 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 			destination.statusCode = statusCode;
 		}
+
+		if (this._triggerRead) {
+			this._read();
+		}
+
+		canFinalizeResponse = true;
+		handleResponseEnd();
 	}
 
 	private async _setRawBody(from: Readable = this): Promise<boolean> {

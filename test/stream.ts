@@ -1,5 +1,6 @@
 import process from 'node:process';
 import {Buffer} from 'node:buffer';
+import {gzipSync} from 'node:zlib';
 import fs from 'node:fs';
 import {Agent as HttpAgent, request as httpRequest, type ClientRequest} from 'node:http';
 import stream, {Readable as ReadableStream, Writable} from 'node:stream';
@@ -83,6 +84,7 @@ test('stream reads a cookie and completes after async cookie jar write', withSer
 		response.end('body');
 	});
 
+	const events: string[] = [];
 	let storedCookie = '';
 	const cookieJar = {
 		async getCookieString() {
@@ -91,12 +93,26 @@ test('stream reads a cookie and completes after async cookie jar write', withSer
 		async setCookie(rawCookie: string) {
 			await delay(50);
 			storedCookie = rawCookie;
+			events.push('cookie');
 		},
 	};
 
-	await t.notThrowsAsync(expectStreamToEnd(got.stream({cookieJar})));
+	const request = got.stream({cookieJar});
+	request.on('response', () => {
+		events.push('response');
+	});
+	request.once('data', () => {
+		events.push('data');
+	});
+	request.on('end', () => {
+		events.push('end');
+	});
 
+	const body = await getStream(request);
+
+	t.is(body, 'body');
 	t.is(storedCookie, 'hello=world');
+	t.deepEqual(events, ['cookie', 'response', 'data', 'end']);
 });
 
 test('stream follows redirect after storing redirect cookies', withServer, async (t, server, got) => {
@@ -1262,6 +1278,27 @@ test('validates content-length for gzip compressed responses', withServer, async
 			message: /Content-Length mismatch/v,
 		},
 	);
+});
+
+test('accepts a matching content-length for a gzip compressed response', withServer, async (t, server, got) => {
+	const expectedBody = 'compressed response body'.repeat(100);
+	const gzippedData = gzipSync(expectedBody);
+
+	server.get('/', (_request, response) => {
+		response.writeHead(200, {
+			'content-encoding': 'gzip',
+			'content-length': String(gzippedData.length),
+		});
+
+		for (let index = 0; index < gzippedData.length; index += 7) {
+			response.write(gzippedData.subarray(index, index + 7));
+		}
+
+		response.end();
+	});
+
+	const body = await got('', {strictContentLength: true}).text();
+	t.is(body, expectedBody);
 });
 
 test('handles empty gzip compressed responses with strictContentLength', withServer, async (t, server, got) => {

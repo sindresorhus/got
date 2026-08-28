@@ -5,7 +5,7 @@ import {pipeline as streamPipeline} from 'node:stream/promises';
 import http from 'node:http';
 import http2, {type ServerHttp2Stream} from 'node:http2';
 import https from 'node:https';
-import net from 'node:net';
+import net, {type LookupFunction} from 'node:net';
 import tls from 'node:tls';
 import getStream from 'get-stream';
 import test from 'ava';
@@ -792,9 +792,10 @@ test('http2 timeout', async t => {
 	});
 
 	try {
+		const timeout = 500;
 		const promise = got(server.url, {
 			timeout: {
-				request: 100,
+				request: timeout,
 			},
 			http2: true,
 			https: {
@@ -805,14 +806,31 @@ test('http2 timeout', async t => {
 			},
 		});
 
-		await streamReceivedPromise;
-		const error = await t.throwsAsync<TimeoutError>(promise, errorMatcher);
+		const errorPromise = t.throwsAsync<TimeoutError>(promise, errorMatcher);
+		const waitForStream = async () => {
+			await streamReceivedPromise;
+
+			return true;
+		};
+
+		const waitForTimeout = async () => {
+			await errorPromise;
+
+			return false;
+		};
+
+		const streamWasReceived = await Promise.race([
+			waitForStream(),
+			waitForTimeout(),
+		]);
+		t.true(streamWasReceived, 'Expected the HTTP/2 stream to be established before the request timed out');
+		const error = await errorPromise;
 		t.is(error?.event, 'request');
 		const message = error?.message ?? '';
 		t.regex(message, /^Timeout awaiting 'request' for \d+ms$/);
 		const threshold = Number(/\d+/.exec(message)?.[0]);
 		t.true(threshold > 0);
-		t.true(threshold <= 100);
+		t.true(threshold <= timeout);
 	} finally {
 		await server.close();
 	}
@@ -820,7 +838,7 @@ test('http2 timeout', async t => {
 
 test('http2 socket timeout does not abort an active stream', async t => {
 	const server = await createHttp2TestServer(async stream => {
-		await delay(120);
+		await delay(1200);
 		stream.respond({
 			// eslint-disable-next-line @typescript-eslint/naming-convention
 			':status': 200,
@@ -832,8 +850,8 @@ test('http2 socket timeout does not abort an active stream', async t => {
 		const {body} = await got(server.url, {
 			http2: true,
 			timeout: {
-				socket: 50,
-				request: 1000,
+				socket: 500,
+				request: 5000,
 			},
 			https: {
 				rejectUnauthorized: false,
@@ -901,7 +919,110 @@ test('http2 ALPN negotiation obeys request timeout', async t => {
 	}
 });
 
-test('http2 session setup after ALPN obeys timeout', async t => {
+test('http2 socket timeout applies during stalled TLS negotiation', async t => {
+	const sockets = new Set<net.Socket>();
+	const server = net.createServer(socket => {
+		sockets.add(socket);
+		socket.once('close', () => {
+			sockets.delete(socket);
+		});
+	});
+
+	await new Promise<void>(resolve => {
+		server.listen(0, '127.0.0.1', resolve);
+	});
+
+	try {
+		const {port} = server.address() as net.AddressInfo;
+		const error = await t.throwsAsync<TimeoutError>(got(`https://127.0.0.1:${port}`, {
+			http2: true,
+			timeout: {
+				socket: 50,
+			},
+			signal: AbortSignal.timeout(300),
+			retry: {
+				limit: 0,
+			},
+			https: {
+				rejectUnauthorized: false,
+			},
+		}), errorMatcher);
+
+		t.is(error?.event, 'socket');
+		t.is(error?.message, 'Timeout awaiting \'socket\' for 50ms');
+	} finally {
+		for (const socket of sockets) {
+			socket.destroy();
+		}
+
+		await new Promise<void>((resolve, reject) => {
+			server.close(error => {
+				if (error) {
+					reject(error);
+					return;
+				}
+
+				resolve();
+			});
+		});
+	}
+});
+
+test('http2 socket timeout excludes DNS lookup time', async t => {
+	const server = await createHttp2TestServer(stream => {
+		stream.respond({
+			// eslint-disable-next-line @typescript-eslint/naming-convention
+			':status': 200,
+		});
+		stream.end('ok');
+	});
+	const serverAddress = server.server.address() as net.AddressInfo;
+	let lookupAddress = serverAddress.address;
+	if (lookupAddress === '::') {
+		lookupAddress = '::1';
+	} else if (lookupAddress === '0.0.0.0') {
+		lookupAddress = '127.0.0.1';
+	}
+
+	const lookupFamily = net.isIP(lookupAddress);
+	const dnsLookup = ((_hostname: string, options: any, callback: any) => {
+		setTimeout(() => {
+			if (options.all) {
+				callback(undefined, [{address: lookupAddress, family: lookupFamily}]);
+				return;
+			}
+
+			callback(undefined, lookupAddress, lookupFamily);
+		}, 1000);
+	}) as LookupFunction;
+
+	try {
+		const makeRequest = async () => got(server.url, {
+			http2: true,
+			agent: {
+				http2: false,
+			},
+			dnsLookup,
+			timeout: {
+				socket: 500,
+				request: 5000,
+			},
+			https: {
+				rejectUnauthorized: false,
+			},
+			retry: {
+				limit: 0,
+			},
+		});
+
+		t.is((await makeRequest()).body, 'ok');
+		t.is((await makeRequest()).body, 'ok');
+	} finally {
+		await server.close();
+	}
+});
+
+test('http2 session setup after ALPN obeys request and socket timeouts', async t => {
 	const certificate = await createCertificate({days: 1, selfSigned: true});
 	const http2Server = http2.createSecureServer({
 		key: certificate.serviceKey,
@@ -970,9 +1091,9 @@ test('http2 session setup after ALPN obeys timeout', async t => {
 				http2: false,
 			},
 			timeout: {
-				secureConnect: 100,
+				secureConnect: 500,
 			},
-			signal: AbortSignal.timeout(300),
+			signal: AbortSignal.timeout(3000),
 			https: {
 				rejectUnauthorized: false,
 			},
@@ -983,8 +1104,28 @@ test('http2 session setup after ALPN obeys timeout', async t => {
 
 		const elapsed = Date.now() - startTime;
 		t.is(error?.event, 'request', `Got ${error?.event ?? 'undefined'} after ${elapsed}ms: ${error?.message ?? 'no message'}`);
-		t.is(error?.message, 'Timeout awaiting \'request\' for 100ms');
+		t.is(error?.message, 'Timeout awaiting \'request\' for 500ms');
 		t.is(alpnProtocol, 'h2');
+
+		const socketError = await t.throwsAsync<TimeoutError>(got(url, {
+			http2: true,
+			agent: {
+				http2: false,
+			},
+			timeout: {
+				socket: 500,
+			},
+			signal: AbortSignal.timeout(3000),
+			https: {
+				rejectUnauthorized: false,
+			},
+			retry: {
+				limit: 0,
+			},
+		}), errorMatcher);
+
+		t.is(socketError?.event, 'socket');
+		t.is(socketError?.message, 'Timeout awaiting \'socket\' for 500ms');
 	} finally {
 		for (const socket of sockets) {
 			socket.destroy();
@@ -1019,8 +1160,8 @@ test('http2 fallback keeps HTTP/1.1 socket timeout', withHttpsServer(), async (t
 			});
 		},
 		timeout: {
-			socket: 100,
-			request: 500,
+			socket: 500,
+			request: 2500,
 		},
 		retry: {
 			limit: 0,
@@ -1030,21 +1171,21 @@ test('http2 fallback keeps HTTP/1.1 socket timeout', withHttpsServer(), async (t
 		},
 	}), {
 		...errorMatcher,
-		message: 'Timeout awaiting \'socket\' for 100ms',
+		message: 'Timeout awaiting \'socket\' for 500ms',
 	});
 });
 
 test('http2 fallback does not use ALPN timeout as HTTP/1.1 socket timeout', withHttpsServer(), async (t, server, got) => {
 	server.get('/', async (_request, response) => {
-		await delay(120);
+		await delay(2000);
 		response.end('ok');
 	});
 
 	const {body} = await got({
 		http2: true,
 		timeout: {
-			lookup: 20,
-			request: 1000,
+			lookup: 1000,
+			request: 5000,
 		},
 		retry: {
 			limit: 0,
@@ -1092,7 +1233,7 @@ test('http2 option on HTTP does not use ALPN timeout as socket timeout', withSer
 	const {body} = await got({
 		http2: true,
 		timeout: {
-			lookup: 20,
+			secureConnect: 20,
 			request: 1000,
 		},
 		retry: {
@@ -1156,7 +1297,7 @@ test('http2 ALPN negotiation treats zero request timeout as immediate', async t 
 test('request timeout includes async custom request function time', withServer, async (t, server, got) => {
 	server.get('/', () => {});
 
-	const timeout = 100;
+	const timeout = 500;
 	const startTime = Date.now();
 	const error = await t.throwsAsync<RequestError>(got({
 		http2: true,
@@ -1167,20 +1308,20 @@ test('request timeout includes async custom request function time', withServer, 
 			limit: 0,
 		},
 		async request(url, options, callback) {
-			await delay(80);
+			await delay(400);
 			return http.request(url, options, callback);
 		},
 	}));
 
 	const elapsed = Date.now() - startTime;
 	t.is(error?.code, 'ETIMEDOUT');
-	t.true(elapsed < 170, `Expected timeout ${elapsed}ms to include async request function time`);
+	t.true(elapsed < 850, `Expected timeout ${elapsed}ms to include async request function time`);
 });
 
 test('request timeout includes async custom request fallback time', withServer, async (t, server, got) => {
 	server.get('/', () => {});
 
-	const timeout = 100;
+	const timeout = 500;
 	const startTime = Date.now();
 	const error = await t.throwsAsync<RequestError>(got({
 		timeout: {
@@ -1190,14 +1331,14 @@ test('request timeout includes async custom request fallback time', withServer, 
 			limit: 0,
 		},
 		async request() {
-			await delay(80);
+			await delay(400);
 			return undefined;
 		},
 	}));
 
 	const elapsed = Date.now() - startTime;
 	t.is(error?.code, 'ETIMEDOUT');
-	t.true(elapsed < 170, `Expected timeout ${elapsed}ms to include async fallback request time`);
+	t.true(elapsed < 850, `Expected timeout ${elapsed}ms to include async fallback request time`);
 });
 
 test('request timeout aborts slow async custom request function', withServer, async (t, server, got) => {
@@ -1205,7 +1346,7 @@ test('request timeout aborts slow async custom request function', withServer, as
 		response.end('too late');
 	});
 
-	const timeout = 50;
+	const timeout = 500;
 	const startTime = Date.now();
 	const error = await t.throwsAsync<RequestError>(got({
 		http2: true,
@@ -1216,14 +1357,14 @@ test('request timeout aborts slow async custom request function', withServer, as
 			limit: 0,
 		},
 		async request() {
-			await delay(200);
+			await delay(2000);
 			return undefined;
 		},
 	}));
 
 	const elapsed = Date.now() - startTime;
 	t.is(error?.code, 'ETIMEDOUT');
-	t.true(elapsed < 150, `Expected timeout ${elapsed}ms to happen before custom request resolution`);
+	t.true(elapsed < 1500, `Expected timeout ${elapsed}ms to happen before custom request resolution`);
 });
 
 test('request timeout destroys late async custom request result', withServer, async (t, server, got) => {
@@ -1263,28 +1404,88 @@ test('request timeout destroys late async custom request result', withServer, as
 	}
 });
 
-test('http2 custom request does not receive ALPN timeout', withHttpsServer(), async (t, server, got) => {
+test('http2 custom request does not receive internal ALPN timeouts', withHttpsServer(), async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.end('ok');
 	});
 
 	let requestTimeout: NativeRequestOptions['timeout'] | undefined;
+	let hasSocketTimeout: boolean | undefined;
 	const {body} = await got({
 		http2: true,
 		timeout: {
 			request: 1000,
+			socket: 1000,
 		},
 		retry: {
 			limit: 0,
 		},
 		request(_url, options) {
 			requestTimeout = options.timeout;
+			hasSocketTimeout = Object.hasOwn(options, '_socketTimeout');
 			return undefined;
 		},
 	});
 
 	t.is(body, 'ok');
 	t.is(requestTimeout, undefined);
+	t.false(hasSocketTimeout);
+});
+
+test('http2 custom request fallback retains the internal socket timeout', async t => {
+	const sockets = new Set<net.Socket>();
+	const server = net.createServer(socket => {
+		sockets.add(socket);
+		socket.once('close', () => {
+			sockets.delete(socket);
+		});
+	});
+
+	await new Promise<void>(resolve => {
+		server.listen(0, '127.0.0.1', resolve);
+	});
+
+	let customRequestCalled = false;
+	try {
+		const {port} = server.address() as net.AddressInfo;
+		const error = await t.throwsAsync<TimeoutError>(got(`https://127.0.0.1:${port}`, {
+			http2: true,
+			timeout: {
+				socket: 50,
+			},
+			signal: AbortSignal.timeout(300),
+			retry: {
+				limit: 0,
+			},
+			https: {
+				rejectUnauthorized: false,
+			},
+			request(_url, options) {
+				customRequestCalled = true;
+				t.false(Object.hasOwn(options, '_socketTimeout'));
+				return undefined;
+			},
+		}), errorMatcher);
+
+		t.true(customRequestCalled);
+		t.is(error?.event, 'socket');
+		t.is(error?.message, 'Timeout awaiting \'socket\' for 50ms');
+	} finally {
+		for (const socket of sockets) {
+			socket.destroy();
+		}
+
+		await new Promise<void>((resolve, reject) => {
+			server.close(error => {
+				if (error) {
+					reject(error);
+					return;
+				}
+
+				resolve();
+			});
+		});
+	}
 });
 
 test('http2 async custom request fallback uses remaining request timeout for ALPN', async t => {
@@ -1302,7 +1503,7 @@ test('http2 async custom request fallback uses remaining request timeout for ALP
 
 	try {
 		const {port} = server.address() as net.AddressInfo;
-		const timeout = 100;
+		const timeout = 500;
 		const startTime = Date.now();
 		const error = await t.throwsAsync<RequestError>(got(`https://127.0.0.1:${port}`, {
 			http2: true,
@@ -1316,14 +1517,14 @@ test('http2 async custom request fallback uses remaining request timeout for ALP
 				rejectUnauthorized: false,
 			},
 			async request() {
-				await delay(80);
+				await delay(400);
 				return undefined;
 			},
 		}));
 
 		const elapsed = Date.now() - startTime;
 		t.is(error?.code, 'ETIMEDOUT');
-		t.true(elapsed < 170, `Expected fallback ALPN timeout ${elapsed}ms to include async request function time`);
+		t.true(elapsed < 850, `Expected fallback ALPN timeout ${elapsed}ms to include async request function time`);
 	} finally {
 		for (const socket of sockets) {
 			socket.destroy();

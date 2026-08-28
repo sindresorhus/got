@@ -40,7 +40,9 @@ export type DnsLookupIpVersion = undefined | 4 | 6;
 
 type Except<ObjectType, KeysType extends keyof ObjectType> = Pick<ObjectType, Exclude<keyof ObjectType, KeysType>>;
 
-export type NativeRequestOptions = HttpsRequestOptions & CacheOptions & {checkServerIdentity?: CheckServerIdentityFunction};
+export type NativeRequestOptions = HttpsRequestOptions & CacheOptions & {
+	checkServerIdentity?: CheckServerIdentityFunction;
+};
 
 type AcceptableResponse = IncomingMessageWithTimings | ResponseLike;
 type AcceptableRequestResult = Promisable<AcceptableResponse | ClientRequest | undefined>;
@@ -1547,7 +1549,6 @@ const cloneRaw = (raw: OptionsInit) => {
 
 const getHttp2TimeoutOption = (internals: typeof defaultInternals): number | undefined => {
 	const delays = [
-		internals.timeout.socket,
 		internals.timeout.connect,
 		internals.timeout.lookup,
 		internals.timeout.request,
@@ -3371,6 +3372,8 @@ export default class Options {
 	createNativeRequestOptions() {
 		const internals = this.#internals;
 		const url = internals.url as URL;
+		const usesAlpn = usesHttp2Alpn(internals, url);
+		const socketTimeout = usesAlpn ? internals.timeout.socket : undefined;
 
 		let agent;
 		if (url.protocol === 'https:') {
@@ -3414,7 +3417,7 @@ export default class Options {
 			? {socketPath: unixSocketGroups.socketPath, path: unixSocketGroups.path, host: ''}
 			: undefined;
 
-		return {
+		const nativeRequestOptions = {
 			...internals.cacheOptions,
 			...unixOptions,
 
@@ -3451,11 +3454,14 @@ export default class Options {
 			headers: internals.headers,
 			createConnection: internals.createConnection,
 			signal: internals.http2 ? internals.signal : undefined,
-			timeout: usesHttp2Alpn(internals, url) ? getHttp2TimeoutOption(internals) : undefined,
+			timeout: usesAlpn ? getHttp2TimeoutOption(internals) : undefined,
+			...(socketTimeout === undefined ? {} : {_socketTimeout: socketTimeout}),
 
 			// HTTP/2 options
 			h2session: internals.h2session,
 		};
+
+		return nativeRequestOptions as Except<typeof nativeRequestOptions, '_socketTimeout'>;
 	}
 
 	getRequestFunction() {
@@ -3468,13 +3474,18 @@ export default class Options {
 		const requestWithFallback: RequestFunction = (url, options, callback?) => {
 			const requestStartedAt = Date.now();
 			const nativeAgent = getNativeAgent(url, options.agent);
-			const customRequestOptions = options.timeout !== undefined || nativeAgent !== options.agent
+			const hasInternalSocketTimeout = Object.hasOwn(options, '_socketTimeout');
+			const customRequestOptions = options.timeout !== undefined || hasInternalSocketTimeout || nativeAgent !== options.agent
 				? {
 					...options,
 					agent: nativeAgent,
 					timeout: undefined,
 				}
 				: options;
+
+			if (hasInternalSocketTimeout) {
+				Reflect.deleteProperty(customRequestOptions, '_socketTimeout');
+			}
 
 			const result = customRequest(url, customRequestOptions, callback);
 

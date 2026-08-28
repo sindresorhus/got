@@ -1220,35 +1220,34 @@ test('reuses request options on retry', withServer, async (t, server, got) => {
 });
 
 test('respects backoffLimit', withServer, async (t, server, got) => {
-	let count = 0;
-	let timestamp = Date.now();
-	const data: number[] = [];
+	let requestCount = 0;
+	const computedValues: number[] = [];
 
 	server.get('/', (_request, response) => {
-		count++;
+		requestCount++;
 
-		const now = Date.now();
-		data.push(now - timestamp);
-		timestamp = now;
-
-		if (count === 3) {
-			response.end(JSON.stringify(data));
+		if (requestCount === 3) {
+			response.end();
 		} else {
 			response.statusCode = 408;
 			response.end();
 		}
 	});
 
-	const body = await got('', {
+	const {retryCount} = await got('', {
 		retry: {
-			backoffLimit: 0,
+			backoffLimit: 10,
+			noise: 0,
+			calculateDelay({computedValue}) {
+				computedValues.push(computedValue);
+				return computedValue;
+			},
 		},
-	}).json<number[]>();
+	});
 
-	t.is(body.length, 3);
-	t.true(body[0]! < 400);
-	t.true(body[1]! < 400);
-	t.true(body[2]! < 400);
+	t.is(retryCount, 2);
+	t.is(requestCount, 3);
+	t.deepEqual(computedValues, [10, 10]);
 });
 
 test('enforceRetryRules respects statusCodes with custom calculateDelay', withServer, async (t, server, got) => {

@@ -67,6 +67,7 @@ type NormalizedRequestOptions = Omit<HttpsRequestOptions, 'agent' | 'createConne
 	_reuseSocketShouldPool?: boolean;
 	_alpnSocket?: Socket;
 	_cancelSessionSetup?: () => void;
+	_socketTimeout?: number;
 };
 
 type PendingJob = {
@@ -343,6 +344,7 @@ const resolveProtocol = async (
 		_reuseSocket,
 		_reuseSocketShouldPool,
 		_alpnSocket,
+		_socketTimeout,
 		timeout,
 		createConnection,
 		checkServerIdentity,
@@ -373,6 +375,7 @@ const resolveProtocol = async (
 		let settled = false;
 		let timeoutId: NodeJS.Timeout | undefined;
 		let removeAbortListener: (() => void) | undefined;
+		let socketTimeoutApplied = false;
 
 		const cleanup = () => {
 			if (timeoutId) {
@@ -383,6 +386,12 @@ const resolveProtocol = async (
 			socket.off('secureConnect', onSecureConnect);
 			socket.off('error', onError);
 			socket.off('close', onClose);
+			socket.off('connect', applySocketTimeout);
+			socket.off('timeout', onSocketTimeout);
+			if (socketTimeoutApplied) {
+				socket.setTimeout(0);
+			}
+
 			delete options._alpnSocket;
 			delete sourceOptions._alpnSocket;
 		};
@@ -421,6 +430,16 @@ const resolveProtocol = async (
 			rejectOnce(new TimeoutError(Number(timeout), 'request'));
 		};
 
+		const onSocketTimeout = () => {
+			rejectOnce(new TimeoutError(_socketTimeout!, 'socket'));
+		};
+
+		const applySocketTimeout = () => {
+			socketTimeoutApplied = true;
+			socket.setTimeout(_socketTimeout!);
+			socket.once('timeout', onSocketTimeout);
+		};
+
 		const onClose = () => {
 			const error = new Error('The HTTP/2 ALPN socket closed before negotiation completed') as NodeJS.ErrnoException;
 			error.code = 'ECONNRESET';
@@ -442,6 +461,13 @@ const resolveProtocol = async (
 		socket.once('secureConnect', onSecureConnect);
 		socket.once('error', onError);
 		socket.once('close', onClose);
+		if (_socketTimeout !== undefined) {
+			if (socket.connecting) {
+				socket.once('connect', applySocketTimeout);
+			} else {
+				applySocketTimeout();
+			}
+		}
 
 		if (options.signal) {
 			options.signal.addEventListener('abort', onAbort, {once: true});
@@ -828,6 +854,7 @@ export class Http2Agent extends EventEmitter {
 			agent: _agent,
 			h2session: _h2session,
 			_reuseSocketShouldPool,
+			_socketTimeout,
 			timeout: setupTimeout,
 			...sessionOptions
 		} = entry.options;
@@ -865,6 +892,9 @@ export class Http2Agent extends EventEmitter {
 		session.gracefullyClosing = false;
 		let settled = false;
 		let sessionSetupTimeout: NodeJS.Timeout | undefined;
+		let socketTimeoutApplied = false;
+		const sessionSocket = session.socket;
+		const removeSessionSocketListener = sessionSocket.removeListener.bind(sessionSocket);
 
 		const clearSessionSetupTimeout = () => {
 			if (sessionSetupTimeout) {
@@ -873,11 +903,47 @@ export class Http2Agent extends EventEmitter {
 			}
 		};
 
+		const clearSocketTimeout = () => {
+			removeSessionSocketListener('connect', applySocketTimeout);
+			if (!socketTimeoutApplied) {
+				return;
+			}
+
+			socketTimeoutApplied = false;
+			session.off('timeout', onSocketTimeout);
+			if (!session.closed && !session.destroyed) {
+				session.setTimeout(this.timeout);
+			}
+		};
+
 		const clearSessionSetup = () => {
 			clearSessionSetupTimeout();
+			clearSocketTimeout();
 			this.pendingSessions.delete(session);
 			this.pendingSessionKeys.delete(key);
 			delete entry.options._cancelSessionSetup;
+		};
+
+		const rejectSessionSetup = (error: Error) => {
+			if (settled) {
+				return;
+			}
+
+			settled = true;
+			clearSessionSetup();
+			entry.reject(error);
+			queueMicrotask(() => {
+				session.destroy(error);
+			});
+		};
+
+		const onSocketTimeout = () => {
+			rejectSessionSetup(new TimeoutError(_socketTimeout!, 'socket'));
+		};
+
+		const applySocketTimeout = () => {
+			socketTimeoutApplied = true;
+			session.setTimeout(_socketTimeout!, onSocketTimeout);
 		};
 
 		if (this.timeout > 0) {
@@ -886,19 +952,17 @@ export class Http2Agent extends EventEmitter {
 			});
 		}
 
+		if (_socketTimeout !== undefined) {
+			if (sessionSocket.connecting) {
+				sessionSocket.once('connect', applySocketTimeout);
+			} else {
+				applySocketTimeout();
+			}
+		}
+
 		if (setupTimeout !== undefined) {
 			sessionSetupTimeout = setTimeout(() => {
-				if (settled) {
-					return;
-				}
-
-				settled = true;
-				clearSessionSetup();
-				const error = new TimeoutError(Number(setupTimeout), 'request');
-				entry.reject(error);
-				queueMicrotask(() => {
-					session.destroy(error);
-				});
+				rejectSessionSetup(new TimeoutError(Number(setupTimeout), 'request'));
 			}, Number(setupTimeout));
 			sessionSetupTimeout.unref();
 		}
@@ -1496,6 +1560,7 @@ const requestHttp1 = (options: NormalizedRequestOptions, agent: AgentObject | Ht
 
 	options.ALPNProtocols = ['http/1.1'];
 	delete options.timeout;
+	delete options._socketTimeout;
 
 	if (options.headers) {
 		const headers: Record<string, any> = {...options.headers};
@@ -1518,6 +1583,7 @@ const requestWithCustomHttpsAgent = (options: NormalizedRequestOptions, agent: A
 	options.agent = agent.https;
 	options.ALPNProtocols = ['http/1.1'];
 	delete options.timeout;
+	delete options._socketTimeout;
 
 	return https.request(options as HttpsRequestOptions, callback);
 };
