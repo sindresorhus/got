@@ -8,7 +8,7 @@ import is from '@sindresorhus/is';
 import type {Handler} from 'express';
 import getStream from 'get-stream';
 import {pEvent} from 'p-event';
-import got, {HTTPError, type RequestError, TimeoutError} from '../source/index.js';
+import got, {HTTPError, RequestError, TimeoutError} from '../source/index.js';
 import type Request from '../source/core/index.js';
 import withServer from './helpers/with-server.js';
 
@@ -237,7 +237,7 @@ test('retries when ClientRequest emits a connection error before its end callbac
 	let beforeRetryCount = 0;
 	let beforeErrorCount = 0;
 
-	const error = await t.throwsAsync<RequestError>(got('http://localhost', {
+	const error = await t.throwsAsync(got('http://localhost', {
 		request() {
 			attemptCount++;
 			return createRequestWithEndError('request-error-first');
@@ -257,7 +257,9 @@ test('retries when ClientRequest emits a connection error before its end callbac
 				return error;
 			}],
 		},
-	}));
+	}), {
+		instanceOf: RequestError,
+	});
 
 	t.is(attemptCount, 3);
 	t.is(beforeRetryCount, 2);
