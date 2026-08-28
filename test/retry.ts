@@ -8,7 +8,7 @@ import is from '@sindresorhus/is';
 import type {Handler} from 'express';
 import getStream from 'get-stream';
 import {pEvent} from 'p-event';
-import got, {HTTPError, TimeoutError} from '../source/index.js';
+import got, {HTTPError, RequestError, TimeoutError} from '../source/index.js';
 import type Request from '../source/core/index.js';
 import withServer from './helpers/with-server.js';
 
@@ -32,6 +32,34 @@ const createSocketTimeoutStream = (url: string): http.ClientRequest => {
 	return http.request(url, {
 		timeout: socketTimeout,
 	});
+};
+
+type RequestEndErrorScenario = 'request-error-first' | 'end-callback-only';
+
+const createRequestWithEndError = (scenario: RequestEndErrorScenario): http.ClientRequest => {
+	const request = new EventEmitter() as http.ClientRequest;
+	(request as any).end = (callback: (error: Error) => void) => {
+		const connectionError = Object.assign(new Error('connect ECONNREFUSED 127.0.0.1:80'), {code: 'ECONNREFUSED'});
+
+		queueMicrotask(() => {
+			if (scenario === 'request-error-first') {
+				request.emit('error', connectionError);
+			}
+
+			callback(connectionError);
+		});
+	};
+
+	(request as any).destroyed = false;
+	(request as any).destroy = () => {
+		(request as any).destroyed = true;
+		return request;
+	};
+
+	(request as any).writable = true;
+	(request as any).writableEnded = false;
+
+	return request;
 };
 
 test('works on timeout', withServer, async (t, server, got) => {
@@ -202,6 +230,90 @@ test('custom error codes', async t => {
 
 	t.is(capturedErrorCode, errorCode);
 	t.is(error?.code, errorCode);
+});
+
+test('retries when ClientRequest emits a connection error before its end callback receives it', async t => {
+	let attemptCount = 0;
+	let beforeRetryCount = 0;
+	let beforeErrorCount = 0;
+
+	const error = await t.throwsAsync(got('http://localhost', {
+		request() {
+			attemptCount++;
+			return createRequestWithEndError('request-error-first');
+		},
+		retry: {
+			limit: 2,
+			backoffLimit: 1,
+			noise: 0,
+		},
+		hooks: {
+			beforeRetry: [error => {
+				beforeRetryCount++;
+				t.is(error.code, 'ECONNREFUSED');
+			}],
+			beforeError: [error => {
+				beforeErrorCount++;
+				return error;
+			}],
+		},
+	}), {
+		instanceOf: RequestError,
+	});
+
+	t.is(attemptCount, 3);
+	t.is(beforeRetryCount, 2);
+	t.is(beforeErrorCount, 1);
+	t.is(error?.code, 'ECONNREFUSED');
+	t.is(error?.request?.retryCount, 2);
+});
+
+test('recovers when retrying after a request end error', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.end('ok');
+	});
+
+	let attemptCount = 0;
+	const response = await got({
+		request(url, options) {
+			attemptCount++;
+
+			if (attemptCount === 1) {
+				return createRequestWithEndError('end-callback-only');
+			}
+
+			return http.request(url, options);
+		},
+		retry: {
+			limit: 1,
+			backoffLimit: 1,
+			noise: 0,
+		},
+	});
+
+	t.is(response.body, 'ok');
+	t.is(response.retryCount, 1);
+	t.is(attemptCount, 2);
+});
+
+test('end callback errors do not finish the stream before retrying', async t => {
+	const stream = got.stream('http://localhost', {
+		request: () => createRequestWithEndError('end-callback-only'),
+		retry: {
+			limit: 1,
+			backoffLimit: 1,
+			noise: 0,
+		},
+	});
+	let finishCount = 0;
+	stream.on('finish', () => {
+		finishCount++;
+	});
+
+	await pEvent(stream, 'retry');
+
+	t.is(finishCount, 0);
+	t.false(stream.writableFinished);
 });
 
 test('respects 413 Retry-After', withServer, async (t, server, got) => {
