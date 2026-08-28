@@ -769,14 +769,15 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 					return;
 				}
 
+				this._hasWritableBody = false;
+
 				if (error) {
-					// Route end callback errors through Got's retry handling. Passing one to `callback` would also emit it from this Duplex and can settle the promise while a retry is pending.
+					// `ClientRequest.end()` can report the same failure as the request's `error` event. Route it through Got's retry handling without completing `_final`, so this Duplex does not finish a failed upload.
 					this._beforeError(error);
-				} else {
-					this._emitUploadComplete(request);
+					return;
 				}
 
-				this._hasWritableBody = false;
+				this._emitUploadComplete(request);
 				callback();
 			});
 		};
