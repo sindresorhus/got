@@ -34,6 +34,35 @@ const createSocketTimeoutStream = (url: string): http.ClientRequest => {
 	});
 };
 
+type EndErrorOrder = 'request-error-first' | 'end-callback-first' | 'end-callback-only';
+
+const createRequestWithEndError = (order: EndErrorOrder): http.ClientRequest => {
+	const request = new EventEmitter() as http.ClientRequest;
+	(request as any).end = (callback: (error: Error) => void) => {
+		const connectionError = Object.assign(new Error('connect ECONNREFUSED 127.0.0.1:80'), {code: 'ECONNREFUSED'});
+
+		queueMicrotask(() => {
+			if (order === 'request-error-first') {
+				request.emit('error', connectionError);
+				callback(connectionError);
+				return;
+			}
+
+			callback(connectionError);
+
+			if (order === 'end-callback-first') {
+				request.emit('error', connectionError);
+			}
+		});
+	};
+
+	(request as any).destroy = () => {};
+	(request as any).writable = true;
+	(request as any).writableEnded = false;
+
+	return request;
+};
+
 test('works on timeout', withServer, async (t, server, got) => {
 	let knocks = 0;
 	server.get('/', (_request, response) => {
@@ -203,6 +232,49 @@ test('custom error codes', async t => {
 	t.is(capturedErrorCode, errorCode);
 	t.is(error?.code, errorCode);
 });
+
+const endErrorTestCases: Array<{title: string; order: EndErrorOrder}> = [
+	{
+		title: 'retries when the request error precedes the matching end callback error',
+		order: 'request-error-first',
+	},
+	{
+		title: 'retries when the end callback error precedes the matching request error',
+		order: 'end-callback-first',
+	},
+	{
+		title: 'retries when only the end callback reports the request error',
+		order: 'end-callback-only',
+	},
+];
+
+for (const {title, order} of endErrorTestCases) {
+	test(title, async t => {
+		let attemptCount = 0;
+		let beforeRetryCount = 0;
+
+		const error = await t.throwsAsync<Error & {code: string}>(got('http://localhost', {
+			request() {
+				attemptCount++;
+				return createRequestWithEndError(order);
+			},
+			retry: {
+				limit: 2,
+				backoffLimit: 1,
+			},
+			hooks: {
+				beforeRetry: [error => {
+					beforeRetryCount++;
+					t.is(error.code, 'ECONNREFUSED');
+				}],
+			},
+		}));
+
+		t.is(attemptCount, 3);
+		t.is(beforeRetryCount, 2);
+		t.is(error?.code, 'ECONNREFUSED');
+	});
+}
 
 test('respects 413 Retry-After', withServer, async (t, server, got) => {
 	let lastTried413access = Date.now();
