@@ -532,12 +532,12 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 						retryAfter = Number(response.headers['retry-after']);
 						if (Number.isNaN(retryAfter)) {
 							retryAfter = Date.parse(response.headers['retry-after']!) - Date.now();
-
-							if (retryAfter <= 0) {
-								retryAfter = 1;
-							}
 						} else {
 							retryAfter *= 1000;
+						}
+
+						if (retryAfter <= 0) {
+							retryAfter = 1;
 						}
 					}
 
