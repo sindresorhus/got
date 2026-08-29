@@ -337,6 +337,34 @@ test('respects 413 Retry-After', withServer, async (t, server, got) => {
 	t.true(Number(body) >= retryAfterOn413 * 1000);
 });
 
+for (const statusCode of [413, 429, 503]) {
+	test(`retries immediately on ${statusCode} with Retry-After of 0`, withServer, async (t, server, got) => {
+		let requestCount = 0;
+		server.get('/', (_request, response) => {
+			requestCount++;
+			if (requestCount === 1) {
+				response.writeHead(statusCode, {'Retry-After': '0'}).end();
+				return;
+			}
+
+			response.end('ok');
+		});
+		const response = await got({
+			throwHttpErrors: false,
+			retry: {
+				limit: 1,
+				calculateDelay({computedValue, retryAfter}) {
+					t.is(retryAfter, 1);
+					t.is(computedValue, 1);
+					return 1;
+				},
+			},
+		});
+		t.is(response.statusCode, 200);
+		t.is(response.retryCount, 1);
+	});
+}
+
 test('respects 413 Retry-After with RFC-1123 timestamp', withServer, async (t, server, got) => {
 	let lastTried413TimestampAccess: string;
 	server.get('/', (_request, response) => {
