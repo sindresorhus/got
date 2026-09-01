@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/member-ordering, @typescript-eslint/naming-convention, @typescript-eslint/no-restricted-types, @typescript-eslint/no-deprecated, promise/prefer-await-to-then */
 import {Buffer} from 'node:buffer';
 import {EventEmitter} from 'node:events';
+import process from 'node:process';
 import http, {
 	type Agent as HttpAgent, type ClientRequest, type IncomingMessage, validateHeaderName, validateHeaderValue,
 } from 'node:http';
@@ -1218,12 +1219,6 @@ class Http2ClientRequest extends Writable {
 			this.stream.close(NGHTTP2_CANCEL);
 		} else {
 			this.options._cancelSessionSetup?.();
-
-			if (error === null) {
-				queueMicrotask(() => {
-					this.emit('close');
-				});
-			}
 		}
 
 		if (this.pendingAgentPromise) {
@@ -1235,6 +1230,13 @@ class Http2ClientRequest extends Writable {
 		}
 
 		callback(error);
+
+		if (!this.stream) {
+			// Node.js emits the `error` event on the next tick after the destroy callback, so `close` must be queued after it to keep the `http.ClientRequest` event order.
+			process.nextTick(() => {
+				this.emit('close');
+			});
+		}
 	}
 
 	abort(): void {

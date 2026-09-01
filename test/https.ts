@@ -682,6 +682,28 @@ test('http2 normalizes request trailers', async t => {
 	}
 });
 
+test('http2 request emits `close` after an error that happens before a stream is created', async t => {
+	const server = net.createServer();
+	await new Promise<void>(resolve => {
+		server.listen(0, '127.0.0.1', resolve);
+	});
+	const {port} = server.address() as net.AddressInfo;
+	await closeServer(server);
+
+	const request = http2Request(`https://127.0.0.1:${port}`);
+	const events: string[] = [];
+	request.once('error', () => {
+		events.push('error');
+	});
+	request.once('close', () => {
+		events.push('close');
+	});
+	request.end();
+
+	await t.notThrowsAsync(pEvent(request, 'close', {rejectionEvents: [], timeout: 1000}));
+	t.deepEqual(events, ['error', 'close']);
+});
+
 test('http2 request validates undefined header values', t => {
 	t.throws(() => {
 		http2Request('https://example.com', {
