@@ -265,3 +265,20 @@ test('assigning a partial retry object keeps the other retry defaults', t => {
 	t.is(options.retry.noise, defaults.noise);
 	t.is(options.retry.enforceRetryRules, defaults.enforceRetryRules);
 });
+
+test('assigning a partial pagination object keeps the other pagination defaults', t => {
+	const defaults = new Options().pagination;
+	const options = new Options();
+	const paginate = (): false => false;
+
+	options.pagination = {paginate};
+
+	t.is(options.pagination.paginate, paginate);
+	t.is(options.pagination.transform, defaults.transform);
+	t.is(options.pagination.filter, defaults.filter);
+	t.is(options.pagination.shouldContinue, defaults.shouldContinue);
+	t.is(options.pagination.countLimit, defaults.countLimit);
+	t.is(options.pagination.requestLimit, defaults.requestLimit);
+	t.is(options.pagination.backoff, defaults.backoff);
+	t.is(options.pagination.stackAllItems, defaults.stackAllItems);
+});

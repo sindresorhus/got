@@ -3307,7 +3307,8 @@ export default class Options {
 		if (this.#merging) {
 			safeObjectAssign(this.#internals.pagination, value);
 		} else {
-			this.#internals.pagination = value;
+			// A partial object must not drop the other pagination settings, as the pagination logic requires them.
+			this.#internals.pagination = {...this.#internals.pagination, ...value};
 		}
 	}
 
