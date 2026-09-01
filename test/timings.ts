@@ -1,4 +1,5 @@
 import http from 'node:http';
+import {PassThrough} from 'node:stream';
 import {promises as dnsPromises} from 'node:dns';
 import test from 'ava';
 import got from '../source/index.js';
@@ -111,6 +112,33 @@ test('timings.end is set when stream is destroyed before completion', withServer
 	});
 
 	t.pass();
+});
+
+test('firstByte is undefined when the response arrives before the upload finishes', withServer, async (t, server, got) => {
+	server.post('/', (_request, response) => {
+		// Respond without consuming the request body, like a server rejecting an upload early.
+		response.end('rejected');
+	});
+
+	const body = new PassThrough();
+	// Node.js sends the request headers with the first body chunk, so write one and keep the stream open.
+	body.write('partial');
+
+	await new Promise<void>((resolve, reject) => {
+		const stream = got.stream.post('', {body});
+
+		stream.on('response', response => {
+			const {timings} = response;
+			t.is(timings.upload, undefined);
+			t.is(timings.phases.firstByte, undefined);
+			stream.destroy();
+			resolve();
+		});
+
+		stream.on('error', reject);
+	});
+
+	body.end();
 });
 
 test('dns timing is 0 for IP addresses', withServer, async (t, server) => {

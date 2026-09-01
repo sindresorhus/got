@@ -213,7 +213,11 @@ const timer = (request: ClientRequestWithTimings): Timings => {
 
 	request.prependOnceListener('response', (response: IncomingMessageWithTimings) => {
 		timings.response = Date.now();
-		timings.phases.firstByte = timings.response - timings.upload!;
+
+		// The server may respond before the upload finishes, for example to reject a large body early. There is no first byte phase to measure then.
+		if (timings.upload !== undefined) {
+			timings.phases.firstByte = timings.response - timings.upload;
+		}
 
 		response.timings = timings;
 		handleError(response);
