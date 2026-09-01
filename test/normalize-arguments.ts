@@ -251,3 +251,17 @@ if (globalThis.AbortSignal !== undefined) {
 		t.false(Object.isFrozen(options.signal));
 	});
 }
+
+test('assigning a partial retry object keeps the other retry defaults', t => {
+	const defaults = new Options().retry;
+	const options = new Options();
+
+	options.retry = {limit: 5};
+
+	t.is(options.retry.limit, 5);
+	t.deepEqual(options.retry.methods, defaults.methods);
+	t.deepEqual(options.retry.statusCodes, defaults.statusCodes);
+	t.deepEqual(options.retry.errorCodes, defaults.errorCodes);
+	t.is(options.retry.noise, defaults.noise);
+	t.is(options.retry.enforceRetryRules, defaults.enforceRetryRules);
+});

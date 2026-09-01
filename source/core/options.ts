@@ -3067,7 +3067,8 @@ export default class Options {
 		if (this.#merging) {
 			safeObjectAssign(this.#internals.retry, value);
 		} else {
-			this.#internals.retry = {...value};
+			// A partial object must not drop the other retry settings, as the normalization below and the retry logic require them.
+			this.#internals.retry = {...this.#internals.retry, ...value};
 		}
 
 		const {retry} = this.#internals;
