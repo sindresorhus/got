@@ -536,7 +536,10 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 							retryAfter *= 1000;
 						}
 
-						if (retryAfter <= 0) {
+						if (Number.isNaN(retryAfter)) {
+							// Invalid `Retry-After` values must be ignored. See https://www.rfc-editor.org/rfc/rfc9110#section-10.2.3
+							retryAfter = undefined;
+						} else if (retryAfter <= 0) {
 							retryAfter = 1;
 						}
 					}

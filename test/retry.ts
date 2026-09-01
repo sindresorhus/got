@@ -365,6 +365,33 @@ for (const statusCode of [413, 429, 503]) {
 	});
 }
 
+test('ignores an invalid Retry-After header', withServer, async (t, server, got) => {
+	let requestCount = 0;
+	server.get('/', (_request, response) => {
+		requestCount++;
+		if (requestCount === 1) {
+			response.writeHead(503, {'Retry-After': 'not-a-date'}).end();
+			return;
+		}
+
+		response.end('ok');
+	});
+
+	const response = await got({
+		throwHttpErrors: false,
+		retry: {
+			limit: 1,
+			calculateDelay({computedValue, retryAfter}) {
+				t.is(retryAfter, undefined);
+				t.false(Number.isNaN(computedValue));
+				return 1;
+			},
+		},
+	});
+	t.is(response.statusCode, 200);
+	t.is(response.retryCount, 1);
+});
+
 test('respects 413 Retry-After with RFC-1123 timestamp', withServer, async (t, server, got) => {
 	let lastTried413TimestampAccess: string;
 	server.get('/', (_request, response) => {
