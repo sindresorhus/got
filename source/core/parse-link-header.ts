@@ -77,10 +77,6 @@ export default function parseLinkHeader(link: string) {
 			throw new Error(`Invalid format of the Link header reference: ${trimmedUriReference}`);
 		}
 
-		if (rawLinkParameters.length === 0) {
-			throw new Error(`Unexpected end of Link header parameters: ${rawLinkParameters.join(';')}`);
-		}
-
 		for (const rawParameter of rawLinkParameters) {
 			const trimmedRawParameter = rawParameter.trim();
 			const center = trimmedRawParameter.indexOf('=');

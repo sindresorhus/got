@@ -131,14 +131,6 @@ test('works as expected', t => {
 		message: 'Failed to parse Link header: <https://bad.example>; rel',
 	});
 
-	t.throws(() => parseLinkHeader('<https://bad.example>'), {
-		message: 'Unexpected end of Link header parameters: ',
-	});
-
-	t.throws(() => parseLinkHeader('<>'), {
-		message: 'Unexpected end of Link header parameters: ',
-	});
-
 	t.throws(() => parseLinkHeader('<https://bad.example'), {
 		message: 'Invalid format of the Link header reference: <https://bad.example',
 	});
@@ -218,6 +210,23 @@ test('parses URI references containing semicolons', t => {
 				parameters: {
 					rel: '"next"',
 				},
+			},
+		],
+	);
+});
+
+test('allows links without parameters', t => {
+	// RFC 8288 section 3: `link-value = "<" URI-Reference ">" *( OWS ";" OWS link-param )`
+	t.deepEqual(
+		parseLinkHeader('<https://api.example.com/items?page=2>; rel="next", <https://api.example.com/favicon.ico>'),
+		[
+			{
+				reference: 'https://api.example.com/items?page=2',
+				parameters: {rel: '"next"'},
+			},
+			{
+				reference: 'https://api.example.com/favicon.ico',
+				parameters: {},
 			},
 		],
 	);
