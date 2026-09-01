@@ -3,7 +3,7 @@ import is from '@sindresorhus/is';
 import {stringToUint8Array} from 'uint8array-extras';
 
 export default function getBodySize(body: unknown, headers: ClientRequestArgs['headers']): number | undefined {
-	if (headers && 'content-length' in headers) {
+	if (headers && 'content-length' in headers && headers['content-length'] !== undefined) {
 		return Number(headers['content-length']);
 	}
 

@@ -135,6 +135,19 @@ test('setting `content-length` to 0', withServer, async (t, server, got) => {
 	t.is(headers['content-length'], '0');
 });
 
+test('computes `content-length` when the header is explicitly set to `undefined`', withServer, async (t, server, got) => {
+	server.post('/', echoHeaders);
+
+	const {body} = await got.post({
+		headers: {
+			'content-length': undefined,
+		},
+		body: 'sup',
+	});
+	const headers = JSON.parse(body);
+	t.is(headers['content-length'], '3');
+});
+
 test('sets `content-length` to `0` when requesting PUT with empty body', withServer, async (t, server, got) => {
 	server.put('/', echoHeaders);
 
