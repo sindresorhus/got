@@ -13,7 +13,8 @@ import {pEvent} from 'p-event';
 import is from '@sindresorhus/is';
 import delay from 'delay';
 import * as toughCookie from 'tough-cookie';
-import got, {HTTPError, RequestError} from '../source/index.js';
+import {expectTypeOf} from 'expect-type';
+import got, {HTTPError, RequestError, type Options} from '../source/index.js';
 import type {Response} from '../source/core/response.js';
 import withServer from './helpers/with-server.js';
 
@@ -210,6 +211,22 @@ test('has redirect event', withServer, async (t, server, got) => {
 	t.is(headers.location, '/');
 
 	await getStream(stream);
+});
+
+test('redirect event passes the updated options first and the response second', withServer, async (t, server, got) => {
+	t.plan(2);
+
+	server.get('/', defaultHandler);
+	server.get('/redirect', redirectHandler);
+
+	const request = got('redirect').on('redirect', (updatedOptions, response) => {
+		expectTypeOf(updatedOptions).toEqualTypeOf<Options>();
+		expectTypeOf(response).toEqualTypeOf<Response>();
+		t.is(new URL(updatedOptions.url!).pathname, '/');
+		t.is(response.statusCode, 302);
+	});
+
+	await request;
 });
 
 test('follows invalid compressed redirects without decompressing the redirect body', withServer, async (t, server, got) => {

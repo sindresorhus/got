@@ -112,9 +112,9 @@ export type GotEventFunction<T> =
 	& (<R extends Response>(name: 'response', listener: (response: R) => void) => T)
 
 	/**
-	The `redirect` event to get the response object of a redirect. The second argument is options for the next request to the redirect location.
+	The `redirect` event to get the options for the next request to the redirect location. The second argument is the response object of the redirect.
 	*/
-	& (<R extends Response, N extends Options>(name: 'redirect', listener: (response: R, nextOptions: N) => void) => T)
+	& (<R extends Response, N extends Options>(name: 'redirect', listener: (nextOptions: N, response: R) => void) => T)
 
 	/**
 	Progress events for uploading (sending a request) and downloading (receiving a response).
