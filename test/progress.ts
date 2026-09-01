@@ -107,6 +107,26 @@ test('download progress - missing total size', withServer, async (t, server, got
 	checkEvents(t, events);
 });
 
+test('download progress - reports total of 0 for `content-length: 0` responses', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.writeHead(200, {'content-length': '0'});
+		response.end();
+	});
+
+	const events: Progress[] = [];
+
+	await got('').on('downloadProgress', (event: Progress) => {
+		events.push(event);
+	});
+
+	t.true(events.length > 0);
+	for (const event of events) {
+		t.is(event.total, 0);
+		t.is(event.transferred, 0);
+		t.is(event.percent, 1);
+	}
+});
+
 test('download progress - stream', withServer, async (t, server, got) => {
 	server.get('/', downloadEndpoint);
 

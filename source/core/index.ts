@@ -997,7 +997,8 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			headers.accept = 'application/json';
 		}
 
-		this._bodySize = Number(headers['content-length']) || undefined;
+		const bodySize = Number(headers['content-length']);
+		this._bodySize = Number.isNaN(bodySize) ? undefined : bodySize;
 	}
 
 	private async _onResponseBase(response: IncomingMessageWithTimings): Promise<void> {
@@ -1073,7 +1074,8 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		// so `response !== nativeResponse` indicates decompression happened.
 		const wasDecompressed = response !== nativeResponse;
 
-		this._responseSize = Number(response.headers['content-length']) || undefined;
+		const responseSize = Number(response.headers['content-length']);
+		this._responseSize = Number.isNaN(responseSize) ? undefined : responseSize;
 
 		this.response = typedResponse;
 		// eslint-disable-next-line @typescript-eslint/naming-convention
