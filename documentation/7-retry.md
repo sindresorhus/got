@@ -158,12 +158,12 @@ await got('https://httpbin.org/anything', {
 
 **Type: `number`**
 
-The upper limit of the `computedValue`.
+The upper limit of the exponential backoff. The `noise` is added after this limit is applied.
 
 By default, the `computedValue` is calculated in the following way:
 
 ```ts
-((2 ** (attemptCount - 1)) * 1000) + noise
+Math.min((2 ** (attemptCount - 1)) * 1000, backoffLimit) + noise
 ```
 
 The delay increases exponentially.\

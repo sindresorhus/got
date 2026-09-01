@@ -392,6 +392,34 @@ test('ignores an invalid Retry-After header', withServer, async (t, server, got)
 	t.is(response.retryCount, 1);
 });
 
+for (const retryAfterHeader of ['Infinity', '0x10', '1.5', '']) {
+	test(`ignores Retry-After with invalid numeric syntax: ${JSON.stringify(retryAfterHeader)}`, withServer, async (t, server, got) => {
+		let requestCount = 0;
+		server.get('/', (_request, response) => {
+			requestCount++;
+			if (requestCount === 1) {
+				response.writeHead(503, {'Retry-After': retryAfterHeader}).end();
+				return;
+			}
+
+			response.end('ok');
+		});
+
+		const response = await got({
+			throwHttpErrors: false,
+			retry: {
+				limit: 1,
+				calculateDelay({retryAfter}) {
+					t.is(retryAfter, undefined);
+					return 1;
+				},
+			},
+		});
+		t.is(response.statusCode, 200);
+		t.is(response.retryCount, 1);
+	});
+}
+
 test('respects 413 Retry-After with RFC-1123 timestamp', withServer, async (t, server, got) => {
 	let lastTried413TimestampAccess: string;
 	server.get('/', (_request, response) => {

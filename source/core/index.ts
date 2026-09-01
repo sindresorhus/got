@@ -529,14 +529,14 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 				try {
 					let retryAfter;
 					if (response && 'retry-after' in response.headers) {
-						retryAfter = Number(response.headers['retry-after']);
-						if (Number.isNaN(retryAfter)) {
-							retryAfter = Date.parse(response.headers['retry-after']!) - Date.now();
-						} else {
-							retryAfter *= 1000;
+						const retryAfterHeader = response.headers['retry-after']!;
+						if (/^\d+$/.test(retryAfterHeader)) {
+							retryAfter = Number(retryAfterHeader) * 1000;
+						} else if (Number.isNaN(Number(retryAfterHeader))) {
+							retryAfter = Date.parse(retryAfterHeader) - Date.now();
 						}
 
-						if (Number.isNaN(retryAfter)) {
+						if (retryAfter === undefined || Number.isNaN(retryAfter)) {
 							// Invalid `Retry-After` values must be ignored. See https://www.rfc-editor.org/rfc/rfc9110#section-10.2.3
 							retryAfter = undefined;
 						} else if (retryAfter <= 0) {
