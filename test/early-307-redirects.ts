@@ -200,9 +200,7 @@ test('early 307 redirect emits final upload progress event', withServer, async (
 	server.post('/redirect-early-progress', early307RedirectHandler('/target-early-progress'));
 
 	server.post('/target-early-progress', async (request, response) => {
-		for await (const receivedChunk of request) {
-			void receivedChunk;
-		}
+		await request.toArray();
 
 		response.end('ok');
 	});
@@ -237,9 +235,7 @@ test('early 307 redirect emits final upload progress event for small body', with
 	server.post('/redirect-early-progress-small', early307RedirectHandler('/target-early-progress-small'));
 
 	server.post('/target-early-progress-small', async (request, response) => {
-		for await (const receivedChunk of request) {
-			void receivedChunk;
-		}
+		await request.toArray();
 
 		response.end('ok');
 	});
@@ -275,9 +271,7 @@ test('early 307 redirect preserves upload progress totals', withServer, async (t
 	server.post('/redirect-early-progress-preserve', early307RedirectHandler('/target-early-progress-preserve'));
 
 	server.post('/target-early-progress-preserve', async (request, response) => {
-		for await (const receivedChunk of request) {
-			void receivedChunk;
-		}
+		await request.toArray();
 
 		response.end('ok');
 	});
@@ -329,9 +323,7 @@ test('early 307 redirect finalizes writable side for buffered body', withServer,
 	server.post('/redirect-early-writable-finish', early307RedirectHandler('/target-early-writable-finish'));
 
 	server.post('/target-early-writable-finish', async (request, response) => {
-		for await (const receivedChunk of request) {
-			void receivedChunk;
-		}
+		await request.toArray();
 
 		response.end('ok');
 	});
@@ -466,9 +458,7 @@ test('early 307 redirect finalizes writable side when transient chunk write call
 	server.post('/redirect-early-transient-finish', early307RedirectHandler('/target-early-transient-finish'));
 
 	server.post('/target-early-transient-finish', async (request, response) => {
-		for await (const receivedChunk of request) {
-			void receivedChunk;
-		}
+		await request.toArray();
 
 		response.end('ok');
 	});
@@ -612,9 +602,7 @@ test('early 307 redirect does not emit stale original request write error', with
 	server.post('/redirect-early-stale-error', early307RedirectHandler('/target-early-stale-error'));
 
 	server.post('/target-early-stale-error', async (request, response) => {
-		for await (const receivedChunk of request) {
-			void receivedChunk;
-		}
+		await request.toArray();
 
 		response.end('ok');
 	});
@@ -673,9 +661,7 @@ for (const staleWriteErrorCase of staleWriteErrorCases) {
 		server.post(staleWriteErrorCase.redirectPath, early307RedirectHandler(staleWriteErrorCase.targetPath));
 
 		server.post(staleWriteErrorCase.targetPath, async (request, response) => {
-			for await (const receivedChunk of request) {
-				void receivedChunk;
-			}
+			await request.toArray();
 
 			response.end('ok');
 		});
@@ -716,9 +702,7 @@ test('early 307 redirect final upload progress remains complete with delayed bef
 	server.post('/redirect-early-progress-delayed-before-redirect', early307RedirectHandler('/target-early-progress-delayed-before-redirect'));
 
 	server.post('/target-early-progress-delayed-before-redirect', async (request, response) => {
-		for await (const receivedChunk of request) {
-			void receivedChunk;
-		}
+		await request.toArray();
 
 		response.end('ok');
 	});

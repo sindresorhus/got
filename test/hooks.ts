@@ -3471,9 +3471,7 @@ test('beforeRetry routes invalid reassigned stream body through normal error han
 
 	server.post('/retry', async (request, response) => {
 		requestCount++;
-		for await (const chunk of request) {
-			void chunk;
-		}
+		await request.toArray();
 
 		response.statusCode = 500;
 		response.end('Server Error');

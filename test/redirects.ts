@@ -1128,9 +1128,7 @@ for (const statusCode of [301, 302]) {
 test('forwards body on cross-origin 307 redirect', withServer, async (t, server1, got) => {
 	await withServer.exec(t, async (t, server2) => {
 		server1.post('/redirect', async (request, response) => {
-			for await (const chunk of request) {
-				void chunk;
-			}
+			await request.toArray();
 
 			response.writeHead(307, {
 				location: `http://localhost:${server2.port}/`,
@@ -1229,9 +1227,7 @@ test('beforeRedirect can replace the body with an async iterable on cross-origin
 test('forwards body on cross-origin 308 redirect', withServer, async (t, server1, got) => {
 	await withServer.exec(t, async (t, server2) => {
 		server1.post('/redirect', async (request, response) => {
-			for await (const chunk of request) {
-				void chunk;
-			}
+			await request.toArray();
 
 			response.writeHead(308, {
 				location: `http://localhost:${server2.port}/`,
@@ -1438,9 +1434,7 @@ test('does not reuse Web ReadableStream body on cross-origin 307 redirect', with
 test('does not reuse one-shot iterable body on cross-origin 308 redirect', withServer, async (t, server1, got) => {
 	await withServer.exec(t, async (t, server2) => {
 		server1.post('/redirect', async (request, response) => {
-			for await (const chunk of request) {
-				void chunk;
-			}
+			await request.toArray();
 
 			response.writeHead(308, {
 				location: `http://localhost:${server2.port}/`,
@@ -1723,9 +1717,7 @@ test('beforeRedirect replacement body does not receive stale Node stream body ch
 test('reuses replayable iterable body on cross-origin 307 redirect', withServer, async (t, server1, got) => {
 	await withServer.exec(t, async (t, server2) => {
 		server1.post('/redirect', async (request, response) => {
-			for await (const chunk of request) {
-				void chunk;
-			}
+			await request.toArray();
 
 			response.writeHead(307, {
 				location: `http://localhost:${server2.port}/`,
@@ -1762,9 +1754,7 @@ test('replays string body across consecutive cross-origin 307 redirects', withSe
 	await withServer.exec(t, async (t, server2) => {
 		await withServer.exec(t, async (t, server3) => {
 			server1.post('/redirect', async (request, response) => {
-				for await (const chunk of request) {
-					void chunk;
-				}
+				await request.toArray();
 
 				response.writeHead(307, {
 					location: `http://localhost:${server2.port}/redirect-again`,
@@ -1773,9 +1763,7 @@ test('replays string body across consecutive cross-origin 307 redirects', withSe
 			});
 
 			server2.post('/redirect-again', async (request, response) => {
-				for await (const chunk of request) {
-					void chunk;
-				}
+				await request.toArray();
 
 				response.writeHead(307, {
 					location: `http://localhost:${server3.port}/`,
@@ -1872,9 +1860,7 @@ test('reuses replayable iterable promise chunks on cross-origin 307 redirect', w
 test('reuses replayable async iterable body on cross-origin 307 redirect', withServer, async (t, server1, got) => {
 	await withServer.exec(t, async (t, server2) => {
 		server1.post('/redirect', async (request, response) => {
-			for await (const chunk of request) {
-				void chunk;
-			}
+			await request.toArray();
 
 			response.writeHead(307, {
 				location: `http://localhost:${server2.port}/`,
@@ -1918,9 +1904,7 @@ test('reuses native FormData body on cross-origin 307 redirects', withServer, as
 	await withServer.exec(t, async (t, server2) => {
 		await withServer.exec(t, async (t, server3) => {
 			server1.post('/redirect', async (request, response) => {
-				for await (const chunk of request) {
-					void chunk;
-				}
+				await request.toArray();
 
 				response.writeHead(307, {
 					location: `http://localhost:${server2.port}/redirect-again`,
@@ -1929,9 +1913,7 @@ test('reuses native FormData body on cross-origin 307 redirects', withServer, as
 			});
 
 			server2.post('/redirect-again', async (request, response) => {
-				for await (const chunk of request) {
-					void chunk;
-				}
+				await request.toArray();
 
 				response.writeHead(307, {
 					location: `http://localhost:${server3.port}/`,
@@ -1977,9 +1959,7 @@ test('reuses native FormData body on cross-origin 307 redirects', withServer, as
 
 test('native FormData 307 redirect respects content-type changed in beforeRedirect hook', withServer, async (t, server, got) => {
 	server.post('/redirect', async (request, response) => {
-		for await (const chunk of request) {
-			void chunk;
-		}
+		await request.toArray();
 
 		response.writeHead(307, {
 			location: '/destination',
@@ -1988,9 +1968,7 @@ test('native FormData 307 redirect respects content-type changed in beforeRedire
 	});
 
 	server.post('/destination', async (request, response) => {
-		for await (const chunk of request) {
-			void chunk;
-		}
+		await request.toArray();
 
 		response.end(request.headers['content-type']);
 	});
@@ -2017,9 +1995,7 @@ test('native FormData 307 redirect respects content-type changed in beforeRedire
 
 test('native FormData 307 redirects preserve content-type changed in beforeRedirect hook', withServer, async (t, server, got) => {
 	server.post('/redirect', async (request, response) => {
-		for await (const chunk of request) {
-			void chunk;
-		}
+		await request.toArray();
 
 		response.writeHead(307, {
 			location: '/redirect-again',
@@ -2028,9 +2004,7 @@ test('native FormData 307 redirects preserve content-type changed in beforeRedir
 	});
 
 	server.post('/redirect-again', async (request, response) => {
-		for await (const chunk of request) {
-			void chunk;
-		}
+		await request.toArray();
 
 		response.writeHead(307, {
 			location: '/destination',
@@ -2039,9 +2013,7 @@ test('native FormData 307 redirects preserve content-type changed in beforeRedir
 	});
 
 	server.post('/destination', async (request, response) => {
-		for await (const chunk of request) {
-			void chunk;
-		}
+		await request.toArray();
 
 		response.end(request.headers['content-type']);
 	});
@@ -2074,9 +2046,7 @@ test('native FormData 307 redirects preserve content-type changed in beforeRedir
 test('forwards json body on cross-origin 307 redirect', withServer, async (t, server1, got) => {
 	await withServer.exec(t, async (t, server2) => {
 		server1.post('/redirect', async (request, response) => {
-			for await (const chunk of request) {
-				void chunk;
-			}
+			await request.toArray();
 
 			response.writeHead(307, {
 				location: `http://localhost:${server2.port}/`,
@@ -2120,9 +2090,7 @@ test('forwards json body on cross-origin 307 redirect', withServer, async (t, se
 test('forwards form body on cross-origin 307 redirect', withServer, async (t, server1, got) => {
 	await withServer.exec(t, async (t, server2) => {
 		server1.post('/redirect', async (request, response) => {
-			for await (const chunk of request) {
-				void chunk;
-			}
+			await request.toArray();
 
 			response.writeHead(307, {
 				location: `http://localhost:${server2.port}/`,
@@ -2165,9 +2133,7 @@ test('forwards form body on cross-origin 307 redirect', withServer, async (t, se
 
 test('preserves body on same-origin 307 redirect', withServer, async (t, server, got) => {
 	server.post('/redirect', async (request, response) => {
-		for await (const chunk of request) {
-			void chunk;
-		}
+		await request.toArray();
 
 		response.writeHead(307, {
 			location: '/destination',
@@ -2360,9 +2326,7 @@ test('large body is preserved on 307 redirect', withServer, async (t, server, go
 	const requestBody = Buffer.alloc(1024 * 1024 * 2, 'a');
 
 	server.post('/redirect', async (request, response) => {
-		for await (const receivedChunk of request) {
-			void receivedChunk;
-		}
+		await request.toArray();
 
 		response.writeHead(307, {
 			location: '/target',

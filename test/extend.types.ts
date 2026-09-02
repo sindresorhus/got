@@ -65,7 +65,7 @@ expectTypeOf(got.extend({resolveBodyOnly: false}, got.extend({resolveBodyOnly: t
 //
 const gotWrapped = got.extend({});
 const queryMethodOptions: OptionsInit = {method: 'query'};
-void queryMethodOptions;
+expectTypeOf(queryMethodOptions).toEqualTypeOf<OptionsInit>();
 
 // The following tests would apply to all of the method signatures (get, post, put, delete, etc...), but we only test the base function for brevity
 
@@ -114,7 +114,7 @@ expectTypeOf(gotTextBodyOnly('https://example.com')).toEqualTypeOf<RequestPromis
 
 // @ts-expect-error `url` must be passed as the first argument.
 const invalidStrictOptions: StrictOptions = {url: 'https://example.com'};
-void invalidStrictOptions;
+expectTypeOf(invalidStrictOptions).toEqualTypeOf<StrictOptions>();
 
 // Test that generic type parameter still works with extended responseType
 expectTypeOf(gotJson<{data: string}>('https://example.com')).toEqualTypeOf<RequestPromise<Response<{data: string}>>>();
@@ -134,7 +134,7 @@ expectTypeOf(gotBufferBodyOnly('https://example.com', {responseType: 'buffer', r
 
 // @ts-expect-error `url` must not be accepted by extend options.
 const invalidExtendOptions: ExtendOptions = {url: 'https://example.com'};
-void invalidExtendOptions;
+expectTypeOf(invalidExtendOptions).toEqualTypeOf<ExtendOptions>();
 
 // Test shortcut methods preserve RequestPromise return shape
 expectTypeOf(got('https://example.com').json<{data: string}>()).toEqualTypeOf<RequestPromise<{data: string}>>();
@@ -163,7 +163,7 @@ expectTypeOf(got.extend({
 const optionsInit: OptionsInit = {
 	dnsCache: true,
 };
-void optionsInit;
+expectTypeOf(optionsInit).toEqualTypeOf<OptionsInit>();
 
 const options = new Options({
 	dnsCache: {
