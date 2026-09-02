@@ -75,7 +75,12 @@ console.log(results);
 			return response.body;
 		}
 
-		return JSON.parse(response.body as string);
+		// Text preserves the BOM, while UTF-8 buffer decoding already consumes it.
+		const body = response.request.options.responseType === 'buffer'
+			? decodeUint8Array(response.body as Uint8Array, response.request.options.encoding)
+			: (response.body as string).replace(/^\uFEFF/v, '');
+
+		return JSON.parse(body);
 	},
 	paginate: ({response}) => {
 		const rawLinkHeader = response.headers.link;
@@ -84,7 +89,7 @@ console.log(results);
 		}
 
 		const parsed = parseLinkHeader(rawLinkHeader);
-		const next = parsed.find(entry => entry.parameters.rel === 'next' || entry.parameters.rel === '"next"');
+		const next = parsed.find(entry => !Object.hasOwn(entry.parameters, 'anchor') && entry.parameters.rel?.replaceAll('"', '').toLowerCase().split(/\s+/v).includes('next'));
 
 		if (next) {
 			return {
@@ -108,7 +113,7 @@ This option represents the `pagination` object.
 #### `transform`
 
 **Type: `Function`**\
-**Default: `response => JSON.parse(response.body)`**
+**Default:** Parses text and buffer responses as JSON using the configured encoding, and returns JSON responses unchanged.
 
 A function that transforms [`Response`](3-streams.md#response-2) into an array of items.\
 This is where you should do the parsing.
@@ -117,6 +122,8 @@ This is where you should do the parsing.
 
 **Type: `Function`**\
 **Default: `Link` header logic**
+
+By default, links with an `anchor` parameter are ignored, as permitted by [RFC 8288, section 3.2](https://www.rfc-editor.org/rfc/rfc8288#section-3.2).
 
 The function takes an object with the following properties:
 

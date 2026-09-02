@@ -14,6 +14,7 @@ import http, {
 	type Agent as HttpAgent,
 	type ClientRequest,
 } from 'node:http';
+import {Buffer} from 'node:buffer';
 import type {Readable} from 'node:stream';
 import type {Socket, LookupFunction} from 'node:net';
 import type {ClientHttp2Session} from 'node:http2';
@@ -828,10 +829,10 @@ All options accepted by `got.paginate()`.
 */
 export type PaginationOptions<ElementType, BodyType> = {
 	/**
-	A function that transform [`Response`](#response) into an array of items.
+	A function that transforms [`Response`](#response) into an array of items.
 	This is where you should do the parsing.
 
-	@default response => JSON.parse(response.body)
+	@default Parses text and buffer responses as JSON using the configured encoding, and returns JSON responses unchanged.
 	*/
 	transform?: (response: Response<BodyType>) => Promise<ElementType[]> | ElementType[];
 
@@ -843,6 +844,8 @@ export type PaginationOptions<ElementType, BodyType> = {
 	filter?: (data: FilterData<ElementType>) => boolean;
 
 	/**
+	By default, links with an `anchor` parameter are ignored, as permitted by [RFC 8288, section 3.2](https://www.rfc-editor.org/rfc/rfc8288#section-3.2).
+
 	The function takes an object with the following properties:
 	- `response` - The current response object.
 	- `currentItems` - Items from the current response.
@@ -1406,10 +1409,15 @@ const defaultInternals: InternalsType = {
 	pagination: {
 		transform(response: Response) {
 			if (response.request.options.responseType === 'json') {
-				return response.body;
+				return response.body as unknown[];
 			}
 
-			return JSON.parse(response.body as string);
+			// Preserve the BOM during decoding, then remove exactly one for both text and buffer responses.
+			const body = response.request.options.responseType === 'buffer'
+				? Buffer.from(response.body as Uint8Array).toString(response.request.options.encoding)
+				: response.body as string;
+
+			return response.request.options.parseJson(body.replace(/^\uFEFF/v, '')) as unknown[];
 		},
 		paginate({response}) {
 			const rawLinkHeader = response.headers.link;
@@ -1418,7 +1426,9 @@ const defaultInternals: InternalsType = {
 			}
 
 			const parsed = parseLinkHeader(rawLinkHeader);
-			const next = parsed.find(entry => entry.parameters.rel === 'next' || entry.parameters.rel === '"next"');
+			// The `rel` parameter is a space-separated list of relation types compared case-insensitively. See https://www.rfc-editor.org/rfc/rfc8288#section-3.3
+			// Ignore links with an anchor instead of changing their context (RFC 8288, section 3.2).
+			const next = parsed.find(entry => !Object.hasOwn(entry.parameters, 'anchor') && entry.parameters.rel?.replaceAll('"', '').toLowerCase().split(/\s+/v).includes('next'));
 
 			if (next) {
 				return {
@@ -3346,11 +3356,13 @@ export default class Options {
 	set pagination(value: PaginationOptions<unknown, unknown>) {
 		assert.object(value);
 
+		const updatedPagination = Object.fromEntries(Object.entries(value).filter(([, option]) => option !== undefined));
+
 		if (this.#merging) {
-			safeObjectAssign(this.#internals.pagination, value);
+			safeObjectAssign(this.#internals.pagination, updatedPagination);
 		} else {
 			// A partial object must not drop the other pagination settings, as the pagination logic requires them.
-			this.#internals.pagination = {...this.#internals.pagination, ...value};
+			this.#internals.pagination = {...this.#internals.pagination, ...updatedPagination};
 		}
 	}
 

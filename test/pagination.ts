@@ -2,20 +2,15 @@ import {Buffer} from 'node:buffer';
 import test from 'ava';
 import delay from 'delay';
 import getStream from 'get-stream';
-import got, {type Response} from '../source/index.js';
+import got, {
+	AbortError, Options, TimeoutError, type Response,
+} from '../source/index.js';
 import {createCrossOriginReceiver, createRetryUrlServer} from './helpers/server-tools.js';
 import withServer, {withBodyParsingServer} from './helpers/with-server.js';
 import type {ExtendedHttpTestServer} from './helpers/create-http-test-server.js';
 
 const thrower = (): any => {
 	throw new Error('This should not be called');
-};
-
-const resetPagination = {
-	paginate: undefined,
-	transform: undefined,
-	filter: undefined,
-	shouldContinue: undefined,
 };
 
 const createStaticCookieJar = (cookie = 'session=from-jar') => ({
@@ -65,6 +60,68 @@ test('the link header has no next value', withServer, async (t, server, got) => 
 
 	const received = await got.paginate.all<number>('');
 	t.deepEqual(received, items);
+});
+
+for (const anchor of ['anchor="/other"', 'ANCHOR="/other"', 'anchor=""']) {
+	test(`default pagination ignores a next link with ${anchor}`, withServer, async (t, server, got) => {
+		let nextPageRequests = 0;
+		server.get('/', (_request, response) => {
+			response.setHeader('link', `</next>; rel="next"; ${anchor}`);
+			response.json([1]);
+		});
+		server.get('/next', (_request, response) => {
+			nextPageRequests++;
+			response.json([2]);
+		});
+
+		t.deepEqual(await got.paginate.all<number>(''), [1]);
+		t.is(nextPageRequests, 0);
+	});
+}
+
+test('default pagination selects an unanchored next link after an anchored link', withServer, async (t, server, got) => {
+	let anchoredRequests = 0;
+	server.get('/', (_request, response) => {
+		response.setHeader('link', '</other>; rel="next"; anchor="/other-context", </next>; rel="alternate NEXT"');
+		response.json([1]);
+	});
+	server.get('/other', (_request, response) => {
+		anchoredRequests++;
+		response.json([99]);
+	});
+	server.get('/next', (_request, response) => {
+		response.json([2]);
+	});
+
+	t.deepEqual(await got.paginate.all<number>(''), [1, 2]);
+	t.is(anchoredRequests, 0);
+});
+
+test('custom pagination can follow a link with an explicitly accepted anchor', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.setHeader('link', '</next>; rel="next"; anchor="/"');
+		response.json([1]);
+	});
+	server.get('/next', (_request, response) => {
+		response.json([2]);
+	});
+	let paginateCalls = 0;
+
+	const items = await got.paginate.all<number>('', {
+		pagination: {
+			paginate({response}) {
+				paginateCalls++;
+				if (response.headers.link === '</next>; rel="next"; anchor="/"' && new URL(response.url).pathname === '/') {
+					return {url: '/next'};
+				}
+
+				return false;
+			},
+		},
+	});
+
+	t.deepEqual(items, [1, 2]);
+	t.is(paginateCalls, 2);
 });
 
 test('the link header is empty', withServer, async (t, server, got) => {
@@ -299,54 +356,16 @@ test('`countLimit` works', withServer, async (t, server, got) => {
 	t.deepEqual(results, [1]);
 });
 
-test('throws if the `pagination` option does not have `transform` property', async t => {
-	const iterator = got.paginate('', {
-		pagination: {...resetPagination},
-		prefixUrl: 'https://example.com',
+for (const callback of ['transform', 'shouldContinue', 'filter', 'paginate']) {
+	test(`throws if pagination.${callback} is not a function`, async t => {
+		const iterator = got.paginate('', {
+			pagination: {[callback]: true},
+			prefixUrl: 'https://example.com',
+		});
+
+		await t.throwsAsync(iterator.next(), {message: /Expected value which is `Function`/});
 	});
-
-	await t.throwsAsync(iterator.next());
-});
-
-test('throws if the `pagination` option does not have `shouldContinue` property', async t => {
-	const iterator = got.paginate('', {
-		pagination: {
-			...resetPagination,
-			transform: thrower,
-		},
-		prefixUrl: 'https://example.com',
-	});
-
-	await t.throwsAsync(iterator.next());
-});
-
-test('throws if the `pagination` option does not have `filter` property', async t => {
-	const iterator = got.paginate('', {
-		pagination: {
-			...resetPagination,
-			transform: thrower,
-			shouldContinue: thrower,
-			paginate: thrower,
-		},
-		prefixUrl: 'https://example.com',
-	});
-
-	await t.throwsAsync(iterator.next());
-});
-
-test('throws if the `pagination` option does not have `paginate` property', async t => {
-	const iterator = got.paginate('', {
-		pagination: {
-			...resetPagination,
-			transform: thrower,
-			shouldContinue: thrower,
-			filter: thrower,
-		},
-		prefixUrl: 'https://example.com',
-	});
-
-	await t.throwsAsync(iterator.next());
-});
+}
 
 test('ignores the `resolveBodyOnly` option', withServer, async (t, server, got) => {
 	attachHandler(server, 2);
@@ -2850,6 +2869,84 @@ for (const relationParameter of ['rel="Next"', 'rel=NEXT', 'rel="next last"', 'r
 	});
 }
 
+test('pagination supports buffer responses with the default transform', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.end('["café", "🦄"]');
+	});
+
+	const items = await got.paginate.all<string>('', {responseType: 'buffer'});
+
+	t.deepEqual(items, ['café', '🦄']);
+});
+
+// eslint-disable-next-line unicorn/text-encoding-identifier-case -- Exercise the supported encoding alias.
+for (const encoding of ['utf8', 'utf-8', 'utf16le', 'latin1'] as const) {
+	test(`buffer pagination decodes JSON using ${encoding}`, withServer, async (t, server, got) => {
+		server.get('/', (_request, response) => {
+			response.end(Buffer.from('["café"]', encoding));
+		});
+
+		const items = await got.paginate.all<string>('', {responseType: 'buffer', encoding});
+
+		t.deepEqual(items, ['café']);
+	});
+}
+
+test('buffer pagination strips a leading UTF-8 BOM', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.end('\uFEFF[1, 2]');
+	});
+
+	t.deepEqual(await got.paginate.all<number>('', {responseType: 'buffer'}), [1, 2]);
+});
+
+test('buffer pagination follows links with inherited responseType', withServer, async (t, server, got) => {
+	attachHandler(server, 3);
+
+	const instance = got.extend({responseType: 'buffer'});
+
+	t.deepEqual(await instance.paginate.all<number>(''), [1, 2, 3]);
+});
+
+test('custom pagination transforms receive buffer responses unchanged', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.end('[1]');
+	});
+
+	const items = await got.paginate.all<number, Uint8Array>('', {
+		responseType: 'buffer',
+		pagination: {
+			transform(response) {
+				t.true(response.body instanceof Uint8Array);
+				t.is(response.body, response.rawBody);
+				return [response.body.byteLength];
+			},
+		},
+	});
+
+	t.deepEqual(items, [3]);
+});
+
+test('buffer pagination rejects malformed JSON', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.end('[invalid]');
+	});
+
+	await t.throwsAsync(got.paginate.all('', {responseType: 'buffer'}), {instanceOf: SyntaxError});
+});
+
+test('buffer pagination continues after an empty page', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.setHeader('link', '</next>; rel="next"');
+		response.end('[]');
+	});
+	server.get('/next', (_request, response) => {
+		response.end('[1]');
+	});
+
+	t.deepEqual(await got.paginate.all<number>('', {responseType: 'buffer'}), [1]);
+});
+
 test('pagination follows next links with empty list members', withServer, async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.setHeader('link', '</next>; rel="next",');
@@ -2877,4 +2974,136 @@ test('pagination ignores surrounding empty members and stops at an empty Link li
 
 	t.deepEqual(await got.paginate.all<number>(''), [1, 2]);
 	t.deepEqual(requestedPages, ['/', '/next']);
+});
+
+test('undefined pagination limits preserve inherited values', withServer, async (t, server, got) => {
+	attachHandler(server, 3);
+	const instance = got.extend({pagination: {countLimit: 2}});
+
+	t.deepEqual(await instance.paginate.all<number>('', {pagination: {countLimit: undefined}}), [1, 2]);
+});
+
+test('undefined pagination callbacks preserve default parsing and navigation', withServer, async (t, server, got) => {
+	attachHandler(server, 2);
+
+	t.deepEqual(await got.paginate.all<number>('', {pagination: {transform: undefined, paginate: undefined}}), [1, 2]);
+});
+
+for (const merge of [false, true]) {
+	test(`undefined pagination settings preserve all inherited values with merge ${merge}`, t => {
+		const options = new Options({
+			pagination: {
+				transform: () => [1],
+				filter: () => false,
+				shouldContinue: () => false,
+				paginate: () => false,
+				countLimit: 2,
+				requestLimit: 3,
+				backoff: 10,
+				stackAllItems: true,
+			},
+		});
+		const original = {...options.pagination};
+		const pagination = Object.freeze({
+			transform: undefined,
+			filter: undefined,
+			shouldContinue: undefined,
+			paginate: undefined,
+			countLimit: undefined,
+			requestLimit: undefined,
+			backoff: undefined,
+			stackAllItems: undefined,
+		});
+
+		if (merge) {
+			options.merge({pagination});
+		} else {
+			options.pagination = pagination;
+		}
+
+		t.deepEqual(options.pagination, original);
+	});
+}
+
+test('explicit pagination values still replace inherited settings', withServer, async (t, server, got) => {
+	attachHandler(server, 3);
+	const instance = got.extend({pagination: {stackAllItems: true, backoff: 1000, countLimit: 1}});
+	const allItemsLengths: number[] = [];
+
+	const items = await instance.paginate.all<number>('', {
+		pagination: {
+			stackAllItems: false,
+			backoff: 0,
+			countLimit: 3,
+			filter({allItems}) {
+				allItemsLengths.push(allItems.length);
+				return true;
+			},
+		},
+	});
+
+	t.deepEqual(items, [1, 2, 3]);
+	t.deepEqual(allItemsLengths, [0, 0, 0]);
+	t.deepEqual(await instance.paginate.all<number>('', {pagination: {countLimit: 0}}), []);
+	t.deepEqual(await instance.paginate.all<number>('', {pagination: {requestLimit: 0}}), []);
+});
+
+test('default pagination accepts a leading UTF-8 JSON BOM', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.end('\uFEFF[1, 2]');
+	});
+
+	t.deepEqual(await got.paginate.all<number>(''), [1, 2]);
+});
+
+// eslint-disable-next-line unicorn/text-encoding-identifier-case -- Exercise both supported UTF-8 aliases.
+for (const encoding of ['utf8', 'utf-8'] as const) {
+	test(`text pagination preserves JSON string content after a BOM with ${encoding}`, withServer, async (t, server, got) => {
+		const items = ['café', '\uFEFFhello', 'hello\uFEFFworld'];
+		server.get('/', (_request, response) => {
+			response.end(`\uFEFF${JSON.stringify(items)}`);
+		});
+
+		t.deepEqual(await got.paginate.all<string>('', {responseType: 'text', encoding}), items);
+	});
+}
+
+test('default pagination accepts a BOM on every linked page', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.setHeader('link', '</next>; rel="next"');
+		response.end('\uFEFF[1]');
+	});
+	server.get('/next', (_request, response) => {
+		response.end('\uFEFF[2]');
+	});
+
+	t.deepEqual(await got.paginate.all<number>(''), [1, 2]);
+});
+
+for (const responseType of ['text', 'buffer'] as const) {
+	test(`${responseType} pagination rejects a second leading JSON BOM`, withServer, async (t, server, got) => {
+		server.get('/', (_request, response) => {
+			response.end('\uFEFF\uFEFF[1]');
+		});
+
+		await t.throwsAsync(got.paginate.all('', {responseType}), {instanceOf: SyntaxError});
+	});
+}
+
+test('custom text pagination transforms receive the original BOM', withServer, async (t, server, got) => {
+	const body = '\uFEFF[1]';
+	server.get('/', (_request, response) => {
+		response.end(body);
+	});
+
+	const items = await got.paginate.all<number, string>('', {
+		pagination: {
+			transform(response) {
+				t.is(response.body, body);
+				return [response.body.length];
+			},
+		},
+	});
+
+	t.deepEqual(items, [body.length]);
 });
