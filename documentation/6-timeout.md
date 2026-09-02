@@ -137,4 +137,4 @@ Ends when the response's `end` event fires.
 Starts when the request is initiated.\
 Ends when the response's `end` event fires.
 
-In other words, this is the global timeout.
+In other words, this is the global timeout. Redirects share the same budget.

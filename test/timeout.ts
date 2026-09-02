@@ -7,6 +7,7 @@ import http2, {type ServerHttp2Stream} from 'node:http2';
 import https from 'node:https';
 import net, {type LookupFunction} from 'node:net';
 import tls from 'node:tls';
+import FakeTimers from '@sinonjs/fake-timers';
 import getStream from 'get-stream';
 import test from 'ava';
 import delay from 'delay';
@@ -1640,5 +1641,1065 @@ test.serial('no memory leak when using http2 with socket timeout and connection 
 		t.true(maxListenerCount <= 2, `Socket peaked at ${maxListenerCount} timeout listeners (expected ≤ 2)`);
 	} finally {
 		await server.close();
+	}
+});
+
+test('request timeout spans redirects', withServer, async (t, server, got) => {
+	server.get('/redirect', async (_request, response) => {
+		await delay(300);
+		response.writeHead(302, {
+			location: '/final',
+		});
+		response.end();
+	});
+
+	server.get('/final', async (_request, response) => {
+		await delay(300);
+		response.end('ok');
+	});
+
+	const error = await t.throwsAsync<TimeoutError>(got('redirect', {
+		timeout: {
+			request: 400,
+		},
+		retry: {
+			limit: 0,
+		},
+	}), errorMatcher);
+
+	t.is(error?.event, 'request');
+});
+
+test.serial('request timeout starts after initial request setup', withServer, async (t, server, got) => {
+	const clock = FakeTimers.install({
+		toFake: ['Date'],
+	});
+	let beforeRequestCalls = 0;
+
+	try {
+		server.get('/redirect', (_request, response) => {
+			response.writeHead(302, {
+				location: '/final',
+			});
+			response.end();
+		});
+
+		server.get('/final', (_request, response) => {
+			response.end('ok');
+		});
+
+		const {body} = await got('redirect', {
+			hooks: {
+				beforeRequest: [async () => {
+					beforeRequestCalls++;
+
+					if (beforeRequestCalls === 1) {
+						clock.tick(200);
+						await Promise.resolve();
+					}
+				}],
+			},
+			timeout: {
+				request: 100,
+			},
+			retry: {
+				limit: 0,
+			},
+		});
+
+		t.is(body, 'ok');
+		t.is(beforeRequestCalls, 2);
+	} finally {
+		clock.uninstall();
+	}
+});
+
+test.serial('request timeout includes redirected HTTP/2 setup', withServer, async (t, server, got) => {
+	const sockets = new Set<net.Socket>();
+	const destinationServer = net.createServer(socket => {
+		sockets.add(socket);
+		socket.once('close', () => {
+			sockets.delete(socket);
+		});
+	});
+
+	await new Promise<void>(resolve => {
+		destinationServer.listen(0, '127.0.0.1', resolve);
+	});
+
+	const clock = FakeTimers.install({
+		toFake: ['Date'],
+	});
+
+	try {
+		const {port} = destinationServer.address() as net.AddressInfo;
+		server.get('/redirect', (_request, response) => {
+			clock.tick(300);
+			response.writeHead(302, {
+				location: `https://127.0.0.1:${port}`,
+			});
+			response.end();
+		});
+
+		const error = await t.throwsAsync<TimeoutError>(got('redirect', {
+			http2: true,
+			timeout: {
+				request: 400,
+			},
+			retry: {
+				limit: 0,
+			},
+			https: {
+				rejectUnauthorized: false,
+			},
+		}), errorMatcher);
+
+		t.is(error?.event, 'request');
+		t.is(error?.message, 'Timeout awaiting \'request\' for 100ms');
+	} finally {
+		clock.uninstall();
+
+		for (const socket of sockets) {
+			socket.destroy();
+		}
+
+		await new Promise<void>((resolve, reject) => {
+			destinationServer.close(error => {
+				if (error) {
+					reject(error);
+					return;
+				}
+
+				resolve();
+			});
+		});
+	}
+});
+
+test.serial('request timeout includes redirected async custom request function time', withServer, async (t, server, got) => {
+	const clock = FakeTimers.install({
+		toFake: ['Date'],
+	});
+	let requestFunctionCalls = 0;
+
+	try {
+		server.get('/redirect', (_request, response) => {
+			clock.tick(300);
+			response.writeHead(302, {
+				location: '/final',
+			});
+			response.end();
+		});
+
+		const error = await t.throwsAsync<TimeoutError>(got('redirect', {
+			timeout: {
+				request: 400,
+			},
+			retry: {
+				limit: 0,
+			},
+			async request(url, options, callback) {
+				requestFunctionCalls++;
+
+				if (requestFunctionCalls === 1) {
+					return http.request(url, options, callback);
+				}
+
+				return new Promise<never>(() => {});
+			},
+		}), errorMatcher);
+
+		t.is(error?.event, 'request');
+		t.is(error?.message, 'Timeout awaiting \'request\' for 100ms');
+		t.is(requestFunctionCalls, 2);
+	} finally {
+		clock.uninstall();
+	}
+});
+
+test.serial('request timeout rejects before starting a redirect after beforeRedirect exhausts the budget', withServer, async (t, server, got) => {
+	const clock = FakeTimers.install({
+		toFake: ['Date'],
+	});
+	let requestFunctionCalls = 0;
+	let finishHook!: () => void;
+	const hookMayFinish = new Promise<void>(resolve => {
+		finishHook = resolve;
+	});
+
+	try {
+		server.get('/redirect', (_request, response) => {
+			response.writeHead(302, {
+				location: '/final',
+			});
+			response.end();
+		});
+
+		const error = await t.throwsAsync<TimeoutError>(got('redirect', {
+			hooks: {
+				beforeRedirect: [
+					async () => {
+						clock.tick(100);
+						await hookMayFinish;
+						throw new Error('late hook failure');
+					},
+				],
+			},
+			timeout: {
+				request: 100,
+			},
+			retry: {
+				limit: 0,
+			},
+			request(url, options, callback) {
+				requestFunctionCalls++;
+
+				if (requestFunctionCalls === 1) {
+					return http.request(url, options, callback);
+				}
+
+				return new Promise<never>(() => {});
+			},
+		}), errorMatcher);
+
+		t.is(error?.event, 'request');
+		t.is(requestFunctionCalls, 1);
+		finishHook();
+		await delay(20);
+	} finally {
+		finishHook();
+		clock.uninstall();
+	}
+});
+
+test.serial('expired redirect budget does not invoke beforeRedirect hooks', withServer, async (t, server, got) => {
+	const clock = FakeTimers.install({
+		toFake: ['Date'],
+	});
+	let hookCalls = 0;
+
+	try {
+		server.get('/redirect', (_request, response) => {
+			response.writeHead(302, {
+				location: '/final',
+			});
+			response.end();
+		});
+
+		await t.throwsAsync(got('redirect', {
+			followRedirect() {
+				clock.tick(100);
+				return true;
+			},
+			hooks: {
+				beforeRedirect: [
+					() => {
+						hookCalls++;
+					},
+				],
+			},
+			timeout: {
+				request: 100,
+			},
+			retry: {
+				limit: 0,
+			},
+		}), errorMatcher);
+
+		t.is(hookCalls, 0);
+	} finally {
+		clock.uninstall();
+	}
+});
+
+test.serial('expired redirect budget does not invoke later beforeRedirect hooks', withServer, async (t, server, got) => {
+	const clock = FakeTimers.install({
+		toFake: ['Date'],
+	});
+	let secondHookCalls = 0;
+
+	try {
+		server.get('/redirect', (_request, response) => {
+			response.writeHead(302, {
+				location: '/final',
+			});
+			response.end();
+		});
+
+		await t.throwsAsync(got('redirect', {
+			hooks: {
+				beforeRedirect: [
+					async options => {
+						options.timeout.request = undefined;
+						await Promise.resolve();
+						options.timeout.request = 100;
+						clock.tick(100);
+					},
+					() => {
+						secondHookCalls++;
+					},
+				],
+			},
+			timeout: {
+				request: 100,
+			},
+			retry: {
+				limit: 0,
+			},
+		}), errorMatcher);
+
+		t.is(secondHookCalls, 0);
+	} finally {
+		clock.uninstall();
+	}
+});
+
+test.serial('expired redirect budget does not invoke redirected beforeRequest hooks', withServer, async (t, server, got) => {
+	const clock = FakeTimers.install({
+		toFake: ['Date'],
+	});
+	let hookCalls = 0;
+
+	try {
+		server.get('/redirect', (_request, response) => {
+			response.writeHead(302, {
+				location: '/final',
+			});
+			response.end();
+		});
+
+		await t.throwsAsync(got('redirect', {
+			followRedirect() {
+				clock.tick(100);
+				return true;
+			},
+			headers: {
+				cookie: undefined,
+			},
+			hooks: {
+				beforeRequest: [
+					() => {
+						hookCalls++;
+					},
+				],
+			},
+			timeout: {
+				request: 100,
+			},
+			retry: {
+				limit: 0,
+			},
+		}), errorMatcher);
+
+		t.is(hookCalls, 1);
+	} finally {
+		clock.uninstall();
+	}
+});
+
+test.serial('expired redirect budget does not invoke redirected cookie lookup', withServer, async (t, server, got) => {
+	const clock = FakeTimers.install({
+		toFake: ['Date'],
+	});
+	let cookieLookupCalls = 0;
+
+	try {
+		server.get('/redirect', (_request, response) => {
+			response.writeHead(302, {
+				location: '/final',
+			});
+			response.end();
+		});
+
+		await t.throwsAsync(got('redirect', {
+			cookieJar: {
+				async getCookieString() {
+					cookieLookupCalls++;
+					return '';
+				},
+				async setCookie() {},
+			},
+			followRedirect() {
+				clock.tick(100);
+				return true;
+			},
+			timeout: {
+				request: 100,
+			},
+			retry: {
+				limit: 0,
+			},
+		}), errorMatcher);
+
+		t.is(cookieLookupCalls, 2);
+	} finally {
+		clock.uninstall();
+	}
+});
+
+test.serial('beforeRedirect can increase the request timeout before awaiting', withServer, async (t, server, got) => {
+	server.get('/redirect', (_request, response) => {
+		response.writeHead(302, {
+			location: '/final',
+		});
+		response.end();
+	});
+
+	server.get('/final', (_request, response) => {
+		response.end('ok');
+	});
+
+	const response = await got('redirect', {
+		hooks: {
+			beforeRedirect: [
+				async () => {
+					await Promise.resolve();
+				},
+				async options => {
+					options.timeout.request = 500;
+					await delay(150);
+				},
+			],
+		},
+		timeout: {
+			request: 100,
+		},
+		retry: {
+			limit: 0,
+		},
+	});
+
+	t.is(response.body, 'ok');
+});
+
+test.serial('request timeout interrupts a pending beforeRedirect hook', withServer, async (t, server, got) => {
+	server.get('/redirect', (_request, response) => {
+		response.writeHead(302, {
+			location: '/final',
+		});
+		response.end();
+	});
+
+	const controller = new AbortController();
+	let hookEntered!: () => void;
+	const hookEnteredPromise = new Promise<void>(resolve => {
+		hookEntered = resolve;
+	});
+	let finishHook!: () => void;
+	const hookMayFinish = new Promise<void>(resolve => {
+		finishHook = resolve;
+	});
+	let requestFunctionCalls = 0;
+	let secondHookCalls = 0;
+	const request = got('redirect', {
+		signal: controller.signal,
+		hooks: {
+			beforeRedirect: [
+				async () => {
+					hookEntered();
+					await hookMayFinish;
+				},
+				async () => {
+					secondHookCalls++;
+				},
+			],
+		},
+		timeout: {
+			request: 500,
+		},
+		retry: {
+			limit: 0,
+		},
+		request(url, options, callback) {
+			requestFunctionCalls++;
+			return http.request(url, options, callback);
+		},
+	});
+	let watchdog: ReturnType<typeof setTimeout> | undefined;
+
+	try {
+		const errorPromise = t.throwsAsync<TimeoutError>(Promise.race([
+			request,
+			new Promise<never>((_resolve, reject) => {
+				watchdog = setTimeout(() => {
+					reject(new Error('Request did not time out while awaiting beforeRedirect'));
+				}, 2000);
+			}),
+		]));
+		const waitForHookEntry = async () => {
+			await hookEnteredPromise;
+			return true;
+		};
+
+		const waitForTimeout = async () => {
+			await errorPromise;
+			return false;
+		};
+
+		const hookWasEntered = await Promise.race([
+			waitForHookEntry(),
+			waitForTimeout(),
+		]);
+		t.true(hookWasEntered);
+		const error = await errorPromise;
+
+		t.true(error instanceof TimeoutError);
+		t.is(error.event, 'request');
+		t.is(requestFunctionCalls, 1);
+		t.is(secondHookCalls, 0);
+
+		finishHook();
+		await delay(20);
+		t.is(requestFunctionCalls, 1);
+		t.is(secondHookCalls, 0);
+	} finally {
+		finishHook();
+		clearTimeout(watchdog);
+		controller.abort();
+	}
+});
+
+test.serial('aborting during a pending beforeRedirect hook does not start the redirect', withServer, async (t, server, got) => {
+	server.get('/redirect', (_request, response) => {
+		response.writeHead(302, {
+			location: '/final',
+		});
+		response.end();
+	});
+
+	const controller = new AbortController();
+	let hookEntered!: () => void;
+	const hookEnteredPromise = new Promise<void>(resolve => {
+		hookEntered = resolve;
+	});
+	let finishHook!: () => void;
+	const hookMayFinish = new Promise<void>(resolve => {
+		finishHook = resolve;
+	});
+	let requestFunctionCalls = 0;
+	const request = got('redirect', {
+		signal: controller.signal,
+		hooks: {
+			beforeRedirect: [
+				async () => {
+					hookEntered();
+					await hookMayFinish;
+				},
+			],
+		},
+		timeout: {
+			request: 10_000,
+		},
+		retry: {
+			limit: 0,
+		},
+		request(url, options, callback) {
+			requestFunctionCalls++;
+			return http.request(url, options, callback);
+		},
+	});
+
+	try {
+		await hookEnteredPromise;
+		controller.abort();
+		await t.throwsAsync(request, {message: 'This operation was aborted.'});
+
+		finishHook();
+		await delay(20);
+		t.is(requestFunctionCalls, 1);
+	} finally {
+		finishHook();
+		controller.abort();
+	}
+});
+
+test.serial('request timeout interrupts redirected beforeRequest setup', withServer, async (t, server, got) => {
+	let finalRequests = 0;
+	server.get('/redirect', (_request, response) => {
+		response.writeHead(302, {
+			location: '/final',
+		});
+		response.end();
+	});
+	server.get('/final', (_request, response) => {
+		finalRequests++;
+		response.end('ok');
+	});
+
+	const controller = new AbortController();
+	let redirectedHookEntered!: () => void;
+	const redirectedHookEnteredPromise = new Promise<void>(resolve => {
+		redirectedHookEntered = resolve;
+	});
+	let finishHook!: () => void;
+	const hookMayFinish = new Promise<void>(resolve => {
+		finishHook = resolve;
+	});
+	let hookCalls = 0;
+	let secondHookCalls = 0;
+	let requestFunctionCalls = 0;
+	const request = got('redirect', {
+		signal: controller.signal,
+		hooks: {
+			beforeRequest: [
+				async () => {
+					hookCalls++;
+
+					if (hookCalls === 2) {
+						redirectedHookEntered();
+						await hookMayFinish;
+						throw new Error('late hook failure');
+					}
+				},
+				async () => {
+					secondHookCalls++;
+				},
+			],
+		},
+		timeout: {
+			request: 100,
+		},
+		retry: {
+			limit: 0,
+		},
+		request(url, options, callback) {
+			requestFunctionCalls++;
+			return http.request(url, options, callback);
+		},
+	});
+	let watchdog: ReturnType<typeof setTimeout> | undefined;
+
+	try {
+		const errorPromise = t.throwsAsync<TimeoutError>(Promise.race([
+			request,
+			new Promise<never>((_resolve, reject) => {
+				watchdog = setTimeout(() => {
+					reject(new Error('Request did not time out during redirected beforeRequest setup'));
+				}, 1000);
+			}),
+		]), errorMatcher);
+
+		await redirectedHookEnteredPromise;
+		const error = await errorPromise;
+		t.is(error?.event, 'request');
+		t.is(hookCalls, 2);
+		t.is(secondHookCalls, 1);
+		t.is(requestFunctionCalls, 1);
+		t.is(finalRequests, 0);
+
+		finishHook();
+		await delay(20);
+		t.is(secondHookCalls, 1);
+		t.is(requestFunctionCalls, 1);
+		t.is(finalRequests, 0);
+	} finally {
+		finishHook();
+		clearTimeout(watchdog);
+		controller.abort();
+	}
+});
+
+test.serial('redirected beforeRequest can disable the request timeout before awaiting', withServer, async (t, server, got) => {
+	server.get('/redirect', (_request, response) => {
+		response.writeHead(302, {
+			location: '/final',
+		});
+		response.end();
+	});
+
+	server.get('/final', (_request, response) => {
+		response.end('ok');
+	});
+
+	let hookCalls = 0;
+	const response = await got('redirect', {
+		hooks: {
+			beforeRequest: [
+				async options => {
+					hookCalls++;
+
+					if (hookCalls === 2) {
+						options.timeout.request = undefined;
+						await delay(150);
+					}
+				},
+			],
+		},
+		timeout: {
+			request: 100,
+		},
+		retry: {
+			limit: 0,
+		},
+	});
+
+	t.is(response.body, 'ok');
+	t.is(hookCalls, 2);
+});
+
+test.serial('aborting during redirected beforeRequest setup does not start the request', withServer, async (t, server, got) => {
+	let finalRequests = 0;
+	server.get('/redirect', (_request, response) => {
+		response.writeHead(302, {
+			location: '/final',
+		});
+		response.end();
+	});
+	server.get('/final', (_request, response) => {
+		finalRequests++;
+		response.end('ok');
+	});
+
+	const controller = new AbortController();
+	let redirectedHookEntered!: () => void;
+	const redirectedHookEnteredPromise = new Promise<void>(resolve => {
+		redirectedHookEntered = resolve;
+	});
+	let finishHook!: () => void;
+	const hookMayFinish = new Promise<void>(resolve => {
+		finishHook = resolve;
+	});
+	let hookCalls = 0;
+	let requestFunctionCalls = 0;
+	const request = got('redirect', {
+		signal: controller.signal,
+		hooks: {
+			beforeRequest: [
+				async () => {
+					hookCalls++;
+
+					if (hookCalls === 2) {
+						redirectedHookEntered();
+						await hookMayFinish;
+					}
+				},
+			],
+		},
+		retry: {
+			limit: 0,
+		},
+		request(url, options, callback) {
+			requestFunctionCalls++;
+			return http.request(url, options, callback);
+		},
+	});
+
+	try {
+		await redirectedHookEnteredPromise;
+		controller.abort();
+		await t.throwsAsync(request, {message: 'This operation was aborted.'});
+
+		finishHook();
+		await delay(20);
+		t.is(hookCalls, 2);
+		t.is(requestFunctionCalls, 1);
+		t.is(finalRequests, 0);
+	} finally {
+		finishHook();
+		controller.abort();
+	}
+});
+
+test.serial('aborting during redirected async request setup does not send the request', withServer, async (t, server, got) => {
+	let finalRequests = 0;
+	server.get('/redirect', (_request, response) => {
+		response.writeHead(302, {
+			location: '/final',
+		});
+		response.end();
+	});
+	server.get('/final', (_request, response) => {
+		finalRequests++;
+		response.end('ok');
+	});
+
+	const controller = new AbortController();
+	let redirectedRequestEntered!: () => void;
+	const redirectedRequestEnteredPromise = new Promise<void>(resolve => {
+		redirectedRequestEntered = resolve;
+	});
+	let finishRequest!: () => void;
+	const requestMayFinish = new Promise<void>(resolve => {
+		finishRequest = resolve;
+	});
+	let requestFunctionCalls = 0;
+	let redirectedRequest: http.ClientRequest | undefined;
+	const request = got('redirect', {
+		signal: controller.signal,
+		retry: {
+			limit: 0,
+		},
+		async request(url, options, callback) {
+			requestFunctionCalls++;
+
+			if (requestFunctionCalls === 2) {
+				redirectedRequestEntered();
+				await requestMayFinish;
+				redirectedRequest = http.request(url, options, callback);
+				return redirectedRequest;
+			}
+
+			return http.request(url, options, callback);
+		},
+	});
+
+	try {
+		await redirectedRequestEnteredPromise;
+		controller.abort();
+		await t.throwsAsync(request, {message: 'This operation was aborted.'});
+
+		finishRequest();
+		await delay(20);
+		t.is(requestFunctionCalls, 2);
+		t.true(redirectedRequest?.destroyed);
+		t.is(finalRequests, 0);
+	} finally {
+		finishRequest();
+		controller.abort();
+	}
+});
+
+test.serial('request timeout interrupts redirected cookie setup', withServer, async (t, server, got) => {
+	let finalRequests = 0;
+	server.get('/redirect', (_request, response) => {
+		response.writeHead(302, {
+			location: '/final',
+		});
+		response.end();
+	});
+	server.get('/final', (_request, response) => {
+		finalRequests++;
+		response.end('ok');
+	});
+
+	const controller = new AbortController();
+	let redirectedCookieLookupEntered!: () => void;
+	const redirectedCookieLookupEnteredPromise = new Promise<void>(resolve => {
+		redirectedCookieLookupEntered = resolve;
+	});
+	let finishCookieLookup!: () => void;
+	const cookieLookupMayFinish = new Promise<void>(resolve => {
+		finishCookieLookup = resolve;
+	});
+	let requestFunctionCalls = 0;
+	const request = got('redirect', {
+		signal: controller.signal,
+		cookieJar: {
+			async getCookieString(url: string) {
+				if (new URL(url).pathname === '/final') {
+					redirectedCookieLookupEntered();
+					await cookieLookupMayFinish;
+					throw new Error('late cookie lookup failure');
+				}
+
+				return '';
+			},
+			async setCookie() {},
+		},
+		timeout: {
+			request: 100,
+		},
+		retry: {
+			limit: 0,
+		},
+		request(url, options, callback) {
+			requestFunctionCalls++;
+			return http.request(url, options, callback);
+		},
+	});
+	let watchdog: ReturnType<typeof setTimeout> | undefined;
+
+	try {
+		const errorPromise = t.throwsAsync<TimeoutError>(Promise.race([
+			request,
+			new Promise<never>((_resolve, reject) => {
+				watchdog = setTimeout(() => {
+					reject(new Error('Request did not time out during redirected cookie setup'));
+				}, 1000);
+			}),
+		]), errorMatcher);
+
+		await redirectedCookieLookupEnteredPromise;
+		const error = await errorPromise;
+		t.is(error?.event, 'request');
+		t.is(requestFunctionCalls, 1);
+		t.is(finalRequests, 0);
+
+		finishCookieLookup();
+		await delay(20);
+		t.is(requestFunctionCalls, 1);
+		t.is(finalRequests, 0);
+	} finally {
+		finishCookieLookup();
+		clearTimeout(watchdog);
+		controller.abort();
+	}
+});
+
+test.serial('request timeout interrupts redirected cache setup', withServer, async (t, server, got) => {
+	let finalRequests = 0;
+	server.get('/redirect', (_request, response) => {
+		response.writeHead(302, {
+			location: '/final',
+		});
+		response.end();
+	});
+	server.get('/final', (_request, response) => {
+		finalRequests++;
+		response.end('ok');
+	});
+
+	const controller = new AbortController();
+	let redirectedCacheLookupEntered!: () => void;
+	const redirectedCacheLookupEnteredPromise = new Promise<void>(resolve => {
+		redirectedCacheLookupEntered = resolve;
+	});
+	let finishCacheLookup!: () => void;
+	const cacheLookupMayFinish = new Promise<void>(resolve => {
+		finishCacheLookup = resolve;
+	});
+	const cache = new Map();
+	const getFromCache = cache.get.bind(cache);
+	let cacheGetCalls = 0;
+	cache.get = key => {
+		cacheGetCalls++;
+
+		if (cacheGetCalls === 2) {
+			redirectedCacheLookupEntered();
+			return (async () => {
+				await cacheLookupMayFinish;
+				return undefined;
+			})();
+		}
+
+		return getFromCache(key);
+	};
+
+	let requestFunctionCalls = 0;
+	const request = got('redirect', {
+		signal: controller.signal,
+		cache,
+		timeout: {
+			request: 100,
+		},
+		retry: {
+			limit: 0,
+		},
+		request(url, options, callback) {
+			requestFunctionCalls++;
+			return http.request(url, options, callback);
+		},
+	});
+	let watchdog: ReturnType<typeof setTimeout> | undefined;
+
+	try {
+		const errorPromise = t.throwsAsync<TimeoutError>(Promise.race([
+			request,
+			new Promise<never>((_resolve, reject) => {
+				watchdog = setTimeout(() => {
+					reject(new Error('Request did not time out during redirected cache setup'));
+				}, 1000);
+			}),
+		]), errorMatcher);
+
+		await redirectedCacheLookupEnteredPromise;
+		const error = await errorPromise;
+		t.is(error?.event, 'request');
+		t.is(cacheGetCalls, 2);
+		t.is(requestFunctionCalls, 1);
+		t.is(finalRequests, 0);
+
+		finishCacheLookup();
+		await delay(20);
+		t.is(requestFunctionCalls, 1);
+		t.is(finalRequests, 0);
+	} finally {
+		finishCacheLookup();
+		clearTimeout(watchdog);
+		controller.abort();
+	}
+});
+
+test.serial('request timeout destroys a redirected async custom request result after the global budget expires', withServer, async (t, server, got) => {
+	const clock = FakeTimers.install({
+		toFake: ['Date'],
+	});
+	let requestFunctionCalls = 0;
+	let redirectedRequest: http.ClientRequest | undefined;
+
+	try {
+		server.get('/redirect', (_request, response) => {
+			response.writeHead(302, {
+				location: '/final',
+			});
+			response.end();
+		});
+
+		server.get('/final', () => {});
+
+		const error = await t.throwsAsync<TimeoutError>(got('redirect', {
+			timeout: {
+				request: 100,
+			},
+			retry: {
+				limit: 0,
+			},
+			async request(url, options, callback) {
+				requestFunctionCalls++;
+
+				if (requestFunctionCalls === 1) {
+					return http.request(url, options, callback);
+				}
+
+				redirectedRequest = http.request(url, options, callback);
+				redirectedRequest.on('error', () => {});
+				clock.tick(100);
+				await Promise.resolve();
+				return redirectedRequest;
+			},
+		}), errorMatcher);
+
+		t.is(error?.event, 'request');
+		t.true(redirectedRequest!.destroyed);
+	} finally {
+		redirectedRequest?.destroy();
+		clock.uninstall();
+	}
+});
+
+test.serial('request timeout does not double count async custom request function time on redirects', withServer, async (t, server, got) => {
+	const clock = FakeTimers.install({
+		toFake: ['Date'],
+	});
+
+	try {
+		server.get('/redirect', (_request, response) => {
+			response.writeHead(302, {
+				location: '/final',
+			});
+			response.end();
+		});
+
+		server.get('/final', (_request, response) => {
+			response.end('ok');
+		});
+
+		const {body} = await got('redirect', {
+			timeout: {
+				request: 5000,
+			},
+			retry: {
+				limit: 0,
+			},
+			async request(url, options, callback) {
+				clock.tick(2000);
+				await Promise.resolve();
+				return http.request(url, options, callback);
+			},
+		});
+
+		t.is(body, 'ok');
+	} finally {
+		clock.uninstall();
 	}
 });

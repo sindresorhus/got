@@ -65,16 +65,9 @@ const getNativeAgent = (url: URL, agent: NativeRequestOptions['agent']): NativeR
 	return url.protocol === 'https:' ? agent.https : agent.http;
 };
 
-const resolveWithRequestTimeout = async <T>(promise: Promise<T>, timeout: number, onLateResolution?: (value: T) => void): Promise<T> => {
+export const resolveWithRequestTimeout = async <T>(promise: Promise<T>, timeout: number, onLateResolution?: (value: T) => void): Promise<T> => {
 	let timeoutId: NodeJS.Timeout | undefined;
-	let didTimeOut = false;
-	const timeoutPromise = new Promise<never>((_resolve, reject) => {
-		timeoutId = setTimeout(() => {
-			didTimeOut = true;
-			reject(new TimeoutError(timeout, 'request'));
-		}, timeout);
-		timeoutId.unref();
-	});
+	let didTimeOut = timeout <= 0;
 
 	void (async () => {
 		try {
@@ -85,6 +78,18 @@ const resolveWithRequestTimeout = async <T>(promise: Promise<T>, timeout: number
 			}
 		} catch {}
 	})();
+
+	if (didTimeOut) {
+		throw new TimeoutError(0, 'request');
+	}
+
+	const timeoutPromise = new Promise<never>((_resolve, reject) => {
+		timeoutId = setTimeout(() => {
+			didTimeOut = true;
+			reject(new TimeoutError(timeout, 'request'));
+		}, timeout);
+		timeoutId.unref();
+	});
 
 	try {
 		return await Promise.race([promise, timeoutPromise]);
