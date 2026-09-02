@@ -19,6 +19,7 @@ import is, {isBuffer} from '@sindresorhus/is';
 import type ResponseLike from 'responselike';
 import timer, {type ClientRequestWithTimings, type Timings, type IncomingMessageWithTimings} from './utils/timer.js';
 import getBodySize from './utils/get-body-size.js';
+import isNonReplayableBody from './utils/is-non-replayable-body.js';
 import proxyEvents from './utils/proxy-events.js';
 import timedOut, {TimeoutError as TimedOutTimeoutError} from './timed-out.js';
 import stripUrlAuth from './utils/strip-url-auth.js';
@@ -225,15 +226,6 @@ const serializeNativeFormDataBody = (form: FormData) => {
 	};
 };
 
-// A body is replayable only if iterating it again restarts from the beginning.
-// Node streams, Web `ReadableStream`s, generators, and self-iterating (one-shot) iterators all yield their data only once, so they cannot be replayed on a redirect.
-const isNonReplayableBody = (body: unknown): boolean =>
-	is.nodeStream(body)
-	|| body instanceof ReadableStream
-	|| is.generator(body)
-	|| (is.asyncIterable(body) && (body[Symbol.asyncIterator]() as unknown) === body)
-	|| (is.iterable(body) && (body[Symbol.iterator]() as unknown) === body);
-
 const isTransientWriteError = (error: Error): boolean => {
 	const {code} = error;
 	return typeof code === 'string' && transientWriteErrorCodes.has(code);
@@ -338,6 +330,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	private _responseSize?: number;
 	private _bodySize?: number;
 	private _nativeFormDataBody?: NativeFormDataBodyMetadata;
+	private _activeWebBodyReader?: {body: ReadableStream; reader: ReadableStreamDefaultReader};
 	private _unproxyEvents?: () => void;
 	private _triggerRead = false;
 	private readonly _jobs: Array<() => void> = [];
@@ -1262,7 +1255,6 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 				const canRewrite = statusCode !== 307 && statusCode !== 308;
 				const userRequestedGet = updatedOptions.methodRewriting && canRewrite;
 				const shouldDropBody = serverRequestedGet || crossOriginRequestedGet || userRequestedGet;
-
 				if (shouldDropBody) {
 					updatedOptions.method = 'GET';
 					this._dropBody(updatedOptions);
@@ -1322,43 +1314,6 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 				updatedOptions.clearUnchangedCookieHeader(preHookState, changedState);
 
-				const nativeFormDataBody = this._nativeFormDataBody;
-				const mustReplayBodyOnRedirect = statusCode === 307 || statusCode === 308 || updatedOptions.method === 'QUERY';
-
-				if (mustReplayBodyOnRedirect) {
-					const bodyUnchangedByHooks = updatedOptions.body === bodyBeforeRedirectHooks;
-					const wasNonReplayable = isNonReplayableBody(bodyBeforeRedirectHooks);
-
-					if (!bodyUnchangedByHooks && wasNonReplayable) {
-						// A hook supplied a fresh body, so dispose of the original non-replayable one.
-						this._destroyBody(bodyBeforeRedirectHooks);
-					} else if (
-						bodyUnchangedByHooks
-						&& nativeFormDataBody !== undefined
-						&& updatedOptions.body === nativeFormDataBody.body
-					) {
-						// Native FormData generates a fresh stream and boundary, so re-serialize it to replay the upload.
-						const {body, contentType} = serializeNativeFormDataBody(nativeFormDataBody.form);
-
-						nativeFormDataBody.body = body;
-						updatedOptions.body = body;
-
-						if (changedState.has('content-type')) {
-							nativeFormDataBody.contentTypeWasGenerated = false;
-						} else if (nativeFormDataBody.contentTypeWasGenerated) {
-							updatedOptions.setInternalHeader('content-type', contentType);
-						}
-					} else if (
-						bodyUnchangedByHooks
-						&& (wasNonReplayable || (is.undefined(updatedOptions.body) && (this._hasWrittenBody || this._hasWritableBody)))
-					) {
-						// Body-preserving redirects must replay the body, so follow the HTTP spec and other clients by failing for unchanged non-replayable bodies. Hooks may supply a fresh body.
-						this._dropBody(updatedOptions);
-						this._beforeError(new RequestError('Cannot follow redirect with a non-replayable body', {}, this));
-						return;
-					}
-				}
-
 				// If a beforeRedirect hook changed the URL to a different origin,
 				// strip sensitive headers that were preserved for the original origin.
 				// When isDifferentOrigin was already true, headers were already stripped above.
@@ -1397,6 +1352,57 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 							preservePassword: hasExplicitCredentialInUrlChange(changedState, hookUrl, 'password')
 								|| isCrossOriginCredentialChanged(state.url, hookUrl, 'password'),
 						});
+					}
+				}
+
+				const nativeFormDataBody = this._nativeFormDataBody;
+				const bodyUnchangedByHooks = updatedOptions.body === bodyBeforeRedirectHooks;
+				const wasNonReplayable = isNonReplayableBody(bodyBeforeRedirectHooks);
+				const bodyWasRemovedByHooks = changedState.has('body')
+					&& is.undefined(updatedOptions.body)
+					&& is.undefined(updatedOptions.json)
+					&& is.undefined(updatedOptions.form)
+					&& this.options.body === bodyBeforeRedirectHooks
+					&& (!bodyUnchangedByHooks || this._hasWrittenBody || this._hasWritableBody);
+
+				if (bodyWasRemovedByHooks) {
+					this._dropBody(updatedOptions);
+				} else if (
+					!bodyUnchangedByHooks
+					&& wasNonReplayable
+					&& this.options.body === bodyBeforeRedirectHooks
+				) {
+					// A hook replaced or removed the body, so dispose of the original non-replayable one.
+					this._destroyBody(bodyBeforeRedirectHooks);
+				}
+
+				// Any redirect that keeps the body must replay it, including same-origin 301/302 redirects that keep the method.
+				if (this._hasBodyForRedirect(updatedOptions)) {
+					if (
+						bodyUnchangedByHooks
+						&& nativeFormDataBody !== undefined
+						&& updatedOptions.body === nativeFormDataBody.body
+					) {
+						// Native FormData generates a fresh stream and boundary, so re-serialize it to replay the upload.
+						this._destroyBody(bodyBeforeRedirectHooks);
+						const {body, contentType} = serializeNativeFormDataBody(nativeFormDataBody.form);
+
+						nativeFormDataBody.body = body;
+						updatedOptions.body = body;
+
+						if (changedState.has('content-type')) {
+							nativeFormDataBody.contentTypeWasGenerated = false;
+						} else if (nativeFormDataBody.contentTypeWasGenerated) {
+							updatedOptions.setInternalHeader('content-type', contentType);
+						}
+					} else if (
+						bodyUnchangedByHooks
+						&& (wasNonReplayable || (is.undefined(updatedOptions.body) && (this._hasWrittenBody || this._hasWritableBody)))
+					) {
+						// Body-preserving redirects must replay the body, so follow the HTTP spec and other clients by failing for unchanged non-replayable bodies. Hooks may supply a fresh body.
+						this._dropBody(updatedOptions);
+						this._beforeError(new RequestError('Cannot follow redirect with a non-replayable body', {}, this));
+						return;
 					}
 				}
 
@@ -1662,6 +1668,43 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		return this._request !== request || Boolean((request as ClientRequest & {res?: unknown}).res) || request.destroyed || request.writableEnded;
 	}
 
+	private _cancelActiveWebBodyReader(body: ReadableStream): boolean {
+		const activeReader = this._activeWebBodyReader;
+		if (activeReader?.body !== body) {
+			return false;
+		}
+
+		this._activeWebBodyReader = undefined;
+
+		try {
+			// eslint-disable-next-line promise/prefer-await-to-then
+			void activeReader.reader.cancel().catch(noop);
+		} catch {} finally {
+			activeReader.reader.releaseLock();
+		}
+
+		return true;
+	}
+
+	private async * _iterateWebBody(body: ReadableStream) {
+		const reader = body.getReader();
+		this._activeWebBodyReader = {body, reader};
+
+		try {
+			while (true) {
+				// eslint-disable-next-line no-await-in-loop
+				const {done, value} = await reader.read();
+				if (done) {
+					return;
+				}
+
+				yield value;
+			}
+		} finally {
+			this._cancelActiveWebBodyReader(body);
+		}
+	}
+
 	private async _asyncWrite(chunk: any, request: Request | ClientRequest = this): Promise<void> {
 		return new Promise((resolve, reject) => {
 			if (request === this) {
@@ -1707,9 +1750,10 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			(async () => {
 				const isInitialRequest = currentRequest === this;
 				const bodyOptions = this.options;
+				const iterableBody = body instanceof ReadableStream ? this._iterateWebBody(body) : body;
 
 				try {
-					for await (const chunk of body) {
+					for await (const chunk of iterableBody) {
 						if (this.options !== bodyOptions || this.options.body !== body) {
 							return;
 						}
@@ -1922,11 +1966,15 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 	private _dropBody(updatedOptions: Options) {
 		const {body} = this.options;
+		const updatedBody = updatedOptions.body;
 		const hadOptionBody = !is.undefined(body) || !is.undefined(this.options.json) || !is.undefined(this.options.form);
 
 		this.options.clearBody();
 
 		this._destroyBody(body);
+		if (updatedBody !== body) {
+			this._destroyBody(updatedBody);
+		}
 
 		if (!hadOptionBody && !this.writableEnded) {
 			this._skipRequestEndInFinal = true;
@@ -1947,6 +1995,11 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			bodyStream.unpipe();
 			bodyStream.on('error', noop);
 			bodyStream.destroy();
+		} else if (body instanceof ReadableStream) {
+			if (!this._cancelActiveWebBodyReader(body) && !body.locked) {
+				// eslint-disable-next-line promise/prefer-await-to-then
+				void body.cancel().catch(noop);
+			}
 		} else if (is.asyncIterable(body) || (is.iterable(body) && !is.string(body) && !isBuffer(body))) {
 			const iterableBody = body as unknown as Iterator<unknown> | AsyncIterator<unknown>;
 

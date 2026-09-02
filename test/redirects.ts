@@ -1,4 +1,5 @@
 import {Buffer} from 'node:buffer';
+import http from 'node:http';
 import {Readable} from 'node:stream';
 import {setTimeout as delay} from 'node:timers/promises';
 import {promisify} from 'node:util';
@@ -1657,6 +1658,158 @@ test('beforeRedirect can replace a non-replayable body on same-origin 307 redire
 	t.is(redirectedRequest.method, 'POST');
 	t.is(redirectedRequest.body, 'replacement-body');
 	t.true(originalBodyReturned);
+});
+
+test('beforeRedirect destroys a non-replayable body removed on an early 307 redirect', withServer, async (t, server, got) => {
+	server.post('/redirect', (_request, response) => {
+		response.writeHead(307, {
+			location: '/destination',
+		});
+		response.end();
+	});
+
+	server.post('/destination', (request, response) => {
+		request.resume();
+		request.once('end', () => {
+			response.end(request.method);
+		});
+	});
+
+	const originalBody = new Readable({
+		read() {},
+	});
+
+	try {
+		const {body} = await got.post('redirect', {
+			body: originalBody,
+			hooks: {
+				beforeRedirect: [
+					options => {
+						options.body = undefined;
+					},
+				],
+			},
+			request(url, options, callback) {
+				const request = http.request(url, options, callback);
+				request.flushHeaders();
+				return request;
+			},
+			retry: {
+				limit: 0,
+			},
+		});
+
+		t.is(body, 'POST');
+		t.true(originalBody.destroyed);
+	} finally {
+		originalBody.destroy();
+	}
+});
+
+test('beforeRedirect body removal persists across consecutive 307 redirects', withServer, async (t, server, got) => {
+	server.post('/first', (request, response) => {
+		request.resume();
+		request.once('end', () => {
+			response.writeHead(307, {
+				location: '/second',
+			});
+			response.end();
+		});
+	});
+
+	server.post('/second', (_request, response) => {
+		response.writeHead(307, {
+			location: '/final',
+		});
+		response.end();
+	});
+
+	server.post('/final', async (request, response) => {
+		const chunks: Uint8Array[] = [];
+
+		for await (const chunk of request) {
+			chunks.push(Buffer.from(chunk));
+		}
+
+		response.end(JSON.stringify({
+			body: Buffer.concat(chunks).toString(),
+			method: request.method,
+		}));
+	});
+
+	let redirectCount = 0;
+	const result = await got.post('first', {
+		body: Readable.from(['original']),
+		hooks: {
+			beforeRedirect: [
+				options => {
+					redirectCount++;
+
+					if (redirectCount === 1) {
+						options.body = undefined;
+					}
+				},
+			],
+		},
+		retry: {
+			limit: 0,
+		},
+	}).json<{body: string; method: string}>();
+
+	t.deepEqual(result, {
+		body: '',
+		method: 'POST',
+	});
+	t.is(redirectCount, 2);
+});
+
+test('beforeRedirect cancels a Web ReadableStream body removed on an early 307 redirect', withServer, async (t, server, got) => {
+	server.post('/redirect', (_request, response) => {
+		response.writeHead(307, {
+			location: '/destination',
+		});
+		response.end();
+	});
+
+	server.post('/destination', (request, response) => {
+		request.resume();
+		request.once('end', () => {
+			response.end(request.method);
+		});
+	});
+
+	let cancelled = false;
+	const originalBody = new ReadableStream({
+		async pull() {
+			await new Promise(() => {});
+		},
+		cancel() {
+			cancelled = true;
+		},
+	});
+
+	const {body} = await got.post('redirect', {
+		body: originalBody,
+		hooks: {
+			beforeRedirect: [
+				options => {
+					options.body = undefined;
+				},
+			],
+		},
+		request(url, options, callback) {
+			const request = http.request(url, options, callback);
+			request.flushHeaders();
+			return request;
+		},
+		retry: {
+			limit: 0,
+		},
+	});
+
+	t.is(body, 'POST');
+	t.true(cancelled);
+	t.false(originalBody.locked);
 });
 
 test('beforeRedirect replacement body does not receive stale Node stream body chunks on 307 redirect', withServer, async (t, server, got) => {
@@ -3445,5 +3598,117 @@ test('strips inherited password when explicit URL object keeps only username dur
 		}).json<{headers: Record<string, string | undefined>}>();
 
 		t.is(result.headers.authorization, `Basic ${Buffer.from('user:').toString('base64')}`);
+	});
+});
+
+for (const statusCode of [301, 302]) {
+	test(`does not send an empty body on same-origin ${statusCode} redirect with a non-replayable body`, withServer, async (t, server, got) => {
+		let destinationHits = 0;
+
+		server.post('/redirect', (request, response) => {
+			request.resume();
+			request.once('end', () => {
+				response.writeHead(statusCode, {
+					location: '/destination',
+				});
+				response.end();
+			});
+		});
+
+		server.post('/destination', (request, response) => {
+			destinationHits++;
+			request.resume();
+			response.end();
+		});
+
+		await t.throwsAsync(got.post('redirect', {
+			body: Readable.from(['hello', ' world']),
+			retry: {
+				limit: 0,
+			},
+		}), {
+			instanceOf: RequestError,
+			message: 'Cannot follow redirect with a non-replayable body',
+		});
+
+		t.is(destinationHits, 0);
+	});
+
+	test(`drops a non-replayable body when beforeRedirect changes a ${statusCode} redirect to another origin`, withServer, async (t, server1, got) => {
+		await withServer.exec(t, async (t, server2) => {
+			server1.post('/redirect', (request, response) => {
+				request.resume();
+				request.once('end', () => {
+					response.writeHead(statusCode, {
+						location: '/unused',
+					});
+					response.end();
+				});
+			});
+
+			server2.get('/destination', (request, response) => {
+				response.end(request.method);
+			});
+
+			const {body} = await got.post('redirect', {
+				body: Readable.from(['hello', ' world']),
+				hooks: {
+					beforeRedirect: [
+						options => {
+							options.url = new URL('destination', server2.url);
+						},
+					],
+				},
+				retry: {
+					limit: 0,
+				},
+			});
+
+			t.is(body, 'GET');
+		});
+	});
+}
+
+test('beforeRedirect destroys a replacement body dropped after a cross-origin 302 rewrite', withServer, async (t, server1, got) => {
+	await withServer.exec(t, async (t, server2) => {
+		server1.post('/redirect', (request, response) => {
+			request.resume();
+			request.once('end', () => {
+				response.writeHead(302, {
+					location: '/unused',
+				});
+				response.end();
+			});
+		});
+
+		server2.get('/destination', (request, response) => {
+			response.end(request.method);
+		});
+
+		const replacementBody = new Readable({
+			read() {},
+		});
+
+		try {
+			const {body} = await got.post('redirect', {
+				body: 'original',
+				hooks: {
+					beforeRedirect: [
+						options => {
+							options.url = new URL('destination', server2.url);
+							options.body = replacementBody;
+						},
+					],
+				},
+				retry: {
+					limit: 0,
+				},
+			});
+
+			t.is(body, 'GET');
+			t.true(replacementBody.destroyed);
+		} finally {
+			replacementBody.destroy();
+		}
 	});
 });

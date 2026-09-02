@@ -6,6 +6,7 @@ import {
 	type RequestError,
 } from '../core/errors.js';
 import Request, {normalizeError} from '../core/index.js';
+import isNonReplayableBody from '../core/utils/is-non-replayable-body.js';
 import {
 	decodeUint8Array,
 	isUtf8Encoding,
@@ -242,7 +243,7 @@ export default function asPromise<T>(firstRequest?: Request): RequestPromise<T> 
 
 				const newBody = request.options.body;
 
-				if (previousBody === newBody && (is.nodeStream(newBody) || newBody instanceof ReadableStream)) {
+				if (previousBody === newBody && isNonReplayableBody(newBody)) {
 					error.message = 'Cannot retry with consumed body stream';
 
 					onError(error);

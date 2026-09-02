@@ -1566,3 +1566,35 @@ test('does not retry after promise settles (issue #1489)', async t => {
 	t.is(response.statusCode, 200);
 	t.false(retryTriggered);
 });
+
+test('does not retry with a consumed generator body', withServer, async (t, server, got) => {
+	const bodies: string[] = [];
+
+	server.post('/', async (request, response) => {
+		bodies.push(await getStream(request));
+
+		if (bodies.length === 1) {
+			response.statusCode = 503;
+		}
+
+		response.end();
+	});
+
+	async function * body() {
+		yield 'part1';
+		yield 'part2';
+	}
+
+	await t.throwsAsync(got.post({
+		body: body(),
+		retry: {
+			limit: 1,
+			methods: ['POST'],
+			calculateDelay: () => 1,
+		},
+	}), {
+		message: 'Cannot retry with consumed body stream',
+	});
+
+	t.deepEqual(bodies, ['part1part2']);
+});

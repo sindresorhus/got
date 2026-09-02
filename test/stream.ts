@@ -1353,6 +1353,32 @@ test('isReadonly is true when body option is provided', withServer, async (t, se
 	await t.notThrowsAsync(getStream(stream));
 });
 
+test('cancels a Web ReadableStream body when writing a chunk fails', withServer, async (t, server, got) => {
+	server.post('/', postHandler);
+
+	let cancelled = false;
+	const body = new globalThis.ReadableStream({
+		start(controller) {
+			controller.enqueue(1);
+		},
+		cancel() {
+			cancelled = true;
+		},
+	});
+
+	await t.throwsAsync(got.post('', {
+		body,
+		retry: {
+			limit: 0,
+		},
+	}), {
+		instanceOf: RequestError,
+	});
+
+	t.true(cancelled);
+	t.false(body.locked);
+});
+
 test('isReadonly is true when json option is provided', withServer, async (t, server, got) => {
 	server.post('/', postHandler);
 
