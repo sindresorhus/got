@@ -169,22 +169,26 @@ const cacheableStore = new WeakableMap<string | StorageAdapter, CacheableRequest
 const redirectCodes: ReadonlySet<number> = new Set([301, 302, 303, 307, 308]);
 export {crossOriginStripHeaders} from './options.js';
 const transientWriteErrorCodes: ReadonlySet<string> = new Set(['EPIPE', 'ECONNRESET']);
-const omittedPipedHeaders = new Set([
-	'host',
+// See https://www.rfc-editor.org/rfc/rfc9110#section-7.6.1
+const hopByHopHeaders: ReadonlySet<string> = new Set([
 	'connection',
-	'authorization',
-	'cookie',
-	'cookie2',
 	'keep-alive',
 	'proxy-authenticate',
 	'proxy-authorization',
 	'proxy-connection',
-	'set-cookie',
-	'set-cookie2',
 	'te',
 	'trailer',
 	'transfer-encoding',
 	'upgrade',
+]);
+const omittedPipedHeaders: ReadonlySet<string> = new Set([
+	...hopByHopHeaders,
+	'host',
+	'authorization',
+	'cookie',
+	'cookie2',
+	'set-cookie',
+	'set-cookie2',
 ]);
 
 // Track errors that have been processed by beforeError hooks to preserve custom error types
@@ -1491,6 +1495,8 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 		this.emit('response', response);
 
+		const connectionListedHeaders = getConnectionListedHeaders(response.headers);
+
 		for (const destination of this._pipedServerResponses) {
 			if (destination.headersSent) {
 				continue;
@@ -1503,6 +1509,11 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 					// When decompression occurred, skip content-encoding and content-length
 					// as they refer to the compressed data, not the decompressed stream.
 					if (wasDecompressed && (key === 'content-encoding' || key === 'content-length')) {
+						continue;
+					}
+
+					// Hop-by-hop headers apply to the upstream connection only, so an intermediary must not forward them.
+					if (hopByHopHeaders.has(key) || connectionListedHeaders.has(key)) {
 						continue;
 					}
 

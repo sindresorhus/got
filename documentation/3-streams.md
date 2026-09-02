@@ -15,7 +15,7 @@ The function above is exposed by the `got` main interface and returns a new inst
 This constructor takes the same arguments as the Got promise.
 
 **Note:**
-> When piping to [`ServerResponse`](https://nodejs.org/api/http.html#http_class_http_serverresponse), the headers will be automatically copied.\
+> When piping to [`ServerResponse`](https://nodejs.org/api/http.html#http_class_http_serverresponse), the headers will be automatically copied, except for hop-by-hop headers like `connection`, `keep-alive`, `transfer-encoding`, and any headers listed in `connection`.\
 > When `decompress` is `true` (default) and the response is compressed, the `content-encoding` and `content-length` headers are not copied, as the response is decompressed.\
 > To filter which headers are copied, listen to the `response` event and modify `response.headers` before piping to the destination.
 

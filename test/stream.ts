@@ -1396,3 +1396,31 @@ test('isReadonly is true when form option is provided', withServer, async (t, se
 
 	await t.notThrowsAsync(getStream(stream));
 });
+
+test('pipe does not copy hop-by-hop headers to a ServerResponse', withServer, async (t, server, got) => {
+	server.get('/upstream', (_request, response) => {
+		response.writeHead(200, {
+			connection: 'close, x-listed',
+			'keep-alive': 'timeout=99',
+			'proxy-authenticate': 'Basic',
+			te: 'trailers',
+			upgrade: 'h2c',
+			'x-listed': 'listed',
+			'x-custom': 'custom',
+		});
+		response.end('ok');
+	});
+
+	server.get('/', (_request, response) => {
+		got.stream('upstream').pipe(response);
+	});
+
+	const {headers} = await got('');
+	t.is(headers['x-custom'], 'custom');
+	t.is(headers['x-listed'], undefined);
+	t.not(headers['keep-alive'], 'timeout=99');
+	t.is(headers['proxy-authenticate'], undefined);
+	t.is(headers.te, undefined);
+	t.is(headers.upgrade, undefined);
+	t.is(headers.connection, 'keep-alive');
+});
