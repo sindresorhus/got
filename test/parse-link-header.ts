@@ -127,8 +127,15 @@ test('works as expected', t => {
 		message: 'Invalid format of the Link header reference: ',
 	});
 
-	t.throws(() => parseLinkHeader('<https://bad.example>; rel'), {
-		message: 'Failed to parse Link header: <https://bad.example>; rel',
+	t.deepEqual(parseLinkHeader('<https://example.com>; rel'), [
+		{
+			reference: 'https://example.com',
+			parameters: {rel: ''},
+		},
+	]);
+
+	t.throws(() => parseLinkHeader('<https://bad.example>; '), {
+		message: 'Failed to parse Link header: <https://bad.example>; ',
 	});
 
 	t.throws(() => parseLinkHeader('<https://bad.example'), {
@@ -227,6 +234,23 @@ test('allows links without parameters', t => {
 			{
 				reference: 'https://api.example.com/favicon.ico',
 				parameters: {},
+			},
+		],
+	);
+});
+
+test('allows parameters without a value', t => {
+	// RFC 8288 section 3: `link-param = token BWS [ "=" BWS ( token / quoted-string ) ]`
+	t.deepEqual(
+		parseLinkHeader('</style.css>; rel=preload; as=style; crossorigin, </items?page=2>; rel="next"'),
+		[
+			{
+				reference: '/style.css',
+				parameters: {rel: 'preload', as: 'style', crossorigin: ''},
+			},
+			{
+				reference: '/items?page=2',
+				parameters: {rel: '"next"'},
 			},
 		],
 	);

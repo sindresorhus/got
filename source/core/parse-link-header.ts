@@ -80,13 +80,13 @@ export default function parseLinkHeader(link: string) {
 		for (const rawParameter of rawLinkParameters) {
 			const trimmedRawParameter = rawParameter.trim();
 			const center = trimmedRawParameter.indexOf('=');
+			// The parameter value is optional. See https://www.rfc-editor.org/rfc/rfc8288#section-3
+			const name = center === -1 ? trimmedRawParameter : trimmedRawParameter.slice(0, center).trim();
+			const value = center === -1 ? '' : trimmedRawParameter.slice(center + 1).trim();
 
-			if (center === -1) {
+			if (name === '') {
 				throw new Error(`Failed to parse Link header: ${link}`);
 			}
-
-			const name = trimmedRawParameter.slice(0, center).trim();
-			const value = trimmedRawParameter.slice(center + 1).trim();
 
 			parameters[name] = value;
 		}
