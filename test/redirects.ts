@@ -3712,3 +3712,87 @@ test('beforeRedirect destroys a replacement body dropped after a cross-origin 30
 		}
 	});
 });
+
+test('redirect inherits the fragment of the original URL', withServer, async (t, server, got) => {
+	server.get('/redirect', (_request, response) => {
+		response.writeHead(302, {
+			location: '/final',
+		});
+		response.end();
+	});
+
+	server.get('/final', reachedHandler);
+
+	const {url, redirectUrls} = await got('redirect#section');
+	t.is(url, `${server.url}/final#section`);
+	t.is(redirectUrls[0]!.href, `${server.url}/final#section`);
+});
+
+test('redirect inherits a fragment ending in a hash', withServer, async (t, server, got) => {
+	server.get('/redirect', (_request, response) => {
+		response.writeHead(302, {
+			location: '/final',
+		});
+		response.end();
+	});
+
+	server.get('/final', reachedHandler);
+
+	const {url, redirectUrls} = await got('redirect#section#');
+	t.is(url, `${server.url}/final#section#`);
+	t.is(redirectUrls[0]!.href, `${server.url}/final#section#`);
+});
+
+test('redirect keeps the fragment of the Location header', withServer, async (t, server, got) => {
+	server.get('/redirect', (_request, response) => {
+		response.writeHead(302, {
+			location: '/final#other',
+		});
+		response.end();
+	});
+
+	server.get('/final', reachedHandler);
+
+	const {url} = await got('redirect#section');
+	t.is(url, `${server.url}/final#other`);
+});
+
+test('redirect clears the fragment when the Location header has an empty fragment', withServer, async (t, server, got) => {
+	server.get('/redirect', (_request, response) => {
+		response.writeHead(302, {
+			location: '/final#',
+		});
+		response.end();
+	});
+
+	server.get('/final', reachedHandler);
+
+	const {url, redirectUrls} = await got('redirect#section');
+	t.is(url, `${server.url}/final#`);
+	t.is(redirectUrls[0]!.href, `${server.url}/final#`);
+});
+
+test('redirect inherits an empty fragment from the previous redirect', withServer, async (t, server, got) => {
+	server.get('/redirect', (_request, response) => {
+		response.writeHead(302, {
+			location: '/middle#',
+		});
+		response.end();
+	});
+
+	server.get('/middle', (_request, response) => {
+		response.writeHead(302, {
+			location: '/final',
+		});
+		response.end();
+	});
+
+	server.get('/final', reachedHandler);
+
+	const {url, redirectUrls} = await got('redirect#section');
+	t.is(url, `${server.url}/final#`);
+	t.deepEqual(redirectUrls.map(url => url.href), [
+		`${server.url}/middle#`,
+		`${server.url}/final#`,
+	]);
+});

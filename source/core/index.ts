@@ -1232,6 +1232,13 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 				// We need this in order to support UTF-8
 				const redirectBuffer = Buffer.from(redirectLocation, 'binary').toString();
 				const redirectUrl = new URL(redirectBuffer, url);
+
+				// A redirect without a fragment inherits the fragment of the original URL. See https://www.rfc-editor.org/rfc/rfc9110#section-10.2.2
+				if (!redirectBuffer.includes('#')) {
+					const previousUrl = url as URL;
+					redirectUrl.hash = previousUrl.hash === '' && previousUrl.href.endsWith('#') ? '#' : previousUrl.hash;
+				}
+
 				const currentUnixSocketPath = getUnixSocketPath(url as URL);
 				const redirectUnixSocketPath = getUnixSocketPath(redirectUrl);
 
