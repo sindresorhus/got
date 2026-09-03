@@ -1455,6 +1455,18 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 					}
 				}
 
+				// Hook-replaced bodies must update the inherited Content-Length unless the hook set one explicitly.
+				if (!bodyUnchangedByHooks && !changedState.has('content-length') && !is.undefined(updatedOptions.body)) {
+					const newBodySize = is.undefined(updatedOptions.getInternalHeaders()['transfer-encoding']) ? getBodySize(updatedOptions.body, undefined) : undefined;
+					if (newBodySize === undefined) {
+						updatedOptions.deleteInternalHeader('content-length');
+					} else {
+						updatedOptions.setInternalHeader('content-length', String(newBodySize));
+					}
+
+					this._bodySize = newBodySize;
+				}
+
 				// Publish redirect event
 				publishRedirect({
 					requestId: this._requestId,

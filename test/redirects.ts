@@ -12,6 +12,10 @@ import withServer, {withHttpsServer} from './helpers/with-server.js';
 
 const gzipAsync = promisify(gzip);
 
+async function getFormDataContentLength(form: FormData): Promise<string> {
+	return String((await new Response(form).arrayBuffer()).byteLength);
+}
+
 const reachedHandler: Handler = (_request, response) => {
 	const body = 'reached';
 
@@ -2110,6 +2114,211 @@ test('reuses native FormData body on cross-origin 307 redirects', withServer, as
 	});
 });
 
+test('native FormData 307 redirect preserves explicit Content-Length', withServer, async (t, server, got) => {
+	server.post('/redirect', async (request, response) => {
+		await request.toArray();
+
+		response.writeHead(307, {
+			location: '/destination',
+		});
+		response.end();
+	});
+
+	server.post('/destination', async (request, response) => {
+		if (request.headers['content-length'] === undefined || request.headers['transfer-encoding'] !== undefined) {
+			response.status(411).end();
+			return;
+		}
+
+		const body = Buffer.concat(await request.toArray()).toString();
+		response.json({
+			body,
+			contentLength: request.headers['content-length'],
+			transferEncoding: request.headers['transfer-encoding'],
+		});
+	});
+
+	const form = new globalThis.FormData();
+	form.set('hello', 'world');
+	const contentLength = await getFormDataContentLength(form);
+
+	const redirectedRequest = await got.post('redirect', {
+		body: form,
+		headers: {
+			'content-length': contentLength,
+		},
+		retry: {
+			limit: 0,
+		},
+	}).json<{body: string; contentLength: string; transferEncoding?: string}>();
+
+	t.is(redirectedRequest.contentLength, contentLength);
+	t.is(redirectedRequest.transferEncoding, undefined);
+	t.true(redirectedRequest.body.includes('name="hello"'));
+	t.true(redirectedRequest.body.includes('world'));
+});
+
+test('native FormData 308 redirect preserves case-insensitive explicit Content-Length', withServer, async (t, server, got) => {
+	server.post('/redirect', async (request, response) => {
+		await request.toArray();
+
+		response.writeHead(308, {
+			location: '/destination',
+		});
+		response.end();
+	});
+
+	server.post('/destination', async (request, response) => {
+		await request.toArray();
+		response.json(request.headers);
+	});
+
+	const form = new globalThis.FormData();
+	form.set('hello', 'world');
+	const contentLength = await getFormDataContentLength(form);
+
+	const headers = await got.post('redirect', {
+		body: form,
+		headers: {
+			'Content-Length': contentLength,
+		},
+		retry: {
+			limit: 0,
+		},
+	}).json<Record<string, string | undefined>>();
+
+	t.is(headers['content-length'], contentLength);
+	t.is(headers['transfer-encoding'], undefined);
+});
+
+test('native FormData preserves explicit Content-Length across consecutive redirects', withServer, async (t, server, got) => {
+	const receivedContentLengths: Array<string | undefined> = [];
+	const receivedTransferEncodings: Array<string | undefined> = [];
+
+	server.post('/redirect', async (request, response) => {
+		receivedContentLengths.push(request.headers['content-length']);
+		receivedTransferEncodings.push(request.headers['transfer-encoding']);
+		await request.toArray();
+
+		response.writeHead(307, {
+			location: '/redirect-again',
+		});
+		response.end();
+	});
+
+	server.post('/redirect-again', async (request, response) => {
+		receivedContentLengths.push(request.headers['content-length']);
+		receivedTransferEncodings.push(request.headers['transfer-encoding']);
+		await request.toArray();
+
+		response.writeHead(308, {
+			location: '/destination',
+		});
+		response.end();
+	});
+
+	server.post('/destination', async (request, response) => {
+		receivedContentLengths.push(request.headers['content-length']);
+		receivedTransferEncodings.push(request.headers['transfer-encoding']);
+		await request.toArray();
+		response.end();
+	});
+
+	const form = new globalThis.FormData();
+	form.set('hello', 'world');
+	const contentLength = await getFormDataContentLength(form);
+
+	await got.post('redirect', {
+		body: form,
+		headers: {
+			'content-length': contentLength,
+		},
+		retry: {
+			limit: 0,
+		},
+	});
+
+	t.deepEqual(receivedContentLengths, [contentLength, contentLength, contentLength]);
+	t.deepEqual(receivedTransferEncodings, [undefined, undefined, undefined]);
+});
+
+test('native FormData redirect preserves explicit Content-Length when beforeRedirect does not replace the body', withServer, async (t, server, got) => {
+	server.post('/redirect', async (request, response) => {
+		await request.toArray();
+
+		response.writeHead(307, {
+			location: '/destination',
+		});
+		response.end();
+	});
+
+	server.post('/destination', async (request, response) => {
+		await request.toArray();
+		response.end(request.headers['content-length']);
+	});
+
+	const form = new globalThis.FormData();
+	form.set('hello', 'world');
+	const contentLength = await getFormDataContentLength(form);
+
+	const body = await got.post('redirect', {
+		body: form,
+		headers: {
+			'content-length': contentLength,
+		},
+		hooks: {
+			beforeRedirect: [
+				options => {
+					options.headers.accept = 'text/plain';
+				},
+			],
+		},
+		retry: {
+			limit: 0,
+		},
+	}).text();
+
+	t.is(body, contentLength);
+});
+
+test('native FormData redirect recalculates Content-Length when beforeRedirect replaces the body', withServer, async (t, server, got) => {
+	server.post('/redirect', async (request, response) => {
+		await request.toArray();
+
+		response.writeHead(307, {
+			location: '/destination',
+		});
+		response.end();
+	});
+
+	server.post('/destination', (request, response) => {
+		response.end(request.headers['content-length']);
+	});
+
+	const form = new globalThis.FormData();
+	form.set('hello', 'world');
+	const contentLength = await getFormDataContentLength(form);
+
+	const body = await got.post('redirect', {
+		body: form,
+		headers: {
+			'content-length': contentLength,
+		},
+		hooks: {
+			beforeRedirect: [
+				options => {
+					options.body = 'hi';
+				},
+			],
+		},
+		retry: {
+			limit: 0,
+		},
+	}).text();
+
+	t.is(body, '2');
+});
+
 test('native FormData 307 redirect respects content-type changed in beforeRedirect hook', withServer, async (t, server, got) => {
 	server.post('/redirect', async (request, response) => {
 		await request.toArray();
@@ -3795,4 +4004,142 @@ test('redirect inherits an empty fragment from the previous redirect', withServe
 		`${server.url}/middle#`,
 		`${server.url}/final#`,
 	]);
+});
+
+test('beforeRedirect body replacement updates Content-Length', withServer, async (t, server, got) => {
+	server.post('/redirect', (_request, response) => {
+		response.writeHead(307, {
+			location: '/destination',
+		});
+		response.end();
+	});
+
+	server.post('/destination', async (request, response) => {
+		const chunks: Uint8Array[] = [];
+
+		for await (const chunk of request) {
+			chunks.push(Buffer.from(chunk));
+		}
+
+		response.end(Buffer.concat(chunks).toString());
+	});
+
+	const replacement = 'this is a much longer body than before!!';
+
+	const {body} = await got.post('redirect', {
+		body: 'hello',
+		hooks: {
+			beforeRedirect: [
+				options => {
+					options.body = replacement;
+				},
+			],
+		},
+		retry: {
+			limit: 0,
+		},
+	});
+
+	t.is(body, replacement);
+});
+
+test('beforeRedirect shorter body replacement updates Content-Length', withServer, async (t, server, got) => {
+	server.post('/redirect', (_request, response) => {
+		response.writeHead(307, {
+			location: '/destination',
+		});
+		response.end();
+	});
+
+	// Assert on the received header instead of the body: with a stale
+	// Content-Length the server would keep waiting for the missing bytes.
+	server.post('/destination', (request, response) => {
+		response.end(String(request.headers['content-length']));
+	});
+
+	const {body} = await got.post('redirect', {
+		body: 'this is a much longer body than before!!',
+		hooks: {
+			beforeRedirect: [
+				options => {
+					options.body = 'hi';
+				},
+			],
+		},
+		retry: {
+			limit: 0,
+		},
+	});
+
+	t.is(body, '2');
+});
+
+test('beforeRedirect stream body replacement removes Content-Length', withServer, async (t, server, got) => {
+	server.post('/redirect', (_request, response) => {
+		response.writeHead(307, {
+			location: '/destination',
+		});
+		response.end();
+	});
+
+	server.post('/destination', async (request, response) => {
+		const chunks: Uint8Array[] = [];
+
+		for await (const chunk of request) {
+			chunks.push(Buffer.from(chunk));
+		}
+
+		response.end(Buffer.concat(chunks).toString());
+	});
+
+	function * replacement(): Generator<string> {
+		yield 'streamed-';
+		yield 'body';
+	}
+
+	const {body} = await got.post('redirect', {
+		body: 'hello',
+		hooks: {
+			beforeRedirect: [
+				options => {
+					options.body = replacement();
+				},
+			],
+		},
+		retry: {
+			limit: 0,
+		},
+	});
+
+	t.is(body, 'streamed-body');
+});
+
+test('beforeRedirect explicit Content-Length is preserved', withServer, async (t, server, got) => {
+	server.post('/redirect', (_request, response) => {
+		response.writeHead(307, {
+			location: '/destination',
+		});
+		response.end();
+	});
+
+	server.post('/destination', (request, response) => {
+		response.end(String(request.headers['content-length']));
+	});
+
+	const {body} = await got.post('redirect', {
+		body: 'hello',
+		hooks: {
+			beforeRedirect: [
+				options => {
+					options.body = 'hi';
+					options.headers['content-length'] = '2';
+				},
+			],
+		},
+		retry: {
+			limit: 0,
+		},
+	});
+
+	t.is(body, '2');
 });
