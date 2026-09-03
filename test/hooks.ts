@@ -3414,6 +3414,53 @@ test('beforeRetry destroys old stream when reassigning body', withServer, async 
 	t.is(requestCount, 2);
 });
 
+test('beforeRetry cancels old Web ReadableStream when reassigning body', withServer, async (t, server, got) => {
+	let requestCount = 0;
+	let cancelled = false;
+
+	server.post('/retry', async (request, response) => {
+		requestCount++;
+
+		if (requestCount === 1) {
+			request.once('data', () => {
+				request.socket.destroy();
+			});
+			return;
+		}
+
+		response.end(await getStream(request));
+	});
+
+	const originalBody = new ReadableStream({
+		start(controller) {
+			controller.enqueue(new TextEncoder().encode('initial body'));
+		},
+		cancel() {
+			cancelled = true;
+		},
+	});
+
+	const response = await got.post('retry', {
+		body: originalBody,
+		retry: {
+			limit: 1,
+			methods: ['POST'],
+			calculateDelay: () => 1,
+		},
+		hooks: {
+			beforeRetry: [
+				({options}) => {
+					options.body = 'retry body';
+				},
+			],
+		},
+	});
+
+	t.is(response.body, 'retry body');
+	t.true(cancelled);
+	t.false(originalBody.locked);
+});
+
 test('beforeRetry handles multiple retries with stream reassignment', withServer, async (t, server, got) => {
 	const {Readable: readable} = await import('node:stream');
 	let requestCount = 0;

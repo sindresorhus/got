@@ -640,10 +640,9 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 							this.options.body = undefined;
 							this.destroy();
 
-							// Clean up the old stream resource if it's a stream and different from new body
-							// (edge case: if old and new are same stream object, don't destroy it)
-							if (is.nodeStream(oldBody) && oldBody !== bodyAfterHooks) {
-								oldBody.destroy();
+							// Clean up the old body resource if it's different from the new body.
+							if (oldBody !== bodyAfterHooks) {
+								this._destroyBody(oldBody);
 							}
 
 							// Restore new body for promise wrapper's identity check
@@ -817,10 +816,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		this._destroyInFlightAlpnSocket();
 
 		if (this.options) {
-			const {body} = this.options;
-			if (is.nodeStream(body)) {
-				body.destroy();
-			}
+			this._destroyBody(this.options.body);
 		}
 
 		if (this._request) {

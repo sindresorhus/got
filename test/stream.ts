@@ -1424,3 +1424,31 @@ test('pipe does not copy hop-by-hop headers to a ServerResponse', withServer, as
 	t.is(headers.upgrade, undefined);
 	t.is(headers.connection, 'keep-alive');
 });
+
+test('destroying the request cancels a Web ReadableStream body', withServer, async (t, server, got) => {
+	server.post('/', () => {});
+
+	let cancelled = false;
+	const body = new globalThis.ReadableStream({
+		start(controller) {
+			controller.enqueue(new TextEncoder().encode('hello world '.repeat(10_000)));
+		},
+		cancel() {
+			cancelled = true;
+		},
+	});
+
+	const stream = got.stream.post('', {body});
+	stream.on('error', () => {});
+
+	while (!body.locked) {
+		// eslint-disable-next-line no-await-in-loop
+		await delay(5);
+	}
+
+	stream.destroy();
+	await pEvent(stream, 'close');
+
+	t.true(cancelled);
+	t.false(body.locked);
+});
