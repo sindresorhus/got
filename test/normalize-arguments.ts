@@ -282,3 +282,42 @@ test('assigning a partial pagination object keeps the other pagination defaults'
 	t.is(options.pagination.backoff, defaults.backoff);
 	t.is(options.pagination.stackAllItems, defaults.stackAllItems);
 });
+
+test('changing prefixUrl throws when url no longer includes it', t => {
+	const options = new Options('https://a.com/foo/bar', {});
+	options.prefixUrl = 'https://a.com/foo/';
+	options.url = 'https://b.com/other';
+
+	t.throws(() => {
+		options.prefixUrl = 'https://c.com/new/';
+	}, {
+		instanceOf: Error,
+		message: 'The `url` option must include the `prefixUrl` option',
+	});
+});
+
+test('changing prefixUrl preserves path when url includes it', t => {
+	const options = new Options('other', {prefixUrl: 'https://a.com/foo/'});
+	options.prefixUrl = 'https://c.com/new/';
+
+	t.is((options.url as URL).href, 'https://c.com/new/other');
+});
+
+test('changing prefixUrl throws on same-origin path mismatch', t => {
+	const options = new Options('https://a.com/other/path', {});
+	options.prefixUrl = 'https://a.com/foo/';
+
+	t.throws(() => {
+		options.prefixUrl = 'https://c.com/new/';
+	}, {
+		instanceOf: Error,
+		message: 'The `url` option must include the `prefixUrl` option',
+	});
+});
+
+test('changing prefixUrl preserves query and hash', t => {
+	const options = new Options('bar?x=1#s', {prefixUrl: 'https://a.com/foo/'});
+	options.prefixUrl = 'https://c.com/new/';
+
+	t.is((options.url as URL).href, 'https://c.com/new/bar?x=1#s');
+});

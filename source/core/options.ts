@@ -1958,6 +1958,10 @@ export default class Options {
 				prefixUrlWithoutCredentials = prefixUrl.href;
 			}
 
+			if (!urlWithoutCredentials.href.startsWith(prefixUrlWithoutCredentials)) {
+				throw new Error('The `url` option must include the `prefixUrl` option');
+			}
+
 			url.href = value + urlWithoutCredentials.href.slice(prefixUrlWithoutCredentials.length);
 			const isSameOriginUrl = isSameOrigin(previousUrl, url);
 
