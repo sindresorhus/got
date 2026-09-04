@@ -368,7 +368,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	// We need this because `this._request` if `undefined` when using cache
 	private _requestInitialized = false;
 
-	constructor(url: UrlType, options?: OptionsType, defaults?: DefaultsType) {
+	constructor(url: UrlType, options?: OptionsType, defaults?: DefaultsType, retrySource?: Request) {
 		super({
 			// Don't destroy immediately, as the error may be emitted on unsuccessful retry
 			autoDestroy: false,
@@ -404,6 +404,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 		try {
 			this.options = new Options(url, options, defaults);
+			this._nativeFormDataBody = retrySource?._nativeFormDataBody;
 
 			if (!this.options.url) {
 				if (this.options.prefixUrl === '') {
@@ -603,11 +604,17 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 					// Capture body BEFORE hooks run to detect reassignment
 					const bodyBeforeHooks = this.options.body;
 
+					let changedState: Set<string>;
+
 					try {
-						for (const hook of this.options.hooks.beforeRetry) {
-							// eslint-disable-next-line no-await-in-loop
-							await hook(typedError, this.retryCount + 1);
-						}
+						changedState = await this.options.trackStateMutations(async changedState => {
+							for (const hook of this.options.hooks.beforeRetry) {
+								// eslint-disable-next-line no-await-in-loop
+								await hook(typedError, this.retryCount + 1);
+							}
+
+							return changedState;
+						});
 					} catch (error_: unknown) {
 						const normalizedError = normalizeError(error_);
 						void this._error(new RequestError(normalizedError.message, normalizedError, this));
@@ -664,6 +671,11 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 						return;
 					}
 
+					// Native FormData can be re-serialized, so replay it instead of failing with a consumed body.
+					if (this._nativeFormDataBody !== undefined && this.options.body === this._nativeFormDataBody.body) {
+						this._reserializeFormDataBody(this.options, changedState.has('content-type'));
+					}
+
 					// Publish retry event
 					publishRetry({
 						requestId: this._requestId,
@@ -673,7 +685,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 					});
 
 					this.emit('retry', this.retryCount + 1, error, (updatedOptions?: OptionsInit) => {
-						const request = new Request(undefined, updatedOptions, options);
+						const request = new Request(undefined, updatedOptions, options, this);
 						request.retryCount = this.retryCount + 1;
 
 						process.nextTick(() => {
@@ -1428,18 +1440,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 						&& nativeFormDataBody !== undefined
 						&& updatedOptions.body === nativeFormDataBody.body
 					) {
-						// Native FormData generates a fresh stream and boundary, so re-serialize it to replay the upload.
-						this._destroyBody(bodyBeforeRedirectHooks);
-						const {body, contentType} = serializeNativeFormDataBody(nativeFormDataBody.form);
-
-						nativeFormDataBody.body = body;
-						updatedOptions.body = body;
-
-						if (changedState.has('content-type')) {
-							nativeFormDataBody.contentTypeWasGenerated = false;
-						} else if (nativeFormDataBody.contentTypeWasGenerated) {
-							updatedOptions.setInternalHeader('content-type', contentType);
-						}
+						this._reserializeFormDataBody(updatedOptions, changedState.has('content-type'));
 					} else if (
 						bodyUnchangedByHooks
 						&& (wasNonReplayable || (is.undefined(updatedOptions.body) && (this._hasWrittenBody || this._hasWritableBody)))
@@ -2050,6 +2051,23 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		this._bodySize = undefined;
 		this._hasWrittenBody = false;
 		this._hasWritableBody = false;
+	}
+
+	private _reserializeFormDataBody(options: Options, contentTypeChanged: boolean): void {
+		const nativeFormDataBody = this._nativeFormDataBody!;
+
+		// Native FormData generates a fresh stream and boundary, so re-serialize it to replay the upload.
+		this._destroyBody(options.body);
+		const {body, contentType} = serializeNativeFormDataBody(nativeFormDataBody.form);
+
+		nativeFormDataBody.body = body;
+		options.body = body;
+
+		if (contentTypeChanged) {
+			nativeFormDataBody.contentTypeWasGenerated = false;
+		} else if (nativeFormDataBody.contentTypeWasGenerated) {
+			options.setInternalHeader('content-type', contentType);
+		}
 	}
 
 	private _destroyBody(body: unknown) {

@@ -440,16 +440,22 @@ test('throws on upload error', withServer, async (t, server, got) => {
 });
 
 test('formdata retry', withServer, async (t, server, got) => {
-	server.post('/', echoHeaders);
+	server.post('/', echoMultipartBody);
 
 	const instance = got.extend({
 		hooks: {
 			afterResponse: [
-				async (_response, retryWithMergedOptions) => retryWithMergedOptions({
-					headers: {
-						foo: 'bar',
-					},
-				}),
+				async (response, retryWithMergedOptions) => {
+					if (response.request.options.headers.foo === undefined) {
+						return retryWithMergedOptions({
+							headers: {
+								foo: 'bar',
+							},
+						});
+					}
+
+					return response;
+				},
 			],
 		},
 	});
@@ -457,11 +463,10 @@ test('formdata retry', withServer, async (t, server, got) => {
 	const form = new globalThis.FormData();
 	form.set('hello', 'world');
 
-	await t.throwsAsync(instance.post({
-		body: form,
-	}).json<{foo?: string}>(), {
-		message: 'Cannot retry with consumed body stream',
-	});
+	// The retried request must resend the complete form with a matching boundary.
+	const body = await instance.post({body: form}).json<Record<string, string>>();
+
+	t.deepEqual(body, {hello: 'world'});
 });
 
 test('upload error preserves `UploadError` code when underlying error has a code', async t => {

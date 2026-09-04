@@ -43,8 +43,8 @@ export default function asPromise<T>(firstRequest?: Request): RequestPromise<T> 
 	let promiseSettled = false;
 
 	const promise = new Promise<T>((resolve, reject) => {
-		const makeRequest = (retryCount: number, defaultOptions?: Options): void => {
-			const request = firstRequest ?? new Request(undefined, undefined, defaultOptions);
+		const makeRequest = (retryCount: number, defaultOptions?: Options, retrySource?: Request): void => {
+			const request = firstRequest ?? new Request(undefined, undefined, defaultOptions, retrySource);
 			request.retryCount = retryCount;
 			request._noPipe = true;
 
@@ -252,7 +252,7 @@ export default function asPromise<T>(firstRequest?: Request): RequestPromise<T> 
 
 				// This is needed! We need to reuse `request.options` because they can get modified!
 				// For example, by calling `promise.json()`.
-				makeRequest(newRetryCount, request.options);
+				makeRequest(newRetryCount, request.options, request);
 			});
 
 			proxyEvents(request, emitter, proxiedRequestEvents);

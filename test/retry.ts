@@ -1598,3 +1598,69 @@ test('does not retry with a consumed generator body', withServer, async (t, serv
 
 	t.deepEqual(bodies, ['part1part2']);
 });
+
+test('retries with a FormData body', withServer, async (t, server, got) => {
+	const bodies: string[] = [];
+
+	server.post('/', async (request, response) => {
+		bodies.push(await getStream(request));
+
+		if (bodies.length < 3) {
+			response.statusCode = 503;
+		}
+
+		response.end();
+	});
+
+	const form = new FormData();
+	form.append('field', 'value');
+
+	await got.post({
+		body: form,
+		retry: {
+			limit: 2,
+			methods: ['POST'],
+			calculateDelay: () => 1,
+		},
+	});
+
+	t.is(bodies.length, 3);
+	for (const body of bodies) {
+		t.true(body.includes('value'));
+	}
+});
+
+test('retries with a FormData body using content-type changed in beforeRetry hook', withServer, async (t, server, got) => {
+	const contentTypes: Array<string | undefined> = [];
+
+	server.post('/', async (request, response) => {
+		await request.toArray();
+		contentTypes.push(request.headers['content-type']);
+
+		if (contentTypes.length === 1) {
+			response.statusCode = 503;
+		}
+
+		response.end();
+	});
+
+	const form = new FormData();
+	form.append('field', 'value');
+
+	await got.post({
+		body: form,
+		retry: {
+			limit: 1,
+			methods: ['POST'],
+			calculateDelay: () => 1,
+		},
+		hooks: {
+			beforeRetry: [({options}) => {
+				options.headers['content-type'] = 'text/plain';
+			}],
+		},
+	});
+
+	t.true(contentTypes[0]!.startsWith('multipart/form-data; boundary='));
+	t.is(contentTypes[1], 'text/plain');
+});
