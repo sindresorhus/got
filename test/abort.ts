@@ -257,7 +257,7 @@ test('supports already aborted signals added by beforeRequest hooks', withServer
 	});
 });
 
-test('does not attach a replacement abort signal after the request is destroyed', withServer, async (t, server, got) => {
+test.serial('does not attach a replacement abort signal after the request is destroyed', withServer, async (t, server, got) => {
 	server.get('/', () => {
 		t.fail('Request should not reach the server.');
 	});

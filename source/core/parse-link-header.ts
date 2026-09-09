@@ -61,6 +61,11 @@ export default function parseLinkHeader(link: string) {
 	const items = splitHeaderValue(link, ',');
 
 	for (const item of items) {
+		// HTTP list recipients ignore empty members (RFC 9110, section 5.6.1.2).
+		if (item.trim() === '') {
+			continue;
+		}
+
 		// https://tools.ietf.org/html/rfc5988#section-5
 		const [rawUriReference, ...rawLinkParameters] = splitHeaderValue(item, ';') as [string, ...string[]];
 		const trimmedUriReference = rawUriReference.trim();
@@ -90,8 +95,13 @@ export default function parseLinkHeader(link: string) {
 
 			const normalizedName = name.toLowerCase();
 
-			if (normalizedName !== 'rel' || parameters.rel === undefined) {
-				parameters[normalizedName] = value;
+			if (!Object.hasOwn(parameters, normalizedName)) {
+				Object.defineProperty(parameters, normalizedName, {
+					value,
+					enumerable: true,
+					configurable: true,
+					writable: true,
+				});
 			}
 		}
 

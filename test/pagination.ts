@@ -2849,3 +2849,32 @@ for (const relationParameter of ['rel="Next"', 'rel=NEXT', 'rel="next last"', 'r
 		t.deepEqual(await got.paginate.all<number>(''), [1, 2]);
 	});
 }
+
+test('pagination follows next links with empty list members', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.setHeader('link', '</next>; rel="next",');
+		response.end('[1]');
+	});
+	server.get('/next', (_request, response) => {
+		response.end('[2]');
+	});
+
+	t.deepEqual(await got.paginate.all<number>(''), [1, 2]);
+});
+
+test('pagination ignores surrounding empty members and stops at an empty Link list', withServer, async (t, server, got) => {
+	const requestedPages: string[] = [];
+	server.get('/', (request, response) => {
+		requestedPages.push(request.url);
+		response.setHeader('link', ', , </previous>; rel="prev", , </next>; rel="next", ,');
+		response.end('[1]');
+	});
+	server.get('/next', (request, response) => {
+		requestedPages.push(request.url);
+		response.setHeader('link', ', ,');
+		response.end('[2]');
+	});
+
+	t.deepEqual(await got.paginate.all<number>(''), [1, 2]);
+	t.deepEqual(requestedPages, ['/', '/next']);
+});
