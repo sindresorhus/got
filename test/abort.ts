@@ -238,6 +238,66 @@ test('supports already aborted signals added by handlers before next', withServe
 	});
 });
 
+test('supports already aborted signals added by beforeRequest hooks', withServer, async (t, server, got) => {
+	server.get('/', () => {
+		t.fail('Request should not reach the server.');
+	});
+
+	await t.throwsAsync(got('', {
+		hooks: {
+			beforeRequest: [
+				options => {
+					options.signal = AbortSignal.abort();
+				},
+			],
+		},
+	}), {
+		code: 'ERR_ABORTED',
+		message: 'This operation was aborted.',
+	});
+});
+
+test('does not attach a replacement abort signal after the request is destroyed', withServer, async (t, server, got) => {
+	server.get('/', () => {
+		t.fail('Request should not reach the server.');
+	});
+
+	const originalController = new AbortController();
+	const {controller: replacementController, signalHandlersRemoved} = createAbortController();
+	let resolveHookStarted!: () => void;
+	let resolveHook!: () => void;
+	const hookStarted = new Promise<void>(resolve => {
+		resolveHookStarted = resolve;
+	});
+	const hook = new Promise<void>(resolve => {
+		resolveHook = resolve;
+	});
+	const request = got('', {
+		signal: originalController.signal,
+		hooks: {
+			beforeRequest: [
+				async options => {
+					options.signal = replacementController.signal;
+					resolveHookStarted();
+					await hook;
+				},
+			],
+		},
+	});
+	const assertion = t.throwsAsync(request, {
+		code: 'ERR_ABORTED',
+		message: 'This operation was aborted.',
+	});
+
+	await hookStarted;
+	originalController.abort();
+	resolveHook();
+	await assertion;
+	await delay(0);
+
+	t.true(signalHandlersRemoved(), 'Replacement abort signal event handlers not removed');
+});
+
 test.serial('does not retry after abort', withServerAndFakeTimers, async (t, server, got, clock) => {
 	const {emitter, promise} = prepareServer(server, clock);
 	const {controller, signalHandlersRemoved} = createAbortController();

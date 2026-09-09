@@ -1483,6 +1483,10 @@ class Http2ClientRequest extends Writable {
 			});
 		});
 
+		stream.on('continue', () => {
+			this.emit('continue');
+		});
+
 		stream.once('trailers', (trailers, _flags, rawTrailers) => {
 			if (!this.res) {
 				return;

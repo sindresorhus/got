@@ -883,7 +883,9 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	}
 
 	private _attachAbortListener(): void {
-		if (this._abortListenerDisposer) {
+		this._abortListenerDisposer?.[Symbol.dispose]();
+		this._abortListenerDisposer = undefined;
+		if (this.destroyed) {
 			return;
 		}
 
@@ -2319,6 +2321,12 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 	private async _makeRequest(): Promise<void> {
 		const {options} = this;
+		this._attachAbortListener();
+
+		if (this.destroyed) {
+			return;
+		}
+
 		const resolveRedirectSetup = async <T>(setup: () => T | Promise<T>): Promise<T> => {
 			if (this.redirectUrls.length === 0) {
 				return setup();
@@ -2476,6 +2484,12 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 			return changedState;
 		});
+
+		this._attachAbortListener();
+
+		if (this.destroyed) {
+			return;
+		}
 
 		if (
 			urlBeforeRequestHooks

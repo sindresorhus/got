@@ -82,6 +82,7 @@ test('DNS cache clears fallback state for all hostnames', async t => {
 test('DNS cache clears missing fallback state for all hostnames', async t => {
 	let lookupCallCount = 0;
 	const cache = new DnsCache({
+		errorTtl: 60,
 		lookup: ((_hostname: string, _options: any, callback: any) => {
 			lookupCallCount++;
 			callback(createDnsError('ENOTFOUND'));

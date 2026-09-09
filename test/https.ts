@@ -852,8 +852,12 @@ test('http2 exposes response trailers', async t => {
 	}
 });
 
-test('http2 emits multiple informational responses', async t => {
+test('http2 emits informational and continue events', async t => {
 	const server = await createHttp2TestServer(stream => {
+		stream.additionalHeaders({
+			// eslint-disable-next-line @typescript-eslint/naming-convention
+			':status': 100,
+		});
 		stream.additionalHeaders({
 			// eslint-disable-next-line @typescript-eslint/naming-convention
 			':status': 102,
@@ -875,6 +879,7 @@ test('http2 emits multiple informational responses', async t => {
 	});
 
 	try {
+		let continueEmitted = false;
 		const informationalResponses: Array<{
 			statusCode: number;
 			statusMessage: string;
@@ -885,10 +890,18 @@ test('http2 emits multiple informational responses', async t => {
 			rawHeaders: string[];
 		}> = [];
 		const stream = got.stream(server.url, {
+			body: 'body',
+			headers: {
+				expect: '100-continue',
+			},
 			http2: true,
 			https: {
 				rejectUnauthorized: false,
 			},
+			method: 'POST',
+		});
+		stream.once('continue', () => {
+			continueEmitted = true;
 		});
 		stream.on('information', information => {
 			informationalResponses.push(information);
@@ -896,8 +909,9 @@ test('http2 emits multiple informational responses', async t => {
 		stream.resume();
 		await pEvent(stream, 'end');
 
-		t.deepEqual(informationalResponses.map(({statusCode}) => statusCode), [102, 103]);
-		t.like(informationalResponses[0], {
+		t.true(continueEmitted);
+		t.deepEqual(informationalResponses.map(({statusCode}) => statusCode), [100, 102, 103]);
+		t.like(informationalResponses[1], {
 			statusMessage: '',
 			httpVersion: '2.0',
 			httpVersionMajor: 2,
@@ -907,7 +921,7 @@ test('http2 emits multiple informational responses', async t => {
 			},
 			rawHeaders: ['x-info', 'processing'],
 		});
-		t.like(informationalResponses[1], {
+		t.like(informationalResponses[2], {
 			headers: {
 				link: '</style.css>; rel=preload, </script.js>; rel=preload',
 			},

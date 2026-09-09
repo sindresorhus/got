@@ -2833,3 +2833,19 @@ test('strips inherited url credentials after in-place cross-origin url mutation 
 	await trustedServer.close();
 	await evilServer.close();
 });
+
+for (const relationParameter of ['rel="Next"', 'rel=NEXT', 'rel="next last"', 'rel="prev next"', 'REL=next']) {
+	test(`the link header \`${relationParameter}\` is treated as next`, withServer, async (t, server, got) => {
+		server.get('/', (request, response) => {
+			const page = Number(new URLSearchParams(request.url.split('?')[1]).get('page')) || 1;
+
+			if (page === 1) {
+				response.setHeader('link', `</?page=2>; ${relationParameter}`);
+			}
+
+			response.end(`[${page}]`);
+		});
+
+		t.deepEqual(await got.paginate.all<number>(''), [1, 2]);
+	});
+}

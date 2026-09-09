@@ -255,3 +255,15 @@ test('allows parameters without a value', t => {
 		],
 	);
 });
+
+test('keeps the first case-insensitive relation parameter', t => {
+	t.deepEqual(
+		parseLinkHeader('<https://example.com>; rel=next; REL=prev'),
+		[
+			{
+				reference: 'https://example.com',
+				parameters: {rel: 'next'},
+			},
+		],
+	);
+});

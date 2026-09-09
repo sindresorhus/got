@@ -88,7 +88,11 @@ export default function parseLinkHeader(link: string) {
 				throw new Error(`Failed to parse Link header: ${link}`);
 			}
 
-			parameters[name] = value;
+			const normalizedName = name.toLowerCase();
+
+			if (normalizedName !== 'rel' || parameters.rel === undefined) {
+				parameters[normalizedName] = value;
+			}
 		}
 
 		parsed.push({
