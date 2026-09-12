@@ -59,6 +59,8 @@
 
 This option represents the `retry` object.
 
+Undefined settings preserve inherited values, except `maxRetryAfter`, where `undefined` restores the request timeout fallback.
+
 #### `limit`
 
 **Type: `number`**

@@ -78,7 +78,7 @@ test('null value in search params means empty', t => {
 	const options = new Options({
 		url: new URL('http://localhost'),
 		searchParams: {
-			foo: null as any,
+			foo: null,
 		},
 	});
 
@@ -322,6 +322,170 @@ test('changing prefixUrl preserves query and hash', t => {
 	t.is((options.url as URL).href, 'https://c.com/new/bar?x=1#s');
 });
 
+test('replacing nested options does not remove supported option names', t => {
+	const options = new Options();
+
+	options.timeout = {request: 1000};
+	options.timeout = {connect: 500};
+	t.deepEqual(options.timeout, {connect: 500});
+
+	options.agent = {http: false};
+	options.agent = {https: false};
+	t.deepEqual(options.agent, {https: false});
+
+	options.https = {minVersion: 'TLSv1.2'};
+	options.https = {maxVersion: 'TLSv1.3'};
+	t.deepEqual(options.https, {maxVersion: 'TLSv1.3'});
+
+	options.cacheOptions = {shared: false};
+	options.cacheOptions = {cacheHeuristic: 0.5};
+	t.deepEqual(options.cacheOptions, {cacheHeuristic: 0.5});
+});
+
+test('merging nested options after replacement accepts every supported key', t => {
+	const options = new Options();
+	options.timeout = {};
+	options.agent = {};
+	options.https = {};
+	options.cacheOptions = {};
+
+	const defaults = new Options();
+	options.merge({
+		timeout: defaults.timeout,
+		agent: defaults.agent,
+		https: defaults.https,
+		cacheOptions: defaults.cacheOptions,
+	});
+
+	t.deepEqual(options.timeout, defaults.timeout);
+	t.deepEqual(options.agent, defaults.agent);
+	t.deepEqual(options.https, defaults.https);
+	t.deepEqual(options.cacheOptions, defaults.cacheOptions);
+});
+
+test('replacing nested options still rejects unknown option names', t => {
+	const options = new Options();
+	options.timeout = {};
+	options.agent = {};
+	options.https = {};
+	options.cacheOptions = {};
+
+	for (const name of ['timeout', 'agent', 'https', 'cacheOptions'] as const) {
+		t.throws(() => {
+			// @ts-expect-error Testing unknown option names.
+			options[name] = {unknown: true};
+		}, {message: /Unexpected|does not exist/});
+	}
+});
+
+test('cloning normalized options isolates URL mutations', t => {
+	const original = new Options('https://example.com/items?page=1#original');
+	const clone = new Options(undefined, undefined, original);
+
+	(clone.url as URL).pathname = '/other';
+	(clone.searchParams as URLSearchParams).set('page', '2');
+	(clone.url as URL).hash = '#clone';
+
+	t.is((original.url as URL).href, 'https://example.com/items?page=1#original');
+	t.is((clone.url as URL).href, 'https://example.com/other?page=2#clone');
+});
+
+test('cloning options preserves query encoding without normalizing it', t => {
+	const original = new Options('https://example.com/?query=a%20b&query=second');
+	const clone = new Options(undefined, undefined, original);
+
+	t.not(clone.url, original.url);
+	t.is((clone.url as URL).search, '?query=a%20b&query=second');
+	t.deepEqual((clone.searchParams as URLSearchParams).getAll('query'), ['a b', 'second']);
+});
+
+test('merging search parameters into a clone leaves the original URL intact', t => {
+	const original = new Options('https://example.com/?page=1&keep=yes');
+	const clone = new Options(undefined, {searchParams: {page: 2}}, original);
+
+	t.is((clone.url as URL).search, '?keep=yes&page=2');
+	t.is((original.url as URL).search, '?page=1&keep=yes');
+});
+
+test('assigning header arrays copies values while preserving header normalization', t => {
+	const values = ['first', 'second'];
+	const options = new Options();
+	options.headers = {'X-Values': values, 'X-Single': 'value', 'X-Omitted': undefined};
+	values.push('caller');
+
+	t.deepEqual(options.headers['x-values'], ['first', 'second']);
+	t.is(options.headers['x-single'], 'value');
+	t.is(options.headers['x-omitted'], undefined);
+
+	(options.headers['x-values'] as string[]).push('options');
+	t.deepEqual(values, ['first', 'second', 'caller']);
+});
+
+test('merging header arrays does not retain caller or previous array values', t => {
+	const options = new Options({headers: {'x-values': ['original']}});
+	const values = ['replacement'];
+	options.merge({headers: {'x-values': values}});
+	values.push('caller');
+
+	t.deepEqual(options.headers['x-values'], ['replacement']);
+});
+
+test('cloning options copies empty and populated header arrays', t => {
+	const original = new Options({headers: {'x-empty': [], 'x-values': ['original']}});
+	const clone = new Options(undefined, undefined, original);
+	(clone.headers['x-empty'] as string[]).push('clone');
+	(clone.headers['x-values'] as string[]).push('clone');
+
+	t.deepEqual(original.headers['x-empty'], []);
+	t.deepEqual(original.headers['x-values'], ['original']);
+});
+
+test('re-extending retains the header arrays captured from the original input', t => {
+	const values = ['original'];
+	const first = got.extend({headers: {'x-values': values}});
+	values.push('caller');
+	const second = got.extend(first);
+
+	t.deepEqual(second.defaults.options.headers['x-values'], ['original']);
+});
+
+test('reading unset search parameters on frozen defaults does not throw', t => {
+	const instance = got.extend();
+
+	t.is((instance.defaults.options.searchParams as URLSearchParams).size, 0);
+});
+
+test('reading unset frozen search parameters does not create a query override', t => {
+	const defaults = new Options();
+	defaults.freeze();
+
+	t.is((defaults.searchParams as URLSearchParams).size, 0);
+	const options = new Options('https://example.com/?query=preserved', undefined, defaults);
+	t.is((options.url as URL).search, '?query=preserved');
+});
+
+test('frozen defaults retain configured search parameters', t => {
+	const instance = got.extend({searchParams: 'page=1&page=2'});
+	const parameters = instance.defaults.options.searchParams as URLSearchParams;
+
+	t.deepEqual(parameters.getAll('page'), ['1', '2']);
+});
+
+test('reading unset mutable search parameters still permits configuring defaults', t => {
+	const defaults = new Options();
+	(defaults.searchParams as URLSearchParams).set('page', '2');
+	const options = new Options('https://example.com/', undefined, defaults);
+
+	t.is((options.url as URL).search, '?page=2');
+});
+
+test('merging undefined search parameters clears the current normalized URL query', t => {
+	const options = new Options('https://example.com/?page=1&page=2');
+	options.merge({searchParams: undefined});
+
+	t.is((options.url as URL).search, '');
+});
+
 test('immutable instance defaults prevent changing pagination settings', t => {
 	const instance = got.extend({pagination: {countLimit: 10}});
 
@@ -338,6 +502,69 @@ test('cloning frozen options produces independent mutable pagination settings', 
 
 	t.is(original.pagination.countLimit, 10);
 	t.is(clone.pagination.countLimit, 1);
+});
+
+test('undefined retry methods preserve inherited methods', t => {
+	const options = new Options({retry: {methods: ['POST']}});
+	options.merge({retry: {methods: undefined}});
+
+	t.deepEqual(options.retry.methods, ['POST']);
+});
+
+for (const merge of [false, true]) {
+	test(`undefined retry settings preserve required values with merge ${merge}`, t => {
+		const options = new Options({
+			retry: {
+				limit: 5,
+				methods: ['POST'],
+				statusCodes: [503],
+				errorCodes: ['ECONNRESET'],
+				calculateDelay: () => 1,
+				backoffLimit: 25,
+				noise: 0,
+				enforceRetryRules: false,
+				maxRetryAfter: 30,
+			},
+		});
+		const original = {...options.retry};
+		const retry = Object.freeze({
+			limit: undefined,
+			methods: undefined,
+			statusCodes: undefined,
+			errorCodes: undefined,
+			calculateDelay: undefined,
+			backoffLimit: undefined,
+			noise: undefined,
+			enforceRetryRules: undefined,
+			maxRetryAfter: undefined,
+		});
+
+		if (merge) {
+			options.merge({retry});
+		} else {
+			options.retry = retry;
+		}
+
+		t.deepEqual(options.retry, {...original, maxRetryAfter: undefined});
+	});
+}
+
+test('explicit retry values can still clear arrays and disable retry settings', t => {
+	const options = new Options();
+	const retry = {
+		limit: 0,
+		methods: [],
+		statusCodes: [],
+		errorCodes: [],
+		calculateDelay: () => 0,
+		backoffLimit: 0,
+		noise: 0,
+		enforceRetryRules: false,
+		maxRetryAfter: 0,
+	};
+	options.merge({retry});
+
+	t.deepEqual(options.retry, retry);
 });
 
 test('immutable default header arrays reject mutation', t => {
@@ -357,4 +584,20 @@ test('freezing headers handles empty arrays and scalar values', t => {
 	}, {instanceOf: TypeError});
 	t.is(options.headers['x-single'], 'value');
 	t.is(options.headers['x-omitted'], undefined);
+});
+
+test('custom method names normalize request and retry methods', t => {
+	// eslint-disable-next-line @typescript-eslint/no-inferrable-types -- Verify callers can supply a general string.
+	const method: string = 'propfind';
+	const options = new Options({method, retry: {methods: [method, 'PROPFIND', 'REPORT']}});
+
+	t.is(options.method, 'PROPFIND');
+	t.deepEqual(options.retry.methods, ['PROPFIND', 'REPORT']);
+});
+
+test('custom method support still rejects non-string values', t => {
+	t.throws(() => new Options({
+		// @ts-expect-error Methods must be strings.
+		method: 123,
+	}), {instanceOf: TypeError});
 });

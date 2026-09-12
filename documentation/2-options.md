@@ -278,6 +278,7 @@ setTimeout(() => {
 The [HTTP method](https://httpwg.org/specs/rfc9110.html#methods) used to make the request.\
 Common methods include: `GET`, `HEAD`, `POST`, `PUT`, `DELETE`.
 Got also supports `QUERY`, which is defined in [RFC 10008](https://www.rfc-editor.org/rfc/rfc10008.html).
+Custom methods such as `PROPFIND` are supported. Method names are normalized to uppercase.
 
 ```js
 import got from 'got';

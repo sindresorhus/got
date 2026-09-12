@@ -956,6 +956,77 @@ test('options have url even if some are invalid - got.extend', async t => {
 	);
 });
 
+test('request header array mutations do not affect later requests', withServer, async (t, server) => {
+	server.get('/', (request, response) => {
+		response.end(request.headers['x-values']);
+	});
+
+	const client = got.extend({headers: {'x-values': ['default']}});
+	t.is(await client(server.url, {
+		hooks: {
+			beforeRequest: [options => {
+				(options.headers['x-values'] as string[]).push('request');
+			}],
+		},
+	}).text(), 'default, request');
+	t.is(await client(server.url).text(), 'default');
+});
+
+test('mutating caller header arrays after extension does not change defaults', t => {
+	const values = ['original'];
+	const client = got.extend({headers: {'x-values': values}});
+	values.push('changed');
+
+	t.deepEqual(client.defaults.options.headers['x-values'], ['original']);
+});
+
+test('explicit undefined search parameters reset inherited query defaults', withServer, async (t, server, got) => {
+	server.get('/', echoUrl);
+	const instance = got.extend({searchParams: {page: 1, format: 'json'}});
+
+	t.is(await instance('', {searchParams: undefined}).text(), '/');
+});
+
+test('resetting inherited search parameters preserves the input URL query', withServer, async (t, server, got) => {
+	server.get('/', echoUrl);
+	const instance = got.extend({searchParams: {page: 1}});
+
+	t.is(await instance('?query=original', {searchParams: undefined}).text(), '/?query=original');
+	t.is(await instance('').text(), '/?page=1');
+});
+
+test('extended search parameter resets survive merging into another instance', withServer, async (t, server, got) => {
+	server.get('/', echoUrl);
+	const parent = got.extend({searchParams: {page: 1}});
+	const child = parent.extend({searchParams: undefined});
+	const merged = got.extend({searchParams: {format: 'json'}}, child);
+
+	t.is(await child('').text(), '/');
+	t.is(await merged('').text(), '/');
+	t.is(await child('', {searchParams: {page: 2}}).text(), '/?page=2');
+});
+
+test('typed null search parameters overwrite values with an empty string', withServer, async (t, server, got) => {
+	server.get('/', echoUrl);
+	const instance = got.extend({searchParams: {empty: 'previous', retained: 'yes'}});
+
+	t.is(await instance('', {searchParams: {empty: null}}).text(), '/?retained=yes&empty=');
+});
+
+test('typed null and undefined search parameters retain their distinct meanings', withServer, async (t, server, got) => {
+	server.get('/', echoUrl);
+	const instance = got.extend({searchParams: {empty: 'previous', removed: 'previous'}});
+
+	t.is(await instance('', {
+		searchParams: {
+			empty: null,
+			removed: undefined,
+			zero: 0,
+			disabled: false,
+		},
+	}).text(), '/?empty=&zero=0&disabled=false');
+});
+
 test('mutable defaults permit changing pagination settings', withServer, async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.end('[1, 2]');
@@ -1033,6 +1104,35 @@ test('DataView request bodies can be replayed on retry', withServer, async (t, s
 	t.deepEqual(receivedBodies, ['payload', 'payload']);
 });
 
+test('undefined retry options preserve retries configured by an extended instance', withServer, async (t, server, got) => {
+	let requests = 0;
+	let delayCalls = 0;
+	server.post('/', (_request, response) => {
+		requests++;
+		response.statusCode = requests === 1 ? 503 : 200;
+		response.end('done');
+	});
+	const instance = got.extend({
+		retry: {
+			limit: 1,
+			methods: ['POST'],
+			statusCodes: [503],
+			calculateDelay() {
+				delayCalls++;
+				return 1;
+			},
+		},
+	});
+
+	t.is(await instance.post('', {
+		retry: {
+			methods: undefined, statusCodes: undefined, calculateDelay: undefined, limit: undefined,
+		},
+	}).text(), 'done');
+	t.is(requests, 2);
+	t.is(delayCalls, 1);
+});
+
 test('mutable defaults permit changing header arrays used by requests', withServer, async (t, server, got) => {
 	server.get('/', (request, response) => {
 		response.end(request.headers['x-values']);
@@ -1059,4 +1159,41 @@ test('request hooks can mutate header arrays cloned from immutable defaults', wi
 	t.is(await instance('').text(), 'first, request');
 	t.is(await instance('', {headers: {'x-values': ['override']}}).text(), 'override, request');
 	t.deepEqual(instance.defaults.options.headers['x-values'], ['first']);
+});
+
+test('WebDAV methods are accepted without type assertions', withServer, async (t, server, got) => {
+	server.all('/', (request, response) => {
+		response.end(request.method);
+	});
+
+	t.is(await got('', {method: 'PROPFIND'}).text(), 'PROPFIND');
+});
+
+test('extended instances can retry custom methods', withServer, async (t, server, got) => {
+	let requests = 0;
+	server.all('/', (request, response) => {
+		requests++;
+		response.statusCode = requests === 1 ? 503 : 200;
+		response.end(request.method);
+	});
+	const instance = got.extend({
+		method: 'report',
+		retry: {
+			limit: 1, methods: ['report'], backoffLimit: 0, noise: 0,
+		},
+	});
+
+	t.is(await instance('').text(), 'REPORT');
+	t.is(requests, 2);
+});
+
+test('invalid method tokens remain rejected by the native request', withServer, async (t, server, got) => {
+	let requests = 0;
+	server.all('/', (_request, response) => {
+		requests++;
+		response.end();
+	});
+
+	await t.throwsAsync(got('', {method: 'INVALID METHOD', retry: {limit: 0}}), {code: 'ERR_INVALID_HTTP_TOKEN'});
+	t.is(requests, 0);
 });

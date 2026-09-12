@@ -22,6 +22,7 @@ import lowercaseKeys from 'lowercase-keys';
 import type {KeyvStoreAdapter} from 'keyv';
 import type KeyvType from 'keyv';
 import type ResponseLike from 'responselike';
+import type {LiteralUnion} from 'type-fest';
 import type {RequestPromise} from '../as-promise/types.js';
 import type {IncomingMessageWithTimings} from './utils/timer.js';
 import parseLinkHeader from './parse-link-header.js';
@@ -617,9 +618,9 @@ export type ParseJsonFunction = (text: string) => unknown;
 export type StringifyJsonFunction = (object: unknown) => string;
 
 /**
-All available HTTP request methods provided by Got.
+HTTP request methods, including custom methods.
 */
-export type Method =
+export type Method = LiteralUnion<
 	| 'GET'
 	| 'POST'
 	| 'PUT'
@@ -637,7 +638,9 @@ export type Method =
 	| 'delete'
 	| 'options'
 	| 'trace'
-	| 'query';
+	| 'query',
+	string
+>;
 
 export type RetryObject = {
 	attemptCount: number;
@@ -932,7 +935,8 @@ export type PaginationOptions<ElementType, BodyType> = {
 	stackAllItems?: boolean;
 };
 
-export type SearchParameters = Record<string, string | number | boolean | undefined>;
+// eslint-disable-next-line @typescript-eslint/no-restricted-types -- Null represents an empty search parameter value.
+export type SearchParameters = Record<string, string | number | boolean | null | undefined>;
 
 /**
 Generic helper that wraps any assertion function to add context to error messages.
@@ -1158,7 +1162,7 @@ const destroyLateRequestResult = (result: AcceptableResponse | ClientRequest | u
 	}
 };
 
-function validateSearchParameters(searchParameters: Record<string, unknown>): asserts searchParameters is Record<string, string | number | boolean | undefined> {
+function validateSearchParameters(searchParameters: Record<string, unknown>): asserts searchParameters is SearchParameters {
 	for (const key of Object.keys(searchParameters)) {
 		if (key === '__proto__') {
 			continue;
@@ -1423,16 +1427,19 @@ const defaultInternals: InternalsType = {
 	strictContentLength: true,
 };
 
+const cloneHeaders = (headers: Headers): Headers => Object.fromEntries(Object.entries(headers).map(([name, value]) => [name, Array.isArray(value) ? [...value] : value]));
+
 const cloneInternals = (internals: typeof defaultInternals) => {
 	const {hooks, retry} = internals;
 
 	const result: typeof defaultInternals = {
 		...internals,
+		url: internals.url ? new URL(internals.url) : undefined,
 		context: {...internals.context},
 		cacheOptions: {...internals.cacheOptions},
 		https: {...internals.https},
 		agent: {...internals.agent},
-		headers: {...internals.headers},
+		headers: cloneHeaders(internals.headers),
 		retry: {
 			...retry,
 			errorCodes: [...retry.errorCodes!],
@@ -1476,7 +1483,7 @@ const cloneRaw = (raw: OptionsInit) => {
 	}
 
 	if (Object.hasOwn(raw, 'headers') && is.object(raw.headers)) {
-		result.headers = {...raw.headers};
+		result.headers = cloneHeaders(raw.headers);
 	}
 
 	if (Object.hasOwn(raw, 'retry') && is.object(raw.retry)) {
@@ -1717,7 +1724,7 @@ export default class Options {
 
 				// @ts-expect-error Type 'unknown' is not assignable to type 'never'.
 				const value = options[key as keyof Options];
-				if (value === undefined) {
+				if (value === undefined && key !== 'searchParams') {
 					continue;
 				}
 
@@ -1785,7 +1792,7 @@ export default class Options {
 				continue;
 			}
 
-			if (!(key in this.#internals.agent)) {
+			if (!(key in defaultInternals.agent)) {
 				throw new TypeError(`Unexpected agent option: ${key}`);
 			}
 
@@ -1860,7 +1867,7 @@ export default class Options {
 				continue;
 			}
 
-			if (!(key in this.#internals.timeout)) {
+			if (!(key in defaultInternals.timeout)) {
 				throw new Error(`Unexpected timeout option: ${key}`);
 			}
 
@@ -2260,6 +2267,10 @@ export default class Options {
 	get searchParams(): string | SearchParameters | URLSearchParams | undefined {
 		if (this.#internals.url) {
 			return (this.#internals.url as URL).searchParams;
+		}
+
+		if (Object.isFrozen(this.#internals)) {
+			return this.#internals.searchParams ?? new URLSearchParams();
 		}
 
 		this.#internals.searchParams ??= new URLSearchParams();
@@ -2875,7 +2886,7 @@ export default class Options {
 
 	set headers(value: Headers) {
 		assertPlainObject('headers', value);
-		const normalizedHeaders = lowercaseKeys(value);
+		const normalizedHeaders = lowercaseKeys(cloneHeaders(value));
 		for (const header of Object.keys(normalizedHeaders)) {
 			assertValidHeaderName(header);
 		}
@@ -3020,6 +3031,8 @@ export default class Options {
 	/**
 	An object representing `limit`, `calculateDelay`, `methods`, `statusCodes`, `maxRetryAfter` and `errorCodes` fields for maximum retry count, retry handler, allowed methods, allowed status codes, maximum [`Retry-After`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Retry-After) time and allowed error codes.
 
+	Undefined settings preserve inherited values, except `maxRetryAfter`, where `undefined` restores the request timeout fallback.
+
 	Delays between retries counts with function `1000 * Math.pow(2, retry) + Math.random() * 100`, where `retry` is attempt number (starts from 1).
 
 	The `calculateDelay` property is a `function` that receives an object with `attemptCount`, `retryOptions`, `error` and `computedValue` properties for current retry count, the retry options, error and default computed value.
@@ -3073,16 +3086,19 @@ export default class Options {
 			}
 		}
 
+		// Keep the undefined reset for maxRetryAfter, which falls back to the request timeout.
+		const updatedRetry = Object.fromEntries(Object.entries(value).filter(([key, option]) => option !== undefined || key === 'maxRetryAfter'));
+
 		if (this.#merging) {
-			safeObjectAssign(this.#internals.retry, value);
+			safeObjectAssign(this.#internals.retry, updatedRetry);
 		} else {
 			// A partial object must not drop the other retry settings, as the normalization below and the retry logic require them.
-			this.#internals.retry = {...this.#internals.retry, ...value};
+			this.#internals.retry = {...this.#internals.retry, ...updatedRetry};
 		}
 
 		const {retry} = this.#internals;
 
-		retry.methods = [...new Set(retry.methods!.map(method => method.toUpperCase() as Method))];
+		retry.methods = [...new Set(retry.methods!.map(method => method.toUpperCase()))];
 		retry.statusCodes = [...new Set(retry.statusCodes)];
 		retry.errorCodes = [...new Set(retry.errorCodes)];
 	}
@@ -3104,6 +3120,7 @@ export default class Options {
 
 	/**
 	The HTTP method used to make the request.
+	Custom methods such as `PROPFIND` are supported. Method names are normalized to uppercase.
 
 	@default 'GET'
 	*/
@@ -3114,7 +3131,7 @@ export default class Options {
 	set method(value: Method) {
 		assert.string(value);
 
-		this.#internals.method = value.toUpperCase() as Method;
+		this.#internals.method = value.toUpperCase();
 	}
 
 	get createConnection(): CreateConnectionFunction | undefined {
@@ -3149,7 +3166,7 @@ export default class Options {
 				continue;
 			}
 
-			if (!(key in this.#internals.cacheOptions)) {
+			if (!(key in defaultInternals.cacheOptions)) {
 				throw new Error(`Cache option \`${key}\` does not exist`);
 			}
 		}
@@ -3196,7 +3213,7 @@ export default class Options {
 				continue;
 			}
 
-			if (!(key in this.#internals.https)) {
+			if (!(key in defaultInternals.https)) {
 				throw new Error(`HTTPS option \`${key}\` does not exist`);
 			}
 		}
