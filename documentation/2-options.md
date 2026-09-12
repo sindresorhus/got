@@ -1019,6 +1019,10 @@ The local IP address used to make the request.
 
 The function used to retrieve a `net.Socket` instance when the `agent` option is not used.
 
+For HTTP/1, either return the socket synchronously or call `callback(null, socket)` asynchronously. Call `callback(error)` if socket creation fails.
+
+When `http2` is enabled for HTTPS, this function must synchronously return a `tls.TLSSocket`. Callback-based creation is not supported by HTTP/2 negotiation.
+
 ### `https`
 
 **Type: `object`**

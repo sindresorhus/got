@@ -288,3 +288,34 @@ expectTypeOf(got('https://example.com', {responseType: undefined, resolveBodyOnl
 expectTypeOf(gotBufferBodyOnly({responseType: 'text', resolveBodyOnly: undefined})).toEqualTypeOf<RequestPromise<string>>();
 const inheritedResponseOptions: {responseType?: undefined; resolveBodyOnly?: undefined} = {};
 expectTypeOf(gotBufferBodyOnly('https://example.com', inheritedResponseOptions)).toEqualTypeOf<RequestPromise<Uint8Array<ArrayBuffer>>>();
+
+got.extend({
+	hooks: {
+		beforeRequest: [options => {
+			options.url = 'https://example.com/next';
+			options.prefixUrl = new URL('https://example.com/');
+			options.dnsCache = true;
+			expectTypeOf(options.url).toEqualTypeOf<URL | undefined>();
+			expectTypeOf(options.prefixUrl).toEqualTypeOf<string>();
+			expectTypeOf(options.dnsCache).toEqualTypeOf<Options['dnsCache']>();
+			options.url = new URL('https://example.com/next');
+			options.prefixUrl = 'https://example.com/';
+			const dnsCache = options.dnsCache;
+			options.dnsCache = dnsCache;
+			options.dnsCache = false;
+			options.dnsCache = undefined;
+			// @ts-expect-error URL setters still reject numbers.
+			options.url = 123;
+			// @ts-expect-error Prefix URL setters still reject booleans.
+			options.prefixUrl = false;
+			// @ts-expect-error DNS caches must be instances or booleans.
+			options.dnsCache = 'cache';
+		}],
+		beforeRedirect: [options => {
+			options.url = 'https://example.com/redirected';
+			options.prefixUrl = new URL('https://example.com/');
+			expectTypeOf(options.url).toEqualTypeOf<URL | undefined>();
+			expectTypeOf(options.prefixUrl).toEqualTypeOf<string>();
+		}],
+	},
+});

@@ -107,7 +107,7 @@ console.log(headers.Secret);
 **Default: `[]`**
 
 ```ts
-(options: Options, context: BeforeRequestHookContext) => Promisable<void | Response | ResponseLike>
+(options: NormalizedOptions, context: BeforeRequestHookContext) => Promisable<void | ClientRequest | IncomingMessage | ResponseLike>
 ```
 
 Called right before making the request with `options.createNativeRequestOptions()`.\
@@ -241,7 +241,7 @@ await got('https://httpbin.org/status/500', {
 **Default: `[]`**
 
 ```ts
-(response: PlainResponse) => false | void
+(response: Pick<PlainResponse, 'headers' | 'statusCode' | 'statusMessage'>) => false | void
 ```
 
 Called right before the response is cached. Allows you to control caching behavior by modifying response properties or preventing caching entirely.

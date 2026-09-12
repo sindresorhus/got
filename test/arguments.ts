@@ -1,4 +1,6 @@
 import {Buffer} from 'node:buffer';
+import {request as httpRequest, get as httpGet, type IncomingMessage} from 'node:http';
+import {connect} from 'node:net';
 import test from 'ava';
 import type {Handler} from 'express';
 import getStream from 'get-stream';
@@ -10,6 +12,49 @@ import invalidUrl from './helpers/invalid-url.js';
 const echoUrl: Handler = (request, response) => {
 	response.end(request.url);
 };
+
+test('normalized request hooks accept setter inputs and expose normalized values', withServer, async (t, server, got) => {
+	server.get('/target', (_request, response) => {
+		response.end('target');
+	});
+
+	const response = await got('original', {
+		hooks: {
+			beforeRequest: [options => {
+				options.url = `${server.url}/target`;
+				options.prefixUrl = new URL(server.url);
+				options.dnsCache = true;
+				t.true(options.url instanceof URL);
+				t.is(options.prefixUrl, `${server.url}/`);
+				t.is(typeof options.dnsCache?.lookup, 'function');
+				options.dnsCache = false;
+				t.is(options.dnsCache, undefined);
+			}],
+		},
+	});
+
+	t.is(response.body, 'target');
+});
+
+test('normalized redirect hooks accept string URL assignments', withServer, async (t, server, got) => {
+	server.get('/original', (_request, response) => {
+		response.writeHead(302, {location: '/unused'}).end();
+	});
+	server.get('/target', (_request, response) => {
+		response.end('redirect target');
+	});
+
+	const response = await got('original', {
+		hooks: {
+			beforeRedirect: [options => {
+				options.url = `${server.url}/target`;
+				t.true(options.url instanceof URL);
+			}],
+		},
+	});
+
+	t.is(response.body, 'redirect target');
+});
 
 test('`url` is required', async t => {
 	await t.throwsAsync(
@@ -1267,6 +1312,202 @@ test('requestUrl snapshots normalized options without mutating the input URL', w
 	t.is(input.href, `${server.url}/original?initial=yes`);
 	t.not(response.requestUrl, input);
 	t.not(response.requestUrl, response.request.options.url);
+});
+
+test('createConnection can provide its socket asynchronously through the callback', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.end('connected');
+	});
+
+	let connections = 0;
+	const response = await got('', {
+		createConnection(_options, callback) {
+			setImmediate(() => {
+				connections++;
+				callback(null, connect({host: 'localhost', port: Number(new URL(server.url).port)}));
+			});
+		},
+	});
+
+	t.is(response.body, 'connected');
+	t.is(connections, 1);
+});
+
+test('createConnection can report a connection error without a socket', withServer, async (t, _server, got) => {
+	const cause = new Error('Connection setup failed');
+	const error = await t.throwsAsync(got('', {
+		retry: {limit: 0},
+		createConnection(_options, callback) {
+			setImmediate(() => {
+				callback(cause);
+			});
+		},
+	}), {message: cause.message});
+
+	t.is(error?.cause, cause);
+});
+
+for (const useCallback of [false, true]) {
+	test(`createConnection supports synchronous socket creation with callback ${useCallback}`, withServer, async (t, server, got) => {
+		server.get('/', (_request, response) => {
+			response.end('connected');
+		});
+
+		let connections = 0;
+		const response = await got('', {
+			createConnection(_options, callback) {
+				connections++;
+				const socket = connect({host: 'localhost', port: Number(new URL(server.url).port)});
+				if (useCallback) {
+					callback(null, socket);
+					return;
+				}
+
+				return socket;
+			},
+		});
+
+		t.is(response.body, 'connected');
+		t.is(connections, 1);
+	});
+}
+
+test('beforeCache receives response headers and status before Got metadata exists', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.setHeader('cache-control', 'public, max-age=60');
+		response.end('cached body');
+	});
+
+	let hookCalls = 0;
+	const response = await got('', {
+		cache: new Map(),
+		hooks: {
+			beforeCache: [response => {
+				hookCalls++;
+				t.is(response.statusCode, 200);
+				t.is(response.headers['cache-control'], 'public, max-age=60');
+				// @ts-expect-error Got request metadata is not available before caching.
+				t.is(typeof response.request, 'undefined');
+				// @ts-expect-error Got request metadata is not available before caching.
+				t.is(typeof response.requestUrl, 'undefined');
+				// @ts-expect-error The success flag is added after cache hooks run.
+				t.is(typeof response.ok, 'undefined');
+			}],
+		},
+	});
+
+	t.is(hookCalls, 1);
+	t.is(response.body, 'cached body');
+});
+
+test('beforeCache supports typed header and status mutations used by the cache', withServer, async (t, server, got) => {
+	let requests = 0;
+	server.get('/', (_request, response) => {
+		requests++;
+		response.end('cached body');
+	});
+
+	let hookCalls = 0;
+	const instance = got.extend({
+		cache: new Map(),
+		hooks: {
+			beforeCache: [response => {
+				hookCalls++;
+				response.headers['cache-control'] = 'public, max-age=60';
+				response.headers['x-cached'] = 'yes';
+				response.statusCode = 203;
+				response.statusMessage = 'Custom status';
+			}],
+		},
+	});
+
+	const first = await instance('');
+	const cached = await instance('');
+
+	t.is(first.body, 'cached body');
+	t.is(cached.body, 'cached body');
+	t.true(cached.isFromCache);
+	t.is(cached.headers['x-cached'], 'yes');
+	t.is(cached.statusCode, 203);
+	t.is(first.statusMessage, 'Custom status');
+	t.is(requests, 1);
+	t.is(hookCalls, 1);
+});
+
+test('beforeRequest accepts a native ClientRequest return value', withServer, async (t, server, got) => {
+	server.get('/', (request, response) => {
+		response.end(request.headers['x-native']);
+	});
+
+	const response = await got('', {
+		hooks: {
+			beforeRequest: [options => httpRequest(options.url!, {headers: {'x-native': 'request'}})],
+		},
+	});
+
+	t.is(response.body, 'request');
+	t.is(response.statusCode, 200);
+});
+
+test('beforeRequest accepts a native IncomingMessage return value', withServer, async (t, server, got) => {
+	server.get('/', (request, response) => {
+		response.end(request.headers['x-native']);
+	});
+
+	const response = await got('', {
+		hooks: {
+			beforeRequest: [async options => new Promise<IncomingMessage>((resolve, reject) => {
+				httpGet(options.url!, {headers: {'x-native': 'response'}}, resolve).once('error', reject);
+			})],
+		},
+	});
+
+	t.is(response.body, 'response');
+	t.is(response.statusCode, 200);
+});
+
+test('async native request hooks support streaming uploads and skip remaining hooks', withServer, async (t, server, got) => {
+	server.post('/', async (request, response) => {
+		response.end(await getStream(request));
+	});
+
+	const request = got.stream.post('', {
+		body: 'streamed payload',
+		hooks: {
+			beforeRequest: [
+				async options => httpRequest(options.url!, {method: 'POST'}),
+				() => {
+					t.fail('Remaining hooks must be skipped after a native request is returned');
+				},
+			],
+		},
+	});
+
+	t.is(await getStream(request), 'streamed payload');
+});
+
+test('synchronous native response hooks preserve response data and skip transport', withServer, async (t, server, got) => {
+	let requests = 0;
+	server.get('/native', (_request, response) => {
+		requests++;
+		response.statusCode = 202;
+		response.setHeader('x-source', 'native');
+		response.end('accepted');
+	});
+	const nativeResponse = await new Promise<IncomingMessage>((resolve, reject) => {
+		httpGet(`${server.url}/native`, resolve).once('error', reject);
+	});
+
+	const response = await got('unused', {
+		hooks: {
+			beforeRequest: [() => nativeResponse],
+		},
+	});
+
+	t.is(response.statusCode, 202);
+	t.is(response.headers['x-source'], 'native');
+	t.is(response.body, 'accepted');
+	t.is(requests, 1);
 });
 
 test('init hook primitive failures retain their original message and request options', async t => {

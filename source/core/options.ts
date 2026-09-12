@@ -149,16 +149,24 @@ Some Options properties accept multiple input types but are normalized to a sing
 */
 export type NormalizedOptions = OverrideProperties<Options, {
 	// The URL is always normalized to a URL instance (or undefined) by the time hooks execute.
-	url: URL | undefined;
+	get url(): URL | undefined;
+	set url(value: Options['url']);
 
 	// When set to `true`, dnsCache is normalized to a DNS cache instance. When set to `false`, it becomes `undefined`.
-	dnsCache: DnsCacheLookup | undefined;
+	get dnsCache(): DnsCacheLookup | undefined;
+	set dnsCache(value: DnsCacheLookup | boolean | undefined);
 
-	// When set to `true`, cache is normalized to the global cache Map. When set to `false`, it becomes `undefined`. Strings and other values are wrapped/processed into a StorageAdapter.
-	cache: StorageAdapter | undefined;
+	// When set to `true`, cache is normalized to the global cache Map. When set to `false`, it becomes `undefined`. Storage URI strings are preserved.
+	get cache(): string | StorageAdapter | undefined;
+	set cache(value: Options['cache']);
 
 	// The prefix URL is always normalized to a string.
-	prefixUrl: string;
+	get prefixUrl(): string;
+	set prefixUrl(value: Options['prefixUrl']);
+
+	// Search parameters are normalized to URLSearchParams, including after assignment.
+	get searchParams(): URLSearchParams;
+	set searchParams(value: Options['searchParams']);
 }>;
 
 export type InitHook = (init: OptionsInit, self: Options) => void;
@@ -172,11 +180,11 @@ export type BeforeRequestHookContext = {
 	retryCount: number;
 };
 
-export type BeforeRequestHook = (options: NormalizedOptions, context: BeforeRequestHookContext) => Promisable<void | Response | ResponseLike>;
+export type BeforeRequestHook = (options: NormalizedOptions, context: BeforeRequestHookContext) => Promisable<void | AcceptableResponse | ClientRequest>;
 export type BeforeRedirectHook = (updatedOptions: NormalizedOptions, plainResponse: PlainResponse) => Promisable<void>;
 export type BeforeErrorHook = (error: RequestError) => Promisable<Error>;
 export type BeforeRetryHook = (error: RequestError, retryCount: number) => Promisable<void>;
-export type BeforeCacheHook = (response: PlainResponse) => false | void;
+export type BeforeCacheHook = (response: Pick<PlainResponse, 'headers' | 'statusCode' | 'statusMessage'>) => false | void;
 export type AfterResponseHook<ResponseType = unknown> = (response: Response<ResponseType>, retryWithMergedOptions: (options: OptionsInit) => never) => Promisable<Response | RequestPromise<Response>>;
 
 /**
@@ -691,7 +699,7 @@ export type RetryOptions = {
 	enforceRetryRules?: boolean;
 };
 
-export type CreateConnectionFunction = (options: NativeRequestOptions, oncreate: (error: NodeJS.ErrnoException, socket: Socket) => void) => Socket;
+export type CreateConnectionFunction = (options: NativeRequestOptions, oncreate: (error: NodeJS.ErrnoException | null, socket?: Socket) => void) => Socket | void; // eslint-disable-line @typescript-eslint/no-restricted-types
 export type CheckServerIdentityFunction = (hostname: string, certificate: DetailedPeerCertificate) => NodeJS.ErrnoException | void;
 
 export type CacheOptions = {
@@ -3169,6 +3177,13 @@ export default class Options {
 		this.#internals.method = value.toUpperCase();
 	}
 
+	/**
+	The function used to retrieve a `net.Socket` instance when the `agent` option is not used.
+
+	For HTTP/1, either return the socket synchronously or call `callback(null, socket)` asynchronously. Call `callback(error)` if socket creation fails.
+
+	When `http2` is enabled for HTTPS, this function must synchronously return a `tls.TLSSocket`. Callback-based creation is not supported by HTTP/2 negotiation.
+	*/
 	get createConnection(): CreateConnectionFunction | undefined {
 		return this.#internals.createConnection;
 	}
