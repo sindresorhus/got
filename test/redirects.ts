@@ -8,7 +8,10 @@ import {gzip} from 'node:zlib';
 import test from 'ava';
 import type {Handler} from 'express';
 import Responselike from 'responselike';
-import got, {MaxRedirectsError, RequestError} from '../source/index.js';
+import getStream from 'get-stream';
+import got, {
+	HTTPError, MaxRedirectsError, ParseError, RequestError,
+} from '../source/index.js';
 import withServer, {withHttpsServer} from './helpers/with-server.js';
 
 const gzipAsync = promisify(gzip);
@@ -4268,4 +4271,169 @@ test('beforeRedirect explicit Content-Length is preserved', withServer, async (t
 	});
 
 	t.is(body, '2');
+});
+
+test('a stopped redirect keeps the first predicate decision', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.writeHead(302, {location: '/next'});
+		response.end('stopped');
+	});
+	let calls = 0;
+	const response = await got('', {
+		followRedirect() {
+			calls++;
+			return calls > 1;
+		},
+	});
+
+	t.is(response.statusCode, 302);
+	t.is(response.body, 'stopped');
+	t.true(response.ok);
+	t.is(calls, 1);
+});
+
+for (const {stream, compressed} of [{stream: true, compressed: false}, {stream: false, compressed: true}, {stream: true, compressed: true}]) {
+	test(`stopped redirect predicate runs once with stream=${stream} and compressed=${compressed}`, withServer, async (t, server, got) => {
+		const bytes = compressed ? await gzipAsync('stopped') : Buffer.from('stopped');
+		server.get('/', (_request, response) => {
+			response.writeHead(302, {location: '/next', ...(compressed ? {'content-encoding': 'gzip'} : {})});
+			response.end(bytes);
+		});
+		let calls = 0;
+		const options = {
+			followRedirect() {
+				calls++;
+				return calls > 1;
+			},
+		};
+		const body = stream ? await getStream(got.stream('', options)) : await got('', options).text();
+
+		t.is(body, 'stopped');
+		t.is(calls, 1);
+	});
+}
+
+test('a stopped redirect still reports JSON parsing errors without asking the predicate again', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.writeHead(302, {location: '/next'});
+		response.end('invalid JSON');
+	});
+	let calls = 0;
+	const error = await t.throwsAsync<ParseError>(got('', {
+		responseType: 'json',
+		followRedirect() {
+			calls++;
+			return calls > 1;
+		},
+	}), {instanceOf: ParseError});
+
+	t.is(error.response.statusCode, 302);
+	t.is(error.response.body, 'invalid JSON');
+	t.is(calls, 1);
+});
+
+test('each redirect hop makes its own predicate decision', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.writeHead(302, {location: '/first'}).end('first');
+	});
+	server.get('/first', (_request, response) => {
+		response.writeHead(302, {location: '/second'}).end('second');
+	});
+	server.get('/second', (_request, response) => {
+		response.writeHead(302, {location: '/unused'}).end('stopped');
+	});
+	const paths: string[] = [];
+	const response = await got('', {
+		followRedirect(response) {
+			paths.push(new URL(response.url).pathname);
+			return paths.length < 3;
+		},
+	});
+
+	t.deepEqual(paths, ['/', '/first', '/second']);
+	t.is(response.body, 'stopped');
+	t.is(response.redirectUrls.length, 2);
+	t.true(response.ok);
+});
+
+test('retries evaluate the same configured redirect predicate for each new response', withServer, async (t, server, got) => {
+	let requests = 0;
+	server.get('/', (_request, response) => {
+		requests++;
+		response.writeHead(302, {location: '/unused'}).end(String(requests));
+	});
+	let calls = 0;
+	const response = await got('', {
+		retry: {limit: 1, backoffLimit: 0, noise: 0},
+		followRedirect() {
+			calls++;
+			return false;
+		},
+		hooks: {
+			afterResponse: [response => {
+				if (response.body === '1') {
+					response.statusCode = 503;
+				}
+
+				return response;
+			}],
+		},
+	});
+
+	t.is(requests, 2);
+	t.is(calls, 2);
+	t.is(response.body, '2');
+	t.is(response.retryCount, 1);
+	t.true(response.ok);
+});
+
+test('a hook can replace the redirect predicate without reusing the old decision', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.writeHead(302, {location: '/unused'}).end('stopped');
+	});
+	let originalCalls = 0;
+	let replacementCalls = 0;
+	const response = await got('', {
+		followRedirect() {
+			originalCalls++;
+			return false;
+		},
+		hooks: {
+			afterResponse: [response => {
+				response.request.options.followRedirect = () => {
+					replacementCalls++;
+					return false;
+				};
+
+				return response;
+			}],
+		},
+	});
+
+	t.is(originalCalls, 1);
+	t.is(replacementCalls, 1);
+	t.true(response.ok);
+});
+
+test('a hook can replace the redirect predicate with a boolean policy', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.writeHead(302, {location: '/unused'}).end('stopped');
+	});
+	let calls = 0;
+	const error = await t.throwsAsync<HTTPError>(got('', {
+		followRedirect() {
+			calls++;
+			return false;
+		},
+		hooks: {
+			afterResponse: [response => {
+				response.request.options.followRedirect = true;
+				return response;
+			}],
+		},
+	}), {instanceOf: HTTPError});
+
+	t.is(calls, 1);
+	t.is(error.response.statusCode, 302);
+	t.false(error.response.ok);
 });

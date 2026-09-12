@@ -2,10 +2,12 @@ import {Buffer} from 'node:buffer';
 import type {IncomingMessageWithTimings, Timings} from './utils/timer.js';
 import {RequestError} from './errors.js';
 import stripUrlAuth from './utils/strip-url-auth.js';
+import type Options from './options.js';
 import type {ParseJsonFunction, ResponseType} from './options.js';
 import type Request from './index.js';
 
 const decodedBodyCache = new WeakMap<PlainResponse, string>();
+const redirectDecisions = new WeakMap<Options, {predicate: (response: PlainResponse) => boolean; follow: boolean}>();
 // Intentionally uses TextDecoder so the UTF-8 path strips a leading BOM.
 const textDecoder = new TextDecoder();
 
@@ -131,11 +133,28 @@ export type Response<T = unknown> = {
 
 export const isResponseOk = (response: PlainResponse): boolean => {
 	const {statusCode} = response;
-	const {followRedirect} = response.request.options;
-	const shouldFollow = typeof followRedirect === 'function' ? followRedirect(response) : followRedirect;
-	const limitStatusCode = shouldFollow ? 299 : 399;
+	if ((statusCode >= 200 && statusCode <= 299) || statusCode === 304) {
+		return true;
+	}
 
-	return (statusCode >= 200 && statusCode <= limitStatusCode) || statusCode === 304;
+	if (statusCode < 300 || statusCode > 399) {
+		return false;
+	}
+
+	const {options} = response.request;
+	const {followRedirect} = options;
+	if (typeof followRedirect !== 'function') {
+		return !followRedirect;
+	}
+
+	// Each request attempt and redirect owns fresh options; wrappers and status checks share its decision.
+	let decision = redirectDecisions.get(options);
+	if (decision?.predicate !== followRedirect) {
+		decision = {predicate: followRedirect, follow: followRedirect(response)};
+		redirectDecisions.set(options, decision);
+	}
+
+	return !decision.follow;
 };
 
 /**

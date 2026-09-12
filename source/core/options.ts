@@ -2523,7 +2523,7 @@ export default class Options {
 	/**
 	Whether redirect responses should be followed automatically.
 
- 	Optionally, pass a function to dynamically decide based on the response object.
+	Optionally, pass a function to dynamically decide based on the response object. An unchanged function is evaluated only once per response.
 
 	Note that if a `303` is sent by the server in response to any request type (`POST`, `DELETE`, etc.), Got will automatically request the resource pointed to in the location header via `GET`.
 	This is in accordance with [the spec](https://tools.ietf.org/html/rfc7231#section-6.4.4). You can optionally turn on this behavior also for other redirect codes - see `methodRewriting`.

@@ -108,6 +108,65 @@ test('promise.json() does not fail when server returns an error', withServer, as
 	await t.notThrowsAsync(promise.json());
 });
 
+test('followRedirect is not called for a successful response', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.end('success');
+	});
+
+	let calls = 0;
+	const response = await got('', {
+		followRedirect() {
+			calls++;
+			return true;
+		},
+	});
+
+	t.is(response.body, 'success');
+	t.true(response.ok);
+	t.is(calls, 0);
+});
+
+for (const statusCode of [204, 304, 400, 503]) {
+	test(`followRedirect does not decide acceptance of status ${statusCode}`, withServer, async (t, server, got) => {
+		server.get('/', (_request, response) => {
+			response.statusCode = statusCode;
+			response.end();
+		});
+
+		const response = await got('', {
+			throwHttpErrors: false,
+			retry: {limit: 0},
+			followRedirect() {
+				throw new Error('Only redirect responses can be evaluated');
+			},
+		});
+
+		t.is(response.statusCode, statusCode);
+		t.is(response.ok, statusCode === 204 || statusCode === 304);
+	});
+}
+
+test('followRedirect receives redirects before a successful final response', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.redirect('/target');
+	});
+	server.get('/target', (_request, response) => {
+		response.end('target');
+	});
+
+	const statuses: number[] = [];
+	const response = await got('', {
+		followRedirect(response) {
+			statuses.push(response.statusCode);
+			return response.headers.location === '/target';
+		},
+	});
+
+	t.is(response.body, 'target');
+	t.true(statuses.length > 0);
+	t.true(statuses.every(status => status === 302));
+});
+
 test('response.ok reflects a status recovered by an afterResponse hook', withServer, async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.statusCode = 404;
@@ -331,6 +390,86 @@ test('shortcuts use the last response after suppressed hook error retries', with
 	t.is(requests, 2);
 	t.deepEqual(result, {attempt: 2});
 });
+
+test('a dynamic redirect allowance is used for routing', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.redirect('/target');
+	});
+	server.get('/target', (_request, response) => {
+		response.end('target');
+	});
+
+	let remainingRedirects = 1;
+	const response = await got('', {
+		followRedirect() {
+			return remainingRedirects-- > 0;
+		},
+	});
+
+	t.is(response.body, 'target');
+	t.is(response.statusCode, 200);
+});
+
+for (const followRedirect of [true, false]) {
+	for (const usePredicate of [true, false]) {
+		test(`redirect routing honors ${followRedirect} with predicate ${usePredicate}`, withServer, async (t, server, got) => {
+			const paths: string[] = [];
+			server.get('/', (request, response) => {
+				paths.push(request.path);
+				response.redirect('/target');
+			});
+			server.get('/target', (request, response) => {
+				paths.push(request.path);
+				response.end('target');
+			});
+
+			const response = await got('', {followRedirect: usePredicate ? () => followRedirect : followRedirect});
+
+			t.is(response.statusCode, followRedirect ? 200 : 302);
+			t.true(response.ok);
+			t.deepEqual(paths, followRedirect ? ['/', '/target'] : ['/']);
+		});
+	}
+
+	test(`redirect responses without a Location retain predicate acceptance ${followRedirect}`, withServer, async (t, server, got) => {
+		server.get('/', (_request, response) => {
+			response.statusCode = 302;
+			response.end('no location');
+		});
+
+		const request = got('', {followRedirect: () => followRedirect});
+		const response = followRedirect
+			? (await t.throwsAsync<HTTPError>(request, {instanceOf: HTTPError})).response
+			: await request;
+
+		t.is(response.statusCode, 302);
+		t.is(response.body, 'no location');
+		t.is(response.ok, !followRedirect);
+	});
+}
+
+for (const allowance of [0, 1, 2]) {
+	test(`dynamic redirect allowances follow exactly ${allowance} redirects in a chain`, withServer, async (t, server, got) => {
+		const paths: string[] = [];
+		server.get('/:step', (request, response) => {
+			paths.push(request.path);
+			response.redirect(`/${Number(request.params.step) + 1}`);
+		});
+
+		let remainingRedirects = allowance;
+		const response = await got('0', {
+			followRedirect() {
+				return remainingRedirects-- > 0;
+			},
+		});
+
+		t.is(response.statusCode, 302);
+		t.true(response.ok);
+		t.is(response.headers.location, `/${allowance + 1}`);
+		t.deepEqual(paths, Array.from({length: allowance + 1}, (_, index) => `/${index}`));
+		t.is(response.redirectUrls.length, allowance);
+	});
+}
 
 test('manual retries skip response hooks that already ran by default', withServer, async (t, server, got) => {
 	let requests = 0;

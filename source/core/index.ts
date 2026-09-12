@@ -1077,7 +1077,8 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		let typedResponse = prepareResponse(response as PlainResponse);
 		// Redirect responses that will be followed are drained raw. Decompressing them can
 		// turn an irrelevant redirect body into a client-side failure or decompression DoS.
-		const shouldFollowRedirect = isRedirect && (typeof options.followRedirect === 'function' ? options.followRedirect(typedResponse) : options.followRedirect);
+		// prepareResponse already evaluated the redirect predicate.
+		const shouldFollowRedirect = isRedirect && !typedResponse.ok;
 
 		if (options.decompress && !hasNoBody && !shouldFollowRedirect) {
 			response = decompressResponse(response);
