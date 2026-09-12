@@ -1775,6 +1775,15 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		}
 	}
 
+	private async * _iterateBody(body: Iterable<unknown> | AsyncIterable<unknown>) {
+		// Keep source errors separate from socket write failures, which may be retried.
+		try {
+			yield * body instanceof ReadableStream ? this._iterateWebBody(body) : body;
+		} catch (error) {
+			throw new UploadError(normalizeError(error), this);
+		}
+	}
+
 	private async _asyncWrite(chunk: any, request: Request | ClientRequest = this): Promise<void> {
 		return new Promise((resolve, reject) => {
 			if (request === this) {
@@ -1806,6 +1815,8 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		const currentRequest = this.redirectUrls.length === 0 && !this._discardBodyWrites ? this : this._request ?? this;
 
 		if (is.nodeStream(body)) {
+			// Hooks and handlers can replace the body after the constructor registered its listener.
+			body.off('error', this._onBodyError).once('error', this._onBodyError);
 			body.pipe(currentRequest);
 		} else if (is.buffer(body)) {
 			// Buffer should be sent directly without conversion
@@ -1819,10 +1830,9 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			(async () => {
 				const isInitialRequest = currentRequest === this;
 				const bodyOptions = this.options;
-				const iterableBody = body instanceof ReadableStream ? this._iterateWebBody(body) : body;
 
 				try {
-					for await (const chunk of iterableBody) {
+					for await (const chunk of this._iterateBody(body)) {
 						if (this.options !== bodyOptions || this.options.body !== body) {
 							return;
 						}

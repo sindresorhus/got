@@ -18,7 +18,7 @@ import {
 } from 'then-busboy';
 import getStream from 'get-stream';
 import {FormData as NodeFetchFormData} from 'node-fetch';
-import got, {UploadError} from '../source/index.js';
+import got, {RequestError, UploadError} from '../source/index.js';
 import withServer from './helpers/with-server.js';
 
 const defaultEndpoint: Handler = async (request, response) => {
@@ -520,4 +520,110 @@ test('body - sends iterable', withServer, async (t, server, got) => {
 	}).text();
 
 	t.is(body, 'foobar');
+});
+
+test('async iterable source errors do not become network retries', withServer, async (t, server, got) => {
+	server.put('/', request => {
+		request.resume();
+	});
+	const cause = Object.assign(new Error('Iterable source failed'), {code: 'ECONNRESET'});
+	let retries = 0;
+	async function * body() {
+		yield 'first chunk';
+		throw cause;
+	}
+
+	const error = await t.throwsAsync<UploadError>(got.put('', {
+		body: body(),
+		retry: {limit: 1, backoffLimit: 0, noise: 0},
+		hooks: {
+			beforeRetry: [() => {
+				retries++;
+			}],
+		},
+	}), {instanceOf: UploadError, code: 'ERR_UPLOAD', message: cause.message});
+
+	t.is(error.cause, cause);
+	t.is(retries, 0);
+});
+
+for (const asynchronous of [false, true]) {
+	for (const yieldFirst of [false, true]) {
+		test(`iterable upload errors preserve their cause with async ${asynchronous} and first chunk ${yieldFirst}`, withServer, async (t, server, got) => {
+			server.post('/', request => {
+				request.resume();
+			});
+			const cause = Object.assign(new Error('Source failed'), {code: 'EPIPE'});
+			function * generate() {
+				if (yieldFirst) {
+					yield 'first chunk';
+				}
+
+				throw cause;
+			}
+
+			async function * generateAsync() {
+				yield * generate();
+			}
+
+			const body = asynchronous ? generateAsync() : generate();
+			const error = await t.throwsAsync<UploadError>(getStream(got.stream.post('', {body})), {
+				instanceOf: UploadError,
+				code: 'ERR_UPLOAD',
+				message: cause.message,
+			});
+
+			t.is(error.cause, cause);
+		});
+	}
+}
+
+test('iterator acquisition failures are upload errors', withServer, async (t, _server, got) => {
+	const cause = new Error('Could not open source');
+	const body = {
+		[Symbol.asyncIterator](): AsyncIterator<string> {
+			throw cause;
+		},
+	};
+	const error = await t.throwsAsync<UploadError>(got.post('', {body}), {
+		instanceOf: UploadError,
+		code: 'ERR_UPLOAD',
+		message: cause.message,
+	});
+
+	t.is(error.cause, cause);
+});
+
+for (const chunks of [[], ['hello ', new Uint8Array(Buffer.from('world'))]]) {
+	test(`iterable uploads support ${chunks.length} chunks`, withServer, async (t, server, got) => {
+		server.post('/', defaultEndpoint);
+
+		t.is(await got.post('', {body: chunks}).text(), chunks.length === 0 ? '' : 'hello world');
+	});
+}
+
+test('network failures during iterable uploads remain request errors', withServer, async (t, server, got) => {
+	server.put('/', request => {
+		request.once('data', () => {
+			request.socket.destroy();
+		});
+	});
+	const finished = Promise.withResolvers<void>();
+	async function * body() {
+		try {
+			while (true) {
+				yield 'chunk';
+				// eslint-disable-next-line no-await-in-loop
+				await delay(1);
+			}
+		} finally {
+			finished.resolve();
+		}
+	}
+
+	const error = await t.throwsAsync<RequestError>(got.put('', {body: body(), retry: {limit: 0}}), {instanceOf: RequestError});
+
+	t.false(error instanceof UploadError);
+	t.true(['ECONNRESET', 'EPIPE'].includes(error.code));
+	await finished.promise;
 });

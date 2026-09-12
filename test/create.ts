@@ -1,3 +1,4 @@
+import {Readable} from 'node:stream';
 import {Buffer} from 'node:buffer';
 import {
 	Agent as HttpAgent,
@@ -12,7 +13,9 @@ import test from 'ava';
 import is from '@sindresorhus/is';
 import type {Handler} from 'express';
 import delay from 'delay';
+import getStream from 'get-stream';
 import got, {
+	UploadError,
 	Options,
 	type BeforeRequestHook,
 	type Headers,
@@ -949,4 +952,122 @@ test('undefined request responseType preserves JSON parsing and wrapped response
 
 	t.deepEqual((await client.post({responseType: undefined, resolveBodyOnly: undefined})).body, {value: 1});
 	t.deepEqual(await client.post('', {responseType: undefined, resolveBodyOnly: true}), {value: 1});
+});
+
+test('handler-supplied stream body failures are upload errors', withServer, async (t, server, got) => {
+	server.post('/', request => {
+		request.resume();
+	});
+	const cause = new Error('Replacement body failed');
+	const body = new Readable({
+		read() {
+			this.destroy(cause);
+		},
+	});
+	// Keep the regression observable as a request failure rather than an uncaught stream error.
+	body.on('error', () => {});
+	const client = got.extend({
+		handlers: [(options, next) => {
+			options.body = body;
+			return next(options);
+		}],
+	});
+
+	const error = await t.throwsAsync<UploadError>(client.post('', {retry: {limit: 0}, timeout: {request: 500}}), {
+		instanceOf: UploadError,
+		code: 'ERR_UPLOAD',
+		message: cause.message,
+	});
+
+	t.is(error.cause, cause);
+});
+
+test('beforeRequest replacement stream errors do not trigger network retries', withServer, async (t, server, got) => {
+	server.post('/', request => {
+		request.resume();
+	});
+	const cause = Object.assign(new Error('Hook body failed'), {code: 'ECONNRESET'});
+	let retries = 0;
+	const body = new Readable({
+		read() {
+			this.destroy(cause);
+		},
+	});
+	body.on('error', () => {});
+
+	const error = await t.throwsAsync<UploadError>(got.post('', {
+		body: 'original',
+		timeout: {request: 500},
+		retry: {limit: 1, methods: ['POST'], calculateDelay: () => 1},
+		hooks: {
+			beforeRequest: [options => {
+				options.body = body;
+			}],
+			beforeRetry: [() => {
+				retries++;
+			}],
+		},
+	}), {instanceOf: UploadError, code: 'ERR_UPLOAD', message: cause.message});
+
+	t.is(error.cause, cause);
+	t.is(retries, 0);
+});
+
+test('handler-supplied body failures reach the streaming API', withServer, async (t, server, got) => {
+	server.post('/', request => {
+		request.resume();
+	});
+	const cause = new Error('Stream body failed');
+	const body = new Readable({
+		read() {
+			this.destroy(cause);
+		},
+	});
+	body.on('error', () => {});
+	const client = got.extend({
+		handlers: [(options, next) => {
+			options.body = body;
+			return next(options);
+		}],
+	});
+
+	const error = await t.throwsAsync<UploadError>(getStream(client.stream.post('', {timeout: {request: 500}})), {
+		instanceOf: UploadError,
+		code: 'ERR_UPLOAD',
+	});
+
+	t.is(error.cause, cause);
+});
+
+test('initial body errors remain handled before asynchronous handlers finish', withServer, async (t, _server, got) => {
+	const cause = new Error('Initial body failed');
+	const body = new Readable({read() {}});
+	const client = got.extend({
+		handlers: [async (options, next) => {
+			body.destroy(cause);
+			await delay(10);
+			return next(options);
+		}],
+	});
+
+	const error = await t.throwsAsync<UploadError>(client.post('', {body}), {instanceOf: UploadError, code: 'ERR_UPLOAD'});
+
+	t.is(error.cause, cause);
+});
+
+test('initial stream uploads retain exactly one Got error listener', withServer, async (t, server, got) => {
+	server.post('/', async (request, response) => {
+		response.end(await getStream(request));
+	});
+	let errorListeners = 0;
+	const body = new Readable({
+		read() {
+			errorListeners = this.listenerCount('error');
+			this.push('payload');
+			this.push(null);
+		},
+	});
+
+	t.is(await got.post('', {body}).text(), 'payload');
+	t.is(errorListeners, 1);
 });

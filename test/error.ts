@@ -6,7 +6,9 @@ import {Agent} from 'node:https';
 import test from 'ava';
 import getStream from 'get-stream';
 import is from '@sindresorhus/is';
-import got, {RequestError, HTTPError, TimeoutError} from '../source/index.js';
+import got, {
+	RequestError, HTTPError, TimeoutError, ParseError, UploadError, type Response,
+} from '../source/index.js';
 import {createRawHttpServer} from './helpers/server-tools.js';
 import withServer from './helpers/with-server.js';
 import invalidUrl from './helpers/invalid-url.js';
@@ -502,4 +504,157 @@ test.serial('custom stack trace', withServer, async (t, _server, got) => {
 
 		disable();
 	}
+});
+
+test('Web stream read failures are upload errors and do not trigger network retries', withServer, async (t, server, got) => {
+	const cause = Object.assign(new Error('Upload source failed'), {code: 'ECONNRESET'});
+	let controller: ReadableStreamDefaultController<Uint8Array>;
+	const body = new ReadableStream<Uint8Array>({
+		start(streamController) {
+			controller = streamController;
+			controller.enqueue(new TextEncoder().encode('first chunk'));
+		},
+	});
+	let requests = 0;
+	let retries = 0;
+	server.put('/', request => {
+		requests++;
+		request.once('data', () => {
+			controller.error(cause);
+		});
+	});
+
+	const error = await t.throwsAsync<UploadError>(got.put('', {
+		body,
+		retry: {limit: 1, calculateDelay: ({computedValue}) => Math.min(1, computedValue)},
+		hooks: {
+			beforeRetry: [() => {
+				retries++;
+			}],
+		},
+	}), {instanceOf: UploadError, code: 'ERR_UPLOAD', message: cause.message});
+
+	t.is(error.cause, cause);
+	t.is(requests, 1);
+	t.is(retries, 0);
+	t.false(body.locked);
+});
+
+for (const cause of [new Error('Source pull failed'), 'Source pull failed']) {
+	test(`Web stream pull failures preserve ${typeof cause} messages`, withServer, async (t, _server, got) => {
+		const body = new ReadableStream({
+			pull() {
+				// eslint-disable-next-line @typescript-eslint/only-throw-error -- Web stream sources can reject reads with any value.
+				throw cause;
+			},
+		});
+
+		const error = await t.throwsAsync<UploadError>(got.post('', {body}), {
+			instanceOf: UploadError,
+			code: 'ERR_UPLOAD',
+			message: 'Source pull failed',
+		});
+
+		if (cause instanceof Error) {
+			t.is(error.cause, cause);
+		} else {
+			t.is((error.cause as Error).message, cause);
+		}
+
+		t.false(body.locked);
+	});
+}
+
+test('Web stream read failures are upload errors in the streaming API', withServer, async (t, _server, got) => {
+	const cause = new Error('Source failed');
+	const body = new ReadableStream({
+		start(controller) {
+			controller.error(cause);
+		},
+	});
+
+	const error = await t.throwsAsync<UploadError>(getStream(got.stream.post('', {body})), {
+		instanceOf: UploadError,
+		code: 'ERR_UPLOAD',
+		message: cause.message,
+	});
+
+	t.is(error.cause, cause);
+	t.false(body.locked);
+});
+
+for (const chunks of [[], ['first', 'second']]) {
+	test(`Web uploads release the reader after ${chunks.length} successful chunks`, withServer, async (t, server, got) => {
+		server.post('/', async (request, response) => {
+			response.end(await getStream(request));
+		});
+
+		const body = new ReadableStream({
+			start(controller) {
+				for (const chunk of chunks) {
+					controller.enqueue(new TextEncoder().encode(chunk));
+				}
+
+				controller.close();
+			},
+		});
+
+		t.is(await got.post('', {body}).text(), chunks.join(''));
+		t.false(body.locked);
+	});
+}
+
+test('network errors during Web uploads retain their request error classification', withServer, async (t, server, got) => {
+	server.put('/', request => {
+		request.once('data', () => {
+			request.socket.destroy();
+		});
+	});
+
+	let cancelled = false;
+	const body = new ReadableStream({
+		start(controller) {
+			controller.enqueue(new TextEncoder().encode('first chunk'));
+		},
+		cancel() {
+			cancelled = true;
+		},
+	});
+	const error = await t.throwsAsync<RequestError>(got.put('', {body, retry: {limit: 0}}), {
+		instanceOf: RequestError,
+		code: 'ECONNRESET',
+	});
+
+	t.false(error instanceof UploadError);
+	t.true(cancelled);
+	t.false(body.locked);
+});
+
+test('Node bodies supplied by beforeRequest report source failures as upload errors', withServer, async (t, server, got) => {
+	const cause = new Error('Replacement body failed');
+	const body = new stream.PassThrough();
+	let sourceErrors = 0;
+	body.once('error', () => {
+		sourceErrors++;
+	});
+	body.write('first chunk');
+
+	server.post('/', request => {
+		request.once('data', () => {
+			body.destroy(cause);
+		});
+	});
+
+	const error = await t.throwsAsync<UploadError>(got.post('', {
+		retry: {limit: 0},
+		timeout: {request: 250},
+		hooks: {
+			beforeRequest: [options => {
+				options.body = body;
+			}],
+		},
+	}), {instanceOf: UploadError, code: 'ERR_UPLOAD', message: cause.message});
+
+	t.is(error.cause, cause);
+	t.is(sourceErrors, 1);
 });
