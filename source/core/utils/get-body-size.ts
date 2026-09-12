@@ -15,12 +15,8 @@ export default function getBodySize(body: unknown, headers: ClientRequestArgs['h
 		return stringToUint8Array(body).byteLength;
 	}
 
-	if (is.buffer(body)) {
-		return body.length;
-	}
-
-	if (is.typedArray(body)) {
-		return (body as ArrayBufferView).byteLength;
+	if (ArrayBuffer.isView(body)) {
+		return body.byteLength;
 	}
 
 	return undefined;

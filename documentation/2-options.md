@@ -315,11 +315,11 @@ console.log(headers);
 
 ### `body`
 
-**Type: `string | Uint8Array | TypedArray | stream.Readable | Generator | AsyncGenerator | Iterable | AsyncIterable | FormData`**
+**Type: `string | ArrayBufferView | stream.Readable | Generator | AsyncGenerator | Iterable | AsyncIterable | FormData`**
 
 The payload to send.
 
-For `string`, `Uint8Array`, and `TypedArray` types, the `content-length` header is automatically set if the `content-length` and `transfer-encoding` headers are missing.
+For `string` and `ArrayBufferView` types (including `Uint8Array`, other typed arrays, and `DataView`), the `content-length` header is automatically set if the `content-length` and `transfer-encoding` headers are missing.
 
 **The `content-length` header is not automatically set when `body` is an instance of [`fs.createReadStream()`](https://nodejs.org/api/fs.html#fs_fs_createreadstream_path_options).**
 

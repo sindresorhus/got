@@ -955,3 +955,60 @@ test('options have url even if some are invalid - got.extend', async t => {
 		},
 	);
 });
+
+test('DataView request bodies preserve their offset and content length', withServer, async (t, server, got) => {
+	server.post('/', async (request, response) => {
+		response.json({body: await getStream(request), length: request.headers['content-length']});
+	});
+	const bytes = new TextEncoder().encode('before:payload:after');
+	const body = new DataView(bytes.buffer, 7, 7);
+
+	t.deepEqual(await got.post('', {body}).json(), {body: 'payload', length: '7'});
+});
+
+test('DataView request bodies preserve arbitrary bytes', withServer, async (t, server, got) => {
+	server.post('/', (request, response) => {
+		request.pipe(response);
+	});
+	const bytes = new Uint8Array([0, 127, 128, 255]);
+
+	t.deepEqual(await got.post('', {body: new DataView(bytes.buffer)}).buffer(), bytes);
+});
+
+test('empty DataView request bodies have zero content length', withServer, async (t, server, got) => {
+	server.post('/', async (request, response) => {
+		response.json({body: await getStream(request), length: request.headers['content-length']});
+	});
+	const bytes = new Uint8Array([1, 2, 3]);
+
+	t.deepEqual(await got.post('', {body: new DataView(bytes.buffer, 1, 0)}).json(), {body: '', length: '0'});
+});
+
+test('DataView request bodies honor explicit chunked transfer encoding', withServer, async (t, server, got) => {
+	server.post('/', async (request, response) => {
+		t.is(request.headers['content-length'], undefined);
+		t.is(request.headers['transfer-encoding'], 'chunked');
+		response.end(await getStream(request));
+	});
+	const bytes = new TextEncoder().encode('payload');
+
+	t.is(await got.post('', {body: new DataView(bytes.buffer), headers: {'transfer-encoding': 'chunked'}}).text(), 'payload');
+});
+
+test('DataView request bodies can be replayed on retry', withServer, async (t, server, got) => {
+	const receivedBodies: string[] = [];
+	server.post('/', async (request, response) => {
+		receivedBodies.push(await getStream(request));
+		response.statusCode = receivedBodies.length === 1 ? 503 : 200;
+		response.end('done');
+	});
+	const bytes = new TextEncoder().encode('before:payload:after');
+
+	t.is(await got.post('', {
+		body: new DataView(bytes.buffer, 7, 7),
+		retry: {
+			limit: 1, methods: ['POST'], backoffLimit: 0, noise: 0,
+		},
+	}).text(), 'done');
+	t.deepEqual(receivedBodies, ['payload', 'payload']);
+});

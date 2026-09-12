@@ -1987,7 +1987,7 @@ export default class Options {
 
 	__Note #4__: This option is not enumerable and will not be merged with the instance defaults.
 
-	The `content-length` header will be automatically set if `body` is a `string` / `Uint8Array` / typed array, and `content-length` and `transfer-encoding` are not manually set in `options.headers`.
+	The `content-length` header will be automatically set if `body` is a `string` or an `ArrayBufferView` (including `Uint8Array`, other typed arrays, and `DataView`), and `content-length` and `transfer-encoding` are not manually set in `options.headers`.
 
 	Since Got 12, the `content-length` is not automatically set when `body` is a `fs.createReadStream`.
 
@@ -2013,7 +2013,7 @@ export default class Options {
 	}
 
 	set body(value: string | Uint8Array | Readable | Generator | AsyncGenerator | Iterable<unknown> | AsyncIterable<unknown> | FormData | ArrayBufferView | undefined) {
-		assertAny('body', [is.string, is.buffer, is.nodeStream, is.generator, is.asyncGenerator, is.iterable, is.asyncIterable, is.typedArray, is.undefined], value);
+		assertAny('body', [is.string, is.buffer, is.nodeStream, is.generator, is.asyncGenerator, is.iterable, is.asyncIterable, ArrayBuffer.isView, is.undefined], value);
 
 		if (is.nodeStream(value)) {
 			assert.truthy(value.readable);
