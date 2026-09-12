@@ -957,7 +957,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			}
 
 			// Serialize body
-			const noContentType = !is.string(headers['content-type']);
+			const noContentType = is.undefined(headers['content-type']);
 
 			if (isBody) {
 				// Native FormData

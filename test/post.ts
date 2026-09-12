@@ -627,3 +627,62 @@ test('network failures during iterable uploads remain request errors', withServe
 	t.true(['ECONNRESET', 'EPIPE'].includes(error.code));
 	await finished.promise;
 });
+
+test('JSON serialization preserves an array-valued Content-Type', withServer, async (t, server, got) => {
+	server.post('/', async (request, response) => {
+		response.json({contentType: request.headers['content-type'], body: await getStream(request)});
+	});
+
+	const result = await got.post('', {
+		json: {message: 'hello'},
+		headers: {'Content-Type': ['application/vnd.api+json']},
+	}).json<{contentType: string; body: string}>();
+
+	t.is(result.body, '{"message":"hello"}');
+	t.is(result.contentType, 'application/vnd.api+json');
+});
+
+test('form serialization preserves an array-valued Content-Type inherited from defaults', withServer, async (t, server, got) => {
+	server.post('/', async (request, response) => {
+		response.json({contentType: request.headers['content-type'], body: await getStream(request)});
+	});
+	const contentType = ['application/x-www-form-urlencoded; charset=UTF-8'];
+	const client = got.extend({headers: {'content-type': contentType}});
+	const result = await client.post('', {form: {message: 'hello world', count: 2}}).json<{contentType: string; body: string}>();
+
+	t.is(result.contentType, 'application/x-www-form-urlencoded; charset=UTF-8');
+	t.is(result.body, 'message=hello+world&count=2');
+	t.deepEqual(contentType, ['application/x-www-form-urlencoded; charset=UTF-8']);
+});
+
+test('FormData serialization preserves an explicit array-valued media type', withServer, async (t, server, got) => {
+	server.post('/', async (request, response) => {
+		response.json({contentType: request.headers['content-type'], body: await getStream(request)});
+	});
+	const form = new FormData();
+	form.set('message', 'hello');
+	// Sending the serialized multipart bytes as opaque data does not require a boundary parameter.
+	const result = await got.post('', {
+		body: form,
+		headers: {'content-type': ['application/octet-stream']},
+	}).json<{contentType: string; body: string}>();
+
+	t.is(result.contentType, 'application/octet-stream');
+	t.true(result.body.includes('name="message"\r\n\r\nhello\r\n'));
+	t.true(result.body.startsWith('--'));
+});
+
+for (const contentType of ['application/problem+json', undefined]) {
+	test(`JSON serialization handles ${contentType ?? 'undefined'} Content-Type`, withServer, async (t, server, got) => {
+		server.post('/', async (request, response) => {
+			response.json({contentType: request.headers['content-type'], body: await getStream(request)});
+		});
+		const result = await got.post('', {
+			json: {message: 'hello'},
+			headers: {'content-type': contentType},
+		}).json<{contentType: string; body: string}>();
+
+		t.is(result.contentType, contentType ?? 'application/json');
+		t.is(result.body, '{"message":"hello"}');
+	});
+}
