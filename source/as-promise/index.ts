@@ -1,11 +1,12 @@
 import {EventEmitter} from 'node:events';
 import is from '@sindresorhus/is';
 import {
+	normalizeError,
 	HTTPError,
 	RetryError,
 	type RequestError,
 } from '../core/errors.js';
-import Request, {normalizeError} from '../core/index.js';
+import Request from '../core/index.js';
 import isNonReplayableBody from '../core/utils/is-non-replayable-body.js';
 import {
 	decodeUint8Array,

@@ -1268,3 +1268,107 @@ test('requestUrl snapshots normalized options without mutating the input URL', w
 	t.not(response.requestUrl, input);
 	t.not(response.requestUrl, response.request.options.url);
 });
+
+test('init hook primitive failures retain their original message and request options', async t => {
+	const error = await t.throwsAsync(got('https://example.com', {
+		hooks: {
+			init: [() => {
+				throw 'Initialization failed'; // eslint-disable-line @typescript-eslint/only-throw-error
+			}],
+		},
+	}), {
+		instanceOf: RequestError,
+		message: 'Initialization failed',
+	});
+
+	t.true(error.options instanceof Options);
+	t.is(error.options.url!.toString(), 'https://example.com/');
+	t.is((error.cause as Error).message, 'Initialization failed');
+});
+
+for (const value of [undefined, null, 42, false]) {
+	test(`init hooks normalize thrown ${String(value)}`, async t => {
+		const error = await t.throwsAsync(got('https://example.com', {
+			hooks: {
+				init: [() => {
+					throw value; // eslint-disable-line @typescript-eslint/only-throw-error
+				}],
+			},
+		}), {
+			instanceOf: RequestError,
+			message: String(value),
+		});
+
+		t.true(error.options instanceof Options);
+	});
+}
+
+test('init hook error objects keep their metadata without mutating the thrown object', async t => {
+	const original = Object.freeze({message: 'Initialization rejected', code: 'ERR_CUSTOM_INIT', input: 'bad value'});
+	const error = await t.throwsAsync(got('https://example.com', {
+		hooks: {
+			init: [() => {
+				throw original; // eslint-disable-line @typescript-eslint/only-throw-error
+			}],
+		},
+	}), {
+		instanceOf: RequestError,
+		message: original.message,
+		code: original.code,
+	});
+
+	t.is(error.input, original.input);
+	t.is((error.cause as Error).cause, original);
+	t.false(Object.hasOwn(original, 'options'));
+});
+
+test('ordinary init errors remain the request error cause', async t => {
+	const original = new TypeError('Invalid configuration');
+	const error = await t.throwsAsync(got('https://example.com', {
+		hooks: {
+			init: [() => {
+				throw original;
+			}],
+		},
+	}), {
+		instanceOf: RequestError,
+		message: original.message,
+	});
+
+	t.is(error.cause, original);
+	t.true(error.options instanceof Options);
+});
+
+test('stream requests expose normalized init failures', async t => {
+	const request = got.stream('https://example.com', {
+		hooks: {
+			init: [() => {
+				throw 'Stream initialization failed'; // eslint-disable-line @typescript-eslint/only-throw-error
+			}],
+		},
+	});
+
+	const error = await t.throwsAsync(getStream(request), {
+		instanceOf: RequestError,
+		message: 'Stream initialization failed',
+	});
+
+	t.is(error.options, request.options);
+	t.true(request.destroyed);
+});
+
+test('Options construction normalizes objects without an error message', t => {
+	const original = {reason: 'Invalid configuration'};
+	const error = t.throws(() => new Options('https://example.com', {
+		hooks: {
+			init: [() => {
+				throw original; // eslint-disable-line @typescript-eslint/only-throw-error
+			}],
+		},
+	}), {
+		message: 'Non-error object thrown',
+	});
+
+	t.is(error.cause, original);
+	t.false(Object.hasOwn(original, 'options'));
+});

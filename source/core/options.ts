@@ -27,7 +27,7 @@ import type {RequestPromise} from '../as-promise/types.js';
 import type {IncomingMessageWithTimings} from './utils/timer.js';
 import parseLinkHeader from './parse-link-header.js';
 import type {PlainResponse, Response} from './response.js';
-import type {RequestError} from './errors.js';
+import {normalizeError, type RequestError} from './errors.js';
 import {TimeoutError, type Delays} from './timed-out.js';
 import {getUnixSocketPath} from './utils/is-unix-socket-url.js';
 import DnsCache, {type DnsCacheLookup} from './utils/dns-cache.js';
@@ -1695,9 +1695,10 @@ export default class Options {
 				}
 			}
 		} catch (error) {
-			(error as OptionsError).options = this;
+			const optionsError = normalizeError(error) as OptionsError;
+			optionsError.options = this;
 
-			throw error;
+			throw optionsError;
 		}
 		/* eslint-enable no-unsafe-finally */
 	}

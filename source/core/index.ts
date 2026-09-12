@@ -55,6 +55,7 @@ import {
 import isClientRequest from './utils/is-client-request.js';
 import {getUnixSocketPath} from './utils/is-unix-socket-url.js';
 import {
+	normalizeError,
 	RequestError,
 	ReadError,
 	MaxRedirectsError,
@@ -276,34 +277,6 @@ const getConnectionListedHeaders = (headers: Record<string, string | string[] | 
 	}
 
 	return connectionListedHeaders;
-};
-
-export const normalizeError = (error: unknown): Error => {
-	if (error instanceof globalThis.Error) {
-		return error;
-	}
-
-	if (is.object(error)) {
-		const errorLike = error as Partial<Error & {code?: string; input?: string}>;
-		const message = typeof errorLike.message === 'string' ? errorLike.message : 'Non-error object thrown';
-		const normalizedError = new globalThis.Error(message, {cause: error}) as Error & {code?: string; input?: string};
-
-		if (typeof errorLike.stack === 'string') {
-			normalizedError.stack = errorLike.stack;
-		}
-
-		if (typeof errorLike.code === 'string') {
-			normalizedError.code = errorLike.code;
-		}
-
-		if (typeof errorLike.input === 'string') {
-			normalizedError.input = errorLike.input;
-		}
-
-		return normalizedError;
-	}
-
-	return new globalThis.Error(String(error));
 };
 
 type UrlType = ConstructorParameters<typeof Options>[0];

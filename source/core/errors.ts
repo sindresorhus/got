@@ -8,6 +8,34 @@ import type Request from './index.js';
 
 type Error = NodeJS.ErrnoException;
 
+export const normalizeError = (error: unknown): Error => {
+	if (error instanceof globalThis.Error) {
+		return error;
+	}
+
+	if (is.object(error)) {
+		const errorLike = error as Partial<Error & {code?: string; input?: string}>;
+		const message = typeof errorLike.message === 'string' ? errorLike.message : 'Non-error object thrown';
+		const normalizedError = new globalThis.Error(message, {cause: error}) as Error & {code?: string; input?: string};
+
+		if (typeof errorLike.stack === 'string') {
+			normalizedError.stack = errorLike.stack;
+		}
+
+		if (typeof errorLike.code === 'string') {
+			normalizedError.code = errorLike.code;
+		}
+
+		if (typeof errorLike.input === 'string') {
+			normalizedError.input = errorLike.input;
+		}
+
+		return normalizedError;
+	}
+
+	return new globalThis.Error(String(error));
+};
+
 // A hacky check to prevent circular references.
 function isRequest(x: unknown): x is Request {
 	return is.object(x) && '_onResponse' in x;

@@ -67,6 +67,21 @@ async function expectStreamToEnd(stream: NodeJS.ReadableStream & NodeJS.EventEmi
 	]);
 }
 
+test('piping into an invalid request preserves the original request error', async t => {
+	const request = got.stream.post('not a URL');
+	const source = ReadableStream.from(['payload']);
+	const destination = new Writable({
+		write(_chunk, _encoding, callback) {
+			callback();
+		},
+	});
+
+	await t.throwsAsync(streamPipeline(source, request, destination), {
+		instanceOf: RequestError,
+		code: 'ERR_INVALID_URL',
+	});
+});
+
 test('stream reads a cookie and completes', withServer, async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.setHeader('set-cookie', 'hello=world');
