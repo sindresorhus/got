@@ -26,7 +26,7 @@ import Options, {
 } from './core/options.js';
 import type {RequestPromise} from './as-promise/types.js';
 
-const isGotInstance = (value: Got | ExtendOptions): value is Got => is.function(value);
+const isGotInstance = (value: Got<any> | ExtendOptions): value is Got<any> => is.function(value);
 
 const aliases: readonly HTTPAlias[] = [
 	'get',
@@ -152,7 +152,7 @@ const create = (defaults: InstanceDefaults): Got => {
 	const got: Got = ((url: string | URL | OptionsInit | undefined, options?: OptionsInit, defaultOptions: Options = defaults.options): GotReturn =>
 		makeRequest(url, options, defaultOptions, false)) as Got;
 
-	got.extend = (...instancesOrOptions) => {
+	got.extend = (...instancesOrOptions: Array<Got<any> | ExtendOptions>) => {
 		const options = new Options(undefined, undefined, defaults.options);
 		const handlers = [...defaults.handlers];
 
@@ -171,7 +171,7 @@ const create = (defaults: InstanceDefaults): Got => {
 					handlers.push(...value.handlers);
 				}
 
-				mutableDefaults = value.mutableDefaults;
+				mutableDefaults = value.mutableDefaults ?? mutableDefaults;
 			}
 		}
 
@@ -392,6 +392,7 @@ const create = (defaults: InstanceDefaults): Got => {
 	}
 
 	if (!defaults.mutableDefaults) {
+		Object.freeze(defaults);
 		Object.freeze(defaults.handlers);
 		defaults.options.freeze();
 	}

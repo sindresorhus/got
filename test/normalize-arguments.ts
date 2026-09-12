@@ -321,3 +321,40 @@ test('changing prefixUrl preserves query and hash', t => {
 
 	t.is((options.url as URL).href, 'https://c.com/new/bar?x=1#s');
 });
+
+test('immutable instance defaults prevent changing pagination settings', t => {
+	const instance = got.extend({pagination: {countLimit: 10}});
+
+	t.throws(() => {
+		instance.defaults.options.pagination.countLimit = 0;
+	}, {instanceOf: TypeError});
+});
+
+test('cloning frozen options produces independent mutable pagination settings', t => {
+	const original = new Options({pagination: {countLimit: 10}});
+	original.freeze();
+	const clone = new Options(undefined, undefined, original);
+	clone.pagination.countLimit = 1;
+
+	t.is(original.pagination.countLimit, 10);
+	t.is(clone.pagination.countLimit, 1);
+});
+
+test('immutable default header arrays reject mutation', t => {
+	const instance = got.extend({headers: {'x-values': ['first']}});
+
+	t.throws(() => {
+		(instance.defaults.options.headers['x-values'] as string[]).push('second');
+	}, {instanceOf: TypeError});
+});
+
+test('freezing headers handles empty arrays and scalar values', t => {
+	const options = new Options({headers: {'x-empty': [], 'x-single': 'value', 'x-omitted': undefined}});
+	options.freeze();
+
+	t.throws(() => {
+		(options.headers['x-empty'] as string[]).push('value');
+	}, {instanceOf: TypeError});
+	t.is(options.headers['x-single'], 'value');
+	t.is(options.headers['x-omitted'], undefined);
+});

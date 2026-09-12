@@ -71,14 +71,14 @@ The `Options` class is useful for storing the base configuration of a custom Got
 
 #### Resetting options
 
-Unlike Got 11, explicitly specifying `undefined` no longer keeps the parent value.\
-In order to keep the parent value, you must not set an option to `undefined`.\
-Doing so will reset those values:
+Resetting behavior depends on the option. Scalar options such as `responseType` and `resolveBodyOnly` ignore `undefined` and preserve the parent value. To restore their defaults, explicitly pass `responseType: 'text'` or `resolveBodyOnly: false`.
+
+The following options support explicit resets:
 
 ```js
 instance(…, {searchParams: undefined});
 instance(…, {cookieJar: undefined});
-instance(…, {responseType: undefined});
+instance(…, {responseType: 'text', resolveBodyOnly: false});
 instance(…, {prefixUrl: ''});
 instance(…, {agent: {http: undefined, https: undefined, http2: undefined}});
 instance(…, {context: {token: undefined, …}});

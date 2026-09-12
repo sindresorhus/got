@@ -769,3 +769,184 @@ test('got.extend() with responseType works at runtime', withServer, async (t, se
 	const jsonBody = await jsonBodyClient('json');
 	t.deepEqual(jsonBody, {data: 'test'});
 });
+
+test('extend preserves an explicit mutableDefaults setting across later options', t => {
+	const instance = got.extend({mutableDefaults: true}, {headers: {'x-test': 'original'}});
+
+	t.true(instance.defaults.mutableDefaults);
+	instance.defaults.options.headers['x-test'] = 'updated';
+	t.is(instance.defaults.options.headers['x-test'], 'updated');
+});
+
+for (const mutableDefaults of [true, false]) {
+	test(`extend retains explicit mutableDefaults ${mutableDefaults} through omitted values`, t => {
+		const instance = got.extend({mutableDefaults: !mutableDefaults}, {mutableDefaults}, {}, {mutableDefaults: undefined});
+
+		t.is(instance.defaults.mutableDefaults, mutableDefaults);
+		t.is(Object.isFrozen(instance.defaults.options.headers), !mutableDefaults);
+	});
+}
+
+test('extend retains merged instance mutability through later options', t => {
+	const mutableInstance = got.extend({mutableDefaults: true});
+	const instance = got.extend(mutableInstance, {headers: {'x-test': 'original'}});
+
+	t.true(instance.defaults.mutableDefaults);
+	instance.defaults.options.headers['x-test'] = 'updated';
+	t.is(instance.defaults.options.headers['x-test'], 'updated');
+	t.is(mutableInstance.defaults.options.headers['x-test'], undefined);
+});
+
+test('extend allows later instances to override explicit mutability', t => {
+	const mutableInstance = got.extend({mutableDefaults: true});
+	const frozenInstance = got.extend({mutableDefaults: false});
+
+	t.true(got.extend({mutableDefaults: false}, mutableInstance, {}).defaults.mutableDefaults);
+	t.false(got.extend({mutableDefaults: true}, frozenInstance, {}).defaults.mutableDefaults);
+});
+
+test('chained instances preserve inherited response defaults', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.end('hello');
+	});
+
+	const parent = got.extend({responseType: 'buffer', resolveBodyOnly: true});
+	const child = parent.extend({headers: {'x-test': 'yes'}}).extend();
+
+	t.deepEqual(await child(''), new Uint8Array(Buffer.from('hello')));
+	t.is(await child.extend({responseType: 'text'})(''), 'hello');
+	t.deepEqual((await child.extend({resolveBodyOnly: false})('')).body, new Uint8Array(Buffer.from('hello')));
+});
+
+test('extend merges arrays of configuration layers in order', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.end('hello');
+	});
+
+	const layers = [{headers: {'x-first': 'one'}}, {headers: {'x-second': 'two'}}];
+	const parent = got.extend({responseType: 'buffer', resolveBodyOnly: true});
+	const child = parent.extend(...layers);
+
+	t.deepEqual(await child(''), new Uint8Array(Buffer.from('hello')));
+	t.is(child.defaults.options.headers['x-first'], 'one');
+	t.is(child.defaults.options.headers['x-second'], 'two');
+	t.is(await parent.extend(...layers, {responseType: 'text'})(''), 'hello');
+});
+
+test('undefined response defaults do not override parent instances', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.end('hello');
+	});
+
+	const parent = got.extend({responseType: 'buffer', resolveBodyOnly: true});
+	const child = parent.extend({responseType: undefined, resolveBodyOnly: undefined});
+
+	t.deepEqual(await child(''), new Uint8Array(Buffer.from('hello')));
+	t.is(child.defaults.options.responseType, 'buffer');
+	t.true(child.defaults.options.resolveBodyOnly);
+	t.is((await child.extend({responseType: 'text', resolveBodyOnly: false})('')).body, 'hello');
+});
+
+for (const responseType of ['text', 'buffer'] as const) {
+	for (const resolveBodyOnly of [true, false]) {
+		test(`dynamic defaults return ${responseType} with body-only ${resolveBodyOnly}`, withServer, async (t, server, got) => {
+			server.get('/', (_request, response) => {
+				response.end('hello');
+			});
+
+			const client = got.extend({responseType, resolveBodyOnly});
+			const response = await client('');
+			const expectedBody = responseType === 'buffer' ? new Uint8Array(Buffer.from('hello')) : 'hello';
+
+			if (resolveBodyOnly) {
+				t.deepEqual(response, expectedBody);
+			} else {
+				t.like(response, {body: expectedBody, statusCode: 200});
+			}
+		});
+	}
+}
+
+test('immutable defaults cannot be replaced', t => {
+	const client = got.extend({headers: {'x-test': 'original'}});
+
+	t.throws(() => {
+		client.defaults.options = new Options({headers: {'x-test': 'replacement'}});
+	}, {instanceOf: TypeError});
+	t.is(client.defaults.options.headers['x-test'], 'original');
+});
+
+test('immutable handler defaults cannot be replaced or deleted', t => {
+	const client = got.extend();
+	const {handlers} = client.defaults;
+
+	t.throws(() => {
+		client.defaults.handlers = [];
+	}, {instanceOf: TypeError});
+	t.false(Reflect.deleteProperty(client.defaults, 'handlers'));
+	t.false(Reflect.deleteProperty(client.defaults, 'options'));
+	t.is(client.defaults.handlers, handlers);
+});
+
+test('mutable instances can replace options and handlers used by requests', withServer, async (t, server, got) => {
+	server.get('/', (request, response) => {
+		response.json([request.headers['x-options'], request.headers['x-handler']]);
+	});
+
+	const client = got.extend({mutableDefaults: true});
+	client.defaults.options = new Options({headers: {'x-options': 'replacement'}}, undefined, client.defaults.options);
+	client.defaults.handlers = [(options, next) => {
+		options.headers['x-handler'] = 'replacement';
+		return next(options);
+	}];
+
+	t.deepEqual(await client('').json(), ['replacement', 'replacement']);
+});
+
+test('extending mutable defaults freezes only the new immutable container', t => {
+	const parent = got.extend({mutableDefaults: true});
+	const child = parent.extend();
+
+	t.true(Object.isFrozen(child.defaults));
+	t.false(Object.isFrozen(parent.defaults));
+	parent.defaults.options = new Options({headers: {'x-parent': 'changed'}});
+	t.is(child.defaults.options.headers['x-parent'], undefined);
+});
+
+for (const mutableDefaults of [true, false]) {
+	test(`default bindings remain read-only with mutableDefaults ${mutableDefaults}`, t => {
+		const client = got.extend({mutableDefaults});
+		const {defaults} = client;
+
+		t.false(Reflect.set(client, 'defaults', got.defaults));
+		t.false(Reflect.set(defaults, 'mutableDefaults', !mutableDefaults));
+		t.false(Reflect.deleteProperty(client, 'defaults'));
+		t.false(Reflect.deleteProperty(defaults, 'mutableDefaults'));
+		t.is(client.defaults, defaults);
+		t.is(client.defaults.mutableDefaults, mutableDefaults);
+	});
+}
+
+test('undefined request options preserve inherited response defaults', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.end('hello');
+	});
+	const client = got.extend({responseType: 'buffer', resolveBodyOnly: true});
+	const expected = new Uint8Array(Buffer.from('hello'));
+
+	t.deepEqual(await client('', {responseType: undefined}), expected);
+	t.deepEqual(await client({resolveBodyOnly: undefined}), expected);
+	t.deepEqual(await client.get('', {responseType: undefined, resolveBodyOnly: undefined}), expected);
+	t.deepEqual((await client('', {responseType: undefined, resolveBodyOnly: false})).body, expected);
+	t.is(await client({responseType: 'text', resolveBodyOnly: undefined}), 'hello');
+});
+
+test('undefined request responseType preserves JSON parsing and wrapped responses', withServer, async (t, server, got) => {
+	server.post('/', (_request, response) => {
+		response.json({value: 1});
+	});
+	const client = got.extend({responseType: 'json'});
+
+	t.deepEqual((await client.post({responseType: undefined, resolveBodyOnly: undefined})).body, {value: 1});
+	t.deepEqual(await client.post('', {responseType: undefined, resolveBodyOnly: true}), {value: 1});
+});

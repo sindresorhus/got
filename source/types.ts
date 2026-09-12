@@ -33,7 +33,7 @@ export type InstanceDefaults = {
 
 	@default false
 	*/
-	mutableDefaults: boolean;
+	readonly mutableDefaults: boolean;
 };
 
 /**
@@ -71,7 +71,8 @@ export type ExtendOptions = {
 
 export type StreamOptions = Except<OptionsInit, 'url'>;
 
-export type StrictOptions = Except<StreamOptions, 'responseType' | 'resolveBodyOnly'>;
+// Explicit undefined preserves response defaults just like omitting the option.
+export type StrictOptions = Merge<StreamOptions, {responseType?: undefined; resolveBodyOnly?: undefined}>;
 
 export type OptionsWithPagination<T = unknown, R = unknown> = Merge<StreamOptions, {pagination?: PaginationOptions<T, R>}>;
 
@@ -153,14 +154,15 @@ export type OptionsOfUnknownResponseBodyOnly = Merge<StrictOptions, {resolveBody
 export type OptionsOfUnknownResponseBodyWrapped = Merge<StrictOptions, {resolveBodyOnly: false}>;
 
 // Helper type to determine the default response body type based on extended options
-type DefaultResponseBodyType<U extends ExtendOptions> =
-	U['responseType'] extends 'json' ? unknown
-		: U['responseType'] extends 'buffer' ? Uint8Array<ArrayBuffer>
-			: string;
+type ResponseBodyType<ResponseType> = ResponseType extends 'json' ? unknown
+	: ResponseType extends 'buffer' ? Uint8Array<ArrayBuffer>
+		: string;
 
-type GotResponseResult<U extends ExtendOptions, BodyType> = U['resolveBodyOnly'] extends true
-	? RequestPromise<BodyType>
-	: RequestPromise<Response<BodyType>>;
+type DefaultResponseBodyType<U extends ExtendOptions> = ResponseBodyType<U['responseType']>;
+
+type ResponseResult<ResolveBodyOnly, BodyType> = ResolveBodyOnly extends true ? BodyType : Response<BodyType>;
+
+type GotResponseResult<U extends ExtendOptions, BodyType> = RequestPromise<ResponseResult<U['resolveBodyOnly'], BodyType>>;
 
 export type GotRequestFunction<U extends ExtendOptions = Record<string, unknown>> = {
 	// `asPromise` usage
@@ -231,7 +233,7 @@ export type GotStream = GotStreamFunction & Record<HTTPAlias, GotStreamFunction>
 /**
 An instance of `got`.
 */
-export type Got<GotOptions extends ExtendOptions = ExtendOptions> = {
+export type Got<GotOptions extends ExtendOptions = Record<never, never>> = {
 	/**
 	Returns a [duplex stream](https://nodejs.org/api/stream.html#stream_class_stream_duplex) with additional events:
 	- request
@@ -272,12 +274,14 @@ export type Got<GotOptions extends ExtendOptions = ExtendOptions> = {
 	/**
 	The Got defaults used in that instance.
 	*/
-	defaults: InstanceDefaults;
+	readonly defaults: InstanceDefaults;
 
 	/**
 	Configure a new `got` instance with default `options`.
 	The `options` are merged with the parent instance's `defaults.options` using `got.mergeOptions`.
 	You can access the resolved options with the `.defaults` property on the instance.
+
+	Scalar options such as `responseType` and `resolveBodyOnly` ignore `undefined` and preserve the parent value. To restore their defaults, explicitly pass `responseType: 'text'` or `resolveBodyOnly: false`.
 
 	Additionally, `got.extend()` accepts two properties from the `defaults` object: `mutableDefaults` and `handlers`.
 
@@ -304,7 +308,8 @@ export type Got<GotOptions extends ExtendOptions = ExtendOptions> = {
 	// x-unicorn: rainbow
 	```
 	*/
-	extend<T extends Array<Got | ExtendOptions>>(...instancesOrOptions: T): Got<MergeExtendsConfig<T>>;
+	extend(): Got<GotOptions>;
+	extend<T extends Array<Got<any> | ExtendOptions>>(...instancesOrOptions: T): Got<MergeExtendsConfig<[GotOptions, ...T]>>;
 }
 & Record<HTTPAlias, GotRequestFunction<GotOptions>>
 & GotRequestFunction<GotOptions>;
@@ -313,28 +318,20 @@ export type ExtractExtendOptions<T> = T extends Got<infer GotOptions>
 	? GotOptions
 	: T;
 
+// Match Options.merge(): undefined scalar values are ignored, except for search parameter resets.
+type DefinedOptions<Options> = {
+	[Key in keyof Options as Key extends 'searchParams' ? Key : Options[Key] extends undefined ? never : Key]: Options[Key]
+};
+
 /**
 Merges the options of multiple Got instances.
 */
-export type MergeExtendsConfig<Value extends Array<Got | ExtendOptions>> =
-	Value extends readonly [Value[0], ...infer NextValue]
-		? NextValue[0] extends undefined
-			? Value[0] extends infer OnlyValue
-				? OnlyValue extends ExtendOptions
-					? OnlyValue
-					: OnlyValue extends Got<infer GotOptions>
-						? GotOptions
-						: OnlyValue
-				: never
-			: ExtractExtendOptions<Value[0]> extends infer FirstArg extends ExtendOptions
-				? ExtractExtendOptions<NextValue[0] extends ExtendOptions | Got ? NextValue[0] : never> extends infer NextArg extends ExtendOptions
-					? Spread<FirstArg, NextArg> extends infer Merged extends ExtendOptions
-						? NextValue extends [NextValue[0], ...infer NextRest]
-							? NextRest extends Array<Got | ExtendOptions>
-								? MergeExtendsConfig<[Merged, ...NextRest]>
-								: never
-							: never
-						: never
-					: never
-				: never
-		: never;
+export type MergeExtendsConfig<Value extends Array<Got<any> | ExtendOptions>, MergedOptions extends ExtendOptions = Record<never, never>> =
+	Value extends [infer First extends Got<any> | ExtendOptions, ...infer Rest extends Array<Got<any> | ExtendOptions>]
+		? MergeExtendsConfig<Rest, Spread<MergedOptions, DefinedOptions<ExtractExtendOptions<First>>>>
+		: Value extends [...infer Rest extends Array<Got<any> | ExtendOptions>, infer Last extends Got<any> | ExtendOptions]
+			? Spread<MergeExtendsConfig<Rest, MergedOptions>, DefinedOptions<ExtractExtendOptions<Last>>>
+			: [Value[number]] extends [never]
+				? MergedOptions
+				// An array can be empty, so none of its options are guaranteed to override earlier layers.
+				: Spread<MergedOptions, Partial<DefinedOptions<ExtractExtendOptions<Value[number]>>>>;

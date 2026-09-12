@@ -956,6 +956,26 @@ test('options have url even if some are invalid - got.extend', async t => {
 	);
 });
 
+test('mutable defaults permit changing pagination settings', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.end('[1, 2]');
+	});
+	const instance = got.extend({mutableDefaults: true});
+	instance.defaults.options.pagination.countLimit = 1;
+
+	t.deepEqual(await instance.paginate.all<number>(''), [1]);
+});
+
+test('per-request pagination settings can override immutable defaults', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.end('[1, 2]');
+	});
+	const instance = got.extend({pagination: {countLimit: 2}});
+
+	t.deepEqual(await instance.paginate.all<number>('', {pagination: {countLimit: 1}}), [1]);
+	t.deepEqual(await instance.paginate.all<number>(''), [1, 2]);
+});
+
 test('DataView request bodies preserve their offset and content length', withServer, async (t, server, got) => {
 	server.post('/', async (request, response) => {
 		response.json({body: await getStream(request), length: request.headers['content-length']});
@@ -1011,4 +1031,32 @@ test('DataView request bodies can be replayed on retry', withServer, async (t, s
 		},
 	}).text(), 'done');
 	t.deepEqual(receivedBodies, ['payload', 'payload']);
+});
+
+test('mutable defaults permit changing header arrays used by requests', withServer, async (t, server, got) => {
+	server.get('/', (request, response) => {
+		response.end(request.headers['x-values']);
+	});
+	const instance = got.extend({mutableDefaults: true, headers: {'x-values': ['first']}});
+	(instance.defaults.options.headers['x-values'] as string[]).push('second');
+
+	t.is(await instance('').text(), 'first, second');
+});
+
+test('request hooks can mutate header arrays cloned from immutable defaults', withServer, async (t, server, got) => {
+	server.get('/', (request, response) => {
+		response.end(request.headers['x-values']);
+	});
+	const instance = got.extend({
+		headers: {'x-values': ['first']},
+		hooks: {
+			beforeRequest: [options => {
+				(options.headers['x-values'] as string[]).push('request');
+			}],
+		},
+	});
+
+	t.is(await instance('').text(), 'first, request');
+	t.is(await instance('', {headers: {'x-values': ['override']}}).text(), 'override, request');
+	t.deepEqual(instance.defaults.options.headers['x-values'], ['first']);
 });

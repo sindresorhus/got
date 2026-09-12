@@ -46,7 +46,7 @@ const generateHook = ({install, options: testServerOptions}: {install?: boolean;
 			configurable: true,
 		});
 
-		const options: ExtendOptions = {
+		const options = {
 			context,
 			handlers: [
 				(options, next) => {
@@ -62,7 +62,7 @@ const generateHook = ({install, options: testServerOptions}: {install?: boolean;
 					return result;
 				},
 			],
-		};
+		} satisfies ExtendOptions;
 
 		const preparedGot = got.extend({prefixUrl: server.url, ...options});
 

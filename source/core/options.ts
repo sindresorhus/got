@@ -3536,10 +3536,15 @@ export default class Options {
 		Object.freeze(options.agent);
 		Object.freeze(options.headers);
 		Object.freeze(options.timeout);
+		Object.freeze(options.pagination);
 		Object.freeze(options.retry);
 		Object.freeze(options.retry.errorCodes);
 		Object.freeze(options.retry.methods);
 		Object.freeze(options.retry.statusCodes);
+
+		for (const value of Object.values(options.headers)) {
+			Object.freeze(value);
+		}
 	}
 
 	#createHeadersProxy(): Headers {
