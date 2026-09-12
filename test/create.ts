@@ -302,7 +302,11 @@ test('HTTP/2 session keys distinguish DNS lookup options', t => {
 });
 
 test('passes DNS cache lookup and IP version to native request options', t => {
-	const lookup: LookupFunction = () => {};
+	let lookupArguments: Parameters<LookupFunction> | undefined;
+	const lookup: LookupFunction = (...arguments_) => {
+		lookupArguments = arguments_;
+	};
+
 	const dnsLookup: LookupFunction = () => {};
 	const options = new Options('https://example.com', {
 		dnsCache: {
@@ -312,7 +316,10 @@ test('passes DNS cache lookup and IP version to native request options', t => {
 	});
 
 	const nativeRequestOptions = options.createNativeRequestOptions();
-	t.is(nativeRequestOptions.lookup, lookup);
+	const lookupOptions = {family: 6};
+	const callback = () => {};
+	nativeRequestOptions.lookup!('example.com', lookupOptions, callback);
+	t.deepEqual(lookupArguments, ['example.com', lookupOptions, callback]);
 	t.is(nativeRequestOptions.family, 6);
 
 	options.dnsLookup = dnsLookup;

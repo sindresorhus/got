@@ -2,6 +2,7 @@ import {
 	ADDRCONFIG,
 	ALL,
 	V4MAPPED,
+	type LookupOptions,
 } from 'node:dns';
 import type {LookupFunction} from 'node:net';
 import os from 'node:os';
@@ -337,4 +338,87 @@ test('DNS cache propagates non-missing fallback lookup errors', async t => {
 	await t.throwsAsync(cache.lookupAsync('example.com', {family: 4}), {
 		message: 'ESERVFAIL',
 	});
+});
+
+test('DNS cache snapshots options when starting concurrent lookups', async t => {
+	const cache = new DnsCache({
+		lookup: false,
+		resolver: {
+			async resolve4() {
+				return [{address: '127.0.0.1', ttl: 60}];
+			},
+			async resolve6() {
+				return [{address: '::1', ttl: 60}];
+			},
+		},
+	});
+	const options = {family: 4, all: false};
+	const first = cache.lookupAsync('example.com', options);
+	options.family = 6;
+	options.all = true;
+	const second = cache.lookupAsync('example.com', options);
+
+	t.deepEqual(await Promise.all([first, second]), [
+		{address: '127.0.0.1', family: 4},
+		[{address: '::1', family: 6}],
+	]);
+});
+
+for (const source of ['resolver', 'cache', 'literal']) {
+	for (const all of [false, true]) {
+		test(`DNS cache preserves all=${all} callback shape for ${source} results`, async t => {
+			const cache = new DnsCache({
+				lookup: false,
+				resolver: {
+					async resolve4() {
+						return [{address: '127.0.0.1', ttl: 60}];
+					},
+					async resolve6() {
+						return [];
+					},
+				},
+			});
+			const hostname = source === 'literal' ? '127.0.0.1' : 'example.com';
+			if (source === 'cache') {
+				await cache.lookupAsync(hostname, {family: 4});
+			}
+
+			const options = {family: 4, all};
+			const result = new Promise<unknown[]>(resolve => {
+				cache.lookup(hostname, options, (...arguments_) => {
+					resolve(arguments_);
+				});
+			});
+			options.all = !all;
+
+			t.deepEqual(await result, all
+				? [null, [{address: '127.0.0.1', family: 4}]]
+				: [null, '127.0.0.1', 4]);
+		});
+	}
+}
+
+test('DNS cache retains lookup options while waiting to use the fallback resolver', async t => {
+	const cache = new DnsCache({
+		resolver: {
+			async resolve4() {
+				return [];
+			},
+			async resolve6() {
+				return [];
+			},
+		},
+		lookup(_hostname, options, callback) {
+			t.is(options.family, 4);
+			t.is(options.order, 'ipv4first');
+			t.true(options.all);
+			callback(null, [{address: '127.0.0.1', family: 4}]);
+		},
+	});
+	const options: LookupOptions = {family: 4, order: 'ipv4first'};
+	const result = cache.lookupAsync('example.com', options);
+	options.family = 6;
+	options.order = 'ipv6first';
+
+	t.deepEqual(await result, {address: '127.0.0.1', family: 4});
 });

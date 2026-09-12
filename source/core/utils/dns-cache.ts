@@ -142,7 +142,8 @@ const normalizeLookupOptions = (options: number | DnsLookupOptions | undefined):
 		return {family: options};
 	}
 
-	return options ?? {};
+	// Caller mutations must not change an in-flight lookup or its callback shape.
+	return {...options};
 };
 
 const normalizeResolverRecord = (record: ResolverRecord, family: DnsFamily, maxTtl: number): DnsCacheEntry => {

@@ -57,6 +57,7 @@ test('Got uses shared DNS cache when dnsCache is true', withServer, async (t, se
 	});
 
 	let lookupOptionCount = 0;
+	let sharedLookup: LookupFunction | undefined;
 	const instance = got.extend({
 		dnsCache: true,
 		agent: {
@@ -67,8 +68,11 @@ test('Got uses shared DNS cache when dnsCache is true', withServer, async (t, se
 		hooks: {
 			beforeRequest: [
 				options => {
-					const dnsCache = options.dnsCache as {lookup: LookupFunction};
-					t.is(options.createNativeRequestOptions().lookup, dnsCache.lookup);
+					const {lookup} = options.createNativeRequestOptions();
+					sharedLookup ??= lookup;
+					t.true(options.dnsCache instanceof DnsCache);
+					t.is(typeof lookup, 'function');
+					t.is(lookup, sharedLookup);
 					lookupOptionCount++;
 				},
 			],
@@ -97,4 +101,95 @@ test('custom DNS cache object can be used with Got', withServer, async (t, serve
 
 	t.is((await instance('')).body, 'ok');
 	t.is(lookupCallCount, 1);
+});
+
+test('custom DNS cache lookup methods retain their receiver', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.end('ok');
+	});
+
+	const cache = {
+		address: '127.0.0.1',
+		lookup(this: {address: string}, _hostname: string, _options: unknown, callback: Parameters<LookupFunction>[2]) {
+			callback(null, this.address, 4);
+		},
+	};
+
+	t.is(await got('', {dnsCache: cache, dnsLookupIpVersion: 4, retry: {limit: 0}}).text(), 'ok');
+});
+
+test('custom DNS cache lookup wrappers observe replaced methods and keep their identity', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.end('ok');
+	});
+
+	let initialLookupCount = 0;
+	let replacementLookupCount = 0;
+	const cache = {
+		address: '127.0.0.1',
+		lookup(this: {address: string}, _hostname: string, _options: unknown, callback: Parameters<LookupFunction>[2]) {
+			initialLookupCount++;
+			callback(null, this.address, 4);
+		},
+	};
+	const lookups: Array<LookupFunction | undefined> = [];
+	const instance = got.extend({
+		dnsCache: cache,
+		dnsLookupIpVersion: 4,
+		retry: {limit: 0},
+		agent: {http: new http.Agent({keepAlive: false})},
+		hooks: {
+			beforeRequest: [options => {
+				lookups.push(options.createNativeRequestOptions().lookup);
+			}],
+		},
+	});
+
+	t.is(await instance('').text(), 'ok');
+	cache.lookup = function (_hostname, _options, callback) {
+		replacementLookupCount++;
+		callback(null, this.address, 4);
+	};
+
+	t.is(await instance('').text(), 'ok');
+	t.is(initialLookupCount, 1);
+	t.is(replacementLookupCount, 1);
+	t.is(lookups.length, 2);
+	t.is(lookups[0], lookups[1]);
+});
+
+test('custom DNS cache objects can be frozen', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.end('ok');
+	});
+
+	const cache = Object.freeze({
+		address: '127.0.0.1',
+		lookup(this: {address: string}, _hostname: string, _options: unknown, callback: Parameters<LookupFunction>[2]) {
+			callback(null, this.address, 4);
+		},
+	});
+
+	t.is(await got('', {dnsCache: cache, dnsLookupIpVersion: 4, retry: {limit: 0}}).text(), 'ok');
+});
+
+test('explicit DNS lookup takes precedence over a custom cache', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.end('ok');
+	});
+
+	const lookup = createLookup();
+	t.is(await got('', {
+		dnsLookup: lookup,
+		dnsCache: {
+			lookup() {
+				t.fail('The cache must not be used when dnsLookup is provided');
+			},
+		},
+		hooks: {
+			beforeRequest: [options => {
+				t.is(options.createNativeRequestOptions().lookup, lookup);
+			}],
+		},
+	}).text(), 'ok');
 });

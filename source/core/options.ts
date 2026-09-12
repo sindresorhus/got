@@ -1213,6 +1213,7 @@ export type OptionsInit =
 	};
 
 const globalCache = new Map();
+const dnsCacheLookups = new WeakMap<DnsCacheLookup, LookupFunction>();
 let globalDnsCache: DnsCache;
 
 const getGlobalDnsCache = (): DnsCache => {
@@ -1222,6 +1223,20 @@ const getGlobalDnsCache = (): DnsCache => {
 
 	globalDnsCache = new DnsCache();
 	return globalDnsCache;
+};
+
+const getDnsCacheLookup = (cache: DnsCacheLookup): LookupFunction => {
+	let lookup = dnsCacheLookups.get(cache);
+	if (!lookup) {
+		// Preserve the cache receiver and stable lookup identity for HTTP/2 session reuse.
+		lookup = (hostname, options, callback) => {
+			cache.lookup(hostname, options, callback);
+		};
+
+		dnsCacheLookups.set(cache, lookup);
+	}
+
+	return lookup;
 };
 
 // Detects and wraps QuickLRU v7+ instances to make them compatible with the StorageAdapter interface
@@ -3472,7 +3487,7 @@ export default class Options {
 			secureOptions: https.secureOptions,
 
 			// HTTP options
-			lookup: internals.dnsLookup ?? internals.dnsCache?.lookup,
+			lookup: internals.dnsLookup ?? (internals.dnsCache ? getDnsCacheLookup(internals.dnsCache) : undefined),
 			family: internals.dnsLookupIpVersion,
 			agent,
 			setHost: internals.setHost,
