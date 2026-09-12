@@ -872,8 +872,10 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		return super.pipe(destination, options);
 	}
 
-	override unpipe<T extends NodeJS.WritableStream>(destination: T): this {
-		if (destination instanceof ServerResponse) {
+	override unpipe<T extends NodeJS.WritableStream>(destination?: T): this {
+		if (destination === undefined) {
+			this._pipedServerResponses.clear();
+		} else if (destination instanceof ServerResponse) {
 			this._pipedServerResponses.delete(destination);
 		}
 

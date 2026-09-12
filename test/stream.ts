@@ -2,7 +2,10 @@ import process from 'node:process';
 import {Buffer} from 'node:buffer';
 import {gzipSync} from 'node:zlib';
 import fs from 'node:fs';
-import {Agent as HttpAgent, request as httpRequest, type ClientRequest} from 'node:http';
+import {
+	Agent as HttpAgent, IncomingMessage, ServerResponse, request as httpRequest, type ClientRequest,
+} from 'node:http';
+import {Socket} from 'node:net';
 import stream, {Readable as ReadableStream, Writable} from 'node:stream';
 import {pipeline as streamPipeline} from 'node:stream/promises';
 import {Readable as Readable2} from 'readable-stream';
@@ -1451,4 +1454,77 @@ test('destroying the request cancels a Web ReadableStream body', withServer, asy
 
 	t.true(cancelled);
 	t.false(body.locked);
+});
+
+test('unpipe without a destination stops forwarding response metadata', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.statusCode = 201;
+		response.setHeader('x-upstream', 'yes');
+		response.end('upstream');
+	});
+
+	const destination = new ServerResponse(new IncomingMessage(new Socket()));
+	const request = got.stream('');
+	t.teardown(() => request.destroy());
+	request.pipe(destination);
+	request.unpipe();
+	await pEvent(request, 'response');
+
+	t.is(destination.statusCode, 200);
+	t.is(destination.getHeader('x-upstream'), undefined);
+});
+
+test('unpipe only stops forwarding metadata to the selected destination', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.statusCode = 201;
+		response.setHeader('x-upstream', 'yes');
+		response.end('upstream');
+	});
+
+	const removed = new ServerResponse(new IncomingMessage(new Socket()));
+	const retained = new ServerResponse(new IncomingMessage(new Socket()));
+	const request = got.stream('');
+	t.teardown(() => request.destroy());
+	request.pipe(removed);
+	request.pipe(retained);
+	t.is(request.unpipe(removed), request);
+	request.unpipe(new Writable());
+	await pEvent(request, 'response');
+
+	t.is(removed.statusCode, 200);
+	t.is(removed.getHeader('x-upstream'), undefined);
+	t.is(retained.statusCode, 201);
+	t.is(retained.getHeader('x-upstream'), 'yes');
+});
+
+test('unpipe all destinations allows piping a new destination', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.statusCode = 201;
+		response.setHeader('x-upstream', 'yes');
+		response.end('upstream');
+	});
+
+	const removed = [
+		new ServerResponse(new IncomingMessage(new Socket())),
+		new ServerResponse(new IncomingMessage(new Socket())),
+	];
+	const retained = new ServerResponse(new IncomingMessage(new Socket()));
+	const request = got.stream('');
+	t.teardown(() => request.destroy());
+	for (const destination of removed) {
+		request.pipe(destination);
+	}
+
+	t.is(request.unpipe(), request);
+	request.unpipe();
+	request.pipe(retained);
+	await pEvent(request, 'response');
+
+	for (const destination of removed) {
+		t.is(destination.statusCode, 200);
+		t.is(destination.getHeader('x-upstream'), undefined);
+	}
+
+	t.is(retained.statusCode, 201);
+	t.is(retained.getHeader('x-upstream'), 'yes');
 });
