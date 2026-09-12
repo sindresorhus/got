@@ -1,5 +1,103 @@
+import {Buffer} from 'node:buffer';
 import test from 'ava';
 import got, {Options} from '../source/index.js';
+
+test('cloned options own their TLS protocol arrays', t => {
+	const original = new Options({https: {alpnProtocols: ['h2', 'http/1.1']}});
+	const clone = new Options(undefined, undefined, original);
+	clone.https.alpnProtocols!.splice(0, 1);
+
+	t.deepEqual(original.https.alpnProtocols, ['h2', 'http/1.1']);
+	t.deepEqual(clone.https.alpnProtocols, ['http/1.1']);
+});
+
+test('immutable defaults protect TLS protocol arrays without freezing caller input', t => {
+	const protocols = ['h2', 'http/1.1'];
+	const client = got.extend({https: {alpnProtocols: protocols}});
+
+	t.throws(() => {
+		client.defaults.options.https.alpnProtocols!.push('custom');
+	}, {instanceOf: TypeError});
+	protocols.push('custom');
+	t.deepEqual(client.defaults.options.https.alpnProtocols, ['h2', 'http/1.1']);
+});
+
+for (const property of ['certificateAuthority', 'certificate', 'certificateRevocationLists', 'alpnProtocols'] as const) {
+	test(`TLS ${property} lists are isolated through assignment, merging, and cloning`, t => {
+		const values = ['first'];
+		const options = new Options({https: {[property]: values}});
+		values.push('caller');
+		t.deepEqual(options.https[property], ['first']);
+
+		const assigned = ['assigned'];
+		options.https = {[property]: assigned};
+		assigned.push('caller');
+		t.deepEqual(options.https[property], ['assigned']);
+
+		const merged = ['merged'];
+		options.merge({https: {[property]: merged}});
+		merged.push('caller');
+		const clone = new Options(undefined, undefined, options);
+		(clone.https[property] as string[]).push('clone');
+		t.deepEqual(options.https[property], ['merged']);
+		t.deepEqual(clone.https[property], ['merged', 'clone']);
+	});
+}
+
+test('TLS key and PFX descriptors are isolated while preserving binary data', t => {
+	const bytes = Buffer.from('opaque key data');
+	const key = {pem: bytes, passphrase: 'key password'};
+	const pfx = {buffer: bytes, passphrase: 'pfx password'};
+	const options = new Options({https: {key: [key], pfx: [pfx]}});
+	const clone = new Options(undefined, undefined, options);
+	const clonedKey = (clone.https.key as Array<typeof key>)[0]!;
+	const clonedPfx = (clone.https.pfx as Array<typeof pfx>)[0]!;
+	clonedKey.passphrase = 'changed key';
+	clonedPfx.passphrase = 'changed pfx';
+
+	t.deepEqual(options.https.key, [key]);
+	t.deepEqual(options.https.pfx, [pfx]);
+	t.is(clonedKey.pem, bytes);
+	t.is(clonedPfx.buffer, bytes);
+});
+
+test('immutable TLS defaults freeze owned descriptors and allow mutable request clones', t => {
+	const bytes = Buffer.from('opaque key data');
+	const key = {pem: bytes, passphrase: 'original'};
+	const pfx = {buffer: bytes, passphrase: 'original'};
+	const client = got.extend({https: {key: [key], pfx: [pfx], alpnProtocols: ['h2']}});
+	const defaults = client.defaults.options.https;
+	t.true(Object.isFrozen(defaults.key));
+	t.true(Object.isFrozen((defaults.key as Array<typeof key>)[0]!));
+	t.true(Object.isFrozen(defaults.pfx));
+	t.true(Object.isFrozen((defaults.pfx as Array<typeof pfx>)[0]!));
+	t.false(Object.isFrozen(bytes));
+	t.false(Object.isFrozen(key));
+	t.false(Object.isFrozen(pfx));
+	key.passphrase = 'caller';
+	pfx.passphrase = 'caller';
+	t.is((defaults.key as Array<typeof key>)[0]!.passphrase, 'original');
+	t.is((defaults.pfx as Array<typeof pfx>)[0]!.passphrase, 'original');
+
+	const clone = new Options(undefined, undefined, client.defaults.options);
+	(clone.https.key as Array<typeof key>)[0]!.passphrase = 'request';
+	clone.https.alpnProtocols!.push('http/1.1');
+	t.is((defaults.key as Array<typeof key>)[0]!.passphrase, 'original');
+	t.deepEqual(defaults.alpnProtocols, ['h2']);
+});
+
+test('TLS extension history owns caller lists and descriptors', t => {
+	const key = {pem: 'key', passphrase: 'original'};
+	const protocols = ['h2'];
+	const parent = got.extend({https: {key: [key], alpnProtocols: protocols}});
+	key.passphrase = 'caller';
+	protocols.push('caller');
+	const child = got.extend(parent, {https: {rejectUnauthorized: false}});
+
+	t.deepEqual(child.defaults.options.https.key, [{pem: 'key', passphrase: 'original'}]);
+	t.deepEqual(child.defaults.options.https.alpnProtocols, ['h2']);
+	t.false(child.defaults.options.https.rejectUnauthorized);
+});
 
 test('should merge options replacing responseType', t => {
 	const responseType = 'json';
@@ -502,6 +600,79 @@ test('cloning frozen options produces independent mutable pagination settings', 
 
 	t.is(original.pagination.countLimit, 10);
 	t.is(clone.pagination.countLimit, 1);
+});
+
+test('native PFX options preserve raw entries mixed with object entries', t => {
+	const bytes = new Uint8Array([1, 2, 3]);
+	const options = new Options('https://example.com/', {https: {pfx: [{buffer: bytes}, bytes]}});
+
+	t.deepEqual(options.createNativeRequestOptions().pfx, [{buf: bytes, passphrase: undefined}, bytes]);
+});
+
+test('native PFX options convert object entries after raw entries', t => {
+	const bytes = new Uint8Array([1, 2, 3]);
+	const object = {buffer: bytes, passphrase: 'synthetic'};
+	const entries = ['synthetic', bytes, object];
+	const options = new Options('https://example.com/', {https: {pfx: entries}});
+
+	t.deepEqual(options.createNativeRequestOptions().pfx, ['synthetic', bytes, {buf: bytes, passphrase: 'synthetic'}]);
+	t.deepEqual(options.https.pfx, entries);
+	t.deepEqual(object, {buffer: bytes, passphrase: 'synthetic'});
+});
+
+test('native PFX options preserve homogeneous raw arrays and empty arrays', t => {
+	for (const entries of [[], ['synthetic'], [new Uint8Array([1, 2, 3])]]) {
+		const options = new Options('https://example.com/', {https: {pfx: entries}});
+
+		t.deepEqual(options.createNativeRequestOptions().pfx, entries);
+	}
+});
+
+test('native PFX options preserve per-entry passphrases', t => {
+	const options = new Options('https://example.com/', {
+		https: {
+			passphrase: 'default',
+			pfx: [{buffer: 'first'}, {buffer: 'second', passphrase: ''}, {buffer: 'third', passphrase: 'specific'}],
+		},
+	});
+	const nativeOptions = options.createNativeRequestOptions();
+
+	t.deepEqual(nativeOptions.pfx, [{buf: 'first', passphrase: undefined}, {buf: 'second', passphrase: ''}, {buf: 'third', passphrase: 'specific'}]);
+	t.is(nativeOptions.passphrase, 'default');
+});
+
+test('standalone Uint8Array PFX options are accepted', t => {
+	const bytes = new Uint8Array([1, 2, 3]);
+	const options = new Options('https://example.com/', {https: {pfx: bytes}});
+
+	t.is(options.createNativeRequestOptions().pfx, bytes);
+});
+
+test('standalone PFX byte arrays preserve subarray boundaries and empty values', t => {
+	const bytes = new Uint8Array([0, 1, 2, 3]);
+
+	for (const value of [bytes.subarray(1, 3), bytes.subarray(2, 2)]) {
+		const options = new Options('https://example.com/', {https: {pfx: value}});
+
+		t.is(options.createNativeRequestOptions().pfx, value);
+	}
+});
+
+test('standalone PFX still accepts Buffer and string values', t => {
+	for (const value of [Buffer.alloc(3, 1), 'synthetic']) {
+		const options = new Options('https://example.com/', {https: {pfx: value}});
+
+		t.is(options.createNativeRequestOptions().pfx, value);
+	}
+});
+
+test('standalone PFX rejects non-byte typed arrays', t => {
+	const options = new Options();
+
+	t.throws(() => {
+		// @ts-expect-error PFX accepts byte arrays, not arbitrary typed arrays.
+		options.https = {pfx: new Uint16Array([1, 2])};
+	}, {message: /Option 'https\.pfx'/});
 });
 
 test('undefined retry methods preserve inherited methods', t => {

@@ -1454,6 +1454,15 @@ const defaultInternals: InternalsType = {
 
 const cloneHeaders = (headers: Headers): Headers => Object.fromEntries(Object.entries(headers).map(([name, value]) => [name, Array.isArray(value) ? [...value] : value]));
 
+// TLS option lists and key/PFX descriptors must not be shared between requests.
+const cloneHttps = (https: HttpsOptions): HttpsOptions => Object.fromEntries(Object.entries(https).map(([key, value]) => {
+	if (!Array.isArray(value)) {
+		return [key, value];
+	}
+
+	return [key, value.map(item => is.plainObject(item) ? {...item} : item)];
+}));
+
 const cloneInternals = (internals: typeof defaultInternals) => {
 	const {hooks, retry} = internals;
 
@@ -1462,7 +1471,7 @@ const cloneInternals = (internals: typeof defaultInternals) => {
 		url: internals.url ? new URL(internals.url) : undefined,
 		context: {...internals.context},
 		cacheOptions: {...internals.cacheOptions},
-		https: {...internals.https},
+		https: cloneHttps(internals.https),
 		agent: {...internals.agent},
 		headers: cloneHeaders(internals.headers),
 		retry: {
@@ -1500,7 +1509,7 @@ const cloneRaw = (raw: OptionsInit) => {
 	}
 
 	if (Object.hasOwn(raw, 'https') && is.object(raw.https)) {
-		result.https = {...raw.https};
+		result.https = cloneHttps(raw.https);
 	}
 
 	if (Object.hasOwn(raw, 'agent') && is.object(raw.agent)) {
@@ -3221,7 +3230,7 @@ export default class Options {
 		assertAny('https.key', [is.string, is.object, is.array, is.undefined], value.key);
 		assertAny('https.certificate', [is.string, is.object, is.array, is.undefined], value.certificate);
 		assertAny('https.passphrase', [is.string, is.undefined], value.passphrase);
-		assertAny('https.pfx', [is.string, is.buffer, is.array, is.undefined], value.pfx);
+		assertAny('https.pfx', [is.string, is.uint8Array, is.array, is.undefined], value.pfx);
 		assertAny('https.alpnProtocols', [is.array, is.undefined], value.alpnProtocols);
 		assertAny('https.ciphers', [is.string, is.undefined], value.ciphers);
 		assertAny('https.dhparam', [is.string, is.buffer, is.undefined], value.dhparam);
@@ -3245,9 +3254,9 @@ export default class Options {
 		}
 
 		if (this.#merging) {
-			safeObjectAssign(this.#internals.https, value);
+			safeObjectAssign(this.#internals.https, cloneHttps(value));
 		} else {
-			this.#internals.https = {...value};
+			this.#internals.https = cloneHttps(value);
 		}
 	}
 
@@ -3450,11 +3459,13 @@ export default class Options {
 		const {https} = internals;
 		let {pfx} = https;
 
-		if (is.array(pfx) && is.plainObject(pfx[0])) {
-			pfx = (pfx as PfxObject[]).map(object => ({
-				buf: object.buffer,
-				passphrase: object.passphrase,
-			})) as any;
+		if (is.array(pfx)) {
+			pfx = pfx.map(entry => is.plainObject(entry)
+				? {
+					buf: entry.buffer,
+					passphrase: entry.passphrase,
+				}
+				: entry) as any;
 		}
 
 		const unixSocketPath = getUnixSocketPath(url);
@@ -3577,6 +3588,19 @@ export default class Options {
 		Object.freeze(options.hooks.beforeRetry);
 		Object.freeze(options.hooks.init);
 		Object.freeze(options.https);
+
+		for (const value of Object.values(options.https)) {
+			if (Array.isArray(value)) {
+				for (const item of value) {
+					if (is.plainObject(item)) {
+						Object.freeze(item);
+					}
+				}
+
+				Object.freeze(value);
+			}
+		}
+
 		Object.freeze(options.cacheOptions);
 		Object.freeze(options.agent);
 		Object.freeze(options.headers);

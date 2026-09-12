@@ -113,11 +113,11 @@ When providing multiple certificate chains, they do not have to be in the same o
 
 #### `pfx`
 
-**Type: `string | Uint8Array | string[] | Uint8Array[] | object[]`**
+**Type: `string | Uint8Array | Array<string | Uint8Array | object>`**
 
 [PFX or PKCS12](https://en.wikipedia.org/wiki/PKCS_12) encoded private key and certificate chain. Using `https.pfx` is an alternative to providing `https.key` and `https.certificate` individually. A PFX is usually encrypted, then `https.passphrase` will be used to decrypt it.
 
-Multiple PFX can be provided as an array of unencrypted buffers or an array of objects like:
+Multiple PFX can be provided as an array containing strings, byte arrays, and objects like:
 
 ```ts
 {
