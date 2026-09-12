@@ -1528,3 +1528,78 @@ test('unpipe all destinations allows piping a new destination', withServer, asyn
 	t.is(retained.statusCode, 201);
 	t.is(retained.getHeader('x-upstream'), 'yes');
 });
+
+test('an unpiped stream can be resumed and consumed as text', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.end('complete response');
+	});
+
+	const request = got.stream('', {timeout: {request: 500}, retry: {limit: 0}});
+	const destination = new Writable({
+		write(_chunk, _encoding, callback) {
+			callback();
+		},
+	});
+	request.pipe(destination);
+	request.unpipe();
+
+	const response = getStream(request);
+	request.resume();
+	t.is(await response, 'complete response');
+});
+
+test('isAborted reflects cancellation through an AbortSignal', withServer, async (t, _server, got) => {
+	const controller = new AbortController();
+	const request = got.stream('', {signal: controller.signal});
+	const body = getStream(request);
+	controller.abort();
+	await t.throwsAsync(body, {code: 'ERR_ABORTED'});
+
+	t.true(request.isAborted);
+});
+
+test('isAborted is true for a signal cancelled before creating the stream', withServer, async (t, _server, got) => {
+	const request = got.stream('', {signal: AbortSignal.abort()});
+
+	await t.throwsAsync(getStream(request), {code: 'ERR_ABORTED'});
+	t.true(request.isAborted);
+});
+
+test('isAborted is set before cancellation emits an error on an active request', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.write('partial');
+	});
+
+	const controller = new AbortController();
+	const request = got.stream('', {signal: controller.signal});
+	const response = pEvent(request, 'response');
+	const body = getStream(request);
+	const rejection = t.throwsAsync(body, {code: 'ERR_ABORTED'});
+	await response;
+
+	controller.abort();
+	t.true(request.isAborted);
+	await rejection;
+});
+
+test('isAborted is true when the signal carries a timeout reason', withServer, async (t, _server, got) => {
+	const reason = new DOMException('Request deadline expired', 'TimeoutError');
+	const request = got.stream('', {signal: AbortSignal.abort(reason)});
+
+	await t.throwsAsync(getStream(request), {name: 'TimeoutError'});
+	t.true(request.isAborted);
+});
+
+test('completed streams do not become aborted when their former signal is cancelled', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.end('complete');
+	});
+
+	const controller = new AbortController();
+	const request = got.stream('', {signal: controller.signal});
+	t.is(await getStream(request), 'complete');
+	t.false(request.isAborted);
+
+	controller.abort();
+	t.false(request.isAborted);
+});

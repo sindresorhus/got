@@ -897,6 +897,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		}
 
 		const abort = () => {
+			this._aborted = true;
 			this._destroyInFlightAlpnSocket();
 
 			// See https://developer.mozilla.org/en-US/docs/Web/API/AbortSignal/timeout_static#return_value
