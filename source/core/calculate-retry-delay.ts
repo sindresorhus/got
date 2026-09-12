@@ -25,9 +25,10 @@ const calculateRetryDelay: Returns<RetryFunction, number> = ({
 	}
 
 	if (error.response) {
-		if (retryAfter) {
+		if (retryAfter !== undefined) {
 			// In this case `computedValue` is `retryOptions.maxRetryAfter ?? options.timeout.request ?? Infinity`
-			return retryAfter > computedValue ? 0 : retryAfter;
+			// Compare the server delay before applying the minimum nonzero retry timer.
+			return retryAfter > computedValue ? 0 : Math.max(1, retryAfter);
 		}
 
 		if (error.response.statusCode === 413) {
@@ -36,7 +37,8 @@ const calculateRetryDelay: Returns<RetryFunction, number> = ({
 	}
 
 	const noise = Math.random() * retryOptions.noise;
-	return Math.min(((2 ** (attemptCount - 1)) * 1000), retryOptions.backoffLimit) + noise;
+	// Zero disables retries, so represent an immediate retry with the minimum timer delay.
+	return Math.max(1, Math.min(((2 ** (attemptCount - 1)) * 1000), retryOptions.backoffLimit) + noise);
 };
 
 export default calculateRetryDelay;

@@ -129,6 +129,8 @@ interface RetryObject {
 
 The function used to calculate the delay before the next request is made. Returning `0` aborts the retry.
 
+Delays above `2_147_483_647` milliseconds (Node.js's timer limit), including `Infinity`, abort the retry instead of triggering an immediate retry. This also applies to delays computed from `Retry-After`.
+
 **Note:**
 > - By default, retry rules are enforced before `calculateDelay` runs (`enforceRetryRules: true`), so this function is only called when a retry is allowed.
 > - If you set `enforceRetryRules: false`, `calculateDelay` takes full control of retry behavior. In that mode, check `computedValue` and return `0` when it is `0` to preserve default retry safeguards.
@@ -165,8 +167,10 @@ The upper limit of the exponential backoff. The `noise` is added after this limi
 By default, the `computedValue` is calculated in the following way:
 
 ```ts
-Math.min((2 ** (attemptCount - 1)) * 1000, backoffLimit) + noise
+Math.max(1, Math.min((2 ** (attemptCount - 1)) * 1000, backoffLimit) + noise)
 ```
+
+Computed delays are at least 1 millisecond. Set both `backoffLimit` and `noise` to `0` for immediate retries. Returning `0` from `calculateDelay` still aborts the retry.
 
 The delay increases exponentially.\
 In order to prevent this, you can set this value to a fixed value, such as `1000`.

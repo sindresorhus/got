@@ -58,7 +58,11 @@ test('Got uses shared DNS cache when dnsCache is true', withServer, async (t, se
 
 	let lookupOptionCount = 0;
 	let sharedLookup: LookupFunction | undefined;
+	// This tests cache selection; localhost DNS records depend on the machine's resolver.
+	const url = new URL(server.url);
+	url.hostname = '127.0.0.1';
 	const instance = got.extend({
+		prefixUrl: url,
 		dnsCache: true,
 		agent: {
 			http: new http.Agent({
@@ -80,7 +84,7 @@ test('Got uses shared DNS cache when dnsCache is true', withServer, async (t, se
 	});
 
 	t.is((await instance('')).body, 'ok');
-	t.is((await instance('')).body, 'ok');
+	t.is((await instance.extend({dnsCache: true})('')).body, 'ok');
 	t.is(lookupOptionCount, 2);
 });
 

@@ -664,10 +664,12 @@ export type RetryFunction = (retryObject: RetryObject) => Promisable<number>;
 /**
 An object representing `limit`, `calculateDelay`, `methods`, `statusCodes`, `maxRetryAfter` and `errorCodes` fields for maximum retry count, retry handler, allowed methods, allowed status codes, maximum [`Retry-After`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Retry-After) time and allowed error codes.
 
-Delays between retries counts with function `1000 * Math.pow(2, retry) + Math.random() * 100`, where `retry` is attempt number (starts from 1).
+Delays between retries are calculated with `Math.max(1, Math.min((2 ** (attemptCount - 1)) * 1000, backoffLimit) + noise)`, where `attemptCount` starts at 1 and `noise` is the randomized retry noise. Setting both `backoffLimit` and `noise` to `0` requests an immediate retry; returning `0` from `calculateDelay` still aborts the retry.
 
 The `calculateDelay` property is a `function` that receives an object with `attemptCount`, `retryOptions`, `error` and `computedValue` properties for current retry count, the retry options, error and default computed value.
 The function must return a delay in milliseconds (or a Promise resolving with it) (`0` return value cancels retry).
+
+Delays above `2_147_483_647` milliseconds (Node.js's timer limit), including `Infinity`, abort the retry instead of triggering an immediate retry. This also applies to delays computed from `Retry-After`.
 
 The `enforceRetryRules` property is a `boolean` that, when set to `true` (default), enforces the `limit`, `methods`, `statusCodes`, and `errorCodes` options before calling `calculateDelay`. Your `calculateDelay` function is only invoked when a retry is allowed based on these criteria. When `false`, `calculateDelay` receives the computed value but can override all retry logic.
 
@@ -3076,10 +3078,12 @@ export default class Options {
 
 	Undefined settings preserve inherited values, except `maxRetryAfter`, where `undefined` restores the request timeout fallback.
 
-	Delays between retries counts with function `1000 * Math.pow(2, retry) + Math.random() * 100`, where `retry` is attempt number (starts from 1).
+	Delays between retries are calculated with `Math.max(1, Math.min((2 ** (attemptCount - 1)) * 1000, backoffLimit) + noise)`, where `attemptCount` starts at 1 and `noise` is the randomized retry noise. Setting both `backoffLimit` and `noise` to `0` requests an immediate retry; returning `0` from `calculateDelay` still aborts the retry.
 
 	The `calculateDelay` property is a `function` that receives an object with `attemptCount`, `retryOptions`, `error` and `computedValue` properties for current retry count, the retry options, error and default computed value.
 	The function must return a delay in milliseconds (or a Promise resolving with it) (`0` return value cancels retry).
+
+	Delays above `2_147_483_647` milliseconds (Node.js's timer limit), including `Infinity`, abort the retry instead of triggering an immediate retry. This also applies to delays computed from `Retry-After`.
 
 	The `enforceRetryRules` property is a `boolean` that, when set to `true` (default), enforces the `limit`, `methods`, `statusCodes`, and `errorCodes` options before calling `calculateDelay`. Your `calculateDelay` function is only invoked when a retry is allowed based on these criteria. When `false`, `calculateDelay` receives the computed value but can override all retry logic.
 
@@ -3427,6 +3431,7 @@ export default class Options {
 
 	__Note__: Responses without a `content-length` header are not validated.
 	__Note__: When enabled and validation fails, a `ReadError` with code `ERR_HTTP_CONTENT_LENGTH_MISMATCH` will be thrown.
+	__Note__: Keep custom native responses in byte mode for exact validation. Calling `setEncoding()` on the native response can lose the original byte count when decoding malformed input.
 
 	@default true
 	*/

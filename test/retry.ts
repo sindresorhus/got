@@ -3,6 +3,7 @@ import {PassThrough as PassThroughStream, Readable} from 'node:stream';
 import type {Socket} from 'node:net';
 import http from 'node:http';
 import https from 'node:https';
+import process from 'node:process';
 import test from 'ava';
 import is from '@sindresorhus/is';
 import type {Handler} from 'express';
@@ -16,6 +17,107 @@ import withServer from './helpers/with-server.js';
 
 const retryAfterOn413 = 2;
 const socketTimeout = 300;
+
+test('Retry-After beyond the timer limit does not become an immediate retry', withServer, async (t, server, got) => {
+	let requests = 0;
+	server.get('/', (_request, response) => {
+		if (++requests === 1) {
+			response.writeHead(503, {'retry-after': '2592000'}).end('try next month');
+			return;
+		}
+
+		response.end('retried too early');
+	});
+
+	const error = await t.throwsAsync<HTTPError>(got('', {retry: {limit: 1}}), {instanceOf: HTTPError});
+	t.is(error.response.statusCode, 503);
+	t.is(error.response.body, 'try next month');
+	t.is(requests, 1);
+});
+
+for (const retryAfter of ['2147484', '9999999999999999999999999999999999999999', 'Thu, 01 Jan 2099 00:00:00 GMT']) {
+	test(`overflowing Retry-After ${retryAfter} preserves a non-throwing error response`, withServer, async (t, server, got) => {
+		let requests = 0;
+		server.get('/', (_request, response) => {
+			requests++;
+			response.writeHead(503, {'retry-after': retryAfter}).end('unavailable');
+		});
+
+		const response = await got('', {throwHttpErrors: false, retry: {limit: 1}});
+		t.is(response.statusCode, 503);
+		t.is(response.body, 'unavailable');
+		t.is(response.retryCount, 0);
+		t.is(requests, 1);
+	});
+}
+
+for (const backoff of [2_147_483_648, Number.POSITIVE_INFINITY]) {
+	test(`custom retry delay ${backoff} does not overflow`, withServer, async (t, server, got) => {
+		let requests = 0;
+		let retryHooks = 0;
+		server.get('/', (_request, response) => {
+			requests++;
+			response.writeHead(503).end();
+		});
+
+		await t.throwsAsync(got('', {
+			retry: {limit: 1, calculateDelay: () => backoff},
+			hooks: {
+				beforeRetry: [() => {
+					retryHooks++;
+				}],
+			},
+		}), {instanceOf: HTTPError});
+		t.is(requests, 1);
+		t.is(retryHooks, 0);
+	});
+}
+
+test('calculateDelay can scale an overflowing server delay down to a supported delay', withServer, async (t, server, got) => {
+	let requests = 0;
+	server.get('/', (_request, response) => {
+		response.writeHead(++requests === 1 ? 503 : 200, {'retry-after': '2592000'}).end('done');
+	});
+
+	const response = await got('', {
+		retry: {
+			limit: 1, calculateDelay({computedValue, retryAfter}) {
+				t.is(computedValue, 2_592_000_000);
+				t.is(retryAfter, computedValue);
+				return 1;
+			},
+		},
+	});
+	t.is(response.body, 'done');
+	t.is(response.retryCount, 1);
+	t.is(requests, 2);
+});
+
+test('the maximum supported retry timer remains cancellable', withServer, async (t, server, got) => {
+	let requests = 0;
+	server.get('/', (_request, response) => {
+		requests++;
+		response.writeHead(503).end();
+	});
+	const controller = new AbortController();
+	let calculated = false;
+
+	await t.throwsAsync(got('', {
+		signal: controller.signal,
+		retry: {
+			limit: 1,
+			calculateDelay() {
+				calculated = true;
+				setImmediate(() => {
+					controller.abort();
+				});
+				return 2_147_483_647;
+			},
+		},
+	}), {code: 'ERR_ABORTED'});
+	t.true(calculated);
+	t.is(requests, 1);
+});
 
 test('beforeRetry body replacement updates the generated content length', withServer, async (t, server, got) => {
 	let requests = 0;
@@ -545,7 +647,7 @@ for (const statusCode of [413, 429, 503]) {
 			retry: {
 				limit: 1,
 				calculateDelay({computedValue, retryAfter}) {
-					t.is(retryAfter, 1);
+					t.is(retryAfter, 0);
 					t.is(computedValue, 1);
 					return 1;
 				},
@@ -1856,6 +1958,113 @@ test('retries with a FormData body using content-type changed in beforeRetry hoo
 	t.is(contentTypes[1], 'text/plain');
 });
 
+test('a zero backoff limit retries without disabling retry rules', withServer, async (t, server, got) => {
+	let requests = 0;
+	server.get('/', (_request, response) => {
+		requests++;
+		response.statusCode = requests === 1 ? 503 : 200;
+		response.end('ok');
+	});
+
+	const response = await got('', {
+		retry: {
+			limit: 1,
+			backoffLimit: 0,
+			noise: 0,
+		},
+	});
+
+	t.is(response.body, 'ok');
+	t.is(response.retryCount, 1);
+	t.is(requests, 2);
+});
+
+test('zero backoff still stops at the retry limit', withServer, async (t, server, got) => {
+	let requests = 0;
+	server.get('/', (_request, response) => {
+		requests++;
+		response.statusCode = 503;
+		response.end();
+	});
+
+	const response = await got('', {
+		throwHttpErrors: false,
+		retry: {limit: 2, backoffLimit: 0, noise: 0},
+	});
+
+	t.is(response.retryCount, 2);
+	t.is(requests, 3);
+});
+
+test('a custom zero delay can disable a retry with zero backoff', withServer, async (t, server, got) => {
+	let requests = 0;
+	const delays: number[] = [];
+	server.get('/', (_request, response) => {
+		requests++;
+		response.statusCode = 503;
+		response.end();
+	});
+
+	const response = await got('', {
+		throwHttpErrors: false,
+		retry: {
+			backoffLimit: 0,
+			noise: 0,
+			calculateDelay({computedValue}) {
+				delays.push(computedValue);
+				return 0;
+			},
+		},
+	});
+
+	t.is(response.retryCount, 0);
+	t.is(requests, 1);
+	t.deepEqual(delays, [1]);
+});
+
+for (const statusCode of [404, 413]) {
+	test(`zero backoff does not make status ${statusCode} retryable`, withServer, async (t, server, got) => {
+		let requests = 0;
+		server.get('/', (_request, response) => {
+			requests++;
+			response.statusCode = statusCode;
+			response.end();
+		});
+
+		const response = await got('', {
+			throwHttpErrors: false,
+			retry: {backoffLimit: 0, noise: 0},
+		});
+
+		t.is(response.retryCount, 0);
+		t.is(requests, 1);
+	});
+}
+
+test('negative retry noise cannot produce a nonpositive computed delay', withServer, async (t, server, got) => {
+	let requests = 0;
+	const delays: number[] = [];
+	server.get('/', (_request, response) => {
+		requests++;
+		response.statusCode = requests === 1 ? 503 : 200;
+		response.end();
+	});
+
+	await got('', {
+		retry: {
+			backoffLimit: 1,
+			noise: -100,
+			calculateDelay({computedValue}) {
+				delays.push(computedValue);
+				return computedValue;
+			},
+		},
+	});
+
+	t.is(requests, 2);
+	t.deepEqual(delays, [1]);
+});
+
 test('requestUrl preserves the original URL when beforeRetry changes the destination', withServer, async (t, server, got) => {
 	server.get('/original', (_request, response) => {
 		response.statusCode = 503;
@@ -1878,6 +2087,25 @@ test('requestUrl preserves the original URL when beforeRetry changes the destina
 	t.is(response.url, `${server.url}/recovered?initial=yes`);
 	t.is(response.retryCount, 1);
 	t.is(response.requestUrl.href, `${server.url}/original?initial=yes`);
+});
+
+test('a zero maxRetryAfter allows a server-requested immediate retry', withServer, async (t, server, got) => {
+	let requests = 0;
+	server.get('/', (_request, response) => {
+		requests++;
+		if (requests === 1) {
+			response.writeHead(429, {'retry-after': '0'}).end();
+			return;
+		}
+
+		response.end('ok');
+	});
+
+	const response = await got('', {retry: {maxRetryAfter: 0, limit: 1}});
+
+	t.is(response.body, 'ok');
+	t.is(response.retryCount, 1);
+	t.is(requests, 2);
 });
 
 test('requestUrl survives a redirect followed by a retry', withServer, async (t, server, got) => {
@@ -1965,3 +2193,245 @@ test('retry streams retain independent snapshots of the original requestUrl', wi
 	retried.requestUrl!.searchParams.set('later', 'change');
 	t.is(original.requestUrl?.href, `${server.url}/original`);
 });
+
+for (const statusCode of [413, 503]) {
+	test(`past Retry-After dates allow immediate ${statusCode} retries with a zero limit`, withServer, async (t, server, got) => {
+		let requests = 0;
+		server.get('/', (_request, response) => {
+			requests++;
+			if (requests === 1) {
+				response.writeHead(statusCode, {'retry-after': 'Thu, 01 Jan 1970 00:00:00 GMT'}).end();
+				return;
+			}
+
+			response.end('ok');
+		});
+
+		const response = await got('', {
+			retry: {
+				maxRetryAfter: 0,
+				limit: 1,
+				calculateDelay({retryAfter, computedValue}) {
+					t.is(retryAfter, 0);
+					t.is(computedValue, 1);
+					return computedValue;
+				},
+			},
+		});
+
+		t.is(response.body, 'ok');
+		t.is(requests, 2);
+	});
+}
+
+for (const maxRetryAfter of [0, 999, 1000]) {
+	test(`a one-second Retry-After respects maxRetryAfter ${maxRetryAfter}`, withServer, async (t, server, got) => {
+		let requests = 0;
+		let delayCalls = 0;
+		server.get('/', (_request, response) => {
+			requests++;
+			response.writeHead(requests === 1 ? 429 : 200, {'retry-after': '1'}).end();
+		});
+
+		const response = await got('', {
+			throwHttpErrors: false,
+			retry: {
+				maxRetryAfter,
+				limit: 1,
+				calculateDelay({retryAfter, computedValue}) {
+					delayCalls++;
+					t.is(retryAfter, 1000);
+					t.is(computedValue, 1000);
+					return 1;
+				},
+			},
+		});
+
+		const shouldRetry = maxRetryAfter === 1000;
+		t.is(response.statusCode, shouldRetry ? 200 : 429);
+		t.is(delayCalls, shouldRetry ? 1 : 0);
+		t.is(requests, shouldRetry ? 2 : 1);
+	});
+}
+
+// Inspect the parsed delay without sleeping for the server's requested duration.
+for (const {header, expectedDelay} of [
+	{header: '0002', expectedDelay: 2000},
+	{header: '\t 2 \t', expectedDelay: 2000},
+	{header: '86400', expectedDelay: 86_400_000},
+]) {
+	test(`Retry-After parses delta-seconds ${JSON.stringify(header)} without changing its units`, withServer, async (t, server, got) => {
+		server.get('/', (_request, response) => {
+			response.writeHead(503, {'retry-after': header}).end();
+		});
+		let delayCalls = 0;
+		const response = await got('', {
+			throwHttpErrors: false,
+			retry: {
+				calculateDelay({retryAfter, computedValue, attemptCount}) {
+					delayCalls++;
+					t.is(retryAfter, expectedDelay);
+					t.is(computedValue, expectedDelay);
+					t.is(attemptCount, 1);
+					return 0;
+				},
+			},
+		});
+
+		t.is(delayCalls, 1);
+		t.is(response.retryCount, 0);
+	});
+}
+
+// RFC 9110 section 5.6.7 requires recipients to accept both obsolete HTTP-date formats.
+for (const header of ['Sunday, 06-Nov-94 08:49:37 GMT', 'Sun Nov  6 08:49:37 1994']) {
+	test(`Retry-After accepts obsolete HTTP-date ${header}`, withServer, async (t, server, got) => {
+		let requests = 0;
+		server.get('/', (_request, response) => {
+			response.writeHead(++requests === 1 ? 503 : 200, {'retry-after': header}).end();
+		});
+		let delayCalls = 0;
+		const response = await got('', {
+			retry: {
+				limit: 1,
+				maxRetryAfter: 0,
+				calculateDelay({retryAfter, computedValue}) {
+					delayCalls++;
+					t.is(retryAfter, 0);
+					t.is(computedValue, 1);
+					return computedValue;
+				},
+			},
+		});
+
+		t.is(response.statusCode, 200);
+		t.is(requests, 2);
+		t.is(delayCalls, 1);
+	});
+}
+
+test('Retry-After HTTP-date exposes the remaining milliseconds to calculateDelay', withServer, async (t, server, got) => {
+	let sentAt = 0;
+	let retryAt = 0;
+	server.get('/', (_request, response) => {
+		sentAt = Date.now();
+		const date = new Date(sentAt + 60_000).toUTCString();
+		retryAt = Date.parse(date);
+		response.writeHead(503, {'retry-after': date}).end();
+	});
+	let delayCalls = 0;
+	await got('', {
+		throwHttpErrors: false,
+		retry: {
+			calculateDelay({retryAfter, computedValue}) {
+				delayCalls++;
+				const receivedAt = Date.now();
+				t.true(retryAfter! >= Math.max(0, retryAt - receivedAt));
+				t.true(retryAfter! <= retryAt - sentAt);
+				t.is(computedValue, Math.max(1, retryAfter!));
+				return 0;
+			},
+		},
+	});
+	t.is(delayCalls, 1);
+});
+
+for (const header of ['-1', '+1', '1e3']) {
+	test(`Retry-After rejects signed or exponential delta-seconds ${header}`, withServer, async (t, server, got) => {
+		server.get('/', (_request, response) => {
+			response.writeHead(503, {'retry-after': header}).end();
+		});
+		let delayCalls = 0;
+		await got('', {
+			throwHttpErrors: false,
+			retry: {
+				noise: 0,
+				calculateDelay({retryAfter, computedValue}) {
+					delayCalls++;
+					t.is(retryAfter, undefined);
+					t.is(computedValue, 1000);
+					return 0;
+				},
+			},
+		});
+		t.is(delayCalls, 1);
+	});
+}
+
+for (const maxRetryAfter of [undefined, 60_000]) {
+	test(`Retry-After uses ${maxRetryAfter === undefined ? 'the request timeout as its default cap' : 'an explicit cap instead of the request timeout'}`, withServer, async (t, server, got) => {
+		server.get('/', (_request, response) => {
+			response.writeHead(503, {'retry-after': '60'}).end();
+		});
+		let delayCalls = 0;
+		const response = await got('', {
+			throwHttpErrors: false,
+			timeout: {request: 30_000},
+			retry: {
+				maxRetryAfter,
+				calculateDelay({retryAfter, computedValue}) {
+					delayCalls++;
+					t.is(retryAfter, 60_000);
+					t.is(computedValue, 60_000);
+					return 0;
+				},
+			},
+		});
+
+		t.is(delayCalls, maxRetryAfter === undefined ? 0 : 1);
+		t.is(response.retryCount, 0);
+		t.is(response.statusCode, 503);
+	});
+}
+
+for (const {format, timezone, dayOfMonth} of [
+	{format: 'asctime', timezone: 'Etc/GMT-2', dayOfMonth: 6},
+	{format: 'asctime', timezone: 'UTC', dayOfMonth: 6},
+	{format: 'asctime', timezone: 'Etc/GMT+5', dayOfMonth: 17},
+	{format: 'IMF-fixdate', timezone: 'Etc/GMT-2', dayOfMonth: 6},
+	{format: 'RFC 850', timezone: 'Etc/GMT+5', dayOfMonth: 17},
+]) {
+	test.serial(`Retry-After interprets ${format} HTTP-date in UTC with timezone ${timezone}`, withServer, async (t, server, got) => {
+		const previousTimezone = process.env.TZ;
+		process.env.TZ = timezone;
+		t.teardown(() => {
+			if (previousTimezone === undefined) {
+				delete process.env.TZ;
+			} else {
+				process.env.TZ = previousTimezone;
+			}
+		});
+		const now = new Date();
+		const retryAt = Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, dayOfMonth, 8, 49, 37);
+		const date = new Date(retryAt);
+		const [weekday, day, month, year, time] = date.toUTCString().split(' ');
+		let header = date.toUTCString();
+		if (format === 'asctime') {
+			header = `${weekday!.slice(0, -1)} ${month} ${String(Number(day)).padStart(2, ' ')} ${time} ${year}`;
+		} else if (format === 'RFC 850') {
+			const fullWeekday = date.toLocaleDateString('en-US', {weekday: 'long', timeZone: 'UTC'});
+			header = `${fullWeekday}, ${day}-${month}-${year!.slice(-2)} ${time} GMT`;
+		}
+
+		let sentAt = 0;
+		server.get('/', (_request, response) => {
+			sentAt = Date.now();
+			response.writeHead(503, {'retry-after': header}).end();
+		});
+		let delayCalls = 0;
+		await got('', {
+			throwHttpErrors: false,
+			retry: {
+				calculateDelay({retryAfter, computedValue}) {
+					delayCalls++;
+					const receivedAt = Date.now();
+					t.true(retryAfter! >= retryAt - receivedAt);
+					t.true(retryAfter! <= retryAt - sentAt);
+					t.is(computedValue, retryAfter!);
+					return 0;
+				},
+			},
+		});
+		t.is(delayCalls, 1);
+	});
+}

@@ -881,6 +881,7 @@ This is useful for detecting truncated responses and follows RFC 9112 requiremen
 > [!NOTE]
 > - Responses without a `content-length` header are not validated.
 > - When enabled and validation fails, a [`ReadError`](8-errors.md#readerror) with code `ERR_HTTP_CONTENT_LENGTH_MISMATCH` will be thrown.
+> - Keep custom native responses in byte mode for exact validation. Calling `setEncoding()` on the native response can lose the original byte count when decoding malformed input.
 
 ### `dnsLookup`
 

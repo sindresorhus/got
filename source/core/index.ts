@@ -497,7 +497,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		}
 
 		const {response, options} = this;
-		const attemptCount = this.retryCount + (error.name === 'RetryError' ? 0 : 1);
+		const attemptCount = this.retryCount + 1;
 
 		this._stopReading = true;
 
@@ -537,14 +537,16 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 						if (/^\d+$/.test(retryAfterHeader)) {
 							retryAfter = Number(retryAfterHeader) * 1000;
 						} else if (Number.isNaN(Number(retryAfterHeader))) {
-							retryAfter = Date.parse(retryAfterHeader) - Date.now();
+							// The asctime HTTP-date format has no timezone marker, but represents UTC (RFC 9110, section 5.6.7).
+							const date = /^\w{3} \w{3} [ \d]\d \d{2}:\d{2}:\d{2} \d{4}$/.test(retryAfterHeader) ? `${retryAfterHeader} GMT` : retryAfterHeader;
+							retryAfter = Date.parse(date) - Date.now();
 						}
 
 						if (retryAfter === undefined || Number.isNaN(retryAfter)) {
 							// Invalid `Retry-After` values must be ignored. See https://www.rfc-editor.org/rfc/rfc9110#section-10.2.3
 							retryAfter = undefined;
-						} else if (retryAfter <= 0) {
-							retryAfter = 1;
+						} else if (retryAfter < 0) {
+							retryAfter = 0;
 						}
 					}
 
@@ -579,7 +581,8 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 					return;
 				}
 
-				if (backoff) {
+				// Node turns overflowing timer delays into 1 ms. Stop retrying instead of running before the requested delay.
+				if (backoff && backoff <= 2_147_483_647) {
 					await new Promise<void>(resolve => {
 						const timeout = setTimeout(resolve, backoff);
 						this._stopRetry = () => {
