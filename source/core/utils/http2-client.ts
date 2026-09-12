@@ -21,6 +21,7 @@ const {
 	HTTP2_HEADER_STATUS,
 	HTTP2_METHOD_CONNECT,
 	NGHTTP2_CANCEL,
+	NGHTTP2_NO_ERROR,
 } = http2.constants;
 
 type RequestCallback = (response: IncomingMessage) => void;
@@ -128,7 +129,7 @@ const isTrailersTeHeader = (value: string | string[] | number | undefined): bool
 	}
 
 	if (Array.isArray(value)) {
-		return value.length === 1 && value[0]!.toLowerCase() === 'trailers';
+		return value.length === 1 && value[0]!.trim().toLowerCase() === 'trailers';
 	}
 
 	return String(value).trim().toLowerCase() === 'trailers';
@@ -534,6 +535,17 @@ const filterHeaders = (headers: http2.IncomingHttpHeaders): IncomingMessage['hea
 	return filteredHeaders;
 };
 
+const toDistinctHeaders = (rawHeaders: string[]): Record<string, string[]> => {
+	const headers = Object.create(null) as Record<string, string[]>;
+	for (let index = 0; index < rawHeaders.length; index += 2) {
+		const name = rawHeaders[index]!.toLowerCase();
+		// Preserve individual field values, including commas within a single value.
+		(headers[name] ??= []).push(rawHeaders[index + 1]!);
+	}
+
+	return headers;
+};
+
 const createSocketProxy = (stream: ClientHttp2Stream): Socket => new Proxy(stream.session!.socket, {
 	get(target, property, receiver) {
 		if (property === 'destroy') {
@@ -576,7 +588,9 @@ class Http2IncomingMessage extends Readable {
 	rawHeaders: string[] = [];
 	rawTrailers: string[] = [];
 	headers: IncomingMessage['headers'] = {};
+	headersDistinct: IncomingMessage['headersDistinct'] = {};
 	trailers: IncomingMessage['trailers'] = {};
+	trailersDistinct: IncomingMessage['trailersDistinct'] = {};
 	statusCode?: number;
 	statusMessage?: string;
 	socket: Socket;
@@ -593,7 +607,11 @@ class Http2IncomingMessage extends Readable {
 	}
 
 	setTimeout(ms: number, callback?: () => void): this {
-		this.req.setTimeout(ms, callback);
+		if (callback) {
+			this.on('timeout', callback);
+		}
+
+		this.req.setTimeout(ms);
 		return this;
 	}
 
@@ -603,7 +621,7 @@ class Http2IncomingMessage extends Readable {
 		}
 
 		this.stream.destroy(error ?? undefined);
-		callback();
+		callback(error);
 	}
 
 	override _read(): void {
@@ -1012,7 +1030,10 @@ export class Http2Agent extends EventEmitter {
 				session,
 				reusedSocket: false,
 			});
+		});
 
+		// Updated stream limits can make room for queued requests without an active stream closing.
+		session.on('remoteSettings', () => {
 			this.processQueue();
 		});
 
@@ -1359,9 +1380,38 @@ class Http2ClientRequest extends Writable {
 			return this;
 		}
 
-		this.headers[normalizeRequestHeaderName(name)] = value;
+		// Node's HTTP/2 API requires the canonical spelling of this case-insensitive token.
+		this.headers[normalizeRequestHeaderName(name)] = lowercasedName === 'te' ? 'trailers' : value;
 
 		return this;
+	}
+
+	setHeaders(headers: Headers | Map<string, number | string | readonly string[]>): this {
+		if (this.headersSent) {
+			throw new Error('Cannot set headers after they are sent to the client');
+		}
+
+		if (!(headers instanceof Headers) && !(headers instanceof Map)) {
+			throw new TypeError('Headers must be a Headers instance or a Map');
+		}
+
+		for (const [name, value] of headers as Iterable<[string, number | string | readonly string[]]>) {
+			// Fetch Headers can contain multiple Set-Cookie fields, including commas within individual values.
+			const headerValue = headers instanceof Headers && name === 'set-cookie' ? headers.getSetCookie() : value;
+			this.setHeader(name, typeof headerValue === 'string' || typeof headerValue === 'number' ? headerValue : [...headerValue]);
+		}
+
+		return this;
+	}
+
+	appendHeader(name: string, value: string | readonly string[]): this {
+		const current = this.getHeader(name);
+		if (current === undefined) {
+			return this.setHeader(name, typeof value === 'string' ? value : [...value]);
+		}
+
+		const values = Array.isArray(current) ? current : [String(current)];
+		return this.setHeader(name, [...values, ...(typeof value === 'string' ? [value] : value)]);
 	}
 
 	getHeader(name: string): string | number | string[] | undefined {
@@ -1393,8 +1443,12 @@ class Http2ClientRequest extends Writable {
 	setSocketKeepAlive(): void {}
 
 	setTimeout(ms: number, callback?: () => void): this {
+		if (callback) {
+			this.once('timeout', callback);
+		}
+
 		const applyTimeout = () => {
-			this.stream!.setTimeout(ms, callback);
+			this.stream!.setTimeout(ms);
 		};
 
 		if (this.stream) {
@@ -1433,7 +1487,17 @@ class Http2ClientRequest extends Writable {
 			this.destroy(error);
 		});
 
+		stream.on('timeout', () => {
+			this.emit('timeout');
+			this.res?.emit('timeout');
+		});
+
 		stream.once('aborted', () => {
+			// A NO_ERROR reset can stop the upload while a completed response is still buffered (RFC 9113, section 8.1).
+			if (this.res && stream.rstCode === NGHTTP2_NO_ERROR) {
+				return;
+			}
+
 			if (this.res) {
 				this.res.aborted = true;
 				this.res.emit('aborted');
@@ -1449,6 +1513,7 @@ class Http2ClientRequest extends Writable {
 			response.statusCode = Number(headers[HTTP2_HEADER_STATUS]);
 			response.headers = filterHeaders(headers);
 			response.rawHeaders = rawHeaders ? filterRawHeaders(rawHeaders) : toRawHeaders(headers);
+			response.headersDistinct = toDistinctHeaders(response.rawHeaders);
 			response.url = `${this.origin.origin}${this.path}`;
 			incomingResponse.req = this as unknown as ClientRequest;
 			this.res = incomingResponse;
@@ -1494,6 +1559,7 @@ class Http2ClientRequest extends Writable {
 
 			this.res.trailers = trailers as IncomingMessage['trailers'];
 			this.res.rawTrailers = Array.isArray(rawTrailers) ? rawTrailers : toRawHeaders(trailers);
+			this.res.trailersDistinct = toDistinctHeaders(this.res.rawTrailers);
 		});
 
 		stream.once('close', () => {

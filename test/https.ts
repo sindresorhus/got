@@ -4,6 +4,7 @@ import https from 'node:https';
 import net, {type LookupFunction} from 'node:net';
 import process from 'node:process';
 import tls, {type DetailedPeerCertificate} from 'node:tls';
+import {gzipSync} from 'node:zlib';
 import test from 'ava';
 import {pEvent} from 'p-event';
 import pify from 'pify';
@@ -48,6 +49,374 @@ const collectHttp2ResponseBody = async (request: ReturnType<typeof http2Request>
 	});
 	request.once('error', reject);
 	request.end();
+});
+
+test('http2 native requests append header values', async t => {
+	const server = await createHttp2TestServer((stream, headers) => {
+		stream.respond({[http2.constants.HTTP2_HEADER_STATUS]: 200});
+		stream.end(String(headers['x-values']));
+	});
+	t.teardown(async () => {
+		await server.close();
+	});
+
+	const request = http2Request(server.url, {rejectUnauthorized: false, headers: {'x-values': 'first'}});
+	t.is(request.appendHeader('x-values', 'second'), request);
+	t.is(await collectHttp2ResponseBody(request), 'first, second');
+});
+
+test('http2 native requests accept Fetch Headers through setHeaders', async t => {
+	const server = await createHttp2TestServer((stream, headers) => {
+		stream.respond({[http2.constants.HTTP2_HEADER_STATUS]: 200});
+		stream.end(String(headers['x-value']));
+	});
+	t.teardown(async () => {
+		await server.close();
+	});
+	const request = http2Request(server.url, {rejectUnauthorized: false});
+	t.is(request.setHeaders(new Headers({'x-value': 'sent'})), request);
+	t.is(await collectHttp2ResponseBody(request), 'sent');
+});
+
+test('http2 setHeaders replaces Map fields through the request event and retains unrelated fields', async t => {
+	const server = await createHttp2TestServer((stream, headers) => {
+		stream.respond({[http2.constants.HTTP2_HEADER_STATUS]: 200});
+		stream.end(JSON.stringify(headers));
+	});
+	t.teardown(async () => {
+		await server.close();
+	});
+	const values = Object.freeze(['first', 'second']);
+	const headers = await got(server.url, {
+		http2: true,
+		https: {rejectUnauthorized: false},
+		headers: {'x-replaced': 'old', 'x-retained': 'kept'},
+	}).on('request', request => {
+		t.is(request.setHeaders(new Map<string, string | number | readonly string[]>([
+			['X-Replaced', 'new'],
+			['x-values', values],
+			['x-number', 42],
+		])), request);
+	}).json<Record<string, string>>();
+
+	t.is(headers['x-replaced'], 'new');
+	t.is(headers['x-retained'], 'kept');
+	t.is(headers['x-values'], 'first, second');
+	t.is(headers['x-number'], '42');
+	t.deepEqual(values, ['first', 'second']);
+});
+
+test('http2 setHeaders preserves distinct Set-Cookie values from Fetch Headers', async t => {
+	const server = await createHttp2TestServer((stream, headers) => {
+		stream.respond({[http2.constants.HTTP2_HEADER_STATUS]: 200});
+		stream.end(JSON.stringify(headers['set-cookie']));
+	});
+	t.teardown(async () => {
+		await server.close();
+	});
+	const values = ['first=1; Expires=Wed, 01 Jan 2031 00:00:00 GMT', 'second=2'];
+	const headers = new Headers();
+	for (const value of values) {
+		headers.append('set-cookie', value);
+	}
+
+	const request = http2Request(server.url, {rejectUnauthorized: false, headers: {'set-cookie': 'replaced=3'}});
+	request.setHeaders(headers);
+	t.deepEqual(request.getHeader('set-cookie'), values);
+	t.deepEqual(JSON.parse(await collectHttp2ResponseBody(request)), values);
+});
+
+for (const collectionType of ['Headers', 'Map']) {
+	test(`http2 setHeaders accepts empty ${collectionType} before sending and rejects it afterward`, async t => {
+		const server = await createHttp2TestServer((stream, headers) => {
+			stream.respond({[http2.constants.HTTP2_HEADER_STATUS]: 200});
+			stream.end(String(headers['x-value']));
+		});
+		t.teardown(async () => {
+			await server.close();
+		});
+		const headers = collectionType === 'Headers' ? new Headers() : new Map<string, string>();
+		const request = http2Request(server.url, {rejectUnauthorized: false, headers: {'x-value': 'retained'}});
+		t.is(request.setHeaders(headers), request);
+		const body = collectHttp2ResponseBody(request);
+		t.throws(() => request.setHeaders(headers), {message: 'Cannot set headers after they are sent to the client'});
+		t.is(await body, 'retained');
+	});
+}
+
+test('http2 setHeaders validates collections and delegates field validation', async t => {
+	const server = await createHttp2TestServer((stream, headers) => {
+		stream.respond({[http2.constants.HTTP2_HEADER_STATUS]: 200});
+		stream.end(String(headers['x-value']));
+	});
+	t.teardown(async () => {
+		await server.close();
+	});
+	const request = http2Request(server.url, {rejectUnauthorized: false, headers: {'x-value': 'retained'}});
+	// @ts-expect-error Plain objects are not supported by the native setHeaders API.
+	t.throws(() => request.setHeaders({'x-value': 'invalid'}), {instanceOf: TypeError});
+	t.throws(() => request.setHeaders(new Map([['invalid name', 'value']])), {code: 'ERR_INVALID_HTTP_TOKEN'});
+	t.throws(() => request.setHeaders(new Map([['x-value', 'invalid\nvalue']])), {code: 'ERR_INVALID_CHAR'});
+	t.is(await collectHttp2ResponseBody(request), 'retained');
+});
+
+test('http2 appendHeader combines arrays and case-insensitive names without changing supplied arrays', async t => {
+	const server = await createHttp2TestServer((stream, headers) => {
+		stream.respond({[http2.constants.HTTP2_HEADER_STATUS]: 200});
+		stream.end(String(headers['x-values']));
+	});
+	t.teardown(async () => {
+		await server.close();
+	});
+	const initialValues = ['first', 'second'];
+	const appendedValues = Object.freeze(['third', 'fourth']);
+	const request = http2Request(server.url, {rejectUnauthorized: false, headers: {'x-values': initialValues}});
+	request.appendHeader('X-Values', appendedValues);
+	request.appendHeader('x-VALUES', 'fifth');
+
+	t.deepEqual(initialValues, ['first', 'second']);
+	t.deepEqual(appendedValues, ['third', 'fourth']);
+	t.deepEqual(request.getHeader('x-values'), ['first', 'second', 'third', 'fourth', 'fifth']);
+	t.is(await collectHttp2ResponseBody(request), 'first, second, third, fourth, fifth');
+});
+
+test('http2 appendHeader creates missing fields and appends to numeric fields through the request event', async t => {
+	const server = await createHttp2TestServer((stream, headers) => {
+		stream.respond({[http2.constants.HTTP2_HEADER_STATUS]: 200});
+		stream.end(JSON.stringify(headers));
+	});
+	t.teardown(async () => {
+		await server.close();
+	});
+	const headers = await got(server.url, {
+		http2: true,
+		https: {rejectUnauthorized: false},
+	}).on('request', request => {
+		request.appendHeader('x-single', 'one');
+		request.appendHeader('x-array', ['two', 'three']);
+		request.setHeader('x-number', 4);
+		request.appendHeader('X-Number', 'five');
+	}).json<Record<string, string>>();
+
+	t.is(headers['x-single'], 'one');
+	t.is(headers['x-array'], 'two, three');
+	t.is(headers['x-number'], '4, five');
+});
+
+test('http2 appendHeader preserves validation and rejects changes after sending headers', async t => {
+	const server = await createHttp2TestServer((stream, headers) => {
+		stream.respond({[http2.constants.HTTP2_HEADER_STATUS]: 200});
+		stream.end(String(headers['x-values']));
+	});
+	t.teardown(async () => {
+		await server.close();
+	});
+	const request = http2Request(server.url, {rejectUnauthorized: false, headers: {'x-values': 'first'}});
+	t.throws(() => request.appendHeader('invalid name', 'value'), {code: 'ERR_INVALID_HTTP_TOKEN'});
+	t.throws(() => request.appendHeader('x-values', 'invalid\nvalue'), {code: 'ERR_INVALID_CHAR'});
+	t.is(request.getHeader('x-values'), 'first');
+
+	const body = collectHttp2ResponseBody(request);
+	t.throws(() => request.appendHeader('x-values', 'second'), {message: 'Cannot set headers after they are sent to the client'});
+	t.is(await body, 'first');
+});
+
+test('http2 preserves a completed response when the server stops an unfinished upload', async t => {
+	const server = await createHttp2TestServer(stream => {
+		stream.respond({[http2.constants.HTTP2_HEADER_STATUS]: 200});
+		stream.end('complete response', () => {
+			stream.close(http2.constants.NGHTTP2_NO_ERROR);
+		});
+	});
+	t.teardown(async () => {
+		await server.close();
+	});
+	const request = http2Request(server.url, {method: 'POST', rejectUnauthorized: false});
+	const responsePromise = pEvent(request, 'response') as Promise<IncomingMessage>;
+	request.write('unfinished request');
+	const response = await responsePromise;
+	await waitForCondition(() => request.socket?.destroyed ?? false, 'The server did not close the upload stream');
+
+	const chunks = await response.toArray();
+	t.is(chunks.join(''), 'complete response');
+	t.true(response.complete);
+	// eslint-disable-next-line @typescript-eslint/no-deprecated
+	t.false(response.aborted);
+});
+
+test('http2 preserves a backpressured response when the server stops an unfinished upload', async t => {
+	const expectedBody = 'a'.repeat(512 * 1024);
+	const server = await createHttp2TestServer(stream => {
+		stream.respond({[http2.constants.HTTP2_HEADER_STATUS]: 200});
+		stream.end(expectedBody, () => {
+			stream.close(http2.constants.NGHTTP2_NO_ERROR);
+		});
+	});
+	t.teardown(async () => {
+		await server.close();
+	});
+	const request = http2Request(server.url, {method: 'POST', rejectUnauthorized: false});
+	const responsePromise = pEvent(request, 'response') as Promise<IncomingMessage>;
+	request.write('unfinished request');
+	const response = await responsePromise;
+	// Keep the response buffered until the reset has arrived.
+	await waitForCondition(() => (response as IncomingMessage & {stream: http2.ClientHttp2Stream}).stream.aborted, 'The server did not stop the unfinished upload');
+	const chunks = await response.toArray();
+
+	t.is(chunks.join(''), expectedBody);
+	t.true(response.complete);
+	// eslint-disable-next-line @typescript-eslint/no-deprecated
+	t.false(response.aborted);
+});
+
+test('http2 preserves empty completed responses when the server stops the upload', async t => {
+	const server = await createHttp2TestServer(stream => {
+		stream.respond({[http2.constants.HTTP2_HEADER_STATUS]: 204});
+		stream.end(() => {
+			stream.close(http2.constants.NGHTTP2_NO_ERROR);
+		});
+	});
+	t.teardown(async () => {
+		await server.close();
+	});
+	const request = http2Request(server.url, {method: 'POST', rejectUnauthorized: false});
+	const responsePromise = pEvent(request, 'response') as Promise<IncomingMessage>;
+	request.write('unfinished request');
+	const response = await responsePromise;
+	await waitForCondition(() => request.socket?.destroyed ?? false, 'The server did not close the upload stream');
+
+	t.deepEqual(await response.toArray(), []);
+	t.is(response.statusCode, 204);
+	t.true(response.complete);
+	// eslint-disable-next-line @typescript-eslint/no-deprecated
+	t.false(response.aborted);
+});
+
+for (const resetCode of [http2.constants.NGHTTP2_NO_ERROR, http2.constants.NGHTTP2_CANCEL, http2.constants.NGHTTP2_INTERNAL_ERROR]) {
+	test(`http2 still marks incomplete responses aborted after reset code ${resetCode}`, async t => {
+		const server = await createHttp2TestServer(stream => {
+			stream.on('error', () => {});
+			stream.respond({[http2.constants.HTTP2_HEADER_STATUS]: 200, 'content-length': 100});
+			stream.write('partial response', () => {
+				stream.close(resetCode);
+			});
+		});
+		t.teardown(async () => {
+			await server.close();
+		});
+		const request = http2Request(server.url, {method: 'POST', rejectUnauthorized: false});
+		const requestErrors: Error[] = [];
+		request.on('error', error => {
+			requestErrors.push(error);
+		});
+		const responsePromise = pEvent(request, 'response') as Promise<IncomingMessage>;
+		request.write('unfinished request');
+		const response = await responsePromise;
+		let abortedEvents = 0;
+		response.on('aborted', () => {
+			abortedEvents++;
+		});
+		await waitForCondition(() => request.socket?.destroyed ?? false, 'The server did not reset the stream');
+
+		// eslint-disable-next-line @typescript-eslint/no-deprecated
+		t.true(response.aborted);
+		t.false(response.complete);
+		t.is(abortedEvents, 1);
+		if (resetCode === http2.constants.NGHTTP2_INTERNAL_ERROR) {
+			t.is(requestErrors.length, 1);
+		}
+	});
+}
+
+test('http2 agent starts queued requests when the server increases its stream limit', async t => {
+	let firstStream: ServerHttp2Stream | undefined;
+	const server = await createHttp2TestServer((stream, headers) => {
+		stream.respond({[http2.constants.HTTP2_HEADER_STATUS]: 200});
+		if (headers[':path'] === '/first') {
+			firstStream = stream;
+			return;
+		}
+
+		stream.end('second');
+	});
+	server.server.updateSettings({maxConcurrentStreams: 1});
+	const agent = new Http2Agent({maxSessions: 1});
+	t.teardown(async () => {
+		agent.destroy();
+		await server.close();
+	});
+	const first = http2Request(`${server.url}/first`, {agent, rejectUnauthorized: false});
+	first.on('error', () => {});
+	const responsePromise = pEvent(first, 'response');
+	first.end();
+	await responsePromise;
+
+	const second = http2Request(`${server.url}/second`, {agent, rejectUnauthorized: false});
+	const bodyPromise = collectHttp2ResponseBody(second);
+	await waitForCondition(() => agent.queue.length === 1, 'The second request did not queue');
+	await new Promise<void>((resolve, reject) => {
+		firstStream!.session!.settings({headerTableSize: 2048}, error => {
+			if (error) {
+				reject(error);
+				return;
+			}
+
+			resolve();
+		});
+	});
+	t.is(agent.queue.length, 1);
+	firstStream!.session!.settings({maxConcurrentStreams: 2});
+
+	t.is(await withTimeout(bodyPromise, 'The queued request did not start after the stream limit increased'), 'second');
+	t.is(agent.sessionCount, 1);
+	t.false(firstStream!.closed);
+	firstStream!.end();
+});
+
+test('http2 agent respects a lowered stream limit while draining its queue', async t => {
+	const streams = new Map<string, ServerHttp2Stream>();
+	const server = await createHttp2TestServer((stream, headers) => {
+		streams.set(headers[':path']!, stream);
+		stream.respond({[http2.constants.HTTP2_HEADER_STATUS]: 200});
+	});
+	server.server.updateSettings({maxConcurrentStreams: 2});
+	const agent = new Http2Agent({maxSessions: 1});
+	t.teardown(async () => {
+		agent.destroy();
+		await server.close();
+	});
+	const createRequest = (path: string) => {
+		const request = http2Request(`${server.url}/${path}`, {agent, rejectUnauthorized: false});
+		request.on('error', () => {});
+		request.on('response', response => {
+			response.resume();
+		});
+		request.end();
+		return request;
+	};
+
+	const first = createRequest('first');
+	await pEvent(first, 'response');
+	const second = createRequest('second');
+	await pEvent(second, 'response');
+	const third = createRequest('third');
+	await waitForCondition(() => agent.queue.length === 1, 'The third request did not queue');
+	const session = [...agent.sessions.values()][0]![0]!;
+	const settingsPromise = pEvent(session, 'remoteSettings');
+	streams.get('/first')!.session!.settings({maxConcurrentStreams: 1});
+	await settingsPromise;
+	const firstClosed = pEvent(first, 'close');
+	streams.get('/first')!.end();
+	await firstClosed;
+	t.is(agent.queue.length, 1);
+	t.false(streams.has('/third'));
+
+	const thirdResponse = pEvent(third, 'response');
+	streams.get('/second')!.end();
+	await withTimeout(thirdResponse, 'The third request did not start after a slot became available');
+	t.is(agent.queue.length, 0);
+	t.is(agent.sessionCount, 1);
+	streams.get('/third')!.end();
 });
 
 const waitForCondition = async (predicate: () => boolean, message: string): Promise<void> => {
@@ -819,6 +1188,45 @@ test('http2 request rejects trailers added after flush starts', async t => {
 	}
 });
 
+test('http2 exposes distinct response header values', async t => {
+	const server = await createHttp2TestServer(stream => {
+		stream.respond({
+			[http2.constants.HTTP2_HEADER_STATUS]: 200,
+			'x-values': ['first, second', 'third'],
+			'x-single': 'value',
+		});
+		stream.end('body');
+	});
+	t.teardown(server.close);
+	const response = await got(server.url, {http2: true, agent: {http2: false}, https: {rejectUnauthorized: false}});
+
+	t.deepEqual(response.headersDistinct['x-values'], ['first, second', 'third']);
+	t.deepEqual(response.headersDistinct['x-single'], ['value']);
+	t.false(Object.hasOwn(response.headersDistinct, ':status'));
+	t.deepEqual(response.trailersDistinct, {});
+});
+
+test('http2 preserves distinct header and trailer values through decompression', async t => {
+	const server = await createHttp2TestServer(stream => {
+		stream.respond({
+			[http2.constants.HTTP2_HEADER_STATUS]: 200,
+			'content-encoding': 'gzip',
+			'x-values': ['first, second', 'third'],
+		}, {waitForTrailers: true});
+		stream.once('wantTrailers', () => {
+			stream.sendTrailers({'x-values': ['trailer, one', 'trailer two']});
+		});
+		stream.end(gzipSync('body'));
+	});
+	t.teardown(server.close);
+	const response = await got(server.url, {http2: true, agent: {http2: false}, https: {rejectUnauthorized: false}});
+
+	t.is(response.body, 'body');
+	t.deepEqual(response.headersDistinct['x-values'], ['first, second', 'third']);
+	t.deepEqual(response.trailersDistinct['x-values'], ['trailer, one', 'trailer two']);
+	t.false(Object.hasOwn(response.trailersDistinct, ':status'));
+});
+
 test('http2 exposes response trailers', async t => {
 	const server = await createHttp2TestServer(stream => {
 		stream.respond({
@@ -847,6 +1255,7 @@ test('http2 exposes response trailers', async t => {
 		t.is(response.body, 'ok');
 		t.is(response.trailers['x-checksum'], 'abc');
 		t.deepEqual(response.rawTrailers, ['x-checksum', 'abc']);
+		t.deepEqual(response.trailersDistinct['x-checksum'], ['abc']);
 	} finally {
 		await server.close();
 	}
@@ -2055,7 +2464,8 @@ test('http2 rejects pseudo-headers in request headers', async t => {
 	}
 });
 
-test('http2 connection reuse with default agent', async t => {
+// Other concurrent tests can fill the shared agent's idle-session pool.
+test.serial('http2 connection reuse with default agent', async t => {
 	const sessions: Array<NonNullable<ServerHttp2Stream['session']>> = [];
 	const streamClosedPromises: Array<Promise<unknown>> = [];
 	const server = await createHttp2TestServer((stream, headers) => {
@@ -2089,7 +2499,8 @@ test('http2 connection reuse with default agent', async t => {
 	}
 });
 
-test('http2 cold concurrent requests share default agent session', async t => {
+// Other concurrent tests can fill the shared agent's idle-session pool.
+test.serial('http2 cold concurrent requests share default agent session', async t => {
 	const sessions: Array<NonNullable<ServerHttp2Stream['session']>> = [];
 	const server = await createHttp2TestServer(stream => {
 		sessions.push(stream.session!);
@@ -2124,6 +2535,7 @@ test('http2 cold concurrent requests share default agent session', async t => {
 });
 
 test('http2 reports reusedSocket for pooled sessions', async t => {
+	const agent = new Http2Agent();
 	const server = await createHttp2TestServer(stream => {
 		stream.respond({
 			// eslint-disable-next-line @typescript-eslint/naming-convention
@@ -2135,6 +2547,8 @@ test('http2 reports reusedSocket for pooled sessions', async t => {
 	try {
 		const options = {
 			http2: true,
+			// Keep concurrent tests from evicting this test's idle session from the global pool.
+			request: (url: URL, options: NativeRequestOptions) => http2Request(url, {...options, agent}),
 			https: {
 				rejectUnauthorized: false,
 			},
@@ -2145,6 +2559,7 @@ test('http2 reports reusedSocket for pooled sessions', async t => {
 		t.false(firstResponse.request.reusedSocket);
 		t.true(secondResponse.request.reusedSocket);
 	} finally {
+		agent.destroy();
 		await server.close();
 	}
 });
@@ -3608,3 +4023,624 @@ test('https request with `minVersion` option', withHttpsServer({maxVersion: 'TLS
 		code: 'EPROTO',
 	});
 });
+
+test('http2 request timeouts notify both the callback and timeout listeners', async t => {
+	const server = await createHttp2TestServer(() => {});
+	const request = http2Request(server.url, {agent: false, rejectUnauthorized: false});
+	request.on('error', () => {});
+	let timeoutEvents = 0;
+	request.on('timeout', () => {
+		timeoutEvents++;
+	});
+
+	try {
+		const timeout = new Promise<void>(resolve => {
+			request.setTimeout(20, resolve);
+		});
+		request.end();
+		await withTimeout(timeout, 'HTTP/2 request timeout callback did not run');
+		t.is(timeoutEvents, 1);
+	} finally {
+		request.destroy();
+		await server.close();
+	}
+});
+
+for (const afterSocket of [false, true]) {
+	test(`http2 timeout callbacks can be removed when configured afterSocket ${afterSocket}`, async t => {
+		const server = await createHttp2TestServer(() => {});
+		const request = http2Request(server.url, {agent: false, rejectUnauthorized: false});
+		request.on('error', () => {});
+		let removedCallbackCalls = 0;
+		const removedCallback = () => {
+			removedCallbackCalls++;
+		};
+
+		try {
+			if (afterSocket) {
+				const socket = pEvent(request, 'socket');
+				request.end();
+				await socket;
+			}
+
+			const timeout = new Promise<void>(resolve => {
+				t.is(request.setTimeout(20, removedCallback), request);
+				request.removeListener('timeout', removedCallback);
+				request.setTimeout(20, function (this: ReturnType<typeof http2Request>) {
+					t.is(this, request);
+					resolve();
+				});
+			});
+			if (!afterSocket) {
+				request.end();
+			}
+
+			await withTimeout(timeout, 'HTTP/2 request timeout did not run');
+			t.is(removedCallbackCalls, 0);
+		} finally {
+			request.destroy();
+			await server.close();
+		}
+	});
+}
+
+test('http2 request timeout listeners can cancel a Got request', async t => {
+	const server = await createHttp2TestServer(() => {});
+	const expectedError = new Error('idle request');
+
+	try {
+		const promise = got(server.url, {
+			http2: true,
+			https: {rejectUnauthorized: false},
+			retry: {limit: 0},
+		}).on('request', request => {
+			request.setTimeout(20);
+			request.once('timeout', () => {
+				request.destroy(expectedError);
+			});
+		});
+
+		const error = await t.throwsAsync(withTimeout(promise, 'Got did not emit its native request timeout'), {message: 'idle request'});
+		t.is(error.cause, expectedError);
+	} finally {
+		await server.close();
+	}
+});
+
+test('http2 response timeouts notify response listeners and honor callback removal', async t => {
+	const server = await createHttp2TestServer(stream => {
+		stream.respond();
+		stream.write('partial');
+	});
+	const request = http2Request(server.url, {agent: false, rejectUnauthorized: false});
+	request.on('error', () => {});
+	let removedCallbackCalls = 0;
+
+	try {
+		const responsePromise = pEvent<'response', IncomingMessage>(request, 'response');
+		request.end();
+		const response = await responsePromise;
+		const removedCallback = () => {
+			removedCallbackCalls++;
+		};
+
+		let timeoutEvents = 0;
+
+		response.on('timeout', () => {
+			timeoutEvents++;
+		});
+		const timeout = new Promise<void>(resolve => {
+			t.is(response.setTimeout(20, removedCallback), response);
+			response.removeListener('timeout', removedCallback);
+			response.setTimeout(20, function (this: IncomingMessage) {
+				t.is(this, response);
+				resolve();
+			});
+		});
+
+		await withTimeout(timeout, 'HTTP/2 response timeout did not run');
+		t.is(timeoutEvents, 1);
+		t.is(removedCallbackCalls, 0);
+	} finally {
+		request.destroy();
+		await server.close();
+	}
+});
+
+test('http2 request timeouts can be disabled before the stream is assigned', async t => {
+	const server = await createHttp2TestServer(stream => {
+		const timer = setTimeout(() => {
+			stream.respond();
+			stream.end('success');
+		}, 60);
+		stream.once('close', () => {
+			clearTimeout(timer);
+		});
+	});
+	const request = http2Request(server.url, {agent: false, rejectUnauthorized: false});
+	let timeoutEvents = 0;
+	request.setTimeout(10, () => {
+		timeoutEvents++;
+	});
+	request.setTimeout(0);
+
+	try {
+		t.is(await collectHttp2ResponseBody(request), 'success');
+		t.is(timeoutEvents, 0);
+	} finally {
+		request.destroy();
+		await server.close();
+	}
+});
+
+test('http2 response emits explicit destruction errors', async t => {
+	const server = await createHttp2TestServer(stream => {
+		stream.respond();
+		stream.write('partial');
+	});
+	const request = http2Request(server.url, {agent: false, rejectUnauthorized: false});
+	request.on('error', () => {});
+
+	try {
+		const responsePromise = pEvent<'response', IncomingMessage>(request, 'response');
+		request.end();
+		const response = await responsePromise;
+		const errors: Error[] = [];
+		response.on('error', error => {
+			errors.push(error);
+		});
+		const close = pEvent(response, 'close', {rejectionEvents: []});
+		const expectedError = new Error('consumer failure');
+		response.destroy(expectedError);
+		response.destroy(new Error('ignored repeated destruction'));
+		await close;
+		t.deepEqual(errors, [expectedError]);
+	} finally {
+		request.destroy();
+		await server.close();
+	}
+});
+
+test('http2 response destruction errors propagate through Got streams', async t => {
+	const server = await createHttp2TestServer(stream => {
+		stream.respond();
+		stream.write('partial');
+	});
+	const expectedError = new Error('consumer failure');
+
+	try {
+		const request = got.stream(server.url, {
+			http2: true,
+			https: {rejectUnauthorized: false},
+			retry: {limit: 0},
+		}).on('response', response => {
+			response.destroy(expectedError);
+		});
+		const error = await t.throwsAsync(request.toArray(), {message: 'consumer failure'});
+
+		t.is(error.cause, expectedError);
+	} finally {
+		await server.close();
+	}
+});
+
+test('http2 response destruction without an error closes quietly', async t => {
+	const server = await createHttp2TestServer(stream => {
+		stream.respond();
+		stream.write('partial');
+	});
+	const request = http2Request(server.url, {agent: false, rejectUnauthorized: false});
+	request.on('error', () => {});
+
+	try {
+		const responsePromise = pEvent<'response', IncomingMessage>(request, 'response');
+		request.end();
+		const response = await responsePromise;
+		const errors: Error[] = [];
+		response.on('error', error => {
+			errors.push(error);
+		});
+		const close = pEvent(response, 'close');
+		response.destroy();
+		await close;
+
+		t.deepEqual(errors, []);
+		t.true(response.destroyed);
+		t.true(response.readableAborted);
+	} finally {
+		request.destroy();
+		await server.close();
+	}
+});
+
+test('http2 response completion does not create a destruction error', async t => {
+	const server = await createHttp2TestServer(stream => {
+		stream.respond();
+		stream.end('complete');
+	});
+	const request = http2Request(server.url, {agent: false, rejectUnauthorized: false});
+	const responsePromise = pEvent<'response', IncomingMessage>(request, 'response');
+
+	try {
+		const body = collectHttp2ResponseBody(request);
+		const response = await responsePromise;
+		const close = pEvent(response, 'close');
+		t.is(await body, 'complete');
+		await close;
+
+		t.true(response.complete);
+		t.false(response.readableAborted);
+		t.is(response.errored, null);
+	} finally {
+		request.destroy();
+		await server.close();
+	}
+});
+
+// RFC 9113 section 8.1 permits repeated interim responses before exactly one final response.
+test('http2 protocol preserves repeated early hints until the final response', async t => {
+	let serverStream: ServerHttp2Stream;
+	const server = await createHttp2TestServer(stream => {
+		serverStream = stream;
+		stream.additionalHeaders({[http2.constants.HTTP2_HEADER_STATUS]: 103, link: '</first.css>; rel=preload'});
+		stream.additionalHeaders({[http2.constants.HTTP2_HEADER_STATUS]: 103, link: '</second.css>; rel=preload'});
+	});
+	t.teardown(server.close);
+	const request = http2Request(server.url, {agent: false, rejectUnauthorized: false});
+	const links: string[] = [];
+	const events: string[] = [];
+	request.on('information', information => {
+		events.push('information');
+		links.push(information.headers.link as string);
+		t.false(Object.hasOwn(information.headers, ':status'));
+		if (links.length === 2) {
+			t.deepEqual(events, ['information', 'information']);
+			serverStream.respond({[http2.constants.HTTP2_HEADER_STATUS]: 200, 'x-final': 'yes'});
+			serverStream.end('final body');
+		}
+	});
+	request.on('response', response => {
+		events.push('response');
+		t.is(response.headers['x-final'], 'yes');
+		t.false(Object.hasOwn(response.headers, 'link'));
+	});
+	t.is(await collectHttp2ResponseBody(request), 'final body');
+	t.deepEqual(links, ['</first.css>; rel=preload', '</second.css>; rel=preload']);
+	t.deepEqual(events, ['information', 'information', 'response']);
+});
+
+test('http2 protocol accepts unsolicited continue without replacing the final response', async t => {
+	const server = await createHttp2TestServer(stream => {
+		stream.additionalHeaders({[http2.constants.HTTP2_HEADER_STATUS]: 100});
+		stream.respond({[http2.constants.HTTP2_HEADER_STATUS]: 201});
+		stream.end('created');
+	});
+	t.teardown(server.close);
+	const request = http2Request(server.url, {agent: false, rejectUnauthorized: false});
+	let continueCount = 0;
+	const statuses: number[] = [];
+	request.on('continue', () => {
+		continueCount++;
+	});
+	request.on('information', information => {
+		statuses.push(information.statusCode);
+	});
+	request.once('response', response => {
+		t.is(response.statusCode, 201);
+	});
+	t.is(await collectHttp2ResponseBody(request), 'created');
+	t.is(continueCount, 1);
+	t.deepEqual(statuses, [100]);
+});
+
+test('http2 protocol preserves a final error response after processing information', async t => {
+	const server = await createHttp2TestServer(stream => {
+		stream.additionalHeaders({[http2.constants.HTTP2_HEADER_STATUS]: 102, 'x-progress': 'working'});
+		stream.respond({[http2.constants.HTTP2_HEADER_STATUS]: 422, 'content-type': 'application/json'});
+		stream.end('{"error":"invalid input"}');
+	});
+	t.teardown(server.close);
+	const statuses: number[] = [];
+	const response = await got(server.url, {
+		http2: true, agent: {http2: false}, https: {rejectUnauthorized: false}, throwHttpErrors: false, responseType: 'json',
+	}).on('request', request => {
+		request.on('information', information => {
+			statuses.push(information.statusCode);
+		});
+	});
+	t.deepEqual(statuses, [102]);
+	t.is(response.statusCode, 422);
+	t.deepEqual(response.body, {error: 'invalid input'});
+});
+
+test('http2 protocol ignores unobserved interim responses before a normal final body', async t => {
+	const server = await createHttp2TestServer(stream => {
+		stream.additionalHeaders({[http2.constants.HTTP2_HEADER_STATUS]: 103, link: '</style.css>; rel=preload'});
+		stream.respond({[http2.constants.HTTP2_HEADER_STATUS]: 200});
+		stream.end('body');
+	});
+	t.teardown(server.close);
+	t.is(await got(server.url, {http2: true, agent: {http2: false}, https: {rejectUnauthorized: false}}).text(), 'body');
+});
+
+// Content-Length on HEAD and 304 describes the selected representation, not an expected response body (RFC 9110 section 8.6).
+for (const method of ['HEAD', 'GET'] as const) {
+	test(`http2 protocol preserves representation metadata for ${method === 'HEAD' ? 'HEAD' : '304'}`, async t => {
+		const statusCode = method === 'HEAD' ? 200 : 304;
+		const server = await createHttp2TestServer((stream, headers) => {
+			t.is(headers[':method'], method);
+			stream.respond({
+				[http2.constants.HTTP2_HEADER_STATUS]: statusCode,
+				'content-length': 1234,
+				'content-encoding': 'gzip',
+				etag: '"version-1"',
+			}, {endStream: true});
+		});
+		t.teardown(server.close);
+		const response = await got(server.url, {
+			method, http2: true, agent: {http2: false}, https: {rejectUnauthorized: false},
+			headers: method === 'GET' ? {'if-none-match': '"version-1"'} : {},
+		});
+		t.is(response.statusCode, statusCode);
+		t.is(response.body, '');
+		t.is(response.headers['content-length'], '1234');
+		t.is(response.headers['content-encoding'], 'gzip');
+		t.is(response.headers.etag, '"version-1"');
+		t.true(response.complete);
+	});
+}
+
+test('http2 protocol completes a 204 final response after early hints', async t => {
+	const server = await createHttp2TestServer(stream => {
+		stream.additionalHeaders({[http2.constants.HTTP2_HEADER_STATUS]: 103, link: '</style.css>; rel=preload'});
+		stream.respond({[http2.constants.HTTP2_HEADER_STATUS]: 204, etag: '"updated"'}, {endStream: true});
+	});
+	t.teardown(server.close);
+	const statuses: number[] = [];
+	const response = await got(server.url, {http2: true, agent: {http2: false}, https: {rejectUnauthorized: false}}).on('request', request => {
+		request.on('information', information => {
+			statuses.push(information.statusCode);
+		});
+	});
+	t.deepEqual(statuses, [103]);
+	t.is(response.statusCode, 204);
+	t.is(response.body, '');
+	t.is(response.headers.etag, '"updated"');
+	t.false(Object.hasOwn(response.headers, 'content-length'));
+	t.true(response.complete);
+});
+
+test('http2 protocol completes an empty 200 response at the final headers', async t => {
+	const server = await createHttp2TestServer(stream => {
+		stream.respond({[http2.constants.HTTP2_HEADER_STATUS]: 200, 'content-length': 0}, {endStream: true});
+	});
+	t.teardown(server.close);
+	const request = http2Request(server.url, {agent: false, rejectUnauthorized: false});
+	let response: IncomingMessage | undefined;
+	request.once('response', incoming => {
+		response = incoming;
+	});
+	t.is(await collectHttp2ResponseBody(request), '');
+	t.true(response!.complete);
+	t.deepEqual(response!.trailers, {});
+	t.deepEqual(response!.rawTrailers, []);
+});
+
+for (const body of ['', 'payload']) {
+	test(`http2 protocol completes ${body === '' ? 'empty' : 'nonempty'} content with an empty trailer section`, async t => {
+		const server = await createHttp2TestServer(stream => {
+			stream.respond({[http2.constants.HTTP2_HEADER_STATUS]: 200}, {waitForTrailers: true});
+			stream.once('wantTrailers', () => {
+				stream.sendTrailers({});
+			});
+			stream.end(body);
+		});
+		t.teardown(server.close);
+		const response = await got(server.url, {http2: true, agent: {http2: false}, https: {rejectUnauthorized: false}});
+		t.is(response.body, body);
+		t.true(response.complete);
+		t.deepEqual(response.rawTrailers, []);
+		t.deepEqual({...response.trailersDistinct}, {});
+	});
+}
+
+test('http2 protocol keeps final headers and trailers separate after interim headers', async t => {
+	const server = await createHttp2TestServer(stream => {
+		stream.additionalHeaders({[http2.constants.HTTP2_HEADER_STATUS]: 103, 'x-values': 'interim'});
+		stream.respond({[http2.constants.HTTP2_HEADER_STATUS]: 200, 'x-values': 'final'}, {waitForTrailers: true});
+		stream.once('wantTrailers', () => {
+			stream.sendTrailers({'x-values': ['trailer, one', 'trailer two']});
+		});
+		stream.end('body');
+	});
+	t.teardown(server.close);
+	const request = http2Request(server.url, {agent: false, rejectUnauthorized: false});
+	const informationValues: string[] = [];
+	let response: IncomingMessage | undefined;
+	request.on('information', information => {
+		informationValues.push(information.headers['x-values'] as string);
+	});
+	request.once('response', incoming => {
+		response = incoming;
+		t.deepEqual(incoming.rawTrailers, []);
+	});
+	t.is(await collectHttp2ResponseBody(request), 'body');
+	t.deepEqual(informationValues, ['interim']);
+	t.deepEqual(response!.headersDistinct['x-values'], ['final']);
+	t.deepEqual(response!.trailersDistinct['x-values'], ['trailer, one', 'trailer two']);
+	t.deepEqual(response!.rawTrailers, ['x-values', 'trailer, one', 'x-values', 'trailer two']);
+	t.true(response!.complete);
+});
+
+test('http2 protocol delivers request trailers even when the upload has no data', async t => {
+	const server = await createHttp2TestServer(stream => {
+		let dataEvents = 0;
+		let checksum: string | string[] | undefined;
+		stream.on('data', () => {
+			dataEvents++;
+		});
+		stream.once('trailers', trailers => {
+			checksum = trailers['x-checksum'];
+		});
+		stream.once('end', () => {
+			stream.respond({[http2.constants.HTTP2_HEADER_STATUS]: 200});
+			stream.end(JSON.stringify({dataEvents, checksum}));
+		});
+	});
+	t.teardown(server.close);
+	const request = http2Request(server.url, {method: 'POST', agent: false, rejectUnauthorized: false});
+	request.addTrailers({'x-checksum': 'empty-content'});
+	t.deepEqual(JSON.parse(await collectHttp2ResponseBody(request)), {dataEvents: 0, checksum: 'empty-content'});
+});
+
+// All native header mutation APIs must apply the HTTP/2 field filtering rules in RFC 9113 section 8.2.2.
+for (const headerApi of ['Headers', 'Map', 'appendHeader']) {
+	test(`http2 protocol filters connection fields through ${headerApi} while retaining TE trailers`, async t => {
+		const server = await createHttp2TestServer((stream, headers) => {
+			stream.respond({[http2.constants.HTTP2_HEADER_STATUS]: 200});
+			stream.end(JSON.stringify(headers));
+		});
+		t.teardown(server.close);
+		const request = http2Request(server.url, {agent: false, rejectUnauthorized: false});
+		const fields = {
+			connection: 'x-hop',
+			'keep-alive': 'timeout=5',
+			'proxy-connection': 'x-proxy-hop',
+			'transfer-encoding': 'chunked',
+			upgrade: 'websocket',
+			'http2-settings': 'unused',
+			'x-hop': 'removed',
+			'x-proxy-hop': 'removed',
+			te: 'trailers',
+			'x-end-to-end': 'retained',
+		};
+		if (headerApi === 'Headers') {
+			request.setHeaders(new Headers(fields));
+		} else if (headerApi === 'Map') {
+			request.setHeaders(new Map(Object.entries(fields)));
+		} else {
+			for (const [name, value] of Object.entries(fields)) {
+				request.appendHeader(name, value);
+			}
+		}
+
+		const received = JSON.parse(await collectHttp2ResponseBody(request)) as Record<string, string>;
+		for (const name of Object.keys(fields)) {
+			if (name !== 'te' && name !== 'x-end-to-end') {
+				t.false(Object.hasOwn(received, name), name);
+			}
+		}
+
+		t.is(received.te, 'trailers');
+		t.is(received['x-end-to-end'], 'retained');
+	});
+}
+
+for (const connectionFirst of [false, true]) {
+	test(`http2 protocol removes Map connection-nominated fields listed ${connectionFirst ? 'after' : 'before'} Connection`, async t => {
+		const server = await createHttp2TestServer((stream, headers) => {
+			stream.respond({[http2.constants.HTTP2_HEADER_STATUS]: 200});
+			stream.end(JSON.stringify(headers));
+		});
+		t.teardown(server.close);
+		const request = http2Request(server.url, {agent: false, rejectUnauthorized: false});
+		const fields: Array<[string, string]> = [['X-First', 'removed'], ['x-second', 'removed']];
+		const connection: [string, string] = ['Connection', ' X-FIRST , x-SECOND '];
+		if (connectionFirst) {
+			fields.unshift(connection);
+		} else {
+			fields.push(connection);
+		}
+
+		request.setHeaders(new Map([...fields, ['x-retained', 'yes']]));
+		const received = JSON.parse(await collectHttp2ResponseBody(request)) as Record<string, string>;
+		t.false(Object.hasOwn(received, 'connection'));
+		t.false(Object.hasOwn(received, 'x-first'));
+		t.false(Object.hasOwn(received, 'x-second'));
+		t.is(received['x-retained'], 'yes');
+	});
+}
+
+test('http2 protocol filters unsupported TE lists through native header mutation APIs', async t => {
+	const server = await createHttp2TestServer((stream, headers) => {
+		stream.respond({[http2.constants.HTTP2_HEADER_STATUS]: 200});
+		stream.end(JSON.stringify(headers));
+	});
+	t.teardown(server.close);
+	await Promise.all(['Headers', 'Map', 'appendHeader'].map(async headerApi => {
+		const request = http2Request(server.url, {agent: false, rejectUnauthorized: false});
+		if (headerApi === 'Headers') {
+			request.setHeaders(new Headers({te: 'trailers, gzip'}));
+		} else if (headerApi === 'Map') {
+			request.setHeaders(new Map([['te', ['trailers', 'gzip']]]));
+		} else {
+			request.appendHeader('te', ['trailers', 'gzip']);
+		}
+
+		const received = JSON.parse(await collectHttp2ResponseBody(request)) as Record<string, string>;
+		t.false(Object.hasOwn(received, 'te'), headerApi);
+		t.is(received[':method'], 'GET');
+	}));
+});
+
+test('http2 canonicalizes case-insensitive TE trailers before creating the stream', async t => {
+	const server = await createHttp2TestServer((stream, headers) => {
+		stream.respond({[http2.constants.HTTP2_HEADER_STATUS]: 200});
+		stream.end(String(headers.te));
+	});
+	t.teardown(server.close);
+	const body = await got(server.url, {
+		http2: true,
+		agent: {http2: false},
+		https: {rejectUnauthorized: false},
+		retry: {limit: 0},
+		headers: {te: 'Trailers'},
+	}).text();
+
+	t.is(body, 'trailers');
+});
+
+for (const value of [' \tTRAILERS\t ', [' trailers ']]) {
+	test(`http2 canonicalizes TE with optional whitespace ${JSON.stringify(value)}`, async t => {
+		const server = await createHttp2TestServer((stream, headers) => {
+			stream.respond({[http2.constants.HTTP2_HEADER_STATUS]: 200});
+			stream.end(String(headers.te));
+		});
+		t.teardown(server.close);
+		const original = structuredClone(value);
+		const body = await got(server.url, {
+			http2: true,
+			agent: {http2: false},
+			https: {rejectUnauthorized: false},
+			retry: {limit: 0},
+			headers: {te: value},
+		}).text();
+
+		t.is(body, 'trailers');
+		t.deepEqual(value, original);
+	});
+}
+
+for (const headerApi of ['Headers', 'Map', 'appendHeader']) {
+	test(`http2 canonicalizes TE through ${headerApi}`, async t => {
+		const server = await createHttp2TestServer((stream, headers) => {
+			stream.respond({[http2.constants.HTTP2_HEADER_STATUS]: 200});
+			stream.end(JSON.stringify(headers));
+		});
+		t.teardown(server.close);
+		const request = http2Request(server.url, {agent: false, rejectUnauthorized: false});
+		if (headerApi === 'Headers') {
+			request.setHeaders(new Headers({te: 'Trailers'}));
+		} else if (headerApi === 'Map') {
+			request.setHeaders(new Map([['TE', ['\tTRAILERS ']]]));
+		} else {
+			request.appendHeader('TE', 'Trailers');
+		}
+
+		request.setHeader('x-retained', 'MixedCase');
+		t.is(request.getHeader('te'), 'trailers');
+		const received = JSON.parse(await collectHttp2ResponseBody(request)) as Record<string, string>;
+		t.is(received.te, 'trailers');
+		t.is(received['x-retained'], 'MixedCase');
+	});
+}
