@@ -982,7 +982,7 @@ export function isSameOrigin(previousUrl: URL, nextUrl: URL): boolean {
 }
 
 export const crossOriginStripHeaders = ['host', 'cookie', 'cookie2', 'authorization', 'proxy-authorization'] as const;
-const bodyHeaderNames = ['content-length', 'content-encoding', 'content-language', 'content-location', 'content-type', 'transfer-encoding'] as const;
+const bodyHeaderNames = ['content-length', 'content-encoding', 'content-language', 'content-location', 'content-type', 'transfer-encoding', 'digest', 'content-digest', 'repr-digest', 'last-modified'] as const;
 
 function usesUnixSocket(url: URL): boolean {
 	return url.protocol === 'unix:' || getUnixSocketPath(url) !== undefined;

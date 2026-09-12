@@ -1,4 +1,5 @@
 import {Buffer} from 'node:buffer';
+import {createHash} from 'node:crypto';
 import http from 'node:http';
 import {Readable} from 'node:stream';
 import {setTimeout as delay} from 'node:timers/promises';
@@ -559,6 +560,131 @@ test('removes request body headers on GET redirect', withServer, async (t, serve
 	t.is(headers['content-language'], undefined);
 	t.is(headers['content-location'], undefined);
 	t.is(headers['content-encoding'], undefined);
+});
+
+for (const statusCode of [301, 302, 303]) {
+	test(`removes stale integrity metadata when ${statusCode} rewrites POST to GET`, withServer, async (t, server, got) => {
+		const payload = 'uploaded representation';
+		const checksum = createHash('sha256').update(payload).digest('base64');
+		const bodyHeaders = {
+			digest: `sha-256=${checksum}`,
+			'content-digest': `sha-256=:${checksum}:`,
+			'repr-digest': `sha-256=:${checksum}:`,
+			'last-modified': 'Wed, 01 Jan 2025 00:00:00 GMT',
+		};
+		server.post('/redirect', async (request, response) => {
+			t.is(Buffer.concat(await request.toArray()).toString(), payload);
+			for (const [name, value] of Object.entries(bodyHeaders)) {
+				t.is(request.headers[name], value);
+			}
+
+			response.writeHead(statusCode, {location: '/destination'});
+			response.end();
+		});
+		server.get('/destination', async (request, response) => {
+			response.json({headers: request.headers, body: Buffer.concat(await request.toArray()).toString()});
+		});
+
+		const {headers, body} = await got.post('redirect', {
+			body: payload,
+			headers: {
+				...bodyHeaders,
+				'want-content-digest': 'sha-256=10',
+				'want-repr-digest': 'sha-256=10',
+			},
+			methodRewriting: statusCode !== 303,
+			retry: {limit: 0},
+		}).json<{headers: Record<string, string | undefined>; body: string}>();
+
+		t.is(body, '');
+		for (const name of Object.keys(bodyHeaders)) {
+			t.is(headers[name], undefined);
+		}
+
+		t.is(headers['want-content-digest'], 'sha-256=10');
+		t.is(headers['want-repr-digest'], 'sha-256=10');
+	});
+}
+
+for (const statusCode of [307, 308]) {
+	test(`preserves integrity metadata when ${statusCode} retains the request body`, withServer, async (t, server, got) => {
+		const payload = 'uploaded representation';
+		const checksum = createHash('sha256').update(payload).digest('base64');
+		const bodyHeaders = {
+			digest: `sha-256=${checksum}`,
+			'content-digest': `sha-256=:${checksum}:`,
+			'repr-digest': `sha-256=:${checksum}:`,
+			'last-modified': 'Wed, 01 Jan 2025 00:00:00 GMT',
+		};
+		server.post('/redirect', async (request, response) => {
+			t.is(Buffer.concat(await request.toArray()).toString(), payload);
+			response.writeHead(statusCode, {location: '/destination'});
+			response.end();
+		});
+		server.post('/destination', async (request, response) => {
+			response.json({headers: request.headers, body: Buffer.concat(await request.toArray()).toString()});
+		});
+
+		const {headers, body} = await got.post('redirect', {
+			body: payload,
+			headers: bodyHeaders,
+			retry: {limit: 0},
+		}).json<{headers: Record<string, string | undefined>; body: string}>();
+
+		t.is(body, payload);
+		for (const [name, value] of Object.entries(bodyHeaders)) {
+			t.is(headers[name], value);
+		}
+	});
+}
+
+test('redirect hooks can provide fresh body integrity metadata after a method rewrite', withServer, async (t, server, got) => {
+	const originalBody = 'original representation';
+	const replacementBody = 'replacement representation';
+	const originalChecksum = createHash('sha256').update(originalBody).digest('base64');
+	const replacementChecksum = createHash('sha256').update(replacementBody).digest('base64');
+	const replacementHeaders = {
+		digest: `sha-256=${replacementChecksum}`,
+		'content-digest': `sha-256=:${replacementChecksum}:`,
+		'repr-digest': `sha-256=:${replacementChecksum}:`,
+		'last-modified': 'Thu, 02 Jan 2025 00:00:00 GMT',
+	};
+	server.post('/redirect', async (request, response) => {
+		t.is(Buffer.concat(await request.toArray()).toString(), originalBody);
+		response.writeHead(303, {location: '/destination'});
+		response.end();
+	});
+	server.put('/destination', async (request, response) => {
+		response.json({headers: request.headers, body: Buffer.concat(await request.toArray()).toString()});
+	});
+
+	const {headers, body} = await got.post('redirect', {
+		body: originalBody,
+		headers: {
+			digest: `sha-256=${originalChecksum}`,
+			'content-digest': `sha-256=:${originalChecksum}:`,
+			'repr-digest': `sha-256=:${originalChecksum}:`,
+			'last-modified': 'Wed, 01 Jan 2025 00:00:00 GMT',
+		},
+		hooks: {
+			beforeRedirect: [options => {
+				t.is(options.method, 'GET');
+				for (const name of Object.keys(replacementHeaders)) {
+					t.is(options.headers[name], undefined);
+				}
+
+				options.method = 'PUT';
+				options.body = replacementBody;
+				Object.assign(options.headers, replacementHeaders);
+			}],
+		},
+		retry: {limit: 0},
+	}).json<{headers: Record<string, string | undefined>; body: string}>();
+
+	t.is(body, replacementBody);
+	for (const [name, value] of Object.entries(replacementHeaders)) {
+		t.is(headers[name], value);
+	}
 });
 
 test('redirects on 303 response even on post, put, delete', withServer, async (t, server, got) => {
