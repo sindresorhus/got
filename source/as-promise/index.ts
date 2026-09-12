@@ -9,7 +9,6 @@ import Request, {normalizeError} from '../core/index.js';
 import isNonReplayableBody from '../core/utils/is-non-replayable-body.js';
 import {
 	decodeUint8Array,
-	isUtf8Encoding,
 	parseBody,
 	isResponseOk,
 	type Response, ParseError,
@@ -64,9 +63,9 @@ export default function asPromise<T>(firstRequest?: Request): RequestPromise<T> 
 						try {
 							response.body = parseBody(response, options.responseType, options.parseJson, options.encoding);
 						} catch (error: unknown) {
-						// Fall back to `utf8`
+							// Preserve the response text when parsing fails.
 							try {
-								response.body = decodeUint8Array(response.rawBody);
+								response.body = decodeUint8Array(response.rawBody, options.encoding);
 							} catch (error) {
 								request._beforeError(new ParseError(normalizeError(error), response));
 								return;
@@ -283,13 +282,17 @@ export default function asPromise<T>(firstRequest?: Request): RequestPromise<T> 
 	const shortcut = <T>(promiseToAwait: RequestPromise, responseType: Options['responseType']): RequestPromise<T> => {
 		const newPromise = (async () => {
 			// Wait until downloading has ended
-			await promiseToAwait;
+			const response = await promiseToAwait as Response | undefined;
+
+			// Handlers may replace the response or recover one from a request error.
+			if (!globalRequest.options.resolveBodyOnly && response?.request instanceof Request && response.rawBody instanceof Uint8Array) {
+				globalResponse = response;
+			}
 
 			const {options} = globalResponse.request;
 
 			if (responseType === 'text') {
-				const text = decodeUint8Array(globalResponse.rawBody, options.encoding);
-				return (isUtf8Encoding(options.encoding) ? text.replace(/^\u{FEFF}/v, '') : text) as T;
+				return decodeUint8Array(globalResponse.rawBody, options.encoding) as T;
 			}
 
 			return parseBody(globalResponse, responseType, options.parseJson, options.encoding);

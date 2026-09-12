@@ -2,7 +2,7 @@ import {Buffer} from 'node:buffer';
 import test from 'ava';
 import type {Handler} from 'express';
 import getStream from 'get-stream';
-import {HTTPError, ParseError} from '../source/index.js';
+import {HTTPError, ParseError, type Response} from '../source/index.js';
 import withServer from './helpers/with-server.js';
 
 const dog = {data: 'dog'};
@@ -568,4 +568,314 @@ test.serial('does not incrementally decode in stream mode', withServer, async (t
 	} finally {
 		globalThis.TextDecoder.prototype.decode = originalDecode;
 	}
+});
+
+test('JSON shortcut reads mutations made through the buffer shortcut', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.end('{"value":1}');
+	});
+
+	const promise = got('');
+	const buffer = await promise.buffer();
+	buffer[9] = '2'.codePointAt(0)!;
+
+	t.deepEqual(await promise.json(), {value: 2});
+});
+
+for (const responseType of ['text', 'json', 'buffer'] as const) {
+	test(`shortcuts read repeated rawBody mutations after a ${responseType} response`, withServer, async (t, server, got) => {
+		server.get('/', (_request, response) => {
+			response.end('{"value":1}');
+		});
+
+		const promise = got('', {responseType});
+		const response = await promise as Response;
+		const buffer = await promise.buffer();
+		t.is(buffer, response.rawBody);
+
+		for (const value of [2, 3]) {
+			buffer[9] = String(value).codePointAt(0)!;
+			// eslint-disable-next-line no-await-in-loop
+			t.deepEqual(await promise.json(), {value});
+			// eslint-disable-next-line no-await-in-loop
+			t.is(await promise.text(), `{"value":${value}}`);
+		}
+
+		buffer[9] = 'x'.codePointAt(0)!;
+		await t.throwsAsync(promise.json(), {instanceOf: ParseError});
+	});
+}
+
+test('JSON parse failures preserve the configured response encoding', withServer, async (t, server, got) => {
+	const body = 'Invalid JSON: café';
+	server.get('/', (_request, response) => {
+		response.end(Buffer.from(body, 'utf16le'));
+	});
+
+	const error = await t.throwsAsync<ParseError>(got('', {
+		responseType: 'json',
+		encoding: 'utf16le',
+		retry: {limit: 0},
+	}), {instanceOf: ParseError});
+
+	t.is(error?.response.body, body);
+});
+
+for (const encoding of ['utf16le', 'latin1', 'utf8'] as const) {
+	for (const throwHttpErrors of [true, false]) {
+		test(`invalid JSON HTTP errors preserve ${encoding} text with throwHttpErrors=${throwHttpErrors}`, withServer, async (t, server, got) => {
+			const body = 'Service indisponible: café';
+			const rawBody = Buffer.from(body, encoding);
+			server.get('/', (_request, response) => {
+				response.statusCode = 400;
+				response.end(rawBody);
+			});
+
+			const promise = got('', {responseType: 'json', encoding, throwHttpErrors});
+			const response = throwHttpErrors
+				? (await t.throwsAsync<HTTPError>(promise, {instanceOf: HTTPError})).response
+				: await promise;
+
+			t.is(response.body, body);
+			t.deepEqual(response.rawBody, new Uint8Array(rawBody));
+			t.is(response.statusCode, 400);
+		});
+	}
+}
+
+test('text responses preserve their UTF-8 BOM when storing cookies', withServer, async (t, server, got) => {
+	const body = '\uFEFFhello';
+	server.get('/', (_request, response) => {
+		response.setHeader('set-cookie', 'session=value');
+		response.end(body);
+	});
+
+	const response = await got('', {
+		cookieJar: {
+			async getCookieString() {
+				return '';
+			},
+			async setCookie() {},
+		},
+	});
+
+	t.is(response.body, body);
+});
+
+for (const encoding of ['utf8', 'utf16le', 'latin1'] as const) {
+	test(`cookie storage preserves ${encoding} response text and raw bytes`, withServer, async (t, server, got) => {
+		const body = encoding === 'latin1' ? 'café' : '\uFEFFcafé 🦄';
+		const bytes = Buffer.from(body, encoding);
+		const storedCookies: string[] = [];
+		server.get('/', (_request, response) => {
+			response.setHeader('set-cookie', ['first=one', 'second=two']);
+			response.end(bytes);
+		});
+
+		const promise = got('', {
+			encoding,
+			cookieJar: {
+				async getCookieString() {
+					return '';
+				},
+				async setCookie(cookie: string) {
+					storedCookies.push(cookie);
+				},
+			},
+		});
+
+		t.is((await promise).body, body);
+		t.deepEqual(await promise.buffer(), new Uint8Array(bytes));
+		t.is(await promise.text(), encoding === 'utf8' ? body.slice(1) : body);
+		t.deepEqual(storedCookies, ['first=one', 'second=two']);
+	});
+}
+
+test('empty text responses remain empty when storing cookies', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.setHeader('set-cookie', 'session=value');
+		response.end();
+	});
+
+	const body = await got('', {
+		resolveBodyOnly: true,
+		cookieJar: {
+			async getCookieString() {
+				return '';
+			},
+			async setCookie() {},
+		},
+	});
+
+	t.is(body, '');
+});
+
+test('custom JSON parser failures preserve thrown string messages', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.end('{}');
+	});
+
+	const error = await t.throwsAsync<ParseError>(got('', {
+		responseType: 'json',
+		parseJson() {
+			// eslint-disable-next-line @typescript-eslint/only-throw-error
+			throw 'Parser rejected this document';
+		},
+	}), {instanceOf: ParseError});
+
+	t.true(error.message.startsWith('Parser rejected this document'));
+});
+
+for (const thrown of [undefined, null, 42]) {
+	for (const useShortcut of [true, false]) {
+		test(`custom JSON parser wraps ${String(thrown)} with shortcut=${useShortcut}`, withServer, async (t, server, got) => {
+			server.get('/', (_request, response) => {
+				response.end('{}');
+			});
+
+			const promise = got('', {
+				responseType: useShortcut ? 'text' : 'json',
+				parseJson() {
+					// eslint-disable-next-line @typescript-eslint/only-throw-error
+					throw thrown;
+				},
+			});
+			const error = await t.throwsAsync<ParseError>(useShortcut ? promise.json() : promise, {instanceOf: ParseError});
+
+			t.true(error.message.startsWith(`${String(thrown)} in `));
+			t.is(error.code, 'ERR_BODY_PARSE_FAILURE');
+			t.is(error.response.statusCode, 200);
+			t.is(error.response.body, '{}');
+		});
+	}
+}
+
+for (const thrown of [new Error('Parser failed'), {name: 'ParserError', message: 'Parser failed'}]) {
+	test(`custom JSON parser preserves ${thrown.name} as its cause`, withServer, async (t, server, got) => {
+		server.get('/', (_request, response) => {
+			response.end('{}');
+		});
+
+		const error = await t.throwsAsync<ParseError>(got('', {
+			parseJson() {
+				throw thrown;
+			},
+		}).json(), {instanceOf: ParseError});
+
+		t.is(error.cause, thrown);
+		t.true(error.message.startsWith('Parser failed in '));
+	});
+}
+
+test('text shortcuts consume only the encoding BOM', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.end('\uFEFF\uFEFFhello');
+	});
+	const request = got('');
+	const bytes = await request.buffer();
+	t.is(await request.text(), new TextDecoder().decode(bytes));
+	t.is(await request.text().text(), '\uFEFFhello');
+});
+
+for (const encoding of ['utf8', 'utf-8'] as const) { // eslint-disable-line unicorn/text-encoding-identifier-case -- Exercise both supported UTF-8 aliases.
+	test(`text shortcuts preserve content after the BOM with ${encoding}`, withServer, async (t, server, got) => {
+		server.get('/', (_request, response) => {
+			response.end('\uFEFF\uFEFFhello');
+		});
+
+		t.is(await got('', {encoding}).text(), '\uFEFFhello');
+	});
+}
+
+for (const body of ['', '\uFEFF', 'hello\uFEFFworld']) {
+	test(`text shortcuts preserve empty and embedded-BOM content ${JSON.stringify(body)}`, withServer, async (t, server, got) => {
+		server.get('/', (_request, response) => {
+			response.end(body);
+		});
+		const expected = body === '\uFEFF' ? '' : body;
+
+		t.is(await got('').text(), expected);
+	});
+}
+
+test('UTF-16 text shortcuts retain their existing BOM behavior', withServer, async (t, server, got) => {
+	const body = '\uFEFF\uFEFFhello';
+	server.get('/', (_request, response) => {
+		response.end(Buffer.from(body, 'utf16le'));
+	});
+
+	t.is(await got('', {encoding: 'utf16le'}).text(), body);
+});
+
+test('shortcuts parse the replacement response returned by an asynchronous handler', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.json({original: true});
+	});
+	const body = JSON.stringify({replacement: true});
+	const client = got.extend({
+		handlers: [async (options, next) => {
+			const response = await next(options);
+			return Object.assign(Object.create(response) as typeof response, {
+				body,
+				rawBody: new TextEncoder().encode(body),
+			});
+		}],
+	});
+	const promise = client('');
+
+	t.is((await promise).body, body);
+	t.deepEqual(await promise.json(), {replacement: true});
+	t.is(await promise.text(), body);
+	t.deepEqual(await promise.buffer(), new TextEncoder().encode(body));
+	t.is(await promise.json().text(), body);
+	t.deepEqual(await promise.buffer().json(), {replacement: true});
+});
+
+test('shortcuts use a parse error response recovered by a handler', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.end('invalid JSON');
+	});
+	const client = got.extend({
+		responseType: 'json',
+		handlers: [async (options, next) => {
+			try {
+				return await next(options);
+			} catch (error) {
+				if (error instanceof ParseError) {
+					return error.response as Awaited<ReturnType<typeof next>>;
+				}
+
+				throw error;
+			}
+		}],
+	});
+	const promise = client('');
+	const response = await promise;
+
+	t.is(response.body, 'invalid JSON');
+	t.is(await promise.text(), 'invalid JSON');
+	t.deepEqual(await promise.buffer(), new TextEncoder().encode('invalid JSON'));
+	const error = await t.throwsAsync<ParseError>(promise.json(), {instanceOf: ParseError});
+	t.is(error.response, response);
+});
+
+test('shortcuts do not treat body-only objects as handler replacement responses', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.json({original: true});
+	});
+	const promise = got('', {
+		resolveBodyOnly: true,
+		hooks: {
+			afterResponse: [response => {
+				response.body = {
+					request: response.request,
+					rawBody: new TextEncoder().encode('different content'),
+				};
+				return response;
+			}],
+		},
+	});
+
+	t.is(await promise.text(), JSON.stringify({original: true}));
+	t.deepEqual(await promise.json(), {original: true});
 });

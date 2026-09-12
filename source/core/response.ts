@@ -158,6 +158,8 @@ export const cacheDecodedBody = (response: PlainResponse, decodedBody: string): 
 export const parseBody = (response: Response, responseType: ResponseType, parseJson: ParseJsonFunction, encoding?: BufferEncoding): unknown => {
 	const {rawBody} = response;
 	const cachedDecodedBody = decodedBodyCache.get(response);
+	// Shortcuts must read the current bytes because callers can mutate `rawBody`.
+	decodedBodyCache.delete(response);
 
 	try {
 		if (responseType === 'text') {
@@ -165,7 +167,8 @@ export const parseBody = (response: Response, responseType: ResponseType, parseJ
 				return cachedDecodedBody;
 			}
 
-			return decodeUint8Array(rawBody, encoding);
+			// Match incremental decoding, including preservation of a leading BOM.
+			return Buffer.from(rawBody).toString(encoding);
 		}
 
 		if (responseType === 'json') {
@@ -173,7 +176,8 @@ export const parseBody = (response: Response, responseType: ResponseType, parseJ
 				return '';
 			}
 
-			const text = cachedDecodedBody ?? decodeUint8Array(rawBody, encoding);
+			// Match incremental decoding so custom parsers receive the same text, including a leading BOM.
+			const text = cachedDecodedBody ?? Buffer.from(rawBody).toString(encoding);
 			return parseJson(text);
 		}
 
@@ -181,7 +185,8 @@ export const parseBody = (response: Response, responseType: ResponseType, parseJ
 			return rawBody;
 		}
 	} catch (error) {
-		throw new ParseError(error as Error, response);
+		const normalizedError = error !== null && typeof error === 'object' ? error as Error : new Error(String(error));
+		throw new ParseError(normalizedError, response);
 	}
 
 	throw new ParseError({
