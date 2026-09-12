@@ -8,12 +8,101 @@ import is from '@sindresorhus/is';
 import type {Handler} from 'express';
 import getStream from 'get-stream';
 import {pEvent} from 'p-event';
-import got, {HTTPError, RequestError, TimeoutError} from '../source/index.js';
+import got, {
+	HTTPError, RequestError, TimeoutError, UploadError,
+} from '../source/index.js';
 import type Request from '../source/core/index.js';
 import withServer from './helpers/with-server.js';
 
 const retryAfterOn413 = 2;
 const socketTimeout = 300;
+
+test('failure to reopen an iterable upload rejects the retried request', withServer, async (t, server, got) => {
+	server.put('/', async (request, response) => {
+		await getStream(request);
+		response.statusCode = 503;
+		response.end();
+	});
+	const cause = new Error('Upload source is no longer available');
+	let iterations = 0;
+	const body = {
+		[Symbol.iterator]() {
+			if (++iterations > 1) {
+				throw cause;
+			}
+
+			return ['payload'][Symbol.iterator]();
+		},
+	};
+	const error = await t.throwsAsync<UploadError>(got.put('', {
+		body,
+		retry: {limit: 1, backoffLimit: 0, noise: 0},
+	}), {instanceOf: UploadError, message: cause.message});
+
+	t.is(error.cause, cause);
+	t.is(iterations, 2);
+});
+
+test('failure to reopen an async iterable upload rejects the retried request', withServer, async (t, server, got) => {
+	server.put('/', async (request, response) => {
+		await getStream(request);
+		response.statusCode = 503;
+		response.end();
+	});
+	const cause = new Error('Async upload source is no longer available');
+	let iterations = 0;
+	const body = {
+		[Symbol.asyncIterator]() {
+			if (++iterations > 1) {
+				throw cause;
+			}
+
+			return (async function * () {
+				yield 'payload';
+			})();
+		},
+	};
+	const error = await t.throwsAsync<UploadError>(got.put('', {
+		body,
+		retry: {limit: 1, backoffLimit: 0, noise: 0},
+	}), {instanceOf: UploadError, message: cause.message});
+
+	t.is(error.cause, cause);
+	t.is(iterations, 2);
+});
+
+for (const asynchronous of [false, true]) {
+	test(`retries open reusable upload sources only when sending with async ${asynchronous}`, withServer, async (t, server, got) => {
+		let requests = 0;
+		server.put('/', async (request, response) => {
+			const body = await getStream(request);
+			response.statusCode = ++requests === 1 ? 503 : 200;
+			response.end(body);
+		});
+		let iterations = 0;
+		const open = () => {
+			iterations++;
+			return ['payload'][Symbol.iterator]();
+		};
+
+		const body = asynchronous
+			? {
+				[Symbol.asyncIterator]() {
+					const iterator = open();
+					return {
+						async next() {
+							return iterator.next();
+						},
+					};
+				},
+			}
+			: {[Symbol.iterator]: open};
+
+		t.is(await got.put('', {body, retry: {limit: 1, backoffLimit: 0, noise: 0}}).text(), 'payload');
+		t.is(iterations, 2);
+		t.is(requests, 2);
+	});
+}
 
 const handler413: Handler = (_request, response) => {
 	response.writeHead(413, {
