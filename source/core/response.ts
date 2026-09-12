@@ -86,9 +86,11 @@ export type PlainResponse = {
 
 	If something has not been measured yet, it will be `undefined`.
 
+	The entire property is `undefined` for cached responses and responses returned directly by hooks or custom request functions without timing information.
+
 	__Note__: The time is a `number` representing the milliseconds elapsed since the UNIX epoch.
 	*/
-	timings: Timings;
+	timings?: Timings;
 
 	/**
 	The number of times the request was retried.

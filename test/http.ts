@@ -1,3 +1,4 @@
+import assert from 'node:assert/strict';
 import process from 'node:process';
 import {Buffer} from 'node:buffer';
 import {STATUS_CODES, Agent} from 'node:http';
@@ -219,7 +220,7 @@ test('the response contains timings property', withServer, async (t, server, got
 
 	const {timings} = await got('');
 
-	t.truthy(timings);
+	assert.ok(timings !== undefined);
 	t.true(timings.phases.total! >= 0);
 });
 

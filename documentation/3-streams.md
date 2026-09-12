@@ -444,9 +444,35 @@ The final URL after all redirects.
 
 ### `timings`
 
-**Type: [`Timings`](typescript.md#timings)**
+**Type: [`Timings`](typescript.md#timings) `| undefined`**
 
-The same as `request.timings`.
+The object contains the following properties:
+
+- `start` - Time when the request started.
+- `socket` - Time when a socket was assigned to the request.
+- `lookup` - Time when the DNS lookup finished.
+- `connect` - Time when the socket successfully connected.
+- `secureConnect` - Time when the socket securely connected.
+- `upload` - Time when the request finished uploading.
+- `response` - Time when the request fired `response` event.
+- `end` - Time when the response fired `end` event.
+- `error` - Time when the request fired `error` event.
+- `abort` - Time when the request fired `abort` event.
+- `phases`
+	- `wait` - `timings.socket - timings.start`
+	- `dns` - `timings.lookup - timings.socket`
+	- `tcp` - `timings.connect - timings.lookup`
+	- `tls` - `timings.secureConnect - timings.connect`
+	- `request` - `timings.upload - (timings.secureConnect || timings.connect)`
+	- `firstByte` - `timings.response - timings.upload`
+	- `download` - `timings.end - timings.response`
+	- `total` - `(timings.end || timings.error || timings.abort) - timings.start`
+
+If something has not been measured yet, it will be `undefined`.
+
+The entire property is `undefined` for cached responses and responses returned directly by hooks or custom request functions without timing information.
+
+__Note__: The time is a `number` representing the milliseconds elapsed since the UNIX epoch.
 
 ### `retryCount`
 

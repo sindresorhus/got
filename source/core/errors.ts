@@ -111,7 +111,6 @@ export class MaxRedirectsError extends RequestError {
 	override code = 'ERR_TOO_MANY_REDIRECTS';
 	declare readonly response: Response;
 	declare readonly request: Request;
-	declare readonly timings: Timings;
 
 	constructor(request: Request) {
 		super(`Redirected ${request.options.maxRedirects} times. Aborting.`, {}, request);
@@ -128,7 +127,6 @@ export class HTTPError<T = unknown> extends RequestError<T> {
 	override code = 'ERR_NON_2XX_3XX_RESPONSE';
 	declare readonly response: Response<T>;
 	declare readonly request: Request;
-	declare readonly timings: Timings;
 
 	constructor(response: PlainResponse) {
 		super(`Request failed with status code ${response.statusCode} (${response.statusMessage!}): ${response.request.options.method} ${stripUrlAuth(response.request.options.url!)}`, {}, response.request, response);
@@ -188,7 +186,6 @@ export class ReadError extends RequestError {
 	override code = 'ERR_READING_RESPONSE_STREAM';
 	declare readonly request: Request;
 	declare readonly response: Response;
-	declare readonly timings: Timings;
 
 	constructor(error: Error, request: Request) {
 		super(error.message, error, request);

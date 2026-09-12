@@ -1,9 +1,12 @@
+import assert from 'node:assert/strict';
 import http from 'node:http';
 import {PassThrough} from 'node:stream';
 import {promises as dnsPromises} from 'node:dns';
 import test from 'ava';
-import got from '../source/index.js';
+import {expectTypeOf} from 'expect-type';
+import got, {HTTPError} from '../source/index.js';
 import DnsCache from '../source/core/utils/dns-cache.js';
+import type {Timings} from '../source/core/utils/timer.js';
 import createHttp2TestServer from './helpers/create-http2-test-server.js';
 import withServer from './helpers/with-server.js';
 
@@ -13,6 +16,7 @@ test('http/1 timings', withServer, async (t, server, got) => {
 	});
 
 	const {timings} = await got('');
+	assert.ok(timings !== undefined);
 
 	t.true(timings.start >= 0);
 	t.true(timings.socket! >= 0);
@@ -49,6 +53,8 @@ test('http/2 timings', async t => {
 				rejectUnauthorized: false,
 			},
 		});
+
+		assert.ok(timings !== undefined);
 
 		// These timings are available even for HTTP/2
 		t.true(timings.start >= 0);
@@ -150,6 +156,7 @@ test('dns timing is 0 for IP addresses', withServer, async (t, server) => {
 	const address = server.http.address() as {address: string; family: string; port: number};
 	const host = address.family === 'IPv6' ? `[${address.address}]` : address.address;
 	const {timings} = await got(`http://${host}:${server.port}/`);
+	assert.ok(timings !== undefined);
 
 	// When connecting to an IP address, there is no DNS lookup
 	t.is(timings.phases.dns, 0);
@@ -205,6 +212,7 @@ test('cached DNS lookups reuse resolved addresses in timing requests', withServe
 	t.is(resolve6CallCount, 1);
 
 	for (const {timings} of responses) {
+		assert.ok(timings !== undefined);
 		t.true(Number.isFinite(timings.socket));
 		t.true(Number.isFinite(timings.lookup));
 		t.true(Number.isFinite(timings.connect));
@@ -237,6 +245,7 @@ test('redirect timings preserve connection timings from initial request', withSe
 
 	const response = await got('');
 	const {timings} = response;
+	assert.ok(timings !== undefined);
 
 	// Verify the response went through redirects
 	t.is(response.redirectUrls.length, 2);
@@ -261,7 +270,53 @@ test('redirect timings preserve connection timings from initial request', withSe
 	t.true(timings.phases.tcp! >= 0);
 
 	// Verify basic timing chronology
-	t.true(response.timings.start <= response.timings.socket!);
-	t.true(response.timings.socket! <= response.timings.response!);
-	t.true(response.timings.response! <= response.timings.end!);
+	t.true(timings.start <= timings.socket!);
+	t.true(timings.socket! <= timings.response!);
+	t.true(timings.response! <= timings.end!);
+});
+
+test('cached responses can omit network timings', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.setHeader('cache-control', 'public, max-age=60');
+		response.end('cached content');
+	});
+	const cache = new Map();
+	const first = await got('', {cache});
+	const cached = await got('', {cache});
+
+	t.truthy(first.timings);
+	t.true(cached.isFromCache);
+	t.is(cached.timings, undefined);
+	expectTypeOf(cached.timings).toEqualTypeOf<Timings | undefined>();
+});
+
+for (const useHook of [false, true]) {
+	test(`native responses can omit network timings with beforeRequest=${useHook}`, withServer, async (t, server, got) => {
+		server.get('/', (_request, response) => {
+			response.end('native content');
+		});
+		const makeResponse = async () => new Promise<http.IncomingMessage>((resolve, reject) => {
+			http.get(server.url, resolve).once('error', reject);
+		});
+		const response = await got('', useHook ? {hooks: {beforeRequest: [makeResponse]}} : {request: makeResponse});
+
+		t.is(response.body, 'native content');
+		t.is(response.timings, undefined);
+		expectTypeOf(response.timings).toEqualTypeOf<Timings | undefined>();
+	});
+}
+
+test('HTTP errors from native responses can omit network timings', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.status(400).end('native error');
+	});
+	const error = await t.throwsAsync<HTTPError>(got('', {
+		request: async () => new Promise<http.IncomingMessage>((resolve, reject) => {
+			http.get(server.url, resolve).once('error', reject);
+		}),
+	}), {instanceOf: HTTPError});
+
+	t.is(error.response.body, 'native error');
+	t.is(error.timings, undefined);
+	expectTypeOf(error.timings).toEqualTypeOf<Timings | undefined>();
 });
