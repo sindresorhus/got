@@ -712,7 +712,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			let data;
 
 			while ((data = response.read()) !== null) {
-				this._downloadedSize += data.length; // eslint-disable-line @typescript-eslint/restrict-plus-operands
+				this._downloadedSize += typeof data === 'string' ? Buffer.byteLength(data, response.readableEncoding ?? undefined) : byteLength(data);
 
 				if (this._incrementalDecode) {
 					try {

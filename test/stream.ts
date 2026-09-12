@@ -1619,6 +1619,86 @@ test('completed streams do not become aborted when their former signal is cancel
 	t.false(request.isAborted);
 });
 
+test('UTF-8 decoded responses retain byte-accurate download accounting', withServer, async (t, server, got) => {
+	const body = '€🙂';
+	server.get('/', (_request, response) => {
+		response.setHeader('content-length', Buffer.byteLength(body));
+		response.end(body);
+	});
+	const request = got.stream('', {strictContentLength: true});
+	request.on('response', response => {
+		response.setEncoding('utf8');
+	});
+
+	t.is(await getStream(request), body);
+	t.deepEqual(request.downloadProgress, {percent: 1, transferred: 7, total: 7});
+});
+
+test('decoded response progress counts UTF-8 bytes across split characters', withServer, async (t, server, got) => {
+	const body = 'é🙂漢';
+	const bytes = Buffer.from(body);
+	server.get('/', async (_request, response) => {
+		response.setHeader('content-length', bytes.length);
+		response.write(bytes.subarray(0, 4));
+		await delay(5);
+		response.end(bytes.subarray(4));
+	});
+	const request = got.stream('');
+	const transferred: number[] = [];
+	request.on('response', response => {
+		response.setEncoding('utf8');
+	});
+	request.on('downloadProgress', progress => {
+		transferred.push(progress.transferred);
+	});
+
+	t.is(await getStream(request), body);
+	t.is(request.downloadProgress.total, 9);
+	t.is(request.downloadProgress.transferred, 9);
+	t.is(transferred.at(-1), 9);
+	t.true(transferred.every(value => value >= 0 && value <= 9));
+});
+
+test('decoded truncated responses still report the actual UTF-8 byte count', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.shouldKeepAlive = false;
+		response.setHeader('content-length', 7);
+		response.end('€');
+	});
+	const request = got.stream('', {strictContentLength: true, retry: {limit: 0}});
+	request.on('response', response => {
+		response.setEncoding('utf8');
+	});
+
+	await t.throwsAsync(getStream(request), {
+		code: 'ERR_HTTP_CONTENT_LENGTH_MISMATCH',
+		message: 'Content-Length mismatch: expected 7 bytes, received 3 bytes',
+	});
+	t.is(request.downloadProgress.transferred, 3);
+});
+
+test('custom native response decoding preserves promise body bytes and progress', withServer, async (t, server, got) => {
+	const body = '€🙂';
+	server.get('/', (_request, response) => {
+		response.setHeader('content-length', Buffer.byteLength(body));
+		response.end(body);
+	});
+	const response = await got('', {
+		strictContentLength: true,
+		request(url, options) {
+			const request = httpRequest(url, options);
+			request.once('response', response => {
+				response.setEncoding('utf8');
+			});
+			return request;
+		},
+	});
+
+	t.is(response.body, body);
+	t.deepEqual(response.rawBody, new Uint8Array(Buffer.from(body)));
+	t.deepEqual(response.request.downloadProgress, {percent: 1, transferred: 7, total: 7});
+});
+
 const createBufferedResponse = () => {
 	let produced = 0;
 	const response = new IncomingMessage(new Socket());
@@ -1723,3 +1803,37 @@ test('custom response errors still propagate while the consumer is paused', with
 	t.is(source.produced, producedBeforeError);
 	t.true(request.destroyed);
 });
+
+test('Latin1 decoded responses retain their original byte count', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.setHeader('content-length', 1);
+		response.end(Buffer.from([0xFF]));
+	});
+	const request = got.stream('', {strictContentLength: true});
+	request.on('response', response => {
+		response.setEncoding('latin1');
+	});
+
+	t.is(await getStream(request), 'ÿ');
+	t.deepEqual(request.downloadProgress, {percent: 1, transferred: 1, total: 1});
+});
+
+for (const {encoding, body, expectedText} of [
+	{encoding: 'utf16le', body: Buffer.from('€🙂', 'utf16le'), expectedText: '€🙂'},
+	{encoding: 'base64', body: Buffer.from([0xFF, 0, 1, 2]), expectedText: '/wABAg=='},
+	{encoding: 'hex', body: Buffer.from([0, 0xFF]), expectedText: '00ff'},
+] as const) {
+	test(`${encoding} decoded responses retain their original byte count`, withServer, async (t, server, got) => {
+		server.get('/', (_request, response) => {
+			response.setHeader('content-length', body.length);
+			response.end(body);
+		});
+		const request = got.stream('', {strictContentLength: true});
+		request.on('response', response => {
+			response.setEncoding(encoding);
+		});
+
+		t.is(await getStream(request), expectedText);
+		t.deepEqual(request.downloadProgress, {percent: 1, transferred: body.length, total: body.length});
+	});
+}
