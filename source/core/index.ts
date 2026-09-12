@@ -634,6 +634,10 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 					// 4. We cannot use the normal setter after destroy() because it validates stream readability
 					try {
 						if (bodyWasReassigned) {
+							if (!changedState.has('content-length')) {
+								this._refreshBodySize(this.options);
+							}
+
 							const oldBody = bodyBeforeHooks;
 							// Temporarily clear body to prevent destroy() from destroying the new stream
 							this.options.body = undefined;
@@ -1451,14 +1455,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 				// Hook-replaced bodies must update the inherited Content-Length unless the hook set one explicitly.
 				if (!bodyUnchangedByHooks && !changedState.has('content-length') && !is.undefined(updatedOptions.body)) {
-					const newBodySize = is.undefined(updatedOptions.getInternalHeaders()['transfer-encoding']) ? getBodySize(updatedOptions.body, undefined) : undefined;
-					if (newBodySize === undefined) {
-						updatedOptions.deleteInternalHeader('content-length');
-					} else {
-						updatedOptions.setInternalHeader('content-length', String(newBodySize));
-					}
-
-					this._bodySize = newBodySize;
+					this._refreshBodySize(updatedOptions);
 				}
 
 				// Publish redirect event
@@ -2033,6 +2030,17 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			&& !changedState.has('form')
 			&& this._hasBodyForRedirect(options)
 			&& isBodyUnchanged(options, state);
+	}
+
+	private _refreshBodySize(options: Options): void {
+		const bodySize = is.undefined(options.body) || !is.undefined(options.getInternalHeaders()['transfer-encoding']) ? undefined : getBodySize(options.body, undefined);
+		if (bodySize === undefined) {
+			options.deleteInternalHeader('content-length');
+		} else {
+			options.setInternalHeader('content-length', String(bodySize));
+		}
+
+		this._bodySize = bodySize;
 	}
 
 	private _dropBody(updatedOptions: Options) {

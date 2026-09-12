@@ -1,5 +1,5 @@
 import {EventEmitter} from 'node:events';
-import {PassThrough as PassThroughStream} from 'node:stream';
+import {PassThrough as PassThroughStream, Readable} from 'node:stream';
 import type {Socket} from 'node:net';
 import http from 'node:http';
 import https from 'node:https';
@@ -16,6 +16,108 @@ import withServer from './helpers/with-server.js';
 
 const retryAfterOn413 = 2;
 const socketTimeout = 300;
+
+test('beforeRetry body replacement updates the generated content length', withServer, async (t, server, got) => {
+	let requests = 0;
+	server.put('/', async (request, response) => {
+		if (++requests === 1) {
+			await getStream(request);
+			response.statusCode = 503;
+			response.end();
+			return;
+		}
+
+		response.end(request.headers['content-length']);
+	});
+
+	const body = await got.put('', {
+		body: 'original payload',
+		retry: {limit: 1, backoffLimit: 0, noise: 0},
+		hooks: {
+			beforeRetry: [error => {
+				error.options.body = 'new';
+			}],
+		},
+	}).text();
+
+	t.is(body, '3');
+	t.is(requests, 2);
+});
+
+for (const {name, createBody, expectedBody, expectedLength} of [
+	{
+		name: 'UTF-8 text', createBody: () => '€🙂', expectedBody: '€🙂', expectedLength: '7',
+	},
+	{
+		name: 'a byte view', createBody: () => new Uint8Array([0, 110, 101, 119, 0]).subarray(1, 4), expectedBody: 'new', expectedLength: '3',
+	},
+	{
+		name: 'empty text', createBody: () => '', expectedBody: '', expectedLength: '0',
+	},
+	{
+		name: 'an unknown-length stream', createBody: () => Readable.from(['new', ' payload']), expectedBody: 'new payload', expectedLength: undefined,
+	},
+	{
+		name: 'no body', createBody: () => undefined, expectedBody: '', expectedLength: '0',
+	},
+]) {
+	test(`beforeRetry refreshes body framing for ${name}`, withServer, async (t, server, got) => {
+		let requests = 0;
+		server.put('/', async (request, response) => {
+			const body = await getStream(request);
+			if (++requests === 1) {
+				t.is(body, 'original payload');
+				response.writeHead(503).end();
+				return;
+			}
+
+			response.json({body, contentLength: request.headers['content-length']});
+		});
+
+		const result = await got.put('', {
+			body: 'original payload',
+			retry: {limit: 1, backoffLimit: 0, noise: 0},
+			timeout: {request: 1000},
+			hooks: {
+				beforeRetry: [error => {
+					error.options.body = createBody();
+				}],
+			},
+		}).json<{body: string; contentLength?: string}>();
+
+		t.is(result.body, expectedBody);
+		t.is(result.contentLength, expectedLength);
+		t.is(requests, 2);
+	});
+}
+
+test('beforeRetry preserves explicitly reassigned content length for a stream', withServer, async (t, server, got) => {
+	let requests = 0;
+	server.put('/', async (request, response) => {
+		const body = await getStream(request);
+		if (++requests === 1) {
+			response.writeHead(503).end();
+			return;
+		}
+
+		response.json({body, contentLength: request.headers['content-length']});
+	});
+
+	const result = await got.put('', {
+		body: 'original payload',
+		retry: {limit: 1, backoffLimit: 0, noise: 0},
+		hooks: {
+			beforeRetry: [error => {
+				error.options.body = Readable.from(['replacement body']);
+				// Reassigning the same value still explicitly supplies the stream length.
+				error.options.headers['content-length'] = '16';
+			}],
+		},
+	}).json<{body: string; contentLength: string}>();
+
+	t.deepEqual(result, {body: 'replacement body', contentLength: '16'});
+	t.is(requests, 2);
+});
 
 test('failure to reopen an iterable upload rejects the retried request', withServer, async (t, server, got) => {
 	server.put('/', async (request, response) => {

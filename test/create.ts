@@ -590,6 +590,126 @@ test('async handlers', withServer, async (t, server, got) => {
 	t.is(responseEventCount, 1);
 });
 
+test('async handler upload streams are not retried after being consumed', withServer, async (t, server, got) => {
+	const uploads: string[] = [];
+	server.put('/', async (request, response) => {
+		uploads.push(await getStream(request));
+		response.statusCode = uploads.length === 1 ? 503 : 200;
+		response.end('done');
+	});
+	const client = got.extend({
+		handlers: [async (options, next) => {
+			await Promise.resolve();
+			options.body = new ReadableStream({
+				start(controller) {
+					controller.enqueue(new TextEncoder().encode('uploaded body'));
+					controller.close();
+				},
+			});
+			return next(options);
+		}],
+	});
+
+	await t.throwsAsync(client.put('', {retry: {limit: 1, backoffLimit: 0, noise: 0}}), {message: 'Cannot retry with consumed body stream'});
+	t.deepEqual(uploads, ['uploaded body']);
+});
+
+for (const bodyType of ['node stream', 'async iterator'] as const) {
+	test(`async handler ${bodyType} bodies are not replayed after consumption`, withServer, async (t, server, got) => {
+		const uploads: string[] = [];
+		server.put('/', async (request, response) => {
+			uploads.push(await getStream(request));
+			response.statusCode = uploads.length === 1 ? 503 : 200;
+			response.end();
+		});
+		async function * generate() {
+			yield 'uploaded body';
+		}
+
+		const client = got.extend({
+			handlers: [async (options, next) => {
+				await Promise.resolve();
+				options.body = bodyType === 'node stream' ? Readable.from(['uploaded body']) : generate();
+				return next(options);
+			}],
+		});
+
+		await t.throwsAsync(client.put('', {retry: {limit: 1, backoffLimit: 0, noise: 0}}), {message: 'Cannot retry with consumed body stream'});
+		t.deepEqual(uploads, ['uploaded body']);
+	});
+}
+
+test('beforeRequest stream bodies are not replayed after consumption', withServer, async (t, server, got) => {
+	const uploads: string[] = [];
+	server.put('/', async (request, response) => {
+		uploads.push(await getStream(request));
+		response.statusCode = uploads.length === 1 ? 503 : 200;
+		response.end();
+	});
+	let beforeRequestCalls = 0;
+	await t.throwsAsync(got.put('', {
+		body: 'original body',
+		retry: {limit: 1, backoffLimit: 0, noise: 0},
+		hooks: {
+			beforeRequest: [options => {
+				beforeRequestCalls++;
+				options.body = Readable.from(['uploaded body']);
+			}],
+		},
+	}), {message: 'Cannot retry with consumed body stream'});
+
+	t.deepEqual(uploads, ['uploaded body']);
+	t.is(beforeRequestCalls, 1);
+});
+
+test('beforeRetry can replace an async handler stream with a fresh upload', withServer, async (t, server, got) => {
+	const uploads: string[] = [];
+	server.put('/', async (request, response) => {
+		uploads.push(await getStream(request));
+		response.statusCode = uploads.length === 1 ? 503 : 200;
+		response.end('done');
+	});
+	let handlerCalls = 0;
+	const client = got.extend({
+		handlers: [async (options, next) => {
+			handlerCalls++;
+			await Promise.resolve();
+			options.body = Readable.from(['original body']);
+			return next(options);
+		}],
+	});
+
+	t.is(await client.put('', {
+		retry: {limit: 1, backoffLimit: 0, noise: 0},
+		hooks: {
+			beforeRetry: [error => {
+				error.options.body = Readable.from(['replacement body']);
+			}],
+		},
+	}).text(), 'done');
+	t.deepEqual(uploads, ['original body', 'replacement body']);
+	t.is(handlerCalls, 1);
+});
+
+test('async handlers can supply replayable bodies for retries', withServer, async (t, server, got) => {
+	const uploads: string[] = [];
+	server.put('/', async (request, response) => {
+		uploads.push(await getStream(request));
+		response.statusCode = uploads.length === 1 ? 503 : 200;
+		response.end('done');
+	});
+	const client = got.extend({
+		handlers: [async (options, next) => {
+			await Promise.resolve();
+			options.body = ['replayable ', 'body'];
+			return next(options);
+		}],
+	});
+
+	t.is(await client.put('', {retry: {limit: 1, backoffLimit: 0, noise: 0}}).text(), 'done');
+	t.deepEqual(uploads, ['replayable body', 'replayable body']);
+});
+
 test('async handlers can throw', async t => {
 	const message = 'meh';
 

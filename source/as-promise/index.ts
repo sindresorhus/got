@@ -228,7 +228,11 @@ export default function asPromise<T>(firstRequest?: Request): RequestPromise<T> 
 			// See https://github.com/sindresorhus/got/issues/1995
 			request.on('error', onError);
 
-			const previousBody = request.options?.body;
+			let previousBody = request.options?.body;
+			request.on('request', () => {
+				// Async handlers and beforeRequest hooks can supply the body after this Promise was created.
+				previousBody = request.options.body;
+			});
 
 			request.once('retry', (newRetryCount: number, error: RequestError) => {
 				firstRequest = undefined;
