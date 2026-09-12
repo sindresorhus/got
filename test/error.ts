@@ -506,6 +506,51 @@ test.serial('custom stack trace', withServer, async (t, _server, got) => {
 	}
 });
 
+test('RequestError accepts a partial cause with a stack and no message', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.end('response');
+	});
+
+	const {request} = await got('');
+	const cause: Partial<Error> = {};
+	Error.captureStackTrace(cause);
+
+	const error = new RequestError('Request failed', cause, request);
+
+	t.is(error.message, 'Request failed');
+	t.is(error.cause, cause);
+	t.is(error.request, request);
+	t.true(error.stack.includes('Request failed'));
+});
+
+for (const message of [undefined, '', 'Original failure']) {
+	test(`RequestError preserves cause stacks with message ${JSON.stringify(message)}`, t => {
+		const cause = {
+			message,
+			code: 'E_CUSTOM',
+			stack: `Error${message ? `: ${message}` : ''}\n    at originalOperation (original.js:10:2)`,
+		};
+		const error = new RequestError('Wrapped failure', cause, got.defaults.options);
+
+		t.is(error.message, 'Wrapped failure');
+		t.is(error.code, 'E_CUSTOM');
+		t.is(error.cause, cause);
+		t.is(error.options, got.defaults.options);
+		t.true(error.stack.startsWith('RequestError: Wrapped failure\n'));
+		t.true(error.stack.endsWith('\n    at originalOperation (original.js:10:2)'));
+	});
+}
+
+test('RequestError accepts a cause without a message or stack', t => {
+	const cause = {code: 'E_CUSTOM'};
+	const error = new RequestError('Wrapped failure', cause, got.defaults.options);
+
+	t.is(error.message, 'Wrapped failure');
+	t.is(error.code, 'E_CUSTOM');
+	t.is(error.cause, cause);
+	t.true(error.stack.startsWith('RequestError: Wrapped failure\n'));
+});
+
 test('Web stream read failures are upload errors and do not trigger network retries', withServer, async (t, server, got) => {
 	const cause = Object.assign(new Error('Upload source failed'), {code: 'ECONNRESET'});
 	let controller: ReadableStreamDefaultController<Uint8Array>;
@@ -657,4 +702,93 @@ test('Node bodies supplied by beforeRequest report source failures as upload err
 
 	t.is(error.cause, cause);
 	t.is(sourceErrors, 1);
+});
+
+test('HTTPError binds the response supplied to its constructor', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.end('original');
+	});
+
+	const response = await got('');
+	const replacement = Object.assign(Object.create(response) as typeof response, {statusCode: 409, body: 'replacement'});
+	const error = new HTTPError(replacement);
+
+	t.is(error.response.statusCode, 409);
+	t.is(error.response.body, 'replacement');
+	t.is(error.response, replacement);
+	t.is(error.request, response.request);
+	t.is(response.request.response, response);
+});
+
+test('ParseError binds its supplied response without exposing it during enumeration', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.end('original');
+	});
+
+	const response = await got('');
+	const replacement = Object.assign(Object.create(response) as typeof response, {body: 'invalid JSON'});
+	const cause = new SyntaxError('Parsing failed');
+	const error = new ParseError(cause, replacement);
+
+	t.is(error.response, replacement);
+	t.is(error.response.body, 'invalid JSON');
+	t.is(error.cause, cause);
+	t.is(error.request, response.request);
+	t.is(response.request.response, response);
+	t.false(Object.prototype.propertyIsEnumerable.call(error, 'response'));
+});
+
+for (const throwHttpErrors of [true, false]) {
+	test(`hook HTTP errors retain their supplied response with throwHttpErrors ${throwHttpErrors}`, withServer, async (t, server, got) => {
+		server.get('/', (_request, response) => {
+			response.end('original');
+		});
+
+		const body = 'Application conflict';
+		const promise = got('', {
+			throwHttpErrors,
+			retry: {limit: 0},
+			hooks: {
+				afterResponse: [response => {
+					const replacement = Object.assign(Object.create(response) as typeof response, {
+						statusCode: 409,
+						body,
+						rawBody: new TextEncoder().encode(body),
+					});
+					throw new HTTPError(replacement);
+				}],
+			},
+		});
+		const response = throwHttpErrors
+			? (await t.throwsAsync<HTTPError>(promise, {instanceOf: HTTPError})).response
+			: await promise;
+
+		t.is(response.statusCode, 409);
+		t.is(response.body, body);
+		if (!throwHttpErrors) {
+			t.is(await promise.text(), body);
+		}
+	});
+}
+
+test('hook parse errors retain their supplied response and cause', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.end('original');
+	});
+
+	const cause = new SyntaxError('Application parsing failed');
+	let replacement: Response | undefined;
+	const error = await t.throwsAsync<ParseError>(got('', {
+		hooks: {
+			afterResponse: [response => {
+				const updatedResponse = Object.assign(Object.create(response) as typeof response, {body: 'invalid JSON'});
+				replacement = updatedResponse;
+				throw new ParseError(cause, updatedResponse);
+			}],
+		},
+	}), {instanceOf: ParseError});
+
+	t.is(replacement, error.response);
+	t.is(error.response.body, 'invalid JSON');
+	t.is(error.cause, cause);
 });

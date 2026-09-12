@@ -147,7 +147,7 @@ export class ParseError extends RequestError {
 
 	constructor(error: Error, response: Response) {
 		const {options} = response.request;
-		super(`${error.message} in "${stripUrlAuth(options.url!)}"`, error, response.request);
+		super(`${error.message} in "${stripUrlAuth(options.url!)}"`, error, response.request, response);
 	}
 }
 

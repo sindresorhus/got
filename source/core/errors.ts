@@ -27,7 +27,7 @@ export class RequestError<T = unknown> extends Error {
 	readonly request?: Request;
 	readonly timings?: Timings;
 
-	constructor(message: string, error: Partial<Error & {code?: string}>, self: Request | Options) {
+	constructor(message: string, error: Partial<Error & {code?: string}>, self: Request | Options, response?: PlainResponse) {
 		super(message, {cause: error});
 		Error.captureStackTrace(this, this.constructor);
 
@@ -45,7 +45,7 @@ export class RequestError<T = unknown> extends Error {
 
 			Object.defineProperty(this, 'response', {
 				enumerable: false,
-				value: self.response,
+				value: response ?? self.response,
 			});
 
 			this.options = self.options;
@@ -59,7 +59,10 @@ export class RequestError<T = unknown> extends Error {
 		if (is.string(error.stack) && is.string(this.stack)) {
 			const indexOfMessage = this.stack.indexOf(this.message) + this.message.length;
 			const thisStackTrace = this.stack.slice(indexOfMessage).split('\n').toReversed();
-			const errorStackTrace = error.stack.slice(error.stack.indexOf(error.message!) + error.message!.length).split('\n').toReversed();
+			const originalStack = is.string(error.message)
+				? error.stack.slice(error.stack.indexOf(error.message) + error.message.length)
+				: `\n${error.stack}`;
+			const errorStackTrace = originalStack.split('\n').toReversed();
 
 			// Remove duplicated traces
 			while (errorStackTrace.length > 0 && errorStackTrace[0] === thisStackTrace[0]) {
@@ -100,7 +103,7 @@ export class HTTPError<T = unknown> extends RequestError<T> {
 	declare readonly timings: Timings;
 
 	constructor(response: PlainResponse) {
-		super(`Request failed with status code ${response.statusCode} (${response.statusMessage!}): ${response.request.options.method} ${stripUrlAuth(response.request.options.url!)}`, {}, response.request);
+		super(`Request failed with status code ${response.statusCode} (${response.statusMessage!}): ${response.request.options.method} ${stripUrlAuth(response.request.options.url!)}`, {}, response.request, response);
 	}
 }
 
@@ -137,6 +140,7 @@ Includes an `event` and `timings` property.
 */
 export class TimeoutError extends RequestError {
 	override name = 'TimeoutError';
+	override code = 'ETIMEDOUT';
 	declare readonly request: Request;
 	override readonly timings: Timings;
 	readonly event: string;
@@ -188,5 +192,8 @@ export class AbortError extends RequestError {
 
 	constructor(request: Request) {
 		super('This operation was aborted.', {}, request);
+		if (request.options?.signal?.aborted) {
+			this.cause = request.options.signal.reason;
+		}
 	}
 }

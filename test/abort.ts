@@ -9,7 +9,7 @@ import getStream from 'get-stream';
 import {pEvent} from 'p-event';
 import type {Handler} from 'express';
 import {createSandbox} from 'sinon';
-import got, {type Progress} from '../source/index.js';
+import got, {AbortError, TimeoutError, type Progress} from '../source/index.js';
 import Request from '../source/core/index.js';
 import slowDataStream from './helpers/slow-data-stream.js';
 import type {GlobalClock} from './helpers/types.js';
@@ -606,7 +606,7 @@ test('support setting the signal as a default option', async t => {
 	t.true(signalHandlersRemoved(), 'Abort signal event handlers not removed');
 });
 
-const timeoutErrorCode = 23;
+const timeoutErrorCode = 'ETIMEDOUT';
 // See https://developer.mozilla.org/en-US/docs/Web/API/AbortSignal/timeout_static
 test('support AbortSignal.timeout()', async t => {
 	const signal = AbortSignal.timeout(1);
@@ -698,4 +698,83 @@ test('support AbortSignal.timeout() with user abort', async t => {
 	});
 
 	t.true(signalHandlersRemoved(), 'Abort signal event handlers not removed');
+});
+
+test('an already timed-out signal exposes the documented timeout error code', withServer, async (t, _server, got) => {
+	const reason = new DOMException('Deadline reached', 'TimeoutError');
+	const signal = AbortSignal.abort(reason);
+	const error = await t.throwsAsync<TimeoutError>(got('', {signal}), {instanceOf: TimeoutError});
+
+	t.is(error.code, 'ETIMEDOUT');
+	t.is(error.cause, reason);
+});
+
+for (const streamMode of [false, true]) {
+	test(`active timeout signals retain their cause and timeout code in stream mode ${streamMode}`, withServer, async (t, server, got) => {
+		server.get('/', () => {});
+		const signal = AbortSignal.timeout(20);
+		const result = streamMode ? getStream(got.stream('', {signal})) : got('', {signal});
+		const error = await t.throwsAsync<TimeoutError>(result, {instanceOf: TimeoutError});
+
+		t.is(error.code, 'ETIMEDOUT');
+		t.is(error.cause, signal.reason);
+		t.is(error.name, 'TimeoutError');
+	});
+}
+
+test('ordinary AbortSignals retain their supplied cause', withServer, async (t, _server, got) => {
+	const cause = new Error('Cancelled by the caller');
+	const error = await t.throwsAsync<AbortError>(got('', {
+		signal: AbortSignal.abort(cause),
+	}), {instanceOf: AbortError});
+
+	t.is(error.cause, cause);
+});
+
+const abortReasons = [
+	['Error', Object.assign(new Error('Caller cancellation'), {code: 'ECONNRESET'})],
+	['string', 'Caller cancellation'],
+	['object', {message: 'Caller cancellation', code: 'ECONNRESET'}],
+	['null', null],
+] as const;
+
+for (const [label, reason] of abortReasons) {
+	for (const streamMode of [false, true]) {
+		test(`active aborts preserve ${label} reasons in stream mode ${streamMode}`, withServer, async (t, server, got) => {
+			const controller = new AbortController();
+			server.get('/', () => {
+				controller.abort(reason);
+			});
+
+			const options = {signal: controller.signal};
+			const result = streamMode ? getStream(got.stream('', options)) : got('', options);
+			const error = await t.throwsAsync<AbortError>(result, {
+				instanceOf: AbortError,
+				code: 'ERR_ABORTED',
+				message: 'This operation was aborted.',
+			});
+
+			t.is(error.cause, reason);
+			t.false(Object.prototype.propertyIsEnumerable.call(error, 'cause'));
+		});
+	}
+}
+
+test('abort without an explicit reason retains the default DOMException', withServer, async (t, _server, got) => {
+	const signal = AbortSignal.abort();
+	const error = await t.throwsAsync<AbortError>(got('', {signal}), {instanceOf: AbortError, code: 'ERR_ABORTED'});
+
+	t.is(error.cause, signal.reason);
+	t.true(error.cause instanceof DOMException);
+});
+
+test('AbortError without a signal preserves its existing cause and error code', withServer, (t, server) => {
+	const request = new Request(server.url);
+	request.destroy();
+	const error = new AbortError(request);
+
+	t.is(error.message, 'This operation was aborted.');
+	t.is(error.code, 'ERR_ABORTED');
+	t.deepEqual(error.cause, {});
+	t.is(error.request, request);
 });
