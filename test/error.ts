@@ -158,6 +158,104 @@ test('custom json body', withServer, async (t, server, got) => {
 	t.assert(error?.response.body.message === 'not found');
 });
 
+test('HTTP errors preserve the replacement response returned by a hook', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.end('original');
+	});
+
+	const error = await t.throwsAsync<HTTPError>(got('', {
+		retry: {limit: 0},
+		hooks: {
+			afterResponse: [response => Object.assign(Object.create(response) as typeof response, {statusCode: 400, body: 'application failure'})],
+		},
+	}), {instanceOf: HTTPError});
+
+	t.is(error.response.statusCode, 400);
+	t.is(error.response.body, 'application failure');
+});
+
+for (const resolveBodyOnly of [false, true]) {
+	test(`suppressed HTTP errors preserve replacement responses with resolveBodyOnly ${resolveBodyOnly}`, withServer, async (t, server, got) => {
+		server.get('/', (_request, response) => {
+			response.end('original');
+		});
+
+		const result = await got('', {
+			throwHttpErrors: false,
+			resolveBodyOnly,
+			retry: {limit: 0},
+			hooks: {
+				afterResponse: [response => Object.assign(Object.create(response) as typeof response, {statusCode: 400, body: 'application failure'})],
+			},
+		});
+
+		if (resolveBodyOnly) {
+			t.is(result, 'application failure');
+		} else {
+			const response = result as Response;
+			t.is(response.statusCode, 400);
+			t.is(response.body, 'application failure');
+			t.false(response.ok);
+		}
+	});
+}
+
+test('replacement response status codes control retries', withServer, async (t, server, got) => {
+	let requests = 0;
+	server.get('/', (_request, response) => {
+		requests++;
+		response.end('success');
+	});
+
+	const response = await got('', {
+		retry: {limit: 1, backoffLimit: 0, noise: 0},
+		hooks: {
+			afterResponse: [response => requests === 1
+				? Object.assign(Object.create(response) as typeof response, {statusCode: 503, body: 'retry'})
+				: response],
+		},
+	});
+
+	t.is(requests, 2);
+	t.is(response.body, 'success');
+	t.is(response.retryCount, 1);
+});
+
+test('successful replacement responses remain attached to their request', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.end('original');
+	});
+
+	const response = await got('', {
+		hooks: {
+			afterResponse: [response => Object.assign(Object.create(response) as typeof response, {body: 'replacement'})],
+		},
+	});
+
+	t.is(response.request.response, response);
+	t.is(response.body, 'replacement');
+});
+
+test('shortcut parse errors expose the replacement response', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.end('{}');
+	});
+
+	const promise = got('', {
+		hooks: {
+			afterResponse: [response => Object.assign(Object.create(response) as typeof response, {
+				body: 'replacement',
+				rawBody: new TextEncoder().encode('invalid JSON'),
+			})],
+		},
+	});
+	const response = await promise;
+	const error = await t.throwsAsync<ParseError>(promise.json(), {instanceOf: ParseError});
+
+	t.is(error.response, response);
+	t.is(error.response.body, 'replacement');
+});
+
 test('contains Got options', withServer, async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.statusCode = 404;

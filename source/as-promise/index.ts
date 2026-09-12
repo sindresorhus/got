@@ -49,6 +49,11 @@ export default function asPromise<T>(firstRequest?: Request): RequestPromise<T> 
 			request._noPipe = true;
 
 			globalRequest = request;
+			const setResponse = (response: Response): void => {
+				globalResponse = response;
+				request.response = response;
+				response.ok = isResponseOk(response);
+			};
 
 			request.once('response', (response: Response) => {
 				void (async () => {
@@ -82,7 +87,7 @@ export default function asPromise<T>(firstRequest?: Request): RequestPromise<T> 
 					try {
 						const hooks = options.hooks.afterResponse;
 
-						for (const [index, hook] of hooks.entries()) {
+						for (const hook of hooks) {
 							const previousUrl = options.url ? new URL(options.url) : undefined;
 							const previousBoundary = getUrlPrefixBoundary(options);
 							const previousState = previousUrl ? snapshotCrossOriginState(options) : undefined;
@@ -102,7 +107,9 @@ export default function asPromise<T>(firstRequest?: Request): RequestPromise<T> 
 								const clearsCookieJar = Object.hasOwn(updatedOptions, 'cookieJar') && updatedOptions.cookieJar === undefined;
 
 								if (hasExplicitBody && !reusesRequestOptions) {
+									const contentType = options.isHeaderExplicitlySet('content-type') ? options.headers['content-type'] : undefined;
 									options.clearBody();
+									options.setInternalHeader('content-type', contentType);
 								}
 
 								if (!reusesRequestOptions && clearsCookieJar) {
@@ -145,6 +152,10 @@ export default function asPromise<T>(firstRequest?: Request): RequestPromise<T> 
 										? options.url as URL
 										: applyUrlOverride(options, updatedOptions.url, updatedOptions);
 
+									if (!reusesRequestOptions && updatedOptions.searchParams !== undefined) {
+										options.searchParams = updatedOptions.searchParams;
+									}
+
 									if (previousUrl) {
 										if (reusesRequestOptions && !isSameOrigin(previousUrl, nextUrl)) {
 											options.stripUnchangedCrossOriginState(previousState!, changedState, {clearBody: !hasExplicitBody});
@@ -158,11 +169,10 @@ export default function asPromise<T>(firstRequest?: Request): RequestPromise<T> 
 									}
 								}
 
-								// Remove any further hooks for that request, because we'll call them anyway.
-								// The loop continues. We don't want duplicates (asPromise recursion).
-								// Unless preserveHooks is true, in which case we keep the remaining hooks.
+								// RetryError interrupts this loop, so skip all response hooks on the retry by default.
+								// preserveHooks explicitly opts into running the complete hook list again.
 								if (!preserveHooks) {
-									options.hooks.afterResponse = options.hooks.afterResponse.slice(0, index);
+									options.hooks.afterResponse = [];
 								}
 
 								throw new RetryError(request);
@@ -177,9 +187,9 @@ export default function asPromise<T>(firstRequest?: Request): RequestPromise<T> 
 						return;
 					}
 
-					globalResponse = response;
+					setResponse(response);
 
-					if (!isResponseOk(response)) {
+					if (!response.ok) {
 						request._beforeError(new HTTPError(response));
 						return;
 					}
@@ -213,6 +223,7 @@ export default function asPromise<T>(firstRequest?: Request): RequestPromise<T> 
 
 				if (error instanceof HTTPError && !options.throwHttpErrors) {
 					const {response} = error;
+					setResponse(response);
 
 					request.destroy();
 					resolve(options.resolveBodyOnly ? response.body as T : response as unknown as T);
