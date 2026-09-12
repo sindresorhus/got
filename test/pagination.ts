@@ -2869,6 +2869,58 @@ for (const relationParameter of ['rel="Next"', 'rel=NEXT', 'rel="next last"', 'r
 	});
 }
 
+test('a zero countLimit does not emit items or make a request', withServer, async (t, server, got) => {
+	let requests = 0;
+	server.get('/', (_request, response) => {
+		requests++;
+		response.end('[1, 2]');
+	});
+
+	const items = await got.paginate.all<number>('', {
+		pagination: {
+			countLimit: 0,
+		},
+	});
+
+	t.deepEqual(items, []);
+	t.is(requests, 0);
+});
+
+for (const countLimit of [0, -1]) {
+	test(`iterator skips pagination callbacks when countLimit is ${countLimit}`, withServer, async (t, _server, got) => {
+		const iterator = got.paginate.each('', {
+			pagination: {
+				countLimit,
+				transform: thrower,
+				filter: thrower,
+				shouldContinue: thrower,
+				paginate: thrower,
+			},
+		});
+
+		t.deepEqual(await iterator.next(), {value: undefined, done: true});
+	});
+}
+
+test('countLimit counts emitted items across filtered and empty pages', withServer, async (t, server, got) => {
+	const pages = [[1, 2], [], [3, 4, 5, 6]];
+	let requests = 0;
+	server.get('/', (_request, response) => {
+		response.end(JSON.stringify(pages[requests++]));
+	});
+
+	const items = await got.paginate.all<number>('', {
+		pagination: {
+			countLimit: 2,
+			filter: ({item}) => item % 2 === 0,
+			paginate: () => ({}),
+		},
+	});
+
+	t.deepEqual(items, [2, 4]);
+	t.is(requests, 3);
+});
+
 test('pagination supports buffer responses with the default transform', withServer, async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.end('["café", "🦄"]');
@@ -2945,6 +2997,83 @@ test('buffer pagination continues after an empty page', withServer, async (t, se
 	});
 
 	t.deepEqual(await got.paginate.all<number>('', {responseType: 'buffer'}), [1]);
+});
+
+test('aborting pagination interrupts the backoff before the next request', withServer, async (t, server, got) => {
+	let requests = 0;
+	server.get('/', (_request, response) => {
+		requests++;
+		response.setHeader('link', '</?page=2>; rel="next"');
+		response.end('[1]');
+	});
+
+	const controller = new AbortController();
+	const iterator = got.paginate<number>('', {
+		signal: controller.signal,
+		pagination: {backoff: 1000},
+	});
+
+	t.is((await iterator.next()).value, 1);
+	const next = iterator.next();
+	await delay(20);
+	controller.abort();
+	const start = Date.now();
+	await t.throwsAsync(next, {code: 'ERR_ABORTED'});
+
+	t.true(Date.now() - start < 500);
+	t.is(requests, 1);
+});
+
+test('pagination skips backoff when its signal was already aborted', withServer, async (t, server, got) => {
+	attachHandler(server, 2);
+	const controller = new AbortController();
+	const iterator = got.paginate<number>('', {
+		signal: controller.signal,
+		pagination: {backoff: 1000},
+	});
+
+	t.is((await iterator.next()).value, 1);
+	controller.abort();
+	const start = Date.now();
+
+	await t.throwsAsync(iterator.next(), {instanceOf: AbortError, code: 'ERR_ABORTED'});
+	t.true(Date.now() - start < 500);
+});
+
+test('pagination preserves timeout errors when backoff is aborted', withServer, async (t, server, got) => {
+	attachHandler(server, 2);
+	const controller = new AbortController();
+	const iterator = got.paginate<number>('', {
+		signal: controller.signal,
+		pagination: {backoff: 1000},
+	});
+
+	t.is((await iterator.next()).value, 1);
+	const next = iterator.next();
+	await delay(20);
+	controller.abort(new DOMException('The operation timed out', 'TimeoutError'));
+	const start = Date.now();
+
+	await t.throwsAsync(next, {instanceOf: TimeoutError, message: 'The operation timed out'});
+	t.true(Date.now() - start < 500);
+});
+
+test('pagination backoff observes a signal returned by paginate', withServer, async (t, server, got) => {
+	attachHandler(server, 2);
+	const controller = new AbortController();
+	const iterator = got.paginate<number>('', {
+		pagination: {
+			backoff: 1000,
+			paginate: () => ({signal: controller.signal}),
+		},
+	});
+
+	t.is((await iterator.next()).value, 1);
+	controller.abort();
+	const start = Date.now();
+
+	await t.throwsAsync(iterator.next(), {instanceOf: AbortError, code: 'ERR_ABORTED'});
+	t.true(Date.now() - start < 500);
 });
 
 test('pagination follows next links with empty list members', withServer, async (t, server, got) => {
@@ -3106,4 +3235,265 @@ test('custom text pagination transforms receive the original BOM', withServer, a
 	});
 
 	t.deepEqual(items, [body.length]);
+});
+
+test('pagination uses updated transforms from returned request options', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.end('[1]');
+	});
+	server.get('/next', (_request, response) => {
+		response.end('2');
+	});
+	const items = await got.paginate.all<number>('', {
+		pagination: {
+			paginate({response}) {
+				const {options} = response.request;
+				if (new URL(response.url).pathname === '/next') {
+					return false;
+				}
+
+				options.url = new URL('/next', response.url);
+				options.pagination.transform = response => [Number(response.body)];
+				return options;
+			},
+		},
+	});
+	t.deepEqual(items, [1, 2]);
+});
+
+test('returned request options update pagination filtering and continuation', withServer, async (t, server, got) => {
+	let requests = 0;
+	server.get('/', (_request, response) => {
+		requests++;
+		response.json(requests === 1 ? [1, 2, 3] : [4, 5, 6]);
+	});
+
+	const items = await got.paginate.all<number>('', {
+		pagination: {
+			requestLimit: 3,
+			paginate({response}) {
+				const {options} = response.request;
+				options.pagination = {
+					filter: ({item}) => Number(item) % 2 === 0,
+					shouldContinue: ({item}) => Number(item) < 6,
+				};
+				return options;
+			},
+		},
+	});
+
+	t.deepEqual(items, [1, 2, 3, 4]);
+	t.is(requests, 2);
+});
+
+test('returned request options update the next pagination callback', withServer, async (t, server, got) => {
+	let requests = 0;
+	server.get('/', (_request, response) => {
+		response.json([++requests]);
+	});
+	let paginateCalls = 0;
+
+	const items = await got.paginate.all<number>('', {
+		pagination: {
+			requestLimit: 3,
+			paginate({response}) {
+				paginateCalls++;
+				const {options} = response.request;
+				options.pagination.paginate = () => false;
+				return options;
+			},
+		},
+	});
+
+	t.deepEqual(items, [1, 2]);
+	t.is(paginateCalls, 1);
+	t.is(requests, 2);
+});
+
+test('returned request options can lower the remaining request limit', withServer, async (t, server, got) => {
+	attachHandler(server, 3);
+
+	const items = await got.paginate.all<number>('', {
+		pagination: {
+			requestLimit: 3,
+			paginate({response}) {
+				const {options} = response.request;
+				options.pagination.requestLimit = 1;
+				return options;
+			},
+		},
+	});
+
+	t.deepEqual(items, [1]);
+});
+
+test('returned pagination settings can lower the overall item limit', withServer, async (t, server, got) => {
+	let requests = 0;
+	server.get('/', (_request, response) => {
+		response.json(++requests === 1 ? [1] : [2, 3]);
+	});
+
+	const items = await got.paginate.all<number>('', {
+		pagination: {
+			requestLimit: 2,
+			paginate: () => ({pagination: {countLimit: 2}}),
+		},
+	});
+
+	t.deepEqual(items, [1, 2]);
+	t.is(requests, 2);
+});
+
+for (const countLimit of [0, 2]) {
+	test(`returned request options stop before another page when countLimit becomes ${countLimit}`, withServer, async (t, server, got) => {
+		let requests = 0;
+		server.get('/', (_request, response) => {
+			requests++;
+			response.json([1, 2]);
+		});
+
+		const items = await got.paginate.all<number>('', {
+			pagination: {
+				requestLimit: 2,
+				paginate({response}) {
+					response.request.options.pagination.countLimit = countLimit;
+					return response.request.options;
+				},
+			},
+		});
+
+		t.deepEqual(items, [1, 2]);
+		t.is(requests, 1);
+	});
+}
+
+test('returned pagination settings can raise the overall item limit', withServer, async (t, server, got) => {
+	let requests = 0;
+	server.get('/', (_request, response) => {
+		response.json(++requests === 1 ? [1] : [2, 3, 4, 5]);
+	});
+
+	const items = await got.paginate.all<number>('', {
+		pagination: {
+			countLimit: 2,
+			requestLimit: 2,
+			paginate: () => ({pagination: {countLimit: 4}}),
+		},
+	});
+
+	t.deepEqual(items, [1, 2, 3, 4]);
+	t.is(requests, 2);
+});
+
+test('updated item limits count only emitted items across empty pages', withServer, async (t, server, got) => {
+	let requests = 0;
+	const pages = [[1, 2], [], [3, 4, 5, 6, 7, 8]];
+	server.get('/', (_request, response) => {
+		response.json(pages[requests++]);
+	});
+
+	const items = await got.paginate.all<number>('', {
+		pagination: {
+			countLimit: 10,
+			requestLimit: 3,
+			stackAllItems: true,
+			filter: ({item}) => item % 2 === 0,
+			paginate({allItems}) {
+				t.deepEqual(allItems, [2]);
+				return {pagination: {countLimit: 3}};
+			},
+		},
+	});
+
+	t.deepEqual(items, [2, 4, 6]);
+	t.is(requests, 3);
+});
+
+test('refreshing pagination options preserves the overall emitted item limit', withServer, async (t, server, got) => {
+	attachHandler(server, 3);
+
+	const items = await got.paginate.all<number>('', {
+		pagination: {
+			countLimit: 2,
+			paginate({response}) {
+				const {options} = response.request;
+				const url = new URL(response.url);
+				url.searchParams.set('page', String(Number(url.searchParams.get('page') ?? 1) + 1));
+				options.url = url;
+				return options;
+			},
+		},
+	});
+
+	t.deepEqual(items, [1, 2]);
+});
+
+test('pagination ignores body-only resolution in next-page options', withServer, async (t, server, got) => {
+	let requests = 0;
+	server.get('/', (_request, response) => {
+		response.json([++requests]);
+	});
+	const items = await got.paginate.all<number>('', {
+		resolveBodyOnly: true,
+		pagination: {
+			requestLimit: 2,
+			paginate: () => ({resolveBodyOnly: true}),
+		},
+	});
+	t.deepEqual(items, [1, 2]);
+});
+
+test('pagination callbacks receive full responses when returned Options request body-only resolution', withServer, async (t, server, got) => {
+	let requests = 0;
+	server.get('/', (_request, response) => {
+		response.setHeader('x-page', String(++requests));
+		response.json([requests]);
+	});
+	let transformCalls = 0;
+	let paginateCalls = 0;
+
+	const items = await got.paginate.all<number, number[]>('', {
+		responseType: 'json',
+		pagination: {
+			transform(response) {
+				transformCalls++;
+				t.is(response.statusCode, 200);
+				t.is(response.headers['x-page'], String(transformCalls));
+				t.false(response.request.options.resolveBodyOnly);
+				return response.body;
+			},
+			paginate({response}) {
+				paginateCalls++;
+				t.deepEqual(response.body, [paginateCalls]);
+				t.false(response.request.options.resolveBodyOnly);
+				if (paginateCalls === 2) {
+					return false;
+				}
+
+				response.request.options.resolveBodyOnly = true;
+				return response.request.options;
+			},
+		},
+	});
+
+	t.deepEqual(items, [1, 2]);
+	t.is(transformCalls, 2);
+	t.is(paginateCalls, 2);
+});
+
+test('pagination preserves inherited body-only defaults for ordinary buffered requests', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.json([1]);
+	});
+	const client = got.extend({responseType: 'buffer', resolveBodyOnly: true});
+	const items = await client.paginate.all<number>('', {
+		pagination: {
+			requestLimit: 2,
+			paginate: () => ({resolveBodyOnly: true}),
+		},
+	});
+
+	t.deepEqual(items, [1, 1]);
+	t.true(client.defaults.options.resolveBodyOnly);
+	t.deepEqual(await client(''), new TextEncoder().encode('[1]'));
 });

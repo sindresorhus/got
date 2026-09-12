@@ -193,9 +193,8 @@ const create = (defaults: InstanceDefaults): Got => {
 		}
 
 		let normalizedOptions = new Options(url, options as OptionsInit, defaults.options);
-		normalizedOptions.resolveBodyOnly = false;
 
-		const {pagination} = normalizedOptions;
+		let {pagination} = normalizedOptions;
 
 		assert.function(pagination.transform);
 		assert.function(pagination.shouldContinue);
@@ -206,27 +205,37 @@ const create = (defaults: InstanceDefaults): Got => {
 		assert.number(pagination.backoff);
 
 		const allItems: T[] = [];
-		let {countLimit} = pagination;
+		let numberOfItems = 0;
 
 		let numberOfRequests = 0;
-		while (numberOfRequests < pagination.requestLimit) {
+		while (numberOfRequests < pagination.requestLimit! && numberOfItems < pagination.countLimit!) {
 			if (numberOfRequests !== 0) {
-				// eslint-disable-next-line no-await-in-loop
-				await delay(pagination.backoff);
+				try {
+					// eslint-disable-next-line no-await-in-loop
+					await delay(pagination.backoff, undefined, {signal: normalizedOptions.signal});
+				} catch (error) {
+					if (!normalizedOptions.signal?.aborted) {
+						throw error;
+					}
+
+					// Let the next request report cancellation through Got's normal error handling.
+				}
 			}
 
+			// Pagination callbacks always receive the complete response.
+			normalizedOptions.resolveBodyOnly = false;
 			// eslint-disable-next-line no-await-in-loop
 			const response = (await got(undefined, undefined, normalizedOptions)) as Response;
 
 			// eslint-disable-next-line no-await-in-loop
-			const parsed: unknown[] = await pagination.transform(response);
+			const parsed: unknown[] = await pagination.transform!(response);
 			const currentItems: T[] = [];
 
 			assert.array(parsed);
 
 			for (const item of parsed) {
-				if (pagination.filter({item, currentItems, allItems})) {
-					if (!pagination.shouldContinue({item, currentItems, allItems})) {
+				if (pagination.filter!({item, currentItems, allItems})) {
+					if (!pagination.shouldContinue!({item, currentItems, allItems})) {
 						return;
 					}
 
@@ -238,17 +247,21 @@ const create = (defaults: InstanceDefaults): Got => {
 
 					currentItems.push(item as T);
 
-					if (--countLimit <= 0) {
+					if (++numberOfItems >= pagination.countLimit!) {
 						return;
 					}
 				}
+			}
+
+			if (++numberOfRequests >= pagination.requestLimit!) {
+				return;
 			}
 
 			const requestOptions = response.request.options;
 			const previousUrl = requestOptions.url ? new URL(requestOptions.url) : undefined;
 			const previousBoundary = getUrlPrefixBoundary(requestOptions);
 			const previousState = previousUrl ? snapshotCrossOriginState(requestOptions) : undefined;
-			// eslint-disable-next-line no-await-in-loop
+			// eslint-disable-next-line no-await-in-loop, @typescript-eslint/no-loop-func -- Pagination is updated only after this callback finishes.
 			const [optionsToMerge, changedState] = await requestOptions.trackStateMutations(async changedState => [
 				pagination.paginate!({
 					response,
@@ -368,7 +381,7 @@ const create = (defaults: InstanceDefaults): Got => {
 				normalizedOptions = paginationOptions;
 			}
 
-			numberOfRequests++;
+			pagination = normalizedOptions.pagination;
 		}
 	});
 
