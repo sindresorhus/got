@@ -80,11 +80,13 @@ export type DiagnosticRequestRetry = {
 Message for the `got:request:error` diagnostic channel.
 
 Emitted when a request fails.
+
+The error can be replaced by a `beforeError` hook. Use `error instanceof RequestError` before accessing Got-specific properties.
 */
 export type DiagnosticRequestError = {
 	requestId: RequestId;
 	url: string;
-	error: RequestError;
+	error: Error;
 	timings?: Timings;
 };
 

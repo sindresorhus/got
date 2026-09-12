@@ -50,8 +50,10 @@ Emitted when retrying a request.
 
 Emitted when a request fails.
 
+The error can be replaced by a `beforeError` hook. Use `error instanceof RequestError` before accessing Got-specific properties.
+
 ```ts
-{requestId: string, url: string, error: RequestError, timings?: Timings}
+{requestId: string, url: string, error: Error, timings?: Timings}
 ```
 
 #### `got:response:redirect`

@@ -1,7 +1,7 @@
 import process from 'node:process';
 import {Buffer} from 'node:buffer';
 import {Duplex, type Readable} from 'node:stream';
-import {addAbortListener} from 'node:events';
+import {addAbortListener, errorMonitor} from 'node:events';
 import http, {ServerResponse, type ClientRequest, type RequestOptions} from 'node:http';
 import type {Socket} from 'node:net';
 import {byteLength} from 'byte-counter';
@@ -363,7 +363,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	private _hasWritableBody = false;
 	private _discardBodyWrites = false;
 	private _incrementalDecode?: {decoder: TextDecoder; chunks: string[]};
-	private readonly _requestId = generateRequestId();
+	private readonly _requestId: string;
 
 	// We need this because `this._request` if `undefined` when using cache
 	private _requestInitialized = false;
@@ -375,6 +375,25 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			// It needs to be zero because we're just proxying the data to another stream
 			highWaterMark: 0,
 		});
+		this._requestId = retrySource?._requestId ?? generateRequestId();
+
+		// Observe the terminal error without consuming unhandled stream errors.
+		const onError = (error: Error) => {
+			// The Promise API routes writable errors through retry and beforeError hooks first.
+			if (this._noPipe && !this._stopReading) {
+				return;
+			}
+
+			this.off(errorMonitor, onError);
+			publishError({
+				requestId: this._requestId,
+				url: getSanitizedUrl(this.options),
+				error,
+				timings: this.timings,
+			});
+		};
+
+		this.on(errorMonitor, onError);
 
 		this.on('pipe', (source: NodeJS.ReadableStream & {headers?: Record<string, string | string[] | undefined>}) => {
 			if (this.options.copyPipedHeaders && source?.headers) {
@@ -2784,14 +2803,6 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			const normalizedError = normalizeError(error_);
 			error = new RequestError(normalizedError.message, normalizedError, this);
 		}
-
-		// Publish error event
-		publishError({
-			requestId: this._requestId,
-			url: getSanitizedUrl(this.options),
-			error,
-			timings: this.timings,
-		});
 
 		this.destroy(error);
 
