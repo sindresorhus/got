@@ -1618,3 +1618,108 @@ test('completed streams do not become aborted when their former signal is cancel
 	controller.abort();
 	t.false(request.isAborted);
 });
+
+const createBufferedResponse = () => {
+	let produced = 0;
+	const response = new IncomingMessage(new Socket());
+	response.statusCode = 200;
+	response.headers = {};
+	response._read = function () {
+		if (produced === 100) {
+			this.complete = true;
+			this.push(null);
+			return;
+		}
+
+		produced++;
+		this.push(Buffer.alloc(1024, 'a'));
+	};
+
+	return {
+		response, get produced() {
+			return produced;
+		},
+	};
+};
+
+test('custom response streams stop producing when the consumer applies backpressure', withServer, async (t, _server, got) => {
+	const source = createBufferedResponse();
+	const request = got.stream('', {hooks: {beforeRequest: [() => source.response]}});
+	t.teardown(() => {
+		request.destroy();
+		source.response.destroy();
+	});
+	await pEvent(request, 'readable');
+
+	t.true(source.produced < 100);
+	t.true(request.readableLength < 100 * 1024);
+	const producedBeforePause = source.produced;
+	await delay(10);
+	t.is(source.produced, producedBeforePause);
+	t.is(await getStream(request), 'a'.repeat(100 * 1024));
+	t.is(source.produced, 100);
+	t.true(request.readableEnded);
+});
+
+test('custom response streams honor a slow writable destination', withServer, async (t, _server, got) => {
+	const source = createBufferedResponse();
+	const request = got.stream('', {hooks: {beforeRequest: [() => source.response]}});
+	let releaseFirstWrite: () => void = () => {};
+	let notifyFirstWrite: () => void = () => {};
+	const firstWrite = new Promise<void>(resolve => {
+		notifyFirstWrite = resolve;
+	});
+	let received = 0;
+	const destination = new Writable({
+		highWaterMark: 1,
+		write(chunk: Uint8Array, _encoding, callback) {
+			const isFirstWrite = received === 0;
+			received += chunk.length;
+			if (isFirstWrite) {
+				releaseFirstWrite = callback;
+				notifyFirstWrite();
+				return;
+			}
+
+			callback();
+		},
+	});
+	t.teardown(() => {
+		releaseFirstWrite();
+		request.destroy();
+		destination.destroy();
+		source.response.destroy();
+	});
+	const finished = pEvent(destination, 'finish');
+	request.pipe(destination);
+	await firstWrite;
+
+	t.true(source.produced < 100);
+	t.true(received < 100 * 1024);
+	releaseFirstWrite();
+	releaseFirstWrite = () => {};
+	await finished;
+	t.is(received, 100 * 1024);
+	t.is(source.produced, 100);
+});
+
+test('custom response errors still propagate while the consumer is paused', withServer, async (t, _server, got) => {
+	const source = createBufferedResponse();
+	const request = got.stream('', {retry: {limit: 0}, hooks: {beforeRequest: [() => source.response]}});
+	t.teardown(() => {
+		request.destroy();
+		source.response.destroy();
+	});
+	await pEvent(request, 'readable');
+	const producedBeforeError = source.produced;
+	const errorPromise = pEvent(request, 'error');
+	const expectedError = new Error('response failed while paused');
+	source.response.destroy(expectedError);
+
+	const error = await errorPromise as RequestError;
+	// IncomingMessage.destroy() reports an aborted response before emitting its supplied error.
+	t.is(error.name, 'ReadError');
+	t.is(error.code, 'ECONNRESET');
+	t.is(source.produced, producedBeforeError);
+	t.true(request.destroyed);
+});

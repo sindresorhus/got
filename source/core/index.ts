@@ -735,7 +735,9 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 					return;
 				}
 
-				this.push(data);
+				if (!this.push(data)) {
+					return;
+				}
 
 				if (this._stopReading) {
 					return;
