@@ -119,6 +119,7 @@ export default function timedOut(request: ClientRequest, delays: Delays, options
 		// We can just remove the listener and forget about the timer - it's unreffed.
 		// See https://github.com/sindresorhus/got/issues/690
 		cancelers.push(() => {
+			handled.add('socket');
 			request.removeListener('timeout', socketTimeoutHandler);
 		});
 	}
@@ -128,14 +129,18 @@ export default function timedOut(request: ClientRequest, delays: Delays, options
 	const hasSecureConnect = delays.secureConnect !== undefined;
 	const hasSend = delays.send !== undefined;
 	if (hasLookup || hasConnect || hasSecureConnect || hasSend) {
-		once(request, 'socket', (socket: net.Socket): void => {
+		const onSocket = (socket: net.Socket): void => {
 			const {socketPath} = request as ClientRequest & {socketPath?: string};
 
 			/* istanbul ignore next: hard to test */
 			if (socket.connecting) {
-				const hasPath = Boolean(socketPath ?? (net.isIP(hostname ?? host ?? '') !== 0));
+				// WHATWG URL hostnames keep IPv6 brackets, which `net.isIP` rejects. Strip them so IPv6 URLs skip DNS correctly.
+				const normalizedHostname = hostname?.startsWith('[') && hostname.endsWith(']') ? hostname.slice(1, -1) : hostname;
+				const hasPath = Boolean(socketPath ?? (net.isIP(normalizedHostname ?? host ?? '') !== 0));
+				// A synchronous lookup can finish before the socket is assigned to the request.
+				const hasLookupCompleted = (socket.address() as net.AddressInfo).address !== undefined;
 
-				if (hasLookup && !hasPath && (socket.address() as net.AddressInfo).address === undefined) {
+				if (hasLookup && !hasPath && !hasLookupCompleted) {
 					const cancelTimeout = addTimeout(delays.lookup!, timeoutHandler, 'lookup');
 					once(socket, 'lookup', cancelTimeout);
 				}
@@ -143,7 +148,7 @@ export default function timedOut(request: ClientRequest, delays: Delays, options
 				if (hasConnect) {
 					const timeConnect = (): (() => void) => addTimeout(delays.connect!, timeoutHandler, 'connect');
 
-					if (hasPath) {
+					if (hasPath || hasLookupCompleted) {
 						once(socket, 'connect', timeConnect());
 					} else {
 						once(socket, 'lookup', (error: Error): void => {
@@ -173,13 +178,26 @@ export default function timedOut(request: ClientRequest, delays: Delays, options
 					once(request, 'upload-complete', timeRequest());
 				}
 			}
-		});
+		};
+
+		if (request.socket) {
+			onSocket(request.socket);
+		} else {
+			once(request, 'socket', onSocket);
+		}
 	}
 
 	if (delays.response !== undefined) {
-		once(request, 'upload-complete', (): void => {
-			const cancelTimeout = addTimeout(delays.response!, timeoutHandler, 'response');
-			once(request, 'response', cancelTimeout);
+		let cancelTimeout = noop;
+		const startTimeout = (): void => {
+			cancelTimeout = addTimeout(delays.response!, timeoutHandler, 'response');
+		};
+
+		once(request, 'upload-complete', startTimeout);
+		once(request, 'response', (): void => {
+			// A server can respond before the upload finishes.
+			request.removeListener('upload-complete', startTimeout);
+			cancelTimeout();
 		});
 	}
 

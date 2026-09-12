@@ -2703,3 +2703,302 @@ test.serial('request timeout does not double count async custom request function
 		clock.uninstall();
 	}
 });
+
+test('response timeout does not restart when headers arrive before upload completion', withServer, async (t, server, got) => {
+	server.post('/', async (incoming, response) => {
+		response.flushHeaders();
+		await getStream(incoming);
+		await delay(150);
+		response.end('done');
+	});
+
+	const request = got.stream.post('', {
+		timeout: {response: 50, request: 1000},
+		retry: {limit: 0},
+	});
+	const body = getStream(request);
+	request.on('request', nativeRequest => {
+		nativeRequest.once('response', () => {
+			request.end('last');
+		});
+	});
+	request.write('first');
+
+	t.is(await body, 'done');
+});
+
+test('early response headers still start the read timeout', withServer, async (t, server, got) => {
+	server.post('/', async (incoming, response) => {
+		response.flushHeaders();
+		await getStream(incoming);
+		await delay(150);
+		response.end('done');
+	});
+
+	const request = got.stream.post('', {
+		timeout: {response: 20, read: 50, request: 1000},
+		retry: {limit: 0},
+	});
+	const body = getStream(request);
+	request.on('request', nativeRequest => {
+		nativeRequest.once('response', () => {
+			request.end('last');
+		});
+	});
+	request.write('first');
+
+	const error = await t.throwsAsync<TimeoutError>(body, errorMatcher);
+	t.is(error?.event, 'read');
+});
+
+test('canceling timeouts removes pending response timeout listeners', t => {
+	const request = new EventEmitter();
+	const cancel = timedOut(request as http.ClientRequest, {response: 100}, {});
+	cancel();
+
+	t.is(request.listenerCount('upload-complete'), 0);
+	t.is(request.listenerCount('response'), 0);
+});
+
+test('send timeout applies when an async request factory returns after socket assignment', withServer, async (t, server, got) => {
+	server.post('/', request => {
+		request.resume();
+	});
+	const body = new stream.PassThrough();
+
+	const error = await t.throwsAsync<TimeoutError>(got.post('', {
+		body,
+		retry: {limit: 0},
+		timeout: {send: 20, request: 500},
+		async request(url, options) {
+			const request = http.request(url, options);
+			await pEvent(request, 'socket');
+			return request;
+		},
+	}), {instanceOf: TimeoutError});
+
+	t.is(error.event, 'send');
+});
+
+test('send timeout applies when the factory returns an already connected request', withServer, async (t, server, got) => {
+	server.post('/', request => {
+		request.resume();
+	});
+
+	const error = await t.throwsAsync<TimeoutError>(got.post('', {
+		body: new stream.PassThrough(),
+		retry: {limit: 0},
+		timeout: {send: 20, request: 500},
+		async request(url, options) {
+			const request = http.request(url, options);
+			const socket = await pEvent<'socket', net.Socket>(request, 'socket');
+			if (socket.connecting) {
+				await pEvent(socket, 'connect');
+			}
+
+			return request;
+		},
+	}), {instanceOf: TimeoutError});
+
+	t.is(error.event, 'send');
+});
+
+test('send timeout applies to an already assigned keep-alive socket', withServer, async (t, server, got) => {
+	server.get('/prime', (_request, response) => {
+		response.end('ready');
+	});
+	server.post('/', request => {
+		request.resume();
+	});
+	const agent = new http.Agent({keepAlive: true});
+	t.teardown(() => {
+		agent.destroy();
+	});
+	await got('prime', {agent: {http: agent}});
+
+	const error = await t.throwsAsync<TimeoutError>(got.post('', {
+		agent: {http: agent},
+		body: new stream.PassThrough(),
+		retry: {limit: 0},
+		timeout: {send: 20, request: 500},
+		async request(url, options) {
+			const request = http.request(url, options);
+			const socket = await pEvent<'socket', net.Socket>(request, 'socket');
+			t.false(socket.connecting);
+			t.true(request.reusedSocket);
+			return request;
+		},
+	}), {instanceOf: TimeoutError});
+
+	t.is(error.event, 'send');
+});
+
+test('completed uploads cancel the send timeout on already assigned sockets', withServer, async (t, server, got) => {
+	server.post('/', async (request, response) => {
+		const body = await getStream(request);
+		await delay(60);
+		response.end(body);
+	});
+
+	t.is(await got.post('', {
+		body: 'payload',
+		retry: {limit: 0},
+		timeout: {send: 20, request: 500},
+		async request(url, options) {
+			const request = http.request(url, options);
+			await pEvent(request, 'socket');
+			return request;
+		},
+	}).text(), 'payload');
+});
+
+test.serial('connect timeout starts when synchronous DNS has already completed', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.end('ok');
+	});
+	const clock = FakeTimers.install({toFake: ['setTimeout', 'clearTimeout']});
+	let connectingAtAssignment: boolean | undefined;
+	let addressAtAssignment: string | undefined;
+
+	try {
+		const request = got({
+			agent: {http: false},
+			dnsLookupIpVersion: 4,
+			timeout: {connect: 10},
+			retry: {limit: 0},
+			dnsLookup(_hostname, _options, callback) {
+				callback(null, '127.0.0.1', 4);
+			},
+		}).on('request', request => {
+			request.once('socket', socket => {
+				connectingAtAssignment = socket.connecting;
+				addressAtAssignment = (socket.address() as net.AddressInfo).address;
+				// Advance the connection budget before the native connect event can arrive.
+				clock.tick(11);
+			});
+		});
+
+		await t.throwsAsync(request.text(), {
+			...errorMatcher,
+			message: 'Timeout awaiting \'connect\' for 10ms',
+		});
+		t.true(connectingAtAssignment);
+		t.is(addressAtAssignment, '127.0.0.1');
+	} finally {
+		clock.uninstall();
+	}
+});
+
+for (const afterLookup of [false, true]) {
+	test.serial(`connect timeout ${afterLookup ? 'starts after' : 'excludes time spent in'} asynchronous DNS`, withServer, async (t, server, got) => {
+		server.get('/', (_request, response) => {
+			response.end('ok');
+		});
+		const clock = FakeTimers.install({toFake: ['setTimeout', 'clearTimeout']});
+		let lookedUp = false;
+		let lookedUpAtAssignment: boolean | undefined;
+
+		try {
+			const request = got({
+				agent: {http: false},
+				dnsLookupIpVersion: 4,
+				timeout: {connect: 10},
+				retry: {limit: 0},
+				dnsLookup(_hostname, _options, callback) {
+					setImmediate(() => {
+						lookedUp = true;
+						callback(null, '127.0.0.1', 4);
+					});
+				},
+			}).on('request', request => {
+				request.once('socket', socket => {
+					lookedUpAtAssignment = lookedUp;
+					if (afterLookup) {
+						socket.once('lookup', () => {
+							clock.tick(11);
+						});
+					} else {
+						clock.tick(11);
+					}
+				});
+			});
+
+			if (afterLookup) {
+				await t.throwsAsync(request.text(), {
+					...errorMatcher,
+					message: 'Timeout awaiting \'connect\' for 10ms',
+				});
+			} else {
+				t.is(await request.text(), 'ok');
+			}
+
+			t.false(lookedUpAtAssignment);
+			t.true(lookedUp);
+		} finally {
+			clock.uninstall();
+		}
+	});
+}
+
+test.serial('connection completion cancels the timeout after synchronous DNS', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.end('ok');
+	});
+	const clock = FakeTimers.install({toFake: ['setTimeout', 'clearTimeout']});
+	let connected = false;
+
+	try {
+		const body = await got({
+			agent: {http: false},
+			dnsLookupIpVersion: 4,
+			timeout: {connect: 10},
+			retry: {limit: 0},
+			dnsLookup(_hostname, _options, callback) {
+				callback(null, '127.0.0.1', 4);
+			},
+		}).on('request', request => {
+			request.once('socket', socket => {
+				socket.once('connect', () => {
+					connected = true;
+					clock.tick(11);
+				});
+			});
+		}).text();
+
+		t.is(body, 'ok');
+		t.true(connected);
+	} finally {
+		clock.uninstall();
+	}
+});
+
+test.serial('connect timeout does not start again for a reused connected socket', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.end('ok');
+	});
+	const agent = new http.Agent({keepAlive: true});
+	t.teardown(() => {
+		agent.destroy();
+	});
+	const client = got.extend({agent: {http: agent}, retry: {limit: 0}});
+	await client('');
+	const clock = FakeTimers.install({toFake: ['setTimeout', 'clearTimeout']});
+	let reusedSocket: boolean | undefined;
+	let connectingAtAssignment: boolean | undefined;
+
+	try {
+		const body = await client('', {timeout: {connect: 10}}).on('request', request => {
+			request.once('socket', socket => {
+				reusedSocket = request.reusedSocket;
+				connectingAtAssignment = socket.connecting;
+				clock.tick(11);
+			});
+		}).text();
+
+		t.is(body, 'ok');
+		t.true(reusedSocket);
+		t.false(connectingAtAssignment);
+	} finally {
+		clock.uninstall();
+	}
+});
