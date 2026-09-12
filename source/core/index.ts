@@ -12,12 +12,12 @@ import CacheableRequest, {
 	type CacheableRequestFunction,
 	type CacheableOptions,
 } from 'cacheable-request';
-import decompressResponse from 'decompress-response';
 import type {KeyvStoreAdapter} from 'keyv';
 import type KeyvType from 'keyv';
 import is, {isBuffer} from '@sindresorhus/is';
 import type ResponseLike from 'responselike';
 import timer, {type ClientRequestWithTimings, type Timings, type IncomingMessageWithTimings} from './utils/timer.js';
+import decompressResponse from './utils/decompress-response.js';
 import getBodySize from './utils/get-body-size.js';
 import isNonReplayableBody from './utils/is-non-replayable-body.js';
 import proxyEvents from './utils/proxy-events.js';

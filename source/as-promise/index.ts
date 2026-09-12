@@ -26,7 +26,7 @@ import {
 import type Options from '../core/options.js';
 import {type RequestPromise} from './types.js';
 
-const compressedEncodings = new Set(['gzip', 'deflate', 'br', 'zstd']);
+const compressedEncodings = new Set(['gzip', 'x-gzip', 'deflate', 'br', 'zstd']);
 
 const proxiedRequestEvents = [
 	'request',
@@ -59,11 +59,13 @@ export default function asPromise<T>(firstRequest?: Request): RequestPromise<T> 
 				void (async () => {
 				// Parse body
 					const contentEncoding = (response.headers['content-encoding'] ?? '').toLowerCase();
-					const isCompressed = compressedEncodings.has(contentEncoding);
+					const isCompressed = contentEncoding.split(',').some(encoding => compressedEncodings.has(encoding.trim()));
 
 					const {options} = request;
+					// Content-Encoding on a bodyless response describes the representation, not transferred bytes.
+					const hasNoBody = options.method === 'HEAD' || response.statusCode === 204 || response.statusCode === 205 || response.statusCode === 304;
 
-					if (isCompressed && !options.decompress) {
+					if (isCompressed && !options.decompress && !hasNoBody) {
 						response.body = response.rawBody;
 					} else {
 						try {

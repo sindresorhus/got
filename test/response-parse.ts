@@ -1,8 +1,13 @@
 import {Buffer} from 'node:buffer';
+import zlib, {
+	brotliCompressSync, brotliDecompressSync, deflateSync, gzipSync, gunzipSync,
+} from 'node:zlib';
 import test from 'ava';
 import type {Handler} from 'express';
 import getStream from 'get-stream';
-import {HTTPError, ParseError, type Response} from '../source/index.js';
+import {
+	HTTPError, ParseError, ReadError, type Response,
+} from '../source/index.js';
 import withServer from './helpers/with-server.js';
 
 const dog = {data: 'dog'};
@@ -11,6 +16,65 @@ const jsonResponse = JSON.stringify(dog);
 const defaultHandler: Handler = (_request, response) => {
 	response.end(jsonResponse);
 };
+
+test('disabled decompression preserves responses with stacked content encodings', withServer, async (t, server, got) => {
+	const compressed = brotliCompressSync(gzipSync(jsonResponse));
+	server.get('/', (_request, response) => {
+		response.setHeader('content-encoding', 'gzip, br');
+		response.end(compressed);
+	});
+
+	const response = await got('', {decompress: false});
+	t.deepEqual(response.body, new Uint8Array(compressed));
+	t.is(gunzipSync(brotliDecompressSync(response.rawBody)).toString(), jsonResponse);
+});
+
+for (const responseType of ['text', 'json', 'buffer'] as const) {
+	test(`stacked encodings bypass ${responseType} parsing when decompression is disabled`, withServer, async (t, server, got) => {
+		const compressed = brotliCompressSync(gzipSync(jsonResponse));
+		server.get('/', (_request, response) => {
+			response.setHeader('content-encoding', 'GZip,\tBR');
+			response.end(compressed);
+		});
+
+		const body = await got('', {
+			decompress: false,
+			responseType,
+			resolveBodyOnly: true,
+			parseJson() {
+				t.fail('Compressed bytes must not reach the JSON parser');
+			},
+		});
+
+		t.deepEqual(body, new Uint8Array(compressed));
+	});
+}
+
+test('HTTP errors retain stacked compressed response bytes when decompression is disabled', withServer, async (t, server, got) => {
+	const compressed = gzipSync(brotliCompressSync(jsonResponse));
+	server.get('/', (_request, response) => {
+		response.writeHead(400, {'content-encoding': 'br, gzip'});
+		response.end(compressed);
+	});
+
+	const error = await t.throwsAsync<HTTPError>(got('', {decompress: false, retry: {limit: 0}}), {instanceOf: HTTPError});
+	t.deepEqual(error.response.body, new Uint8Array(compressed));
+	t.deepEqual(error.response.rawBody, new Uint8Array(compressed));
+});
+
+for (const contentEncoding of [undefined, 'identity']) {
+	test(`disabled decompression still parses uncompressed JSON with encoding ${contentEncoding}`, withServer, async (t, server, got) => {
+		server.get('/', (_request, response) => {
+			if (contentEncoding !== undefined) {
+				response.setHeader('content-encoding', contentEncoding);
+			}
+
+			response.end(jsonResponse);
+		});
+
+		t.deepEqual((await got('', {decompress: false, responseType: 'json'})).body, dog);
+	});
+}
 
 test('`options.resolveBodyOnly` works', withServer, async (t, server, got) => {
 	server.get('/', defaultHandler);
@@ -878,4 +942,142 @@ test('shortcuts do not treat body-only objects as handler replacement responses'
 
 	t.is(await promise.text(), JSON.stringify({original: true}));
 	t.deepEqual(await promise.json(), {original: true});
+});
+
+test('automatically decodes stacked content encodings in reverse order', withServer, async (t, server, got) => {
+	const compressed = brotliCompressSync(gzipSync(jsonResponse));
+	server.get('/', (_request, response) => {
+		response.writeHead(200, {'content-encoding': 'gzip, br', 'content-type': 'application/json'});
+		response.end(compressed);
+	});
+
+	const response = await got('', {responseType: 'json'});
+	t.deepEqual(response.body, dog);
+	t.deepEqual(response.rawBody, new TextEncoder().encode(jsonResponse));
+});
+
+for (const {encoding, compressed} of [
+	{encoding: 'br, gzip', compressed: gzipSync(brotliCompressSync(jsonResponse))},
+	{encoding: 'gzip, gzip', compressed: gzipSync(gzipSync(jsonResponse))},
+	{encoding: 'deflate, br', compressed: brotliCompressSync(deflateSync(jsonResponse))},
+	{encoding: 'GZip,\tBR', compressed: brotliCompressSync(gzipSync(jsonResponse))},
+]) {
+	test(`decodes stacked ${encoding} responses and validates their compressed length`, withServer, async (t, server, got) => {
+		server.get('/', (_request, response) => {
+			response.writeHead(200, {'content-encoding': encoding, 'content-length': compressed.length, 'x-metadata': 'preserved'});
+			response.end(compressed);
+		});
+
+		const response = await got('', {responseType: 'json', strictContentLength: true});
+		t.deepEqual(response.body, dog);
+		t.deepEqual(response.rawBody, new TextEncoder().encode(jsonResponse));
+		t.is(response.headers['content-encoding'], undefined);
+		t.is(response.headers['content-length'], undefined);
+		t.is(response.headers['x-metadata'], 'preserved');
+		t.true(response.rawHeaders.includes(String(compressed.length)));
+	});
+}
+
+test('streams stacked encoded responses with decoded bytes', withServer, async (t, server, got) => {
+	const compressed = brotliCompressSync(gzipSync('café 🦄'));
+	server.get('/', (_request, response) => {
+		response.writeHead(200, {'content-encoding': 'gzip, br', 'content-length': compressed.length});
+		response.write(compressed.subarray(0, 5));
+		response.end(compressed.subarray(5));
+	});
+
+	t.is(await getStream(got.stream('')), 'café 🦄');
+});
+
+for (const {name, compressed} of [
+	{name: 'outer', compressed: Buffer.from('invalid gzip')},
+	{name: 'inner', compressed: gzipSync(Buffer.from('invalid gzip'))},
+]) {
+	test(`stacked decoding reports a corrupt ${name} layer`, withServer, async (t, server, got) => {
+		server.get('/', (_request, response) => {
+			response.writeHead(200, {'content-encoding': 'gzip, gzip'});
+			response.end(compressed);
+		});
+
+		const error = await t.throwsAsync<ReadError>(got('', {retry: {limit: 0}, timeout: {request: 1000}}), {instanceOf: ReadError});
+		t.is(error.code, 'ERR_READING_RESPONSE_STREAM');
+		t.true(error.message.includes('incorrect header check'));
+	});
+}
+
+for (const encoding of ['unknown, gzip', 'gzip, unknown']) {
+	test(`leaves ${encoding} completely encoded`, withServer, async (t, server, got) => {
+		const compressed = gzipSync(jsonResponse);
+		server.get('/', (_request, response) => {
+			response.writeHead(200, {'content-encoding': encoding, 'content-length': compressed.length});
+			response.end(compressed);
+		});
+
+		const response = await got('', {responseType: 'buffer'});
+		t.deepEqual(response.body, new Uint8Array(compressed));
+		t.is(response.headers['content-encoding'], encoding);
+		t.is(response.headers['content-length'], String(compressed.length));
+	});
+}
+
+test('stacked decoding returns binary bodies without text conversion', withServer, async (t, server, got) => {
+	const bytes = Uint8Array.of(0, 255, 128, 13, 10);
+	server.get('/', (_request, response) => {
+		response.writeHead(200, {'content-encoding': 'gzip, br'});
+		response.end(brotliCompressSync(gzipSync(bytes)));
+	});
+
+	t.deepEqual(await got('').buffer(), bytes);
+});
+
+test('stacked decoding includes zstd when supported by Node.js', withServer, async (t, server, got) => {
+	if (typeof zlib.zstdCompressSync !== 'function') {
+		t.pass();
+		return;
+	}
+
+	server.get('/', (_request, response) => {
+		response.writeHead(200, {'content-encoding': 'gzip, zstd'});
+		response.end(zlib.zstdCompressSync(gzipSync(jsonResponse)));
+	});
+
+	t.deepEqual(await got('').json(), dog);
+});
+
+test('stacked decoding still rejects truncated compressed transfers', withServer, async (t, server, got) => {
+	const compressed = brotliCompressSync(gzipSync(jsonResponse));
+	server.get('/', (request, response) => {
+		response.writeHead(200, {'content-encoding': 'gzip, br', 'content-length': compressed.length + 1});
+		response.end(compressed, () => {
+			request.socket.end();
+		});
+	});
+
+	const error = await t.throwsAsync<ReadError>(got('', {retry: {limit: 0}, timeout: {request: 1000}}), {instanceOf: ReadError});
+	t.is(error.code, 'ERR_HTTP_CONTENT_LENGTH_MISMATCH');
+});
+
+for (const {method, statusCode} of [{method: 'HEAD', statusCode: 200}, {method: 'GET', statusCode: 204}, {method: 'GET', statusCode: 304}]) {
+	test(`stacked encoding metadata is not decoded for ${method} ${statusCode}`, withServer, async (t, server, got) => {
+		server.all('/', (_request, response) => {
+			response.writeHead(statusCode, {'content-encoding': 'gzip, br'});
+			response.end();
+		});
+		const response = await got('', {method, headers: {'if-none-match': '"version"'}});
+
+		t.is(response.body, '');
+		t.is(response.headers['content-encoding'], 'gzip, br');
+	});
+}
+
+test('followed redirects ignore invalid stacked encoded bodies', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.writeHead(302, {location: '/next', 'content-encoding': 'gzip, br'});
+		response.end('invalid compressed body');
+	});
+	server.get('/next', defaultHandler);
+
+	const response = await got('', {responseType: 'json'});
+	t.deepEqual(response.body, dog);
+	t.is(response.redirectUrls.length, 1);
 });
