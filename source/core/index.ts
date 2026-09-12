@@ -1202,18 +1202,18 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			: undefined;
 
 		if (is.object(options.cookieJar) && rawCookies) {
-			let promises: Array<Promise<unknown>> = rawCookies.map(async (rawCookie: string) => (options.cookieJar as PromiseCookieJar).setCookie(rawCookie, url!.toString()));
-
-			if (options.ignoreInvalidCookies) {
-				promises = promises.map(async promise => {
-					try {
-						await promise;
-					} catch {}
-				});
-			}
-
 			try {
-				await Promise.all(promises);
+				// Apply fields in wire order so asynchronous stores cannot restore a replaced cookie.
+				for (const rawCookie of rawCookies) {
+					try {
+						// eslint-disable-next-line no-await-in-loop
+						await (options.cookieJar as PromiseCookieJar).setCookie(rawCookie, url!.toString());
+					} catch (error) {
+						if (!options.ignoreInvalidCookies) {
+							throw error;
+						}
+					}
+				}
 			} catch (error: unknown) {
 				if (responseRawBodyPromise) {
 					await responseRawBodyPromise;

@@ -579,6 +579,87 @@ test('no unhandled errors', async t => {
 	await close();
 });
 
+test('asynchronous cookie jars apply Set-Cookie fields in response order', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.writeHead(302, {location: '/target', 'set-cookie': ['session=old', 'session=new']}).end();
+	});
+	server.get('/target', (request, response) => {
+		response.end(request.headers.cookie);
+	});
+	let cookie = '';
+	const cookieJar = {
+		async getCookieString() {
+			return cookie;
+		},
+		async setCookie(value: string) {
+			if (value === 'session=old') {
+				await new Promise<void>(resolve => {
+					setImmediate(resolve);
+				});
+			}
+
+			cookie = value;
+		},
+	};
+
+	t.is(await got('', {cookieJar}).text(), 'session=new');
+	t.is(cookie, 'session=new');
+});
+
+for (const {cookies, expected} of [
+	{cookies: ['session=old; Max-Age=0', 'session=new'], expected: 'session=new'},
+	{cookies: ['session=new', 'session=old; Max-Age=0'], expected: ''},
+	{cookies: ['first=one', 'second=two'], expected: 'first=one; second=two'},
+]) {
+	test(`async cookie storage preserves order for ${cookies.join(' then ')}`, withServer, async (t, server, got) => {
+		server.get('/', (_request, response) => {
+			response.writeHead(200, {'set-cookie': cookies}).end('body');
+		});
+		const jar = new toughCookie.CookieJar();
+		const operations: string[] = [];
+		const cookieJar = {
+			async getCookieString(url: string) {
+				return jar.getCookieString(url);
+			},
+			async setCookie(value: string, url: string) {
+				if (value === cookies[0]) {
+					await new Promise<void>(resolve => {
+						setImmediate(resolve);
+					});
+				}
+
+				await jar.setCookie(value, url);
+				operations.push(value);
+			},
+		};
+
+		t.is(await got('', {cookieJar}).text(), 'body');
+		t.is(await jar.getCookieString(server.url), expected);
+		t.deepEqual(operations, cookies);
+	});
+}
+
+test('ignored invalid cookies do not skip later ordered cookie writes', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.writeHead(200, {'set-cookie': ['first=one', 'invalid', 'last=two']}).end('body');
+	});
+	const jar = new toughCookie.CookieJar();
+	const processed: string[] = [];
+	const cookieJar = {
+		async getCookieString(url: string) {
+			return jar.getCookieString(url);
+		},
+		async setCookie(value: string, url: string) {
+			processed.push(value);
+			await jar.setCookie(value, url);
+		},
+	};
+
+	t.is(await got('', {cookieJar, ignoreInvalidCookies: true}).text(), 'body');
+	t.deepEqual(processed, ['first=one', 'invalid', 'last=two']);
+	t.is(await jar.getCookieString(server.url), 'first=one; last=two');
+});
+
 test('accepts custom `cookieJar` object', withServer, async (t, server, got) => {
 	server.get('/', (request, response) => {
 		response.setHeader('set-cookie', ['hello=world']);
