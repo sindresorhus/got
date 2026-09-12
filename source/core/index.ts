@@ -414,7 +414,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 				this.options.url = '';
 			}
 
-			this.requestUrl = this.options.url as URL;
+			this.requestUrl = new URL(retrySource?.requestUrl ?? this.options.url);
 
 			// Publish request creation event
 			publishRequestCreate({

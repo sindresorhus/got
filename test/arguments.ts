@@ -1197,3 +1197,74 @@ test('invalid method tokens remain rejected by the native request', withServer, 
 	await t.throwsAsync(got('', {method: 'INVALID METHOD', retry: {limit: 0}}), {code: 'ERR_INVALID_HTTP_TOKEN'});
 	t.is(requests, 0);
 });
+
+test('requestUrl preserves the original URL when a hook mutates the request URL in place', withServer, async (t, server, got) => {
+	server.get('/actual', (request, response) => {
+		response.end(request.originalUrl);
+	});
+
+	const response = await got('original?initial=yes', {
+		hooks: {
+			beforeRequest: [options => {
+				options.url!.pathname = '/actual';
+				options.url!.searchParams.set('added', 'yes');
+			}],
+		},
+	});
+
+	t.is(response.body, '/actual?initial=yes&added=yes');
+	t.is(response.url, `${server.url}/actual?initial=yes&added=yes`);
+	t.is(response.requestUrl.href, `${server.url}/original?initial=yes`);
+});
+
+test('stream requestUrl preserves its original URL through in-place hook changes', withServer, async (t, server, got) => {
+	server.get('/actual', echoUrl);
+
+	const stream = got.stream('original?initial=yes', {
+		hooks: {
+			beforeRequest: [options => {
+				options.url!.pathname = '/actual';
+				options.url!.searchParams.delete('initial');
+			}],
+		},
+	});
+
+	t.is(await getStream(stream), '/actual');
+	t.is(stream.requestUrl?.href, `${server.url}/original?initial=yes`);
+	t.is(stream.response?.requestUrl.href, `${server.url}/original?initial=yes`);
+});
+
+test('requestUrl preserves the URL from before hooks and redirects', withServer, async (t, server, got) => {
+	server.get('/redirect', (_request, response) => {
+		response.redirect('/final');
+	});
+	server.get('/final', echoUrl);
+
+	const response = await got('original', {
+		hooks: {
+			beforeRequest: [options => {
+				if (options.url!.pathname === '/original') {
+					options.url!.pathname = '/redirect';
+				}
+			}],
+		},
+	});
+
+	t.is(response.body, '/final');
+	t.is(response.url, `${server.url}/final`);
+	t.is(response.requestUrl.href, `${server.url}/original`);
+	t.deepEqual(response.redirectUrls.map(url => url.href), [`${server.url}/final`]);
+});
+
+test('requestUrl snapshots normalized options without mutating the input URL', withServer, async (t, server, got) => {
+	server.get('/original', echoUrl);
+
+	const input = new URL(`${server.url}/original?initial=yes`);
+	const response = await got(input, {searchParams: {normalized: 'yes'}});
+
+	t.is(response.body, '/original?normalized=yes');
+	t.is(response.requestUrl.href, `${server.url}/original?normalized=yes`);
+	t.is(input.href, `${server.url}/original?initial=yes`);
+	t.not(response.requestUrl, input);
+	t.not(response.requestUrl, response.request.options.url);
+});

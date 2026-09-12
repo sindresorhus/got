@@ -1664,3 +1664,113 @@ test('retries with a FormData body using content-type changed in beforeRetry hoo
 	t.true(contentTypes[0]!.startsWith('multipart/form-data; boundary='));
 	t.is(contentTypes[1], 'text/plain');
 });
+
+test('requestUrl preserves the original URL when beforeRetry changes the destination', withServer, async (t, server, got) => {
+	server.get('/original', (_request, response) => {
+		response.statusCode = 503;
+		response.end('retry');
+	});
+	server.get('/recovered', (request, response) => {
+		response.end(request.originalUrl);
+	});
+
+	const response = await got('original?initial=yes', {
+		retry: {limit: 1, backoffLimit: 0, noise: 0},
+		hooks: {
+			beforeRetry: [error => {
+				error.options.url = new URL('/recovered?initial=yes', server.url);
+			}],
+		},
+	});
+
+	t.is(response.body, '/recovered?initial=yes');
+	t.is(response.url, `${server.url}/recovered?initial=yes`);
+	t.is(response.retryCount, 1);
+	t.is(response.requestUrl.href, `${server.url}/original?initial=yes`);
+});
+
+test('requestUrl survives a redirect followed by a retry', withServer, async (t, server, got) => {
+	let attempts = 0;
+	server.get('/original', (_request, response) => {
+		response.redirect('/destination');
+	});
+	server.get('/destination', (_request, response) => {
+		response.statusCode = ++attempts === 1 ? 503 : 200;
+		response.end('done');
+	});
+
+	const response = await got('original', {retry: {limit: 1, backoffLimit: 0, noise: 0}});
+
+	t.is(response.body, 'done');
+	t.is(attempts, 2);
+	t.is(response.url, `${server.url}/destination`);
+	t.is(response.requestUrl.href, `${server.url}/original`);
+});
+
+test('requestUrl survives an afterResponse retry to another path', withServer, async (t, server, got) => {
+	server.get('/original', (_request, response) => {
+		response.end('original');
+	});
+	server.get('/recovered', (_request, response) => {
+		response.end('recovered');
+	});
+
+	const response = await got('original', {
+		hooks: {
+			afterResponse: [(_response, retryWithMergedOptions) => retryWithMergedOptions({url: 'recovered'})],
+		},
+	});
+
+	t.is(response.body, 'recovered');
+	t.is(response.retryCount, 1);
+	t.is(response.url, `${server.url}/recovered`);
+	t.is(response.requestUrl.href, `${server.url}/original`);
+});
+
+test('failed retries retain the original requestUrl across multiple destinations', withServer, async (t, server, got) => {
+	const paths: string[] = [];
+	server.get('/:attempt', (request, response) => {
+		paths.push(request.path);
+		response.statusCode = 503;
+		response.end('unavailable');
+	});
+
+	const error = await t.throwsAsync<HTTPError>(got('0', {
+		retry: {limit: 2, backoffLimit: 0, noise: 0},
+		hooks: {
+			beforeRetry: [(error, retryCount) => {
+				error.options.url = new URL(`/${retryCount}`, server.url);
+			}],
+		},
+	}), {instanceOf: HTTPError});
+
+	t.deepEqual(paths, ['/0', '/1', '/2']);
+	t.is(error.response.url, `${server.url}/2`);
+	t.is(error.response.requestUrl.href, `${server.url}/0`);
+});
+
+test('retry streams retain independent snapshots of the original requestUrl', withServer, async (t, server, got) => {
+	server.get('/original', (_request, response) => {
+		response.statusCode = 503;
+		response.end('retry');
+	});
+	server.get('/recovered', (_request, response) => {
+		response.end('recovered');
+	});
+
+	const original = got.stream('original', {retry: {limit: 1, backoffLimit: 0, noise: 0}});
+	const retried = await new Promise<Request>((resolve, reject) => {
+		original.once('error', reject);
+		original.once('retry', (_retryCount, _error, createRetryStream) => {
+			resolve(createRetryStream({url: 'recovered'}));
+		});
+		original.resume();
+	});
+
+	t.is(await getStream(retried), 'recovered');
+	t.is(retried.response?.url, `${server.url}/recovered`);
+	t.is(retried.requestUrl?.href, `${server.url}/original`);
+	t.not(retried.requestUrl, original.requestUrl);
+	retried.requestUrl!.searchParams.set('later', 'change');
+	t.is(original.requestUrl?.href, `${server.url}/original`);
+});
