@@ -2837,7 +2837,7 @@ export default class Options {
 			return;
 		}
 
-		if (Object.hasOwn(headers ?? {}, 'cookie')) {
+		if (Object.keys(headers ?? {}).some(name => name.toLowerCase() === 'cookie')) {
 			return;
 		}
 

@@ -303,7 +303,9 @@ const create = (defaults: InstanceDefaults): Got => {
 				const clearsCookieJar = Object.hasOwn(optionsToMerge, 'cookieJar') && optionsToMerge.cookieJar === undefined;
 
 				if (hasExplicitBody) {
+					const contentType = paginationOptions.isHeaderExplicitlySet('content-type') ? paginationOptions.headers['content-type'] : undefined;
 					paginationOptions.clearBody();
+					paginationOptions.setInternalHeader('content-type', contentType);
 				}
 
 				if (clearsCookieJar) {
@@ -361,6 +363,11 @@ const create = (defaults: InstanceDefaults): Got => {
 						...optionsToMerge,
 						baseUrl: previousUrl,
 					});
+
+					// Explicit search parameters override the query string in the new URL.
+					if (optionsToMerge.searchParams !== undefined) {
+						paginationOptions.searchParams = optionsToMerge.searchParams;
+					}
 
 					if (
 						paginationOptions.prefixUrl.toString() !== paginationBoundary.prefixUrl
