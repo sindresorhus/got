@@ -1293,7 +1293,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 					&& (statusCode === 301 || statusCode === 302)
 					&& updatedOptions.method === 'POST';
 				const canRewrite = statusCode !== 307 && statusCode !== 308;
-				const userRequestedGet = updatedOptions.methodRewriting && canRewrite;
+				const userRequestedGet = updatedOptions.methodRewriting && canRewrite && updatedOptions.method !== 'HEAD';
 				const shouldDropBody = serverRequestedGet || crossOriginRequestedGet || userRequestedGet;
 				if (shouldDropBody) {
 					updatedOptions.method = 'GET';
