@@ -1637,7 +1637,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		}
 	}
 
-	private _onRequest(request: ClientRequest): void {
+	private _onRequest(request: ClientRequest, useCache: boolean): void {
 		const {options} = this;
 		const {timeout, url} = options;
 
@@ -1661,7 +1661,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		this._cancelTimeouts = timedOut(request, timeoutDelays, url as URL);
 
 		let lastRequestError: Error | undefined;
-		const responseEventName = options.cache ? 'cacheableResponse' : 'response';
+		const responseEventName = useCache ? 'cacheableResponse' : 'response';
 
 		request.once(responseEventName, (response: IncomingMessageWithTimings) => {
 			void this._onResponse(response);
@@ -1705,7 +1705,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			emitRequestError(error);
 		});
 
-		if (!options.cache) {
+		if (!useCache) {
 			request.once('close', () => {
 				if (this._request !== request || Boolean((request as ClientRequest & {res?: unknown}).res) || this._stopReading) {
 					return;
@@ -2671,7 +2671,10 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			this._requestOptions.auth = undefined;
 		}
 
-		if (options.cache) {
+		// Streaming uploads cannot provide a cache key without consuming the body.
+		const useCache = Boolean(options.cache) && (options.body === undefined || typeof options.body === 'string' || ArrayBuffer.isView(options.body));
+
+		if (useCache) {
 			(this._requestOptions as any)._request = request;
 			(this._requestOptions as any).cache = options.cache;
 			(this._requestOptions as any).body = options.body;
@@ -2686,7 +2689,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		}
 
 		// Cache support
-		const function_ = options.cache ? this._createCacheableRequest : request;
+		const function_ = useCache ? this._createCacheableRequest : request;
 
 		try {
 			// We can't do `await fn(...)`,
@@ -2741,7 +2744,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 				}
 
 				if (isClientRequest(requestOrResponse!)) {
-					this._onRequest(requestOrResponse);
+					this._onRequest(requestOrResponse, useCache);
 				} else if (this.writableEnded) {
 					void this._onResponse(requestOrResponse as IncomingMessageWithTimings);
 				} else {

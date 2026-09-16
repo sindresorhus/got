@@ -6,6 +6,8 @@ Got implements [RFC 7234](https://httpwg.org/specs/rfc7234.html) compliant HTTP 
 
 `QUERY` requests are not cached by Got's built-in cache option. Correctly caching `QUERY` requires cache keys that include the request content.
 
+Requests with streaming or iterable bodies, including native `FormData`, bypass the cache. Got does not consume an upload to generate a cache key.
+
 You can use the JavaScript `Map` type as an in-memory cache:
 
 ```js
