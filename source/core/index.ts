@@ -2440,6 +2440,10 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			return is.nonEmptyString(cookieString) ? cookieString : undefined;
 		};
 
+		if (options.cookieJar && !options.isHeaderExplicitlySet('cookie')) {
+			options.deleteInternalHeader('cookie');
+		}
+
 		const headers = sanitizeHeaders();
 		const initialHeaders = options.getInternalHeaders();
 		const authorizationWasInitiallyExplicit = options.isHeaderExplicitlySet('authorization');
