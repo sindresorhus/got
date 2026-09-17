@@ -2464,7 +2464,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		const authorizationWasInitiallyOmitted = options.isHeaderExplicitlySet('authorization') && is.undefined(initialHeaders.authorization);
 		const cookieWasInitiallyOmitted = options.isHeaderExplicitlySet('cookie') && is.undefined(initialHeaders.cookie);
 
-		if (options.decompress && is.undefined(headers['accept-encoding'])) {
+		if (options.decompress && is.undefined(headers['accept-encoding']) && !options.isHeaderExplicitlySet('accept-encoding')) {
 			const encodings = ['gzip', 'deflate'];
 			if (supportsBrotli) {
 				encodings.push('br');
