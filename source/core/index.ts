@@ -1726,6 +1726,8 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		this._unproxyEvents = proxyEvents(request, this, proxiedRequestEvents);
 		this._request = request;
 
+		const bodySize = Number(options.headers['content-length']);
+		this._bodySize = Number.isNaN(bodySize) ? undefined : bodySize;
 		this.emit('uploadProgress', this.uploadProgress);
 
 		this._sendBody();
