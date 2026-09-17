@@ -715,6 +715,10 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			let data;
 
 			while ((data = response.read()) !== null) {
+				if (this._noPipe && typeof data === 'string') {
+					data = Buffer.from(data, response.readableEncoding ?? undefined);
+				}
+
 				this._downloadedSize += typeof data === 'string' ? Buffer.byteLength(data, response.readableEncoding ?? undefined) : byteLength(data);
 
 				if (this._incrementalDecode) {
@@ -1595,8 +1599,8 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			const fromArray = await from.toArray();
 			const hasNonStringChunk = fromArray.some(chunk => typeof chunk !== 'string');
 			const rawBody = hasNonStringChunk
-				? concatUint8Arrays((fromArray as Array<string | Uint8Array>).map(chunk => typeof chunk === 'string' ? stringToUint8Array(chunk) : chunk))
-				: stringToUint8Array((fromArray as string[]).join(''));
+				? concatUint8Arrays((fromArray as Array<string | Uint8Array>).map(chunk => typeof chunk === 'string' ? Buffer.from(chunk, from.readableEncoding ?? undefined) : chunk))
+				: new Uint8Array(Buffer.from((fromArray as string[]).join(''), from.readableEncoding ?? undefined));
 			const shouldUseIncrementalDecodedBody = from === this && this._incrementalDecode !== undefined;
 
 			// On retry Request is destroyed with no error, therefore the above will successfully resolve.
