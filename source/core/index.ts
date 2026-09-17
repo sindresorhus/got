@@ -1813,7 +1813,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		const {body} = this.options;
 		const currentRequest = this.redirectUrls.length === 0 && !this._discardBodyWrites ? this : this._request ?? this;
 
-		if (is.nodeStream(body)) {
+		if (is.nodeStream(body) && currentRequest === this) {
 			// Hooks and handlers can replace the body after the constructor registered its listener.
 			body.off('error', this._onBodyError).once('error', this._onBodyError);
 			body.pipe(currentRequest);
@@ -1861,7 +1861,15 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			})();
 		} else if (is.undefined(body)) {
 			// No body to send, end the request
-			if ((this._noPipe ?? false) || !this._methodCanHaveBody || currentRequest !== this) {
+			if (currentRequest !== this) {
+				void (async () => {
+					try {
+						await this._endWritableRequest(currentRequest as ClientRequest);
+					} catch (error: unknown) {
+						this._beforeError(normalizeError(error));
+					}
+				})();
+			} else if ((this._noPipe ?? false) || !this._methodCanHaveBody) {
 				currentRequest.end();
 			}
 		} else {

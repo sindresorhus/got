@@ -2973,9 +2973,11 @@ test('upload progress total is reset on redirected GET request', withServer, asy
 	const zeroTransferredEvents = events.filter(event => event.transferred === 0);
 	t.true(zeroTransferredEvents.length >= 2);
 
-	const redirectedRequestEvent = zeroTransferredEvents.at(-1);
-	t.truthy(redirectedRequestEvent);
-	t.is(redirectedRequestEvent?.total, undefined);
+	const redirectedRequestEvents = zeroTransferredEvents.slice(-2);
+	t.deepEqual(redirectedRequestEvents, [
+		{transferred: 0, total: undefined},
+		{transferred: 0, total: 0},
+	]);
 });
 
 test('clears username and password when redirecting to a different hostname', withServer, async (t, server1, got) => {
