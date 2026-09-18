@@ -608,7 +608,7 @@ class Http2IncomingMessage extends Readable {
 
 	setTimeout(ms: number, callback?: () => void): this {
 		if (callback) {
-			this.on('timeout', callback);
+			this.once('timeout', callback);
 		}
 
 		this.req.setTimeout(ms);

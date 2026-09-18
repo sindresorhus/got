@@ -4147,6 +4147,32 @@ test('http2 response timeouts notify response listeners and honor callback remov
 	}
 });
 
+test('http2 response timeout callbacks run once', async t => {
+	const server = await createHttp2TestServer(stream => {
+		stream.respond();
+		stream.write('partial');
+	});
+	const request = http2Request(server.url, {agent: false, rejectUnauthorized: false});
+	request.on('error', () => {});
+
+	try {
+		const responsePromise = pEvent<'response', IncomingMessage>(request, 'response');
+		request.end();
+		const response = await responsePromise;
+
+		const timeout = new Promise<void>(resolve => {
+			response.setTimeout(20, resolve);
+		});
+		t.is(response.listenerCount('timeout'), 1);
+
+		await withTimeout(timeout, 'HTTP/2 response timeout did not run');
+		t.is(response.listenerCount('timeout'), 0);
+	} finally {
+		request.destroy();
+		await server.close();
+	}
+});
+
 test('http2 request timeouts can be disabled before the stream is assigned', async t => {
 	const server = await createHttp2TestServer(stream => {
 		const timer = setTimeout(() => {
